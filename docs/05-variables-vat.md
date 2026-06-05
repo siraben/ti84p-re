@@ -47,8 +47,30 @@ The VAT entry points at the variable's **data**, whose format depends on the obj
 
 The common allocator `var_alloc` (`ram:1005`) carves the data region (size = count × element-size) via `_InsertMem` (see `12`), then the `_CreateXxx` routine writes the header. All key off the name in `OP1` (`OP1.exp` carries the name's token class — `_CreateRList` validates it's a list-name token `0x5D/0x24/0x3A/0x72`).
 
-## VAT entry shape — `VATEntry` (modeled) [partly hypothesis]
-Working backward from the table top, each record carries: type, version, 2-byte data address, data page (0 = RAM), name length, then the name bytes (stored in reverse). Exact field order varies by object class (named vars vs. list/matrix vs. program) — to be pinned down by tracing `_FindSym`'s scan loop.
+## VAT entry shape [standard TI-83+ format]
+
+`_FindSym` (`00:0E65` → `findsym_scan` `page_07:565F`) walks the VAT from `symTable` (`0xFE66`) **downward**, matching the name passed in `OP1`. Each entry is stored high-address-first; the format depends on the object class:
+
+**Single-character vars** (real, complex, `Ln` lists, `[A]` matrices, system vars — 5 bytes):
+```
+typeID      ; TIVarType
+typeID2     ; mirror of typeID (flags in high nibble)
+addrLSB     ; data address (RAM) low
+addrMSB     ;                    high
+nameToken   ; the 1-byte name token (e.g. the var letter / list token)
+```
+
+**Named vars** (programs, appvars, groups, strings, equations — variable length):
+```
+typeID
+version     ; usually 0 (nonzero for some appvars)
+addrLSB
+addrMSB
+nameLen     ; N
+name[0..N-1]; name bytes
+```
+
+For **archived** vars the data address points into Flash and a page byte selects the Flash page (the in-RAM VAT entry still lives in RAM; only the data is in Flash). The `findsym_scan` body decompiles messily (inline bjumps), so this layout is the documented TI-83+ format — consistent with the header writes seen in `_CreateRList`/`_CreateRMat`. The `VATEntry` struct in the DB models the named-var case.
 
 ## TODO
 - Trace `_FindSym` body (it tail-calls the cross-page jumper `FUN_2b09` → real scan loop on another page) and nail the exact `VATEntry` layout per type.
