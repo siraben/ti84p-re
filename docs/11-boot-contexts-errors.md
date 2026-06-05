@@ -4,7 +4,7 @@ Three cross-cutting mechanisms that tie the OS together: how it starts, how it s
 
 ## Boot [confirmed, partial]
 
-```
+```z80
 0000 reset:  in a,(2); and 0x80; jp 028c     ; test port 2 bit7, go to boot continuation
 028c:        port_mapBankA = 0x1F             ; bank a flash page into 4000
              (cond) DAT_io_000E = 3; port_mapBankA = 0x7F   ; configure RAM/exec paging (port 0x0E)
@@ -17,7 +17,7 @@ Boot configures the paging hardware (ports 6 and `0x0E`) and interrupt controlle
 ### The main event loop [confirmed]
 
 `main_event_loop` @ `ram:05e6` (page 0) is the OS root dispatcher. Structure:
-```
+```z80
 05e6: LD B,8;  LD HL,0x84BE        ; iterate an 8-entry event/context stack
 05ec: LD A,(HL); OR A; JR Z,...    ; skip empty slots
 05f5: CALL 0x3f3f                  ; per-entry dispatch (event/key router)

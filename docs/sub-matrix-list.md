@@ -74,7 +74,7 @@ This is the heart of everything. Two address-calculators turn a 1-based index in
 pointer, then a 9-byte move shuttles the `TIFloat` to/from `OP1`.
 
 ### List element address — `_AdrLEle` (`02:47C5`)
-```
+```z80
 _AdrLEle(index, listDataPtr):           ; HL=index, DE=listDataPtr
   INC DE ; INC DE                        ; skip the 2-byte count header
   A = (DE) & 0x1F                         ; element type (low 5 bits); 0x0C ⇒ complex
@@ -99,7 +99,7 @@ Convenience wrappers (all = `_AdrLEle` then a 9-byte move through OP1, complex-a
   bounds (raises `E_Domain 0x15` on a bad index).
 
 ### Matrix element address — `_AdrMEle` (`02:4002`) [C]
-```
+```z80
 _AdrMEle:                                 ; B=idx0, C=idx1, DE=matrixDataPtr
   if B==0 or C==0 -> _JError(0x78)         ; E_Invalid (0-index)
   A = (DE)        ; A = dim0 (rows)        ; first header byte

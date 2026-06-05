@@ -27,19 +27,24 @@ behavior consistent with what was seen, not byte-pinned here.
 
 ## 0. The three pieces and how they connect
 
-```
-  TBLSET screen           TABLE editor/grid          Y= equations (VAT)
-  (page 37 + page 02)     (page 05)                  (EquObj, tokens)
-       │  writes               │  reads settings,         ▲
-       ▼                       ▼  fills value cache,       │ _Find_Parse_Formula
-  TblMin (92B3)  ────────►  for each X row:                │ resolves tY1..tY0
-  TblStep(92BC)             1. running X = TblMin+k·TblStep │
-  tblFlags (IY+19):         2. _StoX  (X system var) ───────┘
-    autoFill=Indpnt         3. evaluate each *selected* Y=  parser (page 38)
-    autoCalc=Depend            via the formula evaluator → OP1  _ParseInp /
-    reTable =dirty          4. format OP1 → cell string          parse_eval_expr
-                            5. write into the table data cache    → OP1
-                            6. paint cache as a text grid on LCD
+```mermaid
+flowchart TB
+    TBLSET["TBLSET screen · page 37 + 02<br/>TblMin 92B3 / TblStep 92BC<br/>tblFlags IY+19: autoFill / autoCalc / reTable"]
+    YEQ["Y= equations in VAT<br/>EquObj tokens · tY1..tY0"]
+    PARSER["parser · page 38<br/>_ParseInp / parse_eval_expr"]
+    subgraph GEN["TABLE generator · page 05 — per X row"]
+      direction TB
+      S1["1 · X = TblMin + k·TblStep"]
+      S2["2 · _StoX sets the X system var"]
+      S3["3 · evaluate each selected Y= → OP1"]
+      S4["4 · format OP1 → cell string"]
+      S5["5 · write into table data cache"]
+      S6["6 · paint cache as text grid on LCD"]
+      S1 --> S2 --> S3 --> S4 --> S5 --> S6
+    end
+    TBLSET -->|settings| S1
+    YEQ -->|_Find_Parse_Formula| S3
+    PARSER --> S3
 ```
 
 The TABLE feature does **not** re-implement function evaluation. It reuses the
@@ -79,7 +84,7 @@ From `ti83plus.inc` and verified by the bit-ops below:
 The page-02 command/mode handler that backs the **TBLSET** screen edits the two
 floats and the two mode rows. Its core writer (`02:7B35`) byte-decodes as:
 
-```
+```z80
 02:7B35  RES 4,(IY+0x13)   ; default Indpnt = Auto  (autoFill=0)
          SET 6,(IY+0x13)   ; reTable = 1  → table is now dirty
          RET
@@ -181,7 +186,7 @@ its handler vectors run on page 05.
 
 ### Editor main display — `table_editor_main` (`05:5D0D`) [confirmed]
 
-```
+```c
 if (tblFlags & 0x40 /*reTable*/) recompute = table_recompute()  ; 05:5DD7
 else                              use_cache  = table_use_cache() ; 05:78CF
 if (graphFlags & 1) { redraw helpers ... }                       ; split-graph case
@@ -193,7 +198,7 @@ recompute driver, otherwise it repaints from the cached values. [confirmed]
 
 ### Recompute driver — `table_recompute` (`05:5DD7`) [confirmed]
 
-```
+```z80
 05:5DD7  XOR A ; LD (0x8E63),A           ; reset table column/row state
          CALL 0x3411 ; RET Z             ; (window/mode gate)
          CALL 0x7704                     ; init column descriptors (see below)
@@ -212,7 +217,7 @@ the cache until something marks it dirty again. [confirmed bytes]
 
 `05:774B` (and the identical `05:773F`) initialise the per-table running `X`:
 
-```
+```z80
 LD HL,0x92B3 (TblMin) ; LD DE,0x862B ; JP 0x1A92    ; running-X (0x862B) ← TblMin
 ```
 
@@ -220,7 +225,7 @@ i.e. the first row's independent value is **TblStart**. A working float at
 `0x8622`/`0x862B` holds the current row's X. The "advance to next row" step
 (`05:65DC`) adds **TblStep** to it:
 
-```
+```z80
 05:65DC  … LD HL,(table indices) … CALL 0x6D67 (advance) …
 05:6359  LD A,(0x91DD) … LD DE,0x9221 / 0x91E2 (cell buffers)
          LD HL,(0x91DC /*row idx*/) ; ADD ; CALL _LdHLind ; ADD HL,DE
@@ -269,7 +274,7 @@ scrolling is instant (no recompute):
 
 `05:6D40`/`05:6D51` read the mode bits to branch:
 
-```
+```z80
 05:6D40  … CALL 0x74BE ; JR NZ ; BIT 4,(IY+0x13) ; RET   ; Indpnt (autoFill) test
          … CALL 0x74BE ; JR NZ ; BIT 5,(IY+0x13) ; RET   ; Depend (autoCalc) test
          LD A,(0x91DB) … LD A,(0x91DC) …                  ; Ask-mode row state
@@ -290,7 +295,7 @@ The table is a **text grid** (not the pixel graph buffer): up to 8 visible rows 
 columns, drawn with the large font through the home-screen text primitives
 (`_PutMap`/`_PutC`, [08-display-lcd.md](08-display-lcd.md)). The paint loop:
 
-```
+```z80
 05:7E45  loop over visible rows:
            CALL 0x7E7C            ; position/clear the cell (selects buffer
                                   ;   0x9221 for one column or 0x91E2 for the other)

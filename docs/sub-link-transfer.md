@@ -21,17 +21,29 @@ Confidence (this doc's shorthand; see [Conventions](conventions.md)): **[C]=conf
 
 ## 0. The three layers
 
-```
-  user "Send…" / TI-Connect  ─►  _LinkXferOP (3C:4DD2)   silent-link variable send
-                                  _SendVarCmd (3C:4A14→4EDD) entry that DI/cleanup-wraps a send
-                                       │
-  PACKET layer  ─────────────────►  send header  41C3      receive header  4338
-                                     send DATA    40DA      receive DATA    4292
-                                     send ACK     —         send ACK  42FB (cmd 0x56)
-                                     checksum  4167 / 6356
-                                       │
-  BYTE layer  (doc 09) ───────────►  _SendAByte 420D       _RecAByteIO 443F
-                                     legacy bit-bang (port 0)  +  HW-assist FIFO (ports 8/9/0D)
+```mermaid
+flowchart TB
+    SRC(["user 'Send…' / TI-Connect"])
+    subgraph VAR["Variable layer · page 3C"]
+      LX["_LinkXferOP 3C:4DD2<br/>silent-link variable send"]
+      SV["_SendVarCmd 3C:4A14→4EDD<br/>DI / cleanup-wraps a send"]
+    end
+    subgraph PKT["PACKET layer"]
+      direction LR
+      SH["send header 41C3"]
+      RH["receive header 4338"]
+      SD["send DATA 40DA"]
+      RD["receive DATA 4292"]
+      AK["send ACK 42FB · cmd 0x56"]
+      CK["checksum 4167 / 6356"]
+    end
+    subgraph BYTE["BYTE layer · doc 09"]
+      direction LR
+      SB["_SendAByte 420D"]
+      RB["_RecAByteIO 443F"]
+      HW["bit-bang port 0 + HW-assist FIFO ports 8/9/0D"]
+    end
+    SRC --> VAR --> PKT --> BYTE
 ```
 
 ---
@@ -76,7 +88,7 @@ Doc 09 covers `_SendAByte`. Two new things pinned here:
 ### 2a. Hardware-assist send `6BB2` [C]
 `_SendAByte` (`3C:420D`) starts `CALL FUN_ram_1837 ; JP Z,0x6BB2` — if the model probe sets Z (the
 84+ link-assist hardware is present), it jumps to **`3C:6BB2`**:
-```
+```z80
 6BB2: setup line / 2× short delay (6BD2 seeds 9CAC from port 0x20 = CPU speed)
 6BBB: LD A,0xFA ; (9C86)=A           ; reload inner timeout
       IN A,(0x9) ; BIT 5,A           ; port 0x09 bit5 = TX buffer empty/ready
@@ -89,7 +101,7 @@ mentioned, with a CPU-speed-scaled timeout. The legacy bit-bang fall-through (po
 wait for echo, `DE`-timeout → `_JErrorNo`) is unchanged from [doc 09](09-keyboard-link.md).
 
 ### 2b. Receive `_RecAByteIO` `443F` and decoder `444A` [C]
-```
+```z80
 443F: DI ; CALL 447E (arm/clock the line) ; CALL 444A (get-status) ; RET C/NZ ; loop if Z
 444A:  CP 1                              ; result==1?  (got a real byte)
        LD A,C                            ; A = the byte
@@ -124,7 +136,7 @@ A TI link packet is a **4-byte header** optionally followed by **data + 2-byte c
 ```
 
 ### 3a. Send a header — `41C3` [C]
-```
+```z80
 41C3: 6D4B (drive line) ; short delay ; CALL FUN_ram_1837 (model probe)
       … (HW handshake on 84+, or bit-bang line-idle wait; failure → _ErrLinkXmit) …
 41F2: (8678)=0                              ; reset checksum accumulator
@@ -138,7 +150,7 @@ stores the command from `H`, and calls `41C3`. Convenience entries: **`4195` H=0
 **`4199` H=0x09 (CTS)**, `41BC` ID=0x73/cmd=0x68 (RTS).
 
 ### 3b. Receive a header — `4338` [C]
-```
+```z80
 4338: CALL _RecAByteIO ; (8674)=A           ; machine-ID, validated against the known set:
       0x95 0x73 0x23 0x74 0x82 0x02 0x12 0x83 0x03 0x13 0x08   (else fall to 2nd-byte machine list)
 4370: CALL _RecAByteIO ; (8675)=A           ; command-ID, validated: 0x68 0x47 0x74 0x2D … else _JErrorNo
@@ -150,7 +162,7 @@ An unrecognised machine-ID or command-ID byte aborts via `_JErrorNo` (→ `E_Lnk
 
 ### 3c. Machine-ID selector — `620A` [C]
 The **local** machine-ID advertised in outgoing packets depends on the peer-type bits in `IY+0x1B`:
-```
+```z80
 620A: L=0x82 ; BIT 2,(IY+0x1B) ; RET NZ     ; 0x82 = default / TI-84+ silent
       L=0x95 ; BIT 1,(IY+0x1B) ; RET NZ     ; 0x95 = computer / TI-Connect (USB host)
       L=0x83 ; BIT 3,(IY+0x1B) ; RET NZ
@@ -176,7 +188,7 @@ Confirmed in the code; semantics are the standard TI link protocol:
 
 ### 3e. Checksum / ACK tail [C]
 After the data payload, the sender appends the 16-bit sum and waits for the ACK:
-```
+```z80
 4167 (send tail): LD HL,(8678) ; A=L ; CALL _SendAByte ; A=H ; CALL _SendAByte   ; chk lo, hi
 4178:  CALL 4318 (save hdr→bakHeader) ; CALL 4338 (recv reply header)
 417E:  LD A,(8675) ; … CALL 430F (compare/store) ; CP 0x56 ; RET Z ; JP _JErrorNo
@@ -195,7 +207,7 @@ peer's saved header (`868B bakHeader`), forces command = **0x56**, length = 0, s
 buffering 16 at a time into `pagedBuf` (`983A`) and flushing the block (so an incoming **archived**
 variable is written straight to Flash via `6AB1`, which runs the port-0x14 flash-program stub —
 identical prologue to the archive writer in [sub-vat-archive.md](sub-vat-archive.md) §6):
-```
+```z80
 4292: BC=(8676) len ; (8678)=0
       loop: HL=(84DB) dest ; 1FD6 (clock) ; _RecAByteIO → A
             store A via pagedGetPtr (9836); INC pagedCount (9834)
@@ -207,7 +219,7 @@ identical prologue to the archive writer in [sub-vat-archive.md](sub-vat-archive
 ```
 
 The header-classifier `6994` shows the **receive-and-store** sequence a var-receive runs:
-```
+```z80
 6994: 4255 (reset chk) ; 6298 (machine-ID re-validate) ; RST4 on (867F) (classify var header)
       6D4B/4338 recv header ; expect (8675)==0x09 (VAR/CTS) else _JErrorNo
       4338 recv DATA header ; expect (8675)==0x15 (DATA) else _JErrorNo
@@ -222,7 +234,7 @@ i.e. the receiver reproduces the VAT-create / `_InsertMem` path from [sub-vat-ar
 This is the headline path a student's "Send" hits (TI-Connect pulls a var, or a calc-to-calc send).
 OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, then streams the DATA.
 
-```
+```z80
 _LinkXferOP (3C:4DD2):
   CALL FUN_ram_1837                 ; model/HW probe; spin on port 0x20 if assist busy
   SET 1,(IY+0x24)                   ; mark "transfer active"
@@ -253,7 +265,7 @@ flash path (`_Chk_Batt_Low`, `83F7` size save). The actual data ptr/page/length 
 `_SetupPagedPtr` inside the DATA sender.
 
 ### 5b. Send the DATA payload — `40DA` [C]
-```
+```z80
 40DA: CALL _SetupPagedPtr (17AC)            ; HL=data ptr, DE=len, A=page  ←  VAT entry resolution
       (84DB)=ptr ; (8676)=len               ; iMathPtr5, packet length
       6971 ; 620A (machine-ID) ; (8674)=ID
@@ -274,7 +286,7 @@ exactly like `_FlashToRam` ([sub-vat-archive.md](sub-vat-archive.md) §5).
 
 The bcall most code/TI-BASIC reaches for to silent-send. It is a thin DI-wrapped front for the same
 machinery:
-```
+```z80
 4EDD: DI ; save IY+0xC (APD) ; RES 2,(IY+0xC)
       install cleanup 4F3E via 27DA
       LD A,0x0B ; (8672)=A          ; sndRecState = request/directory

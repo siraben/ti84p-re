@@ -4,7 +4,7 @@ This is the heart of how the OS spans 1 MiB with a 64 KiB CPU. A routine on any 
 
 ## The call site
 
-```
+```z80
 rst 28h          ; opcode 0xEF
 .dw  <bcall_id>   ; 2-byte little-endian ID immediately after
 ```

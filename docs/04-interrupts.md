@@ -4,7 +4,7 @@ The Z80 runs in **interrupt mode 1**: every maskable interrupt vectors to `0038h
 
 ## Vector → handler [confirmed]
 
-```
+```z80
 0038:  JR  0x006d        ; RST 38h vector
 006d:  isr_im1           ; the real handler
 ```

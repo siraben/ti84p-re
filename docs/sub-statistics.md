@@ -90,7 +90,7 @@ regression coeffs via `tRegEq=01h`). [confirmed/standard]
 (1‑Var, 2‑Var, and every regression). The parser invokes it after pushing the
 list arguments; the command token (`F2`–`FF`, see §3) selects the behaviour.
 
-```
+```z80
 _OneVar (3A:6420):
   SET 5,(IY+9)            ; statFlags: "stat computation active"
   LD B,0                  ; arg counter
@@ -163,7 +163,7 @@ This is the heart of 1/2‑Var Stats and the regression sum‑setup. It makes a
 **single pass** over the data list(s), accumulating the power‑sums needed for the
 mean, variance, and least‑squares normal equations. Read from disassembly:
 
-```
+```z80
 6572: CALL 6f90/6f7d         ; default freq = 1 if no freq list given
 6584: CALL 21bb              ; if freq list present, length-check vs x-list
                              ;   → _ErrDimMismatch (2715) on mismatch
@@ -208,7 +208,7 @@ transcendentals — see `sub-calculation.md §5`). This is the standard
 ### 4a. Mean & standard deviation [confirmed]
 After the pass, `_OneVar` finalizes the moments (`3A:6762`+):
 
-```
+```z80
 6762: LD DE,8a67 ; CALL 6984   ; σx  (population) from Σx², Σx, n
 6786: LD DE,8a5e ; CALL 6989   ; Sx  (sample), via _Minus1 (n→n-1) at 677c
 6798: LD DE,8a55 ; CALL 6998   ; Σx² slot
@@ -217,7 +217,7 @@ After the pass, `_OneVar` finalizes the moments (`3A:6762`+):
 
 The variance helpers (`3A:6984`/`6989`/`6998`) implement the one‑pass formula
 `var = (Σx² − n·x̄²)/N` then `√`:
-```
+```z80
 6998: _FPSquare(x̄) ; recall Σx² (15da) ; _FPMult ; (RST 30 _FPAdd / subtract) ; …
 6989: CALL _FPDiv (2541) ; CALL 3939 (_SqRoot wrapper) ; store
 ```

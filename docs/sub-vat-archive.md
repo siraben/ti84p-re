@@ -49,7 +49,7 @@ then falls into FindSym.
 The scanner keys off `OP1` at `8478`: `OP1.type`/`varType` and the name token at **`8479`** (=OP1+1),
 with the 2 name bytes at `847A`/`847B`:
 
-```
+```z80
 findsym_scan (07:565F):
   CALL FUN_ram_20d6           ; classify OP1 name
   if name-token (8479) == 0x24 (list-name token):
@@ -104,7 +104,7 @@ For an **archived** entry the data address (`addrLSB/MSB`) points into the Flash
 The headline. `bcall(_Arc_Unarc)`, OP1 = the variable name. It **toggles** the var between RAM and
 the Flash archive (the same entry point does both directions, deciding from the current state).
 
-```
+```z80
 _Arc_Unarc (07:6248):
   SET 0,(IY+0x24)              ; flag: an archive operation is in progress
   CALL 628B                    ; validate OP1 name is an archivable class; Z⇒not allowed → JP 26E0 (_ErrDataType, B2 = ERR:DATA TYPE)
@@ -126,7 +126,7 @@ with `_ErrDataType`. (`_arc_59f1` @`07:59F1` and `_arc_5936` @`07:5936` are comp
 validators for the catalog archive command.)
 
 ### 4a. RAM → Flash (archive), `61F4` [C]
-```
+```z80
 61F4:  LD (83EF),DE ; LD (83EE),A      ; arcInfo.dataPtr/page = source (RAM)
        CALL 6335                       ; 6331/6335: stash vatPtr (83F1), compute dataSize (83F5) via _DataSize
        CALL 32D3                       ; size accounting
@@ -145,7 +145,7 @@ fresh archived record (status marker bytes `0xFE`=in-progress / `0xFF`=valid, pl
 symbol header + name, then the data — see `3D:64E5`).
 
 ### 4b. Flash → RAM (unarchive), `6107` [C]
-```
+```z80
 6107:  CALL 7866 ; DI
        CALL 614B   ; compute sizes:  (83F1)=vatPtr, _DataSize→83F7, free-RAM check via 616C
        CALL 2FF1 (cross_page 3D:61AF)  ; copy the data Flash→RAM (program the heap)
@@ -172,7 +172,7 @@ new RAM address; the Flash copy is left marked dead (reclaimed at the next GC). 
 `bcall(_FlashToRam)` (id 0x5017 → real body `3D:6745`). Copies `BC` bytes from a Flash page:addr to
 a RAM destination, transparently advancing the Flash page when the read crosses the `0x8000`
 window boundary:
-```
+```z80
 3D:6745: mask page (AND 1F / AND 3F per port-2 model check FUN 1837/182F)
          PUSH IX ; LD IX,6761 ; CALL 678C ; POP IX ; RET
 3D:678C: copies the small arg-block to ramCode, sets DE=0x8100, JP 8100  ; runs the copier from RAM
@@ -200,7 +200,7 @@ page-0 cross-page trampolines:
 | `00:32A9` | `05:4A6E` | complex-list special-case helper |
 
 The program core (`3D:64AA`, `3D:61AF`, `3D:6440`) all share the unlock prologue:
-```
+```z80
 RES 7,(IY+0x24) ; LD A,1 ; DI ; IM 1 ; DI ; OUT (0x14),A ; DI ; CALL FUN_ram_02bf
 ```
 `OUT (0x14),A` toggles the **Flash control port** (0x14) to enable write/erase; `FUN_ram_02bf`

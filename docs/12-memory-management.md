@@ -6,14 +6,18 @@ How the OS allocates the ~24 KiB of user RAM between variables, temporaries, the
 
 The dynamic region runs from `userMem` (`0x9D95`) up to `symTable` (`0xFE66`). Two structures grow toward each other with **free RAM** in the middle:
 
+```mermaid
+flowchart TB
+    A["0xFE66 · symTable — top of user RAM"]
+    B["VAT — variable names + metadata<br/>type, data ptr/page, name · grows DOWNWARD ↓"]
+    C["( free RAM )"]
+    D["user data — variable contents<br/>grows UPWARD ↑"]
+    E["0x9D95 · userMem — bottom of user RAM"]
+    A --- B --- C --- D --- E
+    style C fill:#1b1b1b,stroke-dasharray:5 5
 ```
-0xFE66  symTable ┐  ← VAT (variable names + metadata) grows DOWNWARD
-                 │     each entry: type, data ptr/page, name (see 05-variables-vat.md)
-   (free RAM)    │
-                 │
-   user data  ───┘  ← variable contents grow UPWARD
-0x9D95  userMem
-```
+
+VAT entry layout: type, data ptr/page, name — see [05-variables-vat.md](05-variables-vat.md).
 
 Boundary/work pointers (clustered at `0x9820–0x983A`) [confirmed addrs]:
 

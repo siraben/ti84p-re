@@ -33,7 +33,7 @@ length**. The decoder is `app_field_len` (`page_3D:7285`):
 | `0xE` | 2 bytes |
 | `0xF` | 4 bytes |
 
-```
+```z80
 page_3D:7285  AND 0x0F; CP 0x0F -> B=4 ; CP 0x0E -> B=2 ; CP 0x0D -> B=1
 ```
 The signature field at offset 0 is `80 0F …` (field type 0x80, 4-byte value) — this is
@@ -46,7 +46,7 @@ helpers (`bcall(0x8040)`, `bcall(0x8070)`, `bcall(0x8080)`) installed by the boo
 - `_FindApp` (`page_3D:5EE3`) — locate an app by name (OP1). Inits the search page,
   then loops `find_next_page (5FB1)` + a header-match step until done, returning the app's
   start page and a found/not-found flag via `RST 28` (bcall) into RAM flash helpers.
-  ```
+  ```z80
   5EE3 CALL 727D            ; appSearchStart -> appSearchPage (0x82A3)
   5EE6 CALL 5FB1            ; step to next candidate page (DEC appSearchPage)
   5EE9 RET C                ; ran off the end -> not found
@@ -126,7 +126,7 @@ Dispatch is on the selected reset item held in `keyExtend` (`0x8446`):
 ### 2.3 What "RAM Cleared" (RAM reset) actually zeroes [confirmed]
 
 The RAM-reset path (`page_35:719F`):
-```
+```z80
 719F BIT 1,(IY+0x35); JP Z,0x0B2F          ; first-stage vs full path select
 71A6 LD HL,(0x9B73)                         ; preserve a saved word
 71B4 LD A,(IY+0x3F); AND 0x7F               ; preserve bit7 of flag byte 0x3F
@@ -151,7 +151,7 @@ touched** by a plain RAM reset.
 ### 2.4 Full reset (`page_0/ram:0B27`) [confirmed]
 
 The harder reset (RESET ALL / power-on cold start) is at `ram:0B27`:
-```
+```z80
 0B27 LD SP,0; ... 0B37 DI; OUT (0),0xC0
 0B41 LD HL,0x8000; LD DE,0x8001; LD BC,0x7FFF; LD (HL),0; LDIR   ; zero ALL of 0x8000-0xFFFF (32 KiB)
 0B4E ... preserve/inspect IY+0x3F; select sub-path; JP 0x3EA9/0x3EAF
@@ -185,7 +185,7 @@ exactly which bits.
 ### 3.1 Angle: Degree vs Radian — `trigFlags` (`IY+0`) [confirmed]
 
 `trigDeg = bit 1` of `trigFlags` (`0x89F0`): **1 = Degrees, 0 = Radians**.
-```
+```z80
 SET 1,(IY+0)   ; FD CB 00 CE  -> Degree   (e.g. page_3A:7956, page_02:5BE0)
 RES 1,(IY+0)   ; FD CB 00 8E  -> Radian   (e.g. page_3A:7935, page_02:5BC2)
 ```

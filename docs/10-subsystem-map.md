@@ -21,15 +21,15 @@ A way to see the *whole* OS at once: categorize the ~600 named bcall entry point
 
 The dominant fact: **this is a calculator** — roughly **two-thirds of the API is numeric**. Everything else is comparatively small glue. The architecture flows:
 
-```
-keypad ──▶ _GetKey ──▶ parser ──▶ token dispatch
-                                     │
-            ┌────────────────────────┼───────────────────────┐
-            ▼                        ▼                        ▼
-      VAT (_FindSym)          FP engine (OP1..6)        display (_PutMap)
-       variables             arithmetic/transcend.      homescreen/graph
-            │                        │                        │
-            └─────────── results in OP1, shown via _DispOP1A / _PutS ──────────┘
+```mermaid
+flowchart TD
+    KP([keypad]) --> GK["_GetKey"] --> P[parser] --> TD[token dispatch]
+    TD --> VAT["VAT · _FindSym<br/>variables"]
+    TD --> FP["FP engine · OP1..6<br/>arithmetic / transcendentals"]
+    TD --> DISP["display · _PutMap<br/>homescreen / graph"]
+    VAT --> R["result in OP1<br/>shown via _DispOP1A / _PutS"]
+    FP --> R
+    DISP --> R
 ```
 
 Cross-cutting services used by all of the above: **bcall/paging** ([03](03-bcall-mechanism.md)), **interrupts/APD** ([04](04-interrupts.md)), **error handling** (`_JError` + `TIError` codes), and the **system flags** (`SystemFlags` @ `flags`).

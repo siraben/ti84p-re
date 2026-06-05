@@ -10,6 +10,7 @@ default-theme = "navy"
 preferred-dark-theme = "navy"
 no-section-label = false
 mathjax-support = false
+additional-js = ["mermaid.min.js", "mermaid-init.js", "hljs-z80.js"]
 
 [output.html.fold]
 enable = true
@@ -22,3 +23,8 @@ use-boolean-and = true
 
 [output.html.playground]
 runnable = false
+
+[preprocessor]
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
