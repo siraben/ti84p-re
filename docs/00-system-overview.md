@@ -40,8 +40,13 @@ Around those sit the I/O subsystems: the **IM1 interrupt** that drives timing/AP
 | **sub-tibasic.md** | TI-BASIC: program execution, control flow, I/O commands | ✅ |
 | **sub-vat-archive.md** | Variables, Sto/Rcl, Archive/Unarchive, Flash GC | ✅ |
 | **sub-apps-mem-settings.md** | Apps find/launch, RAM-reset, MODE/format flags | ✅ |
+| **sub-statistics.md** | STAT: 1/2-var, regressions, statVars | ✅ |
+| **sub-matrix-list.md** | Matrix/list element access, Gauss-Jordan inverse/det, matmul | ✅ |
+| **sub-solver-numeric.md** | Solver root-finder, nDeriv/fnInt, TVM finance | ✅ |
+| **sub-table-yvars.md** | TABLE generation/cache, Y= equation vars | ✅ |
+| **sub-link-transfer.md** | Link protocol: byte/packet/var-transfer (page 0x3C) | ✅ |
 
-(The `sub-*` docs are deep dives from a parallel multi-agent RE pass focused on user-facing functionality.)
+(The `sub-*` docs are deep dives from two parallel multi-agent RE passes covering user-facing functionality — primary: calculation/graphing/TI-BASIC/VAT-archive/apps; secondary: stats/matrices/solver/table/link.)
 
 Database state: **1393 functions**, all **535 bcalls** named at real (page,addr), TI-OS types applied. Rebuild: `tools/build.sh`.
 
