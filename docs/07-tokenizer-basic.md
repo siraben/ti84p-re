@@ -42,9 +42,14 @@ The engine reads the token stream and dispatches each token to a handler; arithm
 
 ### The handler dispatch table [confirmed]
 
-Page 0x38 **begins** with the parser's handler-address table at **`page_38:4000`** — **84 entries**, each a 2-byte pointer to a handler routine on page 0x38 (the table is `tools/ParserTable.java`'s output; 81 of the handlers were disassembled from it). When the evaluator reads a token/operator, it indexes this table (`base + class*2`) and `jp (hl)` into the handler. The handlers implement the operators, functions, and grammar productions of TI-BASIC; arithmetic ones drive OP1/OP2 through the FP engine (`06`), variable ones go through `_FindSym` (`05`).
+Page 0x38 **begins** with the parser's handler-address table at **`page_38:4000`** — **84 entries**, each a 2-byte pointer to a handler routine on page 0x38 (`tools/ParserTable.java` defines it; 81 handlers were disassembled from it). The evaluator indexes this table (`base + class*2`) and `jp (hl)` into the handler.
 
-The first handlers: `page_38:419F, 45F0, 421C, 41F0, 45F3, 49BE, …`.
+These handlers implement TI-BASIC **statements/commands and operators**. Sampling them by the routine they call:
+- indices 8–10, 17–19, 38 → `bcall(_Regraph)` — **graph commands** (`DrawF`, `ZoomFit`, etc.).
+- indices 14–16, 21–22 → `bcall(_Disp)` — **display/output commands** (`Disp`, `Output`).
+- the "no-bcall" handlers are the **arithmetic/operator** productions — they drive OP1/OP2 through the FP engine via the **RST shortcuts** (RST 30h `_FPAdd`, etc.), which is why a bcall scan doesn't flag them; variable handlers go through `_FindSym` (`05`).
+
+The first handlers: `page_38:419F, 45F0, 421C, …`.
 
 **TODO (deep dive):** map each table index → its token class/operator (by tracing the index computation), and document the operator-precedence / argument-count handling.
 
