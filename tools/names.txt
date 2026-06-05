@@ -1623,3 +1623,11 @@ ram:f06f	pad_halt_f06f
 ram:f86f	pad_halt_f86f
 ram:fb48	pad_halt_fb48
 ram:fd49	pad_halt_fd49
+# --- final 7 (completes 100%) ---
+ram:1cb9	bcd_add_to_8481
+ram:1cd5	bcd_add_pair
+ram:1d2f	bcd_sub_8481_xb
+ram:2a2f	bcall_dispatcher
+page_3D:5fb1	flash_dec_retry_a
+page_3D:727d	flash_set_sector_cnt
+page_3D:72e8	flash_clr_swap_flag
