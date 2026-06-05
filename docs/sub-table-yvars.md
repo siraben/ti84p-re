@@ -1,4 +1,6 @@
-# sub — TABLE feature & Y= equation variables (student's view)
+# Table & Y= Variables
+
+*TI-84 Plus OS 2.55MP — feature deep dive.*
 
 What a college student touches when they enter functions in **Y=**, configure
 **TBLSET** (`2nd WINDOW`), and read the **TABLE** (`2nd GRAPH`) to tabulate
@@ -8,10 +10,10 @@ function through the parser into OP1, formats the result, and lays the values ou
 as a text grid → how Y= equations are stored, selected, and styled → and the
 Table ↔ Y= ↔ parser ↔ display interaction.
 
-Builds on `sub-graphing.md` (Y= storage, the regraph/eval path, `plotSScreen`),
-`sub-tibasic.md` (the page-38 parser, `_Find_Parse_Formula`, `_ParseInp`),
-`05-variables-vat.md` (`EquObj`, `_FindSym`), `08-display-lcd.md` (text grid via
-`_PutMap`/`_PutC`), and `11-boot-contexts-errors.md` (the context/`cxMain`
+Builds on [sub-graphing.md](sub-graphing.md) (Y= storage, the regraph/eval path, `plotSScreen`),
+[sub-tibasic.md](sub-tibasic.md) (the page-38 parser, `_Find_Parse_Formula`, `_ParseInp`),
+[05-variables-vat.md](05-variables-vat.md) (`EquObj`, `_FindSym`), [08-display-lcd.md](08-display-lcd.md) (text grid via
+`_PutMap`/`_PutC`), and [11-boot-contexts-errors.md](11-boot-contexts-errors.md) (the context/`cxMain`
 mechanism that selects the TABLE editor vs TABLE-setup screens).
 
 Address form is `page:addr` (flash-page hex : logical offset; flash routines run
@@ -109,7 +111,7 @@ row index `0x91E0` when Indpnt flips to Ask. Companion sites: `37:5F2B`
 `Y1…Y9, Y0` are **system equation variables**, VAT objects of type **`EquObj` = 3**
 (`ti83plus.inc`: `EquObj EQU 3`; `NewEquObj`=0x0B, `UnknownEquObj`=0x0A). Each holds
 `word size` + `size` bytes of the **tokenized formula** you typed after `Y1=` — the
-*same* token encoding the homescreen and program editor use (see `sub-tibasic.md`).
+*same* token encoding the homescreen and program editor use (see [sub-tibasic.md](sub-tibasic.md)).
 The equation name in OP1 is the 2-byte token sequence **`tVarEqu (0x5E)` + the
 Y-token**:
 
@@ -286,7 +288,7 @@ scrolling is instant (no recompute):
 
 The table is a **text grid** (not the pixel graph buffer): up to 8 visible rows ×
 columns, drawn with the large font through the home-screen text primitives
-(`_PutMap`/`_PutC`, `08-display-lcd.md`). The paint loop:
+(`_PutMap`/`_PutC`, [08-display-lcd.md](08-display-lcd.md)). The paint loop:
 
 ```
 05:7E45  loop over visible rows:

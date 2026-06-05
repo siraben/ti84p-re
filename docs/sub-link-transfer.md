@@ -1,6 +1,8 @@
-# sub — LINK / DATA TRANSFER (silent-link variable send/receive)
+# Link / Data Transfer
 
-Deep-dive companion to `09-keyboard-link.md`, focused on what a **student transferring data**
+*TI-84 Plus OS 2.55MP — feature deep dive.*
+
+Deep-dive companion to [09-keyboard-link.md](09-keyboard-link.md), focused on what a **student transferring data**
 touches: pushing a program/list/etc. to a computer (TI-Connect) or another calculator over the
 2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of doc 09's byte
 primitives `_SendAByte` (`3C:420D`) and `_RecAByteIO` (`3C:443F`).
@@ -11,7 +13,7 @@ registers and do their state work with `SET/RES/BIT b,(IY+d)` flag ops that Ghid
 `*(param+0xNN)` stores. **Trust the disassembly, not the C view, for this subsystem.**
 
 Page numbers are the masked flash page (`rawpage & 0x3F`). The whole silent-link engine lives on
-**flash page 3C** (shared with the flash/archive command code — see `sub-vat-archive.md`).
+**flash page 3C** (shared with the flash/archive command code — see [sub-vat-archive.md](sub-vat-archive.md)).
 
 Confidence: **[C]=confirmed from disassembly**, **[H]=high (structure clear, some inference)**,
 **[I]=inferred / standard-TI behavior**.
@@ -193,7 +195,7 @@ peer's saved header (`868B bakHeader`), forces command = **0x56**, length = 0, s
 `4261`/`4292` is the data-payload receiver. It streams `len` (`8676`) bytes from `_RecAByteIO`,
 buffering 16 at a time into `pagedBuf` (`983A`) and flushing the block (so an incoming **archived**
 variable is written straight to Flash via `6AB1`, which runs the port-0x14 flash-program stub —
-identical prologue to the archive writer in `sub-vat-archive.md` §6):
+identical prologue to the archive writer in [sub-vat-archive.md](sub-vat-archive.md) §6):
 ```
 4292: BC=(8676) len ; (8678)=0
       loop: HL=(84DB) dest ; 1FD6 (clock) ; _RecAByteIO → A
@@ -212,7 +214,7 @@ The header-classifier `6994` shows the **receive-and-store** sequence a var-rece
       4338 recv DATA header ; expect (8675)==0x15 (DATA) else _JErrorNo
       BC=(8676) len ; RST5 → store the variable into the VAT (creates RAM/Flash entry)
 ```
-i.e. the receiver reproduces the VAT-create / `_InsertMem` path from `sub-vat-archive.md`.
+i.e. the receiver reproduces the VAT-create / `_InsertMem` path from [sub-vat-archive.md](sub-vat-archive.md).
 
 ---
 
@@ -265,7 +267,7 @@ flash path (`_Chk_Batt_Low`, `83F7` size save). The actual data ptr/page/length 
 ```
 `_PagedGet` makes the streamer **transparent to RAM-vs-archived** data: an archived program is read
 straight out of the Flash window, advancing the bank-A page (port 0x06) at the 0x8000 boundary,
-exactly like `_FlashToRam` (`sub-vat-archive.md` §5).
+exactly like `_FlashToRam` ([sub-vat-archive.md](sub-vat-archive.md) §5).
 
 ---
 

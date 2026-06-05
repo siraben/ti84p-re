@@ -1,4 +1,6 @@
-# Apps, RAM-Clearing / Memory-Reset, and MODE / Settings
+# Apps, Memory Reset & Settings
+
+*TI-84 Plus OS 2.55MP — feature deep dive.*
 
 How the student-facing parts of the OS work: launching Flash Apps, the **MEM → Reset**
 menu (what "RAM Cleared" actually erases), and the **MODE** screen format/mode flags.

@@ -1,4 +1,6 @@
-# sub-statistics — The STAT subsystem (TI-84 Plus OS 2.55MP)
+# Statistics
+
+*TI-84 Plus OS 2.55MP — feature deep dive.*
 
 What happens between a college student entering data into `L1`/`L2`, pressing
 **STAT ▸ CALC ▸ 1‑Var Stats** (or `LinReg(ax+b)`, `QuadReg`, …), and seeing
@@ -6,8 +8,8 @@ x̄, Σx, Sx, a, b, r, r² appear — and where every result is stored so it can
 recalled by name (`x̄`, `Σx`, `RegEQ`, …).
 
 This doc covers the STAT **CALC** computations. The data source is the L1–L6
-lists (VAT/`05-variables-vat.md`, `sub-vat-archive.md`); the arithmetic is the
-BCD FP engine (`06-floating-point.md`, `sub-calculation.md`). Stat **plots** and
+lists (VAT/[05-variables-vat.md](05-variables-vat.md), [sub-vat-archive.md](sub-vat-archive.md)); the arithmetic is the
+BCD FP engine ([06-floating-point.md](06-floating-point.md), [sub-calculation.md](sub-calculation.md)). Stat **plots** and
 the **DISTR** menu are noted in §8/§9 — DISTR functions are *parser* functions,
 not part of the STAT‑CALC engine.
 
@@ -25,7 +27,7 @@ trampolines, so the algorithm here is read primarily from the **disassembly**.
 
 ## 1. The `statVars` result block (`0x8A3A`) [confirmed]
 
-Every STAT‑CALC result is a 9‑byte `TIFloat` (see `06-floating-point.md`) written
+Every STAT‑CALC result is a 9‑byte `TIFloat` (see [06-floating-point.md](06-floating-point.md)) written
 into a fixed RAM table beginning at **`statVars = 0x8A3A`** (`statVars EQU 8A3Ah`
 in `ti83plus.inc`). Entries are packed at the 9‑byte `FPLEN` stride. These are the
 system variables a student recalls by name (`[2nd][STAT] ▸ VARS`):
@@ -75,7 +77,7 @@ counters, `84B3`=element count). [confirmed]
 **Recall by name:** `_Rcl_StatVar` (`00:2149`, id `0x42DC`) is a page‑0 bcall
 trampoline (`CALL 0x3E07` → dispatcher, inline id `0xC9E7`) that loads the named
 statVar into `OP1`; the VAT‑level recall (`_RclVarSym`/`_RclVarPush`, see
-`sub-vat-archive.md`) routes the stat‑var name tokens (`tRegEq 0x01`, `tStatN 0x02`,
+[sub-vat-archive.md](sub-vat-archive.md)) routes the stat‑var name tokens (`tRegEq 0x01`, `tStatN 0x02`,
 `tXMean 0x03`, … `tCorr 0x12`, the `STATVARS` token group) to it. The name‑token
 values are in `ti83plus.inc` (`tStatN=02h … tSumXY=11h, tCorr=12h, tMedX=13h`,
 regression coeffs via `tRegEq=01h`). [confirmed/standard]
@@ -318,7 +320,7 @@ five‑number summary and the raw L1/L2 lists. `_ErrStatPlot` (`00:2759`, code
 `0x1B`) guards an invalid/undefined plot configuration; `_ZmStats` (`33:65DC`,
 id `0x47A4`) is the **ZoomStat** routine that auto‑scales the window to the plotted
 list data (sets `Xmin/Xmax/Ymin/Ymax` from `minX/maxX/minY/maxY`). See
-`sub-graphing.md`. [confirmed addresses / standard behavior]
+[sub-graphing.md](sub-graphing.md). [confirmed addresses / standard behavior]
 
 ---
 

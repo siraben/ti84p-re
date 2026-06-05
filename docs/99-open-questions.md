@@ -4,8 +4,8 @@ The structural reverse-engineering is comprehensive (every subsystem mapped, bot
 
 ## Resolved (subagent RE pass)
 
-1. ~~Flash sector write/erase primitives~~ ✅ **DONE** — `flash_program_core`@`3D:61AF` (port `0x14`), `flash_write_byte`@`3D:6B9B`, `flash_alloc_sector`@`3D:62C2`. See `sub-vat-archive.md` / `12`.
-2. ~~Flash archive garbage collector~~ ✅ **DONE** — `flash_gc_relocate`@`3C:7BD0` + `gc_show_screen`@`3C:7E0D` + dispatch `flash_cmd_dispatch`@`3C:7121`. See `sub-vat-archive.md`.
+1. ~~Flash sector write/erase primitives~~ ✅ **DONE** — `flash_program_core`@`3D:61AF` (port `0x14`), `flash_write_byte`@`3D:6B9B`, `flash_alloc_sector`@`3D:62C2`. See [sub-vat-archive.md](sub-vat-archive.md) / `12`.
+2. ~~Flash archive garbage collector~~ ✅ **DONE** — `flash_gc_relocate`@`3C:7BD0` + `gc_show_screen`@`3C:7E0D` + dispatch `flash_cmd_dispatch`@`3C:7121`. See [sub-vat-archive.md](sub-vat-archive.md).
 
 ## Still open — high value
 3. **VAT entry binary layout** (`05`). Exact field order/size per object class. *Approach:* trace `_FindSym`'s scan loop (it tail-calls `cross_page_jump` to a body on another page) and `_CreateProg`/`_CreateAppVar` header writes.

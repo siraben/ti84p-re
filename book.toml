@@ -1,0 +1,25 @@
+[book]
+title = "TI-84 Plus OS — Reverse Engineering"
+authors = ["ti84-re"]
+description = "Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system."
+src = "docs"
+language = "en"
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/"
+no-section-label = false
+mathjax-support = false
+
+[output.html.fold]
+enable = true
+level = 1
+
+[output.html.search]
+enable = true
+limit-results = 30
+use-boolean-and = true
+
+[output.html.playground]
+runnable = false

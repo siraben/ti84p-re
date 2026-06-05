@@ -1,10 +1,12 @@
-# sub — MATRIX & LIST operations (linear-algebra / data workflows)
+# Matrices & Lists
+
+*TI-84 Plus OS 2.55MP — feature deep dive.*
 
 How the TI-84 Plus OS (2.55MP) actually stores, indexes, and computes on **lists** and
 **matrices** — the routines a college student hits doing linear algebra (`det(`, `[A]⁻¹`,
 `rref(`, `[A]*[B]`, `identity(`, `T`) and data work (`L1+L2`, `dim(`, `sum(`, `seq(`,
-`SortA(`). Companion to `05-variables-vat.md` (where the data lives), `06-floating-point.md`
-(how each element is computed), and `sub-vat-archive.md` (Store/Recall/Archive).
+`SortA(`). Companion to [05-variables-vat.md](05-variables-vat.md) (where the data lives), [06-floating-point.md](06-floating-point.md)
+(how each element is computed), and [sub-vat-archive.md](sub-vat-archive.md) (Store/Recall/Archive).
 
 All `page:addr` verified by **disassembling the Z80** in the private Ghidra copy
 (`/tmp/ti84-matlist`, headless `Dec.java`/`Disasm.java`), not just the decompiler.

@@ -1,10 +1,12 @@
-# sub-solver-numeric — Solver & Numerical Methods (TI-84 Plus OS 2.55MP)
+# Solver & Numerical Methods
+
+*TI-84 Plus OS 2.55MP — feature deep dive.*
 
 What happens when a calculus/algebra student uses the **equation Solver** / `solve(`,
 **nDeriv(**, **fnInt(**, or the **TVM finance solver**. All of these are *iterative*
 routines that repeatedly evaluate the user's expression through the BCD floating-point
-engine (see `sub-calculation.md`, `06-floating-point.md`) and the TI-BASIC parser
-(`sub-tibasic.md`).
+engine (see [sub-calculation.md](sub-calculation.md), [06-floating-point.md](06-floating-point.md)) and the TI-BASIC parser
+([sub-tibasic.md](sub-tibasic.md)).
 
 Address form is `page:addr` (flash page banked at `0x4000`) or `ram:addr` for the fixed
 page-0 core at `0x0000`. Confidence: **[confirmed]** = read from disassembly,

@@ -10,45 +10,45 @@ The TI-84+ is a Z80 machine that can only see 64 KiB at once, but has 1 MiB of f
 
 Everything the user interacts with — the homescreen, TI-BASIC programs, graphing, the catalog — is built on four pillars:
 
-1. **Paging + bcalls** — how code and data beyond 64 KiB are reached. (see `02-paging.md`, `03-bcall-mechanism.md`)
-2. **The floating-point engine** — 9-byte BCD reals/complex in the OP1–OP6 registers; all math flows through these. (`06-floating-point.md`)
-3. **The variable system (VAT)** — named objects (reals, lists, matrices, strings, programs, appvars…) catalogued in the Variable Allocation Table. (`05-variables-vat.md`)
-4. **The tokenizer/parser** — TI-BASIC is stored as 1- and 2-byte tokens; the parser executes them. (`07-tokenizer-basic.md`)
+1. **Paging + bcalls** — how code and data beyond 64 KiB are reached. (see [02-paging.md](02-paging.md), [03-bcall-mechanism.md](03-bcall-mechanism.md))
+2. **The floating-point engine** — 9-byte BCD reals/complex in the OP1–OP6 registers; all math flows through these. ([06-floating-point.md](06-floating-point.md))
+3. **The variable system (VAT)** — named objects (reals, lists, matrices, strings, programs, appvars…) catalogued in the Variable Allocation Table. ([05-variables-vat.md](05-variables-vat.md))
+4. **The tokenizer/parser** — TI-BASIC is stored as 1- and 2-byte tokens; the parser executes them. ([07-tokenizer-basic.md](07-tokenizer-basic.md))
 
-Around those sit the I/O subsystems: the **IM1 interrupt** that drives timing/APD/cursor/ON-key (`04-interrupts.md`), the **LCD driver**, the **keypad scanner**, and the **link port**.
+Around those sit the I/O subsystems: the **IM1 interrupt** that drives timing/APD/cursor/ON-key ([04-interrupts.md](04-interrupts.md)), the **LCD driver**, the **keypad scanner**, and the **link port**.
 
 ## Subsystem index
 
 | Doc | Subsystem | Status |
 |-----|-----------|--------|
-| 01-memory-map.md | Address space, ports, RAM layout | ✅ |
-| 02-paging.md | Flash/RAM banking (ports 6/7) | ✅ |
-| 03-bcall-mechanism.md | rst 28h system calls + jump table | ✅ |
-| 04-interrupts.md | IM1 ISR, timers, APD, ON key | ✅ |
-| 05-variables-vat.md | Variable Allocation Table, object types | ✅ (layout TODO) |
-| 06-floating-point.md | BCD float format, OP registers | ✅ |
-| 07-tokenizer-basic.md | Token tables, parser/interpreter | ✅ (parser TODO) |
-| 08-display-lcd.md | LCD ports, screen buffers | ✅ |
-| 09-keyboard-link.md | Keypad scan, link protocol | ✅ |
-| 10-subsystem-map.md | bcall API surface, system through-line | ✅ |
-| 11-boot-contexts-errors.md | Boot, context system, _JError/onSP | ✅ |
-| 12-memory-management.md | RAM heap, VAT/userMem, Flash archive/GC | ✅ |
-| 13-flash-page-map.md | What each of the 64 flash pages contains | ✅ |
-| 99-open-questions.md | Prioritized future-work roadmap | ✅ |
-| **sub-calculation.md** | Calculation engine: FP ops, transcendentals, formatting, errors | ✅ |
-| **sub-graphing.md** | Graphing: window vars, coord↔pixel, draw primitives, Y= eval | ✅ |
-| **sub-tibasic.md** | TI-BASIC: program execution, control flow, I/O commands | ✅ |
-| **sub-vat-archive.md** | Variables, Sto/Rcl, Archive/Unarchive, Flash GC | ✅ |
-| **sub-apps-mem-settings.md** | Apps find/launch, RAM-reset, MODE/format flags | ✅ |
-| **sub-statistics.md** | STAT: 1/2-var, regressions, statVars | ✅ |
-| **sub-matrix-list.md** | Matrix/list element access, Gauss-Jordan inverse/det, matmul | ✅ |
-| **sub-solver-numeric.md** | Solver root-finder, nDeriv/fnInt, TVM finance | ✅ |
-| **sub-table-yvars.md** | TABLE generation/cache, Y= equation vars | ✅ |
-| **sub-link-transfer.md** | Link protocol: byte/packet/var-transfer (page 0x3C) | ✅ |
+| [01-memory-map.md](01-memory-map.md) | Address space, ports, RAM layout | ✅ |
+| [02-paging.md](02-paging.md) | Flash/RAM banking (ports 6/7) | ✅ |
+| [03-bcall-mechanism.md](03-bcall-mechanism.md) | rst 28h system calls + jump table | ✅ |
+| [04-interrupts.md](04-interrupts.md) | IM1 ISR, timers, APD, ON key | ✅ |
+| [05-variables-vat.md](05-variables-vat.md) | Variable Allocation Table, object types | ✅ (layout TODO) |
+| [06-floating-point.md](06-floating-point.md) | BCD float format, OP registers | ✅ |
+| [07-tokenizer-basic.md](07-tokenizer-basic.md) | Token tables, parser/interpreter | ✅ (parser TODO) |
+| [08-display-lcd.md](08-display-lcd.md) | LCD ports, screen buffers | ✅ |
+| [09-keyboard-link.md](09-keyboard-link.md) | Keypad scan, link protocol | ✅ |
+| [10-subsystem-map.md](10-subsystem-map.md) | bcall API surface, system through-line | ✅ |
+| [11-boot-contexts-errors.md](11-boot-contexts-errors.md) | Boot, context system, _JError/onSP | ✅ |
+| [12-memory-management.md](12-memory-management.md) | RAM heap, VAT/userMem, Flash archive/GC | ✅ |
+| [13-flash-page-map.md](13-flash-page-map.md) | What each of the 64 flash pages contains | ✅ |
+| [99-open-questions.md](99-open-questions.md) | Prioritized future-work roadmap | ✅ |
+| [sub-calculation.md](sub-calculation.md) | Calculation engine: FP ops, transcendentals, formatting, errors | ✅ |
+| [sub-graphing.md](sub-graphing.md) | Graphing: window vars, coord↔pixel, draw primitives, Y= eval | ✅ |
+| [sub-tibasic.md](sub-tibasic.md) | TI-BASIC: program execution, control flow, I/O commands | ✅ |
+| [sub-vat-archive.md](sub-vat-archive.md) | Variables, Sto/Rcl, Archive/Unarchive, Flash GC | ✅ |
+| [sub-apps-mem-settings.md](sub-apps-mem-settings.md) | Apps find/launch, RAM-reset, MODE/format flags | ✅ |
+| [sub-statistics.md](sub-statistics.md) | STAT: 1/2-var, regressions, statVars | ✅ |
+| [sub-matrix-list.md](sub-matrix-list.md) | Matrix/list element access, Gauss-Jordan inverse/det, matmul | ✅ |
+| [sub-solver-numeric.md](sub-solver-numeric.md) | Solver root-finder, nDeriv/fnInt, TVM finance | ✅ |
+| [sub-table-yvars.md](sub-table-yvars.md) | TABLE generation/cache, Y= equation vars | ✅ |
+| [sub-link-transfer.md](sub-link-transfer.md) | Link protocol: byte/packet/var-transfer (page 0x3C) | ✅ |
 
 (The `sub-*` docs are deep dives from two parallel multi-agent RE passes covering user-facing functionality — primary: calculation/graphing/TI-BASIC/VAT-archive/apps; secondary: stats/matrices/solver/table/link.)
 
-Database state: **1393 functions**, all **535 bcalls** named at real (page,addr), TI-OS types applied. Rebuild: `tools/build.sh`.
+Database state: **2413 functions (100% named)**, all bcalls resolved via both jump tables, TI-OS types applied. Rebuild: `tools/build.sh`.
 
 ## Key anchors found so far
 

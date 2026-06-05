@@ -10,7 +10,7 @@ The Z80's two middle 16 KiB slots are windows onto physical memory selected by I
 `0000–3FFF` is hardwired to flash page 0; `C000–FFFF` is hardwired RAM. **[standard, consistent with code]**
 
 ## How code uses it
-- **bcalls** set `port_mapBankA` to the target routine's page, run it at `4000+`, then restore the previous page (see `03-bcall-mechanism.md`). The helper `ram:181c` is the page-set primitive used by the dispatcher.
+- **bcalls** set `port_mapBankA` to the target routine's page, run it at `4000+`, then restore the previous page (see [03-bcall-mechanism.md](03-bcall-mechanism.md)). The helper `ram:181c` is the page-set primitive used by the dispatcher.
 - A routine that runs banked into `4000` must therefore be written position-fixed for `4000` — which is exactly why every overlay page in Ghidra is based at `4000`.
 - `thunk_FUN_ram_2b09` (page 0) is the common **cross-page jump trampoline**: many page-0 bcall entries (e.g. `_FindSym`) just tail-call it to reach a body on another page. Tracing it is the key to the page-0↔banked control flow. **[hypothesis — to verify]**
 

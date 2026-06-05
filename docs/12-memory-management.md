@@ -47,7 +47,7 @@ Archived vars are *appended* to Flash (which can't be overwritten in place), so 
 
 **Correction — `_CleanAll` is *RAM* cleanup, not Flash GC** [confirmed from disassembly]: `_CleanAll` (`07:52CF`) compacts the **floating-point stack** (`fpBase`/`FPS` → `tempMem`) and resets the `OPBase`/`OPS`/`pTemp` scratch pointers, reclaiming temporary RAM after a command/expression finishes. It does **not** touch Flash.
 
-Flash is written/erased a sector at a time via low-level routines through the **flash-control port `0x14`**. These are now located [confirmed via subagent RE — see `sub-vat-archive.md`]:
+Flash is written/erased a sector at a time via low-level routines through the **flash-control port `0x14`**. These are now located [confirmed via subagent RE — see [sub-vat-archive.md](sub-vat-archive.md)]:
 - `flash_program_core` (`page_3D:61AF`) — the byte-program primitive (port `0x14` command sequence); `flash_write_byte` (`3D:6B9B`), `flash_write_record` (`3D:64AA`), `flash_alloc_sector` (`3D:62C2`), `flash_free_scan` (`3D:6413`).
 - `flash_cmd_dispatch` (`3C:7121`) and the **garbage collector** `flash_gc_relocate` (`3C:7BD0`) + `gc_show_screen` (`3C:7E0D`) — the real "Garbage Collecting…" path (distinct from `_CleanAll`).
 - Archive workers: `_Arc_Unarc` (`07:6248`) → `arc_ram_to_flash` (`07:61F4`) / `arc_flash_to_ram` (`07:6107`).

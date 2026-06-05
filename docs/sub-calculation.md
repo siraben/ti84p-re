@@ -1,9 +1,11 @@
-# sub-calculation — The Calculation Engine (TI-84 Plus OS 2.55MP)
+# Calculation Engine
+
+*TI-84 Plus OS 2.55MP — feature deep dive.*
 
 What happens between a college student typing `2*sin(π/6)+ln(5)` and seeing a number.
 All arithmetic is BCD floating point in the **OP registers** (`OP1`–`OP6` @ `0x8478`,
 11-byte spaced) with a software **FP stack** (`FPS` @ `0x9824`) for nested temporaries.
-See `06-floating-point.md` for the `TIFloat` byte format and `_FPAdd` internals; this doc
+See [06-floating-point.md](06-floating-point.md) for the `TIFloat` byte format and `_FPAdd` internals; this doc
 covers the rest of the engine: ×, ÷, ^, roots, transcendentals, formatting, and errors.
 
 Address form below is `page:addr` (flash page in slot `4000`) or `ram:addr` for the fixed
@@ -45,7 +47,7 @@ operands, then do BCD mantissa work and renormalize. Result in `OP1`.
 
 | Op | Routine | Addr | Notes |
 |----|---------|------|-------|
-| `+` | `_FPAdd` | `ram:229E` (= **RST 30h**) | sign-magnitude BCD add; see `06-floating-point.md`. |
+| `+` | `_FPAdd` | `ram:229E` (= **RST 30h**) | sign-magnitude BCD add; see [06-floating-point.md](06-floating-point.md). |
 | `−` | `_FPSub` | `ram:2297` | flips `OP2.type` bit7 then falls into the add path. |
 | `×` | `_FPMult` | `ram:238B` | `FUN_ram_250F` adds exponents (→ `_ErrOverflow` on carry past 0x7F), then digit-by-digit BCD multiply accumulating into OP3. |
 | `÷` | `_FPDiv` | `ram:2541` | `_CkOP2FP0` first → `_JError(0x82)` DIVIDE BY 0 if divisor 0; else restoring BCD long division. |
@@ -71,7 +73,7 @@ Convenience / derived ops:
 - `_RToD` `ram:2374` (rad→deg): multiply by `180/π` (`FUN_ram_2361`).
 - `_PToR` `page_02:50BD` polar→rectangular; pairs with the complex trig below.
 These constants are the BCD floats `π/180 = 1.745…e-2` and `180/π = 5.729…e1` noted in
-`06-floating-point.md`'s constant scan.
+[06-floating-point.md](06-floating-point.md)'s constant scan.
 
 ---
 

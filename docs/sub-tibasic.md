@@ -1,9 +1,11 @@
-# sub — TI-BASIC: storage, parse, execution (student's view)
+# TI-BASIC Programs
+
+*TI-84 Plus OS 2.55MP — feature deep dive.*
 
 How a student-written TI-BASIC program is stored, parsed, and executed on OS
-2.55MP. Builds on `07-tokenizer-basic.md` (tokens, cursor helpers, the page-0x38
-evaluator), `05-variables-vat.md` (OP1 naming, `_FindSym`), and
-`11-boot-contexts-errors.md` (contexts, `onSP`/`_JError`).
+2.55MP. Builds on [07-tokenizer-basic.md](07-tokenizer-basic.md) (tokens, cursor helpers, the page-0x38
+evaluator), [05-variables-vat.md](05-variables-vat.md) (OP1 naming, `_FindSym`), and
+[11-boot-contexts-errors.md](11-boot-contexts-errors.md) (contexts, `onSP`/`_JError`).
 
 Confidence: **[confirmed]** = decompiled/byte-verified here; **[strong]** =
 multiple consistent signals (token compares, call shape) but the dense Z80

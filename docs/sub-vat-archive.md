@@ -1,6 +1,8 @@
-# sub — VAT, Store/Recall, and the Flash Archive/Unarchive mechanism
+# Variables, Archive & Unarchive
 
-Deep-dive companion to `05-variables-vat.md` and `12-memory-management.md`, focused on what a
+*TI-84 Plus OS 2.55MP — feature deep dive.*
+
+Deep-dive companion to [05-variables-vat.md](05-variables-vat.md) and [12-memory-management.md](12-memory-management.md), focused on what a
 program that manages memory touches: the VAT walk (`_FindSym`), variable Store/Recall, and the
 **Archive / UnArchive** path (RAM ↔ Flash), the Flash **garbage collector**, and the memory checks.
 
@@ -66,7 +68,7 @@ So each VAT entry is read high-address-first; **the type byte's low 5 bits are t
 high bits flag the archive state.** `_FindSym` returns: type in `8478`, data pointer in DE, **page
 byte in A** — A is the discriminator: an in-RAM var vs. a var whose data lives on a Flash page.
 
-VAT entry shapes (consistent with `_CreateR*` header writes — see `05-variables-vat.md`):
+VAT entry shapes (consistent with `_CreateR*` header writes — see [05-variables-vat.md](05-variables-vat.md)):
 - single-char (real/cplx/`Ln`/`[A]`/sysvars): `type, type2, addrLSB, addrMSB, nameToken` (5 B)
 - named (prog/appvar/group/str/equ): `type, version, addrLSB, addrMSB, nameLen, name[N]`
 

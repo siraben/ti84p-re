@@ -1,4 +1,6 @@
-# Graphing Subsystem (TI-84 Plus OS 2.55MP)
+# Graphing
+
+*TI-84 Plus OS 2.55MP — feature deep dive.*
 
 What a college student touches when they press **Y=**, **WINDOW**, **GRAPH**, **TRACE**,
 or run a **DRAW** menu command. This traces the path real-coordinate → screen pixel →
@@ -237,7 +239,7 @@ during a regraph or TABLE build.
 ## 7. Graph screen vs. home screen; TRACE
 
 - The **home screen** uses the large font and `curRow`/`curCol` text cursor (see
-  `08-display-lcd.md`). The **graph screen** is the pixel buffer `plotSScreen` rendered by
+  [08-display-lcd.md](08-display-lcd.md)). The **graph screen** is the pixel buffer `plotSScreen` rendered by
   the routines above; small-font labels (coords, TRACE readout) go through
   `_VPutMap`/`penCol`(0x86D7)/`penRow`(0x86D8). [confirmed addresses]
 - **TRACE** moves a cursor along a selected function: it steps the column, evaluates the
