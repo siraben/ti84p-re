@@ -33,6 +33,7 @@ Around those sit the I/O subsystems: the **IM1 interrupt** that drives timing/AP
 | 10-subsystem-map.md | bcall API surface, system through-line | ✅ |
 | 11-boot-contexts-errors.md | Boot, context system, _JError/onSP | ✅ |
 | 12-memory-management.md | RAM heap, VAT/userMem, Flash archive/GC | ✅ |
+| 13-flash-page-map.md | What each of the 64 flash pages contains | ✅ |
 
 Database state: **1393 functions**, all **535 bcalls** named at real (page,addr), TI-OS types applied. Rebuild: `tools/build.sh`.
 

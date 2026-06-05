@@ -37,7 +37,7 @@ Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `
 | bcall routines named | **535 / 535** |
 | Defined data (strings/floats/typed) | 618 |
 | Flash pages loaded | 64 (1 MiB) |
-| Docs | 13 (00–12) |
+| Docs | 14 (00–13) |
 
 ## Architecture in one paragraph
 
