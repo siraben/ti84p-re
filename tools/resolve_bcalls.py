@@ -40,3 +40,14 @@ with open(os.path.join(HERE, 'bcall_targets.txt'), 'w') as f:
         if 0x4000 <= a <= 0x7FFF or a < 0x4000:
             valid_n += 1
 print(f"table page = 0x{TABLE_PAGE:02X}; wrote {len(ids)} targets ({valid_n} valid)")
+
+# Also emit the page-0 RAM-resident bjump trampoline table:
+#   each entry = CALL cross_page_jump (CD 09 2B) ; .dw addr ; .db page  (6 bytes packed)
+with open(os.path.join(HERE, 'bjumps.txt'), 'w') as f:
+    off = 0x3B01; n = 0
+    while off < 0x3E80 and rom[off] == 0xCD and rom[off+1] == 0x09 and rom[off+2] == 0x2B:
+        addr = rom[off+3] | rom[off+4] << 8
+        page = rom[off+5] & 0x3F
+        f.write(f"{off:04X}\t{addr:04X}\t{page:02X}\n")
+        off += 6; n += 1
+print(f"wrote {n} bjump trampoline entries (0x3B01..0x{off:04X})")

@@ -45,6 +45,14 @@ The other RST vectors are 1-byte fast paths for the hottest routines (each `JP`s
 
 All six match the documented TI-83+/84+ RST assignments — strong cross-confirmation of the table resolution.
 
+## bjump — the sibling mechanism (OS-internal cross-page calls)
+
+Besides bcalls, the OS calls *its own* cross-page routines via **bjump**: `CALL cross_page_jump` (`= CALL 0x2b09`) followed inline by `.dw addr; .db page`. `cross_page_jump` pops the return address, reads the 2-byte target + 1-byte page from it, banks the page (`& 0x3F`), and jumps — the target's `RET` returns to *the bjump's caller* (so it behaves like a call that consumes the 3 inline bytes).
+
+There is a **RAM-resident trampoline table** on page 0 at **`0x3B01–0x3D0B`**: **87 packed 6-byte entries**, each a bjump to a hot OS routine on another page. Boot copies this region into RAM (so it runs fast and lets `cross_page_jump` itself be RAM-resident). Code invokes a routine by `CALL 0x3Bxx` into the table. `tools/bjumps.txt` lists every entry's `(offset → page:addr)`; `tools/RamRoutines.java` marks the inline `.dw/.db` as data and comments each target.
+
+Example: `_PutMap`'s glyph blitter is reached via the trampoline at `0x3B3D → page_07:4588`.
+
 ## Limitations / TODO
 - The `ti83plus.inc` used is 2001-era (TI-83+); it lacks the `0x8xxx` TI-84+-specific bcall IDs, so ~88 IDs in code show as `bcall(0x80xx)` unnamed. A newer 84+ equates file would close this.
 - Some bcalls are *thunks*: e.g. `_FindSym`'s page-0 entry just `thunk_FUN_ram_2b09()` — a page-switch trampoline to the real body. Worth tracing `thunk_FUN_ram_2b09` (the common cross-page jumper) next.
