@@ -14,6 +14,20 @@ Three cross-cutting mechanisms that tie the OS together: how it starts, how it s
 
 Boot configures the paging hardware (ports 6 and `0x0E`) and interrupt controller, then transfers to code it copies into RAM (why the static trace ends with "bad instruction"). It eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen). *To finish: follow the RAM-copied stub and the RAM-init path.*
 
+### The main event loop [confirmed]
+
+`main_event_loop` @ `ram:05e6` (page 0) is the OS root dispatcher. Structure:
+```
+05e6: LD B,8;  LD HL,0x84BE        ; iterate an 8-entry event/context stack
+05ec: LD A,(HL); OR A; JR Z,...    ; skip empty slots
+05f5: CALL 0x3f3f                  ; per-entry dispatch (event/key router)
+0601: CP 0x7F / 0xFE / 0xFC / 0xFB ; branch on the handler's return code
+...
+0690: LD A,0x7F; CALL call_context_main   ; run the active context's handler
+0699: POP AF; JP Z,0x05e6                 ; loop
+```
+So the loop pumps an **event/context stack** (8 slots near `0x84BE`), routes each via the dispatcher at `0x3f3f`, and ultimately runs the active context's `cxMain` handler through `call_context_main`, looping forever. Return codes `0x7F/0xFE/0xFC/0xFB` signal context switches / app launches / quit. *(Stack semantics and the `0x3f3f` router still to be fully decoded.)*
+
 ## Contexts — how the OS implements "modes"/apps [confirmed — key concept]
 
 The OS is single-tasking but multi-**context**. A *context* is the set of handler routines for whatever is currently in front of the user (homescreen, an editor, the graph screen, a Flash App). The active context's vectors live in RAM at **`cxMain`** (and friends), with **`cxPage`** holding which flash page their code is on.
