@@ -62,7 +62,9 @@ So the dispatch loop is: `parse_cur_tok` → index the handler table (`page_38:4
 
 **Main evaluator:** `parse_eval_expr` (`38:5AB3`) is the big recursive-descent expression evaluator — it dispatches through handler function-pointers (`code *`) with operator precedence, reading via the cursor helpers and leaving the result in `OP1`. `_ParseInp` → `parse_init` → `parse_eval_expr`. `parse_scan_tokens` (`38:4180`) is a token-scan helper (skips to a delimiter, honoring 2-byte tokens via `_IsA2ByteTok`).
 
-**TODO (deep dive):** map each table index → its token class/operator, and the operator-precedence / argument-count handling.
+The handlers are **recursive-descent grammar productions** (not flat per-operator routines): each reads via `parse_cur_tok`, conditionally recurses, and some load **sub-dispatch tables** (e.g. `page_38:5110`, `5127`) for finer token classes — implementing operator precedence by nesting. So "the + operator" isn't one table entry; it's handled within the term/factor production that drives `_FPAdd` (RST 30h).
+
+**TODO (deep dive):** map the precedence levels (term/factor/unary productions) and the sub-table contents.
 
 ## TODO
 - Find the main parser loop (the token-dispatch jump table) and name handlers.
