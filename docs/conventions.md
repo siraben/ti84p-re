@@ -35,6 +35,10 @@ Some early deep-dive docs use shorthand `[C]`/`[H]`/`[I]` ≈ `[confirmed]`/`[hy
 - **`_CamelCase`** — an official TI bcall/equate name (from `ti83plus.inc` or the TI SDK), e.g. `_FindSym`, `_FPAdd`. High confidence.
 - **`snake_case`** — a name **inferred during this RE** from a routine's behavior (which named routines it calls, which RAM/ports it touches), e.g. `findsym_scan`, `fp_normalize`. Accurate in aggregate; any single low-level helper name is a best-effort guess.
 
+## Math notation
+
+Formulas are written in LaTeX and rendered by **KaTeX** (offline, client-side): `$…$` for inline math and `$$…$$` (or `\[…\]`) for display. KaTeX skips `<code>`/`<pre>`, so `$`-prefixed hex like `$1A2F` inside code blocks is left untouched. Diagrams use Mermaid (` ```mermaid `) and render to SVG. See the repository `flake.nix`/`book.toml` for how the assets are vendored.
+
 ## How this RE was produced
 
 - **The Ghidra database** is rebuilt from the ROM by `tools/build.sh` (a 10-stage headless pipeline). It loads all 64 flash pages (page 0 + overlays at `4000`), then resolves and names routines. 100% of the 2413 functions are named.

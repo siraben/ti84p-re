@@ -259,8 +259,11 @@ matrix `[ M | Σxⁱy ]`. `_OneVar` solves it **in place by Gauss‑Jordan elimi
   `a,b,c`; `CubicReg` (4×4) → `a,b,c,d`; `QuartReg` (5×5) → `a,b,c,d,e`. The
   coefficients land in `QuadA`(`8AEE`) downward. [confirmed]
 - **Correlation `r` and `r²`** are computed for the linear models from the
-  centred sums: `r = Σ(x−x̄)(y−ȳ) / √(Σ(x−x̄)²·Σ(y−ȳ)²)` = `(n·Σxy − Σx·Σy) /
-  √[(n·Σx²−(Σx)²)(n·Σy²−(Σy)²)]`, assembled with `_FPMult`/`_FPSub`/`_SqRoot`/
+  centred sums:
+
+  $$r=\frac{\sum (x-\bar x)(y-\bar y)}{\sqrt{\sum (x-\bar x)^2\,\sum (y-\bar y)^2}}=\frac{n\sum xy-\sum x\sum y}{\sqrt{\big(n\sum x^2-(\sum x)^2\big)\big(n\sum y^2-(\sum y)^2\big)}}$$
+
+  assembled with `_FPMult`/`_FPSub`/`_SqRoot`/
   `_FPDiv` (the `6845`/`684c` cluster) and stored to `Corr` (`8ACA`); `r²` (and
   `R²` for higher‑order) is `r·r` / coefficient‑of‑determination, also surfaced.
   [confirmed structure / standard formula]
@@ -302,9 +305,9 @@ stat plot reads back out of `statVars`.
    saves the model code to `(8A36)`.
 3. **Accumulation pass** (§4): one walk of L1/L2 building `n, Σx, Σx², Σy, Σy²,
    Σxy` and `minX/maxX/minY/maxY` into `statVars`, plus the 2×2 moment matrix.
-4. **Moments** (§4a): `x̄=Σx/n`, `ȳ=Σy/n`; `Sx,σx,Sy,σy` via the variance helper
-   (÷ n−1 vs ÷ n).
-5. **Solve** (§5): Gauss‑Jordan on `[ Σ1 Σx ; Σx Σx² | Σy ; Σxy ]` →
+4. **Moments** (§4a): $\bar x=\tfrac{\sum x}{n}$, $\bar y=\tfrac{\sum y}{n}$; the sample/population
+   spreads $S_x,\sigma_x,S_y,\sigma_y$ via the variance helper (divide by $n-1$ vs $n$).
+5. **Solve** (§5): Gauss‑Jordan on the normal equations $\left[\begin{array}{cc|c}\sum 1&\sum x&\sum y\\\sum x&\sum x^2&\sum xy\end{array}\right]$ →
    `b=slope`, `a=intercept` → `QuadA/QuadB`; `r,r²` → `Corr`; equation → `RegEQ`,
    pasted into `Y1`.
 6. Results displayed by the STAT‑CALC report screen; all of x̄/Σx/…/a/b/r persist

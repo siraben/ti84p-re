@@ -12,7 +12,11 @@ All TI-BASIC arithmetic runs through a BCD floating-point engine centered on the
 +1  exp       base-100? no — base-10 exponent, biased by 0x80 (0x80 = 10^0)
 +2..+8  mantissa   7 bytes = 14 packed BCD digits, normalized d.dddddddddddddd
 ```
-Value = ±(d0 . d1 d2 … d13) × 10^(exp−0x80). The BCD scan found 126 such constants ROM-wide (π/180=1.745…e-2, 180/π=5.729…e1, 65536, plus coefficient tables on page 7).
+The stored value is
+
+$$v = \pm\,(d_0.d_1d_2\cdots d_{13})\times 10^{\,e-\mathtt{0x80}}$$
+
+where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD mantissa digits. The BCD scan found 126 such constants ROM-wide ($\pi/180 = 1.745\ldots\mathrm{e}{-2}$, $180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, plus coefficient tables on page 7).
 
 ## OP registers — 11 bytes each [confirmed]
 

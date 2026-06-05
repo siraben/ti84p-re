@@ -84,10 +84,10 @@ seeds the bracket. The main loop runs from `39:4413`:
     (`39:45AD`) = **BAD GUESS** (raised when the initial bracket is unusable).
   - A small count (`CP 0x04`, `39:44C3`) gates the early Illinois/secant correction.
 - **Bisection midpoint:** `_InvSub` (`ram:227D`, = b−a) then `_TimesPt5` (`ram:2382`, ×0.5)
-  at `39:443C/443F` ⇒ `(a+b)/2`. **[confirmed]**
+  at `39:443C/443F` ⇒ $m=\tfrac{1}{2}(a+b)$. **[confirmed]**
 - **Secant / regula-falsi step:** `_FPMult` (`238B`), `_FPSub` (`2297`), `_FPDiv`-class and
   `_InvOP1S` (`24BD`) around `39:4488…44F2` compute the linear-interpolation step
-  `x − f(x)·(b−a)/(f(b)−f(a))`. The result is compared against the bisection bound; the
+  $x_{n+1}=x_n-f(x_n)\,\dfrac{b-a}{f(b)-f(a)}$. The result is compared against the bisection bound; the
   algorithm **keeps the secant guess only if it stays inside the bracket**, otherwise it
   falls back to the midpoint — a classic **bisection ⊕ secant (Illinois/regula-falsi)
   hybrid**, the documented TI behavior. **[confirmed for the op sequence; method name standard]**
@@ -128,12 +128,10 @@ named system FP var; the routine loads them via small accessors:
   `(84AF)`=OP6, `(84D3)`/`(84D9)`/`(84D3)` hold the iteration state. **[confirmed]**
 
 ### 2.1 The TVM equation
-The solver evaluates the standard cash-flow identity (rate `i = I%/100/(C/Y)`, `S`=0 for
-END / 1 for BEGIN):
+The solver evaluates the standard cash-flow identity (rate $i = \tfrac{I\%}{100}\big/\tfrac{C}{Y}$, with $S=0$ for
+END / $1$ for BEGIN):
 
-```
-0 = PV + (1 + i·S)·PMT·(1 − (1+i)^(−N))/i  +  FV·(1+i)^(−N)
-```
+$$0 = PV + (1+iS)\,PMT\,\frac{1-(1+i)^{-N}}{i} + FV\,(1+i)^{-N}$$
 
 Implemented with `_FPRecip` (`ram:253D`, for `(1+i)^(−N)` via reciprocal/power),
 `_FPMult` (`238B`), `_FPDiv` (`2541`), `_FPAdd` (RST 30h), `_InvSub`/`_FPSub`

@@ -231,7 +231,7 @@ i.e. the first row's independent value is **TblStart**. A working float at
          LD HL,(0x91DC /*row idx*/) ; ADD ; CALL _LdHLind ; ADD HL,DE
 ```
 
-So row `k` uses `X = TblMin + k·TblStep`. (In **Indpnt = Ask** mode this driver is
+So row $k$ uses $X=\mathrm{TblMin}+k\cdot\mathrm{TblStep}$. (In **Indpnt = Ask** mode this driver is
 bypassed and the student types each X; see §3.4.) [confirmed structure]
 
 ### 3.2 The per-row evaluation: set X, evaluate each selected Y [strong]

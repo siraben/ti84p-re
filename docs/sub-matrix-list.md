@@ -21,11 +21,13 @@ Confidence (this doc's shorthand; see [Conventions](conventions.md)): **[C]=conf
 ## 0. TL;DR — the mental model
 
 - A **list** is `word count` (2 bytes) followed by `count` × 9-byte `TIFloat` elements
-  (18-byte complex elements if the list is complex, flagged `0x0C`). Element *i* (1-based)
-  lives at `data + 2 + (i−1)*9`.
+  (18-byte complex elements if the list is complex, flagged `0x0C`). Element $i$ (1-based)
+  lives at $\mathrm{addr}(L_i)=\mathrm{data}+2+(i-1)\cdot 9$.
 - A **matrix** is `byte dim0; byte dim1;` (two 1-byte dimensions) followed by
-  `dim0*dim1` × 9-byte `TIFloat`, stored **column-major**. Element offset is
-  `((idx0−1)*dim0 + (idx1−1)) * 9` from the start of the data area (after the 2 dim bytes).
+  `dim0*dim1` × 9-byte `TIFloat`, stored **column-major**. The element offset from the start
+  of the data area (after the 2 dim bytes) is
+
+  $$\mathrm{offset}=\big((\mathit{idx}_0-1)\cdot \mathit{dim}_0+(\mathit{idx}_1-1)\big)\times 9$$
 - **Every element read/write routes one `TIFloat` through `OP1`/`OP2`** and the FP engine —
   there is no "vector unit"; matrix multiply is just a triple loop of `_FPMult`+`_FPAdd`.
 - The data area is found through the **VAT** (`_FindSym`, [doc 05](05-variables-vat.md)): the VAT entry's data

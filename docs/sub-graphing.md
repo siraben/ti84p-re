@@ -57,7 +57,7 @@ _XftoI (37:41EB):  BC = 0x8E6A (X working float),  HL = shortX (0x9164),  SCF  �
 _YftoI (37:41DF):  BC = Ymin   (0x8F6B),            HL = shortY (0x916D),  OR A → 41F2; INC A
 ```
 
-Shared engine `37:41F2` computes essentially **pixel = (value − min) / pixelDelta**:
+Shared engine `37:41F2` computes essentially $\mathrm{pixel}=\dfrac{\mathrm{value}-\mathrm{min}}{\mathrm{pixelDelta}}$:
 - `RST 20h` pushes/loads OP1 (the input value),
 - `CALL 228F` moves the `min` operand in and **subtracts** it (`value − min`),
 - `CALL 2385` **divides** by the per-pixel delta (`shortX`/`shortY`),

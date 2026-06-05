@@ -69,8 +69,8 @@ Convenience / derived ops:
 ---
 
 ## 3. Degree/radian & polar conversions [confirmed]
-- `_DToR` `ram:236B` (deg→rad): multiply OP1 by `π/180` (`FUN_ram_235D` loads the constant) then normalize via `FUN_ram_249E`.
-- `_RToD` `ram:2374` (rad→deg): multiply by `180/π` (`FUN_ram_2361`).
+- `_DToR` `ram:236B` (deg→rad): multiply OP1 by $\pi/180$ (`FUN_ram_235D` loads the constant) then normalize via `FUN_ram_249E`.
+- `_RToD` `ram:2374` (rad→deg): multiply by $180/\pi$ (`FUN_ram_2361`).
 - `_PToR` `page_02:50BD` polar→rectangular; pairs with the complex trig below.
 These constants are the BCD floats `π/180 = 1.745…e-2` and `180/π = 5.729…e1` noted in
 [06-floating-point.md](06-floating-point.md)'s constant scan.
