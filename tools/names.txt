@@ -1,0 +1,5 @@
+# Confident manual function names accumulated during RE.
+# Format: <space>:<addr_hex> <TAB> <name>   (lines starting with # ignored)
+ram:2b09	cross_page_jump
+ram:1a8e	copy_op11
+ram:181c	bcall_set_page
