@@ -16,7 +16,7 @@ The structural reverse-engineering is comprehensive (every subsystem mapped, bot
 5. **Event/context stack semantics** (`11`). The 8-slot stack near `0x84BE` and the `0x3f3f` router in `main_event_loop`. *Approach:* `0x3f3f` is a RAM-resident routine vector — resolve its bjump target and trace.
 6. **Font glyph page** (`08`,`13`). The large-font 8-byte glyph table — `_PutMap` reaches its blitter via trampoline `0x3B3D → page_07:4588`; find where that reads the glyph bytes (a page in `08–32`).
 7. **FP transcendental coefficients** (`06`). Map the page-7 minimax/CORDIC coefficient tables to `_SinCosRad`/`_LnX`/`_EToX` and document the polynomial-eval method.
-8. **84+-era bcalls** (`03`). ~88 `0x8xxx` bcall IDs show unnamed (the 2001 `.inc` predates them). A newer TI-84+ `.inc`/symbol file would close this.
+8. ~~**84+-era bcalls**~~ ✅ **DONE** — the `0x8xxx` bcalls dispatch through a **second jump table on flash page 0x3F** (boot page), indexed by `ID & 0x7FFF`. Resolved + cataloged in `ti84plus_extra.inc`; see `03`.
 
 ## Low value / mechanical
 

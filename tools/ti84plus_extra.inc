@@ -69,16 +69,17 @@ _edt_5d6f            .equ 5464h    ; -> 03:5D6F  (1 call site)
 _mnu_6ddb            .equ 5467h    ; -> 39:6DDB  (1 call site)
 _grf_5e06            .equ 5476h    ; -> 33:5E06  (1 call site)
 
-;--- 0x8xxx extended bcalls: dispatched via the ID bit-15 path (NOT the
-;    page-3Bh jump table); target table not yet located. TODO. ---
-; _xbcall_8021   .equ 8021h    ; 2 call sites  [unresolved]
-; _xbcall_8027   .equ 8027h    ; 2 call sites  [unresolved]
-; _xbcall_8030   .equ 8030h    ; 1 call site  [unresolved]
-; _xbcall_8054   .equ 8054h    ; 1 call site  [unresolved]
-; _xbcall_8057   .equ 8057h    ; 2 call sites  [unresolved]
-; _xbcall_805A   .equ 805Ah    ; 3 call sites  [unresolved]
-; _xbcall_805D   .equ 805Dh    ; 1 call site  [unresolved]
-; _xbcall_8075   .equ 8075h    ; 2 call sites  [unresolved]
-; _xbcall_80B1   .equ 80B1h    ; 1 call site  [unresolved]
-; _xbcall_80B7   .equ 80B7h    ; 1 call site  [unresolved]
-; _xbcall_80BA   .equ 80BAh    ; 1 call site  [unresolved]
+;--- 0x8xxx extended bcalls: dispatched via the ID bit-15 path through a
+;    SECOND jump table on flash page 0x3F (boot page), indexed by (ID&0x7FFF).
+;    Targets are 84+-era/boot routines on page 0x3F (RE-named) ---
+_xb_PageSetup      .equ 8021h    ; -> 3F:44F3
+_xb_RecordFind     .equ 8027h    ; -> 3F:4448
+_xb_RecordNext     .equ 8030h    ; -> 3F:442B
+_xb_52eb           .equ 8054h    ; -> 3F:52EB
+_xb_430f           .equ 8057h    ; -> 3F:430F
+_xb_RecordAdvance  .equ 805Ah    ; -> 3F:449C
+_xb_4463           .equ 805Dh    ; -> 3F:4463
+_xb_446c           .equ 8075h    ; -> 3F:446C
+_xb_5296           .equ 80B1h    ; -> 3F:5296
+_xb_531e           .equ 80B7h    ; -> 3F:531E
+_xb_5323           .equ 80BAh    ; -> 3F:5323

@@ -30,6 +30,14 @@ From the decompiler:
 
 `tools/bcall_targets.txt` holds all 535 `name, id, addr, page`. 289 targets live on page 0 (kernel), 246 on banked pages. `tools/ApplyBcalls.java` disassembles & names each; this took the project from 157 to ~922 functions.
 
+## Two jump tables — by ID range [confirmed]
+
+The dispatcher's ID decode (`bcall_dispatcher`) selects one of **two** tables by the ID's top bits:
+- **`0x4xxx`–`0x7FFF`** (bit 14 set): the main table on **flash page 0x3B**, entry at offset `ID − 0x4000` (this is the 535 + 61 documented bcalls).
+- **`0x8xxx`** (bit 15 set): a **second table on flash page 0x3F** (the boot page), entry at offset `ID & 0x7FFF`. These are the **TI-84+-era extended bcalls** (absent from the 2001 `.inc`) — their targets are routines on page 0x3F (record/cert scanning, paging setup; e.g. `_xb_RecordFind` `8027h`→`3F:4448`). 11 appear in OS 2.55MP; cataloged in `tools/ti84plus_extra.inc` and `bcalls8x_targets.txt`.
+
+Both tables use 3-byte entries (addr LE + page, page masked `& 0x3F`).
+
 ## RST shortcuts (fast inlined bcalls) [confirmed]
 
 The other RST vectors are 1-byte fast paths for the hottest routines (each `JP`s to its page-0 handler, which is also reachable as a bcall — the table maps the same address):

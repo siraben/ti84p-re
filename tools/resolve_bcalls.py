@@ -51,3 +51,15 @@ with open(os.path.join(HERE, 'bjumps.txt'), 'w') as f:
         f.write(f"{off:04X}\t{addr:04X}\t{page:02X}\n")
         off += 6; n += 1
 print(f"wrote {n} bjump trampoline entries (0x3B01..0x{off:04X})")
+
+# Second bcall table: 0x8xxx IDs dispatch via the ID bit-15 path through a
+# jump table on flash page 0x3F (boot page), indexed by (ID & 0x7FFF).
+X8_PAGE = 0x3F
+with open(os.path.join(HERE, 'bcalls8x_targets.txt'), 'w') as f:
+    for idv in range(0x8000, 0x8400, 3):
+        off = X8_PAGE*0x4000 + (idv & 0x7FFF)
+        if off+3 > len(rom): break
+        a = rom[off] | rom[off+1] << 8; pg = rom[off+2] & 0x3F
+        if 0x4000 <= a <= 0x7FFF and pg < NPAGES:
+            f.write(f"{idv:04X}\t{a:04X}\t{pg:02X}\n")
+print("emitted 0x8xxx table (page 0x3F)")
