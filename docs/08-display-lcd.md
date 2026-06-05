@@ -18,8 +18,8 @@ The TI-84+ drives a **96×64 monochrome LCD** through a controller on I/O ports 
 - `saveSScreen` (`0x86EC`, 768 bytes) — saved copy (e.g. for menus over the graph).
 - `_GrBufCpy`/`_GrBufClr`-style bcalls blit the buffer to the LCD.
 
-## Fonts [standard]
-- **Large font**: 8×... glyphs indexed by `char*8`, used by `_PutMap`/`_PutC` (homescreen).
+## Fonts [confirmed page; exact base to-pin]
+- **Large font**: 8-byte glyphs indexed by `char*8`, used by `_PutMap`/`_PutC` (homescreen). `_PutMap` bjumps (via trampoline `0x3B3D`) to the blitter `put_glyph_large` (`page_07:4588`), which reads the glyph from a table on **page 7** (≈`0x45FF`+`char*8`, copied 8 bytes via `_Mov8B` into `lFont_record`). Two flag bits select **alternate fonts** on page 1 and page 0x36. *(The exact table base needs `FUN_page_07_45eb` traced — a quick render at `0x45FF` didn't line up.)*
 - **Small/variable-width font**: `_VPutMap`/`_VPutS` (graph screen, pixel-addressed via `penCol`/`penRow`).
 
 ## Indicators

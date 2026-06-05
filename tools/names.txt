@@ -25,3 +25,4 @@ page_38:72da	parse_cur_tok
 page_38:5ab3	parse_eval_expr
 page_38:4180	parse_scan_tokens
 page_07:4539	event_key_router
+page_07:4588	put_glyph_large
