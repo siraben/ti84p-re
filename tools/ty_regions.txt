@@ -1,0 +1,18 @@
+8000	byte	256	appData
+8447	byte		contrast
+844B	byte		curRow
+844C	byte		curCol
+8450	TIVarType		curType
+8478	TIFloat		OP1
+8483	TIFloat		OP2
+848E	TIFloat		OP3
+8499	TIFloat		OP4
+84A4	TIFloat		OP5
+84AF	TIFloat		OP6
+8508	byte	128	textShadow
+85D0	TIVarType		varType
+86EC	byte	768	saveSScreen
+89F0	SystemFlags		flags
+8A3A	byte	66	statVars
+9340	byte	768	plotSScreen
+966E	byte	128	cmdShadow

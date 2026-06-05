@@ -1,0 +1,50 @@
+# 03 — The bcall System-Call Mechanism
+
+This is the heart of how the OS spans 1 MiB with a 64 KiB CPU. A routine on any page calls a routine on any other page by **bcall** without knowing where it physically lives.
+
+## The call site
+
+```
+rst 28h          ; opcode 0xEF
+.dw  <bcall_id>   ; 2-byte little-endian ID immediately after
+```
+
+`rst 28h` is a 1-byte Z80 `call 0028h`. So the return address pushed on the stack points at the 2-byte ID. The dispatcher reads the ID *through the return address*, then fixes the return to skip those 2 bytes — i.e. execution resumes at `call_site + 3`. **[confirmed]** (modeled in Ghidra by setting each `rst 28h`'s fall-through to `+3` and typing the ID as a word.)
+
+## The dispatcher — `bcall_dispatcher` @ `ram:2a2f` [confirmed]
+
+From the decompiler:
+1. Read the 2-byte ID `dw` from the caller's return address.
+2. Decode the ID's high bits: `bit15`/`bit14` select the address class; the low bits form the **table offset**.
+3. Bank the **bcall table page** into slot A (via the helper at `ram:181c`, which sets `port_mapBankA`).
+4. Read the 3-byte table entry: **target address (2)** + **target page (1)**.
+5. Bank the target page into slot A (`port_mapBankA = page`), save the previous page.
+6. `call` the target. On return, restore the previous page and resume the caller at `+3`.
+
+## The jump table — flash page **0x3B** [confirmed]
+
+- Located at the start of physical flash **page 0x3B** (file offset `0x3B*0x4000 = 0xEC000`).
+- **3-byte entries**: `addr_lo, addr_hi, page`. IDs step by 3 from `0x4000`, so entry for ID *X* is at table offset `X-0x4000`.
+- Resolution method (`tools/` Python): scored all 64 pages by how many of the 535 named IDs produced a valid `(addr∈4000..7FFF or page-0, page<0x40)` entry — page `0x3B` scored **447/535**, the runner-up only 124.
+- Validation: known bcalls land exactly where expected — `_PutS`→`01:5C39`, `_GetKey`→`06:491E`, `_ClrLCDFull`→`01:60E4`, `_GetCSC`→`00:04B2`, `_CreateReal`→`00:10B8`.
+
+`tools/bcall_targets.txt` holds all 535 `name, id, addr, page`. 289 targets live on page 0 (kernel), 246 on banked pages. `tools/ApplyBcalls.java` disassembles & names each; this took the project from 157 to ~922 functions.
+
+## RST shortcuts (fast inlined bcalls) [confirmed]
+
+The other RST vectors are 1-byte fast paths for the hottest routines (each `JP`s to its page-0 handler, which is also reachable as a bcall — the table maps the same address):
+
+| Opcode | Vector → target | Routine |
+|--------|-----------------|---------|
+| `rst 08h` | `0008→1A2F` | `_OP1ToOP2` (copy FP reg) |
+| `rst 10h` | `0010→0E65` | `_FindSym` (VAT lookup) |
+| `rst 18h` | `0018→155C` | `_PushRealO1` (push OP1 to FPS) |
+| `rst 20h` | `0020→1B01` | `_Mov9ToOP1` (copy 9 bytes → OP1) |
+| `rst 28h` | `0028→2A2F` | **bcall dispatcher** |
+| `rst 30h` | `0030→229E` | `_FPAdd` (float add) |
+
+All six match the documented TI-83+/84+ RST assignments — strong cross-confirmation of the table resolution.
+
+## Limitations / TODO
+- The `ti83plus.inc` used is 2001-era (TI-83+); it lacks the `0x8xxx` TI-84+-specific bcall IDs, so ~88 IDs in code show as `bcall(0x80xx)` unnamed. A newer 84+ equates file would close this.
+- Some bcalls are *thunks*: e.g. `_FindSym`'s page-0 entry just `thunk_FUN_ram_2b09()` — a page-switch trampoline to the real body. Worth tracing `thunk_FUN_ram_2b09` (the common cross-page jumper) next.

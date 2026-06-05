@@ -1,0 +1,41 @@
+# TI-84 Plus OS — Reverse-Engineering Notes: System Overview
+
+Target: `ti84plus.rom` (1 MiB flash dump). OS self-identifies as **2.55MP**. CPU: Zilog **Z80** (16-bit address bus, 64 KiB logical space) with hardware flash/RAM **paging**. Ghidra project: `~/Documents/ti84-re/ti84.gpr` (rebuild: `tools/build.sh`).
+
+> These are living notes written during RE. Confidence is flagged: **[confirmed]** = verified in disassembly/decompiler; **[standard]** = matches documented TI-83+/84+ architecture and is consistent with what we see; **[hypothesis]** = inferred, not yet verified.
+
+## The big picture
+
+The TI-84+ is a Z80 machine that can only see 64 KiB at once, but has 1 MiB of flash and 128 KiB of RAM. It bridges that gap with a **4-slot paging scheme** and a **system-call ("bcall") mechanism** that lets code on one 16 KiB flash page call routines on any other page. The OS is a single-tasking monitor: a boot/kernel core on flash **page 0** (always mapped low), a large body of OS routines spread across the other flash pages and reached via bcalls, and a fixed RAM region holding the system state (flags, floating-point registers, display buffers, the variable table).
+
+Everything the user interacts with — the homescreen, TI-BASIC programs, graphing, the catalog — is built on four pillars:
+
+1. **Paging + bcalls** — how code and data beyond 64 KiB are reached. (see `02-paging.md`, `03-bcall-mechanism.md`)
+2. **The floating-point engine** — 9-byte BCD reals/complex in the OP1–OP6 registers; all math flows through these. (`06-floating-point.md`)
+3. **The variable system (VAT)** — named objects (reals, lists, matrices, strings, programs, appvars…) catalogued in the Variable Allocation Table. (`05-variables-vat.md`)
+4. **The tokenizer/parser** — TI-BASIC is stored as 1- and 2-byte tokens; the parser executes them. (`07-tokenizer-basic.md`)
+
+Around those sit the I/O subsystems: the **IM1 interrupt** that drives timing/APD/cursor/ON-key (`04-interrupts.md`), the **LCD driver**, the **keypad scanner**, and the **link port**.
+
+## Subsystem index
+
+| Doc | Subsystem | Status |
+|-----|-----------|--------|
+| 01-memory-map.md | Address space, ports, RAM layout | drafting |
+| 02-paging.md | Flash/RAM banking (ports 6/7) | drafting |
+| 03-bcall-mechanism.md | rst 28h system calls + jump table | in progress |
+| 04-interrupts.md | IM1 ISR, timers, APD, ON key | drafting |
+| 05-variables-vat.md | Variable Allocation Table, object types | todo |
+| 06-floating-point.md | BCD float format, OP registers | todo |
+| 07-tokenizer-basic.md | Token tables, parser/interpreter | todo |
+| 08-display-lcd.md | LCD ports, screen buffers | todo |
+| 09-keyboard-link.md | Keypad scan, link protocol | todo |
+
+## Key anchors found so far
+
+- Reset entry `reset` @ `ram:0000` **[confirmed]**
+- bcall dispatcher `bcall_dispatcher` @ `ram:2a2f` (RST 28h) **[confirmed]**
+- IM1 interrupt `isr_im1` @ `ram:006d` (via RST 38h) **[confirmed]**
+- System flags base `flags` @ `8x89F0` (IY-indexed), typed `SystemFlags` **[confirmed]**
+- FP registers `OP1`–`OP6` @ `0x8478`+ **[standard]**
+- 126 BCD float constants ROM-wide incl. π/180, 180/π **[confirmed]**

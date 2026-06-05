@@ -1,0 +1,9 @@
+# Copyrighted TI ROM images - do NOT commit
+*.rom
+tools/rom.bin
+tools/ti84_page00.bin
+# Regenerable Ghidra project DB (rebuild via tools/build.sh + ApplyBcalls + DeepenPass)
+*.gpr
+*.rep/
+*.lock
+*.ghidra
