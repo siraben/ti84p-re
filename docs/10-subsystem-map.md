@@ -32,7 +32,7 @@ keypad ──▶ _GetKey ──▶ parser ──▶ token dispatch
             └─────────── results in OP1, shown via _DispOP1A / _PutS ──────────┘
 ```
 
-Cross-cutting services used by all of the above: **bcall/paging** (`03`), **interrupts/APD** (`04`), **error handling** (`_JError` + `TIError` codes), and the **system flags** (`SystemFlags` @ `flags`).
+Cross-cutting services used by all of the above: **bcall/paging** ([03](03-bcall-mechanism.md)), **interrupts/APD** ([04](04-interrupts.md)), **error handling** (`_JError` + `TIError` codes), and the **system flags** (`SystemFlags` @ `flags`).
 
 ## How the pieces connect (the through-line)
 1. **Interrupt** keeps time, scans the keypad into `kbdScanCode`, runs APD.

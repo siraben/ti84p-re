@@ -38,7 +38,7 @@ The expression parser/evaluator lives on **flash page 0x38**. Entry points:
 - `_Find_Parse_Formula` (`38:758A`) — `_FindSym` a variable then parse its stored formula (Y-vars, equations). **[confirmed]**
 - `parse_init` (`38:5b7b`) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). **[confirmed]**
 
-The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine (`06`), variable tokens resolve via the VAT (`05`), and the busy indicator is driven by `_RunIndicOn`/`Off`. `_BinOPExec` applies a binary operator via OP1/OP2.
+The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine ([06](06-floating-point.md)), variable tokens resolve via the VAT ([05](05-variables-vat.md)), and the busy indicator is driven by `_RunIndicOn`/`Off`. `_BinOPExec` applies a binary operator via OP1/OP2.
 
 ### The handler dispatch table [confirmed]
 
@@ -47,7 +47,7 @@ Page 0x38 **begins** with the parser's handler-address table at **`page_38:4000`
 These handlers implement TI-BASIC **statements/commands and operators**. Sampling them by the routine they call:
 - indices 8–10, 17–19, 38 → `bcall(_Regraph)` — **graph commands** (`DrawF`, `ZoomFit`, etc.).
 - indices 14–16, 21–22 → `bcall(_Disp)` — **display/output commands** (`Disp`, `Output`).
-- the "no-bcall" handlers are the **arithmetic/operator** productions — they drive OP1/OP2 through the FP engine via the **RST shortcuts** (RST 30h `_FPAdd`, etc.), which is why a bcall scan doesn't flag them; variable handlers go through `_FindSym` (`05`).
+- the "no-bcall" handlers are the **arithmetic/operator** productions — they drive OP1/OP2 through the FP engine via the **RST shortcuts** (RST 30h `_FPAdd`, etc.), which is why a bcall scan doesn't flag them; variable handlers go through `_FindSym` ([05](05-variables-vat.md)).
 
 The first handlers: `page_38:419F, 45F0, 421C, …`.
 

@@ -45,7 +45,7 @@ The VAT entry points at the variable's **data**, whose format depends on the obj
 | **Matrix** (`_CreateRMat`) | `byte cols; byte rows;` then `rows*cols × TIFloat`, **column-major** (`_HTimesL` computes the element count). |
 | String / Program / AppVar | `word size` then `size` raw/tokenized bytes |
 
-The common allocator `var_alloc` (`ram:1005`) carves the data region (size = count × element-size) via `_InsertMem` (see `12`), then the `_CreateXxx` routine writes the header. All key off the name in `OP1` (`OP1.exp` carries the name's token class — `_CreateRList` validates it's a list-name token `0x5D/0x24/0x3A/0x72`).
+The common allocator `var_alloc` (`ram:1005`) carves the data region (size = count × element-size) via `_InsertMem` (see [12](12-memory-management.md)), then the `_CreateXxx` routine writes the header. All key off the name in `OP1` (`OP1.exp` carries the name's token class — `_CreateRList` validates it's a list-name token `0x5D/0x24/0x3A/0x72`).
 
 ## VAT entry shape [standard TI-83+ format]
 

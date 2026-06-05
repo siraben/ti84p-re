@@ -36,7 +36,7 @@ So free RAM = (gap between the upward data heap and the downward VAT). When a va
 - `_EnoughMem` (`00:0FA6`) — ensure N free bytes; if short, it walks the temp/scratch entries (9-byte stride from `pTemp` down to `OPBase`) and `_DelVar`s reclaimable temporaries to make room. **[confirmed]**
 - `_MemChk` (`00:0E20`) — compute current free RAM.
 
-Every `_CreateXxx` (see `05`) ultimately calls `_InsertMem` to carve space, then registers the variable in the VAT.
+Every `_CreateXxx` (see [05](05-variables-vat.md)) ultimately calls `_InsertMem` to carve space, then registers the variable in the VAT.
 
 ## Flash archive [confirmed location]
 

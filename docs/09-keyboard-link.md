@@ -15,9 +15,9 @@ Scan codes (`skEnter`, hardware matrix position) differ from key codes (`kEnter`
 `_KeyToString` (`01:6D10`) turns a key code into a TI-BASIC **token** for the editor. It's not a single flat table — it combines:
 - **range arithmetic**: contiguous key ranges map to token ranges by a fixed offset (e.g. key `0x1F`→`'P'`-based, `0x59`→`'a'` for lowercase) — letters/digits;
 - **per-mode lookup tables** on another page, reached via `cross_page_jump` (the 2nd/ALPHA-mode and function-key token tables);
-- special key codes `0xFB/0xFC/0xFE/0xFF` are **not** tokens — they're the **menu / context-switch return codes** the main event loop branches on (see `11`), so `_KeyToString` routes them out via `cross_page_jump` rather than translating.
+- special key codes `0xFB/0xFC/0xFE/0xFF` are **not** tokens — they're the **menu / context-switch return codes** the main event loop branches on (see [11](11-boot-contexts-errors.md)), so `_KeyToString` routes them out via `cross_page_jump` rather than translating.
 
-So the input path is: keypad → ISR → `kbdScanCode` → `_GetKey` (cooked `kXxx` + modifiers) → `_KeyToString` → token → parser (`07`).
+So the input path is: keypad → ISR → `kbdScanCode` → `_GetKey` (cooked `kXxx` + modifiers) → `_KeyToString` → token → parser ([07](07-tokenizer-basic.md)).
 
 ## Link port
 
