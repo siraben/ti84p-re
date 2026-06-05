@@ -4,7 +4,7 @@
 
 Deep-dive companion to [09-keyboard-link.md](09-keyboard-link.md), focused on what a **student transferring data**
 touches: pushing a program/list/etc. to a computer (TI-Connect) or another calculator over the
-2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of doc 09's byte
+2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of [doc 09](09-keyboard-link.md)'s byte
 primitives `_SendAByte` (`3C:420D`) and `_RecAByteIO` (`3C:443F`).
 
 All addresses verified by **disassembling the actual Z80** in the Ghidra DB (`/tmp/ti84-link`,
@@ -15,8 +15,7 @@ registers and do their state work with `SET/RES/BIT b,(IY+d)` flag ops that Ghid
 Page numbers are the masked flash page (`rawpage & 0x3F`). The whole silent-link engine lives on
 **flash page 3C** (shared with the flash/archive command code — see [sub-vat-archive.md](sub-vat-archive.md)).
 
-Confidence: **[C]=confirmed from disassembly**, **[H]=high (structure clear, some inference)**,
-**[I]=inferred / standard-TI behavior**.
+Confidence (this doc's shorthand; see [Conventions](conventions.md)): **[C]=confirmed from disassembly** (≈`[confirmed]`), **[H]=high (structure clear, some inference)** (≈`[standard]`), **[I]=inferred / standard-TI behavior** (≈`[hypothesis]`).
 
 ---
 
@@ -85,9 +84,9 @@ Doc 09 covers `_SendAByte`. Two new things pinned here:
       LD A,C ; OUT (0x0D),A ; RET     ; *** write the byte to port 0x0D (assist FIFO) ***
 6BCA: CALL 6BE4 (decrement 9CAC) ; JR Z,6BBB (retry) ; else JP 4434 (timeout)
 ```
-So the assist path is: **poll port 0x09 bit 5, then `OUT (0x0D),byte`** — exactly the "FIFO" doc 09
+So the assist path is: **poll port 0x09 bit 5, then `OUT (0x0D),byte`** — exactly the "FIFO" [doc 09](09-keyboard-link.md)
 mentioned, with a CPU-speed-scaled timeout. The legacy bit-bang fall-through (port 0, send `1`/`2`,
-wait for echo, `DE`-timeout → `_JErrorNo`) is unchanged from doc 09.
+wait for echo, `DE`-timeout → `_JErrorNo`) is unchanged from [doc 09](09-keyboard-link.md).
 
 ### 2b. Receive `_RecAByteIO` `443F` and decoder `444A` [C]
 ```

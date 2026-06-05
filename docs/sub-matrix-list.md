@@ -14,8 +14,7 @@ Page numbers are the masked flash page (`rawpage & 0x3F`). The whole-OS image li
 Ghidra program with address spaces `ram` (the page-0/RAM-resident 0x0000–0x7FFF window) and
 `page_NN` for each flash page mapped into the 0x4000–0x7FFF bank-A window.
 
-Confidence: **[C]=confirmed from disassembly**, **[H]=high (structure clear, light inference)**,
-**[I]=inferred / standard documented TI behaviour**.
+Confidence (this doc's shorthand; see [Conventions](conventions.md)): **[C]=confirmed from disassembly** (≈`[confirmed]`), **[H]=high (structure clear, light inference)** (≈`[standard]`), **[I]=inferred / standard documented TI behaviour** (≈`[hypothesis]`).
 
 ---
 
@@ -29,7 +28,7 @@ Confidence: **[C]=confirmed from disassembly**, **[H]=high (structure clear, lig
   `((idx0−1)*dim0 + (idx1−1)) * 9` from the start of the data area (after the 2 dim bytes).
 - **Every element read/write routes one `TIFloat` through `OP1`/`OP2`** and the FP engine —
   there is no "vector unit"; matrix multiply is just a triple loop of `_FPMult`+`_FPAdd`.
-- The data area is found through the **VAT** (`_FindSym`, doc 05): the VAT entry's data
+- The data area is found through the **VAT** (`_FindSym`, [doc 05](05-variables-vat.md)): the VAT entry's data
   pointer + page byte locate the `count`/`dim` header, after which all indexing is pointer
   arithmetic computed by `_AdrLEle`/`_AdrMEle`.
 - **One shared Gauss-Jordan engine** (`page_02:42A6`) implements **matrix inverse `[A]⁻¹`**
@@ -292,13 +291,13 @@ same elimination machinery — flagged [I].*
 
 ## 6. How it ties to the FP engine and the VAT [C]
 
-- **Every element is a `TIFloat`** (doc 06). Indexing produces a *pointer*; the value is then
+- **Every element is a `TIFloat`** ([doc 06](06-floating-point.md)). Indexing produces a *pointer*; the value is then
   moved into `OP1`/`OP2` (`RST4` = load-9, `_Mov9B`, `_MovFrOP1`) and all arithmetic is the FP
   engine's `RST 30h`(`_FPAdd`)/`_FPMult`/`_FPDiv`/`_FPSub`/`_FPRecip`. There is no SIMD; a
   matrix multiply is literally thousands of these calls. Complex elements (lists/`[i]`) carry a
   `0x0C` flag and use 18-byte (two-float) elements, split via `_CplxOPArrange`.
 - **Where the data lives:** the parser resolves the list/matrix name through `OP1` →
-  `_FindSym`/`_ChkFindSym` (doc 05/sub-vat) → VAT entry → data pointer (+ flash page if
+  `_FindSym`/`_ChkFindSym` ([doc 05](05-variables-vat.md)/sub-vat) → VAT entry → data pointer (+ flash page if
   archived). The `count`/`dim` header is read first; then `_AdrLEle`/`_AdrMEle` do pointer
   math. A store into an **archived** matrix/list unarchives to RAM first (`_Arc_Unarc`, you
   can't poke Flash in place).

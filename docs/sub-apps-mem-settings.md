@@ -8,8 +8,8 @@ Addresses are `space:addr` where `ram`/`page_00`=`0000-3FFF`, flash pages mapped
 `4000-7FFF`. Confidence: **[confirmed]** = read from disassembly, **[likely]** =
 strong inference, **[partial]** = code is RAM-resident / cross-page and not fully traced.
 
-Cross-references: doc 11 (contexts, `_AppInit`, event router), doc 12 (RAM heap,
-`_CleanAll`), doc 13 (flash page map). Flag bits use the `ti83plus.inc` equates; the
+Cross-references: [doc 11](11-boot-contexts-errors.md) (contexts, `_AppInit`, event router), [doc 12](12-memory-management.md) (RAM heap,
+`_CleanAll`), [doc 13](13-flash-page-map.md) (flash page map). Flag bits use the `ti83plus.inc` equates; the
 SystemFlags base is `IY = flags = 0x89F0`, so e.g. `(IY+0x0A)` = `flags + fmtFlags`.
 
 ---
@@ -74,7 +74,7 @@ _AppInit(byte *hdr):                 ; HL -> 13-byte vector block in the header
   cxPage (0x8599) = port_mapBankA               ; remember which flash page we run on
 ```
 The 12 bytes are the 6 little-endian handler pointers (`cxMain`, `cxPPutAway`, `cxPutAway`,
-`cxRedisp`, `cxErrorEP`, `cxSizeWind` — see doc 11 §Context block). Example: the OS's own
+`cxRedisp`, `cxErrorEP`, `cxSizeWind` — see [doc 11](11-boot-contexts-errors.md) §Context block). Example: the OS's own
 default app vectors live at `page_3B:7571`:
 ```
 3E 75 | 4B 75 | 9F 74 | 4B 75 | 4B 75 | 4B 75 | 0A
@@ -82,10 +82,10 @@ cxMain=753E cxPPutAway=754B cxPutAway=749F cxRedisp=754B cxErrorEP=754B cxSizeWi
 ```
 `_ReloadAppEntryVecs` (`page_3B:73E4`, bcall `0x4C36`) calls `_AppInit` on that block, then
 overrides `cxErrorEP (0x8595)=0x27D9`. After `_AppInit`, the main event loop runs the app
-through `call_context_main` (pages in `cxPage`, jumps `(cxMain)` — doc 11).
+through `call_context_main` (pages in `cxPage`, jumps `(cxMain)` — [doc 11](11-boot-contexts-errors.md)).
 
 Because `cxCurApp` (`0x859A`) **is a key code**, pressing a mode key selects the context to
-load (doc 11). **App quit** (`page_3B:7412`) restores the saved context (8 bytes
+load ([doc 11](11-boot-contexts-errors.md)). **App quit** (`page_3B:7412`) restores the saved context (8 bytes
 `0x849A→0x84BF`), sets `cxCurApp=0x40` (`kQuit`=`cxCmd`, the homescreen), and re-renders —
 i.e. exiting an app drops you back to the home screen.
 
@@ -163,7 +163,7 @@ This zeroes the **entire** 32 KiB RAM and does the deepest re-init.
 Distinct from the MEM reset. `_CleanAll` (bcall `0x4A50`) only **compacts temporary RAM**
 after a command finishes: it shifts the FP stack (`fpBase`/`FPS`) down to `tempMem`, resets
 the `OPBase`/`OPS`/`pTemp` scratch pointers, and clears `pTempCnt`/`cleanTmp`. It does **not**
-clear the VAT, user vars, or Flash (see doc 12). `_FixTempCnt` (`page_07:4FEC`) marks temps
+clear the VAT, user vars, or Flash (see [doc 12](12-memory-management.md)). `_FixTempCnt` (`page_07:4FEC`) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.
 
 ### 2.6 Flash archive GC — "Defragmenting…" / "Garbage Collecting…" (`page_3C:7E00`) [confirmed]
@@ -172,7 +172,7 @@ Separate from RAM reset: when the Flash archive fills, the OS rewrites live arch
 fresh sectors and erases the old ones. The display dispatcher is `page_3C:7E23` (shows
 `Defragmenting...` `0x4076`) / `7E10`/`7E1C` (shows `Garbage Collecting...` `0x4126`+`412E`).
 It clears `0x844B` (a progress/word) and runs with the screen frozen (`DI`). The actual
-sector erase/write primitives are RAM-resident (flash control port `0x14`) — see doc 12.
+sector erase/write primitives are RAM-resident (flash control port `0x14`) — see [doc 12](12-memory-management.md).
 
 ---
 
@@ -239,7 +239,7 @@ So Normal/Sci/Eng = (bit0, bit1): Normal = `00`, Sci = `01`, Eng = `11`.
 ### 3.4 MODE screen plumbing
 
 The MODE screen is a menu context (`cxMode`/`kMode`=0x45) reached via the event/key router
-(doc 11). Its row strings live as token names on page 0x01 (`RadianN`/`DegreeO`/`NormalP`/
+([doc 11](11-boot-contexts-errors.md)). Its row strings live as token names on page 0x01 (`RadianN`/`DegreeO`/`NormalP`/
 `Float` at `page_01:49E4..4A06`; trailing letters are token-id bytes) and full-caps menu
 labels on page 0x37 (`DEGREE` `4A85`, `RADIAN` `4A8C`). Selecting a row writes the flag bits
 documented above directly (`SET/RES (IY+…)`, or stores into `fmtDigits`). **[likely]** —

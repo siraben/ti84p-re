@@ -16,15 +16,15 @@ TI-83+/84+ behavior consistent with what was seen.
 
 ## 1. How a program is stored [confirmed]
 
-A program is a VAT object of type `ProgObj` (5) / `ProtProgObj` (6) (see doc 05).
+A program is a VAT object of type `ProgObj` (5) / `ProtProgObj` (6) (see [doc 05](05-variables-vat.md)).
 Its data is `word size` followed by `size` bytes of **tokenized** body — the
 exact byte stream the parser walks. No line numbers; lines are separated by the
 **EOL/newline token `0x3F`** (`tEnter`, shown as `cVar=='?'` = 0x3F in the
 decompiled cursor code). Most tokens are 1 byte; the 11 lead bytes
-(`5C 5D 5E 60 61 62 63 7E AA BB EF`) introduce 2-byte tokens (doc 07).
+(`5C 5D 5E 60 61 62 63 7E AA BB EF`) introduce 2-byte tokens ([doc 07](07-tokenizer-basic.md)).
 
 Editing/detokenizing for the program editor uses the page-01 token helpers
-(doc 07, re-confirmed here):
+([doc 07](07-tokenizer-basic.md), re-confirmed here):
 - `_GetTokLen` (`01:66E5`) — returns 1 or 2 for the token at HL (length of the
   token's byte encoding), via `FUN_page_01_6702`.
 - `_Get_Tok_Strng` (`01:66EA`) — returns the display string for a token
@@ -36,7 +36,7 @@ Editing/detokenizing for the program editor uses the page-01 token helpers
 
 ## 2. The parse-stream cursor [confirmed]
 
-The interpreter walks the token body through a RAM cursor (doc 07, all
+The interpreter walks the token body through a RAM cursor ([doc 07](07-tokenizer-basic.md), all
 re-verified by decompilation):
 
 | Helper | Addr | Behavior |
@@ -96,11 +96,11 @@ The `param_2`/handler pointer is one of `0x4000` (base/term), `0x478c`
 range-checks an exponent as a positive int, `_JError(0x84)` Domain otherwise),
 or `0x7175` (a leaf no-op). Selecting among these by `precLevel` (1/2/3) is how
 operator **precedence** is realized — nesting of productions, not a flat table
-(confirms doc 07's "recursive-descent" claim). Results land in **OP1**; binary
+(confirms [doc 07](07-tokenizer-basic.md)'s "recursive-descent" claim). Results land in **OP1**; binary
 operators are applied via the FP RST shortcuts (RST 30h `_FPAdd`, …) and
 `_BinOPExec`.
 
-### `page_38:4000` is code, not a flat pointer table [confirmed — corrects doc 07]
+### `page_38:4000` is code, not a flat pointer table [confirmed — corrects [doc 07](07-tokenizer-basic.md)]
 
 Raw bytes at `38:4000` are `CD AB 33 CD 78 1A 21 50 8F …` = `CALL 0x33AB;
 CALL 0x1A78; LD HL,0x8F50; …` — i.e. **executable dispatch code**, the "base
@@ -190,7 +190,7 @@ value 0xD0 vs 0xD4 tells the caller whether it landed on `Else` or `End`.
   stack frame. **[inferred — standard, consistent with the rescan call shape]**
 - `Return`/`Stop` (`tReturn=D5`/`tStop=D9`) terminate the current program /
   unwind: they exit the statement loop back to the caller (or to the homescreen
-  context via the `onSP`/context mechanism in doc 11). **[inferred/strong]**
+  context via the `onSP`/context mechanism in [doc 11](11-boot-contexts-errors.md)). **[inferred/strong]**
 
 ---
 
@@ -264,13 +264,13 @@ runs and off at `Done`. **[confirmed]**
 5. Binary ops fold operands via FP RSTs (RST 30h `_FPAdd`; `_FPMult`=`00:238B`, …)
    / `_BinOPExec`, leaving the result in **OP1**.
 6. Variable tokens become an OP1 name (type byte + name) and resolve via
-   `_FindSym`/`_RclVarSym` (doc 05); store targets (`→VAR`) resolve through the
+   `_FindSym`/`_RclVarSym` ([doc 05](05-variables-vat.md)); store targets (`→VAR`) resolve through the
    `38:7600` name scanner (handles `[A]`/`L1`/`Str1`/Y-var/`Ans` classes,
    `_JError(0x8F)` if you try to store into `Ans`).
 7. Statement separators (`:` and EOL `0x3F`) end a statement; the loop re-enters
    for the next.
 
-The sub-tables `38:5110`/`38:5127` (doc 07) are small token-class lookups
+The sub-tables `38:5110`/`38:5127` ([doc 07](07-tokenizer-basic.md)) are small token-class lookups
 (`38:5110` keys off `tDisp(DE)`/`tOutput(E0)` region; `38:5127` is a paired
 classifier) that the dispatch consults; both tail into `RST5` (bjump) handlers.
 

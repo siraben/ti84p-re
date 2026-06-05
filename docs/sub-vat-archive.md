@@ -11,8 +11,7 @@ headless `Disasm.java`), not just the decompiler (which mis-renders the `SET b,(
 the cross-page `CALL 0x2b09`-style trampolines). Page numbers are the masked flash page
 (`rawpage & 0x3F`); cross-page trampolines store `lo hi rawpage` in the 3 bytes after the `CALL`.
 
-Confidence: **[C]=confirmed from disassembly**, **[H]=high (structure clear, some inference)**,
-**[I]=inferred / standard-TI behavior**.
+Confidence (this doc's shorthand; see [Conventions](conventions.md)): **[C]=confirmed from disassembly** (≈`[confirmed]`), **[H]=high (structure clear, some inference)** (≈`[standard]`), **[I]=inferred / standard-TI behavior** (≈`[hypothesis]`).
 
 ---
 
