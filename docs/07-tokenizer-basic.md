@@ -31,8 +31,16 @@ So e.g. `5D 00` = list `L1`; `BB xx` = an extended command. The second byte inde
 - `_GetTokLen` (`01:66E5`) returns 1 or 2 for the token at HL (via helper `FUN_page_01_6702`).
 - `_Get_Tok_Strng` (`01:66EA`) returns the display string for a token (used by the program editor and `Disp`).
 
-## Parser / interpreter [in progress]
-The execution engine (on banked pages) reads the program token stream and dispatches each token to a handler. Relevant bcalls seen: `_BinOPExec` (apply a binary operator using OP1/OP2), `_RunIndicOn`/`_RunIndicOff` (the busy indicator during execution), `_NextTok`/`_EOS`-style stream helpers. Arithmetic tokens flow into the FP engine (`06-floating-point.md`); variable tokens resolve via the VAT (`05-variables-vat.md`).
+## Parser / interpreter [located — page 0x38]
+
+The expression parser/evaluator lives on **flash page 0x38**. Entry points:
+- `_ParseInp` (`38:5987`) — parse/evaluate the input (homescreen/entry line). It calls `parse_init` (`38:5b7b`) to reset parser state, clears editing flags, then resolves via `_ChkFindSym`. **[confirmed]**
+- `_Find_Parse_Formula` (`38:758A`) — `_FindSym` a variable then parse its stored formula (Y-vars, equations). **[confirmed]**
+- `parse_init` (`38:5b7b`) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). **[confirmed]**
+
+The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine (`06`), variable tokens resolve via the VAT (`05`), and the busy indicator is driven by `_RunIndicOn`/`Off`. `_BinOPExec` applies a binary operator via OP1/OP2.
+
+**TODO (deep dive):** find the token→handler **jump table** on page 0x38 (the core dispatch loop after `parse_init`), and the operator-precedence / argument-stack handling.
 
 ## TODO
 - Find the main parser loop (the token-dispatch jump table) and name handlers.
