@@ -9,3 +9,5 @@ ram:08fa	call_context_main
 ram:08e9	call_context_savepage
 ram:05e6	main_event_loop
 page_38:5b7b	parse_init
+ram:1398	mem_block_move
+ram:0f8b	insertmem_setup
