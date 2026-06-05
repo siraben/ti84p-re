@@ -33,10 +33,33 @@ where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD mant
 | `_CkOP1Real` | page 0 | type-check OP1 is real |
 
 ### `_FPAdd` algorithm (recovered)
-1. Early-out: if `OP2==0` return; if `OP1==0` copy OP2→OP1 (incl. extended bytes) and return.
-2. Compute exponent difference; shift the smaller operand's mantissa right (`FUN_ram_1bea` per digit) to align — bail if the difference > 15 (one operand negligible).
-3. Compare sign bits (`OP1.type^OP2.type & 0x80`): equal → BCD add mantissas; differ → BCD subtract, then renormalize/fix the result sign.
-4. Round using the extended guard digits, renormalize, store exponent/type in OP1.
+
+```pseudocode
+\begin{algorithm}
+\caption{\texttt{\_FPAdd}: $OP1 \gets OP1 + OP2$ (sign-magnitude BCD)}
+\begin{algorithmic}
+\IF{$OP2 = 0$}
+    \RETURN $OP1$
+\ENDIF
+\IF{$OP1 = 0$}
+    \STATE $OP1 \gets OP2$ \COMMENT{incl. extended bytes}
+    \RETURN $OP1$
+\ENDIF
+\STATE $\Delta \gets \mathrm{exp}(OP1) - \mathrm{exp}(OP2)$ \COMMENT{\texttt{fp\_exp\_diff}}
+\STATE shift the smaller mantissa right by $|\Delta|$ digits to align \COMMENT{\texttt{fp\_shift\_right\_digit}}
+\IF{$|\Delta| > 15$}
+    \RETURN larger operand \COMMENT{other is negligible}
+\ENDIF
+\IF{$\mathrm{sign}(OP1) = \mathrm{sign}(OP2)$}
+    \STATE $\mathrm{mantissa} \gets$ BCD-add
+\ELSE
+    \STATE $\mathrm{mantissa} \gets$ BCD-subtract; fix result sign \COMMENT{\texttt{fp\_sub\_mantissa}}
+\ENDIF
+\STATE round via the guard digits, renormalize, store exp/type in $OP1$
+\RETURN $OP1$
+\end{algorithmic}
+\end{algorithm}
+```
 
 This is the canonical sign-magnitude BCD add. Named helpers [confirmed]:
 - `fp_exp_diff` (`1fbf`) — `OP1.exp − OP2.exp` (alignment amount).

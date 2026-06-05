@@ -37,7 +37,7 @@ Some early deep-dive docs use shorthand `[C]`/`[H]`/`[I]` ≈ `[confirmed]`/`[hy
 
 ## Math notation
 
-Formulas are written in LaTeX and rendered by **KaTeX** (offline, client-side): `$…$` for inline math and `$$…$$` (or `\[…\]`) for display. KaTeX skips `<code>`/`<pre>`, so `$`-prefixed hex like `$1A2F` inside code blocks is left untouched. Diagrams use Mermaid (` ```mermaid `) and render to SVG. See the repository `flake.nix`/`book.toml` for how the assets are vendored.
+Formulas are written in LaTeX and rendered by **KaTeX** (offline, client-side): `$…$` for inline math and `$$…$$` (or `\[…\]`) for display. KaTeX skips `<code>`/`<pre>`, so `$`-prefixed hex like `$1A2F` inside code blocks is left untouched. **Algorithms** are written as ` ```pseudocode ` blocks in [pseudocode.js](https://github.com/SaswatPadhi/pseudocode.js) `\begin{algorithm}` syntax and typeset client-side. Diagrams use Mermaid (` ```mermaid `) and render to SVG. See the repository `flake.nix`/`book.toml` for how the assets are vendored.
 
 ## How this RE was produced
 

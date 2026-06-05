@@ -10,8 +10,8 @@ default-theme = "navy"
 preferred-dark-theme = "navy"
 no-section-label = false
 mathjax-support = false
-additional-css = ["katex.min.css"]
-additional-js = ["mermaid.min.js", "mermaid-init.js", "hljs-z80.js", "katex.min.js", "katex-auto-render.min.js", "katex-init.js"]
+additional-css = ["katex.min.css", "pseudocode.min.css"]
+additional-js = ["mermaid.min.js", "mermaid-init.js", "hljs-z80.js", "katex.min.js", "katex-auto-render.min.js", "katex-init.js", "pseudocode.min.js", "pseudocode-init.js"]
 
 [output.html.fold]
 enable = true

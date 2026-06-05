@@ -101,15 +101,30 @@ seeds the bracket. The main loop runs from `39:4413`:
   `39:46EA` (`00 73 10 …`); the residual-zero floor is **`1.0e-99`** at `39:46E1`
   (`00 1D 10 …`). Reaching tolerance lands at `39:4547` and returns the root. **[confirmed]**
 
-```
-solve loop (page 39):  for it in 0..499:
-    mid   = (a+b)/2                       ; _InvSub, _TimesPt5
-    sec   = x - f(x)*(b-a)/(f(b)-f(a))    ; _FPMult/_FPSub/_FPDiv/_InvOP1S
-    x     = sec if inside bracket else mid
-    fx    = eval_equation(x)              ; 39:468F  (re-parse, error-trapped)
-    if sign(f(a)) == sign(f(b)) : NO SIGN CHNG (0x98)
-    if |b-a| < 1e-13            : converged -> return root (39:4547)
-  exhausted -> ITERATIONS (0x99) / BAD GUESS (0x9A)
+```pseudocode
+\begin{algorithm}
+\caption{Solver root-finder --- bisection $\oplus$ secant (page 0x39)}
+\begin{algorithmic}
+\REQUIRE bracket $[a,b]$, current guess $x$
+\FOR{$k = 0$ \TO $499$}
+    \STATE $m \gets \tfrac{1}{2}(a+b)$ \COMMENT{midpoint: \texttt{\_InvSub}, \texttt{\_TimesPt5}}
+    \STATE $s \gets x - f(x)\,\dfrac{b-a}{f(b)-f(a)}$ \COMMENT{secant: \texttt{\_FPMult/\_FPSub/\_FPDiv}}
+    \IF{$s \in [a,b]$}
+        \STATE $x \gets s$
+    \ELSE
+        \STATE $x \gets m$ \COMMENT{secant left the bracket}
+    \ENDIF
+    \STATE $f_x \gets \mathrm{eval\_equation}(x)$ \COMMENT{re-parse, error-trapped (39:468F)}
+    \IF{$\mathrm{sign}(f(a)) = \mathrm{sign}(f(b))$}
+        \STATE \textbf{raise} \textsc{no sign change} (0x98)
+    \ENDIF
+    \IF{$|b-a| < 10^{-13}$}
+        \RETURN $x$ \COMMENT{converged (39:4547)}
+    \ENDIF
+\ENDFOR
+\STATE \textbf{raise} \textsc{iterations} (0x99) / \textsc{bad guess} (0x9A)
+\end{algorithmic}
+\end{algorithm}
 ```
 
 `left-rt` shown on the Solver screen is the final residual `f(root)` (the

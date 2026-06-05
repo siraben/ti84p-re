@@ -11,9 +11,20 @@
       let
         pkgs = import nixpkgs { inherit system; };
         katexDir = "${pkgs.katex}/lib/node_modules/katex";
-        # Vendor client-side assets mdBook can't supply (KaTeX for math).
+        # pseudocode.js (renders LaTeX algorithm blocks; not packaged in nixpkgs)
+        pseudocodeJs = pkgs.fetchurl {
+          url = "https://cdn.jsdelivr.net/npm/pseudocode@2.4.1/build/pseudocode.min.js";
+          sha256 = "sha256-aVkDxqyzrB+ExUsOY9PdyelkDhn/DfrjWu08aVpqNlo=";
+        };
+        pseudocodeCss = pkgs.fetchurl {
+          url = "https://cdn.jsdelivr.net/npm/pseudocode@2.4.1/build/pseudocode.min.css";
+          sha256 = "sha256-VwMV//xgBPDyRFVSOshhRhzJRDyBmIACniLPpeXNUdc=";
+        };
+        # Vendor client-side assets mdBook can't supply (KaTeX math + pseudocode.js).
         setupAssets = ''
-          KATEX_DIR=${katexDir} bash tools/setup-wiki-assets.sh
+          KATEX_DIR=${katexDir} \
+          PSEUDOCODE_JS=${pseudocodeJs} PSEUDOCODE_CSS=${pseudocodeCss} \
+          bash tools/setup-wiki-assets.sh
         '';
       in {
         # `nix build`  -> static HTML wiki in ./result
