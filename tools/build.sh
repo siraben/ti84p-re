@@ -10,6 +10,7 @@ T="$(cd "$(dirname "$0")" && pwd)"          # this tools/ dir
 PROJ="$(dirname "$T")"                        # ~/Documents/ti84-re
 NAME=ti84
 
+python3 "$T/resolve_bcalls.py"          # regenerate bcall_targets.txt (page&0x3F)
 rm -rf "$PROJ/$NAME.gpr" "$PROJ/$NAME.rep"
 "$LX/support/analyzeHeadless" "$PROJ" "$NAME" \
   -import "$T/ti84_page00.bin" -processor z80:LE:16:default \

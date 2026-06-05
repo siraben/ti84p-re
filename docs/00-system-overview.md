@@ -21,15 +21,19 @@ Around those sit the I/O subsystems: the **IM1 interrupt** that drives timing/AP
 
 | Doc | Subsystem | Status |
 |-----|-----------|--------|
-| 01-memory-map.md | Address space, ports, RAM layout | drafting |
-| 02-paging.md | Flash/RAM banking (ports 6/7) | drafting |
-| 03-bcall-mechanism.md | rst 28h system calls + jump table | in progress |
-| 04-interrupts.md | IM1 ISR, timers, APD, ON key | drafting |
-| 05-variables-vat.md | Variable Allocation Table, object types | todo |
-| 06-floating-point.md | BCD float format, OP registers | todo |
-| 07-tokenizer-basic.md | Token tables, parser/interpreter | todo |
-| 08-display-lcd.md | LCD ports, screen buffers | todo |
-| 09-keyboard-link.md | Keypad scan, link protocol | todo |
+| 01-memory-map.md | Address space, ports, RAM layout | ✅ |
+| 02-paging.md | Flash/RAM banking (ports 6/7) | ✅ |
+| 03-bcall-mechanism.md | rst 28h system calls + jump table | ✅ |
+| 04-interrupts.md | IM1 ISR, timers, APD, ON key | ✅ |
+| 05-variables-vat.md | Variable Allocation Table, object types | ✅ (layout TODO) |
+| 06-floating-point.md | BCD float format, OP registers | ✅ |
+| 07-tokenizer-basic.md | Token tables, parser/interpreter | ✅ (parser TODO) |
+| 08-display-lcd.md | LCD ports, screen buffers | ✅ |
+| 09-keyboard-link.md | Keypad scan, link protocol | ✅ |
+| 10-subsystem-map.md | bcall API surface, system through-line | ✅ |
+| 11-boot-contexts-errors.md | Boot, context system, _JError/onSP | ✅ |
+
+Database state: **1393 functions**, all **535 bcalls** named at real (page,addr), TI-OS types applied. Rebuild: `tools/build.sh`.
 
 ## Key anchors found so far
 
