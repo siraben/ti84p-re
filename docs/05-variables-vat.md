@@ -34,6 +34,19 @@ The OS passes variable identity through **`OP1`** as a "name string": `OP1[0]` =
 
 `_CreateReal` (recovered): zeroes `OP1.type`, allocates 9 bytes (`FUN_ram_2045(9)`), handles the complex-list special case (`OP1.exp == 0x5D`), copies the name into the new entry, and on overflow calls `_JError(0x88)` (`E_Memory`-class). The mantissa-byte shuffles are moving the 2-byte data address (`param_2`) and name length into the VAT record fields.
 
+## Variable data layouts [confirmed from `_CreateR*`]
+
+The VAT entry points at the variable's **data**, whose format depends on the object type:
+
+| Type | Data layout |
+|------|-------------|
+| Real / Complex | `TIFloat` (9 bytes) / two floats (18) |
+| **List** (`_CreateRList`) | `word count` then `count × TIFloat`. A flag byte = `0x0C` marks a **complex** list (18-byte elements). |
+| **Matrix** (`_CreateRMat`) | `byte cols; byte rows;` then `rows*cols × TIFloat`, **column-major** (`_HTimesL` computes the element count). |
+| String / Program / AppVar | `word size` then `size` raw/tokenized bytes |
+
+The common allocator `var_alloc` (`ram:1005`) carves the data region (size = count × element-size) via `_InsertMem` (see `12`), then the `_CreateXxx` routine writes the header. All key off the name in `OP1` (`OP1.exp` carries the name's token class — `_CreateRList` validates it's a list-name token `0x5D/0x24/0x3A/0x72`).
+
 ## VAT entry shape — `VATEntry` (modeled) [partly hypothesis]
 Working backward from the table top, each record carries: type, version, 2-byte data address, data page (0 = RAM), name length, then the name bytes (stored in reverse). Exact field order varies by object class (named vars vs. list/matrix vs. program) — to be pinned down by tracing `_FindSym`'s scan loop.
 

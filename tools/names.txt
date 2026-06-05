@@ -15,3 +15,4 @@ ram:1bea	fp_shift_right_digit
 ram:1fbf	fp_exp_diff
 ram:2627	fp_clear_guard
 ram:1d37	fp_sub_mantissa
+ram:1005	var_alloc
