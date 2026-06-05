@@ -53,7 +53,7 @@ Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `
 | parser handlers | 84 (page 0x38 dispatch table) |
 | Defined data (strings/floats/typed) | 618 |
 | Flash pages loaded | 64 (1 MiB) |
-| Docs | 26 (15 core 00–13/99 + 10 subsystem deep-dives + this) |
+| Docs | 29 (15 core 00–13/99 + 11 subsystem deep-dives + 3 reference) |
 
 ## Architecture in one paragraph
 
@@ -79,7 +79,9 @@ A Z80 (64 KiB address space) with hardware **paging** maps flash page 0 at `0000
 | [13](docs/13-flash-page-map.md) | What each of the 64 flash pages holds |
 | [99](docs/99-open-questions.md) | Future-work roadmap |
 
-**Subsystem deep-dives** (from parallel multi-agent RE): `sub-calculation`, `sub-graphing`, `sub-tibasic`, `sub-vat-archive`, `sub-apps-mem-settings`, `sub-statistics`, `sub-matrix-list`, `sub-solver-numeric`, `sub-table-yvars`, `sub-link-transfer`.
+**Subsystem deep-dives** (from parallel multi-agent RE): `sub-calculation`, `sub-graphing`, `sub-tibasic`, `sub-vat-archive`, `sub-apps-mem-settings`, `sub-statistics`, `sub-matrix-list`, `sub-solver-numeric`, `sub-table-yvars`, `sub-equation-display`, `sub-link-transfer`.
+
+**Reference**: [`glossary`](docs/glossary.md) (terms & key RAM symbols), [`conventions`](docs/conventions.md) (notation, confidence flags, methodology), [`bcall-index`](docs/bcall-index.md) (all 607 bcalls, alphabetical).
 
 ## Notes
 - `ti83plus.inc` is TI's 2001-era equates file (from [siraben/ti84-forth](https://github.com/siraben/ti84-forth)); the `0x8xxx` 84+-era bcalls it lacks are resolved via the page-0x3F table and RE-named in `tools/ti84plus_extra.inc`.
