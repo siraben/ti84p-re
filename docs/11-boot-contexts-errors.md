@@ -26,7 +26,14 @@ Boot configures the paging hardware (ports 6 and `0x0E`) and interrupt controlle
 0690: LD A,0x7F; CALL call_context_main   ; run the active context's handler
 0699: POP AF; JP Z,0x05e6                 ; loop
 ```
-So the loop pumps an **event/context stack** (8 slots near `0x84BE`), routes each via the dispatcher at `0x3f3f`, and ultimately runs the active context's `cxMain` handler through `call_context_main`, looping forever. Return codes `0x7F/0xFE/0xFC/0xFB` signal context switches / app launches / quit. *(Stack semantics and the `0x3f3f` router still to be fully decoded.)*
+So the loop pumps an **event/context stack** (8 slots near `0x84BE`), routes each via the dispatcher at `0x3f3f`, and ultimately runs the active context's `cxMain` handler through `call_context_main`, looping forever.
+
+The `0x3f3f` router is a bjump trampoline → **`event_key_router` (`page_07:4539`)**: given a key code, it scans **key→context dispatch tables** (`07:4099`, ~105 entries, for 1-byte keys; `07:422C`/`4426` for extended 2-byte keys, using `_LdHLind`/`_CpHLDE`) and returns a **routing code**:
+- `0xFE` — normal: hand the key to the active context's handler.
+- `0xFB` / `0xFC` — **context switch** / app launch (the key maps to a different context — recall `cxCurApp` *is* a key code, so e.g. `[GRAPH]` → the graph context).
+- `0xFF`/`0x7F` — quit / no-op.
+
+So a mode key doesn't reach the active context — the router intercepts it and swaps `cx*` to the new context. `keyExtend` (`0x8446`) holds the extended-key state. **[confirmed]**
 
 ## Contexts — how the OS implements "modes"/apps [confirmed — key concept]
 
