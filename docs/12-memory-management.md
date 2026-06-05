@@ -43,9 +43,11 @@ Every `_CreateXxx` (see `05`) ultimately calls `_InsertMem` to carve space, then
 To save scarce RAM, variables can be **archived** to Flash. The archive code lives on **flash page 0x07**:
 - `_Arc_Unarc` (`07:6248`) — move OP1's variable between RAM and the Flash archive (toggles the archive bit, then relocates the data and rewrites the VAT entry's page to the Flash page).
 - `_FlashToRam` (`07:5017`) — copy archived data back into RAM.
-- `_CleanAll` (`07:52CF`) — **garbage-collect** the archive: archived vars are appended to Flash (which can't be overwritten in place), so deleting an archived var just marks it dead; when the archive Flash fills, `_CleanAll` rewrites the live vars to fresh sectors and erases the old ones. This is the **"Garbage Collecting…"** screen (string on page 1). **[confirmed routine; mechanism standard]**
+Archived vars are *appended* to Flash (which can't be overwritten in place), so deleting one just marks it dead; when the archive Flash fills, a **garbage collector** rewrites the live vars to fresh sectors and erases the old ones — the **"Garbage Collecting…"** screen. (That GC routine is distinct from `_CleanAll`; still to be located.)
 
-Flash is written/erased a sector at a time via low-level routines (RAM-resident, since you can't execute from Flash while erasing it) — the boot stub copies these to RAM. *To confirm: the sector erase/write primitives and the archive sector map.*
+**Correction — `_CleanAll` is *RAM* cleanup, not Flash GC** [confirmed from disassembly]: `_CleanAll` (`07:52CF`) compacts the **floating-point stack** (`fpBase`/`FPS` → `tempMem`) and resets the `OPBase`/`OPS`/`pTemp` scratch pointers, reclaiming temporary RAM after a command/expression finishes. It does **not** touch Flash.
+
+Flash is written/erased a sector at a time via low-level routines (RAM-resident, since you can't execute from Flash while erasing it) — the boot stub copies these to RAM; the flash-control port is `0x14`. *To confirm: the sector erase/write primitives and the archive sector map.*
 
 ## TODO
 - Pin the exact VAT walk in `_FindSym` and the temp-var entry format used by `_EnoughMem`.
