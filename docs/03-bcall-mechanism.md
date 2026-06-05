@@ -53,6 +53,8 @@ There is a **RAM-resident trampoline table** on page 0 at **`0x3B01–0x3D0B`**:
 
 Example: `_PutMap`'s glyph blitter is reached via the trampoline at `0x3B3D → page_07:4588`.
 
+**Inline bjumps:** besides the trampoline table, `CALL cross_page_jump; .dw; .db` appears *inline* throughout the OS (e.g. transcendentals: `_EToX` = `fp_clear_guard(); bjump`). Because `cross_page_jump` consumes the 3 inline bytes and tail-jumps (the target returns to the bjump's caller), the bytes after must be data and the call is non-returning. `tools/FixInlineBjumps.java` marks all **280** such sites; doing so corrected disassembly OS-wide (function count 1586→1780).
+
 ## Limitations / TODO
 - The `ti83plus.inc` used is 2001-era (TI-83+); it lacks the `0x8xxx` TI-84+-specific bcall IDs, so ~88 IDs in code show as `bcall(0x80xx)` unnamed. A newer 84+ equates file would close this.
 - Some bcalls are *thunks*: e.g. `_FindSym`'s page-0 entry just `thunk_FUN_ram_2b09()` — a page-switch trampoline to the real body. Worth tracing `thunk_FUN_ram_2b09` (the common cross-page jumper) next.

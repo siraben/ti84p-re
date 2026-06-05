@@ -35,9 +35,10 @@ Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `
 
 | Metric | Value |
 |--------|-------|
-| Functions | **1586** (736 named incl. all bcalls) |
+| Functions | **1780** (781 named incl. all bcalls) |
 | bcall routines named | **535 / 535** |
-| bjump trampolines resolved | 87 |
+| bjump sites resolved | 280 (incl. 87-entry trampoline table) |
+| parser handlers | 84 (page 0x38 dispatch table) |
 | Defined data (strings/floats/typed) | 618 |
 | Flash pages loaded | 64 (1 MiB) |
 | Docs | 14 (00–13) |

@@ -21,6 +21,7 @@ rm -rf "$PROJ/$NAME.gpr" "$PROJ/$NAME.rep"
   -postScript DeepenPass.java "$T" \
   -postScript RamRoutines.java "$T" \
   -postScript ApplyBjumpTargets.java "$T" \
+  -postScript FixInlineBjumps.java "$T" \
   -postScript ParserTable.java "$T" \
   -postScript RenameFns.java "$T" \
   -postScript BuildTypes.java "$T"
