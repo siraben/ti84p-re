@@ -3,3 +3,7 @@
 ram:2b09	cross_page_jump
 ram:1a8e	copy_op11
 ram:181c	bcall_set_page
+ram:078c	set_bankA_page
+ram:090b	jp_hl
+ram:08fa	call_context_main
+ram:08e9	call_context_savepage

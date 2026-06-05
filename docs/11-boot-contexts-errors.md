@@ -24,6 +24,32 @@ The OS is single-tasking but multi-**context**. A *context* is the set of handle
 
 This is the backbone of the UI: the main event loop reads a key (`_GetKey`), then calls the active context's key handler; switching screens swaps the `cx*` vectors.
 
+### Context block layout [confirmed, from ti83plus.inc + xrefs]
+
+The active context lives at a fixed RAM block (`Context` struct, base `cxMain`=`0x858D`):
+
+| Off | Addr | Field | Meaning |
+|-----|------|-------|---------|
+| +0 | 858D | `cxMain` | main/event handler ptr |
+| +2 | 858F | `cxPPutAway` | putaway handler ptr |
+| +4 | 8591 | `cxPutAway` | putaway |
+| +6 | 8593 | `cxRedisp` | redisplay/repaint handler ptr |
+| +8 | 8595 | `cxErrorEP` | error entry point ptr |
+| +10 | 8597 | `cxSizeWind` | window-size handler ptr |
+| +12 | 8599 | `cxPage` | flash page the handlers live on |
+| +13 | 859A | `cxCurApp` | current context id — **equals a key code** (`cxGraph`=kGraph, `cxCmd`=kQuit, `cxPrgmEdit`=kPrgmEd …) |
+| +14 | 859B | `cxPrev` | previous context id |
+
+`_AppInit` copies the **6 vectors (12 bytes, +0..+11)** from an app's header into this block, then sets `cxPage`. Because `cxCurApp` is a key code, a mode-switch key naturally selects the context to load.
+
+### How a context handler is invoked [confirmed]
+
+```
+call_context_main (ram:08fa):   set_bankA_page(cxPage); jp (cxMain)      ; run handler on its page
+call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; restore port6
+```
+Primitives: `set_bankA_page` (`ram:078c`, `port6 = page`) and `jp_hl` (`ram:090b`, `jp (hl)` dynamic dispatch). The OS pages the handler in, runs it, and (for the savepage variant) restores the caller's page.
+
 ## Error handling [confirmed]
 
 Errors use a non-local exit, not return codes:

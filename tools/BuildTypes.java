@@ -69,6 +69,20 @@ public class BuildTypes extends GhidraScript {
         vat.add(new ByteDataType(), "nameLen", "name bytes follow (reverse order)");
         dtm.addDataType(vat, DataTypeConflictHandler.REPLACE_HANDLER);
 
+        // OS "context" control block (active mode's handler vectors) @ cxMain=0x858D
+        StructureDataType cx = new StructureDataType("Context", 0);
+        cx.add(new PointerDataType(), "cxMain", "main/event handler");
+        cx.add(new PointerDataType(), "cxPPutAway", "putaway handler ptr");
+        cx.add(new PointerDataType(), "cxPutAway", "putaway");
+        cx.add(new PointerDataType(), "cxRedisp", "redisplay/repaint handler");
+        cx.add(new PointerDataType(), "cxErrorEP", "error entry point");
+        cx.add(new PointerDataType(), "cxSizeWind", "window size handler");
+        cx.add(new ByteDataType(), "cxPage", "flash page of handlers");
+        cx.add(new ByteDataType(), "cxCurApp", "current context id (= a key code)");
+        cx.add(new ByteDataType(), "cxPrev", "previous context id");
+        cx.setDescription("active context block @0x858D; _AppInit copies the 6 vectors (12B)");
+        dtm.addDataType(cx, DataTypeConflictHandler.REPLACE_HANDLER);
+
         // Flash app/OS header field (TLV) + certificate marker - library refs
         StructureDataType ah = new StructureDataType("FlashHeaderField", 0);
         ah.add(new ByteDataType(), "fieldTypeHi", "0x80 = field marker");
