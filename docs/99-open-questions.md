@@ -2,10 +2,12 @@
 
 The structural reverse-engineering is comprehensive (every subsystem mapped, both cross-page mechanisms resolved, full input→parse→eval→display pipeline documented). What remains is **depth**, gathered here from the per-doc TODOs and prioritized. Each is self-contained for a future session.
 
-## High value
+## Resolved (subagent RE pass)
 
-1. **Flash sector write/erase primitives** (`12`). RAM-resident (84+-specific, not in the 2001 `.inc`), write via flash-control port `0x14`. *Approach:* trace `_Arc_Unarc`'s data-move path on page 7 to the RAM stub the boot copies in; find the sector-erase command sequence. Security-relevant.
-2. **Flash archive garbage collector** (`12`). The real "Garbage Collecting…" routine (distinct from `cleanup_temp_ram`). *Approach:* the message string isn't directly xref'd (indexed string display) — find the string-table index display routine, or trace from `_Arc_Unarc` when the archive is full.
+1. ~~Flash sector write/erase primitives~~ ✅ **DONE** — `flash_program_core`@`3D:61AF` (port `0x14`), `flash_write_byte`@`3D:6B9B`, `flash_alloc_sector`@`3D:62C2`. See `sub-vat-archive.md` / `12`.
+2. ~~Flash archive garbage collector~~ ✅ **DONE** — `flash_gc_relocate`@`3C:7BD0` + `gc_show_screen`@`3C:7E0D` + dispatch `flash_cmd_dispatch`@`3C:7121`. See `sub-vat-archive.md`.
+
+## Still open — high value
 3. **VAT entry binary layout** (`05`). Exact field order/size per object class. *Approach:* trace `_FindSym`'s scan loop (it tail-calls `cross_page_jump` to a body on another page) and `_CreateProg`/`_CreateAppVar` header writes.
 4. **Parser precedence levels** (`07`). Map the recursive-descent productions (term/factor/unary) and the sub-dispatch tables at `page_38:5110`/`5127`. *Approach:* trace `parse_eval_expr` (`38:5AB3`) recursion and the `code *` handler pointers.
 
