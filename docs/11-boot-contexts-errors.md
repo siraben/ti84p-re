@@ -73,7 +73,29 @@ Errors use a non-local exit, not return codes:
 
 So `onSP` + `_JError` together implement try/catch: the context sets `onSP`, and any depth of nested calls can abort straight back to it.
 
+### Error-message table [confirmed]
+
+The error screen shows `ERR:<MESSAGE>` (the `ERR:` prefix is on `page_01:4008`). The messages are a string table on **`page_07:6B3B`**, ordered by error code — the handler indexes it by `(code & 0x7F) − 1`:
+
+| Code | `TIError` | Message @ page_07 |
+|------|-----------|-------------------|
+| 1 | E_Overflow | OVERFLOW (6B3C) |
+| 2 | E_DivBy0 | DIVIDE BY 0 (6B45) |
+| 3 | E_SingularMat | SINGULAR MAT (6B51) |
+| 4 | E_Domain | DOMAIN (6B5E) |
+| 5 | E_Increment | INCREMENT (6B65) |
+| 6 | E_Break | BREAK (6B6F) |
+| 7 | E_NonReal | NONREAL ANS (6B75) |
+| 8 | E_Syntax | SYNTAX (6B81) |
+| 9 | E_DataType | DATA TYPE (6B88) |
+| 10 | E_Argument | ARGUMENT (6B92) |
+| 11 | E_DimMismatch | DIM MISMATCH (6B9B) |
+| 12 | E_Dimension | INVALID DIM (6BA8) |
+| … | … | UNDEFINED, MEMORY, INVALID, ILLEGAL NEST, BOUND, WINDOW RANGE, ZOOM, LABEL, STAT, SOLVER, … LINK (6C55) |
+
+This exactly matches the `E_*` values in `ti83plus.inc` — confirming the `TIError` enum and the whole error pathway: a routine `_JError`s a code → handler unwinds to `onSP` → looks up the message here → renders `ERR:<msg>`.
+
 ## TODO
 - Decode the full `cx*` vector layout (offsets of key/display/putaway handlers within the 12-byte block).
-- Finish the boot RAM-init trace; find the homescreen main loop and confirm it's the root context.
-- Locate the error-message string table and map codes → messages.
+- Finish the boot RAM-init trace.
+- Flash write/erase sector primitives are RAM-resident (84+-specific, not in the 2001 equates); locate via `_CleanAll`'s callees on page 7.
