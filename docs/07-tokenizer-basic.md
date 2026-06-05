@@ -51,7 +51,16 @@ These handlers implement TI-BASIC **statements/commands and operators**. Samplin
 
 The first handlers: `page_38:419F, 45F0, 421C, …`.
 
-**TODO (deep dive):** map each table index → its token class/operator (by tracing the index computation), and document the operator-precedence / argument-count handling.
+### Parse-stream cursor [confirmed]
+
+The evaluator walks the token stream via a cursor in RAM: `parsePtr` (`DAT_ram_965d`, current position) and `parseEnd` (`DAT_ram_965f`, end). Named helpers on page 0x38:
+- `parse_cur_tok` (`38:72DA`) — fetch the token at the cursor.
+- `parse_advance` (`38:7248`) — `parsePtr++` and bounds-check vs `parseEnd`.
+- `parse_expect_or_err` (`38:5CD8`) — fetch a token and raise `_ErrSyntax` (recording the position in `parsePtr`) if it isn't the expected one.
+
+So the dispatch loop is: `parse_cur_tok` → index the handler table (`page_38:4000`) → run handler (which may consume args via `parse_advance`) → repeat.
+
+**TODO (deep dive):** map each table index → its token class/operator, and the operator-precedence / argument-count handling.
 
 ## TODO
 - Find the main parser loop (the token-dispatch jump table) and name handlers.
