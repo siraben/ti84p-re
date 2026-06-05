@@ -25,9 +25,9 @@ Around those sit the I/O subsystems: the **IM1 interrupt** that drives timing/AP
 | [02-paging.md](02-paging.md) | Flash/RAM banking (ports 6/7) | ✅ |
 | [03-bcall-mechanism.md](03-bcall-mechanism.md) | rst 28h system calls + jump table | ✅ |
 | [04-interrupts.md](04-interrupts.md) | IM1 ISR, timers, APD, ON key | ✅ |
-| [05-variables-vat.md](05-variables-vat.md) | Variable Allocation Table, object types | ✅ (layout TODO) |
+| [05-variables-vat.md](05-variables-vat.md) | Variable Allocation Table, object types | ✅ |
 | [06-floating-point.md](06-floating-point.md) | BCD float format, OP registers | ✅ |
-| [07-tokenizer-basic.md](07-tokenizer-basic.md) | Token tables, parser/interpreter | ✅ (parser TODO) |
+| [07-tokenizer-basic.md](07-tokenizer-basic.md) | Token tables, parser/interpreter | ✅ |
 | [08-display-lcd.md](08-display-lcd.md) | LCD ports, screen buffers | ✅ |
 | [09-keyboard-link.md](09-keyboard-link.md) | Keypad scan, link protocol | ✅ |
 | [10-subsystem-map.md](10-subsystem-map.md) | bcall API surface, system through-line | ✅ |
@@ -44,9 +44,12 @@ Around those sit the I/O subsystems: the **IM1 interrupt** that drives timing/AP
 | [sub-matrix-list.md](sub-matrix-list.md) | Matrix/list element access, Gauss-Jordan inverse/det, matmul | ✅ |
 | [sub-solver-numeric.md](sub-solver-numeric.md) | Solver root-finder, nDeriv/fnInt, TVM finance | ✅ |
 | [sub-table-yvars.md](sub-table-yvars.md) | TABLE generation/cache, Y= equation vars | ✅ |
+| [sub-equation-display.md](sub-equation-display.md) | Equation pretty-printer (page 0x39 `eqdisp_*`) | ✅ |
 | [sub-link-transfer.md](sub-link-transfer.md) | Link protocol: byte/packet/var-transfer (page 0x3C) | ✅ |
 
 (The `sub-*` docs are deep dives from two parallel multi-agent RE passes covering user-facing functionality — primary: calculation/graphing/TI-BASIC/VAT-archive/apps; secondary: stats/matrices/solver/table/link.)
+
+New to these notes? Start with [Conventions & Methodology](conventions.md) (how to read the addresses and confidence flags) and the [Glossary](glossary.md); the [bcall Index](bcall-index.md) is the full alphabetical system-call reference.
 
 Database state: **2413 functions (100% named)**, all bcalls resolved via both jump tables, TI-OS types applied. Rebuild: `tools/build.sh`.
 

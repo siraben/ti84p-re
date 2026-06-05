@@ -11,14 +11,17 @@ What lives on each of the 64 physical flash pages (16 KiB each). The OS itself o
 | **02** | 178 | **Float transcendentals & advanced math** | `_SqRoot`, `_LnX`, `_RnFx`, `_RndGuard` |
 | **03** | 5 | Edit-buffer / small font | `_CloseEditBuf`, `_Load_SFont`, `_SFont_Len` |
 | **04** | 58 | **Graph drawing** (pixel/line) | `_DarkLine`, `_ILine`, `_IPoint`, `_DarkPnt` |
+| **05** | ~111 | **TABLE editor** + Graph-Table split-screen | `table_editor_main`, `table_recompute`, `table_paint_grid` |
 | **06** | 32 | **Key input** & edit/cursor | `_GetKey`, `_GetCSC`, `_CursorOn/Off`, `_PutTokString` |
-| **07** | 21 | **Archive / list & matrix ops**; FP coeff tables | `_Arc_Unarc`, `_FlashToRam`, `_CleanAll`, `_RedimMat`, `_IncLstSize` |
+| **07** | 21 | **Archive / list & matrix ops**; FP coeff tables | `_Arc_Unarc`, `_CleanAll`, `_RedimMat`, `_IncLstSize` |
 | **33** | 62 | **Graph coordinate math** | `_SetXXOP1`, `_UCLineS` (window↔pixel transforms) |
 | **36** | 21 | **Mode setters** (Func/Param/Polar/Seq) | `_SetFuncM`, `_SetParM`, `_SetPolM`, `_SetSeqM` |
 | **37** | 5 | Graph coord convert | `_XftoI`, `_YftoI` |
 | **38** | 112 | **TI-BASIC parser / evaluator** | `_ParseInp`, `_Find_Parse_Formula`, `parse_init` |
-| **39** | 4 | Menu / full-screen display | `_SaveDisp`, `_DispMenuTitle`, `_ForceFullScreen` |
-| **3A/35/3A** | 1 | Stat / factorial (`_OneVar`, `_Factorial`) | |
+| **39** | ~147 | **Equation pretty-printer** (2D MathPrint layout) + menus | `eqdisp_render_entry`, `eqdisp_emit_glyph`, `_DispMenuTitle` |
+| **3A** | ~82 | **Statistics** (1/2-var, regressions) + TVM finance | `_OneVar`, `reg_gauss_solve`, `tvm_solve_iterate` |
+| **34** | 13 | Crystal **timers / clock**, token scan | `_CrystalTimerA`, `timer_scan_tbl` |
+| **35** | 3 | **Memory-reset** engine, factorial | `mem_reset_dispatch`, `ram_reset_wipe`, `op1_factorial` |
 | **3B** | 27 | **bcall jump table** + mem utils | (table data) `_MemClear`, `_MemSet`, `_DrawCirc2` |
 | **3C** | 30 | **Link / variable transfer** | `_SendAByte`, `_RecAByteIO`, `_SendVarCmd`, `_Rec1stByte` |
 | **3D** | 51 | **App management & Flash** | `_FindApp`, `_FindAppUp/Dn`, `_FlashToRam` |

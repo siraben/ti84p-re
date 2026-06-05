@@ -1,6 +1,6 @@
 # 10 — Subsystem Map (bcall API surface)
 
-A way to see the *whole* OS at once: categorize the 535 named bcall entry points (the OS's public API) by subsystem. This is the surface area user code and the OS itself program against.
+A way to see the *whole* OS at once: categorize the ~600 named bcall entry points (the OS's public API) by subsystem. This is the surface area user code and the OS itself program against.
 
 | Subsystem | ~bcalls | Representative entry points |
 |-----------|--------:|------------------------------|

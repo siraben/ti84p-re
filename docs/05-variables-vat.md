@@ -1,5 +1,7 @@
 # 05 — Variables & the VAT (Variable Allocation Table)
 
+> **Deep dive:** [Variables, Archive & Unarchive](sub-vat-archive.md) — Store/Recall, the byte-verified `_FindSym` walk, and archive/unarchive.
+
 Every named object the user creates — reals, lists, matrices, strings, programs, pictures, appvars, groups — is catalogued in the **VAT**, a table in RAM that grows *downward* from a fixed top. The VAT stores metadata + where the data lives; the data itself sits elsewhere in RAM (or in archived flash).
 
 ## Object types — `TIVarType` enum [confirmed, from ti83plus.inc]
@@ -72,7 +74,5 @@ name[0..N-1]; name bytes
 
 For **archived** vars the data address points into Flash and a page byte selects the Flash page (the in-RAM VAT entry still lives in RAM; only the data is in Flash). The `findsym_scan` body decompiles messily (inline bjumps), so this layout is the documented TI-83+ format — consistent with the header writes seen in `_CreateRList`/`_CreateRMat`. The `VATEntry` struct in the DB models the named-var case.
 
-## TODO
-- Trace `_FindSym` body (it tail-calls the cross-page jumper `FUN_2b09` → real scan loop on another page) and nail the exact `VATEntry` layout per type.
-- Map `OP1` name encoding for each object class (e.g. list names prefixed with a token, program names raw).
-- Find the symbol-table pointers (`tSymPtr1/2`, `9818/981A`) and how archived (flash) vars are resolved.
+## Resolved
+The `_FindSym` scan loop and per-class VAT entry layout are now byte-verified in [Variables, Archive & Unarchive](sub-vat-archive.md) (`findsym_scan`@`07:565F`; `tSymPtr1`/`tSymPtr2` and archived-var resolution covered there).

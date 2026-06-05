@@ -261,7 +261,7 @@ runs and off at `Done`. **[confirmed]**
 4. The precedence level (`cVar4` = 1/2/3) selects the production handler:
    `0x4000` (base term/dispatch), `FUN_38_478c` (postfix `^`/`!`), or
    `FUN_38_7175` (leaf). Nesting these realizes precedence.
-5. Binary ops fold operands via FP RSTs (RST 30h `_FPAdd`, RST 28h `_FPMult`, …)
+5. Binary ops fold operands via FP RSTs (RST 30h `_FPAdd`; `_FPMult`=`00:238B`, …)
    / `_BinOPExec`, leaving the result in **OP1**.
 6. Variable tokens become an OP1 name (type byte + name) and resolve via
    `_FindSym`/`_RclVarSym` (doc 05); store targets (`→VAR`) resolve through the

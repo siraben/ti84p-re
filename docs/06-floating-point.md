@@ -1,5 +1,7 @@
 # 06 — Floating-Point Engine
 
+> **Deep dive:** [Calculation Engine](sub-calculation.md) — ×, ÷, ^, roots, the transcendentals (sin/cos/ln/eˣ), and number formatting.
+
 All TI-BASIC arithmetic runs through a BCD floating-point engine centered on the **OP registers** in RAM. The engine lives mostly on flash page 0 (it's hot), with the RST-30 shortcut for the most common op.
 
 ## Number format — `TIFloat` (9 bytes on disk) [confirmed]
@@ -43,6 +45,22 @@ Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize pr
 ## Floating-point stack (FPS) [standard]
 `FPS` (`0x9824`) is a software stack for temporaries; `_PushRealO1` (= **RST 18h**, `00:155C`), `_PushReal`, `_PopRealOx`, `_AllocFPS`/`_DeallocFPS` manage it. Used to spill OP registers during nested expression evaluation.
 
+## Multiply / divide / transcendentals [confirmed — located]
+
+The rest of the FP op set lives alongside add on page 0, with the transcendentals banked to page 0x02:
+
+| Routine | Addr | Role |
+|---------|------|------|
+| `_FPSub` | `00:2297` | OP1 = OP1 − OP2 |
+| `_FPMult` | `00:238B` | OP1 = OP1 × OP2 |
+| `_FPRecip` | `00:253D` | OP1 = 1 / OP1 |
+| `_FPDiv` | `00:2541` | OP1 = OP1 / OP2 |
+| `_LnX` | `02:6EFD` | natural log |
+| `_EToX` | `02:705C` | eˣ |
+| `_SinCosRad` | `02:733E` | sin/cos (radians) |
+
+See [Calculation Engine](sub-calculation.md) for the ×/÷/^/root algorithms, the transcendental method, and number formatting.
+
 ## TODO
 - Name the FP helper cluster `FUN_ram_1bea/1d37/1cb9/1d2f/1fbf` (shift/sign/normalize).
-- Locate `_FPMult`/`_FPDiv`/`_FPRecip` and the transcendental routines (sin/cos/ln/exp) — likely on a banked page using the page-7 coefficient tables.
+- Map the page-2/page-7 minimax/CORDIC coefficient tables to `_SinCosRad`/`_LnX`/`_EToX` and document the polynomial-eval method (open item 10 in [99](99-open-questions.md)).

@@ -151,7 +151,7 @@ digit string honoring the **MODE** screen (Normal/Sci/Eng, Float/Fix 0–9).
 - Exponent ↔ ASCII helpers on page 0: `_ExpToHex` `ram:1E4E`, `_OP1ExpToDec` `ram:1E77`,
   `_DecO1Exp` `ram:1E6F` (decrement exp), `FUN_ram_1BCB` (BCD-digit → value). [confirmed]
 - The formatted string is then drawn by `_DispOP1A` (`page_04:7844`) / homescreen put-string
-  routines (see `05-display` docs).
+  routines (see [08-display-lcd.md](08-display-lcd.md)).
 
 `Ans` is simply the last-result `TIFloat` saved in a system var and reloaded into `OP1`
 (via `_Mov9ToOP1` = RST 20h) when the token `Ans` is evaluated. [standard]

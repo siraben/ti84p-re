@@ -1,5 +1,7 @@
 # 08 — Display / LCD
 
+> **Deep dives:** [Graphing](sub-graphing.md) (graph buffer → LCD, transforms) · [Table & Y= Variables](sub-table-yvars.md) (text grid).
+
 The TI-84+ drives a **96×64 monochrome LCD** through a controller on I/O ports `0x10` (command) and `0x11` (data). The OS keeps a **graph/screen buffer** in RAM and renders text via a built-in font.
 
 ## Controller [standard, consistent with code]
@@ -27,4 +29,4 @@ The TI-84+ drives a **96×64 monochrome LCD** through a controller on I/O ports 
 
 ## TODO
 - Confirm exact LCD command bytes (contrast set, X/Y addressing) by tracing `_ClearRow` and the buffer-copy routines.
-- Map the large-font glyph table location (the `cross_page_jump` target page in `_PutMap`).
+- Large-font glyph table located on **page 0x07** (`put_glyph_large`@`07:4588`, base ≈`0x45FF`); pin the exact base offset (see [Flash Page Map](13-flash-page-map.md)).

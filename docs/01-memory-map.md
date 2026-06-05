@@ -20,7 +20,7 @@ In this OS the system RAM variables all live at `8000+`, so for static RE we mod
 | `00` | Boot/kernel core, mapped at `0000` | RST vectors, `bcall_dispatcher`, FP/VAT/mem routines **[confirmed]** |
 | `01` | OS routines (display, homescreen text, menus) | `_PutC`,`_PutS`,`_ClrLCDFull`,`_NewLine` resolve here **[confirmed]** |
 | `06` | OS routines (key input, parser-ish) | `_GetKey`→`06:491E` **[confirmed]** |
-| `3B` | **bcall jump table** | scored 447/535; first entry `_JErrorNo`→`00:2799` **[confirmed]** |
+| `3B` | **bcall jump table** | scored 447/535 named .inc IDs; first entry `_JErrorNo`→`00:2799` **[confirmed]** |
 | `~3C–3F` | Boot code / certificate / version | high pages; `3F` is the usual boot-page region **[standard]** |
 
 Pages `01–3F` are loaded in Ghidra as overlays `page_01 … page_3F` (each at `4000`). Goto e.g. `page_01:5b4c` for `_PutC`.

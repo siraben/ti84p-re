@@ -137,7 +137,7 @@ END / 1 for BEGIN):
 
 Implemented with `_FPRecip` (`ram:253D`, for `(1+i)^(−N)` via reciprocal/power),
 `_FPMult` (`238B`), `_FPDiv` (`2541`), `_FPAdd` (RST 30h), `_InvSub`/`_FPSub`
-(`227D`/`2285`) around `3A:70D6…7140`. The compound factor `(1+i)^N` is built with the
+(`227D`/`2297`) around `3A:70D6…7140`. The compound factor `(1+i)^N` is built with the
 power/exp helpers. **[confirmed sequence; equation standard]**
 
 ### 2.2 The iteration [confirmed]
@@ -285,4 +285,3 @@ Parser entries (page 0x38): `_ParseInp 5987`, `parse_eval_expr 5AB3`,
 - Name the page-0/0x29xx solver helper cluster (`2800/2895/28C3/28D8/28E9/2903/2908/
   2914/291B/29CF/29D7/29DB/2A0B/2A0F/2A13/2A17`) — these are the Solver's OP-register
   save/restore and bracket-bookkeeping primitives.
-```

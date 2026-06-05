@@ -42,7 +42,7 @@ The engine reads the token stream and dispatches each token to a handler; arithm
 
 ### The handler dispatch table [confirmed]
 
-Page 0x38 **begins** with the parser's handler-address table at **`page_38:4000`** — **84 entries**, each a 2-byte pointer to a handler routine on page 0x38 (`tools/ParserTable.java` defines it; 81 handlers were disassembled from it). The evaluator indexes this table (`base + class*2`) and `jp (hl)` into the handler.
+Page 0x38 **begins** with the parser's handler dispatch at **`page_38:4000`**. *(Earlier this was modeled as a flat 84-entry pointer table by `tools/ParserTable.java`; the byte-verified reality — see the Correction below and [TI-BASIC Programs](sub-tibasic.md) — is that the region is **executable dispatch code**, not a pointer array.)*
 
 These handlers implement TI-BASIC **statements/commands and operators**. Sampling them by the routine they call:
 - indices 8–10, 17–19, 38 → `bcall(_Regraph)` — **graph commands** (`DrawF`, `ZoomFit`, etc.).
@@ -66,9 +66,9 @@ So the dispatch loop is: `parse_cur_tok` → index the handler table (`page_38:4
 
 The handlers are **recursive-descent grammar productions** (not flat per-operator routines): each reads via `parse_cur_tok`, conditionally recurses, and some load **sub-dispatch tables** (e.g. `page_38:5110`, `5127`) for finer token classes — implementing operator precedence by nesting. So "the + operator" isn't one table entry; it's handled within the term/factor production that drives `_FPAdd` (RST 30h).
 
-**TODO (deep dive):** map the precedence levels (term/factor/unary productions) and the sub-table contents.
+The precedence levels (term/factor/unary productions) and sub-dispatch tables are mapped in [TI-BASIC Programs](sub-tibasic.md) §3/§6.
 
 ## TODO
-- Find the main parser loop (the token-dispatch jump table) and name handlers.
-- Map each 2-byte group's second-byte table (esp. `BB` extended commands and `63` system vars).
-- Document `OP1`-as-name handoff from a variable token to `_FindSym`.
+- Map each 2-byte token group's second-byte table (esp. `BB` extended commands and `63` system vars).
+
+(The main parser loop, handler dispatch, and `OP1`-as-name handoff are covered in [TI-BASIC Programs](sub-tibasic.md).)

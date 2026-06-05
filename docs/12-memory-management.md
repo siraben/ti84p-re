@@ -42,8 +42,8 @@ Every `_CreateXxx` (see [05](05-variables-vat.md)) ultimately calls `_InsertMem`
 
 To save scarce RAM, variables can be **archived** to Flash. The archive code lives on **flash page 0x07**:
 - `_Arc_Unarc` (`07:6248`) — move OP1's variable between RAM and the Flash archive (toggles the archive bit, then relocates the data and rewrites the VAT entry's page to the Flash page).
-- `_FlashToRam` (`07:5017`) — copy archived data back into RAM.
-Archived vars are *appended* to Flash (which can't be overwritten in place), so deleting one just marks it dead; when the archive Flash fills, a **garbage collector** rewrites the live vars to fresh sectors and erases the old ones — the **"Garbage Collecting…"** screen. (That GC routine is distinct from `_CleanAll`; still to be located.)
+- `_FlashToRam` (id `5017` → body `3D:6745`) — copy archived data back into RAM.
+Archived vars are *appended* to Flash (which can't be overwritten in place), so deleting one just marks it dead; when the archive Flash fills, a **garbage collector** rewrites the live vars to fresh sectors and erases the old ones — the **"Garbage Collecting…"** screen. (That GC routine is distinct from `_CleanAll` — it is `flash_gc_relocate`@`3C:7BD0`, located below.)
 
 **Correction — `_CleanAll` is *RAM* cleanup, not Flash GC** [confirmed from disassembly]: `_CleanAll` (`07:52CF`) compacts the **floating-point stack** (`fpBase`/`FPS` → `tempMem`) and resets the `OPBase`/`OPS`/`pTemp` scratch pointers, reclaiming temporary RAM after a command/expression finishes. It does **not** touch Flash.
 
@@ -52,6 +52,5 @@ Flash is written/erased a sector at a time via low-level routines through the **
 - `flash_cmd_dispatch` (`3C:7121`) and the **garbage collector** `flash_gc_relocate` (`3C:7BD0`) + `gc_show_screen` (`3C:7E0D`) — the real "Garbage Collecting…" path (distinct from `_CleanAll`).
 - Archive workers: `_Arc_Unarc` (`07:6248`) → `arc_ram_to_flash` (`07:61F4`) / `arc_flash_to_ram` (`07:6107`).
 
-## TODO
-- Pin the exact VAT walk in `_FindSym` and the temp-var entry format used by `_EnoughMem`.
-- Trace `_CleanAll` to document the archive sector layout and the Flash write/erase RAM routines.
+## Resolved
+The `_FindSym` VAT walk, the Flash write/erase primitives (port `0x14`), and the archive sector layout are byte-verified in [Variables, Archive & Unarchive](sub-vat-archive.md).

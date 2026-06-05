@@ -25,15 +25,15 @@ From the decompiler:
 
 - Located at the start of physical flash **page 0x3B** (file offset `0x3B*0x4000 = 0xEC000`).
 - **3-byte entries**: `addr_lo, addr_hi, page`. IDs step by 3 from `0x4000`, so entry for ID *X* is at table offset `X-0x4000`.
-- Resolution method (`tools/` Python): scored all 64 pages by how many of the 535 named IDs produced a valid `(addr∈4000..7FFF or page-0, page<0x40)` entry — page `0x3B` scored **447/535**, the runner-up only 124.
+- Resolution method (`tools/` Python): scored all 64 pages by how many of the 535 named .inc IDs produced a valid `(addr∈4000..7FFF or page-0, page<0x40)` entry — page `0x3B` scored **447/535**, the runner-up only 124.
 - Validation: known bcalls land exactly where expected — `_PutS`→`01:5C39`, `_GetKey`→`06:491E`, `_ClrLCDFull`→`01:60E4`, `_GetCSC`→`00:04B2`, `_CreateReal`→`00:10B8`.
 
-`tools/bcall_targets.txt` holds all 535 `name, id, addr, page`. 289 targets live on page 0 (kernel), 246 on banked pages. `tools/ApplyBcalls.java` disassembles & names each; this took the project from 157 to ~922 functions.
+`tools/bcall_targets.txt` holds all **607** resolved bcalls (596 in the main 0x4xxx table + 11 extended). 289 targets live on page 0 (kernel), 318 on banked pages. `tools/ApplyBcalls.java` disassembles & names each.
 
 ## Two jump tables — by ID range [confirmed]
 
 The dispatcher's ID decode (`bcall_dispatcher`) selects one of **two** tables by the ID's top bits:
-- **`0x4xxx`–`0x7FFF`** (bit 14 set): the main table on **flash page 0x3B**, entry at offset `ID − 0x4000` (this is the 535 + 61 documented bcalls).
+- **`0x4xxx`–`0x7FFF`** (bit 14 set): the main table on **flash page 0x3B**, entry at offset `ID − 0x4000` (this is the 596 documented bcalls — 535 from the `.inc` + 61 RE-named).
 - **`0x8xxx`** (bit 15 set): a **second table on flash page 0x3F** (the boot page), entry at offset `ID & 0x7FFF`. These are the **TI-84+-era extended bcalls** (absent from the 2001 `.inc`) — their targets are routines on page 0x3F (record/cert scanning, paging setup; e.g. `_xb_RecordFind` `8027h`→`3F:4448`). 11 appear in OS 2.55MP; cataloged in `tools/ti84plus_extra.inc` and `bcalls8x_targets.txt`.
 
 Both tables use 3-byte entries (addr LE + page, page masked `& 0x3F`).
@@ -61,8 +61,8 @@ There is a **RAM-resident trampoline table** on page 0 at **`0x3B01–0x3D0B`**:
 
 Example: `_PutMap`'s glyph blitter is reached via the trampoline at `0x3B3D → page_07:4588`.
 
-**Inline bjumps:** besides the trampoline table, `CALL cross_page_jump; .dw; .db` appears *inline* throughout the OS (e.g. transcendentals: `_EToX` = `fp_clear_guard(); bjump`). Because `cross_page_jump` consumes the 3 inline bytes and tail-jumps (the target returns to the bjump's caller), the bytes after must be data and the call is non-returning. `tools/FixInlineBjumps.java` marks all **280** such sites; doing so corrected disassembly OS-wide (function count 1586→1780).
+**Inline bjumps:** besides the trampoline table, `CALL cross_page_jump; .dw; .db` appears *inline* throughout the OS (e.g. transcendentals: `_EToX` = `fp_clear_guard(); bjump`). Because `cross_page_jump` consumes the 3 inline bytes and tail-jumps (the target returns to the bjump's caller), the bytes after must be data and the call is non-returning. `tools/FixInlineBjumps.java` marks all **280** such sites, which substantially improved OS-wide disassembly coverage.
 
 ## Limitations / TODO
-- The `ti83plus.inc` used is 2001-era (TI-83+); it lacks the `0x8xxx` TI-84+-specific bcall IDs, so ~88 IDs in code show as `bcall(0x80xx)` unnamed. A newer 84+ equates file would close this.
+- The 2001-era `ti83plus.inc` lacks the `0x8xxx` TI-84+ bcall IDs; these are now **resolved** via the second table on page 0x3F (see *Two jump tables* above) and named in `tools/ti84plus_extra.inc`.
 - Some bcalls are *thunks*: e.g. `_FindSym`'s page-0 entry just `thunk_FUN_ram_2b09()` — a page-switch trampoline to the real body. Worth tracing `thunk_FUN_ram_2b09` (the common cross-page jumper) next.
