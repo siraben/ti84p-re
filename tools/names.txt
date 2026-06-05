@@ -16,3 +16,5 @@ ram:1fbf	fp_exp_diff
 ram:2627	fp_clear_guard
 ram:1d37	fp_sub_mantissa
 ram:1005	var_alloc
+ram:0cc3	lcd_wait
+ram:151b	fps_dealloc9
