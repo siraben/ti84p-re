@@ -11,3 +11,7 @@ ram:05e6	main_event_loop
 page_38:5b7b	parse_init
 ram:1398	mem_block_move
 ram:0f8b	insertmem_setup
+ram:1bea	fp_shift_right_digit
+ram:1fbf	fp_exp_diff
+ram:2627	fp_clear_guard
+ram:1d37	fp_sub_mantissa

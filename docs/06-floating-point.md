@@ -32,7 +32,13 @@ Value = ±(d0 . d1 d2 … d13) × 10^(exp−0x80). The BCD scan found 126 such c
 3. Compare sign bits (`OP1.type^OP2.type & 0x80`): equal → BCD add mantissas; differ → BCD subtract, then renormalize/fix the result sign.
 4. Round using the extended guard digits, renormalize, store exponent/type in OP1.
 
-This is the canonical sign-magnitude BCD add; subtraction, multiply, divide build on the same align/normalize helpers (`FUN_ram_1bea` shift, `FUN_ram_1d37` sign handling, `FUN_ram_1cb9`/`1d2f` normalize — candidates to name next).
+This is the canonical sign-magnitude BCD add. Named helpers [confirmed]:
+- `fp_exp_diff` (`1fbf`) — `OP1.exp − OP2.exp` (alignment amount).
+- `fp_shift_right_digit` (`1bea`) — shift a 9-byte mantissa right by one BCD digit (nibble cascade); called per-step to align the smaller operand.
+- `fp_clear_guard` (`2627`) — zero the extended guard bytes (`OP1EXT`/`OP2EXT` @ `0x8481`/`0x848C`).
+- `fp_sub_mantissa` (`1d37`) — BCD subtract of mantissas (with guard-digit borrow) for opposite-sign add.
+
+Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize primitives.
 
 ## Floating-point stack (FPS) [standard]
 `FPS` (`0x9824`) is a software stack for temporaries; `_PushRealO1` (= **RST 18h**, `00:155C`), `_PushReal`, `_PopRealOx`, `_AllocFPS`/`_DeallocFPS` manage it. Used to spill OP registers during nested expression evaluation.
