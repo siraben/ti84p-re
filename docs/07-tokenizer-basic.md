@@ -40,7 +40,13 @@ The expression parser/evaluator lives on **flash page 0x38**. Entry points:
 
 The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine (`06`), variable tokens resolve via the VAT (`05`), and the busy indicator is driven by `_RunIndicOn`/`Off`. `_BinOPExec` applies a binary operator via OP1/OP2.
 
-**TODO (deep dive):** find the token→handler **jump table** on page 0x38 (the core dispatch loop after `parse_init`), and the operator-precedence / argument-stack handling.
+### The handler dispatch table [confirmed]
+
+Page 0x38 **begins** with the parser's handler-address table at **`page_38:4000`** — **84 entries**, each a 2-byte pointer to a handler routine on page 0x38 (the table is `tools/ParserTable.java`'s output; 81 of the handlers were disassembled from it). When the evaluator reads a token/operator, it indexes this table (`base + class*2`) and `jp (hl)` into the handler. The handlers implement the operators, functions, and grammar productions of TI-BASIC; arithmetic ones drive OP1/OP2 through the FP engine (`06`), variable ones go through `_FindSym` (`05`).
+
+The first handlers: `page_38:419F, 45F0, 421C, 41F0, 45F3, 49BE, …`.
+
+**TODO (deep dive):** map each table index → its token class/operator (by tracing the index computation), and document the operator-precedence / argument-count handling.
 
 ## TODO
 - Find the main parser loop (the token-dispatch jump table) and name handlers.
