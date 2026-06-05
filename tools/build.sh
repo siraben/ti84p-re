@@ -20,6 +20,7 @@ rm -rf "$PROJ/$NAME.gpr" "$PROJ/$NAME.rep"
   -postScript ApplyBcalls.java "$T" \
   -postScript DeepenPass.java "$T" \
   -postScript RamRoutines.java "$T" \
+  -postScript ApplyBjumpTargets.java "$T" \
   -postScript RenameFns.java "$T" \
   -postScript BuildTypes.java "$T"
 echo "Build complete: $PROJ/$NAME.gpr"

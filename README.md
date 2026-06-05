@@ -24,8 +24,10 @@ The pipeline (`build.sh`):
 2. `BuildTI84Full.java` — load all 64 flash pages (page 0 + overlays `page_01..3F`), RAM/IO blocks, symbols from `ti83plus.inc`, BCD-float detection, `rst 28h` fix-ups
 3. `ApplyBcalls.java` — disassemble & name all 535 OS routines at their real `(page,addr)`
 4. `DeepenPass.java` — flow analysis + name remaining bcall sites
-5. `RenameFns.java` — apply accumulated manual names (`names.txt`)
-6. `BuildTypes.java` — TI-OS enums/structs/typed regions
+5. `RamRoutines.java` — mark the page-0 bjump trampoline table (87 cross-page vectors)
+6. `ApplyBjumpTargets.java` — disassemble the hot routines those trampolines point to
+7. `RenameFns.java` — apply accumulated manual names (`names.txt`)
+8. `BuildTypes.java` — TI-OS enums/structs/typed regions
 
 Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `:8080`).
 
@@ -33,8 +35,9 @@ Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `
 
 | Metric | Value |
 |--------|-------|
-| Functions | **1395** (780 named, 56%) |
+| Functions | **1586** (736 named incl. all bcalls) |
 | bcall routines named | **535 / 535** |
+| bjump trampolines resolved | 87 |
 | Defined data (strings/floats/typed) | 618 |
 | Flash pages loaded | 64 (1 MiB) |
 | Docs | 14 (00–13) |
