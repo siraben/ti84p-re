@@ -20,14 +20,16 @@ tools/build.sh        # ~10s; rebuilds ~/Documents/ti84-re/ti84.gpr
 ```
 
 The pipeline (`build.sh`):
-1. `resolve_bcalls.py` — resolve the bcall jump table from the ROM → `bcall_targets.txt`
+1. `resolve_bcalls.py` — resolve both bcall jump tables (0x4xxx→page 0x3B, 0x8xxx→page 0x3F) + the bjump trampoline table from the ROM
 2. `BuildTI84Full.java` — load all 64 flash pages (page 0 + overlays `page_01..3F`), RAM/IO blocks, symbols from `ti83plus.inc`, BCD-float detection, `rst 28h` fix-ups
-3. `ApplyBcalls.java` — disassemble & name all 535 OS routines at their real `(page,addr)`
+3. `ApplyBcalls.java` — disassemble & name all 596 bcall routines at their real `(page,addr)`
 4. `DeepenPass.java` — flow analysis + name remaining bcall sites
 5. `RamRoutines.java` — mark the page-0 bjump trampoline table (87 cross-page vectors)
 6. `ApplyBjumpTargets.java` — disassemble the hot routines those trampolines point to
-7. `RenameFns.java` — apply accumulated manual names (`names.txt`)
-8. `BuildTypes.java` — TI-OS enums/structs/typed regions
+7. `FixInlineBjumps.java` — fix all 280 inline `CALL cross_page_jump` tail-jumps
+8. `ParserTable.java` — the page-0x38 parser handler dispatch
+9. `RenameFns.java` — apply ~1600 accumulated names (`names.txt`) — gets to 100%
+10. `BuildTypes.java` — TI-OS enums/structs/typed regions
 
 Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `:8080`).
 
@@ -41,7 +43,7 @@ Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `
 | parser handlers | 84 (page 0x38 dispatch table) |
 | Defined data (strings/floats/typed) | 618 |
 | Flash pages loaded | 64 (1 MiB) |
-| Docs | 14 (00–13) |
+| Docs | 26 (15 core 00–13/99 + 10 subsystem deep-dives + this) |
 
 ## Architecture in one paragraph
 
@@ -64,7 +66,12 @@ A Z80 (64 KiB address space) with hardware **paging** maps flash page 0 at `0000
 | [10](docs/10-subsystem-map.md) | bcall API surface, system through-line |
 | [11](docs/11-boot-contexts-errors.md) | Boot, the context system, `_JError`/`onSP` |
 | [12](docs/12-memory-management.md) | RAM heap, VAT, Flash archive & GC |
+| [13](docs/13-flash-page-map.md) | What each of the 64 flash pages holds |
+| [99](docs/99-open-questions.md) | Future-work roadmap |
+
+**Subsystem deep-dives** (from parallel multi-agent RE): `sub-calculation`, `sub-graphing`, `sub-tibasic`, `sub-vat-archive`, `sub-apps-mem-settings`, `sub-statistics`, `sub-matrix-list`, `sub-solver-numeric`, `sub-table-yvars`, `sub-link-transfer`.
 
 ## Notes
-- `ti83plus.inc` is TI's 2001-era equates file (from [siraben/ti84-forth](https://github.com/siraben/ti84-forth)); it lacks the `0x8xxx` 84+-era bcall names, so ~88 bcall IDs show unnamed.
+- `ti83plus.inc` is TI's 2001-era equates file (from [siraben/ti84-forth](https://github.com/siraben/ti84-forth)); the `0x8xxx` 84+-era bcalls it lacks are resolved via the page-0x3F table and RE-named in `tools/ti84plus_extra.inc`.
+- ~1600 function names beyond the official bcalls are **RE-inferred** from behavior (callees, RAM/port touches) — accurate in aggregate, but a specific low-level helper's name is a best-effort guess; flagged by snake_case (vs the `_CamelCase` official TI bcalls).
 - Confidence flags in the docs: **[confirmed]** (seen in disassembly), **[standard]** (matches documented TI architecture), **[hypothesis]** (inferred).
