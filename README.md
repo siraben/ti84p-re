@@ -11,6 +11,16 @@ docs/    reverse-engineering notes, one file per subsystem
 
 The ROM (`ti84plus.rom`) and the Ghidra project (`*.gpr`/`*.rep`) are gitignored. Put the ROM at `tools/rom.bin` (and a 16 KiB page-0 slice at `tools/ti84_page00.bin`) and run the build.
 
+## Browse the wiki
+
+The `docs/` are also a rendered **[mdBook](https://rust-lang.github.io/mdBook/) wiki** (sidebar nav + full-text search):
+
+```sh
+nix run            # live server at http://127.0.0.1:3000
+nix build          # static HTML → ./result  (deploy anywhere)
+nix develop        # shell with mdbook
+```
+
 ## Build
 
 Requires Ghidra 12.1 + JDK 21. With Ghidra **closed**:
