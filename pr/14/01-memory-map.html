@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a5d33d98.js";
+            window.path_to_searchindex_js = "searchindex-b9d072b0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -252,7 +252,7 @@
 <tr><td><code>08</code>-<code>0D</code></td><td>usb/link assist</td><td>84+ hardware byte-assist control/status/data/FIFO ports; see <a href="sub-usb-asic.html">USB ASIC and link assist</a></td></tr>
 <tr><td><code>10/11</code></td><td>lcdCmd/lcdData</td><td>LCD controller</td></tr>
 <tr><td><code>20</code></td><td>cpuSpeed</td><td>0=6 MHz, 1=15 MHz (set in ISR)</td></tr>
-<tr><td><code>4D</code></td><td>usbLineState</td><td>USB line-state gate sampled by <code>_LinkXferOP</code>; bits 5/6 gate the unresolved <code>ram:2E48</code> call path</td></tr>
+<tr><td><code>4D</code></td><td>usbLineState</td><td>USB line-state gate sampled by <code>_LinkXferOP</code>; bits 5/6 gate the <code>ram:2E0B</code> bjump to <code>35:4280</code></td></tr>
 <tr><td><code>55/56</code></td><td>usbIntStatus/usbLineEvents</td><td>USB interrupt state / line events (84+) — polled first in <code>int_dispatch_sources</code>; both read-only (port 0x56 is a read-only event bitmap, not a write mask)</td></tr>
 </tbody>
 </table>
