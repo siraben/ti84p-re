@@ -42,6 +42,45 @@ The scanner `kbd_scan_autorepeat` (`ram:0406`) walks the matrix one group at a t
 
 **Forming a raw scan code.** For each driven group the routine reads the column byte, then finds the single low (pressed) column bit by an 8-iteration `RLA`/`DJNZ` loop (`0435`–`043C`) that counts set bits into `E` and records the bit index in `L`. If exactly one key is down it builds the scan code as **`(group_index − 1) × 8 + column_index`** (`0453: DEC A; RLA;RLA;RLA; ADD A,L` — the `DEC A` makes the high three bits `group − 1`, then the three `RLA`s shift it up by 8 before adding the column in `L`) and returns it; multiple simultaneous keys set carry (`SCF` @ `0459`) so the press is rejected (debounce / ghost-key reject). The single resulting byte is the raw scan code that lands in `kbdScanCode` (`0x843F`), which `_GetCSC` (`00:04B2`) then reads-and-clears under `DI`. The scan-enable gate `BIT 0,(IY+0x2C)` @ `0415` lets the ISR/`_GetKey` path special-case the arrow group.
 
+### 2nd / ALPHA modifier state machine [confirmed]
+
+While cooking raw scan codes into the `kXxx` key constants, `_GetKey` (`06:491E`) runs a small modifier state machine in **`shiftFlags`** (`IY+0x12` = `0x8A02`, the `[2nd]`/`[ALPHA]` flag byte):
+
+| Bit | Name | Meaning |
+|-----|------|---------|
+| 3 | `shift2nd` | `[2nd]` is pending — the next key is 2nd-shifted |
+| 4 | `shiftAlpha` | alpha mode active — the next key is a letter |
+| 5 | `shiftLwrAlph` | 1 = lowercase, 0 = uppercase |
+| 6 | `shiftALock` | alpha **lock** — alpha survives across keys |
+| 7 | `shiftKeepAlph` | the alpha shift cannot be cancelled |
+
+`_GetKey` first dispatches on the pending modifier (`06:4AC3` `BIT 3` → the 2nd handler at `06:4B87`; `06:4ACA` `BIT 4` → the alpha handler at `06:4BFD`), then on the key. The transitions, with the `SET`/`RES` sites:
+
+- **`[2nd]` (`0x36`) from idle** → `SET shift2nd` (`06:4AD5`); loop without returning a key, lighting the 2nd cursor (`IY+0x1F` bit 6).
+- **`[2nd]` again while pending** → cancel (`06:4B8E` `CP 0x36`, clear the cursor, loop).
+- **any other key while 2nd-pending** → the 2nd handler clears the flag first (`06:4B87` `RES 3`) then returns the **2nd-shifted** code, so `[2nd]` is **one-shot**.
+- **`[ALPHA]` (`0x30`) from idle** → `SET shiftAlpha`, `RES shiftLwrAlph` (uppercase) (`06:4AE8`/`4AEC`); loop, lighting the alpha cursor (`IY+0x1F` bit 7).
+- **`[2nd]` then `[ALPHA]`** (alpha pressed while 2nd is pending) → the 2nd handler reaches `06:4B92` `CP 0x30` and sets `SET shiftALock` + `SET shiftAlpha` (`06:4B96`/`4B9A`): **alpha LOCK**.
+- **`[ALPHA]` while already in alpha** (`06:4BFD`) → in a lowercase-capable context (`IY+0x24` bit 3) and still uppercase, `SET shiftLwrAlph` (`06:4C0D`) cycles **upper → lower**; otherwise it cancels alpha. Repeated `[ALPHA]` walks uppercase → lowercase → off.
+- **`[2nd]` while in alpha** (`06:4C1D`) → `SET shift2nd` (`06:4C25`): a 2nd press stacks on top of alpha (alpha is retained).
+
+`shift2nd` clears the instant a 2nd-combo key is consumed (`06:4B87`). `_GetKey` never clears `shiftAlpha` itself — an un-locked alpha shift persists in `shiftFlags` until a later `[ALPHA]` press cancels it; `shiftALock` (bit 6, from 2nd+ALPHA) is the sticky lock that survives any number of keys.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Second: 2nd, SET b3 @4AD5
+    Second --> Idle: 2nd again, cancel @4B8E
+    Second --> Idle: any key, 2nd-shifted then RES b3 @4B87
+    Second --> AlphaLock: ALPHA, SET b6+b4 @4B96
+    Idle --> Alpha: ALPHA, SET b4 + RES b5 @4AE8
+    Alpha --> Alpha: letter, alpha code, b4 stays
+    Alpha --> AlphaLower: ALPHA, SET b5 @4C0D
+    AlphaLower --> Idle: ALPHA, cancel @4C13
+    AlphaLock --> AlphaLock: letter, alpha code, locked
+    AlphaLock --> Idle: ALPHA, cancel
+```
+
 ### Key → token translation [confirmed]
 
 `_KeyToString` (`01:6D10`) turns a key code into a TI-BASIC **token** for the editor. It's not a single flat table — it combines:
