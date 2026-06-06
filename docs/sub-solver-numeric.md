@@ -63,9 +63,11 @@ of the equation. Located around `39:468F`:
    re-evaluates the stored equation formula (page-0x39 hosts a parse/token walker at
    `39:327F` using `parse_advance 7248` / `parse_cur_tok 72DA`-style cursors, mirroring the
    page-0x38 parser — the equation is re-tokenised and evaluated every iteration).
-3. The post-eval filter at `39:46C7` inspects the error code in `A`: codes `0x86`/`0x87`
-   (out-of-range / NONREAL ANS) and similar are **swallowed** (this `x` is treated as a
-   point where `f` is undefined, so the solver can step past it) while harder errors are
+3. The post-eval filter at `39:46C7` inspects the error code in `A`: codes **below `0x86`**
+   (`OVERFLOW`/`DIV BY 0`/`SINGULAR MAT`/`DOMAIN`) and `0x87` (`NONREAL ANS`) are
+   **swallowed** (`CP 0x87; JR Z` then `CP 0x86; JP NC,0x2799` — this `x` is treated as a
+   point where `f` is undefined, so the solver can step past it) while `0x86` (`BREAK`) and
+   codes `≥ 0x88` are
    re-raised via `_JErrorNo` (`JP 2799`). This is why `solve(` can skip singularities
    inside the bracket without aborting. **[confirmed]**
 
@@ -297,7 +299,7 @@ Equation Solver / `solve(` (page 0x39):
 39:4413  solver_iterate             (bisection+secant hybrid main loop)
 39:463A  solver_sign_test           (OP1/OP2 sign-change predicate; Z=same sign)
 39:468F  solver_eval_fx             (store guess -> reparse equation -> f=left-right)
-39:46C7  solver_eval_errfilter      (swallow 0x86/0x87, re-raise others via _JErrorNo)
+39:46C7  solver_eval_errfilter      (swallow <0x86 and 0x87/NONREAL; re-raise 0x86/BREAK and >=0x88 via _JErrorNo)
 39:327F  solver_parse_formula       (page-39 token walker used by the evaluator)
 39:46EA  const_tol_1e-13            (convergence tolerance, TIFloat 00 73 10..)
 39:46E1  const_floor_1e-99          (residual-zero floor, TIFloat 00 1D 10..)
