@@ -9,7 +9,7 @@ A reproducible Ghidra reverse-engineering project for the **TI-84 Plus** calcula
 ```
 docs/                  reverse-engineering notes, one file per subsystem (the rendered wiki)
 tools/                 build pipeline (Ghidra headless scripts) + derived symbol tables
-WRITING_GUIDELINES.md  authoring style guide for the wiki
+.codex/skills/         repo-local Codex skills, including the wiki authoring guide
 flake.nix · book.toml  mdBook build/serve + vendored KaTeX/Mermaid/pseudocode assets
 ```
 
@@ -89,7 +89,7 @@ A Z80 (64 KiB address space) with hardware **paging** maps flash page 0 at `0000
 
 ## Contributing
 
-Wiki prose follows two style references: [`WRITING_GUIDELINES.md`](WRITING_GUIDELINES.md) — the authoring guide (voice, positive framing, structure, sentence-case headings) — and the reader-facing [`docs/conventions.md`](docs/conventions.md), which fixes the address notation (`pp:addr`), the `[confirmed]`/`[standard]`/`[hypothesis]` confidence flags, and the KaTeX/Mermaid/pseudocode mechanics. Claims are grounded against the live Ghidra DB (GhidraMCP over `:8080`); for routines its auto-analysis left undefined (cross-page trampolines break the call graph), decode `tools/rom.bin` directly — e.g. with `z80dasm`, validated against a routine Ghidra *does* define. Run `nix build` before committing to confirm math and diagram fences parse.
+Wiki authoring style lives in the repo-local Codex skill [`ti84-re-writing`](.codex/skills/ti84-re-writing/SKILL.md), which merges prose voice, positive framing, structure, sentence-case headings, address notation, confidence flags, function naming, and mdBook mechanics into one authoring guide. The reader-facing [`docs/conventions.md`](docs/conventions.md) remains the rendered explanation of notation and methodology. Claims are grounded against the live Ghidra DB (GhidraMCP over `:8080`); for routines its auto-analysis left undefined (cross-page trampolines break the call graph), decode `tools/rom.bin` directly — e.g. with `z80dasm`, validated against a routine Ghidra *does* define. Run `nix build` before committing to confirm math and diagram fences parse.
 
 ## Legal
 Independent reverse-engineering notes for interoperability/education. **No copyrighted TI ROM image or OS code is included** — the ROM is gitignored and you supply your own dump. `ti83plus.inc` is TI's freely-distributed equates file (the full 2007 TI-83 Plus SDK include, the complete version as hosted on WikiTI). All trademarks belong to Texas Instruments; this project is not affiliated with or endorsed by TI.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "TI-84 RE writing"
+  short_description: "Wiki writing and notation standards"
+  default_prompt: "Use $ti84-re-writing to review or edit a TI-84 RE wiki page against the repo writing and notation standards."
