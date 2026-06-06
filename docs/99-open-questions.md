@@ -4,8 +4,8 @@ The structural reverse-engineering is comprehensive (every subsystem mapped, bot
 
 ## Resolved
 
-1. ~~Flash sector write/erase primitives~~ ✅ **DONE** — `flash_program_core`@`3D:61AF` (port `0x14`), `flash_write_byte`@`3D:6B9B`, `flash_alloc_sector`@`3D:62C2`. See [sub-vat-archive.md](sub-vat-archive.md) / [12](12-memory-management.md).
-2. ~~Flash archive garbage collector~~ ✅ **DONE** — `flash_gc_relocate`@`3C:7BD0` + `gc_show_screen`@`3C:7E0D` + dispatch `flash_cmd_dispatch`@`3C:7121`. See [sub-vat-archive.md](sub-vat-archive.md).
+1. **Flash sector write/erase primitive map** — live MCP confirms anchors such as `flash_program_buf`@`3D:678C`, `flash_erase_wait`@`3D:5ED3`, `flash_cmd_base`@`3D:738B`, and `flash_op_fd/fb/fe`@`3D:7C8F/7C93/7C97`; older labels at `3D:61AF`, `3D:64AA`, `3D:62C2`, `3D:6413`, and `3D:6B9B` need a fresh symbol pass. See [sub-vat-archive.md](sub-vat-archive.md) / [12](12-memory-management.md).
+2. **Flash archive garbage collector** — the behavior is documented, but older labels `flash_gc_relocate`@`3C:7BD0`, `gc_show_screen`@`3C:7E0D`, and `flash_cmd_dispatch`@`3C:7121` are not current live-MCP functions. Re-map the GC path from the live DB before treating those addresses as confirmed.
 3. ~~**VAT entry binary layout**~~ ✅ **DONE** — field order/size per object class documented from `_FindSym`'s scan (`findsym_scan`@`07:565F`) and the create-header writes. See [05](05-variables-vat.md).
 4. ~~**Parser precedence levels**~~ ✅ **DONE** — the recursive-descent productions and the sub-dispatch tables at `page_38:5110`/`5127` are mapped via `parse_eval_expr`@`38:5AB3`. See [07](07-tokenizer-basic.md).
 5. ~~**Event/context `0x3f3f` router**~~ ✅ **DONE** — resolved to the RAM-resident vector reaching `event_key_router`@`page_07:4539`; the 8-slot context stack near `0x84BE` is documented. See [11](11-boot-contexts-errors.md).

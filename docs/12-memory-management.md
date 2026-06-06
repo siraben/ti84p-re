@@ -47,14 +47,14 @@ Every `_CreateXxx` (see [05](05-variables-vat.md)) ultimately calls `_InsertMem`
 To save scarce RAM, variables can be **archived** to Flash. The archive code lives on **flash page 0x07**:
 - `_Arc_Unarc` (`07:6248`) — move OP1's variable between RAM and the Flash archive (toggles the archive bit, then relocates the data and rewrites the VAT entry's page to the Flash page).
 - `_FlashToRam` (id `5017` → body `3D:6745`) — copy archived data back into RAM.
-Archived vars are *appended* to Flash (which can't be overwritten in place), so deleting one just marks it dead; when the archive Flash fills, a **garbage collector** rewrites the live vars to fresh sectors and erases the old ones — the **"Garbage Collecting…"** screen. (That GC routine is distinct from `_CleanAll` — it is `flash_gc_relocate`@`3C:7BD0`, detailed below.)
+Archived vars are *appended* to Flash (which can't be overwritten in place), so deleting one just marks it dead; when the archive Flash fills, a **garbage collector** rewrites the live vars to fresh sectors and erases the old ones — the **"Garbage Collecting…"** screen. That GC path is distinct from `_CleanAll`, but the older `flash_gc_relocate@3C:7BD0` / `gc_show_screen@3C:7E0D` labels are not present as functions in the current live Ghidra/MCP DB.
 
 `_CleanAll` is RAM cleanup (not Flash GC) [confirmed from disassembly]: `_CleanAll` (`07:52CF`) compacts the **floating-point stack** (`fpBase`/`FPS` → `tempMem`) and resets the `OPBase`/`OPS`/`pTemp` scratch pointers, reclaiming temporary RAM after a command/expression finishes. It does **not** touch Flash.
 
-Flash is written/erased a sector at a time via low-level routines through the **flash-control port `0x14`** (see [Variables, Archive & Unarchive](sub-vat-archive.md)) **[confirmed]**:
-- `flash_program_core` (`page_3D:61AF`) — the byte-program primitive (port `0x14` command sequence); `flash_write_byte` (`3D:6B9B`), `flash_write_record` (`3D:64AA`), `flash_alloc_sector` (`3D:62C2`), `flash_free_scan` (`3D:6413`).
-- `flash_cmd_dispatch` (`3C:7121`) and the **garbage collector** `flash_gc_relocate` (`3C:7BD0`) + `gc_show_screen` (`3C:7E0D`) — the real "Garbage Collecting…" path (distinct from `_CleanAll`).
+Flash is written/erased a sector at a time via low-level routines through the **flash-control port `0x14`** (see [Variables, Archive & Unarchive](sub-vat-archive.md)) **[partly confirmed]**:
+- Live MCP-confirmed page-3D anchors include `_FlashToRam` (`3D:6745`), `flash_program_buf` (`3D:678C`), `flash_erase_wait` (`3D:5ED3`), `flash_cmd_base` (`3D:738B`), and the status-bit helpers `flash_op_fd/fb/fe` (`3D:7C8F/7C93/7C97`).
+- Older names such as `flash_program_core` (`3D:61AF`), `flash_write_byte` (`3D:6B9B`), `flash_write_record` (`3D:64AA`), `flash_alloc_sector` (`3D:62C2`), `flash_free_scan` (`3D:6413`), `flash_cmd_dispatch` (`3C:7121`), `flash_gc_relocate` (`3C:7BD0`), and `gc_show_screen` (`3C:7E0D`) came from an earlier trace but are not current live-MCP function symbols.
 - Archive workers: `_Arc_Unarc` (`07:6248`) → `arc_ram_to_flash` (`07:61F4`) / `arc_flash_to_ram` (`07:6107`).
 
 ## Resolved
-The `_FindSym` VAT walk, the Flash write/erase primitives (port `0x14`), and the archive sector layout are byte-verified in [Variables, Archive & Unarchive](sub-vat-archive.md).
+The `_FindSym` VAT walk is byte-verified in [Variables, Archive & Unarchive](sub-vat-archive.md). Flash write/erase and GC still need a current MCP-backed symbol pass to replace the older address/name map.

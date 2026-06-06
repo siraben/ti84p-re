@@ -31,7 +31,7 @@ Quick definitions for the terms and key RAM symbols used throughout this wiki.
 | **VAT** | Variable Allocation Table — the RAM catalog of every named object, growing *down* from `symTable` (`0xFE66`). See [Variables & the VAT](05-variables-vat.md). |
 | **object type** | The 1-byte type tag of a variable (`RealObj`=0, `ListObj`=1, `ProgObj`=5, `AppVarObj`=0x15…), modeled as the `TIVarType` enum. |
 | **archive** | Variables relocated to **flash** to save RAM; the VAT entry's page byte then points into flash. See [Variables, Archive & Unarchive](sub-vat-archive.md). |
-| **garbage collection** | Compacting the archive flash when it fills ("Garbage Collecting…"); `flash_gc_relocate`@`3C:7BD0`. |
+| **garbage collection** | Compacting the archive flash when it fills ("Garbage Collecting…"). Older notes label one candidate `flash_gc_relocate`@`3C:7BD0`, but that symbol/address is not present as a live MCP function and needs reconciliation. |
 | **RAM heap** | The dynamic region from `userMem` (`0x9D95`) up to the VAT; managed by `_InsertMem`/`_DelMem`. See [Memory Management](12-memory-management.md). |
 
 ## Registers & RAM symbols
