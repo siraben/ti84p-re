@@ -36,50 +36,67 @@ The OS passes variable identity through **`OP1`** as a "name string": `OP1[0]` =
 
 `_CreateReal` (recovered): zeroes `OP1.type`, allocates 9 bytes (`FUN_ram_2045(9)`), handles the complex-list special case (`OP1.exp == 0x5D`), copies the name into the new entry, and on overflow calls `_JError(0x88)` (`E_Memory`-class). The mantissa-byte shuffles are moving the 2-byte data address (`param_2`) and name length into the VAT record fields.
 
-## Variable data layouts [confirmed from `_CreateR*`]
+## Variable data formats — rendered as C [confirmed from `_CreateR*` / DB types]
 
-The VAT entry points at the variable's **data**, whose format depends on the object type:
+A VAT entry points at the variable's **data**, whose layout depends on the object type. Every numeric value is a 9-byte BCD `TIFloat` (see [Floating-Point](06-floating-point.md)); aggregates are a small header followed by an element array or a tokenized blob. These are the actual DB types (`TIFloat`, `TIComplex`, `TIListHdr`, `TIMatrixHdr`):
 
-| Type | Data layout |
-|------|-------------|
-| Real / Complex | `TIFloat` (9 bytes) / two floats (18) |
-| **List** (`_CreateRList`) | `word count` then `count × TIFloat`. A flag byte = `0x0C` marks a **complex** list (18-byte elements). |
-| **Matrix** (`_CreateRMat`) | `byte cols; byte rows;` then `rows*cols × TIFloat`, **column-major** (`_HTimesL` computes the element count). |
-| String / Program / AppVar | `word size` then `size` raw/tokenized bytes |
+```c
+/* ── numeric primitives ───────────────────────────────────────────── */
+typedef struct {
+    uint8_t type;          /* 0x00 real, 0x80 negative; 0x0C/0x8C = complex part  */
+    uint8_t exp;           /* base-10 exponent, biased by 0x80 (0x80 == 10^0)     */
+    uint8_t mantissa[7];   /* 14 packed BCD digits, normalized d.dddddddddddddd   */
+} TIFloat;                                                       /* 9 bytes  */
+typedef struct { TIFloat re, im; } TIComplex;                   /* 18 bytes */
 
-The common allocator `var_alloc` (`ram:1005`) carves the data region (size = count × element-size) via `_InsertMem` (see [12](12-memory-management.md)), then the `_CreateXxx` routine writes the header. All key off the name in `OP1` (`OP1.exp` carries the name's token class — `_CreateRList` validates it's a list-name token `0x5D/0x24/0x3A/0x72`).
-
-## VAT entry shape [confirmed — byte-verified vs `findsym_scan` + WikiTI System Table]
-
-`_FindSym` (`00:0E65` → `findsym_scan` `page_07:565F`) walks the VAT from `symTable` (`0xFE66`) **downward**, matching the name passed in `OP1`. Each entry is stored high-address-first; the format depends on the object class:
-
-Every entry begins with the same **6-byte fixed head** (high-address-first, the order `_FindSym` meets scanning down from `symTable`), including a **page** byte — `_FindSym`/`_ChkFindSym` return that page in `B` (`0` if the data is in RAM):
-
-```
-type        ; TIVarType
-type2       ; second type byte (flags in high nibble)
-version     ; usually 0 (nonzero for some appvars)
-dataAddrLo  ; data address — RAM, or offset into Flash if archived
-dataAddrHi
-page        ; Flash page holding the data (0 = in RAM)
+/* ── aggregate data (what the VAT entry's dataAddr points at) ──────── */
+struct List   { uint16_t count;       TIFloat elem[/*count*/];     }; /* ListObj 1; CListObj 0x0D uses TIComplex[] */
+struct Matrix { uint8_t  dim0, dim1;  TIFloat elem[/*dim0*dim1*/]; }; /* MatObj 2, stored column-major            */
+struct Tokens { uint16_t size;        uint8_t body[/*size*/];      }; /* EquObj 3, StrngObj 4, ProgObj 5/6 — tokenized */
+struct AppVar { uint16_t size;        uint8_t data[/*size*/];      }; /* AppVarObj 0x15 — RAW bytes, not tokenized     */
 ```
 
-**Single-character vars** (real, complex, `Ln` lists, `[A]` matrices, system vars) — the head **+ a 2-byte name token + `00` terminator = 9 bytes**:
-```
-…6-byte head…
-nameTok1    ; 2-byte name token (e.g. list 5D xx, matrix 5C xx, var letter)
-nameTok2
-00          ; terminator
+Per object type:
+
+| Type | Val | `dataAddr` → | Size (bytes) |
+|------|-----|--------------|--------------|
+| `RealObj` | `0` | one `TIFloat` | 9 |
+| `CplxObj` | `0x0C` | one `TIComplex` (`re`, `im`) | 18 |
+| `ListObj` / `CListObj` | `1` / `0x0D` | `count` word + `count`×`TIFloat`/`TIComplex` | 2 + 9·n / 2 + 18·n |
+| `MatObj` | `2` | two dim bytes + `TIFloat[]`, **column-major** (index math in [Matrices & Lists](sub-matrix-list.md)) | 2 + 9·r·c |
+| `EquObj` | `3` | `size` word + tokenized formula — *system* var, carries a selection/style byte, **auto-evaluated** ([Graphing](sub-graphing.md), [Table](sub-table-yvars.md)) | 2 + size |
+| `StrngObj` | `4` | `size` word + tokenized text — *inert* (see [Strings](#strings-str1str0--a-distinct-object-type-confirmed)) | 2 + size |
+| `ProgObj` / `ProtProgObj` | `5` / `6` | `size` word + tokenized program (6 = edit-locked) | 2 + size |
+| `AppVarObj` | `0x15` | `size` word + **raw** bytes (any binary, not tokens) | 2 + size |
+| `PictObj` | `7` | a graph back-buffer image (`plotSScreen` snapshot) | ~768 |
+| `GDBObj` | `8` | graph database: mode byte + window vars + selected equations + styles | varies |
+| `GroupObj` | `0x17` | an archived bundle of other vars (lives in Flash) | varies |
+
+`WindowObj`/`ZStoObj` (`0x0F`/`0x10`) hold the graph **Window** settings, `TblRngObj` (`0x11`) the table range, `BackupObj` (`0x13`) a full RAM image — all system, fixed-shape blobs.
+
+The common allocator `var_alloc` (`ram:1005`) carves the data region (= count × element-size) via `_InsertMem` (see [12](12-memory-management.md)), then `_CreateXxx` writes the header. All key off the name in `OP1` (`OP1.exp` is the name's token class — `_CreateRList` validates a list-name token `0x5D/0x24/0x3A/0x72`).
+
+## The VAT entry — rendered as C [confirmed — byte-verified vs `findsym_scan` + WikiTI System Table]
+
+The VAT grows **downward** from `symTable` (`0xFE66`); `_FindSym` (`00:0E65` → `findsym_scan` `07:565F`) scans down, matching the name in `OP1`. Each entry is the DB's `VATEntry`:
+
+```c
+struct VATEntry {
+    uint8_t  type;          /* TIVarType: low 5 bits = class, high bits flag archive state  */
+    uint8_t  version;       /* 0 for RAM-created vars; set for some flash/archived vars      */
+    uint16_t dataAddr;      /* RAM address of the data — or an offset into Flash if archived */
+    uint8_t  dataPage;      /* Flash page holding the data (0 = data is in RAM)              */
+    uint8_t  nameLen;       /* length of the name that follows                               */
+    uint8_t  name[/*nameLen*/];
+};
 ```
 
-**Named vars** (programs, appvars, groups, strings, equations — variable length): the head **+ a length byte + name**:
-```
-…6-byte head…
-nameLen     ; N
-name[0..N-1]; name bytes
-```
+Two name encodings share that head:
 
-This is byte-verified against `findsym_scan` (`07:565F`): from the matched name token it reads `B = page` at `tok+1`, the data address at `tok+2/+3`, and the type at `tok+6` — matching WikiTI's *System Table* layout exactly. For **archived** vars the data address points into Flash and the `page` byte selects the Flash page (the VAT entry itself always stays in RAM; only the data is in Flash). The `VATEntry` struct in the DB models the named-var case.
+- **Single-character vars** (real, complex, `L`-lists, `[A]`-matrices, system vars) carry a fixed **2-byte name token + `00`** in place of a length-prefixed string — e.g. list `L₁` = `5D 00`, matrix `[A]` = `5C 00`.
+- **Named vars** (programs, appvars, groups, strings, equations) use `nameLen` then that many name bytes.
+
+This is byte-verified against `findsym_scan`: from the matched name token it reads `B = page` at `+1`, the data address at `+2/+3`, and the type at `+6` — matching WikiTI's *System Table* layout. `_FindSym`/`_ChkFindSym` return the **page** in `B` (`0` ⇒ data in RAM). For an **archived** var, `dataAddr` points into Flash and `dataPage` selects the page; the VAT entry itself always stays in RAM (only the data moves to Flash).
 
 ## Strings (`Str1`–`Str0`) — a distinct object type [confirmed]
 
