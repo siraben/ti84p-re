@@ -39,8 +39,8 @@ Entry saves context (`ex af,af'` / `exx` — the Z80 shadow registers, the class
 | `IY+0x0C` | 3 | `curFlags`·curOn | cursor currently drawn (blink phase) |
 | `IY+0x0C` | 4 | `curFlags`·curAble | cursor-blink enabled |
 | `IY+0x0F` | 7 | `apdFlags`-area | APD sub-state cleared @ `0A8C` on ON-key |
-| `IY+0x12` | 3 | `(IY+0x12)`·"INT/LCD busy" | **reset** first thing in the timer-dispatch tail (`01E0`) — re-entrancy guard |
-| `IY+0x12` | 0 | (same byte) | run-indicator-on flag (set by `_RunIndicOn`) |
+| `IY+0x12` | 3 | `shiftFlags`·shift2nd | the `[2nd]`-pending modifier flag; the ISR clears it at `01E0` (`RES 3`) so a held `[2nd]` does not linger — see the [keyboard modifier state machine](09-keyboard-link.md) |
+| `IY+0x12` | 0 | `indicFlags`·indicRun | run-indicator-on flag (set by `_RunIndicOn`); the byte is shared — bits 0–2 are `indicFlags`, bits 3–7 are `shiftFlags` |
 | `IY+0x16` | 0 | speed/ACK select | chooses the value re-written to int-mask port `0x03` on exit (`00E6`) |
 | `IY+0x16` | 1 | (same byte) | link-busy sub-flag, reset @ `015E` |
 | `IY+0x24` | 2 | link/transfer-active | guards the ON-break vs. link-restore decision (`09EE`, `0AAB`) |
