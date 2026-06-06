@@ -5,8 +5,10 @@
 How the student-facing parts of the OS work: launching Flash Apps, the **MEM → Reset**
 menu (what "RAM Cleared" erases), and the **MODE** screen format/mode flags.
 Addresses are `space:addr` where `ram`/`page_00`=`0000-3FFF`, flash pages mapped at
-`4000-7FFF`. Confidence: **[confirmed]** = read from disassembly, **[likely]** =
-strong inference, **[partial]** = code is RAM-resident / cross-page and not fully traced.
+`4000-7FFF`. Confidence flags follow [conventions.md](conventions.md): **[confirmed]** = read
+from disassembly; **[hypothesis]** = strong inference, not yet verified (used below for both
+strongly-inferred claims and *partial* traces where the code is RAM-resident / cross-page and
+not fully traced).
 
 Cross-references: [doc 11](11-boot-contexts-errors.md) (contexts, `_AppInit`, event router), [doc 12](12-memory-management.md) (RAM heap,
 `_CleanAll`), [doc 13](13-flash-page-map.md) (flash page map). Flag bits use the `ti83plus.inc` equates; the
@@ -71,7 +73,7 @@ scratch (`0x9C87`='i' selects the in-RAM "temp app" search variant).
 _AppInit(byte *hdr):                 ; HL -> 13-byte vector block in the header
   copy 12 bytes hdr[0..11] -> cxMain (0x858D)   ; the 6 context vectors
   flags.appFlags (IY+0x0D) = hdr[12]            ; appFlags byte
-  cxPage (0x8599) = port_mapBankA               ; remember which flash page we run on
+  cxPage (0x8599) = port_mapBankA               ; the flash page the handlers run from
 ```
 The 12 bytes are the 6 little-endian handler pointers (`cxMain`, `cxPPutAway`, `cxPutAway`,
 `cxRedisp`, `cxErrorEP`, `cxSizeWind` — see [doc 11](11-boot-contexts-errors.md) §Context block). Example: the OS's own
@@ -111,7 +113,7 @@ re-init lands in page-0 boot code.
 | `page_01:7425..746E` | menu titles: `RESET MEMORY`, `RESET DEFAULTS`, `RESET ARC VARS`, `RESET ARC APPS`, `RESET ARC BOTH`, `RESET RAM` |
 | `page_01:747E` | the long "Resetting ALL / RAM / Vars / Apps / Both …" warning help text |
 
-### 2.2 The reset dispatcher (`mem_reset` @ `page_35:7180`) [confirmed]
+### 2.2 The reset dispatcher (`mem_reset_dispatch` @ `page_35:7180`) [confirmed]
 
 Dispatch is on the selected reset item held in `keyExtend` (`0x8446`):
 
@@ -244,7 +246,7 @@ The MODE screen is a menu context (`cxMode`/`kMode`=0x45) reached via the event/
 ([doc 11](11-boot-contexts-errors.md)). Its row strings live as token names on page 0x01 (`RadianN`/`DegreeO`/`NormalP`/
 `Float` at `page_01:49E4..4A06`; trailing letters are token-id bytes) and full-caps menu
 labels on page 0x37 (`DEGREE` `4A85`, `RADIAN` `4A8C`). Selecting a row writes the flag bits
-documented above directly (`SET/RES (IY+…)`, or stores into `fmtDigits`). **[likely]** —
+documented above directly (`SET/RES (IY+…)`, or stores into `fmtDigits`). **[hypothesis]** (partial) —
 the per-row write table itself is reached through the menu dispatcher and was not traced
 line-by-line, but every target bit/byte is confirmed from the setters and inc equates.
 

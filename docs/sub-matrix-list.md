@@ -237,8 +237,12 @@ sort body's element-load is not byte-traced]
 op; store } }` driving the FP RSTs. Binary matrix add/sub require equal dims
 (`_ErrDimMismatch 0x8B`).
 
-### `[A] * [B]` — matrix multiply [C]
-**`FUN_02_40BA`** (reached from the `*` token at `02:5FE6` when both operands are matrices,
+### `[A] * [B]` — matrix multiply [H]
+The body was traced **historically at `02:40BA`**, but `02:40BA` is **not a live function in the
+current Ghidra DB** — same caveat the §8 address index carries, so the multiply body remains
+unresolved against the live DB. The historical trace below is retained for reference.
+
+`FUN_02_40BA` (reached from the `*` token at `02:5FE6` when both operands are matrices,
 after `FUN_02_5766` sets up the result dims and `FUN_02_4539` preps storage). Classic O(n³)
 triple loop with an FP accumulator:
 ```
@@ -252,7 +256,7 @@ for each result cell (i,j):
 ```
 Loop counters live at `84B0` (outer), `84B3` (k, inner), `84B4`/dims at `84AF`. Inner-dim
 mismatch (`A.cols ≠ B.rows`) ⇒ `_ErrDimMismatch`. Each multiply/add is a full `TIFloat` FP op,
-so an `n×n` product is `n³` `_FPMult` + `_FPAdd` calls. [C]
+so an `n×n` product is `n³` `_FPMult` + `_FPAdd` calls. [H] (historical trace; `02:40BA` not in live DB)
 
 ### Transpose `[A]ᵀ` — driver `02:4178` [C]
 The transpose token (`tTranspose`) routes through the page-02 function evaluator

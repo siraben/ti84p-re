@@ -109,7 +109,7 @@ the Flash archive (the same entry point does both directions, deciding from the 
 ```z80
 _Arc_Unarc (07:6248):
   SET 0,(IY+0x24)              ; flag: an archive operation is in progress
-  CALL 628B                    ; validate OP1 name is an archivable class; Z⇒not allowed → JP 26E0 (_ErrDataType, B2 = ERR:DATA TYPE)
+  CALL 628B                    ; validate OP1 name is an archivable class; Z⇒not allowed → JP 26E0 (local error shim; LD A,0xB2 = E_Variable, ERR:VARIABLE → _JError)
   CALL _OP1ToOP3 (1A0F)
   CALL _ChkFindSym (0E60)      ; locate the VAT entry; C ⇒ JP 271D (undefined)
   DI
@@ -124,7 +124,7 @@ _Arc_Unarc (07:6248):
 
 `628B` is the **archivable-name validator**: after `_CkOP1Real`, it accepts the system/real name
 tokens `0x58 0x59 0x54 0x5B 0x52 0x72 0xFC`, complex `0x0C`, list `0x01`/`0x0D`, etc.; rejects others
-with `_ErrDataType`. (`_arc_59f1` @`07:59F1` and `_arc_5936` @`07:5936` are companion name/range
+via the `26E0` shim (`LD A,0xB2` = E_Variable, ERR:VARIABLE → `_JError`). (`_arc_59f1` @`07:59F1` and `_arc_5936` @`07:5936` are companion name/range
 validators for the catalog archive command.)
 
 ### 4a. RAM → Flash (archive), `61F4` [C]
@@ -166,7 +166,7 @@ new RAM address; the Flash copy is left marked dead (reclaimed at the next GC). 
 ### 4c. Errors raised on the path [C]
 - `2785: LD A,0x31` → `_JError` = **E_ArchFull (0x31)** "ERR:ARCHIVE FULL" (no room even after GC).
 - `2729: LD A,0x8F/0x90/0x91` → E_Invalid / E_IllegalNest / E_Bound (RAM-side overflow during unarchive).
-- `26E0: LD A,0xB2/0xB3/0x81/0x82` → E_Variable / E_Duplicate / E_Overflow / E_DivBy0 via `_ErrDataType`.
+- `26E0`+ is a cluster of local error shims: each loads its code (`0xB2`=E_Variable, `0xB3`=E_Duplicate, `0x81`=E_Overflow, `0x82`=E_DivBy0) into `A` and enters `_JError` — not `_ErrDataType`.
 - Error-name strings live at `07:6CA9`: `ARCHIVED, VERSION, ARCHIVE FULL, VARIABLE, DUPLICATE`.
 
 ---
