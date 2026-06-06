@@ -86,7 +86,7 @@ save, **`IY+0x3E` bit0** / **`IY+0x3D` bit5** USB-presence.
 Doc 09 covers `_SendAByte`. Two new things pinned here:
 
 ### 2a. Hardware-assist send `6BB2` [C]
-`_SendAByte` (`3C:420D`) starts `CALL FUN_ram_1837 ; JP Z,0x6BB2` — if the model probe sets Z (the
+`_SendAByte` (`3C:420D`) starts `CALL probe_hw_model_keep_a ; JP Z,0x6BB2` — if the model probe sets Z (the
 84+ link-assist hardware is present), it jumps to **`3C:6BB2`**:
 ```z80
 6BB2: setup line / 2× short delay (6BD2 seeds 9CAC from port 0x20 = CPU speed)
@@ -139,7 +139,7 @@ A TI link packet is a **4-byte header** optionally followed by **data + 2-byte c
 
 ### 3a. Send a header — `41C3` [C]
 ```z80
-41C3: 6D4B (drive line) ; short delay ; CALL FUN_ram_1837 (model probe)
+41C3: 6D4B (drive line) ; short delay ; CALL probe_hw_model_keep_a (model probe)
       … (HW handshake on 84+, or bit-bang line-idle wait; failure → _ErrLinkXmit) …
 41F2: (8678)=0                              ; reset checksum accumulator
       LD A,(8674) ; CALL _SendAByte         ; machine-ID
@@ -238,7 +238,7 @@ OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, the
 
 ```z80
 _LinkXferOP (3C:4DD2):
-  CALL FUN_ram_1837                 ; model/HW probe; spin on port 0x20 if assist busy
+  CALL probe_hw_model_keep_a        ; model/HW probe; spin on port 0x20 if assist busy
   SET 1,(IY+0x24)                   ; mark "transfer active"
   RES 3,(IY+0x1B) ; save IY+0xC (APD) ; install cleanup handler 4F3E via 27DA (see §7)
   CALL _OP1ToOP6                    ; preserve the var name

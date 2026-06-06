@@ -57,7 +57,7 @@ Database state: **2413 functions (100% named)**, the main `0x4xxx` bcall table r
 
 - Reset entry `reset` @ `ram:0000` **[confirmed]**
 - bcall dispatcher `bcall_dispatcher` @ `ram:2a2f` (RST 28h) **[confirmed]**
-- IM1 interrupt dispatcher `int_dispatch_timer1` @ `ram:006d` (via RST 38h; older notes call this `isr_im1`) **[confirmed]**
+- IM1 interrupt dispatcher `int_dispatch_sources` @ `ram:006f` (via RST 38h through the `ram:006d` shadow-register prologue; older notes call this `isr_im1`) **[confirmed]**
 - System flags base `flags` @ `0x89F0` (IY-indexed), typed `SystemFlags` **[confirmed]**
 - FP registers `OP1`–`OP6` @ `0x8478`+ **[standard]**
 - 126 BCD float constants ROM-wide incl. π/180, 180/π **[ROM-scan result; not directly verifiable through the current MCP byte interface]**

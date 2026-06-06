@@ -328,7 +328,7 @@ page_38:6f63   if_stop_stmt_handler       ; per-statement If/Stop dispatch
 page_38:4130   blockmatch_end_else        ; nest-counting End/Else scanner
 page_38:4180   parse_scan_tokens          ; skip-to-delimiter (2-byte aware)
 page_38:4870   goto_lbl_name_scanner      ; scan label name, jump to search
-page_38:7600   store_target_name_scanner  ; resolve →VAR store target / Lbl/Goto
+page_38:7600   set_tblgraph_draw_xpage    ; _SetTblGraphDraw then cross-page tail
 page_38:72da   parse_cur_tok
 page_38:7248   parse_advance
 page_38:5cd8   parse_expect_or_err

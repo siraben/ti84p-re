@@ -25,7 +25,7 @@ run of 16 KiB flash pages whose first page begins with a TLV **app header**.
 
 An app header is a sequence of **type-length-value fields** starting at offset 0 of the
 app's first page. Each field begins with an ID byte whose **low nibble encodes the field
-length**. The decoder is `app_field_len` (`page_3D:7285`):
+length**. The decoder bytes are around `page_3D:7285`, but the current Ghidra DB does not expose a live function there:
 
 | low nibble of ID | field payload size |
 |------------------|--------------------|
@@ -44,22 +44,22 @@ helpers (`bcall(0x8040)`, `bcall(0x8070)`, `bcall(0x8080)`) installed by the boo
 ### 1.2 `_FindApp` / `_FindAppUp` / `_FindAppDn` [confirmed]
 
 - `_FindApp` (`page_3D:5EE3`) — locate an app by name (OP1). Inits the search page,
-  then loops `find_next_page (5FB1)` + a header-match step until done, returning the app's
+  then loops `app_find_next_page (5FB1)` + a header-match step until done, returning the app's
   start page and a found/not-found flag via `RST 28` (bcall) into RAM flash helpers.
   ```z80
-  5EE3 CALL 727D            ; appSearchStart -> appSearchPage (0x82A3)
+  5EE3 CALL 727D            ; init_flash_page_counter -> appSearchPage (0x82A3)
   5EE6 CALL 5FB1            ; step to next candidate page (DEC appSearchPage)
   5EE9 RET C                ; ran off the end -> not found
   5EEA CALL 5EB2            ; read/compare this page's header
   5EED BIT 3,C; JR Z,5EE6   ; not a match -> keep scanning
   ```
-- `find_next_page` (`page_3D:5FB1`) — `appSearchPage (0x82A3) -= 1`; stops at page 7
+- `app_find_next_page` (`page_3D:5FB1`) — `appSearchPage (0x82A3) -= 1`; stops at page 7
   (low boundary of the app region); bjumps `appSearchPage:0x4000` to inspect the header.
-- `app_search_start` (`page_3D:727D` → helper `726E`) — picks the top page to scan from.
+- `init_flash_page_counter` (`page_3D:727D` → helper `726E`) — initializes `0x82A3` to the model-selected page base plus one.
 - `_FindAppUp` (`5DDA`) / `_FindAppDn` (`5DE6`) — enumerate the **previous / next** app
-  in flash (for the APPS-menu list), both wrapping the common walker `app_5de7` (`5DE7`).
-  `app_5de7` keeps two counts in BC (apps before/after) and tracks the current name in OP3.
-- `_FindAppNumPages` (`page_3D:4AA3`) — number of contiguous pages an app occupies.
+  in flash (for the APPS-menu list), both wrapping the common walker `_app_5de7` (`5DE7`).
+  `_app_5de7` keeps two counts in BC (apps before/after) and tracks the current name in OP3.
+- `_FindAppNumPages` is present in the bcall table (`3D:4AA3`), but the current live DB has no function record at that address.
 
 State variables: `appSearchPage` = `0x82A3`, `0x8497`/`0x8481`/`0x9C87` are search-mode
 scratch (`0x9C87`='i' selects the in-RAM "temp app" search variant).
@@ -85,9 +85,9 @@ overrides `cxErrorEP (0x8595)=0x27D9`. After `_AppInit`, the main event loop run
 through `call_context_main` (pages in `cxPage`, jumps `(cxMain)` — [doc 11](11-boot-contexts-errors.md)).
 
 Because `cxCurApp` (`0x859A`) **is a key code**, pressing a mode key selects the context to
-load ([doc 11](11-boot-contexts-errors.md)). **App quit** (`page_3B:7412`) restores the saved context (8 bytes
-`0x849A→0x84BF`), sets `cxCurApp=0x40` (`kQuit`=`cxCmd`, the homescreen), and re-renders —
-i.e. exiting an app drops you back to the home screen.
+load ([doc 11](11-boot-contexts-errors.md)). Older notes placed the **App quit** restore path at
+`page_3B:7412`, but the current live DB has no function there; keep the saved-context restore behavior
+as a trace note until that path is remapped.
 
 ---
 
@@ -166,11 +166,12 @@ the `OPBase`/`OPS`/`pTemp` scratch pointers, and clears `pTempCnt`/`cleanTmp`. I
 clear the VAT, user vars, or Flash (see [doc 12](12-memory-management.md)). `_FixTempCnt` (`page_07:4FEC`) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.
 
-### 2.6 Flash archive GC — "Defragmenting…" / "Garbage Collecting…" (`page_3C:7E00`) [confirmed]
+### 2.6 Flash archive GC — "Defragmenting…" / "Garbage Collecting…" [confirmed behavior; display labels historical]
 
 Separate from RAM reset: when the Flash archive fills, the OS rewrites live archived vars to
-fresh sectors and erases the old ones. The display dispatcher is `page_3C:7E23` (shows
-`Defragmenting...` `0x4076`) / `7E10`/`7E1C` (shows `Garbage Collecting...` `0x4126`+`412E`).
+fresh sectors and erases the old ones. Older traces put the display dispatcher around `page_3C:7E23`
+(shows `Defragmenting...` `0x4076`) / `7E10`/`7E1C` (shows `Garbage Collecting...` `0x4126`+`412E`);
+`page_3C:7E00` itself is not a live function in the current DB.
 It clears `0x844B` (a progress/word) and runs with the screen frozen (`DI`). The actual
 sector erase/write primitives are RAM-resident (flash control port `0x14`) — see [doc 12](12-memory-management.md).
 
@@ -255,21 +256,21 @@ line-by-line, but every target bit/byte is confirmed from the setters and inc eq
 page_3D:5EE3   _FindApp
 page_3D:5DDA   _FindAppUp
 page_3D:5DE6   _FindAppDn
-page_3D:5DE7   app_find_walker (app_5de7)
+page_3D:5DE7   _app_5de7
 page_3D:5FB1   app_find_next_page
-page_3D:727D   app_search_start
-page_3D:7285   app_header_field_len   (TLV nibble decoder)
-page_3D:4AA3   _FindAppNumPages
+page_3D:727D   init_flash_page_counter
+page_3D:7285   retired TLV-length label; no live function in current DB
+page_3D:4AA3   _FindAppNumPages bcall target; no live function in current DB
 ram:0936       _AppInit
 ram:08AF       _PutAway
 page_3B:73E4   _ReloadAppEntryVecs
-page_3B:7571   default_app_vectors    (12-byte block + appFlags)
-page_3B:7412   app_quit_restore_ctx
+page_3B:7571   default app vectors data block (12 bytes + appFlags), not a function
+page_3B:7412   retired app-quit label; no live function in current DB
 page_35:7180   mem_reset_dispatch
 page_35:719F   ram_reset_wipe         (zeroes 0x8000-0x9BC3 and 0x9BD0-0xFFFE)
 ram:0BD9       ram_init_after_reset
 ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
-page_3C:7E00   archive_gc_display     ("Defragmenting" / "Garbage Collecting")
+page_3C:7E00   retired archive-GC-display label; no live function in current DB
 page_07:52CF   _CleanAll (cleanup_temp_ram)
 page_07:4FEC   _FixTempCnt
 page_36:7D11   _SetFuncM     (grfModeFlags bit4)

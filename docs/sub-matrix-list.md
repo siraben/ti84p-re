@@ -424,7 +424,7 @@ fact that it is a separate driver, not `42A6`, is confirmed** by the two-caller 
 | `02:4002` | `_AdrMEle` | matrix element address: `((column-1)*dim0+(row-1))*9` [C] |
 | `02:4044` | `_GetMToOP1` | `[M](i,j)` → OP1 [C] |
 | `02:406C` | `_PutToMat` | OP1 → `[M](i,j)` (validated) [C] |
-| `02:40BA` | `matmul_core` | `[A]*[B]` triple-loop FP accumulate [C] |
+| `02:40BA` | retired label | not a live function in the current Ghidra DB; matrix multiply body remains unresolved here |
 | `02:4108` | `identity_build` | `identity(n)`: diagonal-1 fill (token 0xB4) [C] |
 | `02:412A` | `mat_elementwise` | per-element matrix unary/binary apply [C] |
 | `02:414E` | `mat_row_op` | row swap/scale (elimination) [C] |

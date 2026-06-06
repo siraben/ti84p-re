@@ -18,8 +18,8 @@ Confidence (this doc's shorthand; see [Conventions](conventions.md)): **[C]=conf
 ## 1. The arcInfo workspace and key RAM pointers [C]
 
 The archive engine keeps a 12-byte scratch block, labelled `arcInfo` (`83EEh`) in `ti83plus.inc`,
-plus a saved copy `savedArcInfo` (`8406h`). `_Arc_Unarc`'s reentrant inner mover saves/restores it
-(`page_07:61DC` does `LD HL,83F1 / LD DE,8406 / LD BC,0C / LDIR`; `61E8` is the inverse).
+plus a saved copy `savedArcInfo` (`8406h`). `_Arc_Unarc`'s reentrant inner mover saves it at
+`page_07:61DC` (`LD HL,83F1 / LD DE,8406 / LD BC,0C / LDIR`); the older `61E8` restore label is not a live function in the current DB.
 
 | Addr | Field (this doc's name) | Meaning |
 |------|-------------------------|---------|
@@ -237,7 +237,7 @@ conditional `OR 0x10`/`OR 0x08` for the swap/relocate state bits driven by `(IY+
 ### 6b. Archive sector map / erase-block granularity [C]
 
 The physical Flash pages that form the archive pool are model-selected at runtime from the two model
-bits — port 2 bit 7 (`_chk` `00:1837`) and port 0x21 low bits (`00:182F`):
+bits — port 2 bit 7 (`probe_hw_model_keep_a` `00:1837`) and port 0x21 low bits (`probe_port21_keep_a` `00:182F`):
 
 | Model test | Archive **base** page (`flash_page_select` `3D:726E`) | Archive **top** page (`flash_cmd_base` `3D:738B`) | Page mask |
 |------------|-------------------------------------------------------|----------------------------------------------------|-----------|
@@ -247,7 +247,7 @@ bits — port 2 bit 7 (`_chk` `00:1837`) and port 0x21 low bits (`00:182F`):
 
 So on a 1 MB TI-84 Plus the user archive occupies roughly raw pages **0x15…0x1E**, and the OS pages it
 into the `0x4000` window **one 16 KB page at a time** for both reading (`_FlashToRam`, masks `0x1F`/`0x3F`
-via the same model check, `3D:6745`) and erasing. `flash_set_sector_cnt` (`3D:727D`) loads
+via the same model check, `3D:6745`) and erasing. `init_flash_page_counter` (`3D:727D`) loads
 `(base+1)` into the sector counter `0x82A3`; the erase routine `flash_erase_wait` (`3D:5ED3` →
 `3D:5EE3`) pages each sector to `0x4000` and issues the chip erase command via `RST 0x28`, decrementing
 `0x82A3` down toward the base page. The underlying Am29F-class chip uses **64 KB physical sectors
@@ -307,7 +307,7 @@ the classic TI-83+/84+ behaviour, now pinned to addresses.
 | `07:61F4` | `arc_ram_to_flash` | RAM→Flash archive worker |
 | `07:6107` | `arc_flash_to_ram` | Flash→RAM unarchive worker |
 | `07:6331` | `arc_size_setup` | stash vatPtr, compute dataSize into arcInfo |
-| `07:61DC`/`07:61E8` | `arc_save/restore_info` | save/restore 12-byte arcInfo↔savedArcInfo |
+| `07:61DC` | `arc_save_info` | save 12-byte arcInfo into savedArcInfo; older `07:61E8` restore label is not live |
 | `07:565F` | `findsym_scan` | the real `_FindSym` VAT scanner |
 | `00:0E65` | `_FindSym` | RST10 trampoline → findsym_scan |
 | `00:0E60` | `_ChkFindSym` | type-check OP1 then FindSym |
@@ -323,11 +323,11 @@ the classic TI-83+/84+ behaviour, now pinned to addresses.
 | `3D:6413` | `flash_free_scan` historical | sum free archive space / decide GC candidate; not a live-MCP function |
 | `3D:726E` | `flash_page_select` | archive **base** page by model (0x15/0x29/0x69) |
 | `3D:738B` | `flash_cmd_base` | archive **top** page by model (0x1E/0x3E/0x7E) |
-| `3D:727D` | `flash_set_sector_cnt` | sector counter `0x82A3` = base+1 |
+| `3D:727D` | `init_flash_page_counter` | shared page counter `0x82A3` = base+1 |
 | `3D:5ED3` | `flash_erase_wait` | erase a 16 KB archive page, wait for completion |
 | `3D:7C97` / `3D:7C8F` / `3D:7C93` | `flash_op_fe/fd/fb` | clear status bit (0xFE/0xFD/0xFB AND-mask) |
 | `3D:7DEA` | `flash_find_nonff` | scan 13-byte header for all-0xFF (free slot) |
-| `00:1837` / `00:182F` | `flash_model_chk` | model bits: port 2 bit7 / port 0x21 low |
+| `00:1837` / `00:182F` | `probe_hw_model_keep_a` / `probe_port21_keep_a` | model bits: port 2 bit7 / port 0x21 low |
 | `3D:6B9B` | `flash_write_byte` historical | bounds-checked Flash byte program candidate; not a live-MCP function |
 | `3C:7121` | `flash_cmd_dispatch` historical | Archive/UnArchive/GC command dispatcher candidate; not a live-MCP function |
 | `3C:7BD0` | `flash_gc_relocate` historical | GC core candidate; not a live-MCP function |
@@ -351,7 +351,7 @@ Ports: **0x06** = bank-A page select (Flash window), **0x14** = Flash write/eras
   `0x15`/`0x29`/`0x69` (`flash_page_select` `3D:726E`) up to top page `0x1E`/`0x3E`/`0x7E`
   (`flash_cmd_base` `3D:738B`); on a 1 MB TI-84 Plus that is raw pages ~`0x15…0x1E`. The OS pages
   the region into the `0x4000` window and erases **one 16 KB page at a time** (`flash_erase_wait`
-  `3D:5ED3`, sector counter `0x82A3` from `flash_set_sector_cnt` `3D:727D`); the physical chip
+  `3D:5ED3`, sector counter `0x82A3` from `init_flash_page_counter` `3D:727D`); the physical chip
   sector is 64 KB = 4 OS pages [I].
 - **Record-status bytes — [C], see §6a.** Monotonic bit-clear: `0xFF` erased → `0xFE` in-progress
   → `0xFC` valid → `0xF0` deleted, written by `flash_op_fe/fd/fb` (`3D:7C97/7C8F/7C93`) AND-masking
