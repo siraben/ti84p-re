@@ -1,0 +1,16 @@
+# Power on and dismiss the RAM-cleared splash, then idle on the home screen.
+# Baseline for a coverage diff: any address reached by home-2plus3.macro but
+# NOT here is part of the 2+3 evaluation path. See tools/dynamic-tracing.md.
+#
+# Keep the keystrokes BEFORE the diff point identical to home-2plus3.macro so
+# only the 2+3 ENTER differs. Run at --normal-speed --reset (see that macro).
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+wait 2s
+screenshot /tmp/calc-idle.png
