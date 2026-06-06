@@ -603,18 +603,18 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 
 ## Extended (`0x8xxx`) candidates — unverified
 
-These 11 `0x8xxx` candidates are absent from the 2001 `ti83plus.inc` and were produced by historical ROM-scan scripts from a proposed page-0x3F table. The current live Ghidra/MCP DB does **not** expose functions at these claimed targets, so treat this section as unresolved build/load-model evidence, not confirmed bcall bodies. Names are WikiTI's; `†` marks WikiTI *unofficial* names. Cataloged in `tools/ti84plus_extra.inc`.
+All 11 of these `0x8xxx` candidate IDs are now defined in the full 2007 `ti83plus.inc` (SDK equate column below), and were produced by historical ROM-scan scripts from a proposed page-0x3F table. The current live Ghidra/MCP DB does **not** expose functions at these claimed targets, so treat the bodies as unresolved build/load-model evidence, not confirmed bcall bodies — the open piece. Names are WikiTI's; `†` marks WikiTI *unofficial* names. Cataloged in `tools/ti84plus_extra.inc`.
 
-| bcall | ID | Body (page:addr) |
-|-------|----|------------------|
-| `_WriteAByte` | `8021` | `3F:44F3` |
-| `_FindFirstCertificateField` | `8027` | `3F:4448` |
-| `_FindGroupedField` † | `8030` | `3F:442B` |
-| `_FlashToRAM2` † | `8054` | `3F:52EB` |
-| `_GetCertificateStart` | `8057` | `3F:430F` |
-| `_GetFieldSize` | `805A` | `3F:449C` |
-| `_FindSubField` † | `805D` | `3F:4463` |
-| `_FindOSHeaderSubField` † | `8075` | `3F:446C` |
-| `_Div32By16` | `80B1` | `3F:5296` |
-| `_GetBootVer` | `80B7` | `3F:531E` |
-| `_GetHWVer` | `80BA` | `3F:5323` |
+| bcall | ID | SDK equate (`ti83plus.inc`) | Body (page:addr) |
+|-------|----|-----------------------------|------------------|
+| `_WriteAByte` | `8021` | `_WriteAByte` | `3F:44F3` |
+| `_FindFirstCertificateField` | `8027` | `_FindFirstCertField` | `3F:4448` |
+| `_FindGroupedField` † | `8030` | `_FindGroupedField` | `3F:442B` |
+| `_FlashToRAM2` † | `8054` | `_FlashToRam2` | `3F:52EB` |
+| `_GetCertificateStart` | `8057` | `_GetCertificateStart` | `3F:430F` |
+| `_GetFieldSize` | `805A` | `_GetFieldSize` | `3F:449C` |
+| `_FindSubField` † | `805D` | `_FindSubField` | `3F:4463` |
+| `_FindOSHeaderSubField` † | `8075` | `_FindOSHeaderSubField` | `3F:446C` |
+| `_Div32By16` | `80B1` | `_Div32By16` | `3F:5296` |
+| `_GetBootVer` | `80B7` | `_getBootVer` | `3F:531E` |
+| `_GetHWVer` | `80BA` | `_getHardwareVersion` | `3F:5323` |
