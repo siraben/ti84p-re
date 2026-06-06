@@ -351,7 +351,7 @@ formed during back-elimination. The tail that closes the det/inverse pass:
               column permutation (4259-pairs) so the inverse comes out in the
               original row/col order.
 ```
-So the **sign byte is the LSB of the swap-count** applied via `_InvOP1S` (`02:24BD`) at
+So the **sign byte is the LSB of the swap-count** applied via `_InvOP1S` (`00:24BD`) at
 `43FB`/`442B`; the **pivot product** is the `238B`/`RST 30h` accumulate over the diagonal in
 `43E3–43F6`. The permutation undo (`420F`/`4259`) restores element order for the inverse. [C]
 

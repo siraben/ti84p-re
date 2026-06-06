@@ -116,10 +116,12 @@ the `_TenX` body at `page_02:7069`; the ln/e^x/sin-cos coefficient tables are on
   *not* in the rad-special mode tested by `BIT 2,(IY+0)`; `_SinCosRad` forces `0x81`).
 - Range reduction: reads OP1 exponent; **exponent ≥ 0x0C (|x| ≳ 10^12·) → `_ErrDomain`**
   ("argument out of range"). It then reduces the angle modulo a quarter-period using the
-  BCD constant table near `page_02:7D81` and evaluates a minimax-style **polynomial** with
-  signed coefficient tables at `page_02:7201` and `page_02:7281` — the per-step
-  `FUN_ram_1D8A`/`FUN_ram_1D26` are the BCD multiply-accumulate of the Horner scheme, *not*
-  CORDIC for the forward trig.
+  BCD constant table near `page_02:7D81` and runs the **same table-driven digit recurrence**
+  as ln/eˣ over the signed near-unity tables at `page_02:7201` and `page_02:7281` (one row
+  per digit step, sign-variant picked by `0x84A4` bit 7) — the per-step `bcd_sub_op1_op2`
+  (`ram:1D8A`) / `bcd_add_8496_8480` (`ram:1D26`) are the shift-and-add BCD steps of that
+  recurrence, *not* a fixed polynomial and *not* CORDIC for the forward trig. The per-row
+  decoding of `02:7201`/`02:7281` is detailed in [06-floating-point.md](06-floating-point.md).
 
 ### Inverse trig [confirmed]
 - `_ASinRad` `76DA`, `_ACosRad` `76C9`, `_ATanRad` `76CF`, `_ATan2Rad` `76D4`, plus the
@@ -224,7 +226,7 @@ Errors (page 0): `_JError 2793`, raiser table `26E8`+, domain pre-checks `2119`�
 
 ## 9. Worked flow: `2*sin(π/6)+ln(5)` [hypothesis, from the above]
 1. Parser pushes `2` (`OP1`), evaluates `sin(π/6)`: loads `π/6` into OP1, `_SinCosRad`/`_Sin`
-   (selector `0x8499`), polynomial eval → `OP1=0.5`.
+   (selector `0x8499`), table-driven digit recurrence → `OP1=0.5`.
 2. `×`: the saved `2` is in `OP2` (or popped from FPS) → `_FPMult` → `OP1=1`.
 3. `ln(5)`: spill `1` to FPS (`_PushRealO1`), `OP1=5`, `_LnX` (`_CkOP1Pos` passes) → `1.6094…`.
 4. `+`: pop `1` to `OP2` (`_PopRealO2`), `_FPAdd` → `OP1≈2.6094`.

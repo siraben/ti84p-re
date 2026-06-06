@@ -172,7 +172,7 @@ Separate from RAM reset: when the Flash archive fills, the OS rewrites live arch
 fresh sectors and erases the old ones. Older traces put the display dispatcher around `page_3C:7E23`
 (shows `Defragmenting...` `0x4076`) / `7E10`/`7E1C` (shows `Garbage Collecting...` `0x4126`+`412E`);
 `page_3C:7E00` itself is not a live function in the current DB.
-It clears `0x844B` (a progress/word) and runs with the screen frozen (`DI`). The actual
+It clears `0x844B` (`curRow`, the text-row cursor — reset before the banner draws) and runs with the screen frozen (`DI`). The actual
 sector erase/write primitives are RAM-resident (flash control port `0x14`) — see [doc 12](12-memory-management.md).
 
 ---
