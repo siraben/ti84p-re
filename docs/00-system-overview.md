@@ -2,7 +2,7 @@
 
 Target: `ti84plus.rom` (1 MiB flash dump). OS self-identifies as **2.55MP**. CPU: Zilog **Z80** (16-bit address bus, 64 KiB logical space) with hardware flash/RAM **paging**. Ghidra project: `~/Documents/ti84-re/ti84.gpr` (rebuild: `tools/build.sh`).
 
-> These are living notes written during RE. Confidence is flagged: **[confirmed]** = verified in disassembly/decompiler; **[standard]** = matches documented TI-83+/84+ architecture and is consistent with what we see; **[hypothesis]** = inferred, not yet verified.
+> These are living notes written during RE. Confidence is flagged: **[confirmed]** = verified in disassembly/decompiler; **[standard]** = matches documented TI-83+/84+ architecture and is consistent with the disassembly; **[hypothesis]** = inferred, not yet verified.
 
 ## The big picture
 

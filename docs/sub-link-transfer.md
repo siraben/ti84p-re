@@ -119,7 +119,7 @@ Key port semantics (84+ assist): **port 0x09 bit 5 = TX ready**, **bit 6 = trans
 **bit 4 = byte received**, **bits 0x19 = error/active**; **port 0x0D = data FIFO**; **port 0x02
 bit 7 = non-83+-Basic** (used here as the assist-present gate; WikiTI's dedicated "link-assist
 available" flag is port 0x02 **bit 6**).
-The sentinel **`0xE0`** passed in `A` selects non-blocking ("just peek") vs. blocking-with-error
+The sentinel **`0xE0`** passed in `A` selects non-blocking ("peek-only") vs. blocking-with-error
 behaviour. `_Rec1stByte` (`3C:439C`) / `_Rec1stByteNC` (`3C:43A3`, "no-clear") are the same logic
 wrapped with APD/`_ApdSetup` and the bit-bang start-bit detect, used to wait for the **first** byte
 of an incoming packet (peer may be idle for a long time).
@@ -231,7 +231,7 @@ i.e. the receiver reproduces the VAT-create / `_InsertMem` path from [sub-vat-ar
 
 ---
 
-## 5. Silent-link variable SEND — `_LinkXferOP` (`3C:4DD2`) [C]
+## 5. Silent-link variable send — `_LinkXferOP` (`3C:4DD2`) [C]
 
 This is the headline path a student's "Send" hits (TI-Connect pulls a var, or a calc-to-calc send).
 OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, then streams the DATA.
