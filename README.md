@@ -13,7 +13,7 @@ tools/                 build pipeline (Ghidra headless scripts) + derived symbol
 flake.nix · book.toml  mdBook build/serve + vendored KaTeX/Mermaid/pseudocode assets
 ```
 
-The ROM (`ti84plus.rom`) and the Ghidra project (`*.gpr`/`*.rep`) are gitignored. Put the ROM at `tools/rom.bin` (and a 16 KiB page-0 slice at `tools/ti84_page00.bin`) and run the build.
+The ROM (`ti84plus.rom`) and the Ghidra project (`*.gpr`/`*.rep`) are gitignored. Put local ROM artifacts under `tools/roms/` and run `python3 tools/assemble_local_rom.py` to create `tools/rom.bin` plus the 16 KiB page-0 slice at `tools/ti84_page00.bin`.
 
 ## Browse the wiki
 
@@ -34,13 +34,13 @@ tools/build.sh        # ~10s; rebuilds ~/Documents/ti84-re/ti84.gpr
 ```
 
 The pipeline (`build.sh`):
-1. `resolve_bcalls.py` — resolve the main bcall jump table (0x4xxx→page 0x3B) + the bjump trampoline table from the ROM; the historical 0x8xxx/page-0x3F scan output is kept as an unverified artifact until it is reconciled with the live Ghidra DB
+1. `resolve_bcalls.py` — resolve the main bcall jump table (`0x4xxx`→page `0x3B`), the retail boot bcall table (`0x8xxx`→pages `0x3F`/`0x2F` when present), and the bjump trampoline table from the ROM
 2. `BuildTI84Full.java` — load all 64 flash pages (page 0 + overlays `page_01..3F`), RAM/IO blocks, symbols from `ti83plus.inc`, BCD-float detection, `rst 28h` fix-ups
-3. `ApplyBcalls.java` — disassemble & name all 596 bcall routines at their real `(page,addr)`
+3. `ApplyBcalls.java` — disassemble and name the resolved main and retail boot bcall routines at their real `(page,addr)`
 4. `DeepenPass.java` — flow analysis + name remaining bcall sites
 5. `RamRoutines.java` — mark the page-0 bjump trampoline table (87 cross-page vectors)
 6. `ApplyBjumpTargets.java` — disassemble the hot routines those trampolines point to
-7. `FixInlineBjumps.java` — fix all 280 inline `CALL cross_page_jump` tail-jumps
+7. `FixInlineBjumps.java` — fix all 355 inline `CALL cross_page_jump` tail-jumps
 8. `ParserTable.java` — the page-0x38 parser handler dispatch
 9. `RenameFns.java` — apply ~1600 accumulated names (`names.txt`) — gets to 100%
 10. `BuildTypes.java` — TI-OS enums/structs/typed regions
@@ -51,9 +51,9 @@ Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `
 
 | Metric | Value |
 |--------|-------|
-| Functions | **2413** (**2413 named — 100%**) |
-| bcall routines named | **596** main-table bcalls live-confirmed in Ghidra; 11 historical extended entries remain unverified |
-| bjump sites resolved | 280 (incl. 87-entry trampoline table) |
+| Functions | rebuilt from the local ROM by `tools/build.sh` |
+| bcall routines named | **679** total: 596 main-table bcalls + 83 retail boot-table bcalls |
+| bjump sites resolved | 355 inline sites + 87-entry trampoline table |
 | parser handlers | 84 (page 0x38 dispatch table) |
 | Defined data (strings/floats/typed) | 618 |
 | Flash pages loaded | 64 (1 MiB) |
@@ -86,7 +86,7 @@ A Z80 (64 KiB address space) with hardware **paging** maps flash page 0 at `0000
 
 **Subsystem deep-dives** (from parallel multi-agent RE): `sub-calculation`, `sub-graphing`, `sub-tibasic`, `sub-vat-archive`, `sub-apps-mem-settings`, `sub-statistics`, `sub-matrix-list`, `sub-solver-numeric`, `sub-table-yvars`, `sub-equation-display`, `sub-link-transfer`, `sub-usb-asic`.
 
-**Reference**: [`glossary`](docs/glossary.md) (terms & key RAM symbols), [`conventions`](docs/conventions.md) (notation, confidence flags, methodology), [`bcall-index`](docs/bcall-index.md) (main bcalls plus unverified extended entries, alphabetical), [`token-tables`](docs/token-tables.md) (492 two-byte tokens, from TI-Toolkit/tokens).
+**Reference**: [`glossary`](docs/glossary.md) (terms & key RAM symbols), [`conventions`](docs/conventions.md) (notation, confidence flags, methodology), [`bcall-index`](docs/bcall-index.md) (main and retail boot bcalls), [`token-tables`](docs/token-tables.md) (492 two-byte tokens, from TI-Toolkit/tokens).
 
 ## Contributing
 
@@ -96,6 +96,6 @@ Wiki authoring style lives in the repo-local Codex skill [`ti84-re-writing`](.co
 Independent reverse-engineering notes for interoperability/education. **No copyrighted TI ROM image or OS code is included** — the ROM is gitignored and you supply your own dump. `ti83plus.inc` is TI's freely-distributed equates file (the full 2007 TI-83 Plus SDK include, the complete version as hosted on WikiTI). All trademarks belong to Texas Instruments; this project is not affiliated with or endorsed by TI.
 
 ## Notes
-- `ti83plus.inc` is the full 2007 TI-83 Plus SDK equates file (the complete version as hosted on WikiTI), which replaces the earlier trimmed copy. It defines the 84+-era `0x8xxx` extended bcall IDs, so the candidates listed in `tools/ti84plus_extra.inc` (e.g. `_getBootVer` `80B7h`, `_AttemptUSBOSReceive` `80E4h`) now have equates here. Their page-0x3F bodies remain absent as functions in the current live Ghidra/MCP DB — the open piece.
+- `ti83plus.inc` is the full 2007 TI-83 Plus SDK equates file (the complete version as hosted on WikiTI), which replaces the earlier trimmed copy. It defines the 84+-era `0x8xxx` boot bcall IDs. With the local complete ROM assembled from `ti84plus_patched.rom`, `D84PBE1.8Xv`, and `D84PBE2.8Xv`, those entries resolve through retail page `3F`; the USB boot routines land on page `2F`.
 - ~1600 function names beyond the official bcalls are **RE-inferred** from behavior (callees, RAM/port touches) — accurate in aggregate, but a specific low-level helper's name is a best-effort guess; flagged by snake_case (vs the `_CamelCase` official TI bcalls).
 - Confidence flags in the docs: **[confirmed]** (seen in disassembly), **[standard]** (matches documented TI architecture), **[hypothesis]** (inferred).

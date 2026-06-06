@@ -14,7 +14,7 @@ Three cross-cutting mechanisms that tie the OS together: how it starts, how it s
 
 Boot configures the paging hardware (ports 6 and `0x0E`) and the memory-map/timer mode (port 4 write), then transfers to code it copies into RAM (why the static trace ends with "bad instruction"). The continuation at `028c` ends `JP 0x812c`. `0x812c` is in the RAM execution window and is *blank in the static image*: the bytes are filled in at boot by the copy this stub performs, so the static trace cannot follow it. It eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen).
 
-The boot page (`3F`) and its version queries are exposed to the OS through `ti83plus.inc` bcalls: `_getBootVer` (bcall `0x80B7`) and `_getHardwareVersion` (bcall `0x80BA`). These public entry points sit in the boot-page bcall range (`0x8000`+); their bodies are not defined functions in the current live DB.
+The boot page (`3F`) and its version queries are exposed to the OS through `ti83plus.inc` bcalls: `_getBootVer` (bcall `0x80B7` → `3F:477C`) and `_getHardwareVersion` (bcall `0x80BA` → `3F:4781`). The USB boot support entry points route through the same table but land on page `2F`, for example `_AttemptUSBOSReceive` (`0x80E4` → `2F:4145`) and `_InitUSB` (`0x8108` → `2F:52A4`).
 
 ### RAM clear / re-init (`ram_reset_wipe` → `0x0BD9`) [confirmed]
 

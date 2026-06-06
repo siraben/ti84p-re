@@ -2,7 +2,7 @@
 """Diff two TI-84 Plus (Z80) OS versions structurally.
 
 Pipeline (companion to tools/DumpBcalls.java):
-  1. decode a TI OS upgrade file (`**TIFL**` + Intel-HEX, e.g. ti84plus_2.53.8Xu)
+  1. decode a TI OS upgrade file (`**TIFL**` + Intel-HEX, e.g. TI84Plus_OS255.8Xu)
      into a flat, ROM-aligned image;
   2. compare its bcall jump table (page 0x3B) entry-by-entry against a raw ROM;
   3. diff operand-stripped *mnemonic* dumps produced by DumpBcalls.java on each
@@ -15,18 +15,22 @@ sequence ignores both relocation and operand fix-ups, so only genuine structural
 changes (added/removed/different instructions) show up.
 
 Usage:
-  # 1. decode + align + bcall-table diff:
+  # 1. decode + align only:
+  python3 tools/os-diff.py decode-bin  TI84Plus_OS255.8Xu  TI84Plus_OS255.bin
+  # 2. decode + align + bcall-table diff against an existing raw ROM:
   python3 tools/os-diff.py decode  OLD.8Xu  rom.bin
-  # 2. after running DumpBcalls.java on both build dirs (see the build recipe in
+  # 3. after running DumpBcalls.java on both build dirs (see the build recipe in
   #    the module docstring of DumpBcalls.java), diff the two mnem dumps:
   python3 tools/os-diff.py mnem  old/mnem.txt  new/mnem.txt
 
 The OS upgrade file and ROM are copyrighted and gitignored; supply your own.
+The decoded `.bin` is an OS-page image, not necessarily a complete retail ROM:
+TI OS upgrade files omit per-device/certificate sectors and may omit boot pages.
 """
 import sys, re, collections
 
 # .8Xu page numbering is logical; for the OS pages that carry bcall bodies the
-# empirical map to physical ROM pages is: 0x00-0x07 -> same, 0x14-0x1D -> +0x20.
+# empirical map to physical ROM pages is: 0x00-0x07 -> same, 0x10-0x1D -> +0x20.
 def rom_page(p):
     return p if p <= 0x07 else p + 0x20
 
@@ -97,7 +101,11 @@ def mnem_diff(old_path, new_path):
         print(f"  differ: {nm:<18} id={idv}  [{c0} -> {c1} instrs]  (verify: may be a boundary over-read)")
 
 if __name__ == "__main__":
-    if len(sys.argv) >= 4 and sys.argv[1] == "decode":
+    if len(sys.argv) >= 4 and sys.argv[1] == "decode-bin":
+        img = decode_8xu(sys.argv[2])
+        open(sys.argv[3], "wb").write(img)
+        print(f"wrote {sys.argv[3]}")
+    elif len(sys.argv) >= 4 and sys.argv[1] == "decode":
         img = decode_8xu(sys.argv[2])
         rom = open(sys.argv[3], "rb").read()
         out = sys.argv[2] + ".aligned.bin"

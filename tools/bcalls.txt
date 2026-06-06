@@ -595,16 +595,3 @@
 5464	_edt_5d6f
 5467	_mnu_6ddb
 5476	_grf_5e06
-
-# 0x8xxx extended bcalls (2nd table, page 0x3F)
-8021	_xb_PageSetup
-8027	_xb_RecordFind
-8030	_xb_RecordNext
-8054	_xb_52eb
-8057	_xb_430f
-805A	_xb_RecordAdvance
-805D	_xb_4463
-8075	_xb_446c
-80B1	_xb_5296
-80B7	_xb_531e
-80BA	_xb_5323

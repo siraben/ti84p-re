@@ -55,7 +55,7 @@ Each row maps a documentation page to the subsystem it covers and its analysis s
 
 New to these notes? Start with [Conventions & Methodology](conventions.md) (how to read the addresses and confidence flags) and the [Glossary](glossary.md); the [bcall Index](bcall-index.md) is the full alphabetical system-call reference.
 
-Database state: **2413 functions (100% named)**, the main `0x4xxx` bcall table resolved, TI-OS types applied. The older `0x8xxx`/page-0x3F bcall scan output is not present as functions in the current live Ghidra/MCP DB and needs reconciliation. Rebuild: `tools/build.sh`.
+Database state: the main `0x4xxx` bcall table is resolved, the retail boot bcall table (`0x8xxx`) is resolved from the local complete ROM, and TI-OS types are applied. Most boot bcall bodies are on page `3F`; USB boot routines such as `_AttemptUSBOSReceive`, `_ReceiveOS_USB`, `_InitUSB`, and `_KillUSB` are on page `2F`. Rebuild: `tools/build.sh`.
 
 ## Key anchors found so far
 

@@ -20,10 +20,11 @@ In this OS the system RAM variables all live at `8000+`, so the static RE model 
 | `00` | Boot/kernel core, mapped at `0000` | RST vectors, `bcall_dispatcher`, FP/VAT/mem routines **[confirmed]** |
 | `01` | OS routines (display, homescreen text, menus) | `_PutC`,`_PutS`,`_ClrLCDFull`,`_NewLine` resolve here **[confirmed]** |
 | `06` | OS routines (key input, parser-ish) | `_GetKey`→`06:491E` **[confirmed]** |
+| `2F` | USB boot support page | supplied by local `D84PBE2.8Xv`; retail page `3F` maps `_AttemptUSBOSReceive`→`2F:4145`, `_ReceiveOS_USB`→`2F:48CA`, `_InitUSB`→`2F:52A4`, `_KillUSB`→`2F:5961` **[confirmed]** |
 | `3B` | **bcall jump table** | scored 447/535 named .inc IDs; first entry `_JErrorNo`→`00:2799` **[confirmed]** |
 | `3C` | Link code + OS version string (`"2.55MP"`) | page starts `32 2E 35 35 4D 50` **[confirmed]** |
 | `3E` | **Certification page** (per-calculator cert sector; blank in this OS-only image) | 84+ cert page is `3E`, not `3F` **[standard]** |
-| `3F` | **Boot page** — maps itself into both banks at power-on | starts `3E 3F D3 06 D3 07` = `LD A,3F; OUT (6),A; OUT (7),A` **[confirmed]** |
+| `3F` | **Retail boot page** | supplied by local `D84PBE1.8Xv`; starts `3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81`, contains boot version string `1.03`, and hosts the `0x8xxx` boot bcall table **[confirmed]** |
 
 Pages `01–3F` are loaded in Ghidra as overlays `page_01 … page_3F` (each at `4000`). Goto e.g. `page_01:5b4c` for `_PutC`.
 

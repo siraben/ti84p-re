@@ -28,15 +28,15 @@ From the decompiler:
 - Resolution method (`tools/` Python): scored all 64 pages by how many of the 535 named .inc IDs produced a valid `(addr∈4000..7FFF or page-0, page<0x40)` entry — in this page-selection heuristic page `0x3B` scored **447/535** (a conservative validity filter used only to pick the table), the runner-up only 124. Once `0x3B` is selected and applied, all 535 `.inc` IDs plus 61 RE-named entries (596 total) resolve and are live-confirmed.
 - Validation: known bcalls land exactly where expected — `_PutS`→`01:5C39`, `_GetKey`→`06:491E`, `_ClrLCDFull`→`01:60E4`, `_GetCSC`→`00:04B2`, `_CreateReal`→`00:10B8`.
 
-`tools/bcall_targets.txt` holds **607** historical resolved bcall rows: 596 main `0x4xxx` entries plus 11 `0x8xxx` extended candidates. The 596 main entries are live-confirmed in the current Ghidra/MCP DB; the 11 extended page-0x3F candidates remain ROM-scan artifacts until the live DB exposes matching functions. `tools/ApplyBcalls.java` disassembles & names the confirmed bodies it can resolve.
+`tools/bcall_targets.txt` holds **596** resolved main-table bcall rows. `tools/bcalls8x_targets.txt` holds **83** retail boot-table rows when the local ROM has the retail page `3F` and USB support page `2F` installed. `tools/ApplyBcalls.java` disassembles and names the confirmed bodies it can resolve.
 
 ## Jump-table ID ranges
 
 The dispatcher's ID decode (`bcall_dispatcher`) selects one of **two** tables by the ID's top bits:
 - **`0x4xxx`–`0x7FFF`** (bit 14 set): the main table on **flash page 0x3B**, entry at offset `ID − 0x4000` (596 live-confirmed bcalls: 535 from the `.inc` + 61 RE-named).
-- **`0x8xxx`** (bit 15 set): historical scripts decoded 11 TI-84+-era extended candidates from a page-0x3F table, but the current live Ghidra/MCP DB does not expose functions at the claimed page-0x3F targets such as `_FindFirstCertificateField` `3F:4448` or `_GetBootVer` `3F:531E`. Treat these entries as **unverified ROM-scan output**, not live-confirmed bcalls, until the DB/load model is reconciled.
+- **`0x8xxx`** (bit 15 set): the retail boot table is on physical page `3F`, indexed by `ID & 0x7FFF`. `D84PBE1.8Xv` supplies the retail page `3F`; `D84PBE2.8Xv` supplies the companion USB boot support page `2F`. Most entries resolve to `3F:addr`; USB entries such as `_AttemptUSBOSReceive` (`80E4`) and `_InitUSB` (`8108`) resolve to `2F:addr`. `tools/resolve_bcalls.py` refuses to emit these targets from a BootFree-substituted page. **[confirmed]**
 
-Both table formats are 3-byte entries (addr LE + page, page masked `& 0x3F`); only the main page-0x3B table is MCP-confirmed end to end.
+Both resolved table formats are 3-byte entries: target address (little endian) plus page byte masked with `& 0x3F`.
 
 ## RST shortcuts (fast inlined bcalls) [confirmed]
 
@@ -61,8 +61,8 @@ There is a trampoline table in the page-0 address range **`0x3B01–0x3D0B`**: *
 
 Example: `_PutMap`'s glyph blitter is reached via the trampoline at `0x3B3D → page_07:4588`.
 
-**Inline bjumps:** besides the trampoline table, `CALL cross_page_jump; .dw; .db` appears *inline* throughout the OS (e.g. transcendentals: `_EToX` = `fp_clear_guard(); bjump`). Because `cross_page_jump` consumes the 3 inline bytes and tail-jumps (the target returns to the bjump's caller), the bytes after must be data and the call is non-returning. `tools/FixInlineBjumps.java` marks all **280** such sites, which substantially improved OS-wide disassembly coverage.
+**Inline bjumps:** besides the trampoline table, `CALL cross_page_jump; .dw; .db` appears *inline* throughout the OS (e.g. transcendentals: `_EToX` = `fp_clear_guard(); bjump`). Because `cross_page_jump` consumes the 3 inline bytes and tail-jumps (the target returns to the bjump's caller), the bytes after must be data and the call is non-returning. `tools/FixInlineBjumps.java` marks all **355** such sites in the complete local ROM, which substantially improved OS-wide disassembly coverage.
 
 ## Limitations / TODO
-- Reconcile the historical `0x8xxx`/page-0x3F bcall scan with the live Ghidra/MCP DB; the claimed page-0x3F bodies are not currently functions.
+- Keep the BootFree guard in place when regenerating from emulator-derived ROM images.
 - Some bcalls are *thunks*: e.g. `_FindSym`'s page-0 entry uses `cross_page_jump` to reach the real body on page 0x07.

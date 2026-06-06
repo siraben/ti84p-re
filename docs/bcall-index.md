@@ -1,6 +1,6 @@
 # bcall reference index
 
-The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each has an *ID* (the 2-byte value after `rst 28h`) and a *body* at `page:addr`. Use your browser's find, or the wiki search box. See [The bcall Mechanism](03-bcall-mechanism.md) for how dispatch works. The historical `0x8xxx` candidates at the end are kept for reconciliation, but their page-0x3F bodies are not currently present as functions in the live Ghidra/MCP DB.
+The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each has an *ID* (the 2-byte value after `rst 28h`) and a *body* at `page:addr`. Use your browser's find, or the wiki search box. See [The bcall Mechanism](03-bcall-mechanism.md) for how dispatch works. The `0x8xxx` boot bcall names at the end are official SDK equates resolved from the retail boot table on page `3F`; USB boot entries point into page `2F`.
 
 | bcall | ID | Body (page:addr) |
 |-------|----|------------------|
@@ -601,20 +601,92 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_ZmUsr` | `4855` | `04:601D` |
 | `_ZooDefault` | `4867` | `36:7BF9` |
 
-## Extended (`0x8xxx`) candidates — unverified
+## Retail boot (`0x8xxx`) bcalls
 
-All 11 of these `0x8xxx` candidate IDs are now defined in the full 2007 `ti83plus.inc` (SDK equate column below), and were produced by historical ROM-scan scripts from a proposed page-0x3F table. The current live Ghidra/MCP DB does **not** expose functions at these claimed targets, so treat the bodies as unresolved build/load-model evidence, not confirmed bcall bodies — the open piece. Names are WikiTI's; `†` marks WikiTI *unofficial* names. Cataloged in `tools/ti84plus_extra.inc`.
+These `0x8xxx` IDs are defined in the full 2007 `ti83plus.inc` and resolved from the retail boot table. `tools/resolve_bcalls.py` emits this table only when page `3F` has the retail boot prefix, not when it sees BootFree.
 
-| bcall | ID | SDK equate (`ti83plus.inc`) | Body (page:addr) |
-|-------|----|-----------------------------|------------------|
-| `_WriteAByte` | `8021` | `_WriteAByte` | `3F:44F3` |
-| `_FindFirstCertificateField` | `8027` | `_FindFirstCertField` | `3F:4448` |
-| `_FindGroupedField` † | `8030` | `_FindGroupedField` | `3F:442B` |
-| `_FlashToRAM2` † | `8054` | `_FlashToRam2` | `3F:52EB` |
-| `_GetCertificateStart` | `8057` | `_GetCertificateStart` | `3F:430F` |
-| `_GetFieldSize` | `805A` | `_GetFieldSize` | `3F:449C` |
-| `_FindSubField` † | `805D` | `_FindSubField` | `3F:4463` |
-| `_FindOSHeaderSubField` † | `8075` | `_FindOSHeaderSubField` | `3F:446C` |
-| `_Div32By16` | `80B1` | `_Div32By16` | `3F:5296` |
-| `_GetBootVer` | `80B7` | `_getBootVer` | `3F:531E` |
-| `_GetHWVer` | `80BA` | `_getHardwareVersion` | `3F:5323` |
+| bcall | ID | Body (page:addr) |
+|-------|----|------------------|
+| `_MD5Final` | `8018` | `3F:6964` |
+| `_RSAValidate` | `801B` | `3F:6CB4` |
+| `_cmpStr` | `801E` | `3F:7195` |
+| `_WriteAByte` | `8021` | `3F:4C9F` |
+| `_EraseFlash` | `8024` | `3F:4C2A` |
+| `_FindFirstCertField` | `8027` | `3F:4D62` |
+| `_ZeroToCertificate` | `802A` | `3F:4DAF` |
+| `_GetCertificateEnd` | `802D` | `3F:4D53` |
+| `_FindGroupedField` | `8030` | `3F:4E8C` |
+| `_ret_1` | `8033` | `3F:4867` |
+| `_ret_2` | `8036` | `3F:4867` |
+| `_ret_3` | `8039` | `3F:4867` |
+| `_ret_4` | `803C` | `3F:4867` |
+| `_ret_5` | `803F` | `3F:4867` |
+| `_Mult8By8` | `8042` | `3F:7059` |
+| `_Mult16By8` | `8045` | `3F:705B` |
+| `_Div16By8` | `8048` | `3F:7146` |
+| `_Div16By16` | `804B` | `3F:7148` |
+| `_LoadAIndPaged` | `8051` | `3F:486E` |
+| `_FlashToRam2` | `8054` | `3F:4888` |
+| `_GetCertificateStart` | `8057` | `3F:4D46` |
+| `_GetFieldSize` | `805A` | `3F:4DB8` |
+| `_FindSubField` | `805D` | `3F:4DFB` |
+| `_EraseCertificateSector` | `8060` | `3F:4E3F` |
+| `_CheckHeaderKey` | `8063` | `3F:4B4A` |
+| `_Load_LFontV2` | `806C` | `3F:7C8A` |
+| `_Load_LFontV` | `806F` | `3F:7C8A` |
+| `_ReceiveOS` | `8072` | `3F:5DCE` |
+| `_FindOSHeaderSubField` | `8075` | `3F:5018` |
+| `_FindNextCertField` | `8078` | `3F:4D5C` |
+| `_GetByteOrBoot` | `807B` | `3F:5C64` |
+| `_getSerial` | `807E` | `3F:442F` |
+| `_ReceiveCalcID` | `8081` | `3F:5EDC` |
+| `_EraseFlashPage` | `8084` | `3F:4C1E` |
+| `_WriteFlashUnsafe` | `8087` | `3F:4CA6` |
+| `_dispBootVer` | `808A` | `3F:44F1` |
+| `_MD5Init` | `808D` | `3F:68ED` |
+| `_MD5Update` | `8090` | `3F:6907` |
+| `_MarkOSInvalid` | `8093` | `3F:5209` |
+| `_FindProgramLicense` | `8096` | `3F:4B1A` |
+| `_MarkOSValid` | `8099` | `3F:51F5` |
+| `_CheckOSValidated` | `809C` | `3F:52C6` |
+| `_SetupAppPubKey` | `809F` | `3F:53CA` |
+| `_SigModR` | `80A2` | `3F:7225` |
+| `_TransformHash` | `80A5` | `3F:723F` |
+| `_IsAppFreeware` | `80A8` | `3F:52E1` |
+| `_FindAppHeaderSubField` | `80AB` | `3F:500A` |
+| `_WriteValidationNumber` | `80AE` | `3F:540B` |
+| `_Div32By16` | `80B1` | `3F:706E` |
+| `_FindGroup` | `80B4` | `3F:4E61` |
+| `_getBootVer` | `80B7` | `3F:477C` |
+| `_getHardwareVersion` | `80BA` | `3F:4781` |
+| `_xorA` | `80BD` | `3F:5C6D` |
+| `_bignumpowermod17` | `80C0` | `3F:6CBD` |
+| `_ProdNrPart1` | `80C3` | `3F:6209` |
+| `_WriteAByteSafe` | `80C6` | `3F:4C9A` |
+| `_WriteFlash` | `80C9` | `3F:4C8F` |
+| `_SetupDateStampPubKey` | `80CC` | `3F:548C` |
+| `_SetFlashLowerBound` | `80CF` | `3F:4784` |
+| `_LowBatteryBoot` | `80D2` | `3F:5834` |
+| `_AttemptUSBOSReceive` | `80E4` | `2F:4145` |
+| `_DisplayBootMessage` | `80E7` | `3F:6127` |
+| `_NewLine2` | `80EA` | `3F:73DD` |
+| `_DisplayBootError10` | `80ED` | `3F:5789` |
+| `_Chk_Batt_Low_B` | `80F0` | `3F:6171` |
+| `_Chk_Batt_Low_B2` | `80F3` | `3F:6163` |
+| `_ReceiveOS_USB` | `80F6` | `2F:48CA` |
+| `_DisplayOSProgress` | `80F9` | `3F:62D0` |
+| `_ResetCalc` | `80FC` | `3F:5ED3` |
+| `_SetupOSPubKey` | `80FF` | `3F:5387` |
+| `_CheckHeaderKeyHL` | `8102` | `3F:4B4D` |
+| `_USBErrorCleanup` | `8105` | `2F:5958` |
+| `_InitUSB` | `8108` | `2F:52A4` |
+| `_KillUSB` | `810E` | `2F:5961` |
+| `_DisplayBootError1` | `8111` | `3F:63DB` |
+| `_DisplayBootError2` | `8114` | `3F:5789` |
+| `_DisplayBootError3` | `8117` | `3F:5789` |
+| `_DisplayBootError4` | `811A` | `3F:5789` |
+| `_DisplayBootError5` | `811D` | `3F:5789` |
+| `_DisplayBootError6` | `8120` | `3F:5789` |
+| `_DisplayBootError7` | `8123` | `3F:5789` |
+| `_DisplayBootError8` | `8126` | `3F:5789` |
+| `_DisplayBootError9` | `8129` | `3F:5789` |
