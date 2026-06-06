@@ -6,37 +6,50 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# Allow one concurrent deployment; don't cancel an in-progress production deploy.
+# Serialize writes to the gh-pages branch with PR preview deployments.
 concurrency:
-  group: pages
+  group: github-pages-branch
   cancel-in-progress: false
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v16
       - name: Build the mdBook wiki (mdBook + mermaid + KaTeX + pseudocode.js)
         run: nix build .#default -L
-      - name: Stage site
+      - name: Deploy production site
         run: |
-          mkdir -p _site
-          cp -rL result/. _site/
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
+          set -euo pipefail
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          site="$(mktemp -d)"
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git fetch origin gh-pages
+            git worktree add "$site" origin/gh-pages
+          else
+            git worktree add --detach "$site"
+            git -C "$site" checkout --orphan gh-pages
+            git -C "$site" rm -rf . >/dev/null 2>&1 || true
+          fi
+
+          mkdir -p "$site/pr"
+          find "$site" -mindepth 1 -maxdepth 1 \
+            ! -name ".git" \
+            ! -name "pr" \
+            -exec rm -rf {} +
+          cp -rL result/. "$site/"
+          touch "$site/.nojekyll"
+
+          git -C "$site" add -A
+          if git -C "$site" diff --cached --quiet; then
+            echo "No Pages changes to deploy."
+          else
+            git -C "$site" commit -m "Deploy production Pages site"
+            git -C "$site" push origin HEAD:gh-pages
+          fi

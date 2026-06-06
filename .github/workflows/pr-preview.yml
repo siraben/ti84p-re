@@ -1,0 +1,130 @@
+name: Deploy PR preview to GitHub Pages
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Serialize writes to the gh-pages branch with production deployments.
+concurrency:
+  group: github-pages-branch
+  cancel-in-progress: false
+
+jobs:
+  deploy-preview:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - name: Build the mdBook wiki (mdBook + mermaid + KaTeX + pseudocode.js)
+        run: nix build .#default -L
+      - name: Deploy preview
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          site="$(mktemp -d)"
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git fetch origin gh-pages
+            git worktree add "$site" origin/gh-pages
+          else
+            git worktree add --detach "$site"
+            git -C "$site" checkout --orphan gh-pages
+            git -C "$site" rm -rf . >/dev/null 2>&1 || true
+          fi
+
+          preview_dir="$site/pr/$PR_NUMBER"
+          rm -rf "$preview_dir"
+          mkdir -p "$preview_dir"
+          cp -rL result/. "$preview_dir/"
+          touch "$site/.nojekyll"
+
+          git -C "$site" add -A
+          if git -C "$site" diff --cached --quiet; then
+            echo "No preview changes to deploy."
+          else
+            git -C "$site" commit -m "Deploy PR #$PR_NUMBER preview"
+            git -C "$site" push origin HEAD:gh-pages
+          fi
+      - name: Comment preview URL
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          PREVIEW_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr/${{ github.event.pull_request.number }}/
+        run: |
+          set -euo pipefail
+
+          marker="<!-- ti84-re-pages-preview -->"
+          body="$marker
+          GitHub Pages preview: $PREVIEW_URL"
+
+          comment_id="$(
+            gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+              --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$marker\"))) | .id" \
+              | tail -n 1
+          )"
+
+          if [ -n "$comment_id" ]; then
+            gh api "repos/$REPO/issues/comments/$comment_id" \
+              --method PATCH \
+              --field body="$body" >/dev/null
+          else
+            gh pr comment "$PR_NUMBER" --body "$body"
+          fi
+
+  cleanup-preview:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            echo "No gh-pages branch exists; nothing to clean."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          site="$(mktemp -d)"
+          git fetch origin gh-pages
+          git worktree add "$site" origin/gh-pages
+
+          rm -rf "$site/pr/$PR_NUMBER"
+          git -C "$site" add -A
+          if git -C "$site" diff --cached --quiet; then
+            echo "No preview directory to remove."
+          else
+            git -C "$site" commit -m "Remove PR #$PR_NUMBER preview"
+            git -C "$site" push origin HEAD:gh-pages
+          fi
+
+          marker="<!-- ti84-re-pages-preview -->"
+          comment_id="$(
+            gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+              --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$marker\"))) | .id" \
+              | tail -n 1
+          )"
+
+          if [ -n "$comment_id" ]; then
+            gh api "repos/$REPO/issues/comments/$comment_id" \
+              --method PATCH \
+              --field body="$marker
+              GitHub Pages preview removed because this PR is closed." >/dev/null
+          fi
