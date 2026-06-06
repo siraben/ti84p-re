@@ -40,7 +40,7 @@
 - [Matrices & Lists](sub-matrix-list.md)
 - [Solver & Numerical Methods](sub-solver-numeric.md)
 - [Table & Y= Variables](sub-table-yvars.md)
-- [Equation Display (MathPrint)](sub-equation-display.md)
+- [Equation display (MathPrint)](sub-equation-display.md)
 - [Link / Data Transfer](sub-link-transfer.md)
 
 # Reference

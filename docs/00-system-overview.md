@@ -44,7 +44,7 @@ Around those sit the I/O subsystems: the **IM1 interrupt** that drives timing/AP
 | [sub-matrix-list.md](sub-matrix-list.md) | Matrix/list element access, Gauss-Jordan inverse/det, matmul | ✅ |
 | [sub-solver-numeric.md](sub-solver-numeric.md) | Solver root-finder, nDeriv/fnInt, TVM finance | ✅ |
 | [sub-table-yvars.md](sub-table-yvars.md) | TABLE generation/cache, Y= equation vars | ✅ |
-| [sub-equation-display.md](sub-equation-display.md) | Equation pretty-printer (page 0x39 `eqdisp_*`) | ✅ |
+| [sub-equation-display.md](sub-equation-display.md) | Equation display / MathPrint layout (page 0x39 `eqdisp_*`) | ✅ |
 | [sub-link-transfer.md](sub-link-transfer.md) | Link protocol: byte/packet/var-transfer (page 0x3C) | ✅ |
 
 (The `sub-*` docs are deep dives covering user-facing functionality: calculation, graphing, TI-BASIC, VAT/archive, apps, stats, matrices, solver, table, and link.)
