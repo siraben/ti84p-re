@@ -18,8 +18,7 @@ fixed page‑0 core at `0x0000`. The whole STAT‑CALC engine lives on **flash p
 0x3A**. Confidence: **[confirmed]** = read from Z80 disassembly, **[standard]** =
 matches documented TI behavior, **[hypothesis]** = inferred.
 
-Verified by headless disassembly/decompilation on the private Ghidra copy
-(`/tmp/ti84-stats`). Note the Ghidra decompiler mis-renders the Z80
+The Ghidra decompiler mis-renders the Z80
 `SET/RES b,(IY+d)` flag ops, the `RST` macros, and cross-page `CALL 0x2b09`
 trampolines, so the algorithm here is read primarily from the **disassembly**.
 

@@ -6,8 +6,8 @@ Deep-dive companion to [05-variables-vat.md](05-variables-vat.md) and [12-memory
 program that manages memory touches: the VAT walk (`_FindSym`), variable Store/Recall, and the
 **Archive / UnArchive** path (RAM ↔ Flash), the Flash **garbage collector**, and the memory checks.
 
-Every address here is verified by **disassembling the actual Z80** in the Ghidra DB (`/tmp/ti84-vat`,
-headless `Disasm.java`) rather than by the decompiler alone, which mis-renders the `SET b,(IY+d)` flag ops and
+Every address here is read from the raw Z80 disassembly rather than the decompiler alone, which
+mis-renders the `SET b,(IY+d)` flag ops and
 the cross-page `CALL 0x2b09`-style trampolines. Page numbers are the masked flash page
 (`rawpage & 0x3F`); cross-page trampolines store `lo hi rawpage` in the 3 bytes after the `CALL`.
 
@@ -373,5 +373,4 @@ Ports: **0x06** = bank-A page select (Flash window), **0x14** = Flash write/eras
   separate routine that walks the group's member list. That member-walk routine is **not
   identifiable in the current Ghidra DB** — `_Arc_Unarc`'s body past the entry `CALL` is not
   disassembled here (cross-page `CALL` flagged non-returning), and no group-archive function is
-  named or xref-reachable. Re-confirming it would need the headless `Disasm.java` linear pass that
-  produced §4.
+  named or xref-reachable. Re-confirming it would need a linear disassembly pass like the one behind §4.
