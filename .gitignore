@@ -1,3 +1,6 @@
+# macOS junk
+.DS_Store
+
 # Copyrighted TI ROM images - do NOT commit
 *.rom
 tools/rom.bin
@@ -8,6 +11,9 @@ tools/ti84_page00.bin
 *.lock
 !flake.lock
 *.ghidra
+
+# offline WikiTI dump (regenerate via tools/dump-wikiti.py)
+/wikiti-dump/
 
 # generated mdBook HTML output
 /book/
