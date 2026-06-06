@@ -26,11 +26,12 @@ run of 16 KiB flash pages whose first page begins with a TLV **app header**.
 ### 1.1 App header format (TLV) [confirmed]
 
 An app header is a sequence of **type-length-value fields** starting at offset 0 of the
-app's first page. Each field begins with an ID byte whose **low nibble encodes the field
-length**. The decoder bytes are around `page_3D:7285`, but the current Ghidra DB does not expose a live function there:
+app's first page. Each field begins with two bytes in WikiTI's `TT TS` notation: the high
+12 bits are the field number, and the low nibble of the second byte encodes the payload
+length. The decoder bytes are around `page_3D:7285`, but the current Ghidra DB does not expose a live function there:
 
-| low nibble of ID | field payload size |
-|------------------|--------------------|
+| size nibble | field payload size |
+|-------------|--------------------|
 | `0xD` | 1 byte  |
 | `0xE` | 2 bytes |
 | `0xF` | 4 bytes |
@@ -38,9 +39,62 @@ length**. The decoder bytes are around `page_3D:7285`, but the current Ghidra DB
 ```z80
 page_3D:7285  AND 0x0F; CP 0x0F -> B=4 ; CP 0x0E -> B=2 ; CP 0x0D -> B=1
 ```
-The signature field at offset 0 is `80 0F …` (field type 0x80, 4-byte value) — this is
-what the page-scan keys on to recognise an app. Fields carry the app name, the page count,
-flags, the security/signature, etc.
+The master field at offset 0 is usually `80 0F …` (`field 800`, size nibble `F`, followed
+by a 4-byte size) — this is what the page-scan keys on to recognise an app. Fields carry
+the app name, the page count, flags, the date stamp, and signature-related data.
+
+The app header is not a fixed 128-byte struct. The `807` final field terminates it. The
+common `80 7F 00 00 00 00` form uses size nibble `F` with a four-byte zero, but WikiTI
+documents that length as ignored; the shorter `80 70` form is valid. The app body begins
+after the final field and any app-controlled padding. Bytes before the conventional
+`4080` entry point are not loader magic; they are field payload or padding, and an app can
+choose payload bytes that also decode as Z80. **[standard]**
+
+External sample check (not ROM evidence): the local Axe Parser `Axe.8xk` sample decodes to
+a base page whose `020D` date-stamp-signature field starts at `4027` and has a 64-byte
+payload. Part of that payload is a Z80 helper at `4037`:
+
+```z80
+4037  POP AF
+4038  POP BC
+4039  POP DE
+403A  POP HL
+403B  PUSH HL
+403C  PUSH DE
+403D  PUSH BC
+403E  PUSH AF
+; ...
+4056  LD A,0C9h
+4058  CPIR
+405A  PUSH HL
+405B  IN A,(6)
+405D  DEC A
+405E  LD HL,4065h
+4061  RST 20h
+4062  JP 8478h
+4065  OUT (6),A
+4067  RET
+```
+
+`RST 20h` is `_Mov9ToOP1`, so the helper copies the thunk at `4065` into OP1
+(`0x8478`) and jumps to OP1. That makes `OUT (6),A; RET` run from RAM after `A`
+has been set to the current bank-A page minus one. The preceding `CPIR` searches
+from `HL` for a `RET` byte (`0xC9`) and pushes the byte after it as the return
+address. The first half preserves the popped registers while it probes caller-owned
+bytes and can return early; the later page switch and RAM-thunk behavior are directly
+decoded from the sample bytes.
+
+The same sample's conventional entry area at `4080` starts `NOP; JR 408C; JP 4097;
+JP 4548`. Additional local samples agree with WikiTI's field model:
+
+| sample | header boundary | header-area bytes before `4080` |
+|--------|-----------------|---------------------------------|
+| MirageOS, Omnicalc, CalcSys, Symbolic, BatLib | `807F00000000` at `406A`, header bytes end at `4070` | padding to `4080`; code starts at `4080` |
+| zStart 1.3.013 | `809D0F` carries a 15-byte Z80 routine at `406B`; `807F00000000` ends at `4080` | no padding; code starts at `4080` |
+| usb8x | `807F00000000` ends at `4029` | mostly zero padding, plus two app-owned jumps at `4049`: `JP 4180h; JP 42EAh` |
+
+These samples keep the same parser boundary rule: the 128-byte boundary is an app
+convention, not the OS's header parser boundary.
 
 The public entry points for walking these fields are bcalls in `ti83plus.inc`:
 `_FindAppHeaderSubField` (bcall `0x80AB`) locates a field in an app header, and
