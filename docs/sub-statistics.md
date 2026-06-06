@@ -206,7 +206,7 @@ mean, variance, and least‑squares normal equations. Read from disassembly:
 
 So one pass builds, for a degree‑*d* fit, the symmetric **moment matrix** of
 power‑sums `Σxⁱ` (i = 0 … 2d) and the right‑hand side `Σxⁱy`, stored as a small
-2‑D array reached by the index helpers **`3A:3A8F`/`3AA1`/`3AA7`/`3AAD`/`3AB9`**
+2‑D array reached by the RAM trampoline helpers **`00:3A8F`/`3AA1`/`3AA7`/`3AAD`/`3AB9`**
 (matrix‑element get/set by `(row B, col C)`). `StatN`, `SumX`, `SumXSqr`, `SumY`,
 `SumYSqr`, `SumXY`, `MinX/MaxX/MinY/MaxY` are filled here directly. [confirmed]
 
@@ -406,13 +406,13 @@ equations, depositing every output as a named `TIFloat` in the `statVars` block.
 | `3A:6572` | `onevar_accumulate` | one‑pass power‑sum accumulation loop |
 | `3A:6567` | `onevar_powmul` | running power·freq product (OP1→OP2, ×) |
 | `3A:6345` | `onevar_frame_teardown` | restore stat error frame |
-| `3A:6352` | `onevar_err_cleanup` | on‑error cleanup handler |
+| `3A:6352` | `onevar_frame_teardown_tail` | on-error tail calling `onevar_frame_teardown` |
 | `3A:6984` | `stat_stddev_pop` | population variance/σ finalize (÷ n) |
 | `3A:6989` | `stat_stddev_samp` | sample variance/S finalize (÷ n−1) |
 | `3A:6998` | `stat_var_core` | (Σx²−n·x̄²) variance core + √ |
 | `3A:67C6` | `reg_gauss_solve` | Gauss‑Jordan solve of normal equations |
 | `3A:69AF` | `reg_store_coeff` | write a solved coefficient (matrix set) |
-| `3A:3A8F`/`3AA1`/`3AA7`/`3AAD`/`3AB9` | `stat_mtx_get/set` | sums‑matrix element access by (row,col) |
+| `00:3A8F`/`3AA1`/`3AA7`/`3AAD`/`3AB9` | `stat_mtx_index/get/set` | RAM trampolines for sums-matrix element access by (row,col) |
 | `3A:6F6A` | `stat_next_elem` | fetch next list element, advance ptr |
 | `3A:6F7D`/`6F90` | `stat_freq_default` | default frequency = 1 |
 | `3A:7935` | `stat_sort` | stat-internal data sort (median/quartile, Med-Med) |

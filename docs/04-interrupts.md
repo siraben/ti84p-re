@@ -6,10 +6,11 @@ The Z80 runs in **interrupt mode 1**: every maskable interrupt vectors to `0038h
 
 ```z80
 0038:  JR  0x006d        ; RST 38h vector
-006d:  int_dispatch_timer1 ; live Ghidra/MCP symbol for the real handler
+006d:  int_entry_save_alt_regs ; shadow-register save prologue
+006f:  int_dispatch_sources    ; live interrupt-source dispatcher
 ```
 
-`int_dispatch_timer1` @ `ram:006d` (called `isr_im1` in older notes) runs with `IY = flags` (`0x89F0`), so `(IY+off)` reads/writes `SystemFlags` fields.
+`int_dispatch_sources` @ `ram:006F` (called `isr_im1` in older notes) runs after the two-byte prologue at `ram:006D`, with `IY = flags` (`0x89F0`), so `(IY+off)` reads/writes `SystemFlags` fields.
 
 ## What it does [confirmed from decompiler]
 
@@ -26,12 +27,12 @@ Entry saves context (`ex af,af'` / `exx` — the Z80 shadow registers, the class
 
 ## `(IY+off)` → `SystemFlags` fields the ISR touches [confirmed from disassembly]
 
-`int_dispatch_timer1` reads/writes these flag bits via `BIT/SET/RES b,(IY+d)`. Offsets are confirmed against the standard `ti83plus.inc` group layout; the anchor `apdFlags = IY+0x08` is **confirmed in code** (`_DisableApd`/`_EnableApd` @ `3B:7AA8/7AAD` do `RES/SET 2,(IY+0x8)`), `curFlags = IY+0x0C` is **confirmed** (`_CursorOn`/`_CursorOff` @ `06:7D34/7C5F`).
+`int_dispatch_sources` reads/writes these flag bits via `BIT/SET/RES b,(IY+d)`. Offsets are confirmed against the standard `ti83plus.inc` group layout; the anchor `apdFlags = IY+0x08` is **confirmed in code** (`_DisableApd`/`_EnableApd` @ `3B:7AA8/7AAD` do `RES/SET 2,(IY+0x8)`), `curFlags = IY+0x0C` is **confirmed** (`_CursorOn`/`_CursorOff` @ `06:7D34/7C5F`).
 
 | `(IY+off)` | bit | field / equate | meaning in the ISR |
 |------------|-----|----------------|--------------------|
-| `IY+0x03` | 1 | `onFlags`·onInterrupt | ON-key interrupt already latched (guards the ON-set path @ `00F5`) |
-| `IY+0x03` | 0 | `onFlags`·onRunning | "ON pressed" sticky flag the ISR **sets** @ `0109` |
+| `IY+0x03` | 1 | flag byte `0x03` bit1 | ON-key interrupt already latched (guards the ON-set path @ `00F5`) |
+| `IY+0x03` | 0 | `graphFlags`·graphDraw | redraw-graph flag the ISR **sets** @ `0109` |
 | `IY+0x08` | 2 | `apdFlags`·apdRunning | APD active; toggled by `_DisableApd`/`_EnableApd` |
 | `IY+0x09` | 3 | `hardwareType`/sysFlags bit3 | "84+ hardware present" gate before touching ports 0x55/0x56/0x37/0x31 (`008B`, `099E`) |
 | `IY+0x09` | 4 | (same byte) | **set** @ `0A87` to mark the crash/RST-5 ON-break path taken |

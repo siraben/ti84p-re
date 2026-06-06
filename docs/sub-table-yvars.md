@@ -82,7 +82,7 @@ From `ti83plus.inc` and verified by the bit-ops below:
 ### TBLSET key/edit handler — `tblsetup_handler` (`02:7B20`) [confirmed]
 
 The page-02 command/mode handler that backs the **TBLSET** screen edits the two
-floats and the two mode rows. Its core writer (`02:7B35`) byte-decodes as:
+floats and the two mode rows. A retired helper label at `02:7B35` is not a live function in the current DB, but the byte sequence there decodes as:
 
 ```z80
 02:7B35  RES 4,(IY+0x13)   ; default Indpnt = Auto  (autoFill=0)
@@ -330,7 +330,7 @@ next TABLE view to recompute:
 
 | Site | Trigger |
 |------|---------|
-| `02:7B35` | editing **TblStart/ΔTbl/Indpnt/Depend** in TBLSET |
+| `02:7B35` bytes | editing **TblStart/ΔTbl/Indpnt/Depend** in TBLSET |
 | `37:5F3D` | toggling Indpnt or Depend on the setup screen |
 | `38:6340`, `38:4809`, `38:54CD` | the **parser** storing into a Y= equation or a relevant var (editing `Y1=…`, `→Y1`, or changing `X`/window) |
 | `00:4105` | boot / reset (`RAM clear`) initialises the table as dirty |
@@ -347,7 +347,7 @@ Conversely only the recompute driver **clears** it (`05:5DD7`, `05:62FD`,
    bit set** (the `=` is highlighted). The parser store path sets `reTable`.
 2. **TBLSET** (`2nd WINDOW`): sets `TblStart=0` (`TblMin` 0x92B3), `ΔTbl=1`
    (`TblStep` 0x92BC), `Indpnt:Auto`, `Depend:Auto`. Each edit sets `reTable`
-   (`02:7B35`).
+   (the setup bytes around `02:7B35`).
 3. **TABLE** (`2nd GRAPH`): enters context `cxTableEditor` (0x4A) on page 05.
    `table_editor_main` (`05:5D0D`) sees `reTable=1` → `table_recompute`
    (`05:5DD7`):
@@ -376,7 +376,7 @@ IY+19 b4    tblFlags.autoFill = Indpnt Auto/Ask
 IY+19 b5    tblFlags.autoCalc = Depend Auto/Ask
 IY+19 b6    tblFlags.reTable  = table-dirty
 page_02:7b20  tblsetup_handler                 ; TBLSET key/edit handler
-page_02:7b35  tblsetup_set_defaults            ; default Indpnt=Auto, set reTable
+page_02:7b35  (retired label; no live function in the current Ghidra DB)
 page_37:5f10  tblset_cx_display                ; TBLSET screen reconcile → reTable
 
 ; --- TABLE editor / generator (page 05) ---
