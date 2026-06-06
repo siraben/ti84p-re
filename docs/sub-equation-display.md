@@ -69,13 +69,18 @@ A visible expression is driven by **handler records** reached through the class 
 handler = word(39:5E45 + 2 * class)
 ```
 
-Most entries point to compact data, not executable code. The common record format is:
+Most entries point to compact data, not executable code. The common record format is a
+variable-length tail:
 
-```text
-byte row_count
-byte cell_count[row_count]
-byte row_action[row_count]
-word cell[sum(cell_count)]
+```c
+typedef uint16_t EqDispCell;  /* high byte D, low byte E */
+
+typedef struct {
+    uint8_t row_count;
+    uint8_t cell_count[];  /* row_count entries */
+    /* uint8_t row_action[row_count]; */
+    /* EqDispCell cell[sum(cell_count[0..row_count - 1])]; */
+} EqDispHandlerRecord;
 ```
 
 `row_action[]` bytes are row labels or control actions. They are separate from the cell
@@ -164,12 +169,14 @@ the final MathPrint operator form. [confirmed]
 
 Descriptor-backed templates use a fixed ABI. A descriptor is:
 
-```text
-word base_yx
-word box_yx
-byte row_height
-word cols_rows
-word cell_pointer
+```c
+typedef struct {
+    uint16_t base_yx;       /* packed base y/x coordinate */
+    uint16_t box_yx;        /* packed box y/x coordinate */
+    uint8_t  row_height;
+    uint16_t cols_rows;     /* packed column/row count */
+    uint16_t cell_pointer;  /* pointer to descriptor cells */
+} EqDispTemplateDescriptor;
 ```
 
 The mapper at `39:683D` converts a descriptor cell to pixels:
