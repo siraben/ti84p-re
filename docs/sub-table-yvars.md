@@ -47,15 +47,15 @@ flowchart TB
     PARSER --> S3
 ```
 
-The TABLE feature does **not** re-implement function evaluation. It reuses the
-exact same Y= storage and the same page-38 recursive-descent evaluator the
-grapher and homescreen use; it only adds (a) the running-`X` driver from
+The TABLE feature reuses the exact same Y= storage and the same page-38
+recursive-descent evaluator the grapher and homescreen use; it adds only
+(a) the running-`X` driver from
 `TblMin`/`TblStep`, (b) a RAM **value cache** so scrolling doesn't recompute, and
 (c) a text-grid renderer. [confirmed for structure]
 
 ---
 
-## 1. TABLE SETUP — where the settings live & how they're read
+## 1. Table setup — where the settings live & how they're read
 
 ### System variables (RAM `TIFloat`s) [confirmed addresses, ti83plus.inc + code]
 

@@ -3,7 +3,7 @@
 *TI-84 Plus OS 2.55MP — feature deep dive.*
 
 How the student-facing parts of the OS work: launching Flash Apps, the **MEM → Reset**
-menu (what "RAM Cleared" actually erases), and the **MODE** screen format/mode flags.
+menu (what "RAM Cleared" erases), and the **MODE** screen format/mode flags.
 Addresses are `space:addr` where `ram`/`page_00`=`0000-3FFF`, flash pages mapped at
 `4000-7FFF`. Confidence: **[confirmed]** = read from disassembly, **[likely]** =
 strong inference, **[partial]** = code is RAM-resident / cross-page and not fully traced.
@@ -123,7 +123,7 @@ Dispatch is on the selected reset item held in `keyExtend` (`0x8446`):
 | 4 | reset **all** (RAM+archive) | `Resetting All...` (path `71F0`) |
 | else (0) | **RAM reset** ("RAM Cleared") | wipe + re-init (path `719F`) |
 
-### 2.3 What "RAM Cleared" (RAM reset) actually zeroes [confirmed]
+### 2.3 What "RAM Cleared" (RAM reset) zeroes [confirmed]
 
 The RAM-reset path (`page_35:719F`):
 ```z80
@@ -158,7 +158,7 @@ The harder reset (RESET ALL / power-on cold start) is at `ram:0B27`:
 ```
 This zeroes the **entire** 32 KiB RAM and does the deepest re-init.
 
-### 2.5 `_CleanAll` / `cleanup_temp_ram` (`page_07:52CF`) — NOT a reset [confirmed]
+### 2.5 `_CleanAll` / `cleanup_temp_ram` (`page_07:52CF`) — not a reset [confirmed]
 
 Distinct from the MEM reset. `_CleanAll` (bcall `0x4A50`) only **compacts temporary RAM**
 after a command finishes: it shifts the FP stack (`fpBase`/`FPS`) down to `tempMem`, resets

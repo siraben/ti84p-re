@@ -62,7 +62,10 @@ there real evidence pointing the wrong way? If not, just state what is true.
 - **Sentence case headings and page titles** ("Memory map", not "Memory Map";
   "Object types", not "Object Types"). Keep acronyms and proper nouns
   capitalized (VAT, LCD, TI-BASIC, MathPrint, API). A page's H1 and its
-  `SUMMARY.md` entry must match. No links inside headings; blank line after each.
+  `SUMMARY.md` entry share the same sentence case and core title, though the H1
+  may carry a leading section number and a clarifying parenthetical the TOC omits
+  (H1 "01 — Memory map", TOC "Memory map"). No links inside headings; blank line
+  after each.
 - **Tables for enumerations** (routines, IDs, type bytes, bit layouts); **prose
   for mechanism**; **pseudocode for algorithms**; **Mermaid for control/data flow.**
   Do not turn a table dump into the whole article — explain what it *means*.

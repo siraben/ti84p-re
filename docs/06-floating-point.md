@@ -216,7 +216,7 @@ This one keeps its **range reduction on page 0x02** and is the most fully recove
 [14] 00 00 00 00 00 00 00 43  [15] 00 00 00 00 00 00 00 04
 ```
 
-`02:7201` and `02:7281` are the forward sin/cos signed polynomial tables. Each row is 16 bytes: the first 8-byte variant is selected when `0x84A4 bit 7` is clear, and the second 8-byte variant is selected when it is set.
+`02:7201` and `02:7281` are the forward sin/cos signed recurrence tables (the per-row near-unity factors the digit loop steps through, per the shared algorithm above). Each row is 16 bytes: the first 8-byte variant is selected when `0x84A4 bit 7` is clear, and the second 8-byte variant is selected when it is set.
 
 ```
 02:7201:

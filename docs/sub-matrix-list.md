@@ -279,7 +279,7 @@ drivers above are now byte-pinned at their evaluator entries. [C]
 
 ---
 
-## 5. THE heavy ones — `det(`, `[A]⁻¹`, `rref(` / `ref(` [C]
+## 5. The heavy ones — `det(`, `[A]⁻¹`, `rref(` / `ref(` [C]
 
 All three are the **same Gauss-Jordan elimination engine with partial pivoting**:
 **`matrix_gauss_engine` @ `page_02:42A6`**. The *entry flag in `A`* selects behaviour. Only two
@@ -356,7 +356,7 @@ So the **sign byte is the LSB of the swap-count** applied via `_InvOP1S` (`02:24
 `43E3–43F6`. The permutation undo (`420F`/`4259`) restores element order for the inverse. [C]
 
 ### `rref(` / `ref(` — separate driver, **not** `42A6` [C/H]
-**`rref(`/`ref(` do NOT re-enter the `42A6` Gauss-Jordan engine.** A function-xref shows
+**`rref(`/`ref(` do not re-enter the `42A6` Gauss-Jordan engine.** A function-xref shows
 `matrix_gauss_engine` (`02:42A6`) has **exactly two callers** — `mat_inverse_entry` (`02:5F80`,
 flag 0) and `det_entry` (`02:5FC0`, flag 0x40); there is no third call site (byte-confirmed
 earlier: `CD A6 42` appears exactly twice). So `det(`/`[A]⁻¹` are the only consumers of that
