@@ -172,6 +172,21 @@ value 0xD0 vs 0xD4 tells the caller whether it landed on `Else` or `End`.
   re-tests the limit, and either re-seeds `parsePtr` to the loop top or falls
   through. The block matcher `FUN_38_4130` is what bounds these bodies during
   skips (e.g. `While 0` skips straight to `End`).
+- **Dispatch path (byte-traced).** The For/While/Repeat/End/Return *execution* handlers are
+  **not** on page 0x38 — page 0x38 only has the `tFor/tWhile/tRepeat/tEnd` compares inside
+  the `blockmatch_end_else` skip scanner (`38:4130…4180`). The live handlers are reached via
+  the page-0x02 command dispatcher: `02:54BD` loads a per-token handler pointer
+  (`LD HL,0x6A30` for `tFor`=`CP 0xD3`, `0x6A34` for `tEnd`=`CP 0xD4`, `0x6A2A` for
+  `tReturn`=`CP 0xD5`), and `tWhile`/`tRepeat` load a loop-type code (`LD A,0x26`/`0x27`)
+  and `JP 0x6400`. `02:6400` and the `6A2A/6A30/6A34` stubs set a command index
+  (`0x28/0x29/0x2A`) and invoke bcall **`0x5140`/`0x513D`**, which both resolve to **page
+  0x33** (`_grf_435f`, target `33:435F`). `33:435F` does `SUB 0x20`, bounds-checks, and
+  indexes a **13-entry jump table at `33:4381`** (`0x47BB, 0x4A71, 0x4817, 0x4759, 0x47F5,
+  0x4AAA, 0x4B36, 0x4B4B, 0x45DE, 0x45D1, 0x459B, 0x4C93, 0x4CE8`) — the actual
+  For/While/Repeat/End/Return bodies. The default `For` step uses `_OP2Set1` and the loop
+  variable is stored via `_MovFrOP1`; `End` re-seeds the parse cursor from the loop-record's
+  saved position. **[confirmed dispatch chain into page 0x33; exact FPS record byte layout
+  not yet field-mapped — see residual]**
 - `FUN_38_5826`'s prologue calls `_DeallocFPS1` then `FUN_38_58df` (which sets
   `pTempCnt`/`cleanTmp`) — FPS bookkeeping consistent with pushing/popping a loop
   frame. **[strong]**
@@ -208,7 +223,7 @@ cross-page jump (`RST2`/bjump). Token-compare sites located by ROM scan:
 | `Prompt` | `tPrompt=DD` | `02:562F`, `02:5786`, `02:590E`, `00:4C5C` | like `Input` but auto-labels `NAME=?` |
 | `Menu(` | `tMenu=E6` | `38:5A8A` (CP E6), `02:555D`, `06:4A17` | `_DispMenuTitle` (`39:4D21`) + branch on choice |
 | `Pause` | `tPause=D8` | `02:55E7`, `02:6684`, `39:6B8E`, `3A:7E7C` | display then wait for `[ENTER]` via key loop |
-| `getKey` | `tGetKey=AD` | `37:6700` (keymap), `3A:7E8A` | non-blocking `_GetKey`; returns keycode→OP1 |
+| `getKey` | `tGetKey=AD` | `37:6700` (token-attr table, **not** a keymap), `3A:7E8A` | non-blocking `_GetKey` (bcall `0x4972`, page 06); returns keycode→OP1 |
 | `ClrHome` | (cmd token) | clears text shadow + home cursor | `_ClrLCDFull` / home-cursor reset |
 
 Details:
@@ -227,18 +242,45 @@ Details:
 - **`Input` / `Prompt`** — these handlers (page 02) drop into the **entry-line
   editor**: show the prompt (`?` for `Input`, `VAR=` for `Prompt`), let the user
   type, tokenize the input, and feed it back through the parser (`_ParseInp`) to
-  store into the target variable. `Prompt` loops over a comma list of variables,
-  auto-printing each variable's name. **[strong — token sites confirmed; bodies
-  dense]**
-- **`Menu(`** — `_DispMenuTitle` (`39:4D21`) draws the title; the handler stores
-  branch-target `Lbl`s, draws up to 7 options, blocks for a key, and on selection
-  performs a `Goto`-style jump to the chosen `Lbl`. Token site `38:5A8A`. **[strong]**
+  store into the target variable. The exact **argument-parsing order** (byte-traced):
+
+  - `Input` dispatch is `02:54EF` (`CP 0xDC`) and the body entry `02:54F6` reached via
+    `02:641F` (`CP 0xDC → POP AF; CALL 0x649E; EX DE,HL; JP 0x54F6`). Order: (1) check
+    for an **optional leading argument** — a string/`Str`/`"…"` prompt *or* a `(row,col)`
+    pair, comma-terminated; (2) parse the **single store target variable**; (3) print the
+    prompt (`?` if no custom prompt was given); (4) run the entry-line editor; (5) tokenize
+    + `_ParseInp` the typed text; (6) `_MovFrOP1`/store into the target. With no args at
+    all, `Input` pauses on the graph screen with a free-moving cursor.
+  - `Prompt` dispatch is `02:562F` (`CP 0xDD`) → `02:6699`. It is a **loop over a
+    comma-separated variable list** (`02:6699 LD DE,1; … ; 02:66BF CALL 0x1942; CP 0x04;
+    JR NZ,error` — each list item must classify as a **storable real/var, type 4**). For
+    each variable: resolve its name (`02:66AC CALL 0x1DF3` then cross-page `CALL 0x3A89`),
+    auto-print "`NAME=`", run the editor, parse the typed value, store it, then advance to
+    the next comma item. **[confirmed token sites + loop/validation bytes; entry-line
+    editor internals dense]**
+- **`Menu(`** — dispatched on page 02 at `02:555D` (`CP 0xE6`, → handler pointer
+  `LD HL,0x6A16; JP 0x5676`). Argument order: (1) parse the **title** string argument;
+  (2) then parse **(option-string, Lbl-name) pairs**, up to 7. `_DispMenuTitle` (`39:4D21`)
+  draws the title; the handler stores each branch-target `Lbl`, draws the option rows,
+  blocks for a key, and on selection performs a `Goto`-style jump to the chosen `Lbl`.
+  Token site also `38:5A8A`. **[confirmed dispatch; pair-parse order strong]**
 - **`Pause`** — displays (optionally an expression), then spins in a key-read
   loop until `[ENTER]`; `Pause expr,N` (2.55MP) scrolls a list/matrix. Sites at
   `02:55E7`, `39:6B8E`. **[strong]**
 - **`getKey`** — non-blocking: reads the current key and returns its code in OP1
   (0 if none). Used as a value inside expressions, so it's wired as an operand
-  token (`tGetKey=AD`) in the evaluator, not a statement. **[strong]**
+  token (`tGetKey=AD`) in the evaluator, not a statement. The keycode read itself is
+  the OS system call **`_GetKey`** (bcall `0x4972` → page 06 `06:491E`); the per-key
+  numeric codes returned are the standard TI `kXxx` constants (e.g. `kRight=1`,
+  `kLeft=2`, `kUp=3`, `kDown=4`, `kEnter=5`, `kClear=9`, `k0..k9 = 0x8E…`). **Correction:**
+  `37:6700` is **not** a getKey keycode table. Byte-decoding it (`FE AD 1C 1B 18 EC 31 00
+  84 …`) shows it begins `CP 0xAD` (tGetKey) / `CP 0x55` / `CP 0x54` and continues as a
+  table of fixed-width **token-attribute / opcode-template records** keyed by token
+  (`FE xx` 1-byte, `FB xx`/`FC xx`/`F4 89` 2-byte tokens — getKey, stat/distribution and
+  finance tokens), used by a (de)tokenizer/compiler, not a key→code map. The earlier "bad
+  instruction" flag was Ghidra failing to auto-analyze this **data table** as code.
+  **[confirmed: 37:6700 is a token-descriptor table, not a keymap; keycodes come from
+  `_GetKey` on page 06]**
 - **`ClrHome`** — clears the home-screen text shadow and resets the cursor to
   (0,0). **[inferred — standard]**
 
@@ -322,11 +364,27 @@ page_38:6ae6   output_dispatch    (CP E0 in evaluator)
 
 ---
 
-## 8. Open items
-- Reduce the page-02 `Input`/`Prompt`/`Menu` bodies to exact argument-parsing
-  order (decompiler output is noisy due to overlapping handlers + cross-page
-  jumps; token-compare anchors above are byte-confirmed).
-- Confirm the exact `For`/`While`/`Repeat` loop-frame layout on the FPS and how
-  `End` re-seeds `parsePtr`.
-- Map `getKey`'s keycode table (`37:6700` is a keymap, flagged "bad instruction"
-  by the decompiler — it's data, needs manual decode).
+## 8. Resolved / residual
+
+The three open items from the prior pass are now resolved against the bytes (see §5 / §4):
+
+- **`Input`/`Prompt`/`Menu` argument order — resolved (§5).** `Input` (`02:54EF`→`54F6`):
+  optional leading prompt-string *or* `(row,col)` → single store var → editor → parse →
+  store. `Prompt` (`02:562F`→`6699`): loop over comma-separated **type-4 storable vars**,
+  each "`NAME=`" → editor → parse → store. `Menu(` (`02:555D`): title string, then up to 7
+  (option-string, `Lbl`) pairs, then key-select → `Goto`-style jump.
+- **`For`/`While`/`Repeat`/`End` dispatch — resolved (§4).** Execution handlers live on
+  **page 0x33** (jump table `33:4381`, entered via bcall `0x5140`/`0x513D` = `33:435F` from
+  the page-0x02 dispatcher at `02:54BD`/`02:6400`), not page 0x38. `End` re-seeds the parse
+  cursor from the loop record's saved top position.
+- **`getKey` `37:6700` — resolved (§5).** Not a keymap: it is a fixed-width
+  **token-attribute / opcode-template table** keyed by token (`FE/FB/FC/F4`-prefixed). The
+  actual keycodes come from the OS `_GetKey` system call (bcall `0x4972`, page 06) returning
+  the standard `kXxx` constants.
+
+Residual (genuinely unverified — would need deeper page-0x33 paged tracing):
+- The **exact byte layout of the For/While/Repeat loop-control record** on the FPS (field
+  order/sizes for loop var, limit, step, and saved `parsePtr`) is not yet field-mapped; only
+  the dispatch chain into the `33:4381` handlers is confirmed.
+- The page-0x02 `Input`/`Prompt` **entry-line editor internals** (cursor/redraw, 2.55MP
+  multi-line) remain dense and are only confirmed at the argument-parse boundary.
