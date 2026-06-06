@@ -12,7 +12,27 @@ Three cross-cutting mechanisms that tie the OS together: how it starts, how it s
              ... (jumps into RAM-copied code — static disasm stops here)
 ```
 
-Boot configures the paging hardware (ports 6 and `0x0E`) and the memory-map/timer mode (port 4 write), then transfers to code it copies into RAM (why the static trace ends with "bad instruction"). It eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen). *To finish: follow the RAM-copied stub and the RAM-init path.*
+Boot configures the paging hardware (ports 6 and `0x0E`) and the memory-map/timer mode (port 4 write), then transfers to code it copies into RAM (why the static trace ends with "bad instruction"). The continuation at `028c` ends `JP 0x812c` — `0x812c` is in the RAM execution window and is *blank in the static image* (the bytes are filled in at boot by the copy this stub performs), so the static trace genuinely cannot follow it. It eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen).
+
+### RAM clear / re-init (`ram_reset_wipe` → `0x0BD9`) [confirmed]
+
+The RAM-init proper is `ram_reset_wipe` (`page_35::719f`, reached on a full reset; the same routine backs the `[2nd]+[+] · 7 · 1 · 2` RAM-reset and the post-boot RAM clear). It zero-fills RAM in two blocks, preserving a handful of flag bits and `0x9B73` across the wipe:
+
+```z80
+ram_reset_wipe (35:719f):
+  ; save flags to preserve: (9B73), (IY+34).6, (IY+35).0, (IY+3F)&0x7F
+  DI
+  LD HL,8000 ; LD DE,8001 ; LD BC,1BC3 ; LD (HL),0 ; LDIR   ; clear 8000..9BC3
+  ... restore the saved flag bits ...
+  LD HL,9BD0 ; LD DE,9BD1 ; LD BC,642F ; LD (HL),0 ; LDIR   ; clear 9BD0..FFFF
+  JP 0x0BD9
+ram_init_after_reset (00:0BD9):
+  LD A,0xC0 ; OUT (0),A        ; port 0 = memory-map control
+  LD SP,0xFFF7                 ; reset stack to top of RAM
+  CALL 0x3EC1                  ; (cross-page trampoline) continue init: VAT, sysflags, LCD …
+```
+
+So RAM is wiped in two LDIR runs (`0x8000`–`0x9BC3`, then `0x9BD0`–`0xFFFF`, leaving the `0x9BC4`–`0x9BCF` window and the explicitly-saved flag bytes intact), then `0x0BD9` resets the memory map (port 0) and the stack and hands off through `0x3EC1`. This `0x0BD9` entry is the same RAM re-init point cross-referenced from [12-memory-management](12-memory-management.md). *Residual: the `0x3EC1` continuation (VAT/sysflag/LCD bring-up) and the in-RAM `0x812c` stub run only from copied-in RAM code and are not statically disassemblable.*
 
 ### The main event loop [confirmed]
 
@@ -63,6 +83,23 @@ The active context lives at a fixed RAM block (`Context` struct, base `cxMain`=`
 
 `_AppInit` copies the **6 vectors (12 bytes, +0..+11)** from an app's header into this block, then sets `cxPage`. Because `cxCurApp` is a key code, a mode-switch key naturally selects the context to load.
 
+The full `_AppInit` body confirms the offsets directly — `HL` points at the app's 12-byte vector header, `LDIR` lands them at `cxMain`=`0x858D`, and the byte that follows the 12 vectors becomes a flags byte; `cxPage` is then loaded from the live bank-A page-select (port 6), *not* copied from the header:
+
+```z80
+_AppInit (00:0936):
+  ; HL = source (12-byte vector header) on entry
+  LD DE,0x858D            ; -> cxMain
+  LD BC,0x000C            ; 12 bytes = the 6 handler vectors
+  LDIR                    ; cxMain..cxSizeWind+1  (+0..+11)
+  LD A,(HL)               ; the 13th header byte (appFlags)
+  LD (0x89FD),A           ; -> appInitFlag (system flag byte)
+  IN A,(0x6)              ; current bank-A flash page
+  LD (0x8599),A           ; -> cxPage  (+12, the page the handlers run from)
+  RET
+```
+
+The destination `0x858D` and length `0x000C` pin the six 2-byte handler slots `cxMain`(+0) `cxPPutAway`(+2) `cxPutAway`(+4) `cxRedisp`(+6) `cxErrorEP`(+8) `cxSizeWind`(+10), and the explicit `LD (0x8599),A` writes `cxPage` at +12 from port 6. `0x858D` is the *only* writer of this block (the rest of the OS — `call_context_main` `00:08FB`, `_GetKey` `06:4A85`, etc. — only reads it), confirming `_AppInit` is the sole installer. `cxCurApp`(+13, `0x859A`) and `cxPrev`(+14, `0x859B`) are maintained separately by the context-switch logic, not by this copy.
+
 ### How a context handler is invoked [confirmed]
 
 ```
@@ -102,7 +139,9 @@ The error screen shows `ERR:<MESSAGE>` (the `ERR:` prefix is on `page_01:4008`).
 
 This exactly matches the `E_*` values in `ti83plus.inc` — confirming the `TIError` enum and the whole error pathway: a routine `_JError`s a code → handler unwinds to `onSP` → looks up the message here → renders `ERR:<msg>`.
 
-## TODO
-- Decode the full `cx*` vector layout (offsets of key/display/putaway handlers within the 12-byte block).
-- Finish the boot RAM-init trace.
-- Flash write/erase sector primitives are RAM-resident (84+-specific, not in the 2001 equates); locate via `_CleanAll`'s callees on page 7.
+## Resolved (was TODO)
+- **`cx*` vector layout — confirmed.** The six 2-byte handler slots and `cxPage` offsets are pinned by tracing `_AppInit` (`00:0936`): `LD DE,0x858D / LD BC,0x000C / LDIR` then `IN A,(6) / LD (0x8599),A`. See [Context block layout](#context-block-layout-confirmed-from-ti83plusinc--xrefs) above for the full offset table and `_AppInit` body. `0x858D` (`cxMain`) is the only writer of the block.
+- **Boot RAM-init trace — confirmed.** Reset (`ram:0000`) → `028c` paging setup → `JP 0x812c` (RAM-copied stub, blank in the static image). The RAM clear/re-init is `ram_reset_wipe` (`35:719f`): two `LDIR` zero-fills (`0x8000`–`0x9BC3`, `0x9BD0`–`0xFFFF`) preserving a few flag bytes, then `JP 0x0BD9` (`ram_init_after_reset`: port 0 = 0xC0, `SP=0xFFF7`, `CALL 0x3EC1`). The `0x0BD9` entry matches the re-init point cross-referenced in [12-memory-management](12-memory-management.md). See [RAM clear / re-init](#ram-clear--re-init-ram_reset_wipe--0x0bd9-confirmed).
+- **Flash write/erase sector primitives — resolved (cross-link).** They live on flash page **0x3D** (`flash_program_core` `3D:61AF`, `flash_write_record` `3D:64AA`, the per-record status writers `3D:7C8F/7C93/7C97`, erase `3D:5ED3`, with the byte-poke loops copied to `ramCode` `0x8100`). Fully documented in [sub-vat-archive §6](sub-vat-archive.md#6-low-level-flash-write--erase-pages-3c3d-port-0x14-c) and §10.
+
+*Residual (genuinely not statically traceable):* the in-RAM boot stub at `0x812c` and the `0x3EC1` init continuation run only from code copied into RAM during boot, so they have no static disassembly.
