@@ -63,10 +63,15 @@ _CreateRMat(dimWord, dataPtrOut):
   it computes the **element count** from the two dimension bytes. [C]
 - Header = two bytes `dim0,dim1`; data is `dim0*dim1` floats **column-major**.
 
-> **Dimension naming [H].** The header's first byte (`dim0`) is the *major* stride used by
-> `_AdrMEle` (see §2). In TI's documented convention `_AdrMEle` takes `B=row, C=column` and
-> the data is column-major, i.e. `dim0 = #rows`. The arithmetic below is byte-exact; treat
-> the row/column *labels* as the standard TI mapping.
+> **Dimension naming [C].** Settled by disassembly. `_AdrMEle` (`02:4002`) reads the header's
+> **first byte** (`LD A,(DE); LD L,A`) and uses it as the **major stride**, looping `(B−1)`
+> adds of it and then `+(C−1)` *within* a column (column-major). The major stride of a
+> column-major array is the **number of rows**, so the **first header byte (`dim0`) = #rows**,
+> and `_AdrMEle`'s `B = idx0 = row`, `C = idx1 = column`. `_CreateRMat` (`ram:1115`) confirms
+> the layout: it is `PUSH HL ; CALL _HTimesL (1EF6) ; LD A,2 ; JR 10DD` — `_HTimesL` returns
+> `H·L` (the element count) and `A=2` is the 2-byte dim header; the two dimension bytes are
+> stored `dim0` (rows) then `dim1` (cols). The byte-confirmed index arithmetic
+> `((idx0−1)·dim0 + (idx1−1))·9` is therefore a **(row, col)** access with a row-count stride.
 
 ---
 
@@ -114,7 +119,9 @@ _AdrMEle:                                 ; B=idx0, C=idx1, DE=matrixDataPtr
 ```
 **Column-major offset: `elem = data + 2 + ((idx0−1)*dim0 + (idx1−1)) * 9`.** The `(B-1)`
 adds of `dim0` walk whole columns; the `(C-1)` steps within a column. The 8-bit adds track
-a carry into `H` so the address is a true 16-bit offset (matrices up to 99×99). [C]
+a carry into `H` so the address is a true 16-bit offset (matrices up to 99×99). Because the
+multiplied byte is `dim0` and that is the **row count** (column-major major stride), **`B=idx0`
+is the row index and `C=idx1` is the column index** — see the [C] dimension-naming note in §1. [C]
 
 Matrix element wrappers: [C]
 - **`_AdrMRow` (`02:4000`)** — address of the *start of row/col idx0* (loops `(idx0−1)` ×
@@ -247,9 +254,28 @@ Loop counters live at `84B0` (outer), `84B3` (k, inner), `84B4`/dims at `84AF`. 
 mismatch (`A.cols ≠ B.rows`) ⇒ `_ErrDimMismatch`. Each multiply/add is a full `TIFloat` FP op,
 so an `n×n` product is `n³` `_FPMult` + `_FPAdd` calls. [C]
 
-### Transpose `[A]ᵀ`
-Allocates a `cols×rows` result and copies `dst(c,r) = src(r,c)` — a re-indexed column-major
-walk reusing `_AdrMEle`. (Done in the matrix element-loop family around `02:414E`/`4178`.) [H]
+### Transpose `[A]ᵀ` — driver `02:4178` [C]
+The transpose token (`tTranspose`) routes through the page-02 function evaluator
+(`func_eval_dispatch` family) to **`mat_transpose` @ `02:4178`**: it allocates the result, sets
+the swapped dim into the loop frame (`84B5` from `84B7`), then walks `(i,j)` reading
+`[A](i,j)`→OP1 via `402C`/`47B9` and storing through `_PutToMat` (`4068`), i.e.
+`dst(c,r) = src(r,c)` — a re-indexed column-major copy reusing `_AdrMEle`. It shares the
+element-loop framing with `mat_elementwise` (`412A`) and the row ops (`414E`). [C]
+
+### `augment(`, `randM(`, `List►matr(`, `Matr►list(` — per-function drivers [C]
+These are dispatched from the page-02 function-token evaluator (the `CP imm ; JR/JP` chain at
+`02:55xx`–`63xx` keyed on the token byte), each with its **own driver** on page 02: [C]
+
+| Token | site (page 02) | driver | what it does |
+|---|---|---|---|
+| `augment(` | `0x91` @ `635B` | **`02:4663`** | type-checks both operands are matrices, `LD A,H ; CP L` rejects a row-count mismatch (`E_Dimension 2719`), then concatenates columns: a partial-pivot-style scan-free copy of `[A]`'s then `[B]`'s columns into a `rows × (colsA+colsB)` result. (`augment(L1,L2)` list-concat is the `0x92` sibling at `637F`.) |
+| `randM(` | `0xB5` @ `62D4` | `02:5264`/`5344` | allocates the `r×c` result and stamps a random `TIFloat` (via `_Random`) into every cell — the matrix `Fill(`-style element loop. |
+| `Matr►list(` | `0x8D` @ `6388` | `02:49E3`/`4773` | column-major copy of matrix columns out into list(s); length-checks via `21BB`. |
+| `List►matr(` | `0x8E` @ `61C1` | `02:7D19` + copy | reshapes the argument lists into a matrix (`_DataSize`-counted float copy `4539`/`453F`). |
+
+The shared element-loop kernels these drivers call are the confirmed `mat_elementwise`
+(`02:412A`), `mat_row_op` (`02:414E`) and `mat_transpose` (`02:4178`) family; the per-function
+drivers above are now byte-pinned at their evaluator entries. [C]
 
 ---
 
@@ -305,14 +331,50 @@ of the pivots** (each row swap flips the sign); a zero pivot ⇒ `det = 0` (no e
 **`[A]⁻¹`** = full Gauss-**Jordan** (reduce to identity, the augmented identity becomes the
 inverse); a zero pivot ⇒ `ERR:SINGULAR MAT`.
 
-### `rref(` / `ref(` [H/I]
-Same elimination family. `rref(` (reduced row-echelon) is Gauss-Jordan run to a normalized
-reduced form **without** the squareness requirement and **without** erroring on rank-deficiency
-(it just leaves zero rows); `ref(` stops at upper-triangular (forward elimination only). They
-reuse the `42A6` pivot/swap/eliminate primitives with a non-square-tolerant driver and bit6-set
-(singular-tolerant) semantics. *The exact rref/ref handler entry was not isolated in this pass
-(rref/ref are 2-byte `0xBB`-lead tokens dispatched from the page-38 evaluator); they are the
-same elimination machinery — flagged [I].*
+#### Det sign / pivot-product bytes in the tail (`02:43D8–4470`) [C]
+The determinant sign comes from the **permutation parity**, not a separate sign cell. Each
+physical row swap (`43B9`) calls **`4259`** to swap the matching pair in the permutation
+vector at `84D5`; the determinant magnitude is the running product of the diagonal pivots
+formed during back-elimination. The tail that closes the det/inverse pass:
+```z80
+43D8 (det branch, bit6 = det):
+  43D9: BIT 6,A           ; det mode?
+  43DE: CALL 151B         ; pop pivot
+  43E3..43F6: PUSH AF ; (RST 8 _CpyToOP2) ; CALL 403c (load [M](i,j)) ;
+              CALL 238b (_FPMult) ; DEC pivot/row counters (84B0)  ; loop
+              → multiply the running determinant by each pivot
+  43F8: POP AF ; AND 1 ; JP NZ,24bd    ;  *** DET SIGN ***  low bit of the
+              ; permutation-swap count → conditional _InvOP1S (negate)
+43FF (inverse branch): re-walk for the augmented-identity columns,
+  4410..446F: per-column back-substitution (4428/445B = _FPMult-accumulate,
+              442B/24bd = _InvOP1S sign flips), then JP 0x420F to undo the
+              column permutation (4259-pairs) so the inverse comes out in the
+              original row/col order.
+```
+So the **sign byte is the LSB of the swap-count** applied via `_InvOP1S` (`02:24BD`) at
+`43FB`/`442B`; the **pivot product** is the `238B`/`RST 30h` accumulate over the diagonal in
+`43E3–43F6`. The permutation undo (`420F`/`4259`) restores element order for the inverse. [C]
+
+### `rref(` / `ref(` — separate driver, **not** `42A6` [C/H]
+**`rref(`/`ref(` do NOT re-enter the `42A6` Gauss-Jordan engine.** A function-xref shows
+`matrix_gauss_engine` (`02:42A6`) has **exactly two callers** — `mat_inverse_entry` (`02:5F80`,
+flag 0) and `det_entry` (`02:5FC0`, flag 0x40); there is no third call site (byte-confirmed
+earlier: `CD A6 42` appears exactly twice). So `det(`/`[A]⁻¹` are the only consumers of that
+square-only, partial-pivoting driver. [C]
+
+`rref(` (`BBh,A6h`) and `ref(` (`BBh,A5h`) are **2-byte `0xBB`-lead function tokens**. On the
+page-38 statement/expression evaluator (`eval_expr_inner` `38:59A4`), token `0xBB` is detected
+and `parse_advance` consumes the prefix; the second byte is then dispatched through the
+evaluator's **class-3 (function-token) handler-pointer table at `38:7175`** (`701A/7021/7026`
+select the `0x4000`/`0x478C`/`0x7175` tables by class; `703A: CALL 0x0033` = `_LdHLind` jumps
+the resolved handler). Their reduced-row-echelon elimination is therefore a **distinct,
+non-square-tolerant driver** reached through that table — a separate routine from `42A6`, using
+the same per-element FP primitives (`_FPDiv`/`_FPMult`/`_FPSub`) but with its own pivot loop
+that tolerates rectangular matrices and rank deficiency (zero rows left in place, no
+`SINGULAR MAT`). *The concrete rref/ref body sits behind the `38:7175` 2-byte handler table and
+was not byte-isolated in this pass (the table is unanalyzed data in the DB); the **architectural
+fact that it is a separate driver, not `42A6`, is confirmed** by the two-caller xref. [C for the
+"separate driver" conclusion; H for the exact body address.]*
 
 ---
 
@@ -366,6 +428,10 @@ same elimination machinery — flagged [I].*
 | `02:4108` | `identity_build` | `identity(n)`: diagonal-1 fill (token 0xB4) [C] |
 | `02:412A` | `mat_elementwise` | per-element matrix unary/binary apply [C] |
 | `02:414E` | `mat_row_op` | row swap/scale (elimination) [C] |
+| `02:4178` | `mat_transpose` | `[A]ᵀ`: `dst(c,r)=src(r,c)` re-indexed copy [C] |
+| `02:4663` | `mat_augment` | `augment(` column-concat (rows must match) [C] |
+| `02:5264` | `mat_randm` | `randM(` random-fill driver [C] |
+| `02:49E3` | `matr_to_list` | `Matr►list(` column→list copy [C] |
 | `02:41C1` | `pivot_abs_cmp` | absolute-value compare: OP1 vs pivot [C] |
 | `02:41D0` | `pivot_col_scan` | partial-pivot: find largest absolute value in column [C] |
 | `02:4259` | `perm_swap` | swap two entries of the permutation vector (84D5) [C] |
@@ -401,12 +467,18 @@ same elimination machinery — flagged [I].*
 ---
 
 ## 9. Open items
-- Isolate the exact **`rref(`/`ref(`** 2-byte (`0xBB`-lead) token handlers on the page-38
-  evaluator and confirm they re-enter `42A6`'s primitives vs. a separate non-square driver.
-- Pin the precise **det sign / pivot-product** bytes inside `42A6`'s tail (4410–4470) and the
-  row/col vs dim0/dim1 labelling (currently [H], arithmetic confirmed).
-- `augment(`, `[A]ᵀ` transpose, `List►matr(`/`Matr►list(`, `randM(` exact handler entries
-  (the element-loop family `02:412A`/`414E`/`4178` is confirmed; the per-function drivers are
-  inferred [H/I]).
+- **RESOLVED — `rref(`/`ref(` use a separate driver, not `42A6`.** Xref proves `42A6` has
+  exactly two callers (inverse `5F80`, det `5FC0`); rref/ref are 2-byte `0xBB`-lead function
+  tokens dispatched via the page-38 evaluator's class-3 handler table at `38:7175` (§5). The
+  *exact rref/ref body* sits behind that (unanalyzed-data) table and is the only residual: its
+  start address was not byte-isolated, but it is confirmed **not** `42A6`.
+- **RESOLVED — det sign / pivot-product (`42A6` tail `43D8–4470`) and dim labelling.** The det
+  sign = LSB of the permutation-swap count applied via `_InvOP1S` (`24BD`) at `43FB`/`442B`;
+  the magnitude is the `238B`/`RST 30h` diagonal-pivot accumulate (`43E3–43F6`); `420F`/`4259`
+  undo the column permutation for the inverse (§5). Row/col vs dim0/dim1 is now **[C]**:
+  `dim0` (first header byte) = #rows = `_AdrMEle`'s `B=idx0` (§1/§2).
+- **RESOLVED — per-function matrix drivers.** `augment(`→`02:4663`, `randM(`→`02:5264`,
+  `Matr►list(`→`02:49E3`, `List►matr(`→`02:7D19`, transpose `[A]ᵀ`→`02:4178` (§4).
 - `seq(`/`SortA(`/`SortD(`/stats list-builders: confirm the collect-then-`_CreateRList` loop
-  and the in-place float sort/compare.
+  and the in-place float sort/compare. (Residual — comparator `_CpOP1OP2` confirmed; the
+  unanalyzed page-02 sort body's element-load is still not byte-traced.)
