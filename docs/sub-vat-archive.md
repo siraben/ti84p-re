@@ -142,9 +142,9 @@ validators for the catalog archive command.)
 The data is **appended** to the archive Flash (Flash cannot be overwritten in place). The VAT entry's
 type byte gets its archive flag set and its data ptr/page rewritten to point into Flash; the old RAM
 copy is then released (the upward data heap shrinks). `3D:64AA` is the Flash writer that lays down a
-fresh archived record (status marker bytes `0xFE`=in-progress / `0xFC`=valid / `0xF0`=deleted, per
-WikiTI; `0xFF` is erased/empty Flash, not the "valid" marker — plus a copy of the
-symbol header + name, then the data — see `3D:64E5`).
+fresh archived record (status marker bytes — `0xFE`=in-progress / `0xFC`=valid / `0xF0`=deleted, with
+`0xFF`=erased/empty; the bit-clearing mechanism is confirmed in §6a) plus a copy of the symbol header
++ name, then the data.
 
 ### 4b. Flash → RAM (unarchive), `6107` [C]
 ```z80
@@ -196,7 +196,7 @@ page-0 cross-page trampolines:
 |------------------|-------------|------|
 | `00:2FF1` | `3D:64AA` | Flash **program** record (archive write) |
 | `00:2FDF` | `3D:61AF` | Flash **program/erase** core (with batt check, port 0x14 unlock) |
-| `00:2FF7` | `3D:62C2` | Flash **free-sector scan / allocate** (sector status `0xFC`/`0xF0` valid, `0xFE` swap, `0xFF` erased) |
+| `00:2FF7` | `3D:62C2` | Flash **free-sector scan / allocate** (reads record status bytes — `0xFC`=valid, `0xF0`=deleted, `0xFE`=in-progress, `0xFF`=erased; see §6a) |
 | `00:2FC1` | `3C:580E` | Flash command/menu entry |
 | `00:2FFD` | `3C:7121` | Flash command dispatcher (Archive/UnArchive/GarbageCollect) |
 | `00:32A9` | `05:4A6E` | complex-list special-case helper |
@@ -208,9 +208,47 @@ RES 7,(IY+0x24) ; LD A,1 ; DI ; IM 1 ; DI ; OUT (0x14),A ; DI ; CALL FUN_ram_02b
 `OUT (0x14),A` toggles the **Flash control port** (0x14) to enable write/erase; `FUN_ram_02bf`
 sets up the RAM-resident write stub (the actual byte-poke loops run from RAM at `0x8100`/`ramCode`,
 because the CPU cannot fetch from a Flash chip mid-erase). `3D:6B9B`/`3D:6B6D` are the bounds-checked
-byte-program calls (return carry → caller raises **E_ArchFull**). `3D:6413` scans archive sectors for
-the next free slot, reading sector status bytes (`0x80`/`0x00`/`0xFE`) and summing free space; it is
-what decides whether a GC is needed before a write.
+byte-program calls (return carry → caller raises **E_ArchFull**). The free-slot scan reads sector
+status bytes and sums free space to decide whether a GC is needed before a write.
+
+### 6a. Record-status byte — the one-way bit-clearing scheme [C]
+
+The status byte is a classic AMD/Am29F **monotonic bit-clear** marker: erased Flash is all-ones
+(`0xFF`), and the OS advances a record's state by *clearing* bits (program can only flip `1→0`; only
+a sector erase restores `1`s). The writers are three tiny routines on page 0x3D that load an AND-mask
+into `C` and then read-modify-write the status byte (`3D:7C9A: CALL flash_read_byte; AND C; …`):
+
+| Routine | Mask in `C` | Bit cleared | State after |
+|---------|-------------|-------------|-------------|
+| `flash_op_fe` (`3D:7C97`) | `0xFE` | bit 0 | record **in-progress** (just begun) |
+| `flash_op_fd` (`3D:7C8F`) | `0xFD` | bit 1 | (intermediate / "swap" marker) |
+| `flash_op_fb` (`3D:7C93`) | `0xFB` | bit 2 | (intermediate) |
+
+Successive clears compose: a record goes `0xFF` (erased) → `0xFE` (started) → `0xFC` (**valid/complete**,
+bits 0+1 clear) → `0xF0` (**deleted/dead**, bits 0–3 clear). Because only bits go `1→0`, a deleted record
+can never be re-validated in place — it is reclaimed only by GC erasing the whole sector.
+`flash_find_nonff` (`3D:7DEA`) confirms `0xFF` = empty: it reads the 13-byte record header and `CP 0xFF`
+on each, treating an all-`0xFF` run as a free slot. (`3D:7C99` additionally folds in `AND 0xE7` and
+conditional `OR 0x10`/`OR 0x08` for the swap/relocate state bits driven by `(IY+0x1A).0` and `(IY+0).2`.)
+
+### 6b. Archive sector map / erase-block granularity [C]
+
+The physical Flash pages that form the archive pool are model-selected at runtime from the two model
+bits — port 2 bit 7 (`_chk` `00:1837`) and port 0x21 low bits (`00:182F`):
+
+| Model test | Archive **base** page (`flash_page_select` `3D:726E`) | Archive **top** page (`flash_cmd_base` `3D:738B`) | Page mask |
+|------------|-------------------------------------------------------|----------------------------------------------------|-----------|
+| port 2 bit 7 set (1 MB) | `0x15` | `0x1E` | `AND 0x1F` (32 pages) |
+| port 0x21 == 0 (mid) | `0x29` | `0x3E` | `AND 0x3F` (64 pages) |
+| else (2 MB) | `0x69` | `0x7E` | `AND 0x3F` |
+
+So on a 1 MB TI-84 Plus the user archive occupies roughly raw pages **0x15…0x1E**, and the OS pages it
+into the `0x4000` window **one 16 KB page at a time** for both reading (`_FlashToRam`, masks `0x1F`/`0x3F`
+via the same model check, `3D:6745`) and erasing. `flash_set_sector_cnt` (`3D:727D`) loads
+`(base+1)` into the sector counter `0x82A3`; the erase routine `flash_erase_wait` (`3D:5ED3` →
+`3D:5EE3`) pages each sector to `0x4000` and issues the chip erase command via `RST 0x28`, decrementing
+`0x82A3` down toward the base page. The underlying Am29F-class chip uses **64 KB physical sectors
+(= 4 × 16 KB OS pages)**; the OS walks/erases at 16 KB page granularity. [64 KB physical-sector figure: I]
 
 ---
 
@@ -279,6 +317,13 @@ the classic TI-83+/84+ behaviour, now pinned to addresses.
 | `3D:61AF` | `flash_program_core` | Flash program/erase core (port 0x14, batt check) |
 | `3D:62C2` | `flash_alloc_sector` | scan/allocate next free archive sector |
 | `3D:6413` | `flash_free_scan` | sum free archive space / decide GC |
+| `3D:726E` | `flash_page_select` | archive **base** page by model (0x15/0x29/0x69) |
+| `3D:738B` | `flash_cmd_base` | archive **top** page by model (0x1E/0x3E/0x7E) |
+| `3D:727D` | `flash_set_sector_cnt` | sector counter `0x82A3` = base+1 |
+| `3D:5ED3` | `flash_erase_wait` | erase a 16 KB archive page, wait for completion |
+| `3D:7C97` / `3D:7C8F` / `3D:7C93` | `flash_op_fe/fd/fb` | clear status bit (0xFE/0xFD/0xFB AND-mask) |
+| `3D:7DEA` | `flash_find_nonff` | scan 13-byte header for all-0xFF (free slot) |
+| `00:1837` / `00:182F` | `flash_model_chk` | model bits: port 2 bit7 / port 0x21 low |
 | `3D:6B9B` | `flash_write_byte` | bounds-checked Flash byte program (→E_ArchFull) |
 | `3C:7121` | `flash_cmd_dispatch` | Archive/UnArchive/GC command dispatcher |
 | `3C:7BD0` | `flash_gc_relocate` | GC core: relocate live records, erase old sectors |
@@ -295,8 +340,26 @@ Strings: `01:4126` "Garbage Collecting…", `01:4076` "Defragmenting…", `07:6C
 Ports: **0x06** = bank-A page select (Flash window), **0x14** = Flash write/erase control,
 **0x02** bit7 = Flash-size/model. RAM run-from-RAM stub: `ramCode = 0x8100`.
 
-## 10. Open items
-- Exact sector map / erase-block size of the archive region (which physical Flash pages form the
-  archive pool) — `3D:6413`'s sector table walk would pin it.
-- The `0xFC`/`0xF0`/`0xFE` record-status byte semantics in full (valid / deleted / in-progress).
-- Group archive path (the `CP 0x17` reject in `_Arc_Unarc` routes groups elsewhere).
+## 10. Resolved / residual
+
+**Resolved:**
+- **Sector map / erase-block — [C], see §6b.** The archive pool is model-selected: base page
+  `0x15`/`0x29`/`0x69` (`flash_page_select` `3D:726E`) up to top page `0x1E`/`0x3E`/`0x7E`
+  (`flash_cmd_base` `3D:738B`); on a 1 MB TI-84 Plus that is raw pages ~`0x15…0x1E`. The OS pages
+  the region into the `0x4000` window and erases **one 16 KB page at a time** (`flash_erase_wait`
+  `3D:5ED3`, sector counter `0x82A3` from `flash_set_sector_cnt` `3D:727D`); the physical chip
+  sector is 64 KB = 4 OS pages [I].
+- **Record-status bytes — [C], see §6a.** Monotonic bit-clear: `0xFF` erased → `0xFE` in-progress
+  → `0xFC` valid → `0xF0` deleted, written by `flash_op_fe/fd/fb` (`3D:7C97/7C8F/7C93`) AND-masking
+  the status byte; `flash_find_nonff` (`3D:7DEA`) treats an all-`0xFF` header as free.
+
+**Residual:**
+- **Group archive path — partially pinned [H/I].** `_DataSize` (`00:1485`) confirms a Group
+  (type `0x17`, like AppVar `0x15`/`0x16`) carries a leading word-size header, so a group *can* be
+  stored as one Flash blob. The single-call RAM→Flash worker `61F4` is reached only after
+  `_Arc_Unarc` rejects `0x17` (the `CP 0x17` → `26E0` reject), so groups must be archived through a
+  separate routine that walks the group's member list. That member-walk routine is **not
+  identifiable in the current Ghidra DB** — `_Arc_Unarc`'s body past the entry `CALL` is not
+  disassembled here (cross-page `CALL` flagged non-returning), and no group-archive function is
+  named or xref-reachable. Re-confirming it would need the headless `Disasm.java` linear pass that
+  produced §4.
