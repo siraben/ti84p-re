@@ -71,8 +71,8 @@ The flash side of the model is a set of **per-kind box descriptors** (`0x686F`, 
 A raw token is reduced to a small **class code** (≈`0x01–0x43`), context-biased, then used to index a pointer table.
 
 1. **Coarse remap** (`eqdisp_dispatch_token` 39:4A74): token `0x3D` is special-cased out to `0x672E`; otherwise the byte is biased down by `0x2A` and adjusted by the edit-context bits `(IY+0x2)` 4/5/6 and the fraction/arg flag `(IY+0x9)` bit 0. When the fraction/arg context is set, classes `0x03–0x08` are pushed up by `0x28` to select their **stacked variants** — this is the switch that makes the *same* operator token render as a superscript or a fraction part depending on where the cursor is.
-2. **Classify** (`eqdisp_classify_tok` 39:4AEC): stores the class code into `0x85DE` and loads the token's handler record.
-3. **Dispatch** (`eqdisp_load_tok_handler` 39:4C27): `HL = 0x5E45 + class·2`, then `_LdHLind` dereferences a 16-bit pointer — the token's handler.
+2. **Classify** (`eqdisp_classify_tok` 39:4AEC): stores the class code into `0x85DE` and loads the token's handler **record** (not just a code). Disassembled, it: zeroes the sub-row (`85DF`); writes the class to `85DE` (or, on the draw pass `IY+0x36` bit 6, derives it via `2CBB`); calls `load_tok_handler` (`4C27`) to get `HL =` the handler **record pointer**; then reads `(HL)` → **`85E1` = row count** and walks the record to extract the **argument/token count → `85E2`** (for the float class `0x14` it instead reads the live float type from `0x8478`). It then branches on a handful of terminal classes: `0x32`/`0x41` return immediately (literal/atom), `0x10` → variable (`59A6`, `_FindSym` path), `0x02` → list/named operand (`5AC5`), `0x29` → close-group (emits glyph `0x17` via `59CC`). This is what populates the per-token grid extents the geometry pass consumes.
+3. **Dispatch** (`eqdisp_load_tok_handler` 39:4C27): `LD A,(85DE) ; LD HL,0x5E45 ; SLA A ; ADD HL,DE ; JP 0x0033` — i.e. **`HL = 0x5E45 + class·2`**, then `0x0033` is `_LdHLind` which dereferences the 16-bit little-endian pointer at that slot and jumps to it. So the **class byte in `0x85DE` directly indexes the `0x5E45` table** (stride 2, `SLA A` = ·2) to reach the token's handler. The handler then emits a glyph / opens a fraction / opens an exponent / recurses.
 
 ```pseudocode
 \begin{algorithm}
@@ -91,6 +91,8 @@ A raw token is reduced to a small **class code** (≈`0x01–0x43`), context-bia
 ```
 
 Notable terminal classes: `0x10` → variable/symbol (`eqdisp_findsym_op1`), `0x14` → float/value token (reads the float type from `0x8478`), `0x02` → list/named operand, `0x29` → close/grouping (emits glyph `0x17`). The handler table at **`0x5E45`** holds 0x44 little-endian entries pointing into one large handler block (`0x5Exx–0x66xx`); e.g. class `0x01`→`0x6654`, `0x10`→`0x6148`, `0x14`→`0x6529`, `0x29`→`0x6546`. Paren matching uses pair tables at `0x62E2 / 0x62CB / 0x62F9`.
+
+**The class table is a flat 0x44-entry pointer array indexed by `0x85DE`.** Because dispatch is purely `0x5E45 + 2·(0x85DE)`, the *layout class* of every token is exactly the byte the coarse-remap (`dispatch_token` 4A74) deposits in `0x85DE` — there is no second lookup. The context-bias in step 1 is what swaps a token between its baseline and stacked class **before** this index is taken: superscript edit form adds `0x29` (`4A85`), and an active fraction/argument context (`IY+9` bit 0) bumps classes `0x03–0x08` up by `0x28` (`4AB3`), so the *same* operator token resolves to a different `0x5E45` slot — a baseline glyph vs a fraction-part / exponent handler. The **fraction‑vs‑superscript form selector** for two‑byte tokens is two small `{hi,lo}` match tables consulted by `eqdisp_chk_frac_tbl` (`39:5E1F`, table **`0x6203`**, 14 entries) and its sibling (`39:5E26`, table **`0x63E3`**, 4 entries): a hit picks the stacked class (`0x92`, superscript) vs the default (`0x8E`, fraction) at `537D`/`5381`. Paren matching uses pair tables at `0x62E2 / 0x62CB / 0x62F9` (walked by `eqdisp_peek_match_tok` `6667`/`6675`).
 
 ## The cell grid → pixels [confirmed — from disassembly]
 
@@ -143,7 +145,7 @@ $$\text{width} = \max(\text{num}_w, \text{den}_w), \qquad \text{height} = \text{
 
 ### Exponents / superscripts [confirmed — from disassembly]
 
-`eqdisp_set_row_for_tok` (39:4CE9) forces the superscript token into a **raised row slot** (`0x844B = 3` or `4`) — **no glyph downscale**, the same small font. Because `decr_counters` derives `y` from the row index, a smaller row index renders higher on screen; the exponent's height is folded into the parent box through the per-row accumulation. So `X²` is just `X` on the baseline row and `2` on a raised row.
+`eqdisp_set_row_for_tok` (39:4CE9) forces the superscript token into a **raised row slot** (`0x844B = 3` or `4`) — **no glyph downscale**, the same small font. It is **class-table driven off `0x85DE`**: it tests the class in `[0x24, 0x29)` (the fraction/exponent-context band produced by the `+0x28` bias above) and, for those, saves the current `0x844B`, loads a raised row index (`LD HL,4` / `LD L,3` for the `0x24+4` case), writes it, and lays the token there (`3B2B`); class `0x39` takes the same raised path with row `4`. Because `decr_counters` derives `y` from the row index, a smaller row index renders higher on screen; the exponent's height is folded into the parent box through the per-row accumulation. So `X²` is just `X` on the baseline row and `2` on a raised row — the class byte alone (not a glyph attribute) selects the raised slot.
 
 ### Indentation [confirmed]
 
@@ -265,7 +267,7 @@ Tables: handler pointers `0x5E45` (0x44 entries) · paren pairs `0x62E2/0x62CB/0
 Page 0x39 is a **cell-grid 2-D typesetter**: classify each token → index a handler table → measure it into a `(row, col)` cell grid (fractions add a row + bar, exponents force a raised row) → map cells to pixels at 7 px/column with per-row heights → emit proportional-font glyphs and graph-buffer rectangles, all while tracking the edit cursor against the token stream and preserving the caller's OP registers. Every context that shows an editable expression drives it through the shared `0x85DE` mode byte.
 
 ## Remaining unknowns
-- The full token→class table (`0x6203`/`0x63E3` raw-byte maps) decoded entry-by-entry.
+- **Largely resolved — token→class lookup mechanics.** Classification (`4AEC`) + dispatch (`4C27`) are now fully documented: the class byte in `0x85DE` directly indexes the 0x44-entry pointer table at `0x5E45` (stride 2, via `SLA A` + `_LdHLind`), with context-bias (`+0x29` superscript, `+0x28` fraction-context) swapping a token's class **before** the index; `0x6203`/`0x63E3` are `{hi,lo}` match tables that pick the stacked (superscript `0x92`) vs default (fraction `0x8E`) form. Residual: the full **entry-by-entry byte decode** of `0x5E45`/`0x6203`/`0x63E3` (which token → which class → which handler address, for all 0x44 slots) is still only spot-sampled, since those tables are unanalyzed data in the DB.
 - The exact contents of each kind box descriptor (`0x686F…`) and how it maps to a structure's row template.
 - The page-0x3A draw continuation for overflowing lines (where horizontal scroll is composited).
 - The exact flag that selects MATHPRINT vs CLASSIC (the modes are confirmed at `pg01:5A09`; CLASSIC short-circuits to the 1-line path via `0x85DE == 0`, but the persistent mode bit in `SystemFlags` isn't pinned yet).
