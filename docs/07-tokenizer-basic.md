@@ -28,7 +28,7 @@ TI-BASIC programs are stored as **tokens**, not text: every command, function, a
 So e.g. `5D 00` = list `L1`; `BB xx` = an extended command. The second byte indexes that group's name/handler table. (String variables `Str1`–`Str0` use lead `AA`; they are a **distinct VAT object type** holding tokenized text — see [Strings](05-variables-vat.md#strings-str1str0--a-distinct-object-type-confirmed).)
 
 ## Detokenize / token length [confirmed]
-- `_GetTokLen` (`01:66E5`) returns 1 or 2 for the token at HL (via helper `FUN_page_01_6702`).
+- `_GetTokLen` (`01:66E5`) returns 1 or 2 for the token at HL (via helper `smallfont_glyph_ptr` (`01:6702`)).
 - `_Get_Tok_Strng` (`01:66EA`) returns the display string for a token (used by the program editor and `Disp`).
 
 ## Parser / interpreter [located — page 0x38]
@@ -53,7 +53,7 @@ The first handlers: `page_38:419F, 45F0, 421C, …`.
 
 ### Parse-stream cursor [confirmed]
 
-The evaluator walks the token stream via a cursor in RAM: `parsePtr` (`DAT_ram_965d`, current position) and `parseEnd` (`DAT_ram_965f`, end). Named helpers on page 0x38:
+The evaluator walks the token stream via a cursor in RAM: `parsePtr` (`0x965D` = official `nextParseByte`, current position) and `parseEnd` (`0x965F` = `basic_end`, end). Named helpers on page 0x38:
 - `parse_cur_tok` (`38:72DA`) — fetch the token at the cursor.
 - `parse_advance` (`38:7248`) — `parsePtr++` and bounds-check vs `parseEnd`.
 - `parse_expect_or_err` (`38:5CD8`) — fetch a token and raise `_ErrSyntax` (recording the position in `parsePtr`) if it isn't the expected one.
