@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3c849f18.js";
+            window.path_to_searchindex_js = "searchindex-6123b3eb.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -231,28 +231,36 @@ port <code>0x00</code> bit-banging otherwise. [confirmed]</p>
 Ghidra rebuilds show the same surface in the database. These labels describe the observed OS use,
 not a complete vendor register map.</p>
 <h2 id="sending-one-byte-through-the-assist-fifo-confirmed"><a class="header" href="#sending-one-byte-through-the-assist-fifo-confirmed">Sending one byte through the assist FIFO [confirmed]</a></h2>
-<p>The hardware send entry is <code>lnk_send_byte_hw</code> at <code>3C:6BB1</code>/<code>3C:6BB2</code> (Ghidra’s function split starts
-at <code>6BB2</code>, but the byte sequence’s <code>LD A,0xFA</code> begins at <code>6BB1</code>). It is the assist branch behind
-<code>_SendAByte</code> (<code>3C:420D</code>).</p>
+<p>The hardware send entry is <code>lnk_send_byte_hw</code> at <code>3C:6BB2</code> (the preceding byte at <code>3C:6BB1</code> is a
+<code>RET</code> from the prior helper). It is the assist branch behind <code>_SendAByte</code> (<code>3C:420D</code>).</p>
 <p>Mechanically, it does four things:</p>
 <ol>
 <li>Seed the inner retry counter at RAM <code>0x9C86</code> with <code>0xFA</code>.</li>
 <li>Read port <code>0x09</code>.</li>
 <li>If bit 5 is set, copy the outgoing byte from <code>C</code> to port <code>0x0D</code> and return.</li>
-<li>If bit 5 is clear, call the timeout decrementer (<code>3C:6BDA</code>/<code>lnk_timeout_dec</code>) and retry until
+<li>If bit 5 is clear, call the timeout decrementer (<code>3C:6BE4</code>/<code>lnk_timeout_dec</code>) and retry until
 the outer counter at <code>0x9CAC</code> expires, then fall into the link error path at <code>3C:4434</code>.</li>
 </ol>
-<p>In Z80-shaped pseudocode:</p>
-<pre><code class="language-z80">; 3C:6BB1, assist send path
-(9C86) = 0xFA
-while ((in(0x09) &amp; 0x20) == 0) {
-    if timeout_expired(9CAC):
-        goto link_timeout
-}
-out(0x0D), C
-ret
+<p>The ROM disassembles to:</p>
+<pre><code class="language-z80">; 3C:6BB2, assist send path
+6BB2: call 6D4Fh        ; clear/prepare assist I/O latch
+6BB5: call 6BD2h        ; seed 9CAC from CPU speed
+6BB8: call 6BD2h
+
+6BBB: ld   a,0FAh
+6BBD: ld   (9C86h),a    ; inner retry reload
+6BC0: in   a,(09h)
+6BC2: bit  5,a
+6BC4: jr   z,6BCAh      ; TX not ready
+6BC6: ld   a,c
+6BC7: out  (0Dh),a      ; write byte to assist FIFO
+6BC9: ret
+
+6BCA: call 6BE4h        ; decrement 9CAC, Z means keep polling
+6BCD: jr   z,6BBBh
+6BCF: jp   4434h        ; link timeout/error path
 </code></pre>
-<p><code>lnk_set_timeout</code> (<code>3C:6BC8</code>) seeds <code>0x9CAC</code> from CPU speed. When port <code>0x20</code> bit 0 is clear it uses
+<p><code>lnk_set_timeout</code> (<code>3C:6BD2</code>) seeds <code>0x9CAC</code> from CPU speed. When port <code>0x20</code> bit 0 is clear it uses
 <code>0x6800</code>; when the bit is set it leaves the larger <code>0xFFFF</code> seed. The ROM confirms the two reload
 values, while the wall-clock timeout they target is not measured here. [confirmed]</p>
 <h2 id="receiving-and-status-handling-confirmed"><a class="header" href="#receiving-and-status-handling-confirmed">Receiving and status handling [confirmed]</a></h2>
