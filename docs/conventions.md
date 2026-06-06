@@ -32,7 +32,7 @@ Some early deep-dive docs use shorthand `[C]`/`[H]`/`[I]` ≈ `[confirmed]`/`[hy
 
 ## Function naming
 
-- **`_CamelCase`** — an official TI bcall/equate name (from `ti83plus.inc` or the TI SDK), e.g. `_FindSym`, `_FPAdd`. High confidence.
+- **`_CamelCase`** — an official TI bcall/equate name (from `ti83plus.inc`, the full 2007 TI-83 Plus SDK equates file, or the TI SDK), e.g. `_FindSym`, `_FPAdd`. High confidence.
 - **`snake_case`** — a name **inferred during this RE** from a routine's behavior (which named routines it calls, which RAM/ports it touches), e.g. `findsym_scan`, `fp_normalize`. Accurate in aggregate; any single low-level helper name is a best-effort guess.
 
 ## Math notation

@@ -4,7 +4,7 @@ TI-BASIC programs are stored as **tokens**, not text: every command, function, a
 
 ## Token encoding [confirmed]
 
-- Most tokens are **one byte** (`tStore`=0x04, `tBoxPlot`=0x05, operators, digits, letters, common commands). Modeled as the `TIToken` enum (608 members from `ti83plus.inc`).
+- Most tokens are **one byte** (`tStore`=0x04, `tBoxPlot`=0x05, operators, digits, letters, common commands). Modeled as the `TIToken` enum, which carries 608 members as built into the current Ghidra database from the `t`-prefixed equates of `ti83plus.inc`.
 - Some bytes are **lead bytes** of a **two-byte token**: the first byte selects a *table*, the second byte the entry.
 
 ### The 2-byte lead-byte set [confirmed]

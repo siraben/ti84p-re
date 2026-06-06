@@ -74,7 +74,7 @@ The active context lives at a fixed RAM block (`Context` struct, base `cxMain`=`
 | +0 | 858D | `cxMain` | main/event handler ptr |
 | +2 | 858F | `cxPPutAway` | putaway handler ptr |
 | +4 | 8591 | `cxPutAway` | putaway |
-| +6 | 8593 | `cxRedisp` | redisplay/repaint handler ptr |
+| +6 | 8593 | `cx_redisp` | redisplay/repaint handler ptr (slot name inferred; the inc's `cxRedisp` is the unrelated `0x4C6C`) |
 | +8 | 8595 | `cxErrorEP` | error entry point ptr |
 | +10 | 8597 | `cxSizeWind` | window-size handler ptr |
 | +12 | 8599 | `cxPage` | flash page the handlers live on |
@@ -98,7 +98,7 @@ _AppInit (00:0936):
   RET
 ```
 
-The destination `0x858D` and length `0x000C` pin the six 2-byte handler slots `cxMain`(+0) `cxPPutAway`(+2) `cxPutAway`(+4) `cxRedisp`(+6) `cxErrorEP`(+8) `cxSizeWind`(+10), and the explicit `LD (0x8599),A` writes `cxPage` at +12 from port 6. `0x858D` is the *only* writer of this block (the rest of the OS — `call_context_main` `00:08FA`, `_GetKey` (`06:491E`, e.g. its `cxCurApp` read at `06:4A85`), etc. — only reads it), confirming `_AppInit` is the sole installer. `cxCurApp`(+13, `0x859A`) and `cxPrev`(+14, `0x859B`) are maintained separately by the context-switch logic, not by this copy.
+The destination `0x858D` and length `0x000C` pin the six 2-byte handler slots `cxMain`(+0) `cxPPutAway`(+2) `cxPutAway`(+4) `cx_redisp`(+6) `cxErrorEP`(+8) `cxSizeWind`(+10), and the explicit `LD (0x8599),A` writes `cxPage` at +12 from port 6. `0x858D` is the *only* writer of this block (the rest of the OS — `call_context_main` `00:08FA`, `_GetKey` (`06:491E`, e.g. its `cxCurApp` read at `06:4A85`), etc. — only reads it), confirming `_AppInit` is the sole installer. `cxCurApp`(+13, `0x859A`) and `cxPrev`(+14, `0x859B`) are maintained separately by the context-switch logic, not by this copy.
 
 ### How a context handler is invoked [confirmed]
 
