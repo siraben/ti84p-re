@@ -48,32 +48,40 @@ not a complete vendor register map.
 
 ## Sending one byte through the assist FIFO [confirmed]
 
-The hardware send entry is `lnk_send_byte_hw` at `3C:6BB1`/`3C:6BB2` (Ghidra's function split starts
-at `6BB2`, but the byte sequence's `LD A,0xFA` begins at `6BB1`). It is the assist branch behind
-`_SendAByte` (`3C:420D`).
+The hardware send entry is `lnk_send_byte_hw` at `3C:6BB2` (the preceding byte at `3C:6BB1` is a
+`RET` from the prior helper). It is the assist branch behind `_SendAByte` (`3C:420D`).
 
 Mechanically, it does four things:
 
 1. Seed the inner retry counter at RAM `0x9C86` with `0xFA`.
 2. Read port `0x09`.
 3. If bit 5 is set, copy the outgoing byte from `C` to port `0x0D` and return.
-4. If bit 5 is clear, call the timeout decrementer (`3C:6BDA`/`lnk_timeout_dec`) and retry until
+4. If bit 5 is clear, call the timeout decrementer (`3C:6BE4`/`lnk_timeout_dec`) and retry until
    the outer counter at `0x9CAC` expires, then fall into the link error path at `3C:4434`.
 
-In Z80-shaped pseudocode:
+The ROM disassembles to:
 
 ```z80
-; 3C:6BB1, assist send path
-(9C86) = 0xFA
-while ((in(0x09) & 0x20) == 0) {
-    if timeout_expired(9CAC):
-        goto link_timeout
-}
-out(0x0D), C
-ret
+; 3C:6BB2, assist send path
+6BB2: call 6D4Fh        ; clear/prepare assist I/O latch
+6BB5: call 6BD2h        ; seed 9CAC from CPU speed
+6BB8: call 6BD2h
+
+6BBB: ld   a,0FAh
+6BBD: ld   (9C86h),a    ; inner retry reload
+6BC0: in   a,(09h)
+6BC2: bit  5,a
+6BC4: jr   z,6BCAh      ; TX not ready
+6BC6: ld   a,c
+6BC7: out  (0Dh),a      ; write byte to assist FIFO
+6BC9: ret
+
+6BCA: call 6BE4h        ; decrement 9CAC, Z means keep polling
+6BCD: jr   z,6BBBh
+6BCF: jp   4434h        ; link timeout/error path
 ```
 
-`lnk_set_timeout` (`3C:6BC8`) seeds `0x9CAC` from CPU speed. When port `0x20` bit 0 is clear it uses
+`lnk_set_timeout` (`3C:6BD2`) seeds `0x9CAC` from CPU speed. When port `0x20` bit 0 is clear it uses
 `0x6800`; when the bit is set it leaves the larger `0xFFFF` seed. The ROM confirms the two reload
 values, while the wall-clock timeout they target is not measured here. [confirmed]
 
