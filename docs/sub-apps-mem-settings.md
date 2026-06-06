@@ -144,7 +144,7 @@ So a **RAM reset clears two blocks to 0**:
 A handful of flag bits are explicitly **preserved** across the wipe (`IY+0x3F` bit7,
 `IY+0x34` bit6, `IY+0x35` bits0/1, and the word at `0x9B73`) so the calculator knows it is
 mid-reset. It then `JP 0x0BD9`, the **RAM-init** entry (`OUT (0)` page select, `LD SP,0xFFF7`,
-`CALL 0x917` = re-build the VAT/system vars, `LD (0x85BC),SP` = set `onSP`), which rebuilds a
+then `CALL 0x3EC1` — the cross-page trampoline that rebuilds the VAT, system vars, and LCD; see [doc 11](11-boot-contexts-errors.md)), which rebuilds a
 clean default VAT and system state and re-enters the homescreen. The Flash **archive is not
 touched** by a plain RAM reset.
 

@@ -313,7 +313,7 @@ column index, and writes `0xFF`/blank sentinels for empty (Ask) cells. The botto
 status line and the highlighted-cell full-precision readout reuse the same value
 cache. [confirmed loop + buffers]
 
-### 3.6 Split Graph-Table mode — `_ScreenSplit` (`05:7712`) [confirmed]
+### 3.6 Split graph-table mode — `_ScreenSplit` (`05:7712`) [confirmed]
 
 The **G-T** mode (graph on the left half, table on the right) is set up by
 `_ScreenSplit` (bcall `0x5227`): it checks the split flag, calls `_Bit_VertSplit`,
