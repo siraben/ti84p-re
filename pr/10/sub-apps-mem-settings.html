@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4ac2f902.js";
+            window.path_to_searchindex_js = "searchindex-a5d33d98.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -217,8 +217,15 @@ length</strong>. The decoder bytes are around <code>page_3D:7285</code>, but the
 </code></pre>
 <p>The signature field at offset 0 is <code>80 0F …</code> (field type 0x80, 4-byte value) — this is
 what the page-scan keys on to recognise an app. Fields carry the app name, the page count,
-flags, the security/signature, etc. The OS reads header fields through RAM-resident flash
-helpers (<code>bcall(0x8040)</code>, <code>bcall(0x8070)</code>, <code>bcall(0x8080)</code>) installed by the boot stub.</p>
+flags, the security/signature, etc.</p>
+<p>The public entry points for walking these fields are bcalls in <code>ti83plus.inc</code>:
+<code>_FindAppHeaderSubField</code> (bcall <code>0x80AB</code>) locates a field in an app header, and
+<code>_FindOSHeaderSubField</code> (bcall <code>0x8075</code>) does the same for the OS header. Both build on the
+generic walkers <code>_FindSubField</code> (bcall <code>0x805D</code>), <code>_FindGroupedField</code> (bcall <code>0x8030</code>), and
+<code>_GetFieldSize</code> (bcall <code>0x805A</code>), which decode the TLV length nibble shown above. These IDs
+sit in the boot-page bcall range (<code>0x8000</code>+); the <code>0x8040</code>/<code>0x8070</code>/<code>0x8080</code> helpers the OS
+also reaches are a distinct group in the same range and are not these field walkers. The body
+addresses behind these public entry points are not defined functions in the current live DB.</p>
 <h3 id="12-_findapp--_findappup--_findappdn-confirmed"><a class="header" href="#12-_findapp--_findappup--_findappdn-confirmed">1.2 <code>_FindApp</code> / <code>_FindAppUp</code> / <code>_FindAppDn</code> [confirmed]</a></h3>
 <ul>
 <li><code>_FindApp</code> (<code>page_3D:5EE3</code>) — locate an app by name (OP1). Inits the search page,

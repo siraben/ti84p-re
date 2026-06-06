@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4ac2f902.js";
+            window.path_to_searchindex_js = "searchindex-a5d33d98.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -231,28 +231,36 @@ port <code>0x00</code> bit-banging otherwise. [confirmed]</p>
 Ghidra rebuilds show the same surface in the database. These labels describe the observed OS use,
 not a complete vendor register map.</p>
 <h2 id="sending-one-byte-through-the-assist-fifo-confirmed"><a class="header" href="#sending-one-byte-through-the-assist-fifo-confirmed">Sending one byte through the assist FIFO [confirmed]</a></h2>
-<p>The hardware send entry is <code>lnk_send_byte_hw</code> at <code>3C:6BB1</code>/<code>3C:6BB2</code> (Ghidra’s function split starts
-at <code>6BB2</code>, but the byte sequence’s <code>LD A,0xFA</code> begins at <code>6BB1</code>). It is the assist branch behind
-<code>_SendAByte</code> (<code>3C:420D</code>).</p>
+<p>The hardware send entry is <code>lnk_send_byte_hw</code> at <code>3C:6BB2</code> (the preceding byte at <code>3C:6BB1</code> is a
+<code>RET</code> from the prior helper). It is the assist branch behind <code>_SendAByte</code> (<code>3C:420D</code>).</p>
 <p>Mechanically, it does four things:</p>
 <ol>
 <li>Seed the inner retry counter at RAM <code>0x9C86</code> with <code>0xFA</code>.</li>
 <li>Read port <code>0x09</code>.</li>
 <li>If bit 5 is set, copy the outgoing byte from <code>C</code> to port <code>0x0D</code> and return.</li>
-<li>If bit 5 is clear, call the timeout decrementer (<code>3C:6BDA</code>/<code>lnk_timeout_dec</code>) and retry until
+<li>If bit 5 is clear, call the timeout decrementer (<code>3C:6BE4</code>/<code>lnk_timeout_dec</code>) and retry until
 the outer counter at <code>0x9CAC</code> expires, then fall into the link error path at <code>3C:4434</code>.</li>
 </ol>
-<p>In Z80-shaped pseudocode:</p>
-<pre><code class="language-z80">; 3C:6BB1, assist send path
-(9C86) = 0xFA
-while ((in(0x09) &amp; 0x20) == 0) {
-    if timeout_expired(9CAC):
-        goto link_timeout
-}
-out(0x0D), C
-ret
+<p>The ROM disassembles to:</p>
+<pre><code class="language-z80">; 3C:6BB2, assist send path
+6BB2: call 6D4Fh        ; clear/prepare assist I/O latch
+6BB5: call 6BD2h        ; seed 9CAC from CPU speed
+6BB8: call 6BD2h
+
+6BBB: ld   a,0FAh
+6BBD: ld   (9C86h),a    ; inner retry reload
+6BC0: in   a,(09h)
+6BC2: bit  5,a
+6BC4: jr   z,6BCAh      ; TX not ready
+6BC6: ld   a,c
+6BC7: out  (0Dh),a      ; write byte to assist FIFO
+6BC9: ret
+
+6BCA: call 6BE4h        ; decrement 9CAC, Z means keep polling
+6BCD: jr   z,6BBBh
+6BCF: jp   4434h        ; link timeout/error path
 </code></pre>
-<p><code>lnk_set_timeout</code> (<code>3C:6BC8</code>) seeds <code>0x9CAC</code> from CPU speed. When port <code>0x20</code> bit 0 is clear it uses
+<p><code>lnk_set_timeout</code> (<code>3C:6BD2</code>) seeds <code>0x9CAC</code> from CPU speed. When port <code>0x20</code> bit 0 is clear it uses
 <code>0x6800</code>; when the bit is set it leaves the larger <code>0xFFFF</code> seed. The ROM confirms the two reload
 values, while the wall-clock timeout they target is not measured here. [confirmed]</p>
 <h2 id="receiving-and-status-handling-confirmed"><a class="header" href="#receiving-and-status-handling-confirmed">Receiving and status handling [confirmed]</a></h2>
@@ -286,7 +294,10 @@ set 0,(IY+0x3E)
 the bit fields inside <code>0x97</code> or <code>0xB4</code>. [confirmed ports; bit meanings open]</p>
 <h2 id="usb-selection-in-_linkxferop-confirmed"><a class="header" href="#usb-selection-in-_linkxferop-confirmed">USB selection in <code>_LinkXferOP</code> [confirmed]</a></h2>
 <p><code>_LinkXferOP</code> (<code>3C:4DD2</code>, bcall ID <code>0x50FB</code>) is the OS entry that sends a silent link request and
-prefers the USB path when its mode flags ask for it. The ROM-confirmed setup is:</p>
+prefers the USB path when its mode flags ask for it. <code>ti83plus.inc</code> names bcall <code>0x50FB</code>
+<code>_GetVarCmdUSB</code>, the USB variant of <code>_GetVarCmd</code> (<code>0x4A11</code>) / <code>_SendVarCmd</code> (<code>0x4A14</code>); that public
+name matches the USB-first variable-command behavior decoded here, while <code>_LinkXferOP</code> is the
+inferred name for the page-3C body. The ROM-confirmed setup is:</p>
 <ul>
 <li><code>OP1</code> holds the variable type/name.</li>
 <li><code>sndRecState</code> (<code>0x8672</code>) is <code>0x15</code> for DATA-style receive.</li>
@@ -330,7 +341,7 @@ ROM-grounded pass. [confirmed for the need to service sources; masking details o
 <tr><th>Need</th><th>OS surface</th><th>ROM support</th></tr>
 </thead>
 <tbody>
-<tr><td>Send or request a variable over USB/link</td><td><code>_LinkXferOP</code> (<code>50FB</code> -&gt; <code>3C:4DD2</code>) or <code>_SendVarCmd</code> (<code>4A14</code> -&gt; <code>3C:4EDD</code>)</td><td>Packet engine and USB-selection gate confirmed on page <code>3C</code>.</td></tr>
+<tr><td>Send or request a variable over USB/link</td><td><code>_GetVarCmdUSB</code>/<code>_LinkXferOP</code> (<code>50FB</code> -&gt; <code>3C:4DD2</code>) or <code>_SendVarCmd</code> (<code>4A14</code> -&gt; <code>3C:4EDD</code>)</td><td>Packet engine and USB-selection gate confirmed on page <code>3C</code>. <code>0x50FB</code> is <code>_GetVarCmdUSB</code> in <code>ti83plus.inc</code>.</td></tr>
 <tr><td>Send one byte on the active link transport</td><td><code>_SendAByte</code> (<code>4EE5</code> -&gt; <code>3C:420D</code>)</td><td>Assist branch writes <code>C</code> to port <code>0x0D</code> after port <code>0x09</code> bit 5.</td></tr>
 <tr><td>Receive one byte on the active link transport</td><td><code>_RecAByteIO</code> (<code>4F03</code> -&gt; <code>3C:443F</code>)</td><td>Status path checks port <code>0x09</code> and reads port <code>0x0A</code> on the assist path.</td></tr>
 <tr><td>Use the raw assist FIFO</td><td>Poll port <code>0x09</code> bit 5, then write the byte to port <code>0x0D</code>; for receive, observe port <code>0x09</code> bit 4/error bits and read port <code>0x0A</code>.</td><td>Confirmed as an OS pattern, but not a complete public API.</td></tr>
@@ -359,7 +370,12 @@ decode as a clean routine body, so its exact side effects remain open. [hypothes
 value <code>0xB4</code> and the paired writes to <code>0x0B</code>/<code>0x0C</code> still need bit-level interpretation.
 [hypothesis]</li>
 <li>A future pass should trace the EasyData/USB app paths and reconcile any endpoint/pipe ports with
-the OS 2.55MP database. [hypothesis]</li>
+the OS 2.55MP database. [hypothesis] <code>ti83plus.inc</code> names the public peripheral/device API for
+that stack — <code>_InitUSB</code> (<code>0x8108</code>), <code>_KillUSB</code> (<code>0x810E</code>), <code>_InitUSBDevice</code> (<code>0x5290</code>),
+<code>_SetUSBConfiguration</code> (<code>0x525A</code>), <code>_RequestUSBData</code> (<code>0x525D</code>), <code>_SendUSBData</code> (<code>0x50F2</code>),
+<code>_StopReceivingUSBData</code> (<code>0x5260</code>), and <code>_IsUSBDeviceConnected</code> (<code>0x530E</code>, which the inc flags as
+a guessed purpose) — so the entry points are named even though their bodies are not traced in this
+pass.</li>
 </ul>
 
                     </main>

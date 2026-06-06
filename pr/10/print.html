@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4ac2f902.js";
+            window.path_to_searchindex_js = "searchindex-a5d33d98.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -760,8 +760,8 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
 <tr><td><code>34–39</code></td><td>More OS code (graph/mode/menu); mostly full (1–17% <code>0xFF</code>).</td></tr>
 <tr><td><strong>3B</strong></td><td><strong>bcall jump table</strong> — starts <code>99 27 00</code> = entry 0 (<code>_JErrorNo</code>→<code>00:2799</code>).</td></tr>
 <tr><td><strong>3C</strong></td><td>Link code + the <strong>OS version string</strong> — page starts with ASCII <code>32 2E 35 35 4D 50</code> = <strong>“2.55MP”</strong>.</td></tr>
-<tr><td><strong>3E</strong></td><td><strong>Certification page</strong> — the per-calculator certificate sector (84+ cert page is <code>3E</code>, not <code>3F</code>). Blank (99% <code>0xFF</code>) in this OS-only image, since the cert is written per-device.</td></tr>
-<tr><td><strong>3F</strong></td><td><strong>Boot page</strong> — starts <code>3E 3F D3 06 D3 07</code> = <code>LD A,0x3F; OUT (6),A; OUT (7),A</code> (maps itself into both banks at power-on). Boot code only; the certificate lives on page <code>3E</code>.</td></tr>
+<tr><td><strong>3E</strong></td><td><strong>Certification page</strong> — the per-calculator certificate sector (84+ cert page is <code>3E</code>, not <code>3F</code>). Blank (99% <code>0xFF</code>) in this OS-only image, since the cert is written per-device. The OS reads this sector through the <code>ti83plus.inc</code> cert bcalls: <code>_GetCertificateStart</code> (bcall <code>0x8057</code>) and <code>_GetCertificateEnd</code> (bcall <code>0x802D</code>) bound the sector, and <code>_FindFirstCertField</code> (bcall <code>0x8027</code>) / <code>_FindNextCertField</code> (bcall <code>0x8078</code>) walk its TLV fields.</td></tr>
+<tr><td><strong>3F</strong></td><td><strong>Boot page</strong> — starts <code>3E 3F D3 06 D3 07</code> = <code>LD A,0x3F; OUT (6),A; OUT (7),A</code> (maps itself into both banks at power-on). Boot code only; the certificate lives on page <code>3E</code>. Boot/hardware version is exposed through <code>_getBootVer</code> (bcall <code>0x80B7</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code>) in <code>ti83plus.inc</code>.</td></tr>
 </tbody>
 </table>
 </div>
@@ -779,6 +779,7 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
              ... (jumps into RAM-copied code — static disasm stops here)
 </code></pre>
 <p>Boot configures the paging hardware (ports 6 and <code>0x0E</code>) and the memory-map/timer mode (port 4 write), then transfers to code it copies into RAM (why the static trace ends with “bad instruction”). The continuation at <code>028c</code> ends <code>JP 0x812c</code>. <code>0x812c</code> is in the RAM execution window and is <em>blank in the static image</em>: the bytes are filled in at boot by the copy this stub performs, so the static trace cannot follow it. It eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen).</p>
+<p>The boot page (<code>3F</code>) and its version queries are exposed to the OS through <code>ti83plus.inc</code> bcalls: <code>_getBootVer</code> (bcall <code>0x80B7</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code>). These public entry points sit in the boot-page bcall range (<code>0x8000</code>+); their bodies are not defined functions in the current live DB.</p>
 <h3 id="ram-clear--re-init-ram_reset_wipe--0x0bd9-confirmed"><a class="header" href="#ram-clear--re-init-ram_reset_wipe--0x0bd9-confirmed">RAM clear / re-init (<code>ram_reset_wipe</code> → <code>0x0BD9</code>) [confirmed]</a></h3>
 <p>The RAM-init proper is <code>ram_reset_wipe</code> (<code>35:719F</code>, reached on a full reset; the same routine backs the <code>[2nd]+[+] · 7 · 1 · 2</code> RAM-reset and the post-boot RAM clear). It zero-fills RAM in two blocks, preserving a handful of flag bits and <code>0x9B73</code> across the wipe:</p>
 <pre><code class="language-z80">ram_reset_wipe (35:719f):
@@ -896,7 +897,7 @@ call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; res
 <ul>
 <li><strong><code>cx*</code> vector layout — confirmed.</strong> The six 2-byte handler slots and <code>cxPage</code> offsets are pinned by tracing <code>_AppInit</code> (<code>00:0936</code>): <code>LD DE,0x858D / LD BC,0x000C / LDIR</code> then <code>IN A,(6) / LD (0x8599),A</code>. See <a href="#context-block-layout-confirmed-from-ti83plusinc--xrefs">Context block layout</a> above for the full offset table and <code>_AppInit</code> body. <code>0x858D</code> (<code>cxMain</code>) is the only writer of the block.</li>
 <li><strong>Boot RAM-init trace — raw-disassembly trace.</strong> Reset (<code>ram:0000</code>) → <code>028c</code> paging setup → <code>JP 0x812c</code> (RAM-copied stub, blank in the static image). The RAM clear/re-init is <code>ram_reset_wipe</code> (<code>35:719f</code>): two <code>LDIR</code> zero-fills (<code>0x8000</code>–<code>0x9BC3</code>, <code>0x9BD0</code>–<code>0xFFFF</code>) preserving a few flag bytes, then <code>JP 0x0BD9</code> (<code>ram_init_after_reset</code>: port 0 = <code>0xC0</code>, stack reset in the raw trace, <code>CALL 0x3EC1</code>). The <code>0x0BD9</code> entry matches the re-init point cross-referenced in <a href="#12--memory-management-ram-heap--flash-archive">12-memory-management</a>. See <a href="#ram-clear--re-init-ram_reset_wipe--0x0bd9-confirmed">RAM clear / re-init</a>.</li>
-<li><strong>Flash write/erase sector primitives — partially resolved (cross-link).</strong> Live MCP confirms page-3D anchors such as <code>flash_program_buf</code> <code>3D:678C</code>, the per-record status writers <code>3D:7C8F/7C93/7C97</code>, and <code>flash_erase_wait</code> <code>3D:5ED3</code>, with byte-poke loops copied to <code>ramCode</code> <code>0x8100</code>. The candidate labels <code>flash_program_core</code> <code>3D:61AF</code> and <code>flash_write_record</code> <code>3D:64AA</code> are not defined functions in the current live DB; both names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates. See <a href="#6-low-level-flash-write--erase-pages-3c3d-port-0x14-mixed">sub-vat-archive §6</a>.</li>
+<li><strong>Flash write/erase sector primitives — partially resolved (cross-link).</strong> Live MCP confirms page-3D anchors such as <code>flash_program_buf</code> <code>3D:678C</code>, the per-record status writers <code>3D:7C8F/7C93/7C97</code>, and <code>flash_erase_wait</code> <code>3D:5ED3</code>, with byte-poke loops copied to <code>ramCode</code> <code>0x8100</code>. The candidate labels <code>flash_program_core</code> <code>3D:61AF</code> and <code>flash_write_record</code> <code>3D:64AA</code> are not defined functions in the current live DB; both names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates. The public single-byte flash writers are <code>_WriteAByte</code> (bcall <code>0x8021</code>) and <code>_WriteAByteSafe</code> (bcall <code>0x80C6</code>) in <code>ti83plus.inc</code>; these name the public entry points, whose bodies are likewise not defined functions in the current live DB. See <a href="#6-low-level-flash-write--erase-pages-3c3d-port-0x14-mixed">sub-vat-archive §6</a>.</li>
 </ul>
 <p><em>Residual (genuinely not statically traceable):</em> the in-RAM boot stub at <code>0x812c</code> and the <code>0x3EC1</code> init continuation run only from code copied into RAM during boot, so they have no static disassembly.</p>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -2481,13 +2482,19 @@ the copier (6761..678A):
    loop LDI:  BIT 7,H → at 0x8000 wrap: IN A,(6); INC A; OUT (6),A; LD HL,0x4000  ; next page
 </code></pre>
 <p>Port <strong>6</strong> is the bank-A page-select; the read code itself runs from <code>ramCode (0x8100)</code>. This is how
-an archived program/appvar is pulled back into RAM to be executed or edited.</p>
+an archived program/appvar is pulled back into RAM to be executed or edited. <code>ti83plus.inc</code> also
+names a sibling <strong><code>_FlashToRam2</code> (id 8054)</strong>; its body is not located in the live DB (the <code>0x8xxx</code>
+table is unmodeled), so the ID names the public API without yet pinning a page:addr.</p>
 <hr>
 <h2 id="6-low-level-flash-write--erase-pages-3c3d-port-0x14-mixed"><a class="header" href="#6-low-level-flash-write--erase-pages-3c3d-port-0x14-mixed">6. Low-level Flash write / erase (pages 3C/3D, port 0x14) [mixed]</a></h2>
 <p>The Flash program/erase primitives live on flash pages <strong>0x3C / 0x3D</strong> and are invoked through
-page-0 cross-page trampolines. Several page-3C/3D targets below are reached by byte trace but are
-<strong>not defined functions in the current live DB</strong>; their <code>flash_*</code> names are project-local inferred
-labels (not WikiTI or <code>ti83plus.inc</code> equates):</p>
+page-0 cross-page trampolines. The public bcall entry points for the byte writer are named in
+<code>ti83plus.inc</code>: <strong><code>_WriteAByte</code> (id 8021)</strong> and <strong><code>_WriteAByteSafe</code> (id 80C6)</strong> program a single
+Flash byte; <strong><code>_FlashToRam2</code> (id 8054)</strong> is the companion Flash→RAM copy of <code>_FlashToRam</code> (§5).
+Those IDs name the public API, not the body addresses below: the <code>0x8xxx</code> dispatch table is not
+modeled in the live DB, so the IDs are not yet mapped to these page-3C/3D bodies. Several page-3C/3D
+targets below are reached by byte trace but are <strong>not defined functions in the current live DB</strong>;
+their <code>flash_*</code> names are project-local inferred labels (not WikiTI or <code>ti83plus.inc</code> equates):</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -2510,7 +2517,8 @@ labels (not WikiTI or <code>ti83plus.inc</code> equates):</p>
 sets up the RAM-resident write stub (the actual byte-poke loops run from RAM at <code>0x8100</code>/<code>ramCode</code>,
 because the CPU cannot fetch from a Flash chip mid-erase). <code>3D:6B9B</code>/<code>3D:6B6D</code> are bounds-checked
 byte-program candidate calls (return carry → caller raises <strong>E_ArchFull</strong>); neither is a defined
-function in the current live DB. The free-slot scan reads sector
+function in the current live DB. The public byte-write API for this layer is <code>_WriteAByte</code> (8021) /
+<code>_WriteAByteSafe</code> (80C6), though the <code>0x8xxx</code> table does not yet pin either ID to a page-3C/3D body. The free-slot scan reads sector
 status bytes and sums free space to decide whether a GC is needed before a write.</p>
 <h3 id="6a-record-status-byte--the-one-way-bit-clearing-scheme-c"><a class="header" href="#6a-record-status-byte--the-one-way-bit-clearing-scheme-c">6a. Record-status byte — the one-way bit-clearing scheme [C]</a></h3>
 <p>The status byte is a classic AMD/Am29F <strong>monotonic bit-clear</strong> marker: erased Flash is all-ones
@@ -2622,7 +2630,7 @@ the current live DB.</li>
 <tr><td><code>38:62A9</code></td><td><code>_StoOther</code></td><td>store value into named var</td></tr>
 <tr><td><code>38:67B1</code></td><td><code>_RclVarSym</code></td><td>recall var by symbol</td></tr>
 <tr><td><code>3A:5D07</code></td><td><code>_RclVarPush</code></td><td>recall var, push to FPS</td></tr>
-<tr><td><code>3D:6745</code></td><td><code>_FlashToRam</code></td><td>copy archived data Flash→RAM (page-aware)</td></tr>
+<tr><td><code>3D:6745</code></td><td><code>_FlashToRam</code></td><td>copy archived data Flash→RAM (page-aware); <code>ti83plus.inc</code> sibling <code>_FlashToRam2</code> (id 8054) is named but its body is unmapped in the live DB</td></tr>
 <tr><td><code>3D:678C</code></td><td><code>flash_program_buf</code></td><td>live-MCP Flash programming/buffer helper</td></tr>
 <tr><td><code>3D:64AA</code></td><td><code>flash_write_record</code> (inferred label)</td><td>program an archived record to Flash candidate; not a defined function in the live DB</td></tr>
 <tr><td><code>3D:61AF</code></td><td><code>flash_program_core</code> (inferred label)</td><td>Flash program/erase core candidate; not a defined function in the live DB</td></tr>
@@ -2635,7 +2643,7 @@ the current live DB.</li>
 <tr><td><code>3D:7C97</code> / <code>3D:7C8F</code> / <code>3D:7C93</code></td><td><code>flash_op_fe/fd/fb</code></td><td>clear status bit (0xFE/0xFD/0xFB AND-mask)</td></tr>
 <tr><td><code>3D:7DEA</code></td><td><code>flash_find_nonff</code></td><td>scan 13-byte header for all-0xFF (free slot)</td></tr>
 <tr><td><code>00:1837</code> / <code>00:182F</code></td><td><code>probe_hw_model_keep_a</code> / <code>probe_port21_keep_a</code></td><td>model bits: port 2 bit7 / port 0x21 low</td></tr>
-<tr><td><code>3D:6B9B</code></td><td><code>flash_write_byte</code> (inferred label)</td><td>bounds-checked Flash byte program candidate; not a defined function in the live DB</td></tr>
+<tr><td><code>3D:6B9B</code></td><td><code>flash_write_byte</code> (inferred label)</td><td>bounds-checked Flash byte program candidate; not a defined function in the live DB. Public byte-write bcalls <code>_WriteAByte</code> (8021) / <code>_WriteAByteSafe</code> (80C6) are named in <code>ti83plus.inc</code>, but the <code>0x8xxx</code> table does not yet map either ID to this body</td></tr>
 <tr><td><code>3C:7121</code></td><td><code>flash_cmd_dispatch</code> (inferred label)</td><td>Archive/UnArchive/GC command dispatcher candidate; not a defined function in the live DB</td></tr>
 <tr><td><code>3C:7BD0</code></td><td><code>flash_gc_relocate</code> (inferred label)</td><td>GC core candidate; not a defined function in the live DB</td></tr>
 <tr><td><code>3C:7E0D</code></td><td><code>gc_show_screen</code> (inferred label)</td><td>“Garbage Collecting…” display front-end candidate; not a defined function in the live DB</td></tr>
@@ -2667,6 +2675,11 @@ the status byte; <code>flash_find_nonff</code> (<code>3D:7DEA</code>) treats an 
 </ul>
 <p><strong>Residual:</strong></p>
 <ul>
+<li><strong>Flash byte-write / Flash→RAM bcall bodies — names known, bodies unmapped [I].</strong> The public
+bcall entry points are canonical equates in <code>ti83plus.inc</code>: <code>_WriteAByte</code> (8021),
+<code>_WriteAByteSafe</code> (80C6), and <code>_FlashToRam2</code> (8054). Their bodies are not located in the live DB —
+the <code>0x8xxx</code> dispatch table is unmodeled — so the IDs name the API without yet resolving to a
+page:addr. The address-keyed <code>flash_*</code> labels in §6/§9 stay inferred and body-undisassembled.</li>
 <li><strong>Group archive path — partially pinned [H/I].</strong> <code>_DataSize</code> (<code>00:1485</code>) confirms a Group
 (type <code>0x17</code>, like AppVar <code>0x15</code>/<code>0x16</code>) carries a leading word-size header, so a group <em>can</em> be
 stored as one Flash blob. The single-call RAM→Flash worker <code>61F4</code> is reached only after
@@ -2715,8 +2728,15 @@ length</strong>. The decoder bytes are around <code>page_3D:7285</code>, but the
 </code></pre>
 <p>The signature field at offset 0 is <code>80 0F …</code> (field type 0x80, 4-byte value) — this is
 what the page-scan keys on to recognise an app. Fields carry the app name, the page count,
-flags, the security/signature, etc. The OS reads header fields through RAM-resident flash
-helpers (<code>bcall(0x8040)</code>, <code>bcall(0x8070)</code>, <code>bcall(0x8080)</code>) installed by the boot stub.</p>
+flags, the security/signature, etc.</p>
+<p>The public entry points for walking these fields are bcalls in <code>ti83plus.inc</code>:
+<code>_FindAppHeaderSubField</code> (bcall <code>0x80AB</code>) locates a field in an app header, and
+<code>_FindOSHeaderSubField</code> (bcall <code>0x8075</code>) does the same for the OS header. Both build on the
+generic walkers <code>_FindSubField</code> (bcall <code>0x805D</code>), <code>_FindGroupedField</code> (bcall <code>0x8030</code>), and
+<code>_GetFieldSize</code> (bcall <code>0x805A</code>), which decode the TLV length nibble shown above. These IDs
+sit in the boot-page bcall range (<code>0x8000</code>+); the <code>0x8040</code>/<code>0x8070</code>/<code>0x8080</code> helpers the OS
+also reaches are a distinct group in the same range and are not these field walkers. The body
+addresses behind these public entry points are not defined functions in the current live DB.</p>
 <h3 id="12-_findapp--_findappup--_findappdn-confirmed"><a class="header" href="#12-_findapp--_findappup--_findappdn-confirmed">1.2 <code>_FindApp</code> / <code>_FindAppUp</code> / <code>_FindAppDn</code> [confirmed]</a></h3>
 <ul>
 <li><code>_FindApp</code> (<code>page_3D:5EE3</code>) — locate an app by name (OP1). Inits the search page,
@@ -5440,28 +5460,36 @@ port <code>0x00</code> bit-banging otherwise. [confirmed]</p>
 Ghidra rebuilds show the same surface in the database. These labels describe the observed OS use,
 not a complete vendor register map.</p>
 <h2 id="sending-one-byte-through-the-assist-fifo-confirmed"><a class="header" href="#sending-one-byte-through-the-assist-fifo-confirmed">Sending one byte through the assist FIFO [confirmed]</a></h2>
-<p>The hardware send entry is <code>lnk_send_byte_hw</code> at <code>3C:6BB1</code>/<code>3C:6BB2</code> (Ghidra’s function split starts
-at <code>6BB2</code>, but the byte sequence’s <code>LD A,0xFA</code> begins at <code>6BB1</code>). It is the assist branch behind
-<code>_SendAByte</code> (<code>3C:420D</code>).</p>
+<p>The hardware send entry is <code>lnk_send_byte_hw</code> at <code>3C:6BB2</code> (the preceding byte at <code>3C:6BB1</code> is a
+<code>RET</code> from the prior helper). It is the assist branch behind <code>_SendAByte</code> (<code>3C:420D</code>).</p>
 <p>Mechanically, it does four things:</p>
 <ol>
 <li>Seed the inner retry counter at RAM <code>0x9C86</code> with <code>0xFA</code>.</li>
 <li>Read port <code>0x09</code>.</li>
 <li>If bit 5 is set, copy the outgoing byte from <code>C</code> to port <code>0x0D</code> and return.</li>
-<li>If bit 5 is clear, call the timeout decrementer (<code>3C:6BDA</code>/<code>lnk_timeout_dec</code>) and retry until
+<li>If bit 5 is clear, call the timeout decrementer (<code>3C:6BE4</code>/<code>lnk_timeout_dec</code>) and retry until
 the outer counter at <code>0x9CAC</code> expires, then fall into the link error path at <code>3C:4434</code>.</li>
 </ol>
-<p>In Z80-shaped pseudocode:</p>
-<pre><code class="language-z80">; 3C:6BB1, assist send path
-(9C86) = 0xFA
-while ((in(0x09) &amp; 0x20) == 0) {
-    if timeout_expired(9CAC):
-        goto link_timeout
-}
-out(0x0D), C
-ret
+<p>The ROM disassembles to:</p>
+<pre><code class="language-z80">; 3C:6BB2, assist send path
+6BB2: call 6D4Fh        ; clear/prepare assist I/O latch
+6BB5: call 6BD2h        ; seed 9CAC from CPU speed
+6BB8: call 6BD2h
+
+6BBB: ld   a,0FAh
+6BBD: ld   (9C86h),a    ; inner retry reload
+6BC0: in   a,(09h)
+6BC2: bit  5,a
+6BC4: jr   z,6BCAh      ; TX not ready
+6BC6: ld   a,c
+6BC7: out  (0Dh),a      ; write byte to assist FIFO
+6BC9: ret
+
+6BCA: call 6BE4h        ; decrement 9CAC, Z means keep polling
+6BCD: jr   z,6BBBh
+6BCF: jp   4434h        ; link timeout/error path
 </code></pre>
-<p><code>lnk_set_timeout</code> (<code>3C:6BC8</code>) seeds <code>0x9CAC</code> from CPU speed. When port <code>0x20</code> bit 0 is clear it uses
+<p><code>lnk_set_timeout</code> (<code>3C:6BD2</code>) seeds <code>0x9CAC</code> from CPU speed. When port <code>0x20</code> bit 0 is clear it uses
 <code>0x6800</code>; when the bit is set it leaves the larger <code>0xFFFF</code> seed. The ROM confirms the two reload
 values, while the wall-clock timeout they target is not measured here. [confirmed]</p>
 <h2 id="receiving-and-status-handling-confirmed"><a class="header" href="#receiving-and-status-handling-confirmed">Receiving and status handling [confirmed]</a></h2>
@@ -5495,7 +5523,10 @@ set 0,(IY+0x3E)
 the bit fields inside <code>0x97</code> or <code>0xB4</code>. [confirmed ports; bit meanings open]</p>
 <h2 id="usb-selection-in-_linkxferop-confirmed"><a class="header" href="#usb-selection-in-_linkxferop-confirmed">USB selection in <code>_LinkXferOP</code> [confirmed]</a></h2>
 <p><code>_LinkXferOP</code> (<code>3C:4DD2</code>, bcall ID <code>0x50FB</code>) is the OS entry that sends a silent link request and
-prefers the USB path when its mode flags ask for it. The ROM-confirmed setup is:</p>
+prefers the USB path when its mode flags ask for it. <code>ti83plus.inc</code> names bcall <code>0x50FB</code>
+<code>_GetVarCmdUSB</code>, the USB variant of <code>_GetVarCmd</code> (<code>0x4A11</code>) / <code>_SendVarCmd</code> (<code>0x4A14</code>); that public
+name matches the USB-first variable-command behavior decoded here, while <code>_LinkXferOP</code> is the
+inferred name for the page-3C body. The ROM-confirmed setup is:</p>
 <ul>
 <li><code>OP1</code> holds the variable type/name.</li>
 <li><code>sndRecState</code> (<code>0x8672</code>) is <code>0x15</code> for DATA-style receive.</li>
@@ -5539,7 +5570,7 @@ ROM-grounded pass. [confirmed for the need to service sources; masking details o
 <tr><th>Need</th><th>OS surface</th><th>ROM support</th></tr>
 </thead>
 <tbody>
-<tr><td>Send or request a variable over USB/link</td><td><code>_LinkXferOP</code> (<code>50FB</code> -&gt; <code>3C:4DD2</code>) or <code>_SendVarCmd</code> (<code>4A14</code> -&gt; <code>3C:4EDD</code>)</td><td>Packet engine and USB-selection gate confirmed on page <code>3C</code>.</td></tr>
+<tr><td>Send or request a variable over USB/link</td><td><code>_GetVarCmdUSB</code>/<code>_LinkXferOP</code> (<code>50FB</code> -&gt; <code>3C:4DD2</code>) or <code>_SendVarCmd</code> (<code>4A14</code> -&gt; <code>3C:4EDD</code>)</td><td>Packet engine and USB-selection gate confirmed on page <code>3C</code>. <code>0x50FB</code> is <code>_GetVarCmdUSB</code> in <code>ti83plus.inc</code>.</td></tr>
 <tr><td>Send one byte on the active link transport</td><td><code>_SendAByte</code> (<code>4EE5</code> -&gt; <code>3C:420D</code>)</td><td>Assist branch writes <code>C</code> to port <code>0x0D</code> after port <code>0x09</code> bit 5.</td></tr>
 <tr><td>Receive one byte on the active link transport</td><td><code>_RecAByteIO</code> (<code>4F03</code> -&gt; <code>3C:443F</code>)</td><td>Status path checks port <code>0x09</code> and reads port <code>0x0A</code> on the assist path.</td></tr>
 <tr><td>Use the raw assist FIFO</td><td>Poll port <code>0x09</code> bit 5, then write the byte to port <code>0x0D</code>; for receive, observe port <code>0x09</code> bit 4/error bits and read port <code>0x0A</code>.</td><td>Confirmed as an OS pattern, but not a complete public API.</td></tr>
@@ -5568,7 +5599,12 @@ decode as a clean routine body, so its exact side effects remain open. [hypothes
 value <code>0xB4</code> and the paired writes to <code>0x0B</code>/<code>0x0C</code> still need bit-level interpretation.
 [hypothesis]</li>
 <li>A future pass should trace the EasyData/USB app paths and reconcile any endpoint/pipe ports with
-the OS 2.55MP database. [hypothesis]</li>
+the OS 2.55MP database. [hypothesis] <code>ti83plus.inc</code> names the public peripheral/device API for
+that stack — <code>_InitUSB</code> (<code>0x8108</code>), <code>_KillUSB</code> (<code>0x810E</code>), <code>_InitUSBDevice</code> (<code>0x5290</code>),
+<code>_SetUSBConfiguration</code> (<code>0x525A</code>), <code>_RequestUSBData</code> (<code>0x525D</code>), <code>_SendUSBData</code> (<code>0x50F2</code>),
+<code>_StopReceivingUSBData</code> (<code>0x5260</code>), and <code>_IsUSBDeviceConnected</code> (<code>0x530E</code>, which the inc flags as
+a guessed purpose) — so the entry points are named even though their bodies are not traced in this
+pass.</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="bcall-reference-index"><a class="header" href="#bcall-reference-index">bcall reference index</a></h1>
@@ -6825,12 +6861,12 @@ the OS 2.55MP database. [hypothesis]</li>
 <p>The structural reverse-engineering is comprehensive (every subsystem mapped, both cross-page mechanisms resolved, full input→parse→eval→display pipeline documented). What remains is <strong>depth</strong>, gathered here from the per-doc TODOs and prioritized. Each is self-contained for a future session.</p>
 <h2 id="resolved-3"><a class="header" href="#resolved-3">Resolved</a></h2>
 <ol>
-<li><strong>Flash sector write/erase primitive map</strong> — the live DB confirms anchors <code>flash_program_buf</code>@<code>3D:678C</code>, <code>flash_erase_wait</code>@<code>3D:5ED3</code>, <code>flash_cmd_base</code>@<code>3D:738B</code>, <code>flash_set_sector_cnt</code>@<code>3D:727D</code>, <code>flash_page_select</code>@<code>3D:726E</code>, <code>flash_find_nonff</code>@<code>3D:7DEA</code>, and <code>flash_op_fd/fb/fe</code>@<code>3D:7C8F/7C93/7C97</code>. The candidate addresses <code>3D:61AF</code>, <code>3D:64AA</code>, <code>3D:62C2</code>, <code>3D:6413</code>, and <code>3D:6B9B</code> are still undisassembled (not defined functions) in the live DB; their <code>flash_*</code> names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates. See <a href="#variables-archive--unarchive">sub-vat-archive.md</a> / <a href="#12--memory-management-ram-heap--flash-archive">12</a>.</li>
+<li><strong>Flash sector write/erase primitive map</strong> — the live DB confirms anchors <code>flash_program_buf</code>@<code>3D:678C</code>, <code>flash_erase_wait</code>@<code>3D:5ED3</code>, <code>flash_cmd_base</code>@<code>3D:738B</code>, <code>flash_set_sector_cnt</code>@<code>3D:727D</code>, <code>flash_page_select</code>@<code>3D:726E</code>, <code>flash_find_nonff</code>@<code>3D:7DEA</code>, and <code>flash_op_fd/fb/fe</code>@<code>3D:7C8F/7C93/7C97</code>. The public bcall entry points for these primitives are named in <code>ti83plus.inc</code>: <code>_WriteAByte</code> (8021), <code>_WriteAByteSafe</code> (80C6), and <code>_FlashToRam2</code> (8054); their IDs name the API, not the body addresses. The candidate addresses <code>3D:61AF</code>, <code>3D:64AA</code>, <code>3D:62C2</code>, <code>3D:6413</code>, and <code>3D:6B9B</code> are still undisassembled (not defined functions) in the live DB; their <code>flash_*</code> names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates, and the <code>0x8xxx</code> IDs are not yet mapped to these bodies. See <a href="#variables-archive--unarchive">sub-vat-archive.md</a> / <a href="#12--memory-management-ram-heap--flash-archive">12</a>.</li>
 <li><strong>Flash archive garbage collector</strong> — the behavior is documented. The GC-path candidates <code>flash_gc_relocate</code>@<code>3C:7BD0</code>, <code>gc_show_screen</code>@<code>3C:7E0D</code>, and <code>flash_cmd_dispatch</code>@<code>3C:7121</code> are still undisassembled (not defined functions) in the live DB; those <code>flash_*</code>/<code>gc_*</code> names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates.</li>
 <li><del><strong>VAT entry binary layout</strong></del> ✅ <strong>DONE</strong> — field order/size per object class documented from <code>_FindSym</code>’s scan (<code>findsym_scan</code>@<code>07:565F</code>) and the create-header writes. See <a href="#05--variables--the-vat-variable-allocation-table">05</a>.</li>
 <li><del><strong>Parser precedence levels</strong></del> ✅ <strong>DONE</strong> — the recursive-descent productions and the sub-dispatch tables at <code>page_38:5110</code>/<code>5127</code> are mapped via <code>parse_eval_expr</code>@<code>38:5AB3</code>. See <a href="#07--tokenizer--ti-basic">07</a>.</li>
 <li><del><strong>Event/context <code>0x3f3f</code> router</strong></del> ✅ <strong>DONE</strong> — resolved to the RAM-resident vector reaching <code>event_key_router</code>@<code>page_07:4539</code>; the 8-slot context stack near <code>0x84BE</code> is documented. See <a href="#11--boot-contexts-and-error-handling">11</a>.</li>
-<li><strong>84+-era bcalls / page 0x3F reconciliation</strong> — historical scripts decoded 11 <code>0x8xxx</code> candidates from a page-0x3F table and cataloged them in <code>ti84plus_extra.inc</code>, but the current live Ghidra/MCP DB does not expose functions at those claimed targets. Reconcile the loader/build artifacts before treating them as confirmed bcalls; see <a href="#03--the-bcall-system-call-mechanism">03</a>.</li>
+<li><strong>84+-era bcall names / page 0x3F reconciliation</strong> — the 11 <code>0x8xxx</code> IDs (e.g. <code>_WriteAByte 8021</code>, <code>_FindFirstCertField 8027</code>, <code>_FlashToRam2 8054</code>, <code>_GetCertificateStart 8057</code>, <code>_FindOSHeaderSubField 8075</code>, <code>_getBootVer 80B7</code>, <code>_getHardwareVersion 80BA</code>, <code>_WriteAByteSafe 80C6</code>) are canonical equates in the full 2007 SDK <code>tools/ti83plus.inc</code> (334 <code>0x8xxx</code> equates total). They are official TI bcalls, so the <strong>naming</strong> side is settled — these are not unverified script output. The body/table side stays open; see item 15. See <a href="#03--the-bcall-system-call-mechanism">03</a>.</li>
 <li><del><strong>Equation display core (page 0x39)</strong></del> ✅ <strong>DONE</strong> — page 0x39’s classification, handler records, descriptor templates, recursive operand walker, and glyph/string output paths are documented as a cell-grid typesetter. See <a href="#equation-display-mathprint">sub-equation-display.md</a>.</li>
 <li><del><strong>Name every <code>FUN_</code> helper</strong></del> ✅ <strong>DONE</strong> — 100% of the 2413 functions are now named (<code>tools/names.txt</code> + <code>RenameFns.java</code>).</li>
 <li><del><strong>Font glyph page</strong></del> ✅ <strong>DONE</strong> — the large-font glyph table is on <strong>page 0x07 at base <code>0x45FF</code></strong> with a <strong>7-byte stride</strong> (<code>put_glyph_large</code> <code>07:4588</code> → <code>lgfont_glyph_ptr_adjust</code> <code>07:45EB</code>); alternate fonts on pages 1/0x36. See <a href="#08--display--lcd">08</a>, <a href="#13--flash-page-map">13</a>.</li>
@@ -6842,6 +6878,7 @@ the OS 2.55MP database. [hypothesis]</li>
 <ol start="13">
 <li><strong>Enum equates.</strong> Apply <code>TIKeyCode</code>/<code>TIError</code>/<code>TIVarType</code> to scalar operands in the relevant handlers (conservative, scoped).</li>
 <li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
+<li><strong><code>0x8xxx</code> bcall bodies / dispatch table.</strong> The 84+-era <code>0x8xxx</code> bcall <em>names</em> are now canonical equates (item 6), but their bodies are not present as functions in the live Ghidra DB: the <code>0x8xxx</code> dispatch table and its page-0x3F loader are not modeled, so each ID→(page, addr) mapping is unresolved. Model the <code>0x8xxx</code> table and locate the bodies — e.g. <code>_WriteAByte 8021</code>, <code>_FlashToRam2 8054</code>, <code>_getHardwareVersion 80BA</code>. See <a href="#03--the-bcall-system-call-mechanism">03</a>.</li>
 </ol>
 <h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>
 <p>Reopen <code>~/Documents/ti84-re/ti84.gpr</code> (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in <code>tools/</code> and rebuild with <code>tools/build.sh</code>. The remaining items mostly need a <strong>headless raw-byte dump</strong> of regions the live decompiler leaves as unanalyzed data (the page-0x35 timer handler, the page-0x38 <code>0xBB</code>/class-3 dispatch tables).</p>
