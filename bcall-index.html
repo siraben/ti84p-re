@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6123b3eb.js";
+            window.path_to_searchindex_js = "searchindex-a5d33d98.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -787,24 +787,24 @@
 </table>
 </div>
 <h2 id="extended-0x8xxx-candidates--unverified"><a class="header" href="#extended-0x8xxx-candidates--unverified">Extended (<code>0x8xxx</code>) candidates — unverified</a></h2>
-<p>These 11 <code>0x8xxx</code> candidates are absent from the 2001 <code>ti83plus.inc</code> and were produced by historical ROM-scan scripts from a proposed page-0x3F table. The current live Ghidra/MCP DB does <strong>not</strong> expose functions at these claimed targets, so treat this section as unresolved build/load-model evidence, not confirmed bcall bodies. Names are WikiTI’s; <code>†</code> marks WikiTI <em>unofficial</em> names. Cataloged in <code>tools/ti84plus_extra.inc</code>.</p>
+<p>All 11 of these <code>0x8xxx</code> candidate IDs are now defined in the full 2007 <code>ti83plus.inc</code> (SDK equate column below), and were produced by historical ROM-scan scripts from a proposed page-0x3F table. The current live Ghidra/MCP DB does <strong>not</strong> expose functions at these claimed targets, so treat the bodies as unresolved build/load-model evidence, not confirmed bcall bodies — the open piece. Names are WikiTI’s; <code>†</code> marks WikiTI <em>unofficial</em> names. Cataloged in <code>tools/ti84plus_extra.inc</code>.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>bcall</th><th>ID</th><th>Body (page:addr)</th></tr>
+<tr><th>bcall</th><th>ID</th><th>SDK equate (<code>ti83plus.inc</code>)</th><th>Body (page:addr)</th></tr>
 </thead>
 <tbody>
-<tr><td><code>_WriteAByte</code></td><td><code>8021</code></td><td><code>3F:44F3</code></td></tr>
-<tr><td><code>_FindFirstCertificateField</code></td><td><code>8027</code></td><td><code>3F:4448</code></td></tr>
-<tr><td><code>_FindGroupedField</code> †</td><td><code>8030</code></td><td><code>3F:442B</code></td></tr>
-<tr><td><code>_FlashToRAM2</code> †</td><td><code>8054</code></td><td><code>3F:52EB</code></td></tr>
-<tr><td><code>_GetCertificateStart</code></td><td><code>8057</code></td><td><code>3F:430F</code></td></tr>
-<tr><td><code>_GetFieldSize</code></td><td><code>805A</code></td><td><code>3F:449C</code></td></tr>
-<tr><td><code>_FindSubField</code> †</td><td><code>805D</code></td><td><code>3F:4463</code></td></tr>
-<tr><td><code>_FindOSHeaderSubField</code> †</td><td><code>8075</code></td><td><code>3F:446C</code></td></tr>
-<tr><td><code>_Div32By16</code></td><td><code>80B1</code></td><td><code>3F:5296</code></td></tr>
-<tr><td><code>_GetBootVer</code></td><td><code>80B7</code></td><td><code>3F:531E</code></td></tr>
-<tr><td><code>_GetHWVer</code></td><td><code>80BA</code></td><td><code>3F:5323</code></td></tr>
+<tr><td><code>_WriteAByte</code></td><td><code>8021</code></td><td><code>_WriteAByte</code></td><td><code>3F:44F3</code></td></tr>
+<tr><td><code>_FindFirstCertificateField</code></td><td><code>8027</code></td><td><code>_FindFirstCertField</code></td><td><code>3F:4448</code></td></tr>
+<tr><td><code>_FindGroupedField</code> †</td><td><code>8030</code></td><td><code>_FindGroupedField</code></td><td><code>3F:442B</code></td></tr>
+<tr><td><code>_FlashToRAM2</code> †</td><td><code>8054</code></td><td><code>_FlashToRam2</code></td><td><code>3F:52EB</code></td></tr>
+<tr><td><code>_GetCertificateStart</code></td><td><code>8057</code></td><td><code>_GetCertificateStart</code></td><td><code>3F:430F</code></td></tr>
+<tr><td><code>_GetFieldSize</code></td><td><code>805A</code></td><td><code>_GetFieldSize</code></td><td><code>3F:449C</code></td></tr>
+<tr><td><code>_FindSubField</code> †</td><td><code>805D</code></td><td><code>_FindSubField</code></td><td><code>3F:4463</code></td></tr>
+<tr><td><code>_FindOSHeaderSubField</code> †</td><td><code>8075</code></td><td><code>_FindOSHeaderSubField</code></td><td><code>3F:446C</code></td></tr>
+<tr><td><code>_Div32By16</code></td><td><code>80B1</code></td><td><code>_Div32By16</code></td><td><code>3F:5296</code></td></tr>
+<tr><td><code>_GetBootVer</code></td><td><code>80B7</code></td><td><code>_getBootVer</code></td><td><code>3F:531E</code></td></tr>
+<tr><td><code>_GetHWVer</code></td><td><code>80BA</code></td><td><code>_getHardwareVersion</code></td><td><code>3F:5323</code></td></tr>
 </tbody>
 </table>
 </div>

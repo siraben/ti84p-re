@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6123b3eb.js";
+            window.path_to_searchindex_js = "searchindex-a5d33d98.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -294,7 +294,10 @@ set 0,(IY+0x3E)
 the bit fields inside <code>0x97</code> or <code>0xB4</code>. [confirmed ports; bit meanings open]</p>
 <h2 id="usb-selection-in-_linkxferop-confirmed"><a class="header" href="#usb-selection-in-_linkxferop-confirmed">USB selection in <code>_LinkXferOP</code> [confirmed]</a></h2>
 <p><code>_LinkXferOP</code> (<code>3C:4DD2</code>, bcall ID <code>0x50FB</code>) is the OS entry that sends a silent link request and
-prefers the USB path when its mode flags ask for it. The ROM-confirmed setup is:</p>
+prefers the USB path when its mode flags ask for it. <code>ti83plus.inc</code> names bcall <code>0x50FB</code>
+<code>_GetVarCmdUSB</code>, the USB variant of <code>_GetVarCmd</code> (<code>0x4A11</code>) / <code>_SendVarCmd</code> (<code>0x4A14</code>); that public
+name matches the USB-first variable-command behavior decoded here, while <code>_LinkXferOP</code> is the
+inferred name for the page-3C body. The ROM-confirmed setup is:</p>
 <ul>
 <li><code>OP1</code> holds the variable type/name.</li>
 <li><code>sndRecState</code> (<code>0x8672</code>) is <code>0x15</code> for DATA-style receive.</li>
@@ -338,7 +341,7 @@ ROM-grounded pass. [confirmed for the need to service sources; masking details o
 <tr><th>Need</th><th>OS surface</th><th>ROM support</th></tr>
 </thead>
 <tbody>
-<tr><td>Send or request a variable over USB/link</td><td><code>_LinkXferOP</code> (<code>50FB</code> -&gt; <code>3C:4DD2</code>) or <code>_SendVarCmd</code> (<code>4A14</code> -&gt; <code>3C:4EDD</code>)</td><td>Packet engine and USB-selection gate confirmed on page <code>3C</code>.</td></tr>
+<tr><td>Send or request a variable over USB/link</td><td><code>_GetVarCmdUSB</code>/<code>_LinkXferOP</code> (<code>50FB</code> -&gt; <code>3C:4DD2</code>) or <code>_SendVarCmd</code> (<code>4A14</code> -&gt; <code>3C:4EDD</code>)</td><td>Packet engine and USB-selection gate confirmed on page <code>3C</code>. <code>0x50FB</code> is <code>_GetVarCmdUSB</code> in <code>ti83plus.inc</code>.</td></tr>
 <tr><td>Send one byte on the active link transport</td><td><code>_SendAByte</code> (<code>4EE5</code> -&gt; <code>3C:420D</code>)</td><td>Assist branch writes <code>C</code> to port <code>0x0D</code> after port <code>0x09</code> bit 5.</td></tr>
 <tr><td>Receive one byte on the active link transport</td><td><code>_RecAByteIO</code> (<code>4F03</code> -&gt; <code>3C:443F</code>)</td><td>Status path checks port <code>0x09</code> and reads port <code>0x0A</code> on the assist path.</td></tr>
 <tr><td>Use the raw assist FIFO</td><td>Poll port <code>0x09</code> bit 5, then write the byte to port <code>0x0D</code>; for receive, observe port <code>0x09</code> bit 4/error bits and read port <code>0x0A</code>.</td><td>Confirmed as an OS pattern, but not a complete public API.</td></tr>
@@ -367,7 +370,12 @@ decode as a clean routine body, so its exact side effects remain open. [hypothes
 value <code>0xB4</code> and the paired writes to <code>0x0B</code>/<code>0x0C</code> still need bit-level interpretation.
 [hypothesis]</li>
 <li>A future pass should trace the EasyData/USB app paths and reconcile any endpoint/pipe ports with
-the OS 2.55MP database. [hypothesis]</li>
+the OS 2.55MP database. [hypothesis] <code>ti83plus.inc</code> names the public peripheral/device API for
+that stack — <code>_InitUSB</code> (<code>0x8108</code>), <code>_KillUSB</code> (<code>0x810E</code>), <code>_InitUSBDevice</code> (<code>0x5290</code>),
+<code>_SetUSBConfiguration</code> (<code>0x525A</code>), <code>_RequestUSBData</code> (<code>0x525D</code>), <code>_SendUSBData</code> (<code>0x50F2</code>),
+<code>_StopReceivingUSBData</code> (<code>0x5260</code>), and <code>_IsUSBDeviceConnected</code> (<code>0x530E</code>, which the inc flags as
+a guessed purpose) — so the entry points are named even though their bodies are not traced in this
+pass.</li>
 </ul>
 
                     </main>

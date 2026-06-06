@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6123b3eb.js";
+            window.path_to_searchindex_js = "searchindex-a5d33d98.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -183,7 +183,7 @@
 <p>TI-BASIC programs are stored as <strong>tokens</strong>, not text: every command, function, and variable is a token of 1 or 2 bytes. The OS <em>detokenizes</em> (token→display string) to show a program and <em>tokenizes</em> (keypress/text→token) on entry; the <strong>parser</strong> walks tokens to execute.</p>
 <h2 id="token-encoding-confirmed"><a class="header" href="#token-encoding-confirmed">Token encoding [confirmed]</a></h2>
 <ul>
-<li>Most tokens are <strong>one byte</strong> (<code>tStore</code>=0x04, <code>tBoxPlot</code>=0x05, operators, digits, letters, common commands). Modeled as the <code>TIToken</code> enum (608 members from <code>ti83plus.inc</code>).</li>
+<li>Most tokens are <strong>one byte</strong> (<code>tStore</code>=0x04, <code>tBoxPlot</code>=0x05, operators, digits, letters, common commands). Modeled as the <code>TIToken</code> enum, which carries 608 members as built into the current Ghidra database from the <code>t</code>-prefixed equates of <code>ti83plus.inc</code>.</li>
 <li>Some bytes are <strong>lead bytes</strong> of a <strong>two-byte token</strong>: the first byte selects a <em>table</em>, the second byte the entry.</li>
 </ul>
 <h3 id="the-2-byte-lead-byte-set-confirmed"><a class="header" href="#the-2-byte-lead-byte-set-confirmed">The 2-byte lead-byte set [confirmed]</a></h3>
