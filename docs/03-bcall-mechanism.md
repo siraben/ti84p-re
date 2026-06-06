@@ -25,7 +25,7 @@ From the decompiler:
 
 - Located at the start of physical flash **page 0x3B** (file offset `0x3B*0x4000 = 0xEC000`).
 - **3-byte entries**: `addr_lo, addr_hi, page`. IDs step by 3 from `0x4000`, so entry for ID *X* is at table offset `X-0x4000`.
-- Resolution method (`tools/` Python): scored all 64 pages by how many of the 535 named .inc IDs produced a valid `(addr∈4000..7FFF or page-0, page<0x40)` entry — page `0x3B` scored **447/535**, the runner-up only 124.
+- Resolution method (`tools/` Python): scored all 64 pages by how many of the 535 named .inc IDs produced a valid `(addr∈4000..7FFF or page-0, page<0x40)` entry — in this page-selection heuristic page `0x3B` scored **447/535** (a conservative validity filter used only to pick the table), the runner-up only 124. Once `0x3B` is selected and applied, all 535 `.inc` IDs plus 61 RE-named entries (596 total) resolve and are live-confirmed.
 - Validation: known bcalls land exactly where expected — `_PutS`→`01:5C39`, `_GetKey`→`06:491E`, `_ClrLCDFull`→`01:60E4`, `_GetCSC`→`00:04B2`, `_CreateReal`→`00:10B8`.
 
 `tools/bcall_targets.txt` holds **607** historical resolved bcall rows: 596 main `0x4xxx` entries plus 11 `0x8xxx` extended candidates. The 596 main entries are live-confirmed in the current Ghidra/MCP DB; the 11 extended page-0x3F candidates remain ROM-scan artifacts until the live DB exposes matching functions. `tools/ApplyBcalls.java` disassembles & names the confirmed bodies it can resolve.
