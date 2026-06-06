@@ -158,8 +158,8 @@ $$\text{width} = \max(\text{num}_w, \text{den}_w), \qquad \text{height} = \text{
 `eqdisp_emit_glyph` (39:4E8E) stages `penCol` (`0x86D7`) / `penRow` (`0x86D8`), then calls the OS **proportional small font** path (`page_01:5A98`, the `_VPutMap` core: index ×8 into 8-byte font cells). The font is variable-width; `eqdisp_glyph_width` (39:6BE7) sums per-sub-glyph widths via the page-1 width helper for the real pen advance.
 
 - **Digits** (`eqdisp_emit_digit` 39:4E14) convert a numeric token to its ASCII char (`+'0'`/`+'1'`, hex base `'7'`) and VPut it, with a cursor-highlight bit when the digit is at the cursor.
-- **Tall delimiters / radicals** use an **18-byte two-row bitmap** (`eqdisp_load_glyph18b` 39:6B62) copied to scratch `0x97F2` via `_Mov18B`; tables at `0x6BA9/6BAD/6BB2/6BBF/6BCB/6BD7`, indexed by the token-low byte, with an A/B variant (`H=0/1`) for the upper vs lower half of the glyph. These are bare bitmaps; width comes from the width table.
-- **Structural symbols** (operators, big parens, radical strokes) are drawn straight into the graph buffer by `gr_draw_tbl_glyph` (39:66DC) via `_SetTblGraphDraw`, the same buffer path as the fraction bar.
+- **Structural symbols** (operators, **big parentheses**, the **fraction/radical rules**) are *not* glyphs — they are filled rectangles/strokes drawn straight into the graph buffer by `gr_draw_tbl_glyph` (39:66DC, via `_SetTblGraphDraw`) and `gr_set_window_draw` (39:4833), the same path the fraction bar uses. Paren matching feeds them via the pair tables at `0x62E2/0x62CB/0x62F9`.
+- The routine RE-named `eqdisp_load_glyph18b` (39:6B62) is **not** a glyph loader: it `_Mov18B`-copies an 18-byte chunk from the **MathPrint mode-menu string table** at `0x6BA9` — length-prefixed strings `"n⁄d"`, `"Un⁄d"`, `"summation Σ("`, `"AUTO Answer"`, `"FRAC Answer"`, `"DEC Answer"` — i.e. menu text for the fraction/answer display modes, not a bitmap. (Name kept here only to match the disassembly DB.)
 
 ## Worked examples
 
@@ -193,6 +193,41 @@ row 1:      C            denominator centered under the 3-col bar
 
 **`1/(2/3)`** — *nested* fraction: the outer denominator is itself a 2-row fraction, so the outer row-1 cell contains a sub-grid. The engine recurses through `eqdisp_emit_subexpr`, measuring the inner fraction's box first and feeding its `(width, height)` back up as the denominator's dimensions — which is why heights compound and the whole expression grows taller.
 
+**`2⌐3/4` (mixed number)** — in `Un/d` display mode the OS shows an improper fraction as an integer part beside a fraction cell:
+
+```
+        3
+   2  ─────        '2' on the baseline (col 0), then a fraction box at cols 1+
+        4
+```
+The `2` is an ordinary baseline glyph; the `3/4` is a kind-2 fraction box laid out to its right. The `n⁄d` vs `Un/d` choice comes from the mode menu (`0x6BA9` strings) — the same flag that picks improper-vs-mixed rendering.
+
+### Function-call structures — `fnInt`, `Σ`, brackets
+
+On the **monochrome TI-84 Plus, integrals and summations are not 2-D symbols** — `∫` and `Σ` templates are a TI-84 Plus **CE** feature. Here `fnInt(`, `nDeriv(`, and `sum(`/`seq(` are ordinary **multi-argument function tokens** (`pg01:4923` `fnInt(`, `pg01:492B` `nDeriv(`), laid out in **function-call form with parentheses** by the multi-arg machinery (`eqdisp_sum_arg_widths` 39:4DCA, `eqdisp_layout_multiarg` 39:5167). The "brackets" are those parentheses, drawn as structural graph-buffer glyphs.
+
+**`fnInt(X²,X,0,1)`** — the integral $\int_0^1 X^2\,dX$ entered on an 84+:
+
+```
+   fnInt( X² , X , 0 , 1 )
+   └──┬─┘ └┬┘  │   │   │  └ close paren (structural glyph)
+  func tok  │  └── comma-separated args (4 args, 3 separator columns)
+            └ arg 0 recurses: 'X' baseline + '2' on the raised exponent row
+```
+The walk: emit the `fnInt(` token and the open paren, then lay out each of the four arguments left-to-right (`layout_multiarg`), inserting a separator column (`0x844B++`) before each comma; `sum_arg_widths` pre-reserves those columns so the close paren lands in the right place. Argument 0 (`X²`) is itself laid out recursively, so its exponent still superscripts inside the call. If the line gets too wide, `0x844B ≥ 7` triggers the overflow continuation (below).
+
+**`sum(seq(I²,I,1,4))` (a summation $\sum_{I=1}^{4} I^2$)** — nested function calls:
+
+```
+   sum( seq( I² , I , 1 , 4 ) )
+        └──────── one argument of sum( ────────┘
+```
+`sum(` has a single argument that is itself a 4-arg `seq(` call. The inner call is laid out by `eqdisp_emit_subexpr` recursing into `layout_multiarg` again — its box (width/height, including the superscript in `I²`) is measured first and handed back up as `sum(`'s argument width. Bracket depth is just recursion depth; each level adds its own pair of structural parens. This is how the 84+ renders a "summation": as `sum(seq(...))`, not a Σ glyph.
+
+**Bracket nesting `(((X)))`** — each `(` pushes a structural open-paren glyph and matches via the pair tables at `0x62E2/0x62CB/0x62F9`; `eqdisp_classify_paren` tracks the depth so the matching `)` glyphs line up. Pure nesting adds width (a column per paren) but no height.
+
+> **MATHPRINT vs CLASSIC.** 2.55MP has both modes (menu strings at `pg01:5A09`: `MATHPRINT`, `CLASSIC`, `n⁄d`, `Un/d`). In CLASSIC mode the engine takes the 1-line path (`page_01 disp_sync_curpos` checks `0x85DE == 0`) and none of the cell-grid stacking above runs — everything renders left-to-right like the older OSes.
+
 ## Cursor, overflow & state preservation [confirmed]
 
 **Cursor tracking** (`eqdisp_cmp_cursor_bounds` 39:4F44): as each glyph is placed, the engine compares the **current token pointer** against the saved cursor bounds `0xFBC8` (hi) / `0xFBC7` (lo) using `_CpHLDE`; on a match it fires a cross-page bcall (#6/#7) that records the pen `(x, y)` — that is how the 2-D screen cursor position is recovered from the linear token stream.
@@ -218,12 +253,12 @@ The engine takes **no register arguments** — it is driven through the shared m
 | Dispatch | `eqdisp_dispatch_token` / `eqdisp_classify_tok` / `eqdisp_load_tok_handler` | `4A74` / `4AEC` / `4C27` |
 | Geometry | `eqdisp_compute_dims` / `eqdisp_decr_counters` / `eqdisp_layout_token_geom` | `69C8` / `683D` / `68AE` |
 | Stacking | `eqdisp_setup_indent` / `eqdisp_sum_arg_widths` / `eqdisp_layout_multiarg` / `eqdisp_set_row_for_tok` | `4C40` / `4DCA` / `5167` / `4CE9` |
-| Glyphs | `eqdisp_emit_glyph` / `eqdisp_emit_digit` / `eqdisp_glyph_width` / `eqdisp_load_glyph18b` | `4E8E` / `4E14` / `6BE7` / `6B62` |
+| Glyphs | `eqdisp_emit_glyph` / `eqdisp_emit_digit` / `eqdisp_glyph_width` | `4E8E` / `4E14` / `6BE7` |
 | Rules | `eqdisp_draw_fraction_bar` / `eqdisp_advance_col6` / `gr_set_window_draw` / `gr_draw_tbl_glyph` | `6ABF` / `6B1C` / `4833` / `66DC` |
 | Cursor / state | `eqdisp_cmp_cursor_bounds` / `eqdisp_set_overflow_jp` / `save`/`restore_disp_state` | `4F44` / `6712` / `57CF`/`5801` |
 | Menus | `mnu_show_and_getkey` / `eqdisp_menu_dispatch` / `eqdisp_menu_or_emit` | `5466` / `545B` / `53AD` |
 
-Tables: handler pointers `0x5E45` (0x44 entries) · paren pairs `0x62E2/0x62CB/0x62F9` · classifier tables `0x6203/0x63E3` · kind box descriptors `0x686F/0x6880/0x6893/0x689C/0x68A5` · 18-byte tall glyphs `0x6BA9…0x6BD7`. (Page 0x39 = ROM file offset `0xE4000`.)
+Tables: handler pointers `0x5E45` (0x44 entries) · paren pairs `0x62E2/0x62CB/0x62F9` · classifier tables `0x6203/0x63E3` · kind box descriptors `0x686F/0x6880/0x6893/0x689C/0x68A5` · MathPrint mode-menu strings `0x6BA9…0x6BD7` (`n⁄d`/`Un/d`/`AUTO`/`DEC`/`FRAC`). (Page 0x39 = ROM file offset `0xE4000`.)
 
 ## Takeaway
 
@@ -233,4 +268,5 @@ Page 0x39 is a **cell-grid 2-D typesetter**: classify each token → index a han
 - The full token→class table (`0x6203`/`0x63E3` raw-byte maps) decoded entry-by-entry.
 - The exact contents of each kind box descriptor (`0x686F…`) and how it maps to a structure's row template.
 - The page-0x3A draw continuation for overflowing lines (where horizontal scroll is composited).
-- Whether 2.55MP exposes a Classic (1-D) vs MathPrint mode switch, and which flag selects it.
+- The exact flag that selects MATHPRINT vs CLASSIC (the modes are confirmed at `pg01:5A09`; CLASSIC short-circuits to the 1-line path via `0x85DE == 0`, but the persistent mode bit in `SystemFlags` isn't pinned yet).
+- How the radical (`√`) vinculum is sized/positioned (it uses the graph-buffer rule path like the fraction bar, but the specific routine wasn't isolated).

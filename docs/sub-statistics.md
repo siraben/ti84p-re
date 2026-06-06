@@ -157,7 +157,7 @@ is **stat‑internal**: its only callers are `stat_median_quartile` (`3A:79B9`) 
 `medmed_partition` (`3A:760F`) (xref‑confirmed), so it powers the 1‑Var median/
 quartile and Med‑Med paths (§6). The `SortA(`/`SortD(` *command* sort is a
 different routine on **page 0x02** (≈`02:5939`, comparator `_CpOP1OP2`) — see
-[Matrices & Lists](sub-matrix-list.md#sorta--sortd--and-why-it-sorts-complex-lists-confirmed-comparator).
+[Matrices & Lists](sub-matrix-list.md#sorta--sortd--list-sort-confirmed-comparator).
 
 ---
 
@@ -417,4 +417,4 @@ equations, depositing every output as a named `TIFloat` in the `statVars` block.
   then dispatches the compare-swap via `rst 28h` (the bcall site isn't fully
   analyzed in the DB). The `SortA(`/`SortD(` *command* sort is a different routine
   (page 0x02, comparator `_CpOP1OP2`) — its complex-list ordering is documented in
-  [Matrices & Lists](sub-matrix-list.md#sorta--sortd--and-why-it-sorts-complex-lists-confirmed-comparator).
+  [Matrices & Lists](sub-matrix-list.md#sorta--sortd--list-sort-confirmed-comparator).

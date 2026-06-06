@@ -178,33 +178,34 @@ both route to `02:6140`). [C]
   `_SetSeqM 36:7D1F` is the sequence-graph variant). [H]
 - **`cumSum(`** is a running `_FPAdd` writing back each partial sum (the sum-fold with the
   accumulator stored every step). [I]
-- **`SortA(`/`SortD(`** — list sort in place (`SortA(` co-sorts dependent lists); comparator
-  and the complex-list behaviour are detailed in the next subsection. [confirmed comparator]
+- **`SortA(`/`SortD(`** — list sort in place (`SortA(` co-sorts dependent lists); the comparator
+  and per-element sort key are detailed in the next subsection. [confirmed comparator]
 - Stats (`mean/median/sum/stdDev/variance`) are list folds layered on `sum(`/sort. [I]
 
-### `SortA(` / `SortD(` — and why it sorts complex lists [confirmed comparator]
+### `SortA(` / `SortD(` — list sort [confirmed comparator]
 
-`SortA(` (`tSortA` `0xE3`) and `SortD(` (`tSortD` `0xE4`) sort a list **in place**, ascending /
-descending; `SortA(L1,L2,…)` co-sorts the dependent lists by the same permutation. This is the
-**command** sort — *not* the stat-internal `stat_sort` (`3A:7935`), which only backs median/
+`SortA(` (`tSortA` `0xE3`) and `SortD(` (`tSortD` `0xE4`) sort a list **in place** — ascending and
+descending respectively; `SortA(L1,L2,…)` co-sorts the trailing lists by the same permutation. This
+is the **command** sort, distinct from the stat-internal `stat_sort` (`3A:7935`) that backs median/
 quartile/Med-Med (see [Statistics](sub-statistics.md)).
 
-The sort body lives on **page 0x02** (the list page, around `02:5939`); Ghidra hasn't carved it
-into a named function because it is reached only through the parser's computed command dispatch.
-Its comparator is **`_CpOP1OP2`** (`00:198D`) — confirmed by the call at `02:5939` (the older
-note's `_FPCompare` does not exist).
+The sort body is on **page 0x02** (around `02:5939`); it is reached only through the parser's
+computed command dispatch, so Ghidra leaves it as unnamed code. Its comparator is **`_CpOP1OP2`**
+(`00:198D`), confirmed by the call at `02:5939`.
 
-**`_CpOP1OP2` compares two `TIFloat`s strictly as real numbers** [confirmed from disassembly]:
-**sign** first (type byte bit 7), then the **exponent** difference, then the **mantissa** digits;
-it never computes a magnitude and never reads an imaginary part.
+**`_CpOP1OP2` compares two `TIFloat`s as real numbers** [confirmed from disassembly]: it tests the
+**sign** (type byte bit 7), then the **exponent**, then the **mantissa** digits, and returns the
+ordering. It does not compute a magnitude and does not read an imaginary part. Each comparison
+therefore orders elements by the single 9-byte `TIFloat` the sort holds in `OP1`/`OP2`:
 
-That is exactly **why `SortA(` accepts a complex list**: every comparison only sees the single
-9-byte `TIFloat` the sort loads into `OP1`/`OP2`, which for a complex element is its **real part**.
-So a complex list is ordered **by the real component** (sign then magnitude); the imaginary part is
-ignored (elements with equal real parts keep their input order). There is **no magnitude/modulus**
-ordering — `_CAbs` is never on this path. [comparator + its real-number semantics are confirmed;
-"orders by the real part" is the direct consequence — the unanalyzed sort body's element-load step
-is not byte-traced]
+| List element | Sort key |
+|--------------|----------|
+| real | the value (sign → magnitude) |
+| complex | the **real part** only; the imaginary part is not read, and elements with equal real parts keep their input order |
+
+No element type is ordered by magnitude/modulus (`_CAbs` is never on this path). [comparator and
+its real-number semantics confirmed; the per-element sort key follows from them — the unanalyzed
+sort body's element-load is not byte-traced]
 
 ---
 
