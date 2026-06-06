@@ -37,7 +37,8 @@ The scanner `kbd_scan_autorepeat` (`ram:0406`) walks the matrix one group at a t
 | `0xDF` (bit5 low) | group 5 |
 | `0xBF` (bit6 low) | group 6 |
 | `0x7F` (bit7 low) | group 7 |
-| `0xFF` (all high)  | "any key down?" probe (used by `0x0406`'s initial `SUB A` call, mask `0x00` = all groups) |
+| `0x00` (all low) | "any key down?" probe used by `0x0406`'s initial `SUB A` call; selects all groups |
+| `0xFF` (all high) | release all groups after a read (`kbd_reset_port` writes this at `0491`) |
 
 **Forming a raw scan code.** For each driven group the routine reads the column byte, then finds the single low (pressed) column bit by an 8-iteration `RLA`/`DJNZ` loop (`0435`–`043C`) that counts set bits into `E` and records the bit index in `L`. If exactly one key is down it builds the scan code as **`(group_index − 1) × 8 + column_index`** (`0453: DEC A; RLA;RLA;RLA; ADD A,L` — i.e. `group*8 + column`) and returns it; multiple simultaneous keys set carry (`SCF` @ `0459`) so the press is rejected (debounce / ghost-key reject). The single resulting byte is the raw scan code that lands in `kbdScanCode` (`0x843F`), which `_GetCSC` (`00:04B2`) then reads-and-clears under `DI`. The scan-enable gate `BIT 0,(IY+0x2C)` @ `0415` lets the ISR/`_GetKey` path special-case the arrow group.
 

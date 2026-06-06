@@ -57,4 +57,4 @@ Pages `01–3F` are loaded in Ghidra as overlays `page_01 … page_3F` (each at 
 | `07` | mapBankB | Page in slot `8000` (`0x81`=84+ mode seen in ISR) |
 | `10/11` | lcdCmd/lcdData | LCD controller |
 | `20` | cpuSpeed | 0=6 MHz, 1=15 MHz (set in ISR) |
-| `55/56` | usbIntStatus/usbLineEvents | USB interrupt state / line events (84+) — polled first in `isr_im1` (read-only; **not** a status/mask pair) |
+| `55/56` | usbIntStatus/usbLineEvents | USB interrupt state / line events (84+) — polled first in `int_dispatch_timer1` (older notes: `isr_im1`; read-only; **not** a status/mask pair) |

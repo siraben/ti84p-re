@@ -117,9 +117,9 @@ Errors use a non-local exit, not return codes:
 
 So `onSP` + `_JError` together implement try/catch: the context sets `onSP`, and any depth of nested calls can abort straight back to it.
 
-### Error-message table [confirmed]
+### Error-message table [local data-table trace]
 
-The error screen shows `ERR:<MESSAGE>` (the `ERR:` prefix is on `page_01:4008`). The messages are a string table on **`page_07:6B3B`**, ordered by error code — the handler indexes it by `(code & 0x7F) − 1`:
+The error screen shows `ERR:<MESSAGE>` (the `ERR:` prefix is on `page_01:4008`). A local data-table trace places the messages on **`page_07:6B3B`**, ordered by error code, with the handler indexing by `(code & 0x7F) − 1`. The current MCP function/xref view does not prove this data-only table directly, so treat the address as a data trace rather than a live function symbol:
 
 | Code | `TIError` | Message @ page_07 |
 |------|-----------|-------------------|
@@ -141,7 +141,7 @@ This exactly matches the `E_*` values in `ti83plus.inc` — confirming the `TIEr
 
 ## Resolved (was TODO)
 - **`cx*` vector layout — confirmed.** The six 2-byte handler slots and `cxPage` offsets are pinned by tracing `_AppInit` (`00:0936`): `LD DE,0x858D / LD BC,0x000C / LDIR` then `IN A,(6) / LD (0x8599),A`. See [Context block layout](#context-block-layout-confirmed-from-ti83plusinc--xrefs) above for the full offset table and `_AppInit` body. `0x858D` (`cxMain`) is the only writer of the block.
-- **Boot RAM-init trace — confirmed.** Reset (`ram:0000`) → `028c` paging setup → `JP 0x812c` (RAM-copied stub, blank in the static image). The RAM clear/re-init is `ram_reset_wipe` (`35:719f`): two `LDIR` zero-fills (`0x8000`–`0x9BC3`, `0x9BD0`–`0xFFFF`) preserving a few flag bytes, then `JP 0x0BD9` (`ram_init_after_reset`: port 0 = 0xC0, `SP=0xFFF7`, `CALL 0x3EC1`). The `0x0BD9` entry matches the re-init point cross-referenced in [12-memory-management](12-memory-management.md). See [RAM clear / re-init](#ram-clear--re-init-ram_reset_wipe--0x0bd9-confirmed).
+- **Boot RAM-init trace — raw-disassembly trace.** Reset (`ram:0000`) → `028c` paging setup → `JP 0x812c` (RAM-copied stub, blank in the static image). The RAM clear/re-init is `ram_reset_wipe` (`35:719f`): two `LDIR` zero-fills (`0x8000`–`0x9BC3`, `0x9BD0`–`0xFFFF`) preserving a few flag bytes, then `JP 0x0BD9` (`ram_init_after_reset`: port 0 = `0xC0`, stack reset in the raw trace, `CALL 0x3EC1`). The `0x0BD9` entry matches the re-init point cross-referenced in [12-memory-management](12-memory-management.md). See [RAM clear / re-init](#ram-clear--re-init-ram_reset_wipe--0x0bd9-confirmed).
 - **Flash write/erase sector primitives — partially resolved (cross-link).** Live MCP confirms page-3D anchors such as `flash_program_buf` `3D:678C`, the per-record status writers `3D:7C8F/7C93/7C97`, and `flash_erase_wait` `3D:5ED3`, with byte-poke loops copied to `ramCode` `0x8100`. Older labels like `flash_program_core` `3D:61AF` and `flash_write_record` `3D:64AA` are not current live-MCP functions; see [sub-vat-archive §6](sub-vat-archive.md#6-low-level-flash-write--erase-pages-3c3d-port-0x14-c).
 
 *Residual (genuinely not statically traceable):* the in-RAM boot stub at `0x812c` and the `0x3EC1` init continuation run only from code copied into RAM during boot, so they have no static disassembly.

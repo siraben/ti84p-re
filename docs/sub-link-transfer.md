@@ -61,7 +61,7 @@ silent-link control/scratch area:
 | `8674` | `header` | **packet header byte 0 = machine-ID** |
 | `8675` | `header+1` | **packet header byte 1 = command-ID** |
 | `8676` | `header+2` | **packet length, word (LE)** — also the running payload byte budget |
-| `8678` | (running) | **running byte-count / checksum accumulator** (compared vs `8676`) |
+| `8678` | (running) | **running 16-bit checksum accumulator** (sum of payload byte values) |
 | `867D` | `ioData` | scratch: built var-header length / data ptr setup |
 | `867F` | — | **the variable header** (type+name) copied from OP1 via `_MovFrOP1` |
 | `8688/8689` | `ioNewData` | "new var arrived" status (bit7 of `8689`) |
@@ -196,7 +196,7 @@ After the data payload, the sender appends the 16-bit sum and waits for the ACK:
 417E:  LD A,(8675) ; … CALL 430F (compare/store) ; CP 0x56 ; RET Z ; JP _JErrorNo
 ```
 On the **receive** side the matching check is `6356`: after streaming the payload it compares the
-accumulated count `8678` against the declared length `8676`; on mismatch it sends a **0x5A ERR
+accumulated checksum `8678` against the received 16-bit checksum; on mismatch it sends a **0x5A ERR
 packet** (`6385: LD H,0x5A ; CALL 419B`) and raises `_JErrorNo`. The ACK-builder `42FB` echoes the
 peer's saved header (`868B bakHeader`), forces command = **0x56**, length = 0, sends it, then
 `_Mov9B` restores the header.
@@ -214,7 +214,7 @@ identical prologue to the archive writer in [sub-vat-archive.md](sub-vat-archive
       loop: HL=(84DB) dest ; 1FD6 (clock) ; _RecAByteIO → A
             store A via pagedGetPtr (9836); INC pagedCount (9834)
             when pagedCount==0x10 → CALL 6AB1 (flush 16 bytes to RAM/Flash)
-            (8678) += 1 ; DEC BC ; loop while BC
+            (8678) += received_byte ; DEC BC ; loop while BC
       flush remainder (6AB1)
 42EF: _RecAByteIO ×2 → received checksum ; CALL 6356 (verify len/sum, NAK 0x5A on mismatch)
 42FB: send ACK (cmd 0x56)

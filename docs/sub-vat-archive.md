@@ -61,16 +61,17 @@ findsym_scan (07:565F):
      SBC HL,DE ; RET C  (ran past end → not found)
      CP (HL) against token (8479); on match check name bytes (847A/847B) at HL-1/HL-2
      else step HL -= 3 (single-char entries) / -= (6+nameLen) and continue
-  on match:  B=(entry).typeFull, DE=dataPtr, A=(entry+6)=pageByte; store type→8478
+  on match:  B=(entry).pageByte, DE=dataPtr, A=(entry+6)=type; store type→8478
 ```
 
 So each VAT entry is read high-address-first; **the type byte's low 5 bits are the `TIVarType`; the
-high bits flag the archive state.** `_FindSym` returns: type in `8478`, data pointer in DE, **page
-byte in A** — A is the discriminator: an in-RAM var vs. a var whose data lives on a Flash page.
+high bits flag the archive state.** `_FindSym` returns: type in `A` and `8478`, data pointer in DE,
+and the **page byte in `B`** — `B` is the discriminator: zero for an in-RAM var, nonzero for a var
+whose data lives on a Flash page.
 
 VAT entry shapes (consistent with `_CreateR*` header writes — see [05-variables-vat.md](05-variables-vat.md)):
-- single-char (real/cplx/`Ln`/`[A]`/sysvars): `type, type2, addrLSB, addrMSB, nameToken` (5 B)
-- named (prog/appvar/group/str/equ): `type, version, addrLSB, addrMSB, nameLen, name[N]`
+- single-char (real/cplx/`Ln`/`[A]`/sysvars): high-address-first name token, page byte, data pointer, and type byte; `findsym_scan` reads these as page at name+1, data pointer at name+2/+3, and type at name+6.
+- named (prog/appvar/group/str/equ): high-address-first name bytes/length plus the same page/data/type fields; the exact byte order is easiest to reason about relative to the matched name token rather than as a forward C struct.
 
 For an **archived** entry the data address (`addrLSB/MSB`) points into the Flash window and the
 **page byte** selects the Flash page; the VAT record itself always stays in RAM.

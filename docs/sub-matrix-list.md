@@ -67,11 +67,11 @@ _CreateRMat(dimWord, dataPtrOut):
 > **first byte** (`LD A,(DE); LD L,A`) and uses it as the **major stride**, looping `(B−1)`
 > adds of it and then `+(C−1)` *within* a column (column-major). The major stride of a
 > column-major array is the **number of rows**, so the **first header byte (`dim0`) = #rows**,
-> and `_AdrMEle`'s `B = idx0 = row`, `C = idx1 = column`. `_CreateRMat` (`ram:1115`) confirms
+> and `_AdrMEle`'s `B = idx0 = column`, `C = idx1 = row`. `_CreateRMat` (`ram:1115`) confirms
 > the layout: it is `PUSH HL ; CALL _HTimesL (1EF6) ; LD A,2 ; JR 10DD` — `_HTimesL` returns
 > `H·L` (the element count) and `A=2` is the 2-byte dim header; the two dimension bytes are
 > stored `dim0` (rows) then `dim1` (cols). The byte-confirmed index arithmetic
-> `((idx0−1)·dim0 + (idx1−1))·9` is therefore a **(row, col)** access with a row-count stride.
+> `((idx0−1)·dim0 + (idx1−1))·9` is therefore a **(column, row)** register convention with a row-count stride.
 
 ---
 
@@ -107,7 +107,7 @@ Convenience wrappers (all = `_AdrLEle` then a 9-byte move through OP1, complex-a
 
 ### Matrix element address — `_AdrMEle` (`02:4002`) [C]
 ```z80
-_AdrMEle:                                 ; B=idx0, C=idx1, DE=matrixDataPtr
+_AdrMEle:                                 ; B=column idx0, C=row idx1, DE=matrixDataPtr
   if B==0 or C==0 -> LD A,0x78 ; JP 0x2793 ; 0-index rejected (error vector)
   A = (DE)        ; A = dim0 (rows)        ; first header byte
   HL = 0
@@ -121,11 +121,11 @@ _AdrMEle:                                 ; B=idx0, C=idx1, DE=matrixDataPtr
 adds of `dim0` walk whole columns; the `(C-1)` steps within a column. The 8-bit adds track
 a carry into `H` so the address is a true 16-bit offset (matrices up to 99×99). Because the
 multiplied byte is `dim0` and that is the **row count** (column-major major stride), **`B=idx0`
-is the row index and `C=idx1` is the column index** — see the [C] dimension-naming note in §1. [C]
+is the column index and `C=idx1` is the row index** — see the [C] dimension-naming note in §1. [C]
 
 Matrix element wrappers: [C]
-- **`_AdrMRow` (`02:4000`)** — address of the *start of row/col idx0* (loops `(idx0−1)` ×
-  dim0, no `+(idx1-1)`); used by whole-row operations (swap/scale in elimination).
+- **`_AdrMRow` (`02:4000`)** — address of the *start of column idx0* in the column-major buffer
+  (loops `(idx0−1)` × dim0, no `+(idx1-1)`); whole-row operations layer their own iteration on top.
 - **`_GetMToOP1` (`02:4044`)** — `[M](r,c)` → OP1 (`_AdrMEle` then `RST4` = load 9 bytes).
 - **`_PutToMat` (`02:406C`)** = `FUN_02_4068`: `_AdrMEle ; _CkValidNum ; _MovFrOP1` — OP1 →
   `[M](r,c)` with validation.
@@ -420,8 +420,8 @@ fact that it is a separate driver, not `42A6`, is confirmed** by the two-caller 
 | `00:1115` | `_CreateRMat` | new matrix (`H*L*9+2`, header `dim0,dim1`) [C] |
 | `00:1EF6` | `_HTimesL` | element count = H*L (dims multiplied) [C] |
 | `00:1930` | `_HLTimes9` | ×9 (real `TIFloat` stride) [C] |
-| `02:4000` | `_AdrMRow` | address of matrix row/col start (column stride) [C] |
-| `02:4002` | `_AdrMEle` | matrix `[M](i,j)` address: `((i-1)*dim0+(j-1))*9` [C] |
+| `02:4000` | `_AdrMRow` | address of matrix column start (column stride) [C] |
+| `02:4002` | `_AdrMEle` | matrix element address: `((column-1)*dim0+(row-1))*9` [C] |
 | `02:4044` | `_GetMToOP1` | `[M](i,j)` → OP1 [C] |
 | `02:406C` | `_PutToMat` | OP1 → `[M](i,j)` (validated) [C] |
 | `02:40BA` | `matmul_core` | `[A]*[B]` triple-loop FP accumulate [C] |
@@ -476,7 +476,7 @@ fact that it is a separate driver, not `42A6`, is confirmed** by the two-caller 
   sign = LSB of the permutation-swap count applied via `_InvOP1S` (`24BD`) at `43FB`/`442B`;
   the magnitude is the `238B`/`RST 30h` diagonal-pivot accumulate (`43E3–43F6`); `420F`/`4259`
   undo the column permutation for the inverse (§5). Row/col vs dim0/dim1 is now **[C]**:
-  `dim0` (first header byte) = #rows = `_AdrMEle`'s `B=idx0` (§1/§2).
+  `dim0` (first header byte) = #rows, and `_AdrMEle` takes `B=column`, `C=row` (§1/§2).
 - **RESOLVED — per-function matrix drivers.** `augment(`→`02:4663`, `randM(`→`02:5264`,
   `Matr►list(`→`02:49E3`, `List►matr(`→`02:7D19`, transpose `[A]ᵀ`→`02:4178` (§4).
 - `seq(`/`SortA(`/`SortD(`/stats list-builders: confirm the collect-then-`_CreateRList` loop

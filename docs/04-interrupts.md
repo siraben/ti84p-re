@@ -6,10 +6,10 @@ The Z80 runs in **interrupt mode 1**: every maskable interrupt vectors to `0038h
 
 ```z80
 0038:  JR  0x006d        ; RST 38h vector
-006d:  isr_im1           ; the real handler
+006d:  int_dispatch_timer1 ; live Ghidra/MCP symbol for the real handler
 ```
 
-`isr_im1` @ `ram:006d` runs with `IY = flags` (`0x89F0`), so `(IY+off)` reads/writes `SystemFlags` fields.
+`int_dispatch_timer1` @ `ram:006d` (called `isr_im1` in older notes) runs with `IY = flags` (`0x89F0`), so `(IY+off)` reads/writes `SystemFlags` fields.
 
 ## What it does [confirmed from decompiler]
 
@@ -26,7 +26,7 @@ Entry saves context (`ex af,af'` / `exx` — the Z80 shadow registers, the class
 
 ## `(IY+off)` → `SystemFlags` fields the ISR touches [confirmed from disassembly]
 
-`isr_im1` reads/writes these flag bits via `BIT/SET/RES b,(IY+d)`. Offsets are confirmed against the standard `ti83plus.inc` group layout; the anchor `apdFlags = IY+0x08` is **confirmed in code** (`_DisableApd`/`_EnableApd` @ `3B:7AA8/7AAD` do `RES/SET 2,(IY+0x8)`), `curFlags = IY+0x0C` is **confirmed** (`_CursorOn`/`_CursorOff` @ `06:7D34/7C5F`).
+`int_dispatch_timer1` reads/writes these flag bits via `BIT/SET/RES b,(IY+d)`. Offsets are confirmed against the standard `ti83plus.inc` group layout; the anchor `apdFlags = IY+0x08` is **confirmed in code** (`_DisableApd`/`_EnableApd` @ `3B:7AA8/7AAD` do `RES/SET 2,(IY+0x8)`), `curFlags = IY+0x0C` is **confirmed** (`_CursorOn`/`_CursorOff` @ `06:7D34/7C5F`).
 
 | `(IY+off)` | bit | field / equate | meaning in the ISR |
 |------------|-----|----------------|--------------------|
