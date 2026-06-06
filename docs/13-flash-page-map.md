@@ -32,14 +32,14 @@ This image is **OS-only**: scanning every page boundary found **zero Flash-App h
 
 | Page | Verified contents |
 |------|-------------------|
-| `08–32` | OS code/data reached via cross-page jumps (not bcalls), plus **font glyph tables** and string/help-text tables. No app headers. |
+| `08–32` | OS code/data reached via cross-page jumps (not bcalls), plus **small/alternate font glyph tables** and string/help-text tables. No app headers. (The large-font glyph table is on page 0x07; see below.) |
 | `34–39` | More OS code (graph/mode/menu); mostly full (1–17% `0xFF`). |
 | **3B** | **bcall jump table** — starts `99 27 00` = entry 0 (`_JErrorNo`→`00:2799`). |
 | **3C** | Link code + the **OS version string** — page starts with ASCII `32 2E 35 35 4D 50` = **"2.55MP"**. |
 | **3E** | **Blank** (99% `0xFF`) — erased/spare. |
 | **3F** | **Boot page** — starts `3E 3F D3 06 D3 07` = `LD A,0x3F; OUT (6),A; OUT (7),A` (maps itself into both banks at power-on). Also holds the certificate / write-protected system data. |
 
-Update: the **large-font glyph table is on page 0x07** (not in 08–32) — `put_glyph_large` (`07:4588`) reads it (≈`0x45FF`); alternate fonts are on pages 1 and 0x36. Page 7 is the busiest data page (archive code, list/matrix, error messages, FP coefficients, *and* the large font).
+The **large-font glyph table is on page 0x07** — `put_glyph_large` (`07:4588`) reads it (≈`0x45FF`); alternate fonts are on pages 1 and 0x36. Page 7 is the busiest data page (archive code, list/matrix, error messages, FP coefficients, *and* the large font).
 
 ## Takeaway
 The OS is **page-specialized**: kernel + math on page 0, one subsystem per low page. A bcall is really "run subsystem X's routine on its page" — the page map *is* the subsystem decomposition, physically.

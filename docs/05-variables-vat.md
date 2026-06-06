@@ -75,4 +75,4 @@ name[0..N-1]; name bytes
 For **archived** vars the data address points into Flash and a page byte selects the Flash page (the in-RAM VAT entry still lives in RAM; only the data is in Flash). The `findsym_scan` body decompiles messily (inline bjumps), so this layout is the documented TI-83+ format — consistent with the header writes seen in `_CreateRList`/`_CreateRMat`. The `VATEntry` struct in the DB models the named-var case.
 
 ## Resolved
-The `_FindSym` scan loop and per-class VAT entry layout are now byte-verified in [Variables, Archive & Unarchive](sub-vat-archive.md) (`findsym_scan`@`07:565F`; `tSymPtr1`/`tSymPtr2` and archived-var resolution covered there).
+The `_FindSym` scan loop and per-class VAT entry layout are byte-verified in [Variables, Archive & Unarchive](sub-vat-archive.md) (`findsym_scan`@`07:565F`; `tSymPtr1`/`tSymPtr2` and archived-var resolution covered there).

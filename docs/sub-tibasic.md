@@ -100,13 +100,12 @@ operator **precedence** is realized — nesting of productions, not a flat table
 operators are applied via the FP RST shortcuts (RST 30h `_FPAdd`, …) and
 `_BinOPExec`.
 
-### `page_38:4000` is code, not a flat pointer table [confirmed — corrects [doc 07](07-tokenizer-basic.md)]
+### Parser dispatch: page 0x38 is executable code [confirmed]
 
 Raw bytes at `38:4000` are `CD AB 33 CD 78 1A 21 50 8F …` = `CALL 0x33AB;
 CALL 0x1A78; LD HL,0x8F50; …` — i.e. **executable dispatch code**, the "base
 production" the evaluator jumps into (`handler = 0x4000`), not an array of
-84 two-byte handler pointers. The earlier `ParserTable.java` count came from
-mis-reading this code as pointers. The real dispatch is the
+84 two-byte handler pointers. The dispatch is the
 `FUN_38_72e0`/`FUN_38_70f8` classify + `LAB_7010` precedence selector above.
 
 ### Results / Ans [confirmed]

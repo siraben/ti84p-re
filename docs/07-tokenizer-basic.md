@@ -42,7 +42,7 @@ The engine reads the token stream and dispatches each token to a handler; arithm
 
 ### The handler dispatch table [confirmed]
 
-Page 0x38 **begins** with the parser's handler dispatch at **`page_38:4000`**. *(Earlier this was modeled as a flat 84-entry pointer table by `tools/ParserTable.java`; the byte-verified reality — see the Correction below and [TI-BASIC Programs](sub-tibasic.md) — is that the region is **executable dispatch code**, not a pointer array.)*
+Page 0x38 **begins** with the parser's handler dispatch at **`page_38:4000`**. This region is **executable dispatch code**, not a flat pointer array (see [TI-BASIC Programs](sub-tibasic.md)).
 
 These handlers implement TI-BASIC **statements/commands and operators**. Sampling them by the routine they call:
 - indices 8–10, 17–19, 38 → `bcall(_Regraph)` — **graph commands** (`DrawF`, `ZoomFit`, etc.).
@@ -58,11 +58,11 @@ The evaluator walks the token stream via a cursor in RAM: `parsePtr` (`DAT_ram_9
 - `parse_advance` (`38:7248`) — `parsePtr++` and bounds-check vs `parseEnd`.
 - `parse_expect_or_err` (`38:5CD8`) — fetch a token and raise `_ErrSyntax` (recording the position in `parsePtr`) if it isn't the expected one.
 
-So the dispatch loop is: `parse_cur_tok` → index the handler table (`page_38:4000`) → run handler (which may consume args via `parse_advance`) → repeat.
+So the dispatch loop is: `parse_cur_tok` → jump into the dispatch code at `page_38:4000` → run handler (which may consume args via `parse_advance`) → repeat.
 
 **Main evaluator:** `parse_eval_expr` (`38:5AB3`) is the big recursive-descent expression evaluator — it dispatches through handler function-pointers (`code *`) with operator precedence, reading via the cursor helpers and leaving the result in `OP1`. `_ParseInp` → `parse_init` → `parse_eval_expr`. `parse_scan_tokens` (`38:4180`) is a token-scan helper (skips to a delimiter, honoring 2-byte tokens via `_IsA2ByteTok`).
 
-> **Correction** (from the TI-BASIC subagent deep dive, [sub-tibasic.md](sub-tibasic.md)): the region at `page_38:4000` is **executable dispatch code** (sequences like `CALL 0x33AB; …`), not a flat array of 2-byte handler pointers — the earlier `ParserTable.java` heuristic (runs of `0x4000–0x7FFF` words) mis-read 3-byte instructions as pointers. The dispatch is still table-like in effect, but it's code. See [sub-tibasic.md](sub-tibasic.md) for the byte-verified execution model (`eval_stmt_entry`@`38:59C5`, the `blockmatch_end_else`@`38:4130` End/Else matcher, `goto_lbl_name_scanner`@`38:4870`).
+The region at `page_38:4000` is **executable dispatch code** (sequences like `CALL 0x33AB; …`), not a flat array of 2-byte handler pointers. The dispatch is table-like in effect, but it's code. See [sub-tibasic.md](sub-tibasic.md) for the execution model (`eval_stmt_entry`@`38:59C5`, the `blockmatch_end_else`@`38:4130` End/Else matcher, `goto_lbl_name_scanner`@`38:4870`).
 
 The handlers are **recursive-descent grammar productions** (not flat per-operator routines): each reads via `parse_cur_tok`, conditionally recurses, and some load **sub-dispatch tables** (e.g. `page_38:5110`, `5127`) for finer token classes — implementing operator precedence by nesting. So "the + operator" isn't one table entry; it's handled within the term/factor production that drives `_FPAdd` (RST 30h).
 
