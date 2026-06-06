@@ -150,7 +150,7 @@ Matrix element wrappers: [C]
 |---|---|---|
 | `_CreateRList` | `00:10C4` | new real list: `count*9+2` bytes (§1) [C] |
 | `_CreateCList` | `00:1109` | new complex list: `count*18+2` [C] |
-| `_InsertList` / `_IncLstSize` | `07:4F07` (body `07:4EF4`) | grow a list in place via `_InsertMem`; caps length, else `E_Increment 0x8C`-class [C] |
+| `_InsertList` / `_IncLstSize` | `07:4F07` (body `07:4EF4`) | grow a list in place via `_InsertMem`; caps length at 999 (`0x3E7`), else `E_Dimension 0x8C` (`07:4F00 JP Z,0x2719 → LD A,0x8C`) [C] |
 | `_DelListEl` | `07:4F43` | delete element(s): `_HLTimes9(index)` to size the gap (×2 if complex, `& 0x1F == 0x0D`), then `_DelMem` via a cross-page jump [C] |
 | `_RedimMat`/`_ConvDim` | `07:4D3B` / `38:741F` | re-dimension (shared with matrices); `_ConvDim`/`_ConvDim00` (`38:741F/7422`) coerce OP1 to a real index first [C] |
 

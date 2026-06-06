@@ -134,12 +134,12 @@ The RAM-reset path (`page_35:719F`):
 71BA LD HL,0x8000; LD DE,0x8001; LD BC,0x1BC3; LD (HL),0; LDIR   ; *** zero system RAM 0x8000-0x9BC3 ***
 71C7 LD (IY+0x3F),A                         ; restore preserved flag bit
 ...   (restore IY+0x34 bit6, IY+0x35 bit0 from the preserved state)
-71E0 LD HL,0x9BD0; LD DE,0x9BD1; LD BC,0x642F; LD (HL),0; LDIR   ; *** zero user RAM 0x9BD0-0xFFFE ***
+71E0 LD HL,0x9BD0; LD DE,0x9BD1; LD BC,0x642F; LD (HL),0; LDIR   ; *** zero user RAM 0x9BD0-0xFFFF ***
 71ED JP 0x0BD9                              ; re-init RAM (page-0 boot init)
 ```
 So a **RAM reset clears two blocks to 0**:
 1. **System RAM** `0x8000–0x9BC3` (~7 KiB: OS scratch, the Context block, system buffers).
-2. **User RAM** `0x9BD0–0xFFFE` (~25.6 KiB: the VAT and all user variables/programs).
+2. **User RAM** `0x9BD0–0xFFFF` (`0x6430` = 25648 bytes, ~25 KiB: the VAT and all user variables/programs).
 
 A handful of flag bits are explicitly **preserved** across the wipe (`IY+0x3F` bit7,
 `IY+0x34` bit6, `IY+0x35` bits0/1, and the word at `0x9B73`) so the calculator knows it is
@@ -267,7 +267,7 @@ page_3B:73E4   _ReloadAppEntryVecs
 page_3B:7571   default app vectors data block (12 bytes + appFlags), not a function
 page_3B:7412   retired app-quit label; no live function in current DB
 page_35:7180   mem_reset_dispatch
-page_35:719F   ram_reset_wipe         (zeroes 0x8000-0x9BC3 and 0x9BD0-0xFFFE)
+page_35:719F   ram_reset_wipe         (zeroes 0x8000-0x9BC3 and 0x9BD0-0xFFFF)
 ram:0BD9       ram_init_after_reset
 ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
 page_3C:7E00   retired archive-GC-display label; no live function in current DB
