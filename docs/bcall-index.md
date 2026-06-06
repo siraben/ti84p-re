@@ -579,17 +579,6 @@ All **607** named bcall system calls, alphabetical. Each has an *ID* (the 2-byte
 | `_VPutS` | `4561` | `01:646D` |
 | `_VPutSN` | `4564` | `01:644D` |
 | `_VtoWHLDE` | `47FB` | `04:4410` |
-| `_xb_430f` | `8057` | `3F:430F` |
-| `_xb_4463` | `805D` | `3F:4463` |
-| `_xb_446c` | `8075` | `3F:446C` |
-| `_xb_5296` | `80B1` | `3F:5296` |
-| `_xb_52eb` | `8054` | `3F:52EB` |
-| `_xb_531e` | `80B7` | `3F:531E` |
-| `_xb_5323` | `80BA` | `3F:5323` |
-| `_xb_PageSetup` | `8021` | `3F:44F3` |
-| `_xb_RecordAdvance` | `805A` | `3F:449C` |
-| `_xb_RecordFind` | `8027` | `3F:4448` |
-| `_xb_RecordNext` | `8030` | `3F:442B` |
 | `_XftoI` | `4804` | `37:41EB` |
 | `_Xitof` | `47FE` | `04:441E` |
 | `_XName` | `4288` | `00:1F61` |
@@ -611,3 +600,21 @@ All **607** named bcall system calls, alphabetical. Each has an *ID* (the 2-byte
 | `_ZmTrig` | `4861` | `36:7B36` |
 | `_ZmUsr` | `4855` | `04:601D` |
 | `_ZooDefault` | `4867` | `36:7BF9` |
+
+## Extended (`0x8xxx`) bcalls — TI-84+
+
+The 11 `0x8xxx` bcalls absent from the 2001 `ti83plus.inc`. Their IDs select a **second jump table on flash page `0x3F`** (entry offset `ID − 0x8000`); decoding that table in `rom.bin` confirms every body lives on **page `0x3F`** (third table byte = `3F` in all 11). Names are WikiTI's; `†` marks WikiTI *unofficial* names. Cataloged in `tools/ti84plus_extra.inc`.
+
+| bcall | ID | Body (page:addr) |
+|-------|----|------------------|
+| `_WriteAByte` | `8021` | `3F:44F3` |
+| `_FindFirstCertificateField` | `8027` | `3F:4448` |
+| `_FindGroupedField` † | `8030` | `3F:442B` |
+| `_FlashToRAM2` † | `8054` | `3F:52EB` |
+| `_GetCertificateStart` | `8057` | `3F:430F` |
+| `_GetFieldSize` | `805A` | `3F:449C` |
+| `_FindSubField` † | `805D` | `3F:4463` |
+| `_FindOSHeaderSubField` † | `8075` | `3F:446C` |
+| `_Div32By16` | `80B1` | `3F:5296` |
+| `_GetBootVer` | `80B7` | `3F:531E` |
+| `_GetHWVer` | `80BA` | `3F:5323` |

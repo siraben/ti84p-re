@@ -49,30 +49,37 @@ The VAT entry points at the variable's **data**, whose format depends on the obj
 
 The common allocator `var_alloc` (`ram:1005`) carves the data region (size = count × element-size) via `_InsertMem` (see [12](12-memory-management.md)), then the `_CreateXxx` routine writes the header. All key off the name in `OP1` (`OP1.exp` carries the name's token class — `_CreateRList` validates it's a list-name token `0x5D/0x24/0x3A/0x72`).
 
-## VAT entry shape [standard TI-83+ format]
+## VAT entry shape [confirmed — byte-verified vs `findsym_scan` + WikiTI System Table]
 
 `_FindSym` (`00:0E65` → `findsym_scan` `page_07:565F`) walks the VAT from `symTable` (`0xFE66`) **downward**, matching the name passed in `OP1`. Each entry is stored high-address-first; the format depends on the object class:
 
-**Single-character vars** (real, complex, `Ln` lists, `[A]` matrices, system vars — 5 bytes):
+Every entry begins with the same **6-byte fixed head** (high-address-first, the order `_FindSym` meets scanning down from `symTable`), including a **page** byte — `_FindSym`/`_ChkFindSym` return that page in `B` (`0` if the data is in RAM):
+
 ```
-typeID      ; TIVarType
-typeID2     ; mirror of typeID (flags in high nibble)
-addrLSB     ; data address (RAM) low
-addrMSB     ;                    high
-nameToken   ; the 1-byte name token (e.g. the var letter / list token)
+type        ; TIVarType
+type2       ; second type byte (flags in high nibble)
+version     ; usually 0 (nonzero for some appvars)
+dataAddrLo  ; data address — RAM, or offset into Flash if archived
+dataAddrHi
+page        ; Flash page holding the data (0 = in RAM)
 ```
 
-**Named vars** (programs, appvars, groups, strings, equations — variable length):
+**Single-character vars** (real, complex, `Ln` lists, `[A]` matrices, system vars) — the head **+ a 2-byte name token + `00` terminator = 9 bytes**:
 ```
-typeID
-version     ; usually 0 (nonzero for some appvars)
-addrLSB
-addrMSB
+…6-byte head…
+nameTok1    ; 2-byte name token (e.g. list 5D xx, matrix 5C xx, var letter)
+nameTok2
+00          ; terminator
+```
+
+**Named vars** (programs, appvars, groups, strings, equations — variable length): the head **+ a length byte + name**:
+```
+…6-byte head…
 nameLen     ; N
 name[0..N-1]; name bytes
 ```
 
-For **archived** vars the data address points into Flash and a page byte selects the Flash page (the in-RAM VAT entry still lives in RAM; only the data is in Flash). The `findsym_scan` body decompiles messily (inline bjumps), so this layout is the documented TI-83+ format — consistent with the header writes seen in `_CreateRList`/`_CreateRMat`. The `VATEntry` struct in the DB models the named-var case.
+This is byte-verified against `findsym_scan` (`07:565F`): from the matched name token it reads `B = page` at `tok+1`, the data address at `tok+2/+3`, and the type at `tok+6` — matching WikiTI's *System Table* layout exactly. For **archived** vars the data address points into Flash and the `page` byte selects the Flash page (the VAT entry itself always stays in RAM; only the data is in Flash). The `VATEntry` struct in the DB models the named-var case.
 
 ## Resolved
 The `_FindSym` scan loop and per-class VAT entry layout are byte-verified in [Variables, Archive & Unarchive](sub-vat-archive.md) (`findsym_scan`@`07:565F`; `tSymPtr1`/`tSymPtr2` and archived-var resolution covered there).

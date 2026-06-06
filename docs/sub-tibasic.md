@@ -41,14 +41,14 @@ re-verified by decompilation):
 
 | Helper | Addr | Behavior |
 |--------|------|----------|
-| `parse_cur_tok` | `38:72DA` | fetch token at cursor (`parsePtr`); special-cases EOL `0x3F`/end `0x00` |
+| `parse_cur_tok` | `38:72DA` | fetch token at cursor (`parsePtr`); special-cases `:` token `0x3E` (`tColon`)/end `0x00` |
 | `parse_advance` | `38:7248` | `parsePtr (DAT_ram_965d)++`, bounds-check vs `parseEnd (DAT_ram_965f)`; refill via `FUN_38_5b79` |
 | `parse_expect_or_err` | `38:5CD8` | fetch a token; if not the expected one, set `parsePtr` to the fault position and `_ErrSyntax` |
 | `parse_scan_tokens` | `38:4180` | skip forward to a delimiter, honoring 2-byte tokens via `_IsA2ByteTok`; used by every block scanner |
 | `parse_init` | `38:5B7B` | zero parse position bytes (+6/+7), clear a batch of parser flag bits in the IY flag area |
 
 `parsePtr` = `DAT_ram_965d`, `parseEnd` = `DAT_ram_965f`. `parse_scan_tokens`
-loop: `parse_cur_tok`; if token==EOL(`0x2A`-class delimiter in its local test)
+loop: `parse_cur_tok`; if token==`0x2A` (`tString`, the `"` delimiter it tests for here)
 stop, else `_IsA2ByteTok` then `parse_advance` (twice for a 2-byte token). This
 is the primitive every control-flow scanner is built on.
 

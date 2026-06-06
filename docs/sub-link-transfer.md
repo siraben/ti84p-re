@@ -109,14 +109,16 @@ wait for echo, `DE`-timeout → `_JErrorNo`) is unchanged from [doc 09](09-keybo
        CP 0xE0 ; JP NZ,_ErrLinkXmit      ; in 'must-get-byte' mode, anything else = link error
        JR 4470
 4456:  CP 0xE0 ; RET NZ                  ; caller passed sentinel 0xE0 = "non-blocking probe"
-       IN A,(0x2) ; AND 0x80             ; port 0x02 bit7 = has assist HW (84+)
+       IN A,(0x2) ; AND 0x80             ; port 0x02 bit7 set = non-83+-Basic (has assist HW on 84+)
        JR Z,4469                         ;   legacy:  6CC1 polls the bit-bang lines
-       IN A,(0x9) ; BIT 6,A ; JR NZ,4470 ; port 0x09 bit6 = RX byte available
+       IN A,(0x9) ; BIT 6,A ; JR NZ,4470 ; port 0x09 bit6 = transmission error → abort
        AND 0x19 ; JR NZ,4475             ; port 0x09 bits 0x19 = link error/active flags
-4470:  CALL 6D17 ; XOR A ; RET           ; "no byte yet" → return 0
+4470:  CALL 6D17 ; XOR A ; RET           ; error/no byte → return 0
 ```
-Key port semantics (84+ assist): **port 0x09 bit 5 = TX ready**, **bit 6 = RX ready**, **bits
-0x19 = error/busy**; **port 0x0D = data FIFO**; **port 0x02 bit 7 = assist-hardware present**.
+Key port semantics (84+ assist): **port 0x09 bit 5 = TX ready**, **bit 6 = transmission error**,
+**bit 4 = byte received**, **bits 0x19 = error/active**; **port 0x0D = data FIFO**; **port 0x02
+bit 7 = non-83+-Basic** (used here as the assist-present gate; WikiTI's dedicated "link-assist
+available" flag is port 0x02 **bit 6**).
 The sentinel **`0xE0`** passed in `A` selects non-blocking ("just peek") vs. blocking-with-error
 behaviour. `_Rec1stByte` (`3C:439C`) / `_Rec1stByteNC` (`3C:43A3`, "no-clear") are the same logic
 wrapped with APD/`_ApdSetup` and the bit-bang start-bit detect, used to wait for the **first** byte
@@ -351,7 +353,7 @@ silent-link engine documented here. **[C for 0x9F path; H for the 0x22-25 mappin
 | `3C:420D` | `_SendAByte` | send one byte: HW-assist (port 0x09/0x0D) or bit-bang (port 0) |
 | `3C:6BB2` | `lnk_send_byte_hw` | HW-assist send: poll port 0x09 bit5, `OUT (0x0D)` |
 | `3C:443F` | `_RecAByteIO` | receive one byte (blocking) |
-| `3C:444A` | `lnk_rec_status` | RX status decode (port 0x09 bit6 RX / 0x19 err; sentinel 0xE0) |
+| `3C:444A` | `lnk_rec_status` | RX status decode (port 0x09 bit6 = TX error / bit4 = byte received / 0x19 err; sentinel 0xE0) |
 | `3C:439C` | `_Rec1stByte` | wait for first byte of a packet (APD + start-bit) |
 | `3C:43A3` | `_Rec1stByteNC` | as above, no line-clear |
 | `3C:41C3` | `lnk_send_header` | send 4-byte header (ID, cmd, len-lo, len-hi) |
@@ -378,8 +380,9 @@ silent-link engine documented here. **[C for 0x9F path; H for the 0x22-25 mappin
 | `00:4A14` | `_SendVarCmd` (bcall id) | → 3C:4EDD |
 
 **Ports:** `0x00` = bit-bang link (tip/ring); `0x08/0x09/0x0D` = HW link-assist (status/control/data
-FIFO — port 0x09 bit5 TX-ready, bit6 RX-ready, bits 0x19 error); `0x02` bit7 = assist-HW present
-(84+); `0x20` = CPU speed (timeout scaling); `0x4D` bits5/6 = USB negotiation; `0x14` = Flash
+FIFO — port 0x09 bit5 TX-ready, bit6 transmission-error, bit4 byte-received, bits 0x19 error);
+`0x02` bit7 = non-83+-Basic (assist-present gate on 84+; WikiTI's "link-assist available" is bit6);
+`0x20` = CPU speed (timeout scaling); `0x4D` bits5/6 = USB negotiation; `0x14` = Flash
 write/erase (received-to-archive path). RAM block: `ioFlag 8670 … bakHeader 868B`, staging
 `pagedBuf 983A`.
 

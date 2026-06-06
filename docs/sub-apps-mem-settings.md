@@ -184,10 +184,11 @@ exactly which bits.
 
 ### 3.1 Angle: Degree vs Radian — `trigFlags` (`IY+0`) [confirmed]
 
-`trigDeg = bit 1` of `trigFlags` (`0x89F0`): **1 = Degrees, 0 = Radians**.
+`trigDeg = bit 2` of `trigFlags` (`0x89F0`): **1 = Degrees, 0 = Radians**. (Confirmed against WikiTI `Flags:00` and the ROM — `_Sin` (`02:7342`) tests `BIT 2,(IY+0)` to pick the degree path.)
 ```z80
-SET 1,(IY+0)   ; FD CB 00 CE  -> Degree   (e.g. page_3A:7956, page_02:5BE0)
-RES 1,(IY+0)   ; FD CB 00 8E  -> Radian   (e.g. page_3A:7935, page_02:5BC2)
+SET 2,(IY+0)   ; FD CB 00 D6  -> Degree
+RES 2,(IY+0)   ; FD CB 00 96  -> Radian
+BIT 2,(IY+0)   ; FD CB 00 56  -> tested by _Sin/_Cos/_Tan to select degree vs radian
 ```
 Math routines branch on this bit to choose degree/radian variants (`_SinCosRad` etc. force
 radians; the degree paths convert first).
@@ -281,7 +282,7 @@ page_36:7D00   clr_grfmode   (clears grfModeFlags bits 4-7)
 ### Key SystemFlags / RAM addresses
 ```
 0x89F0  flags (IY base)
- +0x00  trigFlags   (bit1 trigDeg: 1=Degree,0=Radian)
+ +0x00  trigFlags   (bit2 trigDeg: 1=Degree,0=Radian)
  +0x02  grfModeFlags(bit4 Func,bit5 Polar,bit6 Param,bit7 Seq; bit3 grfPolar)
  +0x04  grfDBFlags  (bit0 Dot, bit1 Simul, bit4 NoCoord, bit5 NoAxis)
  +0x0A  fmtFlags    (bit0 Exponent, bit1 Eng, bit2-4 base, bit5 Real, bit6 Rect, bit7 Polar)

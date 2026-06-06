@@ -34,8 +34,9 @@ plus a saved copy `savedArcInfo` (`8406h`). `_Arc_Unarc`'s reentrant inner mover
 
 RAM-heap pointers used by the mem checks (cluster at `0x9820`–`0x983A`, confirmed in `.inc`):
 `FPS=9824`, `OPBase=9826`, **`OPS=9828` (top of the upward data heap)**, `pTemp=982E`,
-`progPtr=9830`. The VAT grows **down** from `symTable=0xFE66`. `tSymPtr1=981C` holds the result
-pointer from the last `_FindSym` (`_Arc_Unarc` does `LD (981C),HL`). `ramCode=8100h` is where Flash
+`progPtr=9830`. The VAT grows **down** from `symTable=0xFE66`. `chkDelPtr3=981C` holds the result
+pointer from the last lookup (`_Arc_Unarc` does `LD (981C),HL`) — note `981C` is `chkDelPtr3` in
+`ti83plus.inc`, not `tSymPtr1` (which is `9818h`). `ramCode=8100h` is where Flash
 read/write routines are copied to run (you cannot execute from a Flash page while erasing it).
 
 ---
@@ -111,7 +112,7 @@ _Arc_Unarc (07:6248):
   CALL _OP1ToOP3 (1A0F)
   CALL _ChkFindSym (0E60)      ; locate the VAT entry; C ⇒ JP 271D (undefined)
   DI
-  LD (981C),HL                 ; tSymPtr1 = entry ptr
+  LD (981C),HL                 ; chkDelPtr3 = entry ptr
   LD A,B ; OR A ; JR Z,..      ; B = page byte: 0 ⇒ currently in RAM, else ⇒ in Flash
       (RAM) LD A,(HL); CP 0x17 ; Group? ⇒ JP 26E0 reject  [groups archive via a different path]
             ...  CALL 61F4     ; *** RAM → Flash:  archive ***
@@ -141,7 +142,8 @@ validators for the catalog archive command.)
 The data is **appended** to the archive Flash (Flash cannot be overwritten in place). The VAT entry's
 type byte gets its archive flag set and its data ptr/page rewritten to point into Flash; the old RAM
 copy is then released (the upward data heap shrinks). `3D:64AA` is the Flash writer that lays down a
-fresh archived record (status marker bytes `0xFE`=in-progress / `0xFF`=valid, plus a copy of the
+fresh archived record (status marker bytes `0xFE`=in-progress / `0xFC`=valid / `0xF0`=deleted, per
+WikiTI; `0xFF` is erased/empty Flash, not the "valid" marker — plus a copy of the
 symbol header + name, then the data — see `3D:64E5`).
 
 ### 4b. Flash → RAM (unarchive), `6107` [C]
@@ -194,7 +196,7 @@ page-0 cross-page trampolines:
 |------------------|-------------|------|
 | `00:2FF1` | `3D:64AA` | Flash **program** record (archive write) |
 | `00:2FDF` | `3D:61AF` | Flash **program/erase** core (with batt check, port 0x14 unlock) |
-| `00:2FF7` | `3D:62C2` | Flash **free-sector scan / allocate** (status markers 0xFE/0xF0/0xFF) |
+| `00:2FF7` | `3D:62C2` | Flash **free-sector scan / allocate** (sector status `0xFC`/`0xF0` valid, `0xFE` swap, `0xFF` erased) |
 | `00:2FC1` | `3C:580E` | Flash command/menu entry |
 | `00:2FFD` | `3C:7121` | Flash command dispatcher (Archive/UnArchive/GarbageCollect) |
 | `00:32A9` | `05:4A6E` | complex-list special-case helper |
@@ -226,7 +228,7 @@ erasing the old ones**.
   auto-GC** `3C:7204` runs `71FC` (GC) then retries the write at `7F1C`.
 - The relocation/erase core `3C:7BD0–7BF4`: tests a status flag, `7E6B`/`7C10` prepare the swap
   sectors (writes `0xF0` marker, sets `97A6` sector counter, `8477`), `7BE3:CALL 7E0D` shows the
-  banner, `7C1F` walks live VAT/Flash entries copying each valid (`0xFE`/`0xFF`-marked) record to the
+  banner, `7C1F` walks live VAT/Flash entries copying each valid (`0xFC`-marked) record to the
   new sector, and `7C04` finalizes (erases the old sectors, `SET 2,(IY+0x25)`). [H]
 - GC is callable from the user catalog (`Archive`/the MEM menu "Garbage Collect?" — string at
   `01:76C9`).
@@ -296,5 +298,5 @@ Ports: **0x06** = bank-A page select (Flash window), **0x14** = Flash write/eras
 ## 10. Open items
 - Exact sector map / erase-block size of the archive region (which physical Flash pages form the
   archive pool) — `3D:6413`'s sector table walk would pin it.
-- The `0xFE`/`0xF0`/`0xFF` record-status byte semantics in full (in-progress / being-moved / valid).
+- The `0xFC`/`0xF0`/`0xFE` record-status byte semantics in full (valid / deleted / in-progress).
 - Group archive path (the `CP 0x17` reject in `_Arc_Unarc` routes groups elsewhere).

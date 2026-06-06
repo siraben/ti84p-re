@@ -2,7 +2,7 @@
 
 > **Deep dives:** [Graphing](sub-graphing.md) (graph buffer → LCD, transforms) · [Table & Y= Variables](sub-table-yvars.md) (text grid).
 
-The TI-84+ drives a **96×64 monochrome LCD** through a controller on I/O ports `0x10` (command) and `0x11` (data). The OS keeps a **graph/screen buffer** in RAM and renders text via a built-in font.
+The TI-84+ shows a **96×64 monochrome** image — the OS only ever drives a 96×64 region (`_ClrLCDFull` writes exactly 12 column-bytes × 8 rows). The underlying controller (Toshiba T6K04 / later Novatek) actually has wider video RAM (up to 128 px), so 96×64 is the *visible* area, not the controller's geometry. It is reached through I/O ports `0x10` (command) and `0x11` (data). The OS keeps a **graph/screen buffer** in RAM and renders text via a built-in font.
 
 ## Controller [standard, consistent with code]
 - `port_lcdCmd` (`0x10`): commands — set row/column page, set Y, on/off, contrast.

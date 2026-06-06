@@ -8,11 +8,11 @@ Three cross-cutting mechanisms that tie the OS together: how it starts, how it s
 0000 reset:  in a,(2); and 0x80; jp 028c     ; test port 2 bit7, go to boot continuation
 028c:        port_mapBankA = 0x1F             ; bank a flash page into 4000
              (cond) DAT_io_000E = 3; port_mapBankA = 0x7F   ; configure RAM/exec paging (port 0x0E)
-             port_intStatus = 7               ; set up interrupt sources
+             port_memMapMode = 7              ; OUT (4): memory-map mode 1 + slow timer rate
              ... (jumps into RAM-copied code — static disasm stops here)
 ```
 
-Boot configures the paging hardware (ports 6 and `0x0E`) and interrupt controller, then transfers to code it copies into RAM (why the static trace ends with "bad instruction"). It eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen). *To finish: follow the RAM-copied stub and the RAM-init path.*
+Boot configures the paging hardware (ports 6 and `0x0E`) and the memory-map/timer mode (port 4 write), then transfers to code it copies into RAM (why the static trace ends with "bad instruction"). It eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen). *To finish: follow the RAM-copied stub and the RAM-init path.*
 
 ### The main event loop [confirmed]
 
