@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ca883063.js";
+            window.path_to_searchindex_js = "searchindex-2bf63802.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -224,8 +224,8 @@
 </blockquote>
 <h2 id="how-this-re-was-produced"><a class="header" href="#how-this-re-was-produced">How this RE was produced</a></h2>
 <ul>
-<li><strong>The Ghidra database</strong> is rebuilt from the ROM by <code>tools/build.sh</code> (a 10-stage headless pipeline). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves and names routines. 100% of the 2413 functions are named.</li>
-<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored 447/535 (the runner-up only 124) for the <code>0x4xxx</code> table and is cross-checked against the documented RST shortcuts (all six matched). <code>0x8xxx</code> names come from the full SDK equates, but their body table is unresolved here: the local raw page 0x3F has the BootFree replacement signature, and the decoded 2.55 <code>.8Xu</code> OS-page image omits physical page 0x3F.</li>
+<li><strong>The Ghidra database</strong> is rebuilt from the ROM by <code>tools/build.sh</code> (a 10-stage headless pipeline). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves and names routines from the main OS and retail boot tables.</li>
+<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored 447/535 (the runner-up only 124) for the <code>0x4xxx</code> table and is cross-checked against the documented RST shortcuts (all six matched). <code>0x8xxx</code> names come from the full SDK equates and resolve through the retail boot table on page <code>3F</code>; USB boot entries point into page <code>2F</code>. The resolver refuses to emit these body targets from a BootFree-substituted page <code>3F</code>.</li>
 <li><strong>Decompiler caveats.</strong> Ghidra’s Z80 decompiler mis-renders some idioms — <code>SET b,(IY+d)</code> flag ops, the <code>CALL cross_page_jump</code> (<code>2b09</code>) trampolines, and register-passed arguments on banked pages. Where the decompiler is unreliable the notes are grounded in the raw disassembly (and several deep-dives used a small custom Z80 decoder over the ROM to verify addresses byte-exactly).</li>
 <li><strong>Parallel multi-agent passes.</strong> The feature deep-dives (<code>sub-*</code>) and the final 100%-naming pass were produced by multiple agents working on isolated copies of the database, each owning a disjoint set of pages, then merged.</li>
 </ul>

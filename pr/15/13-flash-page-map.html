@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ca883063.js";
+            window.path_to_searchindex_js = "searchindex-2bf63802.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -218,12 +218,12 @@
 <tr><th>Page</th><th>Verified contents</th></tr>
 </thead>
 <tbody>
-<tr><td><code>08–32</code></td><td>OS code/data reached via cross-page jumps (not bcalls), plus <strong>alternate large-font glyph tables</strong> (pages 1 and 0x36, selected by <code>(IY+0x35)</code> bits 5/1) and string/help-text tables. No app headers. (The primary large-font glyph table is on page 0x07; see below.)</td></tr>
+<tr><td><code>08–32</code></td><td>OS code/data reached via cross-page jumps (not bcalls), plus <strong>alternate large-font glyph tables</strong> (pages 1 and 0x36, selected by <code>(IY+0x35)</code> bits 5/1) and string/help-text tables. Page <code>2F</code> is the retail USB boot support page supplied by local <code>D84PBE2.8Xv</code>; retail page <code>3F</code> points <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_USBErrorCleanup</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> into it. No app headers. (The primary large-font glyph table is on page 0x07; see below.)</td></tr>
 <tr><td><code>34–39</code></td><td>More OS code (graph/mode/menu); mostly full (1–17% <code>0xFF</code>).</td></tr>
 <tr><td><strong>3B</strong></td><td><strong>bcall jump table</strong> — starts <code>99 27 00</code> = entry 0 (<code>_JErrorNo</code>→<code>00:2799</code>).</td></tr>
 <tr><td><strong>3C</strong></td><td>Link code + the <strong>OS version string</strong> — page starts with ASCII <code>32 2E 35 35 4D 50</code> = <strong>“2.55MP”</strong>.</td></tr>
 <tr><td><strong>3E</strong></td><td><strong>Certification page</strong> — the per-calculator certificate sector (84+ cert page is <code>3E</code>, not <code>3F</code>). Blank (99% <code>0xFF</code>) in this OS-only image, since the cert is written per-device. The OS reads this sector through the <code>ti83plus.inc</code> cert bcalls: <code>_GetCertificateStart</code> (bcall <code>0x8057</code>) and <code>_GetCertificateEnd</code> (bcall <code>0x802D</code>) bound the sector, and <code>_FindFirstCertField</code> (bcall <code>0x8027</code>) / <code>_FindNextCertField</code> (bcall <code>0x8078</code>) walk its TLV fields.</td></tr>
-<tr><td><strong>3F</strong></td><td><strong>Boot page slot</strong> — the local raw ROM starts <code>3E 3F D3 06 D3 07 C3 2C 81</code>, which is the BootFree replacement signature (<code>LD A,0x3F; OUT (6),A; OUT (7),A; JP 812C</code>). Treat this page as a substituted open-source boot page, not the retail TI boot page. A decoded 2.55 <code>.8Xu</code> OS-page image leaves physical page <code>3F</code> empty, so it does not recover the retail boot page. Boot/hardware-version bcall names such as <code>_getBootVer</code> (<code>0x80B7</code>) and <code>_getHardwareVersion</code> (<code>0x80BA</code>) remain official <code>ti83plus.inc</code> IDs, but their bodies are unresolved here.</td></tr>
+<tr><td><strong>3F</strong></td><td><strong>Retail boot page</strong> — supplied by local <code>D84PBE1.8Xv</code>; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, carries boot version <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table. Boot/hardware-version bcalls now resolve to <code>_getBootVer</code> <code>3F:477C</code> (<code>0x80B7</code>) and <code>_getHardwareVersion</code> <code>3F:4781</code> (<code>0x80BA</code>).</td></tr>
 </tbody>
 </table>
 </div>

@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ca883063.js";
+            window.path_to_searchindex_js = "searchindex-2bf63802.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -234,7 +234,7 @@
 </div>
 <p>(The <code>sub-*</code> docs are deep dives covering user-facing functionality and I/O internals: calculation, graphing, TI-BASIC, VAT/archive, apps, stats, matrices, solver, table, equation display, link, and USB/link assist.)</p>
 <p>New to these notes? Start with <a href="#conventions--methodology">Conventions &amp; Methodology</a> (how to read the addresses and confidence flags) and the <a href="#glossary">Glossary</a>; the <a href="#bcall-reference-index">bcall Index</a> is the full alphabetical system-call reference.</p>
-<p>Database state: <strong>2413 functions (100% named)</strong>, the main <code>0x4xxx</code> bcall table resolved, TI-OS types applied. The <code>0x8xxx</code> bcall names are official SDK equates, but their bodies remain unresolved: the local raw page 0x3F is a BootFree replacement, and the 2.55 <code>.8Xu</code> OS image does not include physical page 0x3F. Rebuild: <code>tools/build.sh</code>.</p>
+<p>Database state: the main <code>0x4xxx</code> bcall table is resolved, the retail boot bcall table (<code>0x8xxx</code>) is resolved from the local complete ROM, and TI-OS types are applied. Most boot bcall bodies are on page <code>3F</code>; USB boot routines such as <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> are on page <code>2F</code>. Rebuild: <code>tools/build.sh</code>.</p>
 <h2 id="key-anchors-found-so-far"><a class="header" href="#key-anchors-found-so-far">Key anchors found so far</a></h2>
 <ul>
 <li>Reset entry <code>reset</code> @ <code>ram:0000</code> <strong>[confirmed]</strong></li>
@@ -336,8 +336,8 @@
 </blockquote>
 <h2 id="how-this-re-was-produced"><a class="header" href="#how-this-re-was-produced">How this RE was produced</a></h2>
 <ul>
-<li><strong>The Ghidra database</strong> is rebuilt from the ROM by <code>tools/build.sh</code> (a 10-stage headless pipeline). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves and names routines. 100% of the 2413 functions are named.</li>
-<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored 447/535 (the runner-up only 124) for the <code>0x4xxx</code> table and is cross-checked against the documented RST shortcuts (all six matched). <code>0x8xxx</code> names come from the full SDK equates, but their body table is unresolved here: the local raw page 0x3F has the BootFree replacement signature, and the decoded 2.55 <code>.8Xu</code> OS-page image omits physical page 0x3F.</li>
+<li><strong>The Ghidra database</strong> is rebuilt from the ROM by <code>tools/build.sh</code> (a 10-stage headless pipeline). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves and names routines from the main OS and retail boot tables.</li>
+<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored 447/535 (the runner-up only 124) for the <code>0x4xxx</code> table and is cross-checked against the documented RST shortcuts (all six matched). <code>0x8xxx</code> names come from the full SDK equates and resolve through the retail boot table on page <code>3F</code>; USB boot entries point into page <code>2F</code>. The resolver refuses to emit these body targets from a BootFree-substituted page <code>3F</code>.</li>
 <li><strong>Decompiler caveats.</strong> Ghidra’s Z80 decompiler mis-renders some idioms — <code>SET b,(IY+d)</code> flag ops, the <code>CALL cross_page_jump</code> (<code>2b09</code>) trampolines, and register-passed arguments on banked pages. Where the decompiler is unreliable the notes are grounded in the raw disassembly (and several deep-dives used a small custom Z80 decoder over the ROM to verify addresses byte-exactly).</li>
 <li><strong>Parallel multi-agent passes.</strong> The feature deep-dives (<code>sub-*</code>) and the final 100%-naming pass were produced by multiple agents working on isolated copies of the database, each owning a disjoint set of pages, then merged.</li>
 </ul>
@@ -446,10 +446,11 @@
 <tr><td><code>00</code></td><td>Boot/kernel core, mapped at <code>0000</code></td><td>RST vectors, <code>bcall_dispatcher</code>, FP/VAT/mem routines <strong>[confirmed]</strong></td></tr>
 <tr><td><code>01</code></td><td>OS routines (display, homescreen text, menus)</td><td><code>_PutC</code>,<code>_PutS</code>,<code>_ClrLCDFull</code>,<code>_NewLine</code> resolve here <strong>[confirmed]</strong></td></tr>
 <tr><td><code>06</code></td><td>OS routines (key input, parser-ish)</td><td><code>_GetKey</code>→<code>06:491E</code> <strong>[confirmed]</strong></td></tr>
+<tr><td><code>2F</code></td><td>USB boot support page</td><td>supplied by local <code>D84PBE2.8Xv</code>; retail page <code>3F</code> maps <code>_AttemptUSBOSReceive</code>→<code>2F:4145</code>, <code>_ReceiveOS_USB</code>→<code>2F:48CA</code>, <code>_InitUSB</code>→<code>2F:52A4</code>, <code>_KillUSB</code>→<code>2F:5961</code> <strong>[confirmed]</strong></td></tr>
 <tr><td><code>3B</code></td><td><strong>bcall jump table</strong></td><td>scored 447/535 named .inc IDs; first entry <code>_JErrorNo</code>→<code>00:2799</code> <strong>[confirmed]</strong></td></tr>
 <tr><td><code>3C</code></td><td>Link code + OS version string (<code>"2.55MP"</code>)</td><td>page starts <code>32 2E 35 35 4D 50</code> <strong>[confirmed]</strong></td></tr>
 <tr><td><code>3E</code></td><td><strong>Certification page</strong> (per-calculator cert sector; blank in this OS-only image)</td><td>84+ cert page is <code>3E</code>, not <code>3F</code> <strong>[standard]</strong></td></tr>
-<tr><td><code>3F</code></td><td><strong>Boot page slot</strong></td><td>local <code>tools/rom.bin</code> starts <code>3E 3F D3 06 D3 07 C3 2C 81</code>, the BootFree replacement signature; the retail page 0x3F is not present in the local raw ROM or decoded 2.55 <code>.8Xu</code> OS-page image <strong>[confirmed]</strong></td></tr>
+<tr><td><code>3F</code></td><td><strong>Retail boot page</strong></td><td>supplied by local <code>D84PBE1.8Xv</code>; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, contains boot version string <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table <strong>[confirmed]</strong></td></tr>
 </tbody>
 </table>
 </div>
@@ -492,7 +493,7 @@
 <tr><td><code>08</code>-<code>0D</code></td><td>usb/link assist</td><td>84+ hardware byte-assist control/status/data/FIFO ports; see <a href="#usb-asic-and-link-assist">USB ASIC and link assist</a></td></tr>
 <tr><td><code>10/11</code></td><td>lcdCmd/lcdData</td><td>LCD controller</td></tr>
 <tr><td><code>20</code></td><td>cpuSpeed</td><td>0=6 MHz, 1=15 MHz (set in ISR)</td></tr>
-<tr><td><code>4D</code></td><td>usbLineState</td><td>USB line-state gate sampled by <code>_LinkXferOP</code>; bits 5/6 gate the unresolved <code>ram:2E48</code> call path</td></tr>
+<tr><td><code>4D</code></td><td>usbLineState</td><td>USB line-state gate sampled by <code>_LinkXferOP</code>; bits 5/6 gate the <code>ram:2E0B</code> bjump to <code>35:4280</code></td></tr>
 <tr><td><code>55/56</code></td><td>usbIntStatus/usbLineEvents</td><td>USB interrupt state / line events (84+) — polled first in <code>int_dispatch_sources</code>; both read-only (port 0x56 is a read-only event bitmap, not a write mask)</td></tr>
 </tbody>
 </table>
@@ -545,14 +546,14 @@
 <li>Resolution method (<code>tools/</code> Python): scored all 64 pages by how many of the 535 named .inc IDs produced a valid <code>(addr∈4000..7FFF or page-0, page&lt;0x40)</code> entry — in this page-selection heuristic page <code>0x3B</code> scored <strong>447/535</strong> (a conservative validity filter used only to pick the table), the runner-up only 124. Once <code>0x3B</code> is selected and applied, all 535 <code>.inc</code> IDs plus 61 RE-named entries (596 total) resolve and are live-confirmed.</li>
 <li>Validation: known bcalls land exactly where expected — <code>_PutS</code>→<code>01:5C39</code>, <code>_GetKey</code>→<code>06:491E</code>, <code>_ClrLCDFull</code>→<code>01:60E4</code>, <code>_GetCSC</code>→<code>00:04B2</code>, <code>_CreateReal</code>→<code>00:10B8</code>.</li>
 </ul>
-<p><code>tools/bcall_targets.txt</code> holds <strong>596</strong> resolved main-table bcall rows. These <code>0x4xxx</code> entries are live-confirmed in the current Ghidra/MCP DB. <code>tools/ApplyBcalls.java</code> disassembles and names the confirmed bodies it can resolve.</p>
+<p><code>tools/bcall_targets.txt</code> holds <strong>596</strong> resolved main-table bcall rows. <code>tools/bcalls8x_targets.txt</code> holds <strong>83</strong> retail boot-table rows when the local ROM has the retail page <code>3F</code> and USB support page <code>2F</code> installed. <code>tools/ApplyBcalls.java</code> disassembles and names the confirmed bodies it can resolve.</p>
 <h2 id="jump-table-id-ranges"><a class="header" href="#jump-table-id-ranges">Jump-table ID ranges</a></h2>
 <p>The dispatcher’s ID decode (<code>bcall_dispatcher</code>) selects one of <strong>two</strong> tables by the ID’s top bits:</p>
 <ul>
 <li><strong><code>0x4xxx</code>–<code>0x7FFF</code></strong> (bit 14 set): the main table on <strong>flash page 0x3B</strong>, entry at offset <code>ID − 0x4000</code> (596 live-confirmed bcalls: 535 from the <code>.inc</code> + 61 RE-named).</li>
-<li><strong><code>0x8xxx</code></strong> (bit 15 set): the names are official 84+-era SDK equates, but the body table is unresolved here. The previous page-0x3F target scan used a local ROM whose page <code>3F</code> starts <code>3E 3F D3 06 D3 07 C3 2C 81</code>, the BootFree replacement signature. <code>tools/resolve_bcalls.py</code> now refuses to emit <code>0x8xxx</code> body targets from that substituted page. A decoded 2.55 <code>.8Xu</code> OS-page image does not include physical page <code>3F</code>, so it cannot recover these bodies. <strong>[confirmed]</strong></li>
+<li><strong><code>0x8xxx</code></strong> (bit 15 set): the retail boot table is on physical page <code>3F</code>, indexed by <code>ID &amp; 0x7FFF</code>. <code>D84PBE1.8Xv</code> supplies the retail page <code>3F</code>; <code>D84PBE2.8Xv</code> supplies the companion USB boot support page <code>2F</code>. Most entries resolve to <code>3F:addr</code>; USB entries such as <code>_AttemptUSBOSReceive</code> (<code>80E4</code>) and <code>_InitUSB</code> (<code>8108</code>) resolve to <code>2F:addr</code>. <code>tools/resolve_bcalls.py</code> refuses to emit these targets from a BootFree-substituted page. <strong>[confirmed]</strong></li>
 </ul>
-<p>The main table format is a 3-byte entry (addr LE + page, page masked <code>&amp; 0x3F</code>) and is MCP-confirmed end to end. The <code>0x8xxx</code> dispatch format remains open.</p>
+<p>Both resolved table formats are 3-byte entries: target address (little endian) plus page byte masked with <code>&amp; 0x3F</code>.</p>
 <h2 id="rst-shortcuts-fast-inlined-bcalls-confirmed"><a class="header" href="#rst-shortcuts-fast-inlined-bcalls-confirmed">RST shortcuts (fast inlined bcalls) [confirmed]</a></h2>
 <p>The other RST vectors are 1-byte fast paths for the hottest routines (each <code>JP</code>s to its page-0 handler, which is also reachable as a bcall — the table maps the same address):</p>
 <div class="table-wrapper">
@@ -575,10 +576,10 @@
 <p>Besides bcalls, the OS calls <em>its own</em> cross-page routines via <strong>bjump</strong>: <code>CALL cross_page_jump</code> (<code>= CALL 0x2b09</code>) followed inline by <code>.dw addr; .db page</code>. <code>cross_page_jump</code> pops the return address, reads the 2-byte target + 1-byte page from it, banks the page (<code>&amp; 0x3F</code>), and jumps. The target’s <code>RET</code> returns to <em>the bjump’s caller</em>, so it behaves like a call that consumes the 3 inline bytes.</p>
 <p>There is a trampoline table in the page-0 address range <strong><code>0x3B01–0x3D0B</code></strong>: <strong>87 packed 6-byte entries</strong>, each a bjump to a hot OS routine on another page. The static Ghidra DB models it in the page-0/ROM address space; whether the table is copied to RAM at runtime is a hypothesis, not MCP-confirmed. Code invokes a routine by <code>CALL 0x3Bxx</code> into the table. <code>tools/bjumps.txt</code> lists every entry’s <code>(offset → page:addr)</code>; <code>tools/RamRoutines.java</code> marks the inline <code>.dw/.db</code> as data and comments each target.</p>
 <p>Example: <code>_PutMap</code>’s glyph blitter is reached via the trampoline at <code>0x3B3D → page_07:4588</code>.</p>
-<p><strong>Inline bjumps:</strong> besides the trampoline table, <code>CALL cross_page_jump; .dw; .db</code> appears <em>inline</em> throughout the OS (e.g. transcendentals: <code>_EToX</code> = <code>fp_clear_guard(); bjump</code>). Because <code>cross_page_jump</code> consumes the 3 inline bytes and tail-jumps (the target returns to the bjump’s caller), the bytes after must be data and the call is non-returning. <code>tools/FixInlineBjumps.java</code> marks all <strong>280</strong> such sites, which substantially improved OS-wide disassembly coverage.</p>
+<p><strong>Inline bjumps:</strong> besides the trampoline table, <code>CALL cross_page_jump; .dw; .db</code> appears <em>inline</em> throughout the OS (e.g. transcendentals: <code>_EToX</code> = <code>fp_clear_guard(); bjump</code>). Because <code>cross_page_jump</code> consumes the 3 inline bytes and tail-jumps (the target returns to the bjump’s caller), the bytes after must be data and the call is non-returning. <code>tools/FixInlineBjumps.java</code> marks all <strong>355</strong> such sites in the complete local ROM, which substantially improved OS-wide disassembly coverage.</p>
 <h2 id="limitations--todo"><a class="header" href="#limitations--todo">Limitations / TODO</a></h2>
 <ul>
-<li>Reconcile the <code>0x8xxx</code> bcall body table with a retail boot page. Do not use the BootFree-substituted local page 0x3F for those targets.</li>
+<li>Keep the BootFree guard in place when regenerating from emulator-derived ROM images.</li>
 <li>Some bcalls are <em>thunks</em>: e.g. <code>_FindSym</code>’s page-0 entry uses <code>cross_page_jump</code> to reach the real body on page 0x07.</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -756,12 +757,12 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
 <tr><th>Page</th><th>Verified contents</th></tr>
 </thead>
 <tbody>
-<tr><td><code>08–32</code></td><td>OS code/data reached via cross-page jumps (not bcalls), plus <strong>alternate large-font glyph tables</strong> (pages 1 and 0x36, selected by <code>(IY+0x35)</code> bits 5/1) and string/help-text tables. No app headers. (The primary large-font glyph table is on page 0x07; see below.)</td></tr>
+<tr><td><code>08–32</code></td><td>OS code/data reached via cross-page jumps (not bcalls), plus <strong>alternate large-font glyph tables</strong> (pages 1 and 0x36, selected by <code>(IY+0x35)</code> bits 5/1) and string/help-text tables. Page <code>2F</code> is the retail USB boot support page supplied by local <code>D84PBE2.8Xv</code>; retail page <code>3F</code> points <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_USBErrorCleanup</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> into it. No app headers. (The primary large-font glyph table is on page 0x07; see below.)</td></tr>
 <tr><td><code>34–39</code></td><td>More OS code (graph/mode/menu); mostly full (1–17% <code>0xFF</code>).</td></tr>
 <tr><td><strong>3B</strong></td><td><strong>bcall jump table</strong> — starts <code>99 27 00</code> = entry 0 (<code>_JErrorNo</code>→<code>00:2799</code>).</td></tr>
 <tr><td><strong>3C</strong></td><td>Link code + the <strong>OS version string</strong> — page starts with ASCII <code>32 2E 35 35 4D 50</code> = <strong>“2.55MP”</strong>.</td></tr>
 <tr><td><strong>3E</strong></td><td><strong>Certification page</strong> — the per-calculator certificate sector (84+ cert page is <code>3E</code>, not <code>3F</code>). Blank (99% <code>0xFF</code>) in this OS-only image, since the cert is written per-device. The OS reads this sector through the <code>ti83plus.inc</code> cert bcalls: <code>_GetCertificateStart</code> (bcall <code>0x8057</code>) and <code>_GetCertificateEnd</code> (bcall <code>0x802D</code>) bound the sector, and <code>_FindFirstCertField</code> (bcall <code>0x8027</code>) / <code>_FindNextCertField</code> (bcall <code>0x8078</code>) walk its TLV fields.</td></tr>
-<tr><td><strong>3F</strong></td><td><strong>Boot page slot</strong> — the local raw ROM starts <code>3E 3F D3 06 D3 07 C3 2C 81</code>, which is the BootFree replacement signature (<code>LD A,0x3F; OUT (6),A; OUT (7),A; JP 812C</code>). Treat this page as a substituted open-source boot page, not the retail TI boot page. A decoded 2.55 <code>.8Xu</code> OS-page image leaves physical page <code>3F</code> empty, so it does not recover the retail boot page. Boot/hardware-version bcall names such as <code>_getBootVer</code> (<code>0x80B7</code>) and <code>_getHardwareVersion</code> (<code>0x80BA</code>) remain official <code>ti83plus.inc</code> IDs, but their bodies are unresolved here.</td></tr>
+<tr><td><strong>3F</strong></td><td><strong>Retail boot page</strong> — supplied by local <code>D84PBE1.8Xv</code>; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, carries boot version <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table. Boot/hardware-version bcalls now resolve to <code>_getBootVer</code> <code>3F:477C</code> (<code>0x80B7</code>) and <code>_getHardwareVersion</code> <code>3F:4781</code> (<code>0x80BA</code>).</td></tr>
 </tbody>
 </table>
 </div>
@@ -779,7 +780,7 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
              ... (jumps into RAM-copied code — static disasm stops here)
 </code></pre>
 <p>Boot configures the paging hardware (ports 6 and <code>0x0E</code>) and the memory-map/timer mode (port 4 write), then transfers to code it copies into RAM (why the static trace ends with “bad instruction”). The continuation at <code>028c</code> ends <code>JP 0x812c</code>. <code>0x812c</code> is in the RAM execution window and is <em>blank in the static image</em>: the bytes are filled in at boot by the copy this stub performs, so the static trace cannot follow it. It eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen).</p>
-<p>The boot page (<code>3F</code>) and its version queries are exposed to the OS through <code>ti83plus.inc</code> bcalls: <code>_getBootVer</code> (bcall <code>0x80B7</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code>). These public entry points sit in the boot-page bcall range (<code>0x8000</code>+); their bodies are not defined functions in the current live DB.</p>
+<p>The boot page (<code>3F</code>) and its version queries are exposed to the OS through <code>ti83plus.inc</code> bcalls: <code>_getBootVer</code> (bcall <code>0x80B7</code> → <code>3F:477C</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code> → <code>3F:4781</code>). The USB boot support entry points route through the same table but land on page <code>2F</code>, for example <code>_AttemptUSBOSReceive</code> (<code>0x80E4</code> → <code>2F:4145</code>) and <code>_InitUSB</code> (<code>0x8108</code> → <code>2F:52A4</code>).</p>
 <h3 id="ram-clear--re-init-ram_reset_wipe--0x0bd9-confirmed"><a class="header" href="#ram-clear--re-init-ram_reset_wipe--0x0bd9-confirmed">RAM clear / re-init (<code>ram_reset_wipe</code> → <code>0x0BD9</code>) [confirmed]</a></h3>
 <p>The RAM-init proper is <code>ram_reset_wipe</code> (<code>35:719F</code>, reached on a full reset; the same routine backs the <code>[2nd]+[+] · 7 · 1 · 2</code> RAM-reset and the post-boot RAM clear). It zero-fills RAM in two blocks, preserving a handful of flag bits and <code>0x9B73</code> across the wipe:</p>
 <pre><code class="language-z80">ram_reset_wipe (35:719f):
@@ -2483,16 +2484,16 @@ the copier (6761..678A):
 </code></pre>
 <p>Port <strong>6</strong> is the bank-A page-select; the read code itself runs from <code>ramCode (0x8100)</code>. This is how
 an archived program/appvar is pulled back into RAM to be executed or edited. <code>ti83plus.inc</code> also
-names a sibling <strong><code>_FlashToRam2</code> (id 8054)</strong>; its body is not located in the live DB (the <code>0x8xxx</code>
-table is unmodeled), so the ID names the public API without yet pinning a page:addr.</p>
+names a sibling <strong><code>_FlashToRam2</code> (id 8054)</strong>; the retail boot table maps it to <code>3F:4888</code>.</p>
 <hr>
 <h2 id="6-low-level-flash-write--erase-pages-3c3d-port-0x14-mixed"><a class="header" href="#6-low-level-flash-write--erase-pages-3c3d-port-0x14-mixed">6. Low-level Flash write / erase (pages 3C/3D, port 0x14) [mixed]</a></h2>
 <p>The Flash program/erase primitives live on flash pages <strong>0x3C / 0x3D</strong> and are invoked through
 page-0 cross-page trampolines. The public bcall entry points for the byte writer are named in
 <code>ti83plus.inc</code>: <strong><code>_WriteAByte</code> (id 8021)</strong> and <strong><code>_WriteAByteSafe</code> (id 80C6)</strong> program a single
 Flash byte; <strong><code>_FlashToRam2</code> (id 8054)</strong> is the companion Flash→RAM copy of <code>_FlashToRam</code> (§5).
-Those IDs name the public API, not the body addresses below: the <code>0x8xxx</code> dispatch table is not
-modeled in the live DB, so the IDs are not yet mapped to these page-3C/3D bodies. Several page-3C/3D
+The retail boot table maps those APIs to boot-page bodies (<code>_WriteAByte</code>→<code>3F:4C9F</code>,
+<code>_WriteAByteSafe</code>→<code>3F:4C9A</code>, <code>_FlashToRam2</code>→<code>3F:4888</code>), which then wrap the lower-level
+page-3C/3D flash machinery below. Several page-3C/3D
 targets below are reached by byte trace but are <strong>not defined functions in the current live DB</strong>;
 their <code>flash_*</code> names are project-local inferred labels (not WikiTI or <code>ti83plus.inc</code> equates):</p>
 <div class="table-wrapper">
@@ -2518,7 +2519,7 @@ sets up the RAM-resident write stub (the actual byte-poke loops run from RAM at 
 because the CPU cannot fetch from a Flash chip mid-erase). <code>3D:6B9B</code>/<code>3D:6B6D</code> are bounds-checked
 byte-program candidate calls (return carry → caller raises <strong>E_ArchFull</strong>); neither is a defined
 function in the current live DB. The public byte-write API for this layer is <code>_WriteAByte</code> (8021) /
-<code>_WriteAByteSafe</code> (80C6), though the <code>0x8xxx</code> table does not yet pin either ID to a page-3C/3D body. The free-slot scan reads sector
+<code>_WriteAByteSafe</code> (80C6), which resolve to boot-page wrappers. The free-slot scan reads sector
 status bytes and sums free space to decide whether a GC is needed before a write.</p>
 <h3 id="6a-record-status-byte--the-one-way-bit-clearing-scheme-c"><a class="header" href="#6a-record-status-byte--the-one-way-bit-clearing-scheme-c">6a. Record-status byte — the one-way bit-clearing scheme [C]</a></h3>
 <p>The status byte is a classic AMD/Am29F <strong>monotonic bit-clear</strong> marker: erased Flash is all-ones
@@ -2675,11 +2676,11 @@ the status byte; <code>flash_find_nonff</code> (<code>3D:7DEA</code>) treats an 
 </ul>
 <p><strong>Residual:</strong></p>
 <ul>
-<li><strong>Flash byte-write / Flash→RAM bcall bodies — names known, bodies unmapped [I].</strong> The public
-bcall entry points are canonical equates in <code>ti83plus.inc</code>: <code>_WriteAByte</code> (8021),
-<code>_WriteAByteSafe</code> (80C6), and <code>_FlashToRam2</code> (8054). Their bodies are not located in the live DB —
-the <code>0x8xxx</code> dispatch table is unmodeled — so the IDs name the API without yet resolving to a
-page:addr. The address-keyed <code>flash_*</code> labels in §6/§9 stay inferred and body-undisassembled.</li>
+<li><strong>Lower-level flash helper bodies — address-keyed labels still inferred [I].</strong> The public bcall
+entry points are canonical equates in <code>ti83plus.inc</code> and now resolve through the retail boot table:
+<code>_WriteAByte</code> (8021) → <code>3F:4C9F</code>, <code>_WriteAByteSafe</code> (80C6) → <code>3F:4C9A</code>, and <code>_FlashToRam2</code>
+(8054) → <code>3F:4888</code>. The address-keyed <code>flash_*</code> labels in §6/§9 stay inferred and
+body-undisassembled until the lower-level page-3C/3D helper graph is split cleanly.</li>
 <li><strong>Group archive path — partially pinned [H/I].</strong> <code>_DataSize</code> (<code>00:1485</code>) confirms a Group
 (type <code>0x17</code>, like AppVar <code>0x15</code>/<code>0x16</code>) carries a leading word-size header, so a group <em>can</em> be
 stored as one Flash blob. The single-call RAM→Flash worker <code>61F4</code> is reached only after
@@ -5404,8 +5405,8 @@ state machine. RAM block: <code>ioFlag 8670 … bakHeader 868B</code>, staging
 them vs. the blanket 0x9F here. [H]</li>
 <li>Backup (sndRecState 0x08 / varClass 0x0A) framing detail in <code>40DA</code> (the 0x37D clamp + 0x63 00
 prefix) — full backup-packet layout. [H]</li>
-<li>The target at <code>ram:2E48</code>, called after <code>_LinkXferOP</code> samples port <code>0x4D</code>, is not a function in
-the current Ghidra database. Its exact side effects remain open; see <a href="#usb-asic-and-link-assist">sub-usb-asic.md</a>.</li>
+<li>The prior USB target gap is now mapped in <a href="#usb-asic-and-link-assist">sub-usb-asic.md</a>: <code>_LinkXferOP</code> calls
+<code>ram:2E0B</code>, a <code>cross_page_jump</code> thunk to <code>35:4280</code>, after sampling port <code>0x4D</code>.</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="usb-asic-and-link-assist"><a class="header" href="#usb-asic-and-link-assist">USB ASIC and link assist</a></h1>
@@ -5414,11 +5415,13 @@ the current Ghidra database. Its exact side effects remain open; see <a href="#u
 the byte FIFO path used by the link layer, and the places where <code>_LinkXferOP</code> chooses USB before
 falling back to the 2.5 mm link. It complements <a href="#link--data-transfer">Link / data transfer</a>, which
 covers the TI link packet protocol and variable-transfer state machine.</p>
-<p>The full USB controller is broader than the variable-transfer path. This page is ROM-grounded: the
-confirmed claims below come from OS 2.55MP disassembly/decompilation and cite the address ranges that
-show them. External WikiTI names are used only as orientation where noted, not as proof.</p>
+<p>The full USB controller is broader than the variable-transfer path, but OS 2.55MP does expose enough
+of it to map the public USB entry points, the link-assist byte path, and the interrupt/event bridge.
+This page is ROM-grounded: the confirmed claims below come from OS 2.55MP disassembly/decompilation
+and cite the address ranges that show them. External WikiTI names are used only as orientation where
+noted, not as proof.</p>
 <h2 id="rom-grounded-surface"><a class="header" href="#rom-grounded-surface">ROM-grounded surface</a></h2>
-<p>The ROM shows three transport-facing surfaces:</p>
+<p>The ROM shows four transport-facing surfaces:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -5428,6 +5431,7 @@ show them. External WikiTI names are used only as orientation where noted, not a
 <tr><td>Legacy link</td><td><code>0x00</code></td><td>2.5 mm tip/ring open-collector byte path. [confirmed: <code>3C:6C99</code>, <code>3C:6CF3</code>]</td></tr>
 <tr><td>Link-assist FIFO</td><td><code>0x08</code>-<code>0x0D</code></td><td>Hardware byte send/receive assist used below <code>_SendAByte</code> and <code>_RecAByteIO</code>. [confirmed: <code>3C:6BB1</code>-<code>6D53</code>]</td></tr>
 <tr><td>USB line / interrupt gates</td><td><code>0x4D</code>, <code>0x55</code>, <code>0x56</code></td><td>Line-state and event/status gates used before and during link handling. [confirmed: <code>3C:4E4A</code>, <code>00:006F</code>]</td></tr>
+<tr><td>USB controller / endpoints</td><td><code>0x4A</code>-<code>0x5B</code>, <code>0x80</code>-<code>0xA2</code></td><td>Page-35 USB host/device stack, including setup, endpoint FIFOs, callbacks, and data transfer. [confirmed: <code>35:4031</code>-<code>5B9B</code>]</td></tr>
 </tbody>
 </table>
 </div>
@@ -5445,14 +5449,17 @@ port <code>0x00</code> bit-banging otherwise. [confirmed]</p>
 <tbody>
 <tr><td><code>0x02</code></td><td>Hardware/model gate before using assist paths. The link code tests bit 7 before touching ports <code>0x08</code>-<code>0x0D</code>.</td><td><code>3C:6C82</code>, <code>3C:6CB8</code>, <code>3C:6D15</code></td></tr>
 <tr><td><code>0x08</code></td><td>Link-assist control/idle latch. The OS writes <code>0x80</code> when clearing an inactive/error-free assist state, and <code>0x00</code> when marking the assist state active.</td><td><code>3C:6C41</code>-<code>6C48</code>, <code>3C:6D38</code>-<code>6D40</code>, <code>3C:6D4B</code>-<code>6D53</code></td></tr>
-<tr><td><code>0x09</code></td><td>Link-assist status. Bit 5 is TX-ready; bit 6 is a transmission/error condition; bit 4 marks a received byte. Masks <code>0x19</code>, <code>0x58</code>, and <code>0x99</code> are used as error/activity predicates.</td><td><code>3C:6BB6</code>-<code>6BC5</code>, <code>3C:444A</code>, <code>3C:6BFA</code>, <code>3C:6CCE</code>, <code>3C:6D33</code></td></tr>
-<tr><td><code>0x0A</code></td><td>Assist receive/data register on the confirmed receive path; also initialized with <code>0xB4</code> beside <code>0x0B/0x0C</code>. The write-side meaning of <code>0xB4</code> is still [hypothesis].</td><td><code>3C:6C20</code>, <code>3C:6C2B</code>, <code>3C:6C39</code></td></tr>
-<tr><td><code>0x0B</code>, <code>0x0C</code></td><td>Assist-side configuration registers initialized with <code>0xB4</code>; semantics not decoded. [hypothesis]</td><td><code>3C:6C3D</code>, <code>3C:6C3F</code></td></tr>
+<tr><td><code>0x09</code></td><td>Link-assist status on reads. Bit 5 is TX-ready; bit 6 is a transmission/error condition; bit 4 marks a received byte. Masks <code>0x19</code>, <code>0x58</code>, and <code>0x99</code> are used as error/activity predicates. On writes, the OS setup value <code>0x97</code> matches WikiTI’s CPU-speed-0 signaling-rate register.</td><td><code>3C:6BB6</code>-<code>6BC5</code>, <code>3C:444A</code>, <code>3C:6BFA</code>, <code>3C:6CCE</code>, <code>3C:6D33</code>; WikiTI port <code>09</code></td></tr>
+<tr><td><code>0x0A</code></td><td>Assist receive/data register on reads; the confirmed receive path reads the byte here. On writes, the OS setup value <code>0xB4</code> matches WikiTI’s CPU-speed-1 signaling-rate register. Tilem models reads as “last received byte” and stores writes as opaque assist state.</td><td><code>3C:6C20</code>, <code>3C:6C2B</code>, <code>3C:6C39</code>; WikiTI port <code>0A</code>; Tilem <code>x4_io.c</code></td></tr>
+<tr><td><code>0x0B</code>, <code>0x0C</code></td><td>Assist signaling-rate configuration for CPU speed modes 2 and 3, initialized with <code>0xB4</code>. The ROM byte-transfer path writes them during setup but does not read them back. Tilem stores the writes without emulating timing from the values.</td><td><code>3C:6C3D</code>, <code>3C:6C3F</code>; WikiTI ports <code>0B</code>/<code>0C</code>; Tilem <code>x4_io.c</code></td></tr>
 <tr><td><code>0x0D</code></td><td>Assist TX FIFO/data register. <code>_SendAByte</code> writes the outgoing byte here after port <code>0x09</code> bit 5 becomes set.</td><td><code>3C:6BBC</code>-<code>6BBF</code></td></tr>
 <tr><td><code>0x20</code></td><td>CPU speed bit used to select assist/link wait-loop reloads. The send timeout uses <code>0xFFFF</code> when bit 0 is set and <code>0x6800</code> when clear.</td><td><code>3C:6BCC</code>, <code>3C:6C8B</code>, <code>3C:6CC1</code></td></tr>
-<tr><td><code>0x4D</code></td><td>USB line-state gate. <code>_LinkXferOP</code> samples bits 5 and 6 before the unresolved <code>ram:2E48</code> call target. The ROM use proves only the bit tests, not the electrical names of those bits.</td><td><code>3C:4E4A</code>-<code>4E6F</code></td></tr>
+<tr><td><code>0x4C</code></td><td>USB controller handshake/status byte. The page-35 stack compares it with <code>0x5A</code>/<code>0x1A</code> and <code>0x12</code>/<code>0x52</code>, and clears or primes it with <code>0x00</code>/<code>0x08</code> during setup. Tilem returns <code>0x22</code> to make the calc see no attached USB peer.</td><td><code>35:42B7</code>, <code>35:42F6</code>, <code>35:403C</code>, <code>35:40E6</code>; Tilem <code>x4_io.c</code></td></tr>
+<tr><td><code>0x4D</code></td><td>USB line-state gate. <code>_LinkXferOP</code> samples bits 5 and 6 before the page-0 bjump at <code>ram:2E0B</code>, which targets <code>35:4280</code>. Page-35 handlers also branch on bits 0, 1, 4, 5, 6, and 7. Tilem returns <code>0xA5</code> to emulate “USB disconnected.”</td><td><code>3C:4E4A</code>-<code>4E6F</code>, <code>35:42BF</code>, <code>35:4B6A</code>-<code>4B9F</code>; Tilem <code>x4_io.c</code></td></tr>
 <tr><td><code>0x55</code></td><td>USB interrupt status, active-low in the low five bits. The IM1 dispatcher tests <code>(in(0x55) ^ 0xFF) &amp; 0x1F</code> first.</td><td><code>00:006F</code>-<code>0075</code></td></tr>
-<tr><td><code>0x56</code></td><td>USB line-event bitmap used by the IM1 dispatcher after port <code>0x55</code> reports USB activity. The visible dispatcher branches on bits 1, 4, 5, 6, and 7. Event names are not derived from the ROM alone.</td><td><code>00:0085</code>-<code>00AE</code></td></tr>
+<tr><td><code>0x56</code></td><td>USB line-event bitmap used by the IM1 dispatcher after port <code>0x55</code> reports USB activity. Bits 4, 5, 6, 7, and 1 dispatch to page-35 handlers through page-0 bjumps.</td><td><code>00:0085</code>-<code>00AE</code>, <code>00:0113</code>-<code>0127</code></td></tr>
+<tr><td><code>0x57</code>, <code>0x5B</code>, <code>0x4A</code>, <code>0x54</code></td><td>USB controller control/ack registers used by page-35 setup and event handlers. The ROM confirms values such as <code>0x10</code>, <code>0x20</code>, <code>0x22</code>, <code>0x50</code>, <code>0x80</code>, <code>0x90</code>, <code>0x93</code> on <code>0x57</code>, <code>0x00</code>/<code>0x01</code> on <code>0x5B</code>, <code>0x20</code> on <code>0x4A</code>, and <code>0x02</code>/<code>0x44</code>/<code>0xC4</code> on <code>0x54</code>.</td><td><code>35:4038</code>-<code>4060</code>, <code>35:42C5</code>-<code>42EA</code>, <code>35:4B6A</code>-<code>4C14</code></td></tr>
+<tr><td><code>0x80</code>-<code>0xA2</code></td><td>Endpoint/status/FIFO region used by the public USB API. Examples: <code>_SendUSBData</code> writes 64-byte chunks to <code>0xA2</code>; <code>_RequestUSBData</code> reads 8-byte records from <code>0xA1</code>; setup/config paths write descriptor bytes through <code>0xA0</code> and use selector/status ports <code>0x8E</code>, <code>0x8F</code>, <code>0x91</code>, <code>0x94</code>, and <code>0x98</code>.</td><td><code>35:4DD3</code>, <code>35:470B</code>, <code>35:48BA</code>, <code>35:48F8</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -5500,7 +5507,9 @@ path:</p>
 <ul>
 <li><code>0x40</code> (bit 6) is treated as a transmission/error condition.</li>
 <li><code>0x10</code> (bit 4) is the “byte received” condition.</li>
-<li><code>0x08</code> participates in the wait condition but is not fully named in this pass.</li>
+<li><code>0x08</code> is an assist read-busy/activity bit: it wakes the wait loop, but the byte is not accepted
+until bit 4 or an error/status bit is also present. Tilem names the corresponding state
+<code>TILEM_LINK_ASSIST_READ_BUSY</code>.</li>
 <li>When the receive condition is accepted, the byte is read from port <code>0x0A</code> into <code>C</code>.</li>
 <li>The status masks <code>0x19</code> and <code>0x99</code> select error/activity cases before the code resets or re-arms
 the assist latch through port <code>0x08</code>.</li>
@@ -5519,8 +5528,29 @@ out (0x08),0x00
 in  a,(0x09)
 set 0,(IY+0x3E)
 </code></pre>
-<p>The sequence proves the ports touched and the RAM flag used by the OS. It does not by itself name
-the bit fields inside <code>0x97</code> or <code>0xB4</code>. [confirmed ports; bit meanings open]</p>
+<p>The sequence proves the ports touched and the RAM flag used by the OS. WikiTI names these writes as
+link-assist signaling-rate setup values for CPU speed modes 0-3: ports <code>0x09</code>, <code>0x0A</code>, <code>0x0B</code>, and
+<code>0x0C</code> correspond to speed modes 0, 1, 2, and 3 respectively. Its field description says bits 5-7
+select the link-assist clock divisor as <code>2^n</code>, with <code>111b</code> halting the assist, and bits 0-4 select
+the inter-bit wait. Under that decoding, the ROM constants are:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Port</th><th>CPU speed mode</th><th>Value</th><th>Divisor field</th><th>Wait field</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x09</code></td><td>0, 6 MHz</td><td><code>0x97</code> (<code>10010111b</code>)</td><td><code>100b</code> -&gt; divide by 16</td><td><code>0x17</code></td></tr>
+<tr><td><code>0x0A</code></td><td>1</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> -&gt; divide by 32</td><td><code>0x14</code></td></tr>
+<tr><td><code>0x0B</code></td><td>2, 15 MHz duplicate 1</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> -&gt; divide by 32</td><td><code>0x14</code></td></tr>
+<tr><td><code>0x0C</code></td><td>3, 15 MHz duplicate 2</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> -&gt; divide by 32</td><td><code>0x14</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Direct ROM scans found the page-3C byte-transfer path writing those constants during setup, then
+using the read side of <code>0x09</code> for status and <code>0x0A</code> for received bytes. Tilem agrees on the runtime
+status/data behavior and stores ports <code>0x09</code>-<code>0x0C</code>, but its <code>x4</code>/<code>xn</code>/<code>xs</code>/<code>xz</code> models label the
+write-side settings as unknown or timeout-like and do not derive link timing from <code>0x97</code>/<code>0xB4</code>.
+[ROM-confirmed writes; WikiTI field names; Tilem storage-only]</p>
 <h2 id="usb-selection-in-_linkxferop-confirmed"><a class="header" href="#usb-selection-in-_linkxferop-confirmed">USB selection in <code>_LinkXferOP</code> [confirmed]</a></h2>
 <p><code>_LinkXferOP</code> (<code>3C:4DD2</code>, bcall ID <code>0x50FB</code>) is the OS entry that sends a silent link request and
 prefers the USB path when its mode flags ask for it. <code>ti83plus.inc</code> names bcall <code>0x50FB</code>
@@ -5537,9 +5567,16 @@ inferred name for the page-3C body. The ROM-confirmed setup is:</p>
 <li>If <code>IY+0x1B</code> bit 0 is clear, it skips USB probing and sends through the ordinary link path.</li>
 <li>If bit 0 is set and either <code>IY+0x1B</code> bit 5 or bit 6 asks for USB handling, it reads port <code>0x4D</code>.</li>
 <li>If port <code>0x4D</code> bit 5 is clear, or bit 5 is set and bit 6 is clear, the OS sets <code>IY+0x1B</code> bit 5
-and calls the target at <code>ram:2E48</code>.</li>
-<li>Otherwise it clears <code>IY+0x1B</code> bit 5 and continues into <code>lnk_send_data_867d</code> (<code>3C:4055</code>), which
+and calls the page-0 bjump at <code>ram:2E0B</code>.</li>
+<li><code>ram:2E0B</code> dispatches via inline descriptor <code>80 42 75</code>, which is target <code>35:4280</code> after the
+normal page mask. That routine calls the public <code>_InitUSBDevice</code> body at <code>35:42B0</code>, then accepts
+only TI vendor <code>0x0451</code> with product IDs <code>0xE003</code>, <code>0xE008</code>, or <code>0xE00F</code>; success returns carry
+clear, while mismatch or init failure returns carry set.</li>
+<li>On carry set, <code>_LinkXferOP</code> clears <code>IY+0x1B</code> bit 5 and continues into <code>lnk_send_data_867d</code>
+(<code>3C:4055</code>), which
 sends the same TI link request/VAR/DATA packets described in the link-transfer page.</li>
+<li>On carry clear, the USB path remains selected and the OS calls the bjump reached through
+<code>ram:3FC3</code> with <code>A=0x0A</code>.</li>
 </ol>
 <p>This makes <code>_LinkXferOP</code> a USB-first wrapper around the existing link transfer engine. It does not
 replace the packet format. The transport choice happens before <code>_SendAByte</code> writes each byte through
@@ -5553,15 +5590,59 @@ and 0x1F
 <p>If no low-five-bit USB source is active, the handler falls through to the other interrupt work. If a
 USB source is active, it reads port <code>0x56</code> and branches on event bits. In the visible dispatcher,
 bits 4, 5, 6, 7, and 1 are routed to subhandlers; the surrounding code also checks 84+ hardware mode
-through <code>(IY+0x09)</code> bit 3 and <code>port 0x07 == 0x81</code> before using the USB/timer event path. [confirmed]</p>
+through <code>(IY+0x09)</code> bit 3 and <code>port 0x07 == 0x81</code> before using the USB/timer event path. The page-0
+bjumps resolve as:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th><code>port 0x56</code> bit</th><th>Page-0 dispatch</th><th>Page-35 target</th><th>Observed role</th></tr>
+</thead>
+<tbody>
+<tr><td>4</td><td><code>00:0122</code> -&gt; <code>ram:3FA5</code></td><td><code>35:4B6A</code></td><td>line/event settle path; waits on <code>0x4D</code> bits 7 and 0, writes <code>0x57 = 0x22</code>.</td></tr>
+<tr><td>5</td><td><code>00:0127</code> -&gt; <code>ram:3FAB</code></td><td><code>35:4B9F</code></td><td>event clear/re-arm path; may clear <code>0x4C</code>, reset <code>USBFlag2</code> bit 6, and write <code>0x57 = 0x50/0x93</code>.</td></tr>
+<tr><td>6</td><td><code>00:0113</code> -&gt; <code>ram:3F93</code></td><td><code>35:40B2</code></td><td>USB setup path; sets <code>IY+0x1B</code> bit 5, initializes controller state, and waits for <code>0x4C = 0x1A/0x5A</code>.</td></tr>
+<tr><td>7</td><td><code>00:0118</code> -&gt; <code>ram:3F99</code></td><td><code>35:4C14</code></td><td>cleanup/reset path; clears <code>0x5B</code>, resets <code>USBFlag2</code> bit 0, and jumps through the common controller reset.</td></tr>
+<tr><td>1</td><td><code>00:011D</code> -&gt; <code>ram:3F9F</code></td><td><code>35:4031</code></td><td>alternate setup path; waits for <code>0x4C = 0x12/0x52</code> and uses endpoint/status ports <code>0x87</code>/<code>0x89</code>/<code>0x8B</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>[confirmed]</p>
 <p>The timer/idle side of the same handler also bridges to the assist path. At <code>ram:01B1</code> it calls
 <code>ram:1850</code>, the same hardware-gate routine used elsewhere before assist-port access. On the legacy path it checks <code>port 0x00 &amp; 0x03</code>; on the assist
 path it checks <code>port 0x09 &amp; 0x18</code>. If either assist bit is set, it reloads <code>0x9C86 = 0xFA</code>, pulses
 port <code>0x08</code> with <code>0x80</code> then <code>0x00</code>, sets <code>IY+0x3E</code> bit 0, and calls the common link activity hook
 at <code>ram:3FD6</code>. [confirmed: <code>00:01B1</code>-<code>01DB</code>]</p>
 <p>For application code, this means a custom interrupt handler that does not chain to the OS handler
-must account for port <code>0x55</code>/<code>0x56</code> activity itself. The exact masking sequence is outside this
-ROM-grounded pass. [confirmed for the need to service sources; masking details open]</p>
+must account for port <code>0x55</code>/<code>0x56</code> activity itself and then either reproduce the relevant page-35
+event handling or deliberately leave USB disabled. The OS still acknowledges the legacy interrupt
+mask through port <code>0x03</code> on exit, but the USB event work is selected by <code>0x55</code>/<code>0x56</code> and page-35
+controller ports, not by a writeable <code>0x56</code> mask. [confirmed]</p>
+<h2 id="public-usb-api-bodies-confirmed"><a class="header" href="#public-usb-api-bodies-confirmed">Public USB API bodies [confirmed]</a></h2>
+<p>The public USB names in <code>ti83plus.inc</code> are backed by the main page-3B bcall table for the <code>0x50xx</code>,
+<code>0x52xx</code>, and <code>0x53xx</code> IDs. The table entries are <code>addr_lo, addr_hi, page</code>; page bytes like <code>0x75</code>
+mask to physical page <code>0x35</code>.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Bcall ID</th><th>Public name</th><th>Body</th><th>ROM-grounded behavior</th></tr>
+</thead>
+<tbody>
+<tr><td><code>50F2</code></td><td><code>_SendUSBData</code></td><td><code>35:4DD3</code></td><td>Sends from <code>HL</code> with byte count in <code>DE</code>; stores progress at <code>0x9C7E</code>/<code>0x9C81</code> and writes 64-byte chunks to port <code>0xA2</code>.</td></tr>
+<tr><td><code>50F5</code></td><td><code>_AppGetCBLUSB</code></td><td><code>3B:54C7</code></td><td>Sets <code>IY+0x1B</code> bit 1, clears bit 2, then reaches <code>_GetVarCmdUSB</code>.</td></tr>
+<tr><td><code>50F8</code></td><td><code>_AppGetCalcUSB</code></td><td><code>3B:54F0</code></td><td>Clears <code>IY+0x1B</code> bit 0 before the shared get-var path.</td></tr>
+<tr><td><code>50FB</code></td><td><code>_GetVarCmdUSB</code> / <code>_LinkXferOP</code></td><td><code>3C:4DD2</code></td><td>USB-first variable command wrapper described above.</td></tr>
+<tr><td><code>5254</code></td><td><code>_InitUSBDeviceCallback</code></td><td><code>35:4696</code></td><td>Initializes device mode, stores callback page/address at <code>0x9C13</code>/<code>0x9C14</code>, and returns <code>0xFC</code>-<code>0xFF</code> style error bytes with carry set on failure.</td></tr>
+<tr><td><code>5257</code> / <code>5311</code></td><td><code>_KillUSBDevice</code> / <code>_RecycleUSB</code></td><td><code>35:46FC</code> / <code>35:5B9B</code></td><td>Clears callback state and recycles through the same cleanup path.</td></tr>
+<tr><td><code>525A</code></td><td><code>_SetUSBConfiguration</code></td><td><code>35:470B</code></td><td>Builds an 8-byte request block at <code>0x9C29</code> and writes it through port <code>0xA0</code>.</td></tr>
+<tr><td><code>525D</code> / <code>5260</code></td><td><code>_RequestUSBData</code> / <code>_StopReceivingUSBData</code></td><td><code>35:48BA</code> / <code>35:48D1</code></td><td>Stores or clears the receive-buffer descriptor at <code>0x9C1E</code>; receive records are read from port <code>0xA1</code>.</td></tr>
+<tr><td><code>528A</code> / <code>528D</code></td><td><code>_EnableUSBHook</code> / <code>_DisableUSBHook</code></td><td><code>3B:7DC6</code> / <code>3B:7DD1</code></td><td>Stores <code>USBActivityHookPtr</code>/page at <code>0x9BD4</code>/<code>0x9BD6</code> and toggles <code>(IY+0x3A)</code> bit 0.</td></tr>
+<tr><td><code>5290</code></td><td><code>_InitUSBDevice</code></td><td><code>35:42B0</code></td><td>Main controller/device initialization path; uses <code>0x4C</code>/<code>0x4D</code> line handshakes and endpoint ports <code>0x80</code>-<code>0x9B</code>.</td></tr>
+<tr><td><code>5293</code></td><td><code>_KillUSBPeripheral</code></td><td><code>35:59CF</code></td><td>Peripheral teardown; sets controller state <code>0x9C28 = 5</code> and manipulates ports <code>0x54</code>/<code>0x81</code>.</td></tr>
+<tr><td><code>530B</code></td><td><code>_ToggleUSBSmartPadInput</code></td><td><code>35:5B84</code></td><td>Sets or clears bit 3 in <code>0x9C75</code> according to <code>A == 1</code>.</td></tr>
+<tr><td><code>530E</code></td><td><code>_IsUSBDeviceConnected</code></td><td><code>35:5B92</code></td><td>Preserves <code>A</code>; returns flags from <code>IN (0x81) &amp; 0x40</code>, matching the <code>.inc</code> comment.</td></tr>
+</tbody>
+</table>
+</div>
 <h2 id="how-to-use-it-in-code-grounded-by-os-calls"><a class="header" href="#how-to-use-it-in-code-grounded-by-os-calls">How to use it in code [grounded by OS calls]</a></h2>
 <p>Prefer the OS entry points unless the program is deliberately writing a USB driver:</p>
 <div class="table-wrapper">
@@ -5587,28 +5668,26 @@ machine ID, command, length, payload checksum, ACK/NAK, and EOT. That framing is
 <code>IY+0x3E</code> bit 0, <code>0x9C86</code>, and <code>0x9CAC</code>.</li>
 <li>If a custom interrupt handler is installed, either chain to the OS handler or service the same
 source gates. The OS itself expects to handle port <code>0x55</code>/<code>0x56</code> events.</li>
-<li>Treat any high-level USB endpoint/pipe controller claims as outside this page’s confirmed scope.
-This ROM pass does not trace a general USB host/device stack.</li>
+<li>Use the public USB bcalls for endpoint/controller work. The raw page-35 endpoint ports are
+mapped well enough to identify the FIFOs and state variables, but their bit-level protocol is not
+a stable public API.</li>
 </ul>
-<h2 id="open-pieces"><a class="header" href="#open-pieces">Open pieces</a></h2>
+<h2 id="remaining-limits-after-this-pass"><a class="header" href="#remaining-limits-after-this-pass">Remaining limits after this pass</a></h2>
 <ul>
-<li>The target at <code>ram:2E48</code>, called from <code>_LinkXferOP</code> after the port <code>0x4D</code> line-state test, is not
-a normal function in the current Ghidra database. A raw <code>z80dasm</code> window around <code>2E48</code> does not
-decode as a clean routine body, so its exact side effects remain open. [hypothesis]</li>
-<li>Port <code>0x0A</code> is confirmed as the assist RX/data read register on this path, but its initialization
-value <code>0xB4</code> and the paired writes to <code>0x0B</code>/<code>0x0C</code> still need bit-level interpretation.
-[hypothesis]</li>
-<li>A future pass should trace the EasyData/USB app paths and reconcile any endpoint/pipe ports with
-the OS 2.55MP database. [hypothesis] <code>ti83plus.inc</code> names the public peripheral/device API for
-that stack — <code>_InitUSB</code> (<code>0x8108</code>), <code>_KillUSB</code> (<code>0x810E</code>), <code>_InitUSBDevice</code> (<code>0x5290</code>),
-<code>_SetUSBConfiguration</code> (<code>0x525A</code>), <code>_RequestUSBData</code> (<code>0x525D</code>), <code>_SendUSBData</code> (<code>0x50F2</code>),
-<code>_StopReceivingUSBData</code> (<code>0x5260</code>), and <code>_IsUSBDeviceConnected</code> (<code>0x530E</code>, which the inc flags as
-a guessed purpose) — so the entry points are named even though their bodies are not traced in this
-pass.</li>
+<li>The previously listed RAM-target item is resolved: the ROM calls <code>ram:2E0B</code>, a
+<code>cross_page_jump</code> thunk to <code>35:4280</code>. Its carry-clear/carry-set result is now decoded above.</li>
+<li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs are mapped to bodies and sampled above. The boot-page
+<code>0x8xxx</code> USB names (<code>_InitUSB</code>, <code>_KillUSB</code>, <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>,
+<code>_USBErrorCleanup</code>) remain part of the repository-wide <code>0x8xxx</code> bcall-table reconciliation problem,
+not a page-3C link-transfer gap.</li>
+<li>The ROM does not give bit names for every page-35 controller register, and Tilem does not model
+physical timing from the assist setup values. This page therefore treats the <code>0x97</code>/<code>0xB4</code> field
+names as WikiTI-supported timing configuration, while ROM-confirmed claims remain limited to the
+written constants, status/data port use, comparisons, branch bits, RAM state, and FIFO direction.</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="bcall-reference-index"><a class="header" href="#bcall-reference-index">bcall reference index</a></h1>
-<p>The main table below lists the live-confirmed <code>0x4xxx</code> bcall system calls. Each has an <em>ID</em> (the 2-byte value after <code>rst 28h</code>) and a <em>body</em> at <code>page:addr</code>. Use your browser’s find, or the wiki search box. See <a href="#03--the-bcall-system-call-mechanism">The bcall Mechanism</a> for how dispatch works. The <code>0x8xxx</code> names at the end are official SDK equates, but their bodies are unresolved here because the local page 0x3F is BootFree-substituted and the 2.55 <code>.8Xu</code> image omits physical page 0x3F.</p>
+<p>The main table below lists the live-confirmed <code>0x4xxx</code> bcall system calls. Each has an <em>ID</em> (the 2-byte value after <code>rst 28h</code>) and a <em>body</em> at <code>page:addr</code>. Use your browser’s find, or the wiki search box. See <a href="#03--the-bcall-system-call-mechanism">The bcall Mechanism</a> for how dispatch works. The <code>0x8xxx</code> boot bcall names at the end are official SDK equates resolved from the retail boot table on page <code>3F</code>; USB boot entries point into page <code>2F</code>.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -6214,25 +6293,97 @@ pass.</li>
 </tbody>
 </table>
 </div>
-<h2 id="extended-0x8xxx-names--bodies-unresolved"><a class="header" href="#extended-0x8xxx-names--bodies-unresolved">Extended (<code>0x8xxx</code>) names — bodies unresolved</a></h2>
-<p>These <code>0x8xxx</code> IDs are defined in the full 2007 <code>ti83plus.inc</code> (SDK equate column below). The names are stable, but the bodies are unresolved. The old <code>3F:xxxx</code> targets came from a BootFree-substituted page 0x3F and are no longer emitted by <code>tools/resolve_bcalls.py</code>. <code>†</code> marks WikiTI <em>unofficial</em> names.</p>
+<h2 id="retail-boot-0x8xxx-bcalls"><a class="header" href="#retail-boot-0x8xxx-bcalls">Retail boot (<code>0x8xxx</code>) bcalls</a></h2>
+<p>These <code>0x8xxx</code> IDs are defined in the full 2007 <code>ti83plus.inc</code> and resolved from the retail boot table. <code>tools/resolve_bcalls.py</code> emits this table only when page <code>3F</code> has the retail boot prefix, not when it sees BootFree.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>bcall</th><th>ID</th><th>SDK equate (<code>ti83plus.inc</code>)</th><th>Body (page:addr)</th></tr>
+<tr><th>bcall</th><th>ID</th><th>Body (page:addr)</th></tr>
 </thead>
 <tbody>
-<tr><td><code>_WriteAByte</code></td><td><code>8021</code></td><td><code>_WriteAByte</code></td><td>unresolved</td></tr>
-<tr><td><code>_FindFirstCertificateField</code></td><td><code>8027</code></td><td><code>_FindFirstCertField</code></td><td>unresolved</td></tr>
-<tr><td><code>_FindGroupedField</code> †</td><td><code>8030</code></td><td><code>_FindGroupedField</code></td><td>unresolved</td></tr>
-<tr><td><code>_FlashToRAM2</code> †</td><td><code>8054</code></td><td><code>_FlashToRam2</code></td><td>unresolved</td></tr>
-<tr><td><code>_GetCertificateStart</code></td><td><code>8057</code></td><td><code>_GetCertificateStart</code></td><td>unresolved</td></tr>
-<tr><td><code>_GetFieldSize</code></td><td><code>805A</code></td><td><code>_GetFieldSize</code></td><td>unresolved</td></tr>
-<tr><td><code>_FindSubField</code> †</td><td><code>805D</code></td><td><code>_FindSubField</code></td><td>unresolved</td></tr>
-<tr><td><code>_FindOSHeaderSubField</code> †</td><td><code>8075</code></td><td><code>_FindOSHeaderSubField</code></td><td>unresolved</td></tr>
-<tr><td><code>_Div32By16</code></td><td><code>80B1</code></td><td><code>_Div32By16</code></td><td>unresolved</td></tr>
-<tr><td><code>_GetBootVer</code></td><td><code>80B7</code></td><td><code>_getBootVer</code></td><td>unresolved</td></tr>
-<tr><td><code>_GetHWVer</code></td><td><code>80BA</code></td><td><code>_getHardwareVersion</code></td><td>unresolved</td></tr>
+<tr><td><code>_MD5Final</code></td><td><code>8018</code></td><td><code>3F:6964</code></td></tr>
+<tr><td><code>_RSAValidate</code></td><td><code>801B</code></td><td><code>3F:6CB4</code></td></tr>
+<tr><td><code>_cmpStr</code></td><td><code>801E</code></td><td><code>3F:7195</code></td></tr>
+<tr><td><code>_WriteAByte</code></td><td><code>8021</code></td><td><code>3F:4C9F</code></td></tr>
+<tr><td><code>_EraseFlash</code></td><td><code>8024</code></td><td><code>3F:4C2A</code></td></tr>
+<tr><td><code>_FindFirstCertField</code></td><td><code>8027</code></td><td><code>3F:4D62</code></td></tr>
+<tr><td><code>_ZeroToCertificate</code></td><td><code>802A</code></td><td><code>3F:4DAF</code></td></tr>
+<tr><td><code>_GetCertificateEnd</code></td><td><code>802D</code></td><td><code>3F:4D53</code></td></tr>
+<tr><td><code>_FindGroupedField</code></td><td><code>8030</code></td><td><code>3F:4E8C</code></td></tr>
+<tr><td><code>_ret_1</code></td><td><code>8033</code></td><td><code>3F:4867</code></td></tr>
+<tr><td><code>_ret_2</code></td><td><code>8036</code></td><td><code>3F:4867</code></td></tr>
+<tr><td><code>_ret_3</code></td><td><code>8039</code></td><td><code>3F:4867</code></td></tr>
+<tr><td><code>_ret_4</code></td><td><code>803C</code></td><td><code>3F:4867</code></td></tr>
+<tr><td><code>_ret_5</code></td><td><code>803F</code></td><td><code>3F:4867</code></td></tr>
+<tr><td><code>_Mult8By8</code></td><td><code>8042</code></td><td><code>3F:7059</code></td></tr>
+<tr><td><code>_Mult16By8</code></td><td><code>8045</code></td><td><code>3F:705B</code></td></tr>
+<tr><td><code>_Div16By8</code></td><td><code>8048</code></td><td><code>3F:7146</code></td></tr>
+<tr><td><code>_Div16By16</code></td><td><code>804B</code></td><td><code>3F:7148</code></td></tr>
+<tr><td><code>_LoadAIndPaged</code></td><td><code>8051</code></td><td><code>3F:486E</code></td></tr>
+<tr><td><code>_FlashToRam2</code></td><td><code>8054</code></td><td><code>3F:4888</code></td></tr>
+<tr><td><code>_GetCertificateStart</code></td><td><code>8057</code></td><td><code>3F:4D46</code></td></tr>
+<tr><td><code>_GetFieldSize</code></td><td><code>805A</code></td><td><code>3F:4DB8</code></td></tr>
+<tr><td><code>_FindSubField</code></td><td><code>805D</code></td><td><code>3F:4DFB</code></td></tr>
+<tr><td><code>_EraseCertificateSector</code></td><td><code>8060</code></td><td><code>3F:4E3F</code></td></tr>
+<tr><td><code>_CheckHeaderKey</code></td><td><code>8063</code></td><td><code>3F:4B4A</code></td></tr>
+<tr><td><code>_Load_LFontV2</code></td><td><code>806C</code></td><td><code>3F:7C8A</code></td></tr>
+<tr><td><code>_Load_LFontV</code></td><td><code>806F</code></td><td><code>3F:7C8A</code></td></tr>
+<tr><td><code>_ReceiveOS</code></td><td><code>8072</code></td><td><code>3F:5DCE</code></td></tr>
+<tr><td><code>_FindOSHeaderSubField</code></td><td><code>8075</code></td><td><code>3F:5018</code></td></tr>
+<tr><td><code>_FindNextCertField</code></td><td><code>8078</code></td><td><code>3F:4D5C</code></td></tr>
+<tr><td><code>_GetByteOrBoot</code></td><td><code>807B</code></td><td><code>3F:5C64</code></td></tr>
+<tr><td><code>_getSerial</code></td><td><code>807E</code></td><td><code>3F:442F</code></td></tr>
+<tr><td><code>_ReceiveCalcID</code></td><td><code>8081</code></td><td><code>3F:5EDC</code></td></tr>
+<tr><td><code>_EraseFlashPage</code></td><td><code>8084</code></td><td><code>3F:4C1E</code></td></tr>
+<tr><td><code>_WriteFlashUnsafe</code></td><td><code>8087</code></td><td><code>3F:4CA6</code></td></tr>
+<tr><td><code>_dispBootVer</code></td><td><code>808A</code></td><td><code>3F:44F1</code></td></tr>
+<tr><td><code>_MD5Init</code></td><td><code>808D</code></td><td><code>3F:68ED</code></td></tr>
+<tr><td><code>_MD5Update</code></td><td><code>8090</code></td><td><code>3F:6907</code></td></tr>
+<tr><td><code>_MarkOSInvalid</code></td><td><code>8093</code></td><td><code>3F:5209</code></td></tr>
+<tr><td><code>_FindProgramLicense</code></td><td><code>8096</code></td><td><code>3F:4B1A</code></td></tr>
+<tr><td><code>_MarkOSValid</code></td><td><code>8099</code></td><td><code>3F:51F5</code></td></tr>
+<tr><td><code>_CheckOSValidated</code></td><td><code>809C</code></td><td><code>3F:52C6</code></td></tr>
+<tr><td><code>_SetupAppPubKey</code></td><td><code>809F</code></td><td><code>3F:53CA</code></td></tr>
+<tr><td><code>_SigModR</code></td><td><code>80A2</code></td><td><code>3F:7225</code></td></tr>
+<tr><td><code>_TransformHash</code></td><td><code>80A5</code></td><td><code>3F:723F</code></td></tr>
+<tr><td><code>_IsAppFreeware</code></td><td><code>80A8</code></td><td><code>3F:52E1</code></td></tr>
+<tr><td><code>_FindAppHeaderSubField</code></td><td><code>80AB</code></td><td><code>3F:500A</code></td></tr>
+<tr><td><code>_WriteValidationNumber</code></td><td><code>80AE</code></td><td><code>3F:540B</code></td></tr>
+<tr><td><code>_Div32By16</code></td><td><code>80B1</code></td><td><code>3F:706E</code></td></tr>
+<tr><td><code>_FindGroup</code></td><td><code>80B4</code></td><td><code>3F:4E61</code></td></tr>
+<tr><td><code>_getBootVer</code></td><td><code>80B7</code></td><td><code>3F:477C</code></td></tr>
+<tr><td><code>_getHardwareVersion</code></td><td><code>80BA</code></td><td><code>3F:4781</code></td></tr>
+<tr><td><code>_xorA</code></td><td><code>80BD</code></td><td><code>3F:5C6D</code></td></tr>
+<tr><td><code>_bignumpowermod17</code></td><td><code>80C0</code></td><td><code>3F:6CBD</code></td></tr>
+<tr><td><code>_ProdNrPart1</code></td><td><code>80C3</code></td><td><code>3F:6209</code></td></tr>
+<tr><td><code>_WriteAByteSafe</code></td><td><code>80C6</code></td><td><code>3F:4C9A</code></td></tr>
+<tr><td><code>_WriteFlash</code></td><td><code>80C9</code></td><td><code>3F:4C8F</code></td></tr>
+<tr><td><code>_SetupDateStampPubKey</code></td><td><code>80CC</code></td><td><code>3F:548C</code></td></tr>
+<tr><td><code>_SetFlashLowerBound</code></td><td><code>80CF</code></td><td><code>3F:4784</code></td></tr>
+<tr><td><code>_LowBatteryBoot</code></td><td><code>80D2</code></td><td><code>3F:5834</code></td></tr>
+<tr><td><code>_AttemptUSBOSReceive</code></td><td><code>80E4</code></td><td><code>2F:4145</code></td></tr>
+<tr><td><code>_DisplayBootMessage</code></td><td><code>80E7</code></td><td><code>3F:6127</code></td></tr>
+<tr><td><code>_NewLine2</code></td><td><code>80EA</code></td><td><code>3F:73DD</code></td></tr>
+<tr><td><code>_DisplayBootError10</code></td><td><code>80ED</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_Chk_Batt_Low_B</code></td><td><code>80F0</code></td><td><code>3F:6171</code></td></tr>
+<tr><td><code>_Chk_Batt_Low_B2</code></td><td><code>80F3</code></td><td><code>3F:6163</code></td></tr>
+<tr><td><code>_ReceiveOS_USB</code></td><td><code>80F6</code></td><td><code>2F:48CA</code></td></tr>
+<tr><td><code>_DisplayOSProgress</code></td><td><code>80F9</code></td><td><code>3F:62D0</code></td></tr>
+<tr><td><code>_ResetCalc</code></td><td><code>80FC</code></td><td><code>3F:5ED3</code></td></tr>
+<tr><td><code>_SetupOSPubKey</code></td><td><code>80FF</code></td><td><code>3F:5387</code></td></tr>
+<tr><td><code>_CheckHeaderKeyHL</code></td><td><code>8102</code></td><td><code>3F:4B4D</code></td></tr>
+<tr><td><code>_USBErrorCleanup</code></td><td><code>8105</code></td><td><code>2F:5958</code></td></tr>
+<tr><td><code>_InitUSB</code></td><td><code>8108</code></td><td><code>2F:52A4</code></td></tr>
+<tr><td><code>_KillUSB</code></td><td><code>810E</code></td><td><code>2F:5961</code></td></tr>
+<tr><td><code>_DisplayBootError1</code></td><td><code>8111</code></td><td><code>3F:63DB</code></td></tr>
+<tr><td><code>_DisplayBootError2</code></td><td><code>8114</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError3</code></td><td><code>8117</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError4</code></td><td><code>811A</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError5</code></td><td><code>811D</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError6</code></td><td><code>8120</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError7</code></td><td><code>8123</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError8</code></td><td><code>8126</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError9</code></td><td><code>8129</code></td><td><code>3F:5789</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -6861,14 +7012,14 @@ pass.</li>
 <p>The structural reverse-engineering is comprehensive (every subsystem mapped, both cross-page mechanisms resolved, full input→parse→eval→display pipeline documented). What remains is <strong>depth</strong>, gathered here from the per-doc TODOs and prioritized. Each is self-contained for a future session.</p>
 <h2 id="resolved-3"><a class="header" href="#resolved-3">Resolved</a></h2>
 <ol>
-<li><strong>Flash sector write/erase primitive map</strong> — the live DB confirms anchors <code>flash_program_buf</code>@<code>3D:678C</code>, <code>flash_erase_wait</code>@<code>3D:5ED3</code>, <code>flash_cmd_base</code>@<code>3D:738B</code>, <code>flash_set_sector_cnt</code>@<code>3D:727D</code>, <code>flash_page_select</code>@<code>3D:726E</code>, <code>flash_find_nonff</code>@<code>3D:7DEA</code>, and <code>flash_op_fd/fb/fe</code>@<code>3D:7C8F/7C93/7C97</code>. The public bcall entry points for these primitives are named in <code>ti83plus.inc</code>: <code>_WriteAByte</code> (8021), <code>_WriteAByteSafe</code> (80C6), and <code>_FlashToRam2</code> (8054); their IDs name the API, not the body addresses. The candidate addresses <code>3D:61AF</code>, <code>3D:64AA</code>, <code>3D:62C2</code>, <code>3D:6413</code>, and <code>3D:6B9B</code> are still undisassembled (not defined functions) in the live DB; their <code>flash_*</code> names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates, and the <code>0x8xxx</code> IDs are not yet mapped to these bodies. See <a href="#variables-archive--unarchive">sub-vat-archive.md</a> / <a href="#12--memory-management-ram-heap--flash-archive">12</a>.</li>
+<li><strong>Flash sector write/erase primitive map</strong> — the live DB confirms anchors <code>flash_program_buf</code>@<code>3D:678C</code>, <code>flash_erase_wait</code>@<code>3D:5ED3</code>, <code>flash_cmd_base</code>@<code>3D:738B</code>, <code>flash_set_sector_cnt</code>@<code>3D:727D</code>, <code>flash_page_select</code>@<code>3D:726E</code>, <code>flash_find_nonff</code>@<code>3D:7DEA</code>, and <code>flash_op_fd/fb/fe</code>@<code>3D:7C8F/7C93/7C97</code>. The public bcall entry points for these primitives are named in <code>ti83plus.inc</code>: <code>_WriteAByte</code> (8021), <code>_WriteAByteSafe</code> (80C6), and <code>_FlashToRam2</code> (8054); the retail boot table maps them to <code>3F:4C9F</code>, <code>3F:4C9A</code>, and <code>3F:4888</code>. The candidate addresses <code>3D:61AF</code>, <code>3D:64AA</code>, <code>3D:62C2</code>, <code>3D:6413</code>, and <code>3D:6B9B</code> are still undisassembled (not defined functions) in the live DB; their <code>flash_*</code> names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates. See <a href="#variables-archive--unarchive">sub-vat-archive.md</a> / <a href="#12--memory-management-ram-heap--flash-archive">12</a>.</li>
 <li><strong>Flash archive garbage collector</strong> — the behavior is documented. The GC-path candidates <code>flash_gc_relocate</code>@<code>3C:7BD0</code>, <code>gc_show_screen</code>@<code>3C:7E0D</code>, and <code>flash_cmd_dispatch</code>@<code>3C:7121</code> are still undisassembled (not defined functions) in the live DB; those <code>flash_*</code>/<code>gc_*</code> names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates.</li>
 <li><del><strong>VAT entry binary layout</strong></del> ✅ <strong>DONE</strong> — field order/size per object class documented from <code>_FindSym</code>’s scan (<code>findsym_scan</code>@<code>07:565F</code>) and the create-header writes. See <a href="#05--variables--the-vat-variable-allocation-table">05</a>.</li>
 <li><del><strong>Parser precedence levels</strong></del> ✅ <strong>DONE</strong> — the recursive-descent productions and the sub-dispatch tables at <code>page_38:5110</code>/<code>5127</code> are mapped via <code>parse_eval_expr</code>@<code>38:5AB3</code>. See <a href="#07--tokenizer--ti-basic">07</a>.</li>
 <li><del><strong>Event/context <code>0x3f3f</code> router</strong></del> ✅ <strong>DONE</strong> — resolved to the RAM-resident vector reaching <code>event_key_router</code>@<code>page_07:4539</code>; the 8-slot context stack near <code>0x84BE</code> is documented. See <a href="#11--boot-contexts-and-error-handling">11</a>.</li>
-<li><strong>84+-era bcall names / page 0x3F reconciliation</strong> — the <code>0x8xxx</code> IDs (e.g. <code>_WriteAByte 8021</code>, <code>_FindFirstCertField 8027</code>, <code>_FlashToRam2 8054</code>, <code>_GetCertificateStart 8057</code>, <code>_FindOSHeaderSubField 8075</code>, <code>_getBootVer 80B7</code>, <code>_getHardwareVersion 80BA</code>, <code>_WriteAByteSafe 80C6</code>) are canonical equates in the full 2007 SDK <code>tools/ti83plus.inc</code> (334 <code>0x8xxx</code> equates total). They are official TI bcalls, so the <strong>naming</strong> side is settled. The body/table side stays open; see item 15. See <a href="#03--the-bcall-system-call-mechanism">03</a>.</li>
+<li><del><strong>84+-era bcall names / page 0x3F reconciliation</strong></del> ✅ <strong>DONE</strong> — the <code>0x8xxx</code> IDs are canonical equates in the full 2007 SDK <code>tools/ti83plus.inc</code>, and the retail boot table now maps 83 boot entries to bodies. Most are on page <code>3F</code>; USB boot entries such as <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_USBErrorCleanup</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> land on page <code>2F</code>. See <a href="#03--the-bcall-system-call-mechanism">03</a>.</li>
 <li><del><strong>Equation display core (page 0x39)</strong></del> ✅ <strong>DONE</strong> — page 0x39’s classification, handler records, descriptor templates, recursive operand walker, and glyph/string output paths are documented as a cell-grid typesetter. See <a href="#equation-display-mathprint">sub-equation-display.md</a>.</li>
-<li><del><strong>Name every <code>FUN_</code> helper</strong></del> ✅ <strong>DONE</strong> — 100% of the 2413 functions are now named (<code>tools/names.txt</code> + <code>RenameFns.java</code>).</li>
+<li><del><strong>Name every <code>FUN_</code> helper</strong></del> ✅ <strong>DONE</strong> — the OS function-naming pass is complete for the main ROM analysis (<code>tools/names.txt</code> + <code>RenameFns.java</code>).</li>
 <li><del><strong>Font glyph page</strong></del> ✅ <strong>DONE</strong> — the large-font glyph table is on <strong>page 0x07 at base <code>0x45FF</code></strong> with a <strong>7-byte stride</strong> (<code>put_glyph_large</code> <code>07:4588</code> → <code>lgfont_glyph_ptr_adjust</code> <code>07:45EB</code>); alternate fonts on pages 1/0x36. See <a href="#08--display--lcd">08</a>, <a href="#13--flash-page-map">13</a>.</li>
 <li><del><strong>Token→layout-class table</strong></del> ✅ <strong>DONE</strong> — <code>eqdisp_load_tok_handler</code> (<code>39:4C27</code>) indexes the 0x44-entry table at <code>0x5E45</code> by class byte; fraction/superscript forms are selected by a <code>+0x28</code>/<code>+0x29</code> class bias. See <a href="#equation-display-mathprint">sub-equation-display.md</a>.</li>
 <li><del><strong>FP transcendental coefficient tables</strong></del> ✅ <strong>DONE</strong> — <code>ram:2362</code> was resolved as a bcall entry to <code>page_02:7D1E</code>, not a page selector. The ln/e^x/sin-cos coefficient tables and loop bounds are byte-dumped in <a href="#06--floating-point-engine">06</a>: ln/e^x use the 16-row <code>02:7181</code> table; sin/cos uses the signed 8-row <code>02:7201</code>/<code>02:7281</code> tables.</li>
@@ -6878,7 +7029,6 @@ pass.</li>
 <ol start="13">
 <li><strong>Enum equates.</strong> Apply <code>TIKeyCode</code>/<code>TIError</code>/<code>TIVarType</code> to scalar operands in the relevant handlers (conservative, scoped).</li>
 <li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
-<li><strong><code>0x8xxx</code> bcall bodies / dispatch table.</strong> The 84+-era <code>0x8xxx</code> bcall <em>names</em> are canonical equates (item 6), but their bodies are unresolved. The local raw page 0x3F starts <code>3E 3F D3 06 D3 07 C3 2C 81</code>, the BootFree replacement signature, so old page-0x3F target scans are invalid for retail TI-OS. A decoded <code>TI84Plus_OS255.8Xu</code> OS-page image includes physical pages <code>00–07</code> and <code>30–3D</code>, but not <code>3F</code>. Locate a retail boot page or model the real dispatch source before assigning ID→body mappings such as <code>_WriteAByte 8021</code>, <code>_FlashToRam2 8054</code>, and <code>_getHardwareVersion 80BA</code>. See <a href="#03--the-bcall-system-call-mechanism">03</a>.</li>
 </ol>
 <h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>
 <p>Reopen <code>~/Documents/ti84-re/ti84.gpr</code> (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in <code>tools/</code> and rebuild with <code>tools/build.sh</code>. The remaining items mostly need a <strong>headless raw-byte dump</strong> of regions the live decompiler leaves as unanalyzed data (the page-0x35 timer handler, the page-0x38 <code>0xBB</code>/class-3 dispatch tables).</p>

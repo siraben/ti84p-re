@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ca883063.js";
+            window.path_to_searchindex_js = "searchindex-2bf63802.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -541,8 +541,8 @@ state machine. RAM block: <code>ioFlag 8670 … bakHeader 868B</code>, staging
 them vs. the blanket 0x9F here. [H]</li>
 <li>Backup (sndRecState 0x08 / varClass 0x0A) framing detail in <code>40DA</code> (the 0x37D clamp + 0x63 00
 prefix) — full backup-packet layout. [H]</li>
-<li>The target at <code>ram:2E48</code>, called after <code>_LinkXferOP</code> samples port <code>0x4D</code>, is not a function in
-the current Ghidra database. Its exact side effects remain open; see <a href="sub-usb-asic.html">sub-usb-asic.md</a>.</li>
+<li>The prior USB target gap is now mapped in <a href="sub-usb-asic.html">sub-usb-asic.md</a>: <code>_LinkXferOP</code> calls
+<code>ram:2E0B</code>, a <code>cross_page_jump</code> thunk to <code>35:4280</code>, after sampling port <code>0x4D</code>.</li>
 </ul>
 
                     </main>

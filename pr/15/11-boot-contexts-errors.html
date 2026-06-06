@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ca883063.js";
+            window.path_to_searchindex_js = "searchindex-2bf63802.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -189,7 +189,7 @@
              ... (jumps into RAM-copied code — static disasm stops here)
 </code></pre>
 <p>Boot configures the paging hardware (ports 6 and <code>0x0E</code>) and the memory-map/timer mode (port 4 write), then transfers to code it copies into RAM (why the static trace ends with “bad instruction”). The continuation at <code>028c</code> ends <code>JP 0x812c</code>. <code>0x812c</code> is in the RAM execution window and is <em>blank in the static image</em>: the bytes are filled in at boot by the copy this stub performs, so the static trace cannot follow it. It eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen).</p>
-<p>The boot page (<code>3F</code>) and its version queries are exposed to the OS through <code>ti83plus.inc</code> bcalls: <code>_getBootVer</code> (bcall <code>0x80B7</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code>). These public entry points sit in the boot-page bcall range (<code>0x8000</code>+); their bodies are not defined functions in the current live DB.</p>
+<p>The boot page (<code>3F</code>) and its version queries are exposed to the OS through <code>ti83plus.inc</code> bcalls: <code>_getBootVer</code> (bcall <code>0x80B7</code> → <code>3F:477C</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code> → <code>3F:4781</code>). The USB boot support entry points route through the same table but land on page <code>2F</code>, for example <code>_AttemptUSBOSReceive</code> (<code>0x80E4</code> → <code>2F:4145</code>) and <code>_InitUSB</code> (<code>0x8108</code> → <code>2F:52A4</code>).</p>
 <h3 id="ram-clear--re-init-ram_reset_wipe--0x0bd9-confirmed"><a class="header" href="#ram-clear--re-init-ram_reset_wipe--0x0bd9-confirmed">RAM clear / re-init (<code>ram_reset_wipe</code> → <code>0x0BD9</code>) [confirmed]</a></h3>
 <p>The RAM-init proper is <code>ram_reset_wipe</code> (<code>35:719F</code>, reached on a full reset; the same routine backs the <code>[2nd]+[+] · 7 · 1 · 2</code> RAM-reset and the post-boot RAM clear). It zero-fills RAM in two blocks, preserving a handful of flag bits and <code>0x9B73</code> across the wipe:</p>
 <pre><code class="language-z80">ram_reset_wipe (35:719f):
