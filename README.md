@@ -7,8 +7,10 @@ A reproducible Ghidra reverse-engineering project for the **TI-84 Plus** calcula
 ## What's here
 
 ```
-tools/   build pipeline (Ghidra headless scripts) + derived symbol tables
-docs/    reverse-engineering notes, one file per subsystem
+docs/                  reverse-engineering notes, one file per subsystem (the rendered wiki)
+tools/                 build pipeline (Ghidra headless scripts) + derived symbol tables
+WRITING_GUIDELINES.md  authoring style guide for the wiki
+flake.nix · book.toml  mdBook build/serve + vendored KaTeX/Mermaid/pseudocode assets
 ```
 
 The ROM (`ti84plus.rom`) and the Ghidra project (`*.gpr`/`*.rep`) are gitignored. Put the ROM at `tools/rom.bin` (and a 16 KiB page-0 slice at `tools/ti84_page00.bin`) and run the build.
@@ -74,7 +76,7 @@ A Z80 (64 KiB address space) with hardware **paging** maps flash page 0 at `0000
 | [06](docs/06-floating-point.md) | BCD float format, OP registers, `_FPAdd` |
 | [07](docs/07-tokenizer-basic.md) | Tokens & the parser (page 0x38) |
 | [08](docs/08-display-lcd.md) | LCD driver, fonts, screen buffers |
-| [09](docs/09-keyboard-link.md) | Keypad scan & link protocol |
+| [09](docs/09-keyboard-link.md) | Keypad scan, 2nd/ALPHA state machine & link protocol |
 | [10](docs/10-subsystem-map.md) | bcall API surface, system through-line |
 | [11](docs/11-boot-contexts-errors.md) | Boot, the context system, `_JError`/`onSP` |
 | [12](docs/12-memory-management.md) | RAM heap, VAT, Flash archive & GC |
@@ -84,6 +86,10 @@ A Z80 (64 KiB address space) with hardware **paging** maps flash page 0 at `0000
 **Subsystem deep-dives** (from parallel multi-agent RE): `sub-calculation`, `sub-graphing`, `sub-tibasic`, `sub-vat-archive`, `sub-apps-mem-settings`, `sub-statistics`, `sub-matrix-list`, `sub-solver-numeric`, `sub-table-yvars`, `sub-equation-display`, `sub-link-transfer`.
 
 **Reference**: [`glossary`](docs/glossary.md) (terms & key RAM symbols), [`conventions`](docs/conventions.md) (notation, confidence flags, methodology), [`bcall-index`](docs/bcall-index.md) (main bcalls plus unverified extended entries, alphabetical), [`token-tables`](docs/token-tables.md) (492 two-byte tokens, from TI-Toolkit/tokens).
+
+## Contributing
+
+Wiki prose follows two style references: [`WRITING_GUIDELINES.md`](WRITING_GUIDELINES.md) — the authoring guide (voice, positive framing, structure, sentence-case headings) — and the reader-facing [`docs/conventions.md`](docs/conventions.md), which fixes the address notation (`pp:addr`), the `[confirmed]`/`[standard]`/`[hypothesis]` confidence flags, and the KaTeX/Mermaid/pseudocode mechanics. Claims are grounded against the live Ghidra DB (GhidraMCP over `:8080`); for routines its auto-analysis left undefined (cross-page trampolines break the call graph), decode `tools/rom.bin` directly — e.g. with `z80dasm`, validated against a routine Ghidra *does* define. Run `nix build` before committing to confirm math and diagram fences parse.
 
 ## Legal
 Independent reverse-engineering notes for interoperability/education. **No copyrighted TI ROM image or OS code is included** — the ROM is gitignored and you supply your own dump. `ti83plus.inc` is TI's freely-distributed equates file. All trademarks belong to Texas Instruments; this project is not affiliated with or endorsed by TI.
