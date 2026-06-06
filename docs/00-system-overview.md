@@ -48,8 +48,9 @@ Each row maps a documentation page to the subsystem it covers and its analysis s
 | [sub-table-yvars.md](sub-table-yvars.md) | TABLE generation/cache, Y= equation vars | ✅ |
 | [sub-equation-display.md](sub-equation-display.md) | Equation display / MathPrint layout (page 0x39 `eqdisp_*`) | ✅ |
 | [sub-link-transfer.md](sub-link-transfer.md) | Link protocol: byte/packet/var-transfer (page 0x3C) | ✅ |
+| [sub-usb-asic.md](sub-usb-asic.md) | USB ASIC/link-assist ports and OS transport selection | ✅ |
 
-(The `sub-*` docs are deep dives covering user-facing functionality: calculation, graphing, TI-BASIC, VAT/archive, apps, stats, matrices, solver, table, and link.)
+(The `sub-*` docs are deep dives covering user-facing functionality and I/O internals: calculation, graphing, TI-BASIC, VAT/archive, apps, stats, matrices, solver, table, equation display, link, and USB/link assist.)
 
 New to these notes? Start with [Conventions & Methodology](conventions.md) (how to read the addresses and confidence flags) and the [Glossary](glossary.md); the [bcall Index](bcall-index.md) is the full alphabetical system-call reference.
 
