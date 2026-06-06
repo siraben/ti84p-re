@@ -7,6 +7,11 @@
 06	port_mapBankA
 07	port_mapBankB
 08	port_linkAssist
+09	port_linkAssistStatus
+0A	port_linkAssistData
+0B	port_linkAssistConfigB
+0C	port_linkAssistConfigC
+0D	port_linkAssistTxFifo
 0F	port_0F
 10	port_lcdCmd
 11	port_lcdData
@@ -20,5 +25,6 @@
 35	port_timer2Status
 36	port_timer2Counter
 37	port_37
-55	port_intStatusExt
-56	port_intMaskExt
+4D	port_usbLineState
+55	port_usbIntStatus
+56	port_usbLineEvents

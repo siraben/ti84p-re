@@ -42,6 +42,7 @@
 - [Table & Y= variables](sub-table-yvars.md)
 - [Equation display (MathPrint)](sub-equation-display.md)
 - [Link / data transfer](sub-link-transfer.md)
+- [USB ASIC and link assist](sub-usb-asic.md)
 
 # Reference
 

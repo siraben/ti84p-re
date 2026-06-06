@@ -5,7 +5,8 @@
 Deep-dive companion to [09-keyboard-link.md](09-keyboard-link.md), focused on what a **student transferring data**
 touches: pushing a program/list/etc. to a computer (TI-Connect) or another calculator over the
 2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of [doc 09](09-keyboard-link.md)'s byte
-primitives `_SendAByte` (`3C:420D`) and `_RecAByteIO` (`3C:443F`).
+primitives `_SendAByte` (`3C:420D`) and `_RecAByteIO` (`3C:443F`); the ASIC-facing assist/USB ports
+are covered separately in [USB ASIC and link assist](sub-usb-asic.md).
 
 Addresses here are read from the raw Z80 disassembly. The decompiler mis-renders this subsystem —
 it passes arguments in registers and does its state work with `SET/RES/BIT b,(IY+d)` flag ops that the
@@ -378,11 +379,12 @@ silent-link engine documented here. **[C for 0x9F path; H for the 0x22-25 mappin
 | `00:50DD` | `_GetSysInfo` | system info reply (used in link sessions) |
 | `00:4A14` | `_SendVarCmd` (bcall id) | → 3C:4EDD |
 
-**Ports:** `0x00` = bit-bang link (tip/ring); `0x08/0x09/0x0D` = HW link-assist (status/control/data
-FIFO — port 0x09 bit5 TX-ready, bit6 transmission-error, bit4 byte-received, bits 0x19 error);
+**Ports:** `0x00` = bit-bang link (tip/ring); `0x08`-`0x0D` = HW link-assist control/status/data
+FIFO (port 0x09 bit5 TX-ready, bit6 transmission-error, bit4 byte-received, bits 0x19 error);
 `0x02` bit7 = non-83+-Basic (assist-present gate on 84+; WikiTI's "link-assist available" is bit6);
 `0x20` = CPU speed (timeout scaling); `0x4D` bits5/6 = USB negotiation; `0x14` = Flash
-write/erase (received-to-archive path). RAM block: `ioFlag 8670 … bakHeader 868B`, staging
+write/erase (received-to-archive path). See [sub-usb-asic.md](sub-usb-asic.md) for the assist port
+state machine. RAM block: `ioFlag 8670 … bakHeader 868B`, staging
 `pagedBuf 983A`.
 
 **Command IDs:** 0x06 VAR · 0x09 CTS · 0x15 DATA · 0x2D DEL · 0x36 SKIP/EXIT · 0x56 ACK ·
@@ -394,5 +396,5 @@ write/erase (received-to-archive path). RAM block: `ioFlag 8670 … bakHeader 86
   them vs. the blanket 0x9F here. [H]
 - Backup (sndRecState 0x08 / varClass 0x0A) framing detail in `40DA` (the 0x37D clamp + 0x63 00
   prefix) — full backup-packet layout. [H]
-- The USB stack proper (port 0x4D, the `cross_page 2E0B` host negotiation) lives off page 3C and is
-  not traced here.
+- The target at `ram:2E48`, called after `_LinkXferOP` samples port `0x4D`, is not a function in
+  the current Ghidra database. Its exact side effects remain open; see [sub-usb-asic.md](sub-usb-asic.md).

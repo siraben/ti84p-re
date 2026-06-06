@@ -83,7 +83,7 @@ A Z80 (64 KiB address space) with hardware **paging** maps flash page 0 at `0000
 | [13](docs/13-flash-page-map.md) | What each of the 64 flash pages holds |
 | [99](docs/99-open-questions.md) | Future-work roadmap |
 
-**Subsystem deep-dives** (from parallel multi-agent RE): `sub-calculation`, `sub-graphing`, `sub-tibasic`, `sub-vat-archive`, `sub-apps-mem-settings`, `sub-statistics`, `sub-matrix-list`, `sub-solver-numeric`, `sub-table-yvars`, `sub-equation-display`, `sub-link-transfer`.
+**Subsystem deep-dives** (from parallel multi-agent RE): `sub-calculation`, `sub-graphing`, `sub-tibasic`, `sub-vat-archive`, `sub-apps-mem-settings`, `sub-statistics`, `sub-matrix-list`, `sub-solver-numeric`, `sub-table-yvars`, `sub-equation-display`, `sub-link-transfer`, `sub-usb-asic`.
 
 **Reference**: [`glossary`](docs/glossary.md) (terms & key RAM symbols), [`conventions`](docs/conventions.md) (notation, confidence flags, methodology), [`bcall-index`](docs/bcall-index.md) (main bcalls plus unverified extended entries, alphabetical), [`token-tables`](docs/token-tables.md) (492 two-byte tokens, from TI-Toolkit/tokens).
 

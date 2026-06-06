@@ -98,7 +98,7 @@ So the input path is: keypad → ISR → `kbdScanCode` → `_GetKey` (cooked `kX
 
 ## Link port
 
-The 2.5 mm I/O link has two open-collector lines (tip/ring), driven via **port 0** (`port_link`), with an 84+ **hardware link-assist / USB** path via ports `0x08/0x09/0x0D`.
+The 2.5 mm I/O link has two open-collector lines (tip/ring), driven via **port 0** (`port_link`), with an 84+ **hardware link-assist / USB** path via ports `0x08`-`0x0D`. See [USB ASIC and link assist](sub-usb-asic.md) for the ASIC-facing port map and the `_LinkXferOP` USB-selection gate.
 
 `_SendAByte` (`3C:420D`) shows both paths **[confirmed]**:
 - **Hardware-assisted** (when enabled): poll status `port 0x09` bit 5 (ready), then write the byte to `port 0x0D`; helper routines on page 3C manage the assist FIFO/timing.
