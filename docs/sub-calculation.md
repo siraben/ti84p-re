@@ -183,7 +183,7 @@ which unwinds to the error context and shows the named message. The raiser clust
 | `_ErrIncrement` | `ram:26F8` | `0x85` | INCREMENT |
 | `_ErrNon_Real` | `ram:26FC` | `0x87` | NONREAL ANS |
 | `_ErrSyntax` | `ram:2700` | `0x88` | SYNTAX |
-| (argument) | `ram:2704` | `0x9E` | ARGUMENT |
+| `_ErrMode` | `ram:2704` | `0x9E` | MODE |
 | `_ErrDataType` | `ram:2708` | `0x89` | DATA TYPE |
 | `_ErrArgument` | `ram:2711` | `0x8A` | ARGUMENT |
 | `_ErrDimMismatch`/`Dimension` | `ram:2715`/`2719` | `0x8B`/`0x8C` | DIM MISMATCH / INVALID DIM |

@@ -16,7 +16,7 @@ Boot configures the paging hardware (ports 6 and `0x0E`) and the memory-map/time
 
 ### RAM clear / re-init (`ram_reset_wipe` → `0x0BD9`) [confirmed]
 
-The RAM-init proper is `ram_reset_wipe` (`page_35::719f`, reached on a full reset; the same routine backs the `[2nd]+[+] · 7 · 1 · 2` RAM-reset and the post-boot RAM clear). It zero-fills RAM in two blocks, preserving a handful of flag bits and `0x9B73` across the wipe:
+The RAM-init proper is `ram_reset_wipe` (`35:719F`, reached on a full reset; the same routine backs the `[2nd]+[+] · 7 · 1 · 2` RAM-reset and the post-boot RAM clear). It zero-fills RAM in two blocks, preserving a handful of flag bits and `0x9B73` across the wipe:
 
 ```z80
 ram_reset_wipe (35:719f):
@@ -98,7 +98,7 @@ _AppInit (00:0936):
   RET
 ```
 
-The destination `0x858D` and length `0x000C` pin the six 2-byte handler slots `cxMain`(+0) `cxPPutAway`(+2) `cxPutAway`(+4) `cxRedisp`(+6) `cxErrorEP`(+8) `cxSizeWind`(+10), and the explicit `LD (0x8599),A` writes `cxPage` at +12 from port 6. `0x858D` is the *only* writer of this block (the rest of the OS — `call_context_main` `00:08FA`, `_GetKey` `06:4A85`, etc. — only reads it), confirming `_AppInit` is the sole installer. `cxCurApp`(+13, `0x859A`) and `cxPrev`(+14, `0x859B`) are maintained separately by the context-switch logic, not by this copy.
+The destination `0x858D` and length `0x000C` pin the six 2-byte handler slots `cxMain`(+0) `cxPPutAway`(+2) `cxPutAway`(+4) `cxRedisp`(+6) `cxErrorEP`(+8) `cxSizeWind`(+10), and the explicit `LD (0x8599),A` writes `cxPage` at +12 from port 6. `0x858D` is the *only* writer of this block (the rest of the OS — `call_context_main` `00:08FA`, `_GetKey` (`06:491E`, e.g. its `cxCurApp` read at `06:4A85`), etc. — only reads it), confirming `_AppInit` is the sole installer. `cxCurApp`(+13, `0x859A`) and `cxPrev`(+14, `0x859B`) are maintained separately by the context-switch logic, not by this copy.
 
 ### How a context handler is invoked [confirmed]
 
@@ -112,7 +112,7 @@ Primitives: `set_bankA_page` (`ram:078c`, `port6 = page`) and `jp_hl` (`ram:090b
 
 Errors use a non-local exit, not return codes:
 - A routine detects a fault and calls `_JError` (`00:2793`) / `_JErrorNo` with an error code in `A` (the `TIError` enum: `E_Domain`, `E_DivBy0`, `E_Memory`, … each ORed with `E_EDIT`=0x80 if re-editable).
-- `_JError` `cross_page_jump`s to the handler, which **unwinds the stack to `onSP`** (`0x85BC`, the SP saved when the current context/parse began), restores a sane state, and displays the error screen (`ERROR:` + message, with `1:Quit 2:Goto`).
+- `_JError` `cross_page_jump`s to the handler, which **unwinds the stack to `onSP`** (`0x85BC`, the SP saved when the current context/parse began), restores a sane state, and displays the error screen (`ERR:` + message, with `1:Quit 2:Goto`).
 - The `E_EDIT` bit (0x80) tells the handler the error is editable (offer "2:Goto" to jump to the offending token).
 
 So `onSP` + `_JError` together implement try/catch: the context sets `onSP`, and any depth of nested calls can abort straight back to it.

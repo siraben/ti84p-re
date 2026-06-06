@@ -57,9 +57,9 @@ The 2.5 mm I/O link has two open-collector lines (tip/ring), driven via **port 0
 
 `_SendAByte` (`3C:420D`) shows both paths **[confirmed]**:
 - **Hardware-assisted** (when enabled): poll status `port 0x09` bit 5 (ready), then write the byte to `port 0x0D`; helper routines on page 3C manage the assist FIFO/timing.
-- **Legacy bit-bang**: to send a bit, pull one line low (`port_link = 1` for a 0-bit, `2` for a 1-bit), wait for the receiver to mirror it, release, wait for idle — with a timeout that calls `_JErrorNo(0)` (`E_Link`) on failure. Repeats per bit of the byte.
+- **Legacy bit-bang**: to send a bit, pull one line low (`port_link = 1` for a 0-bit, `2` for a 1-bit), wait for the receiver to mirror it, release, wait for idle — with a timeout that raises `E_LnkErr` (`0x9F`, "ERR:LINK") via `_JErrorNo` on failure (matching [sub-link-transfer.md](sub-link-transfer.md)). Repeats per bit of the byte.
 
-`_RecAByteIO` (`3C:443F`) is the matching receive. Higher-level link commands (`_CmdLoad`, variable transfer, `_CircCmd`/`_VertCmd` for screen-shot/remote) sit on top.
+`_RecAByteIO` (`3C:443F`) is the matching receive. Higher-level link commands (`_CmdLoad`, variable transfer, plus screen-shot / remote-control commands) sit on top. (Note: the names `_CircCmd`/`_VertCmd` are documented in [sub-graphing.md](sub-graphing.md) as the graphing draw commands `Circle(` (`33:74CE`) and `Vertical` (`04:7955`); the link-layer command routines referenced here are distinct and were not separately traced — treat this as a [hypothesis].)
 
 ### Variable-transfer command/packet framing
 
