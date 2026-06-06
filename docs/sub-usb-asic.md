@@ -36,9 +36,9 @@ port `0x00` bit-banging otherwise. [confirmed]
 |------|---------------------------|----------|
 | `0x02` | Hardware/model gate before using assist paths. The link code tests bit 7 before touching ports `0x08`-`0x0D`. | `3C:6C82`, `3C:6CB8`, `3C:6D15` |
 | `0x08` | Link-assist control/idle latch. The OS writes `0x80` when clearing an inactive/error-free assist state, and `0x00` when marking the assist state active. | `3C:6C41`-`6C48`, `3C:6D38`-`6D40`, `3C:6D4B`-`6D53` |
-| `0x09` | Link-assist status. Bit 5 is TX-ready; bit 6 is a transmission/error condition; bit 4 marks a received byte. Masks `0x19`, `0x58`, and `0x99` are used as error/activity predicates. | `3C:6BB6`-`6BC5`, `3C:444A`, `3C:6BFA`, `3C:6CCE`, `3C:6D33` |
-| `0x0A` | Assist receive/data register on the confirmed receive path; also receives the setup value `0xB4` beside `0x0B/0x0C`. Tilem models reads as "last received byte" and treats writes as opaque assist state. | `3C:6C20`, `3C:6C2B`, `3C:6C39`; Tilem `x4_io.c` |
-| `0x0B`, `0x0C` | Assist-side configuration registers initialized with `0xB4`. The ROM path writes them but does not read them back in the byte-transfer code, so bit-level meaning is not recoverable from this path alone. | `3C:6C3D`, `3C:6C3F`; Tilem `x4_io.c` |
+| `0x09` | Link-assist status on reads. Bit 5 is TX-ready; bit 6 is a transmission/error condition; bit 4 marks a received byte. Masks `0x19`, `0x58`, and `0x99` are used as error/activity predicates. On writes, the OS setup value `0x97` matches WikiTI's CPU-speed-0 signaling-rate register. | `3C:6BB6`-`6BC5`, `3C:444A`, `3C:6BFA`, `3C:6CCE`, `3C:6D33`; WikiTI port `09` |
+| `0x0A` | Assist receive/data register on reads; the confirmed receive path reads the byte here. On writes, the OS setup value `0xB4` matches WikiTI's CPU-speed-1 signaling-rate register. Tilem models reads as "last received byte" and stores writes as opaque assist state. | `3C:6C20`, `3C:6C2B`, `3C:6C39`; WikiTI port `0A`; Tilem `x4_io.c` |
+| `0x0B`, `0x0C` | Assist signaling-rate configuration for CPU speed modes 2 and 3, initialized with `0xB4`. The ROM byte-transfer path writes them during setup but does not read them back. Tilem stores the writes without emulating timing from the values. | `3C:6C3D`, `3C:6C3F`; WikiTI ports `0B`/`0C`; Tilem `x4_io.c` |
 | `0x0D` | Assist TX FIFO/data register. `_SendAByte` writes the outgoing byte here after port `0x09` bit 5 becomes set. | `3C:6BBC`-`6BBF` |
 | `0x20` | CPU speed bit used to select assist/link wait-loop reloads. The send timeout uses `0xFFFF` when bit 0 is set and `0x6800` when clear. | `3C:6BCC`, `3C:6C8B`, `3C:6CC1` |
 | `0x4C` | USB controller handshake/status byte. The page-35 stack compares it with `0x5A`/`0x1A` and `0x12`/`0x52`, and clears or primes it with `0x00`/`0x08` during setup. Tilem returns `0x22` to make the calc see no attached USB peer. | `35:42B7`, `35:42F6`, `35:403C`, `35:40E6`; Tilem `x4_io.c` |
@@ -126,11 +126,24 @@ in  a,(0x09)
 set 0,(IY+0x3E)
 ```
 
-The sequence proves the ports touched and the RAM flag used by the OS. Direct ROM scans found the
-page-3C byte-transfer path only writing `0xB4` to `0x0A`-`0x0C` during this setup and reading
-`0x0A` as received data. Tilem agrees on `0x0A` as the receive byte and treats `0x0A`-`0x0C` writes
-as opaque assist registers. That supports the data/control split, but not bit names inside `0x97`
-or `0xB4`. [confirmed ports; bit-level names intentionally not assigned]
+The sequence proves the ports touched and the RAM flag used by the OS. WikiTI names these writes as
+link-assist signaling-rate setup values for CPU speed modes 0-3: ports `0x09`, `0x0A`, `0x0B`, and
+`0x0C` correspond to speed modes 0, 1, 2, and 3 respectively. Its field description says bits 5-7
+select the link-assist clock divisor as `2^n`, with `111b` halting the assist, and bits 0-4 select
+the inter-bit wait. Under that decoding, the ROM constants are:
+
+| Port | CPU speed mode | Value | Divisor field | Wait field |
+|------|----------------|-------|---------------|------------|
+| `0x09` | 0, 6 MHz | `0x97` (`10010111b`) | `100b` -> divide by 16 | `0x17` |
+| `0x0A` | 1 | `0xB4` (`10110100b`) | `101b` -> divide by 32 | `0x14` |
+| `0x0B` | 2, 15 MHz duplicate 1 | `0xB4` (`10110100b`) | `101b` -> divide by 32 | `0x14` |
+| `0x0C` | 3, 15 MHz duplicate 2 | `0xB4` (`10110100b`) | `101b` -> divide by 32 | `0x14` |
+
+Direct ROM scans found the page-3C byte-transfer path writing those constants during setup, then
+using the read side of `0x09` for status and `0x0A` for received bytes. Tilem agrees on the runtime
+status/data behavior and stores ports `0x09`-`0x0C`, but its `x4`/`xn`/`xs`/`xz` models label the
+write-side settings as unknown or timeout-like and do not derive link timing from `0x97`/`0xB4`.
+[ROM-confirmed writes; WikiTI field names; Tilem storage-only]
 
 ## USB selection in `_LinkXferOP` [confirmed]
 
@@ -258,6 +271,7 @@ Practical rules:
   `0x8xxx` USB names (`_InitUSB`, `_KillUSB`, `_AttemptUSBOSReceive`, `_ReceiveOS_USB`,
   `_USBErrorCleanup`) remain part of the repository-wide `0x8xxx` bcall-table reconciliation problem,
   not a page-3C link-transfer gap.
-- The ROM does not give bit names for every page-35 controller register or for the assist setup
-  values `0x97`/`0xB4`. This page therefore names only behavior that appears in code: comparisons,
-  branch bits, written constants, RAM state, and FIFO direction.
+- The ROM does not give bit names for every page-35 controller register, and Tilem does not model
+  physical timing from the assist setup values. This page therefore treats the `0x97`/`0xB4` field
+  names as WikiTI-supported timing configuration, while ROM-confirmed claims remain limited to the
+  written constants, status/data port use, comparisons, branch bits, RAM state, and FIFO direction.
