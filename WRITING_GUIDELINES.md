@@ -31,6 +31,22 @@ resolves to the page-0x02 coefficient fetcher" earns the negation because it
 overturns a reading the reader (and Ghidra) would otherwise make. The test: is
 there real evidence pointing the wrong way? If not, just state what is true.
 
+**Don't narrate the RE process's own history.** State the finding, not the path
+that reached it. The reader never held the project's earlier guess and gains
+nothing from "an earlier pass flagged this as a mis-decode… grounding shows the
+opposite", "is real, not a mis-decode", "turned out to be", or "X were in fact
+code". Lead with the bytes and what they are.
+
+- **Do:** "At `3A:710B` the TVM body contains `EF CF 40` = `RST 0x28; .dw 0x40CF`,
+  and the bcall table maps `0x40CF` to `_SinH`."
+- **Avoid:** "The `_SinH` call is real, not a mis-decode. An earlier pass flagged
+  `0x40CF` as almost certainly a mis-mapped helper; grounding shows the opposite…"
+
+This differs from a warranted negation (above): that corrects what the *code*
+appears to do to any reader; this just recounts the analyst's prior mistake.
+Confidence flags and the `99-open-questions` resolved/open ledger already carry
+status — prose should not re-litigate it.
+
 ## 2. Voice, person, tense
 
 - **Active voice.** "`_FindSym` scans the VAT" — not "the VAT is scanned."
