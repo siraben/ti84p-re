@@ -13,7 +13,7 @@ What lives on each of the 64 physical flash pages (16 KiB each). The OS itself o
 | **04** | 58 | **Graph drawing** (pixel/line) | `_DarkLine`, `_ILine`, `_IPoint`, `_DarkPnt` |
 | **05** | ~111 | **TABLE editor** + Graph-Table split-screen | `table_editor_main`, `table_recompute`, `table_paint_grid` |
 | **06** | 32 | **Key input** & edit/cursor | `_GetKey`, `_GetCSC`, `_CursorOn/Off`, `_PutTokString` |
-| **07** | 21 | **Archive / list & matrix ops**; FP coeff tables | `_Arc_Unarc`, `_CleanAll`, `_RedimMat`, `_IncLstSize` |
+| **07** | 21 | **Archive / list & matrix ops**; FP coeff tables; **large-font glyph table @ `0x45FF`** (7-byte stride) read by `put_glyph_large` (`07:4588`) | `_Arc_Unarc`, `_CleanAll`, `_RedimMat`, `_IncLstSize`, `put_glyph_large` |
 | **33** | 62 | **Graph coordinate math** | `_SetXXOP1`, `_UCLineS` (window↔pixel transforms) |
 | **36** | 21 | **Mode setters** (Func/Param/Polar/Seq) | `_SetFuncM`, `_SetParM`, `_SetPolM`, `_SetSeqM` |
 | **37** | 5 | Graph coord convert | `_XftoI`, `_YftoI` |
@@ -32,14 +32,14 @@ This image is **OS-only**: scanning every page boundary found **zero Flash-App h
 
 | Page | Verified contents |
 |------|-------------------|
-| `08–32` | OS code/data reached via cross-page jumps (not bcalls), plus **small/alternate font glyph tables** and string/help-text tables. No app headers. (The large-font glyph table is on page 0x07; see below.) |
+| `08–32` | OS code/data reached via cross-page jumps (not bcalls), plus **alternate large-font glyph tables** (pages 1 and 0x36, selected by `(IY+0x35)` bits 5/1) and string/help-text tables. No app headers. (The primary large-font glyph table is on page 0x07; see below.) |
 | `34–39` | More OS code (graph/mode/menu); mostly full (1–17% `0xFF`). |
 | **3B** | **bcall jump table** — starts `99 27 00` = entry 0 (`_JErrorNo`→`00:2799`). |
 | **3C** | Link code + the **OS version string** — page starts with ASCII `32 2E 35 35 4D 50` = **"2.55MP"**. |
 | **3E** | **Certification page** — the per-calculator certificate sector (84+ cert page is `3E`, not `3F`). Blank (99% `0xFF`) in this OS-only image, since the cert is written per-device. |
 | **3F** | **Boot page** — starts `3E 3F D3 06 D3 07` = `LD A,0x3F; OUT (6),A; OUT (7),A` (maps itself into both banks at power-on). Boot code only; the certificate lives on page `3E`. |
 
-The **large-font glyph table is on page 0x07** — `put_glyph_large` (`07:4588`) reads it (≈`0x45FF`); alternate fonts are on pages 1 and 0x36. Page 7 is the busiest data page (archive code, list/matrix, error messages, FP coefficients, *and* the large font).
+The **large-font glyph table is on page 0x07, base `0x45FF`** — `put_glyph_large` (`07:4588`) computes the glyph pointer as `0x45FF + char*7` (**7-byte stride**, via the `07:45EB` adjuster) and copies an 8-byte record via `_Mov8B` to RAM `0x845A`; see [Display/LCD → Fonts](08-display-lcd.md#fonts-confirmed). Alternate large fonts live on pages 1 and 0x36 (selected by `(IY+0x35)` bits 5/1). Page 7 is the busiest data page (archive code, list/matrix, error messages, FP coefficients, *and* the large font). **[confirmed]**
 
 ## Takeaway
 The OS is **page-specialized**: kernel + math on page 0, one subsystem per low page. A bcall is really "run subsystem X's routine on its page" — the page map *is* the subsystem decomposition, physically.
