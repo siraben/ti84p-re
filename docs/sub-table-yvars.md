@@ -131,17 +131,18 @@ Y-token**:
 (Parametric `X1T/Y1T`=`0x20/0x21`…, polar `r1`…, and `u/v/w` sequences share the
 same `EquObj`/`tVarEqu` machinery.) [confirmed tokens]
 
-### Selection & style flags [standard / strong]
+### Selection & style flags [confirmed]
 
-Each equation's stored data begins with a **flags byte**: bit 5 (`0x20`) =
-**selected** (plotted / tabulated), and the low style bits encode the line style
-(thin / thick / dot / shade-above / shade-below / animate). The TABLE iterates the
+Each equation's **flags byte** is `0x23` when **selected** (plotted / tabulated) and
+`0x03` when deselected — i.e. the selection bit is **bit 5 (`0x20`)**. The separate
+per-equation **style byte** encodes the line style: `0`=line, `1`=thick, `2`=shade above,
+`3`=shade below, `4`=trace/path, `5`=animate, `6`=dotted. The TABLE iterates the
 **same selected set** the grapher plots, so deselecting `Y2` in the Y= editor (or
 clearing its `=` highlight) removes its column from the table. `curGStyle`
 (`0x8D17`) holds the in-progress style; `sGrFlags` bit `g_style_active`
-(IY+20 bit5) enables per-equation styles. The graphing doc (`sub-graphing.md §6`)
-covers the plot side; the *table* only reads the selection bit to decide which
-columns exist. [standard, cross-checked vs equates; exact byte not dumped here]
+(IY+20 bit5) enables per-equation styles. The graphing doc covers the plot side; the
+*table* only reads the selection bit to decide which columns exist. [confirmed against the
+[TI link-protocol var guide](https://merthsoft.com/linkguide/ti83+/vars.html#style)]
 
 ### The selected-equation list — `iMathPtr4` (`0x84D9`) [confirmed]
 
@@ -435,10 +436,9 @@ page_00:4105  boot sets reTable
   iterator (`iMathPtr4` / `_GraphTblNext`) are confirmed; the individual on-page
   direct CALLs to `_StoX`/the evaluator were inferred from the identical
   grapher per-column path rather than each byte-traced.
-- Y= **selection bit (0x20)** and per-equation **style** byte offsets are
-  **[standard]** TI convention, cross-checked against `EquObj`/`curGStyle`/
-  `g_style_active` equates but not byte-dumped here (same open item as
-  `sub-graphing.md §8`).
+- Y= **selection bit (`0x20`)** — flags byte `0x23` selected / `0x03` deselected — and the
+  **style** byte values (`0`=line … `6`=dotted) are **[confirmed]** against the
+  [TI link-protocol var guide](https://merthsoft.com/linkguide/ti83+/vars.html#style).
 - **Ask**-mode prompting flow (entry-line editor → `_ParseInp` → `_StoX` for a
   typed X, single-cell Depend:Ask compute) is **[strong]**: the mode bit tests
   (`05:6D40`) are confirmed; the interactive prompt body overlaps the page-02

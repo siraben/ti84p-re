@@ -196,13 +196,15 @@ re-plot and just `_GrBufCpy` the existing buffer when nothing changed. [strong]
 
 ## 6. Y= equations: storage and evaluation
 
-### Storage [strong]
+### Storage [confirmed]
 Y= functions are ordinary **equation variables** (`EquObj`), stored in the VAT as tokenized
 byte streams — the same token encoding the homescreen uses. `Y1`…`Y0` (and `r1`…, `X1T/Y1T`,
-`u/v/w`) are *system* equation vars. Each holds the tokens you typed after `Y1=`. A
-**selection bit** (high bit of the equation's name/flag byte) marks whether it is plotted,
-and `curGStyle` (`0x8D17`) / per-equation style bytes hold the line style (thin/thick/dot/
-shade/animate).
+`u/v/w`) are *system* equation vars. Each holds the tokens you typed after `Y1=`. The
+equation's **flags byte** is `0x23` when **selected** (plotted) and `0x03` when deselected, so
+the selection bit is **bit 5 (`0x20`)**. The per-equation **style byte** holds the line style:
+`0`=line, `1`=thick, `2`=shade above, `3`=shade below, `4`=trace/path, `5`=animate, `6`=dotted
+(`curGStyle` `0x8D17` is the current-equation copy). [confirmed — selection/style byte values
+match the [TI link-protocol guide](https://merthsoft.com/linkguide/ti83+/vars.html#style)]
 
 ### Parsing / pre-scan
 **`_GraphParseTok`** (`33:5023`) walks an equation's token stream to classify it before
@@ -262,5 +264,5 @@ during a regraph or TABLE build.
   line endpoints would benefit from tracing `FUN_page_04__7933`.
 - Circle parametric stepping in `3B:7171` (`_DrawCirc2`) not decompiled here (lives on
   page 3B); the `_GrphCirc` setup is confirmed.
-- Y= per-equation style byte exact offsets and the selection-bit position are **[standard]**
-  TI convention, cross-checked against `curGStyle`/`grfModeFlags` equates but not byte-dumped.
+- Y= selection bit (`0x20`; flags byte `0x23` selected / `0x03` deselected) and the style byte
+  values (`0`–`6`) are **[confirmed]** against the [TI link-protocol var guide](https://merthsoft.com/linkguide/ti83+/vars.html#style).
