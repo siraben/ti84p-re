@@ -228,9 +228,10 @@ sort body's element-load is not byte-traced]
   ```
 - **`Fill(value,[M])`** / **`randM(`** stamp a constant / random values across all cells via a
   per-cell loop over the whole matrix. `randM(` builds the result through the `0xB5` dispatcher
-  branch (`02:62D4` → `5CEB`, which `_FindSym`s the result var via `RST 10h` then fragments in the
-  live DB); the per-cell fill — expected to draw from `_Random` (bcall `0x4B79`, seeds at
-  `9640`/`9649`) — is the one residual still open (§4). [H]
+  branch (`02:62D4`): the 2-arg path creates the `r×c` result (`5DBB` → `_CreateRMat 110F`) and
+  stores the dims (`631B`/`631C`/`4825`). The actual per-cell random fill is the one residual still
+  open (§4) — and notably it does **not** use the `_Random` bcall (`0x4B79`): a ROM-wide scan finds
+  zero `RST 28h; .dw 0x4B79` sites, so randM's randomness comes from some other path. [H]
 - Matrix **copy/reshape** = `_DataSize`-counted byte copy of the float payload
   (`mele_copy9_d3` (`02:4539`)/`mele_copy9_loop` (`02:453F`)). [C]
 
@@ -240,29 +241,27 @@ op; store } }` walk and require equal dims (`_ErrDimMismatch 0x8B`). The nested 
 walk at `02:412A` is the **transpose** copy (§ transpose); the add/sub element-loop driver is a
 sibling in the same `412A`–`414E` family and is inferred here. [H]
 
-### `[A] * [B]` — matrix multiply [H]
-The matrix-multiply body is not a defined function in the current Ghidra DB; the O(n³) structure
-below is inferred, address unverified. The `02:40BA` label is a Ghidra auto-name with no WikiTI or ti83plus.inc backing. (`0x40BA` does appear in ti83plus.inc, but
-as the unrelated `_SinCosRad` bcall ID — a hex coincidence, not matrix-mult provenance.) The `*`
-dispatch site `02:5FE6` and the result-setup site `02:5766` are likewise undisassembled in the
-live DB.
+### `[A] * [B]` — matrix multiply [C]
+The multiply body is at **`02:40BA`**. It is not a defined function in the live Ghidra DB (so the
+decompiler/MCP can't reach it), so this was decoded from `rom.bin` directly with `z80dasm`,
+cross-checked against a routine Ghidra *does* define. The body is **called from `02:5FFF`** (the
+`*` operator handler, in the `02:5FE6` region) and reused from `02:4605` and `02:5B39`. (`0x40BA`
+is also the `_SinCosRad` bcall ID in ti83plus.inc — a hex coincidence, unrelated to this page-02
+address.)
 
-Structural inference: a multiply enters from the `*` token at `02:5FE6` when both operands are
-matrices, after `02:5766` sets up the result dims and `mele_copy9_d3` (`02:4539`) preps storage.
-Classic O(n³) triple loop with an FP accumulator:
+`40BA` is a classic O(n³) triple loop with an FP accumulator:
 ```
-for each result cell (i,j):
-    _OP1Set0                              ; acc = 0
-    for k = 1 .. inner:
-        load [A](i,k) -> OP1   (403C)
-        multiply by [B](k,j)   (4049/47B9 = FP multiply-accumulate)
-        acc += product         (_CpyTo2FPST / 479F)
-    store acc -> [C](i,j)      (405A)
+for each result cell (i,j):                  ; counters at 84B7, 84B4
+    for k = 1 .. inner:                       ; inner counter at 84AF
+        load [A](i,k)          (403C mele_adr_af_jp)
+        multiply by [B](k,j)   (47B9 / 0166F  FP multiply)
+        accumulate             (479F)
+    store acc -> [C](i,j)      (4064 / 405A)
 ```
-Loop counters live at `84B0` (outer), `84B3` (k, inner), `84B4`/dims at `84AF`. Inner-dim
-mismatch (`A.cols ≠ B.rows`) ⇒ `_ErrDimMismatch`. Each multiply/add is a full `TIFloat` FP op,
-so an `n×n` product is `n³` `_FPMult` + `_FPAdd` calls. [H] (structure inferred; `02:40BA`,
-`02:5FE6`, `02:5766` not defined functions in the live DB)
+The three `dec (hl)` counters (`84AF` inner, `84B4`, `84B7`) each have a `jr nz` back-edge
+(`40E5`, `40F9`, `4100`); an inner-dim mismatch (`A.cols ≠ B.rows`) raises `_ErrDimMismatch`. An
+`n×n` product is `n³` `TIFloat` multiply+add steps. [C — body decoded from `rom.bin`; callers
+`02:5FFF`/`4605`/`5B39` byte-verified]
 
 ### Transpose `[A]ᵀ` — `02:412A`, dispatched from the `ᵀ` token `0x0E` [C]
 The transpose operator `ᵀ` is the postfix token **`tTrnspos` = `0x0E`**. The page-02 command
@@ -301,7 +300,7 @@ body and its single caller are byte-verified below.
 | `Matr►list(` | `0x8D` @ `6388` | **`02:4773`** (2-arg), `02:49E3` (1-arg list copy) | [C] The `0x8D` branch splits on argument count (`638D: CP 0x02`). The **column-extract engine is `02:4773`** (2-arg path: `639D: CALL 5DD8 ; CALL 4773`; only caller `63A0`, byte-verified `CD 73 47`): it nests a per-row loop (`477B: LD B,1 …`, reading via `4040` `_AdrMRow`/`4068` `mele_store_ckvalid`) inside a column loop over `(84AF)`, copying matrix columns into list element(s) (`4051`/`479F`). The 1-arg/list path uses `02:49E3` (`6397: CALL 0x49E3`), a list-element copy-until-length-match (`47E6` recall, `4825` store, `21BB` compare vs `(84AF)`, `RET Z`). |
 | transpose `ᵀ` | `0x0E` @ `60E9` | **`02:412A`** | [C] Swaps the dim header (`60F5`), allocates the transposed shape, then `412A` copies `dst(c,r)=src(r,c)` over every cell (`403C` read from `(84D3)`, `4068` write to `(84D7)`); only caller `60FE`. See the transpose subsection above. |
 | `augment(` | `0x91` @ `635B` | **`02:6238` copy** [C]; `02:4663` engine [H] | The `0x91` branch requires two operands (`CP 0x02`), reads the dims (`5D98`), and checks the two row counts with `LD A,H ; CP L`: equal rows fall through (`JR Z`) and `H>L` raises `E_Dimension` (`JP NC,2719`). It then runs the **column-concatenation copy at `02:6238`** [C]: `6238` allocates the result (`5DE0` → `5DE6` → `_CreateRMat 110F`) and bulk-copies the float payload with `02:4539` (`mele_copy9_d3` — skip the 2 dim bytes, `LDIR` the column-major data), re-pointing `84D3←84D7`. The branch then calls `02:4663` (`6379`, only caller; byte-verified `CD 63 46`), a partial-pivoting elimination engine: it computes `min(H,L)` (`4672: LD A,H ; CP L ; JR C ; LD L,H`), inits via `475E`, and iterates from `BC=0x0101` calling `461C` (max-abs), `41D0` (pivot-column scan), `198D` (compare), `471C` (permutation swap) and `405E` (store). The column-concat copy (`6238`/`4539`) is confirmed augment behaviour [C]; `4663`'s elimination pass on the concatenated result is byte-confirmed but its role for plain `augment(` is left open [H]. (`augment(L1,L2)` list-concat is the `0x92` sibling at `637F`, sharing the `6362` setup.) |
-| `randM(` | `0xB5` @ `62D4` | create + dim setup (`5DBB`/`5DEB`); cell-fill body open [H] | The `0xB5` branch splits on argument count (`62D9: CP 0x02`): the 2-arg `randM(rows,cols)` path (`62DD`) and the 1-arg square path (`630A`). Both **create the result and set its dims** through `02:5DBB` (`CALL 5CEB` registers the variable by name, stores the data pointer to `84D3`, reads and zero-rejects the dim bytes `OR L ; JP Z,2719`, stores dims to `84AF`) and `02:5DEB`/`02:631E`. The per-cell `_Random` fill is not isolated as a loop in this branch. `02:5264` (`cplx_swap_dispatch`) is **not** randM — its only caller is `62D0`, in the `0xBD` complex-operand branch. The randM cell-fill body stays open. [H] |
+| `randM(` | `0xB5` @ `62D4` | create + dim setup (`5DBB`/`5DEB`); cell-fill body open [H] | The `0xB5` branch splits on argument count (`62D9: CP 0x02`): the 2-arg `randM(rows,cols)` path (`62DD`) and the 1-arg square path (`630A`). Both **create the result and set its dims** through `02:5DBB` (`CALL 5CEB` registers the variable by name, stores the data pointer to `84D3`, reads and zero-rejects the dim bytes `OR L ; JP Z,2719`, stores dims to `84AF`) and `02:5DEB`/`02:631E`. The per-cell random fill is not isolated as a loop in this branch, and does not use the `_Random` bcall (`0x4B79` — a ROM-wide scan finds no `RST 28h; .dw 0x4B79` site). `02:5264` (`cplx_swap_dispatch`) is **not** randM — its only caller is `62D0`, in the `0xBD` complex-operand branch. The randM cell-fill body stays open. [H] |
 | `List►matr(` | `0x8E` @ `61C1` | `02:7D19` + copy | reshapes the argument lists into a matrix (`_DataSize`-counted float copy `4539`/`453F`). [H] |
 
 The matrix-element kernels these drivers share are `_AdrMEle`/`_AdrMRow` (`4002`/`4000`) for indexing,
@@ -467,7 +466,7 @@ and the routine and condition that triggers it.
 | `02:4002` | `_AdrMEle` | matrix element address: `((column-1)*dim0+(row-1))*9` [C] |
 | `02:4044` | `_GetMToOP1` | `[M](i,j)` → OP1 [C] |
 | `02:406C` | `_PutToMat` | OP1 → `[M](i,j)` (validated) [C] |
-| `02:40BA` | Ghidra auto-name (retired) | not a defined function in the current Ghidra DB and has no WikiTI/inc backing (`0x40BA` in ti83plus.inc is the unrelated `_SinCosRad` bcall ID). Inferred matrix-multiply body; address unverified (§4) |
+| `02:40BA` | matrix-multiply body | O(n³) triple loop, decoded from `rom.bin` (not a defined function in the live Ghidra DB); called from `02:5FFF`/`4605`/`5B39` (§4). `0x40BA` in ti83plus.inc is the unrelated `_SinCosRad` bcall ID. [C] |
 | `02:4108` | `identity_build` | `identity(n)`: diagonal-1 fill (token 0xB4) [C] |
 | `02:412A` | `mat_transpose` | **transpose `[A]ᵀ`** body (token `0x0E`, dispatched `60E9`/called `60FE`): per-cell copy `dst(c,r)=src(r,c)` via the swapped dest header (§4) [C] |
 | `02:414E` | `mrow_swap_loop` | row swap/scale (elimination) [C] |
@@ -540,8 +539,9 @@ and the routine and condition that triggers it.
   - `augment(`'s `0x91` branch calls `02:4663` (`mat_gauss_engine`, only caller `6379`) — a
     `min(H,L)` partial-pivoting elimination pass — after the column-concat copy. Its role for plain
     `augment(` is byte-confirmed as a call but not explained. [H]
-  - `randM(`'s per-cell `_Random` fill is not isolated as a loop in the `0xB5` branch (the visible
-    calls create the matrix and convert the dims). [H]
+  - `randM(`'s per-cell random fill is not isolated as a loop in the `0xB5` branch (the visible
+    calls create the matrix and convert the dims); it does not go through the `_Random` bcall
+    (`0x4B79`) — a ROM-wide scan finds no `RST 28h; .dw 0x4B79` site. [H]
 - `seq(`/`SortA(`/`SortD(`/stats list-builders: confirm the collect-then-`_CreateRList` loop
   and the in-place float sort/compare. (Residual — comparator `_CpOP1OP2` confirmed; the
   unanalyzed page-02 sort body's element-load is still not byte-traced.)
