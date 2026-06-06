@@ -35,10 +35,8 @@ Everything the engine needs is in `0x85DE–0x85F2`, plus the shared display var
 | Addr | Name | R/W | Purpose |
 |------|------|-----|---------|
 | `0x85DE` | **mode / token class** | R+W | The dispatch index. Consumers write it to pick the editor (homescreen/Y=/Solver/menu); `eqdisp_classify_tok` overwrites it with the token's *class code*. |
-| `0x85DF` | row / arg index | R+W | Current sub-row; wraps against `85E1`. |
-| `0x85E0` | column / arg position | R+W | Current cell column in the row. |
-| `0x85E1` | row count (dim word hi) | R | Loop bound for `85DF/85E0`. |
-| `0x85E2` | argument / token count | R | Outer loop bound in `layout_main`. |
+| `0x85DF/E0` | cursor `(row, col)` | R+W | Read together as `BC` by `decr_counters` (`LD BC,(85DF)`: `C`=row `85DF`, `B`=col `85E0`). |
+| `0x85E1/E2` | `(row count, arg count)` | R+W | Written together as a word (`LD (85E1),DE`); the loop bounds for the cursor pair. |
 | `0x85E3..E6` | saved display context | W/R | `IY+0xD`, `IY+0xC`, `8D17`, `IY+3` snapshot (save/restore). |
 | `0x85E7` | OP scratch slot **E7** (9 B) | R+W | OP1 save slot across recursion. |
 | `0x85E8` | **kind nibble** | R+W | `& 0xF`: `0`=glyph run, `2`=fraction, else template index; bit 1 = matrix vs linear. |
@@ -64,7 +62,10 @@ A handful of `IY` flag bits steer the walk:
 | `IY+0x09` bit 0 | **fraction / argument context** active (selects stacked forms) |
 | `IY+0x02` bits 4/5/6 | edit-context bits (select superscript / alternate forms) |
 
-The flash side of the model is a set of **per-kind box descriptors** (`0x686F`, `0x6880`, `0x6893`, `0x689C`, `0x68A5`), each a length-prefixed list of glyph elements `{count, [glyph-id | (0x20, width) …]}` walked by `eqdisp_glyph_width` to sum a structure's width.
+The flash side has two distinct data formats:
+
+- **Handler records** reached through the class table at `0x5E45`. These records describe expression rows: row count, per-row argument counts, per-row layout/action bytes, then 2-byte display-token cells.
+- **Kind box descriptors** at `0x686F`, `0x6880`, `0x6893`, `0x689C`, `0x68A5`. These are fixed menu/box templates walked by `eqdisp_compute_dims`; they are not the hidden source of the tall integral glyph. Descriptor tokens such as `FB CA`/`FB CB` route through `eqdisp_load_glyph18b` to MathPrint mode-menu strings (`n/d`, `Un/d`), `FB D6`/`FB D8`/`FB D7` route to answer-mode strings, and `FB C7`/`FB C8` are special-cased elsewhere as square down/up markers.
 
 ## Token classification & dispatch [confirmed — from disassembly]
 
@@ -72,7 +73,7 @@ A raw token is reduced to a small **class code** (≈`0x01–0x43`), context-bia
 
 1. **Coarse remap** (`eqdisp_dispatch_token` 39:4A74): token `0x3D` is special-cased out to `0x672E`; otherwise the byte is biased down by `0x2A` and adjusted by the edit-context bits `(IY+0x2)` 4/5/6 and the fraction/arg flag `(IY+0x9)` bit 0. When the fraction/arg context is set, classes `0x03–0x08` are pushed up by `0x28` to select their **stacked variants** — this is the switch that makes the *same* operator token render as a superscript or a fraction part depending on where the cursor is.
 2. **Classify** (`eqdisp_classify_tok` 39:4AEC): stores the class code into `0x85DE` and loads the token's handler **record** (not just a code). Disassembled, it: zeroes the sub-row (`85DF`); writes the class to `85DE` (or, on the draw pass `IY+0x36` bit 6, derives it via `2CBB`); calls `load_tok_handler` (`4C27`) to get `HL =` the handler **record pointer**; then reads `(HL)` → **`85E1` = row count** and walks the record to extract the **argument/token count → `85E2`** (for the float class `0x14` it instead reads the live float type from `0x8478`). It then branches on a handful of terminal classes: `0x32`/`0x41` return immediately (literal/atom), `0x10` → variable (`59A6`, `_FindSym` path), `0x02` → list/named operand (`5AC5`), `0x29` → close-group (emits glyph `0x17` via `59CC`). This is what populates the per-token grid extents the geometry pass consumes.
-3. **Dispatch** (`eqdisp_load_tok_handler` 39:4C27): `LD A,(85DE) ; LD HL,0x5E45 ; SLA A ; ADD HL,DE ; JP 0x0033` — i.e. **`HL = 0x5E45 + class·2`**, then `0x0033` is `_LdHLind` which dereferences the 16-bit little-endian pointer at that slot and jumps to it. So the **class byte in `0x85DE` directly indexes the `0x5E45` table** (stride 2, `SLA A` = ·2) to reach the token's handler. The handler then emits a glyph / opens a fraction / opens an exponent / recurses.
+3. **Dispatch** (`eqdisp_load_tok_handler` 39:4C27): `LD A,(85DE) ; LD HL,0x5E45 ; SLA A ; ADD HL,DE ; JP 0x0033` — i.e. **`HL = *(0x5E45 + class·2)`** via `_LdHLind`. The target is usually a **handler record**, not executable code. The record drives row selection, token-cell emission, recursion, and special template actions.
 
 ```pseudocode
 \begin{algorithm}
@@ -81,7 +82,7 @@ A raw token is reduced to a small **class code** (≈`0x01–0x43`), context-bia
 \REQUIRE raw token in $A$, edit flags in $(IY{+}2)$, fraction flag $(IY{+}9).0$
 \IF{$A = \mathtt{0x3D}$} \STATE jump to dedicated handler \texttt{0x672E}; \RETURN \ENDIF
 \STATE $c \gets A - \mathtt{0x2A}$ \COMMENT{coarse class}
-\IF{$(IY{+}2).4$} \STATE $c \gets c + \mathtt{0x29}$ \ENDIF \COMMENT{superscript / alt edit form}
+\IF{$\lnot (IY{+}2).4$} \STATE $c \gets c + \mathtt{0x29}$ \ENDIF \COMMENT{superscript / alt edit form: bit 4 reset}
 \IF{$(IY{+}9).0$ \AND $c \in \{3,4,5,6,7,8\}$} \STATE $c \gets c + \mathtt{0x28}$ \ENDIF \COMMENT{stacked fraction-context form}
 \STATE $(\mathtt{0x85DE}) \gets c$
 \STATE $\mathit{handler} \gets \texttt{word at } \mathtt{0x5E45} + 2c$ \COMMENT{table lookup, then \_LdHLind}
@@ -90,9 +91,31 @@ A raw token is reduced to a small **class code** (≈`0x01–0x43`), context-bia
 \end{algorithm}
 ```
 
-Notable terminal classes: `0x10` → variable/symbol (`eqdisp_findsym_op1`), `0x14` → float/value token (reads the float type from `0x8478`), `0x02` → list/named operand, `0x29` → close/grouping (emits glyph `0x17`). The handler table at **`0x5E45`** holds 0x44 little-endian entries pointing into one large handler block (`0x5Exx–0x66xx`); e.g. class `0x01`→`0x6654`, `0x10`→`0x6148`, `0x14`→`0x6529`, `0x29`→`0x6546`. Paren matching uses pair tables at `0x62E2 / 0x62CB / 0x62F9`.
+Notable terminal classes: `0x10` → variable/symbol (`eqdisp_findsym_op1`), `0x14` → float/value token (reads the float type from `0x8478`), `0x02` → list/named operand, `0x29` → close/grouping (emits glyph `0x17`). The handler table at **`0x5E45`** holds 0x44 little-endian record pointers; e.g. class `0x08`→`0x608B`, its fraction-context variant class `0x30`→`0x6030`, class `0x10`→`0x6148`, `0x14`→`0x6529`, `0x29`→`0x6546`. Paren matching uses pair tables at `0x62E2 / 0x62CB / 0x62F9`.
 
-**The class table is a flat 0x44-entry pointer array indexed by `0x85DE`.** Because dispatch is purely `0x5E45 + 2·(0x85DE)`, the *layout class* of every token is exactly the byte the coarse-remap (`dispatch_token` 4A74) deposits in `0x85DE` — there is no second lookup. The context-bias in step 1 is what swaps a token between its baseline and stacked class **before** this index is taken: superscript edit form adds `0x29` (`4A85`), and an active fraction/argument context (`IY+9` bit 0) bumps classes `0x03–0x08` up by `0x28` (`4AB3`), so the *same* operator token resolves to a different `0x5E45` slot — a baseline glyph vs a fraction-part / exponent handler. The **fraction‑vs‑superscript form selector** for two‑byte tokens is two small `{hi,lo}` match tables consulted by `eqdisp_chk_frac_tbl` (`39:5E1F`, table **`0x6203`**, 14 entries) and its sibling (`39:5E26`, table **`0x63E3`**, 4 entries): a hit picks the stacked class (`0x92`, superscript) vs the default (`0x8E`, fraction) at `537D`/`5381`. Paren matching uses pair tables at `0x62E2 / 0x62CB / 0x62F9` (walked by `eqdisp_peek_match_tok` `6667`/`6675`).
+### Handler record format [confirmed]
+
+The record layout is:
+
+```
+byte row_count
+byte arg_count[row_count]
+byte row_action[row_count]
+word display_token[sum(arg_count)]
+```
+
+`eqdisp_sum_arg_widths` (`39:4DCA`) computes the token-cell pointer for the current row:
+
+```
+row_tokens = record + 1 + 2*row_count
+           + 2*sum(arg_count[0 .. current_row-1])
+```
+
+`eqdisp_emit_arglist` (`39:4DE6`) then walks `arg_count[current_row]` two-byte cells, loads each cell as `D,E`, and calls `eqdisp_emit_glyph` (`39:4E8E`). The `row_action` array is used by `_DispMenuTitle` (`39:4D21`): it skips the count array, points at `row_action[0]`, emits each row's byte through the `3B2B` draw bjump, and highlights the byte whose index equals `0x85DF`.
+
+The `fnInt(`/`nDeriv(`/summation family is in this record machinery. Page 1's token-name table has `C8 06 "fnInt("` and `C7 07 "nDeriv("`; the page-39 class `0x08` record (`0x608B`) contains row-0 cells `00 C7`, `00 C8`, `FB C8`, `FB C7`, and class `0x30` (`0x6030`) is the same family under the `+0x28` fraction-context bias. `FB C8` and `FB C7` are not integral-piece bitmaps: in `eqdisp_menu_or_emit` (`39:53AD`) they trigger square-up (`0x06`) and square-down (`0x07`) marker emission.
+
+**The class table is a flat 0x44-entry pointer array indexed by `0x85DE`.** Because dispatch is purely `0x5E45 + 2·(0x85DE)`, the *layout class* of every token is exactly the byte the coarse-remap (`dispatch_token` 4A74) deposits in `0x85DE` — there is no second lookup. The context-bias in step 1 is what swaps a token between its baseline and stacked class **before** this index is taken: superscript edit form adds `0x29` when `(IY+2)` bit 4 is **reset** (`4A7F: BIT 4,(IY+2) / JR NZ` skips the `ADD A,0x29` at `4A85`; `4A87`/`4A8E` add one more each when bits 6/5 are likewise reset), and an active fraction/argument context (`IY+9` bit 0) bumps classes `0x03–0x08` up by `0x28` (`4AB3`), so the *same* operator token resolves to a different `0x5E45` slot — a baseline glyph vs a fraction-part / exponent handler. The **fraction‑vs‑superscript form selector** for two‑byte tokens is two small `{hi,lo}` match tables consulted by `eqdisp_chk_frac_tbl` (`39:5E1F`, table **`0x6203`**, 14 entries) and its sibling (`39:5E26`, table **`0x63E3`**, 4 entries): a hit picks the stacked class (`0x92`, superscript) vs the default (`0x8E`, fraction) at `537D`/`5381`. Paren matching uses pair tables at `0x62E2 / 0x62CB / 0x62F9` (walked by `eqdisp_peek_match_tok` `6667`/`6675`).
 
 ## The cell grid → pixels [confirmed — from disassembly]
 
@@ -145,7 +168,7 @@ $$\text{width} = \max(\text{num}_w, \text{den}_w), \qquad \text{height} = \text{
 
 ### Exponents / superscripts [confirmed — from disassembly]
 
-`eqdisp_set_row_for_tok` (39:4CE9) forces the superscript token into a **raised row slot** (`0x844B = 3` or `4`) — **no glyph downscale**, the same small font. It is **class-table driven off `0x85DE`**: it tests the class in `[0x24, 0x29)` (the fraction/exponent-context band produced by the `+0x28` bias above) and, for those, saves the current `0x844B`, loads a raised row index (`LD HL,4` / `LD L,3` for the `0x24+4` case), writes it, and lays the token there (`3B2B`); class `0x39` takes the same raised path with row `4`. Because `decr_counters` derives `y` from the row index, a smaller row index renders higher on screen; the exponent's height is folded into the parent box through the per-row accumulation. So `X²` is just `X` on the baseline row and `2` on a raised row — the class byte alone (not a glyph attribute) selects the raised slot.
+`eqdisp_set_row_for_tok` (39:4CE9) forces certain layout classes into a **raised row slot** (`0x844B = 3` or `4`). It reads the class from `0x85DE` and, for classes in **`[0x24, 0x29)`**, saves the current `0x844B`, loads a raised row index (`LD HL,4`, with `LD L,3` for the `0x28` case = `0x24+4`), writes it, and lays the token there via the `3B2B` bjump; **class `0x39`** takes the same raised path with row `4` and `A=0x1B`. Because `decr_counters` derives `y` from the row index, a smaller row index renders higher on screen; the exponent's height is folded into the parent box through the per-row accumulation. So `X²` is just `X` on the baseline row and `2` on a raised row — the class byte alone (not a glyph attribute) selects the raised slot.
 
 ### Indentation [confirmed]
 
@@ -153,15 +176,16 @@ $$\text{width} = \max(\text{num}_w, \text{den}_w), \qquad \text{height} = \text{
 
 ### Multi-argument functions [confirmed]
 
-`eqdisp_sum_arg_widths` (39:4DCA) sums per-argument widths and reserves one **separator column** per gap; `eqdisp_layout_multiarg` (39:5167) lays out args `0..(0x85E2-1)`, bumping the column counter `0x844B` between them and overflowing into a continued row once `0x844B ≥ 7`.
+`eqdisp_sum_arg_widths` (39:4DCA) computes the current row's token-cell pointer from the handler record and sums per-argument widths; `eqdisp_layout_multiarg` (39:5167) lays out args `0..(0x85E2-1)`, bumping the column counter `0x844B` between them and overflowing into a continued row once `0x844B ≥ 7`.
 
 ## Glyph emission [confirmed — from disassembly]
 
-`eqdisp_emit_glyph` (39:4E8E) stages `penCol` (`0x86D7`) / `penRow` (`0x86D8`), then calls the OS **proportional small font** path (`page_01:5A98`, the `_VPutMap` core: index ×8 into 8-byte font cells). The font is variable-width; `eqdisp_glyph_width` (39:6BE7) sums per-sub-glyph widths via the page-1 width helper for the real pen advance.
+`eqdisp_emit_glyph` (39:4E8E) dispatches on the token's high byte (`D`): `0x1F` is a special form (`PUSH IX/POP HL/RST 20`); `0x82` subtracts `0x3E` from the low byte and bjumps `3B2B`; otherwise it runs `eqdisp_classify_paren` (`6675`) and `eqdisp_map_token_glyph` (`4F1A`), emitting the glyph through `RST 28` (bcall) / the `2CBB` draw-mode bjump rather than a direct `_PutMap` call. It then checks horizontal overflow (`LD A,(0x844C); CP 0x0F` → `3CB7` when `≥ 15` columns) and the cursor bounds (`4F44`). The glyphs themselves come from the page-7 large font (`0x45FF + code*7`; see [Display & LCD → Fonts](08-display-lcd.md)); `eqdisp_glyph_width` (39:6BE7) sums per-glyph widths for the pen advance.
 
 - **Digits** (`eqdisp_emit_digit` 39:4E14) convert a numeric token to its ASCII char (`+'0'`/`+'1'`, hex base `'7'`) and VPut it, with a cursor-highlight bit when the digit is at the cursor.
-- **Structural symbols** (operators, **big parentheses**, the **fraction/radical rules**) are *not* glyphs — they are filled rectangles/strokes drawn straight into the graph buffer by `gr_draw_tbl_glyph` (39:66DC, via `_SetTblGraphDraw`) and `gr_set_window_draw` (39:4833), the same path the fraction bar uses. Paren matching feeds them via the pair tables at `0x62E2/0x62CB/0x62F9`.
-- The routine RE-named `eqdisp_load_glyph18b` (39:6B62) is **not** a glyph loader: it `_Mov18B`-copies an 18-byte chunk from the **MathPrint mode-menu string table** at `0x6BA9` — length-prefixed strings `"n⁄d"`, `"Un⁄d"`, `"summation Σ("`, `"AUTO Answer"`, `"FRAC Answer"`, `"DEC Answer"` — i.e. menu text for the fraction/answer display modes, not a bitmap. (Name kept here only to match the disassembly DB.)
+- **Math symbols** — the integral, radical, summation, super/subscript boxes, and the placeholder box are **font glyphs** (codepoints in the [glyph index](#large-font-glyph-index)), blitted like any character.
+- The **fraction bar** is a filled rectangle drawn into the graph buffer by `gr_set_window_draw` (39:4833); `gr_draw_tbl_glyph` (39:66DC) sets the graph-draw mode for it. Parenthesis matching uses the pair tables at `0x62E2/0x62CB/0x62F9`.
+- `eqdisp_load_glyph18b` / `eqdisp_load_glyph18b2` (`39:6B62/6B66`) are menu-string loaders despite their old names: `FB CA` -> `0x6BA9` (`n/d`), `FB CB` -> `0x6BAD` (`Un/d`), `FB C8` -> `0x6BB2` (`summation Sigma(`, draw path only), and `FB D6/D8/D7` -> answer-mode strings. They `_Mov18B` into `0x97F2` and return that string buffer to `eqdisp_glyph_width`. Other nearby `FB C*` cells are not proven to use this loader path.
 
 ## Worked examples
 
@@ -204,17 +228,24 @@ row 1:      C            denominator centered under the 3-col bar
 ```
 The `2` is an ordinary baseline glyph; the `3/4` is a kind-2 fraction box laid out to its right. The `n⁄d` vs `Un/d` choice comes from the mode menu (`0x6BA9` strings) — the same flag that picks improper-vs-mixed rendering.
 
-### Integrals, summations & multi-argument functions
+### MathPrint symbols are font glyphs
 
-`fnInt(`, `nDeriv(`, `sum(`/`seq(` are stored as **function tokens** (`pg01:4923` `fnInt(`, `pg01:492B` `nDeriv(`), but in MathPrint the OS **renders them as their 2-D mathematical notation** — `∫` with its lower/upper limits, `Σ` with index limits — *not* as flat `fnInt(...)` text. The token is the storage form; the display is the typeset symbol.
+The 2-D math symbols are **dedicated glyphs in the page-7 large font**, blitted like any character — they are *not* dynamically stroked. The `ti83plus.inc` font-codepoint table names them, and rendering them from the ROM (page 7, `0x45FF + code*7`) confirms each:
 
-The font has **no static `∫` glyph** (the page-7 large font carries a `Σ` at char `0xC6`, but no integral sign), so the integral sign is **stroked dynamically by code** — the same approach the engine already uses for the fraction bar (a filled rectangle drawn via `gr_set_window_draw`, not a character). The integrand and the limits are positioned by the cell-grid machinery (`eqdisp_layout_multiarg` 39:5167, `eqdisp_sum_arg_widths` 39:4DCA) that places any sub-expression, with the limits stacked above/below the symbol the way a fraction stacks numerator/denominator.
+| Code | `inc` name | Symbol | Code | `inc` name | Symbol |
+|------|-----------|--------|------|-----------|--------|
+| `0x08` | `Lintegral` | **∫** | `0x10` | `Lroot` | **√** |
+| `0x0E` | `LcubeR` | ³ (cube-root index) | `0x11` | `Linverse` | ⁻¹ |
+| `0x06` | `LsqUp` | ◳ (exponent box) | `0x07` | `LsqDown` | ◰ (subscript box) |
+| `0x1B` | `Lexponent` | exponent mark | `0xC6` | (Sigma) | **Σ** |
+| `0xF5` | — | MathPrint `_` | `0xF6` | — | fraction slash |
+| `0xF7` | — | ☐ placeholder box | `0x12` | `Lsquare` | ² |
 
-*Verified so far: `Σ` exists as a font glyph (`0xC6`); the integral has no glyph and is therefore drawn, not blitted. The exact symbol-stroking routine and limit placement are still being traced — see [Remaining unknowns](#remaining-unknowns).*
+So `fnInt(` renders as the **∫ glyph (`0x08`)** with the integrand to its right and the lower/upper limits stacked below/above it; summations use the **Σ glyph (`0xC6`)** the same way; `√(` uses **`Lroot` (`0x10`)**. The 2-D *placement* is record- and row-action-driven: the class `0x08`/`0x30` records carry the `fnInt(`/`nDeriv(`/summation token cells and the square up/down marker cells, while the cell-grid machinery chooses the raised/lowered rows. Codepoints `0xF5/0xF6/0xF7` were **added in OS 2.53MP** for MathPrint (per WikiTI `83Plus:OS:OS 2.53MP Changes`); `0xF7` is the "checkered box" placeholder shown for an empty/over-deep template.
+
+**MathPrint mode flag**: WikiTI documents `(IY+0x44)` bit 5 as `MathPrintActive` (`83Plus:Flags:44` = `MathPrintFlags1`) and `(IY+0x48)` bit 0 as the fraction (improper vs mixed) mode, both from `83Plus:OS:OS 2.53MP Changes`. These specific bits are **not yet confirmed against this ROM** via the MCP. In Classic mode the engine takes the 1-line path and the cell-grid stacking does not run.
 
 **Bracket nesting `(((X)))`** — each `(` pushes a structural open-paren glyph and matches via the pair tables at `0x62E2/0x62CB/0x62F9`; `eqdisp_classify_paren` tracks the depth so the matching `)` glyphs line up. Pure nesting adds width (a column per paren) but no height.
-
-> **MATHPRINT vs CLASSIC.** 2.55MP has both modes (menu strings at `pg01:5A09`: `MATHPRINT`, `CLASSIC`, `n⁄d`, `Un/d`). In CLASSIC mode the engine takes the 1-line path (`page_01 disp_sync_curpos` checks `0x85DE == 0`) and none of the cell-grid stacking above runs — everything renders left-to-right like the older OSes.
 
 ## Cursor, overflow & state preservation [confirmed]
 
@@ -246,16 +277,16 @@ The engine takes **no register arguments** — it is driven through the shared m
 | Cursor / state | `eqdisp_cmp_cursor_bounds` / `eqdisp_set_overflow_jp` / `save`/`restore_disp_state` | `4F44` / `6712` / `57CF`/`5801` |
 | Menus | `mnu_show_and_getkey` / `eqdisp_menu_dispatch` / `eqdisp_menu_or_emit` | `5466` / `545B` / `53AD` |
 
-Tables: handler pointers `0x5E45` (0x44 entries) · paren pairs `0x62E2/0x62CB/0x62F9` · classifier tables `0x6203/0x63E3` · kind box descriptors `0x686F/0x6880/0x6893/0x689C/0x68A5` · MathPrint mode-menu strings `0x6BA9…0x6BD7` (`n⁄d`/`Un/d`/`AUTO`/`DEC`/`FRAC`). (Page 0x39 = ROM file offset `0xE4000`.)
+Tables: handler record pointers `0x5E45` (0x44 entries; dump with `tools/dump-mathprint-layout.py`) · paren pairs `0x62E2/0x62CB/0x62F9` · classifier tables `0x6203/0x63E3` · kind box descriptors `0x686F/0x6880/0x6893/0x689C/0x68A5` · MathPrint mode-menu strings `0x6BA9…0x6BD7` (`n/d`/`Un/d`/`AUTO`/`DEC`/`FRAC`). (Page 0x39 = ROM file offset `0xE4000`.)
 
 ## Takeaway
 
 Page 0x39 is a **cell-grid 2-D typesetter**: classify each token → index a handler table → measure it into a `(row, col)` cell grid (fractions add a row + bar, exponents force a raised row) → map cells to pixels at 7 px/column with per-row heights → emit proportional-font glyphs and graph-buffer rectangles, all while tracking the edit cursor against the token stream and preserving the caller's OP registers. Every context that shows an editable expression drives it through the shared `0x85DE` mode byte.
 
 ## Remaining unknowns
-- **Largely resolved — token→class lookup mechanics.** Classification (`4AEC`) + dispatch (`4C27`) are now fully documented: the class byte in `0x85DE` directly indexes the 0x44-entry pointer table at `0x5E45` (stride 2, via `SLA A` + `_LdHLind`), with context-bias (`+0x29` superscript, `+0x28` fraction-context) swapping a token's class **before** the index; `0x6203`/`0x63E3` are `{hi,lo}` match tables that pick the stacked (superscript `0x92`) vs default (fraction `0x8E`) form. Residual: the full **entry-by-entry byte decode** of `0x5E45`/`0x6203`/`0x63E3` (which token → which class → which handler address, for all 0x44 slots) is still only spot-sampled, since those tables are unanalyzed data in the DB.
-- The exact contents of each kind box descriptor (`0x686F…`) and how it maps to a structure's row template.
+- **Largely resolved — token→class lookup mechanics and handler record format.** Classification (`4AEC`) + dispatch (`4C27`) are now documented: the class byte in `0x85DE` indexes the 0x44-entry record table at `0x5E45`, context-bias (`+0x29` superscript, `+0x28` fraction-context) swaps a token's class before the index, and handler records are decoded as row counts, per-row argument counts/title bytes, and two-byte token cells. Residual: the semantic label for every row title byte is not named yet.
+- **Resolved for the earlier integral blocker — kind box descriptors (`0x686F…`) are not integral segment tables.** They are fixed box/menu descriptors; the proven `FB` cases route to menu strings or square-marker handling, not tall-integral bitmaps.
 - The page-0x3A draw continuation for overflowing lines (where horizontal scroll is composited).
 - The exact flag that selects MATHPRINT vs CLASSIC (the modes are confirmed at `pg01:5A09`; CLASSIC short-circuits to the 1-line path via `0x85DE == 0`, but the persistent mode bit in `SystemFlags` isn't pinned yet).
 - How the radical (`√`) vinculum is sized/positioned (it uses the graph-buffer rule path like the fraction bar, but the specific routine wasn't isolated).
-- **The `∫` integral / `Σ` summation 2-D rendering.** These *do* render as their math symbols with stacked limits in MathPrint (not as flat `fnInt(...)`/`sum(...)` text). `Σ` has a font glyph (`0xC6`); the integral has none, so the `∫` is stroked dynamically (like the fraction bar). The stroking routine, the limit (super/subscript) placement, and the token→template mapping for `fnInt(`/`sum(` are not yet pinned.
+- **`∫` integral / `Σ` summation — mostly resolved.** Both render as their math symbols with stacked limits, and both symbols are **font glyphs** (`Lintegral 0x08`, `Σ 0xC6`, `Lroot 0x10`, …), *not* dynamically stroked. The associated display-token cells are in class `0x08`/`0x30` handler records. Residual: tie each `fnInt(` operand slot to the exact recursive layout transition that produces the 17-pixel tall captured layout.
