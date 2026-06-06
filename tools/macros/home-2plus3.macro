@@ -1,0 +1,29 @@
+# Power on, dismiss the RAM-cleared splash, evaluate 2 + 3 on the home screen.
+#
+# Run at NORMAL speed with a cold reset (full-speed runs minutes of emulated
+# time per wall-second and trips Auto-Power-Down before keys arrive):
+#   tilem2 --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
+#     --macro tools/macros/home-2plus3.macro \
+#     --headless-record /tmp/calc.gif \
+#     --trace /tmp/b.trace --trace-range all
+# Isolate the evaluation path with a coverage diff against
+# tools/macros/boot-idle.macro (see tools/dynamic-tracing.md).
+#
+# NOTE: comments must be on their own line - the parser treats a trailing
+# "# ..." after a command as a (bad) hold-time argument.
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+# dismiss the "RAM cleared / PRESS ALPHA F1-F4" splash on a cold boot:
+key ENTER
+wait 1.5s
+key CLEAR
+key 2
+key ADD
+key 3
+# the parser + BCD-float path we want to trace runs on the next key:
+key ENTER
+wait 2s
+screenshot /tmp/calc-2plus3.png
