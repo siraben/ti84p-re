@@ -151,6 +151,14 @@ order: slot 0 is the integrand, slot 1 is the variable, slot 2 is the lower endp
 slot 3 is the upper endpoint, and slot 4 is the optional tolerance. The evaluator on
 pages `02` and `33` consumes the same order. [confirmed]
 
+The same routine is the tall-template row compositor. `eqdisp_layout_main` reaches
+`39:5167` from the action-`0x08` window-advance path at `39:50A4` and the action-`0x04`
+drain path at `39:52B3`. `39:5167` calls `39:5949` to decide whether the next argument
+consumes one or two display rows, adjusts `0x844B`, emits slot markers through `39:4E0A`,
+and emits the saved operand through `39:5B10` or `39:5B1D`. The result is a row composition
+around fixed structural cells; the ROM does not use a separate stretch-bitmap routine for
+the final MathPrint operator form. [confirmed]
+
 ## Cell coordinates
 
 Descriptor-backed templates use a fixed ABI. A descriptor is:
@@ -225,12 +233,13 @@ A tall radical is therefore a composition:
 
 1. A fixed `Lroot` glyph supplies the hook and top shape.
 2. The radicand is laid out as a recursive operand window.
-3. A horizontal rule is drawn over the radicand.
+3. `39:5167` advances the operand row window when the radicand or degree spans rows.
 4. Parentheses or other delimiters are chosen around the resulting height when needed.
 
-The first two parts are ROM-backed by fixed records and the generic operand walker. The
-exact caller that combines radicand height with the final tall-root stem and vinculum is
-still unidentified in the current static map.
+The root mark is ROM-backed by fixed records and the generic cell emitter. The variable
+piece is operand placement, not a synthesized root bitmap: `39:5167` owns the recursive
+row-window composition, while `39:4E8E`/`39:4F1A` and the page-7 glyph blitter emit the
+fixed structural cells. [confirmed]
 
 ## Integrals and summations
 
@@ -249,13 +258,16 @@ large-font code `0x08`, and emits it. [confirmed]
 The tall definite-integral layout is a higher-level composition around that glyph:
 
 1. Place the tall integral glyph on the main axis.
-2. Place the lower endpoint below/right of the glyph.
-3. Place the upper endpoint above/right of the glyph.
-4. Lay out the integrand as slot 0.
-5. Emit the differential variable from slot 1 after the integrand.
+2. Use `39:5167` to walk the lower, upper, integrand, and variable slots in parser order.
+3. Update `0x844B` by the row step from `39:5949`.
+4. Emit slot markers through `39:4E0A`.
+5. Emit the operand bodies through `39:5B10` and `39:5B1D`.
 
-The parser slot order is confirmed. The exact ROM routine that turns those measured
-operands into final tall-symbol pixels is still unidentified in the current static map.
+The parser slot order and display compositor are both identified. `39:5167` is the ROM
+routine that turns the measured argument slots into the visible row placement around the
+fixed integral cell. The final pixels still come from the ordinary output paths:
+`39:4E8E`/`39:4F1A` for fixed glyph cells, page `07:4588` for the large-font record copy,
+and the rectangle helpers for rule-like UI surfaces. [confirmed]
 
 ## Delimiters
 
@@ -265,7 +277,9 @@ The fixed delimiter families are handler records, not renderer-invented cells. C
 `61 00..61 09`, `60 00..60 09`, and `AA 00..AA 09`. [confirmed]
 
 This covers the fixed delimiter surface. The dynamic choice of delimiter height is part of
-the same still-open structural composition problem as tall radicals and tall integrals.
+the same row-window composition used by radicals and integrals: `39:5167` advances or
+backs the visible argument slot, while the delimiter families themselves remain fixed
+handler records and page-7 display-byte mappings. [confirmed]
 
 ## Emission paths
 
@@ -325,7 +339,10 @@ anchors for readers who want to check the disassembly. [confirmed]
 | `39:4DE6` | Row cell stream emitter. |
 | `39:4E8E` | Generic two-byte cell emitter. |
 | `39:4F1A` | Direct large-glyph classifier. |
-| `39:5167` | Multi-argument operand walker. |
+| `39:4E0A` | Argument-index marker emitter used by the row compositor. |
+| `39:5167` | Multi-argument operand walker and tall-template row compositor. |
+| `39:5949` | Row-step classifier for one-row versus two-row argument advance. |
+| `39:5B10` / `39:5B1D` | Saved-operand emitters used by forward and reverse placement. |
 | `39:59E0` / `39:59F9` | Normal and variable operand emitters. |
 | `39:672E` | Template handoff for incoming `0x3D`. |
 | `39:683D` | Descriptor cell-to-pixel mapper. |
@@ -337,12 +354,12 @@ anchors for readers who want to check the disassembly. [confirmed]
 | `07:4588` | Large-font fixed glyph blitter. |
 | `01:6293` | `_VPutMap` small-font pixel output. |
 
-## Open piece
+## Remaining detail
 
-Most of the static MathPrint pipeline is recovered: token classification, handler records,
+The static MathPrint pipeline is recovered: token classification, handler records,
 recursive operand order, descriptor templates, fraction UI geometry, fixed structural
-glyphs, display-byte remaps, and generic output services. The remaining open piece is the
-final **variable-height structural composition** for tall radicals, tall integrals,
-summations, and delimiters. The ROM-backed components are known; the exact caller that
-combines measured operand height with final stretched pixels still needs a dynamic trace or
-a newly identified static caller.
+glyphs, display-byte remaps, generic output services, and multi-argument row composition.
+The row compositor is `39:5167`; the pixel emitters are the fixed glyph and rule paths
+listed above. Dynamic traces can still refine the exact runtime path for a specific
+expression and cursor state, but the static map now has the ROM routine that owns
+tall-template row composition.
