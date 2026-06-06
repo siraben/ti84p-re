@@ -40,7 +40,7 @@ The scanner `kbd_scan_autorepeat` (`ram:0406`) walks the matrix one group at a t
 | `0x00` (all low) | "any key down?" probe used by `0x0406`'s initial `SUB A` call; selects all groups |
 | `0xFF` (all high) | release all groups after a read (`kbd_reset_port` writes this at `0491`) |
 
-**Forming a raw scan code.** For each driven group the routine reads the column byte, then finds the single low (pressed) column bit by an 8-iteration `RLA`/`DJNZ` loop (`0435`–`043C`) that counts set bits into `E` and records the bit index in `L`. If exactly one key is down it builds the scan code as **`(group_index − 1) × 8 + column_index`** (`0453: DEC A; RLA;RLA;RLA; ADD A,L` — the `DEC A` makes the high three bits `group − 1`, then the three `RLA`s shift it up by 8 before adding the column in `L`) and returns it; multiple simultaneous keys set carry (`SCF` @ `0459`) so the press is rejected (debounce / ghost-key reject). The single resulting byte is the raw scan code that lands in `kbdScanCode` (`0x843F`), which `_GetCSC` (`00:04B2`) then reads-and-clears under `DI`. The scan-enable gate `BIT 0,(IY+0x2C)` @ `0415` lets the ISR/`_GetKey` path special-case the arrow group.
+**Forming a raw scan code.** For each driven group the routine reads the column byte, then finds the single low (pressed) column bit by an 8-iteration `RLA`/`DJNZ` loop (`0435`–`043C`) that counts set bits into `E` and records the bit index in `L`. If exactly one key is down it builds the scan code as **`group × 8 + column_index`**, where `group` is the 0-based group from the table above. The code forms it at `0453: DEC A; RLA;RLA;RLA; ADD A,L`: the iteration counter in `A` is 1-based, so `DEC A` converts it to the 0-based `group`, the three `RLA`s multiply by 8, and `ADD A,L` adds the column index in `L`; it then returns the byte. multiple simultaneous keys set carry (`SCF` @ `0459`) so the press is rejected (debounce / ghost-key reject). The single resulting byte is the raw scan code that lands in `kbdScanCode` (`0x843F`), which `_GetCSC` (`00:04B2`) then reads-and-clears under `DI`. The scan-enable gate `BIT 0,(IY+0x2C)` @ `0415` lets the ISR/`_GetKey` path special-case the arrow group.
 
 ### 2nd / ALPHA modifier state machine [confirmed]
 
@@ -81,8 +81,10 @@ stateDiagram-v2
     AlphaLower --> Idle: ALPHA, cancel @4C13
     AlphaLock --> AlphaLock: letter, alpha code, locked
     AlphaLock --> Idle: ALPHA, cancel
-    Alpha --> Alpha: 2nd, SET b3 @4C25
-    AlphaLock --> AlphaLock: 2nd, SET b3 @4C25
+    Alpha --> AlphaSecond: 2nd, SET b3 @4C25
+    AlphaLock --> AlphaSecond: 2nd, SET b3 @4C25
+    AlphaSecond --> Alpha: key, 2nd-shifted, RES b3 (b6 clear)
+    AlphaSecond --> AlphaLock: key, 2nd-shifted, RES b3 (b6 set)
 ```
 
 ### Key → token translation [confirmed]
