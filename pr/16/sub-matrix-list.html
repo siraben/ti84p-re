@@ -1,0 +1,795 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Matrices &amp; lists - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-06589a53.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-5397aae8.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="matrices--lists"><a class="header" href="#matrices--lists">Matrices &amp; lists</a></h1>
+<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
+<p>How the TI-84 Plus OS (2.55MP) stores, indexes, and computes on <strong>lists</strong> and
+<strong>matrices</strong> — the routines a college student hits doing linear algebra (<code>det(</code>, <code>[A]⁻¹</code>,
+<code>rref(</code>, <code>[A]*[B]</code>, <code>identity(</code>, <code>T</code>) and data work (<code>L1+L2</code>, <code>dim(</code>, <code>sum(</code>, <code>seq(</code>,
+<code>SortA(</code>). Companion to <a href="05-variables-vat.html">05-variables-vat.md</a> (where the data lives), <a href="06-floating-point.html">06-floating-point.md</a>
+(how each element is computed), and <a href="sub-vat-archive.html">sub-vat-archive.md</a> (Store/Recall/Archive).</p>
+<p>All <code>page:addr</code> are read from the raw Z80 disassembly, not the decompiler alone.
+Page numbers are the masked flash page (<code>rawpage &amp; 0x3F</code>). The whole-OS image lives in one
+Ghidra program with address spaces <code>ram</code> (the page-0/RAM-resident 0x0000–0x7FFF window) and
+<code>page_NN</code> for each flash page mapped into the 0x4000–0x7FFF bank-A window.</p>
+<p>Confidence (this doc’s shorthand; see <a href="conventions.html">Conventions</a>): <strong>[C]=confirmed from disassembly</strong> (≈<code>[confirmed]</code>), <strong>[H]=high (structure clear, light inference)</strong> (≈<code>[standard]</code>), <strong>[I]=inferred / standard documented TI behaviour</strong> (≈<code>[hypothesis]</code>).</p>
+<hr>
+<h2 id="0-tldr--the-mental-model"><a class="header" href="#0-tldr--the-mental-model">0. TL;DR — the mental model</a></h2>
+<ul>
+<li>
+<p>A <strong>list</strong> is <code>word count</code> (2 bytes) followed by <code>count</code> × 9-byte <code>TIFloat</code> elements
+(18-byte complex elements if the list is complex, flagged <code>0x0C</code>). Element $i$ (1-based)
+lives at $\mathrm{addr}(L_i)=\mathrm{data}+2+(i-1)\cdot 9$.</p>
+</li>
+<li>
+<p>A <strong>matrix</strong> is <code>byte dim0; byte dim1;</code> (two 1-byte dimensions) followed by
+<code>dim0*dim1</code> × 9-byte <code>TIFloat</code>, stored <strong>column-major</strong>. The element offset from the start
+of the data area (after the 2 dim bytes) is</p>
+<p>$$\mathrm{offset}=\big((\mathit{idx}_0-1)\cdot \mathit{dim}_0+(\mathit{idx}_1-1)\big)\times 9$$</p>
+</li>
+<li>
+<p><strong>Every element read/write routes one <code>TIFloat</code> through <code>OP1</code>/<code>OP2</code></strong> and the FP engine —
+there is no “vector unit”; matrix multiply is a triple loop of <code>_FPMult</code>+<code>_FPAdd</code>.</p>
+</li>
+<li>
+<p>The data area is found through the <strong>VAT</strong> (<code>_FindSym</code>, <a href="05-variables-vat.html">doc 05</a>): the VAT entry’s data
+pointer + page byte locate the <code>count</code>/<code>dim</code> header, after which all indexing is pointer
+arithmetic computed by <code>_AdrLEle</code>/<code>_AdrMEle</code>.</p>
+</li>
+<li>
+<p><strong>One shared Gauss-Jordan engine</strong> (<code>page_02:42A6</code>) implements <strong>matrix inverse <code>[A]⁻¹</code></strong>
+(flag <code>0x00</code>) and <strong><code>det(</code></strong> (flag <code>0x40</code>) with <strong>partial pivoting</strong>. <code>rref(</code>/<code>ref(</code> are
+the same elimination family.</p>
+</li>
+</ul>
+<hr>
+<h2 id="1-data-layouts--the-creator-routines-c"><a class="header" href="#1-data-layouts--the-creator-routines-c">1. Data layouts &amp; the creator routines [C]</a></h2>
+<h3 id="list--_createrlist-0010c4-_createclist-001109"><a class="header" href="#list--_createrlist-0010c4-_createclist-001109">List — <code>_CreateRList</code> (<code>00:10C4</code>), <code>_CreateCList</code> (<code>00:1109</code>)</a></h3>
+<pre><code>_CreateRList(count, dataPtrOut):
+  reject unless OP1 name token (8478.exp) ∈ {0x5D, 0x24, 0x3A, 0x72}  ; list-name classes
+  var_alloc(1)                  ; carve  count*9 + 2  bytes via _InsertMem
+  store count word at data[0..1]
+  if list is complex (8499.type &amp; 8): data[2] = 0x0C   ; element-size flag
+</code></pre>
+<p>Layout: <code>[countLo countHi] [TIFloat e1] [TIFloat e2] …</code>. A complex list keeps a <code>0x0C</code>
+flag and 18-byte elements.</p>
+<h3 id="matrix--_creatermat-001115"><a class="header" href="#matrix--_creatermat-001115">Matrix — <code>_CreateRMat</code> (<code>00:1115</code>)</a></h3>
+<pre><code>_CreateRMat(dimWord, dataPtrOut):
+  _HTimesL()                    ; element count = H * L  (the two dims multiplied)
+  var_alloc(2)                  ; carve  H*L*9 + 2  bytes
+  header: LD (HL),C ; INC HL ; LD (HL),B   ; writes dim0 then dim1
+</code></pre>
+<ul>
+<li><strong><code>_HTimesL</code> (<code>00:1EF6</code>)</strong> is literally <code>result = H * L</code> (<code>B=H; HL=Σ L</code>, a <code>DJNZ</code> add loop) —
+it computes the <strong>element count</strong> from the two dimension bytes. [C]</li>
+<li>Header = two bytes <code>dim0,dim1</code>; data is <code>dim0*dim1</code> floats <strong>column-major</strong>.</li>
+</ul>
+<blockquote>
+<p><strong>Dimension naming [C].</strong> Settled by disassembly. <code>_AdrMEle</code> (<code>02:4002</code>) reads the header’s
+<strong>first byte</strong> (<code>LD A,(DE); LD L,A</code>) and uses it as the <strong>major stride</strong>, looping <code>(B−1)</code>
+adds of it and then <code>+(C−1)</code> <em>within</em> a column (column-major). The major stride of a
+column-major array is the <strong>number of rows</strong>, so the <strong>first header byte (<code>dim0</code>) = #rows</strong>,
+and <code>_AdrMEle</code>’s <code>B = idx0 = column</code>, <code>C = idx1 = row</code>. <code>_CreateRMat</code> (<code>ram:1115</code>) confirms
+the layout: it is <code>PUSH HL ; CALL _HTimesL (1EF6) ; LD A,2 ; JR 10DD</code> — <code>_HTimesL</code> returns
+<code>H·L</code> (the element count) and <code>A=2</code> is the 2-byte dim header; the two dimension bytes are
+stored <code>dim0</code> (rows) then <code>dim1</code> (cols). The byte-confirmed index arithmetic
+<code>((idx0−1)·dim0 + (idx1−1))·9</code> is therefore a <strong>(column, row)</strong> register convention with a row-count stride.</p>
+</blockquote>
+<hr>
+<h2 id="2-element-access--the-indexoffset-math-c"><a class="header" href="#2-element-access--the-indexoffset-math-c">2. Element access — the index→offset math [C]</a></h2>
+<p>This is the heart of everything. Two address-calculators turn a 1-based index into a byte
+pointer, then a 9-byte move shuttles the <code>TIFloat</code> to/from <code>OP1</code>.</p>
+<h3 id="list-element-address--_adrlele-0247c5"><a class="header" href="#list-element-address--_adrlele-0247c5">List element address — <code>_AdrLEle</code> (<code>02:47C5</code>)</a></h3>
+<pre><code class="language-z80">_AdrLEle(index, listDataPtr):           ; HL=index, DE=listDataPtr
+  INC DE ; INC DE                        ; skip the 2-byte count header
+  A = (DE) &amp; 0x1F                         ; element type (low 5 bits); 0x0C ⇒ complex
+  CALL 21C4                               ; classify real vs complex element width
+  HL = (index − 1)                        ; _HLTimes9(index-1)
+  CALL 1930  (_HLTimes9)                  ; HL = (index-1) * 9
+  HL += DE                                ; final element pointer
+</code></pre>
+<p>So <strong>list element <em>i</em> is at <code>data + 2 + (i−1)*9</code></strong> (×18 path for complex). <code>_HLTimes9</code>
+(<code>00:1930</code>) is the universal “multiply by 9” (real <code>TIFloat</code> size). <code>chk_type_lt_1a</code> (<code>ram:21C4</code>)
+masks the type to ≤0x19 and sets carry for the complex case (drives the 18-byte width). [C]</p>
+<p>Convenience wrappers (all = <code>_AdrLEle</code> then a 9-byte move through OP1, complex-aware): [C]</p>
+<ul>
+<li><strong><code>_GetLToOP1</code> (<code>02:47EA</code>)</strong> — list[i] → OP1 (real or complex via two <code>_Mov9B</code>).</li>
+<li><strong><code>_RclListElemToOP1</code> (<code>02:47FB</code>)</strong>, <strong><code>_RclListElemB</code> (<code>02:47FE</code>)</strong> — recall to OP1 with the
+index pre-loaded in RAM (<code>84AF</code>/<code>84D3</code>).</li>
+<li><strong><code>_PutToL</code> (<code>02:4829</code>)</strong> — OP1 → list[i]; <code>_CkValidNum</code> validates the float first, then
+copies, honoring the complex (<code>&amp; 0xC</code>) element width.</li>
+<li><strong><code>_RclCListElem</code> (<code>02:49A7</code>)</strong>, <strong><code>_RclCListElemB</code> (<code>02:49B5</code>)</strong> — complex-list element via
+<code>_CplxOPArrange</code> (splits real/imag into OP1/OP2).</li>
+<li><strong><code>_GetPosListElem</code> (<code>02:5BBB</code>)</strong> — fetch by a <em>positive-integer</em> index with <code>_CkOP1Pos</code>
+bounds (loads <code>A=0x15</code> = <code>E_Stat</code> and jumps to the error vector <code>ram:2741</code> on a bad index).</li>
+</ul>
+<h3 id="matrix-element-address--_adrmele-024002-c"><a class="header" href="#matrix-element-address--_adrmele-024002-c">Matrix element address — <code>_AdrMEle</code> (<code>02:4002</code>) [C]</a></h3>
+<pre><code class="language-z80">_AdrMEle:                                 ; B=column idx0, C=row idx1, DE=matrixDataPtr
+  if B==0 or C==0 -&gt; LD A,0x78 ; JP 0x2793 ; 0-index rejected (error vector)
+  A = (DE)        ; A = dim0 (rows)        ; first header byte
+  HL = 0
+  repeat (B − 1) times:  HL += dim0        ; (idx0-1) * dim0     (column stride)
+  HL += (C − 1)                            ; + (idx1-1)          (within column)
+  DE += 2                                  ; skip both dim bytes
+  CALL 1930 (_HLTimes9)                    ; HL *= 9
+  HL += DE                                 ; final element pointer
+</code></pre>
+<p><strong>Column-major offset: <code>elem = data + 2 + ((idx0−1)*dim0 + (idx1−1)) * 9</code>.</strong> The <code>(B-1)</code>
+adds of <code>dim0</code> walk whole columns; the <code>(C-1)</code> steps within a column. The 8-bit adds track
+a carry into <code>H</code> so the address is a true 16-bit offset (matrices up to 99×99). Because the
+multiplied byte is <code>dim0</code> and that is the <strong>row count</strong> (column-major major stride), <strong><code>B=idx0</code>
+is the column index and <code>C=idx1</code> is the row index</strong> — see the [C] dimension-naming note in §1. [C]</p>
+<p>Matrix element wrappers: [C]</p>
+<ul>
+<li><strong><code>_AdrMRow</code> (<code>02:4000</code>)</strong> — address of the <em>start of column idx0</em> in the column-major buffer
+(loops <code>(idx0−1)</code> × dim0, no <code>+(idx1-1)</code>); whole-row operations layer their own iteration on top.</li>
+<li><strong><code>_GetMToOP1</code> (<code>02:4044</code>)</strong> — <code>[M](r,c)</code> → OP1 (<code>_AdrMEle</code> then <code>RST4</code> = load 9 bytes).</li>
+<li><strong><code>_PutToMat</code> (<code>02:406C</code>)</strong> = <code>mele_store_ckvalid</code> (<code>02:4068</code>): <code>_AdrMEle ; _CkValidNum ; _MovFrOP1</code> — OP1 →
+<code>[M](r,c)</code> with validation.</li>
+<li><strong><code>_StMatEl</code> (<code>38:6C8F</code>)</strong> — high-level “store into <code>[M](r,c)</code>” used by the parser: resolves
+the matrix name (<code>5F45</code>), bounds-checks indices against the dims (<code>r≤rows &amp;&amp; c≤cols</code>, else
+<code>_JError 0x8C</code> = <code>E_Dimension</code>), unarchives if needed, then <code>_PutToMat</code>. [C/H]</li>
+</ul>
+<h3 id="internal-index-helpers-reused-by-the-algorithms-c"><a class="header" href="#internal-index-helpers-reused-by-the-algorithms-c">Internal index helpers reused by the algorithms [C]</a></h3>
+<ul>
+<li><strong><code>mele_adr_af_jp</code> (<code>02:403C</code>)</strong> = <code>_AdrMEle(currentIJ) ; RST4</code> — “load <code>[M](i,j)</code> to OP1” (the elimination
+inner-loop read). Indices come from the loop state at <code>84AF/84B3/84B4</code>.</li>
+<li><strong><code>mele_adr_to8483</code> (<code>02:4051</code>)</strong> = <code>_AdrMEle ; _Mov9B(→OP3@8483)</code> — load element to OP3.</li>
+<li><strong><code>mele_put_af</code> (<code>02:405A</code>) / <code>mele_put_d3</code> (<code>02:405E</code>)</strong> = <code>_AdrMEle ; _CkValidNum ; _MovFrOP1</code> — store OP1 back to <code>[M](i,j)</code>.</li>
+<li><strong><code>_ListIdxTimes9</code> (<code>35:79E9</code>)</strong> = <code>_HLTimes9(idx)</code> then a small dispatch (<code>RST4</code>) — the list
+analogue used in a few list-builder paths.</li>
+</ul>
+<hr>
+<h2 id="3-list-operations-ch"><a class="header" href="#3-list-operations-ch">3. List operations [C/H]</a></h2>
+<h3 id="create--resize--insert--delete"><a class="header" href="#create--resize--insert--delete">Create / resize / insert / delete</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Routine</th><th>addr</th><th>Role</th></tr>
+</thead>
+<tbody>
+<tr><td><code>_CreateRList</code></td><td><code>00:10C4</code></td><td>new real list: <code>count*9+2</code> bytes (§1) [C]</td></tr>
+<tr><td><code>_CreateCList</code></td><td><code>00:1109</code></td><td>new complex list: <code>count*18+2</code> [C]</td></tr>
+<tr><td><code>_InsertList</code> / <code>_IncLstSize</code></td><td><code>07:4F07</code> (body <code>07:4EF4</code>)</td><td>grow a list in place via <code>_InsertMem</code>; caps length at 999 (<code>0x3E7</code>), else <code>E_Dimension 0x8C</code> (<code>07:4F00 JP Z,0x2719 → LD A,0x8C</code>) [C]</td></tr>
+<tr><td><code>_DelListEl</code></td><td><code>07:4F43</code></td><td>delete element(s): <code>_HLTimes9(index)</code> to size the gap (×2 if complex, <code>&amp; 0x1F == 0x0D</code>), then <code>_DelMem</code> via a cross-page jump [C]</td></tr>
+<tr><td><code>_RedimMat</code>/<code>_ConvDim</code></td><td><code>07:4D3B</code> / <code>38:741F</code></td><td>re-dimension (shared with matrices); <code>_ConvDim</code>/<code>_ConvDim00</code> (<code>38:741F/7422</code>) coerce OP1 to a real index first [C]</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="dim-dimln-listvalue"><a class="header" href="#dim-dimln-listvalue"><code>dim(</code>, <code>dim(L)→n</code>, list↔value</a></h3>
+<p><code>dim(</code> reads the <code>count</code> word straight from the list header; assigning <code>n→dim(L)</code> calls the
+resize path (<code>_IncLstSize</code>/<code>_DelListEl</code>) to grow/shrink, zero-filling new cells. List→matrix
+and matrix→list (<code>List►matr(</code>, <code>Matr►list(</code>) reshape via <code>_DataSize</code> + a column-major copy
+(<code>mele_copy9_d3</code> (<code>02:4539</code>)/<code>mele_copy9_loop</code> (<code>02:453F</code>), a <code>_DataSize</code>-counted byte copy of the float payload). [H]</p>
+<h3 id="list-arithmetic-l1l2-scalar-broadcast"><a class="header" href="#list-arithmetic-l1l2-scalar-broadcast">List arithmetic <code>L1+L2</code>, scalar broadcast</a></h3>
+<p>Binary list ops are <strong>element-wise folds</strong>: the parser walks both lists by index, loads
+<code>L1[i]</code>→OP1, <code>L2[i]</code>→OP2, applies the FP RST shortcut (<code>RST 30h _FPAdd</code>, <code>_FPSub</code>, <code>_FPMult</code>,
+<code>_FPDiv</code>), stores into a freshly <code>_CreateRList</code>’d result. Length mismatch ⇒ <code>E_DimMismatch</code>
+(<code>_ErrDimMismatch 00:2715</code>, <code>0x8B</code>); a list⊕scalar broadcasts the scalar across every element.
+[H — the per-element FP path is confirmed; the outer driver is the parser’s binary-op handler.]</p>
+<h3 id="sum-prod--higher-order-folds-over-a-list-c"><a class="header" href="#sum-prod--higher-order-folds-over-a-list-c"><code>sum(</code>, <code>prod(</code> — higher-order folds over a list [C]</a></h3>
+<p>Tokens <strong><code>0xB6</code>=<code>sum(</code></strong>, <strong><code>0xB7</code>=<code>prod(</code></strong> load a <em>combiner function pointer</em> and fold the
+list (dispatcher <code>02:6104</code>):</p>
+<pre><code>sum(  : HL = 0x3A83 (cross-page → FP add-accumulate),  seed via _OP1Set0
+prod( : HL = 0x49B9 (seed accumulator = 1.0, _PushOP1), combine with _FPMult
+        CALL 0x64B7 ; ... ; JP (HL)   ; apply the combiner across e1..eN
+</code></pre>
+<p>The fold seeds the accumulator (0 for sum, 1 for prod), then for each element does
+<code>acc = combine(acc, L[i])</code> through OP1/OP2. Works on real <strong>and</strong> complex lists (<code>type 1</code>/<code>0xD</code>
+both route to <code>02:6140</code>). [C]</p>
+<h3 id="seq-cumsum-sortasortd-meanmedianstddev-hi"><a class="header" href="#seq-cumsum-sortasortd-meanmedianstddev-hi"><code>seq(</code>, <code>cumSum(</code>, <code>SortA(</code>/<code>SortD(</code>, <code>mean(</code>/<code>median(</code>/<code>stdDev(</code> [H/I]</a></h3>
+<ul>
+<li><strong><code>seq(expr,var,lo,hi[,step])</code></strong> evaluates <code>expr</code> for <code>var = lo..hi</code>, pushing each result
+and finally <code>_CreateRList</code>-ing the collected floats (the generic list-builder loop;
+<code>_SetSeqM 36:7D1F</code> is the sequence-graph variant). [H]</li>
+<li><strong><code>cumSum(</code></strong> is a running <code>_FPAdd</code> writing back each partial sum (the sum-fold with the
+accumulator stored every step). [I]</li>
+<li><strong><code>SortA(</code>/<code>SortD(</code></strong> — list sort in place (<code>SortA(</code> co-sorts dependent lists); the comparator
+and per-element sort key are detailed in the next subsection. [confirmed comparator]</li>
+<li>Stats (<code>mean/median/sum/stdDev/variance</code>) are list folds layered on <code>sum(</code>/sort. [I]</li>
+</ul>
+<h3 id="sorta--sortd--list-sort-confirmed-comparator"><a class="header" href="#sorta--sortd--list-sort-confirmed-comparator"><code>SortA(</code> / <code>SortD(</code> — list sort [confirmed comparator]</a></h3>
+<p><code>SortA(</code> (<code>tSortA</code> <code>0xE3</code>) and <code>SortD(</code> (<code>tSortD</code> <code>0xE4</code>) sort a list <strong>in place</strong> — ascending and
+descending respectively; <code>SortA(L1,L2,…)</code> co-sorts the trailing lists by the same permutation. This
+is the <strong>command</strong> sort, distinct from the stat-internal <code>stat_sort</code> (<code>3A:7935</code>) that backs median/
+quartile/Med-Med (see <a href="sub-statistics.html">Statistics</a>).</p>
+<p>The sort body is on <strong>page 0x02</strong> (around <code>02:5939</code>); it is reached only through the parser’s
+computed command dispatch, so Ghidra leaves it as unnamed code. Its comparator is <strong><code>_CpOP1OP2</code></strong>
+(<code>00:198D</code>), confirmed by the call at <code>02:5939</code>.</p>
+<p><strong><code>_CpOP1OP2</code> compares two <code>TIFloat</code>s as real numbers</strong> [confirmed from disassembly]: it tests the
+<strong>sign</strong> (type byte bit 7), then the <strong>exponent</strong>, then the <strong>mantissa</strong> digits, and returns the
+ordering. It does not compute a magnitude and does not read an imaginary part. Each comparison
+therefore orders elements by the single 9-byte <code>TIFloat</code> the sort holds in <code>OP1</code>/<code>OP2</code>:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>List element</th><th>Sort key</th></tr>
+</thead>
+<tbody>
+<tr><td>real</td><td>the value (sign → magnitude)</td></tr>
+<tr><td>complex</td><td>the <strong>real part</strong> only; the imaginary part is not read, and elements with equal real parts keep their input order</td></tr>
+</tbody>
+</table>
+</div>
+<p>No element type is ordered by magnitude/modulus (<code>_CAbs</code> is never on this path). [comparator and
+its real-number semantics confirmed; the per-element sort key follows from them — the unanalyzed
+sort body’s element-load is not byte-traced]</p>
+<hr>
+<h2 id="4-matrix-operations-c"><a class="header" href="#4-matrix-operations-c">4. Matrix operations [C]</a></h2>
+<h3 id="dim-redim-identity-copy"><a class="header" href="#dim-redim-identity-copy"><code>dim(</code>, redim, identity, copy</a></h3>
+<ul>
+<li><strong><code>dim([M])</code></strong> reads the two header bytes → a 2-element list <code>{rows,cols}</code>; <strong><code>{r,c}→dim([M])</code></strong>
+reallocates via <code>_RedimMat</code> (<code>07:4D3B</code>), preserving overlapping cells and zero-filling new
+ones. [C/H]</li>
+<li><strong><code>identity(n)</code> (token <code>0xB4</code> → <code>identity_build</code> (<code>02:4108</code>))</strong> [C]: allocate <code>n×n</code>, then walk every cell
+writing <code>1.0</code> when <code>row==col</code> (the <code>exp==type</code> test) and <code>0</code> otherwise:
+<pre><code>_OP1Set1 ; for each (i,j): if i==j -&gt; store 1.0 (mantissa[0]=0x10) else 0
+</code></pre>
+</li>
+<li><strong><code>Fill(value,[M])</code></strong> / <strong><code>randM(</code></strong> stamp a constant / random values across all cells via a
+per-cell loop over the whole matrix. <code>randM(</code> builds the result through the <code>0xB5</code> dispatcher
+branch (<code>02:62D4</code>): the 2-arg path creates the <code>r×c</code> result (<code>5DBB</code> → <code>_CreateRMat 110F</code>) and
+stores the dims (<code>631B</code>/<code>631C</code>/<code>4825</code>). The actual per-cell random fill is the one residual still
+open (§4) — and notably it does <strong>not</strong> use the <code>_Random</code> bcall (<code>0x4B79</code>): a ROM-wide scan finds
+zero <code>RST 28h; .dw 0x4B79</code> sites, so randM’s randomness comes from some other path. [H]</li>
+<li>Matrix <strong>copy/reshape</strong> = <code>_DataSize</code>-counted byte copy of the float payload
+(<code>mele_copy9_d3</code> (<code>02:4539</code>)/<code>mele_copy9_loop</code> (<code>02:453F</code>)). [C]</li>
+</ul>
+<h3 id="a--b-a---b-scalara--element-wise-h"><a class="header" href="#a--b-a---b-scalara--element-wise-h"><code>[A] + [B]</code>, <code>[A] - [B]</code>, scalar·[A] — element-wise [H]</a></h3>
+<p>Binary matrix add/sub apply the FP op per cell with a nested <code>for col { for row { load [M](r,c)→OP1; op; store } }</code> walk and require equal dims (<code>_ErrDimMismatch 0x8B</code>). The nested two-counter cell
+walk at <code>02:412A</code> is the <strong>transpose</strong> copy (§ transpose); the add/sub element-loop driver is a
+sibling in the same <code>412A</code>–<code>414E</code> family and is inferred here. [H]</p>
+<h3 id="a--b--matrix-multiply-c"><a class="header" href="#a--b--matrix-multiply-c"><code>[A] * [B]</code> — matrix multiply [C]</a></h3>
+<p>The multiply body is at <strong><code>02:40BA</code></strong>. It is not a defined function in the live Ghidra DB (so the
+decompiler/MCP can’t reach it), so this was decoded from <code>rom.bin</code> directly with <code>z80dasm</code>,
+cross-checked against a routine Ghidra <em>does</em> define. The body is <strong>called from <code>02:5FFF</code></strong> (the
+<code>*</code> operator handler, in the <code>02:5FE6</code> region) and reused from <code>02:4605</code> and <code>02:5B39</code>. (<code>0x40BA</code>
+is also the <code>_SinCosRad</code> bcall ID in ti83plus.inc — a hex coincidence, unrelated to this page-02
+address.)</p>
+<p><code>40BA</code> is a classic O(n³) triple loop with an FP accumulator:</p>
+<pre><code>for each result cell (i,j):                  ; counters at 84B7, 84B4
+    for k = 1 .. inner:                       ; inner counter at 84AF
+        load [A](i,k)          (403C mele_adr_af_jp)
+        multiply by [B](k,j)   (47B9 / 0166F  FP multiply)
+        accumulate             (479F)
+    store acc -&gt; [C](i,j)      (4064 / 405A)
+</code></pre>
+<p>The three <code>dec (hl)</code> counters (<code>84AF</code> inner, <code>84B4</code>, <code>84B7</code>) each have a <code>jr nz</code> back-edge
+(<code>40E5</code>, <code>40F9</code>, <code>4100</code>); an inner-dim mismatch (<code>A.cols ≠ B.rows</code>) raises <code>_ErrDimMismatch</code>. An
+<code>n×n</code> product is <code>n³</code> <code>TIFloat</code> multiply+add steps. [C — body decoded from <code>rom.bin</code>; callers
+<code>02:5FFF</code>/<code>4605</code>/<code>5B39</code> byte-verified]</p>
+<h3 id="transpose-aᵀ--02412a-dispatched-from-the-ᵀ-token-0x0e-c"><a class="header" href="#transpose-aᵀ--02412a-dispatched-from-the-ᵀ-token-0x0e-c">Transpose <code>[A]ᵀ</code> — <code>02:412A</code>, dispatched from the <code>ᵀ</code> token <code>0x0E</code> [C]</a></h3>
+<p>The transpose operator <code>ᵀ</code> is the postfix token <strong><code>tTrnspos</code> = <code>0x0E</code></strong>. The page-02 command
+dispatcher handles it at <strong><code>02:60E9</code></strong> (<code>CP 0x0E</code>): it requires one matrix operand (<code>CP 0x02 ; JR NZ</code>), <strong>swaps the two dimension bytes</strong> for the result header (<code>60F5: LD A,H ; LD H,L ; LD L,A</code>),
+allocates the transposed-shape matrix (<code>5DBB</code>/<code>5DE0</code>), runs the per-cell copy body at <strong><code>02:412A</code></strong>,
+then stores via <code>JP 0x5F89</code>. <code>02:412A</code> has exactly one caller, <code>02:60FE</code> (byte-verified <code>CD 2A 41</code>).</p>
+<p><strong><code>02:412A</code> is the transpose copy</strong> [C]. It walks every source cell and writes the value into the
+destination whose <code>_AdrMEle</code> stride is the <em>swapped</em> dimension, so <code>dst(c,r) = src(r,c)</code>:</p>
+<pre><code class="language-z80">412A: LD HL,(84AF)              ; loop counters = dims
+412E: CALL 403C                 ; load src [M] (B=col,C=row) from (84D3) → OP1
+4131: LD HL,(84AF) ; LD B,L ; LD C,H
+4136: CALL 4068                 ; store OP1 → dst [M] via dest ptr (84D7)
+4139: DEC (84AF) ; JR NZ,412E   ; inner counter
+4141: LD (HL),C ; INC HL ; DEC (HL) ; JR NZ,412E  ; outer counter
+4146: POP HL ; LD B,L ; LD C,H ; RET
+</code></pre>
+<p><code>403C</code> reads from the source data pointer <code>(84D3)</code>; <code>4068</code> writes to the destination pointer
+<code>(84D7)</code>. Because the destination header carries the dims swapped (the <code>60F5</code> swap), <code>_AdrMEle</code>
+(<code>4002</code>) computes the column-major offset with the row/column roles exchanged, so the same linear
+walk lands element <code>src(r,c)</code> at <code>dst(c,r)</code> — a true transpose, which re-indexes <strong>both</strong> <code>i</code> and
+<code>j</code>. [C]</p>
+<p><code>02:4178</code> (<code>mat_fill_type1</code>) is a separate single-counter fill/apply in the <code>414A</code>–<code>4178</code> block,
+not the transpose body. [C]</p>
+<h3 id="augment-randm-listmatr-matrlist--per-function-drivers-ch"><a class="header" href="#augment-randm-listmatr-matrlist--per-function-drivers-ch"><code>augment(</code>, <code>randM(</code>, <code>List►matr(</code>, <code>Matr►list(</code> — per-function drivers [C/H]</a></h3>
+<p>These are dispatched from the page-02 function-token evaluator (<code>list_fold_dispatch</code>, the
+<code>CP imm ; JR/JP</code> chain that runs <code>5E46</code>/<code>60C8</code>–<code>63xx</code>, keyed on the token byte). Each command’s
+body and its single caller are byte-verified below.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Command</th><th>dispatch site</th><th>body</th><th>what the disassembly shows</th></tr>
+</thead>
+<tbody>
+<tr><td><code>Matr►list(</code></td><td><code>0x8D</code> @ <code>6388</code></td><td><strong><code>02:4773</code></strong> (2-arg), <code>02:49E3</code> (1-arg list copy)</td><td>[C] The <code>0x8D</code> branch splits on argument count (<code>638D: CP 0x02</code>). The <strong>column-extract engine is <code>02:4773</code></strong> (2-arg path: <code>639D: CALL 5DD8 ; CALL 4773</code>; only caller <code>63A0</code>, byte-verified <code>CD 73 47</code>): it nests a per-row loop (<code>477B: LD B,1 …</code>, reading via <code>4040</code> <code>_AdrMRow</code>/<code>4068</code> <code>mele_store_ckvalid</code>) inside a column loop over <code>(84AF)</code>, copying matrix columns into list element(s) (<code>4051</code>/<code>479F</code>). The 1-arg/list path uses <code>02:49E3</code> (<code>6397: CALL 0x49E3</code>), a list-element copy-until-length-match (<code>47E6</code> recall, <code>4825</code> store, <code>21BB</code> compare vs <code>(84AF)</code>, <code>RET Z</code>).</td></tr>
+<tr><td>transpose <code>ᵀ</code></td><td><code>0x0E</code> @ <code>60E9</code></td><td><strong><code>02:412A</code></strong></td><td>[C] Swaps the dim header (<code>60F5</code>), allocates the transposed shape, then <code>412A</code> copies <code>dst(c,r)=src(r,c)</code> over every cell (<code>403C</code> read from <code>(84D3)</code>, <code>4068</code> write to <code>(84D7)</code>); only caller <code>60FE</code>. See the transpose subsection above.</td></tr>
+<tr><td><code>augment(</code></td><td><code>0x91</code> @ <code>635B</code></td><td><strong><code>02:6238</code> copy</strong> [C]; <code>02:4663</code> engine [H]</td><td>The <code>0x91</code> branch requires two operands (<code>CP 0x02</code>), reads the dims (<code>5D98</code>), and checks the two row counts with <code>LD A,H ; CP L</code>: equal rows fall through (<code>JR Z</code>) and <code>H&gt;L</code> raises <code>E_Dimension</code> (<code>JP NC,2719</code>). It then runs the <strong>column-concatenation copy at <code>02:6238</code></strong> [C]: <code>6238</code> allocates the result (<code>5DE0</code> → <code>5DE6</code> → <code>_CreateRMat 110F</code>) and bulk-copies the float payload with <code>02:4539</code> (<code>mele_copy9_d3</code> — skip the 2 dim bytes, <code>LDIR</code> the column-major data), re-pointing <code>84D3←84D7</code>. The branch then calls <code>02:4663</code> (<code>6379</code>, only caller; byte-verified <code>CD 63 46</code>), a partial-pivoting elimination engine: it computes <code>min(H,L)</code> (<code>4672: LD A,H ; CP L ; JR C ; LD L,H</code>), inits via <code>475E</code>, and iterates from <code>BC=0x0101</code> calling <code>461C</code> (max-abs), <code>41D0</code> (pivot-column scan), <code>198D</code> (compare), <code>471C</code> (permutation swap) and <code>405E</code> (store). The column-concat copy (<code>6238</code>/<code>4539</code>) is confirmed augment behaviour [C]; <code>4663</code>’s elimination pass on the concatenated result is byte-confirmed but its role for plain <code>augment(</code> is left open [H]. (<code>augment(L1,L2)</code> list-concat is the <code>0x92</code> sibling at <code>637F</code>, sharing the <code>6362</code> setup.)</td></tr>
+<tr><td><code>randM(</code></td><td><code>0xB5</code> @ <code>62D4</code></td><td>create + dim setup (<code>5DBB</code>/<code>5DEB</code>); cell-fill body open [H]</td><td>The <code>0xB5</code> branch splits on argument count (<code>62D9: CP 0x02</code>): the 2-arg <code>randM(rows,cols)</code> path (<code>62DD</code>) and the 1-arg square path (<code>630A</code>). Both <strong>create the result and set its dims</strong> through <code>02:5DBB</code> (<code>CALL 5CEB</code> registers the variable by name, stores the data pointer to <code>84D3</code>, reads and zero-rejects the dim bytes <code>OR L ; JP Z,2719</code>, stores dims to <code>84AF</code>) and <code>02:5DEB</code>/<code>02:631E</code>. The per-cell random fill is not isolated as a loop in this branch, and does not use the <code>_Random</code> bcall (<code>0x4B79</code> — a ROM-wide scan finds no <code>RST 28h; .dw 0x4B79</code> site). <code>02:5264</code> (<code>cplx_swap_dispatch</code>) is <strong>not</strong> randM — its only caller is <code>62D0</code>, in the <code>0xBD</code> complex-operand branch. The randM cell-fill body stays open. [H]</td></tr>
+<tr><td><code>List►matr(</code></td><td><code>0x8E</code> @ <code>61C1</code></td><td><code>02:7D19</code> + copy</td><td>reshapes the argument lists into a matrix (<code>_DataSize</code>-counted float copy <code>4539</code>/<code>453F</code>). [H]</td></tr>
+</tbody>
+</table>
+</div>
+<p>The matrix-element kernels these drivers share are <code>_AdrMEle</code>/<code>_AdrMRow</code> (<code>4002</code>/<code>4000</code>) for indexing,
+<code>4068</code> (<code>mele_store_ckvalid</code>) for validated stores, and <code>4539</code> (<code>mele_copy9_d3</code>) for the bulk
+column-major payload copy. Each command’s dispatch site <strong>and</strong> body are byte-confirmed above; the
+single residual is <code>randM(</code>’s per-cell fill and <code>4663</code>’s elimination role inside <code>augment(</code>. [C for
+the bodies; H for those two residuals]</p>
+<hr>
+<h2 id="5-the-heavy-ones--det-a¹-rref--ref-c"><a class="header" href="#5-the-heavy-ones--det-a¹-rref--ref-c">5. The heavy ones — <code>det(</code>, <code>[A]⁻¹</code>, <code>rref(</code> / <code>ref(</code> [C]</a></h2>
+<p><code>det(</code> and <code>[A]⁻¹</code> share the <strong>Gauss-Jordan elimination engine with partial pivoting</strong> —
+<strong><code>matrix_gauss_engine</code> @ <code>page_02:42A6</code></strong> — the <em>entry flag in <code>A</code></em> selecting behaviour; only two
+direct call sites exist (byte-verified — <code>CD A6 42</code> appears exactly twice). <code>rref(</code>/<code>ref(</code> are a
+<strong>separate</strong> driver and do not call <code>42A6</code> (see below):</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Token / op</th><th>site</th><th>flag <code>A</code></th><th>meaning</th></tr>
+</thead>
+<tbody>
+<tr><td><code>[A]⁻¹</code> (<code>^</code> token <code>0x0C</code>, operand = matrix)</td><td><code>02:5F80</code></td><td><code>0x00</code></td><td><strong>inverse</strong>; singular ⇒ error</td></tr>
+<tr><td><code>det(</code> (token <code>0xB3</code>)</td><td><code>02:5FC0</code></td><td><code>0x40</code></td><td><strong>determinant</strong>; bit6 set ⇒ singular tolerated (returns 0)</td></tr>
+</tbody>
+</table>
+</div>
+<p><code>det(</code>’s handler at <code>02:5FA3</code> (not a defined function in the current Ghidra DB; address
+unverified) first type-checks the operand is a matrix (<code>chk_op_is_matrix</code> (<code>02:69B7</code>):
+<code>type==2 else E_DataType 0x89</code>), then <code>LD A,0x40 ; CALL 0x42A6</code>.</p>
+<h3 id="the-engine-42a6-c"><a class="header" href="#the-engine-42a6-c">The engine (<code>42A6</code>) [C]</a></h3>
+<pre><code>matrix_gauss_engine(A = mode flags):
+  HL = dims (84AF); if H != L -&gt; _JError(0x8C)   ; must be square (det/inverse)
+  if 1x1: handle scalar directly (inverse = _FPRecip)
+  461C: scan |all elements| -&gt; max magnitude (pivot-tolerance baseline)
+  init permutation/pivot vector at (84D5): perm[k] = k          ; identity permutation
+  for each pivot column 'col' (84AF loop):
+     41D0/41C1: PARTIAL PIVOT — scan the column for the largest |element|,
+                comparing |OP1| vs |best| via _AbsO1O2Cp; remember the row
+     43B9 -&gt; 414E: SWAP the pivot row into place (full physical row swap);
+                4259 swaps the matching entries in the permutation vector,
+                and (for det) toggles the running sign
+     normalize pivot row: load pivot, _FPRecip / _FPDiv so pivot -&gt; 1
+     4473 / 426D: ELIMINATE — for every other row, row_r -= factor * pivot_row
+                (4473 = load-load-_FPSub element step; 426D/426F = dot-product /
+                 back-substitution accumulate with _FPMult + RST6 _FPAdd)
+     accumulate determinant = product of pivots (× sign from swaps)
+  SINGULAR handling (43A5): if a pivot is ~0:
+        BIT 6,A ; JP Z, 0x26F0 (_ErrSingularMat, E_SingularMat 0x83)
+        -&gt; inverse (flag 0, bit6=0) ERRORS;  det (flag 0x40, bit6=1) returns 0
+</code></pre>
+<p>Key sub-routines (all <code>page_02</code>; names are the live Ghidra DB labels): [C]</p>
+<ul>
+<li><strong><code>461C</code> <code>mat_max_abs</code></strong> — compute the matrix’s <strong>max-abs element</strong> (numeric scale for the
+near-zero pivot test).</li>
+<li><strong><code>41C1</code> <code>abs_cmp_op1op2</code></strong> — <code>|OP1|</code> vs <code>|pivot|</code> compare (<code>1A0F</code>/<code>1987</code> abs+compare);
+<strong><code>41D0</code></strong> — scan a column for the <strong>largest-magnitude pivot</strong> (partial pivoting), calling
+<code>43B9</code> to swap rows as it goes.</li>
+<li><strong><code>43B9</code> / <code>414E</code> <code>mrow_swap_loop</code> / <code>_AdrMRow</code></strong> — physical <strong>row swap / row scale</strong>
+(whole-row moves; <code>414E</code> loads the <code>dim0</code> stride and swaps two whole rows via <code>_AdrMRow</code>×2 +
+<code>1DDA</code>).</li>
+<li><strong><code>4259</code></strong> — swap two entries in the <strong>permutation vector</strong> at <code>84D5</code>.</li>
+<li><strong><code>4473</code> <code>ele_sub_ref</code></strong> — the elimination element step (<code>[M](i,k) − factor*[M](pivot,k)</code>:
+<code>RST8 ; CALL 403C ; JP 2297</code> = load + <code>_FPSub</code>).</li>
+<li><strong><code>426D</code> <code>col_dot_accum</code> / <code>426F</code> <code>col_dot_accum_from</code></strong> — column dot-product / back-
+substitution accumulate (<code>_FPMult</code> + <code>RST6</code>).</li>
+<li>Pivot normalize uses <strong><code>_FPRecip</code></strong> / <strong><code>_FPDiv</code></strong>; sign/inverse use <code>_InvOP1S</code>.</li>
+</ul>
+<p><strong><code>det(</code></strong> therefore = forward elimination with partial pivoting, <strong>return the signed product
+of the pivots</strong> (each row swap flips the sign); a zero pivot ⇒ <code>det = 0</code> (no error).
+<strong><code>[A]⁻¹</code></strong> = full Gauss-<strong>Jordan</strong> (reduce to identity, the augmented identity becomes the
+inverse); a zero pivot ⇒ <code>ERR:SINGULAR MAT</code>.</p>
+<h4 id="det-sign--pivot-product-bytes-in-the-tail-0243d84470-c"><a class="header" href="#det-sign--pivot-product-bytes-in-the-tail-0243d84470-c">Det sign / pivot-product bytes in the tail (<code>02:43D8–4470</code>) [C]</a></h4>
+<p>The determinant sign comes from the <strong>permutation parity</strong>, not a separate sign cell. Each
+physical row swap (<code>43B9</code>) calls <strong><code>4259</code></strong> to swap the matching pair in the permutation
+vector at <code>84D5</code>; the determinant magnitude is the running product of the diagonal pivots
+formed during back-elimination. The tail that closes the det/inverse pass:</p>
+<pre><code class="language-z80">43D8 (det branch, bit6 = det):
+  43D9: BIT 6,A           ; det mode?
+  43DE: CALL 151B         ; pop pivot
+  43E3..43F6: PUSH AF ; (RST 8 _CpyToOP2) ; CALL 403c (load [M](i,j)) ;
+              CALL 238b (_FPMult) ; DEC pivot/row counters (84B0)  ; loop
+              → multiply the running determinant by each pivot
+  43F8: POP AF ; AND 1 ; JP NZ,24bd    ;  *** DET SIGN ***  low bit of the
+              ; permutation-swap count → conditional _InvOP1S (negate)
+43FF (inverse branch): re-walk for the augmented-identity columns,
+  4410..446F: per-column back-substitution (4428/445B = _FPMult-accumulate,
+              442B/24bd = _InvOP1S sign flips), then JP 0x420F to undo the
+              column permutation (4259-pairs) so the inverse comes out in the
+              original row/col order.
+</code></pre>
+<p>So the <strong>sign byte is the LSB of the swap-count</strong> applied via <code>_InvOP1S</code> (<code>00:24BD</code>) at
+<code>43FB</code>/<code>442B</code>; the <strong>pivot product</strong> is the <code>238B</code>/<code>RST 30h</code> accumulate over the diagonal in
+<code>43E3–43F6</code>. The permutation undo (<code>420F</code>/<code>4259</code>) restores element order for the inverse. [C]</p>
+<h3 id="rref--ref--separate-driver-not-42a6-ch"><a class="header" href="#rref--ref--separate-driver-not-42a6-ch"><code>rref(</code> / <code>ref(</code> — separate driver, <strong>not</strong> <code>42A6</code> [C/H]</a></h3>
+<p><strong><code>rref(</code>/<code>ref(</code> do not re-enter the <code>42A6</code> Gauss-Jordan engine.</strong> A function-xref shows
+<code>matrix_gauss_engine</code> (<code>02:42A6</code>) has <strong>exactly two callers</strong> — <code>mat_inverse_entry</code> (<code>02:5F80</code>,
+flag 0) and <code>det_entry</code> (<code>02:5FC0</code>, flag 0x40); there is no third call site (byte-confirmed
+above: <code>CD A6 42</code> appears exactly twice). So <code>det(</code>/<code>[A]⁻¹</code> are the only consumers of that
+square-only, partial-pivoting driver. [C]</p>
+<p><code>rref(</code> (<code>BBh,A6h</code>) and <code>ref(</code> (<code>BBh,A5h</code>) are <strong>2-byte <code>0xBB</code>-lead function tokens</strong>. On the
+page-38 statement/expression evaluator (<code>eval_expr_inner</code> <code>38:59A4</code>), token <code>0xBB</code> is detected
+and <code>parse_advance</code> consumes the prefix; the second byte is then dispatched through the
+evaluator’s <strong>class-3 (function-token) handler-pointer table at <code>38:7175</code></strong> (<code>701A/7021/7026</code>
+select the <code>0x4000</code>/<code>0x478C</code>/<code>0x7175</code> tables by class; <code>703A: CALL 0x0033</code> = <code>_LdHLind</code> jumps
+the resolved handler). Their reduced-row-echelon elimination is therefore a <strong>distinct,
+non-square-tolerant driver</strong> reached through that table — a separate routine from <code>42A6</code>, using
+the same per-element FP primitives (<code>_FPDiv</code>/<code>_FPMult</code>/<code>_FPSub</code>) but with its own pivot loop
+that tolerates rectangular matrices and rank deficiency (zero rows left in place, no
+<code>SINGULAR MAT</code>). <em>The concrete rref/ref body sits behind the <code>38:7175</code> 2-byte handler table and
+was not byte-isolated in this pass (the table is unanalyzed data in the DB); the <strong>architectural
+fact that it is a separate driver, not <code>42A6</code>, is confirmed</strong> by the two-caller xref. [C for the
+“separate driver” conclusion; H for the exact body address.]</em></p>
+<hr>
+<h2 id="6-how-it-ties-to-the-fp-engine-and-the-vat-c"><a class="header" href="#6-how-it-ties-to-the-fp-engine-and-the-vat-c">6. How it ties to the FP engine and the VAT [C]</a></h2>
+<ul>
+<li><strong>Every element is a <code>TIFloat</code></strong> (<a href="06-floating-point.html">doc 06</a>). Indexing produces a <em>pointer</em>; the value is then
+moved into <code>OP1</code>/<code>OP2</code> (<code>RST4</code> = load-9, <code>_Mov9B</code>, <code>_MovFrOP1</code>) and all arithmetic is the FP
+engine’s <code>RST 30h</code>(<code>_FPAdd</code>)/<code>_FPMult</code>/<code>_FPDiv</code>/<code>_FPSub</code>/<code>_FPRecip</code>. There is no SIMD; a
+matrix multiply is literally thousands of these calls. Complex elements (lists/<code>[i]</code>) carry a
+<code>0x0C</code> flag and use 18-byte (two-float) elements, split via <code>_CplxOPArrange</code>.</li>
+<li><strong>Where the data lives:</strong> the parser resolves the list/matrix name through <code>OP1</code> →
+<code>_FindSym</code>/<code>_ChkFindSym</code> (<a href="05-variables-vat.html">doc 05</a>/sub-vat) → VAT entry → data pointer (+ flash page if
+archived). The <code>count</code>/<code>dim</code> header is read first; then <code>_AdrLEle</code>/<code>_AdrMEle</code> do pointer
+math. A store into an <strong>archived</strong> matrix/list unarchives to RAM first (<code>_Arc_Unarc</code>;
+Flash cannot be written in place).</li>
+<li><strong>Scratch RAM used by the algorithms</strong> (verified operands): <code>84AF</code> (current dims / i,j loop
+state), <code>84B0/84B3/84B4</code> (pivot, k, row counters), <code>84B7</code> (dims copy), <code>84D3/84D5/84D7</code>
+(data pointers + the permutation vector base), <code>8478</code>=OP1, <code>8483</code>=OP3, <code>8499</code>=OP6/type,
+<code>84AF</code>-region = the matrix-op loop frame.</li>
+</ul>
+<hr>
+<h2 id="7-errors-raised-on-these-paths-c"><a class="header" href="#7-errors-raised-on-these-paths-c">7. Errors raised on these paths [C]</a></h2>
+<p>The list/matrix routines raise these <code>_JError</code> codes; each row gives the code, its name,
+and the routine and condition that triggers it.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th><code>_JError</code> code</th><th>name</th><th>raised by</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x78</code></td><td>0-index reject (via <code>ram:2793</code>)</td><td><code>_AdrMEle</code>/<code>_AdrMRow</code> on a 0 row/col index</td></tr>
+<tr><td><code>0x83</code></td><td><code>E_SingularMat</code> (<code>ERR:SINGULAR MAT</code>)</td><td><code>42A6</code> inverse on a zero pivot (<code>_ErrSingularMat 00:26F0</code>)</td></tr>
+<tr><td><code>0x85</code></td><td><code>E_Increment</code></td><td><code>_ErrIncrement 00:26F8</code> (bad seq/loop step)</td></tr>
+<tr><td><code>0x89</code></td><td><code>E_DataType</code></td><td><code>det(</code>/matrix ops on a non-matrix operand (<code>chk_op_is_matrix</code> (<code>02:69B7</code>))</td></tr>
+<tr><td><code>0x8B</code></td><td><code>E_DimMismatch</code> (<code>ERR:DIM MISMATCH</code>)</td><td>add/sub/multiply with incompatible dims (<code>_ErrDimMismatch 00:2715</code>)</td></tr>
+<tr><td><code>0x8C</code></td><td><code>E_Dimension</code> (<code>ERR:INVALID DIM</code>)</td><td>non-square det/inverse, out-of-range element store (<code>_ErrDimension 00:2719</code>, <code>_StMatEl</code>)</td></tr>
+<tr><td><code>0x15</code></td><td><code>E_Stat</code> (via <code>ram:2741</code>)</td><td><code>_GetPosListElem</code> bad index (<code>_CkOP1Pos</code>)</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="8-confident-address-index"><a class="header" href="#8-confident-address-index">8. Confident address index</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>space:addr</th><th>name</th><th>what</th></tr>
+</thead>
+<tbody>
+<tr><td><code>00:10C4</code></td><td><code>_CreateRList</code></td><td>new real list (<code>count*9+2</code>) [C]</td></tr>
+<tr><td><code>00:1109</code></td><td><code>_CreateCList</code></td><td>new complex list (<code>count*18+2</code>) [C]</td></tr>
+<tr><td><code>00:1115</code></td><td><code>_CreateRMat</code></td><td>new matrix (<code>H*L*9+2</code>, header <code>dim0,dim1</code>) [C]</td></tr>
+<tr><td><code>00:1EF6</code></td><td><code>_HTimesL</code></td><td>element count = H*L (dims multiplied) [C]</td></tr>
+<tr><td><code>00:1930</code></td><td><code>_HLTimes9</code></td><td>×9 (real <code>TIFloat</code> stride) [C]</td></tr>
+<tr><td><code>02:4000</code></td><td><code>_AdrMRow</code></td><td>address of matrix column start (column stride) [C]</td></tr>
+<tr><td><code>02:4002</code></td><td><code>_AdrMEle</code></td><td>matrix element address: <code>((column-1)*dim0+(row-1))*9</code> [C]</td></tr>
+<tr><td><code>02:4044</code></td><td><code>_GetMToOP1</code></td><td><code>[M](i,j)</code> → OP1 [C]</td></tr>
+<tr><td><code>02:406C</code></td><td><code>_PutToMat</code></td><td>OP1 → <code>[M](i,j)</code> (validated) [C]</td></tr>
+<tr><td><code>02:40BA</code></td><td>matrix-multiply body</td><td>O(n³) triple loop, decoded from <code>rom.bin</code> (not a defined function in the live Ghidra DB); called from <code>02:5FFF</code>/<code>4605</code>/<code>5B39</code> (§4). <code>0x40BA</code> in ti83plus.inc is the unrelated <code>_SinCosRad</code> bcall ID. [C]</td></tr>
+<tr><td><code>02:4108</code></td><td><code>identity_build</code></td><td><code>identity(n)</code>: diagonal-1 fill (token 0xB4) [C]</td></tr>
+<tr><td><code>02:412A</code></td><td><code>mat_transpose</code></td><td><strong>transpose <code>[A]ᵀ</code></strong> body (token <code>0x0E</code>, dispatched <code>60E9</code>/called <code>60FE</code>): per-cell copy <code>dst(c,r)=src(r,c)</code> via the swapped dest header (§4) [C]</td></tr>
+<tr><td><code>02:414E</code></td><td><code>mrow_swap_loop</code></td><td>row swap/scale (elimination) [C]</td></tr>
+<tr><td><code>02:4178</code></td><td><code>mat_fill_type1</code></td><td>live DB name; single-counter per-cell fill/apply loop in the <code>414A</code>–<code>4178</code> block — <strong>not</strong> transpose (§4) [C]</td></tr>
+<tr><td><code>02:4539</code></td><td><code>mele_copy9_d3</code></td><td>bulk column-major float-payload copy (skip 2 dim bytes, <code>LDIR</code>); used by <code>augment(</code>/reshape (§4) [C]</td></tr>
+<tr><td><code>02:4663</code></td><td><code>mat_gauss_engine</code></td><td>live DB name; <code>min(H,L)</code> partial-pivoting elimination engine; only caller is the <code>augment(</code> <code>0x91</code> branch (<code>6379</code>). Its role inside plain <code>augment(</code> is the one open item (§4) [H]</td></tr>
+<tr><td><code>02:4773</code></td><td><code>mat_to_list_cols</code></td><td><strong><code>Matr►list(</code></strong> 2-arg column-extract engine (only caller <code>63A0</code>): nested col×row walk copying matrix columns into list element(s) (§4) [C]</td></tr>
+<tr><td><code>02:5264</code></td><td><code>cplx_swap_dispatch</code></td><td>live DB name; complex OP-pair arrange/swap (<code>5344</code>/<code>52D3</code>) reached only from the <code>0xBD</code> branch (<code>62D0</code>) — <strong>not</strong> <code>randM(</code> random-fill (§4) [C]</td></tr>
+<tr><td><code>02:6238</code></td><td><code>mat_augment_copy</code></td><td><strong><code>augment(</code></strong> column-concat: allocate result (<code>5DE0</code>) + <code>4539</code> payload copy + re-point <code>84D3</code> (§4) [C]</td></tr>
+<tr><td><code>02:49E3</code></td><td><code>lele_copy_until_eq</code></td><td>live DB name; list-element copy-until-length-match (<code>21BB</code>, <code>RET Z</code>); inner copy of the <code>Matr►list(</code> 1-arg/list path (<code>6397</code>) (§4) [C]</td></tr>
+<tr><td><code>02:41C1</code></td><td><code>abs_cmp_op1op2</code></td><td>absolute-value compare: OP1 vs pivot [C]</td></tr>
+<tr><td><code>02:41D0</code></td><td><code>pivot_col_scan</code></td><td>partial-pivot: find largest absolute value in column [C]</td></tr>
+<tr><td><code>02:4259</code></td><td><code>perm_swap</code></td><td>swap two entries of the permutation vector (84D5) [C]</td></tr>
+<tr><td><code>02:426D</code>/<code>426F</code></td><td><code>col_dot_accum</code>/<code>col_dot_accum_from</code></td><td>column dot-product / back-substitution accumulate [C]</td></tr>
+<tr><td><code>02:42A6</code></td><td><code>matrix_gauss_engine</code></td><td><strong>inverse(flag 0)/det(flag 0x40)</strong> Gauss-Jordan + partial pivot; square-only (<code>H==L</code> guard) [C]</td></tr>
+<tr><td><code>02:4473</code></td><td><code>ele_sub_ref</code></td><td><code>[M] − factor*pivot</code> element step (<code>_FPSub</code>) [C]</td></tr>
+<tr><td><code>02:461C</code></td><td><code>mat_max_abs</code></td><td>maximum absolute element (pivot tolerance) [C]</td></tr>
+<tr><td><code>02:47C5</code></td><td><code>_AdrLEle</code></td><td>list element address: <code>data+2+(i-1)*9</code> [C]</td></tr>
+<tr><td><code>02:47EA</code></td><td><code>_GetLToOP1</code></td><td>list[i] → OP1 (complex-aware) [C]</td></tr>
+<tr><td><code>02:47FB</code></td><td><code>_RclListElemToOP1</code></td><td>recall list elem to OP1 [C]</td></tr>
+<tr><td><code>02:47FE</code></td><td><code>_RclListElemB</code></td><td>recall list elem (B-indexed) [C]</td></tr>
+<tr><td><code>02:4829</code></td><td><code>_PutToL</code></td><td>OP1 → list[i] (validated, complex-aware) [C]</td></tr>
+<tr><td><code>02:49A7</code></td><td><code>_RclCListElem</code></td><td>complex-list element → OP1/OP2 [C]</td></tr>
+<tr><td><code>02:49B5</code></td><td><code>_RclCListElemB</code></td><td>complex-list element (B-indexed) [C]</td></tr>
+<tr><td><code>02:5BBB</code></td><td><code>_GetPosListElem</code></td><td>list element by positive index (bounds) [C]</td></tr>
+<tr><td><code>02:5E46</code></td><td><code>func_eval_dispatch</code></td><td>single-byte function-token evaluator (0xB0–0xCD) [C]</td></tr>
+<tr><td><code>02:5F80</code></td><td><code>mat_inverse_entry</code></td><td><code>[A]⁻¹</code>: flag 0 → <code>matrix_gauss_engine</code> [C]</td></tr>
+<tr><td><code>02:5FC0</code></td><td><code>det_entry</code></td><td><code>det(</code>: flag 0x40 → <code>matrix_gauss_engine</code> [C]</td></tr>
+<tr><td><code>02:6104</code></td><td><code>list_fold_dispatch</code></td><td><code>sum(</code>/<code>prod(</code> higher-order list fold [C]</td></tr>
+<tr><td><code>02:69B7</code></td><td><code>chk_op_is_matrix</code></td><td>require operand type==2 else E_DataType [C]</td></tr>
+<tr><td><code>ram:21C4</code></td><td><code>chk_type_lt_1a</code></td><td>classify element type width: <code>AND 0x1F ; CP 0x1A ; CP 0x18 ; CCF</code> — real-vs-complex (0x0C) element width [C]</td></tr>
+<tr><td><code>35:79E9</code></td><td><code>_ListIdxTimes9</code></td><td>list index ×9 + dispatch [C]</td></tr>
+<tr><td><code>07:4D3B</code></td><td><code>_RedimMat</code></td><td>re-dimension matrix/list [C]</td></tr>
+<tr><td><code>07:4F07</code></td><td><code>_InsertList</code>/<code>_IncLstSize</code></td><td>grow a list in place [C]</td></tr>
+<tr><td><code>07:4F43</code></td><td><code>_DelListEl</code></td><td>delete list element(s) [C]</td></tr>
+<tr><td><code>38:6C8F</code></td><td><code>_StMatEl</code></td><td>parser store into <code>[M](r,c)</code> (bounds-checked) [C]</td></tr>
+<tr><td><code>38:741F</code>/<code>7422</code></td><td><code>_ConvDim</code>/<code>_ConvDim00</code></td><td>coerce a dim/index to real [C]</td></tr>
+<tr><td><code>00:26F0</code></td><td><code>_ErrSingularMat</code></td><td><code>E_SingularMat 0x83</code> [C]</td></tr>
+<tr><td><code>00:26F8</code></td><td><code>_ErrIncrement</code></td><td><code>E_Increment 0x85</code> [C]</td></tr>
+<tr><td><code>00:2715</code></td><td><code>_ErrDimMismatch</code></td><td><code>E_DimMismatch 0x8B</code> [C]</td></tr>
+<tr><td><code>00:2719</code></td><td><code>_ErrDimension</code></td><td><code>E_Dimension 0x8C</code> [C]</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="9-open-items"><a class="header" href="#9-open-items">9. Open items</a></h2>
+<ul>
+<li><strong>RESOLVED — <code>rref(</code>/<code>ref(</code> use a separate driver, not <code>42A6</code>.</strong> Xref proves <code>42A6</code> has
+exactly two callers (inverse <code>5F80</code>, det <code>5FC0</code>); rref/ref are 2-byte <code>0xBB</code>-lead function
+tokens dispatched via the page-38 evaluator’s class-3 handler table at <code>38:7175</code> (§5). The
+<em>exact rref/ref body</em> sits behind that (unanalyzed-data) table and is the only residual: its
+start address was not byte-isolated, but it is confirmed <strong>not</strong> <code>42A6</code>.</li>
+<li><strong>RESOLVED — det sign / pivot-product (<code>42A6</code> tail <code>43D8–4470</code>) and dim labelling.</strong> The det
+sign = LSB of the permutation-swap count applied via <code>_InvOP1S</code> (<code>24BD</code>) at <code>43FB</code>/<code>442B</code>;
+the magnitude is the <code>238B</code>/<code>RST 30h</code> diagonal-pivot accumulate (<code>43E3–43F6</code>); <code>420F</code>/<code>4259</code>
+undo the column permutation for the inverse (§5). Row/col vs dim0/dim1 is now <strong>[C]</strong>:
+<code>dim0</code> (first header byte) = #rows, and <code>_AdrMEle</code> takes <code>B=column</code>, <code>C=row</code> (§1/§2).</li>
+<li><strong>RESOLVED — transpose, <code>Matr►list(</code>, and the <code>augment(</code> column-concat bodies.</strong> Each command’s
+page-02 dispatch site <strong>and</strong> body are byte-confirmed, every body having exactly one caller (§4):
+<ul>
+<li>transpose <code>[A]ᵀ</code> (token <code>0x0E</code> @ <code>60E9</code>) → <strong><code>02:412A</code></strong> (only caller <code>60FE</code>): the dim header is
+swapped (<code>60F5</code>) and <code>412A</code> copies <code>dst(c,r)=src(r,c)</code> over every cell. <code>02:4178</code> is a separate
+single-counter fill/apply, not transpose. [C]</li>
+<li><code>Matr►list(</code> (<code>0x8D</code> @ <code>6388</code>) → <strong><code>02:4773</code></strong> (2-arg column-extract engine, only caller <code>63A0</code>)
+with <code>02:49E3</code> as the 1-arg/list inner copy. [C]</li>
+<li><code>augment(</code> (<code>0x91</code> @ <code>635B</code>) → equal-rows guard (<code>CP L ; JP NC,2719</code>) + <strong>column-concat copy at
+<code>02:6238</code></strong> (<code>5DE0</code> allocate + <code>02:4539</code> <code>LDIR</code> payload copy). [C]</li>
+<li><code>randM(</code> (<code>0xB5</code> @ <code>62D4</code>) → creates the result and sets its dims (<code>5DBB</code>/<code>5DEB</code>). <code>02:5264</code>
+(<code>cplx_swap_dispatch</code>, only caller <code>62D0</code> in the <code>0xBD</code> branch) is confirmed <strong>not</strong> randM. [C]</li>
+<li><code>List►matr(</code> <code>0x8E</code> branch (<code>61C1</code>) → <code>02:7D19</code> + <code>_DataSize</code> copy (<code>4539</code>/<code>453F</code>) is
+unchanged [H].</li>
+</ul>
+</li>
+<li><strong>OPEN — two residuals inside the confirmed branches</strong> (§4):
+<ul>
+<li><code>augment(</code>’s <code>0x91</code> branch calls <code>02:4663</code> (<code>mat_gauss_engine</code>, only caller <code>6379</code>) — a
+<code>min(H,L)</code> partial-pivoting elimination pass — after the column-concat copy. Its role for plain
+<code>augment(</code> is byte-confirmed as a call but not explained. [H]</li>
+<li><code>randM(</code>’s per-cell random fill is not isolated as a loop in the <code>0xB5</code> branch (the visible
+calls create the matrix and convert the dims); it does not go through the <code>_Random</code> bcall
+(<code>0x4B79</code>) — a ROM-wide scan finds no <code>RST 28h; .dw 0x4B79</code> site. [H]</li>
+</ul>
+</li>
+<li><code>seq(</code>/<code>SortA(</code>/<code>SortD(</code>/stats list-builders: confirm the collect-then-<code>_CreateRList</code> loop
+and the in-place float sort/compare. (Residual — comparator <code>_CpOP1OP2</code> confirmed; the
+unanalyzed page-02 sort body’s element-load is still not byte-traced.)</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="sub-statistics.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="sub-solver-numeric.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="sub-statistics.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="sub-solver-numeric.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-5fa46c0a.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
