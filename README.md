@@ -55,7 +55,7 @@ Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `
 | parser handlers | 84 (page 0x38 dispatch table) |
 | Defined data (strings/floats/typed) | 618 |
 | Flash pages loaded | 64 (1 MiB) |
-| Docs | 29 (15 core 00–13/99 + 11 subsystem deep-dives + 3 reference) |
+| Docs | 30 (15 core 00–13/99 + 11 subsystem deep-dives + 4 reference) |
 
 ## Architecture in one paragraph
 
@@ -83,7 +83,7 @@ A Z80 (64 KiB address space) with hardware **paging** maps flash page 0 at `0000
 
 **Subsystem deep-dives** (from parallel multi-agent RE): `sub-calculation`, `sub-graphing`, `sub-tibasic`, `sub-vat-archive`, `sub-apps-mem-settings`, `sub-statistics`, `sub-matrix-list`, `sub-solver-numeric`, `sub-table-yvars`, `sub-equation-display`, `sub-link-transfer`.
 
-**Reference**: [`glossary`](docs/glossary.md) (terms & key RAM symbols), [`conventions`](docs/conventions.md) (notation, confidence flags, methodology), [`bcall-index`](docs/bcall-index.md) (all 607 bcalls, alphabetical).
+**Reference**: [`glossary`](docs/glossary.md) (terms & key RAM symbols), [`conventions`](docs/conventions.md) (notation, confidence flags, methodology), [`bcall-index`](docs/bcall-index.md) (all 607 bcalls, alphabetical), [`token-tables`](docs/token-tables.md) (492 two-byte tokens, from TI-Toolkit/tokens).
 
 ## Legal
 Independent reverse-engineering notes for interoperability/education. **No copyrighted TI ROM image or OS code is included** — the ROM is gitignored and you supply your own dump. `ti83plus.inc` is TI's freely-distributed equates file. All trademarks belong to Texas Instruments; this project is not affiliated with or endorsed by TI.

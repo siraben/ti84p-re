@@ -68,7 +68,8 @@ The handlers are **recursive-descent grammar productions** (not flat per-operato
 
 The precedence levels (term/factor/unary productions) and sub-dispatch tables are mapped in [TI-BASIC Programs](sub-tibasic.md) §3/§6.
 
-## TODO
-- Map each 2-byte token group's second-byte table (esp. `BB` extended commands and `63` system vars).
+## Second-byte tables
+
+Every 2-byte token group's second-byte → token mapping (matrices, lists, Y-vars, system/window vars, the `BB` extended-command page, the `EF` 84+ page, etc.) is tabulated in **[2-Byte Token Tables](token-tables.md)** — 492 tokens, sourced from [TI-Toolkit/tokens](https://github.com/TI-Toolkit/tokens) and filtered to the 84+ 2.55MP.
 
 (The main parser loop, handler dispatch, and `OP1`-as-name handoff are covered in [TI-BASIC Programs](sub-tibasic.md).)

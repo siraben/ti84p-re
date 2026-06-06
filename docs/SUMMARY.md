@@ -46,6 +46,7 @@
 # Reference
 
 - [bcall Index](bcall-index.md)
+- [2-Byte Token Tables](token-tables.md)
 
 # Project
 
