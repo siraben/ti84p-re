@@ -40,8 +40,16 @@ page_3D:7285  AND 0x0F; CP 0x0F -> B=4 ; CP 0x0E -> B=2 ; CP 0x0D -> B=1
 ```
 The signature field at offset 0 is `80 0F …` (field type 0x80, 4-byte value) — this is
 what the page-scan keys on to recognise an app. Fields carry the app name, the page count,
-flags, the security/signature, etc. The OS reads header fields through RAM-resident flash
-helpers (`bcall(0x8040)`, `bcall(0x8070)`, `bcall(0x8080)`) installed by the boot stub.
+flags, the security/signature, etc.
+
+The public entry points for walking these fields are bcalls in `ti83plus.inc`:
+`_FindAppHeaderSubField` (bcall `0x80AB`) locates a field in an app header, and
+`_FindOSHeaderSubField` (bcall `0x8075`) does the same for the OS header. Both build on the
+generic walkers `_FindSubField` (bcall `0x805D`), `_FindGroupedField` (bcall `0x8030`), and
+`_GetFieldSize` (bcall `0x805A`), which decode the TLV length nibble shown above. These IDs
+sit in the boot-page bcall range (`0x8000`+); the `0x8040`/`0x8070`/`0x8080` helpers the OS
+also reaches are a distinct group in the same range and are not these field walkers. The body
+addresses behind these public entry points are not defined functions in the current live DB.
 
 ### 1.2 `_FindApp` / `_FindAppUp` / `_FindAppDn` [confirmed]
 

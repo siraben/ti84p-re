@@ -124,7 +124,10 @@ the bit fields inside `0x97` or `0xB4`. [confirmed ports; bit meanings open]
 ## USB selection in `_LinkXferOP` [confirmed]
 
 `_LinkXferOP` (`3C:4DD2`, bcall ID `0x50FB`) is the OS entry that sends a silent link request and
-prefers the USB path when its mode flags ask for it. The ROM-confirmed setup is:
+prefers the USB path when its mode flags ask for it. `ti83plus.inc` names bcall `0x50FB`
+`_GetVarCmdUSB`, the USB variant of `_GetVarCmd` (`0x4A11`) / `_SendVarCmd` (`0x4A14`); that public
+name matches the USB-first variable-command behavior decoded here, while `_LinkXferOP` is the
+inferred name for the page-3C body. The ROM-confirmed setup is:
 
 - `OP1` holds the variable type/name.
 - `sndRecState` (`0x8672`) is `0x15` for DATA-style receive.
@@ -174,7 +177,7 @@ Prefer the OS entry points unless the program is deliberately writing a USB driv
 
 | Need | OS surface | ROM support |
 |------|------------|-------------|
-| Send or request a variable over USB/link | `_LinkXferOP` (`50FB` -> `3C:4DD2`) or `_SendVarCmd` (`4A14` -> `3C:4EDD`) | Packet engine and USB-selection gate confirmed on page `3C`. |
+| Send or request a variable over USB/link | `_GetVarCmdUSB`/`_LinkXferOP` (`50FB` -> `3C:4DD2`) or `_SendVarCmd` (`4A14` -> `3C:4EDD`) | Packet engine and USB-selection gate confirmed on page `3C`. `0x50FB` is `_GetVarCmdUSB` in `ti83plus.inc`. |
 | Send one byte on the active link transport | `_SendAByte` (`4EE5` -> `3C:420D`) | Assist branch writes `C` to port `0x0D` after port `0x09` bit 5. |
 | Receive one byte on the active link transport | `_RecAByteIO` (`4F03` -> `3C:443F`) | Status path checks port `0x09` and reads port `0x0A` on the assist path. |
 | Use the raw assist FIFO | Poll port `0x09` bit 5, then write the byte to port `0x0D`; for receive, observe port `0x09` bit 4/error bits and read port `0x0A`. | Confirmed as an OS pattern, but not a complete public API. |
@@ -202,4 +205,9 @@ Practical rules:
   value `0xB4` and the paired writes to `0x0B`/`0x0C` still need bit-level interpretation.
   [hypothesis]
 - A future pass should trace the EasyData/USB app paths and reconcile any endpoint/pipe ports with
-  the OS 2.55MP database. [hypothesis]
+  the OS 2.55MP database. [hypothesis] `ti83plus.inc` names the public peripheral/device API for
+  that stack — `_InitUSB` (`0x8108`), `_KillUSB` (`0x810E`), `_InitUSBDevice` (`0x5290`),
+  `_SetUSBConfiguration` (`0x525A`), `_RequestUSBData` (`0x525D`), `_SendUSBData` (`0x50F2`),
+  `_StopReceivingUSBData` (`0x5260`), and `_IsUSBDeviceConnected` (`0x530E`, which the inc flags as
+  a guessed purpose) — so the entry points are named even though their bodies are not traced in this
+  pass.
