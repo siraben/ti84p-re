@@ -78,17 +78,19 @@ These constants are the BCD floats `π/180 = 1.745…e-2` and `180/π = 5.729…
 ---
 
 ## 4. Cross-page dispatch (`cross_page_jump` @ `ram:2B09`) [confirmed]
-Transcendental *bodies* live on banked flash pages, reached through a bcall-style trampoline.
+Banked ROM calls use a bcall-style trampoline.
 `cross_page_jump`:
 1. saves the current page (`IN A,(6)`),
 2. builds a `RET`-to-page-0 trampoline on the stack (`bcall` return frame, page restored on exit),
 3. reads a 3-byte `{lo, hi, page}` descriptor (page masked with `0x1F`/`0x3F` for 83+/84+ via ports 2/0x21),
 4. `OUT (6),A` to bank the target page in at `4000`, then jumps to it.
 
-So e.g. `_EToX` (`page_02:705C`) does `fp_clear_guard; LD A,3; CALL cross_page_jump` — the `3`
-selects the exp body from a descriptor table; the result returns in `OP1` with the original
-page restored. `_TenX` (`page_02:7066`) shares `_EToX`'s tail at `7069`. The page-7
-coefficient tables are pulled in by these banked bodies.
+The ln/e^x sites that look similar are **not** cross-page dispatches. `ram:2362` calls the bcall
+entry at `ram:3DD1`, whose inline descriptor is `1E 7D 02`, so it invokes the page-0x02
+coefficient fetcher at `page_02:7D1E`. In `LD A,3; CALL 0x2362` / `LD A,6; CALL 0x2362`, the
+`3` and `6` are coefficient-table indexes, not target pages. `_EToX` falls through locally into
+the `_TenX` body at `page_02:7069`; the ln/e^x/sin-cos coefficient tables are on page 0x02
+(`7181`, `7201`, `7281`, and the constant block near `7D42`), not page 0x03/0x06/0x07.
 
 ---
 
@@ -100,8 +102,10 @@ coefficient tables are pulled in by these banked bodies.
 - `_CLN` `page_02:6CCA` / `_CLog` `page_02:6CE7` — **complex** log: `_CAbs` (magnitude) → real `_LnX`/`_LogX` for the real part, `_ATan2Rad` (`page_02:76D4`) for the imaginary part (the argument/angle). Uses `_PushRealO1`/`_PopRealO2` to juggle the operand. This is why `ln(-2)` returns a complex result in `a+bi` mode but raises `_ErrNonReal` (0x87) in real mode.
 
 ### Exponentials [confirmed]
-- `_EToX` `page_02:705C` (e^x): banked body via `cross_page_jump(3)`.
-- `_TenX` `page_02:7066` (10^x): splits exponent into integer (digit shift) + fractional (shares e^x tail). Argument too large → `_ErrOverflow`.
+- `_EToX` `page_02:705C` (e^x): loads the `log10(e)` constant through `ram:2362`/`page_02:7D1E`,
+  then falls through into the local `_TenX` body.
+- `_TenX` `page_02:7066` (10^x): splits exponent into integer (digit shift) + fractional
+  (16-slot table-driven evaluation through `page_02:7181`). Argument too large → `_ErrOverflow`.
 
 ### Trig — sin/cos/tan [confirmed]
 - `_SinCosRad` `page_02:733E`, `_Sin` `7342`, `_Cos` `7346`, `_Tan` `734A`. Each loads a
@@ -109,9 +113,10 @@ coefficient tables are pulled in by these banked bodies.
   *not* in the rad-special mode tested by `BIT 2,(IY+0)`; `_SinCosRad` forces `0x81`).
 - Range reduction: reads OP1 exponent; **exponent ≥ 0x0C (|x| ≳ 10^12·) → `_ErrDomain`**
   ("argument out of range"). It then reduces the angle modulo a quarter-period using the
-  BCD constant table at `page_02:7D81` (loaded by the page-7-style fetcher `FUN_page_02:7D1E`)
-  and evaluates a minimax **polynomial** — the per-step `FUN_ram_1D8A`/`FUN_ram_1D26` are the
-  BCD multiply-accumulate of the Horner scheme, *not* CORDIC for the forward trig.
+  BCD constant table near `page_02:7D81` and evaluates a minimax-style **polynomial** with
+  signed coefficient tables at `page_02:7201` and `page_02:7281` — the per-step
+  `FUN_ram_1D8A`/`FUN_ram_1D26` are the BCD multiply-accumulate of the Horner scheme, *not*
+  CORDIC for the forward trig.
 
 ### Inverse trig [confirmed]
 - `_ASinRad` `76DA`, `_ACosRad` `76C9`, `_ATanRad` `76CF`, `_ATan2Rad` `76D4`, plus the

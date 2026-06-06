@@ -16,7 +16,7 @@ The stored value is
 
 $$v = \pm\\,(d_0.d_1d_2\cdots d_{13})\times 10^{\\,e-\mathtt{0x80}}$$
 
-where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD mantissa digits. A local ROM-byte scan found 126 candidate BCD constants ROM-wide ($\pi/180 = 1.745\ldots\mathrm{e}{-2}$, $180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, plus coefficient tables on page 7). The current MCP interface does not expose raw byte search, so this count should be treated as a scan artifact rather than an MCP-confirmed fact.
+where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD mantissa digits. A local ROM-byte scan found 126 candidate BCD constants ROM-wide ($\pi/180 = 1.745\ldots\mathrm{e}{-2}$, $180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, plus the FP transcendental coefficient tables on page 0x02). The current MCP interface does not expose raw byte search, so this count should be treated as a scan artifact; the table addresses below are confirmed by Ghidra disassembly and raw ROM bytes.
 
 ## OP registers — 11 bytes each [confirmed]
 
@@ -98,17 +98,17 @@ The rest of the FP op set lives alongside add on page 0, with the transcendental
 
 See [Calculation Engine](sub-calculation.md) for the ×/÷/^/root algorithms and number formatting.
 
-## Transcendental method [confirmed structure]
+## Transcendental method [confirmed]
 
-The three transcendental entry points on page 0x02 share a common shape: a **page-0x02 prologue** that does type/domain checking and range reduction (reading BCD constants from the page-0x02 constant block near `0x7d81`), followed by a **cross-page tail call** to the actual series evaluator on a higher flash page. The cross-page hop is the standard `LD A,<page>; CALL 0x2362` trampoline (`0x2362` → `CALL 0x3dd1`, the bank-switch dispatcher), which is why the page-0x02 bodies look truncated in the decompiler.
+The ln/e^x/sin-cos evaluators are local page-0x02 code plus page-0x02 coefficient tables. The apparent `LD A,n; CALL 0x2362` "page switch" sites are **not** banked series tails: Ghidra disassembly shows `ram:2362: CALL 0x3DD1`, and `ram:3DD1` is a bcall-table entry whose inline descriptor is `1E 7D 02` (`page_02:7D1E`). The real banked-call helper is `ram:2B09`; here it only calls the page-0x02 coefficient fetcher. Therefore the preceding `LD A,n` is a **coefficient-table index**, not a target flash page. Raw ROM bytes at the supposed same-address page-0x03 targets are `0xFF`, and Ghidra has no page-0x03/page-0x06 functions there.
 
 ### `_LnX` — natural log (`02:6EFD`) [confirmed]
 
-`_LnX` first calls `_CkOP1Pos` (`0x1e5d`) and raises a domain error on `x ≤ 0`. The core (`02:6F1B`) performs an **argument/range reduction** that splits `x` into mantissa × 10^exp, then computes a log via the `(x−1)/(x+1)` substitution: at `02:6F45`–`02:6F50` it forms numerator/denominator with `_FPAdd` (RST 30h) / `_FPSub` and divides with `_FPDiv` (`0x2541`), and a digit-driven Horner loop (`02:6F8C`–`02:6FEC`, stepping with the per-term helper at `0x7301`/`0x7302` and `_FPAdd`/mantissa-shift `0x1ca9`) evaluates the odd-power series `2·(t + t³/3 + t⁵/5 + …)` where `t = (x−1)/(x+1)`. The exponent contributes `exp·ln(10)`, recombined at the end. The series **coefficient table and ln(10) constant live on the cross-page tail** (`02:6F70: LD A,3; CALL 0x2362` → page 0x03), so the exact term count is not byte-traced here **[hypothesis: ~8–10 odd terms, atanh-style series]**.
+`_LnX` first calls `_CkOP1Pos` (`0x1e5d`) and raises a domain error on `x <= 0`. The core (`02:6F1B`) performs an **argument/range reduction** that splits `x` into mantissa * 10^exp, then computes a log via the `(x-1)/(x+1)` substitution: at `02:6F45`-`02:6F50` it forms numerator/denominator with `_FPAdd` (RST 30h) / `_FPSub` and divides with `_FPDiv` (`0x2541`). A digit-driven Horner/atanh loop (`02:6F8C`-`02:6FEC`) steps through the shared 16-slot table at `02:7181` via `02:7301`/`02:7302`; the first phase stops when the old selector has bit 3 set (`02:6FAB`-`02:6FAF`), and the digit loop stops when the selector reaches bit 4 (`02:6FD2`-`02:6FD5`). The `02:6F70: LD A,3; CALL 0x2362` site fetches constant-table index 3, and `02:704A: LD A,6; CALL 0x2362` fetches index 6 (`ln(10)`), both from `02:7D42`.
 
 ### `_EToX` — eˣ (`02:705C`) [confirmed]
 
-The page-0x02 entry is a thin thunk: `fp_clear_guard` (`0x2627`) then `LD A,3; CALL 0x2362` — it immediately tail-calls the eˣ body on **page 0x03** (`cross_page_jump(3)`). The standard method (exponent split `eˣ = 10^(x·log₁₀e)`, integer part → decimal exponent, fractional part → series) is consistent with the surrounding code but the body and its coefficient table sit on page 0x03 and were not traced byte-for-byte through the thunk **[hypothesis for the page-0x03 series details]**.
+`_EToX` is local code, not a page-0x03 thunk. It clears guard digits, then `02:705F: LD A,3; CALL 0x2362` loads constant-table index 3 (`log10(e)`) and falls through at `02:7064` into the same local body used by `_TenX` (`02:7066`). The body splits the decimal exponent/integer digit shift (`02:7069`-`02:70B6`), handles sign/reciprocal cases (`02:70B9`-`02:70D9`), then evaluates the fractional part with the shared 16-row table at `02:7181`. The exact loop bound is `02:7109: LD A,(0x848E); CP 0x0F; JR Z,0x7140`, so the table-driven exp evaluator has 16 selector slots (`0..15`).
 
 ### `_SinCosRad` — sin/cos in radians (`02:733E`) [confirmed]
 
@@ -120,12 +120,60 @@ This one keeps its **range reduction on page 0x02** and is the most fully recove
    - `0x7d81` — reduction reciprocal (2/π-class constant), loaded into the OP3 work reg via `LD HL,0x7d81; CALL 0x1ae2` (`0x1ae2` copies a constant to `0x8490`).
    - `0x7d8e`, `0x7d95`, `0x7d96` — companion constants used in the quadrant-fixup / remainder comparisons (`CALL 0x1d7b` magnitude compare at `02:73B1`/`02:7447`).
    The quadrant (0–3) is accumulated in `B`/`bStack_1` (bits 0/3/6) and decides sin-vs-cos and the result sign (the `XOR 0x1 / OR 0x8 / XOR 0x8` flag juggling at `02:7424`–`02:7464`).
-4. **Polynomial evaluation.** After reduction (`02:7475` onward, falling through `02:7488 LD A,B`) the reduced argument in `[0, π/4)` is fed to a Horner polynomial. The **coefficient table for the sin/cos minimax (or Taylor) series is reached through the page tail**, so the term count is not byte-confirmed here **[hypothesis: ~6–7 even/odd terms]**.
+4. **Polynomial evaluation.** After reduction (`02:7475` onward, falling through `02:7488 LD A,B`) the reduced argument in `[0, pi/4)` is fed to a Horner-style BCD polynomial. The coefficient loaders are local: `02:74AB: CALL 0x731D` loads from the signed table at `02:7201`, and `02:74EA: CALL 0x7312` loads from the signed table at `02:7281`. The selector is bounded by `BIT 3,B` / `BIT 3,C` in the tail (`02:74DD`-`02:74E0`, `02:75C6`-`02:75C8`), so the forward sin/cos polynomial uses eight selector rows (`0..7`), each with two 8-byte sign/phase variants.
 
-### What is confirmed vs. hypothesis
+### Coefficient tables [confirmed]
 
-- **Confirmed:** the helper-cluster roles and addresses; that all three transcendentals are page-0x02 prologue + cross-page series tail; the ln `(x−1)/(x+1)` substitution with `_FPDiv` and a Horner digit loop; the SinCos exponent gate (exp ≥ 12 rejected), the mod-π/2 reduction, and the page-0x02 reduction-constant addresses `0x7d81`/`0x7d8e`/`0x7d95`/`0x7d96`; the quadrant bookkeeping.
-- **[hypothesis] / residual TODO:** the exact polynomial **coefficient tables and term counts** for ln/eˣ/sin-cos. Those live on the cross-page series bodies (page 0x03, and page 0x06 for one eˣ branch — `02:704A: LD A,6; CALL 0x2362`) reached through the `0x2362` trampoline, and resolving them byte-exactly requires following the bank-switched targets, which the MCP block view truncates at the thunk. No CORDIC iteration was observed — the evidence points to **Horner polynomial / atanh-series evaluation**, not CORDIC.
+`02:7D1E` zeroes the OP2 type byte, indexes `02:7D42 + 9*A`, then copies the selected constant image into OP2. The only `LD A,n; CALL 0x2362` uses in this cluster are `A=3` (`log10(e)`) and `A=6` (`ln(10)`); the later trig reduction constants are loaded directly from the same nearby block.
 
-## TODO (residual)
-- Trace the cross-page series bodies (page 0x03 / 0x06, reached via the `0x2362` trampoline) to read the actual ln/eˣ/sin-cos coefficient tables and confirm the exact term counts.
+```
+02:7D42 constants, 9-byte stride:
+  [00] 81 57 29 57 79 51 30 82 32
+  [01] 80 15 70 79 63 26 79 48 97
+  [02] 7F 78 53 98 16 33 97 44 83
+  [03] 7F 43 42 94 48 19 03 25 18  ; log10(e) fetch site
+  [04] 80 31 41 59 26 53 58 98 00
+  [05] 7E 17 45 32 92 51 99 43 30
+  [06] 80 23 02 58 50 92 99 40 46  ; ln(10) fetch site
+  [07] 62 83 18 53 07 17 96 31 41  ; direct trig-reduction region starts here
+  [08] 59 26 53 58 98 78 53 98 16
+```
+
+`02:7181` is the shared ln/e^x digit table loaded by `02:7301`/`02:7302`/`02:7305`. It has 16 8-byte rows:
+
+```
+[00] 30 10 29 99 56 63 98 12  [01] 04 13 92 68 51 58 22 50
+[02] 00 43 21 37 37 82 64 26  [03] 00 04 34 07 74 79 31 86
+[04] 00 00 43 42 72 76 86 27  [05] 00 00 04 34 29 23 10 45
+[06] 00 00 00 43 42 94 26 48  [07] 00 00 00 04 34 29 44 60
+[08] 00 00 00 00 43 42 94 48  [09] 00 00 00 00 04 34 29 45
+[10] 00 00 00 00 00 43 42 94  [11] 00 00 00 00 00 04 34 29
+[12] 00 00 00 00 00 00 43 43  [13] 00 00 00 00 00 00 04 34
+[14] 00 00 00 00 00 00 00 43  [15] 00 00 00 00 00 00 00 04
+```
+
+`02:7201` and `02:7281` are the forward sin/cos signed polynomial tables. Each row is 16 bytes: the first 8-byte variant is selected when `0x84A4 bit 7` is clear, and the second 8-byte variant is selected when it is set.
+
+```
+02:7201:
+[00] 09 96 68 65 24 91 16 20 | 10 03 35 34 77 31 07 56
+[01] 09 99 96 66 68 66 65 24 | 10 00 03 33 35 33 34 76
+[02] 09 99 99 96 66 66 68 67 | 10 00 00 03 33 33 35 33
+[03] 09 99 99 99 96 66 66 67 | 10 00 00 00 03 33 33 33
+[04] 09 99 99 99 99 96 66 67 | 10 00 00 00 00 03 33 33
+[05] 09 99 99 99 99 99 96 67 | 10 00 00 00 00 00 03 33
+[06] 09 99 99 99 99 99 99 97 | 10 00 00 00 00 00 00 03
+[07] 10 00 00 00 00 00 00 00 | 10 00 00 00 00 00 00 00
+
+02:7281:
+[00] 95 09 85 29 44 83 72 02 | 10 52 06 69 51 89 55 92
+[01] 99 94 95 10 19 99 69 80 | 10 00 50 52 03 08 13 30
+[02] 99 99 94 94 95 10 20 35 | 10 00 00 50 50 52 03 05
+[03] 99 99 99 94 94 94 95 10 | 10 00 00 00 50 50 50 52
+[04] 99 99 99 99 94 94 94 95 | 10 00 00 00 00 50 50 51
+[05] 99 99 99 99 99 94 94 95 | 10 00 00 00 00 00 50 51
+[06] 99 99 99 99 99 99 94 95 | 10 00 00 00 00 00 00 51
+[07] 99 99 99 99 99 99 99 95 | 10 00 00 00 00 00 00 01
+```
+
+No CORDIC iteration was observed in the forward ln/e^x/sin-cos paths. Forward trig is Horner/polynomial; inverse trig still uses the separate arctangent CORDIC engine documented in [Calculation Engine](sub-calculation.md).
