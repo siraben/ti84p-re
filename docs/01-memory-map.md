@@ -58,5 +58,5 @@ Pages `01–3F` are loaded in Ghidra as overlays `page_01 … page_3F` (each at 
 | `08`-`0D` | usb/link assist | 84+ hardware byte-assist control/status/data/FIFO ports; see [USB ASIC and link assist](sub-usb-asic.md) |
 | `10/11` | lcdCmd/lcdData | LCD controller |
 | `20` | cpuSpeed | 0=6 MHz, 1=15 MHz (set in ISR) |
-| `4D` | usbLineState | USB line-state gate sampled by `_LinkXferOP`; bits 5/6 gate the unresolved `ram:2E48` call path |
+| `4D` | usbLineState | USB line-state gate sampled by `_LinkXferOP`; bits 5/6 gate the `ram:2E0B` bjump to `35:4280` |
 | `55/56` | usbIntStatus/usbLineEvents | USB interrupt state / line events (84+) — polled first in `int_dispatch_sources`; both read-only (port 0x56 is a read-only event bitmap, not a write mask) |
