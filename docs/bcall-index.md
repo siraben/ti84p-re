@@ -1,6 +1,6 @@
 # bcall Reference Index
 
-All **607** named bcall system calls, alphabetical. Each has an *ID* (the 2-byte value after `rst 28h`) and a *body* at `page:addr`. Use your browser's find, or the wiki search box. See [The bcall Mechanism](03-bcall-mechanism.md) for how dispatch works, and `tools/ti84plus_extra.inc` for the `0x8xxx` extended bcalls absent from the 2001 `.inc`.
+The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each has an *ID* (the 2-byte value after `rst 28h`) and a *body* at `page:addr`. Use your browser's find, or the wiki search box. See [The bcall Mechanism](03-bcall-mechanism.md) for how dispatch works. The historical `0x8xxx` candidates at the end are kept for reconciliation, but their page-0x3F bodies are not currently present as functions in the live Ghidra/MCP DB.
 
 | bcall | ID | Body (page:addr) |
 |-------|----|------------------|
@@ -601,9 +601,9 @@ All **607** named bcall system calls, alphabetical. Each has an *ID* (the 2-byte
 | `_ZmUsr` | `4855` | `04:601D` |
 | `_ZooDefault` | `4867` | `36:7BF9` |
 
-## Extended (`0x8xxx`) bcalls — TI-84+
+## Extended (`0x8xxx`) candidates — unverified
 
-The 11 `0x8xxx` bcalls absent from the 2001 `ti83plus.inc`. Their IDs select a **second jump table on flash page `0x3F`** (entry offset `ID − 0x8000`); decoding that table in `rom.bin` confirms every body lives on **page `0x3F`** (third table byte = `3F` in all 11). Names are WikiTI's; `†` marks WikiTI *unofficial* names. Cataloged in `tools/ti84plus_extra.inc`.
+These 11 `0x8xxx` candidates are absent from the 2001 `ti83plus.inc` and were produced by historical ROM-scan scripts from a proposed page-0x3F table. The current live Ghidra/MCP DB does **not** expose functions at these claimed targets, so treat this section as unresolved build/load-model evidence, not confirmed bcall bodies. Names are WikiTI's; `†` marks WikiTI *unofficial* names. Cataloged in `tools/ti84plus_extra.inc`.
 
 | bcall | ID | Body (page:addr) |
 |-------|----|------------------|

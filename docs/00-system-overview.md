@@ -51,13 +51,13 @@ Around those sit the I/O subsystems: the **IM1 interrupt** that drives timing/AP
 
 New to these notes? Start with [Conventions & Methodology](conventions.md) (how to read the addresses and confidence flags) and the [Glossary](glossary.md); the [bcall Index](bcall-index.md) is the full alphabetical system-call reference.
 
-Database state: **2413 functions (100% named)**, all bcalls resolved via both jump tables, TI-OS types applied. Rebuild: `tools/build.sh`.
+Database state: **2413 functions (100% named)**, the main `0x4xxx` bcall table resolved, TI-OS types applied. The older `0x8xxx`/page-0x3F bcall scan output is not present as functions in the current live Ghidra/MCP DB and needs reconciliation. Rebuild: `tools/build.sh`.
 
 ## Key anchors found so far
 
 - Reset entry `reset` @ `ram:0000` **[confirmed]**
 - bcall dispatcher `bcall_dispatcher` @ `ram:2a2f` (RST 28h) **[confirmed]**
-- IM1 interrupt `isr_im1` @ `ram:006d` (via RST 38h) **[confirmed]**
+- IM1 interrupt dispatcher `int_dispatch_timer1` @ `ram:006d` (via RST 38h; older notes call this `isr_im1`) **[confirmed]**
 - System flags base `flags` @ `0x89F0` (IY-indexed), typed `SystemFlags` **[confirmed]**
 - FP registers `OP1`–`OP6` @ `0x8478`+ **[standard]**
-- 126 BCD float constants ROM-wide incl. π/180, 180/π **[confirmed]**
+- 126 BCD float constants ROM-wide incl. π/180, 180/π **[ROM-scan result; not directly verifiable through the current MCP byte interface]**

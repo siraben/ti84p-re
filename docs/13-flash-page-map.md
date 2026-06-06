@@ -26,9 +26,9 @@ What lives on each of the 64 physical flash pages (16 KiB each). The OS itself o
 | **3C** | 30 | **Link / variable transfer** | `_SendAByte`, `_RecAByteIO`, `_SendVarCmd`, `_Rec1stByte` |
 | **3D** | 51 | **App management & Flash** | `_FindApp`, `_FindAppUp/Dn`, `_FlashToRam` |
 
-## Non-OS pages — verified by ROM scan
+## Non-OS pages — local ROM-scan results
 
-This image is **OS-only**: scanning every page boundary found **zero Flash-App headers** (`80 0F …`), so no bundled apps are present. The non-bcall pages are OS code/data and the boot/system pages:
+This image appears **OS-only** in the local ROM-byte scan: scanning every page boundary found **zero Flash-App headers** (`80 0F …`), so no bundled apps are present in that scan. The current MCP interface does not expose raw byte search, so this remains a local scan result rather than an MCP-confirmed claim. The non-bcall pages are OS code/data and the boot/system pages:
 
 | Page | Verified contents |
 |------|-------------------|

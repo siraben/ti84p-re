@@ -28,15 +28,15 @@ From the decompiler:
 - Resolution method (`tools/` Python): scored all 64 pages by how many of the 535 named .inc IDs produced a valid `(addr∈4000..7FFF or page-0, page<0x40)` entry — page `0x3B` scored **447/535**, the runner-up only 124.
 - Validation: known bcalls land exactly where expected — `_PutS`→`01:5C39`, `_GetKey`→`06:491E`, `_ClrLCDFull`→`01:60E4`, `_GetCSC`→`00:04B2`, `_CreateReal`→`00:10B8`.
 
-`tools/bcall_targets.txt` holds all **607** resolved bcalls (596 in the main 0x4xxx table + 11 extended). 289 targets live on page 0 (kernel), 318 on banked pages. `tools/ApplyBcalls.java` disassembles & names each.
+`tools/bcall_targets.txt` holds **607** historical resolved bcall rows: 596 main `0x4xxx` entries plus 11 `0x8xxx` extended candidates. The 596 main entries are live-confirmed in the current Ghidra/MCP DB; the 11 extended page-0x3F candidates remain ROM-scan artifacts until the live DB exposes matching functions. `tools/ApplyBcalls.java` disassembles & names the confirmed bodies it can resolve.
 
-## Two jump tables — by ID range [confirmed]
+## Jump-table ID ranges
 
 The dispatcher's ID decode (`bcall_dispatcher`) selects one of **two** tables by the ID's top bits:
-- **`0x4xxx`–`0x7FFF`** (bit 14 set): the main table on **flash page 0x3B**, entry at offset `ID − 0x4000` (this is the 596 documented bcalls — 535 from the `.inc` + 61 RE-named).
-- **`0x8xxx`** (bit 15 set): a **second table on flash page 0x3F** (the boot page), entry at offset `ID − 0x8000`. These are the **TI-84+-era extended bcalls** (absent from the 2001 `.inc`) — decoding the table in `rom.bin` confirms their bodies are routines on page 0x3F (certificate/field scanning, boot/HW version, Flash helpers; e.g. `_FindFirstCertificateField` `8027h`→`3F:4448`, `_GetBootVer` `80B7h`→`3F:531E`). 11 appear in OS 2.55MP; cataloged in `tools/ti84plus_extra.inc` and `bcalls8x_targets.txt`. See the [bcall Index](bcall-index.md#extended-0x8xxx-bcalls--ti-84) for the full list with WikiTI names.
+- **`0x4xxx`–`0x7FFF`** (bit 14 set): the main table on **flash page 0x3B**, entry at offset `ID − 0x4000` (596 live-confirmed bcalls: 535 from the `.inc` + 61 RE-named).
+- **`0x8xxx`** (bit 15 set): historical scripts decoded 11 TI-84+-era extended candidates from a page-0x3F table, but the current live Ghidra/MCP DB does not expose functions at the claimed page-0x3F targets such as `_FindFirstCertificateField` `3F:4448` or `_GetBootVer` `3F:531E`. Treat these entries as **unverified ROM-scan output**, not live-confirmed bcalls, until the DB/load model is reconciled.
 
-Both tables use 3-byte entries (addr LE + page, page masked `& 0x3F`).
+Both table formats are 3-byte entries (addr LE + page, page masked `& 0x3F`); only the main page-0x3B table is MCP-confirmed end to end.
 
 ## RST shortcuts (fast inlined bcalls) [confirmed]
 
@@ -57,12 +57,12 @@ All six match the documented TI-83+/84+ RST assignments — strong cross-confirm
 
 Besides bcalls, the OS calls *its own* cross-page routines via **bjump**: `CALL cross_page_jump` (`= CALL 0x2b09`) followed inline by `.dw addr; .db page`. `cross_page_jump` pops the return address, reads the 2-byte target + 1-byte page from it, banks the page (`& 0x3F`), and jumps — the target's `RET` returns to *the bjump's caller* (so it behaves like a call that consumes the 3 inline bytes).
 
-There is a **RAM-resident trampoline table** on page 0 at **`0x3B01–0x3D0B`**: **87 packed 6-byte entries**, each a bjump to a hot OS routine on another page. Boot copies this region into RAM (so it runs fast and lets `cross_page_jump` itself be RAM-resident). Code invokes a routine by `CALL 0x3Bxx` into the table. `tools/bjumps.txt` lists every entry's `(offset → page:addr)`; `tools/RamRoutines.java` marks the inline `.dw/.db` as data and comments each target.
+There is a trampoline table in the page-0 address range **`0x3B01–0x3D0B`**: **87 packed 6-byte entries**, each a bjump to a hot OS routine on another page. The static Ghidra DB models it in the page-0/ROM address space; the old "RAM-resident" wording is a runtime-copy hypothesis and is not MCP-confirmed. Code invokes a routine by `CALL 0x3Bxx` into the table. `tools/bjumps.txt` lists every entry's `(offset → page:addr)`; `tools/RamRoutines.java` marks the inline `.dw/.db` as data and comments each target.
 
 Example: `_PutMap`'s glyph blitter is reached via the trampoline at `0x3B3D → page_07:4588`.
 
 **Inline bjumps:** besides the trampoline table, `CALL cross_page_jump; .dw; .db` appears *inline* throughout the OS (e.g. transcendentals: `_EToX` = `fp_clear_guard(); bjump`). Because `cross_page_jump` consumes the 3 inline bytes and tail-jumps (the target returns to the bjump's caller), the bytes after must be data and the call is non-returning. `tools/FixInlineBjumps.java` marks all **280** such sites, which substantially improved OS-wide disassembly coverage.
 
 ## Limitations / TODO
-- The 2001-era `ti83plus.inc` lacks the `0x8xxx` TI-84+ bcall IDs; these are now **resolved** via the second table on page 0x3F (see *Two jump tables* above) and named in `tools/ti84plus_extra.inc`.
-- Some bcalls are *thunks*: e.g. `_FindSym`'s page-0 entry just `thunk_FUN_ram_2b09()` — a page-switch trampoline to the real body. Worth tracing `thunk_FUN_ram_2b09` (the common cross-page jumper) next.
+- Reconcile the historical `0x8xxx`/page-0x3F bcall scan with the live Ghidra/MCP DB; the claimed page-0x3F bodies are not currently functions.
+- Some bcalls are *thunks*: e.g. `_FindSym`'s page-0 entry uses `cross_page_jump` to reach the real body on page 0x07.

@@ -16,7 +16,7 @@ SystemFlags base is `IY = flags = 0x89F0`, so e.g. `(IY+0x0A)` = `flags + fmtFla
 
 ## 1. Flash Apps — find & launch
 
-This ROM ships with **no bundled apps** (a full page scan found zero `80 0F` headers),
+This ROM appears to ship with **no bundled apps** in the local ROM-byte scan (zero `80 0F` headers found at page starts; not directly verifiable through the current MCP byte interface),
 but the entire find/launch machinery is present on **page 0x3D** (`_FindApp*`) and
 **page 0x3B** (`_AppInit` glue / app-quit). Apps are TI Flash Applications: a contiguous
 run of 16 KiB flash pages whose first page begins with a TLV **app header**.
