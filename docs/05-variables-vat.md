@@ -34,7 +34,7 @@ The OS passes variable identity through **`OP1`** as a "name string": `OP1[0]` =
 | `_DelVar`/`_DelVarArc` | `00:1308`/`12D9` | delete (and handle archived copies) |
 | `_InsertMem`/`_DelMem` | `00:0F81`/`1368` | low-level grow/shrink of a RAM region (used by create/delete) |
 
-`_CreateReal` (recovered): zeroes `OP1.type`, allocates 9 bytes (`FUN_ram_2045(9)`), handles the complex-list special case (`OP1.exp == 0x5D`), copies the name into the new entry, and on overflow calls `_JError(0x88)` (`E_Memory`-class). The mantissa-byte shuffles are moving the 2-byte data address (`param_2`) and name length into the VAT record fields.
+`_CreateReal` (recovered): zeroes `OP1.type`, allocates 9 bytes (`FUN_ram_2045(9)`), handles the complex-list special case (`OP1.exp == 0x5D`), copies the name into the new entry, and on a RAM-full overflow calls `_JError(0x8E)` (`E_Memory`) via the shared body at `00:1011` (`JP C,0x2721 → LD A,0x8E`). A separate `_JError(0x88)` (`E_Syntax`) guards the complex-list named-entry path when the name exceeds 6 characters (`00:1020 CP 0x7; JP NC,0x2700 → LD A,0x88`). The mantissa-byte shuffles are moving the 2-byte data address (`param_2`) and name length into the VAT record fields.
 
 ## Variable data formats — rendered as C [confirmed from `_CreateR*` / DB types]
 

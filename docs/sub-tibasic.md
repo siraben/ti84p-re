@@ -161,7 +161,9 @@ value 0xD0 vs 0xD4 tells the caller whether it landed on `Else` or `End`.
 - `FUN_38_6F63` is the per-statement entry that special-cases `tIf(CE)` and
   `tStop(DA-region)`: for `tIf` it sets grammar class `0x5F` and falls into the
   shared precedence loop to evaluate the condition; unknown leading tokens here
-  raise `_JError(0x88)` (illegal) or `_JError(0x30)` (syntax). **[confirmed
+  raise `_JError(0x88)` (`E_Syntax`) for ordinary unknown tokens, or `_JError(0x30)`
+  (`E_Version`, "ERR:VERSION") for tokens above `0xF5` (the reserved/newer-token range —
+  `0x30` is the message-table index, one below `0x31` ARCHIVE FULL). **[confirmed
   bytes]**
 
 ### For( / While / Repeat / End [strong]

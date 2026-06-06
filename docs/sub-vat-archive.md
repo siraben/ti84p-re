@@ -156,7 +156,7 @@ writer still needs a fresh symbol pass against the live DB.
        LD HL,(83F3) ; LD DE,(83F7) ; CALL _DelMem (1368)  ; close the old flash slot bookkeeping
        RET
 616C:  ... reads vatPtr type, AND 0x1F (strip archive flag),
-       LD HL,(83F7)+(83F5) ; ADC ; JP C,2729 (E_Memory 0x8F/0x90/0x91)  ; fits in RAM?
+       LD HL,(83F7)+(83F5) ; ADC ; JP C,2729 (E_Invalid/E_IllegalNest/E_Bound 0x8F/0x90/0x91)  ; fits in RAM?
        allocate via historical 2FDF(3D:61AF) / 2FF7(3D:62C2) traces
 ```
 On unarchive the entry's **archive flag is cleared** and the data ptr/page is rewritten back to the
