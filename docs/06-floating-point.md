@@ -24,15 +24,33 @@ where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD mant
 
 ## Core operations [confirmed from disassembly]
 
-| Routine | Addr | Role |
-|---------|------|------|
-| `_FPAdd` | `00:229E` (= **RST 30h**) | OP1 = OP1 + OP2 |
-| `_OP1ToOP2` | `00:1A2F` (= **RST 08h**) | copy OP1→OP2 (11-byte copy via `FUN_ram_1a8e`) |
-| `_Mov9ToOP1` | `00:1B01` (= **RST 20h**) | copy 9 bytes at HL → OP1 (load a constant/var) |
-| `_CkOP1FP0`/`_CkOP2FP0` | page 0 | test if OP1/OP2 == 0 (sets Z) |
-| `_CkOP1Real` | page 0 | type-check OP1 is real |
+Every binary operation has the shape **`OP1 ∘ OP2 → OP1`** and walks the same five stages. Because the format is **sign-magnitude BCD**, the sign is settled separately — negating a value is a single `XOR 0x80` on its type byte — so the digit work always runs on a non-negative 14-digit mantissa:
 
-### `_FPAdd` algorithm (recovered)
+```mermaid
+flowchart LR
+    A["clear guard digits<br/>fp_clear_guard"] --> B["align exponents<br/>shift smaller right by Δ"]
+    B --> C["BCD digit op<br/>add / sub / mul / div"]
+    C --> D["renormalize<br/>back to d.dddd…"]
+    D --> E["round on guards<br/>write type/exp to OP1"]
+```
+
+The page-0 entry points — the hottest get a one-byte `RST` shortcut, which is why FP code is dense with `RST 30h`/`08h`/`20h`:
+
+| Routine | Addr | Shortcut | Effect |
+|---------|------|----------|--------|
+| `_FPAdd` | `00:229E` | **RST 30h** | `OP1 ← OP1 + OP2` |
+| `_OP1ToOP2` | `00:1A2F` | **RST 08h** | copy `OP1 → OP2` (11 bytes, `FUN_ram_1a8e`) |
+| `_Mov9ToOP1` | `00:1B01` | **RST 20h** | load 9 bytes at `HL → OP1` (a constant/var) |
+| `_CkOP1FP0` / `_CkOP2FP0` | page 0 | — | test `OP1`/`OP2 == 0` (sets `Z`) |
+| `_CkOP1Real` | page 0 | — | type-check `OP1` is real |
+
+### Alignment, then the worked example — `_FPAdd`
+
+To combine $x=(-1)^{s_x} m_x\times 10^{e_x}$ and $y=(-1)^{s_y} m_y\times 10^{e_y}$, the engine first **aligns** to the larger exponent. With $e_x \ge e_y$ it shifts $m_y$ right by
+
+$$\Delta = e_x - e_y \quad(\text{digit shifts})$$
+
+one nibble per `fp_shift_right_digit` call; if $\Delta > 15$ the smaller operand falls entirely past the 14 mantissa digits plus the 2 guard digits and is dropped. It then **adds the aligned mantissas when the signs match** ($s_x = s_y$) and **subtracts when they differ** ($s_x \ne s_y$), fixing the result's sign afterward — the essence of sign-magnitude arithmetic:
 
 ```pseudocode
 \begin{algorithm}
