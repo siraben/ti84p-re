@@ -186,16 +186,22 @@ the copier (6761..678A):
    loop LDI:  BIT 7,H → at 0x8000 wrap: IN A,(6); INC A; OUT (6),A; LD HL,0x4000  ; next page
 ```
 Port **6** is the bank-A page-select; the read code itself runs from `ramCode (0x8100)`. This is how
-an archived program/appvar is pulled back into RAM to be executed or edited.
+an archived program/appvar is pulled back into RAM to be executed or edited. `ti83plus.inc` also
+names a sibling **`_FlashToRam2` (id 8054)**; its body is not located in the live DB (the `0x8xxx`
+table is unmodeled), so the ID names the public API without yet pinning a page:addr.
 
 ---
 
 ## 6. Low-level Flash write / erase (pages 3C/3D, port 0x14) [mixed]
 
 The Flash program/erase primitives live on flash pages **0x3C / 0x3D** and are invoked through
-page-0 cross-page trampolines. Several page-3C/3D targets below are reached by byte trace but are
-**not defined functions in the current live DB**; their `flash_*` names are project-local inferred
-labels (not WikiTI or `ti83plus.inc` equates):
+page-0 cross-page trampolines. The public bcall entry points for the byte writer are named in
+`ti83plus.inc`: **`_WriteAByte` (id 8021)** and **`_WriteAByteSafe` (id 80C6)** program a single
+Flash byte; **`_FlashToRam2` (id 8054)** is the companion Flash→RAM copy of `_FlashToRam` (§5).
+Those IDs name the public API, not the body addresses below: the `0x8xxx` dispatch table is not
+modeled in the live DB, so the IDs are not yet mapped to these page-3C/3D bodies. Several page-3C/3D
+targets below are reached by byte trace but are **not defined functions in the current live DB**;
+their `flash_*` names are project-local inferred labels (not WikiTI or `ti83plus.inc` equates):
 
 | Trampoline (RAM) | → page:addr | Role |
 |------------------|-------------|------|
@@ -214,7 +220,8 @@ RES 7,(IY+0x24) ; LD A,1 ; DI ; IM 1 ; DI ; OUT (0x14),A ; DI ; CALL FUN_ram_02b
 sets up the RAM-resident write stub (the actual byte-poke loops run from RAM at `0x8100`/`ramCode`,
 because the CPU cannot fetch from a Flash chip mid-erase). `3D:6B9B`/`3D:6B6D` are bounds-checked
 byte-program candidate calls (return carry → caller raises **E_ArchFull**); neither is a defined
-function in the current live DB. The free-slot scan reads sector
+function in the current live DB. The public byte-write API for this layer is `_WriteAByte` (8021) /
+`_WriteAByteSafe` (80C6), though the `0x8xxx` table does not yet pin either ID to a page-3C/3D body. The free-slot scan reads sector
 status bytes and sums free space to decide whether a GC is needed before a write.
 
 ### 6a. Record-status byte — the one-way bit-clearing scheme [C]
@@ -323,7 +330,7 @@ the classic TI-83+/84+ behaviour, now pinned to addresses.
 | `38:62A9` | `_StoOther` | store value into named var |
 | `38:67B1` | `_RclVarSym` | recall var by symbol |
 | `3A:5D07` | `_RclVarPush` | recall var, push to FPS |
-| `3D:6745` | `_FlashToRam` | copy archived data Flash→RAM (page-aware) |
+| `3D:6745` | `_FlashToRam` | copy archived data Flash→RAM (page-aware); `ti83plus.inc` sibling `_FlashToRam2` (id 8054) is named but its body is unmapped in the live DB |
 | `3D:678C` | `flash_program_buf` | live-MCP Flash programming/buffer helper |
 | `3D:64AA` | `flash_write_record` (inferred label) | program an archived record to Flash candidate; not a defined function in the live DB |
 | `3D:61AF` | `flash_program_core` (inferred label) | Flash program/erase core candidate; not a defined function in the live DB |
@@ -336,7 +343,7 @@ the classic TI-83+/84+ behaviour, now pinned to addresses.
 | `3D:7C97` / `3D:7C8F` / `3D:7C93` | `flash_op_fe/fd/fb` | clear status bit (0xFE/0xFD/0xFB AND-mask) |
 | `3D:7DEA` | `flash_find_nonff` | scan 13-byte header for all-0xFF (free slot) |
 | `00:1837` / `00:182F` | `probe_hw_model_keep_a` / `probe_port21_keep_a` | model bits: port 2 bit7 / port 0x21 low |
-| `3D:6B9B` | `flash_write_byte` (inferred label) | bounds-checked Flash byte program candidate; not a defined function in the live DB |
+| `3D:6B9B` | `flash_write_byte` (inferred label) | bounds-checked Flash byte program candidate; not a defined function in the live DB. Public byte-write bcalls `_WriteAByte` (8021) / `_WriteAByteSafe` (80C6) are named in `ti83plus.inc`, but the `0x8xxx` table does not yet map either ID to this body |
 | `3C:7121` | `flash_cmd_dispatch` (inferred label) | Archive/UnArchive/GC command dispatcher candidate; not a defined function in the live DB |
 | `3C:7BD0` | `flash_gc_relocate` (inferred label) | GC core candidate; not a defined function in the live DB |
 | `3C:7E0D` | `gc_show_screen` (inferred label) | "Garbage Collecting…" display front-end candidate; not a defined function in the live DB |
@@ -366,6 +373,11 @@ Ports: **0x06** = bank-A page select (Flash window), **0x14** = Flash write/eras
   the status byte; `flash_find_nonff` (`3D:7DEA`) treats an all-`0xFF` header as free.
 
 **Residual:**
+- **Flash byte-write / Flash→RAM bcall bodies — names known, bodies unmapped [I].** The public
+  bcall entry points are canonical equates in `ti83plus.inc`: `_WriteAByte` (8021),
+  `_WriteAByteSafe` (80C6), and `_FlashToRam2` (8054). Their bodies are not located in the live DB —
+  the `0x8xxx` dispatch table is unmodeled — so the IDs name the API without yet resolving to a
+  page:addr. The address-keyed `flash_*` labels in §6/§9 stay inferred and body-undisassembled.
 - **Group archive path — partially pinned [H/I].** `_DataSize` (`00:1485`) confirms a Group
   (type `0x17`, like AppVar `0x15`/`0x16`) carries a leading word-size header, so a group *can* be
   stored as one Flash blob. The single-call RAM→Flash worker `61F4` is reached only after
