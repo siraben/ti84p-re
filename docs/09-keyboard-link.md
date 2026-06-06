@@ -54,6 +54,8 @@ While cooking raw scan codes into the `kXxx` key constants, `_GetKey` (`06:491E`
 | 6 | `shiftALock` | alpha **lock** — alpha survives across keys |
 | 7 | `shiftKeepAlph` | the alpha shift cannot be cancelled |
 
+The low three bits of the same `IY+0x12` byte are `indicFlags` (bit 0 `indicRun`, the run/busy indicator set by `_RunIndicOn`; see [04](04-interrupts.md)); `shiftFlags` occupies bits 3–7.
+
 `_GetKey` first dispatches on the pending modifier (`06:4AC3` `BIT 3` → the 2nd handler at `06:4B87`; `06:4ACA` `BIT 4` → the alpha handler at `06:4BFD`), then on the key. The transitions, with the `SET`/`RES` sites:
 
 - **`[2nd]` (`0x36`) from idle** → `SET shift2nd` (`06:4AD5`); loop without returning a key, lighting the 2nd cursor (`IY+0x1F` bit 6).
@@ -64,7 +66,7 @@ While cooking raw scan codes into the `kXxx` key constants, `_GetKey` (`06:491E`
 - **`[ALPHA]` while already in alpha** (`06:4BFD`) → in a lowercase-capable context (`IY+0x24` bit 3) and still uppercase, `SET shiftLwrAlph` (`06:4C0D`) cycles **upper → lower**; otherwise it cancels alpha. Repeated `[ALPHA]` walks uppercase → lowercase → off.
 - **`[2nd]` while in alpha** (`06:4C1D`) → `SET shift2nd` (`06:4C25`): a 2nd press stacks on top of alpha (alpha is retained).
 
-`shift2nd` clears the instant a 2nd-combo key is consumed (`06:4B87`). `_GetKey` never clears `shiftAlpha` itself — an un-locked alpha shift persists in `shiftFlags` until a later `[ALPHA]` press cancels it; `shiftALock` (bit 6, from 2nd+ALPHA) is the sticky lock that survives any number of keys.
+`shift2nd` clears the moment a 2nd-combo key is consumed (`06:4B87`), and the IM1 timer ISR also clears it at `ram:01E0` (`RES 3,(IY+0x12)`), so a pending `[2nd]` does not linger. `_GetKey` sets `shiftAlpha` and (on 2nd+ALPHA) `shiftALock` but reads neither to clear alpha — within `_GetKey`, alpha stays set until a later `[ALPHA]` press cancels it. The one-shot-versus-lock choice is left to the consuming editor, which reads `shiftALock` (bit 6) to decide whether to drop `shiftAlpha` after a single character.
 
 ```mermaid
 stateDiagram-v2
@@ -72,13 +74,15 @@ stateDiagram-v2
     Idle --> Second: 2nd, SET b3 @4AD5
     Second --> Idle: 2nd again, cancel @4B8E
     Second --> Idle: any key, 2nd-shifted then RES b3 @4B87
-    Second --> AlphaLock: ALPHA, SET b6+b4 @4B96
+    Second --> AlphaLock: ALPHA, SET b6 @4B96 + b4 @4B9A
     Idle --> Alpha: ALPHA, SET b4 + RES b5 @4AE8
     Alpha --> Alpha: letter, alpha code, b4 stays
     Alpha --> AlphaLower: ALPHA, SET b5 @4C0D
     AlphaLower --> Idle: ALPHA, cancel @4C13
     AlphaLock --> AlphaLock: letter, alpha code, locked
     AlphaLock --> Idle: ALPHA, cancel
+    Alpha --> Alpha: 2nd, SET b3 @4C25
+    AlphaLock --> AlphaLock: 2nd, SET b3 @4C25
 ```
 
 ### Key → token translation [confirmed]

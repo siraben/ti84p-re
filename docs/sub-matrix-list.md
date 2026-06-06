@@ -240,8 +240,7 @@ sibling in the same `412A`–`414E` family and is inferred here. [H]
 
 ### `[A] * [B]` — matrix multiply [H]
 The matrix-multiply body is not a defined function in the current Ghidra DB; the O(n³) structure
-below is inferred, address unverified. The `02:40BA` label was a Ghidra auto-name from an earlier
-analysis pass with no WikiTI or ti83plus.inc backing. (`0x40BA` does appear in ti83plus.inc, but
+below is inferred, address unverified. The `02:40BA` label is a Ghidra auto-name with no WikiTI or ti83plus.inc backing. (`0x40BA` does appear in ti83plus.inc, but
 as the unrelated `_SinCosRad` bcall ID — a hex coincidence, not matrix-mult provenance.) The `*`
 dispatch site `02:5FE6` and the result-setup site `02:5766` are likewise undisassembled in the
 live DB.
@@ -299,7 +298,7 @@ body and its single caller are byte-verified below.
 |---|---|---|---|
 | `Matr►list(` | `0x8D` @ `6388` | **`02:4773`** (2-arg), `02:49E3` (1-arg list copy) | [C] The `0x8D` branch splits on argument count (`638D: CP 0x02`). The **column-extract engine is `02:4773`** (2-arg path: `639D: CALL 5DD8 ; CALL 4773`; only caller `63A0`, byte-verified `CD 73 47`): it nests a per-row loop (`477B: LD B,1 …`, reading via `4040` `_AdrMRow`/`4068` `mele_store_ckvalid`) inside a column loop over `(84AF)`, copying matrix columns into list element(s) (`4051`/`479F`). The 1-arg/list path uses `02:49E3` (`6397: CALL 0x49E3`), a list-element copy-until-length-match (`47E6` recall, `4825` store, `21BB` compare vs `(84AF)`, `RET Z`). |
 | transpose `ᵀ` | `0x0E` @ `60E9` | **`02:412A`** | [C] Swaps the dim header (`60F5`), allocates the transposed shape, then `412A` copies `dst(c,r)=src(r,c)` over every cell (`403C` read from `(84D3)`, `4068` write to `(84D7)`); only caller `60FE`. See the transpose subsection above. |
-| `augment(` | `0x91` @ `635B` | **`02:6238` copy** [C]; `02:4663` engine [H] | The `0x91` branch requires two operands (`CP 0x02`), reads the dims (`5D98`), and applies an equal-rows guard `LD A,H ; CP L ; JR Z ; JP NC,2719` (`E_Dimension` when the row counts differ). It then runs the **column-concatenation copy at `02:6238`** [C]: `6238` allocates the result (`5DE0` → `5DE6` → `_CreateRMat 110F`) and bulk-copies the float payload with `02:4539` (`mele_copy9_d3` — skip the 2 dim bytes, `LDIR` the column-major data), re-pointing `84D3←84D7`. The branch then calls `02:4663` (`6379`, only caller; byte-verified `CD 63 46`), a partial-pivoting elimination engine: it computes `min(H,L)` (`4672: LD A,H ; CP L ; JR C ; LD L,H`), inits via `475E`, and iterates from `BC=0x0101` calling `461C` (max-abs), `41D0` (pivot-column scan), `198D` (compare), `471C` (permutation swap) and `405E` (store). The column-concat copy (`6238`/`4539`) is confirmed augment behaviour [C]; `4663`'s elimination pass on the concatenated result is byte-confirmed but its role for plain `augment(` is left open [H]. (`augment(L1,L2)` list-concat is the `0x92` sibling at `637F`, sharing the `6362` setup.) |
+| `augment(` | `0x91` @ `635B` | **`02:6238` copy** [C]; `02:4663` engine [H] | The `0x91` branch requires two operands (`CP 0x02`), reads the dims (`5D98`), and checks the two row counts with `LD A,H ; CP L`: equal rows fall through (`JR Z`) and `H>L` raises `E_Dimension` (`JP NC,2719`). It then runs the **column-concatenation copy at `02:6238`** [C]: `6238` allocates the result (`5DE0` → `5DE6` → `_CreateRMat 110F`) and bulk-copies the float payload with `02:4539` (`mele_copy9_d3` — skip the 2 dim bytes, `LDIR` the column-major data), re-pointing `84D3←84D7`. The branch then calls `02:4663` (`6379`, only caller; byte-verified `CD 63 46`), a partial-pivoting elimination engine: it computes `min(H,L)` (`4672: LD A,H ; CP L ; JR C ; LD L,H`), inits via `475E`, and iterates from `BC=0x0101` calling `461C` (max-abs), `41D0` (pivot-column scan), `198D` (compare), `471C` (permutation swap) and `405E` (store). The column-concat copy (`6238`/`4539`) is confirmed augment behaviour [C]; `4663`'s elimination pass on the concatenated result is byte-confirmed but its role for plain `augment(` is left open [H]. (`augment(L1,L2)` list-concat is the `0x92` sibling at `637F`, sharing the `6362` setup.) |
 | `randM(` | `0xB5` @ `62D4` | create + dim setup (`5DBB`/`5DEB`); cell-fill body open [H] | The `0xB5` branch splits on argument count (`62D9: CP 0x02`): the 2-arg `randM(rows,cols)` path (`62DD`) and the 1-arg square path (`630A`). Both **create the result and set its dims** through `02:5DBB` (`CALL 5CEB` registers the variable by name, stores the data pointer to `84D3`, reads and zero-rejects the dim bytes `OR L ; JP Z,2719`, stores dims to `84AF`) and `02:5DEB`/`02:631E`. The per-cell `_Random` fill is not isolated as a loop in this branch. `02:5264` (`cplx_swap_dispatch`) is **not** randM — its only caller is `62D0`, in the `0xBD` complex-operand branch. The randM cell-fill body stays open. [H] |
 | `List►matr(` | `0x8E` @ `61C1` | `02:7D19` + copy | reshapes the argument lists into a matrix (`_DataSize`-counted float copy `4539`/`453F`). [H] |
 
@@ -313,9 +312,10 @@ the bodies; H for those two residuals]
 
 ## 5. The heavy ones — `det(`, `[A]⁻¹`, `rref(` / `ref(` [C]
 
-All three are the **same Gauss-Jordan elimination engine with partial pivoting**:
-**`matrix_gauss_engine` @ `page_02:42A6`**. The *entry flag in `A`* selects behaviour. Only two
-direct call sites exist (byte-verified — `CD A6 42` appears exactly twice):
+`det(` and `[A]⁻¹` share the **Gauss-Jordan elimination engine with partial pivoting** —
+**`matrix_gauss_engine` @ `page_02:42A6`** — the *entry flag in `A`* selecting behaviour; only two
+direct call sites exist (byte-verified — `CD A6 42` appears exactly twice). `rref(`/`ref(` are a
+**separate** driver and do not call `42A6` (see below):
 
 | Token / op | site | flag `A` | meaning |
 |---|---|---|---|
@@ -397,7 +397,7 @@ So the **sign byte is the LSB of the swap-count** applied via `_InvOP1S` (`00:24
 **`rref(`/`ref(` do not re-enter the `42A6` Gauss-Jordan engine.** A function-xref shows
 `matrix_gauss_engine` (`02:42A6`) has **exactly two callers** — `mat_inverse_entry` (`02:5F80`,
 flag 0) and `det_entry` (`02:5FC0`, flag 0x40); there is no third call site (byte-confirmed
-earlier: `CD A6 42` appears exactly twice). So `det(`/`[A]⁻¹` are the only consumers of that
+above: `CD A6 42` appears exactly twice). So `det(`/`[A]⁻¹` are the only consumers of that
 square-only, partial-pivoting driver. [C]
 
 `rref(` (`BBh,A6h`) and `ref(` (`BBh,A5h`) are **2-byte `0xBB`-lead function tokens**. On the
@@ -465,7 +465,7 @@ and the routine and condition that triggers it.
 | `02:4002` | `_AdrMEle` | matrix element address: `((column-1)*dim0+(row-1))*9` [C] |
 | `02:4044` | `_GetMToOP1` | `[M](i,j)` → OP1 [C] |
 | `02:406C` | `_PutToMat` | OP1 → `[M](i,j)` (validated) [C] |
-| `02:40BA` | Ghidra auto-name (retired) | not a defined function in the current Ghidra DB; was an earlier-pass auto-name with no WikiTI/inc backing (`0x40BA` in ti83plus.inc is the unrelated `_SinCosRad` bcall ID). Inferred matrix-multiply body; address unverified (§4) |
+| `02:40BA` | Ghidra auto-name (retired) | not a defined function in the current Ghidra DB and has no WikiTI/inc backing (`0x40BA` in ti83plus.inc is the unrelated `_SinCosRad` bcall ID). Inferred matrix-multiply body; address unverified (§4) |
 | `02:4108` | `identity_build` | `identity(n)`: diagonal-1 fill (token 0xB4) [C] |
 | `02:412A` | `mat_transpose` | **transpose `[A]ᵀ`** body (token `0x0E`, dispatched `60E9`/called `60FE`): per-cell copy `dst(c,r)=src(r,c)` via the swapped dest header (§4) [C] |
 | `02:414E` | `mrow_swap_loop` | row swap/scale (elimination) [C] |
