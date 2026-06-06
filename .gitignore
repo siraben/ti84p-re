@@ -31,3 +31,12 @@ tools/ti84_page00.bin
 /pseudocode.min.js
 /pseudocode.min.css
 /docs/fonts/
+*.8Xu
+*.8xu
+*.Xu
+
+# OS-diff working files (decoded OS image + 2.53 ghidra project)
+*.aligned.bin
+__pycache__/
+/ti84_253.gpr
+/ti84_253.rep/
