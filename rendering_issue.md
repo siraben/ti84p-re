@@ -1,5 +1,31 @@
 # MathPrint rendering — context & open issue
 
+## 2026-06-06 update
+
+The `screenshot2.png` stress case now matches pixel-for-pixel in
+`tools/render-mathprint.py` after replacing screenshot-shaped guesses with
+ROM/code-derived primitives:
+
+- Compact numeric limit text (`1/2`) uses the ordinary small-font `/`
+  (`0x2F`), not the thicker MathPrint `0xF6` fraction-slash glyph.
+- `sqrt(X^2+1)` uses the `Lroot` large-font glyph (`0x10`) from the class
+  `0x2A`/`0x31` records, stretches its middle vertical-stem row to the radicand
+  height, and draws the vinculum as a rule rectangle.
+- The rule endpoint behavior is backed by `eqdisp_draw_fraction_bar`
+  (`39:6ABF`) and `eqdisp_advance_col6` (`39:6B1C`): start from `0x1B`, add
+  `7 px` per cell, then expand endpoints in the caller before
+  `gr_set_window_draw` (`39:4833`).
+- Tall parens are structural stretched delimiters with symmetric top/bottom
+  shoulders; they are not separate bitmap assets in the recovered model.
+
+Verification command used against `screenshot2.png` downsampled to calculator
+resolution: rendered `70 x 25`, mismatch `0 []`.
+
+Residual for **full** recovery: the exact root-template caller that measures the
+radicand and invokes the rule draw still needs to be named, and the `fnInt(`
+operand-slot recursion still needs the same level of proof as the glyph/rule
+primitives.
+
 ## 2026-06-05 update
 
 The tall-integral screenshot mismatch is fixed in `tools/render-mathprint.py`, but

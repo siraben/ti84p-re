@@ -119,6 +119,16 @@ def limit_text(rom, s):
     return trim(stext(rom, s))
 
 
+def compact_fraction_text(rom, num, den):
+    """Small-font linear fraction used in compact limit slots, e.g. 1/2."""
+    # Compact numeric limits use the ordinary small-font slash; 0xF6 is the
+    # thicker MathPrint fraction-slash glyph used in mode/menu text.
+    return hcat(
+        [limit_text(rom, num), trim(sglyph(rom, ord("/"))), limit_text(rom, den)],
+        gap=1,
+    )
+
+
 def hcat(boxes, gap=1):
     boxes = [b for b in boxes if b and b[0]]
     if not boxes:
@@ -211,9 +221,9 @@ def tall_integral(base_box, height=17):
     return out, height // 2
 
 
-def definite_integral(base_box, sup_box, sub_box):
+def definite_integral(base_box, sup_box, sub_box, height=17):
     """Tall integral with compact upper/lower limits, matching fnInt( layout."""
-    irows, iaxis = tall_integral(base_box)
+    irows, iaxis = tall_integral(base_box, height=height)
     srows, drows = sup_box[0], sub_box[0]
     rw = max(width(srows), width(drows))
     h = len(irows)
@@ -227,6 +237,94 @@ def definite_integral(base_box, sup_box, sub_box):
             right = [0] * rw
         out.append(irows[r] + [0] + right)
     return out, iaxis
+
+
+def tall_paren(side, height):
+    """A compact stretched paren for tall MathPrint operands."""
+    rows = blank(height, 3)
+    if side == "(":
+        rows[0][2] = 1
+        rows[-1][2] = 1
+        if height > 2:
+            rows[1][1] = 1
+            rows[-2][1] = 1
+        for y in range(2, height - 2):
+            rows[y][0] = 1
+    elif side == ")":
+        rows[0][0] = 1
+        rows[-1][0] = 1
+        if height > 2:
+            rows[1][1] = 1
+            rows[-2][1] = 1
+        for y in range(2, height - 2):
+            rows[y][2] = 1
+    else:
+        raise ValueError("side must be '(' or ')'")
+    return rows, height // 2
+
+
+def overlay(height, width_, placements, baseline=0):
+    """Compose boxes at exact pixel offsets."""
+    out = blank(height, width_)
+    for box, x, y in placements:
+        rows = box[0] if isinstance(box, tuple) else box
+        for yy, row in enumerate(rows):
+            for xx, bit in enumerate(row):
+                if bit and 0 <= y + yy < height and 0 <= x + xx < width_:
+                    out[y + yy][x + xx] = 1
+    return out, baseline
+
+
+def sqrt_with_bar(root_box, radicand_box, width_, height, bar_x, bar_y, rad_x, rad_y,
+                  overhang=3):
+    """Square root template with a horizontal vinculum over the radicand."""
+    rows = blank(height, width_)
+    placements = [(root_box, 0, bar_y), (radicand_box, rad_x, rad_y)]
+    rows, _ = overlay(height, width_, placements)
+    for x in range(bar_x, min(width_, bar_x + width(radicand_box[0]) + overhang)):
+        rows[bar_y][x] = 1
+    return rows, height // 2
+
+
+def tall_root(root_box, height):
+    """Stretch Lroot's vertical stem while preserving the font glyph's hook."""
+    rows, _ = root_box
+    if height <= len(rows):
+        return rows, len(rows) // 2
+    extra = height - len(rows)
+    out = rows[:4] + [rows[3]] * extra + rows[4:]
+    return out, height // 2
+
+
+def compact_power_limit(base_box, exp_box):
+    """Raised-row compact power form used inside small limit slots."""
+    return overlay(8, 8, [(base_box, 0, 3), (exp_box, 4, 0)], baseline=4)
+
+
+def definite_integral_stress_example(rom, base):
+    """fnInt(sqrt(X^2+1), X, 1/2, 3^2) MathPrint stress layout."""
+    t = lambda s: text(rom, base, s)
+    upper = compact_power_limit(limit_text(rom, "3"), limit_text(rom, "2"))
+    lower = compact_fraction_text(rom, "1", "2")
+    integral = definite_integral(t("@08"), upper, lower, height=25)
+    radicand = hcat(
+        [superscript(t("X"), limit_text(rom, "2"), raise_px=3), t("+1")],
+        gap=1,
+    )
+    root = sqrt_with_bar(tall_root(t("@10"), 12), radicand, width_=28, height=12,
+                         bar_x=2, bar_y=0, rad_x=5, rad_y=2)
+    return overlay(
+        25,
+        70,
+        [
+            (integral, 0, 0),
+            (tall_paren("(", 12), 19, 8),
+            (root, 24, 8),
+            (tall_paren(")", 12), 52, 8),
+            (t("dX"), 57, 13),
+        ],
+        baseline=12,
+    )
 
 
 def show(box, on="█", off="·"):
@@ -276,6 +374,8 @@ def main():
         ("integral from 1 to 2 of (X) dX  (= 1.5)",
          hcat([definite_integral(T("@08"), limit_text(rom, "2"), limit_text(rom, "1")),
                T("(X)dX")], gap=1)),
+        ("integral from 1/2 to 3^2 of sqrt(X^2+1) dX",
+         definite_integral_stress_example(rom, base)),
     ]
     for title, box in examples:
         print(f"\n{title}\n" + "-" * len(title))

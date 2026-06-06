@@ -146,8 +146,8 @@ So **width = Σ column advances** (proportional glyph widths summed for the real
 
 A fraction is a **2-row cell**: row 0 = numerator, the bar, row 1 = denominator. `eqdisp_layout_token_geom` (39:68AE) tracks the two halves in `0x85EE`/`0x85EF`. Width is the **wider** of the two operands; the bar spans that width; the denominator is pushed below it.
 
-- The bar's horizontal extent comes from `eqdisp_advance_col6` (39:6B1C): right edge `x = 0x1B + 7·(cols+1) + 4` — base `0x1B`, **+7 px per column**, matching the cell grid, so the bar grows with `max(num_cols, den_cols)`.
-- The bar sits at `y = top + 6` (`ADD A,0x6`); the denominator origin is shifted **+4 px** below the bar (`INC D ×4`).
+- The bar's horizontal extent comes from `eqdisp_advance_col6` (39:6B1C): it starts from base `0x1B`, adds **7 px per column** (`DJNZ` over `ADD A,L`, where `L=7`), writes `L = 0x1B + 7·n`, and sets `E = L + 4`. The caller (`6ABF`) then does `DEC L` and `INC E`, so the filled rule has a small overhang around the measured cell span.
+- The bar sits at `y = top + 6` inside `eqdisp_advance_col6` (`ADD A,0x6`), then the draw caller shifts the lower endpoint **+4 px** (`INC D ×4`) for the fraction denominator region.
 - The bar itself is drawn by `gr_set_window_draw` (39:4833) as a thin filled rectangle into the graph window struct at `0x8DA2` → graph buffer `0x9340` — **not** a glyph.
 
 $$\text{width} = \max(\text{num}_w, \text{den}_w), \qquad \text{height} = \text{num}_h + \text{bar} + \text{den}_h$$
@@ -170,6 +170,17 @@ $$\text{width} = \max(\text{num}_w, \text{den}_w), \qquad \text{height} = \text{
 
 `eqdisp_set_row_for_tok` (39:4CE9) forces certain layout classes into a **raised row slot** (`0x844B = 3` or `4`). It reads the class from `0x85DE` and, for classes in **`[0x24, 0x29)`**, saves the current `0x844B`, loads a raised row index (`LD HL,4`, with `LD L,3` for the `0x28` case = `0x24+4`), writes it, and lays the token there via the `3B2B` bjump; **class `0x39`** takes the same raised path with row `4` and `A=0x1B`. Because `decr_counters` derives `y` from the row index, a smaller row index renders higher on screen; the exponent's height is folded into the parent box through the per-row accumulation. So `X²` is just `X` on the baseline row and `2` on a raised row — the class byte alone (not a glyph attribute) selects the raised slot.
 
+### Radicals, stretched symbols, and delimiters [partly confirmed]
+
+Radicals are split the same way fractions are: the visible `√` mark starts as a **font glyph**, while the vinculum above the radicand is a **rule rectangle** drawn through the graph-window helper. The root glyph appears directly in the decoded page-39 handler records:
+
+- class `0x2A` (`record 0x654D`) row 0 begins with display cell `00 10` = `Lroot`;
+- class `0x31` (`record 0x6433`) row 0 also begins with `00 10`, then other power/root-family glyph cells.
+
+For a tall radicand such as `sqrt(X^2+1)`, pixel reconstruction from the ROM fonts matches the calculator only when `Lroot` keeps its top/hook rows and stretches the middle vertical-stem row to the operand height, while the vinculum uses the same rule-overhang convention visible in `6ABF`/`6B1C`. The exact root-template caller that chooses the final radicand height and invokes the rule draw is still not isolated, but the recovered primitive is constrained by ROM glyph `0x10`, the code-derived rule geometry, and the page-39 root-class records above.
+
+The same pattern applies to tall integral/summation templates: `Lintegral` (`0x08`) and `Σ` (`0xC6`) are font glyphs, then the template machinery stretches/places them against raised and lowered slots. The `fnInt(` menu/action records are class `0x08` (`record 0x608B`) and class `0x30` (`record 0x6030` under fraction-context bias); both contain the `00 C8` display cell for `fnInt(` plus square-up/down marker cells (`FB C8` / `FB C7`) used by the template UI.
+
 ### Indentation [confirmed]
 
 `eqdisp_setup_indent` (39:4C40) sets indent depth `0x984A = 1`, or `2` for the `'!'` structure, applied only in display context (`85DE == 'H'`). It is folded into the row origin (`+6 px` window offset) for nested / continued rows.
@@ -185,6 +196,7 @@ $$\text{width} = \max(\text{num}_w, \text{den}_w), \qquad \text{height} = \text{
 - **Digits** (`eqdisp_emit_digit` 39:4E14) convert a numeric token to its ASCII char (`+'0'`/`+'1'`, hex base `'7'`) and VPut it, with a cursor-highlight bit when the digit is at the cursor.
 - **Math symbols** — the integral, radical, summation, super/subscript boxes, and the placeholder box are **font glyphs** (codepoints in the [glyph index](#large-font-glyph-index)), blitted like any character.
 - The **fraction bar** is a filled rectangle drawn into the graph buffer by `gr_set_window_draw` (39:4833); `gr_draw_tbl_glyph` (39:66DC) sets the graph-draw mode for it. Parenthesis matching uses the pair tables at `0x62E2/0x62CB/0x62F9`.
+- The **radical vinculum** follows the same structural-rule model: `Lroot` (`0x10`) supplies the glyph mark, and the overbar is a filled rule whose endpoint behavior matches the `6B1C` column-to-pixel helper (`0x1B + 7·n` plus the caller's endpoint expansion).
 - `eqdisp_load_glyph18b` / `eqdisp_load_glyph18b2` (`39:6B62/6B66`) are menu-string loaders despite their old names: `FB CA` -> `0x6BA9` (`n/d`), `FB CB` -> `0x6BAD` (`Un/d`), `FB C8` -> `0x6BB2` (`summation Sigma(`, draw path only), and `FB D6/D8/D7` -> answer-mode strings. They `_Mov18B` into `0x97F2` and return that string buffer to `eqdisp_glyph_width`. Other nearby `FB C*` cells are not proven to use this loader path.
 
 ## Worked examples
@@ -288,5 +300,5 @@ Page 0x39 is a **cell-grid 2-D typesetter**: classify each token → index a han
 - **Resolved for the earlier integral blocker — kind box descriptors (`0x686F…`) are not integral segment tables.** They are fixed box/menu descriptors; the proven `FB` cases route to menu strings or square-marker handling, not tall-integral bitmaps.
 - The page-0x3A draw continuation for overflowing lines (where horizontal scroll is composited).
 - The exact flag that selects MATHPRINT vs CLASSIC (the modes are confirmed at `pg01:5A09`; CLASSIC short-circuits to the 1-line path via `0x85DE == 0`, but the persistent mode bit in `SystemFlags` isn't pinned yet).
-- How the radical (`√`) vinculum is sized/positioned (it uses the graph-buffer rule path like the fraction bar, but the specific routine wasn't isolated).
+- **Mostly resolved — radical primitive geometry.** `√` is the `Lroot` font glyph (`0x10`) in class `0x2A`/`0x31` records; tall radicals stretch the glyph's vertical stem and draw the vinculum as a graph-buffer rule with the same `6B1C` overhang arithmetic used by fraction bars. Residual: isolate the exact caller that measures the radicand and invokes the rule draw.
 - **`∫` integral / `Σ` summation — mostly resolved.** Both render as their math symbols with stacked limits, and both symbols are **font glyphs** (`Lintegral 0x08`, `Σ 0xC6`, `Lroot 0x10`, …), *not* dynamically stroked. The associated display-token cells are in class `0x08`/`0x30` handler records. Residual: tie each `fnInt(` operand slot to the exact recursive layout transition that produces the 17-pixel tall captured layout.
