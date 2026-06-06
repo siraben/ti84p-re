@@ -228,7 +228,9 @@ sort body's element-load is not byte-traced]
   ```
 - **`Fill(value,[M])`** / **`randM(`** stamp a constant / random values across all cells via a
   per-cell loop over the whole matrix. `randM(` builds the result through the `0xB5` dispatcher
-  branch (`02:62D4`); its per-cell fill body is the one residual still open (§4). [H]
+  branch (`02:62D4` → `5CEB`, which `_FindSym`s the result var via `RST 10h` then fragments in the
+  live DB); the per-cell fill — expected to draw from `_Random` (bcall `0x4B79`, seeds at
+  `9640`/`9649`) — is the one residual still open (§4). [H]
 - Matrix **copy/reshape** = `_DataSize`-counted byte copy of the float payload
   (`mele_copy9_d3` (`02:4539`)/`mele_copy9_loop` (`02:453F`)). [C]
 
