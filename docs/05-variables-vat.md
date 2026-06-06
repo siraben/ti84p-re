@@ -51,7 +51,7 @@ typedef struct { TIFloat re, im; } TIComplex;                   /* 18 bytes */
 
 /* ── aggregate data (what the VAT entry's dataAddr points at) ──────── */
 struct List   { uint16_t count;       TIFloat elem[/*count*/];     }; /* ListObj 1; CListObj 0x0D uses TIComplex[] */
-struct Matrix { uint8_t  dim0, dim1;  TIFloat elem[/*dim0*dim1*/]; }; /* MatObj 2, stored column-major            */
+struct Matrix { uint8_t  rows, cols;  TIFloat elem[/*rows*cols*/];  }; /* MatObj 2, stored column-major (rows = dim0) */
 struct Tokens { uint16_t size;        uint8_t body[/*size*/];      }; /* EquObj 3, StrngObj 4, ProgObj 5/6 — tokenized */
 struct AppVar { uint16_t size;        uint8_t data[/*size*/];      }; /* AppVarObj 0x15 — RAW bytes, not tokenized     */
 ```
@@ -63,7 +63,7 @@ Per object type:
 | `RealObj` | `0` | one `TIFloat` | 9 |
 | `CplxObj` | `0x0C` | one `TIComplex` (`re`, `im`) | 18 |
 | `ListObj` / `CListObj` | `1` / `0x0D` | `count` word + `count`×`TIFloat`/`TIComplex` | 2 + 9·n / 2 + 18·n |
-| `MatObj` | `2` | two dim bytes + `TIFloat[]`, **column-major** (index math in [Matrices & Lists](sub-matrix-list.md)) | 2 + 9·r·c |
+| `MatObj` | `2` | `rows`,`cols` bytes (`dim0`=rows) + `TIFloat[]`, **column-major** (index math in [Matrices & Lists](sub-matrix-list.md)) | 2 + 9·r·c |
 | `EquObj` | `3` | `size` word + tokenized formula — *system* var, carries a selection/style byte, **auto-evaluated** ([Graphing](sub-graphing.md), [Table](sub-table-yvars.md)) | 2 + size |
 | `StrngObj` | `4` | `size` word + tokenized text — *inert* (see [Strings](#strings-str1str0--a-distinct-object-type-confirmed)) | 2 + size |
 | `ProgObj` / `ProtProgObj` | `5` / `6` | `size` word + tokenized program (6 = edit-locked) | 2 + size |

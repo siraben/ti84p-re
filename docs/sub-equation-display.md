@@ -204,27 +204,13 @@ row 1:      C            denominator centered under the 3-col bar
 ```
 The `2` is an ordinary baseline glyph; the `3/4` is a kind-2 fraction box laid out to its right. The `n⁄d` vs `Un/d` choice comes from the mode menu (`0x6BA9` strings) — the same flag that picks improper-vs-mixed rendering.
 
-### Function-call structures — `fnInt`, `Σ`, brackets
+### Integrals, summations & multi-argument functions
 
-On the **monochrome TI-84 Plus, integrals and summations are not 2-D symbols** — `∫` and `Σ` templates are a TI-84 Plus **CE** feature. Here `fnInt(`, `nDeriv(`, and `sum(`/`seq(` are ordinary **multi-argument function tokens** (`pg01:4923` `fnInt(`, `pg01:492B` `nDeriv(`), laid out in **function-call form with parentheses** by the multi-arg machinery (`eqdisp_sum_arg_widths` 39:4DCA, `eqdisp_layout_multiarg` 39:5167). The "brackets" are those parentheses, drawn as structural graph-buffer glyphs.
+`fnInt(`, `nDeriv(`, `sum(`/`seq(` are stored as **function tokens** (`pg01:4923` `fnInt(`, `pg01:492B` `nDeriv(`), but in MathPrint the OS **renders them as their 2-D mathematical notation** — `∫` with its lower/upper limits, `Σ` with index limits — *not* as flat `fnInt(...)` text. The token is the storage form; the display is the typeset symbol.
 
-**`fnInt(X²,X,0,1)`** — the integral $\int_0^1 X^2\,dX$ entered on an 84+:
+The font has **no static `∫` glyph** (the page-7 large font carries a `Σ` at char `0xC6`, but no integral sign), so the integral sign is **stroked dynamically by code** — the same approach the engine already uses for the fraction bar (a filled rectangle drawn via `gr_set_window_draw`, not a character). The integrand and the limits are positioned by the cell-grid machinery (`eqdisp_layout_multiarg` 39:5167, `eqdisp_sum_arg_widths` 39:4DCA) that places any sub-expression, with the limits stacked above/below the symbol the way a fraction stacks numerator/denominator.
 
-```
-   fnInt( X² , X , 0 , 1 )
-   └──┬─┘ └┬┘  │   │   │  └ close paren (structural glyph)
-  func tok  │  └── comma-separated args (4 args, 3 separator columns)
-            └ arg 0 recurses: 'X' baseline + '2' on the raised exponent row
-```
-The walk: emit the `fnInt(` token and the open paren, then lay out each of the four arguments left-to-right (`layout_multiarg`), inserting a separator column (`0x844B++`) before each comma; `sum_arg_widths` pre-reserves those columns so the close paren lands in the right place. Argument 0 (`X²`) is itself laid out recursively, so its exponent still superscripts inside the call. If the line gets too wide, `0x844B ≥ 7` triggers the overflow continuation (below).
-
-**`sum(seq(I²,I,1,4))` (a summation $\sum_{I=1}^{4} I^2$)** — nested function calls:
-
-```
-   sum( seq( I² , I , 1 , 4 ) )
-        └──────── one argument of sum( ────────┘
-```
-`sum(` has a single argument that is itself a 4-arg `seq(` call. The inner call is laid out by `eqdisp_emit_subexpr` recursing into `layout_multiarg` again — its box (width/height, including the superscript in `I²`) is measured first and handed back up as `sum(`'s argument width. Bracket depth is just recursion depth; each level adds its own pair of structural parens. This is how the 84+ renders a "summation": as `sum(seq(...))`, not a Σ glyph.
+*Verified so far: `Σ` exists as a font glyph (`0xC6`); the integral has no glyph and is therefore drawn, not blitted. The exact symbol-stroking routine and limit placement are still being traced — see [Remaining unknowns](#remaining-unknowns).*
 
 **Bracket nesting `(((X)))`** — each `(` pushes a structural open-paren glyph and matches via the pair tables at `0x62E2/0x62CB/0x62F9`; `eqdisp_classify_paren` tracks the depth so the matching `)` glyphs line up. Pure nesting adds width (a column per paren) but no height.
 
@@ -272,3 +258,4 @@ Page 0x39 is a **cell-grid 2-D typesetter**: classify each token → index a han
 - The page-0x3A draw continuation for overflowing lines (where horizontal scroll is composited).
 - The exact flag that selects MATHPRINT vs CLASSIC (the modes are confirmed at `pg01:5A09`; CLASSIC short-circuits to the 1-line path via `0x85DE == 0`, but the persistent mode bit in `SystemFlags` isn't pinned yet).
 - How the radical (`√`) vinculum is sized/positioned (it uses the graph-buffer rule path like the fraction bar, but the specific routine wasn't isolated).
+- **The `∫` integral / `Σ` summation 2-D rendering.** These *do* render as their math symbols with stacked limits in MathPrint (not as flat `fnInt(...)`/`sum(...)` text). `Σ` has a font glyph (`0xC6`); the integral has none, so the `∫` is stroked dynamically (like the fraction bar). The stroking routine, the limit (super/subscript) placement, and the token→template mapping for `fnInt(`/`sum(` are not yet pinned.

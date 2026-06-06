@@ -702,7 +702,7 @@ page_06:7f9c	set_insert_redraw
 page_07:44de	arc_chk_type
 page_07:44fe	arc_chk_type2
 page_07:45b6	arc_dispatch
-page_07:45eb	p07_ret_a
+page_07:45eb	lgfont_glyph_ptr_adjust
 page_07:45fb	arc_shift_left7
 page_07:534c	arc_call_13f6
 page_07:5417	arc_lcd_blit
@@ -1567,7 +1567,7 @@ ram:2532	fp_div_const
 ram:2537	fp_div_core
 ram:260a	fp_norm_left
 ram:27da	ctx_save_switch
-ram:2800	ctx_swap_frame
+ram:2800	fps_swap_active_frame
 ram:281f	page_table_lookup
 ram:2822	page_table_lookup_b
 ram:288b	fp_st_slot2_op3
@@ -1624,9 +1624,9 @@ ram:f86f	pad_halt_f86f
 ram:fb48	pad_halt_fb48
 ram:fd49	pad_halt_fd49
 # --- final 7 (completes 100%) ---
-ram:1cb9	bcd_add_to_8481
+ram:1cb9	fp_add_mantissa
 ram:1cd5	bcd_add_pair
-ram:1d2f	bcd_sub_8481_xb
+ram:1d2f	fp_sub_mantissa_fwd
 ram:2a2f	bcall_dispatcher
 page_3D:5fb1	flash_dec_retry_a
 page_3D:727d	flash_set_sector_cnt
