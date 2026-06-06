@@ -81,5 +81,18 @@ name[0..N-1]; name bytes
 
 This is byte-verified against `findsym_scan` (`07:565F`): from the matched name token it reads `B = page` at `tok+1`, the data address at `tok+2/+3`, and the type at `tok+6` — matching WikiTI's *System Table* layout exactly. For **archived** vars the data address points into Flash and the `page` byte selects the Flash page (the VAT entry itself always stays in RAM; only the data is in Flash). The `VATEntry` struct in the DB models the named-var case.
 
+## Strings (`Str1`–`Str0`) — a distinct object type [confirmed]
+
+String variables are **`StrngObj` (type 4)** — *not* equation variables (`EquObj` = 3), although both hold tokenized byte streams. The ten strings `Str1`…`Str0` are named by a **2-byte token**: lead `tVarStrng` (`0xAA`) then `tStr1`…`tStr0` (`0x00`…`0x09`), so `Str1` = `AA 00` … `Str0` = `AA 09`.
+
+**Storage.** `_CreateStrng` (id `0x4327`, `00:1123`) decompiles to `create_var_entry(StrngObj)` followed by writing a 2-byte **`word size`** into the data; the data area is then `[word size][size tokenized bytes]` — the same `[size][bytes]` shape programs and appvars use (above). The bytes are **TI-BASIC tokens, not raw ASCII**: a string stores exactly the token stream the editor renders, so `"sin(A)"` keeps the `sin(` token, the `A` token, and `)` — which is why a string can hold any displayable token, commands included.
+
+**Why they aren't equation variables.** `EquObj` vars (`Y1`–`Y0`, parametric, polar, sequence) are *system* variables that carry a selection/style flags byte and are **auto-evaluated** by the grapher, table, and solver (see [Graphing](sub-graphing.md), [Table & Y= Variables](sub-table-yvars.md)). A `StrngObj` is an *inert user variable* — no selection/style, never evaluated on its own; it is just bytes the string commands manipulate.
+
+**Bridges between the two.** Tokens convert a string's text to/from executable form:
+- `expr(` parses a string's token bytes as an expression and **evaluates** it → a value (string → number/list/…).
+- `String►Equ(` / `Equ►String(` (token `tStrngToEqu` = `0x56`) copy token bytes between a `Str` and a `Y=`/equation variable (string ↔ equation).
+- `sub(`, `length(` (`_StrLength`, id `0x4C3F` → `36:7F91`), and `inString(` operate on the token bytes; `_StrCopy` (`0x44E3` → `00:2810`) is the byte mover. The `"` string-literal delimiter in source is its own token, `tString` (`0x2A`).
+
 ## Resolved
 The `_FindSym` scan loop and per-class VAT entry layout are byte-verified in [Variables, Archive & Unarchive](sub-vat-archive.md) (`findsym_scan`@`07:565F`; `tSymPtr1`/`tSymPtr2` and archived-var resolution covered there).

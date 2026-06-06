@@ -151,9 +151,12 @@ as a model index. From `ti83plus.inc`:
 tokens. Degree for the polynomial solver = the model index; the coefficient
 fan‑out into `QuadA..QuartE` is naturally sized by degree. [confirmed/standard]
 
-`SortA(`/`SortD(` are **separate** tokens (`tSortA=E3h`, `tSortD=E4h`) handled by
-the list‑sort bcalls, not `_OneVar`; `_OneVar` calls the same sort internally
-(`3A:7935`) to compute medians/quartiles (§6).
+`SortA(`/`SortD(` are **separate** tokens (`tSortA=E3h`, `tSortD=E4h`) with their
+own command handler — not `_OneVar`. The sort used here, `stat_sort` (`3A:7935`),
+is **stat‑internal**: its only callers are `stat_median_quartile` (`3A:79B9`) and
+`medmed_partition` (`3A:760F`) (xref‑confirmed), so it powers the 1‑Var median/
+quartile and Med‑Med paths (§6). Whether the `SortA(` command reuses this same
+engine is *not* established here.
 
 ---
 
@@ -285,7 +288,7 @@ For **1‑Var Stats** the five‑number summary needs the data **sorted**:
 
 - `MinX`/`MaxX` are tracked during the §4 pass (running min/max compares).
 - The median/quartile path (`3A:79B9` → `7A0B` …) sorts a working copy via the
-  internal sort `3A:7935` (same engine as `SortA(`), then:
+  internal sort `stat_sort` (`3A:7935`), then:
   - `Med` (`MedX`, `8AD3`) = middle element (or mean of the two middle for even n),
   - `Q1` (`8ADC`) = median of the lower half, `Q3` (`8AE5`) = median of the upper
     half (TI's "exclude the overall median when n is odd" convention),
@@ -385,7 +388,7 @@ equations, depositing every output as a named `TIFloat` in the `statVars` block.
 | `3A:3A8F`/`3AA1`/`3AA7`/`3AAD`/`3AB9` | `stat_mtx_get/set` | sums‑matrix element access by (row,col) |
 | `3A:6F6A` | `stat_next_elem` | fetch next list element, advance ptr |
 | `3A:6F7D`/`6F90` | `stat_freq_default` | default frequency = 1 |
-| `3A:7935` | `stat_sort` | internal data sort (SortA engine) |
+| `3A:7935` | `stat_sort` | stat-internal data sort (median/quartile, Med-Med) |
 | `3A:79B9` | `stat_median_quartile` | median/Q1/Q3 + Med‑Med medians |
 | `3A:760F`/`75E4` | `medmed_partition` | Med‑Med 3‑partition setup |
 | `00:2149` | `_Rcl_StatVar` | recall a named statVar into OP1, id 0x42DC |
@@ -409,4 +412,9 @@ equations, depositing every output as a named `TIFloat` in the `statVars` block.
   the parser function table (`sub-tibasic`), outside the STAT‑CALC engine.
 - STAT‑TESTS commands (Z/T/χ²/F/ANOVA) that fill `PStat…SStat`/`anovaf_vars` —
   separate command handlers, not reached through `_OneVar`.
-- The sort comparator details in `3A:7935` (ascending; frequency handling).
+- `stat_sort` (`3A:7935`) is a 49-byte setup that validates/counts the elements
+  then dispatches the compare-swap via `rst 28h` (the bcall site isn't fully
+  analyzed in the DB). Its comparator does **not** use `_CAbs` (so complex data,
+  if ever routed here, is not ordered by magnitude). The `SortA(`/`SortD(` command
+  handler — and how it orders a *complex* list — is a separate routine, still to
+  be traced from the page-0x38 dispatch of `tSortA` (`0xE3`).

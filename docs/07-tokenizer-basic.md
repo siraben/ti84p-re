@@ -25,7 +25,7 @@ TI-BASIC programs are not stored as text — every command, function, and variab
 | `AA` | `tVarStrng` — string variable (`Str1`…) |
 | `EF` | TI-84+-era extended token page |
 
-So e.g. `5D 00` = list `L1`; `BB xx` = an extended command. The second byte indexes that group's name/handler table.
+So e.g. `5D 00` = list `L1`; `BB xx` = an extended command. The second byte indexes that group's name/handler table. (String variables `Str1`–`Str0` use lead `AA`; they are a **distinct VAT object type** holding tokenized text — see [Strings](05-variables-vat.md#strings-str1str0--a-distinct-object-type-confirmed).)
 
 ## Detokenize / token length [confirmed]
 - `_GetTokLen` (`01:66E5`) returns 1 or 2 for the token at HL (via helper `FUN_page_01_6702`).
