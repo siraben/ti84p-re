@@ -222,7 +222,7 @@ def tall_integral(base_box, height=17):
 
 
 def definite_integral(base_box, sup_box, sub_box, height=17):
-    """Tall integral with compact upper/lower limits, matching fnInt( layout."""
+    """Reconstruction model for fnInt( layout using ROM glyphs for all marks."""
     irows, iaxis = tall_integral(base_box, height=height)
     srows, drows = sup_box[0], sub_box[0]
     rw = max(width(srows), width(drows))
@@ -239,28 +239,15 @@ def definite_integral(base_box, sup_box, sub_box, height=17):
     return out, iaxis
 
 
-def tall_paren(side, height):
-    """A compact stretched paren for tall MathPrint operands."""
-    rows = blank(height, 3)
-    if side == "(":
-        rows[0][2] = 1
-        rows[-1][2] = 1
-        if height > 2:
-            rows[1][1] = 1
-            rows[-2][1] = 1
-        for y in range(2, height - 2):
-            rows[y][0] = 1
-    elif side == ")":
-        rows[0][0] = 1
-        rows[-1][0] = 1
-        if height > 2:
-            rows[1][1] = 1
-            rows[-2][1] = 1
-        for y in range(2, height - 2):
-            rows[y][2] = 1
-    else:
-        raise ValueError("side must be '(' or ')'")
-    return rows, height // 2
+def tall_delimiter(base_box, height):
+    """Glyph-backed stretch model for compact MathPrint delimiters."""
+    rows, _ = trim(base_box)
+    if height <= len(rows):
+        return rows, len(rows) // 2
+    repeat = len(rows) // 2
+    extra = height - len(rows)
+    out = rows[:repeat + 1] + [rows[repeat]] * extra + rows[repeat + 1:]
+    return out, height // 2
 
 
 def overlay(height, width_, placements, baseline=0):
@@ -277,7 +264,7 @@ def overlay(height, width_, placements, baseline=0):
 
 def sqrt_with_bar(root_box, radicand_box, width_, height, bar_x, bar_y, rad_x, rad_y,
                   overhang=3):
-    """Square root template with a horizontal vinculum over the radicand."""
+    """Reconstruction model for a root template plus horizontal vinculum."""
     rows = blank(height, width_)
     placements = [(root_box, 0, bar_y), (radicand_box, rad_x, rad_y)]
     rows, _ = overlay(height, width_, placements)
@@ -287,7 +274,7 @@ def sqrt_with_bar(root_box, radicand_box, width_, height, bar_x, bar_y, rad_x, r
 
 
 def tall_root(root_box, height):
-    """Stretch Lroot's vertical stem while preserving the font glyph's hook."""
+    """Reconstruction model preserving the ROM Lroot hook and extending the stem."""
     rows, _ = root_box
     if height <= len(rows):
         return rows, len(rows) // 2
@@ -318,12 +305,39 @@ def definite_integral_stress_example(rom, base):
         70,
         [
             (integral, 0, 0),
-            (tall_paren("(", 12), 19, 8),
+            (tall_delimiter(t("("), 12), 19, 8),
             (root, 24, 8),
-            (tall_paren(")", 12), 52, 8),
+            (tall_delimiter(t(")"), 12), 52, 8),
             (t("dX"), 57, 13),
         ],
         baseline=12,
+    )
+
+
+def definite_integral_fraction_radical_example(rom, base):
+    """fnInt(sqrt((X^2+1)/X), X, 1/2, 3^2) reconstruction for screenshot3."""
+    t = lambda s: text(rom, base, s)
+    upper = compact_power_limit(limit_text(rom, "3"), limit_text(rom, "2"))
+    lower = compact_fraction_text(rom, "1", "2")
+    integral = definite_integral(t("@08"), upper, lower, height=28)
+    num = hcat(
+        [superscript(t("X"), limit_text(rom, "2"), raise_px=3), t("+1")],
+        gap=1,
+    )
+    radicand = fraction(num, t("X"))
+    root = sqrt_with_bar(tall_root(t("@10"), 23), radicand, width_=31, height=23,
+                         bar_x=2, bar_y=0, rad_x=5, rad_y=2, overhang=2)
+    return overlay(
+        28,
+        72,
+        [
+            (integral, 0, 0),
+            (tall_delimiter(t("("), 23), 18, 3),
+            (root, 23, 3),
+            (tall_delimiter(t(")"), 23), 55, 3),
+            (t("dX"), 60, 14),
+        ],
+        baseline=14,
     )
 
 
@@ -367,15 +381,17 @@ def main():
         ("1/(2/3) (nested)", fraction(T("1"), fraction(T("2"), T("3")))),
         ("Lroot 0x10 (radical glyph)", T("@10")),
         ("Lintegral 0x08 (integral glyph)", T("@08")),
-        # MATH > 9 fnInt( as a MathPrint definite-integral template:
-        # Lintegral's center stem is stretched to the 17-pixel template seen on
-        # the calculator, carrying compact small-font lower/upper limits.
+        # MATH > 9 fnInt( as a MathPrint definite-integral reconstruction:
+        # glyphs come from ROM; the tall-symbol stretch is not yet a named ROM
+        # routine.
         # Entered as 9 1 RIGHT 2 RIGHT X RIGHT X -> the integral of X dX from 1 to 2.
         ("integral from 1 to 2 of (X) dX  (= 1.5)",
          hcat([definite_integral(T("@08"), limit_text(rom, "2"), limit_text(rom, "1")),
                T("(X)dX")], gap=1)),
         ("integral from 1/2 to 3^2 of sqrt(X^2+1) dX",
          definite_integral_stress_example(rom, base)),
+        ("integral from 1/2 to 3^2 of sqrt((X^2+1)/X) dX",
+         definite_integral_fraction_radical_example(rom, base)),
     ]
     for title, box in examples:
         print(f"\n{title}\n" + "-" * len(title))
