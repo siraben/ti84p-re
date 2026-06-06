@@ -1,0 +1,51 @@
+:root {
+  --bg: #14181f;
+  --panel: #1c222c;
+  --fg: #e6e9ee;
+  --muted: #9aa6b5;
+  --accent: #6ea8fe;
+  --border: #2b333f;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+main { max-width: 860px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+h1 { font-size: 1.5rem; margin: 0 0 .5rem; }
+.lede { color: var(--muted); margin: 0 0 1.5rem; }
+a { color: var(--accent); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; margin-bottom: 1rem; }
+.controls label { display: flex; flex-direction: column; gap: .25rem; font-size: .85rem; color: var(--muted); }
+.controls label.grow { flex: 1 1 280px; }
+.controls label.check { flex-direction: row; align-items: center; gap: .4rem; }
+input[type=text] {
+  background: var(--panel); color: var(--fg); border: 1px solid var(--border);
+  border-radius: 8px; padding: .55rem .7rem; font-family: ui-monospace, Menlo, monospace; font-size: 1rem;
+}
+input[type=text]:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+.presets { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.25rem; }
+.presets button {
+  background: var(--panel); color: var(--fg); border: 1px solid var(--border);
+  border-radius: 999px; padding: .35rem .8rem; font-size: .82rem; cursor: pointer;
+}
+.presets button:hover { border-color: var(--accent); color: var(--accent); }
+
+.stage {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  padding: 1.5rem; display: flex; justify-content: center; align-items: center;
+  min-height: 180px; overflow: auto;
+}
+canvas { image-rendering: pixelated; max-width: 100%; }
+.meta { color: var(--muted); font-size: .8rem; font-family: ui-monospace, Menlo, monospace; }
+.err { color: #ff8b8b; }
+
+.syntax { margin-top: 1.5rem; color: var(--muted); }
+.syntax summary { cursor: pointer; color: var(--fg); }
+.syntax ul { margin: .5rem 0; padding-left: 1.2rem; }
+.syntax li { margin: .2rem 0; }

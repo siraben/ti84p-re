@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TI-84 Plus MathPrint renderer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <h1>TI-84 Plus MathPrint renderer</h1>
+  <p class="lede">
+    Type an expression and it is typeset in 2-D using the calculator's real ROM
+    font glyphs, following the page-<code>0x39</code> MathPrint layout engine
+    documented in the
+    <a href="../#/sub-equation-display.html">equation-display</a> wiki page.
+    This is a reconstruction of the layout model, not the emulator; the glyph
+    bitmaps are extracted from the ROM by <code>tools/export-font.py</code>.
+  </p>
+
+  <div class="controls">
+    <label class="grow">
+      Expression
+      <input id="expr" type="text" spellcheck="false"
+             placeholder="e.g. int(1,2,(1/2)X,X)">
+    </label>
+    <label>
+      Scale <input id="scale" type="range" min="2" max="12" value="6">
+    </label>
+    <label class="check">
+      <input id="lcd" type="checkbox" checked> LCD tint
+    </label>
+  </div>
+
+  <div id="presets" class="presets"></div>
+
+  <div class="stage">
+    <canvas id="screen"></canvas>
+  </div>
+  <p class="meta"><span id="dims"></span> <span id="err" class="err"></span></p>
+
+  <details class="syntax">
+    <summary>Syntax</summary>
+    <ul>
+      <li><code>a/b</code> — fraction (numerator over denominator)</li>
+      <li><code>a^b</code> — superscript / exponent (raised 4&nbsp;px)</li>
+      <li><code>sqrt(x)</code> — radical with a vinculum sized to the radicand</li>
+      <li><code>int(lo,hi,body,var)</code> — definite integral; the <code>∫</code>
+          and its parentheses grow to the body height</li>
+      <li><code>abs(x)</code>, parentheses, <code>+ - * ^</code>, and implicit
+          multiplication (<code>2X</code>)</li>
+    </ul>
+    <p>
+      Geometry constants are the ROM-confirmed ones: 5&nbsp;px large-font cells,
+      a 7&nbsp;px fraction column unit (<code>x = base + 7·col</code>), a
+      <code>row_height + 2</code> px row step, and a 4&nbsp;px exponent raise.
+    </p>
+  </details>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
