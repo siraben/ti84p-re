@@ -8,8 +8,7 @@ How the TI-84 Plus OS (2.55MP) stores, indexes, and computes on **lists** and
 `SortA(`). Companion to [05-variables-vat.md](05-variables-vat.md) (where the data lives), [06-floating-point.md](06-floating-point.md)
 (how each element is computed), and [sub-vat-archive.md](sub-vat-archive.md) (Store/Recall/Archive).
 
-All `page:addr` verified by **disassembling the Z80** in the private Ghidra copy
-(`/tmp/ti84-matlist`, headless `Dec.java`/`Disasm.java`), not the decompiler alone.
+All `page:addr` are read from the raw Z80 disassembly, not the decompiler alone.
 Page numbers are the masked flash page (`rawpage & 0x3F`). The whole-OS image lives in one
 Ghidra program with address spaces `ram` (the page-0/RAM-resident 0x0000–0x7FFF window) and
 `page_NN` for each flash page mapped into the 0x4000–0x7FFF bank-A window.
@@ -264,30 +263,36 @@ mismatch (`A.cols ≠ B.rows`) ⇒ `_ErrDimMismatch`. Each multiply/add is a ful
 so an `n×n` product is `n³` `_FPMult` + `_FPAdd` calls. [H] (structure inferred; `02:40BA`,
 `02:5FE6`, `02:5766` not defined functions in the live DB)
 
-### Transpose `[A]ᵀ` — driver `02:4178` [C]
-The transpose token (`tTranspose`) routes through the page-02 function evaluator
-(`func_eval_dispatch` family) to **`mat_transpose` @ `02:4178`**: it allocates the result, sets
-the swapped dim into the loop frame (`84B5` from `84B7`), then walks `(i,j)` reading
-`[A](i,j)`→OP1 via `402C`/`47B9` and storing through `_PutToMat` (`4068`), i.e.
-`dst(c,r) = src(r,c)` — a re-indexed column-major copy reusing `_AdrMEle`. It shares the
-element-loop framing with the per-element apply at `412A` (not a defined function in the live
-DB; address unverified) and the row ops (`414E`). [C]
+### Transpose `[A]ᵀ` — body address not confirmed [H]
+The live Ghidra DB names `02:4178` **`mat_fill_type1`**, and its disassembly is a single-counter
+per-cell loop, not a transpose: it sets `84AF=1`, copies one dim into the loop frame (`84B5` from
+`84B7`), then walks **one** counter (`84B5`), reading an element via `402C` (`mele_getOP1_d7`),
+applying an FP op through `47B9`/`479F` (`fp_op2_apply_9d65b`/`fp_op2_apply_9d65`), and storing via
+`4068` (`mele_store_ckvalid`). Decrementing only `84B5` walks the cells with a single index; a true
+transpose needs the swapped read `dst(c,r)=src(r,c)`, which re-indexes **both** `i` and `j`. So
+`02:4178` is a `Fill(`-style per-cell apply, and the earlier `mat_transpose @ 02:4178` mapping is
+not supported by the bytes. The transpose token's real body must be re-traced through the page-02
+command dispatcher; it is unresolved here. `02:4178` shares the element-loop framing with the per-
+element apply at `412A` (not a defined function in the live DB; address unverified) and the row
+ops (`414E`). [H]
 
-### `augment(`, `randM(`, `List►matr(`, `Matr►list(` — per-function drivers [C]
+### `augment(`, `randM(`, `List►matr(`, `Matr►list(` — per-function drivers [H]
 These are dispatched from the page-02 function-token evaluator (the `CP imm ; JR/JP` chain at
-`02:55xx`–`63xx` keyed on the token byte), each with its **own driver** on page 02: [C]
+`02:55xx`–`63xx` keyed on the token byte). The dispatch *sites* below are byte-confirmed call
+sites, but the live Ghidra DB names the called functions for behaviour that does **not** match the
+command claim — so the command→body mapping is downgraded and flagged for re-tracing: [H]
 
-| Token | site (page 02) | driver | what it does |
+| Token | site (page 02) | called fn (live name) | what the disassembly shows |
 |---|---|---|---|
-| `augment(` | `0x91` @ `635B` | **`02:4663`** | type-checks both operands are matrices, `LD A,H ; CP L` rejects a row-count mismatch (`E_Dimension 2719`), then concatenates columns: a partial-pivot-style scan-free copy of `[A]`'s then `[B]`'s columns into a `rows × (colsA+colsB)` result. (`augment(L1,L2)` list-concat is the `0x92` sibling at `637F`.) |
-| `randM(` | `0xB5` @ `62D4` | `02:5264`/`5344` | allocates the `r×c` result and stamps a random `TIFloat` (via `_Random`) into every cell — the matrix `Fill(`-style element loop. |
-| `Matr►list(` | `0x8D` @ `6388` | `02:49E3`/`4773` | column-major copy of matrix columns out into list(s); length-checks via `21BB`. |
-| `List►matr(` | `0x8E` @ `61C1` | `02:7D19` + copy | reshapes the argument lists into a matrix (`_DataSize`-counted float copy `4539`/`453F`). |
+| `augment(` | `0x91` @ `635B` | `02:4663` = **`mat_gauss_engine`** | The `0x91` branch does its own `LD A,H ; CP L ; JP NC,2719` row-count guard and a copy via `6238` (`store_to_var_mem`) before `6379: CALL 0x4663`. But `4663` itself is a **second elimination engine**: it computes `min(H,L)` (`LD A,H ; CP L ; JR C ; LD L,H`, not the square `H==L` guard of `42A6`), inits via `475E`, then iterates pivoting from `BC=0x0101` calling `461C` (max-abs), `41D0` (pivot-column scan), `198D` (compare), permutation swaps (`471C`) and stores (`405E`). That is row-echelon/elimination on a possibly non-square matrix, not a column-concatenation. The `augment(` column-concat copy proper is the `6238` step; `4663`'s role here and the true augment body need re-tracing. (`augment(L1,L2)` list-concat is the `0x92` sibling at `637F`.) |
+| `randM(` | `0xB5` @ `62D4` | `02:5264` = **`cplx_swap_dispatch`** | The `0xB5` (randM) branch at `62D4` routes to `6301/630A → CALL 0x5CEB`, **not** to `5264`. `5264`'s only caller is `62D0`, in the *preceding* `0xBD` branch (a complex-operand path), and `5264` itself only calls `5344` (a 9-byte OP-pair move `8499→84A4`) and `52D3` (`cplx_norm_pair`) — complex-number arrangement, not a random-fill over cells. The randM cell-fill body is not `5264`; it sits behind the `0xB5` branch's `5CEB` call and needs re-tracing. |
+| `Matr►list(` | `0x8D` @ `6388` | `02:49E3` = **`lele_copy_until_eq`** | The `0x8D` branch reaches `6397: CALL 0x49E3`. `49E3` is a **list**-element copy loop: it recalls a source element (`47E6`), stores it (`4825`), then compares the running index against a length at `(84AF)` via `21BB` and `RET Z` when equal, else `INC HL` and continues (`1599`). It is a list↔list copy-until-length-match, consistent with the live name. Whether it is the whole `Matr►list(` body (one column of the source matrix extracted into a list) or just its inner per-list copy step needs re-tracing; length-checks still go via `21BB`. |
+| `List►matr(` | `0x8E` @ `61C1` | `02:7D19` + copy | reshapes the argument lists into a matrix (`_DataSize`-counted float copy `4539`/`453F`). [H] |
 
 The shared element-loop kernels these drivers call are the per-element apply at `02:412A` (not a
-defined function in the live DB; address unverified [H]), `mat_row_op` (`02:414E`) and
-`mat_transpose` (`02:4178`) family; the per-function drivers above are now byte-pinned at their
-evaluator entries. [C]
+defined function in the live DB; address unverified [H]) and `mrow_swap_loop` (`02:414E`). The
+dispatch *sites* (`6379`, `62D0`, `6397`) are byte-confirmed; the command→body *behaviour* mapping
+is not, and is flagged for re-tracing through the page-02 dispatcher. [H]
 
 ---
 
@@ -328,15 +333,20 @@ matrix_gauss_engine(A = mode flags):
         BIT 6,A ; JP Z, 0x26F0 (_ErrSingularMat, E_SingularMat 0x83)
         -> inverse (flag 0, bit6=0) ERRORS;  det (flag 0x40, bit6=1) returns 0
 ```
-Key sub-routines (all `page_02`): [C]
-- **`461C`** — compute the matrix's **max-abs element** (numeric scale for the near-zero pivot
-  test).
-- **`41C1`** — `|OP1|` vs `|pivot|` compare (`_AbsO1O2Cp`); **`41D0`** — scan a column for the
-  **largest-magnitude pivot** (partial pivoting), calling `43B9` to swap rows as it goes.
-- **`43B9` / `414E` / `_AdrMRow`** — physical **row swap / row scale** (whole-row moves).
+Key sub-routines (all `page_02`; names are the live Ghidra DB labels): [C]
+- **`461C` `mat_max_abs`** — compute the matrix's **max-abs element** (numeric scale for the
+  near-zero pivot test).
+- **`41C1` `abs_cmp_op1op2`** — `|OP1|` vs `|pivot|` compare (`1A0F`/`1987` abs+compare);
+  **`41D0`** — scan a column for the **largest-magnitude pivot** (partial pivoting), calling
+  `43B9` to swap rows as it goes.
+- **`43B9` / `414E` `mrow_swap_loop` / `_AdrMRow`** — physical **row swap / row scale**
+  (whole-row moves; `414E` loads the `dim0` stride and swaps two whole rows via `_AdrMRow`×2 +
+  `1DDA`).
 - **`4259`** — swap two entries in the **permutation vector** at `84D5`.
-- **`4473`** — the elimination element step (`[M](i,k) − factor*[M](pivot,k)` via `_FPSub`).
-- **`426D` / `426F`** — row dot-product / back-substitution accumulate (`_FPMult` + `RST6`).
+- **`4473` `ele_sub_ref`** — the elimination element step (`[M](i,k) − factor*[M](pivot,k)`:
+  `RST8 ; CALL 403C ; JP 2297` = load + `_FPSub`).
+- **`426D` `col_dot_accum` / `426F` `col_dot_accum_from`** — column dot-product / back-
+  substitution accumulate (`_FPMult` + `RST6`).
 - Pivot normalize uses **`_FPRecip`** / **`_FPDiv`**; sign/inverse use `_InvOP1S`.
 
 **`det(`** therefore = forward elimination with partial pivoting, **return the signed product
@@ -443,17 +453,17 @@ and the routine and condition that triggers it.
 | `02:40BA` | Ghidra auto-name (retired) | not a defined function in the current Ghidra DB; was an earlier-pass auto-name with no WikiTI/inc backing (`0x40BA` in ti83plus.inc is the unrelated `_SinCosRad` bcall ID). Inferred matrix-multiply body; address unverified (§4) |
 | `02:4108` | `identity_build` | `identity(n)`: diagonal-1 fill (token 0xB4) [C] |
 | `02:412A` | (undisassembled) | per-element matrix unary/binary apply; not a defined function in the current Ghidra DB, structure inferred, address unverified [H] |
-| `02:414E` | `mat_row_op` | row swap/scale (elimination) [C] |
-| `02:4178` | `mat_transpose` | `[A]ᵀ`: `dst(c,r)=src(r,c)` re-indexed copy [C] |
-| `02:4663` | `mat_augment` | `augment(` column-concat (rows must match) [C] |
-| `02:5264` | `mat_randm` | `randM(` random-fill driver [C] |
-| `02:49E3` | `matr_to_list` | `Matr►list(` column→list copy [C] |
-| `02:41C1` | `pivot_abs_cmp` | absolute-value compare: OP1 vs pivot [C] |
+| `02:414E` | `mrow_swap_loop` | row swap/scale (elimination) [C] |
+| `02:4178` | `mat_fill_type1` | live DB name; single-counter per-cell fill/apply loop — **not** transpose. Transpose body unresolved (§4) [H] |
+| `02:4663` | `mat_gauss_engine` | live DB name; `min(H,L)` non-square elimination engine called from the `augment(` `0x91` branch (`6379`) — **not** a column-concat. augment body needs re-tracing (§4) [H] |
+| `02:5264` | `cplx_swap_dispatch` | live DB name; complex OP-pair arrange/swap (`5344`/`52D3`) reached from the `0xBD` branch (`62D0`) — **not** `randM(` random-fill. randM body needs re-tracing (§4) [H] |
+| `02:49E3` | `lele_copy_until_eq` | live DB name; list-element copy-until-length-match (`21BB`, `RET Z`) called from the `Matr►list(` `0x8D` branch (`6397`) — exact command-body extent needs re-tracing (§4) [H] |
+| `02:41C1` | `abs_cmp_op1op2` | absolute-value compare: OP1 vs pivot [C] |
 | `02:41D0` | `pivot_col_scan` | partial-pivot: find largest absolute value in column [C] |
 | `02:4259` | `perm_swap` | swap two entries of the permutation vector (84D5) [C] |
-| `02:426D`/`426F` | `row_dot_accum` | dot-product / back-substitution accumulate [C] |
-| `02:42A6` | `matrix_gauss_engine` | **inverse(flag 0)/det(flag 0x40)** Gauss-Jordan + partial pivot [C] |
-| `02:4473` | `elim_sub_step` | `[M] − factor*pivot` element step (`_FPSub`) [C] |
+| `02:426D`/`426F` | `col_dot_accum`/`col_dot_accum_from` | column dot-product / back-substitution accumulate [C] |
+| `02:42A6` | `matrix_gauss_engine` | **inverse(flag 0)/det(flag 0x40)** Gauss-Jordan + partial pivot; square-only (`H==L` guard) [C] |
+| `02:4473` | `ele_sub_ref` | `[M] − factor*pivot` element step (`_FPSub`) [C] |
 | `02:461C` | `mat_max_abs` | maximum absolute element (pivot tolerance) [C] |
 | `02:47C5` | `_AdrLEle` | list element address: `data+2+(i-1)*9` [C] |
 | `02:47EA` | `_GetLToOP1` | list[i] → OP1 (complex-aware) [C] |
@@ -468,7 +478,7 @@ and the routine and condition that triggers it.
 | `02:5FC0` | `det_entry` | `det(`: flag 0x40 → `matrix_gauss_engine` [C] |
 | `02:6104` | `list_fold_dispatch` | `sum(`/`prod(` higher-order list fold [C] |
 | `02:69B7` | `chk_op_is_matrix` | require operand type==2 else E_DataType [C] |
-| `ram:21C4` | `classify_elem_width` | real-vs-complex (0x0C) element width [C] |
+| `ram:21C4` | `chk_type_lt_1a` | classify element type width: `AND 0x1F ; CP 0x1A ; CP 0x18 ; CCF` — real-vs-complex (0x0C) element width [C] |
 | `35:79E9` | `_ListIdxTimes9` | list index ×9 + dispatch [C] |
 | `07:4D3B` | `_RedimMat` | re-dimension matrix/list [C] |
 | `07:4F07` | `_InsertList`/`_IncLstSize` | grow a list in place [C] |
@@ -493,8 +503,21 @@ and the routine and condition that triggers it.
   the magnitude is the `238B`/`RST 30h` diagonal-pivot accumulate (`43E3–43F6`); `420F`/`4259`
   undo the column permutation for the inverse (§5). Row/col vs dim0/dim1 is now **[C]**:
   `dim0` (first header byte) = #rows, and `_AdrMEle` takes `B=column`, `C=row` (§1/§2).
-- **RESOLVED — per-function matrix drivers.** `augment(`→`02:4663`, `randM(`→`02:5264`,
-  `Matr►list(`→`02:49E3`, `List►matr(`→`02:7D19`, transpose `[A]ᵀ`→`02:4178` (§4).
+- **OPEN — per-function matrix driver bodies need re-tracing.** The page-02 dispatch *sites* are
+  byte-confirmed, but the called functions the live Ghidra DB names there do **not** match the
+  command claims, so these command→body mappings are downgraded to [H] (§4):
+  - `augment(` `0x91` branch (`6379`) calls `02:4663` = `mat_gauss_engine` — a `min(H,L)` non-
+    square **elimination** engine, not a column-concat. The concat copy is the branch's `6238`
+    step; the true augment body is unresolved.
+  - `randM(` `0xB5` branch routes to `5CEB`, not to `02:5264` = `cplx_swap_dispatch` (a complex
+    OP-pair swap reached from the `0xBD` branch at `62D0`). The randM cell-fill body is unresolved.
+  - `Matr►list(` `0x8D` branch (`6397`) calls `02:49E3` = `lele_copy_until_eq`, a list-element
+    copy-until-length-match; whether that is the whole command body or just its inner copy step is
+    unresolved.
+  - transpose `[A]ᵀ`: `02:4178` is `mat_fill_type1` (a single-counter per-cell fill/apply), not a
+    transpose; the transpose body is unresolved.
+  - `List►matr(` `0x8E` branch (`61C1`) → `02:7D19` + `_DataSize` copy (`4539`/`453F`) is
+    unchanged [H].
 - `seq(`/`SortA(`/`SortD(`/stats list-builders: confirm the collect-then-`_CreateRList` loop
   and the in-place float sort/compare. (Residual — comparator `_CpOP1OP2` confirmed; the
   unanalyzed page-02 sort body's element-load is still not byte-traced.)

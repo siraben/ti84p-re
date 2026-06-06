@@ -7,10 +7,9 @@ touches: pushing a program/list/etc. to a computer (TI-Connect) or another calcu
 2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of [doc 09](09-keyboard-link.md)'s byte
 primitives `_SendAByte` (`3C:420D`) and `_RecAByteIO` (`3C:443F`).
 
-All addresses verified by **disassembling the actual Z80** in the Ghidra DB (`/tmp/ti84-link`,
-headless `Disasm.java`). The decompiler mis-renders these routines badly: they pass arguments in
-registers and do their state work with `SET/RES/BIT b,(IY+d)` flag ops that Ghidra shows as bogus
-`*(param+0xNN)` stores. **Trust the disassembly, not the C view, for this subsystem.**
+Addresses here are read from the raw Z80 disassembly. The decompiler mis-renders this subsystem —
+it passes arguments in registers and does its state work with `SET/RES/BIT b,(IY+d)` flag ops that the
+C view shows as bogus `*(param+0xNN)` stores — so the notes follow the disassembly, not the C view.
 
 Page numbers are the masked flash page (`rawpage & 0x3F`). The whole silent-link engine lives on
 **flash page 3C** (shared with the flash/archive command code — see [sub-vat-archive.md](sub-vat-archive.md)).
