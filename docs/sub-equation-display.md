@@ -249,7 +249,7 @@ The visible `fnInt(` menu cell and the structural integral glyph are separate th
 |---------|--------------|--------|
 | `fnInt(` display name | `00 C8` | Class `0x08`/`0x30` operator records and page-1 token-name strings. |
 | Fixed integral glyph | `Lintegral` `0x08` | Class `0x0D` cells `FC3F` and `08 42`, emitted through `39:4F1A`. |
-| Summation glyph | `0xC6` family | Fixed glyph data; no simple `00 C6` page-39 handler cell has been found. |
+| Summation glyph | `0xC6` family | Fixed glyph data; no direct `00 C6` page-39 handler cell has been found. |
 
 The fixed `Lintegral` glyph is emitted by the ordinary structural-glyph path:
 `39:4E8E` calls the delimiter classifier, falls through to `39:4F1A`, maps the cell to
