@@ -155,8 +155,9 @@ fan‑out into `QuadA..QuartE` is naturally sized by degree. [confirmed/standard
 own command handler — not `_OneVar`. The sort used here, `stat_sort` (`3A:7935`),
 is **stat‑internal**: its only callers are `stat_median_quartile` (`3A:79B9`) and
 `medmed_partition` (`3A:760F`) (xref‑confirmed), so it powers the 1‑Var median/
-quartile and Med‑Med paths (§6). Whether the `SortA(` command reuses this same
-engine is *not* established here.
+quartile and Med‑Med paths (§6). The `SortA(`/`SortD(` *command* sort is a
+different routine on **page 0x02** (≈`02:5939`, comparator `_CpOP1OP2`) — see
+[Matrices & Lists](sub-matrix-list.md#sorta--sortd--and-why-it-sorts-complex-lists-confirmed-comparator).
 
 ---
 
@@ -414,7 +415,6 @@ equations, depositing every output as a named `TIFloat` in the `statVars` block.
   separate command handlers, not reached through `_OneVar`.
 - `stat_sort` (`3A:7935`) is a 49-byte setup that validates/counts the elements
   then dispatches the compare-swap via `rst 28h` (the bcall site isn't fully
-  analyzed in the DB). Its comparator does **not** use `_CAbs` (so complex data,
-  if ever routed here, is not ordered by magnitude). The `SortA(`/`SortD(` command
-  handler — and how it orders a *complex* list — is a separate routine, still to
-  be traced from the page-0x38 dispatch of `tSortA` (`0xE3`).
+  analyzed in the DB). The `SortA(`/`SortD(` *command* sort is a different routine
+  (page 0x02, comparator `_CpOP1OP2`) — its complex-list ordering is documented in
+  [Matrices & Lists](sub-matrix-list.md#sorta--sortd--and-why-it-sorts-complex-lists-confirmed-comparator).

@@ -178,9 +178,33 @@ both route to `02:6140`). [C]
   `_SetSeqM 36:7D1F` is the sequence-graph variant). [H]
 - **`cumSum(`** is a running `_FPAdd` writing back each partial sum (the sum-fold with the
   accumulator stored every step). [I]
-- **`SortA(`/`SortD(`** sort the float payload in place (comparison via `_FPCompare`, element
-  swaps are 9-byte block swaps); `SortA(` can co-sort dependent lists. [I — standard TI.]
+- **`SortA(`/`SortD(`** — list sort in place (`SortA(` co-sorts dependent lists); comparator
+  and the complex-list behaviour are detailed in the next subsection. [confirmed comparator]
 - Stats (`mean/median/sum/stdDev/variance`) are list folds layered on `sum(`/sort. [I]
+
+### `SortA(` / `SortD(` — and why it sorts complex lists [confirmed comparator]
+
+`SortA(` (`tSortA` `0xE3`) and `SortD(` (`tSortD` `0xE4`) sort a list **in place**, ascending /
+descending; `SortA(L1,L2,…)` co-sorts the dependent lists by the same permutation. This is the
+**command** sort — *not* the stat-internal `stat_sort` (`3A:7935`), which only backs median/
+quartile/Med-Med (see [Statistics](sub-statistics.md)).
+
+The sort body lives on **page 0x02** (the list page, around `02:5939`); Ghidra hasn't carved it
+into a named function because it is reached only through the parser's computed command dispatch.
+Its comparator is **`_CpOP1OP2`** (`00:198D`) — confirmed by the call at `02:5939` (the older
+note's `_FPCompare` does not exist).
+
+**`_CpOP1OP2` compares two `TIFloat`s strictly as real numbers** [confirmed from disassembly]:
+**sign** first (type byte bit 7), then the **exponent** difference, then the **mantissa** digits;
+it never computes a magnitude and never reads an imaginary part.
+
+That is exactly **why `SortA(` accepts a complex list**: every comparison only sees the single
+9-byte `TIFloat` the sort loads into `OP1`/`OP2`, which for a complex element is its **real part**.
+So a complex list is ordered **by the real component** (sign then magnitude); the imaginary part is
+ignored (elements with equal real parts keep their input order). There is **no magnitude/modulus**
+ordering — `_CAbs` is never on this path. [comparator + its real-number semantics are confirmed;
+"orders by the real part" is the direct consequence — the unanalyzed sort body's element-load step
+is not byte-traced]
 
 ---
 
