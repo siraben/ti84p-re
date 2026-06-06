@@ -1,0 +1,37 @@
+# Decompiler variable renames, applied by RenameVars.java after BuildTypes.
+# Format:  <space>:<addrhex> <TAB> <default-decompiler-name> <TAB> <new-name>
+# The "default-decompiler-name" is the auto-name (param_1, bVar3, in_F, pbVar5…)
+# from a fresh build decompile — deterministic for this Ghidra/ROM. Unknown names
+# are skipped, so a stale entry is harmless.
+
+# _AdrMEle (page_02:4002) — matrix element address: (idx0-1)*dim0 + (idx1-1)
+page_02:4002	param_1	rowCol
+page_02:4002	param_2	matData
+page_02:4002	cVar4	idx0Ctr
+page_02:4002	bVar3	offsetLo
+page_02:4002	bVar5	offsetHi
+page_02:4002	bVar1	carry
+page_02:4002	bVar2	idx1Dec
+
+# _AdrLEle (page_02:47C5) — list element address: data + 2 + (i-1)*9
+page_02:47c5	param_1	index
+page_02:47c5	param_2	listData
+
+# _InsertMem (ram:0F81) — open a gap of N bytes
+ram:0f81	param_1	numBytes
+
+# _FPAdd (ram:229E) — OP1 = OP1 + OP2 (sign-magnitude BCD)
+ram:229e	param_1	op2ExpPtr
+ram:229e	param_2	flags
+ram:229e	in_F	fReg
+ram:229e	uVar4	normCount
+ram:229e	pbVar5	mantPtr
+ram:229e	sVar6	guardPtr
+ram:229e	bVar1	signByte
+ram:229e	bVar2	subFlag
+
+# findsym_scan (page_07:565F) — the VAT walk reached by _FindSym
+page_07:565f	pbVar4	vatPtr
+page_07:565f	pbVar3	scanLimit
+page_07:565f	sVar1	regionBase
+page_07:565f	uVar2	strideHi

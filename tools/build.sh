@@ -24,10 +24,12 @@ rm -rf "$PROJ/$NAME.gpr" "$PROJ/$NAME.rep"
   -postScript FixInlineBjumps.java "$T" \
   -postScript ParserTable.java "$T" \
   -postScript RenameFns.java "$T" \
-  -postScript BuildTypes.java "$T"
+  -postScript BuildTypes.java "$T" \
+  -postScript RenameVars.java "$T"
 echo "Build complete: $PROJ/$NAME.gpr"
 # Pipeline: 64-page load + symbols/floats/bcall-fixup (BuildTI84Full)
 #  -> name 535 bcall routines at real (page,addr) (ApplyBcalls)
 #  -> follow flow + name new bcall sites (DeepenPass)
 #  -> apply accumulated manual names (RenameFns)
 #  -> TI-OS enums/structs/typed regions (BuildTypes)
+#  -> apply decompiler variable names from varnames.txt (RenameVars)
