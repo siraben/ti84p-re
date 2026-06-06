@@ -15,10 +15,10 @@ The structural reverse-engineering is comprehensive (every subsystem mapped, bot
 9. ~~**Font glyph page**~~ ✅ **DONE** — the large-font glyph table is on **page 0x07 at base `0x45FF`** with a **7-byte stride** (`put_glyph_large` `07:4588` → `lgfont_glyph_ptr_adjust` `07:45EB`); alternate fonts on pages 1/0x36. See [08](08-display-lcd.md), [13](13-flash-page-map.md).
 10. ~~**Token→layout-class table**~~ ✅ **DONE** — `eqdisp_load_tok_handler` (`39:4C27`) indexes the 0x44-entry table at `0x5E45` by class byte; fraction/superscript forms are selected by a `+0x28`/`+0x29` class bias. See [sub-equation-display.md](sub-equation-display.md).
 11. ~~**FP transcendental coefficient tables**~~ ✅ **DONE** — `ram:2362` was resolved as a bcall entry to `page_02:7D1E`, not a page selector. The ln/e^x/sin-cos coefficient tables and loop bounds are byte-dumped in [06](06-floating-point.md): ln/e^x use the 16-row `02:7181` table; sin/cos uses the signed 8-row `02:7201`/`02:7281` tables.
+12. ~~**MathPrint tall-template composition**~~ ✅ **DONE** — `eqdisp_layout_multiarg` (`39:5167`) is the row compositor for multi-argument/tall templates; fixed glyph cells still emit through `39:4E8E`/`39:4F1A`, and rule-like UI surfaces use the rectangle helpers. See [sub-equation-display.md](sub-equation-display.md).
 
 ## Still open
 
-12. **MathPrint variable-height structural composition.** The fixed glyphs, records, descriptor templates, and operand order are documented, but the exact caller that combines measured operand height with tall radical/integral/summation/delimiter pixels remains open. See [sub-equation-display.md](sub-equation-display.md).
 13. **Enum equates.** Apply `TIKeyCode`/`TIError`/`TIVarType` to scalar operands in the relevant handlers (conservative, scoped).
 14. **Smaller residuals** (in each doc's local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), and the group-archive member walk (`_Arc_Unarc`'s `CP 0x17` reject routes elsewhere; body fragmented by cross-page calls).
 

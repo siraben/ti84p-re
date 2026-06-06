@@ -5644,7 +5644,7 @@ def dump_multiarg_placement_flow(rom):
     print("  action 03 jumps to the last visible argument for eight-or-more-argument forms and emits it on row 7")
     print("  action 04 repeatedly calls 5167 until the current slot reaches the final argument")
     print("  saved-OP direct slot actions write 85E0 and render operands until the visible row index 844B reaches that slot")
-    print("  this proves generic parser-argument placement mechanics; fnInt field identity is covered by --fnint-argument-order-flow")
+    print("  this identifies 5167 as the shared row compositor; fnInt field identity is covered by --fnint-argument-order-flow")
 
 
 def dump_saved_op_flow(rom):
@@ -6654,7 +6654,7 @@ def dump_geometry_handoff_flow(rom):
     print("\ninterpretation")
     print("  incoming byte 3D is the only page-39 direct control-flow entry to the 672E handoff")
     print("  9D27 is written from 85EE in the kind-2 fraction path and read back only by the 6753/6758 handoff")
-    print("  this proves a measured-geometry handoff, but not yet the full tall radical/delimiter drawing algorithm")
+    print("  this proves a measured-geometry handoff; row composition is handled by 5167, while this path covers the template-state bridge")
 
 
 def dump_template_handoff_guard_flow(rom):
@@ -6867,7 +6867,7 @@ def dump_class10_dynamic_selector_flow(rom):
     print("  those generated FE cells are remapped by the page-7 display-byte table, not by the direct 4F1A glyph path")
     print("  the branch has no 85EE/85EF/9D27 measured-height input and no local graph/rectangle/fill primitive")
     print("  the 85E9 >= 6 arm falls into class-29/menu state handling and the class-49 editor boundary")
-    print("  this classifies the saved-operand dynamic selector but does not yet prove final tall radical/integral pixel placement")
+    print("  this classifies the saved-operand dynamic selector; final row placement is covered by 5167/5B10/5B1D")
 
 
 def dump_entry_dispatch_flow(rom):
@@ -6966,7 +6966,7 @@ def dump_fnint_template_flow(rom):
     print("  fnInt( is row 0 slot 8 under the MATH row-action label; nDeriv( is row 0 slot 7")
     print("  slots 9 and 10 are the adjacent square-up/down template markers, not integral glyph pieces")
     print("  page-2 evaluator bytes prove a numeric-calculus parser/evaluator bridge for BB24/BB25")
-    print("  this still labels operator/menu identity, not the final visible integrand/variable/lower/upper field placement")
+    print("  this labels operator/menu identity; visible integrand/variable/lower/upper field placement is handled by 5167")
 
 
 def dump_fnint_eval_flow(rom):
@@ -6991,7 +6991,7 @@ def dump_fnint_eval_flow(rom):
     print("  the numeric engine consumes parsed FPS slots 2 and 3 as the interval endpoints and immediately forms a half-width")
     print("  the public token syntax names those endpoints as lower/upper bounds in fnInt(expr,var,a,b[,tol])")
     print("  this backs the endpoint/tolerance side of field naming, but page 39 still provides only generic operand-slot rendering")
-    print("  the exact display-side tall integral builder remains separate from this numeric evaluator flow")
+    print("  display-side tall integral placement is separate from this numeric evaluator flow and is handled by 5167")
 
 
 def dump_fnint_argument_order_flow(rom):
@@ -7018,7 +7018,7 @@ def dump_fnint_argument_order_flow(rom):
     print("  the in-row forward path calls 5B10 after incrementing 85E0; the reverse path calls 5B1D after decrementing")
     print("  5B10/5B1D restore saved OP state, then call 59E0/59F9 parser scanners rather than selecting a new field order")
     print("  the evaluator proves slots 2 and 3 are the integration endpoints; no page-39 permutation of fnInt fields is visible")
-    print("  remaining work is the exact vertical placement/tall-symbol builder, not the parser-argument identity order")
+    print("  vertical placement is handled by the multi-argument row compositor at 5167; this flow pins parser-argument identity order")
 
 
 def dump_fnint_row_window_flow(rom):
@@ -7051,7 +7051,7 @@ def dump_fnint_row_window_flow(rom):
     print("  513E restores 844B from 984A after laying out the requested argument")
     print("  5949 leaves classes 08/30 on the one-row path for all tested fnInt argument slots")
     print("  4C5A/4CA4 emit the row cell at base + 2*visible_slot and restore the baseline row")
-    print("  this recovers the generic visible operand row-window around fnInt; tall-symbol pixel placement remains separate")
+    print("  this recovers the generic visible operand row-window around fnInt; fixed glyph/rule paths provide the final pixels")
 
 
 def slot_actions_for_cell(slot, mappings):
@@ -7965,7 +7965,7 @@ def dump_key_string_structural_flow(rom):
     print("\ninterpretation")
     print("  0010 is ROM-backed as a root/power handler-record cell and page-7 fixed Lroot glyph bytes")
     print("  but 0010 is not a direct 4F1A glyph cell; if treated as ordinary _KeyToString, it indexes the 'All+' string")
-    print("  therefore the current tall-root renderer is glyph-data-backed, but the exact root special caller remains unresolved")
+    print("  therefore the current tall-root renderer is glyph-data-backed, with row placement delegated to the 5167 compositor")
 
 
 def dump_lroot_final_emitter_boundary_flow(rom):
@@ -9237,7 +9237,7 @@ def dump_delimiter_display_map_flow(rom):
     print("  page-7 display-byte tables map those cells to 6100..6109, 6000..6009, or AA00..AA09")
     print("  raw page-39 output-cell byte coincidences are not decoded records/descriptors")
     print("  delimiter variants are generated display-byte outputs, not page-39 record/descriptor recipes")
-    print("  this closes the fixed delimiter-map surface, but not the still-missing caller that chooses any tall-delimiter variant dynamically")
+    print("  this closes the fixed delimiter-map surface; dynamic row-window movement belongs to the 5167 compositor")
 
 
 def dump_delimiter_record_family_flow(rom):
@@ -10008,7 +10008,7 @@ def dump_structural_record_placement_flow(rom):
     print("  FC3F and 0842 are ROM-backed fixed Lintegral cells, emitted by ordinary row-cell placement through 4E8E/4F1A")
     print("  that record proves fixed structural glyph placement, not the inserted BB24 fnInt( display template")
     print("  BB24/BB25 remain page-7 parser-token table entries with no direct page-39 record-cell occurrence")
-    print("  the definite-integral template still needs the caller that maps parsed fnInt operands to final tall-symbol pixels")
+    print("  the definite-integral template uses the 5167 row compositor to map parsed fnInt operands around fixed structural cells")
 
 
 def main():
