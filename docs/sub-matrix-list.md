@@ -226,17 +226,17 @@ sort body's element-load is not byte-traced]
   ```
   _OP1Set1 ; for each (i,j): if i==j -> store 1.0 (mantissa[0]=0x10) else 0
   ```
-- **`Fill(value,[M])`** / **`randM(`** stamp a constant / random values across all cells
-  (a per-element loop over the whole matrix applies the op at `02:412A`, which is not a
-  defined function in the current Ghidra DB; address unverified). [H]
+- **`Fill(value,[M])`** / **`randM(`** stamp a constant / random values across all cells via a
+  per-cell loop over the whole matrix. `randM(` builds the result through the `0xB5` dispatcher
+  branch (`02:62D4`); its per-cell fill body is the one residual still open (§4). [H]
 - Matrix **copy/reshape** = `_DataSize`-counted byte copy of the float payload
   (`mele_copy9_d3` (`02:4539`)/`mele_copy9_loop` (`02:453F`)). [C]
 
 ### `[A] + [B]`, `[A] - [B]`, scalar·[A] — element-wise [H]
-The **per-element matrix apply** at `02:412A` is a nested `for col { for row { load [M](r,c)→OP1;
-op; store } }` driving the FP RSTs. Binary matrix add/sub require equal dims
-(`_ErrDimMismatch 0x8B`). `02:412A` is not a defined function in the current Ghidra DB; the
-element-loop structure is inferred and the address is unverified.
+Binary matrix add/sub apply the FP op per cell with a nested `for col { for row { load [M](r,c)→OP1;
+op; store } }` walk and require equal dims (`_ErrDimMismatch 0x8B`). The nested two-counter cell
+walk at `02:412A` is the **transpose** copy (§ transpose); the add/sub element-loop driver is a
+sibling in the same `412A`–`414E` family and is inferred here. [H]
 
 ### `[A] * [B]` — matrix multiply [H]
 The matrix-multiply body is not a defined function in the current Ghidra DB; the O(n³) structure
@@ -263,36 +263,51 @@ mismatch (`A.cols ≠ B.rows`) ⇒ `_ErrDimMismatch`. Each multiply/add is a ful
 so an `n×n` product is `n³` `_FPMult` + `_FPAdd` calls. [H] (structure inferred; `02:40BA`,
 `02:5FE6`, `02:5766` not defined functions in the live DB)
 
-### Transpose `[A]ᵀ` — body address not confirmed [H]
-The live Ghidra DB names `02:4178` **`mat_fill_type1`**, and its disassembly is a single-counter
-per-cell loop, not a transpose: it sets `84AF=1`, copies one dim into the loop frame (`84B5` from
-`84B7`), then walks **one** counter (`84B5`), reading an element via `402C` (`mele_getOP1_d7`),
-applying an FP op through `47B9`/`479F` (`fp_op2_apply_9d65b`/`fp_op2_apply_9d65`), and storing via
-`4068` (`mele_store_ckvalid`). Decrementing only `84B5` walks the cells with a single index; a true
-transpose needs the swapped read `dst(c,r)=src(r,c)`, which re-indexes **both** `i` and `j`. So
-`02:4178` is a `Fill(`-style per-cell apply, and the earlier `mat_transpose @ 02:4178` mapping is
-not supported by the bytes. The transpose token's real body must be re-traced through the page-02
-command dispatcher; it is unresolved here. `02:4178` shares the element-loop framing with the per-
-element apply at `412A` (not a defined function in the live DB; address unverified) and the row
-ops (`414E`). [H]
+### Transpose `[A]ᵀ` — `02:412A`, dispatched from the `ᵀ` token `0x0E` [C]
+The transpose operator `ᵀ` is the postfix token **`tTrnspos` = `0x0E`**. The page-02 command
+dispatcher handles it at **`02:60E9`** (`CP 0x0E`): it requires one matrix operand (`CP 0x02 ;
+JR NZ`), **swaps the two dimension bytes** for the result header (`60F5: LD A,H ; LD H,L ; LD L,A`),
+allocates the transposed-shape matrix (`5DBB`/`5DE0`), runs the per-cell copy body at **`02:412A`**,
+then stores via `JP 0x5F89`. `02:412A` has exactly one caller, `02:60FE` (byte-verified `CD 2A 41`).
 
-### `augment(`, `randM(`, `List►matr(`, `Matr►list(` — per-function drivers [H]
-These are dispatched from the page-02 function-token evaluator (the `CP imm ; JR/JP` chain at
-`02:55xx`–`63xx` keyed on the token byte). The dispatch *sites* below are byte-confirmed call
-sites, but the live Ghidra DB names the called functions for behaviour that does **not** match the
-command claim — so the command→body mapping is downgraded and flagged for re-tracing: [H]
+**`02:412A` is the transpose copy** [C]. It walks every source cell and writes the value into the
+destination whose `_AdrMEle` stride is the *swapped* dimension, so `dst(c,r) = src(r,c)`:
+```z80
+412A: LD HL,(84AF)              ; loop counters = dims
+412E: CALL 403C                 ; load src [M] (B=col,C=row) from (84D3) → OP1
+4131: LD HL,(84AF) ; LD B,L ; LD C,H
+4136: CALL 4068                 ; store OP1 → dst [M] via dest ptr (84D7)
+4139: DEC (84AF) ; JR NZ,412E   ; inner counter
+4141: LD (HL),C ; INC HL ; DEC (HL) ; JR NZ,412E  ; outer counter
+4146: POP HL ; LD B,L ; LD C,H ; RET
+```
+`403C` reads from the source data pointer `(84D3)`; `4068` writes to the destination pointer
+`(84D7)`. Because the destination header carries the dims swapped (the `60F5` swap), `_AdrMEle`
+(`4002`) computes the column-major offset with the row/column roles exchanged, so the same linear
+walk lands element `src(r,c)` at `dst(c,r)` — a true transpose, which re-indexes **both** `i` and
+`j`. [C]
 
-| Token | site (page 02) | called fn (live name) | what the disassembly shows |
+`02:4178` (`mat_fill_type1`) is a separate single-counter fill/apply in the `414A`–`4178` block,
+not the transpose body. [C]
+
+### `augment(`, `randM(`, `List►matr(`, `Matr►list(` — per-function drivers [C/H]
+These are dispatched from the page-02 function-token evaluator (`list_fold_dispatch`, the
+`CP imm ; JR/JP` chain that runs `5E46`/`60C8`–`63xx`, keyed on the token byte). Each command's
+body and its single caller are byte-verified below.
+
+| Command | dispatch site | body | what the disassembly shows |
 |---|---|---|---|
-| `augment(` | `0x91` @ `635B` | `02:4663` = **`mat_gauss_engine`** | The `0x91` branch does its own `LD A,H ; CP L ; JP NC,2719` row-count guard and a copy via `6238` (`store_to_var_mem`) before `6379: CALL 0x4663`. But `4663` itself is a **second elimination engine**: it computes `min(H,L)` (`LD A,H ; CP L ; JR C ; LD L,H`, not the square `H==L` guard of `42A6`), inits via `475E`, then iterates pivoting from `BC=0x0101` calling `461C` (max-abs), `41D0` (pivot-column scan), `198D` (compare), permutation swaps (`471C`) and stores (`405E`). That is row-echelon/elimination on a possibly non-square matrix, not a column-concatenation. The `augment(` column-concat copy proper is the `6238` step; `4663`'s role here and the true augment body need re-tracing. (`augment(L1,L2)` list-concat is the `0x92` sibling at `637F`.) |
-| `randM(` | `0xB5` @ `62D4` | `02:5264` = **`cplx_swap_dispatch`** | The `0xB5` (randM) branch at `62D4` routes to `6301/630A → CALL 0x5CEB`, **not** to `5264`. `5264`'s only caller is `62D0`, in the *preceding* `0xBD` branch (a complex-operand path), and `5264` itself only calls `5344` (a 9-byte OP-pair move `8499→84A4`) and `52D3` (`cplx_norm_pair`) — complex-number arrangement, not a random-fill over cells. The randM cell-fill body is not `5264`; it sits behind the `0xB5` branch's `5CEB` call and needs re-tracing. |
-| `Matr►list(` | `0x8D` @ `6388` | `02:49E3` = **`lele_copy_until_eq`** | The `0x8D` branch reaches `6397: CALL 0x49E3`. `49E3` is a **list**-element copy loop: it recalls a source element (`47E6`), stores it (`4825`), then compares the running index against a length at `(84AF)` via `21BB` and `RET Z` when equal, else `INC HL` and continues (`1599`). It is a list↔list copy-until-length-match, consistent with the live name. Whether it is the whole `Matr►list(` body (one column of the source matrix extracted into a list) or just its inner per-list copy step needs re-tracing; length-checks still go via `21BB`. |
+| `Matr►list(` | `0x8D` @ `6388` | **`02:4773`** (2-arg), `02:49E3` (1-arg list copy) | [C] The `0x8D` branch splits on argument count (`638D: CP 0x02`). The **column-extract engine is `02:4773`** (2-arg path: `639D: CALL 5DD8 ; CALL 4773`; only caller `63A0`, byte-verified `CD 73 47`): it nests a per-row loop (`477B: LD B,1 …`, reading via `4040` `_AdrMRow`/`4068` `mele_store_ckvalid`) inside a column loop over `(84AF)`, copying matrix columns into list element(s) (`4051`/`479F`). The 1-arg/list path uses `02:49E3` (`6397: CALL 0x49E3`), a list-element copy-until-length-match (`47E6` recall, `4825` store, `21BB` compare vs `(84AF)`, `RET Z`). |
+| transpose `ᵀ` | `0x0E` @ `60E9` | **`02:412A`** | [C] Swaps the dim header (`60F5`), allocates the transposed shape, then `412A` copies `dst(c,r)=src(r,c)` over every cell (`403C` read from `(84D3)`, `4068` write to `(84D7)`); only caller `60FE`. See the transpose subsection above. |
+| `augment(` | `0x91` @ `635B` | **`02:6238` copy** [C]; `02:4663` engine [H] | The `0x91` branch requires two operands (`CP 0x02`), reads the dims (`5D98`), and applies an equal-rows guard `LD A,H ; CP L ; JR Z ; JP NC,2719` (`E_Dimension` when the row counts differ). It then runs the **column-concatenation copy at `02:6238`** [C]: `6238` allocates the result (`5DE0` → `5DE6` → `_CreateRMat 110F`) and bulk-copies the float payload with `02:4539` (`mele_copy9_d3` — skip the 2 dim bytes, `LDIR` the column-major data), re-pointing `84D3←84D7`. The branch then calls `02:4663` (`6379`, only caller; byte-verified `CD 63 46`), a partial-pivoting elimination engine: it computes `min(H,L)` (`4672: LD A,H ; CP L ; JR C ; LD L,H`), inits via `475E`, and iterates from `BC=0x0101` calling `461C` (max-abs), `41D0` (pivot-column scan), `198D` (compare), `471C` (permutation swap) and `405E` (store). The column-concat copy (`6238`/`4539`) is confirmed augment behaviour [C]; `4663`'s elimination pass on the concatenated result is byte-confirmed but its role for plain `augment(` is left open [H]. (`augment(L1,L2)` list-concat is the `0x92` sibling at `637F`, sharing the `6362` setup.) |
+| `randM(` | `0xB5` @ `62D4` | create + dim setup (`5DBB`/`5DEB`); cell-fill body open [H] | The `0xB5` branch splits on argument count (`62D9: CP 0x02`): the 2-arg `randM(rows,cols)` path (`62DD`) and the 1-arg square path (`630A`). Both **create the result and set its dims** through `02:5DBB` (`CALL 5CEB` registers the variable by name, stores the data pointer to `84D3`, reads and zero-rejects the dim bytes `OR L ; JP Z,2719`, stores dims to `84AF`) and `02:5DEB`/`02:631E`. The per-cell `_Random` fill is not isolated as a loop in this branch. `02:5264` (`cplx_swap_dispatch`) is **not** randM — its only caller is `62D0`, in the `0xBD` complex-operand branch. The randM cell-fill body stays open. [H] |
 | `List►matr(` | `0x8E` @ `61C1` | `02:7D19` + copy | reshapes the argument lists into a matrix (`_DataSize`-counted float copy `4539`/`453F`). [H] |
 
-The shared element-loop kernels these drivers call are the per-element apply at `02:412A` (not a
-defined function in the live DB; address unverified [H]) and `mrow_swap_loop` (`02:414E`). The
-dispatch *sites* (`6379`, `62D0`, `6397`) are byte-confirmed; the command→body *behaviour* mapping
-is not, and is flagged for re-tracing through the page-02 dispatcher. [H]
+The matrix-element kernels these drivers share are `_AdrMEle`/`_AdrMRow` (`4002`/`4000`) for indexing,
+`4068` (`mele_store_ckvalid`) for validated stores, and `4539` (`mele_copy9_d3`) for the bulk
+column-major payload copy. Each command's dispatch site **and** body are byte-confirmed above; the
+single residual is `randM(`'s per-cell fill and `4663`'s elimination role inside `augment(`. [C for
+the bodies; H for those two residuals]
 
 ---
 
@@ -452,12 +467,15 @@ and the routine and condition that triggers it.
 | `02:406C` | `_PutToMat` | OP1 → `[M](i,j)` (validated) [C] |
 | `02:40BA` | Ghidra auto-name (retired) | not a defined function in the current Ghidra DB; was an earlier-pass auto-name with no WikiTI/inc backing (`0x40BA` in ti83plus.inc is the unrelated `_SinCosRad` bcall ID). Inferred matrix-multiply body; address unverified (§4) |
 | `02:4108` | `identity_build` | `identity(n)`: diagonal-1 fill (token 0xB4) [C] |
-| `02:412A` | (undisassembled) | per-element matrix unary/binary apply; not a defined function in the current Ghidra DB, structure inferred, address unverified [H] |
+| `02:412A` | `mat_transpose` | **transpose `[A]ᵀ`** body (token `0x0E`, dispatched `60E9`/called `60FE`): per-cell copy `dst(c,r)=src(r,c)` via the swapped dest header (§4) [C] |
 | `02:414E` | `mrow_swap_loop` | row swap/scale (elimination) [C] |
-| `02:4178` | `mat_fill_type1` | live DB name; single-counter per-cell fill/apply loop — **not** transpose. Transpose body unresolved (§4) [H] |
-| `02:4663` | `mat_gauss_engine` | live DB name; `min(H,L)` non-square elimination engine called from the `augment(` `0x91` branch (`6379`) — **not** a column-concat. augment body needs re-tracing (§4) [H] |
-| `02:5264` | `cplx_swap_dispatch` | live DB name; complex OP-pair arrange/swap (`5344`/`52D3`) reached from the `0xBD` branch (`62D0`) — **not** `randM(` random-fill. randM body needs re-tracing (§4) [H] |
-| `02:49E3` | `lele_copy_until_eq` | live DB name; list-element copy-until-length-match (`21BB`, `RET Z`) called from the `Matr►list(` `0x8D` branch (`6397`) — exact command-body extent needs re-tracing (§4) [H] |
+| `02:4178` | `mat_fill_type1` | live DB name; single-counter per-cell fill/apply loop in the `414A`–`4178` block — **not** transpose (§4) [C] |
+| `02:4539` | `mele_copy9_d3` | bulk column-major float-payload copy (skip 2 dim bytes, `LDIR`); used by `augment(`/reshape (§4) [C] |
+| `02:4663` | `mat_gauss_engine` | live DB name; `min(H,L)` partial-pivoting elimination engine; only caller is the `augment(` `0x91` branch (`6379`). Its role inside plain `augment(` is the one open item (§4) [H] |
+| `02:4773` | `mat_to_list_cols` | **`Matr►list(`** 2-arg column-extract engine (only caller `63A0`): nested col×row walk copying matrix columns into list element(s) (§4) [C] |
+| `02:5264` | `cplx_swap_dispatch` | live DB name; complex OP-pair arrange/swap (`5344`/`52D3`) reached only from the `0xBD` branch (`62D0`) — **not** `randM(` random-fill (§4) [C] |
+| `02:6238` | `mat_augment_copy` | **`augment(`** column-concat: allocate result (`5DE0`) + `4539` payload copy + re-point `84D3` (§4) [C] |
+| `02:49E3` | `lele_copy_until_eq` | live DB name; list-element copy-until-length-match (`21BB`, `RET Z`); inner copy of the `Matr►list(` 1-arg/list path (`6397`) (§4) [C] |
 | `02:41C1` | `abs_cmp_op1op2` | absolute-value compare: OP1 vs pivot [C] |
 | `02:41D0` | `pivot_col_scan` | partial-pivot: find largest absolute value in column [C] |
 | `02:4259` | `perm_swap` | swap two entries of the permutation vector (84D5) [C] |
@@ -503,21 +521,25 @@ and the routine and condition that triggers it.
   the magnitude is the `238B`/`RST 30h` diagonal-pivot accumulate (`43E3–43F6`); `420F`/`4259`
   undo the column permutation for the inverse (§5). Row/col vs dim0/dim1 is now **[C]**:
   `dim0` (first header byte) = #rows, and `_AdrMEle` takes `B=column`, `C=row` (§1/§2).
-- **OPEN — per-function matrix driver bodies need re-tracing.** The page-02 dispatch *sites* are
-  byte-confirmed, but the called functions the live Ghidra DB names there do **not** match the
-  command claims, so these command→body mappings are downgraded to [H] (§4):
-  - `augment(` `0x91` branch (`6379`) calls `02:4663` = `mat_gauss_engine` — a `min(H,L)` non-
-    square **elimination** engine, not a column-concat. The concat copy is the branch's `6238`
-    step; the true augment body is unresolved.
-  - `randM(` `0xB5` branch routes to `5CEB`, not to `02:5264` = `cplx_swap_dispatch` (a complex
-    OP-pair swap reached from the `0xBD` branch at `62D0`). The randM cell-fill body is unresolved.
-  - `Matr►list(` `0x8D` branch (`6397`) calls `02:49E3` = `lele_copy_until_eq`, a list-element
-    copy-until-length-match; whether that is the whole command body or just its inner copy step is
-    unresolved.
-  - transpose `[A]ᵀ`: `02:4178` is `mat_fill_type1` (a single-counter per-cell fill/apply), not a
-    transpose; the transpose body is unresolved.
+- **RESOLVED — transpose, `Matr►list(`, and the `augment(` column-concat bodies.** Each command's
+  page-02 dispatch site **and** body are byte-confirmed, every body having exactly one caller (§4):
+  - transpose `[A]ᵀ` (token `0x0E` @ `60E9`) → **`02:412A`** (only caller `60FE`): the dim header is
+    swapped (`60F5`) and `412A` copies `dst(c,r)=src(r,c)` over every cell. `02:4178` is a separate
+    single-counter fill/apply, not transpose. [C]
+  - `Matr►list(` (`0x8D` @ `6388`) → **`02:4773`** (2-arg column-extract engine, only caller `63A0`)
+    with `02:49E3` as the 1-arg/list inner copy. [C]
+  - `augment(` (`0x91` @ `635B`) → equal-rows guard (`CP L ; JP NC,2719`) + **column-concat copy at
+    `02:6238`** (`5DE0` allocate + `02:4539` `LDIR` payload copy). [C]
+  - `randM(` (`0xB5` @ `62D4`) → creates the result and sets its dims (`5DBB`/`5DEB`). `02:5264`
+    (`cplx_swap_dispatch`, only caller `62D0` in the `0xBD` branch) is confirmed **not** randM. [C]
   - `List►matr(` `0x8E` branch (`61C1`) → `02:7D19` + `_DataSize` copy (`4539`/`453F`) is
     unchanged [H].
+- **OPEN — two residuals inside the confirmed branches** (§4):
+  - `augment(`'s `0x91` branch calls `02:4663` (`mat_gauss_engine`, only caller `6379`) — a
+    `min(H,L)` partial-pivoting elimination pass — after the column-concat copy. Its role for plain
+    `augment(` is byte-confirmed as a call but not explained. [H]
+  - `randM(`'s per-cell `_Random` fill is not isolated as a loop in the `0xB5` branch (the visible
+    calls create the matrix and convert the dims). [H]
 - `seq(`/`SortA(`/`SortD(`/stats list-builders: confirm the collect-then-`_CreateRList` loop
   and the in-place float sort/compare. (Residual — comparator `_CpOP1OP2` confirmed; the
   unanalyzed page-02 sort body's element-load is still not byte-traced.)
