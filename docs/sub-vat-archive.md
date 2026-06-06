@@ -1,4 +1,4 @@
-# Variables, Archive & Unarchive
+# Variables, archive & unarchive
 
 *TI-84 Plus OS 2.55MP — feature deep dive.*
 
@@ -6,9 +6,9 @@ Deep-dive companion to [05-variables-vat.md](05-variables-vat.md) and [12-memory
 program that manages memory touches: the VAT walk (`_FindSym`), variable Store/Recall, and the
 **Archive / UnArchive** path (RAM ↔ Flash), the Flash **garbage collector**, and the memory checks.
 
-All addresses verified by **disassembling the actual Z80** in the Ghidra DB (`/tmp/ti84-vat`,
-headless `Disasm.java`), not just the decompiler (which mis-renders the `SET b,(IY+d)` flag ops and
-the cross-page `CALL 0x2b09`-style trampolines). Page numbers are the masked flash page
+Every address here is verified by **disassembling the actual Z80** in the Ghidra DB (`/tmp/ti84-vat`,
+headless `Disasm.java`) rather than by the decompiler alone, which mis-renders the `SET b,(IY+d)` flag ops and
+the cross-page `CALL 0x2b09`-style trampolines. Page numbers are the masked flash page
 (`rawpage & 0x3F`); cross-page trampolines store `lo hi rawpage` in the 3 bytes after the `CALL`.
 
 Confidence (this doc's shorthand; see [Conventions](conventions.md)): **[C]=confirmed from disassembly** (≈`[confirmed]`), **[H]=high (structure clear, some inference)** (≈`[standard]`), **[I]=inferred / standard-TI behavior** (≈`[hypothesis]`).
@@ -101,7 +101,7 @@ For an **archived** entry the data address (`addrLSB/MSB`) points into the Flash
 
 ---
 
-## 4. ARCHIVE / UNARCHIVE — `_Arc_Unarc` (`07:6248`) [C]
+## 4. Archive / unarchive — `_Arc_Unarc` (`07:6248`) [C]
 
 The headline. `bcall(_Arc_Unarc)`, OP1 = the variable name. It **toggles** the var between RAM and
 the Flash archive (the same entry point does both directions, deciding from the current state).
@@ -223,7 +223,7 @@ into `C` and then read-modify-write the status byte (`3D:7C9A: CALL flash_read_b
 
 | Routine | Mask in `C` | Bit cleared | State after |
 |---------|-------------|-------------|-------------|
-| `flash_op_fe` (`3D:7C97`) | `0xFE` | bit 0 | record **in-progress** (just begun) |
+| `flash_op_fe` (`3D:7C97`) | `0xFE` | bit 0 | record **in-progress** (newly begun) |
 | `flash_op_fd` (`3D:7C8F`) | `0xFD` | bit 1 | (intermediate / "swap" marker) |
 | `flash_op_fb` (`3D:7C93`) | `0xFB` | bit 2 | (intermediate) |
 
@@ -255,7 +255,7 @@ via the same model check, `3D:6745`) and erasing. `init_flash_page_counter` (`3D
 
 ---
 
-## 7. Flash Garbage Collector — "Garbage Collecting…" [mixed]
+## 7. Flash garbage collector — "Garbage Collecting…" [mixed]
 
 Distinct from `_CleanAll` (RAM/FP-stack cleanup, `07:52CF`). When the archive Flash fills, dead
 (unarchived/deleted) records must be reclaimed by **rewriting the live records to fresh sectors and

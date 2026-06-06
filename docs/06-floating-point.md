@@ -1,4 +1,4 @@
-# 06 — Floating-Point Engine
+# 06 — Floating-point engine
 
 > **Deep dive:** [Calculation Engine](sub-calculation.md) — ×, ÷, ^, roots, the transcendentals (sin/cos/ln/eˣ), and number formatting.
 
@@ -142,7 +142,7 @@ The forward log and exp evaluators are a **digit-by-digit pseudo-division** recu
 \end{algorithm}
 ```
 
-The code's two passes — the `AND 0x8` then `BIT 4` stops at `02:6FAD`/`6FD3` — are just the coarse digits ($k=0\ldots7$) and the fine digits ($k=8\ldots15$). The selector `C` chooses the base: $\ln x = \log_{10}x \cdot \ln 10$, with $\ln 10$ fetched from `02:7D42`[06] by the `LD A,6; CALL 0x2362` tail at `02:704A` (`_LogX` skips that final multiply).
+The code's two passes — the `AND 0x8` then `BIT 4` stops at `02:6FAD`/`6FD3` — are the coarse digits ($k=0\ldots7$) and the fine digits ($k=8\ldots15$). The selector `C` chooses the base: $\ln x = \log_{10}x \cdot \ln 10$, with $\ln 10$ fetched from `02:7D42`[06] by the `LD A,6; CALL 0x2362` tail at `02:704A` (`_LogX` skips that final multiply).
 
 **Exponential.** `_EToX`/`_TenX` (`02:7066`+) run the *same* table backwards — consuming the fractional part $y$ digit by digit, subtracting $\log_{10}(1+10^{-k})$ while building $10^{y}=\prod_k(1+10^{-k})^{d_k}$ into an accumulator, again with only shift-adds:
 

@@ -1,4 +1,4 @@
-# Link / Data Transfer
+# Link / data transfer
 
 *TI-84 Plus OS 2.55MP — feature deep dive.*
 

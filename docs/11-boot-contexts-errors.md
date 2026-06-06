@@ -1,4 +1,4 @@
-# 11 — Boot, Contexts & Error Handling
+# 11 — Boot, contexts, and error handling
 
 Three cross-cutting mechanisms that tie the OS together: how it starts, how it switches "modes" (contexts), and how it aborts on error.
 
@@ -12,7 +12,7 @@ Three cross-cutting mechanisms that tie the OS together: how it starts, how it s
              ... (jumps into RAM-copied code — static disasm stops here)
 ```
 
-Boot configures the paging hardware (ports 6 and `0x0E`) and the memory-map/timer mode (port 4 write), then transfers to code it copies into RAM (why the static trace ends with "bad instruction"). The continuation at `028c` ends `JP 0x812c` — `0x812c` is in the RAM execution window and is *blank in the static image* (the bytes are filled in at boot by the copy this stub performs), so the static trace genuinely cannot follow it. It eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen).
+Boot configures the paging hardware (ports 6 and `0x0E`) and the memory-map/timer mode (port 4 write), then transfers to code it copies into RAM (why the static trace ends with "bad instruction"). The continuation at `028c` ends `JP 0x812c`. `0x812c` is in the RAM execution window and is *blank in the static image*: the bytes are filled in at boot by the copy this stub performs, so the static trace cannot follow it. It eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen).
 
 ### RAM clear / re-init (`ram_reset_wipe` → `0x0BD9`) [confirmed]
 
@@ -53,7 +53,7 @@ The `0x3f3f` router is a bjump trampoline → **`event_key_router` (`page_07:453
 - `0xFB` / `0xFC` — **context switch** / app launch (the key maps to a different context — recall `cxCurApp` *is* a key code, so e.g. `[GRAPH]` → the graph context).
 - `0xFF`/`0x7F` — quit / no-op.
 
-So a mode key doesn't reach the active context — the router intercepts it and swaps `cx*` to the new context. `keyExtend` (`0x8446`) holds the extended-key state. **[confirmed]**
+So the router intercepts a mode key before the active context sees it and swaps `cx*` to the new context. `keyExtend` (`0x8446`) holds the extended-key state. **[confirmed]**
 
 ## Contexts — how the OS implements "modes"/apps [confirmed — key concept]
 

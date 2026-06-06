@@ -1,4 +1,4 @@
-# Conventions & Methodology
+# Conventions & methodology
 
 How to read these notes, and how they were produced.
 
@@ -25,7 +25,7 @@ Every non-obvious claim is tagged:
 | Flag | Meaning |
 |------|---------|
 | **[confirmed]** | Directly observed in the disassembly/decompiler of this ROM. |
-| **[standard]** | Matches the publicly-documented TI-83+/84+ architecture and is consistent with what we see, but not every byte was traced. |
+| **[standard]** | Matches the publicly-documented TI-83+/84+ architecture and is consistent with the disassembly, but not every byte was traced. |
 | **[hypothesis]** | Inferred / not yet verified — treat with caution. |
 
 Some early deep-dive docs use shorthand `[C]`/`[H]`/`[I]` ≈ `[confirmed]`/`[hypothesis-ish]`/`[inferred]`; read them against this three-tier scheme.

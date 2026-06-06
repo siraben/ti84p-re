@@ -1,4 +1,4 @@
-# TI-BASIC Programs
+# TI-BASIC programs
 
 *TI-84 Plus OS 2.55MP — feature deep dive.*
 
@@ -307,7 +307,7 @@ runs and off at `Done`. **[confirmed]**
 6. Variable tokens become an OP1 name (type byte + name) and resolve via
    `_FindSym`/`_RclVarSym` ([doc 05](05-variables-vat.md)); store targets (`→VAR`) resolve through the
    `38:7600` name scanner (handles `[A]`/`L1`/`Str1`/Y-var/`Ans` classes,
-   `_JError(0x8F)` if you try to store into `Ans`).
+   `_JError(0x8F)` on an attempt to store into `Ans`).
 7. Statement separators (`:` and EOL `0x3F`) end a statement; the loop re-enters
    for the next.
 

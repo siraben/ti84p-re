@@ -1,4 +1,4 @@
-# 99 — Open Questions & Future Work
+# 99 — Open questions & future work
 
 The structural reverse-engineering is comprehensive (every subsystem mapped, both cross-page mechanisms resolved, full input→parse→eval→display pipeline documented). What remains is **depth**, gathered here from the per-doc TODOs and prioritized. Each is self-contained for a future session.
 

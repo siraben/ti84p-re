@@ -1,4 +1,4 @@
-# 12 — Memory Management (RAM heap & Flash archive)
+# 12 — Memory management (RAM heap & Flash archive)
 
 How the OS allocates the ~24 KiB of user RAM between variables, temporaries, the FP stack, and the program being run — and how it offloads variables to Flash ("archive").
 
@@ -47,7 +47,7 @@ Every `_CreateXxx` (see [05](05-variables-vat.md)) ultimately calls `_InsertMem`
 To save scarce RAM, variables can be **archived** to Flash. The archive code lives on **flash page 0x07**:
 - `_Arc_Unarc` (`07:6248`) — move OP1's variable between RAM and the Flash archive (toggles the archive bit, then relocates the data and rewrites the VAT entry's page to the Flash page).
 - `_FlashToRam` (id `5017` → body `3D:6745`) — copy archived data back into RAM.
-Archived vars are *appended* to Flash (which can't be overwritten in place), so deleting one just marks it dead; when the archive Flash fills, a **garbage collector** rewrites the live vars to fresh sectors and erases the old ones — the **"Garbage Collecting…"** screen. That GC path is distinct from `_CleanAll`, but the older `flash_gc_relocate@3C:7BD0` / `gc_show_screen@3C:7E0D` labels are not present as functions in the current live Ghidra/MCP DB.
+Archived vars are *appended* to Flash, which can't be overwritten in place, so deleting one only marks it dead. When the archive Flash fills, a **garbage collector** rewrites the live vars to fresh sectors and erases the old ones — the **"Garbage Collecting…"** screen. That GC path is distinct from `_CleanAll`, but the older `flash_gc_relocate@3C:7BD0` / `gc_show_screen@3C:7E0D` labels are not present as functions in the current live Ghidra/MCP DB.
 
 `_CleanAll` is RAM cleanup (not Flash GC) [confirmed from disassembly]: `_CleanAll` (`07:52CF`) compacts the **floating-point stack** (`fpBase`/`FPS` → `tempMem`) and resets the `OPBase`/`OPS`/`pTemp` scratch pointers, reclaiming temporary RAM after a command/expression finishes. It does **not** touch Flash.
 

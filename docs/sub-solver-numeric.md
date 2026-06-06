@@ -1,4 +1,4 @@
-# Solver & Numerical Methods
+# Solver & numerical methods
 
 *TI-84 Plus OS 2.55MP — feature deep dive.*
 
@@ -361,7 +361,7 @@ The four open questions from the prior pass are now resolved against the bytes:
   weight table**; its sole FP constant is `ln(10)·100` at `33:4E92`, used (with bcall `_LnX`)
   to convert digit-tolerance to a decimal error bound. With explicit ×0.5 interval bisection
   and a coarse-vs-fine estimate comparison, it is an **adaptive Newton–Cotes / Simpson-class
-  bisection** integrator. The `33:4D1B` "constants" were actually code (`LD A,0x60; _OP2SetA`).
+  bisection** integrator. The `33:4D1B` "constants" were in fact code (`LD A,0x60; _OP2SetA`).
 - **TVM `_SinH` (id 0x40CF) — resolved (§2.3).** It is a **genuine `_SinH` call** at
   `3A:710B`, not a mis-mapped helper or id collision (`0x40C6/0x40CF/0x40ED` are three
   distinct hyperbolic bcalls). It evaluates the annuity / compound factor in hyperbolic form

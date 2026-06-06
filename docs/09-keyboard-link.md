@@ -1,4 +1,4 @@
-# 09 — Keyboard & Link Port
+# 09 — Keyboard & link port
 
 > **Deep dive:** [Link / Data Transfer](sub-link-transfer.md) — the silent-link packet protocol and variable send/receive.
 

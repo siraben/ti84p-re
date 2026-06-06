@@ -1,4 +1,4 @@
-# TI-84 Plus OS — Reverse-Engineering Notes: System Overview
+# TI-84 Plus OS — Reverse-Engineering Notes: System overview
 
 Target: `ti84plus.rom` (1 MiB flash dump). OS self-identifies as **2.55MP**. CPU: Zilog **Z80** (16-bit address bus, 64 KiB logical space) with hardware flash/RAM **paging**. Ghidra project: `~/Documents/ti84-re/ti84.gpr` (rebuild: `tools/build.sh`).
 
@@ -18,6 +18,8 @@ Everything the user interacts with — the homescreen, TI-BASIC programs, graphi
 Around those sit the I/O subsystems: the **IM1 interrupt** that drives timing/APD/cursor/ON-key ([04-interrupts.md](04-interrupts.md)), the **LCD driver**, the **keypad scanner**, and the **link port**.
 
 ## Subsystem index
+
+Each row maps a documentation page to the subsystem it covers and its analysis status.
 
 | Doc | Subsystem | Status |
 |-----|-----------|--------|

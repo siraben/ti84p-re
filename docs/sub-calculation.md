@@ -1,4 +1,4 @@
-# Calculation Engine
+# Calculation engine
 
 *TI-84 Plus OS 2.55MP — feature deep dive.*
 
@@ -16,6 +16,9 @@ else through the bcall dispatcher. Confidence: **[confirmed]** = read from disas
 ---
 
 ## 1. Register & stack model [confirmed]
+
+Every calculation runs through the OP registers and the software FP stack; the table
+gives each register's RAM address and its role during an operation.
 
 | Reg | Addr | Role in a calc |
 |-----|------|----------------|
@@ -58,7 +61,7 @@ Convenience / derived ops:
 - `_Cube` `ram:237D` = `_FPSquare` then `_FPMult`. [confirmed]
 - `_Times2` `ram:2282` = `OP1+OP1`; `_TimesPt5` `ram:2382` loads the constant `0.5` (9-byte BCD @ `ram:2635`) into OP2 then `_FPMult`. [confirmed]
 - `_InvSub` `ram:227D` = `_InvOP1S` then `_FPAdd` ⇒ `OP2 − OP1` (reversed subtract). [confirmed]
-- **Negation**: `_InvOP1S` `ram:24BD` (XOR OP1.type with 0x80, guarding against −0), `_InvOP2S` `ram:24CD`, `_InvOP1SC` `ram:24BA` (both). `_CkOP1Pos` `ram:1E5D` just ANDs OP1.type with 0x80. [confirmed]
+- **Negation**: `_InvOP1S` `ram:24BD` (XOR OP1.type with 0x80, guarding against −0), `_InvOP2S` `ram:24CD`, `_InvOP1SC` `ram:24BA` (both). `_CkOP1Pos` `ram:1E5D` ANDs OP1.type with 0x80. [confirmed]
 
 ### Roots & integer parts [confirmed]
 - `_SqRoot` `page_02:6E38`: `_ErrD_OP1NotPos` (→ DOMAIN if negative/complex-real), `fp_clear_guard`, `_ZeroOP3`, then a **digit-by-digit BCD square-root extraction** loop (`FUN_ram_1C9C` trial-subtract + `FUN_ram_1D4A` compare, halving the exponent up front). Not Newton's method — classic long-hand sqrt.
@@ -158,7 +161,7 @@ digit string honoring the **MODE** screen (Normal/Sci/Eng, Float/Fix 0–9).
 - The formatted string is then drawn by `_DispOP1A` (`page_04:7844`) / homescreen put-string
   routines (see [08-display-lcd.md](08-display-lcd.md)).
 
-`Ans` is simply the last-result `TIFloat` saved in a system var and reloaded into `OP1`
+`Ans` is the last-result `TIFloat` saved in a system var and reloaded into `OP1`
 (via `_Mov9ToOP1` = RST 20h) when the token `Ans` is evaluated. [standard]
 
 ---

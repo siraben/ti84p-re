@@ -1,4 +1,4 @@
-# Apps, Memory Reset & Settings
+# Apps, memory reset, and settings
 
 *TI-84 Plus OS 2.55MP — feature deep dive.*
 
@@ -91,7 +91,7 @@ as a trace note until that path is remapped.
 
 ---
 
-## 2. RAM clearing / Memory reset
+## 2. RAM clearing / memory reset
 
 The **MEM** menu (`[2nd][+]`, "MEMORY MANAGEMENT/DELETE" + "RESET") and its messages are on
 **page 0x01** (text/homescreen page). The reset *engine* is on **page 0x35**; the user-RAM

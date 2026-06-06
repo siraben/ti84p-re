@@ -59,8 +59,10 @@ there real evidence pointing the wrong way? If not, just state what is true.
   mechanism). Push feature detail into a `sub-*.md` deep-dive and link to it.
 - **Overview first.** Open with a 1–3 sentence summary of what the page covers
   before the first heading, so a reader can tell in seconds if it is relevant.
-- **Sentence case headings** ("Object types", not "Object Types"). No links
-  inside headings. Leave a blank line after each heading.
+- **Sentence case headings and page titles** ("Memory map", not "Memory Map";
+  "Object types", not "Object Types"). Keep acronyms and proper nouns
+  capitalized (VAT, LCD, TI-BASIC, MathPrint, API). A page's H1 and its
+  `SUMMARY.md` entry must match. No links inside headings; blank line after each.
 - **Tables for enumerations** (routines, IDs, type bytes, bit layouts); **prose
   for mechanism**; **pseudocode for algorithms**; **Mermaid for control/data flow.**
   Do not turn a table dump into the whole article — explain what it *means*.
