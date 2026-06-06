@@ -67,6 +67,16 @@ Continuing past the table (also `.inc`): `PStat`/`ZStat`/`TStat`/`ChiStat`/
 menu) and are written by the test commands, not by 1/2‑Var Stats. An ANOVA block
 `anovaf_vars` (`F_DF/F_SS/F_MS/E_DF/E_SS/E_MS`) follows.
 
+**STAT‑TESTS are separate command handlers [confirmed scope].** `Z‑Test`/`T‑Test`/`χ²‑Test`/
+`2‑SampFTest`/`ANOVA(` etc. come in as their own 2‑byte (`E1`‑prefixed) command tokens — e.g.
+`LinRegTTest=34h` noted in §3 — and are **not** dispatched through `_OneVar` (whose token map is
+only `F2`–`FF`, §3). They fill the `PStat…SStat`/`anovaf_vars` block above directly. No
+`PStat`/`ZStat`‑writing routine appears among the page‑0x3A `stat_*` symbols (all of which are
+the `_OneVar` accumulate/variance/median/regression engine), confirming the tests live in their
+own command handlers reached from the parser's command dispatch, separate from the STAT‑CALC
+engine documented here. The exact per‑test handler addresses are not exposed as named routines
+in this DB. [confirmed: separate from `_OneVar`; addresses [I]]
+
 A scratch byte **`0x8A36`** (just below `statVars`) holds the **stat‑command
 discriminator** (the model index, set from the command token — see §3) for the
 duration of the computation. Working list/element pointers used by the loop live
@@ -268,9 +278,14 @@ matrix `[ M | Σxⁱy ]`. `_OneVar` solves it **in place by Gauss‑Jordan elimi
   $$r=\frac{\sum (x-\bar x)(y-\bar y)}{\sqrt{\sum (x-\bar x)^2\\,\sum (y-\bar y)^2}}=\frac{n\sum xy-\sum x\sum y}{\sqrt{\big(n\sum x^2-(\sum x)^2\big)\big(n\sum y^2-(\sum y)^2\big)}}$$
 
   assembled with `_FPMult`/`_FPSub`/`_SqRoot`/
-  `_FPDiv` (the `6845`/`684c` cluster) and stored to `Corr` (`8ACA`); `r²` (and
-  `R²` for higher‑order) is `r·r` / coefficient‑of‑determination, also surfaced.
-  [confirmed structure / standard formula]
+  `_FPDiv` (the `6845`/`684c` cluster) and **stored to `Corr` (`8ACA`)**. The store offset is
+  pinned: at **`3A:684F`** the code does `LD A,0x12 ; CALL 0x213D`, and `0x213D` is
+  `_Sto_StatVar` (the store counterpart of `_Rcl_StatVar 00:2149` — both funnel through the
+  `0x3E07` statVar dispatcher with the **name id in `A`**). Id `0x12` = `tCorr` = the `Corr`
+  slot, so this single sequence is exactly **`r → Corr (8ACA)`**. The preceding `3A:6845`
+  `_SqRoot`/`_FPDiv` cluster forms the ratio; `r²` (and `R²` for higher‑order fits) is the
+  `r·r` / coefficient‑of‑determination derived from the same cluster and surfaced through the
+  same `Corr` slot. [confirmed: the `A=0x12 → _Sto_StatVar` r‑store; standard formula]
 - The fitted equation is also written to **`RegEQ`** (the `Y=`‑style regression
   equation system var, recalled via token `tRegEq=0x01`) so `RegEQ` can be pasted
   or graphed. [standard]
@@ -342,9 +357,20 @@ only `_SetNorm_Vals` `00:220F`, a helper that copies the *display* "Normal mode"
 default values — unrelated to the normal *distribution*). Their numerical cores
 (error‑function / incomplete‑gamma / incomplete‑beta continued fractions) live on
 a banked flash page reached via the parser's function table and the page‑02 FP
-transcendentals; locating them is left as an open item — they belong to the
-parser/`sub-tibasic` dispatch rather than the STAT subsystem documented here.
+transcendentals; they belong to the parser/`sub-tibasic` dispatch rather than the
+STAT subsystem documented here.
 [confirmed: not reachable from `_OneVar`; hypothesis: numerical method]
+
+**Grounding [confirmed].** A name search of the whole‑OS image for `norm`/`stat`/distribution
+cores returns **no** `normalcdf`/`erf`/incomplete‑gamma/incomplete‑beta entry points — the only
+`*norm*` symbols are `_SetNorm_Vals` (`00:220F`, display "Normal mode" defaults),
+`fp_normalize`/`fp_norm_left` (mantissa normalisation), `cplx_norm_*` (complex modulus) and the
+`eqdisp_setnorm_split` layout helpers — **none** is a distribution. Likewise every `stat_*`
+symbol on page 0x3A is part of the `_OneVar` STAT‑CALC engine (accumulate / variance / median /
+sort / regression), not a DISTR core. So the erf / incomplete‑gamma / incomplete‑beta continued
+fractions are **[I] — outside the STAT‑CALC engine**, sitting behind the parser's 2‑byte
+(`E1`/`E2`‑prefixed) DISTR‑token function table; their exact page/address is not exposed as a
+named routine in this DB. [confirmed scope; address [I]]
 
 ---
 
@@ -407,12 +433,17 @@ equations, depositing every output as a named `TIFloat` in the `statVars` block.
 =`_SqRoot`, `24BD`=`_InvOP1S`.
 
 ## 12. Open items
-- Pin the exact `r`/`r²`/`R²` store sequence offsets within `3A:6845–6891`
-  (formula confirmed; which statVar slot gets `r` vs `r²` for higher‑order fits).
-- The DISTR numerical cores (erf/incomplete‑gamma/incomplete‑beta) — locate via
-  the parser function table (`sub-tibasic`), outside the STAT‑CALC engine.
-- STAT‑TESTS commands (Z/T/χ²/F/ANOVA) that fill `PStat…SStat`/`anovaf_vars` —
-  separate command handlers, not reached through `_OneVar`.
+- **RESOLVED — `r` store offset.** `3A:684F` does `LD A,0x12 ; CALL 0x213D`
+  (`_Sto_StatVar`, id `0x12` = `tCorr`), i.e. `r → Corr (8ACA)`; `r²`/`R²` is the
+  `r·r`/coefficient‑of‑determination from the same `6845` `_SqRoot`/`_FPDiv` cluster, surfaced
+  through the same `Corr` slot (§5). (Residual: the `6845–6891` region is unanalyzed code in the
+  DB, so only the `A=0x12` store sequence was byte‑pinned, not every intermediate.)
+- **RESOLVED (scope) — DISTR numerical cores** (erf/incomplete‑gamma/incomplete‑beta) are
+  **outside** the STAT‑CALC engine: no distribution core is a named routine in this DB; they sit
+  behind the parser's 2‑byte DISTR‑token function table (`sub-tibasic`). Exact address [I] (§9).
+- **RESOLVED (scope) — STAT‑TESTS** (Z/T/χ²/F/ANOVA) that fill `PStat…SStat`/`anovaf_vars` are
+  **separate command handlers**, not reached through `_OneVar` (whose tokens are only `F2`–`FF`);
+  no `PStat`‑writing routine is among the page‑0x3A `stat_*` symbols (§1). Per‑test addresses [I].
 - `stat_sort` (`3A:7935`) is a 49-byte setup that validates/counts the elements
   then dispatches the compare-swap via `rst 28h` (the bcall site isn't fully
   analyzed in the DB). The `SortA(`/`SortD(` *command* sort is a different routine
