@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-06589a53.js";
+            window.path_to_searchindex_js = "searchindex-fb71871e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -237,6 +237,9 @@ payload. Part of that payload is a Z80 helper at <code>4037</code>:</p>
 403D  PUSH BC
 403E  PUSH AF
 ; ...
+4056  LD A,0C9h
+4058  CPIR
+405A  PUSH HL
 405B  IN A,(6)
 405D  DEC A
 405E  LD HL,4065h
@@ -245,8 +248,28 @@ payload. Part of that payload is a Z80 helper at <code>4037</code>:</p>
 4065  OUT (6),A
 4067  RET
 </code></pre>
-<p>The same sample’s conventional entry area at <code>4080</code> starts <code>NOP; JR 408C; JP 4097; JP 4548</code>. It agrees with WikiTI’s field model: the 128-byte boundary is an app convention,
-not the OS’s header parser boundary.</p>
+<p><code>RST 20h</code> is <code>_Mov9ToOP1</code>, so the helper copies the thunk at <code>4065</code> into OP1
+(<code>0x8478</code>) and jumps to OP1. That makes <code>OUT (6),A; RET</code> run from RAM after <code>A</code>
+has been set to the current bank-A page minus one. The preceding <code>CPIR</code> searches
+from <code>HL</code> for a <code>RET</code> byte (<code>0xC9</code>) and pushes the byte after it as the return
+address. The first half preserves the popped registers while it probes caller-owned
+bytes and can return early; the later page switch and RAM-thunk behavior are directly
+decoded from the sample bytes.</p>
+<p>The same sample’s conventional entry area at <code>4080</code> starts <code>NOP; JR 408C; JP 4097; JP 4548</code>. Additional local samples agree with WikiTI’s field model:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>sample</th><th>header boundary</th><th>header-area bytes before <code>4080</code></th></tr>
+</thead>
+<tbody>
+<tr><td>MirageOS, Omnicalc, CalcSys, Symbolic, BatLib</td><td><code>807F00000000</code> at <code>406A</code>, header bytes end at <code>4070</code></td><td>padding to <code>4080</code>; code starts at <code>4080</code></td></tr>
+<tr><td>zStart 1.3.013</td><td><code>809D0F</code> carries a 15-byte Z80 routine at <code>406B</code>; <code>807F00000000</code> ends at <code>4080</code></td><td>no padding; code starts at <code>4080</code></td></tr>
+<tr><td>usb8x</td><td><code>807F00000000</code> ends at <code>4029</code></td><td>mostly zero padding, plus two app-owned jumps at <code>4049</code>: <code>JP 4180h; JP 42EAh</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>These samples keep the same parser boundary rule: the 128-byte boundary is an app
+convention, not the OS’s header parser boundary.</p>
 <p>The public entry points for walking these fields are bcalls in <code>ti83plus.inc</code>:
 <code>_FindAppHeaderSubField</code> (bcall <code>0x80AB</code>) locates a field in an app header, and
 <code>_FindOSHeaderSubField</code> (bcall <code>0x8075</code>) does the same for the OS header. Both build on the
