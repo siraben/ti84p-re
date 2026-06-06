@@ -1097,7 +1097,18 @@ The old descriptor theory is resolved as a dead end:
     `6B1C` `x=0x1B+7*n`, `right=x+4` endpoint samples. This makes the
     descriptor-backed template and kind-2 fraction UI pixel algorithm concrete;
     it still does not prove the non-descriptor tall radical/integral pixels.
-37. The `4A74` context-sensitive class remap is ROM-backed:
+37. The class-`0x10` `85E9` dynamic selector is ROM-backed and bounded:
+    `tools/dump-mathprint-layout.py --class10-dynamic-selector-flow`
+    byte-checks the action-`0x05` saved-operand branch at `5BA1`, the `5BD0`
+    `85E9 < 6` arm, the `5BED` `85E9 >= 6` arm, the `6CB9` class-49 boundary,
+    and the page-7 `FE` pair-table entries at `07:411E`. It proves the low arm
+    generates `FE77..FE7C`, which page 7 maps to `5D00..5D05`; none of those
+    six cells is a decoded record cell, descriptor cell, or direct `4F1A`
+    glyph. The local branch has no `85EE`/`85EF`/`9D27` measured-height refs,
+    no `86D7` pen refs, and no graph/rectangle/fill primitive. This classifies
+    the saved-operand selector without promoting it to the missing tall-symbol
+    pixel placer.
+38. The `4A74` context-sensitive class remap is ROM-backed:
     `tools/dump-mathprint-layout.py --dispatch-context-flow` byte-checks the
     `0x3D` special handoff to `672E`, the ordinary `A-0x2A` class calculation,
     the raw-`0x3B` exponent-context bias controlled by `(IY+2)` bits 4/6/5, the
@@ -1105,19 +1116,19 @@ The old descriptor theory is resolved as a dead end:
     downstream `5E45 + 2*85DE` handler lookup. This proves the pre-template
     class-selection algorithm, but still leaves final tall-symbol pixel
     placement open.
-38. The local image-blit candidate is closed:
+39. The local image-blit candidate is closed:
     `tools/dump-mathprint-layout.py --draw-primitive-flow` now includes
     `_DisplayImage` (`4D9B`) in its absent inline-bcall set, alongside
     `_FillRect` and `_FillRectPattern`. A direct `--xref 0x4D9B` scan also finds
     no page-39 control-flow or raw word references. Therefore the missing
     tall-symbol builder is not a page-39 inline `_DisplayImage` bitmap blit.
-37. The image/fill absence is ROM-wide, not only page 39:
+40. The image/fill absence is ROM-wide, not only page 39:
     `tools/dump-mathprint-layout.py --offpage-render-flow` and
     `--glyph-service-closed-flow` now scan the inline `_DisplayImage` bcall byte
     pattern (`EF 9B 4D`) alongside `_FillRect`/`_FillRectPattern` and report no
     hits anywhere in `tools/rom.bin`. Therefore no hidden ROM-wide inline
     `_DisplayImage` bitmap-table or stretcher path remains.
-38. The page-7 display-byte mapper caller surface is closed:
+41. The page-7 display-byte mapper caller surface is closed:
     `tools/dump-mathprint-layout.py --display-byte-caller-flow` enumerates every
     ROM-wide `CALL 3B37` and audits each caller window plus the `07:44DE..453A`
     classifier body. The only page-39 caller is the fixed delimiter-pair
@@ -1149,8 +1160,9 @@ closure, and
 `--template-tracepoint-flow` defining the dynamic breakpoint proof surface and
 `--rectangle-rule-event-flow` closing the known page-39 rectangle/rule events,
 `--template-pixel-sample-flow` making the descriptor/fraction pixel formulas
-concrete, plus `--dispatch-context-flow` proving the context-sensitive `4A74`
-class remap.
+concrete, plus `--class10-dynamic-selector-flow` classifying the `5BD7`
+`85E9` selector and `--dispatch-context-flow` proving the context-sensitive
+`4A74` class remap.
 What remains is the exact measured tall-symbol builder and final pixel placement
 around the already-recovered descriptor/menu and operand-window machinery.
 
