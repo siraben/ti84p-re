@@ -107,7 +107,7 @@ command bytes. [confirmed]
 
 **`_IPoint`** (`04:4157`): set/clear/test one pixel in `plotSScreen`. Honors the current
 **pen mode** / plot style: reads style at `(IY+0x14)` and a style selector at `0x9775`
-(`DAT_ram_9775` = 1 selects the "thick/line connect" branch that draws an extra adjacent
+(`0x9775` = 1 selects the "thick/line connect" branch that draws an extra adjacent
 pixel; 1..3 select dotted/animated styles), clips against the X-offset (`XOffset`) and the
 buffer bounds (`_IBounds`), then OR/AND/XORs the mask from `_IOffset`. **`_PointOn`**
 (`04:4155`) is the plain set-pixel entry. [confirmed]
@@ -125,7 +125,7 @@ buffer bounds (`_IBounds`), then OR/AND/XORs the mask from `_IOffset`. **`_Point
 **`_ILine`** (`04:4029`) — integer pixel line via **Bresenham**. [confirmed]
 It computes `dx=|x2−x1|`, `dy=|y2−y1|`, picks the major axis, sets the error term
 `(dy−dx)*2`/`dy*2`, then loops `_IPoint` for each step, advancing the minor axis when the
-error crosses zero. `FUN_page_04__4316` is the step-along-major-axis helper. The endpoint and
+error crosses zero. `graph_chk_flag20` (`04:4316`) is the step-along-major-axis helper. The endpoint and
 draw-mode (set/clear/xor) are passed in. **`_DarkLine`** (`04:4025`) is `_ILine` with
 the "draw/dark" mode forced. [confirmed]
 
@@ -178,7 +178,7 @@ screen. [confirmed]
 - if the **regraph-pending** bit `(IY+3)&1` is set (`grfDBFlags`/SmartGraph dirty), calls
   **`_Regraph`** to recompute the whole plot,
 - otherwise checks the split-screen flag (`_Bit_VertSplit`) and copies the buffer to the LCD
-  (`FUN_page_04__607f`).
+  (`graph_redraw_buf` `04:607F`).
 
 **`_GrBufCpy`** (`04:60A3`) blits `plotSScreen` to the LCD: handles split-screen
 (`_CheckSplitFlag`, `_Bit_VertSplit`), draws the split divider line (`_DarkLine`/`_ILine` at
@@ -263,7 +263,7 @@ during a regraph or TABLE build.
   read but the ±sentinel constants are summarized, not exhaustively byte-traced.
 - `_HorizCmd`/`_VertCmd` destination floats: confirmed they `_Mov9B` into the Xmin/Xmax vs
   Ymax/Ymin pair and `_PDspGrph`; whether they use the live window or a temp copy for the
-  line endpoints would benefit from tracing `FUN_page_04__7933`.
+  line endpoints would benefit from tracing `HorizVert_setup` (`04:7933`).
 - Circle parametric stepping in `3B:7171` (`_DrawCirc2`) not decompiled here (lives on
   page 3B); the `_GrphCirc` setup is confirmed.
 - Y= selection bit (`0x20`; flags byte `0x23` selected / `0x03` deselected) and the style byte

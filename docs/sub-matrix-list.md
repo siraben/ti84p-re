@@ -91,7 +91,7 @@ _AdrLEle(index, listDataPtr):           ; HL=index, DE=listDataPtr
   HL += DE                                ; final element pointer
 ```
 So **list element *i* is at `data + 2 + (i−1)*9`** (×18 path for complex). `_HLTimes9`
-(`00:1930`) is the universal "multiply by 9" (real `TIFloat` size). `FUN_ram_21c4` (`ram:21C4`)
+(`00:1930`) is the universal "multiply by 9" (real `TIFloat` size). `chk_type_lt_1a` (`ram:21C4`)
 masks the type to ≤0x19 and sets carry for the complex case (drives the 18-byte width). [C]
 
 Convenience wrappers (all = `_AdrLEle` then a 9-byte move through OP1, complex-aware): [C]
@@ -127,17 +127,17 @@ Matrix element wrappers: [C]
 - **`_AdrMRow` (`02:4000`)** — address of the *start of column idx0* in the column-major buffer
   (loops `(idx0−1)` × dim0, no `+(idx1-1)`); whole-row operations layer their own iteration on top.
 - **`_GetMToOP1` (`02:4044`)** — `[M](r,c)` → OP1 (`_AdrMEle` then `RST4` = load 9 bytes).
-- **`_PutToMat` (`02:406C`)** = `FUN_02_4068`: `_AdrMEle ; _CkValidNum ; _MovFrOP1` — OP1 →
+- **`_PutToMat` (`02:406C`)** = `mele_store_ckvalid` (`02:4068`): `_AdrMEle ; _CkValidNum ; _MovFrOP1` — OP1 →
   `[M](r,c)` with validation.
 - **`_StMatEl` (`38:6C8F`)** — high-level "store into `[M](r,c)`" used by the parser: resolves
   the matrix name (`5F45`), bounds-checks indices against the dims (`r≤rows && c≤cols`, else
   `_JError 0x8C` = `E_Dimension`), unarchives if needed, then `_PutToMat`. [C/H]
 
 ### Internal index helpers reused by the algorithms [C]
-- **`FUN_02_403C`** = `_AdrMEle(currentIJ) ; RST4` — "load `[M](i,j)` to OP1" (the elimination
+- **`mele_adr_af_jp` (`02:403C`)** = `_AdrMEle(currentIJ) ; RST4` — "load `[M](i,j)` to OP1" (the elimination
   inner-loop read). Indices come from the loop state at `84AF/84B3/84B4`.
-- **`FUN_02_4051`** = `_AdrMEle ; _Mov9B(→OP3@8483)` — load element to OP3.
-- **`FUN_02_405A`/`405E`** = `_AdrMEle ; _CkValidNum ; _MovFrOP1` — store OP1 back to `[M](i,j)`.
+- **`mele_adr_to8483` (`02:4051`)** = `_AdrMEle ; _Mov9B(→OP3@8483)` — load element to OP3.
+- **`mele_put_af` (`02:405A`) / `mele_put_d3` (`02:405E`)** = `_AdrMEle ; _CkValidNum ; _MovFrOP1` — store OP1 back to `[M](i,j)`.
 - **`_ListIdxTimes9` (`35:79E9`)** = `_HLTimes9(idx)` then a small dispatch (`RST4`) — the list
   analogue used in a few list-builder paths.
 
@@ -158,7 +158,7 @@ Matrix element wrappers: [C]
 `dim(` reads the `count` word straight from the list header; assigning `n→dim(L)` calls the
 resize path (`_IncLstSize`/`_DelListEl`) to grow/shrink, zero-filling new cells. List→matrix
 and matrix→list (`List►matr(`, `Matr►list(`) reshape via `_DataSize` + a column-major copy
-(`FUN_02_4539`/`453F`, a `_DataSize`-counted byte copy of the float payload). [H]
+(`mele_copy9_d3` (`02:4539`)/`mele_copy9_loop` (`02:453F`), a `_DataSize`-counted byte copy of the float payload). [H]
 
 ### List arithmetic `L1+L2`, scalar broadcast
 Binary list ops are **element-wise folds**: the parser walks both lists by index, loads
@@ -222,29 +222,34 @@ sort body's element-load is not byte-traced]
 - **`dim([M])`** reads the two header bytes → a 2-element list `{rows,cols}`; **`{r,c}→dim([M])`**
   reallocates via `_RedimMat` (`07:4D3B`), preserving overlapping cells and zero-filling new
   ones. [C/H]
-- **`identity(n)` (token `0xB4` → `FUN_02_4108`)** [C]: allocate `n×n`, then walk every cell
+- **`identity(n)` (token `0xB4` → `identity_build` (`02:4108`))** [C]: allocate `n×n`, then walk every cell
   writing `1.0` when `row==col` (the `exp==type` test) and `0` otherwise:
   ```
   _OP1Set1 ; for each (i,j): if i==j -> store 1.0 (mantissa[0]=0x10) else 0
   ```
 - **`Fill(value,[M])`** / **`randM(`** stamp a constant / random values across all cells
-  (element loop `FUN_02_412A` applies a per-element op over the whole matrix). [H]
+  (a per-element loop over the whole matrix applies the op at `02:412A`, which is not a
+  defined function in the current Ghidra DB; address unverified). [H]
 - Matrix **copy/reshape** = `_DataSize`-counted byte copy of the float payload
-  (`FUN_02_4539`/`453F`). [C]
+  (`mele_copy9_d3` (`02:4539`)/`mele_copy9_loop` (`02:453F`)). [C]
 
-### `[A] + [B]`, `[A] - [B]`, scalar·[A] — element-wise [C]
-`FUN_02_412A` is the **per-element matrix apply**: nested `for col { for row { load [M](r,c)→OP1;
+### `[A] + [B]`, `[A] - [B]`, scalar·[A] — element-wise [H]
+The **per-element matrix apply** at `02:412A` is a nested `for col { for row { load [M](r,c)→OP1;
 op; store } }` driving the FP RSTs. Binary matrix add/sub require equal dims
-(`_ErrDimMismatch 0x8B`).
+(`_ErrDimMismatch 0x8B`). `02:412A` is not a defined function in the current Ghidra DB; the
+element-loop structure is inferred and the address is unverified.
 
 ### `[A] * [B]` — matrix multiply [H]
-The body was traced **historically at `02:40BA`**, but `02:40BA` is **not a live function in the
-current Ghidra DB** — same caveat the §8 address index carries, so the multiply body remains
-unresolved against the live DB. The historical trace below is retained for reference.
+The matrix-multiply body is not a defined function in the current Ghidra DB; the O(n³) structure
+below is inferred, address unverified. The `02:40BA` label was a Ghidra auto-name from an earlier
+analysis pass with no WikiTI or ti83plus.inc backing. (`0x40BA` does appear in ti83plus.inc, but
+as the unrelated `_SinCosRad` bcall ID — a hex coincidence, not matrix-mult provenance.) The `*`
+dispatch site `02:5FE6` and the result-setup site `02:5766` are likewise undisassembled in the
+live DB.
 
-`FUN_02_40BA` (reached from the `*` token at `02:5FE6` when both operands are matrices,
-after `FUN_02_5766` sets up the result dims and `FUN_02_4539` preps storage). Classic O(n³)
-triple loop with an FP accumulator:
+Structural inference: a multiply enters from the `*` token at `02:5FE6` when both operands are
+matrices, after `02:5766` sets up the result dims and `mele_copy9_d3` (`02:4539`) preps storage.
+Classic O(n³) triple loop with an FP accumulator:
 ```
 for each result cell (i,j):
     _OP1Set0                              ; acc = 0
@@ -256,7 +261,8 @@ for each result cell (i,j):
 ```
 Loop counters live at `84B0` (outer), `84B3` (k, inner), `84B4`/dims at `84AF`. Inner-dim
 mismatch (`A.cols ≠ B.rows`) ⇒ `_ErrDimMismatch`. Each multiply/add is a full `TIFloat` FP op,
-so an `n×n` product is `n³` `_FPMult` + `_FPAdd` calls. [H] (historical trace; `02:40BA` not in live DB)
+so an `n×n` product is `n³` `_FPMult` + `_FPAdd` calls. [H] (structure inferred; `02:40BA`,
+`02:5FE6`, `02:5766` not defined functions in the live DB)
 
 ### Transpose `[A]ᵀ` — driver `02:4178` [C]
 The transpose token (`tTranspose`) routes through the page-02 function evaluator
@@ -264,7 +270,8 @@ The transpose token (`tTranspose`) routes through the page-02 function evaluator
 the swapped dim into the loop frame (`84B5` from `84B7`), then walks `(i,j)` reading
 `[A](i,j)`→OP1 via `402C`/`47B9` and storing through `_PutToMat` (`4068`), i.e.
 `dst(c,r) = src(r,c)` — a re-indexed column-major copy reusing `_AdrMEle`. It shares the
-element-loop framing with `mat_elementwise` (`412A`) and the row ops (`414E`). [C]
+element-loop framing with the per-element apply at `412A` (not a defined function in the live
+DB; address unverified) and the row ops (`414E`). [C]
 
 ### `augment(`, `randM(`, `List►matr(`, `Matr►list(` — per-function drivers [C]
 These are dispatched from the page-02 function-token evaluator (the `CP imm ; JR/JP` chain at
@@ -277,9 +284,10 @@ These are dispatched from the page-02 function-token evaluator (the `CP imm ; JR
 | `Matr►list(` | `0x8D` @ `6388` | `02:49E3`/`4773` | column-major copy of matrix columns out into list(s); length-checks via `21BB`. |
 | `List►matr(` | `0x8E` @ `61C1` | `02:7D19` + copy | reshapes the argument lists into a matrix (`_DataSize`-counted float copy `4539`/`453F`). |
 
-The shared element-loop kernels these drivers call are the confirmed `mat_elementwise`
-(`02:412A`), `mat_row_op` (`02:414E`) and `mat_transpose` (`02:4178`) family; the per-function
-drivers above are now byte-pinned at their evaluator entries. [C]
+The shared element-loop kernels these drivers call are the per-element apply at `02:412A` (not a
+defined function in the live DB; address unverified [H]), `mat_row_op` (`02:414E`) and
+`mat_transpose` (`02:4178`) family; the per-function drivers above are now byte-pinned at their
+evaluator entries. [C]
 
 ---
 
@@ -294,7 +302,8 @@ direct call sites exist (byte-verified — `CD A6 42` appears exactly twice):
 | `[A]⁻¹` (`^` token `0x0C`, operand = matrix) | `02:5F80` | `0x00` | **inverse**; singular ⇒ error |
 | `det(` (token `0xB3`) | `02:5FC0` | `0x40` | **determinant**; bit6 set ⇒ singular tolerated (returns 0) |
 
-`det(`'s handler (`02:5FA3`) first type-checks the operand is a matrix (`FUN_02_69B7`:
+`det(`'s handler at `02:5FA3` (not a defined function in the current Ghidra DB; address
+unverified) first type-checks the operand is a matrix (`chk_op_is_matrix` (`02:69B7`):
 `type==2 else E_DataType 0x89`), then `LD A,0x40 ; CALL 0x42A6`.
 
 ### The engine (`42A6`) [C]
@@ -411,7 +420,7 @@ and the routine and condition that triggers it.
 | `0x78` | 0-index reject (via `ram:2793`) | `_AdrMEle`/`_AdrMRow` on a 0 row/col index |
 | `0x83` | `E_SingularMat` (`ERR:SINGULAR MAT`) | `42A6` inverse on a zero pivot (`_ErrSingularMat 00:26F0`) |
 | `0x85` | `E_Increment` | `_ErrIncrement 00:26F8` (bad seq/loop step) |
-| `0x89` | `E_DataType` | `det(`/matrix ops on a non-matrix operand (`FUN_02_69B7`) |
+| `0x89` | `E_DataType` | `det(`/matrix ops on a non-matrix operand (`chk_op_is_matrix` (`02:69B7`)) |
 | `0x8B` | `E_DimMismatch` (`ERR:DIM MISMATCH`) | add/sub/multiply with incompatible dims (`_ErrDimMismatch 00:2715`) |
 | `0x8C` | `E_Dimension` (`ERR:INVALID DIM`) | non-square det/inverse, out-of-range element store (`_ErrDimension 00:2719`, `_StMatEl`) |
 | `0x15` | `E_Stat` (via `ram:2741`) | `_GetPosListElem` bad index (`_CkOP1Pos`) |
@@ -431,9 +440,9 @@ and the routine and condition that triggers it.
 | `02:4002` | `_AdrMEle` | matrix element address: `((column-1)*dim0+(row-1))*9` [C] |
 | `02:4044` | `_GetMToOP1` | `[M](i,j)` → OP1 [C] |
 | `02:406C` | `_PutToMat` | OP1 → `[M](i,j)` (validated) [C] |
-| `02:40BA` | retired label | not a live function in the current Ghidra DB; matrix multiply body remains unresolved here |
+| `02:40BA` | Ghidra auto-name (retired) | not a defined function in the current Ghidra DB; was an earlier-pass auto-name with no WikiTI/inc backing (`0x40BA` in ti83plus.inc is the unrelated `_SinCosRad` bcall ID). Inferred matrix-multiply body; address unverified (§4) |
 | `02:4108` | `identity_build` | `identity(n)`: diagonal-1 fill (token 0xB4) [C] |
-| `02:412A` | `mat_elementwise` | per-element matrix unary/binary apply [C] |
+| `02:412A` | (undisassembled) | per-element matrix unary/binary apply; not a defined function in the current Ghidra DB, structure inferred, address unverified [H] |
 | `02:414E` | `mat_row_op` | row swap/scale (elimination) [C] |
 | `02:4178` | `mat_transpose` | `[A]ᵀ`: `dst(c,r)=src(r,c)` re-indexed copy [C] |
 | `02:4663` | `mat_augment` | `augment(` column-concat (rows must match) [C] |
