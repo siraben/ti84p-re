@@ -2,6 +2,8 @@
 
 A reproducible Ghidra reverse-engineering project for the **TI-84 Plus** calculator OS (**version 2.55MP**), a Zilog **Z80** system. This repo contains the build scripts, derived symbol data, and reverse-engineering notes — **not** the ROM image (copyrighted) or the Ghidra database (regenerable).
 
+📖 **Read the rendered wiki: <https://siraben.github.io/ti84p-re/>**
+
 ## What's here
 
 ```
@@ -82,6 +84,9 @@ A Z80 (64 KiB address space) with hardware **paging** maps flash page 0 at `0000
 **Subsystem deep-dives** (from parallel multi-agent RE): `sub-calculation`, `sub-graphing`, `sub-tibasic`, `sub-vat-archive`, `sub-apps-mem-settings`, `sub-statistics`, `sub-matrix-list`, `sub-solver-numeric`, `sub-table-yvars`, `sub-equation-display`, `sub-link-transfer`.
 
 **Reference**: [`glossary`](docs/glossary.md) (terms & key RAM symbols), [`conventions`](docs/conventions.md) (notation, confidence flags, methodology), [`bcall-index`](docs/bcall-index.md) (all 607 bcalls, alphabetical).
+
+## Legal
+Independent reverse-engineering notes for interoperability/education. **No copyrighted TI ROM image or OS code is included** — the ROM is gitignored and you supply your own dump. `ti83plus.inc` is TI's freely-distributed equates file. All trademarks belong to Texas Instruments; this project is not affiliated with or endorsed by TI.
 
 ## Notes
 - `ti83plus.inc` is TI's 2001-era equates file (from [siraben/ti84-forth](https://github.com/siraben/ti84-forth)); the `0x8xxx` 84+-era bcalls it lacks are resolved via the page-0x3F table and RE-named in `tools/ti84plus_extra.inc`.

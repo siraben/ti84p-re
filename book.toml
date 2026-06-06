@@ -6,6 +6,8 @@ src = "docs"
 language = "en"
 
 [output.html]
+site-url = "/ti84p-re/"
+git-repository-url = "https://github.com/siraben/ti84p-re"
 default-theme = "navy"
 preferred-dark-theme = "navy"
 no-section-label = false

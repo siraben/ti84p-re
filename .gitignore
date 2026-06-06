@@ -6,6 +6,7 @@ tools/ti84_page00.bin
 *.gpr
 *.rep/
 *.lock
+!flake.lock
 *.ghidra
 
 # generated mdBook HTML output
