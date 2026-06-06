@@ -104,7 +104,7 @@ String variables are **`StrngObj` (type 4)** — *not* equation variables (`EquO
 
 **Storage.** `_CreateStrng` (id `0x4327`, `00:1123`) decompiles to `create_var_entry(StrngObj)` followed by writing a 2-byte **`word size`** into the data; the data area is then `[word size][size tokenized bytes]` — the same `[size][bytes]` shape programs and appvars use (above). The bytes are **TI-BASIC tokens, not raw ASCII**: a string stores exactly the token stream the editor renders, so `"sin(A)"` keeps the `sin(` token, the `A` token, and `)` — which is why a string can hold any displayable token, commands included.
 
-**Why they aren't equation variables.** `EquObj` vars (`Y1`–`Y0`, parametric, polar, sequence) are *system* variables that carry a selection/style flags byte and are **auto-evaluated** by the grapher, table, and solver (see [Graphing](sub-graphing.md), [Table & Y= Variables](sub-table-yvars.md)). A `StrngObj` is an *inert user variable* — no selection/style, never evaluated on its own; it is just bytes the string commands manipulate.
+**String vs. equation variable.** Both hold tokenized byte streams, so the two are worth separating. `EquObj` vars (`Y1`–`Y0`, parametric, polar, sequence) are *system* variables that carry a selection/style flags byte and are **auto-evaluated** by the grapher, table, and solver (see [Graphing](sub-graphing.md), [Table & Y= Variables](sub-table-yvars.md)). A `StrngObj` is an *inert user variable* — no selection/style, never evaluated on its own; it is bytes the string commands manipulate.
 
 **Bridges between the two.** Tokens convert a string's text to/from executable form:
 - `expr(` parses a string's token bytes as an expression and **evaluates** it → a value (string → number/list/…).

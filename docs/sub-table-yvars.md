@@ -1,4 +1,4 @@
-# Table & Y= Variables
+# Table & Y= variables
 
 *TI-84 Plus OS 2.55MP — feature deep dive.*
 
@@ -284,7 +284,7 @@ scrolling is instant (no recompute):
 - **Indpnt = Auto** (bit4=0): the driver auto-fills X from TblStart/ΔTbl (§3.1).
 - **Indpnt = Ask** (bit4=1): the X column starts empty; the editor prompts the
   student to type each X, parses it (entry-line editor → `_ParseInp`), stores it
-  to `X`, then evaluates the Y columns for just that row.
+  to `X`, then evaluates the Y columns for only that row.
 - **Depend = Auto** (bit5=0): Y cells compute immediately during the fill.
 - **Depend = Ask** (bit5=1): Y cells show blank until the cursor lands on one and
   `[ENTER]` requests it, at which point that single cell is evaluated. [confirmed
@@ -319,7 +319,7 @@ The **G-T** mode (graph on the left half, table on the right) is set up by
 `_ScreenSplit` (bcall `0x5227`): it checks the split flag, calls `_Bit_VertSplit`,
 then `05:7544` and the table-init `05:773F` (seed running-X from TblMin), and
 cross-jumps to redraw. So G-T mode shares the very same table cache + running-X
-driver, just rendered into the right columns alongside the plot. [confirmed]
+driver, rendered into the right columns alongside the plot. [confirmed]
 
 ---
 
@@ -353,7 +353,7 @@ Conversely only the recompute driver **clears** it (`05:5DD7`, `05:62FD`,
    (`05:5DD7`):
    - seed running-X ← `TblMin` (`05:774B`),
    - `_GraphTblFind`/`_GraphTblNext` (`33:7097`/`707A`) walk the **selected**
-     equation list at `iMathPtr4` (0x84D9) — here just `Y1`,
+     equation list at `iMathPtr4` (0x84D9) — here only `Y1`,
    - per row: `_StoX` the running-X, evaluate `Y1`'s tokens via the page-38
      evaluator (`_Find_Parse_Formula` / `_ParseInp`) → OP1 = `X²+1`, format and
      stash into the cell cache (`0x91E2`/`0x9221`),

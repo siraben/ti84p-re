@@ -1,4 +1,4 @@
-# 13 — Flash Page Map
+# 13 — Flash page map
 
 What lives on each of the 64 physical flash pages (16 KiB each). The OS itself occupies the low pages; the rest hold the certificate, boot code, fonts, and Flash Apps. Characterized by the named bcall routines that resolve to each page (`tools/bcall_targets.txt`) plus function counts.
 

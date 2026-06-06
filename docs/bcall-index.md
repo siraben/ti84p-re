@@ -1,4 +1,4 @@
-# bcall Reference Index
+# bcall reference index
 
 The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each has an *ID* (the 2-byte value after `rst 28h`) and a *body* at `page:addr`. Use your browser's find, or the wiki search box. See [The bcall Mechanism](03-bcall-mechanism.md) for how dispatch works. The historical `0x8xxx` candidates at the end are kept for reconciliation, but their page-0x3F bodies are not currently present as functions in the live Ghidra/MCP DB.
 

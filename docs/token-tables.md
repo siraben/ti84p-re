@@ -1,4 +1,4 @@
-# 2-Byte Token Tables
+# 2-byte token tables
 
 The second-byte tables for every **2-byte token** on the TI-84 Plus (OS 2.55MP). The tokenizer detects a 2-byte lead via `_IsA2ByteTok` (`00:1FE8`) — see [Tokenizer & TI-BASIC](07-tokenizer-basic.md) — then the **second byte** indexes the group below.
 

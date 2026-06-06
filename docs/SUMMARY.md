@@ -4,50 +4,50 @@
 
 # Orientation
 
-- [Subsystem Map](10-subsystem-map.md)
-- [Conventions & Methodology](conventions.md)
+- [Subsystem map](10-subsystem-map.md)
+- [Conventions & methodology](conventions.md)
 - [Glossary](glossary.md)
 
-# Architecture & Memory
+# Architecture & memory
 
-- [Memory Map](01-memory-map.md)
+- [Memory map](01-memory-map.md)
 - [Paging](02-paging.md)
-- [The bcall Mechanism](03-bcall-mechanism.md)
+- [The bcall mechanism](03-bcall-mechanism.md)
 - [Interrupts (IM1)](04-interrupts.md)
-- [Memory Management](12-memory-management.md)
-- [Flash Page Map](13-flash-page-map.md)
+- [Memory management](12-memory-management.md)
+- [Flash page map](13-flash-page-map.md)
 
-# Runtime & Execution
+# Runtime & execution
 
-- [Boot, Contexts & Errors](11-boot-contexts-errors.md)
+- [Boot, contexts & errors](11-boot-contexts-errors.md)
 
-# Core Subsystems
+# Core subsystems
 
 - [Variables & the VAT](05-variables-vat.md)
-- [Floating-Point Engine](06-floating-point.md)
+- [Floating-point engine](06-floating-point.md)
 - [Tokenizer & TI-BASIC](07-tokenizer-basic.md)
 - [Display & LCD](08-display-lcd.md)
-- [Keyboard & Link Port](09-keyboard-link.md)
+- [Keyboard & link port](09-keyboard-link.md)
 
-# Feature Deep-Dives
+# Feature deep-dives
 
-- [Calculation Engine](sub-calculation.md)
+- [Calculation engine](sub-calculation.md)
 - [Graphing](sub-graphing.md)
-- [TI-BASIC Programs](sub-tibasic.md)
-- [Variables, Archive & Unarchive](sub-vat-archive.md)
-- [Apps, Memory Reset & Settings](sub-apps-mem-settings.md)
+- [TI-BASIC programs](sub-tibasic.md)
+- [Variables, archive & unarchive](sub-vat-archive.md)
+- [Apps, memory reset & settings](sub-apps-mem-settings.md)
 - [Statistics](sub-statistics.md)
-- [Matrices & Lists](sub-matrix-list.md)
-- [Solver & Numerical Methods](sub-solver-numeric.md)
-- [Table & Y= Variables](sub-table-yvars.md)
+- [Matrices & lists](sub-matrix-list.md)
+- [Solver & numerical methods](sub-solver-numeric.md)
+- [Table & Y= variables](sub-table-yvars.md)
 - [Equation display (MathPrint)](sub-equation-display.md)
-- [Link / Data Transfer](sub-link-transfer.md)
+- [Link / data transfer](sub-link-transfer.md)
 
 # Reference
 
-- [bcall Index](bcall-index.md)
-- [2-Byte Token Tables](token-tables.md)
+- [bcall index](bcall-index.md)
+- [2-byte token tables](token-tables.md)
 
 # Project
 
-- [Open Questions & Roadmap](99-open-questions.md)
+- [Open questions & roadmap](99-open-questions.md)

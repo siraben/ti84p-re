@@ -1,15 +1,15 @@
-# Matrices & Lists
+# Matrices & lists
 
 *TI-84 Plus OS 2.55MP — feature deep dive.*
 
-How the TI-84 Plus OS (2.55MP) actually stores, indexes, and computes on **lists** and
+How the TI-84 Plus OS (2.55MP) stores, indexes, and computes on **lists** and
 **matrices** — the routines a college student hits doing linear algebra (`det(`, `[A]⁻¹`,
 `rref(`, `[A]*[B]`, `identity(`, `T`) and data work (`L1+L2`, `dim(`, `sum(`, `seq(`,
 `SortA(`). Companion to [05-variables-vat.md](05-variables-vat.md) (where the data lives), [06-floating-point.md](06-floating-point.md)
 (how each element is computed), and [sub-vat-archive.md](sub-vat-archive.md) (Store/Recall/Archive).
 
 All `page:addr` verified by **disassembling the Z80** in the private Ghidra copy
-(`/tmp/ti84-matlist`, headless `Dec.java`/`Disasm.java`), not just the decompiler.
+(`/tmp/ti84-matlist`, headless `Dec.java`/`Disasm.java`), not the decompiler alone.
 Page numbers are the masked flash page (`rawpage & 0x3F`). The whole-OS image lives in one
 Ghidra program with address spaces `ram` (the page-0/RAM-resident 0x0000–0x7FFF window) and
 `page_NN` for each flash page mapped into the 0x4000–0x7FFF bank-A window.
@@ -29,7 +29,7 @@ Confidence (this doc's shorthand; see [Conventions](conventions.md)): **[C]=conf
 
   $$\mathrm{offset}=\big((\mathit{idx}_0-1)\cdot \mathit{dim}_0+(\mathit{idx}_1-1)\big)\times 9$$
 - **Every element read/write routes one `TIFloat` through `OP1`/`OP2`** and the FP engine —
-  there is no "vector unit"; matrix multiply is just a triple loop of `_FPMult`+`_FPAdd`.
+  there is no "vector unit"; matrix multiply is a triple loop of `_FPMult`+`_FPAdd`.
 - The data area is found through the **VAT** (`_FindSym`, [doc 05](05-variables-vat.md)): the VAT entry's data
   pointer + page byte locate the `count`/`dim` header, after which all indexing is pointer
   arithmetic computed by `_AdrLEle`/`_AdrMEle`.
@@ -388,8 +388,8 @@ fact that it is a separate driver, not `42A6`, is confirmed** by the two-caller 
 - **Where the data lives:** the parser resolves the list/matrix name through `OP1` →
   `_FindSym`/`_ChkFindSym` ([doc 05](05-variables-vat.md)/sub-vat) → VAT entry → data pointer (+ flash page if
   archived). The `count`/`dim` header is read first; then `_AdrLEle`/`_AdrMEle` do pointer
-  math. A store into an **archived** matrix/list unarchives to RAM first (`_Arc_Unarc`, you
-  can't poke Flash in place).
+  math. A store into an **archived** matrix/list unarchives to RAM first (`_Arc_Unarc`;
+  Flash cannot be written in place).
 - **Scratch RAM used by the algorithms** (verified operands): `84AF` (current dims / i,j loop
   state), `84B0/84B3/84B4` (pivot, k, row counters), `84B7` (dims copy), `84D3/84D5/84D7`
   (data pointers + the permutation vector base), `8478`=OP1, `8483`=OP3, `8499`=OP6/type,
@@ -398,6 +398,9 @@ fact that it is a separate driver, not `42A6`, is confirmed** by the two-caller 
 ---
 
 ## 7. Errors raised on these paths [C]
+
+The list/matrix routines raise these `_JError` codes; each row gives the code, its name,
+and the routine and condition that triggers it.
 
 | `_JError` code | name | raised by |
 |---|---|---|

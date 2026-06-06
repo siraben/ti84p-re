@@ -77,7 +77,7 @@ own command handlers reached from the parser's command dispatch, separate from t
 engine documented here. The exact per‑test handler addresses are not exposed as named routines
 in this DB. [confirmed: separate from `_OneVar`; addresses [I]]
 
-A scratch byte **`0x8A36`** (just below `statVars`) holds the **stat‑command
+A scratch byte **`0x8A36`** (immediately below `statVars`) holds the **stat‑command
 discriminator** (the model index, set from the command token — see §3) for the
 duration of the computation. Working list/element pointers used by the loop live
 in the OP‑scratch RAM `0x84AF…0x84DB` (`84D3`=median data ptr, `84D5/84D7`=current
@@ -393,7 +393,7 @@ named routine in this DB. [confirmed scope; address [I]]
 
 The STAT subsystem is a thin **data‑driven front‑end** on page 0x3A that reads list
 data via the VAT, drives the page‑0/page‑02 BCD FP engine to build power‑sums, then
-either finalizes simple moments or runs an in‑place Gauss‑Jordan solve of the normal
+either finalizes the moments or runs an in‑place Gauss‑Jordan solve of the normal
 equations, depositing every output as a named `TIFloat` in the `statVars` block.
 
 ---

@@ -1,4 +1,4 @@
-# 01 — Memory Map
+# 01 — Memory map
 
 The Z80 sees a flat **64 KiB** logical space, divided into four **16 KiB** slots. Hardware paging (ports 6/7) decides which physical flash page or RAM page is visible in the two middle slots. See [02-paging.md](02-paging.md) for the banking detail.
 
@@ -11,7 +11,7 @@ The Z80 sees a flat **64 KiB** logical space, divided into four **16 KiB** slots
 | `8000–BFFF` | Bank B | Swappable **RAM/flash page** (port 7) | Usually RAM. **[standard]** |
 | `C000–FFFF` | RAM | **RAM page** (MemC) | Normally RAM page 0, but page-selectable via **port 5** on the 84+ (not hard-fixed). Stack lives near the top. **[standard]** |
 
-In this OS the system RAM variables all live at `8000+`, so for static RE we model `8000–FFFF` as one RAM block (see `tools/BuildTI84Full.java`).
+In this OS the system RAM variables all live at `8000+`, so the static RE model treats `8000–FFFF` as one RAM block (see `tools/BuildTI84Full.java`).
 
 ## Flash layout (physical, 1 MiB = 64 × 16 KiB pages)
 
