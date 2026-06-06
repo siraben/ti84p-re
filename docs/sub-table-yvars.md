@@ -188,7 +188,7 @@ its handler vectors run on page 05.
 ### Editor main display — `table_editor_main` (`05:5D0D`) [confirmed]
 
 ```c
-if (tblFlags & 0x40 /*reTable*/) recompute = table_recompute()  ; 05:5DD7
+if (tblFlags & 0x40 /* reTable */) recompute = table_recompute()  ; 05:5DD7
 else                              use_cache  = table_use_cache() ; 05:78CF
 if (graphFlags & 1) { redraw helpers ... }                       ; split-graph case
 paint_grid(...)                                                  ; 05:7771
@@ -229,7 +229,7 @@ i.e. the first row's independent value is **TblStart**. A working float at
 ```z80
 05:65DC  … LD HL,(table indices) … CALL 0x6D67 (advance) …
 05:6359  LD A,(0x91DD) … LD DE,0x9221 / 0x91E2 (cell buffers)
-         LD HL,(0x91DC /*row idx*/) ; ADD ; CALL _LdHLind ; ADD HL,DE
+         LD HL,(0x91DC /* row idx */) ; ADD ; CALL _LdHLind ; ADD HL,DE
 ```
 
 So row $k$ uses $X=\mathrm{TblMin}+k\cdot\mathrm{TblStep}$. (In **Indpnt = Ask** mode this driver is

@@ -50,10 +50,10 @@ typedef struct {
 typedef struct { TIFloat re, im; } TIComplex;                   /* 18 bytes */
 
 /* ── aggregate data (what the VAT entry's dataAddr points at) ──────── */
-struct List   { uint16_t count;       TIFloat elem[/*count*/];     }; /* ListObj 1; CListObj 0x0D uses TIComplex[] */
-struct Matrix { uint8_t  rows, cols;  TIFloat elem[/*rows*cols*/];  }; /* MatObj 2, stored column-major (rows = dim0) */
-struct Tokens { uint16_t size;        uint8_t body[/*size*/];      }; /* EquObj 3, StrngObj 4, ProgObj 5/6 — tokenized */
-struct AppVar { uint16_t size;        uint8_t data[/*size*/];      }; /* AppVarObj 0x15 — RAW bytes, not tokenized     */
+struct List   { uint16_t count;       TIFloat elem[/* count */];         }; /* ListObj 1; CListObj 0x0D uses TIComplex[] */
+struct Matrix { uint8_t  rows, cols;  TIFloat elem[/* rows * cols */];  }; /* MatObj 2, stored column-major (rows = dim0) */
+struct Tokens { uint16_t size;        uint8_t body[/* size */];          }; /* EquObj 3, StrngObj 4, ProgObj 5/6 — tokenized */
+struct AppVar { uint16_t size;        uint8_t data[/* size */];          }; /* AppVarObj 0x15 — RAW bytes, not tokenized     */
 ```
 
 Per object type:
@@ -87,7 +87,7 @@ struct VATEntry {
     uint16_t dataAddr;      /* RAM address of the data — or an offset into Flash if archived */
     uint8_t  dataPage;      /* Flash page holding the data (0 = data is in RAM)              */
     uint8_t  nameLen;       /* length of the name that follows                               */
-    uint8_t  name[/*nameLen*/];
+    uint8_t  name[/* nameLen */];
 };
 ```
 
