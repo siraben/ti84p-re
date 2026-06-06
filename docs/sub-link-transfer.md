@@ -396,5 +396,5 @@ state machine. RAM block: `ioFlag 8670 … bakHeader 868B`, staging
   them vs. the blanket 0x9F here. [H]
 - Backup (sndRecState 0x08 / varClass 0x0A) framing detail in `40DA` (the 0x37D clamp + 0x63 00
   prefix) — full backup-packet layout. [H]
-- The target at `ram:2E48`, called after `_LinkXferOP` samples port `0x4D`, is not a function in
-  the current Ghidra database. Its exact side effects remain open; see [sub-usb-asic.md](sub-usb-asic.md).
+- The prior USB target gap is now mapped in [sub-usb-asic.md](sub-usb-asic.md): `_LinkXferOP` calls
+  `ram:2E0B`, a `cross_page_jump` thunk to `35:4280`, after sampling port `0x4D`.
