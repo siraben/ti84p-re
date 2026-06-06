@@ -131,10 +131,10 @@ The RAM-reset path (`page_35:719F`):
 ```z80
 719F BIT 1,(IY+0x35); JP Z,0x0B2F          ; first-stage vs full path select
 71A6 LD HL,(0x9B73)                         ; preserve a saved word
-71B4 LD A,(IY+0x3F); AND 0x7F               ; preserve bit7 of flag byte 0x3F
+71B4 LD A,(IY+0x3F); AND 0x7F               ; keep low 7 bits (clear bit 7) of flag byte 0x3F
 71B9 DI
 71BA LD HL,0x8000; LD DE,0x8001; LD BC,0x1BC3; LD (HL),0; LDIR   ; *** zero system RAM 0x8000-0x9BC3 ***
-71C7 LD (IY+0x3F),A                         ; restore preserved flag bit
+71C7 LD (IY+0x3F),A                         ; restore the saved low 7 bits
 ...   (restore IY+0x34 bit6, IY+0x35 bit0 from the preserved state)
 71E0 LD HL,0x9BD0; LD DE,0x9BD1; LD BC,0x642F; LD (HL),0; LDIR   ; *** zero user RAM 0x9BD0-0xFFFF ***
 71ED JP 0x0BD9                              ; re-init RAM (page-0 boot init)

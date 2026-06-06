@@ -9,7 +9,7 @@ This page categorizes the ~600 named bcall entry points (the OS's public API) by
 | **Variables / VAT** | ~37 | `_FindSym`,`_ChkFindSym`,`_CreateReal/List/Mat/Str/AppVar`,`_DelVar`,`_InsertMem`,`_Arc/Unarc` |
 | **String / convert** | ~18 | `_ExpToHex`,`_OP1ExpToDec`,`_CreateStrng`,`_StrCopy`,`_Get_Tok_Strng` |
 | **Parser / TI-BASIC** | ~18 | `_IsA2ByteTok`,`_GetTokLen`,`_BinOPExec`,`_RunIndic*` |
-| **Link / I-O** | ~15 | `_SendByte`,`_Recv*`,`_CmdLoad`, link-command handlers (`_CircCmd`,`_VertCmd`) |
+| **Link / I-O** | ~15 | `_SendAByte`,`_RecAByteIO`,`_SendVarCmd`,`_Rec1stByte`,`_CmdLoad` |
 | **System / power** | ~15 | `_AppInit`,`_PutAway`,`_RandInit`,`_ApdSetup`,`_Chk_Batt_Low`,`_SetExSpeed`,`_JForceCmd` |
 | **List / Matrix** | ~13 | `_CreateRList/CList/RMat`,`_ErrDimMismatch`,dim/element ops |
 | **Keyboard** | ~5 | `_GetCSC`,`_GetKey`,`_KeyToString` |

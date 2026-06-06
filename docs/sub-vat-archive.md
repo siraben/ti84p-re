@@ -230,8 +230,10 @@ into `C` and then read-modify-write the status byte (`3D:7C9A: CALL flash_read_b
 | `flash_op_fd` (`3D:7C8F`) | `0xFD` | bit 1 | (intermediate / "swap" marker) |
 | `flash_op_fb` (`3D:7C93`) | `0xFB` | bit 2 | (intermediate) |
 
-Successive clears compose: a record goes `0xFF` (erased) → `0xFE` (started) → `0xFC` (**valid/complete**,
-bits 0+1 clear) → `0xF0` (**deleted/dead**, bits 0–3 clear). Because only bits go `1→0`, a deleted record
+Successive clears compose: the three helpers take a record `0xFF` (erased) → `0xFE` (started) →
+`0xFC` (**valid/complete**, bits 0+1 clear). Deletion marks the record `0xF0` (**deleted/dead**, bits
+0–3 clear) with a direct write in the delete/GC path (§7), not via those three in-progress/valid
+helpers. Because only bits go `1→0`, a deleted record
 can never be re-validated in place — it is reclaimed only by GC erasing the whole sector.
 `flash_find_nonff` (`3D:7DEA`) confirms `0xFF` = empty: it reads the 13-byte record header and `CP 0xFF`
 on each, treating an all-`0xFF` run as a free slot. (`3D:7C99` additionally folds in `AND 0xE7` and
@@ -360,7 +362,7 @@ Ports: **0x06** = bank-A page select (Flash window), **0x14** = Flash write/eras
   `3D:5ED3`, sector counter `0x82A3` from `flash_set_sector_cnt` `3D:727D`); the physical chip
   sector is 64 KB = 4 OS pages [I].
 - **Record-status bytes — [C], see §6a.** Monotonic bit-clear: `0xFF` erased → `0xFE` in-progress
-  → `0xFC` valid → `0xF0` deleted, written by `flash_op_fe/fd/fb` (`3D:7C97/7C8F/7C93`) AND-masking
+  → `0xFC` valid via `flash_op_fe/fd/fb` (`3D:7C97/7C8F/7C93`) AND-masking; `0xF0` deleted is a direct write in the delete/GC path
   the status byte; `flash_find_nonff` (`3D:7DEA`) treats an all-`0xFF` header as free.
 
 **Residual:**
