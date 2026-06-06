@@ -40,3 +40,6 @@ tools/ti84_page00.bin
 __pycache__/
 /ti84_253.gpr
 /ti84_253.rep/
+
+# Local app samples used for reverse-engineering spot checks
+/tools/app-samples/
