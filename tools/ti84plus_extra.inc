@@ -68,18 +68,3 @@ _edt_69f8            .equ 5461h    ; -> 03:69F8  (1 call site)
 _edt_5d6f            .equ 5464h    ; -> 03:5D6F  (1 call site)
 _mnu_6ddb            .equ 5467h    ; -> 39:6DDB  (1 call site)
 _grf_5e06            .equ 5476h    ; -> 33:5E06  (1 call site)
-
-;--- 0x8xxx extended bcalls: dispatched via the ID bit-15 path through a
-;    SECOND jump table on flash page 0x3F (boot page), indexed by (ID&0x7FFF).
-;    Targets are 84+-era/boot routines on page 0x3F (RE-named) ---
-_xb_PageSetup      .equ 8021h    ; -> 3F:44F3
-_xb_RecordFind     .equ 8027h    ; -> 3F:4448
-_xb_RecordNext     .equ 8030h    ; -> 3F:442B
-_xb_52eb           .equ 8054h    ; -> 3F:52EB
-_xb_430f           .equ 8057h    ; -> 3F:430F
-_xb_RecordAdvance  .equ 805Ah    ; -> 3F:449C
-_xb_4463           .equ 805Dh    ; -> 3F:4463
-_xb_446c           .equ 8075h    ; -> 3F:446C
-_xb_5296           .equ 80B1h    ; -> 3F:5296
-_xb_531e           .equ 80B7h    ; -> 3F:531E
-_xb_5323           .equ 80BAh    ; -> 3F:5323

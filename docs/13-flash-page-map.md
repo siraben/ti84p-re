@@ -32,12 +32,12 @@ This image appears **OS-only** in the local ROM-byte scan: scanning every page b
 
 | Page | Verified contents |
 |------|-------------------|
-| `08–32` | OS code/data reached via cross-page jumps (not bcalls), plus **alternate large-font glyph tables** (pages 1 and 0x36, selected by `(IY+0x35)` bits 5/1) and string/help-text tables. No app headers. (The primary large-font glyph table is on page 0x07; see below.) |
+| `08–32` | OS code/data reached via cross-page jumps (not bcalls), plus **alternate large-font glyph tables** (pages 1 and 0x36, selected by `(IY+0x35)` bits 5/1) and string/help-text tables. Page `2F` is the retail USB boot support page supplied by local `D84PBE2.8Xv`; retail page `3F` points `_AttemptUSBOSReceive`, `_ReceiveOS_USB`, `_USBErrorCleanup`, `_InitUSB`, and `_KillUSB` into it. No app headers. (The primary large-font glyph table is on page 0x07; see below.) |
 | `34–39` | More OS code (graph/mode/menu); mostly full (1–17% `0xFF`). |
 | **3B** | **bcall jump table** — starts `99 27 00` = entry 0 (`_JErrorNo`→`00:2799`). |
 | **3C** | Link code + the **OS version string** — page starts with ASCII `32 2E 35 35 4D 50` = **"2.55MP"**. |
 | **3E** | **Certification page** — the per-calculator certificate sector (84+ cert page is `3E`, not `3F`). Blank (99% `0xFF`) in this OS-only image, since the cert is written per-device. The OS reads this sector through the `ti83plus.inc` cert bcalls: `_GetCertificateStart` (bcall `0x8057`) and `_GetCertificateEnd` (bcall `0x802D`) bound the sector, and `_FindFirstCertField` (bcall `0x8027`) / `_FindNextCertField` (bcall `0x8078`) walk its TLV fields. |
-| **3F** | **Boot page** — starts `3E 3F D3 06 D3 07` = `LD A,0x3F; OUT (6),A; OUT (7),A` (maps itself into both banks at power-on). Boot code only; the certificate lives on page `3E`. Boot/hardware version is exposed through `_getBootVer` (bcall `0x80B7`) and `_getHardwareVersion` (bcall `0x80BA`) in `ti83plus.inc`. |
+| **3F** | **Retail boot page** — supplied by local `D84PBE1.8Xv`; starts `3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81`, carries boot version `1.03`, and hosts the `0x8xxx` boot bcall table. Boot/hardware-version bcalls now resolve to `_getBootVer` `3F:477C` (`0x80B7`) and `_getHardwareVersion` `3F:4781` (`0x80BA`). |
 
 The **large-font glyph table is on page 0x07, base `0x45FF`** — `put_glyph_large` (`07:4588`) computes the glyph pointer as `0x45FF + char*7` (**7-byte stride**, via the `07:45EB` adjuster) and copies an 8-byte record via `_Mov8B` to RAM `0x845A`; see [Display/LCD → Fonts](08-display-lcd.md#fonts-confirmed). Alternate large fonts live on pages 1 and 0x36 (selected by `(IY+0x35)` bits 5/1). Page 7 is the busiest data page (archive code, list/matrix, error messages, *and* the large font). **[confirmed]**
 

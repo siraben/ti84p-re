@@ -4,15 +4,16 @@ import ghidra.program.model.listing.*;
 import ghidra.program.model.symbol.SourceType;
 import java.nio.file.*;
 
-// Reads bcall_targets.txt (name, id, addr, page) and disassembles+names each
-// OS routine at its real entry point in the matching overlay page.
+// Reads bcall_targets.txt and bcalls8x_targets.txt (name, id, addr, page), then
+// disassembles+names each OS routine at its real entry point.
 public class ApplyBcalls extends GhidraScript {
     public void run() throws Exception {
         String dir = getScriptArgs().length > 0 ? getScriptArgs()[0] : ".";
         AddressFactory af = currentProgram.getAddressFactory();
         AddressSpace ram = af.getDefaultAddressSpace();
         int named = 0, dis = 0;
-        for (String line : Files.readAllLines(Paths.get(dir + "/bcall_targets.txt"))) {
+        String[] targetFiles = {"bcall_targets.txt", "bcalls8x_targets.txt"};
+        for (String targetFile : targetFiles) for (String line : Files.readAllLines(Paths.get(dir + "/" + targetFile))) {
             String[] p = line.trim().split("\\s+");
             if (p.length < 4) continue;
             String name = p[0];
