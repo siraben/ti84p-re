@@ -164,21 +164,18 @@ rate**:
   update is ≤ ~10⁻¹²**. The new estimate is written back via `(84D9)→(84D3)`
   (`3A:71F9…71FE`). **[confirmed]**
 
-### 2.3 The `_SinH` call at `3A:710B` is real, not a mis-decode [confirmed]
-An earlier pass flagged `id=0x40CF` (decoded `_SinH`) in the TVM body as "almost certainly a
-mis-mapped finance helper / bcall-id collision." Grounding this against the bytes shows the
-opposite: at **`3A:710B`** the body contains `EF CF 40` = `RST 0x28; .dw 0x40CF`, and the
-bcall table maps `0x40CF` to **`_SinH`** unambiguously (`_SinHCosH`=`0x40C6`, `_SinH`=`0x40CF`,
-`_ASinH`=`0x40ED` are three consecutive distinct entries — there is no collision). A scan of
-the whole loop body (`3A:70A0…7210`) finds only three bcalls: `_SinH` (`0x40CF`, `3A:710B`),
-an unmapped helper `0x462A` (adjacent to `_AdrLEle 0x462D` — a list/element accessor for the
-finance sysvar slots), and `_SetXXOP2` (`0x478F`, `3A:71C5`). The `_SinH` call is therefore
-**genuine and meaningful**: the surrounding `_FPMult`/`_OP1ToOP2`/`_FPSub` sequence
-(`CD 8B 23 … CD D4 16 CD 51 16 EF CF 40 CD 3F 16`) evaluates the annuity / compound-growth
-factor in **hyperbolic form** — the numerically stable way to form
-`(1+i)^N − 1` and `[1−(1+i)^-N]/i` for small rates `i`, avoiding catastrophic cancellation.
-This is the only transcendental call in the rate-Newton loop. **[confirmed — `_SinH` is the
-correct decode; open item resolved]**
+### 2.3 The TVM rate loop calls `_SinH` (`3A:710B`) [confirmed]
+At **`3A:710B`** the TVM body contains `EF CF 40` = `RST 0x28; .dw 0x40CF`, and the bcall
+table maps `0x40CF` to **`_SinH`** (`_SinHCosH`=`0x40C6`, `_SinH`=`0x40CF`, `_ASinH`=`0x40ED`
+are three consecutive distinct entries). A scan of the whole loop body (`3A:70A0…7210`) finds
+three bcalls: `_SinH` (`0x40CF`, `3A:710B`), an unmapped helper `0x462A` (adjacent to
+`_AdrLEle 0x462D` — a list/element accessor for the finance sysvar slots), and `_SetXXOP2`
+(`0x478F`, `3A:71C5`). The `_SinH` call carries the math: the surrounding
+`_FPMult`/`_OP1ToOP2`/`_FPSub` sequence (`CD 8B 23 … CD D4 16 CD 51 16 EF CF 40 CD 3F 16`)
+evaluates the annuity / compound-growth factor in **hyperbolic form** — the numerically
+stable way to form `(1+i)^N − 1` and `[1−(1+i)^-N]/i` for small rates `i`, avoiding
+catastrophic cancellation. This is the only transcendental call in the rate-Newton loop.
+**[confirmed]**
 - Exhausting the 64-iteration `DJNZ`/`DEC B` budget falls to `3A:7206 JP 274D` =
   **ITERATIONS (0x99)**. Solving for `N`/`PV`/`PMT`/`FV` is closed-form (algebraic
   rearrangement) and does not iterate. **[confirmed for I%; standard for the rest]**
@@ -213,9 +210,9 @@ difference with var save/restore; ε-default standard]**
 Ghidra function `fnint_body` at `33:4D00` (extent `33:4D00…4E91`):
 
 - builds interval midpoints and half-widths: `_FPSub` (`2297`), `_TimesPt5` (`2382`, ×0.5),
-  `_FPDiv` (`2541`). The bytes at `33:4D1B` that an earlier pass read as "BCD weight
-  constants" are in fact **executable code** — `21 83 84` (`LD HL,0x8483`), `3E 60`
-  (`LD A,0x60`), `CD 65 1B` (`CALL _OP2SetA`/`1B65`) — i.e. it loads the scalar **0x60 = 96**
+  `_FPDiv` (`2541`). The bytes at `33:4D1B` are **executable code** — `21 83 84`
+  (`LD HL,0x8483`), `3E 60` (`LD A,0x60`), `CD 65 1B` (`CALL _OP2SetA`/`1B65`) — loading the
+  scalar **0x60 = 96**
   (a working digit/scale count), not a quadrature weight. **[confirmed bytes]**
 - maintains a working set of partial sums in an **FPS frame** (`_AllocFPS 1534`,
   `_PopRealOx 14F6/150F/1505`, `_DeallocFPS 1526`, with slot offsets `DE=0x15/0x1B/0x24`)
@@ -228,7 +225,7 @@ Ghidra function `fnint_body` at `33:4D00` (extent `33:4D00…4E91`):
   `33:4E74`). Exhausting the refinement budget falls through to `33:4E8F JP 274D` =
   **ITERATIONS (0x99)**. **[confirmed loop/tolerance]**
 
-**Quadrature rule — resolved.** A full byte scan of `33:4D00…4F00` finds **exactly one**
+**Quadrature rule.** A full byte scan of `33:4D00…4F00` finds **exactly one**
 floating-point constant in the body: the TIFloat at `33:4E92`
 (`00 82 23 02 58 50 92 99 40` = 2.30258509…×10², i.e. `ln(10)·100`). It is referenced at
 `33:4E5D` (`LD HL,0x4E92; CALL 0x1982`), immediately after the only transcendental bcall in
@@ -286,8 +283,8 @@ bjump**, and goes through the page-0x02 command-execution layer:
    to assign a small class index in `C` and `CALL 0x50AC`) and dispatches into the numeric
    bodies `nderiv_body` (`33:4C80`) / `fnint_body` (`33:4D00`). Because the call crosses
    pages through the bcall/app-call trampoline, **no static xref to these bodies survives**
-   in the Ghidra database (confirming they are reached by a generic paged call, exactly as
-   hypothesised). **[confirmed path; trampoline hides the static edge]**
+   in the Ghidra database — the mark of a generic paged call rather than an inline bjump.
+   **[confirmed path; trampoline hides the static edge]**
 
 ---
 
@@ -363,11 +360,10 @@ The four open questions from the prior pass are now resolved against the bytes:
   weight table**; its sole FP constant is `ln(10)·100` at `33:4E92`, used (with bcall `_LnX`)
   to convert digit-tolerance to a decimal error bound. With explicit ×0.5 interval bisection
   and a coarse-vs-fine estimate comparison, it is an **adaptive Newton–Cotes / Simpson-class
-  bisection** integrator. The `33:4D1B` "constants" were in fact code (`LD A,0x60; _OP2SetA`).
-- **TVM `_SinH` (id 0x40CF) — resolved (§2.3).** It is a **genuine `_SinH` call** at
-  `3A:710B`, not a mis-mapped helper or id collision (`0x40C6/0x40CF/0x40ED` are three
-  distinct hyperbolic bcalls). It evaluates the annuity / compound factor in hyperbolic form
-  for numerical stability at small rates.
+  bisection** integrator. `33:4D1B` is executable code (`LD A,0x60; _OP2SetA`).
+- **TVM `_SinH` (id 0x40CF) — resolved (§2.3).** The TVM rate loop calls `_SinH` at
+  `3A:710B` (`0x40C6/0x40CF/0x40ED` are three distinct hyperbolic bcalls); it evaluates the
+  annuity / compound factor in hyperbolic form for numerical stability at small rates.
 - **class-3 routing of `tFnInt`/`tNDeriv`/`tRoot` — resolved (§4.1).** Path is
   `BB-token → page-0x02 dispatcher (02:68F3/6904/58AD) → arg-parse + default-tol (02:6AF6,
   exp 0x7D = 1e-3) → paged call → page-0x33 bodies`, re-validated by `bb_token_scanner`

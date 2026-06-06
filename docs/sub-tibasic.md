@@ -225,7 +225,7 @@ cross-page jump (`RST2`/bjump). Token-compare sites located by ROM scan:
 | `Prompt` | `tPrompt=DD` | `02:562F`, `02:5786`, `02:590E`, `00:4C5C` | like `Input` but auto-labels `NAME=?` |
 | `Menu(` | `tMenu=E6` | `38:5A8A` (CP E6), `02:555D`, `06:4A17` | `_DispMenuTitle` (`39:4D21`) + branch on choice |
 | `Pause` | `tPause=D8` | `02:55E7`, `02:6684`, `39:6B8E`, `3A:7E7C` | display then wait for `[ENTER]` via key loop |
-| `getKey` | `tGetKey=AD` | `37:6700` (token-attr table, **not** a keymap), `3A:7E8A` | non-blocking `_GetKey` (bcall `0x4972`, page 06); returns keycode→OP1 |
+| `getKey` | `tGetKey=AD` | `37:6700` (a token-attribute table, not a keymap), `3A:7E8A` | non-blocking `_GetKey` (bcall `0x4972`, page 06); returns keycode→OP1 |
 | `ClrHome` | (cmd token) | clears text shadow + home cursor | `_ClrLCDFull` / home-cursor reset |
 
 Details:
@@ -274,14 +274,14 @@ Details:
   token (`tGetKey=AD`) in the evaluator, not a statement. The keycode read itself is
   the OS system call **`_GetKey`** (bcall `0x4972` → page 06 `06:491E`); the per-key
   numeric codes returned are the standard TI `kXxx` constants (e.g. `kRight=1`,
-  `kLeft=2`, `kUp=3`, `kDown=4`, `kEnter=5`, `kClear=9`, `k0..k9 = 0x8E…`). **Correction:**
-  `37:6700` is **not** a getKey keycode table. Byte-decoding it (`FE AD 1C 1B 18 EC 31 00
-  84 …`) shows it begins `CP 0xAD` (tGetKey) / `CP 0x55` / `CP 0x54` and continues as a
-  table of fixed-width **token-attribute / opcode-template records** keyed by token
-  (`FE xx` 1-byte, `FB xx`/`FC xx`/`F4 89` 2-byte tokens — getKey, stat/distribution and
-  finance tokens), used by a (de)tokenizer/compiler, not a key→code map. The earlier "bad
-  instruction" flag was Ghidra failing to auto-analyze this **data table** as code.
-  **[confirmed: 37:6700 is a token-descriptor table, not a keymap; keycodes come from
+  `kLeft=2`, `kUp=3`, `kDown=4`, `kEnter=5`, `kClear=9`, `k0..k9 = 0x8E…`).
+  `37:6700` is a fixed-width **token-attribute / opcode-template table** keyed by token, which
+  Ghidra renders as code. Byte-decoding it (`FE AD 1C 1B 18 EC 31 00
+  84 …`) shows it begins `CP 0xAD` (tGetKey) / `CP 0x55` / `CP 0x54` and continues as
+  records keyed by token (`FE xx` 1-byte, `FB xx`/`FC xx`/`F4 89` 2-byte tokens — getKey,
+  stat/distribution and finance tokens), used by a (de)tokenizer/compiler rather than as a
+  key→code map. The keycodes a `getKey` returns come from `_GetKey` on page 06, not this table.
+  **[confirmed: 37:6700 is a token-descriptor table; keycodes come from
   `_GetKey` on page 06]**
 - **`ClrHome`** — clears the home-screen text shadow and resets the cursor to
   (0,0). **[inferred — standard]**
@@ -368,21 +368,21 @@ page_38:6ae6   output_dispatch    (CP E0 in evaluator)
 
 ## 8. Resolved / residual
 
-The three open items from the prior pass are now resolved against the bytes (see §5 / §4):
+Three argument-handling and dispatch details, grounded in the bytes (see §5 / §4):
 
-- **`Input`/`Prompt`/`Menu` argument order — resolved (§5).** `Input` (`02:54EF`→`54F6`):
+- **`Input`/`Prompt`/`Menu` argument order (§5).** `Input` (`02:54EF`→`54F6`):
   optional leading prompt-string *or* `(row,col)` → single store var → editor → parse →
   store. `Prompt` (`02:562F`→`6699`): loop over comma-separated **type-4 storable vars**,
   each "`NAME=`" → editor → parse → store. `Menu(` (`02:555D`): title string, then up to 7
   (option-string, `Lbl`) pairs, then key-select → `Goto`-style jump.
-- **`For`/`While`/`Repeat`/`End` dispatch — resolved (§4).** Execution handlers live on
+- **`For`/`While`/`Repeat`/`End` dispatch (§4).** Execution handlers live on
   **page 0x33** (jump table `33:4381`, entered via bcall `0x5140`/`0x513D` = `33:435F` from
   the page-0x02 dispatcher at `02:54BD`/`02:6400`), not page 0x38. `End` re-seeds the parse
   cursor from the loop record's saved top position.
-- **`getKey` `37:6700` — resolved (§5).** Not a keymap: it is a fixed-width
+- **`getKey` `37:6700` (§5).** A fixed-width
   **token-attribute / opcode-template table** keyed by token (`FE/FB/FC/F4`-prefixed). The
-  actual keycodes come from the OS `_GetKey` system call (bcall `0x4972`, page 06) returning
-  the standard `kXxx` constants.
+  keycodes a `getKey` returns come from the OS `_GetKey` system call (bcall `0x4972`, page 06),
+  which returns the standard `kXxx` constants.
 
 Residual (genuinely unverified — would need deeper page-0x33 paged tracing):
 - The **exact byte layout of the For/While/Repeat loop-control record** on the FPS (field

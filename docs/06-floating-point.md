@@ -172,7 +172,7 @@ So a single 16-row table at `02:7181` powers **all** of ln / log / eˣ / 10ˣ; t
 
 ### `_EToX` — eˣ (`02:705C`) [confirmed]
 
-`_EToX` is local code, not a page-0x03 thunk. It clears guard digits, then `02:705F: LD A,3; CALL 0x2362` loads constant-table index 3 (`log10(e)`) and falls through at `02:7064` into the same local body used by `_TenX` (`02:7066`). The body splits the decimal exponent/integer digit shift (`02:7069`-`02:70B6`), handles sign/reciprocal cases (`02:70B9`-`02:70D9`), then evaluates the fractional part with the shared 16-row table at `02:7181`. The exact loop bound is `02:7109: LD A,(0x848E); CP 0x0F; JR Z,0x7140`, so the table-driven exp evaluator has 16 selector slots (`0..15`).
+`_EToX` is local page-0x02 code. It clears guard digits, then `02:705F: LD A,3; CALL 0x2362` loads constant-table index 3 (`log10(e)`) and falls through at `02:7064` into the same local body used by `_TenX` (`02:7066`). The body splits the decimal exponent/integer digit shift (`02:7069`-`02:70B6`), handles sign/reciprocal cases (`02:70B9`-`02:70D9`), then evaluates the fractional part with the shared 16-row table at `02:7181`. The exact loop bound is `02:7109: LD A,(0x848E); CP 0x0F; JR Z,0x7140`, so the table-driven exp evaluator has 16 selector slots (`0..15`).
 
 ### `_SinCosRad` — sin/cos in radians (`02:733E`) [confirmed]
 

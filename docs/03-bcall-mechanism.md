@@ -57,7 +57,7 @@ All six match the documented TI-83+/84+ RST assignments — strong cross-confirm
 
 Besides bcalls, the OS calls *its own* cross-page routines via **bjump**: `CALL cross_page_jump` (`= CALL 0x2b09`) followed inline by `.dw addr; .db page`. `cross_page_jump` pops the return address, reads the 2-byte target + 1-byte page from it, banks the page (`& 0x3F`), and jumps. The target's `RET` returns to *the bjump's caller*, so it behaves like a call that consumes the 3 inline bytes.
 
-There is a trampoline table in the page-0 address range **`0x3B01–0x3D0B`**: **87 packed 6-byte entries**, each a bjump to a hot OS routine on another page. The static Ghidra DB models it in the page-0/ROM address space; the old "RAM-resident" wording is a runtime-copy hypothesis and is not MCP-confirmed. Code invokes a routine by `CALL 0x3Bxx` into the table. `tools/bjumps.txt` lists every entry's `(offset → page:addr)`; `tools/RamRoutines.java` marks the inline `.dw/.db` as data and comments each target.
+There is a trampoline table in the page-0 address range **`0x3B01–0x3D0B`**: **87 packed 6-byte entries**, each a bjump to a hot OS routine on another page. The static Ghidra DB models it in the page-0/ROM address space; whether the table is copied to RAM at runtime is a hypothesis, not MCP-confirmed. Code invokes a routine by `CALL 0x3Bxx` into the table. `tools/bjumps.txt` lists every entry's `(offset → page:addr)`; `tools/RamRoutines.java` marks the inline `.dw/.db` as data and comments each target.
 
 Example: `_PutMap`'s glyph blitter is reached via the trampoline at `0x3B3D → page_07:4588`.
 

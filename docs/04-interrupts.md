@@ -10,7 +10,7 @@ The Z80 runs in **interrupt mode 1**: every maskable interrupt vectors to `0038h
 006f:  int_dispatch_sources    ; live interrupt-source dispatcher
 ```
 
-`int_dispatch_sources` @ `ram:006F` (called `isr_im1` in older notes) runs after the two-byte prologue at `ram:006D`, with `IY = flags` (`0x89F0`), so `(IY+off)` reads/writes `SystemFlags` fields.
+`int_dispatch_sources` @ `ram:006F` runs after the two-byte prologue at `ram:006D`, with `IY = flags` (`0x89F0`), so `(IY+off)` reads/writes `SystemFlags` fields.
 
 ## What it does [confirmed from decompiler]
 
