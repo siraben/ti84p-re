@@ -84,7 +84,7 @@ seeds the bracket. The main loop runs from `39:4413`:
     (`39:45AD`) = **BAD GUESS** (raised when the initial bracket is unusable).
   - A small count (`CP 0x04`, `39:44C3`) gates the early Illinois/secant correction.
 - **Bisection midpoint:** `_InvSub` (`ram:227D`, = b−a) then `_TimesPt5` (`ram:2382`, ×0.5)
-  at `39:443C/443F` ⇒ $m=\tfrac{1}{2}(a+b)$. **[confirmed]**
+  give the half-width $\tfrac{1}{2}(b-a)$ at `39:443C/443F`; adding $a$ yields the midpoint $m=a+\tfrac{1}{2}(b-a)$. **[confirmed]**
 - **Secant / regula-falsi step:** `_FPMult` (`238B`), `_FPSub` (`2297`), `_FPDiv`-class and
   `_InvOP1S` (`24BD`) around `39:4488…44F2` compute the linear-interpolation step
   $x_{n+1}=x_n-f(x_n)\,\dfrac{b-a}{f(b)-f(a)}$. The result is compared against the bisection bound; the
@@ -103,20 +103,18 @@ seeds the bracket. The main loop runs from `39:4413`:
 
 ```pseudocode
 \begin{algorithm}
-\caption{Solver root-finder --- bisection $\oplus$ secant (page 0x39)}
+\caption{Solver root-finder --- bracketed secant / regula-falsi (page 0x39)}
 \begin{algorithmic}
-\REQUIRE bracket $[a,b]$, current guess $x$
+\REQUIRE bracket $[a,b]$ with $\mathrm{sign}(f(a)) \neq \mathrm{sign}(f(b))$ \COMMENT{else \textsc{no sign change} (0x98)}
 \FOR{$k = 0$ \TO $499$}
-    \STATE $m \gets \tfrac{1}{2}(a+b)$ \COMMENT{midpoint: \texttt{\_InvSub}, \texttt{\_TimesPt5}}
-    \STATE $s \gets x - f(x)\,\dfrac{b-a}{f(b)-f(a)}$ \COMMENT{secant: \texttt{\_FPMult/\_FPSub/\_FPDiv}}
-    \IF{$s \in [a,b]$}
-        \STATE $x \gets s$
-    \ELSE
-        \STATE $x \gets m$ \COMMENT{secant left the bracket}
-    \ENDIF
+    \STATE $m \gets a + \tfrac{1}{2}(b-a)$ \COMMENT{bisection midpoint: \texttt{\_InvSub}, \texttt{\_TimesPt5}}
+    \STATE $s \gets a - f(a)\,\dfrac{b-a}{f(b)-f(a)}$ \COMMENT{secant: \texttt{\_FPMult/\_FPSub/\_FPDiv}}
+    \STATE $x \gets s$ \textbf{if} $s \in [a,b]$ \textbf{else} $m$ \COMMENT{fall back to bisection}
     \STATE $f_x \gets \mathrm{eval\_equation}(x)$ \COMMENT{re-parse, error-trapped (39:468F)}
-    \IF{$\mathrm{sign}(f(a)) = \mathrm{sign}(f(b))$}
-        \STATE \textbf{raise} \textsc{no sign change} (0x98)
+    \IF{$\mathrm{sign}(f_x) = \mathrm{sign}(f(a))$}
+        \STATE $a \gets x$ \COMMENT{keep the sign change in the new bracket}
+    \ELSE
+        \STATE $b \gets x$
     \ENDIF
     \IF{$|b-a| < 10^{-13}$}
         \RETURN $x$ \COMMENT{converged (39:4547)}

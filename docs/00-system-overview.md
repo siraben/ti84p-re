@@ -58,6 +58,6 @@ Database state: **2413 functions (100% named)**, all bcalls resolved via both ju
 - Reset entry `reset` @ `ram:0000` **[confirmed]**
 - bcall dispatcher `bcall_dispatcher` @ `ram:2a2f` (RST 28h) **[confirmed]**
 - IM1 interrupt `isr_im1` @ `ram:006d` (via RST 38h) **[confirmed]**
-- System flags base `flags` @ `8x89F0` (IY-indexed), typed `SystemFlags` **[confirmed]**
+- System flags base `flags` @ `0x89F0` (IY-indexed), typed `SystemFlags` **[confirmed]**
 - FP registers `OP1`–`OP6` @ `0x8478`+ **[standard]**
 - 126 BCD float constants ROM-wide incl. π/180, 180/π **[confirmed]**

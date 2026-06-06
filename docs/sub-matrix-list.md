@@ -98,12 +98,12 @@ Convenience wrappers (all = `_AdrLEle` then a 9-byte move through OP1, complex-a
 - **`_RclCListElem` (`02:49A7`)**, **`_RclCListElemB` (`02:49B5`)** — complex-list element via
   `_CplxOPArrange` (splits real/imag into OP1/OP2).
 - **`_GetPosListElem` (`02:5BBB`)** — fetch by a *positive-integer* index with `_CkOP1Pos`
-  bounds (raises `E_Domain 0x15` on a bad index).
+  bounds (loads `A=0x15` = `E_Stat` and jumps to the error vector `ram:2741` on a bad index).
 
 ### Matrix element address — `_AdrMEle` (`02:4002`) [C]
 ```z80
 _AdrMEle:                                 ; B=idx0, C=idx1, DE=matrixDataPtr
-  if B==0 or C==0 -> _JError(0x78)         ; E_Invalid (0-index)
+  if B==0 or C==0 -> LD A,0x78 ; JP 0x2793 ; 0-index rejected (error vector)
   A = (DE)        ; A = dim0 (rows)        ; first header byte
   HL = 0
   repeat (B − 1) times:  HL += dim0        ; (idx0-1) * dim0     (column stride)
@@ -314,13 +314,13 @@ same elimination machinery — flagged [I].*
 
 | `_JError` code | name | raised by |
 |---|---|---|
-| `0x78` | `E_Invalid` (0-index) | `_AdrMEle`/`_AdrMRow` on a 0 row/col index |
+| `0x78` | 0-index reject (via `ram:2793`) | `_AdrMEle`/`_AdrMRow` on a 0 row/col index |
 | `0x83` | `E_SingularMat` (`ERR:SINGULAR MAT`) | `42A6` inverse on a zero pivot (`_ErrSingularMat 00:26F0`) |
 | `0x85` | `E_Increment` | `_ErrIncrement 00:26F8` (bad seq/loop step) |
 | `0x89` | `E_DataType` | `det(`/matrix ops on a non-matrix operand (`FUN_02_69B7`) |
 | `0x8B` | `E_DimMismatch` (`ERR:DIM MISMATCH`) | add/sub/multiply with incompatible dims (`_ErrDimMismatch 00:2715`) |
 | `0x8C` | `E_Dimension` (`ERR:INVALID DIM`) | non-square det/inverse, out-of-range element store (`_ErrDimension 00:2719`, `_StMatEl`) |
-| `0x15` | `E_Domain` | `_GetPosListElem` bad index (`_CkOP1Pos`) |
+| `0x15` | `E_Stat` (via `ram:2741`) | `_GetPosListElem` bad index (`_CkOP1Pos`) |
 
 ---
 
@@ -341,13 +341,13 @@ same elimination machinery — flagged [I].*
 | `02:4108` | `identity_build` | `identity(n)`: diagonal-1 fill (token 0xB4) [C] |
 | `02:412A` | `mat_elementwise` | per-element matrix unary/binary apply [C] |
 | `02:414E` | `mat_row_op` | row swap/scale (elimination) [C] |
-| `02:41C1` | `pivot_abs_cmp` | `|OP1|` vs `|pivot|` compare [C] |
-| `02:41D0` | `pivot_col_scan` | partial-pivot: find largest-|·| in column [C] |
+| `02:41C1` | `pivot_abs_cmp` | absolute-value compare: OP1 vs pivot [C] |
+| `02:41D0` | `pivot_col_scan` | partial-pivot: find largest absolute value in column [C] |
 | `02:4259` | `perm_swap` | swap two entries of the permutation vector (84D5) [C] |
 | `02:426D`/`426F` | `row_dot_accum` | dot-product / back-substitution accumulate [C] |
 | `02:42A6` | `matrix_gauss_engine` | **inverse(flag 0)/det(flag 0x40)** Gauss-Jordan + partial pivot [C] |
 | `02:4473` | `elim_sub_step` | `[M] − factor*pivot` element step (`_FPSub`) [C] |
-| `02:461C` | `mat_max_abs` | max-|element| (pivot tolerance) [C] |
+| `02:461C` | `mat_max_abs` | maximum absolute element (pivot tolerance) [C] |
 | `02:47C5` | `_AdrLEle` | list element address: `data+2+(i-1)*9` [C] |
 | `02:47EA` | `_GetLToOP1` | list[i] → OP1 (complex-aware) [C] |
 | `02:47FB` | `_RclListElemToOP1` | recall list elem to OP1 [C] |

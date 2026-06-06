@@ -77,7 +77,7 @@ silent-link control/scratch area:
 IY-relative flag bytes used by the link code (IY = `flags` base, `0x89F0`): **`IY+0x1B`** is the
 link-mode/peer-type byte (which machine-ID to advertise, USB-vs-DBUS, single-byte mode), **`IY+0x12`
 bit2** "command in progress", **`IY+0x24` bit1/2** transfer-active, **`IY+0xC` bit2** APD-disable
-save, **`IY+0x3E` bit0` / `IY+0x3D` bit5** USB-presence.
+save, **`IY+0x3E` bit0** / **`IY+0x3D` bit5** USB-presence.
 
 ---
 
@@ -323,7 +323,7 @@ door; `_LinkXferOP` is the "OP1 already set up, do the silent transfer" door.
 
 The OS collapses the link failures into the single user-visible **`E_LnkErr` (0x9F)** "ERR:LINK".
 The finer-grained codes **`E_LinkIOChkSum` 0x22, `E_LinkIOTimeOut` 0x23, `E_LinkIOBusy` 0x24,
-`E_LinkIOVer` 0x25`** exist in the error table (`ty_error.txt`) and are used by the higher-level
+`E_LinkIOVer` 0x25** exist in the error table (`ty_error.txt`) and are used by the higher-level
 *assembly-callable file-transfer API* (e.g. `OpenSendFlag`/`Send`/`Receive` style), not by the raw
 silent-link engine documented here. **[C for 0x9F path; H for the 0x22-25 mapping.]**
 

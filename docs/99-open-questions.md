@@ -10,7 +10,7 @@ The structural reverse-engineering is comprehensive (every subsystem mapped, bot
 4. ~~**Parser precedence levels**~~ ✅ **DONE** — the recursive-descent productions and the sub-dispatch tables at `page_38:5110`/`5127` are mapped via `parse_eval_expr`@`38:5AB3`. See [07](07-tokenizer-basic.md).
 5. ~~**Event/context `0x3f3f` router**~~ ✅ **DONE** — resolved to the RAM-resident vector reaching `event_key_router`@`page_07:4539`; the 8-slot context stack near `0x84BE` is documented. See [11](11-boot-contexts-errors.md).
 6. ~~**84+-era bcalls**~~ ✅ **DONE** — the `0x8xxx` bcalls dispatch through a **second jump table on flash page 0x3F** (boot page), indexed by `ID & 0x7FFF`. Resolved + cataloged in `ti84plus_extra.inc`; see [03](03-bcall-mechanism.md).
-7. ~~**Equation pretty-printer (page 0x39)**~~ ✅ **DONE** — the ~147 `eqdisp_*` functions are documented as a 2-D measure→draw typesetter. See [sub-equation-display.md](sub-equation-display.md).
+7. ~~**Equation pretty-printer (page 0x39)**~~ ✅ **DONE** — page 0x39's 147 named functions (112 `eqdisp_*` + solver/menu helpers) are documented as a 2-D measure→draw typesetter. See [sub-equation-display.md](sub-equation-display.md).
 8. ~~**Name every `FUN_` helper**~~ ✅ **DONE** — 100% of the 2413 functions are now named (`tools/names.txt` + `RenameFns.java`).
 
 ## Still open — high value

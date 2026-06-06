@@ -2,7 +2,7 @@
 
 *TI-84 Plus OS 2.55MP — feature deep dive.*
 
-How the OS lays a tokenized expression out as **2-D text** — the engine behind the homescreen entry line, the **Y= editor**, the **Solver** equation line, and the catalog/menu rendering. It is the single largest subsystem on **flash page 0x39** (≈147 functions, all prefixed `eqdisp_*`). This is the inverse of parsing: a token stream → pixels, with nesting, fraction bars, and indentation, rather than evaluation.
+How the OS lays a tokenized expression out as **2-D text** — the engine behind the homescreen entry line, the **Y= editor**, the **Solver** equation line, and the catalog/menu rendering. It is the single largest subsystem on **flash page 0x39** (147 named functions, of which 112 carry the `eqdisp_*` prefix; the rest are solver/menu helpers). This is the inverse of parsing: a token stream → pixels, with nesting, fraction bars, and indentation, rather than evaluation.
 
 > Related: [Tokenizer & TI-BASIC](07-tokenizer-basic.md) (the token format it consumes), [Display & LCD](08-display-lcd.md) (the glyph blitter it drives), [Solver & Numerical Methods](sub-solver-numeric.md) (a consumer of the equation line).
 
