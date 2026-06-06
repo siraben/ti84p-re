@@ -11,8 +11,9 @@ and preserves the OP registers described in [Floating-point engine](06-floating-
 
 The useful mental model is a **cell-grid typesetter**. The OS classifies each token,
 selects a compact handler record, walks the expression into rows and slots, maps each
-cell to pixel coordinates, and emits glyphs or graph-buffer rules. It is not a floating
-box tree: the live state is a small RAM block, a few display variables, and ROM tables.
+cell to pixel coordinates, and emits glyphs or graph-buffer rules. The live state is a
+small RAM block, a few display variables, and ROM tables — a flat cell grid, not a
+recursively allocated box tree.
 
 ```mermaid
 flowchart TD
