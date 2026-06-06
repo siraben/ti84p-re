@@ -12,6 +12,35 @@ The keypad is a matrix read through **port 1** (`port_keypad`): write a group-se
 
 Scan codes (`skEnter`, hardware matrix position) differ from key codes (`kEnter`=5, post-modifier). `_GetCSC` returns the former; `_GetKey` the latter.
 
+### Matrix scan — port 1 group masks [confirmed from disassembly]
+
+The low-level read primitive is `kbd_reset_port` (`ram:0480`): it writes a **group-select mask** to **port 1** (active-low — `0` bits select rows to drive), waits 4 `NOP`s for the lines to settle, reads the column bits back, then writes `0xFF` to release. (On 84+ hardware, `IN A,(0x02) bit7` + `IN A,(0x20)` gate the read against link/clock activity first.)
+
+```z80
+0480: IN A,(0x2) ; AND 0x80          ; 84+ present? (else fall straight through)
+0488: OUT (0x1),A                     ; A = group-select mask (active-low)
+048a: NOP×4                           ; let the matrix settle
+048e: IN A,(0x1) ; LD B,A             ; read columns (active-low: 0 = key down)
+0491: LD A,0xFF ; OUT (0x1),A         ; release all groups
+0495: LD A,B ; RET                    ; return raw column byte
+```
+
+The scanner `kbd_scan_autorepeat` (`ram:0406`) walks the matrix one group at a time. It seeds the mask in `C = 0xFE` (only bit0 low → group 0) and rotates it left (`RLC C` @ `044C`) after each column read, so successive iterations drive groups 0..7:
+
+| port-1 mask (`C`) | group / key row driven |
+|-------------------|------------------------|
+| `0xFE` (bit0 low) | group 0 — **GRAPH / arrow keys** (and the special `0xF5/0xF3/0xFA/0xFC` direction codes) |
+| `0xFD` (bit1 low) | group 1 |
+| `0xFB` (bit2 low) | group 2 |
+| `0xF7` (bit3 low) | group 3 |
+| `0xEF` (bit4 low) | group 4 |
+| `0xDF` (bit5 low) | group 5 |
+| `0xBF` (bit6 low) | group 6 |
+| `0x7F` (bit7 low) | group 7 |
+| `0xFF` (all high)  | "any key down?" probe (used by `0x0406`'s initial `SUB A` call, mask `0x00` = all groups) |
+
+**Forming a raw scan code.** For each driven group the routine reads the column byte, then finds the single low (pressed) column bit by an 8-iteration `RLA`/`DJNZ` loop (`0435`–`043C`) that counts set bits into `E` and records the bit index in `L`. If exactly one key is down it builds the scan code as **`(group_index − 1) × 8 + column_index`** (`0453: DEC A; RLA;RLA;RLA; ADD A,L` — i.e. `group*8 + column`) and returns it; multiple simultaneous keys set carry (`SCF` @ `0459`) so the press is rejected (debounce / ghost-key reject). The single resulting byte is the raw scan code that lands in `kbdScanCode` (`0x843F`), which `_GetCSC` (`00:04B2`) then reads-and-clears under `DI`. The scan-enable gate `BIT 0,(IY+0x2C)` @ `0415` lets the ISR/`_GetKey` path special-case the arrow group.
+
 ### Key → token translation [confirmed]
 
 `_KeyToString` (`01:6D10`) turns a key code into a TI-BASIC **token** for the editor. It's not a single flat table — it combines:
@@ -31,6 +60,6 @@ The 2.5 mm I/O link has two open-collector lines (tip/ring), driven via **port 0
 
 `_RecAByteIO` (`3C:443F`) is the matching receive. Higher-level link commands (`_CmdLoad`, variable transfer, `_CircCmd`/`_VertCmd` for screen-shot/remote) sit on top.
 
-## TODO
-- Trace the keypad matrix scan routine (the ISR-side writer of `kbdScanCode`) and document the group masks per port-1 value.
-- Document the link command/packet framing (`_Get_Some_Bytes`, header/checksum) for variable transfer.
+### Variable-transfer command/packet framing
+
+A TI link packet is a **4-byte header** (`machine-ID, command-ID, length-lo, length-hi`) optionally followed by `data[len]` and a **16-bit LE checksum**; commands include `0x06` VAR, `0x09` CTS, `0x15` DATA, `0x56` ACK, `0x5A` NAK, `0x92` EOT. The full framing, the silent-link send/receive engine (`_LinkXferOP`, `_SendVarCmd`), checksum/ACK handling, and the 16-byte Flash-batched receive path are all reverse-engineered in **[sub-link-transfer.md](sub-link-transfer.md)** — see §3 (framing) and §5 (variable send). **[confirmed]**
