@@ -218,8 +218,10 @@ It then checks named crop regions, including `GRAPHV` label, axes, and circle
 arcs, plus `GRAPHDFS`/`GRAPHLST` node and edge regions. The 2026-06-07 run
 measured 212, 619, 466, and 466 dark pixels, with matching first-to-final pixel
 changes.
-The `ASMRTN` and `ABICALL` ABI fixtures also use named final-frame regions to
-check their rendered scalar/list/`Ans` outputs.
+The text/list fixtures use the same region mechanism for final-screen output:
+`HELLO`, `FACTOR`, `DATA`, `ASMCALL`, `ASMBRIDG`, `CALLSUB`, `BIGADD`,
+`BIGMUL`, and `DFS` check the displayed lines or numeric/list result regions,
+while `ASMRTN` and `ABICALL` check their rendered scalar/list/`Ans` outputs.
 
 Keep only one test program in RAM when using `run-first-program.macro`; it opens
 `PRGM`, selects the first `EXEC` entry, and presses `ENTER`. For `factorial`,
