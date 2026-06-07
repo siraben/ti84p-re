@@ -94,7 +94,7 @@ in a normal workflow." These paths are confirmed or have a concrete next scenari
 |-----------|---------------|----------|
 | `80` high RAM | Run any cold-boot, home, expression, or graph trace. | Port `5 = 00` is the normal restore value; every current trace writes all page-`80` addresses. **[confirmed]** |
 | `81` normal bank-B RAM | Run any cold-boot, home, expression, or graph trace. | Port `7 = 81` is the normal restore value; every current trace writes all page-`81` addresses. **[confirmed]** |
-| `83` display capture | Run `boot-idle.macro` or `graph-y1-x2.macro`. | Ghidra shows `_SaveDisp` at `39:5E03` calls `lcd_read_block` at `ram:1890`; coverage hits both, and writes `5A7E-5DF2`. **[confirmed]** |
+| `83` display capture | Run `boot-idle.macro` or `graph-y1-x2.macro`. | Ghidra shows `_SaveDisp` (`39:5DD8`) calls `lcd_read_block` (`ram:1890`) at the `39:5E03` call site; coverage hits both, and writes `5A7E-5D7D`. **[confirmed]** |
 | `83` homescreen previous-entry history | Run `home-2plus3.macro`. | The trace adds `577E-5790`, advances `lastEntryPTR` from `577E` to `5791`, and sets `numLastEntries` to `01`. **[confirmed]** |
 | `83` expression scratch copy | Run `home-2plus3.macro`. | The trace adds `4373-4390` through `flash_copy_block` at `ram:1868`/`ram:187C`. **[confirmed]** |
 | `83` split-screen/table copy | Enter a split-screen/table workflow that calls `_ScreenSplit`. | Ghidra shows `_ScreenSplit` at `05:7712` calls `flash_copy_block` at `05:772A`; this path is not hit by the current macros. **[confirmed]** |
@@ -127,11 +127,11 @@ more than anonymous free RAM. Keep the evidence classes separate:
 
 | Range | Use | Evidence |
 |-------|-----|----------|
-| `4373-4390` | Expression-path page-`83` scratch copy | Added by the `2+3 ENTER` trace. The write PC is the page-`83` block-copy helper at `ram:187C`/`ram:187E`; the caller is still unlabeled. **[confirmed]** |
-| `43D9-44BD` | Boot/home page-`83` scratch copy | Present in the idle trace. The write PC is the page-`83` block-copy helper at `ram:187C`/`ram:187E`, plus one byte through `37:44D7`. **[confirmed]** |
+| `4373-4390` | Expression-path page-`83` scratch copy | Added by the `2+3 ENTER` trace. The block write is the `LDIR` at `ram:187E` in the page-`83` copy helper (page `83` mapped via `OUT (6),A` at `ram:187C`); the caller is still unlabeled. **[confirmed]** |
+| `43D9-44BD` | Boot/home page-`83` scratch copy | Present in the idle trace. The block write is the `LDIR` at `ram:187E` in the page-`83` copy helper (page `83` mapped via `OUT (6),A` at `ram:187C`), plus one byte stored at `37:44D8`. **[confirmed]** |
 | `577E-5A7D` | Homescreen previous-entry history | Page `33` references `577E`, the `5A7E` upper bound, `lastEntryPTR` (`0x8DA7`), and `numLastEntries` (`0x8E29`). The `2+3 ENTER` trace writes `577E-5790`, advances `lastEntryPTR` to `5791`, and sets `numLastEntries` to `01`. **[confirmed]** |
-| `5A7E-5DF2` | LCD/home display capture area | Present in the idle trace. Ghidra decompiles `ram:1890` as an LCD-read helper that maps page `83` through port `6` and stores bytes read from LCD port `11`. **[confirmed]** |
-| `4008-4080` | App base-page staging before app execution | WikiTI public note; the two traces on this page do not launch an app. **[standard, not traced here]** |
+| `5A7E-5DF2` | LCD/home display capture area | Present in the idle trace. The `_SaveDisp` LCD capture (`ram:1890`) fills the first `0x300` bytes, `5A7E-5D7D` (the 96×64 framebuffer); the `5D7E-5DF2` tail is additional page-`83` writes in the same scenario. Ghidra decompiles `ram:1890` as an LCD-read helper that maps page `83` through port `6` and stores bytes read from LCD port `11`. **[confirmed]** |
+| `4000-4080` | App base-page staging before app execution | WikiTI public note; the two traces on this page do not launch an app. **[standard, not traced here]** |
 | `4100-433A` | USB communication buffers | WikiTI public note; the two traces on this page do not exercise USB transfer. **[standard, not traced here]** |
 
 Ghidra identifies the page-`83` block-copy helper at `ram:1868`. It saves the current
@@ -187,15 +187,15 @@ The homescreen entry-history code on page `33` uses the same constants and varia
 33:53F7  LD HL,577Eh
 33:5430  LD A,(numLastEntries)
 33:543A  LD DE,577Eh
-33:5452  LD HL,577Eh
+33:5451  LD DE,577Eh
 33:5459  LD (lastEntryPTR),HL
 33:5462  LD HL,numLastEntries
 33:5465  INC (HL)
 ```
 
 If a program modifies the history buffer on page `83`, clearing `numLastEntries`
-at `8E29` prevents the homescreen from scrolling back into invalid entry data.
-That is the public WikiTI recovery advice, and the ROM confirms that `8E29` is
+at `0x8E29` prevents the homescreen from scrolling back into invalid entry data.
+That is the public WikiTI recovery advice, and the ROM confirms that `0x8E29` is
 the OS-visible previous-entry count. **[standard, address confirmed]**
 
 ## Dynamic test scenarios
@@ -307,8 +307,9 @@ for all touched windows:
 The OS's own paged byte-store helper at `37:44AE` uses the normal restore pattern:
 
 ```z80
-37:44D0  OUT (5),A        ; A = page index << 1, trace case A = 02h
-37:44D3  OR 80h
+37:44D0  OUT (5),A        ; A = page index << 1, trace case A = 02h (→ RAM page 82)
+37:44D2  INC A            ; A = 03
+37:44D3  OR 80h           ; A = 83h
 37:44D5  OUT (7),A        ; trace case: 83h
 37:44D7  LD A,B
 37:44D8  LD (DE),A        ; byte store while RAM page 83 is visible
