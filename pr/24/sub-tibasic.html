@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2c9eada3.js";
+            window.path_to_searchindex_js = "searchindex-51f8331e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -374,9 +374,11 @@ until EOL (<code>'?'</code>=0x3F) / end, records the position in <code>parsePtr<
 <code>Lbl name</code>, then setting <code>parsePtr</code> there — the classic TI-BASIC behavior that
 makes <code>Goto</code> O(program size) and makes <code>Goto</code> out of a loop leak the loop’s
 stack frame. <strong>[inferred — standard, consistent with the rescan call shape]</strong></li>
-<li><code>Return</code>/<code>Stop</code> (<code>tReturn=D5</code>/<code>tStop=D9</code>) terminate the current program /
-unwind: they exit the statement loop back to the caller (or to the homescreen
-context via the <code>onSP</code>/context mechanism in <a href="11-boot-contexts-errors.html">doc 11</a>). <strong>[inferred/strong]</strong></li>
+<li><code>Return</code>/<code>Stop</code> (<code>tReturn=D5</code>/<code>tStop=D9</code>) terminate execution at different
+scopes: <code>Return</code> exits the current BASIC program and resumes the caller, while
+<code>Stop</code> exits the whole BASIC program chain back to the homescreen context.
+<code>CALLSUB</code>/<code>SUBRT</code> and <code>CALLSTOP</code>/<code>STOPSUB</code> are run-confirmed fixtures for
+those two cases. <strong>[confirmed]</strong></li>
 </ul>
 <hr>
 <h2 id="5-io-commands"><a class="header" href="#5-io-commands">5. I/O commands</a></h2>
@@ -759,10 +761,26 @@ reads the caller’s <code>Ans</code> and <code>L1</code>, writes shared scalar 
 <code>L1</code>, leaves <code>Ans</code> as <code>11</code> by evaluating <code>A</code>, and returns. The trace hits the
 BASIC subprogram body path plus <code>_AnsName</code> and list store paths, so this is a
 confirmed scalar/list/<code>Ans</code> ABI fixture.</p>
+<p><code>CALLSTOP.8xp</code> and <code>STOPSUB.8xp</code> cover the non-returning subprogram case:</p>
+<pre><code class="language-ti-basic">Disp "BEFORE"
+prgmSTOPSUB
+Disp "AFTER"
+</code></pre>
+<p>with callee:</p>
+<pre><code class="language-ti-basic">Disp "STOP"
+Stop
+</code></pre>
+<p>Observed run: the caller displays <code>BEFORE</code>, the callee displays <code>STOP</code>, and the
+homescreen displays <code>Done</code>; caller text <code>AFTER</code> does not appear. The smoke
+runner checks the <code>BEFORE</code>, <code>STOP</code>, and <code>Done</code> regions, plus a bounded low-pixel
+region where <code>AFTER</code> would appear if execution resumed. The trace reaches the
+BASIC subprogram body path and <code>_Disp</code>, so this confirms that <code>Stop</code> terminates
+the whole BASIC program chain instead of returning to the caller.</p>
 <p>The ordinary BASIC subprogram path is separate from <code>Asm(</code>. In the validated
 trace it does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <code>_Find_Parse_Formula</code>,
 or <code>_SetParseVarProg</code>; it uses the page-38 parser/VAT/body evaluator path and
-then returns to the caller through BASIC’s own <code>Return</code> handling.</p>
+then either resumes the caller through BASIC’s own <code>Return</code> handling or exits
+the caller chain through <code>Stop</code>.</p>
 <p>The full <code>CALLSUB</code> smoke trace does hit <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> once,
 because the macro starts the program by submitting <code>prgmCALLSUB</code> from the
 homescreen. That launch parse resolves the top-level program and seeds the

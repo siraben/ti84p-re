@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2c9eada3.js";
+            window.path_to_searchindex_js = "searchindex-51f8331e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -223,6 +223,7 @@ programs into calculator RAM first, then run the same macro and resolver steps.<
 <tr><td><code>graphlist</code></td><td><code>GRAPHLST.8xp</code></td><td>list-driven graph visualization from edge/node coordinate lists</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_ILine</code>, <code>_IPoint</code></td></tr>
 <tr><td><code>callsub</code></td><td><code>CALLSUB.8xp</code> + <code>SUBRT.8xp</code></td><td>BASIC <code>prgmNAME</code>, shared globals, <code>Return</code></td><td><code>stmt_eval_body_entry</code>, <code>call_eval_eqn_recursive</code></td></tr>
 <tr><td><code>callabi</code></td><td><code>ABICALL.8xp</code> + <code>ABISUB.8xp</code></td><td>BASIC subprogram ABI through <code>Ans</code>, scalar <code>A</code>, and list <code>L1</code></td><td><code>_AnsName</code>, <code>store_list_elem</code>, <code>eval_eqn_recursive</code></td></tr>
+<tr><td><code>callstop</code></td><td><code>CALLSTOP.8xp</code> + <code>STOPSUB.8xp</code></td><td>BASIC subprogram <code>Stop</code> terminates the caller chain</td><td><code>stmt_eval_body_entry</code>, <code>call_eval_eqn_recursive</code>, <code>_Disp</code></td></tr>
 <tr><td><code>bigadd</code></td><td><code>BIGADD.8xp</code></td><td>list-digit arithmetic and carry propagation</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>_FPMult</code></td></tr>
 <tr><td><code>bigmul</code></td><td><code>BIGMUL.8xp</code></td><td>list-digit multiplication, nested loops, carry normalization</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>_FPMult</code></td></tr>
 <tr><td><code>dfs</code></td><td><code>DFS.8xp</code></td><td>list-backed stack, nested <code>While</code>/<code>If</code>/<code>For</code></td><td><code>blockmatch_end_else</code>, <code>parse_scan_tokens</code>, <code>eval_stmt_entry</code></td></tr>
@@ -239,8 +240,9 @@ check home-screen text, graph labels, axes, circle arcs, and node/edge regions.
 Text/list cases check important final-screen lines such as <code>HELLO, WORLD</code>,
 factorial <code>120</code>, <code>DATA</code> list outputs, <code>BEFORE</code>/<code>CALLED</code>/<code>AFTER</code>, <code>SUB</code>,
 big-integer digit lists, and the DFS traversal/visited-list output. <code>ASMRTN</code>
-checks the displayed <code>5</code>, while <code>ABICALL</code> checks the scalar line, mutated list
-line, returned <code>Ans</code> line, and <code>Done</code>.</p>
+checks the displayed <code>5</code>, <code>ABICALL</code> checks the scalar line, mutated list line,
+returned <code>Ans</code> line, and <code>Done</code>, and <code>CALLSTOP</code> checks <code>BEFORE</code>, <code>STOP</code>,
+<code>Done</code>, and a bounded low-pixel region where caller text <code>AFTER</code> would appear.</p>
 <p>For the visual graph cases, the 2026-06-07 run measured 212, 619, 466, and 466
 dark pixels, with matching first-to-final pixel changes.</p>
 <h2 id="reading-the-evidence"><a class="header" href="#reading-the-evidence">Reading the evidence</a></h2>
