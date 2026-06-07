@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-94039817.js";
+            window.path_to_searchindex_js = "searchindex-0ff5124b.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -2761,13 +2761,17 @@ DispGraph
 diagonal line visible. The trace hits <code>_GrBufClr</code>, <code>_ILine</code> (<code>04:4029</code>),
 <code>graph_pixel_op</code>, <code>_IPoint</code>, and <code>_PDspGrph</code> (<code>04:7904</code>).</p>
 <pre><code class="language-ti-basic">ClrDraw
-Line(20,10,10,35)
-Line(20,10,50,35)
-Line(10,35,35,55)
-Circle(20,10,3)
-Circle(10,35,3)
-Circle(50,35,3)
-Circle(35,55,3)
+0-&gt;Xmin
+94-&gt;Xmax
+0-&gt;Ymin
+62-&gt;Ymax
+Line(10,44,35,54)
+Line(10,44,35,14)
+Line(35,54,55,29)
+Circle(10,44,3)
+Circle(35,54,3)
+Circle(35,14,3)
+Circle(55,29,3)
 Text(16,8,"1")
 Text(6,33,"2")
 Text(46,33,"3")
@@ -2777,7 +2781,8 @@ DispGraph
 <p>Observed run: <code>GRAPHDFS.8xp</code> draws the DFS sample’s four-node topology on the
 graph screen: nodes <code>1</code>, <code>2</code>, <code>3</code>, and <code>4</code> with edges <code>1-2</code>, <code>1-3</code>, and <code>2-4</code>.
 The trace hits <code>_ILine</code> (<code>04:4029</code>), <code>graph_pixel_op</code>, <code>_IPoint</code>, small-font
-glyph rendering, <code>_RestoreDisp</code>, and page-38 statement evaluation.</p>
+glyph rendering, <code>_PDspGrph</code> (<code>04:7904</code>), <code>_StoSysTok</code> window stores,
+<code>_RestoreDisp</code>, and page-38 statement evaluation.</p>
 <pre><code class="language-ti-basic">0-&gt;A
 prgmSUBRT
 Disp A
@@ -3095,6 +3100,30 @@ implicit-close/false-<code>If</code> interaction. <strong>[confirmed]</strong></
 </tbody>
 </table>
 </div>
+<h3 id="evidence-manifest"><a class="header" href="#evidence-manifest">Evidence manifest</a></h3>
+<p>This branch keeps each claimed behavior tied to a runnable fixture or a
+negative probe trace. The visualization fixtures were rerun on 2026-06-07 and
+kept because both render visible graph-screen output.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Goal area</th><th>Fixture or probe</th><th>Current evidence</th></tr>
+</thead>
+<tbody>
+<tr><td>Hello world</td><td><code>HELLO.8xp</code></td><td>Displays <code>HELLO, WORLD</code>, then <code>Done</code>; reaches page-38 statement parsing and <code>_Disp</code>.</td></tr>
+<tr><td>Factorial</td><td><code>FACTOR.8xp</code></td><td>Prompt input <code>5</code> displays <code>120</code>; reaches loop parsing and <code>_FPMult</code>.</td></tr>
+<tr><td>Data manipulation</td><td><code>DATA.8xp</code></td><td>Sorts, cumulatively sums, and displays list data; reaches list element stores and <code>sum(</code>’s list fold path.</td></tr>
+<tr><td>Text animation</td><td><code>ANIMTXT.8xp</code></td><td>Moves/writes <code>X</code> characters with <code>Output(</code>, then displays <code>DONE</code>; reaches LCD text routines each loop.</td></tr>
+<tr><td>Graph drawing</td><td><code>GRAPHV.8xp</code></td><td>Renders <code>DFS</code>, axes, a circle, and diagonal line on the graph screen; reaches <code>_ILine</code>, <code>_IPoint</code>, and <code>_PDspGrph</code>.</td></tr>
+<tr><td>Graph visualization</td><td><code>GRAPHDFS.8xp</code></td><td>Renders the four-node DFS topology with labels and edges; reaches line, point, pixel, and small-font graph paths.</td></tr>
+<tr><td>Arbitrary precision arithmetic</td><td><code>BIGADD.8xp</code></td><td>Adds digit lists with carry propagation and displays <code>L3</code>; reaches list indexing and FP helper paths.</td></tr>
+<tr><td>DFS / stack-style list algorithm</td><td><code>DFS.8xp</code></td><td>Displays traversal <code>1, 3, 2, 4</code> and visited list <code>{1 1 1 1}</code>; reaches nested scanner/control-flow paths.</td></tr>
+<tr><td>BASIC subprogram calling convention</td><td><code>CALLSUB.8xp</code> + <code>SUBRT.8xp</code></td><td>Caller and callee share scalar/list variables and return through the BASIC program evaluator.</td></tr>
+<tr><td>BASIC to ASM</td><td><code>ASMCALL.8xp</code> + <code>ASMRET.8xp</code></td><td><code>Asm(</code> runs an <code>AsmPrgm</code> payload (<code>C9</code>) and returns to BASIC, displaying <code>BEFORE</code> then <code>AFTER</code>.</td></tr>
+<tr><td>ASM to BASIC</td><td>temporary probes</td><td>VAT lookup from <code>AsmPrgm</code> works, but <code>_Find_Parse_Formula</code>, <code>_ExecuteNewPrgm</code>, <code>_JForceCmd</code>, <code>_PutTokString</code>, and <code>_rclToQueue</code> do not prove a standalone callable BASIC-program ABI.</td></tr>
+</tbody>
+</table>
+</div>
 <h2 id="run-confirmed-fixtures"><a class="header" href="#run-confirmed-fixtures">Run-confirmed fixtures</a></h2>
 <p>The generator <code>tools/tibasic_samples.py</code> now emits these additional trace-ready
 fixtures.</p>
@@ -3129,13 +3158,17 @@ more text-layout overhead and less control over redraw timing.</p>
 <h3 id="graph-visualization-of-dfs-topology"><a class="header" href="#graph-visualization-of-dfs-topology">Graph visualization of DFS topology</a></h3>
 <p><code>GRAPHDFS.8xp</code> draws the same four-node graph traversed by <code>DFS.8xp</code>:</p>
 <pre><code class="language-ti-basic">ClrDraw
-Line(20,10,10,35)
-Line(20,10,50,35)
-Line(10,35,35,55)
-Circle(20,10,3)
-Circle(10,35,3)
-Circle(50,35,3)
-Circle(35,55,3)
+0-&gt;Xmin
+94-&gt;Xmax
+0-&gt;Ymin
+62-&gt;Ymax
+Line(10,44,35,54)
+Line(10,44,35,14)
+Line(35,54,55,29)
+Circle(10,44,3)
+Circle(35,54,3)
+Circle(35,14,3)
+Circle(55,29,3)
 Text(16,8,"1")
 Text(6,33,"2")
 Text(46,33,"3")
@@ -3144,7 +3177,8 @@ DispGraph
 </code></pre>
 <p>Observed run: the final graph screen shows four labeled nodes with edges
 <code>1-&gt;2</code>, <code>1-&gt;3</code>, and <code>2-&gt;4</code>. The trace hits <code>_ILine</code> (<code>04:4029</code>),
-<code>graph_pixel_op</code>, <code>_IPoint</code>, small-font glyph rendering, <code>_RestoreDisp</code>, and
+<code>graph_pixel_op</code>, <code>_IPoint</code>, <code>_PDspGrph</code> (<code>04:7904</code>), small-font glyph
+rendering, window variable stores through <code>_StoSysTok</code>, <code>_RestoreDisp</code>, and
 page-38 statement evaluation. <strong>[confirmed]</strong></p>
 <p>The performance lesson is to separate graph data from graph drawing. Keep edge
 lists and traversal state in lists, but convert them to pixels in a single draw
