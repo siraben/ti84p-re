@@ -1,0 +1,4 @@
+interface:
+  display_name: "TI-84 RE accuracy review"
+  short_description: "Audit TI-84 RE claims against primary evidence"
+  default_prompt: "Use $ti84-re-review to verify TI-84 reverse-engineering claims against ROM, caller, trace, and hardware evidence."
