@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c65c53cd.js";
+            window.path_to_searchindex_js = "searchindex-ea0826a0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -3041,6 +3041,23 @@ routines before display copy. Draw into the graph buffer and call
 a small command-finalization path, but it avoids the pathological
 implicit-close/false-<code>If</code> interaction. <strong>[confirmed]</strong></li>
 </ol>
+<h3 id="trace-backed-cost-map"><a class="header" href="#trace-backed-cost-map">Trace-backed cost map</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Pattern</th><th>Trace evidence</th><th>Practical rule</th></tr>
+</thead>
+<tbody>
+<tr><td>Straight-line display (<code>HELLO</code>)</td><td>page-38 statement parse plus <code>_Disp</code></td><td>Fine for status text; avoid using <code>Disp</code> as a frame loop.</td></tr>
+<tr><td>Prompted arithmetic (<code>FACTOR</code>)</td><td>loop-body reseed, FP multiply, display</td><td>Keep loop bodies short; store loop-invariant values before <code>For(</code>.</td></tr>
+<tr><td>List built-ins (<code>DATA</code>)</td><td><code>sum(</code> reaches <code>list_fold_dispatch</code></td><td>Prefer built-ins when one parser setup can cover many elements.</td></tr>
+<tr><td>Text animation (<code>ANIMTXT</code>)</td><td><code>Output(</code> plus LCD text paths on every loop</td><td>Precompute positions/strings and update the smallest region possible.</td></tr>
+<tr><td>Graph drawing (<code>GRAPHV</code>)</td><td>primitives draw into <code>plotSScreen</code>, then <code>_PDspGrph</code></td><td>Batch graph primitives before <code>DispGraph</code>.</td></tr>
+<tr><td>BASIC subprogram (<code>CALLSUB</code>)</td><td>page-38 program-body evaluator and shared VAT variables</td><td>Treat globals/lists/<code>Ans</code> as the calling convention.</td></tr>
+<tr><td>List algorithms (<code>BIGADD</code>, <code>DFS</code>)</td><td>VAT lookup, element address, OP-register move per access</td><td>Preallocate lists; cache dimensions and reused elements in scalars.</td></tr>
+</tbody>
+</table>
+</div>
 <h2 id="run-confirmed-fixtures"><a class="header" href="#run-confirmed-fixtures">Run-confirmed fixtures</a></h2>
 <p>The generator <code>tools/tibasic_samples.py</code> now emits these additional trace-ready
 fixtures.</p>
@@ -3176,6 +3193,19 @@ payload byte at <code>ram:9D95 op=0xC9</code>, and return to BASIC. <strong>[con
 <p>Practical convention: pass data through OS variables or known RAM locations,
 validate inputs on the BASIC side, and make the ASM payload return normally with
 <code>RET</code> unless it intentionally transfers control elsewhere.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Direction</th><th>Confirmed mechanism</th><th>Caveat</th></tr>
+</thead>
+<tbody>
+<tr><td>BASIC -&gt; ASM</td><td><code>Asm(prgmNAME)</code> parses <code>prgmNAME</code>, bcalls <code>_ExecutePrgm</code>, copies the <code>AsmPrgm</code> payload, then jumps through <code>ram:9D95</code>.</td><td>The payload runs in the calculator OS process; a bad payload can corrupt interpreter state.</td></tr>
+<tr><td>BASIC -&gt; BASIC</td><td><code>prgmNAME</code> enters the page-38 parser/VAT/body evaluator path and <code>Return</code> resumes the caller.</td><td>There is no local frame; variables are shared.</td></tr>
+<tr><td>ASM -&gt; VAT lookup</td><td>An <code>AsmPrgm</code> can build <code>OP1={ProgObj,"NAME"}</code> and bcall <code>_ChkFindSym</code>.</td><td>Lookup is not execution.</td></tr>
+<tr><td>ASM -&gt; BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>_Find_Parse_Formula</code> from an arbitrary <code>AsmPrgm</code> context reached <code>ERR:UNDEFINED</code>.</td></tr>
+</tbody>
+</table>
+</div>
 <h3 id="asm-to-basic"><a class="header" href="#asm-to-basic">ASM to BASIC</a></h3>
 <p>The inverse direction is not yet run-confirmed in this repo. Two easy-looking
 bcalls are not that entry point:</p>
