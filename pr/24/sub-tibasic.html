@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-51f8331e.js";
+            window.path_to_searchindex_js = "searchindex-620d8f50.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -781,6 +781,11 @@ trace it does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <c
 or <code>_SetParseVarProg</code>; it uses the page-38 parser/VAT/body evaluator path and
 then either resumes the caller through BASIC’s own <code>Return</code> handling or exits
 the caller chain through <code>Stop</code>.</p>
+<p><code>ASMFIND.8xp</code> and <code>ZZFIND.8xp</code> prove the narrower ASM-side lookup case. The
+payload builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code>; the trace
+hits <code>ram:9D95</code> and <code>findsym_scan</code>, then the BASIC wrapper displays <code>AFTER</code> and
+<code>Done</code>. <code>ZZBASIC</code>’s <code>CALLED</code> line does not display, so lookup is confirmed but
+execution is not.</p>
 <p>The full <code>CALLSUB</code> smoke trace does hit <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> once,
 because the macro starts the program by submitting <code>prgmCALLSUB</code> from the
 homescreen. That launch parse resolves the top-level program and seeds the
@@ -793,7 +798,7 @@ program.</p>
 <code>call_eval_eqn_recursive</code> (<code>38:6914</code>) directly calls <code>eval_eqn_recursive</code>
 (<code>38:778F</code>). At the first observed hit in the <code>CALLSUB</code> trace, the parser
 cursor/end, OPS/temp-stack pointers, OP1, stack depth, and IY parser flags are
-already live. This is why an <code>AsmPrgm</code> can successfully <code>_ChkFindSym</code> a BASIC
+already live. This is why <code>ASMFIND</code> can successfully <code>_ChkFindSym</code> a BASIC
 program name, but the tested <code>_Find_Parse_Formula</code> probe still reaches
 <code>ERR:UNDEFINED</code> instead of running that program.</p>
 <p>A <code>_ParseInpLastEnt</code> (<code>4B07</code>, target <code>38:5984</code>) probe narrows the parser-entry
