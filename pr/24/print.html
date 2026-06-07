@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ea0826a0.js";
+            window.path_to_searchindex_js = "searchindex-aa58f43f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -1633,6 +1633,7 @@ for observed outputs and trace anchors.</p>
 <tr><td><code>Asm(</code> wrapper</td><td><code>Disp "BEFORE"</code> / <code>Asm(prgmASMRET)</code> / <code>Disp "AFTER"</code></td><td><code>DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41 46 54 45 52 2A 3F</code></td></tr>
 <tr><td>Animation</td><td><code>ClrHome</code> / <code>For(I,1,8)</code> / <code>Output(1,I,"X")</code> / <code>End</code> / <code>Disp "DONE"</code></td><td><code>E1 3F D3 49 2B 31 2B 38 11 3F E0 31 2B 49 2B 2A 58 2A 11 3F D4 3F DE 2A 44 4F 4E 45 2A 3F</code></td></tr>
 <tr><td>Graph drawing</td><td><code>ClrDraw</code> / <code>Line(0,0,95,63)</code> / <code>Circle(47,31,10)</code> / <code>Text(0,0,"DFS")</code> / <code>DispGraph</code></td><td><code>85 3F 9C 30 2B 30 2B 39 35 2B 36 33 11 3F A5 34 37 2B 33 31 2B 31 30 11 3F 93 30 2B 30 2B 2A 44 46 53 2A 11 3F DF 3F</code></td></tr>
+<tr><td>Graph visualization</td><td><code>Line(</code>/<code>Circle(</code>/<code>Text(</code> drawing the DFS topology</td><td><code>85 3F 9C 32 30 ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphdfs.tok</code>)</td></tr>
 <tr><td>BASIC subprogram</td><td><code>0-&gt;A</code> / <code>prgmSUBRT</code> / <code>Disp A</code>; callee <code>Disp "SUB"</code> / <code>A+1-&gt;A</code> / <code>Return</code></td><td>caller <code>30 04 41 3F 5F 53 55 42 52 54 3F DE 41 3F</code>; callee <code>DE 2A 53 55 42 2A 3F 41 70 31 04 41 3F D5 3F</code></td></tr>
 <tr><td>Big integer add</td><td>list digits in <code>L1</code>/<code>L2</code>, carry <code>C</code>, indexed stores into <code>L3</code></td><td><code>08 35 2B 34 ... DE 5D 02 10 36 11 3F</code> (full body in <code>tools/tibasic-samples/bigadd.tok</code>)</td></tr>
 <tr><td>DFS</td><td>edge lists <code>L1</code>/<code>L2</code>, visited <code>L3</code>, stack <code>L4</code>, <code>While</code>/<code>If Then</code>/nested <code>For</code></td><td><code>08 31 2B 31 ... D4 3F DE 5D 02 3F</code> (full body in <code>tools/tibasic-samples/dfs.tok</code>)</td></tr>
@@ -2759,6 +2760,24 @@ DispGraph
 <p>Observed run: <code>GRAPHV.8xp</code> ends on the graph screen with <code>DFS</code>, axes, and a
 diagonal line visible. The trace hits <code>_GrBufClr</code>, <code>_ILine</code> (<code>04:4029</code>),
 <code>graph_pixel_op</code>, <code>_IPoint</code>, and <code>_PDspGrph</code> (<code>04:7904</code>).</p>
+<pre><code class="language-ti-basic">ClrDraw
+Line(20,10,10,35)
+Line(20,10,50,35)
+Line(10,35,35,55)
+Circle(20,10,3)
+Circle(10,35,3)
+Circle(50,35,3)
+Circle(35,55,3)
+Text(16,8,"1")
+Text(6,33,"2")
+Text(46,33,"3")
+Text(31,53,"4")
+DispGraph
+</code></pre>
+<p>Observed run: <code>GRAPHDFS.8xp</code> draws the DFS sample’s four-node topology on the
+graph screen: nodes <code>1</code>, <code>2</code>, <code>3</code>, and <code>4</code> with edges <code>1-2</code>, <code>1-3</code>, and <code>2-4</code>.
+The trace hits <code>_ILine</code> (<code>04:4029</code>), <code>graph_pixel_op</code>, <code>_IPoint</code>, small-font
+glyph rendering, <code>_RestoreDisp</code>, and page-38 statement evaluation.</p>
 <pre><code class="language-ti-basic">0-&gt;A
 prgmSUBRT
 Disp A
@@ -3053,6 +3072,7 @@ implicit-close/false-<code>If</code> interaction. <strong>[confirmed]</strong></
 <tr><td>List built-ins (<code>DATA</code>)</td><td><code>sum(</code> reaches <code>list_fold_dispatch</code></td><td>Prefer built-ins when one parser setup can cover many elements.</td></tr>
 <tr><td>Text animation (<code>ANIMTXT</code>)</td><td><code>Output(</code> plus LCD text paths on every loop</td><td>Precompute positions/strings and update the smallest region possible.</td></tr>
 <tr><td>Graph drawing (<code>GRAPHV</code>)</td><td>primitives draw into <code>plotSScreen</code>, then <code>_PDspGrph</code></td><td>Batch graph primitives before <code>DispGraph</code>.</td></tr>
+<tr><td>Graph visualization (<code>GRAPHDFS</code>)</td><td>repeated <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> reaches <code>_ILine</code>, <code>_IPoint</code>, <code>graph_pixel_op</code>, and small-font paths</td><td>Store graph topology in lists; draw the whole view in one graph-buffer pass.</td></tr>
 <tr><td>BASIC subprogram (<code>CALLSUB</code>)</td><td>page-38 program-body evaluator and shared VAT variables</td><td>Treat globals/lists/<code>Ans</code> as the calling convention.</td></tr>
 <tr><td>List algorithms (<code>BIGADD</code>, <code>DFS</code>)</td><td>VAT lookup, element address, OP-register move per access</td><td>Preallocate lists; cache dimensions and reused elements in scalars.</td></tr>
 </tbody>
@@ -3089,6 +3109,29 @@ parser. <strong>[confirmed]</strong></p>
 <p>The performance lesson is to draw several primitives into the graph buffer, then
 display the graph buffer once. Repeated home-screen <code>Output(</code> calls give you
 more text-layout overhead and less control over redraw timing.</p>
+<h3 id="graph-visualization-of-dfs-topology"><a class="header" href="#graph-visualization-of-dfs-topology">Graph visualization of DFS topology</a></h3>
+<p><code>GRAPHDFS.8xp</code> draws the same four-node graph traversed by <code>DFS.8xp</code>:</p>
+<pre><code class="language-ti-basic">ClrDraw
+Line(20,10,10,35)
+Line(20,10,50,35)
+Line(10,35,35,55)
+Circle(20,10,3)
+Circle(10,35,3)
+Circle(50,35,3)
+Circle(35,55,3)
+Text(16,8,"1")
+Text(6,33,"2")
+Text(46,33,"3")
+Text(31,53,"4")
+DispGraph
+</code></pre>
+<p>Observed run: the final graph screen shows four labeled nodes with edges
+<code>1-&gt;2</code>, <code>1-&gt;3</code>, and <code>2-&gt;4</code>. The trace hits <code>_ILine</code> (<code>04:4029</code>),
+<code>graph_pixel_op</code>, <code>_IPoint</code>, small-font glyph rendering, <code>_RestoreDisp</code>, and
+page-38 statement evaluation. <strong>[confirmed]</strong></p>
+<p>The performance lesson is to separate graph data from graph drawing. Keep edge
+lists and traversal state in lists, but convert them to pixels in a single draw
+phase instead of interleaving traversal, display, and recalculation.</p>
 <h3 id="basic-subprogram-calling-convention"><a class="header" href="#basic-subprogram-calling-convention">BASIC subprogram calling convention</a></h3>
 <p>Caller:</p>
 <pre><code class="language-ti-basic">0-&gt;A

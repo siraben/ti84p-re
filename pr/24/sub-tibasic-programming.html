@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ea0826a0.js";
+            window.path_to_searchindex_js = "searchindex-aa58f43f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -234,6 +234,7 @@ implicit-close/false-<code>If</code> interaction. <strong>[confirmed]</strong></
 <tr><td>List built-ins (<code>DATA</code>)</td><td><code>sum(</code> reaches <code>list_fold_dispatch</code></td><td>Prefer built-ins when one parser setup can cover many elements.</td></tr>
 <tr><td>Text animation (<code>ANIMTXT</code>)</td><td><code>Output(</code> plus LCD text paths on every loop</td><td>Precompute positions/strings and update the smallest region possible.</td></tr>
 <tr><td>Graph drawing (<code>GRAPHV</code>)</td><td>primitives draw into <code>plotSScreen</code>, then <code>_PDspGrph</code></td><td>Batch graph primitives before <code>DispGraph</code>.</td></tr>
+<tr><td>Graph visualization (<code>GRAPHDFS</code>)</td><td>repeated <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> reaches <code>_ILine</code>, <code>_IPoint</code>, <code>graph_pixel_op</code>, and small-font paths</td><td>Store graph topology in lists; draw the whole view in one graph-buffer pass.</td></tr>
 <tr><td>BASIC subprogram (<code>CALLSUB</code>)</td><td>page-38 program-body evaluator and shared VAT variables</td><td>Treat globals/lists/<code>Ans</code> as the calling convention.</td></tr>
 <tr><td>List algorithms (<code>BIGADD</code>, <code>DFS</code>)</td><td>VAT lookup, element address, OP-register move per access</td><td>Preallocate lists; cache dimensions and reused elements in scalars.</td></tr>
 </tbody>
@@ -270,6 +271,29 @@ parser. <strong>[confirmed]</strong></p>
 <p>The performance lesson is to draw several primitives into the graph buffer, then
 display the graph buffer once. Repeated home-screen <code>Output(</code> calls give you
 more text-layout overhead and less control over redraw timing.</p>
+<h3 id="graph-visualization-of-dfs-topology"><a class="header" href="#graph-visualization-of-dfs-topology">Graph visualization of DFS topology</a></h3>
+<p><code>GRAPHDFS.8xp</code> draws the same four-node graph traversed by <code>DFS.8xp</code>:</p>
+<pre><code class="language-ti-basic">ClrDraw
+Line(20,10,10,35)
+Line(20,10,50,35)
+Line(10,35,35,55)
+Circle(20,10,3)
+Circle(10,35,3)
+Circle(50,35,3)
+Circle(35,55,3)
+Text(16,8,"1")
+Text(6,33,"2")
+Text(46,33,"3")
+Text(31,53,"4")
+DispGraph
+</code></pre>
+<p>Observed run: the final graph screen shows four labeled nodes with edges
+<code>1-&gt;2</code>, <code>1-&gt;3</code>, and <code>2-&gt;4</code>. The trace hits <code>_ILine</code> (<code>04:4029</code>),
+<code>graph_pixel_op</code>, <code>_IPoint</code>, small-font glyph rendering, <code>_RestoreDisp</code>, and
+page-38 statement evaluation. <strong>[confirmed]</strong></p>
+<p>The performance lesson is to separate graph data from graph drawing. Keep edge
+lists and traversal state in lists, but convert them to pixels in a single draw
+phase instead of interleaving traversal, display, and recalculation.</p>
 <h3 id="basic-subprogram-calling-convention"><a class="header" href="#basic-subprogram-calling-convention">BASIC subprogram calling convention</a></h3>
 <p>Caller:</p>
 <pre><code class="language-ti-basic">0-&gt;A
