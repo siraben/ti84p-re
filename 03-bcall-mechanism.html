@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-db524601.js";
+            window.path_to_searchindex_js = "searchindex-87b42c0e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bcf53af4.js"></script>
@@ -203,14 +203,14 @@
 <li>Resolution method (<code>tools/</code> Python): scored all 64 pages by how many of the 535 named .inc IDs produced a valid <code>(addr∈4000..7FFF or page-0, page&lt;0x40)</code> entry — in this page-selection heuristic page <code>0x3B</code> scored <strong>447/535</strong> (a conservative validity filter used only to pick the table), the runner-up only 124. Once <code>0x3B</code> is selected and applied, all 535 <code>.inc</code> IDs plus 61 RE-named entries (596 total) resolve and are live-confirmed.</li>
 <li>Validation: known bcalls land exactly where expected — <code>_PutS</code>→<code>01:5C39</code>, <code>_GetKey</code>→<code>06:491E</code>, <code>_ClrLCDFull</code>→<code>01:60E4</code>, <code>_GetCSC</code>→<code>00:04B2</code>, <code>_CreateReal</code>→<code>00:10B8</code>.</li>
 </ul>
-<p><code>tools/bcall_targets.txt</code> holds <strong>607</strong> historical resolved bcall rows: 596 main <code>0x4xxx</code> entries plus 11 <code>0x8xxx</code> extended candidates. The 596 main entries are live-confirmed in the current Ghidra/MCP DB; the 11 extended page-0x3F candidates remain ROM-scan artifacts until the live DB exposes matching functions. <code>tools/ApplyBcalls.java</code> disassembles &amp; names the confirmed bodies it can resolve.</p>
+<p><code>tools/bcall_targets.txt</code> holds <strong>596</strong> resolved main-table bcall rows. <code>tools/bcalls8x_targets.txt</code> holds <strong>83</strong> retail boot-table rows when the local ROM has the retail page <code>3F</code> and USB support page <code>2F</code> installed. <code>tools/ApplyBcalls.java</code> disassembles and names the confirmed bodies it can resolve.</p>
 <h2 id="jump-table-id-ranges"><a class="header" href="#jump-table-id-ranges">Jump-table ID ranges</a></h2>
 <p>The dispatcher’s ID decode (<code>bcall_dispatcher</code>) selects one of <strong>two</strong> tables by the ID’s top bits:</p>
 <ul>
 <li><strong><code>0x4xxx</code>–<code>0x7FFF</code></strong> (bit 14 set): the main table on <strong>flash page 0x3B</strong>, entry at offset <code>ID − 0x4000</code> (596 live-confirmed bcalls: 535 from the <code>.inc</code> + 61 RE-named).</li>
-<li><strong><code>0x8xxx</code></strong> (bit 15 set): historical scripts decoded 11 TI-84+-era extended candidates from a page-0x3F table, but the current live Ghidra/MCP DB does not expose functions at the claimed page-0x3F targets such as <code>_FindFirstCertificateField</code> <code>3F:4448</code> or <code>_GetBootVer</code> <code>3F:531E</code>. Treat these entries as <strong>unverified ROM-scan output</strong>, not live-confirmed bcalls, until the DB/load model is reconciled.</li>
+<li><strong><code>0x8xxx</code></strong> (bit 15 set): the retail boot table is on physical page <code>3F</code>, indexed by <code>ID &amp; 0x7FFF</code>. <code>D84PBE1.8Xv</code> supplies the retail page <code>3F</code>; <code>D84PBE2.8Xv</code> supplies the companion USB boot support page <code>2F</code>. Most entries resolve to <code>3F:addr</code>; USB entries such as <code>_AttemptUSBOSReceive</code> (<code>80E4</code>) and <code>_InitUSB</code> (<code>8108</code>) resolve to <code>2F:addr</code>. <code>tools/resolve_bcalls.py</code> refuses to emit these targets from a BootFree-substituted page. <strong>[confirmed]</strong></li>
 </ul>
-<p>Both table formats are 3-byte entries (addr LE + page, page masked <code>&amp; 0x3F</code>); only the main page-0x3B table is MCP-confirmed end to end.</p>
+<p>Both resolved table formats are 3-byte entries: target address (little endian) plus page byte masked with <code>&amp; 0x3F</code>.</p>
 <h2 id="rst-shortcuts-fast-inlined-bcalls-confirmed"><a class="header" href="#rst-shortcuts-fast-inlined-bcalls-confirmed">RST shortcuts (fast inlined bcalls) [confirmed]</a></h2>
 <p>The other RST vectors are 1-byte fast paths for the hottest routines (each <code>JP</code>s to its page-0 handler, which is also reachable as a bcall — the table maps the same address):</p>
 <div class="table-wrapper">
@@ -233,10 +233,10 @@
 <p>Besides bcalls, the OS calls <em>its own</em> cross-page routines via <strong>bjump</strong>: <code>CALL cross_page_jump</code> (<code>= CALL 0x2b09</code>) followed inline by <code>.dw addr; .db page</code>. <code>cross_page_jump</code> pops the return address, reads the 2-byte target + 1-byte page from it, banks the page (<code>&amp; 0x3F</code>), and jumps. The target’s <code>RET</code> returns to <em>the bjump’s caller</em>, so it behaves like a call that consumes the 3 inline bytes.</p>
 <p>There is a trampoline table in the page-0 address range <strong><code>0x3B01–0x3D0B</code></strong>: <strong>87 packed 6-byte entries</strong>, each a bjump to a hot OS routine on another page. The static Ghidra DB models it in the page-0/ROM address space; whether the table is copied to RAM at runtime is a hypothesis, not MCP-confirmed. Code invokes a routine by <code>CALL 0x3Bxx</code> into the table. <code>tools/bjumps.txt</code> lists every entry’s <code>(offset → page:addr)</code>; <code>tools/RamRoutines.java</code> marks the inline <code>.dw/.db</code> as data and comments each target.</p>
 <p>Example: <code>_PutMap</code>’s glyph blitter is reached via the trampoline at <code>0x3B3D → page_07:4588</code>.</p>
-<p><strong>Inline bjumps:</strong> besides the trampoline table, <code>CALL cross_page_jump; .dw; .db</code> appears <em>inline</em> throughout the OS (e.g. transcendentals: <code>_EToX</code> = <code>fp_clear_guard(); bjump</code>). Because <code>cross_page_jump</code> consumes the 3 inline bytes and tail-jumps (the target returns to the bjump’s caller), the bytes after must be data and the call is non-returning. <code>tools/FixInlineBjumps.java</code> marks all <strong>280</strong> such sites, which substantially improved OS-wide disassembly coverage.</p>
+<p><strong>Inline bjumps:</strong> besides the trampoline table, <code>CALL cross_page_jump; .dw; .db</code> appears <em>inline</em> throughout the OS (e.g. transcendentals: <code>_EToX</code> = <code>fp_clear_guard(); bjump</code>). Because <code>cross_page_jump</code> consumes the 3 inline bytes and tail-jumps (the target returns to the bjump’s caller), the bytes after must be data and the call is non-returning. <code>tools/FixInlineBjumps.java</code> marks all <strong>355</strong> such sites in the complete local ROM, which substantially improved OS-wide disassembly coverage.</p>
 <h2 id="limitations--todo"><a class="header" href="#limitations--todo">Limitations / TODO</a></h2>
 <ul>
-<li>Reconcile the historical <code>0x8xxx</code>/page-0x3F bcall scan with the live Ghidra/MCP DB; the claimed page-0x3F bodies are not currently functions.</li>
+<li>Keep the BootFree guard in place when regenerating from emulator-derived ROM images.</li>
 <li>Some bcalls are <em>thunks</em>: e.g. <code>_FindSym</code>’s page-0 entry uses <code>cross_page_jump</code> to reach the real body on page 0x07.</li>
 </ul>
 
