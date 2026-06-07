@@ -36,8 +36,9 @@ So e.g. `5D 00` = list `L1`; `BB xx` = an extended command. The second byte inde
 The expression parser/evaluator lives on **flash page 0x38**. Entry points:
 - `_ParseInp` (`38:5987`) — parse/evaluate the input (homescreen/entry line). It calls `parse_init` (`38:5b7b`) to reset parser state, clears editing flags, then resolves via `_ChkFindSym`. **[confirmed]**
 - `_ParseInpLastEnt` (`38:5984`) — public parser variant immediately before
-  `_ParseInp`; an `AsmPrgm` probe reaches it but fails with `ERR:INVALID`
-  without running the named BASIC target. **[confirmed negative probe]**
+  `_ParseInp`; the generated `ASMPARSE.8xp`/`ZZPARSE.8xp` fixture reaches it
+  but fails with `ERR:INVALID` without running the named BASIC target.
+  **[confirmed negative probe]**
 - `_Find_Parse_Formula` (`38:758A`) — `_FindSym` a variable then parse its stored formula (Y-vars, equations). **[confirmed]**
 - `parse_init` (`38:5b7b`) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). **[confirmed]**
 

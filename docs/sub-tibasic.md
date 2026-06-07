@@ -707,13 +707,19 @@ hits `ram:9D95` and `findsym_scan`, then the BASIC wrapper displays `AFTER` and
 `Done`. `ZZBASIC`'s `CALLED` line does not display, so lookup is confirmed but
 execution is not.
 
+`ASMPARSE.8xp` and `ZZPARSE.8xp` turn that boundary into a negative fixture.
+The payload uses the same `OP1={ProgObj,"ZZBASIC"}` setup as `ZZFIND`, but
+bcalls `_ParseInpLastEnt` instead. The trace reaches `_ParseInpLastEnt`,
+`_ParseInp`, `parseinp_find_setup`, `findsym_scan`, `parse_init`, and
+`eval_stmt_entry`; the final screen is `ERR:INVALID` / `1:Quit` / `2:Goto`, and
+`ZZBASIC`'s `CALLED` line does not display.
+
 The full `CALLSUB` smoke trace does hit `_ParseInpLastEnt`/`_ParseInp` once,
 because the macro starts the program by submitting `prgmCALLSUB` from the
 homescreen. That launch parse resolves the top-level program and seeds the
 private parser RAM. It does not make `_ParseInpLastEnt` a reusable
-ASM-to-BASIC ABI: a separate `AsmPrgm` probe that called `_ParseInpLastEnt`
-with only `OP1={ProgObj,"ZZBASIC"}` reached `ERR:INVALID` instead of the target
-program.
+ASM-to-BASIC ABI: `ASMPARSE` shows that calling `_ParseInpLastEnt` with only
+`OP1={ProgObj,"ZZBASIC"}` reaches `ERR:INVALID` instead of the target program.
 
 The relevant page-38 evaluator transition is private state, not a bcall ABI:
 `stmt_eval_body_entry` (`38:6910`) calls the token scanner, then
@@ -724,14 +730,9 @@ already live. This is why `ASMFIND` can successfully `_ChkFindSym` a BASIC
 program name, but the tested `_Find_Parse_Formula` probe still reaches
 `ERR:UNDEFINED` instead of running that program.
 
-A `_ParseInpLastEnt` (`4B07`, target `38:5984`) probe narrows the parser-entry
-boundary further. The payload built `OP1={ProgObj,"ZZBASIC"}` and called the
-parser variant; the trace reached `_ParseInpLastEnt`, `_ParseInp` (`38:5987`),
-`parseinp_find_setup` (`38:5B2B`), `findsym_scan`, `parse_init`, and
-`eval_stmt_entry`, but the final screen was `ERR:INVALID` / `Goto` and the
-target program never displayed `CALLED`. `_ParseInp` variants are therefore
-not byte-stream program-call ABIs; they expect parser/FPS stack state that a
-live BASIC caller has already established.
+The `_ParseInpLastEnt` fixture narrows the parser-entry boundary further:
+`_ParseInp` variants are not byte-stream program-call ABIs; they expect
+parser/FPS stack state that a live BASIC caller has already established.
 
 The forced-command/edit-buffer path is another boundary, not an ABI. A temporary
 `AsmPrgm` that calls `_JForceCmd(kEnter)` reaches `_JForceCmd` (`00:0747`) but

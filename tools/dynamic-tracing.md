@@ -171,6 +171,7 @@ They cover:
 | `asmbridge` + `asmsig` + `zzbasic` | cooperative ASM-directed BASIC callback through `If Ans` |
 | `asmval` + `asmreturn` | `AsmPrgm` stores `Ans=2`; BASIC reads it, adds `3`, and displays `5` |
 | `asmfind` + `zzfind` + `zzbasic` | `AsmPrgm` builds `OP1={ProgObj,"ZZBASIC"}`, reaches `findsym_scan`, and returns without running `ZZBASIC` |
+| `asmparse` + `zzparse` + `zzbasic` | same OP1 setup, but `_ParseInpLastEnt` ends at `ERR:INVALID` instead of running `ZZBASIC` |
 | `animtext` | `ClrHome`, `For(`/`End`, `Output(` text placement, `Disp` |
 | `graphviz` | `ClrDraw`, `Line(`, `Circle(`, `Text(`, `DispGraph` |
 | `graphdfs` | graph-buffer node/edge visualization for the DFS sample |
@@ -230,6 +231,8 @@ while `ASMRTN` and `ABICALL` check their rendered scalar/list/`Ans` outputs.
 low-pixel region where the caller's skipped `AFTER` line would otherwise
 appear. `ASMFIND` checks the wrapper's `BEFORE`, `AFTER`, and `Done` lines plus
 a bounded low-pixel region where an unexpected third line would appear.
+`ASMPARSE` checks the `ERR:INVALID`, `1:Quit`, and `2:Goto` error-screen
+regions.
 
 Keep only one test program in RAM when using `run-first-program.macro`; it opens
 `PRGM`, selects the first `EXEC` entry, and presses `ENTER`. For `factorial`,
@@ -250,6 +253,7 @@ Validated outputs/traces (2026-06-06/07, OS 2.55MP, `tools/rom.bin`):
 | `ASMBRIDG.8xp` + `ASMSIG.8xp` + `ZZBASIC.8xp` | `BEFORE`, `CALLED`, `AFTER`, then `Done` | `Asm(` runs the `ASMSIG` payload at `ram:9D95`; payload calls `_OP1Set1` (`00:1B38`) and `_StoAns` (`38:6251`); BASIC evaluates `If Ans` via `_AnsName` and calls `prgmZZBASIC` through the normal `38:6910`/`38:6914`/`38:778F` body path |
 | `ASMRTN.8xp` + `ASMVAL.8xp` | ASM stores `Ans=2`; BASIC computes and displays `5`, then `Done` | `ram:9D95`, `_OP1Set2` (`00:1B50`), `_StoAns` (`38:6251`), `_AnsName`, `_FPAdd`, `_Disp` |
 | `ASMFIND.8xp` + `ZZFIND.8xp` + `ZZBASIC.8xp` | ASM-side lookup returns to wrapper: `BEFORE`, `AFTER`, then `Done`; `ZZBASIC` does not display `CALLED` | payload executes at `ram:9D95`, builds `OP1={ProgObj,"ZZBASIC"}`, bcalls `_ChkFindSym`, reaches `findsym_scan`, and returns to BASIC wrapper `_Disp` |
+| `ASMPARSE.8xp` + `ZZPARSE.8xp` + `ZZBASIC.8xp` | final screen is `ERR:INVALID`, `1:Quit`, `2:Goto`; `ZZBASIC` does not display `CALLED` | payload executes at `ram:9D95`, builds `OP1={ProgObj,"ZZBASIC"}`, bcalls `_ParseInpLastEnt`, then reaches `_ParseInp`, `parseinp_find_setup`, `findsym_scan`, `parse_init`, and `eval_stmt_entry` before the error screen |
 | `ANIMTXT.8xp` | row of `X` characters, `DONE`, then `Done` | page-38 parser/loop paths, `_OutputExpr` (`03:4AF2`), `_Disp`, LCD text routines |
 | `GRAPHV.8xp` | graph screen with `DFS`, axes, a circle, and diagonal line | `_GrBufClr`, `_StoSysTok`, `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`) |
 | `GRAPHDFS.8xp` | graph screen with four labeled nodes and edges `1-2`, `1-3`, `2-4` | `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`), `_StoSysTok`, small-font glyph paths, `_RestoreDisp`, `eval_stmt_entry` |
@@ -269,14 +273,14 @@ bcall `_Find_Parse_Formula` (`4AF2`) remains a temporary negative probe: it
 enters `_Find_Parse_Formula` (`38:758A`) and ends at `ERR:UNDEFINED`; the target
 BASIC program body does not run.
 
-`_ParseInpLastEnt` probe (2026-06-07): a temporary `AsmPrgm` that builds
+`_ParseInpLastEnt` negative fixture (2026-06-07): `ASMPARSE`/`ZZPARSE` builds
 `OP1={ProgObj,"ZZBASIC"}` and bcalls `_ParseInpLastEnt` (`4B07`, target
-`38:5984`) reaches `_ParseInpLastEnt`, `_ParseInp` (`38:5987`),
+`38:5984`). It reaches `_ParseInpLastEnt`, `_ParseInp` (`38:5987`),
 `parseinp_find_setup` (`38:5B2B`), `findsym_scan`, `parse_init`, and
-`eval_stmt_entry`, but the final screen is `ERR:INVALID` / `Goto`; it never
-displays `CALLED`. This supports the static reading that `_ParseInp` variants
-expect a live parser/FPS stack frame, not just an OP1 program name from an
-arbitrary `AsmPrgm`.
+`eval_stmt_entry`, but the final screen is `ERR:INVALID` / `1:Quit` / `2:Goto`;
+it never displays `CALLED`. This supports the static reading that `_ParseInp`
+variants expect a live parser/FPS stack frame, not just an OP1 program name
+from an arbitrary `AsmPrgm`.
 
 Forced-command/edit-buffer probes (2026-06-07): a payload that calls
 `_JForceCmd(kEnter)` (`402A`) enters `ram:0747` and re-enters the command loop

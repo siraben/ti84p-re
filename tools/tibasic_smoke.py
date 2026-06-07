@@ -126,6 +126,16 @@ CASES: dict[str, Case] = {
             VisualRegion("Done marker", "28x9+66+28", 25),
         ),
     ),
+    "asmparse": Case(
+        ("ASMPARSE.8xp", "ZZPARSE.8xp", "ZZBASIC.8xp"),
+        "ASM parser-entry probe reaches ERR:INVALID instead of executing ZZBASIC",
+        ("ram:9d95", "_ParseInpLastEnt", "_ParseInp", "parseinp_find_setup", "findsym_scan", "eval_stmt_entry"),
+        visual_regions=(
+            VisualRegion("ERR INVALID line", "76x9+0+0", 150),
+            VisualRegion("Quit line", "42x9+0+9", 80),
+            VisualRegion("Goto line", "42x9+0+18", 40),
+        ),
+    ),
     "animtext": Case(
         ("ANIMTXT.8xp",),
         "row of X characters, DONE; Done",
