@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cc69d511.js";
+            window.path_to_searchindex_js = "searchindex-862b42f2.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -7019,9 +7019,9 @@ stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience
 </code></pre>
 <p>On the <strong>receive</strong> side the matching check is <code>6356</code>: after streaming the payload it compares the
 accumulated checksum <code>8678</code> against the received 16-bit checksum; on mismatch it sends a <strong>0x5A ERR
-packet</strong> (<code>6385: LD H,0x5A ; CALL 419B</code>) and raises <code>_JErrorNo</code>. The ACK-builder <code>42FB</code> echoes the
-peer’s saved header (<code>868B bakHeader</code>), forces command = <strong>0x56</strong>, length = 0, sends it, then
-<code>_Mov9B</code> restores the header.</p>
+packet</strong> (<code>6385: LD H,0x5A ; CALL 419B</code>) and raises <code>_JErrorNo</code>. The ACK-builder <code>42FB</code> saves the
+caller’s header to <code>868B bakHeader</code>, then builds an ACK with a <strong>fresh local</strong> machine-ID (<code>CALL 620A</code>),
+command = <strong>0x56</strong>, length = 0, sends it, and <code>_Mov9B</code> restores the saved header.</p>
 <hr>
 <h2 id="4-receive-data-payload--4292-c"><a class="header" href="#4-receive-data-payload--4292-c">4. Receive DATA payload — <code>4292</code> [C]</a></h2>
 <p><code>4261</code>/<code>4292</code> is the data-payload receiver. It streams <code>len</code> (<code>8676</code>) bytes from <code>_RecAByteIO</code>,
@@ -7098,7 +7098,7 @@ machinery:</p>
       LD A,0x0B ; (8672)=A          ; sndRecState = request/directory
       LD A,0xC9 ; CALL 6971         ; command setup
       CALL 62B0 (clear link sub-state in 8A0B) ; SET 2,(IY+0x1B)
-      CALL 58ED (→ SET 2,(IY+0x24) ; _ChkFindSym)  ; locate the var
+      CALL 58ED (→ SET 1,(IY+0x24) ; _ChkFindSym)  ; locate the var
       JR 4EAD (shared tail with _LinkXferOP: RES 1,(IY+0x24); 2800; JP 4F3E)
 </code></pre>
 <p>Note <code>4EDD</code> physically <strong>overlaps / shares the tail</strong> (<code>4EAD</code>) with <code>_LinkXferOP</code>; they are two
@@ -7144,7 +7144,7 @@ header, <code>6994</code>/<code>6298</code> classify it.</li>
 size) at <code>867F</code>, sends it (<code>41C3</code>, cmd path), waits for <strong>CTS (0x09)</strong>.</li>
 <li><code>40DA</code> streams the <strong>DATA (0x15)</strong> payload via <code>_PagedGet</code>→<code>_SendAByte</code> (Flash-transparent),
 appends the <strong>16-bit checksum</strong>, waits for <strong>ACK (0x56)</strong>.</li>
-<li><code>_GetSysInfo</code> (<code>00:50DD</code>)-style metadata and an <strong>EOT (0x92)</strong> close the session.</li>
+<li><code>_GetSysInfo</code> (<code>07:7345</code>, id <code>0x50DD</code>)-style metadata and an <strong>EOT (0x92)</strong> close the session.</li>
 <li>Receive direction is the mirror: header in → CTS out → DATA in (buffered 16 bytes →
 RAM/Flash via <code>6AB1</code>) → checksum verify (<code>6356</code>, NAK 0x5A on error) → ACK out → VAT store (RST5).</li>
 </ol>
@@ -7168,7 +7168,7 @@ RAM/Flash via <code>6AB1</code>) → checksum verify (<code>6356</code>, NAK 0x5
 <tr><td><code>3C:4199</code></td><td><code>lnk_send_cts</code></td><td>send CTS (cmd 0x09)</td></tr>
 <tr><td><code>3C:4338</code></td><td><code>lnk_recv_header</code></td><td>receive + validate 4-byte header</td></tr>
 <tr><td><code>3C:620A</code></td><td><code>lnk_local_machine_id</code></td><td>pick local machine-ID from IY+0x1B mode</td></tr>
-<tr><td><code>3C:42FB</code></td><td><code>lnk_send_ack</code></td><td>build+send ACK (cmd 0x56) from saved header</td></tr>
+<tr><td><code>3C:42FB</code></td><td><code>lnk_send_ack</code></td><td>build+send ACK (cmd 0x56, fresh local machine-ID), restoring the saved header</td></tr>
 <tr><td><code>3C:4292</code></td><td><code>lnk_recv_data</code></td><td>receive DATA payload, 16-byte Flash batching, checksum</td></tr>
 <tr><td><code>3C:6356</code></td><td><code>lnk_verify_cksum</code></td><td>verify count vs len; NAK 0x5A on mismatch</td></tr>
 <tr><td><code>3C:6AB1</code></td><td><code>lnk_flush_block</code></td><td>flush 16-byte staging block to RAM/Flash (port 0x14)</td></tr>
@@ -7182,7 +7182,7 @@ RAM/Flash via <code>6AB1</code>) → checksum verify (<code>6356</code>, NAK 0x5
 <tr><td><code>3C:6994</code></td><td><code>lnk_recv_store</code></td><td>receive var + VAT store sequence (expects 0x09 then 0x15)</td></tr>
 <tr><td><code>00:278D</code></td><td><code>_ErrLinkXmit</code></td><td><code>_JError(0x9F)</code> E_LnkErr</td></tr>
 <tr><td><code>00:2799</code></td><td><code>_JErrorNo</code></td><td>raise current pending error (link → 0x9F)</td></tr>
-<tr><td><code>00:50DD</code></td><td><code>_GetSysInfo</code></td><td>system info reply (used in link sessions)</td></tr>
+<tr><td><code>07:7345</code></td><td><code>_GetSysInfo</code> (id <code>0x50DD</code>)</td><td>system info reply (used in link sessions)</td></tr>
 <tr><td><code>00:4A14</code></td><td><code>_SendVarCmd</code> (bcall id)</td><td>→ 3C:4EDD</td></tr>
 </tbody>
 </table>
