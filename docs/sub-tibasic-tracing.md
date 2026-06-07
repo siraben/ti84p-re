@@ -56,16 +56,17 @@ programs into calculator RAM first, then run the same macro and resolver steps.
 | `dfs` | `DFS.8xp` | list-backed stack, nested `While`/`If`/`For` | `blockmatch_end_else`, `parse_scan_tokens`, `eval_stmt_entry` |
 
 The visualization cases also enforce visible output by thresholding the final
-frame and comparing it with the first recorded frame. `ANIMTXT`, `GRAPHV`, and
-`GRAPHDFS` must contain at least 100, 100, and 200 dark pixels respectively,
-and must change by at least the same number of pixels from first to final frame.
-The smoke runner also checks named crop regions. Visual cases check home-screen
-text, graph labels, axes, circle arcs, and node/edge regions. Text/list cases
-check important final-screen lines such as `HELLO, WORLD`, factorial `120`,
-`DATA` list outputs, `BEFORE`/`CALLED`/`AFTER`, `SUB`, big-integer digit lists,
-and the DFS traversal/visited-list output. `ASMRTN` checks the displayed `5`,
-while `ABICALL` checks the scalar line, mutated list line, returned `Ans` line,
-and `Done`.
+frame and comparing it with the first recorded frame. `ANIMTXT`, `GRAPHV`,
+`GRAPHDFS`, and `GRAPHLST` must contain at least 100, 100, 200, and 200 dark
+pixels respectively, and must change by at least the same number of pixels from
+first to final frame. `ANIMTXT` must also produce at least five distinct
+captured frames. The smoke runner also checks named crop regions. Visual cases
+check home-screen text, graph labels, axes, circle arcs, and node/edge regions.
+Text/list cases check important final-screen lines such as `HELLO, WORLD`,
+factorial `120`, `DATA` list outputs, `BEFORE`/`CALLED`/`AFTER`, `SUB`,
+big-integer digit lists, and the DFS traversal/visited-list output. `ASMRTN`
+checks the displayed `5`, while `ABICALL` checks the scalar line, mutated list
+line, returned `Ans` line, and `Done`.
 
 For the visual graph cases, the 2026-06-07 run measured 212, 619, 466, and 466
 dark pixels, with matching first-to-final pixel changes.
