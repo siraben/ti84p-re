@@ -77,6 +77,15 @@ Macro syntax is one command per line (`wait`, `key NAME [hold T]`,
 # first N instructions, with symbol names from names.txt and flat ROM offsets
 tools/tilem_trace_resolve.py /tmp/b.trace --print 40 --names tools/names.txt
 
+# walk ONE routine's execution (with live registers) inside a multi-million-
+# instruction trace: filter --print by space and a logical-address window, and
+# page through it with --print-from. E.g. step through _LnX (02:6EFD) computing
+# ln(2):
+tools/tilem_trace_resolve.py /tmp/b.trace --print 200 \
+  --only-space page_02 --only-addr 6efd-6ff0 --names tools/names.txt
+tools/tilem_trace_resolve.py /tmp/b.trace --print 200 --print-from 200 \
+  --only-space page_02 --only-addr 6efd-6ff0 --names tools/names.txt   # next page
+
 # every bank switch (port 5 / port 6 / port 7 writes)
 tools/tilem_trace_resolve.py /tmp/b.trace --page-switches
 
@@ -85,6 +94,11 @@ tools/analyze_ram_page_trace.py /tmp/b.trace --page 0x83
 
 # coverage: distinct executed addresses + hit counts
 tools/tilem_trace_resolve.py /tmp/b.trace --coverage --sort count --names tools/names.txt
+
+# function-level coverage (roll hits up to the nearest-preceding name),
+# optionally restricted to one address space:
+tools/tilem_trace_resolve.py /tmp/b.trace --funcs --only-space page_39 \
+  --sort count --names tools/names.txt
 ```
 
 `--trace-range all` is required for paging to work — it captures page-0 and the
@@ -164,6 +178,16 @@ rather than paged-address resolution.
 - [`macros/home-2plus3.macro`](macros/home-2plus3.macro) — power on, dismiss splash, evaluate `2+3`.
 - [`macros/graph-y1-x2.macro`](macros/graph-y1-x2.macro) — power on, enter `Y1=X^2`, and graph it.
 - [`macros/boot-idle.macro`](macros/boot-idle.macro) — baseline for coverage diffs.
+- `macros/mathprint-{power,fraction,fnint}.macro` — render `X²` / `1/2` / `fnInt(`
+  to instrument the page-`0x39` MathPrint engine (worked example in
+  [docs/sub-equation-display.md](../docs/sub-equation-display.md), "Dynamic confirmation").
+- `macros/{ln2,exp1,sin1,fpsub}.macro` — known-input runs (`ln(2)`, `e¹`, `sin(1)`,
+  `5−2`) that drive the FP/transcendental algorithms in
+  [docs/06-floating-point.md](../docs/06-floating-point.md) for instruction-level
+  pseudocode verification (walk a routine with `--print --only-space --only-addr`).
+- `macros/solver-sqrt2.macro` — drives the Equation Solver to solve `X²−2=0`→√2,
+  confirming the root-finder pseudocode in
+  [docs/sub-solver-numeric.md](../docs/sub-solver-numeric.md).
 
 ## Trace format (quick reference)
 

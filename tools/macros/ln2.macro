@@ -1,0 +1,15 @@
+# Compute ln(2) on the home screen -> drives _LnX (02:6EFD) pseudo-division loop.
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key LN
+key 2
+key RPAREN
+key ENTER
+wait 2s
+screenshot /tmp/ln2.png

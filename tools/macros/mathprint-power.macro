@@ -1,0 +1,19 @@
+# MathPrint: render X^2 on the home entry line (raised-exponent layout).
+# Run: tilem2 --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
+#        --macro tools/macros/mathprint-power.macro \
+#        --headless-record /tmp/xsq.gif --trace /tmp/xsq.trace --trace-range all
+# Then: tools/tilem_trace_resolve.py /tmp/xsq.trace --funcs --only-space page_39 \
+#         --sort count --names tools/names.txt
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key GRAPHVAR
+key POWER
+key 2
+wait 1.5s
+screenshot /tmp/xsq.png

@@ -1,0 +1,43 @@
+# Equation Solver: solve X^2 - 2 = 0 (root sqrt(2) = 1.41421356).
+# MATH menu -> scroll UP to wrap to "0:Solver..." -> ENTER ->
+# enter eqn X^2-2 -> ENTER (to var screen) -> SOLVE (ALPHA then ENTER).
+# Run: tilem2 --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
+#        --macro tools/macros/solver-sqrt2.macro \
+#        --headless-record /tmp/solver.gif --trace /tmp/trace_solver.trace --trace-range all
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+# dismiss RAM-cleared splash:
+key ENTER
+wait 1.5s
+key CLEAR
+# open MATH menu:
+key MATH
+wait 1.5s
+screenshot /tmp/solver-01-math.png
+# scroll UP to wrap to the bottom entry (0:Solver...):
+key UP
+wait 0.5s
+screenshot /tmp/solver-02-up.png
+key ENTER
+wait 2s
+screenshot /tmp/solver-03-solver.png
+# enter the equation X^2 - 2 :
+key GRAPHVAR
+key POWER
+key 2
+key SUB
+key 2
+wait 1s
+screenshot /tmp/solver-04-eqn.png
+# go to the variable / interactive screen:
+key ENTER
+wait 2s
+screenshot /tmp/solver-05-varscreen.png
+# trigger SOLVE: ALPHA then ENTER (the SOLVE soft-key):
+key ALPHA
+key ENTER
+wait 4s
+screenshot /tmp/solver-06-solved.png
