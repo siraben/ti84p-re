@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-289545e6.js";
+            window.path_to_searchindex_js = "searchindex-5289c547.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bcf53af4.js"></script>
@@ -196,7 +196,7 @@ Its data is <code>word size</code> followed by <code>size</code> bytes of <stron
 exact byte stream the parser walks. No line numbers; lines are separated by the
 <strong>EOL/newline token <code>0x3F</code></strong> (<code>tEnter</code>, shown as <code>cVar=='?'</code> = 0x3F in the
 decompiled cursor code). Most tokens are 1 byte; the 11 lead bytes
-(<code>5C 5D 5E 60 61 62 63 7E AA BB EF</code>) introduce 2-byte tokens (<a href="07-tokenizer-basic.html">doc 07</a>).</p>
+(<code>5C 5D 5E 60 61 62 63 7E BB AA EF</code>, the order of the <code>ram:1FF6</code> table) introduce 2-byte tokens (<a href="07-tokenizer-basic.html">doc 07</a>).</p>
 <p>Editing/detokenizing for the program editor uses the page-01 token helpers
 (<a href="07-tokenizer-basic.html">doc 07</a>, re-confirmed here):</p>
 <ul>
@@ -275,12 +275,13 @@ operator <strong>precedence</strong> is realized — nesting of productions, not
 (confirms <a href="07-tokenizer-basic.html">doc 07</a>’s “recursive-descent” claim). Results land in <strong>OP1</strong>; binary
 operators are applied via the FP RST shortcuts (RST 30h <code>_FPAdd</code>, …) and
 <code>_BinOPExec</code>.</p>
-<h3 id="parser-dispatch-page-0x38-is-executable-code-confirmed"><a class="header" href="#parser-dispatch-page-0x38-is-executable-code-confirmed">Parser dispatch: page 0x38 is executable code [confirmed]</a></h3>
-<p>Raw bytes at <code>38:4000</code> are <code>CD AB 33 CD 78 1A 21 50 8F …</code> = <code>CALL 0x33AB; CALL 0x1A78; LD HL,0x8F50; …</code> — i.e. <strong>executable dispatch code</strong>, the “base
-production” the evaluator jumps into (<code>handler = 0x4000</code>), not an array of
-84 two-byte handler pointers. The dispatch is the
-<code>chk_tok_end</code> (<code>38:72E0</code>) / <code>parse_cur_err_illegal</code> (<code>38:70F8</code>) classify + the
-<code>38:7010</code> precedence selector above.</p>
+<h3 id="parser-dispatch-page-0x38-begins-with-a-handler-pointer-table-confirmed"><a class="header" href="#parser-dispatch-page-0x38-begins-with-a-handler-pointer-table-confirmed">Parser dispatch: page 0x38 begins with a handler-pointer table [confirmed]</a></h3>
+<p>Raw bytes at <code>38:4000</code> are <code>9F 41 F0 45 1C 42 CC 41 D9 41 …</code> = a <strong>flat array of
+2-byte little-endian handler pointers</strong> (entries <code>0x419F, 0x45F0, 0x421C, 0x41CC, 0x41D9, …</code>), not executable code: <code>CALL 0x33AB</code> (<code>CD AB 33</code>) appears
+nowhere on page 0x38. The <code>38:7010</code> precedence
+selector indexes this table (<code>LD HL,0x4000</code>; add <code>2×class</code>; deref), with raw-code
+alternates at <code>0x478C</code> and <code>0x7175</code> for the postfix/leaf classes. Classification
+is done by <code>chk_tok_end</code> (<code>38:72E0</code>) / <code>parse_cur_err_illegal</code> (<code>38:70F8</code>).</p>
 <h3 id="results--ans-confirmed"><a class="header" href="#results--ans-confirmed">Results / Ans [confirmed]</a></h3>
 <ul>
 <li><code>_StoAns</code> (<code>38:6251</code>) stores OP1 into <code>Ans</code> (<code>_CkOP1Real</code> path; the bytes that
@@ -322,8 +323,9 @@ the block matcher <code>blockmatch_end_else</code> (<code>38:4130</code>) to <st
 (the “condition was true, ran Then, now jump over Else” case), then rejoins the
 shared loop at <code>38:59C8</code>. Other <code>tElse</code> compares at <code>38:57B3/58A6/58C6</code>
 handle the symmetric “skip Then, run Else” and nested cases.</li>
-<li><code>if_stop_stmt_handler</code> (<code>38:6F63</code>) is the per-statement entry that special-cases <code>tIf(CE)</code> and
-<code>tStop(DA-region)</code>: for <code>tIf</code> it sets grammar class <code>0x5F</code> and falls into the
+<li><code>if_isg_stmt_handler</code> (<code>38:6F63</code>) is the per-statement entry that special-cases <code>tIf</code> (<code>0xCE</code>)
+and <code>tISG</code> (<code>0xDA</code>, <code>IS&gt;(</code>): the second compare is <code>38:6F6C: CP 0xDA</code> (<code>tISG</code>, <strong>not</strong> <code>tStop</code>,
+which is <code>0xD9</code>). For <code>tIf</code> it sets grammar class <code>0x5F</code> and falls into the
 shared precedence loop to evaluate the condition; unknown leading tokens here
 raise <code>_JError(0x88)</code> (<code>E_Syntax</code>) for ordinary unknown tokens, or <code>_JError(0x30)</code>
 (<code>E_Version</code>, “ERR:VERSION”) for tokens above <code>0xF5</code> (the reserved/newer-token range —
@@ -481,10 +483,11 @@ runs and off at <code>Done</code>. <strong>[confirmed]</strong></p>
 <code>set_split_rows</code> (<code>ram:20A0</code>) when <code>IY+9 &amp; 0x80</code>.</li>
 <li><code>parse_cur_err_illegal</code> (<code>38:70F8</code>) maps the token byte to a grammar/precedence class (tokens
 <code>&gt;0xF1</code> get <code>+0x12</code>, folding the high token page into the class space).</li>
-<li>The precedence level (<code>cVar4</code> = 1/2/3) selects the production handler:
-<code>0x4000</code> (base term/dispatch), <code>0x478C</code> (postfix <code>^</code>/<code>!</code>), or
-<code>0x7175</code> (leaf) — neither <code>0x478C</code> nor <code>0x7175</code> is a defined function in the live DB;
-both are raw code targets inside <code>parse_eval_expr</code>. Nesting these realizes precedence.</li>
+<li>The precedence level (<code>cVar4</code> = 1/2/3) selects the production handler base:
+<code>0x4000</code> (base term — the <strong>flat handler-pointer table</strong>, indexed by token class),
+<code>0x478C</code> (postfix <code>^</code>/<code>!</code>), or <code>0x7175</code> (leaf) — <code>0x478C</code> and <code>0x7175</code> are raw code
+targets inside <code>parse_eval_expr</code> (not defined functions in the live DB), whereas
+<code>0x4000</code> is the pointer table itself. Nesting these realizes precedence.</li>
 <li>Binary ops fold operands via FP RSTs (RST 30h <code>_FPAdd</code>; <code>_FPMult</code>=<code>00:238B</code>, …)
 / <code>_BinOPExec</code>, leaving the result in <strong>OP1</strong>.</li>
 <li>Variable tokens become an OP1 name (type byte + name) and resolve via
@@ -503,7 +506,7 @@ classifier) that the dispatch consults; both tail into <code>RST5</code> (bjump)
 page_38:5ab3   parse_eval_expr            ; recursive-descent statement/expr core
 page_38:59c5   eval_stmt_entry            ; statement-loop variant (shared loop label 38:59C8)
 page_38:5826   if_else_skip_handler       ; Else-branch skip via block matcher
-page_38:6f63   if_stop_stmt_handler       ; per-statement If/Stop dispatch
+page_38:6f63   if_isg_stmt_handler        ; per-statement If/IS&gt;( dispatch
 page_38:4130   blockmatch_end_else        ; nest-counting End/Else scanner
 page_38:4180   parse_scan_tokens          ; skip-to-delimiter (2-byte aware)
 page_38:4870   goto_lbl_name_scanner      ; scan label name, jump to search
