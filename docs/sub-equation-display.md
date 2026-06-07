@@ -179,11 +179,13 @@ typedef struct {
 } EqDispTemplateDescriptor;
 ```
 
-The mapper at `39:683D` converts a descriptor cell to pixels:
+The mapper at `39:683D` converts a descriptor cell to pixels. The `+7` loop (`DEC B; ADD A,7`)
+builds the **high** byte and the `+(rowHeight+2)` loop builds the **low** byte; the caller stores
+`HL` to `penCol`(`0x86D7`, low→x) / `penRow`(`0x86D8`, high→y), so the two products land as:
 
-$$x = \mathit{base}_x + 7 \cdot \mathit{col}$$
+$$x\ (\mathit{penCol}) = \mathit{base}_x + \mathit{row} \cdot (\mathit{rowHeight} + 2)$$
 
-$$y = \mathit{base}_y + \mathit{row} \cdot (\mathit{rowHeight} + 2)$$
+$$y\ (\mathit{penRow}) = \mathit{base}_y + 7 \cdot \mathit{col}$$
 
 The known descriptors are:
 
@@ -408,7 +410,7 @@ measured-fraction path calls `eqdisp_draw_box_jp` with `0x85EE`. [confirmed]
 endpoint helper `39:6B1C` are named `eqdisp_decr_counters` /
 `eqdisp_advance_col6` in the symbol table, and the Ghidra *decompiler*
 mis-analyzes both (it shows bare decrement loops). The raw disassembly matches
-this page instead: `683D` does `A = base; loop: add a,7` (`x = base_x + 7·col`)
+this page instead: `683D` does `A = base; loop: add a,7` into the **high** byte (`y = base_y + 7·col` → `penRow`)
 and `6B1C` does `ld a,1Bh; … add a,7 (×n); add a,4` (`x_left = 0x1B + 7n`,
 `x_right = x_left + 4`). Trust `z80dasm` over the decompiler for these tight
 register-passing routines, as [the README](https://github.com/siraben/ti84p-re/blob/main/README.md) advises. [confirmed]
