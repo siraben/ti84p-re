@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-53b22e3a.js";
+            window.path_to_searchindex_js = "searchindex-bff1b4c0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bcf53af4.js"></script>
@@ -279,7 +279,8 @@ against tolerance. The tolerance floor is the <strong>TIFloat constant <code>1.0
 (<code>00 1D 10 …</code>). On reaching tolerance the solver exits through the <code>39:4540 → 4553</code>
 branch (dynamically traced on an <code>X²−2 = 0</code> solve that converged to √2 ≈ 1.41421356);
 <code>39:4547</code> is a <code>CALL</code>, not the converged return, and was <strong>not</strong> on the observed path.
-<strong>[tolerance tests <code>446F</code>/<code>44D7</code>/<code>44F8</code> dynamically confirmed; <code>45C7</code> static-only]</strong></li>
+The tolerance tests at <code>446F</code>/<code>44D7</code>/<code>44F8</code> run under that trace; <code>45C7</code> is reached only
+on other convergence sub-paths. <strong>[confirmed]</strong></li>
 </ul>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{Solver root-finder --- bracketed secant / regula-falsi (page 0x39)}

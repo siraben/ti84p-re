@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-53b22e3a.js";
+            window.path_to_searchindex_js = "searchindex-bff1b4c0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bcf53af4.js"></script>
@@ -1454,7 +1454,7 @@ described. On-screen result: <code>.8414709848</code>. (Per-row coefficient mean
 </ul>
 <p>So the dispatch loop is: <code>parse_cur_tok</code> → index the pointer table at <code>page_38:4000</code> and call the selected handler (which may consume args via <code>parse_advance</code>) → repeat.</p>
 <p><strong>Main evaluator:</strong> <code>parse_eval_expr</code> (<code>38:5AB3</code>) is the big recursive-descent expression evaluator — it dispatches through handler function-pointers (<code>code *</code>) with operator precedence, reading via the cursor helpers and leaving the result in <code>OP1</code>. <code>_ParseInp</code> → <code>parse_init</code> → <code>parse_eval_expr</code>. <code>parse_scan_tokens</code> (<code>38:4180</code>) is a token-scan helper (skips to a delimiter, honoring 2-byte tokens via <code>_IsA2ByteTok</code>).</p>
-<p>The region at <code>page_38:4000</code> is a <strong>flat array of 2-byte handler pointers</strong> (entries <code>0x419F, 0x45F0, 0x421C, …</code>), not executable code — <code>CALL 0x33AB</code> (<code>CD AB 33</code>) appears nowhere on page 0x38. Each handler is itself recursive-descent code; the table just selects which one to enter. See <a href="#ti-basic-programs">sub-tibasic.md</a> for the execution model (<code>eval_stmt_entry</code>@<code>38:59C5</code>, the <code>blockmatch_end_else</code>@<code>38:4130</code> End/Else matcher, <code>goto_lbl_name_scanner</code>@<code>38:4870</code>).</p>
+<p>The region at <code>page_38:4000</code> is a <strong>flat array of 2-byte handler pointers</strong> (entries <code>0x419F, 0x45F0, 0x421C, …</code>), not executable code — <code>CALL 0x33AB</code> (<code>CD AB 33</code>) appears nowhere on page 0x38. Each handler is itself recursive-descent code; the table selects which one to enter. See <a href="#ti-basic-programs">sub-tibasic.md</a> for the execution model (<code>eval_stmt_entry</code>@<code>38:59C5</code>, the <code>blockmatch_end_else</code>@<code>38:4130</code> End/Else matcher, <code>goto_lbl_name_scanner</code>@<code>38:4870</code>).</p>
 <p>The handlers are <strong>recursive-descent grammar productions</strong> (not flat per-operator routines): each reads via <code>parse_cur_tok</code>, conditionally recurses, and some load <strong>sub-dispatch tables</strong> (e.g. <code>page_38:5110</code>, <code>5127</code>) for finer token classes — implementing operator precedence by nesting. So “the + operator” isn’t one table entry; it’s handled within the term/factor production that drives <code>_FPAdd</code> (RST 30h).</p>
 <p>The precedence levels (term/factor/unary productions) and sub-dispatch tables are mapped in <a href="#ti-basic-programs">TI-BASIC Programs</a> §3/§6.</p>
 <h2 id="second-byte-tables"><a class="header" href="#second-byte-tables">Second-byte tables</a></h2>
@@ -2199,8 +2199,8 @@ operators are applied via the FP RST shortcuts (RST 30h <code>_FPAdd</code>, …
 <code>_BinOPExec</code>.</p>
 <h3 id="parser-dispatch-page-0x38-begins-with-a-handler-pointer-table-confirmed"><a class="header" href="#parser-dispatch-page-0x38-begins-with-a-handler-pointer-table-confirmed">Parser dispatch: page 0x38 begins with a handler-pointer table [confirmed]</a></h3>
 <p>Raw bytes at <code>38:4000</code> are <code>9F 41 F0 45 1C 42 CC 41 D9 41 …</code> = a <strong>flat array of
-2-byte little-endian handler pointers</strong> (entries <code>0x419F, 0x45F0, 0x421C, 0x41CC, 0x41D9, …</code>), not executable code — the previously-cited <code>CD AB 33</code>
-(<code>CALL 0x33AB</code>) sequence appears nowhere on page 0x38. The <code>38:7010</code> precedence
+2-byte little-endian handler pointers</strong> (entries <code>0x419F, 0x45F0, 0x421C, 0x41CC, 0x41D9, …</code>), not executable code: <code>CALL 0x33AB</code> (<code>CD AB 33</code>) appears
+nowhere on page 0x38. The <code>38:7010</code> precedence
 selector indexes this table (<code>LD HL,0x4000</code>; add <code>2×class</code>; deref), with raw-code
 alternates at <code>0x478C</code> and <code>0x7175</code> for the postfix/leaf classes. Classification
 is done by <code>chk_tok_end</code> (<code>38:72E0</code>) / <code>parse_cur_err_illegal</code> (<code>38:70F8</code>).</p>
@@ -4273,7 +4273,8 @@ against tolerance. The tolerance floor is the <strong>TIFloat constant <code>1.0
 (<code>00 1D 10 …</code>). On reaching tolerance the solver exits through the <code>39:4540 → 4553</code>
 branch (dynamically traced on an <code>X²−2 = 0</code> solve that converged to √2 ≈ 1.41421356);
 <code>39:4547</code> is a <code>CALL</code>, not the converged return, and was <strong>not</strong> on the observed path.
-<strong>[tolerance tests <code>446F</code>/<code>44D7</code>/<code>44F8</code> dynamically confirmed; <code>45C7</code> static-only]</strong></li>
+The tolerance tests at <code>446F</code>/<code>44D7</code>/<code>44F8</code> run under that trace; <code>45C7</code> is reached only
+on other convergence sub-paths. <strong>[confirmed]</strong></li>
 </ul>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{Solver root-finder --- bracketed secant / regula-falsi (page 0x39)}
@@ -5311,7 +5312,7 @@ composition, but it did <strong>not</strong> execute in this trace: the <code>fn
 inserted <em>empty</em> (<code>∫(0)dV</code>), so the operand-recursion branch was never driven —
 <code>5167</code> and its body (<code>5949</code>/<code>5B10</code>) show 0 hits, and the <code>--funcs</code> “5167” rollup
 bucket is a nearest-name artifact (only a <code>51F1/51F3</code> fragment ran). A <em>filled</em>
-integrand would be needed to drive <code>5167</code> dynamically. [static-confirmed; not yet dynamically exercised]</p>
+integrand would be needed to drive <code>5167</code> under a trace. [confirmed] (static); the dynamic path is open.</p>
 <p>The live state block matches the field map. Reading <code>0x85DE..0x85F2</code> from a RAM
 dump right after each render (<code>memdump … ram-logical</code>):</p>
 <div class="table-wrapper">

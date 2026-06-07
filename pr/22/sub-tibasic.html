@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-53b22e3a.js";
+            window.path_to_searchindex_js = "searchindex-bff1b4c0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bcf53af4.js"></script>
@@ -277,8 +277,8 @@ operators are applied via the FP RST shortcuts (RST 30h <code>_FPAdd</code>, …
 <code>_BinOPExec</code>.</p>
 <h3 id="parser-dispatch-page-0x38-begins-with-a-handler-pointer-table-confirmed"><a class="header" href="#parser-dispatch-page-0x38-begins-with-a-handler-pointer-table-confirmed">Parser dispatch: page 0x38 begins with a handler-pointer table [confirmed]</a></h3>
 <p>Raw bytes at <code>38:4000</code> are <code>9F 41 F0 45 1C 42 CC 41 D9 41 …</code> = a <strong>flat array of
-2-byte little-endian handler pointers</strong> (entries <code>0x419F, 0x45F0, 0x421C, 0x41CC, 0x41D9, …</code>), not executable code — the previously-cited <code>CD AB 33</code>
-(<code>CALL 0x33AB</code>) sequence appears nowhere on page 0x38. The <code>38:7010</code> precedence
+2-byte little-endian handler pointers</strong> (entries <code>0x419F, 0x45F0, 0x421C, 0x41CC, 0x41D9, …</code>), not executable code: <code>CALL 0x33AB</code> (<code>CD AB 33</code>) appears
+nowhere on page 0x38. The <code>38:7010</code> precedence
 selector indexes this table (<code>LD HL,0x4000</code>; add <code>2×class</code>; deref), with raw-code
 alternates at <code>0x478C</code> and <code>0x7175</code> for the postfix/leaf classes. Classification
 is done by <code>chk_tok_end</code> (<code>38:72E0</code>) / <code>parse_cur_err_illegal</code> (<code>38:70F8</code>).</p>

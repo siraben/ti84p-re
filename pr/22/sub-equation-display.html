@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-53b22e3a.js";
+            window.path_to_searchindex_js = "searchindex-bff1b4c0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bcf53af4.js"></script>
@@ -544,7 +544,7 @@ composition, but it did <strong>not</strong> execute in this trace: the <code>fn
 inserted <em>empty</em> (<code>∫(0)dV</code>), so the operand-recursion branch was never driven —
 <code>5167</code> and its body (<code>5949</code>/<code>5B10</code>) show 0 hits, and the <code>--funcs</code> “5167” rollup
 bucket is a nearest-name artifact (only a <code>51F1/51F3</code> fragment ran). A <em>filled</em>
-integrand would be needed to drive <code>5167</code> dynamically. [static-confirmed; not yet dynamically exercised]</p>
+integrand would be needed to drive <code>5167</code> under a trace. [confirmed] (static); the dynamic path is open.</p>
 <p>The live state block matches the field map. Reading <code>0x85DE..0x85F2</code> from a RAM
 dump right after each render (<code>memdump … ram-logical</code>):</p>
 <div class="table-wrapper">
