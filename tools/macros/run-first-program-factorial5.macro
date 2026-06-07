@@ -1,0 +1,20 @@
+# Power on, dismiss the RAM-cleared splash, run the first program in
+# PRGM > EXEC, then answer FACTOR's prompt with 5.
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 1s
+key 5
+key ENTER
+wait 8s
+screenshot /tmp/tibasic-factorial5.png
