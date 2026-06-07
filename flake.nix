@@ -32,11 +32,12 @@
           pname = "ti84-re-wiki";
           version = "1.0";
           src = ./.;
-          nativeBuildInputs = [ pkgs.mdbook pkgs.mdbook-mermaid pkgs.bash ];
+          nativeBuildInputs = [ pkgs.mdbook pkgs.mdbook-mermaid pkgs.bash pkgs.python3 ];
           buildPhase = ''
             mdbook-mermaid install .       # generate mermaid.min.js + mermaid-init.js
             ${setupAssets}                  # vendor KaTeX (css/js/fonts)
             mdbook build --dest-dir $out
+            python3 tools/check-mdbook-output.py $out
           '';
           dontInstall = true;
           dontFixup = true;
