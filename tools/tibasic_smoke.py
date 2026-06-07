@@ -37,6 +37,7 @@ class Case:
     macro: Path = DEFAULT_MACRO
     min_dark_pixels: int = 0
     min_changed_pixels: int = 0
+    min_distinct_frames: int = 0
     visual_regions: tuple[VisualRegion, ...] = ()
 
 
@@ -119,6 +120,7 @@ CASES: dict[str, Case] = {
         ("eval_stmt_entry", "_OutputExpr", "_Disp"),
         min_dark_pixels=100,
         min_changed_pixels=100,
+        min_distinct_frames=5,
         visual_regions=(
             VisualRegion("home text row", "50x9+0+0", 80),
             VisualRegion("Done marker", "25x9+68+13", 10),
@@ -306,6 +308,17 @@ def count_changed_pixels(before: Path, after: Path) -> int:
     return int(match.group(1))
 
 
+def count_distinct_frames(gif: Path) -> int:
+    completed = subprocess.run(
+        [require_magick(), str(gif), "-coalesce", "-format", "%#\n", "info:"],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    return len({line.strip() for line in completed.stdout.splitlines() if line.strip()})
+
+
 def run_case(name: str, case: Case, tilem: Path, rom: Path, out_dir: Path, keep_trace: bool) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     trace = out_dir / f"{name}.trace"
@@ -358,6 +371,15 @@ def run_case(name: str, case: Case, tilem: Path, rom: Path, out_dir: Path, keep_
                 f"expected at least {case.min_changed_pixels}"
             )
         print(f"{name}: first-to-final changed pixels: {changed_pixels}")
+
+    if case.min_distinct_frames:
+        distinct_frames = count_distinct_frames(gif)
+        if distinct_frames < case.min_distinct_frames:
+            raise SystemExit(
+                f"{name}: captured {distinct_frames} distinct frames, "
+                f"expected at least {case.min_distinct_frames}"
+            )
+        print(f"{name}: distinct frames: {distinct_frames}")
 
     for region in case.visual_regions:
         region_dark_pixels = count_dark_pixels(final_png, region.crop)

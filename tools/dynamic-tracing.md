@@ -211,13 +211,15 @@ tools/tibasic_smoke.py --tilem "$TILEM" --rom tools/rom.bin \
 ```
 
 For the visualization cases, the smoke runner also thresholds the final frame
-and compares it with the first recorded frame. `ANIMTXT`, `GRAPHV`, and
-`GRAPHDFS` must end with at least 100, 100, and 200 dark pixels respectively,
-and must change by at least the same number of pixels from first to final frame.
-It then checks named crop regions, including `GRAPHV` label, axes, and circle
-arcs, plus `GRAPHDFS`/`GRAPHLST` node and edge regions. The 2026-06-07 run
-measured 212, 619, 466, and 466 dark pixels, with matching first-to-final pixel
-changes.
+and compares it with the first recorded frame. `ANIMTXT`, `GRAPHV`,
+`GRAPHDFS`, and `GRAPHLST` must end with at least 100, 100, 200, and 200 dark
+pixels respectively, and must change by at least the same number of pixels from
+first to final frame. `ANIMTXT` must also produce at least five distinct
+captured frames, so a static final screen cannot pass as an animation. The
+runner then checks named crop regions, including `GRAPHV` label, axes, and
+circle arcs, plus `GRAPHDFS`/`GRAPHLST` node and edge regions. The 2026-06-07
+run measured 212, 619, 466, and 466 dark pixels, with matching first-to-final
+pixel changes.
 The text/list fixtures use the same region mechanism for final-screen output:
 `HELLO`, `FACTOR`, `DATA`, `ASMCALL`, `ASMBRIDG`, `CALLSUB`, `BIGADD`,
 `BIGMUL`, and `DFS` check the displayed lines or numeric/list result regions,
