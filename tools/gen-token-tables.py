@@ -9,6 +9,7 @@ Usage:
     python3 tools/gen-token-tables.py            # fetch 8X.xml from GitHub
     python3 tools/gen-token-tables.py 8X.xml     # use a local copy
 """
+import html
 import sys, os, urllib.request
 import xml.etree.ElementTree as ET
 
@@ -49,6 +50,16 @@ def en_disp_since(tok):
     return disp, m
 
 
+def md_code_cell(text):
+    if any(c in text for c in ("`", "\\", "|")):
+        escaped = html.escape(text, quote=False)
+        escaped = escaped.replace("`", "&#96;")
+        escaped = escaped.replace("\\", "&#92;")
+        escaped = escaped.replace("|", "&#124;")
+        return f"<code>{escaped}</code>"
+    return f"`{text}`"
+
+
 def main():
     if len(sys.argv) > 1:
         data = open(sys.argv[1], "rb").read()
@@ -66,15 +77,15 @@ def main():
             disp, m = en_disp_since(k)
             if m not in INCLUDE or disp is None:
                 continue
-            rows.append((k.get("value")[1:], disp.replace("|", "\\|"), m))
+            rows.append((k.get("value")[1:], md_code_cell(disp), m))
         total += len(rows)
         head = f"## `{lead[1:]}` — {name}" + (f"  ({extra})" if extra else "")
         body = [head, "", f"*{len(rows)} tokens on the 84+ (2.55MP).*  Second byte → token:", "",
                 "| 2nd | Token | Since |", "|-----|-------|-------|"]
-        body += [f"| `{v}` | `{d}` | {m} |" for v, d, m in rows]
+        body += [f"| `{v}` | {d} | {m} |" for v, d, m in rows]
         sections.append("\n".join(body))
 
-    header = f"""# 2-Byte Token Tables
+    header = f"""# 2-byte token tables
 
 The second-byte tables for every **2-byte token** on the TI-84 Plus (OS 2.55MP). The tokenizer detects a 2-byte lead via `_IsA2ByteTok` (`00:1FE8`) — see [Tokenizer & TI-BASIC](07-tokenizer-basic.md) — then the **second byte** indexes the group below.
 
