@@ -235,6 +235,12 @@ displays `CALLED`. The related `_rclToQueue` (`49B4`, target `06:5F29`) depends
 on an existing edit buffer and `rclFlag.enableQueue`, so it is not a proven
 program-call entry either.
 
+`_ExecuteNewPrgm` probes (2026-06-07): calling `4C3C` with `OP1=ProgObj` and
+`HL -> "ZZBASIC",0` enters `_ExecuteNewPrgm` (`00:265F`) and `findsym_scan`, then
+ends at `ERR:SYNTAX`. Loading `ZZBASIC` as `ProtProgObj` and calling with
+`OP1=06` reaches the copy/jump tail (`00:268A`, `00:268F`) but still ends at
+`ERR:SYNTAX`; the target body never displays `CALLED`.
+
 These traces include the startup link-transfer code because the patched headless
 runner loads the `.8xp` files during the traced process. Use an idle/load
 baseline and coverage diff if you need to isolate only interpreter execution.

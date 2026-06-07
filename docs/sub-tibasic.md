@@ -586,6 +586,13 @@ never displays the target program's `CALLED` line. `_rclToQueue` (`06:5F29`) is
 an edit-buffer queue helper guarded by `rclFlag.enableQueue`, not a standalone
 program executor.
 
+`_ExecuteNewPrgm` (`00:265F`) is also stateful. An `AsmPrgm` probe with
+`OP1=ProgObj` and `HL -> "ZZBASIC",0` enters `_ExecuteNewPrgm` and
+`findsym_scan`, then reaches `ERR:SYNTAX`. The same probe with `ZZBASIC` loaded
+as `ProtProgObj` and `OP1=06` gets through the copy/jump tail at `00:268A` and
+`00:268F`, but still stops at `ERR:SYNTAX` without displaying the target
+program's `CALLED` line.
+
 ```ti-basic
 {5,4,3,2,1}->L1
 {5,6,7,8,9}->L2

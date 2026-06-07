@@ -282,6 +282,9 @@ bcalls are not that entry point:
 
 - `_ExecutePrgm` is the `AsmPrgm` executor reached by `Asm(prgmNAME)`, not a
   general "run a BASIC program" entry.
+- `_ExecuteNewPrgm` (`4C3C`, target `00:265F`) is not a drop-in BASIC runner
+  from an arbitrary `AsmPrgm` either. It expects more OS state than just a name
+  pointer.
 - `_ParsePrgmName` (`4E82`, target `38:40D4`) only consumes a `prgmNAME` token
   from the current parser cursor and builds the name object used by `Asm(`.
 
@@ -341,6 +344,17 @@ through the command loop; it still never displays `CALLED` from `ZZBASIC`.
 its ROM path depends on an already-open edit buffer (`editCursor`/`editTail`)
 and the `rclFlag.enableQueue` state; it does not create a BASIC program call
 frame. **[confirmed probes; `_rclToQueue` role from disassembly]**
+
+`_ExecuteNewPrgm` is the remaining tempting name, but temporary probes reject it
+as a public ASM-to-BASIC call path. A payload that sets `OP1` to `ProgObj`
+(`05`), points `HL` at the zero-terminated name `ZZBASIC`, and bcalls `4C3C`
+enters `_ExecuteNewPrgm` (`00:265F`) and `findsym_scan`, then ends at
+`ERR:SYNTAX`; `ZZBASIC` never displays `CALLED`. Repeating the test with
+`ZZBASIC` loaded as `ProtProgObj` (`06`) and `OP1=06` gets farther: the trace
+hits `_ExecuteNewPrgm`, the copy tail at `00:268A`, and the jump at `00:268F`.
+It still ends at `ERR:SYNTAX` and never runs the target body. That makes
+`_ExecuteNewPrgm` another stateful OS helper, not a standalone program executor
+ABI for `AsmPrgm` payloads. **[confirmed]**
 
 The current open item is therefore precise: trace a small ASM payload that
 successfully invokes a BASIC program, identify the required parser/VAT/error
