@@ -43,6 +43,32 @@ The master field at offset 0 is usually `80 0F …` (`field 800`, size nibble `F
 by a 4-byte size) — this is what the page-scan keys on to recognise an app. Fields carry
 the app name, the page count, flags, the date stamp, and signature-related data.
 
+The public header descriptions match the ROM parser and the local app corpus. Useful
+references are WikiTI's
+[application-header](https://wikiti.brandonw.net/index.php?title=83Plus:OS:Certificate/Headers:Fields:Application_Headers)
+and [certificate/header format](https://wikiti.brandonw.net/index.php?title=83Plus:OS:Certificate/Headers)
+pages, TI's
+[AppHeader guide](https://isa.umh.es/calc/TI/TI83-84SDK/appheaderguide.pdf), and
+Tari's [Cemetech disassembly note](https://www.cemetech.net/forum/viewtopic.php?t=20732&highlight=),
+which describes `.8xk` data as Intel HEX pages based at `0x4000` and app code as starting
+after field `807`.
+
+Common app-header fields in the sample corpus:
+
+| field | meaning | observed payload |
+|-------|---------|------------------|
+| `800` | master Flash-variable field | `800F` with a four-byte app length at the start of every sampled app |
+| `801` | developer/signing key | `0104`, the TI-83+/84+ freeware/shareware app key |
+| `802` | program revision | one-byte revision, usually `1` |
+| `803` | build number | one-byte build number, usually `1`; MirageOS uses `2` |
+| `804` | app name | up to 8 bytes; examples include `Axe`, `MirageOS`, `USBDRV8X`, and `zStart` |
+| `808` | page count | one byte; matches the decoded page count for Axe and CtlgHelp's two-page apps |
+| `809` | disable TI splash screen | usually zero-length when present; zStart uses a 15-byte app-owned payload |
+| `80C` | lowest basecode | usb8x uses `02 1E`, decoded as basecode `2.30` |
+| `032` | date stamp | six bytes; bytes 1-4 decode as seconds since 1997-01-01 |
+| `020` | date-stamp signature / unchecked payload | usually 64 bytes; Axe stores executable helper bytes here |
+| `807` | final field | terminates the parsed header; the `807F` length bytes are ignored |
+
 The app header is not a fixed 128-byte struct. The `807` final field terminates it. The
 common `80 7F 00 00 00 00` form uses size nibble `F` with a four-byte zero, but WikiTI
 documents that length as ignored; the shorter `80 70` form is valid. The app body begins
@@ -89,16 +115,26 @@ bytes and can return early; the later page switch and RAM-thunk behavior are dir
 decoded from the sample bytes.
 
 The same sample's conventional entry area at `4080` starts `NOP; JR 408C; JP 4097;
-JP 4548`. Additional local samples agree with WikiTI's field model:
+JP 4548`. `tools/app_header_re.py` reproduces this pass: `--fetch-known` downloads a
+local corpus from ticalc.org into ignored `tools/app-samples/`, and `--markdown` prints
+the decoded header table. The corpus keeps the same parser boundary rule:
 
-| sample | header boundary | header-area bytes before `4080` |
-|--------|-----------------|---------------------------------|
-| MirageOS, Omnicalc, CalcSys, Symbolic, BatLib | `807F00000000` at `406A`, header bytes end at `4070` | padding to `4080`; code starts at `4080` |
-| zStart 1.3.013 | `809D0F` carries a 15-byte Z80 routine at `406B`; `807F00000000` ends at `4080` | no padding; code starts at `4080` |
-| usb8x | `807F00000000` ends at `4029` | mostly zero padding, plus two app-owned jumps at `4049`: `JP 4180h; JP 42EAh` |
+| app sample | pages field / decoded pages | final field end | entry bytes at `4080` | header-area note |
+|------------|-----------------------------|-----------------|-----------------------|------------------|
+| Axe | 2 / 2 | `4070` | `00 18 09 C3 97 40 C3 48` | `020` payload contains the `4037` helper; then padding |
+| MirageOS | 1 / 1 | `4070` | `C3 D3 65 C3 D9 47 C3 D6` | padding to `4080` |
+| Omnicalc | 1 / 1 | `4070` | `C3 8C 40 C3 E5 79 C3 70` | padding to `4080` |
+| CalcSys | 1 / 1 | `4070` | `C3 89 40 21 AA 98 CB DE` | padding to `4080` |
+| Symbolic | 1 / 1 | `4070` | `18 2E 3A 4A 42 4A 4D 4A` | padding to `4080` |
+| BatLib | 1 / 1 | `4070` | `C3 25 61 C3 6E 43 C3 DE` | padding to `4080` |
+| BatLib-modified Celtic 3 / Grammer / Omnicalc | 1 / 1 | `4070` | app-specific jump/vector bytes | same boundary; nonzero `807F` size bytes are ignored |
+| zStart 1.3.013 / zStart83 | 1 / 1 | `4080` | `18 11 83 C3 ...` | `809D0F` carries a 15-byte Z80 helper at `406B` |
+| CtlgHelp / zChem from zStart | 2 / 2 or 1 / 1 | `4070` | app-specific bytes | padding to `4080` |
+| usb8x | 1 / 1 | `4029` | `00 00 00 00 00 00 00 96` | mostly zero padding, plus `JP 4180h; JP 42EAh` at `4049` |
 
-These samples keep the same parser boundary rule: the 128-byte boundary is an app
-convention, not the OS's header parser boundary.
+So `4080` is a common app-entry convention, not the OS's header parser boundary. Some
+apps end the parsed header at `4029`, `4070`, or exactly `4080`, and all remain valid
+because the `807` final field, not a 128-byte fixed struct, terminates the header.
 
 The public entry points for walking these fields are bcalls in `ti83plus.inc`:
 `_FindAppHeaderSubField` (bcall `0x80AB`) locates a field in an app header, and
