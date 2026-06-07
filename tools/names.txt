@@ -10,6 +10,9 @@ ram:08e9	call_context_savepage
 ram:05e6	main_event_loop
 ram:0747	_JForceCmd
 ram:265f	_ExecuteNewPrgm
+page_38:5984	_ParseInpLastEnt
+page_38:5987	_ParseInp
+page_38:5b2b	parseinp_find_setup
 page_38:5b7b	parse_init
 ram:1398	delmem_fixup_tail
 ram:0f8b	insertmem_setup

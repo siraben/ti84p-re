@@ -579,6 +579,15 @@ already live. This is why an `AsmPrgm` can successfully `_ChkFindSym` a BASIC
 program name, but the tested `_Find_Parse_Formula` probe still reaches
 `ERR:UNDEFINED` instead of running that program.
 
+A `_ParseInpLastEnt` (`4B07`, target `38:5984`) probe narrows the parser-entry
+boundary further. The payload built `OP1={ProgObj,"ZZBASIC"}` and called the
+parser variant; the trace reached `_ParseInpLastEnt`, `_ParseInp` (`38:5987`),
+`parseinp_find_setup` (`38:5B2B`), `findsym_scan`, `parse_init`, and
+`eval_stmt_entry`, but the final screen was `ERR:INVALID` / `Goto` and the
+target program never displayed `CALLED`. `_ParseInp` variants are therefore
+not byte-stream program-call ABIs; they expect parser/FPS stack state that a
+live BASIC caller has already established.
+
 The forced-command/edit-buffer path is another boundary, not an ABI. A temporary
 `AsmPrgm` that calls `_JForceCmd(kEnter)` reaches `_JForceCmd` (`00:0747`) but
 does not return to the BASIC wrapper; the final screen repeats the wrapper's

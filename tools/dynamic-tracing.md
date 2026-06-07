@@ -225,6 +225,15 @@ at `ERR:UNDEFINED`; the target BASIC program body does not run. Keep these as
 investigation traces rather than generated sample fixtures because one path is
 intentionally a failing probe.
 
+`_ParseInpLastEnt` probe (2026-06-07): a temporary `AsmPrgm` that builds
+`OP1={ProgObj,"ZZBASIC"}` and bcalls `_ParseInpLastEnt` (`4B07`, target
+`38:5984`) reaches `_ParseInpLastEnt`, `_ParseInp` (`38:5987`),
+`parseinp_find_setup` (`38:5B2B`), `findsym_scan`, `parse_init`, and
+`eval_stmt_entry`, but the final screen is `ERR:INVALID` / `Goto`; it never
+displays `CALLED`. This supports the static reading that `_ParseInp` variants
+expect a live parser/FPS stack frame, not just an OP1 program name from an
+arbitrary `AsmPrgm`.
+
 Forced-command/edit-buffer probes (2026-06-07): a payload that calls
 `_JForceCmd(kEnter)` (`402A`) enters `ram:0747` and re-enters the command loop
 without returning to the wrapper's following `Disp`; the screen repeats
