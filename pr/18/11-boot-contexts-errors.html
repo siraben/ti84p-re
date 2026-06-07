@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bd36890e.js";
+            window.path_to_searchindex_js = "searchindex-bbfe7a9f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5397aae8.js"></script>
+        <script src="toc-bcf53af4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -189,7 +189,7 @@
              ... (jumps into RAM-copied code — static disasm stops here)
 </code></pre>
 <p>Boot configures the paging hardware (ports 6 and <code>0x0E</code>) and the memory-map/timer mode (port 4 write), then transfers to code it copies into RAM (why the static trace ends with “bad instruction”). The continuation at <code>028c</code> ends <code>JP 0x812c</code>. <code>0x812c</code> is in the RAM execution window and is <em>blank in the static image</em>: the bytes are filled in at boot by the copy this stub performs, so the static trace cannot follow it. It eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen).</p>
-<p>The boot page (<code>3F</code>) and its version queries are exposed to the OS through <code>ti83plus.inc</code> bcalls: <code>_getBootVer</code> (bcall <code>0x80B7</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code>). These public entry points sit in the boot-page bcall range (<code>0x8000</code>+); their bodies are not defined functions in the current live DB.</p>
+<p>The boot page (<code>3F</code>) and its version queries are exposed to the OS through <code>ti83plus.inc</code> bcalls: <code>_getBootVer</code> (bcall <code>0x80B7</code> → <code>3F:477C</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code> → <code>3F:4781</code>). The USB boot support entry points route through the same table but land on page <code>2F</code>, for example <code>_AttemptUSBOSReceive</code> (<code>0x80E4</code> → <code>2F:4145</code>) and <code>_InitUSB</code> (<code>0x8108</code> → <code>2F:52A4</code>).</p>
 <h3 id="ram-clear--re-init-ram_reset_wipe--0x0bd9-confirmed"><a class="header" href="#ram-clear--re-init-ram_reset_wipe--0x0bd9-confirmed">RAM clear / re-init (<code>ram_reset_wipe</code> → <code>0x0BD9</code>) [confirmed]</a></h3>
 <p>The RAM-init proper is <code>ram_reset_wipe</code> (<code>35:719F</code>, reached on a full reset; the same routine backs the <code>[2nd]+[+] · 7 · 1 · 2</code> RAM-reset and the post-boot RAM clear). It zero-fills RAM in two blocks, preserving a handful of flag bits and <code>0x9B73</code> across the wipe:</p>
 <pre><code class="language-z80">ram_reset_wipe (35:719f):
@@ -315,7 +315,7 @@ call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; res
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="13-flash-page-map.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="14-ram-pages.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -329,7 +329,7 @@ call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; res
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="13-flash-page-map.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="14-ram-pages.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

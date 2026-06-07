@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bd36890e.js";
+            window.path_to_searchindex_js = "searchindex-bbfe7a9f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5397aae8.js"></script>
+        <script src="toc-bcf53af4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -346,16 +346,16 @@ the copier (6761..678A):
 </code></pre>
 <p>Port <strong>6</strong> is the bank-A page-select; the read code itself runs from <code>ramCode (0x8100)</code>. This is how
 an archived program/appvar is pulled back into RAM to be executed or edited. <code>ti83plus.inc</code> also
-names a sibling <strong><code>_FlashToRam2</code> (id 8054)</strong>; its body is not located in the live DB (the <code>0x8xxx</code>
-table is unmodeled), so the ID names the public API without yet pinning a page:addr.</p>
+names a sibling <strong><code>_FlashToRam2</code> (id 8054)</strong>; the retail boot table maps it to <code>3F:4888</code>.</p>
 <hr>
 <h2 id="6-low-level-flash-write--erase-pages-3c3d-port-0x14-mixed"><a class="header" href="#6-low-level-flash-write--erase-pages-3c3d-port-0x14-mixed">6. Low-level Flash write / erase (pages 3C/3D, port 0x14) [mixed]</a></h2>
 <p>The Flash program/erase primitives live on flash pages <strong>0x3C / 0x3D</strong> and are invoked through
 page-0 cross-page trampolines. The public bcall entry points for the byte writer are named in
 <code>ti83plus.inc</code>: <strong><code>_WriteAByte</code> (id 8021)</strong> and <strong><code>_WriteAByteSafe</code> (id 80C6)</strong> program a single
 Flash byte; <strong><code>_FlashToRam2</code> (id 8054)</strong> is the companion Flash→RAM copy of <code>_FlashToRam</code> (§5).
-Those IDs name the public API, not the body addresses below: the <code>0x8xxx</code> dispatch table is not
-modeled in the live DB, so the IDs are not yet mapped to these page-3C/3D bodies. Several page-3C/3D
+The retail boot table maps those APIs to boot-page bodies (<code>_WriteAByte</code>→<code>3F:4C9F</code>,
+<code>_WriteAByteSafe</code>→<code>3F:4C9A</code>, <code>_FlashToRam2</code>→<code>3F:4888</code>), which then wrap the lower-level
+page-3C/3D flash machinery below. Several page-3C/3D
 targets below are reached by byte trace but are <strong>not defined functions in the current live DB</strong>;
 their <code>flash_*</code> names are project-local inferred labels (not WikiTI or <code>ti83plus.inc</code> equates):</p>
 <div class="table-wrapper">
@@ -381,7 +381,7 @@ sets up the RAM-resident write stub (the actual byte-poke loops run from RAM at 
 because the CPU cannot fetch from a Flash chip mid-erase). <code>3D:6B9B</code>/<code>3D:6B6D</code> are bounds-checked
 byte-program candidate calls (return carry → caller raises <strong>E_ArchFull</strong>); neither is a defined
 function in the current live DB. The public byte-write API for this layer is <code>_WriteAByte</code> (8021) /
-<code>_WriteAByteSafe</code> (80C6), though the <code>0x8xxx</code> table does not yet pin either ID to a page-3C/3D body. The free-slot scan reads sector
+<code>_WriteAByteSafe</code> (80C6), which resolve to boot-page wrappers. The free-slot scan reads sector
 status bytes and sums free space to decide whether a GC is needed before a write.</p>
 <h3 id="6a-record-status-byte--the-one-way-bit-clearing-scheme-c"><a class="header" href="#6a-record-status-byte--the-one-way-bit-clearing-scheme-c">6a. Record-status byte — the one-way bit-clearing scheme [C]</a></h3>
 <p>The status byte is a classic AMD/Am29F <strong>monotonic bit-clear</strong> marker: erased Flash is all-ones
@@ -417,7 +417,7 @@ bits — port 2 bit 7 (<code>probe_hw_model_keep_a</code> <code>00:1837</code>) 
 <tr><th>Model test</th><th>Archive <strong>base</strong> page (<code>flash_page_select</code> <code>3D:726E</code>)</th><th>Archive <strong>top</strong> page (<code>flash_cmd_base</code> <code>3D:738B</code>)</th><th>Page mask</th></tr>
 </thead>
 <tbody>
-<tr><td>port 2 bit 7 set (1 MB)</td><td><code>0x15</code></td><td><code>0x1E</code></td><td><code>AND 0x1F</code> (32 pages)</td></tr>
+<tr><td>port 2 bit 7 <strong>clear</strong> (1 MB)</td><td><code>0x15</code></td><td><code>0x1E</code></td><td><code>AND 0x1F</code> (32 pages)</td></tr>
 <tr><td>port 0x21 == 0 (mid)</td><td><code>0x29</code></td><td><code>0x3E</code></td><td><code>AND 0x3F</code> (64 pages)</td></tr>
 <tr><td>else (2 MB)</td><td><code>0x69</code></td><td><code>0x7E</code></td><td><code>AND 0x3F</code></td></tr>
 </tbody>
@@ -538,11 +538,11 @@ the status byte; <code>flash_find_nonff</code> (<code>3D:7DEA</code>) treats an 
 </ul>
 <p><strong>Residual:</strong></p>
 <ul>
-<li><strong>Flash byte-write / Flash→RAM bcall bodies — names known, bodies unmapped [I].</strong> The public
-bcall entry points are canonical equates in <code>ti83plus.inc</code>: <code>_WriteAByte</code> (8021),
-<code>_WriteAByteSafe</code> (80C6), and <code>_FlashToRam2</code> (8054). Their bodies are not located in the live DB —
-the <code>0x8xxx</code> dispatch table is unmodeled — so the IDs name the API without yet resolving to a
-page:addr. The address-keyed <code>flash_*</code> labels in §6/§9 stay inferred and body-undisassembled.</li>
+<li><strong>Lower-level flash helper bodies — address-keyed labels still inferred [I].</strong> The public bcall
+entry points are canonical equates in <code>ti83plus.inc</code> and now resolve through the retail boot table:
+<code>_WriteAByte</code> (8021) → <code>3F:4C9F</code>, <code>_WriteAByteSafe</code> (80C6) → <code>3F:4C9A</code>, and <code>_FlashToRam2</code>
+(8054) → <code>3F:4888</code>. The address-keyed <code>flash_*</code> labels in §6/§9 stay inferred and
+body-undisassembled until the lower-level page-3C/3D helper graph is split cleanly.</li>
 <li><strong>Group archive path — partially pinned [H/I].</strong> <code>_DataSize</code> (<code>00:1485</code>) confirms a Group
 (type <code>0x17</code>, like AppVar <code>0x15</code>/<code>0x16</code>) carries a leading word-size header, so a group <em>can</em> be
 stored as one Flash blob. The single-call RAM→Flash worker <code>61F4</code> is reached only after

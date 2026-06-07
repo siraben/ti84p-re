@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bd36890e.js";
+            window.path_to_searchindex_js = "searchindex-bbfe7a9f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5397aae8.js"></script>
+        <script src="toc-bcf53af4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -313,7 +313,9 @@ decoding of <code>02:7201</code>/<code>02:7281</code> is detailed in <a href="06
 degree-mode <code>_ASin</code>/<code>_ACos</code>/<code>_ATan</code>/<code>_ATan2</code> at <code>76F1</code>/<code>76DF</code>/<code>76E9</code>/<code>7749</code>.</li>
 <li><code>_ASin</code>/<code>_ACos</code> call domain check <code>SUB_page_02:79D3</code>; <strong>|arg| &gt; 1 → <code>_ErrDomain</code></strong>.</li>
 <li>All inverse trig funnel into the shared <strong>arctangent CORDIC engine</strong> at <code>page_02:774B</code>
-(<code>B=0x20</code> = 32 iterations), with asin/acos expressed via atan2 of (x, √(1−x²)).</li>
+(<code>B=0x20</code> seeds the octant/quadrant base written to <code>0x84A4</code>; the core is a base-10
+trial-subtract digit recurrence, not a fixed 32-step loop), with asin/acos expressed
+via atan2 of (x, √(1−x²)).</li>
 </ul>
 <h3 id="hyperbolics-confirmed"><a class="header" href="#hyperbolics-confirmed">Hyperbolics [confirmed]</a></h3>
 <ul>

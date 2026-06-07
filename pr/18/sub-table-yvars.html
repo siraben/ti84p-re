@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bd36890e.js";
+            window.path_to_searchindex_js = "searchindex-bbfe7a9f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5397aae8.js"></script>
+        <script src="toc-bcf53af4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -259,9 +259,9 @@ is the <strong>list-step</strong> token <code>0x21</code>; <code>TblStart</code>
 </div>
 <h3 id="tblset-keyedit-handler--tblsetup_handler-027b20-confirmed"><a class="header" href="#tblset-keyedit-handler--tblsetup_handler-027b20-confirmed">TBLSET key/edit handler — <code>tblsetup_handler</code> (<code>02:7B20</code>) [confirmed]</a></h3>
 <p>The page-02 command/mode handler that backs the <strong>TBLSET</strong> screen edits the two
-floats and the two mode rows. A retired helper label at <code>02:7B35</code> is not a live function in the current DB, but the byte sequence there decodes as:</p>
-<pre><code class="language-z80">02:7B35  RES 4,(IY+0x13)   ; default Indpnt = Auto  (autoFill=0)
-         SET 6,(IY+0x13)   ; reTable = 1  → table is now dirty
+floats and the two mode rows. A retired helper label at <code>02:7B31</code> is not a live function in the current DB, but the byte sequence there decodes as:</p>
+<pre><code class="language-z80">02:7B31  RES 4,(IY+0x13)   ; default Indpnt = Auto  (autoFill=0)
+02:7B35  SET 6,(IY+0x13)   ; reTable = 1  → table is now dirty
          RET
 02:7B3A  BIT 4,(IY+0x13) … ; toggle helpers for the menu rows:
          SET 4,(IY+0x13)   ;   Indpnt = Ask
@@ -375,8 +375,10 @@ recompute driver, otherwise it repaints from the cached values. [confirmed]</p>
 <p>After a successful recompute it <strong>clears <code>reTable</code></strong>, so subsequent scrolls reuse
 the cache until something marks it dirty again. [confirmed bytes]</p>
 <h3 id="31-seeding-the-running-independent-value-confirmed"><a class="header" href="#31-seeding-the-running-independent-value-confirmed">3.1 Seeding the running independent value [confirmed]</a></h3>
-<p><code>05:774B</code> (and the identical <code>05:773F</code>) initialise the per-table running <code>X</code>:</p>
-<pre><code class="language-z80">LD HL,0x92B3 (TblMin) ; LD DE,0x862B ; JP 0x1A92    ; running-X (0x862B) ← TblMin
+<p><code>05:774B</code> initialises the per-table running <code>X</code>. It first clears a working float
+(<code>05:774B LD DE,0x8622 ; CALL 0x1920</code>), then at <code>05:7751</code> copies TblMin into the
+running-X slot:</p>
+<pre><code class="language-z80">05:7751  LD HL,0x92B3 (TblMin) ; LD DE,0x862B ; JP 0x1A92   ; running-X (0x862B) ← TblMin
 </code></pre>
 <p>i.e. the first row’s independent value is <strong>TblStart</strong>. A working float at
 <code>0x8622</code>/<code>0x862B</code> holds the current row’s X. The “advance to next row” step

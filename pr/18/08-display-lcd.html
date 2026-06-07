@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bd36890e.js";
+            window.path_to_searchindex_js = "searchindex-bbfe7a9f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5397aae8.js"></script>
+        <script src="toc-bcf53af4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -192,8 +192,8 @@
 <li><strong>Command bytes</strong> (all grounded in <code>_ClrLCDFull</code>/<code>_ClearRow</code>/<code>lcd_set_col_cmd</code>):
 <ul>
 <li><strong>Row (page) select</strong> = <code>0xB8 − 8·row</code> for <code>row = 0…7</code> (i.e. <code>0xB8, 0xB0, … 0x80</code>), sent to <code>0x10</code> via <code>lcd_set_col_cmd</code> (<code>01:5A89</code>), which only emits the byte when <code>0x80 ≤ A &lt; 0xC0</code> (guards the row/Z-address range). <code>_ClrLCDFull</code> walks this by loading <code>A=0xB8</code>, calling <code>_ClearRow</code>, then <code>SUB 0x8</code> and looping while <code>A ≥ 0x80</code> (<code>B=0x80</code>).</li>
-<li><strong>Column select</strong> = <code>0x20 + col</code>, sent <strong>raw</strong> to <code>0x10</code>. <code>_ClearRow</code> (<code>01:6934</code>) walks <code>E</code> from <strong><code>0x20</code> to <code>0x2B</code></strong> (<code>CP 0x2C</code> terminates) = <strong>12 columns</strong> (12 bytes × 8 px = 96 px wide), writing one data byte to <code>0x11</code> per column (<code>B=0x08</code> inner loop = 8 rows of pixels). <strong>[confirmed]</strong></li>
-<li><strong>Contrast</strong>: <code>lcd_set_contrast</code> (<code>01:5A59</code>) writes the contrast level to the <strong>data</strong> port <code>0x11</code>; the level is held in RAM at <code>contrast</code> (<code>0x8447</code>) and re-sent as a command via <code>lcd_set_col_cmd</code> on read-back (<code>lcd_get_contrast</code>, <code>01:5A60</code>). <strong>[confirmed]</strong></li>
+<li><strong>Column select</strong> = <code>0x20 + col</code>, sent <strong>raw</strong> to <code>0x10</code>. <code>_ClearRow</code> (<code>01:6934</code>) walks <code>E</code> from <strong><code>0x20</code> to <code>0x2B</code></strong> (<code>CP 0x2C</code> terminates) = <strong>12 columns</strong> (12 bytes × 8 px = 96 px wide), writing <strong>8 data bytes</strong> to <code>0x11</code> per column — the <code>B=0x08</code> inner <code>djnz</code> loop writes one byte per pixel row (8 rows). <strong>[confirmed]</strong></li>
+<li><strong>Contrast</strong>: <code>lcd_set_contrast</code> (<code>01:5A59</code>) writes the contrast level to the <strong>data</strong> port <code>0x11</code>; <code>lcd_get_contrast</code> (<code>01:5A60</code>) reads it back from the controller with <code>IN A,(0x11)</code> (the standard dummy+real LCD read), not a command re-send. The level is also held in RAM at <code>contrast</code> (<code>0x8447</code>); the <strong>command-port</strong> form <code>(contrast+0x18)|0xC0</code> is what <code>_LCD_DRIVERON</code> (page 06) and the <code>_GetKey</code> contrast keys send to <code>0x10</code>. <strong>[confirmed]</strong></li>
 <li>Every port access is preceded by <code>CALL 0x0CC3</code> (<code>lcd_wait</code>), the controller-busy delay. <strong>[confirmed]</strong></li>
 </ul>
 </li>

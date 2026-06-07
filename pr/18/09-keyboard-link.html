@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bd36890e.js";
+            window.path_to_searchindex_js = "searchindex-bbfe7a9f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5397aae8.js"></script>
+        <script src="toc-bcf53af4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -220,7 +220,7 @@
 </tbody>
 </table>
 </div>
-<p><strong>Forming a raw scan code.</strong> For each driven group the routine reads the column byte, then finds the single low (pressed) column bit by an 8-iteration <code>RLA</code>/<code>DJNZ</code> loop (<code>0435</code>–<code>043C</code>) that counts set bits into <code>E</code> and records the bit index in <code>L</code>. If exactly one key is down it builds the scan code as <strong><code>group × 8 + column_index</code></strong>, where <code>group</code> is the 0-based group from the table above. The code forms it at <code>0453: DEC A; RLA;RLA;RLA; ADD A,L</code>: the iteration counter in <code>A</code> is 1-based, so <code>DEC A</code> converts it to the 0-based <code>group</code>, the three <code>RLA</code>s multiply by 8, and <code>ADD A,L</code> adds the column index in <code>L</code>; it then returns the byte. multiple simultaneous keys set carry (<code>SCF</code> @ <code>0459</code>) so the press is rejected (debounce / ghost-key reject). The single resulting byte is the raw scan code that lands in <code>kbdScanCode</code> (<code>0x843F</code>), which <code>_GetCSC</code> (<code>00:04B2</code>) then reads-and-clears under <code>DI</code>. The scan-enable gate <code>BIT 0,(IY+0x2C)</code> @ <code>0415</code> lets the ISR/<code>_GetKey</code> path special-case the arrow group.</p>
+<p><strong>Forming a raw scan code.</strong> For each driven group the routine reads the column byte, then finds the single low (pressed) column bit by an 8-iteration <code>RLA</code>/<code>DJNZ</code> loop (<code>0435</code>–<code>043C</code>) that counts the <strong>cleared</strong> (pressed, active-low) column bits into <code>E</code> (<code>RLA</code> → <code>JR C</code> skips <code>INC E</code> on a <code>1</code> bit, so only <code>0</code> bits are counted) and records the bit index in <code>L</code>. If exactly one key is down it builds the scan code as <strong><code>group × 8 + column_index</code></strong>, where <code>group</code> is the 0-based group from the table above. The code forms it at <code>0453: DEC A; RLA;RLA;RLA; ADD A,L</code>: the iteration counter in <code>A</code> is 1-based, so <code>DEC A</code> converts it to the 0-based <code>group</code>, the three <code>RLA</code>s multiply by 8, and <code>ADD A,L</code> adds the column index in <code>L</code>; it then returns the byte. multiple simultaneous keys set carry (<code>SCF</code> @ <code>0459</code>) so the press is rejected (debounce / ghost-key reject). The single resulting byte is the raw scan code that lands in <code>kbdScanCode</code> (<code>0x843F</code>), which <code>_GetCSC</code> (<code>00:04B2</code>) then reads-and-clears under <code>DI</code>. The scan-enable gate <code>BIT 0,(IY+0x2C)</code> @ <code>0415</code> lets the ISR/<code>_GetKey</code> path special-case the arrow group.</p>
 <h3 id="2nd--alpha-modifier-state-machine-confirmed"><a class="header" href="#2nd--alpha-modifier-state-machine-confirmed">2nd / ALPHA modifier state machine [confirmed]</a></h3>
 <p>While cooking raw scan codes into the <code>kXxx</code> key constants, <code>_GetKey</code> (<code>06:491E</code>) runs a small modifier state machine in <strong><code>shiftFlags</code></strong> (<code>IY+0x12</code> = <code>0x8A02</code>, the <code>[2nd]</code>/<code>[ALPHA]</code> flag byte):</p>
 <div class="table-wrapper">

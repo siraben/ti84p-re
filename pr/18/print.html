@@ -38,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bd36890e.js";
+            window.path_to_searchindex_js = "searchindex-bbfe7a9f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5397aae8.js"></script>
+        <script src="toc-bcf53af4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -216,6 +216,7 @@
 <tr><td><a href="#11--boot-contexts-and-error-handling">11-boot-contexts-errors.md</a></td><td>Boot, context system, _JError/onSP</td><td>✅</td></tr>
 <tr><td><a href="#12--memory-management-ram-heap--flash-archive">12-memory-management.md</a></td><td>RAM heap, VAT/userMem, Flash archive/GC</td><td>✅</td></tr>
 <tr><td><a href="#13--flash-page-map">13-flash-page-map.md</a></td><td>What each of the 64 flash pages contains</td><td>✅</td></tr>
+<tr><td><a href="#14---ram-pages">14-ram-pages.md</a></td><td>RAM page selectors, page <code>83</code>, and restore rules</td><td>✅</td></tr>
 <tr><td><a href="#99--open-questions--future-work">99-open-questions.md</a></td><td>Prioritized future-work roadmap</td><td>✅</td></tr>
 <tr><td><a href="#calculation-engine">sub-calculation.md</a></td><td>Calculation engine: FP ops, transcendentals, formatting, errors</td><td>✅</td></tr>
 <tr><td><a href="#graphing">sub-graphing.md</a></td><td>Graphing: window vars, coord↔pixel, draw primitives, Y= eval</td><td>✅</td></tr>
@@ -234,7 +235,7 @@
 </div>
 <p>(The <code>sub-*</code> docs are deep dives covering user-facing functionality and I/O internals: calculation, graphing, TI-BASIC, VAT/archive, apps, stats, matrices, solver, table, equation display, link, and USB/link assist.)</p>
 <p>New to these notes? Start with <a href="#conventions--methodology">Conventions &amp; Methodology</a> (how to read the addresses and confidence flags) and the <a href="#glossary">Glossary</a>; the <a href="#bcall-reference-index">bcall Index</a> is the full alphabetical system-call reference.</p>
-<p>Database state: <strong>2413 functions (100% named)</strong>, the main <code>0x4xxx</code> bcall table resolved, TI-OS types applied. The older <code>0x8xxx</code>/page-0x3F bcall scan output is not present as functions in the current live Ghidra/MCP DB and needs reconciliation. Rebuild: <code>tools/build.sh</code>.</p>
+<p>Database state: the main <code>0x4xxx</code> bcall table is resolved, the retail boot bcall table (<code>0x8xxx</code>) is resolved from the local complete ROM, and TI-OS types are applied. Most boot bcall bodies are on page <code>3F</code>; USB boot routines such as <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> are on page <code>2F</code>. Rebuild: <code>tools/build.sh</code>.</p>
 <h2 id="key-anchors-found-so-far"><a class="header" href="#key-anchors-found-so-far">Key anchors found so far</a></h2>
 <ul>
 <li>Reset entry <code>reset</code> @ <code>ram:0000</code> <strong>[confirmed]</strong></li>
@@ -336,8 +337,8 @@
 </blockquote>
 <h2 id="how-this-re-was-produced"><a class="header" href="#how-this-re-was-produced">How this RE was produced</a></h2>
 <ul>
-<li><strong>The Ghidra database</strong> is rebuilt from the ROM by <code>tools/build.sh</code> (a 10-stage headless pipeline). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves and names routines. 100% of the 2413 functions are named.</li>
-<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored 447/535 (the runner-up only 124) for the <code>0x4xxx</code> table and is cross-checked against the documented RST shortcuts (all six matched). Historical <code>0x8xxx</code>/page-0x3F candidates exist in generated files, but their targets are not currently exposed as functions by the live Ghidra/MCP DB.</li>
+<li><strong>The Ghidra database</strong> is rebuilt from the ROM by <code>tools/build.sh</code> (a 10-stage headless pipeline). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves and names routines from the main OS and retail boot tables.</li>
+<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored 447/535 (the runner-up only 124) for the <code>0x4xxx</code> table and is cross-checked against the documented RST shortcuts (all six matched). <code>0x8xxx</code> names come from the full SDK equates and resolve through the retail boot table on page <code>3F</code>; USB boot entries point into page <code>2F</code>. The resolver refuses to emit these body targets from a BootFree-substituted page <code>3F</code>.</li>
 <li><strong>Decompiler caveats.</strong> Ghidra’s Z80 decompiler mis-renders some idioms — <code>SET b,(IY+d)</code> flag ops, the <code>CALL cross_page_jump</code> (<code>2b09</code>) trampolines, and register-passed arguments on banked pages. Where the decompiler is unreliable the notes are grounded in the raw disassembly (and several deep-dives used a small custom Z80 decoder over the ROM to verify addresses byte-exactly).</li>
 <li><strong>Parallel multi-agent passes.</strong> The feature deep-dives (<code>sub-*</code>) and the final 100%-naming pass were produced by multiple agents working on isolated copies of the database, each owning a disjoint set of pages, then merged.</li>
 </ul>
@@ -420,7 +421,7 @@
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="01--memory-map"><a class="header" href="#01--memory-map">01 — Memory map</a></h1>
-<p>The Z80 sees a flat <strong>64 KiB</strong> logical space, divided into four <strong>16 KiB</strong> slots. Hardware paging (ports 6/7) decides which physical flash page or RAM page is visible in the two middle slots. See <a href="#02--memory-paging">02-paging.md</a> for the banking detail.</p>
+<p>The Z80 sees a flat <strong>64 KiB</strong> logical space, divided into four <strong>16 KiB</strong> slots. Hardware paging (ports 6/7) decides which physical flash page or RAM page is visible in the two middle slots. See <a href="#02--memory-paging">02-paging.md</a> for the banking detail and <a href="#14---ram-pages">14-ram-pages.md</a> for RAM page <code>83</code> and restore rules.</p>
 <h2 id="logical-address-space-what-the-z80-sees"><a class="header" href="#logical-address-space-what-the-z80-sees">Logical address space (what the Z80 sees)</a></h2>
 <div class="table-wrapper">
 <table>
@@ -446,10 +447,11 @@
 <tr><td><code>00</code></td><td>Boot/kernel core, mapped at <code>0000</code></td><td>RST vectors, <code>bcall_dispatcher</code>, FP/VAT/mem routines <strong>[confirmed]</strong></td></tr>
 <tr><td><code>01</code></td><td>OS routines (display, homescreen text, menus)</td><td><code>_PutC</code>,<code>_PutS</code>,<code>_ClrLCDFull</code>,<code>_NewLine</code> resolve here <strong>[confirmed]</strong></td></tr>
 <tr><td><code>06</code></td><td>OS routines (key input, parser-ish)</td><td><code>_GetKey</code>→<code>06:491E</code> <strong>[confirmed]</strong></td></tr>
+<tr><td><code>2F</code></td><td>USB boot support page</td><td>supplied by local <code>D84PBE2.8Xv</code>; retail page <code>3F</code> maps <code>_AttemptUSBOSReceive</code>→<code>2F:4145</code>, <code>_ReceiveOS_USB</code>→<code>2F:48CA</code>, <code>_InitUSB</code>→<code>2F:52A4</code>, <code>_KillUSB</code>→<code>2F:5961</code> <strong>[confirmed]</strong></td></tr>
 <tr><td><code>3B</code></td><td><strong>bcall jump table</strong></td><td>scored 447/535 named .inc IDs; first entry <code>_JErrorNo</code>→<code>00:2799</code> <strong>[confirmed]</strong></td></tr>
 <tr><td><code>3C</code></td><td>Link code + OS version string (<code>"2.55MP"</code>)</td><td>page starts <code>32 2E 35 35 4D 50</code> <strong>[confirmed]</strong></td></tr>
 <tr><td><code>3E</code></td><td><strong>Certification page</strong> (per-calculator cert sector; blank in this OS-only image)</td><td>84+ cert page is <code>3E</code>, not <code>3F</code> <strong>[standard]</strong></td></tr>
-<tr><td><code>3F</code></td><td><strong>Boot page</strong> — maps itself into both banks at power-on</td><td>starts <code>3E 3F D3 06 D3 07</code> = <code>LD A,3F; OUT (6),A; OUT (7),A</code> <strong>[confirmed]</strong></td></tr>
+<tr><td><code>3F</code></td><td><strong>Retail boot page</strong></td><td>supplied by local <code>D84PBE1.8Xv</code>; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, contains boot version string <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table <strong>[confirmed]</strong></td></tr>
 </tbody>
 </table>
 </div>
@@ -499,7 +501,7 @@
 </div>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="02--memory-paging"><a class="header" href="#02--memory-paging">02 — Memory paging</a></h1>
-<p>The Z80’s two middle 16 KiB slots are windows onto physical memory selected by I/O ports.</p>
+<p>The Z80’s banked 16 KiB slots are windows onto physical memory selected by I/O ports.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -508,10 +510,11 @@
 <tbody>
 <tr><td><code>4000–7FFF</code> (bank A)</td><td><strong>port 6</strong> (<code>mapBankA</code>)</td><td>a flash page (0–63) — and the bcall mechanism uses this slot to bring routines into view</td></tr>
 <tr><td><code>8000–BFFF</code> (bank B)</td><td><strong>port 7</strong> (<code>mapBankB</code>)</td><td>a RAM or flash page; <code>0x81</code> observed = 84+ RAM mode</td></tr>
+<tr><td><code>C000–FFFF</code> (bank C)</td><td><strong>port 5</strong> (<code>mapBankC</code>)</td><td>a RAM page; <code>0x00</code> observed = RAM page <code>80</code></td></tr>
 </tbody>
 </table>
 </div>
-<p><code>0000–3FFF</code> is hardwired to flash page 0. <code>C000–FFFF</code> is RAM in the static OS model and is normally the stack/user-RAM window; the 84+ hardware can bank the high RAM slot through MemC/port 5, but the current MCP audit did not find code xrefs to <code>io:0005</code>. <strong>[standard; port-5 use not MCP-confirmed]</strong></p>
+<p><code>0000–3FFF</code> is hardwired to flash page 0. <code>C000–FFFF</code> is RAM in the static OS model and is normally the stack/user-RAM window; the 84+ hardware banks the high RAM slot through MemC/port 5. The dynamic trace in <a href="#14---ram-pages">RAM pages</a> confirms port-5 restores to RAM page <code>80</code> during normal OS execution. <strong>[confirmed]</strong></p>
 <h2 id="how-code-uses-it"><a class="header" href="#how-code-uses-it">How code uses it</a></h2>
 <ul>
 <li><strong>bcalls</strong> set <code>port_mapBankA</code> to the target routine’s page, run it at <code>4000+</code>, then restore the previous page (see <a href="#03--the-bcall-system-call-mechanism">03-bcall-mechanism.md</a>). The helper <code>ram:181c</code> is the page-set primitive used by the dispatcher.</li>
@@ -545,14 +548,14 @@
 <li>Resolution method (<code>tools/</code> Python): scored all 64 pages by how many of the 535 named .inc IDs produced a valid <code>(addr∈4000..7FFF or page-0, page&lt;0x40)</code> entry — in this page-selection heuristic page <code>0x3B</code> scored <strong>447/535</strong> (a conservative validity filter used only to pick the table), the runner-up only 124. Once <code>0x3B</code> is selected and applied, all 535 <code>.inc</code> IDs plus 61 RE-named entries (596 total) resolve and are live-confirmed.</li>
 <li>Validation: known bcalls land exactly where expected — <code>_PutS</code>→<code>01:5C39</code>, <code>_GetKey</code>→<code>06:491E</code>, <code>_ClrLCDFull</code>→<code>01:60E4</code>, <code>_GetCSC</code>→<code>00:04B2</code>, <code>_CreateReal</code>→<code>00:10B8</code>.</li>
 </ul>
-<p><code>tools/bcall_targets.txt</code> holds <strong>607</strong> historical resolved bcall rows: 596 main <code>0x4xxx</code> entries plus 11 <code>0x8xxx</code> extended candidates. The 596 main entries are live-confirmed in the current Ghidra/MCP DB; the 11 extended page-0x3F candidates remain ROM-scan artifacts until the live DB exposes matching functions. <code>tools/ApplyBcalls.java</code> disassembles &amp; names the confirmed bodies it can resolve.</p>
+<p><code>tools/bcall_targets.txt</code> holds <strong>596</strong> resolved main-table bcall rows. <code>tools/bcalls8x_targets.txt</code> holds <strong>83</strong> retail boot-table rows when the local ROM has the retail page <code>3F</code> and USB support page <code>2F</code> installed. <code>tools/ApplyBcalls.java</code> disassembles and names the confirmed bodies it can resolve.</p>
 <h2 id="jump-table-id-ranges"><a class="header" href="#jump-table-id-ranges">Jump-table ID ranges</a></h2>
 <p>The dispatcher’s ID decode (<code>bcall_dispatcher</code>) selects one of <strong>two</strong> tables by the ID’s top bits:</p>
 <ul>
 <li><strong><code>0x4xxx</code>–<code>0x7FFF</code></strong> (bit 14 set): the main table on <strong>flash page 0x3B</strong>, entry at offset <code>ID − 0x4000</code> (596 live-confirmed bcalls: 535 from the <code>.inc</code> + 61 RE-named).</li>
-<li><strong><code>0x8xxx</code></strong> (bit 15 set): historical scripts decoded 11 TI-84+-era extended candidates from a page-0x3F table, but the current live Ghidra/MCP DB does not expose functions at the claimed page-0x3F targets such as <code>_FindFirstCertificateField</code> <code>3F:4448</code> or <code>_GetBootVer</code> <code>3F:531E</code>. Treat these entries as <strong>unverified ROM-scan output</strong>, not live-confirmed bcalls, until the DB/load model is reconciled.</li>
+<li><strong><code>0x8xxx</code></strong> (bit 15 set): the retail boot table is on physical page <code>3F</code>, indexed by <code>ID &amp; 0x7FFF</code>. <code>D84PBE1.8Xv</code> supplies the retail page <code>3F</code>; <code>D84PBE2.8Xv</code> supplies the companion USB boot support page <code>2F</code>. Most entries resolve to <code>3F:addr</code>; USB entries such as <code>_AttemptUSBOSReceive</code> (<code>80E4</code>) and <code>_InitUSB</code> (<code>8108</code>) resolve to <code>2F:addr</code>. <code>tools/resolve_bcalls.py</code> refuses to emit these targets from a BootFree-substituted page. <strong>[confirmed]</strong></li>
 </ul>
-<p>Both table formats are 3-byte entries (addr LE + page, page masked <code>&amp; 0x3F</code>); only the main page-0x3B table is MCP-confirmed end to end.</p>
+<p>Both resolved table formats are 3-byte entries: target address (little endian) plus page byte masked with <code>&amp; 0x3F</code>.</p>
 <h2 id="rst-shortcuts-fast-inlined-bcalls-confirmed"><a class="header" href="#rst-shortcuts-fast-inlined-bcalls-confirmed">RST shortcuts (fast inlined bcalls) [confirmed]</a></h2>
 <p>The other RST vectors are 1-byte fast paths for the hottest routines (each <code>JP</code>s to its page-0 handler, which is also reachable as a bcall — the table maps the same address):</p>
 <div class="table-wrapper">
@@ -575,10 +578,10 @@
 <p>Besides bcalls, the OS calls <em>its own</em> cross-page routines via <strong>bjump</strong>: <code>CALL cross_page_jump</code> (<code>= CALL 0x2b09</code>) followed inline by <code>.dw addr; .db page</code>. <code>cross_page_jump</code> pops the return address, reads the 2-byte target + 1-byte page from it, banks the page (<code>&amp; 0x3F</code>), and jumps. The target’s <code>RET</code> returns to <em>the bjump’s caller</em>, so it behaves like a call that consumes the 3 inline bytes.</p>
 <p>There is a trampoline table in the page-0 address range <strong><code>0x3B01–0x3D0B</code></strong>: <strong>87 packed 6-byte entries</strong>, each a bjump to a hot OS routine on another page. The static Ghidra DB models it in the page-0/ROM address space; whether the table is copied to RAM at runtime is a hypothesis, not MCP-confirmed. Code invokes a routine by <code>CALL 0x3Bxx</code> into the table. <code>tools/bjumps.txt</code> lists every entry’s <code>(offset → page:addr)</code>; <code>tools/RamRoutines.java</code> marks the inline <code>.dw/.db</code> as data and comments each target.</p>
 <p>Example: <code>_PutMap</code>’s glyph blitter is reached via the trampoline at <code>0x3B3D → page_07:4588</code>.</p>
-<p><strong>Inline bjumps:</strong> besides the trampoline table, <code>CALL cross_page_jump; .dw; .db</code> appears <em>inline</em> throughout the OS (e.g. transcendentals: <code>_EToX</code> = <code>fp_clear_guard(); bjump</code>). Because <code>cross_page_jump</code> consumes the 3 inline bytes and tail-jumps (the target returns to the bjump’s caller), the bytes after must be data and the call is non-returning. <code>tools/FixInlineBjumps.java</code> marks all <strong>280</strong> such sites, which substantially improved OS-wide disassembly coverage.</p>
+<p><strong>Inline bjumps:</strong> besides the trampoline table, <code>CALL cross_page_jump; .dw; .db</code> appears <em>inline</em> throughout the OS (e.g. transcendentals: <code>_EToX</code> = <code>fp_clear_guard(); bjump</code>). Because <code>cross_page_jump</code> consumes the 3 inline bytes and tail-jumps (the target returns to the bjump’s caller), the bytes after must be data and the call is non-returning. <code>tools/FixInlineBjumps.java</code> marks all <strong>355</strong> such sites in the complete local ROM, which substantially improved OS-wide disassembly coverage.</p>
 <h2 id="limitations--todo"><a class="header" href="#limitations--todo">Limitations / TODO</a></h2>
 <ul>
-<li>Reconcile the historical <code>0x8xxx</code>/page-0x3F bcall scan with the live Ghidra/MCP DB; the claimed page-0x3F bodies are not currently functions.</li>
+<li>Keep the BootFree guard in place when regenerating from emulator-derived ROM images.</li>
 <li>Some bcalls are <em>thunks</em>: e.g. <code>_FindSym</code>’s page-0 entry uses <code>cross_page_jump</code> to reach the real body on page 0x07.</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -726,25 +729,25 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
 <tr><th>Page</th><th style="text-align: right">Funcs</th><th>Role</th><th>Representative routines</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>00</strong></td><td style="text-align: right">740</td><td><strong>Kernel</strong> — mapped at <code>0000</code>; RST vectors, bcall dispatcher, FP core, VAT, memory, integer math</td><td><code>_JErrorNo</code>, <code>_LdHLind</code>, <code>_DivHLBy10</code>, <code>_FindSym</code>, <code>_FPAdd</code>, <code>_InsertMem</code></td></tr>
-<tr><td><strong>01</strong></td><td style="text-align: right">46</td><td><strong>Text display</strong> / homescreen</td><td><code>_PutMap</code>, <code>_PutC</code>, <code>_PutS</code>, <code>_DispHL</code>, <code>_NewLine</code>, <code>_ClrLCDFull</code></td></tr>
-<tr><td><strong>02</strong></td><td style="text-align: right">178</td><td><strong>Float transcendentals &amp; advanced math</strong></td><td><code>_SqRoot</code>, <code>_LnX</code>, <code>_RnFx</code>, <code>_RndGuard</code></td></tr>
-<tr><td><strong>03</strong></td><td style="text-align: right">5</td><td>Edit-buffer / small font</td><td><code>_CloseEditBuf</code>, <code>_Load_SFont</code>, <code>_SFont_Len</code></td></tr>
-<tr><td><strong>04</strong></td><td style="text-align: right">58</td><td><strong>Graph drawing</strong> (pixel/line)</td><td><code>_DarkLine</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_DarkPnt</code></td></tr>
-<tr><td><strong>05</strong></td><td style="text-align: right">~111</td><td><strong>TABLE editor</strong> + Graph-Table split-screen</td><td><code>table_editor_main</code>, <code>table_recompute</code>, <code>table_paint_grid</code></td></tr>
-<tr><td><strong>06</strong></td><td style="text-align: right">32</td><td><strong>Key input</strong> &amp; edit/cursor</td><td><code>_GetKey</code>, <code>_GetCSC</code>, <code>_CursorOn/Off</code>, <code>_PutTokString</code></td></tr>
-<tr><td><strong>07</strong></td><td style="text-align: right">21</td><td><strong>Archive / list &amp; matrix ops</strong>; error messages; <strong>large-font glyph table @ <code>0x45FF</code></strong> (7-byte stride) read by <code>put_glyph_large</code> (<code>07:4588</code>)</td><td><code>_Arc_Unarc</code>, <code>_CleanAll</code>, <code>_RedimMat</code>, <code>_IncLstSize</code>, <code>put_glyph_large</code></td></tr>
-<tr><td><strong>33</strong></td><td style="text-align: right">62</td><td><strong>Graph coordinate math</strong></td><td><code>_SetXXOP1</code>, <code>_UCLineS</code> (window↔pixel transforms)</td></tr>
-<tr><td><strong>36</strong></td><td style="text-align: right">21</td><td><strong>Mode setters</strong> (Func/Param/Polar/Seq)</td><td><code>_SetFuncM</code>, <code>_SetParM</code>, <code>_SetPolM</code>, <code>_SetSeqM</code></td></tr>
-<tr><td><strong>37</strong></td><td style="text-align: right">5</td><td>Graph coord convert</td><td><code>_XftoI</code>, <code>_YftoI</code></td></tr>
-<tr><td><strong>38</strong></td><td style="text-align: right">112</td><td><strong>TI-BASIC parser / evaluator</strong></td><td><code>_ParseInp</code>, <code>_Find_Parse_Formula</code>, <code>parse_init</code></td></tr>
-<tr><td><strong>39</strong></td><td style="text-align: right">~147</td><td><strong>Equation pretty-printer</strong> (2D MathPrint layout) + menus</td><td><code>eqdisp_render_entry</code>, <code>eqdisp_emit_glyph</code>, <code>_DispMenuTitle</code></td></tr>
-<tr><td><strong>3A</strong></td><td style="text-align: right">~82</td><td><strong>Statistics</strong> (1/2-var, regressions) + TVM finance</td><td><code>_OneVar</code>, <code>reg_gauss_solve</code>, <code>tvm_solve_iterate</code></td></tr>
-<tr><td><strong>34</strong></td><td style="text-align: right">13</td><td>Crystal <strong>timers / clock</strong>, token scan</td><td><code>_CrystalTimerA</code>, <code>timer_scan_tbl</code></td></tr>
-<tr><td><strong>35</strong></td><td style="text-align: right">3</td><td><strong>Memory-reset</strong> engine, factorial</td><td><code>mem_reset_dispatch</code>, <code>ram_reset_wipe</code>, <code>op1_factorial</code></td></tr>
-<tr><td><strong>3B</strong></td><td style="text-align: right">27</td><td><strong>bcall jump table</strong> + mem utils</td><td>(table data) <code>_MemClear</code>, <code>_MemSet</code>, <code>_DrawCirc2</code></td></tr>
-<tr><td><strong>3C</strong></td><td style="text-align: right">30</td><td><strong>Link / variable transfer</strong></td><td><code>_SendAByte</code>, <code>_RecAByteIO</code>, <code>_SendVarCmd</code>, <code>_Rec1stByte</code></td></tr>
-<tr><td><strong>3D</strong></td><td style="text-align: right">51</td><td><strong>App management &amp; Flash</strong></td><td><code>_FindApp</code>, <code>_FindAppUp/Dn</code>, <code>_FlashToRam</code></td></tr>
+<tr><td><strong>00</strong></td><td style="text-align: right">915</td><td><strong>Kernel</strong> — mapped at <code>0000</code>; RST vectors, bcall dispatcher, FP core, VAT, memory, integer math</td><td><code>_JErrorNo</code>, <code>_LdHLind</code>, <code>_DivHLBy10</code>, <code>_FindSym</code>, <code>_FPAdd</code>, <code>_InsertMem</code></td></tr>
+<tr><td><strong>01</strong></td><td style="text-align: right">84</td><td><strong>Text display</strong> / homescreen</td><td><code>_PutMap</code>, <code>_PutC</code>, <code>_PutS</code>, <code>_DispHL</code>, <code>_NewLine</code>, <code>_ClrLCDFull</code></td></tr>
+<tr><td><strong>02</strong></td><td style="text-align: right">271</td><td><strong>Float transcendentals &amp; advanced math</strong></td><td><code>_SqRoot</code>, <code>_LnX</code>, <code>_RnFx</code>, <code>_RndGuard</code></td></tr>
+<tr><td><strong>03</strong></td><td style="text-align: right">23</td><td>Edit-buffer / small font</td><td><code>_CloseEditBuf</code>, <code>_Load_SFont</code>, <code>_SFont_Len</code></td></tr>
+<tr><td><strong>04</strong></td><td style="text-align: right">66</td><td><strong>Graph drawing</strong> (pixel/line)</td><td><code>_DarkLine</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_DarkPnt</code></td></tr>
+<tr><td><strong>05</strong></td><td style="text-align: right">118</td><td><strong>TABLE editor</strong> + Graph-Table split-screen</td><td><code>table_editor_main</code>, <code>table_recompute</code>, <code>table_paint_grid</code></td></tr>
+<tr><td><strong>06</strong></td><td style="text-align: right">49</td><td><strong>Key input</strong> &amp; edit/cursor</td><td><code>_GetKey</code>, <code>_GetCSC</code>, <code>_CursorOn/Off</code>, <code>_PutTokString</code></td></tr>
+<tr><td><strong>07</strong></td><td style="text-align: right">44</td><td><strong>Archive / list &amp; matrix ops</strong>; error messages; <strong>large-font glyph table @ <code>0x45FF</code></strong> (7-byte stride) read by <code>put_glyph_large</code> (<code>07:4588</code>)</td><td><code>_Arc_Unarc</code>, <code>_CleanAll</code>, <code>_RedimMat</code>, <code>_IncLstSize</code>, <code>put_glyph_large</code></td></tr>
+<tr><td><strong>33</strong></td><td style="text-align: right">70</td><td><strong>Graph coordinate math</strong></td><td><code>_SetXXOP1</code>, <code>_UCLineS</code> (window↔pixel transforms)</td></tr>
+<tr><td><strong>36</strong></td><td style="text-align: right">24</td><td><strong>Mode setters</strong> (Func/Param/Polar/Seq)</td><td><code>_SetFuncM</code>, <code>_SetParM</code>, <code>_SetPolM</code>, <code>_SetSeqM</code></td></tr>
+<tr><td><strong>37</strong></td><td style="text-align: right">23</td><td>Graph coord convert</td><td><code>_XftoI</code>, <code>_YftoI</code></td></tr>
+<tr><td><strong>38</strong></td><td style="text-align: right">277</td><td><strong>TI-BASIC parser / evaluator</strong></td><td><code>_ParseInp</code>, <code>_Find_Parse_Formula</code>, <code>parse_init</code></td></tr>
+<tr><td><strong>39</strong></td><td style="text-align: right">153</td><td><strong>Equation pretty-printer</strong> (2D MathPrint layout) + menus</td><td><code>eqdisp_render_entry</code>, <code>eqdisp_emit_glyph</code>, <code>_DispMenuTitle</code></td></tr>
+<tr><td><strong>3A</strong></td><td style="text-align: right">85</td><td><strong>Statistics</strong> (1/2-var, regressions) + TVM finance</td><td><code>_OneVar</code>, <code>reg_gauss_solve</code>, <code>tvm_solve_iterate</code></td></tr>
+<tr><td><strong>34</strong></td><td style="text-align: right">16</td><td>Crystal <strong>timers / clock</strong>, token scan</td><td><code>_CrystalTimerA</code>, <code>timer_scan_tbl</code></td></tr>
+<tr><td><strong>35</strong></td><td style="text-align: right">6</td><td><strong>Memory-reset</strong> engine, factorial</td><td><code>mem_reset_dispatch</code>, <code>ram_reset_wipe</code>, <code>op1_factorial</code></td></tr>
+<tr><td><strong>3B</strong></td><td style="text-align: right">39</td><td><strong>bcall jump table</strong> + mem utils</td><td>(table data) <code>_MemClear</code>, <code>_MemSet</code>, <code>_DrawCirc2</code></td></tr>
+<tr><td><strong>3C</strong></td><td style="text-align: right">72</td><td><strong>Link / variable transfer</strong></td><td><code>_SendAByte</code>, <code>_RecAByteIO</code>, <code>_SendVarCmd</code>, <code>_Rec1stByte</code></td></tr>
+<tr><td><strong>3D</strong></td><td style="text-align: right">61</td><td><strong>App management &amp; Flash</strong></td><td><code>_FindApp</code>, <code>_FindAppUp/Dn</code>, <code>_FlashToRam</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -756,18 +759,312 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
 <tr><th>Page</th><th>Verified contents</th></tr>
 </thead>
 <tbody>
-<tr><td><code>08–32</code></td><td>OS code/data reached via cross-page jumps (not bcalls), plus <strong>alternate large-font glyph tables</strong> (pages 1 and 0x36, selected by <code>(IY+0x35)</code> bits 5/1) and string/help-text tables. No app headers. (The primary large-font glyph table is on page 0x07; see below.)</td></tr>
+<tr><td><code>08–32</code></td><td>OS code/data reached via cross-page jumps (not bcalls), plus <strong>alternate large-font glyph tables</strong> (pages 1 and 0x36, selected by <code>(IY+0x35)</code> bits 5/1) and string/help-text tables. Page <code>2F</code> is the retail USB boot support page supplied by local <code>D84PBE2.8Xv</code>; retail page <code>3F</code> points <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_USBErrorCleanup</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> into it. No app headers. (The primary large-font glyph table is on page 0x07; see below.)</td></tr>
 <tr><td><code>34–39</code></td><td>More OS code (graph/mode/menu); mostly full (1–17% <code>0xFF</code>).</td></tr>
 <tr><td><strong>3B</strong></td><td><strong>bcall jump table</strong> — starts <code>99 27 00</code> = entry 0 (<code>_JErrorNo</code>→<code>00:2799</code>).</td></tr>
 <tr><td><strong>3C</strong></td><td>Link code + the <strong>OS version string</strong> — page starts with ASCII <code>32 2E 35 35 4D 50</code> = <strong>“2.55MP”</strong>.</td></tr>
 <tr><td><strong>3E</strong></td><td><strong>Certification page</strong> — the per-calculator certificate sector (84+ cert page is <code>3E</code>, not <code>3F</code>). Blank (99% <code>0xFF</code>) in this OS-only image, since the cert is written per-device. The OS reads this sector through the <code>ti83plus.inc</code> cert bcalls: <code>_GetCertificateStart</code> (bcall <code>0x8057</code>) and <code>_GetCertificateEnd</code> (bcall <code>0x802D</code>) bound the sector, and <code>_FindFirstCertField</code> (bcall <code>0x8027</code>) / <code>_FindNextCertField</code> (bcall <code>0x8078</code>) walk its TLV fields.</td></tr>
-<tr><td><strong>3F</strong></td><td><strong>Boot page</strong> — starts <code>3E 3F D3 06 D3 07</code> = <code>LD A,0x3F; OUT (6),A; OUT (7),A</code> (maps itself into both banks at power-on). Boot code only; the certificate lives on page <code>3E</code>. Boot/hardware version is exposed through <code>_getBootVer</code> (bcall <code>0x80B7</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code>) in <code>ti83plus.inc</code>.</td></tr>
+<tr><td><strong>3F</strong></td><td><strong>Retail boot page</strong> — supplied by local <code>D84PBE1.8Xv</code>; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, carries boot version <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table. Boot/hardware-version bcalls now resolve to <code>_getBootVer</code> <code>3F:477C</code> (<code>0x80B7</code>) and <code>_getHardwareVersion</code> <code>3F:4781</code> (<code>0x80BA</code>).</td></tr>
 </tbody>
 </table>
 </div>
 <p>The <strong>large-font glyph table is on page 0x07, base <code>0x45FF</code></strong> — <code>put_glyph_large</code> (<code>07:4588</code>) computes the glyph pointer as <code>0x45FF + char*7</code> (<strong>7-byte stride</strong>, via the <code>07:45EB</code> adjuster) and copies an 8-byte record via <code>_Mov8B</code> to RAM <code>0x845A</code>; see <a href="#fonts-confirmed">Display/LCD → Fonts</a>. Alternate large fonts live on pages 1 and 0x36 (selected by <code>(IY+0x35)</code> bits 5/1). Page 7 is the busiest data page (archive code, list/matrix, error messages, <em>and</em> the large font). <strong>[confirmed]</strong></p>
 <h2 id="takeaway"><a class="header" href="#takeaway">Takeaway</a></h2>
 <p>The OS is <strong>page-specialized</strong>: kernel + math on page 0, one subsystem per low page. A bcall is really “run subsystem X’s routine on its page” — the page map <em>is</em> the subsystem decomposition, physically.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="14---ram-pages"><a class="header" href="#14---ram-pages">14 - RAM pages</a></h1>
+<p>The TI-84 Plus has banked RAM pages behind the Z80’s 16 KiB windows. TI-OS normally
+keeps RAM page <code>81</code> in <code>8000-BFFF</code> and RAM page <code>80</code> in <code>C000-FFFF</code>, but ROM helpers
+temporarily map other pages for paged memory access. On OS 2.55MP, traces show page
+<code>83</code> writes during boot/home initialization and during homescreen expression entry.
+Programs that borrow page <code>83</code> must preserve or restore the OS-visible regions below.</p>
+<h2 id="page-selectors-confirmed"><a class="header" href="#page-selectors-confirmed">Page selectors [confirmed]</a></h2>
+<p>The 84+ memory ports use two encodings:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Window</th><th>Port</th><th>Selector encoding</th><th>Normal TI-OS value</th></tr>
+</thead>
+<tbody>
+<tr><td><code>4000-7FFF</code></td><td><code>6</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page <code>0x80 | (value &amp; 7)</code></td><td>banked Flash page</td></tr>
+<tr><td><code>8000-BFFF</code></td><td><code>7</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page <code>0x80 | (value &amp; 7)</code></td><td><code>81</code></td></tr>
+<tr><td><code>C000-FFFF</code></td><td><code>5</code></td><td>low three bits select RAM page <code>0x80 | (value &amp; 7)</code></td><td><code>00</code> -&gt; RAM page <code>80</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>This rule matches the dynamic resolver, TilEm’s <code>x4</code> memory mapper, and the OS
+trace. In the idle boot/home trace, the RAM-window writes are:</p>
+<pre><code class="language-text">OUT (port 7) &lt;- 0x7f   8000-BFFF = page_3F
+OUT (port 7) &lt;- 0x81   8000-BFFF = RAM/0x81
+OUT (port 5) &lt;- 0x00   C000-FFFF = RAM/0x80
+OUT (port 7) &lt;- 0x80   8000-BFFF = RAM/0x80
+OUT (port 7) &lt;- 0x81   8000-BFFF = RAM/0x81
+OUT (port 5) &lt;- 0x02   C000-FFFF = RAM/0x82
+OUT (port 7) &lt;- 0x83   8000-BFFF = RAM/0x83
+OUT (port 7) &lt;- 0x81   8000-BFFF = RAM/0x81
+OUT (port 5) &lt;- 0x00   C000-FFFF = RAM/0x80
+</code></pre>
+<p>The final restore values are therefore <code>port 7 = 0x81</code> and <code>port 5 = 0x00</code> for
+normal OS execution.</p>
+<h2 id="page-map-standard-cross-checked"><a class="header" href="#page-map-standard-cross-checked">Page map [standard, cross-checked]</a></h2>
+<p>WikiTI’s <a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages">RAM pages</a>
+page is a useful public map, but OS 2.55MP needs the page-<code>83</code> warnings to be read
+literally. The local dump at <code>wikiti-dump/main/83Plus:OS:Ram Pages.wiki</code> carries
+the same current page-<code>83</code> notes. The local trace and disassembly support this table:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>RAM page</th><th>Use</th></tr>
+</thead>
+<tbody>
+<tr><td><code>80</code></td><td>Normal <code>C000-FFFF</code> RAM page. The boot/home trace restores this with <code>OUT (5),0</code>. WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>81</code></td><td>Normal <code>8000-BFFF</code> RAM page. This contains the visible TI-OS RAM variables, OP registers, flags, graph buffers, user heap, and VAT window documented in <code>tools/ram.txt</code> and <code>ti83plus.inc</code>.</td></tr>
+<tr><td><code>82</code></td><td>Not a general OS work page under normal execution. The idle trace maps it briefly through port <code>5</code> as part of a paged RAM helper, then restores page <code>80</code>. WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>83</code></td><td>Shared OS scratch/state page. OS 2.55MP maps it through port <code>6</code> for block copies and LCD capture, and through port <code>7</code> for a paged byte-store helper. Homescreen expression entry writes the previous-entry buffer at <code>577E</code>.</td></tr>
+<tr><td><code>84</code></td><td>Not used by TI-OS under typical execution; WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>85</code></td><td>Not used by TI-OS under typical execution on full-RAM hardware.</td></tr>
+<tr><td><code>86</code></td><td>Not used by TI-OS under typical execution; WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>87</code></td><td>Not used by TI-OS under typical execution on full-RAM hardware.</td></tr>
+</tbody>
+</table>
+</div>
+<p>On newer 48 KiB hardware, WikiTI says RAM pages <code>82-87</code> alias the same physical memory.
+WikiTI’s <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:15">port <code>15</code></a> page
+identifies ASIC value <code>55h</code> as the 48 KiB TA1 ASIC. Programs that use page <code>83</code> must not
+treat <code>82-87</code> as independent storage on that hardware. <strong>[standard]</strong></p>
+<h2 id="per-page-trace-coverage-confirmed"><a class="header" href="#per-page-trace-coverage-confirmed">Per-page trace coverage [confirmed]</a></h2>
+<p>The boot/home and <code>2+3 ENTER</code> traces exercise startup, homescreen initialization,
+display capture, parsing, evaluation, and previous-entry storage. They do not exercise
+app launch, USB transfer, graph drawing, archive cleanup, or a 48 KiB ASIC. Within
+that scope, physical RAM-page writes are:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>RAM page</th><th>Idle trace writes</th><th><code>2+3 ENTER</code> trace writes</th><th>Interpretation</th></tr>
+</thead>
+<tbody>
+<tr><td><code>80</code></td><td><code>256227</code> writes, all page addresses touched</td><td><code>345702</code> writes, all page addresses touched</td><td>Normal high RAM page selected by port <code>5</code>; contains stack/system/user RAM activity in the <code>C000-FFFF</code> window.</td></tr>
+<tr><td><code>81</code></td><td><code>62947</code> writes, all page addresses touched</td><td><code>72638</code> writes, all page addresses touched</td><td>Normal <code>8000-BFFF</code> RAM page; contains the documented OS variables, flags, OP registers, heap, VAT window, and working buffers.</td></tr>
+<tr><td><code>82</code></td><td>no writes observed</td><td>no writes observed</td><td>Port <code>5</code> briefly selects raw value <code>02</code>, but the observed store is through page <code>83</code> in bank B. No page-<code>82</code> storage is confirmed by these traces.</td></tr>
+<tr><td><code>83</code></td><td><code>1882</code> writes to <code>43D9-44BD</code> and <code>5A7E-5DF2</code></td><td><code>3467</code> writes to <code>4373-4390</code>, <code>43D9-44BD</code>, <code>577E-5790</code>, and <code>5A7E-5DF2</code></td><td>Shared OS scratch/state page. See the range table below.</td></tr>
+<tr><td><code>84</code></td><td>no writes observed</td><td>no writes observed</td><td>No typical-use OS storage confirmed in these traces.</td></tr>
+<tr><td><code>85</code></td><td>no writes observed</td><td>no writes observed</td><td>No typical-use OS storage confirmed in these traces.</td></tr>
+<tr><td><code>86</code></td><td>no writes observed</td><td>no writes observed</td><td>No typical-use OS storage confirmed in these traces.</td></tr>
+<tr><td><code>87</code></td><td>no writes observed</td><td>no writes observed</td><td>No typical-use OS storage confirmed in these traces.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The zero-write rows mean “not hit by these scenarios,” not a global proof that the
+page is never used. On 48 KiB hardware, pages <code>82-87</code> alias page <code>83</code>, so writes
+intended for <code>84-87</code> would not be independent storage even if a program can select
+those page numbers. <strong>[standard]</strong></p>
+<p>The graph scenario in <code>tools/macros/graph-y1-x2.macro</code> reaches the graph screen and
+still only writes pages <code>80</code>, <code>81</code>, and <code>83</code>. It increases normal page-<code>80</code>/<code>81</code>
+activity but leaves page-<code>83</code> at the same confirmed ranges as the idle trace.
+It does not hit pages <code>82</code> or <code>84-87</code>. <strong>[confirmed]</strong></p>
+<h2 id="how-to-hit-the-confirmed-paths"><a class="header" href="#how-to-hit-the-confirmed-paths">How to hit the confirmed paths</a></h2>
+<p>The useful distinction is between “page number can be selected” and “the OS uses it
+in a normal workflow.” These paths are confirmed or have a concrete next scenario:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Page/path</th><th>How to hit it</th><th>Evidence</th></tr>
+</thead>
+<tbody>
+<tr><td><code>80</code> high RAM</td><td>Run any cold-boot, home, expression, or graph trace.</td><td>Port <code>5 = 00</code> is the normal restore value; every current trace writes all page-<code>80</code> addresses. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>81</code> normal bank-B RAM</td><td>Run any cold-boot, home, expression, or graph trace.</td><td>Port <code>7 = 81</code> is the normal restore value; every current trace writes all page-<code>81</code> addresses. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>83</code> display capture</td><td>Run <code>boot-idle.macro</code> or <code>graph-y1-x2.macro</code>.</td><td>Ghidra shows <code>_SaveDisp</code> at <code>39:5E03</code> calls <code>lcd_read_block</code> at <code>ram:1890</code>; coverage hits both, and writes <code>5A7E-5DF2</code>. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>83</code> homescreen previous-entry history</td><td>Run <code>home-2plus3.macro</code>.</td><td>The trace adds <code>577E-5790</code>, advances <code>lastEntryPTR</code> from <code>577E</code> to <code>5791</code>, and sets <code>numLastEntries</code> to <code>01</code>. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>83</code> expression scratch copy</td><td>Run <code>home-2plus3.macro</code>.</td><td>The trace adds <code>4373-4390</code> through <code>flash_copy_block</code> at <code>ram:1868</code>/<code>ram:187C</code>. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>83</code> split-screen/table copy</td><td>Enter a split-screen/table workflow that calls <code>_ScreenSplit</code>.</td><td>Ghidra shows <code>_ScreenSplit</code> at <code>05:7712</code> calls <code>flash_copy_block</code> at <code>05:772A</code>; this path is not hit by the current macros. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>83</code> edit-buffer initialization</td><td>Enter an edit-buffer workflow that reaches <code>editbuf_init_buf</code>.</td><td>Ghidra shows <code>editbuf_init_buf</code> at <code>03:6BC4</code> calls <code>flash_copy_block</code> at <code>03:6BCD</code>; this path is not hit by the current macros. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>83</code> app-menu state restore</td><td>Open an app/menu workflow that reaches <code>mnu_restore_app_state</code>.</td><td>Ghidra shows <code>mnu_restore_app_state</code> at <code>39:6D96</code> calls <code>flash_copy_block</code> at <code>39:6DA0</code>; this path is not hit by the current macros. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>84-87</code> independent pages</td><td>Use a forced RAM-page probe or a ROM path that passes pair index <code>2</code> or <code>3</code> to the computed bank-pair helper.</td><td>The ROM can compute these selectors, but raw immediate selector scans and current traces do not show a normal OS path selecting or writing them. <strong>[hypothesis]</strong></td></tr>
+</tbody>
+</table>
+</div>
+<p>The computed bank-pair helpers use this selector formula:</p>
+<pre><code class="language-z80">    ld a,b
+    sla a
+    out (5),a        ; pair index 0/1/2/3 -&gt; pages 80/82/84/86 in bank C
+    inc a
+    or 80h
+    out (7),a        ; pair index 0/1/2/3 -&gt; pages 81/83/85/87 in bank B
+</code></pre>
+<p>The direct callers decoded so far set <code>B = 1</code>, which selects pages <code>82/83</code>. That
+explains the observed <code>port 5 = 02</code>, <code>port 7 = 83</code> sequence and why no current
+trace writes page <code>84-87</code>. A targeted probe for pages <code>84-87</code> should either run
+small RAM code that writes selectors <code>84h-87h</code> directly, or find a UI path that
+passes <code>B = 2</code> or <code>B = 3</code> into this helper. The <code>B = 1</code> caller pattern is
+confirmed for the decoded callers above. <strong>[confirmed]</strong></p>
+<h2 id="page-83-use-confirmed-and-standard"><a class="header" href="#page-83-use-confirmed-and-standard">Page <code>83</code> use [confirmed and standard]</a></h2>
+<p>Page <code>83</code> is the page people most often borrow as scratch, but the ROM uses it as
+more than anonymous free RAM. Keep the evidence classes separate:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Range</th><th>Use</th><th>Evidence</th></tr>
+</thead>
+<tbody>
+<tr><td><code>4373-4390</code></td><td>Expression-path page-<code>83</code> scratch copy</td><td>Added by the <code>2+3 ENTER</code> trace. The write PC is the page-<code>83</code> block-copy helper at <code>ram:187C</code>/<code>ram:187E</code>; the caller is still unlabeled. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>43D9-44BD</code></td><td>Boot/home page-<code>83</code> scratch copy</td><td>Present in the idle trace. The write PC is the page-<code>83</code> block-copy helper at <code>ram:187C</code>/<code>ram:187E</code>, plus one byte through <code>37:44D7</code>. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>577E-5A7D</code></td><td>Homescreen previous-entry history</td><td>Page <code>33</code> references <code>577E</code>, the <code>5A7E</code> upper bound, <code>lastEntryPTR</code> (<code>0x8DA7</code>), and <code>numLastEntries</code> (<code>0x8E29</code>). The <code>2+3 ENTER</code> trace writes <code>577E-5790</code>, advances <code>lastEntryPTR</code> to <code>5791</code>, and sets <code>numLastEntries</code> to <code>01</code>. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>5A7E-5DF2</code></td><td>LCD/home display capture area</td><td>Present in the idle trace. Ghidra decompiles <code>ram:1890</code> as an LCD-read helper that maps page <code>83</code> through port <code>6</code> and stores bytes read from LCD port <code>11</code>. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>4008-4080</code></td><td>App base-page staging before app execution</td><td>WikiTI public note; the two traces on this page do not launch an app. <strong>[standard, not traced here]</strong></td></tr>
+<tr><td><code>4100-433A</code></td><td>USB communication buffers</td><td>WikiTI public note; the two traces on this page do not exercise USB transfer. <strong>[standard, not traced here]</strong></td></tr>
+</tbody>
+</table>
+</div>
+<p>Ghidra identifies the page-<code>83</code> block-copy helper at <code>ram:1868</code>. It saves the current
+port-<code>6</code> value, writes <code>83h</code> to port <code>6</code>, runs <code>LDIR</code>, and restores the previous page
+through the page-set helper:</p>
+<pre><code class="language-z80">ram:1877  IN A,(6)
+ram:1879  PUSH AF
+ram:187A  LD A,83h
+ram:187C  OUT (6),A
+ram:187E  LDIR
+ram:1880  POP AF
+ram:1881  CALL 181Ch
+</code></pre>
+<p>Ghidra identifies the LCD capture helper at <code>ram:1890</code>. It maps page <code>83</code>, waits on
+the LCD, reads port <code>11</code>, and stores each byte through <code>HL</code>:</p>
+<pre><code class="language-z80">ram:189F  IN A,(6)
+ram:18A1  PUSH AF
+ram:18A2  LD A,83h
+ram:18A4  OUT (6),A
+ram:18A6  CALL 0CC3h
+ram:18A9  IN A,(11h)
+ram:18AB  LD (HL),A
+</code></pre>
+<p>The reset path on page <code>37</code> initializes the previous-entry pointers:</p>
+<pre><code class="language-z80">37:6E0D  LD HL,577Eh
+37:6E10  LD (lastEntryPTR),HL
+37:6E13  LD HL,0000h
+37:6E16  LD (numLastEntries),HL
+</code></pre>
+<p>Page <code>38</code> has a second clear path with the same pointer reset:</p>
+<pre><code class="language-z80">38:422D  LD HL,577Eh
+38:4230  LD (lastEntryPTR),HL
+38:4233  LD HL,0000h
+38:4236  LD (numLastEntries),HL
+</code></pre>
+<p>The homescreen entry-history code on page <code>33</code> uses the same constants and variables:</p>
+<pre><code class="language-z80">33:53D1  LD A,(numLastEntries)
+33:53E2  LD HL,5A7Eh
+33:53F7  LD HL,577Eh
+33:5430  LD A,(numLastEntries)
+33:543A  LD DE,577Eh
+33:5452  LD HL,577Eh
+33:5459  LD (lastEntryPTR),HL
+33:5462  LD HL,numLastEntries
+33:5465  INC (HL)
+</code></pre>
+<p>If a program modifies the history buffer on page <code>83</code>, clearing <code>numLastEntries</code>
+at <code>8E29</code> prevents the homescreen from scrolling back into invalid entry data.
+That is the public WikiTI recovery advice, and the ROM confirms that <code>8E29</code> is
+the OS-visible previous-entry count. <strong>[standard, address confirmed]</strong></p>
+<h2 id="dynamic-test-scenarios"><a class="header" href="#dynamic-test-scenarios">Dynamic test scenarios</a></h2>
+<p>The trace analyzer maps TilEm memory-write records back to physical RAM pages. Use
+it with full-range traces:</p>
+<pre><code class="language-sh">ROM=/path/to/ti84plus_2.55mp_complete.rom
+tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
+  --macro tools/macros/boot-idle.macro \
+  --trace /tmp/page83-idle.trace --trace-range all
+tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
+  --macro tools/macros/home-2plus3.macro \
+  --trace /tmp/page83-2plus3.trace --trace-range all
+tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
+  --macro tools/macros/graph-y1-x2.macro \
+  --trace /tmp/page83-graph.trace --trace-range all
+python3 tools/analyze_ram_page_trace.py /tmp/page83-idle.trace --page 0x83
+python3 tools/analyze_ram_page_trace.py /tmp/page83-2plus3.trace --page 0x83
+python3 tools/analyze_ram_page_trace.py /tmp/page83-graph.trace --page 0x83
+</code></pre>
+<p>The baseline idle trace writes:</p>
+<pre><code class="language-text">RAM page 0x83 writes: 1882
+unique page addresses: 1114
+range 43D9-44BD
+range 5A7E-5DF2
+</code></pre>
+<p>The <code>2+3 ENTER</code> trace writes:</p>
+<pre><code class="language-text">RAM page 0x83 writes: 3467
+unique page addresses: 1163
+range 4373-4390
+range 43D9-44BD
+range 577E-5790
+range 5A7E-5DF2
+</code></pre>
+<p>The before/after RAM variables line up with the previous-entry write:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Scenario</th><th><code>lastEntryPTR</code> (<code>0x8DA7</code>)</th><th><code>numLastEntries</code> (<code>0x8E29</code>)</th></tr>
+</thead>
+<tbody>
+<tr><td>Idle home screen</td><td><code>577E</code></td><td><code>00</code></td></tr>
+<tr><td>After <code>2+3 ENTER</code></td><td><code>5791</code></td><td><code>01</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Those values come from end-of-trace RAM reconstruction. The added page-<code>83</code> range
+<code>577E-5790</code> is exactly the bytes between the old and new <code>lastEntryPTR</code> values.
+<strong>[confirmed]</strong></p>
+<h2 id="restoring-after-page-83"><a class="header" href="#restoring-after-page-83">Restoring after page <code>83</code></a></h2>
+<p>Restore the selector for every window you changed. For code entered from normal TI-OS
+state that temporarily maps page <code>83</code> into bank B (<code>8000-BFFF</code>) and page <code>82</code> into
+bank C (<code>C000-FFFF</code>), restore the two RAM windows this way:</p>
+<pre><code class="language-z80">    ld a,$81
+    out (7),a        ; 8000-BFFF back to RAM page 81
+    xor a
+    out (5),a        ; C000-FFFF back to RAM page 80
+</code></pre>
+<p>For code that maps page <code>83</code> into bank A (<code>4000-7FFF</code>), preserve and restore port <code>6</code>:</p>
+<pre><code class="language-z80">    in a,(6)
+    push af
+
+    ld a,$83
+    out (6),a        ; map RAM page 83 at 4000-7FFF
+    ; use 4000-7FFF here
+
+    pop af
+    out (6),a        ; restore previous Flash/RAM page selector
+</code></pre>
+<p>Keep the nonstandard mapping inside a short critical section. The OS helper preserves
+interrupt state around the temporary RAM-page mapping so the interrupt handler does not
+run with bank A or bank B pointing at page <code>83</code>.</p>
+<p>For code that may be called with nonstandard paging, preserve and restore the selectors
+for all touched windows:</p>
+<pre><code class="language-z80">    in a,(6)
+    push af
+    in a,(7)
+    push af
+    in a,(5)
+    push af
+
+    ld a,$83
+    out (7),a        ; map RAM page 83 at 8000-BFFF
+    ; use 8000-BFFF here
+
+    pop af
+    out (5),a
+    pop af
+    out (7),a
+    pop af
+    out (6),a
+</code></pre>
+<p>The OS’s own paged byte-store helper at <code>37:44AE</code> uses the normal restore pattern:</p>
+<pre><code class="language-z80">37:44D0  OUT (5),A        ; A = page index &lt;&lt; 1, trace case A = 02h
+37:44D3  OR 80h
+37:44D5  OUT (7),A        ; trace case: 83h
+37:44D7  LD A,B
+37:44D8  LD (DE),A        ; byte store while RAM page 83 is visible
+37:44D9  LD A,81h
+37:44DB  OUT (7),A
+37:44DD  XOR A
+37:44DE  OUT (5),A
+</code></pre>
+<p>The dynamic trace resolves the same sequence at instruction indices <code>712241-712250</code>,
+including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes. <strong>[confirmed]</strong></p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="11--boot-contexts-and-error-handling"><a class="header" href="#11--boot-contexts-and-error-handling">11 — Boot, contexts, and error handling</a></h1>
 <p>Three cross-cutting mechanisms that tie the OS together: how it starts, how it switches “modes” (contexts), and how it aborts on error.</p>
@@ -779,7 +1076,7 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
              ... (jumps into RAM-copied code — static disasm stops here)
 </code></pre>
 <p>Boot configures the paging hardware (ports 6 and <code>0x0E</code>) and the memory-map/timer mode (port 4 write), then transfers to code it copies into RAM (why the static trace ends with “bad instruction”). The continuation at <code>028c</code> ends <code>JP 0x812c</code>. <code>0x812c</code> is in the RAM execution window and is <em>blank in the static image</em>: the bytes are filled in at boot by the copy this stub performs, so the static trace cannot follow it. It eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen).</p>
-<p>The boot page (<code>3F</code>) and its version queries are exposed to the OS through <code>ti83plus.inc</code> bcalls: <code>_getBootVer</code> (bcall <code>0x80B7</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code>). These public entry points sit in the boot-page bcall range (<code>0x8000</code>+); their bodies are not defined functions in the current live DB.</p>
+<p>The boot page (<code>3F</code>) and its version queries are exposed to the OS through <code>ti83plus.inc</code> bcalls: <code>_getBootVer</code> (bcall <code>0x80B7</code> → <code>3F:477C</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code> → <code>3F:4781</code>). The USB boot support entry points route through the same table but land on page <code>2F</code>, for example <code>_AttemptUSBOSReceive</code> (<code>0x80E4</code> → <code>2F:4145</code>) and <code>_InitUSB</code> (<code>0x8108</code> → <code>2F:52A4</code>).</p>
 <h3 id="ram-clear--re-init-ram_reset_wipe--0x0bd9-confirmed"><a class="header" href="#ram-clear--re-init-ram_reset_wipe--0x0bd9-confirmed">RAM clear / re-init (<code>ram_reset_wipe</code> → <code>0x0BD9</code>) [confirmed]</a></h3>
 <p>The RAM-init proper is <code>ram_reset_wipe</code> (<code>35:719F</code>, reached on a full reset; the same routine backs the <code>[2nd]+[+] · 7 · 1 · 2</code> RAM-reset and the post-boot RAM clear). It zero-fills RAM in two blocks, preserving a handful of flag bits and <code>0x9B73</code> across the wipe:</p>
 <pre><code class="language-z80">ram_reset_wipe (35:719f):
@@ -1084,8 +1381,17 @@ struct AppVar { uint16_t size;        uint8_t data[/* size */];          }; /* A
 \end{algorithm}
 </code></pre>
 <p>This is the canonical sign-magnitude BCD add. The full helper cluster is documented below.</p>
+<blockquote>
+<p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: the <code>2+3</code> run
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/home-2plus3.macro"><code>home-2plus3.macro</code></a>) enters <code>_FPAdd</code> and
+— signs equal — falls through the sign test to <code>fp_add_mantissa</code> (<code>ram:1cb9</code>),
+while the <code>5−2</code> run (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/fpsub.macro"><code>fpsub.macro</code></a>) negates <code>OP2</code>
+and takes the opposite-sign branch into <code>fp_sub_mantissa</code> (<code>ram:1d37</code>).
+<code>fp_sub_mantissa</code> has 0 hits in the add trace and the add path 0 hits in the
+subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
+</blockquote>
 <h3 id="the-fp-helper-cluster-confirmed"><a class="header" href="#the-fp-helper-cluster-confirmed">The FP helper cluster [confirmed]</a></h3>
-<p>These five page-0 primitives are shared by add/sub/mult/div and the transcendentals. All were decompiled and disassembled in this ROM; the names below were applied to the Ghidra DB. They operate on the OP-register guard region (<code>OP1EXT</code>/<code>OP2EXT</code> at <code>0x8481</code>/<code>0x848C</code>) and the 7-byte mantissas of <code>OP1</code> (<code>0x8478</code>) / <code>OP2</code> (<code>0x8483</code>).</p>
+<p>These five page-0 primitives are shared by add/sub/mult/div and the transcendentals. All were decompiled and disassembled in this ROM; the names below were applied to the Ghidra DB. They operate on the OP-register guard region (<code>OP1EXT</code>/<code>OP2EXT</code> are 2 bytes each, at <code>0x8481</code>-<code>0x8482</code>/<code>0x848C</code>-<code>0x848D</code> — <code>fp_clear_guard</code> zeroes all four) and the 7-byte mantissas of <code>OP1</code> (<code>0x8478</code>) / <code>OP2</code> (<code>0x8483</code>).</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -1126,7 +1432,7 @@ struct AppVar { uint16_t size;        uint8_t data[/* size */];          }; /* A
 <h2 id="transcendental-method-confirmed"><a class="header" href="#transcendental-method-confirmed">Transcendental method [confirmed]</a></h2>
 <p>The ln/e^x/sin-cos evaluators are local page-0x02 code plus page-0x02 coefficient tables. The apparent <code>LD A,n; CALL 0x2362</code> “page switch” sites are <strong>not</strong> banked series tails: Ghidra disassembly shows <code>ram:2362: CALL 0x3DD1</code>, and <code>ram:3DD1</code> is a bcall-table entry whose inline descriptor is <code>1E 7D 02</code> (<code>page_02:7D1E</code>). The real banked-call helper is <code>ram:2B09</code>; here it only calls the page-0x02 coefficient fetcher. Therefore the preceding <code>LD A,n</code> is a <strong>coefficient-table index</strong>, not a target flash page. Raw ROM bytes at the supposed same-address page-0x03 targets are <code>0xFF</code>, and Ghidra has no page-0x03/page-0x06 functions there.</p>
 <h3 id="the-shared-algorithm--digit-by-digit-pseudo-division-confirmed"><a class="header" href="#the-shared-algorithm--digit-by-digit-pseudo-division-confirmed">The shared algorithm — digit-by-digit pseudo-division [confirmed]</a></h3>
-<p>The forward log and exp evaluators are a <strong>digit-by-digit pseudo-division</strong> recurrence — the algorithm BCD calculators have used since the 1960s. The table gives it away: <code>02:7181</code>’s 16 rows are exactly $\log_{10}(1+10^{-k})$ for $k=0\ldots15$ (matched to 14 digits — <code>[00]</code> = <code>log₁₀2</code>, <code>[01]</code> = <code>log₁₀1.1</code>, <code>[02]</code> = <code>log₁₀1.01</code>, …), which is precisely the per-step increment such a recurrence consumes. The recurrence runs on shift-and-add alone: scaling a BCD number by $1+10^{-k}$ is $x + (x\text{ shifted right }k\text{ digits})$, one <code>fp_shift_right_digit</code> plus one <code>fp_add_mantissa</code>, so the whole transcendental needs no general multiply.</p>
+<p>The forward log and exp evaluators are a <strong>digit-by-digit pseudo-division</strong> recurrence — the algorithm BCD calculators have used since the 1960s. The table gives it away: <code>02:7181</code>’s 16 rows are exactly $\log_{10}(1+10^{-k})$ for $k=0\ldots15$ (matched to 14 digits — <code>[00]</code> = <code>log₁₀2</code>, <code>[01]</code> = <code>log₁₀1.1</code>, <code>[02]</code> = <code>log₁₀1.01</code>, …), which is precisely the per-step increment such a recurrence consumes. The recurrence runs on shift-and-add alone: scaling a BCD number by $1+10^{-k}$ is $x + (x\text{ shifted right }k\text{ digits})$, one <code>fp_shift_right_digit</code> (<code>ram:1bea</code>) plus one BCD-add, so the whole transcendental needs no general multiply. (The traces show the shift <code>1bea</code> is shared, but the running-add entry differs: <code>_EToX</code> uses <code>fp_add_mantissa</code> <code>ram:1cb9</code>, while <code>_LnX</code> uses the sibling BCD-add entry <code>ram:1ca9</code> — <code>1cb9</code> fires 0× in the <code>ln(2)</code> loop, <code>1ca9</code> 0× in the <code>e¹</code> loop.)</p>
 <p><strong>Logarithm.</strong> With the exponent already split off so the mantissa is $x\in[1,10)$, the loop (<code>02:6F80</code>–<code>6FEE</code>) drives $x$ up toward $10$ by repeatedly scaling by the largest table factor that doesn’t overshoot; the number of scalings at each position <em>is</em> the corresponding digit of the answer, and the running sum of the table entries is the logarithm:</p>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{Logarithm by pseudo-division (table $c_k=\log_{10}(1+10^{-k})$ at \texttt{02:7181})}
@@ -1159,6 +1465,17 @@ struct AppVar { uint16_t size;        uint8_t data[/* size */];          }; /* A
 \end{algorithm}
 </code></pre>
 <p>So a single 16-row table at <code>02:7181</code> powers <strong>all</strong> of ln / log / eˣ / 10ˣ; the <code>02:7D42</code> block only supplies the base-conversion constants ($\log_{10}e$, $\ln 10$) and the trig reduction constants.</p>
+<blockquote>
+<p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: <code>ln(2)</code>
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/ln2.macro"><code>ln2.macro</code></a>) drives <code>_LnX</code>, whose selector
+(<code>02:6F94</code>) steps <code>A=00…07</code> then <code>08…0F</code> (the coarse/fine split at the <code>6FAD AND 0x8</code>
+/ <code>6FD3 BIT 4</code> tests), walking successive <code>02:7181</code> rows with a per-step
+shift-add, then fetches $\ln 10$ via <code>LD A,6; CALL 0x2362</code> and multiplies.
+<code>e^{1}</code> (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/exp1.macro"><code>exp1.macro</code></a>) drives <code>_EToX</code>, which consumes
+the <strong>same</strong> table in reverse (the inner step is <code>fp_sub_mantissa</code> <code>1d37</code>, the
+accumulator add <code>fp_add_mantissa</code> <code>1cb9</code>), selector sweeping <code>00…0F</code> under the
+<code>710A CP 0x0F</code> bound. On-screen results: <code>.6931471806</code> and <code>2.718281828</code>.</p>
+</blockquote>
 <p><strong>Sin/cos</strong> (<code>_SinCosRad</code>) uses the same digit-recurrence <em>shape</em> on the range-reduced angle, but with its own <strong>near-unity scaling tables</strong> <code>02:7201</code>/<code>02:7281</code> (eight rows, two sign-variants each, picked by <code>0x84A4</code> bit 7) rather than Taylor coefficients — so it too is a table-driven recurrence, not a fixed polynomial. The exact rotation identity each trig row encodes is not pinned here.</p>
 <h3 id="_lnx--natural-log-026efd-confirmed"><a class="header" href="#_lnx--natural-log-026efd-confirmed"><code>_LnX</code> — natural log (<code>02:6EFD</code>) [confirmed]</a></h3>
 <p><code>_LnX</code> first calls <code>_CkOP1Pos</code> (<code>0x1e5d</code>) and raises a domain error on <code>x &lt;= 0</code>. The core (<code>02:6F1B</code>) splits <code>x</code> into mantissa × 10^exp; after a small pre-step near <code>02:6F45</code>-<code>02:6F50</code> (a value formed with <code>_FPAdd</code> (RST 30h) / <code>_FPSub</code> / <code>_FPDiv</code> <code>0x2541</code>), the <strong>pseudo-division loop</strong> described above (<code>02:6F8C</code>-<code>02:6FEC</code>) steps through the shared 16-slot table at <code>02:7181</code> via <code>02:7301</code>/<code>02:7302</code>; the first phase stops when the selector has bit 3 set (<code>02:6FAB</code>-<code>02:6FAF</code>, coarse digits) and the second when it reaches bit 4 (<code>02:6FD2</code>-<code>02:6FD5</code>, fine digits). The <code>02:6F70: LD A,3; CALL 0x2362</code> site fetches constant-table index 3, and <code>02:704A: LD A,6; CALL 0x2362</code> fetches index 6 (<code>ln(10)</code>, the base-conversion multiply), both from <code>02:7D42</code>.</p>
@@ -1178,6 +1495,15 @@ The quadrant (0–3) is accumulated in <code>B</code>/<code>bStack_1</code> (bit
 </li>
 <li><strong>Per-digit evaluation.</strong> After reduction (<code>02:7475</code> onward, falling through <code>02:7488 LD A,B</code>) the reduced argument in <code>[0, pi/4)</code> drives the <strong>same table-stepping digit recurrence</strong> as ln/e^x: a selector walks the coefficient table one row per step rather than unrolling a fixed polynomial. The loaders are local — <code>02:74AB: CALL 0x731D</code> reads the signed table at <code>02:7201</code>, <code>02:74EA: CALL 0x7312</code> reads the signed table at <code>02:7281</code> — and the selector advances under <code>BIT 3,B</code> / <code>BIT 3,C</code> in the tail (<code>02:74DD</code>-<code>02:74E0</code>, <code>02:75C6</code>-<code>02:75C8</code>), so the walk covers eight selector rows (<code>0..7</code>), each carrying two 8-byte sign/phase variants. Per-row decoding of <code>02:7201</code>/<code>02:7281</code> is the one piece still open: the rows climb toward 10 (e.g. <code>02:7201[00]</code>=<code>9.9668…</code>, <code>[06]</code>=<code>9.999999…</code>), the shape of a half-angle / rotation factor consumed one digit at a time.</li>
 </ol>
+<blockquote>
+<p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: <code>sin(1)</code> in radian mode
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/sin1.macro"><code>sin1.macro</code></a>) drives <code>_SinCosRad</code>. The flag init,
+the exponent gate (<code>735D LD A,(0x8479); SUB 0x80; CP 0x0C; JP NC</code> — not taken, since
+<code>exp(1)=0 &lt; 12</code>), the reduction multiply by the <code>02:7D81</code> constant
+(<code>7372 LD HL,0x7d81; CALL 0x1ae2</code>), and the table-stepping loader <code>02:731D</code> returning
+successive rows of <code>02:7201</code> (HL = <code>7209/7219/…/7279</code>, 16-byte stride) all execute as
+described. On-screen result: <code>.8414709848</code>. (Per-row coefficient meaning remains the open piece.)</p>
+</blockquote>
 <h3 id="coefficient-tables-confirmed"><a class="header" href="#coefficient-tables-confirmed">Coefficient tables [confirmed]</a></h3>
 <p><code>02:7D1E</code> zeroes the OP2 type byte, indexes <code>02:7D42 + 9*A</code>, then copies the selected constant image into OP2. The only <code>LD A,n; CALL 0x2362</code> uses in this cluster are <code>A=3</code> (<code>log10(e)</code>) and <code>A=6</code> (<code>ln(10)</code>); the later trig reduction constants are loaded directly from the same nearby block.</p>
 <pre><code>02:7D42 constants, 9-byte stride:
@@ -1268,7 +1594,7 @@ The quadrant (0–3) is accumulated in <code>B</code>/<code>bStack_1</code> (bit
 </ul>
 <p>The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine (<a href="#06--floating-point-engine">06</a>), variable tokens resolve via the VAT (<a href="#05--variables--the-vat-variable-allocation-table">05</a>), and the busy indicator is driven by <code>_RunIndicOn</code>/<code>Off</code>. <code>_BinOPExec</code> applies a binary operator via OP1/OP2.</p>
 <h3 id="the-handler-dispatch-table-confirmed"><a class="header" href="#the-handler-dispatch-table-confirmed">The handler dispatch table [confirmed]</a></h3>
-<p>Page 0x38 <strong>begins</strong> with the parser’s handler dispatch at <strong><code>page_38:4000</code></strong>. This region is <strong>executable dispatch code</strong>, not a flat pointer array (see <a href="#ti-basic-programs">TI-BASIC Programs</a>).</p>
+<p>Page 0x38 <strong>begins</strong> with the parser’s handler dispatch at <strong><code>page_38:4000</code></strong> — a <strong>flat array of 2-byte little-endian handler pointers</strong>. Raw bytes are <code>9F 41 F0 45 1C 42 …</code> = entries <code>0x419F, 0x45F0, 0x421C, …</code> (all in-window <code>0x4xxx</code>/<code>0x47xx</code> code addresses), indexed by token class and dereferenced; the selector at <code>38:7010</code> loads <code>LD HL,0x4000</code> and adds <code>2×index</code> (see <a href="#ti-basic-programs">TI-BASIC Programs</a>).</p>
 <p>These handlers implement TI-BASIC <strong>statements/commands and operators</strong>. Sampling them by the routine they call:</p>
 <ul>
 <li>indices 8–10, 17–19, 38 → <code>bcall(_Regraph)</code> — <strong>graph commands</strong> (<code>DrawF</code>, <code>ZoomFit</code>, etc.).</li>
@@ -1283,9 +1609,9 @@ The quadrant (0–3) is accumulated in <code>B</code>/<code>bStack_1</code> (bit
 <li><code>parse_advance</code> (<code>38:7248</code>) — <code>parsePtr++</code> and bounds-check vs <code>parseEnd</code>.</li>
 <li><code>parse_expect_or_err</code> (<code>38:5CD8</code>) — fetch a token and raise <code>_ErrSyntax</code> (recording the position in <code>parsePtr</code>) if it isn’t the expected one.</li>
 </ul>
-<p>So the dispatch loop is: <code>parse_cur_tok</code> → jump into the dispatch code at <code>page_38:4000</code> → run handler (which may consume args via <code>parse_advance</code>) → repeat.</p>
+<p>So the dispatch loop is: <code>parse_cur_tok</code> → index the pointer table at <code>page_38:4000</code> and call the selected handler (which may consume args via <code>parse_advance</code>) → repeat.</p>
 <p><strong>Main evaluator:</strong> <code>parse_eval_expr</code> (<code>38:5AB3</code>) is the big recursive-descent expression evaluator — it dispatches through handler function-pointers (<code>code *</code>) with operator precedence, reading via the cursor helpers and leaving the result in <code>OP1</code>. <code>_ParseInp</code> → <code>parse_init</code> → <code>parse_eval_expr</code>. <code>parse_scan_tokens</code> (<code>38:4180</code>) is a token-scan helper (skips to a delimiter, honoring 2-byte tokens via <code>_IsA2ByteTok</code>).</p>
-<p>The region at <code>page_38:4000</code> is <strong>executable dispatch code</strong> (sequences like <code>CALL 0x33AB; …</code>), not a flat array of 2-byte handler pointers. The dispatch is table-like in effect, but it’s code. See <a href="#ti-basic-programs">sub-tibasic.md</a> for the execution model (<code>eval_stmt_entry</code>@<code>38:59C5</code>, the <code>blockmatch_end_else</code>@<code>38:4130</code> End/Else matcher, <code>goto_lbl_name_scanner</code>@<code>38:4870</code>).</p>
+<p>The region at <code>page_38:4000</code> is a <strong>flat array of 2-byte handler pointers</strong> (entries <code>0x419F, 0x45F0, 0x421C, …</code>), not executable code — <code>CALL 0x33AB</code> (<code>CD AB 33</code>) appears nowhere on page 0x38. Each handler is itself recursive-descent code; the table selects which one to enter. See <a href="#ti-basic-programs">sub-tibasic.md</a> for the execution model (<code>eval_stmt_entry</code>@<code>38:59C5</code>, the <code>blockmatch_end_else</code>@<code>38:4130</code> End/Else matcher, <code>goto_lbl_name_scanner</code>@<code>38:4870</code>).</p>
 <p>The handlers are <strong>recursive-descent grammar productions</strong> (not flat per-operator routines): each reads via <code>parse_cur_tok</code>, conditionally recurses, and some load <strong>sub-dispatch tables</strong> (e.g. <code>page_38:5110</code>, <code>5127</code>) for finer token classes — implementing operator precedence by nesting. So “the + operator” isn’t one table entry; it’s handled within the term/factor production that drives <code>_FPAdd</code> (RST 30h).</p>
 <p>The precedence levels (term/factor/unary productions) and sub-dispatch tables are mapped in <a href="#ti-basic-programs">TI-BASIC Programs</a> §3/§6.</p>
 <h2 id="second-byte-tables"><a class="header" href="#second-byte-tables">Second-byte tables</a></h2>
@@ -1305,8 +1631,8 @@ The quadrant (0–3) is accumulated in <code>B</code>/<code>bStack_1</code> (bit
 <li><strong>Command bytes</strong> (all grounded in <code>_ClrLCDFull</code>/<code>_ClearRow</code>/<code>lcd_set_col_cmd</code>):
 <ul>
 <li><strong>Row (page) select</strong> = <code>0xB8 − 8·row</code> for <code>row = 0…7</code> (i.e. <code>0xB8, 0xB0, … 0x80</code>), sent to <code>0x10</code> via <code>lcd_set_col_cmd</code> (<code>01:5A89</code>), which only emits the byte when <code>0x80 ≤ A &lt; 0xC0</code> (guards the row/Z-address range). <code>_ClrLCDFull</code> walks this by loading <code>A=0xB8</code>, calling <code>_ClearRow</code>, then <code>SUB 0x8</code> and looping while <code>A ≥ 0x80</code> (<code>B=0x80</code>).</li>
-<li><strong>Column select</strong> = <code>0x20 + col</code>, sent <strong>raw</strong> to <code>0x10</code>. <code>_ClearRow</code> (<code>01:6934</code>) walks <code>E</code> from <strong><code>0x20</code> to <code>0x2B</code></strong> (<code>CP 0x2C</code> terminates) = <strong>12 columns</strong> (12 bytes × 8 px = 96 px wide), writing one data byte to <code>0x11</code> per column (<code>B=0x08</code> inner loop = 8 rows of pixels). <strong>[confirmed]</strong></li>
-<li><strong>Contrast</strong>: <code>lcd_set_contrast</code> (<code>01:5A59</code>) writes the contrast level to the <strong>data</strong> port <code>0x11</code>; the level is held in RAM at <code>contrast</code> (<code>0x8447</code>) and re-sent as a command via <code>lcd_set_col_cmd</code> on read-back (<code>lcd_get_contrast</code>, <code>01:5A60</code>). <strong>[confirmed]</strong></li>
+<li><strong>Column select</strong> = <code>0x20 + col</code>, sent <strong>raw</strong> to <code>0x10</code>. <code>_ClearRow</code> (<code>01:6934</code>) walks <code>E</code> from <strong><code>0x20</code> to <code>0x2B</code></strong> (<code>CP 0x2C</code> terminates) = <strong>12 columns</strong> (12 bytes × 8 px = 96 px wide), writing <strong>8 data bytes</strong> to <code>0x11</code> per column — the <code>B=0x08</code> inner <code>djnz</code> loop writes one byte per pixel row (8 rows). <strong>[confirmed]</strong></li>
+<li><strong>Contrast</strong>: <code>lcd_set_contrast</code> (<code>01:5A59</code>) writes the contrast level to the <strong>data</strong> port <code>0x11</code>; <code>lcd_get_contrast</code> (<code>01:5A60</code>) reads it back from the controller with <code>IN A,(0x11)</code> (the standard dummy+real LCD read), not a command re-send. The level is also held in RAM at <code>contrast</code> (<code>0x8447</code>); the <strong>command-port</strong> form <code>(contrast+0x18)|0xC0</code> is what <code>_LCD_DRIVERON</code> (page 06) and the <code>_GetKey</code> contrast keys send to <code>0x10</code>. <strong>[confirmed]</strong></li>
 <li>Every port access is preceded by <code>CALL 0x0CC3</code> (<code>lcd_wait</code>), the controller-busy delay. <strong>[confirmed]</strong></li>
 </ul>
 </li>
@@ -1385,7 +1711,7 @@ The quadrant (0–3) is accumulated in <code>B</code>/<code>bStack_1</code> (bit
 </tbody>
 </table>
 </div>
-<p><strong>Forming a raw scan code.</strong> For each driven group the routine reads the column byte, then finds the single low (pressed) column bit by an 8-iteration <code>RLA</code>/<code>DJNZ</code> loop (<code>0435</code>–<code>043C</code>) that counts set bits into <code>E</code> and records the bit index in <code>L</code>. If exactly one key is down it builds the scan code as <strong><code>group × 8 + column_index</code></strong>, where <code>group</code> is the 0-based group from the table above. The code forms it at <code>0453: DEC A; RLA;RLA;RLA; ADD A,L</code>: the iteration counter in <code>A</code> is 1-based, so <code>DEC A</code> converts it to the 0-based <code>group</code>, the three <code>RLA</code>s multiply by 8, and <code>ADD A,L</code> adds the column index in <code>L</code>; it then returns the byte. multiple simultaneous keys set carry (<code>SCF</code> @ <code>0459</code>) so the press is rejected (debounce / ghost-key reject). The single resulting byte is the raw scan code that lands in <code>kbdScanCode</code> (<code>0x843F</code>), which <code>_GetCSC</code> (<code>00:04B2</code>) then reads-and-clears under <code>DI</code>. The scan-enable gate <code>BIT 0,(IY+0x2C)</code> @ <code>0415</code> lets the ISR/<code>_GetKey</code> path special-case the arrow group.</p>
+<p><strong>Forming a raw scan code.</strong> For each driven group the routine reads the column byte, then finds the single low (pressed) column bit by an 8-iteration <code>RLA</code>/<code>DJNZ</code> loop (<code>0435</code>–<code>043C</code>) that counts the <strong>cleared</strong> (pressed, active-low) column bits into <code>E</code> (<code>RLA</code> → <code>JR C</code> skips <code>INC E</code> on a <code>1</code> bit, so only <code>0</code> bits are counted) and records the bit index in <code>L</code>. If exactly one key is down it builds the scan code as <strong><code>group × 8 + column_index</code></strong>, where <code>group</code> is the 0-based group from the table above. The code forms it at <code>0453: DEC A; RLA;RLA;RLA; ADD A,L</code>: the iteration counter in <code>A</code> is 1-based, so <code>DEC A</code> converts it to the 0-based <code>group</code>, the three <code>RLA</code>s multiply by 8, and <code>ADD A,L</code> adds the column index in <code>L</code>; it then returns the byte. multiple simultaneous keys set carry (<code>SCF</code> @ <code>0459</code>) so the press is rejected (debounce / ghost-key reject). The single resulting byte is the raw scan code that lands in <code>kbdScanCode</code> (<code>0x843F</code>), which <code>_GetCSC</code> (<code>00:04B2</code>) then reads-and-clears under <code>DI</code>. The scan-enable gate <code>BIT 0,(IY+0x2C)</code> @ <code>0415</code> lets the ISR/<code>_GetKey</code> path special-case the arrow group.</p>
 <h3 id="2nd--alpha-modifier-state-machine-confirmed"><a class="header" href="#2nd--alpha-modifier-state-machine-confirmed">2nd / ALPHA modifier state machine [confirmed]</a></h3>
 <p>While cooking raw scan codes into the <code>kXxx</code> key constants, <code>_GetKey</code> (<code>06:491E</code>) runs a small modifier state machine in <strong><code>shiftFlags</code></strong> (<code>IY+0x12</code> = <code>0x8A02</code>, the <code>[2nd]</code>/<code>[ALPHA]</code> flag byte):</p>
 <div class="table-wrapper">
@@ -1585,7 +1911,9 @@ decoding of <code>02:7201</code>/<code>02:7281</code> is detailed in <a href="#0
 degree-mode <code>_ASin</code>/<code>_ACos</code>/<code>_ATan</code>/<code>_ATan2</code> at <code>76F1</code>/<code>76DF</code>/<code>76E9</code>/<code>7749</code>.</li>
 <li><code>_ASin</code>/<code>_ACos</code> call domain check <code>SUB_page_02:79D3</code>; <strong>|arg| &gt; 1 → <code>_ErrDomain</code></strong>.</li>
 <li>All inverse trig funnel into the shared <strong>arctangent CORDIC engine</strong> at <code>page_02:774B</code>
-(<code>B=0x20</code> = 32 iterations), with asin/acos expressed via atan2 of (x, √(1−x²)).</li>
+(<code>B=0x20</code> seeds the octant/quadrant base written to <code>0x84A4</code>; the core is a base-10
+trial-subtract digit recurrence, not a fixed 32-step loop), with asin/acos expressed
+via atan2 of (x, √(1−x²)).</li>
 </ul>
 <h3 id="hyperbolics-confirmed"><a class="header" href="#hyperbolics-confirmed">Hyperbolics [confirmed]</a></h3>
 <ul>
@@ -1726,7 +2054,7 @@ These are the values the WINDOW editor writes and the grapher reads.</p>
 </table>
 </div>
 <p>There is a second “u” copy block at <code>0x8E7E</code> (<code>uXmin</code>…<code>uXres</code> at <code>0x8F3B</code>) — the
-** uVar** window set used in the alternate (split/table) graph context, and a working/temp
+<strong>uVar</strong> window set used in the alternate (split/table) graph context, and a working/temp
 float pair around <code>0x8E6A</code>/<code>0x8E73</code> used by the transform code (<code>UNK_ram_8e6a</code>). [strong]</p>
 <p><code>deltaX</code>/<code>deltaY</code> are derived from the window when the graph is set up and feed both the
 forward (real→pixel) and the circle/draw routines. The LCD is <strong>96×64</strong>, but the graph area
@@ -1947,7 +2275,7 @@ Its data is <code>word size</code> followed by <code>size</code> bytes of <stron
 exact byte stream the parser walks. No line numbers; lines are separated by the
 <strong>EOL/newline token <code>0x3F</code></strong> (<code>tEnter</code>, shown as <code>cVar=='?'</code> = 0x3F in the
 decompiled cursor code). Most tokens are 1 byte; the 11 lead bytes
-(<code>5C 5D 5E 60 61 62 63 7E AA BB EF</code>) introduce 2-byte tokens (<a href="#07--tokenizer--ti-basic">doc 07</a>).</p>
+(<code>5C 5D 5E 60 61 62 63 7E BB AA EF</code>, the order of the <code>ram:1FF6</code> table) introduce 2-byte tokens (<a href="#07--tokenizer--ti-basic">doc 07</a>).</p>
 <p>Editing/detokenizing for the program editor uses the page-01 token helpers
 (<a href="#07--tokenizer--ti-basic">doc 07</a>, re-confirmed here):</p>
 <ul>
@@ -2026,12 +2354,13 @@ operator <strong>precedence</strong> is realized — nesting of productions, not
 (confirms <a href="#07--tokenizer--ti-basic">doc 07</a>’s “recursive-descent” claim). Results land in <strong>OP1</strong>; binary
 operators are applied via the FP RST shortcuts (RST 30h <code>_FPAdd</code>, …) and
 <code>_BinOPExec</code>.</p>
-<h3 id="parser-dispatch-page-0x38-is-executable-code-confirmed"><a class="header" href="#parser-dispatch-page-0x38-is-executable-code-confirmed">Parser dispatch: page 0x38 is executable code [confirmed]</a></h3>
-<p>Raw bytes at <code>38:4000</code> are <code>CD AB 33 CD 78 1A 21 50 8F …</code> = <code>CALL 0x33AB; CALL 0x1A78; LD HL,0x8F50; …</code> — i.e. <strong>executable dispatch code</strong>, the “base
-production” the evaluator jumps into (<code>handler = 0x4000</code>), not an array of
-84 two-byte handler pointers. The dispatch is the
-<code>chk_tok_end</code> (<code>38:72E0</code>) / <code>parse_cur_err_illegal</code> (<code>38:70F8</code>) classify + the
-<code>38:7010</code> precedence selector above.</p>
+<h3 id="parser-dispatch-page-0x38-begins-with-a-handler-pointer-table-confirmed"><a class="header" href="#parser-dispatch-page-0x38-begins-with-a-handler-pointer-table-confirmed">Parser dispatch: page 0x38 begins with a handler-pointer table [confirmed]</a></h3>
+<p>Raw bytes at <code>38:4000</code> are <code>9F 41 F0 45 1C 42 CC 41 D9 41 …</code> = a <strong>flat array of
+2-byte little-endian handler pointers</strong> (entries <code>0x419F, 0x45F0, 0x421C, 0x41CC, 0x41D9, …</code>), not executable code: <code>CALL 0x33AB</code> (<code>CD AB 33</code>) appears
+nowhere on page 0x38. The <code>38:7010</code> precedence
+selector indexes this table (<code>LD HL,0x4000</code>; add <code>2×class</code>; deref), with raw-code
+alternates at <code>0x478C</code> and <code>0x7175</code> for the postfix/leaf classes. Classification
+is done by <code>chk_tok_end</code> (<code>38:72E0</code>) / <code>parse_cur_err_illegal</code> (<code>38:70F8</code>).</p>
 <h3 id="results--ans-confirmed"><a class="header" href="#results--ans-confirmed">Results / Ans [confirmed]</a></h3>
 <ul>
 <li><code>_StoAns</code> (<code>38:6251</code>) stores OP1 into <code>Ans</code> (<code>_CkOP1Real</code> path; the bytes that
@@ -2073,8 +2402,9 @@ the block matcher <code>blockmatch_end_else</code> (<code>38:4130</code>) to <st
 (the “condition was true, ran Then, now jump over Else” case), then rejoins the
 shared loop at <code>38:59C8</code>. Other <code>tElse</code> compares at <code>38:57B3/58A6/58C6</code>
 handle the symmetric “skip Then, run Else” and nested cases.</li>
-<li><code>if_stop_stmt_handler</code> (<code>38:6F63</code>) is the per-statement entry that special-cases <code>tIf(CE)</code> and
-<code>tStop(DA-region)</code>: for <code>tIf</code> it sets grammar class <code>0x5F</code> and falls into the
+<li><code>if_isg_stmt_handler</code> (<code>38:6F63</code>) is the per-statement entry that special-cases <code>tIf</code> (<code>0xCE</code>)
+and <code>tISG</code> (<code>0xDA</code>, <code>IS&gt;(</code>): the second compare is <code>38:6F6C: CP 0xDA</code> (<code>tISG</code>, <strong>not</strong> <code>tStop</code>,
+which is <code>0xD9</code>). For <code>tIf</code> it sets grammar class <code>0x5F</code> and falls into the
 shared precedence loop to evaluate the condition; unknown leading tokens here
 raise <code>_JError(0x88)</code> (<code>E_Syntax</code>) for ordinary unknown tokens, or <code>_JError(0x30)</code>
 (<code>E_Version</code>, “ERR:VERSION”) for tokens above <code>0xF5</code> (the reserved/newer-token range —
@@ -2232,10 +2562,11 @@ runs and off at <code>Done</code>. <strong>[confirmed]</strong></p>
 <code>set_split_rows</code> (<code>ram:20A0</code>) when <code>IY+9 &amp; 0x80</code>.</li>
 <li><code>parse_cur_err_illegal</code> (<code>38:70F8</code>) maps the token byte to a grammar/precedence class (tokens
 <code>&gt;0xF1</code> get <code>+0x12</code>, folding the high token page into the class space).</li>
-<li>The precedence level (<code>cVar4</code> = 1/2/3) selects the production handler:
-<code>0x4000</code> (base term/dispatch), <code>0x478C</code> (postfix <code>^</code>/<code>!</code>), or
-<code>0x7175</code> (leaf) — neither <code>0x478C</code> nor <code>0x7175</code> is a defined function in the live DB;
-both are raw code targets inside <code>parse_eval_expr</code>. Nesting these realizes precedence.</li>
+<li>The precedence level (<code>cVar4</code> = 1/2/3) selects the production handler base:
+<code>0x4000</code> (base term — the <strong>flat handler-pointer table</strong>, indexed by token class),
+<code>0x478C</code> (postfix <code>^</code>/<code>!</code>), or <code>0x7175</code> (leaf) — <code>0x478C</code> and <code>0x7175</code> are raw code
+targets inside <code>parse_eval_expr</code> (not defined functions in the live DB), whereas
+<code>0x4000</code> is the pointer table itself. Nesting these realizes precedence.</li>
 <li>Binary ops fold operands via FP RSTs (RST 30h <code>_FPAdd</code>; <code>_FPMult</code>=<code>00:238B</code>, …)
 / <code>_BinOPExec</code>, leaving the result in <strong>OP1</strong>.</li>
 <li>Variable tokens become an OP1 name (type byte + name) and resolve via
@@ -2254,7 +2585,7 @@ classifier) that the dispatch consults; both tail into <code>RST5</code> (bjump)
 page_38:5ab3   parse_eval_expr            ; recursive-descent statement/expr core
 page_38:59c5   eval_stmt_entry            ; statement-loop variant (shared loop label 38:59C8)
 page_38:5826   if_else_skip_handler       ; Else-branch skip via block matcher
-page_38:6f63   if_stop_stmt_handler       ; per-statement If/Stop dispatch
+page_38:6f63   if_isg_stmt_handler        ; per-statement If/IS&gt;( dispatch
 page_38:4130   blockmatch_end_else        ; nest-counting End/Else scanner
 page_38:4180   parse_scan_tokens          ; skip-to-delimiter (2-byte aware)
 page_38:4870   goto_lbl_name_scanner      ; scan label name, jump to search
@@ -2483,16 +2814,16 @@ the copier (6761..678A):
 </code></pre>
 <p>Port <strong>6</strong> is the bank-A page-select; the read code itself runs from <code>ramCode (0x8100)</code>. This is how
 an archived program/appvar is pulled back into RAM to be executed or edited. <code>ti83plus.inc</code> also
-names a sibling <strong><code>_FlashToRam2</code> (id 8054)</strong>; its body is not located in the live DB (the <code>0x8xxx</code>
-table is unmodeled), so the ID names the public API without yet pinning a page:addr.</p>
+names a sibling <strong><code>_FlashToRam2</code> (id 8054)</strong>; the retail boot table maps it to <code>3F:4888</code>.</p>
 <hr>
 <h2 id="6-low-level-flash-write--erase-pages-3c3d-port-0x14-mixed"><a class="header" href="#6-low-level-flash-write--erase-pages-3c3d-port-0x14-mixed">6. Low-level Flash write / erase (pages 3C/3D, port 0x14) [mixed]</a></h2>
 <p>The Flash program/erase primitives live on flash pages <strong>0x3C / 0x3D</strong> and are invoked through
 page-0 cross-page trampolines. The public bcall entry points for the byte writer are named in
 <code>ti83plus.inc</code>: <strong><code>_WriteAByte</code> (id 8021)</strong> and <strong><code>_WriteAByteSafe</code> (id 80C6)</strong> program a single
 Flash byte; <strong><code>_FlashToRam2</code> (id 8054)</strong> is the companion Flash→RAM copy of <code>_FlashToRam</code> (§5).
-Those IDs name the public API, not the body addresses below: the <code>0x8xxx</code> dispatch table is not
-modeled in the live DB, so the IDs are not yet mapped to these page-3C/3D bodies. Several page-3C/3D
+The retail boot table maps those APIs to boot-page bodies (<code>_WriteAByte</code>→<code>3F:4C9F</code>,
+<code>_WriteAByteSafe</code>→<code>3F:4C9A</code>, <code>_FlashToRam2</code>→<code>3F:4888</code>), which then wrap the lower-level
+page-3C/3D flash machinery below. Several page-3C/3D
 targets below are reached by byte trace but are <strong>not defined functions in the current live DB</strong>;
 their <code>flash_*</code> names are project-local inferred labels (not WikiTI or <code>ti83plus.inc</code> equates):</p>
 <div class="table-wrapper">
@@ -2518,7 +2849,7 @@ sets up the RAM-resident write stub (the actual byte-poke loops run from RAM at 
 because the CPU cannot fetch from a Flash chip mid-erase). <code>3D:6B9B</code>/<code>3D:6B6D</code> are bounds-checked
 byte-program candidate calls (return carry → caller raises <strong>E_ArchFull</strong>); neither is a defined
 function in the current live DB. The public byte-write API for this layer is <code>_WriteAByte</code> (8021) /
-<code>_WriteAByteSafe</code> (80C6), though the <code>0x8xxx</code> table does not yet pin either ID to a page-3C/3D body. The free-slot scan reads sector
+<code>_WriteAByteSafe</code> (80C6), which resolve to boot-page wrappers. The free-slot scan reads sector
 status bytes and sums free space to decide whether a GC is needed before a write.</p>
 <h3 id="6a-record-status-byte--the-one-way-bit-clearing-scheme-c"><a class="header" href="#6a-record-status-byte--the-one-way-bit-clearing-scheme-c">6a. Record-status byte — the one-way bit-clearing scheme [C]</a></h3>
 <p>The status byte is a classic AMD/Am29F <strong>monotonic bit-clear</strong> marker: erased Flash is all-ones
@@ -2554,7 +2885,7 @@ bits — port 2 bit 7 (<code>probe_hw_model_keep_a</code> <code>00:1837</code>) 
 <tr><th>Model test</th><th>Archive <strong>base</strong> page (<code>flash_page_select</code> <code>3D:726E</code>)</th><th>Archive <strong>top</strong> page (<code>flash_cmd_base</code> <code>3D:738B</code>)</th><th>Page mask</th></tr>
 </thead>
 <tbody>
-<tr><td>port 2 bit 7 set (1 MB)</td><td><code>0x15</code></td><td><code>0x1E</code></td><td><code>AND 0x1F</code> (32 pages)</td></tr>
+<tr><td>port 2 bit 7 <strong>clear</strong> (1 MB)</td><td><code>0x15</code></td><td><code>0x1E</code></td><td><code>AND 0x1F</code> (32 pages)</td></tr>
 <tr><td>port 0x21 == 0 (mid)</td><td><code>0x29</code></td><td><code>0x3E</code></td><td><code>AND 0x3F</code> (64 pages)</td></tr>
 <tr><td>else (2 MB)</td><td><code>0x69</code></td><td><code>0x7E</code></td><td><code>AND 0x3F</code></td></tr>
 </tbody>
@@ -2675,11 +3006,11 @@ the status byte; <code>flash_find_nonff</code> (<code>3D:7DEA</code>) treats an 
 </ul>
 <p><strong>Residual:</strong></p>
 <ul>
-<li><strong>Flash byte-write / Flash→RAM bcall bodies — names known, bodies unmapped [I].</strong> The public
-bcall entry points are canonical equates in <code>ti83plus.inc</code>: <code>_WriteAByte</code> (8021),
-<code>_WriteAByteSafe</code> (80C6), and <code>_FlashToRam2</code> (8054). Their bodies are not located in the live DB —
-the <code>0x8xxx</code> dispatch table is unmodeled — so the IDs name the API without yet resolving to a
-page:addr. The address-keyed <code>flash_*</code> labels in §6/§9 stay inferred and body-undisassembled.</li>
+<li><strong>Lower-level flash helper bodies — address-keyed labels still inferred [I].</strong> The public bcall
+entry points are canonical equates in <code>ti83plus.inc</code> and now resolve through the retail boot table:
+<code>_WriteAByte</code> (8021) → <code>3F:4C9F</code>, <code>_WriteAByteSafe</code> (80C6) → <code>3F:4C9A</code>, and <code>_FlashToRam2</code>
+(8054) → <code>3F:4888</code>. The address-keyed <code>flash_*</code> labels in §6/§9 stay inferred and
+body-undisassembled until the lower-level page-3C/3D helper graph is split cleanly.</li>
 <li><strong>Group archive path — partially pinned [H/I].</strong> <code>_DataSize</code> (<code>00:1485</code>) confirms a Group
 (type <code>0x17</code>, like AppVar <code>0x15</code>/<code>0x16</code>) carries a leading word-size header, so a group <em>can</em> be
 stored as one Flash blob. The single-call RAM→Flash worker <code>61F4</code> is reached only after
@@ -3713,9 +4044,10 @@ writing <code>1.0</code> when <code>row==col</code> (the <code>exp==type</code> 
 </code></pre>
 </li>
 <li><strong><code>Fill(value,[M])</code></strong> / <strong><code>randM(</code></strong> stamp a constant / random values across all cells via a
-per-cell loop over the whole matrix. <code>randM(</code> builds the result through the <code>0xB5</code> dispatcher
-branch (<code>02:62D4</code>): the 2-arg path creates the <code>r×c</code> result (<code>5DBB</code> → <code>_CreateRMat 110F</code>) and
-stores the dims (<code>631B</code>/<code>631C</code>/<code>4825</code>). The actual per-cell random fill is the one residual still
+per-cell loop over the whole matrix. The <code>02:62D4</code> branch (<code>CP 0xB5</code>) is <strong><code>dim(</code></strong> (<code>0xB5</code> =
+<code>tDim</code>), which creates the <code>r×c</code> result (<code>5DBB</code> → <code>_CreateRMat 110F</code>) and stores the dims
+(<code>631B</code>/<code>631C</code>/<code>4825</code>) but performs no fill. <code>randM(</code> itself is a separate 2-byte token
+(<code>tRandM</code> = <code>0x20</code>, <code>0xBB</code>-prefix group); its per-cell random fill is the one residual still
 open (§4) — and notably it does <strong>not</strong> use the <code>_Random</code> bcall (<code>0x4B79</code>): a ROM-wide scan finds
 zero <code>RST 28h; .dw 0x4B79</code> sites, so randM’s randomness comes from some other path. [H]</li>
 <li>Matrix <strong>copy/reshape</strong> = <code>_DataSize</code>-counted byte copy of the float payload
@@ -3766,7 +4098,7 @@ walk lands element <code>src(r,c)</code> at <code>dst(c,r)</code> — a true tra
 <code>j</code>. [C]</p>
 <p><code>02:4178</code> (<code>mat_fill_type1</code>) is a separate single-counter fill/apply in the <code>414A</code>–<code>4178</code> block,
 not the transpose body. [C]</p>
-<h3 id="augment-randm-listmatr-matrlist--per-function-drivers-ch"><a class="header" href="#augment-randm-listmatr-matrlist--per-function-drivers-ch"><code>augment(</code>, <code>randM(</code>, <code>List►matr(</code>, <code>Matr►list(</code> — per-function drivers [C/H]</a></h3>
+<h3 id="augment-dim-listmatr-matrlist--per-function-drivers-ch"><a class="header" href="#augment-dim-listmatr-matrlist--per-function-drivers-ch"><code>augment(</code>, <code>dim(</code>, <code>List►matr(</code>, <code>Matr►list(</code> — per-function drivers [C/H]</a></h3>
 <p>These are dispatched from the page-02 function-token evaluator (<code>list_fold_dispatch</code>, the
 <code>CP imm ; JR/JP</code> chain that runs <code>5E46</code>/<code>60C8</code>–<code>63xx</code>, keyed on the token byte). Each command’s
 body and its single caller are byte-verified below.</p>
@@ -3779,7 +4111,7 @@ body and its single caller are byte-verified below.</p>
 <tr><td><code>Matr►list(</code></td><td><code>0x8D</code> @ <code>6388</code></td><td><strong><code>02:4773</code></strong> (2-arg), <code>02:49E3</code> (1-arg list copy)</td><td>[C] The <code>0x8D</code> branch splits on argument count (<code>638D: CP 0x02</code>). The <strong>column-extract engine is <code>02:4773</code></strong> (2-arg path: <code>639D: CALL 5DD8 ; CALL 4773</code>; only caller <code>63A0</code>, byte-verified <code>CD 73 47</code>): it nests a per-row loop (<code>477B: LD B,1 …</code>, reading via <code>4040</code> <code>_AdrMRow</code>/<code>4068</code> <code>mele_store_ckvalid</code>) inside a column loop over <code>(84AF)</code>, copying matrix columns into list element(s) (<code>4051</code>/<code>479F</code>). The 1-arg/list path uses <code>02:49E3</code> (<code>6397: CALL 0x49E3</code>), a list-element copy-until-length-match (<code>47E6</code> recall, <code>4825</code> store, <code>21BB</code> compare vs <code>(84AF)</code>, <code>RET Z</code>).</td></tr>
 <tr><td>transpose <code>ᵀ</code></td><td><code>0x0E</code> @ <code>60E9</code></td><td><strong><code>02:412A</code></strong></td><td>[C] Swaps the dim header (<code>60F5</code>), allocates the transposed shape, then <code>412A</code> copies <code>dst(c,r)=src(r,c)</code> over every cell (<code>403C</code> read from <code>(84D3)</code>, <code>4068</code> write to <code>(84D7)</code>); only caller <code>60FE</code>. See the transpose subsection above.</td></tr>
 <tr><td><code>augment(</code></td><td><code>0x91</code> @ <code>635B</code></td><td><strong><code>02:6238</code> copy</strong> [C]; <code>02:4663</code> engine [H]</td><td>The <code>0x91</code> branch requires two operands (<code>CP 0x02</code>), reads the dims (<code>5D98</code>), and checks the two row counts with <code>LD A,H ; CP L</code>: equal rows fall through (<code>JR Z</code>) and <code>H&gt;L</code> raises <code>E_Dimension</code> (<code>JP NC,2719</code>). It then runs the <strong>column-concatenation copy at <code>02:6238</code></strong> [C]: <code>6238</code> allocates the result (<code>5DE0</code> → <code>5DE6</code> → <code>_CreateRMat 110F</code>) and bulk-copies the float payload with <code>02:4539</code> (<code>mele_copy9_d3</code> — skip the 2 dim bytes, <code>LDIR</code> the column-major data), re-pointing <code>84D3←84D7</code>. The branch then calls <code>02:4663</code> (<code>6379</code>, only caller; byte-verified <code>CD 63 46</code>), a partial-pivoting elimination engine: it computes <code>min(H,L)</code> (<code>4672: LD A,H ; CP L ; JR C ; LD L,H</code>), inits via <code>475E</code>, and iterates from <code>BC=0x0101</code> calling <code>461C</code> (max-abs), <code>41D0</code> (pivot-column scan), <code>198D</code> (compare), <code>471C</code> (permutation swap) and <code>405E</code> (store). The column-concat copy (<code>6238</code>/<code>4539</code>) is confirmed augment behaviour [C]; <code>4663</code>’s elimination pass on the concatenated result is byte-confirmed but its role for plain <code>augment(</code> is left open [H]. (<code>augment(L1,L2)</code> list-concat is the <code>0x92</code> sibling at <code>637F</code>, sharing the <code>6362</code> setup.)</td></tr>
-<tr><td><code>randM(</code></td><td><code>0xB5</code> @ <code>62D4</code></td><td>create + dim setup (<code>5DBB</code>/<code>5DEB</code>); cell-fill body open [H]</td><td>The <code>0xB5</code> branch splits on argument count (<code>62D9: CP 0x02</code>): the 2-arg <code>randM(rows,cols)</code> path (<code>62DD</code>) and the 1-arg square path (<code>630A</code>). Both <strong>create the result and set its dims</strong> through <code>02:5DBB</code> (<code>CALL 5CEB</code> registers the variable by name, stores the data pointer to <code>84D3</code>, reads and zero-rejects the dim bytes <code>OR L ; JP Z,2719</code>, stores dims to <code>84AF</code>) and <code>02:5DEB</code>/<code>02:631E</code>. The per-cell random fill is not isolated as a loop in this branch, and does not use the <code>_Random</code> bcall (<code>0x4B79</code> — a ROM-wide scan finds no <code>RST 28h; .dw 0x4B79</code> site). <code>02:5264</code> (<code>cplx_swap_dispatch</code>) is <strong>not</strong> randM — its only caller is <code>62D0</code>, in the <code>0xBD</code> complex-operand branch. The randM cell-fill body stays open. [H]</td></tr>
+<tr><td><code>dim(</code> (matrix create/set-dims)</td><td><code>0xB5</code> @ <code>62D4</code></td><td>create + dim setup (<code>5DBB</code>/<code>5DEB</code>) [C]</td><td>The compare at <code>62D4</code> is <code>CP 0xB5</code>, and <strong><code>0xB5</code> = <code>tDim</code> (<code>dim(</code>), not <code>randM(</code></strong> — so this is the <code>→dim(</code> matrix create/resize handler. It splits on argument count (<code>62D9: CP 0x02</code>): a 2-arg path (<code>62DD</code>) and a 1-arg path (<code>630A</code>). Both <strong>create the result and set its dims</strong> through <code>02:5DBB</code> (<code>CALL 5CEB</code> registers the variable by name, stores the data pointer to <code>84D3</code>, reads and zero-rejects the dim bytes <code>OR L ; JP Z,2719</code>, stores dims to <code>84AF</code>) and <code>02:5DEB</code>/<code>02:631E</code>. There is no per-cell fill loop here — consistent with <code>dim(</code>, which only sets dimensions. <code>02:5264</code> (<code>cplx_swap_dispatch</code>) is reached only from the <code>0xBD</code> complex-operand branch (<code>62D0</code>), not here. <strong><code>randM(</code> is a separate 2-byte token (<code>tRandM</code> = <code>0x20</code>, <code>0xBB</code>-prefix group) routed through the <code>0xBB</code> dispatcher; its cell-fill body is unidentified — it uses no <code>_Random</code> bcall (<code>0x4B79</code>: a ROM-wide scan finds no <code>RST 28h; .dw 0x4B79</code> site).</strong> [H]</td></tr>
 <tr><td><code>List►matr(</code></td><td><code>0x8E</code> @ <code>61C1</code></td><td><code>02:7D19</code> + copy</td><td>reshapes the argument lists into a matrix (<code>_DataSize</code>-counted float copy <code>4539</code>/<code>453F</code>). [H]</td></tr>
 </tbody>
 </table>
@@ -3955,7 +4287,7 @@ and the routine and condition that triggers it.</p>
 <tr><td><code>02:4539</code></td><td><code>mele_copy9_d3</code></td><td>bulk column-major float-payload copy (skip 2 dim bytes, <code>LDIR</code>); used by <code>augment(</code>/reshape (§4) [C]</td></tr>
 <tr><td><code>02:4663</code></td><td><code>mat_gauss_engine</code></td><td>live DB name; <code>min(H,L)</code> partial-pivoting elimination engine; only caller is the <code>augment(</code> <code>0x91</code> branch (<code>6379</code>). Its role inside plain <code>augment(</code> is the one open item (§4) [H]</td></tr>
 <tr><td><code>02:4773</code></td><td><code>mat_to_list_cols</code></td><td><strong><code>Matr►list(</code></strong> 2-arg column-extract engine (only caller <code>63A0</code>): nested col×row walk copying matrix columns into list element(s) (§4) [C]</td></tr>
-<tr><td><code>02:5264</code></td><td><code>cplx_swap_dispatch</code></td><td>live DB name; complex OP-pair arrange/swap (<code>5344</code>/<code>52D3</code>) reached only from the <code>0xBD</code> branch (<code>62D0</code>) — <strong>not</strong> <code>randM(</code> random-fill (§4) [C]</td></tr>
+<tr><td><code>02:5264</code></td><td><code>cplx_swap_dispatch</code></td><td>live DB name; complex OP-pair arrange/swap (<code>5344</code>/<code>52D3</code>) reached only from the <code>0xBD</code> branch (<code>62D0</code>) — <strong>not</strong> the <code>0xB5</code>/<code>dim(</code> matrix-create branch (§4) [C]</td></tr>
 <tr><td><code>02:6238</code></td><td><code>mat_augment_copy</code></td><td><strong><code>augment(</code></strong> column-concat: allocate result (<code>5DE0</code>) + <code>4539</code> payload copy + re-point <code>84D3</code> (§4) [C]</td></tr>
 <tr><td><code>02:49E3</code></td><td><code>lele_copy_until_eq</code></td><td>live DB name; list-element copy-until-length-match (<code>21BB</code>, <code>RET Z</code>); inner copy of the <code>Matr►list(</code> 1-arg/list path (<code>6397</code>) (§4) [C]</td></tr>
 <tr><td><code>02:41C1</code></td><td><code>abs_cmp_op1op2</code></td><td>absolute-value compare: OP1 vs pivot [C]</td></tr>
@@ -4015,8 +4347,9 @@ single-counter fill/apply, not transpose. [C]</li>
 with <code>02:49E3</code> as the 1-arg/list inner copy. [C]</li>
 <li><code>augment(</code> (<code>0x91</code> @ <code>635B</code>) → equal-rows guard (<code>CP L ; JP NC,2719</code>) + <strong>column-concat copy at
 <code>02:6238</code></strong> (<code>5DE0</code> allocate + <code>02:4539</code> <code>LDIR</code> payload copy). [C]</li>
-<li><code>randM(</code> (<code>0xB5</code> @ <code>62D4</code>) → creates the result and sets its dims (<code>5DBB</code>/<code>5DEB</code>). <code>02:5264</code>
-(<code>cplx_swap_dispatch</code>, only caller <code>62D0</code> in the <code>0xBD</code> branch) is confirmed <strong>not</strong> randM. [C]</li>
+<li><code>dim(</code> (<code>0xB5</code> @ <code>62D4</code>; <code>0xB5</code> = <code>tDim</code>, <strong>not</strong> <code>randM(</code>) → creates the result and sets its
+dims (<code>5DBB</code>/<code>5DEB</code>). <code>02:5264</code> (<code>cplx_swap_dispatch</code>, only caller <code>62D0</code> in the <code>0xBD</code> branch)
+is reached only from that complex branch, not here. [C]</li>
 <li><code>List►matr(</code> <code>0x8E</code> branch (<code>61C1</code>) → <code>02:7D19</code> + <code>_DataSize</code> copy (<code>4539</code>/<code>453F</code>) is
 unchanged [H].</li>
 </ul>
@@ -4026,9 +4359,10 @@ unchanged [H].</li>
 <li><code>augment(</code>’s <code>0x91</code> branch calls <code>02:4663</code> (<code>mat_gauss_engine</code>, only caller <code>6379</code>) — a
 <code>min(H,L)</code> partial-pivoting elimination pass — after the column-concat copy. Its role for plain
 <code>augment(</code> is byte-confirmed as a call but not explained. [H]</li>
-<li><code>randM(</code>’s per-cell random fill is not isolated as a loop in the <code>0xB5</code> branch (the visible
-calls create the matrix and convert the dims); it does not go through the <code>_Random</code> bcall
-(<code>0x4B79</code>) — a ROM-wide scan finds no <code>RST 28h; .dw 0x4B79</code> site. [H]</li>
+<li><code>randM(</code>’s per-cell random fill body is unidentified. <code>randM(</code> is a 2-byte token
+(<code>tRandM</code> = <code>0x20</code>, <code>0xBB</code>-prefix group), distinct from the <code>0xB5</code>/<code>dim(</code> branch; the visible
+matrix-create/dim-convert code is <code>dim(</code>’s, not randM’s. randM does not go through the
+<code>_Random</code> bcall (<code>0x4B79</code>) — a ROM-wide scan finds no <code>RST 28h; .dw 0x4B79</code> site. [H]</li>
 </ul>
 </li>
 <li><code>seq(</code>/<code>SortA(</code>/<code>SortD(</code>/stats list-builders: confirm the collect-then-<code>_CreateRList</code> loop
@@ -4133,7 +4467,11 @@ bracketed a sign change, the path at <code>39:45CD…45DA JP 2749</code> raises 
 used repeatedly (<code>39:446F</code>, <code>44D7</code>, <code>44F8</code>, <code>45C7</code>) to test the bracket width / residual
 against tolerance. The tolerance floor is the <strong>TIFloat constant <code>1.0e-13</code></strong> at
 <code>39:46EA</code> (<code>00 73 10 …</code>); the residual-zero floor is <strong><code>1.0e-99</code></strong> at <code>39:46E1</code>
-(<code>00 1D 10 …</code>). Reaching tolerance lands at <code>39:4547</code> and returns the root. <strong>[confirmed]</strong></li>
+(<code>00 1D 10 …</code>). On reaching tolerance the solver exits through the <code>39:4540 → 4553</code>
+branch (dynamically traced on an <code>X²−2 = 0</code> solve that converged to √2 ≈ 1.41421356);
+<code>39:4547</code> is a <code>CALL</code>, not the converged return, and was <strong>not</strong> on the observed path.
+The tolerance tests at <code>446F</code>/<code>44D7</code>/<code>44F8</code> run under that trace; <code>45C7</code> is reached only
+on other convergence sub-paths. <strong>[confirmed]</strong></li>
 </ul>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{Solver root-finder --- bracketed secant / regula-falsi (page 0x39)}
@@ -4150,13 +4488,25 @@ against tolerance. The tolerance floor is the <strong>TIFloat constant <code>1.0
         \STATE $b \gets x$
     \ENDIF
     \IF{$|b-a| &lt; 10^{-13}$}
-        \RETURN $x$ \COMMENT{converged (39:4547)}
+        \RETURN $x$ \COMMENT{converged; exits via 39:4540 -&gt; 4553}
     \ENDIF
 \ENDFOR
 \STATE \textbf{raise} \textsc{iterations} (0x99) / \textsc{bad guess} (0x9A)
 \end{algorithmic}
 \end{algorithm}
 </code></pre>
+<blockquote>
+<p><strong>Dynamic confirmation.</strong> Traced end-to-end under headless TilEm by driving the
+built-in Equation Solver to solve <code>X²−2 = 0</code>
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/solver-sqrt2.macro"><code>solver-sqrt2.macro</code></a>). It converged on screen
+to <code>X = 1.4142135623…</code> (√2) with <code>left-rt = 0</code>. The mem-write records show the guess
+at <code>0x8478</code> climbing <code>1.40898 → 1.41421335 → 1.4142135623645 → 1.4142135623731</code>
+(|err| ≈ 4.9e-15, crossing below the <code>1e-13</code> tolerance on the final step).
+<code>solver_iterate</code> (<code>39:4413</code>) ran 808×; the per-iteration re-parse
+(<code>parse_eval_expr</code> <code>38:5AB3</code>) ran 834×; the secant-in-bracket-else-bisect test
+(<code>39:44F8</code>), the <code>499</code>-cap compare (<code>39:4479 LD HL,0x01F3</code>), and the <code>1e-13</code>/<code>1e-99</code>
+constants (<code>39:46EA</code>/<code>46E1</code>) all executed as the pseudocode describes.</p>
+</blockquote>
 <p><code>left-rt</code> shown on the Solver screen is the final residual <code>f(root)</code> (the
 <code>left-side − right-side</code> value the evaluator computed). <strong>[standard]</strong></p>
 <hr>
@@ -4230,8 +4580,8 @@ difference with var save/restore; ε-default standard]</strong></p>
 Ghidra function <code>fnint_body</code> at <code>33:4D00</code> (extent <code>33:4D00…4E91</code>):</p>
 <ul>
 <li>builds interval midpoints and half-widths: <code>_FPSub</code> (<code>2297</code>), <code>_TimesPt5</code> (<code>2382</code>, ×0.5),
-<code>_FPDiv</code> (<code>2541</code>). The bytes at <code>33:4D1B</code> are <strong>executable code</strong> — <code>21 83 84</code>
-(<code>LD HL,0x8483</code>), <code>3E 60</code> (<code>LD A,0x60</code>), <code>CD 65 1B</code> (<code>CALL _OP2SetA</code>/<code>1B65</code>) — loading the
+<code>_FPDiv</code> (<code>2541</code>). The bytes at <code>33:4D18</code> are <strong>executable code</strong> — <code>33:4D18 21 83 84</code>
+(<code>LD HL,0x8483</code>), <code>33:4D1B 3E 60</code> (<code>LD A,0x60</code>), <code>33:4D1D CD 65 1B</code> (<code>CALL _OP2SetA</code>/<code>1B65</code>) — loading the
 scalar <strong>0x60 = 96</strong>
 (a working digit/scale count), not a quadrature weight. <strong>[confirmed bytes]</strong></li>
 <li>maintains a working set of partial sums in an <strong>FPS frame</strong> (<code>_AllocFPS 1534</code>,
@@ -4461,9 +4811,9 @@ is the <strong>list-step</strong> token <code>0x21</code>; <code>TblStart</code>
 </div>
 <h3 id="tblset-keyedit-handler--tblsetup_handler-027b20-confirmed"><a class="header" href="#tblset-keyedit-handler--tblsetup_handler-027b20-confirmed">TBLSET key/edit handler — <code>tblsetup_handler</code> (<code>02:7B20</code>) [confirmed]</a></h3>
 <p>The page-02 command/mode handler that backs the <strong>TBLSET</strong> screen edits the two
-floats and the two mode rows. A retired helper label at <code>02:7B35</code> is not a live function in the current DB, but the byte sequence there decodes as:</p>
-<pre><code class="language-z80">02:7B35  RES 4,(IY+0x13)   ; default Indpnt = Auto  (autoFill=0)
-         SET 6,(IY+0x13)   ; reTable = 1  → table is now dirty
+floats and the two mode rows. A retired helper label at <code>02:7B31</code> is not a live function in the current DB, but the byte sequence there decodes as:</p>
+<pre><code class="language-z80">02:7B31  RES 4,(IY+0x13)   ; default Indpnt = Auto  (autoFill=0)
+02:7B35  SET 6,(IY+0x13)   ; reTable = 1  → table is now dirty
          RET
 02:7B3A  BIT 4,(IY+0x13) … ; toggle helpers for the menu rows:
          SET 4,(IY+0x13)   ;   Indpnt = Ask
@@ -4577,8 +4927,10 @@ recompute driver, otherwise it repaints from the cached values. [confirmed]</p>
 <p>After a successful recompute it <strong>clears <code>reTable</code></strong>, so subsequent scrolls reuse
 the cache until something marks it dirty again. [confirmed bytes]</p>
 <h3 id="31-seeding-the-running-independent-value-confirmed"><a class="header" href="#31-seeding-the-running-independent-value-confirmed">3.1 Seeding the running independent value [confirmed]</a></h3>
-<p><code>05:774B</code> (and the identical <code>05:773F</code>) initialise the per-table running <code>X</code>:</p>
-<pre><code class="language-z80">LD HL,0x92B3 (TblMin) ; LD DE,0x862B ; JP 0x1A92    ; running-X (0x862B) ← TblMin
+<p><code>05:774B</code> initialises the per-table running <code>X</code>. It first clears a working float
+(<code>05:774B LD DE,0x8622 ; CALL 0x1920</code>), then at <code>05:7751</code> copies TblMin into the
+running-X slot:</p>
+<pre><code class="language-z80">05:7751  LD HL,0x92B3 (TblMin) ; LD DE,0x862B ; JP 0x1A92   ; running-X (0x862B) ← TblMin
 </code></pre>
 <p>i.e. the first row’s independent value is <strong>TblStart</strong>. A working float at
 <code>0x8622</code>/<code>0x862B</code> holds the current row’s X. The “advance to next row” step
@@ -5128,6 +5480,61 @@ anchors for readers who want to check the disassembly. [confirmed]</p>
 </tbody>
 </table>
 </div>
+<h2 id="dynamic-confirmation"><a class="header" href="#dynamic-confirmation">Dynamic confirmation</a></h2>
+<p>The static map above was checked against live execution. The TI-84 Plus OS was
+run under headless TilEm, the entry line was driven to render each construct, and
+page-<code>39</code> execution was rolled up to function level with
+<code>tools/tilem_trace_resolve.py --funcs --only-space page_39</code> (see
+<a href="https://github.com/siraben/ti84p-re/blob/main/tools/dynamic-tracing.md">dynamic tracing</a>). The macros are
+<code>tools/macros/mathprint-{power,fraction,fnint}.macro</code>. [confirmed]</p>
+<p>The trace cleanly separates the two documented rendering mechanisms by <em>which
+routines actually run</em> for each construct:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Rendered (entry line)</th><th>Page-<code>39</code> routines exercised</th><th>Path</th></tr>
+</thead>
+<tbody>
+<tr><td><code>X^2</code> (raised exponent)</td><td><code>eqdisp_emit_subexpr2</code> <code>4CA4</code>, <code>eqdisp_menu_or_emit</code> <code>53AD</code></td><td>light entry-line emit (<code>eqdisp_set_row_for_tok</code> <code>4CE9</code> is the static superscript-row helper but did <strong>not</strong> execute in this trace — it does run in the <code>1/2</code> trace)</td></tr>
+<tr><td><code>1/2</code> (n/d template)</td><td><code>eqdisp_compute_dims</code> <code>69C8</code>, <code>eqdisp_layout_token_geom</code> <code>68AE</code>, the <code>683D</code> cell-to-pixel mapper, <code>eqdisp_draw_fraction_bar</code> <code>6ABF</code>, <code>eqdisp_draw_box_jp</code> <code>6AF5</code>, <code>eqdisp_load_glyph18b2</code> <code>6B66</code>, <code>eqdisp_dispatch_token</code> <code>4A74</code></td><td><strong>descriptor / geometry</strong></td></tr>
+<tr><td><code>fnInt(</code> (MATH ▸ 9)</td><td><code>eqdisp_emit_glyph</code> <code>4E8E</code>, <code>eqdisp_map_token_glyph</code> <code>4F1A</code>, <code>eqdisp_emit_arglist</code> <code>4DE6</code>, <code>eqdisp_sum_arg_widths</code> <code>4DCA</code>, <code>eqdisp_emit_digit_chk</code> <code>4E0A</code></td><td><strong>handler record / multi-arg</strong></td></tr>
+</tbody>
+</table>
+</div>
+<p>This confirms the headline static result: the descriptor path (<code>69C8</code>/<code>68AE</code>/<code>683D</code>/<code>6ABF</code>)
+and the handler-record path (<code>4DCA</code>/<code>4DE6</code>/<code>4E8E</code>/<code>4F1A</code>) are mutually
+exclusive per construct, exactly as the two-mechanism model predicts. [confirmed]</p>
+<p><code>39:5167</code> (<code>eqdisp_layout_multiarg</code>) <strong>statically</strong> owns the multi-arg row
+composition, but it did <strong>not</strong> execute in this trace: the <code>fnInt(</code> template was
+inserted <em>empty</em> (<code>∫(0)dV</code>), so the operand-recursion branch was never driven —
+<code>5167</code> and its body (<code>5949</code>/<code>5B10</code>) show 0 hits, and the <code>--funcs</code> “5167” rollup
+bucket is a nearest-name artifact (only a <code>51F1/51F3</code> fragment ran). A <em>filled</em>
+integrand would be needed to drive <code>5167</code> under a trace. [confirmed] (static); the dynamic path is open.</p>
+<p>The live state block matches the field map. Reading <code>0x85DE..0x85F2</code> from a RAM
+dump right after each render (<code>memdump … ram-logical</code>):</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th><code>1/2</code></th><th><code>fnInt(</code></th><th>Confirms</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x85E8</code> template kind</td><td><code>0x10</code></td><td><code>0x00</code></td><td><code>0x10</code> = the fraction <em>descriptor</em> kind; <code>0x00</code> = handler-record (no descriptor).</td></tr>
+<tr><td><code>0x85EE</code>/<code>0x85EF</code> fraction width</td><td><code>2</code>/<code>2</code></td><td><code>0</code>/<code>0</code></td><td>Measured numerator/denominator widths (each <code>1</code> cell ≈ 2 px wide).</td></tr>
+<tr><td><code>0x85E1</code> row count</td><td>—</td><td><code>4</code></td><td>Four rows for the tall integral (upper limit, body, lower limit, baseline).</td></tr>
+</tbody>
+</table>
+</div>
+<p><code>eqdisp_compute_dims</code> (<code>39:69C8</code>) decompiles consistently: it switches on
+<code>0x85E8 &amp; 0x0F</code>, picks descriptor <code>686F</code>/<code>6880</code>/… by kind, and for the kind-2
+measured-fraction path calls <code>eqdisp_draw_box_jp</code> with <code>0x85EE</code>. [confirmed]</p>
+<p><strong>Decompiler caution.</strong> The cell-to-pixel mapper <code>39:683D</code> and the fraction
+endpoint helper <code>39:6B1C</code> are named <code>eqdisp_decr_counters</code> /
+<code>eqdisp_advance_col6</code> in the symbol table, and the Ghidra <em>decompiler</em>
+mis-analyzes both (it shows bare decrement loops). The raw disassembly matches
+this page instead: <code>683D</code> does <code>A = base; loop: add a,7</code> (<code>x = base_x + 7·col</code>)
+and <code>6B1C</code> does <code>ld a,1Bh; … add a,7 (×n); add a,4</code> (<code>x_left = 0x1B + 7n</code>,
+<code>x_right = x_left + 4</code>). Trust <code>z80dasm</code> over the decompiler for these tight
+register-passing routines, as <a href="https://github.com/siraben/ti84p-re/blob/main/README.md">the README</a> advises. [confirmed]</p>
 <h2 id="remaining-detail"><a class="header" href="#remaining-detail">Remaining detail</a></h2>
 <p>The static MathPrint pipeline is recovered: token classification, handler records,
 recursive operand order, descriptor templates, fraction UI geometry, fixed structural
@@ -5542,7 +5949,7 @@ port <code>0x00</code> bit-banging otherwise. [confirmed]</p>
 </thead>
 <tbody>
 <tr><td><code>0x02</code></td><td>Hardware/model gate before using assist paths. The link code tests bit 7 before touching ports <code>0x08</code>-<code>0x0D</code>.</td><td><code>3C:6C82</code>, <code>3C:6CB8</code>, <code>3C:6D15</code></td></tr>
-<tr><td><code>0x08</code></td><td>Link-assist control/idle latch. The OS writes <code>0x80</code> when clearing an inactive/error-free assist state, and <code>0x00</code> when marking the assist state active.</td><td><code>3C:6C41</code>-<code>6C48</code>, <code>3C:6D38</code>-<code>6D40</code>, <code>3C:6D4B</code>-<code>6D53</code></td></tr>
+<tr><td><code>0x08</code></td><td>Link-assist control/idle latch. The OS writes <code>0x80</code> when clearing an inactive/error-free assist state, and <code>0x00</code> when marking the assist state active.</td><td><code>OUT (0x08)</code> at <code>3C:6C4D</code>/<code>6C50</code>, <code>3C:6D48</code>, <code>3C:6D5B</code></td></tr>
 <tr><td><code>0x09</code></td><td>Link-assist status on reads. Bit 5 is TX-ready; bit 6 is a transmission/error condition; bit 4 marks a received byte. Masks <code>0x19</code>, <code>0x58</code>, and <code>0x99</code> are used as error/activity predicates. On writes, the OS setup value <code>0x97</code> matches WikiTI’s CPU-speed-0 signaling-rate register.</td><td><code>3C:6BB6</code>-<code>6BC5</code>, <code>3C:444A</code>, <code>3C:6BFA</code>, <code>3C:6CCE</code>, <code>3C:6D33</code>; WikiTI port <code>09</code></td></tr>
 <tr><td><code>0x0A</code></td><td>Assist receive/data register on reads; the confirmed receive path reads the byte here. On writes, the OS setup value <code>0xB4</code> matches WikiTI’s CPU-speed-1 signaling-rate register. Tilem models reads as “last received byte” and stores writes as opaque assist state.</td><td><code>3C:6C20</code>, <code>3C:6C2B</code>, <code>3C:6C39</code>; WikiTI port <code>0A</code>; Tilem <code>x4_io.c</code></td></tr>
 <tr><td><code>0x0B</code>, <code>0x0C</code></td><td>Assist signaling-rate configuration for CPU speed modes 2 and 3, initialized with <code>0xB4</code>. The ROM byte-transfer path writes them during setup but does not read them back. Tilem stores the writes without emulating timing from the values.</td><td><code>3C:6C3D</code>, <code>3C:6C3F</code>; WikiTI ports <code>0B</code>/<code>0C</code>; Tilem <code>x4_io.c</code></td></tr>
@@ -5611,7 +6018,7 @@ the assist latch through port <code>0x08</code>.</li>
 <p><code>lnk_rec_status</code> also uses the sentinel byte <code>0xE0</code>: callers pass it for a nonblocking/probe style
 receive check. If the caller requires a byte and the status path reports anything else, the code
 raises <code>E_LnkErr</code> through <code>_JError(0x9F)</code>. [confirmed]</p>
-<p>The assist reset/enable sequence at <code>3C:6C31</code> writes:</p>
+<p>The assist reset/enable sequence at <code>3C:6C3B</code> writes:</p>
 <pre><code class="language-z80">out (0x00),0x00
 out (0x09),0x97
 out (0x0A),0xB4
@@ -5702,10 +6109,10 @@ bjumps resolve as:</p>
 </div>
 <p>[confirmed]</p>
 <p>The timer/idle side of the same handler also bridges to the assist path. At <code>ram:01B1</code> it calls
-<code>ram:1850</code>, the same hardware-gate routine used elsewhere before assist-port access. On the legacy path it checks <code>port 0x00 &amp; 0x03</code>; on the assist
+<code>ram:1837</code> (<code>IN A,(0x2); AND 0x80; XOR 0x80</code>), the same hardware-model gate used elsewhere before assist-port access. On the legacy path it checks <code>port 0x00 &amp; 0x03</code>; on the assist
 path it checks <code>port 0x09 &amp; 0x18</code>. If either assist bit is set, it reloads <code>0x9C86 = 0xFA</code>, pulses
 port <code>0x08</code> with <code>0x80</code> then <code>0x00</code>, sets <code>IY+0x3E</code> bit 0, and calls the common link activity hook
-at <code>ram:3FD6</code>. [confirmed: <code>00:01B1</code>-<code>01DB</code>]</p>
+at <code>ram:3FD5</code>. [confirmed: <code>00:01B1</code>-<code>01DB</code>]</p>
 <p>For application code, this means a custom interrupt handler that does not chain to the OS handler
 must account for port <code>0x55</code>/<code>0x56</code> activity itself and then either reproduce the relevant page-35
 event handling or deliberately leave USB disabled. The OS still acknowledges the legacy interrupt
@@ -5781,7 +6188,7 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="bcall-reference-index"><a class="header" href="#bcall-reference-index">bcall reference index</a></h1>
-<p>The main table below lists the live-confirmed <code>0x4xxx</code> bcall system calls. Each has an <em>ID</em> (the 2-byte value after <code>rst 28h</code>) and a <em>body</em> at <code>page:addr</code>. Use your browser’s find, or the wiki search box. See <a href="#03--the-bcall-system-call-mechanism">The bcall Mechanism</a> for how dispatch works. The historical <code>0x8xxx</code> candidates at the end are kept for reconciliation, but their page-0x3F bodies are not currently present as functions in the live Ghidra/MCP DB.</p>
+<p>The main table below lists the live-confirmed <code>0x4xxx</code> bcall system calls. Each has an <em>ID</em> (the 2-byte value after <code>rst 28h</code>) and a <em>body</em> at <code>page:addr</code>. Use your browser’s find, or the wiki search box. See <a href="#03--the-bcall-system-call-mechanism">The bcall Mechanism</a> for how dispatch works. The <code>0x8xxx</code> boot bcall names at the end are official SDK equates resolved from the retail boot table on page <code>3F</code>; USB boot entries point into page <code>2F</code>.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -6387,25 +6794,97 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 </tbody>
 </table>
 </div>
-<h2 id="extended-0x8xxx-candidates--unverified"><a class="header" href="#extended-0x8xxx-candidates--unverified">Extended (<code>0x8xxx</code>) candidates — unverified</a></h2>
-<p>All 11 of these <code>0x8xxx</code> candidate IDs are now defined in the full 2007 <code>ti83plus.inc</code> (SDK equate column below), and were produced by historical ROM-scan scripts from a proposed page-0x3F table. The current live Ghidra/MCP DB does <strong>not</strong> expose functions at these claimed targets, so treat the bodies as unresolved build/load-model evidence, not confirmed bcall bodies — the open piece. Names are WikiTI’s; <code>†</code> marks WikiTI <em>unofficial</em> names. Cataloged in <code>tools/ti84plus_extra.inc</code>.</p>
+<h2 id="retail-boot-0x8xxx-bcalls"><a class="header" href="#retail-boot-0x8xxx-bcalls">Retail boot (<code>0x8xxx</code>) bcalls</a></h2>
+<p>These <code>0x8xxx</code> IDs are defined in the full 2007 <code>ti83plus.inc</code> and resolved from the retail boot table. <code>tools/resolve_bcalls.py</code> emits this table only when page <code>3F</code> has the retail boot prefix, not when it sees BootFree.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>bcall</th><th>ID</th><th>SDK equate (<code>ti83plus.inc</code>)</th><th>Body (page:addr)</th></tr>
+<tr><th>bcall</th><th>ID</th><th>Body (page:addr)</th></tr>
 </thead>
 <tbody>
-<tr><td><code>_WriteAByte</code></td><td><code>8021</code></td><td><code>_WriteAByte</code></td><td><code>3F:44F3</code></td></tr>
-<tr><td><code>_FindFirstCertificateField</code></td><td><code>8027</code></td><td><code>_FindFirstCertField</code></td><td><code>3F:4448</code></td></tr>
-<tr><td><code>_FindGroupedField</code> †</td><td><code>8030</code></td><td><code>_FindGroupedField</code></td><td><code>3F:442B</code></td></tr>
-<tr><td><code>_FlashToRAM2</code> †</td><td><code>8054</code></td><td><code>_FlashToRam2</code></td><td><code>3F:52EB</code></td></tr>
-<tr><td><code>_GetCertificateStart</code></td><td><code>8057</code></td><td><code>_GetCertificateStart</code></td><td><code>3F:430F</code></td></tr>
-<tr><td><code>_GetFieldSize</code></td><td><code>805A</code></td><td><code>_GetFieldSize</code></td><td><code>3F:449C</code></td></tr>
-<tr><td><code>_FindSubField</code> †</td><td><code>805D</code></td><td><code>_FindSubField</code></td><td><code>3F:4463</code></td></tr>
-<tr><td><code>_FindOSHeaderSubField</code> †</td><td><code>8075</code></td><td><code>_FindOSHeaderSubField</code></td><td><code>3F:446C</code></td></tr>
-<tr><td><code>_Div32By16</code></td><td><code>80B1</code></td><td><code>_Div32By16</code></td><td><code>3F:5296</code></td></tr>
-<tr><td><code>_GetBootVer</code></td><td><code>80B7</code></td><td><code>_getBootVer</code></td><td><code>3F:531E</code></td></tr>
-<tr><td><code>_GetHWVer</code></td><td><code>80BA</code></td><td><code>_getHardwareVersion</code></td><td><code>3F:5323</code></td></tr>
+<tr><td><code>_MD5Final</code></td><td><code>8018</code></td><td><code>3F:6964</code></td></tr>
+<tr><td><code>_RSAValidate</code></td><td><code>801B</code></td><td><code>3F:6CB4</code></td></tr>
+<tr><td><code>_cmpStr</code></td><td><code>801E</code></td><td><code>3F:7195</code></td></tr>
+<tr><td><code>_WriteAByte</code></td><td><code>8021</code></td><td><code>3F:4C9F</code></td></tr>
+<tr><td><code>_EraseFlash</code></td><td><code>8024</code></td><td><code>3F:4C2A</code></td></tr>
+<tr><td><code>_FindFirstCertField</code></td><td><code>8027</code></td><td><code>3F:4D62</code></td></tr>
+<tr><td><code>_ZeroToCertificate</code></td><td><code>802A</code></td><td><code>3F:4DAF</code></td></tr>
+<tr><td><code>_GetCertificateEnd</code></td><td><code>802D</code></td><td><code>3F:4D53</code></td></tr>
+<tr><td><code>_FindGroupedField</code></td><td><code>8030</code></td><td><code>3F:4E8C</code></td></tr>
+<tr><td><code>_ret_1</code></td><td><code>8033</code></td><td><code>3F:4867</code></td></tr>
+<tr><td><code>_ret_2</code></td><td><code>8036</code></td><td><code>3F:4867</code></td></tr>
+<tr><td><code>_ret_3</code></td><td><code>8039</code></td><td><code>3F:4867</code></td></tr>
+<tr><td><code>_ret_4</code></td><td><code>803C</code></td><td><code>3F:4867</code></td></tr>
+<tr><td><code>_ret_5</code></td><td><code>803F</code></td><td><code>3F:4867</code></td></tr>
+<tr><td><code>_Mult8By8</code></td><td><code>8042</code></td><td><code>3F:7059</code></td></tr>
+<tr><td><code>_Mult16By8</code></td><td><code>8045</code></td><td><code>3F:705B</code></td></tr>
+<tr><td><code>_Div16By8</code></td><td><code>8048</code></td><td><code>3F:7146</code></td></tr>
+<tr><td><code>_Div16By16</code></td><td><code>804B</code></td><td><code>3F:7148</code></td></tr>
+<tr><td><code>_LoadAIndPaged</code></td><td><code>8051</code></td><td><code>3F:486E</code></td></tr>
+<tr><td><code>_FlashToRam2</code></td><td><code>8054</code></td><td><code>3F:4888</code></td></tr>
+<tr><td><code>_GetCertificateStart</code></td><td><code>8057</code></td><td><code>3F:4D46</code></td></tr>
+<tr><td><code>_GetFieldSize</code></td><td><code>805A</code></td><td><code>3F:4DB8</code></td></tr>
+<tr><td><code>_FindSubField</code></td><td><code>805D</code></td><td><code>3F:4DFB</code></td></tr>
+<tr><td><code>_EraseCertificateSector</code></td><td><code>8060</code></td><td><code>3F:4E3F</code></td></tr>
+<tr><td><code>_CheckHeaderKey</code></td><td><code>8063</code></td><td><code>3F:4B4A</code></td></tr>
+<tr><td><code>_Load_LFontV2</code></td><td><code>806C</code></td><td><code>3F:7C8A</code></td></tr>
+<tr><td><code>_Load_LFontV</code></td><td><code>806F</code></td><td><code>3F:7C8A</code></td></tr>
+<tr><td><code>_ReceiveOS</code></td><td><code>8072</code></td><td><code>3F:5DCE</code></td></tr>
+<tr><td><code>_FindOSHeaderSubField</code></td><td><code>8075</code></td><td><code>3F:5018</code></td></tr>
+<tr><td><code>_FindNextCertField</code></td><td><code>8078</code></td><td><code>3F:4D5C</code></td></tr>
+<tr><td><code>_GetByteOrBoot</code></td><td><code>807B</code></td><td><code>3F:5C64</code></td></tr>
+<tr><td><code>_getSerial</code></td><td><code>807E</code></td><td><code>3F:442F</code></td></tr>
+<tr><td><code>_ReceiveCalcID</code></td><td><code>8081</code></td><td><code>3F:5EDC</code></td></tr>
+<tr><td><code>_EraseFlashPage</code></td><td><code>8084</code></td><td><code>3F:4C1E</code></td></tr>
+<tr><td><code>_WriteFlashUnsafe</code></td><td><code>8087</code></td><td><code>3F:4CA6</code></td></tr>
+<tr><td><code>_dispBootVer</code></td><td><code>808A</code></td><td><code>3F:44F1</code></td></tr>
+<tr><td><code>_MD5Init</code></td><td><code>808D</code></td><td><code>3F:68ED</code></td></tr>
+<tr><td><code>_MD5Update</code></td><td><code>8090</code></td><td><code>3F:6907</code></td></tr>
+<tr><td><code>_MarkOSInvalid</code></td><td><code>8093</code></td><td><code>3F:5209</code></td></tr>
+<tr><td><code>_FindProgramLicense</code></td><td><code>8096</code></td><td><code>3F:4B1A</code></td></tr>
+<tr><td><code>_MarkOSValid</code></td><td><code>8099</code></td><td><code>3F:51F5</code></td></tr>
+<tr><td><code>_CheckOSValidated</code></td><td><code>809C</code></td><td><code>3F:52C6</code></td></tr>
+<tr><td><code>_SetupAppPubKey</code></td><td><code>809F</code></td><td><code>3F:53CA</code></td></tr>
+<tr><td><code>_SigModR</code></td><td><code>80A2</code></td><td><code>3F:7225</code></td></tr>
+<tr><td><code>_TransformHash</code></td><td><code>80A5</code></td><td><code>3F:723F</code></td></tr>
+<tr><td><code>_IsAppFreeware</code></td><td><code>80A8</code></td><td><code>3F:52E1</code></td></tr>
+<tr><td><code>_FindAppHeaderSubField</code></td><td><code>80AB</code></td><td><code>3F:500A</code></td></tr>
+<tr><td><code>_WriteValidationNumber</code></td><td><code>80AE</code></td><td><code>3F:540B</code></td></tr>
+<tr><td><code>_Div32By16</code></td><td><code>80B1</code></td><td><code>3F:706E</code></td></tr>
+<tr><td><code>_FindGroup</code></td><td><code>80B4</code></td><td><code>3F:4E61</code></td></tr>
+<tr><td><code>_getBootVer</code></td><td><code>80B7</code></td><td><code>3F:477C</code></td></tr>
+<tr><td><code>_getHardwareVersion</code></td><td><code>80BA</code></td><td><code>3F:4781</code></td></tr>
+<tr><td><code>_xorA</code></td><td><code>80BD</code></td><td><code>3F:5C6D</code></td></tr>
+<tr><td><code>_bignumpowermod17</code></td><td><code>80C0</code></td><td><code>3F:6CBD</code></td></tr>
+<tr><td><code>_ProdNrPart1</code></td><td><code>80C3</code></td><td><code>3F:6209</code></td></tr>
+<tr><td><code>_WriteAByteSafe</code></td><td><code>80C6</code></td><td><code>3F:4C9A</code></td></tr>
+<tr><td><code>_WriteFlash</code></td><td><code>80C9</code></td><td><code>3F:4C8F</code></td></tr>
+<tr><td><code>_SetupDateStampPubKey</code></td><td><code>80CC</code></td><td><code>3F:548C</code></td></tr>
+<tr><td><code>_SetFlashLowerBound</code></td><td><code>80CF</code></td><td><code>3F:4784</code></td></tr>
+<tr><td><code>_LowBatteryBoot</code></td><td><code>80D2</code></td><td><code>3F:5834</code></td></tr>
+<tr><td><code>_AttemptUSBOSReceive</code></td><td><code>80E4</code></td><td><code>2F:4145</code></td></tr>
+<tr><td><code>_DisplayBootMessage</code></td><td><code>80E7</code></td><td><code>3F:6127</code></td></tr>
+<tr><td><code>_NewLine2</code></td><td><code>80EA</code></td><td><code>3F:73DD</code></td></tr>
+<tr><td><code>_DisplayBootError10</code></td><td><code>80ED</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_Chk_Batt_Low_B</code></td><td><code>80F0</code></td><td><code>3F:6171</code></td></tr>
+<tr><td><code>_Chk_Batt_Low_B2</code></td><td><code>80F3</code></td><td><code>3F:6163</code></td></tr>
+<tr><td><code>_ReceiveOS_USB</code></td><td><code>80F6</code></td><td><code>2F:48CA</code></td></tr>
+<tr><td><code>_DisplayOSProgress</code></td><td><code>80F9</code></td><td><code>3F:62D0</code></td></tr>
+<tr><td><code>_ResetCalc</code></td><td><code>80FC</code></td><td><code>3F:5ED3</code></td></tr>
+<tr><td><code>_SetupOSPubKey</code></td><td><code>80FF</code></td><td><code>3F:5387</code></td></tr>
+<tr><td><code>_CheckHeaderKeyHL</code></td><td><code>8102</code></td><td><code>3F:4B4D</code></td></tr>
+<tr><td><code>_USBErrorCleanup</code></td><td><code>8105</code></td><td><code>2F:5958</code></td></tr>
+<tr><td><code>_InitUSB</code></td><td><code>8108</code></td><td><code>2F:52A4</code></td></tr>
+<tr><td><code>_KillUSB</code></td><td><code>810E</code></td><td><code>2F:5961</code></td></tr>
+<tr><td><code>_DisplayBootError1</code></td><td><code>8111</code></td><td><code>3F:63DB</code></td></tr>
+<tr><td><code>_DisplayBootError2</code></td><td><code>8114</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError3</code></td><td><code>8117</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError4</code></td><td><code>811A</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError5</code></td><td><code>811D</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError6</code></td><td><code>8120</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError7</code></td><td><code>8123</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError8</code></td><td><code>8126</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError9</code></td><td><code>8129</code></td><td><code>3F:5789</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -6880,7 +7359,7 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 <tr><td><code>98</code></td><td><code>Ñ</code></td><td>TI-83+</td></tr>
 <tr><td><code>99</code></td><td><code>ñ</code></td><td>TI-83+</td></tr>
 <tr><td><code>9A</code></td><td><code>´</code></td><td>TI-83+</td></tr>
-<tr><td><code>9B</code></td><td>```</td><td>TI-83+</td></tr>
+<tr><td><code>9B</code></td><td><code>`</code></td><td>TI-83+</td></tr>
 <tr><td><code>9C</code></td><td><code>¨</code></td><td>TI-83+</td></tr>
 <tr><td><code>9D</code></td><td><code>¿</code></td><td>TI-83+</td></tr>
 <tr><td><code>9E</code></td><td><code>¡</code></td><td>TI-83+</td></tr>
@@ -6935,7 +7414,7 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 <tr><td><code>D2</code></td><td><code>#</code></td><td>TI-83+</td></tr>
 <tr><td><code>D3</code></td><td><code>$</code></td><td>TI-83+</td></tr>
 <tr><td><code>D4</code></td><td><code>&amp;</code></td><td>TI-83+</td></tr>
-<tr><td><code>D5</code></td><td>```</td><td>TI-83+</td></tr>
+<tr><td><code>D5</code></td><td><code>`</code></td><td>TI-83+</td></tr>
 <tr><td><code>D6</code></td><td><code>;</code></td><td>TI-83+</td></tr>
 <tr><td><code>D7</code></td><td><code>\</code></td><td>TI-83+</td></tr>
 <tr><td><code>D8</code></td><td><code>|</code></td><td>TI-83+</td></tr>
@@ -7034,14 +7513,14 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 <p>The structural reverse-engineering is comprehensive (every subsystem mapped, both cross-page mechanisms resolved, full input→parse→eval→display pipeline documented). What remains is <strong>depth</strong>, gathered here from the per-doc TODOs and prioritized. Each is self-contained for a future session.</p>
 <h2 id="resolved-3"><a class="header" href="#resolved-3">Resolved</a></h2>
 <ol>
-<li><strong>Flash sector write/erase primitive map</strong> — the live DB confirms anchors <code>flash_program_buf</code>@<code>3D:678C</code>, <code>flash_erase_wait</code>@<code>3D:5ED3</code>, <code>flash_cmd_base</code>@<code>3D:738B</code>, <code>flash_set_sector_cnt</code>@<code>3D:727D</code>, <code>flash_page_select</code>@<code>3D:726E</code>, <code>flash_find_nonff</code>@<code>3D:7DEA</code>, and <code>flash_op_fd/fb/fe</code>@<code>3D:7C8F/7C93/7C97</code>. The public bcall entry points for these primitives are named in <code>ti83plus.inc</code>: <code>_WriteAByte</code> (8021), <code>_WriteAByteSafe</code> (80C6), and <code>_FlashToRam2</code> (8054); their IDs name the API, not the body addresses. The candidate addresses <code>3D:61AF</code>, <code>3D:64AA</code>, <code>3D:62C2</code>, <code>3D:6413</code>, and <code>3D:6B9B</code> are still undisassembled (not defined functions) in the live DB; their <code>flash_*</code> names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates, and the <code>0x8xxx</code> IDs are not yet mapped to these bodies. See <a href="#variables-archive--unarchive">sub-vat-archive.md</a> / <a href="#12--memory-management-ram-heap--flash-archive">12</a>.</li>
+<li><strong>Flash sector write/erase primitive map</strong> — the live DB confirms anchors <code>flash_program_buf</code>@<code>3D:678C</code>, <code>flash_erase_wait</code>@<code>3D:5ED3</code>, <code>flash_cmd_base</code>@<code>3D:738B</code>, <code>flash_set_sector_cnt</code>@<code>3D:727D</code>, <code>flash_page_select</code>@<code>3D:726E</code>, <code>flash_find_nonff</code>@<code>3D:7DEA</code>, and <code>flash_op_fd/fb/fe</code>@<code>3D:7C8F/7C93/7C97</code>. The public bcall entry points for these primitives are named in <code>ti83plus.inc</code>: <code>_WriteAByte</code> (8021), <code>_WriteAByteSafe</code> (80C6), and <code>_FlashToRam2</code> (8054); the retail boot table maps them to <code>3F:4C9F</code>, <code>3F:4C9A</code>, and <code>3F:4888</code>. The candidate addresses <code>3D:61AF</code>, <code>3D:64AA</code>, <code>3D:62C2</code>, <code>3D:6413</code>, and <code>3D:6B9B</code> are still undisassembled (not defined functions) in the live DB; their <code>flash_*</code> names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates. See <a href="#variables-archive--unarchive">sub-vat-archive.md</a> / <a href="#12--memory-management-ram-heap--flash-archive">12</a>.</li>
 <li><strong>Flash archive garbage collector</strong> — the behavior is documented. The GC-path candidates <code>flash_gc_relocate</code>@<code>3C:7BD0</code>, <code>gc_show_screen</code>@<code>3C:7E0D</code>, and <code>flash_cmd_dispatch</code>@<code>3C:7121</code> are still undisassembled (not defined functions) in the live DB; those <code>flash_*</code>/<code>gc_*</code> names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates.</li>
 <li><del><strong>VAT entry binary layout</strong></del> ✅ <strong>DONE</strong> — field order/size per object class documented from <code>_FindSym</code>’s scan (<code>findsym_scan</code>@<code>07:565F</code>) and the create-header writes. See <a href="#05--variables--the-vat-variable-allocation-table">05</a>.</li>
 <li><del><strong>Parser precedence levels</strong></del> ✅ <strong>DONE</strong> — the recursive-descent productions and the sub-dispatch tables at <code>page_38:5110</code>/<code>5127</code> are mapped via <code>parse_eval_expr</code>@<code>38:5AB3</code>. See <a href="#07--tokenizer--ti-basic">07</a>.</li>
 <li><del><strong>Event/context <code>0x3f3f</code> router</strong></del> ✅ <strong>DONE</strong> — resolved to the RAM-resident vector reaching <code>event_key_router</code>@<code>page_07:4539</code>; the 8-slot context stack near <code>0x84BE</code> is documented. See <a href="#11--boot-contexts-and-error-handling">11</a>.</li>
-<li><strong>84+-era bcall names / page 0x3F reconciliation</strong> — the 11 <code>0x8xxx</code> IDs (e.g. <code>_WriteAByte 8021</code>, <code>_FindFirstCertField 8027</code>, <code>_FlashToRam2 8054</code>, <code>_GetCertificateStart 8057</code>, <code>_FindOSHeaderSubField 8075</code>, <code>_getBootVer 80B7</code>, <code>_getHardwareVersion 80BA</code>, <code>_WriteAByteSafe 80C6</code>) are canonical equates in the full 2007 SDK <code>tools/ti83plus.inc</code> (334 <code>0x8xxx</code> equates total). They are official TI bcalls, so the <strong>naming</strong> side is settled — these are not unverified script output. The body/table side stays open; see item 15. See <a href="#03--the-bcall-system-call-mechanism">03</a>.</li>
+<li><del><strong>84+-era bcall names / page 0x3F reconciliation</strong></del> ✅ <strong>DONE</strong> — the <code>0x8xxx</code> IDs are canonical equates in the full 2007 SDK <code>tools/ti83plus.inc</code>, and the retail boot table now maps 83 boot entries to bodies. Most are on page <code>3F</code>; USB boot entries such as <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_USBErrorCleanup</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> land on page <code>2F</code>. See <a href="#03--the-bcall-system-call-mechanism">03</a>.</li>
 <li><del><strong>Equation display core (page 0x39)</strong></del> ✅ <strong>DONE</strong> — page 0x39’s classification, handler records, descriptor templates, recursive operand walker, and glyph/string output paths are documented as a cell-grid typesetter. See <a href="#equation-display-mathprint">sub-equation-display.md</a>.</li>
-<li><del><strong>Name every <code>FUN_</code> helper</strong></del> ✅ <strong>DONE</strong> — 100% of the 2413 functions are now named (<code>tools/names.txt</code> + <code>RenameFns.java</code>).</li>
+<li><del><strong>Name every <code>FUN_</code> helper</strong></del> ✅ <strong>DONE</strong> — the OS function-naming pass is complete for the main ROM analysis (<code>tools/names.txt</code> + <code>RenameFns.java</code>).</li>
 <li><del><strong>Font glyph page</strong></del> ✅ <strong>DONE</strong> — the large-font glyph table is on <strong>page 0x07 at base <code>0x45FF</code></strong> with a <strong>7-byte stride</strong> (<code>put_glyph_large</code> <code>07:4588</code> → <code>lgfont_glyph_ptr_adjust</code> <code>07:45EB</code>); alternate fonts on pages 1/0x36. See <a href="#08--display--lcd">08</a>, <a href="#13--flash-page-map">13</a>.</li>
 <li><del><strong>Token→layout-class table</strong></del> ✅ <strong>DONE</strong> — <code>eqdisp_load_tok_handler</code> (<code>39:4C27</code>) indexes the 0x44-entry table at <code>0x5E45</code> by class byte; fraction/superscript forms are selected by a <code>+0x28</code>/<code>+0x29</code> class bias. See <a href="#equation-display-mathprint">sub-equation-display.md</a>.</li>
 <li><del><strong>FP transcendental coefficient tables</strong></del> ✅ <strong>DONE</strong> — <code>ram:2362</code> was resolved as a bcall entry to <code>page_02:7D1E</code>, not a page selector. The ln/e^x/sin-cos coefficient tables and loop bounds are byte-dumped in <a href="#06--floating-point-engine">06</a>: ln/e^x use the 16-row <code>02:7181</code> table; sin/cos uses the signed 8-row <code>02:7201</code>/<code>02:7281</code> tables.</li>
@@ -7051,7 +7530,6 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 <ol start="13">
 <li><strong>Enum equates.</strong> Apply <code>TIKeyCode</code>/<code>TIError</code>/<code>TIVarType</code> to scalar operands in the relevant handlers (conservative, scoped).</li>
 <li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
-<li><strong><code>0x8xxx</code> bcall bodies / dispatch table.</strong> The 84+-era <code>0x8xxx</code> bcall <em>names</em> are now canonical equates (item 6), but their bodies are not present as functions in the live Ghidra DB: the <code>0x8xxx</code> dispatch table and its page-0x3F loader are not modeled, so each ID→(page, addr) mapping is unresolved. Model the <code>0x8xxx</code> table and locate the bodies — e.g. <code>_WriteAByte 8021</code>, <code>_FlashToRam2 8054</code>, <code>_getHardwareVersion 80BA</code>. See <a href="#03--the-bcall-system-call-mechanism">03</a>.</li>
 </ol>
 <h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>
 <p>Reopen <code>~/Documents/ti84-re/ti84.gpr</code> (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in <code>tools/</code> and rebuild with <code>tools/build.sh</code>. The remaining items mostly need a <strong>headless raw-byte dump</strong> of regions the live decompiler leaves as unanalyzed data (the page-0x35 timer handler, the page-0x38 <code>0xBB</code>/class-3 dispatch tables).</p>

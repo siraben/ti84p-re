@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bd36890e.js";
+            window.path_to_searchindex_js = "searchindex-bbfe7a9f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5397aae8.js"></script>
+        <script src="toc-bcf53af4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -215,6 +215,7 @@
 <tr><td><a href="11-boot-contexts-errors.html">11-boot-contexts-errors.md</a></td><td>Boot, context system, _JError/onSP</td><td>✅</td></tr>
 <tr><td><a href="12-memory-management.html">12-memory-management.md</a></td><td>RAM heap, VAT/userMem, Flash archive/GC</td><td>✅</td></tr>
 <tr><td><a href="13-flash-page-map.html">13-flash-page-map.md</a></td><td>What each of the 64 flash pages contains</td><td>✅</td></tr>
+<tr><td><a href="14-ram-pages.html">14-ram-pages.md</a></td><td>RAM page selectors, page <code>83</code>, and restore rules</td><td>✅</td></tr>
 <tr><td><a href="99-open-questions.html">99-open-questions.md</a></td><td>Prioritized future-work roadmap</td><td>✅</td></tr>
 <tr><td><a href="sub-calculation.html">sub-calculation.md</a></td><td>Calculation engine: FP ops, transcendentals, formatting, errors</td><td>✅</td></tr>
 <tr><td><a href="sub-graphing.html">sub-graphing.md</a></td><td>Graphing: window vars, coord↔pixel, draw primitives, Y= eval</td><td>✅</td></tr>
@@ -233,7 +234,7 @@
 </div>
 <p>(The <code>sub-*</code> docs are deep dives covering user-facing functionality and I/O internals: calculation, graphing, TI-BASIC, VAT/archive, apps, stats, matrices, solver, table, equation display, link, and USB/link assist.)</p>
 <p>New to these notes? Start with <a href="conventions.html">Conventions &amp; Methodology</a> (how to read the addresses and confidence flags) and the <a href="glossary.html">Glossary</a>; the <a href="bcall-index.html">bcall Index</a> is the full alphabetical system-call reference.</p>
-<p>Database state: <strong>2413 functions (100% named)</strong>, the main <code>0x4xxx</code> bcall table resolved, TI-OS types applied. The older <code>0x8xxx</code>/page-0x3F bcall scan output is not present as functions in the current live Ghidra/MCP DB and needs reconciliation. Rebuild: <code>tools/build.sh</code>.</p>
+<p>Database state: the main <code>0x4xxx</code> bcall table is resolved, the retail boot bcall table (<code>0x8xxx</code>) is resolved from the local complete ROM, and TI-OS types are applied. Most boot bcall bodies are on page <code>3F</code>; USB boot routines such as <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> are on page <code>2F</code>. Rebuild: <code>tools/build.sh</code>.</p>
 <h2 id="key-anchors-found-so-far"><a class="header" href="#key-anchors-found-so-far">Key anchors found so far</a></h2>
 <ul>
 <li>Reset entry <code>reset</code> @ <code>ram:0000</code> <strong>[confirmed]</strong></li>
