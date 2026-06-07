@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-feaadf2d.js";
+            window.path_to_searchindex_js = "searchindex-bba023a5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -341,9 +341,11 @@ the final MathPrint operator form. [confirmed]</p>
     uint16_t cell_pointer;  /* pointer to descriptor cells */
 } EqDispTemplateDescriptor;
 </code></pre>
-<p>The mapper at <code>39:683D</code> converts a descriptor cell to pixels:</p>
-<p>$$x = \mathit{base}_x + 7 \cdot \mathit{col}$$</p>
-<p>$$y = \mathit{base}_y + \mathit{row} \cdot (\mathit{rowHeight} + 2)$$</p>
+<p>The mapper at <code>39:683D</code> converts a descriptor cell to pixels. The <code>+7</code> loop (<code>DEC B; ADD A,7</code>)
+builds the <strong>high</strong> byte and the <code>+(rowHeight+2)</code> loop builds the <strong>low</strong> byte; the caller stores
+<code>HL</code> to <code>penCol</code>(<code>0x86D7</code>, low→x) / <code>penRow</code>(<code>0x86D8</code>, high→y), so the two products land as:</p>
+<p>$$x\ (\mathit{penCol}) = \mathit{base}_x + \mathit{row} \cdot (\mathit{rowHeight} + 2)$$</p>
+<p>$$y\ (\mathit{penRow}) = \mathit{base}_y + 7 \cdot \mathit{col}$$</p>
 <p>The known descriptors are:</p>
 <div class="table-wrapper">
 <table>
@@ -566,7 +568,7 @@ measured-fraction path calls <code>eqdisp_draw_box_jp</code> with <code>0x85EE</
 endpoint helper <code>39:6B1C</code> are named <code>eqdisp_decr_counters</code> /
 <code>eqdisp_advance_col6</code> in the symbol table, and the Ghidra <em>decompiler</em>
 mis-analyzes both (it shows bare decrement loops). The raw disassembly matches
-this page instead: <code>683D</code> does <code>A = base; loop: add a,7</code> (<code>x = base_x + 7·col</code>)
+this page instead: <code>683D</code> does <code>A = base; loop: add a,7</code> into the <strong>high</strong> byte (<code>y = base_y + 7·col</code> → <code>penRow</code>)
 and <code>6B1C</code> does <code>ld a,1Bh; … add a,7 (×n); add a,4</code> (<code>x_left = 0x1B + 7n</code>,
 <code>x_right = x_left + 4</code>). Trust <code>z80dasm</code> over the decompiler for these tight
 register-passing routines, as <a href="https://github.com/siraben/ti84p-re/blob/main/README.md">the README</a> advises. [confirmed]</p>
