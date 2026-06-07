@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0ff5124b.js";
+            window.path_to_searchindex_js = "searchindex-ef6f83f9.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -218,6 +218,9 @@
 <p>The expression parser/evaluator lives on <strong>flash page 0x38</strong>. Entry points:</p>
 <ul>
 <li><code>_ParseInp</code> (<code>38:5987</code>) — parse/evaluate the input (homescreen/entry line). It calls <code>parse_init</code> (<code>38:5b7b</code>) to reset parser state, clears editing flags, then resolves via <code>_ChkFindSym</code>. <strong>[confirmed]</strong></li>
+<li><code>_ParseInpLastEnt</code> (<code>38:5984</code>) — public parser variant immediately before
+<code>_ParseInp</code>; an <code>AsmPrgm</code> probe reaches it but fails with <code>ERR:INVALID</code>
+without running the named BASIC target. <strong>[confirmed negative probe]</strong></li>
 <li><code>_Find_Parse_Formula</code> (<code>38:758A</code>) — <code>_FindSym</code> a variable then parse its stored formula (Y-vars, equations). <strong>[confirmed]</strong></li>
 <li><code>parse_init</code> (<code>38:5b7b</code>) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). <strong>[confirmed]</strong></li>
 </ul>
@@ -261,9 +264,10 @@ for observed outputs and trace anchors.</p>
 <tr><td>Factorial</td><td><code>Prompt N</code> / <code>1-&gt;F</code> / <code>For(I,1,N)</code> / <code>F*I-&gt;F</code> / <code>End</code> / <code>Disp F</code></td><td><code>DD 4E 3F 31 04 46 3F D3 49 2B 31 2B 4E 11 3F 46 82 49 04 46 3F D4 3F DE 46 3F</code></td></tr>
 <tr><td>Data</td><td><code>{3,1,4,1,5}-&gt;L1</code> / <code>SortA(L1)</code> / <code>cumSum(L1)-&gt;L2</code> / <code>sum(L1)-&gt;S</code> / display results</td><td><code>08 33 2B 31 2B 34 2B 31 2B 35 09 04 5D 00 3F E3 5D 00 11 3F BB 29 5D 00 11 04 5D 01 3F B6 5D 00 11 04 53 3F DE 5D 00 3F DE 5D 01 3F DE 53 3F</code></td></tr>
 <tr><td><code>Asm(</code> wrapper</td><td><code>Disp "BEFORE"</code> / <code>Asm(prgmASMRET)</code> / <code>Disp "AFTER"</code></td><td><code>DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41 46 54 45 52 2A 3F</code></td></tr>
+<tr><td>ASM callback bridge</td><td><code>Asm(prgmASMSIG)</code> / <code>If Ans</code> / <code>prgmZZBASIC</code></td><td><code>DE 2A 42 45 ... 72 3F 5F 5A 5A ...</code> (full body in <code>tools/tibasic-samples/asmbridge.tok</code>)</td></tr>
 <tr><td>Animation</td><td><code>ClrHome</code> / <code>For(I,1,8)</code> / <code>Output(1,I,"X")</code> / <code>End</code> / <code>Disp "DONE"</code></td><td><code>E1 3F D3 49 2B 31 2B 38 11 3F E0 31 2B 49 2B 2A 58 2A 11 3F D4 3F DE 2A 44 4F 4E 45 2A 3F</code></td></tr>
 <tr><td>Graph drawing</td><td><code>ClrDraw</code> / <code>Line(0,0,95,63)</code> / <code>Circle(47,31,10)</code> / <code>Text(0,0,"DFS")</code> / <code>DispGraph</code></td><td><code>85 3F 9C 30 2B 30 2B 39 35 2B 36 33 11 3F A5 34 37 2B 33 31 2B 31 30 11 3F 93 30 2B 30 2B 2A 44 46 53 2A 11 3F DF 3F</code></td></tr>
-<tr><td>Graph visualization</td><td><code>Line(</code>/<code>Circle(</code>/<code>Text(</code> drawing the DFS topology</td><td><code>85 3F 9C 32 30 ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphdfs.tok</code>)</td></tr>
+<tr><td>Graph visualization</td><td><code>ClrDraw</code>, window stores, then <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> drawing the DFS topology</td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphdfs.tok</code>)</td></tr>
 <tr><td>BASIC subprogram</td><td><code>0-&gt;A</code> / <code>prgmSUBRT</code> / <code>Disp A</code>; callee <code>Disp "SUB"</code> / <code>A+1-&gt;A</code> / <code>Return</code></td><td>caller <code>30 04 41 3F 5F 53 55 42 52 54 3F DE 41 3F</code>; callee <code>DE 2A 53 55 42 2A 3F 41 70 31 04 41 3F D5 3F</code></td></tr>
 <tr><td>Big integer add</td><td>list digits in <code>L1</code>/<code>L2</code>, carry <code>C</code>, indexed stores into <code>L3</code></td><td><code>08 35 2B 34 ... DE 5D 02 10 36 11 3F</code> (full body in <code>tools/tibasic-samples/bigadd.tok</code>)</td></tr>
 <tr><td>DFS</td><td>edge lists <code>L1</code>/<code>L2</code>, visited <code>L3</code>, stack <code>L4</code>, <code>While</code>/<code>If Then</code>/nested <code>For</code></td><td><code>08 31 2B 31 ... D4 3F DE 5D 02 3F</code> (full body in <code>tools/tibasic-samples/dfs.tok</code>)</td></tr>
@@ -276,11 +280,13 @@ statement separators (<code>3F</code>), string delimiters (<code>2A</code>), sto
 <code>AsmPrgm</code> = <code>BB 6C</code>), and command tokens such as <code>Prompt</code> (<code>DD</code>), <code>Disp</code> (<code>DE</code>),
 <code>For(</code> (<code>D3</code>), <code>End</code> (<code>D4</code>), <code>ClrHome</code> (<code>E1</code>), and <code>SortA(</code> (<code>E3</code>). The
 newer samples add <code>Output(</code> (<code>E0</code>), graph commands (<code>85</code>, <code>93</code>, <code>9C</code>, <code>A5</code>,
-<code>DF</code>), <code>Return</code> (<code>D5</code>), list indexing with <code>(</code> (<code>10</code>) / <code>)</code> (<code>11</code>), <code>int(</code>
-(<code>B1</code>), arithmetic operators (<code>70</code>, <code>71</code>, <code>82</code>, <code>83</code>), and the program-name
-token (<code>5F</code>) before the name characters. <code>DFS</code> adds structured-control tokens
-<code>While</code> (<code>D1</code>), <code>If</code> (<code>CE</code>), <code>Then</code> (<code>CF</code>), and equality (<code>6A</code>). [confirmed
-token bytes from <code>ti83plus.inc</code> and <code>token-tables.md</code>]</p>
+<code>DF</code>), system/window variables (<code>63 0A</code> through <code>63 0D</code> for
+<code>Xmin</code>/<code>Xmax</code>/<code>Ymin</code>/<code>Ymax</code>), <code>Ans</code> (<code>72</code>), <code>Return</code> (<code>D5</code>), list indexing with
+<code>(</code> (<code>10</code>) / <code>)</code> (<code>11</code>), <code>int(</code> (<code>B1</code>), arithmetic operators (<code>70</code>, <code>71</code>, <code>82</code>,
+<code>83</code>), and the program-name token (<code>5F</code>) before the name characters. <code>DFS</code> adds
+structured-control tokens <code>While</code> (<code>D1</code>), <code>If</code> (<code>CE</code>), <code>Then</code> (<code>CF</code>), and
+equality (<code>6A</code>). [confirmed token bytes from <code>ti83plus.inc</code> and
+<code>token-tables.md</code>]</p>
 <h2 id="second-byte-tables"><a class="header" href="#second-byte-tables">Second-byte tables</a></h2>
 <p>Every 2-byte token group’s second-byte → token mapping (matrices, lists, Y-vars, system/window vars, the <code>BB</code> extended-command page, the <code>EF</code> 84+ page, etc.) is tabulated in <strong><a href="token-tables.html">2-Byte Token Tables</a></strong> — 492 tokens, sourced from <a href="https://github.com/TI-Toolkit/tokens">TI-Toolkit/tokens</a> and filtered to the 84+ 2.55MP.</p>
 <p>(The main parser loop, handler dispatch, and <code>OP1</code>-as-name handoff are covered in <a href="sub-tibasic.html">TI-BASIC Programs</a>.)</p>

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0ff5124b.js";
+            window.path_to_searchindex_js = "searchindex-ef6f83f9.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -234,7 +234,7 @@ implicit-close/false-<code>If</code> interaction. <strong>[confirmed]</strong></
 <tr><td>List built-ins (<code>DATA</code>)</td><td><code>sum(</code> reaches <code>list_fold_dispatch</code></td><td>Prefer built-ins when one parser setup can cover many elements.</td></tr>
 <tr><td>Text animation (<code>ANIMTXT</code>)</td><td><code>Output(</code> plus LCD text paths on every loop</td><td>Precompute positions/strings and update the smallest region possible.</td></tr>
 <tr><td>Graph drawing (<code>GRAPHV</code>)</td><td>primitives draw into <code>plotSScreen</code>, then <code>_PDspGrph</code></td><td>Batch graph primitives before <code>DispGraph</code>.</td></tr>
-<tr><td>Graph visualization (<code>GRAPHDFS</code>)</td><td>repeated <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> reaches <code>_ILine</code>, <code>_IPoint</code>, <code>graph_pixel_op</code>, and small-font paths</td><td>Store graph topology in lists; draw the whole view in one graph-buffer pass.</td></tr>
+<tr><td>Graph visualization (<code>GRAPHDFS</code>)</td><td>window stores plus repeated <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> reach <code>_StoSysTok</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>graph_pixel_op</code>, <code>_PDspGrph</code>, and small-font paths</td><td>Store graph topology in lists; draw the whole view in one graph-buffer pass.</td></tr>
 <tr><td>BASIC subprogram (<code>CALLSUB</code>)</td><td>page-38 program-body evaluator and shared VAT variables</td><td>Treat globals/lists/<code>Ans</code> as the calling convention.</td></tr>
 <tr><td>List algorithms (<code>BIGADD</code>, <code>DFS</code>)</td><td>VAT lookup, element address, OP-register move per access</td><td>Preallocate lists; cache dimensions and reused elements in scalars.</td></tr>
 </tbody>
@@ -255,12 +255,13 @@ kept because both render visible graph-screen output.</p>
 <tr><td>Data manipulation</td><td><code>DATA.8xp</code></td><td>Sorts, cumulatively sums, and displays list data; reaches list element stores and <code>sum(</code>’s list fold path.</td></tr>
 <tr><td>Text animation</td><td><code>ANIMTXT.8xp</code></td><td>Moves/writes <code>X</code> characters with <code>Output(</code>, then displays <code>DONE</code>; reaches LCD text routines each loop.</td></tr>
 <tr><td>Graph drawing</td><td><code>GRAPHV.8xp</code></td><td>Renders <code>DFS</code>, axes, a circle, and diagonal line on the graph screen; reaches <code>_ILine</code>, <code>_IPoint</code>, and <code>_PDspGrph</code>.</td></tr>
-<tr><td>Graph visualization</td><td><code>GRAPHDFS.8xp</code></td><td>Renders the four-node DFS topology with labels and edges; reaches line, point, pixel, and small-font graph paths.</td></tr>
+<tr><td>Graph visualization</td><td><code>GRAPHDFS.8xp</code></td><td>Renders the four-node DFS topology with labels and edges; reaches window stores, line, point, display-copy, pixel, and small-font graph paths.</td></tr>
 <tr><td>Arbitrary precision arithmetic</td><td><code>BIGADD.8xp</code></td><td>Adds digit lists with carry propagation and displays <code>L3</code>; reaches list indexing and FP helper paths.</td></tr>
 <tr><td>DFS / stack-style list algorithm</td><td><code>DFS.8xp</code></td><td>Displays traversal <code>1, 3, 2, 4</code> and visited list <code>{1 1 1 1}</code>; reaches nested scanner/control-flow paths.</td></tr>
 <tr><td>BASIC subprogram calling convention</td><td><code>CALLSUB.8xp</code> + <code>SUBRT.8xp</code></td><td>Caller and callee share scalar/list variables and return through the BASIC program evaluator.</td></tr>
 <tr><td>BASIC to ASM</td><td><code>ASMCALL.8xp</code> + <code>ASMRET.8xp</code></td><td><code>Asm(</code> runs an <code>AsmPrgm</code> payload (<code>C9</code>) and returns to BASIC, displaying <code>BEFORE</code> then <code>AFTER</code>.</td></tr>
-<tr><td>ASM to BASIC</td><td>temporary probes</td><td>VAT lookup from <code>AsmPrgm</code> works, but <code>_Find_Parse_Formula</code>, <code>_ExecuteNewPrgm</code>, <code>_JForceCmd</code>, <code>_PutTokString</code>, and <code>_rclToQueue</code> do not prove a standalone callable BASIC-program ABI.</td></tr>
+<tr><td>ASM-directed BASIC callback</td><td><code>ASMBRIDG.8xp</code> + <code>ASMSIG.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM sets <code>Ans=1</code> with <code>_OP1Set1</code>/<code>_StoAns</code>, returns, and BASIC calls <code>prgmZZBASIC</code> through <code>If Ans</code>.</td></tr>
+<tr><td>Direct ASM to BASIC</td><td>temporary probes</td><td>VAT lookup from <code>AsmPrgm</code> works, but <code>_Find_Parse_Formula</code>, <code>_ParseInpLastEnt</code>, <code>_ExecuteNewPrgm</code>, <code>_JForceCmd</code>, <code>_PutTokString</code>, and <code>_rclToQueue</code> do not prove a standalone callable BASIC-program ABI.</td></tr>
 </tbody>
 </table>
 </div>
@@ -316,7 +317,7 @@ Text(31,53,"4")
 DispGraph
 </code></pre>
 <p>Observed run: the final graph screen shows four labeled nodes with edges
-<code>1-&gt;2</code>, <code>1-&gt;3</code>, and <code>2-&gt;4</code>. The trace hits <code>_ILine</code> (<code>04:4029</code>),
+<code>1-2</code>, <code>1-3</code>, and <code>2-4</code>. The trace hits <code>_ILine</code> (<code>04:4029</code>),
 <code>graph_pixel_op</code>, <code>_IPoint</code>, <code>_PDspGrph</code> (<code>04:7904</code>), small-font glyph
 rendering, window variable stores through <code>_StoSysTok</code>, <code>_RestoreDisp</code>, and
 page-38 statement evaluation. <strong>[confirmed]</strong></p>
@@ -342,6 +343,27 @@ page-38 statement interpreter, VAT/name resolution (<code>findsym_scan</code>), 
 entry/refill paths, the program-body evaluator call at <code>38:6914</code> into
 <code>eval_eqn_recursive</code> (<code>38:778F</code>), <code>_StoSysTok</code>, <code>_StoAns</code>, <code>_RclVarSym</code>, and
 <code>_Disp</code>. <strong>[confirmed]</strong></p>
+<p>The full smoke trace also hits <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> once while the
+homescreen evaluates the initial <code>prgmCALLSUB</code> command selected by the macro.
+That launch parse is not the same as the callee transition. The repeated
+subprogram body path is the private <code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>
+sequence, reached after parser RAM has already been populated:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>RAM state</th><th>Address</th><th>Role in the private parser frame</th></tr>
+</thead>
+<tbody>
+<tr><td><code>basic_prog</code></td><td><code>9652</code></td><td>current OP1-style program/object name</td></tr>
+<tr><td><code>basic_start</code></td><td><code>965B</code></td><td>first token byte after the stored program size word</td></tr>
+<tr><td><code>nextParseByte</code></td><td><code>965D</code></td><td>current parser cursor</td></tr>
+<tr><td><code>basic_end</code></td><td><code>965F</code></td><td>parser end pointer</td></tr>
+<tr><td><code>numArguments</code></td><td><code>9661</code></td><td>argument count/state byte used by parser helpers</td></tr>
+<tr><td><code>chkDelPtr3</code> / <code>chkDelPtr4</code></td><td><code>981C</code> / <code>981E</code></td><td>temporary VAT/data pointers used during name and object setup</td></tr>
+<tr><td><code>FPS</code> / <code>OPS</code> / <code>pTemp</code> / <code>progPtr</code></td><td><code>9824</code> / <code>9828</code> / <code>982E</code> / <code>9830</code></td><td>live FP/temp/program storage bounds</td></tr>
+</tbody>
+</table>
+</div>
 <p>There is no local variable frame for BASIC programs. A subprogram that uses <code>A</code>
 modifies the caller’s <code>A</code>. For reusable routines, document which variables are
 inputs, scratch, and outputs.</p>
@@ -427,6 +449,34 @@ payload byte at <code>ram:9D95 op=0xC9</code>, and return to BASIC. <strong>[con
 <p>Practical convention: pass data through OS variables or known RAM locations,
 validate inputs on the BASIC side, and make the ASM payload return normally with
 <code>RET</code> unless it intentionally transfers control elsewhere.</p>
+<h3 id="cooperative-asm-directed-basic-callback"><a class="header" href="#cooperative-asm-directed-basic-callback">Cooperative ASM-directed BASIC callback</a></h3>
+<p>The run-confirmed way to let ASM choose a BASIC continuation is to keep BASIC in
+charge of the program call. <code>ASMSIG.8xp</code> sets <code>Ans</code> to <code>1</code> and returns:</p>
+<pre><code class="language-asm">rst 28h
+.dw 419Bh         ; _OP1Set1
+rst 28h
+.dw 4ABFh         ; _StoAns
+ret
+</code></pre>
+<p>The BASIC wrapper then branches on <code>Ans</code> and performs the ordinary <code>prgmNAME</code>
+call:</p>
+<pre><code class="language-ti-basic">Disp "BEFORE"
+Asm(prgmASMSIG)
+If Ans
+prgmZZBASIC
+Disp "AFTER"
+</code></pre>
+<p>with target:</p>
+<pre><code class="language-ti-basic">Disp "CALLED"
+</code></pre>
+<p>Observed run: <code>ASMBRIDG.8xp</code>, <code>ASMSIG.8xp</code>, and <code>ZZBASIC.8xp</code> display
+<code>BEFORE</code>, <code>CALLED</code>, <code>AFTER</code>, then <code>Done</code>. The trace hits the <code>AsmPrgm</code> payload
+at <code>ram:9D95</code>, <code>_OP1Set1</code> (<code>00:1B38</code>), <code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code>
+(<code>38:74B7</code>) while evaluating <code>If Ans</code>, and then the normal BASIC program-body
+path for <code>prgmZZBASIC</code> (<code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>). <strong>[confirmed]</strong></p>
+<p>This is a callback convention, not a direct jump from ASM into a BASIC body.
+The ASM side communicates a return code through <code>Ans</code>; BASIC owns the parser
+state, performs the <code>prgm</code> call, and resumes after the target returns.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -435,8 +485,9 @@ validate inputs on the BASIC side, and make the ASM payload return normally with
 <tbody>
 <tr><td>BASIC -&gt; ASM</td><td><code>Asm(prgmNAME)</code> parses <code>prgmNAME</code>, bcalls <code>_ExecutePrgm</code>, copies the <code>AsmPrgm</code> payload, then jumps through <code>ram:9D95</code>.</td><td>The payload runs in the calculator OS process; a bad payload can corrupt interpreter state.</td></tr>
 <tr><td>BASIC -&gt; BASIC</td><td><code>prgmNAME</code> enters the page-38 parser/VAT/body evaluator path and <code>Return</code> resumes the caller.</td><td>There is no local frame; variables are shared.</td></tr>
+<tr><td>ASM -&gt; BASIC callback</td><td>ASM stores a signal/result such as <code>Ans=1</code>, returns, and the BASIC wrapper conditionally runs <code>prgmNAME</code>.</td><td>BASIC must own the actual <code>prgm</code> call; this is cooperative, not an arbitrary ASM bcall into BASIC.</td></tr>
 <tr><td>ASM -&gt; VAT lookup</td><td>An <code>AsmPrgm</code> can build <code>OP1={ProgObj,"NAME"}</code> and bcall <code>_ChkFindSym</code>.</td><td>Lookup is not execution.</td></tr>
-<tr><td>ASM -&gt; BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>_Find_Parse_Formula</code> reached <code>ERR:UNDEFINED</code>; forced-command/edit-buffer probes did not call the target BASIC program.</td></tr>
+<tr><td>Direct ASM -&gt; BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>_Find_Parse_Formula</code> reached <code>ERR:UNDEFINED</code>; <code>_ParseInpLastEnt</code> reached <code>ERR:INVALID</code>; forced-command/edit-buffer probes did not call the target BASIC program.</td></tr>
 </tbody>
 </table>
 </div>
@@ -476,6 +527,16 @@ name: .db 05h,"ZZBASIC",00h
 then stops at <code>ERR:UNDEFINED</code>; the <code>ZZBASIC</code> body never displays. That failed
 run confirms <code>_Find_Parse_Formula</code> is not a drop-in BASIC program executor from
 an arbitrary <code>AsmPrgm</code> context. <strong>[confirmed]</strong></p>
+<p><code>_ParseInpLastEnt</code> (<code>4B07</code>, target <code>38:5984</code>) is a useful negative probe because
+it sits immediately before <code>_ParseInp</code> and the SDK describes it as a parser
+variant. A temporary payload that again built <code>OP1={ProgObj,"ZZBASIC"}</code> and
+bcalls <code>_ParseInpLastEnt</code> reached <code>_ParseInpLastEnt</code>, <code>_ParseInp</code> (<code>38:5987</code>),
+<code>parseinp_find_setup</code> (<code>38:5B2B</code>), <code>findsym_scan</code>, <code>parse_init</code>, and
+<code>eval_stmt_entry</code>, but the final screen was <code>ERR:INVALID</code> / <code>Goto</code>; it never
+displayed <code>CALLED</code>. Static disassembly explains the mismatch: after resolving
+the OP1-named object, <code>_ParseInp</code> continues through parser setup that expects a
+live parser/FPS call-frame shape. It is not a general “run this token stream”
+ABI for an arbitrary <code>AsmPrgm</code>. <strong>[confirmed]</strong></p>
 <p>The homescreen command/edit-buffer route is also not a safe callable ABI. A
 temporary payload that did only:</p>
 <pre><code class="language-asm">ld a,05h          ; kEnter

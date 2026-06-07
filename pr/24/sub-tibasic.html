@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0ff5124b.js";
+            window.path_to_searchindex_js = "searchindex-ef6f83f9.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -556,8 +556,8 @@ homescreen reaches page-38 parser functions including <code>eval_stmt_entry</cod
 (<code>38:6251</code>).</p>
 <p>The stored-program samples in <code>tools/tibasic-samples/</code> are generated with
 <code>tools/tibasic_samples.py --write-dir tools/tibasic-samples</code>. Each sample has
-readable <code>.bas</code>, raw-body <code>.tok</code>, and loadable <code>.8xp</code> forms. The <code>.8xp</code>
-validation traces below were run on 2026-06-06 against OS 2.55MP in
+readable <code>.bas</code>, hex-text <code>.tok</code>, and loadable <code>.8xp</code> forms. The <code>.8xp</code>
+validation traces below were run on 2026-06-06/07 against OS 2.55MP in
 <code>tools/rom.bin</code> with a local headless TilEm patch that loads command-line <code>.8xp</code>
 files before running the macro; the traces therefore include startup
 link-transfer code as well as interpreter execution.</p>
@@ -624,6 +624,29 @@ compile/copy the <code>AsmPrgm</code> body, hand off through <code>07:57B4</code
 payload byte itself at <code>ram:9D95 op=0x000000C9</code>, returning to BASIC immediately
 after. This <code>_ExecutePrgm</code> route is the ASM executor; it is not the ordinary
 BASIC <code>prgmNAME</code> subprogram path.</p>
+<p><code>ASMBRIDG.8xp</code> demonstrates a cooperative ASM-directed BASIC callback without
+pretending there is a public direct ASM-to-BASIC bcall. The wrapper runs:</p>
+<pre><code class="language-ti-basic">Disp "BEFORE"
+Asm(prgmASMSIG)
+If Ans
+prgmZZBASIC
+Disp "AFTER"
+</code></pre>
+<p>with <code>ASMSIG.8xp</code>:</p>
+<pre><code class="language-ti-basic">AsmPrgm
+EF9B41EFBF4AC9
+</code></pre>
+<p>and target:</p>
+<pre><code class="language-ti-basic">Disp "CALLED"
+</code></pre>
+<p>The payload bytes are <code>rst 28h; .dw 419B</code> (<code>_OP1Set1</code>), <code>rst 28h; .dw 4ABF</code>
+(<code>_StoAns</code>), <code>ret</code>. Observed run: loading <code>ASMBRIDG.8xp</code>, <code>ASMSIG.8xp</code>, and
+<code>ZZBASIC.8xp</code> displays <code>BEFORE</code>, <code>CALLED</code>, <code>AFTER</code>, then <code>Done</code>. The trace
+hits the <code>AsmPrgm</code> payload at <code>ram:9D95</code>, <code>_OP1Set1</code> (<code>00:1B38</code>), <code>_StoAns</code>
+(<code>38:6251</code>), <code>_AnsName</code> (<code>38:74B7</code>) during <code>If Ans</code>, and the ordinary
+<code>prgmZZBASIC</code> body evaluator path (<code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>).
+This is the practical callback convention: ASM returns a value through a BASIC
+variable, and BASIC performs the actual program call.</p>
 <h3 id="animation-graphing-and-basic-subprogram-calls"><a class="header" href="#animation-graphing-and-basic-subprogram-calls">Animation, graphing, and BASIC subprogram calls</a></h3>
 <p>Additional generated fixtures extend coverage beyond arithmetic/list samples:</p>
 <pre><code class="language-ti-basic">ClrHome
@@ -685,6 +708,13 @@ into <code>eval_eqn_recursive</code> (<code>38:778F</code>), shared <code>A</cod
 trace it does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <code>_Find_Parse_Formula</code>,
 or <code>_SetParseVarProg</code>; it uses the page-38 parser/VAT/body evaluator path and
 then returns to the caller through BASIC’s own <code>Return</code> handling.</p>
+<p>The full <code>CALLSUB</code> smoke trace does hit <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> once,
+because the macro starts the program by submitting <code>prgmCALLSUB</code> from the
+homescreen. That launch parse resolves the top-level program and seeds the
+private parser RAM. It does not make <code>_ParseInpLastEnt</code> a reusable
+ASM-to-BASIC ABI: a separate <code>AsmPrgm</code> probe that called <code>_ParseInpLastEnt</code>
+with only <code>OP1={ProgObj,"ZZBASIC"}</code> reached <code>ERR:INVALID</code> instead of the target
+program.</p>
 <p>The relevant page-38 evaluator transition is private state, not a bcall ABI:
 <code>stmt_eval_body_entry</code> (<code>38:6910</code>) calls the token scanner, then
 <code>call_eval_eqn_recursive</code> (<code>38:6914</code>) directly calls <code>eval_eqn_recursive</code>
@@ -693,6 +723,14 @@ cursor/end, OPS/temp-stack pointers, OP1, stack depth, and IY parser flags are
 already live. This is why an <code>AsmPrgm</code> can successfully <code>_ChkFindSym</code> a BASIC
 program name, but the tested <code>_Find_Parse_Formula</code> probe still reaches
 <code>ERR:UNDEFINED</code> instead of running that program.</p>
+<p>A <code>_ParseInpLastEnt</code> (<code>4B07</code>, target <code>38:5984</code>) probe narrows the parser-entry
+boundary further. The payload built <code>OP1={ProgObj,"ZZBASIC"}</code> and called the
+parser variant; the trace reached <code>_ParseInpLastEnt</code>, <code>_ParseInp</code> (<code>38:5987</code>),
+<code>parseinp_find_setup</code> (<code>38:5B2B</code>), <code>findsym_scan</code>, <code>parse_init</code>, and
+<code>eval_stmt_entry</code>, but the final screen was <code>ERR:INVALID</code> / <code>Goto</code> and the
+target program never displayed <code>CALLED</code>. <code>_ParseInp</code> variants are therefore
+not byte-stream program-call ABIs; they expect parser/FPS stack state that a
+live BASIC caller has already established.</p>
 <p>The forced-command/edit-buffer path is another boundary, not an ABI. A temporary
 <code>AsmPrgm</code> that calls <code>_JForceCmd(kEnter)</code> reaches <code>_JForceCmd</code> (<code>00:0747</code>) but
 does not return to the BASIC wrapper; the final screen repeats the wrapper’s

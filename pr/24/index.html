@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0ff5124b.js";
+            window.path_to_searchindex_js = "searchindex-ef6f83f9.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -234,7 +234,7 @@
 </div>
 <p>(The <code>sub-*</code> docs are deep dives covering user-facing functionality and I/O internals: calculation, graphing, TI-BASIC, VAT/archive, apps, stats, matrices, solver, table, equation display, link, and USB/link assist.)</p>
 <p>New to these notes? Start with <a href="conventions.html">Conventions &amp; Methodology</a> (how to read the addresses and confidence flags) and the <a href="glossary.html">Glossary</a>; the <a href="bcall-index.html">bcall Index</a> is the full alphabetical system-call reference.</p>
-<p>Database state: <strong>2413 functions (100% named)</strong>, the main <code>0x4xxx</code> bcall table resolved, TI-OS types applied. The older <code>0x8xxx</code>/page-0x3F bcall scan output is not present as functions in the current live Ghidra/MCP DB and needs reconciliation. Rebuild: <code>tools/build.sh</code>.</p>
+<p>Database state: the main <code>0x4xxx</code> bcall table is resolved, the retail boot bcall table (<code>0x8xxx</code>) is resolved from the local complete ROM, and TI-OS types are applied. Most boot bcall bodies are on page <code>3F</code>; USB boot routines such as <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> are on page <code>2F</code>. Rebuild: <code>tools/build.sh</code>.</p>
 <h2 id="key-anchors-found-so-far"><a class="header" href="#key-anchors-found-so-far">Key anchors found so far</a></h2>
 <ul>
 <li>Reset entry <code>reset</code> @ <code>ram:0000</code> <strong>[confirmed]</strong></li>

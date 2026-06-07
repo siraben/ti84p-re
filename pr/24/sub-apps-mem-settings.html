@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0ff5124b.js";
+            window.path_to_searchindex_js = "searchindex-ef6f83f9.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -219,6 +219,36 @@ length. The decoder bytes are around <code>page_3D:7285</code>, but the current 
 <p>The master field at offset 0 is usually <code>80 0F …</code> (<code>field 800</code>, size nibble <code>F</code>, followed
 by a 4-byte size) — this is what the page-scan keys on to recognise an app. Fields carry
 the app name, the page count, flags, the date stamp, and signature-related data.</p>
+<p>The public header descriptions match the ROM parser and the local app corpus. Useful
+references are WikiTI’s
+<a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Certificate/Headers:Fields:Application_Headers">application-header</a>
+and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Certificate/Headers">certificate/header format</a>
+pages, TI’s
+<a href="https://isa.umh.es/calc/TI/TI83-84SDK/appheaderguide.pdf">AppHeader guide</a>, and
+Tari’s <a href="https://www.cemetech.net/forum/viewtopic.php?t=20732&amp;highlight=">Cemetech disassembly note</a>,
+which describes <code>.8xk</code> data as Intel HEX pages based at <code>0x4000</code> and app code as starting
+after field <code>807</code>.</p>
+<p>Common app-header fields in the sample corpus:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>field</th><th>meaning</th><th>observed payload</th></tr>
+</thead>
+<tbody>
+<tr><td><code>800</code></td><td>master Flash-variable field</td><td><code>800F</code> with a four-byte app length at the start of every sampled app</td></tr>
+<tr><td><code>801</code></td><td>developer/signing key</td><td><code>0104</code>, the TI-83+/84+ freeware/shareware app key</td></tr>
+<tr><td><code>802</code></td><td>program revision</td><td>one-byte revision, usually <code>1</code></td></tr>
+<tr><td><code>803</code></td><td>build number</td><td>one-byte build number, usually <code>1</code>; MirageOS uses <code>2</code></td></tr>
+<tr><td><code>804</code></td><td>app name</td><td>up to 8 bytes; examples include <code>Axe</code>, <code>MirageOS</code>, <code>USBDRV8X</code>, and <code>zStart</code></td></tr>
+<tr><td><code>808</code></td><td>page count</td><td>one byte; matches the decoded page count for Axe and CtlgHelp’s two-page apps</td></tr>
+<tr><td><code>809</code></td><td>disable TI splash screen</td><td>usually zero-length when present; zStart uses a 15-byte app-owned payload</td></tr>
+<tr><td><code>80C</code></td><td>lowest basecode</td><td>usb8x uses <code>02 1E</code>, decoded as basecode <code>2.30</code></td></tr>
+<tr><td><code>032</code></td><td>date stamp</td><td>six bytes; bytes 1-4 decode as seconds since 1997-01-01</td></tr>
+<tr><td><code>020</code></td><td>date-stamp signature / unchecked payload</td><td>usually 64 bytes; Axe stores executable helper bytes here</td></tr>
+<tr><td><code>807</code></td><td>final field</td><td>terminates the parsed header; the <code>807F</code> length bytes are ignored</td></tr>
+</tbody>
+</table>
+</div>
 <p>The app header is not a fixed 128-byte struct. The <code>807</code> final field terminates it. The
 common <code>80 7F 00 00 00 00</code> form uses size nibble <code>F</code> with a four-byte zero, but WikiTI
 documents that length as ignored; the shorter <code>80 70</code> form is valid. The app body begins
@@ -258,21 +288,31 @@ from <code>HL</code> for a <code>RET</code> byte (<code>0xC9</code>) and pushes 
 address. The first half preserves the popped registers while it probes caller-owned
 bytes and can return early; the later page switch and RAM-thunk behavior are directly
 decoded from the sample bytes.</p>
-<p>The same sample’s conventional entry area at <code>4080</code> starts <code>NOP; JR 408C; JP 4097; JP 4548</code>. Additional local samples agree with WikiTI’s field model:</p>
+<p>The same sample’s conventional entry area at <code>4080</code> starts <code>NOP; JR 408C; JP 4097; JP 4548</code>. <code>tools/app_header_re.py</code> reproduces this pass: <code>--fetch-known</code> downloads a
+local corpus from ticalc.org into ignored <code>tools/app-samples/</code>, and <code>--markdown</code> prints
+the decoded header table. The corpus keeps the same parser boundary rule:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>sample</th><th>header boundary</th><th>header-area bytes before <code>4080</code></th></tr>
+<tr><th>app sample</th><th>pages field / decoded pages</th><th>final field end</th><th>entry bytes at <code>4080</code></th><th>header-area note</th></tr>
 </thead>
 <tbody>
-<tr><td>MirageOS, Omnicalc, CalcSys, Symbolic, BatLib</td><td><code>807F00000000</code> at <code>406A</code>, header bytes end at <code>4070</code></td><td>padding to <code>4080</code>; code starts at <code>4080</code></td></tr>
-<tr><td>zStart 1.3.013</td><td><code>809D0F</code> carries a 15-byte Z80 routine at <code>406B</code>; <code>807F00000000</code> ends at <code>4080</code></td><td>no padding; code starts at <code>4080</code></td></tr>
-<tr><td>usb8x</td><td><code>807F00000000</code> ends at <code>4029</code></td><td>mostly zero padding, plus two app-owned jumps at <code>4049</code>: <code>JP 4180h; JP 42EAh</code></td></tr>
+<tr><td>Axe</td><td>2 / 2</td><td><code>4070</code></td><td><code>00 18 09 C3 97 40 C3 48</code></td><td><code>020</code> payload contains the <code>4037</code> helper; then padding</td></tr>
+<tr><td>MirageOS</td><td>1 / 1</td><td><code>4070</code></td><td><code>C3 D3 65 C3 D9 47 C3 D6</code></td><td>padding to <code>4080</code></td></tr>
+<tr><td>Omnicalc</td><td>1 / 1</td><td><code>4070</code></td><td><code>C3 8C 40 C3 E5 79 C3 70</code></td><td>padding to <code>4080</code></td></tr>
+<tr><td>CalcSys</td><td>1 / 1</td><td><code>4070</code></td><td><code>C3 89 40 21 AA 98 CB DE</code></td><td>padding to <code>4080</code></td></tr>
+<tr><td>Symbolic</td><td>1 / 1</td><td><code>4070</code></td><td><code>18 2E 3A 4A 42 4A 4D 4A</code></td><td>padding to <code>4080</code></td></tr>
+<tr><td>BatLib</td><td>1 / 1</td><td><code>4070</code></td><td><code>C3 25 61 C3 6E 43 C3 DE</code></td><td>padding to <code>4080</code></td></tr>
+<tr><td>BatLib-modified Celtic 3 / Grammer / Omnicalc</td><td>1 / 1</td><td><code>4070</code></td><td>app-specific jump/vector bytes</td><td>same boundary; nonzero <code>807F</code> size bytes are ignored</td></tr>
+<tr><td>zStart 1.3.013 / zStart83</td><td>1 / 1</td><td><code>4080</code></td><td><code>18 11 83 C3 ...</code></td><td><code>809D0F</code> carries a 15-byte Z80 helper at <code>406B</code></td></tr>
+<tr><td>CtlgHelp / zChem from zStart</td><td>2 / 2 or 1 / 1</td><td><code>4070</code></td><td>app-specific bytes</td><td>padding to <code>4080</code></td></tr>
+<tr><td>usb8x</td><td>1 / 1</td><td><code>4029</code></td><td><code>00 00 00 00 00 00 00 96</code></td><td>mostly zero padding, plus <code>JP 4180h; JP 42EAh</code> at <code>4049</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>These samples keep the same parser boundary rule: the 128-byte boundary is an app
-convention, not the OS’s header parser boundary.</p>
+<p>So <code>4080</code> is a common app-entry convention, not the OS’s header parser boundary. Some
+apps end the parsed header at <code>4029</code>, <code>4070</code>, or exactly <code>4080</code>, and all remain valid
+because the <code>807</code> final field, not a 128-byte fixed struct, terminates the header.</p>
 <p>The public entry points for walking these fields are bcalls in <code>ti83plus.inc</code>:
 <code>_FindAppHeaderSubField</code> (bcall <code>0x80AB</code>) locates a field in an app header, and
 <code>_FindOSHeaderSubField</code> (bcall <code>0x8075</code>) does the same for the OS header. Both build on the

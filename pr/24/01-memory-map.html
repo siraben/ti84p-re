@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0ff5124b.js";
+            window.path_to_searchindex_js = "searchindex-ef6f83f9.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -206,10 +206,11 @@
 <tr><td><code>00</code></td><td>Boot/kernel core, mapped at <code>0000</code></td><td>RST vectors, <code>bcall_dispatcher</code>, FP/VAT/mem routines <strong>[confirmed]</strong></td></tr>
 <tr><td><code>01</code></td><td>OS routines (display, homescreen text, menus)</td><td><code>_PutC</code>,<code>_PutS</code>,<code>_ClrLCDFull</code>,<code>_NewLine</code> resolve here <strong>[confirmed]</strong></td></tr>
 <tr><td><code>06</code></td><td>OS routines (key input, parser-ish)</td><td><code>_GetKey</code>→<code>06:491E</code> <strong>[confirmed]</strong></td></tr>
+<tr><td><code>2F</code></td><td>USB boot support page</td><td>supplied by local <code>D84PBE2.8Xv</code>; retail page <code>3F</code> maps <code>_AttemptUSBOSReceive</code>→<code>2F:4145</code>, <code>_ReceiveOS_USB</code>→<code>2F:48CA</code>, <code>_InitUSB</code>→<code>2F:52A4</code>, <code>_KillUSB</code>→<code>2F:5961</code> <strong>[confirmed]</strong></td></tr>
 <tr><td><code>3B</code></td><td><strong>bcall jump table</strong></td><td>scored 447/535 named .inc IDs; first entry <code>_JErrorNo</code>→<code>00:2799</code> <strong>[confirmed]</strong></td></tr>
 <tr><td><code>3C</code></td><td>Link code + OS version string (<code>"2.55MP"</code>)</td><td>page starts <code>32 2E 35 35 4D 50</code> <strong>[confirmed]</strong></td></tr>
 <tr><td><code>3E</code></td><td><strong>Certification page</strong> (per-calculator cert sector; blank in this OS-only image)</td><td>84+ cert page is <code>3E</code>, not <code>3F</code> <strong>[standard]</strong></td></tr>
-<tr><td><code>3F</code></td><td><strong>Boot page</strong> — maps itself into both banks at power-on</td><td>starts <code>3E 3F D3 06 D3 07</code> = <code>LD A,3F; OUT (6),A; OUT (7),A</code> <strong>[confirmed]</strong></td></tr>
+<tr><td><code>3F</code></td><td><strong>Retail boot page</strong></td><td>supplied by local <code>D84PBE1.8Xv</code>; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, contains boot version string <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table <strong>[confirmed]</strong></td></tr>
 </tbody>
 </table>
 </div>
