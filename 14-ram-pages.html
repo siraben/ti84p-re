@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Memory management - TI-84 Plus OS — Reverse Engineering</title>
+        <title>RAM pages - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
@@ -179,73 +179,153 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="12--memory-management-ram-heap--flash-archive"><a class="header" href="#12--memory-management-ram-heap--flash-archive">12 — Memory management (RAM heap &amp; Flash archive)</a></h1>
-<p>How the OS allocates the ~24 KiB of user RAM between variables, temporaries, the FP stack, and the program being run — and how it offloads variables to Flash (“archive”).</p>
-<h2 id="the-ram-heap-confirmed-pointers-standard-layout"><a class="header" href="#the-ram-heap-confirmed-pointers-standard-layout">The RAM heap [confirmed pointers, standard layout]</a></h2>
-<p>The dynamic region runs from <code>userMem</code> (<code>0x9D95</code>) up to <code>symTable</code> (<code>0xFE66</code>). Two structures grow toward each other with <strong>free RAM</strong> in the middle:</p>
-<pre class="mermaid">flowchart TB
-    A["0xFE66 · symTable — top of user RAM"]
-    B["VAT — variable names + metadata&lt;br/&gt;type, data ptr/page, name · grows DOWNWARD ↓"]
-    C["( free RAM )"]
-    D["user data — variable contents&lt;br/&gt;grows UPWARD ↑"]
-    E["0x9D95 · userMem — bottom of user RAM"]
-    A --- B --- C --- D --- E
-    style C fill:#1b1b1b,stroke-dasharray:5 5
-</pre>
-
-<p>VAT entry layout: type, data ptr/page, name — see <a href="05-variables-vat.html">05-variables-vat.md</a>.</p>
-<p>Boundary/work pointers (clustered at <code>0x9820–0x983A</code>) [confirmed addrs]:</p>
+                        <h1 id="14---ram-pages"><a class="header" href="#14---ram-pages">14 - RAM pages</a></h1>
+<p>The TI-84 Plus has banked RAM pages behind the Z80’s 16 KiB windows. TI-OS normally
+keeps RAM page <code>81</code> in <code>8000-BFFF</code> and RAM page <code>80</code> in <code>C000-FFFF</code>, but ROM helpers
+temporarily map other pages for paged memory access. Page <code>83</code> is not free scratch on
+OS 2.55MP: the OS and MathPrint-era homescreen code use parts of it.</p>
+<h2 id="page-selectors-confirmed"><a class="header" href="#page-selectors-confirmed">Page selectors [confirmed]</a></h2>
+<p>The 84+ memory ports use two encodings:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Ptr</th><th>Addr</th><th>Role</th></tr>
+<tr><th>Window</th><th>Port</th><th>Selector encoding</th><th>Normal TI-OS value</th></tr>
 </thead>
 <tbody>
-<tr><td><code>tempMem</code></td><td>9820</td><td>base of the temporary area</td></tr>
-<tr><td><code>fpBase</code></td><td>9822</td><td>floating-point stack base</td></tr>
-<tr><td><code>FPS</code></td><td>9824</td><td>FP stack pointer (grows; <code>_PushReal</code>/<code>_PopReal</code>)</td></tr>
-<tr><td><code>OPBase</code></td><td>9826</td><td>base of OP/symbol scratch</td></tr>
-<tr><td><code>pTemp</code></td><td>982E</td><td>temp-variable pointer</td></tr>
-<tr><td><code>progPtr</code></td><td>9830</td><td>currently-executing program pointer</td></tr>
-<tr><td><code>pagedBuf</code></td><td>983A</td><td>paged scratch buffer</td></tr>
+<tr><td><code>4000-7FFF</code></td><td><code>6</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page `0x80</td><td>(value &amp; 7)`</td></tr>
+<tr><td><code>8000-BFFF</code></td><td><code>7</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page `0x80</td><td>(value &amp; 7)`</td></tr>
+<tr><td><code>C000-FFFF</code></td><td><code>5</code></td><td>low three bits select RAM page `0x80</td><td>(value &amp; 7)`</td></tr>
 </tbody>
 </table>
 </div>
-<p>So free RAM = (gap between the upward data heap and the downward VAT). When a variable grows/shrinks, everything above it shifts.</p>
-<h2 id="core-allocation-primitives-confirmed"><a class="header" href="#core-allocation-primitives-confirmed">Core allocation primitives [confirmed]</a></h2>
-<ul>
-<li><code>_InsertMem</code> (<code>00:0F81</code>) — open a gap of N bytes at HL by shifting all memory above it up (helper <code>FUN_ram_1398</code> is the block move); fails with <code>E_Memory</code> if it would collide with the VAT.</li>
-<li><code>_DelMem</code> (<code>00:1368</code>) — the inverse: close a gap, shifting memory down.</li>
-<li><code>_EnoughMem</code> (<code>00:0FA6</code>) — ensure N free bytes; if short, it walks the temp/scratch entries (9-byte stride from <code>pTemp</code> down to <code>OPBase</code>) and <code>_DelVar</code>s reclaimable temporaries to make room. <strong>[confirmed]</strong></li>
-<li><code>_MemChk</code> (<code>00:0E20</code>) — compute current free RAM.</li>
-</ul>
-<p>Every <code>_CreateXxx</code> (see <a href="05-variables-vat.html">05</a>) ultimately calls <code>_InsertMem</code> to carve space, then registers the variable in the VAT.</p>
-<h2 id="flash-archive-confirmed-location"><a class="header" href="#flash-archive-confirmed-location">Flash archive [confirmed location]</a></h2>
-<p>To save scarce RAM, variables can be <strong>archived</strong> to Flash. The archive code lives on <strong>flash page 0x07</strong>:</p>
-<ul>
-<li><code>_Arc_Unarc</code> (<code>07:6248</code>) — move OP1’s variable between RAM and the Flash archive (toggles the archive bit, then relocates the data and rewrites the VAT entry’s page to the Flash page).</li>
-<li><code>_FlashToRam</code> (id <code>5017</code> → body <code>3D:6745</code>) — copy archived data back into RAM.
-Archived vars are <em>appended</em> to Flash, which can’t be overwritten in place, so deleting one only marks it dead. When the archive Flash fills, a <strong>garbage collector</strong> rewrites the live vars to fresh sectors and erases the old ones — the <strong>“Garbage Collecting…”</strong> screen. That GC path is distinct from <code>_CleanAll</code>, but the older <code>flash_gc_relocate@3C:7BD0</code> / <code>gc_show_screen@3C:7E0D</code> labels are not present as functions in the current live Ghidra/MCP DB.</li>
-</ul>
-<p><code>_CleanAll</code> is RAM cleanup (not Flash GC) [confirmed from disassembly]: <code>_CleanAll</code> (<code>07:52CF</code>) compacts the <strong>floating-point stack</strong> (<code>fpBase</code>/<code>FPS</code> → <code>tempMem</code>) and resets the <code>OPBase</code>/<code>OPS</code>/<code>pTemp</code> scratch pointers, reclaiming temporary RAM after a command/expression finishes. It does <strong>not</strong> touch Flash.</p>
-<p>Flash is written/erased a sector at a time via low-level routines through the <strong>flash-control port <code>0x14</code></strong> (see <a href="sub-vat-archive.html">Variables, Archive &amp; Unarchive</a>) <strong>[partly confirmed]</strong>:</p>
-<ul>
-<li>Live MCP-confirmed page-3D anchors include <code>_FlashToRam</code> (<code>3D:6745</code>), <code>flash_program_buf</code> (<code>3D:678C</code>), <code>flash_erase_wait</code> (<code>3D:5ED3</code>), <code>flash_cmd_base</code> (<code>3D:738B</code>), and the status-bit helpers <code>flash_op_fd/fb/fe</code> (<code>3D:7C8F/7C93/7C97</code>).</li>
-<li>Older names such as <code>flash_program_core</code> (<code>3D:61AF</code>), <code>flash_write_byte</code> (<code>3D:6B9B</code>), <code>flash_write_record</code> (<code>3D:64AA</code>), <code>flash_alloc_sector</code> (<code>3D:62C2</code>), <code>flash_free_scan</code> (<code>3D:6413</code>), <code>flash_cmd_dispatch</code> (<code>3C:7121</code>), <code>flash_gc_relocate</code> (<code>3C:7BD0</code>), and <code>gc_show_screen</code> (<code>3C:7E0D</code>) came from an earlier trace but are not current live-MCP function symbols.</li>
-<li>Archive workers: <code>_Arc_Unarc</code> (<code>07:6248</code>) → <code>arc_ram_to_flash</code> (<code>07:61F4</code>) / <code>arc_flash_to_ram</code> (<code>07:6107</code>).</li>
-</ul>
-<h2 id="resolved"><a class="header" href="#resolved">Resolved</a></h2>
-<p>The <code>_FindSym</code> VAT walk is byte-verified in <a href="sub-vat-archive.html">Variables, Archive &amp; Unarchive</a>. Flash write/erase and GC still need a current MCP-backed symbol pass to replace the older address/name map.</p>
+<p>This rule matches the dynamic resolver, TilEm’s <code>x4</code> memory mapper, and the OS
+trace. In the idle boot/home trace, the RAM-window writes are:</p>
+<pre><code class="language-text">OUT (port 7) &lt;- 0x7f   8000-BFFF = page_3F
+OUT (port 7) &lt;- 0x81   8000-BFFF = RAM/0x81
+OUT (port 5) &lt;- 0x00   C000-FFFF = RAM/0x80
+OUT (port 7) &lt;- 0x80   8000-BFFF = RAM/0x80
+OUT (port 7) &lt;- 0x81   8000-BFFF = RAM/0x81
+OUT (port 5) &lt;- 0x02   C000-FFFF = RAM/0x82
+OUT (port 7) &lt;- 0x83   8000-BFFF = RAM/0x83
+OUT (port 7) &lt;- 0x81   8000-BFFF = RAM/0x81
+OUT (port 5) &lt;- 0x00   C000-FFFF = RAM/0x80
+</code></pre>
+<p>The final restore values are therefore <code>port 7 = 0x81</code> and <code>port 5 = 0x00</code> for
+normal OS execution.</p>
+<h2 id="page-map-standard-cross-checked"><a class="header" href="#page-map-standard-cross-checked">Page map [standard, cross-checked]</a></h2>
+<p>WikiTI’s <a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages">RAM pages</a>
+page is a useful public map, but OS 2.55MP needs the page-<code>83</code> warnings to be read
+literally. The local trace and disassembly support this table:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>RAM page</th><th>Use</th></tr>
+</thead>
+<tbody>
+<tr><td><code>80</code></td><td>Normal <code>C000-FFFF</code> RAM page. The boot/home trace restores this with <code>OUT (5),0</code>. WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>81</code></td><td>Normal <code>8000-BFFF</code> RAM page. This contains the visible TI-OS RAM variables, OP registers, flags, graph buffers, user heap, and VAT window documented in <code>tools/ram.txt</code> and <code>ti83plus.inc</code>.</td></tr>
+<tr><td><code>82</code></td><td>Not a general OS work page under normal execution. The idle trace maps it briefly through port <code>5</code> as part of a paged RAM helper, then restores page <code>80</code>. WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>83</code></td><td>Shared scratch/state page. WikiTI lists app-launch bytes, USB communication buffers, MathPrint homescreen history, and a homescreen graph buffer. OS 2.55MP also maps it dynamically through port <code>7</code> in the idle trace.</td></tr>
+<tr><td><code>84</code></td><td>Not used by TI-OS under typical execution; WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>85</code></td><td>Not used by TI-OS under typical execution on full-RAM hardware.</td></tr>
+<tr><td><code>86</code></td><td>Not used by TI-OS under typical execution; WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>87</code></td><td>Not used by TI-OS under typical execution on full-RAM hardware.</td></tr>
+</tbody>
+</table>
+</div>
+<p>On newer 48 KiB hardware, WikiTI says RAM pages <code>82-87</code> alias the same physical memory.
+WikiTI’s <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:15">port <code>15</code></a> page
+identifies ASIC value <code>55h</code> as the 48 KiB TA1 ASIC. Programs that use page <code>83</code> must not
+treat <code>82-87</code> as independent storage on that hardware. <strong>[standard]</strong></p>
+<h2 id="page-83-confirmed-and-standard"><a class="header" href="#page-83-confirmed-and-standard">Page <code>83</code> [confirmed and standard]</a></h2>
+<p>Page <code>83</code> is the page people most often borrow as scratch, but it has OS-visible state:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Range</th><th>Use</th><th>Evidence</th></tr>
+</thead>
+<tbody>
+<tr><td><code>4008-4080</code></td><td>App base-page staging before app execution</td><td>WikiTI public note; regenerated by the OS before app launch.</td></tr>
+<tr><td><code>4100-433A</code></td><td>USB communication buffers</td><td>WikiTI public note; this project has not yet isolated the live USB buffer trace.</td></tr>
+<tr><td><code>577E-5A7D</code></td><td>MathPrint-era previous-entry history</td><td>WikiTI public note; OS 2.55MP references <code>577E</code>, <code>5A7E</code>, <code>lastEntryPTR</code> (<code>8DA7</code>), and <code>numLastEntries</code> (<code>8E29</code>) in the homescreen/history routines on pages <code>33</code>, <code>37</code>, and <code>38</code>.</td></tr>
+<tr><td><code>5A7E-5D7D</code></td><td>Homescreen graph buffer</td><td>WikiTI public note; adjacent to the previous-entry buffer and referenced by page-<code>33</code> history code.</td></tr>
+<tr><td>offset <code>04BD</code></td><td>Idle-trace byte store through RAM page <code>83</code></td><td>Dynamic trace maps <code>port 7 = 83</code>, stores at logical <code>84BD</code>, then restores <code>port 7 = 81</code> and <code>port 5 = 00</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The reset path on page <code>37</code> initializes the history pointers for MathPrint-era state:</p>
+<pre><code class="language-z80">37:6E13  LD HL,577Eh
+37:6E16  LD (lastEntryPTR),HL
+37:6E19  LD HL,0000h
+37:6E1C  LD (numLastEntries),HL
+</code></pre>
+<p>Page <code>38</code> has a second clear path with the same pointer reset:</p>
+<pre><code class="language-z80">38:422E  LD HL,577Eh
+38:4231  LD (lastEntryPTR),HL
+38:4234  LD HL,0000h
+38:4237  LD (numLastEntries),HL
+</code></pre>
+<p>The homescreen entry-history code on page <code>33</code> uses the same boundary constants:</p>
+<pre><code class="language-z80">33:53D2  LD A,(numLastEntries)
+33:53E3  LD HL,5A7Eh
+33:53F8  LD HL,577Eh
+33:5431  LD A,(numLastEntries)
+33:543B  LD HL,577Eh
+33:5452  LD HL,577Eh
+33:5480  LD HL,numLastEntries
+</code></pre>
+<p>If a program modifies the history buffer on page <code>83</code>, clearing <code>numLastEntries</code>
+at <code>8E29</code> prevents the homescreen from scrolling back into invalid entry data.
+That is the public WikiTI recovery advice, and the ROM confirms that <code>8E29</code> is
+the OS-visible previous-entry count. <strong>[standard, address confirmed]</strong></p>
+<h2 id="restoring-after-page-83"><a class="header" href="#restoring-after-page-83">Restoring after page <code>83</code></a></h2>
+<p>For code entered from normal TI-OS state, restore the two RAM windows this way:</p>
+<pre><code class="language-z80">    ld a,$81
+    out (7),a        ; 8000-BFFF back to RAM page 81
+    xor a
+    out (5),a        ; C000-FFFF back to RAM page 80
+</code></pre>
+<p>Keep the nonstandard mapping inside a short critical section. The OS helper preserves
+interrupt state around the temporary RAM-page mapping so the interrupt handler does not
+run with bank B pointing at page <code>83</code>.</p>
+<p>For code that may be called with nonstandard paging, preserve and restore the selectors:</p>
+<pre><code class="language-z80">    in a,(7)
+    push af
+    in a,(5)
+    push af
+
+    ld a,$83
+    out (7),a        ; map RAM page 83 at 8000-BFFF
+    ; use 8000-BFFF here
+
+    pop af
+    out (5),a
+    pop af
+    out (7),a
+</code></pre>
+<p>The OS’s own paged byte-store helper at <code>37:44AE</code> uses the normal restore pattern:</p>
+<pre><code class="language-z80">37:44D0  OUT (5),A        ; A = page index &lt;&lt; 1, trace case A = 02h
+37:44D3  OR 80h
+37:44D5  OUT (7),A        ; trace case: 83h
+37:44D7  LD A,B
+37:44D8  LD (DE),A        ; byte store while RAM page 83 is visible
+37:44D9  LD A,81h
+37:44DB  OUT (7),A
+37:44DD  XOR A
+37:44DE  OUT (5),A
+</code></pre>
+<p>The dynamic trace resolves the same sequence at instruction indices <code>712241-712250</code>,
+including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes. <strong>[confirmed]</strong></p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="04-interrupts.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="13-flash-page-map.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="13-flash-page-map.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="11-boot-contexts-errors.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -255,11 +335,11 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="04-interrupts.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="13-flash-page-map.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="13-flash-page-map.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="11-boot-contexts-errors.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

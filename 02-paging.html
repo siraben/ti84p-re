@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0b80e939.js";
+            window.path_to_searchindex_js = "searchindex-67d6a43c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5397aae8.js"></script>
+        <script src="toc-bcf53af4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,7 +180,7 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="02--memory-paging"><a class="header" href="#02--memory-paging">02 — Memory paging</a></h1>
-<p>The Z80’s two middle 16 KiB slots are windows onto physical memory selected by I/O ports.</p>
+<p>The Z80’s banked 16 KiB slots are windows onto physical memory selected by I/O ports.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -189,10 +189,11 @@
 <tbody>
 <tr><td><code>4000–7FFF</code> (bank A)</td><td><strong>port 6</strong> (<code>mapBankA</code>)</td><td>a flash page (0–63) — and the bcall mechanism uses this slot to bring routines into view</td></tr>
 <tr><td><code>8000–BFFF</code> (bank B)</td><td><strong>port 7</strong> (<code>mapBankB</code>)</td><td>a RAM or flash page; <code>0x81</code> observed = 84+ RAM mode</td></tr>
+<tr><td><code>C000–FFFF</code> (bank C)</td><td><strong>port 5</strong> (<code>mapBankC</code>)</td><td>a RAM page; <code>0x00</code> observed = RAM page <code>80</code></td></tr>
 </tbody>
 </table>
 </div>
-<p><code>0000–3FFF</code> is hardwired to flash page 0. <code>C000–FFFF</code> is RAM in the static OS model and is normally the stack/user-RAM window; the 84+ hardware can bank the high RAM slot through MemC/port 5, but the current MCP audit did not find code xrefs to <code>io:0005</code>. <strong>[standard; port-5 use not MCP-confirmed]</strong></p>
+<p><code>0000–3FFF</code> is hardwired to flash page 0. <code>C000–FFFF</code> is RAM in the static OS model and is normally the stack/user-RAM window; the 84+ hardware banks the high RAM slot through MemC/port 5. The dynamic trace in <a href="14-ram-pages.html">RAM pages</a> confirms port-5 restores to RAM page <code>80</code> during normal OS execution. <strong>[confirmed]</strong></p>
 <h2 id="how-code-uses-it"><a class="header" href="#how-code-uses-it">How code uses it</a></h2>
 <ul>
 <li><strong>bcalls</strong> set <code>port_mapBankA</code> to the target routine’s page, run it at <code>4000+</code>, then restore the previous page (see <a href="03-bcall-mechanism.html">03-bcall-mechanism.md</a>). The helper <code>ram:181c</code> is the page-set primitive used by the dispatcher.</li>
