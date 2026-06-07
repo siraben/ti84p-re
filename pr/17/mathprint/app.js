@@ -27,7 +27,7 @@ function bh(box) { return box.rows.length; }
 // coordinates; composition shifts child marks so the final box holds the full
 // placement list (the "pen" positions), mirroring the OS pen pipeline.
 function shift(marks, dx, dy) {
-  return (marks || []).map(m => ({ ch: m.ch, x: m.x + dx, y: m.y + dy }));
+  return (marks || []).map(m => ({ ...m, x: m.x + dx, y: m.y + dy }));
 }
 function glyphName(code) {
   if (code >= 0x20 && code <= 0x7e) return String.fromCharCode(code);
@@ -39,14 +39,16 @@ function largeGlyph(code) {
   const W = FONT.large.width;
   const grid = rows.map(r => Array.from({ length: W }, (_, i) => (r >> (W - 1 - i)) & 1));
   return { rows: grid, baseline: (grid.length >> 1),  // centre on the math axis
-           marks: [{ ch: glyphName(code), x: 0, y: 0 }] };
+           marks: [{ ch: glyphName(code), x: 0, y: 0, w: W, h: grid.length,
+                     type: 'glyph', font: 'large', via: '_PutMap 07:4588' }] };
 }
 function smallGlyph(code) {
   if (!FONT.small.glyphs[code]) return { rows: blank(7, 3), baseline: 3, marks: [] };
   const g = FONT.small.glyphs[code];
   const grid = g.rows.map(r => Array.from({ length: g.w }, (_, i) => (r >> (g.w - 1 - i)) & 1));
   return { rows: grid, baseline: (grid.length >> 1),
-           marks: [{ ch: glyphName(code) + '₀', x: 0, y: 0 }] };  // ₀ = small font
+           marks: [{ ch: glyphName(code), x: 0, y: 0, w: g.w, h: grid.length,
+                     type: 'glyph', font: 'small', via: '_VPutMap 01:6293' }] };
 }
 
 // Horizontal concatenation, aligned on the math axis (baseline).
@@ -107,7 +109,11 @@ function fraction(num, den) {
   // 1px gap above and below the rule, matching the calculator
   const rows = center(n.rows, w).concat(gap, bar, gap, center(d.rows, w));
   const nPad = (w - bw(n)) >> 1, dPad = (w - bw(d)) >> 1;
-  const marks = shift(n.marks, nPad, 0).concat(shift(d.marks, dPad, bh(n) + 3));
+  const barMark = { ch: '─ bar', x: 0, y: bh(n) + 1, w, h: 1, type: 'rule',
+                    via: 'eqdisp_draw_fraction_bar 39:6abf', vars: '0x85EE/0x85EF widths' };
+  // emission order: numerator, rule, denominator
+  const marks = shift(n.marks, nPad, 0)
+    .concat([barMark], shift(d.marks, dPad, bh(n) + 3));
   return { rows, baseline: bh(n) + 1, marks };   // math axis = the bar row
 }
 
@@ -150,7 +156,13 @@ function radical(radicand) {
   for (let y = 0; y < bh(rad); y++)
     for (let x = 0; x < bw(rad); x++) if (rad.rows[y][x]) out[2 + y][rw + 1 + x] = 1;
   for (let x = rw; x < w; x++) out[0][x] = 1;  // vinculum
-  return { rows: out, baseline: (h >> 1) + 1 };
+  const marks = shift(rad.marks, rw + 1, 2).concat([
+    { ch: '√ Lroot', x: 0, y: h - bh(root), w: rw, h: bh(root), type: 'glyph',
+      font: 'large', via: 'Lroot 07:466F (stretched)' },
+    { ch: '─ vinculum', x: rw, y: 0, w: w - rw, h: 1, type: 'rule',
+      via: 'graph-buffer rule' },
+  ]);
+  return { rows: out, baseline: (h >> 1) + 1, marks };
 }
 
 // Parentheses stretched to wrap a box (delimiter height follows content).
@@ -181,7 +193,12 @@ function integral(lo, hi, body, varBox) {
     for (let x = 0; x < bw(hiB); x++) if (hiB.rows[y][x]) out[y][bw(sign) + 1 + x] = 1;
   for (let y = 0; y < bh(loB); y++)
     for (let x = 0; x < bw(loB); x++) if (loB.rows[y][x]) out[h - bh(loB) + y][bw(sign) + 1 + x] = 1;
-  const signBox = { rows: out, baseline: h >> 1 };
+  const signBox = { rows: out, baseline: h >> 1, marks: [
+    { ch: '∫ Lintegral', x: 0, y: 0, w: bw(sign), h, type: 'glyph', font: 'large',
+      via: 'Lintegral 0x08 (stretched)' },
+    ...shift(hiB.marks, bw(sign) + 1, 0),
+    ...shift(loB.marks, bw(sign) + 1, h - bh(loB)),
+  ] };
   // trace: body starts ~6 px after the ∫+limits block (penX 10 -> 16)
   return hcat([signBox, inner], 6);
 }
@@ -309,37 +326,59 @@ function parse(src) {
 
 // ---- canvas rendering -----------------------------------------------------
 
-function draw(box, scale, color, showPen) {
+// Draw the box. `step` (the emission element index, null = all) animates the
+// real OS draw order: each glyph/rule is emitted whole at its pen position, in
+// emission order, not a column sweep. Unmarked structural pixels (∫ stem,
+// parens, vinculum — separate rule/stretch draws) appear at the final step.
+function draw(box, scale, color, showPen, step) {
   const canvas = document.getElementById('screen');
   const ctx = canvas.getContext('2d');
   const W = Math.max(bw(box), 1), H = Math.max(bh(box), 1);
+  const marks = box.marks || [];
+  const full = step == null || step >= marks.length;
   const pad = 4;
   canvas.width = (W + pad * 2) * scale;
   canvas.height = (H + pad * 2) * scale;
   ctx.fillStyle = color.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  let mask = null;
+  if (!full) {
+    mask = blank(H, W);
+    for (let i = 0; i < step; i++) {
+      const m = marks[i];
+      for (let yy = Math.max(0, m.y); yy < Math.min(H, m.y + (m.h || 1)); yy++)
+        for (let xx = Math.max(0, m.x); xx < Math.min(W, m.x + (m.w || 1)); xx++)
+          mask[yy][xx] = 1;
+    }
+  }
   ctx.fillStyle = color.fg;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++)
-      if (box.rows[y][x]) ctx.fillRect((x + pad) * scale, (y + pad) * scale, scale, scale);
-  const marks = penLog(box);
+      if (box.rows[y][x] && (full || mask[y][x]))
+        ctx.fillRect((x + pad) * scale, (y + pad) * scale, scale, scale);
+
+  if (!full && step > 0) {                     // highlight the element just drawn
+    const m = marks[step - 1];
+    ctx.strokeStyle = '#6ea8fe';
+    ctx.lineWidth = Math.max(1, scale / 4);
+    ctx.strokeRect((m.x + pad) * scale, (m.y + pad) * scale,
+                   (m.w || 1) * scale, (m.h || 1) * scale);
+  }
   if (showPen) {
     ctx.font = `${Math.max(8, scale)}px monospace`;
     marks.forEach((m, i) => {
-      ctx.fillStyle = 'rgba(255,80,80,0.9)';
-      ctx.fillRect((m.x + pad) * scale - 1, (m.y + pad) * scale - 1, scale + 2, scale + 2);
       ctx.fillStyle = '#ff5050';
-      ctx.fillText(String(i), (m.x + pad) * scale + scale + 1, (m.y + pad) * scale + scale);
+      ctx.fillRect((m.x + pad) * scale - 1, (m.y + pad) * scale - 1, 2, 2);
+      ctx.fillText(String(i), (m.x + pad) * scale + 1, (m.y + pad) * scale - 1);
     });
   }
-  document.getElementById('dims').textContent = `${W}×${H} px · ${marks.length} glyphs`;
+  document.getElementById('dims').textContent = `${W}×${H} px · ${marks.length} emitted elements`;
   return marks;
 }
 
-// Pen log = glyph placements in reading order (top row first, then left to right).
-function penLog(box) {
-  return (box.marks || []).slice().sort((a, b) => (a.y - b.y) || (a.x - b.x));
-}
+// Pen log = elements in emission (draw) order.
+function penLog(box) { return (box.marks || []).slice(); }
 
 const PRESETS = [
   ['linear 1/2', '1/2'],
@@ -353,23 +392,53 @@ const PRESETS = [
   ['radical of a fraction', 'sqrt((X^2+1)//X)'],
 ];
 
-function render() {
-  const src = document.getElementById('expr').value;
+let CUR = null, ANIM = null;   // current box + animation timer
+
+function curColor() {
+  return document.getElementById('lcd').checked
+    ? { bg: '#c7d4b8', fg: '#2a3326' } : { bg: '#ffffff', fg: '#000000' };
+}
+
+function render(step) {
   const scale = +document.getElementById('scale').value;
-  const lcd = document.getElementById('lcd').checked;
-  const color = lcd ? { bg: '#c7d4b8', fg: '#2a3326' } : { bg: '#ffffff', fg: '#000000' };
   const showPen = document.getElementById('pen').checked;
   try {
-    const box = parse(src);
-    const marks = draw(box, scale, color, showPen);
+    const box = CUR = parse(document.getElementById('expr').value);
+    const marks = draw(box, scale, curColor(), showPen, step);
+    const cur = (step != null && step > 0 && step <= marks.length) ? step - 1 : -1;
     const rows = marks.map((m, i) =>
-      `<tr><td>${i}</td><td>${escapeHtml(m.ch)}</td><td>${m.x}</td><td>${m.y}</td></tr>`).join('');
+      `<tr class="${i === cur ? 'cur' : ''}"><td>${i}</td><td>${escapeHtml(m.ch)}</td>` +
+      `<td>${m.x}</td><td>${m.y}</td><td>${m.font || (m.type === 'rule' ? 'rule' : '')}</td>` +
+      `<td>${escapeHtml(m.via || '')}</td></tr>`).join('');
     document.getElementById('penlog').innerHTML =
-      `<table><thead><tr><th>#</th><th>glyph</th><th>penX</th><th>penY</th></tr></thead><tbody>${rows}</tbody></table>`;
+      `<p class="note">Display list — elements in OS emission (draw) order with ` +
+      `pen X/Y (top-left), font, and the ROM routine that emits them. ` +
+      `0x86D7/0x86D8 hold penX/penY; large glyphs go through _PutMap (07:4588), ` +
+      `small (exponents, limits, fraction digits) through _VPutMap (01:6293).</p>` +
+      `<table><thead><tr><th>#</th><th>elem</th><th>penX</th><th>penY</th>` +
+      `<th>font</th><th>emitted by</th></tr></thead><tbody>${rows}</tbody></table>`;
     document.getElementById('err').textContent = '';
+    const tl = document.getElementById('timeline');
+    if (tl && step == null) { tl.max = marks.length; tl.value = marks.length; }
   } catch (e) {
     document.getElementById('err').textContent = String(e);
   }
+}
+
+function stopAnim() { if (ANIM) { clearInterval(ANIM); ANIM = null; } }
+
+function playAnim() {
+  stopAnim();
+  if (!CUR) render();
+  const n = (CUR.marks || []).length;
+  let step = 0;
+  const tl = document.getElementById('timeline');
+  ANIM = setInterval(() => {
+    step += 1;
+    if (tl) tl.value = step;
+    render(step);
+    if (step >= n) { stopAnim(); render(); }   // final: reveal structural rules too
+  }, 350);
 }
 function escapeHtml(s) {
   return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -384,11 +453,17 @@ async function main() {
     b.onclick = () => { document.getElementById('expr').value = src; render(); };
     bar.appendChild(b);
   });
-  document.getElementById('expr').addEventListener('input', render);
-  document.getElementById('scale').addEventListener('input', render);
-  document.getElementById('lcd').addEventListener('change', render);
-  document.getElementById('pen').addEventListener('change', render);
-  document.getElementById('expr').value = 'int(1,2,(1/2)X,X)';
+  document.getElementById('expr').addEventListener('input', () => { stopAnim(); render(); });
+  document.getElementById('scale').addEventListener('input', () => render());
+  document.getElementById('lcd').addEventListener('change', () => render());
+  document.getElementById('pen').addEventListener('change', () => render());
+  document.getElementById('play').addEventListener('click', playAnim);
+  document.getElementById('timeline').addEventListener('input', e => {
+    stopAnim();
+    const n = (CUR.marks || []).length;
+    render(+e.target.value >= n ? null : +e.target.value);
+  });
+  document.getElementById('expr').value = 'int(1,2,(1//2)X,X)';
   render();
 }
 

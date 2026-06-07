@@ -40,6 +40,20 @@
   <div class="stage">
     <canvas id="screen"></canvas>
   </div>
+  <div class="timeline-row">
+    <button id="play">▶ Play draw order</button>
+    <input id="timeline" type="range" min="0" max="1" value="1">
+    <span class="hint">step the emission order</span>
+  </div>
+  <p class="note">
+    This steps the calculator's real draw order: after a measure pass the OS
+    emits whole glyphs and rules one at a time at pen coordinates
+    (0x86D7/0x86D8), in emission order — large glyphs via _PutMap (07:4588),
+    small ones via _VPutMap (01:6293), the fraction rule via
+    eqdisp_draw_fraction_bar (39:6abf). Each step highlights the element drawn
+    and the row below names the routine. Stretched structural marks (the ∫ stem,
+    parentheses, vinculum) appear at the final step.
+  </p>
   <p class="meta"><span id="dims"></span> <span id="err" class="err"></span></p>
 
   <div id="penlog" class="penlog"></div>

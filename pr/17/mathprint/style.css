@@ -45,11 +45,23 @@ canvas { image-rendering: pixelated; max-width: 100%; }
 .meta { color: var(--muted); font-size: .8rem; font-family: ui-monospace, Menlo, monospace; }
 .err { color: #ff8b8b; }
 
+.timeline-row { display: flex; align-items: center; gap: .75rem; margin-top: .75rem; }
+.timeline-row #timeline { flex: 1; }
+.timeline-row button {
+  background: var(--panel); color: var(--fg); border: 1px solid var(--border);
+  border-radius: 8px; padding: .35rem .8rem; cursor: pointer; font-size: .85rem;
+}
+.timeline-row button:hover { border-color: var(--accent); color: var(--accent); }
+.timeline-row .hint { color: var(--muted); font-size: .78rem; }
+.note { color: var(--muted); font-size: .82rem; margin: .5rem 0 0; }
+
 .penlog { margin-top: 1rem; }
 .penlog table { border-collapse: collapse; font-family: ui-monospace, Menlo, monospace; font-size: .8rem; }
 .penlog th, .penlog td { border: 1px solid var(--border); padding: .15rem .55rem; text-align: right; }
 .penlog th { color: var(--muted); font-weight: 500; }
 .penlog td:nth-child(2) { text-align: left; color: var(--accent); }
+.penlog td:nth-child(6) { text-align: left; color: var(--muted); }
+.penlog tr.cur td { background: rgba(110,168,254,0.18); color: var(--fg); }
 
 .syntax { margin-top: 1.5rem; color: var(--muted); }
 .syntax summary { cursor: pointer; color: var(--fg); }

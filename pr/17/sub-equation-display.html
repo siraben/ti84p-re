@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2167b38d.js";
+            window.path_to_searchindex_js = "searchindex-90633ad1.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-c47a8e66.js"></script>
@@ -598,6 +598,22 @@ renderer pixel-for-pixel:</p>
 <p>Inline layouts and stacked fractions reproduce the calculator exactly. The tall
 templates match in extent; closing the last pixels means reproducing the OS’s
 exact glyph-stretch for the <code>∫</code> curve and the <code>Lroot</code> hook. [confirmed]</p>
+<h2 id="draw-order"><a class="header" href="#draw-order">Draw order</a></h2>
+<p>The OS does not sweep the screen column by column. After a measure pass it runs
+a draw pass that emits whole glyphs and rules one at a time at pen coordinates
+(<code>0x86D7</code>/<code>0x86D8</code>), in emission order. The interactive renderer mirrors this:
+it builds a display list and the timeline steps it element by element. The
+emission order and routine for each element is checked against the execution
+trace. [confirmed]</p>
+<p>For <code>int(1,2,1/2,X)</code> the trace’s pen-coordinate (<code>0x86D7</code>/<code>0x86D8</code>) writes in the
+final render place the upper limit at <code>penX=6,penY=0</code>, the lower limit at
+<code>penX=6,penY=18</code>, the body open-paren at <code>penX=16</code>, the fraction at <code>penX≈18</code>,
+then the close-paren, <code>d</code>, and the variable — the same order and ~the same
+positions the display list produces. Each element’s blitter matches too: large
+glyphs go through <code>_PutMap</code> (<code>07:4588</code>), small glyphs (exponents, integral
+limits, fraction digits) through <code>_VPutMap</code> (<code>01:6293</code>, glyph pointer at
+<code>01:6702</code>), and the fraction rule through <code>eqdisp_draw_fraction_bar</code> (<code>39:6abf</code>).
+[confirmed]</p>
 <h2 id="remaining-detail"><a class="header" href="#remaining-detail">Remaining detail</a></h2>
 <p>The static MathPrint pipeline is recovered: token classification, handler records,
 recursive operand order, descriptor templates, fraction UI geometry, fixed structural
