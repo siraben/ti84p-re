@@ -38,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2dd212bd.js";
+            window.path_to_searchindex_js = "searchindex-24f752fb.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-bcf53af4.js"></script>
+        <script src="toc-93add71c.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -1382,9 +1382,9 @@ struct AppVar { uint16_t size;        uint8_t data[/* size */];          }; /* A
 <p>This is the canonical sign-magnitude BCD add. The full helper cluster is documented below.</p>
 <blockquote>
 <p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: the <code>2+3</code> run
-(<a href="../tools/macros/home-2plus3.macro"><code>home-2plus3.macro</code></a>) enters <code>_FPAdd</code> and
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/home-2plus3.macro"><code>home-2plus3.macro</code></a>) enters <code>_FPAdd</code> and
 — signs equal — falls through the sign test to <code>fp_add_mantissa</code> (<code>ram:1cb9</code>),
-while the <code>5−2</code> run (<a href="../tools/macros/fpsub.macro"><code>fpsub.macro</code></a>) negates <code>OP2</code>
+while the <code>5−2</code> run (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/fpsub.macro"><code>fpsub.macro</code></a>) negates <code>OP2</code>
 and takes the opposite-sign branch into <code>fp_sub_mantissa</code> (<code>ram:1d37</code>).
 <code>fp_sub_mantissa</code> has 0 hits in the add trace and the add path 0 hits in the
 subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
@@ -1466,11 +1466,11 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 <p>So a single 16-row table at <code>02:7181</code> powers <strong>all</strong> of ln / log / eˣ / 10ˣ; the <code>02:7D42</code> block only supplies the base-conversion constants ($\log_{10}e$, $\ln 10$) and the trig reduction constants.</p>
 <blockquote>
 <p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: <code>ln(2)</code>
-(<a href="../tools/macros/ln2.macro"><code>ln2.macro</code></a>) drives <code>_LnX</code>, whose selector
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/ln2.macro"><code>ln2.macro</code></a>) drives <code>_LnX</code>, whose selector
 (<code>02:6F94</code>) steps <code>A=00…07</code> then <code>08…0F</code> (the coarse/fine split at the <code>6FAD AND 0x8</code>
 / <code>6FD3 BIT 4</code> tests), walking successive <code>02:7181</code> rows with a per-step
 shift-add, then fetches $\ln 10$ via <code>LD A,6; CALL 0x2362</code> and multiplies.
-<code>e^{1}</code> (<a href="../tools/macros/exp1.macro"><code>exp1.macro</code></a>) drives <code>_EToX</code>, which consumes
+<code>e^{1}</code> (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/exp1.macro"><code>exp1.macro</code></a>) drives <code>_EToX</code>, which consumes
 the <strong>same</strong> table in reverse (the inner step is <code>fp_sub_mantissa</code> <code>1d37</code>, the
 accumulator add <code>fp_add_mantissa</code> <code>1cb9</code>), selector sweeping <code>00…0F</code> under the
 <code>710A CP 0x0F</code> bound. On-screen results: <code>.6931471806</code> and <code>2.718281828</code>.</p>
@@ -1496,7 +1496,7 @@ The quadrant (0–3) is accumulated in <code>B</code>/<code>bStack_1</code> (bit
 </ol>
 <blockquote>
 <p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: <code>sin(1)</code> in radian mode
-(<a href="../tools/macros/sin1.macro"><code>sin1.macro</code></a>) drives <code>_SinCosRad</code>. The flag init,
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/sin1.macro"><code>sin1.macro</code></a>) drives <code>_SinCosRad</code>. The flag init,
 the exponent gate (<code>735D LD A,(0x8479); SUB 0x80; CP 0x0C; JP NC</code> — not taken, since
 <code>exp(1)=0 &lt; 12</code>), the reduction multiply by the <code>02:7D81</code> constant
 (<code>7372 LD HL,0x7d81; CALL 0x1ae2</code>), and the table-stepping loader <code>02:731D</code> returning
@@ -1615,9 +1615,12 @@ described. On-screen result: <code>.8414709848</code>. (Per-row coefficient mean
 <p>The precedence levels (term/factor/unary productions) and sub-dispatch tables are mapped in <a href="#ti-basic-programs">TI-BASIC Programs</a> §3/§6.</p>
 <h2 id="tokenized-sample-programs"><a class="header" href="#tokenized-sample-programs">Tokenized sample programs</a></h2>
 <p>The raw bodies below are the bytes stored after a <code>ProgObj</code> size word. They can
-be regenerated with <a href="../tools/tibasic_samples.py"><code>tools/tibasic_samples.py</code></a>
-<code>--write-dir tools/tibasic-samples</code> and traced with the workflow in
-<a href="../tools/dynamic-tracing.html"><code>tools/dynamic-tracing.md</code></a>.</p>
+be regenerated, along with loadable <code>.8xp</code> files, with
+<code>tools/tibasic_samples.py --write-dir tools/tibasic-samples</code> and traced with
+the workflow in <code>tools/dynamic-tracing.md</code>. The generated samples were run under
+headless TilEm on OS 2.55MP; see
+<a href="#8-dynamic-confirmation-and-traceable-examples">TI-BASIC programs</a>
+for observed outputs and trace anchors.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -2079,7 +2082,7 @@ These are the values the WINDOW editor writes and the grapher reads.</p>
 </table>
 </div>
 <p>There is a second “u” copy block at <code>0x8E7E</code> (<code>uXmin</code>…<code>uXres</code> at <code>0x8F3B</code>) — the
-** uVar** window set used in the alternate (split/table) graph context, and a working/temp
+<strong>uVar</strong> window set used in the alternate (split/table) graph context, and a working/temp
 float pair around <code>0x8E6A</code>/<code>0x8E73</code> used by the transform code (<code>UNK_ram_8e6a</code>). [strong]</p>
 <p><code>deltaX</code>/<code>deltaY</code> are derived from the window when the graph is set up and feed both the
 forward (real→pixel) and the circle/draw routines. The LCD is <strong>96×64</strong>, but the graph area
@@ -2461,6 +2464,11 @@ not yet field-mapped — see residual]</strong></li>
 <li><code>if_else_skip_handler</code> (<code>38:5826</code>)’s prologue calls <code>_DeallocFPS1</code> then
 <code>restore_982c_ctx</code> (<code>38:58DF</code>, which sets <code>pTempCnt</code>/<code>cleanTmp</code>) — FPS bookkeeping
 consistent with pushing/popping a loop frame. <strong>[strong]</strong></li>
+<li>A trace-backed performance trap exists when <code>For(</code> omits its optional closing
+<code>)</code> and the first loop-body statement is a single-line false <code>If</code>: the
+implicit-close path at <code>02:5676</code> interacts with the false-<code>If</code> skip path and
+repeatedly advances temporary parser storage. See
+<a href="#for-closing-paren-and-false-first-line-if">TI-BASIC <code>For(</code> optional paren trap</a>.</li>
 </ul>
 <h3 id="goto--lbl-goto_lbl_name_scanner-384870--scanner-at-387600-confirmed"><a class="header" href="#goto--lbl-goto_lbl_name_scanner-384870--scanner-at-387600-confirmed">Goto / Lbl: <code>goto_lbl_name_scanner</code> (<code>38:4870</code>) + scanner at <code>38:7600</code> [confirmed]</a></h3>
 <ul>
@@ -2647,22 +2655,19 @@ page_38:6ae6   output_dispatch    (CP E0 in evaluator)
 </code></pre>
 <hr>
 <h2 id="8-dynamic-confirmation-and-traceable-examples"><a class="header" href="#8-dynamic-confirmation-and-traceable-examples">8. Dynamic confirmation and traceable examples</a></h2>
-<p>The current headless trace workflow confirms the parser/evaluator path with
-homescreen input. A full-range TilEm trace of <code>2+3</code> on the homescreen resolves
-1,979,196 instructions and reaches page-38 parser functions including
-<code>eval_stmt_entry</code> (<code>38:59C5</code>), <code>parse_eval_expr</code> (<code>38:5AB3</code>), <code>parse_init</code>
-(<code>38:5B7B</code>), <code>parse_advance</code> (<code>38:7248</code>), <code>chk_tok_end</code> (<code>38:72E0</code>), and <code>_StoAns</code>
-(<code>38:6251</code>). This is a dynamic confirmation of the token-cursor loop described
-above, although it exercises an expression rather than a stored <code>ProgObj</code>.
-[confirmed by <code>tools/tilem_trace_resolve.py</code> on a <code>tools/macros/home-2plus3.macro</code>
-trace]</p>
-<p>The sample program bodies in <a href="../tools/tibasic-samples"><code>tools/tibasic-samples/</code></a>
-are raw token streams: the bytes after a program object’s two-byte size word.
-Generate or refresh them with
-<a href="../tools/tibasic_samples.py"><code>tools/tibasic_samples.py</code></a> <code>--write-dir tools/tibasic-samples</code>.
-They are not TI link files; use a link-file tool or the calculator editor to
-place them into RAM before running
-<a href="../tools/macros/run-first-program.macro"><code>tools/macros/run-first-program.macro</code></a>.</p>
+<p>The current headless trace workflow confirms the parser/evaluator path with both
+homescreen input and stored programs. A full-range TilEm trace of <code>2+3</code> on the
+homescreen reaches page-38 parser functions including <code>eval_stmt_entry</code>
+(<code>38:59C5</code>), <code>parse_eval_expr</code> (<code>38:5AB3</code>), <code>parse_init</code> (<code>38:5B7B</code>),
+<code>parse_advance</code> (<code>38:7248</code>), <code>chk_tok_end</code> (<code>38:72E0</code>), and <code>_StoAns</code>
+(<code>38:6251</code>).</p>
+<p>The stored-program samples in <code>tools/tibasic-samples/</code> are generated with
+<code>tools/tibasic_samples.py --write-dir tools/tibasic-samples</code>. Each sample has
+readable <code>.bas</code>, raw-body <code>.tok</code>, and loadable <code>.8xp</code> forms. The <code>.8xp</code>
+validation traces below were run on 2026-06-06 against OS 2.55MP in
+<code>tools/rom.bin</code> with a local headless TilEm patch that loads command-line <code>.8xp</code>
+files before running the macro; the traces therefore include startup
+link-transfer code as well as interpreter execution.</p>
 <h3 id="hello-world"><a class="header" href="#hello-world">Hello world</a></h3>
 <pre><code class="language-ti-basic">ClrHome
 Disp "HELLO, WORLD"
@@ -2670,10 +2675,8 @@ Disp "HELLO, WORLD"
 <p>Body bytes:</p>
 <pre><code class="language-text">E1 3F DE 2A 48 45 4C 4C 4F 2B 29 57 4F 52 4C 44 2A 3F
 </code></pre>
-<p>Expected trace path: <code>tClLCD</code> (<code>0xE1</code>) clears the home text display, then
-<code>tDisp</code> (<code>0xDE</code>) scans the string bounded by <code>tString</code> (<code>0x2A</code>) and calls <code>_Disp</code>
-(<code>37:51D3</code>), <code>_NewLine</code> (<code>01:5F4A</code>), and <code>_DispDone</code> (<code>01:69B0</code>). [standard for
-the command sequence; display routines confirmed above]</p>
+<p>Observed run: <code>HELLO.8xp</code> displays <code>HELLO, WORLD</code> and then <code>Done</code>. The trace hits
+<code>eval_stmt_entry</code>, <code>parse_refill</code>, <code>parse_advance</code>, and <code>_Disp</code> (<code>37:51D3</code>).</p>
 <h3 id="factorial-loop"><a class="header" href="#factorial-loop">Factorial loop</a></h3>
 <pre><code class="language-ti-basic">Prompt N
 1-&gt;F
@@ -2685,12 +2688,9 @@ Disp F
 <p>Body bytes:</p>
 <pre><code class="language-text">DD 4E 3F 31 04 46 3F D3 49 2B 31 2B 4E 11 3F 46 82 49 04 46 3F D4 3F DE 46 3F
 </code></pre>
-<p>Expected trace path: <code>Prompt</code> enters the page-02 input handler (<code>02:562F</code>);
-stores use <code>tStore</code> (<code>0x04</code>) and the store-target scanner at <code>38:7600</code>; <code>For(</code>
-and <code>End</code> dispatch through page 02 into the page-33 command jump table at
-<code>33:4381</code>; <code>End</code> reseeds <code>parsePtr</code> to the saved loop top until the comparison
-fails; <code>F*I</code> reaches the FP multiply path and stores the updated <code>F</code>. [standard
-for this sample; page-02/page-33 dispatch confirmed above]</p>
+<p>Observed run: <code>FACTOR.8xp</code> with prompt input <code>5</code> displays <code>N=5</code>, result <code>120</code>,
+and then <code>Done</code>. The trace hits <code>eval_stmt_entry</code>, page-38 parser/refill paths,
+<code>_FPMult</code> (<code>ram:238B</code>), and <code>_Disp</code> (<code>37:51D3</code>).</p>
 <h3 id="listdata-manipulation"><a class="header" href="#listdata-manipulation">List/data manipulation</a></h3>
 <pre><code class="language-ti-basic">{3,1,4,1,5}-&gt;L1
 SortA(L1)
@@ -2703,12 +2703,10 @@ Disp S
 <p>Body bytes:</p>
 <pre><code class="language-text">08 33 2B 31 2B 34 2B 31 2B 35 09 04 5D 00 3F E3 5D 00 11 3F BB 29 5D 00 11 04 5D 01 3F B6 5D 00 11 04 53 3F DE 5D 00 3F DE 5D 01 3F DE 53 3F
 </code></pre>
-<p>Expected trace path: list names are 2-byte tokens (<code>5D 00</code> = <code>L1</code>, <code>5D 01</code> =
-<code>L2</code>), so <code>parse_scan_tokens</code> must honor <code>_IsA2ByteTok</code>. The literal creates an
-RList, <code>SortA(</code> (<code>0xE3</code>) reaches the page-02 sort command, <code>cumSum(</code> (<code>BB 29</code>)
-uses the 2-byte token page, and <code>sum(</code> (<code>0xB6</code>) reaches the list fold dispatcher
-at <code>02:6104</code>. [standard for this sample; list routines cross-linked in
-<code>sub-matrix-list.md</code>]</p>
+<p>Observed run: <code>DATA.8xp</code> displays sorted <code>L1</code> as <code>{1 1 3 4 5}</code>, cumulative <code>L2</code>
+as <code>{1 2 5 9 14}</code>, sum <code>14</code>, and then <code>Done</code>. The trace hits 2-byte/list paths
+including <code>resolve_2byte_var2</code>, <code>chk_list_type</code>, <code>store_list_elem*</code>,
+<code>list_var_index</code>, and <code>list_fold_dispatch</code> (<code>02:6104</code>).</p>
 <h3 id="asm-smoke-test"><a class="header" href="#asm-smoke-test"><code>Asm(</code> smoke test</a></h3>
 <p>Safe <code>Asm(</code> tracing uses a program that returns immediately:</p>
 <pre><code class="language-ti-basic">AsmPrgm
@@ -2725,12 +2723,11 @@ ASMCALL: DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41
 </code></pre>
 <p><code>Asm(</code> is the 2-byte token <code>BB 6A</code>; <code>AsmPrgm</code> is <code>BB 6C</code>; the displayed <code>prgm</code>
 prefix in <code>Asm(prgmASMRET)</code> is the program-name token <code>0x5F</code>, followed by the
-name characters and the closing <code>)</code> token. The public equates name the relevant
-API surface as <code>_AsmComp</code> (<code>4E73h</code>), <code>_GetAsmSize</code> (<code>4E76h</code>), and
-<code>_ChkFindSymAsm</code> (<code>4E7Fh</code>), with RAM scratch labels <code>asm_data_ptr1</code>,
-<code>asm_sym_ptr1</code>, <code>asm_ram</code>, and <code>asm_ind_call</code>. The exact execution body has not
-yet been dynamically mapped in this repository. [standard tokens and public
-equates; execution mapping open]</p>
+name characters and the closing <code>)</code> token. Observed run: loading <code>ASMCALL.8xp</code>
+and <code>ASMRET.8xp</code> displays <code>BEFORE</code>, executes <code>Asm(prgmASMRET)</code>, displays
+<code>AFTER</code>, and then <code>Done</code>. The trace shows the assembly handoff through
+<code>07:57B4</code> and execution of the payload byte itself at
+<code>ram:9D95 op=0x000000C9</code>, returning to BASIC immediately after.</p>
 <hr>
 <h2 id="9-resolved--residual"><a class="header" href="#9-resolved--residual">9. Resolved / residual</a></h2>
 <p>Three argument-handling and dispatch details, grounded in the bytes (see §5 / §4):</p>
@@ -2757,6 +2754,144 @@ the dispatch chain into the <code>33:4381</code> handlers is confirmed.</li>
 <li>The page-0x02 <code>Input</code>/<code>Prompt</code> <strong>entry-line editor internals</strong> (cursor/redraw, 2.55MP
 multi-line) remain dense and are only confirmed at the argument-parse boundary.</li>
 </ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="for-closing-paren-and-false-first-line-if"><a class="header" href="#for-closing-paren-and-false-first-line-if"><code>For(</code> closing paren and false first-line <code>If</code></a></h1>
+<p><em>TI-84 Plus OS 2.55MP – dynamic trace note.</em></p>
+<p>This note explains a TI-BASIC performance trap:</p>
+<pre><code class="language-ti-basic">For(I,1,N
+If 0
+1
+End
+</code></pre>
+<p>is much slower than the visually similar:</p>
+<pre><code class="language-ti-basic">For(I,1,N)
+If 0
+1
+End
+</code></pre>
+<p>The closing <code>)</code> is syntactically optional, but it is not performance-neutral
+when the first loop-body statement is a single-line false <code>If</code>.</p>
+<p>Confidence: <strong>[confirmed]</strong> = measured in TilEm instruction traces or read from
+ROM bytes; <strong>[standard]</strong> = consistent with the interpreter structure but not
+field-mapped down to every loop-frame byte.</p>
+<hr>
+<h2 id="benchmark-shape"><a class="header" href="#benchmark-shape">Benchmark shape</a></h2>
+<p>The test program brackets only the loop with an <code>AsmPrgm</code> marker:</p>
+<pre><code class="language-ti-basic">Asm(prgmZMARK)
+For(I,1,100)
+If 0
+1
+End
+Asm(prgmZMARK)
+Disp I
+</code></pre>
+<p><code>ZMARK</code> is:</p>
+<pre><code class="language-ti-basic">AsmPrgm
+C9
+</code></pre>
+<p><code>C9</code> is Z80 <code>RET</code>. In both traces the marker payload executes at
+<code>ram:9D95 op=0xC9</code>, so the interval from the first marker <code>RET</code> to the second
+marker <code>RET</code> excludes boot, link transfer, menu navigation, and the final
+display.</p>
+<p>The compared token streams differ by exactly one byte in the <code>For(</code> header:</p>
+<pre><code class="language-text">For(I,1,25) / If 0:  D3 49 2B 31 2B 32 35 11 3F CE 30 ...
+For(I,1,25  / If 0:  D3 49 2B 31 2B 32 35    3F CE 30 ...
+</code></pre>
+<p><code>D3</code> is <code>tFor</code>, <code>11</code> is <code>tRParen</code>, <code>3F</code> is EOL, and <code>CE</code> is <code>tIf</code>.</p>
+<h2 id="trace-results"><a class="header" href="#trace-results">Trace results</a></h2>
+<p>All runs completed and displayed the expected final loop variable (<code>26</code> for
+<code>N=25</code>, <code>101</code> for <code>N=100</code>). Counts are marker-to-marker instruction records and
+Z80 clock deltas from the TilEm trace.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Loop body</th><th>N</th><th><code>For(... )</code></th><th><code>For(...</code></th><th>Delta</th></tr>
+</thead>
+<tbody>
+<tr><td><code>If 0</code> / <code>1</code></td><td>25</td><td>144,805 instr / 1,519,710 clocks</td><td>156,292 instr / 1,604,282 clocks</td><td>+7.9% instr / +5.6% clocks</td></tr>
+<tr><td><code>If 0</code> / <code>1</code></td><td>100</td><td>521,723 instr / 5,498,347 clocks</td><td>885,912 instr / 8,862,729 clocks</td><td>+69.8% instr / +61.2% clocks</td></tr>
+<tr><td><code>If 1</code> / <code>1</code></td><td>25</td><td>185,032 instr / 1,920,085 clocks</td><td>179,874 instr / 1,859,796 clocks</td><td>-2.8% instr / -3.1% clocks</td></tr>
+</tbody>
+</table>
+</div>
+<p>The true-condition control matters: omitting <code>)</code> is not inherently slower. The
+large slowdown appears when the omitted close is followed immediately by a
+single-line false <code>If</code>.</p>
+<h2 id="dispatch-difference"><a class="header" href="#dispatch-difference">Dispatch difference</a></h2>
+<p>The optional close is handled by the page-2 command-finalization gate
+<code>02:5676</code> [confirmed]:</p>
+<pre><code class="language-z80">02:5676  LD A,C
+02:5677  CP 11h          ; explicit ")"
+02:5679  JR Z,56C3h
+02:5683  OR A            ; implicit close / statement end
+02:5684  JP NZ,2708h     ; syntax/type error for other cases
+02:5687  CALL 5675h      ; direct command handler path
+</code></pre>
+<p>The explicit <code>)</code> path (<code>02:56C3...</code>) calls through the command cleanup path
+before returning to statement execution. The implicit-close path (<code>C=0</code>) calls
+the command handler directly. For <code>For(</code>, that handler is the page-2 stub
+<code>02:6A30</code>, which calls bcall <code>_grf_435f</code> (<code>33:435F</code>) and indexes the control-flow
+jump table at <code>33:4381</code>; the <code>For</code> entry is table index <code>0x29 - 0x20 = 9</code>, and
+<code>End</code> is index <code>0x2A - 0x20 = 10</code> [confirmed].</p>
+<p>That one-byte syntax difference therefore changes the parser state at exactly
+the point where the <code>For</code> loop frame records the body cursor.</p>
+<h2 id="what-the-slow-case-does"><a class="header" href="#what-the-slow-case-does">What the slow case does</a></h2>
+<p>The marker interval profiler shows that the no-paren/false-<code>If</code> case spends its
+extra time in name/VAT scanning and pointer walking, not arithmetic:</p>
+<pre><code class="language-text">false N=25, no paren minus explicit paren:
+  +18,900 instr  page_07:565F  findsym_scan
+   +3,600 instr  ram:1787      dec_hl_tail_1787
+   +1,800 instr  ram:1785      dec_hl_tail_1785
+     +900 instr  ram:1784      dec_hl_tail_1784
+</code></pre>
+<p>The parser-cursor writes explain why. In the explicit-paren trace, the
+single-line false <code>If</code> path repeatedly uses the same temporary parser buffer:</p>
+<pre><code class="language-text">... write nextParseByte=9EA8, parseEnd=9EA8
+... restore nextParseByte=9E3B, parseEnd=9E4C
+... write nextParseByte=9EA8, parseEnd=9EA8
+... restore nextParseByte=9E3B, parseEnd=9E4C
+</code></pre>
+<p>In the omitted-paren trace, the equivalent temporary buffer advances on each
+iteration:</p>
+<pre><code class="language-text">iteration 1: nextParseByte=9EA7, parseEnd=9EA7
+iteration 2: nextParseByte=9EB4, parseEnd=9EB4
+iteration 3: nextParseByte=9EC1, parseEnd=9EC1
+iteration 4: nextParseByte=9ECE, parseEnd=9ECE
+iteration 5: nextParseByte=9EDB, parseEnd=9EDB
+</code></pre>
+<p>Those addresses come from writes to <code>nextParseByte</code> (<code>0x965D</code>) and <code>basic_end</code>
+(<code>0x965F</code>) inside the marker interval. The advancing high-water mark matches
+the growing <code>findsym_scan</code> cost: the interpreter keeps allocating/walking
+temporary expression storage instead of reusing one stable temporary range.</p>
+<h2 id="mechanism"><a class="header" href="#mechanism">Mechanism</a></h2>
+<p>The false single-line <code>If</code> path is the amplifier [standard]:</p>
+<ol>
+<li><code>For(</code> with explicit <code>)</code> enters the <code>02:56C3</code> close/cleanup path before the
+control-flow handler records the loop continuation.</li>
+<li><code>For(</code> without <code>)</code> takes the <code>C=0</code> direct path at <code>02:5687</code>.</li>
+<li>With a first body line of <code>If 0</code>, the loop immediately enters the
+single-statement false-<code>If</code> skip path (<code>if_isg_stmt_handler</code> at <code>38:6F63</code>,
+with skip/temporary-parser work through the page-38 statement evaluator).</li>
+<li>In the direct-path case, that skip work is performed with a temporary parse
+range that advances every iteration. More iterations mean longer VAT/name
+and pointer scans, so the cost grows much faster than the explicit-paren
+version.</li>
+</ol>
+<p>This is why <code>N=25</code> shows only a modest penalty while <code>N=100</code> shows a large one.
+The omitted <code>)</code> saves a little cleanup work in the <code>If 1</code> control, but with
+<code>If 0</code> first it changes the loop/skip interaction and leaks work into temporary
+parser storage.</p>
+<h2 id="practical-rule"><a class="header" href="#practical-rule">Practical rule</a></h2>
+<p>When a <code>For(</code> loop body starts with a guard like <code>If not(condition)</code> or <code>If 0</code>,
+write the closing <code>)</code>:</p>
+<pre><code class="language-ti-basic">For(I,1,N)
+If A
+...
+End
+</code></pre>
+<p>Better still, avoid single-line false guards as the first statement of a hot
+loop. Use <code>If ... Then</code> blocks when the body is structured, or invert the loop
+so the common path does not repeatedly exercise the false-<code>If</code> skip scanner.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="variables-archive--unarchive"><a class="header" href="#variables-archive--unarchive">Variables, archive &amp; unarchive</a></h1>
 <p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
@@ -4114,10 +4249,11 @@ Disp L2
 Disp S
 </code></pre>
 <p>It exercises list literal creation, list variable tokens (<code>5D 00</code>/<code>5D 01</code>),
-in-place sorting, a running cumulative sum, a folded sum, and list display. Use
-<code>tools/macros/run-first-program.macro</code> after loading the sample into RAM to
-capture the dynamic path. [standard trace recipe; list primitives above are
-confirmed where marked]</p>
+in-place sorting, a running cumulative sum, a folded sum, and list display. The
+generated <code>DATA.8xp</code> was run under headless TilEm: the screen showed sorted
+<code>L1={1 1 3 4 5}</code>, cumulative <code>L2={1 2 5 9 14}</code>, and sum <code>14</code>; the trace hit
+<code>list_fold_dispatch</code> (<code>02:6104</code>) plus the page-38 list parse/store helpers.
+[dynamic run confirmed; list primitives above are confirmed where marked]</p>
 <hr>
 <h2 id="4-matrix-operations-c"><a class="header" href="#4-matrix-operations-c">4. Matrix operations [C]</a></h2>
 <h3 id="dim-redim-identity-copy"><a class="header" href="#dim-redim-identity-copy"><code>dim(</code>, redim, identity, copy</a></h3>
@@ -4585,7 +4721,7 @@ on other convergence sub-paths. <strong>[confirmed]</strong></li>
 <blockquote>
 <p><strong>Dynamic confirmation.</strong> Traced end-to-end under headless TilEm by driving the
 built-in Equation Solver to solve <code>X²−2 = 0</code>
-(<a href="../tools/macros/solver-sqrt2.macro"><code>solver-sqrt2.macro</code></a>). It converged on screen
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/solver-sqrt2.macro"><code>solver-sqrt2.macro</code></a>). It converged on screen
 to <code>X = 1.4142135623…</code> (√2) with <code>left-rt = 0</code>. The mem-write records show the guess
 at <code>0x8478</code> climbing <code>1.40898 → 1.41421335 → 1.4142135623645 → 1.4142135623731</code>
 (|err| ≈ 4.9e-15, crossing below the <code>1e-13</code> tolerance on the final step).
@@ -5572,7 +5708,7 @@ anchors for readers who want to check the disassembly. [confirmed]</p>
 run under headless TilEm, the entry line was driven to render each construct, and
 page-<code>39</code> execution was rolled up to function level with
 <code>tools/tilem_trace_resolve.py --funcs --only-space page_39</code> (see
-<a href="../tools/dynamic-tracing.html">dynamic tracing</a>). The macros are
+<a href="https://github.com/siraben/ti84p-re/blob/main/tools/dynamic-tracing.md">dynamic tracing</a>). The macros are
 <code>tools/macros/mathprint-{power,fraction,fnint}.macro</code>. [confirmed]</p>
 <p>The trace cleanly separates the two documented rendering mechanisms by <em>which
 routines actually run</em> for each construct:</p>
@@ -5621,7 +5757,7 @@ mis-analyzes both (it shows bare decrement loops). The raw disassembly matches
 this page instead: <code>683D</code> does <code>A = base; loop: add a,7</code> (<code>x = base_x + 7·col</code>)
 and <code>6B1C</code> does <code>ld a,1Bh; … add a,7 (×n); add a,4</code> (<code>x_left = 0x1B + 7n</code>,
 <code>x_right = x_left + 4</code>). Trust <code>z80dasm</code> over the decompiler for these tight
-register-passing routines, as <a href="../README.html">the README</a> advises. [confirmed]</p>
+register-passing routines, as <a href="https://github.com/siraben/ti84p-re/blob/main/README.md">the README</a> advises. [confirmed]</p>
 <h2 id="remaining-detail"><a class="header" href="#remaining-detail">Remaining detail</a></h2>
 <p>The static MathPrint pipeline is recovered: token classification, handler records,
 recursive operand order, descriptor templates, fraction UI geometry, fixed structural
@@ -7374,7 +7510,7 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 <tr><td><code>98</code></td><td><code>Ñ</code></td><td>TI-83+</td></tr>
 <tr><td><code>99</code></td><td><code>ñ</code></td><td>TI-83+</td></tr>
 <tr><td><code>9A</code></td><td><code>´</code></td><td>TI-83+</td></tr>
-<tr><td><code>9B</code></td><td>```</td><td>TI-83+</td></tr>
+<tr><td><code>9B</code></td><td><code>`</code></td><td>TI-83+</td></tr>
 <tr><td><code>9C</code></td><td><code>¨</code></td><td>TI-83+</td></tr>
 <tr><td><code>9D</code></td><td><code>¿</code></td><td>TI-83+</td></tr>
 <tr><td><code>9E</code></td><td><code>¡</code></td><td>TI-83+</td></tr>
@@ -7429,7 +7565,7 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 <tr><td><code>D2</code></td><td><code>#</code></td><td>TI-83+</td></tr>
 <tr><td><code>D3</code></td><td><code>$</code></td><td>TI-83+</td></tr>
 <tr><td><code>D4</code></td><td><code>&amp;</code></td><td>TI-83+</td></tr>
-<tr><td><code>D5</code></td><td>```</td><td>TI-83+</td></tr>
+<tr><td><code>D5</code></td><td><code>`</code></td><td>TI-83+</td></tr>
 <tr><td><code>D6</code></td><td><code>;</code></td><td>TI-83+</td></tr>
 <tr><td><code>D7</code></td><td><code>\</code></td><td>TI-83+</td></tr>
 <tr><td><code>D8</code></td><td><code>|</code></td><td>TI-83+</td></tr>
@@ -7544,7 +7680,7 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 <h2 id="still-open"><a class="header" href="#still-open">Still open</a></h2>
 <ol start="13">
 <li><strong>Enum equates.</strong> Apply <code>TIKeyCode</code>/<code>TIError</code>/<code>TIVarType</code> to scalar operands in the relevant handlers (conservative, scoped).</li>
-<li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), the <code>Asm(</code>/<code>AsmPrgm</code> execution body after <code>_ChkFindSymAsm</code>, and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
+<li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), the <code>Asm(</code>/<code>AsmPrgm</code> compile/setup body before the traced payload handoff (<code>ram:9D95 op=0xC9</code> is confirmed), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
 <li><strong><code>0x8xxx</code> bcall bodies / dispatch table.</strong> The 84+-era <code>0x8xxx</code> bcall <em>names</em> are now canonical equates (item 6), but their bodies are not present as functions in the live Ghidra DB: the <code>0x8xxx</code> dispatch table and its page-0x3F loader are not modeled, so each ID→(page, addr) mapping is unresolved. Model the <code>0x8xxx</code> table and locate the bodies — e.g. <code>_WriteAByte 8021</code>, <code>_FlashToRam2 8054</code>, <code>_getHardwareVersion 80BA</code>. See <a href="#03--the-bcall-system-call-mechanism">03</a>.</li>
 </ol>
 <h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>

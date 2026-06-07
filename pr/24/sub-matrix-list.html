@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2dd212bd.js";
+            window.path_to_searchindex_js = "searchindex-24f752fb.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-bcf53af4.js"></script>
+        <script src="toc-93add71c.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -404,10 +404,11 @@ Disp L2
 Disp S
 </code></pre>
 <p>It exercises list literal creation, list variable tokens (<code>5D 00</code>/<code>5D 01</code>),
-in-place sorting, a running cumulative sum, a folded sum, and list display. Use
-<code>tools/macros/run-first-program.macro</code> after loading the sample into RAM to
-capture the dynamic path. [standard trace recipe; list primitives above are
-confirmed where marked]</p>
+in-place sorting, a running cumulative sum, a folded sum, and list display. The
+generated <code>DATA.8xp</code> was run under headless TilEm: the screen showed sorted
+<code>L1={1 1 3 4 5}</code>, cumulative <code>L2={1 2 5 9 14}</code>, and sum <code>14</code>; the trace hit
+<code>list_fold_dispatch</code> (<code>02:6104</code>) plus the page-38 list parse/store helpers.
+[dynamic run confirmed; list primitives above are confirmed where marked]</p>
 <hr>
 <h2 id="4-matrix-operations-c"><a class="header" href="#4-matrix-operations-c">4. Matrix operations [C]</a></h2>
 <h3 id="dim-redim-identity-copy"><a class="header" href="#dim-redim-identity-copy"><code>dim(</code>, redim, identity, copy</a></h3>

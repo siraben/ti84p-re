@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2dd212bd.js";
+            window.path_to_searchindex_js = "searchindex-24f752fb.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-bcf53af4.js"></script>
+        <script src="toc-93add71c.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -245,9 +245,12 @@
 <p>The precedence levels (term/factor/unary productions) and sub-dispatch tables are mapped in <a href="sub-tibasic.html">TI-BASIC Programs</a> §3/§6.</p>
 <h2 id="tokenized-sample-programs"><a class="header" href="#tokenized-sample-programs">Tokenized sample programs</a></h2>
 <p>The raw bodies below are the bytes stored after a <code>ProgObj</code> size word. They can
-be regenerated with <a href="../tools/tibasic_samples.py"><code>tools/tibasic_samples.py</code></a>
-<code>--write-dir tools/tibasic-samples</code> and traced with the workflow in
-<a href="../tools/dynamic-tracing.html"><code>tools/dynamic-tracing.md</code></a>.</p>
+be regenerated, along with loadable <code>.8xp</code> files, with
+<code>tools/tibasic_samples.py --write-dir tools/tibasic-samples</code> and traced with
+the workflow in <code>tools/dynamic-tracing.md</code>. The generated samples were run under
+headless TilEm on OS 2.55MP; see
+<a href="sub-tibasic.html#8-dynamic-confirmation-and-traceable-examples">TI-BASIC programs</a>
+for observed outputs and trace anchors.</p>
 <div class="table-wrapper">
 <table>
 <thead>

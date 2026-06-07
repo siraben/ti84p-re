@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2dd212bd.js";
+            window.path_to_searchindex_js = "searchindex-24f752fb.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-bcf53af4.js"></script>
+        <script src="toc-93add71c.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -251,9 +251,9 @@
 <p>This is the canonical sign-magnitude BCD add. The full helper cluster is documented below.</p>
 <blockquote>
 <p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: the <code>2+3</code> run
-(<a href="../tools/macros/home-2plus3.macro"><code>home-2plus3.macro</code></a>) enters <code>_FPAdd</code> and
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/home-2plus3.macro"><code>home-2plus3.macro</code></a>) enters <code>_FPAdd</code> and
 — signs equal — falls through the sign test to <code>fp_add_mantissa</code> (<code>ram:1cb9</code>),
-while the <code>5−2</code> run (<a href="../tools/macros/fpsub.macro"><code>fpsub.macro</code></a>) negates <code>OP2</code>
+while the <code>5−2</code> run (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/fpsub.macro"><code>fpsub.macro</code></a>) negates <code>OP2</code>
 and takes the opposite-sign branch into <code>fp_sub_mantissa</code> (<code>ram:1d37</code>).
 <code>fp_sub_mantissa</code> has 0 hits in the add trace and the add path 0 hits in the
 subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
@@ -335,11 +335,11 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 <p>So a single 16-row table at <code>02:7181</code> powers <strong>all</strong> of ln / log / eˣ / 10ˣ; the <code>02:7D42</code> block only supplies the base-conversion constants ($\log_{10}e$, $\ln 10$) and the trig reduction constants.</p>
 <blockquote>
 <p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: <code>ln(2)</code>
-(<a href="../tools/macros/ln2.macro"><code>ln2.macro</code></a>) drives <code>_LnX</code>, whose selector
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/ln2.macro"><code>ln2.macro</code></a>) drives <code>_LnX</code>, whose selector
 (<code>02:6F94</code>) steps <code>A=00…07</code> then <code>08…0F</code> (the coarse/fine split at the <code>6FAD AND 0x8</code>
 / <code>6FD3 BIT 4</code> tests), walking successive <code>02:7181</code> rows with a per-step
 shift-add, then fetches $\ln 10$ via <code>LD A,6; CALL 0x2362</code> and multiplies.
-<code>e^{1}</code> (<a href="../tools/macros/exp1.macro"><code>exp1.macro</code></a>) drives <code>_EToX</code>, which consumes
+<code>e^{1}</code> (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/exp1.macro"><code>exp1.macro</code></a>) drives <code>_EToX</code>, which consumes
 the <strong>same</strong> table in reverse (the inner step is <code>fp_sub_mantissa</code> <code>1d37</code>, the
 accumulator add <code>fp_add_mantissa</code> <code>1cb9</code>), selector sweeping <code>00…0F</code> under the
 <code>710A CP 0x0F</code> bound. On-screen results: <code>.6931471806</code> and <code>2.718281828</code>.</p>
@@ -365,7 +365,7 @@ The quadrant (0–3) is accumulated in <code>B</code>/<code>bStack_1</code> (bit
 </ol>
 <blockquote>
 <p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: <code>sin(1)</code> in radian mode
-(<a href="../tools/macros/sin1.macro"><code>sin1.macro</code></a>) drives <code>_SinCosRad</code>. The flag init,
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/sin1.macro"><code>sin1.macro</code></a>) drives <code>_SinCosRad</code>. The flag init,
 the exponent gate (<code>735D LD A,(0x8479); SUB 0x80; CP 0x0C; JP NC</code> — not taken, since
 <code>exp(1)=0 &lt; 12</code>), the reduction multiply by the <code>02:7D81</code> constant
 (<code>7372 LD HL,0x7d81; CALL 0x1ae2</code>), and the table-stepping loader <code>02:731D</code> returning
