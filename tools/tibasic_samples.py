@@ -19,6 +19,7 @@ T = {
     "comma": 0x2B,
     "enter": 0x3F,
     "space": 0x29,
+    "add": 0x70,
     "mul": 0x82,
     "0": 0x30,
     "1": 0x31,
@@ -48,16 +49,25 @@ T = {
     "R": 0x52,
     "S": 0x53,
     "T": 0x54,
+    "U": 0x55,
+    "V": 0x56,
     "W": 0x57,
     "X": 0x58,
     "Y": 0x59,
     "varlst": 0x5D,
     "prog": 0x5F,
+    "clrdraw": 0x85,
+    "text": 0x93,
+    "line": 0x9C,
+    "circle": 0xA5,
     "sum": 0xB6,
     "for": 0xD3,
     "end": 0xD4,
+    "return": 0xD5,
     "prompt": 0xDD,
     "disp": 0xDE,
+    "dispgraph": 0xDF,
+    "output": 0xE0,
     "clrhome": 0xE1,
     "sorta": 0xE3,
     "2byte": 0xBB,
@@ -130,6 +140,42 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
             T["disp"], *string_literal("AFTER"), T["enter"],
         ],
     ),
+    "animtext": (
+        'ClrHome\nFor(I,1,8)\nOutput(1,I,"X")\nEnd\nDisp "DONE"',
+        [
+            T["clrhome"], T["enter"],
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["8"], T["rparen"], T["enter"],
+            T["output"], T["1"], T["comma"], T["I"], T["comma"], *string_literal("X"), T["rparen"], T["enter"],
+            T["end"], T["enter"],
+            T["disp"], *string_literal("DONE"), T["enter"],
+        ],
+    ),
+    "graphviz": (
+        'ClrDraw\nLine(0,0,95,63)\nCircle(47,31,10)\nText(0,0,"DFS")\nDispGraph',
+        [
+            T["clrdraw"], T["enter"],
+            T["line"], T["0"], T["comma"], T["0"], T["comma"], T["9"], T["5"], T["comma"], T["6"], T["3"], T["rparen"], T["enter"],
+            T["circle"], T["4"], T["7"], T["comma"], T["3"], T["1"], T["comma"], T["1"], T["0"], T["rparen"], T["enter"],
+            T["text"], T["0"], T["comma"], T["0"], T["comma"], *string_literal("DFS"), T["rparen"], T["enter"],
+            T["dispgraph"], T["enter"],
+        ],
+    ),
+    "subrt": (
+        'Disp "SUB"\nA+1->A\nReturn',
+        [
+            T["disp"], *string_literal("SUB"), T["enter"],
+            T["A"], T["add"], T["1"], T["store"], T["A"], T["enter"],
+            T["return"], T["enter"],
+        ],
+    ),
+    "callsub": (
+        "0->A\nprgmSUBRT\nDisp A",
+        [
+            T["0"], T["store"], T["A"], T["enter"],
+            T["prog"], T["S"], T["U"], T["B"], T["R"], T["T"], T["enter"],
+            T["disp"], T["A"], T["enter"],
+        ],
+    ),
 }
 
 PROGRAM_NAMES = {
@@ -138,6 +184,10 @@ PROGRAM_NAMES = {
     "data": "DATA",
     "asmret": "ASMRET",
     "asmcall": "ASMCALL",
+    "animtext": "ANIMTXT",
+    "graphviz": "GRAPHV",
+    "subrt": "SUBRT",
+    "callsub": "CALLSUB",
 }
 
 

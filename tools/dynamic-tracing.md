@@ -166,6 +166,9 @@ They cover:
 | `data` | list literal, `L1`/`L2` 2-byte names, `SortA(`, `cumSum(`, `sum(` |
 | `asmret` | `AsmPrgm` body containing `C9` (`RET`) |
 | `asmcall` | BASIC wrapper that runs `Asm(prgmASMRET)` between two `Disp` calls |
+| `animtext` | `ClrHome`, `For(`/`End`, `Output(` text placement, `Disp` |
+| `graphviz` | `ClrDraw`, `Line(`, `Circle(`, `Text(`, `DispGraph` |
+| `callsub` + `subrt` | BASIC `prgmNAME` call, shared variable return, `Return` |
 
 The current upstream headless TilEm runner does not silently load `.8xp` files
 before executing a macro. The validation traces below used a local TilEm patch
@@ -203,6 +206,9 @@ Validated outputs/traces (2026-06-06, OS 2.55MP, `tools/rom.bin`):
 | `FACTOR.8xp` with prompt input `5` | `N=5`, result `120`, then `Done` | `eval_stmt_entry`, loop parsing, `_FPMult` at `ram:238B`, `_Disp` |
 | `DATA.8xp` | sorted `{1 1 3 4 5}`, cumulative `{1 2 5 9 14}`, sum `14`, then `Done` | list token handling (`resolve_2byte_var2`, `chk_list_type`, `store_list_elem*`, `list_fold_dispatch`) and `_Disp` |
 | `ASMCALL.8xp` + `ASMRET.8xp` | `BEFORE`, `AFTER`, then `Done` | `Asm(` path jumps through `07:57B4`; payload executes `ram:9D95 op=0xC9` and returns to BASIC |
+| `ANIMTXT.8xp` | row of `X` characters, `DONE`, then `Done` | page-38 parser/loop paths, `_OutputExpr` (`03:4AF2`), `_Disp`, LCD text routines |
+| `GRAPHV.8xp` | graph screen with `DFS`, axes, and diagonal line | `_GrBufClr`, `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`) |
+| `CALLSUB.8xp` + `SUBRT.8xp` | `SUB`, `1`, then `Done` | `prgmNAME` lookup through VAT/name paths, shared `A` store/recall, `_Disp`, `Return` to caller |
 
 These traces include the startup link-transfer code because the patched headless
 runner loads the `.8xp` files during the traced process. Use an idle/load
