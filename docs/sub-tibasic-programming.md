@@ -110,9 +110,11 @@ Return
 Observed run: loading `CALLSUB.8xp` and `SUBRT.8xp` displays `SUB`, then `1`,
 then `Done`. This confirms the practical TI-BASIC calling convention: arguments
 and return values live in shared global variables, lists, strings, matrices, or
-`Ans`; `Return` exits the callee and resumes the caller. The trace hits VAT/name
-resolution (`findsym_scan`), parser entry/refill paths, `_StoSysTok`, `_StoAns`,
-`_RclVarSym`, and `_Disp`. **[confirmed]**
+`Ans`; `Return` exits the callee and resumes the caller. The trace hits the
+page-38 statement interpreter, VAT/name resolution (`findsym_scan`), parser
+entry/refill paths, the program-body evaluator call at `38:6914` into
+`eval_eqn_recursive` (`38:778F`), `_StoSysTok`, `_StoAns`, `_RclVarSym`, and
+`_Disp`. **[confirmed]**
 
 There is no local variable frame for BASIC programs. A subprogram that uses `A`
 modifies the caller's `A`. For reusable routines, document which variables are
@@ -214,9 +216,11 @@ AsmPrgm
 C9
 ```
 
-`Asm(` is token `BB 6A`; `AsmPrgm` is `BB 6C`; `prgm` is token `5F`. The trace
-shows the OS handoff through `07:57B4`, execution of the payload byte at
-`ram:9D95 op=0xC9`, and return to BASIC. **[confirmed]**
+`Asm(` is token `BB 6A`; `AsmPrgm` is `BB 6C`; `prgm` is token `5F`. The
+`Asm(` command handler parses the following `prgmNAME` token stream, then
+bcalls `_ExecutePrgm` (`4E7C`, target `07:5758`). The trace shows that path
+compile/copy the `AsmPrgm` body and hand off through `07:57B4`, execute the
+payload byte at `ram:9D95 op=0xC9`, and return to BASIC. **[confirmed]**
 
 Practical convention: pass data through OS variables or known RAM locations,
 validate inputs on the BASIC side, and make the ASM payload return normally with
@@ -224,12 +228,25 @@ validate inputs on the BASIC side, and make the ASM payload return normally with
 
 ### ASM to BASIC
 
-The inverse direction is not yet run-confirmed in this repo. The standard route
-is for ASM to call OS parser/program services: build or locate a program
-variable name, use VAT lookup, set up parser state, and enter the same
-interpreter machinery used by `prgmNAME`. That path needs a dedicated trace
-before this documentation should claim an exact calling sequence. **[hypothesis]**
+The inverse direction is not yet run-confirmed in this repo. Two easy-looking
+bcalls are not that entry point:
+
+- `_ExecutePrgm` is the `AsmPrgm` executor reached by `Asm(prgmNAME)`, not a
+  general "run a BASIC program" entry.
+- `_ParsePrgmName` (`4E82`, target `38:40D4`) only consumes a `prgmNAME` token
+  from the current parser cursor and builds the name object used by `Asm(`.
+
+The confirmed BASIC subprogram path is different: the `CALLSUB`/`SUBRT` trace
+does not hit `_ParsePrgmName`, `_ExecutePrgm`, `_Find_Parse_Formula`, or
+`_SetParseVarProg`. It resolves the program name through the page-38
+parser/VAT path, enters the program-body evaluator at `38:6914` ->
+`38:778F`, and lets `Return` unwind to the caller. Calling that same machinery
+from arbitrary ASM requires more than loading OP1 and bcalling a single public
+entry; it needs the same parser cursor, stack, error, and run-state setup that a
+live BASIC caller already has. **[hypothesis]**
 
 The current open item is therefore precise: trace a small ASM payload that
-invokes a BASIC program, identify the service entry and required parser/VAT
-state, and compare it to the already-confirmed BASIC-to-ASM `Asm(` handoff.
+successfully invokes a BASIC program, identify the required parser/VAT/error
+state, and compare it to both confirmed paths: `Asm(` -> `_ExecutePrgm` ->
+`ram:9D95`, and BASIC `prgmNAME` -> `38:6914`/`38:778F` program-body
+evaluation.
