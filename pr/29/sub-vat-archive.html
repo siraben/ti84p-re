@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b6577bcb.js";
+            window.path_to_searchindex_js = "searchindex-dc24526a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -192,8 +192,9 @@ the cross-page <code>CALL 0x2b09</code>-style trampolines. Page numbers are the 
 <hr>
 <h2 id="1-the-arcinfo-workspace-and-key-ram-pointers-c"><a class="header" href="#1-the-arcinfo-workspace-and-key-ram-pointers-c">1. The arcInfo workspace and key RAM pointers [C]</a></h2>
 <p>The archive engine keeps a 12-byte scratch block, labelled <code>arcInfo</code> (<code>83EEh</code>) in <code>ti83plus.inc</code>,
-plus a saved copy <code>savedArcInfo</code> (<code>8406h</code>). <code>_Arc_Unarc</code>’s reentrant inner mover saves it at
-<code>page_07:61DC</code> (<code>LD HL,83F1 / LD DE,8406 / LD BC,0C / LDIR</code>); the matching <code>07:61E8</code> restore candidate is not a defined function in the current live DB.</p>
+plus a saved copy <code>savedArcInfo</code> (<code>8406h</code>). <code>_Arc_Unarc</code>’s reentrant inner mover at <code>page_07:61DC</code>
+copies the <strong>12 bytes starting at <code>83F1</code></strong> (the <code>vatPtr</code> field onward, not the whole <code>83EE</code> block)
+into <code>8406</code> (<code>LD HL,83F1 / LD DE,8406 / LD BC,0C / LDIR</code>); the matching <code>07:61E8</code> restore candidate is not a defined function in the current live DB.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -204,8 +205,8 @@ plus a saved copy <code>savedArcInfo</code> (<code>8406h</code>). <code>_Arc_Una
 <tr><td><code>83EF</code></td><td><code>arcInfo.dataPtr</code></td><td>2-byte data address (in Flash window 0x4000–0x7FFF, or RAM)</td></tr>
 <tr><td><code>83F1</code></td><td><code>arcInfo.vatPtr</code></td><td>pointer to the <strong>VAT entry’s type byte</strong> (the symbol record)</td></tr>
 <tr><td><code>83F3</code></td><td><code>arcInfo.destPtr</code></td><td>destination data pointer (RAM target on unarchive)</td></tr>
-<tr><td><code>83F5</code></td><td><code>arcInfo.dataSize</code></td><td>element/data byte count (from <code>_DataSize</code>)</td></tr>
-<tr><td><code>83F7</code></td><td><code>arcInfo.size</code></td><td>total bytes to move</td></tr>
+<tr><td><code>83F5</code></td><td><code>arcInfo.dataSize</code></td><td>a header/record-size component (loaded from <code>BC</code> after <code>CALL 0FDE</code>)</td></tr>
+<tr><td><code>83F7</code></td><td><code>arcInfo.size</code></td><td>the variable’s data byte count (from <code>_DataSize</code>; <code>614B</code> does <code>CALL 1485</code> → <code>LD (83F7),DE</code>)</td></tr>
 <tr><td><code>83F9</code></td><td><code>arcInfo.sizeFull</code></td><td>size + header overhead</td></tr>
 <tr><td><code>8406</code></td><td><code>savedArcInfo</code></td><td>12-byte save slot for nested calls</td></tr>
 </tbody>
@@ -249,7 +250,7 @@ whose data lives on a Flash page.</p>
 <strong>page byte</strong> selects the Flash page; the VAT record itself always stays in RAM.</p>
 <hr>
 <h2 id="3-store--recall-ch"><a class="header" href="#3-store--recall-ch">3. Store / Recall [C/H]</a></h2>
-<p><strong>Store</strong> <code>_StoOther</code> (<code>38:62A9</code>) and siblings (<code>_StoAns/_StoX/_StoY/...</code> <code>38:6251–62A3</code>):</p>
+<p><strong>Store</strong> <code>_StoOther</code> (<code>38:62A9</code>) and siblings (<code>_StoAns</code>, <code>_StoX</code>, <code>_StoY</code>, … <code>38:6251–62A3</code>):</p>
 <ul>
 <li>Set OP1 type = 0xFF placeholder (<code>62A9: LD A,FF / LD (8478),A</code>), parse the destination name.</li>
 <li><code>5F45</code> resolves/creates the target symbol; then it copies the value. It dispatches on the
@@ -285,7 +286,7 @@ the Flash archive (the same entry point does both directions, deciding from the 
       (Flash, B≠0) LD A,(HL); CP 0x17 ; Group? ⇒ JP 26E0 reject  [groups archive via a different path]
                    CALL 61F4   ; *** Flash → RAM:  unarchive ***
    6272 (RAM, B==0):  CALL 6107        ; *** RAM → Flash:  archive ***
-  ... type-0x5D (complex-list) special-case via 32A9 / cross_page 37:4288
+  ... name-token-0x5D (list name, `tVarLst`) special-case via 32A9 / cross_page 05:4A6E
   LD A,(83EE); OR A; EI; RET
 </code></pre>
 <p><code>628B</code> is the <strong>archivable-name guard</strong>: after <code>_CkOP1Real</code> it returns <strong>Z for the non-archivable
@@ -304,7 +305,7 @@ RAM copy; <code>61F4</code> is the one that carves RAM and copies the data back 
        LD HL,(83F3) ; LD DE,(83F7) ; CALL _DelMem (1368)  ; release the old RAM copy
        RET
 616C:  reads vatPtr type, AND 0x1F (clean type for the record header),
-       LD HL,(83F7)+(83F5) ; ADC ; JP C,2729 (E_Invalid/E_IllegalNest/E_Bound 0x8F/0x90/0x91)  ; size overflow?
+       LD HL,(83F7)+(83F5) ; ADC ; JP C,2729 (E_Invalid, 0x8F)  ; size overflow?
        reserves a Flash slot via 2FDF(3D:61AF) / 2FF7(3D:62C2)
 </code></pre>
 <p>The data is <strong>appended</strong> to the archive Flash (Flash cannot be overwritten in place). The VAT entry’s
@@ -335,7 +336,7 @@ marked dead (<code>0xF0</code>, reclaimed at the next GC). <code>3D:6440</code> 
 <h3 id="4c-errors-raised-on-the-path-c"><a class="header" href="#4c-errors-raised-on-the-path-c">4c. Errors raised on the path [C]</a></h3>
 <ul>
 <li><code>2785: LD A,0x31</code> → <code>_JError</code> = <strong>E_ArchFull (0x31)</strong> “ERR:ARCHIVE FULL” (no room even after GC).</li>
-<li><code>2729: LD A,0x8F/0x90/0x91</code> → E_Invalid / E_IllegalNest / E_Bound (RAM-side overflow during unarchive).</li>
+<li><code>2729</code>/<code>272D</code>/<code>2731</code>: <code>LD A,0x8F</code>/<code>0x90</code>/<code>0x91</code> → E_Invalid / E_IllegalNest / E_Bound. The archive size check (<code>616C</code>) takes the <code>2729</code> (E_Invalid, <code>0x8F</code>) entry on overflow.</li>
 <li><code>26E0</code>+ is a cluster of local error shims: each loads its code (<code>0xB2</code>=E_Variable, <code>0xB3</code>=E_Duplicate, <code>0x81</code>=E_Overflow, <code>0x82</code>=E_DivBy0) into <code>A</code> and enters <code>_JError</code> — not <code>_ErrDataType</code>.</li>
 <li>Error-name strings live at <code>07:6CA9</code>: <code>ARCHIVED, VERSION, ARCHIVE FULL, VARIABLE, DUPLICATE</code>.</li>
 </ul>
@@ -380,7 +381,7 @@ their <code>flash_*</code> names are project-local inferred labels (not WikiTI o
 </tbody>
 </table>
 </div>
-<p>The program-core candidates (<code>3D:64AA</code>, <code>3D:61AF</code>, <code>3D:6440</code>) share this unlock prologue:</p>
+<p>The program-core candidates <code>3D:64AA</code> and <code>3D:6440</code> share this unlock prologue (<code>3D:61AF</code> starts differently — <code>PUSH AF; PUSH HL; BIT 6,(IY+0x24)</code>):</p>
 <pre><code class="language-z80">RES 7,(IY+0x24) ; LD A,1 ; DI ; IM 1 ; DI ; OUT (0x14),A ; DI ; CALL FUN_ram_02bf
 </code></pre>
 <p><code>OUT (0x14),A</code> toggles the <strong>Flash control port</strong> (0x14) to enable write/erase; <code>FUN_ram_02bf</code>
@@ -426,15 +427,16 @@ bits — port 2 bit 7 (<code>probe_hw_model_keep_a</code> <code>00:1837</code>) 
 <tbody>
 <tr><td>port 2 bit 7 <strong>clear</strong> (1 MB)</td><td><code>0x15</code></td><td><code>0x1E</code></td><td><code>AND 0x1F</code> (32 pages)</td></tr>
 <tr><td>port 0x21 == 0 (mid)</td><td><code>0x29</code></td><td><code>0x3E</code></td><td><code>AND 0x3F</code> (64 pages)</td></tr>
-<tr><td>else (2 MB)</td><td><code>0x69</code></td><td><code>0x7E</code></td><td><code>AND 0x3F</code></td></tr>
+<tr><td>else (2 MB)</td><td><code>0x69</code></td><td><code>0x7E</code></td><td><strong>no mask</strong> (full 8-bit page; <code>3D:6745</code> skips both <code>AND</code>s)</td></tr>
 </tbody>
 </table>
 </div>
 <p>So on a 1 MB TI-84 Plus the user archive occupies roughly raw pages <strong>0x15…0x1E</strong>, and the OS pages it
 into the <code>0x4000</code> window <strong>one 16 KB page at a time</strong> for both reading (<code>_FlashToRam</code>, masks <code>0x1F</code>/<code>0x3F</code>
 via the same model check, <code>3D:6745</code>) and erasing. <code>flash_set_sector_cnt</code> (<code>3D:727D</code>) loads
-<code>(base+1)</code> into the sector counter <code>0x82A3</code>; the erase routine <code>flash_erase_wait</code> (<code>3D:5ED3</code> →
-<code>3D:5EE3</code>) pages each sector to <code>0x4000</code> and issues the chip erase command via <code>RST 0x28</code>, decrementing
+<code>(base+1)</code> into the sector counter <code>0x82A3</code>; the erase routine <code>flash_erase_wait</code> (<code>3D:5ED3</code>, whose
+loop jumps to <code>3D:5EF1</code> — <code>3D:5EE3</code> is the unrelated <code>_FindApp</code>) pages each sector to <code>0x4000</code> and
+issues the chip erase command via <code>RST 0x28</code>, decrementing
 <code>0x82A3</code> down toward the base page. The underlying Am29F-class chip uses <strong>64 KB physical sectors
 (= 4 × 16 KB OS pages)</strong>; the OS walks/erases at 16 KB page granularity. [64 KB physical-sector figure: I]</p>
 <hr>
