@@ -168,6 +168,36 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
             T["dispgraph"], T["enter"],
         ],
     ),
+    "graphdfs": (
+        'ClrDraw\n'
+        'Line(20,10,10,35)\n'
+        'Line(20,10,50,35)\n'
+        'Line(10,35,35,55)\n'
+        'Circle(20,10,3)\n'
+        'Circle(10,35,3)\n'
+        'Circle(50,35,3)\n'
+        'Circle(35,55,3)\n'
+        'Text(16,8,"1")\n'
+        'Text(6,33,"2")\n'
+        'Text(46,33,"3")\n'
+        'Text(31,53,"4")\n'
+        'DispGraph',
+        [
+            T["clrdraw"], T["enter"],
+            T["line"], T["2"], T["0"], T["comma"], T["1"], T["0"], T["comma"], T["1"], T["0"], T["comma"], T["3"], T["5"], T["rparen"], T["enter"],
+            T["line"], T["2"], T["0"], T["comma"], T["1"], T["0"], T["comma"], T["5"], T["0"], T["comma"], T["3"], T["5"], T["rparen"], T["enter"],
+            T["line"], T["1"], T["0"], T["comma"], T["3"], T["5"], T["comma"], T["3"], T["5"], T["comma"], T["5"], T["5"], T["rparen"], T["enter"],
+            T["circle"], T["2"], T["0"], T["comma"], T["1"], T["0"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["circle"], T["1"], T["0"], T["comma"], T["3"], T["5"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["circle"], T["5"], T["0"], T["comma"], T["3"], T["5"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["circle"], T["3"], T["5"], T["comma"], T["5"], T["5"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["text"], T["1"], T["6"], T["comma"], T["8"], T["comma"], *string_literal("1"), T["rparen"], T["enter"],
+            T["text"], T["6"], T["comma"], T["3"], T["3"], T["comma"], *string_literal("2"), T["rparen"], T["enter"],
+            T["text"], T["4"], T["6"], T["comma"], T["3"], T["3"], T["comma"], *string_literal("3"), T["rparen"], T["enter"],
+            T["text"], T["3"], T["1"], T["comma"], T["5"], T["3"], T["comma"], *string_literal("4"), T["rparen"], T["enter"],
+            T["dispgraph"], T["enter"],
+        ],
+    ),
     "subrt": (
         'Disp "SUB"\nA+1->A\nReturn',
         [
@@ -276,6 +306,7 @@ PROGRAM_NAMES = {
     "asmcall": "ASMCALL",
     "animtext": "ANIMTXT",
     "graphviz": "GRAPHV",
+    "graphdfs": "GRAPHDFS",
     "subrt": "SUBRT",
     "callsub": "CALLSUB",
     "bigadd": "BIGADD",

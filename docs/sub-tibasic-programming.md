@@ -55,6 +55,7 @@ not yet traced end to end in this repo.
 | List built-ins (`DATA`) | `sum(` reaches `list_fold_dispatch` | Prefer built-ins when one parser setup can cover many elements. |
 | Text animation (`ANIMTXT`) | `Output(` plus LCD text paths on every loop | Precompute positions/strings and update the smallest region possible. |
 | Graph drawing (`GRAPHV`) | primitives draw into `plotSScreen`, then `_PDspGrph` | Batch graph primitives before `DispGraph`. |
+| Graph visualization (`GRAPHDFS`) | repeated `Line(`/`Circle(`/`Text(` reaches `_ILine`, `_IPoint`, `graph_pixel_op`, and small-font paths | Store graph topology in lists; draw the whole view in one graph-buffer pass. |
 | BASIC subprogram (`CALLSUB`) | page-38 program-body evaluator and shared VAT variables | Treat globals/lists/`Ans` as the calling convention. |
 | List algorithms (`BIGADD`, `DFS`) | VAT lookup, element address, OP-register move per access | Preallocate lists; cache dimensions and reused elements in scalars. |
 
@@ -100,6 +101,35 @@ parser. **[confirmed]**
 The performance lesson is to draw several primitives into the graph buffer, then
 display the graph buffer once. Repeated home-screen `Output(` calls give you
 more text-layout overhead and less control over redraw timing.
+
+### Graph visualization of DFS topology
+
+`GRAPHDFS.8xp` draws the same four-node graph traversed by `DFS.8xp`:
+
+```ti-basic
+ClrDraw
+Line(20,10,10,35)
+Line(20,10,50,35)
+Line(10,35,35,55)
+Circle(20,10,3)
+Circle(10,35,3)
+Circle(50,35,3)
+Circle(35,55,3)
+Text(16,8,"1")
+Text(6,33,"2")
+Text(46,33,"3")
+Text(31,53,"4")
+DispGraph
+```
+
+Observed run: the final graph screen shows four labeled nodes with edges
+`1->2`, `1->3`, and `2->4`. The trace hits `_ILine` (`04:4029`),
+`graph_pixel_op`, `_IPoint`, small-font glyph rendering, `_RestoreDisp`, and
+page-38 statement evaluation. **[confirmed]**
+
+The performance lesson is to separate graph data from graph drawing. Keep edge
+lists and traversal state in lists, but convert them to pixels in a single draw
+phase instead of interleaving traversal, display, and recalculation.
 
 ### BASIC subprogram calling convention
 
