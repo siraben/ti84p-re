@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-53da8975.js";
+            window.path_to_searchindex_js = "searchindex-db524601.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bcf53af4.js"></script>
@@ -520,7 +520,7 @@ anchors for readers who want to check the disassembly. [confirmed]</p>
 run under headless TilEm, the entry line was driven to render each construct, and
 page-<code>39</code> execution was rolled up to function level with
 <code>tools/tilem_trace_resolve.py --funcs --only-space page_39</code> (see
-<a href="../tools/dynamic-tracing.html">dynamic tracing</a>). The macros are
+<a href="https://github.com/siraben/ti84p-re/blob/main/tools/dynamic-tracing.md">dynamic tracing</a>). The macros are
 <code>tools/macros/mathprint-{power,fraction,fnint}.macro</code>. [confirmed]</p>
 <p>The trace cleanly separates the two documented rendering mechanisms by <em>which
 routines actually run</em> for each construct:</p>
@@ -569,7 +569,7 @@ mis-analyzes both (it shows bare decrement loops). The raw disassembly matches
 this page instead: <code>683D</code> does <code>A = base; loop: add a,7</code> (<code>x = base_x + 7·col</code>)
 and <code>6B1C</code> does <code>ld a,1Bh; … add a,7 (×n); add a,4</code> (<code>x_left = 0x1B + 7n</code>,
 <code>x_right = x_left + 4</code>). Trust <code>z80dasm</code> over the decompiler for these tight
-register-passing routines, as <a href="../README.html">the README</a> advises. [confirmed]</p>
+register-passing routines, as <a href="https://github.com/siraben/ti84p-re/blob/main/README.md">the README</a> advises. [confirmed]</p>
 <h2 id="remaining-detail"><a class="header" href="#remaining-detail">Remaining detail</a></h2>
 <p>The static MathPrint pipeline is recovered: token classification, handler records,
 recursive operand order, descriptor templates, fraction UI geometry, fixed structural

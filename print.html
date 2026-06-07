@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-53da8975.js";
+            window.path_to_searchindex_js = "searchindex-db524601.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bcf53af4.js"></script>
@@ -1382,9 +1382,9 @@ struct AppVar { uint16_t size;        uint8_t data[/* size */];          }; /* A
 <p>This is the canonical sign-magnitude BCD add. The full helper cluster is documented below.</p>
 <blockquote>
 <p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: the <code>2+3</code> run
-(<a href="../tools/macros/home-2plus3.macro"><code>home-2plus3.macro</code></a>) enters <code>_FPAdd</code> and
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/home-2plus3.macro"><code>home-2plus3.macro</code></a>) enters <code>_FPAdd</code> and
 — signs equal — falls through the sign test to <code>fp_add_mantissa</code> (<code>ram:1cb9</code>),
-while the <code>5−2</code> run (<a href="../tools/macros/fpsub.macro"><code>fpsub.macro</code></a>) negates <code>OP2</code>
+while the <code>5−2</code> run (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/fpsub.macro"><code>fpsub.macro</code></a>) negates <code>OP2</code>
 and takes the opposite-sign branch into <code>fp_sub_mantissa</code> (<code>ram:1d37</code>).
 <code>fp_sub_mantissa</code> has 0 hits in the add trace and the add path 0 hits in the
 subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
@@ -1466,11 +1466,11 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 <p>So a single 16-row table at <code>02:7181</code> powers <strong>all</strong> of ln / log / eˣ / 10ˣ; the <code>02:7D42</code> block only supplies the base-conversion constants ($\log_{10}e$, $\ln 10$) and the trig reduction constants.</p>
 <blockquote>
 <p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: <code>ln(2)</code>
-(<a href="../tools/macros/ln2.macro"><code>ln2.macro</code></a>) drives <code>_LnX</code>, whose selector
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/ln2.macro"><code>ln2.macro</code></a>) drives <code>_LnX</code>, whose selector
 (<code>02:6F94</code>) steps <code>A=00…07</code> then <code>08…0F</code> (the coarse/fine split at the <code>6FAD AND 0x8</code>
 / <code>6FD3 BIT 4</code> tests), walking successive <code>02:7181</code> rows with a per-step
 shift-add, then fetches $\ln 10$ via <code>LD A,6; CALL 0x2362</code> and multiplies.
-<code>e^{1}</code> (<a href="../tools/macros/exp1.macro"><code>exp1.macro</code></a>) drives <code>_EToX</code>, which consumes
+<code>e^{1}</code> (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/exp1.macro"><code>exp1.macro</code></a>) drives <code>_EToX</code>, which consumes
 the <strong>same</strong> table in reverse (the inner step is <code>fp_sub_mantissa</code> <code>1d37</code>, the
 accumulator add <code>fp_add_mantissa</code> <code>1cb9</code>), selector sweeping <code>00…0F</code> under the
 <code>710A CP 0x0F</code> bound. On-screen results: <code>.6931471806</code> and <code>2.718281828</code>.</p>
@@ -1496,7 +1496,7 @@ The quadrant (0–3) is accumulated in <code>B</code>/<code>bStack_1</code> (bit
 </ol>
 <blockquote>
 <p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: <code>sin(1)</code> in radian mode
-(<a href="../tools/macros/sin1.macro"><code>sin1.macro</code></a>) drives <code>_SinCosRad</code>. The flag init,
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/sin1.macro"><code>sin1.macro</code></a>) drives <code>_SinCosRad</code>. The flag init,
 the exponent gate (<code>735D LD A,(0x8479); SUB 0x80; CP 0x0C; JP NC</code> — not taken, since
 <code>exp(1)=0 &lt; 12</code>), the reduction multiply by the <code>02:7D81</code> constant
 (<code>7372 LD HL,0x7d81; CALL 0x1ae2</code>), and the table-stepping loader <code>02:731D</code> returning
@@ -2053,7 +2053,7 @@ These are the values the WINDOW editor writes and the grapher reads.</p>
 </table>
 </div>
 <p>There is a second “u” copy block at <code>0x8E7E</code> (<code>uXmin</code>…<code>uXres</code> at <code>0x8F3B</code>) — the
-** uVar** window set used in the alternate (split/table) graph context, and a working/temp
+<strong>uVar</strong> window set used in the alternate (split/table) graph context, and a working/temp
 float pair around <code>0x8E6A</code>/<code>0x8E73</code> used by the transform code (<code>UNK_ram_8e6a</code>). [strong]</p>
 <p><code>deltaX</code>/<code>deltaY</code> are derived from the window when the graph is set up and feed both the
 forward (real→pixel) and the circle/draw routines. The LCD is <strong>96×64</strong>, but the graph area
@@ -4457,7 +4457,7 @@ on other convergence sub-paths. <strong>[confirmed]</strong></li>
 <blockquote>
 <p><strong>Dynamic confirmation.</strong> Traced end-to-end under headless TilEm by driving the
 built-in Equation Solver to solve <code>X²−2 = 0</code>
-(<a href="../tools/macros/solver-sqrt2.macro"><code>solver-sqrt2.macro</code></a>). It converged on screen
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/solver-sqrt2.macro"><code>solver-sqrt2.macro</code></a>). It converged on screen
 to <code>X = 1.4142135623…</code> (√2) with <code>left-rt = 0</code>. The mem-write records show the guess
 at <code>0x8478</code> climbing <code>1.40898 → 1.41421335 → 1.4142135623645 → 1.4142135623731</code>
 (|err| ≈ 4.9e-15, crossing below the <code>1e-13</code> tolerance on the final step).
@@ -5444,7 +5444,7 @@ anchors for readers who want to check the disassembly. [confirmed]</p>
 run under headless TilEm, the entry line was driven to render each construct, and
 page-<code>39</code> execution was rolled up to function level with
 <code>tools/tilem_trace_resolve.py --funcs --only-space page_39</code> (see
-<a href="../tools/dynamic-tracing.html">dynamic tracing</a>). The macros are
+<a href="https://github.com/siraben/ti84p-re/blob/main/tools/dynamic-tracing.md">dynamic tracing</a>). The macros are
 <code>tools/macros/mathprint-{power,fraction,fnint}.macro</code>. [confirmed]</p>
 <p>The trace cleanly separates the two documented rendering mechanisms by <em>which
 routines actually run</em> for each construct:</p>
@@ -5493,7 +5493,7 @@ mis-analyzes both (it shows bare decrement loops). The raw disassembly matches
 this page instead: <code>683D</code> does <code>A = base; loop: add a,7</code> (<code>x = base_x + 7·col</code>)
 and <code>6B1C</code> does <code>ld a,1Bh; … add a,7 (×n); add a,4</code> (<code>x_left = 0x1B + 7n</code>,
 <code>x_right = x_left + 4</code>). Trust <code>z80dasm</code> over the decompiler for these tight
-register-passing routines, as <a href="../README.html">the README</a> advises. [confirmed]</p>
+register-passing routines, as <a href="https://github.com/siraben/ti84p-re/blob/main/README.md">the README</a> advises. [confirmed]</p>
 <h2 id="remaining-detail"><a class="header" href="#remaining-detail">Remaining detail</a></h2>
 <p>The static MathPrint pipeline is recovered: token classification, handler records,
 recursive operand order, descriptor templates, fraction UI geometry, fixed structural
@@ -7246,7 +7246,7 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 <tr><td><code>98</code></td><td><code>Ñ</code></td><td>TI-83+</td></tr>
 <tr><td><code>99</code></td><td><code>ñ</code></td><td>TI-83+</td></tr>
 <tr><td><code>9A</code></td><td><code>´</code></td><td>TI-83+</td></tr>
-<tr><td><code>9B</code></td><td>```</td><td>TI-83+</td></tr>
+<tr><td><code>9B</code></td><td><code>`</code></td><td>TI-83+</td></tr>
 <tr><td><code>9C</code></td><td><code>¨</code></td><td>TI-83+</td></tr>
 <tr><td><code>9D</code></td><td><code>¿</code></td><td>TI-83+</td></tr>
 <tr><td><code>9E</code></td><td><code>¡</code></td><td>TI-83+</td></tr>
@@ -7301,7 +7301,7 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 <tr><td><code>D2</code></td><td><code>#</code></td><td>TI-83+</td></tr>
 <tr><td><code>D3</code></td><td><code>$</code></td><td>TI-83+</td></tr>
 <tr><td><code>D4</code></td><td><code>&amp;</code></td><td>TI-83+</td></tr>
-<tr><td><code>D5</code></td><td>```</td><td>TI-83+</td></tr>
+<tr><td><code>D5</code></td><td><code>`</code></td><td>TI-83+</td></tr>
 <tr><td><code>D6</code></td><td><code>;</code></td><td>TI-83+</td></tr>
 <tr><td><code>D7</code></td><td><code>\</code></td><td>TI-83+</td></tr>
 <tr><td><code>D8</code></td><td><code>|</code></td><td>TI-83+</td></tr>
