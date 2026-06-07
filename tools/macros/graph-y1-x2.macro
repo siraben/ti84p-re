@@ -1,0 +1,22 @@
+# Power on, dismiss the RAM-cleared splash, enter Y1=X^2, and graph it.
+# Use this as a dynamic RAM-page scenario beyond the home-screen baseline:
+#   tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
+#     --macro tools/macros/graph-y1-x2.macro \
+#     --trace /tmp/page83-graph.trace --trace-range all
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key Y=
+wait 0.5s
+key CLEAR
+key GRAPHVAR
+key SQUARE
+wait 0.5s
+key GRAPH
+wait 4s
+screenshot /tmp/calc-graph-y1-x2.png

@@ -80,6 +80,9 @@ tools/tilem_trace_resolve.py /tmp/b.trace --print 40 --names tools/names.txt
 # every bank switch (port 5 / port 6 / port 7 writes)
 tools/tilem_trace_resolve.py /tmp/b.trace --page-switches
 
+# physical RAM page writes, after replaying port 5/6/7 page selection
+tools/analyze_ram_page_trace.py /tmp/b.trace --page 0x83
+
 # coverage: distinct executed addresses + hit counts
 tools/tilem_trace_resolve.py /tmp/b.trace --coverage --sort count --names tools/names.txt
 ```
@@ -157,7 +160,9 @@ rather than paged-address resolution.
 ## Files
 
 - [`tilem_trace_resolve.py`](tilem_trace_resolve.py) — trace → paged Ghidra address resolver.
+- [`analyze_ram_page_trace.py`](analyze_ram_page_trace.py) — trace memory writes → physical RAM page ranges.
 - [`macros/home-2plus3.macro`](macros/home-2plus3.macro) — power on, dismiss splash, evaluate `2+3`.
+- [`macros/graph-y1-x2.macro`](macros/graph-y1-x2.macro) — power on, enter `Y1=X^2`, and graph it.
 - [`macros/boot-idle.macro`](macros/boot-idle.macro) — baseline for coverage diffs.
 
 ## Trace format (quick reference)
