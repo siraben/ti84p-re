@@ -117,7 +117,10 @@ page_38:4870	goto_lbl_name_scanner
 page_38:5826	if_else_skip_handler
 page_38:59c5	eval_stmt_entry
 page_38:6f63	if_isg_stmt_handler
+page_38:6910	stmt_eval_body_entry
 page_38:6914	call_eval_eqn_recursive
+page_38:6917	stmt_eval_after_recursive
+page_38:6941	stmt_eval_cleanup_to_loop
 page_38:758a	_Find_Parse_Formula
 page_38:7600	set_tblgraph_draw_xpage
 page_38:6251	_StoAns
@@ -995,6 +998,9 @@ page_38:7562	bitcount_9320
 page_38:7579	chk_window_var
 page_38:75c4	sto_matrix_elem
 page_38:778f	eval_eqn_recursive
+page_38:779b	eval_eqn_clear_parse_flag48_7
+page_38:77a3	eval_eqn_check_op1_type
+page_38:77c2	eval_eqn_finish_typecheck
 page_39:4640	solver_sign_xor
 page_39:4692	solver_eval_fx2
 page_39:4730	eqdisp_save_box4

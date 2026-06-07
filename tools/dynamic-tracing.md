@@ -214,6 +214,14 @@ Validated outputs/traces (2026-06-06, OS 2.55MP, `tools/rom.bin`):
 | `BIGADD.8xp` | `L3` digits begin `{0 1 1 1 1 ...}`, carry line `1`, then `Done` | list indexing/stores (`list_var_index`, `_AdrLEle`, `_GetLToOP1`, `_PutToL`, `store_list_elem*`), `fnint_body`, `_FPDiv`, `_FPAdd`, `_FPSub`, `_FPMult` |
 | `DFS.8xp` | traversal `1`, `3`, `2`, `4`, visited `{1 1 1 1}`, then `Done` | nested control-flow scanners (`blockmatch_end_else`, `parse_scan_tokens`, `if_isg_stmt_handler`), parser refill/advance, list stack reads/stores |
 
+ASM-to-BASIC negative probes: a temporary `AsmPrgm` that builds
+`OP1={ProgObj,"ZZBASIC"}` and bcalls `_ChkFindSym` (`42F1`) returns to its BASIC
+wrapper, proving ASM-side VAT lookup works. The same payload changed to bcall
+`_Find_Parse_Formula` (`4AF2`) enters `_Find_Parse_Formula` (`38:758A`) and ends
+at `ERR:UNDEFINED`; the target BASIC program body does not run. Keep these as
+investigation traces rather than generated sample fixtures because one path is
+intentionally a failing probe.
+
 These traces include the startup link-transfer code because the patched headless
 runner loads the `.8xp` files during the traced process. Use an idle/load
 baseline and coverage diff if you need to isolate only interpreter execution.
