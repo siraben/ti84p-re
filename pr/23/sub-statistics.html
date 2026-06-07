@@ -1,0 +1,667 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Statistics - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-f6655ba4.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-bcf53af4.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="statistics"><a class="header" href="#statistics">Statistics</a></h1>
+<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
+<p>What happens between a college student entering data into <code>L1</code>/<code>L2</code>, pressing
+<strong>STAT ▸ CALC ▸ 1‑Var Stats</strong> (or <code>LinReg(ax+b)</code>, <code>QuadReg</code>, …), and seeing
+x̄, Σx, Sx, a, b, r, r² appear — and where every result is stored so it can be
+recalled by name (<code>x̄</code>, <code>Σx</code>, <code>RegEQ</code>, …).</p>
+<p>This doc covers the STAT <strong>CALC</strong> computations. The data source is the L1–L6
+lists (VAT/<a href="05-variables-vat.html">05-variables-vat.md</a>, <a href="sub-vat-archive.html">sub-vat-archive.md</a>); the arithmetic is the
+BCD FP engine (<a href="06-floating-point.html">06-floating-point.md</a>, <a href="sub-calculation.html">sub-calculation.md</a>). Stat <strong>plots</strong> and
+the <strong>DISTR</strong> menu are noted in §8/§9 — DISTR functions are <em>parser</em> functions,
+not part of the STAT‑CALC engine.</p>
+<p>Address form: <code>page:addr</code> (flash page in the <code>0x4000</code> slot) or <code>ram:addr</code> for the
+fixed page‑0 core at <code>0x0000</code>. The whole STAT‑CALC engine lives on <strong>flash page
+0x3A</strong>. Confidence: <strong>[confirmed]</strong> = read from Z80 disassembly, <strong>[standard]</strong> =
+matches documented TI behavior, <strong>[hypothesis]</strong> = inferred.</p>
+<p>The Ghidra decompiler mis-renders the Z80
+<code>SET/RES b,(IY+d)</code> flag ops, the <code>RST</code> macros, and cross-page <code>CALL 0x2b09</code>
+trampolines, so the algorithm here is read primarily from the <strong>disassembly</strong>.</p>
+<hr>
+<h2 id="1-the-statvars-result-block-0x8a3a-confirmed"><a class="header" href="#1-the-statvars-result-block-0x8a3a-confirmed">1. The <code>statVars</code> result block (<code>0x8A3A</code>) [confirmed]</a></h2>
+<p>Every STAT‑CALC result is a 9‑byte <code>TIFloat</code> (see <a href="06-floating-point.html">06-floating-point.md</a>) written
+into a fixed RAM table beginning at <strong><code>statVars = 0x8A3A</code></strong> (<code>statVars EQU 8A3Ah</code>
+in <code>ti83plus.inc</code>). Entries are packed at the 9‑byte <code>FPLEN</code> stride. These are the
+system variables a student recalls by name (<code>[2nd][STAT] ▸ VARS</code>):</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Addr</th><th>Name (<code>.inc</code>)</th><th>User-facing var</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td><code>8A3A</code></td><td><code>StatN</code></td><td><code>n</code></td><td>sample count (Σ of frequencies)</td></tr>
+<tr><td><code>8A43</code></td><td><code>XMean</code></td><td><code>x̄</code></td><td>mean of x</td></tr>
+<tr><td><code>8A4C</code></td><td><code>SumX</code></td><td><code>Σx</code></td><td>sum of x</td></tr>
+<tr><td><code>8A55</code></td><td><code>SumXSqr</code></td><td><code>Σx²</code></td><td>sum of x²</td></tr>
+<tr><td><code>8A5E</code></td><td><code>StdX</code></td><td><code>Sx</code></td><td><strong>sample</strong> std dev of x (÷ n−1)</td></tr>
+<tr><td><code>8A67</code></td><td><code>StdPX</code></td><td><code>σx</code></td><td><strong>population</strong> std dev of x (÷ n)</td></tr>
+<tr><td><code>8A70</code></td><td><code>MinX</code></td><td><code>minX</code></td><td>minimum x</td></tr>
+<tr><td><code>8A79</code></td><td><code>MaxX</code></td><td><code>maxX</code></td><td>maximum x</td></tr>
+<tr><td><code>8A82</code></td><td><code>MinY</code></td><td><code>minY</code></td><td>minimum y (2‑Var)</td></tr>
+<tr><td><code>8A8B</code></td><td><code>MaxY</code></td><td><code>maxY</code></td><td>maximum y (2‑Var)</td></tr>
+<tr><td><code>8A94</code></td><td><code>YMean</code></td><td><code>ȳ</code></td><td>mean of y</td></tr>
+<tr><td><code>8A9D</code></td><td><code>SumY</code></td><td><code>Σy</code></td><td>sum of y</td></tr>
+<tr><td><code>8AA6</code></td><td><code>SumYSqr</code></td><td><code>Σy²</code></td><td>sum of y²</td></tr>
+<tr><td><code>8AAF</code></td><td><code>StdY</code></td><td><code>Sy</code></td><td>sample std dev of y</td></tr>
+<tr><td><code>8AB8</code></td><td><code>StdPY</code></td><td><code>σy</code></td><td>population std dev of y</td></tr>
+<tr><td><code>8AC1</code></td><td><code>SumXY</code></td><td><code>Σxy</code></td><td>sum of x·y</td></tr>
+<tr><td><code>8ACA</code></td><td><code>Corr</code></td><td><code>r</code></td><td>correlation coefficient</td></tr>
+<tr><td><code>8AD3</code></td><td><code>MedX</code></td><td><code>Med</code></td><td>median of x</td></tr>
+<tr><td><code>8ADC</code></td><td><code>Q1</code></td><td><code>Q1</code></td><td>first quartile</td></tr>
+<tr><td><code>8AE5</code></td><td><code>Q3</code></td><td><code>Q3</code></td><td>third quartile</td></tr>
+<tr><td><code>8AEE</code></td><td><code>QuadA</code></td><td><code>a</code></td><td>regression coeff a (highest order)</td></tr>
+<tr><td><code>8AF7</code></td><td><code>QuadB</code></td><td><code>b</code></td><td>regression coeff b</td></tr>
+<tr><td><code>8B00</code></td><td><code>QuadC</code></td><td><code>c</code></td><td>regression coeff c</td></tr>
+<tr><td><code>8B09</code></td><td><code>CubeD</code></td><td><code>d</code></td><td>regression coeff d</td></tr>
+<tr><td><code>8B12</code></td><td><code>QuartE</code></td><td><code>e</code></td><td>regression coeff e</td></tr>
+<tr><td><code>8B1B</code>…<code>8B4E</code></td><td><code>MedX1/2/3</code>, <code>MedY1/2/3</code></td><td></td><td>Med‑Med (×3 partitions)</td></tr>
+</tbody>
+</table>
+</div>
+<p>Continuing past the table (also <code>.inc</code>): <code>PStat</code>/<code>ZStat</code>/<code>TStat</code>/<code>ChiStat</code>/
+<code>FStat</code>/<code>DF</code>/<code>Phat…</code>/<code>MeanX1</code>/<code>StdX1</code>/<code>StatN1</code>/<code>MeanX2</code>/<code>StdX2</code>/<code>StatN2</code>/<code>StdXP2</code>/
+<code>SLower</code>/<code>SUpper</code>/<code>SStat</code> — these hold the inferential‑stats outputs (the STAT‑TESTS
+menu) and are written by the test commands, not by 1/2‑Var Stats. An ANOVA block
+<code>anovaf_vars</code> (<code>F_DF/F_SS/F_MS/E_DF/E_SS/E_MS</code>) follows.</p>
+<p><strong>STAT‑TESTS are separate command handlers [confirmed scope].</strong> <code>Z‑Test</code>/<code>T‑Test</code>/<code>χ²‑Test</code>/
+<code>2‑SampFTest</code>/<code>ANOVA(</code> etc. come in as their own 2‑byte (<code>E1</code>‑prefixed) command tokens — e.g.
+<code>LinRegTTest=34h</code> noted in §3 — and are <strong>not</strong> dispatched through <code>_OneVar</code> (whose token map is
+only <code>F2</code>–<code>FF</code>, §3). They fill the <code>PStat…SStat</code>/<code>anovaf_vars</code> block above directly. No
+<code>PStat</code>/<code>ZStat</code>‑writing routine appears among the page‑0x3A <code>stat_*</code> symbols (all of which are
+the <code>_OneVar</code> accumulate/variance/median/regression engine), confirming the tests live in their
+own command handlers reached from the parser’s command dispatch, separate from the STAT‑CALC
+engine documented here. The exact per‑test handler addresses are not exposed as named routines
+in this DB. [confirmed: separate from <code>_OneVar</code>; addresses [I]]</p>
+<p>A scratch byte <strong><code>0x8A36</code></strong> (immediately below <code>statVars</code>) holds the <strong>stat‑command
+discriminator</strong> (the model index, set from the command token — see §3) for the
+duration of the computation. Working list/element pointers used by the loop live
+in the OP‑scratch RAM <code>0x84AF…0x84DB</code> (<code>84D3</code>=median data ptr, <code>84D5/84D7</code>=current
+x/y element ptr, <code>84D9</code>=sums matrix base, <code>84DB</code>=freq list ptr, <code>84B1/84B2</code>=loop
+counters, <code>84B3</code>=element count). [confirmed]</p>
+<p><strong>Recall by name:</strong> <code>_Rcl_StatVar</code> (<code>00:2149</code>, id <code>0x42DC</code>) is a page‑0 bcall
+trampoline (<code>CALL 0x3E07</code> → dispatcher, inline id <code>0xC9E7</code>) that loads the named
+statVar into <code>OP1</code>; the VAT‑level recall (<code>_RclVarSym</code>/<code>_RclVarPush</code>, see
+<a href="sub-vat-archive.html">sub-vat-archive.md</a>) routes the stat‑var name tokens (<code>tRegEq 0x01</code>, <code>tStatN 0x02</code>,
+<code>tXMean 0x03</code>, … <code>tCorr 0x12</code>, the <code>STATVARS</code> token group) to it. The name‑token
+values are in <code>ti83plus.inc</code> (<code>tStatN=02h … tSumXY=11h, tCorr=12h, tMedX=13h</code>,
+regression coeffs via <code>tRegEq=01h</code>). [confirmed/standard]</p>
+<hr>
+<h2 id="2-_onevar--the-statcalc-engine-entry-3a6420-id-0x4ba3-confirmed"><a class="header" href="#2-_onevar--the-statcalc-engine-entry-3a6420-id-0x4ba3-confirmed">2. <code>_OneVar</code> — the STAT‑CALC engine entry (<code>3A:6420</code>, id <code>0x4BA3</code>) [confirmed]</a></h2>
+<p><code>bcall(_OneVar)</code> is the single entry point for <strong>all</strong> STAT‑CALC commands
+(1‑Var, 2‑Var, and every regression). The parser invokes it after pushing the
+list arguments; the command token (<code>F2</code>–<code>FF</code>, see §3) selects the behaviour.</p>
+<pre><code class="language-z80">_OneVar (3A:6420):
+  SET 5,(IY+9)            ; statFlags: "stat computation active"
+  LD B,0                  ; arg counter
+  RES 1,(IY+0)  ; RES 1,(IY+1a)
+  LD (9817),0             ; clear a status byte
+  LD HL,8499 ; CALL 1b33  ; stage the parsed arg descriptor at 8499
+  LD A,0FF ; LD (84af),A
+  CALL _CkOP1Real (1942-ish) / arg-class checks …
+  ; ---- argument parsing (6442..64de) ----
+  ;   walks the parser argument list, accepting list-name tokens (0x24 list,
+  ;   0x2A list-element, 0x1C/0x25/0x19 = freq/list variants); validates count;
+  ;   _JError(0x8A) ARGUMENT / 0x88 SYNTAX on a bad arg list.
+  ; ---- set up the data pointers (64e1..6503) ----
+  LD HL,847a ; LD DE,8d2a ; CALL 1a9a  ; resolve the x-list (and y/freq) → 84D3..84DB
+  POP AF ; LD (8a36),A          ; *** save the command code → model discriminator ***
+  LD HL,6352 ; CALL 27da        ; install an on-error cleanup frame
+  CALL 6572                     ; *** the accumulation pass (§4) ***
+  CALL 2800 ; CALL 6345         ; tear down frame
+  ; ---- regression coefficient region select (6506..652f) ----
+  LD A,(8a36) ; CP 4 ; JR NC,..  ; A&lt;4 ⇒ polynomial regression
+       LD A,16 ; LD HL,8aee      ; coeff dest = QuadA block; … solve (§5)
+  …
+  SET 7,(IY+9)                  ; mark results valid
+  CALL 67c1 …                   ; finalize / median (§6)
+</code></pre>
+<p>Key facts read from the disassembly:</p>
+<ul>
+<li>The command byte is saved at <strong><code>(0x8A36)</code></strong> and steers everything afterward.</li>
+<li><code>LD HL,0x8AEE</code> (= <code>QuadA</code>) is the <strong>regression coefficient destination</strong>; the
+solver writes <code>a,b,c,d,e</code> there in descending order of power.</li>
+<li><code>_ErrStat</code> (<code>00:2741</code>, id <code>0x44C2</code>, code <strong><code>0x15</code></strong> “STAT”) and <code>_ErrStatPlot</code>
+(<code>00:2759</code>, code <code>0x1B</code>) are the STAT‑specific error raisers; the <code>_OneVar</code>
+body jumps to <code>0x2741</code> on e.g. fewer than the required data points.
+<code>_ErrDimMismatch</code> (<code>0x2715</code>) is raised if <code>L1</code> and <code>L2</code>/freq lengths differ
+(the <code>21bb</code> length compare at <code>6584</code>/<code>658a</code>).</li>
+</ul>
+<hr>
+<h2 id="3-stat-command-token-map-statcmd--0xf2-confirmed"><a class="header" href="#3-stat-command-token-map-statcmd--0xf2-confirmed">3. STAT command token map (<code>STATCMD = 0xF2</code>) [confirmed]</a></h2>
+<p>The parser passes the command token; <code>_OneVar</code> stores it at <code>0x8A36</code> and treats it
+as a model index. From <code>ti83plus.inc</code>:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Token</th><th>Value</th><th>Command</th><th>Model</th></tr>
+</thead>
+<tbody>
+<tr><td><code>tOneVar</code></td><td><code>F2</code></td><td><code>1‑Var Stats</code></td><td>one variable</td></tr>
+<tr><td><code>tTwoVar</code></td><td><code>F3</code></td><td><code>2‑Var Stats</code></td><td>two variable</td></tr>
+<tr><td><code>tLR</code></td><td><code>F4</code></td><td><code>LinReg(a+bx)</code></td><td>degree‑1 (a+bx form)</td></tr>
+<tr><td><code>tLRExp</code></td><td><code>F5</code></td><td><code>ExpReg</code></td><td>y=a·bˣ (log‑linear)</td></tr>
+<tr><td><code>tLRLn</code></td><td><code>F6</code></td><td><code>LnReg</code></td><td>y=a+b·ln x (log‑x)</td></tr>
+<tr><td><code>tLRPwr</code></td><td><code>F7</code></td><td><code>PwrReg</code></td><td>y=a·xᵇ (log‑log)</td></tr>
+<tr><td><code>tMedMed</code></td><td><code>F8</code></td><td><code>Med‑Med</code></td><td>resistant line</td></tr>
+<tr><td><code>tQuad</code></td><td><code>F9</code></td><td><code>QuadReg</code></td><td>degree‑2</td></tr>
+<tr><td><code>tLR1</code></td><td><code>FF</code></td><td><code>LinReg(ax+b)</code></td><td>degree‑1 (ax+b form)</td></tr>
+</tbody>
+</table>
+</div>
+<p><code>CubicReg</code>/<code>QuartReg</code> come in as the regression tokens <code>tCubicR=2Eh</code>/<code>tQuartR=2Fh</code>;
+<code>SinReg=32h</code>, <code>Logistic=33h</code>, <code>LinRegTTest=34h</code> are the extended (<code>E1</code>‑prefixed)
+tokens. Degree for the polynomial solver = the model index; the coefficient
+fan‑out into <code>QuadA..QuartE</code> is naturally sized by degree. [confirmed/standard]</p>
+<p><code>SortA(</code>/<code>SortD(</code> are <strong>separate</strong> tokens (<code>tSortA=E3h</code>, <code>tSortD=E4h</code>) with their
+own command handler — not <code>_OneVar</code>. The sort used here, <code>stat_sort</code> (<code>3A:7935</code>),
+is <strong>stat‑internal</strong>: its only callers are <code>stat_median_quartile</code> (<code>3A:79B9</code>) and
+<code>medmed_partition</code> (<code>3A:760F</code>) (xref‑confirmed), so it powers the 1‑Var median/
+quartile and Med‑Med paths (§6). The <code>SortA(</code>/<code>SortD(</code> <em>command</em> sort is a
+different routine on <strong>page 0x02</strong> (≈<code>02:5939</code>, comparator <code>_CpOP1OP2</code>) — see
+<a href="sub-matrix-list.html#sorta--sortd--list-sort-confirmed-comparator">Matrices &amp; Lists</a>.</p>
+<hr>
+<h2 id="4-the-accumulation-pass-3a6572--confirmed"><a class="header" href="#4-the-accumulation-pass-3a6572--confirmed">4. The accumulation pass (<code>3A:6572</code> …) [confirmed]</a></h2>
+<p>This is the heart of 1/2‑Var Stats and the regression sum‑setup. It makes a
+<strong>single pass</strong> over the data list(s), accumulating the power‑sums needed for the
+mean, variance, and least‑squares normal equations. Read from disassembly:</p>
+<pre><code class="language-z80">6572: CALL 6f90/6f7d         ; default freq = 1 if no freq list given
+6584: CALL 21bb              ; if freq list present, length-check vs x-list
+                             ;   → _ErrDimMismatch (2715) on mismatch
+658a: LD HL,(84d3)          ; HL = first element ptr; DE = element count
+6590: LD A,(8a36)           ; dispatch on command:
+   CP 8 (Med-Med) → jump to the resistant-line path (760f/75e4 → 79b9)
+   else compute the matrix dimension from the degree:
+        CP 1c/25/19/9 → dim=4 ; CP 5 (CubicReg) NC → dim+? ; default
+   65c1: A = dim ; SUB 2 ; PUSH AF
+65cd: set up x/y element pointers (84d5/84d7/84db)
+65f0: ---- per-element accumulator init ----
+   LD DE,8a3a ; … CALL 1a92  ; StatN slot
+   LD DE,8a94                ; YMean/Σy slots
+   CALL 110f                 ; allocate the sums matrix (84d9 = base)
+6646..66fe: ---- per-element loop ----
+   6f6a  : fetch next x (and y) list element, advance ptr
+   28e4/2297 : loop bound (RST FPSub / compare)
+   6567  : helper = (RST 8: OP1→OP2) ; LD HL,(84af) ; CALL 6f7d ; _FPMult (238b)
+           → forms the running power x^k · freq
+   238a  : _FPSquare (Σx²)
+   238b  : _FPMult   (Σxy, Σx^(i+j))
+   RST 30: _FPAdd    → accumulate into the matrix cell / Σ-slot
+   2999/29db/29a2 : guard-clear / OP-shuffle helpers
+   66fe: JP C,6655  ; loop while elements remain
+</code></pre>
+<p>So one pass builds, for a degree‑<em>d</em> fit, the symmetric <strong>moment matrix</strong> of
+power‑sums <code>Σxⁱ</code> (i = 0 … 2d) and the right‑hand side <code>Σxⁱy</code>, stored as a small
+2‑D array reached by the RAM trampoline helpers <strong><code>00:3A8F</code>/<code>3AA1</code>/<code>3AA7</code>/<code>3AAD</code>/<code>3AB9</code></strong>
+(matrix‑element get/set by <code>(row B, col C)</code>). <code>StatN</code>, <code>SumX</code>, <code>SumXSqr</code>, <code>SumY</code>,
+<code>SumYSqr</code>, <code>SumXY</code>, <code>MinX/MaxX/MinY/MaxY</code> are filled here directly. [confirmed]</p>
+<p><strong>Non‑polynomial regressions transform first</strong> [confirmed]: the front‑end at
+<code>658a</code>+ checks the command code and, for <code>ExpReg</code>/<code>PwrReg</code> (<code>ln y</code>),
+<code>LnReg</code>/<code>PwrReg</code> (<code>ln x</code>), pre‑applies the logarithm to each element before
+accumulating, then exponentiates the resulting linear coefficients (the
+<code>760f/75e4/79b9</code> and <code>7002/7013</code> branches call into the page‑02 <code>_LnX</code>/<code>_EToX</code>
+transcendentals — see <code>sub-calculation.md §5</code>). This is the standard
+“linearize, fit a line, transform back” method; <code>r</code> is the correlation of the
+<strong>transformed</strong> data.</p>
+<h3 id="4a-mean--standard-deviation-confirmed"><a class="header" href="#4a-mean--standard-deviation-confirmed">4a. Mean &amp; standard deviation [confirmed]</a></h3>
+<p>After the pass, <code>_OneVar</code> finalizes the moments (<code>3A:6762</code>+):</p>
+<pre><code class="language-z80">6762: LD DE,8a67 ; CALL 6984   ; σx  (population) from Σx², Σx, n
+6786: LD DE,8a5e ; CALL 6989   ; Sx  (sample), via _Minus1 (n→n-1) at 677c
+6798: LD DE,8a55 ; CALL 6998   ; Σx² slot
+67a7: LD DE,8aa6 ; CALL 6998   ; Σy²   (2-Var)
+</code></pre>
+<p>The variance helpers (<code>3A:6984</code>/<code>6989</code>/<code>6998</code>) implement the one‑pass formula
+<code>var = (Σx² − n·x̄²)/N</code> then <code>√</code>:</p>
+<pre><code class="language-z80">6998: _FPSquare(x̄) ; recall Σx² (15da) ; _FPMult ; (RST 30 _FPAdd / subtract) ; …
+6989: CALL _FPDiv (2541) ; CALL 3939 (_SqRoot wrapper) ; store
+</code></pre>
+<p>The <strong>only</strong> difference between σx (population) and Sx (sample) is the divisor:
+the population path divides by <code>n</code>, the sample path first does <code>_Minus1</code>
+(<code>00:2294</code>, n−1) — confirmed at <code>3A:677C</code>. <code>x̄ = Σx / n</code> via <code>_FPDiv</code>. [confirmed]</p>
+<hr>
+<h2 id="5-the-regression-solver--gaussjordan-on-the-normal-equations-3a67c6--confirmed"><a class="header" href="#5-the-regression-solver--gaussjordan-on-the-normal-equations-3a67c6--confirmed">5. The regression solver — Gauss‑Jordan on the normal equations (<code>3A:67C6</code> …) [confirmed]</a></h2>
+<p>For a polynomial fit the moment matrix from §4 is the augmented normal‑equations
+matrix <code>[ M | Σxⁱy ]</code>. <code>_OneVar</code> solves it <strong>in place by Gauss‑Jordan elimination</strong>
+(not a closed‑form determinant), then writes the coefficients to <code>QuadA…QuartE</code>.</p>
+<pre><code>67c6: build/copy the augmented matrix; 84d9 = base
+67d4..67e3: scale the pivot row
+67ec: LD BC,0202 ; CALL 3aad        ; pivot element (2,2)
+67f7: CALL 212d                     ; _ErrD check (zero pivot → SINGULAR MAT 0x83)
+67fa: RST 8 ; …                     ; pivot reciprocal
+6804: CALL 2541 (_FPDiv)            ; divide row by pivot
+680d..6815: elimination loop
+6845: CALL 3939 (_SqRoot) ; 6849 ; CALL 2541 (_FPDiv)  ; (forms r²/r from the fit)
+684f: LD A,12 ; CALL 213d           ; r-related store/guard
+6859..6876: row-reduce all other rows (3aa7 get, 238b _FPMult, RST 30 _FPAdd)
+6880: CALL 2541 ; on a zero pivot → LD A,35/36 ; CALL 213d  (SINGULAR MAT)
+68d6..6953: back-substitution — each coeff = (rhs − Σ known·M) / pivot
+   (3aa7/3aa1 matrix access, 238b _FPMult, RST 30/RST 8 accumulate,
+    24bd _InvOP1S to subtract, 2541 _FPDiv)
+   each solved coefficient is stored via 69af → CALL 3ab9 (matrix set)
+       then copied out to the QuadA..QuartE statVars block.
+</code></pre>
+<ul>
+<li>
+<p>A <strong>zero/near‑zero pivot raises <code>_ErrSingularMat</code> (0x83)</strong> “SINGULAR MAT”
+(e.g. all x equal, or too few distinct points for the degree). The <code>LD A,0x35</code>/
+<code>0x36</code> and <code>CALL 0x213d</code> are the in‑solver guards. [confirmed]</p>
+</li>
+<li>
+<p>The solver is dimension‑generic: <code>LinReg</code> (2×2) → <code>a,b</code>; <code>QuadReg</code> (3×3) →
+<code>a,b,c</code>; <code>CubicReg</code> (4×4) → <code>a,b,c,d</code>; <code>QuartReg</code> (5×5) → <code>a,b,c,d,e</code>. The
+coefficients land in <code>QuadA</code>(<code>8AEE</code>) downward. [confirmed]</p>
+</li>
+<li>
+<p><strong>Correlation <code>r</code> and <code>r²</code></strong> are computed for the linear models from the
+centred sums:</p>
+<p>$$r=\frac{\sum (x-\bar x)(y-\bar y)}{\sqrt{\sum (x-\bar x)^2\,\sum (y-\bar y)^2}}=\frac{n\sum xy-\sum x\sum y}{\sqrt{\big(n\sum x^2-(\sum x)^2\big)\big(n\sum y^2-(\sum y)^2\big)}}$$</p>
+<p>assembled with <code>_FPMult</code>/<code>_FPSub</code>/<code>_SqRoot</code>/
+<code>_FPDiv</code> (the <code>6845</code>/<code>684c</code> cluster) and <strong>stored to <code>Corr</code> (<code>8ACA</code>)</strong>. The store offset is
+pinned: at <strong><code>3A:684F</code></strong> the code does <code>LD A,0x12 ; CALL 0x213D</code>, and <code>0x213D</code> is
+<code>_Sto_StatVar</code> (the store counterpart of <code>_Rcl_StatVar 00:2149</code> — both funnel through the
+<code>0x3E07</code> statVar dispatcher with the <strong>name id in <code>A</code></strong>). Id <code>0x12</code> = <code>tCorr</code> = the <code>Corr</code>
+slot, so this single sequence is exactly <strong><code>r → Corr (8ACA)</code></strong>. The preceding <code>3A:6845</code>
+<code>_SqRoot</code>/<code>_FPDiv</code> cluster forms the ratio; <code>r²</code> (and <code>R²</code> for higher‑order fits) is the
+<code>r·r</code> / coefficient‑of‑determination derived from the same cluster and surfaced through the
+same <code>Corr</code> slot. [confirmed: the <code>A=0x12 → _Sto_StatVar</code> r‑store; standard formula]</p>
+</li>
+<li>
+<p>The fitted equation is also written to <strong><code>RegEQ</code></strong> (the <code>Y=</code>‑style regression
+equation system var, recalled via token <code>tRegEq=0x01</code>) so <code>RegEQ</code> can be pasted
+or graphed. [standard]</p>
+</li>
+</ul>
+<p>The <strong>Med‑Med</strong> model (<code>F8</code>) takes the resistant‑line branch (<code>3A:760F/79B9</code>):
+it sorts, splits the x‑sorted data into three equal partitions, takes the median
+(x,y) of each (<code>MedX1/2/3</code>, <code>MedY1/2/3</code> at <code>8B1B</code>…), and fits the line through the
+outer two summary points adjusted toward the middle — classic Tukey median‑median.
+[confirmed path / standard]</p>
+<hr>
+<h2 id="6-median-quartiles-minmax--the-sort-3a7935-3a79b9-confirmed"><a class="header" href="#6-median-quartiles-minmax--the-sort-3a7935-3a79b9-confirmed">6. Median, quartiles, min/max &amp; the sort (<code>3A:7935</code>, <code>3A:79B9</code>) [confirmed]</a></h2>
+<p>For <strong>1‑Var Stats</strong> the five‑number summary needs the data <strong>sorted</strong>:</p>
+<ul>
+<li><code>MinX</code>/<code>MaxX</code> are tracked during the §4 pass (running min/max compares).</li>
+<li>The median/quartile path (<code>3A:79B9</code> → <code>7A0B</code> …) sorts a working copy via the
+internal sort <code>stat_sort</code> (<code>3A:7935</code>), then:
+<ul>
+<li><code>Med</code> (<code>MedX</code>, <code>8AD3</code>) = middle element (or mean of the two middle for even n),</li>
+<li><code>Q1</code> (<code>8ADC</code>) = median of the lower half, <code>Q3</code> (<code>8AE5</code>) = median of the upper
+half (TI’s “exclude the overall median when n is odd” convention),
+with frequency‑weighted positions (the <code>7B30</code>/<code>7B4C</code>/<code>7B6E</code> helpers walk the
+cumulative‑frequency index, and <code>198d</code>/<code>238b</code> interpolate the rank). [confirmed
+path / standard quartile rule]</li>
+</ul>
+</li>
+</ul>
+<p>The five‑number summary <code>(minX, Q1, Med, Q3, maxX)</code> is what the <strong>MED/box‑plot</strong>
+stat plot reads back out of <code>statVars</code>.</p>
+<hr>
+<h2 id="7-worked-flow-2var-stats-l1l2-then-linregaxb-l1l2y1-hypothesis-from-26"><a class="header" href="#7-worked-flow-2var-stats-l1l2-then-linregaxb-l1l2y1-hypothesis-from-26">7. Worked flow: <code>2‑Var Stats L1,L2</code> then <code>LinReg(ax+b) L1,L2,Y1</code> [hypothesis, from §§2–6]</a></h2>
+<ol>
+<li>Parser pushes the list args, sets <code>A = command token</code>, <code>bcall(_OneVar)</code>.</li>
+<li><code>_OneVar</code> parses args → x‑list ptr <code>(84D3)</code>, y‑list <code>(84D5)</code>, freq <code>(84DB)</code>;
+saves the model code to <code>(8A36)</code>.</li>
+<li><strong>Accumulation pass</strong> (§4): one walk of L1/L2 building <code>n, Σx, Σx², Σy, Σy², Σxy</code> and <code>minX/maxX/minY/maxY</code> into <code>statVars</code>, plus the 2×2 moment matrix.</li>
+<li><strong>Moments</strong> (§4a): $\bar x=\tfrac{\sum x}{n}$, $\bar y=\tfrac{\sum y}{n}$; the sample/population
+spreads $S_x,\sigma_x,S_y,\sigma_y$ via the variance helper (divide by $n-1$ vs $n$).</li>
+<li><strong>Solve</strong> (§5): Gauss‑Jordan on the normal equations $\left[\begin{array}{cc|c}\sum 1&amp;\sum x&amp;\sum y\\\sum x&amp;\sum x^2&amp;\sum xy\end{array}\right]$ →
+<code>b=slope</code>, <code>a=intercept</code> → <code>QuadA/QuadB</code>; <code>r,r²</code> → <code>Corr</code>; equation → <code>RegEQ</code>,
+pasted into <code>Y1</code>.</li>
+<li>Results displayed by the STAT‑CALC report screen; all of x̄/Σx/…/a/b/r persist
+in <code>statVars</code> for later recall by name (<code>_Rcl_StatVar</code>).</li>
+</ol>
+<hr>
+<h2 id="8-stat-plots-standard--partially-confirmed"><a class="header" href="#8-stat-plots-standard--partially-confirmed">8. Stat plots [standard / partially confirmed]</a></h2>
+<p>Stat plots (Scatter <code>tScatter=FE</code>, xyLine <code>FD</code>, Histogram <code>tHist=FC</code>, box plots
+<code>tBoxIcon</code>, normal‑prob) are drawn by the <strong>graphing</strong> subsystem, reading the
+five‑number summary and the raw L1/L2 lists. <code>_ErrStatPlot</code> (<code>00:2759</code>, code
+<code>0x1B</code>) guards an invalid/undefined plot configuration; <code>_ZmStats</code> (<code>33:65DC</code>,
+id <code>0x47A4</code>) is the <strong>ZoomStat</strong> routine that auto‑scales the window to the plotted
+list data (sets <code>Xmin/Xmax/Ymin/Ymax</code> from <code>minX/maxX/minY/maxY</code>). See
+<a href="sub-graphing.html">sub-graphing.md</a>. [confirmed addresses / standard behavior]</p>
+<hr>
+<h2 id="9-distributions-distr-menu--not-part-of-statcalc-confirmed-scope"><a class="header" href="#9-distributions-distr-menu--not-part-of-statcalc-confirmed-scope">9. Distributions (DISTR menu) — <em>not</em> part of STAT‑CALC [confirmed scope]</a></h2>
+<p><code>normalpdf(</code>, <code>normalcdf(</code>, <code>invNorm(</code>, <code>binompdf(</code>, <code>tcdf(</code>, <code>χ²cdf(</code>, <code>Fcdf(</code>,
+etc. are <strong>parser functions</strong> (DISTR‑menu tokens, the <code>E1</code>/<code>E2</code>‑prefixed
+two‑byte tokens like <code>tShadeNorm=35h</code>), evaluated through the normal function
+dispatch of the TI‑BASIC parser, <strong>not</strong> through <code>_OneVar</code>. They are not
+exposed as named bcalls in this OS image (a search of <code>bcall_targets.txt</code> finds
+only <code>_SetNorm_Vals</code> <code>00:220F</code>, a helper that copies the <em>display</em> “Normal mode”
+default values — unrelated to the normal <em>distribution</em>). Their numerical cores
+(error‑function / incomplete‑gamma / incomplete‑beta continued fractions) live on
+a banked flash page reached via the parser’s function table and the page‑02 FP
+transcendentals; they belong to the parser/<code>sub-tibasic</code> dispatch rather than the
+STAT subsystem documented here.
+[confirmed: not reachable from <code>_OneVar</code>; hypothesis: numerical method]</p>
+<p><strong>Grounding [confirmed].</strong> A name search of the whole‑OS image for <code>norm</code>/<code>stat</code>/distribution
+cores returns <strong>no</strong> <code>normalcdf</code>/<code>erf</code>/incomplete‑gamma/incomplete‑beta entry points — the only
+<code>*norm*</code> symbols are <code>_SetNorm_Vals</code> (<code>00:220F</code>, display “Normal mode” defaults),
+<code>fp_normalize</code>/<code>fp_norm_left</code> (mantissa normalisation), <code>cplx_norm_*</code> (complex modulus) and the
+<code>eqdisp_setnorm_split</code> layout helpers — <strong>none</strong> is a distribution. Likewise every <code>stat_*</code>
+symbol on page 0x3A is part of the <code>_OneVar</code> STAT‑CALC engine (accumulate / variance / median /
+sort / regression), not a DISTR core. So the erf / incomplete‑gamma / incomplete‑beta continued
+fractions are <strong>[I] — outside the STAT‑CALC engine</strong>, sitting behind the parser’s 2‑byte
+(<code>E1</code>/<code>E2</code>‑prefixed) DISTR‑token function table; their exact page/address is not exposed as a
+named routine in this DB. [confirmed scope; address [I]]</p>
+<hr>
+<h2 id="10-integration-summary"><a class="header" href="#10-integration-summary">10. Integration summary</a></h2>
+<pre><code>  L1..L6 lists (VAT data)                 statVars (0x8A3A)  ← results, recall-by-name
+        │ (element fetch 3A:6F6A)               ▲
+        ▼                                       │ (_Rcl_StatVar 00:2149)
+   _OneVar (3A:6420, id 0x4BA3)  ──►  per-element accumulation pass (3A:6572)
+        │  cmd code → 0x8A36                     │  uses FP engine:
+        │                                        │   RST30 _FPAdd, 238B _FPMult,
+        ├─ moments / Sx,σx (3A:6984..)           │   238A _FPSquare, 2541 _FPDiv,
+        ├─ Gauss-Jordan solve (3A:67C6..) ───►   │   3939 _SqRoot, 2294 _Minus1
+        │     → QuadA..QuartE, Corr, RegEQ       │
+        └─ sort + median/quartile (3A:7935/79B9) ┘
+  errors: _ErrStat 00:2741 (0x15), _ErrStatPlot 00:2759 (0x1B),
+          _ErrSingularMat 0x83, _ErrDimMismatch 00:2715 (0x8B)
+</code></pre>
+<p>The STAT subsystem is a thin <strong>data‑driven front‑end</strong> on page 0x3A that reads list
+data via the VAT, drives the page‑0/page‑02 BCD FP engine to build power‑sums, then
+either finalizes the moments or runs an in‑place Gauss‑Jordan solve of the normal
+equations, depositing every output as a named <code>TIFloat</code> in the <code>statVars</code> block.</p>
+<hr>
+<h2 id="11-confident-address-index-spaceaddr"><a class="header" href="#11-confident-address-index-spaceaddr">11. Confident address index (<code>space:addr</code>)</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>space:addr</th><th>name</th><th>what</th></tr>
+</thead>
+<tbody>
+<tr><td><code>3A:6420</code></td><td><code>_OneVar</code></td><td>STAT‑CALC entry (1/2‑Var + all regressions), id 0x4BA3</td></tr>
+<tr><td><code>3A:6572</code></td><td><code>onevar_accumulate</code></td><td>one‑pass power‑sum accumulation loop</td></tr>
+<tr><td><code>3A:6567</code></td><td><code>onevar_powmul</code></td><td>running power·freq product (OP1→OP2, ×)</td></tr>
+<tr><td><code>3A:6345</code></td><td><code>onevar_frame_teardown</code></td><td>restore stat error frame</td></tr>
+<tr><td><code>3A:6352</code></td><td><code>onevar_frame_teardown_tail</code></td><td>on-error tail calling <code>onevar_frame_teardown</code></td></tr>
+<tr><td><code>3A:6984</code></td><td><code>stat_stddev_pop</code></td><td>population variance/σ finalize (÷ n)</td></tr>
+<tr><td><code>3A:6989</code></td><td><code>stat_stddev_samp</code></td><td>sample variance/S finalize (÷ n−1)</td></tr>
+<tr><td><code>3A:6998</code></td><td><code>stat_var_core</code></td><td>(Σx²−n·x̄²) variance core + √</td></tr>
+<tr><td><code>3A:67C6</code></td><td><code>reg_gauss_solve</code></td><td>Gauss‑Jordan solve of normal equations</td></tr>
+<tr><td><code>3A:69AF</code></td><td><code>reg_store_coeff</code></td><td>write a solved coefficient (matrix set)</td></tr>
+<tr><td><code>00:3A8F</code>/<code>3AA1</code>/<code>3AA7</code>/<code>3AAD</code>/<code>3AB9</code></td><td><code>stat_mtx_index/get/set</code></td><td>RAM trampolines for sums-matrix element access by (row,col)</td></tr>
+<tr><td><code>3A:6F6A</code></td><td><code>stat_next_elem</code></td><td>fetch next list element, advance ptr</td></tr>
+<tr><td><code>3A:6F7D</code>/<code>6F90</code></td><td><code>stat_freq_default</code></td><td>default frequency = 1</td></tr>
+<tr><td><code>3A:7935</code></td><td><code>stat_sort</code></td><td>stat-internal data sort (median/quartile, Med-Med)</td></tr>
+<tr><td><code>3A:79B9</code></td><td><code>stat_median_quartile</code></td><td>median/Q1/Q3 + Med‑Med medians</td></tr>
+<tr><td><code>3A:760F</code>/<code>75E4</code></td><td><code>medmed_partition</code></td><td>Med‑Med 3‑partition setup</td></tr>
+<tr><td><code>00:2149</code></td><td><code>_Rcl_StatVar</code></td><td>recall a named statVar into OP1, id 0x42DC</td></tr>
+<tr><td><code>00:2741</code></td><td><code>_ErrStat</code></td><td>raise STAT error (code 0x15), id 0x44C2</td></tr>
+<tr><td><code>00:2759</code></td><td><code>_ErrStatPlot</code></td><td>raise STAT PLOT error (0x1B), id 0x44D1</td></tr>
+<tr><td><code>00:2294</code></td><td><code>_Minus1</code></td><td>OP1 − 1 (n→n−1 for sample stddev)</td></tr>
+<tr><td><code>33:65DC</code></td><td><code>_ZmStats</code></td><td>ZoomStat — fit window to plotted data, id 0x47A4</td></tr>
+<tr><td><code>00:2715</code></td><td><code>_ErrDimMismatch</code></td><td>list length mismatch (0x8B)</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>RAM:</strong> <code>statVars=0x8A3A</code>, model‑discriminator <code>0x8A36</code>, work ptrs <code>0x84AF–0x84DB</code>
+(<code>84D3</code> x/median ptr, <code>84D5/84D7</code> element ptrs, <code>84D9</code> sums‑matrix base,
+<code>84DB</code> freq ptr, <code>84B1/84B2</code> loop counters, <code>84B3</code> element count).
+<strong>FP engine reused:</strong> <code>RST 30h</code>=<code>_FPAdd</code>, <code>RST 08h</code>=OP1→OP2, <code>00:238B</code>=<code>_FPMult</code>,
+<code>00:238A</code>=<code>_FPSquare</code>, <code>00:2541</code>=<code>_FPDiv</code>, <code>00:2294</code>=<code>_Minus1</code>, <code>02:6E38</code>/<code>3A:3939</code>
+=<code>_SqRoot</code>, <code>24BD</code>=<code>_InvOP1S</code>.</p>
+<h2 id="12-open-items"><a class="header" href="#12-open-items">12. Open items</a></h2>
+<ul>
+<li><strong>RESOLVED — <code>r</code> store offset.</strong> <code>3A:684F</code> does <code>LD A,0x12 ; CALL 0x213D</code>
+(<code>_Sto_StatVar</code>, id <code>0x12</code> = <code>tCorr</code>), i.e. <code>r → Corr (8ACA)</code>; <code>r²</code>/<code>R²</code> is the
+<code>r·r</code>/coefficient‑of‑determination from the same <code>6845</code> <code>_SqRoot</code>/<code>_FPDiv</code> cluster, surfaced
+through the same <code>Corr</code> slot (§5). (Residual: the <code>6845–6891</code> region is unanalyzed code in the
+DB, so only the <code>A=0x12</code> store sequence was byte‑pinned, not every intermediate.)</li>
+<li><strong>RESOLVED (scope) — DISTR numerical cores</strong> (erf/incomplete‑gamma/incomplete‑beta) are
+<strong>outside</strong> the STAT‑CALC engine: no distribution core is a named routine in this DB; they sit
+behind the parser’s 2‑byte DISTR‑token function table (<code>sub-tibasic</code>). Exact address [I] (§9).</li>
+<li><strong>RESOLVED (scope) — STAT‑TESTS</strong> (Z/T/χ²/F/ANOVA) that fill <code>PStat…SStat</code>/<code>anovaf_vars</code> are
+<strong>separate command handlers</strong>, not reached through <code>_OneVar</code> (whose tokens are only <code>F2</code>–<code>FF</code>);
+no <code>PStat</code>‑writing routine is among the page‑0x3A <code>stat_*</code> symbols (§1). Per‑test addresses [I].</li>
+<li><code>stat_sort</code> (<code>3A:7935</code>) is a 49-byte setup that validates/counts the elements
+then dispatches the compare-swap via <code>rst 28h</code> (the bcall site isn’t fully
+analyzed in the DB). The <code>SortA(</code>/<code>SortD(</code> <em>command</em> sort is a different routine
+(page 0x02, comparator <code>_CpOP1OP2</code>) — its complex-list ordering is documented in
+<a href="sub-matrix-list.html#sorta--sortd--list-sort-confirmed-comparator">Matrices &amp; Lists</a>.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="sub-apps-mem-settings.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="sub-matrix-list.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="sub-apps-mem-settings.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="sub-matrix-list.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-5fa46c0a.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
