@@ -227,9 +227,10 @@ sort body's element-load is not byte-traced]
   _OP1Set1 ; for each (i,j): if i==j -> store 1.0 (mantissa[0]=0x10) else 0
   ```
 - **`Fill(value,[M])`** / **`randM(`** stamp a constant / random values across all cells via a
-  per-cell loop over the whole matrix. `randM(` builds the result through the `0xB5` dispatcher
-  branch (`02:62D4`): the 2-arg path creates the `r×c` result (`5DBB` → `_CreateRMat 110F`) and
-  stores the dims (`631B`/`631C`/`4825`). The actual per-cell random fill is the one residual still
+  per-cell loop over the whole matrix. The `02:62D4` branch (`CP 0xB5`) is **`dim(`** (`0xB5` =
+  `tDim`), which creates the `r×c` result (`5DBB` → `_CreateRMat 110F`) and stores the dims
+  (`631B`/`631C`/`4825`) but performs no fill. `randM(` itself is a separate 2-byte token
+  (`tRandM` = `0x20`, `0xBB`-prefix group); its per-cell random fill is the one residual still
   open (§4) — and notably it does **not** use the `_Random` bcall (`0x4B79`): a ROM-wide scan finds
   zero `RST 28h; .dw 0x4B79` sites, so randM's randomness comes from some other path. [H]
 - Matrix **copy/reshape** = `_DataSize`-counted byte copy of the float payload
@@ -290,7 +291,7 @@ walk lands element `src(r,c)` at `dst(c,r)` — a true transpose, which re-index
 `02:4178` (`mat_fill_type1`) is a separate single-counter fill/apply in the `414A`–`4178` block,
 not the transpose body. [C]
 
-### `augment(`, `randM(`, `List►matr(`, `Matr►list(` — per-function drivers [C/H]
+### `augment(`, `dim(`, `List►matr(`, `Matr►list(` — per-function drivers [C/H]
 These are dispatched from the page-02 function-token evaluator (`list_fold_dispatch`, the
 `CP imm ; JR/JP` chain that runs `5E46`/`60C8`–`63xx`, keyed on the token byte). Each command's
 body and its single caller are byte-verified below.
@@ -300,7 +301,7 @@ body and its single caller are byte-verified below.
 | `Matr►list(` | `0x8D` @ `6388` | **`02:4773`** (2-arg), `02:49E3` (1-arg list copy) | [C] The `0x8D` branch splits on argument count (`638D: CP 0x02`). The **column-extract engine is `02:4773`** (2-arg path: `639D: CALL 5DD8 ; CALL 4773`; only caller `63A0`, byte-verified `CD 73 47`): it nests a per-row loop (`477B: LD B,1 …`, reading via `4040` `_AdrMRow`/`4068` `mele_store_ckvalid`) inside a column loop over `(84AF)`, copying matrix columns into list element(s) (`4051`/`479F`). The 1-arg/list path uses `02:49E3` (`6397: CALL 0x49E3`), a list-element copy-until-length-match (`47E6` recall, `4825` store, `21BB` compare vs `(84AF)`, `RET Z`). |
 | transpose `ᵀ` | `0x0E` @ `60E9` | **`02:412A`** | [C] Swaps the dim header (`60F5`), allocates the transposed shape, then `412A` copies `dst(c,r)=src(r,c)` over every cell (`403C` read from `(84D3)`, `4068` write to `(84D7)`); only caller `60FE`. See the transpose subsection above. |
 | `augment(` | `0x91` @ `635B` | **`02:6238` copy** [C]; `02:4663` engine [H] | The `0x91` branch requires two operands (`CP 0x02`), reads the dims (`5D98`), and checks the two row counts with `LD A,H ; CP L`: equal rows fall through (`JR Z`) and `H>L` raises `E_Dimension` (`JP NC,2719`). It then runs the **column-concatenation copy at `02:6238`** [C]: `6238` allocates the result (`5DE0` → `5DE6` → `_CreateRMat 110F`) and bulk-copies the float payload with `02:4539` (`mele_copy9_d3` — skip the 2 dim bytes, `LDIR` the column-major data), re-pointing `84D3←84D7`. The branch then calls `02:4663` (`6379`, only caller; byte-verified `CD 63 46`), a partial-pivoting elimination engine: it computes `min(H,L)` (`4672: LD A,H ; CP L ; JR C ; LD L,H`), inits via `475E`, and iterates from `BC=0x0101` calling `461C` (max-abs), `41D0` (pivot-column scan), `198D` (compare), `471C` (permutation swap) and `405E` (store). The column-concat copy (`6238`/`4539`) is confirmed augment behaviour [C]; `4663`'s elimination pass on the concatenated result is byte-confirmed but its role for plain `augment(` is left open [H]. (`augment(L1,L2)` list-concat is the `0x92` sibling at `637F`, sharing the `6362` setup.) |
-| `randM(` | `0xB5` @ `62D4` | create + dim setup (`5DBB`/`5DEB`); cell-fill body open [H] | The `0xB5` branch splits on argument count (`62D9: CP 0x02`): the 2-arg `randM(rows,cols)` path (`62DD`) and the 1-arg square path (`630A`). Both **create the result and set its dims** through `02:5DBB` (`CALL 5CEB` registers the variable by name, stores the data pointer to `84D3`, reads and zero-rejects the dim bytes `OR L ; JP Z,2719`, stores dims to `84AF`) and `02:5DEB`/`02:631E`. The per-cell random fill is not isolated as a loop in this branch, and does not use the `_Random` bcall (`0x4B79` — a ROM-wide scan finds no `RST 28h; .dw 0x4B79` site). `02:5264` (`cplx_swap_dispatch`) is **not** randM — its only caller is `62D0`, in the `0xBD` complex-operand branch. The randM cell-fill body stays open. [H] |
+| `dim(` (matrix create/set-dims) | `0xB5` @ `62D4` | create + dim setup (`5DBB`/`5DEB`) [C] | The compare at `62D4` is `CP 0xB5`, and **`0xB5` = `tDim` (`dim(`), not `randM(`** — so this is the `→dim(` matrix create/resize handler. It splits on argument count (`62D9: CP 0x02`): a 2-arg path (`62DD`) and a 1-arg path (`630A`). Both **create the result and set its dims** through `02:5DBB` (`CALL 5CEB` registers the variable by name, stores the data pointer to `84D3`, reads and zero-rejects the dim bytes `OR L ; JP Z,2719`, stores dims to `84AF`) and `02:5DEB`/`02:631E`. There is no per-cell fill loop here — consistent with `dim(`, which only sets dimensions. `02:5264` (`cplx_swap_dispatch`) is reached only from the `0xBD` complex-operand branch (`62D0`), not here. **`randM(` is a separate 2-byte token (`tRandM` = `0x20`, `0xBB`-prefix group) routed through the `0xBB` dispatcher; its cell-fill body is unidentified — it uses no `_Random` bcall (`0x4B79`: a ROM-wide scan finds no `RST 28h; .dw 0x4B79` site).** [H] |
 | `List►matr(` | `0x8E` @ `61C1` | `02:7D19` + copy | reshapes the argument lists into a matrix (`_DataSize`-counted float copy `4539`/`453F`). [H] |
 
 The matrix-element kernels these drivers share are `_AdrMEle`/`_AdrMRow` (`4002`/`4000`) for indexing,
@@ -474,7 +475,7 @@ and the routine and condition that triggers it.
 | `02:4539` | `mele_copy9_d3` | bulk column-major float-payload copy (skip 2 dim bytes, `LDIR`); used by `augment(`/reshape (§4) [C] |
 | `02:4663` | `mat_gauss_engine` | live DB name; `min(H,L)` partial-pivoting elimination engine; only caller is the `augment(` `0x91` branch (`6379`). Its role inside plain `augment(` is the one open item (§4) [H] |
 | `02:4773` | `mat_to_list_cols` | **`Matr►list(`** 2-arg column-extract engine (only caller `63A0`): nested col×row walk copying matrix columns into list element(s) (§4) [C] |
-| `02:5264` | `cplx_swap_dispatch` | live DB name; complex OP-pair arrange/swap (`5344`/`52D3`) reached only from the `0xBD` branch (`62D0`) — **not** `randM(` random-fill (§4) [C] |
+| `02:5264` | `cplx_swap_dispatch` | live DB name; complex OP-pair arrange/swap (`5344`/`52D3`) reached only from the `0xBD` branch (`62D0`) — **not** the `0xB5`/`dim(` matrix-create branch (§4) [C] |
 | `02:6238` | `mat_augment_copy` | **`augment(`** column-concat: allocate result (`5DE0`) + `4539` payload copy + re-point `84D3` (§4) [C] |
 | `02:49E3` | `lele_copy_until_eq` | live DB name; list-element copy-until-length-match (`21BB`, `RET Z`); inner copy of the `Matr►list(` 1-arg/list path (`6397`) (§4) [C] |
 | `02:41C1` | `abs_cmp_op1op2` | absolute-value compare: OP1 vs pivot [C] |
@@ -531,17 +532,19 @@ and the routine and condition that triggers it.
     with `02:49E3` as the 1-arg/list inner copy. [C]
   - `augment(` (`0x91` @ `635B`) → equal-rows guard (`CP L ; JP NC,2719`) + **column-concat copy at
     `02:6238`** (`5DE0` allocate + `02:4539` `LDIR` payload copy). [C]
-  - `randM(` (`0xB5` @ `62D4`) → creates the result and sets its dims (`5DBB`/`5DEB`). `02:5264`
-    (`cplx_swap_dispatch`, only caller `62D0` in the `0xBD` branch) is confirmed **not** randM. [C]
+  - `dim(` (`0xB5` @ `62D4`; `0xB5` = `tDim`, **not** `randM(`) → creates the result and sets its
+    dims (`5DBB`/`5DEB`). `02:5264` (`cplx_swap_dispatch`, only caller `62D0` in the `0xBD` branch)
+    is reached only from that complex branch, not here. [C]
   - `List►matr(` `0x8E` branch (`61C1`) → `02:7D19` + `_DataSize` copy (`4539`/`453F`) is
     unchanged [H].
 - **OPEN — two residuals inside the confirmed branches** (§4):
   - `augment(`'s `0x91` branch calls `02:4663` (`mat_gauss_engine`, only caller `6379`) — a
     `min(H,L)` partial-pivoting elimination pass — after the column-concat copy. Its role for plain
     `augment(` is byte-confirmed as a call but not explained. [H]
-  - `randM(`'s per-cell random fill is not isolated as a loop in the `0xB5` branch (the visible
-    calls create the matrix and convert the dims); it does not go through the `_Random` bcall
-    (`0x4B79`) — a ROM-wide scan finds no `RST 28h; .dw 0x4B79` site. [H]
+  - `randM(`'s per-cell random fill body is unidentified. `randM(` is a 2-byte token
+    (`tRandM` = `0x20`, `0xBB`-prefix group), distinct from the `0xB5`/`dim(` branch; the visible
+    matrix-create/dim-convert code is `dim(`'s, not randM's. randM does not go through the
+    `_Random` bcall (`0x4B79`) — a ROM-wide scan finds no `RST 28h; .dw 0x4B79` site. [H]
 - `seq(`/`SortA(`/`SortD(`/stats list-builders: confirm the collect-then-`_CreateRList` loop
   and the in-place float sort/compare. (Residual — comparator `_CpOP1OP2` confirmed; the
   unanalyzed page-02 sort body's element-load is still not byte-traced.)

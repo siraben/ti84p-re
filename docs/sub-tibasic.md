@@ -21,7 +21,7 @@ Its data is `word size` followed by `size` bytes of **tokenized** body — the
 exact byte stream the parser walks. No line numbers; lines are separated by the
 **EOL/newline token `0x3F`** (`tEnter`, shown as `cVar=='?'` = 0x3F in the
 decompiled cursor code). Most tokens are 1 byte; the 11 lead bytes
-(`5C 5D 5E 60 61 62 63 7E AA BB EF`) introduce 2-byte tokens ([doc 07](07-tokenizer-basic.md)).
+(`5C 5D 5E 60 61 62 63 7E BB AA EF`, the order of the `ram:1FF6` table) introduce 2-byte tokens ([doc 07](07-tokenizer-basic.md)).
 
 Editing/detokenizing for the program editor uses the page-01 token helpers
 ([doc 07](07-tokenizer-basic.md), re-confirmed here):
@@ -103,14 +103,15 @@ operator **precedence** is realized — nesting of productions, not a flat table
 operators are applied via the FP RST shortcuts (RST 30h `_FPAdd`, …) and
 `_BinOPExec`.
 
-### Parser dispatch: page 0x38 is executable code [confirmed]
+### Parser dispatch: page 0x38 begins with a handler-pointer table [confirmed]
 
-Raw bytes at `38:4000` are `CD AB 33 CD 78 1A 21 50 8F …` = `CALL 0x33AB;
-CALL 0x1A78; LD HL,0x8F50; …` — i.e. **executable dispatch code**, the "base
-production" the evaluator jumps into (`handler = 0x4000`), not an array of
-84 two-byte handler pointers. The dispatch is the
-`chk_tok_end` (`38:72E0`) / `parse_cur_err_illegal` (`38:70F8`) classify + the
-`38:7010` precedence selector above.
+Raw bytes at `38:4000` are `9F 41 F0 45 1C 42 CC 41 D9 41 …` = a **flat array of
+2-byte little-endian handler pointers** (entries `0x419F, 0x45F0, 0x421C,
+0x41CC, 0x41D9, …`), not executable code: `CALL 0x33AB` (`CD AB 33`) appears
+nowhere on page 0x38. The `38:7010` precedence
+selector indexes this table (`LD HL,0x4000`; add `2×class`; deref), with raw-code
+alternates at `0x478C` and `0x7175` for the postfix/leaf classes. Classification
+is done by `chk_tok_end` (`38:72E0`) / `parse_cur_err_illegal` (`38:70F8`).
 
 ### Results / Ans [confirmed]
 
@@ -162,8 +163,9 @@ value 0xD0 vs 0xD4 tells the caller whether it landed on `Else` or `End`.
   (the "condition was true, ran Then, now jump over Else" case), then rejoins the
   shared loop at `38:59C8`. Other `tElse` compares at `38:57B3/58A6/58C6`
   handle the symmetric "skip Then, run Else" and nested cases.
-- `if_stop_stmt_handler` (`38:6F63`) is the per-statement entry that special-cases `tIf(CE)` and
-  `tStop(DA-region)`: for `tIf` it sets grammar class `0x5F` and falls into the
+- `if_isg_stmt_handler` (`38:6F63`) is the per-statement entry that special-cases `tIf` (`0xCE`)
+  and `tISG` (`0xDA`, `IS>(`): the second compare is `38:6F6C: CP 0xDA` (`tISG`, **not** `tStop`,
+  which is `0xD9`). For `tIf` it sets grammar class `0x5F` and falls into the
   shared precedence loop to evaluate the condition; unknown leading tokens here
   raise `_JError(0x88)` (`E_Syntax`) for ordinary unknown tokens, or `_JError(0x30)`
   (`E_Version`, "ERR:VERSION") for tokens above `0xF5` (the reserved/newer-token range —
@@ -305,10 +307,11 @@ runs and off at `Done`. **[confirmed]**
    `set_split_rows` (`ram:20A0`) when `IY+9 & 0x80`.
 3. `parse_cur_err_illegal` (`38:70F8`) maps the token byte to a grammar/precedence class (tokens
    `>0xF1` get `+0x12`, folding the high token page into the class space).
-4. The precedence level (`cVar4` = 1/2/3) selects the production handler:
-   `0x4000` (base term/dispatch), `0x478C` (postfix `^`/`!`), or
-   `0x7175` (leaf) — neither `0x478C` nor `0x7175` is a defined function in the live DB;
-   both are raw code targets inside `parse_eval_expr`. Nesting these realizes precedence.
+4. The precedence level (`cVar4` = 1/2/3) selects the production handler base:
+   `0x4000` (base term — the **flat handler-pointer table**, indexed by token class),
+   `0x478C` (postfix `^`/`!`), or `0x7175` (leaf) — `0x478C` and `0x7175` are raw code
+   targets inside `parse_eval_expr` (not defined functions in the live DB), whereas
+   `0x4000` is the pointer table itself. Nesting these realizes precedence.
 5. Binary ops fold operands via FP RSTs (RST 30h `_FPAdd`; `_FPMult`=`00:238B`, …)
    / `_BinOPExec`, leaving the result in **OP1**.
 6. Variable tokens become an OP1 name (type byte + name) and resolve via
@@ -331,7 +334,7 @@ page_38:5987   _ParseInp                  ; parse/eval entry line or formula
 page_38:5ab3   parse_eval_expr            ; recursive-descent statement/expr core
 page_38:59c5   eval_stmt_entry            ; statement-loop variant (shared loop label 38:59C8)
 page_38:5826   if_else_skip_handler       ; Else-branch skip via block matcher
-page_38:6f63   if_stop_stmt_handler       ; per-statement If/Stop dispatch
+page_38:6f63   if_isg_stmt_handler        ; per-statement If/IS>( dispatch
 page_38:4130   blockmatch_end_else        ; nest-counting End/Else scanner
 page_38:4180   parse_scan_tokens          ; skip-to-delimiter (2-byte aware)
 page_38:4870   goto_lbl_name_scanner      ; scan label name, jump to search

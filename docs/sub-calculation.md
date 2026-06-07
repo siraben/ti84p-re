@@ -128,7 +128,9 @@ the `_TenX` body at `page_02:7069`; the ln/e^x/sin-cos coefficient tables are on
   degree-mode `_ASin`/`_ACos`/`_ATan`/`_ATan2` at `76F1`/`76DF`/`76E9`/`7749`.
 - `_ASin`/`_ACos` call domain check `SUB_page_02:79D3`; **|arg| > 1 → `_ErrDomain`**.
 - All inverse trig funnel into the shared **arctangent CORDIC engine** at `page_02:774B`
-  (`B=0x20` = 32 iterations), with asin/acos expressed via atan2 of (x, √(1−x²)).
+  (`B=0x20` seeds the octant/quadrant base written to `0x84A4`; the core is a base-10
+  trial-subtract digit recurrence, not a fixed 32-step loop), with asin/acos expressed
+  via atan2 of (x, √(1−x²)).
 
 ### Hyperbolics [confirmed]
 - `_SinHCosH` `7626`, `_TanH` `762A`, `_CosH` `762E`, `_SinH` `7632`; `_ATanH`/`_ASinH`/`_ACosH`

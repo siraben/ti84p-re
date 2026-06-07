@@ -81,9 +81,17 @@ one nibble per `fp_shift_right_digit` call; if $\Delta > 15$ the smaller operand
 
 This is the canonical sign-magnitude BCD add. The full helper cluster is documented below.
 
+> **Dynamic confirmation.** Traced under headless TilEm: the `2+3` run
+> ([`home-2plus3.macro`](../tools/macros/home-2plus3.macro)) enters `_FPAdd` and
+> — signs equal — falls through the sign test to `fp_add_mantissa` (`ram:1cb9`),
+> while the `5−2` run ([`fpsub.macro`](../tools/macros/fpsub.macro)) negates `OP2`
+> and takes the opposite-sign branch into `fp_sub_mantissa` (`ram:1d37`).
+> `fp_sub_mantissa` has 0 hits in the add trace and the add path 0 hits in the
+> subtract trace, so the pseudocode's sign dispatch is confirmed both ways.
+
 ### The FP helper cluster [confirmed]
 
-These five page-0 primitives are shared by add/sub/mult/div and the transcendentals. All were decompiled and disassembled in this ROM; the names below were applied to the Ghidra DB. They operate on the OP-register guard region (`OP1EXT`/`OP2EXT` at `0x8481`/`0x848C`) and the 7-byte mantissas of `OP1` (`0x8478`) / `OP2` (`0x8483`).
+These five page-0 primitives are shared by add/sub/mult/div and the transcendentals. All were decompiled and disassembled in this ROM; the names below were applied to the Ghidra DB. They operate on the OP-register guard region (`OP1EXT`/`OP2EXT` are 2 bytes each, at `0x8481`-`0x8482`/`0x848C`-`0x848D` — `fp_clear_guard` zeroes all four) and the 7-byte mantissas of `OP1` (`0x8478`) / `OP2` (`0x8483`).
 
 | Helper | Addr | Role [confirmed] |
 |--------|------|------|
@@ -122,7 +130,7 @@ The ln/e^x/sin-cos evaluators are local page-0x02 code plus page-0x02 coefficien
 
 ### The shared algorithm — digit-by-digit pseudo-division [confirmed]
 
-The forward log and exp evaluators are a **digit-by-digit pseudo-division** recurrence — the algorithm BCD calculators have used since the 1960s. The table gives it away: `02:7181`'s 16 rows are exactly $\log_{10}(1+10^{-k})$ for $k=0\ldots15$ (matched to 14 digits — `[00]` = `log₁₀2`, `[01]` = `log₁₀1.1`, `[02]` = `log₁₀1.01`, …), which is precisely the per-step increment such a recurrence consumes. The recurrence runs on shift-and-add alone: scaling a BCD number by $1+10^{-k}$ is $x + (x\text{ shifted right }k\text{ digits})$, one `fp_shift_right_digit` plus one `fp_add_mantissa`, so the whole transcendental needs no general multiply.
+The forward log and exp evaluators are a **digit-by-digit pseudo-division** recurrence — the algorithm BCD calculators have used since the 1960s. The table gives it away: `02:7181`'s 16 rows are exactly $\log_{10}(1+10^{-k})$ for $k=0\ldots15$ (matched to 14 digits — `[00]` = `log₁₀2`, `[01]` = `log₁₀1.1`, `[02]` = `log₁₀1.01`, …), which is precisely the per-step increment such a recurrence consumes. The recurrence runs on shift-and-add alone: scaling a BCD number by $1+10^{-k}$ is $x + (x\text{ shifted right }k\text{ digits})$, one `fp_shift_right_digit` (`ram:1bea`) plus one BCD-add, so the whole transcendental needs no general multiply. (The traces show the shift `1bea` is shared, but the running-add entry differs: `_EToX` uses `fp_add_mantissa` `ram:1cb9`, while `_LnX` uses the sibling BCD-add entry `ram:1ca9` — `1cb9` fires 0× in the `ln(2)` loop, `1ca9` 0× in the `e¹` loop.)
 
 **Logarithm.** With the exponent already split off so the mantissa is $x\in[1,10)$, the loop (`02:6F80`–`6FEE`) drives $x$ up toward $10$ by repeatedly scaling by the largest table factor that doesn't overshoot; the number of scalings at each position *is* the corresponding digit of the answer, and the running sum of the table entries is the logarithm:
 
@@ -164,6 +172,16 @@ The code's two passes — the `AND 0x8` then `BIT 4` stops at `02:6FAD`/`6FD3` �
 
 So a single 16-row table at `02:7181` powers **all** of ln / log / eˣ / 10ˣ; the `02:7D42` block only supplies the base-conversion constants ($\log_{10}e$, $\ln 10$) and the trig reduction constants.
 
+> **Dynamic confirmation.** Traced under headless TilEm: `ln(2)`
+> ([`ln2.macro`](../tools/macros/ln2.macro)) drives `_LnX`, whose selector
+> (`02:6F94`) steps `A=00…07` then `08…0F` (the coarse/fine split at the `6FAD AND 0x8`
+> / `6FD3 BIT 4` tests), walking successive `02:7181` rows with a per-step
+> shift-add, then fetches $\ln 10$ via `LD A,6; CALL 0x2362` and multiplies.
+> `e^{1}` ([`exp1.macro`](../tools/macros/exp1.macro)) drives `_EToX`, which consumes
+> the **same** table in reverse (the inner step is `fp_sub_mantissa` `1d37`, the
+> accumulator add `fp_add_mantissa` `1cb9`), selector sweeping `00…0F` under the
+> `710A CP 0x0F` bound. On-screen results: `.6931471806` and `2.718281828`.
+
 **Sin/cos** (`_SinCosRad`) uses the same digit-recurrence *shape* on the range-reduced angle, but with its own **near-unity scaling tables** `02:7201`/`02:7281` (eight rows, two sign-variants each, picked by `0x84A4` bit 7) rather than Taylor coefficients — so it too is a table-driven recurrence, not a fixed polynomial. The exact rotation identity each trig row encodes is not pinned here.
 
 ### `_LnX` — natural log (`02:6EFD`) [confirmed]
@@ -185,6 +203,14 @@ This one keeps its **range reduction on page 0x02** and is the most fully recove
    - `0x7d8e`, `0x7d95`, `0x7d96` — companion constants used in the quadrant-fixup / remainder comparisons (`CALL 0x1d7b` magnitude compare at `02:73B1`/`02:7447`).
    The quadrant (0–3) is accumulated in `B`/`bStack_1` (bits 0/3/6) and decides sin-vs-cos and the result sign (the `XOR 0x1 / OR 0x8 / XOR 0x8` flag juggling at `02:7424`–`02:7464`).
 4. **Per-digit evaluation.** After reduction (`02:7475` onward, falling through `02:7488 LD A,B`) the reduced argument in `[0, pi/4)` drives the **same table-stepping digit recurrence** as ln/e^x: a selector walks the coefficient table one row per step rather than unrolling a fixed polynomial. The loaders are local — `02:74AB: CALL 0x731D` reads the signed table at `02:7201`, `02:74EA: CALL 0x7312` reads the signed table at `02:7281` — and the selector advances under `BIT 3,B` / `BIT 3,C` in the tail (`02:74DD`-`02:74E0`, `02:75C6`-`02:75C8`), so the walk covers eight selector rows (`0..7`), each carrying two 8-byte sign/phase variants. Per-row decoding of `02:7201`/`02:7281` is the one piece still open: the rows climb toward 10 (e.g. `02:7201[00]`=`9.9668…`, `[06]`=`9.999999…`), the shape of a half-angle / rotation factor consumed one digit at a time.
+
+> **Dynamic confirmation.** Traced under headless TilEm: `sin(1)` in radian mode
+> ([`sin1.macro`](../tools/macros/sin1.macro)) drives `_SinCosRad`. The flag init,
+> the exponent gate (`735D LD A,(0x8479); SUB 0x80; CP 0x0C; JP NC` — not taken, since
+> `exp(1)=0 < 12`), the reduction multiply by the `02:7D81` constant
+> (`7372 LD HL,0x7d81; CALL 0x1ae2`), and the table-stepping loader `02:731D` returning
+> successive rows of `02:7201` (HL = `7209/7219/…/7279`, 16-byte stride) all execute as
+> described. On-screen result: `.8414709848`. (Per-row coefficient meaning remains the open piece.)
 
 ### Coefficient tables [confirmed]
 
