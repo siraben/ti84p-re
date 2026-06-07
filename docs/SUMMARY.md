@@ -35,6 +35,7 @@
 - [Calculation engine](sub-calculation.md)
 - [Graphing](sub-graphing.md)
 - [TI-BASIC programs](sub-tibasic.md)
+- [TI-BASIC `For(` optional paren trap](sub-tibasic-for-paren.md)
 - [Variables, archive & unarchive](sub-vat-archive.md)
 - [Apps, memory reset & settings](sub-apps-mem-settings.md)
 - [Statistics](sub-statistics.md)

@@ -198,6 +198,11 @@ value 0xD0 vs 0xD4 tells the caller whether it landed on `Else` or `End`.
 - `if_else_skip_handler` (`38:5826`)'s prologue calls `_DeallocFPS1` then
   `restore_982c_ctx` (`38:58DF`, which sets `pTempCnt`/`cleanTmp`) — FPS bookkeeping
   consistent with pushing/popping a loop frame. **[strong]**
+- A trace-backed performance trap exists when `For(` omits its optional closing
+  `)` and the first loop-body statement is a single-line false `If`: the
+  implicit-close path at `02:5676` interacts with the false-`If` skip path and
+  repeatedly advances temporary parser storage. See
+  [TI-BASIC `For(` optional paren trap](sub-tibasic-for-paren.md).
 
 ### Goto / Lbl: `goto_lbl_name_scanner` (`38:4870`) + scanner at `38:7600` [confirmed]
 
@@ -383,14 +388,13 @@ homescreen reaches page-38 parser functions including `eval_stmt_entry`
 `parse_advance` (`38:7248`), `chk_tok_end` (`38:72E0`), and `_StoAns`
 (`38:6251`).
 
-The stored-program samples in
-[`tools/tibasic-samples/`](../tools/tibasic-samples/) are generated with
-[`tools/tibasic_samples.py`](../tools/tibasic_samples.py) `--write-dir
-tools/tibasic-samples`. Each sample has readable `.bas`, raw-body `.tok`, and
-loadable `.8xp` forms. The `.8xp` validation traces below were run on 2026-06-06
-against OS 2.55MP in `tools/rom.bin` with a local headless TilEm patch that loads
-command-line `.8xp` files before running the macro; the traces therefore include
-startup link-transfer code as well as interpreter execution.
+The stored-program samples in `tools/tibasic-samples/` are generated with
+`tools/tibasic_samples.py --write-dir tools/tibasic-samples`. Each sample has
+readable `.bas`, raw-body `.tok`, and loadable `.8xp` forms. The `.8xp`
+validation traces below were run on 2026-06-06 against OS 2.55MP in
+`tools/rom.bin` with a local headless TilEm patch that loads command-line `.8xp`
+files before running the macro; the traces therefore include startup
+link-transfer code as well as interpreter execution.
 
 ### Hello world
 
