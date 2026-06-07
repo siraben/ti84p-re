@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c6400a2c.js";
+            window.path_to_searchindex_js = "searchindex-a516d3c0.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-bcf53af4.js"></script>
+        <script src="toc-cbaaedfe.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -357,6 +357,11 @@ not yet field-mapped — see residual]</strong></li>
 <li><code>if_else_skip_handler</code> (<code>38:5826</code>)’s prologue calls <code>_DeallocFPS1</code> then
 <code>restore_982c_ctx</code> (<code>38:58DF</code>, which sets <code>pTempCnt</code>/<code>cleanTmp</code>) — FPS bookkeeping
 consistent with pushing/popping a loop frame. <strong>[strong]</strong></li>
+<li>A trace-backed performance trap exists when <code>For(</code> omits its optional closing
+<code>)</code> and the first loop-body statement is a single-line false <code>If</code>: the
+implicit-close path at <code>02:5676</code> interacts with the false-<code>If</code> skip path and
+repeatedly advances temporary parser storage. See
+<a href="sub-tibasic-for-paren.html">TI-BASIC <code>For(</code> optional paren trap</a>.</li>
 </ul>
 <h3 id="goto--lbl-goto_lbl_name_scanner-384870--scanner-at-387600-confirmed"><a class="header" href="#goto--lbl-goto_lbl_name_scanner-384870--scanner-at-387600-confirmed">Goto / Lbl: <code>goto_lbl_name_scanner</code> (<code>38:4870</code>) + scanner at <code>38:7600</code> [confirmed]</a></h3>
 <ul>
@@ -369,9 +374,11 @@ until EOL (<code>'?'</code>=0x3F) / end, records the position in <code>parsePtr<
 <code>Lbl name</code>, then setting <code>parsePtr</code> there — the classic TI-BASIC behavior that
 makes <code>Goto</code> O(program size) and makes <code>Goto</code> out of a loop leak the loop’s
 stack frame. <strong>[inferred — standard, consistent with the rescan call shape]</strong></li>
-<li><code>Return</code>/<code>Stop</code> (<code>tReturn=D5</code>/<code>tStop=D9</code>) terminate the current program /
-unwind: they exit the statement loop back to the caller (or to the homescreen
-context via the <code>onSP</code>/context mechanism in <a href="11-boot-contexts-errors.html">doc 11</a>). <strong>[inferred/strong]</strong></li>
+<li><code>Return</code>/<code>Stop</code> (<code>tReturn=D5</code>/<code>tStop=D9</code>) terminate execution at different
+scopes: <code>Return</code> exits the current BASIC program and resumes the caller, while
+<code>Stop</code> exits the whole BASIC program chain back to the homescreen context.
+<code>CALLSUB</code>/<code>SUBRT</code> and <code>CALLSTOP</code>/<code>STOPSUB</code> are run-confirmed fixtures for
+those two cases. <strong>[confirmed]</strong></li>
 </ul>
 <hr>
 <h2 id="5-io-commands"><a class="header" href="#5-io-commands">5. I/O commands</a></h2>
@@ -542,7 +549,358 @@ page_02:673e   output_cmd_handler (tOutput E0)
 page_38:6ae6   output_dispatch    (CP E0 in evaluator)
 </code></pre>
 <hr>
-<h2 id="8-resolved--residual"><a class="header" href="#8-resolved--residual">8. Resolved / residual</a></h2>
+<h2 id="8-dynamic-confirmation-and-traceable-examples"><a class="header" href="#8-dynamic-confirmation-and-traceable-examples">8. Dynamic confirmation and traceable examples</a></h2>
+<p>The current headless trace workflow confirms the parser/evaluator path with both
+homescreen input and stored programs. A full-range TilEm trace of <code>2+3</code> on the
+homescreen reaches page-38 parser functions including <code>eval_stmt_entry</code>
+(<code>38:59C5</code>), <code>parse_eval_expr</code> (<code>38:5AB3</code>), <code>parse_init</code> (<code>38:5B7B</code>),
+<code>parse_advance</code> (<code>38:7248</code>), <code>chk_tok_end</code> (<code>38:72E0</code>), and <code>_StoAns</code>
+(<code>38:6251</code>).</p>
+<p>The stored-program samples in <code>tools/tibasic-samples/</code> are generated with
+<code>tools/tibasic_samples.py --write-dir tools/tibasic-samples</code>. Each sample has
+readable <code>.bas</code>, hex-text <code>.tok</code>, and loadable <code>.8xp</code> forms. The <code>.8xp</code>
+validation traces below were run on 2026-06-06/07 against OS 2.55MP in
+<code>tools/rom.bin</code> with a local headless TilEm patch that loads command-line <code>.8xp</code>
+files before running the macro; the traces therefore include startup
+link-transfer code as well as interpreter execution.</p>
+<h3 id="hello-world"><a class="header" href="#hello-world">Hello world</a></h3>
+<pre><code class="language-ti-basic">ClrHome
+Disp "HELLO, WORLD"
+</code></pre>
+<p>Body bytes:</p>
+<pre><code class="language-text">E1 3F DE 2A 48 45 4C 4C 4F 2B 29 57 4F 52 4C 44 2A 3F
+</code></pre>
+<p>Observed run: <code>HELLO.8xp</code> displays <code>HELLO, WORLD</code> and then <code>Done</code>. The trace hits
+<code>eval_stmt_entry</code>, <code>parse_refill</code>, <code>parse_advance</code>, and <code>_Disp</code> (<code>37:51D3</code>).</p>
+<h3 id="factorial-loop"><a class="header" href="#factorial-loop">Factorial loop</a></h3>
+<pre><code class="language-ti-basic">Prompt N
+1-&gt;F
+For(I,1,N)
+F*I-&gt;F
+End
+Disp F
+</code></pre>
+<p>Body bytes:</p>
+<pre><code class="language-text">DD 4E 3F 31 04 46 3F D3 49 2B 31 2B 4E 11 3F 46 82 49 04 46 3F D4 3F DE 46 3F
+</code></pre>
+<p>Observed run: <code>FACTOR.8xp</code> with prompt input <code>5</code> displays <code>N=5</code>, result <code>120</code>,
+and then <code>Done</code>. The trace hits <code>eval_stmt_entry</code>, page-38 parser/refill paths,
+<code>_FPMult</code> (<code>ram:238B</code>), and <code>_Disp</code> (<code>37:51D3</code>).</p>
+<h3 id="listdata-manipulation"><a class="header" href="#listdata-manipulation">List/data manipulation</a></h3>
+<pre><code class="language-ti-basic">{3,1,4,1,5}-&gt;L1
+SortA(L1)
+cumSum(L1)-&gt;L2
+sum(L1)-&gt;S
+Disp L1
+Disp L2
+Disp S
+</code></pre>
+<p>Body bytes:</p>
+<pre><code class="language-text">08 33 2B 31 2B 34 2B 31 2B 35 09 04 5D 00 3F E3 5D 00 11 3F BB 29 5D 00 11 04 5D 01 3F B6 5D 00 11 04 53 3F DE 5D 00 3F DE 5D 01 3F DE 53 3F
+</code></pre>
+<p>Observed run: <code>DATA.8xp</code> displays sorted <code>L1</code> as <code>{1 1 3 4 5}</code>, cumulative <code>L2</code>
+as <code>{1 2 5 9 14}</code>, sum <code>14</code>, and then <code>Done</code>. The trace hits 2-byte/list paths
+including <code>resolve_2byte_var2</code>, <code>chk_list_type</code>, <code>store_list_elem*</code>,
+<code>list_var_index</code>, and <code>list_fold_dispatch</code> (<code>02:6104</code>).</p>
+<h3 id="asm-smoke-test"><a class="header" href="#asm-smoke-test"><code>Asm(</code> smoke test</a></h3>
+<p>Safe <code>Asm(</code> tracing uses a program that returns immediately:</p>
+<pre><code class="language-ti-basic">AsmPrgm
+C9
+</code></pre>
+<p><code>C9</code> is Z80 <code>RET</code>. A BASIC wrapper can show that control returns to TI-BASIC:</p>
+<pre><code class="language-ti-basic">Disp "BEFORE"
+Asm(prgmASMRET)
+Disp "AFTER"
+</code></pre>
+<p>Raw bodies:</p>
+<pre><code class="language-text">ASMRET:  BB 6C 3F 43 39 3F
+ASMCALL: DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41 46 54 45 52 2A 3F
+</code></pre>
+<p><code>Asm(</code> is the 2-byte token <code>BB 6A</code>; <code>AsmPrgm</code> is <code>BB 6C</code>; the displayed <code>prgm</code>
+prefix in <code>Asm(prgmASMRET)</code> is the program-name token <code>0x5F</code>, followed by the
+name characters and the closing <code>)</code> token. Observed run: loading <code>ASMCALL.8xp</code>
+and <code>ASMRET.8xp</code> displays <code>BEFORE</code>, executes <code>Asm(prgmASMRET)</code>, displays
+<code>AFTER</code>, and then <code>Done</code>. The trace shows the <code>Asm(</code> handler parse the
+<code>prgmASMRET</code> token stream, bcall <code>_ExecutePrgm</code> (<code>4E7C</code>, target <code>07:5758</code>),
+compile/copy the <code>AsmPrgm</code> body, hand off through <code>07:57B4</code>, and execute the
+payload byte itself at <code>ram:9D95 op=0x000000C9</code>, returning to BASIC immediately
+after. This <code>_ExecutePrgm</code> route is the ASM executor; it is not the ordinary
+BASIC <code>prgmNAME</code> subprogram path.</p>
+<p><code>ASMBRIDG.8xp</code> demonstrates a cooperative ASM-directed BASIC callback without
+pretending there is a public direct ASM-to-BASIC bcall. The wrapper runs:</p>
+<pre><code class="language-ti-basic">Disp "BEFORE"
+Asm(prgmASMSIG)
+If Ans
+prgmZZBASIC
+Disp "AFTER"
+</code></pre>
+<p>with <code>ASMSIG.8xp</code>:</p>
+<pre><code class="language-ti-basic">AsmPrgm
+EF9B41EFBF4AC9
+</code></pre>
+<p>and target:</p>
+<pre><code class="language-ti-basic">Disp "CALLED"
+</code></pre>
+<p>The payload bytes are <code>rst 28h; .dw 419B</code> (<code>_OP1Set1</code>), <code>rst 28h; .dw 4ABF</code>
+(<code>_StoAns</code>), <code>ret</code>. Observed run: loading <code>ASMBRIDG.8xp</code>, <code>ASMSIG.8xp</code>, and
+<code>ZZBASIC.8xp</code> displays <code>BEFORE</code>, <code>CALLED</code>, <code>AFTER</code>, then <code>Done</code>. The trace
+hits the <code>AsmPrgm</code> payload at <code>ram:9D95</code>, <code>_OP1Set1</code> (<code>00:1B38</code>), <code>_StoAns</code>
+(<code>38:6251</code>), <code>_AnsName</code> (<code>38:74B7</code>) during <code>If Ans</code>, and the ordinary
+<code>prgmZZBASIC</code> body evaluator path (<code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>).
+This is the practical callback convention: ASM returns a value through a BASIC
+variable, and BASIC performs the actual program call.</p>
+<p><code>ASMRTN.8xp</code> demonstrates the same <code>Ans</code> convention as a numeric return value:</p>
+<pre><code class="language-ti-basic">Asm(prgmASMVAL)
+Ans+3-&gt;A
+Disp A
+</code></pre>
+<p>with <code>ASMVAL.8xp</code>:</p>
+<pre><code class="language-ti-basic">AsmPrgm
+EFA741EFBF4AC9
+</code></pre>
+<p>The payload bytes are <code>rst 28h; .dw 41A7</code> (<code>_OP1Set2</code>), <code>rst 28h; .dw 4ABF</code>
+(<code>_StoAns</code>), <code>ret</code>. Observed run: loading <code>ASMRTN.8xp</code> and <code>ASMVAL.8xp</code>
+displays <code>5</code>, then <code>Done</code>. The trace hits <code>ram:9D95</code>, <code>_OP1Set2</code> (<code>00:1B50</code>),
+<code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code> while evaluating <code>Ans+3</code>, <code>_FPAdd</code>, and
+<code>_Disp</code>. This confirms that <code>Ans</code> is a practical scalar return channel from an
+<code>AsmPrgm</code> back into BASIC.</p>
+<h3 id="animation-graphing-and-basic-subprogram-calls"><a class="header" href="#animation-graphing-and-basic-subprogram-calls">Animation, graphing, and BASIC subprogram calls</a></h3>
+<p>Additional generated fixtures extend coverage beyond arithmetic/list samples:</p>
+<pre><code class="language-ti-basic">ClrHome
+For(I,1,8)
+Output(1,I,"X")
+End
+Disp "DONE"
+</code></pre>
+<p>Observed run: <code>ANIMTXT.8xp</code> displays a row of <code>X</code> characters, <code>DONE</code>, and then
+<code>Done</code>. The trace hits <code>_OutputExpr</code> (<code>03:4AF2</code>), page-38 parser/loop paths,
+<code>_Disp</code>, and LCD text routines.</p>
+<pre><code class="language-ti-basic">ClrDraw
+0-&gt;Xmin
+94-&gt;Xmax
+0-&gt;Ymin
+62-&gt;Ymax
+Line(0,0,94,62)
+Line(0,31,94,31)
+Line(47,0,47,62)
+Circle(47,31,10)
+Text(0,0,"DFS")
+DispGraph
+</code></pre>
+<p>Observed run: <code>GRAPHV.8xp</code> ends on the graph screen with <code>DFS</code>, axes, a circle,
+and a diagonal line visible. The trace hits <code>_GrBufClr</code>, <code>_StoSysTok</code>, <code>_ILine</code>
+(<code>04:4029</code>), <code>graph_pixel_op</code>, <code>_IPoint</code>, and <code>_PDspGrph</code> (<code>04:7904</code>).</p>
+<pre><code class="language-ti-basic">ClrDraw
+0-&gt;Xmin
+94-&gt;Xmax
+0-&gt;Ymin
+62-&gt;Ymax
+Line(10,44,35,54)
+Line(10,44,35,14)
+Line(35,54,55,29)
+Circle(10,44,3)
+Circle(35,54,3)
+Circle(35,14,3)
+Circle(55,29,3)
+Text(16,8,"1")
+Text(6,33,"2")
+Text(46,33,"3")
+Text(31,53,"4")
+DispGraph
+</code></pre>
+<p>Observed run: <code>GRAPHDFS.8xp</code> draws the DFS sample’s four-node topology on the
+graph screen: nodes <code>1</code>, <code>2</code>, <code>3</code>, and <code>4</code> with edges <code>1-2</code>, <code>1-3</code>, and <code>2-4</code>.
+The trace hits <code>_ILine</code> (<code>04:4029</code>), <code>graph_pixel_op</code>, <code>_IPoint</code>, small-font
+glyph rendering, <code>_PDspGrph</code> (<code>04:7904</code>), <code>_StoSysTok</code> window stores,
+<code>_RestoreDisp</code>, and page-38 statement evaluation.</p>
+<p><code>GRAPHLST.8xp</code> draws the same topology from list data. It stores edge endpoint
+coordinates in <code>L1</code>-<code>L4</code>, stores node centers in <code>L5</code> and <code>L6</code>, then loops over
+those lists:</p>
+<pre><code class="language-ti-basic">For(I,1,3)
+Line(L1(I),L2(I),L3(I),L4(I))
+End
+For(I,1,4)
+Circle(L5(I),L6(I),3)
+End
+</code></pre>
+<p>Observed run: the final frame matches the <code>GRAPHDFS</code> topology and passes the
+same node/edge crop-region checks. The trace hits <code>list_var_index</code>,
+<code>_GetLToOP1</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code>, and <code>_StoSysTok</code>, confirming a
+list-driven graph visualization path rather than only hard-coded draw
+coordinates.</p>
+<pre><code class="language-ti-basic">0-&gt;A
+prgmSUBRT
+Disp A
+</code></pre>
+<p>with callee:</p>
+<pre><code class="language-ti-basic">Disp "SUB"
+A+1-&gt;A
+Return
+</code></pre>
+<p>Observed run: loading <code>CALLSUB.8xp</code> and <code>SUBRT.8xp</code> displays <code>SUB</code>, then <code>1</code>,
+then <code>Done</code>. This confirms the practical BASIC calling convention: caller and
+callee share variables, and <code>Return</code> resumes the caller. The trace hits VAT/name
+lookup, parser entry/refill paths, the program-body evaluator call at <code>38:6914</code>
+into <code>eval_eqn_recursive</code> (<code>38:778F</code>), shared <code>A</code> store/recall, and <code>_Disp</code>.</p>
+<p><code>ABICALL.8xp</code> and <code>ABISUB.8xp</code> exercise more of that convention:</p>
+<pre><code class="language-ti-basic">{2,4,6}-&gt;L1
+7
+prgmABISUB
+Disp A
+Disp L1
+Disp Ans
+</code></pre>
+<p>with callee:</p>
+<pre><code class="language-ti-basic">Ans+L1(2)-&gt;A
+9-&gt;L1(3)
+A
+Return
+</code></pre>
+<p>Observed run: the caller displays <code>11</code>, <code>{2 4 9}</code>, <code>11</code>, then <code>Done</code>. The callee
+reads the caller’s <code>Ans</code> and <code>L1</code>, writes shared scalar <code>A</code>, mutates shared
+<code>L1</code>, leaves <code>Ans</code> as <code>11</code> by evaluating <code>A</code>, and returns. The trace hits the
+BASIC subprogram body path plus <code>_AnsName</code> and list store paths, so this is a
+confirmed scalar/list/<code>Ans</code> ABI fixture.</p>
+<p><code>CALLSTOP.8xp</code> and <code>STOPSUB.8xp</code> cover the non-returning subprogram case:</p>
+<pre><code class="language-ti-basic">Disp "BEFORE"
+prgmSTOPSUB
+Disp "AFTER"
+</code></pre>
+<p>with callee:</p>
+<pre><code class="language-ti-basic">Disp "STOP"
+Stop
+</code></pre>
+<p>Observed run: the caller displays <code>BEFORE</code>, the callee displays <code>STOP</code>, and the
+homescreen displays <code>Done</code>; caller text <code>AFTER</code> does not appear. The smoke
+runner checks the <code>BEFORE</code>, <code>STOP</code>, and <code>Done</code> regions, plus a bounded low-pixel
+region where <code>AFTER</code> would appear if execution resumed. The trace reaches the
+BASIC subprogram body path and <code>_Disp</code>, so this confirms that <code>Stop</code> terminates
+the whole BASIC program chain instead of returning to the caller.</p>
+<p>The ordinary BASIC subprogram path is separate from <code>Asm(</code>. In the validated
+trace it does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <code>_Find_Parse_Formula</code>,
+or <code>_SetParseVarProg</code>; it uses the page-38 parser/VAT/body evaluator path and
+then either resumes the caller through BASIC’s own <code>Return</code> handling or exits
+the caller chain through <code>Stop</code>.</p>
+<p><code>ASMFIND.8xp</code> and <code>ZZFIND.8xp</code> prove the narrower ASM-side lookup case. The
+payload builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code>; the trace
+hits <code>ram:9D95</code> and <code>findsym_scan</code>, then the BASIC wrapper displays <code>AFTER</code> and
+<code>Done</code>. <code>ZZBASIC</code>’s <code>CALLED</code> line does not display, so lookup is confirmed but
+execution is not.</p>
+<p><code>ASMPARSE.8xp</code> and <code>ZZPARSE.8xp</code> turn that boundary into a negative fixture.
+The payload uses the same <code>OP1={ProgObj,"ZZBASIC"}</code> setup as <code>ZZFIND</code>, but
+bcalls <code>_ParseInpLastEnt</code> instead. The trace reaches <code>_ParseInpLastEnt</code>,
+<code>_ParseInp</code>, <code>parseinp_find_setup</code>, <code>findsym_scan</code>, <code>parse_init</code>, and
+<code>eval_stmt_entry</code>; the final screen is <code>ERR:INVALID</code> / <code>1:Quit</code> / <code>2:Goto</code>, and
+<code>ZZBASIC</code>’s <code>CALLED</code> line does not display.</p>
+<p><code>ASMFORM.8xp</code> and <code>ZZFORM.8xp</code> turn the <code>_Find_Parse_Formula</code> boundary into the
+same kind of generated negative fixture. The payload again builds
+<code>OP1={ProgObj,"ZZBASIC"}</code>, but bcalls <code>_Find_Parse_Formula</code> (<code>4AF2</code>, target
+<code>38:758A</code>). The trace reaches <code>ram:9D95</code>, <code>_Find_Parse_Formula</code>,
+<code>parse_init_findsym</code>, <code>findsym_scan</code>, and <code>eval_stmt_entry</code>; the final screen is
+<code>ERR:UNDEFINED</code> / <code>1:Quit</code> / <code>2:Goto</code>, and <code>ZZBASIC</code>’s <code>CALLED</code> line does not
+display.</p>
+<p>The full <code>CALLSUB</code> smoke trace does hit <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> once,
+because the macro starts the program by submitting <code>prgmCALLSUB</code> from the
+homescreen. That launch parse resolves the top-level program and seeds the
+private parser RAM. It does not make <code>_ParseInpLastEnt</code> a reusable
+ASM-to-BASIC ABI: <code>ASMPARSE</code> shows that calling <code>_ParseInpLastEnt</code> with only
+<code>OP1={ProgObj,"ZZBASIC"}</code> reaches <code>ERR:INVALID</code> instead of the target program.</p>
+<p>The relevant page-38 evaluator transition is private state, not a bcall ABI:
+<code>stmt_eval_body_entry</code> (<code>38:6910</code>) calls the token scanner, then
+<code>call_eval_eqn_recursive</code> (<code>38:6914</code>) directly calls <code>eval_eqn_recursive</code>
+(<code>38:778F</code>). At the first observed hit in the <code>CALLSUB</code> trace, the parser
+cursor/end, OPS/temp-stack pointers, OP1, stack depth, and IY parser flags are
+already live. This is why <code>ASMFIND</code> can successfully <code>_ChkFindSym</code> a BASIC
+program name, but <code>ASMFORM</code> still reaches <code>ERR:UNDEFINED</code> instead of running
+that program through <code>_Find_Parse_Formula</code>.</p>
+<p>The <code>_ParseInpLastEnt</code> fixture narrows the parser-entry boundary further:
+<code>_ParseInp</code> variants are not byte-stream program-call ABIs; they expect
+parser/FPS stack state that a live BASIC caller has already established.</p>
+<p>The forced-command/edit-buffer path is another boundary, not an ABI. A temporary
+<code>AsmPrgm</code> that calls <code>_JForceCmd(kEnter)</code> reaches <code>_JForceCmd</code> (<code>00:0747</code>) but
+does not return to the BASIC wrapper; the final screen repeats the wrapper’s
+first line and <code>Done</code> instead of reaching the wrapper’s following statement.
+The reason is visible in page-0 disassembly: <code>_JForceCmd</code> reloads <code>SP</code> from the
+OS command-loop state at <code>85BC</code>. A second payload that calls <code>_PutTokString</code>
+(<code>06:46FD</code>) for the bytes of <code>prgmZZBASIC</code> returns to BASIC, but only
+renders/inserts token text; combining <code>_PutTokString</code> with <code>_JForceCmd</code> still
+never displays the target program’s <code>CALLED</code> line. <code>_rclToQueue</code> (<code>06:5F29</code>) is
+an edit-buffer queue helper guarded by <code>rclFlag.enableQueue</code>, not a standalone
+program executor.</p>
+<p><code>_ExecuteNewPrgm</code> (<code>00:265F</code>) is also stateful. An <code>AsmPrgm</code> probe with
+<code>OP1=ProgObj</code> and <code>HL -&gt; "ZZBASIC",0</code> enters <code>_ExecuteNewPrgm</code> and
+<code>findsym_scan</code>, then reaches <code>ERR:SYNTAX</code>. The same probe with <code>ZZBASIC</code> loaded
+as <code>ProtProgObj</code> and <code>OP1=06</code> gets through the copy/jump tail at <code>00:268A</code> and
+<code>00:268F</code>, but still stops at <code>ERR:SYNTAX</code> without displaying the target
+program’s <code>CALLED</code> line.</p>
+<pre><code class="language-ti-basic">{5,4,3,2,1}-&gt;L1
+{5,6,7,8,9}-&gt;L2
+{0,0,0,0,0,0}-&gt;L3
+0-&gt;C
+For(I,1,5)
+L1(I)+L2(I)+C-&gt;S
+int(S/10)-&gt;C
+S-10*C-&gt;L3(I)
+End
+C-&gt;L3(6)
+Disp L3
+Disp L3(6)
+</code></pre>
+<p>Observed run: <code>BIGADD.8xp</code> displays the low-end digits of <code>L3</code> as
+<code>{0 1 1 1 1 ...}</code>, then an explicit carry line <code>1</code>, then <code>Done</code>, representing
+<code>12345 + 98765 = 111110</code> in little-endian decimal digits. The trace hits
+<code>list_var_index</code>, <code>_AdrLEle</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>store_list_elem*</code>,
+<code>fnint_body</code>, <code>_FPDiv</code>, <code>_FPAdd</code>, <code>_FPSub</code>, and <code>_FPMult</code>.</p>
+<pre><code class="language-ti-basic">{3,2,1}-&gt;L1
+{5,4}-&gt;L2
+{0,0,0,0,0}-&gt;L3
+For(I,1,3)
+For(J,1,2)
+L3(I+J-1)+L1(I)*L2(J)-&gt;S
+int(S/10)-&gt;C
+S-10*C-&gt;L3(I+J-1)
+L3(I+J)+C-&gt;L3(I+J)
+End
+End
+Disp L3
+Disp L3(4)
+</code></pre>
+<p>Observed run: <code>BIGMUL.8xp</code> displays <code>{5 3 5 5 0}</code>, then <code>5</code>, then <code>Done</code>,
+representing <code>123 * 45 = 5535</code> in little-endian decimal digits. The trace hits
+nested <code>For(</code> loop parsing, list element reads/stores, <code>_FPMult</code>, <code>_FPAdd</code>,
+<code>_FPSub</code>, <code>_GetLToOP1</code>, and <code>_PutToL</code>.</p>
+<pre><code class="language-ti-basic">{1,1,2}-&gt;L1
+{2,3,4}-&gt;L2
+{0,0,0,0}-&gt;L3
+{1,0,0,0}-&gt;L4
+1-&gt;P
+While P
+L4(P)-&gt;V
+P-1-&gt;P
+If L3(V)=0
+Then
+1-&gt;L3(V)
+Disp V
+For(E,1,3)
+If L1(E)=V
+Then
+P+1-&gt;P
+L2(E)-&gt;L4(P)
+End
+End
+End
+End
+Disp L3
+</code></pre>
+<p>Observed run: <code>DFS.8xp</code> displays traversal <code>1</code>, <code>3</code>, <code>2</code>, <code>4</code>, then visited
+flags <code>{1 1 1 1}</code>, then <code>Done</code>. The trace hits nested control-flow scanners
+(<code>blockmatch_end_else</code>, <code>parse_scan_tokens</code>), <code>eval_stmt_entry</code>, parser
+refill/advance, and list stack read/write paths (<code>list_var_index</code>, <code>_AdrLEle</code>,
+<code>_GetLToOP1</code>, <code>_PutToL</code>, <code>store_list_elem*</code>).</p>
+<p>See <a href="sub-tibasic-programming.html">TI-BASIC programming patterns</a> for performance
+rules and larger source-level examples.</p>
+<hr>
+<h2 id="9-resolved--residual"><a class="header" href="#9-resolved--residual">9. Resolved / residual</a></h2>
 <p>Three argument-handling and dispatch details, grounded in the bytes (see §5 / §4):</p>
 <ul>
 <li><strong><code>Input</code>/<code>Prompt</code>/<code>Menu</code> argument order (§5).</strong> <code>Input</code> (<code>02:54EF</code>→<code>54F6</code>):
@@ -576,7 +934,7 @@ multi-line) remain dense and are only confirmed at the argument-parse boundary.<
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="sub-vat-archive.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="sub-tibasic-tracing.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -590,7 +948,7 @@ multi-line) remain dense and are only confirmed at the argument-parse boundary.<
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="sub-vat-archive.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="sub-tibasic-tracing.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
