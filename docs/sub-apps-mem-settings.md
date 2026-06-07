@@ -54,6 +54,10 @@ External sample check (not ROM evidence): the local Axe Parser `Axe.8xk` sample 
 a base page whose `020D` date-stamp-signature field starts at `4027` and has a 64-byte
 payload. Part of that payload is a Z80 helper at `4037`:
 
+[ti-kid](https://github.com/ti-kid) identified this Axe header case and published an annotated decode in
+[Hatchet-Compiler](https://github.com/ti-kid/Hatchet-Compiler/blob/master/Axe0_annotated.asm#L160);
+the local decode below uses that lead and verifies it against the extracted `Axe.8xk` bytes.
+
 ```z80
 4037  POP AF
 4038  POP BC
