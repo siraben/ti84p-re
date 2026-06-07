@@ -491,6 +491,39 @@ payload byte itself at `ram:9D95 op=0x000000C9`, returning to BASIC immediately
 after. This `_ExecutePrgm` route is the ASM executor; it is not the ordinary
 BASIC `prgmNAME` subprogram path.
 
+`ASMBRIDG.8xp` demonstrates a cooperative ASM-directed BASIC callback without
+pretending there is a public direct ASM-to-BASIC bcall. The wrapper runs:
+
+```ti-basic
+Disp "BEFORE"
+Asm(prgmASMSIG)
+If Ans
+prgmZZBASIC
+Disp "AFTER"
+```
+
+with `ASMSIG.8xp`:
+
+```ti-basic
+AsmPrgm
+EF9B41EFBF4AC9
+```
+
+and target:
+
+```ti-basic
+Disp "CALLED"
+```
+
+The payload bytes are `rst 28h; .dw 419B` (`_OP1Set1`), `rst 28h; .dw 4ABF`
+(`_StoAns`), `ret`. Observed run: loading `ASMBRIDG.8xp`, `ASMSIG.8xp`, and
+`ZZBASIC.8xp` displays `BEFORE`, `CALLED`, `AFTER`, then `Done`. The trace
+hits the `AsmPrgm` payload at `ram:9D95`, `_OP1Set1` (`00:1B38`), `_StoAns`
+(`38:6251`), `_AnsName` (`38:74B7`) during `If Ans`, and the ordinary
+`prgmZZBASIC` body evaluator path (`38:6910` -> `38:6914` -> `38:778F`).
+This is the practical callback convention: ASM returns a value through a BASIC
+variable, and BASIC performs the actual program call.
+
 ### Animation, graphing, and BASIC subprogram calls
 
 Additional generated fixtures extend coverage beyond arithmetic/list samples:

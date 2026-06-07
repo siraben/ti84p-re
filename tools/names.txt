@@ -37,6 +37,7 @@ page_07:565f	findsym_scan
 ram:229e	_FPAdd
 ram:2297	_FPSub
 ram:238b	_FPMult
+ram:1b38	_OP1Set1
 ram:2541	_FPDiv
 ram:253d	_FPRecip
 ram:238a	_FPSquare
