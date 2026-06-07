@@ -40,6 +40,17 @@ class Case:
     visual_regions: tuple[VisualRegion, ...] = ()
 
 
+GRAPH_TOPOLOGY_REGIONS = (
+    VisualRegion("node 1", "9x9+6+15", 15),
+    VisualRegion("node 2", "9x9+31+5", 15),
+    VisualRegion("node 3", "9x9+31+45", 15),
+    VisualRegion("node 4", "9x9+51+30", 15),
+    VisualRegion("edge 1-2", "22x12+12+7", 15),
+    VisualRegion("edge 1-3", "22x28+12+21", 15),
+    VisualRegion("edge 2-4", "22x25+37+11", 20),
+)
+
+
 CASES: dict[str, Case] = {
     "hello": Case(
         ("HELLO.8xp",),
@@ -107,15 +118,15 @@ CASES: dict[str, Case] = {
         ("_StoSysTok", "_ILine", "_IPoint", "_PDspGrph"),
         min_dark_pixels=200,
         min_changed_pixels=200,
-        visual_regions=(
-            VisualRegion("node 1", "9x9+6+15", 15),
-            VisualRegion("node 2", "9x9+31+5", 15),
-            VisualRegion("node 3", "9x9+31+45", 15),
-            VisualRegion("node 4", "9x9+51+30", 15),
-            VisualRegion("edge 1-2", "22x12+12+7", 15),
-            VisualRegion("edge 1-3", "22x28+12+21", 15),
-            VisualRegion("edge 2-4", "22x25+37+11", 20),
-        ),
+        visual_regions=GRAPH_TOPOLOGY_REGIONS,
+    ),
+    "graphlist": Case(
+        ("GRAPHLST.8xp",),
+        "list-driven graph screen with four labeled nodes and three edges",
+        ("_StoSysTok", "list_var_index", "_GetLToOP1", "_ILine", "_IPoint", "_PDspGrph"),
+        min_dark_pixels=200,
+        min_changed_pixels=200,
+        visual_regions=GRAPH_TOPOLOGY_REGIONS,
     ),
     "callsub": Case(
         ("CALLSUB.8xp", "SUBRT.8xp"),

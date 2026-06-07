@@ -269,6 +269,55 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
             T["dispgraph"], T["enter"],
         ],
     ),
+    "graphlist": (
+        'ClrDraw\n'
+        '0->Xmin\n94->Xmax\n0->Ymin\n62->Ymax\n'
+        '{10,10,35}->L1\n'
+        '{44,44,54}->L2\n'
+        '{35,35,55}->L3\n'
+        '{54,14,29}->L4\n'
+        '{10,35,35,55}->L5\n'
+        '{44,54,14,29}->L6\n'
+        'For(I,1,3)\n'
+        'Line(L1(I),L2(I),L3(I),L4(I))\n'
+        'End\n'
+        'For(I,1,4)\n'
+        'Circle(L5(I),L6(I),3)\n'
+        'End\n'
+        'Text(16,8,"1")\n'
+        'Text(6,33,"2")\n'
+        'Text(46,33,"3")\n'
+        'Text(31,53,"4")\n'
+        'DispGraph',
+        [
+            T["clrdraw"], T["enter"],
+            T["0"], T["store"], T["varsys"], SYSVAR["Xmin"], T["enter"],
+            T["9"], T["4"], T["store"], T["varsys"], SYSVAR["Xmax"], T["enter"],
+            T["0"], T["store"], T["varsys"], SYSVAR["Ymin"], T["enter"],
+            T["6"], T["2"], T["store"], T["varsys"], SYSVAR["Ymax"], T["enter"],
+            T["lbrace"], T["1"], T["0"], T["comma"], T["1"], T["0"], T["comma"], T["3"], T["5"], T["rbrace"], T["store"], T["varlst"], 0x00, T["enter"],
+            T["lbrace"], T["4"], T["4"], T["comma"], T["4"], T["4"], T["comma"], T["5"], T["4"], T["rbrace"], T["store"], T["varlst"], 0x01, T["enter"],
+            T["lbrace"], T["3"], T["5"], T["comma"], T["3"], T["5"], T["comma"], T["5"], T["5"], T["rbrace"], T["store"], T["varlst"], 0x02, T["enter"],
+            T["lbrace"], T["5"], T["4"], T["comma"], T["1"], T["4"], T["comma"], T["2"], T["9"], T["rbrace"], T["store"], T["varlst"], 0x03, T["enter"],
+            T["lbrace"], T["1"], T["0"], T["comma"], T["3"], T["5"], T["comma"], T["3"], T["5"], T["comma"], T["5"], T["5"], T["rbrace"], T["store"], T["varlst"], 0x04, T["enter"],
+            T["lbrace"], T["4"], T["4"], T["comma"], T["5"], T["4"], T["comma"], T["1"], T["4"], T["comma"], T["2"], T["9"], T["rbrace"], T["store"], T["varlst"], 0x05, T["enter"],
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["line"], T["varlst"], 0x00, T["lparen"], T["I"], T["rparen"], T["comma"],
+            T["varlst"], 0x01, T["lparen"], T["I"], T["rparen"], T["comma"],
+            T["varlst"], 0x02, T["lparen"], T["I"], T["rparen"], T["comma"],
+            T["varlst"], 0x03, T["lparen"], T["I"], T["rparen"], T["rparen"], T["enter"],
+            T["end"], T["enter"],
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["4"], T["rparen"], T["enter"],
+            T["circle"], T["varlst"], 0x04, T["lparen"], T["I"], T["rparen"], T["comma"],
+            T["varlst"], 0x05, T["lparen"], T["I"], T["rparen"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["end"], T["enter"],
+            T["text"], T["1"], T["6"], T["comma"], T["8"], T["comma"], *string_literal("1"), T["rparen"], T["enter"],
+            T["text"], T["6"], T["comma"], T["3"], T["3"], T["comma"], *string_literal("2"), T["rparen"], T["enter"],
+            T["text"], T["4"], T["6"], T["comma"], T["3"], T["3"], T["comma"], *string_literal("3"), T["rparen"], T["enter"],
+            T["text"], T["3"], T["1"], T["comma"], T["5"], T["3"], T["comma"], *string_literal("4"), T["rparen"], T["enter"],
+            T["dispgraph"], T["enter"],
+        ],
+    ),
     "subrt": (
         'Disp "SUB"\nA+1->A\nReturn',
         [
@@ -442,6 +491,7 @@ PROGRAM_NAMES = {
     "animtext": "ANIMTXT",
     "graphviz": "GRAPHV",
     "graphdfs": "GRAPHDFS",
+    "graphlist": "GRAPHLST",
     "subrt": "SUBRT",
     "callsub": "CALLSUB",
     "abisub": "ABISUB",
