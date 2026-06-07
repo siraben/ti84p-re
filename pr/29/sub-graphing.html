@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-60bb34eb.js";
+            window.path_to_searchindex_js = "searchindex-3b0707a4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -205,7 +205,7 @@ These are the values the WINDOW editor writes and the grapher reads.</p>
 <tr><td><code>0x8F74</code></td><td><code>Ymax</code></td><td>top edge real Y</td></tr>
 <tr><td><code>0x8F7D</code></td><td><code>Yscl</code></td><td>Y tick spacing</td></tr>
 <tr><td><code>0x8F86</code></td><td><code>ThetaMin</code> / <code>0x8F8F</code> <code>ThetaMax</code> / <code>0x8F98</code> <code>ThetaStep</code></td><td>polar/parametric range</td></tr>
-<tr><td><code>0x900D</code></td><td><code>XresO</code></td><td>Xres (pixel step between plotted columns), used by <code>_XftoI</code></td></tr>
+<tr><td><code>0x900D</code></td><td><code>XresO</code></td><td>Xres (pixel step between plotted columns)</td></tr>
 <tr><td><code>0x9151</code></td><td><code>Xres_int</code></td><td>integer copy of Xres</td></tr>
 <tr><td><code>0x9152</code></td><td><code>deltaX</code></td><td><strong>(Xmax−Xmin)/94</strong> — real width of one pixel column</td></tr>
 <tr><td><code>0x915B</code></td><td><code>deltaY</code></td><td><strong>(Ymax−Ymin)/62</strong> — real height of one pixel row</td></tr>
@@ -265,10 +265,10 @@ a menu covers it). [confirmed]</li>
 </ul>
 <p><strong><code>_GrBufClr</code></strong> (<code>04:6071</code>): clears the whole 0x300-byte buffer to 0 (a
 <code>LD (HL),0</code> + 0x2FF-byte propagate copy). [confirmed]</p>
-<p><strong><code>_IOffset</code></strong> (<code>04:42B5</code>) computes the LCD controller address bytes for a pixel:</p>
-<pre><code>curY    = (y &gt;&gt; 3) | 0x20      ; LCD "set Z/row page" command (8-px rows)
-curXRow = (0x3F - x) | 0x80    ; LCD "set column" command, X mirrored
-returns (table_42E4)[y &amp; 7]    ; the 1-of-8 bit mask within the byte
+<p><strong><code>_IOffset</code></strong> (<code>04:42B5</code>) computes the LCD controller address bytes for a pixel (inputs <code>B</code>=x, <code>C</code>=y):</p>
+<pre><code>(0x844F) = (x &gt;&gt; 3) | 0x20     ; LCD "set row page" command — the rotated TI panel pages by X
+(0x8451) = (0x3F - y) | 0x80   ; LCD "set column" command (Y, mirrored)
+returns (table_42E4)[x &amp; 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
 </code></pre>
 <p>This is the bridge from a <code>(x,y)</code> pixel to a byte+bit in the buffer and the matching LCD
 command bytes. [confirmed]</p>
@@ -278,9 +278,10 @@ command bytes. [confirmed]</p>
 pixel; 1..3 select dotted/animated styles), clips against the X-offset (<code>XOffset</code>) and the
 buffer bounds (<code>_IBounds</code>), then OR/AND/XORs the mask from <code>_IOffset</code>. <strong><code>_PointOn</code></strong>
 (<code>04:4155</code>) is the plain set-pixel entry. [confirmed]</p>
-<p><strong><code>_PixelTest</code></strong> (<code>04:79E7</code>): the <code>pxl-Test(</code> command — validates row&lt;64/col&lt;96
-(<code>pixWide_m_1</code>), maps split-screen offset, and returns whether that buffer pixel is on.
-<code>_ErrDomain</code> on out-of-range. [confirmed]</p>
+<p><strong><code>_PixelTest</code></strong> (<code>04:79E7</code>): the <code>pxl-Test(</code> command — validates the row/col against the
+<strong>current graph dimensions</strong> <code>lcdTallP</code> (<code>0x8DA3</code>) and <code>pixWide_m_1</code> (<code>0x8DA5</code>) — 63 and 95 on a
+full screen, smaller when split — maps the split-screen offset, and returns whether that buffer
+pixel is on. <code>_ErrDomain</code> on out-of-range. [confirmed]</p>
 <hr>
 <h2 id="4-drawing-primitives-page-0x04--0x33"><a class="header" href="#4-drawing-primitives-page-0x04--0x33">4. Drawing primitives (page 0x04 / 0x33)</a></h2>
 <h3 id="lines"><a class="header" href="#lines">Lines</a></h3>
@@ -293,7 +294,8 @@ the “draw/dark” mode forced. [confirmed]</p>
 <p><strong><code>_CLine</code>/<code>_CLineS</code></strong> (<code>33:6028</code>/<code>33:6034</code>) and <strong><code>_UCLineS</code></strong> (<code>33:6010</code>) — <strong>coordinate</strong>
 line: take real-coordinate endpoints, run them through the X/Y transforms (the SetXX/ftoI
 path), then call the integer line. The <code>S</code> variants take an explicit style/mode byte; the
-mode bit comes from <code>(IY+0x35) &amp; 0x80</code> (split-screen flag). These back the <code>Line(</code>
+mode bit comes from <code>(IY+0x35) &amp; 0x80</code> (<code>hookflags3</code> bit 7, the drawing-hook-active flag —
+not a split-screen flag). These back the <code>Line(</code>
 DRAW command at the math layer. [strong]</p>
 <h3 id="circle"><a class="header" href="#circle">Circle</a></h3>
 <p><strong><code>_GrphCirc</code></strong> (<code>33:758D</code>) — draws a circle in real coordinates. [confirmed]
@@ -314,7 +316,7 @@ into the argument grabber). [confirmed]</p>
 <tbody>
 <tr><td><code>_HorizCmd</code></td><td><code>04:793E</code></td><td><code>Horizontal y</code> — draws a full-width horizontal line at real Y. See note below.</td></tr>
 <tr><td><code>_VertCmd</code></td><td><code>04:7955</code></td><td><code>Vertical x</code> — draws a full-height vertical line at real X. See note below.</td></tr>
-<tr><td><code>_LineCmd</code></td><td><code>04:796A</code></td><td><code>Line(x1,y1,x2,y2)</code> — <code>_PDspGrph</code> then draws; checks pen, allocs 0x24-byte FPS for the 4 coords.</td></tr>
+<tr><td><code>_LineCmd</code></td><td><code>04:796A</code></td><td><code>Line(x1,y1,x2,y2)</code> — <code>_PDspGrph</code>, optionally draws via page 33, then <code>JP 0x152A</code> = <code>_DeallocFPS1(0x24)</code> frees the coord frame (the alloc happens upstream).</td></tr>
 <tr><td><code>_UnLineCmd</code></td><td><code>04:797C</code></td><td><code>Line(…,0)</code> — erase variant (same path, clear mode).</td></tr>
 <tr><td><code>_PointCmd</code></td><td><code>04:79B2</code></td><td><code>Pt-On/Pt-Off/Pt-Change(</code> — reads style from <code>OP1.mantissa[0] &amp; 0x20</code>, dispatches set/clear/toggle.</td></tr>
 <tr><td><code>_DrawCmd</code></td><td><code>04:7B8B</code></td><td>top-level <code>DRAW</code> dispatch — grabs the pending count and cross-jumps to the per-command handler.</td></tr>
@@ -322,20 +324,21 @@ into the argument grabber). [confirmed]</p>
 </tbody>
 </table>
 </div>
-<p>Note: <code>_HorizCmd</code>/<code>_VertCmd</code> both <code>CALL 7933</code> first, which allocs a 0x24-byte FPS frame and
-saves the live window block (<code>1537</code>/<code>SBC HL,DE</code> pointer math). <code>_HorizCmd</code> then writes the
-line’s Y coordinate into <strong>both <code>Xmin</code> (0x8F50) and <code>Xmax</code> (0x8F59)</strong> via <code>1A92</code>/<code>1B0C</code>
-(FPS load + store-to-window), and <code>_VertCmd</code> writes its X into <strong><code>Ymax</code> (0x8F74) and <code>Ymin</code>
-(0x8F6B)</strong> — i.e. they momentarily collapse the <em>other</em> axis so the transform produces a
-line spanning the full screen, render with <code>_PDspGrph</code>, then <code>_DeallocFPS1(0x24)</code> restores
-the real window. [confirmed]</p>
+<p>Note: <code>_HorizCmd</code>/<code>_VertCmd</code> both <code>CALL 7933</code> first, which <strong>allocates a 0x24-byte FPS frame</strong>
+(<code>LD HL,0x24 / CALL 1537 / SBC HL,DE</code>) and returns a pointer to it. <code>_HorizCmd</code> then <strong>builds the
+line’s two endpoints in that frame</strong>: it copies <code>Xmin</code> (<code>0x8F50</code>) and <code>Xmax</code> (<code>0x8F59</code>) — the window’s
+X range — with <code>_Mov9B</code> (<code>00:1A92</code>, which reads a window float into the frame), interleaving the
+line’s Y (<code>OP1</code>) via <code>_MovFrOP1</code> (<code>00:1B0C</code>), so the endpoints are <code>(Xmin, y)</code> and <code>(Xmax, y)</code>.
+<code>_VertCmd</code> does the same with <code>Ymin</code> (<code>0x8F6B</code>)/<code>Ymax</code> (<code>0x8F74</code>) and the line’s X. It renders with
+<code>_PDspGrph</code>, then <code>_DeallocFPS1(0x24)</code> frees the frame — the <strong>live window variables are not
+modified</strong> (the line just spans the current window edges). [confirmed]</p>
 <hr>
 <h2 id="5-rendering-the-graph-to-the-lcd"><a class="header" href="#5-rendering-the-graph-to-the-lcd">5. Rendering the graph to the LCD</a></h2>
 <p><strong><code>_PDspGrph</code></strong> (<code>04:7904</code>, “possibly-display graph”) is the gatekeeper between buffer and
 screen. [confirmed]</p>
 <ul>
 <li>Clears the “need redraw” flag at <code>(IY+2)</code>,</li>
-<li>if the <strong>regraph-pending</strong> bit <code>(IY+3)&amp;1</code> is set (<code>grfDBFlags</code>/SmartGraph dirty), calls
+<li>if the <strong>graph-dirty</strong> bit <code>(IY+3)&amp;1</code> is set (<code>graphFlags.graphDraw</code>, inc <code>graphFlags=3</code>/<code>graphDraw=0</code>; <code>1</code>=redraw needed — this is <em>not</em> <code>grfDBFlags</code> at <code>IY+4</code> nor SmartGraph at <code>IY+0x17</code>), calls
 <strong><code>_Regraph</code></strong> to recompute the whole plot,</li>
 <li>otherwise checks the split-screen flag (<code>_Bit_VertSplit</code>) and copies the buffer to the LCD
 (<code>graph_redraw_buf</code> <code>04:607F</code>).</li>
@@ -411,9 +414,9 @@ X/Y it prints at the bottom. [strong]</li>
 <li>Forward transform <code>(value−min)/pixelDelta</code>: structure <strong>[confirmed]</strong> from the
 <code>37:41F2</code> disassembly (subtract <code>228F</code>, divide <code>2385</code>); the exact rounding in <code>4229</code> is
 read but the ±sentinel constants are summarized, not exhaustively byte-traced.</li>
-<li><code>_HorizCmd</code>/<code>_VertCmd</code> destination floats: confirmed they <code>_Mov9B</code> into the Xmin/Xmax vs
-Ymax/Ymin pair and <code>_PDspGrph</code>; whether they use the live window or a temp copy for the
-line endpoints would benefit from tracing <code>HorizVert_setup</code> (<code>04:7933</code>).</li>
+<li><code>_HorizCmd</code>/<code>_VertCmd</code> endpoint build — <strong>resolved</strong>: <code>7933</code> allocates a 0x24-byte FPS frame, and
+the commands <code>_Mov9B</code> the window edges (<code>Xmin</code>/<code>Xmax</code> or <code>Ymin</code>/<code>Ymax</code>) plus <code>_MovFrOP1</code> the line’s
+coordinate (<code>OP1</code>) into that frame. The live window variables are not touched.</li>
 <li>Circle parametric stepping in <code>3B:7171</code> (<code>_DrawCirc2</code>) not decompiled here (lives on
 page 3B); the <code>_GrphCirc</code> setup is confirmed.</li>
 <li>Y= selection bit (<code>0x20</code>; flags byte <code>0x23</code> selected / <code>0x03</code> deselected) and the style byte
