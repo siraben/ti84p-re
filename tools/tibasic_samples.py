@@ -2,8 +2,7 @@
 """Print small tokenized TI-BASIC sample programs for tracing.
 
 These are raw program bodies: the bytes after a ProgObj's two-byte size word.
-They are useful for checking parser traces and for building .8xp fixtures with
-a link-file tool. They are not themselves TI link files.
+They are useful for checking parser traces and for building .8xp fixtures.
 """
 
 from __future__ import annotations
@@ -133,18 +132,53 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
     ),
 }
 
+PROGRAM_NAMES = {
+    "hello": "HELLO",
+    "factorial": "FACTOR",
+    "data": "DATA",
+    "asmret": "ASMRET",
+    "asmcall": "ASMCALL",
+}
+
 
 def hex_bytes(data: list[int]) -> str:
     return " ".join(f"{b:02X}" for b in data)
 
 
+def ti83p_program_file(name: str, body: list[int]) -> bytes:
+    """Return a TI-83+/84+ .8xp file for a tokenized program body."""
+    calc_name = name.upper().encode("ascii")[:8]
+    prog_data = len(body).to_bytes(2, "little") + bytes(body)
+
+    entry = bytearray()
+    entry += (13).to_bytes(2, "little")      # TI-83+ variable-header length.
+    entry += len(prog_data).to_bytes(2, "little")
+    entry += bytes([0x05])                   # ProgObj.
+    entry += calc_name.ljust(8, b"\0")
+    entry += bytes([0x00, 0x00])             # version, archive flag.
+    entry += len(prog_data).to_bytes(2, "little")
+    entry += prog_data
+
+    header = (
+        b"**TI83F*"
+        + bytes([0x1A, 0x0A, 0x00])
+        + b"Codex TI-BASIC trace sample".ljust(42, b" ")
+    )
+    payload = header + len(entry).to_bytes(2, "little") + entry
+    return payload + (sum(entry) & 0xFFFF).to_bytes(2, "little")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--write-dir", type=Path, help="write NAME.bas and NAME.tok files")
+    parser.add_argument(
+        "--write-dir",
+        type=Path,
+        help="write NAME.bas, NAME.tok, and TI-OS program NAME.8xp files",
+    )
     args = parser.parse_args()
 
     for name, (source, body) in SAMPLES.items():
-        print(f"{name}: {len(body)} bytes")
+        print(f"{name} / prgm{PROGRAM_NAMES[name]}: {len(body)} bytes")
         print(source)
         print(hex_bytes(body))
         print()
@@ -154,6 +188,9 @@ def main() -> None:
         for name, (source, body) in SAMPLES.items():
             (args.write_dir / f"{name}.bas").write_text(source + "\n", encoding="ascii")
             (args.write_dir / f"{name}.tok").write_text(hex_bytes(body) + "\n", encoding="ascii")
+            (args.write_dir / f"{PROGRAM_NAMES[name]}.8xp").write_bytes(
+                ti83p_program_file(PROGRAM_NAMES[name], body)
+            )
 
 
 if __name__ == "__main__":

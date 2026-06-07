@@ -229,10 +229,11 @@ Disp S
 ```
 
 It exercises list literal creation, list variable tokens (`5D 00`/`5D 01`),
-in-place sorting, a running cumulative sum, a folded sum, and list display. Use
-`tools/macros/run-first-program.macro` after loading the sample into RAM to
-capture the dynamic path. [standard trace recipe; list primitives above are
-confirmed where marked]
+in-place sorting, a running cumulative sum, a folded sum, and list display. The
+generated `DATA.8xp` was run under headless TilEm: the screen showed sorted
+`L1={1 1 3 4 5}`, cumulative `L2={1 2 5 9 14}`, and sum `14`; the trace hit
+`list_fold_dispatch` (`02:6104`) plus the page-38 list parse/store helpers.
+[dynamic run confirmed; list primitives above are confirmed where marked]
 
 ---
 

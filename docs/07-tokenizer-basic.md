@@ -71,9 +71,13 @@ The precedence levels (term/factor/unary productions) and sub-dispatch tables ar
 ## Tokenized sample programs
 
 The raw bodies below are the bytes stored after a `ProgObj` size word. They can
-be regenerated with [`tools/tibasic_samples.py`](../tools/tibasic_samples.py)
-`--write-dir tools/tibasic-samples` and traced with the workflow in
-[`tools/dynamic-tracing.md`](../tools/dynamic-tracing.md).
+be regenerated, along with loadable `.8xp` files, with
+[`tools/tibasic_samples.py`](../tools/tibasic_samples.py) `--write-dir
+tools/tibasic-samples` and traced with the workflow in
+[`tools/dynamic-tracing.md`](../tools/dynamic-tracing.md). The generated samples
+were run under headless TilEm on OS 2.55MP; see
+[TI-BASIC programs](sub-tibasic.md#dynamic-confirmation-and-traceable-examples)
+for observed outputs and trace anchors.
 
 | Program | Source | Body bytes |
 |---------|--------|------------|

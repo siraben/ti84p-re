@@ -376,23 +376,21 @@ page_38:6ae6   output_dispatch    (CP E0 in evaluator)
 
 ## 8. Dynamic confirmation and traceable examples
 
-The current headless trace workflow confirms the parser/evaluator path with
-homescreen input. A full-range TilEm trace of `2+3` on the homescreen resolves
-1,979,196 instructions and reaches page-38 parser functions including
-`eval_stmt_entry` (`38:59C5`), `parse_eval_expr` (`38:5AB3`), `parse_init`
-(`38:5B7B`), `parse_advance` (`38:7248`), `chk_tok_end` (`38:72E0`), and `_StoAns`
-(`38:6251`). This is a dynamic confirmation of the token-cursor loop described
-above, although it exercises an expression rather than a stored `ProgObj`.
-[confirmed by `tools/tilem_trace_resolve.py` on a `tools/macros/home-2plus3.macro`
-trace]
+The current headless trace workflow confirms the parser/evaluator path with both
+homescreen input and stored programs. A full-range TilEm trace of `2+3` on the
+homescreen reaches page-38 parser functions including `eval_stmt_entry`
+(`38:59C5`), `parse_eval_expr` (`38:5AB3`), `parse_init` (`38:5B7B`),
+`parse_advance` (`38:7248`), `chk_tok_end` (`38:72E0`), and `_StoAns`
+(`38:6251`).
 
-The sample program bodies in [`tools/tibasic-samples/`](../tools/tibasic-samples/)
-are raw token streams: the bytes after a program object's two-byte size word.
-Generate or refresh them with
-[`tools/tibasic_samples.py`](../tools/tibasic_samples.py) `--write-dir tools/tibasic-samples`.
-They are not TI link files; use a link-file tool or the calculator editor to
-place them into RAM before running
-[`tools/macros/run-first-program.macro`](../tools/macros/run-first-program.macro).
+The stored-program samples in
+[`tools/tibasic-samples/`](../tools/tibasic-samples/) are generated with
+[`tools/tibasic_samples.py`](../tools/tibasic_samples.py) `--write-dir
+tools/tibasic-samples`. Each sample has readable `.bas`, raw-body `.tok`, and
+loadable `.8xp` forms. The `.8xp` validation traces below were run on 2026-06-06
+against OS 2.55MP in `tools/rom.bin` with a local headless TilEm patch that loads
+command-line `.8xp` files before running the macro; the traces therefore include
+startup link-transfer code as well as interpreter execution.
 
 ### Hello world
 
@@ -407,10 +405,8 @@ Body bytes:
 E1 3F DE 2A 48 45 4C 4C 4F 2B 29 57 4F 52 4C 44 2A 3F
 ```
 
-Expected trace path: `tClLCD` (`0xE1`) clears the home text display, then
-`tDisp` (`0xDE`) scans the string bounded by `tString` (`0x2A`) and calls `_Disp`
-(`37:51D3`), `_NewLine` (`01:5F4A`), and `_DispDone` (`01:69B0`). [standard for
-the command sequence; display routines confirmed above]
+Observed run: `HELLO.8xp` displays `HELLO, WORLD` and then `Done`. The trace hits
+`eval_stmt_entry`, `parse_refill`, `parse_advance`, and `_Disp` (`37:51D3`).
 
 ### Factorial loop
 
@@ -429,12 +425,9 @@ Body bytes:
 DD 4E 3F 31 04 46 3F D3 49 2B 31 2B 4E 11 3F 46 82 49 04 46 3F D4 3F DE 46 3F
 ```
 
-Expected trace path: `Prompt` enters the page-02 input handler (`02:562F`);
-stores use `tStore` (`0x04`) and the store-target scanner at `38:7600`; `For(`
-and `End` dispatch through page 02 into the page-33 command jump table at
-`33:4381`; `End` reseeds `parsePtr` to the saved loop top until the comparison
-fails; `F*I` reaches the FP multiply path and stores the updated `F`. [standard
-for this sample; page-02/page-33 dispatch confirmed above]
+Observed run: `FACTOR.8xp` with prompt input `5` displays `N=5`, result `120`,
+and then `Done`. The trace hits `eval_stmt_entry`, page-38 parser/refill paths,
+`_FPMult` (`ram:238B`), and `_Disp` (`37:51D3`).
 
 ### List/data manipulation
 
@@ -454,12 +447,10 @@ Body bytes:
 08 33 2B 31 2B 34 2B 31 2B 35 09 04 5D 00 3F E3 5D 00 11 3F BB 29 5D 00 11 04 5D 01 3F B6 5D 00 11 04 53 3F DE 5D 00 3F DE 5D 01 3F DE 53 3F
 ```
 
-Expected trace path: list names are 2-byte tokens (`5D 00` = `L1`, `5D 01` =
-`L2`), so `parse_scan_tokens` must honor `_IsA2ByteTok`. The literal creates an
-RList, `SortA(` (`0xE3`) reaches the page-02 sort command, `cumSum(` (`BB 29`)
-uses the 2-byte token page, and `sum(` (`0xB6`) reaches the list fold dispatcher
-at `02:6104`. [standard for this sample; list routines cross-linked in
-`sub-matrix-list.md`]
+Observed run: `DATA.8xp` displays sorted `L1` as `{1 1 3 4 5}`, cumulative `L2`
+as `{1 2 5 9 14}`, sum `14`, and then `Done`. The trace hits 2-byte/list paths
+including `resolve_2byte_var2`, `chk_list_type`, `store_list_elem*`,
+`list_var_index`, and `list_fold_dispatch` (`02:6104`).
 
 ### `Asm(` smoke test
 
@@ -487,12 +478,11 @@ ASMCALL: DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41
 
 `Asm(` is the 2-byte token `BB 6A`; `AsmPrgm` is `BB 6C`; the displayed `prgm`
 prefix in `Asm(prgmASMRET)` is the program-name token `0x5F`, followed by the
-name characters and the closing `)` token. The public equates name the relevant
-API surface as `_AsmComp` (`4E73h`), `_GetAsmSize` (`4E76h`), and
-`_ChkFindSymAsm` (`4E7Fh`), with RAM scratch labels `asm_data_ptr1`,
-`asm_sym_ptr1`, `asm_ram`, and `asm_ind_call`. The exact execution body has not
-yet been dynamically mapped in this repository. [standard tokens and public
-equates; execution mapping open]
+name characters and the closing `)` token. Observed run: loading `ASMCALL.8xp`
+and `ASMRET.8xp` displays `BEFORE`, executes `Asm(prgmASMRET)`, displays
+`AFTER`, and then `Done`. The trace shows the assembly handoff through
+`07:57B4` and execution of the payload byte itself at
+`ram:9D95 op=0x000000C9`, returning to BASIC immediately after.
 
 ---
 
