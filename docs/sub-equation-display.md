@@ -368,7 +368,7 @@ The static map above was checked against live execution. The TI-84 Plus OS was
 run under headless TilEm, the entry line was driven to render each construct, and
 page-`39` execution was rolled up to function level with
 `tools/tilem_trace_resolve.py --funcs --only-space page_39` (see
-[dynamic tracing](../tools/dynamic-tracing.md)). The macros are
+[dynamic tracing](https://github.com/siraben/ti84p-re/blob/main/tools/dynamic-tracing.md)). The macros are
 `tools/macros/mathprint-{power,fraction,fnint}.macro`. [confirmed]
 
 The trace cleanly separates the two documented rendering mechanisms by *which
@@ -411,7 +411,7 @@ mis-analyzes both (it shows bare decrement loops). The raw disassembly matches
 this page instead: `683D` does `A = base; loop: add a,7` (`x = base_x + 7·col`)
 and `6B1C` does `ld a,1Bh; … add a,7 (×n); add a,4` (`x_left = 0x1B + 7n`,
 `x_right = x_left + 4`). Trust `z80dasm` over the decompiler for these tight
-register-passing routines, as [the README](../README.md) advises. [confirmed]
+register-passing routines, as [the README](https://github.com/siraben/ti84p-re/blob/main/README.md) advises. [confirmed]
 
 ## Remaining detail
 

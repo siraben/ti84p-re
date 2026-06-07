@@ -36,7 +36,7 @@ These are the values the WINDOW editor writes and the grapher reads.
 | `0x913F` | `XFact` / `0x9148` `YFact` | ZOOM IN/OUT factors |
 
 There is a second "u" copy block at `0x8E7E` (`uXmin`…`uXres` at `0x8F3B`) — the
-** uVar** window set used in the alternate (split/table) graph context, and a working/temp
+**uVar** window set used in the alternate (split/table) graph context, and a working/temp
 float pair around `0x8E6A`/`0x8E73` used by the transform code (`UNK_ram_8e6a`). [strong]
 
 `deltaX`/`deltaY` are derived from the window when the graph is set up and feed both the

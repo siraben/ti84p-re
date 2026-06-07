@@ -133,7 +133,7 @@ seeds the bracket. The main loop runs from `39:4413`:
 
 > **Dynamic confirmation.** Traced end-to-end under headless TilEm by driving the
 > built-in Equation Solver to solve `X²−2 = 0`
-> ([`solver-sqrt2.macro`](../tools/macros/solver-sqrt2.macro)). It converged on screen
+> ([`solver-sqrt2.macro`](https://github.com/siraben/ti84p-re/blob/main/tools/macros/solver-sqrt2.macro)). It converged on screen
 > to `X = 1.4142135623…` (√2) with `left-rt = 0`. The mem-write records show the guess
 > at `0x8478` climbing `1.40898 → 1.41421335 → 1.4142135623645 → 1.4142135623731`
 > (|err| ≈ 4.9e-15, crossing below the `1e-13` tolerance on the final step).
