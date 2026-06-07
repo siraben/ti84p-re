@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-340667b6.js";
+            window.path_to_searchindex_js = "searchindex-d11418ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -219,6 +219,7 @@ programs into calculator RAM first, then run the same macro and resolver steps.<
 <tr><td><code>asmreturn</code></td><td><code>ASMRTN.8xp</code> + <code>ASMVAL.8xp</code></td><td>ASM return value through <code>Ans</code>, then BASIC arithmetic</td><td><code>_OP1Set2</code>, <code>_StoAns</code>, <code>_AnsName</code>, <code>_FPAdd</code></td></tr>
 <tr><td><code>asmfind</code></td><td><code>ASMFIND.8xp</code> + <code>ZZFIND.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM-side VAT lookup of a BASIC program without executing it</td><td><code>ram:9D95</code>, <code>findsym_scan</code>, <code>_Disp</code></td></tr>
 <tr><td><code>asmparse</code></td><td><code>ASMPARSE.8xp</code> + <code>ZZPARSE.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM parser-entry negative probe ending at <code>ERR:INVALID</code></td><td><code>_ParseInpLastEnt</code>, <code>_ParseInp</code>, <code>parseinp_find_setup</code></td></tr>
+<tr><td><code>asmformula</code></td><td><code>ASMFORM.8xp</code> + <code>ZZFORM.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM formula-parser negative probe ending at <code>ERR:UNDEFINED</code></td><td><code>_Find_Parse_Formula</code>, <code>parse_init_findsym</code>, <code>findsym_scan</code></td></tr>
 <tr><td><code>animtext</code></td><td><code>ANIMTXT.8xp</code></td><td>text placement animation with <code>Output(</code></td><td><code>_OutputExpr</code>, <code>_Disp</code></td></tr>
 <tr><td><code>graphviz</code></td><td><code>GRAPHV.8xp</code></td><td>graph-buffer primitives and <code>DispGraph</code></td><td><code>_GrBufClr</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code></td></tr>
 <tr><td><code>graphdfs</code></td><td><code>GRAPHDFS.8xp</code></td><td>graph visualization from DFS topology</td><td><code>_StoSysTok</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code></td></tr>
@@ -248,6 +249,7 @@ returned <code>Ans</code> line, and <code>Done</code>, and <code>CALLSTOP</code>
 <code>ASMFIND</code> checks the wrapper’s <code>BEFORE</code>, <code>AFTER</code>, and <code>Done</code> output plus a
 bounded low-pixel region where an unexpected third line would appear.
 <code>ASMPARSE</code> checks the <code>ERR:INVALID</code>, <code>1:Quit</code>, and <code>2:Goto</code> error-screen
+regions. <code>ASMFORM</code> checks the corresponding <code>ERR:UNDEFINED</code> error-screen
 regions.</p>
 <p>For the visual graph cases, the 2026-06-07 run measured 212, 619, 466, and 466
 dark pixels, with matching first-to-final pixel changes.</p>
@@ -262,7 +264,7 @@ routine trace. For example, the BASIC subprogram case uses the private
 <code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code> body-evaluator path after the top-level
 homescreen parse has already seeded parser RAM. That is why the negative
 ASM-to-BASIC probes in <a href="sub-tibasic-programming.html">TI-BASIC programming patterns</a>
-are kept as probes rather than fixtures: they reach useful ROM paths, but they
+are negative fixtures or temporary probes: they reach useful ROM paths, but they
 do not display the target BASIC program.</p>
 <h2 id="related-pages"><a class="header" href="#related-pages">Related pages</a></h2>
 <ul>

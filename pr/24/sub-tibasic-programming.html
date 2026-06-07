@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-340667b6.js";
+            window.path_to_searchindex_js = "searchindex-d11418ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -270,7 +270,7 @@ branch state.</p>
 <tr><td>ASM-directed BASIC callback</td><td><code>ASMBRIDG.8xp</code> + <code>ASMSIG.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM sets <code>Ans=1</code> with <code>_OP1Set1</code>/<code>_StoAns</code>, returns, and BASIC calls <code>prgmZZBASIC</code> through <code>If Ans</code>.</td></tr>
 <tr><td>ASM return value</td><td><code>ASMRTN.8xp</code> + <code>ASMVAL.8xp</code></td><td>ASM sets <code>Ans=2</code> with <code>_OP1Set2</code>/<code>_StoAns</code>; BASIC reads <code>Ans</code>, computes <code>Ans+3</code>, and displays <code>5</code>.</td></tr>
 <tr><td>ASM-side BASIC lookup</td><td><code>ASMFIND.8xp</code> + <code>ZZFIND.8xp</code> + <code>ZZBASIC.8xp</code></td><td><code>AsmPrgm</code> can build <code>OP1={ProgObj,"ZZBASIC"}</code> and reach <code>findsym_scan</code>, then return to BASIC without running <code>ZZBASIC</code>.</td></tr>
-<tr><td>Direct ASM to BASIC execution</td><td><code>ASMPARSE.8xp</code> + <code>ZZPARSE.8xp</code> + <code>ZZBASIC.8xp</code>; temporary probes</td><td><code>_ParseInpLastEnt</code> reaches parser setup but ends at <code>ERR:INVALID</code>; <code>_Find_Parse_Formula</code>, <code>_ExecuteNewPrgm</code>, <code>_JForceCmd</code>, <code>_PutTokString</code>, and <code>_rclToQueue</code> do not prove a standalone callable BASIC-program ABI.</td></tr>
+<tr><td>Direct ASM to BASIC execution</td><td><code>ASMPARSE.8xp</code> + <code>ZZPARSE.8xp</code> + <code>ZZBASIC.8xp</code>; <code>ASMFORM.8xp</code> + <code>ZZFORM.8xp</code> + <code>ZZBASIC.8xp</code>; temporary probes</td><td><code>_ParseInpLastEnt</code> reaches parser setup but ends at <code>ERR:INVALID</code>; <code>_Find_Parse_Formula</code> reaches parser/find setup but ends at <code>ERR:UNDEFINED</code>; <code>_ExecuteNewPrgm</code>, <code>_JForceCmd</code>, <code>_PutTokString</code>, and <code>_rclToQueue</code> do not prove a standalone callable BASIC-program ABI.</td></tr>
 </tbody>
 </table>
 </div>
@@ -678,7 +678,7 @@ hits <code>ram:9D95</code>, <code>_OP1Set2</code> (<code>00:1B50</code>), <code>
 <tr><td>ASM -&gt; BASIC callback</td><td>ASM stores a signal/result such as <code>Ans=1</code>, returns, and the BASIC wrapper conditionally runs <code>prgmNAME</code>.</td><td>BASIC must own the actual <code>prgm</code> call; this is cooperative, not an arbitrary ASM bcall into BASIC.</td></tr>
 <tr><td>ASM -&gt; BASIC value return</td><td>ASM stores a numeric result in <code>Ans</code> with <code>_StoAns</code>; BASIC resumes and evaluates <code>Ans</code>.</td><td>This returns data to BASIC, not control into a BASIC program body.</td></tr>
 <tr><td>ASM -&gt; VAT lookup</td><td><code>ASMFIND</code> builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code>.</td><td>Lookup is not execution; the wrapper returns and <code>ZZBASIC</code> does not display <code>CALLED</code>.</td></tr>
-<tr><td>Direct ASM -&gt; BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>ASMPARSE</code> reaches <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> and then <code>ERR:INVALID</code>; forced-command/edit-buffer probes did not call the target BASIC program.</td></tr>
+<tr><td>Direct ASM -&gt; BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>ASMPARSE</code> reaches <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> and then <code>ERR:INVALID</code>; <code>ASMFORM</code> reaches <code>_Find_Parse_Formula</code> and then <code>ERR:UNDEFINED</code>; forced-command/edit-buffer probes did not call the target BASIC program.</td></tr>
 </tbody>
 </table>
 </div>
@@ -720,11 +720,15 @@ name: .db 05h,"ZZBASIC",00h
 and a low-pixel region where an unexpected third line would appear. This proves
 ASM-side VAT lookup from an <code>AsmPrgm</code> context, not BASIC program execution.
 <strong>[confirmed]</strong></p>
-<p>Temporary negative probes make the execution boundary sharper.</p>
-<p>Changing only the bcall to <code>_Find_Parse_Formula</code> (<code>4AF2</code>) enters <code>38:758A</code> and
-then stops at <code>ERR:UNDEFINED</code>; the <code>ZZBASIC</code> body never displays. That failed
-run confirms <code>_Find_Parse_Formula</code> is not a drop-in BASIC program executor from
-an arbitrary <code>AsmPrgm</code> context. <strong>[confirmed]</strong></p>
+<p>Generated negative fixtures make the execution boundary sharper.</p>
+<p><code>ASMFORM.8xp</code> and <code>ZZFORM.8xp</code> make the <code>_Find_Parse_Formula</code> negative probe
+reproducible. The payload is the same OP1-name setup as <code>ZZFIND</code>, but it bcalls
+<code>_Find_Parse_Formula</code> (<code>4AF2</code>, target <code>38:758A</code>) instead of <code>_ChkFindSym</code>.
+Observed run: the trace reaches <code>ram:9D95</code>, <code>_Find_Parse_Formula</code>,
+<code>parse_init_findsym</code>, <code>findsym_scan</code>, and <code>eval_stmt_entry</code>; the final screen is
+<code>ERR:UNDEFINED</code> with <code>1:Quit</code> and <code>2:Goto</code>. <code>ZZBASIC</code> never displays <code>CALLED</code>.
+That failed run confirms <code>_Find_Parse_Formula</code> is not a drop-in BASIC program
+executor from an arbitrary <code>AsmPrgm</code> context. <strong>[confirmed]</strong></p>
 <p><code>ASMPARSE.8xp</code> and <code>ZZPARSE.8xp</code> make the <code>_ParseInpLastEnt</code> negative probe
 reproducible. The payload is the same OP1-name setup as <code>ZZFIND</code>, but it bcalls
 <code>_ParseInpLastEnt</code> (<code>4B07</code>, target <code>38:5984</code>) instead of <code>_ChkFindSym</code>.

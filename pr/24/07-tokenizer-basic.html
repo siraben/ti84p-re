@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-340667b6.js";
+            window.path_to_searchindex_js = "searchindex-d11418ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -222,7 +222,10 @@
 <code>_ParseInp</code>; the generated <code>ASMPARSE.8xp</code>/<code>ZZPARSE.8xp</code> fixture reaches it
 but fails with <code>ERR:INVALID</code> without running the named BASIC target.
 <strong>[confirmed negative probe]</strong></li>
-<li><code>_Find_Parse_Formula</code> (<code>38:758A</code>) — <code>_FindSym</code> a variable then parse its stored formula (Y-vars, equations). <strong>[confirmed]</strong></li>
+<li><code>_Find_Parse_Formula</code> (<code>38:758A</code>) — <code>_FindSym</code> a variable then parse its stored
+formula (Y-vars, equations). The generated <code>ASMFORM.8xp</code>/<code>ZZFORM.8xp</code> fixture
+reaches it from an <code>AsmPrgm</code> payload but fails with <code>ERR:UNDEFINED</code> without
+running the named BASIC target. <strong>[confirmed negative probe]</strong></li>
 <li><code>parse_init</code> (<code>38:5b7b</code>) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). <strong>[confirmed]</strong></li>
 </ul>
 <p>The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine (<a href="06-floating-point.html">06</a>), variable tokens resolve via the VAT (<a href="05-variables-vat.html">05</a>), and the busy indicator is driven by <code>_RunIndicOn</code>/<code>Off</code>. <code>_BinOPExec</code> applies a binary operator via OP1/OP2.</p>

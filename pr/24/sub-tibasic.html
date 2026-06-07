@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-340667b6.js";
+            window.path_to_searchindex_js = "searchindex-d11418ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -792,6 +792,13 @@ bcalls <code>_ParseInpLastEnt</code> instead. The trace reaches <code>_ParseInpL
 <code>_ParseInp</code>, <code>parseinp_find_setup</code>, <code>findsym_scan</code>, <code>parse_init</code>, and
 <code>eval_stmt_entry</code>; the final screen is <code>ERR:INVALID</code> / <code>1:Quit</code> / <code>2:Goto</code>, and
 <code>ZZBASIC</code>’s <code>CALLED</code> line does not display.</p>
+<p><code>ASMFORM.8xp</code> and <code>ZZFORM.8xp</code> turn the <code>_Find_Parse_Formula</code> boundary into the
+same kind of generated negative fixture. The payload again builds
+<code>OP1={ProgObj,"ZZBASIC"}</code>, but bcalls <code>_Find_Parse_Formula</code> (<code>4AF2</code>, target
+<code>38:758A</code>). The trace reaches <code>ram:9D95</code>, <code>_Find_Parse_Formula</code>,
+<code>parse_init_findsym</code>, <code>findsym_scan</code>, and <code>eval_stmt_entry</code>; the final screen is
+<code>ERR:UNDEFINED</code> / <code>1:Quit</code> / <code>2:Goto</code>, and <code>ZZBASIC</code>’s <code>CALLED</code> line does not
+display.</p>
 <p>The full <code>CALLSUB</code> smoke trace does hit <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> once,
 because the macro starts the program by submitting <code>prgmCALLSUB</code> from the
 homescreen. That launch parse resolves the top-level program and seeds the
@@ -804,8 +811,8 @@ ASM-to-BASIC ABI: <code>ASMPARSE</code> shows that calling <code>_ParseInpLastEn
 (<code>38:778F</code>). At the first observed hit in the <code>CALLSUB</code> trace, the parser
 cursor/end, OPS/temp-stack pointers, OP1, stack depth, and IY parser flags are
 already live. This is why <code>ASMFIND</code> can successfully <code>_ChkFindSym</code> a BASIC
-program name, but the tested <code>_Find_Parse_Formula</code> probe still reaches
-<code>ERR:UNDEFINED</code> instead of running that program.</p>
+program name, but <code>ASMFORM</code> still reaches <code>ERR:UNDEFINED</code> instead of running
+that program through <code>_Find_Parse_Formula</code>.</p>
 <p>The <code>_ParseInpLastEnt</code> fixture narrows the parser-entry boundary further:
 <code>_ParseInp</code> variants are not byte-stream program-call ABIs; they expect
 parser/FPS stack state that a live BASIC caller has already established.</p>
