@@ -52,7 +52,7 @@ operands, then do BCD mantissa work and renormalize. Result in `OP1`.
 |----|---------|------|-------|
 | `+` | `_FPAdd` | `ram:229E` (= **RST 30h**) | sign-magnitude BCD add; see [06-floating-point.md](06-floating-point.md). |
 | `−` | `_FPSub` | `ram:2297` | flips `OP2.type` bit7 then falls into the add path. |
-| `×` | `_FPMult` | `ram:238B` | `FUN_ram_250F` adds exponents (→ `_ErrOverflow` on carry past 0x7F), then digit-by-digit BCD multiply accumulating into OP3. |
+| `×` | `_FPMult` | `ram:238B` | `ram:250F` adds exponents (→ `_ErrOverflow` on carry past 0x7F), then digit-by-digit BCD multiply accumulating into OP3. |
 | `÷` | `_FPDiv` | `ram:2541` | `_CkOP2FP0` first → `_JError(0x82)` DIVIDE BY 0 if divisor 0; else restoring BCD long division. |
 | `1/x` | `_FPRecip` | `ram:253D` | sets `OP1=1` then enters the divide loop (same body as `_FPDiv`). |
 
@@ -64,7 +64,7 @@ Convenience / derived ops:
 - **Negation**: `_InvOP1S` `ram:24BD` (XOR OP1.type with 0x80, guarding against −0), `_InvOP2S` `ram:24CD`, `_InvOP1SC` `ram:24BA` (both). `_CkOP1Pos` `ram:1E5D` ANDs OP1.type with 0x80. [confirmed]
 
 ### Roots & integer parts [confirmed]
-- `_SqRoot` `page_02:6E38`: `_ErrD_OP1NotPos` (→ DOMAIN if negative/complex-real), `fp_clear_guard`, `_ZeroOP3`, then a **digit-by-digit BCD square-root extraction** loop (`FUN_ram_1C9C` trial-subtract + `FUN_ram_1D4A` compare, halving the exponent up front). Not Newton's method — classic long-hand sqrt.
+- `_SqRoot` `page_02:6E38`: `_ErrD_OP1NotPos` (→ DOMAIN if negative/complex-real), `fp_clear_guard`, `_ZeroOP3`, then a **digit-by-digit BCD square-root extraction** loop (`ram:1C9C` trial-subtract + `ram:1D4A` compare, halving the exponent up front). Not Newton's method — classic long-hand sqrt.
 - `_Int`/`_Intgr` `ram:2621`/`2263`: **floor**. `_Trunc` `ram:2279` drops the fractional part (toward zero); `_Intgr` truncates then subtracts 1 (`_Minus1` `ram:2294`) when the original was negative, giving true floor.
 - `_Frac` `ram:24E3`: fractional part = x − trunc(x); shifts mantissa by the exponent and keeps the low digits.
 - `_Round` / `_RndGuard` `ram:2623` / `page_02:6A57`: round to the active display-digit count; `_Round` is a thin `cross_page_jump` wrapper (body banked off page 0).
@@ -72,8 +72,8 @@ Convenience / derived ops:
 ---
 
 ## 3. Degree/radian & polar conversions [confirmed]
-- `_DToR` `ram:236B` (deg→rad): multiply OP1 by $\pi/180$ (`FUN_ram_235D` loads the constant) then normalize via `FUN_ram_249E`.
-- `_RToD` `ram:2374` (rad→deg): multiply by $180/\pi$ (`FUN_ram_2361`).
+- `_DToR` `ram:236B` (deg→rad): multiply OP1 by $\pi/180$ (`ram:235D` loads the constant) then normalize via `ram:249E`.
+- `_RToD` `ram:2374` (rad→deg): multiply by $180/\pi$ (`ram:2361`).
 - `_PToR` `page_02:50BD` polar→rectangular; pairs with the complex trig below.
 These constants are the BCD floats `π/180 = 1.745…e-2` and `180/π = 5.729…e1` noted in
 [06-floating-point.md](06-floating-point.md)'s constant scan.
@@ -126,7 +126,7 @@ the `_TenX` body at `page_02:7069`; the ln/e^x/sin-cos coefficient tables are on
 ### Inverse trig [confirmed]
 - `_ASinRad` `76DA`, `_ACosRad` `76C9`, `_ATanRad` `76CF`, `_ATan2Rad` `76D4`, plus the
   degree-mode `_ASin`/`_ACos`/`_ATan`/`_ATan2` at `76F1`/`76DF`/`76E9`/`7749`.
-- `_ASin`/`_ACos` call domain check `SUB_page_02:79D3`; **|arg| > 1 → `_ErrDomain`**.
+- `_ASin`/`_ACos` call domain check `page_02:79D3`; **|arg| > 1 → `_ErrDomain`**.
 - All inverse trig funnel into the shared **arctangent CORDIC engine** at `page_02:774B`
   (`B=0x20` seeds the octant/quadrant base written to `0x84A4`; the core is a base-10
   trial-subtract digit recurrence, not a fixed 32-step loop), with asin/acos expressed
@@ -154,14 +154,14 @@ digit string honoring the **MODE** screen (Normal/Sci/Eng, Float/Fix 0–9).
   - Reads the digit-count/mode flags from `(IY+0xc)` and the byte at `0x89FA` (active
     fixed/decimal-places setting; `(IX-1)` local holds the effective format byte).
   - Exponent thresholds drive Normal↔Sci switchover: it compares `OP1.exp` against `0x7D`/`0x7F`
-    (≈ the ±-exponent window) and renormalizes (`FUN_ram_1BE7`) to bring the value into the
+    (≈ the ±-exponent window) and renormalizes (`ram:1BE7`) to bring the value into the
     displayable mantissa range, bumping a digit counter. Negative sign decrements the leading
     column count (`DEC (IX-3)`).
 - `_FormEReal` `page_06:5799` — forces **scientific/E** notation by setting `0,(IY+0xc)` then calling `_FormReal`. [confirmed]
 - `_FormBase` `page_06:57C0` — integer formatting in a base; requires `_CkOP1Real` (→ DATA TYPE / DOMAIN on non-real). [confirmed]
 - `_FormDCplx` `page_06:59D3` — complex `a+bi` / `r∠θ` formatting (calls `_FormReal` twice). [standard]
 - Exponent ↔ ASCII helpers on page 0: `_ExpToHex` `ram:1E4E`, `_OP1ExpToDec` `ram:1E77`,
-  `_DecO1Exp` `ram:1E6F` (decrement exp), `FUN_ram_1BCB` (BCD-digit → value). [confirmed]
+  `_DecO1Exp` `ram:1E6F` (decrement exp), `ram:1BCB` (BCD-digit → value). [confirmed]
 - The formatted string is then drawn by `_DispOP1A` (`page_04:7844`) / homescreen put-string
   routines (see [08-display-lcd.md](08-display-lcd.md)).
 
@@ -199,7 +199,7 @@ which unwinds to the error context and shows the named message. The raiser clust
 
 **Where the calc engine raises what:**
 - `÷ 0`, `1/0`: `_FPDiv`/`_FPRecip` → `0x82` DIVIDE BY 0.
-- `×`/`10^x`/exponent overflow: `FUN_ram_250F` exponent-add → `0x81` OVERFLOW.
+- `×`/`10^x`/exponent overflow: `ram:250F` exponent-add → `0x81` OVERFLOW.
 - `√(neg)`, `ln/log(≤0)`, `asin/acos(|x|>1)`, `tan(π/2)`, |trig arg| ≳ 10^12: `0x84` DOMAIN.
 - Complex result requested in real mode: `0x87` NONREAL ANS (the `_CLN`/complex paths).
 
@@ -211,7 +211,7 @@ Arithmetic core (page 0): `_FPAdd 229E`, `_FPSub 2297`, `_FPMult 238B`, `_FPDiv 
 `_FPRecip 253D`, `_FPSquare 238A`, `_Cube 237D`, `_Times2 2282`, `_TimesPt5 2382`,
 `_InvSub 227D`, `_Int 2621`, `_Intgr 2263`, `_Trunc 2279`, `_Frac 24E3`, `_Round 2623`,
 `_InvOP1S 24BD`, `_InvOP2S 24CD`, `_InvOP1SC 24BA`, `_CkOP1Pos 1E5D`, `fp_clear_guard 2627`,
-`fpmul_expadd FUN_ram_250F`, `_DToR 236B`, `_RToD 2374`, `cross_page_jump 2B09`.
+`fpmul_expadd 250F`, `_DToR 236B`, `_RToD 2374`, `cross_page_jump 2B09`.
 
 Transcendentals (page 02): `_SqRoot 6E38`, `_LnX 6EFD`, `_LogX 6F16`, `_CLN 6CCA`,
 `_CLog 6CE7`, `pow_core 6D08`, `_EToX 705C`, `_TenX 7066`, `_SinCosRad 733E`, `_Sin 7342`,
