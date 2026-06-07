@@ -65,7 +65,8 @@ This branch keeps each claimed behavior tied to a runnable fixture or a
 negative probe trace. The visualization fixtures were rerun on 2026-06-07 and
 kept because they render visible output and pass first-to-final changed-pixel
 checks plus named crop-region checks for text, axes, circle arcs, nodes, and
-edges. The full
+edges. The smoke runner also checks final-screen regions for the main text,
+list, ASM interop, arbitrary-precision, and DFS outputs. The full
 `tools/tibasic_smoke.py` suite also passed on 2026-06-07 against the current
 branch state.
 

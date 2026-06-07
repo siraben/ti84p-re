@@ -56,27 +56,53 @@ CASES: dict[str, Case] = {
         ("HELLO.8xp",),
         "HELLO, WORLD; Done",
         ("eval_stmt_entry", "_Disp"),
+        visual_regions=(
+            VisualRegion("HELLO line", "75x9+0+0", 120),
+            VisualRegion("Done marker", "28x9+66+10", 30),
+        ),
     ),
     "factorial": Case(
         ("FACTOR.8xp",),
         "N=5; 120; Done",
         ("eval_stmt_entry", "_FPMult", "_Disp"),
         FACTORIAL_MACRO,
+        visual_regions=(
+            VisualRegion("prompt echo", "28x9+0+10", 20),
+            VisualRegion("result 120", "20x9+76+16", 5),
+            VisualRegion("Done marker", "28x9+66+24", 30),
+        ),
     ),
     "data": Case(
         ("DATA.8xp",),
         "sorted list, cumulative list, sum 14; Done",
         ("store_list_elem", "list_fold_dispatch", "_Disp"),
+        visual_regions=(
+            VisualRegion("sorted list", "55x9+40+8", 10),
+            VisualRegion("cumulative list", "68x9+28+18", 70),
+            VisualRegion("sum 14", "18x9+78+32", 15),
+            VisualRegion("Done marker", "28x9+66+40", 40),
+        ),
     ),
     "asmcall": Case(
         ("ASMCALL.8xp", "ASMRET.8xp"),
         "BEFORE; AFTER; Done",
         ("_ExecutePrgm", "ram:9d95"),
+        visual_regions=(
+            VisualRegion("BEFORE line", "36x9+0+9", 25),
+            VisualRegion("AFTER line", "30x9+0+18", 60),
+            VisualRegion("Done marker", "28x9+66+28", 25),
+        ),
     ),
     "asmbridge": Case(
         ("ASMBRIDG.8xp", "ASMSIG.8xp", "ZZBASIC.8xp"),
         "BEFORE; CALLED; AFTER; Done",
         ("ram:9d95", "_OP1Set1", "_StoAns", "_AnsName", "eval_eqn_recursive"),
+        visual_regions=(
+            VisualRegion("BEFORE line", "36x9+0+9", 25),
+            VisualRegion("CALLED line", "36x9+0+18", 70),
+            VisualRegion("AFTER line", "30x9+0+27", 60),
+            VisualRegion("Done marker", "28x9+66+36", 25),
+        ),
     ),
     "asmreturn": Case(
         ("ASMRTN.8xp", "ASMVAL.8xp"),
@@ -132,6 +158,11 @@ CASES: dict[str, Case] = {
         ("CALLSUB.8xp", "SUBRT.8xp"),
         "SUB; 1; Done",
         ("_ParseInpLastEnt", "stmt_eval_body_entry", "call_eval_eqn_recursive", "eval_eqn_recursive"),
+        visual_regions=(
+            VisualRegion("SUB line", "18x9+0+9", 10),
+            VisualRegion("result 1", "10x9+84+16", 1),
+            VisualRegion("Done marker", "28x9+66+25", 10),
+        ),
     ),
     "callabi": Case(
         ("ABICALL.8xp", "ABISUB.8xp"),
@@ -148,16 +179,31 @@ CASES: dict[str, Case] = {
         ("BIGADD.8xp",),
         "L3 digits and carry; Done",
         ("list_var_index", "_GetLToOP1", "_PutToL", "_FPMult"),
+        visual_regions=(
+            VisualRegion("digit list", "76x9+20+9", 20),
+            VisualRegion("carry 1", "10x9+84+17", 10),
+            VisualRegion("Done marker", "28x9+66+25", 10),
+        ),
     ),
     "bigmul": Case(
         ("BIGMUL.8xp",),
         "L3 digits for 123*45 and high digit 5; Done",
         ("list_var_index", "_GetLToOP1", "_PutToL", "_FPMult"),
+        visual_regions=(
+            VisualRegion("digit list", "72x9+24+9", 25),
+            VisualRegion("high digit 5", "10x9+84+17", 20),
+            VisualRegion("Done marker", "28x9+66+25", 10),
+        ),
     ),
     "dfs": Case(
         ("DFS.8xp",),
         "1, 3, 2, 4, visited list; Done",
         ("blockmatch_end_else", "parse_scan_tokens", "eval_stmt_entry"),
+        visual_regions=(
+            VisualRegion("traversal column", "10x36+84+0", 30),
+            VisualRegion("visited list", "62x9+34+35", 40),
+            VisualRegion("Done marker", "28x9+66+46", 35),
+        ),
     ),
 }
 
