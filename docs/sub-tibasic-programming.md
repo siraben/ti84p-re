@@ -77,7 +77,8 @@ kept because both render visible graph-screen output.
 | DFS / stack-style list algorithm | `DFS.8xp` | Displays traversal `1, 3, 2, 4` and visited list `{1 1 1 1}`; reaches nested scanner/control-flow paths. |
 | BASIC subprogram calling convention | `CALLSUB.8xp` + `SUBRT.8xp` | Caller and callee share scalar/list variables and return through the BASIC program evaluator. |
 | BASIC to ASM | `ASMCALL.8xp` + `ASMRET.8xp` | `Asm(` runs an `AsmPrgm` payload (`C9`) and returns to BASIC, displaying `BEFORE` then `AFTER`. |
-| ASM to BASIC | temporary probes | VAT lookup from `AsmPrgm` works, but `_Find_Parse_Formula`, `_ParseInpLastEnt`, `_ExecuteNewPrgm`, `_JForceCmd`, `_PutTokString`, and `_rclToQueue` do not prove a standalone callable BASIC-program ABI. |
+| ASM-directed BASIC callback | `ASMBRIDG.8xp` + `ASMSIG.8xp` + `ZZBASIC.8xp` | ASM sets `Ans=1` with `_OP1Set1`/`_StoAns`, returns, and BASIC calls `prgmZZBASIC` through `If Ans`. |
+| Direct ASM to BASIC | temporary probes | VAT lookup from `AsmPrgm` works, but `_Find_Parse_Formula`, `_ParseInpLastEnt`, `_ExecuteNewPrgm`, `_JForceCmd`, `_PutTokString`, and `_rclToQueue` do not prove a standalone callable BASIC-program ABI. |
 
 ## Run-confirmed fixtures
 
@@ -309,12 +310,53 @@ Practical convention: pass data through OS variables or known RAM locations,
 validate inputs on the BASIC side, and make the ASM payload return normally with
 `RET` unless it intentionally transfers control elsewhere.
 
+### Cooperative ASM-directed BASIC callback
+
+The run-confirmed way to let ASM choose a BASIC continuation is to keep BASIC in
+charge of the program call. `ASMSIG.8xp` sets `Ans` to `1` and returns:
+
+```asm
+rst 28h
+.dw 419Bh         ; _OP1Set1
+rst 28h
+.dw 4ABFh         ; _StoAns
+ret
+```
+
+The BASIC wrapper then branches on `Ans` and performs the ordinary `prgmNAME`
+call:
+
+```ti-basic
+Disp "BEFORE"
+Asm(prgmASMSIG)
+If Ans
+prgmZZBASIC
+Disp "AFTER"
+```
+
+with target:
+
+```ti-basic
+Disp "CALLED"
+```
+
+Observed run: `ASMBRIDG.8xp`, `ASMSIG.8xp`, and `ZZBASIC.8xp` display
+`BEFORE`, `CALLED`, `AFTER`, then `Done`. The trace hits the `AsmPrgm` payload
+at `ram:9D95`, `_OP1Set1` (`00:1B38`), `_StoAns` (`38:6251`), `_AnsName`
+(`38:74B7`) while evaluating `If Ans`, and then the normal BASIC program-body
+path for `prgmZZBASIC` (`38:6910` -> `38:6914` -> `38:778F`). **[confirmed]**
+
+This is a callback convention, not a direct jump from ASM into a BASIC body.
+The ASM side communicates a return code through `Ans`; BASIC owns the parser
+state, performs the `prgm` call, and resumes after the target returns.
+
 | Direction | Confirmed mechanism | Caveat |
 |-----------|---------------------|--------|
 | BASIC -> ASM | `Asm(prgmNAME)` parses `prgmNAME`, bcalls `_ExecutePrgm`, copies the `AsmPrgm` payload, then jumps through `ram:9D95`. | The payload runs in the calculator OS process; a bad payload can corrupt interpreter state. |
 | BASIC -> BASIC | `prgmNAME` enters the page-38 parser/VAT/body evaluator path and `Return` resumes the caller. | There is no local frame; variables are shared. |
+| ASM -> BASIC callback | ASM stores a signal/result such as `Ans=1`, returns, and the BASIC wrapper conditionally runs `prgmNAME`. | BASIC must own the actual `prgm` call; this is cooperative, not an arbitrary ASM bcall into BASIC. |
 | ASM -> VAT lookup | An `AsmPrgm` can build `OP1={ProgObj,"NAME"}` and bcall `_ChkFindSym`. | Lookup is not execution. |
-| ASM -> BASIC | No working public bcall sequence is proven in this repo. | `_Find_Parse_Formula` reached `ERR:UNDEFINED`; `_ParseInpLastEnt` reached `ERR:INVALID`; forced-command/edit-buffer probes did not call the target BASIC program. |
+| Direct ASM -> BASIC | No working public bcall sequence is proven in this repo. | `_Find_Parse_Formula` reached `ERR:UNDEFINED`; `_ParseInpLastEnt` reached `ERR:INVALID`; forced-command/edit-buffer probes did not call the target BASIC program. |
 
 ### ASM to BASIC
 

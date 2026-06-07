@@ -87,6 +87,7 @@ for observed outputs and trace anchors.
 | Factorial | `Prompt N` / `1->F` / `For(I,1,N)` / `F*I->F` / `End` / `Disp F` | `DD 4E 3F 31 04 46 3F D3 49 2B 31 2B 4E 11 3F 46 82 49 04 46 3F D4 3F DE 46 3F` |
 | Data | `{3,1,4,1,5}->L1` / `SortA(L1)` / `cumSum(L1)->L2` / `sum(L1)->S` / display results | `08 33 2B 31 2B 34 2B 31 2B 35 09 04 5D 00 3F E3 5D 00 11 3F BB 29 5D 00 11 04 5D 01 3F B6 5D 00 11 04 53 3F DE 5D 00 3F DE 5D 01 3F DE 53 3F` |
 | `Asm(` wrapper | `Disp "BEFORE"` / `Asm(prgmASMRET)` / `Disp "AFTER"` | `DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41 46 54 45 52 2A 3F` |
+| ASM callback bridge | `Asm(prgmASMSIG)` / `If Ans` / `prgmZZBASIC` | `DE 2A 42 45 ... 72 3F 5F 5A 5A ...` (full body in `tools/tibasic-samples/asmbridge.tok`) |
 | Animation | `ClrHome` / `For(I,1,8)` / `Output(1,I,"X")` / `End` / `Disp "DONE"` | `E1 3F D3 49 2B 31 2B 38 11 3F E0 31 2B 49 2B 2A 58 2A 11 3F D4 3F DE 2A 44 4F 4E 45 2A 3F` |
 | Graph drawing | `ClrDraw` / `Line(0,0,95,63)` / `Circle(47,31,10)` / `Text(0,0,"DFS")` / `DispGraph` | `85 3F 9C 30 2B 30 2B 39 35 2B 36 33 11 3F A5 34 37 2B 33 31 2B 31 30 11 3F 93 30 2B 30 2B 2A 44 46 53 2A 11 3F DF 3F` |
 | Graph visualization | `ClrDraw`, window stores, then `Line(`/`Circle(`/`Text(` drawing the DFS topology | `85 3F 30 04 63 0A ... DF 3F` (full body in `tools/tibasic-samples/graphdfs.tok`) |
@@ -101,9 +102,9 @@ statement separators (`3F`), string delimiters (`2A`), store (`04`), list names
 `For(` (`D3`), `End` (`D4`), `ClrHome` (`E1`), and `SortA(` (`E3`). The
 newer samples add `Output(` (`E0`), graph commands (`85`, `93`, `9C`, `A5`,
 `DF`), system/window variables (`63 0A` through `63 0D` for
-`Xmin`/`Xmax`/`Ymin`/`Ymax`), `Return` (`D5`), list indexing with `(` (`10`) /
-`)` (`11`), `int(` (`B1`), arithmetic operators (`70`, `71`, `82`, `83`), and
-the program-name token (`5F`) before the name characters. `DFS` adds
+`Xmin`/`Xmax`/`Ymin`/`Ymax`), `Ans` (`72`), `Return` (`D5`), list indexing with
+`(` (`10`) / `)` (`11`), `int(` (`B1`), arithmetic operators (`70`, `71`, `82`,
+`83`), and the program-name token (`5F`) before the name characters. `DFS` adds
 structured-control tokens `While` (`D1`), `If` (`CE`), `Then` (`CF`), and
 equality (`6A`). [confirmed token bytes from `ti83plus.inc` and
 `token-tables.md`]
