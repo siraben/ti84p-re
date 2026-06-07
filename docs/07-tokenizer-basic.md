@@ -68,6 +68,29 @@ The handlers are **recursive-descent grammar productions** (not flat per-operato
 
 The precedence levels (term/factor/unary productions) and sub-dispatch tables are mapped in [TI-BASIC Programs](sub-tibasic.md) §3/§6.
 
+## Tokenized sample programs
+
+The raw bodies below are the bytes stored after a `ProgObj` size word. They can
+be regenerated with [`tools/tibasic_samples.py`](../tools/tibasic_samples.py)
+`--write-dir tools/tibasic-samples` and traced with the workflow in
+[`tools/dynamic-tracing.md`](../tools/dynamic-tracing.md).
+
+| Program | Source | Body bytes |
+|---------|--------|------------|
+| Hello | `ClrHome` / `Disp "HELLO, WORLD"` | `E1 3F DE 2A 48 45 4C 4C 4F 2B 29 57 4F 52 4C 44 2A 3F` |
+| Factorial | `Prompt N` / `1->F` / `For(I,1,N)` / `F*I->F` / `End` / `Disp F` | `DD 4E 3F 31 04 46 3F D3 49 2B 31 2B 4E 11 3F 46 82 49 04 46 3F D4 3F DE 46 3F` |
+| Data | `{3,1,4,1,5}->L1` / `SortA(L1)` / `cumSum(L1)->L2` / `sum(L1)->S` / display results | `08 33 2B 31 2B 34 2B 31 2B 35 09 04 5D 00 3F E3 5D 00 11 3F BB 29 5D 00 11 04 5D 01 3F B6 5D 00 11 04 53 3F DE 5D 00 3F DE 5D 01 3F DE 53 3F` |
+| `Asm(` wrapper | `Disp "BEFORE"` / `Asm(prgmASMRET)` / `Disp "AFTER"` | `DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41 46 54 45 52 2A 3F` |
+
+These examples show the main token categories the parser must walk:
+statement separators (`3F`), string delimiters (`2A`), store (`04`), list names
+(`5D 00`/`5D 01`), extended `BB` tokens (`cumSum(` = `BB 29`, `Asm(` = `BB 6A`,
+`AsmPrgm` = `BB 6C`), and command tokens such as `Prompt` (`DD`), `Disp` (`DE`),
+`For(` (`D3`), `End` (`D4`), `ClrHome` (`E1`), and `SortA(` (`E3`). The
+`Asm(prgmASMRET)` wrapper also shows the program-name token (`5F`) before the
+name characters. [confirmed token bytes from `ti83plus.inc` and
+`token-tables.md`]
+
 ## Second-byte tables
 
 Every 2-byte token group's second-byte → token mapping (matrices, lists, Y-vars, system/window vars, the `BB` extended-command page, the `EF` 84+ page, etc.) is tabulated in **[2-Byte Token Tables](token-tables.md)** — 492 tokens, sourced from [TI-Toolkit/tokens](https://github.com/TI-Toolkit/tokens) and filtered to the 84+ 2.55MP.
