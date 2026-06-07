@@ -696,7 +696,7 @@ Disp L3
 
 Observed run: `DFS.8xp` displays traversal `1`, `3`, `2`, `4`, then visited
 flags `{1 1 1 1}`, then `Done`. The trace hits nested control-flow scanners
-(`blockmatch_end_else`, `parse_scan_tokens`, `if_isg_stmt_handler`), parser
+(`blockmatch_end_else`, `parse_scan_tokens`), `eval_stmt_entry`, parser
 refill/advance, and list stack read/write paths (`list_var_index`, `_AdrLEle`,
 `_GetLToOP1`, `_PutToL`, `store_list_elem*`).
 

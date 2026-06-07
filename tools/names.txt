@@ -117,6 +117,8 @@ page_33:758d	_GrphCirc
 page_33:71ac	_StoGDB2
 page_33:72d9	_RclGDB2
 page_38:40d4	_ParsePrgmName
+page_07:5758	_ExecutePrgm
+page_07:57b4	asm_payload_handoff
 page_38:4113	asm_token_handler
 page_38:4130	blockmatch_end_else
 page_38:4870	goto_lbl_name_scanner

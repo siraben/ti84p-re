@@ -89,7 +89,7 @@ CASES: dict[str, Case] = {
     "dfs": Case(
         ("DFS.8xp",),
         "1, 3, 2, 4, visited list; Done",
-        ("blockmatch_end_else", "parse_scan_tokens", "if_isg_stmt_handler"),
+        ("blockmatch_end_else", "parse_scan_tokens", "eval_stmt_entry"),
     ),
 }
 
