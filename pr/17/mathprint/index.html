@@ -13,7 +13,7 @@
     Type an expression and it is typeset in 2-D using the calculator's real ROM
     font glyphs, following the page-<code>0x39</code> MathPrint layout engine
     documented in the
-    <a href="../#/sub-equation-display.html">equation-display</a> wiki page.
+    <a href="../sub-equation-display.html">equation-display</a> wiki page.
     This is a reconstruction of the layout model, not the emulator; the glyph
     bitmaps are extracted from the ROM by <code>tools/export-font.py</code>.
   </p>
@@ -61,18 +61,21 @@
   <details class="syntax">
     <summary>Syntax</summary>
     <ul>
-      <li><code>a/b</code> — fraction (numerator over denominator)</li>
-      <li><code>a^b</code> — superscript / exponent (raised 4&nbsp;px)</li>
-      <li><code>sqrt(x)</code> — radical with a vinculum sized to the radicand</li>
-      <li><code>int(lo,hi,body,var)</code> — definite integral; the <code>∫</code>
-          and its parentheses grow to the body height</li>
+      <li><code>a/b</code> linear divide · <code>a//b</code> stacked fraction
+          (small-font digits, like the n/d template)</li>
+      <li><code>a^b</code> — exponent (small font; bottom sits 2&nbsp;px below the base top)</li>
+      <li><code>sqrt(x)</code> — radical (`2nd`+`x²`); <code>nthroot(n,x)</code> — nth root (`MATH→5`)</li>
+      <li><code>int(lo,hi,body,var)</code> — definite integral (∫, `MATH→9`)</li>
+      <li><code>sum(var,lo,hi,body)</code> — summation (Σ, `MATH→0`): <code>hi</code>
+          above, <code>var=lo</code> below, body to the right</li>
       <li><code>abs(x)</code>, parentheses, <code>+ - * ^</code>, and implicit
           multiplication (<code>2X</code>)</li>
     </ul>
     <p>
-      Geometry constants are the ROM-confirmed ones: 5&nbsp;px large-font cells,
-      a 7&nbsp;px fraction column unit (<code>x = base + 7·col</code>), a
-      <code>row_height + 2</code> px row step, and a 4&nbsp;px exponent raise.
+      Every construct here corresponds to a real TI-84 template (no invented
+      ones). Geometry constants are ROM-confirmed: 5&nbsp;px large-font cells, a
+      7&nbsp;px fraction column unit (<code>x = base + 7·col</code>), a
+      <code>row_height + 2</code> px row step.
     </p>
   </details>
 </main>

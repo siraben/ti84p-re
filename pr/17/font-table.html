@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-90633ad1.js";
+            window.path_to_searchindex_js = "searchindex-595cf107.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-c47a8e66.js"></script>
@@ -181,7 +181,7 @@
                     <main>
                         <h1 id="font-tables"><a class="header" href="#font-tables">Font tables</a></h1>
 <p>The TI-84 Plus stores two bitmap fonts in flash. The large font drives <code>_PutMap</code> and the page-<code>39</code> MathPrint typesetter; the small variable-width font drives <code>_VPutMap</code> and supplies MathPrint superscripts, subscripts, and compact limits. Both tables are decoded straight from the ROM by <code>tools/export-font.py</code>. [confirmed]</p>
-<p>An interactive renderer that composes these glyphs into MathPrint 2-D layouts ships alongside the wiki at <a href="../mathprint/index.html"><code>/mathprint/</code></a> (outside the book; see <a href="sub-equation-display.html">equation display</a>).</p>
+<p>An interactive renderer that composes these glyphs into MathPrint 2-D layouts ships alongside the wiki at <a href="https://siraben.github.io/ti84p-re/mathprint/"><code>/mathprint/</code></a> (outside the book; see <a href="sub-equation-display.html">equation display</a>).</p>
 <h2 id="large-font"><a class="header" href="#large-font">Large font</a></h2>
 <p>Flash page <code>07:45FF</code>, 7-byte stride, 256 codepoints. Each glyph is 7 rows; the 5-pixel glyph occupies the low 5 bits of each row byte. Codepoints <code>0x20</code>-<code>0x7E</code> mirror ASCII; the <code>L*</code> names come from <code>ti83plus.inc</code>. [confirmed]</p>
 <pre><code class="language-text">00              01 LrecurN      02 LrecurU      03 LrecurV      04 LrecurW      05 Lconvert     06 LsqUp        07 LsqDown      08 Lintegral    09 Lcross       0A LboxIcon     0B LcrossIcon   0C LdotIcon     0D LsubT        0E LcubeR       0F LhexF

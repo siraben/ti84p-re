@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-90633ad1.js";
+            window.path_to_searchindex_js = "searchindex-595cf107.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-c47a8e66.js"></script>
@@ -417,7 +417,7 @@ bits — port 2 bit 7 (<code>probe_hw_model_keep_a</code> <code>00:1837</code>) 
 <tr><th>Model test</th><th>Archive <strong>base</strong> page (<code>flash_page_select</code> <code>3D:726E</code>)</th><th>Archive <strong>top</strong> page (<code>flash_cmd_base</code> <code>3D:738B</code>)</th><th>Page mask</th></tr>
 </thead>
 <tbody>
-<tr><td>port 2 bit 7 set (1 MB)</td><td><code>0x15</code></td><td><code>0x1E</code></td><td><code>AND 0x1F</code> (32 pages)</td></tr>
+<tr><td>port 2 bit 7 <strong>clear</strong> (1 MB)</td><td><code>0x15</code></td><td><code>0x1E</code></td><td><code>AND 0x1F</code> (32 pages)</td></tr>
 <tr><td>port 0x21 == 0 (mid)</td><td><code>0x29</code></td><td><code>0x3E</code></td><td><code>AND 0x3F</code> (64 pages)</td></tr>
 <tr><td>else (2 MB)</td><td><code>0x69</code></td><td><code>0x7E</code></td><td><code>AND 0x3F</code></td></tr>
 </tbody>

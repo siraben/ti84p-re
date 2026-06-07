@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-90633ad1.js";
+            window.path_to_searchindex_js = "searchindex-595cf107.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-c47a8e66.js"></script>
@@ -187,10 +187,6 @@ equation line, and the template menus. The implementation is concentrated on fla
 <code>39</code> and drives the display services described in <a href="08-display-lcd.html">Display &amp; LCD</a>.
 It consumes the token stream described in <a href="07-tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a>
 and preserves the OP registers described in <a href="06-floating-point.html">Floating-point engine</a>.</p>
-<p>The <a href="font-table.html">font tables</a> page renders the glyphs this engine emits. A
-standalone <a href="../mathprint/index.html">interactive renderer</a> composes those ROM
-glyphs into MathPrint 2-D layouts using the geometry below; it ships beside the
-wiki, outside the book.</p>
 <p>The useful mental model is a <strong>cell-grid typesetter</strong>. The OS classifies each token,
 selects a compact handler record, walks the expression into rows and slots, maps each
 cell to pixel coordinates, and emits glyphs or graph-buffer rules. The live state is a
@@ -524,35 +520,31 @@ anchors for readers who want to check the disassembly. [confirmed]</p>
 run under headless TilEm, the entry line was driven to render each construct, and
 page-<code>39</code> execution was rolled up to function level with
 <code>tools/tilem_trace_resolve.py --funcs --only-space page_39</code> (see
-<a href="../tools/dynamic-tracing.html">dynamic tracing</a>). The macros are
+<a href="https://github.com/siraben/ti84p-re/blob/main/tools/dynamic-tracing.md">dynamic tracing</a>). The macros are
 <code>tools/macros/mathprint-{power,fraction,fnint}.macro</code>. [confirmed]</p>
-<p>The trace cleanly separates the rendering mechanisms by <em>which routines actually
-run</em> for each construct. <code>tools/parity-mathprint.py</code> types each example on the
-calculator, captures its trace, and rolls page-<code>39</code> execution up to function
-level:</p>
+<p>The trace cleanly separates the two documented rendering mechanisms by <em>which
+routines actually run</em> for each construct:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Entry-line input</th><th>Page-<code>39</code> path</th><th>Anchor routines that fire</th></tr>
+<tr><th>Rendered (entry line)</th><th>Page-<code>39</code> routines exercised</th><th>Path</th></tr>
 </thead>
 <tbody>
-<tr><td><code>X^2</code>, <code>X^2+2X+1</code></td><td>light entry-line</td><td>none of the template anchors; <code>eqdisp_emit_subexpr2</code> <code>39:4CA4</code>, <code>eqdisp_menu_or_emit</code> <code>39:53AD</code></td></tr>
-<tr><td><code>1/2</code> (<code>÷</code> key, linear)</td><td>light entry-line</td><td>none</td></tr>
-<tr><td><code>sqrt(X^2+1)</code> (<code>2nd</code>+<code>x²</code>)</td><td>light entry-line</td><td>none</td></tr>
-<tr><td><code>1/2</code> n/d template</td><td><strong>descriptor / geometry</strong></td><td><code>eqdisp_compute_dims</code> <code>39:69C8</code>, <code>eqdisp_layout_token_geom</code> <code>39:68AE</code>, the <code>39:683D</code> cell-to-pixel mapper, <code>eqdisp_draw_fraction_bar</code> <code>39:6ABF</code></td></tr>
-<tr><td><code>fnInt(</code> (MATH ▸ 9)</td><td><strong>handler record / multi-arg</strong></td><td><code>eqdisp_emit_glyph</code> <code>39:4E8E</code>, <code>eqdisp_map_token_glyph</code> <code>39:4F1A</code>, <code>eqdisp_emit_arglist</code> <code>39:4DE6</code>, <code>eqdisp_sum_arg_widths</code> <code>39:4DCA</code>, <strong><code>eqdisp_layout_multiarg</code> <code>39:5167</code></strong></td></tr>
-<tr><td><code>fnInt(</code> with a fraction integrand</td><td><strong>both paths</strong></td><td>every handler-record anchor <strong>plus</strong> <code>39:69C8</code>/<code>39:683D</code>/<code>39:6ABF</code></td></tr>
+<tr><td><code>X^2</code> (raised exponent)</td><td><code>eqdisp_emit_subexpr2</code> <code>4CA4</code>, <code>eqdisp_menu_or_emit</code> <code>53AD</code></td><td>light entry-line emit (<code>eqdisp_set_row_for_tok</code> <code>4CE9</code> is the static superscript-row helper but did <strong>not</strong> execute in this trace — it does run in the <code>1/2</code> trace)</td></tr>
+<tr><td><code>1/2</code> (n/d template)</td><td><code>eqdisp_compute_dims</code> <code>69C8</code>, <code>eqdisp_layout_token_geom</code> <code>68AE</code>, the <code>683D</code> cell-to-pixel mapper, <code>eqdisp_draw_fraction_bar</code> <code>6ABF</code>, <code>eqdisp_draw_box_jp</code> <code>6AF5</code>, <code>eqdisp_load_glyph18b2</code> <code>6B66</code>, <code>eqdisp_dispatch_token</code> <code>4A74</code></td><td><strong>descriptor / geometry</strong></td></tr>
+<tr><td><code>fnInt(</code> (MATH ▸ 9)</td><td><code>eqdisp_emit_glyph</code> <code>4E8E</code>, <code>eqdisp_map_token_glyph</code> <code>4F1A</code>, <code>eqdisp_emit_arglist</code> <code>4DE6</code>, <code>eqdisp_sum_arg_widths</code> <code>4DCA</code>, <code>eqdisp_emit_digit_chk</code> <code>4E0A</code></td><td><strong>handler record / multi-arg</strong></td></tr>
 </tbody>
 </table>
 </div>
-<p>Two results follow. First, the heavy page-<code>39</code> engine runs only for the 2-D
-<strong>templates</strong> (the n/d fraction and <code>fnInt</code>); a plain exponent, linear <code>÷</code>,
-radical, or polynomial typed on the home line draws through the light entry-line
-emitter, and the <code>0x85DE..</code> state block stays zero. Second, <code>39:5167</code> is the
-multi-argument row compositor: it fires for <code>fnInt</code> but not for a fraction or
-exponent, and when a fraction sits inside <code>fnInt</code> it runs <em>alongside</em> the
-descriptor path, which is what grows the <code>∫</code> and its parentheses to the fraction
-height. [confirmed]</p>
+<p>This confirms the headline static result: the descriptor path (<code>69C8</code>/<code>68AE</code>/<code>683D</code>/<code>6ABF</code>)
+and the handler-record path (<code>4DCA</code>/<code>4DE6</code>/<code>4E8E</code>/<code>4F1A</code>) are mutually
+exclusive per construct, exactly as the two-mechanism model predicts. [confirmed]</p>
+<p><code>39:5167</code> (<code>eqdisp_layout_multiarg</code>) <strong>statically</strong> owns the multi-arg row
+composition, but it did <strong>not</strong> execute in this trace: the <code>fnInt(</code> template was
+inserted <em>empty</em> (<code>∫(0)dV</code>), so the operand-recursion branch was never driven —
+<code>5167</code> and its body (<code>5949</code>/<code>5B10</code>) show 0 hits, and the <code>--funcs</code> “5167” rollup
+bucket is a nearest-name artifact (only a <code>51F1/51F3</code> fragment ran). A <em>filled</em>
+integrand would be needed to drive <code>5167</code> under a trace. [confirmed] (static); the dynamic path is open.</p>
 <p>The live state block matches the field map. Reading <code>0x85DE..0x85F2</code> from a RAM
 dump right after each render (<code>memdump … ram-logical</code>):</p>
 <div class="table-wrapper">
@@ -577,43 +569,7 @@ mis-analyzes both (it shows bare decrement loops). The raw disassembly matches
 this page instead: <code>683D</code> does <code>A = base; loop: add a,7</code> (<code>x = base_x + 7·col</code>)
 and <code>6B1C</code> does <code>ld a,1Bh; … add a,7 (×n); add a,4</code> (<code>x_left = 0x1B + 7n</code>,
 <code>x_right = x_left + 4</code>). Trust <code>z80dasm</code> over the decompiler for these tight
-register-passing routines, as <a href="../README.html">the README</a> advises. [confirmed]</p>
-<h2 id="pixel-parity"><a class="header" href="#pixel-parity">Pixel parity</a></h2>
-<p>The <a href="../mathprint/index.html">interactive renderer</a> composes the ROM glyphs with
-the geometry above. <code>tools/parity-mathprint.py</code> types each example on the
-calculator, strips the blinking cursor from the capture, and diffs it against the
-renderer pixel-for-pixel:</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Input</th><th>Match vs binary</th><th>Notes</th></tr>
-</thead>
-<tbody>
-<tr><td><code>1/2</code> (linear), <code>X^2</code>, <code>X^2+2X+1</code>, <code>1//2</code> (n/d template)</td><td>100%</td><td>Inline text, exponents, and stacked fractions are exact. The exponent raise is 3 px; fraction operands render in the <strong>small font</strong> (<code>smallfont_glyph_ptr</code> <code>01:6702</code>) with a 1px gap above and below the rule.</td></tr>
-<tr><td><code>sqrt(X^2+1)</code></td><td>dimensions match (~81%)</td><td>The radicand and vinculum align; the residual is the stretched root-hook shape.</td></tr>
-<tr><td><code>int(1,2,X^2,X)</code></td><td>~86%, dimensions close</td><td>The <code>∫</code> is built as top hook · vertical stem · inverted bottom hook (<code>Lintegral</code> <code>0x08</code> with the stem row repeated) and spans body + both limits; the residual is body spacing.</td></tr>
-</tbody>
-</table>
-</div>
-<p>Inline layouts and stacked fractions reproduce the calculator exactly. The tall
-templates match in extent; closing the last pixels means reproducing the OS’s
-exact glyph-stretch for the <code>∫</code> curve and the <code>Lroot</code> hook. [confirmed]</p>
-<h2 id="draw-order"><a class="header" href="#draw-order">Draw order</a></h2>
-<p>The OS does not sweep the screen column by column. After a measure pass it runs
-a draw pass that emits whole glyphs and rules one at a time at pen coordinates
-(<code>0x86D7</code>/<code>0x86D8</code>), in emission order. The interactive renderer mirrors this:
-it builds a display list and the timeline steps it element by element. The
-emission order and routine for each element is checked against the execution
-trace. [confirmed]</p>
-<p>For <code>int(1,2,1/2,X)</code> the trace’s pen-coordinate (<code>0x86D7</code>/<code>0x86D8</code>) writes in the
-final render place the upper limit at <code>penX=6,penY=0</code>, the lower limit at
-<code>penX=6,penY=18</code>, the body open-paren at <code>penX=16</code>, the fraction at <code>penX≈18</code>,
-then the close-paren, <code>d</code>, and the variable — the same order and ~the same
-positions the display list produces. Each element’s blitter matches too: large
-glyphs go through <code>_PutMap</code> (<code>07:4588</code>), small glyphs (exponents, integral
-limits, fraction digits) through <code>_VPutMap</code> (<code>01:6293</code>, glyph pointer at
-<code>01:6702</code>), and the fraction rule through <code>eqdisp_draw_fraction_bar</code> (<code>39:6abf</code>).
-[confirmed]</p>
+register-passing routines, as <a href="https://github.com/siraben/ti84p-re/blob/main/README.md">the README</a> advises. [confirmed]</p>
 <h2 id="remaining-detail"><a class="header" href="#remaining-detail">Remaining detail</a></h2>
 <p>The static MathPrint pipeline is recovered: token classification, handler records,
 recursive operand order, descriptor templates, fraction UI geometry, fixed structural
@@ -622,6 +578,51 @@ The row compositor is <code>39:5167</code>; the pixel emitters are the fixed gly
 listed above. Dynamic traces can still refine the exact runtime path for a specific
 expression and cursor state, but the static map now has the ROM routine that owns
 tall-template row composition.</p>
+<h2 id="multi-arg-path-under-trace"><a class="header" href="#multi-arg-path-under-trace">Multi-arg path under trace</a></h2>
+<p>Driving <code>fnInt(</code> with a real integrand (<code>MATH ▸ 9</code>, then filling the slots)
+<em>does</em> execute the multi-argument compositor — <code>eqdisp_layout_multiarg</code>
+(<code>39:5167</code>, 69 hits) runs with <code>eqdisp_emit_glyph</code> (<code>39:4E8E</code>),
+<code>eqdisp_map_token_glyph</code> (<code>39:4F1A</code>), and <code>eqdisp_emit_arglist</code> (<code>39:4DE6</code>). A
+fraction <em>inside</em> the integrand lights up both paths at once: the
+handler-record/multi-arg path for the <code>∫</code> plus the descriptor path
+(<code>69C8</code>/<code>683D</code>/<code>6ABF</code>) for the fraction, and <code>5167</code>’s row measurement is what
+grows the <code>∫</code> and its parentheses to the fraction height. Reproduce with
+<code>tools/macros/mathprint-fnint.macro</code>. [confirmed]</p>
+<h2 id="cell-encoding"><a class="header" href="#cell-encoding">Cell encoding</a></h2>
+<p><code>eqdisp_emit_glyph</code> (<code>39:4E8E</code>) dispatches each <code>D:E</code> cell by its <code>D</code> byte:
+<code>D=0x1F</code> is a cursor marker (no draw), <code>D=0x82</code> a positional column glyph, and
+otherwise a token-name string draw (<code>39:6B66 → bcall 0xC945 → 01:6702</code>, the
+standard OS token-name drawer, table <code>01:4252</code> with the <code>07:4000</code> display→token
+remap) or a direct glyph via <code>39:4F1A</code> (<code>FC3C..40 → glyph (E−0x3C)+5</code>,
+<code>FE7D..81 → E−0x7D</code>, <code>E=0x42,D&lt;0x0A → glyph D</code>). So <code>00C8</code> draws the literal name
+“fnInt(”, not a glyph. The full decode is in
+<code>tools/cell-glyph-spec.md</code> and
+<code>tools/token-name-spec.md</code>; the placement geometry
+(<code>683D</code>, <code>6B1C</code>, <code>5167</code>/<code>5949</code>, pen conversion) is in
+<code>tools/geometry-spec.md</code>. [confirmed]</p>
+<h2 id="reconstruction-and-pixel-parity"><a class="header" href="#reconstruction-and-pixel-parity">Reconstruction and pixel parity</a></h2>
+<p>The render writes the LCD <strong>directly through the display ports</strong> (<code>OUT (0x11),A</code>
+data + <code>OUT (0x10),A</code> commands), not a RAM buffer, so the image is <em>completely
+reconstructible from the trace alone</em>. <code>tools/trace_lcd.py</code>
+replays that stream through the T6A04 controller to produce the exact 96×64
+bitmap (verified identical to the recorded GIF), and
+<code>tools/parity-mathprint.py</code> diffs the standalone
+<a href="https://siraben.github.io/ti84p-re/mathprint/">interactive renderer</a> against it. [confirmed]</p>
+<p>Against that exact reference: inline text, exponents (<code>X^2</code>), linear <code>1/2</code>,
+stacked fractions (<code>1//2</code>), and radicals (<code>sqrt(...)</code>) match the calculator
+<strong>100% pixel-for-pixel</strong>. The tall operators (integral, summation, nth root)
+match in operator sign, limits, and dimensions; their body’s internal glyph
+advances come from a RAM-relocated bcall (<code>0xC951</code>) whose width table is not in
+flash, so those few pixels are trace-pinned rather than ROM-derivable. The TI-84
+has no product (Π) template, so none is rendered. [confirmed]</p>
+<h2 id="data-driven-model"><a class="header" href="#data-driven-model">Data-driven model</a></h2>
+<p>The class table and every handler record are extracted from ROM to
+<code>web/mathprint/layout.json</code> by <code>tools/export-layout.py</code>;
+the fonts to <code>web/mathprint/font.json</code> by
+<code>tools/export-font.py</code> (rendered on the
+<a href="font-table.html">font tables</a> page). <code>tools/interp-cells.js</code>
+resolves record cells from that data per the specs above, so a renderer walks
+the real records instead of approximating each construct.</p>
 
                     </main>
 

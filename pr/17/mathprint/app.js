@@ -5,14 +5,14 @@
 //
 // Geometry constants are the ROM-confirmed ones:
 //   large glyph: 5 px wide, 7 rows, 1 px advance gap  (07:45FF)
-//   exponent raise: 3 px        (eqdisp_set_row_for_tok; pixel-matched vs binary)
+//   exponent: bottom sits 2 px below base top (trace: base penY~11, exp penY~0)
 //   fraction column unit: 7 px  (683D cell-to-pixel mapper, x = base + 7*col)
 //   row step: row_height + 2 px (6857 height accumulator)
 
 let FONT = null;
 
 const GAP = 1;            // px between adjacent glyphs in a text run
-const EXP_RAISE = 3;      // px an exponent is lifted above the base axis
+const EXP_DROP = 2;       // px the exponent bottom sits below the base top (was raise=3)
 const FRAC_PAD = 2;       // px the fraction bar overhangs the wider operand
 
 // ---- box primitives -------------------------------------------------------
@@ -51,29 +51,35 @@ function smallGlyph(code) {
                      type: 'glyph', font: 'small', via: '_VPutMap 01:6293' }] };
 }
 
-// Horizontal concatenation, aligned on the math axis (baseline).
+// Pen advance of a box: how far the pen moves after drawing it. Defaults to the
+// bitmap width, but a box may advance LESS than its extent so following glyphs
+// overhang it (the OS does this for superscripts — the exponent sits above-right
+// of the next glyph rather than pushing it over). Like the OS pen pipeline.
+function adv(box) { return box.adv != null ? box.adv : bw(box); }
+
+// Horizontal layout, aligned on the math axis (baseline). Each box is drawn
+// (OR'd) at its pen x; the pen moves by adv()+gap, so a low-adv box lets the
+// next one overhang it at non-colliding rows.
 function hcat(boxes, gap = GAP) {
   boxes = boxes.filter(b => b && bh(b) && bw(b));
-  if (!boxes.length) return { rows: [], baseline: 0 };
+  if (!boxes.length) return { rows: [], baseline: 0, marks: [], adv: 0 };
   const above = Math.max(...boxes.map(b => b.baseline));
   const below = Math.max(...boxes.map(b => bh(b) - b.baseline));
   const h = above + below;
-  const out = Array.from({ length: h }, () => []);
+  const xs = [];
+  let pen = 0;
+  boxes.forEach((b, k) => { if (k) pen += gap; xs.push(pen); pen += adv(b); });
+  const W = Math.max(...boxes.map((b, k) => xs[k] + bw(b)));
+  const out = blank(h, W);
   const marks = [];
-  let xoff = 0;
   boxes.forEach((b, k) => {
-    const w = bw(b);
-    const top = above - b.baseline, bot = below - (bh(b) - b.baseline);
-    const padded = blank(top, w).concat(b.rows, blank(bot, w));
-    if (k) xoff += gap;
-    marks.push(...shift(b.marks, xoff, top));
-    for (let r = 0; r < h; r++) {
-      if (k) for (let i = 0; i < gap; i++) out[r].push(0);
-      out[r].push(...padded[r]);
-    }
-    xoff += w;
+    const top = above - b.baseline;
+    for (let y = 0; y < bh(b); y++)
+      for (let x = 0; x < bw(b); x++)
+        if (b.rows[y][x]) out[top + y][xs[k] + x] = 1;
+    marks.push(...shift(b.marks, xs[k], top));
   });
-  return { rows: out, baseline: above, marks };
+  return { rows: out, baseline: above, marks, adv: pen };
 }
 
 function trim(box) {
@@ -99,6 +105,11 @@ function center(rows, w) {
   });
 }
 
+// ---- layout constructs ----------------------------------------------------
+// Each composes child boxes into one box (fraction, exponent, radical, the big
+// operators, nth root). Text helpers used here (text/smallText/glyphFor) are
+// defined in the "text runs" section below and hoisted.
+
 // Fraction: numerator over a full-width rule over the denominator.
 // Bar row is the math axis (matches the OS centring a sibling glyph on the bar).
 function fraction(num, den) {
@@ -117,19 +128,25 @@ function fraction(num, den) {
   return { rows, baseline: bh(n) + 1, marks };   // math axis = the bar row
 }
 
-// Superscript: base on the axis, exponent lifted EXP_RAISE px above-right.
+// Superscript: the exponent (small font, already trimmed) is anchored by its
+// BOTTOM, sitting EXP_DROP px below the base's top, then extends upward. The OS
+// places the base low and the raised content high (trace: base penY~11, exponent
+// penY~0); a tall fraction exponent thus rises above the base instead of hanging
+// into it. For a single small digit this reduces to the old fixed 3px raise.
 function superscript(base, exp) {
   const e = trim(exp);
-  const bwid = bw(base), ewid = bw(e);
-  const h = EXP_RAISE + bh(base);
+  const bwid = bw(base), ewid = bw(e), eh = bh(e), bbh = bh(base);
+  const baseTop = Math.max(eh - EXP_DROP, 0);
+  const h = Math.max(baseTop + bbh, eh);
   const out = [];
   for (let r = 0; r < h; r++) {
-    const left = (r >= EXP_RAISE) ? base.rows[r - EXP_RAISE] : new Array(bwid).fill(0);
-    const right = (r < bh(e)) ? e.rows[r] : new Array(ewid).fill(0);
+    const left = (r >= baseTop && r < baseTop + bbh)
+      ? base.rows[r - baseTop] : new Array(bwid).fill(0);
+    const right = (r < eh) ? e.rows[r] : new Array(ewid).fill(0);
     out.push(left.concat([0], right));
   }
-  const marks = shift(base.marks, 0, EXP_RAISE).concat(shift(e.marks, bwid + 1, 0));
-  return { rows: out, baseline: EXP_RAISE + base.baseline, marks };
+  const marks = shift(base.marks, 0, baseTop).concat(shift(e.marks, bwid + 1, 0));
+  return { rows: out, baseline: baseTop + base.baseline, marks };
 }
 
 // Stretch a fixed glyph's middle rows to a target height (tall ∫ and radicals).
@@ -154,9 +171,9 @@ function radical(radicand) {
   for (let y = 0; y < bh(root); y++)
     for (let x = 0; x < rw; x++) if (root.rows[y][x]) out[h - bh(root) + y][x] = 1;
   for (let y = 0; y < bh(rad); y++)
-    for (let x = 0; x < bw(rad); x++) if (rad.rows[y][x]) out[2 + y][rw + 1 + x] = 1;
+    for (let x = 0; x < bw(rad); x++) if (rad.rows[y][x]) out[2 + y][rw + x] = 1;
   for (let x = rw; x < w; x++) out[0][x] = 1;  // vinculum
-  const marks = shift(rad.marks, rw + 1, 2).concat([
+  const marks = shift(rad.marks, rw, 2).concat([
     { ch: '√ Lroot', x: 0, y: h - bh(root), w: rw, h: bh(root), type: 'glyph',
       font: 'large', via: 'Lroot 07:466F (stretched)' },
     { ch: '─ vinculum', x: rw, y: 0, w: w - rw, h: 1, type: 'rule',
@@ -170,20 +187,25 @@ function parens(box) {
   const h = bh(box);
   const lp = stretch(trim(largeGlyph(0x28)), h, 3);
   const rp = stretch(trim(largeGlyph(0x29)), h, 3);
+  // emit the delimiters as ordered elements ( body ) so the draw animation shows
+  // them as separate steps, matching the trace, not lumped into the final reveal
+  lp.marks = [{ ch: '(', x: 0, y: 0, w: bw(lp), h: bh(lp), type: 'glyph',
+               font: 'large', via: 'delimiter (stretched)' }];
+  rp.marks = [{ ch: ')', x: 0, y: 0, w: bw(rp), h: bh(rp), type: 'glyph',
+               font: 'large', via: 'delimiter (stretched)' }];
   return hcat([lp, box, rp], 1);
 }
 
-// Definite integral: tall ∫ with upper/lower limits, then ( body ) d var.
-// lo/hi may be a string (rendered in the small font, like the OS) or a box.
-function integral(lo, hi, body, varBox) {
-  const inner = hcat([parens(body), text('d'), varBox || text('X')], 1);
+// A big operator (∫, Σ, Π): a tall sign with upper/lower limits stacked at its
+// corners, then the body. `inner` is the already-composed body; `signCode` is the
+// large-font glyph; `stem` is the stem-row index to repeat when stretching (null
+// = do not stretch, e.g. Σ/Π whose diagonals do not tile).
+function bigOp(signCode, signName, lo, hi, inner, stem) {
   const limit = v => trim(typeof v === 'string' ? smallText(v) : v);
   const loB = limit(lo), hiB = limit(hi);
-  // the ∫ spans the body plus the upper and lower limits stacked at its corners.
-  // Lintegral 0x08 = top hook (rows 0-1), vertical stem (rows 2-4), bottom hook
-  // (rows 5-6); repeat a stem row so the straight middle grows between the hooks.
   const symH = Math.max(bh(inner) + bh(hiB) + bh(loB), 11);
-  const sign = stretch(trim(largeGlyph(0x08)), symH, 3);
+  const sign = stem == null ? trim(largeGlyph(signCode))
+                            : stretch(trim(largeGlyph(signCode)), symH, stem);
   const rw = Math.max(bw(loB), bw(hiB));
   const h = bh(sign);
   const out = blank(h, bw(sign) + 1 + rw);
@@ -194,13 +216,67 @@ function integral(lo, hi, body, varBox) {
   for (let y = 0; y < bh(loB); y++)
     for (let x = 0; x < bw(loB); x++) if (loB.rows[y][x]) out[h - bh(loB) + y][bw(sign) + 1 + x] = 1;
   const signBox = { rows: out, baseline: h >> 1, marks: [
-    { ch: '∫ Lintegral', x: 0, y: 0, w: bw(sign), h, type: 'glyph', font: 'large',
-      via: 'Lintegral 0x08 (stretched)' },
+    { ch: signName, x: 0, y: 0, w: bw(sign), h, type: 'glyph', font: 'large',
+      via: `0x${signCode.toString(16)}` + (stem == null ? '' : ' (stretched)') },
     ...shift(hiB.marks, bw(sign) + 1, 0),
     ...shift(loB.marks, bw(sign) + 1, h - bh(loB)),
   ] };
-  // trace: body starts ~6 px after the ∫+limits block (penX 10 -> 16)
-  return hcat([signBox, inner], 6);
+  // trace: body starts ~6 px after the sign+limits block
+  return hcat([signBox, inner], 5);
+}
+
+// Definite integral: ∫ with limits, then ( body ) d var. lo/hi may be a string
+// (small font, like the OS) or a box. Lintegral 0x08 = top hook (rows 0-1),
+// stem (rows 2-4), bottom hook (rows 5-6); repeat a stem row when stretching.
+function integral(lo, hi, body, varBox) {
+  const inner = hcat([parens(body), text('d'), varBox || text('X')], 1);
+  return bigOp(0x08, '∫ Lintegral', lo, hi, inner, 3);
+}
+// Summation Σ (MATH>0, glyph 0xC6): the OS stacks the limits vertically - the
+// upper limit (end) small-centered ABOVE the sign, the lower limit "var=start"
+// small BELOW it (left-aligned), the sign in the middle, then the body to the
+// right at the sign's vertical centre. [confirmed vs calc]
+// (The TI-84 has no product template, so there is no Π construct here.)
+function sumProd(signCode, signName, varStr, lo, hi, body) {
+  const small = s => trim(smallText(s));
+  const hiB = small(hi);
+  const loB = small(varStr + '=' + lo);
+  const sign = trim(largeGlyph(signCode));
+  const colW = Math.max(bw(hiB), bw(sign), bw(loB));
+  const padL = (w) => (colW - w) >> 1;
+  const gapRow = () => new Array(colW).fill(0);
+  // calc stacks: upper limit, 1px gap, sign, 1px gap, lower limit
+  const rows = center(hiB.rows, colW);
+  rows.push(gapRow());
+  const signTop = rows.length;
+  rows.push(...center(sign.rows, colW));
+  rows.push(gapRow());
+  const loTop = rows.length;
+  rows.push(...loB.rows.map(r => r.concat(new Array(colW - bw(loB)).fill(0))));
+  const stack = { rows, baseline: signTop + sign.baseline, marks: [
+    ...shift(hiB.marks, padL(bw(hiB)), 0),
+    { ch: signName, x: padL(bw(sign)), y: signTop, w: bw(sign), h: bh(sign),
+      type: 'glyph', font: 'large', via: `0x${signCode.toString(16)}` },
+    ...shift(loB.marks, 0, loTop),
+  ] };
+  return hcat([stack, parens(body)], 2);
+}
+function summation(varStr, lo, hi, body) { return sumProd(0xC6, 'Σ Sigma', varStr, lo, hi, body); }
+
+// nth root: a small-font index at the radical's upper-left, then the radical.
+function nthRoot(indexStr, body) {
+  const rad = radical(body);
+  const wasSmall = SMALL; SMALL = true;
+  const idx = trim(text(indexStr));
+  SMALL = wasSmall;
+  const iw = bw(idx), h = bh(rad), w = iw + bw(rad);
+  const out = blank(h, w);
+  for (let y = 0; y < bh(idx); y++)              // index at top-left
+    for (let x = 0; x < iw; x++) if (idx.rows[y][x]) out[y][x] = 1;
+  for (let y = 0; y < h; y++)                    // radical to its right
+    for (let x = 0; x < bw(rad); x++) if (rad.rows[y][x]) out[y][iw + x] = 1;
+  const marks = shift(idx.marks, 0, 0).concat(shift(rad.marks, iw, 0));
+  return { rows: out, baseline: rad.baseline, marks };
 }
 
 // ---- text runs ------------------------------------------------------------
@@ -287,6 +363,8 @@ function parse(src) {
       const id = ident();
       if (peek() === '(') {
         if (id === 'int' || id === 'integral') return intCall();
+        if (id === 'sum') return bigOpCall(id);
+        if (id === 'nthroot') return nthRootCall();
         const args = call();
         if (id === 'sqrt' || id === 'root') return radical(args[0]);
         if (id === 'abs') return hcat([text('|'), args[0], text('|')]);
@@ -313,6 +391,25 @@ function parse(src) {
     const body = expr(); eat(',');
     const varBox = atom(); eat(')');
     return integral(lo, hi, body, varBox);
+  }
+  // sum(var,lo,hi,body): "var=lo" below the Σ, "hi" above, body to the right.
+  function bigOpCall(id) {
+    eat('(');
+    const v = limitArg(); eat(',');
+    const lo = limitArg(); eat(',');
+    const hi = limitArg(); eat(',');
+    const body = expr(); eat(')');
+    const vs = typeof v === 'string' ? v : 'N';
+    const ls = typeof lo === 'string' ? lo : '1';
+    const hs = typeof hi === 'string' ? hi : 'n';
+    return summation(vs, ls, hs, body);
+  }
+  // nthroot(n, body): small-font index over the radical hook.
+  function nthRootCall() {
+    eat('(');
+    const n = limitArg(); eat(',');
+    const body = expr(); eat(')');
+    return nthRoot(n, body);
   }
   function limitArg() {
     const j = i;
@@ -390,6 +487,9 @@ const PRESETS = [
   ['definite integral', 'int(1,2,X^2,X)'],
   ['integral of a fraction', 'int(1,2,(1//2)X,X)'],
   ['radical of a fraction', 'sqrt((X^2+1)//X)'],
+  ['summation', 'sum(N,1,10,N^2)'],
+  ['cube root', 'nthroot(3,X+1)'],
+  ['nth root of a fraction', 'nthroot(N,X//2)'],
 ];
 
 let CUR = null, ANIM = null;   // current box + animation timer
