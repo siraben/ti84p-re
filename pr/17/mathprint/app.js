@@ -81,13 +81,13 @@ function center(rows, w) {
 // Fraction: numerator over a full-width rule over the denominator.
 // Bar row is the math axis (matches the OS centring a sibling glyph on the bar).
 function fraction(num, den) {
-  const n = trim(num), d = trim(den);   // the OS stacks tight digits, not padded cells
+  const n = trim(num), d = trim(den);   // the OS stacks tight small-font digits
   const w = Math.max(bw(n), bw(d)) + FRAC_PAD;
-  const top = center(n.rows, w);
-  const bot = center(d.rows, w);
+  const gap = [new Array(w).fill(0)];
   const bar = [new Array(w).fill(1)];
-  const rows = top.concat(bar, bot);
-  return { rows, baseline: top.length };
+  // 1px gap above and below the rule, matching the calculator
+  const rows = center(n.rows, w).concat(gap, bar, gap, center(d.rows, w));
+  return { rows, baseline: bh(n) + 1 };   // math axis = the bar row
 }
 
 // Superscript: base on the axis, exponent lifted EXP_RAISE px above-right.
@@ -197,12 +197,21 @@ function parse(src) {
     return b;
   }
   function frac() {
+    let start = i;
     let b = mul();
     for (;;) {
       guard();
-      if (s[i] === '/' && s[i + 1] === '/') { i += 2; b = fraction(b, mul()); }  // stacked
-      else if (s[i] === '/') { i++; b = hcat([b, text('/'), mul()]); }           // linear (÷ key)
-      else break;
+      if (s[i] === '/' && s[i + 1] === '/') {                 // stacked n/d template
+        const wasSmall = SMALL;
+        if (!wasSmall) { i = start; SMALL = true; b = mul(); } // re-render numerator small
+        i += 2;
+        const den = mul();                                    // denominator (still small)
+        SMALL = wasSmall;
+        b = fraction(b, den);
+        start = i;
+      } else if (s[i] === '/') {                              // linear (the ÷ key)
+        i++; b = hcat([b, text('/'), mul()]); start = i;
+      } else break;
     }
     return b;
   }
