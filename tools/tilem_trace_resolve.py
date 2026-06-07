@@ -14,9 +14,10 @@ and rewrites every PC into:
 How banking is recovered (no operand bytes are stored in the trace):
   OUT (n),A  -> TilEm sets WZ = (A<<8) | n, so port = WZ & 0xFF, value = A = WZ>>8.
   OUT (C),r  -> port = C = BC & 0xFF, value = the source register.
-  Port 6 selects the 4000-7FFF window (bank A); port 7 selects 8000-BFFF (bank B).
-A page value 0x00-0x3F is flash (64 pages = 1 MiB); anything else is treated as
-RAM (e.g. the 84+'s 0x81 RAM-mode value documented in docs/02-paging.md).
+  Port 5 selects the C000-FFFF RAM window (bank C); port 6 selects the
+  4000-7FFF window (bank A); port 7 selects 8000-BFFF (bank B).
+For ports 6/7, bit 7 selects RAM and low bits select the RAM page; otherwise
+the low six bits select flash. Port 5 always selects RAM by low three bits.
 
 See tools/dynamic-tracing.md for the end-to-end capture + analysis workflow.
 """
@@ -97,9 +98,10 @@ def iter_records(fp, resync=False):
 
 
 class Banker:
-    """Tracks port 6 / port 7 page selection by replaying OUT instructions."""
+    """Tracks port 5 / port 6 / port 7 page selection by replaying OUT instructions."""
 
     def __init__(self, flash_pages=N_FLASH_PAGES):
+        self.bank_c = None  # port 5 -> C000-FFFF
         self.bank_a = None  # port 6 -> 4000-7FFF
         self.bank_b = None  # port 7 -> 8000-BFFF
         self.flash_pages = flash_pages
@@ -123,6 +125,9 @@ class Banker:
                 "E": fields[IDX_DE] & 0xFF, "H": fields[IDX_HL] >> 8,
                 "L": fields[IDX_HL] & 0xFF,
             }[reg]
+        if port == 5:
+            self.bank_c, self.switches = value, self.switches + 1
+            return (5, value)
         if port == 6:
             self.bank_a, self.switches = value, self.switches + 1
             return (6, value)
@@ -134,18 +139,28 @@ class Banker:
     def is_flash(self, page):
         return page is not None and 0 <= page < self.flash_pages
 
+    def bank_page(self, port, value):
+        if value is None:
+            return None, None
+        if port == 5:
+            return "ram", 0x80 | (value & 0x07)
+        if value & 0x80:
+            return "ram", 0x80 | (value & 0x07)
+        return "flash", value & 0x3F
+
     def resolve(self, logical):
         """Map a logical PC to (space, ghidra_addr, flat_rom_off_or_None, page_or_None)."""
         region = logical >> 14
         off = logical & 0x3FFF
         if region == 0:                       # 0000-3FFF: fixed flash page 0
             return ("ram", logical, logical, 0)
-        if region == 3:                       # C000-FFFF: fixed RAM
+        if region == 3:                       # C000-FFFF: high RAM window
             return ("ram", logical, None, None)
-        page = self.bank_a if region == 1 else self.bank_b
+        raw = self.bank_a if region == 1 else self.bank_b
+        kind, page = self.bank_page(6 if region == 1 else 7, raw)
         if page is None:
             return ("page_??", PAGE_SIZE + off, None, None)
-        if self.is_flash(page):
+        if kind == "flash":
             return (f"page_{page:02X}", PAGE_SIZE + off, page * PAGE_SIZE + off, page)
         return ("ram", logical, None, None)    # banked RAM (e.g. 84+ RAM mode)
 
@@ -196,7 +211,7 @@ def main():
     ap.add_argument("--sort", choices=("count", "addr", "first"), default="first",
                     help="coverage sort order (default: first-seen)")
     ap.add_argument("--page-switches", action="store_true",
-                    help="print every port 6 / port 7 bank switch")
+                    help="print every port 5 / port 6 / port 7 bank switch")
     ap.add_argument("--resync", action="store_true",
                     help="skip partial records (use for --trace-backtrace rings)")
     args = ap.parse_args()
@@ -225,8 +240,9 @@ def main():
 
             if args.page_switches and sw:
                 port, val = sw
-                window = "4000-7FFF" if port == 6 else "8000-BFFF"
-                kind = f"page_{val:02X}" if banker.is_flash(val) else f"RAM/0x{val:02x}"
+                window = {5: "C000-FFFF", 6: "4000-7FFF", 7: "8000-BFFF"}[port]
+                page_kind, page = banker.bank_page(port, val)
+                kind = f"page_{page:02X}" if page_kind == "flash" else f"RAM/0x{page:02x}"
                 print(f"{idx:>10}  OUT (port {port}) <- 0x{val:02x}   "
                       f"{window} = {kind}")
 
@@ -267,7 +283,8 @@ def main():
                       f"{name_for(names, space, gaddr)}")
 
         print(f"# {idx} instructions, {banker.switches} bank switches; "
-              f"final bankA(port6)={banker.bank_a} bankB(port7)={banker.bank_b}",
+              f"final bankC(port5)={banker.bank_c} "
+              f"bankA(port6)={banker.bank_a} bankB(port7)={banker.bank_b}",
               file=sys.stderr)
 
 

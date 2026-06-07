@@ -18,9 +18,11 @@ ambiguous until you know which page ports 6/7 had selected. The resolver
 recovers banking by replaying the OUT instructions in the trace itself:
 
 - `OUT (n),A` — TilEm sets `WZ = (A<<8) | n`, so **port = `WZ & 0xFF`, value = `WZ >> 8`**.
-- Port 6 selects the `4000` window (bank A); port 7 selects the `8000` window (bank B).
-- A page value `0x00–0x3F` is flash (64 pages = 1 MiB); other values are RAM
-  (e.g. the 84+'s `0x80/0x81` RAM-mode value).
+- Port 5 selects the high RAM `C000` window (bank C), port 6 selects the `4000`
+  window (bank A), and port 7 selects the `8000` window (bank B).
+- Ports 6/7 use bit 7 as the RAM selector. With bit 7 clear, low six bits select
+  flash (`0x7F` maps as flash page `3F`); with bit 7 set, low three bits select
+  RAM (`0x83` maps as RAM page `83`). Port 5 always selects RAM by low three bits.
 
 It then maps each PC to a Ghidra address that matches `BuildTI84Full.java`'s
 overlay layout: page 0 → `ram:XXXX`, banked flash → `page_NN:XXXX` (overlay
@@ -75,7 +77,7 @@ Macro syntax is one command per line (`wait`, `key NAME [hold T]`,
 # first N instructions, with symbol names from names.txt and flat ROM offsets
 tools/tilem_trace_resolve.py /tmp/b.trace --print 40 --names tools/names.txt
 
-# every bank switch (port 6 / port 7 writes)
+# every bank switch (port 5 / port 6 / port 7 writes)
 tools/tilem_trace_resolve.py /tmp/b.trace --page-switches
 
 # coverage: distinct executed addresses + hit counts
