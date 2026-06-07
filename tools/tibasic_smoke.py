@@ -115,6 +115,17 @@ CASES: dict[str, Case] = {
             VisualRegion("Done marker", "28x9+66+24", 40),
         ),
     ),
+    "asmfind": Case(
+        ("ASMFIND.8xp", "ZZFIND.8xp", "ZZBASIC.8xp"),
+        "ASM finds prgmZZBASIC in the VAT, returns, does not execute it",
+        ("ram:9d95", "findsym_scan", "_Disp"),
+        visual_regions=(
+            VisualRegion("BEFORE line", "36x9+0+9", 25),
+            VisualRegion("AFTER line", "30x9+0+18", 60),
+            VisualRegion("unexpected third text line absent", "24x8+8+28", 0, 25),
+            VisualRegion("Done marker", "28x9+66+28", 25),
+        ),
+    ),
     "animtext": Case(
         ("ANIMTXT.8xp",),
         "row of X characters, DONE; Done",

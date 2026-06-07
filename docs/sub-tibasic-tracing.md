@@ -45,6 +45,7 @@ programs into calculator RAM first, then run the same macro and resolver steps.
 | `asmcall` | `ASMCALL.8xp` + `ASMRET.8xp` | BASIC `Asm(prgmNAME)` into `AsmPrgm` payload | `_ExecutePrgm`, `ram:9D95` |
 | `asmbridge` | `ASMBRIDG.8xp` + `ASMSIG.8xp` + `ZZBASIC.8xp` | ASM return code through `Ans`, BASIC callback | `_OP1Set1`, `_StoAns`, `_AnsName`, `eval_eqn_recursive` |
 | `asmreturn` | `ASMRTN.8xp` + `ASMVAL.8xp` | ASM return value through `Ans`, then BASIC arithmetic | `_OP1Set2`, `_StoAns`, `_AnsName`, `_FPAdd` |
+| `asmfind` | `ASMFIND.8xp` + `ZZFIND.8xp` + `ZZBASIC.8xp` | ASM-side VAT lookup of a BASIC program without executing it | `ram:9D95`, `findsym_scan`, `_Disp` |
 | `animtext` | `ANIMTXT.8xp` | text placement animation with `Output(` | `_OutputExpr`, `_Disp` |
 | `graphviz` | `GRAPHV.8xp` | graph-buffer primitives and `DispGraph` | `_GrBufClr`, `_ILine`, `_IPoint`, `_PDspGrph` |
 | `graphdfs` | `GRAPHDFS.8xp` | graph visualization from DFS topology | `_StoSysTok`, `_ILine`, `_IPoint`, `_PDspGrph` |
@@ -69,6 +70,8 @@ big-integer digit lists, and the DFS traversal/visited-list output. `ASMRTN`
 checks the displayed `5`, `ABICALL` checks the scalar line, mutated list line,
 returned `Ans` line, and `Done`, and `CALLSTOP` checks `BEFORE`, `STOP`,
 `Done`, and a bounded low-pixel region where caller text `AFTER` would appear.
+`ASMFIND` checks the wrapper's `BEFORE`, `AFTER`, and `Done` output plus a
+bounded low-pixel region where an unexpected third line would appear.
 
 For the visual graph cases, the 2026-06-07 run measured 212, 619, 466, and 466
 dark pixels, with matching first-to-final pixel changes.

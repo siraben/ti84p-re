@@ -113,6 +113,10 @@ def string_literal(text: str) -> list[int]:
     return [T["string"], *letters(text), T["string"]]
 
 
+def hex_literal(text: str) -> list[int]:
+    return [T[ch] for ch in text.upper() if ch.strip()]
+
+
 SAMPLES: dict[str, tuple[str, list[int]]] = {
     "hello": (
         'ClrHome\nDisp "HELLO, WORLD"',
@@ -200,6 +204,22 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
         'Disp "CALLED"',
         [
             T["disp"], *string_literal("CALLED"), T["enter"],
+        ],
+    ),
+    "zzfind": (
+        "AsmPrgm\n21A49D117884010900EDB0EFF142C9055A5A424153494300",
+        [
+            T["2byte"], T["asmprgm"], T["enter"],
+            *hex_literal("21A49D117884010900EDB0EFF142C9055A5A424153494300"),
+            T["enter"],
+        ],
+    ),
+    "asmfind": (
+        'Disp "BEFORE"\nAsm(prgmZZFIND)\nDisp "AFTER"',
+        [
+            T["disp"], *string_literal("BEFORE"), T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["Z"], T["F"], T["I"], T["N"], T["D"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("AFTER"), T["enter"],
         ],
     ),
     "animtext": (
@@ -504,6 +524,8 @@ PROGRAM_NAMES = {
     "asmval": "ASMVAL",
     "asmreturn": "ASMRTN",
     "zzbasic": "ZZBASIC",
+    "zzfind": "ZZFIND",
+    "asmfind": "ASMFIND",
     "animtext": "ANIMTXT",
     "graphviz": "GRAPHV",
     "graphdfs": "GRAPHDFS",

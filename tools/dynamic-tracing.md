@@ -170,6 +170,7 @@ They cover:
 | `asmsig` | `AsmPrgm` body that sets `Ans=1` with `_OP1Set1` + `_StoAns` |
 | `asmbridge` + `asmsig` + `zzbasic` | cooperative ASM-directed BASIC callback through `If Ans` |
 | `asmval` + `asmreturn` | `AsmPrgm` stores `Ans=2`; BASIC reads it, adds `3`, and displays `5` |
+| `asmfind` + `zzfind` + `zzbasic` | `AsmPrgm` builds `OP1={ProgObj,"ZZBASIC"}`, reaches `findsym_scan`, and returns without running `ZZBASIC` |
 | `animtext` | `ClrHome`, `For(`/`End`, `Output(` text placement, `Disp` |
 | `graphviz` | `ClrDraw`, `Line(`, `Circle(`, `Text(`, `DispGraph` |
 | `graphdfs` | graph-buffer node/edge visualization for the DFS sample |
@@ -227,7 +228,8 @@ The text/list fixtures use the same region mechanism for final-screen output:
 while `ASMRTN` and `ABICALL` check their rendered scalar/list/`Ans` outputs.
 `CALLSTOP` also checks the `BEFORE`, `STOP`, and `Done` lines, plus a bounded
 low-pixel region where the caller's skipped `AFTER` line would otherwise
-appear.
+appear. `ASMFIND` checks the wrapper's `BEFORE`, `AFTER`, and `Done` lines plus
+a bounded low-pixel region where an unexpected third line would appear.
 
 Keep only one test program in RAM when using `run-first-program.macro`; it opens
 `PRGM`, selects the first `EXEC` entry, and presses `ENTER`. For `factorial`,
@@ -247,6 +249,7 @@ Validated outputs/traces (2026-06-06/07, OS 2.55MP, `tools/rom.bin`):
 | `ASMCALL.8xp` + `ASMRET.8xp` | `BEFORE`, `AFTER`, then `Done` | `Asm(` handler parses `prgmASMRET`, bcalls `_ExecutePrgm`, jumps through `07:57B4`; payload executes `ram:9D95 op=0xC9` and returns to BASIC |
 | `ASMBRIDG.8xp` + `ASMSIG.8xp` + `ZZBASIC.8xp` | `BEFORE`, `CALLED`, `AFTER`, then `Done` | `Asm(` runs the `ASMSIG` payload at `ram:9D95`; payload calls `_OP1Set1` (`00:1B38`) and `_StoAns` (`38:6251`); BASIC evaluates `If Ans` via `_AnsName` and calls `prgmZZBASIC` through the normal `38:6910`/`38:6914`/`38:778F` body path |
 | `ASMRTN.8xp` + `ASMVAL.8xp` | ASM stores `Ans=2`; BASIC computes and displays `5`, then `Done` | `ram:9D95`, `_OP1Set2` (`00:1B50`), `_StoAns` (`38:6251`), `_AnsName`, `_FPAdd`, `_Disp` |
+| `ASMFIND.8xp` + `ZZFIND.8xp` + `ZZBASIC.8xp` | ASM-side lookup returns to wrapper: `BEFORE`, `AFTER`, then `Done`; `ZZBASIC` does not display `CALLED` | payload executes at `ram:9D95`, builds `OP1={ProgObj,"ZZBASIC"}`, bcalls `_ChkFindSym`, reaches `findsym_scan`, and returns to BASIC wrapper `_Disp` |
 | `ANIMTXT.8xp` | row of `X` characters, `DONE`, then `Done` | page-38 parser/loop paths, `_OutputExpr` (`03:4AF2`), `_Disp`, LCD text routines |
 | `GRAPHV.8xp` | graph screen with `DFS`, axes, a circle, and diagonal line | `_GrBufClr`, `_StoSysTok`, `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`) |
 | `GRAPHDFS.8xp` | graph screen with four labeled nodes and edges `1-2`, `1-3`, `2-4` | `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`), `_StoSysTok`, small-font glyph paths, `_RestoreDisp`, `eval_stmt_entry` |
@@ -258,13 +261,13 @@ Validated outputs/traces (2026-06-06/07, OS 2.55MP, `tools/rom.bin`):
 | `BIGMUL.8xp` | `L3` digits `{5 3 5 5 0}`, high digit `5`, then `Done` | nested `For(` loops, list indexing/stores (`list_var_index`, `_GetLToOP1`, `_PutToL`), carry normalization through `int(`, `_FPMult`, `_FPAdd`, `_FPSub` |
 | `DFS.8xp` | traversal `1`, `3`, `2`, `4`, visited `{1 1 1 1}`, then `Done` | nested control-flow scanners (`blockmatch_end_else`, `parse_scan_tokens`), `eval_stmt_entry`, parser refill/advance, list stack reads/stores |
 
-ASM-to-BASIC negative probes: a temporary `AsmPrgm` that builds
-`OP1={ProgObj,"ZZBASIC"}` and bcalls `_ChkFindSym` (`42F1`) returns to its BASIC
-wrapper, proving ASM-side VAT lookup works. The same payload changed to bcall
-`_Find_Parse_Formula` (`4AF2`) enters `_Find_Parse_Formula` (`38:758A`) and ends
-at `ERR:UNDEFINED`; the target BASIC program body does not run. Keep these as
-investigation traces rather than generated sample fixtures because one path is
-intentionally a failing probe.
+ASM-to-BASIC probe boundary: `ASMFIND`/`ZZFIND` is the generated positive
+fixture for ASM-side VAT lookup. It proves `_ChkFindSym` can locate
+`prgmZZBASIC` from an `AsmPrgm` payload and return to BASIC; it also proves that
+lookup alone does not run the target BASIC body. The same payload changed to
+bcall `_Find_Parse_Formula` (`4AF2`) remains a temporary negative probe: it
+enters `_Find_Parse_Formula` (`38:758A`) and ends at `ERR:UNDEFINED`; the target
+BASIC program body does not run.
 
 `_ParseInpLastEnt` probe (2026-06-07): a temporary `AsmPrgm` that builds
 `OP1={ProgObj,"ZZBASIC"}` and bcalls `_ParseInpLastEnt` (`4B07`, target

@@ -701,6 +701,12 @@ or `_SetParseVarProg`; it uses the page-38 parser/VAT/body evaluator path and
 then either resumes the caller through BASIC's own `Return` handling or exits
 the caller chain through `Stop`.
 
+`ASMFIND.8xp` and `ZZFIND.8xp` prove the narrower ASM-side lookup case. The
+payload builds `OP1={ProgObj,"ZZBASIC"}` and bcalls `_ChkFindSym`; the trace
+hits `ram:9D95` and `findsym_scan`, then the BASIC wrapper displays `AFTER` and
+`Done`. `ZZBASIC`'s `CALLED` line does not display, so lookup is confirmed but
+execution is not.
+
 The full `CALLSUB` smoke trace does hit `_ParseInpLastEnt`/`_ParseInp` once,
 because the macro starts the program by submitting `prgmCALLSUB` from the
 homescreen. That launch parse resolves the top-level program and seeds the
@@ -714,7 +720,7 @@ The relevant page-38 evaluator transition is private state, not a bcall ABI:
 `call_eval_eqn_recursive` (`38:6914`) directly calls `eval_eqn_recursive`
 (`38:778F`). At the first observed hit in the `CALLSUB` trace, the parser
 cursor/end, OPS/temp-stack pointers, OP1, stack depth, and IY parser flags are
-already live. This is why an `AsmPrgm` can successfully `_ChkFindSym` a BASIC
+already live. This is why `ASMFIND` can successfully `_ChkFindSym` a BASIC
 program name, but the tested `_Find_Parse_Formula` probe still reaches
 `ERR:UNDEFINED` instead of running that program.
 
