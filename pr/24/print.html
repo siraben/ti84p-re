@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0f823e3f.js";
+            window.path_to_searchindex_js = "searchindex-6d8c662f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -2733,9 +2733,12 @@ ASMCALL: DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41
 prefix in <code>Asm(prgmASMRET)</code> is the program-name token <code>0x5F</code>, followed by the
 name characters and the closing <code>)</code> token. Observed run: loading <code>ASMCALL.8xp</code>
 and <code>ASMRET.8xp</code> displays <code>BEFORE</code>, executes <code>Asm(prgmASMRET)</code>, displays
-<code>AFTER</code>, and then <code>Done</code>. The trace shows the assembly handoff through
-<code>07:57B4</code> and execution of the payload byte itself at
-<code>ram:9D95 op=0x000000C9</code>, returning to BASIC immediately after.</p>
+<code>AFTER</code>, and then <code>Done</code>. The trace shows the <code>Asm(</code> handler parse the
+<code>prgmASMRET</code> token stream, bcall <code>_ExecutePrgm</code> (<code>4E7C</code>, target <code>07:5758</code>),
+compile/copy the <code>AsmPrgm</code> body, hand off through <code>07:57B4</code>, and execute the
+payload byte itself at <code>ram:9D95 op=0x000000C9</code>, returning to BASIC immediately
+after. This <code>_ExecutePrgm</code> route is the ASM executor; it is not the ordinary
+BASIC <code>prgmNAME</code> subprogram path.</p>
 <h3 id="animation-graphing-and-basic-subprogram-calls"><a class="header" href="#animation-graphing-and-basic-subprogram-calls">Animation, graphing, and BASIC subprogram calls</a></h3>
 <p>Additional generated fixtures extend coverage beyond arithmetic/list samples:</p>
 <pre><code class="language-ti-basic">ClrHome
@@ -2768,7 +2771,12 @@ Return
 <p>Observed run: loading <code>CALLSUB.8xp</code> and <code>SUBRT.8xp</code> displays <code>SUB</code>, then <code>1</code>,
 then <code>Done</code>. This confirms the practical BASIC calling convention: caller and
 callee share variables, and <code>Return</code> resumes the caller. The trace hits VAT/name
-lookup, parser entry/refill paths, shared <code>A</code> store/recall, and <code>_Disp</code>.</p>
+lookup, parser entry/refill paths, the program-body evaluator call at <code>38:6914</code>
+into <code>eval_eqn_recursive</code> (<code>38:778F</code>), shared <code>A</code> store/recall, and <code>_Disp</code>.</p>
+<p>The ordinary BASIC subprogram path is separate from <code>Asm(</code>. In the validated
+trace it does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <code>_Find_Parse_Formula</code>,
+or <code>_SetParseVarProg</code>; it uses the page-38 parser/VAT/body evaluator path and
+then returns to the caller through BASIC’s own <code>Return</code> handling.</p>
 <pre><code class="language-ti-basic">{5,4,3,2,1}-&gt;L1
 {5,6,7,8,9}-&gt;L2
 {0,0,0,0,0,0}-&gt;L3
@@ -3070,9 +3078,11 @@ Return
 <p>Observed run: loading <code>CALLSUB.8xp</code> and <code>SUBRT.8xp</code> displays <code>SUB</code>, then <code>1</code>,
 then <code>Done</code>. This confirms the practical TI-BASIC calling convention: arguments
 and return values live in shared global variables, lists, strings, matrices, or
-<code>Ans</code>; <code>Return</code> exits the callee and resumes the caller. The trace hits VAT/name
-resolution (<code>findsym_scan</code>), parser entry/refill paths, <code>_StoSysTok</code>, <code>_StoAns</code>,
-<code>_RclVarSym</code>, and <code>_Disp</code>. <strong>[confirmed]</strong></p>
+<code>Ans</code>; <code>Return</code> exits the callee and resumes the caller. The trace hits the
+page-38 statement interpreter, VAT/name resolution (<code>findsym_scan</code>), parser
+entry/refill paths, the program-body evaluator call at <code>38:6914</code> into
+<code>eval_eqn_recursive</code> (<code>38:778F</code>), <code>_StoSysTok</code>, <code>_StoAns</code>, <code>_RclVarSym</code>, and
+<code>_Disp</code>. <strong>[confirmed]</strong></p>
 <p>There is no local variable frame for BASIC programs. A subprogram that uses <code>A</code>
 modifies the caller’s <code>A</code>. For reusable routines, document which variables are
 inputs, scratch, and outputs.</p>
@@ -3150,21 +3160,36 @@ preallocate stack/visited lists with scalar pointers as this sample does.</p>
 <pre><code class="language-ti-basic">AsmPrgm
 C9
 </code></pre>
-<p><code>Asm(</code> is token <code>BB 6A</code>; <code>AsmPrgm</code> is <code>BB 6C</code>; <code>prgm</code> is token <code>5F</code>. The trace
-shows the OS handoff through <code>07:57B4</code>, execution of the payload byte at
-<code>ram:9D95 op=0xC9</code>, and return to BASIC. <strong>[confirmed]</strong></p>
+<p><code>Asm(</code> is token <code>BB 6A</code>; <code>AsmPrgm</code> is <code>BB 6C</code>; <code>prgm</code> is token <code>5F</code>. The
+<code>Asm(</code> command handler parses the following <code>prgmNAME</code> token stream, then
+bcalls <code>_ExecutePrgm</code> (<code>4E7C</code>, target <code>07:5758</code>). The trace shows that path
+compile/copy the <code>AsmPrgm</code> body and hand off through <code>07:57B4</code>, execute the
+payload byte at <code>ram:9D95 op=0xC9</code>, and return to BASIC. <strong>[confirmed]</strong></p>
 <p>Practical convention: pass data through OS variables or known RAM locations,
 validate inputs on the BASIC side, and make the ASM payload return normally with
 <code>RET</code> unless it intentionally transfers control elsewhere.</p>
 <h3 id="asm-to-basic"><a class="header" href="#asm-to-basic">ASM to BASIC</a></h3>
-<p>The inverse direction is not yet run-confirmed in this repo. The standard route
-is for ASM to call OS parser/program services: build or locate a program
-variable name, use VAT lookup, set up parser state, and enter the same
-interpreter machinery used by <code>prgmNAME</code>. That path needs a dedicated trace
-before this documentation should claim an exact calling sequence. <strong>[hypothesis]</strong></p>
+<p>The inverse direction is not yet run-confirmed in this repo. Two easy-looking
+bcalls are not that entry point:</p>
+<ul>
+<li><code>_ExecutePrgm</code> is the <code>AsmPrgm</code> executor reached by <code>Asm(prgmNAME)</code>, not a
+general “run a BASIC program” entry.</li>
+<li><code>_ParsePrgmName</code> (<code>4E82</code>, target <code>38:40D4</code>) only consumes a <code>prgmNAME</code> token
+from the current parser cursor and builds the name object used by <code>Asm(</code>.</li>
+</ul>
+<p>The confirmed BASIC subprogram path is different: the <code>CALLSUB</code>/<code>SUBRT</code> trace
+does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <code>_Find_Parse_Formula</code>, or
+<code>_SetParseVarProg</code>. It resolves the program name through the page-38
+parser/VAT path, enters the program-body evaluator at <code>38:6914</code> -&gt;
+<code>38:778F</code>, and lets <code>Return</code> unwind to the caller. Calling that same machinery
+from arbitrary ASM requires more than loading OP1 and bcalling a single public
+entry; it needs the same parser cursor, stack, error, and run-state setup that a
+live BASIC caller already has. <strong>[hypothesis]</strong></p>
 <p>The current open item is therefore precise: trace a small ASM payload that
-invokes a BASIC program, identify the service entry and required parser/VAT
-state, and compare it to the already-confirmed BASIC-to-ASM <code>Asm(</code> handoff.</p>
+successfully invokes a BASIC program, identify the required parser/VAT/error
+state, and compare it to both confirmed paths: <code>Asm(</code> -&gt; <code>_ExecutePrgm</code> -&gt;
+<code>ram:9D95</code>, and BASIC <code>prgmNAME</code> -&gt; <code>38:6914</code>/<code>38:778F</code> program-body
+evaluation.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="variables-archive--unarchive"><a class="header" href="#variables-archive--unarchive">Variables, archive &amp; unarchive</a></h1>
 <p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
