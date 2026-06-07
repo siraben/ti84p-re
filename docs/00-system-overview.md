@@ -36,6 +36,7 @@ Each row maps a documentation page to the subsystem it covers and its analysis s
 | [11-boot-contexts-errors.md](11-boot-contexts-errors.md) | Boot, context system, _JError/onSP | ✅ |
 | [12-memory-management.md](12-memory-management.md) | RAM heap, VAT/userMem, Flash archive/GC | ✅ |
 | [13-flash-page-map.md](13-flash-page-map.md) | What each of the 64 flash pages contains | ✅ |
+| [14-ram-pages.md](14-ram-pages.md) | RAM page selectors, page `83`, and restore rules | ✅ |
 | [99-open-questions.md](99-open-questions.md) | Prioritized future-work roadmap | ✅ |
 | [sub-calculation.md](sub-calculation.md) | Calculation engine: FP ops, transcendentals, formatting, errors | ✅ |
 | [sub-graphing.md](sub-graphing.md) | Graphing: window vars, coord↔pixel, draw primitives, Y= eval | ✅ |

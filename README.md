@@ -81,6 +81,7 @@ A Z80 (64 KiB address space) with hardware **paging** maps flash page 0 at `0000
 | [11](docs/11-boot-contexts-errors.md) | Boot, the context system, `_JError`/`onSP` |
 | [12](docs/12-memory-management.md) | RAM heap, VAT, Flash archive & GC |
 | [13](docs/13-flash-page-map.md) | What each of the 64 flash pages holds |
+| [14](docs/14-ram-pages.md) | RAM page selectors, page `83`, and restore rules |
 | [99](docs/99-open-questions.md) | Future-work roadmap |
 
 **Subsystem deep-dives** (from parallel multi-agent RE): `sub-calculation`, `sub-graphing`, `sub-tibasic`, `sub-vat-archive`, `sub-apps-mem-settings`, `sub-statistics`, `sub-matrix-list`, `sub-solver-numeric`, `sub-table-yvars`, `sub-equation-display`, `sub-link-transfer`, `sub-usb-asic`.

@@ -1,13 +1,14 @@
 # 02 — Memory paging
 
-The Z80's two middle 16 KiB slots are windows onto physical memory selected by I/O ports.
+The Z80's banked 16 KiB slots are windows onto physical memory selected by I/O ports.
 
 | Slot | Select port | Selects |
 |------|-------------|---------|
 | `4000–7FFF` (bank A) | **port 6** (`mapBankA`) | a flash page (0–63) — and the bcall mechanism uses this slot to bring routines into view |
 | `8000–BFFF` (bank B) | **port 7** (`mapBankB`) | a RAM or flash page; `0x81` observed = 84+ RAM mode |
+| `C000–FFFF` (bank C) | **port 5** (`mapBankC`) | a RAM page; `0x00` observed = RAM page `80` |
 
-`0000–3FFF` is hardwired to flash page 0. `C000–FFFF` is RAM in the static OS model and is normally the stack/user-RAM window; the 84+ hardware can bank the high RAM slot through MemC/port 5, but the current MCP audit did not find code xrefs to `io:0005`. **[standard; port-5 use not MCP-confirmed]**
+`0000–3FFF` is hardwired to flash page 0. `C000–FFFF` is RAM in the static OS model and is normally the stack/user-RAM window; the 84+ hardware banks the high RAM slot through MemC/port 5. The dynamic trace in [RAM pages](14-ram-pages.md) confirms port-5 restores to RAM page `80` during normal OS execution. **[confirmed]**
 
 ## How code uses it
 - **bcalls** set `port_mapBankA` to the target routine's page, run it at `4000+`, then restore the previous page (see [03-bcall-mechanism.md](03-bcall-mechanism.md)). The helper `ram:181c` is the page-set primitive used by the dispatcher.
