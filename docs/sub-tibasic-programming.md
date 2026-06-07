@@ -87,7 +87,7 @@ branch state.
 | ASM-directed BASIC callback | `ASMBRIDG.8xp` + `ASMSIG.8xp` + `ZZBASIC.8xp` | ASM sets `Ans=1` with `_OP1Set1`/`_StoAns`, returns, and BASIC calls `prgmZZBASIC` through `If Ans`. |
 | ASM return value | `ASMRTN.8xp` + `ASMVAL.8xp` | ASM sets `Ans=2` with `_OP1Set2`/`_StoAns`; BASIC reads `Ans`, computes `Ans+3`, and displays `5`. |
 | ASM-side BASIC lookup | `ASMFIND.8xp` + `ZZFIND.8xp` + `ZZBASIC.8xp` | `AsmPrgm` can build `OP1={ProgObj,"ZZBASIC"}` and reach `findsym_scan`, then return to BASIC without running `ZZBASIC`. |
-| Direct ASM to BASIC execution | temporary probes | `_Find_Parse_Formula`, `_ParseInpLastEnt`, `_ExecuteNewPrgm`, `_JForceCmd`, `_PutTokString`, and `_rclToQueue` do not prove a standalone callable BASIC-program ABI. |
+| Direct ASM to BASIC execution | `ASMPARSE.8xp` + `ZZPARSE.8xp` + `ZZBASIC.8xp`; temporary probes | `_ParseInpLastEnt` reaches parser setup but ends at `ERR:INVALID`; `_Find_Parse_Formula`, `_ExecuteNewPrgm`, `_JForceCmd`, `_PutTokString`, and `_rclToQueue` do not prove a standalone callable BASIC-program ABI. |
 
 ## Run-confirmed fixtures
 
@@ -574,7 +574,7 @@ hits `ram:9D95`, `_OP1Set2` (`00:1B50`), `_StoAns` (`38:6251`), `_AnsName`,
 | ASM -> BASIC callback | ASM stores a signal/result such as `Ans=1`, returns, and the BASIC wrapper conditionally runs `prgmNAME`. | BASIC must own the actual `prgm` call; this is cooperative, not an arbitrary ASM bcall into BASIC. |
 | ASM -> BASIC value return | ASM stores a numeric result in `Ans` with `_StoAns`; BASIC resumes and evaluates `Ans`. | This returns data to BASIC, not control into a BASIC program body. |
 | ASM -> VAT lookup | `ASMFIND` builds `OP1={ProgObj,"ZZBASIC"}` and bcalls `_ChkFindSym`. | Lookup is not execution; the wrapper returns and `ZZBASIC` does not display `CALLED`. |
-| Direct ASM -> BASIC | No working public bcall sequence is proven in this repo. | `_Find_Parse_Formula` reached `ERR:UNDEFINED`; `_ParseInpLastEnt` reached `ERR:INVALID`; forced-command/edit-buffer probes did not call the target BASIC program. |
+| Direct ASM -> BASIC | No working public bcall sequence is proven in this repo. | `ASMPARSE` reaches `_ParseInpLastEnt`/`_ParseInp` and then `ERR:INVALID`; forced-command/edit-buffer probes did not call the target BASIC program. |
 
 ### ASM to BASIC
 
@@ -627,16 +627,16 @@ then stops at `ERR:UNDEFINED`; the `ZZBASIC` body never displays. That failed
 run confirms `_Find_Parse_Formula` is not a drop-in BASIC program executor from
 an arbitrary `AsmPrgm` context. **[confirmed]**
 
-`_ParseInpLastEnt` (`4B07`, target `38:5984`) is a useful negative probe because
-it sits immediately before `_ParseInp` and the SDK describes it as a parser
-variant. A temporary payload that again built `OP1={ProgObj,"ZZBASIC"}` and
-bcalls `_ParseInpLastEnt` reached `_ParseInpLastEnt`, `_ParseInp` (`38:5987`),
+`ASMPARSE.8xp` and `ZZPARSE.8xp` make the `_ParseInpLastEnt` negative probe
+reproducible. The payload is the same OP1-name setup as `ZZFIND`, but it bcalls
+`_ParseInpLastEnt` (`4B07`, target `38:5984`) instead of `_ChkFindSym`.
+Observed run: the trace reaches `_ParseInpLastEnt`, `_ParseInp` (`38:5987`),
 `parseinp_find_setup` (`38:5B2B`), `findsym_scan`, `parse_init`, and
-`eval_stmt_entry`, but the final screen was `ERR:INVALID` / `Goto`; it never
-displayed `CALLED`. Static disassembly explains the mismatch: after resolving
-the OP1-named object, `_ParseInp` continues through parser setup that expects a
-live parser/FPS call-frame shape. It is not a general "run this token stream"
-ABI for an arbitrary `AsmPrgm`. **[confirmed]**
+`eval_stmt_entry`; the final screen is `ERR:INVALID` with `1:Quit` and
+`2:Goto`. `ZZBASIC` never displays `CALLED`. Static disassembly explains the
+mismatch: after resolving the OP1-named object, `_ParseInp` continues through
+parser setup that expects a live parser/FPS call-frame shape. It is not a
+general "run this token stream" ABI for an arbitrary `AsmPrgm`. **[confirmed]**
 
 The homescreen command/edit-buffer route is also not a safe callable ABI. A
 temporary payload that did only:
