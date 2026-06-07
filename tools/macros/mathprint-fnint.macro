@@ -1,0 +1,27 @@
+# MathPrint: render the fnInt( template (MATH > 9) - a tall multi-argument operator.
+# Exercises the handler-record + multi-arg path: eqdisp_emit_glyph (39:4e8e),
+# eqdisp_map_token_glyph (39:4f1a), eqdisp_emit_arglist (39:4de6),
+# eqdisp_sum_arg_widths (39:4dca) and the row compositor eqdisp_layout_multiarg
+# (39:5167). 0x85E8 kind = 0x00 (handler record, not a descriptor); 0x85E1 = 4 rows.
+set key_hold 0.16s
+set key_delay 0.09s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key MATH
+wait 0.6s
+key 9
+wait 1s
+key GRAPHVAR
+key RIGHT
+key GRAPHVAR
+key RIGHT
+key 0
+key RIGHT
+key 1
+wait 1.5s
+screenshot /tmp/fnint.png
+memdump /tmp/fnint.ram ram-logical

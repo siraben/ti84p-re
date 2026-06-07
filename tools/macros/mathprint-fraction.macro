@@ -1,0 +1,23 @@
+# MathPrint: render 1/2 via the n/d template (ALPHA + Y= = the FRAC shortcut menu).
+# Exercises the descriptor/geometry path (eqdisp_compute_dims 39:69c8,
+# eqdisp_layout_token_geom 39:68ae, the 683d cell-to-pixel mapper,
+# eqdisp_draw_fraction_bar 39:6abf). 0x85E8 kind byte = 0x10, 0x85EE/0x85EF = 2/2.
+set key_hold 0.16s
+set key_delay 0.09s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key ALPHA
+key YEQU
+wait 0.6s
+key 1
+wait 0.6s
+key 1
+key DOWN
+key 2
+wait 1.5s
+screenshot /tmp/frac.png
+memdump /tmp/frac.ram ram-logical

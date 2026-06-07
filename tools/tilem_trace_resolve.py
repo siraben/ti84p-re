@@ -196,6 +196,30 @@ def name_for(names, space, addr):
     return f"  {n}" if n else ""
 
 
+def build_func_index(names):
+    """From {(space,addr): name} build {space: (sorted_addrs, names)} for
+    nearest-preceding (containing-function) lookup."""
+    import bisect  # noqa: F401 (used by enclosing_func)
+    by_space = {}
+    for (space, addr), name in names.items():
+        by_space.setdefault(space, []).append((addr, name))
+    for space in by_space:
+        by_space[space].sort()
+    return {space: ([a for a, _ in lst], [n for _, n in lst])
+            for space, lst in by_space.items()}
+
+
+def enclosing_func(func_index, space, addr):
+    """Nearest-preceding (addr, name) in `space`, or None."""
+    import bisect
+    idx = func_index.get(space)
+    if not idx:
+        return None
+    addrs, fnames = idx
+    i = bisect.bisect_right(addrs, addr) - 1
+    return (addrs[i], fnames[i]) if i >= 0 else None
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -205,9 +229,22 @@ def main():
     ap.add_argument("--flash-pages", type=int, default=N_FLASH_PAGES,
                     help="flash page count (64 for 84+, 128 for 84+SE)")
     ap.add_argument("--print", dest="print_count", type=int, default=0,
-                    help="print first N resolved instructions")
+                    help="print N resolved instructions (honors --only-space / "
+                         "--only-addr / --print-from filters)")
+    ap.add_argument("--print-from", dest="print_from", type=int, default=0,
+                    help="skip the first N matching instructions before printing "
+                         "(window into a long trace; use with --print)")
+    ap.add_argument("--only-addr", metavar="LO[-HI]",
+                    help="restrict --print to a logical-address window in the "
+                         "selected space, hex, e.g. 6efd-6ff0 (walk one routine)")
     ap.add_argument("--coverage", action="store_true",
                     help="list distinct executed addresses with hit counts")
+    ap.add_argument("--funcs", action="store_true",
+                    help="function-level coverage: roll hits up to the nearest-"
+                         "preceding name (needs --names)")
+    ap.add_argument("--only-space", metavar="SPACE",
+                    help="restrict --coverage/--funcs/--print to one space, "
+                         "e.g. page_39")
     ap.add_argument("--sort", choices=("count", "addr", "first"), default="first",
                     help="coverage sort order (default: first-seen)")
     ap.add_argument("--page-switches", action="store_true",
@@ -218,6 +255,12 @@ def main():
 
     names = load_names(args.names) if args.names else None
     banker = Banker(flash_pages=args.flash_pages)
+
+    addr_lo = addr_hi = None
+    if args.only_addr:
+        parts = args.only_addr.split("-", 1)
+        addr_lo = int(parts[0], 16)
+        addr_hi = int(parts[1], 16) if len(parts) > 1 else addr_lo
 
     with open(args.trace, "rb") as fp:
         hdr = read_header(fp)
@@ -231,6 +274,7 @@ def main():
         cov = {}            # (space, addr) -> [count, first_idx, flat_off]
         idx = 0
         printed = 0
+        matched = 0         # instructions passing the --print filters (pre-skip)
         for rtype, payload in iter_records(fp, resync=args.resync):
             if rtype != 0x01:
                 continue
@@ -246,7 +290,8 @@ def main():
                 print(f"{idx:>10}  OUT (port {port}) <- 0x{val:02x}   "
                       f"{window} = {kind}")
 
-            if args.coverage:
+            if (args.coverage or args.funcs) and \
+                    (not args.only_space or space == args.only_space):
                 key = (space, gaddr)
                 ent = cov.get(key)
                 if ent is None:
@@ -254,7 +299,14 @@ def main():
                 else:
                     ent[0] += 1
 
-            if args.print_count and printed < args.print_count:
+            if args.print_count and printed < args.print_count and \
+                    (not args.only_space or space == args.only_space) and \
+                    (addr_lo is None or addr_lo <= gaddr <= addr_hi):
+                if matched < args.print_from:
+                    matched += 1
+                    idx += 1
+                    continue
+                matched += 1
                 op = payload[IDX_OPCODE]
                 flat_s = f" rom=0x{flat:06x}" if flat is not None else ""
                 print(f"{idx:>8} clk={payload[IDX_CLOCK]:<10} "
@@ -266,6 +318,32 @@ def main():
                 printed += 1
 
             idx += 1
+
+        if args.funcs:
+            if names is None:
+                print("error: --funcs needs --names", file=sys.stderr)
+                sys.exit(2)
+            findex = build_func_index(names)
+            agg = {}  # (space, base, name) -> [hits, first_idx]
+            for (space, gaddr), (count, first, _flat) in cov.items():
+                fn = enclosing_func(findex, space, gaddr)
+                base, fname = fn if fn else (gaddr, "?")
+                k = (space, base, fname)
+                e = agg.get(k)
+                if e is None:
+                    agg[k] = [count, first]
+                else:
+                    e[0] += count
+                    e[1] = min(e[1], first)
+            items = sorted(agg.items(),
+                           key=lambda kv: (-kv[1][0] if args.sort == "count"
+                                           else kv[1][1] if args.sort == "first"
+                                           else (kv[0][0], kv[0][1])))
+            print(f"# {len(items)} functions over {idx} instructions"
+                  + (f" (space {args.only_space})" if args.only_space else ""),
+                  file=sys.stderr)
+            for (space, base, fname), (hits, first) in items:
+                print(f"{hits:>10}  {fmt_addr(space, base):<14} {fname}")
 
         if args.coverage:
             items = list(cov.items())

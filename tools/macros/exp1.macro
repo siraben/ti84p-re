@@ -1,0 +1,16 @@
+# Compute e^(1) on the home screen -> drives _EToX (02:705C), same 02:7181 table reversed.
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key 2ND
+key LN
+key 1
+key RPAREN
+key ENTER
+wait 2s
+screenshot /tmp/exp1.png

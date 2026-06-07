@@ -1,0 +1,16 @@
+# Compute 5-2 -> _FPSub negates OP2 then _FPAdd takes the differing-sign branch
+# (fp_sub_mantissa, ram:1d37). Complements the same-sign 2+3 trace.
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key 5
+key SUB
+key 2
+key ENTER
+wait 2s
+screenshot /tmp/fpsub.png
