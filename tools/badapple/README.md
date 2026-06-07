@@ -9,6 +9,9 @@ the same one Ghidra/TilEm use). The checked-in WAVs are decoded music renders:
 
 - `badapple_music.wav` — the decoded four-channel music, including the
   randomized percussion/noise voice.
+- `jesu_joy_sicp_music.wav` — a direct port of a three-channel PSG arrangement
+  of J. S. Bach's `Jesu, Joy of Man's Desiring` (`BWV 147`) rendered through the
+  same encoder and player model.
 
 The script also emits trace-debug WAVs in `$WORK`:
 
@@ -38,6 +41,15 @@ Use `--profile raw-port` to render the unfiltered link-line differential for
 hardware debugging. The renderer uses the app's intended `33333.3 Hz` sound
 clock and the `24 * 75` interrupt tracker cadence, so `badapple_music.wav` plays
 in real time. [standard]
+
+The extra song ports
+[`TPKato/psgctrl`'s `choral.mml`](https://raw.githubusercontent.com/TPKato/psgctrl/master/mml/choral.mml),
+an MIT-licensed AY-3-8910/YM2149 PSG arrangement, to the JSON song format. It
+keeps the source MML's three tone voices and leaves the noise channel empty.
+[MIT OpenCourseWare's SICP Lecture 4B transcript](https://ocw.mit.edu/courses/6-001-structure-and-interpretation-of-computer-programs-spring-2005/b31a4b69d5162b24879fa9318c2ef884_OscT4N2qq7o.pdf)
+identifies `Jesu, Joy of Man's Desiring` as lecture music, and
+[`Switched-On Bach`](https://en.wikipedia.org/wiki/Switched-On_Bach#Track_listing)
+includes the same Bach work in its track list.
 
 `extract_linkport_audio.py` remains a dynamic trace tool. It replays every
 `OUT ($00),A` in the trace, holds each level until the next write (zero-order
@@ -103,3 +115,4 @@ mode — but the port trace proves the app is rendering and playing.)
 - [`../ti84_music.py`](../ti84_music.py) — `.mmp`/MIDI/JSON music → track ASM and WAV.
 - [`../extract_linkport_audio.py`](../extract_linkport_audio.py) — trace → debug link-port WAV.
 - [`build_and_capture.sh`](build_and_capture.sh) — the full pipeline.
+- [`songs/jesu_joy_sicp.json`](songs/jesu_joy_sicp.json) — PSG-derived BWV 147 JSON sample.
