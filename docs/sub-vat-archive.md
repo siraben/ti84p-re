@@ -84,12 +84,12 @@ For an **archived** entry the data address (`addrLSB/MSB`) points into the Flash
 - Set OP1 type = 0xFF placeholder (`62A9: LD A,FF / LD (8478),A`), parse the destination name.
 - `5F45` resolves/creates the target symbol; then it copies the value. It dispatches on the
   destination name token (`849B`): list-element store (`0x2A` → bounds-checks via `_ErrDimension`),
-  matrix element, etc. Ultimately a `_CreateXxx` carves RAM with `_InsertMem` and the data is copied.
+  matrix element, etc. Ultimately a `_Create*` routine carves RAM with `_InsertMem` and the data is copied.
 - A store **into an archived var is not done in place**; the OS unarchives first (you cannot rewrite
   Flash in place) — see the `_Arc_Unarc` direction logic in §4. [I/H]
 
 **Recall** `_RclVarSym` (`38:67B1`) and `_RclVarPush` (`3A:5D07`):
-- `_RclVarSym` calls `RST 2` (`17A6`/`_FindSym`), then checks the name token (`8479`). For a list
+- `_RclVarSym` calls `RST 10h` (`17A6`, a `_FindSym`+error-check wrapper: `RST 10h; JP C,271D`), then checks the name token (`8479`). For a list
   recall (`63`/`2A`) it sizes the data with `_DataSize` (`00:1485`) and copies it into a work buffer
   (`91E0`), using `_LdHLind` and cross-page helpers; ends `JP _OP4ToOP1`.
 - `_DataSize` (`00:1485`): returns the variable's data byte-count in DE from the type byte — real=9,
@@ -114,31 +114,35 @@ _Arc_Unarc (07:6248):
   CALL _ChkFindSym (0E60)      ; locate the VAT entry; C ⇒ JP 271D (undefined)
   DI
   LD (981C),HL                 ; chkDelPtr3 = entry ptr
-  LD A,B ; OR A ; JR Z,..      ; B = page byte: 0 ⇒ currently in RAM, else ⇒ in Flash
-      (RAM) LD A,(HL); CP 0x17 ; Group? ⇒ JP 26E0 reject  [groups archive via a different path]
-            ...  CALL 61F4     ; *** RAM → Flash:  archive ***
-      (Flash) CALL 6107        ; *** Flash → RAM:  unarchive ***
+  LD A,B ; OR A ; JR Z,6272    ; B = page byte: 0 ⇒ currently in RAM, else ⇒ in Flash
+      (Flash, B≠0) LD A,(HL); CP 0x17 ; Group? ⇒ JP 26E0 reject  [groups archive via a different path]
+                   CALL 61F4   ; *** Flash → RAM:  unarchive ***
+   6272 (RAM, B==0):  CALL 6107        ; *** RAM → Flash:  archive ***
   ... type-0x5D (complex-list) special-case via 32A9 / cross_page 37:4288
   LD A,(83EE); OR A; EI; RET
 ```
 
-`628B` is the **archivable-name validator**: after `_CkOP1Real`, it accepts the system/real name
-tokens `0x58 0x59 0x54 0x5B 0x52 0x72 0xFC`, complex `0x0C`, list `0x01`/`0x0D`, etc.; rejects others
-via the `26E0` shim (`LD A,0xB2` = E_Variable, ERR:VARIABLE → `_JError`). (`_arc_59f1` @`07:59F1` and `_arc_5936` @`07:5936` are companion name/range
+`628B` is the **archivable-name guard**: after `_CkOP1Real` it returns **Z for the non-archivable
+single-letter real/sysvar name tokens** `0x58 0x59 0x54 0x5B 0x52 0x72 0xFC` (`CP n; RET Z` chain), so
+`_Arc_Unarc`'s `JP Z,26E0` rejects them via the `26E0` shim (`LD A,0xB2` = E_Variable, ERR:VARIABLE →
+`_JError`); archivable classes (lists, matrices, programs, appvars, …) return NZ and continue. (`_arc_59f1` @`07:59F1` and `_arc_5936` @`07:5936` are companion name/range
 validators for the catalog archive command.)
 
-### 4a. RAM → Flash (archive), `61F4` [C]
+Direction note: the `B`-page test sends an **in-RAM** var (`B==0`) to `6107` (archive) and an
+**in-Flash** var (`B≠0`) to `61F4` (unarchive). `6107` is the one that programs Flash and frees the
+RAM copy; `61F4` is the one that carves RAM and copies the data back out of Flash.
+
+### 4a. RAM → Flash (archive), `6107` [C]
 ```z80
-61F4:  LD (83EF),DE ; LD (83EE),A      ; arcInfo.dataPtr/page = source (RAM)
-       CALL 6335                       ; 6331/6335: stash vatPtr (83F1), compute dataSize (83F5) via _DataSize
-       CALL 32D3                       ; size accounting
-       LD A,(HL) ; CALL 146C           ; add header overhead → 83F9 (sizeFull)
-       EX DE,HL ; CALL _EnoughMem(0FA6); make sure the freed RAM bookkeeping is OK
-                JP C,_ErrMemory(2721)
-       OR 1 ; CALL FUN_ram_0f0c        ; mark VAT type byte: set the archive flag bit
-       LD (83F3),DE
-       CALL 3003 (cross_page 3D:64AA)  ; *** do the actual Flash program ***  (see §6)
+6107:  CALL 7866 ; DI
+       CALL 614B                       ; size/accounting: (83F1)=vatPtr, _DataSize→83F7;
+                                       ;   616C reserves the archive-Flash slot
+       CALL 2FF1 (cross_page 3D:64AA)  ; *** program the data into the archive Flash ***  (see §6)
+       LD HL,(83F3) ; LD DE,(83F7) ; CALL _DelMem (1368)  ; release the old RAM copy
        RET
+616C:  reads vatPtr type, AND 0x1F (clean type for the record header),
+       LD HL,(83F7)+(83F5) ; ADC ; JP C,2729 (E_Invalid/E_IllegalNest/E_Bound 0x8F/0x90/0x91)  ; size overflow?
+       reserves a Flash slot via 2FDF(3D:61AF) / 2FF7(3D:62C2)
 ```
 The data is **appended** to the archive Flash (Flash cannot be overwritten in place). The VAT entry's
 type byte gets its archive flag set and its data ptr/page rewritten to point into Flash; the old RAM
@@ -147,22 +151,26 @@ fresh archived record plus a copy of the symbol header/name and data (status mar
 `0xFE`=in-progress / `0xFC`=valid / `0xF0`=deleted, with `0xFF`=erased/empty; the bit-clearing
 mechanism is confirmed in §6a). `3D:64AA` is not a defined function in the current live DB; the
 `flash_write_record` name for it is a project-local inferred label, not a WikiTI or `ti83plus.inc`
-equate.
+equate. `_Chk_Batt_Low` (`00:0D07`) gates the Flash write — archiving aborts on low battery
+(`61C5: CALL _Chk_Batt_Low`).
 
-### 4b. Flash → RAM (unarchive), `6107` [C]
+### 4b. Flash → RAM (unarchive), `61F4` [C]
 ```z80
-6107:  CALL 7866 ; DI
-       CALL 614B   ; compute sizes:  (83F1)=vatPtr, _DataSize→83F7, free-RAM check via 616C
-       CALL 2FF1 (cross_page 3D:61AF)  ; copy the data Flash→RAM (program the heap)
-       LD HL,(83F3) ; LD DE,(83F7) ; CALL _DelMem (1368)  ; close the old flash slot bookkeeping
+61F4:  LD (83EF),DE ; LD (83EE),A      ; arcInfo.dataPtr/page = source (Flash page+addr from FindSym)
+       CALL 6335                       ; 6331/6335: stash vatPtr (83F1), compute dataSize (83F5) via _DataSize
+       CALL 32D3                       ; size accounting
+       LD A,(HL) ; CALL 146C           ; add header overhead → 83F9 (sizeFull)
+       EX DE,HL ; CALL _EnoughMem(0FA6); ensure there is RAM room for the unarchived copy
+                JP C,_ErrMemory(2721)
+       OR 1 ; CALL 0F0C                ; carve the RAM gap (internal create-gap routine)
+       LD (83F3),DE                    ; destPtr = new RAM address
+       CALL 3003 (cross_page 3D:6440)  ; *** page-3D unarchive worker: copy Flash→RAM, retire the old record ***
        RET
-616C:  ... reads vatPtr type, AND 0x1F (strip archive flag),
-       LD HL,(83F7)+(83F5) ; ADC ; JP C,2729 (E_Invalid/E_IllegalNest/E_Bound 0x8F/0x90/0x91)  ; fits in RAM?
-       allocate via 2FDF(3D:61AF) / 2FF7(3D:62C2)
 ```
-On unarchive the entry's **archive flag is cleared** and the data ptr/page is rewritten back to the
-new RAM address; the Flash copy is left marked dead (reclaimed at the next GC). `_Chk_Batt_Low`
-(`00:0D07`) gates the Flash write — archiving aborts on low battery (`61C5: CALL _Chk_Batt_Low`).
+The data is copied from Flash into the freshly-carved RAM gap. The VAT entry's **archive flag is
+cleared** and its data ptr/page rewritten back to the new RAM address; the old Flash record is left
+marked dead (`0xF0`, reclaimed at the next GC). `3D:6440` shares the page-3D flash-control prologue
+(`OUT (0x14)`) and is not a defined function in the current live DB.
 
 ### 4c. Errors raised on the path [C]
 - `2785: LD A,0x31` → `_JError` = **E_ArchFull (0x31)** "ERR:ARCHIVE FULL" (no room even after GC).
@@ -304,7 +312,7 @@ the classic TI-83+/84+ behaviour, now pinned to addresses.
 - **`_EnoughMem` (`00:0FA6`)** — ensure N free bytes; if short it walks the temp/scratch entries from
   `pTemp(982E)` down toward `OPBase(9826)` at a **9-byte stride**, and `_DelVar`s any entry whose flag
   byte has bit 7 (`& 0x80`) set (a reclaimable temporary), looping until enough or exhausted. Used by
-  `_CreateXxx` and by the unarchive RAM-fit check (`61F4` calls it before allocating).
+  the `_Create*` routines and by the unarchive RAM-fit check (`61F4` calls it before allocating).
 - **`_InsertMem` (`00:0F81`)** / **`_DelMem` (`00:1368`)** — open / close a gap at HL by block-moving
   everything above; `_InsertMem` fails `E_Memory` if it would collide with the VAT.
 - **Free archive (Flash)** is computed inside the Flash layer. The free-space sum is at `3D:6413`
@@ -319,8 +327,8 @@ the classic TI-83+/84+ behaviour, now pinned to addresses.
 |------------|------|------|
 | `07:6248` | `_Arc_Unarc` | archive/unarchive entry; toggles arc flag, dispatches RAM↔Flash |
 | `07:628B` | `arc_chk_name` | archivable-name validator |
-| `07:61F4` | `arc_ram_to_flash` | RAM→Flash archive worker |
-| `07:6107` | `arc_flash_to_ram` | Flash→RAM unarchive worker |
+| `07:6107` | `arc_ram_to_flash` | RAM→Flash archive worker (programs Flash, frees old RAM) |
+| `07:61F4` | `arc_flash_to_ram` | Flash→RAM unarchive worker (carves RAM, copies from Flash) |
 | `07:6331` | `arc_size_setup` | stash vatPtr, compute dataSize into arcInfo |
 | `07:61DC` | `arc_save_info` | save 12-byte arcInfo into savedArcInfo; `07:61E8` (restore candidate) is not a defined function in the live DB |
 | `07:565F` | `findsym_scan` | the real `_FindSym` VAT scanner |
