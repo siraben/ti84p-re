@@ -38,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-24f752fb.js";
+            window.path_to_searchindex_js = "searchindex-c62fbb94.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-93add71c.js"></script>
+        <script src="toc-26ce7d13.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -1631,6 +1631,9 @@ for observed outputs and trace anchors.</p>
 <tr><td>Factorial</td><td><code>Prompt N</code> / <code>1-&gt;F</code> / <code>For(I,1,N)</code> / <code>F*I-&gt;F</code> / <code>End</code> / <code>Disp F</code></td><td><code>DD 4E 3F 31 04 46 3F D3 49 2B 31 2B 4E 11 3F 46 82 49 04 46 3F D4 3F DE 46 3F</code></td></tr>
 <tr><td>Data</td><td><code>{3,1,4,1,5}-&gt;L1</code> / <code>SortA(L1)</code> / <code>cumSum(L1)-&gt;L2</code> / <code>sum(L1)-&gt;S</code> / display results</td><td><code>08 33 2B 31 2B 34 2B 31 2B 35 09 04 5D 00 3F E3 5D 00 11 3F BB 29 5D 00 11 04 5D 01 3F B6 5D 00 11 04 53 3F DE 5D 00 3F DE 5D 01 3F DE 53 3F</code></td></tr>
 <tr><td><code>Asm(</code> wrapper</td><td><code>Disp "BEFORE"</code> / <code>Asm(prgmASMRET)</code> / <code>Disp "AFTER"</code></td><td><code>DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41 46 54 45 52 2A 3F</code></td></tr>
+<tr><td>Animation</td><td><code>ClrHome</code> / <code>For(I,1,8)</code> / <code>Output(1,I,"X")</code> / <code>End</code> / <code>Disp "DONE"</code></td><td><code>E1 3F D3 49 2B 31 2B 38 11 3F E0 31 2B 49 2B 2A 58 2A 11 3F D4 3F DE 2A 44 4F 4E 45 2A 3F</code></td></tr>
+<tr><td>Graph drawing</td><td><code>ClrDraw</code> / <code>Line(0,0,95,63)</code> / <code>Circle(47,31,10)</code> / <code>Text(0,0,"DFS")</code> / <code>DispGraph</code></td><td><code>85 3F 9C 30 2B 30 2B 39 35 2B 36 33 11 3F A5 34 37 2B 33 31 2B 31 30 11 3F 93 30 2B 30 2B 2A 44 46 53 2A 11 3F DF 3F</code></td></tr>
+<tr><td>BASIC subprogram</td><td><code>0-&gt;A</code> / <code>prgmSUBRT</code> / <code>Disp A</code>; callee <code>Disp "SUB"</code> / <code>A+1-&gt;A</code> / <code>Return</code></td><td>caller <code>30 04 41 3F 5F 53 55 42 52 54 3F DE 41 3F</code>; callee <code>DE 2A 53 55 42 2A 3F 41 70 31 04 41 3F D5 3F</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -1639,8 +1642,9 @@ statement separators (<code>3F</code>), string delimiters (<code>2A</code>), sto
 (<code>5D 00</code>/<code>5D 01</code>), extended <code>BB</code> tokens (<code>cumSum(</code> = <code>BB 29</code>, <code>Asm(</code> = <code>BB 6A</code>,
 <code>AsmPrgm</code> = <code>BB 6C</code>), and command tokens such as <code>Prompt</code> (<code>DD</code>), <code>Disp</code> (<code>DE</code>),
 <code>For(</code> (<code>D3</code>), <code>End</code> (<code>D4</code>), <code>ClrHome</code> (<code>E1</code>), and <code>SortA(</code> (<code>E3</code>). The
-<code>Asm(prgmASMRET)</code> wrapper also shows the program-name token (<code>5F</code>) before the
-name characters. [confirmed token bytes from <code>ti83plus.inc</code> and
+newer samples add <code>Output(</code> (<code>E0</code>), graph commands (<code>85</code>, <code>93</code>, <code>9C</code>, <code>A5</code>,
+<code>DF</code>), <code>Return</code> (<code>D5</code>), and the program-name token (<code>5F</code>) before the name
+characters. [confirmed token bytes from <code>ti83plus.inc</code> and
 <code>token-tables.md</code>]</p>
 <h2 id="second-byte-tables"><a class="header" href="#second-byte-tables">Second-byte tables</a></h2>
 <p>Every 2-byte token group’s second-byte → token mapping (matrices, lists, Y-vars, system/window vars, the <code>BB</code> extended-command page, the <code>EF</code> 84+ page, etc.) is tabulated in <strong><a href="#2-byte-token-tables">2-Byte Token Tables</a></strong> — 492 tokens, sourced from <a href="https://github.com/TI-Toolkit/tokens">TI-Toolkit/tokens</a> and filtered to the 84+ 2.55MP.</p>
@@ -2728,6 +2732,41 @@ and <code>ASMRET.8xp</code> displays <code>BEFORE</code>, executes <code>Asm(prg
 <code>AFTER</code>, and then <code>Done</code>. The trace shows the assembly handoff through
 <code>07:57B4</code> and execution of the payload byte itself at
 <code>ram:9D95 op=0x000000C9</code>, returning to BASIC immediately after.</p>
+<h3 id="animation-graphing-and-basic-subprogram-calls"><a class="header" href="#animation-graphing-and-basic-subprogram-calls">Animation, graphing, and BASIC subprogram calls</a></h3>
+<p>Additional generated fixtures extend coverage beyond arithmetic/list samples:</p>
+<pre><code class="language-ti-basic">ClrHome
+For(I,1,8)
+Output(1,I,"X")
+End
+Disp "DONE"
+</code></pre>
+<p>Observed run: <code>ANIMTXT.8xp</code> displays a row of <code>X</code> characters, <code>DONE</code>, and then
+<code>Done</code>. The trace hits <code>_OutputExpr</code> (<code>03:4AF2</code>), page-38 parser/loop paths,
+<code>_Disp</code>, and LCD text routines.</p>
+<pre><code class="language-ti-basic">ClrDraw
+Line(0,0,95,63)
+Circle(47,31,10)
+Text(0,0,"DFS")
+DispGraph
+</code></pre>
+<p>Observed run: <code>GRAPHV.8xp</code> ends on the graph screen with <code>DFS</code>, axes, and a
+diagonal line visible. The trace hits <code>_GrBufClr</code>, <code>_ILine</code> (<code>04:4029</code>),
+<code>graph_pixel_op</code>, <code>_IPoint</code>, and <code>_PDspGrph</code> (<code>04:7904</code>).</p>
+<pre><code class="language-ti-basic">0-&gt;A
+prgmSUBRT
+Disp A
+</code></pre>
+<p>with callee:</p>
+<pre><code class="language-ti-basic">Disp "SUB"
+A+1-&gt;A
+Return
+</code></pre>
+<p>Observed run: loading <code>CALLSUB.8xp</code> and <code>SUBRT.8xp</code> displays <code>SUB</code>, then <code>1</code>,
+then <code>Done</code>. This confirms the practical BASIC calling convention: caller and
+callee share variables, and <code>Return</code> resumes the caller. The trace hits VAT/name
+lookup, parser entry/refill paths, shared <code>A</code> store/recall, and <code>_Disp</code>.</p>
+<p>See <a href="#ti-basic-programming-patterns">TI-BASIC programming patterns</a> for performance
+rules and larger source-level examples.</p>
 <hr>
 <h2 id="9-resolved--residual"><a class="header" href="#9-resolved--residual">9. Resolved / residual</a></h2>
 <p>Three argument-handling and dispatch details, grounded in the bytes (see §5 / §4):</p>
@@ -2892,6 +2931,173 @@ End
 <p>Better still, avoid single-line false guards as the first statement of a hot
 loop. Use <code>If ... Then</code> blocks when the body is structured, or invert the loop
 so the common path does not repeatedly exercise the false-<code>If</code> skip scanner.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="ti-basic-programming-patterns"><a class="header" href="#ti-basic-programming-patterns">TI-BASIC programming patterns</a></h1>
+<p><em>TI-84 Plus OS 2.55MP – performance and tracing notes.</em></p>
+<p>This page turns the interpreter traces into practical programming rules. It is
+not a style guide for calculator golf; it is a map from common TI-BASIC
+patterns to the OS paths they exercise.</p>
+<p>Confidence follows <a href="#conventions--methodology">Conventions</a>: <strong>[confirmed]</strong> = observed in
+the disassembly or the headless TilEm traces; <strong>[standard]</strong> = matches TI-BASIC
+semantics and the traced interpreter shape; <strong>[hypothesis]</strong> = useful pattern
+not yet traced end to end in this repo.</p>
+<hr>
+<h2 id="performance-rules-from-traces"><a class="header" href="#performance-rules-from-traces">Performance rules from traces</a></h2>
+<ol>
+<li><strong>Keep parser work out of hot loops.</strong> Every statement re-enters the page-38
+evaluator (<code>eval_stmt_entry</code>, <code>parse_refill</code>, <code>parse_advance</code>,
+<code>chk_tok_end</code>). Tiny loop bodies can still spend most of their time walking
+tokens and rebuilding temporary parse state. The
+<a href="#for-closing-paren-and-false-first-line-if"><code>For(</code> optional-paren trap</a> is the sharpest
+example: with a first-line false <code>If</code>, dropping the closing <code>)</code> made an
+<code>N=100</code> benchmark grow from 521,723 to 885,912 marker-to-marker instructions.
+<strong>[confirmed]</strong></li>
+<li><strong>Prefer built-ins for list-wide work.</strong> <code>SortA(</code>, <code>cumSum(</code>, and <code>sum(</code>
+cross into OS routines that run one parser setup and then loop internally.
+The <code>DATA.8xp</code> trace hits <code>list_fold_dispatch</code> (<code>02:6104</code>) for <code>sum(</code> rather
+than reparsing an explicit BASIC accumulator loop for every element.
+<strong>[confirmed]</strong></li>
+<li><strong>Cache list elements and dimensions.</strong> List indexing resolves a variable
+name through the VAT, checks type/dimension, computes an element address, and
+shuttles a 9-byte <code>TIFloat</code> through OP registers. Repeated <code>L1(I)</code> inside a
+loop is much more expensive than storing the element into a scalar once when
+the value is reused. <strong>[confirmed path, standard rule]</strong></li>
+<li><strong>Avoid <code>Goto</code> in hot loops.</strong> <code>Goto</code> searches for a matching <code>Lbl</code> by
+scanning the program token stream, and escaping structured loops through
+<code>Goto</code> can leave loop bookkeeping behind. Use <code>For(</code>/<code>While</code>/<code>Repeat</code> plus
+<code>End</code> unless the jump is truly cold. <strong>[standard; scanner confirmed in
+<code>sub-tibasic.md</code>]</strong></li>
+<li><strong>Batch display and graph output.</strong> <code>Disp</code> and <code>Output(</code> reach display
+primitives and LCD update paths; graph drawing reaches graph-buffer and pixel
+routines before display copy. Draw into the graph buffer and call
+<code>DispGraph</code> once when possible. <strong>[confirmed]</strong></li>
+<li><strong>Write the optional syntax in loops.</strong> Closing <code>For(</code> with <code>)</code> costs at most
+a small command-finalization path, but it avoids the pathological
+implicit-close/false-<code>If</code> interaction. <strong>[confirmed]</strong></li>
+</ol>
+<h2 id="run-confirmed-fixtures"><a class="header" href="#run-confirmed-fixtures">Run-confirmed fixtures</a></h2>
+<p>The generator <code>tools/tibasic_samples.py</code> now emits these additional trace-ready
+fixtures.</p>
+<h3 id="text-animation-with-output"><a class="header" href="#text-animation-with-output">Text animation with <code>Output(</code></a></h3>
+<pre><code class="language-ti-basic">ClrHome
+For(I,1,8)
+Output(1,I,"X")
+End
+Disp "DONE"
+</code></pre>
+<p>Observed run: <code>ANIMTXT.8xp</code> leaves <code>DONEXXXX</code> on the first row, then <code>Done</code>. The
+trace hits page-38 parser paths, page-33 loop/math helpers, <code>_OutputExpr</code>
+(<code>03:4AF2</code>), <code>_Disp</code> (<code>37:51D3</code>), and LCD text routines. <strong>[confirmed]</strong></p>
+<p>The performance lesson is that animation is expensive twice: the interpreter
+parses each <code>Output(</code> call, then the display stack updates text/LCD state. For a
+real animation, keep loop bodies tiny and avoid recomputing strings or indexes
+inside the drawing loop.</p>
+<h3 id="graph-buffer-visualization"><a class="header" href="#graph-buffer-visualization">Graph-buffer visualization</a></h3>
+<pre><code class="language-ti-basic">ClrDraw
+Line(0,0,95,63)
+Circle(47,31,10)
+Text(0,0,"DFS")
+DispGraph
+</code></pre>
+<p>Observed run: <code>GRAPHV.8xp</code> ends on the graph screen with <code>DFS</code>, axes, and the
+diagonal line visible. The trace hits <code>_GrBufClr</code>, <code>_ILine</code> (<code>04:4029</code>),
+<code>graph_pixel_op</code>, <code>_IPoint</code>, <code>_PDspGrph</code> (<code>04:7904</code>), and the page-38 argument
+parser. <strong>[confirmed]</strong></p>
+<p>The performance lesson is to draw several primitives into the graph buffer, then
+display the graph buffer once. Repeated home-screen <code>Output(</code> calls give you
+more text-layout overhead and less control over redraw timing.</p>
+<h3 id="basic-subprogram-calling-convention"><a class="header" href="#basic-subprogram-calling-convention">BASIC subprogram calling convention</a></h3>
+<p>Caller:</p>
+<pre><code class="language-ti-basic">0-&gt;A
+prgmSUBRT
+Disp A
+</code></pre>
+<p>Callee:</p>
+<pre><code class="language-ti-basic">Disp "SUB"
+A+1-&gt;A
+Return
+</code></pre>
+<p>Observed run: loading <code>CALLSUB.8xp</code> and <code>SUBRT.8xp</code> displays <code>SUB</code>, then <code>1</code>,
+then <code>Done</code>. This confirms the practical TI-BASIC calling convention: arguments
+and return values live in shared global variables, lists, strings, matrices, or
+<code>Ans</code>; <code>Return</code> exits the callee and resumes the caller. The trace hits VAT/name
+resolution (<code>findsym_scan</code>), parser entry/refill paths, <code>_StoSysTok</code>, <code>_StoAns</code>,
+<code>_RclVarSym</code>, and <code>_Disp</code>. <strong>[confirmed]</strong></p>
+<p>There is no local variable frame for BASIC programs. A subprogram that uses <code>A</code>
+modifies the caller’s <code>A</code>. For reusable routines, document which variables are
+inputs, scratch, and outputs.</p>
+<h2 id="larger-source-patterns"><a class="header" href="#larger-source-patterns">Larger source patterns</a></h2>
+<p>The following programs are source-level patterns that exercise the same
+interpreter paths. They are not yet part of the generated <code>.8xp</code> fixture set.</p>
+<h3 id="dfs-with-a-list-stack"><a class="header" href="#dfs-with-a-list-stack">DFS with a list stack</a></h3>
+<p>This is a compact graph traversal skeleton for an adjacency matrix <code>[A]</code>, a
+node count <code>N</code>, start node <code>S</code>, visited list <code>L1</code>, and explicit stack <code>L2</code>.</p>
+<pre><code class="language-ti-basic">0*seq(I,I,1,N)-&gt;L1
+{S}-&gt;L2
+While dim(L2)
+L2(dim(L2))-&gt;V
+dim(L2)-1-&gt;dim(L2)
+If not(L1(V))
+Then
+1-&gt;L1(V)
+Disp V
+For(W,1,N)
+If [A](V,W) and not(L1(W))
+augment(L2,{W})-&gt;L2
+End
+End
+End
+</code></pre>
+<p>Performance notes: <code>dim(L2)</code> and <code>L2(dim(L2))</code> both resolve the list and parse
+an index; cache <code>dim(L2)</code> into a scalar if the body grows. <code>augment(</code> allocates
+a new list, so this version is easy to read but not memory efficient. A faster
+version preallocates <code>L2</code>, keeps a scalar stack pointer, and writes <code>W-&gt;L2(P)</code>.
+<strong>[standard]</strong></p>
+<h3 id="arbitrary-precision-decimal-addition"><a class="header" href="#arbitrary-precision-decimal-addition">Arbitrary-precision decimal addition</a></h3>
+<p>Use lists of base-10 digits in little-endian order. For example, <code>12345</code> is
+<code>{5,4,3,2,1}</code>.</p>
+<pre><code class="language-ti-basic">max(dim(L1),dim(L2))-&gt;N
+0-&gt;C
+For(I,1,N)
+C-&gt;S
+If I&lt;=dim(L1)
+S+L1(I)-&gt;S
+If I&lt;=dim(L2)
+S+L2(I)-&gt;S
+int(S/10)-&gt;C
+S-10C-&gt;L3(I)
+End
+If C
+C-&gt;L3(N+1)
+</code></pre>
+<p>Performance notes: this is intentionally simple, but it is parser-heavy. Cache
+<code>dim(L1)</code> and <code>dim(L2)</code> before the loop, avoid repeated list indexing when a
+digit is reused, and use a larger base only if you can tolerate more carry and
+display conversion work. <strong>[standard]</strong></p>
+<h2 id="basic-and-asm-interop"><a class="header" href="#basic-and-asm-interop">BASIC and ASM interop</a></h2>
+<h3 id="basic-to-asm"><a class="header" href="#basic-to-asm">BASIC to ASM</a></h3>
+<p>The validated smoke test is:</p>
+<pre><code class="language-ti-basic">Asm(prgmASMRET)
+</code></pre>
+<p>with:</p>
+<pre><code class="language-ti-basic">AsmPrgm
+C9
+</code></pre>
+<p><code>Asm(</code> is token <code>BB 6A</code>; <code>AsmPrgm</code> is <code>BB 6C</code>; <code>prgm</code> is token <code>5F</code>. The trace
+shows the OS handoff through <code>07:57B4</code>, execution of the payload byte at
+<code>ram:9D95 op=0xC9</code>, and return to BASIC. <strong>[confirmed]</strong></p>
+<p>Practical convention: pass data through OS variables or known RAM locations,
+validate inputs on the BASIC side, and make the ASM payload return normally with
+<code>RET</code> unless it intentionally transfers control elsewhere.</p>
+<h3 id="asm-to-basic"><a class="header" href="#asm-to-basic">ASM to BASIC</a></h3>
+<p>The inverse direction is not yet run-confirmed in this repo. The standard route
+is for ASM to call OS parser/program services: build or locate a program
+variable name, use VAT lookup, set up parser state, and enter the same
+interpreter machinery used by <code>prgmNAME</code>. That path needs a dedicated trace
+before this documentation should claim an exact calling sequence. <strong>[hypothesis]</strong></p>
+<p>The current open item is therefore precise: trace a small ASM payload that
+invokes a BASIC program, identify the service entry and required parser/VAT
+state, and compare it to the already-confirmed BASIC-to-ASM <code>Asm(</code> handoff.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="variables-archive--unarchive"><a class="header" href="#variables-archive--unarchive">Variables, archive &amp; unarchive</a></h1>
 <p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
