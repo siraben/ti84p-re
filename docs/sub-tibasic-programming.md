@@ -56,7 +56,7 @@ not yet traced end to end in this repo.
 | Text animation (`ANIMTXT`) | `Output(` plus LCD text paths on every loop | Precompute positions/strings and update the smallest region possible. |
 | Graph drawing (`GRAPHV`) | primitives draw into `plotSScreen`, then `_PDspGrph` | Batch graph primitives before `DispGraph`. |
 | Graph visualization (`GRAPHDFS`) | window stores plus repeated `Line(`/`Circle(`/`Text(` reach `_StoSysTok`, `_ILine`, `_IPoint`, `graph_pixel_op`, `_PDspGrph`, and small-font paths | Store graph topology in lists; draw the whole view in one graph-buffer pass. |
-| BASIC subprogram (`CALLSUB`) | page-38 program-body evaluator and shared VAT variables | Treat globals/lists/`Ans` as the calling convention. |
+| BASIC subprogram (`CALLSUB`, `CALLABI`) | page-38 program-body evaluator and shared VAT variables | Treat globals/lists/`Ans` as the calling convention. |
 | List algorithms (`BIGADD`, `BIGMUL`, `DFS`) | VAT lookup, element address, OP-register move per access | Preallocate lists; cache dimensions and reused elements in scalars. |
 
 ### Evidence manifest
@@ -79,9 +79,10 @@ branch state.
 | Graph visualization | `GRAPHDFS.8xp` | Renders the four-node DFS topology with labels and edges; reaches window stores, line, point, display-copy, pixel, and small-font graph paths. |
 | Arbitrary precision arithmetic | `BIGADD.8xp`, `BIGMUL.8xp` | Adds and multiplies digit lists with carry propagation; reaches list indexing and FP helper paths. |
 | DFS / stack-style list algorithm | `DFS.8xp` | Displays traversal `1, 3, 2, 4` and visited list `{1 1 1 1}`; reaches nested scanner/control-flow paths. |
-| BASIC subprogram calling convention | `CALLSUB.8xp` + `SUBRT.8xp` | Caller and callee share scalar/list variables and return through the BASIC program evaluator. |
+| BASIC subprogram calling convention | `CALLSUB.8xp` + `SUBRT.8xp`; `ABICALL.8xp` + `ABISUB.8xp` | Caller and callee share scalar/list/`Ans` state and return through the BASIC program evaluator. |
 | BASIC to ASM | `ASMCALL.8xp` + `ASMRET.8xp` | `Asm(` runs an `AsmPrgm` payload (`C9`) and returns to BASIC, displaying `BEFORE` then `AFTER`. |
 | ASM-directed BASIC callback | `ASMBRIDG.8xp` + `ASMSIG.8xp` + `ZZBASIC.8xp` | ASM sets `Ans=1` with `_OP1Set1`/`_StoAns`, returns, and BASIC calls `prgmZZBASIC` through `If Ans`. |
+| ASM return value | `ASMRTN.8xp` + `ASMVAL.8xp` | ASM sets `Ans=2` with `_OP1Set2`/`_StoAns`; BASIC reads `Ans`, computes `Ans+3`, and displays `5`. |
 | Direct ASM to BASIC | temporary probes | VAT lookup from `AsmPrgm` works, but `_Find_Parse_Formula`, `_ParseInpLastEnt`, `_ExecuteNewPrgm`, `_JForceCmd`, `_PutTokString`, and `_rclToQueue` do not prove a standalone callable BASIC-program ABI. |
 
 ## Run-confirmed fixtures
@@ -207,9 +208,9 @@ Return
 ```
 
 Observed run: loading `CALLSUB.8xp` and `SUBRT.8xp` displays `SUB`, then `1`,
-then `Done`. This confirms the practical TI-BASIC calling convention: arguments
-and return values live in shared global variables, lists, strings, matrices, or
-`Ans`; `Return` exits the callee and resumes the caller. The trace hits the
+then `Done`. This confirms the practical TI-BASIC calling convention for
+scalars: arguments and return values live in shared global variables; `Return`
+exits the callee and resumes the caller. The trace hits the
 page-38 statement interpreter, VAT/name resolution (`findsym_scan`), parser
 entry/refill paths, the program-body evaluator call at `38:6914` into
 `eval_eqn_recursive` (`38:778F`), `_StoSysTok`, `_StoAns`, `_RclVarSym`, and
@@ -237,11 +238,39 @@ inputs, scratch, and outputs.
 
 | ABI part | Practical convention | Trace evidence |
 |----------|----------------------|----------------|
-| Inputs | Scalars, lists, matrices, strings, and `Ans` are global. The caller stores them before `prgmNAME`. | `CALLSUB` stores `A` before entering `SUBRT`. |
-| Outputs | The callee stores results back to globals or `Ans`. | `SUBRT` increments shared `A`; the caller displays `1`. |
+| Inputs | Scalars, lists, and `Ans` are shared across caller and callee. The caller stores them before `prgmNAME`. | `CALLSUB` stores `A`; `ABICALL` seeds `L1` and `Ans`. |
+| Outputs | The callee stores results back to globals, list elements, or `Ans`. | `SUBRT` increments shared `A`; `ABISUB` writes `A`, `L1(3)`, and `Ans`. |
 | Scratch | No automatic save/restore exists. Routines must document scratch variables. | The VAT and parser state are shared across caller and callee. |
 | Return | `Return` exits the callee and resumes the caller. `Stop` terminates the whole program chain. | `SUBRT` returns to `CALLSUB`, which then runs `Disp A`. |
 | Parser state | `prgmNAME` runs with private parser/FPS state already set up by BASIC. | The callee path reaches `38:6910` -> `38:6914` -> `38:778F`. |
+
+`ABICALL.8xp` broadens that scalar-only case:
+
+```ti-basic
+{2,4,6}->L1
+7
+prgmABISUB
+Disp A
+Disp L1
+Disp Ans
+```
+
+with callee:
+
+```ti-basic
+Ans+L1(2)->A
+9->L1(3)
+A
+Return
+```
+
+Observed run: `ABICALL.8xp` and `ABISUB.8xp` display `11`, `{2 4 9}`, `11`,
+then `Done`. The callee reads the caller's `Ans=7` and `L1(2)=4`, stores `11`
+in shared scalar `A`, mutates shared `L1(3)` to `9`, evaluates `A` as the final
+callee expression so `Ans` is also `11`, and returns. The smoke runner checks
+the rendered scalar, list, `Ans`, and `Done` regions, and the trace hits
+`stmt_eval_body_entry`, `call_eval_eqn_recursive`, `eval_eqn_recursive`,
+`_AnsName`, and `store_list_elem`. **[confirmed]**
 
 ### Arbitrary-precision decimal addition
 
@@ -462,11 +491,36 @@ This is a callback convention, not a direct jump from ASM into a BASIC body.
 The ASM side communicates a return code through `Ans`; BASIC owns the parser
 state, performs the `prgm` call, and resumes after the target returns.
 
+For a numeric return value without a BASIC callback, `ASMVAL.8xp` stores `2` in
+`Ans`:
+
+```asm
+rst 28h
+.dw 41A7h         ; _OP1Set2
+rst 28h
+.dw 4ABFh         ; _StoAns
+ret
+```
+
+The wrapper consumes it as an ordinary BASIC value:
+
+```ti-basic
+Asm(prgmASMVAL)
+Ans+3->A
+Disp A
+```
+
+Observed run: `ASMRTN.8xp` and `ASMVAL.8xp` display `5`, then `Done`. The trace
+hits `ram:9D95`, `_OP1Set2` (`00:1B50`), `_StoAns` (`38:6251`), `_AnsName`,
+`_FPAdd`, and `_Disp`; the smoke runner also checks the final-frame result and
+`Done` regions. **[confirmed]**
+
 | Direction | Confirmed mechanism | Caveat |
 |-----------|---------------------|--------|
 | BASIC -> ASM | `Asm(prgmNAME)` parses `prgmNAME`, bcalls `_ExecutePrgm`, copies the `AsmPrgm` payload, then jumps through `ram:9D95`. | The payload runs in the calculator OS process; a bad payload can corrupt interpreter state. |
-| BASIC -> BASIC | `prgmNAME` enters the page-38 parser/VAT/body evaluator path and `Return` resumes the caller. | There is no local frame; variables are shared. |
+| BASIC -> BASIC | `prgmNAME` enters the page-38 parser/VAT/body evaluator path and `Return` resumes the caller. | There is no local frame; variables, lists, and `Ans` are shared. |
 | ASM -> BASIC callback | ASM stores a signal/result such as `Ans=1`, returns, and the BASIC wrapper conditionally runs `prgmNAME`. | BASIC must own the actual `prgm` call; this is cooperative, not an arbitrary ASM bcall into BASIC. |
+| ASM -> BASIC value return | ASM stores a numeric result in `Ans` with `_StoAns`; BASIC resumes and evaluates `Ans`. | This returns data to BASIC, not control into a BASIC program body. |
 | ASM -> VAT lookup | An `AsmPrgm` can build `OP1={ProgObj,"NAME"}` and bcall `_ChkFindSym`. | Lookup is not execution. |
 | Direct ASM -> BASIC | No working public bcall sequence is proven in this repo. | `_Find_Parse_Formula` reached `ERR:UNDEFINED`; `_ParseInpLastEnt` reached `ERR:INVALID`; forced-command/edit-buffer probes did not call the target BASIC program. |
 

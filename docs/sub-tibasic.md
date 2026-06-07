@@ -524,6 +524,28 @@ hits the `AsmPrgm` payload at `ram:9D95`, `_OP1Set1` (`00:1B38`), `_StoAns`
 This is the practical callback convention: ASM returns a value through a BASIC
 variable, and BASIC performs the actual program call.
 
+`ASMRTN.8xp` demonstrates the same `Ans` convention as a numeric return value:
+
+```ti-basic
+Asm(prgmASMVAL)
+Ans+3->A
+Disp A
+```
+
+with `ASMVAL.8xp`:
+
+```ti-basic
+AsmPrgm
+EFA741EFBF4AC9
+```
+
+The payload bytes are `rst 28h; .dw 41A7` (`_OP1Set2`), `rst 28h; .dw 4ABF`
+(`_StoAns`), `ret`. Observed run: loading `ASMRTN.8xp` and `ASMVAL.8xp`
+displays `5`, then `Done`. The trace hits `ram:9D95`, `_OP1Set2` (`00:1B50`),
+`_StoAns` (`38:6251`), `_AnsName` while evaluating `Ans+3`, `_FPAdd`, and
+`_Disp`. This confirms that `Ans` is a practical scalar return channel from an
+`AsmPrgm` back into BASIC.
+
 ### Animation, graphing, and BASIC subprogram calls
 
 Additional generated fixtures extend coverage beyond arithmetic/list samples:
@@ -603,6 +625,32 @@ then `Done`. This confirms the practical BASIC calling convention: caller and
 callee share variables, and `Return` resumes the caller. The trace hits VAT/name
 lookup, parser entry/refill paths, the program-body evaluator call at `38:6914`
 into `eval_eqn_recursive` (`38:778F`), shared `A` store/recall, and `_Disp`.
+
+`ABICALL.8xp` and `ABISUB.8xp` exercise more of that convention:
+
+```ti-basic
+{2,4,6}->L1
+7
+prgmABISUB
+Disp A
+Disp L1
+Disp Ans
+```
+
+with callee:
+
+```ti-basic
+Ans+L1(2)->A
+9->L1(3)
+A
+Return
+```
+
+Observed run: the caller displays `11`, `{2 4 9}`, `11`, then `Done`. The callee
+reads the caller's `Ans` and `L1`, writes shared scalar `A`, mutates shared
+`L1`, leaves `Ans` as `11` by evaluating `A`, and returns. The trace hits the
+BASIC subprogram body path plus `_AnsName` and list store paths, so this is a
+confirmed scalar/list/`Ans` ABI fixture.
 
 The ordinary BASIC subprogram path is separate from `Asm(`. In the validated
 trace it does not hit `_ParsePrgmName`, `_ExecutePrgm`, `_Find_Parse_Formula`,

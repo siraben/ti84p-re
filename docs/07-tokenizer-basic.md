@@ -88,10 +88,12 @@ for observed outputs and trace anchors.
 | Data | `{3,1,4,1,5}->L1` / `SortA(L1)` / `cumSum(L1)->L2` / `sum(L1)->S` / display results | `08 33 2B 31 2B 34 2B 31 2B 35 09 04 5D 00 3F E3 5D 00 11 3F BB 29 5D 00 11 04 5D 01 3F B6 5D 00 11 04 53 3F DE 5D 00 3F DE 5D 01 3F DE 53 3F` |
 | `Asm(` wrapper | `Disp "BEFORE"` / `Asm(prgmASMRET)` / `Disp "AFTER"` | `DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41 46 54 45 52 2A 3F` |
 | ASM callback bridge | `Asm(prgmASMSIG)` / `If Ans` / `prgmZZBASIC` | `DE 2A 42 45 ... 72 3F 5F 5A 5A ...` (full body in `tools/tibasic-samples/asmbridge.tok`) |
+| ASM return value | `Asm(prgmASMVAL)` / `Ans+3->A` / `Disp A` | `BB 6A 5F 41 53 4D 56 41 4C 11 3F 72 70 33 04 41 3F DE 41 3F` |
 | Animation | `ClrHome` / `For(I,1,8)` / `Output(1,I,"X")` / `End` / `Disp "DONE"` | `E1 3F D3 49 2B 31 2B 38 11 3F E0 31 2B 49 2B 2A 58 2A 11 3F D4 3F DE 2A 44 4F 4E 45 2A 3F` |
 | Graph drawing | `ClrDraw`, window stores, visible axes/diagonal, `Circle(47,31,10)`, `Text(0,0,"DFS")`, `DispGraph` | `85 3F 30 04 63 0A ... DF 3F` (full body in `tools/tibasic-samples/graphviz.tok`) |
 | Graph visualization | `ClrDraw`, window stores, then `Line(`/`Circle(`/`Text(` drawing the DFS topology | `85 3F 30 04 63 0A ... DF 3F` (full body in `tools/tibasic-samples/graphdfs.tok`) |
 | BASIC subprogram | `0->A` / `prgmSUBRT` / `Disp A`; callee `Disp "SUB"` / `A+1->A` / `Return` | caller `30 04 41 3F 5F 53 55 42 52 54 3F DE 41 3F`; callee `DE 2A 53 55 42 2A 3F 41 70 31 04 41 3F D5 3F` |
+| BASIC ABI fixture | caller initializes `L1` and `Ans`, calls `prgmABISUB`, then displays `A`, `L1`, and `Ans` | caller `08 32 2B 34 ... DE 72 3F`; callee `72 70 5D 00 ... D5 3F` (full bodies in `tools/tibasic-samples/callabi.tok` and `abisub.tok`) |
 | Big integer add | list digits in `L1`/`L2`, carry `C`, indexed stores into `L3` | `08 35 2B 34 ... DE 5D 02 10 36 11 3F` (full body in `tools/tibasic-samples/bigadd.tok`) |
 | Big integer multiply | nested `For(` loops over digit lists, `L3(I+J-1)` accumulation, carry into `L3(I+J)` | `08 33 2B 32 ... DE 5D 02 10 34 11 3F` (full body in `tools/tibasic-samples/bigmul.tok`) |
 | DFS | edge lists `L1`/`L2`, visited `L3`, stack `L4`, `While`/`If Then`/nested `For` | `08 31 2B 31 ... D4 3F DE 5D 02 3F` (full body in `tools/tibasic-samples/dfs.tok`) |

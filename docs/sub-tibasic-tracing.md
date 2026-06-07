@@ -44,10 +44,12 @@ programs into calculator RAM first, then run the same macro and resolver steps.
 | `data` | `DATA.8xp` | list literal, `SortA(`, `cumSum(`, `sum(` | `store_list_elem`, `list_fold_dispatch` |
 | `asmcall` | `ASMCALL.8xp` + `ASMRET.8xp` | BASIC `Asm(prgmNAME)` into `AsmPrgm` payload | `_ExecutePrgm`, `ram:9D95` |
 | `asmbridge` | `ASMBRIDG.8xp` + `ASMSIG.8xp` + `ZZBASIC.8xp` | ASM return code through `Ans`, BASIC callback | `_OP1Set1`, `_StoAns`, `_AnsName`, `eval_eqn_recursive` |
+| `asmreturn` | `ASMRTN.8xp` + `ASMVAL.8xp` | ASM return value through `Ans`, then BASIC arithmetic | `_OP1Set2`, `_StoAns`, `_AnsName`, `_FPAdd` |
 | `animtext` | `ANIMTXT.8xp` | text placement animation with `Output(` | `_OutputExpr`, `_Disp` |
 | `graphviz` | `GRAPHV.8xp` | graph-buffer primitives and `DispGraph` | `_GrBufClr`, `_ILine`, `_IPoint`, `_PDspGrph` |
 | `graphdfs` | `GRAPHDFS.8xp` | graph visualization from DFS topology | `_StoSysTok`, `_ILine`, `_IPoint`, `_PDspGrph` |
 | `callsub` | `CALLSUB.8xp` + `SUBRT.8xp` | BASIC `prgmNAME`, shared globals, `Return` | `stmt_eval_body_entry`, `call_eval_eqn_recursive` |
+| `callabi` | `ABICALL.8xp` + `ABISUB.8xp` | BASIC subprogram ABI through `Ans`, scalar `A`, and list `L1` | `_AnsName`, `store_list_elem`, `eval_eqn_recursive` |
 | `bigadd` | `BIGADD.8xp` | list-digit arithmetic and carry propagation | `list_var_index`, `_GetLToOP1`, `_PutToL`, `_FPMult` |
 | `bigmul` | `BIGMUL.8xp` | list-digit multiplication, nested loops, carry normalization | `list_var_index`, `_GetLToOP1`, `_PutToL`, `_FPMult` |
 | `dfs` | `DFS.8xp` | list-backed stack, nested `While`/`If`/`For` | `blockmatch_end_else`, `parse_scan_tokens`, `eval_stmt_entry` |
@@ -60,6 +62,10 @@ The smoke runner also checks named crop regions: home-screen text for `ANIMTXT`,
 label/axes/circle arcs for `GRAPHV`, and node/edge regions for `GRAPHDFS`. The
 2026-06-07 run measured 212, 619, and 466 dark pixels, with matching
 first-to-final pixel changes.
+
+The new ABI cases use the same region-check mechanism for text results:
+`ASMRTN` checks the displayed `5` and `Done`, while `ABICALL` checks the scalar
+line, mutated list line, returned `Ans` line, and `Done`.
 
 ## Reading the evidence
 
