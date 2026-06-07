@@ -570,6 +570,14 @@ trace it does not hit `_ParsePrgmName`, `_ExecutePrgm`, `_Find_Parse_Formula`,
 or `_SetParseVarProg`; it uses the page-38 parser/VAT/body evaluator path and
 then returns to the caller through BASIC's own `Return` handling.
 
+The full `CALLSUB` smoke trace does hit `_ParseInpLastEnt`/`_ParseInp` once,
+because the macro starts the program by submitting `prgmCALLSUB` from the
+homescreen. That launch parse resolves the top-level program and seeds the
+private parser RAM. It does not make `_ParseInpLastEnt` a reusable
+ASM-to-BASIC ABI: a separate `AsmPrgm` probe that called `_ParseInpLastEnt`
+with only `OP1={ProgObj,"ZZBASIC"}` reached `ERR:INVALID` instead of the target
+program.
+
 The relevant page-38 evaluator transition is private state, not a bcall ABI:
 `stmt_eval_body_entry` (`38:6910`) calls the token scanner, then
 `call_eval_eqn_recursive` (`38:6914`) directly calls `eval_eqn_recursive`
