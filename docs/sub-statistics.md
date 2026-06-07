@@ -58,7 +58,7 @@ system variables a student recalls by name (`[2nd][STAT] ▸ VARS`):
 | `8B00` | `QuadC`   | `c`   | regression coeff c |
 | `8B09` | `CubeD`   | `d`   | regression coeff d |
 | `8B12` | `QuartE`  | `e`   | regression coeff e |
-| `8B1B`…`8B4E` | `MedX1/2/3`, `MedY1/2/3` | | Med‑Med (×3 partitions) |
+| `8B1B`…`8B50` | `MedX1/2/3`, `MedY1/2/3` (`8B1B/8B24/8B2D/8B36/8B3F/8B48`) | | Med‑Med (×3 partitions) |
 
 Continuing past the table (also `.inc`): `PStat`/`ZStat`/`TStat`/`ChiStat`/
 `FStat`/`DF`/`Phat…`/`MeanX1`/`StdX1`/`StatN1`/`MeanX2`/`StdX2`/`StatN2`/`StdXP2`/
@@ -67,7 +67,7 @@ menu) and are written by the test commands, not by 1/2‑Var Stats. An ANOVA blo
 `anovaf_vars` (`F_DF/F_SS/F_MS/E_DF/E_SS/E_MS`) follows.
 
 **STAT‑TESTS are separate command handlers [confirmed scope].** `Z‑Test`/`T‑Test`/`χ²‑Test`/
-`2‑SampFTest`/`ANOVA(` etc. come in as their own 2‑byte (`E1`‑prefixed) command tokens — e.g.
+`2‑SampFTest`/`ANOVA(` etc. come in as their own 2‑byte `t2ByteTok` (`0xBB`)‑prefixed command tokens — e.g.
 `LinRegTTest=34h` noted in §3 — and are **not** dispatched through `_OneVar` (whose token map is
 only `F2`–`FF`, §3). They fill the `PStat…SStat`/`anovaf_vars` block above directly. No
 `PStat`/`ZStat`‑writing routine appears among the page‑0x3A `stat_*` symbols (all of which are
@@ -156,8 +156,8 @@ as a model index. From `ti83plus.inc`:
 | `tLR1`    | `FF` | `LinReg(ax+b)` | degree‑1 (ax+b form) |
 
 `CubicReg`/`QuartReg` come in as the regression tokens `tCubicR=2Eh`/`tQuartR=2Fh`;
-`SinReg=32h`, `Logistic=33h`, `LinRegTTest=34h` are the extended (`E1`‑prefixed)
-tokens. Degree for the polynomial solver = the model index; the coefficient
+`SinReg=32h`, `Logistic=33h`, `LinRegTTest=34h` are 2‑byte `t2ByteTok` (`0xBB`)‑prefixed
+tokens (their `2Eh`/`2Fh`/`32h`/`33h`/`34h` values are the *second* byte after `0xBB`). Degree for the polynomial solver = the model index; the coefficient
 fan‑out into `QuadA..QuartE` is naturally sized by degree. [confirmed/standard]
 
 `SortA(`/`SortD(` are **separate** tokens (`tSortA=E3h`, `tSortD=E4h`) with their
@@ -212,9 +212,10 @@ power‑sums `Σxⁱ` (i = 0 … 2d) and the right‑hand side `Σxⁱy`, stored
 **Non‑polynomial regressions transform first** [confirmed]: the front‑end at
 `658a`+ checks the command code and, for `ExpReg`/`PwrReg` (`ln y`),
 `LnReg`/`PwrReg` (`ln x`), pre‑applies the logarithm to each element before
-accumulating, then exponentiates the resulting linear coefficients (the
-`760f/75e4/79b9` and `7002/7013` branches call into the page‑02 `_LnX`/`_EToX`
-transcendentals — see `sub-calculation.md §5`). This is the standard
+accumulating, then exponentiates the resulting linear coefficients off page 0x3A. The
+per‑element `ln` is in the element fetch `stat_next_elem` (`3A:6F6A`): `LD A,(8A36); CP 4;
+RET NC` then `bcall _LnX` at `3A:6F72` for model codes `< 4` (`ExpReg`/`LnReg`/`PwrReg`); the
+back‑transform `_EToX`/`_TenX` lives on page 0x02 (see `sub-calculation.md §5`). This is the standard
 "linearize, fit a line, transform back" method; `r` is the correlation of the
 **transformed** data.
 
@@ -257,7 +258,9 @@ matrix `[ M | Σxⁱy ]`. `_OneVar` solves it **in place by Gauss‑Jordan elimi
 6845: CALL 3939 (_SqRoot) ; 6849 ; CALL 2541 (_FPDiv)  ; (forms r²/r from the fit)
 684f: LD A,12 ; CALL 213d           ; r-related store/guard
 6859..6876: row-reduce all other rows (3aa7 get, 238b _FPMult, RST 30 _FPAdd)
-6880: CALL 2541 ; on a zero pivot → LD A,35/36 ; CALL 213d  (SINGULAR MAT)
+6880: CALL 2541 (_FPDiv) ; CP 2 ; LD A,0x35/0x36 ; CALL 213d  ; *** _Sto_StatVar stores into the
+                                                              ; statVar slots id 0x35/0x36 — NOT a SingularMat raise.
+                                                              ; the zero-pivot guard is the 67F7→212D path → 0x83.
 68d6..6953: back-substitution — each coeff = (rhs − Σ known·M) / pivot
    (3aa7/3aa1 matrix access, 238b _FPMult, RST 30/RST 8 accumulate,
     24bd _InvOP1S to subtract, 2541 _FPDiv)
@@ -348,7 +351,7 @@ list data (sets `Xmin/Xmax/Ymin/Ymax` from `minX/maxX/minY/maxY`). See
 ## 9. Distributions (DISTR menu) — *not* part of STAT‑CALC [confirmed scope]
 
 `normalpdf(`, `normalcdf(`, `invNorm(`, `binompdf(`, `tcdf(`, `χ²cdf(`, `Fcdf(`,
-etc. are **parser functions** (DISTR‑menu tokens, the `E1`/`E2`‑prefixed
+etc. are **parser functions** (DISTR‑menu tokens, the `t2ByteTok` (`0xBB`)‑prefixed
 two‑byte tokens like `tShadeNorm=35h`), evaluated through the normal function
 dispatch of the TI‑BASIC parser, **not** through `_OneVar`. They are not
 exposed as named bcalls in this OS image (a search of `bcall_targets.txt` finds
@@ -368,7 +371,7 @@ cores returns **no** `normalcdf`/`erf`/incomplete‑gamma/incomplete‑beta entr
 symbol on page 0x3A is part of the `_OneVar` STAT‑CALC engine (accumulate / variance / median /
 sort / regression), not a DISTR core. So the erf / incomplete‑gamma / incomplete‑beta continued
 fractions are **[I] — outside the STAT‑CALC engine**, sitting behind the parser's 2‑byte
-(`E1`/`E2`‑prefixed) DISTR‑token function table; their exact page/address is not exposed as a
+(`0xBB`‑prefixed) DISTR‑token function table; their exact page/address is not exposed as a
 named routine in this DB. [confirmed scope; address [I]]
 
 ---
