@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-af8f4538.js";
+            window.path_to_searchindex_js = "searchindex-bba023a5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -233,7 +233,7 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
 <ul>
 <li>Live MCP-confirmed page-3D anchors include <code>_FlashToRam</code> (<code>3D:6745</code>), <code>flash_program_buf</code> (<code>3D:678C</code>), <code>flash_erase_wait</code> (<code>3D:5ED3</code>), <code>flash_cmd_base</code> (<code>3D:738B</code>), and the status-bit helpers <code>flash_op_fd</code> (<code>3D:7C8F</code>), <code>flash_op_fb</code> (<code>3D:7C93</code>), <code>flash_op_fe</code> (<code>3D:7C97</code>).</li>
 <li>Further page-3D flash routines at <code>3D:61AF</code>, <code>3D:6B9B</code>, <code>3D:64AA</code>, <code>3D:62C2</code>, and <code>3D:6413</code> are not yet named in the current DB and await a symbol pass.</li>
-<li>Archive workers: <code>_Arc_Unarc</code> (<code>07:6248</code>) → <code>arc_ram_to_flash</code> (<code>07:61F4</code>) / <code>arc_flash_to_ram</code> (<code>07:6107</code>).</li>
+<li>Archive workers: <code>_Arc_Unarc</code> (<code>07:6248</code>) → <code>arc_ram_to_flash</code> (<code>07:6107</code>, RAM→Flash) / <code>arc_flash_to_ram</code> (<code>07:61F4</code>, Flash→RAM). (<code>_Arc_Unarc</code> dispatches on the FindSym page byte <code>B</code>: <code>B==0</code>/in-RAM → <code>6107</code> archive, <code>B≠0</code>/in-Flash → <code>61F4</code> unarchive.)</li>
 </ul>
 <h2 id="resolved"><a class="header" href="#resolved">Resolved</a></h2>
 <p>The <code>_FindSym</code> VAT walk is byte-verified in <a href="sub-vat-archive.html">Variables, Archive &amp; Unarchive</a>. Flash write/erase and GC still need a current MCP-backed symbol pass to replace the older address/name map.</p>

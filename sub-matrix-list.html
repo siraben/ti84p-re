@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-af8f4538.js";
+            window.path_to_searchindex_js = "searchindex-bba023a5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -312,7 +312,7 @@ the matrix name (<code>5F45</code>), bounds-checks indices against the dims (<co
 <ul>
 <li><strong><code>mele_adr_af_jp</code> (<code>02:403C</code>)</strong> = <code>_AdrMEle(currentIJ) ; RST4</code> — “load <code>[M](i,j)</code> to OP1” (the elimination
 inner-loop read). Indices come from the loop state at <code>84AF/84B3/84B4</code>.</li>
-<li><strong><code>mele_adr_to8483</code> (<code>02:4051</code>)</strong> = <code>_AdrMEle ; _Mov9B(→OP3@8483)</code> — load element to OP3.</li>
+<li><strong><code>mele_adr_to8483</code> (<code>02:4051</code>)</strong> = <code>_AdrMEle ; _Mov9B(→OP2@8483)</code> — load element to OP2.</li>
 <li><strong><code>mele_put_af</code> (<code>02:405A</code>) / <code>mele_put_d3</code> (<code>02:405E</code>)</strong> = <code>_AdrMEle ; _CkValidNum ; _MovFrOP1</code> — store OP1 back to <code>[M](i,j)</code>.</li>
 <li><strong><code>_ListIdxTimes9</code> (<code>35:79E9</code>)</strong> = <code>_HLTimes9(idx)</code> then a small dispatch (<code>RST4</code>) — the list
 analogue used in a few list-builder paths.</li>
@@ -328,7 +328,7 @@ analogue used in a few list-builder paths.</li>
 <tbody>
 <tr><td><code>_CreateRList</code></td><td><code>00:10C4</code></td><td>new real list: <code>count*9+2</code> bytes (§1) [C]</td></tr>
 <tr><td><code>_CreateCList</code></td><td><code>00:1109</code></td><td>new complex list: <code>count*18+2</code> [C]</td></tr>
-<tr><td><code>_InsertList</code> / <code>_IncLstSize</code></td><td><code>07:4F07</code> (body <code>07:4EF4</code>)</td><td>grow a list in place via <code>_InsertMem</code>; caps length at 999 (<code>0x3E7</code>), else <code>E_Dimension 0x8C</code> (<code>07:4F00 JP Z,0x2719 → LD A,0x8C</code>) [C]</td></tr>
+<tr><td><code>_IncLstSize</code></td><td><code>07:4EF4</code></td><td>grow a list in place via <code>_InsertMem</code>; caps length at 999 (<code>0x3E7</code>), else <code>E_Dimension 0x8C</code> (<code>07:4F00 JP Z,0x2719 → LD A,0x8C</code>). <code>_InsertList</code> is the distinct sibling at <code>07:4F07</code>. [C]</td></tr>
 <tr><td><code>_DelListEl</code></td><td><code>07:4F43</code></td><td>delete element(s): <code>_HLTimes9(index)</code> to size the gap (×2 if complex, <code>&amp; 0x1F == 0x0D</code>), then <code>_DelMem</code> via a cross-page jump [C]</td></tr>
 <tr><td><code>_RedimMat</code>/<code>_ConvDim</code></td><td><code>07:4D3B</code> / <code>38:741F</code></td><td>re-dimension (shared with matrices); <code>_ConvDim</code>/<code>_ConvDim00</code> (<code>38:741F/7422</code>) coerce OP1 to a real index first [C]</td></tr>
 </tbody>
@@ -617,8 +617,8 @@ math. A store into an <strong>archived</strong> matrix/list unarchives to RAM fi
 Flash cannot be written in place).</li>
 <li><strong>Scratch RAM used by the algorithms</strong> (verified operands): <code>84AF</code> (current dims / i,j loop
 state), <code>84B0/84B3/84B4</code> (pivot, k, row counters), <code>84B7</code> (dims copy), <code>84D3/84D5/84D7</code>
-(data pointers + the permutation vector base), <code>8478</code>=OP1, <code>8483</code>=OP3, <code>8499</code>=OP6/type,
-<code>84AF</code>-region = the matrix-op loop frame.</li>
+(data pointers + the permutation vector base), <code>8478</code>=OP1, <code>8483</code>=OP2, <code>8499</code>=OP4,
+<code>84AF</code>=OP6 region = the matrix-op loop frame.</li>
 </ul>
 <hr>
 <h2 id="7-errors-raised-on-these-paths-c"><a class="header" href="#7-errors-raised-on-these-paths-c">7. Errors raised on these paths [C]</a></h2>

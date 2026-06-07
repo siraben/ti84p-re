@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-af8f4538.js";
+            window.path_to_searchindex_js = "searchindex-bba023a5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -721,7 +721,7 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
 <ul>
 <li>Live MCP-confirmed page-3D anchors include <code>_FlashToRam</code> (<code>3D:6745</code>), <code>flash_program_buf</code> (<code>3D:678C</code>), <code>flash_erase_wait</code> (<code>3D:5ED3</code>), <code>flash_cmd_base</code> (<code>3D:738B</code>), and the status-bit helpers <code>flash_op_fd</code> (<code>3D:7C8F</code>), <code>flash_op_fb</code> (<code>3D:7C93</code>), <code>flash_op_fe</code> (<code>3D:7C97</code>).</li>
 <li>Further page-3D flash routines at <code>3D:61AF</code>, <code>3D:6B9B</code>, <code>3D:64AA</code>, <code>3D:62C2</code>, and <code>3D:6413</code> are not yet named in the current DB and await a symbol pass.</li>
-<li>Archive workers: <code>_Arc_Unarc</code> (<code>07:6248</code>) → <code>arc_ram_to_flash</code> (<code>07:61F4</code>) / <code>arc_flash_to_ram</code> (<code>07:6107</code>).</li>
+<li>Archive workers: <code>_Arc_Unarc</code> (<code>07:6248</code>) → <code>arc_ram_to_flash</code> (<code>07:6107</code>, RAM→Flash) / <code>arc_flash_to_ram</code> (<code>07:61F4</code>, Flash→RAM). (<code>_Arc_Unarc</code> dispatches on the FindSym page byte <code>B</code>: <code>B==0</code>/in-RAM → <code>6107</code> archive, <code>B≠0</code>/in-Flash → <code>61F4</code> unarchive.)</li>
 </ul>
 <h2 id="resolved"><a class="header" href="#resolved">Resolved</a></h2>
 <p>The <code>_FindSym</code> VAT walk is byte-verified in <a href="#variables-archive--unarchive">Variables, Archive &amp; Unarchive</a>. Flash write/erase and GC still need a current MCP-backed symbol pass to replace the older address/name map.</p>
@@ -1746,13 +1746,16 @@ equality (<code>6A</code>). [confirmed token bytes from <code>ti83plus.inc</code
 <p>The keypad is a matrix read through <strong>port 1</strong> (<code>port_keypad</code>): write a group-select mask, read back the active columns. The <strong>interrupt</strong> triggers periodic scans; the result is debounced into <code>kbdScanCode</code> (<code>0x843F</code>).</p>
 <ul>
 <li><code>_GetCSC</code> (<code>00:04B2</code>) — “Get Cursor/Scan Code”: with interrupts masked, returns <code>kbdScanCode</code> and clears it (one key per call, no repeat). Raw scan codes (<code>skXxx</code>). <strong>[confirmed]</strong></li>
-<li><code>_GetKey</code> (<code>06:491E</code>) — the cooked key API: blocks, handles <strong>2nd/ALPHA</strong> modifier state, key repeat, and APD; returns a <code>TIKeyCode</code> (<code>kXxx</code>, 642 values). Also runs the cursor blink. Drives menus/homescreen. <strong>[confirmed entry; body large]</strong></li>
+<li><code>_GetKey</code> (<code>06:491E</code>) — the cooked key API: blocks, handles <strong>2nd/ALPHA</strong> modifier state, key repeat, and APD; returns a <code>TIKeyCode</code> (<code>kXxx</code>; a single byte, ~255 distinct values exposed under many named aliases). Also runs the cursor blink. Drives menus/homescreen. <strong>[confirmed entry; body large]</strong></li>
 <li><code>_KeyToString</code> (<code>01:6D10</code>) — map a key code to its display token/string (for text entry).</li>
 </ul>
 <p>Scan codes (<code>skEnter</code>, hardware matrix position) differ from key codes (<code>kEnter</code>=5, post-modifier). <code>_GetCSC</code> returns the former; <code>_GetKey</code> the latter.</p>
 <h3 id="matrix-scan--port-1-group-masks-confirmed-from-disassembly"><a class="header" href="#matrix-scan--port-1-group-masks-confirmed-from-disassembly">Matrix scan — port 1 group masks [confirmed from disassembly]</a></h3>
 <p>The low-level read primitive is <code>kbd_reset_port</code> (<code>ram:0480</code>): it writes a <strong>group-select mask</strong> to <strong>port 1</strong> (active-low — <code>0</code> bits select rows to drive), waits 4 <code>NOP</code>s for the lines to settle, reads the column bits back, then writes <code>0xFF</code> to release. (On 84+ hardware, <code>IN A,(0x02) bit7</code> + <code>IN A,(0x20)</code> gate the read against link/clock activity first.)</p>
-<pre><code class="language-z80">0480: IN A,(0x2) ; AND 0x80          ; 84+ present? (else fall straight through)
+<pre><code class="language-z80">0480: PUSH AF                         ; save the group-select mask
+0481: IN A,(0x2) ; AND 0x80           ; 84+ present?
+0485: JR NZ,0x0497                    ; 84+: gate the read on link/clock first (IN A,(0x20))
+0487: POP AF                          ; restore the group-select mask
 0488: OUT (0x1),A                     ; A = group-select mask (active-low)
 048a: NOP×4                           ; let the matrix settle
 048e: IN A,(0x1) ; LD B,A             ; read columns (active-low: 0 = key down)
@@ -1766,7 +1769,7 @@ equality (<code>6A</code>). [confirmed token bytes from <code>ti83plus.inc</code
 <tr><th>port-1 mask (<code>C</code>)</th><th>group / key row driven</th></tr>
 </thead>
 <tbody>
-<tr><td><code>0xFE</code> (bit0 low)</td><td>group 0 — <strong>GRAPH / arrow keys</strong> (and the special <code>0xF5/0xF3/0xFA/0xFC</code> direction codes)</td></tr>
+<tr><td><code>0xFE</code> (bit0 low)</td><td>group 0 — <strong>arrow keys</strong> (<code>skDown</code>/<code>skLeft</code>/<code>skRight</code>/<code>skUp</code> = <code>0x01</code>–<code>0x04</code>; the special <code>0xF5/0xF3/0xFA/0xFC</code> direction codes). GRAPH is in group 6 (<code>skGraph</code>=<code>0x31</code>), not here.</td></tr>
 <tr><td><code>0xFD</code> (bit1 low)</td><td>group 1</td></tr>
 <tr><td><code>0xFB</code> (bit2 low)</td><td>group 2</td></tr>
 <tr><td><code>0xF7</code> (bit3 low)</td><td>group 3</td></tr>
@@ -1779,7 +1782,7 @@ equality (<code>6A</code>). [confirmed token bytes from <code>ti83plus.inc</code
 </tbody>
 </table>
 </div>
-<p><strong>Forming a raw scan code.</strong> For each driven group the routine reads the column byte, then finds the single low (pressed) column bit by an 8-iteration <code>RLA</code>/<code>DJNZ</code> loop (<code>0435</code>–<code>043C</code>) that counts the <strong>cleared</strong> (pressed, active-low) column bits into <code>E</code> (<code>RLA</code> → <code>JR C</code> skips <code>INC E</code> on a <code>1</code> bit, so only <code>0</code> bits are counted) and records the bit index in <code>L</code>. If exactly one key is down it builds the scan code as <strong><code>group × 8 + column_index</code></strong>, where <code>group</code> is the 0-based group from the table above. The code forms it at <code>0453: DEC A; RLA;RLA;RLA; ADD A,L</code>: the iteration counter in <code>A</code> is 1-based, so <code>DEC A</code> converts it to the 0-based <code>group</code>, the three <code>RLA</code>s multiply by 8, and <code>ADD A,L</code> adds the column index in <code>L</code>; it then returns the byte. multiple simultaneous keys set carry (<code>SCF</code> @ <code>0459</code>) so the press is rejected (debounce / ghost-key reject). The single resulting byte is the raw scan code that lands in <code>kbdScanCode</code> (<code>0x843F</code>), which <code>_GetCSC</code> (<code>00:04B2</code>) then reads-and-clears under <code>DI</code>. The scan-enable gate <code>BIT 0,(IY+0x2C)</code> @ <code>0415</code> lets the ISR/<code>_GetKey</code> path special-case the arrow group.</p>
+<p><strong>Forming a raw scan code.</strong> For each driven group the routine reads the column byte, then finds the single low (pressed) column bit by an 8-iteration <code>RLA</code>/<code>DJNZ</code> loop (<code>0435</code>–<code>043C</code>) that counts the <strong>cleared</strong> (pressed, active-low) column bits into <code>E</code> (<code>RLA</code> → <code>JR C</code> skips <code>INC E</code> on a <code>1</code> bit, so only <code>0</code> bits are counted) and records the <strong>1-based column position</strong> (the loop counter <code>B</code>, which runs <code>8→1</code>) in <code>L</code>. If exactly one key is down it builds the scan code as <strong><code>group × 8 + L</code></strong> (<code>L</code> = <code>1…8</code>, the pressed column’s bit index plus one), where <code>group</code> is the 0-based group from the table above. The code forms it at <code>0453: DEC A; RLA;RLA;RLA; ADD A,L</code>: the iteration counter in <code>A</code> is 1-based, so <code>DEC A</code> converts it to the 0-based <code>group</code>, the three <code>RLA</code>s multiply by 8, and <code>ADD A,L</code> adds the 1-based column position in <code>L</code>; it then returns the byte. multiple simultaneous keys set carry (<code>SCF</code> @ <code>0459</code>) so the press is rejected (debounce / ghost-key reject). The single resulting byte is the raw scan code that lands in <code>kbdScanCode</code> (<code>0x843F</code>), which <code>_GetCSC</code> (<code>00:04B2</code>) then reads-and-clears under <code>DI</code>. The scan-enable gate <code>BIT 0,(IY+0x2C)</code> @ <code>0415</code> lets the ISR/<code>_GetKey</code> path special-case the arrow group.</p>
 <h3 id="2nd--alpha-modifier-state-machine-confirmed"><a class="header" href="#2nd--alpha-modifier-state-machine-confirmed">2nd / ALPHA modifier state machine [confirmed]</a></h3>
 <p>While cooking raw scan codes into the <code>kXxx</code> key constants, <code>_GetKey</code> (<code>06:491E</code>) runs a small modifier state machine in <strong><code>shiftFlags</code></strong> (<code>IY+0x12</code> = <code>0x8A02</code>, the <code>[2nd]</code>/<code>[ALPHA]</code> flag byte):</p>
 <div class="table-wrapper">
@@ -1807,7 +1810,7 @@ equality (<code>6A</code>). [confirmed token bytes from <code>ti83plus.inc</code
 <li><strong><code>[ALPHA]</code> while already in alpha</strong> (<code>06:4BFD</code>) → in a lowercase-capable context (<code>IY+0x24</code> bit 3) and still uppercase, <code>SET shiftLwrAlph</code> (<code>06:4C0D</code>) cycles <strong>upper → lower</strong>; otherwise it cancels alpha. Repeated <code>[ALPHA]</code> walks uppercase → lowercase → off.</li>
 <li><strong><code>[2nd]</code> while in alpha</strong> (<code>06:4C1D</code>) → <code>SET shift2nd</code> (<code>06:4C25</code>): a 2nd press stacks on top of alpha (alpha is retained).</li>
 </ul>
-<p><code>shift2nd</code> clears the moment a 2nd-combo key is consumed (<code>06:4B87</code>), and the IM1 timer ISR also clears it at <code>ram:01E0</code> (<code>RES 3,(IY+0x12)</code>), so a pending <code>[2nd]</code> does not linger. <code>_GetKey</code> sets <code>shiftAlpha</code> and (on 2nd+ALPHA) <code>shiftALock</code> but reads neither to clear alpha — within <code>_GetKey</code>, alpha stays set until a later <code>[ALPHA]</code> press cancels it. The one-shot-versus-lock choice is left to the consuming editor, which reads <code>shiftALock</code> (bit 6) to decide whether to drop <code>shiftAlpha</code> after a single character.</p>
+<p><code>shift2nd</code> clears the moment a 2nd-combo key is consumed (<code>06:4B87</code>), and the IM1 timer ISR also clears it at <code>ram:01E0</code> (<code>RES 3,(IY+0x12)</code>), so a pending <code>[2nd]</code> does not linger. <code>_GetKey</code> makes alpha <strong>one-shot</strong> itself: after an alpha-mode key is consumed it calls the page-0 helper <code>ram:04BF</code>, which clears <code>shiftAlpha</code> (<code>RES 4,(IY+0x12)</code>) <strong>unless</strong> <code>shiftALock</code> (bit 6) or <code>shiftKeepAlph</code> (bit 7) is set (<code>BIT 6 → RET NZ; BIT 7 → RET NZ; RES 4</code>). So a plain <code>[ALPHA]</code> shifts only the next key, while <code>[2nd]</code>+<code>[ALPHA]</code> — which sets <code>shiftALock</code> — keeps alpha across keys until a later <code>[ALPHA]</code> cancels it.</p>
 <pre class="mermaid">stateDiagram-v2
     [*] --&gt; Idle
     Idle --&gt; Second: 2nd, SET b3 @4AD5
@@ -1815,14 +1818,14 @@ equality (<code>6A</code>). [confirmed token bytes from <code>ti83plus.inc</code
     Second --&gt; Idle: any key, 2nd-shifted then RES b3 @4B87
     Second --&gt; AlphaLock: ALPHA, SET b6 @4B96 + b4 @4B9A
     Idle --&gt; Alpha: ALPHA, SET b4 + RES b5 @4AE8
-    Alpha --&gt; Alpha: letter, alpha code, b4 stays
+    Alpha --&gt; Idle: letter, alpha code, then RES b4 @04BF (one-shot)
     Alpha --&gt; AlphaLower: ALPHA, SET b5 @4C0D
     AlphaLower --&gt; Idle: ALPHA, cancel @4C13
     AlphaLock --&gt; AlphaLock: letter, alpha code, locked
     AlphaLock --&gt; Idle: ALPHA, cancel
     Alpha --&gt; AlphaSecond: 2nd, SET b3 @4C25
     AlphaLock --&gt; AlphaSecond: 2nd, SET b3 @4C25
-    AlphaSecond --&gt; Alpha: key, 2nd-shifted, RES b3 (b6 clear)
+    AlphaSecond --&gt; Idle: key, 2nd-shifted, RES b3, RES b4 @04BF (b6 clear)
     AlphaSecond --&gt; AlphaLock: key, 2nd-shifted, RES b3 (b6 set)
 </pre>
 
@@ -1839,9 +1842,9 @@ equality (<code>6A</code>). [confirmed token bytes from <code>ti83plus.inc</code
 <p><code>_SendAByte</code> (<code>3C:420D</code>) shows both paths <strong>[confirmed]</strong>:</p>
 <ul>
 <li><strong>Hardware-assisted</strong> (when enabled): poll status <code>port 0x09</code> bit 5 (ready), then write the byte to <code>port 0x0D</code>; helper routines on page 3C manage the assist FIFO/timing.</li>
-<li><strong>Legacy bit-bang</strong>: to send a bit, pull one line low (<code>port_link = 1</code> for a 0-bit, <code>2</code> for a 1-bit), wait for the receiver to mirror it, release, wait for idle — with a timeout that raises <code>E_LnkErr</code> (<code>0x9F</code>, “ERR:LINK”) via <code>_JErrorNo</code> on failure (matching <a href="#link--data-transfer">sub-link-transfer.md</a>). Repeats per bit of the byte.</li>
+<li><strong>Legacy bit-bang</strong>: to send a bit, pull one line low (write <code>1</code> to <code>port_link</code> for a 0-bit, <code>2</code> for a 1-bit), wait for the receiver to mirror it, release, wait for idle — with a timeout that raises <code>E_LnkErr</code> (<code>0x9F</code>, “ERR:LINK”) via <code>_JErrorNo</code> on failure (matching <a href="#link--data-transfer">sub-link-transfer.md</a>). Repeats per bit of the byte.</li>
 </ul>
-<p><code>_RecAByteIO</code> (<code>3C:443F</code>) is the matching receive. Higher-level link commands (<code>_CmdLoad</code>, variable transfer, plus screen-shot / remote-control commands) sit on top. (Note: the names <code>_CircCmd</code>/<code>_VertCmd</code> are documented in <a href="#graphing">sub-graphing.md</a> as the graphing draw commands <code>Circle(</code> (<code>33:74CE</code>) and <code>Vertical</code> (<code>04:7955</code>); the link-layer command routines referenced here are distinct and were not separately traced — treat this as a [hypothesis].)</p>
+<p><code>_RecAByteIO</code> (<code>3C:443F</code>) is the matching receive. Higher-level link commands (<code>_SendCmd</code> (bcall <code>4F3F</code>), variable transfer, plus screen-shot / remote-control commands) sit on top. (Note: the names <code>_CircCmd</code>/<code>_VertCmd</code> are documented in <a href="#graphing">sub-graphing.md</a> as the graphing draw commands <code>Circle(</code> (<code>33:74CE</code>) and <code>Vertical</code> (<code>04:7955</code>); the link-layer command routines referenced here are distinct and were not separately traced — treat this as a [hypothesis].)</p>
 <h3 id="variable-transfer-commandpacket-framing"><a class="header" href="#variable-transfer-commandpacket-framing">Variable-transfer command/packet framing</a></h3>
 <p>A TI link packet is a <strong>4-byte header</strong> (<code>machine-ID, command-ID, length-lo, length-hi</code>) optionally followed by <code>data[len]</code> and a <strong>16-bit LE checksum</strong>; commands include <code>0x06</code> VAR, <code>0x09</code> CTS, <code>0x15</code> DATA, <code>0x56</code> ACK, <code>0x5A</code> NAK, <code>0x92</code> EOT. The full framing, the silent-link send/receive engine (<code>_LinkXferOP</code>, <code>_SendVarCmd</code>), checksum/ACK handling, and the 16-byte Flash-batched receive path are all reverse-engineered in <strong><a href="#link--data-transfer">sub-link-transfer.md</a></strong> — see §3 (framing) and §5 (variable send). <strong>[confirmed]</strong></p>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -1898,7 +1901,7 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 <tbody>
 <tr><td><code>+</code></td><td><code>_FPAdd</code></td><td><code>ram:229E</code> (= <strong>RST 30h</strong>)</td><td>sign-magnitude BCD add; see <a href="#06--floating-point-engine">06-floating-point.md</a>.</td></tr>
 <tr><td><code>−</code></td><td><code>_FPSub</code></td><td><code>ram:2297</code></td><td>flips <code>OP2.type</code> bit7 then falls into the add path.</td></tr>
-<tr><td><code>×</code></td><td><code>_FPMult</code></td><td><code>ram:238B</code></td><td><code>FUN_ram_250F</code> adds exponents (→ <code>_ErrOverflow</code> on carry past 0x7F), then digit-by-digit BCD multiply accumulating into OP3.</td></tr>
+<tr><td><code>×</code></td><td><code>_FPMult</code></td><td><code>ram:238B</code></td><td><code>ram:250F</code> adds exponents (→ <code>_ErrOverflow</code> on carry past 0x7F), then digit-by-digit BCD multiply accumulating into OP3.</td></tr>
 <tr><td><code>÷</code></td><td><code>_FPDiv</code></td><td><code>ram:2541</code></td><td><code>_CkOP2FP0</code> first → <code>_JError(0x82)</code> DIVIDE BY 0 if divisor 0; else restoring BCD long division.</td></tr>
 <tr><td><code>1/x</code></td><td><code>_FPRecip</code></td><td><code>ram:253D</code></td><td>sets <code>OP1=1</code> then enters the divide loop (same body as <code>_FPDiv</code>).</td></tr>
 </tbody>
@@ -1914,7 +1917,7 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 </ul>
 <h3 id="roots--integer-parts-confirmed"><a class="header" href="#roots--integer-parts-confirmed">Roots &amp; integer parts [confirmed]</a></h3>
 <ul>
-<li><code>_SqRoot</code> <code>page_02:6E38</code>: <code>_ErrD_OP1NotPos</code> (→ DOMAIN if negative/complex-real), <code>fp_clear_guard</code>, <code>_ZeroOP3</code>, then a <strong>digit-by-digit BCD square-root extraction</strong> loop (<code>FUN_ram_1C9C</code> trial-subtract + <code>FUN_ram_1D4A</code> compare, halving the exponent up front). Not Newton’s method — classic long-hand sqrt.</li>
+<li><code>_SqRoot</code> <code>page_02:6E38</code>: <code>_ErrD_OP1NotPos</code> (→ DOMAIN if negative/complex-real), <code>fp_clear_guard</code>, <code>_ZeroOP3</code>, then a <strong>digit-by-digit BCD square-root extraction</strong> loop (<code>ram:1C9C</code> trial-subtract + <code>ram:1D4A</code> compare, halving the exponent up front). Not Newton’s method — classic long-hand sqrt.</li>
 <li><code>_Int</code>/<code>_Intgr</code> <code>ram:2621</code>/<code>2263</code>: <strong>floor</strong>. <code>_Trunc</code> <code>ram:2279</code> drops the fractional part (toward zero); <code>_Intgr</code> truncates then subtracts 1 (<code>_Minus1</code> <code>ram:2294</code>) when the original was negative, giving true floor.</li>
 <li><code>_Frac</code> <code>ram:24E3</code>: fractional part = x − trunc(x); shifts mantissa by the exponent and keeps the low digits.</li>
 <li><code>_Round</code> / <code>_RndGuard</code> <code>ram:2623</code> / <code>page_02:6A57</code>: round to the active display-digit count; <code>_Round</code> is a thin <code>cross_page_jump</code> wrapper (body banked off page 0).</li>
@@ -1922,8 +1925,8 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 <hr>
 <h2 id="3-degreeradian--polar-conversions-confirmed"><a class="header" href="#3-degreeradian--polar-conversions-confirmed">3. Degree/radian &amp; polar conversions [confirmed]</a></h2>
 <ul>
-<li><code>_DToR</code> <code>ram:236B</code> (deg→rad): multiply OP1 by $\pi/180$ (<code>FUN_ram_235D</code> loads the constant) then normalize via <code>FUN_ram_249E</code>.</li>
-<li><code>_RToD</code> <code>ram:2374</code> (rad→deg): multiply by $180/\pi$ (<code>FUN_ram_2361</code>).</li>
+<li><code>_DToR</code> <code>ram:236B</code> (deg→rad): multiply OP1 by $\pi/180$ (<code>ram:235D</code> loads the constant) then normalize via <code>ram:249E</code>.</li>
+<li><code>_RToD</code> <code>ram:2374</code> (rad→deg): multiply by $180/\pi$ (<code>ram:2361</code>).</li>
 <li><code>_PToR</code> <code>page_02:50BD</code> polar→rectangular; pairs with the complex trig below.
 These constants are the BCD floats <code>π/180 = 1.745…e-2</code> and <code>180/π = 5.729…e1</code> noted in
 <a href="#06--floating-point-engine">06-floating-point.md</a>’s constant scan.</li>
@@ -1977,7 +1980,7 @@ decoding of <code>02:7201</code>/<code>02:7281</code> is detailed in <a href="#0
 <ul>
 <li><code>_ASinRad</code> <code>76DA</code>, <code>_ACosRad</code> <code>76C9</code>, <code>_ATanRad</code> <code>76CF</code>, <code>_ATan2Rad</code> <code>76D4</code>, plus the
 degree-mode <code>_ASin</code>/<code>_ACos</code>/<code>_ATan</code>/<code>_ATan2</code> at <code>76F1</code>/<code>76DF</code>/<code>76E9</code>/<code>7749</code>.</li>
-<li><code>_ASin</code>/<code>_ACos</code> call domain check <code>SUB_page_02:79D3</code>; <strong>|arg| &gt; 1 → <code>_ErrDomain</code></strong>.</li>
+<li><code>_ASin</code>/<code>_ACos</code> call domain check <code>page_02:79D3</code>; <strong>|arg| &gt; 1 → <code>_ErrDomain</code></strong>.</li>
 <li>All inverse trig funnel into the shared <strong>arctangent CORDIC engine</strong> at <code>page_02:774B</code>
 (<code>B=0x20</code> seeds the octant/quadrant base written to <code>0x84A4</code>; the core is a base-10
 trial-subtract digit recurrence, not a fixed 32-step loop), with asin/acos expressed
@@ -2004,7 +2007,7 @@ digit string honoring the <strong>MODE</strong> screen (Normal/Sci/Eng, Float/Fi
 <li>Reads the digit-count/mode flags from <code>(IY+0xc)</code> and the byte at <code>0x89FA</code> (active
 fixed/decimal-places setting; <code>(IX-1)</code> local holds the effective format byte).</li>
 <li>Exponent thresholds drive Normal↔Sci switchover: it compares <code>OP1.exp</code> against <code>0x7D</code>/<code>0x7F</code>
-(≈ the ±-exponent window) and renormalizes (<code>FUN_ram_1BE7</code>) to bring the value into the
+(≈ the ±-exponent window) and renormalizes (<code>ram:1BE7</code>) to bring the value into the
 displayable mantissa range, bumping a digit counter. Negative sign decrements the leading
 column count (<code>DEC (IX-3)</code>).</li>
 </ul>
@@ -2013,7 +2016,7 @@ column count (<code>DEC (IX-3)</code>).</li>
 <li><code>_FormBase</code> <code>page_06:57C0</code> — integer formatting in a base; requires <code>_CkOP1Real</code> (→ DATA TYPE / DOMAIN on non-real). [confirmed]</li>
 <li><code>_FormDCplx</code> <code>page_06:59D3</code> — complex <code>a+bi</code> / <code>r∠θ</code> formatting (calls <code>_FormReal</code> twice). [standard]</li>
 <li>Exponent ↔ ASCII helpers on page 0: <code>_ExpToHex</code> <code>ram:1E4E</code>, <code>_OP1ExpToDec</code> <code>ram:1E77</code>,
-<code>_DecO1Exp</code> <code>ram:1E6F</code> (decrement exp), <code>FUN_ram_1BCB</code> (BCD-digit → value). [confirmed]</li>
+<code>_DecO1Exp</code> <code>ram:1E6F</code> (decrement exp), <code>ram:1BCB</code> (BCD-digit → value). [confirmed]</li>
 <li>The formatted string is then drawn by <code>_DispOP1A</code> (<code>page_04:7844</code>) / homescreen put-string
 routines (see <a href="#08--display--lcd">08-display-lcd.md</a>).</li>
 </ul>
@@ -2055,7 +2058,7 @@ which unwinds to the error context and shows the named message. The raiser clust
 <p><strong>Where the calc engine raises what:</strong></p>
 <ul>
 <li><code>÷ 0</code>, <code>1/0</code>: <code>_FPDiv</code>/<code>_FPRecip</code> → <code>0x82</code> DIVIDE BY 0.</li>
-<li><code>×</code>/<code>10^x</code>/exponent overflow: <code>FUN_ram_250F</code> exponent-add → <code>0x81</code> OVERFLOW.</li>
+<li><code>×</code>/<code>10^x</code>/exponent overflow: <code>ram:250F</code> exponent-add → <code>0x81</code> OVERFLOW.</li>
 <li><code>√(neg)</code>, <code>ln/log(≤0)</code>, <code>asin/acos(|x|&gt;1)</code>, <code>tan(π/2)</code>, |trig arg| ≳ 10^12: <code>0x84</code> DOMAIN.</li>
 <li>Complex result requested in real mode: <code>0x87</code> NONREAL ANS (the <code>_CLN</code>/complex paths).</li>
 </ul>
@@ -2065,7 +2068,7 @@ which unwinds to the error context and shows the named message. The raiser clust
 <code>_FPRecip 253D</code>, <code>_FPSquare 238A</code>, <code>_Cube 237D</code>, <code>_Times2 2282</code>, <code>_TimesPt5 2382</code>,
 <code>_InvSub 227D</code>, <code>_Int 2621</code>, <code>_Intgr 2263</code>, <code>_Trunc 2279</code>, <code>_Frac 24E3</code>, <code>_Round 2623</code>,
 <code>_InvOP1S 24BD</code>, <code>_InvOP2S 24CD</code>, <code>_InvOP1SC 24BA</code>, <code>_CkOP1Pos 1E5D</code>, <code>fp_clear_guard 2627</code>,
-<code>fpmul_expadd FUN_ram_250F</code>, <code>_DToR 236B</code>, <code>_RToD 2374</code>, <code>cross_page_jump 2B09</code>.</p>
+<code>fpmul_expadd 250F</code>, <code>_DToR 236B</code>, <code>_RToD 2374</code>, <code>cross_page_jump 2B09</code>.</p>
 <p>Transcendentals (page 02): <code>_SqRoot 6E38</code>, <code>_LnX 6EFD</code>, <code>_LogX 6F16</code>, <code>_CLN 6CCA</code>,
 <code>_CLog 6CE7</code>, <code>pow_core 6D08</code>, <code>_EToX 705C</code>, <code>_TenX 7066</code>, <code>_SinCosRad 733E</code>, <code>_Sin 7342</code>,
 <code>_Cos 7346</code>, <code>_Tan 734A</code>, <code>_SinHCosH 7626</code>, <code>_TanH 762A</code>, <code>_CosH 762E</code>, <code>_SinH 7632</code>,
@@ -2111,7 +2114,7 @@ These are the values the WINDOW editor writes and the grapher reads.</p>
 <tr><td><code>0x8F74</code></td><td><code>Ymax</code></td><td>top edge real Y</td></tr>
 <tr><td><code>0x8F7D</code></td><td><code>Yscl</code></td><td>Y tick spacing</td></tr>
 <tr><td><code>0x8F86</code></td><td><code>ThetaMin</code> / <code>0x8F8F</code> <code>ThetaMax</code> / <code>0x8F98</code> <code>ThetaStep</code></td><td>polar/parametric range</td></tr>
-<tr><td><code>0x900D</code></td><td><code>XresO</code></td><td>Xres (pixel step between plotted columns), used by <code>_XftoI</code></td></tr>
+<tr><td><code>0x900D</code></td><td><code>XresO</code></td><td>Xres (pixel step between plotted columns)</td></tr>
 <tr><td><code>0x9151</code></td><td><code>Xres_int</code></td><td>integer copy of Xres</td></tr>
 <tr><td><code>0x9152</code></td><td><code>deltaX</code></td><td><strong>(Xmax−Xmin)/94</strong> — real width of one pixel column</td></tr>
 <tr><td><code>0x915B</code></td><td><code>deltaY</code></td><td><strong>(Ymax−Ymin)/62</strong> — real height of one pixel row</td></tr>
@@ -2123,7 +2126,7 @@ These are the values the WINDOW editor writes and the grapher reads.</p>
 </div>
 <p>There is a second “u” copy block at <code>0x8E7E</code> (<code>uXmin</code>…<code>uXres</code> at <code>0x8F3B</code>) — the
 <strong>uVar</strong> window set used in the alternate (split/table) graph context, and a working/temp
-float pair around <code>0x8E6A</code>/<code>0x8E73</code> used by the transform code (<code>UNK_ram_8e6a</code>). [strong]</p>
+float pair around <code>0x8E6A</code>/<code>0x8E73</code> used by the transform code. [strong]</p>
 <p><code>deltaX</code>/<code>deltaY</code> are derived from the window when the graph is set up and feed both the
 forward (real→pixel) and the circle/draw routines. The LCD is <strong>96×64</strong>, but the graph area
 is 95 columns wide (0..94) and 63 tall (0..62), hence the /94 and /62. [standard]</p>
@@ -2171,10 +2174,10 @@ a menu covers it). [confirmed]</li>
 </ul>
 <p><strong><code>_GrBufClr</code></strong> (<code>04:6071</code>): clears the whole 0x300-byte buffer to 0 (a
 <code>LD (HL),0</code> + 0x2FF-byte propagate copy). [confirmed]</p>
-<p><strong><code>_IOffset</code></strong> (<code>04:42B5</code>) computes the LCD controller address bytes for a pixel:</p>
-<pre><code>curY    = (y &gt;&gt; 3) | 0x20      ; LCD "set Z/row page" command (8-px rows)
-curXRow = (0x3F - x) | 0x80    ; LCD "set column" command, X mirrored
-returns (table_42E4)[y &amp; 7]    ; the 1-of-8 bit mask within the byte
+<p><strong><code>_IOffset</code></strong> (<code>04:42B5</code>) computes the LCD controller address bytes for a pixel (inputs <code>B</code>=x, <code>C</code>=y):</p>
+<pre><code>(0x844F) = (x &gt;&gt; 3) | 0x20     ; LCD "set row page" command — the rotated TI panel pages by X
+(0x8451) = (0x3F - y) | 0x80   ; LCD "set column" command (Y, mirrored)
+returns (table_42E4)[x &amp; 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
 </code></pre>
 <p>This is the bridge from a <code>(x,y)</code> pixel to a byte+bit in the buffer and the matching LCD
 command bytes. [confirmed]</p>
@@ -2184,9 +2187,10 @@ command bytes. [confirmed]</p>
 pixel; 1..3 select dotted/animated styles), clips against the X-offset (<code>XOffset</code>) and the
 buffer bounds (<code>_IBounds</code>), then OR/AND/XORs the mask from <code>_IOffset</code>. <strong><code>_PointOn</code></strong>
 (<code>04:4155</code>) is the plain set-pixel entry. [confirmed]</p>
-<p><strong><code>_PixelTest</code></strong> (<code>04:79E7</code>): the <code>pxl-Test(</code> command — validates row&lt;64/col&lt;96
-(<code>pixWide_m_1</code>), maps split-screen offset, and returns whether that buffer pixel is on.
-<code>_ErrDomain</code> on out-of-range. [confirmed]</p>
+<p><strong><code>_PixelTest</code></strong> (<code>04:79E7</code>): the <code>pxl-Test(</code> command — validates the row/col against the
+<strong>current graph dimensions</strong> <code>lcdTallP</code> (<code>0x8DA3</code>) and <code>pixWide_m_1</code> (<code>0x8DA5</code>) — 63 and 95 on a
+full screen, smaller when split — maps the split-screen offset, and returns whether that buffer
+pixel is on. <code>_ErrDomain</code> on out-of-range. [confirmed]</p>
 <hr>
 <h2 id="4-drawing-primitives-page-0x04--0x33"><a class="header" href="#4-drawing-primitives-page-0x04--0x33">4. Drawing primitives (page 0x04 / 0x33)</a></h2>
 <h3 id="lines"><a class="header" href="#lines">Lines</a></h3>
@@ -2199,7 +2203,8 @@ the “draw/dark” mode forced. [confirmed]</p>
 <p><strong><code>_CLine</code>/<code>_CLineS</code></strong> (<code>33:6028</code>/<code>33:6034</code>) and <strong><code>_UCLineS</code></strong> (<code>33:6010</code>) — <strong>coordinate</strong>
 line: take real-coordinate endpoints, run them through the X/Y transforms (the SetXX/ftoI
 path), then call the integer line. The <code>S</code> variants take an explicit style/mode byte; the
-mode bit comes from <code>(IY+0x35) &amp; 0x80</code> (split-screen flag). These back the <code>Line(</code>
+mode bit comes from <code>(IY+0x35) &amp; 0x80</code> (<code>hookflags3</code> bit 7, the drawing-hook-active flag —
+not a split-screen flag). These back the <code>Line(</code>
 DRAW command at the math layer. [strong]</p>
 <h3 id="circle"><a class="header" href="#circle">Circle</a></h3>
 <p><strong><code>_GrphCirc</code></strong> (<code>33:758D</code>) — draws a circle in real coordinates. [confirmed]
@@ -2220,7 +2225,7 @@ into the argument grabber). [confirmed]</p>
 <tbody>
 <tr><td><code>_HorizCmd</code></td><td><code>04:793E</code></td><td><code>Horizontal y</code> — draws a full-width horizontal line at real Y. See note below.</td></tr>
 <tr><td><code>_VertCmd</code></td><td><code>04:7955</code></td><td><code>Vertical x</code> — draws a full-height vertical line at real X. See note below.</td></tr>
-<tr><td><code>_LineCmd</code></td><td><code>04:796A</code></td><td><code>Line(x1,y1,x2,y2)</code> — <code>_PDspGrph</code> then draws; checks pen, allocs 0x24-byte FPS for the 4 coords.</td></tr>
+<tr><td><code>_LineCmd</code></td><td><code>04:796A</code></td><td><code>Line(x1,y1,x2,y2)</code> — <code>_PDspGrph</code>, optionally draws via page 33, then <code>JP 0x152A</code> = <code>_DeallocFPS1(0x24)</code> frees the coord frame (the alloc happens upstream).</td></tr>
 <tr><td><code>_UnLineCmd</code></td><td><code>04:797C</code></td><td><code>Line(…,0)</code> — erase variant (same path, clear mode).</td></tr>
 <tr><td><code>_PointCmd</code></td><td><code>04:79B2</code></td><td><code>Pt-On/Pt-Off/Pt-Change(</code> — reads style from <code>OP1.mantissa[0] &amp; 0x20</code>, dispatches set/clear/toggle.</td></tr>
 <tr><td><code>_DrawCmd</code></td><td><code>04:7B8B</code></td><td>top-level <code>DRAW</code> dispatch — grabs the pending count and cross-jumps to the per-command handler.</td></tr>
@@ -2228,20 +2233,21 @@ into the argument grabber). [confirmed]</p>
 </tbody>
 </table>
 </div>
-<p>Note: <code>_HorizCmd</code>/<code>_VertCmd</code> both <code>CALL 7933</code> first, which allocs a 0x24-byte FPS frame and
-saves the live window block (<code>1537</code>/<code>SBC HL,DE</code> pointer math). <code>_HorizCmd</code> then writes the
-line’s Y coordinate into <strong>both <code>Xmin</code> (0x8F50) and <code>Xmax</code> (0x8F59)</strong> via <code>1A92</code>/<code>1B0C</code>
-(FPS load + store-to-window), and <code>_VertCmd</code> writes its X into <strong><code>Ymax</code> (0x8F74) and <code>Ymin</code>
-(0x8F6B)</strong> — i.e. they momentarily collapse the <em>other</em> axis so the transform produces a
-line spanning the full screen, render with <code>_PDspGrph</code>, then <code>_DeallocFPS1(0x24)</code> restores
-the real window. [confirmed]</p>
+<p>Note: <code>_HorizCmd</code>/<code>_VertCmd</code> both <code>CALL 7933</code> first, which <strong>allocates a 0x24-byte FPS frame</strong>
+(<code>LD HL,0x24 / CALL 1537 / SBC HL,DE</code>) and returns a pointer to it. <code>_HorizCmd</code> then <strong>builds the
+line’s two endpoints in that frame</strong>: it copies <code>Xmin</code> (<code>0x8F50</code>) and <code>Xmax</code> (<code>0x8F59</code>) — the window’s
+X range — with <code>_Mov9B</code> (<code>00:1A92</code>, which reads a window float into the frame), interleaving the
+line’s Y (<code>OP1</code>) via <code>_MovFrOP1</code> (<code>00:1B0C</code>), so the endpoints are <code>(Xmin, y)</code> and <code>(Xmax, y)</code>.
+<code>_VertCmd</code> does the same with <code>Ymin</code> (<code>0x8F6B</code>)/<code>Ymax</code> (<code>0x8F74</code>) and the line’s X. It renders with
+<code>_PDspGrph</code>, then <code>_DeallocFPS1(0x24)</code> frees the frame — the <strong>live window variables are not
+modified</strong> (the line just spans the current window edges). [confirmed]</p>
 <hr>
 <h2 id="5-rendering-the-graph-to-the-lcd"><a class="header" href="#5-rendering-the-graph-to-the-lcd">5. Rendering the graph to the LCD</a></h2>
 <p><strong><code>_PDspGrph</code></strong> (<code>04:7904</code>, “possibly-display graph”) is the gatekeeper between buffer and
 screen. [confirmed]</p>
 <ul>
 <li>Clears the “need redraw” flag at <code>(IY+2)</code>,</li>
-<li>if the <strong>regraph-pending</strong> bit <code>(IY+3)&amp;1</code> is set (<code>grfDBFlags</code>/SmartGraph dirty), calls
+<li>if the <strong>graph-dirty</strong> bit <code>(IY+3)&amp;1</code> is set (<code>graphFlags.graphDraw</code>, inc <code>graphFlags=3</code>/<code>graphDraw=0</code>; <code>1</code>=redraw needed — this is <em>not</em> <code>grfDBFlags</code> at <code>IY+4</code> nor SmartGraph at <code>IY+0x17</code>), calls
 <strong><code>_Regraph</code></strong> to recompute the whole plot,</li>
 <li>otherwise checks the split-screen flag (<code>_Bit_VertSplit</code>) and copies the buffer to the LCD
 (<code>graph_redraw_buf</code> <code>04:607F</code>).</li>
@@ -2317,9 +2323,9 @@ X/Y it prints at the bottom. [strong]</li>
 <li>Forward transform <code>(value−min)/pixelDelta</code>: structure <strong>[confirmed]</strong> from the
 <code>37:41F2</code> disassembly (subtract <code>228F</code>, divide <code>2385</code>); the exact rounding in <code>4229</code> is
 read but the ±sentinel constants are summarized, not exhaustively byte-traced.</li>
-<li><code>_HorizCmd</code>/<code>_VertCmd</code> destination floats: confirmed they <code>_Mov9B</code> into the Xmin/Xmax vs
-Ymax/Ymin pair and <code>_PDspGrph</code>; whether they use the live window or a temp copy for the
-line endpoints would benefit from tracing <code>HorizVert_setup</code> (<code>04:7933</code>).</li>
+<li><code>_HorizCmd</code>/<code>_VertCmd</code> endpoint build — <strong>resolved</strong>: <code>7933</code> allocates a 0x24-byte FPS frame, and
+the commands <code>_Mov9B</code> the window edges (<code>Xmin</code>/<code>Xmax</code> or <code>Ymin</code>/<code>Ymax</code>) plus <code>_MovFrOP1</code> the line’s
+coordinate (<code>OP1</code>) into that frame. The live window variables are not touched.</li>
 <li>Circle parametric stepping in <code>3B:7171</code> (<code>_DrawCirc2</code>) not decompiled here (lives on
 page 3B); the <code>_GrphCirc</code> setup is confirmed.</li>
 <li>Y= selection bit (<code>0x20</code>; flags byte <code>0x23</code> selected / <code>0x03</code> deselected) and the style byte
@@ -2434,7 +2440,7 @@ is done by <code>chk_tok_end</code> (<code>38:72E0</code>) / <code>parse_cur_err
 <li><code>_StoAns</code> (<code>38:6251</code>) stores OP1 into <code>Ans</code> (<code>_CkOP1Real</code> path; the bytes that
 follow are the Ans-var token table). <code>_RclAns</code> (<code>38:679F</code>) = <code>_AnsName</code> then
 <code>_RclVarSym</code>.</li>
-<li><code>_AnsName</code> (<code>38:74B7</code>): <code>_ZeroOP1; OP1.exp = 0x72</code> — builds the OP1 name for
+<li><code>_AnsName</code> (<code>38:74B7</code>): <code>_ZeroOP1; (OP1+1)=0x72</code> (the name’s type/class byte at <code>0x8479</code>, not an exponent — OP1 holds a name here) — builds the OP1 name for
 the <code>Ans</code> variable (token class <code>0x72</code>).</li>
 <li><code>_StoSysTok</code>/<code>_RclSysTok</code> (<code>38:623B</code>/<code>683E</code>) store/recall a system token
 variable (Xmin etc.) into/from OP1.</li>
@@ -2635,8 +2641,9 @@ runs and off at <code>Done</code>. <strong>[confirmed]</strong></p>
 <li><code>chk_tok_end</code> (<code>38:72E0</code>) classifies it into a small class number (<code>&lt;=3</code> operand/expr,
 <code>4</code> = syntax error, others = operator/command). Flagged tokens reclassify via
 <code>set_split_rows</code> (<code>ram:20A0</code>) when <code>IY+9 &amp; 0x80</code>.</li>
-<li><code>parse_cur_err_illegal</code> (<code>38:70F8</code>) maps the token byte to a grammar/precedence class (tokens
-<code>&gt;0xF1</code> get <code>+0x12</code>, folding the high token page into the class space).</li>
+<li><code>parse_cur_err_illegal</code> (<code>38:70F8</code>) validates the current token; its caller (at <code>38:6FBE</code>) then
+maps the token byte to a grammar/precedence class — tokens <code>≥0xF2</code> get <code>+0x12</code> (<code>38:6FBE: ADD A,0x12</code>),
+folding the high token page into the class space.</li>
 <li>The precedence level (<code>cVar4</code> = 1/2/3) selects the production handler base:
 <code>0x4000</code> (base term — the <strong>flat handler-pointer table</strong>, indexed by token class),
 <code>0x478C</code> (postfix <code>^</code>/<code>!</code>), or <code>0x7175</code> (leaf) — <code>0x478C</code> and <code>0x7175</code> are raw code
@@ -2664,7 +2671,7 @@ page_38:6f63   if_isg_stmt_handler        ; per-statement If/IS&gt;( dispatch
 page_38:4130   blockmatch_end_else        ; nest-counting End/Else scanner
 page_38:4180   parse_scan_tokens          ; skip-to-delimiter (2-byte aware)
 page_38:4870   goto_lbl_name_scanner      ; scan label name, jump to search
-page_38:7600   store_target_name_scanner  ; →VAR store-target name scanner (live DB name)
+page_38:7600   store_target_name_scanner  ; →VAR store-target name scanner (inferred; live DB auto-name is set_tblgraph_draw_xpage)
 page_38:72da   parse_cur_tok
 page_38:7248   parse_advance
 page_38:5cd8   parse_expect_or_err
@@ -3920,8 +3927,9 @@ the cross-page <code>CALL 0x2b09</code>-style trampolines. Page numbers are the 
 <hr>
 <h2 id="1-the-arcinfo-workspace-and-key-ram-pointers-c"><a class="header" href="#1-the-arcinfo-workspace-and-key-ram-pointers-c">1. The arcInfo workspace and key RAM pointers [C]</a></h2>
 <p>The archive engine keeps a 12-byte scratch block, labelled <code>arcInfo</code> (<code>83EEh</code>) in <code>ti83plus.inc</code>,
-plus a saved copy <code>savedArcInfo</code> (<code>8406h</code>). <code>_Arc_Unarc</code>’s reentrant inner mover saves it at
-<code>page_07:61DC</code> (<code>LD HL,83F1 / LD DE,8406 / LD BC,0C / LDIR</code>); the matching <code>07:61E8</code> restore candidate is not a defined function in the current live DB.</p>
+plus a saved copy <code>savedArcInfo</code> (<code>8406h</code>). <code>_Arc_Unarc</code>’s reentrant inner mover at <code>page_07:61DC</code>
+copies the <strong>12 bytes starting at <code>83F1</code></strong> (the <code>vatPtr</code> field onward, not the whole <code>83EE</code> block)
+into <code>8406</code> (<code>LD HL,83F1 / LD DE,8406 / LD BC,0C / LDIR</code>); the matching <code>07:61E8</code> restore candidate is not a defined function in the current live DB.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -3932,8 +3940,8 @@ plus a saved copy <code>savedArcInfo</code> (<code>8406h</code>). <code>_Arc_Una
 <tr><td><code>83EF</code></td><td><code>arcInfo.dataPtr</code></td><td>2-byte data address (in Flash window 0x4000–0x7FFF, or RAM)</td></tr>
 <tr><td><code>83F1</code></td><td><code>arcInfo.vatPtr</code></td><td>pointer to the <strong>VAT entry’s type byte</strong> (the symbol record)</td></tr>
 <tr><td><code>83F3</code></td><td><code>arcInfo.destPtr</code></td><td>destination data pointer (RAM target on unarchive)</td></tr>
-<tr><td><code>83F5</code></td><td><code>arcInfo.dataSize</code></td><td>element/data byte count (from <code>_DataSize</code>)</td></tr>
-<tr><td><code>83F7</code></td><td><code>arcInfo.size</code></td><td>total bytes to move</td></tr>
+<tr><td><code>83F5</code></td><td><code>arcInfo.dataSize</code></td><td>a header/record-size component (loaded from <code>BC</code> after <code>CALL 0FDE</code>)</td></tr>
+<tr><td><code>83F7</code></td><td><code>arcInfo.size</code></td><td>the variable’s data byte count (from <code>_DataSize</code>; <code>614B</code> does <code>CALL 1485</code> → <code>LD (83F7),DE</code>)</td></tr>
 <tr><td><code>83F9</code></td><td><code>arcInfo.sizeFull</code></td><td>size + header overhead</td></tr>
 <tr><td><code>8406</code></td><td><code>savedArcInfo</code></td><td>12-byte save slot for nested calls</td></tr>
 </tbody>
@@ -3977,18 +3985,18 @@ whose data lives on a Flash page.</p>
 <strong>page byte</strong> selects the Flash page; the VAT record itself always stays in RAM.</p>
 <hr>
 <h2 id="3-store--recall-ch"><a class="header" href="#3-store--recall-ch">3. Store / Recall [C/H]</a></h2>
-<p><strong>Store</strong> <code>_StoOther</code> (<code>38:62A9</code>) and siblings (<code>_StoAns/_StoX/_StoY/...</code> <code>38:6251–62A3</code>):</p>
+<p><strong>Store</strong> <code>_StoOther</code> (<code>38:62A9</code>) and siblings (<code>_StoAns</code>, <code>_StoX</code>, <code>_StoY</code>, … <code>38:6251–62A3</code>):</p>
 <ul>
 <li>Set OP1 type = 0xFF placeholder (<code>62A9: LD A,FF / LD (8478),A</code>), parse the destination name.</li>
 <li><code>5F45</code> resolves/creates the target symbol; then it copies the value. It dispatches on the
 destination name token (<code>849B</code>): list-element store (<code>0x2A</code> → bounds-checks via <code>_ErrDimension</code>),
-matrix element, etc. Ultimately a <code>_CreateXxx</code> carves RAM with <code>_InsertMem</code> and the data is copied.</li>
+matrix element, etc. Ultimately a <code>_Create*</code> routine carves RAM with <code>_InsertMem</code> and the data is copied.</li>
 <li>A store <strong>into an archived var is not done in place</strong>; the OS unarchives first (you cannot rewrite
 Flash in place) — see the <code>_Arc_Unarc</code> direction logic in §4. [I/H]</li>
 </ul>
 <p><strong>Recall</strong> <code>_RclVarSym</code> (<code>38:67B1</code>) and <code>_RclVarPush</code> (<code>3A:5D07</code>):</p>
 <ul>
-<li><code>_RclVarSym</code> calls <code>RST 2</code> (<code>17A6</code>/<code>_FindSym</code>), then checks the name token (<code>8479</code>). For a list
+<li><code>_RclVarSym</code> calls <code>RST 10h</code> (<code>17A6</code>, a <code>_FindSym</code>+error-check wrapper: <code>RST 10h; JP C,271D</code>), then checks the name token (<code>8479</code>). For a list
 recall (<code>63</code>/<code>2A</code>) it sizes the data with <code>_DataSize</code> (<code>00:1485</code>) and copies it into a work buffer
 (<code>91E0</code>), using <code>_LdHLind</code> and cross-page helpers; ends <code>JP _OP4ToOP1</code>.</li>
 <li><code>_DataSize</code> (<code>00:1485</code>): returns the variable’s data byte-count in DE from the type byte — real=9,
@@ -4009,28 +4017,31 @@ the Flash archive (the same entry point does both directions, deciding from the 
   CALL _ChkFindSym (0E60)      ; locate the VAT entry; C ⇒ JP 271D (undefined)
   DI
   LD (981C),HL                 ; chkDelPtr3 = entry ptr
-  LD A,B ; OR A ; JR Z,..      ; B = page byte: 0 ⇒ currently in RAM, else ⇒ in Flash
-      (RAM) LD A,(HL); CP 0x17 ; Group? ⇒ JP 26E0 reject  [groups archive via a different path]
-            ...  CALL 61F4     ; *** RAM → Flash:  archive ***
-      (Flash) CALL 6107        ; *** Flash → RAM:  unarchive ***
-  ... type-0x5D (complex-list) special-case via 32A9 / cross_page 37:4288
+  LD A,B ; OR A ; JR Z,6272    ; B = page byte: 0 ⇒ currently in RAM, else ⇒ in Flash
+      (Flash, B≠0) LD A,(HL); CP 0x17 ; Group? ⇒ JP 26E0 reject  [groups archive via a different path]
+                   CALL 61F4   ; *** Flash → RAM:  unarchive ***
+   6272 (RAM, B==0):  CALL 6107        ; *** RAM → Flash:  archive ***
+  ... name-token-0x5D (list name, `tVarLst`) special-case via 32A9 / cross_page 05:4A6E
   LD A,(83EE); OR A; EI; RET
 </code></pre>
-<p><code>628B</code> is the <strong>archivable-name validator</strong>: after <code>_CkOP1Real</code>, it accepts the system/real name
-tokens <code>0x58 0x59 0x54 0x5B 0x52 0x72 0xFC</code>, complex <code>0x0C</code>, list <code>0x01</code>/<code>0x0D</code>, etc.; rejects others
-via the <code>26E0</code> shim (<code>LD A,0xB2</code> = E_Variable, ERR:VARIABLE → <code>_JError</code>). (<code>_arc_59f1</code> @<code>07:59F1</code> and <code>_arc_5936</code> @<code>07:5936</code> are companion name/range
+<p><code>628B</code> is the <strong>archivable-name guard</strong>: after <code>_CkOP1Real</code> it returns <strong>Z for the non-archivable
+single-letter real/sysvar name tokens</strong> <code>0x58 0x59 0x54 0x5B 0x52 0x72 0xFC</code> (<code>CP n; RET Z</code> chain), so
+<code>_Arc_Unarc</code>’s <code>JP Z,26E0</code> rejects them via the <code>26E0</code> shim (<code>LD A,0xB2</code> = E_Variable, ERR:VARIABLE →
+<code>_JError</code>); archivable classes (lists, matrices, programs, appvars, …) return NZ and continue. (<code>_arc_59f1</code> @<code>07:59F1</code> and <code>_arc_5936</code> @<code>07:5936</code> are companion name/range
 validators for the catalog archive command.)</p>
-<h3 id="4a-ram--flash-archive-61f4-c"><a class="header" href="#4a-ram--flash-archive-61f4-c">4a. RAM → Flash (archive), <code>61F4</code> [C]</a></h3>
-<pre><code class="language-z80">61F4:  LD (83EF),DE ; LD (83EE),A      ; arcInfo.dataPtr/page = source (RAM)
-       CALL 6335                       ; 6331/6335: stash vatPtr (83F1), compute dataSize (83F5) via _DataSize
-       CALL 32D3                       ; size accounting
-       LD A,(HL) ; CALL 146C           ; add header overhead → 83F9 (sizeFull)
-       EX DE,HL ; CALL _EnoughMem(0FA6); make sure the freed RAM bookkeeping is OK
-                JP C,_ErrMemory(2721)
-       OR 1 ; CALL FUN_ram_0f0c        ; mark VAT type byte: set the archive flag bit
-       LD (83F3),DE
-       CALL 3003 (cross_page 3D:64AA)  ; *** do the actual Flash program ***  (see §6)
+<p>Direction note: the <code>B</code>-page test sends an <strong>in-RAM</strong> var (<code>B==0</code>) to <code>6107</code> (archive) and an
+<strong>in-Flash</strong> var (<code>B≠0</code>) to <code>61F4</code> (unarchive). <code>6107</code> is the one that programs Flash and frees the
+RAM copy; <code>61F4</code> is the one that carves RAM and copies the data back out of Flash.</p>
+<h3 id="4a-ram--flash-archive-6107-c"><a class="header" href="#4a-ram--flash-archive-6107-c">4a. RAM → Flash (archive), <code>6107</code> [C]</a></h3>
+<pre><code class="language-z80">6107:  CALL 7866 ; DI
+       CALL 614B                       ; size/accounting: (83F1)=vatPtr, _DataSize→83F7;
+                                       ;   616C reserves the archive-Flash slot
+       CALL 2FF1 (cross_page 3D:64AA)  ; *** program the data into the archive Flash ***  (see §6)
+       LD HL,(83F3) ; LD DE,(83F7) ; CALL _DelMem (1368)  ; release the old RAM copy
        RET
+616C:  reads vatPtr type, AND 0x1F (clean type for the record header),
+       LD HL,(83F7)+(83F5) ; ADC ; JP C,2729 (E_Invalid, 0x8F)  ; size overflow?
+       reserves a Flash slot via 2FDF(3D:61AF) / 2FF7(3D:62C2)
 </code></pre>
 <p>The data is <strong>appended</strong> to the archive Flash (Flash cannot be overwritten in place). The VAT entry’s
 type byte gets its archive flag set and its data ptr/page rewritten to point into Flash; the old RAM
@@ -4039,24 +4050,28 @@ fresh archived record plus a copy of the symbol header/name and data (status mar
 <code>0xFE</code>=in-progress / <code>0xFC</code>=valid / <code>0xF0</code>=deleted, with <code>0xFF</code>=erased/empty; the bit-clearing
 mechanism is confirmed in §6a). <code>3D:64AA</code> is not a defined function in the current live DB; the
 <code>flash_write_record</code> name for it is a project-local inferred label, not a WikiTI or <code>ti83plus.inc</code>
-equate.</p>
-<h3 id="4b-flash--ram-unarchive-6107-c"><a class="header" href="#4b-flash--ram-unarchive-6107-c">4b. Flash → RAM (unarchive), <code>6107</code> [C]</a></h3>
-<pre><code class="language-z80">6107:  CALL 7866 ; DI
-       CALL 614B   ; compute sizes:  (83F1)=vatPtr, _DataSize→83F7, free-RAM check via 616C
-       CALL 2FF1 (cross_page 3D:61AF)  ; copy the data Flash→RAM (program the heap)
-       LD HL,(83F3) ; LD DE,(83F7) ; CALL _DelMem (1368)  ; close the old flash slot bookkeeping
+equate. <code>_Chk_Batt_Low</code> (<code>00:0D07</code>) gates the Flash write — archiving aborts on low battery
+(<code>61C5: CALL _Chk_Batt_Low</code>).</p>
+<h3 id="4b-flash--ram-unarchive-61f4-c"><a class="header" href="#4b-flash--ram-unarchive-61f4-c">4b. Flash → RAM (unarchive), <code>61F4</code> [C]</a></h3>
+<pre><code class="language-z80">61F4:  LD (83EF),DE ; LD (83EE),A      ; arcInfo.dataPtr/page = source (Flash page+addr from FindSym)
+       CALL 6335                       ; 6331/6335: stash vatPtr (83F1), compute dataSize (83F5) via _DataSize
+       CALL 32D3                       ; size accounting
+       LD A,(HL) ; CALL 146C           ; add header overhead → 83F9 (sizeFull)
+       EX DE,HL ; CALL _EnoughMem(0FA6); ensure there is RAM room for the unarchived copy
+                JP C,_ErrMemory(2721)
+       OR 1 ; CALL 0F0C                ; carve the RAM gap (internal create-gap routine)
+       LD (83F3),DE                    ; destPtr = new RAM address
+       CALL 3003 (cross_page 3D:6440)  ; *** page-3D unarchive worker: copy Flash→RAM, retire the old record ***
        RET
-616C:  ... reads vatPtr type, AND 0x1F (strip archive flag),
-       LD HL,(83F7)+(83F5) ; ADC ; JP C,2729 (E_Invalid/E_IllegalNest/E_Bound 0x8F/0x90/0x91)  ; fits in RAM?
-       allocate via 2FDF(3D:61AF) / 2FF7(3D:62C2)
 </code></pre>
-<p>On unarchive the entry’s <strong>archive flag is cleared</strong> and the data ptr/page is rewritten back to the
-new RAM address; the Flash copy is left marked dead (reclaimed at the next GC). <code>_Chk_Batt_Low</code>
-(<code>00:0D07</code>) gates the Flash write — archiving aborts on low battery (<code>61C5: CALL _Chk_Batt_Low</code>).</p>
+<p>The data is copied from Flash into the freshly-carved RAM gap. The VAT entry’s <strong>archive flag is
+cleared</strong> and its data ptr/page rewritten back to the new RAM address; the old Flash record is left
+marked dead (<code>0xF0</code>, reclaimed at the next GC). <code>3D:6440</code> shares the page-3D flash-control prologue
+(<code>OUT (0x14)</code>) and is not a defined function in the current live DB.</p>
 <h3 id="4c-errors-raised-on-the-path-c"><a class="header" href="#4c-errors-raised-on-the-path-c">4c. Errors raised on the path [C]</a></h3>
 <ul>
 <li><code>2785: LD A,0x31</code> → <code>_JError</code> = <strong>E_ArchFull (0x31)</strong> “ERR:ARCHIVE FULL” (no room even after GC).</li>
-<li><code>2729: LD A,0x8F/0x90/0x91</code> → E_Invalid / E_IllegalNest / E_Bound (RAM-side overflow during unarchive).</li>
+<li><code>2729</code>/<code>272D</code>/<code>2731</code>: <code>LD A,0x8F</code>/<code>0x90</code>/<code>0x91</code> → E_Invalid / E_IllegalNest / E_Bound. The archive size check (<code>616C</code>) takes the <code>2729</code> (E_Invalid, <code>0x8F</code>) entry on overflow.</li>
 <li><code>26E0</code>+ is a cluster of local error shims: each loads its code (<code>0xB2</code>=E_Variable, <code>0xB3</code>=E_Duplicate, <code>0x81</code>=E_Overflow, <code>0x82</code>=E_DivBy0) into <code>A</code> and enters <code>_JError</code> — not <code>_ErrDataType</code>.</li>
 <li>Error-name strings live at <code>07:6CA9</code>: <code>ARCHIVED, VERSION, ARCHIVE FULL, VARIABLE, DUPLICATE</code>.</li>
 </ul>
@@ -4101,7 +4116,7 @@ their <code>flash_*</code> names are project-local inferred labels (not WikiTI o
 </tbody>
 </table>
 </div>
-<p>The program-core candidates (<code>3D:64AA</code>, <code>3D:61AF</code>, <code>3D:6440</code>) share this unlock prologue:</p>
+<p>The program-core candidates <code>3D:64AA</code> and <code>3D:6440</code> share this unlock prologue (<code>3D:61AF</code> starts differently — <code>PUSH AF; PUSH HL; BIT 6,(IY+0x24)</code>):</p>
 <pre><code class="language-z80">RES 7,(IY+0x24) ; LD A,1 ; DI ; IM 1 ; DI ; OUT (0x14),A ; DI ; CALL FUN_ram_02bf
 </code></pre>
 <p><code>OUT (0x14),A</code> toggles the <strong>Flash control port</strong> (0x14) to enable write/erase; <code>FUN_ram_02bf</code>
@@ -4147,15 +4162,16 @@ bits — port 2 bit 7 (<code>probe_hw_model_keep_a</code> <code>00:1837</code>) 
 <tbody>
 <tr><td>port 2 bit 7 <strong>clear</strong> (1 MB)</td><td><code>0x15</code></td><td><code>0x1E</code></td><td><code>AND 0x1F</code> (32 pages)</td></tr>
 <tr><td>port 0x21 == 0 (mid)</td><td><code>0x29</code></td><td><code>0x3E</code></td><td><code>AND 0x3F</code> (64 pages)</td></tr>
-<tr><td>else (2 MB)</td><td><code>0x69</code></td><td><code>0x7E</code></td><td><code>AND 0x3F</code></td></tr>
+<tr><td>else (2 MB)</td><td><code>0x69</code></td><td><code>0x7E</code></td><td><strong>no mask</strong> (full 8-bit page; <code>3D:6745</code> skips both <code>AND</code>s)</td></tr>
 </tbody>
 </table>
 </div>
 <p>So on a 1 MB TI-84 Plus the user archive occupies roughly raw pages <strong>0x15…0x1E</strong>, and the OS pages it
 into the <code>0x4000</code> window <strong>one 16 KB page at a time</strong> for both reading (<code>_FlashToRam</code>, masks <code>0x1F</code>/<code>0x3F</code>
 via the same model check, <code>3D:6745</code>) and erasing. <code>flash_set_sector_cnt</code> (<code>3D:727D</code>) loads
-<code>(base+1)</code> into the sector counter <code>0x82A3</code>; the erase routine <code>flash_erase_wait</code> (<code>3D:5ED3</code> →
-<code>3D:5EE3</code>) pages each sector to <code>0x4000</code> and issues the chip erase command via <code>RST 0x28</code>, decrementing
+<code>(base+1)</code> into the sector counter <code>0x82A3</code>; the erase routine <code>flash_erase_wait</code> (<code>3D:5ED3</code>, whose
+loop jumps to <code>3D:5EF1</code> — <code>3D:5EE3</code> is the unrelated <code>_FindApp</code>) pages each sector to <code>0x4000</code> and
+issues the chip erase command via <code>RST 0x28</code>, decrementing
 <code>0x82A3</code> down toward the base page. The underlying Am29F-class chip uses <strong>64 KB physical sectors
 (= 4 × 16 KB OS pages)</strong>; the OS walks/erases at 16 KB page granularity. [64 KB physical-sector figure: I]</p>
 <hr>
@@ -4193,7 +4209,7 @@ pointers.</li>
 <li><strong><code>_EnoughMem</code> (<code>00:0FA6</code>)</strong> — ensure N free bytes; if short it walks the temp/scratch entries from
 <code>pTemp(982E)</code> down toward <code>OPBase(9826)</code> at a <strong>9-byte stride</strong>, and <code>_DelVar</code>s any entry whose flag
 byte has bit 7 (<code>&amp; 0x80</code>) set (a reclaimable temporary), looping until enough or exhausted. Used by
-<code>_CreateXxx</code> and by the unarchive RAM-fit check (<code>61F4</code> calls it before allocating).</li>
+the <code>_Create*</code> routines and by the unarchive RAM-fit check (<code>61F4</code> calls it before allocating).</li>
 <li><strong><code>_InsertMem</code> (<code>00:0F81</code>)</strong> / <strong><code>_DelMem</code> (<code>00:1368</code>)</strong> — open / close a gap at HL by block-moving
 everything above; <code>_InsertMem</code> fails <code>E_Memory</code> if it would collide with the VAT.</li>
 <li><strong>Free archive (Flash)</strong> is computed inside the Flash layer. The free-space sum is at <code>3D:6413</code>
@@ -4210,8 +4226,8 @@ the current live DB.</li>
 <tbody>
 <tr><td><code>07:6248</code></td><td><code>_Arc_Unarc</code></td><td>archive/unarchive entry; toggles arc flag, dispatches RAM↔Flash</td></tr>
 <tr><td><code>07:628B</code></td><td><code>arc_chk_name</code></td><td>archivable-name validator</td></tr>
-<tr><td><code>07:61F4</code></td><td><code>arc_ram_to_flash</code></td><td>RAM→Flash archive worker</td></tr>
-<tr><td><code>07:6107</code></td><td><code>arc_flash_to_ram</code></td><td>Flash→RAM unarchive worker</td></tr>
+<tr><td><code>07:6107</code></td><td><code>arc_ram_to_flash</code></td><td>RAM→Flash archive worker (programs Flash, frees old RAM)</td></tr>
+<tr><td><code>07:61F4</code></td><td><code>arc_flash_to_ram</code></td><td>Flash→RAM unarchive worker (carves RAM, copies from Flash)</td></tr>
 <tr><td><code>07:6331</code></td><td><code>arc_size_setup</code></td><td>stash vatPtr, compute dataSize into arcInfo</td></tr>
 <tr><td><code>07:61DC</code></td><td><code>arc_save_info</code></td><td>save 12-byte arcInfo into savedArcInfo; <code>07:61E8</code> (restore candidate) is not a defined function in the live DB</td></tr>
 <tr><td><code>07:565F</code></td><td><code>findsym_scan</code></td><td>the real <code>_FindSym</code> VAT scanner</td></tr>
@@ -4273,9 +4289,10 @@ entry points are canonical equates in <code>ti83plus.inc</code> and now resolve 
 body-undisassembled until the lower-level page-3C/3D helper graph is split cleanly.</li>
 <li><strong>Group archive path — partially pinned [H/I].</strong> <code>_DataSize</code> (<code>00:1485</code>) confirms a Group
 (type <code>0x17</code>, like AppVar <code>0x15</code>/<code>0x16</code>) carries a leading word-size header, so a group <em>can</em> be
-stored as one Flash blob. The single-call RAM→Flash worker <code>61F4</code> is reached only after
-<code>_Arc_Unarc</code> rejects <code>0x17</code> (the <code>CP 0x17</code> → <code>26E0</code> reject), so groups must be archived through a
-separate routine that walks the group’s member list. That member-walk routine is <strong>not
+stored as one Flash blob. In <code>_Arc_Unarc</code> the <code>CP 0x17</code> → <code>26E0</code> reject sits on the <strong>B≠0 (in-Flash)
+branch</strong>, immediately before the unarchive worker <code>61F4</code> — so an archived group is not unarchived
+through <code>61F4</code>, and groups are handled by a separate routine that walks the group’s member list.
+That member-walk routine is <strong>not
 identifiable in the current Ghidra DB</strong> — <code>_Arc_Unarc</code>’s body past the entry <code>CALL</code> is not
 disassembled here (cross-page <code>CALL</code> flagged non-returning), and no group-archive function is
 named or xref-reachable. Re-confirming it would need a linear disassembly pass like the one behind §4.</li>
@@ -4712,7 +4729,7 @@ system variables a student recalls by name (<code>[2nd][STAT] ▸ VARS</code>):<
 <tr><td><code>8B00</code></td><td><code>QuadC</code></td><td><code>c</code></td><td>regression coeff c</td></tr>
 <tr><td><code>8B09</code></td><td><code>CubeD</code></td><td><code>d</code></td><td>regression coeff d</td></tr>
 <tr><td><code>8B12</code></td><td><code>QuartE</code></td><td><code>e</code></td><td>regression coeff e</td></tr>
-<tr><td><code>8B1B</code>…<code>8B4E</code></td><td><code>MedX1/2/3</code>, <code>MedY1/2/3</code></td><td></td><td>Med‑Med (×3 partitions)</td></tr>
+<tr><td><code>8B1B</code>…<code>8B50</code></td><td><code>MedX1/2/3</code>, <code>MedY1/2/3</code> (<code>8B1B/8B24/8B2D/8B36/8B3F/8B48</code>)</td><td></td><td>Med‑Med (×3 partitions)</td></tr>
 </tbody>
 </table>
 </div>
@@ -4722,7 +4739,7 @@ system variables a student recalls by name (<code>[2nd][STAT] ▸ VARS</code>):<
 menu) and are written by the test commands, not by 1/2‑Var Stats. An ANOVA block
 <code>anovaf_vars</code> (<code>F_DF/F_SS/F_MS/E_DF/E_SS/E_MS</code>) follows.</p>
 <p><strong>STAT‑TESTS are separate command handlers [confirmed scope].</strong> <code>Z‑Test</code>/<code>T‑Test</code>/<code>χ²‑Test</code>/
-<code>2‑SampFTest</code>/<code>ANOVA(</code> etc. come in as their own 2‑byte (<code>E1</code>‑prefixed) command tokens — e.g.
+<code>2‑SampFTest</code>/<code>ANOVA(</code> etc. come in as their own 2‑byte <code>t2ByteTok</code> (<code>0xBB</code>)‑prefixed command tokens — e.g.
 <code>LinRegTTest=34h</code> noted in §3 — and are <strong>not</strong> dispatched through <code>_OneVar</code> (whose token map is
 only <code>F2</code>–<code>FF</code>, §3). They fill the <code>PStat…SStat</code>/<code>anovaf_vars</code> block above directly. No
 <code>PStat</code>/<code>ZStat</code>‑writing routine appears among the page‑0x3A <code>stat_*</code> symbols (all of which are
@@ -4807,8 +4824,8 @@ as a model index. From <code>ti83plus.inc</code>:</p>
 </table>
 </div>
 <p><code>CubicReg</code>/<code>QuartReg</code> come in as the regression tokens <code>tCubicR=2Eh</code>/<code>tQuartR=2Fh</code>;
-<code>SinReg=32h</code>, <code>Logistic=33h</code>, <code>LinRegTTest=34h</code> are the extended (<code>E1</code>‑prefixed)
-tokens. Degree for the polynomial solver = the model index; the coefficient
+<code>SinReg=32h</code>, <code>Logistic=33h</code>, <code>LinRegTTest=34h</code> are 2‑byte <code>t2ByteTok</code> (<code>0xBB</code>)‑prefixed
+tokens (their <code>2Eh</code>/<code>2Fh</code>/<code>32h</code>/<code>33h</code>/<code>34h</code> values are the <em>second</em> byte after <code>0xBB</code>). Degree for the polynomial solver = the model index; the coefficient
 fan‑out into <code>QuadA..QuartE</code> is naturally sized by degree. [confirmed/standard]</p>
 <p><code>SortA(</code>/<code>SortD(</code> are <strong>separate</strong> tokens (<code>tSortA=E3h</code>, <code>tSortD=E4h</code>) with their
 own command handler — not <code>_OneVar</code>. The sort used here, <code>stat_sort</code> (<code>3A:7935</code>),
@@ -4855,9 +4872,9 @@ power‑sums <code>Σxⁱ</code> (i = 0 … 2d) and the right‑hand side <code>
 <p><strong>Non‑polynomial regressions transform first</strong> [confirmed]: the front‑end at
 <code>658a</code>+ checks the command code and, for <code>ExpReg</code>/<code>PwrReg</code> (<code>ln y</code>),
 <code>LnReg</code>/<code>PwrReg</code> (<code>ln x</code>), pre‑applies the logarithm to each element before
-accumulating, then exponentiates the resulting linear coefficients (the
-<code>760f/75e4/79b9</code> and <code>7002/7013</code> branches call into the page‑02 <code>_LnX</code>/<code>_EToX</code>
-transcendentals — see <code>sub-calculation.md §5</code>). This is the standard
+accumulating, then exponentiates the resulting linear coefficients off page 0x3A. The
+per‑element <code>ln</code> is in the element fetch <code>stat_next_elem</code> (<code>3A:6F6A</code>): <code>LD A,(8A36); CP 4; RET NC</code> then <code>bcall _LnX</code> at <code>3A:6F72</code> for model codes <code>&lt; 4</code> (<code>ExpReg</code>/<code>LnReg</code>/<code>PwrReg</code>); the
+back‑transform <code>_EToX</code>/<code>_TenX</code> lives on page 0x02 (see <code>sub-calculation.md §5</code>). This is the standard
 “linearize, fit a line, transform back” method; <code>r</code> is the correlation of the
 <strong>transformed</strong> data.</p>
 <h3 id="4a-mean--standard-deviation-confirmed"><a class="header" href="#4a-mean--standard-deviation-confirmed">4a. Mean &amp; standard deviation [confirmed]</a></h3>
@@ -4890,7 +4907,9 @@ matrix <code>[ M | Σxⁱy ]</code>. <code>_OneVar</code> solves it <strong>in p
 6845: CALL 3939 (_SqRoot) ; 6849 ; CALL 2541 (_FPDiv)  ; (forms r²/r from the fit)
 684f: LD A,12 ; CALL 213d           ; r-related store/guard
 6859..6876: row-reduce all other rows (3aa7 get, 238b _FPMult, RST 30 _FPAdd)
-6880: CALL 2541 ; on a zero pivot → LD A,35/36 ; CALL 213d  (SINGULAR MAT)
+6880: CALL 2541 (_FPDiv) ; CP 2 ; LD A,0x35/0x36 ; CALL 213d  ; *** _Sto_StatVar stores into the
+                                                              ; statVar slots id 0x35/0x36 — NOT a SingularMat raise.
+                                                              ; the zero-pivot guard is the 67F7→212D path → 0x83.
 68d6..6953: back-substitution — each coeff = (rhs − Σ known·M) / pivot
    (3aa7/3aa1 matrix access, 238b _FPMult, RST 30/RST 8 accumulate,
     24bd _InvOP1S to subtract, 2541 _FPDiv)
@@ -4979,7 +4998,7 @@ list data (sets <code>Xmin/Xmax/Ymin/Ymax</code> from <code>minX/maxX/minY/maxY<
 <hr>
 <h2 id="9-distributions-distr-menu--not-part-of-statcalc-confirmed-scope"><a class="header" href="#9-distributions-distr-menu--not-part-of-statcalc-confirmed-scope">9. Distributions (DISTR menu) — <em>not</em> part of STAT‑CALC [confirmed scope]</a></h2>
 <p><code>normalpdf(</code>, <code>normalcdf(</code>, <code>invNorm(</code>, <code>binompdf(</code>, <code>tcdf(</code>, <code>χ²cdf(</code>, <code>Fcdf(</code>,
-etc. are <strong>parser functions</strong> (DISTR‑menu tokens, the <code>E1</code>/<code>E2</code>‑prefixed
+etc. are <strong>parser functions</strong> (DISTR‑menu tokens, the <code>t2ByteTok</code> (<code>0xBB</code>)‑prefixed
 two‑byte tokens like <code>tShadeNorm=35h</code>), evaluated through the normal function
 dispatch of the TI‑BASIC parser, <strong>not</strong> through <code>_OneVar</code>. They are not
 exposed as named bcalls in this OS image (a search of <code>bcall_targets.txt</code> finds
@@ -4998,7 +5017,7 @@ cores returns <strong>no</strong> <code>normalcdf</code>/<code>erf</code>/incomp
 symbol on page 0x3A is part of the <code>_OneVar</code> STAT‑CALC engine (accumulate / variance / median /
 sort / regression), not a DISTR core. So the erf / incomplete‑gamma / incomplete‑beta continued
 fractions are <strong>[I] — outside the STAT‑CALC engine</strong>, sitting behind the parser’s 2‑byte
-(<code>E1</code>/<code>E2</code>‑prefixed) DISTR‑token function table; their exact page/address is not exposed as a
+(<code>0xBB</code>‑prefixed) DISTR‑token function table; their exact page/address is not exposed as a
 named routine in this DB. [confirmed scope; address [I]]</p>
 <hr>
 <h2 id="10-integration-summary"><a class="header" href="#10-integration-summary">10. Integration summary</a></h2>
@@ -5211,7 +5230,7 @@ the matrix name (<code>5F45</code>), bounds-checks indices against the dims (<co
 <ul>
 <li><strong><code>mele_adr_af_jp</code> (<code>02:403C</code>)</strong> = <code>_AdrMEle(currentIJ) ; RST4</code> — “load <code>[M](i,j)</code> to OP1” (the elimination
 inner-loop read). Indices come from the loop state at <code>84AF/84B3/84B4</code>.</li>
-<li><strong><code>mele_adr_to8483</code> (<code>02:4051</code>)</strong> = <code>_AdrMEle ; _Mov9B(→OP3@8483)</code> — load element to OP3.</li>
+<li><strong><code>mele_adr_to8483</code> (<code>02:4051</code>)</strong> = <code>_AdrMEle ; _Mov9B(→OP2@8483)</code> — load element to OP2.</li>
 <li><strong><code>mele_put_af</code> (<code>02:405A</code>) / <code>mele_put_d3</code> (<code>02:405E</code>)</strong> = <code>_AdrMEle ; _CkValidNum ; _MovFrOP1</code> — store OP1 back to <code>[M](i,j)</code>.</li>
 <li><strong><code>_ListIdxTimes9</code> (<code>35:79E9</code>)</strong> = <code>_HLTimes9(idx)</code> then a small dispatch (<code>RST4</code>) — the list
 analogue used in a few list-builder paths.</li>
@@ -5227,7 +5246,7 @@ analogue used in a few list-builder paths.</li>
 <tbody>
 <tr><td><code>_CreateRList</code></td><td><code>00:10C4</code></td><td>new real list: <code>count*9+2</code> bytes (§1) [C]</td></tr>
 <tr><td><code>_CreateCList</code></td><td><code>00:1109</code></td><td>new complex list: <code>count*18+2</code> [C]</td></tr>
-<tr><td><code>_InsertList</code> / <code>_IncLstSize</code></td><td><code>07:4F07</code> (body <code>07:4EF4</code>)</td><td>grow a list in place via <code>_InsertMem</code>; caps length at 999 (<code>0x3E7</code>), else <code>E_Dimension 0x8C</code> (<code>07:4F00 JP Z,0x2719 → LD A,0x8C</code>) [C]</td></tr>
+<tr><td><code>_IncLstSize</code></td><td><code>07:4EF4</code></td><td>grow a list in place via <code>_InsertMem</code>; caps length at 999 (<code>0x3E7</code>), else <code>E_Dimension 0x8C</code> (<code>07:4F00 JP Z,0x2719 → LD A,0x8C</code>). <code>_InsertList</code> is the distinct sibling at <code>07:4F07</code>. [C]</td></tr>
 <tr><td><code>_DelListEl</code></td><td><code>07:4F43</code></td><td>delete element(s): <code>_HLTimes9(index)</code> to size the gap (×2 if complex, <code>&amp; 0x1F == 0x0D</code>), then <code>_DelMem</code> via a cross-page jump [C]</td></tr>
 <tr><td><code>_RedimMat</code>/<code>_ConvDim</code></td><td><code>07:4D3B</code> / <code>38:741F</code></td><td>re-dimension (shared with matrices); <code>_ConvDim</code>/<code>_ConvDim00</code> (<code>38:741F/7422</code>) coerce OP1 to a real index first [C]</td></tr>
 </tbody>
@@ -5516,8 +5535,8 @@ math. A store into an <strong>archived</strong> matrix/list unarchives to RAM fi
 Flash cannot be written in place).</li>
 <li><strong>Scratch RAM used by the algorithms</strong> (verified operands): <code>84AF</code> (current dims / i,j loop
 state), <code>84B0/84B3/84B4</code> (pivot, k, row counters), <code>84B7</code> (dims copy), <code>84D3/84D5/84D7</code>
-(data pointers + the permutation vector base), <code>8478</code>=OP1, <code>8483</code>=OP3, <code>8499</code>=OP6/type,
-<code>84AF</code>-region = the matrix-op loop frame.</li>
+(data pointers + the permutation vector base), <code>8478</code>=OP1, <code>8483</code>=OP2, <code>8499</code>=OP4,
+<code>84AF</code>=OP6 region = the matrix-op loop frame.</li>
 </ul>
 <hr>
 <h2 id="7-errors-raised-on-these-paths-c"><a class="header" href="#7-errors-raised-on-these-paths-c">7. Errors raised on these paths [C]</a></h2>
@@ -5699,7 +5718,8 @@ root-finding engine living on flash page <strong>0x39</strong>. (The Solver app�
 of the equation. Located around <code>39:468F</code>:</p>
 <ol>
 <li><code>_CkValidNum</code> (<code>ram:1E9B</code>), then <code>_MovFrOP1</code> (<code>ram:1B0C</code>) stores the current guess into
-the <strong>solve variable</strong> (named system var addressed via <code>(065B)</code>).</li>
+the <strong>solve variable</strong> (its data pointer is loaded from <code>(9306)</code>, in the expression-stack
+region — the bytes are <code>ED 5B 06 93</code> = <code>LD DE,(9306)</code>).</li>
 <li>It installs an <strong>error trap</strong> (<code>39:46D9 CALL 327F</code>; <code>RES/SET 2,(IY+7)</code>) and re-parses /
 re-evaluates the stored equation formula (page-0x39 hosts a parse/token walker at
 <code>39:327F</code> using <code>parse_advance 7248</code> / <code>parse_cur_tok 72DA</code>-style cursors, mirroring the
@@ -5792,7 +5812,7 @@ constants (<code>39:46EA</code>/<code>46E1</code>) all executed as the pseudocod
 <code>P/Y</code>, <code>C/Y</code>, and the PMT:END/BEGIN flag) lives on flash page <strong>0x3A</strong>. Each variable is a
 named system FP var; the routine loads them via small accessors:</p>
 <ul>
-<li><code>3A:7F02</code> loads the var named at <code>(D35B)</code>, <code>3A:7F0F</code> the one at <code>(D55B)</code>, etc.
+<li><code>3A:7F02</code> loads the pointer at <code>(84D3)</code> (<code>iMathPtr1</code>; <code>ED 5B D3 84</code> = <code>LD DE,(84D3)</code>), <code>3A:7F0F</code> the one at <code>(84D5)</code> (<code>iMathPtr2</code>), etc.
 (<code>(D?5B)</code> are the finance sysvar VAT slots). <code>(84D3)</code>=<code>iMathPtr1</code>, <code>(84D9)</code>=<code>iMathPtr4</code>,
 <code>(84AF)</code>=OP6, <code>(84D3)</code>/<code>(84D9)</code>/<code>(84D3)</code> hold the iteration state. <strong>[confirmed]</strong></li>
 </ul>
@@ -5858,7 +5878,7 @@ Ghidra function <code>fnint_body</code> at <code>33:4D00</code> (extent <code>33
 <ul>
 <li>builds interval midpoints and half-widths: <code>_FPSub</code> (<code>2297</code>), <code>_TimesPt5</code> (<code>2382</code>, ×0.5),
 <code>_FPDiv</code> (<code>2541</code>). The bytes at <code>33:4D18</code> are <strong>executable code</strong> — <code>33:4D18 21 83 84</code>
-(<code>LD HL,0x8483</code>), <code>33:4D1B 3E 60</code> (<code>LD A,0x60</code>), <code>33:4D1D CD 65 1B</code> (<code>CALL _OP2SetA</code>/<code>1B65</code>) — loading the
+(<code>LD HL,0x8483</code>), <code>33:4D1B 3E 60</code> (<code>LD A,0x60</code>), <code>33:4D1D CD 65 1B</code> (<code>CALL fp_set_digit</code> <code>1B65</code>; not <code>_OP2SetA</code>, whose body is <code>1B24</code>) — loading the
 scalar <strong>0x60 = 96</strong>
 (a working digit/scale count), not a quadrature weight. <strong>[confirmed bytes]</strong></li>
 <li>maintains a working set of partial sums in an <strong>FPS frame</strong> (<code>_AllocFPS 1534</code>,
@@ -5943,7 +5963,7 @@ in the Ghidra database — the mark of a generic paged call rather than an inlin
 </code></pre>
 <p>TVM / finance solver (page 0x3A):</p>
 <pre><code>3A:70A2  tvm_solve_iterate          (Newton on I%, 64-iter FPS-framed loop)
-3A:7F02  tvm_load_var_D35B          3A:7F0F  tvm_load_var_D55B   (finance var accessors)
+3A:7F02  tvm_load_var (iMathPtr1)   3A:7F0F  tvm_load_var (iMathPtr2)   (finance var accessors)
 3A:7206  -&gt;ITERATIONS(0x99)
 </code></pre>
 <p>Numeric calculus (page 0x33):</p>
@@ -5987,7 +6007,7 @@ Parser entries (page 0x38): <code>_ParseInp 5987</code>, <code>parse_eval_expr 5
 weight table</strong>; its sole FP constant is <code>ln(10)·100</code> at <code>33:4E92</code>, used (with bcall <code>_LnX</code>)
 to convert digit-tolerance to a decimal error bound. With explicit ×0.5 interval bisection
 and a coarse-vs-fine estimate comparison, it is an <strong>adaptive Newton–Cotes / Simpson-class
-bisection</strong> integrator. <code>33:4D1B</code> is executable code (<code>LD A,0x60; _OP2SetA</code>).</li>
+bisection</strong> integrator. <code>33:4D1B</code> is executable code (<code>LD A,0x60; CALL fp_set_digit</code>).</li>
 <li><strong>TVM <code>_SinH</code> (id 0x40CF) — resolved (§2.3).</strong> The TVM rate loop calls <code>_SinH</code> at
 <code>3A:710B</code> (<code>0x40C6/0x40CF/0x40ED</code> are three distinct hyperbolic bcalls); it evaluates the
 annuity / compound factor in hyperbolic form for numerical stability at small rates.</li>
@@ -6210,9 +6230,11 @@ running-X slot:</p>
 <pre><code class="language-z80">05:7751  LD HL,0x92B3 (TblMin) ; LD DE,0x862B ; JP 0x1A92   ; running-X (0x862B) ← TblMin
 </code></pre>
 <p>i.e. the first row’s independent value is <strong>TblStart</strong>. A working float at
-<code>0x8622</code>/<code>0x862B</code> holds the current row’s X. The “advance to next row” step
-(<code>05:65DC</code>) adds <strong>TblStep</strong> to it:</p>
-<pre><code class="language-z80">05:65DC  … LD HL,(table indices) … CALL 0x6D67 (advance) …
+<code>0x8622</code>/<code>0x862B</code> holds the current row’s X. The row index is bounds-checked at
+<code>05:65DC</code> (<code>LD A,(0x91E0); LD HL,0x91DC; CP (HL); RET</code> — current row vs the last
+row), and the per-row X is computed as <code>TblStart + k·TblStep</code> rather than by an
+incremental add:</p>
+<pre><code class="language-z80">05:65DC  LD A,(0x91E0) ; LD HL,0x91DC ; CP (HL) ; RET   ; row-index bound check
 05:6359  LD A,(0x91DD) … LD DE,0x9221 / 0x91E2 (cell buffers)
          LD HL,(0x91DC /* row idx */) ; ADD ; CALL _LdHLind ; ADD HL,DE
 </code></pre>
@@ -6283,7 +6305,7 @@ columns, drawn with the large font through the home-screen text primitives
            LD DE,(0x9192 YOutDat) ; the Y-column value pointer
            CP 2 / CP 5            ; column-kind dispatch (X col vs Y col vs input)
            CALL 0x7E7C ; CALL 0x7E98   ; render the cached value into the cell
-           CALL 0x65DC            ; advance running-X (= +TblStep) for next row
+           CALL 0x65DC            ; row-index bound check (current row vs last)
            INC row ; … ; LD (0x91DC),A
 </code></pre>
 <p><code>05:7E7C</code> chooses the destination text buffer (<code>0x9221</code> vs <code>0x91E2</code>) based on the
@@ -6309,7 +6331,7 @@ next TABLE view to recompute:</p>
 <tr><td><code>02:7B35</code> bytes</td><td>editing <strong>TblStart/ΔTbl/Indpnt/Depend</strong> in TBLSET</td></tr>
 <tr><td><code>37:5F3D</code></td><td>toggling Indpnt or Depend on the setup screen</td></tr>
 <tr><td><code>38:6340</code>, <code>38:4809</code>, <code>38:54CD</code></td><td>the <strong>parser</strong> storing into a Y= equation or a relevant var (editing <code>Y1=…</code>, <code>→Y1</code>, or changing <code>X</code>/window)</td></tr>
-<tr><td><code>00:4105</code></td><td>boot / reset (<code>RAM clear</code>) initialises the table as dirty</td></tr>
+<tr><td>boot / reset (<code>RAM clear</code>)</td><td>initialises the table as dirty (<code>reTable</code> set); the exact init site is not pinned here (<code>00:4105</code> is the “Resetting All…” message string, not the setter)</td></tr>
 </tbody>
 </table>
 </div>
@@ -6334,7 +6356,7 @@ equation list at <code>iMathPtr4</code> (0x84D9) — here only <code>Y1</code>,<
 <li>per row: <code>_StoX</code> the running-X, evaluate <code>Y1</code>’s tokens via the page-38
 evaluator (<code>_Find_Parse_Formula</code> / <code>_ParseInp</code>) → OP1 = <code>X²+1</code>, format and
 stash into the cell cache (<code>0x91E2</code>/<code>0x9221</code>),</li>
-<li>advance running-X by <code>TblStep</code> (<code>05:65DC</code>) and repeat,</li>
+<li>advance to the next row (bound-checked at <code>05:65DC</code>; X = <code>TblStart + k·TblStep</code>) and repeat,</li>
 <li>clear <code>reTable</code>.</li>
 </ul>
 </li>
@@ -6360,7 +6382,7 @@ page_05:5d0d  table_editor_main                ; reTable? recompute : use cache;
 page_05:5dd7  table_recompute                  ; seed X, fill cache, clear reTable
 page_05:774b  table_seed_runX_from_TblMin      ; runningX(0x862B) ← TblMin
 page_05:773f  table_seed_runX_from_TblMin2     ; same, split-graph path
-page_05:65dc  table_next_X                     ; runningX += TblStep
+page_05:65dc  table_row_bound                   ; row-index bound check (91E0 vs (91DC))
 page_05:5ee1  table_fill_cache_loop            ; per-row value-cache fill (0x91E2)
 page_05:6014  table_scroll_cache               ; slide cell cache on scroll (LDIR/LDDR)
 page_05:6d40  table_mode_test                  ; BIT autoFill/autoCalc (Auto vs Ask)
@@ -6393,7 +6415,7 @@ page_33:5023  _GraphParseTok                   ; pre-scan equation tokens (graph
 
 ; --- reTable (dirty) setters ---
 page_38:6340 / 38:4809 / 38:54cd  parser sets reTable on Y=/var edit
-page_00:4105  boot sets reTable
+(boot/RAM-clear)  sets reTable (init site not pinned; 00:4105 is a message string)
 </code></pre>
 <hr>
 <h2 id="7-confidence-summary--open-items"><a class="header" href="#7-confidence-summary--open-items">7. Confidence summary / open items</a></h2>
@@ -6583,9 +6605,11 @@ the final MathPrint operator form. [confirmed]</p>
     uint16_t cell_pointer;  /* pointer to descriptor cells */
 } EqDispTemplateDescriptor;
 </code></pre>
-<p>The mapper at <code>39:683D</code> converts a descriptor cell to pixels:</p>
-<p>$$x = \mathit{base}_x + 7 \cdot \mathit{col}$$</p>
-<p>$$y = \mathit{base}_y + \mathit{row} \cdot (\mathit{rowHeight} + 2)$$</p>
+<p>The mapper at <code>39:683D</code> converts a descriptor cell to pixels. The <code>+7</code> loop (<code>DEC B; ADD A,7</code>)
+builds the <strong>high</strong> byte and the <code>+(rowHeight+2)</code> loop builds the <strong>low</strong> byte; the caller stores
+<code>HL</code> to <code>penCol</code>(<code>0x86D7</code>, low→x) / <code>penRow</code>(<code>0x86D8</code>, high→y), so the two products land as:</p>
+<p>$$x\ (\mathit{penCol}) = \mathit{base}_x + \mathit{row} \cdot (\mathit{rowHeight} + 2)$$</p>
+<p>$$y\ (\mathit{penRow}) = \mathit{base}_y + 7 \cdot \mathit{col}$$</p>
 <p>The known descriptors are:</p>
 <div class="table-wrapper">
 <table>
@@ -6808,7 +6832,7 @@ measured-fraction path calls <code>eqdisp_draw_box_jp</code> with <code>0x85EE</
 endpoint helper <code>39:6B1C</code> are named <code>eqdisp_decr_counters</code> /
 <code>eqdisp_advance_col6</code> in the symbol table, and the Ghidra <em>decompiler</em>
 mis-analyzes both (it shows bare decrement loops). The raw disassembly matches
-this page instead: <code>683D</code> does <code>A = base; loop: add a,7</code> (<code>x = base_x + 7·col</code>)
+this page instead: <code>683D</code> does <code>A = base; loop: add a,7</code> into the <strong>high</strong> byte (<code>y = base_y + 7·col</code> → <code>penRow</code>)
 and <code>6B1C</code> does <code>ld a,1Bh; … add a,7 (×n); add a,4</code> (<code>x_left = 0x1B + 7n</code>,
 <code>x_right = x_left + 4</code>). Trust <code>z80dasm</code> over the decompiler for these tight
 register-passing routines, as <a href="https://github.com/siraben/ti84p-re/blob/main/README.md">the README</a> advises. [confirmed]</p>
@@ -6999,9 +7023,9 @@ stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience
 </code></pre>
 <p>On the <strong>receive</strong> side the matching check is <code>6356</code>: after streaming the payload it compares the
 accumulated checksum <code>8678</code> against the received 16-bit checksum; on mismatch it sends a <strong>0x5A ERR
-packet</strong> (<code>6385: LD H,0x5A ; CALL 419B</code>) and raises <code>_JErrorNo</code>. The ACK-builder <code>42FB</code> echoes the
-peer’s saved header (<code>868B bakHeader</code>), forces command = <strong>0x56</strong>, length = 0, sends it, then
-<code>_Mov9B</code> restores the header.</p>
+packet</strong> (<code>6385: LD H,0x5A ; CALL 419B</code>) and raises <code>_JErrorNo</code>. The ACK-builder <code>42FB</code> saves the
+caller’s header to <code>868B bakHeader</code>, then builds an ACK with a <strong>fresh local</strong> machine-ID (<code>CALL 620A</code>),
+command = <strong>0x56</strong>, length = 0, sends it, and <code>_Mov9B</code> restores the saved header.</p>
 <hr>
 <h2 id="4-receive-data-payload--4292-c"><a class="header" href="#4-receive-data-payload--4292-c">4. Receive DATA payload — <code>4292</code> [C]</a></h2>
 <p><code>4261</code>/<code>4292</code> is the data-payload receiver. It streams <code>len</code> (<code>8676</code>) bytes from <code>_RecAByteIO</code>,
@@ -7078,7 +7102,7 @@ machinery:</p>
       LD A,0x0B ; (8672)=A          ; sndRecState = request/directory
       LD A,0xC9 ; CALL 6971         ; command setup
       CALL 62B0 (clear link sub-state in 8A0B) ; SET 2,(IY+0x1B)
-      CALL 58ED (→ SET 2,(IY+0x24) ; _ChkFindSym)  ; locate the var
+      CALL 58ED (→ SET 1,(IY+0x24) ; _ChkFindSym)  ; locate the var
       JR 4EAD (shared tail with _LinkXferOP: RES 1,(IY+0x24); 2800; JP 4F3E)
 </code></pre>
 <p>Note <code>4EDD</code> physically <strong>overlaps / shares the tail</strong> (<code>4EAD</code>) with <code>_LinkXferOP</code>; they are two
@@ -7124,7 +7148,7 @@ header, <code>6994</code>/<code>6298</code> classify it.</li>
 size) at <code>867F</code>, sends it (<code>41C3</code>, cmd path), waits for <strong>CTS (0x09)</strong>.</li>
 <li><code>40DA</code> streams the <strong>DATA (0x15)</strong> payload via <code>_PagedGet</code>→<code>_SendAByte</code> (Flash-transparent),
 appends the <strong>16-bit checksum</strong>, waits for <strong>ACK (0x56)</strong>.</li>
-<li><code>_GetSysInfo</code> (<code>00:50DD</code>)-style metadata and an <strong>EOT (0x92)</strong> close the session.</li>
+<li><code>_GetSysInfo</code> (<code>07:7345</code>, id <code>0x50DD</code>)-style metadata and an <strong>EOT (0x92)</strong> close the session.</li>
 <li>Receive direction is the mirror: header in → CTS out → DATA in (buffered 16 bytes →
 RAM/Flash via <code>6AB1</code>) → checksum verify (<code>6356</code>, NAK 0x5A on error) → ACK out → VAT store (RST5).</li>
 </ol>
@@ -7148,7 +7172,7 @@ RAM/Flash via <code>6AB1</code>) → checksum verify (<code>6356</code>, NAK 0x5
 <tr><td><code>3C:4199</code></td><td><code>lnk_send_cts</code></td><td>send CTS (cmd 0x09)</td></tr>
 <tr><td><code>3C:4338</code></td><td><code>lnk_recv_header</code></td><td>receive + validate 4-byte header</td></tr>
 <tr><td><code>3C:620A</code></td><td><code>lnk_local_machine_id</code></td><td>pick local machine-ID from IY+0x1B mode</td></tr>
-<tr><td><code>3C:42FB</code></td><td><code>lnk_send_ack</code></td><td>build+send ACK (cmd 0x56) from saved header</td></tr>
+<tr><td><code>3C:42FB</code></td><td><code>lnk_send_ack</code></td><td>build+send ACK (cmd 0x56, fresh local machine-ID), restoring the saved header</td></tr>
 <tr><td><code>3C:4292</code></td><td><code>lnk_recv_data</code></td><td>receive DATA payload, 16-byte Flash batching, checksum</td></tr>
 <tr><td><code>3C:6356</code></td><td><code>lnk_verify_cksum</code></td><td>verify count vs len; NAK 0x5A on mismatch</td></tr>
 <tr><td><code>3C:6AB1</code></td><td><code>lnk_flush_block</code></td><td>flush 16-byte staging block to RAM/Flash (port 0x14)</td></tr>
@@ -7162,7 +7186,7 @@ RAM/Flash via <code>6AB1</code>) → checksum verify (<code>6356</code>, NAK 0x5
 <tr><td><code>3C:6994</code></td><td><code>lnk_recv_store</code></td><td>receive var + VAT store sequence (expects 0x09 then 0x15)</td></tr>
 <tr><td><code>00:278D</code></td><td><code>_ErrLinkXmit</code></td><td><code>_JError(0x9F)</code> E_LnkErr</td></tr>
 <tr><td><code>00:2799</code></td><td><code>_JErrorNo</code></td><td>raise current pending error (link → 0x9F)</td></tr>
-<tr><td><code>00:50DD</code></td><td><code>_GetSysInfo</code></td><td>system info reply (used in link sessions)</td></tr>
+<tr><td><code>07:7345</code></td><td><code>_GetSysInfo</code> (id <code>0x50DD</code>)</td><td>system info reply (used in link sessions)</td></tr>
 <tr><td><code>00:4A14</code></td><td><code>_SendVarCmd</code> (bcall id)</td><td>→ 3C:4EDD</td></tr>
 </tbody>
 </table>
@@ -7407,7 +7431,7 @@ mask to physical page <code>0x35</code>.</p>
 <tbody>
 <tr><td><code>50F2</code></td><td><code>_SendUSBData</code></td><td><code>35:4DD3</code></td><td>Sends from <code>HL</code> with byte count in <code>DE</code>; stores progress at <code>0x9C7E</code>/<code>0x9C81</code> and writes 64-byte chunks to port <code>0xA2</code>.</td></tr>
 <tr><td><code>50F5</code></td><td><code>_AppGetCBLUSB</code></td><td><code>3B:54C7</code></td><td>Sets <code>IY+0x1B</code> bit 1, clears bit 2, then reaches <code>_GetVarCmdUSB</code>.</td></tr>
-<tr><td><code>50F8</code></td><td><code>_AppGetCalcUSB</code></td><td><code>3B:54F0</code></td><td>Clears <code>IY+0x1B</code> bit 0 before the shared get-var path.</td></tr>
+<tr><td><code>50F8</code></td><td><code>_AppGetCalcUSB</code></td><td><code>3B:54F0</code></td><td>At <code>3B:54DE</code> clears <code>IY+0x16</code> bit 0 and sets <code>sndRecState</code>=0x15, then <code>bcall 0x50FB</code> (shared get-var path).</td></tr>
 <tr><td><code>50FB</code></td><td><code>_GetVarCmdUSB</code> / <code>_LinkXferOP</code></td><td><code>3C:4DD2</code></td><td>USB-first variable command wrapper described above.</td></tr>
 <tr><td><code>5254</code></td><td><code>_InitUSBDeviceCallback</code></td><td><code>35:4696</code></td><td>Initializes device mode, stores callback page/address at <code>0x9C13</code>/<code>0x9C14</code>, and returns <code>0xFC</code>-<code>0xFF</code> style error bytes with carry set on failure.</td></tr>
 <tr><td><code>5257</code> / <code>5311</code></td><td><code>_KillUSBDevice</code> / <code>_RecycleUSB</code></td><td><code>35:46FC</code> / <code>35:5B9B</code></td><td>Clears callback state and recycles through the same cleanup path.</td></tr>
@@ -7417,7 +7441,7 @@ mask to physical page <code>0x35</code>.</p>
 <tr><td><code>5290</code></td><td><code>_InitUSBDevice</code></td><td><code>35:42B0</code></td><td>Main controller/device initialization path; uses <code>0x4C</code>/<code>0x4D</code> line handshakes and endpoint ports <code>0x80</code>-<code>0x9B</code>.</td></tr>
 <tr><td><code>5293</code></td><td><code>_KillUSBPeripheral</code></td><td><code>35:59CF</code></td><td>Peripheral teardown; sets controller state <code>0x9C28 = 5</code> and manipulates ports <code>0x54</code>/<code>0x81</code>.</td></tr>
 <tr><td><code>530B</code></td><td><code>_ToggleUSBSmartPadInput</code></td><td><code>35:5B84</code></td><td>Sets or clears bit 3 in <code>0x9C75</code> according to <code>A == 1</code>.</td></tr>
-<tr><td><code>530E</code></td><td><code>_IsUSBDeviceConnected</code></td><td><code>35:5B92</code></td><td>Preserves <code>A</code>; returns flags from <code>IN (0x81) &amp; 0x40</code>, matching the <code>.inc</code> comment.</td></tr>
+<tr><td><code>530E</code></td><td><code>_IsUSBDeviceConnected</code></td><td><code>35:5B92</code></td><td>Preserves <code>A</code>; returns flags from <code>IN (0x81) &amp; 0x40</code> (bit 6). (The <code>.inc</code> comment guesses <code>bit 4,(81h)</code>, but the body actually masks bit 6.)</td></tr>
 </tbody>
 </table>
 </div>

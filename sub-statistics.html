@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-af8f4538.js";
+            window.path_to_searchindex_js = "searchindex-bba023a5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -234,7 +234,7 @@ system variables a student recalls by name (<code>[2nd][STAT] ▸ VARS</code>):<
 <tr><td><code>8B00</code></td><td><code>QuadC</code></td><td><code>c</code></td><td>regression coeff c</td></tr>
 <tr><td><code>8B09</code></td><td><code>CubeD</code></td><td><code>d</code></td><td>regression coeff d</td></tr>
 <tr><td><code>8B12</code></td><td><code>QuartE</code></td><td><code>e</code></td><td>regression coeff e</td></tr>
-<tr><td><code>8B1B</code>…<code>8B4E</code></td><td><code>MedX1/2/3</code>, <code>MedY1/2/3</code></td><td></td><td>Med‑Med (×3 partitions)</td></tr>
+<tr><td><code>8B1B</code>…<code>8B50</code></td><td><code>MedX1/2/3</code>, <code>MedY1/2/3</code> (<code>8B1B/8B24/8B2D/8B36/8B3F/8B48</code>)</td><td></td><td>Med‑Med (×3 partitions)</td></tr>
 </tbody>
 </table>
 </div>
@@ -244,7 +244,7 @@ system variables a student recalls by name (<code>[2nd][STAT] ▸ VARS</code>):<
 menu) and are written by the test commands, not by 1/2‑Var Stats. An ANOVA block
 <code>anovaf_vars</code> (<code>F_DF/F_SS/F_MS/E_DF/E_SS/E_MS</code>) follows.</p>
 <p><strong>STAT‑TESTS are separate command handlers [confirmed scope].</strong> <code>Z‑Test</code>/<code>T‑Test</code>/<code>χ²‑Test</code>/
-<code>2‑SampFTest</code>/<code>ANOVA(</code> etc. come in as their own 2‑byte (<code>E1</code>‑prefixed) command tokens — e.g.
+<code>2‑SampFTest</code>/<code>ANOVA(</code> etc. come in as their own 2‑byte <code>t2ByteTok</code> (<code>0xBB</code>)‑prefixed command tokens — e.g.
 <code>LinRegTTest=34h</code> noted in §3 — and are <strong>not</strong> dispatched through <code>_OneVar</code> (whose token map is
 only <code>F2</code>–<code>FF</code>, §3). They fill the <code>PStat…SStat</code>/<code>anovaf_vars</code> block above directly. No
 <code>PStat</code>/<code>ZStat</code>‑writing routine appears among the page‑0x3A <code>stat_*</code> symbols (all of which are
@@ -329,8 +329,8 @@ as a model index. From <code>ti83plus.inc</code>:</p>
 </table>
 </div>
 <p><code>CubicReg</code>/<code>QuartReg</code> come in as the regression tokens <code>tCubicR=2Eh</code>/<code>tQuartR=2Fh</code>;
-<code>SinReg=32h</code>, <code>Logistic=33h</code>, <code>LinRegTTest=34h</code> are the extended (<code>E1</code>‑prefixed)
-tokens. Degree for the polynomial solver = the model index; the coefficient
+<code>SinReg=32h</code>, <code>Logistic=33h</code>, <code>LinRegTTest=34h</code> are 2‑byte <code>t2ByteTok</code> (<code>0xBB</code>)‑prefixed
+tokens (their <code>2Eh</code>/<code>2Fh</code>/<code>32h</code>/<code>33h</code>/<code>34h</code> values are the <em>second</em> byte after <code>0xBB</code>). Degree for the polynomial solver = the model index; the coefficient
 fan‑out into <code>QuadA..QuartE</code> is naturally sized by degree. [confirmed/standard]</p>
 <p><code>SortA(</code>/<code>SortD(</code> are <strong>separate</strong> tokens (<code>tSortA=E3h</code>, <code>tSortD=E4h</code>) with their
 own command handler — not <code>_OneVar</code>. The sort used here, <code>stat_sort</code> (<code>3A:7935</code>),
@@ -377,9 +377,9 @@ power‑sums <code>Σxⁱ</code> (i = 0 … 2d) and the right‑hand side <code>
 <p><strong>Non‑polynomial regressions transform first</strong> [confirmed]: the front‑end at
 <code>658a</code>+ checks the command code and, for <code>ExpReg</code>/<code>PwrReg</code> (<code>ln y</code>),
 <code>LnReg</code>/<code>PwrReg</code> (<code>ln x</code>), pre‑applies the logarithm to each element before
-accumulating, then exponentiates the resulting linear coefficients (the
-<code>760f/75e4/79b9</code> and <code>7002/7013</code> branches call into the page‑02 <code>_LnX</code>/<code>_EToX</code>
-transcendentals — see <code>sub-calculation.md §5</code>). This is the standard
+accumulating, then exponentiates the resulting linear coefficients off page 0x3A. The
+per‑element <code>ln</code> is in the element fetch <code>stat_next_elem</code> (<code>3A:6F6A</code>): <code>LD A,(8A36); CP 4; RET NC</code> then <code>bcall _LnX</code> at <code>3A:6F72</code> for model codes <code>&lt; 4</code> (<code>ExpReg</code>/<code>LnReg</code>/<code>PwrReg</code>); the
+back‑transform <code>_EToX</code>/<code>_TenX</code> lives on page 0x02 (see <code>sub-calculation.md §5</code>). This is the standard
 “linearize, fit a line, transform back” method; <code>r</code> is the correlation of the
 <strong>transformed</strong> data.</p>
 <h3 id="4a-mean--standard-deviation-confirmed"><a class="header" href="#4a-mean--standard-deviation-confirmed">4a. Mean &amp; standard deviation [confirmed]</a></h3>
@@ -412,7 +412,9 @@ matrix <code>[ M | Σxⁱy ]</code>. <code>_OneVar</code> solves it <strong>in p
 6845: CALL 3939 (_SqRoot) ; 6849 ; CALL 2541 (_FPDiv)  ; (forms r²/r from the fit)
 684f: LD A,12 ; CALL 213d           ; r-related store/guard
 6859..6876: row-reduce all other rows (3aa7 get, 238b _FPMult, RST 30 _FPAdd)
-6880: CALL 2541 ; on a zero pivot → LD A,35/36 ; CALL 213d  (SINGULAR MAT)
+6880: CALL 2541 (_FPDiv) ; CP 2 ; LD A,0x35/0x36 ; CALL 213d  ; *** _Sto_StatVar stores into the
+                                                              ; statVar slots id 0x35/0x36 — NOT a SingularMat raise.
+                                                              ; the zero-pivot guard is the 67F7→212D path → 0x83.
 68d6..6953: back-substitution — each coeff = (rhs − Σ known·M) / pivot
    (3aa7/3aa1 matrix access, 238b _FPMult, RST 30/RST 8 accumulate,
     24bd _InvOP1S to subtract, 2541 _FPDiv)
@@ -501,7 +503,7 @@ list data (sets <code>Xmin/Xmax/Ymin/Ymax</code> from <code>minX/maxX/minY/maxY<
 <hr>
 <h2 id="9-distributions-distr-menu--not-part-of-statcalc-confirmed-scope"><a class="header" href="#9-distributions-distr-menu--not-part-of-statcalc-confirmed-scope">9. Distributions (DISTR menu) — <em>not</em> part of STAT‑CALC [confirmed scope]</a></h2>
 <p><code>normalpdf(</code>, <code>normalcdf(</code>, <code>invNorm(</code>, <code>binompdf(</code>, <code>tcdf(</code>, <code>χ²cdf(</code>, <code>Fcdf(</code>,
-etc. are <strong>parser functions</strong> (DISTR‑menu tokens, the <code>E1</code>/<code>E2</code>‑prefixed
+etc. are <strong>parser functions</strong> (DISTR‑menu tokens, the <code>t2ByteTok</code> (<code>0xBB</code>)‑prefixed
 two‑byte tokens like <code>tShadeNorm=35h</code>), evaluated through the normal function
 dispatch of the TI‑BASIC parser, <strong>not</strong> through <code>_OneVar</code>. They are not
 exposed as named bcalls in this OS image (a search of <code>bcall_targets.txt</code> finds
@@ -520,7 +522,7 @@ cores returns <strong>no</strong> <code>normalcdf</code>/<code>erf</code>/incomp
 symbol on page 0x3A is part of the <code>_OneVar</code> STAT‑CALC engine (accumulate / variance / median /
 sort / regression), not a DISTR core. So the erf / incomplete‑gamma / incomplete‑beta continued
 fractions are <strong>[I] — outside the STAT‑CALC engine</strong>, sitting behind the parser’s 2‑byte
-(<code>E1</code>/<code>E2</code>‑prefixed) DISTR‑token function table; their exact page/address is not exposed as a
+(<code>0xBB</code>‑prefixed) DISTR‑token function table; their exact page/address is not exposed as a
 named routine in this DB. [confirmed scope; address [I]]</p>
 <hr>
 <h2 id="10-integration-summary"><a class="header" href="#10-integration-summary">10. Integration summary</a></h2>

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-af8f4538.js";
+            window.path_to_searchindex_js = "searchindex-bba023a5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -381,9 +381,11 @@ running-X slot:</p>
 <pre><code class="language-z80">05:7751  LD HL,0x92B3 (TblMin) ; LD DE,0x862B ; JP 0x1A92   ; running-X (0x862B) ← TblMin
 </code></pre>
 <p>i.e. the first row’s independent value is <strong>TblStart</strong>. A working float at
-<code>0x8622</code>/<code>0x862B</code> holds the current row’s X. The “advance to next row” step
-(<code>05:65DC</code>) adds <strong>TblStep</strong> to it:</p>
-<pre><code class="language-z80">05:65DC  … LD HL,(table indices) … CALL 0x6D67 (advance) …
+<code>0x8622</code>/<code>0x862B</code> holds the current row’s X. The row index is bounds-checked at
+<code>05:65DC</code> (<code>LD A,(0x91E0); LD HL,0x91DC; CP (HL); RET</code> — current row vs the last
+row), and the per-row X is computed as <code>TblStart + k·TblStep</code> rather than by an
+incremental add:</p>
+<pre><code class="language-z80">05:65DC  LD A,(0x91E0) ; LD HL,0x91DC ; CP (HL) ; RET   ; row-index bound check
 05:6359  LD A,(0x91DD) … LD DE,0x9221 / 0x91E2 (cell buffers)
          LD HL,(0x91DC /* row idx */) ; ADD ; CALL _LdHLind ; ADD HL,DE
 </code></pre>
@@ -454,7 +456,7 @@ columns, drawn with the large font through the home-screen text primitives
            LD DE,(0x9192 YOutDat) ; the Y-column value pointer
            CP 2 / CP 5            ; column-kind dispatch (X col vs Y col vs input)
            CALL 0x7E7C ; CALL 0x7E98   ; render the cached value into the cell
-           CALL 0x65DC            ; advance running-X (= +TblStep) for next row
+           CALL 0x65DC            ; row-index bound check (current row vs last)
            INC row ; … ; LD (0x91DC),A
 </code></pre>
 <p><code>05:7E7C</code> chooses the destination text buffer (<code>0x9221</code> vs <code>0x91E2</code>) based on the
@@ -480,7 +482,7 @@ next TABLE view to recompute:</p>
 <tr><td><code>02:7B35</code> bytes</td><td>editing <strong>TblStart/ΔTbl/Indpnt/Depend</strong> in TBLSET</td></tr>
 <tr><td><code>37:5F3D</code></td><td>toggling Indpnt or Depend on the setup screen</td></tr>
 <tr><td><code>38:6340</code>, <code>38:4809</code>, <code>38:54CD</code></td><td>the <strong>parser</strong> storing into a Y= equation or a relevant var (editing <code>Y1=…</code>, <code>→Y1</code>, or changing <code>X</code>/window)</td></tr>
-<tr><td><code>00:4105</code></td><td>boot / reset (<code>RAM clear</code>) initialises the table as dirty</td></tr>
+<tr><td>boot / reset (<code>RAM clear</code>)</td><td>initialises the table as dirty (<code>reTable</code> set); the exact init site is not pinned here (<code>00:4105</code> is the “Resetting All…” message string, not the setter)</td></tr>
 </tbody>
 </table>
 </div>
@@ -505,7 +507,7 @@ equation list at <code>iMathPtr4</code> (0x84D9) — here only <code>Y1</code>,<
 <li>per row: <code>_StoX</code> the running-X, evaluate <code>Y1</code>’s tokens via the page-38
 evaluator (<code>_Find_Parse_Formula</code> / <code>_ParseInp</code>) → OP1 = <code>X²+1</code>, format and
 stash into the cell cache (<code>0x91E2</code>/<code>0x9221</code>),</li>
-<li>advance running-X by <code>TblStep</code> (<code>05:65DC</code>) and repeat,</li>
+<li>advance to the next row (bound-checked at <code>05:65DC</code>; X = <code>TblStart + k·TblStep</code>) and repeat,</li>
 <li>clear <code>reTable</code>.</li>
 </ul>
 </li>
@@ -531,7 +533,7 @@ page_05:5d0d  table_editor_main                ; reTable? recompute : use cache;
 page_05:5dd7  table_recompute                  ; seed X, fill cache, clear reTable
 page_05:774b  table_seed_runX_from_TblMin      ; runningX(0x862B) ← TblMin
 page_05:773f  table_seed_runX_from_TblMin2     ; same, split-graph path
-page_05:65dc  table_next_X                     ; runningX += TblStep
+page_05:65dc  table_row_bound                   ; row-index bound check (91E0 vs (91DC))
 page_05:5ee1  table_fill_cache_loop            ; per-row value-cache fill (0x91E2)
 page_05:6014  table_scroll_cache               ; slide cell cache on scroll (LDIR/LDDR)
 page_05:6d40  table_mode_test                  ; BIT autoFill/autoCalc (Auto vs Ask)
@@ -564,7 +566,7 @@ page_33:5023  _GraphParseTok                   ; pre-scan equation tokens (graph
 
 ; --- reTable (dirty) setters ---
 page_38:6340 / 38:4809 / 38:54cd  parser sets reTable on Y=/var edit
-page_00:4105  boot sets reTable
+(boot/RAM-clear)  sets reTable (init site not pinned; 00:4105 is a message string)
 </code></pre>
 <hr>
 <h2 id="7-confidence-summary--open-items"><a class="header" href="#7-confidence-summary--open-items">7. Confidence summary / open items</a></h2>

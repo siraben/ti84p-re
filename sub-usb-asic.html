@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-af8f4538.js";
+            window.path_to_searchindex_js = "searchindex-bba023a5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -399,7 +399,7 @@ mask to physical page <code>0x35</code>.</p>
 <tbody>
 <tr><td><code>50F2</code></td><td><code>_SendUSBData</code></td><td><code>35:4DD3</code></td><td>Sends from <code>HL</code> with byte count in <code>DE</code>; stores progress at <code>0x9C7E</code>/<code>0x9C81</code> and writes 64-byte chunks to port <code>0xA2</code>.</td></tr>
 <tr><td><code>50F5</code></td><td><code>_AppGetCBLUSB</code></td><td><code>3B:54C7</code></td><td>Sets <code>IY+0x1B</code> bit 1, clears bit 2, then reaches <code>_GetVarCmdUSB</code>.</td></tr>
-<tr><td><code>50F8</code></td><td><code>_AppGetCalcUSB</code></td><td><code>3B:54F0</code></td><td>Clears <code>IY+0x1B</code> bit 0 before the shared get-var path.</td></tr>
+<tr><td><code>50F8</code></td><td><code>_AppGetCalcUSB</code></td><td><code>3B:54F0</code></td><td>At <code>3B:54DE</code> clears <code>IY+0x16</code> bit 0 and sets <code>sndRecState</code>=0x15, then <code>bcall 0x50FB</code> (shared get-var path).</td></tr>
 <tr><td><code>50FB</code></td><td><code>_GetVarCmdUSB</code> / <code>_LinkXferOP</code></td><td><code>3C:4DD2</code></td><td>USB-first variable command wrapper described above.</td></tr>
 <tr><td><code>5254</code></td><td><code>_InitUSBDeviceCallback</code></td><td><code>35:4696</code></td><td>Initializes device mode, stores callback page/address at <code>0x9C13</code>/<code>0x9C14</code>, and returns <code>0xFC</code>-<code>0xFF</code> style error bytes with carry set on failure.</td></tr>
 <tr><td><code>5257</code> / <code>5311</code></td><td><code>_KillUSBDevice</code> / <code>_RecycleUSB</code></td><td><code>35:46FC</code> / <code>35:5B9B</code></td><td>Clears callback state and recycles through the same cleanup path.</td></tr>
@@ -409,7 +409,7 @@ mask to physical page <code>0x35</code>.</p>
 <tr><td><code>5290</code></td><td><code>_InitUSBDevice</code></td><td><code>35:42B0</code></td><td>Main controller/device initialization path; uses <code>0x4C</code>/<code>0x4D</code> line handshakes and endpoint ports <code>0x80</code>-<code>0x9B</code>.</td></tr>
 <tr><td><code>5293</code></td><td><code>_KillUSBPeripheral</code></td><td><code>35:59CF</code></td><td>Peripheral teardown; sets controller state <code>0x9C28 = 5</code> and manipulates ports <code>0x54</code>/<code>0x81</code>.</td></tr>
 <tr><td><code>530B</code></td><td><code>_ToggleUSBSmartPadInput</code></td><td><code>35:5B84</code></td><td>Sets or clears bit 3 in <code>0x9C75</code> according to <code>A == 1</code>.</td></tr>
-<tr><td><code>530E</code></td><td><code>_IsUSBDeviceConnected</code></td><td><code>35:5B92</code></td><td>Preserves <code>A</code>; returns flags from <code>IN (0x81) &amp; 0x40</code>, matching the <code>.inc</code> comment.</td></tr>
+<tr><td><code>530E</code></td><td><code>_IsUSBDeviceConnected</code></td><td><code>35:5B92</code></td><td>Preserves <code>A</code>; returns flags from <code>IN (0x81) &amp; 0x40</code> (bit 6). (The <code>.inc</code> comment guesses <code>bit 4,(81h)</code>, but the body actually masks bit 6.)</td></tr>
 </tbody>
 </table>
 </div>

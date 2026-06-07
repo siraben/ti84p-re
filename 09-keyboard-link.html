@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-af8f4538.js";
+            window.path_to_searchindex_js = "searchindex-bba023a5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -187,13 +187,16 @@
 <p>The keypad is a matrix read through <strong>port 1</strong> (<code>port_keypad</code>): write a group-select mask, read back the active columns. The <strong>interrupt</strong> triggers periodic scans; the result is debounced into <code>kbdScanCode</code> (<code>0x843F</code>).</p>
 <ul>
 <li><code>_GetCSC</code> (<code>00:04B2</code>) — “Get Cursor/Scan Code”: with interrupts masked, returns <code>kbdScanCode</code> and clears it (one key per call, no repeat). Raw scan codes (<code>skXxx</code>). <strong>[confirmed]</strong></li>
-<li><code>_GetKey</code> (<code>06:491E</code>) — the cooked key API: blocks, handles <strong>2nd/ALPHA</strong> modifier state, key repeat, and APD; returns a <code>TIKeyCode</code> (<code>kXxx</code>, 642 values). Also runs the cursor blink. Drives menus/homescreen. <strong>[confirmed entry; body large]</strong></li>
+<li><code>_GetKey</code> (<code>06:491E</code>) — the cooked key API: blocks, handles <strong>2nd/ALPHA</strong> modifier state, key repeat, and APD; returns a <code>TIKeyCode</code> (<code>kXxx</code>; a single byte, ~255 distinct values exposed under many named aliases). Also runs the cursor blink. Drives menus/homescreen. <strong>[confirmed entry; body large]</strong></li>
 <li><code>_KeyToString</code> (<code>01:6D10</code>) — map a key code to its display token/string (for text entry).</li>
 </ul>
 <p>Scan codes (<code>skEnter</code>, hardware matrix position) differ from key codes (<code>kEnter</code>=5, post-modifier). <code>_GetCSC</code> returns the former; <code>_GetKey</code> the latter.</p>
 <h3 id="matrix-scan--port-1-group-masks-confirmed-from-disassembly"><a class="header" href="#matrix-scan--port-1-group-masks-confirmed-from-disassembly">Matrix scan — port 1 group masks [confirmed from disassembly]</a></h3>
 <p>The low-level read primitive is <code>kbd_reset_port</code> (<code>ram:0480</code>): it writes a <strong>group-select mask</strong> to <strong>port 1</strong> (active-low — <code>0</code> bits select rows to drive), waits 4 <code>NOP</code>s for the lines to settle, reads the column bits back, then writes <code>0xFF</code> to release. (On 84+ hardware, <code>IN A,(0x02) bit7</code> + <code>IN A,(0x20)</code> gate the read against link/clock activity first.)</p>
-<pre><code class="language-z80">0480: IN A,(0x2) ; AND 0x80          ; 84+ present? (else fall straight through)
+<pre><code class="language-z80">0480: PUSH AF                         ; save the group-select mask
+0481: IN A,(0x2) ; AND 0x80           ; 84+ present?
+0485: JR NZ,0x0497                    ; 84+: gate the read on link/clock first (IN A,(0x20))
+0487: POP AF                          ; restore the group-select mask
 0488: OUT (0x1),A                     ; A = group-select mask (active-low)
 048a: NOP×4                           ; let the matrix settle
 048e: IN A,(0x1) ; LD B,A             ; read columns (active-low: 0 = key down)
@@ -207,7 +210,7 @@
 <tr><th>port-1 mask (<code>C</code>)</th><th>group / key row driven</th></tr>
 </thead>
 <tbody>
-<tr><td><code>0xFE</code> (bit0 low)</td><td>group 0 — <strong>GRAPH / arrow keys</strong> (and the special <code>0xF5/0xF3/0xFA/0xFC</code> direction codes)</td></tr>
+<tr><td><code>0xFE</code> (bit0 low)</td><td>group 0 — <strong>arrow keys</strong> (<code>skDown</code>/<code>skLeft</code>/<code>skRight</code>/<code>skUp</code> = <code>0x01</code>–<code>0x04</code>; the special <code>0xF5/0xF3/0xFA/0xFC</code> direction codes). GRAPH is in group 6 (<code>skGraph</code>=<code>0x31</code>), not here.</td></tr>
 <tr><td><code>0xFD</code> (bit1 low)</td><td>group 1</td></tr>
 <tr><td><code>0xFB</code> (bit2 low)</td><td>group 2</td></tr>
 <tr><td><code>0xF7</code> (bit3 low)</td><td>group 3</td></tr>
@@ -220,7 +223,7 @@
 </tbody>
 </table>
 </div>
-<p><strong>Forming a raw scan code.</strong> For each driven group the routine reads the column byte, then finds the single low (pressed) column bit by an 8-iteration <code>RLA</code>/<code>DJNZ</code> loop (<code>0435</code>–<code>043C</code>) that counts the <strong>cleared</strong> (pressed, active-low) column bits into <code>E</code> (<code>RLA</code> → <code>JR C</code> skips <code>INC E</code> on a <code>1</code> bit, so only <code>0</code> bits are counted) and records the bit index in <code>L</code>. If exactly one key is down it builds the scan code as <strong><code>group × 8 + column_index</code></strong>, where <code>group</code> is the 0-based group from the table above. The code forms it at <code>0453: DEC A; RLA;RLA;RLA; ADD A,L</code>: the iteration counter in <code>A</code> is 1-based, so <code>DEC A</code> converts it to the 0-based <code>group</code>, the three <code>RLA</code>s multiply by 8, and <code>ADD A,L</code> adds the column index in <code>L</code>; it then returns the byte. multiple simultaneous keys set carry (<code>SCF</code> @ <code>0459</code>) so the press is rejected (debounce / ghost-key reject). The single resulting byte is the raw scan code that lands in <code>kbdScanCode</code> (<code>0x843F</code>), which <code>_GetCSC</code> (<code>00:04B2</code>) then reads-and-clears under <code>DI</code>. The scan-enable gate <code>BIT 0,(IY+0x2C)</code> @ <code>0415</code> lets the ISR/<code>_GetKey</code> path special-case the arrow group.</p>
+<p><strong>Forming a raw scan code.</strong> For each driven group the routine reads the column byte, then finds the single low (pressed) column bit by an 8-iteration <code>RLA</code>/<code>DJNZ</code> loop (<code>0435</code>–<code>043C</code>) that counts the <strong>cleared</strong> (pressed, active-low) column bits into <code>E</code> (<code>RLA</code> → <code>JR C</code> skips <code>INC E</code> on a <code>1</code> bit, so only <code>0</code> bits are counted) and records the <strong>1-based column position</strong> (the loop counter <code>B</code>, which runs <code>8→1</code>) in <code>L</code>. If exactly one key is down it builds the scan code as <strong><code>group × 8 + L</code></strong> (<code>L</code> = <code>1…8</code>, the pressed column’s bit index plus one), where <code>group</code> is the 0-based group from the table above. The code forms it at <code>0453: DEC A; RLA;RLA;RLA; ADD A,L</code>: the iteration counter in <code>A</code> is 1-based, so <code>DEC A</code> converts it to the 0-based <code>group</code>, the three <code>RLA</code>s multiply by 8, and <code>ADD A,L</code> adds the 1-based column position in <code>L</code>; it then returns the byte. multiple simultaneous keys set carry (<code>SCF</code> @ <code>0459</code>) so the press is rejected (debounce / ghost-key reject). The single resulting byte is the raw scan code that lands in <code>kbdScanCode</code> (<code>0x843F</code>), which <code>_GetCSC</code> (<code>00:04B2</code>) then reads-and-clears under <code>DI</code>. The scan-enable gate <code>BIT 0,(IY+0x2C)</code> @ <code>0415</code> lets the ISR/<code>_GetKey</code> path special-case the arrow group.</p>
 <h3 id="2nd--alpha-modifier-state-machine-confirmed"><a class="header" href="#2nd--alpha-modifier-state-machine-confirmed">2nd / ALPHA modifier state machine [confirmed]</a></h3>
 <p>While cooking raw scan codes into the <code>kXxx</code> key constants, <code>_GetKey</code> (<code>06:491E</code>) runs a small modifier state machine in <strong><code>shiftFlags</code></strong> (<code>IY+0x12</code> = <code>0x8A02</code>, the <code>[2nd]</code>/<code>[ALPHA]</code> flag byte):</p>
 <div class="table-wrapper">
@@ -248,7 +251,7 @@
 <li><strong><code>[ALPHA]</code> while already in alpha</strong> (<code>06:4BFD</code>) → in a lowercase-capable context (<code>IY+0x24</code> bit 3) and still uppercase, <code>SET shiftLwrAlph</code> (<code>06:4C0D</code>) cycles <strong>upper → lower</strong>; otherwise it cancels alpha. Repeated <code>[ALPHA]</code> walks uppercase → lowercase → off.</li>
 <li><strong><code>[2nd]</code> while in alpha</strong> (<code>06:4C1D</code>) → <code>SET shift2nd</code> (<code>06:4C25</code>): a 2nd press stacks on top of alpha (alpha is retained).</li>
 </ul>
-<p><code>shift2nd</code> clears the moment a 2nd-combo key is consumed (<code>06:4B87</code>), and the IM1 timer ISR also clears it at <code>ram:01E0</code> (<code>RES 3,(IY+0x12)</code>), so a pending <code>[2nd]</code> does not linger. <code>_GetKey</code> sets <code>shiftAlpha</code> and (on 2nd+ALPHA) <code>shiftALock</code> but reads neither to clear alpha — within <code>_GetKey</code>, alpha stays set until a later <code>[ALPHA]</code> press cancels it. The one-shot-versus-lock choice is left to the consuming editor, which reads <code>shiftALock</code> (bit 6) to decide whether to drop <code>shiftAlpha</code> after a single character.</p>
+<p><code>shift2nd</code> clears the moment a 2nd-combo key is consumed (<code>06:4B87</code>), and the IM1 timer ISR also clears it at <code>ram:01E0</code> (<code>RES 3,(IY+0x12)</code>), so a pending <code>[2nd]</code> does not linger. <code>_GetKey</code> makes alpha <strong>one-shot</strong> itself: after an alpha-mode key is consumed it calls the page-0 helper <code>ram:04BF</code>, which clears <code>shiftAlpha</code> (<code>RES 4,(IY+0x12)</code>) <strong>unless</strong> <code>shiftALock</code> (bit 6) or <code>shiftKeepAlph</code> (bit 7) is set (<code>BIT 6 → RET NZ; BIT 7 → RET NZ; RES 4</code>). So a plain <code>[ALPHA]</code> shifts only the next key, while <code>[2nd]</code>+<code>[ALPHA]</code> — which sets <code>shiftALock</code> — keeps alpha across keys until a later <code>[ALPHA]</code> cancels it.</p>
 <pre class="mermaid">stateDiagram-v2
     [*] --&gt; Idle
     Idle --&gt; Second: 2nd, SET b3 @4AD5
@@ -256,14 +259,14 @@
     Second --&gt; Idle: any key, 2nd-shifted then RES b3 @4B87
     Second --&gt; AlphaLock: ALPHA, SET b6 @4B96 + b4 @4B9A
     Idle --&gt; Alpha: ALPHA, SET b4 + RES b5 @4AE8
-    Alpha --&gt; Alpha: letter, alpha code, b4 stays
+    Alpha --&gt; Idle: letter, alpha code, then RES b4 @04BF (one-shot)
     Alpha --&gt; AlphaLower: ALPHA, SET b5 @4C0D
     AlphaLower --&gt; Idle: ALPHA, cancel @4C13
     AlphaLock --&gt; AlphaLock: letter, alpha code, locked
     AlphaLock --&gt; Idle: ALPHA, cancel
     Alpha --&gt; AlphaSecond: 2nd, SET b3 @4C25
     AlphaLock --&gt; AlphaSecond: 2nd, SET b3 @4C25
-    AlphaSecond --&gt; Alpha: key, 2nd-shifted, RES b3 (b6 clear)
+    AlphaSecond --&gt; Idle: key, 2nd-shifted, RES b3, RES b4 @04BF (b6 clear)
     AlphaSecond --&gt; AlphaLock: key, 2nd-shifted, RES b3 (b6 set)
 </pre>
 
@@ -280,9 +283,9 @@
 <p><code>_SendAByte</code> (<code>3C:420D</code>) shows both paths <strong>[confirmed]</strong>:</p>
 <ul>
 <li><strong>Hardware-assisted</strong> (when enabled): poll status <code>port 0x09</code> bit 5 (ready), then write the byte to <code>port 0x0D</code>; helper routines on page 3C manage the assist FIFO/timing.</li>
-<li><strong>Legacy bit-bang</strong>: to send a bit, pull one line low (<code>port_link = 1</code> for a 0-bit, <code>2</code> for a 1-bit), wait for the receiver to mirror it, release, wait for idle — with a timeout that raises <code>E_LnkErr</code> (<code>0x9F</code>, “ERR:LINK”) via <code>_JErrorNo</code> on failure (matching <a href="sub-link-transfer.html">sub-link-transfer.md</a>). Repeats per bit of the byte.</li>
+<li><strong>Legacy bit-bang</strong>: to send a bit, pull one line low (write <code>1</code> to <code>port_link</code> for a 0-bit, <code>2</code> for a 1-bit), wait for the receiver to mirror it, release, wait for idle — with a timeout that raises <code>E_LnkErr</code> (<code>0x9F</code>, “ERR:LINK”) via <code>_JErrorNo</code> on failure (matching <a href="sub-link-transfer.html">sub-link-transfer.md</a>). Repeats per bit of the byte.</li>
 </ul>
-<p><code>_RecAByteIO</code> (<code>3C:443F</code>) is the matching receive. Higher-level link commands (<code>_CmdLoad</code>, variable transfer, plus screen-shot / remote-control commands) sit on top. (Note: the names <code>_CircCmd</code>/<code>_VertCmd</code> are documented in <a href="sub-graphing.html">sub-graphing.md</a> as the graphing draw commands <code>Circle(</code> (<code>33:74CE</code>) and <code>Vertical</code> (<code>04:7955</code>); the link-layer command routines referenced here are distinct and were not separately traced — treat this as a [hypothesis].)</p>
+<p><code>_RecAByteIO</code> (<code>3C:443F</code>) is the matching receive. Higher-level link commands (<code>_SendCmd</code> (bcall <code>4F3F</code>), variable transfer, plus screen-shot / remote-control commands) sit on top. (Note: the names <code>_CircCmd</code>/<code>_VertCmd</code> are documented in <a href="sub-graphing.html">sub-graphing.md</a> as the graphing draw commands <code>Circle(</code> (<code>33:74CE</code>) and <code>Vertical</code> (<code>04:7955</code>); the link-layer command routines referenced here are distinct and were not separately traced — treat this as a [hypothesis].)</p>
 <h3 id="variable-transfer-commandpacket-framing"><a class="header" href="#variable-transfer-commandpacket-framing">Variable-transfer command/packet framing</a></h3>
 <p>A TI link packet is a <strong>4-byte header</strong> (<code>machine-ID, command-ID, length-lo, length-hi</code>) optionally followed by <code>data[len]</code> and a <strong>16-bit LE checksum</strong>; commands include <code>0x06</code> VAR, <code>0x09</code> CTS, <code>0x15</code> DATA, <code>0x56</code> ACK, <code>0x5A</code> NAK, <code>0x92</code> EOT. The full framing, the silent-link send/receive engine (<code>_LinkXferOP</code>, <code>_SendVarCmd</code>), checksum/ACK handling, and the 16-byte Flash-batched receive path are all reverse-engineered in <strong><a href="sub-link-transfer.html">sub-link-transfer.md</a></strong> — see §3 (framing) and §5 (variable send). <strong>[confirmed]</strong></p>
 
