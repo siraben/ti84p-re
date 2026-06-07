@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-dd83a5a3.js";
+            window.path_to_searchindex_js = "searchindex-0f823e3f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -672,6 +672,34 @@ Disp L3(6)
 <code>12345 + 98765 = 111110</code> in little-endian decimal digits. The trace hits
 <code>list_var_index</code>, <code>_AdrLEle</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>store_list_elem*</code>,
 <code>fnint_body</code>, <code>_FPDiv</code>, <code>_FPAdd</code>, <code>_FPSub</code>, and <code>_FPMult</code>.</p>
+<pre><code class="language-ti-basic">{1,1,2}-&gt;L1
+{2,3,4}-&gt;L2
+{0,0,0,0}-&gt;L3
+{1,0,0,0}-&gt;L4
+1-&gt;P
+While P
+L4(P)-&gt;V
+P-1-&gt;P
+If L3(V)=0
+Then
+1-&gt;L3(V)
+Disp V
+For(E,1,3)
+If L1(E)=V
+Then
+P+1-&gt;P
+L2(E)-&gt;L4(P)
+End
+End
+End
+End
+Disp L3
+</code></pre>
+<p>Observed run: <code>DFS.8xp</code> displays traversal <code>1</code>, <code>3</code>, <code>2</code>, <code>4</code>, then visited
+flags <code>{1 1 1 1}</code>, then <code>Done</code>. The trace hits nested control-flow scanners
+(<code>blockmatch_end_else</code>, <code>parse_scan_tokens</code>, <code>if_isg_stmt_handler</code>), parser
+refill/advance, and list stack read/write paths (<code>list_var_index</code>, <code>_AdrLEle</code>,
+<code>_GetLToOP1</code>, <code>_PutToL</code>, <code>store_list_elem*</code>).</p>
 <p>See <a href="sub-tibasic-programming.html">TI-BASIC programming patterns</a> for performance
 rules and larger source-level examples.</p>
 <hr>

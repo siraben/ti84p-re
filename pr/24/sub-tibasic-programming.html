@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-dd83a5a3.js";
+            window.path_to_searchindex_js = "searchindex-0f823e3f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -299,33 +299,45 @@ store paths (<code>list_var_index</code>, <code>_AdrLEle</code>, <code>_GetLToOP
 general routine, cache <code>dim(L1)</code> and <code>dim(L2)</code> before the loop, avoid repeated
 list indexing when a digit is reused, and use a larger base only if you can
 tolerate more carry and display conversion work.</p>
-<h2 id="larger-source-patterns"><a class="header" href="#larger-source-patterns">Larger source patterns</a></h2>
-<p>The following program is still source-level only. It exercises the same
-interpreter paths, but it is not yet part of the generated <code>.8xp</code> fixture set.</p>
 <h3 id="dfs-with-a-list-stack"><a class="header" href="#dfs-with-a-list-stack">DFS with a list stack</a></h3>
-<p>This is a compact graph traversal skeleton for an adjacency matrix <code>[A]</code>, a
-node count <code>N</code>, start node <code>S</code>, visited list <code>L1</code>, and explicit stack <code>L2</code>.</p>
-<pre><code class="language-ti-basic">0*seq(I,I,1,N)-&gt;L1
-{S}-&gt;L2
-While dim(L2)
-L2(dim(L2))-&gt;V
-dim(L2)-1-&gt;dim(L2)
-If not(L1(V))
-Then
-1-&gt;L1(V)
-Disp V
-For(W,1,N)
-If [A](V,W) and not(L1(W))
-augment(L2,{W})-&gt;L2
-End
-End
-End
+<p><code>DFS.8xp</code> uses two edge lists (<code>L1</code> source, <code>L2</code> destination), a visited list
+(<code>L3</code>), and an explicit stack (<code>L4</code>) to traverse this graph:</p>
+<pre><code class="language-text">1 -&gt; 2
+1 -&gt; 3
+2 -&gt; 4
 </code></pre>
-<p>Performance notes: <code>dim(L2)</code> and <code>L2(dim(L2))</code> both resolve the list and parse
-an index; cache <code>dim(L2)</code> into a scalar if the body grows. <code>augment(</code> allocates
-a new list, so this version is easy to read but not memory efficient. A faster
-version preallocates <code>L2</code>, keeps a scalar stack pointer, and writes <code>W-&gt;L2(P)</code>.
-<strong>[standard]</strong></p>
+<pre><code class="language-ti-basic">{1,1,2}-&gt;L1
+{2,3,4}-&gt;L2
+{0,0,0,0}-&gt;L3
+{1,0,0,0}-&gt;L4
+1-&gt;P
+While P
+L4(P)-&gt;V
+P-1-&gt;P
+If L3(V)=0
+Then
+1-&gt;L3(V)
+Disp V
+For(E,1,3)
+If L1(E)=V
+Then
+P+1-&gt;P
+L2(E)-&gt;L4(P)
+End
+End
+End
+End
+Disp L3
+</code></pre>
+<p>Observed run: traversal order is <code>1</code>, <code>3</code>, <code>2</code>, <code>4</code> because the stack is LIFO and
+node <code>3</code> is pushed after node <code>2</code>. The final visited list is <code>{1 1 1 1}</code>. The
+trace hits <code>blockmatch_end_else</code>, <code>parse_scan_tokens</code>, <code>if_isg_stmt_handler</code>,
+parser refill/advance paths, <code>_Disp</code>, and the same list read/write helpers used
+by <code>BIGADD</code>. <strong>[confirmed]</strong></p>
+<p>Performance notes: this version scans all edges for every visited node, so it is
+easy to understand but O(VE) in BASIC-level work. For larger graphs, keep an
+offset table of edge ranges per node, avoid <code>augment(</code> in hot loops, and
+preallocate stack/visited lists with scalar pointers as this sample does.</p>
 <h2 id="basic-and-asm-interop"><a class="header" href="#basic-and-asm-interop">BASIC and ASM interop</a></h2>
 <h3 id="basic-to-asm"><a class="header" href="#basic-to-asm">BASIC to ASM</a></h3>
 <p>The validated smoke test is:</p>
