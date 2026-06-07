@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f6655ba4.js";
+            window.path_to_searchindex_js = "searchindex-53da8975.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bcf53af4.js"></script>
@@ -193,9 +193,9 @@ Programs that borrow page <code>83</code> must preserve or restore the OS-visibl
 <tr><th>Window</th><th>Port</th><th>Selector encoding</th><th>Normal TI-OS value</th></tr>
 </thead>
 <tbody>
-<tr><td><code>4000-7FFF</code></td><td><code>6</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page <code>0x80 + (value &amp; 7)</code></td><td>banked Flash page</td></tr>
-<tr><td><code>8000-BFFF</code></td><td><code>7</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page <code>0x80 + (value &amp; 7)</code></td><td><code>81</code></td></tr>
-<tr><td><code>C000-FFFF</code></td><td><code>5</code></td><td>low three bits select RAM page <code>0x80 + (value &amp; 7)</code></td><td><code>00</code> -&gt; RAM page <code>80</code></td></tr>
+<tr><td><code>4000-7FFF</code></td><td><code>6</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page <code>0x80 | (value &amp; 7)</code></td><td>banked Flash page</td></tr>
+<tr><td><code>8000-BFFF</code></td><td><code>7</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page <code>0x80 | (value &amp; 7)</code></td><td><code>81</code></td></tr>
+<tr><td><code>C000-FFFF</code></td><td><code>5</code></td><td>low three bits select RAM page <code>0x80 | (value &amp; 7)</code></td><td><code>00</code> -&gt; RAM page <code>80</code></td></tr>
 </tbody>
 </table>
 </div>
