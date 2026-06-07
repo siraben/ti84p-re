@@ -55,7 +55,7 @@ not yet traced end to end in this repo.
 | List built-ins (`DATA`) | `sum(` reaches `list_fold_dispatch` | Prefer built-ins when one parser setup can cover many elements. |
 | Text animation (`ANIMTXT`) | `Output(` plus LCD text paths on every loop | Precompute positions/strings and update the smallest region possible. |
 | Graph drawing (`GRAPHV`) | primitives draw into `plotSScreen`, then `_PDspGrph` | Batch graph primitives before `DispGraph`. |
-| Graph visualization (`GRAPHDFS`) | repeated `Line(`/`Circle(`/`Text(` reaches `_ILine`, `_IPoint`, `graph_pixel_op`, and small-font paths | Store graph topology in lists; draw the whole view in one graph-buffer pass. |
+| Graph visualization (`GRAPHDFS`) | window stores plus repeated `Line(`/`Circle(`/`Text(` reach `_StoSysTok`, `_ILine`, `_IPoint`, `graph_pixel_op`, `_PDspGrph`, and small-font paths | Store graph topology in lists; draw the whole view in one graph-buffer pass. |
 | BASIC subprogram (`CALLSUB`) | page-38 program-body evaluator and shared VAT variables | Treat globals/lists/`Ans` as the calling convention. |
 | List algorithms (`BIGADD`, `DFS`) | VAT lookup, element address, OP-register move per access | Preallocate lists; cache dimensions and reused elements in scalars. |
 
@@ -72,7 +72,7 @@ kept because both render visible graph-screen output.
 | Data manipulation | `DATA.8xp` | Sorts, cumulatively sums, and displays list data; reaches list element stores and `sum(`'s list fold path. |
 | Text animation | `ANIMTXT.8xp` | Moves/writes `X` characters with `Output(`, then displays `DONE`; reaches LCD text routines each loop. |
 | Graph drawing | `GRAPHV.8xp` | Renders `DFS`, axes, a circle, and diagonal line on the graph screen; reaches `_ILine`, `_IPoint`, and `_PDspGrph`. |
-| Graph visualization | `GRAPHDFS.8xp` | Renders the four-node DFS topology with labels and edges; reaches line, point, pixel, and small-font graph paths. |
+| Graph visualization | `GRAPHDFS.8xp` | Renders the four-node DFS topology with labels and edges; reaches window stores, line, point, display-copy, pixel, and small-font graph paths. |
 | Arbitrary precision arithmetic | `BIGADD.8xp` | Adds digit lists with carry propagation and displays `L3`; reaches list indexing and FP helper paths. |
 | DFS / stack-style list algorithm | `DFS.8xp` | Displays traversal `1, 3, 2, 4` and visited list `{1 1 1 1}`; reaches nested scanner/control-flow paths. |
 | BASIC subprogram calling convention | `CALLSUB.8xp` + `SUBRT.8xp` | Caller and callee share scalar/list variables and return through the BASIC program evaluator. |
@@ -147,7 +147,7 @@ DispGraph
 ```
 
 Observed run: the final graph screen shows four labeled nodes with edges
-`1->2`, `1->3`, and `2->4`. The trace hits `_ILine` (`04:4029`),
+`1-2`, `1-3`, and `2-4`. The trace hits `_ILine` (`04:4029`),
 `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`), small-font glyph
 rendering, window variable stores through `_StoSysTok`, `_RestoreDisp`, and
 page-38 statement evaluation. **[confirmed]**

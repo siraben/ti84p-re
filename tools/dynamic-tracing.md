@@ -154,7 +154,8 @@ tools/tibasic_samples.py --write-dir tools/tibasic-samples
 Each sample has:
 
 - `NAME.bas` — readable TI-BASIC source.
-- `NAME.tok` — raw bytes after the `ProgObj` two-byte size word.
+- `NAME.tok` — ASCII hex text for the raw bytes after the `ProgObj` two-byte
+  size word.
 - `PRGMNAME.8xp` — a TI-83+/84+ link file containing `[size][token bytes]`.
 
 They cover:
