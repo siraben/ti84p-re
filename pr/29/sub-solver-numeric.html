@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c49588aa.js";
+            window.path_to_searchindex_js = "searchindex-f40d982c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -231,7 +231,8 @@ root-finding engine living on flash page <strong>0x39</strong>. (The Solver app�
 of the equation. Located around <code>39:468F</code>:</p>
 <ol>
 <li><code>_CkValidNum</code> (<code>ram:1E9B</code>), then <code>_MovFrOP1</code> (<code>ram:1B0C</code>) stores the current guess into
-the <strong>solve variable</strong> (named system var addressed via <code>(065B)</code>).</li>
+the <strong>solve variable</strong> (its data pointer is loaded from <code>(9306)</code>, in the expression-stack
+region — the bytes are <code>ED 5B 06 93</code> = <code>LD DE,(9306)</code>).</li>
 <li>It installs an <strong>error trap</strong> (<code>39:46D9 CALL 327F</code>; <code>RES/SET 2,(IY+7)</code>) and re-parses /
 re-evaluates the stored equation formula (page-0x39 hosts a parse/token walker at
 <code>39:327F</code> using <code>parse_advance 7248</code> / <code>parse_cur_tok 72DA</code>-style cursors, mirroring the
@@ -324,7 +325,7 @@ constants (<code>39:46EA</code>/<code>46E1</code>) all executed as the pseudocod
 <code>P/Y</code>, <code>C/Y</code>, and the PMT:END/BEGIN flag) lives on flash page <strong>0x3A</strong>. Each variable is a
 named system FP var; the routine loads them via small accessors:</p>
 <ul>
-<li><code>3A:7F02</code> loads the var named at <code>(D35B)</code>, <code>3A:7F0F</code> the one at <code>(D55B)</code>, etc.
+<li><code>3A:7F02</code> loads the pointer at <code>(84D3)</code> (<code>iMathPtr1</code>; <code>ED 5B D3 84</code> = <code>LD DE,(84D3)</code>), <code>3A:7F0F</code> the one at <code>(84D5)</code> (<code>iMathPtr2</code>), etc.
 (<code>(D?5B)</code> are the finance sysvar VAT slots). <code>(84D3)</code>=<code>iMathPtr1</code>, <code>(84D9)</code>=<code>iMathPtr4</code>,
 <code>(84AF)</code>=OP6, <code>(84D3)</code>/<code>(84D9)</code>/<code>(84D3)</code> hold the iteration state. <strong>[confirmed]</strong></li>
 </ul>
@@ -390,7 +391,7 @@ Ghidra function <code>fnint_body</code> at <code>33:4D00</code> (extent <code>33
 <ul>
 <li>builds interval midpoints and half-widths: <code>_FPSub</code> (<code>2297</code>), <code>_TimesPt5</code> (<code>2382</code>, ×0.5),
 <code>_FPDiv</code> (<code>2541</code>). The bytes at <code>33:4D18</code> are <strong>executable code</strong> — <code>33:4D18 21 83 84</code>
-(<code>LD HL,0x8483</code>), <code>33:4D1B 3E 60</code> (<code>LD A,0x60</code>), <code>33:4D1D CD 65 1B</code> (<code>CALL _OP2SetA</code>/<code>1B65</code>) — loading the
+(<code>LD HL,0x8483</code>), <code>33:4D1B 3E 60</code> (<code>LD A,0x60</code>), <code>33:4D1D CD 65 1B</code> (<code>CALL fp_set_digit</code> <code>1B65</code>; not <code>_OP2SetA</code>, whose body is <code>1B24</code>) — loading the
 scalar <strong>0x60 = 96</strong>
 (a working digit/scale count), not a quadrature weight. <strong>[confirmed bytes]</strong></li>
 <li>maintains a working set of partial sums in an <strong>FPS frame</strong> (<code>_AllocFPS 1534</code>,
@@ -475,7 +476,7 @@ in the Ghidra database — the mark of a generic paged call rather than an inlin
 </code></pre>
 <p>TVM / finance solver (page 0x3A):</p>
 <pre><code>3A:70A2  tvm_solve_iterate          (Newton on I%, 64-iter FPS-framed loop)
-3A:7F02  tvm_load_var_D35B          3A:7F0F  tvm_load_var_D55B   (finance var accessors)
+3A:7F02  tvm_load_var (iMathPtr1)   3A:7F0F  tvm_load_var (iMathPtr2)   (finance var accessors)
 3A:7206  -&gt;ITERATIONS(0x99)
 </code></pre>
 <p>Numeric calculus (page 0x33):</p>
@@ -519,7 +520,7 @@ Parser entries (page 0x38): <code>_ParseInp 5987</code>, <code>parse_eval_expr 5
 weight table</strong>; its sole FP constant is <code>ln(10)·100</code> at <code>33:4E92</code>, used (with bcall <code>_LnX</code>)
 to convert digit-tolerance to a decimal error bound. With explicit ×0.5 interval bisection
 and a coarse-vs-fine estimate comparison, it is an <strong>adaptive Newton–Cotes / Simpson-class
-bisection</strong> integrator. <code>33:4D1B</code> is executable code (<code>LD A,0x60; _OP2SetA</code>).</li>
+bisection</strong> integrator. <code>33:4D1B</code> is executable code (<code>LD A,0x60; CALL fp_set_digit</code>).</li>
 <li><strong>TVM <code>_SinH</code> (id 0x40CF) — resolved (§2.3).</strong> The TVM rate loop calls <code>_SinH</code> at
 <code>3A:710B</code> (<code>0x40C6/0x40CF/0x40ED</code> are three distinct hyperbolic bcalls); it evaluates the
 annuity / compound factor in hyperbolic form for numerical stability at small rates.</li>
