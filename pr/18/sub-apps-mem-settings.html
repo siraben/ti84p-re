@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f3cbb0cd.js";
+            window.path_to_searchindex_js = "searchindex-3fcfaca7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -219,6 +219,34 @@ length. The decoder bytes are around <code>page_3D:7285</code>, but the current 
 <p>The master field at offset 0 is usually <code>80 0F …</code> (<code>field 800</code>, size nibble <code>F</code>, followed
 by a 4-byte size) — this is what the page-scan keys on to recognise an app. Fields carry
 the app name, the page count, flags, the date stamp, and signature-related data.</p>
+<p>The field roles below come first from the ROM parser and the local app corpus. Public
+documentation supplies the conventional field names and checks labels that the bytes do
+not fully name; the useful
+references are WikiTI’s
+<a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Certificate/Headers:Fields:Application_Headers">application-header</a>
+and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Certificate/Headers">certificate/header format</a>
+pages, plus TI’s
+<a href="https://isa.umh.es/calc/TI/TI83-84SDK/appheaderguide.pdf">AppHeader guide</a>.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>field</th><th>local evidence</th><th>name used here</th></tr>
+</thead>
+<tbody>
+<tr><td><code>800</code></td><td>Every sampled first page starts as <code>800F</code> with a four-byte value matching the app’s Flash-variable length. The page scanner keys on this master field.</td><td>master Flash-variable field</td></tr>
+<tr><td><code>801</code></td><td>Holds the constant <code>0104</code> across the freeware sample set. The bytes only prove a shared signing/developer identifier; public signing docs give the label.</td><td>developer/signing key</td></tr>
+<tr><td><code>802</code></td><td>One-byte metadata field near the top of every sampled app, usually <code>1</code>. The corpus alone does not distinguish revision from build.</td><td>program revision</td></tr>
+<tr><td><code>803</code></td><td>One-byte metadata field paired with <code>802</code>; MirageOS uses <code>2</code> while most samples use <code>1</code>. Public docs separate it from <code>802</code>.</td><td>build number</td></tr>
+<tr><td><code>804</code></td><td>The payload is the visible app name: <code>Axe</code>, <code>MirageOS</code>, <code>USBDRV8X</code>, <code>zStart</code>, and the other sampled titles.</td><td>app name</td></tr>
+<tr><td><code>808</code></td><td>The one-byte value matches the decoded page count: Axe and CtlgHelp carry <code>2</code>; one-page apps carry <code>1</code>.</td><td>page count</td></tr>
+<tr><td><code>809</code></td><td>Optional zero-length or app-owned payload field. The corpus shows presence and payload behavior; public docs give the splash-screen flag name.</td><td>disable TI splash screen</td></tr>
+<tr><td><code>80C</code></td><td>Appears in usb8x as <code>02 1E</code>. Corpus bytes show an OS-compatibility metadata field; public docs label it as minimum basecode <code>2.30</code>.</td><td>lowest basecode</td></tr>
+<tr><td><code>032</code></td><td>Six-byte timestamp-shaped field. Bytes 1-4 decode to plausible release dates when read as seconds since 1997-01-01.</td><td>date stamp</td></tr>
+<tr><td><code>020</code></td><td>Usually 64 bytes after <code>032</code>. Axe stores executable helper bytes here, so the app owns the payload bytes even when the field is signature-related.</td><td>date-stamp signature / unchecked payload</td></tr>
+<tr><td><code>807</code></td><td>Terminates the parser. Modified BatLib samples keep valid apps even when the <code>807F</code> size bytes are nonzero, so the walker ignores the encoded payload length.</td><td>final field</td></tr>
+</tbody>
+</table>
+</div>
 <p>The app header is not a fixed 128-byte struct. The <code>807</code> final field terminates it. The
 common <code>80 7F 00 00 00 00</code> form uses size nibble <code>F</code> with a four-byte zero, but WikiTI
 documents that length as ignored; the shorter <code>80 70</code> form is valid. The app body begins
