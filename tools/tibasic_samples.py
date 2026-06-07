@@ -43,6 +43,7 @@ T = {
     "G": 0x47,
     "H": 0x48,
     "I": 0x49,
+    "J": 0x4A,
     "K": 0x4B,
     "L": 0x4C,
     "M": 0x4D,
@@ -194,10 +195,23 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
         ],
     ),
     "graphviz": (
-        'ClrDraw\nLine(0,0,95,63)\nCircle(47,31,10)\nText(0,0,"DFS")\nDispGraph',
+        'ClrDraw\n'
+        '0->Xmin\n94->Xmax\n0->Ymin\n62->Ymax\n'
+        'Line(0,0,94,62)\n'
+        'Line(0,31,94,31)\n'
+        'Line(47,0,47,62)\n'
+        'Circle(47,31,10)\n'
+        'Text(0,0,"DFS")\n'
+        'DispGraph',
         [
             T["clrdraw"], T["enter"],
-            T["line"], T["0"], T["comma"], T["0"], T["comma"], T["9"], T["5"], T["comma"], T["6"], T["3"], T["rparen"], T["enter"],
+            T["0"], T["store"], T["varsys"], SYSVAR["Xmin"], T["enter"],
+            T["9"], T["4"], T["store"], T["varsys"], SYSVAR["Xmax"], T["enter"],
+            T["0"], T["store"], T["varsys"], SYSVAR["Ymin"], T["enter"],
+            T["6"], T["2"], T["store"], T["varsys"], SYSVAR["Ymax"], T["enter"],
+            T["line"], T["0"], T["comma"], T["0"], T["comma"], T["9"], T["4"], T["comma"], T["6"], T["2"], T["rparen"], T["enter"],
+            T["line"], T["0"], T["comma"], T["3"], T["1"], T["comma"], T["9"], T["4"], T["comma"], T["3"], T["1"], T["rparen"], T["enter"],
+            T["line"], T["4"], T["7"], T["comma"], T["0"], T["comma"], T["4"], T["7"], T["comma"], T["6"], T["2"], T["rparen"], T["enter"],
             T["circle"], T["4"], T["7"], T["comma"], T["3"], T["1"], T["comma"], T["1"], T["0"], T["rparen"], T["enter"],
             T["text"], T["0"], T["comma"], T["0"], T["comma"], *string_literal("DFS"), T["rparen"], T["enter"],
             T["dispgraph"], T["enter"],
@@ -287,6 +301,43 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
             T["disp"], T["varlst"], 0x02, T["lparen"], T["6"], T["rparen"], T["enter"],
         ],
     ),
+    "bigmul": (
+        "{3,2,1}->L1\n"
+        "{5,4}->L2\n"
+        "{0,0,0,0,0}->L3\n"
+        "For(I,1,3)\n"
+        "For(J,1,2)\n"
+        "L3(I+J-1)+L1(I)*L2(J)->S\n"
+        "int(S/10)->C\n"
+        "S-10*C->L3(I+J-1)\n"
+        "L3(I+J)+C->L3(I+J)\n"
+        "End\n"
+        "End\n"
+        "Disp L3\n"
+        "Disp L3(4)",
+        [
+            T["lbrace"], T["3"], T["comma"], T["2"], T["comma"], T["1"],
+            T["rbrace"], T["store"], T["varlst"], 0x00, T["enter"],
+            T["lbrace"], T["5"], T["comma"], T["4"],
+            T["rbrace"], T["store"], T["varlst"], 0x01, T["enter"],
+            T["lbrace"], T["0"], T["comma"], T["0"], T["comma"], T["0"], T["comma"],
+            T["0"], T["comma"], T["0"], T["rbrace"], T["store"], T["varlst"], 0x02, T["enter"],
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["for"], T["J"], T["comma"], T["1"], T["comma"], T["2"], T["rparen"], T["enter"],
+            T["varlst"], 0x02, T["lparen"], T["I"], T["add"], T["J"], T["sub"], T["1"], T["rparen"], T["add"],
+            T["varlst"], 0x00, T["lparen"], T["I"], T["rparen"], T["mul"],
+            T["varlst"], 0x01, T["lparen"], T["J"], T["rparen"], T["store"], T["S"], T["enter"],
+            T["int"], T["S"], T["div"], T["1"], T["0"], T["rparen"], T["store"], T["C"], T["enter"],
+            T["S"], T["sub"], T["1"], T["0"], T["mul"], T["C"], T["store"],
+            T["varlst"], 0x02, T["lparen"], T["I"], T["add"], T["J"], T["sub"], T["1"], T["rparen"], T["enter"],
+            T["varlst"], 0x02, T["lparen"], T["I"], T["add"], T["J"], T["rparen"], T["add"], T["C"], T["store"],
+            T["varlst"], 0x02, T["lparen"], T["I"], T["add"], T["J"], T["rparen"], T["enter"],
+            T["end"], T["enter"],
+            T["end"], T["enter"],
+            T["disp"], T["varlst"], 0x02, T["enter"],
+            T["disp"], T["varlst"], 0x02, T["lparen"], T["4"], T["rparen"], T["enter"],
+        ],
+    ),
     "dfs": (
         "{1,1,2}->L1\n"
         "{2,3,4}->L2\n"
@@ -353,6 +404,7 @@ PROGRAM_NAMES = {
     "subrt": "SUBRT",
     "callsub": "CALLSUB",
     "bigadd": "BIGADD",
+    "bigmul": "BIGMUL",
     "dfs": "DFS",
 }
 

@@ -542,15 +542,21 @@ Observed run: `ANIMTXT.8xp` displays a row of `X` characters, `DONE`, and then
 
 ```ti-basic
 ClrDraw
-Line(0,0,95,63)
+0->Xmin
+94->Xmax
+0->Ymin
+62->Ymax
+Line(0,0,94,62)
+Line(0,31,94,31)
+Line(47,0,47,62)
 Circle(47,31,10)
 Text(0,0,"DFS")
 DispGraph
 ```
 
-Observed run: `GRAPHV.8xp` ends on the graph screen with `DFS`, axes, and a
-diagonal line visible. The trace hits `_GrBufClr`, `_ILine` (`04:4029`),
-`graph_pixel_op`, `_IPoint`, and `_PDspGrph` (`04:7904`).
+Observed run: `GRAPHV.8xp` ends on the graph screen with `DFS`, axes, a circle,
+and a diagonal line visible. The trace hits `_GrBufClr`, `_StoSysTok`, `_ILine`
+(`04:4029`), `graph_pixel_op`, `_IPoint`, and `_PDspGrph` (`04:7904`).
 
 ```ti-basic
 ClrDraw
@@ -668,6 +674,27 @@ Observed run: `BIGADD.8xp` displays the low-end digits of `L3` as
 `12345 + 98765 = 111110` in little-endian decimal digits. The trace hits
 `list_var_index`, `_AdrLEle`, `_GetLToOP1`, `_PutToL`, `store_list_elem*`,
 `fnint_body`, `_FPDiv`, `_FPAdd`, `_FPSub`, and `_FPMult`.
+
+```ti-basic
+{3,2,1}->L1
+{5,4}->L2
+{0,0,0,0,0}->L3
+For(I,1,3)
+For(J,1,2)
+L3(I+J-1)+L1(I)*L2(J)->S
+int(S/10)->C
+S-10*C->L3(I+J-1)
+L3(I+J)+C->L3(I+J)
+End
+End
+Disp L3
+Disp L3(4)
+```
+
+Observed run: `BIGMUL.8xp` displays `{5 3 5 5 0}`, then `5`, then `Done`,
+representing `123 * 45 = 5535` in little-endian decimal digits. The trace hits
+nested `For(` loop parsing, list element reads/stores, `_FPMult`, `_FPAdd`,
+`_FPSub`, `_GetLToOP1`, and `_PutToL`.
 
 ```ti-basic
 {1,1,2}->L1

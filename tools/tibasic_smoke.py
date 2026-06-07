@@ -23,12 +23,21 @@ DEFAULT_ROM = ROOT / "tools" / "rom.bin"
 
 
 @dataclass(frozen=True)
+class VisualRegion:
+    name: str
+    crop: str
+    min_dark_pixels: int
+
+
+@dataclass(frozen=True)
 class Case:
     programs: tuple[str, ...]
     screen: str
     anchors: tuple[str, ...]
     macro: Path = DEFAULT_MACRO
     min_dark_pixels: int = 0
+    min_changed_pixels: int = 0
+    visual_regions: tuple[VisualRegion, ...] = ()
 
 
 CASES: dict[str, Case] = {
@@ -63,18 +72,41 @@ CASES: dict[str, Case] = {
         "row of X characters, DONE; Done",
         ("eval_stmt_entry", "_OutputExpr", "_Disp"),
         min_dark_pixels=100,
+        min_changed_pixels=100,
+        visual_regions=(
+            VisualRegion("home text row", "50x9+0+0", 80),
+            VisualRegion("Done marker", "25x9+68+13", 10),
+        ),
     ),
     "graphviz": Case(
         ("GRAPHV.8xp",),
         "graph screen with DFS, axes, circle, diagonal line",
-        ("_GrBufClr", "_ILine", "_IPoint", "_PDspGrph"),
+        ("_GrBufClr", "_StoSysTok", "_ILine", "_IPoint", "_PDspGrph"),
         min_dark_pixels=100,
+        min_changed_pixels=100,
+        visual_regions=(
+            VisualRegion("DFS label", "18x8+0+0", 15),
+            VisualRegion("horizontal axis", "40x3+28+31", 30),
+            VisualRegion("vertical axis", "3x40+47+12", 30),
+            VisualRegion("circle top arc", "10x6+42+19", 8),
+            VisualRegion("circle left arc", "7x14+36+24", 12),
+        ),
     ),
     "graphdfs": Case(
         ("GRAPHDFS.8xp",),
         "graph screen with four labeled nodes and three edges",
         ("_StoSysTok", "_ILine", "_IPoint", "_PDspGrph"),
         min_dark_pixels=200,
+        min_changed_pixels=200,
+        visual_regions=(
+            VisualRegion("node 1", "9x9+6+15", 15),
+            VisualRegion("node 2", "9x9+31+5", 15),
+            VisualRegion("node 3", "9x9+31+45", 15),
+            VisualRegion("node 4", "9x9+51+30", 15),
+            VisualRegion("edge 1-2", "22x12+12+7", 15),
+            VisualRegion("edge 1-3", "22x28+12+21", 15),
+            VisualRegion("edge 2-4", "22x25+37+11", 20),
+        ),
     ),
     "callsub": Case(
         ("CALLSUB.8xp", "SUBRT.8xp"),
@@ -84,6 +116,11 @@ CASES: dict[str, Case] = {
     "bigadd": Case(
         ("BIGADD.8xp",),
         "L3 digits and carry; Done",
+        ("list_var_index", "_GetLToOP1", "_PutToL", "_FPMult"),
+    ),
+    "bigmul": Case(
+        ("BIGMUL.8xp",),
+        "L3 digits for 123*45 and high digit 5; Done",
         ("list_var_index", "_GetLToOP1", "_PutToL", "_FPMult"),
     ),
     "dfs": Case(
@@ -151,21 +188,16 @@ def extract_final_frame(gif: Path, png: Path) -> None:
     run([require_magick(), f"{gif}[-1]", str(png)], cwd=ROOT)
 
 
-def count_dark_pixels(png: Path) -> int:
-    output = run(
-        [
-            require_magick(),
-            str(png),
-            "-colorspace",
-            "Gray",
-            "-threshold",
-            "50%",
-            "-format",
-            "%c",
-            "histogram:info:-",
-        ],
-        cwd=ROOT,
-    )
+def extract_first_frame(gif: Path, png: Path) -> None:
+    run([require_magick(), f"{gif}[0]", str(png)], cwd=ROOT)
+
+
+def count_dark_pixels(png: Path, crop: str | None = None) -> int:
+    cmd = [require_magick(), str(png)]
+    if crop:
+        cmd.extend(["-crop", crop, "+repage"])
+    cmd.extend(["-colorspace", "Gray", "-threshold", "50%", "-format", "%c", "histogram:info:-"])
+    output = run(cmd, cwd=ROOT)
     dark = 0
     for line in output.splitlines():
         if "gray(0)" not in line and "#000000" not in line:
@@ -176,10 +208,32 @@ def count_dark_pixels(png: Path) -> int:
     return dark
 
 
+def count_changed_pixels(before: Path, after: Path) -> int:
+    completed = subprocess.run(
+        [require_magick(), "compare", "-metric", "AE", str(before), str(after), "null:"],
+        cwd=ROOT,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    if completed.returncode not in (0, 1):
+        raise subprocess.CalledProcessError(
+            completed.returncode,
+            completed.args,
+            output=completed.stdout,
+            stderr=completed.stderr,
+        )
+    match = re.match(r"\s*(\d+)", completed.stderr)
+    if not match:
+        raise SystemExit(f"could not parse ImageMagick compare output: {completed.stderr!r}")
+    return int(match.group(1))
+
+
 def run_case(name: str, case: Case, tilem: Path, rom: Path, out_dir: Path, keep_trace: bool) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     trace = out_dir / f"{name}.trace"
     gif = out_dir / f"{name}.gif"
+    first_png = out_dir / f"{name}-first.png"
     final_png = out_dir / f"{name}-final.png"
     coverage = out_dir / f"{name}.coverage.txt"
 
@@ -217,6 +271,25 @@ def run_case(name: str, case: Case, tilem: Path, rom: Path, out_dir: Path, keep_
                 f"{name}: final frame has {dark_pixels} dark pixels, expected at least {case.min_dark_pixels}"
             )
         print(f"{name}: final frame dark pixels: {dark_pixels}")
+
+    if case.min_changed_pixels:
+        extract_first_frame(gif, first_png)
+        changed_pixels = count_changed_pixels(first_png, final_png)
+        if changed_pixels < case.min_changed_pixels:
+            raise SystemExit(
+                f"{name}: final frame changed {changed_pixels} pixels from first frame, "
+                f"expected at least {case.min_changed_pixels}"
+            )
+        print(f"{name}: first-to-final changed pixels: {changed_pixels}")
+
+    for region in case.visual_regions:
+        region_dark_pixels = count_dark_pixels(final_png, region.crop)
+        if region_dark_pixels < region.min_dark_pixels:
+            raise SystemExit(
+                f"{name}: region {region.name!r} has {region_dark_pixels} dark pixels, "
+                f"expected at least {region.min_dark_pixels}"
+            )
+        print(f"{name}: region {region.name}: {region_dark_pixels} dark pixels")
 
     print(f"{name}: expected screen: {case.screen}")
     print(f"{name}: anchors ok: {', '.join(case.anchors)}")

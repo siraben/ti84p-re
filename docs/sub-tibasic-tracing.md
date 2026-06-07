@@ -49,11 +49,17 @@ programs into calculator RAM first, then run the same macro and resolver steps.
 | `graphdfs` | `GRAPHDFS.8xp` | graph visualization from DFS topology | `_StoSysTok`, `_ILine`, `_IPoint`, `_PDspGrph` |
 | `callsub` | `CALLSUB.8xp` + `SUBRT.8xp` | BASIC `prgmNAME`, shared globals, `Return` | `stmt_eval_body_entry`, `call_eval_eqn_recursive` |
 | `bigadd` | `BIGADD.8xp` | list-digit arithmetic and carry propagation | `list_var_index`, `_GetLToOP1`, `_PutToL`, `_FPMult` |
+| `bigmul` | `BIGMUL.8xp` | list-digit multiplication, nested loops, carry normalization | `list_var_index`, `_GetLToOP1`, `_PutToL`, `_FPMult` |
 | `dfs` | `DFS.8xp` | list-backed stack, nested `While`/`If`/`For` | `blockmatch_end_else`, `parse_scan_tokens`, `eval_stmt_entry` |
 
 The visualization cases also enforce visible output by thresholding the final
-frame. `ANIMTXT`, `GRAPHV`, and `GRAPHDFS` must contain at least 100, 100, and
-200 dark pixels respectively. The 2026-06-07 run measured 212, 268, and 466.
+frame and comparing it with the first recorded frame. `ANIMTXT`, `GRAPHV`, and
+`GRAPHDFS` must contain at least 100, 100, and 200 dark pixels respectively,
+and must change by at least the same number of pixels from first to final frame.
+The smoke runner also checks named crop regions: home-screen text for `ANIMTXT`,
+label/axes/circle arcs for `GRAPHV`, and node/edge regions for `GRAPHDFS`. The
+2026-06-07 run measured 212, 619, and 466 dark pixels, with matching
+first-to-final pixel changes.
 
 ## Reading the evidence
 
