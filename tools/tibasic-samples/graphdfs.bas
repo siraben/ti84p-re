@@ -1,0 +1,13 @@
+ClrDraw
+Line(20,10,10,35)
+Line(20,10,50,35)
+Line(10,35,35,55)
+Circle(20,10,3)
+Circle(10,35,3)
+Circle(50,35,3)
+Circle(35,55,3)
+Text(16,8,"1")
+Text(6,33,"2")
+Text(46,33,"3")
+Text(31,53,"4")
+DispGraph

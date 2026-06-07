@@ -16,8 +16,9 @@ key ENTER
 wait 1.5s
 key CLEAR
 key PRGM
-wait 0.4s
+wait 0.6s
 key ENTER
+wait 0.8s
 key ENTER
-wait 3s
+wait 8s
 screenshot /tmp/tibasic-first-program.png
