@@ -1,0 +1,484 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Calculation engine - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-67d6a43c.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-bcf53af4.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="calculation-engine"><a class="header" href="#calculation-engine">Calculation engine</a></h1>
+<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
+<p>What happens between a college student typing <code>2*sin(π/6)+ln(5)</code> and seeing a number.
+All arithmetic is BCD floating point in the <strong>OP registers</strong> (<code>OP1</code>–<code>OP6</code> @ <code>0x8478</code>,
+11-byte spaced) with a software <strong>FP stack</strong> (<code>FPS</code> @ <code>0x9824</code>) for nested temporaries.
+See <a href="06-floating-point.html">06-floating-point.md</a> for the <code>TIFloat</code> byte format and <code>_FPAdd</code> internals; this doc
+covers the rest of the engine: ×, ÷, ^, roots, transcendentals, formatting, and errors.</p>
+<p>Address form below is <code>page:addr</code> (flash page in slot <code>4000</code>) or <code>ram:addr</code> for the fixed
+page-0 core mapped at <code>0000</code>. Page-0 routines are reached by <code>RST</code>/direct <code>CALL</code>; everything
+else through the bcall dispatcher. Confidence: <strong>[confirmed]</strong> = read from disassembly,
+<strong>[standard]</strong> = matches documented TI behavior, <strong>[hypothesis]</strong> = inferred.</p>
+<hr>
+<h2 id="1-register--stack-model-confirmed"><a class="header" href="#1-register--stack-model-confirmed">1. Register &amp; stack model [confirmed]</a></h2>
+<p>Every calculation runs through the OP registers and the software FP stack; the table
+gives each register’s RAM address and its role during an operation.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Reg</th><th>Addr</th><th>Role in a calc</th></tr>
+</thead>
+<tbody>
+<tr><td><code>OP1</code></td><td><code>0x8478</code></td><td>primary accumulator / result. Unary ops take arg here, return here.</td></tr>
+<tr><td><code>OP2</code></td><td><code>0x8483</code></td><td>second operand for binary ops (<code>OP1 ∘ OP2 → OP1</code>).</td></tr>
+<tr><td><code>OP3</code>–<code>OP6</code></td><td><code>0x848E</code>…</td><td>scratch; sign/exponent staging, complex pairs.</td></tr>
+<tr><td>guard</td><td><code>0x8481/8482</code> (OP1EXT), <code>0x848C/848D</code> (OP2EXT)</td><td>extended guard digits, zeroed by <code>fp_clear_guard</code> at the top of nearly every op.</td></tr>
+<tr><td><code>FPS</code></td><td><code>0x9824</code></td><td>software FP stack for spilling OP registers during nested evaluation.</td></tr>
+</tbody>
+</table>
+</div>
+<p>A <code>TIFloat</code> is <code>type(+0) exp(+1) mantissa(+2..+8)</code>; <code>type</code> bit7 = sign, bits set 0x0C = complex.
+<code>exp</code> is base-10 biased by <code>0x80</code>. Sign is sign-magnitude, so <strong>negation is a single XOR 0x80</strong>.</p>
+<h3 id="fp-stack-discipline-during-nested-expressions-confirmed"><a class="header" href="#fp-stack-discipline-during-nested-expressions-confirmed">FP-stack discipline during nested expressions [confirmed]</a></h3>
+<p>Binary/transcendental routines that need to preserve an operand spill it to <code>FPS</code>:</p>
+<ul>
+<li><code>_PushRealO1</code> (= <strong>RST 18h</strong>, <code>ram:155C</code>), <code>_PushReal</code>/<code>_PushRealOn</code>, <code>_PushOP1</code> (<code>ram:1599</code>).</li>
+<li><code>_PopRealO1</code>…<code>_PopRealO6</code> (<code>ram:150F</code>…<code>14F6</code>), <code>_PopReal</code> (<code>ram:1512</code>).</li>
+<li><code>_AllocFPS</code>/<code>_DeallocFPS</code> (<code>ram:1534</code>/<code>1526</code>) grow/shrink the stack frame.</li>
+</ul>
+<p>Example seen in the complex-log core (<code>_CLN</code>, §5): it does <code>_PushRealO1</code> to save the input,
+computes the magnitude, then <code>_PopRealO2</code> to recover it for the angle — the canonical
+“spill then restore” used everywhere the parser evaluates a nested sub-expression.</p>
+<hr>
+<h2 id="2-basic-arithmetic-confirmed"><a class="header" href="#2-basic-arithmetic-confirmed">2. Basic arithmetic [confirmed]</a></h2>
+<p>All four route operands through <code>OP1</code>/<code>OP2</code>, clear the guard digits, early-out on zero
+operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Op</th><th>Routine</th><th>Addr</th><th>Notes</th></tr>
+</thead>
+<tbody>
+<tr><td><code>+</code></td><td><code>_FPAdd</code></td><td><code>ram:229E</code> (= <strong>RST 30h</strong>)</td><td>sign-magnitude BCD add; see <a href="06-floating-point.html">06-floating-point.md</a>.</td></tr>
+<tr><td><code>−</code></td><td><code>_FPSub</code></td><td><code>ram:2297</code></td><td>flips <code>OP2.type</code> bit7 then falls into the add path.</td></tr>
+<tr><td><code>×</code></td><td><code>_FPMult</code></td><td><code>ram:238B</code></td><td><code>FUN_ram_250F</code> adds exponents (→ <code>_ErrOverflow</code> on carry past 0x7F), then digit-by-digit BCD multiply accumulating into OP3.</td></tr>
+<tr><td><code>÷</code></td><td><code>_FPDiv</code></td><td><code>ram:2541</code></td><td><code>_CkOP2FP0</code> first → <code>_JError(0x82)</code> DIVIDE BY 0 if divisor 0; else restoring BCD long division.</td></tr>
+<tr><td><code>1/x</code></td><td><code>_FPRecip</code></td><td><code>ram:253D</code></td><td>sets <code>OP1=1</code> then enters the divide loop (same body as <code>_FPDiv</code>).</td></tr>
+</tbody>
+</table>
+</div>
+<p>Convenience / derived ops:</p>
+<ul>
+<li><code>_FPSquare</code> <code>ram:238A</code> = <code>RST 08h</code> (OP1→OP2) then <code>_FPMult</code>. [confirmed]</li>
+<li><code>_Cube</code> <code>ram:237D</code> = <code>_FPSquare</code> then <code>_FPMult</code>. [confirmed]</li>
+<li><code>_Times2</code> <code>ram:2282</code> = <code>OP1+OP1</code>; <code>_TimesPt5</code> <code>ram:2382</code> loads the constant <code>0.5</code> (9-byte BCD @ <code>ram:2635</code>) into OP2 then <code>_FPMult</code>. [confirmed]</li>
+<li><code>_InvSub</code> <code>ram:227D</code> = <code>_InvOP1S</code> then <code>_FPAdd</code> ⇒ <code>OP2 − OP1</code> (reversed subtract). [confirmed]</li>
+<li><strong>Negation</strong>: <code>_InvOP1S</code> <code>ram:24BD</code> (XOR OP1.type with 0x80, guarding against −0), <code>_InvOP2S</code> <code>ram:24CD</code>, <code>_InvOP1SC</code> <code>ram:24BA</code> (both). <code>_CkOP1Pos</code> <code>ram:1E5D</code> ANDs OP1.type with 0x80. [confirmed]</li>
+</ul>
+<h3 id="roots--integer-parts-confirmed"><a class="header" href="#roots--integer-parts-confirmed">Roots &amp; integer parts [confirmed]</a></h3>
+<ul>
+<li><code>_SqRoot</code> <code>page_02:6E38</code>: <code>_ErrD_OP1NotPos</code> (→ DOMAIN if negative/complex-real), <code>fp_clear_guard</code>, <code>_ZeroOP3</code>, then a <strong>digit-by-digit BCD square-root extraction</strong> loop (<code>FUN_ram_1C9C</code> trial-subtract + <code>FUN_ram_1D4A</code> compare, halving the exponent up front). Not Newton’s method — classic long-hand sqrt.</li>
+<li><code>_Int</code>/<code>_Intgr</code> <code>ram:2621</code>/<code>2263</code>: <strong>floor</strong>. <code>_Trunc</code> <code>ram:2279</code> drops the fractional part (toward zero); <code>_Intgr</code> truncates then subtracts 1 (<code>_Minus1</code> <code>ram:2294</code>) when the original was negative, giving true floor.</li>
+<li><code>_Frac</code> <code>ram:24E3</code>: fractional part = x − trunc(x); shifts mantissa by the exponent and keeps the low digits.</li>
+<li><code>_Round</code> / <code>_RndGuard</code> <code>ram:2623</code> / <code>page_02:6A57</code>: round to the active display-digit count; <code>_Round</code> is a thin <code>cross_page_jump</code> wrapper (body banked off page 0).</li>
+</ul>
+<hr>
+<h2 id="3-degreeradian--polar-conversions-confirmed"><a class="header" href="#3-degreeradian--polar-conversions-confirmed">3. Degree/radian &amp; polar conversions [confirmed]</a></h2>
+<ul>
+<li><code>_DToR</code> <code>ram:236B</code> (deg→rad): multiply OP1 by $\pi/180$ (<code>FUN_ram_235D</code> loads the constant) then normalize via <code>FUN_ram_249E</code>.</li>
+<li><code>_RToD</code> <code>ram:2374</code> (rad→deg): multiply by $180/\pi$ (<code>FUN_ram_2361</code>).</li>
+<li><code>_PToR</code> <code>page_02:50BD</code> polar→rectangular; pairs with the complex trig below.
+These constants are the BCD floats <code>π/180 = 1.745…e-2</code> and <code>180/π = 5.729…e1</code> noted in
+<a href="06-floating-point.html">06-floating-point.md</a>’s constant scan.</li>
+</ul>
+<hr>
+<h2 id="4-cross-page-dispatch-cross_page_jump--ram2b09-confirmed"><a class="header" href="#4-cross-page-dispatch-cross_page_jump--ram2b09-confirmed">4. Cross-page dispatch (<code>cross_page_jump</code> @ <code>ram:2B09</code>) [confirmed]</a></h2>
+<p>Banked ROM calls use a bcall-style trampoline.
+<code>cross_page_jump</code>:</p>
+<ol>
+<li>saves the current page (<code>IN A,(6)</code>),</li>
+<li>builds a <code>RET</code>-to-page-0 trampoline on the stack (<code>bcall</code> return frame, page restored on exit),</li>
+<li>reads a 3-byte <code>{lo, hi, page}</code> descriptor (page masked with <code>0x1F</code>/<code>0x3F</code> for 83+/84+ via ports 2/0x21),</li>
+<li><code>OUT (6),A</code> to bank the target page in at <code>4000</code>, then jumps to it.</li>
+</ol>
+<p>The ln/e^x sites that look similar are <strong>not</strong> cross-page dispatches. <code>ram:2362</code> calls the bcall
+entry at <code>ram:3DD1</code>, whose inline descriptor is <code>1E 7D 02</code>, so it invokes the page-0x02
+coefficient fetcher at <code>page_02:7D1E</code>. In <code>LD A,3; CALL 0x2362</code> / <code>LD A,6; CALL 0x2362</code>, the
+<code>3</code> and <code>6</code> are coefficient-table indexes, not target pages. <code>_EToX</code> falls through locally into
+the <code>_TenX</code> body at <code>page_02:7069</code>; the ln/e^x/sin-cos coefficient tables are on page 0x02
+(<code>7181</code>, <code>7201</code>, <code>7281</code>, and the constant block near <code>7D42</code>), not page 0x03/0x06/0x07.</p>
+<hr>
+<h2 id="5-transcendentals"><a class="header" href="#5-transcendentals">5. Transcendentals</a></h2>
+<h3 id="logarithms-confirmed"><a class="header" href="#logarithms-confirmed">Logarithms [confirmed]</a></h3>
+<ul>
+<li><code>_LnX</code> <code>page_02:6EFD</code>: <code>_CkOP1Pos</code>; <strong>non-positive real → <code>_ErrDomain</code></strong>. For a positive real it calls the real-log core (<code>_CLN</code> path, selector <code>C=2</code>); the <em>generic</em> entry handles complex args.</li>
+<li><code>_LogX</code> <code>page_02:6F16</code>: same structure, base-10 selector <code>C=0</code>, guards <code>_ErrD_OP1_0</code>/<code>_ErrD_OP1NotPos</code>.</li>
+<li><code>_CLN</code> <code>page_02:6CCA</code> / <code>_CLog</code> <code>page_02:6CE7</code> — <strong>complex</strong> log: <code>_CAbs</code> (magnitude) → real <code>_LnX</code>/<code>_LogX</code> for the real part, <code>_ATan2Rad</code> (<code>page_02:76D4</code>) for the imaginary part (the argument/angle). Uses <code>_PushRealO1</code>/<code>_PopRealO2</code> to juggle the operand. This is why <code>ln(-2)</code> returns a complex result in <code>a+bi</code> mode but raises <code>_ErrNonReal</code> (0x87) in real mode.</li>
+</ul>
+<h3 id="exponentials-confirmed"><a class="header" href="#exponentials-confirmed">Exponentials [confirmed]</a></h3>
+<ul>
+<li><code>_EToX</code> <code>page_02:705C</code> (e^x): loads the <code>log10(e)</code> constant through <code>ram:2362</code>/<code>page_02:7D1E</code>,
+then falls through into the local <code>_TenX</code> body.</li>
+<li><code>_TenX</code> <code>page_02:7066</code> (10^x): splits exponent into integer (digit shift) + fractional
+(16-slot table-driven evaluation through <code>page_02:7181</code>). Argument too large → <code>_ErrOverflow</code>.</li>
+</ul>
+<h3 id="trig--sincostan-confirmed"><a class="header" href="#trig--sincostan-confirmed">Trig — sin/cos/tan [confirmed]</a></h3>
+<ul>
+<li><code>_SinCosRad</code> <code>page_02:733E</code>, <code>_Sin</code> <code>7342</code>, <code>_Cos</code> <code>7346</code>, <code>_Tan</code> <code>734A</code>. Each loads a
+<strong>function selector</strong> byte into <code>0x8499</code> (<code>1</code>=sin, <code>2</code>=cos, <code>4</code>=tan; <code>0x80</code> bit set when
+<em>not</em> in the rad-special mode tested by <code>BIT 2,(IY+0)</code>; <code>_SinCosRad</code> forces <code>0x81</code>).</li>
+<li>Range reduction: reads OP1 exponent; <strong>exponent ≥ 0x0C (|x| ≳ 10^12·) → <code>_ErrDomain</code></strong>
+(“argument out of range”). It then reduces the angle modulo a quarter-period using the
+BCD constant table near <code>page_02:7D81</code> and runs the <strong>same table-driven digit recurrence</strong>
+as ln/eˣ over the signed near-unity tables at <code>page_02:7201</code> and <code>page_02:7281</code> (one row
+per digit step, sign-variant picked by <code>0x84A4</code> bit 7) — the per-step <code>bcd_sub_op1_op2</code>
+(<code>ram:1D8A</code>) / <code>bcd_add_8496_8480</code> (<code>ram:1D26</code>) are the shift-and-add BCD steps of that
+recurrence, <em>not</em> a fixed polynomial and <em>not</em> CORDIC for the forward trig. The per-row
+decoding of <code>02:7201</code>/<code>02:7281</code> is detailed in <a href="06-floating-point.html">06-floating-point.md</a>.</li>
+</ul>
+<h3 id="inverse-trig-confirmed"><a class="header" href="#inverse-trig-confirmed">Inverse trig [confirmed]</a></h3>
+<ul>
+<li><code>_ASinRad</code> <code>76DA</code>, <code>_ACosRad</code> <code>76C9</code>, <code>_ATanRad</code> <code>76CF</code>, <code>_ATan2Rad</code> <code>76D4</code>, plus the
+degree-mode <code>_ASin</code>/<code>_ACos</code>/<code>_ATan</code>/<code>_ATan2</code> at <code>76F1</code>/<code>76DF</code>/<code>76E9</code>/<code>7749</code>.</li>
+<li><code>_ASin</code>/<code>_ACos</code> call domain check <code>SUB_page_02:79D3</code>; <strong>|arg| &gt; 1 → <code>_ErrDomain</code></strong>.</li>
+<li>All inverse trig funnel into the shared <strong>arctangent CORDIC engine</strong> at <code>page_02:774B</code>
+(<code>B=0x20</code> = 32 iterations), with asin/acos expressed via atan2 of (x, √(1−x²)).</li>
+</ul>
+<h3 id="hyperbolics-confirmed"><a class="header" href="#hyperbolics-confirmed">Hyperbolics [confirmed]</a></h3>
+<ul>
+<li><code>_SinHCosH</code> <code>7626</code>, <code>_TanH</code> <code>762A</code>, <code>_CosH</code> <code>762E</code>, <code>_SinH</code> <code>7632</code>; <code>_ATanH</code>/<code>_ASinH</code>/<code>_ACosH</code>
+at <code>7909</code>/<code>7956</code>/<code>7964</code>. Same <code>0x8499</code> selector mechanism; built from <code>_EToX</code> (<code>sinh = (e^x−e^-x)/2</code>, visible in the <code>_EToX</code>+<code>_FPDiv</code> sequence near <code>02:6D08</code>).</li>
+</ul>
+<h3 id="power-operator--confirmed"><a class="header" href="#power-operator--confirmed">Power operator <code>^</code> [confirmed]</a></h3>
+<p>The general <code>a^b</code> lives at <code>page_02:6D08</code>+: it computes <code>b·ln(a)</code> then <code>e^()</code> and reconstructs
+with <code>_SinCosRad</code> for the complex case — i.e. <code>a^b = e^(b·Ln a)</code>, with <code>_FPDiv</code>/<code>_FPMult</code>
+glue and <code>_OP2ToOP6</code>/<code>_OP6ToOP1</code> shuffles. Integer/√ special cases short-circuit to
+<code>_FPMult</code>/<code>_SqRoot</code>. This makes <code>^</code> the most FP-stack-heavy single operator a student hits.</p>
+<hr>
+<h2 id="6-number-entry--display-formatting"><a class="header" href="#6-number-entry--display-formatting">6. Number entry &amp; display formatting</a></h2>
+<p>When the homescreen shows a result (or <code>Ans</code>), the engine converts the <code>OP1</code> <code>TIFloat</code> to a
+digit string honoring the <strong>MODE</strong> screen (Normal/Sci/Eng, Float/Fix 0–9).</p>
+<ul>
+<li><code>_FormReal</code> <code>page_06:5ACF</code> — real-number formatter. [confirmed]
+<ul>
+<li><code>fp_clear_guard</code>; zero → <code>_OP1Set0</code>; copies arg to OP5.</li>
+<li>Reads the digit-count/mode flags from <code>(IY+0xc)</code> and the byte at <code>0x89FA</code> (active
+fixed/decimal-places setting; <code>(IX-1)</code> local holds the effective format byte).</li>
+<li>Exponent thresholds drive Normal↔Sci switchover: it compares <code>OP1.exp</code> against <code>0x7D</code>/<code>0x7F</code>
+(≈ the ±-exponent window) and renormalizes (<code>FUN_ram_1BE7</code>) to bring the value into the
+displayable mantissa range, bumping a digit counter. Negative sign decrements the leading
+column count (<code>DEC (IX-3)</code>).</li>
+</ul>
+</li>
+<li><code>_FormEReal</code> <code>page_06:5799</code> — forces <strong>scientific/E</strong> notation by setting <code>0,(IY+0xc)</code> then calling <code>_FormReal</code>. [confirmed]</li>
+<li><code>_FormBase</code> <code>page_06:57C0</code> — integer formatting in a base; requires <code>_CkOP1Real</code> (→ DATA TYPE / DOMAIN on non-real). [confirmed]</li>
+<li><code>_FormDCplx</code> <code>page_06:59D3</code> — complex <code>a+bi</code> / <code>r∠θ</code> formatting (calls <code>_FormReal</code> twice). [standard]</li>
+<li>Exponent ↔ ASCII helpers on page 0: <code>_ExpToHex</code> <code>ram:1E4E</code>, <code>_OP1ExpToDec</code> <code>ram:1E77</code>,
+<code>_DecO1Exp</code> <code>ram:1E6F</code> (decrement exp), <code>FUN_ram_1BCB</code> (BCD-digit → value). [confirmed]</li>
+<li>The formatted string is then drawn by <code>_DispOP1A</code> (<code>page_04:7844</code>) / homescreen put-string
+routines (see <a href="08-display-lcd.html">08-display-lcd.md</a>).</li>
+</ul>
+<p><code>Ans</code> is the last-result <code>TIFloat</code> saved in a system var and reloaded into <code>OP1</code>
+(via <code>_Mov9ToOP1</code> = RST 20h) when the token <code>Ans</code> is evaluated. [standard]</p>
+<hr>
+<h2 id="7-error-handling-confirmed"><a class="header" href="#7-error-handling-confirmed">7. Error handling [confirmed]</a></h2>
+<p>Errors are raised by loading an <strong>error code</strong> in <code>A</code> and jumping to <code>_JError</code> (<code>ram:2793</code>),
+which unwinds to the error context and shows the named message. The raiser cluster lives at
+<code>ram:26E8</code>+ — exact code map read from disassembly:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Raiser</th><th>Addr</th><th><code>A</code> code</th><th>Message</th></tr>
+</thead>
+<tbody>
+<tr><td><code>_ErrOverflow</code></td><td><code>ram:26E8</code></td><td><code>0x81</code></td><td>OVERFLOW</td></tr>
+<tr><td><code>_ErrDivBy0</code></td><td><code>ram:26EC</code></td><td><code>0x82</code></td><td>DIVIDE BY 0</td></tr>
+<tr><td><code>_ErrSingularMat</code></td><td><code>ram:26F0</code></td><td><code>0x83</code></td><td>SINGULAR MAT</td></tr>
+<tr><td><code>_ErrDomain</code></td><td><code>ram:26F4</code></td><td><code>0x84</code></td><td>DOMAIN</td></tr>
+<tr><td><code>_ErrIncrement</code></td><td><code>ram:26F8</code></td><td><code>0x85</code></td><td>INCREMENT</td></tr>
+<tr><td><code>_ErrNon_Real</code></td><td><code>ram:26FC</code></td><td><code>0x87</code></td><td>NONREAL ANS</td></tr>
+<tr><td><code>_ErrSyntax</code></td><td><code>ram:2700</code></td><td><code>0x88</code></td><td>SYNTAX</td></tr>
+<tr><td><code>_ErrMode</code></td><td><code>ram:2704</code></td><td><code>0x9E</code></td><td>MODE</td></tr>
+<tr><td><code>_ErrDataType</code></td><td><code>ram:2708</code></td><td><code>0x89</code></td><td>DATA TYPE</td></tr>
+<tr><td><code>_ErrArgument</code></td><td><code>ram:2711</code></td><td><code>0x8A</code></td><td>ARGUMENT</td></tr>
+<tr><td><code>_ErrDimMismatch</code>/<code>Dimension</code></td><td><code>ram:2715</code>/<code>2719</code></td><td><code>0x8B</code>/<code>0x8C</code></td><td>DIM MISMATCH / INVALID DIM</td></tr>
+<tr><td><code>_ErrUndefined</code>/<code>Memory</code></td><td><code>ram:271D</code>/<code>2721</code></td><td><code>0x8D</code>/<code>0x8E</code></td><td>UNDEFINED / MEMORY</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Domain pre-checks</strong> (page-0, set Z if OK else jump to <code>_ErrDomain</code>):</p>
+<ul>
+<li><code>_ErrD_OP1NotPos</code> <code>ram:2119</code> — <code>_CkOP1Pos</code>; not &gt;0 ⇒ DOMAIN (used by <code>_SqRoot</code>, <code>_LogX</code>).</li>
+<li><code>_ErrD_OP1Not_R</code> <code>ram:2120</code> — <code>_CkOP1Real</code>; complex ⇒ DOMAIN.</li>
+<li><code>_ErrD_OP1NotPosInt</code> <code>ram:2125</code> — <code>_CkPosInt</code>.</li>
+<li><code>_ErrD_OP1_LE_0</code> <code>ram:212A</code>, <code>_ErrD_OP1_0</code> <code>ram:212D</code> — zero/sign guards (e.g. <code>ln(0)</code>).</li>
+</ul>
+<p><strong>Where the calc engine raises what:</strong></p>
+<ul>
+<li><code>÷ 0</code>, <code>1/0</code>: <code>_FPDiv</code>/<code>_FPRecip</code> → <code>0x82</code> DIVIDE BY 0.</li>
+<li><code>×</code>/<code>10^x</code>/exponent overflow: <code>FUN_ram_250F</code> exponent-add → <code>0x81</code> OVERFLOW.</li>
+<li><code>√(neg)</code>, <code>ln/log(≤0)</code>, <code>asin/acos(|x|&gt;1)</code>, <code>tan(π/2)</code>, |trig arg| ≳ 10^12: <code>0x84</code> DOMAIN.</li>
+<li>Complex result requested in real mode: <code>0x87</code> NONREAL ANS (the <code>_CLN</code>/complex paths).</li>
+</ul>
+<hr>
+<h2 id="8-routine-index-confident-spaceaddr"><a class="header" href="#8-routine-index-confident-spaceaddr">8. Routine index (confident, <code>space:addr</code>)</a></h2>
+<p>Arithmetic core (page 0): <code>_FPAdd 229E</code>, <code>_FPSub 2297</code>, <code>_FPMult 238B</code>, <code>_FPDiv 2541</code>,
+<code>_FPRecip 253D</code>, <code>_FPSquare 238A</code>, <code>_Cube 237D</code>, <code>_Times2 2282</code>, <code>_TimesPt5 2382</code>,
+<code>_InvSub 227D</code>, <code>_Int 2621</code>, <code>_Intgr 2263</code>, <code>_Trunc 2279</code>, <code>_Frac 24E3</code>, <code>_Round 2623</code>,
+<code>_InvOP1S 24BD</code>, <code>_InvOP2S 24CD</code>, <code>_InvOP1SC 24BA</code>, <code>_CkOP1Pos 1E5D</code>, <code>fp_clear_guard 2627</code>,
+<code>fpmul_expadd FUN_ram_250F</code>, <code>_DToR 236B</code>, <code>_RToD 2374</code>, <code>cross_page_jump 2B09</code>.</p>
+<p>Transcendentals (page 02): <code>_SqRoot 6E38</code>, <code>_LnX 6EFD</code>, <code>_LogX 6F16</code>, <code>_CLN 6CCA</code>,
+<code>_CLog 6CE7</code>, <code>pow_core 6D08</code>, <code>_EToX 705C</code>, <code>_TenX 7066</code>, <code>_SinCosRad 733E</code>, <code>_Sin 7342</code>,
+<code>_Cos 7346</code>, <code>_Tan 734A</code>, <code>_SinHCosH 7626</code>, <code>_TanH 762A</code>, <code>_CosH 762E</code>, <code>_SinH 7632</code>,
+<code>_ACosRad 76C9</code>, <code>_ATanRad 76CF</code>, <code>_ATan2Rad 76D4</code>, <code>_ASinRad 76DA</code>, <code>_ACos 76DF</code>,
+<code>_ATan 76E9</code>, <code>_ASin 76F1</code>, <code>_ATan2 7749</code>, <code>atan_cordic 774B</code>, <code>coeff_fetch 7D1E</code>,
+<code>trig_coeff_table 7D81</code>.</p>
+<p>Formatting (page 06): <code>_FormReal 5ACF</code>, <code>_FormEReal 5799</code>, <code>_FormBase 57C0</code>, <code>_FormDCplx 59D3</code>.</p>
+<p>Errors (page 0): <code>_JError 2793</code>, raiser table <code>26E8</code>+, domain pre-checks <code>2119</code>–<code>2131</code>.</p>
+<hr>
+<h2 id="9-worked-flow-2sinπ6ln5-hypothesis-from-the-above"><a class="header" href="#9-worked-flow-2sinπ6ln5-hypothesis-from-the-above">9. Worked flow: <code>2*sin(π/6)+ln(5)</code> [hypothesis, from the above]</a></h2>
+<ol>
+<li>Parser pushes <code>2</code> (<code>OP1</code>), evaluates <code>sin(π/6)</code>: loads <code>π/6</code> into OP1, <code>_SinCosRad</code>/<code>_Sin</code>
+(selector <code>0x8499</code>), table-driven digit recurrence → <code>OP1=0.5</code>.</li>
+<li><code>×</code>: the saved <code>2</code> is in <code>OP2</code> (or popped from FPS) → <code>_FPMult</code> → <code>OP1=1</code>.</li>
+<li><code>ln(5)</code>: spill <code>1</code> to FPS (<code>_PushRealO1</code>), <code>OP1=5</code>, <code>_LnX</code> (<code>_CkOP1Pos</code> passes) → <code>1.6094…</code>.</li>
+<li><code>+</code>: pop <code>1</code> to <code>OP2</code> (<code>_PopRealO2</code>), <code>_FPAdd</code> → <code>OP1≈2.6094</code>.</li>
+<li><code>_FormReal</code> renders per MODE; result stored as <code>Ans</code>.</li>
+</ol>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="09-keyboard-link.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="sub-graphing.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="09-keyboard-link.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="sub-graphing.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-5fa46c0a.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
