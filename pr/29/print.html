@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-07ad0b54.js";
+            window.path_to_searchindex_js = "searchindex-b6577bcb.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -4283,9 +4283,10 @@ entry points are canonical equates in <code>ti83plus.inc</code> and now resolve 
 body-undisassembled until the lower-level page-3C/3D helper graph is split cleanly.</li>
 <li><strong>Group archive path — partially pinned [H/I].</strong> <code>_DataSize</code> (<code>00:1485</code>) confirms a Group
 (type <code>0x17</code>, like AppVar <code>0x15</code>/<code>0x16</code>) carries a leading word-size header, so a group <em>can</em> be
-stored as one Flash blob. The single-call RAM→Flash worker <code>61F4</code> is reached only after
-<code>_Arc_Unarc</code> rejects <code>0x17</code> (the <code>CP 0x17</code> → <code>26E0</code> reject), so groups must be archived through a
-separate routine that walks the group’s member list. That member-walk routine is <strong>not
+stored as one Flash blob. In <code>_Arc_Unarc</code> the <code>CP 0x17</code> → <code>26E0</code> reject sits on the <strong>B≠0 (in-Flash)
+branch</strong>, immediately before the unarchive worker <code>61F4</code> — so an archived group is not unarchived
+through <code>61F4</code>, and groups are handled by a separate routine that walks the group’s member list.
+That member-walk routine is <strong>not
 identifiable in the current Ghidra DB</strong> — <code>_Arc_Unarc</code>’s body past the entry <code>CALL</code> is not
 disassembled here (cross-page <code>CALL</code> flagged non-returning), and no group-archive function is
 named or xref-reachable. Re-confirming it would need a linear disassembly pass like the one behind §4.</li>
