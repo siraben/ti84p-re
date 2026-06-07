@@ -225,11 +225,13 @@ running-X slot:
 ```
 
 i.e. the first row's independent value is **TblStart**. A working float at
-`0x8622`/`0x862B` holds the current row's X. The "advance to next row" step
-(`05:65DC`) adds **TblStep** to it:
+`0x8622`/`0x862B` holds the current row's X. The row index is bounds-checked at
+`05:65DC` (`LD A,(0x91E0); LD HL,0x91DC; CP (HL); RET` — current row vs the last
+row), and the per-row X is computed as `TblStart + k·TblStep` rather than by an
+incremental add:
 
 ```z80
-05:65DC  … LD HL,(table indices) … CALL 0x6D67 (advance) …
+05:65DC  LD A,(0x91E0) ; LD HL,0x91DC ; CP (HL) ; RET   ; row-index bound check
 05:6359  LD A,(0x91DD) … LD DE,0x9221 / 0x91E2 (cell buffers)
          LD HL,(0x91DC /* row idx */) ; ADD ; CALL _LdHLind ; ADD HL,DE
 ```
@@ -306,7 +308,7 @@ columns, drawn with the large font through the home-screen text primitives
            LD DE,(0x9192 YOutDat) ; the Y-column value pointer
            CP 2 / CP 5            ; column-kind dispatch (X col vs Y col vs input)
            CALL 0x7E7C ; CALL 0x7E98   ; render the cached value into the cell
-           CALL 0x65DC            ; advance running-X (= +TblStep) for next row
+           CALL 0x65DC            ; row-index bound check (current row vs last)
            INC row ; … ; LD (0x91DC),A
 ```
 
@@ -335,7 +337,7 @@ next TABLE view to recompute:
 | `02:7B35` bytes | editing **TblStart/ΔTbl/Indpnt/Depend** in TBLSET |
 | `37:5F3D` | toggling Indpnt or Depend on the setup screen |
 | `38:6340`, `38:4809`, `38:54CD` | the **parser** storing into a Y= equation or a relevant var (editing `Y1=…`, `→Y1`, or changing `X`/window) |
-| `00:4105` | boot / reset (`RAM clear`) initialises the table as dirty |
+| boot / reset (`RAM clear`) | initialises the table as dirty (`reTable` set); the exact init site is not pinned here (`00:4105` is the "Resetting All…" message string, not the setter) |
 
 Conversely only the recompute driver **clears** it (`05:5DD7`, `05:62FD`,
 `05:64DE` → `RES 6,(IY+0x13)`). [confirmed]
@@ -359,7 +361,7 @@ Conversely only the recompute driver **clears** it (`05:5DD7`, `05:62FD`,
    - per row: `_StoX` the running-X, evaluate `Y1`'s tokens via the page-38
      evaluator (`_Find_Parse_Formula` / `_ParseInp`) → OP1 = `X²+1`, format and
      stash into the cell cache (`0x91E2`/`0x9221`),
-   - advance running-X by `TblStep` (`05:65DC`) and repeat,
+   - advance to the next row (bound-checked at `05:65DC`; X = `TblStart + k·TblStep`) and repeat,
    - clear `reTable`.
 4. The grid paints (`05:7E45`) the cached `X` and `Y1` columns as large-font text;
    scrolling (`05:6014`) slides the cache and computes only newly exposed rows.
@@ -386,7 +388,7 @@ page_05:5d0d  table_editor_main                ; reTable? recompute : use cache;
 page_05:5dd7  table_recompute                  ; seed X, fill cache, clear reTable
 page_05:774b  table_seed_runX_from_TblMin      ; runningX(0x862B) ← TblMin
 page_05:773f  table_seed_runX_from_TblMin2     ; same, split-graph path
-page_05:65dc  table_next_X                     ; runningX += TblStep
+page_05:65dc  table_row_bound                   ; row-index bound check (91E0 vs (91DC))
 page_05:5ee1  table_fill_cache_loop            ; per-row value-cache fill (0x91E2)
 page_05:6014  table_scroll_cache               ; slide cell cache on scroll (LDIR/LDDR)
 page_05:6d40  table_mode_test                  ; BIT autoFill/autoCalc (Auto vs Ask)
@@ -419,7 +421,7 @@ page_33:5023  _GraphParseTok                   ; pre-scan equation tokens (graph
 
 ; --- reTable (dirty) setters ---
 page_38:6340 / 38:4809 / 38:54cd  parser sets reTable on Y=/var edit
-page_00:4105  boot sets reTable
+(boot/RAM-clear)  sets reTable (init site not pinned; 00:4105 is a message string)
 ```
 
 ---
