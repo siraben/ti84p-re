@@ -197,9 +197,9 @@ After the data payload, the sender appends the 16-bit sum and waits for the ACK:
 ```
 On the **receive** side the matching check is `6356`: after streaming the payload it compares the
 accumulated checksum `8678` against the received 16-bit checksum; on mismatch it sends a **0x5A ERR
-packet** (`6385: LD H,0x5A ; CALL 419B`) and raises `_JErrorNo`. The ACK-builder `42FB` echoes the
-peer's saved header (`868B bakHeader`), forces command = **0x56**, length = 0, sends it, then
-`_Mov9B` restores the header.
+packet** (`6385: LD H,0x5A ; CALL 419B`) and raises `_JErrorNo`. The ACK-builder `42FB` saves the
+caller's header to `868B bakHeader`, then builds an ACK with a **fresh local** machine-ID (`CALL 620A`),
+command = **0x56**, length = 0, sends it, and `_Mov9B` restores the saved header.
 
 ---
 
@@ -294,7 +294,7 @@ machinery:
       LD A,0x0B ; (8672)=A          ; sndRecState = request/directory
       LD A,0xC9 ; CALL 6971         ; command setup
       CALL 62B0 (clear link sub-state in 8A0B) ; SET 2,(IY+0x1B)
-      CALL 58ED (→ SET 2,(IY+0x24) ; _ChkFindSym)  ; locate the var
+      CALL 58ED (→ SET 1,(IY+0x24) ; _ChkFindSym)  ; locate the var
       JR 4EAD (shared tail with _LinkXferOP: RES 1,(IY+0x24); 2800; JP 4F3E)
 ```
 Note `4EDD` physically **overlaps / shares the tail** (`4EAD`) with `_LinkXferOP`; they are two
@@ -340,7 +340,7 @@ silent-link engine documented here. **[C for 0x9F path; H for the 0x22-25 mappin
    size) at `867F`, sends it (`41C3`, cmd path), waits for **CTS (0x09)**.
 4. `40DA` streams the **DATA (0x15)** payload via `_PagedGet`→`_SendAByte` (Flash-transparent),
    appends the **16-bit checksum**, waits for **ACK (0x56)**.
-5. `_GetSysInfo` (`00:50DD`)-style metadata and an **EOT (0x92)** close the session.
+5. `_GetSysInfo` (`07:7345`, id `0x50DD`)-style metadata and an **EOT (0x92)** close the session.
 6. Receive direction is the mirror: header in → CTS out → DATA in (buffered 16 bytes →
    RAM/Flash via `6AB1`) → checksum verify (`6356`, NAK 0x5A on error) → ACK out → VAT store (RST5).
 
@@ -362,7 +362,7 @@ silent-link engine documented here. **[C for 0x9F path; H for the 0x22-25 mappin
 | `3C:4199` | `lnk_send_cts` | send CTS (cmd 0x09) |
 | `3C:4338` | `lnk_recv_header` | receive + validate 4-byte header |
 | `3C:620A` | `lnk_local_machine_id` | pick local machine-ID from IY+0x1B mode |
-| `3C:42FB` | `lnk_send_ack` | build+send ACK (cmd 0x56) from saved header |
+| `3C:42FB` | `lnk_send_ack` | build+send ACK (cmd 0x56, fresh local machine-ID), restoring the saved header |
 | `3C:4292` | `lnk_recv_data` | receive DATA payload, 16-byte Flash batching, checksum |
 | `3C:6356` | `lnk_verify_cksum` | verify count vs len; NAK 0x5A on mismatch |
 | `3C:6AB1` | `lnk_flush_block` | flush 16-byte staging block to RAM/Flash (port 0x14) |
@@ -376,7 +376,7 @@ silent-link engine documented here. **[C for 0x9F path; H for the 0x22-25 mappin
 | `3C:6994` | `lnk_recv_store` | receive var + VAT store sequence (expects 0x09 then 0x15) |
 | `00:278D` | `_ErrLinkXmit` | `_JError(0x9F)` E_LnkErr |
 | `00:2799` | `_JErrorNo` | raise current pending error (link → 0x9F) |
-| `00:50DD` | `_GetSysInfo` | system info reply (used in link sessions) |
+| `07:7345` | `_GetSysInfo` (id `0x50DD`) | system info reply (used in link sessions) |
 | `00:4A14` | `_SendVarCmd` (bcall id) | → 3C:4EDD |
 
 **Ports:** `0x00` = bit-bang link (tip/ring); `0x08`-`0x0D` = HW link-assist control/status/data
