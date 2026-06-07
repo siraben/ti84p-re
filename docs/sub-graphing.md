@@ -37,7 +37,7 @@ These are the values the WINDOW editor writes and the grapher reads.
 
 There is a second "u" copy block at `0x8E7E` (`uXmin`…`uXres` at `0x8F3B`) — the
 **uVar** window set used in the alternate (split/table) graph context, and a working/temp
-float pair around `0x8E6A`/`0x8E73` used by the transform code (`UNK_ram_8e6a`). [strong]
+float pair around `0x8E6A`/`0x8E73` used by the transform code. [strong]
 
 `deltaX`/`deltaY` are derived from the window when the graph is set up and feed both the
 forward (real→pixel) and the circle/draw routines. The LCD is **96×64**, but the graph area
