@@ -535,6 +535,27 @@ then `Done`. This confirms the practical BASIC calling convention: caller and
 callee share variables, and `Return` resumes the caller. The trace hits VAT/name
 lookup, parser entry/refill paths, shared `A` store/recall, and `_Disp`.
 
+```ti-basic
+{5,4,3,2,1}->L1
+{5,6,7,8,9}->L2
+{0,0,0,0,0,0}->L3
+0->C
+For(I,1,5)
+L1(I)+L2(I)+C->S
+int(S/10)->C
+S-10*C->L3(I)
+End
+C->L3(6)
+Disp L3
+Disp L3(6)
+```
+
+Observed run: `BIGADD.8xp` displays the low-end digits of `L3` as
+`{0 1 1 1 1 ...}`, then an explicit carry line `1`, then `Done`, representing
+`12345 + 98765 = 111110` in little-endian decimal digits. The trace hits
+`list_var_index`, `_AdrLEle`, `_GetLToOP1`, `_PutToL`, `store_list_elem*`,
+`fnint_body`, `_FPDiv`, `_FPAdd`, `_FPSub`, and `_FPMult`.
+
 See [TI-BASIC programming patterns](sub-tibasic-programming.md) for performance
 rules and larger source-level examples.
 

@@ -118,10 +118,42 @@ There is no local variable frame for BASIC programs. A subprogram that uses `A`
 modifies the caller's `A`. For reusable routines, document which variables are
 inputs, scratch, and outputs.
 
+### Arbitrary-precision decimal addition
+
+`BIGADD.8xp` uses lists of base-10 digits in little-endian order. `12345` is
+`{5,4,3,2,1}`, `98765` is `{5,6,7,8,9}`, and the result is the list
+`{0,1,1,1,1,1}` for `111110`.
+
+```ti-basic
+{5,4,3,2,1}->L1
+{5,6,7,8,9}->L2
+{0,0,0,0,0,0}->L3
+0->C
+For(I,1,5)
+L1(I)+L2(I)+C->S
+int(S/10)->C
+S-10C->L3(I)
+End
+C->L3(6)
+Disp L3
+Disp L3(6)
+```
+
+Observed run: the list line begins `{0 1 1 1 1 ...}`, the explicit carry line is
+`1`, and the program ends with `Done`. The trace hits list element address and
+store paths (`list_var_index`, `_AdrLEle`, `_GetLToOP1`, `_PutToL`,
+`store_list_elem*`) plus `fnint_body`, `_FPDiv`, `_FPAdd`, `_FPSub`, and
+`_FPMult`. **[confirmed]**
+
+Performance notes: this is intentionally simple, but it is parser-heavy. For a
+general routine, cache `dim(L1)` and `dim(L2)` before the loop, avoid repeated
+list indexing when a digit is reused, and use a larger base only if you can
+tolerate more carry and display conversion work.
+
 ## Larger source patterns
 
-The following programs are source-level patterns that exercise the same
-interpreter paths. They are not yet part of the generated `.8xp` fixture set.
+The following program is still source-level only. It exercises the same
+interpreter paths, but it is not yet part of the generated `.8xp` fixture set.
 
 ### DFS with a list stack
 
@@ -151,32 +183,6 @@ an index; cache `dim(L2)` into a scalar if the body grows. `augment(` allocates
 a new list, so this version is easy to read but not memory efficient. A faster
 version preallocates `L2`, keeps a scalar stack pointer, and writes `W->L2(P)`.
 **[standard]**
-
-### Arbitrary-precision decimal addition
-
-Use lists of base-10 digits in little-endian order. For example, `12345` is
-`{5,4,3,2,1}`.
-
-```ti-basic
-max(dim(L1),dim(L2))->N
-0->C
-For(I,1,N)
-C->S
-If I<=dim(L1)
-S+L1(I)->S
-If I<=dim(L2)
-S+L2(I)->S
-int(S/10)->C
-S-10C->L3(I)
-End
-If C
-C->L3(N+1)
-```
-
-Performance notes: this is intentionally simple, but it is parser-heavy. Cache
-`dim(L1)` and `dim(L2)` before the loop, avoid repeated list indexing when a
-digit is reused, and use a larger base only if you can tolerate more carry and
-display conversion work. **[standard]**
 
 ## BASIC and ASM interop
 

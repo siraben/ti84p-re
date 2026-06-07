@@ -169,6 +169,7 @@ They cover:
 | `animtext` | `ClrHome`, `For(`/`End`, `Output(` text placement, `Disp` |
 | `graphviz` | `ClrDraw`, `Line(`, `Circle(`, `Text(`, `DispGraph` |
 | `callsub` + `subrt` | BASIC `prgmNAME` call, shared variable return, `Return` |
+| `bigadd` | list-digit arbitrary-precision addition, list indexing/stores, carry |
 
 The current upstream headless TilEm runner does not silently load `.8xp` files
 before executing a macro. The validation traces below used a local TilEm patch
@@ -209,6 +210,7 @@ Validated outputs/traces (2026-06-06, OS 2.55MP, `tools/rom.bin`):
 | `ANIMTXT.8xp` | row of `X` characters, `DONE`, then `Done` | page-38 parser/loop paths, `_OutputExpr` (`03:4AF2`), `_Disp`, LCD text routines |
 | `GRAPHV.8xp` | graph screen with `DFS`, axes, and diagonal line | `_GrBufClr`, `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`) |
 | `CALLSUB.8xp` + `SUBRT.8xp` | `SUB`, `1`, then `Done` | `prgmNAME` lookup through VAT/name paths, shared `A` store/recall, `_Disp`, `Return` to caller |
+| `BIGADD.8xp` | `L3` digits begin `{0 1 1 1 1 ...}`, carry line `1`, then `Done` | list indexing/stores (`list_var_index`, `_AdrLEle`, `_GetLToOP1`, `_PutToL`, `store_list_elem*`), `fnint_body`, `_FPDiv`, `_FPAdd`, `_FPSub`, `_FPMult` |
 
 These traces include the startup link-transfer code because the patched headless
 runner loads the `.8xp` files during the traced process. Use an idle/load
