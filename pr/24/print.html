@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-250a7658.js";
+            window.path_to_searchindex_js = "searchindex-2992b8de.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -1637,10 +1637,12 @@ for observed outputs and trace anchors.</p>
 <tr><td>Data</td><td><code>{3,1,4,1,5}-&gt;L1</code> / <code>SortA(L1)</code> / <code>cumSum(L1)-&gt;L2</code> / <code>sum(L1)-&gt;S</code> / display results</td><td><code>08 33 2B 31 2B 34 2B 31 2B 35 09 04 5D 00 3F E3 5D 00 11 3F BB 29 5D 00 11 04 5D 01 3F B6 5D 00 11 04 53 3F DE 5D 00 3F DE 5D 01 3F DE 53 3F</code></td></tr>
 <tr><td><code>Asm(</code> wrapper</td><td><code>Disp "BEFORE"</code> / <code>Asm(prgmASMRET)</code> / <code>Disp "AFTER"</code></td><td><code>DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41 46 54 45 52 2A 3F</code></td></tr>
 <tr><td>ASM callback bridge</td><td><code>Asm(prgmASMSIG)</code> / <code>If Ans</code> / <code>prgmZZBASIC</code></td><td><code>DE 2A 42 45 ... 72 3F 5F 5A 5A ...</code> (full body in <code>tools/tibasic-samples/asmbridge.tok</code>)</td></tr>
+<tr><td>ASM return value</td><td><code>Asm(prgmASMVAL)</code> / <code>Ans+3-&gt;A</code> / <code>Disp A</code></td><td><code>BB 6A 5F 41 53 4D 56 41 4C 11 3F 72 70 33 04 41 3F DE 41 3F</code></td></tr>
 <tr><td>Animation</td><td><code>ClrHome</code> / <code>For(I,1,8)</code> / <code>Output(1,I,"X")</code> / <code>End</code> / <code>Disp "DONE"</code></td><td><code>E1 3F D3 49 2B 31 2B 38 11 3F E0 31 2B 49 2B 2A 58 2A 11 3F D4 3F DE 2A 44 4F 4E 45 2A 3F</code></td></tr>
 <tr><td>Graph drawing</td><td><code>ClrDraw</code>, window stores, visible axes/diagonal, <code>Circle(47,31,10)</code>, <code>Text(0,0,"DFS")</code>, <code>DispGraph</code></td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphviz.tok</code>)</td></tr>
 <tr><td>Graph visualization</td><td><code>ClrDraw</code>, window stores, then <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> drawing the DFS topology</td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphdfs.tok</code>)</td></tr>
 <tr><td>BASIC subprogram</td><td><code>0-&gt;A</code> / <code>prgmSUBRT</code> / <code>Disp A</code>; callee <code>Disp "SUB"</code> / <code>A+1-&gt;A</code> / <code>Return</code></td><td>caller <code>30 04 41 3F 5F 53 55 42 52 54 3F DE 41 3F</code>; callee <code>DE 2A 53 55 42 2A 3F 41 70 31 04 41 3F D5 3F</code></td></tr>
+<tr><td>BASIC ABI fixture</td><td>caller initializes <code>L1</code> and <code>Ans</code>, calls <code>prgmABISUB</code>, then displays <code>A</code>, <code>L1</code>, and <code>Ans</code></td><td>caller <code>08 32 2B 34 ... DE 72 3F</code>; callee <code>72 70 5D 00 ... D5 3F</code> (full bodies in <code>tools/tibasic-samples/callabi.tok</code> and <code>abisub.tok</code>)</td></tr>
 <tr><td>Big integer add</td><td>list digits in <code>L1</code>/<code>L2</code>, carry <code>C</code>, indexed stores into <code>L3</code></td><td><code>08 35 2B 34 ... DE 5D 02 10 36 11 3F</code> (full body in <code>tools/tibasic-samples/bigadd.tok</code>)</td></tr>
 <tr><td>Big integer multiply</td><td>nested <code>For(</code> loops over digit lists, <code>L3(I+J-1)</code> accumulation, carry into <code>L3(I+J)</code></td><td><code>08 33 2B 32 ... DE 5D 02 10 34 11 3F</code> (full body in <code>tools/tibasic-samples/bigmul.tok</code>)</td></tr>
 <tr><td>DFS</td><td>edge lists <code>L1</code>/<code>L2</code>, visited <code>L3</code>, stack <code>L4</code>, <code>While</code>/<code>If Then</code>/nested <code>For</code></td><td><code>08 31 2B 31 ... D4 3F DE 5D 02 3F</code> (full body in <code>tools/tibasic-samples/dfs.tok</code>)</td></tr>
@@ -2774,6 +2776,21 @@ hits the <code>AsmPrgm</code> payload at <code>ram:9D95</code>, <code>_OP1Set1</
 <code>prgmZZBASIC</code> body evaluator path (<code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>).
 This is the practical callback convention: ASM returns a value through a BASIC
 variable, and BASIC performs the actual program call.</p>
+<p><code>ASMRTN.8xp</code> demonstrates the same <code>Ans</code> convention as a numeric return value:</p>
+<pre><code class="language-ti-basic">Asm(prgmASMVAL)
+Ans+3-&gt;A
+Disp A
+</code></pre>
+<p>with <code>ASMVAL.8xp</code>:</p>
+<pre><code class="language-ti-basic">AsmPrgm
+EFA741EFBF4AC9
+</code></pre>
+<p>The payload bytes are <code>rst 28h; .dw 41A7</code> (<code>_OP1Set2</code>), <code>rst 28h; .dw 4ABF</code>
+(<code>_StoAns</code>), <code>ret</code>. Observed run: loading <code>ASMRTN.8xp</code> and <code>ASMVAL.8xp</code>
+displays <code>5</code>, then <code>Done</code>. The trace hits <code>ram:9D95</code>, <code>_OP1Set2</code> (<code>00:1B50</code>),
+<code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code> while evaluating <code>Ans+3</code>, <code>_FPAdd</code>, and
+<code>_Disp</code>. This confirms that <code>Ans</code> is a practical scalar return channel from an
+<code>AsmPrgm</code> back into BASIC.</p>
 <h3 id="animation-graphing-and-basic-subprogram-calls"><a class="header" href="#animation-graphing-and-basic-subprogram-calls">Animation, graphing, and BASIC subprogram calls</a></h3>
 <p>Additional generated fixtures extend coverage beyond arithmetic/list samples:</p>
 <pre><code class="language-ti-basic">ClrHome
@@ -2837,6 +2854,25 @@ then <code>Done</code>. This confirms the practical BASIC calling convention: ca
 callee share variables, and <code>Return</code> resumes the caller. The trace hits VAT/name
 lookup, parser entry/refill paths, the program-body evaluator call at <code>38:6914</code>
 into <code>eval_eqn_recursive</code> (<code>38:778F</code>), shared <code>A</code> store/recall, and <code>_Disp</code>.</p>
+<p><code>ABICALL.8xp</code> and <code>ABISUB.8xp</code> exercise more of that convention:</p>
+<pre><code class="language-ti-basic">{2,4,6}-&gt;L1
+7
+prgmABISUB
+Disp A
+Disp L1
+Disp Ans
+</code></pre>
+<p>with callee:</p>
+<pre><code class="language-ti-basic">Ans+L1(2)-&gt;A
+9-&gt;L1(3)
+A
+Return
+</code></pre>
+<p>Observed run: the caller displays <code>11</code>, <code>{2 4 9}</code>, <code>11</code>, then <code>Done</code>. The callee
+reads the caller’s <code>Ans</code> and <code>L1</code>, writes shared scalar <code>A</code>, mutates shared
+<code>L1</code>, leaves <code>Ans</code> as <code>11</code> by evaluating <code>A</code>, and returns. The trace hits the
+BASIC subprogram body path plus <code>_AnsName</code> and list store paths, so this is a
+confirmed scalar/list/<code>Ans</code> ABI fixture.</p>
 <p>The ordinary BASIC subprogram path is separate from <code>Asm(</code>. In the validated
 trace it does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <code>_Find_Parse_Formula</code>,
 or <code>_SetParseVarProg</code>; it uses the page-38 parser/VAT/body evaluator path and
@@ -3011,10 +3047,12 @@ programs into calculator RAM first, then run the same macro and resolver steps.<
 <tr><td><code>data</code></td><td><code>DATA.8xp</code></td><td>list literal, <code>SortA(</code>, <code>cumSum(</code>, <code>sum(</code></td><td><code>store_list_elem</code>, <code>list_fold_dispatch</code></td></tr>
 <tr><td><code>asmcall</code></td><td><code>ASMCALL.8xp</code> + <code>ASMRET.8xp</code></td><td>BASIC <code>Asm(prgmNAME)</code> into <code>AsmPrgm</code> payload</td><td><code>_ExecutePrgm</code>, <code>ram:9D95</code></td></tr>
 <tr><td><code>asmbridge</code></td><td><code>ASMBRIDG.8xp</code> + <code>ASMSIG.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM return code through <code>Ans</code>, BASIC callback</td><td><code>_OP1Set1</code>, <code>_StoAns</code>, <code>_AnsName</code>, <code>eval_eqn_recursive</code></td></tr>
+<tr><td><code>asmreturn</code></td><td><code>ASMRTN.8xp</code> + <code>ASMVAL.8xp</code></td><td>ASM return value through <code>Ans</code>, then BASIC arithmetic</td><td><code>_OP1Set2</code>, <code>_StoAns</code>, <code>_AnsName</code>, <code>_FPAdd</code></td></tr>
 <tr><td><code>animtext</code></td><td><code>ANIMTXT.8xp</code></td><td>text placement animation with <code>Output(</code></td><td><code>_OutputExpr</code>, <code>_Disp</code></td></tr>
 <tr><td><code>graphviz</code></td><td><code>GRAPHV.8xp</code></td><td>graph-buffer primitives and <code>DispGraph</code></td><td><code>_GrBufClr</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code></td></tr>
 <tr><td><code>graphdfs</code></td><td><code>GRAPHDFS.8xp</code></td><td>graph visualization from DFS topology</td><td><code>_StoSysTok</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code></td></tr>
 <tr><td><code>callsub</code></td><td><code>CALLSUB.8xp</code> + <code>SUBRT.8xp</code></td><td>BASIC <code>prgmNAME</code>, shared globals, <code>Return</code></td><td><code>stmt_eval_body_entry</code>, <code>call_eval_eqn_recursive</code></td></tr>
+<tr><td><code>callabi</code></td><td><code>ABICALL.8xp</code> + <code>ABISUB.8xp</code></td><td>BASIC subprogram ABI through <code>Ans</code>, scalar <code>A</code>, and list <code>L1</code></td><td><code>_AnsName</code>, <code>store_list_elem</code>, <code>eval_eqn_recursive</code></td></tr>
 <tr><td><code>bigadd</code></td><td><code>BIGADD.8xp</code></td><td>list-digit arithmetic and carry propagation</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>_FPMult</code></td></tr>
 <tr><td><code>bigmul</code></td><td><code>BIGMUL.8xp</code></td><td>list-digit multiplication, nested loops, carry normalization</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>_FPMult</code></td></tr>
 <tr><td><code>dfs</code></td><td><code>DFS.8xp</code></td><td>list-backed stack, nested <code>While</code>/<code>If</code>/<code>For</code></td><td><code>blockmatch_end_else</code>, <code>parse_scan_tokens</code>, <code>eval_stmt_entry</code></td></tr>
@@ -3029,6 +3067,9 @@ The smoke runner also checks named crop regions: home-screen text for <code>ANIM
 label/axes/circle arcs for <code>GRAPHV</code>, and node/edge regions for <code>GRAPHDFS</code>. The
 2026-06-07 run measured 212, 619, and 466 dark pixels, with matching
 first-to-final pixel changes.</p>
+<p>The new ABI cases use the same region-check mechanism for text results:
+<code>ASMRTN</code> checks the displayed <code>5</code> and <code>Done</code>, while <code>ABICALL</code> checks the scalar
+line, mutated list line, returned <code>Ans</code> line, and <code>Done</code>.</p>
 <h2 id="reading-the-evidence"><a class="header" href="#reading-the-evidence">Reading the evidence</a></h2>
 <p>Trace anchors prove control reached the relevant ROM path; they do not by
 themselves prove the final screen looked right. Use both the coverage file and
@@ -3246,7 +3287,7 @@ implicit-close/false-<code>If</code> interaction. <strong>[confirmed]</strong></
 <tr><td>Text animation (<code>ANIMTXT</code>)</td><td><code>Output(</code> plus LCD text paths on every loop</td><td>Precompute positions/strings and update the smallest region possible.</td></tr>
 <tr><td>Graph drawing (<code>GRAPHV</code>)</td><td>primitives draw into <code>plotSScreen</code>, then <code>_PDspGrph</code></td><td>Batch graph primitives before <code>DispGraph</code>.</td></tr>
 <tr><td>Graph visualization (<code>GRAPHDFS</code>)</td><td>window stores plus repeated <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> reach <code>_StoSysTok</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>graph_pixel_op</code>, <code>_PDspGrph</code>, and small-font paths</td><td>Store graph topology in lists; draw the whole view in one graph-buffer pass.</td></tr>
-<tr><td>BASIC subprogram (<code>CALLSUB</code>)</td><td>page-38 program-body evaluator and shared VAT variables</td><td>Treat globals/lists/<code>Ans</code> as the calling convention.</td></tr>
+<tr><td>BASIC subprogram (<code>CALLSUB</code>, <code>CALLABI</code>)</td><td>page-38 program-body evaluator and shared VAT variables</td><td>Treat globals/lists/<code>Ans</code> as the calling convention.</td></tr>
 <tr><td>List algorithms (<code>BIGADD</code>, <code>BIGMUL</code>, <code>DFS</code>)</td><td>VAT lookup, element address, OP-register move per access</td><td>Preallocate lists; cache dimensions and reused elements in scalars.</td></tr>
 </tbody>
 </table>
@@ -3273,9 +3314,10 @@ branch state.</p>
 <tr><td>Graph visualization</td><td><code>GRAPHDFS.8xp</code></td><td>Renders the four-node DFS topology with labels and edges; reaches window stores, line, point, display-copy, pixel, and small-font graph paths.</td></tr>
 <tr><td>Arbitrary precision arithmetic</td><td><code>BIGADD.8xp</code>, <code>BIGMUL.8xp</code></td><td>Adds and multiplies digit lists with carry propagation; reaches list indexing and FP helper paths.</td></tr>
 <tr><td>DFS / stack-style list algorithm</td><td><code>DFS.8xp</code></td><td>Displays traversal <code>1, 3, 2, 4</code> and visited list <code>{1 1 1 1}</code>; reaches nested scanner/control-flow paths.</td></tr>
-<tr><td>BASIC subprogram calling convention</td><td><code>CALLSUB.8xp</code> + <code>SUBRT.8xp</code></td><td>Caller and callee share scalar/list variables and return through the BASIC program evaluator.</td></tr>
+<tr><td>BASIC subprogram calling convention</td><td><code>CALLSUB.8xp</code> + <code>SUBRT.8xp</code>; <code>ABICALL.8xp</code> + <code>ABISUB.8xp</code></td><td>Caller and callee share scalar/list/<code>Ans</code> state and return through the BASIC program evaluator.</td></tr>
 <tr><td>BASIC to ASM</td><td><code>ASMCALL.8xp</code> + <code>ASMRET.8xp</code></td><td><code>Asm(</code> runs an <code>AsmPrgm</code> payload (<code>C9</code>) and returns to BASIC, displaying <code>BEFORE</code> then <code>AFTER</code>.</td></tr>
 <tr><td>ASM-directed BASIC callback</td><td><code>ASMBRIDG.8xp</code> + <code>ASMSIG.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM sets <code>Ans=1</code> with <code>_OP1Set1</code>/<code>_StoAns</code>, returns, and BASIC calls <code>prgmZZBASIC</code> through <code>If Ans</code>.</td></tr>
+<tr><td>ASM return value</td><td><code>ASMRTN.8xp</code> + <code>ASMVAL.8xp</code></td><td>ASM sets <code>Ans=2</code> with <code>_OP1Set2</code>/<code>_StoAns</code>; BASIC reads <code>Ans</code>, computes <code>Ans+3</code>, and displays <code>5</code>.</td></tr>
 <tr><td>Direct ASM to BASIC</td><td>temporary probes</td><td>VAT lookup from <code>AsmPrgm</code> works, but <code>_Find_Parse_Formula</code>, <code>_ParseInpLastEnt</code>, <code>_ExecuteNewPrgm</code>, <code>_JForceCmd</code>, <code>_PutTokString</code>, and <code>_rclToQueue</code> do not prove a standalone callable BASIC-program ABI.</td></tr>
 </tbody>
 </table>
@@ -3381,9 +3423,9 @@ A+1-&gt;A
 Return
 </code></pre>
 <p>Observed run: loading <code>CALLSUB.8xp</code> and <code>SUBRT.8xp</code> displays <code>SUB</code>, then <code>1</code>,
-then <code>Done</code>. This confirms the practical TI-BASIC calling convention: arguments
-and return values live in shared global variables, lists, strings, matrices, or
-<code>Ans</code>; <code>Return</code> exits the callee and resumes the caller. The trace hits the
+then <code>Done</code>. This confirms the practical TI-BASIC calling convention for
+scalars: arguments and return values live in shared global variables; <code>Return</code>
+exits the callee and resumes the caller. The trace hits the
 page-38 statement interpreter, VAT/name resolution (<code>findsym_scan</code>), parser
 entry/refill paths, the program-body evaluator call at <code>38:6914</code> into
 <code>eval_eqn_recursive</code> (<code>38:778F</code>), <code>_StoSysTok</code>, <code>_StoAns</code>, <code>_RclVarSym</code>, and
@@ -3418,14 +3460,35 @@ inputs, scratch, and outputs.</p>
 <tr><th>ABI part</th><th>Practical convention</th><th>Trace evidence</th></tr>
 </thead>
 <tbody>
-<tr><td>Inputs</td><td>Scalars, lists, matrices, strings, and <code>Ans</code> are global. The caller stores them before <code>prgmNAME</code>.</td><td><code>CALLSUB</code> stores <code>A</code> before entering <code>SUBRT</code>.</td></tr>
-<tr><td>Outputs</td><td>The callee stores results back to globals or <code>Ans</code>.</td><td><code>SUBRT</code> increments shared <code>A</code>; the caller displays <code>1</code>.</td></tr>
+<tr><td>Inputs</td><td>Scalars, lists, and <code>Ans</code> are shared across caller and callee. The caller stores them before <code>prgmNAME</code>.</td><td><code>CALLSUB</code> stores <code>A</code>; <code>ABICALL</code> seeds <code>L1</code> and <code>Ans</code>.</td></tr>
+<tr><td>Outputs</td><td>The callee stores results back to globals, list elements, or <code>Ans</code>.</td><td><code>SUBRT</code> increments shared <code>A</code>; <code>ABISUB</code> writes <code>A</code>, <code>L1(3)</code>, and <code>Ans</code>.</td></tr>
 <tr><td>Scratch</td><td>No automatic save/restore exists. Routines must document scratch variables.</td><td>The VAT and parser state are shared across caller and callee.</td></tr>
 <tr><td>Return</td><td><code>Return</code> exits the callee and resumes the caller. <code>Stop</code> terminates the whole program chain.</td><td><code>SUBRT</code> returns to <code>CALLSUB</code>, which then runs <code>Disp A</code>.</td></tr>
 <tr><td>Parser state</td><td><code>prgmNAME</code> runs with private parser/FPS state already set up by BASIC.</td><td>The callee path reaches <code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>.</td></tr>
 </tbody>
 </table>
 </div>
+<p><code>ABICALL.8xp</code> broadens that scalar-only case:</p>
+<pre><code class="language-ti-basic">{2,4,6}-&gt;L1
+7
+prgmABISUB
+Disp A
+Disp L1
+Disp Ans
+</code></pre>
+<p>with callee:</p>
+<pre><code class="language-ti-basic">Ans+L1(2)-&gt;A
+9-&gt;L1(3)
+A
+Return
+</code></pre>
+<p>Observed run: <code>ABICALL.8xp</code> and <code>ABISUB.8xp</code> display <code>11</code>, <code>{2 4 9}</code>, <code>11</code>,
+then <code>Done</code>. The callee reads the caller’s <code>Ans=7</code> and <code>L1(2)=4</code>, stores <code>11</code>
+in shared scalar <code>A</code>, mutates shared <code>L1(3)</code> to <code>9</code>, evaluates <code>A</code> as the final
+callee expression so <code>Ans</code> is also <code>11</code>, and returns. The smoke runner checks
+the rendered scalar, list, <code>Ans</code>, and <code>Done</code> regions, and the trace hits
+<code>stmt_eval_body_entry</code>, <code>call_eval_eqn_recursive</code>, <code>eval_eqn_recursive</code>,
+<code>_AnsName</code>, and <code>store_list_elem</code>. <strong>[confirmed]</strong></p>
 <h3 id="arbitrary-precision-decimal-addition"><a class="header" href="#arbitrary-precision-decimal-addition">Arbitrary-precision decimal addition</a></h3>
 <p><code>BIGADD.8xp</code> uses lists of base-10 digits in little-endian order. <code>12345</code> is
 <code>{5,4,3,2,1}</code>, <code>98765</code> is <code>{5,6,7,8,9}</code>, and the result is the list
@@ -3598,6 +3661,23 @@ path for <code>prgmZZBASIC</code> (<code>38:6910</code> -&gt; <code>38:6914</cod
 <p>This is a callback convention, not a direct jump from ASM into a BASIC body.
 The ASM side communicates a return code through <code>Ans</code>; BASIC owns the parser
 state, performs the <code>prgm</code> call, and resumes after the target returns.</p>
+<p>For a numeric return value without a BASIC callback, <code>ASMVAL.8xp</code> stores <code>2</code> in
+<code>Ans</code>:</p>
+<pre><code class="language-asm">rst 28h
+.dw 41A7h         ; _OP1Set2
+rst 28h
+.dw 4ABFh         ; _StoAns
+ret
+</code></pre>
+<p>The wrapper consumes it as an ordinary BASIC value:</p>
+<pre><code class="language-ti-basic">Asm(prgmASMVAL)
+Ans+3-&gt;A
+Disp A
+</code></pre>
+<p>Observed run: <code>ASMRTN.8xp</code> and <code>ASMVAL.8xp</code> display <code>5</code>, then <code>Done</code>. The trace
+hits <code>ram:9D95</code>, <code>_OP1Set2</code> (<code>00:1B50</code>), <code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code>,
+<code>_FPAdd</code>, and <code>_Disp</code>; the smoke runner also checks the final-frame result and
+<code>Done</code> regions. <strong>[confirmed]</strong></p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -3605,8 +3685,9 @@ state, performs the <code>prgm</code> call, and resumes after the target returns
 </thead>
 <tbody>
 <tr><td>BASIC -&gt; ASM</td><td><code>Asm(prgmNAME)</code> parses <code>prgmNAME</code>, bcalls <code>_ExecutePrgm</code>, copies the <code>AsmPrgm</code> payload, then jumps through <code>ram:9D95</code>.</td><td>The payload runs in the calculator OS process; a bad payload can corrupt interpreter state.</td></tr>
-<tr><td>BASIC -&gt; BASIC</td><td><code>prgmNAME</code> enters the page-38 parser/VAT/body evaluator path and <code>Return</code> resumes the caller.</td><td>There is no local frame; variables are shared.</td></tr>
+<tr><td>BASIC -&gt; BASIC</td><td><code>prgmNAME</code> enters the page-38 parser/VAT/body evaluator path and <code>Return</code> resumes the caller.</td><td>There is no local frame; variables, lists, and <code>Ans</code> are shared.</td></tr>
 <tr><td>ASM -&gt; BASIC callback</td><td>ASM stores a signal/result such as <code>Ans=1</code>, returns, and the BASIC wrapper conditionally runs <code>prgmNAME</code>.</td><td>BASIC must own the actual <code>prgm</code> call; this is cooperative, not an arbitrary ASM bcall into BASIC.</td></tr>
+<tr><td>ASM -&gt; BASIC value return</td><td>ASM stores a numeric result in <code>Ans</code> with <code>_StoAns</code>; BASIC resumes and evaluates <code>Ans</code>.</td><td>This returns data to BASIC, not control into a BASIC program body.</td></tr>
 <tr><td>ASM -&gt; VAT lookup</td><td>An <code>AsmPrgm</code> can build <code>OP1={ProgObj,"NAME"}</code> and bcall <code>_ChkFindSym</code>.</td><td>Lookup is not execution.</td></tr>
 <tr><td>Direct ASM -&gt; BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>_Find_Parse_Formula</code> reached <code>ERR:UNDEFINED</code>; <code>_ParseInpLastEnt</code> reached <code>ERR:INVALID</code>; forced-command/edit-buffer probes did not call the target BASIC program.</td></tr>
 </tbody>

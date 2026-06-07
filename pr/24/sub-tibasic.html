@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-250a7658.js";
+            window.path_to_searchindex_js = "searchindex-2992b8de.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -647,6 +647,21 @@ hits the <code>AsmPrgm</code> payload at <code>ram:9D95</code>, <code>_OP1Set1</
 <code>prgmZZBASIC</code> body evaluator path (<code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>).
 This is the practical callback convention: ASM returns a value through a BASIC
 variable, and BASIC performs the actual program call.</p>
+<p><code>ASMRTN.8xp</code> demonstrates the same <code>Ans</code> convention as a numeric return value:</p>
+<pre><code class="language-ti-basic">Asm(prgmASMVAL)
+Ans+3-&gt;A
+Disp A
+</code></pre>
+<p>with <code>ASMVAL.8xp</code>:</p>
+<pre><code class="language-ti-basic">AsmPrgm
+EFA741EFBF4AC9
+</code></pre>
+<p>The payload bytes are <code>rst 28h; .dw 41A7</code> (<code>_OP1Set2</code>), <code>rst 28h; .dw 4ABF</code>
+(<code>_StoAns</code>), <code>ret</code>. Observed run: loading <code>ASMRTN.8xp</code> and <code>ASMVAL.8xp</code>
+displays <code>5</code>, then <code>Done</code>. The trace hits <code>ram:9D95</code>, <code>_OP1Set2</code> (<code>00:1B50</code>),
+<code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code> while evaluating <code>Ans+3</code>, <code>_FPAdd</code>, and
+<code>_Disp</code>. This confirms that <code>Ans</code> is a practical scalar return channel from an
+<code>AsmPrgm</code> back into BASIC.</p>
 <h3 id="animation-graphing-and-basic-subprogram-calls"><a class="header" href="#animation-graphing-and-basic-subprogram-calls">Animation, graphing, and BASIC subprogram calls</a></h3>
 <p>Additional generated fixtures extend coverage beyond arithmetic/list samples:</p>
 <pre><code class="language-ti-basic">ClrHome
@@ -710,6 +725,25 @@ then <code>Done</code>. This confirms the practical BASIC calling convention: ca
 callee share variables, and <code>Return</code> resumes the caller. The trace hits VAT/name
 lookup, parser entry/refill paths, the program-body evaluator call at <code>38:6914</code>
 into <code>eval_eqn_recursive</code> (<code>38:778F</code>), shared <code>A</code> store/recall, and <code>_Disp</code>.</p>
+<p><code>ABICALL.8xp</code> and <code>ABISUB.8xp</code> exercise more of that convention:</p>
+<pre><code class="language-ti-basic">{2,4,6}-&gt;L1
+7
+prgmABISUB
+Disp A
+Disp L1
+Disp Ans
+</code></pre>
+<p>with callee:</p>
+<pre><code class="language-ti-basic">Ans+L1(2)-&gt;A
+9-&gt;L1(3)
+A
+Return
+</code></pre>
+<p>Observed run: the caller displays <code>11</code>, <code>{2 4 9}</code>, <code>11</code>, then <code>Done</code>. The callee
+reads the caller’s <code>Ans</code> and <code>L1</code>, writes shared scalar <code>A</code>, mutates shared
+<code>L1</code>, leaves <code>Ans</code> as <code>11</code> by evaluating <code>A</code>, and returns. The trace hits the
+BASIC subprogram body path plus <code>_AnsName</code> and list store paths, so this is a
+confirmed scalar/list/<code>Ans</code> ABI fixture.</p>
 <p>The ordinary BASIC subprogram path is separate from <code>Asm(</code>. In the validated
 trace it does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <code>_Find_Parse_Formula</code>,
 or <code>_SetParseVarProg</code>; it uses the page-38 parser/VAT/body evaluator path and
