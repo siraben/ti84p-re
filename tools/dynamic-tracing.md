@@ -196,6 +196,21 @@ tools/tilem_trace_resolve.py /tmp/tibasic.trace --funcs \
   --only-space page_38 --sort count --names tools/names.txt
 ```
 
+The generated fixtures also have a repeatable smoke runner. It executes selected
+programs, extracts the last GIF frame to PNG, resolves coverage, checks trace
+anchors, and deletes the large binary trace unless `--keep-trace` is set:
+
+```sh
+tools/tibasic_smoke.py --tilem "$TILEM" --rom tools/rom.bin \
+  --case animtext --case graphviz --case graphdfs \
+  --out-dir /tmp/tibasic-smoke-visual
+```
+
+For the visualization cases, the smoke runner also thresholds the final frame
+and requires visible dark pixels: `ANIMTXT` at least 100, `GRAPHV` at least
+100, and `GRAPHDFS` at least 200. The 2026-06-07 run measured 212, 268, and
+466 dark pixels respectively.
+
 Keep only one test program in RAM when using `run-first-program.macro`; it opens
 `PRGM`, selects the first `EXEC` entry, and presses `ENTER`. For `factorial`,
 use a variant that enters `5` at the prompt. For the `Asm(` smoke test, load both
@@ -291,9 +306,13 @@ rather than paged-address resolution.
 
 - [`tilem_trace_resolve.py`](tilem_trace_resolve.py) — trace → paged Ghidra address resolver.
 - [`analyze_ram_page_trace.py`](analyze_ram_page_trace.py) — trace memory writes → physical RAM page ranges.
+- [`tibasic_smoke.py`](tibasic_smoke.py) — generated TI-BASIC fixture runner with
+  trace-anchor checks and final-frame visual checks.
 - [`macros/home-2plus3.macro`](macros/home-2plus3.macro) — power on, dismiss splash, evaluate `2+3`.
 - [`macros/graph-y1-x2.macro`](macros/graph-y1-x2.macro) — power on, enter `Y1=X^2`, and graph it.
 - [`macros/boot-idle.macro`](macros/boot-idle.macro) — baseline for coverage diffs.
+- [`macros/run-first-program-factorial5.macro`](macros/run-first-program-factorial5.macro) —
+  launch the first TI-BASIC program and answer `5` at `Prompt N`.
 - `macros/mathprint-{power,fraction,fnint}.macro` — render `X²` / `1/2` / `fnInt(`
   to instrument the page-`0x39` MathPrint engine (worked example in
   [docs/sub-equation-display.md](../docs/sub-equation-display.md), "Dynamic confirmation").
