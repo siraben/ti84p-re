@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ef6f83f9.js";
+            window.path_to_searchindex_js = "searchindex-363b641f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-26ce7d13.js"></script>
+        <script src="toc-cbaaedfe.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -243,7 +243,9 @@ implicit-close/false-<code>If</code> interaction. <strong>[confirmed]</strong></
 <h3 id="evidence-manifest"><a class="header" href="#evidence-manifest">Evidence manifest</a></h3>
 <p>This branch keeps each claimed behavior tied to a runnable fixture or a
 negative probe trace. The visualization fixtures were rerun on 2026-06-07 and
-kept because both render visible graph-screen output.</p>
+kept because both render visible graph-screen output. The full
+<code>tools/tibasic_smoke.py</code> suite also passed on 2026-06-07 against the current
+branch state.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -296,6 +298,12 @@ parser. <strong>[confirmed]</strong></p>
 <p>The performance lesson is to draw several primitives into the graph buffer, then
 display the graph buffer once. Repeated home-screen <code>Output(</code> calls give you
 more text-layout overhead and less control over redraw timing.</p>
+<p>Text animation and graph-buffer animation have different costs. <code>Output(</code> keeps
+the home/text display model active and pays row/column formatting on every
+iteration. Graph-buffer animation pays coordinate conversion, pixel primitive
+work, and a display-buffer copy at <code>DispGraph</code>. For visible motion, batch one
+frame in <code>plotSScreen</code>, call <code>DispGraph</code>, then compute the next frame; avoid
+alternating graph primitives with home-screen output inside the same hot loop.</p>
 <h3 id="graph-visualization-of-dfs-topology"><a class="header" href="#graph-visualization-of-dfs-topology">Graph visualization of DFS topology</a></h3>
 <p><code>GRAPHDFS.8xp</code> draws the same four-node graph traversed by <code>DFS.8xp</code>:</p>
 <pre><code class="language-ti-basic">ClrDraw
@@ -316,6 +324,24 @@ Text(46,33,"3")
 Text(31,53,"4")
 DispGraph
 </code></pre>
+<p>The graph data from <code>DFS.8xp</code> maps to graph pixels through fixed coordinate
+lists:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Node</th><th>DFS value</th><th>Pixel center</th><th>Label position</th></tr>
+</thead>
+<tbody>
+<tr><td>1</td><td>root</td><td><code>(10,44)</code></td><td><code>Text(16,8,"1")</code></td></tr>
+<tr><td>2</td><td>first edge target</td><td><code>(35,54)</code></td><td><code>Text(6,33,"2")</code></td></tr>
+<tr><td>3</td><td>second edge target</td><td><code>(35,14)</code></td><td><code>Text(46,33,"3")</code></td></tr>
+<tr><td>4</td><td>child of 2</td><td><code>(55,29)</code></td><td><code>Text(31,53,"4")</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The edge lists <code>L1={1,1,2}</code> and <code>L2={2,3,4}</code> become the three line segments
+<code>1-2</code>, <code>1-3</code>, and <code>2-4</code>. The fixture stores window variables first so these
+pixel-like coordinates cover the visible graph area.</p>
 <p>Observed run: the final graph screen shows four labeled nodes with edges
 <code>1-2</code>, <code>1-3</code>, and <code>2-4</code>. The trace hits <code>_ILine</code> (<code>04:4029</code>),
 <code>graph_pixel_op</code>, <code>_IPoint</code>, <code>_PDspGrph</code> (<code>04:7904</code>), small-font glyph
@@ -367,6 +393,20 @@ sequence, reached after parser RAM has already been populated:</p>
 <p>There is no local variable frame for BASIC programs. A subprogram that uses <code>A</code>
 modifies the caller’s <code>A</code>. For reusable routines, document which variables are
 inputs, scratch, and outputs.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>ABI part</th><th>Practical convention</th><th>Trace evidence</th></tr>
+</thead>
+<tbody>
+<tr><td>Inputs</td><td>Scalars, lists, matrices, strings, and <code>Ans</code> are global. The caller stores them before <code>prgmNAME</code>.</td><td><code>CALLSUB</code> stores <code>A</code> before entering <code>SUBRT</code>.</td></tr>
+<tr><td>Outputs</td><td>The callee stores results back to globals or <code>Ans</code>.</td><td><code>SUBRT</code> increments shared <code>A</code>; the caller displays <code>1</code>.</td></tr>
+<tr><td>Scratch</td><td>No automatic save/restore exists. Routines must document scratch variables.</td><td>The VAT and parser state are shared across caller and callee.</td></tr>
+<tr><td>Return</td><td><code>Return</code> exits the callee and resumes the caller. <code>Stop</code> terminates the whole program chain.</td><td><code>SUBRT</code> returns to <code>CALLSUB</code>, which then runs <code>Disp A</code>.</td></tr>
+<tr><td>Parser state</td><td><code>prgmNAME</code> runs with private parser/FPS state already set up by BASIC.</td><td>The callee path reaches <code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>.</td></tr>
+</tbody>
+</table>
+</div>
 <h3 id="arbitrary-precision-decimal-addition"><a class="header" href="#arbitrary-precision-decimal-addition">Arbitrary-precision decimal addition</a></h3>
 <p><code>BIGADD.8xp</code> uses lists of base-10 digits in little-endian order. <code>12345</code> is
 <code>{5,4,3,2,1}</code>, <code>98765</code> is <code>{5,6,7,8,9}</code>, and the result is the list
@@ -393,6 +433,31 @@ store paths (<code>list_var_index</code>, <code>_AdrLEle</code>, <code>_GetLToOP
 general routine, cache <code>dim(L1)</code> and <code>dim(L2)</code> before the loop, avoid repeated
 list indexing when a digit is reused, and use a larger base only if you can
 tolerate more carry and display conversion work.</p>
+<p>For a reusable arbitrary-precision add routine, treat <code>L1</code> and <code>L2</code> as
+little-endian digit arrays and compute the loop bound from list lengths:</p>
+<pre><code class="language-ti-basic">dim(L1)-&gt;N
+If dim(L2)&gt;N
+dim(L2)-&gt;N
+0-&gt;C
+For(I,1,N)
+0-&gt;A
+0-&gt;B
+If I&lt;=dim(L1)
+L1(I)-&gt;A
+If I&lt;=dim(L2)
+L2(I)-&gt;B
+A+B+C-&gt;S
+int(S/10)-&gt;C
+S-10C-&gt;L3(I)
+End
+If C
+C-&gt;L3(N+1)
+</code></pre>
+<p>The invariant after iteration <code>I</code> is that <code>L3(1..I)</code> contains the low <code>I</code>
+digits of <code>L1+L2</code>, and <code>C</code> is the carry into digit <code>I+1</code>. Base 10 is easy to
+display and debug. A larger base reduces loop count but adds conversion and
+larger carry values; on TI-BASIC, that tradeoff only helps when display is not
+part of the hot path.</p>
 <h3 id="dfs-with-a-list-stack"><a class="header" href="#dfs-with-a-list-stack">DFS with a list stack</a></h3>
 <p><code>DFS.8xp</code> uses two edge lists (<code>L1</code> source, <code>L2</code> destination), a visited list
 (<code>L3</code>), and an explicit stack (<code>L4</code>) to traverse this graph:</p>
@@ -425,13 +490,25 @@ Disp L3
 </code></pre>
 <p>Observed run: traversal order is <code>1</code>, <code>3</code>, <code>2</code>, <code>4</code> because the stack is LIFO and
 node <code>3</code> is pushed after node <code>2</code>. The final visited list is <code>{1 1 1 1}</code>. The
-trace hits <code>blockmatch_end_else</code>, <code>parse_scan_tokens</code>, <code>if_isg_stmt_handler</code>,
+trace hits <code>blockmatch_end_else</code>, <code>parse_scan_tokens</code>, <code>eval_stmt_entry</code>,
 parser refill/advance paths, <code>_Disp</code>, and the same list read/write helpers used
 by <code>BIGADD</code>. <strong>[confirmed]</strong></p>
 <p>Performance notes: this version scans all edges for every visited node, so it is
 easy to understand but O(VE) in BASIC-level work. For larger graphs, keep an
 offset table of edge ranges per node, avoid <code>augment(</code> in hot loops, and
 preallocate stack/visited lists with scalar pointers as this sample does.</p>
+<p>The loop maintains three invariants:</p>
+<ul>
+<li><code>L3(V)=1</code> means node <code>V</code> has already been displayed and expanded.</li>
+<li><code>L4(1..P)</code> is the pending stack, with <code>L4(P)</code> popped next.</li>
+<li>Edges are scanned from left to right, so pushing node <code>2</code> and then node <code>3</code>
+makes node <code>3</code> display before node <code>2</code>.</li>
+</ul>
+<p>The trace cost follows those invariants. Every <code>While</code> and nested <code>If Then</code>
+forces the interpreter to scan for block boundaries (<code>blockmatch_end_else</code>,
+<code>parse_scan_tokens</code>), and every <code>L1(E)</code>/<code>L2(E)</code> access goes through VAT lookup
+and list-element address calculation. Precomputed adjacency ranges reduce both
+the number of edge scans and the number of interpreted branch scans.</p>
 <h2 id="basic-and-asm-interop"><a class="header" href="#basic-and-asm-interop">BASIC and ASM interop</a></h2>
 <h3 id="basic-to-asm"><a class="header" href="#basic-to-asm">BASIC to ASM</a></h3>
 <p>The validated smoke test is:</p>
