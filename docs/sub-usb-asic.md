@@ -225,7 +225,7 @@ mask to physical page `0x35`.
 |----------|-------------|------|-----------------------|
 | `50F2` | `_SendUSBData` | `35:4DD3` | Sends from `HL` with byte count in `DE`; stores progress at `0x9C7E`/`0x9C81` and writes 64-byte chunks to port `0xA2`. |
 | `50F5` | `_AppGetCBLUSB` | `3B:54C7` | Sets `IY+0x1B` bit 1, clears bit 2, then reaches `_GetVarCmdUSB`. |
-| `50F8` | `_AppGetCalcUSB` | `3B:54F0` | Clears `IY+0x1B` bit 0 before the shared get-var path. |
+| `50F8` | `_AppGetCalcUSB` | `3B:54F0` | At `3B:54DE` clears `IY+0x16` bit 0 and sets `sndRecState`=0x15, then `bcall 0x50FB` (shared get-var path). |
 | `50FB` | `_GetVarCmdUSB` / `_LinkXferOP` | `3C:4DD2` | USB-first variable command wrapper described above. |
 | `5254` | `_InitUSBDeviceCallback` | `35:4696` | Initializes device mode, stores callback page/address at `0x9C13`/`0x9C14`, and returns `0xFC`-`0xFF` style error bytes with carry set on failure. |
 | `5257` / `5311` | `_KillUSBDevice` / `_RecycleUSB` | `35:46FC` / `35:5B9B` | Clears callback state and recycles through the same cleanup path. |
@@ -235,7 +235,7 @@ mask to physical page `0x35`.
 | `5290` | `_InitUSBDevice` | `35:42B0` | Main controller/device initialization path; uses `0x4C`/`0x4D` line handshakes and endpoint ports `0x80`-`0x9B`. |
 | `5293` | `_KillUSBPeripheral` | `35:59CF` | Peripheral teardown; sets controller state `0x9C28 = 5` and manipulates ports `0x54`/`0x81`. |
 | `530B` | `_ToggleUSBSmartPadInput` | `35:5B84` | Sets or clears bit 3 in `0x9C75` according to `A == 1`. |
-| `530E` | `_IsUSBDeviceConnected` | `35:5B92` | Preserves `A`; returns flags from `IN (0x81) & 0x40`, matching the `.inc` comment. |
+| `530E` | `_IsUSBDeviceConnected` | `35:5B92` | Preserves `A`; returns flags from `IN (0x81) & 0x40` (bit 6). (The `.inc` comment guesses `bit 4,(81h)`, but the body actually masks bit 6.) |
 
 ## How to use it in code [grounded by OS calls]
 
