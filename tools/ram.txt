@@ -234,6 +234,11 @@
 9340	plotSScreen
 9640	seed1
 9649	seed2
+9652	basic_prog
+965B	basic_start
+965D	nextParseByte
+965F	basic_end
+9661	numArguments
 966E	cmdShadow
 96EE	cmdShadCur
 96F0	cmdShadAlph
