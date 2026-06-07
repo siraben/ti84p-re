@@ -574,6 +574,18 @@ already live. This is why an `AsmPrgm` can successfully `_ChkFindSym` a BASIC
 program name, but the tested `_Find_Parse_Formula` probe still reaches
 `ERR:UNDEFINED` instead of running that program.
 
+The forced-command/edit-buffer path is another boundary, not an ABI. A temporary
+`AsmPrgm` that calls `_JForceCmd(kEnter)` reaches `_JForceCmd` (`00:0747`) but
+does not return to the BASIC wrapper; the final screen repeats the wrapper's
+first line and `Done` instead of reaching the wrapper's following statement.
+The reason is visible in page-0 disassembly: `_JForceCmd` reloads `SP` from the
+OS command-loop state at `85BC`. A second payload that calls `_PutTokString`
+(`06:46FD`) for the bytes of `prgmZZBASIC` returns to BASIC, but only
+renders/inserts token text; combining `_PutTokString` with `_JForceCmd` still
+never displays the target program's `CALLED` line. `_rclToQueue` (`06:5F29`) is
+an edit-buffer queue helper guarded by `rclFlag.enableQueue`, not a standalone
+program executor.
+
 ```ti-basic
 {5,4,3,2,1}->L1
 {5,6,7,8,9}->L2
