@@ -69,6 +69,7 @@
             pkgs.jdk21
             pkgs.mdbook
             pkgs.mdbook-mermaid
+            pkgs.python3
             pkgs.spasm-ng
             z80dasm
           ];
