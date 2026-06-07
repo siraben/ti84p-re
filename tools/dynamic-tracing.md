@@ -224,6 +224,17 @@ at `ERR:UNDEFINED`; the target BASIC program body does not run. Keep these as
 investigation traces rather than generated sample fixtures because one path is
 intentionally a failing probe.
 
+Forced-command/edit-buffer probes (2026-06-07): a payload that calls
+`_JForceCmd(kEnter)` (`402A`) enters `ram:0747` and re-enters the command loop
+without returning to the wrapper's following `Disp`; the screen repeats
+`BEFORE`/`Done`. A payload that calls `_PutTokString` (`4960`, target `06:46FD`)
+for `prgmZZBASIC` token bytes returns to the wrapper and reaches `AFTER`, but it
+only renders/inserts token text. Combining `_PutTokString` with `_JForceCmd`
+hits both routines and repeats the wrapper/rendered text; `ZZBASIC` never
+displays `CALLED`. The related `_rclToQueue` (`49B4`, target `06:5F29`) depends
+on an existing edit buffer and `rclFlag.enableQueue`, so it is not a proven
+program-call entry either.
+
 These traces include the startup link-transfer code because the patched headless
 runner loads the `.8xp` files during the traced process. Use an idle/load
 baseline and coverage diff if you need to isolate only interpreter execution.

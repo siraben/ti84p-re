@@ -8,6 +8,7 @@ ram:090b	jp_hl
 ram:08fa	call_context_main
 ram:08e9	call_context_savepage
 ram:05e6	main_event_loop
+ram:0747	_JForceCmd
 page_38:5b7b	parse_init
 ram:1398	delmem_fixup_tail
 ram:0f8b	insertmem_setup
@@ -138,6 +139,8 @@ page_01:6518	_RunIndicOn
 page_01:6531	_RunIndicOff
 page_01:66e5	_GetTokLen
 page_01:66ea	_Get_Tok_Strng
+page_06:46fd	_PutTokString
+page_06:5f29	_rclToQueue
 page_02:54ef	input_cmd_handler
 page_02:562f	prompt_cmd_handler
 page_02:555d	menu_cmd_handler

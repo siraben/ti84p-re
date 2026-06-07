@@ -273,7 +273,7 @@ validate inputs on the BASIC side, and make the ASM payload return normally with
 | BASIC -> ASM | `Asm(prgmNAME)` parses `prgmNAME`, bcalls `_ExecutePrgm`, copies the `AsmPrgm` payload, then jumps through `ram:9D95`. | The payload runs in the calculator OS process; a bad payload can corrupt interpreter state. |
 | BASIC -> BASIC | `prgmNAME` enters the page-38 parser/VAT/body evaluator path and `Return` resumes the caller. | There is no local frame; variables are shared. |
 | ASM -> VAT lookup | An `AsmPrgm` can build `OP1={ProgObj,"NAME"}` and bcall `_ChkFindSym`. | Lookup is not execution. |
-| ASM -> BASIC | No working public bcall sequence is proven in this repo. | `_Find_Parse_Formula` from an arbitrary `AsmPrgm` context reached `ERR:UNDEFINED`. |
+| ASM -> BASIC | No working public bcall sequence is proven in this repo. | `_Find_Parse_Formula` reached `ERR:UNDEFINED`; forced-command/edit-buffer probes did not call the target BASIC program. |
 
 ### ASM to BASIC
 
@@ -314,8 +314,36 @@ then stops at `ERR:UNDEFINED`; the `ZZBASIC` body never displays. That failed
 run confirms `_Find_Parse_Formula` is not a drop-in BASIC program executor from
 an arbitrary `AsmPrgm` context. **[confirmed]**
 
+The homescreen command/edit-buffer route is also not a safe callable ABI. A
+temporary payload that did only:
+
+```asm
+ld a,05h          ; kEnter
+rst 28h
+.dw 402Ah         ; _JForceCmd
+ret
+```
+
+entered `_JForceCmd` (`00:0747`) but never returned to the BASIC wrapper's
+`Disp "AFTER"` statement. The final screen showed repeated `BEFORE`/`Done`
+lines, and the trace hit `ram:0747` and `ram:9D95` repeatedly. The disassembly
+explains why: `_JForceCmd` reloads `SP` from `85BC` before dispatching the
+forced key, discarding the `AsmPrgm` caller's stack. **[confirmed]**
+
+Two edit-buffer variants narrow that path further. A payload that bcalls
+`_PutTokString` (`4960`, target `06:46FD`) for the token bytes
+`5F 5A 5A 42 41 53 49 43` (`prgmZZBASIC`) returns to the wrapper and reaches
+`Disp "AFTER"`, but it only renders/inserts token text; `ZZBASIC` does
+not run. Combining those `_PutTokString` calls with `_JForceCmd(kEnter)` hits
+both `_PutTokString` and `_JForceCmd`, then repeats the wrapper/inserted text
+through the command loop; it still never displays `CALLED` from `ZZBASIC`.
+`_rclToQueue` (`49B4`, target `06:5F29`) is a related editor queue helper, but
+its ROM path depends on an already-open edit buffer (`editCursor`/`editTail`)
+and the `rclFlag.enableQueue` state; it does not create a BASIC program call
+frame. **[confirmed probes; `_rclToQueue` role from disassembly]**
+
 The current open item is therefore precise: trace a small ASM payload that
 successfully invokes a BASIC program, identify the required parser/VAT/error
-state, and compare it to both confirmed paths: `Asm(` -> `_ExecutePrgm` ->
-`ram:9D95`, and BASIC `prgmNAME` -> `38:6914`/`38:778F` program-body
-evaluation.
+state, and compare it to the rejected public routes above plus both confirmed
+paths: `Asm(` -> `_ExecutePrgm` -> `ram:9D95`, and BASIC `prgmNAME` ->
+`38:6914`/`38:778F` program-body evaluation.
