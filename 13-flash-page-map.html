@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d11418ae.js";
+            window.path_to_searchindex_js = "searchindex-af8f4538.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -180,7 +180,7 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="13--flash-page-map"><a class="header" href="#13--flash-page-map">13 — Flash page map</a></h1>
-<p>What lives on each of the 64 physical flash pages (16 KiB each). The OS itself occupies the low pages; the upper pages hold the certificate, boot code, and fonts. On a retail unit the upper pages can also carry Flash Apps, but this dump is OS-only — the page scan below reports zero Flash-App headers. Characterized by the named bcall routines that resolve to each page (<code>tools/bcall_targets.txt</code>) plus function counts.</p>
+<p>What lives on each of the 64 physical flash pages (16 KiB each). OS code occupies pages <strong><code>00–07</code> and <code>33–3D</code></strong>; pages <strong><code>08–32</code> are blank</strong> in this image; page <strong><code>3E</code></strong> is the certificate sector and <strong><code>3F</code></strong> the boot page. On a retail unit the upper pages can also carry Flash Apps, but this dump is OS-only — the page scan below reports zero Flash-App headers. The page roles below are characterized by the named bcall routines that resolve to each page (<code>tools/bcall_targets.txt</code>) plus function counts; the <code>0x8xxx</code> cert/boot/USB bcalls come instead from <code>ti83plus.inc</code> and the retail segment files (<code>bcall_targets.txt</code> does not carry the <code>0x8xxx</code> targets).</p>
 <h2 id="os-pages-carry-bcall-entry-points"><a class="header" href="#os-pages-carry-bcall-entry-points">OS pages (carry bcall entry points)</a></h2>
 <div class="table-wrapper">
 <table>
@@ -188,14 +188,14 @@
 <tr><th>Page</th><th style="text-align: right">Funcs</th><th>Role</th><th>Representative routines</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>00</strong></td><td style="text-align: right">915</td><td><strong>Kernel</strong> — mapped at <code>0000</code>; RST vectors, bcall dispatcher, FP core, VAT, memory, integer math</td><td><code>_JErrorNo</code>, <code>_LdHLind</code>, <code>_DivHLBy10</code>, <code>_FindSym</code>, <code>_FPAdd</code>, <code>_InsertMem</code></td></tr>
+<tr><td><strong>00</strong></td><td style="text-align: right">928</td><td><strong>Kernel</strong> — mapped at <code>0000</code>; RST vectors, bcall dispatcher, FP core, VAT, memory, integer math</td><td><code>_JErrorNo</code>, <code>_LdHLind</code>, <code>_DivHLBy10</code>, <code>_FindSym</code>, <code>_FPAdd</code>, <code>_InsertMem</code></td></tr>
 <tr><td><strong>01</strong></td><td style="text-align: right">84</td><td><strong>Text display</strong> / homescreen</td><td><code>_PutMap</code>, <code>_PutC</code>, <code>_PutS</code>, <code>_DispHL</code>, <code>_NewLine</code>, <code>_ClrLCDFull</code></td></tr>
 <tr><td><strong>02</strong></td><td style="text-align: right">271</td><td><strong>Float transcendentals &amp; advanced math</strong></td><td><code>_SqRoot</code>, <code>_LnX</code>, <code>_RnFx</code>, <code>_RndGuard</code></td></tr>
-<tr><td><strong>03</strong></td><td style="text-align: right">23</td><td>Edit-buffer / small font</td><td><code>_CloseEditBuf</code>, <code>_Load_SFont</code>, <code>_SFont_Len</code></td></tr>
+<tr><td><strong>03</strong></td><td style="text-align: right">23</td><td>Edit-buffer / small font</td><td><code>_CloseEditBufNoR</code>, <code>_Load_SFont</code>, <code>_SFont_Len</code></td></tr>
 <tr><td><strong>04</strong></td><td style="text-align: right">66</td><td><strong>Graph drawing</strong> (pixel/line)</td><td><code>_DarkLine</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_DarkPnt</code></td></tr>
 <tr><td><strong>05</strong></td><td style="text-align: right">118</td><td><strong>TABLE editor</strong> + Graph-Table split-screen</td><td><code>table_editor_main</code>, <code>table_recompute</code>, <code>table_paint_grid</code></td></tr>
-<tr><td><strong>06</strong></td><td style="text-align: right">49</td><td><strong>Key input</strong> &amp; edit/cursor</td><td><code>_GetKey</code>, <code>_GetCSC</code>, <code>_CursorOn/Off</code>, <code>_PutTokString</code></td></tr>
-<tr><td><strong>07</strong></td><td style="text-align: right">44</td><td><strong>Archive / list &amp; matrix ops</strong>; error messages; <strong>large-font glyph table @ <code>0x45FF</code></strong> (7-byte stride) read by <code>put_glyph_large</code> (<code>07:4588</code>)</td><td><code>_Arc_Unarc</code>, <code>_CleanAll</code>, <code>_RedimMat</code>, <code>_IncLstSize</code>, <code>put_glyph_large</code></td></tr>
+<tr><td><strong>06</strong></td><td style="text-align: right">49</td><td><strong>Key input</strong> &amp; edit/cursor</td><td><code>_GetKey</code>, <code>_CursorOn</code>, <code>_CursorOff</code>, <code>_PutTokString</code> (note <code>_GetCSC</code>’s body is on page 00)</td></tr>
+<tr><td><strong>07</strong></td><td style="text-align: right">44</td><td><strong>Archive / list &amp; matrix ops</strong>; error messages; <strong>large-font glyph table @ <code>07:45FF</code></strong> (7-byte stride) read by <code>put_glyph_large</code> (<code>07:4588</code>)</td><td><code>_Arc_Unarc</code>, <code>_CleanAll</code>, <code>_RedimMat</code>, <code>_IncLstSize</code>, <code>put_glyph_large</code></td></tr>
 <tr><td><strong>33</strong></td><td style="text-align: right">70</td><td><strong>Graph coordinate math</strong></td><td><code>_SetXXOP1</code>, <code>_UCLineS</code> (window↔pixel transforms)</td></tr>
 <tr><td><strong>36</strong></td><td style="text-align: right">24</td><td><strong>Mode setters</strong> (Func/Param/Polar/Seq)</td><td><code>_SetFuncM</code>, <code>_SetParM</code>, <code>_SetPolM</code>, <code>_SetSeqM</code></td></tr>
 <tr><td><strong>37</strong></td><td style="text-align: right">23</td><td>Graph coord convert</td><td><code>_XftoI</code>, <code>_YftoI</code></td></tr>
@@ -206,28 +206,28 @@
 <tr><td><strong>35</strong></td><td style="text-align: right">6</td><td><strong>Memory-reset</strong> engine, factorial</td><td><code>mem_reset_dispatch</code>, <code>ram_reset_wipe</code>, <code>op1_factorial</code></td></tr>
 <tr><td><strong>3B</strong></td><td style="text-align: right">39</td><td><strong>bcall jump table</strong> + mem utils</td><td>(table data) <code>_MemClear</code>, <code>_MemSet</code>, <code>_DrawCirc2</code></td></tr>
 <tr><td><strong>3C</strong></td><td style="text-align: right">72</td><td><strong>Link / variable transfer</strong></td><td><code>_SendAByte</code>, <code>_RecAByteIO</code>, <code>_SendVarCmd</code>, <code>_Rec1stByte</code></td></tr>
-<tr><td><strong>3D</strong></td><td style="text-align: right">61</td><td><strong>App management &amp; Flash</strong></td><td><code>_FindApp</code>, <code>_FindAppUp/Dn</code>, <code>_FlashToRam</code></td></tr>
+<tr><td><strong>3D</strong></td><td style="text-align: right">61</td><td><strong>App management &amp; Flash</strong></td><td><code>_FindApp</code>, <code>_FindAppUp</code>, <code>_FindAppDn</code>, <code>_FlashToRam</code></td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="non-os-pages--local-rom-scan-results"><a class="header" href="#non-os-pages--local-rom-scan-results">Non-OS pages — local ROM-scan results</a></h2>
-<p>This image appears <strong>OS-only</strong> in the local ROM-byte scan: scanning every page boundary found <strong>zero Flash-App headers</strong> (<code>80 0F …</code>), so no bundled apps are present in that scan. The current MCP interface does not expose raw byte search, so this remains a local scan result rather than an MCP-confirmed claim. The non-bcall pages are OS code/data and the boot/system pages:</p>
+<h2 id="page-byte-scan-notes-empty-range-boot--system-pages"><a class="header" href="#page-byte-scan-notes-empty-range-boot--system-pages">Page byte-scan notes (empty range, boot &amp; system pages)</a></h2>
+<p>This image appears <strong>OS-only</strong> in the local ROM-byte scan: scanning every page boundary found <strong>zero Flash-App headers</strong> (<code>80 0F …</code>), so no bundled apps are present in that scan. The current MCP interface does not expose raw byte search, so this remains a local scan result rather than an MCP-confirmed claim. Byte-level notes on the empty page range and the boot/system pages (some of which, e.g. <code>34–39</code>/<code>3B</code>/<code>3C</code>, also carry the bcalls listed above):</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Page</th><th>Verified contents</th></tr>
 </thead>
 <tbody>
-<tr><td><code>08–32</code></td><td>OS code/data reached via cross-page jumps (not bcalls), plus <strong>alternate large-font glyph tables</strong> (pages 1 and 0x36, selected by <code>(IY+0x35)</code> bits 5/1) and string/help-text tables. Page <code>2F</code> is the retail USB boot support page supplied by local <code>D84PBE2.8Xv</code>; retail page <code>3F</code> points <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_USBErrorCleanup</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> into it. No app headers. (The primary large-font glyph table is on page 0x07; see below.)</td></tr>
-<tr><td><code>34–39</code></td><td>More OS code (graph/mode/menu); mostly full (1–17% <code>0xFF</code>).</td></tr>
-<tr><td><strong>3B</strong></td><td><strong>bcall jump table</strong> — starts <code>99 27 00</code> = entry 0 (<code>_JErrorNo</code>→<code>00:2799</code>).</td></tr>
+<tr><td><code>08–32</code></td><td><strong>Blank/unused</strong> in this OS image — 100% <code>0xFF</code> in <code>tools/rom.bin</code>. Page <code>2F</code> is the retail USB boot support page, but its code lives in the separate <code>D84PBE2.8Xv</code> segment (not in <code>rom.bin</code>); the retail page-<code>3F</code> boot table maps the <code>0x8xxx</code> USB bcalls (<code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_USBErrorCleanup</code>, <code>_InitUSB</code>, <code>_KillUSB</code>) into page <code>2F</code>. No app headers.</td></tr>
+<tr><td><code>34–39</code></td><td>More OS code (graph/mode/menu/timers); fill <strong>0.2–17% <code>0xFF</code></strong>.</td></tr>
+<tr><td><strong>3B</strong></td><td><strong>bcall jump table</strong> — starts <code>99 27 00</code> = entry 0 (<code>_JErrorNo</code>→<code>ram:2799</code>).</td></tr>
 <tr><td><strong>3C</strong></td><td>Link code + the <strong>OS version string</strong> — page starts with ASCII <code>32 2E 35 35 4D 50</code> = <strong>“2.55MP”</strong>.</td></tr>
 <tr><td><strong>3E</strong></td><td><strong>Certification page</strong> — the per-calculator certificate sector (84+ cert page is <code>3E</code>, not <code>3F</code>). Blank (99% <code>0xFF</code>) in this OS-only image, since the cert is written per-device. The OS reads this sector through the <code>ti83plus.inc</code> cert bcalls: <code>_GetCertificateStart</code> (bcall <code>0x8057</code>) and <code>_GetCertificateEnd</code> (bcall <code>0x802D</code>) bound the sector, and <code>_FindFirstCertField</code> (bcall <code>0x8027</code>) / <code>_FindNextCertField</code> (bcall <code>0x8078</code>) walk its TLV fields.</td></tr>
 <tr><td><strong>3F</strong></td><td><strong>Retail boot page</strong> — supplied by local <code>D84PBE1.8Xv</code>; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, carries boot version <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table. Boot/hardware-version bcalls now resolve to <code>_getBootVer</code> <code>3F:477C</code> (<code>0x80B7</code>) and <code>_getHardwareVersion</code> <code>3F:4781</code> (<code>0x80BA</code>).</td></tr>
 </tbody>
 </table>
 </div>
-<p>The <strong>large-font glyph table is on page 0x07, base <code>0x45FF</code></strong> — <code>put_glyph_large</code> (<code>07:4588</code>) computes the glyph pointer as <code>0x45FF + char*7</code> (<strong>7-byte stride</strong>, via the <code>07:45EB</code> adjuster) and copies an 8-byte record via <code>_Mov8B</code> to RAM <code>0x845A</code>; see <a href="08-display-lcd.html#fonts-confirmed">Display/LCD → Fonts</a>. Alternate large fonts live on pages 1 and 0x36 (selected by <code>(IY+0x35)</code> bits 5/1). Page 7 is the busiest data page (archive code, list/matrix, error messages, <em>and</em> the large font). <strong>[confirmed]</strong></p>
+<p>The <strong>large-font glyph table is on page 0x07, base <code>07:45FF</code></strong> — <code>put_glyph_large</code> (<code>07:4588</code>) computes the glyph pointer as <code>07:45FF + char*7</code> (<strong>7-byte stride</strong>, via the <code>07:45EB</code> adjuster) and copies an 8-byte record via <code>_Mov8B</code> to RAM <code>0x845A</code>; see <a href="08-display-lcd.html#fonts-confirmed">Display/LCD → Fonts</a>. Alternate large fonts live on pages 1 and 0x36 (selected by <code>(IY+0x35)</code> bits 5/1). Page 7 is the busiest data page (archive code, list/matrix, error messages, <em>and</em> the large font). <strong>[confirmed]</strong></p>
 <h2 id="takeaway"><a class="header" href="#takeaway">Takeaway</a></h2>
 <p>The OS is <strong>page-specialized</strong>: kernel + math on page 0, one subsystem per low page. A bcall is really “run subsystem X’s routine on its page” — the page map <em>is</em> the subsystem decomposition, physically.</p>
 

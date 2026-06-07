@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d11418ae.js";
+            window.path_to_searchindex_js = "searchindex-af8f4538.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -183,11 +183,11 @@
 <p>TI-BASIC programs are stored as <strong>tokens</strong>, not text: every command, function, and variable is a token of 1 or 2 bytes. The OS <em>detokenizes</em> (token→display string) to show a program and <em>tokenizes</em> (keypress/text→token) on entry; the <strong>parser</strong> walks tokens to execute.</p>
 <h2 id="token-encoding-confirmed"><a class="header" href="#token-encoding-confirmed">Token encoding [confirmed]</a></h2>
 <ul>
-<li>Most tokens are <strong>one byte</strong> (<code>tStore</code>=0x04, <code>tBoxPlot</code>=0x05, operators, digits, letters, common commands). Modeled as the <code>TIToken</code> enum, which carries 608 members as built into the current Ghidra database from the <code>t</code>-prefixed equates of <code>ti83plus.inc</code>.</li>
+<li>Most tokens are <strong>one byte</strong> (<code>tStore</code>=0x04, <code>tBoxPlot</code>=0x05, operators, digits, letters, common commands). The Ghidra database models the byte values as the <code>TIToken</code> enum, built from the <code>t</code>-prefixed equates in <code>ti83plus.inc</code>.</li>
 <li>Some bytes are <strong>lead bytes</strong> of a <strong>two-byte token</strong>: the first byte selects a <em>table</em>, the second byte the entry.</li>
 </ul>
 <h3 id="the-2-byte-lead-byte-set-confirmed"><a class="header" href="#the-2-byte-lead-byte-set-confirmed">The 2-byte lead-byte set [confirmed]</a></h3>
-<p><code>_IsA2ByteTok</code> (<code>00:1FE8</code>) scans an 11-byte table at <code>ram:1FF6</code> to decide if a byte starts a 2-byte token. The bytes are:</p>
+<p><code>_IsA2ByteTok</code> (<code>ram:1FE8</code>) scans an 11-byte table at <code>ram:1FF6</code> to decide if a byte starts a 2-byte token. The bytes are:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -196,7 +196,7 @@
 <tbody>
 <tr><td><code>5C</code></td><td><code>tVarMat</code> — matrix name (<code>[A]</code>…)</td></tr>
 <tr><td><code>5D</code></td><td><code>tVarLst</code> — list name (<code>L1</code>…)</td></tr>
-<tr><td><code>5E</code></td><td>equation/var-out token group</td></tr>
+<tr><td><code>5E</code></td><td><code>tVarEqu</code> — equation variable (<code>Y1</code>, <code>r1</code>, …)</td></tr>
 <tr><td><code>60</code></td><td><code>tVarPict</code> — picture</td></tr>
 <tr><td><code>61</code></td><td><code>tVarGDB</code> — graph database</td></tr>
 <tr><td><code>62</code></td><td><code>tVarOut</code> — Y-vars / output</td></tr>
@@ -211,7 +211,7 @@
 <p>So e.g. <code>5D 00</code> = list <code>L1</code>; <code>BB xx</code> = an extended command. The second byte indexes that group’s name/handler table. (String variables <code>Str1</code>–<code>Str0</code> use lead <code>AA</code>; they are a <strong>distinct VAT object type</strong> holding tokenized text — see <a href="05-variables-vat.html#strings-str1str0--a-distinct-object-type-confirmed">Strings</a>.)</p>
 <h2 id="detokenize--token-length-confirmed"><a class="header" href="#detokenize--token-length-confirmed">Detokenize / token length [confirmed]</a></h2>
 <ul>
-<li><code>_GetTokLen</code> (<code>01:66E5</code>) returns 1 or 2 for the token at HL (via helper <code>smallfont_glyph_ptr</code> (<code>01:6702</code>)).</li>
+<li><code>_GetTokLen</code> (<code>01:66E5</code>) returns the length of the detokenized display string for the token at HL: it calls <code>smallfont_glyph_ptr</code> (<code>01:6702</code>) to resolve the token’s string pointer, then reads the leading length byte (<code>LD A,(HL)</code>). It is <code>_IsA2ByteTok</code>, not <code>_GetTokLen</code>, that tests 1-byte vs 2-byte encoding.</li>
 <li><code>_Get_Tok_Strng</code> (<code>01:66EA</code>) returns the display string for a token (used by the program editor and <code>Disp</code>).</li>
 </ul>
 <h2 id="parser--interpreter-located--page-0x38"><a class="header" href="#parser--interpreter-located--page-0x38">Parser / interpreter [located — page 0x38]</a></h2>
@@ -228,7 +228,7 @@ reaches it from an <code>AsmPrgm</code> payload but fails with <code>ERR:UNDEFIN
 running the named BASIC target. <strong>[confirmed negative probe]</strong></li>
 <li><code>parse_init</code> (<code>38:5b7b</code>) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). <strong>[confirmed]</strong></li>
 </ul>
-<p>The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine (<a href="06-floating-point.html">06</a>), variable tokens resolve via the VAT (<a href="05-variables-vat.html">05</a>), and the busy indicator is driven by <code>_RunIndicOn</code>/<code>Off</code>. <code>_BinOPExec</code> applies a binary operator via OP1/OP2.</p>
+<p>The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine (<a href="06-floating-point.html">06</a>), variable tokens resolve via the VAT (<a href="05-variables-vat.html">05</a>), and the busy indicator is driven by <code>_RunIndicOn</code> / <code>_RunIndicOff</code>. <code>_BinOPExec</code> applies a binary operator via OP1/OP2.</p>
 <h3 id="the-handler-dispatch-table-confirmed"><a class="header" href="#the-handler-dispatch-table-confirmed">The handler dispatch table [confirmed]</a></h3>
 <p>Page 0x38 <strong>begins</strong> with the parser’s handler dispatch at <strong><code>page_38:4000</code></strong> — a <strong>flat array of 2-byte little-endian handler pointers</strong>. Raw bytes are <code>9F 41 F0 45 1C 42 …</code> = entries <code>0x419F, 0x45F0, 0x421C, …</code> (all in-window <code>0x4xxx</code>/<code>0x47xx</code> code addresses), indexed by token class and dereferenced; the selector at <code>38:7010</code> loads <code>LD HL,0x4000</code> and adds <code>2×index</code> (see <a href="sub-tibasic.html">TI-BASIC Programs</a>).</p>
 <p>These handlers implement TI-BASIC <strong>statements/commands and operators</strong>. Sampling them by the routine they call:</p>
@@ -242,7 +242,7 @@ running the named BASIC target. <strong>[confirmed negative probe]</strong></li>
 <p>The evaluator walks the token stream via a cursor in RAM: <code>parsePtr</code> (<code>0x965D</code> = official <code>nextParseByte</code>, current position) and <code>parseEnd</code> (<code>0x965F</code> = <code>basic_end</code>, end). Named helpers on page 0x38:</p>
 <ul>
 <li><code>parse_cur_tok</code> (<code>38:72DA</code>) — fetch the token at the cursor.</li>
-<li><code>parse_advance</code> (<code>38:7248</code>) — <code>parsePtr++</code> and bounds-check vs <code>parseEnd</code>.</li>
+<li><code>parse_advance</code> (<code>38:7248</code>) — <code>parsePtr++</code> (advances the cursor and reloads <code>BC</code> from it). The bounds/refill check is the adjacent entry <code>38:7245</code>, which calls <code>0x1FD6</code> before falling into the increment.</li>
 <li><code>parse_expect_or_err</code> (<code>38:5CD8</code>) — fetch a token and raise <code>_ErrSyntax</code> (recording the position in <code>parsePtr</code>) if it isn’t the expected one.</li>
 </ul>
 <p>So the dispatch loop is: <code>parse_cur_tok</code> → index the pointer table at <code>page_38:4000</code> and call the selected handler (which may consume args via <code>parse_advance</code>) → repeat.</p>

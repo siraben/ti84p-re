@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d11418ae.js";
+            window.path_to_searchindex_js = "searchindex-af8f4538.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -187,16 +187,16 @@
 <tr><th>Subsystem</th><th style="text-align: right">~bcalls</th><th>Representative entry points</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>Floating-point / numeric</strong></td><td style="text-align: right">~230 (+~120 more in “misc”)</td><td><code>_FPAdd</code>,<code>_Times2</code>,<code>_DivHLBy10</code>,<code>_Intgr</code>,<code>_Trunc</code>,<code>_DToR</code>,<code>_RToD</code>,<code>_Min</code>,<code>_Max</code>,<code>_Sqrt</code>,<code>_LdHLind</code></td></tr>
+<tr><td><strong>Floating-point / numeric</strong></td><td style="text-align: right">~230 (+~120 more in “misc”)</td><td><code>_FPAdd</code>,<code>_Times2</code>,<code>_DivHLBy10</code>,<code>_Intgr</code>,<code>_Trunc</code>,<code>_DToR</code>,<code>_RToD</code>,<code>_Min</code>,<code>_Max</code>,<code>_SqRoot</code></td></tr>
 <tr><td><strong>Display / LCD</strong></td><td style="text-align: right">~41</td><td><code>_PutMap</code>,<code>_PutC</code>,<code>_PutS</code>,<code>_DispHL</code>,<code>_NewLine</code>,<code>_ClrLCDFull</code>,<code>_VPutS</code>,<code>_GrBufCpy</code></td></tr>
-<tr><td><strong>Variables / VAT</strong></td><td style="text-align: right">~37</td><td><code>_FindSym</code>,<code>_ChkFindSym</code>,<code>_CreateReal/List/Mat/Str/AppVar</code>,<code>_DelVar</code>,<code>_InsertMem</code>,<code>_Arc/Unarc</code></td></tr>
+<tr><td><strong>Variables / VAT</strong></td><td style="text-align: right">~37</td><td><code>_FindSym</code>,<code>_ChkFindSym</code>,<code>_CreateReal</code>,<code>_CreateStrng</code>,<code>_CreateAppVar</code>,<code>_DelVar</code>,<code>_InsertMem</code>,<code>_Arc_Unarc</code></td></tr>
 <tr><td><strong>String / convert</strong></td><td style="text-align: right">~18</td><td><code>_ExpToHex</code>,<code>_OP1ExpToDec</code>,<code>_CreateStrng</code>,<code>_StrCopy</code>,<code>_Get_Tok_Strng</code></td></tr>
-<tr><td><strong>Parser / TI-BASIC</strong></td><td style="text-align: right">~18</td><td><code>_IsA2ByteTok</code>,<code>_GetTokLen</code>,<code>_BinOPExec</code>,<code>_RunIndic*</code></td></tr>
-<tr><td><strong>Link / I-O</strong></td><td style="text-align: right">~15</td><td><code>_SendAByte</code>,<code>_RecAByteIO</code>,<code>_SendVarCmd</code>,<code>_Rec1stByte</code>,<code>_CmdLoad</code></td></tr>
+<tr><td><strong>Parser / TI-BASIC</strong></td><td style="text-align: right">~18</td><td><code>_IsA2ByteTok</code>,<code>_GetTokLen</code>,<code>_BinOPExec</code>,<code>_ParseInp</code></td></tr>
+<tr><td><strong>Link / I-O</strong></td><td style="text-align: right">~15</td><td><code>_SendAByte</code>,<code>_RecAByteIO</code>,<code>_SendVarCmd</code>,<code>_Rec1stByte</code>,<code>_LinkXferOP</code></td></tr>
 <tr><td><strong>System / power</strong></td><td style="text-align: right">~15</td><td><code>_AppInit</code>,<code>_PutAway</code>,<code>_RandInit</code>,<code>_ApdSetup</code>,<code>_Chk_Batt_Low</code>,<code>_SetExSpeed</code>,<code>_JForceCmd</code></td></tr>
-<tr><td><strong>List / Matrix</strong></td><td style="text-align: right">~13</td><td><code>_CreateRList/CList/RMat</code>,<code>_ErrDimMismatch</code>,dim/element ops</td></tr>
+<tr><td><strong>List / Matrix</strong></td><td style="text-align: right">~13</td><td><code>_CreateRList</code>,<code>_CreateCList</code>,<code>_CreateRMat</code>,<code>_ErrDimMismatch</code>,dim/element ops</td></tr>
 <tr><td><strong>Keyboard</strong></td><td style="text-align: right">~5</td><td><code>_GetCSC</code>,<code>_GetKey</code>,<code>_KeyToString</code></td></tr>
-<tr><td><strong>Menu / UI</strong></td><td style="text-align: right">~5</td><td><code>_DispMenuTitle</code>,<code>_CursorOn/Off</code>,<code>_RunIndicOn/Off</code></td></tr>
+<tr><td><strong>Menu / UI</strong></td><td style="text-align: right">~5</td><td><code>_DispMenuTitle</code>,<code>_CursorOn</code>,<code>_CursorOff</code>,<code>_RunIndicOn</code>,<code>_RunIndicOff</code></td></tr>
 </tbody>
 </table>
 </div>

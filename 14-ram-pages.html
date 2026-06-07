@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d11418ae.js";
+            window.path_to_searchindex_js = "searchindex-af8f4538.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -280,7 +280,7 @@ in a normal workflow.” These paths are confirmed or have a concrete next scena
 <tbody>
 <tr><td><code>80</code> high RAM</td><td>Run any cold-boot, home, expression, or graph trace.</td><td>Port <code>5 = 00</code> is the normal restore value; every current trace writes all page-<code>80</code> addresses. <strong>[confirmed]</strong></td></tr>
 <tr><td><code>81</code> normal bank-B RAM</td><td>Run any cold-boot, home, expression, or graph trace.</td><td>Port <code>7 = 81</code> is the normal restore value; every current trace writes all page-<code>81</code> addresses. <strong>[confirmed]</strong></td></tr>
-<tr><td><code>83</code> display capture</td><td>Run <code>boot-idle.macro</code> or <code>graph-y1-x2.macro</code>.</td><td>Ghidra shows <code>_SaveDisp</code> at <code>39:5E03</code> calls <code>lcd_read_block</code> at <code>ram:1890</code>; coverage hits both, and writes <code>5A7E-5DF2</code>. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>83</code> display capture</td><td>Run <code>boot-idle.macro</code> or <code>graph-y1-x2.macro</code>.</td><td>Ghidra shows <code>_SaveDisp</code> (<code>39:5DD8</code>) calls <code>lcd_read_block</code> (<code>ram:1890</code>) at the <code>39:5E03</code> call site; coverage hits both, and writes <code>5A7E-5D7D</code>. <strong>[confirmed]</strong></td></tr>
 <tr><td><code>83</code> homescreen previous-entry history</td><td>Run <code>home-2plus3.macro</code>.</td><td>The trace adds <code>577E-5790</code>, advances <code>lastEntryPTR</code> from <code>577E</code> to <code>5791</code>, and sets <code>numLastEntries</code> to <code>01</code>. <strong>[confirmed]</strong></td></tr>
 <tr><td><code>83</code> expression scratch copy</td><td>Run <code>home-2plus3.macro</code>.</td><td>The trace adds <code>4373-4390</code> through <code>flash_copy_block</code> at <code>ram:1868</code>/<code>ram:187C</code>. <strong>[confirmed]</strong></td></tr>
 <tr><td><code>83</code> split-screen/table copy</td><td>Enter a split-screen/table workflow that calls <code>_ScreenSplit</code>.</td><td>Ghidra shows <code>_ScreenSplit</code> at <code>05:7712</code> calls <code>flash_copy_block</code> at <code>05:772A</code>; this path is not hit by the current macros. <strong>[confirmed]</strong></td></tr>
@@ -313,11 +313,11 @@ more than anonymous free RAM. Keep the evidence classes separate:</p>
 <tr><th>Range</th><th>Use</th><th>Evidence</th></tr>
 </thead>
 <tbody>
-<tr><td><code>4373-4390</code></td><td>Expression-path page-<code>83</code> scratch copy</td><td>Added by the <code>2+3 ENTER</code> trace. The write PC is the page-<code>83</code> block-copy helper at <code>ram:187C</code>/<code>ram:187E</code>; the caller is still unlabeled. <strong>[confirmed]</strong></td></tr>
-<tr><td><code>43D9-44BD</code></td><td>Boot/home page-<code>83</code> scratch copy</td><td>Present in the idle trace. The write PC is the page-<code>83</code> block-copy helper at <code>ram:187C</code>/<code>ram:187E</code>, plus one byte through <code>37:44D7</code>. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>4373-4390</code></td><td>Expression-path page-<code>83</code> scratch copy</td><td>Added by the <code>2+3 ENTER</code> trace. The block write is the <code>LDIR</code> at <code>ram:187E</code> in the page-<code>83</code> copy helper (page <code>83</code> mapped via <code>OUT (6),A</code> at <code>ram:187C</code>); the caller is still unlabeled. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>43D9-44BD</code></td><td>Boot/home page-<code>83</code> scratch copy</td><td>Present in the idle trace. The block write is the <code>LDIR</code> at <code>ram:187E</code> in the page-<code>83</code> copy helper (page <code>83</code> mapped via <code>OUT (6),A</code> at <code>ram:187C</code>), plus one byte stored at <code>37:44D8</code>. <strong>[confirmed]</strong></td></tr>
 <tr><td><code>577E-5A7D</code></td><td>Homescreen previous-entry history</td><td>Page <code>33</code> references <code>577E</code>, the <code>5A7E</code> upper bound, <code>lastEntryPTR</code> (<code>0x8DA7</code>), and <code>numLastEntries</code> (<code>0x8E29</code>). The <code>2+3 ENTER</code> trace writes <code>577E-5790</code>, advances <code>lastEntryPTR</code> to <code>5791</code>, and sets <code>numLastEntries</code> to <code>01</code>. <strong>[confirmed]</strong></td></tr>
-<tr><td><code>5A7E-5DF2</code></td><td>LCD/home display capture area</td><td>Present in the idle trace. Ghidra decompiles <code>ram:1890</code> as an LCD-read helper that maps page <code>83</code> through port <code>6</code> and stores bytes read from LCD port <code>11</code>. <strong>[confirmed]</strong></td></tr>
-<tr><td><code>4008-4080</code></td><td>App base-page staging before app execution</td><td>WikiTI public note; the two traces on this page do not launch an app. <strong>[standard, not traced here]</strong></td></tr>
+<tr><td><code>5A7E-5DF2</code></td><td>LCD/home display capture area</td><td>Present in the idle trace. The <code>_SaveDisp</code> LCD capture (<code>ram:1890</code>) fills the first <code>0x300</code> bytes, <code>5A7E-5D7D</code> (the 96×64 framebuffer); the <code>5D7E-5DF2</code> tail is additional page-<code>83</code> writes in the same scenario. Ghidra decompiles <code>ram:1890</code> as an LCD-read helper that maps page <code>83</code> through port <code>6</code> and stores bytes read from LCD port <code>11</code>. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>4000-4080</code></td><td>App base-page staging before app execution</td><td>WikiTI public note; the two traces on this page do not launch an app. <strong>[standard, not traced here]</strong></td></tr>
 <tr><td><code>4100-433A</code></td><td>USB communication buffers</td><td>WikiTI public note; the two traces on this page do not exercise USB transfer. <strong>[standard, not traced here]</strong></td></tr>
 </tbody>
 </table>
@@ -361,14 +361,14 @@ ram:18AB  LD (HL),A
 33:53F7  LD HL,577Eh
 33:5430  LD A,(numLastEntries)
 33:543A  LD DE,577Eh
-33:5452  LD HL,577Eh
+33:5451  LD DE,577Eh
 33:5459  LD (lastEntryPTR),HL
 33:5462  LD HL,numLastEntries
 33:5465  INC (HL)
 </code></pre>
 <p>If a program modifies the history buffer on page <code>83</code>, clearing <code>numLastEntries</code>
-at <code>8E29</code> prevents the homescreen from scrolling back into invalid entry data.
-That is the public WikiTI recovery advice, and the ROM confirms that <code>8E29</code> is
+at <code>0x8E29</code> prevents the homescreen from scrolling back into invalid entry data.
+That is the public WikiTI recovery advice, and the ROM confirms that <code>0x8E29</code> is
 the OS-visible previous-entry count. <strong>[standard, address confirmed]</strong></p>
 <h2 id="dynamic-test-scenarios"><a class="header" href="#dynamic-test-scenarios">Dynamic test scenarios</a></h2>
 <p>The trace analyzer maps TilEm memory-write records back to physical RAM pages. Use
@@ -460,8 +460,9 @@ for all touched windows:</p>
     out (6),a
 </code></pre>
 <p>The OS’s own paged byte-store helper at <code>37:44AE</code> uses the normal restore pattern:</p>
-<pre><code class="language-z80">37:44D0  OUT (5),A        ; A = page index &lt;&lt; 1, trace case A = 02h
-37:44D3  OR 80h
+<pre><code class="language-z80">37:44D0  OUT (5),A        ; A = page index &lt;&lt; 1, trace case A = 02h (→ RAM page 82)
+37:44D2  INC A            ; A = 03
+37:44D3  OR 80h           ; A = 83h
 37:44D5  OUT (7),A        ; trace case: 83h
 37:44D7  LD A,B
 37:44D8  LD (DE),A        ; byte store while RAM page 83 is visible

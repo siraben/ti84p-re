@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d11418ae.js";
+            window.path_to_searchindex_js = "searchindex-af8f4538.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -201,37 +201,38 @@
 <tr><th>Ptr</th><th>Addr</th><th>Role</th></tr>
 </thead>
 <tbody>
-<tr><td><code>tempMem</code></td><td>9820</td><td>base of the temporary area</td></tr>
-<tr><td><code>fpBase</code></td><td>9822</td><td>floating-point stack base</td></tr>
-<tr><td><code>FPS</code></td><td>9824</td><td>FP stack pointer (grows; <code>_PushReal</code>/<code>_PopReal</code>)</td></tr>
-<tr><td><code>OPBase</code></td><td>9826</td><td>base of OP/symbol scratch</td></tr>
-<tr><td><code>pTemp</code></td><td>982E</td><td>temp-variable pointer</td></tr>
-<tr><td><code>progPtr</code></td><td>9830</td><td>currently-executing program pointer</td></tr>
-<tr><td><code>pagedBuf</code></td><td>983A</td><td>paged scratch buffer</td></tr>
+<tr><td><code>tempMem</code></td><td><code>0x9820</code></td><td>base of the temporary area</td></tr>
+<tr><td><code>fpBase</code></td><td><code>0x9822</code></td><td>floating-point stack base</td></tr>
+<tr><td><code>FPS</code></td><td><code>0x9824</code></td><td>FP stack pointer (grows; <code>_PushReal</code>/<code>_PopReal</code>)</td></tr>
+<tr><td><code>OPBase</code></td><td><code>0x9826</code></td><td>base of OP/symbol scratch</td></tr>
+<tr><td><code>OPS</code></td><td><code>0x9828</code></td><td>OP/symbol scratch stack pointer (top)</td></tr>
+<tr><td><code>pTemp</code></td><td><code>0x982E</code></td><td>temp-variable pointer</td></tr>
+<tr><td><code>progPtr</code></td><td><code>0x9830</code></td><td>currently-executing program pointer</td></tr>
+<tr><td><code>pagedBuf</code></td><td><code>0x983A</code></td><td>paged scratch buffer</td></tr>
 </tbody>
 </table>
 </div>
-<p>So free RAM = (gap between the upward data heap and the downward VAT). When a variable grows/shrinks, everything above it shifts.</p>
+<p><code>_MemChk</code> reports free RAM as <code>(OPS) − (FPS)</code> (the pointers at <code>0x9828</code>/<code>0x9824</code>) <code>+ 1</code>, i.e. the span between the floating-point stack and the operand/symbol stack in the middle of the region (the conceptual picture above: user data grows up, the VAT grows down, free RAM in the middle). When a variable grows/shrinks, everything above it shifts.</p>
 <h2 id="core-allocation-primitives-confirmed"><a class="header" href="#core-allocation-primitives-confirmed">Core allocation primitives [confirmed]</a></h2>
 <ul>
-<li><code>_InsertMem</code> (<code>00:0F81</code>) — open a gap of N bytes at HL by shifting all memory above it up (helper <code>FUN_ram_1398</code> is the block move); fails with <code>E_Memory</code> if it would collide with the VAT.</li>
-<li><code>_DelMem</code> (<code>00:1368</code>) — the inverse: close a gap, shifting memory down.</li>
-<li><code>_EnoughMem</code> (<code>00:0FA6</code>) — ensure N free bytes; if short, it walks the temp/scratch entries (9-byte stride from <code>pTemp</code> down to <code>OPBase</code>) and <code>_DelVar</code>s reclaimable temporaries to make room. <strong>[confirmed]</strong></li>
-<li><code>_MemChk</code> (<code>00:0E20</code>) — compute current free RAM.</li>
+<li><code>_InsertMem</code> (<code>ram:0F81</code>) — open a gap of <code>HL</code> bytes at address <code>DE</code> by shifting all memory above it up. It calls <code>insertmem_setup</code> (<code>ram:0F8B</code>), which does the <code>LDDR</code> block move (at <code>ram:0FA1</code>), then <code>delmem_fixup_tail</code> (<code>ram:1398</code>) to fix up pointers. <code>_InsertMem</code> does <strong>not</strong> check free space itself — callers must ensure room first via <code>_EnoughMem</code> (the wrapper <code>_ErrNotEnoughMem</code> at <code>ram:1735</code> calls <code>_EnoughMem</code> then jumps to <code>_ErrMemory</code> at <code>ram:2721</code> on shortfall).</li>
+<li><code>_DelMem</code> (<code>ram:1368</code>) — the inverse: close a gap, shifting memory down.</li>
+<li><code>_EnoughMem</code> (<code>ram:0FA6</code>) — ensure N free bytes; if short, it walks the temp/scratch entries (9-byte stride from <code>pTemp</code> down to <code>OPBase</code>) and <code>_DelVar</code>s reclaimable temporaries to make room. <strong>[confirmed]</strong></li>
+<li><code>_MemChk</code> (<code>ram:0E20</code>) — compute current free RAM.</li>
 </ul>
-<p>Every <code>_CreateXxx</code> (see <a href="05-variables-vat.html">05</a>) ultimately calls <code>_InsertMem</code> to carve space, then registers the variable in the VAT.</p>
+<p>Variable-creation bcalls — <code>_CreateReal</code>, <code>_CreateStrng</code>, <code>_CreateAppVar</code>, <code>_CreateRList</code>, etc. (see <a href="05-variables-vat.html">05</a>) — share a create body (<code>_CreateReal</code> at <code>ram:10B8</code> jumps into <code>ram:1011</code>) that carves space via an internal gap routine at <code>ram:0F0C</code> — which does its own block move and updates the temp/FP-stack pointers, <em>not</em> the public <code>_InsertMem</code> — then registers the variable in the VAT.</p>
 <h2 id="flash-archive-confirmed-location"><a class="header" href="#flash-archive-confirmed-location">Flash archive [confirmed location]</a></h2>
-<p>To save scarce RAM, variables can be <strong>archived</strong> to Flash. The archive code lives on <strong>flash page 0x07</strong>:</p>
+<p>To save scarce RAM, variables can be <strong>archived</strong> to Flash. The archive entry point is on <strong>flash page 0x07</strong>, while the low-level flash read/write/erase workers are on <strong>page 0x3D</strong>:</p>
 <ul>
 <li><code>_Arc_Unarc</code> (<code>07:6248</code>) — move OP1’s variable between RAM and the Flash archive (toggles the archive bit, then relocates the data and rewrites the VAT entry’s page to the Flash page).</li>
 <li><code>_FlashToRam</code> (id <code>5017</code> → body <code>3D:6745</code>) — copy archived data back into RAM.
-Archived vars are <em>appended</em> to Flash, which can’t be overwritten in place, so deleting one only marks it dead. When the archive Flash fills, a <strong>garbage collector</strong> rewrites the live vars to fresh sectors and erases the old ones — the <strong>“Garbage Collecting…”</strong> screen. That GC path is distinct from <code>_CleanAll</code>, but the older <code>flash_gc_relocate@3C:7BD0</code> / <code>gc_show_screen@3C:7E0D</code> labels are not present as functions in the current live Ghidra/MCP DB.</li>
+Archived vars are <em>appended</em> to Flash, which can’t be overwritten in place, so deleting one only marks it dead. When the archive Flash fills, a <strong>garbage collector</strong> rewrites the live vars to fresh sectors and erases the old ones — the <strong>Garbage Collecting</strong> screen (stored as two ROM strings, <code>"Garbage"</code>/<code>"Collecting..."</code>, with three ASCII dots). That GC path is distinct from <code>_CleanAll</code>, but the older <code>flash_gc_relocate@3C:7BD0</code> / <code>gc_show_screen@3C:7E0D</code> labels are not present as functions in the current live Ghidra/MCP DB.</li>
 </ul>
-<p><code>_CleanAll</code> is RAM cleanup (not Flash GC) [confirmed from disassembly]: <code>_CleanAll</code> (<code>07:52CF</code>) compacts the <strong>floating-point stack</strong> (<code>fpBase</code>/<code>FPS</code> → <code>tempMem</code>) and resets the <code>OPBase</code>/<code>OPS</code>/<code>pTemp</code> scratch pointers, reclaiming temporary RAM after a command/expression finishes. It does <strong>not</strong> touch Flash.</p>
-<p>Flash is written/erased a sector at a time via low-level routines through the <strong>flash-control port <code>0x14</code></strong> (see <a href="sub-vat-archive.html">Variables, Archive &amp; Unarchive</a>) <strong>[partly confirmed]</strong>:</p>
+<p><code>_CleanAll</code> is RAM cleanup (not Flash GC) [confirmed from disassembly]: <code>_CleanAll</code> (<code>07:52CF</code>) compacts the <strong>floating-point stack</strong> down to <code>tempMem</code> (<code>fpBase</code>/<code>FPS</code>) and the <strong>OP/scratch stack</strong> down to <code>pTemp</code> (it sets <code>OPBase = pTemp</code>, <code>LDDR</code>s the live span down, and sets <code>OPS</code> to its new top), reclaiming temporary RAM after a command/expression finishes. It does <strong>not</strong> touch Flash.</p>
+<p>Flash is <strong>erased</strong> a sector at a time but <strong>programmed byte-by-byte</strong> (the page-3D writer at <code>3D:64AA</code> calls the single-byte bcall <code>_WriteAByte</code>, id <code>8021</code>), via low-level routines through the <strong>flash-control port <code>0x14</code></strong> (see <a href="sub-vat-archive.html">Variables, Archive &amp; Unarchive</a>) <strong>[partly confirmed]</strong>:</p>
 <ul>
-<li>Live MCP-confirmed page-3D anchors include <code>_FlashToRam</code> (<code>3D:6745</code>), <code>flash_program_buf</code> (<code>3D:678C</code>), <code>flash_erase_wait</code> (<code>3D:5ED3</code>), <code>flash_cmd_base</code> (<code>3D:738B</code>), and the status-bit helpers <code>flash_op_fd/fb/fe</code> (<code>3D:7C8F/7C93/7C97</code>).</li>
-<li>Older names such as <code>flash_program_core</code> (<code>3D:61AF</code>), <code>flash_write_byte</code> (<code>3D:6B9B</code>), <code>flash_write_record</code> (<code>3D:64AA</code>), <code>flash_alloc_sector</code> (<code>3D:62C2</code>), <code>flash_free_scan</code> (<code>3D:6413</code>), <code>flash_cmd_dispatch</code> (<code>3C:7121</code>), <code>flash_gc_relocate</code> (<code>3C:7BD0</code>), and <code>gc_show_screen</code> (<code>3C:7E0D</code>) came from an earlier trace but are not current live-MCP function symbols.</li>
+<li>Live MCP-confirmed page-3D anchors include <code>_FlashToRam</code> (<code>3D:6745</code>), <code>flash_program_buf</code> (<code>3D:678C</code>), <code>flash_erase_wait</code> (<code>3D:5ED3</code>), <code>flash_cmd_base</code> (<code>3D:738B</code>), and the status-bit helpers <code>flash_op_fd</code> (<code>3D:7C8F</code>), <code>flash_op_fb</code> (<code>3D:7C93</code>), <code>flash_op_fe</code> (<code>3D:7C97</code>).</li>
+<li>Further page-3D flash routines at <code>3D:61AF</code>, <code>3D:6B9B</code>, <code>3D:64AA</code>, <code>3D:62C2</code>, and <code>3D:6413</code> are not yet named in the current DB and await a symbol pass.</li>
 <li>Archive workers: <code>_Arc_Unarc</code> (<code>07:6248</code>) → <code>arc_ram_to_flash</code> (<code>07:61F4</code>) / <code>arc_flash_to_ram</code> (<code>07:6107</code>).</li>
 </ul>
 <h2 id="resolved"><a class="header" href="#resolved">Resolved</a></h2>
