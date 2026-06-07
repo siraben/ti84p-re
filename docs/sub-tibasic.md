@@ -488,6 +488,56 @@ and `ASMRET.8xp` displays `BEFORE`, executes `Asm(prgmASMRET)`, displays
 `07:57B4` and execution of the payload byte itself at
 `ram:9D95 op=0x000000C9`, returning to BASIC immediately after.
 
+### Animation, graphing, and BASIC subprogram calls
+
+Additional generated fixtures extend coverage beyond arithmetic/list samples:
+
+```ti-basic
+ClrHome
+For(I,1,8)
+Output(1,I,"X")
+End
+Disp "DONE"
+```
+
+Observed run: `ANIMTXT.8xp` displays a row of `X` characters, `DONE`, and then
+`Done`. The trace hits `_OutputExpr` (`03:4AF2`), page-38 parser/loop paths,
+`_Disp`, and LCD text routines.
+
+```ti-basic
+ClrDraw
+Line(0,0,95,63)
+Circle(47,31,10)
+Text(0,0,"DFS")
+DispGraph
+```
+
+Observed run: `GRAPHV.8xp` ends on the graph screen with `DFS`, axes, and a
+diagonal line visible. The trace hits `_GrBufClr`, `_ILine` (`04:4029`),
+`graph_pixel_op`, `_IPoint`, and `_PDspGrph` (`04:7904`).
+
+```ti-basic
+0->A
+prgmSUBRT
+Disp A
+```
+
+with callee:
+
+```ti-basic
+Disp "SUB"
+A+1->A
+Return
+```
+
+Observed run: loading `CALLSUB.8xp` and `SUBRT.8xp` displays `SUB`, then `1`,
+then `Done`. This confirms the practical BASIC calling convention: caller and
+callee share variables, and `Return` resumes the caller. The trace hits VAT/name
+lookup, parser entry/refill paths, shared `A` store/recall, and `_Disp`.
+
+See [TI-BASIC programming patterns](sub-tibasic-programming.md) for performance
+rules and larger source-level examples.
+
 ---
 
 ## 9. Resolved / residual
