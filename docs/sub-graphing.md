@@ -27,7 +27,7 @@ These are the values the WINDOW editor writes and the grapher reads.
 | `0x8F74` | `Ymax` | top edge real Y |
 | `0x8F7D` | `Yscl` | Y tick spacing |
 | `0x8F86` | `ThetaMin` / `0x8F8F` `ThetaMax` / `0x8F98` `ThetaStep` | polar/parametric range |
-| `0x900D` | `XresO` | Xres (pixel step between plotted columns), used by `_XftoI` |
+| `0x900D` | `XresO` | Xres (pixel step between plotted columns) |
 | `0x9151` | `Xres_int` | integer copy of Xres |
 | `0x9152` | `deltaX` | **(Xmax−Xmin)/94** — real width of one pixel column |
 | `0x915B` | `deltaY` | **(Ymax−Ymin)/62** — real height of one pixel row |
@@ -96,11 +96,11 @@ X/Y shown at the bottom of the screen, and by DRAW commands that take pixel argu
 **`_GrBufClr`** (`04:6071`): clears the whole 0x300-byte buffer to 0 (a
 `LD (HL),0` + 0x2FF-byte propagate copy). [confirmed]
 
-**`_IOffset`** (`04:42B5`) computes the LCD controller address bytes for a pixel:
+**`_IOffset`** (`04:42B5`) computes the LCD controller address bytes for a pixel (inputs `B`=x, `C`=y):
 ```
-curY    = (y >> 3) | 0x20      ; LCD "set Z/row page" command (8-px rows)
-curXRow = (0x3F - x) | 0x80    ; LCD "set column" command, X mirrored
-returns (table_42E4)[y & 7]    ; the 1-of-8 bit mask within the byte
+(0x844F) = (x >> 3) | 0x20     ; LCD "set row page" command — the rotated TI panel pages by X
+(0x8451) = (0x3F - y) | 0x80   ; LCD "set column" command (Y, mirrored)
+returns (table_42E4)[x & 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
 ```
 This is the bridge from a `(x,y)` pixel to a byte+bit in the buffer and the matching LCD
 command bytes. [confirmed]
@@ -112,9 +112,10 @@ pixel; 1..3 select dotted/animated styles), clips against the X-offset (`XOffset
 buffer bounds (`_IBounds`), then OR/AND/XORs the mask from `_IOffset`. **`_PointOn`**
 (`04:4155`) is the plain set-pixel entry. [confirmed]
 
-**`_PixelTest`** (`04:79E7`): the `pxl-Test(` command — validates row<64/col<96
-(`pixWide_m_1`), maps split-screen offset, and returns whether that buffer pixel is on.
-`_ErrDomain` on out-of-range. [confirmed]
+**`_PixelTest`** (`04:79E7`): the `pxl-Test(` command — validates the row/col against the
+**current graph dimensions** `lcdTallP` (`0x8DA3`) and `pixWide_m_1` (`0x8DA5`) — 63 and 95 on a
+full screen, smaller when split — maps the split-screen offset, and returns whether that buffer
+pixel is on. `_ErrDomain` on out-of-range. [confirmed]
 
 ---
 
@@ -132,7 +133,8 @@ the "draw/dark" mode forced. [confirmed]
 **`_CLine`/`_CLineS`** (`33:6028`/`33:6034`) and **`_UCLineS`** (`33:6010`) — **coordinate**
 line: take real-coordinate endpoints, run them through the X/Y transforms (the SetXX/ftoI
 path), then call the integer line. The `S` variants take an explicit style/mode byte; the
-mode bit comes from `(IY+0x35) & 0x80` (split-screen flag). These back the `Line(`
+mode bit comes from `(IY+0x35) & 0x80` (`hookflags3` bit 7, the drawing-hook-active flag —
+not a split-screen flag). These back the `Line(`
 DRAW command at the math layer. [strong]
 
 ### Circle
@@ -154,19 +156,20 @@ Each DRAW menu command has a page-04 bcall handler that draws into `plotSScreen`
 |-------|------|---------|
 | `_HorizCmd` | `04:793E` | `Horizontal y` — draws a full-width horizontal line at real Y. See note below. |
 | `_VertCmd` | `04:7955` | `Vertical x` — draws a full-height vertical line at real X. See note below. |
-| `_LineCmd` | `04:796A` | `Line(x1,y1,x2,y2)` — `_PDspGrph` then draws; checks pen, allocs 0x24-byte FPS for the 4 coords. |
+| `_LineCmd` | `04:796A` | `Line(x1,y1,x2,y2)` — `_PDspGrph`, optionally draws via page 33, then `JP 0x152A` = `_DeallocFPS1(0x24)` frees the coord frame (the alloc happens upstream). |
 | `_UnLineCmd` | `04:797C` | `Line(…,0)` — erase variant (same path, clear mode). |
 | `_PointCmd` | `04:79B2` | `Pt-On/Pt-Off/Pt-Change(` — reads style from `OP1.mantissa[0] & 0x20`, dispatches set/clear/toggle. |
 | `_DrawCmd` | `04:7B8B` | top-level `DRAW` dispatch — grabs the pending count and cross-jumps to the per-command handler. |
 | `_DrawZeroOP1` | `04:620B` | seeds OP3=0 then draws (used for axis / `DrawF` zero baseline). |
 
-Note: `_HorizCmd`/`_VertCmd` both `CALL 7933` first, which allocs a 0x24-byte FPS frame and
-saves the live window block (`1537`/`SBC HL,DE` pointer math). `_HorizCmd` then writes the
-line's Y coordinate into **both `Xmin` (0x8F50) and `Xmax` (0x8F59)** via `1A92`/`1B0C`
-(FPS load + store-to-window), and `_VertCmd` writes its X into **`Ymax` (0x8F74) and `Ymin`
-(0x8F6B)** — i.e. they momentarily collapse the *other* axis so the transform produces a
-line spanning the full screen, render with `_PDspGrph`, then `_DeallocFPS1(0x24)` restores
-the real window. [confirmed]
+Note: `_HorizCmd`/`_VertCmd` both `CALL 7933` first, which **allocates a 0x24-byte FPS frame**
+(`LD HL,0x24 / CALL 1537 / SBC HL,DE`) and returns a pointer to it. `_HorizCmd` then **builds the
+line's two endpoints in that frame**: it copies `Xmin` (`0x8F50`) and `Xmax` (`0x8F59`) — the window's
+X range — with `_Mov9B` (`00:1A92`, which reads a window float into the frame), interleaving the
+line's Y (`OP1`) via `_MovFrOP1` (`00:1B0C`), so the endpoints are `(Xmin, y)` and `(Xmax, y)`.
+`_VertCmd` does the same with `Ymin` (`0x8F6B`)/`Ymax` (`0x8F74`) and the line's X. It renders with
+`_PDspGrph`, then `_DeallocFPS1(0x24)` frees the frame — the **live window variables are not
+modified** (the line just spans the current window edges). [confirmed]
 
 ---
 
@@ -175,7 +178,7 @@ the real window. [confirmed]
 **`_PDspGrph`** (`04:7904`, "possibly-display graph") is the gatekeeper between buffer and
 screen. [confirmed]
 - Clears the "need redraw" flag at `(IY+2)`,
-- if the **regraph-pending** bit `(IY+3)&1` is set (`grfDBFlags`/SmartGraph dirty), calls
+- if the **graph-dirty** bit `(IY+3)&1` is set (`graphFlags.graphDraw`, inc `graphFlags=3`/`graphDraw=0`; `1`=redraw needed — this is *not* `grfDBFlags` at `IY+4` nor SmartGraph at `IY+0x17`), calls
   **`_Regraph`** to recompute the whole plot,
 - otherwise checks the split-screen flag (`_Bit_VertSplit`) and copies the buffer to the LCD
   (`graph_redraw_buf` `04:607F`).
@@ -261,9 +264,9 @@ during a regraph or TABLE build.
 - Forward transform `(value−min)/pixelDelta`: structure **[confirmed]** from the
   `37:41F2` disassembly (subtract `228F`, divide `2385`); the exact rounding in `4229` is
   read but the ±sentinel constants are summarized, not exhaustively byte-traced.
-- `_HorizCmd`/`_VertCmd` destination floats: confirmed they `_Mov9B` into the Xmin/Xmax vs
-  Ymax/Ymin pair and `_PDspGrph`; whether they use the live window or a temp copy for the
-  line endpoints would benefit from tracing `HorizVert_setup` (`04:7933`).
+- `_HorizCmd`/`_VertCmd` endpoint build — **resolved**: `7933` allocates a 0x24-byte FPS frame, and
+  the commands `_Mov9B` the window edges (`Xmin`/`Xmax` or `Ymin`/`Ymax`) plus `_MovFrOP1` the line's
+  coordinate (`OP1`) into that frame. The live window variables are not touched.
 - Circle parametric stepping in `3B:7171` (`_DrawCirc2`) not decompiled here (lives on
   page 3B); the `_GrphCirc` setup is confirmed.
 - Y= selection bit (`0x20`; flags byte `0x23` selected / `0x03` deselected) and the style byte
