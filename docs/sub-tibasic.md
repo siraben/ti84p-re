@@ -118,7 +118,7 @@ is done by `chk_tok_end` (`38:72E0`) / `parse_cur_err_illegal` (`38:70F8`).
 - `_StoAns` (`38:6251`) stores OP1 into `Ans` (`_CkOP1Real` path; the bytes that
   follow are the Ans-var token table). `_RclAns` (`38:679F`) = `_AnsName` then
   `_RclVarSym`.
-- `_AnsName` (`38:74B7`): `_ZeroOP1; OP1.exp = 0x72` — builds the OP1 name for
+- `_AnsName` (`38:74B7`): `_ZeroOP1; (OP1+1)=0x72` (the name's type/class byte at `0x8479`, not an exponent — OP1 holds a name here) — builds the OP1 name for
   the `Ans` variable (token class `0x72`).
 - `_StoSysTok`/`_RclSysTok` (`38:623B`/`683E`) store/recall a system token
   variable (Xmin etc.) into/from OP1.
@@ -312,8 +312,9 @@ runs and off at `Done`. **[confirmed]**
 2. `chk_tok_end` (`38:72E0`) classifies it into a small class number (`<=3` operand/expr,
    `4` = syntax error, others = operator/command). Flagged tokens reclassify via
    `set_split_rows` (`ram:20A0`) when `IY+9 & 0x80`.
-3. `parse_cur_err_illegal` (`38:70F8`) maps the token byte to a grammar/precedence class (tokens
-   `>0xF1` get `+0x12`, folding the high token page into the class space).
+3. `parse_cur_err_illegal` (`38:70F8`) validates the current token; its caller (at `38:6FBE`) then
+   maps the token byte to a grammar/precedence class — tokens `≥0xF2` get `+0x12` (`38:6FBE: ADD A,0x12`),
+   folding the high token page into the class space.
 4. The precedence level (`cVar4` = 1/2/3) selects the production handler base:
    `0x4000` (base term — the **flat handler-pointer table**, indexed by token class),
    `0x478C` (postfix `^`/`!`), or `0x7175` (leaf) — `0x478C` and `0x7175` are raw code
@@ -345,7 +346,7 @@ page_38:6f63   if_isg_stmt_handler        ; per-statement If/IS>( dispatch
 page_38:4130   blockmatch_end_else        ; nest-counting End/Else scanner
 page_38:4180   parse_scan_tokens          ; skip-to-delimiter (2-byte aware)
 page_38:4870   goto_lbl_name_scanner      ; scan label name, jump to search
-page_38:7600   store_target_name_scanner  ; →VAR store-target name scanner (live DB name)
+page_38:7600   store_target_name_scanner  ; →VAR store-target name scanner (inferred; live DB auto-name is set_tblgraph_draw_xpage)
 page_38:72da   parse_cur_tok
 page_38:7248   parse_advance
 page_38:5cd8   parse_expect_or_err
