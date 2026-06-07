@@ -1,0 +1,485 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Floating-point engine - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-67424d6c.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-cbaaedfe.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="06--floating-point-engine"><a class="header" href="#06--floating-point-engine">06 — Floating-point engine</a></h1>
+<blockquote>
+<p><strong>Deep dive:</strong> <a href="sub-calculation.html">Calculation Engine</a> — ×, ÷, ^, roots, the transcendentals (sin/cos/ln/eˣ), and number formatting.</p>
+</blockquote>
+<p>All TI-BASIC arithmetic runs through a BCD floating-point engine centered on the <strong>OP registers</strong> in RAM. The engine lives mostly on flash page 0 (it’s hot), with the RST-30 shortcut for the most common op.</p>
+<h2 id="number-format--tifloat-9-bytes-on-disk-confirmed"><a class="header" href="#number-format--tifloat-9-bytes-on-disk-confirmed">Number format — <code>TIFloat</code> (9 bytes on disk) [confirmed]</a></h2>
+<pre><code>+0  type      0x00 = real (positive), 0x80 = negative real;
+              0x0C/0x8C = complex (paired with the imaginary part)
++1  exp       base-100? no — base-10 exponent, biased by 0x80 (0x80 = 10^0)
++2..+8  mantissa   7 bytes = 14 packed BCD digits, normalized d.dddddddddddddd
+</code></pre>
+<p>The stored value is</p>
+<p>$$v = \pm\,(d_0.d_1d_2\cdots d_{13})\times 10^{\,e-\mathtt{0x80}}$$</p>
+<p>where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD mantissa digits. A local ROM-byte scan found 126 candidate BCD constants ROM-wide ($\pi/180 = 1.745\ldots\mathrm{e}{-2}$, $180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, plus the FP transcendental coefficient tables on page 0x02). The current MCP interface does not expose raw byte search, so this count should be treated as a scan artifact; the table addresses below are confirmed by Ghidra disassembly and raw ROM bytes.</p>
+<h2 id="op-registers--11-bytes-each-confirmed"><a class="header" href="#op-registers--11-bytes-each-confirmed">OP registers — 11 bytes each [confirmed]</a></h2>
+<p><code>OP1</code>–<code>OP6</code> at <code>0x8478</code>, spaced <strong>11</strong> bytes (<code>OP2</code>=0x8483 …). The extra 2 bytes past the 9-byte number are <strong>extended guard digits</strong> used during math: <code>OP1EXT</code>/<code>OP2EXT</code> = bytes +9/+10 (seen in <code>_FPAdd</code> as <code>0x8481</code>/<code>0x8482</code>). <code>OP1</code> is the primary accumulator; most routines take their argument in <code>OP1</code> (and <code>OP2</code> for binary ops) and return in <code>OP1</code>.</p>
+<h2 id="core-operations-confirmed-from-disassembly"><a class="header" href="#core-operations-confirmed-from-disassembly">Core operations [confirmed from disassembly]</a></h2>
+<p>Every binary operation has the shape <strong><code>OP1 ∘ OP2 → OP1</code></strong>. <strong>Add and subtract</strong> walk the same five stages below; <strong>multiply and divide</strong> instead <em>combine</em> exponents (add them for <code>×</code>, subtract for <code>÷</code>) and multiply/divide the mantissas. Because the format is <strong>sign-magnitude BCD</strong>, the sign is settled separately — negating a value is a single <code>XOR 0x80</code> on its type byte — so the digit work always runs on a non-negative 14-digit mantissa:</p>
+<pre class="mermaid">flowchart LR
+    A["clear guard digits&lt;br/&gt;fp_clear_guard"] --&gt; B["align exponents&lt;br/&gt;shift smaller right by Δ"]
+    B --&gt; C["BCD digit op&lt;br/&gt;add / sub / mul / div"]
+    C --&gt; D["renormalize&lt;br/&gt;back to d.dddd…"]
+    D --&gt; E["round on guards&lt;br/&gt;write type/exp to OP1"]
+</pre>
+
+<p>The page-0 entry points — the hottest get a one-byte <code>RST</code> shortcut, which is why FP code is dense with <code>RST 30h</code>/<code>08h</code>/<code>20h</code>:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Routine</th><th>Addr</th><th>Shortcut</th><th>Effect</th></tr>
+</thead>
+<tbody>
+<tr><td><code>_FPAdd</code></td><td><code>ram:229E</code></td><td><strong>RST 30h</strong></td><td><code>OP1 ← OP1 + OP2</code></td></tr>
+<tr><td><code>_OP1ToOP2</code></td><td><code>ram:1A2F</code></td><td><strong>RST 08h</strong></td><td>copy <code>OP1 → OP2</code> (11 bytes, via <code>copy_op11</code> <code>ram:1a8e</code>)</td></tr>
+<tr><td><code>_Mov9ToOP1</code></td><td><code>ram:1B01</code></td><td><strong>RST 20h</strong></td><td>load 9 bytes at <code>HL → OP1</code> (a constant/var)</td></tr>
+<tr><td><code>_CkOP1FP0</code> / <code>_CkOP2FP0</code></td><td><code>ram:1DE9</code> / <code>ram:1DEE</code></td><td>—</td><td>test <code>OP1</code>/<code>OP2 == 0</code> (sets <code>Z</code>)</td></tr>
+<tr><td><code>_CkOP1Real</code></td><td><code>ram:1942</code></td><td>—</td><td>type-check <code>OP1</code> is real</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="alignment-then-the-worked-example--_fpadd"><a class="header" href="#alignment-then-the-worked-example--_fpadd">Alignment, then the worked example — <code>_FPAdd</code></a></h3>
+<p>To combine $x=(-1)^{s_x} m_x\times 10^{e_x}$ and $y=(-1)^{s_y} m_y\times 10^{e_y}$, the engine first <strong>aligns</strong> to the larger exponent. With $e_x \ge e_y$ it shifts $m_y$ right by</p>
+<p>$$\Delta = e_x - e_y \quad(\text{digit shifts})$$</p>
+<p>one nibble per <code>fp_shift_right_digit</code> call; if $\Delta &gt; 15$ the smaller operand falls entirely past the 14 mantissa digits plus the 2 guard digits and is dropped. It then <strong>adds the aligned mantissas when the signs match</strong> ($s_x = s_y$) and <strong>subtracts when they differ</strong> ($s_x \ne s_y$), fixing the result’s sign afterward — the essence of sign-magnitude arithmetic:</p>
+<pre><code class="language-pseudocode">\begin{algorithm}
+\caption{\texttt{\_FPAdd}: $OP1 \gets OP1 + OP2$ (sign-magnitude BCD)}
+\begin{algorithmic}
+\IF{$OP2 = 0$}
+    \RETURN $OP1$
+\ENDIF
+\IF{$OP1 = 0$}
+    \STATE $OP1 \gets OP2$ \COMMENT{incl. extended bytes}
+    \RETURN $OP1$
+\ENDIF
+\STATE $\Delta \gets \mathrm{exp}(OP1) - \mathrm{exp}(OP2)$ \COMMENT{\texttt{fp\_exp\_diff}}
+\STATE shift the smaller mantissa right by $|\Delta|$ digits to align \COMMENT{\texttt{fp\_shift\_right\_digit}}
+\IF{$|\Delta| &gt; 15$}
+    \RETURN larger operand \COMMENT{other is negligible}
+\ENDIF
+\IF{$\mathrm{sign}(OP1) = \mathrm{sign}(OP2)$}
+    \STATE $\mathrm{mantissa} \gets$ BCD-add
+\ELSE
+    \STATE $\mathrm{mantissa} \gets$ BCD-subtract; fix result sign \COMMENT{\texttt{fp\_sub\_mantissa}}
+\ENDIF
+\STATE round via the guard digits, renormalize, store exp/type in $OP1$
+\RETURN $OP1$
+\end{algorithmic}
+\end{algorithm}
+</code></pre>
+<p>This is the canonical sign-magnitude BCD add. The full helper cluster is documented below.</p>
+<blockquote>
+<p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: the <code>2+3</code> run
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/home-2plus3.macro"><code>home-2plus3.macro</code></a>) enters <code>_FPAdd</code> and
+— signs equal — falls through the sign test to <code>fp_add_mantissa</code> (<code>ram:1cb9</code>),
+while the <code>5−2</code> run (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/fpsub.macro"><code>fpsub.macro</code></a>) negates <code>OP2</code>
+and takes the opposite-sign branch into <code>fp_sub_mantissa</code> (<code>ram:1d37</code>).
+<code>fp_sub_mantissa</code> has 0 hits in the add trace and the add path 0 hits in the
+subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
+</blockquote>
+<h3 id="the-fp-helper-cluster-confirmed"><a class="header" href="#the-fp-helper-cluster-confirmed">The FP helper cluster [confirmed]</a></h3>
+<p>These five page-0 primitives are shared by add/sub/mult/div and the transcendentals. All were decompiled and disassembled in this ROM; the <code>fp_*</code> names below are the project’s labels (in <code>tools/names.txt</code>). They operate on the OP-register guard region (<code>OP1EXT</code>/<code>OP2EXT</code> are 2 bytes each, at <code>0x8481</code>-<code>0x8482</code>/<code>0x848C</code>-<code>0x848D</code> — <code>fp_clear_guard</code> zeroes all four) and the 7-byte mantissas of <code>OP1</code> / <code>OP2</code> (<code>OP1M</code> <code>0x847A</code> / <code>OP2M</code> <code>0x8485</code>, two bytes past the type/exponent bytes at <code>0x8478</code>/<code>0x8483</code>).</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Helper</th><th>Addr</th><th>Role [confirmed]</th></tr>
+</thead>
+<tbody>
+<tr><td><code>fp_shift_right_digit</code></td><td><code>ram:1bea</code></td><td>Mantissa <strong>shift-right by one BCD digit</strong> (one nibble). Cascades nibbles down 8 bytes (<code>b[i] = b[i]&gt;&gt;4 | b[i-1]&lt;&lt;4</code>) and returns the digit shifted out. Called per step to align the smaller operand.</td></tr>
+<tr><td><code>fp_exp_diff</code></td><td><code>ram:1fbf</code></td><td><strong>Exponent difference</strong> <code>OP1.exp − OP2.exp</code> (signed). Drives how many <code>fp_shift_right_digit</code> steps are needed for alignment.</td></tr>
+<tr><td><code>fp_add_mantissa</code></td><td><code>ram:1cb9</code></td><td><strong>BCD add</strong> of the two mantissa+guard runs. Sets <code>HL=0x848C</code> (OP2 guard), <code>DE=0x8481</code> (OP1 guard) and runs the shared BCD add/<code>DAA</code>-style adjust loop (<code>bcd_add_pair</code>). Used for same-sign add.</td></tr>
+<tr><td><code>fp_sub_mantissa</code></td><td><code>ram:1d37</code></td><td><strong>BCD subtract</strong> (<code>OP1 − OP2</code>) of mantissa+guard with borrow, via repeated <code>DAA</code>-style BCD adjust across all 7 mantissa bytes plus the guard byte. Used for opposite-sign add. (<code>ram:1d2f</code>, <code>fp_sub_mantissa_fwd</code>, is the same subtract entered with the operand pointers swapped.)</td></tr>
+<tr><td><code>fp_clear_guard</code></td><td><code>ram:2627</code></td><td>Zero the extended guard bytes (<code>OP1EXT</code>/<code>OP2EXT</code>).</td></tr>
+</tbody>
+</table>
+</div>
+<p><code>ram:1d2f</code> and <code>ram:1d37</code> are two entry points into the same BCD-subtract body — <code>1d2f</code> loads <code>HL=0x8481</code> (OP1 guard), <code>DE=0x848C</code> (OP2 guard) and computes <code>OP2 − OP1</code> into OP2 (<code>LD A,(DE); SUB (HL)</code>), while <code>1d37</code> enters with the pointers swapped for the reverse <code>OP1 − OP2</code>, before joining the common loop — so the caller picks the subtraction direction by choosing the entry. This is what lets <code>_FPAdd</code> produce a non-negative magnitude and then fix the sign.</p>
+<p>Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize primitives.</p>
+<h2 id="floating-point-stack-fps-standard"><a class="header" href="#floating-point-stack-fps-standard">Floating-point stack (FPS) [standard]</a></h2>
+<p><code>FPS</code> (<code>0x9824</code>) is a software stack for temporaries; <code>_PushRealO1</code> (= <strong>RST 18h</strong>, <code>ram:155C</code>), <code>_PushReal</code>, <code>_PopRealO1</code> through <code>_PopRealO6</code>, <code>_PopReal</code>, <code>_AllocFPS</code>, and <code>_DeallocFPS</code> manage it. Used to spill OP registers during nested expression evaluation.</p>
+<h2 id="multiply--divide--transcendentals-confirmed--located"><a class="header" href="#multiply--divide--transcendentals-confirmed--located">Multiply / divide / transcendentals [confirmed — located]</a></h2>
+<p>The rest of the FP op set lives alongside add on page 0, with the transcendentals banked to page 0x02:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Routine</th><th>Addr</th><th>Role</th></tr>
+</thead>
+<tbody>
+<tr><td><code>_FPSub</code></td><td><code>ram:2297</code></td><td>OP1 = OP1 − OP2</td></tr>
+<tr><td><code>_FPMult</code></td><td><code>ram:238B</code></td><td>OP1 = OP1 × OP2</td></tr>
+<tr><td><code>_FPRecip</code></td><td><code>ram:253D</code></td><td>OP1 = 1 / OP1</td></tr>
+<tr><td><code>_FPDiv</code></td><td><code>ram:2541</code></td><td>OP1 = OP1 / OP2</td></tr>
+<tr><td><code>_LnX</code></td><td><code>02:6EFD</code></td><td>natural log</td></tr>
+<tr><td><code>_EToX</code></td><td><code>02:705C</code></td><td>eˣ</td></tr>
+<tr><td><code>_SinCosRad</code></td><td><code>02:733E</code></td><td>sin/cos (radians)</td></tr>
+</tbody>
+</table>
+</div>
+<p>See <a href="sub-calculation.html">Calculation Engine</a> for the ×/÷/^/root algorithms and number formatting.</p>
+<h2 id="transcendental-method-confirmed"><a class="header" href="#transcendental-method-confirmed">Transcendental method [confirmed]</a></h2>
+<p>The ln/e^x/sin-cos evaluators are local page-0x02 code plus page-0x02 coefficient tables. The apparent <code>LD A,n; CALL ram:2362</code> “page switch” sites are <strong>not</strong> banked series tails: Ghidra disassembly shows <code>ram:2362: CALL ram:3DD1</code>, and <code>ram:3DD1</code> is a bcall-table entry whose inline descriptor is <code>1E 7D 02</code> (<code>page_02:7D1E</code>). The real banked-call helper is <code>ram:2B09</code>. <code>ram:2362</code> fetches the page-0x02 coefficient indexed by <code>A</code> and then <strong>multiplies</strong> OP1 by it (it enters the <code>_FPMult</code> body at <code>ram:2392</code>). Therefore the preceding <code>LD A,n</code> is a <strong>coefficient-table index</strong>, not a target flash page. Raw ROM bytes at the supposed same-address page-0x03 targets are <code>0xFF</code>, and Ghidra has no page-0x03/page-0x06 functions there.</p>
+<h3 id="the-shared-algorithm--digit-by-digit-pseudo-division-confirmed"><a class="header" href="#the-shared-algorithm--digit-by-digit-pseudo-division-confirmed">The shared algorithm — digit-by-digit pseudo-division [confirmed]</a></h3>
+<p>The forward log and exp evaluators are a <strong>digit-by-digit pseudo-division</strong> recurrence — the algorithm BCD calculators have used since the 1960s. The table gives it away: <code>02:7181</code>’s 16 rows are exactly $\log_{10}(1+10^{-k})$ for $k=0\ldots15$ (matched to 14 digits — <code>[00]</code> = <code>log₁₀2</code>, <code>[01]</code> = <code>log₁₀1.1</code>, <code>[02]</code> = <code>log₁₀1.01</code>, …), which is precisely the per-step increment such a recurrence consumes. The recurrence runs on shift-and-add alone: scaling a BCD number by $1+10^{-k}$ is $x + (x\text{ shifted right }k\text{ digits})$, one <code>fp_shift_right_digit</code> (<code>ram:1bea</code>) plus one BCD-add, so the digit-by-digit recurrence <strong>core</strong> needs no general multiply (only the base-conversion scaling via <code>CALL ram:2362</code> enters <code>_FPMult</code>). (The traces show the shift <code>1bea</code> is shared, but the running-add entry differs: <code>_EToX</code> uses <code>fp_add_mantissa</code> <code>ram:1cb9</code>, while <code>_LnX</code> uses the sibling BCD-add entry <code>ram:1ca9</code> — <code>1cb9</code> fires 0× in the <code>ln(2)</code> loop, <code>1ca9</code> 0× in the <code>e¹</code> loop.)</p>
+<p><strong>Logarithm.</strong> With the exponent already split off so the mantissa is $x\in[1,10)$, the loop (<code>02:6F80</code>–<code>6FEE</code>) drives $x$ up toward $10$ by repeatedly scaling by the largest table factor that doesn’t overshoot; the number of scalings at each position <em>is</em> the corresponding digit of the answer, and the running sum of the table entries is the logarithm:</p>
+<pre><code class="language-pseudocode">\begin{algorithm}
+\caption{Logarithm by pseudo-division (table $c_k=\log_{10}(1+10^{-k})$ at \texttt{02:7181})}
+\begin{algorithmic}
+\REQUIRE reduced mantissa $x \in [1,10)$, accumulator $L \gets 0$
+\FOR{$k = 0$ \TO $15$}
+    \WHILE{$x \cdot (1+10^{-k}) \le 10$}
+        \STATE $x \gets x + (x \gg k\text{ digits})$ \COMMENT{$\times(1+10^{-k})$ is a BCD shift-add}
+        \STATE $L \gets L + c_k$ \COMMENT{add count = the $k$-th digit of the answer}
+    \ENDWHILE
+\ENDFOR
+\RETURN $\log_{10}x = 1 - L$ \COMMENT{$x$ driven up to $10$; then $\ln x = \log_{10}x \cdot \ln 10$}
+\end{algorithmic}
+\end{algorithm}
+</code></pre>
+<p>The code’s two passes — the <code>AND 0x8</code> then <code>BIT 4</code> stops at <code>02:6FAD</code>/<code>6FD3</code> — are the coarse digits ($k=0\ldots7$) and the fine digits ($k=8\ldots15$). The selector <code>C</code> chooses the base: $\ln x = \log_{10}x \cdot \ln 10$, with $\ln 10$ fetched from <code>02:7D42</code>[06] by the <code>LD A,6; CALL ram:2362</code> tail at <code>02:704A</code> (<code>_LogX</code> skips that final multiply).</p>
+<p><strong>Exponential.</strong> <code>_EToX</code>/<code>_TenX</code> (<code>02:7066</code>+) run the <em>same</em> table backwards — consuming the fractional part $y$ digit by digit, subtracting $\log_{10}(1+10^{-k})$ while building $10^{y}=\prod_k(1+10^{-k})^{d_k}$ into an accumulator, again with only shift-adds:</p>
+<pre><code class="language-pseudocode">\begin{algorithm}
+\caption{Exponential by pseudo-multiplication (same table, run in reverse)}
+\begin{algorithmic}
+\REQUIRE $y = $ fractional part of $x\log_{10}e$, accumulator $A \gets 1$
+\FOR{$k = 0$ \TO $15$}
+    \WHILE{$y \ge c_k$}
+        \STATE $y \gets y - c_k$
+        \STATE $A \gets A + (A \gg k\text{ digits})$ \COMMENT{$\times(1+10^{-k})$}
+    \ENDWHILE
+\ENDFOR
+\RETURN $10^{y} = A$
+\end{algorithmic}
+\end{algorithm}
+</code></pre>
+<p>So a single 16-row table at <code>02:7181</code> powers <strong>all</strong> of ln / log / eˣ / 10ˣ; the <code>02:7D42</code> block only supplies the base-conversion constants ($\log_{10}e$, $\ln 10$) and the trig reduction constants.</p>
+<blockquote>
+<p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: <code>ln(2)</code>
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/ln2.macro"><code>ln2.macro</code></a>) drives <code>_LnX</code>, whose selector
+(<code>02:6F94</code>) steps <code>A=00…07</code> then <code>08…0F</code> (the coarse/fine split at the <code>6FAD AND 0x8</code>
+/ <code>6FD3 BIT 4</code> tests), walking successive <code>02:7181</code> rows with a per-step
+shift-add, then fetches $\ln 10$ via <code>LD A,6; CALL ram:2362</code> and multiplies.
+<code>e^{1}</code> (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/exp1.macro"><code>exp1.macro</code></a>) drives <code>_EToX</code>, which consumes
+the <strong>same</strong> table in reverse (the inner step is <code>fp_sub_mantissa</code> <code>1d37</code>, the
+accumulator add <code>fp_add_mantissa</code> <code>1cb9</code>), selector sweeping <code>00…0F</code> under the
+<code>710A CP 0x0F</code> bound. On-screen results: <code>.6931471806</code> and <code>2.718281828</code>.</p>
+</blockquote>
+<p><strong>Sin/cos</strong> (<code>_SinCosRad</code>) uses the same digit-recurrence <em>shape</em> on the range-reduced angle, but with its own <strong>near-unity scaling tables</strong> <code>02:7201</code>/<code>02:7281</code> (eight rows, two sign-variants each, picked by <code>0x84A4</code> bit 7) rather than Taylor coefficients — so it too is a table-driven recurrence, not a fixed polynomial. The exact rotation identity each trig row encodes is not pinned here.</p>
+<h3 id="_lnx--natural-log-026efd-confirmed"><a class="header" href="#_lnx--natural-log-026efd-confirmed"><code>_LnX</code> — natural log (<code>02:6EFD</code>) [confirmed]</a></h3>
+<p><code>_LnX</code> first calls <code>_CkOP1Pos</code> (<code>ram:1E5D</code>) and raises a domain error on <code>x &lt;= 0</code>. The core (<code>02:6F1B</code>) splits <code>x</code> into mantissa × 10^exp; after a small pre-step near <code>02:6F45</code>-<code>02:6F50</code> (a value formed with <code>_FPAdd</code> (RST 30h) / <code>_FPSub</code> / <code>_FPDiv</code> <code>ram:2541</code>), the <strong>pseudo-division loop</strong> described above (<code>02:6F8C</code>-<code>02:6FEC</code>) steps through the shared 16-slot table at <code>02:7181</code> via <code>02:7301</code>/<code>02:7302</code>; the first phase stops when the selector has bit 3 set (<code>02:6FAB</code>-<code>02:6FAF</code>, coarse digits) and the second when it reaches bit 4 (<code>02:6FD2</code>-<code>02:6FD5</code>, fine digits). The <code>02:6F70: LD A,3; CALL ram:2362</code> site fetches constant-table index 3, and <code>02:704A: LD A,6; CALL ram:2362</code> fetches index 6 (<code>ln(10)</code>, the base-conversion multiply), both from <code>02:7D42</code>.</p>
+<h3 id="_etox--eˣ-02705c-confirmed"><a class="header" href="#_etox--eˣ-02705c-confirmed"><code>_EToX</code> — eˣ (<code>02:705C</code>) [confirmed]</a></h3>
+<p><code>_EToX</code> is local page-0x02 code. It clears guard digits, then <code>02:705F: LD A,3; CALL ram:2362</code> loads constant-table index 3 (<code>log10(e)</code>) and then <code>02:7064 JR +3</code> skips <code>_TenX</code>’s entry at <code>02:7066</code> (which does its own <code>CALL ram:2627</code>), joining the shared body at <code>02:7069</code>. The body splits the decimal exponent/integer digit shift (<code>02:7069</code>-<code>02:70B6</code>), handles sign/reciprocal cases (<code>02:70B9</code>-<code>02:70D9</code>), then evaluates the fractional part with the shared 16-row table at <code>02:7181</code>. The exact loop bound is <code>02:7106 LD HL,0x848E; 02:7109 LD A,(HL); CP 0x0F; JR Z,02:7140</code>, so the table-driven exp evaluator has 16 selector slots (<code>0..15</code>).</p>
+<h3 id="_sincosrad--sincos-in-radians-02733e-confirmed"><a class="header" href="#_sincosrad--sincos-in-radians-02733e-confirmed"><code>_SinCosRad</code> — sin/cos in radians (<code>02:733E</code>) [confirmed]</a></h3>
+<p>This one keeps its <strong>range reduction on page 0x02</strong> and is the most fully recovered:</p>
+<ol>
+<li><strong>Mode/select flags.</strong> <code>0x8499</code> holds the trig-op selector — <code>0x01</code> (sin), <code>0x02</code> (cos), <code>0x04</code> (tan) — ORed with <code>0x80</code> when <code>(IY+0)</code> bit 2 is <strong>clear</strong> (<code>BIT 2,(IY+0); JR NZ,+2; OR 0x80</code>). <code>_SinCosRad</code> itself enters with <code>A=0x81</code>, so it stores <code>0x81</code> regardless. <code>fp_clear_guard</code> and <code>_ZeroOP3</code> initialize the work area.</li>
+<li><strong>Exponent gate.</strong> <code>LD A,(0x8479); SUB 0x80; JP C,02:73D4; CP 0x0C; JP NC</code> — tiny arguments (negative exponent) take a fast path at <code>02:73D4</code>, and arguments with decimal exponent ≥ 12 are rejected to the slow/error path (<code>_JError 0x84</code> for out-of-range), because reduction can no longer be done accurately.</li>
+<li><strong>Reduce the angle.</strong> It reduces against the stored period constants and takes the fractional part to find the quadrant. The reduction constants are the page-0x02 BCD block:
+<ul>
+<li><code>02:7D81</code> — the <strong>2π full-turn modulus</strong> (mantissa <code>62 83 18 53 07 17 96</code> = <code>6.2831853…</code>), copied to the OP3 work reg via <code>LD HL,02:7D81; CALL ram:1AE2</code> (<code>ram:1AE2</code>/<code>copy7_from_8490</code> copies 7 mantissa bytes to <code>0x8490</code>).</li>
+<li><code>02:7D8E</code>, <code>02:7D95</code>, <code>02:7D96</code> — companion constants used in the quadrant-fixup / remainder comparisons (<code>CALL ram:1D7B</code> magnitude compare at <code>02:73B1</code>/<code>02:7447</code>).
+The quadrant (0–3) is accumulated in <code>B</code>/<code>bStack_1</code> (bits 0/3/6) and decides sin-vs-cos and the result sign (the <code>XOR 0x1 / OR 0x8 / XOR 0x8</code> flag juggling at <code>02:7424</code>–<code>02:7464</code>).</li>
+</ul>
+</li>
+<li><strong>Per-digit evaluation.</strong> After reduction (<code>02:7475</code> onward, falling through <code>02:7488 LD A,B</code>) the reduced argument in <code>[0, pi/4)</code> drives the <strong>same table-stepping digit recurrence</strong> as ln/e^x: a selector walks the coefficient table one row per step rather than unrolling a fixed polynomial. The loaders are local — <code>02:74AB: CALL 02:731D</code> reads the signed table at <code>02:7201</code>, <code>02:74EA: CALL 02:7312</code> reads the signed table at <code>02:7281</code> — and the selector advances under <code>BIT 3,B</code> / <code>BIT 3,C</code> in the tail (<code>02:74DD</code>-<code>02:74E0</code>, <code>02:75C6</code>-<code>02:75C8</code>), so the walk covers eight selector rows (<code>0..7</code>), each carrying two 8-byte sign/phase variants. Per-row decoding of <code>02:7201</code>/<code>02:7281</code> is the one piece still open: the rows climb toward 10 (e.g. <code>02:7201[00]</code>=<code>9.9668…</code>, <code>[06]</code>=<code>9.999999…</code>), the shape of a half-angle / rotation factor consumed one digit at a time.</li>
+</ol>
+<blockquote>
+<p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: <code>sin(1)</code> in radian mode
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/sin1.macro"><code>sin1.macro</code></a>) drives <code>_SinCosRad</code>. The flag init,
+the exponent gate (<code>735D LD A,(0x8479); SUB 0x80; JP C,02:73D4; CP 0x0C; JP NC</code> — neither
+branch taken, since <code>exp(1)=0</code> is in <code>[0,12)</code>), the reduction multiply by the <code>02:7D81</code> constant
+(<code>7372 LD HL,02:7D81; CALL ram:1AE2</code>), and the table-stepping loader <code>02:731D</code> returning
+successive rows of <code>02:7201</code> (HL = <code>7209/7219/…/7279</code>, 16-byte stride) all execute as
+described. On-screen result: <code>.8414709848</code>. (Per-row coefficient meaning remains the open piece.)</p>
+</blockquote>
+<h3 id="coefficient-tables-confirmed"><a class="header" href="#coefficient-tables-confirmed">Coefficient tables [confirmed]</a></h3>
+<p><code>02:7D1E</code> zeroes the OP2 type byte, indexes <code>02:7D42 + 9*A</code>, then copies the selected constant image into OP2. The only <code>LD A,n; CALL ram:2362</code> uses in this cluster are <code>A=3</code> (<code>log10(e)</code>) and <code>A=6</code> (<code>ln(10)</code>); the later trig reduction constants are loaded directly from the same nearby block.</p>
+<pre><code>02:7D42 constants, 9-byte stride:
+  [00] 81 57 29 57 79 51 30 82 32
+  [01] 80 15 70 79 63 26 79 48 97
+  [02] 7F 78 53 98 16 33 97 44 83
+  [03] 7F 43 42 94 48 19 03 25 18  ; log10(e) fetch site
+  [04] 80 31 41 59 26 53 58 98 00
+  [05] 7E 17 45 32 92 51 99 43 30
+  [06] 80 23 02 58 50 92 99 40 46  ; ln(10) fetch site
+  [07] 62 83 18 53 07 17 96 31 41  ; direct trig-reduction region starts here
+  [08] 59 26 53 58 98 78 53 98 16
+</code></pre>
+<p><code>02:7181</code> is the shared ln/e^x digit table loaded by <code>02:7301</code>/<code>02:7302</code>/<code>02:7305</code>. It has 16 8-byte rows:</p>
+<pre><code>[00] 30 10 29 99 56 63 98 12  [01] 04 13 92 68 51 58 22 50
+[02] 00 43 21 37 37 82 64 26  [03] 00 04 34 07 74 79 31 86
+[04] 00 00 43 42 72 76 86 27  [05] 00 00 04 34 29 23 10 45
+[06] 00 00 00 43 42 94 26 48  [07] 00 00 00 04 34 29 44 60
+[08] 00 00 00 00 43 42 94 48  [09] 00 00 00 00 04 34 29 45
+[10] 00 00 00 00 00 43 42 94  [11] 00 00 00 00 00 04 34 29
+[12] 00 00 00 00 00 00 43 43  [13] 00 00 00 00 00 00 04 34
+[14] 00 00 00 00 00 00 00 43  [15] 00 00 00 00 00 00 00 04
+</code></pre>
+<p><code>02:7201</code> and <code>02:7281</code> are the forward sin/cos signed recurrence tables (the per-row near-unity factors the digit loop steps through, per the shared algorithm above). Each row is 16 bytes: the first 8-byte variant is selected when <code>0x84A4 bit 7</code> is clear, and the second 8-byte variant is selected when it is set.</p>
+<pre><code>02:7201:
+[00] 09 96 68 65 24 91 16 20 | 10 03 35 34 77 31 07 56
+[01] 09 99 96 66 68 66 65 24 | 10 00 03 33 35 33 34 76
+[02] 09 99 99 96 66 66 68 67 | 10 00 00 03 33 33 35 33
+[03] 09 99 99 99 96 66 66 67 | 10 00 00 00 03 33 33 33
+[04] 09 99 99 99 99 96 66 67 | 10 00 00 00 00 03 33 33
+[05] 09 99 99 99 99 99 96 67 | 10 00 00 00 00 00 03 33
+[06] 09 99 99 99 99 99 99 97 | 10 00 00 00 00 00 00 03
+[07] 10 00 00 00 00 00 00 00 | 10 00 00 00 00 00 00 00
+
+02:7281:
+[00] 95 09 85 29 44 83 72 02 | 10 52 06 69 51 89 55 92
+[01] 99 94 95 10 19 99 69 80 | 10 00 50 52 03 08 13 30
+[02] 99 99 94 94 95 10 20 35 | 10 00 00 50 50 52 03 05
+[03] 99 99 99 94 94 94 95 10 | 10 00 00 00 50 50 50 52
+[04] 99 99 99 99 94 94 94 95 | 10 00 00 00 00 50 50 51
+[05] 99 99 99 99 99 94 94 95 | 10 00 00 00 00 00 50 51
+[06] 99 99 99 99 99 99 94 95 | 10 00 00 00 00 00 00 51
+[07] 99 99 99 99 99 99 99 95 | 10 00 00 00 00 00 00 01
+</code></pre>
+<p>The forward ln, e^x, and sin/cos paths all run on the <strong>table-driven digit recurrence</strong> above — a selector that steps through a coefficient table one row at a time, on shift-and-add (ln/e^x loaded from <code>02:7181</code>; sin/cos from <code>02:7201</code>/<code>02:7281</code>). The separate arctangent engine behind inverse trig uses a base-10 CORDIC iteration, documented in <a href="sub-calculation.html">Calculation Engine</a>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="05-variables-vat.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="07-tokenizer-basic.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="05-variables-vat.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="07-tokenizer-basic.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-5fa46c0a.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
