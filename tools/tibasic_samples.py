@@ -178,6 +178,23 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
             T["disp"], *string_literal("AFTER"), T["enter"],
         ],
     ),
+    "asmval": (
+        "AsmPrgm\nEFA741EFBF4AC9",
+        [
+            T["2byte"], T["asmprgm"], T["enter"],
+            T["E"], T["F"], T["A"], T["7"], T["4"], T["1"],
+            T["E"], T["F"], T["B"], T["F"], T["4"], T["A"],
+            T["C"], T["9"], T["enter"],
+        ],
+    ),
+    "asmreturn": (
+        "Asm(prgmASMVAL)\nAns+3->A\nDisp A",
+        [
+            T["2byte"], T["asm"], T["prog"], T["A"], T["S"], T["M"], T["V"], T["A"], T["L"], T["rparen"], T["enter"],
+            T["ans"], T["add"], T["3"], T["store"], T["A"], T["enter"],
+            T["disp"], T["A"], T["enter"],
+        ],
+    ),
     "zzbasic": (
         'Disp "CALLED"',
         [
@@ -266,6 +283,28 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
             T["0"], T["store"], T["A"], T["enter"],
             T["prog"], T["S"], T["U"], T["B"], T["R"], T["T"], T["enter"],
             T["disp"], T["A"], T["enter"],
+        ],
+    ),
+    "abisub": (
+        "Ans+L1(2)->A\n9->L1(3)\nA\nReturn",
+        [
+            T["ans"], T["add"], T["varlst"], 0x00, T["lparen"], T["2"], T["rparen"],
+            T["store"], T["A"], T["enter"],
+            T["9"], T["store"], T["varlst"], 0x00, T["lparen"], T["3"], T["rparen"], T["enter"],
+            T["A"], T["enter"],
+            T["return"], T["enter"],
+        ],
+    ),
+    "callabi": (
+        "{2,4,6}->L1\n7\nprgmABISUB\nDisp A\nDisp L1\nDisp Ans",
+        [
+            T["lbrace"], T["2"], T["comma"], T["4"], T["comma"], T["6"], T["rbrace"],
+            T["store"], T["varlst"], 0x00, T["enter"],
+            T["7"], T["enter"],
+            T["prog"], T["A"], T["B"], T["I"], T["S"], T["U"], T["B"], T["enter"],
+            T["disp"], T["A"], T["enter"],
+            T["disp"], T["varlst"], 0x00, T["enter"],
+            T["disp"], T["ans"], T["enter"],
         ],
     ),
     "bigadd": (
@@ -397,12 +436,16 @@ PROGRAM_NAMES = {
     "asmcall": "ASMCALL",
     "asmsig": "ASMSIG",
     "asmbridge": "ASMBRIDG",
+    "asmval": "ASMVAL",
+    "asmreturn": "ASMRTN",
     "zzbasic": "ZZBASIC",
     "animtext": "ANIMTXT",
     "graphviz": "GRAPHV",
     "graphdfs": "GRAPHDFS",
     "subrt": "SUBRT",
     "callsub": "CALLSUB",
+    "abisub": "ABISUB",
+    "callabi": "ABICALL",
     "bigadd": "BIGADD",
     "bigmul": "BIGMUL",
     "dfs": "DFS",

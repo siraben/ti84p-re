@@ -67,6 +67,15 @@ CASES: dict[str, Case] = {
         "BEFORE; CALLED; AFTER; Done",
         ("ram:9d95", "_OP1Set1", "_StoAns", "_AnsName", "eval_eqn_recursive"),
     ),
+    "asmreturn": Case(
+        ("ASMRTN.8xp", "ASMVAL.8xp"),
+        "ASM return value 2 through Ans; BASIC displays 5; Done",
+        ("ram:9d95", "_OP1Set2", "_StoAns", "_AnsName", "_FPAdd", "_Disp"),
+        visual_regions=(
+            VisualRegion("result 5", "16x10+78+7", 4),
+            VisualRegion("Done marker", "28x9+66+24", 40),
+        ),
+    ),
     "animtext": Case(
         ("ANIMTXT.8xp",),
         "row of X characters, DONE; Done",
@@ -112,6 +121,17 @@ CASES: dict[str, Case] = {
         ("CALLSUB.8xp", "SUBRT.8xp"),
         "SUB; 1; Done",
         ("_ParseInpLastEnt", "stmt_eval_body_entry", "call_eval_eqn_recursive", "eval_eqn_recursive"),
+    ),
+    "callabi": Case(
+        ("ABICALL.8xp", "ABISUB.8xp"),
+        "A=11, L1={2 4 9}, Ans=11; Done",
+        ("stmt_eval_body_entry", "call_eval_eqn_recursive", "eval_eqn_recursive", "_AnsName", "store_list_elem"),
+        visual_regions=(
+            VisualRegion("scalar A", "18x9+76+10", 6),
+            VisualRegion("mutated L1", "42x9+50+22", 40),
+            VisualRegion("returned Ans", "18x9+76+33", 10),
+            VisualRegion("Done marker", "28x9+66+44", 20),
+        ),
     ),
     "bigadd": Case(
         ("BIGADD.8xp",),

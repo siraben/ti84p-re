@@ -169,10 +169,12 @@ They cover:
 | `asmcall` | BASIC wrapper that runs `Asm(prgmASMRET)` between two `Disp` calls |
 | `asmsig` | `AsmPrgm` body that sets `Ans=1` with `_OP1Set1` + `_StoAns` |
 | `asmbridge` + `asmsig` + `zzbasic` | cooperative ASM-directed BASIC callback through `If Ans` |
+| `asmval` + `asmreturn` | `AsmPrgm` stores `Ans=2`; BASIC reads it, adds `3`, and displays `5` |
 | `animtext` | `ClrHome`, `For(`/`End`, `Output(` text placement, `Disp` |
 | `graphviz` | `ClrDraw`, `Line(`, `Circle(`, `Text(`, `DispGraph` |
 | `graphdfs` | graph-buffer node/edge visualization for the DFS sample |
 | `callsub` + `subrt` | BASIC `prgmNAME` call, shared variable return, `Return` |
+| `callabi` + `abisub` | BASIC subprogram ABI across `Ans`, scalar `A`, and list `L1` |
 | `bigadd` | list-digit arbitrary-precision addition, list indexing/stores, carry |
 | `bigmul` | list-digit arbitrary-precision multiplication, nested loops, carry |
 | `dfs` | list-backed DFS stack, `While`, nested `If`/`Then`, list stores |
@@ -214,6 +216,8 @@ and must change by at least the same number of pixels from first to final frame.
 It then checks named crop regions, including `GRAPHV` label, axes, and circle
 arcs, plus `GRAPHDFS` node and edge regions. The 2026-06-07 run measured 212,
 619, and 466 dark pixels, with matching first-to-final pixel changes.
+The `ASMRTN` and `ABICALL` ABI fixtures also use named final-frame regions to
+check their rendered scalar/list/`Ans` outputs.
 
 Keep only one test program in RAM when using `run-first-program.macro`; it opens
 `PRGM`, selects the first `EXEC` entry, and presses `ENTER`. For `factorial`,
@@ -232,10 +236,12 @@ Validated outputs/traces (2026-06-06/07, OS 2.55MP, `tools/rom.bin`):
 | `DATA.8xp` | sorted `{1 1 3 4 5}`, cumulative `{1 2 5 9 14}`, sum `14`, then `Done` | list token handling (`resolve_2byte_var2`, `chk_list_type`, `store_list_elem*`, `list_fold_dispatch`) and `_Disp` |
 | `ASMCALL.8xp` + `ASMRET.8xp` | `BEFORE`, `AFTER`, then `Done` | `Asm(` handler parses `prgmASMRET`, bcalls `_ExecutePrgm`, jumps through `07:57B4`; payload executes `ram:9D95 op=0xC9` and returns to BASIC |
 | `ASMBRIDG.8xp` + `ASMSIG.8xp` + `ZZBASIC.8xp` | `BEFORE`, `CALLED`, `AFTER`, then `Done` | `Asm(` runs the `ASMSIG` payload at `ram:9D95`; payload calls `_OP1Set1` (`00:1B38`) and `_StoAns` (`38:6251`); BASIC evaluates `If Ans` via `_AnsName` and calls `prgmZZBASIC` through the normal `38:6910`/`38:6914`/`38:778F` body path |
+| `ASMRTN.8xp` + `ASMVAL.8xp` | ASM stores `Ans=2`; BASIC computes and displays `5`, then `Done` | `ram:9D95`, `_OP1Set2` (`00:1B50`), `_StoAns` (`38:6251`), `_AnsName`, `_FPAdd`, `_Disp` |
 | `ANIMTXT.8xp` | row of `X` characters, `DONE`, then `Done` | page-38 parser/loop paths, `_OutputExpr` (`03:4AF2`), `_Disp`, LCD text routines |
 | `GRAPHV.8xp` | graph screen with `DFS`, axes, a circle, and diagonal line | `_GrBufClr`, `_StoSysTok`, `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`) |
 | `GRAPHDFS.8xp` | graph screen with four labeled nodes and edges `1-2`, `1-3`, `2-4` | `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`), `_StoSysTok`, small-font glyph paths, `_RestoreDisp`, `eval_stmt_entry` |
 | `CALLSUB.8xp` + `SUBRT.8xp` | `SUB`, `1`, then `Done` | initial launch parse through `_ParseInpLastEnt`/`_ParseInp`, then BASIC subprogram body path through `stmt_eval_body_entry` (`38:6910`), `38:6914` -> `eval_eqn_recursive` (`38:778F`), shared `A` store/recall, `_Disp`, `Return` to caller |
+| `ABICALL.8xp` + `ABISUB.8xp` | displays `11`, `{2 4 9}`, `11`, then `Done` | BASIC subprogram body path, `_AnsName`, list element read/store paths, shared scalar/list state, `Return` to caller |
 | `BIGADD.8xp` | `L3` digits begin `{0 1 1 1 1 ...}`, carry line `1`, then `Done` | list indexing/stores (`list_var_index`, `_AdrLEle`, `_GetLToOP1`, `_PutToL`, `store_list_elem*`), `fnint_body`, `_FPDiv`, `_FPAdd`, `_FPSub`, `_FPMult` |
 | `BIGMUL.8xp` | `L3` digits `{5 3 5 5 0}`, high digit `5`, then `Done` | nested `For(` loops, list indexing/stores (`list_var_index`, `_GetLToOP1`, `_PutToL`), carry normalization through `int(`, `_FPMult`, `_FPAdd`, `_FPSub` |
 | `DFS.8xp` | traversal `1`, `3`, `2`, `4`, visited `{1 1 1 1}`, then `Done` | nested control-flow scanners (`blockmatch_end_else`, `parse_scan_tokens`), `eval_stmt_entry`, parser refill/advance, list stack reads/stores |
