@@ -444,6 +444,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_OutputExpr` | `4BB2` | `03:4AF2` |
 | `_PagedGet` | `5023` | `00:17BB` |
 | `_ParseInp` | `4A9B` | `38:5987` |
+| `_ParseInpLastEnt` | `4B07` | `38:5984` |
 | `_PDspGrph` | `48A3` | `04:7904` |
 | `_PixelTest` | `48B5` | `04:79E7` |
 | `_Plus1` | `4069` | `00:2285` |

@@ -77,7 +77,7 @@ kept because both render visible graph-screen output.
 | DFS / stack-style list algorithm | `DFS.8xp` | Displays traversal `1, 3, 2, 4` and visited list `{1 1 1 1}`; reaches nested scanner/control-flow paths. |
 | BASIC subprogram calling convention | `CALLSUB.8xp` + `SUBRT.8xp` | Caller and callee share scalar/list variables and return through the BASIC program evaluator. |
 | BASIC to ASM | `ASMCALL.8xp` + `ASMRET.8xp` | `Asm(` runs an `AsmPrgm` payload (`C9`) and returns to BASIC, displaying `BEFORE` then `AFTER`. |
-| ASM to BASIC | temporary probes | VAT lookup from `AsmPrgm` works, but `_Find_Parse_Formula`, `_ExecuteNewPrgm`, `_JForceCmd`, `_PutTokString`, and `_rclToQueue` do not prove a standalone callable BASIC-program ABI. |
+| ASM to BASIC | temporary probes | VAT lookup from `AsmPrgm` works, but `_Find_Parse_Formula`, `_ParseInpLastEnt`, `_ExecuteNewPrgm`, `_JForceCmd`, `_PutTokString`, and `_rclToQueue` do not prove a standalone callable BASIC-program ABI. |
 
 ## Run-confirmed fixtures
 
@@ -298,7 +298,7 @@ validate inputs on the BASIC side, and make the ASM payload return normally with
 | BASIC -> ASM | `Asm(prgmNAME)` parses `prgmNAME`, bcalls `_ExecutePrgm`, copies the `AsmPrgm` payload, then jumps through `ram:9D95`. | The payload runs in the calculator OS process; a bad payload can corrupt interpreter state. |
 | BASIC -> BASIC | `prgmNAME` enters the page-38 parser/VAT/body evaluator path and `Return` resumes the caller. | There is no local frame; variables are shared. |
 | ASM -> VAT lookup | An `AsmPrgm` can build `OP1={ProgObj,"NAME"}` and bcall `_ChkFindSym`. | Lookup is not execution. |
-| ASM -> BASIC | No working public bcall sequence is proven in this repo. | `_Find_Parse_Formula` reached `ERR:UNDEFINED`; forced-command/edit-buffer probes did not call the target BASIC program. |
+| ASM -> BASIC | No working public bcall sequence is proven in this repo. | `_Find_Parse_Formula` reached `ERR:UNDEFINED`; `_ParseInpLastEnt` reached `ERR:INVALID`; forced-command/edit-buffer probes did not call the target BASIC program. |
 
 ### ASM to BASIC
 
@@ -341,6 +341,17 @@ Changing only the bcall to `_Find_Parse_Formula` (`4AF2`) enters `38:758A` and
 then stops at `ERR:UNDEFINED`; the `ZZBASIC` body never displays. That failed
 run confirms `_Find_Parse_Formula` is not a drop-in BASIC program executor from
 an arbitrary `AsmPrgm` context. **[confirmed]**
+
+`_ParseInpLastEnt` (`4B07`, target `38:5984`) is a useful negative probe because
+it sits immediately before `_ParseInp` and the SDK describes it as a parser
+variant. A temporary payload that again built `OP1={ProgObj,"ZZBASIC"}` and
+bcalls `_ParseInpLastEnt` reached `_ParseInpLastEnt`, `_ParseInp` (`38:5987`),
+`parseinp_find_setup` (`38:5B2B`), `findsym_scan`, `parse_init`, and
+`eval_stmt_entry`, but the final screen was `ERR:INVALID` / `Goto`; it never
+displayed `CALLED`. Static disassembly explains the mismatch: after resolving
+the OP1-named object, `_ParseInp` continues through parser setup that expects a
+live parser/FPS call-frame shape. It is not a general "run this token stream"
+ABI for an arbitrary `AsmPrgm`. **[confirmed]**
 
 The homescreen command/edit-buffer route is also not a safe callable ABI. A
 temporary payload that did only:
