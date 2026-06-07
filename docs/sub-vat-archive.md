@@ -388,9 +388,10 @@ Ports: **0x06** = bank-A page select (Flash window), **0x14** = Flash write/eras
   body-undisassembled until the lower-level page-3C/3D helper graph is split cleanly.
 - **Group archive path — partially pinned [H/I].** `_DataSize` (`00:1485`) confirms a Group
   (type `0x17`, like AppVar `0x15`/`0x16`) carries a leading word-size header, so a group *can* be
-  stored as one Flash blob. The single-call RAM→Flash worker `61F4` is reached only after
-  `_Arc_Unarc` rejects `0x17` (the `CP 0x17` → `26E0` reject), so groups must be archived through a
-  separate routine that walks the group's member list. That member-walk routine is **not
+  stored as one Flash blob. In `_Arc_Unarc` the `CP 0x17` → `26E0` reject sits on the **B≠0 (in-Flash)
+  branch**, immediately before the unarchive worker `61F4` — so an archived group is not unarchived
+  through `61F4`, and groups are handled by a separate routine that walks the group's member list.
+  That member-walk routine is **not
   identifiable in the current Ghidra DB** — `_Arc_Unarc`'s body past the entry `CALL` is not
   disassembled here (cross-page `CALL` flagged non-returning), and no group-archive function is
   named or xref-reachable. Re-confirming it would need a linear disassembly pass like the one behind §4.
