@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2bf63802.js";
+            window.path_to_searchindex_js = "searchindex-87b42c0e.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5397aae8.js"></script>
+        <script src="toc-bcf53af4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -276,7 +276,11 @@ bracketed a sign change, the path at <code>39:45CD…45DA JP 2749</code> raises 
 used repeatedly (<code>39:446F</code>, <code>44D7</code>, <code>44F8</code>, <code>45C7</code>) to test the bracket width / residual
 against tolerance. The tolerance floor is the <strong>TIFloat constant <code>1.0e-13</code></strong> at
 <code>39:46EA</code> (<code>00 73 10 …</code>); the residual-zero floor is <strong><code>1.0e-99</code></strong> at <code>39:46E1</code>
-(<code>00 1D 10 …</code>). Reaching tolerance lands at <code>39:4547</code> and returns the root. <strong>[confirmed]</strong></li>
+(<code>00 1D 10 …</code>). On reaching tolerance the solver exits through the <code>39:4540 → 4553</code>
+branch (dynamically traced on an <code>X²−2 = 0</code> solve that converged to √2 ≈ 1.41421356);
+<code>39:4547</code> is a <code>CALL</code>, not the converged return, and was <strong>not</strong> on the observed path.
+The tolerance tests at <code>446F</code>/<code>44D7</code>/<code>44F8</code> run under that trace; <code>45C7</code> is reached only
+on other convergence sub-paths. <strong>[confirmed]</strong></li>
 </ul>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{Solver root-finder --- bracketed secant / regula-falsi (page 0x39)}
@@ -293,13 +297,25 @@ against tolerance. The tolerance floor is the <strong>TIFloat constant <code>1.0
         \STATE $b \gets x$
     \ENDIF
     \IF{$|b-a| &lt; 10^{-13}$}
-        \RETURN $x$ \COMMENT{converged (39:4547)}
+        \RETURN $x$ \COMMENT{converged; exits via 39:4540 -&gt; 4553}
     \ENDIF
 \ENDFOR
 \STATE \textbf{raise} \textsc{iterations} (0x99) / \textsc{bad guess} (0x9A)
 \end{algorithmic}
 \end{algorithm}
 </code></pre>
+<blockquote>
+<p><strong>Dynamic confirmation.</strong> Traced end-to-end under headless TilEm by driving the
+built-in Equation Solver to solve <code>X²−2 = 0</code>
+(<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/solver-sqrt2.macro"><code>solver-sqrt2.macro</code></a>). It converged on screen
+to <code>X = 1.4142135623…</code> (√2) with <code>left-rt = 0</code>. The mem-write records show the guess
+at <code>0x8478</code> climbing <code>1.40898 → 1.41421335 → 1.4142135623645 → 1.4142135623731</code>
+(|err| ≈ 4.9e-15, crossing below the <code>1e-13</code> tolerance on the final step).
+<code>solver_iterate</code> (<code>39:4413</code>) ran 808×; the per-iteration re-parse
+(<code>parse_eval_expr</code> <code>38:5AB3</code>) ran 834×; the secant-in-bracket-else-bisect test
+(<code>39:44F8</code>), the <code>499</code>-cap compare (<code>39:4479 LD HL,0x01F3</code>), and the <code>1e-13</code>/<code>1e-99</code>
+constants (<code>39:46EA</code>/<code>46E1</code>) all executed as the pseudocode describes.</p>
+</blockquote>
 <p><code>left-rt</code> shown on the Solver screen is the final residual <code>f(root)</code> (the
 <code>left-side − right-side</code> value the evaluator computed). <strong>[standard]</strong></p>
 <hr>
@@ -373,8 +389,8 @@ difference with var save/restore; ε-default standard]</strong></p>
 Ghidra function <code>fnint_body</code> at <code>33:4D00</code> (extent <code>33:4D00…4E91</code>):</p>
 <ul>
 <li>builds interval midpoints and half-widths: <code>_FPSub</code> (<code>2297</code>), <code>_TimesPt5</code> (<code>2382</code>, ×0.5),
-<code>_FPDiv</code> (<code>2541</code>). The bytes at <code>33:4D1B</code> are <strong>executable code</strong> — <code>21 83 84</code>
-(<code>LD HL,0x8483</code>), <code>3E 60</code> (<code>LD A,0x60</code>), <code>CD 65 1B</code> (<code>CALL _OP2SetA</code>/<code>1B65</code>) — loading the
+<code>_FPDiv</code> (<code>2541</code>). The bytes at <code>33:4D18</code> are <strong>executable code</strong> — <code>33:4D18 21 83 84</code>
+(<code>LD HL,0x8483</code>), <code>33:4D1B 3E 60</code> (<code>LD A,0x60</code>), <code>33:4D1D CD 65 1B</code> (<code>CALL _OP2SetA</code>/<code>1B65</code>) — loading the
 scalar <strong>0x60 = 96</strong>
 (a working digit/scale count), not a quadrature weight. <strong>[confirmed bytes]</strong></li>
 <li>maintains a working set of partial sums in an <strong>FPS frame</strong> (<code>_AllocFPS 1534</code>,

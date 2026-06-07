@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2bf63802.js";
+            window.path_to_searchindex_js = "searchindex-87b42c0e.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5397aae8.js"></script>
+        <script src="toc-bcf53af4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -223,7 +223,7 @@
 </ul>
 <p>The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine (<a href="06-floating-point.html">06</a>), variable tokens resolve via the VAT (<a href="05-variables-vat.html">05</a>), and the busy indicator is driven by <code>_RunIndicOn</code>/<code>Off</code>. <code>_BinOPExec</code> applies a binary operator via OP1/OP2.</p>
 <h3 id="the-handler-dispatch-table-confirmed"><a class="header" href="#the-handler-dispatch-table-confirmed">The handler dispatch table [confirmed]</a></h3>
-<p>Page 0x38 <strong>begins</strong> with the parser’s handler dispatch at <strong><code>page_38:4000</code></strong>. This region is <strong>executable dispatch code</strong>, not a flat pointer array (see <a href="sub-tibasic.html">TI-BASIC Programs</a>).</p>
+<p>Page 0x38 <strong>begins</strong> with the parser’s handler dispatch at <strong><code>page_38:4000</code></strong> — a <strong>flat array of 2-byte little-endian handler pointers</strong>. Raw bytes are <code>9F 41 F0 45 1C 42 …</code> = entries <code>0x419F, 0x45F0, 0x421C, …</code> (all in-window <code>0x4xxx</code>/<code>0x47xx</code> code addresses), indexed by token class and dereferenced; the selector at <code>38:7010</code> loads <code>LD HL,0x4000</code> and adds <code>2×index</code> (see <a href="sub-tibasic.html">TI-BASIC Programs</a>).</p>
 <p>These handlers implement TI-BASIC <strong>statements/commands and operators</strong>. Sampling them by the routine they call:</p>
 <ul>
 <li>indices 8–10, 17–19, 38 → <code>bcall(_Regraph)</code> — <strong>graph commands</strong> (<code>DrawF</code>, <code>ZoomFit</code>, etc.).</li>
@@ -238,9 +238,9 @@
 <li><code>parse_advance</code> (<code>38:7248</code>) — <code>parsePtr++</code> and bounds-check vs <code>parseEnd</code>.</li>
 <li><code>parse_expect_or_err</code> (<code>38:5CD8</code>) — fetch a token and raise <code>_ErrSyntax</code> (recording the position in <code>parsePtr</code>) if it isn’t the expected one.</li>
 </ul>
-<p>So the dispatch loop is: <code>parse_cur_tok</code> → jump into the dispatch code at <code>page_38:4000</code> → run handler (which may consume args via <code>parse_advance</code>) → repeat.</p>
+<p>So the dispatch loop is: <code>parse_cur_tok</code> → index the pointer table at <code>page_38:4000</code> and call the selected handler (which may consume args via <code>parse_advance</code>) → repeat.</p>
 <p><strong>Main evaluator:</strong> <code>parse_eval_expr</code> (<code>38:5AB3</code>) is the big recursive-descent expression evaluator — it dispatches through handler function-pointers (<code>code *</code>) with operator precedence, reading via the cursor helpers and leaving the result in <code>OP1</code>. <code>_ParseInp</code> → <code>parse_init</code> → <code>parse_eval_expr</code>. <code>parse_scan_tokens</code> (<code>38:4180</code>) is a token-scan helper (skips to a delimiter, honoring 2-byte tokens via <code>_IsA2ByteTok</code>).</p>
-<p>The region at <code>page_38:4000</code> is <strong>executable dispatch code</strong> (sequences like <code>CALL 0x33AB; …</code>), not a flat array of 2-byte handler pointers. The dispatch is table-like in effect, but it’s code. See <a href="sub-tibasic.html">sub-tibasic.md</a> for the execution model (<code>eval_stmt_entry</code>@<code>38:59C5</code>, the <code>blockmatch_end_else</code>@<code>38:4130</code> End/Else matcher, <code>goto_lbl_name_scanner</code>@<code>38:4870</code>).</p>
+<p>The region at <code>page_38:4000</code> is a <strong>flat array of 2-byte handler pointers</strong> (entries <code>0x419F, 0x45F0, 0x421C, …</code>), not executable code — <code>CALL 0x33AB</code> (<code>CD AB 33</code>) appears nowhere on page 0x38. Each handler is itself recursive-descent code; the table selects which one to enter. See <a href="sub-tibasic.html">sub-tibasic.md</a> for the execution model (<code>eval_stmt_entry</code>@<code>38:59C5</code>, the <code>blockmatch_end_else</code>@<code>38:4130</code> End/Else matcher, <code>goto_lbl_name_scanner</code>@<code>38:4870</code>).</p>
 <p>The handlers are <strong>recursive-descent grammar productions</strong> (not flat per-operator routines): each reads via <code>parse_cur_tok</code>, conditionally recurses, and some load <strong>sub-dispatch tables</strong> (e.g. <code>page_38:5110</code>, <code>5127</code>) for finer token classes — implementing operator precedence by nesting. So “the + operator” isn’t one table entry; it’s handled within the term/factor production that drives <code>_FPAdd</code> (RST 30h).</p>
 <p>The precedence levels (term/factor/unary productions) and sub-dispatch tables are mapped in <a href="sub-tibasic.html">TI-BASIC Programs</a> §3/§6.</p>
 <h2 id="second-byte-tables"><a class="header" href="#second-byte-tables">Second-byte tables</a></h2>

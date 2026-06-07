@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2bf63802.js";
+            window.path_to_searchindex_js = "searchindex-87b42c0e.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5397aae8.js"></script>
+        <script src="toc-bcf53af4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -515,6 +515,61 @@ anchors for readers who want to check the disassembly. [confirmed]</p>
 </tbody>
 </table>
 </div>
+<h2 id="dynamic-confirmation"><a class="header" href="#dynamic-confirmation">Dynamic confirmation</a></h2>
+<p>The static map above was checked against live execution. The TI-84 Plus OS was
+run under headless TilEm, the entry line was driven to render each construct, and
+page-<code>39</code> execution was rolled up to function level with
+<code>tools/tilem_trace_resolve.py --funcs --only-space page_39</code> (see
+<a href="https://github.com/siraben/ti84p-re/blob/main/tools/dynamic-tracing.md">dynamic tracing</a>). The macros are
+<code>tools/macros/mathprint-{power,fraction,fnint}.macro</code>. [confirmed]</p>
+<p>The trace cleanly separates the two documented rendering mechanisms by <em>which
+routines actually run</em> for each construct:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Rendered (entry line)</th><th>Page-<code>39</code> routines exercised</th><th>Path</th></tr>
+</thead>
+<tbody>
+<tr><td><code>X^2</code> (raised exponent)</td><td><code>eqdisp_emit_subexpr2</code> <code>4CA4</code>, <code>eqdisp_menu_or_emit</code> <code>53AD</code></td><td>light entry-line emit (<code>eqdisp_set_row_for_tok</code> <code>4CE9</code> is the static superscript-row helper but did <strong>not</strong> execute in this trace — it does run in the <code>1/2</code> trace)</td></tr>
+<tr><td><code>1/2</code> (n/d template)</td><td><code>eqdisp_compute_dims</code> <code>69C8</code>, <code>eqdisp_layout_token_geom</code> <code>68AE</code>, the <code>683D</code> cell-to-pixel mapper, <code>eqdisp_draw_fraction_bar</code> <code>6ABF</code>, <code>eqdisp_draw_box_jp</code> <code>6AF5</code>, <code>eqdisp_load_glyph18b2</code> <code>6B66</code>, <code>eqdisp_dispatch_token</code> <code>4A74</code></td><td><strong>descriptor / geometry</strong></td></tr>
+<tr><td><code>fnInt(</code> (MATH ▸ 9)</td><td><code>eqdisp_emit_glyph</code> <code>4E8E</code>, <code>eqdisp_map_token_glyph</code> <code>4F1A</code>, <code>eqdisp_emit_arglist</code> <code>4DE6</code>, <code>eqdisp_sum_arg_widths</code> <code>4DCA</code>, <code>eqdisp_emit_digit_chk</code> <code>4E0A</code></td><td><strong>handler record / multi-arg</strong></td></tr>
+</tbody>
+</table>
+</div>
+<p>This confirms the headline static result: the descriptor path (<code>69C8</code>/<code>68AE</code>/<code>683D</code>/<code>6ABF</code>)
+and the handler-record path (<code>4DCA</code>/<code>4DE6</code>/<code>4E8E</code>/<code>4F1A</code>) are mutually
+exclusive per construct, exactly as the two-mechanism model predicts. [confirmed]</p>
+<p><code>39:5167</code> (<code>eqdisp_layout_multiarg</code>) <strong>statically</strong> owns the multi-arg row
+composition, but it did <strong>not</strong> execute in this trace: the <code>fnInt(</code> template was
+inserted <em>empty</em> (<code>∫(0)dV</code>), so the operand-recursion branch was never driven —
+<code>5167</code> and its body (<code>5949</code>/<code>5B10</code>) show 0 hits, and the <code>--funcs</code> “5167” rollup
+bucket is a nearest-name artifact (only a <code>51F1/51F3</code> fragment ran). A <em>filled</em>
+integrand would be needed to drive <code>5167</code> under a trace. [confirmed] (static); the dynamic path is open.</p>
+<p>The live state block matches the field map. Reading <code>0x85DE..0x85F2</code> from a RAM
+dump right after each render (<code>memdump … ram-logical</code>):</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th><code>1/2</code></th><th><code>fnInt(</code></th><th>Confirms</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x85E8</code> template kind</td><td><code>0x10</code></td><td><code>0x00</code></td><td><code>0x10</code> = the fraction <em>descriptor</em> kind; <code>0x00</code> = handler-record (no descriptor).</td></tr>
+<tr><td><code>0x85EE</code>/<code>0x85EF</code> fraction width</td><td><code>2</code>/<code>2</code></td><td><code>0</code>/<code>0</code></td><td>Measured numerator/denominator widths (each <code>1</code> cell ≈ 2 px wide).</td></tr>
+<tr><td><code>0x85E1</code> row count</td><td>—</td><td><code>4</code></td><td>Four rows for the tall integral (upper limit, body, lower limit, baseline).</td></tr>
+</tbody>
+</table>
+</div>
+<p><code>eqdisp_compute_dims</code> (<code>39:69C8</code>) decompiles consistently: it switches on
+<code>0x85E8 &amp; 0x0F</code>, picks descriptor <code>686F</code>/<code>6880</code>/… by kind, and for the kind-2
+measured-fraction path calls <code>eqdisp_draw_box_jp</code> with <code>0x85EE</code>. [confirmed]</p>
+<p><strong>Decompiler caution.</strong> The cell-to-pixel mapper <code>39:683D</code> and the fraction
+endpoint helper <code>39:6B1C</code> are named <code>eqdisp_decr_counters</code> /
+<code>eqdisp_advance_col6</code> in the symbol table, and the Ghidra <em>decompiler</em>
+mis-analyzes both (it shows bare decrement loops). The raw disassembly matches
+this page instead: <code>683D</code> does <code>A = base; loop: add a,7</code> (<code>x = base_x + 7·col</code>)
+and <code>6B1C</code> does <code>ld a,1Bh; … add a,7 (×n); add a,4</code> (<code>x_left = 0x1B + 7n</code>,
+<code>x_right = x_left + 4</code>). Trust <code>z80dasm</code> over the decompiler for these tight
+register-passing routines, as <a href="https://github.com/siraben/ti84p-re/blob/main/README.md">the README</a> advises. [confirmed]</p>
 <h2 id="remaining-detail"><a class="header" href="#remaining-detail">Remaining detail</a></h2>
 <p>The static MathPrint pipeline is recovered: token classification, handler records,
 recursive operand order, descriptor templates, fraction UI geometry, fixed structural

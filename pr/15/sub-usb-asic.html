@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2bf63802.js";
+            window.path_to_searchindex_js = "searchindex-87b42c0e.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5397aae8.js"></script>
+        <script src="toc-bcf53af4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -218,7 +218,7 @@ port <code>0x00</code> bit-banging otherwise. [confirmed]</p>
 </thead>
 <tbody>
 <tr><td><code>0x02</code></td><td>Hardware/model gate before using assist paths. The link code tests bit 7 before touching ports <code>0x08</code>-<code>0x0D</code>.</td><td><code>3C:6C82</code>, <code>3C:6CB8</code>, <code>3C:6D15</code></td></tr>
-<tr><td><code>0x08</code></td><td>Link-assist control/idle latch. The OS writes <code>0x80</code> when clearing an inactive/error-free assist state, and <code>0x00</code> when marking the assist state active.</td><td><code>3C:6C41</code>-<code>6C48</code>, <code>3C:6D38</code>-<code>6D40</code>, <code>3C:6D4B</code>-<code>6D53</code></td></tr>
+<tr><td><code>0x08</code></td><td>Link-assist control/idle latch. The OS writes <code>0x80</code> when clearing an inactive/error-free assist state, and <code>0x00</code> when marking the assist state active.</td><td><code>OUT (0x08)</code> at <code>3C:6C4D</code>/<code>6C50</code>, <code>3C:6D48</code>, <code>3C:6D5B</code></td></tr>
 <tr><td><code>0x09</code></td><td>Link-assist status on reads. Bit 5 is TX-ready; bit 6 is a transmission/error condition; bit 4 marks a received byte. Masks <code>0x19</code>, <code>0x58</code>, and <code>0x99</code> are used as error/activity predicates. On writes, the OS setup value <code>0x97</code> matches WikiTI’s CPU-speed-0 signaling-rate register.</td><td><code>3C:6BB6</code>-<code>6BC5</code>, <code>3C:444A</code>, <code>3C:6BFA</code>, <code>3C:6CCE</code>, <code>3C:6D33</code>; WikiTI port <code>09</code></td></tr>
 <tr><td><code>0x0A</code></td><td>Assist receive/data register on reads; the confirmed receive path reads the byte here. On writes, the OS setup value <code>0xB4</code> matches WikiTI’s CPU-speed-1 signaling-rate register. Tilem models reads as “last received byte” and stores writes as opaque assist state.</td><td><code>3C:6C20</code>, <code>3C:6C2B</code>, <code>3C:6C39</code>; WikiTI port <code>0A</code>; Tilem <code>x4_io.c</code></td></tr>
 <tr><td><code>0x0B</code>, <code>0x0C</code></td><td>Assist signaling-rate configuration for CPU speed modes 2 and 3, initialized with <code>0xB4</code>. The ROM byte-transfer path writes them during setup but does not read them back. Tilem stores the writes without emulating timing from the values.</td><td><code>3C:6C3D</code>, <code>3C:6C3F</code>; WikiTI ports <code>0B</code>/<code>0C</code>; Tilem <code>x4_io.c</code></td></tr>
@@ -287,7 +287,7 @@ the assist latch through port <code>0x08</code>.</li>
 <p><code>lnk_rec_status</code> also uses the sentinel byte <code>0xE0</code>: callers pass it for a nonblocking/probe style
 receive check. If the caller requires a byte and the status path reports anything else, the code
 raises <code>E_LnkErr</code> through <code>_JError(0x9F)</code>. [confirmed]</p>
-<p>The assist reset/enable sequence at <code>3C:6C31</code> writes:</p>
+<p>The assist reset/enable sequence at <code>3C:6C3B</code> writes:</p>
 <pre><code class="language-z80">out (0x00),0x00
 out (0x09),0x97
 out (0x0A),0xB4
@@ -378,10 +378,10 @@ bjumps resolve as:</p>
 </div>
 <p>[confirmed]</p>
 <p>The timer/idle side of the same handler also bridges to the assist path. At <code>ram:01B1</code> it calls
-<code>ram:1850</code>, the same hardware-gate routine used elsewhere before assist-port access. On the legacy path it checks <code>port 0x00 &amp; 0x03</code>; on the assist
+<code>ram:1837</code> (<code>IN A,(0x2); AND 0x80; XOR 0x80</code>), the same hardware-model gate used elsewhere before assist-port access. On the legacy path it checks <code>port 0x00 &amp; 0x03</code>; on the assist
 path it checks <code>port 0x09 &amp; 0x18</code>. If either assist bit is set, it reloads <code>0x9C86 = 0xFA</code>, pulses
 port <code>0x08</code> with <code>0x80</code> then <code>0x00</code>, sets <code>IY+0x3E</code> bit 0, and calls the common link activity hook
-at <code>ram:3FD6</code>. [confirmed: <code>00:01B1</code>-<code>01DB</code>]</p>
+at <code>ram:3FD5</code>. [confirmed: <code>00:01B1</code>-<code>01DB</code>]</p>
 <p>For application code, this means a custom interrupt handler that does not chain to the OS handler
 must account for port <code>0x55</code>/<code>0x56</code> activity itself and then either reproduce the relevant page-35
 event handling or deliberately leave USB disabled. The OS still acknowledges the legacy interrupt
