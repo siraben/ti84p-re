@@ -27,6 +27,7 @@ class VisualRegion:
     name: str
     crop: str
     min_dark_pixels: int
+    max_dark_pixels: int | None = None
 
 
 @dataclass(frozen=True)
@@ -175,6 +176,17 @@ CASES: dict[str, Case] = {
             VisualRegion("mutated L1", "42x9+50+22", 40),
             VisualRegion("returned Ans", "18x9+76+33", 10),
             VisualRegion("Done marker", "28x9+66+44", 20),
+        ),
+    ),
+    "callstop": Case(
+        ("CALLSTOP.8xp", "STOPSUB.8xp"),
+        "BEFORE; STOP; no AFTER; Done",
+        ("stmt_eval_body_entry", "call_eval_eqn_recursive", "_Disp"),
+        visual_regions=(
+            VisualRegion("BEFORE line", "36x9+0+9", 25),
+            VisualRegion("STOP line", "24x9+0+18", 35),
+            VisualRegion("AFTER line absent", "30x9+5+27", 0, 30),
+            VisualRegion("Done marker", "28x9+66+27", 10),
         ),
     ),
     "bigadd": Case(
@@ -387,6 +399,11 @@ def run_case(name: str, case: Case, tilem: Path, rom: Path, out_dir: Path, keep_
             raise SystemExit(
                 f"{name}: region {region.name!r} has {region_dark_pixels} dark pixels, "
                 f"expected at least {region.min_dark_pixels}"
+            )
+        if region.max_dark_pixels is not None and region_dark_pixels > region.max_dark_pixels:
+            raise SystemExit(
+                f"{name}: region {region.name!r} has {region_dark_pixels} dark pixels, "
+                f"expected at most {region.max_dark_pixels}"
             )
         print(f"{name}: region {region.name}: {region_dark_pixels} dark pixels")
 

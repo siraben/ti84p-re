@@ -82,7 +82,7 @@ branch state.
 | Graph visualization | `GRAPHDFS.8xp`, `GRAPHLST.8xp` | Renders the four-node DFS topology with labels and edges; the list-driven fixture stores edge/node coordinates in lists and loops over them before `DispGraph`. |
 | Arbitrary precision arithmetic | `BIGADD.8xp`, `BIGMUL.8xp` | Adds and multiplies digit lists with carry propagation; reaches list indexing and FP helper paths. |
 | DFS / stack-style list algorithm | `DFS.8xp` | Displays traversal `1, 3, 2, 4` and visited list `{1 1 1 1}`; reaches nested scanner/control-flow paths. |
-| BASIC subprogram calling convention | `CALLSUB.8xp` + `SUBRT.8xp`; `ABICALL.8xp` + `ABISUB.8xp` | Caller and callee share scalar/list/`Ans` state and return through the BASIC program evaluator. |
+| BASIC subprogram calling convention | `CALLSUB.8xp` + `SUBRT.8xp`; `ABICALL.8xp` + `ABISUB.8xp`; `CALLSTOP.8xp` + `STOPSUB.8xp` | Caller and callee share scalar/list/`Ans` state; `Return` resumes the caller, while `Stop` terminates the caller chain. |
 | BASIC to ASM | `ASMCALL.8xp` + `ASMRET.8xp` | `Asm(` runs an `AsmPrgm` payload (`C9`) and returns to BASIC, displaying `BEFORE` then `AFTER`. |
 | ASM-directed BASIC callback | `ASMBRIDG.8xp` + `ASMSIG.8xp` + `ZZBASIC.8xp` | ASM sets `Ans=1` with `_OP1Set1`/`_StoAns`, returns, and BASIC calls `prgmZZBASIC` through `If Ans`. |
 | ASM return value | `ASMRTN.8xp` + `ASMVAL.8xp` | ASM sets `Ans=2` with `_OP1Set2`/`_StoAns`; BASIC reads `Ans`, computes `Ans+3`, and displays `5`. |
@@ -269,7 +269,7 @@ inputs, scratch, and outputs.
 | Inputs | Scalars, lists, and `Ans` are shared across caller and callee. The caller stores them before `prgmNAME`. | `CALLSUB` stores `A`; `ABICALL` seeds `L1` and `Ans`. |
 | Outputs | The callee stores results back to globals, list elements, or `Ans`. | `SUBRT` increments shared `A`; `ABISUB` writes `A`, `L1(3)`, and `Ans`. |
 | Scratch | No automatic save/restore exists. Routines must document scratch variables. | The VAT and parser state are shared across caller and callee. |
-| Return | `Return` exits the callee and resumes the caller. `Stop` terminates the whole program chain. | `SUBRT` returns to `CALLSUB`, which then runs `Disp A`. |
+| Return/Stop | `Return` exits the callee and resumes the caller. `Stop` terminates the whole program chain. | `SUBRT` returns to `CALLSUB`, which then runs `Disp A`; `STOPSUB` stops `CALLSTOP` before caller text `AFTER` can display. |
 | Parser state | `prgmNAME` runs with private parser/FPS state already set up by BASIC. | The callee path reaches `38:6910` -> `38:6914` -> `38:778F`. |
 
 `ABICALL.8xp` broadens that scalar-only case:
@@ -299,6 +299,29 @@ callee expression so `Ans` is also `11`, and returns. The smoke runner checks
 the rendered scalar, list, `Ans`, and `Done` regions, and the trace hits
 `stmt_eval_body_entry`, `call_eval_eqn_recursive`, `eval_eqn_recursive`,
 `_AnsName`, and `store_list_elem`. **[confirmed]**
+
+`CALLSTOP.8xp` and `STOPSUB.8xp` cover the non-returning branch:
+
+```ti-basic
+Disp "BEFORE"
+prgmSTOPSUB
+Disp "AFTER"
+```
+
+with callee:
+
+```ti-basic
+Disp "STOP"
+Stop
+```
+
+Observed run: `CALLSTOP.8xp` and `STOPSUB.8xp` display `BEFORE`, then `STOP`,
+then `Done`; `AFTER` never appears. The smoke runner checks the `BEFORE`,
+`STOP`, and `Done` regions and also checks a low-pixel region where `AFTER`
+would be drawn if the caller resumed. The trace reaches `stmt_eval_body_entry`,
+`call_eval_eqn_recursive`, and `_Disp`. This confirms that `Stop` in a callee
+terminates the whole BASIC program chain instead of returning to the caller.
+**[confirmed]**
 
 ### Arbitrary-precision decimal addition
 

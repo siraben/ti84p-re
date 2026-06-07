@@ -215,9 +215,11 @@ value 0xD0 vs 0xD4 tells the caller whether it landed on `Else` or `End`.
   `Lbl name`, then setting `parsePtr` there — the classic TI-BASIC behavior that
   makes `Goto` O(program size) and makes `Goto` out of a loop leak the loop's
   stack frame. **[inferred — standard, consistent with the rescan call shape]**
-- `Return`/`Stop` (`tReturn=D5`/`tStop=D9`) terminate the current program /
-  unwind: they exit the statement loop back to the caller (or to the homescreen
-  context via the `onSP`/context mechanism in [doc 11](11-boot-contexts-errors.md)). **[inferred/strong]**
+- `Return`/`Stop` (`tReturn=D5`/`tStop=D9`) terminate execution at different
+  scopes: `Return` exits the current BASIC program and resumes the caller, while
+  `Stop` exits the whole BASIC program chain back to the homescreen context.
+  `CALLSUB`/`SUBRT` and `CALLSTOP`/`STOPSUB` are run-confirmed fixtures for
+  those two cases. **[confirmed]**
 
 ---
 
@@ -671,10 +673,33 @@ reads the caller's `Ans` and `L1`, writes shared scalar `A`, mutates shared
 BASIC subprogram body path plus `_AnsName` and list store paths, so this is a
 confirmed scalar/list/`Ans` ABI fixture.
 
+`CALLSTOP.8xp` and `STOPSUB.8xp` cover the non-returning subprogram case:
+
+```ti-basic
+Disp "BEFORE"
+prgmSTOPSUB
+Disp "AFTER"
+```
+
+with callee:
+
+```ti-basic
+Disp "STOP"
+Stop
+```
+
+Observed run: the caller displays `BEFORE`, the callee displays `STOP`, and the
+homescreen displays `Done`; caller text `AFTER` does not appear. The smoke
+runner checks the `BEFORE`, `STOP`, and `Done` regions, plus a bounded low-pixel
+region where `AFTER` would appear if execution resumed. The trace reaches the
+BASIC subprogram body path and `_Disp`, so this confirms that `Stop` terminates
+the whole BASIC program chain instead of returning to the caller.
+
 The ordinary BASIC subprogram path is separate from `Asm(`. In the validated
 trace it does not hit `_ParsePrgmName`, `_ExecutePrgm`, `_Find_Parse_Formula`,
 or `_SetParseVarProg`; it uses the page-38 parser/VAT/body evaluator path and
-then returns to the caller through BASIC's own `Return` handling.
+then either resumes the caller through BASIC's own `Return` handling or exits
+the caller chain through `Stop`.
 
 The full `CALLSUB` smoke trace does hit `_ParseInpLastEnt`/`_ParseInp` once,
 because the macro starts the program by submitting `prgmCALLSUB` from the

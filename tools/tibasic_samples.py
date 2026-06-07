@@ -76,6 +76,7 @@ T = {
     "for": 0xD3,
     "end": 0xD4,
     "return": 0xD5,
+    "stop": 0xD9,
     "prompt": 0xDD,
     "disp": 0xDE,
     "dispgraph": 0xDF,
@@ -356,6 +357,21 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
             T["disp"], T["ans"], T["enter"],
         ],
     ),
+    "stopsub": (
+        'Disp "STOP"\nStop',
+        [
+            T["disp"], *string_literal("STOP"), T["enter"],
+            T["stop"], T["enter"],
+        ],
+    ),
+    "callstop": (
+        'Disp "BEFORE"\nprgmSTOPSUB\nDisp "AFTER"',
+        [
+            T["disp"], *string_literal("BEFORE"), T["enter"],
+            T["prog"], T["S"], T["T"], T["O"], T["P"], T["S"], T["U"], T["B"], T["enter"],
+            T["disp"], *string_literal("AFTER"), T["enter"],
+        ],
+    ),
     "bigadd": (
         "{5,4,3,2,1}->L1\n"
         "{5,6,7,8,9}->L2\n"
@@ -496,6 +512,8 @@ PROGRAM_NAMES = {
     "callsub": "CALLSUB",
     "abisub": "ABISUB",
     "callabi": "ABICALL",
+    "stopsub": "STOPSUB",
+    "callstop": "CALLSTOP",
     "bigadd": "BIGADD",
     "bigmul": "BIGMUL",
     "dfs": "DFS",
