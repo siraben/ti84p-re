@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2992b8de.js";
+            window.path_to_searchindex_js = "searchindex-acffaa92.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -1641,6 +1641,7 @@ for observed outputs and trace anchors.</p>
 <tr><td>Animation</td><td><code>ClrHome</code> / <code>For(I,1,8)</code> / <code>Output(1,I,"X")</code> / <code>End</code> / <code>Disp "DONE"</code></td><td><code>E1 3F D3 49 2B 31 2B 38 11 3F E0 31 2B 49 2B 2A 58 2A 11 3F D4 3F DE 2A 44 4F 4E 45 2A 3F</code></td></tr>
 <tr><td>Graph drawing</td><td><code>ClrDraw</code>, window stores, visible axes/diagonal, <code>Circle(47,31,10)</code>, <code>Text(0,0,"DFS")</code>, <code>DispGraph</code></td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphviz.tok</code>)</td></tr>
 <tr><td>Graph visualization</td><td><code>ClrDraw</code>, window stores, then <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> drawing the DFS topology</td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphdfs.tok</code>)</td></tr>
+<tr><td>List-driven graph visualization</td><td>edge endpoint lists <code>L1</code>-<code>L4</code>, node lists <code>L5</code>/<code>L6</code>, looped <code>Line(L1(I),...)</code> and <code>Circle(L5(I),...)</code></td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphlist.tok</code>)</td></tr>
 <tr><td>BASIC subprogram</td><td><code>0-&gt;A</code> / <code>prgmSUBRT</code> / <code>Disp A</code>; callee <code>Disp "SUB"</code> / <code>A+1-&gt;A</code> / <code>Return</code></td><td>caller <code>30 04 41 3F 5F 53 55 42 52 54 3F DE 41 3F</code>; callee <code>DE 2A 53 55 42 2A 3F 41 70 31 04 41 3F D5 3F</code></td></tr>
 <tr><td>BASIC ABI fixture</td><td>caller initializes <code>L1</code> and <code>Ans</code>, calls <code>prgmABISUB</code>, then displays <code>A</code>, <code>L1</code>, and <code>Ans</code></td><td>caller <code>08 32 2B 34 ... DE 72 3F</code>; callee <code>72 70 5D 00 ... D5 3F</code> (full bodies in <code>tools/tibasic-samples/callabi.tok</code> and <code>abisub.tok</code>)</td></tr>
 <tr><td>Big integer add</td><td>list digits in <code>L1</code>/<code>L2</code>, carry <code>C</code>, indexed stores into <code>L3</code></td><td><code>08 35 2B 34 ... DE 5D 02 10 36 11 3F</code> (full body in <code>tools/tibasic-samples/bigadd.tok</code>)</td></tr>
@@ -2840,6 +2841,21 @@ graph screen: nodes <code>1</code>, <code>2</code>, <code>3</code>, and <code>4<
 The trace hits <code>_ILine</code> (<code>04:4029</code>), <code>graph_pixel_op</code>, <code>_IPoint</code>, small-font
 glyph rendering, <code>_PDspGrph</code> (<code>04:7904</code>), <code>_StoSysTok</code> window stores,
 <code>_RestoreDisp</code>, and page-38 statement evaluation.</p>
+<p><code>GRAPHLST.8xp</code> draws the same topology from list data. It stores edge endpoint
+coordinates in <code>L1</code>-<code>L4</code>, stores node centers in <code>L5</code> and <code>L6</code>, then loops over
+those lists:</p>
+<pre><code class="language-ti-basic">For(I,1,3)
+Line(L1(I),L2(I),L3(I),L4(I))
+End
+For(I,1,4)
+Circle(L5(I),L6(I),3)
+End
+</code></pre>
+<p>Observed run: the final frame matches the <code>GRAPHDFS</code> topology and passes the
+same node/edge crop-region checks. The trace hits <code>list_var_index</code>,
+<code>_GetLToOP1</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code>, and <code>_StoSysTok</code>, confirming a
+list-driven graph visualization path rather than only hard-coded draw
+coordinates.</p>
 <pre><code class="language-ti-basic">0-&gt;A
 prgmSUBRT
 Disp A
@@ -3051,6 +3067,7 @@ programs into calculator RAM first, then run the same macro and resolver steps.<
 <tr><td><code>animtext</code></td><td><code>ANIMTXT.8xp</code></td><td>text placement animation with <code>Output(</code></td><td><code>_OutputExpr</code>, <code>_Disp</code></td></tr>
 <tr><td><code>graphviz</code></td><td><code>GRAPHV.8xp</code></td><td>graph-buffer primitives and <code>DispGraph</code></td><td><code>_GrBufClr</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code></td></tr>
 <tr><td><code>graphdfs</code></td><td><code>GRAPHDFS.8xp</code></td><td>graph visualization from DFS topology</td><td><code>_StoSysTok</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code></td></tr>
+<tr><td><code>graphlist</code></td><td><code>GRAPHLST.8xp</code></td><td>list-driven graph visualization from edge/node coordinate lists</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_ILine</code>, <code>_IPoint</code></td></tr>
 <tr><td><code>callsub</code></td><td><code>CALLSUB.8xp</code> + <code>SUBRT.8xp</code></td><td>BASIC <code>prgmNAME</code>, shared globals, <code>Return</code></td><td><code>stmt_eval_body_entry</code>, <code>call_eval_eqn_recursive</code></td></tr>
 <tr><td><code>callabi</code></td><td><code>ABICALL.8xp</code> + <code>ABISUB.8xp</code></td><td>BASIC subprogram ABI through <code>Ans</code>, scalar <code>A</code>, and list <code>L1</code></td><td><code>_AnsName</code>, <code>store_list_elem</code>, <code>eval_eqn_recursive</code></td></tr>
 <tr><td><code>bigadd</code></td><td><code>BIGADD.8xp</code></td><td>list-digit arithmetic and carry propagation</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>_FPMult</code></td></tr>
@@ -3064,9 +3081,9 @@ frame and comparing it with the first recorded frame. <code>ANIMTXT</code>, <cod
 <code>GRAPHDFS</code> must contain at least 100, 100, and 200 dark pixels respectively,
 and must change by at least the same number of pixels from first to final frame.
 The smoke runner also checks named crop regions: home-screen text for <code>ANIMTXT</code>,
-label/axes/circle arcs for <code>GRAPHV</code>, and node/edge regions for <code>GRAPHDFS</code>. The
-2026-06-07 run measured 212, 619, and 466 dark pixels, with matching
-first-to-final pixel changes.</p>
+label/axes/circle arcs for <code>GRAPHV</code>, and node/edge regions for <code>GRAPHDFS</code> and
+<code>GRAPHLST</code>. The 2026-06-07 run measured 212, 619, 466, and 466 dark pixels,
+with matching first-to-final pixel changes.</p>
 <p>The new ABI cases use the same region-check mechanism for text results:
 <code>ASMRTN</code> checks the displayed <code>5</code> and <code>Done</code>, while <code>ABICALL</code> checks the scalar
 line, mutated list line, returned <code>Ans</code> line, and <code>Done</code>.</p>
@@ -3286,7 +3303,7 @@ implicit-close/false-<code>If</code> interaction. <strong>[confirmed]</strong></
 <tr><td>List built-ins (<code>DATA</code>)</td><td><code>sum(</code> reaches <code>list_fold_dispatch</code></td><td>Prefer built-ins when one parser setup can cover many elements.</td></tr>
 <tr><td>Text animation (<code>ANIMTXT</code>)</td><td><code>Output(</code> plus LCD text paths on every loop</td><td>Precompute positions/strings and update the smallest region possible.</td></tr>
 <tr><td>Graph drawing (<code>GRAPHV</code>)</td><td>primitives draw into <code>plotSScreen</code>, then <code>_PDspGrph</code></td><td>Batch graph primitives before <code>DispGraph</code>.</td></tr>
-<tr><td>Graph visualization (<code>GRAPHDFS</code>)</td><td>window stores plus repeated <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> reach <code>_StoSysTok</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>graph_pixel_op</code>, <code>_PDspGrph</code>, and small-font paths</td><td>Store graph topology in lists; draw the whole view in one graph-buffer pass.</td></tr>
+<tr><td>Graph visualization (<code>GRAPHDFS</code>, <code>GRAPHLST</code>)</td><td>window stores plus repeated <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> reach <code>_StoSysTok</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>graph_pixel_op</code>, <code>_PDspGrph</code>, and small-font paths; <code>GRAPHLST</code> also reaches list indexing in draw arguments</td><td>Store graph topology in lists; draw the whole view in one graph-buffer pass.</td></tr>
 <tr><td>BASIC subprogram (<code>CALLSUB</code>, <code>CALLABI</code>)</td><td>page-38 program-body evaluator and shared VAT variables</td><td>Treat globals/lists/<code>Ans</code> as the calling convention.</td></tr>
 <tr><td>List algorithms (<code>BIGADD</code>, <code>BIGMUL</code>, <code>DFS</code>)</td><td>VAT lookup, element address, OP-register move per access</td><td>Preallocate lists; cache dimensions and reused elements in scalars.</td></tr>
 </tbody>
@@ -3311,7 +3328,7 @@ branch state.</p>
 <tr><td>Data manipulation</td><td><code>DATA.8xp</code></td><td>Sorts, cumulatively sums, and displays list data; reaches list element stores and <code>sum(</code>’s list fold path.</td></tr>
 <tr><td>Text animation</td><td><code>ANIMTXT.8xp</code></td><td>Moves/writes <code>X</code> characters with <code>Output(</code>, then displays <code>DONE</code>; reaches LCD text routines each loop.</td></tr>
 <tr><td>Graph drawing</td><td><code>GRAPHV.8xp</code></td><td>Renders <code>DFS</code>, axes, a circle, and diagonal line on the graph screen; reaches <code>_ILine</code>, <code>_IPoint</code>, and <code>_PDspGrph</code>.</td></tr>
-<tr><td>Graph visualization</td><td><code>GRAPHDFS.8xp</code></td><td>Renders the four-node DFS topology with labels and edges; reaches window stores, line, point, display-copy, pixel, and small-font graph paths.</td></tr>
+<tr><td>Graph visualization</td><td><code>GRAPHDFS.8xp</code>, <code>GRAPHLST.8xp</code></td><td>Renders the four-node DFS topology with labels and edges; the list-driven fixture stores edge/node coordinates in lists and loops over them before <code>DispGraph</code>.</td></tr>
 <tr><td>Arbitrary precision arithmetic</td><td><code>BIGADD.8xp</code>, <code>BIGMUL.8xp</code></td><td>Adds and multiplies digit lists with carry propagation; reaches list indexing and FP helper paths.</td></tr>
 <tr><td>DFS / stack-style list algorithm</td><td><code>DFS.8xp</code></td><td>Displays traversal <code>1, 3, 2, 4</code> and visited list <code>{1 1 1 1}</code>; reaches nested scanner/control-flow paths.</td></tr>
 <tr><td>BASIC subprogram calling convention</td><td><code>CALLSUB.8xp</code> + <code>SUBRT.8xp</code>; <code>ABICALL.8xp</code> + <code>ABISUB.8xp</code></td><td>Caller and callee share scalar/list/<code>Ans</code> state and return through the BASIC program evaluator.</td></tr>
@@ -3411,6 +3428,27 @@ page-38 statement evaluation. <strong>[confirmed]</strong></p>
 <p>The performance lesson is to separate graph data from graph drawing. Keep edge
 lists and traversal state in lists, but convert them to pixels in a single draw
 phase instead of interleaving traversal, display, and recalculation.</p>
+<p><code>GRAPHLST.8xp</code> makes that separation explicit. It stores edge endpoint
+coordinates in <code>L1</code>-<code>L4</code> and node centers in <code>L5</code>/<code>L6</code>, then draws edges and
+nodes with loops:</p>
+<pre><code class="language-ti-basic">{10,10,35}-&gt;L1
+{44,44,54}-&gt;L2
+{35,35,55}-&gt;L3
+{54,14,29}-&gt;L4
+{10,35,35,55}-&gt;L5
+{44,54,14,29}-&gt;L6
+For(I,1,3)
+Line(L1(I),L2(I),L3(I),L4(I))
+End
+For(I,1,4)
+Circle(L5(I),L6(I),3)
+End
+</code></pre>
+<p>Observed run: <code>GRAPHLST.8xp</code> renders the same four-node topology as
+<code>GRAPHDFS.8xp</code>; the smoke runner checks the same node and edge crop regions.
+The trace additionally hits <code>list_var_index</code> and <code>_GetLToOP1</code>, proving that the
+draw arguments came through list element recall rather than hard-coded
+coordinates. <strong>[confirmed]</strong></p>
 <h3 id="basic-subprogram-calling-convention"><a class="header" href="#basic-subprogram-calling-convention">BASIC subprogram calling convention</a></h3>
 <p>Caller:</p>
 <pre><code class="language-ti-basic">0-&gt;A
