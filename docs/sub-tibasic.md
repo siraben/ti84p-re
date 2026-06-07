@@ -484,9 +484,12 @@ ASMCALL: DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41
 prefix in `Asm(prgmASMRET)` is the program-name token `0x5F`, followed by the
 name characters and the closing `)` token. Observed run: loading `ASMCALL.8xp`
 and `ASMRET.8xp` displays `BEFORE`, executes `Asm(prgmASMRET)`, displays
-`AFTER`, and then `Done`. The trace shows the assembly handoff through
-`07:57B4` and execution of the payload byte itself at
-`ram:9D95 op=0x000000C9`, returning to BASIC immediately after.
+`AFTER`, and then `Done`. The trace shows the `Asm(` handler parse the
+`prgmASMRET` token stream, bcall `_ExecutePrgm` (`4E7C`, target `07:5758`),
+compile/copy the `AsmPrgm` body, hand off through `07:57B4`, and execute the
+payload byte itself at `ram:9D95 op=0x000000C9`, returning to BASIC immediately
+after. This `_ExecutePrgm` route is the ASM executor; it is not the ordinary
+BASIC `prgmNAME` subprogram path.
 
 ### Animation, graphing, and BASIC subprogram calls
 
@@ -533,7 +536,13 @@ Return
 Observed run: loading `CALLSUB.8xp` and `SUBRT.8xp` displays `SUB`, then `1`,
 then `Done`. This confirms the practical BASIC calling convention: caller and
 callee share variables, and `Return` resumes the caller. The trace hits VAT/name
-lookup, parser entry/refill paths, shared `A` store/recall, and `_Disp`.
+lookup, parser entry/refill paths, the program-body evaluator call at `38:6914`
+into `eval_eqn_recursive` (`38:778F`), shared `A` store/recall, and `_Disp`.
+
+The ordinary BASIC subprogram path is separate from `Asm(`. In the validated
+trace it does not hit `_ParsePrgmName`, `_ExecutePrgm`, `_Find_Parse_Formula`,
+or `_SetParseVarProg`; it uses the page-38 parser/VAT/body evaluator path and
+then returns to the caller through BASIC's own `Return` handling.
 
 ```ti-basic
 {5,4,3,2,1}->L1
