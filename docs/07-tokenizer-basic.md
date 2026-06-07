@@ -87,6 +87,7 @@ for observed outputs and trace anchors.
 | Animation | `ClrHome` / `For(I,1,8)` / `Output(1,I,"X")` / `End` / `Disp "DONE"` | `E1 3F D3 49 2B 31 2B 38 11 3F E0 31 2B 49 2B 2A 58 2A 11 3F D4 3F DE 2A 44 4F 4E 45 2A 3F` |
 | Graph drawing | `ClrDraw` / `Line(0,0,95,63)` / `Circle(47,31,10)` / `Text(0,0,"DFS")` / `DispGraph` | `85 3F 9C 30 2B 30 2B 39 35 2B 36 33 11 3F A5 34 37 2B 33 31 2B 31 30 11 3F 93 30 2B 30 2B 2A 44 46 53 2A 11 3F DF 3F` |
 | BASIC subprogram | `0->A` / `prgmSUBRT` / `Disp A`; callee `Disp "SUB"` / `A+1->A` / `Return` | caller `30 04 41 3F 5F 53 55 42 52 54 3F DE 41 3F`; callee `DE 2A 53 55 42 2A 3F 41 70 31 04 41 3F D5 3F` |
+| Big integer add | list digits in `L1`/`L2`, carry `C`, indexed stores into `L3` | `08 35 2B 34 ... DE 5D 02 10 36 11 3F` (full body in `tools/tibasic-samples/bigadd.tok`) |
 
 These examples show the main token categories the parser must walk:
 statement separators (`3F`), string delimiters (`2A`), store (`04`), list names
@@ -94,8 +95,9 @@ statement separators (`3F`), string delimiters (`2A`), store (`04`), list names
 `AsmPrgm` = `BB 6C`), and command tokens such as `Prompt` (`DD`), `Disp` (`DE`),
 `For(` (`D3`), `End` (`D4`), `ClrHome` (`E1`), and `SortA(` (`E3`). The
 newer samples add `Output(` (`E0`), graph commands (`85`, `93`, `9C`, `A5`,
-`DF`), `Return` (`D5`), and the program-name token (`5F`) before the name
-characters. [confirmed token bytes from `ti83plus.inc` and
+`DF`), `Return` (`D5`), list indexing with `(` (`10`) / `)` (`11`), `int(`
+(`B1`), arithmetic operators (`70`, `71`, `82`, `83`), and the program-name
+token (`5F`) before the name characters. [confirmed token bytes from `ti83plus.inc` and
 `token-tables.md`]
 
 ## Second-byte tables

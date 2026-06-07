@@ -14,13 +14,16 @@ T = {
     "store": 0x04,
     "lbrace": 0x08,
     "rbrace": 0x09,
+    "lparen": 0x10,
     "rparen": 0x11,
     "string": 0x2A,
     "comma": 0x2B,
     "enter": 0x3F,
     "space": 0x29,
     "add": 0x70,
+    "sub": 0x71,
     "mul": 0x82,
+    "div": 0x83,
     "0": 0x30,
     "1": 0x31,
     "2": 0x32,
@@ -60,7 +63,9 @@ T = {
     "text": 0x93,
     "line": 0x9C,
     "circle": 0xA5,
+    "int": 0xB1,
     "sum": 0xB6,
+    "if": 0xCE,
     "for": 0xD3,
     "end": 0xD4,
     "return": 0xD5,
@@ -176,6 +181,39 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
             T["disp"], T["A"], T["enter"],
         ],
     ),
+    "bigadd": (
+        "{5,4,3,2,1}->L1\n"
+        "{5,6,7,8,9}->L2\n"
+        "{0,0,0,0,0,0}->L3\n"
+        "0->C\n"
+        "For(I,1,5)\n"
+        "L1(I)+L2(I)+C->S\n"
+        "int(S/10)->C\n"
+        "S-10*C->L3(I)\n"
+        "End\n"
+        "C->L3(6)\n"
+        "Disp L3\n"
+        "Disp L3(6)",
+        [
+            T["lbrace"], T["5"], T["comma"], T["4"], T["comma"], T["3"], T["comma"],
+            T["2"], T["comma"], T["1"], T["rbrace"], T["store"], T["varlst"], 0x00, T["enter"],
+            T["lbrace"], T["5"], T["comma"], T["6"], T["comma"], T["7"], T["comma"],
+            T["8"], T["comma"], T["9"], T["rbrace"], T["store"], T["varlst"], 0x01, T["enter"],
+            T["lbrace"], T["0"], T["comma"], T["0"], T["comma"], T["0"], T["comma"],
+            T["0"], T["comma"], T["0"], T["comma"], T["0"], T["rbrace"], T["store"], T["varlst"], 0x02, T["enter"],
+            T["0"], T["store"], T["C"], T["enter"],
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["5"], T["rparen"], T["enter"],
+            T["varlst"], 0x00, T["lparen"], T["I"], T["rparen"], T["add"],
+            T["varlst"], 0x01, T["lparen"], T["I"], T["rparen"], T["add"], T["C"], T["store"], T["S"], T["enter"],
+            T["int"], T["S"], T["div"], T["1"], T["0"], T["rparen"], T["store"], T["C"], T["enter"],
+            T["S"], T["sub"], T["1"], T["0"], T["mul"], T["C"], T["store"],
+            T["varlst"], 0x02, T["lparen"], T["I"], T["rparen"], T["enter"],
+            T["end"], T["enter"],
+            T["C"], T["store"], T["varlst"], 0x02, T["lparen"], T["6"], T["rparen"], T["enter"],
+            T["disp"], T["varlst"], 0x02, T["enter"],
+            T["disp"], T["varlst"], 0x02, T["lparen"], T["6"], T["rparen"], T["enter"],
+        ],
+    ),
 }
 
 PROGRAM_NAMES = {
@@ -188,6 +226,7 @@ PROGRAM_NAMES = {
     "graphviz": "GRAPHV",
     "subrt": "SUBRT",
     "callsub": "CALLSUB",
+    "bigadd": "BIGADD",
 }
 
 
