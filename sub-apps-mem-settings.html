@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-fb71871e.js";
+            window.path_to_searchindex_js = "searchindex-0b80e939.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5397aae8.js"></script>
@@ -228,6 +228,9 @@ choose payload bytes that also decode as Z80. <strong>[standard]</strong></p>
 <p>External sample check (not ROM evidence): the local Axe Parser <code>Axe.8xk</code> sample decodes to
 a base page whose <code>020D</code> date-stamp-signature field starts at <code>4027</code> and has a 64-byte
 payload. Part of that payload is a Z80 helper at <code>4037</code>:</p>
+<p><a href="https://github.com/ti-kid">ti-kid</a> identified this Axe header case and published an annotated decode in
+<a href="https://github.com/ti-kid/Hatchet-Compiler/blob/master/Axe0_annotated.asm#L160">Hatchet-Compiler</a>;
+the local decode below uses that lead and verifies it against the extracted <code>Axe.8xk</code> bytes.</p>
 <pre><code class="language-z80">4037  POP AF
 4038  POP BC
 4039  POP DE
