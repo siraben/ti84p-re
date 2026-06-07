@@ -59,6 +59,7 @@ T = {
     "Y": 0x59,
     "varlst": 0x5D,
     "prog": 0x5F,
+    "eq": 0x6A,
     "clrdraw": 0x85,
     "text": 0x93,
     "line": 0x9C,
@@ -66,6 +67,8 @@ T = {
     "int": 0xB1,
     "sum": 0xB6,
     "if": 0xCE,
+    "then": 0xCF,
+    "while": 0xD1,
     "for": 0xD3,
     "end": 0xD4,
     "return": 0xD5,
@@ -214,6 +217,55 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
             T["disp"], T["varlst"], 0x02, T["lparen"], T["6"], T["rparen"], T["enter"],
         ],
     ),
+    "dfs": (
+        "{1,1,2}->L1\n"
+        "{2,3,4}->L2\n"
+        "{0,0,0,0}->L3\n"
+        "{1,0,0,0}->L4\n"
+        "1->P\n"
+        "While P\n"
+        "L4(P)->V\n"
+        "P-1->P\n"
+        "If L3(V)=0\n"
+        "Then\n"
+        "1->L3(V)\n"
+        "Disp V\n"
+        "For(E,1,3)\n"
+        "If L1(E)=V\n"
+        "Then\n"
+        "P+1->P\n"
+        "L2(E)->L4(P)\n"
+        "End\n"
+        "End\n"
+        "End\n"
+        "End\n"
+        "Disp L3",
+        [
+            T["lbrace"], T["1"], T["comma"], T["1"], T["comma"], T["2"], T["rbrace"], T["store"], T["varlst"], 0x00, T["enter"],
+            T["lbrace"], T["2"], T["comma"], T["3"], T["comma"], T["4"], T["rbrace"], T["store"], T["varlst"], 0x01, T["enter"],
+            T["lbrace"], T["0"], T["comma"], T["0"], T["comma"], T["0"], T["comma"], T["0"], T["rbrace"], T["store"], T["varlst"], 0x02, T["enter"],
+            T["lbrace"], T["1"], T["comma"], T["0"], T["comma"], T["0"], T["comma"], T["0"], T["rbrace"], T["store"], T["varlst"], 0x03, T["enter"],
+            T["1"], T["store"], T["P"], T["enter"],
+            T["while"], T["P"], T["enter"],
+            T["varlst"], 0x03, T["lparen"], T["P"], T["rparen"], T["store"], T["V"], T["enter"],
+            T["P"], T["sub"], T["1"], T["store"], T["P"], T["enter"],
+            T["if"], T["varlst"], 0x02, T["lparen"], T["V"], T["rparen"], T["eq"], T["0"], T["enter"],
+            T["then"], T["enter"],
+            T["1"], T["store"], T["varlst"], 0x02, T["lparen"], T["V"], T["rparen"], T["enter"],
+            T["disp"], T["V"], T["enter"],
+            T["for"], T["E"], T["comma"], T["1"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["if"], T["varlst"], 0x00, T["lparen"], T["E"], T["rparen"], T["eq"], T["V"], T["enter"],
+            T["then"], T["enter"],
+            T["P"], T["add"], T["1"], T["store"], T["P"], T["enter"],
+            T["varlst"], 0x01, T["lparen"], T["E"], T["rparen"], T["store"],
+            T["varlst"], 0x03, T["lparen"], T["P"], T["rparen"], T["enter"],
+            T["end"], T["enter"],
+            T["end"], T["enter"],
+            T["end"], T["enter"],
+            T["end"], T["enter"],
+            T["disp"], T["varlst"], 0x02, T["enter"],
+        ],
+    ),
 }
 
 PROGRAM_NAMES = {
@@ -227,6 +279,7 @@ PROGRAM_NAMES = {
     "subrt": "SUBRT",
     "callsub": "CALLSUB",
     "bigadd": "BIGADD",
+    "dfs": "DFS",
 }
 
 

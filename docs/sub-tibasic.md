@@ -556,6 +556,37 @@ Observed run: `BIGADD.8xp` displays the low-end digits of `L3` as
 `list_var_index`, `_AdrLEle`, `_GetLToOP1`, `_PutToL`, `store_list_elem*`,
 `fnint_body`, `_FPDiv`, `_FPAdd`, `_FPSub`, and `_FPMult`.
 
+```ti-basic
+{1,1,2}->L1
+{2,3,4}->L2
+{0,0,0,0}->L3
+{1,0,0,0}->L4
+1->P
+While P
+L4(P)->V
+P-1->P
+If L3(V)=0
+Then
+1->L3(V)
+Disp V
+For(E,1,3)
+If L1(E)=V
+Then
+P+1->P
+L2(E)->L4(P)
+End
+End
+End
+End
+Disp L3
+```
+
+Observed run: `DFS.8xp` displays traversal `1`, `3`, `2`, `4`, then visited
+flags `{1 1 1 1}`, then `Done`. The trace hits nested control-flow scanners
+(`blockmatch_end_else`, `parse_scan_tokens`, `if_isg_stmt_handler`), parser
+refill/advance, and list stack read/write paths (`list_var_index`, `_AdrLEle`,
+`_GetLToOP1`, `_PutToL`, `store_list_elem*`).
+
 See [TI-BASIC programming patterns](sub-tibasic-programming.md) for performance
 rules and larger source-level examples.
 
