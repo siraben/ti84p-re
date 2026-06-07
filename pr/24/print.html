@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6d8c662f.js";
+            window.path_to_searchindex_js = "searchindex-c65c53cd.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -2777,6 +2777,14 @@ into <code>eval_eqn_recursive</code> (<code>38:778F</code>), shared <code>A</cod
 trace it does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <code>_Find_Parse_Formula</code>,
 or <code>_SetParseVarProg</code>; it uses the page-38 parser/VAT/body evaluator path and
 then returns to the caller through BASIC’s own <code>Return</code> handling.</p>
+<p>The relevant page-38 evaluator transition is private state, not a bcall ABI:
+<code>stmt_eval_body_entry</code> (<code>38:6910</code>) calls the token scanner, then
+<code>call_eval_eqn_recursive</code> (<code>38:6914</code>) directly calls <code>eval_eqn_recursive</code>
+(<code>38:778F</code>). At the first observed hit in the <code>CALLSUB</code> trace, the parser
+cursor/end, OPS/temp-stack pointers, OP1, stack depth, and IY parser flags are
+already live. This is why an <code>AsmPrgm</code> can successfully <code>_ChkFindSym</code> a BASIC
+program name, but the tested <code>_Find_Parse_Formula</code> probe still reaches
+<code>ERR:UNDEFINED</code> instead of running that program.</p>
 <pre><code class="language-ti-basic">{5,4,3,2,1}-&gt;L1
 {5,6,7,8,9}-&gt;L2
 {0,0,0,0,0,0}-&gt;L3
@@ -3185,6 +3193,22 @@ parser/VAT path, enters the program-body evaluator at <code>38:6914</code> -&gt;
 from arbitrary ASM requires more than loading OP1 and bcalling a single public
 entry; it needs the same parser cursor, stack, error, and run-state setup that a
 live BASIC caller already has. <strong>[hypothesis]</strong></p>
+<p>Two temporary ASM probes make the boundary sharper. An <code>AsmPrgm</code> payload that
+builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code> (<code>42F1</code>) returns to
+the BASIC wrapper, proving that a payload can locate a BASIC program by name:</p>
+<pre><code class="language-asm">ld hl,name
+ld de,8478h        ; OP1
+ld bc,0009h
+ldir
+rst 28h
+.dw 42F1h          ; _ChkFindSym
+ret
+name: .db 05h,"ZZBASIC",00h
+</code></pre>
+<p>Changing only the bcall to <code>_Find_Parse_Formula</code> (<code>4AF2</code>) enters <code>38:758A</code> and
+then stops at <code>ERR:UNDEFINED</code>; the <code>ZZBASIC</code> body never displays. That failed
+run confirms <code>_Find_Parse_Formula</code> is not a drop-in BASIC program executor from
+an arbitrary <code>AsmPrgm</code> context. <strong>[confirmed]</strong></p>
 <p>The current open item is therefore precise: trace a small ASM payload that
 successfully invokes a BASIC program, identify the required parser/VAT/error
 state, and compare it to both confirmed paths: <code>Asm(</code> -&gt; <code>_ExecutePrgm</code> -&gt;
@@ -7978,7 +8002,7 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 <h2 id="still-open"><a class="header" href="#still-open">Still open</a></h2>
 <ol start="13">
 <li><strong>Enum equates.</strong> Apply <code>TIKeyCode</code>/<code>TIError</code>/<code>TIVarType</code> to scalar operands in the relevant handlers (conservative, scoped).</li>
-<li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), the <code>Asm(</code>/<code>AsmPrgm</code> compile/setup body before the traced payload handoff (<code>ram:9D95 op=0xC9</code> is confirmed), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
+<li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), the <code>Asm(</code>/<code>AsmPrgm</code> compile/setup body before the traced payload handoff (<code>ram:9D95 op=0xC9</code> is confirmed), ASM-initiated BASIC program execution beyond VAT lookup (<code>_ChkFindSym</code> works from <code>AsmPrgm</code>; <code>_Find_Parse_Formula</code> fails with <code>ERR:UNDEFINED</code>; no public bcall sequence is proven), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
 <li><strong><code>0x8xxx</code> bcall bodies / dispatch table.</strong> The 84+-era <code>0x8xxx</code> bcall <em>names</em> are now canonical equates (item 6), but their bodies are not present as functions in the live Ghidra DB: the <code>0x8xxx</code> dispatch table and its page-0x3F loader are not modeled, so each ID→(page, addr) mapping is unresolved. Model the <code>0x8xxx</code> table and locate the bodies — e.g. <code>_WriteAByte 8021</code>, <code>_FlashToRam2 8054</code>, <code>_getHardwareVersion 80BA</code>. See <a href="#03--the-bcall-system-call-mechanism">03</a>.</li>
 </ol>
 <h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6d8c662f.js";
+            window.path_to_searchindex_js = "searchindex-c65c53cd.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -662,6 +662,14 @@ into <code>eval_eqn_recursive</code> (<code>38:778F</code>), shared <code>A</cod
 trace it does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <code>_Find_Parse_Formula</code>,
 or <code>_SetParseVarProg</code>; it uses the page-38 parser/VAT/body evaluator path and
 then returns to the caller through BASIC’s own <code>Return</code> handling.</p>
+<p>The relevant page-38 evaluator transition is private state, not a bcall ABI:
+<code>stmt_eval_body_entry</code> (<code>38:6910</code>) calls the token scanner, then
+<code>call_eval_eqn_recursive</code> (<code>38:6914</code>) directly calls <code>eval_eqn_recursive</code>
+(<code>38:778F</code>). At the first observed hit in the <code>CALLSUB</code> trace, the parser
+cursor/end, OPS/temp-stack pointers, OP1, stack depth, and IY parser flags are
+already live. This is why an <code>AsmPrgm</code> can successfully <code>_ChkFindSym</code> a BASIC
+program name, but the tested <code>_Find_Parse_Formula</code> probe still reaches
+<code>ERR:UNDEFINED</code> instead of running that program.</p>
 <pre><code class="language-ti-basic">{5,4,3,2,1}-&gt;L1
 {5,6,7,8,9}-&gt;L2
 {0,0,0,0,0,0}-&gt;L3

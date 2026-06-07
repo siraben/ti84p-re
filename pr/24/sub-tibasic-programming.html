@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6d8c662f.js";
+            window.path_to_searchindex_js = "searchindex-c65c53cd.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -374,6 +374,22 @@ parser/VAT path, enters the program-body evaluator at <code>38:6914</code> -&gt;
 from arbitrary ASM requires more than loading OP1 and bcalling a single public
 entry; it needs the same parser cursor, stack, error, and run-state setup that a
 live BASIC caller already has. <strong>[hypothesis]</strong></p>
+<p>Two temporary ASM probes make the boundary sharper. An <code>AsmPrgm</code> payload that
+builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code> (<code>42F1</code>) returns to
+the BASIC wrapper, proving that a payload can locate a BASIC program by name:</p>
+<pre><code class="language-asm">ld hl,name
+ld de,8478h        ; OP1
+ld bc,0009h
+ldir
+rst 28h
+.dw 42F1h          ; _ChkFindSym
+ret
+name: .db 05h,"ZZBASIC",00h
+</code></pre>
+<p>Changing only the bcall to <code>_Find_Parse_Formula</code> (<code>4AF2</code>) enters <code>38:758A</code> and
+then stops at <code>ERR:UNDEFINED</code>; the <code>ZZBASIC</code> body never displays. That failed
+run confirms <code>_Find_Parse_Formula</code> is not a drop-in BASIC program executor from
+an arbitrary <code>AsmPrgm</code> context. <strong>[confirmed]</strong></p>
 <p>The current open item is therefore precise: trace a small ASM payload that
 successfully invokes a BASIC program, identify the required parser/VAT/error
 state, and compare it to both confirmed paths: <code>Asm(</code> -&gt; <code>_ExecutePrgm</code> -&gt;
