@@ -4,18 +4,18 @@ TI-BASIC programs are stored as **tokens**, not text: every command, function, a
 
 ## Token encoding [confirmed]
 
-- Most tokens are **one byte** (`tStore`=0x04, `tBoxPlot`=0x05, operators, digits, letters, common commands). Modeled as the `TIToken` enum, which carries 608 members as built into the current Ghidra database from the `t`-prefixed equates of `ti83plus.inc`.
+- Most tokens are **one byte** (`tStore`=0x04, `tBoxPlot`=0x05, operators, digits, letters, common commands). The Ghidra database models the byte values as the `TIToken` enum, built from the `t`-prefixed equates in `ti83plus.inc`.
 - Some bytes are **lead bytes** of a **two-byte token**: the first byte selects a *table*, the second byte the entry.
 
 ### The 2-byte lead-byte set [confirmed]
 
-`_IsA2ByteTok` (`00:1FE8`) scans an 11-byte table at `ram:1FF6` to decide if a byte starts a 2-byte token. The bytes are:
+`_IsA2ByteTok` (`ram:1FE8`) scans an 11-byte table at `ram:1FF6` to decide if a byte starts a 2-byte token. The bytes are:
 
 | Byte | Meaning (.inc) |
 |------|----------------|
 | `5C` | `tVarMat` — matrix name (`[A]`…) |
 | `5D` | `tVarLst` — list name (`L1`…) |
-| `5E` | equation/var-out token group |
+| `5E` | `tVarEqu` — equation variable (`Y1`, `r1`, …) |
 | `60` | `tVarPict` — picture |
 | `61` | `tVarGDB` — graph database |
 | `62` | `tVarOut` — Y-vars / output |
@@ -28,7 +28,7 @@ TI-BASIC programs are stored as **tokens**, not text: every command, function, a
 So e.g. `5D 00` = list `L1`; `BB xx` = an extended command. The second byte indexes that group's name/handler table. (String variables `Str1`–`Str0` use lead `AA`; they are a **distinct VAT object type** holding tokenized text — see [Strings](05-variables-vat.md#strings-str1str0--a-distinct-object-type-confirmed).)
 
 ## Detokenize / token length [confirmed]
-- `_GetTokLen` (`01:66E5`) returns 1 or 2 for the token at HL (via helper `smallfont_glyph_ptr` (`01:6702`)).
+- `_GetTokLen` (`01:66E5`) returns the length of the detokenized display string for the token at HL: it calls `smallfont_glyph_ptr` (`01:6702`) to resolve the token's string pointer, then reads the leading length byte (`LD A,(HL)`). It is `_IsA2ByteTok`, not `_GetTokLen`, that tests 1-byte vs 2-byte encoding.
 - `_Get_Tok_Strng` (`01:66EA`) returns the display string for a token (used by the program editor and `Disp`).
 
 ## Parser / interpreter [located — page 0x38]
@@ -45,7 +45,7 @@ The expression parser/evaluator lives on **flash page 0x38**. Entry points:
   running the named BASIC target. **[confirmed negative probe]**
 - `parse_init` (`38:5b7b`) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). **[confirmed]**
 
-The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine ([06](06-floating-point.md)), variable tokens resolve via the VAT ([05](05-variables-vat.md)), and the busy indicator is driven by `_RunIndicOn`/`Off`. `_BinOPExec` applies a binary operator via OP1/OP2.
+The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine ([06](06-floating-point.md)), variable tokens resolve via the VAT ([05](05-variables-vat.md)), and the busy indicator is driven by `_RunIndicOn` / `_RunIndicOff`. `_BinOPExec` applies a binary operator via OP1/OP2.
 
 ### The handler dispatch table [confirmed]
 
@@ -62,7 +62,7 @@ The first handlers: `page_38:419F, 45F0, 421C, …`.
 
 The evaluator walks the token stream via a cursor in RAM: `parsePtr` (`0x965D` = official `nextParseByte`, current position) and `parseEnd` (`0x965F` = `basic_end`, end). Named helpers on page 0x38:
 - `parse_cur_tok` (`38:72DA`) — fetch the token at the cursor.
-- `parse_advance` (`38:7248`) — `parsePtr++` and bounds-check vs `parseEnd`.
+- `parse_advance` (`38:7248`) — `parsePtr++` (advances the cursor and reloads `BC` from it). The bounds/refill check is the adjacent entry `38:7245`, which calls `0x1FD6` before falling into the increment.
 - `parse_expect_or_err` (`38:5CD8`) — fetch a token and raise `_ErrSyntax` (recording the position in `parsePtr`) if it isn't the expected one.
 
 So the dispatch loop is: `parse_cur_tok` → index the pointer table at `page_38:4000` and call the selected handler (which may consume args via `parse_advance`) → repeat.
