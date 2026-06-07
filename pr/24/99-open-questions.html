@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-aa58f43f.js";
+            window.path_to_searchindex_js = "searchindex-e8b490c5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -199,7 +199,7 @@
 <h2 id="still-open"><a class="header" href="#still-open">Still open</a></h2>
 <ol start="13">
 <li><strong>Enum equates.</strong> Apply <code>TIKeyCode</code>/<code>TIError</code>/<code>TIVarType</code> to scalar operands in the relevant handlers (conservative, scoped).</li>
-<li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), the <code>Asm(</code>/<code>AsmPrgm</code> compile/setup body before the traced payload handoff (<code>ram:9D95 op=0xC9</code> is confirmed), ASM-initiated BASIC program execution beyond VAT lookup (<code>_ChkFindSym</code> works from <code>AsmPrgm</code>; <code>_Find_Parse_Formula</code> fails with <code>ERR:UNDEFINED</code>; no public bcall sequence is proven), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
+<li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), the <code>Asm(</code>/<code>AsmPrgm</code> compile/setup body before the traced payload handoff (<code>ram:9D95 op=0xC9</code> is confirmed), ASM-initiated BASIC program execution beyond VAT lookup (<code>_ChkFindSym</code> works from <code>AsmPrgm</code>; <code>_Find_Parse_Formula</code> fails with <code>ERR:UNDEFINED</code>; <code>_JForceCmd</code> abandons the caller stack; <code>_PutTokString</code>/<code>_rclToQueue</code> are edit-buffer paths, not proven program-call entries), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
 <li><strong><code>0x8xxx</code> bcall bodies / dispatch table.</strong> The 84+-era <code>0x8xxx</code> bcall <em>names</em> are now canonical equates (item 6), but their bodies are not present as functions in the live Ghidra DB: the <code>0x8xxx</code> dispatch table and its page-0x3F loader are not modeled, so each ID→(page, addr) mapping is unresolved. Model the <code>0x8xxx</code> table and locate the bodies — e.g. <code>_WriteAByte 8021</code>, <code>_FlashToRam2 8054</code>, <code>_getHardwareVersion 80BA</code>. See <a href="03-bcall-mechanism.html">03</a>.</li>
 </ol>
 <h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>

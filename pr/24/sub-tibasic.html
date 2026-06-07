@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-aa58f43f.js";
+            window.path_to_searchindex_js = "searchindex-e8b490c5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -688,6 +688,17 @@ cursor/end, OPS/temp-stack pointers, OP1, stack depth, and IY parser flags are
 already live. This is why an <code>AsmPrgm</code> can successfully <code>_ChkFindSym</code> a BASIC
 program name, but the tested <code>_Find_Parse_Formula</code> probe still reaches
 <code>ERR:UNDEFINED</code> instead of running that program.</p>
+<p>The forced-command/edit-buffer path is another boundary, not an ABI. A temporary
+<code>AsmPrgm</code> that calls <code>_JForceCmd(kEnter)</code> reaches <code>_JForceCmd</code> (<code>00:0747</code>) but
+does not return to the BASIC wrapper; the final screen repeats the wrapper’s
+first line and <code>Done</code> instead of reaching the wrapper’s following statement.
+The reason is visible in page-0 disassembly: <code>_JForceCmd</code> reloads <code>SP</code> from the
+OS command-loop state at <code>85BC</code>. A second payload that calls <code>_PutTokString</code>
+(<code>06:46FD</code>) for the bytes of <code>prgmZZBASIC</code> returns to BASIC, but only
+renders/inserts token text; combining <code>_PutTokString</code> with <code>_JForceCmd</code> still
+never displays the target program’s <code>CALLED</code> line. <code>_rclToQueue</code> (<code>06:5F29</code>) is
+an edit-buffer queue helper guarded by <code>rclFlag.enableQueue</code>, not a standalone
+program executor.</p>
 <pre><code class="language-ti-basic">{5,4,3,2,1}-&gt;L1
 {5,6,7,8,9}-&gt;L2
 {0,0,0,0,0,0}-&gt;L3

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-aa58f43f.js";
+            window.path_to_searchindex_js = "searchindex-e8b490c5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -407,7 +407,7 @@ validate inputs on the BASIC side, and make the ASM payload return normally with
 <tr><td>BASIC -&gt; ASM</td><td><code>Asm(prgmNAME)</code> parses <code>prgmNAME</code>, bcalls <code>_ExecutePrgm</code>, copies the <code>AsmPrgm</code> payload, then jumps through <code>ram:9D95</code>.</td><td>The payload runs in the calculator OS process; a bad payload can corrupt interpreter state.</td></tr>
 <tr><td>BASIC -&gt; BASIC</td><td><code>prgmNAME</code> enters the page-38 parser/VAT/body evaluator path and <code>Return</code> resumes the caller.</td><td>There is no local frame; variables are shared.</td></tr>
 <tr><td>ASM -&gt; VAT lookup</td><td>An <code>AsmPrgm</code> can build <code>OP1={ProgObj,"NAME"}</code> and bcall <code>_ChkFindSym</code>.</td><td>Lookup is not execution.</td></tr>
-<tr><td>ASM -&gt; BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>_Find_Parse_Formula</code> from an arbitrary <code>AsmPrgm</code> context reached <code>ERR:UNDEFINED</code>.</td></tr>
+<tr><td>ASM -&gt; BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>_Find_Parse_Formula</code> reached <code>ERR:UNDEFINED</code>; forced-command/edit-buffer probes did not call the target BASIC program.</td></tr>
 </tbody>
 </table>
 </div>
@@ -444,11 +444,34 @@ name: .db 05h,"ZZBASIC",00h
 then stops at <code>ERR:UNDEFINED</code>; the <code>ZZBASIC</code> body never displays. That failed
 run confirms <code>_Find_Parse_Formula</code> is not a drop-in BASIC program executor from
 an arbitrary <code>AsmPrgm</code> context. <strong>[confirmed]</strong></p>
+<p>The homescreen command/edit-buffer route is also not a safe callable ABI. A
+temporary payload that did only:</p>
+<pre><code class="language-asm">ld a,05h          ; kEnter
+rst 28h
+.dw 402Ah         ; _JForceCmd
+ret
+</code></pre>
+<p>entered <code>_JForceCmd</code> (<code>00:0747</code>) but never returned to the BASIC wrapper’s
+<code>Disp "AFTER"</code> statement. The final screen showed repeated <code>BEFORE</code>/<code>Done</code>
+lines, and the trace hit <code>ram:0747</code> and <code>ram:9D95</code> repeatedly. The disassembly
+explains why: <code>_JForceCmd</code> reloads <code>SP</code> from <code>85BC</code> before dispatching the
+forced key, discarding the <code>AsmPrgm</code> caller’s stack. <strong>[confirmed]</strong></p>
+<p>Two edit-buffer variants narrow that path further. A payload that bcalls
+<code>_PutTokString</code> (<code>4960</code>, target <code>06:46FD</code>) for the token bytes
+<code>5F 5A 5A 42 41 53 49 43</code> (<code>prgmZZBASIC</code>) returns to the wrapper and reaches
+<code>Disp "AFTER"</code>, but it only renders/inserts token text; <code>ZZBASIC</code> does
+not run. Combining those <code>_PutTokString</code> calls with <code>_JForceCmd(kEnter)</code> hits
+both <code>_PutTokString</code> and <code>_JForceCmd</code>, then repeats the wrapper/inserted text
+through the command loop; it still never displays <code>CALLED</code> from <code>ZZBASIC</code>.
+<code>_rclToQueue</code> (<code>49B4</code>, target <code>06:5F29</code>) is a related editor queue helper, but
+its ROM path depends on an already-open edit buffer (<code>editCursor</code>/<code>editTail</code>)
+and the <code>rclFlag.enableQueue</code> state; it does not create a BASIC program call
+frame. <strong>[confirmed probes; <code>_rclToQueue</code> role from disassembly]</strong></p>
 <p>The current open item is therefore precise: trace a small ASM payload that
 successfully invokes a BASIC program, identify the required parser/VAT/error
-state, and compare it to both confirmed paths: <code>Asm(</code> -&gt; <code>_ExecutePrgm</code> -&gt;
-<code>ram:9D95</code>, and BASIC <code>prgmNAME</code> -&gt; <code>38:6914</code>/<code>38:778F</code> program-body
-evaluation.</p>
+state, and compare it to the rejected public routes above plus both confirmed
+paths: <code>Asm(</code> -&gt; <code>_ExecutePrgm</code> -&gt; <code>ram:9D95</code>, and BASIC <code>prgmNAME</code> -&gt;
+<code>38:6914</code>/<code>38:778F</code> program-body evaluation.</p>
 
                     </main>
 

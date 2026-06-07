@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-aa58f43f.js";
+            window.path_to_searchindex_js = "searchindex-e8b490c5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -2804,6 +2804,17 @@ cursor/end, OPS/temp-stack pointers, OP1, stack depth, and IY parser flags are
 already live. This is why an <code>AsmPrgm</code> can successfully <code>_ChkFindSym</code> a BASIC
 program name, but the tested <code>_Find_Parse_Formula</code> probe still reaches
 <code>ERR:UNDEFINED</code> instead of running that program.</p>
+<p>The forced-command/edit-buffer path is another boundary, not an ABI. A temporary
+<code>AsmPrgm</code> that calls <code>_JForceCmd(kEnter)</code> reaches <code>_JForceCmd</code> (<code>00:0747</code>) but
+does not return to the BASIC wrapper; the final screen repeats the wrapper’s
+first line and <code>Done</code> instead of reaching the wrapper’s following statement.
+The reason is visible in page-0 disassembly: <code>_JForceCmd</code> reloads <code>SP</code> from the
+OS command-loop state at <code>85BC</code>. A second payload that calls <code>_PutTokString</code>
+(<code>06:46FD</code>) for the bytes of <code>prgmZZBASIC</code> returns to BASIC, but only
+renders/inserts token text; combining <code>_PutTokString</code> with <code>_JForceCmd</code> still
+never displays the target program’s <code>CALLED</code> line. <code>_rclToQueue</code> (<code>06:5F29</code>) is
+an edit-buffer queue helper guarded by <code>rclFlag.enableQueue</code>, not a standalone
+program executor.</p>
 <pre><code class="language-ti-basic">{5,4,3,2,1}-&gt;L1
 {5,6,7,8,9}-&gt;L2
 {0,0,0,0,0,0}-&gt;L3
@@ -3245,7 +3256,7 @@ validate inputs on the BASIC side, and make the ASM payload return normally with
 <tr><td>BASIC -&gt; ASM</td><td><code>Asm(prgmNAME)</code> parses <code>prgmNAME</code>, bcalls <code>_ExecutePrgm</code>, copies the <code>AsmPrgm</code> payload, then jumps through <code>ram:9D95</code>.</td><td>The payload runs in the calculator OS process; a bad payload can corrupt interpreter state.</td></tr>
 <tr><td>BASIC -&gt; BASIC</td><td><code>prgmNAME</code> enters the page-38 parser/VAT/body evaluator path and <code>Return</code> resumes the caller.</td><td>There is no local frame; variables are shared.</td></tr>
 <tr><td>ASM -&gt; VAT lookup</td><td>An <code>AsmPrgm</code> can build <code>OP1={ProgObj,"NAME"}</code> and bcall <code>_ChkFindSym</code>.</td><td>Lookup is not execution.</td></tr>
-<tr><td>ASM -&gt; BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>_Find_Parse_Formula</code> from an arbitrary <code>AsmPrgm</code> context reached <code>ERR:UNDEFINED</code>.</td></tr>
+<tr><td>ASM -&gt; BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>_Find_Parse_Formula</code> reached <code>ERR:UNDEFINED</code>; forced-command/edit-buffer probes did not call the target BASIC program.</td></tr>
 </tbody>
 </table>
 </div>
@@ -3282,11 +3293,34 @@ name: .db 05h,"ZZBASIC",00h
 then stops at <code>ERR:UNDEFINED</code>; the <code>ZZBASIC</code> body never displays. That failed
 run confirms <code>_Find_Parse_Formula</code> is not a drop-in BASIC program executor from
 an arbitrary <code>AsmPrgm</code> context. <strong>[confirmed]</strong></p>
+<p>The homescreen command/edit-buffer route is also not a safe callable ABI. A
+temporary payload that did only:</p>
+<pre><code class="language-asm">ld a,05h          ; kEnter
+rst 28h
+.dw 402Ah         ; _JForceCmd
+ret
+</code></pre>
+<p>entered <code>_JForceCmd</code> (<code>00:0747</code>) but never returned to the BASIC wrapper’s
+<code>Disp "AFTER"</code> statement. The final screen showed repeated <code>BEFORE</code>/<code>Done</code>
+lines, and the trace hit <code>ram:0747</code> and <code>ram:9D95</code> repeatedly. The disassembly
+explains why: <code>_JForceCmd</code> reloads <code>SP</code> from <code>85BC</code> before dispatching the
+forced key, discarding the <code>AsmPrgm</code> caller’s stack. <strong>[confirmed]</strong></p>
+<p>Two edit-buffer variants narrow that path further. A payload that bcalls
+<code>_PutTokString</code> (<code>4960</code>, target <code>06:46FD</code>) for the token bytes
+<code>5F 5A 5A 42 41 53 49 43</code> (<code>prgmZZBASIC</code>) returns to the wrapper and reaches
+<code>Disp "AFTER"</code>, but it only renders/inserts token text; <code>ZZBASIC</code> does
+not run. Combining those <code>_PutTokString</code> calls with <code>_JForceCmd(kEnter)</code> hits
+both <code>_PutTokString</code> and <code>_JForceCmd</code>, then repeats the wrapper/inserted text
+through the command loop; it still never displays <code>CALLED</code> from <code>ZZBASIC</code>.
+<code>_rclToQueue</code> (<code>49B4</code>, target <code>06:5F29</code>) is a related editor queue helper, but
+its ROM path depends on an already-open edit buffer (<code>editCursor</code>/<code>editTail</code>)
+and the <code>rclFlag.enableQueue</code> state; it does not create a BASIC program call
+frame. <strong>[confirmed probes; <code>_rclToQueue</code> role from disassembly]</strong></p>
 <p>The current open item is therefore precise: trace a small ASM payload that
 successfully invokes a BASIC program, identify the required parser/VAT/error
-state, and compare it to both confirmed paths: <code>Asm(</code> -&gt; <code>_ExecutePrgm</code> -&gt;
-<code>ram:9D95</code>, and BASIC <code>prgmNAME</code> -&gt; <code>38:6914</code>/<code>38:778F</code> program-body
-evaluation.</p>
+state, and compare it to the rejected public routes above plus both confirmed
+paths: <code>Asm(</code> -&gt; <code>_ExecutePrgm</code> -&gt; <code>ram:9D95</code>, and BASIC <code>prgmNAME</code> -&gt;
+<code>38:6914</code>/<code>38:778F</code> program-body evaluation.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="variables-archive--unarchive"><a class="header" href="#variables-archive--unarchive">Variables, archive &amp; unarchive</a></h1>
 <p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
@@ -8075,7 +8109,7 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 <h2 id="still-open"><a class="header" href="#still-open">Still open</a></h2>
 <ol start="13">
 <li><strong>Enum equates.</strong> Apply <code>TIKeyCode</code>/<code>TIError</code>/<code>TIVarType</code> to scalar operands in the relevant handlers (conservative, scoped).</li>
-<li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), the <code>Asm(</code>/<code>AsmPrgm</code> compile/setup body before the traced payload handoff (<code>ram:9D95 op=0xC9</code> is confirmed), ASM-initiated BASIC program execution beyond VAT lookup (<code>_ChkFindSym</code> works from <code>AsmPrgm</code>; <code>_Find_Parse_Formula</code> fails with <code>ERR:UNDEFINED</code>; no public bcall sequence is proven), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
+<li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), the <code>Asm(</code>/<code>AsmPrgm</code> compile/setup body before the traced payload handoff (<code>ram:9D95 op=0xC9</code> is confirmed), ASM-initiated BASIC program execution beyond VAT lookup (<code>_ChkFindSym</code> works from <code>AsmPrgm</code>; <code>_Find_Parse_Formula</code> fails with <code>ERR:UNDEFINED</code>; <code>_JForceCmd</code> abandons the caller stack; <code>_PutTokString</code>/<code>_rclToQueue</code> are edit-buffer paths, not proven program-call entries), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
 <li><strong><code>0x8xxx</code> bcall bodies / dispatch table.</strong> The 84+-era <code>0x8xxx</code> bcall <em>names</em> are now canonical equates (item 6), but their bodies are not present as functions in the live Ghidra DB: the <code>0x8xxx</code> dispatch table and its page-0x3F loader are not modeled, so each ID→(page, addr) mapping is unresolved. Model the <code>0x8xxx</code> table and locate the bodies — e.g. <code>_WriteAByte 8021</code>, <code>_FlashToRam2 8054</code>, <code>_getHardwareVersion 80BA</code>. See <a href="#03--the-bcall-system-call-mechanism">03</a>.</li>
 </ol>
 <h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>
