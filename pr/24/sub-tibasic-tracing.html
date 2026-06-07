@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b72499ed.js";
+            window.path_to_searchindex_js = "searchindex-2c9eada3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -230,16 +230,17 @@ programs into calculator RAM first, then run the same macro and resolver steps.<
 </table>
 </div>
 <p>The visualization cases also enforce visible output by thresholding the final
-frame and comparing it with the first recorded frame. <code>ANIMTXT</code>, <code>GRAPHV</code>, and
-<code>GRAPHDFS</code> must contain at least 100, 100, and 200 dark pixels respectively,
-and must change by at least the same number of pixels from first to final frame.
-The smoke runner also checks named crop regions. Visual cases check home-screen
-text, graph labels, axes, circle arcs, and node/edge regions. Text/list cases
-check important final-screen lines such as <code>HELLO, WORLD</code>, factorial <code>120</code>,
-<code>DATA</code> list outputs, <code>BEFORE</code>/<code>CALLED</code>/<code>AFTER</code>, <code>SUB</code>, big-integer digit lists,
-and the DFS traversal/visited-list output. <code>ASMRTN</code> checks the displayed <code>5</code>,
-while <code>ABICALL</code> checks the scalar line, mutated list line, returned <code>Ans</code> line,
-and <code>Done</code>.</p>
+frame and comparing it with the first recorded frame. <code>ANIMTXT</code>, <code>GRAPHV</code>,
+<code>GRAPHDFS</code>, and <code>GRAPHLST</code> must contain at least 100, 100, 200, and 200 dark
+pixels respectively, and must change by at least the same number of pixels from
+first to final frame. <code>ANIMTXT</code> must also produce at least five distinct
+captured frames. The smoke runner also checks named crop regions. Visual cases
+check home-screen text, graph labels, axes, circle arcs, and node/edge regions.
+Text/list cases check important final-screen lines such as <code>HELLO, WORLD</code>,
+factorial <code>120</code>, <code>DATA</code> list outputs, <code>BEFORE</code>/<code>CALLED</code>/<code>AFTER</code>, <code>SUB</code>,
+big-integer digit lists, and the DFS traversal/visited-list output. <code>ASMRTN</code>
+checks the displayed <code>5</code>, while <code>ABICALL</code> checks the scalar line, mutated list
+line, returned <code>Ans</code> line, and <code>Done</code>.</p>
 <p>For the visual graph cases, the 2026-06-07 run measured 212, 619, 466, and 466
 dark pixels, with matching first-to-final pixel changes.</p>
 <h2 id="reading-the-evidence"><a class="header" href="#reading-the-evidence">Reading the evidence</a></h2>

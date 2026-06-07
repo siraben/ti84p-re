@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b72499ed.js";
+            window.path_to_searchindex_js = "searchindex-2c9eada3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -245,8 +245,10 @@ implicit-close/false-<code>If</code> interaction. <strong>[confirmed]</strong></
 negative probe trace. The visualization fixtures were rerun on 2026-06-07 and
 kept because they render visible output and pass first-to-final changed-pixel
 checks plus named crop-region checks for text, axes, circle arcs, nodes, and
-edges. The smoke runner also checks final-screen regions for the main text,
-list, ASM interop, arbitrary-precision, and DFS outputs. The full
+edges. <code>ANIMTXT</code> also has a distinct-frame threshold, so the animation fixture
+must show multiple captured LCD states rather than only a final still. The
+smoke runner also checks final-screen regions for the main text, list, ASM
+interop, arbitrary-precision, and DFS outputs. The full
 <code>tools/tibasic_smoke.py</code> suite also passed on 2026-06-07 against the current
 branch state.</p>
 <div class="table-wrapper">
