@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-43782694.js";
+            window.path_to_searchindex_js = "searchindex-3e8e10d5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-3181efee.js"></script>
@@ -5096,6 +5096,27 @@ this page instead: <code>683D</code> does <code>A = base; loop: add a,7</code> (
 and <code>6B1C</code> does <code>ld a,1Bh; … add a,7 (×n); add a,4</code> (<code>x_left = 0x1B + 7n</code>,
 <code>x_right = x_left + 4</code>). Trust <code>z80dasm</code> over the decompiler for these tight
 register-passing routines, as <a href="../README.html">the README</a> advises. [confirmed]</p>
+<h2 id="pixel-parity"><a class="header" href="#pixel-parity">Pixel parity</a></h2>
+<p>The <a href="../mathprint/index.html">interactive renderer</a> composes the ROM glyphs with
+the geometry above. <code>tools/parity-mathprint.py</code> types each example on the
+calculator, strips the blinking cursor from the capture, and diffs it against the
+renderer pixel-for-pixel:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Input</th><th>Match vs binary</th><th>Notes</th></tr>
+</thead>
+<tbody>
+<tr><td><code>1/2</code> (linear), <code>X^2</code>, <code>X^2+2X+1</code></td><td>100%</td><td>Inline text, operators, and exponents are exact. The exponent raise is 3 px.</td></tr>
+<tr><td><code>sqrt(X^2+1)</code></td><td>dimensions match (~81%)</td><td>The radicand and vinculum align; the residual is the stretched root-hook shape.</td></tr>
+<tr><td><code>int(1,2,X^2,X)</code></td><td>~86%, dimensions close</td><td>The <code>∫</code> is built as top hook · vertical stem · inverted bottom hook (<code>Lintegral</code> <code>0x08</code> with the stem row repeated) and spans body + both limits; the residual is body spacing.</td></tr>
+<tr><td><code>1//2</code> (n/d template)</td><td>capture-limited</td><td>The model stacks two 7-row digits over the rule; the LCD capture drops rows to gray-dither during refresh, so it under-measures.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Inline layouts reproduce the calculator exactly. The tall templates match in
+extent; closing the last pixels means reproducing the OS’s exact glyph-stretch
+for the <code>∫</code> curve and the <code>Lroot</code> hook. [confirmed]</p>
 <h2 id="remaining-detail"><a class="header" href="#remaining-detail">Remaining detail</a></h2>
 <p>The static MathPrint pipeline is recovered: token classification, handler records,
 recursive operand order, descriptor templates, fraction UI geometry, fixed structural

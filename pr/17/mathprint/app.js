@@ -5,14 +5,14 @@
 //
 // Geometry constants are the ROM-confirmed ones:
 //   large glyph: 5 px wide, 7 rows, 1 px advance gap  (07:45FF)
-//   exponent raise: 4 px        (eqdisp_set_row_for_tok, raise_px=4)
+//   exponent raise: 3 px        (eqdisp_set_row_for_tok; pixel-matched vs binary)
 //   fraction column unit: 7 px  (683D cell-to-pixel mapper, x = base + 7*col)
 //   row step: row_height + 2 px (6857 height accumulator)
 
 let FONT = null;
 
 const GAP = 1;            // px between adjacent glyphs in a text run
-const EXP_RAISE = 4;      // px an exponent is lifted above the base axis
+const EXP_RAISE = 3;      // px an exponent is lifted above the base axis
 const FRAC_PAD = 2;       // px the fraction bar overhangs the wider operand
 
 // ---- box primitives -------------------------------------------------------
@@ -81,9 +81,10 @@ function center(rows, w) {
 // Fraction: numerator over a full-width rule over the denominator.
 // Bar row is the math axis (matches the OS centring a sibling glyph on the bar).
 function fraction(num, den) {
-  const w = Math.max(bw(num), bw(den)) + FRAC_PAD;
-  const top = center(num.rows, w);
-  const bot = center(den.rows, w);
+  const n = trim(num), d = trim(den);   // the OS stacks tight digits, not padded cells
+  const w = Math.max(bw(n), bw(d)) + FRAC_PAD;
+  const top = center(n.rows, w);
+  const bot = center(d.rows, w);
   const bar = [new Array(w).fill(1)];
   const rows = top.concat(bar, bot);
   return { rows, baseline: top.length };
@@ -120,7 +121,7 @@ function radical(radicand) {
   const rad = trim(radicand);
   const h = bh(rad) + 2;                       // vinculum + 1 px gap above radicand
   const root = stretch(trim(largeGlyph(0x10)), h, 3);
-  const rw = bw(root), w = rw + 1 + bw(rad) + 2;
+  const rw = bw(root), w = rw + 1 + bw(rad);
   const out = blank(h, w);
   for (let y = 0; y < bh(root); y++)
     for (let x = 0; x < rw; x++) if (root.rows[y][x]) out[h - bh(root) + y][x] = 1;
@@ -142,10 +143,13 @@ function parens(box) {
 // lo/hi may be a string (rendered in the small font, like the OS) or a box.
 function integral(lo, hi, body, varBox) {
   const inner = hcat([parens(body), text('d'), varBox || text('X')], 1);
-  const symH = Math.max(bh(inner) + 4, 11);
-  const sign = stretch(trim(largeGlyph(0x08)), symH, Math.floor(symH / 2) - 2);
   const limit = v => trim(typeof v === 'string' ? smallText(v) : v);
   const loB = limit(lo), hiB = limit(hi);
+  // the ∫ spans the body plus the upper and lower limits stacked at its corners.
+  // Lintegral 0x08 = top hook (rows 0-1), vertical stem (rows 2-4), bottom hook
+  // (rows 5-6); repeat a stem row so the straight middle grows between the hooks.
+  const symH = Math.max(bh(inner) + bh(hiB) + bh(loB), 11);
+  const sign = stretch(trim(largeGlyph(0x08)), symH, 3);
   const rw = Math.max(bw(loB), bw(hiB));
   const h = bh(sign);
   const out = blank(h, bw(sign) + 1 + rw);
