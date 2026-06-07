@@ -245,6 +245,26 @@ from arbitrary ASM requires more than loading OP1 and bcalling a single public
 entry; it needs the same parser cursor, stack, error, and run-state setup that a
 live BASIC caller already has. **[hypothesis]**
 
+Two temporary ASM probes make the boundary sharper. An `AsmPrgm` payload that
+builds `OP1={ProgObj,"ZZBASIC"}` and bcalls `_ChkFindSym` (`42F1`) returns to
+the BASIC wrapper, proving that a payload can locate a BASIC program by name:
+
+```asm
+ld hl,name
+ld de,8478h        ; OP1
+ld bc,0009h
+ldir
+rst 28h
+.dw 42F1h          ; _ChkFindSym
+ret
+name: .db 05h,"ZZBASIC",00h
+```
+
+Changing only the bcall to `_Find_Parse_Formula` (`4AF2`) enters `38:758A` and
+then stops at `ERR:UNDEFINED`; the `ZZBASIC` body never displays. That failed
+run confirms `_Find_Parse_Formula` is not a drop-in BASIC program executor from
+an arbitrary `AsmPrgm` context. **[confirmed]**
+
 The current open item is therefore precise: trace a small ASM payload that
 successfully invokes a BASIC program, identify the required parser/VAT/error
 state, and compare it to both confirmed paths: `Asm(` -> `_ExecutePrgm` ->

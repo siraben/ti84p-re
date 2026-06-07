@@ -544,6 +544,15 @@ trace it does not hit `_ParsePrgmName`, `_ExecutePrgm`, `_Find_Parse_Formula`,
 or `_SetParseVarProg`; it uses the page-38 parser/VAT/body evaluator path and
 then returns to the caller through BASIC's own `Return` handling.
 
+The relevant page-38 evaluator transition is private state, not a bcall ABI:
+`stmt_eval_body_entry` (`38:6910`) calls the token scanner, then
+`call_eval_eqn_recursive` (`38:6914`) directly calls `eval_eqn_recursive`
+(`38:778F`). At the first observed hit in the `CALLSUB` trace, the parser
+cursor/end, OPS/temp-stack pointers, OP1, stack depth, and IY parser flags are
+already live. This is why an `AsmPrgm` can successfully `_ChkFindSym` a BASIC
+program name, but the tested `_Find_Parse_Formula` probe still reaches
+`ERR:UNDEFINED` instead of running that program.
+
 ```ti-basic
 {5,4,3,2,1}->L1
 {5,6,7,8,9}->L2
