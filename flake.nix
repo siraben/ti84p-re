@@ -55,7 +55,7 @@
         };
 
         devShells.default = pkgs.mkShell {
-          packages = [ pkgs.mdbook pkgs.mdbook-mermaid ];
+          packages = [ pkgs.mdbook pkgs.mdbook-mermaid pkgs.python3 ];
           # In the dev shell, run:  setup-wiki-assets   (vendors KaTeX before `mdbook serve`)
           shellHook = ''
             export KATEX_DIR=${katexDir}
