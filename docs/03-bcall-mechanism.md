@@ -25,14 +25,14 @@ From the decompiler:
 
 - Located at the start of physical flash **page 0x3B** (file offset `0x3B*0x4000 = 0xEC000`).
 - **3-byte entries**: `addr_lo, addr_hi, page`. IDs step by 3 from `0x4000`, so entry for ID *X* is at table offset `X-0x4000`.
-- Resolution method (`tools/` Python): scored all 64 pages by how many of the 535 named .inc IDs produced a valid `(addr∈4000..7FFF or page-0, page<0x40)` entry — in this page-selection heuristic page `0x3B` scored **447/535** (a conservative validity filter used only to pick the table), the runner-up only 124. Once `0x3B` is selected and applied, all 535 `.inc` IDs plus 61 RE-named entries (596 total) resolve and are live-confirmed.
+- Resolution method (`tools/` Python): scored all 64 pages by how many of the named .inc IDs produced a valid `(addr∈4000..7FFF or page-0, page<0x40)` entry; page `0x3B` scored highest (the page-selection heuristic uses a conservative validity filter chosen only to pick the table). Once `0x3B` is selected and applied, all 535 `.inc` IDs plus 61 RE-named entries (596 total) resolve and are live-confirmed.
 - Validation: known bcalls land exactly where expected — `_PutS`→`01:5C39`, `_GetKey`→`06:491E`, `_ClrLCDFull`→`01:60E4`, `_GetCSC`→`00:04B2`, `_CreateReal`→`00:10B8`.
 
-`tools/bcall_targets.txt` holds **596** resolved main-table bcall rows. `tools/bcalls8x_targets.txt` holds **83** retail boot-table rows when the local ROM has the retail page `3F` and USB support page `2F` installed. `tools/ApplyBcalls.java` disassembles and names the confirmed bodies it can resolve.
+`tools/bcall_targets.txt` holds **596** resolved main-table bcall rows. `tools/bcalls8x_targets.txt` holds the retail boot-table (`0x8xxx`) rows only when the local ROM has the retail page `3F` and USB support page `2F` installed; with the checked-in BootFree `rom.bin` it has no body rows — only skip comments (the resolver refuses to emit `0x8xxx` bodies from a BootFree-substituted page `3F`). `tools/ApplyBcalls.java` disassembles and names the confirmed bodies it can resolve.
 
 ## Jump-table ID ranges
 
-The dispatcher's ID decode (`bcall_dispatcher`) selects one of **two** tables by the ID's top bits:
+The dispatcher (`bcall_dispatcher`) decodes the ID's top two bits to pick the table page: **bit 15 set** → page-byte `0x7F` (masked `& 0x3F` → page `0x3F`); **bit 14 set** → `0x7B` (→ page `0x3B`); with **neither** bit set it falls through to `lookup_bcall_table_page` (`ram:2ADA`). The two tables real bcall IDs use:
 - **`0x4xxx`–`0x7FFF`** (bit 14 set): the main table on **flash page 0x3B**, entry at offset `ID − 0x4000` (596 live-confirmed bcalls: 535 from the `.inc` + 61 RE-named).
 - **`0x8xxx`** (bit 15 set): the retail boot table is on physical page `3F`, indexed by `ID & 0x7FFF`. `D84PBE1.8Xv` supplies the retail page `3F`; `D84PBE2.8Xv` supplies the companion USB boot support page `2F`. Most entries resolve to `3F:addr`; USB entries such as `_AttemptUSBOSReceive` (`80E4`) and `_InitUSB` (`8108`) resolve to `2F:addr`. `tools/resolve_bcalls.py` refuses to emit these targets from a BootFree-substituted page. **[confirmed]**
 
@@ -40,7 +40,7 @@ Both resolved table formats are 3-byte entries: target address (little endian) p
 
 ## RST shortcuts (fast inlined bcalls) [confirmed]
 
-The other RST vectors are 1-byte fast paths for the hottest routines (each `JP`s to its page-0 handler, which is also reachable as a bcall — the table maps the same address):
+Five of the RST vectors are 1-byte fast paths for the hottest routines (each `JP`s to its page-0 handler, which is also reachable as a bcall — the table maps the same address). `rst 28h` is the bcall dispatcher itself (not a shortcut, and `ram:2A2F` is not a bcall target); it is listed here only to complete the vector set:
 
 | Opcode | Vector → target | Routine |
 |--------|-----------------|---------|
@@ -55,13 +55,13 @@ All six match the documented TI-83+/84+ RST assignments — strong cross-confirm
 
 ## bjump — the sibling mechanism (OS-internal cross-page calls)
 
-Besides bcalls, the OS calls *its own* cross-page routines via **bjump**: `CALL cross_page_jump` (`= CALL 0x2b09`) followed inline by `.dw addr; .db page`. `cross_page_jump` pops the return address, reads the 2-byte target + 1-byte page from it, banks the page (`& 0x3F`), and jumps. The target's `RET` returns to *the bjump's caller*, so it behaves like a call that consumes the 3 inline bytes.
+Besides bcalls, the OS calls *its own* cross-page routines via **bjump**: `CALL cross_page_jump` (`= CALL ram:2B09`) followed inline by `.dw addr; .db page`. `cross_page_jump` reads the stacked return address (its caller's, via an `SP`-relative load — it does not `POP` it), fetches the 2-byte target + 1-byte page from the inline descriptor there, rewrites the return frame past those 3 bytes, banks the page (`& 0x3F`), and returns into the target. The target's `RET` then returns to *the bjump's caller*, so it behaves like a call that consumes the 3 inline bytes.
 
-There is a trampoline table in the page-0 address range **`0x3B01–0x3D0B`**: **87 packed 6-byte entries**, each a bjump to a hot OS routine on another page. The static Ghidra DB models it in the page-0/ROM address space; whether the table is copied to RAM at runtime is a hypothesis, not MCP-confirmed. Code invokes a routine by `CALL 0x3Bxx` into the table. `tools/bjumps.txt` lists every entry's `(offset → page:addr)`; `tools/RamRoutines.java` marks the inline `.dw/.db` as data and comments each target.
+There is a trampoline table in the page-0 address range **`ram:3B01–ram:3D0A`**: **87 packed 6-byte entries**, each a bjump to a hot OS routine on another page (`ram:3D0B` already begins a separate `CALL ram:2B49` table). The static Ghidra DB models it in the page-0/ROM address space; whether the table is copied to RAM at runtime is a hypothesis, not MCP-confirmed. Code invokes a routine by `CALL ram:3Bxx` into the table. `tools/bjumps.txt` lists every entry's `(offset → page:addr)`; `tools/RamRoutines.java` marks the inline `.dw/.db` as data and comments each target.
 
-Example: `_PutMap`'s glyph blitter is reached via the trampoline at `0x3B3D → page_07:4588`.
+Example: `_PutMap`'s glyph blitter is reached via the trampoline at `ram:3B3D → 07:4588`.
 
-**Inline bjumps:** besides the trampoline table, `CALL cross_page_jump; .dw; .db` appears *inline* throughout the OS (e.g. transcendentals: `_EToX` = `fp_clear_guard(); bjump`). Because `cross_page_jump` consumes the 3 inline bytes and tail-jumps (the target returns to the bjump's caller), the bytes after must be data and the call is non-returning. `tools/FixInlineBjumps.java` marks all **355** such sites in the complete local ROM, which substantially improved OS-wide disassembly coverage.
+**Inline bjumps:** besides this trampoline table, `CALL cross_page_jump; .dw; .db` appears in other packed dispatch tables (e.g. a page-`3D` dispatch table near `ram:2B6B`) and inline within OS routines. Because `cross_page_jump` consumes the 3 inline bytes and tail-jumps (the target returns to the bjump's caller), the bytes after must be data and the call is non-returning. `tools/FixInlineBjumps.java` marks all **355** such sites in the complete local ROM, which substantially improved OS-wide disassembly coverage.
 
 ## Limitations / TODO
 - Keep the BootFree guard in place when regenerating from emulator-derived ROM images.
