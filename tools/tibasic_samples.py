@@ -238,6 +238,22 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
             T["disp"], *string_literal("AFTER"), T["enter"],
         ],
     ),
+    "zzformula": (
+        "AsmPrgm\n21A49D117884010900EDB0EFF24AC9055A5A424153494300",
+        [
+            T["2byte"], T["asmprgm"], T["enter"],
+            *hex_literal("21A49D117884010900EDB0EFF24AC9055A5A424153494300"),
+            T["enter"],
+        ],
+    ),
+    "asmformula": (
+        'Disp "BEFORE"\nAsm(prgmZZFORM)\nDisp "AFTER"',
+        [
+            T["disp"], *string_literal("BEFORE"), T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["Z"], T["F"], T["O"], T["R"], T["M"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("AFTER"), T["enter"],
+        ],
+    ),
     "animtext": (
         'ClrHome\nFor(I,1,8)\nOutput(1,I,"X")\nEnd\nDisp "DONE"',
         [
@@ -544,6 +560,8 @@ PROGRAM_NAMES = {
     "asmfind": "ASMFIND",
     "zzparse": "ZZPARSE",
     "asmparse": "ASMPARSE",
+    "zzformula": "ZZFORM",
+    "asmformula": "ASMFORM",
     "animtext": "ANIMTXT",
     "graphviz": "GRAPHV",
     "graphdfs": "GRAPHDFS",

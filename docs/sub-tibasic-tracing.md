@@ -47,6 +47,7 @@ programs into calculator RAM first, then run the same macro and resolver steps.
 | `asmreturn` | `ASMRTN.8xp` + `ASMVAL.8xp` | ASM return value through `Ans`, then BASIC arithmetic | `_OP1Set2`, `_StoAns`, `_AnsName`, `_FPAdd` |
 | `asmfind` | `ASMFIND.8xp` + `ZZFIND.8xp` + `ZZBASIC.8xp` | ASM-side VAT lookup of a BASIC program without executing it | `ram:9D95`, `findsym_scan`, `_Disp` |
 | `asmparse` | `ASMPARSE.8xp` + `ZZPARSE.8xp` + `ZZBASIC.8xp` | ASM parser-entry negative probe ending at `ERR:INVALID` | `_ParseInpLastEnt`, `_ParseInp`, `parseinp_find_setup` |
+| `asmformula` | `ASMFORM.8xp` + `ZZFORM.8xp` + `ZZBASIC.8xp` | ASM formula-parser negative probe ending at `ERR:UNDEFINED` | `_Find_Parse_Formula`, `parse_init_findsym`, `findsym_scan` |
 | `animtext` | `ANIMTXT.8xp` | text placement animation with `Output(` | `_OutputExpr`, `_Disp` |
 | `graphviz` | `GRAPHV.8xp` | graph-buffer primitives and `DispGraph` | `_GrBufClr`, `_ILine`, `_IPoint`, `_PDspGrph` |
 | `graphdfs` | `GRAPHDFS.8xp` | graph visualization from DFS topology | `_StoSysTok`, `_ILine`, `_IPoint`, `_PDspGrph` |
@@ -74,6 +75,7 @@ returned `Ans` line, and `Done`, and `CALLSTOP` checks `BEFORE`, `STOP`,
 `ASMFIND` checks the wrapper's `BEFORE`, `AFTER`, and `Done` output plus a
 bounded low-pixel region where an unexpected third line would appear.
 `ASMPARSE` checks the `ERR:INVALID`, `1:Quit`, and `2:Goto` error-screen
+regions. `ASMFORM` checks the corresponding `ERR:UNDEFINED` error-screen
 regions.
 
 For the visual graph cases, the 2026-06-07 run measured 212, 619, 466, and 466
@@ -92,7 +94,7 @@ routine trace. For example, the BASIC subprogram case uses the private
 `38:6910` -> `38:6914` -> `38:778F` body-evaluator path after the top-level
 homescreen parse has already seeded parser RAM. That is why the negative
 ASM-to-BASIC probes in [TI-BASIC programming patterns](sub-tibasic-programming.md)
-are kept as probes rather than fixtures: they reach useful ROM paths, but they
+are negative fixtures or temporary probes: they reach useful ROM paths, but they
 do not display the target BASIC program.
 
 ## Related pages
