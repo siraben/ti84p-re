@@ -176,6 +176,7 @@ They cover:
 | `graphlist` | list-driven edge/node coordinate visualization for the DFS sample |
 | `callsub` + `subrt` | BASIC `prgmNAME` call, shared variable return, `Return` |
 | `callabi` + `abisub` | BASIC subprogram ABI across `Ans`, scalar `A`, and list `L1` |
+| `callstop` + `stopsub` | BASIC `prgmNAME` call where callee `Stop` terminates the caller chain |
 | `bigadd` | list-digit arbitrary-precision addition, list indexing/stores, carry |
 | `bigmul` | list-digit arbitrary-precision multiplication, nested loops, carry |
 | `dfs` | list-backed DFS stack, `While`, nested `If`/`Then`, list stores |
@@ -224,6 +225,9 @@ The text/list fixtures use the same region mechanism for final-screen output:
 `HELLO`, `FACTOR`, `DATA`, `ASMCALL`, `ASMBRIDG`, `CALLSUB`, `BIGADD`,
 `BIGMUL`, and `DFS` check the displayed lines or numeric/list result regions,
 while `ASMRTN` and `ABICALL` check their rendered scalar/list/`Ans` outputs.
+`CALLSTOP` also checks the `BEFORE`, `STOP`, and `Done` lines, plus a bounded
+low-pixel region where the caller's skipped `AFTER` line would otherwise
+appear.
 
 Keep only one test program in RAM when using `run-first-program.macro`; it opens
 `PRGM`, selects the first `EXEC` entry, and presses `ENTER`. For `factorial`,
@@ -249,6 +253,7 @@ Validated outputs/traces (2026-06-06/07, OS 2.55MP, `tools/rom.bin`):
 | `GRAPHLST.8xp` | list-driven graph screen with four labeled nodes and edges `1-2`, `1-3`, `2-4` | list indexing/recall (`list_var_index`, `_GetLToOP1`), `_ILine`, `_IPoint`, `_PDspGrph`, `_StoSysTok` |
 | `CALLSUB.8xp` + `SUBRT.8xp` | `SUB`, `1`, then `Done` | initial launch parse through `_ParseInpLastEnt`/`_ParseInp`, then BASIC subprogram body path through `stmt_eval_body_entry` (`38:6910`), `38:6914` -> `eval_eqn_recursive` (`38:778F`), shared `A` store/recall, `_Disp`, `Return` to caller |
 | `ABICALL.8xp` + `ABISUB.8xp` | displays `11`, `{2 4 9}`, `11`, then `Done` | BASIC subprogram body path, `_AnsName`, list element read/store paths, shared scalar/list state, `Return` to caller |
+| `CALLSTOP.8xp` + `STOPSUB.8xp` | displays `BEFORE`, `STOP`, then `Done`; the caller's `AFTER` line is absent | BASIC subprogram body path through `stmt_eval_body_entry` and `call_eval_eqn_recursive`; `_Disp` renders the caller pre-call and callee text; final-frame region check rejects an `AFTER`-sized caller continuation |
 | `BIGADD.8xp` | `L3` digits begin `{0 1 1 1 1 ...}`, carry line `1`, then `Done` | list indexing/stores (`list_var_index`, `_AdrLEle`, `_GetLToOP1`, `_PutToL`, `store_list_elem*`), `fnint_body`, `_FPDiv`, `_FPAdd`, `_FPSub`, `_FPMult` |
 | `BIGMUL.8xp` | `L3` digits `{5 3 5 5 0}`, high digit `5`, then `Done` | nested `For(` loops, list indexing/stores (`list_var_index`, `_GetLToOP1`, `_PutToL`), carry normalization through `int(`, `_FPMult`, `_FPAdd`, `_FPSub` |
 | `DFS.8xp` | traversal `1`, `3`, `2`, `4`, visited `{1 1 1 1}`, then `Done` | nested control-flow scanners (`blockmatch_end_else`, `parse_scan_tokens`), `eval_stmt_entry`, parser refill/advance, list stack reads/stores |

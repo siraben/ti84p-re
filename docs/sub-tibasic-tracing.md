@@ -51,6 +51,7 @@ programs into calculator RAM first, then run the same macro and resolver steps.
 | `graphlist` | `GRAPHLST.8xp` | list-driven graph visualization from edge/node coordinate lists | `list_var_index`, `_GetLToOP1`, `_ILine`, `_IPoint` |
 | `callsub` | `CALLSUB.8xp` + `SUBRT.8xp` | BASIC `prgmNAME`, shared globals, `Return` | `stmt_eval_body_entry`, `call_eval_eqn_recursive` |
 | `callabi` | `ABICALL.8xp` + `ABISUB.8xp` | BASIC subprogram ABI through `Ans`, scalar `A`, and list `L1` | `_AnsName`, `store_list_elem`, `eval_eqn_recursive` |
+| `callstop` | `CALLSTOP.8xp` + `STOPSUB.8xp` | BASIC subprogram `Stop` terminates the caller chain | `stmt_eval_body_entry`, `call_eval_eqn_recursive`, `_Disp` |
 | `bigadd` | `BIGADD.8xp` | list-digit arithmetic and carry propagation | `list_var_index`, `_GetLToOP1`, `_PutToL`, `_FPMult` |
 | `bigmul` | `BIGMUL.8xp` | list-digit multiplication, nested loops, carry normalization | `list_var_index`, `_GetLToOP1`, `_PutToL`, `_FPMult` |
 | `dfs` | `DFS.8xp` | list-backed stack, nested `While`/`If`/`For` | `blockmatch_end_else`, `parse_scan_tokens`, `eval_stmt_entry` |
@@ -65,8 +66,9 @@ check home-screen text, graph labels, axes, circle arcs, and node/edge regions.
 Text/list cases check important final-screen lines such as `HELLO, WORLD`,
 factorial `120`, `DATA` list outputs, `BEFORE`/`CALLED`/`AFTER`, `SUB`,
 big-integer digit lists, and the DFS traversal/visited-list output. `ASMRTN`
-checks the displayed `5`, while `ABICALL` checks the scalar line, mutated list
-line, returned `Ans` line, and `Done`.
+checks the displayed `5`, `ABICALL` checks the scalar line, mutated list line,
+returned `Ans` line, and `Done`, and `CALLSTOP` checks `BEFORE`, `STOP`,
+`Done`, and a bounded low-pixel region where caller text `AFTER` would appear.
 
 For the visual graph cases, the 2026-06-07 run measured 212, 619, 466, and 466
 dark pixels, with matching first-to-final pixel changes.
