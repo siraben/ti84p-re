@@ -362,6 +362,57 @@ anchors for readers who want to check the disassembly. [confirmed]
 | `07:4588` | Large-font fixed glyph blitter. |
 | `01:6293` | `_VPutMap` small-font pixel output. |
 
+## Dynamic confirmation
+
+The static map above was checked against live execution. The TI-84 Plus OS was
+run under headless TilEm, the entry line was driven to render each construct, and
+page-`39` execution was rolled up to function level with
+`tools/tilem_trace_resolve.py --funcs --only-space page_39` (see
+[dynamic tracing](../tools/dynamic-tracing.md)). The macros are
+`tools/macros/mathprint-{power,fraction,fnint}.macro`. [confirmed]
+
+The trace cleanly separates the two documented rendering mechanisms by *which
+routines actually run* for each construct:
+
+| Rendered (entry line) | Page-`39` routines exercised | Path |
+|-----------------------|------------------------------|------|
+| `X^2` (raised exponent) | `eqdisp_emit_subexpr2` `4CA4`, `eqdisp_menu_or_emit` `53AD` | light entry-line emit (`eqdisp_set_row_for_tok` `4CE9` is the static superscript-row helper but did **not** execute in this trace — it does run in the `1/2` trace) |
+| `1/2` (n/d template) | `eqdisp_compute_dims` `69C8`, `eqdisp_layout_token_geom` `68AE`, the `683D` cell-to-pixel mapper, `eqdisp_draw_fraction_bar` `6ABF`, `eqdisp_draw_box_jp` `6AF5`, `eqdisp_load_glyph18b2` `6B66`, `eqdisp_dispatch_token` `4A74` | **descriptor / geometry** |
+| `fnInt(` (MATH ▸ 9) | `eqdisp_emit_glyph` `4E8E`, `eqdisp_map_token_glyph` `4F1A`, `eqdisp_emit_arglist` `4DE6`, `eqdisp_sum_arg_widths` `4DCA`, `eqdisp_emit_digit_chk` `4E0A` | **handler record / multi-arg** |
+
+This confirms the headline static result: the descriptor path (`69C8`/`68AE`/`683D`/`6ABF`)
+and the handler-record path (`4DCA`/`4DE6`/`4E8E`/`4F1A`) are mutually
+exclusive per construct, exactly as the two-mechanism model predicts. [confirmed]
+
+`39:5167` (`eqdisp_layout_multiarg`) **statically** owns the multi-arg row
+composition, but it did **not** execute in this trace: the `fnInt(` template was
+inserted *empty* (`∫(0)dV`), so the operand-recursion branch was never driven —
+`5167` and its body (`5949`/`5B10`) show 0 hits, and the `--funcs` "5167" rollup
+bucket is a nearest-name artifact (only a `51F1/51F3` fragment ran). A *filled*
+integrand would be needed to drive `5167` under a trace. [confirmed] (static); the dynamic path is open.
+
+The live state block matches the field map. Reading `0x85DE..0x85F2` from a RAM
+dump right after each render (`memdump … ram-logical`):
+
+| Field | `1/2` | `fnInt(` | Confirms |
+|-------|-------|----------|----------|
+| `0x85E8` template kind | `0x10` | `0x00` | `0x10` = the fraction *descriptor* kind; `0x00` = handler-record (no descriptor). |
+| `0x85EE`/`0x85EF` fraction width | `2`/`2` | `0`/`0` | Measured numerator/denominator widths (each `1` cell ≈ 2 px wide). |
+| `0x85E1` row count | — | `4` | Four rows for the tall integral (upper limit, body, lower limit, baseline). |
+
+`eqdisp_compute_dims` (`39:69C8`) decompiles consistently: it switches on
+`0x85E8 & 0x0F`, picks descriptor `686F`/`6880`/… by kind, and for the kind-2
+measured-fraction path calls `eqdisp_draw_box_jp` with `0x85EE`. [confirmed]
+
+**Decompiler caution.** The cell-to-pixel mapper `39:683D` and the fraction
+endpoint helper `39:6B1C` are named `eqdisp_decr_counters` /
+`eqdisp_advance_col6` in the symbol table, and the Ghidra *decompiler*
+mis-analyzes both (it shows bare decrement loops). The raw disassembly matches
+this page instead: `683D` does `A = base; loop: add a,7` (`x = base_x + 7·col`)
+and `6B1C` does `ld a,1Bh; … add a,7 (×n); add a,4` (`x_left = 0x1B + 7n`,
+`x_right = x_left + 4`). Trust `z80dasm` over the decompiler for these tight
+register-passing routines, as [the README](../README.md) advises. [confirmed]
+
 ## Remaining detail
 
 The static MathPrint pipeline is recovered: token classification, handler records,

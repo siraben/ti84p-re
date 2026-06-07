@@ -112,7 +112,7 @@ page_33:71ac	_StoGDB2
 page_33:72d9	_RclGDB2
 page_38:59c5	eval_stmt_entry
 page_38:5826	if_else_skip_handler
-page_38:6f63	if_stop_stmt_handler
+page_38:6f63	if_isg_stmt_handler
 page_38:4130	blockmatch_end_else
 page_38:4870	goto_lbl_name_scanner
 page_38:7600	set_tblgraph_draw_xpage

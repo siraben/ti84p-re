@@ -253,7 +253,7 @@ bits — port 2 bit 7 (`probe_hw_model_keep_a` `00:1837`) and port 0x21 low bits
 
 | Model test | Archive **base** page (`flash_page_select` `3D:726E`) | Archive **top** page (`flash_cmd_base` `3D:738B`) | Page mask |
 |------------|-------------------------------------------------------|----------------------------------------------------|-----------|
-| port 2 bit 7 set (1 MB) | `0x15` | `0x1E` | `AND 0x1F` (32 pages) |
+| port 2 bit 7 **clear** (1 MB) | `0x15` | `0x1E` | `AND 0x1F` (32 pages) |
 | port 0x21 == 0 (mid) | `0x29` | `0x3E` | `AND 0x3F` (64 pages) |
 | else (2 MB) | `0x69` | `0x7E` | `AND 0x3F` |
 

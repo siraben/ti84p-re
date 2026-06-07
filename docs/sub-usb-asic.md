@@ -35,7 +35,7 @@ port `0x00` bit-banging otherwise. [confirmed]
 | Port | Observed use in OS 2.55MP | Evidence |
 |------|---------------------------|----------|
 | `0x02` | Hardware/model gate before using assist paths. The link code tests bit 7 before touching ports `0x08`-`0x0D`. | `3C:6C82`, `3C:6CB8`, `3C:6D15` |
-| `0x08` | Link-assist control/idle latch. The OS writes `0x80` when clearing an inactive/error-free assist state, and `0x00` when marking the assist state active. | `3C:6C41`-`6C48`, `3C:6D38`-`6D40`, `3C:6D4B`-`6D53` |
+| `0x08` | Link-assist control/idle latch. The OS writes `0x80` when clearing an inactive/error-free assist state, and `0x00` when marking the assist state active. | `OUT (0x08)` at `3C:6C4D`/`6C50`, `3C:6D48`, `3C:6D5B` |
 | `0x09` | Link-assist status on reads. Bit 5 is TX-ready; bit 6 is a transmission/error condition; bit 4 marks a received byte. Masks `0x19`, `0x58`, and `0x99` are used as error/activity predicates. On writes, the OS setup value `0x97` matches WikiTI's CPU-speed-0 signaling-rate register. | `3C:6BB6`-`6BC5`, `3C:444A`, `3C:6BFA`, `3C:6CCE`, `3C:6D33`; WikiTI port `09` |
 | `0x0A` | Assist receive/data register on reads; the confirmed receive path reads the byte here. On writes, the OS setup value `0xB4` matches WikiTI's CPU-speed-1 signaling-rate register. Tilem models reads as "last received byte" and stores writes as opaque assist state. | `3C:6C20`, `3C:6C2B`, `3C:6C39`; WikiTI port `0A`; Tilem `x4_io.c` |
 | `0x0B`, `0x0C` | Assist signaling-rate configuration for CPU speed modes 2 and 3, initialized with `0xB4`. The ROM byte-transfer path writes them during setup but does not read them back. Tilem stores the writes without emulating timing from the values. | `3C:6C3D`, `3C:6C3F`; WikiTI ports `0B`/`0C`; Tilem `x4_io.c` |
@@ -112,7 +112,7 @@ path:
 receive check. If the caller requires a byte and the status path reports anything else, the code
 raises `E_LnkErr` through `_JError(0x9F)`. [confirmed]
 
-The assist reset/enable sequence at `3C:6C31` writes:
+The assist reset/enable sequence at `3C:6C3B` writes:
 
 ```z80
 out (0x00),0x00
@@ -204,10 +204,10 @@ bjumps resolve as:
 [confirmed]
 
 The timer/idle side of the same handler also bridges to the assist path. At `ram:01B1` it calls
-`ram:1850`, the same hardware-gate routine used elsewhere before assist-port access. On the legacy path it checks `port 0x00 & 0x03`; on the assist
+`ram:1837` (`IN A,(0x2); AND 0x80; XOR 0x80`), the same hardware-model gate used elsewhere before assist-port access. On the legacy path it checks `port 0x00 & 0x03`; on the assist
 path it checks `port 0x09 & 0x18`. If either assist bit is set, it reloads `0x9C86 = 0xFA`, pulses
 port `0x08` with `0x80` then `0x00`, sets `IY+0x3E` bit 0, and calls the common link activity hook
-at `ram:3FD6`. [confirmed: `00:01B1`-`01DB`]
+at `ram:3FD5`. [confirmed: `00:01B1`-`01DB`]
 
 For application code, this means a custom interrupt handler that does not chain to the OS handler
 must account for port `0x55`/`0x56` activity itself and then either reproduce the relevant page-35

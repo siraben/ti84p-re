@@ -101,7 +101,11 @@ seeds the bracket. The main loop runs from `39:4413`:
   used repeatedly (`39:446F`, `44D7`, `44F8`, `45C7`) to test the bracket width / residual
   against tolerance. The tolerance floor is the **TIFloat constant `1.0e-13`** at
   `39:46EA` (`00 73 10 …`); the residual-zero floor is **`1.0e-99`** at `39:46E1`
-  (`00 1D 10 …`). Reaching tolerance lands at `39:4547` and returns the root. **[confirmed]**
+  (`00 1D 10 …`). On reaching tolerance the solver exits through the `39:4540 → 4553`
+  branch (dynamically traced on an `X²−2 = 0` solve that converged to √2 ≈ 1.41421356);
+  `39:4547` is a `CALL`, not the converged return, and was **not** on the observed path.
+  The tolerance tests at `446F`/`44D7`/`44F8` run under that trace; `45C7` is reached only
+  on other convergence sub-paths. **[confirmed]**
 
 ```pseudocode
 \begin{algorithm}
@@ -119,13 +123,24 @@ seeds the bracket. The main loop runs from `39:4413`:
         \STATE $b \gets x$
     \ENDIF
     \IF{$|b-a| < 10^{-13}$}
-        \RETURN $x$ \COMMENT{converged (39:4547)}
+        \RETURN $x$ \COMMENT{converged; exits via 39:4540 -> 4553}
     \ENDIF
 \ENDFOR
 \STATE \textbf{raise} \textsc{iterations} (0x99) / \textsc{bad guess} (0x9A)
 \end{algorithmic}
 \end{algorithm}
 ```
+
+> **Dynamic confirmation.** Traced end-to-end under headless TilEm by driving the
+> built-in Equation Solver to solve `X²−2 = 0`
+> ([`solver-sqrt2.macro`](../tools/macros/solver-sqrt2.macro)). It converged on screen
+> to `X = 1.4142135623…` (√2) with `left-rt = 0`. The mem-write records show the guess
+> at `0x8478` climbing `1.40898 → 1.41421335 → 1.4142135623645 → 1.4142135623731`
+> (|err| ≈ 4.9e-15, crossing below the `1e-13` tolerance on the final step).
+> `solver_iterate` (`39:4413`) ran 808×; the per-iteration re-parse
+> (`parse_eval_expr` `38:5AB3`) ran 834×; the secant-in-bracket-else-bisect test
+> (`39:44F8`), the `499`-cap compare (`39:4479 LD HL,0x01F3`), and the `1e-13`/`1e-99`
+> constants (`39:46EA`/`46E1`) all executed as the pseudocode describes.
 
 `left-rt` shown on the Solver screen is the final residual `f(root)` (the
 `left-side − right-side` value the evaluator computed). **[standard]**
@@ -210,8 +225,8 @@ difference with var save/restore; ε-default standard]**
 Ghidra function `fnint_body` at `33:4D00` (extent `33:4D00…4E91`):
 
 - builds interval midpoints and half-widths: `_FPSub` (`2297`), `_TimesPt5` (`2382`, ×0.5),
-  `_FPDiv` (`2541`). The bytes at `33:4D1B` are **executable code** — `21 83 84`
-  (`LD HL,0x8483`), `3E 60` (`LD A,0x60`), `CD 65 1B` (`CALL _OP2SetA`/`1B65`) — loading the
+  `_FPDiv` (`2541`). The bytes at `33:4D18` are **executable code** — `33:4D18 21 83 84`
+  (`LD HL,0x8483`), `33:4D1B 3E 60` (`LD A,0x60`), `33:4D1D CD 65 1B` (`CALL _OP2SetA`/`1B65`) — loading the
   scalar **0x60 = 96**
   (a working digit/scale count), not a quadrature weight. **[confirmed bytes]**
 - maintains a working set of partial sums in an **FPS frame** (`_AllocFPS 1534`,

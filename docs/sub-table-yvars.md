@@ -82,11 +82,11 @@ From `ti83plus.inc` and verified by the bit-ops below:
 ### TBLSET key/edit handler — `tblsetup_handler` (`02:7B20`) [confirmed]
 
 The page-02 command/mode handler that backs the **TBLSET** screen edits the two
-floats and the two mode rows. A retired helper label at `02:7B35` is not a live function in the current DB, but the byte sequence there decodes as:
+floats and the two mode rows. A retired helper label at `02:7B31` is not a live function in the current DB, but the byte sequence there decodes as:
 
 ```z80
-02:7B35  RES 4,(IY+0x13)   ; default Indpnt = Auto  (autoFill=0)
-         SET 6,(IY+0x13)   ; reTable = 1  → table is now dirty
+02:7B31  RES 4,(IY+0x13)   ; default Indpnt = Auto  (autoFill=0)
+02:7B35  SET 6,(IY+0x13)   ; reTable = 1  → table is now dirty
          RET
 02:7B3A  BIT 4,(IY+0x13) … ; toggle helpers for the menu rows:
          SET 4,(IY+0x13)   ;   Indpnt = Ask
@@ -216,10 +216,12 @@ the cache until something marks it dirty again. [confirmed bytes]
 
 ### 3.1 Seeding the running independent value [confirmed]
 
-`05:774B` (and the identical `05:773F`) initialise the per-table running `X`:
+`05:774B` initialises the per-table running `X`. It first clears a working float
+(`05:774B LD DE,0x8622 ; CALL 0x1920`), then at `05:7751` copies TblMin into the
+running-X slot:
 
 ```z80
-LD HL,0x92B3 (TblMin) ; LD DE,0x862B ; JP 0x1A92    ; running-X (0x862B) ← TblMin
+05:7751  LD HL,0x92B3 (TblMin) ; LD DE,0x862B ; JP 0x1A92   ; running-X (0x862B) ← TblMin
 ```
 
 i.e. the first row's independent value is **TblStart**. A working float at
