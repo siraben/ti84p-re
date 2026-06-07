@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bbfe7a9f.js";
+            window.path_to_searchindex_js = "searchindex-d11418ae.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-bcf53af4.js"></script>
+        <script src="toc-cbaaedfe.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -392,6 +392,23 @@ therefore orders elements by the single 9-byte <code>TIFloat</code> the sort hol
 <p>No element type is ordered by magnitude/modulus (<code>_CAbs</code> is never on this path). [comparator and
 its real-number semantics confirmed; the per-element sort key follows from them — the unanalyzed
 sort body’s element-load is not byte-traced]</p>
+<h3 id="traceable-list-sample"><a class="header" href="#traceable-list-sample">Traceable list sample</a></h3>
+<p>The <code>tools/tibasic-samples/data.*</code> fixture drives the list paths above with a
+small end-to-end TI-BASIC program:</p>
+<pre><code class="language-ti-basic">{3,1,4,1,5}-&gt;L1
+SortA(L1)
+cumSum(L1)-&gt;L2
+sum(L1)-&gt;S
+Disp L1
+Disp L2
+Disp S
+</code></pre>
+<p>It exercises list literal creation, list variable tokens (<code>5D 00</code>/<code>5D 01</code>),
+in-place sorting, a running cumulative sum, a folded sum, and list display. The
+generated <code>DATA.8xp</code> was run under headless TilEm: the screen showed sorted
+<code>L1={1 1 3 4 5}</code>, cumulative <code>L2={1 2 5 9 14}</code>, and sum <code>14</code>; the trace hit
+<code>list_fold_dispatch</code> (<code>02:6104</code>) plus the page-38 list parse/store helpers.
+[dynamic run confirmed; list primitives above are confirmed where marked]</p>
 <hr>
 <h2 id="4-matrix-operations-c"><a class="header" href="#4-matrix-operations-c">4. Matrix operations [C]</a></h2>
 <h3 id="dim-redim-identity-copy"><a class="header" href="#dim-redim-identity-copy"><code>dim(</code>, redim, identity, copy</a></h3>
