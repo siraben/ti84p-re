@@ -174,6 +174,7 @@ They cover:
 | `graphdfs` | graph-buffer node/edge visualization for the DFS sample |
 | `callsub` + `subrt` | BASIC `prgmNAME` call, shared variable return, `Return` |
 | `bigadd` | list-digit arbitrary-precision addition, list indexing/stores, carry |
+| `bigmul` | list-digit arbitrary-precision multiplication, nested loops, carry |
 | `dfs` | list-backed DFS stack, `While`, nested `If`/`Then`, list stores |
 
 The current upstream headless TilEm runner does not silently load `.8xp` files
@@ -207,9 +208,12 @@ tools/tibasic_smoke.py --tilem "$TILEM" --rom tools/rom.bin \
 ```
 
 For the visualization cases, the smoke runner also thresholds the final frame
-and requires visible dark pixels: `ANIMTXT` at least 100, `GRAPHV` at least
-100, and `GRAPHDFS` at least 200. The 2026-06-07 run measured 212, 268, and
-466 dark pixels respectively.
+and compares it with the first recorded frame. `ANIMTXT`, `GRAPHV`, and
+`GRAPHDFS` must end with at least 100, 100, and 200 dark pixels respectively,
+and must change by at least the same number of pixels from first to final frame.
+It then checks named crop regions, including `GRAPHV` label, axes, and circle
+arcs, plus `GRAPHDFS` node and edge regions. The 2026-06-07 run measured 212,
+619, and 466 dark pixels, with matching first-to-final pixel changes.
 
 Keep only one test program in RAM when using `run-first-program.macro`; it opens
 `PRGM`, selects the first `EXEC` entry, and presses `ENTER`. For `factorial`,
@@ -229,10 +233,11 @@ Validated outputs/traces (2026-06-06/07, OS 2.55MP, `tools/rom.bin`):
 | `ASMCALL.8xp` + `ASMRET.8xp` | `BEFORE`, `AFTER`, then `Done` | `Asm(` handler parses `prgmASMRET`, bcalls `_ExecutePrgm`, jumps through `07:57B4`; payload executes `ram:9D95 op=0xC9` and returns to BASIC |
 | `ASMBRIDG.8xp` + `ASMSIG.8xp` + `ZZBASIC.8xp` | `BEFORE`, `CALLED`, `AFTER`, then `Done` | `Asm(` runs the `ASMSIG` payload at `ram:9D95`; payload calls `_OP1Set1` (`00:1B38`) and `_StoAns` (`38:6251`); BASIC evaluates `If Ans` via `_AnsName` and calls `prgmZZBASIC` through the normal `38:6910`/`38:6914`/`38:778F` body path |
 | `ANIMTXT.8xp` | row of `X` characters, `DONE`, then `Done` | page-38 parser/loop paths, `_OutputExpr` (`03:4AF2`), `_Disp`, LCD text routines |
-| `GRAPHV.8xp` | graph screen with `DFS`, axes, and diagonal line | `_GrBufClr`, `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`) |
+| `GRAPHV.8xp` | graph screen with `DFS`, axes, a circle, and diagonal line | `_GrBufClr`, `_StoSysTok`, `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`) |
 | `GRAPHDFS.8xp` | graph screen with four labeled nodes and edges `1-2`, `1-3`, `2-4` | `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`), `_StoSysTok`, small-font glyph paths, `_RestoreDisp`, `eval_stmt_entry` |
 | `CALLSUB.8xp` + `SUBRT.8xp` | `SUB`, `1`, then `Done` | initial launch parse through `_ParseInpLastEnt`/`_ParseInp`, then BASIC subprogram body path through `stmt_eval_body_entry` (`38:6910`), `38:6914` -> `eval_eqn_recursive` (`38:778F`), shared `A` store/recall, `_Disp`, `Return` to caller |
 | `BIGADD.8xp` | `L3` digits begin `{0 1 1 1 1 ...}`, carry line `1`, then `Done` | list indexing/stores (`list_var_index`, `_AdrLEle`, `_GetLToOP1`, `_PutToL`, `store_list_elem*`), `fnint_body`, `_FPDiv`, `_FPAdd`, `_FPSub`, `_FPMult` |
+| `BIGMUL.8xp` | `L3` digits `{5 3 5 5 0}`, high digit `5`, then `Done` | nested `For(` loops, list indexing/stores (`list_var_index`, `_GetLToOP1`, `_PutToL`), carry normalization through `int(`, `_FPMult`, `_FPAdd`, `_FPSub` |
 | `DFS.8xp` | traversal `1`, `3`, `2`, `4`, visited `{1 1 1 1}`, then `Done` | nested control-flow scanners (`blockmatch_end_else`, `parse_scan_tokens`), `eval_stmt_entry`, parser refill/advance, list stack reads/stores |
 
 ASM-to-BASIC negative probes: a temporary `AsmPrgm` that builds

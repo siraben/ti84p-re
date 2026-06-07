@@ -1,5 +1,11 @@
 ClrDraw
-Line(0,0,95,63)
+0->Xmin
+94->Xmax
+0->Ymin
+62->Ymax
+Line(0,0,94,62)
+Line(0,31,94,31)
+Line(47,0,47,62)
 Circle(47,31,10)
 Text(0,0,"DFS")
 DispGraph

@@ -57,13 +57,15 @@ not yet traced end to end in this repo.
 | Graph drawing (`GRAPHV`) | primitives draw into `plotSScreen`, then `_PDspGrph` | Batch graph primitives before `DispGraph`. |
 | Graph visualization (`GRAPHDFS`) | window stores plus repeated `Line(`/`Circle(`/`Text(` reach `_StoSysTok`, `_ILine`, `_IPoint`, `graph_pixel_op`, `_PDspGrph`, and small-font paths | Store graph topology in lists; draw the whole view in one graph-buffer pass. |
 | BASIC subprogram (`CALLSUB`) | page-38 program-body evaluator and shared VAT variables | Treat globals/lists/`Ans` as the calling convention. |
-| List algorithms (`BIGADD`, `DFS`) | VAT lookup, element address, OP-register move per access | Preallocate lists; cache dimensions and reused elements in scalars. |
+| List algorithms (`BIGADD`, `BIGMUL`, `DFS`) | VAT lookup, element address, OP-register move per access | Preallocate lists; cache dimensions and reused elements in scalars. |
 
 ### Evidence manifest
 
 This branch keeps each claimed behavior tied to a runnable fixture or a
 negative probe trace. The visualization fixtures were rerun on 2026-06-07 and
-kept because both render visible graph-screen output. The full
+kept because they render visible output and pass first-to-final changed-pixel
+checks plus named crop-region checks for text, axes, circle arcs, nodes, and
+edges. The full
 `tools/tibasic_smoke.py` suite also passed on 2026-06-07 against the current
 branch state.
 
@@ -75,7 +77,7 @@ branch state.
 | Text animation | `ANIMTXT.8xp` | Moves/writes `X` characters with `Output(`, then displays `DONE`; reaches LCD text routines each loop. |
 | Graph drawing | `GRAPHV.8xp` | Renders `DFS`, axes, a circle, and diagonal line on the graph screen; reaches `_ILine`, `_IPoint`, and `_PDspGrph`. |
 | Graph visualization | `GRAPHDFS.8xp` | Renders the four-node DFS topology with labels and edges; reaches window stores, line, point, display-copy, pixel, and small-font graph paths. |
-| Arbitrary precision arithmetic | `BIGADD.8xp` | Adds digit lists with carry propagation and displays `L3`; reaches list indexing and FP helper paths. |
+| Arbitrary precision arithmetic | `BIGADD.8xp`, `BIGMUL.8xp` | Adds and multiplies digit lists with carry propagation; reaches list indexing and FP helper paths. |
 | DFS / stack-style list algorithm | `DFS.8xp` | Displays traversal `1, 3, 2, 4` and visited list `{1 1 1 1}`; reaches nested scanner/control-flow paths. |
 | BASIC subprogram calling convention | `CALLSUB.8xp` + `SUBRT.8xp` | Caller and callee share scalar/list variables and return through the BASIC program evaluator. |
 | BASIC to ASM | `ASMCALL.8xp` + `ASMRET.8xp` | `Asm(` runs an `AsmPrgm` payload (`C9`) and returns to BASIC, displaying `BEFORE` then `AFTER`. |
@@ -110,16 +112,22 @@ inside the drawing loop.
 
 ```ti-basic
 ClrDraw
-Line(0,0,95,63)
+0->Xmin
+94->Xmax
+0->Ymin
+62->Ymax
+Line(0,0,94,62)
+Line(0,31,94,31)
+Line(47,0,47,62)
 Circle(47,31,10)
 Text(0,0,"DFS")
 DispGraph
 ```
 
-Observed run: `GRAPHV.8xp` ends on the graph screen with `DFS`, axes, and the
-diagonal line visible. The trace hits `_GrBufClr`, `_ILine` (`04:4029`),
-`graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`), and the page-38 argument
-parser. **[confirmed]**
+Observed run: `GRAPHV.8xp` ends on the graph screen with `DFS`, axes, a circle,
+and the diagonal line visible. The trace hits `_GrBufClr`, `_StoSysTok`,
+`_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`), and
+the page-38 argument parser. **[confirmed]**
 
 The performance lesson is to draw several primitives into the graph buffer, then
 display the graph buffer once. Repeated home-screen `Output(` calls give you
@@ -295,6 +303,37 @@ digits of `L1+L2`, and `C` is the carry into digit `I+1`. Base 10 is easy to
 display and debug. A larger base reduces loop count but adds conversion and
 larger carry values; on TI-BASIC, that tradeoff only helps when display is not
 part of the hot path.
+
+### Arbitrary-precision decimal multiplication
+
+`BIGMUL.8xp` uses the same little-endian digit convention for schoolbook
+multiplication. The example multiplies `123` (`{3,2,1}`) by `45` (`{5,4}`), so
+the expected result is `5535`, represented as `{5,3,5,5,0}`.
+
+```ti-basic
+{3,2,1}->L1
+{5,4}->L2
+{0,0,0,0,0}->L3
+For(I,1,3)
+For(J,1,2)
+L3(I+J-1)+L1(I)*L2(J)->S
+int(S/10)->C
+S-10C->L3(I+J-1)
+L3(I+J)+C->L3(I+J)
+End
+End
+Disp L3
+Disp L3(4)
+```
+
+Observed run: `BIGMUL.8xp` displays `{5 3 5 5 0}`, then `5`, then `Done`.
+The trace hits nested `For(` loop parsing, list element reads/stores, `_FPMult`,
+`_FPAdd`, `_FPSub`, `_GetLToOP1`, and `_PutToL`. **[confirmed]**
+
+The invariant is that each inner-loop step normalizes one result cell
+`L3(I+J-1)` and carries into the next cell. This is still base-10 arithmetic,
+so it favors trace readability over speed. A larger base reduces the number of
+digits but makes the carry path and display conversion heavier.
 
 ### DFS with a list stack
 
