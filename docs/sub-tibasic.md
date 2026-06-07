@@ -606,6 +606,25 @@ The trace hits `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, small-font
 glyph rendering, `_PDspGrph` (`04:7904`), `_StoSysTok` window stores,
 `_RestoreDisp`, and page-38 statement evaluation.
 
+`GRAPHLST.8xp` draws the same topology from list data. It stores edge endpoint
+coordinates in `L1`-`L4`, stores node centers in `L5` and `L6`, then loops over
+those lists:
+
+```ti-basic
+For(I,1,3)
+Line(L1(I),L2(I),L3(I),L4(I))
+End
+For(I,1,4)
+Circle(L5(I),L6(I),3)
+End
+```
+
+Observed run: the final frame matches the `GRAPHDFS` topology and passes the
+same node/edge crop-region checks. The trace hits `list_var_index`,
+`_GetLToOP1`, `_ILine`, `_IPoint`, `_PDspGrph`, and `_StoSysTok`, confirming a
+list-driven graph visualization path rather than only hard-coded draw
+coordinates.
+
 ```ti-basic
 0->A
 prgmSUBRT

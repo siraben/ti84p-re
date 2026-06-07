@@ -48,6 +48,7 @@ programs into calculator RAM first, then run the same macro and resolver steps.
 | `animtext` | `ANIMTXT.8xp` | text placement animation with `Output(` | `_OutputExpr`, `_Disp` |
 | `graphviz` | `GRAPHV.8xp` | graph-buffer primitives and `DispGraph` | `_GrBufClr`, `_ILine`, `_IPoint`, `_PDspGrph` |
 | `graphdfs` | `GRAPHDFS.8xp` | graph visualization from DFS topology | `_StoSysTok`, `_ILine`, `_IPoint`, `_PDspGrph` |
+| `graphlist` | `GRAPHLST.8xp` | list-driven graph visualization from edge/node coordinate lists | `list_var_index`, `_GetLToOP1`, `_ILine`, `_IPoint` |
 | `callsub` | `CALLSUB.8xp` + `SUBRT.8xp` | BASIC `prgmNAME`, shared globals, `Return` | `stmt_eval_body_entry`, `call_eval_eqn_recursive` |
 | `callabi` | `ABICALL.8xp` + `ABISUB.8xp` | BASIC subprogram ABI through `Ans`, scalar `A`, and list `L1` | `_AnsName`, `store_list_elem`, `eval_eqn_recursive` |
 | `bigadd` | `BIGADD.8xp` | list-digit arithmetic and carry propagation | `list_var_index`, `_GetLToOP1`, `_PutToL`, `_FPMult` |
@@ -59,9 +60,9 @@ frame and comparing it with the first recorded frame. `ANIMTXT`, `GRAPHV`, and
 `GRAPHDFS` must contain at least 100, 100, and 200 dark pixels respectively,
 and must change by at least the same number of pixels from first to final frame.
 The smoke runner also checks named crop regions: home-screen text for `ANIMTXT`,
-label/axes/circle arcs for `GRAPHV`, and node/edge regions for `GRAPHDFS`. The
-2026-06-07 run measured 212, 619, and 466 dark pixels, with matching
-first-to-final pixel changes.
+label/axes/circle arcs for `GRAPHV`, and node/edge regions for `GRAPHDFS` and
+`GRAPHLST`. The 2026-06-07 run measured 212, 619, 466, and 466 dark pixels,
+with matching first-to-final pixel changes.
 
 The new ABI cases use the same region-check mechanism for text results:
 `ASMRTN` checks the displayed `5` and `Done`, while `ABICALL` checks the scalar

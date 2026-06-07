@@ -173,6 +173,7 @@ They cover:
 | `animtext` | `ClrHome`, `For(`/`End`, `Output(` text placement, `Disp` |
 | `graphviz` | `ClrDraw`, `Line(`, `Circle(`, `Text(`, `DispGraph` |
 | `graphdfs` | graph-buffer node/edge visualization for the DFS sample |
+| `graphlist` | list-driven edge/node coordinate visualization for the DFS sample |
 | `callsub` + `subrt` | BASIC `prgmNAME` call, shared variable return, `Return` |
 | `callabi` + `abisub` | BASIC subprogram ABI across `Ans`, scalar `A`, and list `L1` |
 | `bigadd` | list-digit arbitrary-precision addition, list indexing/stores, carry |
@@ -214,8 +215,9 @@ and compares it with the first recorded frame. `ANIMTXT`, `GRAPHV`, and
 `GRAPHDFS` must end with at least 100, 100, and 200 dark pixels respectively,
 and must change by at least the same number of pixels from first to final frame.
 It then checks named crop regions, including `GRAPHV` label, axes, and circle
-arcs, plus `GRAPHDFS` node and edge regions. The 2026-06-07 run measured 212,
-619, and 466 dark pixels, with matching first-to-final pixel changes.
+arcs, plus `GRAPHDFS`/`GRAPHLST` node and edge regions. The 2026-06-07 run
+measured 212, 619, 466, and 466 dark pixels, with matching first-to-final pixel
+changes.
 The `ASMRTN` and `ABICALL` ABI fixtures also use named final-frame regions to
 check their rendered scalar/list/`Ans` outputs.
 
@@ -240,6 +242,7 @@ Validated outputs/traces (2026-06-06/07, OS 2.55MP, `tools/rom.bin`):
 | `ANIMTXT.8xp` | row of `X` characters, `DONE`, then `Done` | page-38 parser/loop paths, `_OutputExpr` (`03:4AF2`), `_Disp`, LCD text routines |
 | `GRAPHV.8xp` | graph screen with `DFS`, axes, a circle, and diagonal line | `_GrBufClr`, `_StoSysTok`, `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`) |
 | `GRAPHDFS.8xp` | graph screen with four labeled nodes and edges `1-2`, `1-3`, `2-4` | `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`), `_StoSysTok`, small-font glyph paths, `_RestoreDisp`, `eval_stmt_entry` |
+| `GRAPHLST.8xp` | list-driven graph screen with four labeled nodes and edges `1-2`, `1-3`, `2-4` | list indexing/recall (`list_var_index`, `_GetLToOP1`), `_ILine`, `_IPoint`, `_PDspGrph`, `_StoSysTok` |
 | `CALLSUB.8xp` + `SUBRT.8xp` | `SUB`, `1`, then `Done` | initial launch parse through `_ParseInpLastEnt`/`_ParseInp`, then BASIC subprogram body path through `stmt_eval_body_entry` (`38:6910`), `38:6914` -> `eval_eqn_recursive` (`38:778F`), shared `A` store/recall, `_Disp`, `Return` to caller |
 | `ABICALL.8xp` + `ABISUB.8xp` | displays `11`, `{2 4 9}`, `11`, then `Done` | BASIC subprogram body path, `_AnsName`, list element read/store paths, shared scalar/list state, `Return` to caller |
 | `BIGADD.8xp` | `L3` digits begin `{0 1 1 1 1 ...}`, carry line `1`, then `Done` | list indexing/stores (`list_var_index`, `_AdrLEle`, `_GetLToOP1`, `_PutToL`, `store_list_elem*`), `fnint_body`, `_FPDiv`, `_FPAdd`, `_FPSub`, `_FPMult` |

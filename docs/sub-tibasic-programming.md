@@ -55,7 +55,7 @@ not yet traced end to end in this repo.
 | List built-ins (`DATA`) | `sum(` reaches `list_fold_dispatch` | Prefer built-ins when one parser setup can cover many elements. |
 | Text animation (`ANIMTXT`) | `Output(` plus LCD text paths on every loop | Precompute positions/strings and update the smallest region possible. |
 | Graph drawing (`GRAPHV`) | primitives draw into `plotSScreen`, then `_PDspGrph` | Batch graph primitives before `DispGraph`. |
-| Graph visualization (`GRAPHDFS`) | window stores plus repeated `Line(`/`Circle(`/`Text(` reach `_StoSysTok`, `_ILine`, `_IPoint`, `graph_pixel_op`, `_PDspGrph`, and small-font paths | Store graph topology in lists; draw the whole view in one graph-buffer pass. |
+| Graph visualization (`GRAPHDFS`, `GRAPHLST`) | window stores plus repeated `Line(`/`Circle(`/`Text(` reach `_StoSysTok`, `_ILine`, `_IPoint`, `graph_pixel_op`, `_PDspGrph`, and small-font paths; `GRAPHLST` also reaches list indexing in draw arguments | Store graph topology in lists; draw the whole view in one graph-buffer pass. |
 | BASIC subprogram (`CALLSUB`, `CALLABI`) | page-38 program-body evaluator and shared VAT variables | Treat globals/lists/`Ans` as the calling convention. |
 | List algorithms (`BIGADD`, `BIGMUL`, `DFS`) | VAT lookup, element address, OP-register move per access | Preallocate lists; cache dimensions and reused elements in scalars. |
 
@@ -76,7 +76,7 @@ branch state.
 | Data manipulation | `DATA.8xp` | Sorts, cumulatively sums, and displays list data; reaches list element stores and `sum(`'s list fold path. |
 | Text animation | `ANIMTXT.8xp` | Moves/writes `X` characters with `Output(`, then displays `DONE`; reaches LCD text routines each loop. |
 | Graph drawing | `GRAPHV.8xp` | Renders `DFS`, axes, a circle, and diagonal line on the graph screen; reaches `_ILine`, `_IPoint`, and `_PDspGrph`. |
-| Graph visualization | `GRAPHDFS.8xp` | Renders the four-node DFS topology with labels and edges; reaches window stores, line, point, display-copy, pixel, and small-font graph paths. |
+| Graph visualization | `GRAPHDFS.8xp`, `GRAPHLST.8xp` | Renders the four-node DFS topology with labels and edges; the list-driven fixture stores edge/node coordinates in lists and loops over them before `DispGraph`. |
 | Arbitrary precision arithmetic | `BIGADD.8xp`, `BIGMUL.8xp` | Adds and multiplies digit lists with carry propagation; reaches list indexing and FP helper paths. |
 | DFS / stack-style list algorithm | `DFS.8xp` | Displays traversal `1, 3, 2, 4` and visited list `{1 1 1 1}`; reaches nested scanner/control-flow paths. |
 | BASIC subprogram calling convention | `CALLSUB.8xp` + `SUBRT.8xp`; `ABICALL.8xp` + `ABISUB.8xp` | Caller and callee share scalar/list/`Ans` state and return through the BASIC program evaluator. |
@@ -188,6 +188,31 @@ page-38 statement evaluation. **[confirmed]**
 The performance lesson is to separate graph data from graph drawing. Keep edge
 lists and traversal state in lists, but convert them to pixels in a single draw
 phase instead of interleaving traversal, display, and recalculation.
+
+`GRAPHLST.8xp` makes that separation explicit. It stores edge endpoint
+coordinates in `L1`-`L4` and node centers in `L5`/`L6`, then draws edges and
+nodes with loops:
+
+```ti-basic
+{10,10,35}->L1
+{44,44,54}->L2
+{35,35,55}->L3
+{54,14,29}->L4
+{10,35,35,55}->L5
+{44,54,14,29}->L6
+For(I,1,3)
+Line(L1(I),L2(I),L3(I),L4(I))
+End
+For(I,1,4)
+Circle(L5(I),L6(I),3)
+End
+```
+
+Observed run: `GRAPHLST.8xp` renders the same four-node topology as
+`GRAPHDFS.8xp`; the smoke runner checks the same node and edge crop regions.
+The trace additionally hits `list_var_index` and `_GetLToOP1`, proving that the
+draw arguments came through list element recall rather than hard-coded
+coordinates. **[confirmed]**
 
 ### BASIC subprogram calling convention
 
