@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c62fbb94.js";
+            window.path_to_searchindex_js = "searchindex-dd83a5a3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -264,6 +264,7 @@ for observed outputs and trace anchors.</p>
 <tr><td>Animation</td><td><code>ClrHome</code> / <code>For(I,1,8)</code> / <code>Output(1,I,"X")</code> / <code>End</code> / <code>Disp "DONE"</code></td><td><code>E1 3F D3 49 2B 31 2B 38 11 3F E0 31 2B 49 2B 2A 58 2A 11 3F D4 3F DE 2A 44 4F 4E 45 2A 3F</code></td></tr>
 <tr><td>Graph drawing</td><td><code>ClrDraw</code> / <code>Line(0,0,95,63)</code> / <code>Circle(47,31,10)</code> / <code>Text(0,0,"DFS")</code> / <code>DispGraph</code></td><td><code>85 3F 9C 30 2B 30 2B 39 35 2B 36 33 11 3F A5 34 37 2B 33 31 2B 31 30 11 3F 93 30 2B 30 2B 2A 44 46 53 2A 11 3F DF 3F</code></td></tr>
 <tr><td>BASIC subprogram</td><td><code>0-&gt;A</code> / <code>prgmSUBRT</code> / <code>Disp A</code>; callee <code>Disp "SUB"</code> / <code>A+1-&gt;A</code> / <code>Return</code></td><td>caller <code>30 04 41 3F 5F 53 55 42 52 54 3F DE 41 3F</code>; callee <code>DE 2A 53 55 42 2A 3F 41 70 31 04 41 3F D5 3F</code></td></tr>
+<tr><td>Big integer add</td><td>list digits in <code>L1</code>/<code>L2</code>, carry <code>C</code>, indexed stores into <code>L3</code></td><td><code>08 35 2B 34 ... DE 5D 02 10 36 11 3F</code> (full body in <code>tools/tibasic-samples/bigadd.tok</code>)</td></tr>
 </tbody>
 </table>
 </div>
@@ -273,8 +274,9 @@ statement separators (<code>3F</code>), string delimiters (<code>2A</code>), sto
 <code>AsmPrgm</code> = <code>BB 6C</code>), and command tokens such as <code>Prompt</code> (<code>DD</code>), <code>Disp</code> (<code>DE</code>),
 <code>For(</code> (<code>D3</code>), <code>End</code> (<code>D4</code>), <code>ClrHome</code> (<code>E1</code>), and <code>SortA(</code> (<code>E3</code>). The
 newer samples add <code>Output(</code> (<code>E0</code>), graph commands (<code>85</code>, <code>93</code>, <code>9C</code>, <code>A5</code>,
-<code>DF</code>), <code>Return</code> (<code>D5</code>), and the program-name token (<code>5F</code>) before the name
-characters. [confirmed token bytes from <code>ti83plus.inc</code> and
+<code>DF</code>), <code>Return</code> (<code>D5</code>), list indexing with <code>(</code> (<code>10</code>) / <code>)</code> (<code>11</code>), <code>int(</code>
+(<code>B1</code>), arithmetic operators (<code>70</code>, <code>71</code>, <code>82</code>, <code>83</code>), and the program-name
+token (<code>5F</code>) before the name characters. [confirmed token bytes from <code>ti83plus.inc</code> and
 <code>token-tables.md</code>]</p>
 <h2 id="second-byte-tables"><a class="header" href="#second-byte-tables">Second-byte tables</a></h2>
 <p>Every 2-byte token group’s second-byte → token mapping (matrices, lists, Y-vars, system/window vars, the <code>BB</code> extended-command page, the <code>EF</code> 84+ page, etc.) is tabulated in <strong><a href="token-tables.html">2-Byte Token Tables</a></strong> — 492 tokens, sourced from <a href="https://github.com/TI-Toolkit/tokens">TI-Toolkit/tokens</a> and filtered to the 84+ 2.55MP.</p>

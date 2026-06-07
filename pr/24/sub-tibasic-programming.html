@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c62fbb94.js";
+            window.path_to_searchindex_js = "searchindex-dd83a5a3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -273,9 +273,35 @@ resolution (<code>findsym_scan</code>), parser entry/refill paths, <code>_StoSys
 <p>There is no local variable frame for BASIC programs. A subprogram that uses <code>A</code>
 modifies the caller’s <code>A</code>. For reusable routines, document which variables are
 inputs, scratch, and outputs.</p>
+<h3 id="arbitrary-precision-decimal-addition"><a class="header" href="#arbitrary-precision-decimal-addition">Arbitrary-precision decimal addition</a></h3>
+<p><code>BIGADD.8xp</code> uses lists of base-10 digits in little-endian order. <code>12345</code> is
+<code>{5,4,3,2,1}</code>, <code>98765</code> is <code>{5,6,7,8,9}</code>, and the result is the list
+<code>{0,1,1,1,1,1}</code> for <code>111110</code>.</p>
+<pre><code class="language-ti-basic">{5,4,3,2,1}-&gt;L1
+{5,6,7,8,9}-&gt;L2
+{0,0,0,0,0,0}-&gt;L3
+0-&gt;C
+For(I,1,5)
+L1(I)+L2(I)+C-&gt;S
+int(S/10)-&gt;C
+S-10C-&gt;L3(I)
+End
+C-&gt;L3(6)
+Disp L3
+Disp L3(6)
+</code></pre>
+<p>Observed run: the list line begins <code>{0 1 1 1 1 ...}</code>, the explicit carry line is
+<code>1</code>, and the program ends with <code>Done</code>. The trace hits list element address and
+store paths (<code>list_var_index</code>, <code>_AdrLEle</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>,
+<code>store_list_elem*</code>) plus <code>fnint_body</code>, <code>_FPDiv</code>, <code>_FPAdd</code>, <code>_FPSub</code>, and
+<code>_FPMult</code>. <strong>[confirmed]</strong></p>
+<p>Performance notes: this is intentionally simple, but it is parser-heavy. For a
+general routine, cache <code>dim(L1)</code> and <code>dim(L2)</code> before the loop, avoid repeated
+list indexing when a digit is reused, and use a larger base only if you can
+tolerate more carry and display conversion work.</p>
 <h2 id="larger-source-patterns"><a class="header" href="#larger-source-patterns">Larger source patterns</a></h2>
-<p>The following programs are source-level patterns that exercise the same
-interpreter paths. They are not yet part of the generated <code>.8xp</code> fixture set.</p>
+<p>The following program is still source-level only. It exercises the same
+interpreter paths, but it is not yet part of the generated <code>.8xp</code> fixture set.</p>
 <h3 id="dfs-with-a-list-stack"><a class="header" href="#dfs-with-a-list-stack">DFS with a list stack</a></h3>
 <p>This is a compact graph traversal skeleton for an adjacency matrix <code>[A]</code>, a
 node count <code>N</code>, start node <code>S</code>, visited list <code>L1</code>, and explicit stack <code>L2</code>.</p>
@@ -300,27 +326,6 @@ an index; cache <code>dim(L2)</code> into a scalar if the body grows. <code>augm
 a new list, so this version is easy to read but not memory efficient. A faster
 version preallocates <code>L2</code>, keeps a scalar stack pointer, and writes <code>W-&gt;L2(P)</code>.
 <strong>[standard]</strong></p>
-<h3 id="arbitrary-precision-decimal-addition"><a class="header" href="#arbitrary-precision-decimal-addition">Arbitrary-precision decimal addition</a></h3>
-<p>Use lists of base-10 digits in little-endian order. For example, <code>12345</code> is
-<code>{5,4,3,2,1}</code>.</p>
-<pre><code class="language-ti-basic">max(dim(L1),dim(L2))-&gt;N
-0-&gt;C
-For(I,1,N)
-C-&gt;S
-If I&lt;=dim(L1)
-S+L1(I)-&gt;S
-If I&lt;=dim(L2)
-S+L2(I)-&gt;S
-int(S/10)-&gt;C
-S-10C-&gt;L3(I)
-End
-If C
-C-&gt;L3(N+1)
-</code></pre>
-<p>Performance notes: this is intentionally simple, but it is parser-heavy. Cache
-<code>dim(L1)</code> and <code>dim(L2)</code> before the loop, avoid repeated list indexing when a
-digit is reused, and use a larger base only if you can tolerate more carry and
-display conversion work. <strong>[standard]</strong></p>
 <h2 id="basic-and-asm-interop"><a class="header" href="#basic-and-asm-interop">BASIC and ASM interop</a></h2>
 <h3 id="basic-to-asm"><a class="header" href="#basic-to-asm">BASIC to ASM</a></h3>
 <p>The validated smoke test is:</p>

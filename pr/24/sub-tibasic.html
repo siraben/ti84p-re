@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c62fbb94.js";
+            window.path_to_searchindex_js = "searchindex-dd83a5a3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -654,6 +654,24 @@ Return
 then <code>Done</code>. This confirms the practical BASIC calling convention: caller and
 callee share variables, and <code>Return</code> resumes the caller. The trace hits VAT/name
 lookup, parser entry/refill paths, shared <code>A</code> store/recall, and <code>_Disp</code>.</p>
+<pre><code class="language-ti-basic">{5,4,3,2,1}-&gt;L1
+{5,6,7,8,9}-&gt;L2
+{0,0,0,0,0,0}-&gt;L3
+0-&gt;C
+For(I,1,5)
+L1(I)+L2(I)+C-&gt;S
+int(S/10)-&gt;C
+S-10*C-&gt;L3(I)
+End
+C-&gt;L3(6)
+Disp L3
+Disp L3(6)
+</code></pre>
+<p>Observed run: <code>BIGADD.8xp</code> displays the low-end digits of <code>L3</code> as
+<code>{0 1 1 1 1 ...}</code>, then an explicit carry line <code>1</code>, then <code>Done</code>, representing
+<code>12345 + 98765 = 111110</code> in little-endian decimal digits. The trace hits
+<code>list_var_index</code>, <code>_AdrLEle</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>store_list_elem*</code>,
+<code>fnint_body</code>, <code>_FPDiv</code>, <code>_FPAdd</code>, <code>_FPSub</code>, and <code>_FPMult</code>.</p>
 <p>See <a href="sub-tibasic-programming.html">TI-BASIC programming patterns</a> for performance
 rules and larger source-level examples.</p>
 <hr>

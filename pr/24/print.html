@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c62fbb94.js";
+            window.path_to_searchindex_js = "searchindex-dd83a5a3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -1634,6 +1634,7 @@ for observed outputs and trace anchors.</p>
 <tr><td>Animation</td><td><code>ClrHome</code> / <code>For(I,1,8)</code> / <code>Output(1,I,"X")</code> / <code>End</code> / <code>Disp "DONE"</code></td><td><code>E1 3F D3 49 2B 31 2B 38 11 3F E0 31 2B 49 2B 2A 58 2A 11 3F D4 3F DE 2A 44 4F 4E 45 2A 3F</code></td></tr>
 <tr><td>Graph drawing</td><td><code>ClrDraw</code> / <code>Line(0,0,95,63)</code> / <code>Circle(47,31,10)</code> / <code>Text(0,0,"DFS")</code> / <code>DispGraph</code></td><td><code>85 3F 9C 30 2B 30 2B 39 35 2B 36 33 11 3F A5 34 37 2B 33 31 2B 31 30 11 3F 93 30 2B 30 2B 2A 44 46 53 2A 11 3F DF 3F</code></td></tr>
 <tr><td>BASIC subprogram</td><td><code>0-&gt;A</code> / <code>prgmSUBRT</code> / <code>Disp A</code>; callee <code>Disp "SUB"</code> / <code>A+1-&gt;A</code> / <code>Return</code></td><td>caller <code>30 04 41 3F 5F 53 55 42 52 54 3F DE 41 3F</code>; callee <code>DE 2A 53 55 42 2A 3F 41 70 31 04 41 3F D5 3F</code></td></tr>
+<tr><td>Big integer add</td><td>list digits in <code>L1</code>/<code>L2</code>, carry <code>C</code>, indexed stores into <code>L3</code></td><td><code>08 35 2B 34 ... DE 5D 02 10 36 11 3F</code> (full body in <code>tools/tibasic-samples/bigadd.tok</code>)</td></tr>
 </tbody>
 </table>
 </div>
@@ -1643,8 +1644,9 @@ statement separators (<code>3F</code>), string delimiters (<code>2A</code>), sto
 <code>AsmPrgm</code> = <code>BB 6C</code>), and command tokens such as <code>Prompt</code> (<code>DD</code>), <code>Disp</code> (<code>DE</code>),
 <code>For(</code> (<code>D3</code>), <code>End</code> (<code>D4</code>), <code>ClrHome</code> (<code>E1</code>), and <code>SortA(</code> (<code>E3</code>). The
 newer samples add <code>Output(</code> (<code>E0</code>), graph commands (<code>85</code>, <code>93</code>, <code>9C</code>, <code>A5</code>,
-<code>DF</code>), <code>Return</code> (<code>D5</code>), and the program-name token (<code>5F</code>) before the name
-characters. [confirmed token bytes from <code>ti83plus.inc</code> and
+<code>DF</code>), <code>Return</code> (<code>D5</code>), list indexing with <code>(</code> (<code>10</code>) / <code>)</code> (<code>11</code>), <code>int(</code>
+(<code>B1</code>), arithmetic operators (<code>70</code>, <code>71</code>, <code>82</code>, <code>83</code>), and the program-name
+token (<code>5F</code>) before the name characters. [confirmed token bytes from <code>ti83plus.inc</code> and
 <code>token-tables.md</code>]</p>
 <h2 id="second-byte-tables"><a class="header" href="#second-byte-tables">Second-byte tables</a></h2>
 <p>Every 2-byte token group’s second-byte → token mapping (matrices, lists, Y-vars, system/window vars, the <code>BB</code> extended-command page, the <code>EF</code> 84+ page, etc.) is tabulated in <strong><a href="#2-byte-token-tables">2-Byte Token Tables</a></strong> — 492 tokens, sourced from <a href="https://github.com/TI-Toolkit/tokens">TI-Toolkit/tokens</a> and filtered to the 84+ 2.55MP.</p>
@@ -2765,6 +2767,24 @@ Return
 then <code>Done</code>. This confirms the practical BASIC calling convention: caller and
 callee share variables, and <code>Return</code> resumes the caller. The trace hits VAT/name
 lookup, parser entry/refill paths, shared <code>A</code> store/recall, and <code>_Disp</code>.</p>
+<pre><code class="language-ti-basic">{5,4,3,2,1}-&gt;L1
+{5,6,7,8,9}-&gt;L2
+{0,0,0,0,0,0}-&gt;L3
+0-&gt;C
+For(I,1,5)
+L1(I)+L2(I)+C-&gt;S
+int(S/10)-&gt;C
+S-10*C-&gt;L3(I)
+End
+C-&gt;L3(6)
+Disp L3
+Disp L3(6)
+</code></pre>
+<p>Observed run: <code>BIGADD.8xp</code> displays the low-end digits of <code>L3</code> as
+<code>{0 1 1 1 1 ...}</code>, then an explicit carry line <code>1</code>, then <code>Done</code>, representing
+<code>12345 + 98765 = 111110</code> in little-endian decimal digits. The trace hits
+<code>list_var_index</code>, <code>_AdrLEle</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>store_list_elem*</code>,
+<code>fnint_body</code>, <code>_FPDiv</code>, <code>_FPAdd</code>, <code>_FPSub</code>, and <code>_FPMult</code>.</p>
 <p>See <a href="#ti-basic-programming-patterns">TI-BASIC programming patterns</a> for performance
 rules and larger source-level examples.</p>
 <hr>
@@ -3026,9 +3046,35 @@ resolution (<code>findsym_scan</code>), parser entry/refill paths, <code>_StoSys
 <p>There is no local variable frame for BASIC programs. A subprogram that uses <code>A</code>
 modifies the caller’s <code>A</code>. For reusable routines, document which variables are
 inputs, scratch, and outputs.</p>
+<h3 id="arbitrary-precision-decimal-addition"><a class="header" href="#arbitrary-precision-decimal-addition">Arbitrary-precision decimal addition</a></h3>
+<p><code>BIGADD.8xp</code> uses lists of base-10 digits in little-endian order. <code>12345</code> is
+<code>{5,4,3,2,1}</code>, <code>98765</code> is <code>{5,6,7,8,9}</code>, and the result is the list
+<code>{0,1,1,1,1,1}</code> for <code>111110</code>.</p>
+<pre><code class="language-ti-basic">{5,4,3,2,1}-&gt;L1
+{5,6,7,8,9}-&gt;L2
+{0,0,0,0,0,0}-&gt;L3
+0-&gt;C
+For(I,1,5)
+L1(I)+L2(I)+C-&gt;S
+int(S/10)-&gt;C
+S-10C-&gt;L3(I)
+End
+C-&gt;L3(6)
+Disp L3
+Disp L3(6)
+</code></pre>
+<p>Observed run: the list line begins <code>{0 1 1 1 1 ...}</code>, the explicit carry line is
+<code>1</code>, and the program ends with <code>Done</code>. The trace hits list element address and
+store paths (<code>list_var_index</code>, <code>_AdrLEle</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>,
+<code>store_list_elem*</code>) plus <code>fnint_body</code>, <code>_FPDiv</code>, <code>_FPAdd</code>, <code>_FPSub</code>, and
+<code>_FPMult</code>. <strong>[confirmed]</strong></p>
+<p>Performance notes: this is intentionally simple, but it is parser-heavy. For a
+general routine, cache <code>dim(L1)</code> and <code>dim(L2)</code> before the loop, avoid repeated
+list indexing when a digit is reused, and use a larger base only if you can
+tolerate more carry and display conversion work.</p>
 <h2 id="larger-source-patterns"><a class="header" href="#larger-source-patterns">Larger source patterns</a></h2>
-<p>The following programs are source-level patterns that exercise the same
-interpreter paths. They are not yet part of the generated <code>.8xp</code> fixture set.</p>
+<p>The following program is still source-level only. It exercises the same
+interpreter paths, but it is not yet part of the generated <code>.8xp</code> fixture set.</p>
 <h3 id="dfs-with-a-list-stack"><a class="header" href="#dfs-with-a-list-stack">DFS with a list stack</a></h3>
 <p>This is a compact graph traversal skeleton for an adjacency matrix <code>[A]</code>, a
 node count <code>N</code>, start node <code>S</code>, visited list <code>L1</code>, and explicit stack <code>L2</code>.</p>
@@ -3053,27 +3099,6 @@ an index; cache <code>dim(L2)</code> into a scalar if the body grows. <code>augm
 a new list, so this version is easy to read but not memory efficient. A faster
 version preallocates <code>L2</code>, keeps a scalar stack pointer, and writes <code>W-&gt;L2(P)</code>.
 <strong>[standard]</strong></p>
-<h3 id="arbitrary-precision-decimal-addition"><a class="header" href="#arbitrary-precision-decimal-addition">Arbitrary-precision decimal addition</a></h3>
-<p>Use lists of base-10 digits in little-endian order. For example, <code>12345</code> is
-<code>{5,4,3,2,1}</code>.</p>
-<pre><code class="language-ti-basic">max(dim(L1),dim(L2))-&gt;N
-0-&gt;C
-For(I,1,N)
-C-&gt;S
-If I&lt;=dim(L1)
-S+L1(I)-&gt;S
-If I&lt;=dim(L2)
-S+L2(I)-&gt;S
-int(S/10)-&gt;C
-S-10C-&gt;L3(I)
-End
-If C
-C-&gt;L3(N+1)
-</code></pre>
-<p>Performance notes: this is intentionally simple, but it is parser-heavy. Cache
-<code>dim(L1)</code> and <code>dim(L2)</code> before the loop, avoid repeated list indexing when a
-digit is reused, and use a larger base only if you can tolerate more carry and
-display conversion work. <strong>[standard]</strong></p>
 <h2 id="basic-and-asm-interop"><a class="header" href="#basic-and-asm-interop">BASIC and ASM interop</a></h2>
 <h3 id="basic-to-asm"><a class="header" href="#basic-to-asm">BASIC to ASM</a></h3>
 <p>The validated smoke test is:</p>
