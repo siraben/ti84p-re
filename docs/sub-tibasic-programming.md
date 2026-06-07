@@ -150,39 +150,52 @@ general routine, cache `dim(L1)` and `dim(L2)` before the loop, avoid repeated
 list indexing when a digit is reused, and use a larger base only if you can
 tolerate more carry and display conversion work.
 
-## Larger source patterns
-
-The following program is still source-level only. It exercises the same
-interpreter paths, but it is not yet part of the generated `.8xp` fixture set.
-
 ### DFS with a list stack
 
-This is a compact graph traversal skeleton for an adjacency matrix `[A]`, a
-node count `N`, start node `S`, visited list `L1`, and explicit stack `L2`.
+`DFS.8xp` uses two edge lists (`L1` source, `L2` destination), a visited list
+(`L3`), and an explicit stack (`L4`) to traverse this graph:
 
-```ti-basic
-0*seq(I,I,1,N)->L1
-{S}->L2
-While dim(L2)
-L2(dim(L2))->V
-dim(L2)-1->dim(L2)
-If not(L1(V))
-Then
-1->L1(V)
-Disp V
-For(W,1,N)
-If [A](V,W) and not(L1(W))
-augment(L2,{W})->L2
-End
-End
-End
+```text
+1 -> 2
+1 -> 3
+2 -> 4
 ```
 
-Performance notes: `dim(L2)` and `L2(dim(L2))` both resolve the list and parse
-an index; cache `dim(L2)` into a scalar if the body grows. `augment(` allocates
-a new list, so this version is easy to read but not memory efficient. A faster
-version preallocates `L2`, keeps a scalar stack pointer, and writes `W->L2(P)`.
-**[standard]**
+```ti-basic
+{1,1,2}->L1
+{2,3,4}->L2
+{0,0,0,0}->L3
+{1,0,0,0}->L4
+1->P
+While P
+L4(P)->V
+P-1->P
+If L3(V)=0
+Then
+1->L3(V)
+Disp V
+For(E,1,3)
+If L1(E)=V
+Then
+P+1->P
+L2(E)->L4(P)
+End
+End
+End
+End
+Disp L3
+```
+
+Observed run: traversal order is `1`, `3`, `2`, `4` because the stack is LIFO and
+node `3` is pushed after node `2`. The final visited list is `{1 1 1 1}`. The
+trace hits `blockmatch_end_else`, `parse_scan_tokens`, `if_isg_stmt_handler`,
+parser refill/advance paths, `_Disp`, and the same list read/write helpers used
+by `BIGADD`. **[confirmed]**
+
+Performance notes: this version scans all edges for every visited node, so it is
+easy to understand but O(VE) in BASIC-level work. For larger graphs, keep an
+offset table of edge ranges per node, avoid `augment(` in hot loops, and
+preallocate stack/visited lists with scalar pointers as this sample does.
 
 ## BASIC and ASM interop
 
