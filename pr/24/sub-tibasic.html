@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e8b490c5.js";
+            window.path_to_searchindex_js = "searchindex-94039817.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -699,6 +699,12 @@ renders/inserts token text; combining <code>_PutTokString</code> with <code>_JFo
 never displays the target program’s <code>CALLED</code> line. <code>_rclToQueue</code> (<code>06:5F29</code>) is
 an edit-buffer queue helper guarded by <code>rclFlag.enableQueue</code>, not a standalone
 program executor.</p>
+<p><code>_ExecuteNewPrgm</code> (<code>00:265F</code>) is also stateful. An <code>AsmPrgm</code> probe with
+<code>OP1=ProgObj</code> and <code>HL -&gt; "ZZBASIC",0</code> enters <code>_ExecuteNewPrgm</code> and
+<code>findsym_scan</code>, then reaches <code>ERR:SYNTAX</code>. The same probe with <code>ZZBASIC</code> loaded
+as <code>ProtProgObj</code> and <code>OP1=06</code> gets through the copy/jump tail at <code>00:268A</code> and
+<code>00:268F</code>, but still stops at <code>ERR:SYNTAX</code> without displaying the target
+program’s <code>CALLED</code> line.</p>
 <pre><code class="language-ti-basic">{5,4,3,2,1}-&gt;L1
 {5,6,7,8,9}-&gt;L2
 {0,0,0,0,0,0}-&gt;L3

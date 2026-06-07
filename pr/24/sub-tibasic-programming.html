@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e8b490c5.js";
+            window.path_to_searchindex_js = "searchindex-94039817.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-26ce7d13.js"></script>
@@ -417,6 +417,9 @@ bcalls are not that entry point:</p>
 <ul>
 <li><code>_ExecutePrgm</code> is the <code>AsmPrgm</code> executor reached by <code>Asm(prgmNAME)</code>, not a
 general “run a BASIC program” entry.</li>
+<li><code>_ExecuteNewPrgm</code> (<code>4C3C</code>, target <code>00:265F</code>) is not a drop-in BASIC runner
+from an arbitrary <code>AsmPrgm</code> either. It expects more OS state than just a name
+pointer.</li>
 <li><code>_ParsePrgmName</code> (<code>4E82</code>, target <code>38:40D4</code>) only consumes a <code>prgmNAME</code> token
 from the current parser cursor and builds the name object used by <code>Asm(</code>.</li>
 </ul>
@@ -467,6 +470,16 @@ through the command loop; it still never displays <code>CALLED</code> from <code
 its ROM path depends on an already-open edit buffer (<code>editCursor</code>/<code>editTail</code>)
 and the <code>rclFlag.enableQueue</code> state; it does not create a BASIC program call
 frame. <strong>[confirmed probes; <code>_rclToQueue</code> role from disassembly]</strong></p>
+<p><code>_ExecuteNewPrgm</code> is the remaining tempting name, but temporary probes reject it
+as a public ASM-to-BASIC call path. A payload that sets <code>OP1</code> to <code>ProgObj</code>
+(<code>05</code>), points <code>HL</code> at the zero-terminated name <code>ZZBASIC</code>, and bcalls <code>4C3C</code>
+enters <code>_ExecuteNewPrgm</code> (<code>00:265F</code>) and <code>findsym_scan</code>, then ends at
+<code>ERR:SYNTAX</code>; <code>ZZBASIC</code> never displays <code>CALLED</code>. Repeating the test with
+<code>ZZBASIC</code> loaded as <code>ProtProgObj</code> (<code>06</code>) and <code>OP1=06</code> gets farther: the trace
+hits <code>_ExecuteNewPrgm</code>, the copy tail at <code>00:268A</code>, and the jump at <code>00:268F</code>.
+It still ends at <code>ERR:SYNTAX</code> and never runs the target body. That makes
+<code>_ExecuteNewPrgm</code> another stateful OS helper, not a standalone program executor
+ABI for <code>AsmPrgm</code> payloads. <strong>[confirmed]</strong></p>
 <p>The current open item is therefore precise: trace a small ASM payload that
 successfully invokes a BASIC program, identify the required parser/VAT/error
 state, and compare it to the rejected public routes above plus both confirmed
