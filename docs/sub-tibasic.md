@@ -714,6 +714,14 @@ bcalls `_ParseInpLastEnt` instead. The trace reaches `_ParseInpLastEnt`,
 `eval_stmt_entry`; the final screen is `ERR:INVALID` / `1:Quit` / `2:Goto`, and
 `ZZBASIC`'s `CALLED` line does not display.
 
+`ASMFORM.8xp` and `ZZFORM.8xp` turn the `_Find_Parse_Formula` boundary into the
+same kind of generated negative fixture. The payload again builds
+`OP1={ProgObj,"ZZBASIC"}`, but bcalls `_Find_Parse_Formula` (`4AF2`, target
+`38:758A`). The trace reaches `ram:9D95`, `_Find_Parse_Formula`,
+`parse_init_findsym`, `findsym_scan`, and `eval_stmt_entry`; the final screen is
+`ERR:UNDEFINED` / `1:Quit` / `2:Goto`, and `ZZBASIC`'s `CALLED` line does not
+display.
+
 The full `CALLSUB` smoke trace does hit `_ParseInpLastEnt`/`_ParseInp` once,
 because the macro starts the program by submitting `prgmCALLSUB` from the
 homescreen. That launch parse resolves the top-level program and seeds the
@@ -727,8 +735,8 @@ The relevant page-38 evaluator transition is private state, not a bcall ABI:
 (`38:778F`). At the first observed hit in the `CALLSUB` trace, the parser
 cursor/end, OPS/temp-stack pointers, OP1, stack depth, and IY parser flags are
 already live. This is why `ASMFIND` can successfully `_ChkFindSym` a BASIC
-program name, but the tested `_Find_Parse_Formula` probe still reaches
-`ERR:UNDEFINED` instead of running that program.
+program name, but `ASMFORM` still reaches `ERR:UNDEFINED` instead of running
+that program through `_Find_Parse_Formula`.
 
 The `_ParseInpLastEnt` fixture narrows the parser-entry boundary further:
 `_ParseInp` variants are not byte-stream program-call ABIs; they expect

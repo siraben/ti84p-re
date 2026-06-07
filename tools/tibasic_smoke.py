@@ -136,6 +136,16 @@ CASES: dict[str, Case] = {
             VisualRegion("Goto line", "42x9+0+18", 40),
         ),
     ),
+    "asmformula": Case(
+        ("ASMFORM.8xp", "ZZFORM.8xp", "ZZBASIC.8xp"),
+        "ASM formula-parser probe reaches ERR:UNDEFINED instead of executing ZZBASIC",
+        ("ram:9d95", "_Find_Parse_Formula", "parse_init_findsym", "findsym_scan", "eval_stmt_entry"),
+        visual_regions=(
+            VisualRegion("ERR UNDEFINED line", "90x9+0+0", 200),
+            VisualRegion("Quit line", "42x9+0+9", 80),
+            VisualRegion("Goto line", "42x9+0+18", 40),
+        ),
+    ),
     "animtext": Case(
         ("ANIMTXT.8xp",),
         "row of X characters, DONE; Done",

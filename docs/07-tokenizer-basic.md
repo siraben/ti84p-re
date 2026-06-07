@@ -39,7 +39,10 @@ The expression parser/evaluator lives on **flash page 0x38**. Entry points:
   `_ParseInp`; the generated `ASMPARSE.8xp`/`ZZPARSE.8xp` fixture reaches it
   but fails with `ERR:INVALID` without running the named BASIC target.
   **[confirmed negative probe]**
-- `_Find_Parse_Formula` (`38:758A`) — `_FindSym` a variable then parse its stored formula (Y-vars, equations). **[confirmed]**
+- `_Find_Parse_Formula` (`38:758A`) — `_FindSym` a variable then parse its stored
+  formula (Y-vars, equations). The generated `ASMFORM.8xp`/`ZZFORM.8xp` fixture
+  reaches it from an `AsmPrgm` payload but fails with `ERR:UNDEFINED` without
+  running the named BASIC target. **[confirmed negative probe]**
 - `parse_init` (`38:5b7b`) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). **[confirmed]**
 
 The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine ([06](06-floating-point.md)), variable tokens resolve via the VAT ([05](05-variables-vat.md)), and the busy indicator is driven by `_RunIndicOn`/`Off`. `_BinOPExec` applies a binary operator via OP1/OP2.
