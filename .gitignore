@@ -46,3 +46,8 @@ __pycache__/
 
 # Local app samples used for reverse-engineering spot checks
 /tools/app-samples/
+
+# Accuracy-audit working area — local scaffolding only, never committed
+# (keeps all audit/review meta-language out of the repo's markdown).
+/tools/audit/
+auth.json
