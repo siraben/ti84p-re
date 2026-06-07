@@ -374,7 +374,129 @@ page_38:6ae6   output_dispatch    (CP E0 in evaluator)
 
 ---
 
-## 8. Resolved / residual
+## 8. Dynamic confirmation and traceable examples
+
+The current headless trace workflow confirms the parser/evaluator path with
+homescreen input. A full-range TilEm trace of `2+3` on the homescreen resolves
+1,979,196 instructions and reaches page-38 parser functions including
+`eval_stmt_entry` (`38:59C5`), `parse_eval_expr` (`38:5AB3`), `parse_init`
+(`38:5B7B`), `parse_advance` (`38:7248`), `chk_tok_end` (`38:72E0`), and `_StoAns`
+(`38:6251`). This is a dynamic confirmation of the token-cursor loop described
+above, although it exercises an expression rather than a stored `ProgObj`.
+[confirmed by `tools/tilem_trace_resolve.py` on a `tools/macros/home-2plus3.macro`
+trace]
+
+The sample program bodies in [`tools/tibasic-samples/`](../tools/tibasic-samples/)
+are raw token streams: the bytes after a program object's two-byte size word.
+Generate or refresh them with
+[`tools/tibasic_samples.py`](../tools/tibasic_samples.py) `--write-dir tools/tibasic-samples`.
+They are not TI link files; use a link-file tool or the calculator editor to
+place them into RAM before running
+[`tools/macros/run-first-program.macro`](../tools/macros/run-first-program.macro).
+
+### Hello world
+
+```ti-basic
+ClrHome
+Disp "HELLO, WORLD"
+```
+
+Body bytes:
+
+```text
+E1 3F DE 2A 48 45 4C 4C 4F 2B 29 57 4F 52 4C 44 2A 3F
+```
+
+Expected trace path: `tClLCD` (`0xE1`) clears the home text display, then
+`tDisp` (`0xDE`) scans the string bounded by `tString` (`0x2A`) and calls `_Disp`
+(`37:51D3`), `_NewLine` (`01:5F4A`), and `_DispDone` (`01:69B0`). [standard for
+the command sequence; display routines confirmed above]
+
+### Factorial loop
+
+```ti-basic
+Prompt N
+1->F
+For(I,1,N)
+F*I->F
+End
+Disp F
+```
+
+Body bytes:
+
+```text
+DD 4E 3F 31 04 46 3F D3 49 2B 31 2B 4E 11 3F 46 82 49 04 46 3F D4 3F DE 46 3F
+```
+
+Expected trace path: `Prompt` enters the page-02 input handler (`02:562F`);
+stores use `tStore` (`0x04`) and the store-target scanner at `38:7600`; `For(`
+and `End` dispatch through page 02 into the page-33 command jump table at
+`33:4381`; `End` reseeds `parsePtr` to the saved loop top until the comparison
+fails; `F*I` reaches the FP multiply path and stores the updated `F`. [standard
+for this sample; page-02/page-33 dispatch confirmed above]
+
+### List/data manipulation
+
+```ti-basic
+{3,1,4,1,5}->L1
+SortA(L1)
+cumSum(L1)->L2
+sum(L1)->S
+Disp L1
+Disp L2
+Disp S
+```
+
+Body bytes:
+
+```text
+08 33 2B 31 2B 34 2B 31 2B 35 09 04 5D 00 3F E3 5D 00 11 3F BB 29 5D 00 11 04 5D 01 3F B6 5D 00 11 04 53 3F DE 5D 00 3F DE 5D 01 3F DE 53 3F
+```
+
+Expected trace path: list names are 2-byte tokens (`5D 00` = `L1`, `5D 01` =
+`L2`), so `parse_scan_tokens` must honor `_IsA2ByteTok`. The literal creates an
+RList, `SortA(` (`0xE3`) reaches the page-02 sort command, `cumSum(` (`BB 29`)
+uses the 2-byte token page, and `sum(` (`0xB6`) reaches the list fold dispatcher
+at `02:6104`. [standard for this sample; list routines cross-linked in
+`sub-matrix-list.md`]
+
+### `Asm(` smoke test
+
+Safe `Asm(` tracing uses a program that returns immediately:
+
+```ti-basic
+AsmPrgm
+C9
+```
+
+`C9` is Z80 `RET`. A BASIC wrapper can show that control returns to TI-BASIC:
+
+```ti-basic
+Disp "BEFORE"
+Asm(prgmASMRET)
+Disp "AFTER"
+```
+
+Raw bodies:
+
+```text
+ASMRET:  BB 6C 3F 43 39 3F
+ASMCALL: DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41 46 54 45 52 2A 3F
+```
+
+`Asm(` is the 2-byte token `BB 6A`; `AsmPrgm` is `BB 6C`; the displayed `prgm`
+prefix in `Asm(prgmASMRET)` is the program-name token `0x5F`, followed by the
+name characters and the closing `)` token. The public equates name the relevant
+API surface as `_AsmComp` (`4E73h`), `_GetAsmSize` (`4E76h`), and
+`_ChkFindSymAsm` (`4E7Fh`), with RAM scratch labels `asm_data_ptr1`,
+`asm_sym_ptr1`, `asm_ram`, and `asm_ind_call`. The exact execution body has not
+yet been dynamically mapped in this repository. [standard tokens and public
+equates; execution mapping open]
+
+---
+
+## 9. Resolved / residual
 
 Three argument-handling and dispatch details, grounded in the bytes (see §5 / §4):
 

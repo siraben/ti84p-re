@@ -1,0 +1,23 @@
+# Power on, dismiss the RAM-cleared splash, and run the first program in
+# PRGM > EXEC. Use this after loading exactly the program being traced into
+# RAM, so ENTER selects the intended program.
+#
+# Example:
+#   TILEM=~/Git/tilem-headless/result/bin/tilem2
+#   $TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
+#     --macro tools/macros/run-first-program.macro \
+#     --trace /tmp/tibasic.trace --trace-range all
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.4s
+key ENTER
+key ENTER
+wait 3s
+screenshot /tmp/tibasic-first-program.png
