@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-db524601.js";
+            window.path_to_searchindex_js = "searchindex-87b42c0e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bcf53af4.js"></script>
@@ -180,7 +180,7 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="bcall-reference-index"><a class="header" href="#bcall-reference-index">bcall reference index</a></h1>
-<p>The main table below lists the live-confirmed <code>0x4xxx</code> bcall system calls. Each has an <em>ID</em> (the 2-byte value after <code>rst 28h</code>) and a <em>body</em> at <code>page:addr</code>. Use your browser’s find, or the wiki search box. See <a href="03-bcall-mechanism.html">The bcall Mechanism</a> for how dispatch works. The historical <code>0x8xxx</code> candidates at the end are kept for reconciliation, but their page-0x3F bodies are not currently present as functions in the live Ghidra/MCP DB.</p>
+<p>The main table below lists the live-confirmed <code>0x4xxx</code> bcall system calls. Each has an <em>ID</em> (the 2-byte value after <code>rst 28h</code>) and a <em>body</em> at <code>page:addr</code>. Use your browser’s find, or the wiki search box. See <a href="03-bcall-mechanism.html">The bcall Mechanism</a> for how dispatch works. The <code>0x8xxx</code> boot bcall names at the end are official SDK equates resolved from the retail boot table on page <code>3F</code>; USB boot entries point into page <code>2F</code>.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -786,25 +786,97 @@
 </tbody>
 </table>
 </div>
-<h2 id="extended-0x8xxx-candidates--unverified"><a class="header" href="#extended-0x8xxx-candidates--unverified">Extended (<code>0x8xxx</code>) candidates — unverified</a></h2>
-<p>All 11 of these <code>0x8xxx</code> candidate IDs are now defined in the full 2007 <code>ti83plus.inc</code> (SDK equate column below), and were produced by historical ROM-scan scripts from a proposed page-0x3F table. The current live Ghidra/MCP DB does <strong>not</strong> expose functions at these claimed targets, so treat the bodies as unresolved build/load-model evidence, not confirmed bcall bodies — the open piece. Names are WikiTI’s; <code>†</code> marks WikiTI <em>unofficial</em> names. Cataloged in <code>tools/ti84plus_extra.inc</code>.</p>
+<h2 id="retail-boot-0x8xxx-bcalls"><a class="header" href="#retail-boot-0x8xxx-bcalls">Retail boot (<code>0x8xxx</code>) bcalls</a></h2>
+<p>These <code>0x8xxx</code> IDs are defined in the full 2007 <code>ti83plus.inc</code> and resolved from the retail boot table. <code>tools/resolve_bcalls.py</code> emits this table only when page <code>3F</code> has the retail boot prefix, not when it sees BootFree.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>bcall</th><th>ID</th><th>SDK equate (<code>ti83plus.inc</code>)</th><th>Body (page:addr)</th></tr>
+<tr><th>bcall</th><th>ID</th><th>Body (page:addr)</th></tr>
 </thead>
 <tbody>
-<tr><td><code>_WriteAByte</code></td><td><code>8021</code></td><td><code>_WriteAByte</code></td><td><code>3F:44F3</code></td></tr>
-<tr><td><code>_FindFirstCertificateField</code></td><td><code>8027</code></td><td><code>_FindFirstCertField</code></td><td><code>3F:4448</code></td></tr>
-<tr><td><code>_FindGroupedField</code> †</td><td><code>8030</code></td><td><code>_FindGroupedField</code></td><td><code>3F:442B</code></td></tr>
-<tr><td><code>_FlashToRAM2</code> †</td><td><code>8054</code></td><td><code>_FlashToRam2</code></td><td><code>3F:52EB</code></td></tr>
-<tr><td><code>_GetCertificateStart</code></td><td><code>8057</code></td><td><code>_GetCertificateStart</code></td><td><code>3F:430F</code></td></tr>
-<tr><td><code>_GetFieldSize</code></td><td><code>805A</code></td><td><code>_GetFieldSize</code></td><td><code>3F:449C</code></td></tr>
-<tr><td><code>_FindSubField</code> †</td><td><code>805D</code></td><td><code>_FindSubField</code></td><td><code>3F:4463</code></td></tr>
-<tr><td><code>_FindOSHeaderSubField</code> †</td><td><code>8075</code></td><td><code>_FindOSHeaderSubField</code></td><td><code>3F:446C</code></td></tr>
-<tr><td><code>_Div32By16</code></td><td><code>80B1</code></td><td><code>_Div32By16</code></td><td><code>3F:5296</code></td></tr>
-<tr><td><code>_GetBootVer</code></td><td><code>80B7</code></td><td><code>_getBootVer</code></td><td><code>3F:531E</code></td></tr>
-<tr><td><code>_GetHWVer</code></td><td><code>80BA</code></td><td><code>_getHardwareVersion</code></td><td><code>3F:5323</code></td></tr>
+<tr><td><code>_MD5Final</code></td><td><code>8018</code></td><td><code>3F:6964</code></td></tr>
+<tr><td><code>_RSAValidate</code></td><td><code>801B</code></td><td><code>3F:6CB4</code></td></tr>
+<tr><td><code>_cmpStr</code></td><td><code>801E</code></td><td><code>3F:7195</code></td></tr>
+<tr><td><code>_WriteAByte</code></td><td><code>8021</code></td><td><code>3F:4C9F</code></td></tr>
+<tr><td><code>_EraseFlash</code></td><td><code>8024</code></td><td><code>3F:4C2A</code></td></tr>
+<tr><td><code>_FindFirstCertField</code></td><td><code>8027</code></td><td><code>3F:4D62</code></td></tr>
+<tr><td><code>_ZeroToCertificate</code></td><td><code>802A</code></td><td><code>3F:4DAF</code></td></tr>
+<tr><td><code>_GetCertificateEnd</code></td><td><code>802D</code></td><td><code>3F:4D53</code></td></tr>
+<tr><td><code>_FindGroupedField</code></td><td><code>8030</code></td><td><code>3F:4E8C</code></td></tr>
+<tr><td><code>_ret_1</code></td><td><code>8033</code></td><td><code>3F:4867</code></td></tr>
+<tr><td><code>_ret_2</code></td><td><code>8036</code></td><td><code>3F:4867</code></td></tr>
+<tr><td><code>_ret_3</code></td><td><code>8039</code></td><td><code>3F:4867</code></td></tr>
+<tr><td><code>_ret_4</code></td><td><code>803C</code></td><td><code>3F:4867</code></td></tr>
+<tr><td><code>_ret_5</code></td><td><code>803F</code></td><td><code>3F:4867</code></td></tr>
+<tr><td><code>_Mult8By8</code></td><td><code>8042</code></td><td><code>3F:7059</code></td></tr>
+<tr><td><code>_Mult16By8</code></td><td><code>8045</code></td><td><code>3F:705B</code></td></tr>
+<tr><td><code>_Div16By8</code></td><td><code>8048</code></td><td><code>3F:7146</code></td></tr>
+<tr><td><code>_Div16By16</code></td><td><code>804B</code></td><td><code>3F:7148</code></td></tr>
+<tr><td><code>_LoadAIndPaged</code></td><td><code>8051</code></td><td><code>3F:486E</code></td></tr>
+<tr><td><code>_FlashToRam2</code></td><td><code>8054</code></td><td><code>3F:4888</code></td></tr>
+<tr><td><code>_GetCertificateStart</code></td><td><code>8057</code></td><td><code>3F:4D46</code></td></tr>
+<tr><td><code>_GetFieldSize</code></td><td><code>805A</code></td><td><code>3F:4DB8</code></td></tr>
+<tr><td><code>_FindSubField</code></td><td><code>805D</code></td><td><code>3F:4DFB</code></td></tr>
+<tr><td><code>_EraseCertificateSector</code></td><td><code>8060</code></td><td><code>3F:4E3F</code></td></tr>
+<tr><td><code>_CheckHeaderKey</code></td><td><code>8063</code></td><td><code>3F:4B4A</code></td></tr>
+<tr><td><code>_Load_LFontV2</code></td><td><code>806C</code></td><td><code>3F:7C8A</code></td></tr>
+<tr><td><code>_Load_LFontV</code></td><td><code>806F</code></td><td><code>3F:7C8A</code></td></tr>
+<tr><td><code>_ReceiveOS</code></td><td><code>8072</code></td><td><code>3F:5DCE</code></td></tr>
+<tr><td><code>_FindOSHeaderSubField</code></td><td><code>8075</code></td><td><code>3F:5018</code></td></tr>
+<tr><td><code>_FindNextCertField</code></td><td><code>8078</code></td><td><code>3F:4D5C</code></td></tr>
+<tr><td><code>_GetByteOrBoot</code></td><td><code>807B</code></td><td><code>3F:5C64</code></td></tr>
+<tr><td><code>_getSerial</code></td><td><code>807E</code></td><td><code>3F:442F</code></td></tr>
+<tr><td><code>_ReceiveCalcID</code></td><td><code>8081</code></td><td><code>3F:5EDC</code></td></tr>
+<tr><td><code>_EraseFlashPage</code></td><td><code>8084</code></td><td><code>3F:4C1E</code></td></tr>
+<tr><td><code>_WriteFlashUnsafe</code></td><td><code>8087</code></td><td><code>3F:4CA6</code></td></tr>
+<tr><td><code>_dispBootVer</code></td><td><code>808A</code></td><td><code>3F:44F1</code></td></tr>
+<tr><td><code>_MD5Init</code></td><td><code>808D</code></td><td><code>3F:68ED</code></td></tr>
+<tr><td><code>_MD5Update</code></td><td><code>8090</code></td><td><code>3F:6907</code></td></tr>
+<tr><td><code>_MarkOSInvalid</code></td><td><code>8093</code></td><td><code>3F:5209</code></td></tr>
+<tr><td><code>_FindProgramLicense</code></td><td><code>8096</code></td><td><code>3F:4B1A</code></td></tr>
+<tr><td><code>_MarkOSValid</code></td><td><code>8099</code></td><td><code>3F:51F5</code></td></tr>
+<tr><td><code>_CheckOSValidated</code></td><td><code>809C</code></td><td><code>3F:52C6</code></td></tr>
+<tr><td><code>_SetupAppPubKey</code></td><td><code>809F</code></td><td><code>3F:53CA</code></td></tr>
+<tr><td><code>_SigModR</code></td><td><code>80A2</code></td><td><code>3F:7225</code></td></tr>
+<tr><td><code>_TransformHash</code></td><td><code>80A5</code></td><td><code>3F:723F</code></td></tr>
+<tr><td><code>_IsAppFreeware</code></td><td><code>80A8</code></td><td><code>3F:52E1</code></td></tr>
+<tr><td><code>_FindAppHeaderSubField</code></td><td><code>80AB</code></td><td><code>3F:500A</code></td></tr>
+<tr><td><code>_WriteValidationNumber</code></td><td><code>80AE</code></td><td><code>3F:540B</code></td></tr>
+<tr><td><code>_Div32By16</code></td><td><code>80B1</code></td><td><code>3F:706E</code></td></tr>
+<tr><td><code>_FindGroup</code></td><td><code>80B4</code></td><td><code>3F:4E61</code></td></tr>
+<tr><td><code>_getBootVer</code></td><td><code>80B7</code></td><td><code>3F:477C</code></td></tr>
+<tr><td><code>_getHardwareVersion</code></td><td><code>80BA</code></td><td><code>3F:4781</code></td></tr>
+<tr><td><code>_xorA</code></td><td><code>80BD</code></td><td><code>3F:5C6D</code></td></tr>
+<tr><td><code>_bignumpowermod17</code></td><td><code>80C0</code></td><td><code>3F:6CBD</code></td></tr>
+<tr><td><code>_ProdNrPart1</code></td><td><code>80C3</code></td><td><code>3F:6209</code></td></tr>
+<tr><td><code>_WriteAByteSafe</code></td><td><code>80C6</code></td><td><code>3F:4C9A</code></td></tr>
+<tr><td><code>_WriteFlash</code></td><td><code>80C9</code></td><td><code>3F:4C8F</code></td></tr>
+<tr><td><code>_SetupDateStampPubKey</code></td><td><code>80CC</code></td><td><code>3F:548C</code></td></tr>
+<tr><td><code>_SetFlashLowerBound</code></td><td><code>80CF</code></td><td><code>3F:4784</code></td></tr>
+<tr><td><code>_LowBatteryBoot</code></td><td><code>80D2</code></td><td><code>3F:5834</code></td></tr>
+<tr><td><code>_AttemptUSBOSReceive</code></td><td><code>80E4</code></td><td><code>2F:4145</code></td></tr>
+<tr><td><code>_DisplayBootMessage</code></td><td><code>80E7</code></td><td><code>3F:6127</code></td></tr>
+<tr><td><code>_NewLine2</code></td><td><code>80EA</code></td><td><code>3F:73DD</code></td></tr>
+<tr><td><code>_DisplayBootError10</code></td><td><code>80ED</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_Chk_Batt_Low_B</code></td><td><code>80F0</code></td><td><code>3F:6171</code></td></tr>
+<tr><td><code>_Chk_Batt_Low_B2</code></td><td><code>80F3</code></td><td><code>3F:6163</code></td></tr>
+<tr><td><code>_ReceiveOS_USB</code></td><td><code>80F6</code></td><td><code>2F:48CA</code></td></tr>
+<tr><td><code>_DisplayOSProgress</code></td><td><code>80F9</code></td><td><code>3F:62D0</code></td></tr>
+<tr><td><code>_ResetCalc</code></td><td><code>80FC</code></td><td><code>3F:5ED3</code></td></tr>
+<tr><td><code>_SetupOSPubKey</code></td><td><code>80FF</code></td><td><code>3F:5387</code></td></tr>
+<tr><td><code>_CheckHeaderKeyHL</code></td><td><code>8102</code></td><td><code>3F:4B4D</code></td></tr>
+<tr><td><code>_USBErrorCleanup</code></td><td><code>8105</code></td><td><code>2F:5958</code></td></tr>
+<tr><td><code>_InitUSB</code></td><td><code>8108</code></td><td><code>2F:52A4</code></td></tr>
+<tr><td><code>_KillUSB</code></td><td><code>810E</code></td><td><code>2F:5961</code></td></tr>
+<tr><td><code>_DisplayBootError1</code></td><td><code>8111</code></td><td><code>3F:63DB</code></td></tr>
+<tr><td><code>_DisplayBootError2</code></td><td><code>8114</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError3</code></td><td><code>8117</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError4</code></td><td><code>811A</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError5</code></td><td><code>811D</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError6</code></td><td><code>8120</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError7</code></td><td><code>8123</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError8</code></td><td><code>8126</code></td><td><code>3F:5789</code></td></tr>
+<tr><td><code>_DisplayBootError9</code></td><td><code>8129</code></td><td><code>3F:5789</code></td></tr>
 </tbody>
 </table>
 </div>
