@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f476114c.js";
+            window.path_to_searchindex_js = "searchindex-43782694.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-3181efee.js"></script>
@@ -5044,25 +5044,33 @@ page-<code>39</code> execution was rolled up to function level with
 <code>tools/tilem_trace_resolve.py --funcs --only-space page_39</code> (see
 <a href="../tools/dynamic-tracing.html">dynamic tracing</a>). The macros are
 <code>tools/macros/mathprint-{power,fraction,fnint}.macro</code>. [confirmed]</p>
-<p>The trace cleanly separates the two documented rendering mechanisms by <em>which
-routines actually run</em> for each construct:</p>
+<p>The trace cleanly separates the rendering mechanisms by <em>which routines actually
+run</em> for each construct. <code>tools/parity-mathprint.py</code> types each example on the
+calculator, captures its trace, and rolls page-<code>39</code> execution up to function
+level:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Rendered (entry line)</th><th>Page-<code>39</code> routines exercised</th><th>Path</th></tr>
+<tr><th>Entry-line input</th><th>Page-<code>39</code> path</th><th>Anchor routines that fire</th></tr>
 </thead>
 <tbody>
-<tr><td><code>X^2</code> (raised exponent)</td><td><code>eqdisp_emit_subexpr2</code> <code>4CA4</code>, <code>eqdisp_menu_or_emit</code> <code>53AD</code>, <code>eqdisp_set_row_for_tok</code> <code>4CE9</code></td><td>light entry-line emit</td></tr>
-<tr><td><code>1/2</code> (n/d template)</td><td><code>eqdisp_compute_dims</code> <code>69C8</code>, <code>eqdisp_layout_token_geom</code> <code>68AE</code>, the <code>683D</code> cell-to-pixel mapper, <code>eqdisp_draw_fraction_bar</code> <code>6ABF</code>, <code>eqdisp_draw_box_jp</code> <code>6AF5</code>, <code>eqdisp_load_glyph18b2</code> <code>6B66</code>, <code>eqdisp_dispatch_token</code> <code>4A74</code></td><td><strong>descriptor / geometry</strong></td></tr>
-<tr><td><code>fnInt(</code> (MATH ▸ 9)</td><td><code>eqdisp_emit_glyph</code> <code>4E8E</code>, <code>eqdisp_map_token_glyph</code> <code>4F1A</code>, <code>eqdisp_emit_arglist</code> <code>4DE6</code>, <code>eqdisp_sum_arg_widths</code> <code>4DCA</code>, <code>eqdisp_emit_digit_chk</code> <code>4E0A</code>, <strong><code>eqdisp_layout_multiarg</code> <code>5167</code></strong></td><td><strong>handler record / multi-arg</strong></td></tr>
+<tr><td><code>X^2</code>, <code>X^2+2X+1</code></td><td>light entry-line</td><td>none of the template anchors; <code>eqdisp_emit_subexpr2</code> <code>39:4CA4</code>, <code>eqdisp_menu_or_emit</code> <code>39:53AD</code></td></tr>
+<tr><td><code>1/2</code> (<code>÷</code> key, linear)</td><td>light entry-line</td><td>none</td></tr>
+<tr><td><code>sqrt(X^2+1)</code> (<code>2nd</code>+<code>x²</code>)</td><td>light entry-line</td><td>none</td></tr>
+<tr><td><code>1/2</code> n/d template</td><td><strong>descriptor / geometry</strong></td><td><code>eqdisp_compute_dims</code> <code>39:69C8</code>, <code>eqdisp_layout_token_geom</code> <code>39:68AE</code>, the <code>39:683D</code> cell-to-pixel mapper, <code>eqdisp_draw_fraction_bar</code> <code>39:6ABF</code></td></tr>
+<tr><td><code>fnInt(</code> (MATH ▸ 9)</td><td><strong>handler record / multi-arg</strong></td><td><code>eqdisp_emit_glyph</code> <code>39:4E8E</code>, <code>eqdisp_map_token_glyph</code> <code>39:4F1A</code>, <code>eqdisp_emit_arglist</code> <code>39:4DE6</code>, <code>eqdisp_sum_arg_widths</code> <code>39:4DCA</code>, <strong><code>eqdisp_layout_multiarg</code> <code>39:5167</code></strong></td></tr>
+<tr><td><code>fnInt(</code> with a fraction integrand</td><td><strong>both paths</strong></td><td>every handler-record anchor <strong>plus</strong> <code>39:69C8</code>/<code>39:683D</code>/<code>39:6ABF</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>This confirms the headline static result: <code>39:5167</code> is the multi-argument row
-compositor, and it is reached for a real tall operator (<code>fnInt</code>) but not for a
-simple fraction or exponent. The descriptor path (<code>69C8</code>/<code>68AE</code>/<code>683D</code>/<code>6ABF</code>)
-and the handler-record path (<code>4DCA</code>/<code>4DE6</code>/<code>4E8E</code>/<code>4F1A</code>/<code>5167</code>) are mutually
-exclusive per construct, exactly as the two-mechanism model predicts. [confirmed]</p>
+<p>Two results follow. First, the heavy page-<code>39</code> engine runs only for the 2-D
+<strong>templates</strong> (the n/d fraction and <code>fnInt</code>); a plain exponent, linear <code>÷</code>,
+radical, or polynomial typed on the home line draws through the light entry-line
+emitter, and the <code>0x85DE..</code> state block stays zero. Second, <code>39:5167</code> is the
+multi-argument row compositor: it fires for <code>fnInt</code> but not for a fraction or
+exponent, and when a fraction sits inside <code>fnInt</code> it runs <em>alongside</em> the
+descriptor path, which is what grows the <code>∫</code> and its parentheses to the fraction
+height. [confirmed]</p>
 <p>The live state block matches the field map. Reading <code>0x85DE..0x85F2</code> from a RAM
 dump right after each render (<code>memdump … ram-logical</code>):</p>
 <div class="table-wrapper">
