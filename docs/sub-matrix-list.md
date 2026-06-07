@@ -135,7 +135,7 @@ Matrix element wrappers: [C]
 ### Internal index helpers reused by the algorithms [C]
 - **`mele_adr_af_jp` (`02:403C`)** = `_AdrMEle(currentIJ) ; RST4` — "load `[M](i,j)` to OP1" (the elimination
   inner-loop read). Indices come from the loop state at `84AF/84B3/84B4`.
-- **`mele_adr_to8483` (`02:4051`)** = `_AdrMEle ; _Mov9B(→OP3@8483)` — load element to OP3.
+- **`mele_adr_to8483` (`02:4051`)** = `_AdrMEle ; _Mov9B(→OP2@8483)` — load element to OP2.
 - **`mele_put_af` (`02:405A`) / `mele_put_d3` (`02:405E`)** = `_AdrMEle ; _CkValidNum ; _MovFrOP1` — store OP1 back to `[M](i,j)`.
 - **`_ListIdxTimes9` (`35:79E9`)** = `_HLTimes9(idx)` then a small dispatch (`RST4`) — the list
   analogue used in a few list-builder paths.
@@ -149,7 +149,7 @@ Matrix element wrappers: [C]
 |---|---|---|
 | `_CreateRList` | `00:10C4` | new real list: `count*9+2` bytes (§1) [C] |
 | `_CreateCList` | `00:1109` | new complex list: `count*18+2` [C] |
-| `_InsertList` / `_IncLstSize` | `07:4F07` (body `07:4EF4`) | grow a list in place via `_InsertMem`; caps length at 999 (`0x3E7`), else `E_Dimension 0x8C` (`07:4F00 JP Z,0x2719 → LD A,0x8C`) [C] |
+| `_IncLstSize` | `07:4EF4` | grow a list in place via `_InsertMem`; caps length at 999 (`0x3E7`), else `E_Dimension 0x8C` (`07:4F00 JP Z,0x2719 → LD A,0x8C`). `_InsertList` is the distinct sibling at `07:4F07`. [C] |
 | `_DelListEl` | `07:4F43` | delete element(s): `_HLTimes9(index)` to size the gap (×2 if complex, `& 0x1F == 0x0D`), then `_DelMem` via a cross-page jump [C] |
 | `_RedimMat`/`_ConvDim` | `07:4D3B` / `38:741F` | re-dimension (shared with matrices); `_ConvDim`/`_ConvDim00` (`38:741F/7422`) coerce OP1 to a real index first [C] |
 
@@ -454,8 +454,8 @@ fact that it is a separate driver, not `42A6`, is confirmed** by the two-caller 
   Flash cannot be written in place).
 - **Scratch RAM used by the algorithms** (verified operands): `84AF` (current dims / i,j loop
   state), `84B0/84B3/84B4` (pivot, k, row counters), `84B7` (dims copy), `84D3/84D5/84D7`
-  (data pointers + the permutation vector base), `8478`=OP1, `8483`=OP3, `8499`=OP6/type,
-  `84AF`-region = the matrix-op loop frame.
+  (data pointers + the permutation vector base), `8478`=OP1, `8483`=OP2, `8499`=OP4,
+  `84AF`=OP6 region = the matrix-op loop frame.
 
 ---
 
