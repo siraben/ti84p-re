@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-363b641f.js";
+            window.path_to_searchindex_js = "searchindex-250a7658.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -236,14 +236,16 @@ implicit-close/false-<code>If</code> interaction. <strong>[confirmed]</strong></
 <tr><td>Graph drawing (<code>GRAPHV</code>)</td><td>primitives draw into <code>plotSScreen</code>, then <code>_PDspGrph</code></td><td>Batch graph primitives before <code>DispGraph</code>.</td></tr>
 <tr><td>Graph visualization (<code>GRAPHDFS</code>)</td><td>window stores plus repeated <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> reach <code>_StoSysTok</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>graph_pixel_op</code>, <code>_PDspGrph</code>, and small-font paths</td><td>Store graph topology in lists; draw the whole view in one graph-buffer pass.</td></tr>
 <tr><td>BASIC subprogram (<code>CALLSUB</code>)</td><td>page-38 program-body evaluator and shared VAT variables</td><td>Treat globals/lists/<code>Ans</code> as the calling convention.</td></tr>
-<tr><td>List algorithms (<code>BIGADD</code>, <code>DFS</code>)</td><td>VAT lookup, element address, OP-register move per access</td><td>Preallocate lists; cache dimensions and reused elements in scalars.</td></tr>
+<tr><td>List algorithms (<code>BIGADD</code>, <code>BIGMUL</code>, <code>DFS</code>)</td><td>VAT lookup, element address, OP-register move per access</td><td>Preallocate lists; cache dimensions and reused elements in scalars.</td></tr>
 </tbody>
 </table>
 </div>
 <h3 id="evidence-manifest"><a class="header" href="#evidence-manifest">Evidence manifest</a></h3>
 <p>This branch keeps each claimed behavior tied to a runnable fixture or a
 negative probe trace. The visualization fixtures were rerun on 2026-06-07 and
-kept because both render visible graph-screen output. The full
+kept because they render visible output and pass first-to-final changed-pixel
+checks plus named crop-region checks for text, axes, circle arcs, nodes, and
+edges. The full
 <code>tools/tibasic_smoke.py</code> suite also passed on 2026-06-07 against the current
 branch state.</p>
 <div class="table-wrapper">
@@ -258,7 +260,7 @@ branch state.</p>
 <tr><td>Text animation</td><td><code>ANIMTXT.8xp</code></td><td>Moves/writes <code>X</code> characters with <code>Output(</code>, then displays <code>DONE</code>; reaches LCD text routines each loop.</td></tr>
 <tr><td>Graph drawing</td><td><code>GRAPHV.8xp</code></td><td>Renders <code>DFS</code>, axes, a circle, and diagonal line on the graph screen; reaches <code>_ILine</code>, <code>_IPoint</code>, and <code>_PDspGrph</code>.</td></tr>
 <tr><td>Graph visualization</td><td><code>GRAPHDFS.8xp</code></td><td>Renders the four-node DFS topology with labels and edges; reaches window stores, line, point, display-copy, pixel, and small-font graph paths.</td></tr>
-<tr><td>Arbitrary precision arithmetic</td><td><code>BIGADD.8xp</code></td><td>Adds digit lists with carry propagation and displays <code>L3</code>; reaches list indexing and FP helper paths.</td></tr>
+<tr><td>Arbitrary precision arithmetic</td><td><code>BIGADD.8xp</code>, <code>BIGMUL.8xp</code></td><td>Adds and multiplies digit lists with carry propagation; reaches list indexing and FP helper paths.</td></tr>
 <tr><td>DFS / stack-style list algorithm</td><td><code>DFS.8xp</code></td><td>Displays traversal <code>1, 3, 2, 4</code> and visited list <code>{1 1 1 1}</code>; reaches nested scanner/control-flow paths.</td></tr>
 <tr><td>BASIC subprogram calling convention</td><td><code>CALLSUB.8xp</code> + <code>SUBRT.8xp</code></td><td>Caller and callee share scalar/list variables and return through the BASIC program evaluator.</td></tr>
 <tr><td>BASIC to ASM</td><td><code>ASMCALL.8xp</code> + <code>ASMRET.8xp</code></td><td><code>Asm(</code> runs an <code>AsmPrgm</code> payload (<code>C9</code>) and returns to BASIC, displaying <code>BEFORE</code> then <code>AFTER</code>.</td></tr>
@@ -286,15 +288,21 @@ real animation, keep loop bodies tiny and avoid recomputing strings or indexes
 inside the drawing loop.</p>
 <h3 id="graph-buffer-visualization"><a class="header" href="#graph-buffer-visualization">Graph-buffer visualization</a></h3>
 <pre><code class="language-ti-basic">ClrDraw
-Line(0,0,95,63)
+0-&gt;Xmin
+94-&gt;Xmax
+0-&gt;Ymin
+62-&gt;Ymax
+Line(0,0,94,62)
+Line(0,31,94,31)
+Line(47,0,47,62)
 Circle(47,31,10)
 Text(0,0,"DFS")
 DispGraph
 </code></pre>
-<p>Observed run: <code>GRAPHV.8xp</code> ends on the graph screen with <code>DFS</code>, axes, and the
-diagonal line visible. The trace hits <code>_GrBufClr</code>, <code>_ILine</code> (<code>04:4029</code>),
-<code>graph_pixel_op</code>, <code>_IPoint</code>, <code>_PDspGrph</code> (<code>04:7904</code>), and the page-38 argument
-parser. <strong>[confirmed]</strong></p>
+<p>Observed run: <code>GRAPHV.8xp</code> ends on the graph screen with <code>DFS</code>, axes, a circle,
+and the diagonal line visible. The trace hits <code>_GrBufClr</code>, <code>_StoSysTok</code>,
+<code>_ILine</code> (<code>04:4029</code>), <code>graph_pixel_op</code>, <code>_IPoint</code>, <code>_PDspGrph</code> (<code>04:7904</code>), and
+the page-38 argument parser. <strong>[confirmed]</strong></p>
 <p>The performance lesson is to draw several primitives into the graph buffer, then
 display the graph buffer once. Repeated home-screen <code>Output(</code> calls give you
 more text-layout overhead and less control over redraw timing.</p>
@@ -458,6 +466,31 @@ digits of <code>L1+L2</code>, and <code>C</code> is the carry into digit <code>I
 display and debug. A larger base reduces loop count but adds conversion and
 larger carry values; on TI-BASIC, that tradeoff only helps when display is not
 part of the hot path.</p>
+<h3 id="arbitrary-precision-decimal-multiplication"><a class="header" href="#arbitrary-precision-decimal-multiplication">Arbitrary-precision decimal multiplication</a></h3>
+<p><code>BIGMUL.8xp</code> uses the same little-endian digit convention for schoolbook
+multiplication. The example multiplies <code>123</code> (<code>{3,2,1}</code>) by <code>45</code> (<code>{5,4}</code>), so
+the expected result is <code>5535</code>, represented as <code>{5,3,5,5,0}</code>.</p>
+<pre><code class="language-ti-basic">{3,2,1}-&gt;L1
+{5,4}-&gt;L2
+{0,0,0,0,0}-&gt;L3
+For(I,1,3)
+For(J,1,2)
+L3(I+J-1)+L1(I)*L2(J)-&gt;S
+int(S/10)-&gt;C
+S-10C-&gt;L3(I+J-1)
+L3(I+J)+C-&gt;L3(I+J)
+End
+End
+Disp L3
+Disp L3(4)
+</code></pre>
+<p>Observed run: <code>BIGMUL.8xp</code> displays <code>{5 3 5 5 0}</code>, then <code>5</code>, then <code>Done</code>.
+The trace hits nested <code>For(</code> loop parsing, list element reads/stores, <code>_FPMult</code>,
+<code>_FPAdd</code>, <code>_FPSub</code>, <code>_GetLToOP1</code>, and <code>_PutToL</code>. <strong>[confirmed]</strong></p>
+<p>The invariant is that each inner-loop step normalizes one result cell
+<code>L3(I+J-1)</code> and carries into the next cell. This is still base-10 arithmetic,
+so it favors trace readability over speed. A larger base reduces the number of
+digits but makes the carry path and display conversion heavier.</p>
 <h3 id="dfs-with-a-list-stack"><a class="header" href="#dfs-with-a-list-stack">DFS with a list stack</a></h3>
 <p><code>DFS.8xp</code> uses two edge lists (<code>L1</code> source, <code>L2</code> destination), a visited list
 (<code>L3</code>), and an explicit stack (<code>L4</code>) to traverse this graph:</p>
