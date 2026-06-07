@@ -23,17 +23,30 @@ function blank(h, w) {
 function bw(box) { return box.rows.length ? box.rows[0].length : 0; }
 function bh(box) { return box.rows.length; }
 
+// Pen log: each glyph carries a mark {ch, x, y} at its top-left in box-local
+// coordinates; composition shifts child marks so the final box holds the full
+// placement list (the "pen" positions), mirroring the OS pen pipeline.
+function shift(marks, dx, dy) {
+  return (marks || []).map(m => ({ ch: m.ch, x: m.x + dx, y: m.y + dy }));
+}
+function glyphName(code) {
+  if (code >= 0x20 && code <= 0x7e) return String.fromCharCode(code);
+  return (FONT.names && FONT.names[code]) || ('0x' + code.toString(16));
+}
+
 function largeGlyph(code) {
   const rows = FONT.large.glyphs[code] || new Array(7).fill(0);
   const W = FONT.large.width;
   const grid = rows.map(r => Array.from({ length: W }, (_, i) => (r >> (W - 1 - i)) & 1));
-  return { rows: grid, baseline: (grid.length >> 1) };  // centre on the math axis
+  return { rows: grid, baseline: (grid.length >> 1),  // centre on the math axis
+           marks: [{ ch: glyphName(code), x: 0, y: 0 }] };
 }
 function smallGlyph(code) {
+  if (!FONT.small.glyphs[code]) return { rows: blank(7, 3), baseline: 3, marks: [] };
   const g = FONT.small.glyphs[code];
-  if (!g) return { rows: blank(7, 3), baseline: 3 };
   const grid = g.rows.map(r => Array.from({ length: g.w }, (_, i) => (r >> (g.w - 1 - i)) & 1));
-  return { rows: grid, baseline: (grid.length >> 1) };
+  return { rows: grid, baseline: (grid.length >> 1),
+           marks: [{ ch: glyphName(code) + '₀', x: 0, y: 0 }] };  // ₀ = small font
 }
 
 // Horizontal concatenation, aligned on the math axis (baseline).
@@ -44,16 +57,21 @@ function hcat(boxes, gap = GAP) {
   const below = Math.max(...boxes.map(b => bh(b) - b.baseline));
   const h = above + below;
   const out = Array.from({ length: h }, () => []);
+  const marks = [];
+  let xoff = 0;
   boxes.forEach((b, k) => {
     const w = bw(b);
     const top = above - b.baseline, bot = below - (bh(b) - b.baseline);
     const padded = blank(top, w).concat(b.rows, blank(bot, w));
+    if (k) xoff += gap;
+    marks.push(...shift(b.marks, xoff, top));
     for (let r = 0; r < h; r++) {
       if (k) for (let i = 0; i < gap; i++) out[r].push(0);
       out[r].push(...padded[r]);
     }
+    xoff += w;
   });
-  return { rows: out, baseline: above };
+  return { rows: out, baseline: above, marks };
 }
 
 function trim(box) {
@@ -68,6 +86,7 @@ function trim(box) {
   return {
     rows: box.rows.slice(top, bot).map(r => r.slice(left, right)),
     baseline: Math.max(0, box.baseline - top),
+    marks: shift(box.marks, -left, -top),
   };
 }
 
@@ -87,7 +106,9 @@ function fraction(num, den) {
   const bar = [new Array(w).fill(1)];
   // 1px gap above and below the rule, matching the calculator
   const rows = center(n.rows, w).concat(gap, bar, gap, center(d.rows, w));
-  return { rows, baseline: bh(n) + 1 };   // math axis = the bar row
+  const nPad = (w - bw(n)) >> 1, dPad = (w - bw(d)) >> 1;
+  const marks = shift(n.marks, nPad, 0).concat(shift(d.marks, dPad, bh(n) + 3));
+  return { rows, baseline: bh(n) + 1, marks };   // math axis = the bar row
 }
 
 // Superscript: base on the axis, exponent lifted EXP_RAISE px above-right.
@@ -101,7 +122,8 @@ function superscript(base, exp) {
     const right = (r < bh(e)) ? e.rows[r] : new Array(ewid).fill(0);
     out.push(left.concat([0], right));
   }
-  return { rows: out, baseline: EXP_RAISE + base.baseline };
+  const marks = shift(base.marks, 0, EXP_RAISE).concat(shift(e.marks, bwid + 1, 0));
+  return { rows: out, baseline: EXP_RAISE + base.baseline, marks };
 }
 
 // Stretch a fixed glyph's middle rows to a target height (tall ∫ and radicals).
@@ -160,7 +182,8 @@ function integral(lo, hi, body, varBox) {
   for (let y = 0; y < bh(loB); y++)
     for (let x = 0; x < bw(loB); x++) if (loB.rows[y][x]) out[h - bh(loB) + y][bw(sign) + 1 + x] = 1;
   const signBox = { rows: out, baseline: h >> 1 };
-  return hcat([signBox, inner], 1);
+  // trace: body starts ~6 px after the ∫+limits block (penX 10 -> 16)
+  return hcat([signBox, inner], 6);
 }
 
 // ---- text runs ------------------------------------------------------------
@@ -286,7 +309,7 @@ function parse(src) {
 
 // ---- canvas rendering -----------------------------------------------------
 
-function draw(box, scale, color) {
+function draw(box, scale, color, showPen) {
   const canvas = document.getElementById('screen');
   const ctx = canvas.getContext('2d');
   const W = Math.max(bw(box), 1), H = Math.max(bh(box), 1);
@@ -299,7 +322,23 @@ function draw(box, scale, color) {
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++)
       if (box.rows[y][x]) ctx.fillRect((x + pad) * scale, (y + pad) * scale, scale, scale);
-  document.getElementById('dims').textContent = `${W}×${H} px`;
+  const marks = penLog(box);
+  if (showPen) {
+    ctx.font = `${Math.max(8, scale)}px monospace`;
+    marks.forEach((m, i) => {
+      ctx.fillStyle = 'rgba(255,80,80,0.9)';
+      ctx.fillRect((m.x + pad) * scale - 1, (m.y + pad) * scale - 1, scale + 2, scale + 2);
+      ctx.fillStyle = '#ff5050';
+      ctx.fillText(String(i), (m.x + pad) * scale + scale + 1, (m.y + pad) * scale + scale);
+    });
+  }
+  document.getElementById('dims').textContent = `${W}×${H} px · ${marks.length} glyphs`;
+  return marks;
+}
+
+// Pen log = glyph placements in reading order (top row first, then left to right).
+function penLog(box) {
+  return (box.marks || []).slice().sort((a, b) => (a.y - b.y) || (a.x - b.x));
 }
 
 const PRESETS = [
@@ -319,13 +358,21 @@ function render() {
   const scale = +document.getElementById('scale').value;
   const lcd = document.getElementById('lcd').checked;
   const color = lcd ? { bg: '#c7d4b8', fg: '#2a3326' } : { bg: '#ffffff', fg: '#000000' };
+  const showPen = document.getElementById('pen').checked;
   try {
     const box = parse(src);
-    draw(box, scale, color);
+    const marks = draw(box, scale, color, showPen);
+    const rows = marks.map((m, i) =>
+      `<tr><td>${i}</td><td>${escapeHtml(m.ch)}</td><td>${m.x}</td><td>${m.y}</td></tr>`).join('');
+    document.getElementById('penlog').innerHTML =
+      `<table><thead><tr><th>#</th><th>glyph</th><th>penX</th><th>penY</th></tr></thead><tbody>${rows}</tbody></table>`;
     document.getElementById('err').textContent = '';
   } catch (e) {
     document.getElementById('err').textContent = String(e);
   }
+}
+function escapeHtml(s) {
+  return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 }
 
 async function main() {
@@ -340,6 +387,7 @@ async function main() {
   document.getElementById('expr').addEventListener('input', render);
   document.getElementById('scale').addEventListener('input', render);
   document.getElementById('lcd').addEventListener('change', render);
+  document.getElementById('pen').addEventListener('change', render);
   document.getElementById('expr').value = 'int(1,2,(1/2)X,X)';
   render();
 }
@@ -351,6 +399,7 @@ if (typeof module !== 'undefined') {
   module.exports = {
     setFont: f => { FONT = f; },
     parse,
+    penLog,
     toText: box => box.rows.map(r => r.map(c => (c ? '#' : '.')).join('')).join('\n'),
   };
 }

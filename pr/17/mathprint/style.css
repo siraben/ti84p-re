@@ -45,6 +45,12 @@ canvas { image-rendering: pixelated; max-width: 100%; }
 .meta { color: var(--muted); font-size: .8rem; font-family: ui-monospace, Menlo, monospace; }
 .err { color: #ff8b8b; }
 
+.penlog { margin-top: 1rem; }
+.penlog table { border-collapse: collapse; font-family: ui-monospace, Menlo, monospace; font-size: .8rem; }
+.penlog th, .penlog td { border: 1px solid var(--border); padding: .15rem .55rem; text-align: right; }
+.penlog th { color: var(--muted); font-weight: 500; }
+.penlog td:nth-child(2) { text-align: left; color: var(--accent); }
+
 .syntax { margin-top: 1.5rem; color: var(--muted); }
 .syntax summary { cursor: pointer; color: var(--fg); }
 .syntax ul { margin: .5rem 0; padding-left: 1.2rem; }

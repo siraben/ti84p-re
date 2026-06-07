@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Interrupts (IM1) - TI-84 Plus OS — Reverse Engineering</title>
+        <title>RAM pages - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
@@ -179,92 +179,153 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="04--interrupts-im1"><a class="header" href="#04--interrupts-im1">04 — Interrupts (IM1)</a></h1>
-<p>The Z80 runs in <strong>interrupt mode 1</strong>: every maskable interrupt vectors to <code>0038h</code>. There is no vector table — one handler services all sources by polling status ports.</p>
-<h2 id="vector--handler-confirmed"><a class="header" href="#vector--handler-confirmed">Vector → handler [confirmed]</a></h2>
-<pre><code class="language-z80">0038:  JR  0x006d        ; RST 38h vector
-006d:  int_entry_save_alt_regs ; shadow-register save prologue
-006f:  int_dispatch_sources    ; live interrupt-source dispatcher
-</code></pre>
-<p><code>int_dispatch_sources</code> @ <code>ram:006F</code> runs after the two-byte prologue at <code>ram:006D</code>, with <code>IY = flags</code> (<code>0x89F0</code>), so <code>(IY+off)</code> reads/writes <code>SystemFlags</code> fields.</p>
-<h2 id="what-it-does-confirmed-from-decompiler"><a class="header" href="#what-it-does-confirmed-from-decompiler">What it does [confirmed from decompiler]</a></h2>
-<p>Entry saves context (<code>ex af,af'</code> / <code>exx</code> — the Z80 shadow registers, the classic TI ISR convention) then polls:</p>
-<ol>
-<li><strong><code>port_usbIntStatus</code> (0x55)</strong> — the 84+ <strong>USB Interrupt State</strong> port. This OS overloads it as the ISR’s master “anything pending?” gate: <code>(val ^ 0xFF) &amp; 0x1F</code> tests the 5 active-low sources.</li>
-<li><strong><code>port_usbLineEvents</code> (0x56)</strong> — the <strong>USB Line Events</strong> port; a read-only event bitmap whose bits select the timer/link sub-handlers. (It is <em>not</em> an interrupt mask — port 0x56 is read-only.)</li>
-<li>Branches per source:
-<ul>
-<li><strong>ON key</strong> — sets an ON-flag; <code>onSP</code> (<code>0x85BC</code>) holds the SP to unwind to for the ON-break path.</li>
-<li><strong>First/second timer</strong> — drives the APD (auto-power-down) countdown and cursor blink; ACKs via the interrupt-mask port <code>0x03</code>.</li>
-<li><strong>Link activity</strong> — services the link port.</li>
-</ul>
-</li>
-<li>Hardware-mode housekeeping: checks <code>port_mapBankB == 0x81</code> (84+ mode), and on one path sets <code>port_cpuSpeed = 1</code> (15 MHz) and <code>port_mapBankB = 0x81</code>.</li>
-<li>Restores context and <code>EI</code> / <code>RET</code>.</li>
-</ol>
-<h2 id="iyoff--systemflags-fields-the-isr-touches-confirmed-from-disassembly"><a class="header" href="#iyoff--systemflags-fields-the-isr-touches-confirmed-from-disassembly"><code>(IY+off)</code> → <code>SystemFlags</code> fields the ISR touches [confirmed from disassembly]</a></h2>
-<p><code>int_dispatch_sources</code> reads/writes these flag bits via <code>BIT/SET/RES b,(IY+d)</code>. Offsets are confirmed against the standard <code>ti83plus.inc</code> group layout; the anchor <code>apdFlags = IY+0x08</code> is <strong>confirmed in code</strong> (<code>_DisableApd</code>/<code>_EnableApd</code> @ <code>3B:7AA8/7AAD</code> do <code>RES/SET 2,(IY+0x8)</code>), <code>curFlags = IY+0x0C</code> is <strong>confirmed</strong> (<code>_CursorOn</code>/<code>_CursorOff</code> @ <code>06:7D34/7C5F</code>).</p>
+                        <h1 id="14---ram-pages"><a class="header" href="#14---ram-pages">14 - RAM pages</a></h1>
+<p>The TI-84 Plus has banked RAM pages behind the Z80’s 16 KiB windows. TI-OS normally
+keeps RAM page <code>81</code> in <code>8000-BFFF</code> and RAM page <code>80</code> in <code>C000-FFFF</code>, but ROM helpers
+temporarily map other pages for paged memory access. Page <code>83</code> is not free scratch on
+OS 2.55MP: the OS and MathPrint-era homescreen code use parts of it.</p>
+<h2 id="page-selectors-confirmed"><a class="header" href="#page-selectors-confirmed">Page selectors [confirmed]</a></h2>
+<p>The 84+ memory ports use two encodings:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th><code>(IY+off)</code></th><th>bit</th><th>field / equate</th><th>meaning in the ISR</th></tr>
+<tr><th>Window</th><th>Port</th><th>Selector encoding</th><th>Normal TI-OS value</th></tr>
 </thead>
 <tbody>
-<tr><td><code>IY+0x03</code></td><td>1</td><td>flag byte <code>0x03</code> bit1</td><td>ON-key interrupt already latched (guards the ON-set path @ <code>00F5</code>)</td></tr>
-<tr><td><code>IY+0x03</code></td><td>0</td><td><code>graphFlags</code>·graphDraw</td><td>redraw-graph flag the ISR <strong>sets</strong> @ <code>0109</code></td></tr>
-<tr><td><code>IY+0x08</code></td><td>2</td><td><code>apdFlags</code>·apdAble</td><td>APD enabled; toggled by <code>_DisableApd</code>/<code>_EnableApd</code></td></tr>
-<tr><td><code>IY+0x09</code></td><td>3</td><td><code>hardwareType</code>/sysFlags bit3</td><td>“84+ hardware present” gate before touching ports 0x55/0x56/0x37/0x31 (<code>008B</code>, <code>099E</code>)</td></tr>
-<tr><td><code>IY+0x09</code></td><td>4</td><td>(same byte)</td><td><strong>set</strong> @ <code>0A87</code> to mark the crash/RST-5 ON-break path taken</td></tr>
-<tr><td><code>IY+0x0C</code></td><td>3</td><td><code>curFlags</code>·curOn</td><td>cursor currently drawn (blink phase)</td></tr>
-<tr><td><code>IY+0x0C</code></td><td>4</td><td><code>curFlags</code>·curAble</td><td>cursor-blink enabled</td></tr>
-<tr><td><code>IY+0x0F</code></td><td>7</td><td><code>apdFlags</code>-area</td><td>APD sub-state cleared @ <code>0A8C</code> on ON-key</td></tr>
-<tr><td><code>IY+0x12</code></td><td>3</td><td><code>shiftFlags</code>·shift2nd</td><td>the <code>[2nd]</code>-pending modifier flag; the ISR clears it at <code>01E0</code> (<code>RES 3</code>) so a held <code>[2nd]</code> does not linger — see the <a href="09-keyboard-link.html">keyboard modifier state machine</a></td></tr>
-<tr><td><code>IY+0x12</code></td><td>0</td><td><code>indicFlags</code>·indicRun</td><td>run-indicator-on flag (set by <code>_RunIndicOn</code>); the byte is shared — bits 0–2 are <code>indicFlags</code>, bits 3–7 are <code>shiftFlags</code></td></tr>
-<tr><td><code>IY+0x16</code></td><td>0</td><td>speed/ACK select</td><td>chooses the value re-written to int-mask port <code>0x03</code> on exit (<code>00E6</code>)</td></tr>
-<tr><td><code>IY+0x16</code></td><td>1</td><td>(same byte)</td><td>link-busy sub-flag, reset @ <code>015E</code></td></tr>
-<tr><td><code>IY+0x24</code></td><td>2</td><td>link/transfer-active</td><td>guards the ON-break vs. link-restore decision (<code>09EE</code>, <code>0AAB</code>)</td></tr>
-<tr><td><code>IY+0x28</code></td><td>7/3</td><td>LCD-busy / deferred</td><td>“LCD busy → defer this tick” (<code>09DB</code>, <code>09E1</code>)</td></tr>
-<tr><td><code>IY+0x2C</code></td><td>0</td><td><code>kbdScanCode</code>-scan enable</td><td>scanner-active flag tested by <code>kbd_scan_autorepeat</code> @ <code>0415</code></td></tr>
-<tr><td><code>IY+0x33</code></td><td>5/0</td><td>context-restore sub-flags</td><td>branch selectors on the ON-break / restore path</td></tr>
-<tr><td><code>IY+0x3A</code></td><td>0</td><td>APD-hook pending</td><td>when set, the ISR runs the deferred APD hook (<code>apd_run_pending_hook</code> @ <code>032A</code>) and ACKs</td></tr>
-<tr><td><code>IY+0x3F</code></td><td>7</td><td>RAM-clear control</td><td>masked during the ON-key RAM wipe (<code>0B3C</code>)</td></tr>
-<tr><td><code>IY+0x44</code></td><td>2</td><td>edit/format state</td><td>restore-path branch</td></tr>
+<tr><td><code>4000-7FFF</code></td><td><code>6</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page `0x80</td><td>(value &amp; 7)`</td></tr>
+<tr><td><code>8000-BFFF</code></td><td><code>7</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page `0x80</td><td>(value &amp; 7)`</td></tr>
+<tr><td><code>C000-FFFF</code></td><td><code>5</code></td><td>low three bits select RAM page `0x80</td><td>(value &amp; 7)`</td></tr>
 </tbody>
 </table>
 </div>
-<p>The byte <code>_GetCSC</code> (<code>00:04B2</code>) clears is <code>(IY+0)</code> bit3 (<code>*flags &amp; 0xF7</code>) — the <code>kbdSCR</code>/“new scan code ready” flag in the keyboard group.</p>
-<h2 id="timer-reprogramming-apd-timeout-and-cursor-blink-confirmed-mechanism-exact-tick-value-hypothesis"><a class="header" href="#timer-reprogramming-apd-timeout-and-cursor-blink-confirmed-mechanism-exact-tick-value-hypothesis">Timer reprogramming, APD timeout, and cursor blink [confirmed mechanism; exact tick value [hypothesis]]</a></h2>
-<p><strong>Interrupt sources &amp; ACK.</strong> The dispatcher polls the 84+ USB-interrupt ports first, then the two crystal <strong>hardware timers</strong>: it reads <strong>port <code>0x37</code></strong> (crystal timer 1 status, <code>BIT 1</code> @ <code>012D</code>) and <strong>port <code>0x31</code></strong> (crystal timer 2 status, <code>BIT 1</code> @ <code>013B</code>). Each maskable interrupt is ACKed by rewriting the int-mask port <strong><code>0x03</code></strong>. The common exit (<code>00E4</code>) writes <code>0x0B</code>, or <code>0x0F</code> when <code>(IY+0x16)</code> bit0 is set (the second value re-enables the on-key + both timer sources at the higher CPU speed). The master ACK at <code>00DC</code> writes <code>0x08</code> then the saved mask. Port <strong><code>0x04</code></strong> is loaded with <code>6</code> (<code>09B5</code>/<code>0C8C</code>) to re-arm the legacy 83+ timer line.</p>
-<p><strong>APD (auto-power-down) countdown.</strong> APD is a software down-counter, <strong>not</strong> a one-shot hardware timer:</p>
-<ul>
-<li><code>apdSubTimer</code> (<code>0x8448</code>) / <code>apdTimer</code> (<code>0x8449</code>) hold the APD down-counter. <code>_ApdSetup</code> (<code>00:03AE</code>) writes the <strong>reload constant <code>0x74</code> to <code>0x8449</code></strong> (<code>apdTimer</code>); this is the value the crystal-timer handler reloads the counter from whenever a key is pressed (so any key keeps the calc awake). The reload itself lives in the <strong>page-35 timer handler (<code>page_35:4CD2</code>, reached via the <code>3FBD</code> bjump), which is unanalyzed (data) in this DB</strong>. So the exact tick rate, and hence the wall-clock timeout, cannot be read out here. By the standard 83+/84+ design this yields the documented <strong>~2–5 minute</strong> idle power-down. <strong>[reload constant + counter addresses confirmed; absolute seconds [hypothesis]]</strong></li>
-<li>The unrelated <code>indicCounter</code>/<code>indicBusy</code> pair (<code>0x8476</code>/<code>0x8477</code>) drives the <strong>run indicator</strong> (the moving-dashes busy spinner), <strong>not</strong> APD: <code>_RunIndicOn</code> (<code>01:6518</code>) seeds it (<code>0x8477 = 0xF0</code>, <code>0x8476 = 1</code>) and <code>run_indic_tick</code> (<code>ram:027b</code>) does <code>DEC (0x8476); RET NZ</code> each timer tick, advancing the spinner via the expiry path (<code>0x3FE1</code>) only on underflow. <strong>[confirmed]</strong></li>
-</ul>
-<p><strong>Cursor blink cadence.</strong> The blink is the same kind of software down-counter, driven off the same timer interrupt:</p>
-<ul>
-<li><code>0x844A</code> (<code>curTimer</code>) is the blink down-counter; <code>_CursorOn</code>/<code>_CursorOff</code> (<code>06:7D34</code>/<code>06:7C5F</code>) reload it with <strong><code>0x32</code> (50)</strong> (<code>LD A,0x32; LD (0x844A),A</code>).</li>
-<li>On each timer tick the handler decrements <code>0x844A</code>; on underflow it toggles <code>curFlags</code> (<code>IY+0x0C</code>) bit3 (curOn) to flip the glyph, then reloads <code>0x32</code>. The per-tick handler that does the decrement/toggle is again in the unanalyzed page-35 timer code, so the cadence is <strong>“toggle every 50 timer ticks”</strong>; the WikiTI-documented crystal-timer rate makes that ≈ <strong>2 blinks/second</strong>. <strong>[reload value 0x32 confirmed; Hz [hypothesis]]</strong></li>
-</ul>
-<h2 id="notable-details"><a class="header" href="#notable-details">Notable details</a></h2>
-<ul>
-<li>This OS keys off the <strong>84+ USB-interrupt ports 0x55/0x56</strong> as the primary interrupt-state source, rather than the classic <code>0x03/0x04</code>. Port 0x55 is the USB Interrupt State (read; <code>(v^0xFF)&amp;0x1F</code> masks the active sources) and 0x56 is USB Line Events (read-only) — <em>not</em> a status/mask pair despite the dispatch role. The legacy mask <code>0x03</code> is still written to ACK. <strong>[confirmed in code; ports per WikiTI]</strong></li>
-<li>The ISR is where <strong>APD</strong> (auto power down) and the <strong>blinking cursor</strong> timing originate — both are software down-counters (<code>apdTimer 0x8449</code>/<code>curTimer 0x844A</code>) ticked by the crystal timers (ports 0x37/0x31). The separate run-indicator spinner uses <code>indicCounter</code>/<code>indicBusy</code> (<code>0x8476</code>/<code>0x8477</code>), seeded by <code>_RunIndicOn</code>. <strong>[confirmed]</strong></li>
-<li><code>_GetCSC</code> (<code>00:04B2</code>) cooperates with the ISR: the ISR (or keypad path) updates <code>kbdScanCode</code>; <code>_GetCSC</code> atomically reads and clears it with interrupts masked, also clearing <code>(IY+0)</code> bit3. <strong>[confirmed]</strong></li>
-</ul>
-<h2 id="todo"><a class="header" href="#todo">TODO</a></h2>
-<ul>
-<li>The exact crystal-timer tick period (and therefore APD timeout in seconds and cursor blink in Hz) lives in the <strong>page-35 timer handler (<code>page_35:4CD2</code>)</strong>, which is unanalyzed data in this DB. The reload constants (<code>apdSubCount=0x74</code>, <code>curTimer=0x32</code>) and the counter addresses are confirmed; only the absolute rate is ungrounded.</li>
-</ul>
+<p>This rule matches the dynamic resolver, TilEm’s <code>x4</code> memory mapper, and the OS
+trace. In the idle boot/home trace, the RAM-window writes are:</p>
+<pre><code class="language-text">OUT (port 7) &lt;- 0x7f   8000-BFFF = page_3F
+OUT (port 7) &lt;- 0x81   8000-BFFF = RAM/0x81
+OUT (port 5) &lt;- 0x00   C000-FFFF = RAM/0x80
+OUT (port 7) &lt;- 0x80   8000-BFFF = RAM/0x80
+OUT (port 7) &lt;- 0x81   8000-BFFF = RAM/0x81
+OUT (port 5) &lt;- 0x02   C000-FFFF = RAM/0x82
+OUT (port 7) &lt;- 0x83   8000-BFFF = RAM/0x83
+OUT (port 7) &lt;- 0x81   8000-BFFF = RAM/0x81
+OUT (port 5) &lt;- 0x00   C000-FFFF = RAM/0x80
+</code></pre>
+<p>The final restore values are therefore <code>port 7 = 0x81</code> and <code>port 5 = 0x00</code> for
+normal OS execution.</p>
+<h2 id="page-map-standard-cross-checked"><a class="header" href="#page-map-standard-cross-checked">Page map [standard, cross-checked]</a></h2>
+<p>WikiTI’s <a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages">RAM pages</a>
+page is a useful public map, but OS 2.55MP needs the page-<code>83</code> warnings to be read
+literally. The local trace and disassembly support this table:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>RAM page</th><th>Use</th></tr>
+</thead>
+<tbody>
+<tr><td><code>80</code></td><td>Normal <code>C000-FFFF</code> RAM page. The boot/home trace restores this with <code>OUT (5),0</code>. WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>81</code></td><td>Normal <code>8000-BFFF</code> RAM page. This contains the visible TI-OS RAM variables, OP registers, flags, graph buffers, user heap, and VAT window documented in <code>tools/ram.txt</code> and <code>ti83plus.inc</code>.</td></tr>
+<tr><td><code>82</code></td><td>Not a general OS work page under normal execution. The idle trace maps it briefly through port <code>5</code> as part of a paged RAM helper, then restores page <code>80</code>. WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>83</code></td><td>Shared scratch/state page. WikiTI lists app-launch bytes, USB communication buffers, MathPrint homescreen history, and a homescreen graph buffer. OS 2.55MP also maps it dynamically through port <code>7</code> in the idle trace.</td></tr>
+<tr><td><code>84</code></td><td>Not used by TI-OS under typical execution; WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>85</code></td><td>Not used by TI-OS under typical execution on full-RAM hardware.</td></tr>
+<tr><td><code>86</code></td><td>Not used by TI-OS under typical execution; WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>87</code></td><td>Not used by TI-OS under typical execution on full-RAM hardware.</td></tr>
+</tbody>
+</table>
+</div>
+<p>On newer 48 KiB hardware, WikiTI says RAM pages <code>82-87</code> alias the same physical memory.
+WikiTI’s <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:15">port <code>15</code></a> page
+identifies ASIC value <code>55h</code> as the 48 KiB TA1 ASIC. Programs that use page <code>83</code> must not
+treat <code>82-87</code> as independent storage on that hardware. <strong>[standard]</strong></p>
+<h2 id="page-83-confirmed-and-standard"><a class="header" href="#page-83-confirmed-and-standard">Page <code>83</code> [confirmed and standard]</a></h2>
+<p>Page <code>83</code> is the page people most often borrow as scratch, but it has OS-visible state:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Range</th><th>Use</th><th>Evidence</th></tr>
+</thead>
+<tbody>
+<tr><td><code>4008-4080</code></td><td>App base-page staging before app execution</td><td>WikiTI public note; regenerated by the OS before app launch.</td></tr>
+<tr><td><code>4100-433A</code></td><td>USB communication buffers</td><td>WikiTI public note; this project has not yet isolated the live USB buffer trace.</td></tr>
+<tr><td><code>577E-5A7D</code></td><td>MathPrint-era previous-entry history</td><td>WikiTI public note; OS 2.55MP references <code>577E</code>, <code>5A7E</code>, <code>lastEntryPTR</code> (<code>8DA7</code>), and <code>numLastEntries</code> (<code>8E29</code>) in the homescreen/history routines on pages <code>33</code>, <code>37</code>, and <code>38</code>.</td></tr>
+<tr><td><code>5A7E-5D7D</code></td><td>Homescreen graph buffer</td><td>WikiTI public note; adjacent to the previous-entry buffer and referenced by page-<code>33</code> history code.</td></tr>
+<tr><td>offset <code>04BD</code></td><td>Idle-trace byte store through RAM page <code>83</code></td><td>Dynamic trace maps <code>port 7 = 83</code>, stores at logical <code>84BD</code>, then restores <code>port 7 = 81</code> and <code>port 5 = 00</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The reset path on page <code>37</code> initializes the history pointers for MathPrint-era state:</p>
+<pre><code class="language-z80">37:6E13  LD HL,577Eh
+37:6E16  LD (lastEntryPTR),HL
+37:6E19  LD HL,0000h
+37:6E1C  LD (numLastEntries),HL
+</code></pre>
+<p>Page <code>38</code> has a second clear path with the same pointer reset:</p>
+<pre><code class="language-z80">38:422E  LD HL,577Eh
+38:4231  LD (lastEntryPTR),HL
+38:4234  LD HL,0000h
+38:4237  LD (numLastEntries),HL
+</code></pre>
+<p>The homescreen entry-history code on page <code>33</code> uses the same boundary constants:</p>
+<pre><code class="language-z80">33:53D2  LD A,(numLastEntries)
+33:53E3  LD HL,5A7Eh
+33:53F8  LD HL,577Eh
+33:5431  LD A,(numLastEntries)
+33:543B  LD HL,577Eh
+33:5452  LD HL,577Eh
+33:5480  LD HL,numLastEntries
+</code></pre>
+<p>If a program modifies the history buffer on page <code>83</code>, clearing <code>numLastEntries</code>
+at <code>8E29</code> prevents the homescreen from scrolling back into invalid entry data.
+That is the public WikiTI recovery advice, and the ROM confirms that <code>8E29</code> is
+the OS-visible previous-entry count. <strong>[standard, address confirmed]</strong></p>
+<h2 id="restoring-after-page-83"><a class="header" href="#restoring-after-page-83">Restoring after page <code>83</code></a></h2>
+<p>For code entered from normal TI-OS state, restore the two RAM windows this way:</p>
+<pre><code class="language-z80">    ld a,$81
+    out (7),a        ; 8000-BFFF back to RAM page 81
+    xor a
+    out (5),a        ; C000-FFFF back to RAM page 80
+</code></pre>
+<p>Keep the nonstandard mapping inside a short critical section. The OS helper preserves
+interrupt state around the temporary RAM-page mapping so the interrupt handler does not
+run with bank B pointing at page <code>83</code>.</p>
+<p>For code that may be called with nonstandard paging, preserve and restore the selectors:</p>
+<pre><code class="language-z80">    in a,(7)
+    push af
+    in a,(5)
+    push af
+
+    ld a,$83
+    out (7),a        ; map RAM page 83 at 8000-BFFF
+    ; use 8000-BFFF here
+
+    pop af
+    out (5),a
+    pop af
+    out (7),a
+</code></pre>
+<p>The OS’s own paged byte-store helper at <code>37:44AE</code> uses the normal restore pattern:</p>
+<pre><code class="language-z80">37:44D0  OUT (5),A        ; A = page index &lt;&lt; 1, trace case A = 02h
+37:44D3  OR 80h
+37:44D5  OUT (7),A        ; trace case: 83h
+37:44D7  LD A,B
+37:44D8  LD (DE),A        ; byte store while RAM page 83 is visible
+37:44D9  LD A,81h
+37:44DB  OUT (7),A
+37:44DD  XOR A
+37:44DE  OUT (5),A
+</code></pre>
+<p>The dynamic trace resolves the same sequence at instruction indices <code>712241-712250</code>,
+including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes. <strong>[confirmed]</strong></p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="03-bcall-mechanism.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="13-flash-page-map.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="12-memory-management.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="11-boot-contexts-errors.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -274,11 +335,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="03-bcall-mechanism.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="13-flash-page-map.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="12-memory-management.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="11-boot-contexts-errors.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

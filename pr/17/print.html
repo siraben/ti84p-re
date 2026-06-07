@@ -38,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3c5436f8.js";
+            window.path_to_searchindex_js = "searchindex-2167b38d.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3181efee.js"></script>
+        <script src="toc-c47a8e66.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -216,6 +216,7 @@
 <tr><td><a href="#11--boot-contexts-and-error-handling">11-boot-contexts-errors.md</a></td><td>Boot, context system, _JError/onSP</td><td>✅</td></tr>
 <tr><td><a href="#12--memory-management-ram-heap--flash-archive">12-memory-management.md</a></td><td>RAM heap, VAT/userMem, Flash archive/GC</td><td>✅</td></tr>
 <tr><td><a href="#13--flash-page-map">13-flash-page-map.md</a></td><td>What each of the 64 flash pages contains</td><td>✅</td></tr>
+<tr><td><a href="#14---ram-pages">14-ram-pages.md</a></td><td>RAM page selectors, page <code>83</code>, and restore rules</td><td>✅</td></tr>
 <tr><td><a href="#99--open-questions--future-work">99-open-questions.md</a></td><td>Prioritized future-work roadmap</td><td>✅</td></tr>
 <tr><td><a href="#calculation-engine">sub-calculation.md</a></td><td>Calculation engine: FP ops, transcendentals, formatting, errors</td><td>✅</td></tr>
 <tr><td><a href="#graphing">sub-graphing.md</a></td><td>Graphing: window vars, coord↔pixel, draw primitives, Y= eval</td><td>✅</td></tr>
@@ -420,7 +421,7 @@
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="01--memory-map"><a class="header" href="#01--memory-map">01 — Memory map</a></h1>
-<p>The Z80 sees a flat <strong>64 KiB</strong> logical space, divided into four <strong>16 KiB</strong> slots. Hardware paging (ports 6/7) decides which physical flash page or RAM page is visible in the two middle slots. See <a href="#02--memory-paging">02-paging.md</a> for the banking detail.</p>
+<p>The Z80 sees a flat <strong>64 KiB</strong> logical space, divided into four <strong>16 KiB</strong> slots. Hardware paging (ports 6/7) decides which physical flash page or RAM page is visible in the two middle slots. See <a href="#02--memory-paging">02-paging.md</a> for the banking detail and <a href="#14---ram-pages">14-ram-pages.md</a> for RAM page <code>83</code> and restore rules.</p>
 <h2 id="logical-address-space-what-the-z80-sees"><a class="header" href="#logical-address-space-what-the-z80-sees">Logical address space (what the Z80 sees)</a></h2>
 <div class="table-wrapper">
 <table>
@@ -499,7 +500,7 @@
 </div>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="02--memory-paging"><a class="header" href="#02--memory-paging">02 — Memory paging</a></h1>
-<p>The Z80’s two middle 16 KiB slots are windows onto physical memory selected by I/O ports.</p>
+<p>The Z80’s banked 16 KiB slots are windows onto physical memory selected by I/O ports.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -508,10 +509,11 @@
 <tbody>
 <tr><td><code>4000–7FFF</code> (bank A)</td><td><strong>port 6</strong> (<code>mapBankA</code>)</td><td>a flash page (0–63) — and the bcall mechanism uses this slot to bring routines into view</td></tr>
 <tr><td><code>8000–BFFF</code> (bank B)</td><td><strong>port 7</strong> (<code>mapBankB</code>)</td><td>a RAM or flash page; <code>0x81</code> observed = 84+ RAM mode</td></tr>
+<tr><td><code>C000–FFFF</code> (bank C)</td><td><strong>port 5</strong> (<code>mapBankC</code>)</td><td>a RAM page; <code>0x00</code> observed = RAM page <code>80</code></td></tr>
 </tbody>
 </table>
 </div>
-<p><code>0000–3FFF</code> is hardwired to flash page 0. <code>C000–FFFF</code> is RAM in the static OS model and is normally the stack/user-RAM window; the 84+ hardware can bank the high RAM slot through MemC/port 5, but the current MCP audit did not find code xrefs to <code>io:0005</code>. <strong>[standard; port-5 use not MCP-confirmed]</strong></p>
+<p><code>0000–3FFF</code> is hardwired to flash page 0. <code>C000–FFFF</code> is RAM in the static OS model and is normally the stack/user-RAM window; the 84+ hardware banks the high RAM slot through MemC/port 5. The dynamic trace in <a href="#14---ram-pages">RAM pages</a> confirms port-5 restores to RAM page <code>80</code> during normal OS execution. <strong>[confirmed]</strong></p>
 <h2 id="how-code-uses-it"><a class="header" href="#how-code-uses-it">How code uses it</a></h2>
 <ul>
 <li><strong>bcalls</strong> set <code>port_mapBankA</code> to the target routine’s page, run it at <code>4000+</code>, then restore the previous page (see <a href="#03--the-bcall-system-call-mechanism">03-bcall-mechanism.md</a>). The helper <code>ram:181c</code> is the page-set primitive used by the dispatcher.</li>
@@ -768,6 +770,144 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
 <p>The <strong>large-font glyph table is on page 0x07, base <code>0x45FF</code></strong> — <code>put_glyph_large</code> (<code>07:4588</code>) computes the glyph pointer as <code>0x45FF + char*7</code> (<strong>7-byte stride</strong>, via the <code>07:45EB</code> adjuster) and copies an 8-byte record via <code>_Mov8B</code> to RAM <code>0x845A</code>; see <a href="#fonts-confirmed">Display/LCD → Fonts</a>. Alternate large fonts live on pages 1 and 0x36 (selected by <code>(IY+0x35)</code> bits 5/1). Page 7 is the busiest data page (archive code, list/matrix, error messages, <em>and</em> the large font). <strong>[confirmed]</strong></p>
 <h2 id="takeaway"><a class="header" href="#takeaway">Takeaway</a></h2>
 <p>The OS is <strong>page-specialized</strong>: kernel + math on page 0, one subsystem per low page. A bcall is really “run subsystem X’s routine on its page” — the page map <em>is</em> the subsystem decomposition, physically.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="14---ram-pages"><a class="header" href="#14---ram-pages">14 - RAM pages</a></h1>
+<p>The TI-84 Plus has banked RAM pages behind the Z80’s 16 KiB windows. TI-OS normally
+keeps RAM page <code>81</code> in <code>8000-BFFF</code> and RAM page <code>80</code> in <code>C000-FFFF</code>, but ROM helpers
+temporarily map other pages for paged memory access. Page <code>83</code> is not free scratch on
+OS 2.55MP: the OS and MathPrint-era homescreen code use parts of it.</p>
+<h2 id="page-selectors-confirmed"><a class="header" href="#page-selectors-confirmed">Page selectors [confirmed]</a></h2>
+<p>The 84+ memory ports use two encodings:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Window</th><th>Port</th><th>Selector encoding</th><th>Normal TI-OS value</th></tr>
+</thead>
+<tbody>
+<tr><td><code>4000-7FFF</code></td><td><code>6</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page `0x80</td><td>(value &amp; 7)`</td></tr>
+<tr><td><code>8000-BFFF</code></td><td><code>7</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page `0x80</td><td>(value &amp; 7)`</td></tr>
+<tr><td><code>C000-FFFF</code></td><td><code>5</code></td><td>low three bits select RAM page `0x80</td><td>(value &amp; 7)`</td></tr>
+</tbody>
+</table>
+</div>
+<p>This rule matches the dynamic resolver, TilEm’s <code>x4</code> memory mapper, and the OS
+trace. In the idle boot/home trace, the RAM-window writes are:</p>
+<pre><code class="language-text">OUT (port 7) &lt;- 0x7f   8000-BFFF = page_3F
+OUT (port 7) &lt;- 0x81   8000-BFFF = RAM/0x81
+OUT (port 5) &lt;- 0x00   C000-FFFF = RAM/0x80
+OUT (port 7) &lt;- 0x80   8000-BFFF = RAM/0x80
+OUT (port 7) &lt;- 0x81   8000-BFFF = RAM/0x81
+OUT (port 5) &lt;- 0x02   C000-FFFF = RAM/0x82
+OUT (port 7) &lt;- 0x83   8000-BFFF = RAM/0x83
+OUT (port 7) &lt;- 0x81   8000-BFFF = RAM/0x81
+OUT (port 5) &lt;- 0x00   C000-FFFF = RAM/0x80
+</code></pre>
+<p>The final restore values are therefore <code>port 7 = 0x81</code> and <code>port 5 = 0x00</code> for
+normal OS execution.</p>
+<h2 id="page-map-standard-cross-checked"><a class="header" href="#page-map-standard-cross-checked">Page map [standard, cross-checked]</a></h2>
+<p>WikiTI’s <a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages">RAM pages</a>
+page is a useful public map, but OS 2.55MP needs the page-<code>83</code> warnings to be read
+literally. The local trace and disassembly support this table:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>RAM page</th><th>Use</th></tr>
+</thead>
+<tbody>
+<tr><td><code>80</code></td><td>Normal <code>C000-FFFF</code> RAM page. The boot/home trace restores this with <code>OUT (5),0</code>. WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>81</code></td><td>Normal <code>8000-BFFF</code> RAM page. This contains the visible TI-OS RAM variables, OP registers, flags, graph buffers, user heap, and VAT window documented in <code>tools/ram.txt</code> and <code>ti83plus.inc</code>.</td></tr>
+<tr><td><code>82</code></td><td>Not a general OS work page under normal execution. The idle trace maps it briefly through port <code>5</code> as part of a paged RAM helper, then restores page <code>80</code>. WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>83</code></td><td>Shared scratch/state page. WikiTI lists app-launch bytes, USB communication buffers, MathPrint homescreen history, and a homescreen graph buffer. OS 2.55MP also maps it dynamically through port <code>7</code> in the idle trace.</td></tr>
+<tr><td><code>84</code></td><td>Not used by TI-OS under typical execution; WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>85</code></td><td>Not used by TI-OS under typical execution on full-RAM hardware.</td></tr>
+<tr><td><code>86</code></td><td>Not used by TI-OS under typical execution; WikiTI marks it execution-protected.</td></tr>
+<tr><td><code>87</code></td><td>Not used by TI-OS under typical execution on full-RAM hardware.</td></tr>
+</tbody>
+</table>
+</div>
+<p>On newer 48 KiB hardware, WikiTI says RAM pages <code>82-87</code> alias the same physical memory.
+WikiTI’s <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:15">port <code>15</code></a> page
+identifies ASIC value <code>55h</code> as the 48 KiB TA1 ASIC. Programs that use page <code>83</code> must not
+treat <code>82-87</code> as independent storage on that hardware. <strong>[standard]</strong></p>
+<h2 id="page-83-confirmed-and-standard"><a class="header" href="#page-83-confirmed-and-standard">Page <code>83</code> [confirmed and standard]</a></h2>
+<p>Page <code>83</code> is the page people most often borrow as scratch, but it has OS-visible state:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Range</th><th>Use</th><th>Evidence</th></tr>
+</thead>
+<tbody>
+<tr><td><code>4008-4080</code></td><td>App base-page staging before app execution</td><td>WikiTI public note; regenerated by the OS before app launch.</td></tr>
+<tr><td><code>4100-433A</code></td><td>USB communication buffers</td><td>WikiTI public note; this project has not yet isolated the live USB buffer trace.</td></tr>
+<tr><td><code>577E-5A7D</code></td><td>MathPrint-era previous-entry history</td><td>WikiTI public note; OS 2.55MP references <code>577E</code>, <code>5A7E</code>, <code>lastEntryPTR</code> (<code>8DA7</code>), and <code>numLastEntries</code> (<code>8E29</code>) in the homescreen/history routines on pages <code>33</code>, <code>37</code>, and <code>38</code>.</td></tr>
+<tr><td><code>5A7E-5D7D</code></td><td>Homescreen graph buffer</td><td>WikiTI public note; adjacent to the previous-entry buffer and referenced by page-<code>33</code> history code.</td></tr>
+<tr><td>offset <code>04BD</code></td><td>Idle-trace byte store through RAM page <code>83</code></td><td>Dynamic trace maps <code>port 7 = 83</code>, stores at logical <code>84BD</code>, then restores <code>port 7 = 81</code> and <code>port 5 = 00</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The reset path on page <code>37</code> initializes the history pointers for MathPrint-era state:</p>
+<pre><code class="language-z80">37:6E13  LD HL,577Eh
+37:6E16  LD (lastEntryPTR),HL
+37:6E19  LD HL,0000h
+37:6E1C  LD (numLastEntries),HL
+</code></pre>
+<p>Page <code>38</code> has a second clear path with the same pointer reset:</p>
+<pre><code class="language-z80">38:422E  LD HL,577Eh
+38:4231  LD (lastEntryPTR),HL
+38:4234  LD HL,0000h
+38:4237  LD (numLastEntries),HL
+</code></pre>
+<p>The homescreen entry-history code on page <code>33</code> uses the same boundary constants:</p>
+<pre><code class="language-z80">33:53D2  LD A,(numLastEntries)
+33:53E3  LD HL,5A7Eh
+33:53F8  LD HL,577Eh
+33:5431  LD A,(numLastEntries)
+33:543B  LD HL,577Eh
+33:5452  LD HL,577Eh
+33:5480  LD HL,numLastEntries
+</code></pre>
+<p>If a program modifies the history buffer on page <code>83</code>, clearing <code>numLastEntries</code>
+at <code>8E29</code> prevents the homescreen from scrolling back into invalid entry data.
+That is the public WikiTI recovery advice, and the ROM confirms that <code>8E29</code> is
+the OS-visible previous-entry count. <strong>[standard, address confirmed]</strong></p>
+<h2 id="restoring-after-page-83"><a class="header" href="#restoring-after-page-83">Restoring after page <code>83</code></a></h2>
+<p>For code entered from normal TI-OS state, restore the two RAM windows this way:</p>
+<pre><code class="language-z80">    ld a,$81
+    out (7),a        ; 8000-BFFF back to RAM page 81
+    xor a
+    out (5),a        ; C000-FFFF back to RAM page 80
+</code></pre>
+<p>Keep the nonstandard mapping inside a short critical section. The OS helper preserves
+interrupt state around the temporary RAM-page mapping so the interrupt handler does not
+run with bank B pointing at page <code>83</code>.</p>
+<p>For code that may be called with nonstandard paging, preserve and restore the selectors:</p>
+<pre><code class="language-z80">    in a,(7)
+    push af
+    in a,(5)
+    push af
+
+    ld a,$83
+    out (7),a        ; map RAM page 83 at 8000-BFFF
+    ; use 8000-BFFF here
+
+    pop af
+    out (5),a
+    pop af
+    out (7),a
+</code></pre>
+<p>The OS’s own paged byte-store helper at <code>37:44AE</code> uses the normal restore pattern:</p>
+<pre><code class="language-z80">37:44D0  OUT (5),A        ; A = page index &lt;&lt; 1, trace case A = 02h
+37:44D3  OR 80h
+37:44D5  OUT (7),A        ; trace case: 83h
+37:44D7  LD A,B
+37:44D8  LD (DE),A        ; byte store while RAM page 83 is visible
+37:44D9  LD A,81h
+37:44DB  OUT (7),A
+37:44DD  XOR A
+37:44DE  OUT (5),A
+</code></pre>
+<p>The dynamic trace resolves the same sequence at instruction indices <code>712241-712250</code>,
+including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes. <strong>[confirmed]</strong></p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="11--boot-contexts-and-error-handling"><a class="header" href="#11--boot-contexts-and-error-handling">11 — Boot, contexts, and error handling</a></h1>
 <p>Three cross-cutting mechanisms that tie the OS together: how it starts, how it switches “modes” (contexts), and how it aborts on error.</p>
@@ -2710,12 +2850,13 @@ but the entire find/launch machinery is present on <strong>page 0x3D</strong> (<
 run of 16 KiB flash pages whose first page begins with a TLV <strong>app header</strong>.</p>
 <h3 id="11-app-header-format-tlv-confirmed"><a class="header" href="#11-app-header-format-tlv-confirmed">1.1 App header format (TLV) [confirmed]</a></h3>
 <p>An app header is a sequence of <strong>type-length-value fields</strong> starting at offset 0 of the
-app’s first page. Each field begins with an ID byte whose <strong>low nibble encodes the field
-length</strong>. The decoder bytes are around <code>page_3D:7285</code>, but the current Ghidra DB does not expose a live function there:</p>
+app’s first page. Each field begins with two bytes in WikiTI’s <code>TT TS</code> notation: the high
+12 bits are the field number, and the low nibble of the second byte encodes the payload
+length. The decoder bytes are around <code>page_3D:7285</code>, but the current Ghidra DB does not expose a live function there:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>low nibble of ID</th><th>field payload size</th></tr>
+<tr><th>size nibble</th><th>field payload size</th></tr>
 </thead>
 <tbody>
 <tr><td><code>0xD</code></td><td>1 byte</td></tr>
@@ -2726,9 +2867,63 @@ length</strong>. The decoder bytes are around <code>page_3D:7285</code>, but the
 </div>
 <pre><code class="language-z80">page_3D:7285  AND 0x0F; CP 0x0F -&gt; B=4 ; CP 0x0E -&gt; B=2 ; CP 0x0D -&gt; B=1
 </code></pre>
-<p>The signature field at offset 0 is <code>80 0F …</code> (field type 0x80, 4-byte value) — this is
-what the page-scan keys on to recognise an app. Fields carry the app name, the page count,
-flags, the security/signature, etc.</p>
+<p>The master field at offset 0 is usually <code>80 0F …</code> (<code>field 800</code>, size nibble <code>F</code>, followed
+by a 4-byte size) — this is what the page-scan keys on to recognise an app. Fields carry
+the app name, the page count, flags, the date stamp, and signature-related data.</p>
+<p>The app header is not a fixed 128-byte struct. The <code>807</code> final field terminates it. The
+common <code>80 7F 00 00 00 00</code> form uses size nibble <code>F</code> with a four-byte zero, but WikiTI
+documents that length as ignored; the shorter <code>80 70</code> form is valid. The app body begins
+after the final field and any app-controlled padding. Bytes before the conventional
+<code>4080</code> entry point are not loader magic; they are field payload or padding, and an app can
+choose payload bytes that also decode as Z80. <strong>[standard]</strong></p>
+<p>External sample check (not ROM evidence): the local Axe Parser <code>Axe.8xk</code> sample decodes to
+a base page whose <code>020D</code> date-stamp-signature field starts at <code>4027</code> and has a 64-byte
+payload. Part of that payload is a Z80 helper at <code>4037</code>:</p>
+<p><a href="https://github.com/ti-kid">ti-kid</a> identified this Axe header case and published an annotated decode in
+<a href="https://github.com/ti-kid/Hatchet-Compiler/blob/master/Axe0_annotated.asm#L160">Hatchet-Compiler</a>;
+the local decode below uses that lead and verifies it against the extracted <code>Axe.8xk</code> bytes.</p>
+<pre><code class="language-z80">4037  POP AF
+4038  POP BC
+4039  POP DE
+403A  POP HL
+403B  PUSH HL
+403C  PUSH DE
+403D  PUSH BC
+403E  PUSH AF
+; ...
+4056  LD A,0C9h
+4058  CPIR
+405A  PUSH HL
+405B  IN A,(6)
+405D  DEC A
+405E  LD HL,4065h
+4061  RST 20h
+4062  JP 8478h
+4065  OUT (6),A
+4067  RET
+</code></pre>
+<p><code>RST 20h</code> is <code>_Mov9ToOP1</code>, so the helper copies the thunk at <code>4065</code> into OP1
+(<code>0x8478</code>) and jumps to OP1. That makes <code>OUT (6),A; RET</code> run from RAM after <code>A</code>
+has been set to the current bank-A page minus one. The preceding <code>CPIR</code> searches
+from <code>HL</code> for a <code>RET</code> byte (<code>0xC9</code>) and pushes the byte after it as the return
+address. The first half preserves the popped registers while it probes caller-owned
+bytes and can return early; the later page switch and RAM-thunk behavior are directly
+decoded from the sample bytes.</p>
+<p>The same sample’s conventional entry area at <code>4080</code> starts <code>NOP; JR 408C; JP 4097; JP 4548</code>. Additional local samples agree with WikiTI’s field model:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>sample</th><th>header boundary</th><th>header-area bytes before <code>4080</code></th></tr>
+</thead>
+<tbody>
+<tr><td>MirageOS, Omnicalc, CalcSys, Symbolic, BatLib</td><td><code>807F00000000</code> at <code>406A</code>, header bytes end at <code>4070</code></td><td>padding to <code>4080</code>; code starts at <code>4080</code></td></tr>
+<tr><td>zStart 1.3.013</td><td><code>809D0F</code> carries a 15-byte Z80 routine at <code>406B</code>; <code>807F00000000</code> ends at <code>4080</code></td><td>no padding; code starts at <code>4080</code></td></tr>
+<tr><td>usb8x</td><td><code>807F00000000</code> ends at <code>4029</code></td><td>mostly zero padding, plus two app-owned jumps at <code>4049</code>: <code>JP 4180h; JP 42EAh</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>These samples keep the same parser boundary rule: the 128-byte boundary is an app
+convention, not the OS’s header parser boundary.</p>
 <p>The public entry points for walking these fields are bcalls in <code>ti83plus.inc</code>:
 <code>_FindAppHeaderSubField</code> (bcall <code>0x80AB</code>) locates a field in an app header, and
 <code>_FindOSHeaderSubField</code> (bcall <code>0x8075</code>) does the same for the OS header. Both build on the
