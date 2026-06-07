@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67424d6c.js";
+            window.path_to_searchindex_js = "searchindex-dfe38180.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -1901,7 +1901,7 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 <tbody>
 <tr><td><code>+</code></td><td><code>_FPAdd</code></td><td><code>ram:229E</code> (= <strong>RST 30h</strong>)</td><td>sign-magnitude BCD add; see <a href="#06--floating-point-engine">06-floating-point.md</a>.</td></tr>
 <tr><td><code>−</code></td><td><code>_FPSub</code></td><td><code>ram:2297</code></td><td>flips <code>OP2.type</code> bit7 then falls into the add path.</td></tr>
-<tr><td><code>×</code></td><td><code>_FPMult</code></td><td><code>ram:238B</code></td><td><code>FUN_ram_250F</code> adds exponents (→ <code>_ErrOverflow</code> on carry past 0x7F), then digit-by-digit BCD multiply accumulating into OP3.</td></tr>
+<tr><td><code>×</code></td><td><code>_FPMult</code></td><td><code>ram:238B</code></td><td><code>ram:250F</code> adds exponents (→ <code>_ErrOverflow</code> on carry past 0x7F), then digit-by-digit BCD multiply accumulating into OP3.</td></tr>
 <tr><td><code>÷</code></td><td><code>_FPDiv</code></td><td><code>ram:2541</code></td><td><code>_CkOP2FP0</code> first → <code>_JError(0x82)</code> DIVIDE BY 0 if divisor 0; else restoring BCD long division.</td></tr>
 <tr><td><code>1/x</code></td><td><code>_FPRecip</code></td><td><code>ram:253D</code></td><td>sets <code>OP1=1</code> then enters the divide loop (same body as <code>_FPDiv</code>).</td></tr>
 </tbody>
@@ -1917,7 +1917,7 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 </ul>
 <h3 id="roots--integer-parts-confirmed"><a class="header" href="#roots--integer-parts-confirmed">Roots &amp; integer parts [confirmed]</a></h3>
 <ul>
-<li><code>_SqRoot</code> <code>page_02:6E38</code>: <code>_ErrD_OP1NotPos</code> (→ DOMAIN if negative/complex-real), <code>fp_clear_guard</code>, <code>_ZeroOP3</code>, then a <strong>digit-by-digit BCD square-root extraction</strong> loop (<code>FUN_ram_1C9C</code> trial-subtract + <code>FUN_ram_1D4A</code> compare, halving the exponent up front). Not Newton’s method — classic long-hand sqrt.</li>
+<li><code>_SqRoot</code> <code>page_02:6E38</code>: <code>_ErrD_OP1NotPos</code> (→ DOMAIN if negative/complex-real), <code>fp_clear_guard</code>, <code>_ZeroOP3</code>, then a <strong>digit-by-digit BCD square-root extraction</strong> loop (<code>ram:1C9C</code> trial-subtract + <code>ram:1D4A</code> compare, halving the exponent up front). Not Newton’s method — classic long-hand sqrt.</li>
 <li><code>_Int</code>/<code>_Intgr</code> <code>ram:2621</code>/<code>2263</code>: <strong>floor</strong>. <code>_Trunc</code> <code>ram:2279</code> drops the fractional part (toward zero); <code>_Intgr</code> truncates then subtracts 1 (<code>_Minus1</code> <code>ram:2294</code>) when the original was negative, giving true floor.</li>
 <li><code>_Frac</code> <code>ram:24E3</code>: fractional part = x − trunc(x); shifts mantissa by the exponent and keeps the low digits.</li>
 <li><code>_Round</code> / <code>_RndGuard</code> <code>ram:2623</code> / <code>page_02:6A57</code>: round to the active display-digit count; <code>_Round</code> is a thin <code>cross_page_jump</code> wrapper (body banked off page 0).</li>
@@ -1925,8 +1925,8 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 <hr>
 <h2 id="3-degreeradian--polar-conversions-confirmed"><a class="header" href="#3-degreeradian--polar-conversions-confirmed">3. Degree/radian &amp; polar conversions [confirmed]</a></h2>
 <ul>
-<li><code>_DToR</code> <code>ram:236B</code> (deg→rad): multiply OP1 by $\pi/180$ (<code>FUN_ram_235D</code> loads the constant) then normalize via <code>FUN_ram_249E</code>.</li>
-<li><code>_RToD</code> <code>ram:2374</code> (rad→deg): multiply by $180/\pi$ (<code>FUN_ram_2361</code>).</li>
+<li><code>_DToR</code> <code>ram:236B</code> (deg→rad): multiply OP1 by $\pi/180$ (<code>ram:235D</code> loads the constant) then normalize via <code>ram:249E</code>.</li>
+<li><code>_RToD</code> <code>ram:2374</code> (rad→deg): multiply by $180/\pi$ (<code>ram:2361</code>).</li>
 <li><code>_PToR</code> <code>page_02:50BD</code> polar→rectangular; pairs with the complex trig below.
 These constants are the BCD floats <code>π/180 = 1.745…e-2</code> and <code>180/π = 5.729…e1</code> noted in
 <a href="#06--floating-point-engine">06-floating-point.md</a>’s constant scan.</li>
@@ -1980,7 +1980,7 @@ decoding of <code>02:7201</code>/<code>02:7281</code> is detailed in <a href="#0
 <ul>
 <li><code>_ASinRad</code> <code>76DA</code>, <code>_ACosRad</code> <code>76C9</code>, <code>_ATanRad</code> <code>76CF</code>, <code>_ATan2Rad</code> <code>76D4</code>, plus the
 degree-mode <code>_ASin</code>/<code>_ACos</code>/<code>_ATan</code>/<code>_ATan2</code> at <code>76F1</code>/<code>76DF</code>/<code>76E9</code>/<code>7749</code>.</li>
-<li><code>_ASin</code>/<code>_ACos</code> call domain check <code>SUB_page_02:79D3</code>; <strong>|arg| &gt; 1 → <code>_ErrDomain</code></strong>.</li>
+<li><code>_ASin</code>/<code>_ACos</code> call domain check <code>page_02:79D3</code>; <strong>|arg| &gt; 1 → <code>_ErrDomain</code></strong>.</li>
 <li>All inverse trig funnel into the shared <strong>arctangent CORDIC engine</strong> at <code>page_02:774B</code>
 (<code>B=0x20</code> seeds the octant/quadrant base written to <code>0x84A4</code>; the core is a base-10
 trial-subtract digit recurrence, not a fixed 32-step loop), with asin/acos expressed
@@ -2007,7 +2007,7 @@ digit string honoring the <strong>MODE</strong> screen (Normal/Sci/Eng, Float/Fi
 <li>Reads the digit-count/mode flags from <code>(IY+0xc)</code> and the byte at <code>0x89FA</code> (active
 fixed/decimal-places setting; <code>(IX-1)</code> local holds the effective format byte).</li>
 <li>Exponent thresholds drive Normal↔Sci switchover: it compares <code>OP1.exp</code> against <code>0x7D</code>/<code>0x7F</code>
-(≈ the ±-exponent window) and renormalizes (<code>FUN_ram_1BE7</code>) to bring the value into the
+(≈ the ±-exponent window) and renormalizes (<code>ram:1BE7</code>) to bring the value into the
 displayable mantissa range, bumping a digit counter. Negative sign decrements the leading
 column count (<code>DEC (IX-3)</code>).</li>
 </ul>
@@ -2016,7 +2016,7 @@ column count (<code>DEC (IX-3)</code>).</li>
 <li><code>_FormBase</code> <code>page_06:57C0</code> — integer formatting in a base; requires <code>_CkOP1Real</code> (→ DATA TYPE / DOMAIN on non-real). [confirmed]</li>
 <li><code>_FormDCplx</code> <code>page_06:59D3</code> — complex <code>a+bi</code> / <code>r∠θ</code> formatting (calls <code>_FormReal</code> twice). [standard]</li>
 <li>Exponent ↔ ASCII helpers on page 0: <code>_ExpToHex</code> <code>ram:1E4E</code>, <code>_OP1ExpToDec</code> <code>ram:1E77</code>,
-<code>_DecO1Exp</code> <code>ram:1E6F</code> (decrement exp), <code>FUN_ram_1BCB</code> (BCD-digit → value). [confirmed]</li>
+<code>_DecO1Exp</code> <code>ram:1E6F</code> (decrement exp), <code>ram:1BCB</code> (BCD-digit → value). [confirmed]</li>
 <li>The formatted string is then drawn by <code>_DispOP1A</code> (<code>page_04:7844</code>) / homescreen put-string
 routines (see <a href="#08--display--lcd">08-display-lcd.md</a>).</li>
 </ul>
@@ -2058,7 +2058,7 @@ which unwinds to the error context and shows the named message. The raiser clust
 <p><strong>Where the calc engine raises what:</strong></p>
 <ul>
 <li><code>÷ 0</code>, <code>1/0</code>: <code>_FPDiv</code>/<code>_FPRecip</code> → <code>0x82</code> DIVIDE BY 0.</li>
-<li><code>×</code>/<code>10^x</code>/exponent overflow: <code>FUN_ram_250F</code> exponent-add → <code>0x81</code> OVERFLOW.</li>
+<li><code>×</code>/<code>10^x</code>/exponent overflow: <code>ram:250F</code> exponent-add → <code>0x81</code> OVERFLOW.</li>
 <li><code>√(neg)</code>, <code>ln/log(≤0)</code>, <code>asin/acos(|x|&gt;1)</code>, <code>tan(π/2)</code>, |trig arg| ≳ 10^12: <code>0x84</code> DOMAIN.</li>
 <li>Complex result requested in real mode: <code>0x87</code> NONREAL ANS (the <code>_CLN</code>/complex paths).</li>
 </ul>
@@ -2068,7 +2068,7 @@ which unwinds to the error context and shows the named message. The raiser clust
 <code>_FPRecip 253D</code>, <code>_FPSquare 238A</code>, <code>_Cube 237D</code>, <code>_Times2 2282</code>, <code>_TimesPt5 2382</code>,
 <code>_InvSub 227D</code>, <code>_Int 2621</code>, <code>_Intgr 2263</code>, <code>_Trunc 2279</code>, <code>_Frac 24E3</code>, <code>_Round 2623</code>,
 <code>_InvOP1S 24BD</code>, <code>_InvOP2S 24CD</code>, <code>_InvOP1SC 24BA</code>, <code>_CkOP1Pos 1E5D</code>, <code>fp_clear_guard 2627</code>,
-<code>fpmul_expadd FUN_ram_250F</code>, <code>_DToR 236B</code>, <code>_RToD 2374</code>, <code>cross_page_jump 2B09</code>.</p>
+<code>fpmul_expadd 250F</code>, <code>_DToR 236B</code>, <code>_RToD 2374</code>, <code>cross_page_jump 2B09</code>.</p>
 <p>Transcendentals (page 02): <code>_SqRoot 6E38</code>, <code>_LnX 6EFD</code>, <code>_LogX 6F16</code>, <code>_CLN 6CCA</code>,
 <code>_CLog 6CE7</code>, <code>pow_core 6D08</code>, <code>_EToX 705C</code>, <code>_TenX 7066</code>, <code>_SinCosRad 733E</code>, <code>_Sin 7342</code>,
 <code>_Cos 7346</code>, <code>_Tan 734A</code>, <code>_SinHCosH 7626</code>, <code>_TanH 762A</code>, <code>_CosH 762E</code>, <code>_SinH 7632</code>,
