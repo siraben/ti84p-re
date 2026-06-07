@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bff1b4c0.js";
+            window.path_to_searchindex_js = "searchindex-5289c547.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-bcf53af4.js"></script>
@@ -774,8 +774,9 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
 <h1 id="14---ram-pages"><a class="header" href="#14---ram-pages">14 - RAM pages</a></h1>
 <p>The TI-84 Plus has banked RAM pages behind the Z80’s 16 KiB windows. TI-OS normally
 keeps RAM page <code>81</code> in <code>8000-BFFF</code> and RAM page <code>80</code> in <code>C000-FFFF</code>, but ROM helpers
-temporarily map other pages for paged memory access. Page <code>83</code> is not free scratch on
-OS 2.55MP: the OS and MathPrint-era homescreen code use parts of it.</p>
+temporarily map other pages for paged memory access. On OS 2.55MP, traces show page
+<code>83</code> writes during boot/home initialization and during homescreen expression entry.
+Programs that borrow page <code>83</code> must preserve or restore the OS-visible regions below.</p>
 <h2 id="page-selectors-confirmed"><a class="header" href="#page-selectors-confirmed">Page selectors [confirmed]</a></h2>
 <p>The 84+ memory ports use two encodings:</p>
 <div class="table-wrapper">
@@ -807,7 +808,8 @@ normal OS execution.</p>
 <h2 id="page-map-standard-cross-checked"><a class="header" href="#page-map-standard-cross-checked">Page map [standard, cross-checked]</a></h2>
 <p>WikiTI’s <a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages">RAM pages</a>
 page is a useful public map, but OS 2.55MP needs the page-<code>83</code> warnings to be read
-literally. The local trace and disassembly support this table:</p>
+literally. The local dump at <code>wikiti-dump/main/83Plus:OS:Ram Pages.wiki</code> carries
+the same current page-<code>83</code> notes. The local trace and disassembly support this table:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -817,7 +819,7 @@ literally. The local trace and disassembly support this table:</p>
 <tr><td><code>80</code></td><td>Normal <code>C000-FFFF</code> RAM page. The boot/home trace restores this with <code>OUT (5),0</code>. WikiTI marks it execution-protected.</td></tr>
 <tr><td><code>81</code></td><td>Normal <code>8000-BFFF</code> RAM page. This contains the visible TI-OS RAM variables, OP registers, flags, graph buffers, user heap, and VAT window documented in <code>tools/ram.txt</code> and <code>ti83plus.inc</code>.</td></tr>
 <tr><td><code>82</code></td><td>Not a general OS work page under normal execution. The idle trace maps it briefly through port <code>5</code> as part of a paged RAM helper, then restores page <code>80</code>. WikiTI marks it execution-protected.</td></tr>
-<tr><td><code>83</code></td><td>Shared scratch/state page. WikiTI lists app-launch bytes, USB communication buffers, MathPrint homescreen history, and a homescreen graph buffer. OS 2.55MP also maps it dynamically through port <code>7</code> in the idle trace.</td></tr>
+<tr><td><code>83</code></td><td>Shared OS scratch/state page. OS 2.55MP maps it through port <code>6</code> for block copies and LCD capture, and through port <code>7</code> for a paged byte-store helper. Homescreen expression entry writes the previous-entry buffer at <code>577E</code>.</td></tr>
 <tr><td><code>84</code></td><td>Not used by TI-OS under typical execution; WikiTI marks it execution-protected.</td></tr>
 <tr><td><code>85</code></td><td>Not used by TI-OS under typical execution on full-RAM hardware.</td></tr>
 <tr><td><code>86</code></td><td>Not used by TI-OS under typical execution; WikiTI marks it execution-protected.</td></tr>
@@ -829,59 +831,211 @@ literally. The local trace and disassembly support this table:</p>
 WikiTI’s <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:15">port <code>15</code></a> page
 identifies ASIC value <code>55h</code> as the 48 KiB TA1 ASIC. Programs that use page <code>83</code> must not
 treat <code>82-87</code> as independent storage on that hardware. <strong>[standard]</strong></p>
-<h2 id="page-83-confirmed-and-standard"><a class="header" href="#page-83-confirmed-and-standard">Page <code>83</code> [confirmed and standard]</a></h2>
-<p>Page <code>83</code> is the page people most often borrow as scratch, but it has OS-visible state:</p>
+<h2 id="per-page-trace-coverage-confirmed"><a class="header" href="#per-page-trace-coverage-confirmed">Per-page trace coverage [confirmed]</a></h2>
+<p>The boot/home and <code>2+3 ENTER</code> traces exercise startup, homescreen initialization,
+display capture, parsing, evaluation, and previous-entry storage. They do not exercise
+app launch, USB transfer, graph drawing, archive cleanup, or a 48 KiB ASIC. Within
+that scope, physical RAM-page writes are:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>RAM page</th><th>Idle trace writes</th><th><code>2+3 ENTER</code> trace writes</th><th>Interpretation</th></tr>
+</thead>
+<tbody>
+<tr><td><code>80</code></td><td><code>256227</code> writes, all page addresses touched</td><td><code>345702</code> writes, all page addresses touched</td><td>Normal high RAM page selected by port <code>5</code>; contains stack/system/user RAM activity in the <code>C000-FFFF</code> window.</td></tr>
+<tr><td><code>81</code></td><td><code>62947</code> writes, all page addresses touched</td><td><code>72638</code> writes, all page addresses touched</td><td>Normal <code>8000-BFFF</code> RAM page; contains the documented OS variables, flags, OP registers, heap, VAT window, and working buffers.</td></tr>
+<tr><td><code>82</code></td><td>no writes observed</td><td>no writes observed</td><td>Port <code>5</code> briefly selects raw value <code>02</code>, but the observed store is through page <code>83</code> in bank B. No page-<code>82</code> storage is confirmed by these traces.</td></tr>
+<tr><td><code>83</code></td><td><code>1882</code> writes to <code>43D9-44BD</code> and <code>5A7E-5DF2</code></td><td><code>3467</code> writes to <code>4373-4390</code>, <code>43D9-44BD</code>, <code>577E-5790</code>, and <code>5A7E-5DF2</code></td><td>Shared OS scratch/state page. See the range table below.</td></tr>
+<tr><td><code>84</code></td><td>no writes observed</td><td>no writes observed</td><td>No typical-use OS storage confirmed in these traces.</td></tr>
+<tr><td><code>85</code></td><td>no writes observed</td><td>no writes observed</td><td>No typical-use OS storage confirmed in these traces.</td></tr>
+<tr><td><code>86</code></td><td>no writes observed</td><td>no writes observed</td><td>No typical-use OS storage confirmed in these traces.</td></tr>
+<tr><td><code>87</code></td><td>no writes observed</td><td>no writes observed</td><td>No typical-use OS storage confirmed in these traces.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The zero-write rows mean “not hit by these scenarios,” not a global proof that the
+page is never used. On 48 KiB hardware, pages <code>82-87</code> alias page <code>83</code>, so writes
+intended for <code>84-87</code> would not be independent storage even if a program can select
+those page numbers. <strong>[standard]</strong></p>
+<p>The graph scenario in <code>tools/macros/graph-y1-x2.macro</code> reaches the graph screen and
+still only writes pages <code>80</code>, <code>81</code>, and <code>83</code>. It increases normal page-<code>80</code>/<code>81</code>
+activity but leaves page-<code>83</code> at the same confirmed ranges as the idle trace.
+It does not hit pages <code>82</code> or <code>84-87</code>. <strong>[confirmed]</strong></p>
+<h2 id="how-to-hit-the-confirmed-paths"><a class="header" href="#how-to-hit-the-confirmed-paths">How to hit the confirmed paths</a></h2>
+<p>The useful distinction is between “page number can be selected” and “the OS uses it
+in a normal workflow.” These paths are confirmed or have a concrete next scenario:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Page/path</th><th>How to hit it</th><th>Evidence</th></tr>
+</thead>
+<tbody>
+<tr><td><code>80</code> high RAM</td><td>Run any cold-boot, home, expression, or graph trace.</td><td>Port <code>5 = 00</code> is the normal restore value; every current trace writes all page-<code>80</code> addresses. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>81</code> normal bank-B RAM</td><td>Run any cold-boot, home, expression, or graph trace.</td><td>Port <code>7 = 81</code> is the normal restore value; every current trace writes all page-<code>81</code> addresses. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>83</code> display capture</td><td>Run <code>boot-idle.macro</code> or <code>graph-y1-x2.macro</code>.</td><td>Ghidra shows <code>_SaveDisp</code> at <code>39:5E03</code> calls <code>lcd_read_block</code> at <code>ram:1890</code>; coverage hits both, and writes <code>5A7E-5DF2</code>. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>83</code> homescreen previous-entry history</td><td>Run <code>home-2plus3.macro</code>.</td><td>The trace adds <code>577E-5790</code>, advances <code>lastEntryPTR</code> from <code>577E</code> to <code>5791</code>, and sets <code>numLastEntries</code> to <code>01</code>. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>83</code> expression scratch copy</td><td>Run <code>home-2plus3.macro</code>.</td><td>The trace adds <code>4373-4390</code> through <code>flash_copy_block</code> at <code>ram:1868</code>/<code>ram:187C</code>. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>83</code> split-screen/table copy</td><td>Enter a split-screen/table workflow that calls <code>_ScreenSplit</code>.</td><td>Ghidra shows <code>_ScreenSplit</code> at <code>05:7712</code> calls <code>flash_copy_block</code> at <code>05:772A</code>; this path is not hit by the current macros. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>83</code> edit-buffer initialization</td><td>Enter an edit-buffer workflow that reaches <code>editbuf_init_buf</code>.</td><td>Ghidra shows <code>editbuf_init_buf</code> at <code>03:6BC4</code> calls <code>flash_copy_block</code> at <code>03:6BCD</code>; this path is not hit by the current macros. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>83</code> app-menu state restore</td><td>Open an app/menu workflow that reaches <code>mnu_restore_app_state</code>.</td><td>Ghidra shows <code>mnu_restore_app_state</code> at <code>39:6D96</code> calls <code>flash_copy_block</code> at <code>39:6DA0</code>; this path is not hit by the current macros. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>84-87</code> independent pages</td><td>Use a forced RAM-page probe or a ROM path that passes pair index <code>2</code> or <code>3</code> to the computed bank-pair helper.</td><td>The ROM can compute these selectors, but raw immediate selector scans and current traces do not show a normal OS path selecting or writing them. <strong>[hypothesis]</strong></td></tr>
+</tbody>
+</table>
+</div>
+<p>The computed bank-pair helpers use this selector formula:</p>
+<pre><code class="language-z80">    ld a,b
+    sla a
+    out (5),a        ; pair index 0/1/2/3 -&gt; pages 80/82/84/86 in bank C
+    inc a
+    or 80h
+    out (7),a        ; pair index 0/1/2/3 -&gt; pages 81/83/85/87 in bank B
+</code></pre>
+<p>The direct callers decoded so far set <code>B = 1</code>, which selects pages <code>82/83</code>. That
+explains the observed <code>port 5 = 02</code>, <code>port 7 = 83</code> sequence and why no current
+trace writes page <code>84-87</code>. A targeted probe for pages <code>84-87</code> should either run
+small RAM code that writes selectors <code>84h-87h</code> directly, or find a UI path that
+passes <code>B = 2</code> or <code>B = 3</code> into this helper. The <code>B = 1</code> caller pattern is
+confirmed for the decoded callers above. <strong>[confirmed]</strong></p>
+<h2 id="page-83-use-confirmed-and-standard"><a class="header" href="#page-83-use-confirmed-and-standard">Page <code>83</code> use [confirmed and standard]</a></h2>
+<p>Page <code>83</code> is the page people most often borrow as scratch, but the ROM uses it as
+more than anonymous free RAM. Keep the evidence classes separate:</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Range</th><th>Use</th><th>Evidence</th></tr>
 </thead>
 <tbody>
-<tr><td><code>4008-4080</code></td><td>App base-page staging before app execution</td><td>WikiTI public note; regenerated by the OS before app launch.</td></tr>
-<tr><td><code>4100-433A</code></td><td>USB communication buffers</td><td>WikiTI public note; this project has not yet isolated the live USB buffer trace.</td></tr>
-<tr><td><code>577E-5A7D</code></td><td>MathPrint-era previous-entry history</td><td>WikiTI public note; OS 2.55MP references <code>577E</code>, <code>5A7E</code>, <code>lastEntryPTR</code> (<code>8DA7</code>), and <code>numLastEntries</code> (<code>8E29</code>) in the homescreen/history routines on pages <code>33</code>, <code>37</code>, and <code>38</code>.</td></tr>
-<tr><td><code>5A7E-5D7D</code></td><td>Homescreen graph buffer</td><td>WikiTI public note; adjacent to the previous-entry buffer and referenced by page-<code>33</code> history code.</td></tr>
-<tr><td>offset <code>04BD</code></td><td>Idle-trace byte store through RAM page <code>83</code></td><td>Dynamic trace maps <code>port 7 = 83</code>, stores at logical <code>84BD</code>, then restores <code>port 7 = 81</code> and <code>port 5 = 00</code>.</td></tr>
+<tr><td><code>4373-4390</code></td><td>Expression-path page-<code>83</code> scratch copy</td><td>Added by the <code>2+3 ENTER</code> trace. The write PC is the page-<code>83</code> block-copy helper at <code>ram:187C</code>/<code>ram:187E</code>; the caller is still unlabeled. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>43D9-44BD</code></td><td>Boot/home page-<code>83</code> scratch copy</td><td>Present in the idle trace. The write PC is the page-<code>83</code> block-copy helper at <code>ram:187C</code>/<code>ram:187E</code>, plus one byte through <code>37:44D7</code>. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>577E-5A7D</code></td><td>Homescreen previous-entry history</td><td>Page <code>33</code> references <code>577E</code>, the <code>5A7E</code> upper bound, <code>lastEntryPTR</code> (<code>0x8DA7</code>), and <code>numLastEntries</code> (<code>0x8E29</code>). The <code>2+3 ENTER</code> trace writes <code>577E-5790</code>, advances <code>lastEntryPTR</code> to <code>5791</code>, and sets <code>numLastEntries</code> to <code>01</code>. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>5A7E-5DF2</code></td><td>LCD/home display capture area</td><td>Present in the idle trace. Ghidra decompiles <code>ram:1890</code> as an LCD-read helper that maps page <code>83</code> through port <code>6</code> and stores bytes read from LCD port <code>11</code>. <strong>[confirmed]</strong></td></tr>
+<tr><td><code>4008-4080</code></td><td>App base-page staging before app execution</td><td>WikiTI public note; the two traces on this page do not launch an app. <strong>[standard, not traced here]</strong></td></tr>
+<tr><td><code>4100-433A</code></td><td>USB communication buffers</td><td>WikiTI public note; the two traces on this page do not exercise USB transfer. <strong>[standard, not traced here]</strong></td></tr>
 </tbody>
 </table>
 </div>
-<p>The reset path on page <code>37</code> initializes the history pointers for MathPrint-era state:</p>
-<pre><code class="language-z80">37:6E13  LD HL,577Eh
-37:6E16  LD (lastEntryPTR),HL
-37:6E19  LD HL,0000h
-37:6E1C  LD (numLastEntries),HL
+<p>Ghidra identifies the page-<code>83</code> block-copy helper at <code>ram:1868</code>. It saves the current
+port-<code>6</code> value, writes <code>83h</code> to port <code>6</code>, runs <code>LDIR</code>, and restores the previous page
+through the page-set helper:</p>
+<pre><code class="language-z80">ram:1877  IN A,(6)
+ram:1879  PUSH AF
+ram:187A  LD A,83h
+ram:187C  OUT (6),A
+ram:187E  LDIR
+ram:1880  POP AF
+ram:1881  CALL 181Ch
+</code></pre>
+<p>Ghidra identifies the LCD capture helper at <code>ram:1890</code>. It maps page <code>83</code>, waits on
+the LCD, reads port <code>11</code>, and stores each byte through <code>HL</code>:</p>
+<pre><code class="language-z80">ram:189F  IN A,(6)
+ram:18A1  PUSH AF
+ram:18A2  LD A,83h
+ram:18A4  OUT (6),A
+ram:18A6  CALL 0CC3h
+ram:18A9  IN A,(11h)
+ram:18AB  LD (HL),A
+</code></pre>
+<p>The reset path on page <code>37</code> initializes the previous-entry pointers:</p>
+<pre><code class="language-z80">37:6E0D  LD HL,577Eh
+37:6E10  LD (lastEntryPTR),HL
+37:6E13  LD HL,0000h
+37:6E16  LD (numLastEntries),HL
 </code></pre>
 <p>Page <code>38</code> has a second clear path with the same pointer reset:</p>
-<pre><code class="language-z80">38:422E  LD HL,577Eh
-38:4231  LD (lastEntryPTR),HL
-38:4234  LD HL,0000h
-38:4237  LD (numLastEntries),HL
+<pre><code class="language-z80">38:422D  LD HL,577Eh
+38:4230  LD (lastEntryPTR),HL
+38:4233  LD HL,0000h
+38:4236  LD (numLastEntries),HL
 </code></pre>
-<p>The homescreen entry-history code on page <code>33</code> uses the same boundary constants:</p>
-<pre><code class="language-z80">33:53D2  LD A,(numLastEntries)
-33:53E3  LD HL,5A7Eh
-33:53F8  LD HL,577Eh
-33:5431  LD A,(numLastEntries)
-33:543B  LD HL,577Eh
+<p>The homescreen entry-history code on page <code>33</code> uses the same constants and variables:</p>
+<pre><code class="language-z80">33:53D1  LD A,(numLastEntries)
+33:53E2  LD HL,5A7Eh
+33:53F7  LD HL,577Eh
+33:5430  LD A,(numLastEntries)
+33:543A  LD DE,577Eh
 33:5452  LD HL,577Eh
-33:5480  LD HL,numLastEntries
+33:5459  LD (lastEntryPTR),HL
+33:5462  LD HL,numLastEntries
+33:5465  INC (HL)
 </code></pre>
 <p>If a program modifies the history buffer on page <code>83</code>, clearing <code>numLastEntries</code>
 at <code>8E29</code> prevents the homescreen from scrolling back into invalid entry data.
 That is the public WikiTI recovery advice, and the ROM confirms that <code>8E29</code> is
 the OS-visible previous-entry count. <strong>[standard, address confirmed]</strong></p>
+<h2 id="dynamic-test-scenarios"><a class="header" href="#dynamic-test-scenarios">Dynamic test scenarios</a></h2>
+<p>The trace analyzer maps TilEm memory-write records back to physical RAM pages. Use
+it with full-range traces:</p>
+<pre><code class="language-sh">ROM=/path/to/ti84plus_2.55mp_complete.rom
+tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
+  --macro tools/macros/boot-idle.macro \
+  --trace /tmp/page83-idle.trace --trace-range all
+tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
+  --macro tools/macros/home-2plus3.macro \
+  --trace /tmp/page83-2plus3.trace --trace-range all
+tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
+  --macro tools/macros/graph-y1-x2.macro \
+  --trace /tmp/page83-graph.trace --trace-range all
+python3 tools/analyze_ram_page_trace.py /tmp/page83-idle.trace --page 0x83
+python3 tools/analyze_ram_page_trace.py /tmp/page83-2plus3.trace --page 0x83
+python3 tools/analyze_ram_page_trace.py /tmp/page83-graph.trace --page 0x83
+</code></pre>
+<p>The baseline idle trace writes:</p>
+<pre><code class="language-text">RAM page 0x83 writes: 1882
+unique page addresses: 1114
+range 43D9-44BD
+range 5A7E-5DF2
+</code></pre>
+<p>The <code>2+3 ENTER</code> trace writes:</p>
+<pre><code class="language-text">RAM page 0x83 writes: 3467
+unique page addresses: 1163
+range 4373-4390
+range 43D9-44BD
+range 577E-5790
+range 5A7E-5DF2
+</code></pre>
+<p>The before/after RAM variables line up with the previous-entry write:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Scenario</th><th><code>lastEntryPTR</code> (<code>0x8DA7</code>)</th><th><code>numLastEntries</code> (<code>0x8E29</code>)</th></tr>
+</thead>
+<tbody>
+<tr><td>Idle home screen</td><td><code>577E</code></td><td><code>00</code></td></tr>
+<tr><td>After <code>2+3 ENTER</code></td><td><code>5791</code></td><td><code>01</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Those values come from end-of-trace RAM reconstruction. The added page-<code>83</code> range
+<code>577E-5790</code> is exactly the bytes between the old and new <code>lastEntryPTR</code> values.
+<strong>[confirmed]</strong></p>
 <h2 id="restoring-after-page-83"><a class="header" href="#restoring-after-page-83">Restoring after page <code>83</code></a></h2>
-<p>For code entered from normal TI-OS state, restore the two RAM windows this way:</p>
+<p>Restore the selector for every window you changed. For code entered from normal TI-OS
+state that temporarily maps page <code>83</code> into bank B (<code>8000-BFFF</code>) and page <code>82</code> into
+bank C (<code>C000-FFFF</code>), restore the two RAM windows this way:</p>
 <pre><code class="language-z80">    ld a,$81
     out (7),a        ; 8000-BFFF back to RAM page 81
     xor a
     out (5),a        ; C000-FFFF back to RAM page 80
 </code></pre>
+<p>For code that maps page <code>83</code> into bank A (<code>4000-7FFF</code>), preserve and restore port <code>6</code>:</p>
+<pre><code class="language-z80">    in a,(6)
+    push af
+
+    ld a,$83
+    out (6),a        ; map RAM page 83 at 4000-7FFF
+    ; use 4000-7FFF here
+
+    pop af
+    out (6),a        ; restore previous Flash/RAM page selector
+</code></pre>
 <p>Keep the nonstandard mapping inside a short critical section. The OS helper preserves
 interrupt state around the temporary RAM-page mapping so the interrupt handler does not
-run with bank B pointing at page <code>83</code>.</p>
-<p>For code that may be called with nonstandard paging, preserve and restore the selectors:</p>
-<pre><code class="language-z80">    in a,(7)
+run with bank A or bank B pointing at page <code>83</code>.</p>
+<p>For code that may be called with nonstandard paging, preserve and restore the selectors
+for all touched windows:</p>
+<pre><code class="language-z80">    in a,(6)
+    push af
+    in a,(7)
     push af
     in a,(5)
     push af
@@ -894,6 +1048,8 @@ run with bank B pointing at page <code>83</code>.</p>
     out (5),a
     pop af
     out (7),a
+    pop af
+    out (6),a
 </code></pre>
 <p>The OS’s own paged byte-store helper at <code>37:44AE</code> uses the normal restore pattern:</p>
 <pre><code class="language-z80">37:44D0  OUT (5),A        ; A = page index &lt;&lt; 1, trace case A = 02h
