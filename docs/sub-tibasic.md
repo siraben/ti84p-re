@@ -390,8 +390,8 @@ homescreen reaches page-38 parser functions including `eval_stmt_entry`
 
 The stored-program samples in `tools/tibasic-samples/` are generated with
 `tools/tibasic_samples.py --write-dir tools/tibasic-samples`. Each sample has
-readable `.bas`, raw-body `.tok`, and loadable `.8xp` forms. The `.8xp`
-validation traces below were run on 2026-06-06 against OS 2.55MP in
+readable `.bas`, hex-text `.tok`, and loadable `.8xp` forms. The `.8xp`
+validation traces below were run on 2026-06-06/07 against OS 2.55MP in
 `tools/rom.bin` with a local headless TilEm patch that loads command-line `.8xp`
 files before running the macro; the traces therefore include startup
 link-transfer code as well as interpreter execution.
