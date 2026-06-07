@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-620d8f50.js";
+            window.path_to_searchindex_js = "searchindex-340667b6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -199,7 +199,7 @@
 <h2 id="still-open"><a class="header" href="#still-open">Still open</a></h2>
 <ol start="13">
 <li><strong>Enum equates.</strong> Apply <code>TIKeyCode</code>/<code>TIError</code>/<code>TIVarType</code> to scalar operands in the relevant handlers (conservative, scoped).</li>
-<li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), the <code>Asm(</code>/<code>AsmPrgm</code> compile/setup body before the traced payload handoff (<code>ram:9D95 op=0xC9</code> is confirmed), direct ASM-initiated BASIC program execution beyond VAT lookup and cooperative <code>Ans</code> callback (<code>_ChkFindSym</code> works from <code>AsmPrgm</code>; <code>_Find_Parse_Formula</code> fails with <code>ERR:UNDEFINED</code>; <code>_ParseInpLastEnt</code> fails with <code>ERR:INVALID</code>; <code>_ExecuteNewPrgm</code> reaches <code>ERR:SYNTAX</code>; <code>_JForceCmd</code> abandons the caller stack; <code>_PutTokString</code>/<code>_rclToQueue</code> are edit-buffer paths, not proven program-call entries), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
+<li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), the <code>Asm(</code>/<code>AsmPrgm</code> compile/setup body before the traced payload handoff (<code>ram:9D95 op=0xC9</code> is confirmed), direct ASM-initiated BASIC program execution beyond VAT lookup and cooperative <code>Ans</code> callback (<code>_ChkFindSym</code> works from <code>AsmPrgm</code>; <code>_Find_Parse_Formula</code> fails with <code>ERR:UNDEFINED</code>; the <code>ASMPARSE.8xp</code>/<code>ZZPARSE.8xp</code> <code>_ParseInpLastEnt</code> fixture fails with <code>ERR:INVALID</code>; <code>_ExecuteNewPrgm</code> reaches <code>ERR:SYNTAX</code>; <code>_JForceCmd</code> abandons the caller stack; <code>_PutTokString</code>/<code>_rclToQueue</code> are edit-buffer paths, not proven program-call entries), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
 </ol>
 <h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>
 <p>Reopen <code>~/Documents/ti84-re/ti84.gpr</code> (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in <code>tools/</code> and rebuild with <code>tools/build.sh</code>. The remaining items mostly need a <strong>headless raw-byte dump</strong> of regions the live decompiler leaves as unanalyzed data (the page-0x35 timer handler, the page-0x38 <code>0xBB</code>/class-3 dispatch tables).</p>

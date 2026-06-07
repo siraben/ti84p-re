@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-620d8f50.js";
+            window.path_to_searchindex_js = "searchindex-340667b6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -1591,8 +1591,9 @@ described. On-screen result: <code>.8414709848</code>. (Per-row coefficient mean
 <ul>
 <li><code>_ParseInp</code> (<code>38:5987</code>) — parse/evaluate the input (homescreen/entry line). It calls <code>parse_init</code> (<code>38:5b7b</code>) to reset parser state, clears editing flags, then resolves via <code>_ChkFindSym</code>. <strong>[confirmed]</strong></li>
 <li><code>_ParseInpLastEnt</code> (<code>38:5984</code>) — public parser variant immediately before
-<code>_ParseInp</code>; an <code>AsmPrgm</code> probe reaches it but fails with <code>ERR:INVALID</code>
-without running the named BASIC target. <strong>[confirmed negative probe]</strong></li>
+<code>_ParseInp</code>; the generated <code>ASMPARSE.8xp</code>/<code>ZZPARSE.8xp</code> fixture reaches it
+but fails with <code>ERR:INVALID</code> without running the named BASIC target.
+<strong>[confirmed negative probe]</strong></li>
 <li><code>_Find_Parse_Formula</code> (<code>38:758A</code>) — <code>_FindSym</code> a variable then parse its stored formula (Y-vars, equations). <strong>[confirmed]</strong></li>
 <li><code>parse_init</code> (<code>38:5b7b</code>) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). <strong>[confirmed]</strong></li>
 </ul>
@@ -2916,13 +2917,18 @@ payload builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym
 hits <code>ram:9D95</code> and <code>findsym_scan</code>, then the BASIC wrapper displays <code>AFTER</code> and
 <code>Done</code>. <code>ZZBASIC</code>’s <code>CALLED</code> line does not display, so lookup is confirmed but
 execution is not.</p>
+<p><code>ASMPARSE.8xp</code> and <code>ZZPARSE.8xp</code> turn that boundary into a negative fixture.
+The payload uses the same <code>OP1={ProgObj,"ZZBASIC"}</code> setup as <code>ZZFIND</code>, but
+bcalls <code>_ParseInpLastEnt</code> instead. The trace reaches <code>_ParseInpLastEnt</code>,
+<code>_ParseInp</code>, <code>parseinp_find_setup</code>, <code>findsym_scan</code>, <code>parse_init</code>, and
+<code>eval_stmt_entry</code>; the final screen is <code>ERR:INVALID</code> / <code>1:Quit</code> / <code>2:Goto</code>, and
+<code>ZZBASIC</code>’s <code>CALLED</code> line does not display.</p>
 <p>The full <code>CALLSUB</code> smoke trace does hit <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> once,
 because the macro starts the program by submitting <code>prgmCALLSUB</code> from the
 homescreen. That launch parse resolves the top-level program and seeds the
 private parser RAM. It does not make <code>_ParseInpLastEnt</code> a reusable
-ASM-to-BASIC ABI: a separate <code>AsmPrgm</code> probe that called <code>_ParseInpLastEnt</code>
-with only <code>OP1={ProgObj,"ZZBASIC"}</code> reached <code>ERR:INVALID</code> instead of the target
-program.</p>
+ASM-to-BASIC ABI: <code>ASMPARSE</code> shows that calling <code>_ParseInpLastEnt</code> with only
+<code>OP1={ProgObj,"ZZBASIC"}</code> reaches <code>ERR:INVALID</code> instead of the target program.</p>
 <p>The relevant page-38 evaluator transition is private state, not a bcall ABI:
 <code>stmt_eval_body_entry</code> (<code>38:6910</code>) calls the token scanner, then
 <code>call_eval_eqn_recursive</code> (<code>38:6914</code>) directly calls <code>eval_eqn_recursive</code>
@@ -2931,14 +2937,9 @@ cursor/end, OPS/temp-stack pointers, OP1, stack depth, and IY parser flags are
 already live. This is why <code>ASMFIND</code> can successfully <code>_ChkFindSym</code> a BASIC
 program name, but the tested <code>_Find_Parse_Formula</code> probe still reaches
 <code>ERR:UNDEFINED</code> instead of running that program.</p>
-<p>A <code>_ParseInpLastEnt</code> (<code>4B07</code>, target <code>38:5984</code>) probe narrows the parser-entry
-boundary further. The payload built <code>OP1={ProgObj,"ZZBASIC"}</code> and called the
-parser variant; the trace reached <code>_ParseInpLastEnt</code>, <code>_ParseInp</code> (<code>38:5987</code>),
-<code>parseinp_find_setup</code> (<code>38:5B2B</code>), <code>findsym_scan</code>, <code>parse_init</code>, and
-<code>eval_stmt_entry</code>, but the final screen was <code>ERR:INVALID</code> / <code>Goto</code> and the
-target program never displayed <code>CALLED</code>. <code>_ParseInp</code> variants are therefore
-not byte-stream program-call ABIs; they expect parser/FPS stack state that a
-live BASIC caller has already established.</p>
+<p>The <code>_ParseInpLastEnt</code> fixture narrows the parser-entry boundary further:
+<code>_ParseInp</code> variants are not byte-stream program-call ABIs; they expect
+parser/FPS stack state that a live BASIC caller has already established.</p>
 <p>The forced-command/edit-buffer path is another boundary, not an ABI. A temporary
 <code>AsmPrgm</code> that calls <code>_JForceCmd(kEnter)</code> reaches <code>_JForceCmd</code> (<code>00:0747</code>) but
 does not return to the BASIC wrapper; the final screen repeats the wrapper’s
@@ -3088,6 +3089,7 @@ programs into calculator RAM first, then run the same macro and resolver steps.<
 <tr><td><code>asmbridge</code></td><td><code>ASMBRIDG.8xp</code> + <code>ASMSIG.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM return code through <code>Ans</code>, BASIC callback</td><td><code>_OP1Set1</code>, <code>_StoAns</code>, <code>_AnsName</code>, <code>eval_eqn_recursive</code></td></tr>
 <tr><td><code>asmreturn</code></td><td><code>ASMRTN.8xp</code> + <code>ASMVAL.8xp</code></td><td>ASM return value through <code>Ans</code>, then BASIC arithmetic</td><td><code>_OP1Set2</code>, <code>_StoAns</code>, <code>_AnsName</code>, <code>_FPAdd</code></td></tr>
 <tr><td><code>asmfind</code></td><td><code>ASMFIND.8xp</code> + <code>ZZFIND.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM-side VAT lookup of a BASIC program without executing it</td><td><code>ram:9D95</code>, <code>findsym_scan</code>, <code>_Disp</code></td></tr>
+<tr><td><code>asmparse</code></td><td><code>ASMPARSE.8xp</code> + <code>ZZPARSE.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM parser-entry negative probe ending at <code>ERR:INVALID</code></td><td><code>_ParseInpLastEnt</code>, <code>_ParseInp</code>, <code>parseinp_find_setup</code></td></tr>
 <tr><td><code>animtext</code></td><td><code>ANIMTXT.8xp</code></td><td>text placement animation with <code>Output(</code></td><td><code>_OutputExpr</code>, <code>_Disp</code></td></tr>
 <tr><td><code>graphviz</code></td><td><code>GRAPHV.8xp</code></td><td>graph-buffer primitives and <code>DispGraph</code></td><td><code>_GrBufClr</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code></td></tr>
 <tr><td><code>graphdfs</code></td><td><code>GRAPHDFS.8xp</code></td><td>graph visualization from DFS topology</td><td><code>_StoSysTok</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code></td></tr>
@@ -3115,7 +3117,9 @@ checks the displayed <code>5</code>, <code>ABICALL</code> checks the scalar line
 returned <code>Ans</code> line, and <code>Done</code>, and <code>CALLSTOP</code> checks <code>BEFORE</code>, <code>STOP</code>,
 <code>Done</code>, and a bounded low-pixel region where caller text <code>AFTER</code> would appear.
 <code>ASMFIND</code> checks the wrapper’s <code>BEFORE</code>, <code>AFTER</code>, and <code>Done</code> output plus a
-bounded low-pixel region where an unexpected third line would appear.</p>
+bounded low-pixel region where an unexpected third line would appear.
+<code>ASMPARSE</code> checks the <code>ERR:INVALID</code>, <code>1:Quit</code>, and <code>2:Goto</code> error-screen
+regions.</p>
 <p>For the visual graph cases, the 2026-06-07 run measured 212, 619, 466, and 466
 dark pixels, with matching first-to-final pixel changes.</p>
 <h2 id="reading-the-evidence"><a class="header" href="#reading-the-evidence">Reading the evidence</a></h2>
@@ -3370,7 +3374,7 @@ branch state.</p>
 <tr><td>ASM-directed BASIC callback</td><td><code>ASMBRIDG.8xp</code> + <code>ASMSIG.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM sets <code>Ans=1</code> with <code>_OP1Set1</code>/<code>_StoAns</code>, returns, and BASIC calls <code>prgmZZBASIC</code> through <code>If Ans</code>.</td></tr>
 <tr><td>ASM return value</td><td><code>ASMRTN.8xp</code> + <code>ASMVAL.8xp</code></td><td>ASM sets <code>Ans=2</code> with <code>_OP1Set2</code>/<code>_StoAns</code>; BASIC reads <code>Ans</code>, computes <code>Ans+3</code>, and displays <code>5</code>.</td></tr>
 <tr><td>ASM-side BASIC lookup</td><td><code>ASMFIND.8xp</code> + <code>ZZFIND.8xp</code> + <code>ZZBASIC.8xp</code></td><td><code>AsmPrgm</code> can build <code>OP1={ProgObj,"ZZBASIC"}</code> and reach <code>findsym_scan</code>, then return to BASIC without running <code>ZZBASIC</code>.</td></tr>
-<tr><td>Direct ASM to BASIC execution</td><td>temporary probes</td><td><code>_Find_Parse_Formula</code>, <code>_ParseInpLastEnt</code>, <code>_ExecuteNewPrgm</code>, <code>_JForceCmd</code>, <code>_PutTokString</code>, and <code>_rclToQueue</code> do not prove a standalone callable BASIC-program ABI.</td></tr>
+<tr><td>Direct ASM to BASIC execution</td><td><code>ASMPARSE.8xp</code> + <code>ZZPARSE.8xp</code> + <code>ZZBASIC.8xp</code>; temporary probes</td><td><code>_ParseInpLastEnt</code> reaches parser setup but ends at <code>ERR:INVALID</code>; <code>_Find_Parse_Formula</code>, <code>_ExecuteNewPrgm</code>, <code>_JForceCmd</code>, <code>_PutTokString</code>, and <code>_rclToQueue</code> do not prove a standalone callable BASIC-program ABI.</td></tr>
 </tbody>
 </table>
 </div>
@@ -3778,7 +3782,7 @@ hits <code>ram:9D95</code>, <code>_OP1Set2</code> (<code>00:1B50</code>), <code>
 <tr><td>ASM -&gt; BASIC callback</td><td>ASM stores a signal/result such as <code>Ans=1</code>, returns, and the BASIC wrapper conditionally runs <code>prgmNAME</code>.</td><td>BASIC must own the actual <code>prgm</code> call; this is cooperative, not an arbitrary ASM bcall into BASIC.</td></tr>
 <tr><td>ASM -&gt; BASIC value return</td><td>ASM stores a numeric result in <code>Ans</code> with <code>_StoAns</code>; BASIC resumes and evaluates <code>Ans</code>.</td><td>This returns data to BASIC, not control into a BASIC program body.</td></tr>
 <tr><td>ASM -&gt; VAT lookup</td><td><code>ASMFIND</code> builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code>.</td><td>Lookup is not execution; the wrapper returns and <code>ZZBASIC</code> does not display <code>CALLED</code>.</td></tr>
-<tr><td>Direct ASM -&gt; BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>_Find_Parse_Formula</code> reached <code>ERR:UNDEFINED</code>; <code>_ParseInpLastEnt</code> reached <code>ERR:INVALID</code>; forced-command/edit-buffer probes did not call the target BASIC program.</td></tr>
+<tr><td>Direct ASM -&gt; BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>ASMPARSE</code> reaches <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> and then <code>ERR:INVALID</code>; forced-command/edit-buffer probes did not call the target BASIC program.</td></tr>
 </tbody>
 </table>
 </div>
@@ -3825,16 +3829,16 @@ ASM-side VAT lookup from an <code>AsmPrgm</code> context, not BASIC program exec
 then stops at <code>ERR:UNDEFINED</code>; the <code>ZZBASIC</code> body never displays. That failed
 run confirms <code>_Find_Parse_Formula</code> is not a drop-in BASIC program executor from
 an arbitrary <code>AsmPrgm</code> context. <strong>[confirmed]</strong></p>
-<p><code>_ParseInpLastEnt</code> (<code>4B07</code>, target <code>38:5984</code>) is a useful negative probe because
-it sits immediately before <code>_ParseInp</code> and the SDK describes it as a parser
-variant. A temporary payload that again built <code>OP1={ProgObj,"ZZBASIC"}</code> and
-bcalls <code>_ParseInpLastEnt</code> reached <code>_ParseInpLastEnt</code>, <code>_ParseInp</code> (<code>38:5987</code>),
+<p><code>ASMPARSE.8xp</code> and <code>ZZPARSE.8xp</code> make the <code>_ParseInpLastEnt</code> negative probe
+reproducible. The payload is the same OP1-name setup as <code>ZZFIND</code>, but it bcalls
+<code>_ParseInpLastEnt</code> (<code>4B07</code>, target <code>38:5984</code>) instead of <code>_ChkFindSym</code>.
+Observed run: the trace reaches <code>_ParseInpLastEnt</code>, <code>_ParseInp</code> (<code>38:5987</code>),
 <code>parseinp_find_setup</code> (<code>38:5B2B</code>), <code>findsym_scan</code>, <code>parse_init</code>, and
-<code>eval_stmt_entry</code>, but the final screen was <code>ERR:INVALID</code> / <code>Goto</code>; it never
-displayed <code>CALLED</code>. Static disassembly explains the mismatch: after resolving
-the OP1-named object, <code>_ParseInp</code> continues through parser setup that expects a
-live parser/FPS call-frame shape. It is not a general “run this token stream”
-ABI for an arbitrary <code>AsmPrgm</code>. <strong>[confirmed]</strong></p>
+<code>eval_stmt_entry</code>; the final screen is <code>ERR:INVALID</code> with <code>1:Quit</code> and
+<code>2:Goto</code>. <code>ZZBASIC</code> never displays <code>CALLED</code>. Static disassembly explains the
+mismatch: after resolving the OP1-named object, <code>_ParseInp</code> continues through
+parser setup that expects a live parser/FPS call-frame shape. It is not a
+general “run this token stream” ABI for an arbitrary <code>AsmPrgm</code>. <strong>[confirmed]</strong></p>
 <p>The homescreen command/edit-buffer route is also not a safe callable ABI. A
 temporary payload that did only:</p>
 <pre><code class="language-asm">ld a,05h          ; kEnter
@@ -8774,7 +8778,7 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 <h2 id="still-open"><a class="header" href="#still-open">Still open</a></h2>
 <ol start="13">
 <li><strong>Enum equates.</strong> Apply <code>TIKeyCode</code>/<code>TIError</code>/<code>TIVarType</code> to scalar operands in the relevant handlers (conservative, scoped).</li>
-<li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), the <code>Asm(</code>/<code>AsmPrgm</code> compile/setup body before the traced payload handoff (<code>ram:9D95 op=0xC9</code> is confirmed), direct ASM-initiated BASIC program execution beyond VAT lookup and cooperative <code>Ans</code> callback (<code>_ChkFindSym</code> works from <code>AsmPrgm</code>; <code>_Find_Parse_Formula</code> fails with <code>ERR:UNDEFINED</code>; <code>_ParseInpLastEnt</code> fails with <code>ERR:INVALID</code>; <code>_ExecuteNewPrgm</code> reaches <code>ERR:SYNTAX</code>; <code>_JForceCmd</code> abandons the caller stack; <code>_PutTokString</code>/<code>_rclToQueue</code> are edit-buffer paths, not proven program-call entries), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
+<li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), the <code>Asm(</code>/<code>AsmPrgm</code> compile/setup body before the traced payload handoff (<code>ram:9D95 op=0xC9</code> is confirmed), direct ASM-initiated BASIC program execution beyond VAT lookup and cooperative <code>Ans</code> callback (<code>_ChkFindSym</code> works from <code>AsmPrgm</code>; <code>_Find_Parse_Formula</code> fails with <code>ERR:UNDEFINED</code>; the <code>ASMPARSE.8xp</code>/<code>ZZPARSE.8xp</code> <code>_ParseInpLastEnt</code> fixture fails with <code>ERR:INVALID</code>; <code>_ExecuteNewPrgm</code> reaches <code>ERR:SYNTAX</code>; <code>_JForceCmd</code> abandons the caller stack; <code>_PutTokString</code>/<code>_rclToQueue</code> are edit-buffer paths, not proven program-call entries), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
 </ol>
 <h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>
 <p>Reopen <code>~/Documents/ti84-re/ti84.gpr</code> (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in <code>tools/</code> and rebuild with <code>tools/build.sh</code>. The remaining items mostly need a <strong>headless raw-byte dump</strong> of regions the live decompiler leaves as unanalyzed data (the page-0x35 timer handler, the page-0x38 <code>0xBB</code>/class-3 dispatch tables).</p>

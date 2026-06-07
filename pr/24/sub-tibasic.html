@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-620d8f50.js";
+            window.path_to_searchindex_js = "searchindex-340667b6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -786,13 +786,18 @@ payload builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym
 hits <code>ram:9D95</code> and <code>findsym_scan</code>, then the BASIC wrapper displays <code>AFTER</code> and
 <code>Done</code>. <code>ZZBASIC</code>’s <code>CALLED</code> line does not display, so lookup is confirmed but
 execution is not.</p>
+<p><code>ASMPARSE.8xp</code> and <code>ZZPARSE.8xp</code> turn that boundary into a negative fixture.
+The payload uses the same <code>OP1={ProgObj,"ZZBASIC"}</code> setup as <code>ZZFIND</code>, but
+bcalls <code>_ParseInpLastEnt</code> instead. The trace reaches <code>_ParseInpLastEnt</code>,
+<code>_ParseInp</code>, <code>parseinp_find_setup</code>, <code>findsym_scan</code>, <code>parse_init</code>, and
+<code>eval_stmt_entry</code>; the final screen is <code>ERR:INVALID</code> / <code>1:Quit</code> / <code>2:Goto</code>, and
+<code>ZZBASIC</code>’s <code>CALLED</code> line does not display.</p>
 <p>The full <code>CALLSUB</code> smoke trace does hit <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> once,
 because the macro starts the program by submitting <code>prgmCALLSUB</code> from the
 homescreen. That launch parse resolves the top-level program and seeds the
 private parser RAM. It does not make <code>_ParseInpLastEnt</code> a reusable
-ASM-to-BASIC ABI: a separate <code>AsmPrgm</code> probe that called <code>_ParseInpLastEnt</code>
-with only <code>OP1={ProgObj,"ZZBASIC"}</code> reached <code>ERR:INVALID</code> instead of the target
-program.</p>
+ASM-to-BASIC ABI: <code>ASMPARSE</code> shows that calling <code>_ParseInpLastEnt</code> with only
+<code>OP1={ProgObj,"ZZBASIC"}</code> reaches <code>ERR:INVALID</code> instead of the target program.</p>
 <p>The relevant page-38 evaluator transition is private state, not a bcall ABI:
 <code>stmt_eval_body_entry</code> (<code>38:6910</code>) calls the token scanner, then
 <code>call_eval_eqn_recursive</code> (<code>38:6914</code>) directly calls <code>eval_eqn_recursive</code>
@@ -801,14 +806,9 @@ cursor/end, OPS/temp-stack pointers, OP1, stack depth, and IY parser flags are
 already live. This is why <code>ASMFIND</code> can successfully <code>_ChkFindSym</code> a BASIC
 program name, but the tested <code>_Find_Parse_Formula</code> probe still reaches
 <code>ERR:UNDEFINED</code> instead of running that program.</p>
-<p>A <code>_ParseInpLastEnt</code> (<code>4B07</code>, target <code>38:5984</code>) probe narrows the parser-entry
-boundary further. The payload built <code>OP1={ProgObj,"ZZBASIC"}</code> and called the
-parser variant; the trace reached <code>_ParseInpLastEnt</code>, <code>_ParseInp</code> (<code>38:5987</code>),
-<code>parseinp_find_setup</code> (<code>38:5B2B</code>), <code>findsym_scan</code>, <code>parse_init</code>, and
-<code>eval_stmt_entry</code>, but the final screen was <code>ERR:INVALID</code> / <code>Goto</code> and the
-target program never displayed <code>CALLED</code>. <code>_ParseInp</code> variants are therefore
-not byte-stream program-call ABIs; they expect parser/FPS stack state that a
-live BASIC caller has already established.</p>
+<p>The <code>_ParseInpLastEnt</code> fixture narrows the parser-entry boundary further:
+<code>_ParseInp</code> variants are not byte-stream program-call ABIs; they expect
+parser/FPS stack state that a live BASIC caller has already established.</p>
 <p>The forced-command/edit-buffer path is another boundary, not an ABI. A temporary
 <code>AsmPrgm</code> that calls <code>_JForceCmd(kEnter)</code> reaches <code>_JForceCmd</code> (<code>00:0747</code>) but
 does not return to the BASIC wrapper; the final screen repeats the wrapper’s

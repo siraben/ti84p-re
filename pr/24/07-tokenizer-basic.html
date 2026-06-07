@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-620d8f50.js";
+            window.path_to_searchindex_js = "searchindex-340667b6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -219,8 +219,9 @@
 <ul>
 <li><code>_ParseInp</code> (<code>38:5987</code>) — parse/evaluate the input (homescreen/entry line). It calls <code>parse_init</code> (<code>38:5b7b</code>) to reset parser state, clears editing flags, then resolves via <code>_ChkFindSym</code>. <strong>[confirmed]</strong></li>
 <li><code>_ParseInpLastEnt</code> (<code>38:5984</code>) — public parser variant immediately before
-<code>_ParseInp</code>; an <code>AsmPrgm</code> probe reaches it but fails with <code>ERR:INVALID</code>
-without running the named BASIC target. <strong>[confirmed negative probe]</strong></li>
+<code>_ParseInp</code>; the generated <code>ASMPARSE.8xp</code>/<code>ZZPARSE.8xp</code> fixture reaches it
+but fails with <code>ERR:INVALID</code> without running the named BASIC target.
+<strong>[confirmed negative probe]</strong></li>
 <li><code>_Find_Parse_Formula</code> (<code>38:758A</code>) — <code>_FindSym</code> a variable then parse its stored formula (Y-vars, equations). <strong>[confirmed]</strong></li>
 <li><code>parse_init</code> (<code>38:5b7b</code>) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). <strong>[confirmed]</strong></li>
 </ul>
