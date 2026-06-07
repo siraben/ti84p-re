@@ -18,8 +18,9 @@ Confidence (this doc's shorthand; see [Conventions](conventions.md)): **[C]=conf
 ## 1. The arcInfo workspace and key RAM pointers [C]
 
 The archive engine keeps a 12-byte scratch block, labelled `arcInfo` (`83EEh`) in `ti83plus.inc`,
-plus a saved copy `savedArcInfo` (`8406h`). `_Arc_Unarc`'s reentrant inner mover saves it at
-`page_07:61DC` (`LD HL,83F1 / LD DE,8406 / LD BC,0C / LDIR`); the matching `07:61E8` restore candidate is not a defined function in the current live DB.
+plus a saved copy `savedArcInfo` (`8406h`). `_Arc_Unarc`'s reentrant inner mover at `page_07:61DC`
+copies the **12 bytes starting at `83F1`** (the `vatPtr` field onward, not the whole `83EE` block)
+into `8406` (`LD HL,83F1 / LD DE,8406 / LD BC,0C / LDIR`); the matching `07:61E8` restore candidate is not a defined function in the current live DB.
 
 | Addr | Field (this doc's name) | Meaning |
 |------|-------------------------|---------|
@@ -27,8 +28,8 @@ plus a saved copy `savedArcInfo` (`8406h`). `_Arc_Unarc`'s reentrant inner mover
 | `83EF` | `arcInfo.dataPtr` | 2-byte data address (in Flash window 0x4000–0x7FFF, or RAM) |
 | `83F1` | `arcInfo.vatPtr` | pointer to the **VAT entry's type byte** (the symbol record) |
 | `83F3` | `arcInfo.destPtr` | destination data pointer (RAM target on unarchive) |
-| `83F5` | `arcInfo.dataSize` | element/data byte count (from `_DataSize`) |
-| `83F7` | `arcInfo.size` | total bytes to move |
+| `83F5` | `arcInfo.dataSize` | a header/record-size component (loaded from `BC` after `CALL 0FDE`) |
+| `83F7` | `arcInfo.size` | the variable's data byte count (from `_DataSize`; `614B` does `CALL 1485` → `LD (83F7),DE`) |
 | `83F9` | `arcInfo.sizeFull` | size + header overhead |
 | `8406` | `savedArcInfo` | 12-byte save slot for nested calls |
 
@@ -80,7 +81,7 @@ For an **archived** entry the data address (`addrLSB/MSB`) points into the Flash
 
 ## 3. Store / Recall [C/H]
 
-**Store** `_StoOther` (`38:62A9`) and siblings (`_StoAns/_StoX/_StoY/...` `38:6251–62A3`):
+**Store** `_StoOther` (`38:62A9`) and siblings (`_StoAns`, `_StoX`, `_StoY`, … `38:6251–62A3`):
 - Set OP1 type = 0xFF placeholder (`62A9: LD A,FF / LD (8478),A`), parse the destination name.
 - `5F45` resolves/creates the target symbol; then it copies the value. It dispatches on the
   destination name token (`849B`): list-element store (`0x2A` → bounds-checks via `_ErrDimension`),
@@ -118,7 +119,7 @@ _Arc_Unarc (07:6248):
       (Flash, B≠0) LD A,(HL); CP 0x17 ; Group? ⇒ JP 26E0 reject  [groups archive via a different path]
                    CALL 61F4   ; *** Flash → RAM:  unarchive ***
    6272 (RAM, B==0):  CALL 6107        ; *** RAM → Flash:  archive ***
-  ... type-0x5D (complex-list) special-case via 32A9 / cross_page 37:4288
+  ... name-token-0x5D (list name, `tVarLst`) special-case via 32A9 / cross_page 05:4A6E
   LD A,(83EE); OR A; EI; RET
 ```
 
@@ -141,7 +142,7 @@ RAM copy; `61F4` is the one that carves RAM and copies the data back out of Flas
        LD HL,(83F3) ; LD DE,(83F7) ; CALL _DelMem (1368)  ; release the old RAM copy
        RET
 616C:  reads vatPtr type, AND 0x1F (clean type for the record header),
-       LD HL,(83F7)+(83F5) ; ADC ; JP C,2729 (E_Invalid/E_IllegalNest/E_Bound 0x8F/0x90/0x91)  ; size overflow?
+       LD HL,(83F7)+(83F5) ; ADC ; JP C,2729 (E_Invalid, 0x8F)  ; size overflow?
        reserves a Flash slot via 2FDF(3D:61AF) / 2FF7(3D:62C2)
 ```
 The data is **appended** to the archive Flash (Flash cannot be overwritten in place). The VAT entry's
@@ -174,7 +175,7 @@ marked dead (`0xF0`, reclaimed at the next GC). `3D:6440` shares the page-3D fla
 
 ### 4c. Errors raised on the path [C]
 - `2785: LD A,0x31` → `_JError` = **E_ArchFull (0x31)** "ERR:ARCHIVE FULL" (no room even after GC).
-- `2729: LD A,0x8F/0x90/0x91` → E_Invalid / E_IllegalNest / E_Bound (RAM-side overflow during unarchive).
+- `2729`/`272D`/`2731`: `LD A,0x8F`/`0x90`/`0x91` → E_Invalid / E_IllegalNest / E_Bound. The archive size check (`616C`) takes the `2729` (E_Invalid, `0x8F`) entry on overflow.
 - `26E0`+ is a cluster of local error shims: each loads its code (`0xB2`=E_Variable, `0xB3`=E_Duplicate, `0x81`=E_Overflow, `0x82`=E_DivBy0) into `A` and enters `_JError` — not `_ErrDataType`.
 - Error-name strings live at `07:6CA9`: `ARCHIVED, VERSION, ARCHIVE FULL, VARIABLE, DUPLICATE`.
 
@@ -220,7 +221,7 @@ their `flash_*` names are project-local inferred labels (not WikiTI or `ti83plus
 | `00:2FFD` | `3C:7121` (undefined in live DB) | Flash command dispatcher candidate |
 | `00:32A9` | `05:4A6E` | complex-list special-case helper |
 
-The program-core candidates (`3D:64AA`, `3D:61AF`, `3D:6440`) share this unlock prologue:
+The program-core candidates `3D:64AA` and `3D:6440` share this unlock prologue (`3D:61AF` starts differently — `PUSH AF; PUSH HL; BIT 6,(IY+0x24)`):
 ```z80
 RES 7,(IY+0x24) ; LD A,1 ; DI ; IM 1 ; DI ; OUT (0x14),A ; DI ; CALL FUN_ram_02bf
 ```
@@ -263,13 +264,14 @@ bits — port 2 bit 7 (`probe_hw_model_keep_a` `00:1837`) and port 0x21 low bits
 |------------|-------------------------------------------------------|----------------------------------------------------|-----------|
 | port 2 bit 7 **clear** (1 MB) | `0x15` | `0x1E` | `AND 0x1F` (32 pages) |
 | port 0x21 == 0 (mid) | `0x29` | `0x3E` | `AND 0x3F` (64 pages) |
-| else (2 MB) | `0x69` | `0x7E` | `AND 0x3F` |
+| else (2 MB) | `0x69` | `0x7E` | **no mask** (full 8-bit page; `3D:6745` skips both `AND`s) |
 
 So on a 1 MB TI-84 Plus the user archive occupies roughly raw pages **0x15…0x1E**, and the OS pages it
 into the `0x4000` window **one 16 KB page at a time** for both reading (`_FlashToRam`, masks `0x1F`/`0x3F`
 via the same model check, `3D:6745`) and erasing. `flash_set_sector_cnt` (`3D:727D`) loads
-`(base+1)` into the sector counter `0x82A3`; the erase routine `flash_erase_wait` (`3D:5ED3` →
-`3D:5EE3`) pages each sector to `0x4000` and issues the chip erase command via `RST 0x28`, decrementing
+`(base+1)` into the sector counter `0x82A3`; the erase routine `flash_erase_wait` (`3D:5ED3`, whose
+loop jumps to `3D:5EF1` — `3D:5EE3` is the unrelated `_FindApp`) pages each sector to `0x4000` and
+issues the chip erase command via `RST 0x28`, decrementing
 `0x82A3` down toward the base page. The underlying Am29F-class chip uses **64 KB physical sectors
 (= 4 × 16 KB OS pages)**; the OS walks/erases at 16 KB page granularity. [64 KB physical-sector figure: I]
 
