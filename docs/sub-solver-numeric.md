@@ -58,7 +58,8 @@ At the heart is a callback that, given the trial value in `OP1`, returns `f(x) =
 of the equation. Located around `39:468F`:
 
 1. `_CkValidNum` (`ram:1E9B`), then `_MovFrOP1` (`ram:1B0C`) stores the current guess into
-   the **solve variable** (named system var addressed via `(065B)`).
+   the **solve variable** (its data pointer is loaded from `(9306)`, in the expression-stack
+   region — the bytes are `ED 5B 06 93` = `LD DE,(9306)`).
 2. It installs an **error trap** (`39:46D9 CALL 327F`; `RES/SET 2,(IY+7)`) and re-parses /
    re-evaluates the stored equation formula (page-0x39 hosts a parse/token walker at
    `39:327F` using `parse_advance 7248` / `parse_cur_tok 72DA`-style cursors, mirroring the
@@ -153,7 +154,7 @@ The five-variable **time-value-of-money** solver (`N`, `I%`, `PV`, `PMT`, `FV`, 
 `P/Y`, `C/Y`, and the PMT:END/BEGIN flag) lives on flash page **0x3A**. Each variable is a
 named system FP var; the routine loads them via small accessors:
 
-- `3A:7F02` loads the var named at `(D35B)`, `3A:7F0F` the one at `(D55B)`, etc.
+- `3A:7F02` loads the pointer at `(84D3)` (`iMathPtr1`; `ED 5B D3 84` = `LD DE,(84D3)`), `3A:7F0F` the one at `(84D5)` (`iMathPtr2`), etc.
   (`(D?5B)` are the finance sysvar VAT slots). `(84D3)`=`iMathPtr1`, `(84D9)`=`iMathPtr4`,
   `(84AF)`=OP6, `(84D3)`/`(84D9)`/`(84D3)` hold the iteration state. **[confirmed]**
 
@@ -226,7 +227,7 @@ Ghidra function `fnint_body` at `33:4D00` (extent `33:4D00…4E91`):
 
 - builds interval midpoints and half-widths: `_FPSub` (`2297`), `_TimesPt5` (`2382`, ×0.5),
   `_FPDiv` (`2541`). The bytes at `33:4D18` are **executable code** — `33:4D18 21 83 84`
-  (`LD HL,0x8483`), `33:4D1B 3E 60` (`LD A,0x60`), `33:4D1D CD 65 1B` (`CALL _OP2SetA`/`1B65`) — loading the
+  (`LD HL,0x8483`), `33:4D1B 3E 60` (`LD A,0x60`), `33:4D1D CD 65 1B` (`CALL fp_set_digit` `1B65`; not `_OP2SetA`, whose body is `1B24`) — loading the
   scalar **0x60 = 96**
   (a working digit/scale count), not a quadrature weight. **[confirmed bytes]**
 - maintains a working set of partial sums in an **FPS frame** (`_AllocFPS 1534`,
@@ -321,7 +322,7 @@ Equation Solver / `solve(` (page 0x39):
 TVM / finance solver (page 0x3A):
 ```
 3A:70A2  tvm_solve_iterate          (Newton on I%, 64-iter FPS-framed loop)
-3A:7F02  tvm_load_var_D35B          3A:7F0F  tvm_load_var_D55B   (finance var accessors)
+3A:7F02  tvm_load_var (iMathPtr1)   3A:7F0F  tvm_load_var (iMathPtr2)   (finance var accessors)
 3A:7206  ->ITERATIONS(0x99)
 ```
 
@@ -375,7 +376,7 @@ The four open questions from the prior pass are now resolved against the bytes:
   weight table**; its sole FP constant is `ln(10)·100` at `33:4E92`, used (with bcall `_LnX`)
   to convert digit-tolerance to a decimal error bound. With explicit ×0.5 interval bisection
   and a coarse-vs-fine estimate comparison, it is an **adaptive Newton–Cotes / Simpson-class
-  bisection** integrator. `33:4D1B` is executable code (`LD A,0x60; _OP2SetA`).
+  bisection** integrator. `33:4D1B` is executable code (`LD A,0x60; CALL fp_set_digit`).
 - **TVM `_SinH` (id 0x40CF) — resolved (§2.3).** The TVM rate loop calls `_SinH` at
   `3A:710B` (`0x40C6/0x40CF/0x40ED` are three distinct hyperbolic bcalls); it evaluates the
   annuity / compound factor in hyperbolic form for numerical stability at small rates.
