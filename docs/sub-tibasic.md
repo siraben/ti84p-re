@@ -521,13 +521,17 @@ diagonal line visible. The trace hits `_GrBufClr`, `_ILine` (`04:4029`),
 
 ```ti-basic
 ClrDraw
-Line(20,10,10,35)
-Line(20,10,50,35)
-Line(10,35,35,55)
-Circle(20,10,3)
-Circle(10,35,3)
-Circle(50,35,3)
-Circle(35,55,3)
+0->Xmin
+94->Xmax
+0->Ymin
+62->Ymax
+Line(10,44,35,54)
+Line(10,44,35,14)
+Line(35,54,55,29)
+Circle(10,44,3)
+Circle(35,54,3)
+Circle(35,14,3)
+Circle(55,29,3)
 Text(16,8,"1")
 Text(6,33,"2")
 Text(46,33,"3")
@@ -538,7 +542,8 @@ DispGraph
 Observed run: `GRAPHDFS.8xp` draws the DFS sample's four-node topology on the
 graph screen: nodes `1`, `2`, `3`, and `4` with edges `1-2`, `1-3`, and `2-4`.
 The trace hits `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, small-font
-glyph rendering, `_RestoreDisp`, and page-38 statement evaluation.
+glyph rendering, `_PDspGrph` (`04:7904`), `_StoSysTok` window stores,
+`_RestoreDisp`, and page-38 statement evaluation.
 
 ```ti-basic
 0->A

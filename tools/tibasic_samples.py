@@ -59,6 +59,7 @@ T = {
     "Y": 0x59,
     "varlst": 0x5D,
     "prog": 0x5F,
+    "varsys": 0x63,
     "eq": 0x6A,
     "clrdraw": 0x85,
     "text": 0x93,
@@ -82,6 +83,13 @@ T = {
     "cumsum": 0x29,
     "asm": 0x6A,
     "asmprgm": 0x6C,
+}
+
+SYSVAR = {
+    "Xmin": 0x0A,
+    "Xmax": 0x0B,
+    "Ymin": 0x0C,
+    "Ymax": 0x0D,
 }
 
 
@@ -170,13 +178,14 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
     ),
     "graphdfs": (
         'ClrDraw\n'
-        'Line(20,10,10,35)\n'
-        'Line(20,10,50,35)\n'
-        'Line(10,35,35,55)\n'
-        'Circle(20,10,3)\n'
-        'Circle(10,35,3)\n'
-        'Circle(50,35,3)\n'
-        'Circle(35,55,3)\n'
+        '0->Xmin\n94->Xmax\n0->Ymin\n62->Ymax\n'
+        'Line(10,44,35,54)\n'
+        'Line(10,44,35,14)\n'
+        'Line(35,54,55,29)\n'
+        'Circle(10,44,3)\n'
+        'Circle(35,54,3)\n'
+        'Circle(35,14,3)\n'
+        'Circle(55,29,3)\n'
         'Text(16,8,"1")\n'
         'Text(6,33,"2")\n'
         'Text(46,33,"3")\n'
@@ -184,13 +193,17 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
         'DispGraph',
         [
             T["clrdraw"], T["enter"],
-            T["line"], T["2"], T["0"], T["comma"], T["1"], T["0"], T["comma"], T["1"], T["0"], T["comma"], T["3"], T["5"], T["rparen"], T["enter"],
-            T["line"], T["2"], T["0"], T["comma"], T["1"], T["0"], T["comma"], T["5"], T["0"], T["comma"], T["3"], T["5"], T["rparen"], T["enter"],
-            T["line"], T["1"], T["0"], T["comma"], T["3"], T["5"], T["comma"], T["3"], T["5"], T["comma"], T["5"], T["5"], T["rparen"], T["enter"],
-            T["circle"], T["2"], T["0"], T["comma"], T["1"], T["0"], T["comma"], T["3"], T["rparen"], T["enter"],
-            T["circle"], T["1"], T["0"], T["comma"], T["3"], T["5"], T["comma"], T["3"], T["rparen"], T["enter"],
-            T["circle"], T["5"], T["0"], T["comma"], T["3"], T["5"], T["comma"], T["3"], T["rparen"], T["enter"],
-            T["circle"], T["3"], T["5"], T["comma"], T["5"], T["5"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["0"], T["store"], T["varsys"], SYSVAR["Xmin"], T["enter"],
+            T["9"], T["4"], T["store"], T["varsys"], SYSVAR["Xmax"], T["enter"],
+            T["0"], T["store"], T["varsys"], SYSVAR["Ymin"], T["enter"],
+            T["6"], T["2"], T["store"], T["varsys"], SYSVAR["Ymax"], T["enter"],
+            T["line"], T["1"], T["0"], T["comma"], T["4"], T["4"], T["comma"], T["3"], T["5"], T["comma"], T["5"], T["4"], T["rparen"], T["enter"],
+            T["line"], T["1"], T["0"], T["comma"], T["4"], T["4"], T["comma"], T["3"], T["5"], T["comma"], T["1"], T["4"], T["rparen"], T["enter"],
+            T["line"], T["3"], T["5"], T["comma"], T["5"], T["4"], T["comma"], T["5"], T["5"], T["comma"], T["2"], T["9"], T["rparen"], T["enter"],
+            T["circle"], T["1"], T["0"], T["comma"], T["4"], T["4"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["circle"], T["3"], T["5"], T["comma"], T["5"], T["4"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["circle"], T["3"], T["5"], T["comma"], T["1"], T["4"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["circle"], T["5"], T["5"], T["comma"], T["2"], T["9"], T["comma"], T["3"], T["rparen"], T["enter"],
             T["text"], T["1"], T["6"], T["comma"], T["8"], T["comma"], *string_literal("1"), T["rparen"], T["enter"],
             T["text"], T["6"], T["comma"], T["3"], T["3"], T["comma"], *string_literal("2"), T["rparen"], T["enter"],
             T["text"], T["4"], T["6"], T["comma"], T["3"], T["3"], T["comma"], *string_literal("3"), T["rparen"], T["enter"],

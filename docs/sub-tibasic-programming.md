@@ -59,6 +59,26 @@ not yet traced end to end in this repo.
 | BASIC subprogram (`CALLSUB`) | page-38 program-body evaluator and shared VAT variables | Treat globals/lists/`Ans` as the calling convention. |
 | List algorithms (`BIGADD`, `DFS`) | VAT lookup, element address, OP-register move per access | Preallocate lists; cache dimensions and reused elements in scalars. |
 
+### Evidence manifest
+
+This branch keeps each claimed behavior tied to a runnable fixture or a
+negative probe trace. The visualization fixtures were rerun on 2026-06-07 and
+kept because both render visible graph-screen output.
+
+| Goal area | Fixture or probe | Current evidence |
+|-----------|------------------|------------------|
+| Hello world | `HELLO.8xp` | Displays `HELLO, WORLD`, then `Done`; reaches page-38 statement parsing and `_Disp`. |
+| Factorial | `FACTOR.8xp` | Prompt input `5` displays `120`; reaches loop parsing and `_FPMult`. |
+| Data manipulation | `DATA.8xp` | Sorts, cumulatively sums, and displays list data; reaches list element stores and `sum(`'s list fold path. |
+| Text animation | `ANIMTXT.8xp` | Moves/writes `X` characters with `Output(`, then displays `DONE`; reaches LCD text routines each loop. |
+| Graph drawing | `GRAPHV.8xp` | Renders `DFS`, axes, a circle, and diagonal line on the graph screen; reaches `_ILine`, `_IPoint`, and `_PDspGrph`. |
+| Graph visualization | `GRAPHDFS.8xp` | Renders the four-node DFS topology with labels and edges; reaches line, point, pixel, and small-font graph paths. |
+| Arbitrary precision arithmetic | `BIGADD.8xp` | Adds digit lists with carry propagation and displays `L3`; reaches list indexing and FP helper paths. |
+| DFS / stack-style list algorithm | `DFS.8xp` | Displays traversal `1, 3, 2, 4` and visited list `{1 1 1 1}`; reaches nested scanner/control-flow paths. |
+| BASIC subprogram calling convention | `CALLSUB.8xp` + `SUBRT.8xp` | Caller and callee share scalar/list variables and return through the BASIC program evaluator. |
+| BASIC to ASM | `ASMCALL.8xp` + `ASMRET.8xp` | `Asm(` runs an `AsmPrgm` payload (`C9`) and returns to BASIC, displaying `BEFORE` then `AFTER`. |
+| ASM to BASIC | temporary probes | VAT lookup from `AsmPrgm` works, but `_Find_Parse_Formula`, `_ExecuteNewPrgm`, `_JForceCmd`, `_PutTokString`, and `_rclToQueue` do not prove a standalone callable BASIC-program ABI. |
+
 ## Run-confirmed fixtures
 
 The generator `tools/tibasic_samples.py` now emits these additional trace-ready
@@ -108,13 +128,17 @@ more text-layout overhead and less control over redraw timing.
 
 ```ti-basic
 ClrDraw
-Line(20,10,10,35)
-Line(20,10,50,35)
-Line(10,35,35,55)
-Circle(20,10,3)
-Circle(10,35,3)
-Circle(50,35,3)
-Circle(35,55,3)
+0->Xmin
+94->Xmax
+0->Ymin
+62->Ymax
+Line(10,44,35,54)
+Line(10,44,35,14)
+Line(35,54,55,29)
+Circle(10,44,3)
+Circle(35,54,3)
+Circle(35,14,3)
+Circle(55,29,3)
 Text(16,8,"1")
 Text(6,33,"2")
 Text(46,33,"3")
@@ -124,7 +148,8 @@ DispGraph
 
 Observed run: the final graph screen shows four labeled nodes with edges
 `1->2`, `1->3`, and `2->4`. The trace hits `_ILine` (`04:4029`),
-`graph_pixel_op`, `_IPoint`, small-font glyph rendering, `_RestoreDisp`, and
+`graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`), small-font glyph
+rendering, window variable stores through `_StoSysTok`, `_RestoreDisp`, and
 page-38 statement evaluation. **[confirmed]**
 
 The performance lesson is to separate graph data from graph drawing. Keep edge
