@@ -35,6 +35,7 @@
 - [Calculation engine](sub-calculation.md)
 - [Graphing](sub-graphing.md)
 - [TI-BASIC programs](sub-tibasic.md)
+- [TI-BASIC dynamic tracing](sub-tibasic-tracing.md)
 - [TI-BASIC `For(` optional paren trap](sub-tibasic-for-paren.md)
 - [TI-BASIC programming patterns](sub-tibasic-programming.md)
 - [Variables, archive & unarchive](sub-vat-archive.md)

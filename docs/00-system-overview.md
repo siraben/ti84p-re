@@ -41,6 +41,7 @@ Each row maps a documentation page to the subsystem it covers and its analysis s
 | [sub-calculation.md](sub-calculation.md) | Calculation engine: FP ops, transcendentals, formatting, errors | ✅ |
 | [sub-graphing.md](sub-graphing.md) | Graphing: window vars, coord↔pixel, draw primitives, Y= eval | ✅ |
 | [sub-tibasic.md](sub-tibasic.md) | TI-BASIC: program execution, control flow, I/O commands | ✅ |
+| [sub-tibasic-tracing.md](sub-tibasic-tracing.md) | TI-BASIC fixture traces, smoke runner, coverage anchors | ✅ |
 | [sub-vat-archive.md](sub-vat-archive.md) | Variables, Sto/Rcl, Archive/Unarchive, Flash GC | ✅ |
 | [sub-apps-mem-settings.md](sub-apps-mem-settings.md) | Apps find/launch, RAM-reset, MODE/format flags | ✅ |
 | [sub-statistics.md](sub-statistics.md) | STAT: 1/2-var, regressions, statVars | ✅ |

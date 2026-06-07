@@ -63,7 +63,9 @@ not yet traced end to end in this repo.
 
 This branch keeps each claimed behavior tied to a runnable fixture or a
 negative probe trace. The visualization fixtures were rerun on 2026-06-07 and
-kept because both render visible graph-screen output.
+kept because both render visible graph-screen output. The full
+`tools/tibasic_smoke.py` suite also passed on 2026-06-07 against the current
+branch state.
 
 | Goal area | Fixture or probe | Current evidence |
 |-----------|------------------|------------------|
@@ -123,6 +125,13 @@ The performance lesson is to draw several primitives into the graph buffer, then
 display the graph buffer once. Repeated home-screen `Output(` calls give you
 more text-layout overhead and less control over redraw timing.
 
+Text animation and graph-buffer animation have different costs. `Output(` keeps
+the home/text display model active and pays row/column formatting on every
+iteration. Graph-buffer animation pays coordinate conversion, pixel primitive
+work, and a display-buffer copy at `DispGraph`. For visible motion, batch one
+frame in `plotSScreen`, call `DispGraph`, then compute the next frame; avoid
+alternating graph primitives with home-screen output inside the same hot loop.
+
 ### Graph visualization of DFS topology
 
 `GRAPHDFS.8xp` draws the same four-node graph traversed by `DFS.8xp`:
@@ -146,6 +155,20 @@ Text(46,33,"3")
 Text(31,53,"4")
 DispGraph
 ```
+
+The graph data from `DFS.8xp` maps to graph pixels through fixed coordinate
+lists:
+
+| Node | DFS value | Pixel center | Label position |
+|------|-----------|--------------|----------------|
+| 1 | root | `(10,44)` | `Text(16,8,"1")` |
+| 2 | first edge target | `(35,54)` | `Text(6,33,"2")` |
+| 3 | second edge target | `(35,14)` | `Text(46,33,"3")` |
+| 4 | child of 2 | `(55,29)` | `Text(31,53,"4")` |
+
+The edge lists `L1={1,1,2}` and `L2={2,3,4}` become the three line segments
+`1-2`, `1-3`, and `2-4`. The fixture stores window variables first so these
+pixel-like coordinates cover the visible graph area.
 
 Observed run: the final graph screen shows four labeled nodes with edges
 `1-2`, `1-3`, and `2-4`. The trace hits `_ILine` (`04:4029`),
@@ -204,6 +227,14 @@ There is no local variable frame for BASIC programs. A subprogram that uses `A`
 modifies the caller's `A`. For reusable routines, document which variables are
 inputs, scratch, and outputs.
 
+| ABI part | Practical convention | Trace evidence |
+|----------|----------------------|----------------|
+| Inputs | Scalars, lists, matrices, strings, and `Ans` are global. The caller stores them before `prgmNAME`. | `CALLSUB` stores `A` before entering `SUBRT`. |
+| Outputs | The callee stores results back to globals or `Ans`. | `SUBRT` increments shared `A`; the caller displays `1`. |
+| Scratch | No automatic save/restore exists. Routines must document scratch variables. | The VAT and parser state are shared across caller and callee. |
+| Return | `Return` exits the callee and resumes the caller. `Stop` terminates the whole program chain. | `SUBRT` returns to `CALLSUB`, which then runs `Disp A`. |
+| Parser state | `prgmNAME` runs with private parser/FPS state already set up by BASIC. | The callee path reaches `38:6910` -> `38:6914` -> `38:778F`. |
+
 ### Arbitrary-precision decimal addition
 
 `BIGADD.8xp` uses lists of base-10 digits in little-endian order. `12345` is
@@ -235,6 +266,35 @@ Performance notes: this is intentionally simple, but it is parser-heavy. For a
 general routine, cache `dim(L1)` and `dim(L2)` before the loop, avoid repeated
 list indexing when a digit is reused, and use a larger base only if you can
 tolerate more carry and display conversion work.
+
+For a reusable arbitrary-precision add routine, treat `L1` and `L2` as
+little-endian digit arrays and compute the loop bound from list lengths:
+
+```ti-basic
+dim(L1)->N
+If dim(L2)>N
+dim(L2)->N
+0->C
+For(I,1,N)
+0->A
+0->B
+If I<=dim(L1)
+L1(I)->A
+If I<=dim(L2)
+L2(I)->B
+A+B+C->S
+int(S/10)->C
+S-10C->L3(I)
+End
+If C
+C->L3(N+1)
+```
+
+The invariant after iteration `I` is that `L3(1..I)` contains the low `I`
+digits of `L1+L2`, and `C` is the carry into digit `I+1`. Base 10 is easy to
+display and debug. A larger base reduces loop count but adds conversion and
+larger carry values; on TI-BASIC, that tradeoff only helps when display is not
+part of the hot path.
 
 ### DFS with a list stack
 
@@ -274,7 +334,7 @@ Disp L3
 
 Observed run: traversal order is `1`, `3`, `2`, `4` because the stack is LIFO and
 node `3` is pushed after node `2`. The final visited list is `{1 1 1 1}`. The
-trace hits `blockmatch_end_else`, `parse_scan_tokens`, `if_isg_stmt_handler`,
+trace hits `blockmatch_end_else`, `parse_scan_tokens`, `eval_stmt_entry`,
 parser refill/advance paths, `_Disp`, and the same list read/write helpers used
 by `BIGADD`. **[confirmed]**
 
@@ -282,6 +342,19 @@ Performance notes: this version scans all edges for every visited node, so it is
 easy to understand but O(VE) in BASIC-level work. For larger graphs, keep an
 offset table of edge ranges per node, avoid `augment(` in hot loops, and
 preallocate stack/visited lists with scalar pointers as this sample does.
+
+The loop maintains three invariants:
+
+- `L3(V)=1` means node `V` has already been displayed and expanded.
+- `L4(1..P)` is the pending stack, with `L4(P)` popped next.
+- Edges are scanned from left to right, so pushing node `2` and then node `3`
+  makes node `3` display before node `2`.
+
+The trace cost follows those invariants. Every `While` and nested `If Then`
+forces the interpreter to scan for block boundaries (`blockmatch_end_else`,
+`parse_scan_tokens`), and every `L1(E)`/`L2(E)` access goes through VAT lookup
+and list-element address calculation. Precomputed adjacency ranges reduce both
+the number of edge scans and the number of interpreted branch scans.
 
 ## BASIC and ASM interop
 
