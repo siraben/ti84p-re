@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f40d982c.js";
+            window.path_to_searchindex_js = "searchindex-cc69d511.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -287,7 +287,7 @@ is done by <code>chk_tok_end</code> (<code>38:72E0</code>) / <code>parse_cur_err
 <li><code>_StoAns</code> (<code>38:6251</code>) stores OP1 into <code>Ans</code> (<code>_CkOP1Real</code> path; the bytes that
 follow are the Ans-var token table). <code>_RclAns</code> (<code>38:679F</code>) = <code>_AnsName</code> then
 <code>_RclVarSym</code>.</li>
-<li><code>_AnsName</code> (<code>38:74B7</code>): <code>_ZeroOP1; OP1.exp = 0x72</code> — builds the OP1 name for
+<li><code>_AnsName</code> (<code>38:74B7</code>): <code>_ZeroOP1; (OP1+1)=0x72</code> (the name’s type/class byte at <code>0x8479</code>, not an exponent — OP1 holds a name here) — builds the OP1 name for
 the <code>Ans</code> variable (token class <code>0x72</code>).</li>
 <li><code>_StoSysTok</code>/<code>_RclSysTok</code> (<code>38:623B</code>/<code>683E</code>) store/recall a system token
 variable (Xmin etc.) into/from OP1.</li>
@@ -488,8 +488,9 @@ runs and off at <code>Done</code>. <strong>[confirmed]</strong></p>
 <li><code>chk_tok_end</code> (<code>38:72E0</code>) classifies it into a small class number (<code>&lt;=3</code> operand/expr,
 <code>4</code> = syntax error, others = operator/command). Flagged tokens reclassify via
 <code>set_split_rows</code> (<code>ram:20A0</code>) when <code>IY+9 &amp; 0x80</code>.</li>
-<li><code>parse_cur_err_illegal</code> (<code>38:70F8</code>) maps the token byte to a grammar/precedence class (tokens
-<code>&gt;0xF1</code> get <code>+0x12</code>, folding the high token page into the class space).</li>
+<li><code>parse_cur_err_illegal</code> (<code>38:70F8</code>) validates the current token; its caller (at <code>38:6FBE</code>) then
+maps the token byte to a grammar/precedence class — tokens <code>≥0xF2</code> get <code>+0x12</code> (<code>38:6FBE: ADD A,0x12</code>),
+folding the high token page into the class space.</li>
 <li>The precedence level (<code>cVar4</code> = 1/2/3) selects the production handler base:
 <code>0x4000</code> (base term — the <strong>flat handler-pointer table</strong>, indexed by token class),
 <code>0x478C</code> (postfix <code>^</code>/<code>!</code>), or <code>0x7175</code> (leaf) — <code>0x478C</code> and <code>0x7175</code> are raw code
@@ -517,7 +518,7 @@ page_38:6f63   if_isg_stmt_handler        ; per-statement If/IS&gt;( dispatch
 page_38:4130   blockmatch_end_else        ; nest-counting End/Else scanner
 page_38:4180   parse_scan_tokens          ; skip-to-delimiter (2-byte aware)
 page_38:4870   goto_lbl_name_scanner      ; scan label name, jump to search
-page_38:7600   store_target_name_scanner  ; →VAR store-target name scanner (live DB name)
+page_38:7600   store_target_name_scanner  ; →VAR store-target name scanner (inferred; live DB auto-name is set_tblgraph_draw_xpage)
 page_38:72da   parse_cur_tok
 page_38:7248   parse_advance
 page_38:5cd8   parse_expect_or_err
