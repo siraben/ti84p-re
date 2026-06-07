@@ -46,6 +46,18 @@ not yet traced end to end in this repo.
    a small command-finalization path, but it avoids the pathological
    implicit-close/false-`If` interaction. **[confirmed]**
 
+### Trace-backed cost map
+
+| Pattern | Trace evidence | Practical rule |
+|---------|----------------|----------------|
+| Straight-line display (`HELLO`) | page-38 statement parse plus `_Disp` | Fine for status text; avoid using `Disp` as a frame loop. |
+| Prompted arithmetic (`FACTOR`) | loop-body reseed, FP multiply, display | Keep loop bodies short; store loop-invariant values before `For(`. |
+| List built-ins (`DATA`) | `sum(` reaches `list_fold_dispatch` | Prefer built-ins when one parser setup can cover many elements. |
+| Text animation (`ANIMTXT`) | `Output(` plus LCD text paths on every loop | Precompute positions/strings and update the smallest region possible. |
+| Graph drawing (`GRAPHV`) | primitives draw into `plotSScreen`, then `_PDspGrph` | Batch graph primitives before `DispGraph`. |
+| BASIC subprogram (`CALLSUB`) | page-38 program-body evaluator and shared VAT variables | Treat globals/lists/`Ans` as the calling convention. |
+| List algorithms (`BIGADD`, `DFS`) | VAT lookup, element address, OP-register move per access | Preallocate lists; cache dimensions and reused elements in scalars. |
+
 ## Run-confirmed fixtures
 
 The generator `tools/tibasic_samples.py` now emits these additional trace-ready
@@ -225,6 +237,13 @@ payload byte at `ram:9D95 op=0xC9`, and return to BASIC. **[confirmed]**
 Practical convention: pass data through OS variables or known RAM locations,
 validate inputs on the BASIC side, and make the ASM payload return normally with
 `RET` unless it intentionally transfers control elsewhere.
+
+| Direction | Confirmed mechanism | Caveat |
+|-----------|---------------------|--------|
+| BASIC -> ASM | `Asm(prgmNAME)` parses `prgmNAME`, bcalls `_ExecutePrgm`, copies the `AsmPrgm` payload, then jumps through `ram:9D95`. | The payload runs in the calculator OS process; a bad payload can corrupt interpreter state. |
+| BASIC -> BASIC | `prgmNAME` enters the page-38 parser/VAT/body evaluator path and `Return` resumes the caller. | There is no local frame; variables are shared. |
+| ASM -> VAT lookup | An `AsmPrgm` can build `OP1={ProgObj,"NAME"}` and bcall `_ChkFindSym`. | Lookup is not execution. |
+| ASM -> BASIC | No working public bcall sequence is proven in this repo. | `_Find_Parse_Formula` from an arbitrary `AsmPrgm` context reached `ERR:UNDEFINED`. |
 
 ### ASM to BASIC
 
