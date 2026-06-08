@@ -1,0 +1,490 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Graphing - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-9b2b9ee8.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-76256a07.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="graphing"><a class="header" href="#graphing">Graphing</a></h1>
+<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
+<p>What a college student touches when they press <strong>Y=</strong>, <strong>WINDOW</strong>, <strong>GRAPH</strong>, <strong>TRACE</strong>,
+or run a <strong>DRAW</strong> menu command. This traces the path real-coordinate → screen pixel →
+<code>plotSScreen</code> → LCD, plus the window variables, Y= equation storage, and DRAW primitives.</p>
+<p>Address form is <code>page:addr</code> (flash page hex : logical offset, routines run mapped at
+<code>0x4000</code>). Confidence: [confirmed] = read the code/data directly, or cross-checked
+against equate/convention; [standard] = matches documented TI behavior but not
+byte-verified here; [hypothesis] = inferred, not yet verified.</p>
+<hr>
+<h2 id="1-window-variables-ram-confirmed-addresses-from-ti83plusinc--code-refs"><a class="header" href="#1-window-variables-ram-confirmed-addresses-from-ti83plusinc--code-refs">1. Window variables (RAM) [confirmed addresses, from ti83plus.inc + code refs]</a></h2>
+<p>All graph window state lives in a contiguous block of 9-byte <code>TIFloat</code>s starting at <code>0x8F50</code>.
+These are the values the WINDOW editor writes and the grapher reads.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Addr</th><th>Name</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x8F50</code></td><td><code>Xmin</code></td><td>left edge real X</td></tr>
+<tr><td><code>0x8F59</code></td><td><code>Xmax</code></td><td>right edge real X</td></tr>
+<tr><td><code>0x8F62</code></td><td><code>Xscl</code></td><td>X tick spacing</td></tr>
+<tr><td><code>0x8F6B</code></td><td><code>Ymin</code></td><td>bottom edge real Y</td></tr>
+<tr><td><code>0x8F74</code></td><td><code>Ymax</code></td><td>top edge real Y</td></tr>
+<tr><td><code>0x8F7D</code></td><td><code>Yscl</code></td><td>Y tick spacing</td></tr>
+<tr><td><code>0x8F86</code></td><td><code>ThetaMin</code> / <code>0x8F8F</code> <code>ThetaMax</code> / <code>0x8F98</code> <code>ThetaStep</code></td><td>polar/parametric range</td></tr>
+<tr><td><code>0x900D</code></td><td><code>XresO</code></td><td>Xres (pixel step between plotted columns)</td></tr>
+<tr><td><code>0x9151</code></td><td><code>Xres_int</code></td><td>integer copy of Xres</td></tr>
+<tr><td><code>0x9152</code></td><td><code>deltaX</code></td><td><code>(Xmax−Xmin)/94</code> — real width of one pixel column</td></tr>
+<tr><td><code>0x915B</code></td><td><code>deltaY</code></td><td><code>(Ymax−Ymin)/62</code> — real height of one pixel row</td></tr>
+<tr><td><code>0x9164</code></td><td><code>shortX</code></td><td>scratch/divisor float for the X transform (per-pixel ΔX)</td></tr>
+<tr><td><code>0x916D</code></td><td><code>shortY</code></td><td>scratch/divisor float for the Y transform (per-pixel ΔY)</td></tr>
+<tr><td><code>0x913F</code></td><td><code>XFact</code> / <code>0x9148</code> <code>YFact</code></td><td>ZOOM IN/OUT factors</td></tr>
+</tbody>
+</table>
+</div>
+<p>There is a second “u” copy block at <code>0x8E7E</code> (<code>uXmin</code>…<code>uXres</code> at <code>0x8F3B</code>) — the
+uVar window set used in the alternate (split/table) graph context, and a working/temp
+float pair around <code>0x8E6A</code>/<code>0x8E73</code> used by the transform code. [confirmed]</p>
+<p><code>deltaX</code>/<code>deltaY</code> are derived from the window when the graph is set up and feed both the
+forward (real→pixel) and the circle/draw routines. The LCD is <code>96×64</code>, but the graph area
+is 95 columns wide (0..94) and 63 tall (0..62), hence the /94 and /62. [standard]</p>
+<hr>
+<h2 id="2-coordinate--pixel-transforms"><a class="header" href="#2-coordinate--pixel-transforms">2. Coordinate ↔ pixel transforms</a></h2>
+<h3 id="forward-real-coordinate--pixel-index"><a class="header" href="#forward-real-coordinate--pixel-index">Forward: real coordinate → pixel index</a></h3>
+<p><code>_XftoI</code> (<code>37:41EB</code>) and <code>_YftoI</code> (<code>37:41DF</code>) convert an OP1 real coordinate to a
+pixel index. Both are thin shims around the shared engine at <code>37:41F2</code>: [confirmed]</p>
+<pre><code>_XftoI (37:41EB):  BC = 0x8E6A (X working float),  HL = shortX (0x9164),  SCF  → 41F2
+_YftoI (37:41DF):  BC = Ymin   (0x8F6B),            HL = shortY (0x916D),  OR A → 41F2; INC A
+</code></pre>
+<p>Shared engine <code>37:41F2</code> computes $\mathrm{pixel}=\dfrac{\mathrm{value}-\mathrm{min}}{\mathrm{pixelDelta}}$:</p>
+<ul>
+<li><code>RST 20h</code> pushes/loads OP1 (the input value),</li>
+<li><code>CALL 228F</code> moves the <code>min</code> operand in and subtracts it (<code>value − min</code>),</li>
+<li><code>CALL 2385</code> divides by the per-pixel delta (<code>shortX</code>/<code>shortY</code>),</li>
+<li>the X path additionally adds the <code>0x8E73</code> X-origin term, the Y path negates so that
+larger Y maps to a <em>smaller</em> row (screen Y grows downward),</li>
+<li><code>CALL 4229</code> clamps/handles the float→integer exponent (reads <code>OP1.exp</code> at <code>0x8479</code>,
+bias <code>0x7F</code>) and rounds to an integer pixel; out-of-range loads ±large sentinel.
+<code>_YftoI</code> returns pixel row +1 (<code>INC A</code>) so callers get a 1-based / inverted row. [confirmed]</li>
+</ul>
+<p>So a student’s function value <code>y</code> at sample <code>x</code> becomes a <code>(col,row)</code> pair via two
+subtract-then-divide float ops against the window. This is the heart of plotting and TRACE
+coordinate readout.</p>
+<h3 id="inverse-pixel-index--real-coordinate"><a class="header" href="#inverse-pixel-index--real-coordinate">Inverse: pixel index → real coordinate</a></h3>
+<p><code>_SetXXOP1</code> (<code>33:5F7E</code>) and <code>_SetXXOP2</code> (<code>33:5F83</code>) take an integer pixel value in A
+and build a real <code>TIFloat</code> in OP1 / OP2 (<code>0x8478</code> / <code>0x8483</code>). [confirmed]</p>
+<ul>
+<li><code>CALL 1BA7</code> zeroes the destination mantissa,</li>
+<li><code>CALL 5F6A</code> converts the binary value to packed BCD by repeated <code>ADD A,0x16 / DAA</code>
+(binary→decimal nibble accumulation), looping A times,</li>
+<li>the exponent byte is set so OP1 holds the integer; <code>_SetXXXXOP2</code> (<code>33:5F9E</code>) is the
+4-digit (up to 9999) variant for larger pixel/coordinate counts.</li>
+</ul>
+<p>These are used to turn a pixel column/row (e.g. under the TRACE cursor) back into the real
+X/Y shown at the bottom of the screen, and by DRAW commands that take pixel arguments.</p>
+<hr>
+<h2 id="3-the-graph-buffer-plotsscreen-and-pixel-addressing"><a class="header" href="#3-the-graph-buffer-plotsscreen-and-pixel-addressing">3. The graph buffer <code>plotSScreen</code> and pixel addressing</a></h2>
+<ul>
+<li><code>plotSScreen</code> = <code>0x9340</code>, 768 bytes = 96×64/8. Monochrome, 1 bit/pixel, 12 bytes per
+scanline (8 pixels per byte). This is the back buffer everything draws into. [confirmed]</li>
+<li><code>saveSScreen</code> = <code>0x86EC</code>, 768 bytes — a saved copy (e.g. for redrawing the graph after
+a menu covers it). [confirmed]</li>
+</ul>
+<p><code>_GrBufClr</code> (<code>04:6071</code>): clears the whole 0x300-byte buffer to 0 (a
+<code>LD (HL),0</code> + 0x2FF-byte propagate copy). [confirmed]</p>
+<p><code>_IOffset</code> (<code>04:42B5</code>) computes the LCD controller address bytes for a pixel (inputs <code>B</code>=x, <code>C</code>=y):</p>
+<pre><code>(0x844F) = (x &gt;&gt; 3) | 0x20     ; LCD "set row page" command — the rotated TI panel pages by X
+(0x8451) = (0x3F - y) | 0x80   ; LCD "set column" command (Y, mirrored)
+returns (table_42E4)[x &amp; 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
+</code></pre>
+<p>This is the bridge from a <code>(x,y)</code> pixel to a byte+bit in the buffer and the matching LCD
+command bytes. [confirmed]</p>
+<p><code>_IPoint</code> (<code>04:4157</code>): set/clear/test one pixel in <code>plotSScreen</code>. Honors the current
+pen mode / plot style: reads style at <code>(IY+0x14)</code> and a style selector at <code>0x9775</code>
+(<code>0x9775</code> = 1 selects the “thick/line connect” branch that draws an extra adjacent
+pixel; 1..3 select dotted/animated styles), clips against the X-offset (<code>XOffset</code>) and the
+buffer bounds (<code>_IBounds</code>), then OR/AND/XORs the mask from <code>_IOffset</code>. <code>_PointOn</code>
+(<code>04:4155</code>) is the plain set-pixel entry. [confirmed]</p>
+<p><code>_PixelTest</code> (<code>04:79E7</code>): the <code>pxl-Test(</code> command — validates the row/col against the
+current graph dimensions <code>lcdTallP</code> (<code>0x8DA3</code>) and <code>pixWide_m_1</code> (<code>0x8DA5</code>) — 63 and 95 on a
+full screen, smaller when split — maps the split-screen offset, and returns whether that buffer
+pixel is on. <code>_ErrDomain</code> on out-of-range. [confirmed]</p>
+<hr>
+<h2 id="4-drawing-primitives-page-0x04--0x33"><a class="header" href="#4-drawing-primitives-page-0x04--0x33">4. Drawing primitives (page 0x04 / 0x33)</a></h2>
+<h3 id="lines"><a class="header" href="#lines">Lines</a></h3>
+<p><code>_ILine</code> (<code>04:4029</code>) — integer pixel line via Bresenham. [confirmed]
+It computes <code>dx=|x2−x1|</code>, <code>dy=|y2−y1|</code>, picks the major axis, sets the error term
+<code>(dy−dx)*2</code>/<code>dy*2</code>, then loops <code>_IPoint</code> for each step, advancing the minor axis when the
+error crosses zero. <code>graph_chk_flag20</code> (<code>04:4316</code>) is the step-along-major-axis helper. The endpoint and
+draw-mode (set/clear/xor) are passed in. <code>_DarkLine</code> (<code>04:4025</code>) is <code>_ILine</code> with
+the “draw/dark” mode forced. [confirmed]</p>
+<p><code>_CLine</code>/<code>_CLineS</code> (<code>33:6028</code>/<code>33:6034</code>) and <code>_UCLineS</code> (<code>33:6010</code>) — coordinate
+line: take real-coordinate endpoints, run them through the X/Y transforms (the SetXX/ftoI
+path), then call the integer line. The <code>S</code> variants take an explicit style/mode byte; the
+mode bit comes from <code>(IY+0x35) &amp; 0x80</code> (<code>hookflags3</code> bit 7, the drawing-hook-active flag —
+not a split-screen flag). These back the <code>Line(</code>
+DRAW command at the math layer. [confirmed]</p>
+<h3 id="circle"><a class="header" href="#circle">Circle</a></h3>
+<p><code>_GrphCirc</code> (<code>33:758D</code>) — draws a circle in real coordinates. [confirmed]
+Allocates a 0x5A-byte FPS scratch frame (<code>EQS</code>), snapshots the working float and the window
+(<code>Xmin</code>, <code>Ymin</code>, <code>deltaX</code>), zeroes accumulators, seeds the X/Y center and the radius-stepped
+parametric state, then iterates plotting points via the integer line/point primitives
+(cross-page into the page-3B <code>_DrawCirc2</code> plotter at <code>3B:7171</code>). It accounts for the X/Y
+pixel-aspect via <code>deltaX</code>/<code>deltaY</code> so a <code>Circle(</code> looks round only after a ZSquare. [confirmed]
+<code>_CircCmd</code> (<code>33:74CE</code>) is the parser-facing <code>Circle(</code> command wrapper (cross-page jump
+into the argument grabber). [confirmed]</p>
+<h3 id="draw-menu-commands-page-0x04-handlers"><a class="header" href="#draw-menu-commands-page-0x04-handlers">DRAW menu commands (page 0x04 handlers)</a></h3>
+<p>Each DRAW menu command has a page-04 bcall handler that draws into <code>plotSScreen</code>:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>bcall</th><th>Addr</th><th>Command</th></tr>
+</thead>
+<tbody>
+<tr><td><code>_HorizCmd</code></td><td><code>04:793E</code></td><td><code>Horizontal y</code> — draws a full-width horizontal line at real Y. See note below.</td></tr>
+<tr><td><code>_VertCmd</code></td><td><code>04:7955</code></td><td><code>Vertical x</code> — draws a full-height vertical line at real X. See note below.</td></tr>
+<tr><td><code>_LineCmd</code></td><td><code>04:796A</code></td><td><code>Line(x1,y1,x2,y2)</code> — <code>_PDspGrph</code>, optionally draws via page 33, then <code>JP 0x152A</code> = <code>_DeallocFPS1(0x24)</code> frees the coord frame (the alloc happens upstream).</td></tr>
+<tr><td><code>_UnLineCmd</code></td><td><code>04:797C</code></td><td><code>Line(…,0)</code> — erase variant (same path, clear mode).</td></tr>
+<tr><td><code>_PointCmd</code></td><td><code>04:79B2</code></td><td><code>Pt-On/Pt-Off/Pt-Change(</code> — reads style from <code>OP1.mantissa[0] &amp; 0x20</code>, dispatches set/clear/toggle.</td></tr>
+<tr><td><code>_DrawCmd</code></td><td><code>04:7B8B</code></td><td>top-level <code>DRAW</code> dispatch — grabs the pending count and cross-jumps to the per-command handler.</td></tr>
+<tr><td><code>_DrawZeroOP1</code></td><td><code>04:620B</code></td><td>seeds OP3=0 then draws (used for axis / <code>DrawF</code> zero baseline).</td></tr>
+</tbody>
+</table>
+</div>
+<p>Note: <code>_HorizCmd</code>/<code>_VertCmd</code> both <code>CALL 7933</code> first, which allocates a 0x24-byte FPS frame
+(<code>LD HL,0x24 / CALL 1537 / SBC HL,DE</code>) and returns a pointer to it. <code>_HorizCmd</code> then builds the
+line’s two endpoints in that frame: it copies <code>Xmin</code> (<code>0x8F50</code>) and <code>Xmax</code> (<code>0x8F59</code>) — the window’s
+X range — with <code>_Mov9B</code> (<code>00:1A92</code>, which reads a window float into the frame), interleaving the
+line’s Y (<code>OP1</code>) via <code>_MovFrOP1</code> (<code>00:1B0C</code>), so the endpoints are <code>(Xmin, y)</code> and <code>(Xmax, y)</code>.
+<code>_VertCmd</code> does the same with <code>Ymin</code> (<code>0x8F6B</code>)/<code>Ymax</code> (<code>0x8F74</code>) and the line’s X. It renders with
+<code>_PDspGrph</code>, then <code>_DeallocFPS1(0x24)</code> frees the frame — the window variables are read only,
+so the line just spans the current window edges. [confirmed]</p>
+<hr>
+<h2 id="5-rendering-the-graph-to-the-lcd"><a class="header" href="#5-rendering-the-graph-to-the-lcd">5. Rendering the graph to the LCD</a></h2>
+<p><code>_PDspGrph</code> (<code>04:7904</code>, “possibly-display graph”) is the gatekeeper between buffer and
+screen. [confirmed]</p>
+<ul>
+<li>Clears the “need redraw” flag at <code>(IY+2)</code>,</li>
+<li>if the graph-dirty bit <code>(IY+3)&amp;1</code> is set (<code>graphFlags.graphDraw</code>, inc <code>graphFlags=3</code>/<code>graphDraw=0</code>; <code>1</code>=redraw needed — this is the <code>graphFlags</code> bit at <code>IY+3</code>, distinct from <code>grfDBFlags</code> at <code>IY+4</code> and SmartGraph at <code>IY+0x17</code>), calls
+<code>_Regraph</code> to recompute the whole plot,</li>
+<li>otherwise checks the split-screen flag (<code>_Bit_VertSplit</code>) and copies the buffer to the LCD
+(<code>graph_redraw_buf</code> <code>04:607F</code>).</li>
+</ul>
+<p><code>_GrBufCpy</code> (<code>04:60A3</code>) blits <code>plotSScreen</code> to the LCD: handles split-screen
+(<code>_CheckSplitFlag</code>, <code>_Bit_VertSplit</code>), draws the split divider line (<code>_DarkLine</code>/<code>_ILine</code> at
+column region 0x2F), sets normal display vals, and walks the rows. [confirmed]</p>
+<p><code>_RestoreDisp</code> (<code>04:6176</code>) is the actual row-blit loop: for each of the up-to-64 rows it
+issues the column/row LCD commands then streams pixel bytes to <code>port_lcdData</code> (0x11)
+through <code>lcd_wait</code>, and pokes <code>port_lcdCmd</code> (0x10). This is where the buffer physically
+reaches the panel. [confirmed]</p>
+<p><code>_Regraph</code> (<code>04:6764</code>) re-evaluates and re-plots every selected Y= equation from scratch
+(cross-page jump into the plot driver). This is what runs when you change a window var or
+turn SmartGraph off; SmartGraph (<code>grfModeFlags</code> bit <code>smartGraph</code>) lets the OS skip the
+re-plot and <code>_GrBufCpy</code> the existing buffer when nothing changed. [confirmed]</p>
+<hr>
+<h2 id="6-y-equations-storage-and-evaluation"><a class="header" href="#6-y-equations-storage-and-evaluation">6. Y= equations: storage and evaluation</a></h2>
+<h3 id="storage-confirmed"><a class="header" href="#storage-confirmed">Storage [confirmed]</a></h3>
+<p>Y= functions are ordinary equation variables (<code>EquObj</code>), stored in the VAT as tokenized
+byte streams — the same token encoding the homescreen uses. <code>Y1</code>…<code>Y0</code> (and <code>r1</code>…, <code>X1T/Y1T</code>,
+<code>u/v/w</code>) are <em>system</em> equation vars. Each holds the tokens you typed after <code>Y1=</code>. The
+equation’s flags byte is <code>0x23</code> when selected (plotted) and <code>0x03</code> when deselected, so
+the selection bit is bit 5 (<code>0x20</code>). The per-equation style byte holds the line style:
+<code>0</code>=line, <code>1</code>=thick, <code>2</code>=shade above, <code>3</code>=shade below, <code>4</code>=trace/path, <code>5</code>=animate, <code>6</code>=dotted
+(<code>curGStyle</code> <code>0x8D17</code> is the current-equation copy). [confirmed — selection/style byte values
+match the <a href="https://merthsoft.com/linkguide/ti83+/vars.html#style">TI link-protocol guide</a>]</p>
+<h3 id="parsing--pre-scan"><a class="header" href="#parsing--pre-scan">Parsing / pre-scan</a></h3>
+<p><code>_GraphParseTok</code> (<code>33:5023</code>) walks an equation’s token stream to classify it before
+plotting: it reads tokens via the paged-pointer reader (<code>_SetupPagedPtr</code>/<code>_PagedGet</code>),
+recognizes 2-byte tokens (<code>_IsA2ByteTok</code>), and sets feature bits (e.g. token <code>0xEF…</code>
+ranges → returns a category in A) used to decide draw mode and whether the equation is
+graphable. [confirmed]</p>
+<h3 id="evaluation--points"><a class="header" href="#evaluation--points">Evaluation → points</a></h3>
+<p>Plotting (driven by <code>_Regraph</code> → the page-04/38 plot loop) walks pixel columns left→right:</p>
+<ol>
+<li>compute the real <code>X</code> for the column from <code>Xmin + col*deltaX</code> (the inverse of <code>_XftoI</code>),</li>
+<li>store it into the <code>X</code> system variable,</li>
+<li><code>_ParseInp</code> (<code>38:5987</code>) parses+evaluates the selected equation’s tokens against the
+current <code>X</code> (it resets the parser state, clears a status bit at <code>(IY+0x1F)</code>, and runs
+the formula evaluator <code>_ChkFindSym</code>/<code>Find_Parse_Formula</code>), leaving the result <code>Y</code> in OP1,</li>
+<li><code>_YftoI</code> maps that <code>Y</code> to a pixel row,</li>
+<li><code>_ILine</code> connects this point to the previous column’s point (or <code>_IPoint</code> for dotted
+style), drawing into <code>plotSScreen</code>.
+<code>Xres</code> (<code>XresO</code>/<code>Xres_int</code>) controls the column step: Xres=1 evaluates every pixel column,
+higher Xres skips columns (faster, coarser). [confirmed]</li>
+</ol>
+<h3 id="graph-databases-gdb-confirmed"><a class="header" href="#graph-databases-gdb-confirmed">Graph databases (GDB) [confirmed]</a></h3>
+<p><code>_StoGDB2</code> (<code>33:71AC</code>) / <code>_RclGDB2</code> (<code>33:72D9</code>) store/recall a GraphDataBase
+(<code>GDBObj</code>, type/exp marker <code>0x61</code>) — the bundle of window vars + mode + selected equations
+that the <code>StoreGDB</code>/<code>RecallGDB</code> commands save. <code>_JError(0x89)</code> on a type mismatch.</p>
+<h3 id="graph-table-confirmed"><a class="header" href="#graph-table-confirmed">Graph table [confirmed]</a></h3>
+<p><code>_GraphTblFind</code> (<code>33:7097</code>) / <code>_GraphTblNext</code> (<code>33:707A</code>) index the in-RAM table of
+equation pointers (<code>iMathPtr4</code>-based, 2 bytes/entry) used to iterate the selected functions
+during a regraph or TABLE build.</p>
+<hr>
+<h2 id="7-graph-screen-vs-home-screen-trace"><a class="header" href="#7-graph-screen-vs-home-screen-trace">7. Graph screen vs. home screen; TRACE</a></h2>
+<ul>
+<li>The home screen uses the large font and <code>curRow</code>/<code>curCol</code> text cursor (see
+<a href="08-display-lcd.html">08-display-lcd.md</a>). The graph screen is the pixel buffer <code>plotSScreen</code> rendered by
+the routines above; small-font labels (coords, TRACE readout) go through
+<code>_VPutMap</code>/<code>penCol</code>(0x86D7)/<code>penRow</code>(0x86D8). [confirmed addresses]</li>
+<li><strong>TRACE</strong> moves a cursor along a selected function: it steps the column, evaluates the
+function (<code>_ParseInp</code>) for that X, maps the point with <code>_XftoI</code>/<code>_YftoI</code>, draws the
+cross-cursor, and uses <code>_SetXXOP1</code>/<code>_SetXXOP2</code> to convert the cursor pixel back to the real
+X/Y it prints at the bottom. [confirmed]</li>
+<li>A <code>DRAW</code> command (<code>_DrawCmd</code>) or <code>Line(</code>/<code>Circle(</code>/<code>Pt-On(</code> draws straight into
+<code>plotSScreen</code> over the current plot and persists across a SmartGraph redraw (it is not
+re-evaluated) until <code>ClrDraw</code> is issued. [confirmed]</li>
+</ul>
+<hr>
+<h2 id="8-confidence-summary--open-items"><a class="header" href="#8-confidence-summary--open-items">8. Confidence summary / open items</a></h2>
+<ul>
+<li>Forward transform <code>(value−min)/pixelDelta</code>: structure [confirmed] from the
+<code>37:41F2</code> disassembly (subtract <code>228F</code>, divide <code>2385</code>); the exact rounding in <code>4229</code> is
+read but the ±sentinel constants are summarized, not exhaustively byte-traced.</li>
+<li><code>_HorizCmd</code>/<code>_VertCmd</code> endpoint build: <code>7933</code> allocates a 0x24-byte FPS frame, and
+the commands <code>_Mov9B</code> the window edges (<code>Xmin</code>/<code>Xmax</code> or <code>Ymin</code>/<code>Ymax</code>) plus <code>_MovFrOP1</code> the line’s
+coordinate (<code>OP1</code>) into that frame, reading the live window variables only.</li>
+<li>Circle parametric stepping in <code>3B:7171</code> (<code>_DrawCirc2</code>) not decompiled here (lives on
+page 3B); the <code>_GrphCirc</code> setup is confirmed.</li>
+<li>Y= selection bit (<code>0x20</code>; flags byte <code>0x23</code> selected / <code>0x03</code> deselected) and the style byte
+values (<code>0</code>–<code>6</code>) are [confirmed] against the <a href="https://merthsoft.com/linkguide/ti83+/vars.html#style">TI link-protocol var guide</a>.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="08-display-lcd.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="sub-table-yvars.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="08-display-lcd.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="sub-table-yvars.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-5fa46c0a.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
