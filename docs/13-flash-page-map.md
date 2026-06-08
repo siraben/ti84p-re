@@ -1,4 +1,4 @@
-# 13 — Flash page map
+# Flash page map
 
 What lives on each of the 64 physical flash pages (16 KiB each). OS code occupies pages `00–07` and `33–3D`; pages `08–32` are blank in this image; page `3E` is the certificate sector and `3F` the boot page. On a retail unit the upper pages can also carry Flash Apps, but this dump is OS-only — the page scan below reports zero Flash-App headers. The page roles below are characterized by the named bcall routines that resolve to each page (`tools/bcall_targets.txt`) plus function counts; the `0x8xxx` cert/boot/USB bcalls come instead from `ti83plus.inc` and the retail segment files (`bcall_targets.txt` does not carry the `0x8xxx` targets).
 

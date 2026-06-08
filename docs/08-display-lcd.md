@@ -1,4 +1,4 @@
-# 08 — Display & LCD
+# Display & LCD
 
 > **Deep dives:** [Graphing](sub-graphing.md) (graph buffer → LCD, transforms) · [Table & Y= Variables](sub-table-yvars.md) (text grid).
 

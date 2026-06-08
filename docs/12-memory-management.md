@@ -1,4 +1,4 @@
-# 12 — Memory management (RAM heap & Flash archive)
+# Memory management (RAM heap & Flash archive)
 
 How the OS allocates the ~24 KiB of user RAM between variables, temporaries, the FP stack, and the program being run — and how it offloads variables to Flash ("archive").
 

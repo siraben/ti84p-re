@@ -1,4 +1,4 @@
-# 05 — Variables & the VAT (Variable Allocation Table)
+# Variables & the VAT (Variable Allocation Table)
 
 > **Deep dive:** [Variables, Archive & Unarchive](sub-vat-archive.md) — Store/Recall, the byte-verified `_FindSym` walk, and archive/unarchive.
 

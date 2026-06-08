@@ -1,4 +1,4 @@
-# 14 — RAM pages
+# RAM pages
 
 The TI-84 Plus has banked RAM pages behind the Z80's 16 KiB windows. TI-OS normally
 keeps RAM page `81` in `8000-BFFF` and RAM page `80` in `C000-FFFF`, but ROM helpers

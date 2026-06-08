@@ -1,4 +1,4 @@
-# 06 — Floating-point engine
+# Floating-point engine
 
 > **Deep dive:** [Calculation Engine](sub-calculation.md) — ×, ÷, ^, roots, the transcendentals (sin/cos/ln/eˣ), and number formatting.
 

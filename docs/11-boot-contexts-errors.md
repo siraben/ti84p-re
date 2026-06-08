@@ -1,4 +1,4 @@
-# 11 — Boot, contexts, and error handling
+# Boot, contexts, and error handling
 
 Three cross-cutting mechanisms that tie the OS together: how it starts, how it switches "modes" (contexts), and how it aborts on error.
 

@@ -1,4 +1,4 @@
-# 07 — Tokenizer & TI-BASIC
+# Tokenizer & TI-BASIC
 
 TI-BASIC programs are stored as tokens, not text: every command, function, and variable is a token of 1 or 2 bytes. The OS detokenizes (token→display string) to show a program and tokenizes (keypress/text→token) on entry; the parser walks tokens to execute.
 
