@@ -14,7 +14,7 @@ The 84+ memory ports use two encodings:
 |--------|------|-------------------|--------------------|
 | `4000-7FFF` | `6` | bit 7 clear selects Flash page `value & 0x3F`; bit 7 set selects RAM page `0x80 \| (value & 7)` | banked Flash page |
 | `8000-BFFF` | `7` | bit 7 clear selects Flash page `value & 0x3F`; bit 7 set selects RAM page `0x80 \| (value & 7)` | `81` |
-| `C000-FFFF` | `5` | low three bits select RAM page `0x80 \| (value & 7)` | `00` -> RAM page `80` |
+| `C000-FFFF` | `5` | low three bits select RAM page `0x80 \| (value & 7)` | `00` → RAM page `80` |
 
 This rule matches the dynamic resolver, TilEm's `x4` memory mapper, and the OS
 trace. In the idle boot/home trace, the RAM-window writes are:

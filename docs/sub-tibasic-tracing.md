@@ -93,7 +93,7 @@ ran, while the final frame proves the graph-screen topology is visible.
 
 For parser and calling-convention claims, prefer resolved coverage plus a narrow
 routine trace. For example, the BASIC subprogram case uses the private
-`38:6910` -> `38:6914` -> `38:778F` body-evaluator path after the top-level
+`38:6910` → `38:6914` → `38:778F` body-evaluator path after the top-level
 homescreen parse has already seeded parser RAM. That is why the negative
 ASM-to-BASIC probes in [TI-BASIC programming patterns](sub-tibasic-programming.md)
 are negative fixtures or probes: they reach useful ROM paths, but they

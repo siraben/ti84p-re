@@ -2,7 +2,7 @@
 
 A reproducible Ghidra reverse-engineering project for the TI-84 Plus calculator OS (version 2.55MP), a Zilog Z80 system. This repo contains the build scripts, derived symbol data, and reverse-engineering notes — not the ROM image (copyrighted) or the Ghidra database (regenerable).
 
-📖 Read the rendered wiki: <https://siraben.github.io/ti84p-re/>
+Read the rendered wiki: <https://siraben.github.io/ti84p-re/>
 
 ## What's here
 
@@ -30,7 +30,7 @@ nix develop        # shell with mdbook
 Requires Ghidra 12.1 + JDK 21. With Ghidra *closed*:
 
 ```sh
-tools/build.sh        # ~10s; rebuilds ~/Documents/ti84-re/ti84.gpr
+tools/build.sh        # ~10s; rebuilds ti84.gpr
 ```
 
 The pipeline (`build.sh`):
