@@ -49,22 +49,22 @@ So RAM is wiped in two LDIR runs (`0x8000`–`0x9BC3`, then `0x9BD0`–`0xFFFF`,
 0690: LD A,0x7F; CALL call_context_main   ; run the active context's handler
 0699: POP AF; JP Z,0x05e6                 ; loop
 ```
-So the loop pumps an **event/context stack** (8 slots from `0x84BF`, after the `INC HL`), routes each via the dispatcher at `ram:3F3F`, and ultimately runs the active context's `cxMain` handler through `call_context_main`, looping forever.
+So the loop pumps an event/context stack (8 slots from `0x84BF`, after the `INC HL`), routes each via the dispatcher at `ram:3F3F`, and ultimately runs the active context's `cxMain` handler through `call_context_main`, looping forever.
 
-The `ram:3F3F` router is a bjump trampoline → **`event_key_router` (`page_07:4539`)**: given a key code, it scans **key→context dispatch tables** (`07:4099`, ~105 entries, for 1-byte keys; `07:422C`/`4426` for extended 2-byte keys, using `_LdHLind`/`_CpHLDE`) and returns a **routing code**:
+The `ram:3F3F` router is a bjump trampoline → `event_key_router` (`page_07:4539`): given a key code, it scans key→context dispatch tables (`07:4099`, ~105 entries, for 1-byte keys; `07:422C`/`4426` for extended 2-byte keys, using `_LdHLind`/`_CpHLDE`) and returns a routing code:
 - `0xFE` — normal: hand the key to the active context's handler.
-- `0xFB` / `0xFC` — **context switch** / app launch (the key maps to a different context — recall `cxCurApp` *is* a key code, so e.g. `[GRAPH]` → the graph context).
+- `0xFB` / `0xFC` — context switch / app launch (the key maps to a different context — recall `cxCurApp` *is* a key code, so e.g. `[GRAPH]` → the graph context).
 - `0xFF`/`0x7F` — quit / no-op.
 
-So the router classifies a mode key before the active context sees it and returns a context-switch code (`0xFB`/`0xFC`); the caller then swaps the `cx*` vectors. The router itself only writes `keyExtend` (`0x8446`, the extended-key state) — its body holds no store to the `cx*` block. **[confirmed]**
+So the router classifies a mode key before the active context sees it and returns a context-switch code (`0xFB`/`0xFC`); the caller then swaps the `cx*` vectors. The router itself only writes `keyExtend` (`0x8446`, the extended-key state) — its body holds no store to the `cx*` block. [confirmed]
 
 ## Contexts — how the OS implements "modes"/apps [confirmed — key concept]
 
-The OS is single-tasking but multi-**context**. A *context* is the set of handler routines for whatever is currently in front of the user (homescreen, an editor, the graph screen, a Flash App). The active context's vectors live in RAM at **`cxMain`** (and friends), with **`cxPage`** holding which flash page their code is on.
+The OS is single-tasking but multi-context. A *context* is the set of handler routines for whatever is currently in front of the user (homescreen, an editor, the graph screen, a Flash App). The active context's vectors live in RAM at `cxMain` (and friends), with `cxPage` holding which flash page their code is on.
 
-- `_AppInit` (`ram:0936`) installs a context: copies **12 bytes** of handler vectors → `cxMain`, sets `flags.appFlags`, and saves `cxPage = port_mapBankA` (the page the app runs from). **[confirmed]**
-- The dispatched handlers include things like a **key handler**, **(re)display/paint handler**, and a **PutAway** (suspend) handler — the OS calls them through the `cx*` vectors, paging in `cxPage` first.
-- `_PutAway` (`ram:08AF`) calls the current context's PutAway handler (`cxPPutAway`) to suspend/clean up — used on APD, when switching apps, or on `2nd+QUIT`. **[confirmed]**
+- `_AppInit` (`ram:0936`) installs a context: copies 12 bytes of handler vectors → `cxMain`, sets `flags.appFlags`, and saves `cxPage = port_mapBankA` (the page the app runs from). [confirmed]
+- The dispatched handlers include things like a key handler, (re)display/paint handler, and a PutAway (suspend) handler — the OS calls them through the `cx*` vectors, paging in `cxPage` first.
+- `_PutAway` (`ram:08AF`) calls the current context's PutAway handler (`cxPPutAway`) to suspend/clean up — used on APD, when switching apps, or on `2nd+QUIT`. [confirmed]
 
 This is the backbone of the UI: the main event loop reads a key (`_GetKey`), then calls the active context's key handler; switching screens swaps the `cx*` vectors.
 
@@ -81,10 +81,10 @@ The active context lives at a fixed RAM block (`Context` struct, base `cxMain`=`
 | +8 | 8595 | `cxErrorEP` | error entry point ptr |
 | +10 | 8597 | `cxSizeWind` | window-size handler ptr |
 | +12 | 8599 | `cxPage` | flash page the handlers live on |
-| +13 | 859A | `cxCurApp` | current context id — **equals a key code** (`cxGraph`=kGraph, `cxCmd`=kQuit, `cxPrgmEdit`=kPrgmEd …) |
+| +13 | 859A | `cxCurApp` | current context id — equals a key code (`cxGraph`=kGraph, `cxCmd`=kQuit, `cxPrgmEdit`=kPrgmEd …) |
 | +14 | 859B | `cxPrev` | base of the 14-byte shadow of `cxMain`…`cxCurApp` (plus a separately-saved appFlags byte) — the suspended previous context |
 
-`_AppInit` copies the **6 vectors (12 bytes, +0..+11)** from an app's header into this block, then sets `cxPage`. Because `cxCurApp` is a key code, a mode-switch key naturally selects the context to load.
+`_AppInit` copies the 6 vectors (12 bytes, +0..+11) from an app's header into this block, then sets `cxPage`. Because `cxCurApp` is a key code, a mode-switch key naturally selects the context to load.
 
 The full `_AppInit` body confirms the offsets directly — `HL` points at the app's 12-byte vector header, `LDIR` lands them at `cxMain`=`0x858D`, and the byte that follows the 12 vectors becomes a flags byte; `cxPage` is then loaded from the live bank-A page-select (port 6), *not* copied from the header:
 
@@ -115,14 +115,14 @@ Primitives: `set_bankA_page` (`ram:078c`, `port6 = page`) and `jp_hl` (`ram:090b
 
 Errors use a non-local exit, not return codes:
 - A routine detects a fault and calls `_JError` (`ram:2793`) with an error code in `A` (the `TIError` enum: `E_Domain`, `E_DivBy0`, `E_Memory`, … each ORed with `E_EDIT`=0x80 if re-editable). `_JError` stores the code to `errNo` (`0x86DD`); the sibling entry `_JErrorNo` (`ram:2799`) raises the already-stored `errNo` without taking a new code.
-- The handler **restores the stack from `errSP`** (`0x86DE`, `LD SP,(errSP)` at `ram:27BB`), restores a sane state, and displays the error screen (`ERR:` + message, with `1:Quit 2:Goto`). `errSP` is the current error frame; `_resetStacks` seeds it from `onSP` (`0x85BC`, the context-level saved SP) at context/parse start.
+- The handler restores the stack from `errSP` (`0x86DE`, `LD SP,(errSP)` at `ram:27BB`), restores a sane state, and displays the error screen (`ERR:` + message, with `1:Quit 2:Goto`). `errSP` is the current error frame; `_resetStacks` seeds it from `onSP` (`0x85BC`, the context-level saved SP) at context/parse start.
 - The `E_EDIT` bit (0x80) tells the handler the error is editable (offer "2:Goto" to jump to the offending token).
 
 So `errSP` + `_JError` together implement try/catch: a context seeds `errSP` (from `onSP`) at entry, and any depth of nested calls can abort straight back to it.
 
 ### Error-message table [local data-table trace]
 
-The error screen shows `ERR:<MESSAGE>` (the `ERR:` prefix is on `page_01:4008`). A local data-table trace shows the handler masking the code (`AND 0x7F`), then for codes below `0x3A` indexing a little-endian pointer table at **`page_07:6ACC`** by `(code) − 1` (`LD HL,0x6ACC; ADD HL,DE; ADD HL,DE; CALL _LdHLind`) to fetch each message pointer; the message strings themselves sit consecutively from `page_07:6B3C` as null-terminated text. Codes `≥ 0x3A` (and the special-cased `0x36`/`0x37`/`0x39`) bypass the table and fall back to the `?` message at `page_07:6C5A`. The current MCP function/xref view does not prove this data-only table directly, so treat the addresses as a data trace rather than live function symbols:
+The error screen shows `ERR:<MESSAGE>` (the `ERR:` prefix is on `page_01:4008`). A local data-table trace shows the handler masking the code (`AND 0x7F`), then for codes below `0x3A` indexing a little-endian pointer table at `page_07:6ACC` by `(code) − 1` (`LD HL,0x6ACC; ADD HL,DE; ADD HL,DE; CALL _LdHLind`) to fetch each message pointer; the message strings themselves sit consecutively from `page_07:6B3C` as null-terminated text. Codes `≥ 0x3A` (and the special-cased `0x36`/`0x37`/`0x39`) bypass the table and fall back to the `?` message at `page_07:6C5A`. The current MCP function/xref view does not prove this data-only table directly, so treat the addresses as a data trace rather than live function symbols:
 
 | Code | `TIError` | Message @ page_07 |
 |------|-----------|-------------------|

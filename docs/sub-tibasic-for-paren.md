@@ -1,6 +1,6 @@
 # `For(` closing paren and false first-line `If`
 
-*TI-84 Plus OS 2.55MP -- dynamic trace note.*
+*TI-84 Plus OS 2.55MP — dynamic trace note.*
 
 This note explains a TI-BASIC performance trap:
 
@@ -23,8 +23,8 @@ End
 The closing `)` is syntactically optional, but it is not performance-neutral
 when the first loop-body statement is a single-line false `If`.
 
-Confidence: **[confirmed]** = measured in TilEm instruction traces or read from
-ROM bytes; **[standard]** = consistent with the interpreter structure but not
+Confidence: [confirmed] = measured in TilEm instruction traces or read from
+ROM bytes; [standard] = consistent with the interpreter structure but not
 field-mapped down to every loop-frame byte.
 
 ---

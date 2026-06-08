@@ -9,25 +9,25 @@ recalled by name (`x̄`, `Σx`, `RegEQ`, …).
 
 This doc covers the STAT **CALC** computations. The data source is the L1–L6
 lists (VAT/[05-variables-vat.md](05-variables-vat.md), [sub-vat-archive.md](sub-vat-archive.md)); the arithmetic is the
-BCD FP engine ([06-floating-point.md](06-floating-point.md), [sub-calculation.md](sub-calculation.md)). Stat **plots** and
+BCD FP engine ([06-floating-point.md](06-floating-point.md), [sub-calculation.md](sub-calculation.md)). Stat plots and
 the **DISTR** menu are noted in §8/§9 — DISTR functions are *parser* functions,
 not part of the STAT‑CALC engine.
 
 Address form: `page:addr` (flash page in the `0x4000` slot) or `ram:addr` for the
-fixed page‑0 core at `0x0000`. The whole STAT‑CALC engine lives on **flash page
-0x3A**. Confidence: **[confirmed]** = read from Z80 disassembly, **[standard]** =
-matches documented TI behavior, **[hypothesis]** = inferred.
+fixed page‑0 core at `0x0000`. The whole STAT‑CALC engine lives on flash page
+`0x3A`. Confidence: [confirmed] = read from Z80 disassembly, [standard] =
+matches documented TI behavior, [hypothesis] = inferred.
 
 The Ghidra decompiler mis-renders the Z80
 `SET/RES b,(IY+d)` flag ops, the `RST` macros, and cross-page `CALL 0x2b09`
-trampolines, so the algorithm here is read primarily from the **disassembly**.
+trampolines, so the algorithm here is read primarily from the disassembly.
 
 ---
 
 ## 1. The `statVars` result block (`0x8A3A`) [confirmed]
 
 Every STAT‑CALC result is a 9‑byte `TIFloat` (see [06-floating-point.md](06-floating-point.md)) written
-into a fixed RAM table beginning at **`statVars = 0x8A3A`** (`statVars EQU 8A3Ah`
+into a fixed RAM table beginning at `statVars = 0x8A3A` (`statVars EQU 8A3Ah`
 in `ti83plus.inc`). Entries are packed at the 9‑byte `FPLEN` stride. These are the
 system variables a student recalls by name (`[2nd][STAT] ▸ VARS`):
 
@@ -37,8 +37,8 @@ system variables a student recalls by name (`[2nd][STAT] ▸ VARS`):
 | `8A43` | `XMean`   | `x̄`   | mean of x |
 | `8A4C` | `SumX`    | `Σx`  | sum of x |
 | `8A55` | `SumXSqr` | `Σx²` | sum of x² |
-| `8A5E` | `StdX`    | `Sx`  | **sample** std dev of x (÷ n−1) |
-| `8A67` | `StdPX`   | `σx`  | **population** std dev of x (÷ n) |
+| `8A5E` | `StdX`    | `Sx`  | *sample* std dev of x (÷ n−1) |
+| `8A67` | `StdPX`   | `σx`  | *population* std dev of x (÷ n) |
 | `8A70` | `MinX`    | `minX`| minimum x |
 | `8A79` | `MaxX`    | `maxX`| maximum x |
 | `8A82` | `MinY`    | `minY`| minimum y (2‑Var) |
@@ -68,7 +68,7 @@ menu) and are written by the test commands, not by 1/2‑Var Stats. An ANOVA blo
 
 **STAT‑TESTS are separate command handlers [confirmed scope].** `Z‑Test`/`T‑Test`/`χ²‑Test`/
 `2‑SampFTest`/`ANOVA(` etc. come in as their own 2‑byte `t2ByteTok` (`0xBB`)‑prefixed command tokens — e.g.
-`LinRegTTest=34h` noted in §3 — and are **not** dispatched through `_OneVar` (whose token map is
+`LinRegTTest=34h` noted in §3 — and are *not* dispatched through `_OneVar` (whose token map is
 only `F2`–`FF`, §3). They fill the `PStat…SStat`/`anovaf_vars` block above directly. No
 `PStat`/`ZStat`‑writing routine appears among the page‑0x3A `stat_*` symbols (all of which are
 the `_OneVar` accumulate/variance/median/regression engine), confirming the tests live in their
@@ -76,8 +76,8 @@ own command handlers reached from the parser's command dispatch, separate from t
 engine documented here. The exact per‑test handler addresses are not exposed as named routines
 in this DB. [confirmed: separate from `_OneVar`; addresses [I]]
 
-A scratch byte **`0x8A36`** (immediately below `statVars`) holds the **stat‑command
-discriminator** (the model index, set from the command token — see §3) for the
+A scratch byte `0x8A36` (immediately below `statVars`) holds the stat‑command
+discriminator (the model index, set from the command token — see §3) for the
 duration of the computation. Working list/element pointers used by the loop live
 in the OP‑scratch RAM `0x84AF…0x84DB` (`84D3`=median data ptr, `84D5/84D7`=current
 x/y element ptr, `84D9`=sums matrix base, `84DB`=freq list ptr, `84B1/84B2`=loop
@@ -95,7 +95,7 @@ regression coeffs via `tRegEq=01h`). [confirmed/standard]
 
 ## 2. `_OneVar` — the STAT‑CALC engine entry (`3A:6420`, id `0x4BA3`) [confirmed]
 
-`bcall(_OneVar)` is the single entry point for **all** STAT‑CALC commands
+`bcall(_OneVar)` is the single entry point for *all* STAT‑CALC commands
 (1‑Var, 2‑Var, and every regression). The parser invokes it after pushing the
 list arguments; the command token (`F2`–`FF`, see §3) selects the behaviour.
 
@@ -127,10 +127,10 @@ _OneVar (3A:6420):
 ```
 
 Key facts read from the disassembly:
-- The command byte is saved at **`(0x8A36)`** and steers everything afterward.
-- `LD HL,0x8AEE` (= `QuadA`) is the **regression coefficient destination**; the
+- The command byte is saved at `(0x8A36)` and steers everything afterward.
+- `LD HL,0x8AEE` (= `QuadA`) is the regression coefficient destination; the
   solver writes `a,b,c,d,e` there in descending order of power.
-- `_ErrStat` (`00:2741`, id `0x44C2`, code **`0x15`** "STAT") and `_ErrStatPlot`
+- `_ErrStat` (`00:2741`, id `0x44C2`, code `0x15` "STAT") and `_ErrStatPlot`
   (`00:2759`, code `0x1B`) are the STAT‑specific error raisers; the `_OneVar`
   body jumps to `0x2741` on e.g. fewer than the required data points.
   `_ErrDimMismatch` (`0x2715`) is raised if `L1` and `L2`/freq lengths differ
@@ -160,12 +160,12 @@ as a model index. From `ti83plus.inc`:
 tokens (their `2Eh`/`2Fh`/`32h`/`33h`/`34h` values are the *second* byte after `0xBB`). Degree for the polynomial solver = the model index; the coefficient
 fan‑out into `QuadA..QuartE` is naturally sized by degree. [confirmed/standard]
 
-`SortA(`/`SortD(` are **separate** tokens (`tSortA=E3h`, `tSortD=E4h`) with their
+`SortA(`/`SortD(` are *separate* tokens (`tSortA=E3h`, `tSortD=E4h`) with their
 own command handler — not `_OneVar`. The sort used here, `stat_sort` (`3A:7935`),
-is **stat‑internal**: its only callers are `stat_median_quartile` (`3A:79B9`) and
+is stat‑internal: its only callers are `stat_median_quartile` (`3A:79B9`) and
 `medmed_partition` (`3A:760F`) (xref‑confirmed), so it powers the 1‑Var median/
 quartile and Med‑Med paths (§6). The `SortA(`/`SortD(` *command* sort is a
-different routine on **page 0x02** (≈`02:5939`, comparator `_CpOP1OP2`) — see
+different routine on `page 0x02` (≈`02:5939`, comparator `_CpOP1OP2`) — see
 [Matrices & Lists](sub-matrix-list.md#sorta--sortd--list-sort-confirmed-comparator).
 
 ---
@@ -173,7 +173,7 @@ different routine on **page 0x02** (≈`02:5939`, comparator `_CpOP1OP2`) — se
 ## 4. The accumulation pass (`3A:6572` …) [confirmed]
 
 This is the heart of 1/2‑Var Stats and the regression sum‑setup. It makes a
-**single pass** over the data list(s), accumulating the power‑sums needed for the
+single pass over the data list(s), accumulating the power‑sums needed for the
 mean, variance, and least‑squares normal equations. Read from disassembly:
 
 ```z80
@@ -203,9 +203,9 @@ mean, variance, and least‑squares normal equations. Read from disassembly:
    66fe: JP C,6655  ; loop while elements remain
 ```
 
-So one pass builds, for a degree‑*d* fit, the symmetric **moment matrix** of
+So one pass builds, for a degree‑*d* fit, the symmetric moment matrix of
 power‑sums `Σxⁱ` (i = 0 … 2d) and the right‑hand side `Σxⁱy`, stored as a small
-2‑D array reached by the RAM trampoline helpers **`00:3A8F`/`3AA1`/`3AA7`/`3AAD`/`3AB9`**
+2‑D array reached by the RAM trampoline helpers `00:3A8F`/`3AA1`/`3AA7`/`3AAD`/`3AB9`
 (matrix‑element get/set by `(row B, col C)`). `StatN`, `SumX`, `SumXSqr`, `SumY`,
 `SumYSqr`, `SumXY`, `MinX/MaxX/MinY/MaxY` are filled here directly. [confirmed]
 
@@ -217,7 +217,7 @@ per‑element `ln` is in the element fetch `stat_next_elem` (`3A:6F6A`): `LD A,(
 RET NC` then `bcall _LnX` at `3A:6F72` for model codes `< 4` (`ExpReg`/`LnReg`/`PwrReg`); the
 back‑transform `_EToX`/`_TenX` lives on page 0x02 (see `sub-calculation.md §5`). This is the standard
 "linearize, fit a line, transform back" method; `r` is the correlation of the
-**transformed** data.
+*transformed* data.
 
 ### 4a. Mean & standard deviation [confirmed]
 After the pass, `_OneVar` finalizes the moments (`3A:6762`+):
@@ -235,7 +235,7 @@ The variance helpers (`3A:6984`/`6989`/`6998`) implement the one‑pass formula
 6998: _FPSquare(x̄) ; recall Σx² (15da) ; _FPMult ; (RST 30 _FPAdd / subtract) ; …
 6989: CALL _FPDiv (2541) ; CALL 3939 (_SqRoot wrapper) ; store
 ```
-The **only** difference between σx (population) and Sx (sample) is the divisor:
+The *only* difference between σx (population) and Sx (sample) is the divisor:
 the population path divides by `n`, the sample path first does `_Minus1`
 (`00:2294`, n−1) — confirmed at `3A:677C`. `x̄ = Σx / n` via `_FPDiv`. [confirmed]
 
@@ -244,7 +244,7 @@ the population path divides by `n`, the sample path first does `_Minus1`
 ## 5. The regression solver — Gauss‑Jordan on the normal equations (`3A:67C6` …) [confirmed]
 
 For a polynomial fit the moment matrix from §4 is the augmented normal‑equations
-matrix `[ M | Σxⁱy ]`. `_OneVar` solves it **in place by Gauss‑Jordan elimination**
+matrix `[ M | Σxⁱy ]`. `_OneVar` solves it in place by Gauss‑Jordan elimination
 (not a closed‑form determinant), then writes the coefficients to `QuadA…QuartE`.
 
 ```
@@ -268,27 +268,27 @@ matrix `[ M | Σxⁱy ]`. `_OneVar` solves it **in place by Gauss‑Jordan elimi
        then copied out to the QuadA..QuartE statVars block.
 ```
 
-- A **zero/near‑zero pivot raises `_ErrSingularMat` (0x83)** "SINGULAR MAT"
+- A zero/near‑zero pivot raises `_ErrSingularMat` (0x83) "SINGULAR MAT"
   (e.g. all x equal, or too few distinct points for the degree). The `LD A,0x35`/
   `0x36` and `CALL 0x213d` are the in‑solver guards. [confirmed]
 - The solver is dimension‑generic: `LinReg` (2×2) → `a,b`; `QuadReg` (3×3) →
   `a,b,c`; `CubicReg` (4×4) → `a,b,c,d`; `QuartReg` (5×5) → `a,b,c,d,e`. The
   coefficients land in `QuadA`(`8AEE`) downward. [confirmed]
-- **Correlation `r` and `r²`** are computed for the linear models from the
+- Correlation `r` and `r²` are computed for the linear models from the
   centred sums:
 
   $$r=\frac{\sum (x-\bar x)(y-\bar y)}{\sqrt{\sum (x-\bar x)^2\\,\sum (y-\bar y)^2}}=\frac{n\sum xy-\sum x\sum y}{\sqrt{\big(n\sum x^2-(\sum x)^2\big)\big(n\sum y^2-(\sum y)^2\big)}}$$
 
   assembled with `_FPMult`/`_FPSub`/`_SqRoot`/
-  `_FPDiv` (the `6845`/`684c` cluster) and **stored to `Corr` (`8ACA`)**. The store offset is
-  pinned: at **`3A:684F`** the code does `LD A,0x12 ; CALL 0x213D`, and `0x213D` is
+  `_FPDiv` (the `6845`/`684c` cluster) and stored to `Corr` (`8ACA`). The store offset is
+  pinned: at `3A:684F` the code does `LD A,0x12 ; CALL 0x213D`, and `0x213D` is
   `_Sto_StatVar` (the store counterpart of `_Rcl_StatVar 00:2149` — both funnel through the
-  `0x3E07` statVar dispatcher with the **name id in `A`**). Id `0x12` = `tCorr` = the `Corr`
-  slot, so this single sequence is exactly **`r → Corr (8ACA)`**. The preceding `3A:6845`
+  `0x3E07` statVar dispatcher with the name id in `A`). Id `0x12` = `tCorr` = the `Corr`
+  slot, so this single sequence is exactly `r → Corr (8ACA)`. The preceding `3A:6845`
   `_SqRoot`/`_FPDiv` cluster forms the ratio; `r²` (and `R²` for higher‑order fits) is the
   `r·r` / coefficient‑of‑determination derived from the same cluster and surfaced through the
   same `Corr` slot. [confirmed: the `A=0x12 → _Sto_StatVar` r‑store; standard formula]
-- The fitted equation is also written to **`RegEQ`** (the `Y=`‑style regression
+- The fitted equation is also written to `RegEQ` (the `Y=`‑style regression
   equation system var, recalled via token `tRegEq=0x01`) so `RegEQ` can be pasted
   or graphed. [standard]
 
@@ -302,7 +302,7 @@ outer two summary points adjusted toward the middle — classic Tukey median‑m
 
 ## 6. Median, quartiles, min/max & the sort (`3A:7935`, `3A:79B9`) [confirmed]
 
-For **1‑Var Stats** the five‑number summary needs the data **sorted**:
+For **1‑Var Stats** the five‑number summary needs the data sorted:
 
 - `MinX`/`MaxX` are tracked during the §4 pass (running min/max compares).
 - The median/quartile path (`3A:79B9` → `7A0B` …) sorts a working copy via the
@@ -314,7 +314,7 @@ For **1‑Var Stats** the five‑number summary needs the data **sorted**:
   cumulative‑frequency index, and `198d`/`238b` interpolate the rank). [confirmed
   path / standard quartile rule]
 
-The five‑number summary `(minX, Q1, Med, Q3, maxX)` is what the **MED/box‑plot**
+The five‑number summary `(minX, Q1, Med, Q3, maxX)` is what the MED/box‑plot
 stat plot reads back out of `statVars`.
 
 ---
@@ -339,7 +339,7 @@ stat plot reads back out of `statVars`.
 ## 8. Stat plots [standard / partially confirmed]
 
 Stat plots (Scatter `tScatter=FE`, xyLine `FD`, Histogram `tHist=FC`, box plots
-`tBoxIcon`, normal‑prob) are drawn by the **graphing** subsystem, reading the
+`tBoxIcon`, normal‑prob) are drawn by the graphing subsystem, reading the
 five‑number summary and the raw L1/L2 lists. `_ErrStatPlot` (`00:2759`, code
 `0x1B`) guards an invalid/undefined plot configuration; `_ZmStats` (`33:65DC`,
 id `0x47A4`) is the **ZoomStat** routine that auto‑scales the window to the plotted
@@ -351,9 +351,9 @@ list data (sets `Xmin/Xmax/Ymin/Ymax` from `minX/maxX/minY/maxY`). See
 ## 9. Distributions (DISTR menu) — *not* part of STAT‑CALC [confirmed scope]
 
 `normalpdf(`, `normalcdf(`, `invNorm(`, `binompdf(`, `tcdf(`, `χ²cdf(`, `Fcdf(`,
-etc. are **parser functions** (DISTR‑menu tokens, the `t2ByteTok` (`0xBB`)‑prefixed
+etc. are parser functions (DISTR‑menu tokens, the `t2ByteTok` (`0xBB`)‑prefixed
 two‑byte tokens like `tShadeNorm=35h`), evaluated through the normal function
-dispatch of the TI‑BASIC parser, **not** through `_OneVar`. They are not
+dispatch of the TI‑BASIC parser, *not* through `_OneVar`. They are not
 exposed as named bcalls in this OS image (a search of `bcall_targets.txt` finds
 only `_SetNorm_Vals` `00:220F`, a helper that copies the *display* "Normal mode"
 default values — unrelated to the normal *distribution*). Their numerical cores
@@ -364,13 +364,13 @@ STAT subsystem documented here.
 [confirmed: not reachable from `_OneVar`; hypothesis: numerical method]
 
 **Grounding [confirmed].** A name search of the whole‑OS image for `norm`/`stat`/distribution
-cores returns **no** `normalcdf`/`erf`/incomplete‑gamma/incomplete‑beta entry points — the only
+cores returns *no* `normalcdf`/`erf`/incomplete‑gamma/incomplete‑beta entry points — the only
 `*norm*` symbols are `_SetNorm_Vals` (`00:220F`, display "Normal mode" defaults),
 `fp_normalize`/`fp_norm_left` (mantissa normalisation), `cplx_norm_*` (complex modulus) and the
-`eqdisp_setnorm_split` layout helpers — **none** is a distribution. Likewise every `stat_*`
+`eqdisp_setnorm_split` layout helpers — *none* is a distribution. Likewise every `stat_*`
 symbol on page 0x3A is part of the `_OneVar` STAT‑CALC engine (accumulate / variance / median /
 sort / regression), not a DISTR core. So the erf / incomplete‑gamma / incomplete‑beta continued
-fractions are **[I] — outside the STAT‑CALC engine**, sitting behind the parser's 2‑byte
+fractions are [I] — outside the STAT‑CALC engine, sitting behind the parser's 2‑byte
 (`0xBB`‑prefixed) DISTR‑token function table; their exact page/address is not exposed as a
 named routine in this DB. [confirmed scope; address [I]]
 
@@ -393,7 +393,7 @@ named routine in this DB. [confirmed scope; address [I]]
           _ErrSingularMat 0x83, _ErrDimMismatch 00:2715 (0x8B)
 ```
 
-The STAT subsystem is a thin **data‑driven front‑end** on page 0x3A that reads list
+The STAT subsystem is a thin data‑driven front‑end on page 0x3A that reads list
 data via the VAT, drives the page‑0/page‑02 BCD FP engine to build power‑sums, then
 either finalizes the moments or runs an in‑place Gauss‑Jordan solve of the normal
 equations, depositing every output as a named `TIFloat` in the `statVars` block.
@@ -441,10 +441,10 @@ equations, depositing every output as a named `TIFloat` in the `statVars` block.
   through the same `Corr` slot (§5). (Residual: the `6845–6891` region is unanalyzed code in the
   DB, so only the `A=0x12` store sequence was byte‑pinned, not every intermediate.)
 - **RESOLVED (scope) — DISTR numerical cores** (erf/incomplete‑gamma/incomplete‑beta) are
-  **outside** the STAT‑CALC engine: no distribution core is a named routine in this DB; they sit
+  *outside* the STAT‑CALC engine: no distribution core is a named routine in this DB; they sit
   behind the parser's 2‑byte DISTR‑token function table (`sub-tibasic`). Exact address [I] (§9).
 - **RESOLVED (scope) — STAT‑TESTS** (Z/T/χ²/F/ANOVA) that fill `PStat…SStat`/`anovaf_vars` are
-  **separate command handlers**, not reached through `_OneVar` (whose tokens are only `F2`–`FF`);
+  *separate command handlers*, not reached through `_OneVar` (whose tokens are only `F2`–`FF`);
   no `PStat`‑writing routine is among the page‑0x3A `stat_*` symbols (§1). Per‑test addresses [I].
 - `stat_sort` (`3A:7935`) is a 49-byte setup that validates/counts the elements
   then dispatches the compare-swap via `rst 28h` (the bcall site isn't fully

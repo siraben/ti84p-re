@@ -1,11 +1,11 @@
 # 07 — Tokenizer & TI-BASIC
 
-TI-BASIC programs are stored as **tokens**, not text: every command, function, and variable is a token of 1 or 2 bytes. The OS *detokenizes* (token→display string) to show a program and *tokenizes* (keypress/text→token) on entry; the **parser** walks tokens to execute.
+TI-BASIC programs are stored as tokens, not text: every command, function, and variable is a token of 1 or 2 bytes. The OS detokenizes (token→display string) to show a program and tokenizes (keypress/text→token) on entry; the parser walks tokens to execute.
 
 ## Token encoding [confirmed]
 
-- Most tokens are **one byte** (`tStore`=0x04, `tBoxPlot`=0x05, operators, digits, letters, common commands). The Ghidra database models the byte values as the `TIToken` enum, built from the `t`-prefixed equates in `ti83plus.inc`.
-- Some bytes are **lead bytes** of a **two-byte token**: the first byte selects a *table*, the second byte the entry.
+- Most tokens are one byte (`tStore`=0x04, `tBoxPlot`=0x05, operators, digits, letters, common commands). The Ghidra database models the byte values as the `TIToken` enum, built from the `t`-prefixed equates in `ti83plus.inc`.
+- Some bytes are lead bytes of a two-byte token: the first byte selects a table, the second byte the entry.
 
 ### The 2-byte lead-byte set [confirmed]
 
@@ -25,7 +25,7 @@ TI-BASIC programs are stored as **tokens**, not text: every command, function, a
 | `AA` | `tVarStrng` — string variable (`Str1`…) |
 | `EF` | TI-84+-era extended token page |
 
-So e.g. `5D 00` = list `L1`; `BB xx` = an extended command. The second byte indexes that group's name/handler table. (String variables `Str1`–`Str0` use lead `AA`; they are a **distinct VAT object type** holding tokenized text — see [Strings](05-variables-vat.md#strings-str1str0--a-distinct-object-type-confirmed).)
+So e.g. `5D 00` = list `L1`; `BB xx` = an extended command. The second byte indexes that group's name/handler table. (String variables `Str1`–`Str0` use lead `AA`; they are a distinct VAT object type holding tokenized text — see [Strings](05-variables-vat.md#strings-str1str0--a-distinct-object-type-confirmed).)
 
 ## Detokenize / token length [confirmed]
 - `_GetTokLen` (`01:66E5`) returns the length of the detokenized display string for the token at HL: it calls `smallfont_glyph_ptr` (`01:6702`) to resolve the token's string pointer, then reads the leading length byte (`LD A,(HL)`). It is `_IsA2ByteTok`, not `_GetTokLen`, that tests 1-byte vs 2-byte encoding.
@@ -33,28 +33,28 @@ So e.g. `5D 00` = list `L1`; `BB xx` = an extended command. The second byte inde
 
 ## Parser / interpreter [located — page 0x38]
 
-The expression parser/evaluator lives on **flash page 0x38**. Entry points:
-- `_ParseInp` (`38:5987`) — parse/evaluate the input (homescreen/entry line). It calls `parse_init` (`38:5b7b`) to reset parser state, clears editing flags, then resolves via `_ChkFindSym`. **[confirmed]**
+The expression parser/evaluator lives on flash page 0x38. Entry points:
+- `_ParseInp` (`38:5987`) — parse/evaluate the input (homescreen/entry line). It calls `parse_init` (`38:5b7b`) to reset parser state, clears editing flags, then resolves via `_ChkFindSym`. [confirmed]
 - `_ParseInpLastEnt` (`38:5984`) — public parser variant immediately before
   `_ParseInp`; the generated `ASMPARSE.8xp`/`ZZPARSE.8xp` fixture reaches it
   but fails with `ERR:INVALID` without running the named BASIC target.
-  **[confirmed negative probe]**
+  [confirmed negative probe]
 - `_Find_Parse_Formula` (`38:758A`) — `_FindSym` a variable then parse its stored
   formula (Y-vars, equations). The generated `ASMFORM.8xp`/`ZZFORM.8xp` fixture
   reaches it from an `AsmPrgm` payload but fails with `ERR:UNDEFINED` without
-  running the named BASIC target. **[confirmed negative probe]**
-- `parse_init` (`38:5b7b`) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). **[confirmed]**
+  running the named BASIC target. [confirmed negative probe]
+- `parse_init` (`38:5b7b`) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). [confirmed]
 
 The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine ([06](06-floating-point.md)), variable tokens resolve via the VAT ([05](05-variables-vat.md)), and the busy indicator is driven by `_RunIndicOn` / `_RunIndicOff`. `_BinOPExec` applies a binary operator via OP1/OP2.
 
 ### The handler dispatch table [confirmed]
 
-Page 0x38 **begins** with the parser's handler dispatch at **`page_38:4000`** — a **flat array of 2-byte little-endian handler pointers**. Raw bytes are `9F 41 F0 45 1C 42 …` = entries `0x419F, 0x45F0, 0x421C, …` (all in-window `0x4xxx`/`0x47xx` code addresses), indexed by token class and dereferenced; the selector at `38:7010` loads `LD HL,0x4000` and adds `2×index` (see [TI-BASIC Programs](sub-tibasic.md)).
+Page 0x38 begins with the parser's handler dispatch at `page_38:4000` — a flat array of 2-byte little-endian handler pointers. Raw bytes are `9F 41 F0 45 1C 42 …` = entries `0x419F, 0x45F0, 0x421C, …` (all in-window `0x4xxx`/`0x47xx` code addresses), indexed by token class and dereferenced; the selector at `38:7010` loads `LD HL,0x4000` and adds `2×index` (see [TI-BASIC Programs](sub-tibasic.md)).
 
-These handlers implement TI-BASIC **statements/commands and operators**. Sampling them by the routine they call:
-- indices 8–10, 17–19, 38 → `bcall(_Regraph)` — **graph commands** (`DrawF`, `ZoomFit`, etc.).
-- indices 14–16, 21–22 → `bcall(_Disp)` — **display/output commands** (`Disp`, `Output`).
-- the "no-bcall" handlers are the **arithmetic/operator** productions — they drive OP1/OP2 through the FP engine via the **RST shortcuts** (RST 30h `_FPAdd`, etc.), which is why a bcall scan doesn't flag them; variable handlers go through `_FindSym` ([05](05-variables-vat.md)).
+These handlers implement TI-BASIC statements/commands and operators. Sampling them by the routine they call:
+- indices 8–10, 17–19, 38 → `bcall(_Regraph)` — graph commands (`DrawF`, `ZoomFit`, etc.).
+- indices 14–16, 21–22 → `bcall(_Disp)` — display/output commands (`Disp`, `Output`).
+- the "no-bcall" handlers are the arithmetic/operator productions — they drive OP1/OP2 through the FP engine via the RST shortcuts (RST 30h `_FPAdd`, etc.), which is why a bcall scan doesn't flag them; variable handlers go through `_FindSym` ([05](05-variables-vat.md)).
 
 The first handlers: `page_38:419F, 45F0, 421C, …`.
 
@@ -69,9 +69,9 @@ So the dispatch loop is: `parse_cur_tok` → index the pointer table at `page_38
 
 **Main evaluator:** `parse_eval_expr` (`38:5AB3`) is the big recursive-descent expression evaluator — it dispatches through handler function-pointers (`code *`) with operator precedence, reading via the cursor helpers and leaving the result in `OP1`. `_ParseInp` → `parse_init` → `parse_eval_expr`. `parse_scan_tokens` (`38:4180`) is a token-scan helper (skips to a delimiter, honoring 2-byte tokens via `_IsA2ByteTok`).
 
-The region at `page_38:4000` is a **flat array of 2-byte handler pointers** (entries `0x419F, 0x45F0, 0x421C, …`), not executable code — `CALL 0x33AB` (`CD AB 33`) appears nowhere on page 0x38. Each handler is itself recursive-descent code; the table selects which one to enter. See [sub-tibasic.md](sub-tibasic.md) for the execution model (`eval_stmt_entry`@`38:59C5`, the `blockmatch_end_else`@`38:4130` End/Else matcher, `goto_lbl_name_scanner`@`38:4870`).
+The region at `page_38:4000` is a flat array of 2-byte handler pointers (entries `0x419F, 0x45F0, 0x421C, …`), not executable code — `CALL 0x33AB` (`CD AB 33`) appears nowhere on page 0x38. Each handler is itself recursive-descent code; the table selects which one to enter. See [sub-tibasic.md](sub-tibasic.md) for the execution model (`eval_stmt_entry`@`38:59C5`, the `blockmatch_end_else`@`38:4130` End/Else matcher, `goto_lbl_name_scanner`@`38:4870`).
 
-The handlers are **recursive-descent grammar productions** (not flat per-operator routines): each reads via `parse_cur_tok`, conditionally recurses, and some load **sub-dispatch tables** (e.g. `page_38:5110`, `5127`) for finer token classes — implementing operator precedence by nesting. So "the + operator" isn't one table entry; it's handled within the term/factor production that drives `_FPAdd` (RST 30h).
+The handlers are recursive-descent grammar productions (not flat per-operator routines): each reads via `parse_cur_tok`, conditionally recurses, and some load sub-dispatch tables (e.g. `page_38:5110`, `5127`) for finer token classes — implementing operator precedence by nesting. So "the + operator" isn't one table entry; it's handled within the term/factor production that drives `_FPAdd` (RST 30h).
 
 The precedence levels (term/factor/unary productions) and sub-dispatch tables are mapped in [TI-BASIC Programs](sub-tibasic.md) §3/§6.
 
@@ -96,7 +96,7 @@ for observed outputs and trace anchors.
 | Animation | `ClrHome` / `For(I,1,8)` / `Output(1,I,"X")` / `End` / `Disp "DONE"` | `E1 3F D3 49 2B 31 2B 38 11 3F E0 31 2B 49 2B 2A 58 2A 11 3F D4 3F DE 2A 44 4F 4E 45 2A 3F` |
 | Graph drawing | `ClrDraw`, window stores, visible axes/diagonal, `Circle(47,31,10)`, `Text(0,0,"DFS")`, `DispGraph` | `85 3F 30 04 63 0A ... DF 3F` (full body in `tools/tibasic-samples/graphviz.tok`) |
 | Graph visualization | `ClrDraw`, window stores, then `Line(`/`Circle(`/`Text(` drawing the DFS topology | `85 3F 30 04 63 0A ... DF 3F` (full body in `tools/tibasic-samples/graphdfs.tok`) |
-| List-driven graph visualization | edge endpoint lists `L1`-`L4`, node lists `L5`/`L6`, looped `Line(L1(I),...)` and `Circle(L5(I),...)` | `85 3F 30 04 63 0A ... DF 3F` (full body in `tools/tibasic-samples/graphlist.tok`) |
+| List-driven graph visualization | edge endpoint lists `L1`–`L4`, node lists `L5`/`L6`, looped `Line(L1(I),...)` and `Circle(L5(I),...)` | `85 3F 30 04 63 0A ... DF 3F` (full body in `tools/tibasic-samples/graphlist.tok`) |
 | BASIC subprogram | `0->A` / `prgmSUBRT` / `Disp A`; callee `Disp "SUB"` / `A+1->A` / `Return` | caller `30 04 41 3F 5F 53 55 42 52 54 3F DE 41 3F`; callee `DE 2A 53 55 42 2A 3F 41 70 31 04 41 3F D5 3F` |
 | BASIC ABI fixture | caller initializes `L1` and `Ans`, calls `prgmABISUB`, then displays `A`, `L1`, and `Ans` | caller `08 32 2B 34 ... DE 72 3F`; callee `72 70 5D 00 ... D5 3F` (full bodies in `tools/tibasic-samples/callabi.tok` and `abisub.tok`) |
 | Big integer add | list digits in `L1`/`L2`, carry `C`, indexed stores into `L3` | `08 35 2B 34 ... DE 5D 02 10 36 11 3F` (full body in `tools/tibasic-samples/bigadd.tok`) |
@@ -121,6 +121,6 @@ equality (`6A`). [confirmed token bytes from `ti83plus.inc` and
 
 ## Second-byte tables
 
-Every 2-byte token group's second-byte → token mapping (matrices, lists, Y-vars, system/window vars, the `BB` extended-command page, the `EF` 84+ page, etc.) is tabulated in **[2-Byte Token Tables](token-tables.md)** — 492 tokens, sourced from [TI-Toolkit/tokens](https://github.com/TI-Toolkit/tokens) and filtered to the 84+ 2.55MP.
+Every 2-byte token group's second-byte → token mapping (matrices, lists, Y-vars, system/window vars, the `BB` extended-command page, the `EF` 84+ page, etc.) is tabulated in [2-Byte Token Tables](token-tables.md) — 492 tokens, sourced from [TI-Toolkit/tokens](https://github.com/TI-Toolkit/tokens) and filtered to the 84+ 2.55MP.
 
 (The main parser loop, handler dispatch, and `OP1`-as-name handoff are covered in [TI-BASIC Programs](sub-tibasic.md).)

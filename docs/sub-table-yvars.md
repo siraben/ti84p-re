@@ -18,10 +18,11 @@ mechanism that selects the TABLE editor vs TABLE-setup screens).
 
 Address form is `page:addr` (flash-page hex : logical offset; flash routines run
 mapped at `0x4000`). RAM addresses are absolute. Confidence:
-**[confirmed]** = decompiled/byte-verified here; **[strong]** = multiple
-consistent signals (flag/token compares, call shape) but the dense Z80 handler
-bodies don't fully reduce in the decompiler; **[standard]** = documented TI-83+/84+
-behavior consistent with what was seen, not byte-pinned here.
+[confirmed] = decompiled/byte-verified here, or multiple consistent signals
+(flag/token compares, call shape) pin it even where the dense Z80 handler bodies
+don't fully reduce in the decompiler; [standard] = documented TI-83+/84+ behavior
+consistent with what was seen, not byte-pinned here; [hypothesis] = inferred, not
+yet verified.
 
 ---
 
@@ -50,7 +51,7 @@ flowchart TB
 The TABLE feature reuses the exact same Y= storage and the same page-38
 recursive-descent evaluator the grapher and homescreen use; it adds only
 (a) the running-`X` driver from
-`TblMin`/`TblStep`, (b) a RAM **value cache** so scrolling doesn't recompute, and
+`TblMin`/`TblStep`, (b) a RAM value cache so scrolling doesn't recompute, and
 (c) a text-grid renderer. [confirmed for structure]
 
 ---
@@ -61,13 +62,13 @@ recursive-descent evaluator the grapher and homescreen use; it adds only
 
 | Addr | Name | Meaning | Token |
 |------|------|---------|-------|
-| `0x92B3` | `TblMin` (a.k.a. **TblStart**) | first independent value in the table | `tTblMin`/`TBLMINt` = `0x1A` |
-| `0x92BC` | `TblStep` (**ΔTbl**) | increment between successive rows | `tTblStep`/`TBLSTEPt` = `0x21` |
+| `0x92B3` | `TblMin` (a.k.a. `TblStart`) | first independent value in the table | `tTblMin`/`TBLMINt` = `0x1A` |
+| `0x92BC` | `TblStep` (`ΔTbl`) | increment between successive rows | `tTblStep`/`TBLSTEPt` = `0x21` |
 
-Both are 9-byte floats. They are ordinary **system token variables**: read/written
+Both are 9-byte floats. They are ordinary system token variables: read/written
 through `_RclSysTok` (`38:683E`) / `_StoSysTok` (`38:623B`) using the token bytes
 above (the page-38 system-var token table lives around `38:61F1`). `ΔTbl`'s token
-is the **list-step** token `0x21`; `TblStart` uses `0x1A`. [confirmed token+addr]
+is the list-step token `0x21`; `TblStart` uses `0x1A`. [confirmed token+addr]
 
 ### Mode flags — `tblFlags` (IY+19 = IY+0x13) [confirmed bit layout]
 
@@ -77,7 +78,7 @@ From `ti83plus.inc` and verified by the bit-ops below:
 |-----|------|---------|
 | 4 (`0x10`) | `autoFill` | **Indpnt**: 0 = `Auto` (fill X from TblStart/ΔTbl), 1 = `Ask` (prompt the student for each X) |
 | 5 (`0x20`) | `autoCalc` | **Depend**: 0 = `Auto` (compute Y immediately), 1 = `Ask` (compute a cell only on request) |
-| 6 (`0x40`) | `reTable`  | 0 = cached table valid, 1 = **must recompute** the table |
+| 6 (`0x40`) | `reTable`  | 0 = cached table valid, 1 = must recompute the table |
 
 ### TBLSET key/edit handler — `tblsetup_handler` (`02:7B20`) [confirmed]
 
@@ -94,8 +95,8 @@ floats and the two mode rows. A retired helper label at `02:7B31` is not a live 
          SET 5,(IY+0x13)   ;   Depend = Ask
 ```
 
-So changing **any** TBLSET field (TblStart, ΔTbl, Indpnt, or Depend) **sets
-`reTable`**, forcing a full recompute next time the TABLE is shown. [confirmed]
+So changing any TBLSET field (TblStart, ΔTbl, Indpnt, or Depend) sets
+`reTable`, forcing a full recompute next time the TABLE is shown. [confirmed]
 
 ### TBLSET display/validation context — `tblset_cx_display` (`37:5F10`) [confirmed]
 
@@ -103,7 +104,7 @@ The TABLE-setup *screen* logic lives on page 37 (the menu/editor display page).
 `37:5F10` reconciles the on-screen Indpnt/Depend selection against the stored
 `tblFlags`: it compares `tblFlags` bit4 (autoFill) vs a UI-selection bit
 (`IY+0x16 & 0x40`) and bit5 (autoCalc) vs `IY+0x11 & 0x40`, and when either
-**differs it sets `reTable`** (`SET 6,(IY+0x13)`). It also zeroes the table-top
+differs it sets `reTable` (`SET 6,(IY+0x13)`). It also zeroes the table-top
 row index `0x91E0` when Indpnt flips to Ask. Companion sites: `37:5F2B`
 (BIT 5 autoCalc), `37:5F59`/`37:5F94` (re-reads). [confirmed]
 
@@ -111,14 +112,14 @@ row index `0x91E0` when Indpnt flips to Ask. Companion sites: `37:5F2B`
 
 ## 2. Y= equation variables — storage, selection, style
 
-### Storage [confirmed type/token, strong for byte layout]
+### Storage [confirmed]
 
-`Y1…Y9, Y0` are **system equation variables**, VAT objects of type **`EquObj` = 3**
+`Y1…Y9, Y0` are system equation variables, VAT objects of type `EquObj` = 3
 (`ti83plus.inc`: `EquObj EQU 3`; `NewEquObj`=0x0B, `UnknownEquObj`=0x0A). Each holds
-`word size` + `size` bytes of the **tokenized formula** you typed after `Y1=` — the
+`word size` + `size` bytes of the tokenized formula you typed after `Y1=` — the
 *same* token encoding the homescreen and program editor use (see [sub-tibasic.md](sub-tibasic.md)).
-The equation name in OP1 is the 2-byte token sequence **`tVarEqu (0x5E)` + the
-Y-token**:
+The equation name in OP1 is the 2-byte token sequence `tVarEqu (0x5E)` + the
+Y-token:
 
 | Var | Token | | Var | Token |
 |-----|-------|-|-----|-------|
@@ -133,11 +134,11 @@ same `EquObj`/`tVarEqu` machinery.) [confirmed tokens]
 
 ### Selection & style flags [confirmed]
 
-Each equation's **flags byte** is `0x23` when **selected** (plotted / tabulated) and
-`0x03` when deselected — i.e. the selection bit is **bit 5 (`0x20`)**. The separate
-per-equation **style byte** encodes the line style: `0`=line, `1`=thick, `2`=shade above,
+Each equation's flags byte is `0x23` when selected (plotted / tabulated) and
+`0x03` when deselected — i.e. the selection bit is bit 5 (`0x20`). The separate
+per-equation style byte encodes the line style: `0`=line, `1`=thick, `2`=shade above,
 `3`=shade below, `4`=trace/path, `5`=animate, `6`=dotted. The TABLE iterates the
-**same selected set** the grapher plots, so deselecting `Y2` in the Y= editor (or
+same selected set the grapher plots, so deselecting `Y2` in the Y= editor (or
 clearing its `=` highlight) removes its column from the table. `curGStyle`
 (`0x8D17`) holds the in-progress style; `sGrFlags` bit `g_style_active`
 (IY+20 bit5) enables per-equation styles. The graphing doc covers the plot side; the
@@ -146,8 +147,8 @@ clearing its `=` highlight) removes its column from the table. `curGStyle`
 
 ### The selected-equation list — `iMathPtr4` (`0x84D9`) [confirmed]
 
-The OS keeps an in-RAM table of **2-byte pointers to the selected equations'
-VAT entries**, based at `iMathPtr4 = 0x84D9`. Three bcalls index it (verified by
+The OS keeps an in-RAM table of 2-byte pointers to the selected equations'
+VAT entries, based at `iMathPtr4 = 0x84D9`. Three bcalls index it (verified by
 decompile — they compute `0x84D9 + 2·n`):
 
 | bcall | Addr | Role |
@@ -156,7 +157,7 @@ decompile — they compute `0x84D9 + 2·n`):
 | `_GraphTblNext` | `33:707A` | `_LdHLind(0x84D9 + 2·n)` — fetch the n-th equation pointer |
 | `_grf_7066` | `33:7066` | store a pointer into slot n (`0x84D9 + 2·n`) |
 
-This is the shared iterator the **regraph driver and the table builder both walk**
+This is the shared iterator the regraph driver and the table builder both walk
 to visit each selected `Yn`. [confirmed]
 
 ### Resolving & evaluating a Y-var — `_Find_Parse_Formula` (`38:758A`) [confirmed]
@@ -164,24 +165,24 @@ to visit each selected `Yn`. [confirmed]
 `_Find_Parse_Formula` (bcall id `0x4AF2`) is the universal "find a named var and
 parse/evaluate its stored formula" entry (see `sub-tibasic.md §3`). For a Y-var it
 `_FindSym`s the `EquObj`, points the parse cursor at its token body, and runs the
-page-38 evaluator, leaving the result in **OP1**. The 38:758A entry seen here is a
-thin **RST2 bcall trampoline**; the body switches on var type (Window `0x0F` /
-ZSto `0x10` / **TblRng `0x11`** special-cased) before the cross-page parse — i.e.
+page-38 evaluator, leaving the result in `OP1`. The 38:758A entry seen here is a
+thin RST2 bcall trampoline; the body switches on var type (Window `0x0F` /
+ZSto `0x10` / TblRng `0x11` special-cased) before the cross-page parse — i.e.
 the table range is itself handled as a special "formula" type by this resolver.
 It is bcalled from `03:67C0` (the Y= equation editor) and `33:7720` (graph setup).
 Homescreen `Y1(2)` evaluates through this same path: the parser sees `tVarEqu tY1`,
-resolves the EquObj, substitutes the argument as `X`, and evaluates. [confirmed
-entry; strong for the eval substitution]
+resolves the EquObj, substitutes the argument as `X`, and evaluates. [confirmed]
+
 
 ---
 
 ## 3. Table generation — the page-05 subsystem
 
-**Page 0x05 is the TABLE editor / Graph-Table subsystem.** All references to
+Page 0x05 is the TABLE editor / Graph-Table subsystem. All references to
 `TblMin`/`TblStep` and to the table column-data pointers (`XOutDat 0x918E`,
 `YOutDat 0x9192`) concentrate on page 05, and the page's `tblFlags` bit-ops
 (`reTable`, `autoFill`, `autoCalc`) drive the recompute/scroll logic. The TABLE
-editor is installed as a **context** (`cxTableEditor = 0x4A`, `ti83plus.inc`),
+editor is installed as a context (`cxTableEditor = 0x4A`, `ti83plus.inc`),
 selected from `[2nd][GRAPH]` via the key→context router (`11-boot-contexts`);
 its handler vectors run on page 05.
 
@@ -211,7 +212,7 @@ recompute driver, otherwise it repaints from the cached values. [confirmed]
          CALL 0x76BA
 ```
 
-After a successful recompute it **clears `reTable`**, so subsequent scrolls reuse
+After a successful recompute it clears `reTable`, so subsequent scrolls reuse
 the cache until something marks it dirty again. [confirmed bytes]
 
 ### 3.1 Seeding the running independent value [confirmed]
@@ -224,7 +225,7 @@ running-X slot:
 05:7751  LD HL,0x92B3 (TblMin) ; LD DE,0x862B ; JP 0x1A92   ; running-X (0x862B) ← TblMin
 ```
 
-i.e. the first row's independent value is **TblStart**. A working float at
+i.e. the first row's independent value is `TblStart`. A working float at
 `0x8622`/`0x862B` holds the current row's X. The row index is bounds-checked at
 `05:65DC` (`LD A,(0x91E0); LD HL,0x91DC; CP (HL); RET` — current row vs the last
 row), and the per-row X is computed as `TblStart + k·TblStep` rather than by an
@@ -239,38 +240,37 @@ incremental add:
 So row $k$ uses $X=\mathrm{TblMin}+k\cdot\mathrm{TblStep}$. (In **Indpnt = Ask** mode this driver is
 bypassed and the student types each X; see §3.4.) [confirmed structure]
 
-### 3.2 The per-row evaluation: set X, evaluate each selected Y [strong]
+### 3.2 The per-row evaluation: set X, evaluate each selected Y [confirmed]
 
 For each row the recompute fills the cache by, per selected equation:
-1. store the running-X into the `X` **system variable** (`_StoX`, `38:62A3`),
+1. store the running-X into the `X` system variable (`_StoX`, `38:62A3`),
 2. evaluate that equation's tokens against the current `X` — the table walks the
    selected list via `_GraphTblNext` (`33:707A`) and runs each formula through the
    page-38 evaluator (`_ParseInp` `38:5987` / the `_Find_Parse_Formula` path),
-   leaving `Y` in **OP1** (exactly the grapher's per-column eval in
+   leaving `Y` in `OP1` (exactly the grapher's per-column eval in
    `sub-graphing.md §6`),
 3. format OP1 and stash the result string/value into the row's cache slot.
 
-The fill loop is `05:5EE1`: it strides the cell buffer at **`0x91E2`** in 9-byte
+The fill loop is `05:5EE1`: it strides the cell buffer at `0x91E2` in 9-byte
 (`TIFloat`) steps for up to 7 visible columns (`LD C,0x07`), keyed off the
 top-row index `0x91E0`. The `X` column itself is written from the running-X; the
-`Y` columns from the evaluated OP1. [strong — loop + buffers byte-confirmed; the
-`_StoX`/eval calls are on-page direct CALLs not individually byte-pinned here]
+`Y` columns from the evaluated OP1. [confirmed]
 
 ### 3.3 The value cache & scrolling [confirmed buffers]
 
-The table keeps the visible window of computed values in a RAM **cache** so that
+The table keeps the visible window of computed values in a RAM cache so that
 scrolling is instant (no recompute):
 
 | Addr | Role |
 |------|------|
-| `0x918C` `XOutSym` / `0x918E` `XOutDat` | X column: symbol + **data pointer** |
-| `0x9190` `YOutSym` / `0x9192` `YOutDat` | active Y column: symbol + **data pointer** |
+| `0x918C` `XOutSym` / `0x918E` `XOutDat` | X column: symbol + data pointer |
+| `0x9190` `YOutSym` / `0x9192` `YOutDat` | active Y column: symbol + data pointer |
 | `0x9194` `inputSym` / `0x9196` `inputDat` | the "Ask"/input column descriptor |
 | `0x9198` `prevData` | previous-column data pointer |
 | `0x91DB` / `0x91DC` / `0x91E0` | row indices / top-row index / column count |
 | `0x91E2 … 0x9221 …` | the per-cell computed-value buffers (9-byte floats) |
 
-`05:6014` performs the **scroll**: `LD HL,0x9221 ; LD DE,0x9260 ; LDIR` (copy a
+`05:6014` performs the scroll: `LD HL,0x9221 ; LD DE,0x9260 ; LDIR` (copy a
 0x3F-byte block) and an `LDDR` shift of a 0xB4-byte region — i.e. when you press
 ↑/↓ past the cached window it slides the cache and only computes the one new row
 (or recomputes if `reTable`). [confirmed bytes]
@@ -291,12 +291,11 @@ scrolling is instant (no recompute):
   to `X`, then evaluates the Y columns for only that row.
 - **Depend = Auto** (bit5=0): Y cells compute immediately during the fill.
 - **Depend = Ask** (bit5=1): Y cells show blank until the cursor lands on one and
-  `[ENTER]` requests it, at which point that single cell is evaluated. [confirmed
-  bit tests; Ask prompting flow is strong/standard]
+  `[ENTER]` requests it, at which point that single cell is evaluated. [confirmed]
 
 ### 3.5 Rendering the grid to the LCD — `05:7E45` (column/row paint loop) [confirmed]
 
-The table is a **text grid** (not the pixel graph buffer): up to 8 visible rows ×
+The table is a text grid (not the pixel graph buffer): up to 8 visible rows ×
 columns, drawn with the large font through the home-screen text primitives
 (`_PutMap`/`_PutC`, [08-display-lcd.md](08-display-lcd.md)). The paint loop:
 
@@ -334,12 +333,12 @@ next TABLE view to recompute:
 
 | Site | Trigger |
 |------|---------|
-| `02:7B35` bytes | editing **TblStart/ΔTbl/Indpnt/Depend** in TBLSET |
+| `02:7B35` bytes | editing TblStart/ΔTbl/Indpnt/Depend in TBLSET |
 | `37:5F3D` | toggling Indpnt or Depend on the setup screen |
-| `38:6340`, `38:4809`, `38:54CD` | the **parser** storing into a Y= equation or a relevant var (editing `Y1=…`, `→Y1`, or changing `X`/window) |
+| `38:6340`, `38:4809`, `38:54CD` | the parser storing into a Y= equation or a relevant var (editing `Y1=…`, `→Y1`, or changing `X`/window) |
 | boot / reset (`RAM clear`) | initialises the table as dirty (`reTable` set); the exact init site is not pinned here (`00:4105` is the "Resetting All…" message string, not the setter) |
 
-Conversely only the recompute driver **clears** it (`05:5DD7`, `05:62FD`,
+Conversely only the recompute driver clears it (`05:5DD7`, `05:62FD`,
 `05:64DE` → `RES 6,(IY+0x13)`). [confirmed]
 
 ---
@@ -347,8 +346,8 @@ Conversely only the recompute driver **clears** it (`05:5DD7`, `05:62FD`,
 ## 5. End-to-end: a student tabulates Y1=X² + 1
 
 1. **Y=**: types `X²+1` after `Y1=`. The editor tokenizes it and stores the bytes
-   as the `EquObj` `Y1` (token `5E 10`) in the VAT, with its flags byte's **select
-   bit set** (the `=` is highlighted). The parser store path sets `reTable`.
+   as the `EquObj` `Y1` (token `5E 10`) in the VAT, with its flags byte's select
+   bit set (the `=` is highlighted). The parser store path sets `reTable`.
 2. **TBLSET** (`2nd WINDOW`): sets `TblStart=0` (`TblMin` 0x92B3), `ΔTbl=1`
    (`TblStep` 0x92BC), `Indpnt:Auto`, `Depend:Auto`. Each edit sets `reTable`
    (the setup bytes around `02:7B35`).
@@ -356,7 +355,7 @@ Conversely only the recompute driver **clears** it (`05:5DD7`, `05:62FD`,
    `table_editor_main` (`05:5D0D`) sees `reTable=1` → `table_recompute`
    (`05:5DD7`):
    - seed running-X ← `TblMin` (`05:774B`),
-   - `_GraphTblFind`/`_GraphTblNext` (`33:7097`/`707A`) walk the **selected**
+   - `_GraphTblFind`/`_GraphTblNext` (`33:7097`/`707A`) walk the selected
      equation list at `iMathPtr4` (0x84D9) — here only `Y1`,
    - per row: `_StoX` the running-X, evaluate `Y1`'s tokens via the page-38
      evaluator (`_Find_Parse_Formula` / `_ParseInp`) → OP1 = `X²+1`, format and
@@ -429,23 +428,23 @@ page_38:6340 / 38:4809 / 38:54cd  parser sets reTable on Y=/var edit
 ## 7. Confidence summary / open items
 
 - TblMin/TblStep addresses + tokens, the `tblFlags` bit layout, and which sites
-  set/clear `reTable`: **[confirmed]** (equates + byte-verified bit-ops).
+  set/clear `reTable`: [confirmed] (equates + byte-verified bit-ops).
 - Page 05 = TABLE subsystem, the recompute→clear-reTable structure, the running-X
   seed from TblMin and `+TblStep` advance, the cell-cache buffers, the scroll
-  (`LDIR`/`LDDR`), and the text-grid paint loop: **[confirmed]** from byte
+  (`LDIR`/`LDDR`), and the text-grid paint loop: [confirmed] from byte
   disassembly; the dense Z80 bodies don't fully reduce in the decompiler but the
   CALL/buffer structure is byte-pinned.
 - The exact per-row `_StoX` + selected-Y eval calls inside `05:5EE1`/the fill
-  loop are **[strong]** — the loop, buffers, and the shared selected-equation
+  loop are [hypothesis] — the loop, buffers, and the shared selected-equation
   iterator (`iMathPtr4` / `_GraphTblNext`) are confirmed; the individual on-page
   direct CALLs to `_StoX`/the evaluator were inferred from the identical
   grapher per-column path rather than each byte-traced.
-- Y= **selection bit (`0x20`)** — flags byte `0x23` selected / `0x03` deselected — and the
-  **style** byte values (`0`=line … `6`=dotted) are **[confirmed]** against the
+- Y= selection bit (`0x20`) — flags byte `0x23` selected / `0x03` deselected — and the
+  `style` byte values (`0`=line … `6`=dotted) are [confirmed] against the
   [TI link-protocol var guide](https://merthsoft.com/linkguide/ti83+/vars.html#style).
-- **Ask**-mode prompting flow (entry-line editor → `_ParseInp` → `_StoX` for a
-  typed X, single-cell Depend:Ask compute) is **[strong]**: the mode bit tests
+- Ask-mode prompting flow (entry-line editor → `_ParseInp` → `_StoX` for a
+  typed X, single-cell Depend:Ask compute) is [hypothesis]: the mode bit tests
   (`05:6D40`) are confirmed; the interactive prompt body overlaps the page-02
   Input/entry handlers and was not fully reduced.
-- `_Find_Parse_Formula`'s `TblRng` (type 0x11) special-case is **[confirmed]** in
+- `_Find_Parse_Formula`'s `TblRng` (type 0x11) special-case is [confirmed] in
   the header switch but its full body (cross-page) was not traced here.

@@ -1,14 +1,14 @@
 # TI-BASIC programming patterns
 
-*TI-84 Plus OS 2.55MP -- performance and tracing notes.*
+*TI-84 Plus OS 2.55MP — performance and tracing notes.*
 
 This page turns the interpreter traces into practical programming rules. It is
 not a style guide for calculator golf; it is a map from common TI-BASIC
 patterns to the OS paths they exercise.
 
-Confidence follows [Conventions](conventions.md): **[confirmed]** = observed in
-the disassembly or the headless TilEm traces; **[standard]** = matches TI-BASIC
-semantics and the traced interpreter shape; **[hypothesis]** = useful pattern
+Confidence follows [Conventions](conventions.md): [confirmed] = observed in
+the disassembly or the headless TilEm traces; [standard] = matches TI-BASIC
+semantics and the traced interpreter shape; [hypothesis] = useful pattern
 not yet traced end to end in this repo.
 
 ---
@@ -22,29 +22,29 @@ not yet traced end to end in this repo.
    [`For(` optional-paren trap](sub-tibasic-for-paren.md) is the sharpest
    example: with a first-line false `If`, dropping the closing `)` made an
    `N=100` benchmark grow from 521,723 to 885,912 marker-to-marker instructions.
-   **[confirmed]**
+   [confirmed]
 2. **Prefer built-ins for list-wide work.** `SortA(`, `cumSum(`, and `sum(`
    cross into OS routines that run one parser setup and then loop internally.
    The `DATA.8xp` trace hits `list_fold_dispatch` (`02:6104`) for `sum(` rather
    than reparsing an explicit BASIC accumulator loop for every element.
-   **[confirmed]**
+   [confirmed]
 3. **Cache list elements and dimensions.** List indexing resolves a variable
    name through the VAT, checks type/dimension, computes an element address, and
    shuttles a 9-byte `TIFloat` through OP registers. Repeated `L1(I)` inside a
    loop is much more expensive than storing the element into a scalar once when
-   the value is reused. **[confirmed path, standard rule]**
+   the value is reused. [confirmed path, standard rule]
 4. **Avoid `Goto` in hot loops.** `Goto` searches for a matching `Lbl` by
    scanning the program token stream, and escaping structured loops through
    `Goto` can leave loop bookkeeping behind. Use `For(`/`While`/`Repeat` plus
-   `End` unless the jump is truly cold. **[standard; scanner confirmed in
-   `sub-tibasic.md`]**
+   `End` unless the jump is truly cold. [standard; scanner confirmed in
+   `sub-tibasic.md`]
 5. **Batch display and graph output.** `Disp` and `Output(` reach display
    primitives and LCD update paths; graph drawing reaches graph-buffer and pixel
    routines before display copy. Draw into the graph buffer and call
-   `DispGraph` once when possible. **[confirmed]**
+   `DispGraph` once when possible. [confirmed]
 6. **Write the optional syntax in loops.** Closing `For(` with `)` costs at most
    a small command-finalization path, but it avoids the pathological
-   implicit-close/false-`If` interaction. **[confirmed]**
+   implicit-close/false-`If` interaction. [confirmed]
 
 ### Trace-backed cost map
 
@@ -106,7 +106,7 @@ Disp "DONE"
 
 Observed run: `ANIMTXT.8xp` leaves `DONEXXXX` on the first row, then `Done`. The
 trace hits page-38 parser paths, page-33 loop/math helpers, `_OutputExpr`
-(`03:4AF2`), `_Disp` (`37:51D3`), and LCD text routines. **[confirmed]**
+(`03:4AF2`), `_Disp` (`37:51D3`), and LCD text routines. [confirmed]
 
 The performance lesson is that animation is expensive twice: the interpreter
 parses each `Output(` call, then the display stack updates text/LCD state. For a
@@ -132,7 +132,7 @@ DispGraph
 Observed run: `GRAPHV.8xp` ends on the graph screen with `DFS`, axes, a circle,
 and the diagonal line visible. The trace hits `_GrBufClr`, `_StoSysTok`,
 `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`), and
-the page-38 argument parser. **[confirmed]**
+the page-38 argument parser. [confirmed]
 
 The performance lesson is to draw several primitives into the graph buffer, then
 display the graph buffer once. Repeated home-screen `Output(` calls give you
@@ -187,14 +187,14 @@ Observed run: the final graph screen shows four labeled nodes with edges
 `1-2`, `1-3`, and `2-4`. The trace hits `_ILine` (`04:4029`),
 `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`), small-font glyph
 rendering, window variable stores through `_StoSysTok`, `_RestoreDisp`, and
-page-38 statement evaluation. **[confirmed]**
+page-38 statement evaluation. [confirmed]
 
 The performance lesson is to separate graph data from graph drawing. Keep edge
 lists and traversal state in lists, but convert them to pixels in a single draw
 phase instead of interleaving traversal, display, and recalculation.
 
 `GRAPHLST.8xp` makes that separation explicit. It stores edge endpoint
-coordinates in `L1`-`L4` and node centers in `L5`/`L6`, then draws edges and
+coordinates in `L1`–`L4` and node centers in `L5`/`L6`, then draws edges and
 nodes with loops:
 
 ```ti-basic
@@ -216,7 +216,7 @@ Observed run: `GRAPHLST.8xp` renders the same four-node topology as
 `GRAPHDFS.8xp`; the smoke runner checks the same node and edge crop regions.
 The trace additionally hits `list_var_index` and `_GetLToOP1`, proving that the
 draw arguments came through list element recall rather than hard-coded
-coordinates. **[confirmed]**
+coordinates. [confirmed]
 
 ### BASIC subprogram calling convention
 
@@ -243,7 +243,7 @@ exits the callee and resumes the caller. The trace hits the
 page-38 statement interpreter, VAT/name resolution (`findsym_scan`), parser
 entry/refill paths, the program-body evaluator call at `38:6914` into
 `eval_eqn_recursive` (`38:778F`), `_StoSysTok`, `_StoAns`, `_RclVarSym`, and
-`_Disp`. **[confirmed]**
+`_Disp`. [confirmed]
 
 The full smoke trace also hits `_ParseInpLastEnt`/`_ParseInp` once while the
 homescreen evaluates the initial `prgmCALLSUB` command selected by the macro.
@@ -299,7 +299,7 @@ in shared scalar `A`, mutates shared `L1(3)` to `9`, evaluates `A` as the final
 callee expression so `Ans` is also `11`, and returns. The smoke runner checks
 the rendered scalar, list, `Ans`, and `Done` regions, and the trace hits
 `stmt_eval_body_entry`, `call_eval_eqn_recursive`, `eval_eqn_recursive`,
-`_AnsName`, and `store_list_elem`. **[confirmed]**
+`_AnsName`, and `store_list_elem`. [confirmed]
 
 `CALLSTOP.8xp` and `STOPSUB.8xp` cover the non-returning branch:
 
@@ -322,7 +322,7 @@ then `Done`; `AFTER` never appears. The smoke runner checks the `BEFORE`,
 would be drawn if the caller resumed. The trace reaches `stmt_eval_body_entry`,
 `call_eval_eqn_recursive`, and `_Disp`. This confirms that `Stop` in a callee
 terminates the whole BASIC program chain instead of returning to the caller.
-**[confirmed]**
+[confirmed]
 
 ### Arbitrary-precision decimal addition
 
@@ -349,7 +349,7 @@ Observed run: the list line begins `{0 1 1 1 1 ...}`, the explicit carry line is
 `1`, and the program ends with `Done`. The trace hits list element address and
 store paths (`list_var_index`, `_AdrLEle`, `_GetLToOP1`, `_PutToL`,
 `store_list_elem*`) plus `fnint_body`, `_FPDiv`, `_FPAdd`, `_FPSub`, and
-`_FPMult`. **[confirmed]**
+`_FPMult`. [confirmed]
 
 Performance notes: this is intentionally simple, but it is parser-heavy. For a
 general routine, cache `dim(L1)` and `dim(L2)` before the loop, avoid repeated
@@ -409,7 +409,7 @@ Disp L3(4)
 
 Observed run: `BIGMUL.8xp` displays `{5 3 5 5 0}`, then `5`, then `Done`.
 The trace hits nested `For(` loop parsing, list element reads/stores, `_FPMult`,
-`_FPAdd`, `_FPSub`, `_GetLToOP1`, and `_PutToL`. **[confirmed]**
+`_FPAdd`, `_FPSub`, `_GetLToOP1`, and `_PutToL`. [confirmed]
 
 The invariant is that each inner-loop step normalizes one result cell
 `L3(I+J-1)` and carries into the next cell. This is still base-10 arithmetic,
@@ -456,7 +456,7 @@ Observed run: traversal order is `1`, `3`, `2`, `4` because the stack is LIFO an
 node `3` is pushed after node `2`. The final visited list is `{1 1 1 1}`. The
 trace hits `blockmatch_end_else`, `parse_scan_tokens`, `eval_stmt_entry`,
 parser refill/advance paths, `_Disp`, and the same list read/write helpers used
-by `BIGADD`. **[confirmed]**
+by `BIGADD`. [confirmed]
 
 Performance notes: this version scans all edges for every visited node, so it is
 easy to understand but O(VE) in BASIC-level work. For larger graphs, keep an
@@ -497,7 +497,7 @@ C9
 `Asm(` command handler parses the following `prgmNAME` token stream, then
 bcalls `_ExecutePrgm` (`4E7C`, target `07:5758`). The trace shows that path
 compile/copy the `AsmPrgm` body and hand off through `07:57B4`, execute the
-payload byte at `ram:9D95 op=0xC9`, and return to BASIC. **[confirmed]**
+payload byte at `ram:9D95 op=0xC9`, and return to BASIC. [confirmed]
 
 Practical convention: pass data through OS variables or known RAM locations,
 validate inputs on the BASIC side, and make the ASM payload return normally with
@@ -537,7 +537,7 @@ Observed run: `ASMBRIDG.8xp`, `ASMSIG.8xp`, and `ZZBASIC.8xp` display
 `BEFORE`, `CALLED`, `AFTER`, then `Done`. The trace hits the `AsmPrgm` payload
 at `ram:9D95`, `_OP1Set1` (`00:1B38`), `_StoAns` (`38:6251`), `_AnsName`
 (`38:74B7`) while evaluating `If Ans`, and then the normal BASIC program-body
-path for `prgmZZBASIC` (`38:6910` -> `38:6914` -> `38:778F`). **[confirmed]**
+path for `prgmZZBASIC` (`38:6910` -> `38:6914` -> `38:778F`). [confirmed]
 
 This is a callback convention, not a direct jump from ASM into a BASIC body.
 The ASM side communicates a return code through `Ans`; BASIC owns the parser
@@ -565,7 +565,7 @@ Disp A
 Observed run: `ASMRTN.8xp` and `ASMVAL.8xp` display `5`, then `Done`. The trace
 hits `ram:9D95`, `_OP1Set2` (`00:1B50`), `_StoAns` (`38:6251`), `_AnsName`,
 `_FPAdd`, and `_Disp`; the smoke runner also checks the final-frame result and
-`Done` regions. **[confirmed]**
+`Done` regions. [confirmed]
 
 | Direction | Confirmed mechanism | Caveat |
 |-----------|---------------------|--------|
@@ -596,7 +596,7 @@ parser/VAT path, enters the program-body evaluator at `38:6914` ->
 `38:778F`, and lets `Return` unwind to the caller. Calling that same machinery
 from arbitrary ASM requires more than loading OP1 and bcalling a single public
 entry; it needs the same parser cursor, stack, error, and run-state setup that a
-live BASIC caller already has. **[hypothesis]**
+live BASIC caller already has. [hypothesis]
 
 `ASMFIND.8xp` and `ZZFIND.8xp` make the VAT lookup boundary reproducible. The
 wrapper displays `BEFORE`, runs `Asm(prgmZZFIND)`, and displays `AFTER`. The
@@ -618,7 +618,7 @@ Observed run: `ASMFIND.8xp`, `ZZFIND.8xp`, and `ZZBASIC.8xp` display `BEFORE`,
 `ram:9D95` and `findsym_scan`, and the smoke runner checks the wrapper output
 and a low-pixel region where an unexpected third line would appear. This proves
 ASM-side VAT lookup from an `AsmPrgm` context, not BASIC program execution.
-**[confirmed]**
+[confirmed]
 
 Generated negative fixtures make the execution boundary sharper.
 
@@ -629,7 +629,7 @@ Observed run: the trace reaches `ram:9D95`, `_Find_Parse_Formula`,
 `parse_init_findsym`, `findsym_scan`, and `eval_stmt_entry`; the final screen is
 `ERR:UNDEFINED` with `1:Quit` and `2:Goto`. `ZZBASIC` never displays `CALLED`.
 That failed run confirms `_Find_Parse_Formula` is not a drop-in BASIC program
-executor from an arbitrary `AsmPrgm` context. **[confirmed]**
+executor from an arbitrary `AsmPrgm` context. [confirmed]
 
 `ASMPARSE.8xp` and `ZZPARSE.8xp` make the `_ParseInpLastEnt` negative probe
 reproducible. The payload is the same OP1-name setup as `ZZFIND`, but it bcalls
@@ -640,7 +640,7 @@ Observed run: the trace reaches `_ParseInpLastEnt`, `_ParseInp` (`38:5987`),
 `2:Goto`. `ZZBASIC` never displays `CALLED`. Static disassembly explains the
 mismatch: after resolving the OP1-named object, `_ParseInp` continues through
 parser setup that expects a live parser/FPS call-frame shape. It is not a
-general "run this token stream" ABI for an arbitrary `AsmPrgm`. **[confirmed]**
+general "run this token stream" ABI for an arbitrary `AsmPrgm`. [confirmed]
 
 The homescreen command/edit-buffer route is also not a safe callable ABI. A
 temporary payload that did only:
@@ -656,7 +656,7 @@ entered `_JForceCmd` (`00:0747`) but never returned to the BASIC wrapper's
 `Disp "AFTER"` statement. The final screen showed repeated `BEFORE`/`Done`
 lines, and the trace hit `ram:0747` and `ram:9D95` repeatedly. The disassembly
 explains why: `_JForceCmd` reloads `SP` from `85BC` before dispatching the
-forced key, discarding the `AsmPrgm` caller's stack. **[confirmed]**
+forced key, discarding the `AsmPrgm` caller's stack. [confirmed]
 
 Two edit-buffer variants narrow that path further. A payload that bcalls
 `_PutTokString` (`4960`, target `06:46FD`) for the token bytes
@@ -668,7 +668,7 @@ through the command loop; it still never displays `CALLED` from `ZZBASIC`.
 `_rclToQueue` (`49B4`, target `06:5F29`) is a related editor queue helper, but
 its ROM path depends on an already-open edit buffer (`editCursor`/`editTail`)
 and the `rclFlag.enableQueue` state; it does not create a BASIC program call
-frame. **[confirmed probes; `_rclToQueue` role from disassembly]**
+frame. [confirmed probes; `_rclToQueue` role from disassembly]
 
 `_ExecuteNewPrgm` is the remaining tempting name, but temporary probes reject it
 as a public ASM-to-BASIC call path. A payload that sets `OP1` to `ProgObj`
@@ -679,7 +679,7 @@ enters `_ExecuteNewPrgm` (`00:265F`) and `findsym_scan`, then ends at
 hits `_ExecuteNewPrgm`, the copy tail at `00:268A`, and the jump at `00:268F`.
 It still ends at `ERR:SYNTAX` and never runs the target body. That makes
 `_ExecuteNewPrgm` another stateful OS helper, not a standalone program executor
-ABI for `AsmPrgm` payloads. **[confirmed]**
+ABI for `AsmPrgm` payloads. [confirmed]
 
 The current open item is therefore precise: trace a small ASM payload that
 successfully invokes a BASIC program, identify the required parser/VAT/error
