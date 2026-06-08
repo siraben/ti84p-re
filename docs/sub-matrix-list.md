@@ -30,7 +30,7 @@ Ghidra program with address spaces `ram` (the page-0/RAM-resident 0x0000–0x7FF
 - The data area is found through the VAT (`_FindSym`, [doc 05](05-variables-vat.md)): the VAT entry's data
   pointer + page byte locate the `count`/`dim` header, after which all indexing is pointer
   arithmetic computed by `_AdrLEle`/`_AdrMEle`.
-- One shared Gauss-Jordan engine (`page_02:42A6`) implements matrix inverse `[A]⁻¹`
+- One shared Gauss-Jordan engine (`02:42A6`) implements matrix inverse `[A]⁻¹`
   (flag `0x00`) and `det(` (flag `0x40`) with partial pivoting. `rref(`/`ref(` are
   the same elimination family.
 
@@ -335,7 +335,7 @@ the bodies; standard for those two residuals]
 ## 5. The heavy ones — `det(`, `[A]⁻¹`, `rref(` / `ref(` [confirmed]
 
 `det(` and `[A]⁻¹` share the Gauss-Jordan elimination engine with partial pivoting —
-`matrix_gauss_engine` @ `page_02:42A6` — the *entry flag in `A`* selecting behaviour; only two
+`matrix_gauss_engine` @ `02:42A6` — the *entry flag in `A`* selecting behaviour; only two
 direct call sites exist (byte-verified — `CD A6 42` appears exactly twice). `rref(`/`ref(` are a
 separate driver and do not call `42A6` (see below):
 

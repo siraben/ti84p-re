@@ -5,11 +5,11 @@ Three cross-cutting mechanisms that tie the OS together: how it starts, how it s
 ## Boot [confirmed, partial]
 
 ```z80
-0000 reset:  in a,(2); and 0x80; jp 028c     ; test port 2 bit7, go to boot continuation
+0000 reset:  IN A,(2); AND 0x80; JP 0x028C   ; test port 2 bit7, go to boot continuation
 028c:        port_mapBankA = 0x1F             ; bank a flash page into 4000
              (cond) DAT_io_000E = 3; port_mapBankA = 0x7F   ; configure RAM/exec paging (port 0x0E)
              port_memMapMode = 7              ; OUT (4): memory-map mode 1 + slow timer rate
-             jp 0x812c                        ; into the boot page (3F:412C) — BootFree substitute here; retail boot in D84PBE1.8Xv
+             JP 0x812C                        ; into the boot page (3F:412C) — BootFree substitute here; retail boot in D84PBE1.8Xv
 ```
 
 Boot configures the paging hardware (`OUT (6),0x7F` selects flash page `3F`, the boot page) and the memory-map/timer mode (`OUT (4)`), then ends `JP 0x812c` into the banked window where page `3F` sits — `3F:412C`. In this BootFree `rom.bin` page `3F` is a substitute placeholder (`3F:412C` re-maps paging rather than running the retail sequence); the retail boot page carries the real continuation (`D84PBE1.8Xv` / `ti84plus_patched.rom`, `3F:412C` = `IM 1; LD B,0; LD SP,0xFDFA; …`). The boot page eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen).
@@ -24,9 +24,9 @@ The RAM-init proper is `ram_reset_wipe` (`35:719F`, reached on a full reset; the
 ram_reset_wipe (35:719f):
   ; save flags to preserve: (9B73), (IY+34).6, (IY+35).0, (IY+35).1, (IY+3F)&0x7F
   DI
-  LD HL,8000 ; LD DE,8001 ; LD BC,1BC3 ; LD (HL),0 ; LDIR   ; clear 8000..9BC3
+  LD HL,0x8000 ; LD DE,0x8001 ; LD BC,0x1BC3 ; LD (HL),0 ; LDIR   ; clear 8000..9BC3
   ... restore the saved flag bits ...
-  LD HL,9BD0 ; LD DE,9BD1 ; LD BC,642F ; LD (HL),0 ; LDIR   ; clear 9BD0..FFFF
+  LD HL,0x9BD0 ; LD DE,0x9BD1 ; LD BC,0x642F ; LD (HL),0 ; LDIR   ; clear 9BD0..FFFF
   JP 0x0BD9
 ram_init_after_reset (ram:0BD9):
   LD A,0xC0 ; OUT (0),A        ; port 0 = memory-map control
@@ -51,7 +51,7 @@ So RAM is wiped in two LDIR runs (`0x8000`–`0x9BC3`, then `0x9BD0`–`0xFFFF`,
 ```
 So the loop pumps an event/context stack (8 slots from `0x84BF`, after the `INC HL`), routes each via the dispatcher at `ram:3F3F`, and ultimately runs the active context's `cxMain` handler through `call_context_main`, looping forever.
 
-The `ram:3F3F` router is a bjump trampoline → `event_key_router` (`page_07:4539`): given a key code, it scans key→context dispatch tables (`07:4099`, ~105 entries, for 1-byte keys; `07:422C`/`4426` for extended 2-byte keys, using `_LdHLind`/`_CpHLDE`) and returns a routing code:
+The `ram:3F3F` router is a bjump trampoline → `event_key_router` (`07:4539`): given a key code, it scans key→context dispatch tables (`07:4099`, ~105 entries, for 1-byte keys; `07:422C`/`4426` for extended 2-byte keys, using `_LdHLind`/`_CpHLDE`) and returns a routing code:
 - `0xFE` — normal: hand the key to the active context's handler.
 - `0xFB` / `0xFC` — context switch / app launch (the key maps to a different context — recall `cxCurApp` *is* a key code, so e.g. `[GRAPH]` → the graph context).
 - `0xFF`/`0x7F` — quit / no-op.
@@ -122,7 +122,7 @@ So `errSP` + `_JError` together implement try/catch: a context seeds `errSP` (fr
 
 ### Error-message table [local data-table trace]
 
-The error screen shows `ERR:<MESSAGE>` (the `ERR:` prefix is on `page_01:4008`). A local data-table trace shows the handler masking the code (`AND 0x7F`), then for codes below `0x3A` indexing a little-endian pointer table at `page_07:6ACC` by `(code) − 1` (`LD HL,0x6ACC; ADD HL,DE; ADD HL,DE; CALL _LdHLind`) to fetch each message pointer; the message strings themselves sit consecutively from `page_07:6B3C` as null-terminated text. Codes `≥ 0x3A` (and the special-cased `0x36`/`0x37`/`0x39`) bypass the table and fall back to the `?` message at `page_07:6C5A`. The current MCP function/xref view does not prove this data-only table directly, so treat the addresses as a data trace rather than live function symbols:
+The error screen shows `ERR:<MESSAGE>` (the `ERR:` prefix is on `01:4008`). A local data-table trace shows the handler masking the code (`AND 0x7F`), then for codes below `0x3A` indexing a little-endian pointer table at `07:6ACC` by `(code) − 1` (`LD HL,0x6ACC; ADD HL,DE; ADD HL,DE; CALL _LdHLind`) to fetch each message pointer; the message strings themselves sit consecutively from `07:6B3C` as null-terminated text. Codes `≥ 0x3A` (and the special-cased `0x36`/`0x37`/`0x39`) bypass the table and fall back to the `?` message at `07:6C5A`. The current MCP function/xref view does not prove this data-only table directly, so treat the addresses as a data trace rather than live function symbols:
 
 | Code | `TIError` | Message @ page_07 |
 |------|-----------|-------------------|

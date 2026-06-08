@@ -12,6 +12,18 @@ All TI-BASIC arithmetic runs through a BCD floating-point engine centered on the
 +1  exp       base-100? no — base-10 exponent, biased by 0x80 (0x80 = 10^0)
 +2..+8  mantissa   7 bytes = 14 packed BCD digits, normalized d.dddddddddddddd
 ```
+
+As a C struct:
+
+```c
+typedef struct {
+    uint8_t type;          /* +0: 0x00 real (positive), 0x80 negative; 0x0C/0x8C complex part */
+    uint8_t exp;           /* +1: base-10 exponent, biased by 0x80 (0x80 == 10^0)             */
+    uint8_t mantissa[7];   /* +2..+8: 14 packed BCD digits, normalized d.dddddddddddddd        */
+} TIFloat;                                              /* 9 bytes on disk / in a stored var   */
+/* In an OP register slot the number occupies 11 bytes: the 9 above plus 2 trailing guard      */
+/* digit bytes (OP1EXT at +9/+10) used during math — see "OP registers" below.                 */
+```
 The stored value is
 
 $$v = \pm\\,(d_0.d_1d_2\cdots d_{13})\times 10^{\\,e-\mathtt{0x80}}$$
@@ -126,7 +138,7 @@ See [Calculation Engine](sub-calculation.md) for the ×/÷/^/root algorithms and
 
 ## Transcendental method [confirmed]
 
-The ln/e^x/sin-cos evaluators are local page-0x02 code plus page-0x02 coefficient tables. The apparent `LD A,n; CALL ram:2362` "page switch" sites are not banked series tails: Ghidra disassembly shows `ram:2362: CALL ram:3DD1`, and `ram:3DD1` is a bcall-table entry whose inline descriptor is `1E 7D 02` (`page_02:7D1E`). The real banked-call helper is `ram:2B09`. `ram:2362` fetches the page-0x02 coefficient indexed by `A` and then multiplies OP1 by it (it enters the `_FPMult` body at `ram:2392`). Therefore the preceding `LD A,n` is a coefficient-table index, not a target flash page. Raw ROM bytes at the supposed same-address page-0x03 targets are `0xFF`, and Ghidra has no page-0x03/page-0x06 functions there.
+The ln/e^x/sin-cos evaluators are local page-0x02 code plus page-0x02 coefficient tables. The apparent `LD A,n; CALL ram:2362` "page switch" sites are not banked series tails: Ghidra disassembly shows `ram:2362: CALL ram:3DD1`, and `ram:3DD1` is a bcall-table entry whose inline descriptor is `1E 7D 02` (`02:7D1E`). The real banked-call helper is `ram:2B09`. `ram:2362` fetches the page-0x02 coefficient indexed by `A` and then multiplies OP1 by it (it enters the `_FPMult` body at `ram:2392`). Therefore the preceding `LD A,n` is a coefficient-table index, not a target flash page. Raw ROM bytes at the supposed same-address page-0x03 targets are `0xFF`, and Ghidra has no page-0x03/page-0x06 functions there.
 
 ### The shared algorithm — digit-by-digit pseudo-division [confirmed]
 

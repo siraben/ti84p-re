@@ -14,7 +14,7 @@ How to read these notes, and how they were produced.
 
 - `pp:addr` — flash page `pp` (`00`–`3F`), logical address `addr`. Banked pages run in the `4000–7FFF` window, so e.g. `_PutS` at `01:5C39` means page 1, address `0x5C39`. Example: `3D:6745`.
 - `ram:addr` — page 0 (the always-mapped kernel) and the RAM window; Ghidra keeps page 0 in its `ram` space, so `ram:229E` ≡ `00:229E`.
-- `page_pp:addr` — the same as `pp:addr`, written in Ghidra's overlay-space form (`page_38:4000`). Used where it matches the tool output.
+- Ghidra's overlay space writes flash addresses as `page_pp:addr` (e.g. `page_38:4000`); the wiki normalizes these to the short `pp:addr` form, so `page_38:4000` is written `38:4000`.
 - A bare `0x….` (no page) is a RAM data address or an unpaged value (e.g. `flags` `0x89F0`, the bcall-ID ranges `0x4xxx`/`0x8xxx`, a page number like `0x3B`).
 - **bcall ID ≠ address.** A bcall has an *ID* (the 2-byte word after `rst 28h`, e.g. `_FindSym` = `42F4h`) and a *body address* (`00:0E65`). The ID indexes the jump table; it is not where the code lives.
 

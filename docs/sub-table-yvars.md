@@ -378,23 +378,23 @@ RAM  92BC   TblStep / ΔTbl                     ; row increment (sys float)
 IY+19 b4    tblFlags.autoFill = Indpnt Auto/Ask
 IY+19 b5    tblFlags.autoCalc = Depend Auto/Ask
 IY+19 b6    tblFlags.reTable  = table-dirty
-page_02:7b20  tblsetup_handler                 ; TBLSET key/edit handler
-page_02:7b35  (retired label; no live function in the current Ghidra DB)
-page_37:5f10  tblset_cx_display                ; TBLSET screen reconcile → reTable
+02:7b20  tblsetup_handler                 ; TBLSET key/edit handler
+02:7b35  (retired label; no live function in the current Ghidra DB)
+37:5f10  tblset_cx_display                ; TBLSET screen reconcile → reTable
 
 ; --- TABLE editor / generator (page 05) ---
-page_05:5d0d  table_editor_main                ; reTable? recompute : use cache; paint
-page_05:5dd7  table_recompute                  ; seed X, fill cache, clear reTable
-page_05:774b  table_seed_runX_from_TblMin      ; runningX(0x862B) ← TblMin
-page_05:773f  table_seed_runX_from_TblMin2     ; same, split-graph path
-page_05:65dc  table_row_bound                   ; row-index bound check (91E0 vs (91DC))
-page_05:5ee1  table_fill_cache_loop            ; per-row value-cache fill (0x91E2)
-page_05:6014  table_scroll_cache               ; slide cell cache on scroll (LDIR/LDDR)
-page_05:6d40  table_mode_test                  ; BIT autoFill/autoCalc (Auto vs Ask)
-page_05:7e45  table_paint_grid_loop            ; render cached cells as text columns
-page_05:7e7c  table_cell_select_buffer         ; pick cell text buffer 0x9221/0x91E2
-page_05:7712  _ScreenSplit                     ; Graph-Table split-screen setup
-page_05:62fd  table_recompute_clear_reTable    ; another RES6 recompute exit
+05:5d0d  table_editor_main                ; reTable? recompute : use cache; paint
+05:5dd7  table_recompute                  ; seed X, fill cache, clear reTable
+05:774b  table_seed_runX_from_TblMin      ; runningX(0x862B) ← TblMin
+05:773f  table_seed_runX_from_TblMin2     ; same, split-graph path
+05:65dc  table_row_bound                   ; row-index bound check (91E0 vs (91DC))
+05:5ee1  table_fill_cache_loop            ; per-row value-cache fill (0x91E2)
+05:6014  table_scroll_cache               ; slide cell cache on scroll (LDIR/LDDR)
+05:6d40  table_mode_test                  ; BIT autoFill/autoCalc (Auto vs Ask)
+05:7e45  table_paint_grid_loop            ; render cached cells as text columns
+05:7e7c  table_cell_select_buffer         ; pick cell text buffer 0x9221/0x91E2
+05:7712  _ScreenSplit                     ; Graph-Table split-screen setup
+05:62fd  table_recompute_clear_reTable    ; another RES6 recompute exit
 
 ; --- table value-cache RAM ---
 RAM  918C/918E  XOutSym / XOutDat              ; X-column symbol + data ptr
@@ -409,17 +409,17 @@ RAM  8622 / 862B     running independent value (current row's X)
 EquObj = 3 (VAT type)                          ; Y1..Y0 stored as tokenized formulas
 tokens: tVarEqu=0x5E + tY1=0x10 … tY0=0x19     ; Y-var name encoding
 RAM  84D9   iMathPtr4                          ; base of selected-equation pointer list
-page_33:7097  _GraphTblFind                    ; (re)build selected-equation list
-page_33:707a  _GraphTblNext                    ; fetch n-th equation ptr (0x84D9+2n)
-page_33:7066  _grf_7066                        ; store n-th equation ptr
-page_38:758a  _Find_Parse_Formula              ; FindSym Y-var + parse its formula → OP1
-page_38:5987  _ParseInp                        ; parse/eval a formula against current X
-page_38:62a3  _StoX                            ; store OP1 → X system var (per row)
-page_38:67ae  _RclX  / 38:67a4 _RclY / 38:626c _StoY
-page_33:5023  _GraphParseTok                   ; pre-scan equation tokens (graphable?)
+33:7097  _GraphTblFind                    ; (re)build selected-equation list
+33:707a  _GraphTblNext                    ; fetch n-th equation ptr (0x84D9+2n)
+33:7066  _grf_7066                        ; store n-th equation ptr
+38:758a  _Find_Parse_Formula              ; FindSym Y-var + parse its formula → OP1
+38:5987  _ParseInp                        ; parse/eval a formula against current X
+38:62a3  _StoX                            ; store OP1 → X system var (per row)
+38:67ae  _RclX  / 38:67a4 _RclY / 38:626c _StoY
+33:5023  _GraphParseTok                   ; pre-scan equation tokens (graphable?)
 
 ; --- reTable (dirty) setters ---
-page_38:6340 / 38:4809 / 38:54cd  parser sets reTable on Y=/var edit
+38:6340 / 38:4809 / 38:54cd  parser sets reTable on Y=/var edit
 (boot/RAM-clear)  sets reTable (init site not pinned; 00:4105 is a message string)
 ```
 

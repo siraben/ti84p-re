@@ -26,7 +26,7 @@ In this OS the system RAM variables all live at `8000+`, so the static RE model 
 | `3E` | Certification page (per-calculator cert sector; effectively blank in this OS-only image — no certificate payload, only a few `00` bytes) | 84+ cert page is `3E`, not `3F` [standard] |
 | `3F` | Retail boot page | supplied by local `D84PBE1.8Xv`; starts `3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81`, contains boot version string `1.03`, and hosts the `0x8xxx` boot bcall table [confirmed] |
 
-Pages `01–3F` are loaded in Ghidra as overlays `page_01 … page_3F` (each at `4000`). Goto e.g. `page_01:5b4c` for `_PutC`.
+Pages `01–3F` are loaded in Ghidra as overlays `page_01 … page_3F` (each at `4000`). Goto e.g. `01:5b4c` for `_PutC`.
 
 The assembled `tools/rom.bin` (the Ghidra build input) is a BootFree image — pages `2F` and `3F` are blank or BootFree-substituted there. The `2F`/`3F` rows above describe the retail USB/boot content from the local `D84PBE2.8Xv` / `D84PBE1.8Xv` segment files (the page-3F retail boot is also applied in `ti84plus_patched.rom`); those bodies are byte-decoded from those files, not from `rom.bin`.
 

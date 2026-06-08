@@ -135,6 +135,17 @@ A TI link packet is a 4-byte header optionally followed by data + 2-byte checksu
    8674     8675     8676     8677         streamed      8678 acc
 ```
 
+As a C struct:
+
+```c
+typedef struct {
+    uint8_t machineID;   /* 0x8674: machine-ID (peer/local device class) */
+    uint8_t commandID;   /* 0x8675: command-ID                           */
+    uint8_t lenLo;       /* 0x8676: data length, low byte                */
+    uint8_t lenHi;       /* 0x8677: data length, high byte               */
+} LinkPacketHeader;                                  /* 4 bytes (0x8674..0x8677) */
+```
+
 ### 3a. Send a header — `41C3` [confirmed]
 ```z80
 41C3: 6D4B (drive line) ; short delay ; CALL probe_hw_model_keep_a (model probe)

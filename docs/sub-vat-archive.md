@@ -16,7 +16,7 @@ the cross-page `CALL 0x2b09`-style trampolines. Page numbers are the masked flas
 ## 1. The arcInfo workspace and key RAM pointers [confirmed]
 
 The archive engine keeps a 12-byte scratch block, labelled `arcInfo` (`83EEh`) in `ti83plus.inc`,
-plus a saved copy `savedArcInfo` (`8406h`). `_Arc_Unarc`'s reentrant inner mover at `page_07:61DC`
+plus a saved copy `savedArcInfo` (`8406h`). `_Arc_Unarc`'s reentrant inner mover at `07:61DC`
 copies the 12 bytes starting at `83F1` (the `vatPtr` field onward, not the whole `83EE` block)
 into `8406` (`LD HL,83F1 / LD DE,8406 / LD BC,0C / LDIR`); the matching `07:61E8` restore candidate is an inferred label, not byte-confirmed in the disassembly.
 
@@ -43,7 +43,7 @@ read/write routines are copied to run (you cannot execute from a Flash page whil
 ## 2. `_FindSym` and the VAT walk [confirmed]
 
 `_FindSym` (`00:0E65`, = `RST 10h`) is a page-0 trampoline that cross-page-jumps to the real scanner
-`findsym_scan` @ `page_07:565F`. `_ChkFindSym` (`00:0E60`) first type-checks OP1 (`_CkOP1Real`)
+`findsym_scan` @ `07:565F`. `_ChkFindSym` (`00:0E60`) first type-checks OP1 (`_CkOP1Real`)
 then falls into FindSym.
 
 The scanner keys off `OP1` at `8478`: `OP1.type`/`varType` and the name token at `8479` (=OP1+1),

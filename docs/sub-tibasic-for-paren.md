@@ -111,7 +111,7 @@ extra time in name/VAT scanning and pointer walking, not arithmetic:
 
 ```text
 false N=25, no paren minus explicit paren:
-  +18,900 instr  page_07:565F  findsym_scan
+  +18,900 instr  07:565F  findsym_scan
    +3,600 instr  ram:1787      dec_hl_tail_1787
    +1,800 instr  ram:1785      dec_hl_tail_1785
      +900 instr  ram:1784      dec_hl_tail_1784
