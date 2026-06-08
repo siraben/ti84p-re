@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bbfe7a9f.js";
+            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-bcf53af4.js"></script>
+        <script src="toc-76256a07.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -187,18 +187,18 @@
 <tr><th>Slot</th><th>Select port</th><th>Selects</th></tr>
 </thead>
 <tbody>
-<tr><td><code>4000–7FFF</code> (bank A)</td><td><strong>port 6</strong> (<code>mapBankA</code>)</td><td>a flash page (0–63) — and the bcall mechanism uses this slot to bring routines into view</td></tr>
-<tr><td><code>8000–BFFF</code> (bank B)</td><td><strong>port 7</strong> (<code>mapBankB</code>)</td><td>a RAM or flash page; <code>0x81</code> observed = 84+ RAM mode</td></tr>
-<tr><td><code>C000–FFFF</code> (bank C)</td><td><strong>port 5</strong> (<code>mapBankC</code>)</td><td>a RAM page; <code>0x00</code> observed = RAM page <code>80</code></td></tr>
+<tr><td><code>4000–7FFF</code> (bank A)</td><td><code>port 6</code> (<code>mapBankA</code>)</td><td>a flash page (0–63, bit 7 clear) or a RAM page (bit 7 set, e.g. <code>0x83</code>→RAM page <code>83</code>); the bcall mechanism uses the flash case to bring routines into view</td></tr>
+<tr><td><code>8000–BFFF</code> (bank B)</td><td><code>port 7</code> (<code>mapBankB</code>)</td><td>a RAM or flash page; <code>0x81</code> observed = 84+ RAM mode</td></tr>
+<tr><td><code>C000–FFFF</code> (bank C)</td><td><code>port 5</code> (<code>memModeA</code>)</td><td>a RAM page; <code>0x00</code> observed = RAM page <code>80</code></td></tr>
 </tbody>
 </table>
 </div>
-<p><code>0000–3FFF</code> is hardwired to flash page 0. <code>C000–FFFF</code> is RAM in the static OS model and is normally the stack/user-RAM window; the 84+ hardware banks the high RAM slot through MemC/port 5. The dynamic trace in <a href="14-ram-pages.html">RAM pages</a> confirms port-5 restores to RAM page <code>80</code> during normal OS execution. <strong>[confirmed]</strong></p>
+<p><code>0000–3FFF</code> is hardwired to flash page 0. <code>C000–FFFF</code> is RAM in the static OS model and is normally the stack/user-RAM window; the 84+ hardware banks the high RAM slot through MemC/port 5. The dynamic trace in <a href="14-ram-pages.html">RAM pages</a> confirms port-5 restores to RAM page <code>80</code> during normal OS execution. [confirmed]</p>
 <h2 id="how-code-uses-it"><a class="header" href="#how-code-uses-it">How code uses it</a></h2>
 <ul>
-<li><strong>bcalls</strong> set <code>port_mapBankA</code> to the target routine’s page, run it at <code>4000+</code>, then restore the previous page (see <a href="03-bcall-mechanism.html">03-bcall-mechanism.md</a>). The helper <code>ram:181c</code> is the page-set primitive used by the dispatcher.</li>
+<li>bcalls to a paged body set <code>port_mapBankA</code> (port 6) to the target routine’s page, run it at <code>4000+</code>, then restore the previous page; bcalls whose body lives on page 0 run it in place below <code>4000</code> (e.g. <code>_JErrorNo</code>→<code>00:2799</code>). See <a href="03-bcall-mechanism.html">03-bcall-mechanism.md</a>. The helper <code>ram:181c</code> is the page-set primitive used by the dispatcher.</li>
 <li>A routine that runs banked into <code>4000</code> must therefore be written position-fixed for <code>4000</code> — which is exactly why every overlay page in Ghidra is based at <code>4000</code>.</li>
-<li><code>cross_page_jump</code> (<code>ram:2b09</code>) is the common <strong>cross-page jump trampoline</strong>: many page-0 entries and inline OS calls use it with a following <code>.dw addr; .db page</code> payload to reach a body on another page. <strong>[confirmed]</strong></li>
+<li><code>cross_page_jump</code> (<code>ram:2b09</code>) is the common cross-page jump trampoline: many page-0 entries and inline OS calls use it with a following <code>.dw addr; .db page</code> payload to reach a body on another page. [confirmed]</li>
 </ul>
 <h2 id="modeling-in-ghidra"><a class="header" href="#modeling-in-ghidra">Modeling in Ghidra</a></h2>
 <p>Each physical flash page 1–63 is an overlay block <code>page_NN</code> based at <code>4000</code>, so the same logical <code>4000–7FFF</code> window exists once per page without collision. Bank B/RAM is the single <code>RAM</code> block <code>8000–FFFF</code>. This loses the runtime “only one page visible” semantics (intentionally) so all code is statically present.</p>

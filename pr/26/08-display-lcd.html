@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bbfe7a9f.js";
+            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-bcf53af4.js"></script>
+        <script src="toc-76256a07.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,67 +179,63 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="08--display--lcd"><a class="header" href="#08--display--lcd">08 — Display / LCD</a></h1>
+                        <h1 id="08--display--lcd"><a class="header" href="#08--display--lcd">08 — Display &amp; LCD</a></h1>
 <blockquote>
 <p><strong>Deep dives:</strong> <a href="sub-graphing.html">Graphing</a> (graph buffer → LCD, transforms) · <a href="sub-table-yvars.html">Table &amp; Y= Variables</a> (text grid).</p>
 </blockquote>
-<p>The TI-84+ shows a <strong>96×64 monochrome</strong> image — the OS only ever drives a 96×64 region (<code>_ClrLCDFull</code> writes exactly 12 column-bytes × 8 rows). The underlying controller (Toshiba T6K04 / later Novatek) has wider video RAM (up to 128 px), so 96×64 is the <em>visible</em> area, not the controller’s geometry. It is reached through I/O ports <code>0x10</code> (command) and <code>0x11</code> (data). The OS keeps a <strong>graph/screen buffer</strong> in RAM and renders text via a built-in font.</p>
+<p>The TI-84+ shows a <code>96×64</code> monochrome image — the OS only ever drives a 96×64 region (<code>_ClrLCDFull</code> clears all 768 bytes of it: 8 row-passes × 12 columns × 8 data bytes). The underlying controller (Toshiba T6K04 / later Novatek) has wider video RAM (up to 128 px), so 96×64 is the <em>visible</em> area, not the controller’s geometry. It is reached through I/O ports <code>0x10</code> (command) and <code>0x11</code> (data). The OS keeps a graph/screen buffer in RAM and renders text via a built-in font.</p>
 <h2 id="controller-confirmed-against-code"><a class="header" href="#controller-confirmed-against-code">Controller [confirmed against code]</a></h2>
 <ul>
 <li><code>port_lcdCmd</code> (<code>0x10</code>): commands — set row, set column, set Y, on/off, contrast.</li>
 <li><code>port_lcdData</code> (<code>0x11</code>): read/write a byte of pixels at the current address.</li>
-<li>The panel is organized in 8-pixel-tall <strong>rows</strong>; <code>_ClrLCDFull</code> (<code>01:60E4</code>) loads <code>A=0xB8</code>, subtracts <code>8</code> each pass and stops at <code>0x80</code> → <strong>row commands <code>0xB8 … 0x80</code></strong> (8 rows of 8 px = 64 px tall), calling <code>_ClearRow</code> per row with interrupts masked (<code>DI</code>). <strong>[confirmed]</strong></li>
+<li>The panel is organized in 8-pixel-tall rows; <code>_ClrLCDFull</code> (<code>01:60E4</code>) loads <code>A=0xB8</code>, subtracts <code>8</code> each pass and stops at <code>0x80</code> → row commands <code>0xB8 … 0x80</code> (8 rows of 8 px = 64 px tall), calling <code>_ClearRow</code> per row with interrupts masked (<code>DI</code>). [confirmed]</li>
 <li><strong>Command bytes</strong> (all grounded in <code>_ClrLCDFull</code>/<code>_ClearRow</code>/<code>lcd_set_col_cmd</code>):
 <ul>
 <li><strong>Row (page) select</strong> = <code>0xB8 − 8·row</code> for <code>row = 0…7</code> (i.e. <code>0xB8, 0xB0, … 0x80</code>), sent to <code>0x10</code> via <code>lcd_set_col_cmd</code> (<code>01:5A89</code>), which only emits the byte when <code>0x80 ≤ A &lt; 0xC0</code> (guards the row/Z-address range). <code>_ClrLCDFull</code> walks this by loading <code>A=0xB8</code>, calling <code>_ClearRow</code>, then <code>SUB 0x8</code> and looping while <code>A ≥ 0x80</code> (<code>B=0x80</code>).</li>
-<li><strong>Column select</strong> = <code>0x20 + col</code>, sent <strong>raw</strong> to <code>0x10</code>. <code>_ClearRow</code> (<code>01:6934</code>) walks <code>E</code> from <strong><code>0x20</code> to <code>0x2B</code></strong> (<code>CP 0x2C</code> terminates) = <strong>12 columns</strong> (12 bytes × 8 px = 96 px wide), writing <strong>8 data bytes</strong> to <code>0x11</code> per column — the <code>B=0x08</code> inner <code>djnz</code> loop writes one byte per pixel row (8 rows). <strong>[confirmed]</strong></li>
-<li><strong>Contrast</strong>: <code>lcd_set_contrast</code> (<code>01:5A59</code>) writes the contrast level to the <strong>data</strong> port <code>0x11</code>; <code>lcd_get_contrast</code> (<code>01:5A60</code>) reads it back from the controller with <code>IN A,(0x11)</code> (the standard dummy+real LCD read), not a command re-send. The level is also held in RAM at <code>contrast</code> (<code>0x8447</code>); the <strong>command-port</strong> form <code>(contrast+0x18)|0xC0</code> is what <code>_LCD_DRIVERON</code> (page 06) and the <code>_GetKey</code> contrast keys send to <code>0x10</code>. <strong>[confirmed]</strong></li>
-<li>Every port access is preceded by <code>CALL 0x0CC3</code> (<code>lcd_wait</code>), the controller-busy delay. <strong>[confirmed]</strong></li>
+<li><strong>Column select</strong> = <code>0x20 + col</code>, sent <em>raw</em> to <code>0x10</code>. <code>_ClearRow</code> (<code>01:6934</code>) walks <code>E</code> from <code>0x20</code> to <code>0x2B</code> (<code>CP 0x2C</code> terminates) = 12 columns (12 bytes × 8 px = 96 px wide), writing 8 data bytes to <code>0x11</code> per column — the <code>B=0x08</code> inner <code>djnz</code> loop writes one byte per pixel row (8 rows). [confirmed]</li>
+<li><strong>Contrast</strong>: <code>lcd_set_contrast</code> (<code>01:5A59</code>) writes the contrast level to the <em>data</em> port <code>0x11</code>; <code>lcd_get_contrast</code> (<code>01:5A60</code>) reads it back from the controller with <code>IN A,(0x11)</code> (the standard dummy+real LCD read), not a command re-send. The level is also held in RAM at <code>contrast</code> (<code>0x8447</code>); the <em>command-port</em> form <code>(contrast+0x18)|0xC0</code> is what <code>_LCD_DRIVERON</code> (page 06) and the <code>_GetKey</code> contrast keys send to <code>0x10</code>. [confirmed]</li>
+<li>Every port access is preceded by <code>CALL ram:0CC3</code> (<code>lcd_wait</code>), the controller-busy delay. [confirmed]</li>
 </ul>
 </li>
 </ul>
 <h2 id="text-output-confirmed"><a class="header" href="#text-output-confirmed">Text output [confirmed]</a></h2>
 <ul>
 <li><code>curRow</code>/<code>curCol</code> (<code>0x844B/844C</code>) — the homescreen text cursor (16 columns wide; <code>_PutC</code> wraps at col 16, calls <code>_NewLine</code>).</li>
-<li><code>_PutMap</code> (<code>01:5A98</code>) draws one large-font character at the cursor: it clamps invalid codes to <code>0xD0</code>, computes an initial <code>char * 8</code> offset, then bjumps to the page-7 large-font blitter, which adjusts that offset to the actual <strong>7-byte-stride</strong> glyph table before copying an 8-byte render record. <strong>[confirmed]</strong></li>
+<li><code>_PutMap</code> (<code>01:5A98</code>) draws one large-font character at the cursor: it clamps invalid codes to <code>0xD0</code>, computes an initial <code>char * 8</code> offset, then bjumps to the page-7 large-font blitter, which adjusts that offset to the actual <code>7-byte-stride</code> glyph table before copying an 8-byte render record. [confirmed]</li>
 <li><code>_PutC</code> (<code>01:5B4C</code>) = <code>_PutMap</code> + advance cursor + newline handling; <code>_PutS</code> prints a string; <code>_NewLine</code> scrolls.</li>
-<li><code>_DispHL</code> (<code>01:5BF6</code>) prints <code>HL</code> as a right-justified 5-digit decimal: repeated <code>_DivHLBy10</code>, digits +<code>0x30</code>, leading zeros → spaces, using <code>OP1.mantissa</code> as a scratch buffer, then <code>_PutC</code>/<code>_PutMap</code> each digit. <strong>[confirmed]</strong></li>
+<li><code>_DispHL</code> (<code>01:5BF6</code>) prints <code>HL</code> as a right-justified 5-digit decimal: repeated <code>_DivHLBy10</code>, digits +<code>0x30</code>, leading zeros → spaces, writing the digits backward from <code>0x847C</code> into the <code>OP1</code> scratch area, then <code>_PutC</code>/<code>_PutMap</code> each digit. [confirmed]</li>
 </ul>
 <h2 id="screen-buffers-standard"><a class="header" href="#screen-buffers-standard">Screen buffers [standard]</a></h2>
 <ul>
 <li><code>plotSScreen</code> (<code>0x9340</code>, 768 bytes = 96×64/8) — the main graph/back buffer.</li>
 <li><code>saveSScreen</code> (<code>0x86EC</code>, 768 bytes) — saved copy (e.g. for menus over the graph).</li>
-<li><code>_GrBufCpy</code>/<code>_GrBufClr</code>-style bcalls blit the buffer to the LCD.</li>
+<li><code>_GrBufCpy</code> (<code>04:60A3</code>) blits <code>plotSScreen</code> to the LCD; <code>_GrBufClr</code> (<code>04:6071</code>) zero-fills the 768-byte graph buffer (<code>LD HL,0x9340; LD (HL),0; LDIR</code>) and does not touch the LCD.</li>
 </ul>
 <h2 id="fonts-confirmed"><a class="header" href="#fonts-confirmed">Fonts [confirmed]</a></h2>
 <ul>
-<li><strong>Large font</strong>: glyph table is on <strong>page 7, base <code>0x45FF</code></strong>, with a <strong>7-byte stride</strong> per glyph (not 8). <code>_PutMap</code> (<code>01:5A98</code>) clamps the code (<code>0</code> or <code>≥0xF8</code> → <code>0xD0</code>), computes <code>HL = char*8</code> (three <code>ADD HL,HL</code>), then bjumps via trampoline <code>0x3B3D</code> to the blitter <code>put_glyph_large</code> (<code>page_07:4588</code>). The blitter does <code>HL = 0x45FF + char*8</code>, then <code>lgfont_glyph_ptr_adjust</code> (<code>07:45EB</code>) subtracts <code>char</code> (it shifts <code>char*8</code> right by 3 → <code>char</code>, then <code>SBC HL,DE</code>), yielding the real glyph pointer <strong><code>0x45FF + char*7</code></strong>. It then copies an <strong>8-byte record</strong> via <code>_Mov8B</code> (<code>00:1A94</code>, 8× <code>LDI</code>) into RAM at <strong><code>0x845A</code></strong> (<code>lFont_record</code>), which the renderer blits. <strong>[confirmed]</strong> <em>(The stride is 7 bytes while the copy is 8 bytes — the 8th byte overlaps the next glyph’s first row — so the table packs glyphs at <code>0x45FF + char*7</code>.)</em></li>
-<li><strong>Alternate large fonts</strong>: two bits in <code>(IY+0x35)</code> select replacement glyph sources before the table read — bit 5 calls cross-page <code>0x01</code> (<strong>page 1</strong> font) and bit 1 calls cross-page <code>0x76</code> (<strong>page 0x36</strong> font); when neither is set, the page-7 table is used. <strong>[confirmed]</strong></li>
+<li><strong>Large font</strong>: glyph table is on page 7, base <code>07:45FF</code>, with a <code>7-byte stride</code> per glyph (not 8). <code>_PutMap</code> (<code>01:5A98</code>) clamps the code (<code>0</code> or <code>≥0xF8</code> → <code>0xD0</code>), computes <code>HL = char*8</code> (three <code>ADD HL,HL</code>), then bjumps via trampoline <code>ram:3B3D</code> to the blitter <code>put_glyph_large</code> (<code>page_07:4588</code>). The blitter does <code>HL = 07:45FF + char*8</code>, then <code>lgfont_glyph_ptr_adjust</code> (<code>07:45EB</code>) subtracts <code>char</code> (it shifts <code>char*8</code> right by 3 → <code>char</code>, then <code>SBC HL,DE</code>), yielding the real glyph pointer <strong><code>07:45FF + char*7</code></strong>. It then copies an 8-byte record via <code>_Mov8B</code> (<code>ram:1A94</code>, 8× <code>LDI</code>) into RAM at <code>0x845A</code> (<code>lFont_record</code>), which the renderer blits. [confirmed] <em>(The stride is 7 bytes while the copy is 8 bytes — the 8th byte overlaps the next glyph’s first row — so the table packs glyphs at <code>07:45FF + char*7</code>.)</em></li>
+<li><strong>Alternate large fonts</strong>: two bits in <code>(IY+0x35)</code> select a replacement glyph source before the page-7 table read — bit 5 loads <code>A=0x01</code> and calls <code>ram:36E7</code> (bjump to <code>3B:7BFB</code>), bit 1 loads <code>A=0x76</code> and calls <code>ram:3E1F</code> (bjump to <code>3B:7B9C</code>); both are font-hook routines on page <code>3B</code> that take the <code>A</code> value as a selector. When neither bit is set, the page-7 table at <code>07:45FF</code> is used. [confirmed]</li>
 <li><strong>Small/variable-width font</strong>: <code>_VPutMap</code>/<code>_VPutS</code> (graph screen, pixel-addressed via <code>penCol</code>/<code>penRow</code>).</li>
 </ul>
 <h2 id="indicators"><a class="header" href="#indicators">Indicators</a></h2>
 <ul>
-<li><code>flags.indicFlags</code> bit 0 = the run/busy indicator (the moving dashes top-right); <code>_ClrLCDFull</code> preserves it across a clear; <code>_RunIndicOn</code>/<code>Off</code> toggle it. <strong>[confirmed]</strong></li>
+<li><code>flags.indicFlags</code> bit 0 = the run/busy indicator (the moving dashes top-right); <code>_ClrLCDFull</code> preserves it across a clear; <code>_RunIndicOn</code> / <code>_RunIndicOff</code> toggle it. [confirmed]</li>
 </ul>
-<h2 id="resolved"><a class="header" href="#resolved">Resolved</a></h2>
+<h2 id="lcd-command-bytes-and-glyph-table"><a class="header" href="#lcd-command-bytes-and-glyph-table">LCD command bytes and glyph table</a></h2>
 <ul>
-<li><strong>LCD command bytes confirmed</strong> by tracing <code>_ClrLCDFull</code> (<code>01:60E4</code>), <code>_ClearRow</code> (<code>01:6934</code>) and <code>lcd_set_col_cmd</code> (<code>01:5A89</code>): row (page) select = <code>0xB8 − 8·row</code> (range <code>0xB8 … 0x80</code>, stepping down by 8), column select = <code>0x20 + col</code> (range <code>0x20 … 0x2B</code>, 12 columns = 96 px), command port <code>0x10</code> / data port <code>0x11</code>, busy-wait via <code>0x0CC3</code>. Contrast is held at RAM <code>contrast</code> (<code>0x8447</code>) and written to the data port <code>0x11</code> by <code>lcd_set_contrast</code> (<code>01:5A59</code>). See <a href="#controller-confirmed-against-code">Controller</a>. <strong>[confirmed]</strong></li>
-<li><strong>Large-font glyph table pinned</strong>: page <strong>0x07</strong>, base <strong><code>0x45FF</code></strong>, <strong>7-byte stride</strong> (<code>put_glyph_large</code> @ <code>07:4588</code> → glyph ptr <code>0x45FF + char*7</code> via <code>07:45EB</code>, then <code>_Mov8B</code> copies an 8-byte record to RAM <code>0x845A</code>). See <a href="#fonts-confirmed">Fonts</a> and <a href="13-flash-page-map.html">Flash Page Map</a>. <strong>[confirmed]</strong></li>
-</ul>
-<h2 id="todo"><a class="header" href="#todo">TODO</a></h2>
-<ul>
-<li><em>(none for this section — items above resolved.)</em></li>
+<li><strong>LCD command bytes confirmed</strong> by tracing <code>_ClrLCDFull</code> (<code>01:60E4</code>), <code>_ClearRow</code> (<code>01:6934</code>) and <code>lcd_set_col_cmd</code> (<code>01:5A89</code>): row (page) select = <code>0xB8 − 8·row</code> (range <code>0xB8 … 0x80</code>, stepping down by 8), column select = <code>0x20 + col</code> (range <code>0x20 … 0x2B</code>, 12 columns = 96 px), command port <code>0x10</code> / data port <code>0x11</code>, busy-wait via <code>ram:0CC3</code>. Contrast is held at RAM <code>contrast</code> (<code>0x8447</code>) and written to the data port <code>0x11</code> by <code>lcd_set_contrast</code> (<code>01:5A59</code>). See <a href="#controller-confirmed-against-code">Controller</a>. [confirmed]</li>
+<li><strong>Large-font glyph table pinned</strong>: page <code>0x07</code>, base <code>07:45FF</code>, <code>7-byte stride</code> (<code>put_glyph_large</code> @ <code>07:4588</code> → glyph ptr <code>07:45FF + char*7</code> via <code>07:45EB</code>, then <code>_Mov8B</code> copies an 8-byte record to RAM <code>0x845A</code>). See <a href="#fonts-confirmed">Fonts</a> and <a href="13-flash-page-map.html">Flash Page Map</a>. [confirmed]</li>
 </ul>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="07-tokenizer-basic.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sub-tibasic-for-paren.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="09-keyboard-link.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="sub-graphing.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -249,11 +245,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="07-tokenizer-basic.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sub-tibasic-for-paren.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="09-keyboard-link.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="sub-graphing.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

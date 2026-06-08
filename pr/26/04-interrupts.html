@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bbfe7a9f.js";
+            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-bcf53af4.js"></script>
+        <script src="toc-76256a07.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,7 +180,7 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="04--interrupts-im1"><a class="header" href="#04--interrupts-im1">04 — Interrupts (IM1)</a></h1>
-<p>The Z80 runs in <strong>interrupt mode 1</strong>: every maskable interrupt vectors to <code>0038h</code>. There is no vector table — one handler services all sources by polling status ports.</p>
+<p>The Z80 runs in interrupt mode 1: every maskable interrupt vectors to <code>0038h</code>. There is no vector table — one handler services all sources by polling status ports.</p>
 <h2 id="vector--handler-confirmed"><a class="header" href="#vector--handler-confirmed">Vector → handler [confirmed]</a></h2>
 <pre><code class="language-z80">0038:  JR  0x006d        ; RST 38h vector
 006d:  int_entry_save_alt_regs ; shadow-register save prologue
@@ -190,8 +190,8 @@
 <h2 id="what-it-does-confirmed-from-decompiler"><a class="header" href="#what-it-does-confirmed-from-decompiler">What it does [confirmed from decompiler]</a></h2>
 <p>Entry saves context (<code>ex af,af'</code> / <code>exx</code> — the Z80 shadow registers, the classic TI ISR convention) then polls:</p>
 <ol>
-<li><strong><code>port_usbIntStatus</code> (0x55)</strong> — the 84+ <strong>USB Interrupt State</strong> port. This OS overloads it as the ISR’s master “anything pending?” gate: <code>(val ^ 0xFF) &amp; 0x1F</code> tests the 5 active-low sources.</li>
-<li><strong><code>port_usbLineEvents</code> (0x56)</strong> — the <strong>USB Line Events</strong> port; a read-only event bitmap whose bits select the timer/link sub-handlers. (It is <em>not</em> an interrupt mask — port 0x56 is read-only.)</li>
+<li><code>port_usbIntStatus</code> (0x55) — the 84+ USB Interrupt State port. This OS overloads it as the ISR’s master “anything pending?” gate: <code>(val ^ 0xFF) &amp; 0x1F</code> tests the 5 active-low sources.</li>
+<li><code>port_usbLineEvents</code> (0x56) — the USB Line Events port; a read-only event bitmap whose bits select the timer/link sub-handlers. (Port 0x56 is read-only, so it is not an interrupt mask.)</li>
 <li>Branches per source:
 <ul>
 <li><strong>ON key</strong> — sets an ON-flag; <code>onSP</code> (<code>0x85BC</code>) holds the SP to unwind to for the ON-break path.</li>
@@ -203,57 +203,57 @@
 <li>Restores context and <code>EI</code> / <code>RET</code>.</li>
 </ol>
 <h2 id="iyoff--systemflags-fields-the-isr-touches-confirmed-from-disassembly"><a class="header" href="#iyoff--systemflags-fields-the-isr-touches-confirmed-from-disassembly"><code>(IY+off)</code> → <code>SystemFlags</code> fields the ISR touches [confirmed from disassembly]</a></h2>
-<p><code>int_dispatch_sources</code> reads/writes these flag bits via <code>BIT/SET/RES b,(IY+d)</code>. Offsets are confirmed against the standard <code>ti83plus.inc</code> group layout; the anchor <code>apdFlags = IY+0x08</code> is <strong>confirmed in code</strong> (<code>_DisableApd</code>/<code>_EnableApd</code> @ <code>3B:7AA8/7AAD</code> do <code>RES/SET 2,(IY+0x8)</code>), <code>curFlags = IY+0x0C</code> is <strong>confirmed</strong> (<code>_CursorOn</code>/<code>_CursorOff</code> @ <code>06:7D34/7C5F</code>).</p>
+<p><code>int_dispatch_sources</code> reads/writes these flag bits via <code>BIT/SET/RES b,(IY+d)</code>. Offsets are confirmed against the standard <code>ti83plus.inc</code> group layout; the anchor <code>apdFlags = IY+0x08</code> is confirmed in code (<code>_DisableApd</code>/<code>_EnableApd</code> @ <code>3B:7AA8</code>/<code>3B:7AAD</code> do <code>RES/SET 2,(IY+0x8)</code>), <code>curFlags = IY+0x0C</code> is confirmed (<code>_CursorOn</code>/<code>_CursorOff</code> @ <code>06:7D34</code>/<code>06:7C5F</code>).</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th><code>(IY+off)</code></th><th>bit</th><th>field / equate</th><th>meaning in the ISR</th></tr>
 </thead>
 <tbody>
-<tr><td><code>IY+0x03</code></td><td>1</td><td>flag byte <code>0x03</code> bit1</td><td>ON-key interrupt already latched (guards the ON-set path @ <code>00F5</code>)</td></tr>
-<tr><td><code>IY+0x03</code></td><td>0</td><td><code>graphFlags</code>·graphDraw</td><td>redraw-graph flag the ISR <strong>sets</strong> @ <code>0109</code></td></tr>
+<tr><td><code>IY+0x03</code></td><td>1</td><td>flag byte <code>0x03</code> bit1</td><td>ON-key interrupt already latched (guards the ON-set path @ <code>ram:00F5</code>)</td></tr>
+<tr><td><code>IY+0x03</code></td><td>0</td><td><code>graphFlags</code>·graphDraw</td><td>redraw-graph flag the ISR sets @ <code>ram:0109</code></td></tr>
 <tr><td><code>IY+0x08</code></td><td>2</td><td><code>apdFlags</code>·apdAble</td><td>APD enabled; toggled by <code>_DisableApd</code>/<code>_EnableApd</code></td></tr>
-<tr><td><code>IY+0x09</code></td><td>3</td><td><code>hardwareType</code>/sysFlags bit3</td><td>“84+ hardware present” gate before touching ports 0x55/0x56/0x37/0x31 (<code>008B</code>, <code>099E</code>)</td></tr>
-<tr><td><code>IY+0x09</code></td><td>4</td><td>(same byte)</td><td><strong>set</strong> @ <code>0A87</code> to mark the crash/RST-5 ON-break path taken</td></tr>
+<tr><td><code>IY+0x09</code></td><td>3</td><td><code>onFlags</code>·onRunning</td><td>calculator-running flag; tested before the 84+ USB-port path (<code>ram:008B</code>, <code>ram:099E</code>)</td></tr>
+<tr><td><code>IY+0x09</code></td><td>4</td><td><code>onFlags</code>·onInterrupt</td><td>ON-key interrupt-request flag; set @ <code>ram:0A87</code></td></tr>
 <tr><td><code>IY+0x0C</code></td><td>3</td><td><code>curFlags</code>·curOn</td><td>cursor currently drawn (blink phase)</td></tr>
-<tr><td><code>IY+0x0C</code></td><td>4</td><td><code>curFlags</code>·curAble</td><td>cursor-blink enabled</td></tr>
-<tr><td><code>IY+0x0F</code></td><td>7</td><td><code>apdFlags</code>-area</td><td>APD sub-state cleared @ <code>0A8C</code> on ON-key</td></tr>
-<tr><td><code>IY+0x12</code></td><td>3</td><td><code>shiftFlags</code>·shift2nd</td><td>the <code>[2nd]</code>-pending modifier flag; the ISR clears it at <code>01E0</code> (<code>RES 3</code>) so a held <code>[2nd]</code> does not linger — see the <a href="09-keyboard-link.html">keyboard modifier state machine</a></td></tr>
+<tr><td><code>IY+0x0C</code></td><td>2</td><td><code>curFlags</code>·curAble</td><td>cursor-blink enabled (<code>curLock</code> is bit 4)</td></tr>
+<tr><td><code>IY+0x0F</code></td><td>7</td><td><code>seqFlags</code> bit7</td><td>cleared @ <code>ram:0A8C</code> (<code>RES 7,(IY+0Fh)</code>) on the ON-key path</td></tr>
+<tr><td><code>IY+0x12</code></td><td>3</td><td><code>shiftFlags</code>·shift2nd</td><td>the <code>[2nd]</code>-pending modifier flag; the ISR clears it at <code>ram:01E0</code> (<code>RES 3</code>) so a held <code>[2nd]</code> does not linger — see the <a href="09-keyboard-link.html">keyboard modifier state machine</a></td></tr>
 <tr><td><code>IY+0x12</code></td><td>0</td><td><code>indicFlags</code>·indicRun</td><td>run-indicator-on flag (set by <code>_RunIndicOn</code>); the byte is shared — bits 0–2 are <code>indicFlags</code>, bits 3–7 are <code>shiftFlags</code></td></tr>
-<tr><td><code>IY+0x16</code></td><td>0</td><td>speed/ACK select</td><td>chooses the value re-written to int-mask port <code>0x03</code> on exit (<code>00E6</code>)</td></tr>
-<tr><td><code>IY+0x16</code></td><td>1</td><td>(same byte)</td><td>link-busy sub-flag, reset @ <code>015E</code></td></tr>
-<tr><td><code>IY+0x24</code></td><td>2</td><td>link/transfer-active</td><td>guards the ON-break vs. link-restore decision (<code>09EE</code>, <code>0AAB</code>)</td></tr>
-<tr><td><code>IY+0x28</code></td><td>7/3</td><td>LCD-busy / deferred</td><td>“LCD busy → defer this tick” (<code>09DB</code>, <code>09E1</code>)</td></tr>
-<tr><td><code>IY+0x2C</code></td><td>0</td><td><code>kbdScanCode</code>-scan enable</td><td>scanner-active flag tested by <code>kbd_scan_autorepeat</code> @ <code>0415</code></td></tr>
+<tr><td><code>IY+0x16</code></td><td>0</td><td>speed/ACK select</td><td>chooses the value re-written to int-mask port <code>0x03</code> on exit (<code>ram:00E6</code>)</td></tr>
+<tr><td><code>IY+0x16</code></td><td>1</td><td>(same byte)</td><td>link-busy sub-flag, reset @ <code>ram:015E</code></td></tr>
+<tr><td><code>IY+0x24</code></td><td>2</td><td>link/transfer-active</td><td>guards the ON-break vs. link-restore decision (<code>ram:09EE</code>, <code>ram:0AAB</code>)</td></tr>
+<tr><td><code>IY+0x28</code></td><td>7/3</td><td><code>APIFlg</code>·appRetKeyOff (b7)</td><td>ISR tests <code>BIT 7</code> (<code>appRetKeyOff</code>) @ <code>ram:09DB</code> and does <code>SET 3</code> @ <code>ram:09E1</code> on the ON-break path</td></tr>
+<tr><td><code>IY+0x2C</code></td><td>0</td><td><code>mouseFlag1</code> bit0</td><td>scanner-active flag tested by <code>kbd_scan_autorepeat</code> @ <code>ram:0415</code> (the scan code itself is RAM <code>kbdScanCode</code> <code>0x843F</code>, not an IY flag)</td></tr>
 <tr><td><code>IY+0x33</code></td><td>5/0</td><td>context-restore sub-flags</td><td>branch selectors on the ON-break / restore path</td></tr>
-<tr><td><code>IY+0x3A</code></td><td>0</td><td>APD-hook pending</td><td>when set, the ISR runs the deferred APD hook (<code>apd_run_pending_hook</code> @ <code>032A</code>) and ACKs</td></tr>
-<tr><td><code>IY+0x3F</code></td><td>7</td><td>RAM-clear control</td><td>masked during the ON-key RAM wipe (<code>0B3C</code>)</td></tr>
-<tr><td><code>IY+0x44</code></td><td>2</td><td>edit/format state</td><td>restore-path branch</td></tr>
+<tr><td><code>IY+0x3A</code></td><td>0</td><td><code>hookflags5</code>·usbActivityHookActive</td><td>when set, the ISR runs the deferred USB-activity hook (<code>ram:032A</code>) and ACKs</td></tr>
+<tr><td><code>IY+0x3F</code></td><td>7</td><td>RAM-clear control</td><td>masked during the ON-key RAM wipe (<code>ram:0B3C</code>)</td></tr>
+<tr><td><code>IY+0x44</code></td><td>2</td><td>(uncharacterized)</td><td>a restore-path branch clears this bit; no standard equate identifies it</td></tr>
 </tbody>
 </table>
 </div>
 <p>The byte <code>_GetCSC</code> (<code>00:04B2</code>) clears is <code>(IY+0)</code> bit3 (<code>*flags &amp; 0xF7</code>) — the <code>kbdSCR</code>/“new scan code ready” flag in the keyboard group.</p>
 <h2 id="timer-reprogramming-apd-timeout-and-cursor-blink-confirmed-mechanism-exact-tick-value-hypothesis"><a class="header" href="#timer-reprogramming-apd-timeout-and-cursor-blink-confirmed-mechanism-exact-tick-value-hypothesis">Timer reprogramming, APD timeout, and cursor blink [confirmed mechanism; exact tick value [hypothesis]]</a></h2>
-<p><strong>Interrupt sources &amp; ACK.</strong> The dispatcher polls the 84+ USB-interrupt ports first, then the two crystal <strong>hardware timers</strong>: it reads <strong>port <code>0x37</code></strong> (crystal timer 1 status, <code>BIT 1</code> @ <code>012D</code>) and <strong>port <code>0x31</code></strong> (crystal timer 2 status, <code>BIT 1</code> @ <code>013B</code>). Each maskable interrupt is ACKed by rewriting the int-mask port <strong><code>0x03</code></strong>. The common exit (<code>00E4</code>) writes <code>0x0B</code>, or <code>0x0F</code> when <code>(IY+0x16)</code> bit0 is set (the second value re-enables the on-key + both timer sources at the higher CPU speed). The master ACK at <code>00DC</code> writes <code>0x08</code> then the saved mask. Port <strong><code>0x04</code></strong> is loaded with <code>6</code> (<code>09B5</code>/<code>0C8C</code>) to re-arm the legacy 83+ timer line.</p>
-<p><strong>APD (auto-power-down) countdown.</strong> APD is a software down-counter, <strong>not</strong> a one-shot hardware timer:</p>
+<p><strong>Interrupt sources &amp; ACK.</strong> The dispatcher polls the 84+ USB-interrupt ports first, then the two crystal hardware timers: it reads port <code>0x37</code> (crystal timer 3 status — <code>IN A,(0x37)</code> @ <code>ram:012D</code>, <code>BIT 1,A</code> @ <code>ram:012F</code>) and port <code>0x31</code> (crystal timer 1 status — <code>IN</code> @ <code>ram:013B</code>, <code>BIT 1</code> @ <code>ram:013D</code>). (Per the WikiTI port map the three crystal timers are <code>0x30–0x32</code> = timer 1, <code>0x33–0x35</code> = timer 2, <code>0x36–0x38</code> = timer 3.) Each maskable interrupt is ACKed by rewriting the int-mask port <code>0x03</code>. The common exit (<code>ram:00E4</code>) writes <code>0x0B</code>, or <code>0x0F</code> when <code>(IY+0x16)</code> bit0 is set (the second value re-enables the on-key + both timer sources at the higher CPU speed). The master ACK at <code>ram:00DC</code> writes <code>0x08</code> then the saved mask. Port <code>0x04</code> is loaded with <code>6</code> (<code>ram:09B5</code>/<code>ram:0C8C</code>) to re-arm the legacy 83+ timer line.</p>
+<p><strong>APD (auto-power-down) countdown.</strong> APD is a software down-counter decremented by the timer interrupt:</p>
 <ul>
-<li><code>apdSubTimer</code> (<code>0x8448</code>) / <code>apdTimer</code> (<code>0x8449</code>) hold the APD down-counter. <code>_ApdSetup</code> (<code>00:03AE</code>) writes the <strong>reload constant <code>0x74</code> to <code>0x8449</code></strong> (<code>apdTimer</code>); this is the value the crystal-timer handler reloads the counter from whenever a key is pressed (so any key keeps the calc awake). The reload itself lives in the <strong>page-35 timer handler (<code>page_35:4CD2</code>, reached via the <code>3FBD</code> bjump), which is unanalyzed (data) in this DB</strong>. So the exact tick rate, and hence the wall-clock timeout, cannot be read out here. By the standard 83+/84+ design this yields the documented <strong>~2–5 minute</strong> idle power-down. <strong>[reload constant + counter addresses confirmed; absolute seconds [hypothesis]]</strong></li>
-<li>The unrelated <code>indicCounter</code>/<code>indicBusy</code> pair (<code>0x8476</code>/<code>0x8477</code>) drives the <strong>run indicator</strong> (the moving-dashes busy spinner), <strong>not</strong> APD: <code>_RunIndicOn</code> (<code>01:6518</code>) seeds it (<code>0x8477 = 0xF0</code>, <code>0x8476 = 1</code>) and <code>run_indic_tick</code> (<code>ram:027b</code>) does <code>DEC (0x8476); RET NZ</code> each timer tick, advancing the spinner via the expiry path (<code>0x3FE1</code>) only on underflow. <strong>[confirmed]</strong></li>
+<li><code>apdSubTimer</code> (<code>0x8448</code>) / <code>apdTimer</code> (<code>0x8449</code>) hold the APD down-counter. <code>_ApdSetup</code> (<code>00:03AE</code>) writes the reload constant <code>0x74</code> to <code>0x8449</code> (<code>apdTimer</code>). The per-tick decrement is in page 0 at <code>ram:036C</code> (<code>LD HL,0x8448; DEC (HL); RET NZ; INC HL; DEC (HL)</code> — decrement <code>apdSubTimer</code>, and on its underflow <code>apdTimer</code>); a key press reloads the counter, so any key keeps the calc awake. The crystal-timer interrupt rate remains unreadable from this DB: when a timer-status bit is set the ISR dispatches to an unanalyzed handler — <code>35:4792</code> (via the <code>ram:3FB1</code> bjump) for timer 3 / port <code>0x37</code>, and <code>33:5EB4</code> (via <code>ram:3FB7</code>) for timer 1 / port <code>0x31</code> — so the wall-clock timeout cannot be derived from this DB. By the standard 83+/84+ design this yields the documented ~2–5 minute idle power-down. [reload constant + counter addresses + decrement site <code>ram:036C</code> confirmed; tick rate / absolute seconds [hypothesis]]</li>
+<li>The unrelated <code>indicCounter</code>/<code>indicBusy</code> pair (<code>0x8476</code>/<code>0x8477</code>) drives the run indicator (the moving-dashes busy spinner), not APD: <code>_RunIndicOn</code> (<code>01:6518</code>) seeds it (<code>0x8477 = 0xF0</code>, <code>0x8476 = 1</code>) and the tick routine at <code>ram:027B</code> (<code>dec_apd_timer</code> in the symbol map, though it decrements the run-indicator counter) does <code>DEC (0x8476); RET NZ</code> each timer tick, advancing the spinner via the expiry path (<code>ram:3FE1</code>) only on underflow. [confirmed]</li>
 </ul>
 <p><strong>Cursor blink cadence.</strong> The blink is the same kind of software down-counter, driven off the same timer interrupt:</p>
 <ul>
-<li><code>0x844A</code> (<code>curTimer</code>) is the blink down-counter; <code>_CursorOn</code>/<code>_CursorOff</code> (<code>06:7D34</code>/<code>06:7C5F</code>) reload it with <strong><code>0x32</code> (50)</strong> (<code>LD A,0x32; LD (0x844A),A</code>).</li>
-<li>On each timer tick the handler decrements <code>0x844A</code>; on underflow it toggles <code>curFlags</code> (<code>IY+0x0C</code>) bit3 (curOn) to flip the glyph, then reloads <code>0x32</code>. The per-tick handler that does the decrement/toggle is again in the unanalyzed page-35 timer code, so the cadence is <strong>“toggle every 50 timer ticks”</strong>; the WikiTI-documented crystal-timer rate makes that ≈ <strong>2 blinks/second</strong>. <strong>[reload value 0x32 confirmed; Hz [hypothesis]]</strong></li>
+<li><code>0x844A</code> (<code>curTime</code>) is the blink down-counter; <code>_CursorOn</code>/<code>_CursorOff</code> (<code>06:7D34</code>/<code>06:7C5F</code>) reload it with <code>0x32</code> (50) (<code>LD A,0x32; LD (0x844A),A</code>).</li>
+<li>The ISR tests <code>curAble</code> (<code>IY+0x0C</code> bit 2) at <code>ram:019B</code> and, if enabled, calls the cursor tick through the <code>ram:3FCF</code> bjump to <code>06:7C45</code>, which decrements <code>0x844A</code>; on underflow it toggles <code>curFlags</code> (<code>IY+0x0C</code>) bit 3 (curOn) to flip the glyph and reloads <code>0x32</code>. So the cadence is “toggle every 50 timer ticks”; only the absolute rate (the crystal-timer tick frequency) is ungrounded, which by the WikiTI-documented rate is ≈ 2 blinks/second. [reload value <code>0x32</code>, counter <code>0x844A</code>, and tick site <code>06:7C45</code> confirmed; Hz [hypothesis]]</li>
 </ul>
 <h2 id="notable-details"><a class="header" href="#notable-details">Notable details</a></h2>
 <ul>
-<li>This OS keys off the <strong>84+ USB-interrupt ports 0x55/0x56</strong> as the primary interrupt-state source, rather than the classic <code>0x03/0x04</code>. Port 0x55 is the USB Interrupt State (read; <code>(v^0xFF)&amp;0x1F</code> masks the active sources) and 0x56 is USB Line Events (read-only) — <em>not</em> a status/mask pair despite the dispatch role. The legacy mask <code>0x03</code> is still written to ACK. <strong>[confirmed in code; ports per WikiTI]</strong></li>
-<li>The ISR is where <strong>APD</strong> (auto power down) and the <strong>blinking cursor</strong> timing originate — both are software down-counters (<code>apdTimer 0x8449</code>/<code>curTimer 0x844A</code>) ticked by the crystal timers (ports 0x37/0x31). The separate run-indicator spinner uses <code>indicCounter</code>/<code>indicBusy</code> (<code>0x8476</code>/<code>0x8477</code>), seeded by <code>_RunIndicOn</code>. <strong>[confirmed]</strong></li>
-<li><code>_GetCSC</code> (<code>00:04B2</code>) cooperates with the ISR: the ISR (or keypad path) updates <code>kbdScanCode</code>; <code>_GetCSC</code> atomically reads and clears it with interrupts masked, also clearing <code>(IY+0)</code> bit3. <strong>[confirmed]</strong></li>
+<li>This OS keys off the 84+ USB-interrupt ports 0x55/0x56 as the primary interrupt-state source, rather than the classic <code>0x03/0x04</code>. Port 0x55 is the USB Interrupt State (read; <code>(v^0xFF)&amp;0x1F</code> masks the active sources) and 0x56 is USB Line Events (read-only) — both are read sources, not a status/mask pair, despite the dispatch role. The legacy mask <code>0x03</code> is still written to ACK. [confirmed in code; ports per WikiTI]</li>
+<li>The ISR is where APD (auto power down) and the blinking cursor timing originate — both are software down-counters (<code>apdTimer 0x8449</code>/<code>curTime 0x844A</code>) ticked by the crystal timers (ports 0x37/0x31). The separate run-indicator spinner uses <code>indicCounter</code>/<code>indicBusy</code> (<code>0x8476</code>/<code>0x8477</code>), seeded by <code>_RunIndicOn</code>. [confirmed]</li>
+<li><code>_GetCSC</code> (<code>00:04B2</code>) cooperates with the ISR: the ISR (or keypad path) updates <code>kbdScanCode</code>; <code>_GetCSC</code> atomically reads and clears it with interrupts masked, also clearing <code>(IY+0)</code> bit3. [confirmed]</li>
 </ul>
-<h2 id="todo"><a class="header" href="#todo">TODO</a></h2>
+<h2 id="timer-tick-rate-ungrounded"><a class="header" href="#timer-tick-rate-ungrounded">Timer tick rate (ungrounded)</a></h2>
 <ul>
-<li>The exact crystal-timer tick period (and therefore APD timeout in seconds and cursor blink in Hz) lives in the <strong>page-35 timer handler (<code>page_35:4CD2</code>)</strong>, which is unanalyzed data in this DB. The reload constants (<code>apdSubCount=0x74</code>, <code>curTimer=0x32</code>) and the counter addresses are confirmed; only the absolute rate is ungrounded.</li>
+<li>The crystal-timer tick period (and therefore the APD timeout in seconds and cursor blink in Hz) depends on the unanalyzed timer-status handlers <code>35:4792</code> (timer 3 / port <code>0x37</code>, via <code>ram:3FB1</code>) and <code>33:5EB4</code> (timer 1 / port <code>0x31</code>, via <code>ram:3FB7</code>), which are data in this DB, so the absolute tick rate is not derivable here. The reload constants (<code>apdTimer 0x8449 = 0x74</code>, <code>curTime 0x844A = 0x32</code>), the counter addresses, and the page-0 / page-06 decrement sites (<code>ram:036C</code>, <code>06:7C45</code>) are confirmed; only the absolute tick rate is ungrounded. [hypothesis]</li>
 </ul>
 
                     </main>
@@ -264,7 +264,7 @@
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="12-memory-management.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="11-boot-contexts-errors.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -278,7 +278,7 @@
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="12-memory-management.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="11-boot-contexts-errors.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

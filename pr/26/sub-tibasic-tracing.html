@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Open questions &amp; roadmap - TI-84 Plus OS — Reverse Engineering</title>
+        <title>TI-BASIC dynamic tracing - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
@@ -179,26 +179,115 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="99--open-questions--roadmap"><a class="header" href="#99--open-questions--roadmap">99 — Open questions &amp; roadmap</a></h1>
-<p>The structural reverse-engineering is comprehensive (every subsystem mapped, both cross-page mechanisms resolved, full input→parse→eval→display pipeline documented). What remains is depth. Each item below is self-contained for a future session.</p>
-<h2 id="still-open"><a class="header" href="#still-open">Still open</a></h2>
-<ol>
-<li><strong>Flash sector write/erase primitive map</strong> — the live DB confirms anchors <code>flash_program_buf</code>@<code>3D:678C</code>, <code>flash_erase_wait</code>@<code>3D:5ED3</code>, <code>flash_cmd_base</code>@<code>3D:738B</code>, <code>flash_set_sector_cnt</code>@<code>3D:727D</code>, <code>flash_page_select</code>@<code>3D:726E</code>, <code>flash_find_nonff</code>@<code>3D:7DEA</code>, and <code>flash_op_fd/fb/fe</code>@<code>3D:7C8F/7C93/7C97</code>. The public bcall entry points for these primitives are named in <code>ti83plus.inc</code>: <code>_WriteAByte</code> (8021), <code>_WriteAByteSafe</code> (80C6), and <code>_FlashToRam2</code> (8054); the retail boot table maps them to <code>3F:4C9F</code>, <code>3F:4C9A</code>, and <code>3F:4888</code>. The candidate addresses <code>3D:61AF</code>, <code>3D:64AA</code>, <code>3D:62C2</code>, <code>3D:6413</code>, and <code>3D:6B9B</code> are still undisassembled (not defined functions) in the live DB; their <code>flash_*</code> names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates. See <a href="sub-vat-archive.html">sub-vat-archive.md</a> / <a href="12-memory-management.html">12</a>.</li>
-<li><strong>Flash archive garbage collector</strong> — the behavior is documented. The GC-path candidates <code>flash_gc_relocate</code>@<code>3C:7BD0</code>, <code>gc_show_screen</code>@<code>3C:7E0D</code>, and <code>flash_cmd_dispatch</code>@<code>3C:7121</code> are still undisassembled (not defined functions) in the live DB; those <code>flash_*</code>/<code>gc_*</code> names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates.</li>
-<li><strong>Enum equates.</strong> Apply <code>TIKeyCode</code>/<code>TIError</code>/<code>TIVarType</code> to scalar operands in the relevant handlers (conservative, scoped).</li>
-<li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), the <code>Asm(</code>/<code>AsmPrgm</code> compile/setup body before the traced payload handoff (<code>ram:9D95 op=0xC9</code> is confirmed), direct ASM-initiated BASIC program execution beyond VAT lookup and cooperative <code>Ans</code> callback (<code>_ChkFindSym</code> works from <code>AsmPrgm</code>; the <code>ASMFORM.8xp</code>/<code>ZZFORM.8xp</code> <code>_Find_Parse_Formula</code> fixture fails with <code>ERR:UNDEFINED</code>; the <code>ASMPARSE.8xp</code>/<code>ZZPARSE.8xp</code> <code>_ParseInpLastEnt</code> fixture fails with <code>ERR:INVALID</code>; <code>_ExecuteNewPrgm</code> reaches <code>ERR:SYNTAX</code>; <code>_JForceCmd</code> abandons the caller stack; <code>_PutTokString</code>/<code>_rclToQueue</code> are edit-buffer paths, not proven program-call entries), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
-</ol>
-<h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>
-<p>Reopen <code>~/Documents/ti84-re/ti84.gpr</code> (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in <code>tools/</code> and rebuild with <code>tools/build.sh</code>. The remaining items mostly need a headless raw-byte dump of regions the live decompiler leaves as unanalyzed data (the page-0x35 timer handler, the page-0x38 <code>0xBB</code>/class-3 dispatch tables).</p>
+                        <h1 id="ti-basic-dynamic-tracing"><a class="header" href="#ti-basic-dynamic-tracing">TI-BASIC dynamic tracing</a></h1>
+<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
+<p>TI-BASIC behavior in these notes is grounded by generated programs, headless
+TilEm runs, resolved instruction coverage, and screen captures. This page is
+the book-facing recipe for reproducing those traces; the lower-level tooling
+details live in <code>tools/dynamic-tracing.md</code>.</p>
+<h2 id="fixture-suite"><a class="header" href="#fixture-suite">Fixture suite</a></h2>
+<p>The fixture generator emits readable source, token bytes, and <code>.8xp</code> link files:</p>
+<pre><code class="language-sh">tools/tibasic_samples.py --write-dir tools/tibasic-samples
+</code></pre>
+<p>The smoke runner executes the exported programs, records a GIF, extracts the
+final frame, resolves trace coverage through <code>tools/tilem_trace_resolve.py</code>, and
+checks each case’s expected anchors:</p>
+<pre><code class="language-sh">TILEM=~/Git/tilem-headless/result/bin/tilem2
+tools/tibasic_smoke.py --tilem "$TILEM" --rom tools/rom.bin \
+  --out-dir /tmp/tibasic-smoke-full
+</code></pre>
+<p>Use <code>--case NAME</code> to run a subset, and <code>--keep-trace</code> when the raw binary trace
+is needed for instruction-level inspection. The runner deletes trace files by
+default because several cases produce hundreds of MiB per run.</p>
+<p>The full suite passed on 2026-06-07 with the command above against OS 2.55MP and
+the local patched TilEm runner. The output directory kept final PNGs, GIFs, and
+coverage text for all cases; raw trace files were deleted by default.</p>
+<p>The current headless workflow relies on a local TilEm patch that loads command
+line <code>.8xp</code> files before the macro starts. Without that patch, load the target
+programs into calculator RAM first, then run the same macro and resolver steps.</p>
+<h2 id="operation-coverage"><a class="header" href="#operation-coverage">Operation coverage</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Case</th><th>Program(s)</th><th>Operations exercised</th><th>Anchor examples</th></tr>
+</thead>
+<tbody>
+<tr><td><code>hello</code></td><td><code>HELLO.8xp</code></td><td><code>ClrHome</code>, <code>Disp</code>, string scan, <code>Done</code></td><td><code>eval_stmt_entry</code>, <code>_Disp</code></td></tr>
+<tr><td><code>factorial</code></td><td><code>FACTOR.8xp</code></td><td><code>Prompt</code>, scalar stores, <code>For(</code>/<code>End</code>, FP multiply</td><td><code>_FPMult</code>, <code>_Disp</code></td></tr>
+<tr><td><code>data</code></td><td><code>DATA.8xp</code></td><td>list literal, <code>SortA(</code>, <code>cumSum(</code>, <code>sum(</code></td><td><code>store_list_elem</code>, <code>list_fold_dispatch</code></td></tr>
+<tr><td><code>asmcall</code></td><td><code>ASMCALL.8xp</code> + <code>ASMRET.8xp</code></td><td>BASIC <code>Asm(prgmNAME)</code> into <code>AsmPrgm</code> payload</td><td><code>_ExecutePrgm</code>, <code>ram:9D95</code></td></tr>
+<tr><td><code>asmbridge</code></td><td><code>ASMBRIDG.8xp</code> + <code>ASMSIG.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM return code through <code>Ans</code>, BASIC callback</td><td><code>_OP1Set1</code>, <code>_StoAns</code>, <code>_AnsName</code>, <code>eval_eqn_recursive</code></td></tr>
+<tr><td><code>asmreturn</code></td><td><code>ASMRTN.8xp</code> + <code>ASMVAL.8xp</code></td><td>ASM return value through <code>Ans</code>, then BASIC arithmetic</td><td><code>_OP1Set2</code>, <code>_StoAns</code>, <code>_AnsName</code>, <code>_FPAdd</code></td></tr>
+<tr><td><code>asmfind</code></td><td><code>ASMFIND.8xp</code> + <code>ZZFIND.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM-side VAT lookup of a BASIC program without executing it</td><td><code>ram:9D95</code>, <code>findsym_scan</code>, <code>_Disp</code></td></tr>
+<tr><td><code>asmparse</code></td><td><code>ASMPARSE.8xp</code> + <code>ZZPARSE.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM parser-entry negative probe ending at <code>ERR:INVALID</code></td><td><code>_ParseInpLastEnt</code>, <code>_ParseInp</code>, <code>parseinp_find_setup</code></td></tr>
+<tr><td><code>asmformula</code></td><td><code>ASMFORM.8xp</code> + <code>ZZFORM.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM formula-parser negative probe ending at <code>ERR:UNDEFINED</code></td><td><code>_Find_Parse_Formula</code>, <code>parse_init_findsym</code>, <code>findsym_scan</code></td></tr>
+<tr><td><code>animtext</code></td><td><code>ANIMTXT.8xp</code></td><td>text placement animation with <code>Output(</code></td><td><code>_OutputExpr</code>, <code>_Disp</code></td></tr>
+<tr><td><code>graphviz</code></td><td><code>GRAPHV.8xp</code></td><td>graph-buffer primitives and <code>DispGraph</code></td><td><code>_GrBufClr</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code></td></tr>
+<tr><td><code>graphdfs</code></td><td><code>GRAPHDFS.8xp</code></td><td>graph visualization from DFS topology</td><td><code>_StoSysTok</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code></td></tr>
+<tr><td><code>graphlist</code></td><td><code>GRAPHLST.8xp</code></td><td>list-driven graph visualization from edge/node coordinate lists</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_ILine</code>, <code>_IPoint</code></td></tr>
+<tr><td><code>callsub</code></td><td><code>CALLSUB.8xp</code> + <code>SUBRT.8xp</code></td><td>BASIC <code>prgmNAME</code>, shared globals, <code>Return</code></td><td><code>stmt_eval_body_entry</code>, <code>call_eval_eqn_recursive</code></td></tr>
+<tr><td><code>callabi</code></td><td><code>ABICALL.8xp</code> + <code>ABISUB.8xp</code></td><td>BASIC subprogram ABI through <code>Ans</code>, scalar <code>A</code>, and list <code>L1</code></td><td><code>_AnsName</code>, <code>store_list_elem</code>, <code>eval_eqn_recursive</code></td></tr>
+<tr><td><code>callstop</code></td><td><code>CALLSTOP.8xp</code> + <code>STOPSUB.8xp</code></td><td>BASIC subprogram <code>Stop</code> terminates the caller chain</td><td><code>stmt_eval_body_entry</code>, <code>call_eval_eqn_recursive</code>, <code>_Disp</code></td></tr>
+<tr><td><code>bigadd</code></td><td><code>BIGADD.8xp</code></td><td>list-digit arithmetic and carry propagation</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>_FPMult</code></td></tr>
+<tr><td><code>bigmul</code></td><td><code>BIGMUL.8xp</code></td><td>list-digit multiplication, nested loops, carry normalization</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>_FPMult</code></td></tr>
+<tr><td><code>dfs</code></td><td><code>DFS.8xp</code></td><td>list-backed stack, nested <code>While</code>/<code>If</code>/<code>For</code></td><td><code>blockmatch_end_else</code>, <code>parse_scan_tokens</code>, <code>eval_stmt_entry</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The visualization cases also enforce visible output by thresholding the final
+frame and comparing it with the first recorded frame. <code>ANIMTXT</code>, <code>GRAPHV</code>,
+<code>GRAPHDFS</code>, and <code>GRAPHLST</code> must contain at least 100, 100, 200, and 200 dark
+pixels respectively, and must change by at least the same number of pixels from
+first to final frame. <code>ANIMTXT</code> must also produce at least five distinct
+captured frames. The smoke runner also checks named crop regions. Visual cases
+check home-screen text, graph labels, axes, circle arcs, and node/edge regions.
+Text/list cases check important final-screen lines such as <code>HELLO, WORLD</code>,
+factorial <code>120</code>, <code>DATA</code> list outputs, <code>BEFORE</code>/<code>CALLED</code>/<code>AFTER</code>, <code>SUB</code>,
+big-integer digit lists, and the DFS traversal/visited-list output. <code>ASMRTN</code>
+checks the displayed <code>5</code>, <code>ABICALL</code> checks the scalar line, mutated list line,
+returned <code>Ans</code> line, and <code>Done</code>, and <code>CALLSTOP</code> checks <code>BEFORE</code>, <code>STOP</code>,
+<code>Done</code>, and a bounded low-pixel region where caller text <code>AFTER</code> would appear.
+<code>ASMFIND</code> checks the wrapper’s <code>BEFORE</code>, <code>AFTER</code>, and <code>Done</code> output plus a
+bounded low-pixel region where an unexpected third line would appear.
+<code>ASMPARSE</code> checks the <code>ERR:INVALID</code>, <code>1:Quit</code>, and <code>2:Goto</code> error-screen
+regions. <code>ASMFORM</code> checks the corresponding <code>ERR:UNDEFINED</code> error-screen
+regions.</p>
+<p>For the visual graph cases, the 2026-06-07 run measured 212, 619, 466, and 466
+dark pixels, with matching first-to-final pixel changes.</p>
+<h2 id="reading-the-evidence"><a class="header" href="#reading-the-evidence">Reading the evidence</a></h2>
+<p>Trace anchors prove control reached the relevant ROM path; they do not by
+themselves prove the final screen looked right. Use both the coverage file and
+the final PNG/GIF for display or graph claims. This distinction matters for
+<code>GRAPHDFS</code>, where <code>_ILine</code> and <code>_IPoint</code> coverage only proves drawing routines
+ran, while the final frame proves the graph-screen topology is visible.</p>
+<p>For parser and calling-convention claims, prefer resolved coverage plus a narrow
+routine trace. For example, the BASIC subprogram case uses the private
+<code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code> body-evaluator path after the top-level
+homescreen parse has already seeded parser RAM. That is why the negative
+ASM-to-BASIC probes in <a href="sub-tibasic-programming.html">TI-BASIC programming patterns</a>
+are negative fixtures or probes: they reach useful ROM paths, but they
+do not display the target BASIC program.</p>
+<h2 id="related-pages"><a class="header" href="#related-pages">Related pages</a></h2>
+<ul>
+<li><a href="sub-tibasic.html">TI-BASIC programs</a> explains the parser, statement evaluator,
+control flow, display commands, <code>Asm(</code>, and <code>prgmNAME</code>.</li>
+<li><a href="sub-tibasic-programming.html">TI-BASIC programming patterns</a> turns the traces
+into performance and calling-convention guidance.</li>
+<li><a href="sub-tibasic-for-paren.html">TI-BASIC <code>For(</code> optional paren trap</a> is a focused
+trace study of one parser-performance edge case.</li>
+</ul>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="token-tables.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sub-tibasic-programming.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
+                            <a rel="next prefetch" href="sub-tibasic-for-paren.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -206,10 +295,13 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="token-tables.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sub-tibasic-programming.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
+                    <a rel="next prefetch" href="sub-tibasic-for-paren.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
             </nav>
 
         </div>
