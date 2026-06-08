@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-034b6dd8.js";
+            window.path_to_searchindex_js = "searchindex-1bf8aa40.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -297,6 +297,14 @@ of an incoming packet (peer may be idle for a long time).</p>
   | mach-ID|  cmd   |  len-lo|  len-hi|   |  data[len] | chk16 LE |
   +--------+--------+--------+--------+   +============+----------+
    8674     8675     8676     8677         streamed      8678 acc
+</code></pre>
+<p>As a C struct:</p>
+<pre><code class="language-c">typedef struct {
+    uint8_t machineID;   /* 0x8674: machine-ID (peer/local device class) */
+    uint8_t commandID;   /* 0x8675: command-ID                           */
+    uint8_t lenLo;       /* 0x8676: data length, low byte                */
+    uint8_t lenHi;       /* 0x8677: data length, high byte               */
+} LinkPacketHeader;                                  /* 4 bytes (0x8674..0x8677) */
 </code></pre>
 <h3 id="3a-send-a-header--41c3-confirmed"><a class="header" href="#3a-send-a-header--41c3-confirmed">3a. Send a header — <code>41C3</code> [confirmed]</a></h3>
 <pre><code class="language-z80">41C3: 6D4B (drive line) ; short delay ; CALL probe_hw_model_keep_a (model probe)

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-034b6dd8.js";
+            window.path_to_searchindex_js = "searchindex-1bf8aa40.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -190,6 +190,15 @@
 +1  exp       base-100? no — base-10 exponent, biased by 0x80 (0x80 = 10^0)
 +2..+8  mantissa   7 bytes = 14 packed BCD digits, normalized d.dddddddddddddd
 </code></pre>
+<p>As a C struct:</p>
+<pre><code class="language-c">typedef struct {
+    uint8_t type;          /* +0: 0x00 real (positive), 0x80 negative; 0x0C/0x8C complex part */
+    uint8_t exp;           /* +1: base-10 exponent, biased by 0x80 (0x80 == 10^0)             */
+    uint8_t mantissa[7];   /* +2..+8: 14 packed BCD digits, normalized d.dddddddddddddd        */
+} TIFloat;                                              /* 9 bytes on disk / in a stored var   */
+/* In an OP register slot the number occupies 11 bytes: the 9 above plus 2 trailing guard      */
+/* digit bytes (OP1EXT at +9/+10) used during math — see "OP registers" below.                 */
+</code></pre>
 <p>The stored value is</p>
 <p>$$v = \pm\,(d_0.d_1d_2\cdots d_{13})\times 10^{\,e-\mathtt{0x80}}$$</p>
 <p>where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD mantissa digits. A ROM-byte scan found roughly 126 candidate BCD constants ROM-wide [hypothesis] ($\pi/180 = 1.745\ldots\mathrm{e}{-2}$, $180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, plus the FP transcendental coefficient tables on page 0x02). The table addresses below are confirmed by Ghidra disassembly and raw ROM bytes.</p>
@@ -298,7 +307,7 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 </div>
 <p>See <a href="sub-calculation.html">Calculation Engine</a> for the ×/÷/^/root algorithms and number formatting.</p>
 <h2 id="transcendental-method-confirmed"><a class="header" href="#transcendental-method-confirmed">Transcendental method [confirmed]</a></h2>
-<p>The ln/e^x/sin-cos evaluators are local page-0x02 code plus page-0x02 coefficient tables. The apparent <code>LD A,n; CALL ram:2362</code> “page switch” sites are not banked series tails: Ghidra disassembly shows <code>ram:2362: CALL ram:3DD1</code>, and <code>ram:3DD1</code> is a bcall-table entry whose inline descriptor is <code>1E 7D 02</code> (<code>page_02:7D1E</code>). The real banked-call helper is <code>ram:2B09</code>. <code>ram:2362</code> fetches the page-0x02 coefficient indexed by <code>A</code> and then multiplies OP1 by it (it enters the <code>_FPMult</code> body at <code>ram:2392</code>). Therefore the preceding <code>LD A,n</code> is a coefficient-table index, not a target flash page. Raw ROM bytes at the supposed same-address page-0x03 targets are <code>0xFF</code>, and Ghidra has no page-0x03/page-0x06 functions there.</p>
+<p>The ln/e^x/sin-cos evaluators are local page-0x02 code plus page-0x02 coefficient tables. The apparent <code>LD A,n; CALL ram:2362</code> “page switch” sites are not banked series tails: Ghidra disassembly shows <code>ram:2362: CALL ram:3DD1</code>, and <code>ram:3DD1</code> is a bcall-table entry whose inline descriptor is <code>1E 7D 02</code> (<code>02:7D1E</code>). The real banked-call helper is <code>ram:2B09</code>. <code>ram:2362</code> fetches the page-0x02 coefficient indexed by <code>A</code> and then multiplies OP1 by it (it enters the <code>_FPMult</code> body at <code>ram:2392</code>). Therefore the preceding <code>LD A,n</code> is a coefficient-table index, not a target flash page. Raw ROM bytes at the supposed same-address page-0x03 targets are <code>0xFF</code>, and Ghidra has no page-0x03/page-0x06 functions there.</p>
 <h3 id="the-shared-algorithm--digit-by-digit-pseudo-division-confirmed"><a class="header" href="#the-shared-algorithm--digit-by-digit-pseudo-division-confirmed">The shared algorithm — digit-by-digit pseudo-division [confirmed]</a></h3>
 <p>The forward log and exp evaluators are a digit-by-digit pseudo-division recurrence — the algorithm BCD calculators have used since the 1960s. The table gives it away: <code>02:7181</code>’s 16 rows are exactly $\log_{10}(1+10^{-k})$ for $k=0\ldots15$ (matched to 14 digits — <code>[00]</code> = <code>log₁₀2</code>, <code>[01]</code> = <code>log₁₀1.1</code>, <code>[02]</code> = <code>log₁₀1.01</code>, …), which is precisely the per-step increment such a recurrence consumes. The recurrence runs on shift-and-add alone: scaling a BCD number by $1+10^{-k}$ is $x + (x\text{ shifted right }k\text{ digits})$, one <code>fp_shift_right_digit</code> (<code>ram:1bea</code>) plus one BCD-add, so the digit-by-digit recurrence core needs no general multiply (only the base-conversion scaling via <code>CALL ram:2362</code> enters <code>_FPMult</code>). (The traces show the shift <code>1bea</code> is shared, but the running-add entry differs: <code>_EToX</code> uses <code>fp_add_mantissa</code> <code>ram:1cb9</code>, while <code>_LnX</code> uses the sibling BCD-add entry <code>ram:1ca9</code> — <code>1cb9</code> fires 0× in the <code>ln(2)</code> loop, <code>1ca9</code> 0× in the <code>e¹</code> loop.)</p>
 <p><strong>Logarithm.</strong> With the exponent already split off so the mantissa is $x\in[1,10)$, the loop (<code>02:6F80</code>–<code>6FEE</code>) drives $x$ up toward $10$ by repeatedly scaling by the largest table factor that doesn’t overshoot; the number of scalings at each position <em>is</em> the corresponding digit of the answer, and the running sum of the table entries is the logarithm:</p>

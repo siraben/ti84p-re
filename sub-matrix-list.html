@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-034b6dd8.js";
+            window.path_to_searchindex_js = "searchindex-1bf8aa40.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -214,7 +214,7 @@ pointer + page byte locate the <code>count</code>/<code>dim</code> header, after
 arithmetic computed by <code>_AdrLEle</code>/<code>_AdrMEle</code>.</p>
 </li>
 <li>
-<p>One shared Gauss-Jordan engine (<code>page_02:42A6</code>) implements matrix inverse <code>[A]⁻¹</code>
+<p>One shared Gauss-Jordan engine (<code>02:42A6</code>) implements matrix inverse <code>[A]⁻¹</code>
 (flag <code>0x00</code>) and <code>det(</code> (flag <code>0x40</code>) with partial pivoting. <code>rref(</code>/<code>ref(</code> are
 the same elimination family.</p>
 </li>
@@ -501,7 +501,7 @@ the bodies; standard for those two residuals]</p>
 <hr>
 <h2 id="5-the-heavy-ones--det-a¹-rref--ref-confirmed"><a class="header" href="#5-the-heavy-ones--det-a¹-rref--ref-confirmed">5. The heavy ones — <code>det(</code>, <code>[A]⁻¹</code>, <code>rref(</code> / <code>ref(</code> [confirmed]</a></h2>
 <p><code>det(</code> and <code>[A]⁻¹</code> share the Gauss-Jordan elimination engine with partial pivoting —
-<code>matrix_gauss_engine</code> @ <code>page_02:42A6</code> — the <em>entry flag in <code>A</code></em> selecting behaviour; only two
+<code>matrix_gauss_engine</code> @ <code>02:42A6</code> — the <em>entry flag in <code>A</code></em> selecting behaviour; only two
 direct call sites exist (byte-verified — <code>CD A6 42</code> appears exactly twice). <code>rref(</code>/<code>ref(</code> are a
 separate driver and do not call <code>42A6</code> (see below):</p>
 <div class="table-wrapper">

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-034b6dd8.js";
+            window.path_to_searchindex_js = "searchindex-1bf8aa40.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -623,11 +623,11 @@ validate inputs on the BASIC side, and make the ASM payload return normally with
 <h3 id="cooperative-asm-directed-basic-callback"><a class="header" href="#cooperative-asm-directed-basic-callback">Cooperative ASM-directed BASIC callback</a></h3>
 <p>The run-confirmed way to let ASM choose a BASIC continuation is to keep BASIC in
 charge of the program call. <code>ASMSIG.8xp</code> sets <code>Ans</code> to <code>1</code> and returns:</p>
-<pre><code class="language-asm">rst 28h
+<pre><code class="language-z80">RST 28h
 .dw 419Bh         ; _OP1Set1
-rst 28h
+RST 28h
 .dw 4ABFh         ; _StoAns
-ret
+RET
 </code></pre>
 <p>The BASIC wrapper then branches on <code>Ans</code> and performs the ordinary <code>prgmNAME</code>
 call:</p>
@@ -650,11 +650,11 @@ The ASM side communicates a return code through <code>Ans</code>; BASIC owns the
 state, performs the <code>prgm</code> call, and resumes after the target returns.</p>
 <p>For a numeric return value without a BASIC callback, <code>ASMVAL.8xp</code> stores <code>2</code> in
 <code>Ans</code>:</p>
-<pre><code class="language-asm">rst 28h
+<pre><code class="language-z80">RST 28h
 .dw 41A7h         ; _OP1Set2
-rst 28h
+RST 28h
 .dw 4ABFh         ; _StoAns
-ret
+RET
 </code></pre>
 <p>The wrapper consumes it as an ordinary BASIC value:</p>
 <pre><code class="language-ti-basic">Asm(prgmASMVAL)
@@ -703,13 +703,13 @@ live BASIC caller already has. [hypothesis]</p>
 <p><code>ASMFIND.8xp</code> and <code>ZZFIND.8xp</code> make the VAT lookup boundary reproducible. The
 wrapper displays <code>BEFORE</code>, runs <code>Asm(prgmZZFIND)</code>, and displays <code>AFTER</code>. The
 payload builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code> (<code>42F1</code>):</p>
-<pre><code class="language-asm">ld hl,name
-ld de,8478h        ; OP1
-ld bc,0009h
-ldir
-rst 28h
+<pre><code class="language-z80">LD HL,name
+LD DE,8478h        ; OP1
+LD BC,0009h
+LDIR
+RST 28h
 .dw 42F1h          ; _ChkFindSym
-ret
+RET
 name: .db 05h,"ZZBASIC",00h
 </code></pre>
 <p>Observed run: <code>ASMFIND.8xp</code>, <code>ZZFIND.8xp</code>, and <code>ZZBASIC.8xp</code> display <code>BEFORE</code>,
@@ -739,10 +739,10 @@ parser setup that expects a live parser/FPS call-frame shape. It is not a
 general “run this token stream” ABI for an arbitrary <code>AsmPrgm</code>. [confirmed]</p>
 <p>The homescreen command/edit-buffer route is also not a safe callable ABI. A
 payload that did only:</p>
-<pre><code class="language-asm">ld a,05h          ; kEnter
-rst 28h
+<pre><code class="language-z80">LD A,05h          ; kEnter
+RST 28h
 .dw 402Ah         ; _JForceCmd
-ret
+RET
 </code></pre>
 <p>entered <code>_JForceCmd</code> (<code>00:0747</code>) but never returned to the BASIC wrapper’s
 <code>Disp "AFTER"</code> statement. The final screen showed repeated <code>BEFORE</code>/<code>Done</code>

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-034b6dd8.js";
+            window.path_to_searchindex_js = "searchindex-1bf8aa40.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -220,12 +220,12 @@ port <code>0x00</code> bit-banging otherwise. [confirmed]</p>
 <tr><td><code>0x02</code></td><td>Hardware/model gate before using assist paths. The link code tests bit 7 before touching ports <code>0x08</code>–<code>0x0D</code>.</td><td><code>3C:6C82</code>, <code>3C:6CB8</code>, <code>3C:6D15</code></td></tr>
 <tr><td><code>0x08</code></td><td>Link-assist control/idle latch. The OS writes <code>0x80</code> when clearing an inactive/error-free assist state, and <code>0x00</code> when marking the assist state active.</td><td><code>OUT (0x08)</code> at <code>3C:6C4D</code>/<code>6C50</code>, <code>3C:6D48</code>, <code>3C:6D5B</code></td></tr>
 <tr><td><code>0x09</code></td><td>Link-assist status on reads. Bit 5 is TX-ready; bit 6 is a transmission/error condition; bit 4 marks a received byte. Masks <code>0x19</code>, <code>0x58</code>, and <code>0x99</code> are used as error/activity predicates. On writes, the OS setup value <code>0x97</code> matches WikiTI’s CPU-speed-0 signaling-rate register.</td><td><code>3C:6BB6</code>–<code>6BC5</code>, <code>3C:444A</code>, <code>3C:6BFA</code>, <code>3C:6CCE</code>, <code>3C:6D33</code>; WikiTI port <code>09</code></td></tr>
-<tr><td><code>0x0A</code></td><td>Assist receive/data register on reads; the confirmed receive path reads the byte here. On writes, the OS setup value <code>0xB4</code> matches WikiTI’s CPU-speed-1 signaling-rate register. Tilem models reads as “last received byte” and stores writes as opaque assist state.</td><td><code>3C:6C20</code>, <code>3C:6C2B</code>, <code>3C:6C39</code>; WikiTI port <code>0A</code>; Tilem <code>x4_io.c</code></td></tr>
-<tr><td><code>0x0B</code>, <code>0x0C</code></td><td>Assist signaling-rate configuration for CPU speed modes 2 and 3, initialized with <code>0xB4</code>. The ROM byte-transfer path writes them during setup but does not read them back. Tilem stores the writes without emulating timing from the values.</td><td><code>3C:6C3D</code>, <code>3C:6C3F</code>; WikiTI ports <code>0B</code>/<code>0C</code>; Tilem <code>x4_io.c</code></td></tr>
+<tr><td><code>0x0A</code></td><td>Assist receive/data register on reads; the confirmed receive path reads the byte here. On writes, the OS setup value <code>0xB4</code> matches WikiTI’s CPU-speed-1 signaling-rate register. TilEm models reads as “last received byte” and stores writes as opaque assist state.</td><td><code>3C:6C20</code>, <code>3C:6C2B</code>, <code>3C:6C39</code>; WikiTI port <code>0A</code>; TilEm <code>x4_io.c</code></td></tr>
+<tr><td><code>0x0B</code>, <code>0x0C</code></td><td>Assist signaling-rate configuration for CPU speed modes 2 and 3, initialized with <code>0xB4</code>. The ROM byte-transfer path writes them during setup but does not read them back. TilEm stores the writes without emulating timing from the values.</td><td><code>3C:6C3D</code>, <code>3C:6C3F</code>; WikiTI ports <code>0B</code>/<code>0C</code>; TilEm <code>x4_io.c</code></td></tr>
 <tr><td><code>0x0D</code></td><td>Assist TX FIFO/data register. <code>_SendAByte</code> writes the outgoing byte here after port <code>0x09</code> bit 5 becomes set.</td><td><code>3C:6BBC</code>–<code>6BBF</code></td></tr>
 <tr><td><code>0x20</code></td><td>CPU speed bit used to select assist/link wait-loop reloads. The send timeout uses <code>0xFFFF</code> when bit 0 is set and <code>0x6800</code> when clear.</td><td><code>3C:6BCC</code>, <code>3C:6C8B</code>, <code>3C:6CC1</code></td></tr>
-<tr><td><code>0x4C</code></td><td>USB controller handshake/status byte. The page-35 stack compares it with <code>0x5A</code>/<code>0x1A</code> and <code>0x12</code>/<code>0x52</code>, and clears or primes it with <code>0x00</code>/<code>0x08</code> during setup. Tilem returns <code>0x22</code> to make the calc see no attached USB peer.</td><td><code>35:42B7</code>, <code>35:42F6</code>, <code>35:403C</code>, <code>35:40E6</code>; Tilem <code>x4_io.c</code></td></tr>
-<tr><td><code>0x4D</code></td><td>USB line-state gate. <code>_LinkXferOP</code> samples bits 5 and 6 before the page-0 bjump at <code>ram:2E0B</code>, which targets <code>35:4280</code>. Page-35 handlers also branch on bits 0, 1, 4, 5, 6, and 7. Tilem returns <code>0xA5</code> to emulate “USB disconnected.”</td><td><code>3C:4E4A</code>–<code>4E6F</code>, <code>35:42BF</code>, <code>35:4B6A</code>–<code>4B9F</code>; Tilem <code>x4_io.c</code></td></tr>
+<tr><td><code>0x4C</code></td><td>USB controller handshake/status byte. The page-35 stack compares it with <code>0x5A</code>/<code>0x1A</code> and <code>0x12</code>/<code>0x52</code>, and clears or primes it with <code>0x00</code>/<code>0x08</code> during setup. TilEm returns <code>0x22</code> to make the calc see no attached USB peer.</td><td><code>35:42B7</code>, <code>35:42F6</code>, <code>35:403C</code>, <code>35:40E6</code>; TilEm <code>x4_io.c</code></td></tr>
+<tr><td><code>0x4D</code></td><td>USB line-state gate. <code>_LinkXferOP</code> samples bits 5 and 6 before the page-0 bjump at <code>ram:2E0B</code>, which targets <code>35:4280</code>. Page-35 handlers also branch on bits 0, 1, 4, 5, 6, and 7. TilEm returns <code>0xA5</code> to emulate “USB disconnected.”</td><td><code>3C:4E4A</code>–<code>4E6F</code>, <code>35:42BF</code>, <code>35:4B6A</code>–<code>4B9F</code>; TilEm <code>x4_io.c</code></td></tr>
 <tr><td><code>0x55</code></td><td>USB interrupt status, active-low in the low five bits. The IM1 dispatcher tests <code>(in(0x55) ^ 0xFF) &amp; 0x1F</code> first.</td><td><code>00:006F</code>–<code>0075</code></td></tr>
 <tr><td><code>0x56</code></td><td>USB line-event bitmap used by the IM1 dispatcher after port <code>0x55</code> reports USB activity. Bits 4, 5, 6, 7, and 1 dispatch to page-35 handlers through page-0 bjumps.</td><td><code>00:0085</code>–<code>00AE</code>, <code>00:0113</code>–<code>0127</code></td></tr>
 <tr><td><code>0x57</code>, <code>0x5B</code>, <code>0x4A</code>, <code>0x54</code></td><td>USB controller control/ack registers used by page-35 setup and event handlers. The ROM confirms values such as <code>0x10</code>, <code>0x20</code>, <code>0x22</code>, <code>0x50</code>, <code>0x80</code>, <code>0x90</code>, <code>0x93</code> on <code>0x57</code>, <code>0x00</code>/<code>0x01</code> on <code>0x5B</code>, <code>0x20</code> on <code>0x4A</code>, and <code>0x02</code>/<code>0x44</code>/<code>0xC4</code> on <code>0x54</code>.</td><td><code>35:4038</code>–<code>4060</code>, <code>35:42C5</code>–<code>42EA</code>, <code>35:4B6A</code>–<code>4C14</code></td></tr>
@@ -249,22 +249,22 @@ the outer counter at <code>0x9CAC</code> expires, then fall into the link error 
 </ol>
 <p>The ROM disassembles to:</p>
 <pre><code class="language-z80">; 3C:6BB2, assist send path
-6BB2: call 6D4Fh        ; clear/prepare assist I/O latch
-6BB5: call 6BD2h        ; seed 9CAC from CPU speed
-6BB8: call 6BD2h
+6BB2: CALL 6D4Fh        ; clear/prepare assist I/O latch
+6BB5: CALL 6BD2h        ; seed 9CAC from CPU speed
+6BB8: CALL 6BD2h
 
-6BBB: ld   a,0FAh
-6BBD: ld   (9C86h),a    ; inner retry reload
-6BC0: in   a,(09h)
-6BC2: bit  5,a
-6BC4: jr   z,6BCAh      ; TX not ready
-6BC6: ld   a,c
-6BC7: out  (0Dh),a      ; write byte to assist FIFO
-6BC9: ret
+6BBB: LD   A,0FAh
+6BBD: LD   (9C86h),A    ; inner retry reload
+6BC0: IN   A,(09h)
+6BC2: BIT  5,A
+6BC4: JR   Z,6BCAh      ; TX not ready
+6BC6: LD   A,C
+6BC7: OUT  (0Dh),A      ; write byte to assist FIFO
+6BC9: RET
 
-6BCA: call 6BE4h        ; decrement 9CAC, Z means keep polling
-6BCD: jr   z,6BBBh
-6BCF: jp   4434h        ; link timeout/error path
+6BCA: CALL 6BE4h        ; decrement 9CAC, Z means keep polling
+6BCD: JR   Z,6BBBh
+6BCF: JP   4434h        ; link timeout/error path
 </code></pre>
 <p><code>lnk_set_timeout</code> (<code>3C:6BD2</code>) seeds <code>0x9CAC</code> from CPU speed. When port <code>0x20</code> bit 0 is clear it uses
 <code>0x6800</code>; when the bit is set it leaves the larger <code>0xFFFF</code> seed. The ROM confirms the two reload
@@ -278,7 +278,7 @@ path:</p>
 <li><code>0x40</code> (bit 6) is treated as a transmission/error condition.</li>
 <li><code>0x10</code> (bit 4) is the “byte received” condition.</li>
 <li><code>0x08</code> is an assist read-busy/activity bit: it wakes the wait loop, but the byte is not accepted
-until bit 4 or an error/status bit is also present. Tilem names the corresponding state
+until bit 4 or an error/status bit is also present. TilEm names the corresponding state
 <code>TILEM_LINK_ASSIST_READ_BUSY</code>.</li>
 <li>When the receive condition is accepted, the byte is read from port <code>0x0A</code> into <code>C</code>.</li>
 <li>The status masks <code>0x19</code> and <code>0x99</code> select error/activity cases before the code resets or re-arms
@@ -288,15 +288,15 @@ the assist latch through port <code>0x08</code>.</li>
 receive check. If the caller requires a byte and the status path reports anything else, the code
 raises <code>E_LnkErr</code> through <code>_JError(0x9F)</code>. [confirmed]</p>
 <p>The assist reset/enable sequence at <code>3C:6C3B</code> writes:</p>
-<pre><code class="language-z80">out (0x00),0x00
-out (0x09),0x97
-out (0x0A),0xB4
-out (0x0B),0xB4
-out (0x0C),0xB4
-out (0x08),0x80
-out (0x08),0x00
-in  a,(0x09)
-set 0,(IY+0x3E)
+<pre><code class="language-z80">OUT (0x00),0x00
+OUT (0x09),0x97
+OUT (0x0A),0xB4
+OUT (0x0B),0xB4
+OUT (0x0C),0xB4
+OUT (0x08),0x80
+OUT (0x08),0x00
+IN  A,(0x09)
+SET 0,(IY+0x3E)
 </code></pre>
 <p>The sequence proves the ports touched and the RAM flag used by the OS. WikiTI names these writes as
 link-assist signaling-rate setup values for CPU speed modes 0-3: ports <code>0x09</code>, <code>0x0A</code>, <code>0x0B</code>, and
@@ -317,10 +317,10 @@ the inter-bit wait. Under that decoding, the ROM constants are:</p>
 </table>
 </div>
 <p>Direct ROM scans found the page-3C byte-transfer path writing those constants during setup, then
-using the read side of <code>0x09</code> for status and <code>0x0A</code> for received bytes. Tilem agrees on the runtime
+using the read side of <code>0x09</code> for status and <code>0x0A</code> for received bytes. TilEm agrees on the runtime
 status/data behavior and stores ports <code>0x09</code>–<code>0x0C</code>, but its <code>x4</code>/<code>xn</code>/<code>xs</code>/<code>xz</code> models label the
 write-side settings as unknown or timeout-like and do not derive link timing from <code>0x97</code>/<code>0xB4</code>.
-[ROM-confirmed writes; WikiTI field names; Tilem storage-only]</p>
+[ROM-confirmed writes; WikiTI field names; TilEm storage-only]</p>
 <h2 id="usb-selection-in-_linkxferop-confirmed"><a class="header" href="#usb-selection-in-_linkxferop-confirmed">USB selection in <code>_LinkXferOP</code> [confirmed]</a></h2>
 <p><code>_LinkXferOP</code> (<code>3C:4DD2</code>, bcall ID <code>0x50FB</code>) is the OS entry that sends a silent link request and
 prefers the USB path when its mode flags ask for it. <code>ti83plus.inc</code> names bcall <code>0x50FB</code>
@@ -353,9 +353,9 @@ replace the packet format. The transport choice happens before <code>_SendAByte<
 the assist FIFO or falls back to port <code>0x00</code>. [confirmed]</p>
 <h2 id="interrupt-integration-confirmed"><a class="header" href="#interrupt-integration-confirmed">Interrupt integration [confirmed]</a></h2>
 <p>The IM1 dispatcher (<code>ram:006F</code>) treats the USB interrupt status as its first source gate:</p>
-<pre><code class="language-z80">in a,(0x55)
-xor 0xFF
-and 0x1F
+<pre><code class="language-z80">IN A,(0x55)
+XOR 0xFF
+AND 0x1F
 </code></pre>
 <p>If no low-five-bit USB source is active, the handler falls through to the other interrupt work. If a
 USB source is active, it reads port <code>0x56</code> and branches on event bits. In the visible dispatcher,
@@ -450,7 +450,7 @@ carry-clear/carry-set result is decoded above.</li>
 <code>0x8xxx</code> USB names (<code>_InitUSB</code>, <code>_KillUSB</code>, <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>,
 <code>_USBErrorCleanup</code>) remain part of the repository-wide <code>0x8xxx</code> bcall-table reconciliation problem,
 not a page-3C link-transfer gap.</li>
-<li>The ROM does not give bit names for every page-35 controller register, and Tilem does not model
+<li>The ROM does not give bit names for every page-35 controller register, and TilEm does not model
 physical timing from the assist setup values. This page therefore treats the <code>0x97</code>/<code>0xB4</code> field
 names as WikiTI-supported timing configuration, while ROM-confirmed claims remain limited to the
 written constants, status/data port use, comparisons, branch bits, RAM state, and FIFO direction.</li>

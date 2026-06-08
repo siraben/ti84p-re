@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-034b6dd8.js";
+            window.path_to_searchindex_js = "searchindex-1bf8aa40.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -193,7 +193,7 @@
 <ul>
 <li><code>pp:addr</code> — flash page <code>pp</code> (<code>00</code>–<code>3F</code>), logical address <code>addr</code>. Banked pages run in the <code>4000–7FFF</code> window, so e.g. <code>_PutS</code> at <code>01:5C39</code> means page 1, address <code>0x5C39</code>. Example: <code>3D:6745</code>.</li>
 <li><code>ram:addr</code> — page 0 (the always-mapped kernel) and the RAM window; Ghidra keeps page 0 in its <code>ram</code> space, so <code>ram:229E</code> ≡ <code>00:229E</code>.</li>
-<li><code>page_pp:addr</code> — the same as <code>pp:addr</code>, written in Ghidra’s overlay-space form (<code>page_38:4000</code>). Used where it matches the tool output.</li>
+<li>Ghidra’s overlay space writes flash addresses as <code>page_pp:addr</code> (e.g. <code>page_38:4000</code>); the wiki normalizes these to the short <code>pp:addr</code> form, so <code>page_38:4000</code> is written <code>38:4000</code>.</li>
 <li>A bare <code>0x….</code> (no page) is a RAM data address or an unpaged value (e.g. <code>flags</code> <code>0x89F0</code>, the bcall-ID ranges <code>0x4xxx</code>/<code>0x8xxx</code>, a page number like <code>0x3B</code>).</li>
 <li><strong>bcall ID ≠ address.</strong> A bcall has an <em>ID</em> (the 2-byte word after <code>rst 28h</code>, e.g. <code>_FindSym</code> = <code>42F4h</code>) and a <em>body address</em> (<code>00:0E65</code>). The ID indexes the jump table; it is not where the code lives.</li>
 </ul>
@@ -211,25 +211,14 @@
 </tbody>
 </table>
 </div>
-<p>Some early deep-dive docs use shorthand <code>[C]</code>/<code>[H]</code>/<code>[I]</code> ≈ <code>[confirmed]</code>/<code>[standard]</code>/<code>[hypothesis]</code>; read them against this three-tier scheme. A flag is a plain bracketed token — <code>[confirmed]</code>, not <code>**[confirmed]**</code>. These three tiers are the whole scheme; there is no <code>[strong]</code> or <code>[inferred]</code> flag.</p>
-<h2 id="typography"><a class="header" href="#typography">Typography</a></h2>
-<ul>
-<li><strong>Em dash</strong> — a spaced em dash <code>—</code> sets off a parenthetical break in prose.</li>
-<li><strong>En dash</strong> — an en dash <code>–</code> joins a numeric, address, or register range: <code>0x08</code>–<code>0x0D</code>, <code>L1</code>–<code>L4</code>, <code>OP1</code>–<code>OP6</code>, and two-name compounds such as Gauss–Kronrod. A hyphen inside a single code span (<code>`0x8000-0x9BC3`</code>) is literal.</li>
-<li><strong>Hyphen</strong> — joins compound modifiers: <code>cross-page</code>, <code>byte-verified</code>, <code>little-endian</code>.</li>
-<li><strong>Bold</strong> is reserved for UI elements — a calculator key or menu name such as <strong>Y=</strong>, <strong>MODE</strong>, <strong>TRACE</strong> — and run-in labels ending in <code>.</code>/<code>:</code>. It is not used for emphasis; italics carry emphasis, sparingly, where word choice cannot. Confidence flags, addresses, ports, registers, and routine names take code/notation markup, not bold.</li>
-<li>Bullet lists use <code>-</code>.</li>
-</ul>
+<p>Some early deep-dive docs use shorthand <code>[C]</code>/<code>[H]</code>/<code>[I]</code> ≈ <code>[confirmed]</code>/<code>[standard]</code>/<code>[hypothesis]</code>; read them against this three-tier scheme.</p>
 <h2 id="function-naming"><a class="header" href="#function-naming">Function naming</a></h2>
 <ul>
 <li><code>_CamelCase</code> — an official TI bcall/equate name (from <code>ti83plus.inc</code>, the full 2007 TI-83 Plus SDK equates file, or the TI SDK), e.g. <code>_FindSym</code>, <code>_FPAdd</code>. High confidence.</li>
 <li><code>snake_case</code> — a name <em>inferred during this RE</em> from a routine’s behavior (which named routines it calls, which RAM/ports it touches), e.g. <code>findsym_scan</code>, <code>fp_normalize</code>. Accurate in aggregate; any single low-level helper name is a best-effort guess.</li>
 </ul>
 <h2 id="math-notation"><a class="header" href="#math-notation">Math notation</a></h2>
-<p>Formulas are written in LaTeX and rendered by KaTeX (offline, client-side): <code>$…$</code> for inline math and <code>$$…$$</code> (or <code>\[…\]</code>) for display. KaTeX skips <code>&lt;code&gt;</code>/<code>&lt;pre&gt;</code>, so <code>$</code>-prefixed hex like <code>$1A2F</code> inside code blocks is left untouched.</p>
-<blockquote>
-<p><strong>Escaping caveat:</strong> mdBook runs markdown <em>before</em> the client-side KaTeX pass, and markdown strips a backslash before ASCII punctuation. So inside <code>$…$</code>/<code>$$…$$</code> you must <em>double</em> those escapes — write <code>\\,</code> (thin space), <code>\\%</code> (percent), <code>\\\\</code> (matrix/array row break), <code>\\{</code>/<code>\\}</code> — otherwise KaTeX receives <code>,</code>/<code>%</code>/<code>\</code> and mis-renders (a bare <code>%</code> even comments out the rest of the formula). Backslash-before-letter macros (<code>\frac</code>, <code>\sum</code>, <code>\sqrt</code>, …) are safe as-is. Fenced <code>```pseudocode</code>/<code>```mermaid</code> blocks are verbatim and need no doubling. Algorithms are written as <code>```pseudocode</code> blocks in <a href="https://github.com/SaswatPadhi/pseudocode.js">pseudocode.js</a> <code>\begin{algorithm}</code> syntax and typeset client-side. Diagrams use Mermaid (<code>```mermaid</code>) and render to SVG. See the repository <code>flake.nix</code>/<code>book.toml</code> for how the assets are vendored.</p>
-</blockquote>
+<p>Formulas are written in LaTeX and rendered by KaTeX (offline, client-side): <code>$…$</code> for inline math and <code>$$…$$</code> for display. Algorithms render as pseudocode blocks and data/control-flow diagrams as Mermaid.</p>
 <h2 id="how-this-re-was-produced"><a class="header" href="#how-this-re-was-produced">How this RE was produced</a></h2>
 <ul>
 <li>The Ghidra database is rebuilt from the ROM by <code>tools/build.sh</code> (a 10-stage headless pipeline). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves and names routines from the main OS bcall table.</li>

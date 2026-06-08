@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-034b6dd8.js";
+            window.path_to_searchindex_js = "searchindex-1bf8aa40.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -213,7 +213,7 @@
 </ul>
 <h2 id="fonts-confirmed"><a class="header" href="#fonts-confirmed">Fonts [confirmed]</a></h2>
 <ul>
-<li><strong>Large font</strong>: glyph table is on page 7, base <code>07:45FF</code>, with a <code>7-byte stride</code> per glyph (not 8). <code>_PutMap</code> (<code>01:5A98</code>) clamps the code (<code>0</code> or <code>≥0xF8</code> → <code>0xD0</code>), computes <code>HL = char*8</code> (three <code>ADD HL,HL</code>), then bjumps via trampoline <code>ram:3B3D</code> to the blitter <code>put_glyph_large</code> (<code>page_07:4588</code>). The blitter does <code>HL = 07:45FF + char*8</code>, then <code>lgfont_glyph_ptr_adjust</code> (<code>07:45EB</code>) subtracts <code>char</code> (it shifts <code>char*8</code> right by 3 → <code>char</code>, then <code>SBC HL,DE</code>), yielding the real glyph pointer <strong><code>07:45FF + char*7</code></strong>. It then copies an 8-byte record via <code>_Mov8B</code> (<code>ram:1A94</code>, 8× <code>LDI</code>) into RAM at <code>0x845A</code> (<code>lFont_record</code>), which the renderer blits. [confirmed] <em>(The stride is 7 bytes while the copy is 8 bytes — the 8th byte overlaps the next glyph’s first row — so the table packs glyphs at <code>07:45FF + char*7</code>.)</em></li>
+<li><strong>Large font</strong>: glyph table is on page 7, base <code>07:45FF</code>, with a <code>7-byte stride</code> per glyph (not 8). <code>_PutMap</code> (<code>01:5A98</code>) clamps the code (<code>0</code> or <code>≥0xF8</code> → <code>0xD0</code>), computes <code>HL = char*8</code> (three <code>ADD HL,HL</code>), then bjumps via trampoline <code>ram:3B3D</code> to the blitter <code>put_glyph_large</code> (<code>07:4588</code>). The blitter does <code>HL = 07:45FF + char*8</code>, then <code>lgfont_glyph_ptr_adjust</code> (<code>07:45EB</code>) subtracts <code>char</code> (it shifts <code>char*8</code> right by 3 → <code>char</code>, then <code>SBC HL,DE</code>), yielding the real glyph pointer <strong><code>07:45FF + char*7</code></strong>. It then copies an 8-byte record via <code>_Mov8B</code> (<code>ram:1A94</code>, 8× <code>LDI</code>) into RAM at <code>0x845A</code> (<code>lFont_record</code>), which the renderer blits. [confirmed] <em>(The stride is 7 bytes while the copy is 8 bytes — the 8th byte overlaps the next glyph’s first row — so the table packs glyphs at <code>07:45FF + char*7</code>.)</em></li>
 <li><strong>Alternate large fonts</strong>: two bits in <code>(IY+0x35)</code> select a replacement glyph source before the page-7 table read — bit 5 loads <code>A=0x01</code> and calls <code>ram:36E7</code> (bjump to <code>3B:7BFB</code>), bit 1 loads <code>A=0x76</code> and calls <code>ram:3E1F</code> (bjump to <code>3B:7B9C</code>); both are font-hook routines on page <code>3B</code> that take the <code>A</code> value as a selector. When neither bit is set, the page-7 table at <code>07:45FF</code> is used. [confirmed]</li>
 <li><strong>Small/variable-width font</strong>: <code>_VPutMap</code>/<code>_VPutS</code> (graph screen, pixel-addressed via <code>penCol</code>/<code>penRow</code>).</li>
 </ul>

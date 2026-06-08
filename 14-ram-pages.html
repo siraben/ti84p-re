@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-034b6dd8.js";
+            window.path_to_searchindex_js = "searchindex-1bf8aa40.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -291,12 +291,12 @@ in a normal workflow.” These paths are confirmed or have a concrete next scena
 </table>
 </div>
 <p>The computed bank-pair helpers use this selector formula:</p>
-<pre><code class="language-z80">    ld a,b
-    sla a
-    out (5),a        ; pair index 0/1/2/3 -&gt; pages 80/82/84/86 in bank C
-    inc a
-    or 80h
-    out (7),a        ; pair index 0/1/2/3 -&gt; pages 81/83/85/87 in bank B
+<pre><code class="language-z80">    LD A,B
+    SLA A
+    OUT (5),A        ; pair index 0/1/2/3 -&gt; pages 80/82/84/86 in bank C
+    INC A
+    OR 0x80
+    OUT (7),A        ; pair index 0/1/2/3 -&gt; pages 81/83/85/87 in bank B
 </code></pre>
 <p>Decoded callers set <code>B = 1</code>, selecting pages <code>82/83</code>; that explains the observed
 <code>port 5 = 02</code>, <code>port 7 = 83</code> sequence. Pages <code>84–87</code> are reachable through the
@@ -321,45 +321,45 @@ more than anonymous free RAM. Keep the evidence classes separate:</p>
 </table>
 </div>
 <p>Ghidra identifies the page-<code>83</code> block-copy helper at <code>ram:1868</code>. It saves the current
-port-<code>6</code> value, writes <code>83h</code> to port <code>6</code>, runs <code>LDIR</code>, and restores the previous page
+port-<code>6</code> value, writes <code>0x83</code> to port <code>6</code>, runs <code>LDIR</code>, and restores the previous page
 through the page-set helper:</p>
 <pre><code class="language-z80">ram:1877  IN A,(6)
 ram:1879  PUSH AF
-ram:187A  LD A,83h
+ram:187A  LD A,0x83
 ram:187C  OUT (6),A
 ram:187E  LDIR
 ram:1880  POP AF
-ram:1881  CALL 181Ch
+ram:1881  CALL 0x181C
 </code></pre>
 <p>Ghidra identifies the LCD capture helper at <code>ram:1890</code>. It maps page <code>83</code>, waits on
 the LCD, reads port <code>11</code>, and stores each byte through <code>HL</code>:</p>
 <pre><code class="language-z80">ram:189F  IN A,(6)
 ram:18A1  PUSH AF
-ram:18A2  LD A,83h
+ram:18A2  LD A,0x83
 ram:18A4  OUT (6),A
-ram:18A6  CALL 0CC3h
-ram:18A9  IN A,(11h)
+ram:18A6  CALL 0x0CC3
+ram:18A9  IN A,(0x11)
 ram:18AB  LD (HL),A
 </code></pre>
 <p>The reset path on page <code>37</code> initializes the previous-entry pointers:</p>
-<pre><code class="language-z80">37:6E0D  LD HL,577Eh
+<pre><code class="language-z80">37:6E0D  LD HL,0x577E
 37:6E10  LD (lastEntryPTR),HL
-37:6E13  LD HL,0000h
+37:6E13  LD HL,0x0000
 37:6E16  LD (numLastEntries),HL
 </code></pre>
 <p>Page <code>38</code> has a second clear path with the same pointer reset:</p>
-<pre><code class="language-z80">38:422D  LD HL,577Eh
+<pre><code class="language-z80">38:422D  LD HL,0x577E
 38:4230  LD (lastEntryPTR),HL
-38:4233  LD HL,0000h
+38:4233  LD HL,0x0000
 38:4236  LD (numLastEntries),HL
 </code></pre>
 <p>The homescreen entry-history code on page <code>33</code> uses the same constants and variables:</p>
 <pre><code class="language-z80">33:53D1  LD A,(numLastEntries)
-33:53E2  LD HL,5A7Eh
-33:53F7  LD HL,577Eh
+33:53E2  LD HL,0x5A7E
+33:53F7  LD HL,0x577E
 33:5430  LD A,(numLastEntries)
-33:543A  LD DE,577Eh
-33:5451  LD DE,577Eh
+33:543A  LD DE,0x577E
+33:5451  LD DE,0x577E
 33:5459  LD (lastEntryPTR),HL
 33:5462  LD HL,numLastEntries
 33:5465  INC (HL)
@@ -418,53 +418,53 @@ range 5A7E-5DF2
 <p>Restore the selector for every window you changed. For code entered from normal TI-OS
 state that temporarily maps page <code>83</code> into bank B (<code>8000-BFFF</code>) and page <code>82</code> into
 bank C (<code>C000-FFFF</code>), restore the two RAM windows this way:</p>
-<pre><code class="language-z80">    ld a,$81
-    out (7),a        ; 8000-BFFF back to RAM page 81
-    xor a
-    out (5),a        ; C000-FFFF back to RAM page 80
+<pre><code class="language-z80">    LD A,0x81
+    OUT (7),A        ; 8000-BFFF back to RAM page 81
+    XOR A
+    OUT (5),A        ; C000-FFFF back to RAM page 80
 </code></pre>
 <p>For code that maps page <code>83</code> into bank A (<code>4000-7FFF</code>), preserve and restore port <code>6</code>:</p>
-<pre><code class="language-z80">    in a,(6)
-    push af
+<pre><code class="language-z80">    IN A,(6)
+    PUSH AF
 
-    ld a,$83
-    out (6),a        ; map RAM page 83 at 4000-7FFF
+    LD A,0x83
+    OUT (6),A        ; map RAM page 83 at 4000-7FFF
     ; use 4000-7FFF here
 
-    pop af
-    out (6),a        ; restore previous Flash/RAM page selector
+    POP AF
+    OUT (6),A        ; restore previous Flash/RAM page selector
 </code></pre>
 <p>Keep the nonstandard mapping inside a short critical section. The OS helper preserves
 interrupt state around the temporary RAM-page mapping so the interrupt handler does not
 run with bank A or bank B pointing at page <code>83</code>.</p>
 <p>For code that may be called with nonstandard paging, preserve and restore the selectors
 for all touched windows:</p>
-<pre><code class="language-z80">    in a,(6)
-    push af
-    in a,(7)
-    push af
-    in a,(5)
-    push af
+<pre><code class="language-z80">    IN A,(6)
+    PUSH AF
+    IN A,(7)
+    PUSH AF
+    IN A,(5)
+    PUSH AF
 
-    ld a,$83
-    out (7),a        ; map RAM page 83 at 8000-BFFF
+    LD A,0x83
+    OUT (7),A        ; map RAM page 83 at 8000-BFFF
     ; use 8000-BFFF here
 
-    pop af
-    out (5),a
-    pop af
-    out (7),a
-    pop af
-    out (6),a
+    POP AF
+    OUT (5),A
+    POP AF
+    OUT (7),A
+    POP AF
+    OUT (6),A
 </code></pre>
 <p>The OS’s own paged byte-store helper at <code>37:44AE</code> uses the normal restore pattern:</p>
-<pre><code class="language-z80">37:44D0  OUT (5),A        ; A = page index &lt;&lt; 1, trace case A = 02h (→ RAM page 82)
+<pre><code class="language-z80">37:44D0  OUT (5),A        ; A = page index &lt;&lt; 1, trace case A = 0x02 (→ RAM page 82)
 37:44D2  INC A            ; A = 03
-37:44D3  OR 80h           ; A = 83h
-37:44D5  OUT (7),A        ; trace case: 83h
+37:44D3  OR 0x80          ; A = 0x83
+37:44D5  OUT (7),A        ; trace case: 0x83
 37:44D7  LD A,B
 37:44D8  LD (DE),A        ; byte store while RAM page 83 is visible
-37:44D9  LD A,81h
+37:44D9  LD A,0x81
 37:44DB  OUT (7),A
 37:44DD  XOR A
 37:44DE  OUT (5),A

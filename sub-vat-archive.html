@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-034b6dd8.js";
+            window.path_to_searchindex_js = "searchindex-1bf8aa40.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -191,7 +191,7 @@ the cross-page <code>CALL 0x2b09</code>-style trampolines. Page numbers are the 
 <hr>
 <h2 id="1-the-arcinfo-workspace-and-key-ram-pointers-confirmed"><a class="header" href="#1-the-arcinfo-workspace-and-key-ram-pointers-confirmed">1. The arcInfo workspace and key RAM pointers [confirmed]</a></h2>
 <p>The archive engine keeps a 12-byte scratch block, labelled <code>arcInfo</code> (<code>83EEh</code>) in <code>ti83plus.inc</code>,
-plus a saved copy <code>savedArcInfo</code> (<code>8406h</code>). <code>_Arc_Unarc</code>’s reentrant inner mover at <code>page_07:61DC</code>
+plus a saved copy <code>savedArcInfo</code> (<code>8406h</code>). <code>_Arc_Unarc</code>’s reentrant inner mover at <code>07:61DC</code>
 copies the 12 bytes starting at <code>83F1</code> (the <code>vatPtr</code> field onward, not the whole <code>83EE</code> block)
 into <code>8406</code> (<code>LD HL,83F1 / LD DE,8406 / LD BC,0C / LDIR</code>); the matching <code>07:61E8</code> restore candidate is an inferred label, not byte-confirmed in the disassembly.</p>
 <div class="table-wrapper">
@@ -220,7 +220,7 @@ read/write routines are copied to run (you cannot execute from a Flash page whil
 <hr>
 <h2 id="2-_findsym-and-the-vat-walk-confirmed"><a class="header" href="#2-_findsym-and-the-vat-walk-confirmed">2. <code>_FindSym</code> and the VAT walk [confirmed]</a></h2>
 <p><code>_FindSym</code> (<code>00:0E65</code>, = <code>RST 10h</code>) is a page-0 trampoline that cross-page-jumps to the real scanner
-<code>findsym_scan</code> @ <code>page_07:565F</code>. <code>_ChkFindSym</code> (<code>00:0E60</code>) first type-checks OP1 (<code>_CkOP1Real</code>)
+<code>findsym_scan</code> @ <code>07:565F</code>. <code>_ChkFindSym</code> (<code>00:0E60</code>) first type-checks OP1 (<code>_CkOP1Real</code>)
 then falls into FindSym.</p>
 <p>The scanner keys off <code>OP1</code> at <code>8478</code>: <code>OP1.type</code>/<code>varType</code> and the name token at <code>8479</code> (=OP1+1),
 with the 2 name bytes at <code>847A</code>/<code>847B</code>:</p>

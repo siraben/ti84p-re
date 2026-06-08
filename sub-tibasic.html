@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-034b6dd8.js";
+            window.path_to_searchindex_js = "searchindex-1bf8aa40.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -507,44 +507,44 @@ for the next.</li>
 classifier) that the dispatch consults; both tail into <code>RST5</code> (bjump) handlers.</p>
 <hr>
 <h2 id="7-confident-addresses-spaceaddr--name"><a class="header" href="#7-confident-addresses-spaceaddr--name">7. Confident addresses (space:addr → name)</a></h2>
-<pre><code>page_38:5987   _ParseInp                  ; parse/eval entry line or formula
-page_38:5ab3   parse_eval_expr            ; recursive-descent statement/expr core
-page_38:59c5   eval_stmt_entry            ; statement-loop variant (shared loop label 38:59C8)
-page_38:5826   if_else_skip_handler       ; Else-branch skip via block matcher
-page_38:6f63   if_isg_stmt_handler        ; per-statement If/IS&gt;( dispatch
-page_38:4130   blockmatch_end_else        ; nest-counting End/Else scanner
-page_38:4180   parse_scan_tokens          ; skip-to-delimiter (2-byte aware)
-page_38:4870   goto_lbl_name_scanner      ; scan label name, jump to search
-page_38:7600   store_target_name_scanner  ; →VAR store-target name scanner (inferred; live DB auto-name is set_tblgraph_draw_xpage)
-page_38:72da   parse_cur_tok
-page_38:7248   parse_advance
-page_38:5cd8   parse_expect_or_err
-page_38:5b7b   parse_init
-page_38:758a   _Find_Parse_Formula        ; FindSym + parse stored formula / run prog
-page_38:6251   _StoAns
-page_38:679f   _RclAns
-page_38:74b7   _AnsName                   ; OP1 = Ans name (class 0x72)
-page_38:623b   _StoSysTok
-page_38:683e   _RclSysTok
-page_37:51d3   _Disp                      ; home-screen text display
-page_03:4af2   _OutputExpr                ; Output( absolute row,col
-page_04:7844   _DispOP1A                  ; format+display OP1 (real)
-page_39:4d21   _DispMenuTitle             ; Menu( title bar
-page_01:5f4a   _NewLine                   ; cursor newline + scroll
-page_01:69b0   _DispDone                  ; finish a Disp
-page_01:6518   _RunIndicOn
-page_01:6531   _RunIndicOff
-page_01:66e5   _GetTokLen                 ; token byte-length (editor)
-page_01:66ea   _Get_Tok_Strng             ; token -&gt; display string (editor)
+<pre><code>38:5987   _ParseInp                  ; parse/eval entry line or formula
+38:5ab3   parse_eval_expr            ; recursive-descent statement/expr core
+38:59c5   eval_stmt_entry            ; statement-loop variant (shared loop label 38:59C8)
+38:5826   if_else_skip_handler       ; Else-branch skip via block matcher
+38:6f63   if_isg_stmt_handler        ; per-statement If/IS&gt;( dispatch
+38:4130   blockmatch_end_else        ; nest-counting End/Else scanner
+38:4180   parse_scan_tokens          ; skip-to-delimiter (2-byte aware)
+38:4870   goto_lbl_name_scanner      ; scan label name, jump to search
+38:7600   store_target_name_scanner  ; →VAR store-target name scanner (inferred; live DB auto-name is set_tblgraph_draw_xpage)
+38:72da   parse_cur_tok
+38:7248   parse_advance
+38:5cd8   parse_expect_or_err
+38:5b7b   parse_init
+38:758a   _Find_Parse_Formula        ; FindSym + parse stored formula / run prog
+38:6251   _StoAns
+38:679f   _RclAns
+38:74b7   _AnsName                   ; OP1 = Ans name (class 0x72)
+38:623b   _StoSysTok
+38:683e   _RclSysTok
+37:51d3   _Disp                      ; home-screen text display
+03:4af2   _OutputExpr                ; Output( absolute row,col
+04:7844   _DispOP1A                  ; format+display OP1 (real)
+39:4d21   _DispMenuTitle             ; Menu( title bar
+01:5f4a   _NewLine                   ; cursor newline + scroll
+01:69b0   _DispDone                  ; finish a Disp
+01:6518   _RunIndicOn
+01:6531   _RunIndicOff
+01:66e5   _GetTokLen                 ; token byte-length (editor)
+01:66ea   _Get_Tok_Strng             ; token -&gt; display string (editor)
 </code></pre>
 <p>I/O command token-handler sites (page 02 = the command-exec page; dispatched
 from the page-38 evaluator via cross-page jump):</p>
-<pre><code>page_02:54ef   input_cmd_handler  (tInput DC)
-page_02:562f   prompt_cmd_handler (tPrompt DD)
-page_02:555d   menu_cmd_handler   (tMenu E6)
-page_02:55e7   pause_cmd_handler  (tPause D8)
-page_02:673e   output_cmd_handler (tOutput E0)
-page_38:6ae6   output_dispatch    (CP E0 in evaluator)
+<pre><code>02:54ef   input_cmd_handler  (tInput DC)
+02:562f   prompt_cmd_handler (tPrompt DD)
+02:555d   menu_cmd_handler   (tMenu E6)
+02:55e7   pause_cmd_handler  (tPause D8)
+02:673e   output_cmd_handler (tOutput E0)
+38:6ae6   output_dispatch    (CP E0 in evaluator)
 </code></pre>
 <hr>
 <h2 id="8-dynamic-confirmation-and-traceable-examples"><a class="header" href="#8-dynamic-confirmation-and-traceable-examples">8. Dynamic confirmation and traceable examples</a></h2>

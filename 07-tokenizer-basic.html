@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-034b6dd8.js";
+            window.path_to_searchindex_js = "searchindex-1bf8aa40.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -230,14 +230,14 @@ running the named BASIC target. [confirmed negative probe]</li>
 </ul>
 <p>The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine (<a href="06-floating-point.html">06</a>), variable tokens resolve via the VAT (<a href="05-variables-vat.html">05</a>), and the busy indicator is driven by <code>_RunIndicOn</code> / <code>_RunIndicOff</code>. <code>_BinOPExec</code> applies a binary operator via OP1/OP2.</p>
 <h3 id="the-handler-dispatch-table-confirmed"><a class="header" href="#the-handler-dispatch-table-confirmed">The handler dispatch table [confirmed]</a></h3>
-<p>Page 0x38 begins with the parser’s handler dispatch at <code>page_38:4000</code> — a flat array of 2-byte little-endian handler pointers. Raw bytes are <code>9F 41 F0 45 1C 42 …</code> = entries <code>0x419F, 0x45F0, 0x421C, …</code> (all in-window <code>0x4xxx</code>/<code>0x47xx</code> code addresses), indexed by token class and dereferenced; the selector at <code>38:7010</code> loads <code>LD HL,0x4000</code> and adds <code>2×index</code> (see <a href="sub-tibasic.html">TI-BASIC Programs</a>).</p>
+<p>Page 0x38 begins with the parser’s handler dispatch at <code>38:4000</code> — a flat array of 2-byte little-endian handler pointers. Raw bytes are <code>9F 41 F0 45 1C 42 …</code> = entries <code>0x419F, 0x45F0, 0x421C, …</code> (all in-window <code>0x4xxx</code>/<code>0x47xx</code> code addresses), indexed by token class and dereferenced; the selector at <code>38:7010</code> loads <code>LD HL,0x4000</code> and adds <code>2×index</code> (see <a href="sub-tibasic.html">TI-BASIC Programs</a>).</p>
 <p>These handlers implement TI-BASIC statements/commands and operators. Sampling them by the routine they call:</p>
 <ul>
 <li>indices 8–10, 17–19, 38 → <code>bcall(_Regraph)</code> — graph commands (<code>DrawF</code>, <code>ZoomFit</code>, etc.).</li>
 <li>indices 14–16, 21–22 → <code>bcall(_Disp)</code> — display/output commands (<code>Disp</code>, <code>Output</code>).</li>
 <li>the “no-bcall” handlers are the arithmetic/operator productions — they drive OP1/OP2 through the FP engine via the RST shortcuts (RST 30h <code>_FPAdd</code>, etc.), which is why a bcall scan doesn’t flag them; variable handlers go through <code>_FindSym</code> (<a href="05-variables-vat.html">05</a>).</li>
 </ul>
-<p>The first handlers: <code>page_38:419F, 45F0, 421C, …</code>.</p>
+<p>The first handlers: <code>38:419F, 45F0, 421C, …</code>.</p>
 <h3 id="parse-stream-cursor-confirmed"><a class="header" href="#parse-stream-cursor-confirmed">Parse-stream cursor [confirmed]</a></h3>
 <p>The evaluator walks the token stream via a cursor in RAM: <code>parsePtr</code> (<code>0x965D</code> = official <code>nextParseByte</code>, current position) and <code>parseEnd</code> (<code>0x965F</code> = <code>basic_end</code>, end). Named helpers on page 0x38:</p>
 <ul>
@@ -245,10 +245,10 @@ running the named BASIC target. [confirmed negative probe]</li>
 <li><code>parse_advance</code> (<code>38:7248</code>) — <code>parsePtr++</code> (advances the cursor and reloads <code>BC</code> from it). The bounds/refill check is the adjacent entry <code>38:7245</code>, which calls <code>0x1FD6</code> before falling into the increment.</li>
 <li><code>parse_expect_or_err</code> (<code>38:5CD8</code>) — fetch a token and raise <code>_ErrSyntax</code> (recording the position in <code>parsePtr</code>) if it isn’t the expected one.</li>
 </ul>
-<p>So the dispatch loop is: <code>parse_cur_tok</code> → index the pointer table at <code>page_38:4000</code> and call the selected handler (which may consume args via <code>parse_advance</code>) → repeat.</p>
+<p>So the dispatch loop is: <code>parse_cur_tok</code> → index the pointer table at <code>38:4000</code> and call the selected handler (which may consume args via <code>parse_advance</code>) → repeat.</p>
 <p><strong>Main evaluator:</strong> <code>parse_eval_expr</code> (<code>38:5AB3</code>) is the big recursive-descent expression evaluator — it dispatches through handler function-pointers (<code>code *</code>) with operator precedence, reading via the cursor helpers and leaving the result in <code>OP1</code>. <code>_ParseInp</code> → <code>parse_init</code> → <code>parse_eval_expr</code>. <code>parse_scan_tokens</code> (<code>38:4180</code>) is a token-scan helper (skips to a delimiter, honoring 2-byte tokens via <code>_IsA2ByteTok</code>).</p>
-<p>The region at <code>page_38:4000</code> is a flat array of 2-byte handler pointers (entries <code>0x419F, 0x45F0, 0x421C, …</code>), not executable code — <code>CALL 0x33AB</code> (<code>CD AB 33</code>) appears nowhere on page 0x38. Each handler is itself recursive-descent code; the table selects which one to enter. See <a href="sub-tibasic.html">sub-tibasic.md</a> for the execution model (<code>eval_stmt_entry</code>@<code>38:59C5</code>, the <code>blockmatch_end_else</code>@<code>38:4130</code> End/Else matcher, <code>goto_lbl_name_scanner</code>@<code>38:4870</code>).</p>
-<p>The handlers are recursive-descent grammar productions (not flat per-operator routines): each reads via <code>parse_cur_tok</code>, conditionally recurses, and some load sub-dispatch tables (e.g. <code>page_38:5110</code>, <code>5127</code>) for finer token classes — implementing operator precedence by nesting. So “the + operator” isn’t one table entry; it’s handled within the term/factor production that drives <code>_FPAdd</code> (RST 30h).</p>
+<p>The region at <code>38:4000</code> is a flat array of 2-byte handler pointers (entries <code>0x419F, 0x45F0, 0x421C, …</code>), not executable code — <code>CALL 0x33AB</code> (<code>CD AB 33</code>) appears nowhere on page 0x38. Each handler is itself recursive-descent code; the table selects which one to enter. See <a href="sub-tibasic.html">sub-tibasic.md</a> for the execution model (<code>eval_stmt_entry</code>@<code>38:59C5</code>, the <code>blockmatch_end_else</code>@<code>38:4130</code> End/Else matcher, <code>goto_lbl_name_scanner</code>@<code>38:4870</code>).</p>
+<p>The handlers are recursive-descent grammar productions (not flat per-operator routines): each reads via <code>parse_cur_tok</code>, conditionally recurses, and some load sub-dispatch tables (e.g. <code>38:5110</code>, <code>5127</code>) for finer token classes — implementing operator precedence by nesting. So “the + operator” isn’t one table entry; it’s handled within the term/factor production that drives <code>_FPAdd</code> (RST 30h).</p>
 <p>The precedence levels (term/factor/unary productions) and sub-dispatch tables are mapped in <a href="sub-tibasic.html">TI-BASIC Programs</a> §3/§6.</p>
 <h2 id="tokenized-sample-programs"><a class="header" href="#tokenized-sample-programs">Tokenized sample programs</a></h2>
 <p>The raw bodies below are the bytes stored after a <code>ProgObj</code> size word. They can

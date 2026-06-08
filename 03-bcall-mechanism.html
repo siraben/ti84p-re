@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-034b6dd8.js";
+            window.path_to_searchindex_js = "searchindex-1bf8aa40.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -182,7 +182,7 @@
                         <h1 id="03--the-bcall-system-call-mechanism"><a class="header" href="#03--the-bcall-system-call-mechanism">03 — The bcall system-call mechanism</a></h1>
 <p>This is the heart of how the OS spans 1 MiB with a 64 KiB CPU. A routine on any page calls a routine on any other page by <code>bcall</code> without knowing where it physically lives.</p>
 <h2 id="the-call-site"><a class="header" href="#the-call-site">The call site</a></h2>
-<pre><code class="language-z80">rst 28h          ; opcode 0xEF
+<pre><code class="language-z80">RST 28h          ; opcode 0xEF
 .dw  &lt;bcall_id&gt;   ; 2-byte little-endian ID immediately after
 </code></pre>
 <p><code>rst 28h</code> is a 1-byte Z80 <code>call 0028h</code>. So the return address pushed on the stack points at the 2-byte ID. The dispatcher reads the ID <em>through the return address</em>, then fixes the return to skip those 2 bytes — i.e. execution resumes at <code>call_site + 3</code>. [confirmed] (modeled in Ghidra by setting each <code>rst 28h</code>’s fall-through to <code>+3</code> and typing the ID as a word.)</p>
