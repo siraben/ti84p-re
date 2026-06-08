@@ -246,7 +246,7 @@ entry/refill paths, the program-body evaluator call at `38:6914` into
 The full smoke trace also hits `_ParseInpLastEnt`/`_ParseInp` once while the
 homescreen evaluates the initial `prgmCALLSUB` command selected by the macro.
 That launch parse is not the same as the callee transition. The repeated
-subprogram body path is the private `38:6910` -> `38:6914` -> `38:778F`
+subprogram body path is the private `38:6910` → `38:6914` → `38:778F`
 sequence, reached after parser RAM has already been populated:
 
 | RAM state | Address | Role in the private parser frame |
@@ -269,7 +269,7 @@ inputs, scratch, and outputs.
 | Outputs | The callee stores results back to globals, list elements, or `Ans`. | `SUBRT` increments shared `A`; `ABISUB` writes `A`, `L1(3)`, and `Ans`. |
 | Scratch | No automatic save/restore exists. Routines must document scratch variables. | The VAT and parser state are shared across caller and callee. |
 | Return/Stop | `Return` exits the callee and resumes the caller. `Stop` terminates the whole program chain. | `SUBRT` returns to `CALLSUB`, which then runs `Disp A`; `STOPSUB` stops `CALLSTOP` before caller text `AFTER` can display. |
-| Parser state | `prgmNAME` runs with private parser/FPS state already set up by BASIC. | The callee path reaches `38:6910` -> `38:6914` -> `38:778F`. |
+| Parser state | `prgmNAME` runs with private parser/FPS state already set up by BASIC. | The callee path reaches `38:6910` → `38:6914` → `38:778F`. |
 
 `ABICALL.8xp` broadens that scalar-only case:
 
@@ -535,7 +535,7 @@ Observed run: `ASMBRIDG.8xp`, `ASMSIG.8xp`, and `ZZBASIC.8xp` display
 `BEFORE`, `CALLED`, `AFTER`, then `Done`. The trace hits the `AsmPrgm` payload
 at `ram:9D95`, `_OP1Set1` (`00:1B38`), `_StoAns` (`38:6251`), `_AnsName`
 (`38:74B7`) while evaluating `If Ans`, and then the normal BASIC program-body
-path for `prgmZZBASIC` (`38:6910` -> `38:6914` -> `38:778F`). [confirmed]
+path for `prgmZZBASIC` (`38:6910` → `38:6914` → `38:778F`). [confirmed]
 
 This is a callback convention, not a direct jump from ASM into a BASIC body.
 The ASM side communicates a return code through `Ans`; BASIC owns the parser
@@ -567,12 +567,12 @@ hits `ram:9D95`, `_OP1Set2` (`00:1B50`), `_StoAns` (`38:6251`), `_AnsName`,
 
 | Direction | Confirmed mechanism | Caveat |
 |-----------|---------------------|--------|
-| BASIC -> ASM | `Asm(prgmNAME)` parses `prgmNAME`, bcalls `_ExecutePrgm`, copies the `AsmPrgm` payload, then jumps through `ram:9D95`. | The payload runs in the calculator OS process; a bad payload can corrupt interpreter state. |
-| BASIC -> BASIC | `prgmNAME` enters the page-38 parser/VAT/body evaluator path and `Return` resumes the caller. | There is no local frame; variables, lists, and `Ans` are shared. |
-| ASM -> BASIC callback | ASM stores a signal/result such as `Ans=1`, returns, and the BASIC wrapper conditionally runs `prgmNAME`. | BASIC must own the actual `prgm` call; this is cooperative, not an arbitrary ASM bcall into BASIC. |
-| ASM -> BASIC value return | ASM stores a numeric result in `Ans` with `_StoAns`; BASIC resumes and evaluates `Ans`. | This returns data to BASIC, not control into a BASIC program body. |
-| ASM -> VAT lookup | `ASMFIND` builds `OP1={ProgObj,"ZZBASIC"}` and bcalls `_ChkFindSym`. | Lookup is not execution; the wrapper returns and `ZZBASIC` does not display `CALLED`. |
-| Direct ASM -> BASIC | No working public bcall sequence is proven in this repo. | `ASMPARSE` reaches `_ParseInpLastEnt`/`_ParseInp` and then `ERR:INVALID`; `ASMFORM` reaches `_Find_Parse_Formula` and then `ERR:UNDEFINED`; forced-command/edit-buffer probes did not call the target BASIC program. |
+| BASIC → ASM | `Asm(prgmNAME)` parses `prgmNAME`, bcalls `_ExecutePrgm`, copies the `AsmPrgm` payload, then jumps through `ram:9D95`. | The payload runs in the calculator OS process; a bad payload can corrupt interpreter state. |
+| BASIC → BASIC | `prgmNAME` enters the page-38 parser/VAT/body evaluator path and `Return` resumes the caller. | There is no local frame; variables, lists, and `Ans` are shared. |
+| ASM → BASIC callback | ASM stores a signal/result such as `Ans=1`, returns, and the BASIC wrapper conditionally runs `prgmNAME`. | BASIC must own the actual `prgm` call; this is cooperative, not an arbitrary ASM bcall into BASIC. |
+| ASM → BASIC value return | ASM stores a numeric result in `Ans` with `_StoAns`; BASIC resumes and evaluates `Ans`. | This returns data to BASIC, not control into a BASIC program body. |
+| ASM → VAT lookup | `ASMFIND` builds `OP1={ProgObj,"ZZBASIC"}` and bcalls `_ChkFindSym`. | Lookup is not execution; the wrapper returns and `ZZBASIC` does not display `CALLED`. |
+| Direct ASM → BASIC | No working public bcall sequence is proven in this repo. | `ASMPARSE` reaches `_ParseInpLastEnt`/`_ParseInp` and then `ERR:INVALID`; `ASMFORM` reaches `_Find_Parse_Formula` and then `ERR:UNDEFINED`; forced-command/edit-buffer probes did not call the target BASIC program. |
 
 ### ASM to BASIC
 
@@ -590,7 +590,7 @@ repo. Two easy-looking bcalls are not that entry point:
 The confirmed BASIC subprogram path is different: the `CALLSUB`/`SUBRT` trace
 does not hit `_ParsePrgmName`, `_ExecutePrgm`, `_Find_Parse_Formula`, or
 `_SetParseVarProg`. It resolves the program name through the page-38
-parser/VAT path, enters the program-body evaluator at `38:6914` ->
+parser/VAT path, enters the program-body evaluator at `38:6914` →
 `38:778F`, and lets `Return` unwind to the caller. Calling that same machinery
 from arbitrary ASM requires more than loading OP1 and bcalling a single public
 entry; it needs the same parser cursor, stack, error, and run-state setup that a
@@ -681,5 +681,5 @@ ABI for `AsmPrgm` payloads. [confirmed]
 The current open item is therefore precise: trace a small ASM payload that
 successfully invokes a BASIC program, identify the required parser/VAT/error
 state, and compare it to the rejected public routes above plus both confirmed
-paths: `Asm(` -> `_ExecutePrgm` -> `ram:9D95`, and BASIC `prgmNAME` ->
+paths: `Asm(` → `_ExecutePrgm` → `ram:9D95`, and BASIC `prgmNAME` →
 `38:6914`/`38:778F` program-body evaluation.

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Reproducible build of the TI-84 Plus Ghidra database.
-# Rebuilds ~/Documents/ti84-re/ti84 from scratch: 64 flash pages, symbols,
+# Rebuilds ti84.gpr (in the repo root) from scratch: 64 flash pages, symbols,
 # bcall naming, BCD floats, and TI-OS data types. Ghidra must be CLOSED.
 set -euo pipefail
 
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 LX=/opt/homebrew/Cellar/ghidra/12.1/libexec
 T="$(cd "$(dirname "$0")" && pwd)"          # this tools/ dir
-PROJ="$(dirname "$T")"                        # ~/Documents/ti84-re
+PROJ="$(dirname "$T")"                        # repo root
 NAME=ti84
 
 python3 "$T/resolve_bcalls.py"          # regenerate bcall_targets.txt (page&0x3F)

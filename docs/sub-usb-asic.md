@@ -134,10 +134,10 @@ the inter-bit wait. Under that decoding, the ROM constants are:
 
 | Port | CPU speed mode | Value | Divisor field | Wait field |
 |------|----------------|-------|---------------|------------|
-| `0x09` | 0, 6 MHz | `0x97` (`10010111b`) | `100b` -> divide by 16 | `0x17` |
-| `0x0A` | 1 | `0xB4` (`10110100b`) | `101b` -> divide by 32 | `0x14` |
-| `0x0B` | 2, 15 MHz duplicate 1 | `0xB4` (`10110100b`) | `101b` -> divide by 32 | `0x14` |
-| `0x0C` | 3, 15 MHz duplicate 2 | `0xB4` (`10110100b`) | `101b` -> divide by 32 | `0x14` |
+| `0x09` | 0, 6 MHz | `0x97` (`10010111b`) | `100b` → divide by 16 | `0x17` |
+| `0x0A` | 1 | `0xB4` (`10110100b`) | `101b` → divide by 32 | `0x14` |
+| `0x0B` | 2, 15 MHz duplicate 1 | `0xB4` (`10110100b`) | `101b` → divide by 32 | `0x14` |
+| `0x0C` | 3, 15 MHz duplicate 2 | `0xB4` (`10110100b`) | `101b` → divide by 32 | `0x14` |
 
 Direct ROM scans found the page-3C byte-transfer path writing those constants during setup, then
 using the read side of `0x09` for status and `0x0A` for received bytes. Tilem agrees on the runtime
@@ -195,11 +195,11 @@ bjumps resolve as:
 
 | `port 0x56` bit | Page-0 dispatch | Page-35 target | Observed role |
 |-----------------|-----------------|----------------|---------------|
-| 4 | `00:0122` -> `ram:3FA5` | `35:4B6A` | line/event settle path; waits on `0x4D` bits 7 and 0, writes `0x57 = 0x22`. |
-| 5 | `00:0127` -> `ram:3FAB` | `35:4B9F` | event clear/re-arm path; may clear `0x4C`, reset `USBFlag2` bit 6, and write `0x57 = 0x50/0x93`. |
-| 6 | `00:0113` -> `ram:3F93` | `35:40B2` | USB setup path; sets `IY+0x1B` bit 5, initializes controller state, and waits for `0x4C = 0x1A/0x5A`. |
-| 7 | `00:0118` -> `ram:3F99` | `35:4C14` | cleanup/reset path; clears `0x5B`, resets `USBFlag2` bit 0, and jumps through the common controller reset. |
-| 1 | `00:011D` -> `ram:3F9F` | `35:4031` | alternate setup path; waits for `0x4C = 0x12/0x52` and uses endpoint/status ports `0x87`/`0x89`/`0x8B`. |
+| 4 | `00:0122` → `ram:3FA5` | `35:4B6A` | line/event settle path; waits on `0x4D` bits 7 and 0, writes `0x57 = 0x22`. |
+| 5 | `00:0127` → `ram:3FAB` | `35:4B9F` | event clear/re-arm path; may clear `0x4C`, reset `USBFlag2` bit 6, and write `0x57 = 0x50/0x93`. |
+| 6 | `00:0113` → `ram:3F93` | `35:40B2` | USB setup path; sets `IY+0x1B` bit 5, initializes controller state, and waits for `0x4C = 0x1A/0x5A`. |
+| 7 | `00:0118` → `ram:3F99` | `35:4C14` | cleanup/reset path; clears `0x5B`, resets `USBFlag2` bit 0, and jumps through the common controller reset. |
+| 1 | `00:011D` → `ram:3F9F` | `35:4031` | alternate setup path; waits for `0x4C = 0x12/0x52` and uses endpoint/status ports `0x87`/`0x89`/`0x8B`. |
 
 [confirmed]
 
@@ -243,9 +243,9 @@ Prefer the OS entry points unless the program is deliberately writing a USB driv
 
 | Need | OS surface | ROM support |
 |------|------------|-------------|
-| Send or request a variable over USB/link | `_GetVarCmdUSB`/`_LinkXferOP` (`50FB` -> `3C:4DD2`) or `_SendVarCmd` (`4A14` -> `3C:4EDD`) | Packet engine and USB-selection gate confirmed on page `3C`. `0x50FB` is `_GetVarCmdUSB` in `ti83plus.inc`. |
-| Send one byte on the active link transport | `_SendAByte` (`4EE5` -> `3C:420D`) | Assist branch writes `C` to port `0x0D` after port `0x09` bit 5. |
-| Receive one byte on the active link transport | `_RecAByteIO` (`4F03` -> `3C:443F`) | Status path checks port `0x09` and reads port `0x0A` on the assist path. |
+| Send or request a variable over USB/link | `_GetVarCmdUSB`/`_LinkXferOP` (`50FB` → `3C:4DD2`) or `_SendVarCmd` (`4A14` → `3C:4EDD`) | Packet engine and USB-selection gate confirmed on page `3C`. `0x50FB` is `_GetVarCmdUSB` in `ti83plus.inc`. |
+| Send one byte on the active link transport | `_SendAByte` (`4EE5` → `3C:420D`) | Assist branch writes `C` to port `0x0D` after port `0x09` bit 5. |
+| Receive one byte on the active link transport | `_RecAByteIO` (`4F03` → `3C:443F`) | Status path checks port `0x09` and reads port `0x0A` on the assist path. |
 | Use the raw assist FIFO | Poll port `0x09` bit 5, then write the byte to port `0x0D`; for receive, observe port `0x09` bit 4/error bits and read port `0x0A`. | Confirmed as an OS pattern, but not a complete public API. |
 
 The raw FIFO sequence is only the byte layer. A working transfer still needs the packet layer:

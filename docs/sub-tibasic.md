@@ -523,7 +523,7 @@ The payload bytes are `rst 28h; .dw 419B` (`_OP1Set1`), `rst 28h; .dw 4ABF`
 `ZZBASIC.8xp` displays `BEFORE`, `CALLED`, `AFTER`, then `Done`. The trace
 hits the `AsmPrgm` payload at `ram:9D95`, `_OP1Set1` (`00:1B38`), `_StoAns`
 (`38:6251`), `_AnsName` (`38:74B7`) during `If Ans`, and the ordinary
-`prgmZZBASIC` body evaluator path (`38:6910` -> `38:6914` -> `38:778F`).
+`prgmZZBASIC` body evaluator path (`38:6910` → `38:6914` → `38:778F`).
 This is the practical callback convention: ASM returns a value through a BASIC
 variable, and BASIC performs the actual program call.
 
@@ -756,7 +756,7 @@ an edit-buffer queue helper guarded by `rclFlag.enableQueue`, not a standalone
 program executor.
 
 `_ExecuteNewPrgm` (`00:265F`) is also stateful. An `AsmPrgm` probe with
-`OP1=ProgObj` and `HL -> "ZZBASIC",0` enters `_ExecuteNewPrgm` and
+`OP1=ProgObj` and `HL → "ZZBASIC",0` enters `_ExecuteNewPrgm` and
 `findsym_scan`, then reaches `ERR:SYNTAX`. The same probe with `ZZBASIC` loaded
 as `ProtProgObj` and `OP1=06` gets through the copy/jump tail at `00:268A` and
 `00:268F`, but still stops at `ERR:SYNTAX` without displaying the target
