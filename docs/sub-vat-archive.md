@@ -11,16 +11,14 @@ mis-renders the `SET b,(IY+d)` flag ops and
 the cross-page `CALL 0x2b09`-style trampolines. Page numbers are the masked flash page
 (`rawpage & 0x3F`); cross-page trampolines store `lo hi rawpage` in the 3 bytes after the `CALL`.
 
-Confidence (this doc's shorthand; see [Conventions](conventions.md)): [C]=confirmed from disassembly (≈`[confirmed]`), [H]=high (structure clear, some inference) (≈`[standard]`), [I]=inferred / standard-TI behavior (≈`[hypothesis]`).
-
 ---
 
-## 1. The arcInfo workspace and key RAM pointers [C]
+## 1. The arcInfo workspace and key RAM pointers [confirmed]
 
 The archive engine keeps a 12-byte scratch block, labelled `arcInfo` (`83EEh`) in `ti83plus.inc`,
 plus a saved copy `savedArcInfo` (`8406h`). `_Arc_Unarc`'s reentrant inner mover at `page_07:61DC`
 copies the 12 bytes starting at `83F1` (the `vatPtr` field onward, not the whole `83EE` block)
-into `8406` (`LD HL,83F1 / LD DE,8406 / LD BC,0C / LDIR`); the matching `07:61E8` restore candidate is not a defined function in the current live DB.
+into `8406` (`LD HL,83F1 / LD DE,8406 / LD BC,0C / LDIR`); the matching `07:61E8` restore candidate is an inferred label, not byte-confirmed in the disassembly.
 
 | Addr | Field (this doc's name) | Meaning |
 |------|-------------------------|---------|
@@ -42,7 +40,7 @@ read/write routines are copied to run (you cannot execute from a Flash page whil
 
 ---
 
-## 2. `_FindSym` and the VAT walk [C]
+## 2. `_FindSym` and the VAT walk [confirmed]
 
 `_FindSym` (`00:0E65`, = `RST 10h`) is a page-0 trampoline that cross-page-jumps to the real scanner
 `findsym_scan` @ `page_07:565F`. `_ChkFindSym` (`00:0E60`) first type-checks OP1 (`_CkOP1Real`)
@@ -79,7 +77,7 @@ page byte selects the Flash page; the VAT record itself always stays in RAM.
 
 ---
 
-## 3. Store / Recall [C/H]
+## 3. Store / Recall [standard]
 
 **Store** `_StoOther` (`38:62A9`) and siblings (`_StoAns`, `_StoX`, `_StoY`, … `38:6251–62A3`):
 - Set OP1 type = 0xFF placeholder (`62A9: LD A,FF / LD (8478),A`), parse the destination name.
@@ -87,7 +85,7 @@ page byte selects the Flash page; the VAT record itself always stays in RAM.
   destination name token (`849B`): list-element store (`0x2A` → bounds-checks via `_ErrDimension`),
   matrix element, etc. Ultimately a `_Create*` routine carves RAM with `_InsertMem` and the data is copied.
 - A store into an archived var is not done in place; the OS unarchives first (you cannot rewrite
-  Flash in place) — see the `_Arc_Unarc` direction logic in §4. [I/H]
+  Flash in place) — see the `_Arc_Unarc` direction logic in §4. [hypothesis]
 
 **Recall** `_RclVarSym` (`38:67B1`) and `_RclVarPush` (`3A:5D07`):
 - `_RclVarSym` calls `RST 10h` (`17A6`, a `_FindSym`+error-check wrapper: `RST 10h; JP C,271D`), then checks the name token (`8479`). For a list
@@ -98,11 +96,11 @@ page byte selects the Flash page; the VAT record itself always stays in RAM.
   (`0x15` AppVar, `0x16`, `0x17` Group) read the leading `word size`.
 - The recall code does not care whether the source is RAM or Flash for *reading* — Flash is
   memory-mapped read-only into the 0x4000 window. To *use* an archived program/var that must be
-  modified or executed in RAM, the OS first copies it via `_FlashToRam` (§5). [H]
+  modified or executed in RAM, the OS first copies it via `_FlashToRam` (§5). [standard]
 
 ---
 
-## 4. Archive / unarchive — `_Arc_Unarc` (`07:6248`) [C]
+## 4. Archive / unarchive — `_Arc_Unarc` (`07:6248`) [confirmed]
 
 The headline. `bcall(_Arc_Unarc)`, OP1 = the variable name. It toggles the var between RAM and
 the Flash archive (the same entry point does both directions, deciding from the current state).
@@ -133,7 +131,7 @@ Direction note: the `B`-page test sends an *in-RAM* var (`B==0`) to `6107` (arch
 *in-Flash* var (`B≠0`) to `61F4` (unarchive). `6107` is the one that programs Flash and frees the
 RAM copy; `61F4` is the one that carves RAM and copies the data back out of Flash.
 
-### 4a. RAM → Flash (archive), `6107` [C]
+### 4a. RAM → Flash (archive), `6107` [confirmed]
 ```z80
 6107:  CALL 7866 ; DI
        CALL 614B                       ; size/accounting: (83F1)=vatPtr, _DataSize→83F7;
@@ -150,12 +148,12 @@ type byte gets its archive flag set and its data ptr/page rewritten to point int
 copy is then released (the upward data heap shrinks). `3D:64AA` is the Flash writer that lays down a
 fresh archived record plus a copy of the symbol header/name and data (status marker bytes —
 `0xFE`=in-progress / `0xFC`=valid / `0xF0`=deleted, with `0xFF`=erased/empty; the bit-clearing
-mechanism is confirmed in §6a). `3D:64AA` is not a defined function in the current live DB; the
+mechanism is confirmed in §6a). `3D:64AA` is an inferred label, not byte-confirmed in the disassembly; the
 `flash_write_record` name for it is a project-local inferred label, not a WikiTI or `ti83plus.inc`
 equate. `_Chk_Batt_Low` (`00:0D07`) gates the Flash write — archiving aborts on low battery
 (`61C5: CALL _Chk_Batt_Low`).
 
-### 4b. Flash → RAM (unarchive), `61F4` [C]
+### 4b. Flash → RAM (unarchive), `61F4` [confirmed]
 ```z80
 61F4:  LD (83EF),DE ; LD (83EE),A      ; arcInfo.dataPtr/page = source (Flash page+addr from FindSym)
        CALL 6335                       ; 6331/6335: stash vatPtr (83F1), compute dataSize (83F5) via _DataSize
@@ -171,9 +169,9 @@ equate. `_Chk_Batt_Low` (`00:0D07`) gates the Flash write — archiving aborts o
 The data is copied from Flash into the freshly-carved RAM gap. The VAT entry's archive flag is
 cleared and its data ptr/page rewritten back to the new RAM address; the old Flash record is left
 marked dead (`0xF0`, reclaimed at the next GC). `3D:6440` shares the page-3D flash-control prologue
-(`OUT (0x14)`) and is not a defined function in the current live DB.
+(`OUT (0x14)`) and is an inferred label, not byte-confirmed in the disassembly.
 
-### 4c. Errors raised on the path [C]
+### 4c. Errors raised on the path [confirmed]
 - `2785: LD A,0x31` → `_JError` = `E_ArchFull` (0x31) "ERR:ARCHIVE FULL" (no room even after GC).
 - `2729`/`272D`/`2731`: `LD A,0x8F`/`0x90`/`0x91` → E_Invalid / E_IllegalNest / E_Bound. The archive size check (`616C`) takes the `2729` (E_Invalid, `0x8F`) entry on overflow.
 - `26E0`+ is a cluster of local error shims: each loads its code (`0xB2`=E_Variable, `0xB3`=E_Duplicate, `0x81`=E_Overflow, `0x82`=E_DivBy0) into `A` and enters `_JError` — not `_ErrDataType`.
@@ -181,7 +179,7 @@ marked dead (`0xF0`, reclaimed at the next GC). `3D:6440` shares the page-3D fla
 
 ---
 
-## 5. Reading archived data — `_FlashToRam` (`3D:6745`) [C]
+## 5. Reading archived data — `_FlashToRam` (`3D:6745`) [confirmed]
 
 `bcall(_FlashToRam)` (id 0x5017 → real body `3D:6745`). Copies `BC` bytes from a Flash page:addr to
 a RAM destination, transparently advancing the Flash page when the read crosses the `0x8000`
@@ -209,16 +207,16 @@ Flash byte; `_FlashToRam2` (id 8054) is the companion Flash→RAM copy of `_Flas
 The retail boot table maps those APIs to boot-page bodies (`_WriteAByte`→`3F:4C9F`,
 `_WriteAByteSafe`→`3F:4C9A`, `_FlashToRam2`→`3F:4888`), which then wrap the lower-level
 page-3C/3D flash machinery below. Several page-3C/3D
-targets below are reached by byte trace but are not defined functions in the current live DB;
+targets below are reached by byte trace but are inferred labels, not byte-confirmed in the disassembly;
 their `flash_*` names are project-local inferred labels (not WikiTI or `ti83plus.inc` equates):
 
 | Trampoline (RAM) | → page:addr | Role |
 |------------------|-------------|------|
-| `00:2FF1` | `3D:64AA` (undefined in live DB) | Flash program record candidate |
-| `00:2FDF` | `3D:61AF` (undefined in live DB) | Flash program/erase core candidate |
-| `00:2FF7` | `3D:62C2` (undefined in live DB) | Flash free-sector scan / allocate candidate |
+| `00:2FF1` | `3D:64AA` (inferred label) | Flash program record candidate |
+| `00:2FDF` | `3D:61AF` (inferred label) | Flash program/erase core candidate |
+| `00:2FF7` | `3D:62C2` (inferred label) | Flash free-sector scan / allocate candidate |
 | `00:2FC1` | `3C:580E` | Flash command/menu entry |
-| `00:2FFD` | `3C:7121` (undefined in live DB) | Flash command dispatcher candidate |
+| `00:2FFD` | `3C:7121` (inferred label) | Flash command dispatcher candidate |
 | `00:32A9` | `05:4A6E` | complex-list special-case helper |
 
 The program-core candidates `3D:64AA` and `3D:6440` share this unlock prologue (`3D:61AF` starts differently — `PUSH AF; PUSH HL; BIT 6,(IY+0x24)`):
@@ -228,12 +226,12 @@ RES 7,(IY+0x24) ; LD A,1 ; DI ; IM 1 ; DI ; OUT (0x14),A ; DI ; CALL FUN_ram_02b
 `OUT (0x14),A` toggles the Flash control port (0x14) to enable write/erase; `FUN_ram_02bf`
 sets up the RAM-resident write stub (the actual byte-poke loops run from RAM at `0x8100`/`ramCode`,
 because the CPU cannot fetch from a Flash chip mid-erase). `3D:6B9B`/`3D:6B6D` are bounds-checked
-byte-program candidate calls (return carry → caller raises `E_ArchFull`); neither is a defined
-function in the current live DB. The public byte-write API for this layer is `_WriteAByte` (8021) /
+byte-program candidate calls (return carry → caller raises `E_ArchFull`); neither is byte-confirmed
+in the disassembly. The public byte-write API for this layer is `_WriteAByte` (8021) /
 `_WriteAByteSafe` (80C6), which resolve to boot-page wrappers. The free-slot scan reads sector
 status bytes and sums free space to decide whether a GC is needed before a write.
 
-### 6a. Record-status byte — the one-way bit-clearing scheme [C]
+### 6a. Record-status byte — the one-way bit-clearing scheme [confirmed]
 
 The status byte is a classic AMD/Am29F *monotonic bit-clear* marker: erased Flash is all-ones
 (`0xFF`), and the OS advances a record's state by *clearing* bits (program can only flip `1→0`; only
@@ -255,7 +253,7 @@ can never be re-validated in place — it is reclaimed only by GC erasing the wh
 on each, treating an all-`0xFF` run as a free slot. (`3D:7C99` additionally folds in `AND 0xE7` and
 conditional `OR 0x10`/`OR 0x08` for the swap/relocate state bits driven by `(IY+0x1A).0` and `(IY+0).2`.)
 
-### 6b. Archive sector map / erase-block granularity [C]
+### 6b. Archive sector map / erase-block granularity [confirmed]
 
 The physical Flash pages that form the archive pool are model-selected at runtime from the two model
 bits — port 2 bit 7 (`probe_hw_model_keep_a` `00:1837`) and port 0x21 low bits (`probe_port21_keep_a` `00:182F`):
@@ -273,7 +271,7 @@ via the same model check, `3D:6745`) and erasing. `flash_set_sector_cnt` (`3D:72
 loop jumps to `3D:5EF1` — `3D:5EE3` is the unrelated `_FindApp`) pages each sector to `0x4000` and
 issues the chip erase command via `RST 0x28`, decrementing
 `0x82A3` down toward the base page. The underlying Am29F-class chip uses 64 KB physical sectors
-(= 4 × 16 KB OS pages); the OS walks/erases at 16 KB page granularity. [64 KB physical-sector figure: I]
+(= 4 × 16 KB OS pages); the OS walks/erases at 16 KB page granularity. [64 KB physical-sector figure: hypothesis]
 
 ---
 
@@ -285,16 +283,16 @@ erasing the old ones.
 
 - The on-screen prompt string `"Garbage\0Collecting...\0"` is at `01:4126`; `"Defragmenting...\0"`
   at `01:4076`. The display front-end candidate `3C:7E0D`
-  (`LD HL,0x4126 ... CALL 3E85`) is not a defined function in the current live DB.
+  (`LD HL,0x4126 ... CALL 3E85`) is an inferred label, not byte-confirmed in the disassembly.
 - GC is driven from the command dispatcher candidate `3C:7121`: `3C:71F9` = "show GC screen + relocate"
   (`CALL 7E0D` then `CALL 7219` then `CALL 7733`), `3C:720D` = relocate-only, and the archive-full
-  auto-GC `3C:7204` runs `71FC` (GC) then retries the write at `7F1C`. `3C:7121` is not a defined
-  function in the current live DB.
+  auto-GC `3C:7204` runs `71FC` (GC) then retries the write at `7F1C`. `3C:7121` is an inferred
+  label, not byte-confirmed in the disassembly.
 - The relocation/erase-core candidate `3C:7BD0–7BF4`: tests a status flag, `7E6B`/`7C10` prepare the swap
   sectors (writes `0xF0` marker, sets `97A6` sector counter, `8477`), `7BE3:CALL 7E0D` shows the
   banner, `7C1F` walks live VAT/Flash entries copying each valid (`0xFC`-marked) record to the
-  new sector, and `7C04` finalizes (erases the old sectors, `SET 2,(IY+0x25)`). [H] `3C:7BD0` is not
-  a defined function in the current live DB; the `flash_gc_relocate`/`gc_show_screen` names are
+  new sector, and `7C04` finalizes (erases the old sectors, `SET 2,(IY+0x25)`). [standard] `3C:7BD0` is
+  an inferred label, not byte-confirmed in the disassembly; the `flash_gc_relocate`/`gc_show_screen` names are
   project-local inferred labels, not WikiTI or `ti83plus.inc` equates.
 - GC is callable from the user catalog (`Archive`/the MEM menu "Garbage Collect?" — string at
   `01:76C9`).
@@ -304,7 +302,7 @@ the classic TI-83+/84+ behaviour, now pinned to addresses.
 
 ---
 
-## 8. Memory checks [C]
+## 8. Memory checks [confirmed]
 
 - `_MemChk` (`00:0E20`) — free RAM = `OPS(0x9828) − FPS(0x9824)`; returns 0 if the heap top
   has met the FP stack, else `count` (`INC HL` ⇒ off-by-one inclusive). `OPS` is the top of the
@@ -318,8 +316,8 @@ the classic TI-83+/84+ behaviour, now pinned to addresses.
 - `_InsertMem` (`00:0F81`) / `_DelMem` (`00:1368`) — open / close a gap at HL by block-moving
   everything above; `_InsertMem` fails `E_Memory` if it would collide with the VAT.
 - Free archive (Flash) is computed inside the Flash layer. The free-space sum is at `3D:6413`
-  and the catalog "MEM" read path runs through `3C:7121`. Neither address is a defined function in
-  the current live DB.
+  and the catalog "MEM" read path runs through `3C:7121`. Neither address is byte-confirmed in
+  the disassembly.
 
 ---
 
@@ -332,7 +330,7 @@ the classic TI-83+/84+ behaviour, now pinned to addresses.
 | `07:6107` | `arc_ram_to_flash` | RAM→Flash archive worker (programs Flash, frees old RAM) |
 | `07:61F4` | `arc_flash_to_ram` | Flash→RAM unarchive worker (carves RAM, copies from Flash) |
 | `07:6331` | `arc_size_setup` | stash vatPtr, compute dataSize into arcInfo |
-| `07:61DC` | `arc_save_info` | save 12-byte arcInfo into savedArcInfo; `07:61E8` (restore candidate) is not a defined function in the live DB |
+| `07:61DC` | `arc_save_info` | save 12-byte arcInfo into savedArcInfo; `07:61E8` (restore candidate) is an inferred label, not byte-confirmed in the disassembly |
 | `07:565F` | `findsym_scan` | the real `_FindSym` VAT scanner |
 | `00:0E65` | `_FindSym` | RST10 trampoline → findsym_scan |
 | `00:0E60` | `_ChkFindSym` | type-check OP1 then FindSym |
@@ -340,12 +338,12 @@ the classic TI-83+/84+ behaviour, now pinned to addresses.
 | `38:62A9` | `_StoOther` | store value into named var |
 | `38:67B1` | `_RclVarSym` | recall var by symbol |
 | `3A:5D07` | `_RclVarPush` | recall var, push to FPS |
-| `3D:6745` | `_FlashToRam` | copy archived data Flash→RAM (page-aware); `ti83plus.inc` sibling `_FlashToRam2` (id 8054) is named but its body is unmapped in the live DB |
+| `3D:6745` | `_FlashToRam` | copy archived data Flash→RAM (page-aware); `ti83plus.inc` sibling `_FlashToRam2` (id 8054) is named but its body is unmapped in the disassembly |
 | `3D:678C` | `flash_program_buf` | live-MCP Flash programming/buffer helper |
-| `3D:64AA` | `flash_write_record` (inferred label) | program an archived record to Flash candidate; not a defined function in the live DB |
-| `3D:61AF` | `flash_program_core` (inferred label) | Flash program/erase core candidate; not a defined function in the live DB |
-| `3D:62C2` | `flash_alloc_sector` (inferred label) | scan/allocate next free archive sector candidate; not a defined function in the live DB |
-| `3D:6413` | `flash_free_scan` (inferred label) | sum free archive space / decide GC candidate; not a defined function in the live DB |
+| `3D:64AA` | `flash_write_record` (inferred label) | program an archived record to Flash candidate; not byte-confirmed in the disassembly |
+| `3D:61AF` | `flash_program_core` (inferred label) | Flash program/erase core candidate; not byte-confirmed in the disassembly |
+| `3D:62C2` | `flash_alloc_sector` (inferred label) | scan/allocate next free archive sector candidate; not byte-confirmed in the disassembly |
+| `3D:6413` | `flash_free_scan` (inferred label) | sum free archive space / decide GC candidate; not byte-confirmed in the disassembly |
 | `3D:726E` | `flash_page_select` | archive base page by model (0x15/0x29/0x69) |
 | `3D:738B` | `flash_cmd_base` | archive top page by model (0x1E/0x3E/0x7E) |
 | `3D:727D` | `flash_set_sector_cnt` | shared page counter `0x82A3` = base+1 |
@@ -353,10 +351,10 @@ the classic TI-83+/84+ behaviour, now pinned to addresses.
 | `3D:7C97` / `3D:7C8F` / `3D:7C93` | `flash_op_fe/fd/fb` | clear status bit (0xFE/0xFD/0xFB AND-mask) |
 | `3D:7DEA` | `flash_find_nonff` | scan 13-byte header for all-0xFF (free slot) |
 | `00:1837` / `00:182F` | `probe_hw_model_keep_a` / `probe_port21_keep_a` | model bits: port 2 bit7 / port 0x21 low |
-| `3D:6B9B` | `flash_write_byte` (inferred label) | bounds-checked Flash byte program candidate; not a defined function in the live DB. Public byte-write bcalls `_WriteAByte` (8021) / `_WriteAByteSafe` (80C6) are named in `ti83plus.inc`, but the `0x8xxx` table does not yet map either ID to this body |
-| `3C:7121` | `flash_cmd_dispatch` (inferred label) | Archive/UnArchive/GC command dispatcher candidate; not a defined function in the live DB |
-| `3C:7BD0` | `flash_gc_relocate` (inferred label) | GC core candidate; not a defined function in the live DB |
-| `3C:7E0D` | `gc_show_screen` (inferred label) | "Garbage Collecting…" display front-end candidate; not a defined function in the live DB |
+| `3D:6B9B` | `flash_write_byte` (inferred label) | bounds-checked Flash byte program candidate; not byte-confirmed in the disassembly. Public byte-write bcalls `_WriteAByte` (8021) / `_WriteAByteSafe` (80C6) are named in `ti83plus.inc`, but the `0x8xxx` table does not yet map either ID to this body |
+| `3C:7121` | `flash_cmd_dispatch` (inferred label) | Archive/UnArchive/GC command dispatcher candidate; not byte-confirmed in the disassembly |
+| `3C:7BD0` | `flash_gc_relocate` (inferred label) | GC core candidate; not byte-confirmed in the disassembly |
+| `3C:7E0D` | `gc_show_screen` (inferred label) | "Garbage Collecting…" display front-end candidate; not byte-confirmed in the disassembly |
 | `00:0E20` | `_MemChk` | free RAM = OPS − FPS |
 | `00:0FA6` | `_EnoughMem` | ensure N bytes; reclaim temps |
 | `00:0F81` | `_InsertMem` | open a RAM gap |
@@ -369,31 +367,29 @@ Strings: `01:4126` "Garbage Collecting…", `01:4076` "Defragmenting…", `07:6C
 Ports: `0x06` = bank-A page select (Flash window), `0x14` = Flash write/erase control,
 `0x02` bit7 = Flash-size/model. RAM run-from-RAM stub: `ramCode = 0x8100`.
 
-## 10. Resolved / residual
+## 10. Summary & open items
 
-**Resolved:**
-- **Sector map / erase-block — [C], see §6b.** The archive pool is model-selected: base page
+- **Sector map / erase-block — [confirmed], see §6b.** The archive pool is model-selected: base page
   `0x15`/`0x29`/`0x69` (`flash_page_select` `3D:726E`) up to top page `0x1E`/`0x3E`/`0x7E`
   (`flash_cmd_base` `3D:738B`); on a 1 MB TI-84 Plus that is raw pages ~`0x15…0x1E`. The OS pages
   the region into the `0x4000` window and erases one 16 KB page at a time (`flash_erase_wait`
   `3D:5ED3`, sector counter `0x82A3` from `flash_set_sector_cnt` `3D:727D`); the physical chip
-  sector is 64 KB = 4 OS pages [I].
-- **Record-status bytes — [C], see §6a.** Monotonic bit-clear: `0xFF` erased → `0xFE` in-progress
+  sector is 64 KB = 4 OS pages [hypothesis].
+- **Record-status bytes — [confirmed], see §6a.** Monotonic bit-clear: `0xFF` erased → `0xFE` in-progress
   → `0xFC` valid via `flash_op_fe/fd/fb` (`3D:7C97/7C8F/7C93`) AND-masking; `0xF0` deleted is a direct write in the delete/GC path
   the status byte; `flash_find_nonff` (`3D:7DEA`) treats an all-`0xFF` header as free.
 
-**Residual:**
-- **Lower-level flash helper bodies — address-keyed labels still inferred [I].** The public bcall
+- **Lower-level flash helper bodies — address-keyed labels still inferred [hypothesis].** The public bcall
   entry points are canonical equates in `ti83plus.inc` and now resolve through the retail boot table:
   `_WriteAByte` (8021) → `3F:4C9F`, `_WriteAByteSafe` (80C6) → `3F:4C9A`, and `_FlashToRam2`
   (8054) → `3F:4888`. The address-keyed `flash_*` labels in §6/§9 stay inferred and
   body-undisassembled until the lower-level page-3C/3D helper graph is split cleanly.
-- **Group archive path — partially pinned [H/I].** `_DataSize` (`00:1485`) confirms a Group
+- **Group archive path — partially pinned [hypothesis].** `_DataSize` (`00:1485`) confirms a Group
   (type `0x17`, like AppVar `0x15`/`0x16`) carries a leading word-size header, so a group *can* be
   stored as one Flash blob. In `_Arc_Unarc` the `CP 0x17` → `26E0` reject sits on the B≠0 (in-Flash)
   branch, immediately before the unarchive worker `61F4` — so an archived group is not unarchived
   through `61F4`, and groups are handled by a separate routine that walks the group's member list.
   That member-walk routine remains
-  unidentified in the current Ghidra DB — `_Arc_Unarc`'s body past the entry `CALL` is not
+  unidentified in the disassembly — `_Arc_Unarc`'s body past the entry `CALL` is not
   disassembled here (cross-page `CALL` flagged non-returning), and no group-archive function is
-  named or xref-reachable. Re-confirming it would need a linear disassembly pass like the one behind §4.
+  named or xref-reachable. Confirming it would need a linear disassembly pass like the one behind §4.

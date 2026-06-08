@@ -21,39 +21,39 @@ Around those sit the I/O subsystems: the IM1 interrupt that drives timing/APD/cu
 
 Each row maps a documentation page to the subsystem it covers and its analysis status.
 
-| Doc | Subsystem | Status |
-|-----|-----------|--------|
-| [01-memory-map.md](01-memory-map.md) | Address space, ports, RAM layout | ✅ |
-| [02-paging.md](02-paging.md) | Flash/RAM banking (ports 6/7) | ✅ |
-| [03-bcall-mechanism.md](03-bcall-mechanism.md) | rst 28h system calls + jump table | ✅ |
-| [04-interrupts.md](04-interrupts.md) | IM1 ISR, timers, APD, ON key | ✅ |
-| [05-variables-vat.md](05-variables-vat.md) | Variable Allocation Table, object types | ✅ |
-| [06-floating-point.md](06-floating-point.md) | BCD float format, OP registers | ✅ |
-| [07-tokenizer-basic.md](07-tokenizer-basic.md) | Token tables, parser/interpreter | ✅ |
-| [08-display-lcd.md](08-display-lcd.md) | LCD ports, screen buffers | ✅ |
-| [09-keyboard-link.md](09-keyboard-link.md) | Keypad scan, link protocol | ✅ |
-| [10-subsystem-map.md](10-subsystem-map.md) | bcall API surface, system through-line | ✅ |
-| [11-boot-contexts-errors.md](11-boot-contexts-errors.md) | Boot, context system, _JError/onSP | ✅ |
-| [12-memory-management.md](12-memory-management.md) | RAM heap, VAT/userMem, Flash archive/GC | ✅ |
-| [13-flash-page-map.md](13-flash-page-map.md) | What each of the 64 flash pages contains | ✅ |
-| [14-ram-pages.md](14-ram-pages.md) | RAM page selectors, page `83`, and restore rules | ✅ |
-| [99-open-questions.md](99-open-questions.md) | Prioritized future-work roadmap | ✅ |
-| [sub-calculation.md](sub-calculation.md) | Calculation engine: FP ops, transcendentals, formatting, errors | ✅ |
-| [sub-graphing.md](sub-graphing.md) | Graphing: window vars, coord↔pixel, draw primitives, Y= eval | ✅ |
-| [sub-tibasic.md](sub-tibasic.md) | TI-BASIC: program execution, control flow, I/O commands | ✅ |
-| [sub-tibasic-tracing.md](sub-tibasic-tracing.md) | TI-BASIC fixture traces, smoke runner, coverage anchors | ✅ |
-| [sub-vat-archive.md](sub-vat-archive.md) | Variables, Sto/Rcl, Archive/Unarchive, Flash GC | ✅ |
-| [sub-apps-mem-settings.md](sub-apps-mem-settings.md) | Apps find/launch, RAM-reset, MODE/format flags | ✅ |
-| [sub-statistics.md](sub-statistics.md) | STAT: 1/2-var, regressions, statVars | ✅ |
-| [sub-matrix-list.md](sub-matrix-list.md) | Matrix/list element access, Gauss-Jordan inverse/det, matmul | ✅ |
-| [sub-solver-numeric.md](sub-solver-numeric.md) | Solver root-finder, nDeriv/fnInt, TVM finance | ✅ |
-| [sub-table-yvars.md](sub-table-yvars.md) | TABLE generation/cache, Y= equation vars | ✅ |
-| [sub-equation-display.md](sub-equation-display.md) | Equation display / MathPrint layout (page 0x39 `eqdisp_*`) | ✅ |
-| [sub-link-transfer.md](sub-link-transfer.md) | Link protocol: byte/packet/var-transfer (page 0x3C) | ✅ |
-| [sub-usb-asic.md](sub-usb-asic.md) | USB ASIC/link-assist ports and OS transport selection | ✅ |
+| Doc | Subsystem |
+|-----|-----------|
+| [01-memory-map.md](01-memory-map.md) | Address space, ports, RAM layout |
+| [02-paging.md](02-paging.md) | Flash/RAM banking (ports 6/7) |
+| [03-bcall-mechanism.md](03-bcall-mechanism.md) | rst 28h system calls + jump table |
+| [04-interrupts.md](04-interrupts.md) | IM1 ISR, timers, APD, ON key |
+| [05-variables-vat.md](05-variables-vat.md) | Variable Allocation Table, object types |
+| [06-floating-point.md](06-floating-point.md) | BCD float format, OP registers |
+| [07-tokenizer-basic.md](07-tokenizer-basic.md) | Token tables, parser/interpreter |
+| [08-display-lcd.md](08-display-lcd.md) | LCD ports, screen buffers |
+| [09-keyboard-link.md](09-keyboard-link.md) | Keypad scan, link protocol |
+| [10-subsystem-map.md](10-subsystem-map.md) | bcall API surface, system through-line |
+| [11-boot-contexts-errors.md](11-boot-contexts-errors.md) | Boot, context system, _JError/onSP |
+| [12-memory-management.md](12-memory-management.md) | RAM heap, VAT/userMem, Flash archive/GC |
+| [13-flash-page-map.md](13-flash-page-map.md) | What each of the 64 flash pages contains |
+| [14-ram-pages.md](14-ram-pages.md) | RAM page selectors, page `83`, and restore rules |
+| [99-open-questions.md](99-open-questions.md) | Prioritized future-work roadmap |
+| [sub-calculation.md](sub-calculation.md) | Calculation engine: FP ops, transcendentals, formatting, errors |
+| [sub-graphing.md](sub-graphing.md) | Graphing: window vars, coord↔pixel, draw primitives, Y= eval |
+| [sub-tibasic.md](sub-tibasic.md) | TI-BASIC: program execution, control flow, I/O commands |
+| [sub-tibasic-tracing.md](sub-tibasic-tracing.md) | TI-BASIC fixture traces, smoke runner, coverage anchors |
+| [sub-vat-archive.md](sub-vat-archive.md) | Variables, Sto/Rcl, Archive/Unarchive, Flash GC |
+| [sub-apps-mem-settings.md](sub-apps-mem-settings.md) | Apps find/launch, RAM-reset, MODE/format flags |
+| [sub-statistics.md](sub-statistics.md) | STAT: 1/2-var, regressions, statVars |
+| [sub-matrix-list.md](sub-matrix-list.md) | Matrix/list element access, Gauss-Jordan inverse/det, matmul |
+| [sub-solver-numeric.md](sub-solver-numeric.md) | Solver root-finder, nDeriv/fnInt, TVM finance |
+| [sub-table-yvars.md](sub-table-yvars.md) | TABLE generation/cache, Y= equation vars |
+| [sub-equation-display.md](sub-equation-display.md) | Equation display / MathPrint layout (page 0x39 `eqdisp_*`) |
+| [sub-link-transfer.md](sub-link-transfer.md) | Link protocol: byte/packet/var-transfer (page 0x3C) |
+| [sub-usb-asic.md](sub-usb-asic.md) | USB ASIC/link-assist ports and OS transport selection |
 
 (The `sub-*` docs are deep dives covering user-facing functionality and I/O internals: calculation, graphing, TI-BASIC, VAT/archive, apps, stats, matrices, solver, table, equation display, link, and USB/link assist.)
 
 New to these notes? Start with [Conventions & Methodology](conventions.md) (how to read the addresses and confidence flags) and the [Glossary](glossary.md); the [bcall Index](bcall-index.md) is the full alphabetical system-call reference.
 
-Database state: the main `0x4xxx` bcall table is resolved, the retail boot bcall table (`0x8xxx`) is resolved from the local complete ROM, and TI-OS types are applied. Most boot bcall bodies are on page `3F`; USB boot routines such as `_AttemptUSBOSReceive`, `_ReceiveOS_USB`, `_InitUSB`, and `_KillUSB` are on page `2F`. Rebuild: `tools/build.sh`.
+The main `0x4xxx` bcall table and the retail boot bcall table (`0x8xxx`, from the local complete ROM) both carry TI-OS types. Most boot bcall bodies are on page `3F`; USB boot routines such as `_AttemptUSBOSReceive`, `_ReceiveOS_USB`, `_InitUSB`, and `_KillUSB` are on page `2F`. Rebuild: `tools/build.sh`.

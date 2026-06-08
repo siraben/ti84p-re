@@ -1,5 +1,7 @@
 # TI-BASIC dynamic tracing
 
+*TI-84 Plus OS 2.55MP — feature deep dive.*
+
 TI-BASIC behavior in these notes is grounded by generated programs, headless
 TilEm runs, resolved instruction coverage, and screen captures. This page is
 the book-facing recipe for reproducing those traces; the lower-level tooling
@@ -94,7 +96,7 @@ routine trace. For example, the BASIC subprogram case uses the private
 `38:6910` -> `38:6914` -> `38:778F` body-evaluator path after the top-level
 homescreen parse has already seeded parser RAM. That is why the negative
 ASM-to-BASIC probes in [TI-BASIC programming patterns](sub-tibasic-programming.md)
-are negative fixtures or temporary probes: they reach useful ROM paths, but they
+are negative fixtures or probes: they reach useful ROM paths, but they
 do not display the target BASIC program.
 
 ## Related pages

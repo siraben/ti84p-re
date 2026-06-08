@@ -53,9 +53,8 @@ Archived vars are *appended* to Flash, which can't be overwritten in place, so d
 `_CleanAll` is RAM cleanup (not Flash GC) [confirmed from disassembly]: `_CleanAll` (`07:52CF`) compacts the floating-point stack down to `tempMem` (`fpBase`/`FPS`) and the OP/scratch stack down to `pTemp` (it sets `OPBase = pTemp`, `LDDR`s the live span down, and sets `OPS` to its new top), reclaiming temporary RAM after a command/expression finishes. It does not touch Flash.
 
 Flash is erased a sector at a time but programmed byte-by-byte (the page-3D writer at `3D:64AA` calls the single-byte bcall `_WriteAByte`, id `8021`), via low-level routines through the flash-control port `0x14` (see [Variables, Archive & Unarchive](sub-vat-archive.md)) [partly confirmed]:
-- Live MCP-confirmed page-3D anchors include `_FlashToRam` (`3D:6745`), `flash_program_buf` (`3D:678C`), `flash_erase_wait` (`3D:5ED3`), `flash_cmd_base` (`3D:738B`), and the status-bit helpers `flash_op_fd` (`3D:7C8F`), `flash_op_fb` (`3D:7C93`), `flash_op_fe` (`3D:7C97`).
-- Further page-3D flash routines at `3D:61AF`, `3D:6B9B`, `3D:64AA`, `3D:62C2`, and `3D:6413` are not yet named in the current DB and await a symbol pass.
+- Confirmed page-3D anchors include `_FlashToRam` (`3D:6745`), `flash_program_buf` (`3D:678C`), `flash_erase_wait` (`3D:5ED3`), `flash_cmd_base` (`3D:738B`), and the status-bit helpers `flash_op_fd` (`3D:7C8F`), `flash_op_fb` (`3D:7C93`), `flash_op_fe` (`3D:7C97`).
+- Further page-3D flash routines at `3D:61AF`, `3D:6B9B`, `3D:64AA`, `3D:62C2`, and `3D:6413` are unnamed in the disassembly.
 - Archive workers: `_Arc_Unarc` (`07:6248`) → `arc_ram_to_flash` (`07:6107`, RAM→Flash) / `arc_flash_to_ram` (`07:61F4`, Flash→RAM). (`_Arc_Unarc` dispatches on the FindSym page byte `B`: `B==0`/in-RAM → `6107` archive, `B≠0`/in-Flash → `61F4` unarchive.)
 
-## Resolved
-The `_FindSym` VAT walk is byte-verified in [Variables, Archive & Unarchive](sub-vat-archive.md). Flash write/erase and GC still need a current MCP-backed symbol pass to replace the older address/name map.
+The `_FindSym` VAT walk is byte-verified in [Variables, Archive & Unarchive](sub-vat-archive.md). Flash write/erase and GC routines on page 3D are partly unnamed [hypothesis].

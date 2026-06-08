@@ -264,7 +264,7 @@ during a regraph or TABLE build.
 - Forward transform `(value−min)/pixelDelta`: structure [confirmed] from the
   `37:41F2` disassembly (subtract `228F`, divide `2385`); the exact rounding in `4229` is
   read but the ±sentinel constants are summarized, not exhaustively byte-traced.
-- `_HorizCmd`/`_VertCmd` endpoint build — resolved: `7933` allocates a 0x24-byte FPS frame, and
+- `_HorizCmd`/`_VertCmd` endpoint build: `7933` allocates a 0x24-byte FPS frame, and
   the commands `_Mov9B` the window edges (`Xmin`/`Xmax` or `Ymin`/`Ymax`) plus `_MovFrOP1` the line's
   coordinate (`OP1`) into that frame, reading the live window variables only.
 - Circle parametric stepping in `3B:7171` (`_DrawCirc2`) not decompiled here (lives on

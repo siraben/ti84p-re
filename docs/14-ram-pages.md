@@ -113,12 +113,10 @@ The computed bank-pair helpers use this selector formula:
     out (7),a        ; pair index 0/1/2/3 -> pages 81/83/85/87 in bank B
 ```
 
-The direct callers decoded so far set `B = 1`, which selects pages `82/83`. That
-explains the observed `port 5 = 02`, `port 7 = 83` sequence and why no current
-trace writes page `84-87`. A targeted probe for pages `84-87` should either run
-small RAM code that writes selectors `84h-87h` directly, or find a UI path that
-passes `B = 2` or `B = 3` into this helper. The `B = 1` caller pattern is
-confirmed for the decoded callers above. [confirmed]
+Decoded callers set `B = 1`, selecting pages `82/83`; that explains the observed
+`port 5 = 02`, `port 7 = 83` sequence. Pages `84–87` are reachable through the
+helper but are not selected on any observed OS path [hypothesis]. The `B = 1`
+caller pattern is confirmed for the decoded callers above. [confirmed]
 
 ## Page `83` use [confirmed and standard]
 

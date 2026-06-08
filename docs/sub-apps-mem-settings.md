@@ -1,4 +1,4 @@
-# Apps, memory reset, and settings
+# Apps, memory reset & settings
 
 *TI-84 Plus OS 2.55MP — feature deep dive.*
 
@@ -18,7 +18,7 @@ SystemFlags base is `IY = flags = 0x89F0`, so e.g. `(IY+0x0A)` = `flags + fmtFla
 
 ## 1. Flash Apps — find & launch
 
-This ROM appears to ship with zero bundled apps in the local ROM-byte scan (zero `80 0F` headers found at page starts; not directly verifiable through the current MCP byte interface),
+This ROM ships with zero bundled apps in the local ROM-byte scan (zero `80 0F` headers found at page starts) [hypothesis],
 but the entire find/launch machinery is present on `page 0x3D` (`_FindApp*`) and
 `page 0x3B` (`_AppInit` glue / app-quit). Apps are TI Flash Applications: a contiguous
 run of 16 KiB flash pages whose first page begins with a TLV app header.
@@ -28,7 +28,7 @@ run of 16 KiB flash pages whose first page begins with a TLV app header.
 An app header is a sequence of type-length-value fields starting at offset 0 of the
 app's first page. Each field begins with two bytes in WikiTI's `TT TS` notation: the high
 12 bits are the field number, and the low nibble of the second byte encodes the payload
-length. The decoder bytes are around `page_3D:7285`, but the current Ghidra DB does not expose a live function there:
+length. The decoder bytes are around `3D:7285`, but the disassembly does not expose a live function there:
 
 | size nibble | field payload size |
 |-------------|--------------------|
@@ -143,11 +143,11 @@ generic walkers `_FindSubField` (bcall `0x805D`), `_FindGroupedField` (bcall `0x
 `_GetFieldSize` (bcall `0x805A`), which decode the TLV length nibble shown above. These IDs
 sit in the boot-page bcall range (`0x8000`+); the `0x8040`/`0x8070`/`0x8080` helpers the OS
 also reaches are a distinct group in the same range and are not these field walkers. The body
-addresses behind these public entry points are not defined functions in the current live DB.
+addresses behind these public entry points are not defined functions in the disassembly.
 
 ### 1.2 `_FindApp` / `_FindAppUp` / `_FindAppDn` [confirmed]
 
-- `_FindApp` (`page_3D:5EE3`) — locate an app by name (OP1). Inits the search page,
+- `_FindApp` (`3D:5EE3`) — locate an app by name (OP1). Inits the search page,
   then loops `app_find_next_page (5FB1)` + a header-match step until done, returning the app's
   start page and a found/not-found flag via `RST 28` (bcall) into RAM flash helpers.
   ```z80
@@ -157,13 +157,13 @@ addresses behind these public entry points are not defined functions in the curr
   5EEA CALL 5EB2            ; read/compare this page's header
   5EED BIT 3,C; JR Z,5EE6   ; not a match -> keep scanning
   ```
-- `app_find_next_page` (`page_3D:5FB1`) — `appSearchPage (0x82A3) -= 1`; stops at page 7
+- `app_find_next_page` (`3D:5FB1`) — `appSearchPage (0x82A3) -= 1`; stops at page 7
   (low boundary of the app region); bjumps `appSearchPage:0x4000` to inspect the header.
-- `flash_set_sector_cnt` (`page_3D:727D` → helper `726E`) — initializes `0x82A3` to the model-selected page base plus one.
+- `flash_set_sector_cnt` (`3D:727D` → helper `726E`) — initializes `0x82A3` to the model-selected page base plus one.
 - `_FindAppUp` (`5DDA`) / `_FindAppDn` (`5DE6`) — enumerate the previous / next app
   in flash (for the APPS-menu list), both wrapping the common walker `_app_5de7` (`5DE7`).
   `_app_5de7` keeps two counts in BC (apps before/after) and tracks the current name in OP3.
-- `_FindAppNumPages` is present in the bcall table (`3D:4AA3`), but the current live DB has no function record at that address.
+- `_FindAppNumPages` is present in the bcall table (`3D:4AA3`), but the disassembly has no function record at that address.
 
 State variables: `appSearchPage` = `0x82A3`, `0x8497`/`0x8481`/`0x9C87` are search-mode
 scratch (`0x9C87`='i' selects the in-RAM "temp app" search variant).
@@ -179,18 +179,18 @@ _AppInit(byte *hdr):                 ; HL -> 13-byte vector block in the header
 ```
 The 12 bytes are the 6 little-endian handler pointers (`cxMain`, `cxPPutAway`, `cxPutAway`,
 `cxRedisp`, `cxErrorEP`, `cxSizeWind` — see [doc 11](11-boot-contexts-errors.md) §Context block). Example: the OS's own
-default app vectors live at `page_3B:7571`:
+default app vectors live at `3B:7571`:
 ```
 3E 75 | 4B 75 | 9F 74 | 4B 75 | 4B 75 | 4B 75 | 0A
 cxMain=753E cxPPutAway=754B cxPutAway=749F cxRedisp=754B cxErrorEP=754B cxSizeWind=754B appFlags=0A
 ```
-`_ReloadAppEntryVecs` (`page_3B:73E4`, bcall `0x4C36`) calls `_AppInit` on that block, then
+`_ReloadAppEntryVecs` (`3B:73E4`, bcall `0x4C36`) calls `_AppInit` on that block, then
 overrides `cxErrorEP (0x8595)=0x27D9`. After `_AppInit`, the main event loop runs the app
 through `call_context_main` (pages in `cxPage`, jumps `(cxMain)` — [doc 11](11-boot-contexts-errors.md)).
 
 Because `cxCurApp` (`0x859A`) is a key code, pressing a mode key selects the context to
 load ([doc 11](11-boot-contexts-errors.md)). The App quit restore-path candidate at
-`page_3B:7412` is not a defined function in the current live DB; the saved-context restore behavior
+`3B:7412` is not a defined function in the disassembly; the saved-context restore behavior
 stands as a byte-trace note (the label is project-local, not a WikiTI or `ti83plus.inc` equate).
 
 ---
@@ -205,17 +205,17 @@ re-init lands in page-0 boot code.
 
 | Addr | String |
 |------|--------|
-| `page_01:4076` | `Defragmenting...` |
-| `page_01:4098` | `Arc Vars Cleared` |
-| `page_01:40A9` | `  Apps Cleared` |
-| `page_01:40B8` | `Arc Vars & Apps     Cleared` |
-| `page_01:4109` | `Resetting All...` |
-| `page_01:4126`+`412E` | `Garbage` + `Collecting...` |
-| `page_01:4234` | `Resetting...` |
-| `page_01:7425..746E` | menu titles: `RESET MEMORY`, `RESET DEFAULTS`, `RESET ARC VARS`, `RESET ARC APPS`, `RESET ARC BOTH`, `RESET RAM` |
-| `page_01:747E` | the long "Resetting ALL / RAM / Vars / Apps / Both …" warning help text |
+| `01:4076` | `Defragmenting...` |
+| `01:4098` | `Arc Vars Cleared` |
+| `01:40A9` | `  Apps Cleared` |
+| `01:40B8` | `Arc Vars & Apps     Cleared` |
+| `01:4109` | `Resetting All...` |
+| `01:4126`+`412E` | `Garbage` + `Collecting...` |
+| `01:4234` | `Resetting...` |
+| `01:7425..746E` | menu titles: `RESET MEMORY`, `RESET DEFAULTS`, `RESET ARC VARS`, `RESET ARC APPS`, `RESET ARC BOTH`, `RESET RAM` |
+| `01:747E` | the long "Resetting ALL / RAM / Vars / Apps / Both …" warning help text |
 
-### 2.2 The reset dispatcher (`mem_reset_dispatch` @ `page_35:7180`) [confirmed]
+### 2.2 The reset dispatcher (`mem_reset_dispatch` @ `35:7180`) [confirmed]
 
 Dispatch is on the selected reset item held in `keyExtend` (`0x8446`):
 
@@ -229,7 +229,7 @@ Dispatch is on the selected reset item held in `keyExtend` (`0x8446`):
 
 ### 2.3 What "RAM Cleared" (RAM reset) zeroes [confirmed]
 
-The RAM-reset path (`page_35:719F`):
+The RAM-reset path (`35:719F`):
 ```z80
 719F BIT 1,(IY+0x35); JP Z,0x0B2F          ; first-stage vs full path select
 71A6 LD HL,(0x9B73)                         ; preserve a saved word
@@ -262,20 +262,20 @@ The harder reset (RESET ALL / power-on cold start) is at `ram:0B27`:
 ```
 This zeroes the *entire* 32 KiB RAM and does the deepest re-init.
 
-### 2.5 `_CleanAll` / `cleanup_temp_ram` (`page_07:52CF`) — not a reset [confirmed]
+### 2.5 `_CleanAll` / `cleanup_temp_ram` (`07:52CF`) — not a reset [confirmed]
 
 Distinct from the MEM reset. `_CleanAll` (bcall `0x4A50`) only compacts temporary RAM
 after a command finishes: it shifts the FP stack (`fpBase`/`FPS`) down to `tempMem`, resets
 the `OPBase`/`OPS`/`pTemp` scratch pointers, and clears `pTempCnt`/`cleanTmp`. It does not
-clear the VAT, user vars, or Flash (see [doc 12](12-memory-management.md)). `_FixTempCnt` (`page_07:4FEC`) marks temps
+clear the VAT, user vars, or Flash (see [doc 12](12-memory-management.md)). `_FixTempCnt` (`07:4FEC`) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.
 
 ### 2.6 Flash archive GC — "Defragmenting…" / "Garbage Collecting…" [confirmed behavior; display-label addresses undisassembled]
 
 Separate from RAM reset: when the Flash archive fills, the OS rewrites live archived vars to
-fresh sectors and erases the old ones. The display dispatcher sits around `page_3C:7E23`
+fresh sectors and erases the old ones. The display dispatcher sits around `3C:7E23`
 (shows `Defragmenting...` `0x4076`) / `7E10`/`7E1C` (shows `Garbage Collecting...` `0x4126`+`412E`);
-`page_3C:7E00` is not a defined function in the current live DB (the label is project-local, not a
+`3C:7E00` is not a defined function in the disassembly (the label is project-local, not a
 WikiTI or `ti83plus.inc` equate).
 It clears `0x844B` (`curRow`, the text-row cursor — reset before the banner draws) and runs with the screen frozen (`DI`). The actual
 sector erase/write primitives are RAM-resident (flash control port `0x14`) — see [doc 12](12-memory-management.md).
@@ -302,7 +302,7 @@ radians; the degree paths convert first).
 ### 3.2 Graph type: Func / Param / Polar / Seq — `grfModeFlags` (`IY+0x02`) [confirmed]
 
 The four graph-mode setters on `page 0x36` are mutually exclusive: each first clears
-all four bits via `clr_grfmode (page_36:7D00)`, then ORs in its own bit, then calls
+all four bits via `clr_grfmode (36:7D00)`, then ORs in its own bit, then calls
 `_SetTblGraphDraw`. `param_1` is `IY`, so `*(param_1+2)` = `grfModeFlags`.
 
 ```
@@ -311,12 +311,12 @@ clr_grfmode (page_36:7D00):  grfModeFlags &= 0xEF & 0xDF & 0xBF & 0x7F   ; clear
 
 | bcall | addr | bit set | flag (inc) |
 |-------|------|---------|------------|
-| `_SetFuncM` | `page_36:7D11` | bit 4 (`\|0x10`) | `grfFuncM` (Function) |
-| `_SetPolM`  | `page_36:7D2C` | bit 5 (`\|0x20`) | `grfPolarM` (Polar) |
-| `_SetParM`  | `page_36:7D39` | bit 6 (`\|0x40`) | `grfParamM` (Parametric) |
-| `_SetSeqM`  | `page_36:7D1F` | bit 7 (`\|0x80`) | `grfRecurM` (Sequence/Recursion) |
+| `_SetFuncM` | `36:7D11` | bit 4 (`\|0x10`) | `grfFuncM` (Function) |
+| `_SetPolM`  | `36:7D2C` | bit 5 (`\|0x20`) | `grfPolarM` (Polar) |
+| `_SetParM`  | `36:7D39` | bit 6 (`\|0x40`) | `grfParamM` (Parametric) |
+| `_SetSeqM`  | `36:7D1F` | bit 7 (`\|0x80`) | `grfRecurM` (Sequence/Recursion) |
 
-Each setter first calls a small predicate (`page_36:0013/0254/0259/025E`) and only re-sets
+Each setter first calls a small predicate (`36:0013/0254/0259/025E`) and only re-sets
 the mode if the parity/condition flag (`F` bit6) requires it, avoiding needless redraws.
 
 Other `grfModeFlags` bits (from inc, not in the setters above): bit3 `grfPolar`
@@ -347,7 +347,7 @@ Float vs Fix N is not in `fmtFlags` — it is the separate byte `fmtDigits` =
 
 The MODE screen is a menu context (`cxMode`/`kMode`=0x45) reached via the event/key router
 ([doc 11](11-boot-contexts-errors.md)). Its row strings live as token names on page 0x01 (`RadianN`/`DegreeO`/`NormalP`/
-`Float` at `page_01:49E4..4A06`; trailing letters are token-id bytes) and full-caps menu
+`Float` at `01:49E4..4A06`; trailing letters are token-id bytes) and full-caps menu
 labels on page 0x37 (`DEGREE` `4A85`, `RADIAN` `4A8C`). Selecting a row writes the flag bits
 documented above directly (`SET/RES (IY+…)`, or stores into `fmtDigits`). [hypothesis] (partial) —
 the per-row write table itself is reached through the menu dispatcher and was not traced

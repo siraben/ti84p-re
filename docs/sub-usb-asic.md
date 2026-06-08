@@ -250,7 +250,7 @@ Prefer the OS entry points unless the program is deliberately writing a USB driv
 
 The raw FIFO sequence is only the byte layer. A working transfer still needs the packet layer:
 machine ID, command, length, payload checksum, ACK/NAK, and EOT. That framing is documented in
-[sub-link-transfer.md](sub-link-transfer.md#3-packet-framing--the-ti-link-protocol-c).
+[sub-link-transfer.md](sub-link-transfer.md#3-packet-framing--the-ti-link-protocol-confirmed).
 
 Practical rules:
 
@@ -263,10 +263,10 @@ Practical rules:
   mapped well enough to identify the FIFOs and state variables, but their bit-level protocol is not
   a stable public API.
 
-## Remaining limits after this pass
+## Limits
 
-- The previously listed RAM-target item is resolved: the ROM calls `ram:2E0B`, a
-  `cross_page_jump` thunk to `35:4280`. Its carry-clear/carry-set result is now decoded above.
+- The ROM calls `ram:2E0B`, a `cross_page_jump` thunk to `35:4280`. Its
+  carry-clear/carry-set result is decoded above.
 - The public `0x50xx`/`0x52xx`/`0x53xx` USB APIs are mapped to bodies and sampled above. The boot-page
   `0x8xxx` USB names (`_InitUSB`, `_KillUSB`, `_AttemptUSBOSReceive`, `_ReceiveOS_USB`,
   `_USBErrorCleanup`) remain part of the repository-wide `0x8xxx` bcall-table reconciliation problem,

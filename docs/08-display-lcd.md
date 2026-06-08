@@ -1,4 +1,4 @@
-# 08 — Display / LCD
+# 08 — Display & LCD
 
 > **Deep dives:** [Graphing](sub-graphing.md) (graph buffer → LCD, transforms) · [Table & Y= Variables](sub-table-yvars.md) (text grid).
 
@@ -33,9 +33,6 @@ The TI-84+ shows a `96×64` monochrome image — the OS only ever drives a 96×6
 ## Indicators
 - `flags.indicFlags` bit 0 = the run/busy indicator (the moving dashes top-right); `_ClrLCDFull` preserves it across a clear; `_RunIndicOn` / `_RunIndicOff` toggle it. [confirmed]
 
-## Resolved
+## LCD command bytes and glyph table
 - **LCD command bytes confirmed** by tracing `_ClrLCDFull` (`01:60E4`), `_ClearRow` (`01:6934`) and `lcd_set_col_cmd` (`01:5A89`): row (page) select = `0xB8 − 8·row` (range `0xB8 … 0x80`, stepping down by 8), column select = `0x20 + col` (range `0x20 … 0x2B`, 12 columns = 96 px), command port `0x10` / data port `0x11`, busy-wait via `ram:0CC3`. Contrast is held at RAM `contrast` (`0x8447`) and written to the data port `0x11` by `lcd_set_contrast` (`01:5A59`). See [Controller](#controller-confirmed-against-code). [confirmed]
 - **Large-font glyph table pinned**: page `0x07`, base `07:45FF`, `7-byte stride` (`put_glyph_large` @ `07:4588` → glyph ptr `07:45FF + char*7` via `07:45EB`, then `_Mov8B` copies an 8-byte record to RAM `0x845A`). See [Fonts](#fonts-confirmed) and [Flash Page Map](13-flash-page-map.md). [confirmed]
-
-## TODO
-- *(none for this section — items above resolved.)*

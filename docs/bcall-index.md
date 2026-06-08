@@ -1,4 +1,4 @@
-# bcall reference index
+# bcall index
 
 The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each has an *ID* (the 2-byte value after `rst 28h`) and a *body* at `page:addr`. Use your browser's find, or the wiki search box. See [The bcall Mechanism](03-bcall-mechanism.md) for how dispatch works. The `0x8xxx` boot bcall names at the end are official SDK equates resolved from the retail boot table on page `3F`; USB boot entries point into page `2F`.
 
