@@ -44,6 +44,13 @@ notation, and mdBook-sensitive markup.
 
 ## Structure
 
+- Write for the human reading the page. The wiki documents the ROM, not its own
+  authoring rules. Keep author/style guidance — these typography and emphasis
+  rules, KaTeX escaping mechanics, and the like — in this skill, never in a
+  `docs/` page. The reader-facing `docs/conventions.md` explains only what a
+  reader needs to interpret the notes: address notation, confidence flags,
+  naming, and how the RE was produced. A reader of a Z80 RE wiki does not need a
+  lesson on em vs. en dashes.
 - Keep one topic per page. A page should answer one subsystem or mechanism
   question. Put feature detail in a `sub-*.md` deep dive and link to it.
 - Start with a 1-3 sentence overview before the first heading.
