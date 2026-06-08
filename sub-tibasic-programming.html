@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7c293ef9.js";
+            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-cbaaedfe.js"></script>
+        <script src="toc-76256a07.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,7 +180,7 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="ti-basic-programming-patterns"><a class="header" href="#ti-basic-programming-patterns">TI-BASIC programming patterns</a></h1>
-<p><em>TI-84 Plus OS 2.55MP — performance and tracing notes.</em></p>
+<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
 <p>This page turns the interpreter traces into practical programming rules. It is
 a map from common TI-BASIC patterns to the OS paths they exercise.</p>
 <p>Confidence follows <a href="conventions.html">Conventions</a>: [confirmed] = observed in
@@ -241,10 +241,9 @@ implicit-close/false-<code>If</code> interaction. [confirmed]</li>
 </div>
 <h3 id="evidence-manifest"><a class="header" href="#evidence-manifest">Evidence manifest</a></h3>
 <p>This branch keeps each claimed behavior tied to a runnable fixture or a
-negative probe trace. The visualization fixtures were rerun on 2026-06-07 and
-kept because they render visible output and pass first-to-final changed-pixel
-checks plus named crop-region checks for text, axes, circle arcs, nodes, and
-edges. <code>ANIMTXT</code> also has a distinct-frame threshold, so the animation fixture
+negative probe trace. The visualization fixtures render visible output and pass
+first-to-final changed-pixel checks plus named crop-region checks for text,
+axes, circle arcs, nodes, and edges. <code>ANIMTXT</code> also has a distinct-frame threshold, so the animation fixture
 must show multiple captured LCD states rather than only a final still. The
 smoke runner also checks final-screen regions for the main text, list, ASM
 interop, arbitrary-precision, and DFS outputs. The full
@@ -253,7 +252,7 @@ branch state.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Goal area</th><th>Fixture or probe</th><th>Current evidence</th></tr>
+<tr><th>Goal area</th><th>Fixture or probe</th><th>Evidence</th></tr>
 </thead>
 <tbody>
 <tr><td>Hello world</td><td><code>HELLO.8xp</code></td><td>Displays <code>HELLO, WORLD</code>, then <code>Done</code>; reaches page-38 statement parsing and <code>_Disp</code>.</td></tr>
@@ -269,7 +268,7 @@ branch state.</p>
 <tr><td>ASM-directed BASIC callback</td><td><code>ASMBRIDG.8xp</code> + <code>ASMSIG.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM sets <code>Ans=1</code> with <code>_OP1Set1</code>/<code>_StoAns</code>, returns, and BASIC calls <code>prgmZZBASIC</code> through <code>If Ans</code>.</td></tr>
 <tr><td>ASM return value</td><td><code>ASMRTN.8xp</code> + <code>ASMVAL.8xp</code></td><td>ASM sets <code>Ans=2</code> with <code>_OP1Set2</code>/<code>_StoAns</code>; BASIC reads <code>Ans</code>, computes <code>Ans+3</code>, and displays <code>5</code>.</td></tr>
 <tr><td>ASM-side BASIC lookup</td><td><code>ASMFIND.8xp</code> + <code>ZZFIND.8xp</code> + <code>ZZBASIC.8xp</code></td><td><code>AsmPrgm</code> can build <code>OP1={ProgObj,"ZZBASIC"}</code> and reach <code>findsym_scan</code>, then return to BASIC without running <code>ZZBASIC</code>.</td></tr>
-<tr><td>Direct ASM to BASIC execution</td><td><code>ASMPARSE.8xp</code> + <code>ZZPARSE.8xp</code> + <code>ZZBASIC.8xp</code>; <code>ASMFORM.8xp</code> + <code>ZZFORM.8xp</code> + <code>ZZBASIC.8xp</code>; temporary probes</td><td><code>_ParseInpLastEnt</code> reaches parser setup but ends at <code>ERR:INVALID</code>; <code>_Find_Parse_Formula</code> reaches parser/find setup but ends at <code>ERR:UNDEFINED</code>; <code>_ExecuteNewPrgm</code>, <code>_JForceCmd</code>, <code>_PutTokString</code>, and <code>_rclToQueue</code> do not prove a standalone callable BASIC-program ABI.</td></tr>
+<tr><td>Direct ASM to BASIC execution</td><td><code>ASMPARSE.8xp</code> + <code>ZZPARSE.8xp</code> + <code>ZZBASIC.8xp</code>; <code>ASMFORM.8xp</code> + <code>ZZFORM.8xp</code> + <code>ZZBASIC.8xp</code>; probes</td><td><code>_ParseInpLastEnt</code> reaches parser setup but ends at <code>ERR:INVALID</code>; <code>_Find_Parse_Formula</code> reaches parser/find setup but ends at <code>ERR:UNDEFINED</code>; <code>_ExecuteNewPrgm</code>, <code>_JForceCmd</code>, <code>_PutTokString</code>, and <code>_rclToQueue</code> do not prove a standalone callable BASIC-program ABI.</td></tr>
 </tbody>
 </table>
 </div>
@@ -739,7 +738,7 @@ mismatch: after resolving the OP1-named object, <code>_ParseInp</code> continues
 parser setup that expects a live parser/FPS call-frame shape. It is not a
 general “run this token stream” ABI for an arbitrary <code>AsmPrgm</code>. [confirmed]</p>
 <p>The homescreen command/edit-buffer route is also not a safe callable ABI. A
-temporary payload that did only:</p>
+payload that did only:</p>
 <pre><code class="language-asm">ld a,05h          ; kEnter
 rst 28h
 .dw 402Ah         ; _JForceCmd
@@ -761,11 +760,10 @@ through the command loop; it still never displays <code>CALLED</code> from <code
 its ROM path depends on an already-open edit buffer (<code>editCursor</code>/<code>editTail</code>)
 and the <code>rclFlag.enableQueue</code> state; it does not create a BASIC program call
 frame. [confirmed probes; <code>_rclToQueue</code> role from disassembly]</p>
-<p><code>_ExecuteNewPrgm</code> is the remaining tempting name, but temporary probes reject it
-as a public ASM-to-BASIC call path. A payload that sets <code>OP1</code> to <code>ProgObj</code>
-(<code>05</code>), points <code>HL</code> at the zero-terminated name <code>ZZBASIC</code>, and bcalls <code>4C3C</code>
-enters <code>_ExecuteNewPrgm</code> (<code>00:265F</code>) and <code>findsym_scan</code>, then ends at
-<code>ERR:SYNTAX</code>; <code>ZZBASIC</code> never displays <code>CALLED</code>. Repeating the test with
+<p><code>_ExecuteNewPrgm</code> (<code>00:265F</code>) is not a public ASM-to-BASIC entry — a payload
+that sets <code>OP1</code> to <code>ProgObj</code> (<code>05</code>), points <code>HL</code> at the zero-terminated name
+<code>ZZBASIC</code>, and bcalls <code>4C3C</code> enters it and <code>findsym_scan</code>, then ends at
+<code>ERR:SYNTAX</code> [confirmed]; <code>ZZBASIC</code> never displays <code>CALLED</code>. Repeating the test with
 <code>ZZBASIC</code> loaded as <code>ProtProgObj</code> (<code>06</code>) and <code>OP1=06</code> gets farther: the trace
 hits <code>_ExecuteNewPrgm</code>, the copy tail at <code>00:268A</code>, and the jump at <code>00:268F</code>.
 It still ends at <code>ERR:SYNTAX</code> and never runs the target body. That makes
@@ -781,11 +779,11 @@ paths: <code>Asm(</code> -&gt; <code>_ExecutePrgm</code> -&gt; <code>ram:9D95</c
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="sub-tibasic-for-paren.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sub-tibasic.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="sub-vat-archive.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="sub-tibasic-tracing.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -795,11 +793,11 @@ paths: <code>Asm(</code> -&gt; <code>_ExecutePrgm</code> -&gt; <code>ram:9D95</c
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="sub-tibasic-for-paren.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sub-tibasic.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="sub-vat-archive.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="sub-tibasic-tracing.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

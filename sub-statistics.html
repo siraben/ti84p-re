@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7c293ef9.js";
+            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-cbaaedfe.js"></script>
+        <script src="toc-76256a07.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -251,7 +251,7 @@ only <code>F2</code>–<code>FF</code>, §3). They fill the <code>PStat…SStat<
 the <code>_OneVar</code> accumulate/variance/median/regression engine), confirming the tests live in their
 own command handlers reached from the parser’s command dispatch, separate from the STAT‑CALC
 engine documented here. The exact per‑test handler addresses are not exposed as named routines
-in this DB. [confirmed: separate from <code>_OneVar</code>; addresses [I]]</p>
+in this DB; those per-test handler addresses are [hypothesis]. [confirmed: separate from <code>_OneVar</code>]</p>
 <p>A scratch byte <code>0x8A36</code> (immediately below <code>statVars</code>) holds the stat‑command
 discriminator (the model index, set from the command token — see §3) for the
 duration of the computation. Working list/element pointers used by the loop live
@@ -521,9 +521,9 @@ cores returns no <code>normalcdf</code>/<code>erf</code>/incomplete‑gamma/inco
 <code>eqdisp_setnorm_split</code> layout helpers — none is a distribution. Likewise every <code>stat_*</code>
 symbol on page 0x3A is part of the <code>_OneVar</code> STAT‑CALC engine (accumulate / variance / median /
 sort / regression), not a DISTR core. So the erf / incomplete‑gamma / incomplete‑beta continued
-fractions are [I] — outside the STAT‑CALC engine, sitting behind the parser’s 2‑byte
+fractions are [hypothesis] — outside the STAT‑CALC engine, sitting behind the parser’s 2‑byte
 (<code>0xBB</code>‑prefixed) DISTR‑token function table; their exact page/address is not exposed as a
-named routine in this DB. [confirmed scope; address [I]]</p>
+named routine in this DB. [confirmed scope; address hypothesis]</p>
 <hr>
 <h2 id="10-integration-summary"><a class="header" href="#10-integration-summary">10. Integration summary</a></h2>
 <pre><code>  L1..L6 lists (VAT data)                 statVars (0x8A3A)  ← results, recall-by-name
@@ -582,19 +582,19 @@ equations, depositing every output as a named <code>TIFloat</code> in the <code>
 <strong>FP engine reused:</strong> <code>RST 30h</code>=<code>_FPAdd</code>, <code>RST 08h</code>=OP1→OP2, <code>00:238B</code>=<code>_FPMult</code>,
 <code>00:238A</code>=<code>_FPSquare</code>, <code>00:2541</code>=<code>_FPDiv</code>, <code>00:2294</code>=<code>_Minus1</code>, <code>02:6E38</code>/<code>3A:3939</code>
 =<code>_SqRoot</code>, <code>24BD</code>=<code>_InvOP1S</code>.</p>
-<h2 id="12-open-items"><a class="header" href="#12-open-items">12. Open items</a></h2>
+<h2 id="12-notes"><a class="header" href="#12-notes">12. Notes</a></h2>
 <ul>
-<li><strong>RESOLVED — <code>r</code> store offset.</strong> <code>3A:684F</code> does <code>LD A,0x12 ; CALL 0x213D</code>
+<li><strong><code>r</code> store offset.</strong> <code>3A:684F</code> does <code>LD A,0x12 ; CALL 0x213D</code>
 (<code>_Sto_StatVar</code>, id <code>0x12</code> = <code>tCorr</code>), i.e. <code>r → Corr (8ACA)</code>; <code>r²</code>/<code>R²</code> is the
 <code>r·r</code>/coefficient‑of‑determination from the same <code>6845</code> <code>_SqRoot</code>/<code>_FPDiv</code> cluster, surfaced
 through the same <code>Corr</code> slot (§5). (Residual: the <code>6845–6891</code> region is unanalyzed code in the
 DB, so only the <code>A=0x12</code> store sequence was byte‑pinned, not every intermediate.)</li>
-<li><strong>RESOLVED (scope) — DISTR numerical cores</strong> (erf/incomplete‑gamma/incomplete‑beta) are
+<li><strong>DISTR numerical cores</strong> (erf/incomplete‑gamma/incomplete‑beta) are
 <em>outside</em> the STAT‑CALC engine: no distribution core is a named routine in this DB; they sit
-behind the parser’s 2‑byte DISTR‑token function table (<code>sub-tibasic</code>). Exact address [I] (§9).</li>
-<li><strong>RESOLVED (scope) — STAT‑TESTS</strong> (Z/T/χ²/F/ANOVA) that fill <code>PStat…SStat</code>/<code>anovaf_vars</code> are
+behind the parser’s 2‑byte DISTR‑token function table (<code>sub-tibasic</code>). Exact address [hypothesis] (§9).</li>
+<li><strong>STAT‑TESTS</strong> (Z/T/χ²/F/ANOVA) that fill <code>PStat…SStat</code>/<code>anovaf_vars</code> are
 <em>separate command handlers</em>, not reached through <code>_OneVar</code> (whose tokens are only <code>F2</code>–<code>FF</code>);
-no <code>PStat</code>‑writing routine is among the page‑0x3A <code>stat_*</code> symbols (§1). Per‑test addresses [I].</li>
+no <code>PStat</code>‑writing routine is among the page‑0x3A <code>stat_*</code> symbols (§1). Per‑test addresses [hypothesis].</li>
 <li><code>stat_sort</code> (<code>3A:7935</code>) is a 49-byte setup that validates/counts the elements
 then dispatches the compare-swap via <code>rst 28h</code> (the bcall site isn’t fully
 analyzed in the DB). The <code>SortA(</code>/<code>SortD(</code> <em>command</em> sort is a different routine
@@ -606,7 +606,7 @@ analyzed in the DB). The <code>SortA(</code>/<code>SortD(</code> <em>command</em
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="sub-apps-mem-settings.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sub-calculation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -620,7 +620,7 @@ analyzed in the DB). The <code>SortA(</code>/<code>SortD(</code> <em>command</em
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="sub-apps-mem-settings.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sub-calculation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7c293ef9.js";
+            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-cbaaedfe.js"></script>
+        <script src="toc-76256a07.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -190,7 +190,6 @@ matrices — the routines a college student hits doing linear algebra (<code>det
 Page numbers are the masked flash page (<code>rawpage &amp; 0x3F</code>). The whole-OS image lives in one
 Ghidra program with address spaces <code>ram</code> (the page-0/RAM-resident 0x0000–0x7FFF window) and
 <code>page_NN</code> for each flash page mapped into the 0x4000–0x7FFF bank-A window.</p>
-<p>Confidence (this doc’s shorthand; see <a href="conventions.html">Conventions</a>): [C]=confirmed from disassembly (≈<code>[confirmed]</code>), [H]=high (structure clear, light inference) (≈<code>[standard]</code>), [I]=inferred / standard documented TI behaviour (≈<code>[hypothesis]</code>).</p>
 <hr>
 <h2 id="0-tldr--the-mental-model"><a class="header" href="#0-tldr--the-mental-model">0. TL;DR — the mental model</a></h2>
 <ul>
@@ -221,7 +220,7 @@ the same elimination family.</p>
 </li>
 </ul>
 <hr>
-<h2 id="1-data-layouts--the-creator-routines-c"><a class="header" href="#1-data-layouts--the-creator-routines-c">1. Data layouts &amp; the creator routines [C]</a></h2>
+<h2 id="1-data-layouts--the-creator-routines-confirmed"><a class="header" href="#1-data-layouts--the-creator-routines-confirmed">1. Data layouts &amp; the creator routines [confirmed]</a></h2>
 <h3 id="list--_createrlist-0010c4-_createclist-001109"><a class="header" href="#list--_createrlist-0010c4-_createclist-001109">List — <code>_CreateRList</code> (<code>00:10C4</code>), <code>_CreateCList</code> (<code>00:1109</code>)</a></h3>
 <pre><code>_CreateRList(count, dataPtrOut):
   reject unless OP1 name token (8478.exp) ∈ {0x5D, 0x24, 0x3A, 0x72}  ; list-name classes
@@ -239,11 +238,11 @@ flag and 18-byte elements.</p>
 </code></pre>
 <ul>
 <li><code>_HTimesL</code> (<code>00:1EF6</code>) is literally <code>result = H * L</code> (<code>B=H; HL=Σ L</code>, a <code>DJNZ</code> add loop) —
-it computes the element count from the two dimension bytes. [C]</li>
+it computes the element count from the two dimension bytes. [confirmed]</li>
 <li>Header = two bytes <code>dim0,dim1</code>; data is <code>dim0*dim1</code> floats column-major.</li>
 </ul>
 <blockquote>
-<p><strong>Dimension naming [C].</strong> Settled by disassembly. <code>_AdrMEle</code> (<code>02:4002</code>) reads the header’s
+<p><strong>Dimension naming [confirmed].</strong> Settled by disassembly. <code>_AdrMEle</code> (<code>02:4002</code>) reads the header’s
 first byte (<code>LD A,(DE); LD L,A</code>) and uses it as the major stride, looping <code>(B−1)</code>
 adds of it and then <code>+(C−1)</code> <em>within</em> a column (column-major). The major stride of a
 column-major array is the number of rows, so the first header byte (<code>dim0</code>) = #rows,
@@ -254,7 +253,7 @@ stored <code>dim0</code> (rows) then <code>dim1</code> (cols). The byte-confirme
 <code>((idx0−1)·dim0 + (idx1−1))·9</code> is therefore a (column, row) register convention with a row-count stride.</p>
 </blockquote>
 <hr>
-<h2 id="2-element-access--the-indexoffset-math-c"><a class="header" href="#2-element-access--the-indexoffset-math-c">2. Element access — the index→offset math [C]</a></h2>
+<h2 id="2-element-access--the-indexoffset-math-confirmed"><a class="header" href="#2-element-access--the-indexoffset-math-confirmed">2. Element access — the index→offset math [confirmed]</a></h2>
 <p>This is the heart of everything. Two address-calculators turn a 1-based index into a byte
 pointer, then a 9-byte move shuttles the <code>TIFloat</code> to/from <code>OP1</code>.</p>
 <h3 id="list-element-address--_adrlele-0247c5"><a class="header" href="#list-element-address--_adrlele-0247c5">List element address — <code>_AdrLEle</code> (<code>02:47C5</code>)</a></h3>
@@ -268,8 +267,8 @@ pointer, then a 9-byte move shuttles the <code>TIFloat</code> to/from <code>OP1<
 </code></pre>
 <p>So list element <em>i</em> is at <code>data + 2 + (i−1)*9</code> (×18 path for complex). <code>_HLTimes9</code>
 (<code>00:1930</code>) is the universal “multiply by 9” (real <code>TIFloat</code> size). <code>chk_type_lt_1a</code> (<code>ram:21C4</code>)
-masks the type to ≤0x19 and sets carry for the complex case (drives the 18-byte width). [C]</p>
-<p>Convenience wrappers (all = <code>_AdrLEle</code> then a 9-byte move through OP1, complex-aware): [C]</p>
+masks the type to ≤0x19 and sets carry for the complex case (drives the 18-byte width). [confirmed]</p>
+<p>Convenience wrappers (all = <code>_AdrLEle</code> then a 9-byte move through OP1, complex-aware): [confirmed]</p>
 <ul>
 <li><code>_GetLToOP1</code> (<code>02:47EA</code>) — list[i] → OP1 (real or complex via two <code>_Mov9B</code>).</li>
 <li><code>_RclListElemToOP1</code> (<code>02:47FB</code>), <code>_RclListElemB</code> (<code>02:47FE</code>) — recall to OP1 with the
@@ -281,7 +280,7 @@ copies, honoring the complex (<code>&amp; 0xC</code>) element width.</li>
 <li><code>_GetPosListElem</code> (<code>02:5BBB</code>) — fetch by a <em>positive-integer</em> index with <code>_CkOP1Pos</code>
 bounds (loads <code>A=0x15</code> = <code>E_Stat</code> and jumps to the error vector <code>ram:2741</code> on a bad index).</li>
 </ul>
-<h3 id="matrix-element-address--_adrmele-024002-c"><a class="header" href="#matrix-element-address--_adrmele-024002-c">Matrix element address — <code>_AdrMEle</code> (<code>02:4002</code>) [C]</a></h3>
+<h3 id="matrix-element-address--_adrmele-024002-confirmed"><a class="header" href="#matrix-element-address--_adrmele-024002-confirmed">Matrix element address — <code>_AdrMEle</code> (<code>02:4002</code>) [confirmed]</a></h3>
 <pre><code class="language-z80">_AdrMEle:                                 ; B=column idx0, C=row idx1, DE=matrixDataPtr
   if B==0 or C==0 -&gt; LD A,0x78 ; JP 0x2793 ; 0-index rejected (error vector)
   A = (DE)        ; A = dim0 (rows)        ; first header byte
@@ -296,8 +295,8 @@ bounds (loads <code>A=0x15</code> = <code>E_Stat</code> and jumps to the error v
 adds of <code>dim0</code> walk whole columns; the <code>(C-1)</code> steps within a column. The 8-bit adds track
 a carry into <code>H</code> so the address is a true 16-bit offset (matrices up to 99×99). Because the
 multiplied byte is <code>dim0</code> and that is the row count (column-major major stride), <code>B=idx0</code>
-is the column index and <code>C=idx1</code> is the row index — see the [C] dimension-naming note in §1. [C]</p>
-<p>Matrix element wrappers: [C]</p>
+is the column index and <code>C=idx1</code> is the row index — see the [confirmed] dimension-naming note in §1. [confirmed]</p>
+<p>Matrix element wrappers: [confirmed]</p>
 <ul>
 <li><code>_AdrMRow</code> (<code>02:4000</code>) — address of the <em>start of column idx0</em> in the column-major buffer
 (loops <code>(idx0−1)</code> × dim0, no <code>+(idx1-1)</code>); whole-row operations layer their own iteration on top.</li>
@@ -306,9 +305,9 @@ is the column index and <code>C=idx1</code> is the row index — see the [C] dim
 <code>[M](r,c)</code> with validation.</li>
 <li><code>_StMatEl</code> (<code>38:6C8F</code>) — high-level “store into <code>[M](r,c)</code>” used by the parser: resolves
 the matrix name (<code>5F45</code>), bounds-checks indices against the dims (<code>r≤rows &amp;&amp; c≤cols</code>, else
-<code>_JError 0x8C</code> = <code>E_Dimension</code>), unarchives if needed, then <code>_PutToMat</code>. [C/H]</li>
+<code>_JError 0x8C</code> = <code>E_Dimension</code>), unarchives if needed, then <code>_PutToMat</code>. [standard]</li>
 </ul>
-<h3 id="internal-index-helpers-reused-by-the-algorithms-c"><a class="header" href="#internal-index-helpers-reused-by-the-algorithms-c">Internal index helpers reused by the algorithms [C]</a></h3>
+<h3 id="internal-index-helpers-reused-by-the-algorithms-confirmed"><a class="header" href="#internal-index-helpers-reused-by-the-algorithms-confirmed">Internal index helpers reused by the algorithms [confirmed]</a></h3>
 <ul>
 <li><code>mele_adr_af_jp</code> (<code>02:403C</code>) = <code>_AdrMEle(currentIJ) ; RST4</code> — “load <code>[M](i,j)</code> to OP1” (the elimination
 inner-loop read). Indices come from the loop state at <code>84AF/84B3/84B4</code>.</li>
@@ -318,7 +317,7 @@ inner-loop read). Indices come from the loop state at <code>84AF/84B3/84B4</code
 analogue used in a few list-builder paths.</li>
 </ul>
 <hr>
-<h2 id="3-list-operations-ch"><a class="header" href="#3-list-operations-ch">3. List operations [C/H]</a></h2>
+<h2 id="3-list-operations-standard"><a class="header" href="#3-list-operations-standard">3. List operations [standard]</a></h2>
 <h3 id="create--resize--insert--delete"><a class="header" href="#create--resize--insert--delete">Create / resize / insert / delete</a></h3>
 <div class="table-wrapper">
 <table>
@@ -326,11 +325,11 @@ analogue used in a few list-builder paths.</li>
 <tr><th>Routine</th><th>addr</th><th>Role</th></tr>
 </thead>
 <tbody>
-<tr><td><code>_CreateRList</code></td><td><code>00:10C4</code></td><td>new real list: <code>count*9+2</code> bytes (§1) [C]</td></tr>
-<tr><td><code>_CreateCList</code></td><td><code>00:1109</code></td><td>new complex list: <code>count*18+2</code> [C]</td></tr>
-<tr><td><code>_IncLstSize</code></td><td><code>07:4EF4</code></td><td>grow a list in place via <code>_InsertMem</code>; caps length at 999 (<code>0x3E7</code>), else <code>E_Dimension 0x8C</code> (<code>07:4F00 JP Z,0x2719 → LD A,0x8C</code>). <code>_InsertList</code> is the distinct sibling at <code>07:4F07</code>. [C]</td></tr>
-<tr><td><code>_DelListEl</code></td><td><code>07:4F43</code></td><td>delete element(s): <code>_HLTimes9(index)</code> to size the gap (×2 if complex, <code>&amp; 0x1F == 0x0D</code>), then <code>_DelMem</code> via a cross-page jump [C]</td></tr>
-<tr><td><code>_RedimMat</code>/<code>_ConvDim</code></td><td><code>07:4D3B</code> / <code>38:741F</code></td><td>re-dimension (shared with matrices); <code>_ConvDim</code>/<code>_ConvDim00</code> (<code>38:741F/7422</code>) coerce OP1 to a real index first [C]</td></tr>
+<tr><td><code>_CreateRList</code></td><td><code>00:10C4</code></td><td>new real list: <code>count*9+2</code> bytes (§1) [confirmed]</td></tr>
+<tr><td><code>_CreateCList</code></td><td><code>00:1109</code></td><td>new complex list: <code>count*18+2</code> [confirmed]</td></tr>
+<tr><td><code>_IncLstSize</code></td><td><code>07:4EF4</code></td><td>grow a list in place via <code>_InsertMem</code>; caps length at 999 (<code>0x3E7</code>), else <code>E_Dimension 0x8C</code> (<code>07:4F00 JP Z,0x2719 → LD A,0x8C</code>). <code>_InsertList</code> is the distinct sibling at <code>07:4F07</code>. [confirmed]</td></tr>
+<tr><td><code>_DelListEl</code></td><td><code>07:4F43</code></td><td>delete element(s): <code>_HLTimes9(index)</code> to size the gap (×2 if complex, <code>&amp; 0x1F == 0x0D</code>), then <code>_DelMem</code> via a cross-page jump [confirmed]</td></tr>
+<tr><td><code>_RedimMat</code>/<code>_ConvDim</code></td><td><code>07:4D3B</code> / <code>38:741F</code></td><td>re-dimension (shared with matrices); <code>_ConvDim</code>/<code>_ConvDim00</code> (<code>38:741F/7422</code>) coerce OP1 to a real index first [confirmed]</td></tr>
 </tbody>
 </table>
 </div>
@@ -338,14 +337,14 @@ analogue used in a few list-builder paths.</li>
 <p><code>dim(</code> reads the <code>count</code> word straight from the list header; assigning <code>n→dim(L)</code> calls the
 resize path (<code>_IncLstSize</code>/<code>_DelListEl</code>) to grow/shrink, zero-filling new cells. List→matrix
 and matrix→list (<code>List►matr(</code>, <code>Matr►list(</code>) reshape via <code>_DataSize</code> + a column-major copy
-(<code>mele_copy9_d3</code> (<code>02:4539</code>)/<code>mele_copy9_loop</code> (<code>02:453F</code>), a <code>_DataSize</code>-counted byte copy of the float payload). [H]</p>
+(<code>mele_copy9_d3</code> (<code>02:4539</code>)/<code>mele_copy9_loop</code> (<code>02:453F</code>), a <code>_DataSize</code>-counted byte copy of the float payload). [standard]</p>
 <h3 id="list-arithmetic-l1l2-scalar-broadcast"><a class="header" href="#list-arithmetic-l1l2-scalar-broadcast">List arithmetic <code>L1+L2</code>, scalar broadcast</a></h3>
 <p>Binary list ops are element-wise folds: the parser walks both lists by index, loads
 <code>L1[i]</code>→OP1, <code>L2[i]</code>→OP2, applies the FP RST shortcut (<code>RST 30h _FPAdd</code>, <code>_FPSub</code>, <code>_FPMult</code>,
 <code>_FPDiv</code>), stores into a freshly <code>_CreateRList</code>’d result. Length mismatch ⇒ <code>E_DimMismatch</code>
 (<code>_ErrDimMismatch 00:2715</code>, <code>0x8B</code>); a list⊕scalar broadcasts the scalar across every element.
-[H — the per-element FP path is confirmed; the outer driver is the parser’s binary-op handler.]</p>
-<h3 id="sum-prod--higher-order-folds-over-a-list-c"><a class="header" href="#sum-prod--higher-order-folds-over-a-list-c"><code>sum(</code>, <code>prod(</code> — higher-order folds over a list [C]</a></h3>
+[standard — the per-element FP path is confirmed; the outer driver is the parser’s binary-op handler.]</p>
+<h3 id="sum-prod--higher-order-folds-over-a-list-confirmed"><a class="header" href="#sum-prod--higher-order-folds-over-a-list-confirmed"><code>sum(</code>, <code>prod(</code> — higher-order folds over a list [confirmed]</a></h3>
 <p>Tokens <code>0xB6</code>=<code>sum(</code>, <code>0xB7</code>=<code>prod(</code> load a <em>combiner function pointer</em> and fold the
 list (dispatcher <code>02:6104</code>):</p>
 <pre><code>sum(  : HL = 0x3A83 (cross-page → FP add-accumulate),  seed via _OP1Set0
@@ -354,17 +353,17 @@ prod( : HL = 0x49B9 (seed accumulator = 1.0, _PushOP1), combine with _FPMult
 </code></pre>
 <p>The fold seeds the accumulator (0 for sum, 1 for prod), then for each element does
 <code>acc = combine(acc, L[i])</code> through OP1/OP2. Works on real and complex lists (<code>type 1</code>/<code>0xD</code>
-both route to <code>02:6140</code>). [C]</p>
-<h3 id="seq-cumsum-sortasortd-meanmedianstddev-hi"><a class="header" href="#seq-cumsum-sortasortd-meanmedianstddev-hi"><code>seq(</code>, <code>cumSum(</code>, <code>SortA(</code>/<code>SortD(</code>, <code>mean(</code>/<code>median(</code>/<code>stdDev(</code> [H/I]</a></h3>
+both route to <code>02:6140</code>). [confirmed]</p>
+<h3 id="seq-cumsum-sortasortd-meanmedianstddev-hypothesis"><a class="header" href="#seq-cumsum-sortasortd-meanmedianstddev-hypothesis"><code>seq(</code>, <code>cumSum(</code>, <code>SortA(</code>/<code>SortD(</code>, <code>mean(</code>/<code>median(</code>/<code>stdDev(</code> [hypothesis]</a></h3>
 <ul>
 <li><code>seq(expr,var,lo,hi[,step])</code> evaluates <code>expr</code> for <code>var = lo..hi</code>, pushing each result
 and finally <code>_CreateRList</code>-ing the collected floats (the generic list-builder loop;
-<code>_SetSeqM 36:7D1F</code> is the sequence-graph variant). [H]</li>
+<code>_SetSeqM 36:7D1F</code> is the sequence-graph variant). [standard]</li>
 <li><code>cumSum(</code> is a running <code>_FPAdd</code> writing back each partial sum (the sum-fold with the
-accumulator stored every step). [I]</li>
+accumulator stored every step). [hypothesis]</li>
 <li><code>SortA(</code>/<code>SortD(</code> — list sort in place (<code>SortA(</code> co-sorts dependent lists); the comparator
 and per-element sort key are detailed in the next subsection. [confirmed comparator]</li>
-<li>Stats (<code>mean/median/sum/stdDev/variance</code>) are list folds layered on <code>sum(</code>/sort. [I]</li>
+<li>Stats (<code>mean/median/sum/stdDev/variance</code>) are list folds layered on <code>sum(</code>/sort. [hypothesis]</li>
 </ul>
 <h3 id="sorta--sortd--list-sort-confirmed-comparator"><a class="header" href="#sorta--sortd--list-sort-confirmed-comparator"><code>SortA(</code> / <code>SortD(</code> — list sort [confirmed comparator]</a></h3>
 <p><code>SortA(</code> (<code>tSortA</code> <code>0xE3</code>) and <code>SortD(</code> (<code>tSortD</code> <code>0xE4</code>) sort a list in place — ascending and
@@ -372,7 +371,7 @@ descending respectively; <code>SortA(L1,L2,…)</code> co-sorts the trailing lis
 is the command sort, distinct from the stat-internal <code>stat_sort</code> (<code>3A:7935</code>) that backs median/
 quartile/Med-Med (see <a href="sub-statistics.html">Statistics</a>).</p>
 <p>The sort body is on page <code>0x02</code> (around <code>02:5939</code>); it is reached only through the parser’s
-computed command dispatch, so Ghidra leaves it as unnamed code. Its comparator is <code>_CpOP1OP2</code>
+computed command dispatch, so it is unnamed. Its comparator is <code>_CpOP1OP2</code>
 (<code>00:198D</code>), confirmed by the call at <code>02:5939</code>.</p>
 <p><code>_CpOP1OP2</code> compares two <code>TIFloat</code>s as real numbers [confirmed from disassembly]: it tests the
 sign (type byte bit 7), then the exponent, then the mantissa digits, and returns the
@@ -410,13 +409,13 @@ generated <code>DATA.8xp</code> was run under headless TilEm: the screen showed 
 <code>list_fold_dispatch</code> (<code>02:6104</code>) plus the page-38 list parse/store helpers.
 [dynamic run confirmed; list primitives above are confirmed where marked]</p>
 <hr>
-<h2 id="4-matrix-operations-c"><a class="header" href="#4-matrix-operations-c">4. Matrix operations [C]</a></h2>
+<h2 id="4-matrix-operations-confirmed"><a class="header" href="#4-matrix-operations-confirmed">4. Matrix operations [confirmed]</a></h2>
 <h3 id="dim-redim-identity-copy"><a class="header" href="#dim-redim-identity-copy"><code>dim(</code>, redim, identity, copy</a></h3>
 <ul>
 <li><code>dim([M])</code> reads the two header bytes → a 2-element list <code>{rows,cols}</code>; <code>{r,c}→dim([M])</code>
 reallocates via <code>_RedimMat</code> (<code>07:4D3B</code>), preserving overlapping cells and zero-filling new
-ones. [C/H]</li>
-<li><code>identity(n)</code> (token <code>0xB4</code> → <code>identity_build</code> (<code>02:4108</code>)) [C]: allocate <code>n×n</code>, then walk every cell
+ones. [standard]</li>
+<li><code>identity(n)</code> (token <code>0xB4</code> → <code>identity_build</code> (<code>02:4108</code>)) [confirmed]: allocate <code>n×n</code>, then walk every cell
 writing <code>1.0</code> when <code>row==col</code> (the <code>exp==type</code> test) and <code>0</code> otherwise:
 <pre><code>_OP1Set1 ; for each (i,j): if i==j -&gt; store 1.0 (mantissa[0]=0x10) else 0
 </code></pre>
@@ -427,16 +426,16 @@ per-cell loop over the whole matrix. The <code>02:62D4</code> branch (<code>CP 0
 (<code>631B</code>/<code>631C</code>/<code>4825</code>) but performs no fill. <code>randM(</code> itself is a separate 2-byte token
 (<code>tRandM</code> = <code>0x20</code>, <code>0xBB</code>-prefix group); its per-cell random fill is the one residual still
 open (§4) — and notably it does not use the <code>_Random</code> bcall (<code>0x4B79</code>): a ROM-wide scan finds
-zero <code>RST 28h; .dw 0x4B79</code> sites, so randM’s randomness comes from some other path. [H]</li>
+zero <code>RST 28h; .dw 0x4B79</code> sites, so randM’s randomness comes from some other path. [standard]</li>
 <li>Matrix copy/reshape = <code>_DataSize</code>-counted byte copy of the float payload
-(<code>mele_copy9_d3</code> (<code>02:4539</code>)/<code>mele_copy9_loop</code> (<code>02:453F</code>)). [C]</li>
+(<code>mele_copy9_d3</code> (<code>02:4539</code>)/<code>mele_copy9_loop</code> (<code>02:453F</code>)). [confirmed]</li>
 </ul>
-<h3 id="a--b-a---b-scalara--element-wise-h"><a class="header" href="#a--b-a---b-scalara--element-wise-h"><code>[A] + [B]</code>, <code>[A] - [B]</code>, scalar·[A] — element-wise [H]</a></h3>
+<h3 id="a--b-a---b-scalara--element-wise-standard"><a class="header" href="#a--b-a---b-scalara--element-wise-standard"><code>[A] + [B]</code>, <code>[A] - [B]</code>, scalar·[A] — element-wise [standard]</a></h3>
 <p>Binary matrix add/sub apply the FP op per cell with a nested <code>for col { for row { load [M](r,c)→OP1; op; store } }</code> walk and require equal dims (<code>_ErrDimMismatch 0x8B</code>). The nested two-counter cell
 walk at <code>02:412A</code> is the transpose copy (§ transpose); the add/sub element-loop driver is a
-sibling in the same <code>412A</code>–<code>414E</code> family and is inferred here. [H]</p>
-<h3 id="a--b--matrix-multiply-c"><a class="header" href="#a--b--matrix-multiply-c"><code>[A] * [B]</code> — matrix multiply [C]</a></h3>
-<p>The multiply body is at <code>02:40BA</code>. It is not a defined function in the live Ghidra DB (so the
+sibling in the same <code>412A</code>–<code>414E</code> family and is inferred here. [standard]</p>
+<h3 id="a--b--matrix-multiply-confirmed"><a class="header" href="#a--b--matrix-multiply-confirmed"><code>[A] * [B]</code> — matrix multiply [confirmed]</a></h3>
+<p>The multiply body is at <code>02:40BA</code>. It is not a defined function in the disassembly (so the
 decompiler/MCP can’t reach it), so this was decoded from <code>rom.bin</code> directly with <code>z80dasm</code>,
 cross-checked against a routine Ghidra <em>does</em> define. The body is called from <code>02:5FFF</code> (the
 <code>*</code> operator handler, in the <code>02:5FE6</code> region) and reused from <code>02:4605</code> and <code>02:5B39</code>. (<code>0x40BA</code>
@@ -452,14 +451,14 @@ address.)</p>
 </code></pre>
 <p>The three <code>dec (hl)</code> counters (<code>84AF</code> inner, <code>84B4</code>, <code>84B7</code>) each have a <code>jr nz</code> back-edge
 (<code>40E5</code>, <code>40F9</code>, <code>4100</code>); an inner-dim mismatch (<code>A.cols ≠ B.rows</code>) raises <code>_ErrDimMismatch</code>. An
-<code>n×n</code> product is <code>n³</code> <code>TIFloat</code> multiply+add steps. [C — body decoded from <code>rom.bin</code>; callers
+<code>n×n</code> product is <code>n³</code> <code>TIFloat</code> multiply+add steps. [confirmed — body decoded from <code>rom.bin</code>; callers
 <code>02:5FFF</code>/<code>4605</code>/<code>5B39</code> byte-verified]</p>
-<h3 id="transpose-aᵀ--02412a-dispatched-from-the-ᵀ-token-0x0e-c"><a class="header" href="#transpose-aᵀ--02412a-dispatched-from-the-ᵀ-token-0x0e-c">Transpose <code>[A]ᵀ</code> — <code>02:412A</code>, dispatched from the <code>ᵀ</code> token <code>0x0E</code> [C]</a></h3>
+<h3 id="transpose-aᵀ--02412a-dispatched-from-the-ᵀ-token-0x0e-confirmed"><a class="header" href="#transpose-aᵀ--02412a-dispatched-from-the-ᵀ-token-0x0e-confirmed">Transpose <code>[A]ᵀ</code> — <code>02:412A</code>, dispatched from the <code>ᵀ</code> token <code>0x0E</code> [confirmed]</a></h3>
 <p>The transpose operator <code>ᵀ</code> is the postfix token <code>tTrnspos</code> = <code>0x0E</code>. The page-02 command
 dispatcher handles it at <code>02:60E9</code> (<code>CP 0x0E</code>): it requires one matrix operand (<code>CP 0x02 ; JR NZ</code>), swaps the two dimension bytes for the result header (<code>60F5: LD A,H ; LD H,L ; LD L,A</code>),
 allocates the transposed-shape matrix (<code>5DBB</code>/<code>5DE0</code>), runs the per-cell copy body at <code>02:412A</code>,
 then stores via <code>JP 0x5F89</code>. <code>02:412A</code> has exactly one caller, <code>02:60FE</code> (byte-verified <code>CD 2A 41</code>).</p>
-<p><code>02:412A</code> is the transpose copy [C]. It walks every source cell and writes the value into the
+<p><code>02:412A</code> is the transpose copy [confirmed]. It walks every source cell and writes the value into the
 destination whose <code>_AdrMEle</code> stride is the <em>swapped</em> dimension, so <code>dst(c,r) = src(r,c)</code>:</p>
 <pre><code class="language-z80">412A: LD HL,(84AF)              ; loop counters = dims
 412E: CALL 403C                 ; load src [M] (B=col,C=row) from (84D3) → OP1
@@ -473,10 +472,10 @@ destination whose <code>_AdrMEle</code> stride is the <em>swapped</em> dimension
 <code>(84D7)</code>. Because the destination header carries the dims swapped (the <code>60F5</code> swap), <code>_AdrMEle</code>
 (<code>4002</code>) computes the column-major offset with the row/column roles exchanged, so the same linear
 walk lands element <code>src(r,c)</code> at <code>dst(c,r)</code> — a true transpose, which re-indexes <em>both</em> <code>i</code> and
-<code>j</code>. [C]</p>
+<code>j</code>. [confirmed]</p>
 <p><code>02:4178</code> (<code>mat_fill_type1</code>) is a separate single-counter fill/apply in the <code>414A</code>–<code>4178</code> block,
-not the transpose body. [C]</p>
-<h3 id="augment-dim-listmatr-matrlist--per-function-drivers-ch"><a class="header" href="#augment-dim-listmatr-matrlist--per-function-drivers-ch"><code>augment(</code>, <code>dim(</code>, <code>List►matr(</code>, <code>Matr►list(</code> — per-function drivers [C/H]</a></h3>
+not the transpose body. [confirmed]</p>
+<h3 id="augment-dim-listmatr-matrlist--per-function-drivers-standard"><a class="header" href="#augment-dim-listmatr-matrlist--per-function-drivers-standard"><code>augment(</code>, <code>dim(</code>, <code>List►matr(</code>, <code>Matr►list(</code> — per-function drivers [standard]</a></h3>
 <p>These are dispatched from the page-02 function-token evaluator (<code>list_fold_dispatch</code>, the
 <code>CP imm ; JR/JP</code> chain that runs <code>5E46</code>/<code>60C8</code>–<code>63xx</code>, keyed on the token byte). Each command’s
 body and its single caller are byte-verified below.</p>
@@ -486,21 +485,21 @@ body and its single caller are byte-verified below.</p>
 <tr><th>Command</th><th>dispatch site</th><th>body</th><th>what the disassembly shows</th></tr>
 </thead>
 <tbody>
-<tr><td><code>Matr►list(</code></td><td><code>0x8D</code> @ <code>6388</code></td><td><code>02:4773</code> (2-arg), <code>02:49E3</code> (1-arg list copy)</td><td>[C] The <code>0x8D</code> branch splits on argument count (<code>638D: CP 0x02</code>). The column-extract engine is <code>02:4773</code> (2-arg path: <code>639D: CALL 5DD8 ; CALL 4773</code>; only caller <code>63A0</code>, byte-verified <code>CD 73 47</code>): it nests a per-row loop (<code>477B: LD B,1 …</code>, reading via <code>4040</code> <code>_AdrMRow</code>/<code>4068</code> <code>mele_store_ckvalid</code>) inside a column loop over <code>(84AF)</code>, copying matrix columns into list element(s) (<code>4051</code>/<code>479F</code>). The 1-arg/list path uses <code>02:49E3</code> (<code>6397: CALL 0x49E3</code>), a list-element copy-until-length-match (<code>47E6</code> recall, <code>4825</code> store, <code>21BB</code> compare vs <code>(84AF)</code>, <code>RET Z</code>).</td></tr>
-<tr><td>transpose <code>ᵀ</code></td><td><code>0x0E</code> @ <code>60E9</code></td><td><code>02:412A</code></td><td>[C] Swaps the dim header (<code>60F5</code>), allocates the transposed shape, then <code>412A</code> copies <code>dst(c,r)=src(r,c)</code> over every cell (<code>403C</code> read from <code>(84D3)</code>, <code>4068</code> write to <code>(84D7)</code>); only caller <code>60FE</code>. See the transpose subsection above.</td></tr>
-<tr><td><code>augment(</code></td><td><code>0x91</code> @ <code>635B</code></td><td><code>02:6238</code> copy [C]; <code>02:4663</code> engine [H]</td><td>The <code>0x91</code> branch requires two operands (<code>CP 0x02</code>), reads the dims (<code>5D98</code>), and checks the two row counts with <code>LD A,H ; CP L</code>: equal rows fall through (<code>JR Z</code>) and <code>H&gt;L</code> raises <code>E_Dimension</code> (<code>JP NC,2719</code>). It then runs the column-concatenation copy at <code>02:6238</code> [C]: <code>6238</code> allocates the result (<code>5DE0</code> → <code>5DE6</code> → <code>_CreateRMat 110F</code>) and bulk-copies the float payload with <code>02:4539</code> (<code>mele_copy9_d3</code> — skip the 2 dim bytes, <code>LDIR</code> the column-major data), re-pointing <code>84D3←84D7</code>. The branch then calls <code>02:4663</code> (<code>6379</code>, only caller; byte-verified <code>CD 63 46</code>), a partial-pivoting elimination engine: it computes <code>min(H,L)</code> (<code>4672: LD A,H ; CP L ; JR C ; LD L,H</code>), inits via <code>475E</code>, and iterates from <code>BC=0x0101</code> calling <code>461C</code> (max-abs), <code>41D0</code> (pivot-column scan), <code>198D</code> (compare), <code>471C</code> (permutation swap) and <code>405E</code> (store). The column-concat copy (<code>6238</code>/<code>4539</code>) is confirmed augment behaviour [C]; <code>4663</code>’s elimination pass on the concatenated result is byte-confirmed but its role for plain <code>augment(</code> is left open [H]. (<code>augment(L1,L2)</code> list-concat is the <code>0x92</code> sibling at <code>637F</code>, sharing the <code>6362</code> setup.)</td></tr>
-<tr><td><code>dim(</code> (matrix create/set-dims)</td><td><code>0xB5</code> @ <code>62D4</code></td><td>create + dim setup (<code>5DBB</code>/<code>5DEB</code>) [C]</td><td>The compare at <code>62D4</code> is <code>CP 0xB5</code>, and <code>0xB5</code> = <code>tDim</code> (<code>dim(</code>), not <code>randM(</code> — so this is the <code>→dim(</code> matrix create/resize handler. It splits on argument count (<code>62D9: CP 0x02</code>): a 2-arg path (<code>62DD</code>) and a 1-arg path (<code>630A</code>). Both create the result and set its dims through <code>02:5DBB</code> (<code>CALL 5CEB</code> registers the variable by name, stores the data pointer to <code>84D3</code>, reads and zero-rejects the dim bytes <code>OR L ; JP Z,2719</code>, stores dims to <code>84AF</code>) and <code>02:5DEB</code>/<code>02:631E</code>. There is no per-cell fill loop here — consistent with <code>dim(</code>, which only sets dimensions. <code>02:5264</code> (<code>cplx_swap_dispatch</code>) is reached only from the <code>0xBD</code> complex-operand branch (<code>62D0</code>), not here. <code>randM(</code> is a separate 2-byte token (<code>tRandM</code> = <code>0x20</code>, <code>0xBB</code>-prefix group) routed through the <code>0xBB</code> dispatcher; its cell-fill body is unidentified — it uses no <code>_Random</code> bcall (<code>0x4B79</code>: a ROM-wide scan finds no <code>RST 28h; .dw 0x4B79</code> site). [H]</td></tr>
-<tr><td><code>List►matr(</code></td><td><code>0x8E</code> @ <code>61C1</code></td><td><code>02:7D19</code> + copy</td><td>reshapes the argument lists into a matrix (<code>_DataSize</code>-counted float copy <code>4539</code>/<code>453F</code>). [H]</td></tr>
+<tr><td><code>Matr►list(</code></td><td><code>0x8D</code> @ <code>6388</code></td><td><code>02:4773</code> (2-arg), <code>02:49E3</code> (1-arg list copy)</td><td>[confirmed] The <code>0x8D</code> branch splits on argument count (<code>638D: CP 0x02</code>). The column-extract engine is <code>02:4773</code> (2-arg path: <code>639D: CALL 5DD8 ; CALL 4773</code>; only caller <code>63A0</code>, byte-verified <code>CD 73 47</code>): it nests a per-row loop (<code>477B: LD B,1 …</code>, reading via <code>4040</code> <code>_AdrMRow</code>/<code>4068</code> <code>mele_store_ckvalid</code>) inside a column loop over <code>(84AF)</code>, copying matrix columns into list element(s) (<code>4051</code>/<code>479F</code>). The 1-arg/list path uses <code>02:49E3</code> (<code>6397: CALL 0x49E3</code>), a list-element copy-until-length-match (<code>47E6</code> recall, <code>4825</code> store, <code>21BB</code> compare vs <code>(84AF)</code>, <code>RET Z</code>).</td></tr>
+<tr><td>transpose <code>ᵀ</code></td><td><code>0x0E</code> @ <code>60E9</code></td><td><code>02:412A</code></td><td>[confirmed] Swaps the dim header (<code>60F5</code>), allocates the transposed shape, then <code>412A</code> copies <code>dst(c,r)=src(r,c)</code> over every cell (<code>403C</code> read from <code>(84D3)</code>, <code>4068</code> write to <code>(84D7)</code>); only caller <code>60FE</code>. See the transpose subsection above.</td></tr>
+<tr><td><code>augment(</code></td><td><code>0x91</code> @ <code>635B</code></td><td><code>02:6238</code> copy [confirmed]; <code>02:4663</code> engine [standard]</td><td>The <code>0x91</code> branch requires two operands (<code>CP 0x02</code>), reads the dims (<code>5D98</code>), and checks the two row counts with <code>LD A,H ; CP L</code>: equal rows fall through (<code>JR Z</code>) and <code>H&gt;L</code> raises <code>E_Dimension</code> (<code>JP NC,2719</code>). It then runs the column-concatenation copy at <code>02:6238</code> [confirmed]: <code>6238</code> allocates the result (<code>5DE0</code> → <code>5DE6</code> → <code>_CreateRMat 110F</code>) and bulk-copies the float payload with <code>02:4539</code> (<code>mele_copy9_d3</code> — skip the 2 dim bytes, <code>LDIR</code> the column-major data), re-pointing <code>84D3←84D7</code>. The branch then calls <code>02:4663</code> (<code>6379</code>, only caller; byte-verified <code>CD 63 46</code>), a partial-pivoting elimination engine: it computes <code>min(H,L)</code> (<code>4672: LD A,H ; CP L ; JR C ; LD L,H</code>), inits via <code>475E</code>, and iterates from <code>BC=0x0101</code> calling <code>461C</code> (max-abs), <code>41D0</code> (pivot-column scan), <code>198D</code> (compare), <code>471C</code> (permutation swap) and <code>405E</code> (store). The column-concat copy (<code>6238</code>/<code>4539</code>) is confirmed augment behaviour [confirmed]; <code>4663</code>’s elimination pass on the concatenated result is byte-confirmed but its role for plain <code>augment(</code> is left open [standard]. (<code>augment(L1,L2)</code> list-concat is the <code>0x92</code> sibling at <code>637F</code>, sharing the <code>6362</code> setup.)</td></tr>
+<tr><td><code>dim(</code> (matrix create/set-dims)</td><td><code>0xB5</code> @ <code>62D4</code></td><td>create + dim setup (<code>5DBB</code>/<code>5DEB</code>) [confirmed]</td><td>The compare at <code>62D4</code> is <code>CP 0xB5</code>, and <code>0xB5</code> = <code>tDim</code> (<code>dim(</code>), not <code>randM(</code> — so this is the <code>→dim(</code> matrix create/resize handler. It splits on argument count (<code>62D9: CP 0x02</code>): a 2-arg path (<code>62DD</code>) and a 1-arg path (<code>630A</code>). Both create the result and set its dims through <code>02:5DBB</code> (<code>CALL 5CEB</code> registers the variable by name, stores the data pointer to <code>84D3</code>, reads and zero-rejects the dim bytes <code>OR L ; JP Z,2719</code>, stores dims to <code>84AF</code>) and <code>02:5DEB</code>/<code>02:631E</code>. There is no per-cell fill loop here — consistent with <code>dim(</code>, which only sets dimensions. <code>02:5264</code> (<code>cplx_swap_dispatch</code>) is reached only from the <code>0xBD</code> complex-operand branch (<code>62D0</code>), not here. <code>randM(</code> is a separate 2-byte token (<code>tRandM</code> = <code>0x20</code>, <code>0xBB</code>-prefix group) routed through the <code>0xBB</code> dispatcher; its cell-fill body is unidentified — it uses no <code>_Random</code> bcall (<code>0x4B79</code>: a ROM-wide scan finds no <code>RST 28h; .dw 0x4B79</code> site). [standard]</td></tr>
+<tr><td><code>List►matr(</code></td><td><code>0x8E</code> @ <code>61C1</code></td><td><code>02:7D19</code> + copy</td><td>reshapes the argument lists into a matrix (<code>_DataSize</code>-counted float copy <code>4539</code>/<code>453F</code>). [standard]</td></tr>
 </tbody>
 </table>
 </div>
 <p>The matrix-element kernels these drivers share are <code>_AdrMEle</code>/<code>_AdrMRow</code> (<code>4002</code>/<code>4000</code>) for indexing,
 <code>4068</code> (<code>mele_store_ckvalid</code>) for validated stores, and <code>4539</code> (<code>mele_copy9_d3</code>) for the bulk
 column-major payload copy. Each command’s dispatch site and body are byte-confirmed above; the
-single residual is <code>randM(</code>’s per-cell fill and <code>4663</code>’s elimination role inside <code>augment(</code>. [C for
-the bodies; H for those two residuals]</p>
+single residual is <code>randM(</code>’s per-cell fill and <code>4663</code>’s elimination role inside <code>augment(</code>. [confirmed for
+the bodies; standard for those two residuals]</p>
 <hr>
-<h2 id="5-the-heavy-ones--det-a¹-rref--ref-c"><a class="header" href="#5-the-heavy-ones--det-a¹-rref--ref-c">5. The heavy ones — <code>det(</code>, <code>[A]⁻¹</code>, <code>rref(</code> / <code>ref(</code> [C]</a></h2>
+<h2 id="5-the-heavy-ones--det-a¹-rref--ref-confirmed"><a class="header" href="#5-the-heavy-ones--det-a¹-rref--ref-confirmed">5. The heavy ones — <code>det(</code>, <code>[A]⁻¹</code>, <code>rref(</code> / <code>ref(</code> [confirmed]</a></h2>
 <p><code>det(</code> and <code>[A]⁻¹</code> share the Gauss-Jordan elimination engine with partial pivoting —
 <code>matrix_gauss_engine</code> @ <code>page_02:42A6</code> — the <em>entry flag in <code>A</code></em> selecting behaviour; only two
 direct call sites exist (byte-verified — <code>CD A6 42</code> appears exactly twice). <code>rref(</code>/<code>ref(</code> are a
@@ -516,10 +515,10 @@ separate driver and do not call <code>42A6</code> (see below):</p>
 </tbody>
 </table>
 </div>
-<p><code>det(</code>’s handler at <code>02:5FA3</code> (not a defined function in the current Ghidra DB; address
+<p><code>det(</code>’s handler at <code>02:5FA3</code> (not a defined function in the disassembly; address
 unverified) first type-checks the operand is a matrix (<code>chk_op_is_matrix</code> (<code>02:69B7</code>):
 <code>type==2 else E_DataType 0x89</code>), then <code>LD A,0x40 ; CALL 0x42A6</code>.</p>
-<h3 id="the-engine-42a6-c"><a class="header" href="#the-engine-42a6-c">The engine (<code>42A6</code>) [C]</a></h3>
+<h3 id="the-engine-42a6-confirmed"><a class="header" href="#the-engine-42a6-confirmed">The engine (<code>42A6</code>) [confirmed]</a></h3>
 <pre><code>matrix_gauss_engine(A = mode flags):
   HL = dims (84AF); if H != L -&gt; _JError(0x8C)   ; must be square (det/inverse)
   if 1x1: handle scalar directly (inverse = _FPRecip)
@@ -540,7 +539,7 @@ unverified) first type-checks the operand is a matrix (<code>chk_op_is_matrix</c
         BIT 6,A ; JP Z, 0x26F0 (_ErrSingularMat, E_SingularMat 0x83)
         -&gt; inverse (flag 0, bit6=0) ERRORS;  det (flag 0x40, bit6=1) returns 0
 </code></pre>
-<p>Key sub-routines (all <code>page_02</code>; names are the live Ghidra DB labels): [C]</p>
+<p>Key sub-routines (all <code>page_02</code>; names are the live Ghidra DB labels): [confirmed]</p>
 <ul>
 <li><code>461C</code> <code>mat_max_abs</code> — compute the matrix’s max-abs element (numeric scale for the
 near-zero pivot test).</li>
@@ -561,7 +560,7 @@ substitution accumulate (<code>_FPMult</code> + <code>RST6</code>).</li>
 of the pivots (each row swap flips the sign); a zero pivot ⇒ <code>det = 0</code> (no error).
 <code>[A]⁻¹</code> = full Gauss-Jordan (reduce to identity, the augmented identity becomes the
 inverse); a zero pivot ⇒ <code>ERR:SINGULAR MAT</code>.</p>
-<h4 id="det-sign--pivot-product-bytes-in-the-tail-0243d84470-c"><a class="header" href="#det-sign--pivot-product-bytes-in-the-tail-0243d84470-c">Det sign / pivot-product bytes in the tail (<code>02:43D8–4470</code>) [C]</a></h4>
+<h4 id="det-sign--pivot-product-bytes-in-the-tail-0243d84470-confirmed"><a class="header" href="#det-sign--pivot-product-bytes-in-the-tail-0243d84470-confirmed">Det sign / pivot-product bytes in the tail (<code>02:43D8–4470</code>) [confirmed]</a></h4>
 <p>The determinant sign comes from the permutation parity, not a separate sign cell. Each
 physical row swap (<code>43B9</code>) calls <code>4259</code> to swap the matching pair in the permutation
 vector at <code>84D5</code>; the determinant magnitude is the running product of the diagonal pivots
@@ -582,13 +581,13 @@ formed during back-elimination. The tail that closes the det/inverse pass:</p>
 </code></pre>
 <p>So the sign byte is the LSB of the swap-count applied via <code>_InvOP1S</code> (<code>00:24BD</code>) at
 <code>43FB</code>/<code>442B</code>; the pivot product is the <code>238B</code>/<code>RST 30h</code> accumulate over the diagonal in
-<code>43E3–43F6</code>. The permutation undo (<code>420F</code>/<code>4259</code>) restores element order for the inverse. [C]</p>
-<h3 id="rref--ref--separate-driver-not-42a6-ch"><a class="header" href="#rref--ref--separate-driver-not-42a6-ch"><code>rref(</code> / <code>ref(</code> — separate driver, not <code>42A6</code> [C/H]</a></h3>
+<code>43E3–43F6</code>. The permutation undo (<code>420F</code>/<code>4259</code>) restores element order for the inverse. [confirmed]</p>
+<h3 id="rref--ref--separate-driver-not-42a6-standard"><a class="header" href="#rref--ref--separate-driver-not-42a6-standard"><code>rref(</code> / <code>ref(</code> — separate driver, not <code>42A6</code> [standard]</a></h3>
 <p><code>rref(</code>/<code>ref(</code> do not re-enter the <code>42A6</code> Gauss-Jordan engine. A function-xref shows
 <code>matrix_gauss_engine</code> (<code>02:42A6</code>) has exactly two callers — <code>mat_inverse_entry</code> (<code>02:5F80</code>,
 flag 0) and <code>det_entry</code> (<code>02:5FC0</code>, flag 0x40); there is no third call site (byte-confirmed
 above: <code>CD A6 42</code> appears exactly twice). So <code>det(</code>/<code>[A]⁻¹</code> are the only consumers of that
-square-only, partial-pivoting driver. [C]</p>
+square-only, partial-pivoting driver. [confirmed]</p>
 <p><code>rref(</code> (<code>BBh,A6h</code>) and <code>ref(</code> (<code>BBh,A5h</code>) are 2-byte <code>0xBB</code>-lead function tokens. On the
 page-38 statement/expression evaluator (<code>eval_expr_inner</code> <code>38:59A4</code>), token <code>0xBB</code> is detected
 and <code>parse_advance</code> consumes the prefix; the second byte is then dispatched through the
@@ -600,10 +599,10 @@ the same per-element FP primitives (<code>_FPDiv</code>/<code>_FPMult</code>/<co
 that tolerates rectangular matrices and rank deficiency (zero rows left in place, no
 <code>SINGULAR MAT</code>). <em>The concrete rref/ref body sits behind the <code>38:7175</code> 2-byte handler table and
 was not byte-isolated in this pass (the table is unanalyzed data in the DB); the architectural
-fact that it is a separate driver, not <code>42A6</code>, is confirmed by the two-caller xref. [C for the
-“separate driver” conclusion; H for the exact body address.]</em></p>
+fact that it is a separate driver, not <code>42A6</code>, is confirmed by the two-caller xref. [confirmed for the
+“separate driver” conclusion; standard for the exact body address.]</em></p>
 <hr>
-<h2 id="6-how-it-ties-to-the-fp-engine-and-the-vat-c"><a class="header" href="#6-how-it-ties-to-the-fp-engine-and-the-vat-c">6. How it ties to the FP engine and the VAT [C]</a></h2>
+<h2 id="6-how-it-ties-to-the-fp-engine-and-the-vat-confirmed"><a class="header" href="#6-how-it-ties-to-the-fp-engine-and-the-vat-confirmed">6. How it ties to the FP engine and the VAT [confirmed]</a></h2>
 <ul>
 <li>Every element is a <code>TIFloat</code> (<a href="06-floating-point.html">doc 06</a>). Indexing produces a <em>pointer</em>; the value is then
 moved into <code>OP1</code>/<code>OP2</code> (<code>RST4</code> = load-9, <code>_Mov9B</code>, <code>_MovFrOP1</code>) and all arithmetic is the FP
@@ -621,7 +620,7 @@ state), <code>84B0/84B3/84B4</code> (pivot, k, row counters), <code>84B7</code> 
 <code>84AF</code>=OP6 region = the matrix-op loop frame.</li>
 </ul>
 <hr>
-<h2 id="7-errors-raised-on-these-paths-c"><a class="header" href="#7-errors-raised-on-these-paths-c">7. Errors raised on these paths [C]</a></h2>
+<h2 id="7-errors-raised-on-these-paths-confirmed"><a class="header" href="#7-errors-raised-on-these-paths-confirmed">7. Errors raised on these paths [confirmed]</a></h2>
 <p>The list/matrix routines raise these <code>_JError</code> codes; each row gives the code, its name,
 and the routine and condition that triggers it.</p>
 <div class="table-wrapper">
@@ -648,99 +647,99 @@ and the routine and condition that triggers it.</p>
 <tr><th>space:addr</th><th>name</th><th>what</th></tr>
 </thead>
 <tbody>
-<tr><td><code>00:10C4</code></td><td><code>_CreateRList</code></td><td>new real list (<code>count*9+2</code>) [C]</td></tr>
-<tr><td><code>00:1109</code></td><td><code>_CreateCList</code></td><td>new complex list (<code>count*18+2</code>) [C]</td></tr>
-<tr><td><code>00:1115</code></td><td><code>_CreateRMat</code></td><td>new matrix (<code>H*L*9+2</code>, header <code>dim0,dim1</code>) [C]</td></tr>
-<tr><td><code>00:1EF6</code></td><td><code>_HTimesL</code></td><td>element count = H*L (dims multiplied) [C]</td></tr>
-<tr><td><code>00:1930</code></td><td><code>_HLTimes9</code></td><td>×9 (real <code>TIFloat</code> stride) [C]</td></tr>
-<tr><td><code>02:4000</code></td><td><code>_AdrMRow</code></td><td>address of matrix column start (column stride) [C]</td></tr>
-<tr><td><code>02:4002</code></td><td><code>_AdrMEle</code></td><td>matrix element address: <code>((column-1)*dim0+(row-1))*9</code> [C]</td></tr>
-<tr><td><code>02:4044</code></td><td><code>_GetMToOP1</code></td><td><code>[M](i,j)</code> → OP1 [C]</td></tr>
-<tr><td><code>02:406C</code></td><td><code>_PutToMat</code></td><td>OP1 → <code>[M](i,j)</code> (validated) [C]</td></tr>
-<tr><td><code>02:40BA</code></td><td>matrix-multiply body</td><td>O(n³) triple loop, decoded from <code>rom.bin</code> (not a defined function in the live Ghidra DB); called from <code>02:5FFF</code>/<code>4605</code>/<code>5B39</code> (§4). <code>0x40BA</code> in ti83plus.inc is the unrelated <code>_SinCosRad</code> bcall ID. [C]</td></tr>
-<tr><td><code>02:4108</code></td><td><code>identity_build</code></td><td><code>identity(n)</code>: diagonal-1 fill (token 0xB4) [C]</td></tr>
-<tr><td><code>02:412A</code></td><td><code>mat_transpose</code></td><td>transpose <code>[A]ᵀ</code> body (token <code>0x0E</code>, dispatched <code>60E9</code>/called <code>60FE</code>): per-cell copy <code>dst(c,r)=src(r,c)</code> via the swapped dest header (§4) [C]</td></tr>
-<tr><td><code>02:414E</code></td><td><code>mrow_swap_loop</code></td><td>row swap/scale (elimination) [C]</td></tr>
-<tr><td><code>02:4178</code></td><td><code>mat_fill_type1</code></td><td>live DB name; single-counter per-cell fill/apply loop in the <code>414A</code>–<code>4178</code> block — not transpose (§4) [C]</td></tr>
-<tr><td><code>02:4539</code></td><td><code>mele_copy9_d3</code></td><td>bulk column-major float-payload copy (skip 2 dim bytes, <code>LDIR</code>); used by <code>augment(</code>/reshape (§4) [C]</td></tr>
-<tr><td><code>02:4663</code></td><td><code>mat_gauss_engine</code></td><td>live DB name; <code>min(H,L)</code> partial-pivoting elimination engine; only caller is the <code>augment(</code> <code>0x91</code> branch (<code>6379</code>). Its role inside plain <code>augment(</code> is the one open item (§4) [H]</td></tr>
-<tr><td><code>02:4773</code></td><td><code>mat_to_list_cols</code></td><td><code>Matr►list(</code> 2-arg column-extract engine (only caller <code>63A0</code>): nested col×row walk copying matrix columns into list element(s) (§4) [C]</td></tr>
-<tr><td><code>02:5264</code></td><td><code>cplx_swap_dispatch</code></td><td>live DB name; complex OP-pair arrange/swap (<code>5344</code>/<code>52D3</code>) reached only from the <code>0xBD</code> branch (<code>62D0</code>) — not the <code>0xB5</code>/<code>dim(</code> matrix-create branch (§4) [C]</td></tr>
-<tr><td><code>02:6238</code></td><td><code>mat_augment_copy</code></td><td><code>augment(</code> column-concat: allocate result (<code>5DE0</code>) + <code>4539</code> payload copy + re-point <code>84D3</code> (§4) [C]</td></tr>
-<tr><td><code>02:49E3</code></td><td><code>lele_copy_until_eq</code></td><td>live DB name; list-element copy-until-length-match (<code>21BB</code>, <code>RET Z</code>); inner copy of the <code>Matr►list(</code> 1-arg/list path (<code>6397</code>) (§4) [C]</td></tr>
-<tr><td><code>02:41C1</code></td><td><code>abs_cmp_op1op2</code></td><td>absolute-value compare: OP1 vs pivot [C]</td></tr>
-<tr><td><code>02:41D0</code></td><td><code>pivot_col_scan</code></td><td>partial-pivot: find largest absolute value in column [C]</td></tr>
-<tr><td><code>02:4259</code></td><td><code>perm_swap</code></td><td>swap two entries of the permutation vector (84D5) [C]</td></tr>
-<tr><td><code>02:426D</code>/<code>426F</code></td><td><code>col_dot_accum</code>/<code>col_dot_accum_from</code></td><td>column dot-product / back-substitution accumulate [C]</td></tr>
-<tr><td><code>02:42A6</code></td><td><code>matrix_gauss_engine</code></td><td>inverse(flag 0)/det(flag 0x40) Gauss-Jordan + partial pivot; square-only (<code>H==L</code> guard) [C]</td></tr>
-<tr><td><code>02:4473</code></td><td><code>ele_sub_ref</code></td><td><code>[M] − factor*pivot</code> element step (<code>_FPSub</code>) [C]</td></tr>
-<tr><td><code>02:461C</code></td><td><code>mat_max_abs</code></td><td>maximum absolute element (pivot tolerance) [C]</td></tr>
-<tr><td><code>02:47C5</code></td><td><code>_AdrLEle</code></td><td>list element address: <code>data+2+(i-1)*9</code> [C]</td></tr>
-<tr><td><code>02:47EA</code></td><td><code>_GetLToOP1</code></td><td>list[i] → OP1 (complex-aware) [C]</td></tr>
-<tr><td><code>02:47FB</code></td><td><code>_RclListElemToOP1</code></td><td>recall list elem to OP1 [C]</td></tr>
-<tr><td><code>02:47FE</code></td><td><code>_RclListElemB</code></td><td>recall list elem (B-indexed) [C]</td></tr>
-<tr><td><code>02:4829</code></td><td><code>_PutToL</code></td><td>OP1 → list[i] (validated, complex-aware) [C]</td></tr>
-<tr><td><code>02:49A7</code></td><td><code>_RclCListElem</code></td><td>complex-list element → OP1/OP2 [C]</td></tr>
-<tr><td><code>02:49B5</code></td><td><code>_RclCListElemB</code></td><td>complex-list element (B-indexed) [C]</td></tr>
-<tr><td><code>02:5BBB</code></td><td><code>_GetPosListElem</code></td><td>list element by positive index (bounds) [C]</td></tr>
-<tr><td><code>02:5E46</code></td><td><code>func_eval_dispatch</code></td><td>single-byte function-token evaluator (0xB0–0xCD) [C]</td></tr>
-<tr><td><code>02:5F80</code></td><td><code>mat_inverse_entry</code></td><td><code>[A]⁻¹</code>: flag 0 → <code>matrix_gauss_engine</code> [C]</td></tr>
-<tr><td><code>02:5FC0</code></td><td><code>det_entry</code></td><td><code>det(</code>: flag 0x40 → <code>matrix_gauss_engine</code> [C]</td></tr>
-<tr><td><code>02:6104</code></td><td><code>list_fold_dispatch</code></td><td><code>sum(</code>/<code>prod(</code> higher-order list fold [C]</td></tr>
-<tr><td><code>02:69B7</code></td><td><code>chk_op_is_matrix</code></td><td>require operand type==2 else E_DataType [C]</td></tr>
-<tr><td><code>ram:21C4</code></td><td><code>chk_type_lt_1a</code></td><td>classify element type width: <code>AND 0x1F ; CP 0x1A ; CP 0x18 ; CCF</code> — real-vs-complex (0x0C) element width [C]</td></tr>
-<tr><td><code>35:79E9</code></td><td><code>_ListIdxTimes9</code></td><td>list index ×9 + dispatch [C]</td></tr>
-<tr><td><code>07:4D3B</code></td><td><code>_RedimMat</code></td><td>re-dimension matrix/list [C]</td></tr>
-<tr><td><code>07:4F07</code></td><td><code>_InsertList</code>/<code>_IncLstSize</code></td><td>grow a list in place [C]</td></tr>
-<tr><td><code>07:4F43</code></td><td><code>_DelListEl</code></td><td>delete list element(s) [C]</td></tr>
-<tr><td><code>38:6C8F</code></td><td><code>_StMatEl</code></td><td>parser store into <code>[M](r,c)</code> (bounds-checked) [C]</td></tr>
-<tr><td><code>38:741F</code>/<code>7422</code></td><td><code>_ConvDim</code>/<code>_ConvDim00</code></td><td>coerce a dim/index to real [C]</td></tr>
-<tr><td><code>00:26F0</code></td><td><code>_ErrSingularMat</code></td><td><code>E_SingularMat 0x83</code> [C]</td></tr>
-<tr><td><code>00:26F8</code></td><td><code>_ErrIncrement</code></td><td><code>E_Increment 0x85</code> [C]</td></tr>
-<tr><td><code>00:2715</code></td><td><code>_ErrDimMismatch</code></td><td><code>E_DimMismatch 0x8B</code> [C]</td></tr>
-<tr><td><code>00:2719</code></td><td><code>_ErrDimension</code></td><td><code>E_Dimension 0x8C</code> [C]</td></tr>
+<tr><td><code>00:10C4</code></td><td><code>_CreateRList</code></td><td>new real list (<code>count*9+2</code>) [confirmed]</td></tr>
+<tr><td><code>00:1109</code></td><td><code>_CreateCList</code></td><td>new complex list (<code>count*18+2</code>) [confirmed]</td></tr>
+<tr><td><code>00:1115</code></td><td><code>_CreateRMat</code></td><td>new matrix (<code>H*L*9+2</code>, header <code>dim0,dim1</code>) [confirmed]</td></tr>
+<tr><td><code>00:1EF6</code></td><td><code>_HTimesL</code></td><td>element count = H*L (dims multiplied) [confirmed]</td></tr>
+<tr><td><code>00:1930</code></td><td><code>_HLTimes9</code></td><td>×9 (real <code>TIFloat</code> stride) [confirmed]</td></tr>
+<tr><td><code>02:4000</code></td><td><code>_AdrMRow</code></td><td>address of matrix column start (column stride) [confirmed]</td></tr>
+<tr><td><code>02:4002</code></td><td><code>_AdrMEle</code></td><td>matrix element address: <code>((column-1)*dim0+(row-1))*9</code> [confirmed]</td></tr>
+<tr><td><code>02:4044</code></td><td><code>_GetMToOP1</code></td><td><code>[M](i,j)</code> → OP1 [confirmed]</td></tr>
+<tr><td><code>02:406C</code></td><td><code>_PutToMat</code></td><td>OP1 → <code>[M](i,j)</code> (validated) [confirmed]</td></tr>
+<tr><td><code>02:40BA</code></td><td>matrix-multiply body</td><td>O(n³) triple loop, decoded from <code>rom.bin</code> (not a defined function in the disassembly); called from <code>02:5FFF</code>/<code>4605</code>/<code>5B39</code> (§4). <code>0x40BA</code> in ti83plus.inc is the unrelated <code>_SinCosRad</code> bcall ID. [confirmed]</td></tr>
+<tr><td><code>02:4108</code></td><td><code>identity_build</code></td><td><code>identity(n)</code>: diagonal-1 fill (token 0xB4) [confirmed]</td></tr>
+<tr><td><code>02:412A</code></td><td><code>mat_transpose</code></td><td>transpose <code>[A]ᵀ</code> body (token <code>0x0E</code>, dispatched <code>60E9</code>/called <code>60FE</code>): per-cell copy <code>dst(c,r)=src(r,c)</code> via the swapped dest header (§4) [confirmed]</td></tr>
+<tr><td><code>02:414E</code></td><td><code>mrow_swap_loop</code></td><td>row swap/scale (elimination) [confirmed]</td></tr>
+<tr><td><code>02:4178</code></td><td><code>mat_fill_type1</code></td><td>live DB name; single-counter per-cell fill/apply loop in the <code>414A</code>–<code>4178</code> block — not transpose (§4) [confirmed]</td></tr>
+<tr><td><code>02:4539</code></td><td><code>mele_copy9_d3</code></td><td>bulk column-major float-payload copy (skip 2 dim bytes, <code>LDIR</code>); used by <code>augment(</code>/reshape (§4) [confirmed]</td></tr>
+<tr><td><code>02:4663</code></td><td><code>mat_gauss_engine</code></td><td>live DB name; <code>min(H,L)</code> partial-pivoting elimination engine; only caller is the <code>augment(</code> <code>0x91</code> branch (<code>6379</code>). Its role inside plain <code>augment(</code> is the one open item (§4) [standard]</td></tr>
+<tr><td><code>02:4773</code></td><td><code>mat_to_list_cols</code></td><td><code>Matr►list(</code> 2-arg column-extract engine (only caller <code>63A0</code>): nested col×row walk copying matrix columns into list element(s) (§4) [confirmed]</td></tr>
+<tr><td><code>02:5264</code></td><td><code>cplx_swap_dispatch</code></td><td>live DB name; complex OP-pair arrange/swap (<code>5344</code>/<code>52D3</code>) reached only from the <code>0xBD</code> branch (<code>62D0</code>) — not the <code>0xB5</code>/<code>dim(</code> matrix-create branch (§4) [confirmed]</td></tr>
+<tr><td><code>02:6238</code></td><td><code>mat_augment_copy</code></td><td><code>augment(</code> column-concat: allocate result (<code>5DE0</code>) + <code>4539</code> payload copy + re-point <code>84D3</code> (§4) [confirmed]</td></tr>
+<tr><td><code>02:49E3</code></td><td><code>lele_copy_until_eq</code></td><td>live DB name; list-element copy-until-length-match (<code>21BB</code>, <code>RET Z</code>); inner copy of the <code>Matr►list(</code> 1-arg/list path (<code>6397</code>) (§4) [confirmed]</td></tr>
+<tr><td><code>02:41C1</code></td><td><code>abs_cmp_op1op2</code></td><td>absolute-value compare: OP1 vs pivot [confirmed]</td></tr>
+<tr><td><code>02:41D0</code></td><td><code>pivot_col_scan</code></td><td>partial-pivot: find largest absolute value in column [confirmed]</td></tr>
+<tr><td><code>02:4259</code></td><td><code>perm_swap</code></td><td>swap two entries of the permutation vector (84D5) [confirmed]</td></tr>
+<tr><td><code>02:426D</code>/<code>426F</code></td><td><code>col_dot_accum</code>/<code>col_dot_accum_from</code></td><td>column dot-product / back-substitution accumulate [confirmed]</td></tr>
+<tr><td><code>02:42A6</code></td><td><code>matrix_gauss_engine</code></td><td>inverse(flag 0)/det(flag 0x40) Gauss-Jordan + partial pivot; square-only (<code>H==L</code> guard) [confirmed]</td></tr>
+<tr><td><code>02:4473</code></td><td><code>ele_sub_ref</code></td><td><code>[M] − factor*pivot</code> element step (<code>_FPSub</code>) [confirmed]</td></tr>
+<tr><td><code>02:461C</code></td><td><code>mat_max_abs</code></td><td>maximum absolute element (pivot tolerance) [confirmed]</td></tr>
+<tr><td><code>02:47C5</code></td><td><code>_AdrLEle</code></td><td>list element address: <code>data+2+(i-1)*9</code> [confirmed]</td></tr>
+<tr><td><code>02:47EA</code></td><td><code>_GetLToOP1</code></td><td>list[i] → OP1 (complex-aware) [confirmed]</td></tr>
+<tr><td><code>02:47FB</code></td><td><code>_RclListElemToOP1</code></td><td>recall list elem to OP1 [confirmed]</td></tr>
+<tr><td><code>02:47FE</code></td><td><code>_RclListElemB</code></td><td>recall list elem (B-indexed) [confirmed]</td></tr>
+<tr><td><code>02:4829</code></td><td><code>_PutToL</code></td><td>OP1 → list[i] (validated, complex-aware) [confirmed]</td></tr>
+<tr><td><code>02:49A7</code></td><td><code>_RclCListElem</code></td><td>complex-list element → OP1/OP2 [confirmed]</td></tr>
+<tr><td><code>02:49B5</code></td><td><code>_RclCListElemB</code></td><td>complex-list element (B-indexed) [confirmed]</td></tr>
+<tr><td><code>02:5BBB</code></td><td><code>_GetPosListElem</code></td><td>list element by positive index (bounds) [confirmed]</td></tr>
+<tr><td><code>02:5E46</code></td><td><code>func_eval_dispatch</code></td><td>single-byte function-token evaluator (0xB0–0xCD) [confirmed]</td></tr>
+<tr><td><code>02:5F80</code></td><td><code>mat_inverse_entry</code></td><td><code>[A]⁻¹</code>: flag 0 → <code>matrix_gauss_engine</code> [confirmed]</td></tr>
+<tr><td><code>02:5FC0</code></td><td><code>det_entry</code></td><td><code>det(</code>: flag 0x40 → <code>matrix_gauss_engine</code> [confirmed]</td></tr>
+<tr><td><code>02:6104</code></td><td><code>list_fold_dispatch</code></td><td><code>sum(</code>/<code>prod(</code> higher-order list fold [confirmed]</td></tr>
+<tr><td><code>02:69B7</code></td><td><code>chk_op_is_matrix</code></td><td>require operand type==2 else E_DataType [confirmed]</td></tr>
+<tr><td><code>ram:21C4</code></td><td><code>chk_type_lt_1a</code></td><td>classify element type width: <code>AND 0x1F ; CP 0x1A ; CP 0x18 ; CCF</code> — real-vs-complex (0x0C) element width [confirmed]</td></tr>
+<tr><td><code>35:79E9</code></td><td><code>_ListIdxTimes9</code></td><td>list index ×9 + dispatch [confirmed]</td></tr>
+<tr><td><code>07:4D3B</code></td><td><code>_RedimMat</code></td><td>re-dimension matrix/list [confirmed]</td></tr>
+<tr><td><code>07:4F07</code></td><td><code>_InsertList</code>/<code>_IncLstSize</code></td><td>grow a list in place [confirmed]</td></tr>
+<tr><td><code>07:4F43</code></td><td><code>_DelListEl</code></td><td>delete list element(s) [confirmed]</td></tr>
+<tr><td><code>38:6C8F</code></td><td><code>_StMatEl</code></td><td>parser store into <code>[M](r,c)</code> (bounds-checked) [confirmed]</td></tr>
+<tr><td><code>38:741F</code>/<code>7422</code></td><td><code>_ConvDim</code>/<code>_ConvDim00</code></td><td>coerce a dim/index to real [confirmed]</td></tr>
+<tr><td><code>00:26F0</code></td><td><code>_ErrSingularMat</code></td><td><code>E_SingularMat 0x83</code> [confirmed]</td></tr>
+<tr><td><code>00:26F8</code></td><td><code>_ErrIncrement</code></td><td><code>E_Increment 0x85</code> [confirmed]</td></tr>
+<tr><td><code>00:2715</code></td><td><code>_ErrDimMismatch</code></td><td><code>E_DimMismatch 0x8B</code> [confirmed]</td></tr>
+<tr><td><code>00:2719</code></td><td><code>_ErrDimension</code></td><td><code>E_Dimension 0x8C</code> [confirmed]</td></tr>
 </tbody>
 </table>
 </div>
 <hr>
-<h2 id="9-open-items"><a class="header" href="#9-open-items">9. Open items</a></h2>
+<h2 id="9-findings"><a class="header" href="#9-findings">9. Findings</a></h2>
 <ul>
-<li><strong>RESOLVED</strong> — <code>rref(</code>/<code>ref(</code> use a separate driver, not <code>42A6</code>. Xref proves <code>42A6</code> has
+<li><code>rref(</code>/<code>ref(</code> use a separate driver, not <code>42A6</code>. Xref proves <code>42A6</code> has
 exactly two callers (inverse <code>5F80</code>, det <code>5FC0</code>); rref/ref are 2-byte <code>0xBB</code>-lead function
 tokens dispatched via the page-38 evaluator’s class-3 handler table at <code>38:7175</code> (§5). The
 <em>exact rref/ref body</em> sits behind that (unanalyzed-data) table and is the only residual: its
 start address was not byte-isolated, but it is confirmed not to be <code>42A6</code>.</li>
-<li><strong>RESOLVED</strong> — det sign / pivot-product (<code>42A6</code> tail <code>43D8–4470</code>) and dim labelling. The det
+<li>det sign / pivot-product (<code>42A6</code> tail <code>43D8–4470</code>) and dim labelling. The det
 sign = LSB of the permutation-swap count applied via <code>_InvOP1S</code> (<code>24BD</code>) at <code>43FB</code>/<code>442B</code>;
 the magnitude is the <code>238B</code>/<code>RST 30h</code> diagonal-pivot accumulate (<code>43E3–43F6</code>); <code>420F</code>/<code>4259</code>
-undo the column permutation for the inverse (§5). Row/col vs dim0/dim1 is now [C]:
+undo the column permutation for the inverse (§5). Row/col vs dim0/dim1 is now [confirmed]:
 <code>dim0</code> (first header byte) = #rows, and <code>_AdrMEle</code> takes <code>B=column</code>, <code>C=row</code> (§1/§2).</li>
-<li><strong>RESOLVED</strong> — transpose, <code>Matr►list(</code>, and the <code>augment(</code> column-concat bodies. Each command’s
+<li>transpose, <code>Matr►list(</code>, and the <code>augment(</code> column-concat bodies. Each command’s
 page-02 dispatch site and body are byte-confirmed, every body having exactly one caller (§4):
 <ul>
 <li>transpose <code>[A]ᵀ</code> (token <code>0x0E</code> @ <code>60E9</code>) → <code>02:412A</code> (only caller <code>60FE</code>): the dim header is
 swapped (<code>60F5</code>) and <code>412A</code> copies <code>dst(c,r)=src(r,c)</code> over every cell. <code>02:4178</code> is a separate
-single-counter fill/apply, not transpose. [C]</li>
+single-counter fill/apply, not transpose. [confirmed]</li>
 <li><code>Matr►list(</code> (<code>0x8D</code> @ <code>6388</code>) → <code>02:4773</code> (2-arg column-extract engine, only caller <code>63A0</code>)
-with <code>02:49E3</code> as the 1-arg/list inner copy. [C]</li>
+with <code>02:49E3</code> as the 1-arg/list inner copy. [confirmed]</li>
 <li><code>augment(</code> (<code>0x91</code> @ <code>635B</code>) → equal-rows guard (<code>CP L ; JP NC,2719</code>) + column-concat copy at
-<code>02:6238</code> (<code>5DE0</code> allocate + <code>02:4539</code> <code>LDIR</code> payload copy). [C]</li>
+<code>02:6238</code> (<code>5DE0</code> allocate + <code>02:4539</code> <code>LDIR</code> payload copy). [confirmed]</li>
 <li><code>dim(</code> (<code>0xB5</code> @ <code>62D4</code>; <code>0xB5</code> = <code>tDim</code>, not <code>randM(</code>) → creates the result and sets its
 dims (<code>5DBB</code>/<code>5DEB</code>). <code>02:5264</code> (<code>cplx_swap_dispatch</code>, only caller <code>62D0</code> in the <code>0xBD</code> branch)
-is reached only from that complex branch, not here. [C]</li>
+is reached only from that complex branch, not here. [confirmed]</li>
 <li><code>List►matr(</code> <code>0x8E</code> branch (<code>61C1</code>) → <code>02:7D19</code> + <code>_DataSize</code> copy (<code>4539</code>/<code>453F</code>) is
-unchanged [H].</li>
+unchanged [standard].</li>
 </ul>
 </li>
 <li><strong>OPEN — two residuals inside the confirmed branches</strong> (§4):
 <ul>
 <li><code>augment(</code>’s <code>0x91</code> branch calls <code>02:4663</code> (<code>mat_gauss_engine</code>, only caller <code>6379</code>) — a
 <code>min(H,L)</code> partial-pivoting elimination pass — after the column-concat copy. Its role for plain
-<code>augment(</code> is byte-confirmed as a call but not explained. [H]</li>
+<code>augment(</code> is byte-confirmed as a call but not explained. [standard]</li>
 <li><code>randM(</code>’s per-cell random fill body is unidentified. <code>randM(</code> is a 2-byte token
 (<code>tRandM</code> = <code>0x20</code>, <code>0xBB</code>-prefix group), distinct from the <code>0xB5</code>/<code>dim(</code> branch; the visible
 matrix-create/dim-convert code is <code>dim(</code>’s, not randM’s. randM does not go through the
-<code>_Random</code> bcall (<code>0x4B79</code>) — a ROM-wide scan finds no <code>RST 28h; .dw 0x4B79</code> site. [H]</li>
+<code>_Random</code> bcall (<code>0x4B79</code>) — a ROM-wide scan finds no <code>RST 28h; .dw 0x4B79</code> site. [standard]</li>
 </ul>
 </li>
 <li><code>seq(</code>/<code>SortA(</code>/<code>SortD(</code>/stats list-builders: confirm the collect-then-<code>_CreateRList</code> loop

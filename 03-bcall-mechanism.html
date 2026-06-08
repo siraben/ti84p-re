@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7c293ef9.js";
+            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-cbaaedfe.js"></script>
+        <script src="toc-76256a07.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -234,7 +234,7 @@
 <p>There is a trampoline table in the page-0 address range <code>ram:3B01–ram:3D0A</code>: 87 packed 6-byte entries, each a bjump to a hot OS routine on another page (<code>ram:3D0B</code> already begins a separate <code>CALL ram:2B49</code> table). The static Ghidra DB models it in the page-0/ROM address space; whether the table is copied to RAM at runtime is a hypothesis, not MCP-confirmed. Code invokes a routine by <code>CALL ram:3Bxx</code> into the table. <code>tools/bjumps.txt</code> lists every entry’s <code>(offset → page:addr)</code>; <code>tools/RamRoutines.java</code> marks the inline <code>.dw/.db</code> as data and comments each target.</p>
 <p>Example: <code>_PutMap</code>’s glyph blitter is reached via the trampoline at <code>ram:3B3D → 07:4588</code>.</p>
 <p><strong>Inline bjumps:</strong> besides this trampoline table, <code>CALL cross_page_jump; .dw; .db</code> appears in other packed dispatch tables (e.g. a page-<code>3D</code> dispatch table near <code>ram:2B6B</code>) and inline within OS routines. Because <code>cross_page_jump</code> consumes the 3 inline bytes and tail-jumps (the target returns to the bjump’s caller), the bytes after must be data and the call is non-returning. <code>tools/FixInlineBjumps.java</code> marks all 355 such sites in the complete local ROM, which substantially improved OS-wide disassembly coverage.</p>
-<h2 id="limitations--todo"><a class="header" href="#limitations--todo">Limitations / TODO</a></h2>
+<h2 id="limitations"><a class="header" href="#limitations">Limitations</a></h2>
 <ul>
 <li>Keep the BootFree guard in place when regenerating from emulator-derived ROM images.</li>
 <li>Some bcalls are <em>thunks</em>: e.g. <code>_FindSym</code>’s page-0 entry uses <code>cross_page_jump</code> to reach the real body on page 0x07.</li>

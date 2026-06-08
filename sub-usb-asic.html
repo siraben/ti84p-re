@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>USB ASIC and link assist - TI-84 Plus OS — Reverse Engineering</title>
+        <title>USB ASIC &amp; link assist - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7c293ef9.js";
+            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-cbaaedfe.js"></script>
+        <script src="toc-76256a07.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -430,7 +430,7 @@ mask to physical page <code>0x35</code>.</p>
 </div>
 <p>The raw FIFO sequence is only the byte layer. A working transfer still needs the packet layer:
 machine ID, command, length, payload checksum, ACK/NAK, and EOT. That framing is documented in
-<a href="sub-link-transfer.html#3-packet-framing--the-ti-link-protocol-c">sub-link-transfer.md</a>.</p>
+<a href="sub-link-transfer.html#3-packet-framing--the-ti-link-protocol-confirmed">sub-link-transfer.md</a>.</p>
 <p>Practical rules:</p>
 <ul>
 <li>Set up <code>IY+0x1B</code> consistently before calling <code>_LinkXferOP</code>. Bit 0 is the USB-first selector.</li>
@@ -442,10 +442,10 @@ source gates. The OS itself expects to handle port <code>0x55</code>/<code>0x56<
 mapped well enough to identify the FIFOs and state variables, but their bit-level protocol is not
 a stable public API.</li>
 </ul>
-<h2 id="remaining-limits-after-this-pass"><a class="header" href="#remaining-limits-after-this-pass">Remaining limits after this pass</a></h2>
+<h2 id="limits"><a class="header" href="#limits">Limits</a></h2>
 <ul>
-<li>The previously listed RAM-target item is resolved: the ROM calls <code>ram:2E0B</code>, a
-<code>cross_page_jump</code> thunk to <code>35:4280</code>. Its carry-clear/carry-set result is now decoded above.</li>
+<li>The ROM calls <code>ram:2E0B</code>, a <code>cross_page_jump</code> thunk to <code>35:4280</code>. Its
+carry-clear/carry-set result is decoded above.</li>
 <li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs are mapped to bodies and sampled above. The boot-page
 <code>0x8xxx</code> USB names (<code>_InitUSB</code>, <code>_KillUSB</code>, <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>,
 <code>_USBErrorCleanup</code>) remain part of the repository-wide <code>0x8xxx</code> bcall-table reconciliation problem,

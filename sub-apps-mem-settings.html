@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7c293ef9.js";
+            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-cbaaedfe.js"></script>
+        <script src="toc-76256a07.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,7 +179,7 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="apps-memory-reset-and-settings"><a class="header" href="#apps-memory-reset-and-settings">Apps, memory reset, and settings</a></h1>
+                        <h1 id="apps-memory-reset--settings"><a class="header" href="#apps-memory-reset--settings">Apps, memory reset &amp; settings</a></h1>
 <p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
 <p>How the student-facing parts of the OS work: launching Flash Apps, the <strong>MEM → Reset</strong>
 menu (what “RAM Cleared” erases), and the <strong>MODE</strong> screen format/mode flags.
@@ -193,7 +193,7 @@ not fully traced).</p>
 SystemFlags base is <code>IY = flags = 0x89F0</code>, so e.g. <code>(IY+0x0A)</code> = <code>flags + fmtFlags</code>.</p>
 <hr>
 <h2 id="1-flash-apps--find--launch"><a class="header" href="#1-flash-apps--find--launch">1. Flash Apps — find &amp; launch</a></h2>
-<p>This ROM appears to ship with zero bundled apps in the local ROM-byte scan (zero <code>80 0F</code> headers found at page starts; not directly verifiable through the current MCP byte interface),
+<p>This ROM ships with zero bundled apps in the local ROM-byte scan (zero <code>80 0F</code> headers found at page starts) [hypothesis],
 but the entire find/launch machinery is present on <code>page 0x3D</code> (<code>_FindApp*</code>) and
 <code>page 0x3B</code> (<code>_AppInit</code> glue / app-quit). Apps are TI Flash Applications: a contiguous
 run of 16 KiB flash pages whose first page begins with a TLV app header.</p>
@@ -201,7 +201,7 @@ run of 16 KiB flash pages whose first page begins with a TLV app header.</p>
 <p>An app header is a sequence of type-length-value fields starting at offset 0 of the
 app’s first page. Each field begins with two bytes in WikiTI’s <code>TT TS</code> notation: the high
 12 bits are the field number, and the low nibble of the second byte encodes the payload
-length. The decoder bytes are around <code>page_3D:7285</code>, but the current Ghidra DB does not expose a live function there:</p>
+length. The decoder bytes are around <code>3D:7285</code>, but the disassembly does not expose a live function there:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -320,10 +320,10 @@ generic walkers <code>_FindSubField</code> (bcall <code>0x805D</code>), <code>_F
 <code>_GetFieldSize</code> (bcall <code>0x805A</code>), which decode the TLV length nibble shown above. These IDs
 sit in the boot-page bcall range (<code>0x8000</code>+); the <code>0x8040</code>/<code>0x8070</code>/<code>0x8080</code> helpers the OS
 also reaches are a distinct group in the same range and are not these field walkers. The body
-addresses behind these public entry points are not defined functions in the current live DB.</p>
+addresses behind these public entry points are not defined functions in the disassembly.</p>
 <h3 id="12-_findapp--_findappup--_findappdn-confirmed"><a class="header" href="#12-_findapp--_findappup--_findappdn-confirmed">1.2 <code>_FindApp</code> / <code>_FindAppUp</code> / <code>_FindAppDn</code> [confirmed]</a></h3>
 <ul>
-<li><code>_FindApp</code> (<code>page_3D:5EE3</code>) — locate an app by name (OP1). Inits the search page,
+<li><code>_FindApp</code> (<code>3D:5EE3</code>) — locate an app by name (OP1). Inits the search page,
 then loops <code>app_find_next_page (5FB1)</code> + a header-match step until done, returning the app’s
 start page and a found/not-found flag via <code>RST 28</code> (bcall) into RAM flash helpers.
 <pre><code class="language-z80">5EE3 CALL 727D            ; flash_set_sector_cnt -&gt; appSearchPage (0x82A3)
@@ -333,13 +333,13 @@ start page and a found/not-found flag via <code>RST 28</code> (bcall) into RAM f
 5EED BIT 3,C; JR Z,5EE6   ; not a match -&gt; keep scanning
 </code></pre>
 </li>
-<li><code>app_find_next_page</code> (<code>page_3D:5FB1</code>) — <code>appSearchPage (0x82A3) -= 1</code>; stops at page 7
+<li><code>app_find_next_page</code> (<code>3D:5FB1</code>) — <code>appSearchPage (0x82A3) -= 1</code>; stops at page 7
 (low boundary of the app region); bjumps <code>appSearchPage:0x4000</code> to inspect the header.</li>
-<li><code>flash_set_sector_cnt</code> (<code>page_3D:727D</code> → helper <code>726E</code>) — initializes <code>0x82A3</code> to the model-selected page base plus one.</li>
+<li><code>flash_set_sector_cnt</code> (<code>3D:727D</code> → helper <code>726E</code>) — initializes <code>0x82A3</code> to the model-selected page base plus one.</li>
 <li><code>_FindAppUp</code> (<code>5DDA</code>) / <code>_FindAppDn</code> (<code>5DE6</code>) — enumerate the previous / next app
 in flash (for the APPS-menu list), both wrapping the common walker <code>_app_5de7</code> (<code>5DE7</code>).
 <code>_app_5de7</code> keeps two counts in BC (apps before/after) and tracks the current name in OP3.</li>
-<li><code>_FindAppNumPages</code> is present in the bcall table (<code>3D:4AA3</code>), but the current live DB has no function record at that address.</li>
+<li><code>_FindAppNumPages</code> is present in the bcall table (<code>3D:4AA3</code>), but the disassembly has no function record at that address.</li>
 </ul>
 <p>State variables: <code>appSearchPage</code> = <code>0x82A3</code>, <code>0x8497</code>/<code>0x8481</code>/<code>0x9C87</code> are search-mode
 scratch (<code>0x9C87</code>=‘i’ selects the in-RAM “temp app” search variant).</p>
@@ -352,16 +352,16 @@ scratch (<code>0x9C87</code>=‘i’ selects the in-RAM “temp app” search va
 </code></pre>
 <p>The 12 bytes are the 6 little-endian handler pointers (<code>cxMain</code>, <code>cxPPutAway</code>, <code>cxPutAway</code>,
 <code>cxRedisp</code>, <code>cxErrorEP</code>, <code>cxSizeWind</code> — see <a href="11-boot-contexts-errors.html">doc 11</a> §Context block). Example: the OS’s own
-default app vectors live at <code>page_3B:7571</code>:</p>
+default app vectors live at <code>3B:7571</code>:</p>
 <pre><code>3E 75 | 4B 75 | 9F 74 | 4B 75 | 4B 75 | 4B 75 | 0A
 cxMain=753E cxPPutAway=754B cxPutAway=749F cxRedisp=754B cxErrorEP=754B cxSizeWind=754B appFlags=0A
 </code></pre>
-<p><code>_ReloadAppEntryVecs</code> (<code>page_3B:73E4</code>, bcall <code>0x4C36</code>) calls <code>_AppInit</code> on that block, then
+<p><code>_ReloadAppEntryVecs</code> (<code>3B:73E4</code>, bcall <code>0x4C36</code>) calls <code>_AppInit</code> on that block, then
 overrides <code>cxErrorEP (0x8595)=0x27D9</code>. After <code>_AppInit</code>, the main event loop runs the app
 through <code>call_context_main</code> (pages in <code>cxPage</code>, jumps <code>(cxMain)</code> — <a href="11-boot-contexts-errors.html">doc 11</a>).</p>
 <p>Because <code>cxCurApp</code> (<code>0x859A</code>) is a key code, pressing a mode key selects the context to
 load (<a href="11-boot-contexts-errors.html">doc 11</a>). The App quit restore-path candidate at
-<code>page_3B:7412</code> is not a defined function in the current live DB; the saved-context restore behavior
+<code>3B:7412</code> is not a defined function in the disassembly; the saved-context restore behavior
 stands as a byte-trace note (the label is project-local, not a WikiTI or <code>ti83plus.inc</code> equate).</p>
 <hr>
 <h2 id="2-ram-clearing--memory-reset"><a class="header" href="#2-ram-clearing--memory-reset">2. RAM clearing / memory reset</a></h2>
@@ -375,19 +375,19 @@ re-init lands in page-0 boot code.</p>
 <tr><th>Addr</th><th>String</th></tr>
 </thead>
 <tbody>
-<tr><td><code>page_01:4076</code></td><td><code>Defragmenting...</code></td></tr>
-<tr><td><code>page_01:4098</code></td><td><code>Arc Vars Cleared</code></td></tr>
-<tr><td><code>page_01:40A9</code></td><td><code>  Apps Cleared</code></td></tr>
-<tr><td><code>page_01:40B8</code></td><td><code>Arc Vars &amp; Apps     Cleared</code></td></tr>
-<tr><td><code>page_01:4109</code></td><td><code>Resetting All...</code></td></tr>
-<tr><td><code>page_01:4126</code>+<code>412E</code></td><td><code>Garbage</code> + <code>Collecting...</code></td></tr>
-<tr><td><code>page_01:4234</code></td><td><code>Resetting...</code></td></tr>
-<tr><td><code>page_01:7425..746E</code></td><td>menu titles: <code>RESET MEMORY</code>, <code>RESET DEFAULTS</code>, <code>RESET ARC VARS</code>, <code>RESET ARC APPS</code>, <code>RESET ARC BOTH</code>, <code>RESET RAM</code></td></tr>
-<tr><td><code>page_01:747E</code></td><td>the long “Resetting ALL / RAM / Vars / Apps / Both …” warning help text</td></tr>
+<tr><td><code>01:4076</code></td><td><code>Defragmenting...</code></td></tr>
+<tr><td><code>01:4098</code></td><td><code>Arc Vars Cleared</code></td></tr>
+<tr><td><code>01:40A9</code></td><td><code>  Apps Cleared</code></td></tr>
+<tr><td><code>01:40B8</code></td><td><code>Arc Vars &amp; Apps     Cleared</code></td></tr>
+<tr><td><code>01:4109</code></td><td><code>Resetting All...</code></td></tr>
+<tr><td><code>01:4126</code>+<code>412E</code></td><td><code>Garbage</code> + <code>Collecting...</code></td></tr>
+<tr><td><code>01:4234</code></td><td><code>Resetting...</code></td></tr>
+<tr><td><code>01:7425..746E</code></td><td>menu titles: <code>RESET MEMORY</code>, <code>RESET DEFAULTS</code>, <code>RESET ARC VARS</code>, <code>RESET ARC APPS</code>, <code>RESET ARC BOTH</code>, <code>RESET RAM</code></td></tr>
+<tr><td><code>01:747E</code></td><td>the long “Resetting ALL / RAM / Vars / Apps / Both …” warning help text</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="22-the-reset-dispatcher-mem_reset_dispatch--page_357180-confirmed"><a class="header" href="#22-the-reset-dispatcher-mem_reset_dispatch--page_357180-confirmed">2.2 The reset dispatcher (<code>mem_reset_dispatch</code> @ <code>page_35:7180</code>) [confirmed]</a></h3>
+<h3 id="22-the-reset-dispatcher-mem_reset_dispatch--357180-confirmed"><a class="header" href="#22-the-reset-dispatcher-mem_reset_dispatch--357180-confirmed">2.2 The reset dispatcher (<code>mem_reset_dispatch</code> @ <code>35:7180</code>) [confirmed]</a></h3>
 <p>Dispatch is on the selected reset item held in <code>keyExtend</code> (<code>0x8446</code>):</p>
 <div class="table-wrapper">
 <table>
@@ -404,7 +404,7 @@ re-init lands in page-0 boot code.</p>
 </table>
 </div>
 <h3 id="23-what-ram-cleared-ram-reset-zeroes-confirmed"><a class="header" href="#23-what-ram-cleared-ram-reset-zeroes-confirmed">2.3 What “RAM Cleared” (RAM reset) zeroes [confirmed]</a></h3>
-<p>The RAM-reset path (<code>page_35:719F</code>):</p>
+<p>The RAM-reset path (<code>35:719F</code>):</p>
 <pre><code class="language-z80">719F BIT 1,(IY+0x35); JP Z,0x0B2F          ; first-stage vs full path select
 71A6 LD HL,(0x9B73)                         ; preserve a saved word
 71B4 LD A,(IY+0x3F); AND 0x7F               ; keep low 7 bits (clear bit 7) of flag byte 0x3F
@@ -433,17 +433,17 @@ touched by a plain RAM reset.</p>
 0B4E ... preserve/inspect IY+0x3F; select sub-path; JP 0x3EA9/0x3EAF
 </code></pre>
 <p>This zeroes the <em>entire</em> 32 KiB RAM and does the deepest re-init.</p>
-<h3 id="25-_cleanall--cleanup_temp_ram-page_0752cf--not-a-reset-confirmed"><a class="header" href="#25-_cleanall--cleanup_temp_ram-page_0752cf--not-a-reset-confirmed">2.5 <code>_CleanAll</code> / <code>cleanup_temp_ram</code> (<code>page_07:52CF</code>) — not a reset [confirmed]</a></h3>
+<h3 id="25-_cleanall--cleanup_temp_ram-0752cf--not-a-reset-confirmed"><a class="header" href="#25-_cleanall--cleanup_temp_ram-0752cf--not-a-reset-confirmed">2.5 <code>_CleanAll</code> / <code>cleanup_temp_ram</code> (<code>07:52CF</code>) — not a reset [confirmed]</a></h3>
 <p>Distinct from the MEM reset. <code>_CleanAll</code> (bcall <code>0x4A50</code>) only compacts temporary RAM
 after a command finishes: it shifts the FP stack (<code>fpBase</code>/<code>FPS</code>) down to <code>tempMem</code>, resets
 the <code>OPBase</code>/<code>OPS</code>/<code>pTemp</code> scratch pointers, and clears <code>pTempCnt</code>/<code>cleanTmp</code>. It does not
-clear the VAT, user vars, or Flash (see <a href="12-memory-management.html">doc 12</a>). <code>_FixTempCnt</code> (<code>page_07:4FEC</code>) marks temps
+clear the VAT, user vars, or Flash (see <a href="12-memory-management.html">doc 12</a>). <code>_FixTempCnt</code> (<code>07:4FEC</code>) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.</p>
 <h3 id="26-flash-archive-gc--defragmenting--garbage-collecting-confirmed-behavior-display-label-addresses-undisassembled"><a class="header" href="#26-flash-archive-gc--defragmenting--garbage-collecting-confirmed-behavior-display-label-addresses-undisassembled">2.6 Flash archive GC — “Defragmenting…” / “Garbage Collecting…” [confirmed behavior; display-label addresses undisassembled]</a></h3>
 <p>Separate from RAM reset: when the Flash archive fills, the OS rewrites live archived vars to
-fresh sectors and erases the old ones. The display dispatcher sits around <code>page_3C:7E23</code>
+fresh sectors and erases the old ones. The display dispatcher sits around <code>3C:7E23</code>
 (shows <code>Defragmenting...</code> <code>0x4076</code>) / <code>7E10</code>/<code>7E1C</code> (shows <code>Garbage Collecting...</code> <code>0x4126</code>+<code>412E</code>);
-<code>page_3C:7E00</code> is not a defined function in the current live DB (the label is project-local, not a
+<code>3C:7E00</code> is not a defined function in the disassembly (the label is project-local, not a
 WikiTI or <code>ti83plus.inc</code> equate).
 It clears <code>0x844B</code> (<code>curRow</code>, the text-row cursor — reset before the banner draws) and runs with the screen frozen (<code>DI</code>). The actual
 sector erase/write primitives are RAM-resident (flash control port <code>0x14</code>) — see <a href="12-memory-management.html">doc 12</a>.</p>
@@ -461,7 +461,7 @@ BIT 2,(IY+0)   ; FD CB 00 56  -&gt; tested by _Sin/_Cos/_Tan to select degree vs
 radians; the degree paths convert first).</p>
 <h3 id="32-graph-type-func--param--polar--seq--grfmodeflags-iy0x02-confirmed"><a class="header" href="#32-graph-type-func--param--polar--seq--grfmodeflags-iy0x02-confirmed">3.2 Graph type: Func / Param / Polar / Seq — <code>grfModeFlags</code> (<code>IY+0x02</code>) [confirmed]</a></h3>
 <p>The four graph-mode setters on <code>page 0x36</code> are mutually exclusive: each first clears
-all four bits via <code>clr_grfmode (page_36:7D00)</code>, then ORs in its own bit, then calls
+all four bits via <code>clr_grfmode (36:7D00)</code>, then ORs in its own bit, then calls
 <code>_SetTblGraphDraw</code>. <code>param_1</code> is <code>IY</code>, so <code>*(param_1+2)</code> = <code>grfModeFlags</code>.</p>
 <pre><code>clr_grfmode (page_36:7D00):  grfModeFlags &amp;= 0xEF &amp; 0xDF &amp; 0xBF &amp; 0x7F   ; clear bits 4,5,6,7
 </code></pre>
@@ -471,14 +471,14 @@ all four bits via <code>clr_grfmode (page_36:7D00)</code>, then ORs in its own b
 <tr><th>bcall</th><th>addr</th><th>bit set</th><th>flag (inc)</th></tr>
 </thead>
 <tbody>
-<tr><td><code>_SetFuncM</code></td><td><code>page_36:7D11</code></td><td>bit 4 (<code>|0x10</code>)</td><td><code>grfFuncM</code> (Function)</td></tr>
-<tr><td><code>_SetPolM</code></td><td><code>page_36:7D2C</code></td><td>bit 5 (<code>|0x20</code>)</td><td><code>grfPolarM</code> (Polar)</td></tr>
-<tr><td><code>_SetParM</code></td><td><code>page_36:7D39</code></td><td>bit 6 (<code>|0x40</code>)</td><td><code>grfParamM</code> (Parametric)</td></tr>
-<tr><td><code>_SetSeqM</code></td><td><code>page_36:7D1F</code></td><td>bit 7 (<code>|0x80</code>)</td><td><code>grfRecurM</code> (Sequence/Recursion)</td></tr>
+<tr><td><code>_SetFuncM</code></td><td><code>36:7D11</code></td><td>bit 4 (<code>|0x10</code>)</td><td><code>grfFuncM</code> (Function)</td></tr>
+<tr><td><code>_SetPolM</code></td><td><code>36:7D2C</code></td><td>bit 5 (<code>|0x20</code>)</td><td><code>grfPolarM</code> (Polar)</td></tr>
+<tr><td><code>_SetParM</code></td><td><code>36:7D39</code></td><td>bit 6 (<code>|0x40</code>)</td><td><code>grfParamM</code> (Parametric)</td></tr>
+<tr><td><code>_SetSeqM</code></td><td><code>36:7D1F</code></td><td>bit 7 (<code>|0x80</code>)</td><td><code>grfRecurM</code> (Sequence/Recursion)</td></tr>
 </tbody>
 </table>
 </div>
-<p>Each setter first calls a small predicate (<code>page_36:0013/0254/0259/025E</code>) and only re-sets
+<p>Each setter first calls a small predicate (<code>36:0013/0254/0259/025E</code>) and only re-sets
 the mode if the parity/condition flag (<code>F</code> bit6) requires it, avoiding needless redraws.</p>
 <p>Other <code>grfModeFlags</code> bits (from inc, not in the setters above): bit3 <code>grfPolar</code>
 (rect↔polar coordinate readout). Related graph bytes: <code>grfDBFlags</code> (<code>IY+0x04</code>) bit0
@@ -508,7 +508,7 @@ bit5 <code>grfNoAxis</code>; <code>seqFlags</code> (<code>IY+0x0F</code>).</p>
 <h3 id="34-mode-screen-plumbing"><a class="header" href="#34-mode-screen-plumbing">3.4 MODE screen plumbing</a></h3>
 <p>The MODE screen is a menu context (<code>cxMode</code>/<code>kMode</code>=0x45) reached via the event/key router
 (<a href="11-boot-contexts-errors.html">doc 11</a>). Its row strings live as token names on page 0x01 (<code>RadianN</code>/<code>DegreeO</code>/<code>NormalP</code>/
-<code>Float</code> at <code>page_01:49E4..4A06</code>; trailing letters are token-id bytes) and full-caps menu
+<code>Float</code> at <code>01:49E4..4A06</code>; trailing letters are token-id bytes) and full-caps menu
 labels on page 0x37 (<code>DEGREE</code> <code>4A85</code>, <code>RADIAN</code> <code>4A8C</code>). Selecting a row writes the flag bits
 documented above directly (<code>SET/RES (IY+…)</code>, or stores into <code>fmtDigits</code>). [hypothesis] (partial) —
 the per-row write table itself is reached through the menu dispatcher and was not traced
@@ -563,7 +563,7 @@ page_36:7D00   clr_grfmode   (clears grfModeFlags bits 4-7)
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="sub-statistics.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="13-flash-page-map.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -577,7 +577,7 @@ page_36:7D00   clr_grfmode   (clears grfModeFlags bits 4-7)
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="sub-statistics.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="13-flash-page-map.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

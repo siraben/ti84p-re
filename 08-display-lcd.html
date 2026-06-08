@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7c293ef9.js";
+            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-cbaaedfe.js"></script>
+        <script src="toc-76256a07.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,7 +179,7 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="08--display--lcd"><a class="header" href="#08--display--lcd">08 — Display / LCD</a></h1>
+                        <h1 id="08--display--lcd"><a class="header" href="#08--display--lcd">08 — Display &amp; LCD</a></h1>
 <blockquote>
 <p><strong>Deep dives:</strong> <a href="sub-graphing.html">Graphing</a> (graph buffer → LCD, transforms) · <a href="sub-table-yvars.html">Table &amp; Y= Variables</a> (text grid).</p>
 </blockquote>
@@ -221,25 +221,21 @@
 <ul>
 <li><code>flags.indicFlags</code> bit 0 = the run/busy indicator (the moving dashes top-right); <code>_ClrLCDFull</code> preserves it across a clear; <code>_RunIndicOn</code> / <code>_RunIndicOff</code> toggle it. [confirmed]</li>
 </ul>
-<h2 id="resolved"><a class="header" href="#resolved">Resolved</a></h2>
+<h2 id="lcd-command-bytes-and-glyph-table"><a class="header" href="#lcd-command-bytes-and-glyph-table">LCD command bytes and glyph table</a></h2>
 <ul>
 <li><strong>LCD command bytes confirmed</strong> by tracing <code>_ClrLCDFull</code> (<code>01:60E4</code>), <code>_ClearRow</code> (<code>01:6934</code>) and <code>lcd_set_col_cmd</code> (<code>01:5A89</code>): row (page) select = <code>0xB8 − 8·row</code> (range <code>0xB8 … 0x80</code>, stepping down by 8), column select = <code>0x20 + col</code> (range <code>0x20 … 0x2B</code>, 12 columns = 96 px), command port <code>0x10</code> / data port <code>0x11</code>, busy-wait via <code>ram:0CC3</code>. Contrast is held at RAM <code>contrast</code> (<code>0x8447</code>) and written to the data port <code>0x11</code> by <code>lcd_set_contrast</code> (<code>01:5A59</code>). See <a href="#controller-confirmed-against-code">Controller</a>. [confirmed]</li>
 <li><strong>Large-font glyph table pinned</strong>: page <code>0x07</code>, base <code>07:45FF</code>, <code>7-byte stride</code> (<code>put_glyph_large</code> @ <code>07:4588</code> → glyph ptr <code>07:45FF + char*7</code> via <code>07:45EB</code>, then <code>_Mov8B</code> copies an 8-byte record to RAM <code>0x845A</code>). See <a href="#fonts-confirmed">Fonts</a> and <a href="13-flash-page-map.html">Flash Page Map</a>. [confirmed]</li>
-</ul>
-<h2 id="todo"><a class="header" href="#todo">TODO</a></h2>
-<ul>
-<li><em>(none for this section — items above resolved.)</em></li>
 </ul>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="07-tokenizer-basic.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sub-tibasic-for-paren.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="09-keyboard-link.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="sub-graphing.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -249,11 +245,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="07-tokenizer-basic.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sub-tibasic-for-paren.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="09-keyboard-link.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="sub-graphing.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

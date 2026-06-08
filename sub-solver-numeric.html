@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7c293ef9.js";
+            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-cbaaedfe.js"></script>
+        <script src="toc-76256a07.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -513,21 +513,21 @@ ram:2793 _JError               07:6B81  error_name_table (indexed by code-0x88)
 Parser entries (page 0x38): <code>_ParseInp 5987</code>, <code>parse_eval_expr 5AB3</code>,
 <code>_Find_Parse_Formula 758A</code>.</p>
 <hr>
-<h2 id="6-resolved--residual"><a class="header" href="#6-resolved--residual">6. Resolved / residual</a></h2>
-<p>The four open questions from the prior pass are now resolved against the bytes:</p>
+<h2 id="6-findings"><a class="header" href="#6-findings">6. Findings</a></h2>
+<p>Summary of the four sub-results:</p>
 <ul>
-<li><strong>fnInt( quadrature rule — resolved (§3.2).</strong> Not Gauss–Kronrod. The body has no node or
+<li><strong>fnInt( quadrature rule (§3.2).</strong> Not Gauss–Kronrod. The body has no node or
 weight table; its sole FP constant is <code>ln(10)·100</code> at <code>33:4E92</code>, used (with bcall <code>_LnX</code>)
 to convert digit-tolerance to a decimal error bound. With explicit ×0.5 interval bisection
 and a coarse-vs-fine estimate comparison, it is an adaptive Newton–Cotes / Simpson-class
 bisection integrator. <code>33:4D1B</code> is executable code (<code>LD A,0x60; CALL fp_set_digit</code>).</li>
-<li><strong>TVM <code>_SinH</code> (id 0x40CF) — resolved (§2.3).</strong> The TVM rate loop calls <code>_SinH</code> at
+<li><strong>TVM <code>_SinH</code> (id 0x40CF) (§2.3).</strong> The TVM rate loop calls <code>_SinH</code> at
 <code>3A:710B</code> (<code>0x40C6/0x40CF/0x40ED</code> are three distinct hyperbolic bcalls); it evaluates the
 annuity / compound factor in hyperbolic form for numerical stability at small rates.</li>
-<li><strong>class-3 routing of <code>tFnInt</code>/<code>tNDeriv</code>/<code>tRoot</code> — resolved (§4.1).</strong> Path is
+<li><strong>class-3 routing of <code>tFnInt</code>/<code>tNDeriv</code>/<code>tRoot</code> (§4.1).</strong> Path is
 <code>BB-token → page-0x02 dispatcher (02:68F3/6904/58AD) → arg-parse + default-tol (02:6AF6, exp 0x7D = 1e-3) → paged call → page-0x33 bodies</code>, re-validated by <code>bb_token_scanner</code>
 (<code>33:504E</code>). The trampoline hides the static xref, confirming it is a generic paged call.</li>
-<li><strong>page-0 helper cluster — resolved (§5).</strong> Generic FPS slot save/restore (9-byte
+<li><strong>page-0 helper cluster (§5).</strong> Generic FPS slot save/restore (9-byte
 TIFloat slots at <code>-(9*slot)</code> from frame base <code>(9302)</code>) plus the active-frame swapper at
 <code>ram:2800</code>, renamed <code>fps_swap_active_frame</code>; the store/load stubs are
 <code>fp_st_slotN_opX</code> / <code>fp_ld_op1_slotN</code>.</li>
@@ -549,7 +549,7 @@ list/element accessor).</li>
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="sub-table-yvars.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="07-tokenizer-basic.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -563,7 +563,7 @@ list/element accessor).</li>
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="sub-table-yvars.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="07-tokenizer-basic.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
