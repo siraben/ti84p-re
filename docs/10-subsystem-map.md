@@ -1,4 +1,4 @@
-# 10 — Subsystem map (bcall API surface)
+# Subsystem map (bcall API surface)
 
 This page categorizes the ~600 named bcall entry points (the OS's public API) by subsystem, so the whole OS surface is visible at once. This is the surface area user code and the OS itself program against.
 

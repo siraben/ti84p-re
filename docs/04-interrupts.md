@@ -1,4 +1,4 @@
-# 04 — Interrupts (IM1)
+# Interrupts (IM1)
 
 The Z80 runs in interrupt mode 1: every maskable interrupt vectors to `0038h`. There is no vector table — one handler services all sources by polling status ports.
 

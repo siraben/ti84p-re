@@ -1,4 +1,4 @@
-# 02 — Memory paging
+# Memory paging
 
 The Z80's banked 16 KiB slots are windows onto physical memory selected by I/O ports.
 

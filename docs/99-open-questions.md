@@ -1,4 +1,4 @@
-# 99 — Open questions & roadmap
+# Open questions & roadmap
 
 The structural reverse-engineering is comprehensive (every subsystem mapped, both cross-page mechanisms resolved, full input→parse→eval→display pipeline documented). What remains is depth. Each item below is self-contained for a future session.
 
