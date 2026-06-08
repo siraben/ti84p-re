@@ -196,10 +196,10 @@ function parens(box) {
   return hcat([lp, box, rp], 1);
 }
 
-// A big operator (∫, Σ, Π): a tall sign with upper/lower limits stacked at its
+// A big operator (∫, Σ): a tall sign with upper/lower limits stacked at its
 // corners, then the body. `inner` is the already-composed body; `signCode` is the
 // large-font glyph; `stem` is the stem-row index to repeat when stretching (null
-// = do not stretch, e.g. Σ/Π whose diagonals do not tile).
+// = do not stretch, e.g. Σ whose diagonals do not tile).
 function bigOp(signCode, signName, lo, hi, inner, stem) {
   const limit = v => trim(typeof v === 'string' ? smallText(v) : v);
   const loB = limit(lo), hiB = limit(hi);
@@ -236,8 +236,7 @@ function integral(lo, hi, body, varBox) {
 // upper limit (end) small-centered ABOVE the sign, the lower limit "var=start"
 // small BELOW it (left-aligned), the sign in the middle, then the body to the
 // right at the sign's vertical centre. [confirmed vs calc]
-// (The TI-84 has no product template, so there is no Π construct here.)
-function sumProd(signCode, signName, varStr, lo, hi, body) {
+function stackedOp(signCode, signName, varStr, lo, hi, body) {
   const small = s => trim(smallText(s));
   const hiB = small(hi);
   const loB = small(varStr + '=' + lo);
@@ -261,7 +260,7 @@ function sumProd(signCode, signName, varStr, lo, hi, body) {
   ] };
   return hcat([stack, parens(body)], 2);
 }
-function summation(varStr, lo, hi, body) { return sumProd(0xC6, 'Σ Sigma', varStr, lo, hi, body); }
+function summation(varStr, lo, hi, body) { return stackedOp(0xC6, 'Σ Sigma', varStr, lo, hi, body); }
 
 // nth root: a small-font index at the radical's upper-left, then the radical.
 function nthRoot(indexStr, body) {

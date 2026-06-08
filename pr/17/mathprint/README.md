@@ -47,8 +47,7 @@ text, exponents (`X^2`), linear `1/2`, stacked fractions (`1//2`), and radicals
 (`sqrt(...)`). The tall operators (`int`, `sum`, nth root) match in operator
 sign, limits, and overall dimensions; their body's internal glyph advances come
 from a RAM-relocated bcall (`0xC951`) whose width table is not in flash, so those
-few pixels are trace-pinned rather than ROM-derivable. There is no product (Π)
-template on the TI-84, so none is provided.
+few pixels are trace-pinned rather than ROM-derivable.
 
 ## Regenerate
 

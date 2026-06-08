@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-595cf107.js";
+            window.path_to_searchindex_js = "searchindex-d6e82383.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-c47a8e66.js"></script>
+        <script src="toc-87758224.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -182,13 +182,13 @@
                         <h1 id="solver--numerical-methods"><a class="header" href="#solver--numerical-methods">Solver &amp; numerical methods</a></h1>
 <p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
 <p>What happens when a calculus/algebra student uses the <strong>equation Solver</strong> / <code>solve(</code>,
-<strong>nDeriv(</strong>, <strong>fnInt(</strong>, or the <strong>TVM finance solver</strong>. All of these are <em>iterative</em>
+<code>nDeriv(</code>, <code>fnInt(</code>, or the <strong>TVM finance solver</strong>. All of these are <em>iterative</em>
 routines that repeatedly evaluate the user’s expression through the BCD floating-point
 engine (see <a href="sub-calculation.html">sub-calculation.md</a>, <a href="06-floating-point.html">06-floating-point.md</a>) and the TI-BASIC parser
 (<a href="sub-tibasic.html">sub-tibasic.md</a>).</p>
 <p>Address form is <code>page:addr</code> (flash page banked at <code>0x4000</code>) or <code>ram:addr</code> for the fixed
-page-0 core at <code>0x0000</code>. Confidence: <strong>[confirmed]</strong> = read from disassembly,
-<strong>[standard]</strong> = matches documented TI behavior, <strong>[hypothesis]</strong> = inferred from
+page-0 core at <code>0x0000</code>. Confidence: [confirmed] = read from disassembly,
+[standard] = matches documented TI behavior, [hypothesis] = inferred from
 surrounding code. Disassembly was recovered byte-exact from <code>tools/rom.bin</code>; the headless
 Ghidra project on the banked pages is only partially auto-analyzed, so addresses here were
 cross-checked against raw opcodes.</p>
@@ -196,7 +196,7 @@ cross-checked against raw opcodes.</p>
 <h2 id="0-the-four-solver-errors-and-the-error-code-table-confirmed"><a class="header" href="#0-the-four-solver-errors-and-the-error-code-table-confirmed">0. The four solver errors and the error-code table [confirmed]</a></h2>
 <p>The numerical routines raise four dedicated errors. Each has a tiny page-0 raiser stub
 that loads an error code into <code>A</code> and tail-jumps to <code>_JError</code> (<code>ram:2793</code>); most banked
-pages also keep a <strong>local copy</strong> of each stub so the iteration loop can reach it with a
+pages also keep a local copy of each stub so the iteration loop can reach it with a
 cheap relative jump.</p>
 <div class="table-wrapper">
 <table>
@@ -211,7 +211,7 @@ cheap relative jump.</p>
 </tbody>
 </table>
 </div>
-<p>The error <strong>message-name table</strong> is on page 0x07 starting at <code>07:6B81</code>. It is indexed by
+<p>The error message-name table is on page 0x07 starting at <code>07:6B81</code>. It is indexed by
 <code>(code − 0x88)</code>, so codes <code>0x88…0x9C</code> map to consecutive strings:</p>
 <pre><code>07:6B81 SYNTAX(88) DATA TYPE(89) ARGUMENT(8A) DIM MISMATCH(8B) INVALID DIM(8C)
         UNDEFINED(8D) MEMORY(8E) INVALID(8F) ILLEGAL NEST(90) BOUND(91)
@@ -219,11 +219,11 @@ cheap relative jump.</p>
         NO SIGN CHNG(98) ITERATIONS(99) BAD GUESS(9A) STAT PLOT(9B) TOL NOT MET(9C)
 </code></pre>
 <p><code>SOLVER</code>=<code>0x96</code> is the <em>context name</em> shown on the Solver app’s error screen;
-<code>SINGULARTY</code>=<code>0x97</code> is raised when a step lands on a pole. <strong>[confirmed]</strong></p>
+<code>SINGULARTY</code>=<code>0x97</code> is raised when a step lands on a pole. [confirmed]</p>
 <hr>
 <h2 id="1-the-equation-solver--solve-root-finder--page-0x39-confirmed"><a class="header" href="#1-the-equation-solver--solve-root-finder--page-0x39-confirmed">1. The equation Solver / <code>solve(</code> root finder — page 0x39 [confirmed]</a></h2>
-<p>The interactive <strong>Equation Solver</strong> app and the numeric <strong><code>solve(</code></strong> token share one
-root-finding engine living on flash page <strong>0x39</strong>. (The Solver app’s UI — the
+<p>The interactive <strong>Equation Solver</strong> app and the numeric <code>solve(</code> token share one
+root-finding engine living on flash page <code>0x39</code>. (The Solver app’s UI — the
 <code>EQUATION SOLVER</code> / <code>eqn:0=</code> / <code>bound=</code> / <code>left-rt=</code> screen — is drawn from strings at
 <code>06:6ABB</code>, loaded by code at <code>06:6286</code>/<code>06:62EA</code>/<code>06:66F3</code>.)</p>
 <h3 id="11-the-function-value-evaluator-fx-confirmed"><a class="header" href="#11-the-function-value-evaluator-fx-confirmed">1.1 The function-value evaluator <code>f(x)</code> [confirmed]</a></h3>
@@ -231,56 +231,57 @@ root-finding engine living on flash page <strong>0x39</strong>. (The Solver app�
 of the equation. Located around <code>39:468F</code>:</p>
 <ol>
 <li><code>_CkValidNum</code> (<code>ram:1E9B</code>), then <code>_MovFrOP1</code> (<code>ram:1B0C</code>) stores the current guess into
-the <strong>solve variable</strong> (named system var addressed via <code>(065B)</code>).</li>
-<li>It installs an <strong>error trap</strong> (<code>39:46D9 CALL 327F</code>; <code>RES/SET 2,(IY+7)</code>) and re-parses /
+the solve variable (its data pointer is loaded from <code>(9306)</code>, in the expression-stack
+region — the bytes are <code>ED 5B 06 93</code> = <code>LD DE,(9306)</code>).</li>
+<li>It installs an error trap (<code>39:46D9 CALL 327F</code>; <code>RES/SET 2,(IY+7)</code>) and re-parses /
 re-evaluates the stored equation formula (page-0x39 hosts a parse/token walker at
 <code>39:327F</code> using <code>parse_advance 7248</code> / <code>parse_cur_tok 72DA</code>-style cursors, mirroring the
 page-0x38 parser — the equation is re-tokenised and evaluated every iteration).</li>
-<li>The post-eval filter at <code>39:46C7</code> inspects the error code in <code>A</code>: codes <strong>below <code>0x86</code></strong>
+<li>The post-eval filter at <code>39:46C7</code> inspects the error code in <code>A</code>: codes below <code>0x86</code>
 (<code>OVERFLOW</code>/<code>DIV BY 0</code>/<code>SINGULAR MAT</code>/<code>DOMAIN</code>) and <code>0x87</code> (<code>NONREAL ANS</code>) are
-<strong>swallowed</strong> (<code>CP 0x87; JR Z</code> then <code>CP 0x86; JP NC,0x2799</code> — this <code>x</code> is treated as a
+swallowed (<code>CP 0x87; JR Z</code> then <code>CP 0x86; JP NC,0x2799</code> — this <code>x</code> is treated as a
 point where <code>f</code> is undefined, so the solver can step past it) while <code>0x86</code> (<code>BREAK</code>) and
 codes <code>≥ 0x88</code> are
 re-raised via <code>_JErrorNo</code> (<code>JP 2799</code>). This is why <code>solve(</code> can skip singularities
-inside the bracket without aborting. <strong>[confirmed]</strong></li>
+inside the bracket without aborting. [confirmed]</li>
 </ol>
 <p>The sign test <code>39:463A</code> reads <code>OP1.type</code> (<code>8478</code>) and <code>OP2.type</code> (<code>8483</code>), masks <code>0x80</code>
-and XORs them: <strong>Z = same sign, NZ = opposite sign</strong> — the bracket sign-change predicate.
-<strong>[confirmed]</strong></p>
+and XORs them: Z = same sign, NZ = opposite sign — the bracket sign-change predicate.
+[confirmed]</p>
 <h3 id="12-the-iteration-loop-confirmed"><a class="header" href="#12-the-iteration-loop-confirmed">1.2 The iteration loop [confirmed]</a></h3>
 <p>Setup (<code>39:43AD…4410</code>) evaluates <code>f</code> at the two user bounds, records their signs, and
 seeds the bracket. The main loop runs from <code>39:4413</code>:</p>
 <ul>
-<li><strong>Loop / iteration counter</strong> is carried in <code>A</code>, <code>INC A</code> each pass (<code>39:44BF</code>), pushed on
+<li>Loop / iteration counter is carried in <code>A</code>, <code>INC A</code> each pass (<code>39:44BF</code>), pushed on
 the stack. Two caps are compared with <code>SBC HL,…</code>:
 <ul>
-<li><code>LD HL,0x01F3</code> (= <strong>499</strong>) at <code>39:4479</code>/<code>39:458B</code> → exceeding it jumps to
-<code>39:45A0 LD A,0x99 … JP 2793</code> = <strong>ITERATIONS</strong>, and the early <code>LD A,0x9A</code> path
-(<code>39:45AD</code>) = <strong>BAD GUESS</strong> (raised when the initial bracket is unusable).</li>
+<li><code>LD HL,0x01F3</code> (= <code>499</code>) at <code>39:4479</code>/<code>39:458B</code> → exceeding it jumps to
+<code>39:45A0 LD A,0x99 … JP 2793</code> = ITERATIONS, and the early <code>LD A,0x9A</code> path
+(<code>39:45AD</code>) = BAD GUESS (raised when the initial bracket is unusable).</li>
 <li>A small count (<code>CP 0x04</code>, <code>39:44C3</code>) gates the early Illinois/secant correction.</li>
 </ul>
 </li>
 <li><strong>Bisection midpoint:</strong> <code>_InvSub</code> (<code>ram:227D</code>, = b−a) then <code>_TimesPt5</code> (<code>ram:2382</code>, ×0.5)
-give the half-width $\tfrac{1}{2}(b-a)$ at <code>39:443C/443F</code>; adding $a$ yields the midpoint $m=a+\tfrac{1}{2}(b-a)$. <strong>[confirmed]</strong></li>
+give the half-width $\tfrac{1}{2}(b-a)$ at <code>39:443C/443F</code>; adding $a$ yields the midpoint $m=a+\tfrac{1}{2}(b-a)$. [confirmed]</li>
 <li><strong>Secant / regula-falsi step:</strong> <code>_FPMult</code> (<code>238B</code>), <code>_FPSub</code> (<code>2297</code>), <code>_FPDiv</code>-class and
 <code>_InvOP1S</code> (<code>24BD</code>) around <code>39:4488…44F2</code> compute the linear-interpolation step
 $x_{n+1}=x_n-f(x_n)\,\dfrac{b-a}{f(b)-f(a)}$. The result is compared against the bisection bound; the
-algorithm <strong>keeps the secant guess only if it stays inside the bracket</strong>, otherwise it
-falls back to the midpoint — a classic <strong>bisection ⊕ secant (Illinois/regula-falsi)
-hybrid</strong>, the documented TI behavior. <strong>[confirmed for the op sequence; method name standard]</strong></li>
+algorithm keeps the secant guess only if it stays inside the bracket, otherwise it
+falls back to the midpoint — a classic bisection ⊕ secant (Illinois/regula-falsi)
+hybrid, the documented TI behavior. [confirmed for the op sequence; method name standard]</li>
 <li><strong>Sign-change bookkeeping:</strong> the byte at <code>0x84AF</code> (OP6 area) holds the running sign of
 <code>f</code> at the bracket ends; <code>XOR 0x80</code> toggles it (<code>39:44AB…44B3</code>). If the two bounds never
-bracketed a sign change, the path at <code>39:45CD…45DA JP 2749</code> raises <strong>NO SIGN CHNG</strong>.
-<strong>[confirmed]</strong></li>
+bracketed a sign change, the path at <code>39:45CD…45DA JP 2749</code> raises NO SIGN CHNG.
+[confirmed]</li>
 <li><strong>Convergence / tolerance test:</strong> <code>_AbsO1O2Cp</code> (<code>ram:1987</code>, compares |OP1| vs |OP2|) is
 used repeatedly (<code>39:446F</code>, <code>44D7</code>, <code>44F8</code>, <code>45C7</code>) to test the bracket width / residual
-against tolerance. The tolerance floor is the <strong>TIFloat constant <code>1.0e-13</code></strong> at
-<code>39:46EA</code> (<code>00 73 10 …</code>); the residual-zero floor is <strong><code>1.0e-99</code></strong> at <code>39:46E1</code>
+against tolerance. The tolerance floor is the TIFloat constant <code>1.0e-13</code> at
+<code>39:46EA</code> (<code>00 73 10 …</code>); the residual-zero floor is <code>1.0e-99</code> at <code>39:46E1</code>
 (<code>00 1D 10 …</code>). On reaching tolerance the solver exits through the <code>39:4540 → 4553</code>
 branch (dynamically traced on an <code>X²−2 = 0</code> solve that converged to √2 ≈ 1.41421356);
-<code>39:4547</code> is a <code>CALL</code>, not the converged return, and was <strong>not</strong> on the observed path.
+<code>39:4547</code> is a <code>CALL</code>, not the converged return, and the observed path bypassed it.
 The tolerance tests at <code>446F</code>/<code>44D7</code>/<code>44F8</code> run under that trace; <code>45C7</code> is reached only
-on other convergence sub-paths. <strong>[confirmed]</strong></li>
+on other convergence sub-paths. [confirmed]</li>
 </ul>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{Solver root-finder --- bracketed secant / regula-falsi (page 0x39)}
@@ -317,16 +318,16 @@ at <code>0x8478</code> climbing <code>1.40898 → 1.41421335 → 1.4142135623645
 constants (<code>39:46EA</code>/<code>46E1</code>) all executed as the pseudocode describes.</p>
 </blockquote>
 <p><code>left-rt</code> shown on the Solver screen is the final residual <code>f(root)</code> (the
-<code>left-side − right-side</code> value the evaluator computed). <strong>[standard]</strong></p>
+<code>left-side − right-side</code> value the evaluator computed). [standard]</p>
 <hr>
 <h2 id="2-the-tvm-finance-solver--page-0x3a-confirmed"><a class="header" href="#2-the-tvm-finance-solver--page-0x3a-confirmed">2. The TVM finance solver — page 0x3A [confirmed]</a></h2>
-<p>The five-variable <strong>time-value-of-money</strong> solver (<code>N</code>, <code>I%</code>, <code>PV</code>, <code>PMT</code>, <code>FV</code>, plus
-<code>P/Y</code>, <code>C/Y</code>, and the PMT:END/BEGIN flag) lives on flash page <strong>0x3A</strong>. Each variable is a
+<p>The five-variable time-value-of-money solver (<code>N</code>, <code>I%</code>, <code>PV</code>, <code>PMT</code>, <code>FV</code>, plus
+<code>P/Y</code>, <code>C/Y</code>, and the PMT:END/BEGIN flag) lives on flash page <code>0x3A</code>. Each variable is a
 named system FP var; the routine loads them via small accessors:</p>
 <ul>
-<li><code>3A:7F02</code> loads the var named at <code>(D35B)</code>, <code>3A:7F0F</code> the one at <code>(D55B)</code>, etc.
+<li><code>3A:7F02</code> loads the pointer at <code>(84D3)</code> (<code>iMathPtr1</code>; <code>ED 5B D3 84</code> = <code>LD DE,(84D3)</code>), <code>3A:7F0F</code> the one at <code>(84D5)</code> (<code>iMathPtr2</code>), etc.
 (<code>(D?5B)</code> are the finance sysvar VAT slots). <code>(84D3)</code>=<code>iMathPtr1</code>, <code>(84D9)</code>=<code>iMathPtr4</code>,
-<code>(84AF)</code>=OP6, <code>(84D3)</code>/<code>(84D9)</code>/<code>(84D3)</code> hold the iteration state. <strong>[confirmed]</strong></li>
+<code>(84AF)</code>=OP6, <code>(84D3)</code>/<code>(84D9)</code>/<code>(84D3)</code> hold the iteration state. [confirmed]</li>
 </ul>
 <h3 id="21-the-tvm-equation"><a class="header" href="#21-the-tvm-equation">2.1 The TVM equation</a></h3>
 <p>The solver evaluates the standard cash-flow identity (rate $i = \tfrac{I\%}{100}\big/\tfrac{C}{Y}$, with $S=0$ for
@@ -335,130 +336,130 @@ END / $1$ for BEGIN):</p>
 <p>Implemented with <code>_FPRecip</code> (<code>ram:253D</code>, for <code>(1+i)^(−N)</code> via reciprocal/power),
 <code>_FPMult</code> (<code>238B</code>), <code>_FPDiv</code> (<code>2541</code>), <code>_FPAdd</code> (RST 30h), <code>_InvSub</code>/<code>_FPSub</code>
 (<code>227D</code>/<code>2297</code>) around <code>3A:70D6…7140</code>. The compound factor <code>(1+i)^N</code> is built with the
-power/exp helpers. <strong>[confirmed sequence; equation standard]</strong></p>
+power/exp helpers. [confirmed sequence; equation standard]</p>
 <h3 id="22-the-iteration-confirmed"><a class="header" href="#22-the-iteration-confirmed">2.2 The iteration [confirmed]</a></h3>
-<p>Solving for <code>I%</code> (the only variable with no closed form) uses <strong>Newton’s method on the
-rate</strong>:</p>
+<p>Solving for <code>I%</code> (the only variable with no closed form) uses Newton’s method on the
+rate:</p>
 <ul>
 <li>Iteration state is allocated as a small FPS frame (<code>LD HL,0x0005; _AllocFPS</code> at
-<code>3A:70A2</code>) and the loop counter is <code>B = 0x40</code> (= <strong>64</strong> iterations max), <code>3A:70AB</code>.</li>
+<code>3A:70A2</code>) and the loop counter is <code>B = 0x40</code> (= <code>64</code> iterations max), <code>3A:70AB</code>.</li>
 <li>Each pass recomputes the TVM residual and its derivative, takes a Newton step, and tests
-the exponent of the correction against <code>CP 0x74</code> (<code>3A:71F4</code>) — i.e. <strong>converged when the
-update is ≤ ~10⁻¹²</strong>. The new estimate is written back via <code>(84D9)→(84D3)</code>
-(<code>3A:71F9…71FE</code>). <strong>[confirmed]</strong></li>
+the exponent of the correction against <code>CP 0x74</code> (<code>3A:71F4</code>) — i.e. converged when the
+update is ≤ ~10⁻¹². The new estimate is written back via <code>(84D9)→(84D3)</code>
+(<code>3A:71F9…71FE</code>). [confirmed]</li>
 </ul>
 <h3 id="23-the-tvm-rate-loop-calls-_sinh-3a710b-confirmed"><a class="header" href="#23-the-tvm-rate-loop-calls-_sinh-3a710b-confirmed">2.3 The TVM rate loop calls <code>_SinH</code> (<code>3A:710B</code>) [confirmed]</a></h3>
-<p>At <strong><code>3A:710B</code></strong> the TVM body contains <code>EF CF 40</code> = <code>RST 0x28; .dw 0x40CF</code>, and the bcall
-table maps <code>0x40CF</code> to <strong><code>_SinH</code></strong> (<code>_SinHCosH</code>=<code>0x40C6</code>, <code>_SinH</code>=<code>0x40CF</code>, <code>_ASinH</code>=<code>0x40ED</code>
+<p>At <code>3A:710B</code> the TVM body contains <code>EF CF 40</code> = <code>RST 0x28; .dw 0x40CF</code>, and the bcall
+table maps <code>0x40CF</code> to <code>_SinH</code> (<code>_SinHCosH</code>=<code>0x40C6</code>, <code>_SinH</code>=<code>0x40CF</code>, <code>_ASinH</code>=<code>0x40ED</code>
 are three consecutive distinct entries). A scan of the whole loop body (<code>3A:70A0…7210</code>) finds
 three bcalls: <code>_SinH</code> (<code>0x40CF</code>, <code>3A:710B</code>), an unmapped helper <code>0x462A</code> (adjacent to
 <code>_AdrLEle 0x462D</code> — a list/element accessor for the finance sysvar slots), and <code>_SetXXOP2</code>
 (<code>0x478F</code>, <code>3A:71C5</code>). The <code>_SinH</code> call carries the math: the surrounding
 <code>_FPMult</code>/<code>_OP1ToOP2</code>/<code>_FPSub</code> sequence (<code>CD 8B 23 … CD D4 16 CD 51 16 EF CF 40 CD 3F 16</code>)
-evaluates the annuity / compound-growth factor in <strong>hyperbolic form</strong> — the numerically
+evaluates the annuity / compound-growth factor in hyperbolic form — the numerically
 stable way to form <code>(1+i)^N − 1</code> and <code>[1−(1+i)^-N]/i</code> for small rates <code>i</code>, avoiding
 catastrophic cancellation. This is the only transcendental call in the rate-Newton loop.
-<strong>[confirmed]</strong></p>
+[confirmed]</p>
 <ul>
 <li>Exhausting the 64-iteration <code>DJNZ</code>/<code>DEC B</code> budget falls to <code>3A:7206 JP 274D</code> =
-<strong>ITERATIONS (0x99)</strong>. Solving for <code>N</code>/<code>PV</code>/<code>PMT</code>/<code>FV</code> is closed-form (algebraic
-rearrangement) and does not iterate. <strong>[confirmed for I%; standard for the rest]</strong></li>
+ITERATIONS (0x99). Solving for <code>N</code>/<code>PV</code>/<code>PMT</code>/<code>FV</code> is closed-form (algebraic
+rearrangement) and does not iterate. [confirmed for I%; standard for the rest]</li>
 </ul>
 <p>The amortization helpers (<code>ΣPrn</code>, <code>ΣInt</code>, <code>bal(</code>, <code>Pmt_End</code>/<code>Pmt_Bgn</code>) and the finance
 function tokens (<code>tFinNPV 0x00</code>, <code>tFinIRR 0x01</code>, <code>tFinBAL 0x02</code>, <code>tFinPRN 0x03</code>,
 <code>tFinINT 0x04</code>, <code>tFinPV 0x2D</code>, <code>tFinPMT 0x2E</code>, <code>tFinFPMT 0x20</code>, <code>tFinPMTend 0x4B</code>,
 <code>tFinPMTbeg 0x4C</code>; all 0xEF-prefixed 2-byte tokens) are dispatched into this page.
-<strong>IRR(</strong> internally uses the same rate-Newton iteration and can also raise ITERATIONS.
-<strong>[confirmed token map; hypothesis for IRR sharing the loop]</strong></p>
+<code>IRR(</code> internally uses the same rate-Newton iteration and can also raise ITERATIONS.
+[confirmed token map; hypothesis for IRR sharing the loop]</p>
 <hr>
 <h2 id="3-nderiv-and-fnint--page-0x33-numeric-calculus-confirmed-core-method-hypothesis"><a class="header" href="#3-nderiv-and-fnint--page-0x33-numeric-calculus-confirmed-core-method-hypothesis">3. nDeriv( and fnInt( — page 0x33 numeric calculus [confirmed core, method hypothesis]</a></h2>
-<p>The numeric-calculus engine is on flash page <strong>0x33</strong> (the graph-math page — appropriate,
+<p>The numeric-calculus engine is on flash page <code>0x33</code> (the graph-math page — appropriate,
 since both operate on a Y= expression). The function tokens are 0xBB-prefixed:
-<strong><code>tRoot 0x22</code></strong> (the <code>solve(</code>-style root token), <strong><code>tFnInt 0x24</code></strong> (fnInt), and
-<strong><code>tNDeriv 0x25</code></strong> (nDeriv). They are recognised by the 0xBB-group scanners
+<code>tRoot 0x22</code> (the <code>solve(</code>-style root token), <code>tFnInt 0x24</code> (fnInt), and
+<code>tNDeriv 0x25</code> (nDeriv). They are recognised by the 0xBB-group scanners
 (<code>33:504E CP 0xBB</code>, also <code>38:4E3F</code>).</p>
 <h3 id="31-nderiv--symmetric-difference-quotient-standard"><a class="header" href="#31-nderiv--symmetric-difference-quotient-standard">3.1 nDeriv( — symmetric difference quotient [standard]</a></h3>
-<p><code>nDeriv(expr, var, value [,ε])</code> computes the <strong>centered difference</strong>
+<p><code>nDeriv(expr, var, value [,ε])</code> computes the centered difference
 <code>(f(x+ε) − f(x−ε)) / (2ε)</code> with default <code>ε = 1e-3</code>. The setup region <code>33:4C80…4D00</code>
 stores/restores the variable, evaluates <code>f</code> at <code>x±ε</code>, and divides by <code>2ε</code> using
 <code>_FPSub</code>/<code>_FPDiv</code> (<code>2297</code>/<code>2541</code>) and <code>_TimesPt5</code>. The <code>(97E7)</code>/<code>(97E9)</code> counters at
-<code>33:4C80</code>/<code>33:4CB4</code> track the two/three sub-evaluations. <strong>[confirmed it is a finite-
-difference with var save/restore; ε-default standard]</strong></p>
+<code>33:4C80</code>/<code>33:4CB4</code> track the two/three sub-evaluations. [confirmed it is a finite-
+difference with var save/restore; ε-default standard]</p>
 <h3 id="32-fnint--adaptive-numeric-integration-confirmed-adaptive-bisection-no-node-table"><a class="header" href="#32-fnint--adaptive-numeric-integration-confirmed-adaptive-bisection-no-node-table">3.2 fnInt( — adaptive numeric integration [confirmed: adaptive bisection, no node table]</a></h3>
-<p><code>fnInt(expr, var, a, b [,tol])</code> is an <strong>adaptive iterative quadrature</strong>. The body is the
+<p><code>fnInt(expr, var, a, b [,tol])</code> is an adaptive iterative quadrature. The body is the
 Ghidra function <code>fnint_body</code> at <code>33:4D00</code> (extent <code>33:4D00…4E91</code>):</p>
 <ul>
 <li>builds interval midpoints and half-widths: <code>_FPSub</code> (<code>2297</code>), <code>_TimesPt5</code> (<code>2382</code>, ×0.5),
-<code>_FPDiv</code> (<code>2541</code>). The bytes at <code>33:4D18</code> are <strong>executable code</strong> — <code>33:4D18 21 83 84</code>
-(<code>LD HL,0x8483</code>), <code>33:4D1B 3E 60</code> (<code>LD A,0x60</code>), <code>33:4D1D CD 65 1B</code> (<code>CALL _OP2SetA</code>/<code>1B65</code>) — loading the
-scalar <strong>0x60 = 96</strong>
-(a working digit/scale count), not a quadrature weight. <strong>[confirmed bytes]</strong></li>
-<li>maintains a working set of partial sums in an <strong>FPS frame</strong> (<code>_AllocFPS 1534</code>,
+<code>_FPDiv</code> (<code>2541</code>). The bytes at <code>33:4D18</code> are executable code — <code>33:4D18 21 83 84</code>
+(<code>LD HL,0x8483</code>), <code>33:4D1B 3E 60</code> (<code>LD A,0x60</code>), <code>33:4D1D CD 65 1B</code> (<code>CALL fp_set_digit</code> <code>1B65</code>; not <code>_OP2SetA</code>, whose body is <code>1B24</code>) — loading the
+scalar <code>0x60 = 96</code>
+(a working digit/scale count), not a quadrature weight. [confirmed bytes]</li>
+<li>maintains a working set of partial sums in an FPS frame (<code>_AllocFPS 1534</code>,
 <code>_PopRealOx 14F6/150F/1505</code>, <code>_DeallocFPS 1526</code>, with slot offsets <code>DE=0x15/0x1B/0x24</code>)
 — endpoint values, the running estimate, and the previous estimate for the error test.
-<strong>[confirmed]</strong></li>
-<li>iterates, refining the partition by <strong>interval bisection</strong> (the ×0.5 <code>_TimesPt5</code> halving;
+[confirmed]</li>
+<li>iterates, refining the partition by interval bisection (the ×0.5 <code>_TimesPt5</code> halving;
 the <code>97E7</code>/<code>84AF</code> depth counters track subdivision depth; the loop tail is
 <code>33:4E81 LD DE,0x0024 … C3 CB 45</code> and <code>33:4E8C 3D F5 C2 57 4D</code> = <code>DEC A; …; JP NZ,0x4D57</code>),
 and converges when the change in the estimate has exponent <code>≤ CP 0x74</code> (~10⁻¹²,
 <code>33:4E74</code>). Exhausting the refinement budget falls through to <code>33:4E8F JP 274D</code> =
-<strong>ITERATIONS (0x99)</strong>. <strong>[confirmed loop/tolerance]</strong></li>
+ITERATIONS (0x99). [confirmed loop/tolerance]</li>
 </ul>
-<p><strong>Quadrature rule.</strong> A full byte scan of <code>33:4D00…4F00</code> finds <strong>exactly one</strong>
+<p><strong>Quadrature rule.</strong> A full byte scan of <code>33:4D00…4F00</code> finds exactly one
 floating-point constant in the body: the TIFloat at <code>33:4E92</code>
 (<code>00 82 23 02 58 50 92 99 40</code> = 2.30258509…×10², i.e. <code>ln(10)·100</code>). It is referenced at
 <code>33:4E5D</code> (<code>LD HL,0x4E92; CALL 0x1982</code>), immediately after the only transcendental bcall in
-the body, <code>33:4E56 EF AB 40</code> = bcall <strong><code>_LnX</code> (0x40AB)</strong>. So <code>ln(10)·100</code> is used purely to
-convert the requested <strong>significant-digit tolerance</strong> into a decimal <strong>error bound</strong> via
-<code>ln</code> — it is <em>not</em> a quadrature node or weight. There is <strong>no node/weight table anywhere in
-the body</strong> (the data after <code>33:4E92</code>, <code>FD CB 18 AE …</code>, decodes as code: <code>RES 5,(IY+0x18)</code>
+the body, <code>33:4E56 EF AB 40</code> = bcall <code>_LnX</code> (0x40AB). So <code>ln(10)·100</code> is used purely to
+convert the requested significant-digit tolerance into a decimal error bound via
+<code>ln</code> — it is a tolerance scaler, not a quadrature node or weight. There is no node/weight table anywhere in
+the body (the data after <code>33:4E92</code>, <code>FD CB 18 AE …</code>, decodes as code: <code>RES 5,(IY+0x18)</code>
 followed by LCD/keypad port I/O <code>DB 3A / D3 3A</code>). A Gauss–Kronrod rule would require a fixed
 block of ~7–15 irrational node and weight constants stored as TIFloats; their complete
 absence, together with the explicit ×0.5 interval bisection and the coarse-vs-fine estimate
-comparison, rules out Gauss–Kronrod. The rule is an <strong>adaptive Newton–Cotes-style scheme
-with recursive interval bisection</strong> (Simpson-class), not Gauss–Kronrod. <strong>[confirmed: the
-only constant present is the ln-based tolerance scaler; no quadrature node table exists]</strong></p>
+comparison, rules out Gauss–Kronrod. The rule is an adaptive Newton–Cotes-style scheme
+with recursive interval bisection (Simpson-class), not Gauss–Kronrod. [confirmed: the
+only constant present is the ln-based tolerance scaler; no quadrature node table exists]</p>
 <p>Both nDeriv( and fnInt( evaluate the user’s <code>f</code> by storing the running argument into the
 integration/derivative variable and re-running the parser, exactly like the Solver’s
-<code>f(x)</code> callback in §1.1 — the same “store var → parse_eval → read OP1” loop. <strong>[standard]</strong></p>
+<code>f(x)</code> callback in §1.1 — the same “store var → parse_eval → read OP1” loop. [standard]</p>
 <hr>
 <h2 id="4-how-the-unknown-is-varied--the-parser-feedback-loop-confirmedstandard"><a class="header" href="#4-how-the-unknown-is-varied--the-parser-feedback-loop-confirmedstandard">4. How the unknown is varied — the parser feedback loop [confirmed/standard]</a></h2>
 <p>Every routine above shares this inner cycle, which is the whole reason they are slow:</p>
 <ol>
 <li>Place the trial value in <code>OP1</code> (<code>_Mov9ToOP1</code> / arithmetic result).</li>
-<li><code>_MovFrOP1</code> (<code>ram:1B0C</code>) <strong>store it into the named variable</strong> the expression mentions
+<li><code>_MovFrOP1</code> (<code>ram:1B0C</code>) store it into the named variable the expression mentions
 (the solve var, the <code>nDeriv</code>/<code>fnInt</code> integration var, or the TVM var).</li>
-<li><strong>Re-evaluate the expression</strong> through the TI-BASIC parser (<code>_ParseInp 38:5987</code> /
+<li>Re-evaluate the expression through the TI-BASIC parser (<code>_ParseInp 38:5987</code> /
 <code>parse_eval_expr 38:5AB3</code> / <code>_Find_Parse_Formula 38:758A</code>; the Solver uses its own
 page-0x39 token walker). The parser walks the <em>same stored token stream</em> each pass.</li>
 <li>Read the numeric result back from <code>OP1</code>, form the residual / difference, decide the next
-step. An <strong>error trap</strong> (<code>39:327F</code> / <code>RES 2,(IY+7)</code>) lets a DOMAIN/NONREAL error at one
+step. An error trap (<code>39:327F</code> / <code>RES 2,(IY+7)</code>) lets a DOMAIN/NONREAL error at one
 sample be caught and treated as “undefined here” instead of aborting the whole solve
 (§1.1).</li>
 </ol>
-<p>Because the expression is re-tokenised and re-evaluated on <strong>every</strong> iteration, a <code>solve(</code>
+<p>Because the expression is re-tokenised and re-evaluated on <em>every</em> iteration, a <code>solve(</code>
 with a 499-iteration cap can parse the equation up to ~499 times, and a <code>fnInt</code> over a fine
 adaptive partition can parse it thousands of times — the dominant cost.</p>
 <h3 id="41-how-tfninttnderivtroot-reach-the-page-0x33-bodies-confirmed"><a class="header" href="#41-how-tfninttnderivtroot-reach-the-page-0x33-bodies-confirmed">4.1 How <code>tFnInt</code>/<code>tNDeriv</code>/<code>tRoot</code> reach the page-0x33 bodies [confirmed]</a></h3>
-<p>These three are <strong>2-byte tokens</strong> with the <code>t2ByteTok = 0xBB</code> lead byte (ti83plus.inc:
+<p>These three are 2-byte tokens with the <code>t2ByteTok = 0xBB</code> lead byte (ti83plus.inc:
 <code>tRoot = 0x22</code>, <code>tFnInt = 0x24</code>, <code>tNDeriv = 0x25</code>), so in the token stream they appear as
-<code>BB 22</code> / <code>BB 24</code> / <code>BB 25</code>. The routing is a <strong>generic paged command call, not an inline
-bjump</strong>, and goes through the page-0x02 command-execution layer:</p>
+<code>BB 22</code> / <code>BB 24</code> / <code>BB 25</code>. The routing is a generic paged command call, not an inline
+bjump, and goes through the page-0x02 command-execution layer:</p>
 <ol>
 <li>The evaluator hands the operand token to the page-0x02 dispatcher, which recognises the
 <code>0xBB</code> group and the second byte: <code>tFnInt</code> at <code>02:68F3</code> (<code>CP 0x24</code>), <code>tNDeriv</code> at
-<code>02:6904</code> (<code>CP 0x25</code>), <code>tRoot</code> at <code>02:58AD</code>/<code>02:69BC</code> (<code>CP 0x22</code>). <strong>[confirmed bytes]</strong></li>
-<li>The page-0x02 handler <strong>parses the comma-separated argument list</strong> and sets defaults — e.g.
+<code>02:6904</code> (<code>CP 0x25</code>), <code>tRoot</code> at <code>02:58AD</code>/<code>02:69BC</code> (<code>CP 0x22</code>). [confirmed bytes]</li>
+<li>The page-0x02 handler parses the comma-separated argument list and sets defaults — e.g.
 the <code>nDeriv</code>/<code>fnInt</code> prologue at <code>02:6AF6</code> does <code>LD A,0x7D; LD (8479),A</code>, seeding the
-default tolerance exponent <code>0x7D</code> (= <strong>1e-3</strong>, the documented nDeriv ε) before the call.
-<strong>[confirmed]</strong></li>
+default tolerance exponent <code>0x7D</code> (= <code>1e-3</code>, the documented nDeriv ε) before the call.
+[confirmed]</li>
 <li>It then performs a paged call into page 0x33. The page-0x33 entry re-validates the token
 through the <code>33:504E</code> <code>bb_token_scanner</code> (<code>CP 0xBB</code>, then <code>CP 0x68 / 0xCF / 0xDB / 0xF6</code>
 to assign a small class index in <code>C</code> and <code>CALL 0x50AC</code>) and dispatches into the numeric
 bodies <code>nderiv_body</code> (<code>33:4C80</code>) / <code>fnint_body</code> (<code>33:4D00</code>). Because the call crosses
-pages through the bcall/app-call trampoline, <strong>no static xref to these bodies survives</strong>
+pages through the bcall/app-call trampoline, no static xref to these bodies survives
 in the Ghidra database — the mark of a generic paged call rather than an inline bjump.
-<strong>[confirmed path; trampoline hides the static edge]</strong></li>
+[confirmed path; trampoline hides the static edge]</li>
 </ol>
 <hr>
 <h2 id="5-routine-index-spaceaddr--name-confirmed-unless-noted"><a class="header" href="#5-routine-index-spaceaddr--name-confirmed-unless-noted">5. Routine index (<code>space:addr  name</code>) [confirmed unless noted]</a></h2>
@@ -475,7 +476,7 @@ in the Ghidra database — the mark of a generic paged call rather than an inlin
 </code></pre>
 <p>TVM / finance solver (page 0x3A):</p>
 <pre><code>3A:70A2  tvm_solve_iterate          (Newton on I%, 64-iter FPS-framed loop)
-3A:7F02  tvm_load_var_D35B          3A:7F0F  tvm_load_var_D55B   (finance var accessors)
+3A:7F02  tvm_load_var (iMathPtr1)   3A:7F0F  tvm_load_var (iMathPtr2)   (finance var accessors)
 3A:7206  -&gt;ITERATIONS(0x99)
 </code></pre>
 <p>Numeric calculus (page 0x33):</p>
@@ -512,28 +513,28 @@ ram:2793 _JError               07:6B81  error_name_table (indexed by code-0x88)
 Parser entries (page 0x38): <code>_ParseInp 5987</code>, <code>parse_eval_expr 5AB3</code>,
 <code>_Find_Parse_Formula 758A</code>.</p>
 <hr>
-<h2 id="6-resolved--residual"><a class="header" href="#6-resolved--residual">6. Resolved / residual</a></h2>
-<p>The four open questions from the prior pass are now resolved against the bytes:</p>
+<h2 id="6-findings"><a class="header" href="#6-findings">6. Findings</a></h2>
+<p>Summary of the four sub-results:</p>
 <ul>
-<li><strong>fnInt( quadrature rule — resolved (§3.2).</strong> Not Gauss–Kronrod. The body has <strong>no node or
-weight table</strong>; its sole FP constant is <code>ln(10)·100</code> at <code>33:4E92</code>, used (with bcall <code>_LnX</code>)
+<li><strong>fnInt( quadrature rule (§3.2).</strong> Not Gauss–Kronrod. The body has no node or
+weight table; its sole FP constant is <code>ln(10)·100</code> at <code>33:4E92</code>, used (with bcall <code>_LnX</code>)
 to convert digit-tolerance to a decimal error bound. With explicit ×0.5 interval bisection
-and a coarse-vs-fine estimate comparison, it is an <strong>adaptive Newton–Cotes / Simpson-class
-bisection</strong> integrator. <code>33:4D1B</code> is executable code (<code>LD A,0x60; _OP2SetA</code>).</li>
-<li><strong>TVM <code>_SinH</code> (id 0x40CF) — resolved (§2.3).</strong> The TVM rate loop calls <code>_SinH</code> at
+and a coarse-vs-fine estimate comparison, it is an adaptive Newton–Cotes / Simpson-class
+bisection integrator. <code>33:4D1B</code> is executable code (<code>LD A,0x60; CALL fp_set_digit</code>).</li>
+<li><strong>TVM <code>_SinH</code> (id 0x40CF) (§2.3).</strong> The TVM rate loop calls <code>_SinH</code> at
 <code>3A:710B</code> (<code>0x40C6/0x40CF/0x40ED</code> are three distinct hyperbolic bcalls); it evaluates the
 annuity / compound factor in hyperbolic form for numerical stability at small rates.</li>
-<li><strong>class-3 routing of <code>tFnInt</code>/<code>tNDeriv</code>/<code>tRoot</code> — resolved (§4.1).</strong> Path is
+<li><strong>class-3 routing of <code>tFnInt</code>/<code>tNDeriv</code>/<code>tRoot</code> (§4.1).</strong> Path is
 <code>BB-token → page-0x02 dispatcher (02:68F3/6904/58AD) → arg-parse + default-tol (02:6AF6, exp 0x7D = 1e-3) → paged call → page-0x33 bodies</code>, re-validated by <code>bb_token_scanner</code>
 (<code>33:504E</code>). The trampoline hides the static xref, confirming it is a generic paged call.</li>
-<li><strong>page-0 helper cluster — resolved (§5).</strong> Generic <strong>FPS slot save/restore</strong> (9-byte
+<li><strong>page-0 helper cluster (§5).</strong> Generic FPS slot save/restore (9-byte
 TIFloat slots at <code>-(9*slot)</code> from frame base <code>(9302)</code>) plus the active-frame swapper at
 <code>ram:2800</code>, renamed <code>fps_swap_active_frame</code>; the store/load stubs are
 <code>fp_st_slotN_opX</code> / <code>fp_ld_op1_slotN</code>.</li>
 </ul>
 <p>Residual (genuinely unverified, would need deeper paged tracing):</p>
 <ul>
-<li>The exact byte layout of the For/While/Repeat <strong>loop-control record</strong> pushed by the
+<li>The exact byte layout of the For/While/Repeat loop-control record pushed by the
 page-0x33 control-flow handlers (<code>33:4381</code> jump table) is not yet field-mapped; only the
 dispatch path is confirmed. (See <a href="sub-tibasic.html">sub-tibasic.md</a> §4.)</li>
 <li>bcall <code>0x462A</code> in the TVM body is unmapped (adjacent to <code>_AdrLEle</code>; likely a finance-sysvar
@@ -548,7 +549,7 @@ list/element accessor).</li>
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="sub-table-yvars.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="07-tokenizer-basic.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -562,7 +563,7 @@ list/element accessor).</li>
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="sub-table-yvars.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="07-tokenizer-basic.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-595cf107.js";
+            window.path_to_searchindex_js = "searchindex-d6e82383.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-c47a8e66.js"></script>
+        <script src="toc-87758224.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -184,16 +184,19 @@
 <p><strong>Deep dive:</strong> <a href="sub-link-transfer.html">Link / Data Transfer</a> — the silent-link packet protocol and variable send/receive.</p>
 </blockquote>
 <h2 id="keyboard"><a class="header" href="#keyboard">Keyboard</a></h2>
-<p>The keypad is a matrix read through <strong>port 1</strong> (<code>port_keypad</code>): write a group-select mask, read back the active columns. The <strong>interrupt</strong> triggers periodic scans; the result is debounced into <code>kbdScanCode</code> (<code>0x843F</code>).</p>
+<p>The keypad is a matrix read through <code>port 1</code> (<code>port_keypad</code>): write a group-select mask, read back the active columns. The interrupt triggers periodic scans; the result is debounced into <code>kbdScanCode</code> (<code>0x843F</code>).</p>
 <ul>
-<li><code>_GetCSC</code> (<code>00:04B2</code>) — “Get Cursor/Scan Code”: with interrupts masked, returns <code>kbdScanCode</code> and clears it (one key per call, no repeat). Raw scan codes (<code>skXxx</code>). <strong>[confirmed]</strong></li>
-<li><code>_GetKey</code> (<code>06:491E</code>) — the cooked key API: blocks, handles <strong>2nd/ALPHA</strong> modifier state, key repeat, and APD; returns a <code>TIKeyCode</code> (<code>kXxx</code>, 642 values). Also runs the cursor blink. Drives menus/homescreen. <strong>[confirmed entry; body large]</strong></li>
+<li><code>_GetCSC</code> (<code>00:04B2</code>) — “Get Cursor/Scan Code”: with interrupts masked, returns <code>kbdScanCode</code> and clears it (one key per call, no repeat). Raw scan codes (<code>skXxx</code>). [confirmed]</li>
+<li><code>_GetKey</code> (<code>06:491E</code>) — the cooked key API: blocks, handles <strong>2nd/ALPHA</strong> modifier state, key repeat, and APD; returns a <code>TIKeyCode</code> (<code>kXxx</code>; a single byte, ~255 distinct values exposed under many named aliases). Also runs the cursor blink. Drives menus/homescreen. [confirmed entry; body large]</li>
 <li><code>_KeyToString</code> (<code>01:6D10</code>) — map a key code to its display token/string (for text entry).</li>
 </ul>
 <p>Scan codes (<code>skEnter</code>, hardware matrix position) differ from key codes (<code>kEnter</code>=5, post-modifier). <code>_GetCSC</code> returns the former; <code>_GetKey</code> the latter.</p>
 <h3 id="matrix-scan--port-1-group-masks-confirmed-from-disassembly"><a class="header" href="#matrix-scan--port-1-group-masks-confirmed-from-disassembly">Matrix scan — port 1 group masks [confirmed from disassembly]</a></h3>
-<p>The low-level read primitive is <code>kbd_reset_port</code> (<code>ram:0480</code>): it writes a <strong>group-select mask</strong> to <strong>port 1</strong> (active-low — <code>0</code> bits select rows to drive), waits 4 <code>NOP</code>s for the lines to settle, reads the column bits back, then writes <code>0xFF</code> to release. (On 84+ hardware, <code>IN A,(0x02) bit7</code> + <code>IN A,(0x20)</code> gate the read against link/clock activity first.)</p>
-<pre><code class="language-z80">0480: IN A,(0x2) ; AND 0x80          ; 84+ present? (else fall straight through)
+<p>The low-level read primitive is <code>kbd_reset_port</code> (<code>ram:0480</code>): it writes a group-select mask to <code>port 1</code> (active-low — <code>0</code> bits select rows to drive), waits 4 <code>NOP</code>s for the lines to settle, reads the column bits back, then writes <code>0xFF</code> to release. (On 84+ hardware, <code>IN A,(0x02) bit7</code> + <code>IN A,(0x20)</code> gate the read against link/clock activity first.)</p>
+<pre><code class="language-z80">0480: PUSH AF                         ; save the group-select mask
+0481: IN A,(0x2) ; AND 0x80           ; 84+ present?
+0485: JR NZ,0x0497                    ; 84+: gate the read on link/clock first (IN A,(0x20))
+0487: POP AF                          ; restore the group-select mask
 0488: OUT (0x1),A                     ; A = group-select mask (active-low)
 048a: NOP×4                           ; let the matrix settle
 048e: IN A,(0x1) ; LD B,A             ; read columns (active-low: 0 = key down)
@@ -207,7 +210,7 @@
 <tr><th>port-1 mask (<code>C</code>)</th><th>group / key row driven</th></tr>
 </thead>
 <tbody>
-<tr><td><code>0xFE</code> (bit0 low)</td><td>group 0 — <strong>GRAPH / arrow keys</strong> (and the special <code>0xF5/0xF3/0xFA/0xFC</code> direction codes)</td></tr>
+<tr><td><code>0xFE</code> (bit0 low)</td><td>group 0 — <strong>arrow keys</strong> (<code>skDown</code>/<code>skLeft</code>/<code>skRight</code>/<code>skUp</code> = <code>0x01</code>–<code>0x04</code>; the special <code>0xF5/0xF3/0xFA/0xFC</code> direction codes). GRAPH lives in group 6 (<code>skGraph</code>=<code>0x31</code>).</td></tr>
 <tr><td><code>0xFD</code> (bit1 low)</td><td>group 1</td></tr>
 <tr><td><code>0xFB</code> (bit2 low)</td><td>group 2</td></tr>
 <tr><td><code>0xF7</code> (bit3 low)</td><td>group 3</td></tr>
@@ -220,9 +223,9 @@
 </tbody>
 </table>
 </div>
-<p><strong>Forming a raw scan code.</strong> For each driven group the routine reads the column byte, then finds the single low (pressed) column bit by an 8-iteration <code>RLA</code>/<code>DJNZ</code> loop (<code>0435</code>–<code>043C</code>) that counts the <strong>cleared</strong> (pressed, active-low) column bits into <code>E</code> (<code>RLA</code> → <code>JR C</code> skips <code>INC E</code> on a <code>1</code> bit, so only <code>0</code> bits are counted) and records the bit index in <code>L</code>. If exactly one key is down it builds the scan code as <strong><code>group × 8 + column_index</code></strong>, where <code>group</code> is the 0-based group from the table above. The code forms it at <code>0453: DEC A; RLA;RLA;RLA; ADD A,L</code>: the iteration counter in <code>A</code> is 1-based, so <code>DEC A</code> converts it to the 0-based <code>group</code>, the three <code>RLA</code>s multiply by 8, and <code>ADD A,L</code> adds the column index in <code>L</code>; it then returns the byte. multiple simultaneous keys set carry (<code>SCF</code> @ <code>0459</code>) so the press is rejected (debounce / ghost-key reject). The single resulting byte is the raw scan code that lands in <code>kbdScanCode</code> (<code>0x843F</code>), which <code>_GetCSC</code> (<code>00:04B2</code>) then reads-and-clears under <code>DI</code>. The scan-enable gate <code>BIT 0,(IY+0x2C)</code> @ <code>0415</code> lets the ISR/<code>_GetKey</code> path special-case the arrow group.</p>
+<p><strong>Forming a raw scan code.</strong> For each driven group the routine reads the column byte, then finds the single low (pressed) column bit by an 8-iteration <code>RLA</code>/<code>DJNZ</code> loop (<code>0435</code>–<code>043C</code>) that counts the cleared (pressed, active-low) column bits into <code>E</code> (<code>RLA</code> → <code>JR C</code> skips <code>INC E</code> on a <code>1</code> bit, so only <code>0</code> bits are counted) and records the 1-based column position (the loop counter <code>B</code>, which runs <code>8→1</code>) in <code>L</code>. If exactly one key is down it builds the scan code as <code>group × 8 + L</code> (<code>L</code> = <code>1…8</code>, the pressed column’s bit index plus one), where <code>group</code> is the 0-based group from the table above. The code forms it at <code>0453: DEC A; RLA;RLA;RLA; ADD A,L</code>: the iteration counter in <code>A</code> is 1-based, so <code>DEC A</code> converts it to the 0-based <code>group</code>, the three <code>RLA</code>s multiply by 8, and <code>ADD A,L</code> adds the 1-based column position in <code>L</code>; it then returns the byte. multiple simultaneous keys set carry (<code>SCF</code> @ <code>0459</code>) so the press is rejected (debounce / ghost-key reject). The single resulting byte is the raw scan code that lands in <code>kbdScanCode</code> (<code>0x843F</code>), which <code>_GetCSC</code> (<code>00:04B2</code>) then reads-and-clears under <code>DI</code>. The scan-enable gate <code>BIT 0,(IY+0x2C)</code> @ <code>0415</code> lets the ISR/<code>_GetKey</code> path special-case the arrow group.</p>
 <h3 id="2nd--alpha-modifier-state-machine-confirmed"><a class="header" href="#2nd--alpha-modifier-state-machine-confirmed">2nd / ALPHA modifier state machine [confirmed]</a></h3>
-<p>While cooking raw scan codes into the <code>kXxx</code> key constants, <code>_GetKey</code> (<code>06:491E</code>) runs a small modifier state machine in <strong><code>shiftFlags</code></strong> (<code>IY+0x12</code> = <code>0x8A02</code>, the <code>[2nd]</code>/<code>[ALPHA]</code> flag byte):</p>
+<p>While cooking raw scan codes into the <code>kXxx</code> key constants, <code>_GetKey</code> (<code>06:491E</code>) runs a small modifier state machine in <code>shiftFlags</code> (<code>IY+0x12</code> = <code>0x8A02</code>, the <code>[2nd]</code>/<code>[ALPHA]</code> flag byte):</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -232,7 +235,7 @@
 <tr><td>3</td><td><code>shift2nd</code></td><td><code>[2nd]</code> is pending — the next key is 2nd-shifted</td></tr>
 <tr><td>4</td><td><code>shiftAlpha</code></td><td>alpha mode active — the next key is a letter</td></tr>
 <tr><td>5</td><td><code>shiftLwrAlph</code></td><td>1 = lowercase, 0 = uppercase</td></tr>
-<tr><td>6</td><td><code>shiftALock</code></td><td>alpha <strong>lock</strong> — alpha survives across keys</td></tr>
+<tr><td>6</td><td><code>shiftALock</code></td><td>alpha lock — alpha survives across keys</td></tr>
 <tr><td>7</td><td><code>shiftKeepAlph</code></td><td>the alpha shift cannot be cancelled</td></tr>
 </tbody>
 </table>
@@ -242,13 +245,13 @@
 <ul>
 <li><strong><code>[2nd]</code> (<code>0x36</code>) from idle</strong> → <code>SET shift2nd</code> (<code>06:4AD5</code>); loop without returning a key, lighting the 2nd cursor (<code>IY+0x1F</code> bit 6).</li>
 <li><strong><code>[2nd]</code> again while pending</strong> → cancel (<code>06:4B8E</code> <code>CP 0x36</code>, clear the cursor, loop).</li>
-<li><strong>any other key while 2nd-pending</strong> → the 2nd handler clears the flag first (<code>06:4B87</code> <code>RES 3</code>) then returns the <strong>2nd-shifted</strong> code, so <code>[2nd]</code> is <strong>one-shot</strong>.</li>
+<li><strong>any other key while 2nd-pending</strong> → the 2nd handler clears the flag first (<code>06:4B87</code> <code>RES 3</code>) then returns the 2nd-shifted code, so <code>[2nd]</code> is one-shot.</li>
 <li><strong><code>[ALPHA]</code> (<code>0x30</code>) from idle</strong> → <code>SET shiftAlpha</code>, <code>RES shiftLwrAlph</code> (uppercase) (<code>06:4AE8</code>/<code>4AEC</code>); loop, lighting the alpha cursor (<code>IY+0x1F</code> bit 7).</li>
-<li><strong><code>[2nd]</code> then <code>[ALPHA]</code></strong> (alpha pressed while 2nd is pending) → the 2nd handler reaches <code>06:4B92</code> <code>CP 0x30</code> and sets <code>SET shiftALock</code> + <code>SET shiftAlpha</code> (<code>06:4B96</code>/<code>4B9A</code>): <strong>alpha LOCK</strong>.</li>
-<li><strong><code>[ALPHA]</code> while already in alpha</strong> (<code>06:4BFD</code>) → in a lowercase-capable context (<code>IY+0x24</code> bit 3) and still uppercase, <code>SET shiftLwrAlph</code> (<code>06:4C0D</code>) cycles <strong>upper → lower</strong>; otherwise it cancels alpha. Repeated <code>[ALPHA]</code> walks uppercase → lowercase → off.</li>
+<li><strong><code>[2nd]</code> then <code>[ALPHA]</code></strong> (alpha pressed while 2nd is pending) → the 2nd handler reaches <code>06:4B92</code> <code>CP 0x30</code> and sets <code>SET shiftALock</code> + <code>SET shiftAlpha</code> (<code>06:4B96</code>/<code>4B9A</code>): alpha LOCK.</li>
+<li><strong><code>[ALPHA]</code> while already in alpha</strong> (<code>06:4BFD</code>) → in a lowercase-capable context (<code>IY+0x24</code> bit 3) and still uppercase, <code>SET shiftLwrAlph</code> (<code>06:4C0D</code>) cycles upper → lower; otherwise it cancels alpha. Repeated <code>[ALPHA]</code> walks uppercase → lowercase → off.</li>
 <li><strong><code>[2nd]</code> while in alpha</strong> (<code>06:4C1D</code>) → <code>SET shift2nd</code> (<code>06:4C25</code>): a 2nd press stacks on top of alpha (alpha is retained).</li>
 </ul>
-<p><code>shift2nd</code> clears the moment a 2nd-combo key is consumed (<code>06:4B87</code>), and the IM1 timer ISR also clears it at <code>ram:01E0</code> (<code>RES 3,(IY+0x12)</code>), so a pending <code>[2nd]</code> does not linger. <code>_GetKey</code> sets <code>shiftAlpha</code> and (on 2nd+ALPHA) <code>shiftALock</code> but reads neither to clear alpha — within <code>_GetKey</code>, alpha stays set until a later <code>[ALPHA]</code> press cancels it. The one-shot-versus-lock choice is left to the consuming editor, which reads <code>shiftALock</code> (bit 6) to decide whether to drop <code>shiftAlpha</code> after a single character.</p>
+<p><code>shift2nd</code> clears the moment a 2nd-combo key is consumed (<code>06:4B87</code>), and the IM1 timer ISR also clears it at <code>ram:01E0</code> (<code>RES 3,(IY+0x12)</code>), so a pending <code>[2nd]</code> does not linger. <code>_GetKey</code> makes alpha one-shot itself: after an alpha-mode key is consumed it calls the page-0 helper <code>ram:04BF</code>, which clears <code>shiftAlpha</code> (<code>RES 4,(IY+0x12)</code>) unless <code>shiftALock</code> (bit 6) or <code>shiftKeepAlph</code> (bit 7) is set (<code>BIT 6 → RET NZ; BIT 7 → RET NZ; RES 4</code>). So a plain <code>[ALPHA]</code> shifts only the next key, while <code>[2nd]</code>+<code>[ALPHA]</code> — which sets <code>shiftALock</code> — keeps alpha across keys until a later <code>[ALPHA]</code> cancels it.</p>
 <pre class="mermaid">stateDiagram-v2
     [*] --&gt; Idle
     Idle --&gt; Second: 2nd, SET b3 @4AD5
@@ -256,45 +259,45 @@
     Second --&gt; Idle: any key, 2nd-shifted then RES b3 @4B87
     Second --&gt; AlphaLock: ALPHA, SET b6 @4B96 + b4 @4B9A
     Idle --&gt; Alpha: ALPHA, SET b4 + RES b5 @4AE8
-    Alpha --&gt; Alpha: letter, alpha code, b4 stays
+    Alpha --&gt; Idle: letter, alpha code, then RES b4 @04BF (one-shot)
     Alpha --&gt; AlphaLower: ALPHA, SET b5 @4C0D
     AlphaLower --&gt; Idle: ALPHA, cancel @4C13
     AlphaLock --&gt; AlphaLock: letter, alpha code, locked
     AlphaLock --&gt; Idle: ALPHA, cancel
     Alpha --&gt; AlphaSecond: 2nd, SET b3 @4C25
     AlphaLock --&gt; AlphaSecond: 2nd, SET b3 @4C25
-    AlphaSecond --&gt; Alpha: key, 2nd-shifted, RES b3 (b6 clear)
+    AlphaSecond --&gt; Idle: key, 2nd-shifted, RES b3, RES b4 @04BF (b6 clear)
     AlphaSecond --&gt; AlphaLock: key, 2nd-shifted, RES b3 (b6 set)
 </pre>
 
 <h3 id="key--token-translation-confirmed"><a class="header" href="#key--token-translation-confirmed">Key → token translation [confirmed]</a></h3>
-<p><code>_KeyToString</code> (<code>01:6D10</code>) turns a key code into a TI-BASIC <strong>token</strong> for the editor. It’s not a single flat table — it combines:</p>
+<p><code>_KeyToString</code> (<code>01:6D10</code>) turns a key code into a TI-BASIC token for the editor. It’s not a single flat table — it combines:</p>
 <ul>
 <li><strong>range arithmetic</strong>: contiguous key ranges map to token ranges by a fixed offset (e.g. key <code>0x1F</code>→<code>'P'</code>-based, <code>0x59</code>→<code>'a'</code> for lowercase) — letters/digits;</li>
-<li><strong>per-mode lookup tables</strong> on another page, reached via <code>cross_page_jump</code> (the 2nd/ALPHA-mode and function-key token tables);</li>
-<li>special key codes <code>0xFB/0xFC/0xFE/0xFF</code> are <strong>not</strong> tokens — they’re the <strong>menu / context-switch return codes</strong> the main event loop branches on (see <a href="11-boot-contexts-errors.html">11</a>), so <code>_KeyToString</code> routes them out via <code>cross_page_jump</code> rather than translating.</li>
+<li>per-mode lookup tables on another page, reached via <code>cross_page_jump</code> (the 2nd/ALPHA-mode and function-key token tables);</li>
+<li>special key codes <code>0xFB/0xFC/0xFE/0xFF</code> are not tokens — they’re the menu / context-switch return codes the main event loop branches on (see <a href="11-boot-contexts-errors.html">11</a>), so <code>_KeyToString</code> routes them out via <code>cross_page_jump</code> rather than translating.</li>
 </ul>
 <p>So the input path is: keypad → ISR → <code>kbdScanCode</code> → <code>_GetKey</code> (cooked <code>kXxx</code> + modifiers) → <code>_KeyToString</code> → token → parser (<a href="07-tokenizer-basic.html">07</a>).</p>
 <h2 id="link-port"><a class="header" href="#link-port">Link port</a></h2>
-<p>The 2.5 mm I/O link has two open-collector lines (tip/ring), driven via <strong>port 0</strong> (<code>port_link</code>), with an 84+ <strong>hardware link-assist / USB</strong> path via ports <code>0x08</code>-<code>0x0D</code>. See <a href="sub-usb-asic.html">USB ASIC and link assist</a> for the ASIC-facing port map and the <code>_LinkXferOP</code> USB-selection gate.</p>
-<p><code>_SendAByte</code> (<code>3C:420D</code>) shows both paths <strong>[confirmed]</strong>:</p>
+<p>The 2.5 mm I/O link has two open-collector lines (tip/ring), driven via <code>port 0</code> (<code>port_link</code>), with an 84+ hardware link-assist / USB path via ports <code>0x08</code>–<code>0x0D</code>. See <a href="sub-usb-asic.html">USB ASIC and link assist</a> for the ASIC-facing port map and the <code>_LinkXferOP</code> USB-selection gate.</p>
+<p><code>_SendAByte</code> (<code>3C:420D</code>) shows both paths [confirmed]:</p>
 <ul>
 <li><strong>Hardware-assisted</strong> (when enabled): poll status <code>port 0x09</code> bit 5 (ready), then write the byte to <code>port 0x0D</code>; helper routines on page 3C manage the assist FIFO/timing.</li>
-<li><strong>Legacy bit-bang</strong>: to send a bit, pull one line low (<code>port_link = 1</code> for a 0-bit, <code>2</code> for a 1-bit), wait for the receiver to mirror it, release, wait for idle — with a timeout that raises <code>E_LnkErr</code> (<code>0x9F</code>, “ERR:LINK”) via <code>_JErrorNo</code> on failure (matching <a href="sub-link-transfer.html">sub-link-transfer.md</a>). Repeats per bit of the byte.</li>
+<li><strong>Legacy bit-bang</strong>: to send a bit, pull one line low (write <code>1</code> to <code>port_link</code> for a 0-bit, <code>2</code> for a 1-bit), wait for the receiver to mirror it, release, wait for idle — with a timeout that raises <code>E_LnkErr</code> (<code>0x9F</code>, “ERR:LINK”) via <code>_JErrorNo</code> on failure (matching <a href="sub-link-transfer.html">sub-link-transfer.md</a>). Repeats per bit of the byte.</li>
 </ul>
-<p><code>_RecAByteIO</code> (<code>3C:443F</code>) is the matching receive. Higher-level link commands (<code>_CmdLoad</code>, variable transfer, plus screen-shot / remote-control commands) sit on top. (Note: the names <code>_CircCmd</code>/<code>_VertCmd</code> are documented in <a href="sub-graphing.html">sub-graphing.md</a> as the graphing draw commands <code>Circle(</code> (<code>33:74CE</code>) and <code>Vertical</code> (<code>04:7955</code>); the link-layer command routines referenced here are distinct and were not separately traced — treat this as a [hypothesis].)</p>
+<p><code>_RecAByteIO</code> (<code>3C:443F</code>) is the matching receive. Higher-level link commands (<code>_SendCmd</code> (bcall <code>4F3F</code>), variable transfer, plus screen-shot / remote-control commands) sit on top. (Note: the names <code>_CircCmd</code>/<code>_VertCmd</code> are documented in <a href="sub-graphing.html">sub-graphing.md</a> as the graphing draw commands <code>Circle(</code> (<code>33:74CE</code>) and <code>Vertical</code> (<code>04:7955</code>); the link-layer command routines referenced here are distinct and were not separately traced — treat this as a [hypothesis].)</p>
 <h3 id="variable-transfer-commandpacket-framing"><a class="header" href="#variable-transfer-commandpacket-framing">Variable-transfer command/packet framing</a></h3>
-<p>A TI link packet is a <strong>4-byte header</strong> (<code>machine-ID, command-ID, length-lo, length-hi</code>) optionally followed by <code>data[len]</code> and a <strong>16-bit LE checksum</strong>; commands include <code>0x06</code> VAR, <code>0x09</code> CTS, <code>0x15</code> DATA, <code>0x56</code> ACK, <code>0x5A</code> NAK, <code>0x92</code> EOT. The full framing, the silent-link send/receive engine (<code>_LinkXferOP</code>, <code>_SendVarCmd</code>), checksum/ACK handling, and the 16-byte Flash-batched receive path are all reverse-engineered in <strong><a href="sub-link-transfer.html">sub-link-transfer.md</a></strong> — see §3 (framing) and §5 (variable send). <strong>[confirmed]</strong></p>
+<p>A TI link packet is a 4-byte header (<code>machine-ID, command-ID, length-lo, length-hi</code>) optionally followed by <code>data[len]</code> and a 16-bit LE checksum; commands include <code>0x06</code> VAR, <code>0x09</code> CTS, <code>0x15</code> DATA, <code>0x56</code> ACK, <code>0x5A</code> NAK, <code>0x92</code> EOT. The full framing, the silent-link send/receive engine (<code>_LinkXferOP</code>, <code>_SendVarCmd</code>), checksum/ACK handling, and the 16-byte Flash-batched receive path are all reverse-engineered in <a href="sub-link-transfer.html">sub-link-transfer.md</a> — see §3 (framing) and §5 (variable send). [confirmed]</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="08-display-lcd.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sub-equation-display.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="sub-calculation.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="sub-link-transfer.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -304,11 +307,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="08-display-lcd.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sub-equation-display.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="sub-calculation.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="sub-link-transfer.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-595cf107.js";
+            window.path_to_searchindex_js = "searchindex-d6e82383.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-c47a8e66.js"></script>
+        <script src="toc-87758224.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -185,9 +185,9 @@
 or run a <strong>DRAW</strong> menu command. This traces the path real-coordinate → screen pixel →
 <code>plotSScreen</code> → LCD, plus the window variables, Y= equation storage, and DRAW primitives.</p>
 <p>Address form is <code>page:addr</code> (flash page hex : logical offset, routines run mapped at
-<code>0x4000</code>). Confidence: <strong>[confirmed]</strong> = read the code/data directly; <strong>[strong]</strong> = code
-plus cross-checked equate/convention; <strong>[standard]</strong> = matches documented TI behavior but
-not byte-verified here.</p>
+<code>0x4000</code>). Confidence: [confirmed] = read the code/data directly, or cross-checked
+against equate/convention; [standard] = matches documented TI behavior but not
+byte-verified here; [hypothesis] = inferred, not yet verified.</p>
 <hr>
 <h2 id="1-window-variables-ram-confirmed-addresses-from-ti83plusinc--code-refs"><a class="header" href="#1-window-variables-ram-confirmed-addresses-from-ti83plusinc--code-refs">1. Window variables (RAM) [confirmed addresses, from ti83plus.inc + code refs]</a></h2>
 <p>All graph window state lives in a contiguous block of 9-byte <code>TIFloat</code>s starting at <code>0x8F50</code>.
@@ -205,10 +205,10 @@ These are the values the WINDOW editor writes and the grapher reads.</p>
 <tr><td><code>0x8F74</code></td><td><code>Ymax</code></td><td>top edge real Y</td></tr>
 <tr><td><code>0x8F7D</code></td><td><code>Yscl</code></td><td>Y tick spacing</td></tr>
 <tr><td><code>0x8F86</code></td><td><code>ThetaMin</code> / <code>0x8F8F</code> <code>ThetaMax</code> / <code>0x8F98</code> <code>ThetaStep</code></td><td>polar/parametric range</td></tr>
-<tr><td><code>0x900D</code></td><td><code>XresO</code></td><td>Xres (pixel step between plotted columns), used by <code>_XftoI</code></td></tr>
+<tr><td><code>0x900D</code></td><td><code>XresO</code></td><td>Xres (pixel step between plotted columns)</td></tr>
 <tr><td><code>0x9151</code></td><td><code>Xres_int</code></td><td>integer copy of Xres</td></tr>
-<tr><td><code>0x9152</code></td><td><code>deltaX</code></td><td><strong>(Xmax−Xmin)/94</strong> — real width of one pixel column</td></tr>
-<tr><td><code>0x915B</code></td><td><code>deltaY</code></td><td><strong>(Ymax−Ymin)/62</strong> — real height of one pixel row</td></tr>
+<tr><td><code>0x9152</code></td><td><code>deltaX</code></td><td><code>(Xmax−Xmin)/94</code> — real width of one pixel column</td></tr>
+<tr><td><code>0x915B</code></td><td><code>deltaY</code></td><td><code>(Ymax−Ymin)/62</code> — real height of one pixel row</td></tr>
 <tr><td><code>0x9164</code></td><td><code>shortX</code></td><td>scratch/divisor float for the X transform (per-pixel ΔX)</td></tr>
 <tr><td><code>0x916D</code></td><td><code>shortY</code></td><td>scratch/divisor float for the Y transform (per-pixel ΔY)</td></tr>
 <tr><td><code>0x913F</code></td><td><code>XFact</code> / <code>0x9148</code> <code>YFact</code></td><td>ZOOM IN/OUT factors</td></tr>
@@ -216,15 +216,15 @@ These are the values the WINDOW editor writes and the grapher reads.</p>
 </table>
 </div>
 <p>There is a second “u” copy block at <code>0x8E7E</code> (<code>uXmin</code>…<code>uXres</code> at <code>0x8F3B</code>) — the
-<strong>uVar</strong> window set used in the alternate (split/table) graph context, and a working/temp
-float pair around <code>0x8E6A</code>/<code>0x8E73</code> used by the transform code (<code>UNK_ram_8e6a</code>). [strong]</p>
+uVar window set used in the alternate (split/table) graph context, and a working/temp
+float pair around <code>0x8E6A</code>/<code>0x8E73</code> used by the transform code. [confirmed]</p>
 <p><code>deltaX</code>/<code>deltaY</code> are derived from the window when the graph is set up and feed both the
-forward (real→pixel) and the circle/draw routines. The LCD is <strong>96×64</strong>, but the graph area
+forward (real→pixel) and the circle/draw routines. The LCD is <code>96×64</code>, but the graph area
 is 95 columns wide (0..94) and 63 tall (0..62), hence the /94 and /62. [standard]</p>
 <hr>
 <h2 id="2-coordinate--pixel-transforms"><a class="header" href="#2-coordinate--pixel-transforms">2. Coordinate ↔ pixel transforms</a></h2>
 <h3 id="forward-real-coordinate--pixel-index"><a class="header" href="#forward-real-coordinate--pixel-index">Forward: real coordinate → pixel index</a></h3>
-<p><strong><code>_XftoI</code></strong> (<code>37:41EB</code>) and <strong><code>_YftoI</code></strong> (<code>37:41DF</code>) convert an OP1 real coordinate to a
+<p><code>_XftoI</code> (<code>37:41EB</code>) and <code>_YftoI</code> (<code>37:41DF</code>) convert an OP1 real coordinate to a
 pixel index. Both are thin shims around the shared engine at <code>37:41F2</code>: [confirmed]</p>
 <pre><code>_XftoI (37:41EB):  BC = 0x8E6A (X working float),  HL = shortX (0x9164),  SCF  → 41F2
 _YftoI (37:41DF):  BC = Ymin   (0x8F6B),            HL = shortY (0x916D),  OR A → 41F2; INC A
@@ -232,8 +232,8 @@ _YftoI (37:41DF):  BC = Ymin   (0x8F6B),            HL = shortY (0x916D),  OR A 
 <p>Shared engine <code>37:41F2</code> computes $\mathrm{pixel}=\dfrac{\mathrm{value}-\mathrm{min}}{\mathrm{pixelDelta}}$:</p>
 <ul>
 <li><code>RST 20h</code> pushes/loads OP1 (the input value),</li>
-<li><code>CALL 228F</code> moves the <code>min</code> operand in and <strong>subtracts</strong> it (<code>value − min</code>),</li>
-<li><code>CALL 2385</code> <strong>divides</strong> by the per-pixel delta (<code>shortX</code>/<code>shortY</code>),</li>
+<li><code>CALL 228F</code> moves the <code>min</code> operand in and subtracts it (<code>value − min</code>),</li>
+<li><code>CALL 2385</code> divides by the per-pixel delta (<code>shortX</code>/<code>shortY</code>),</li>
 <li>the X path additionally adds the <code>0x8E73</code> X-origin term, the Y path negates so that
 larger Y maps to a <em>smaller</em> row (screen Y grows downward),</li>
 <li><code>CALL 4229</code> clamps/handles the float→integer exponent (reads <code>OP1.exp</code> at <code>0x8479</code>,
@@ -244,7 +244,7 @@ bias <code>0x7F</code>) and rounds to an integer pixel; out-of-range loads ±lar
 subtract-then-divide float ops against the window. This is the heart of plotting and TRACE
 coordinate readout.</p>
 <h3 id="inverse-pixel-index--real-coordinate"><a class="header" href="#inverse-pixel-index--real-coordinate">Inverse: pixel index → real coordinate</a></h3>
-<p><strong><code>_SetXXOP1</code></strong> (<code>33:5F7E</code>) and <strong><code>_SetXXOP2</code></strong> (<code>33:5F83</code>) take an integer pixel value in A
+<p><code>_SetXXOP1</code> (<code>33:5F7E</code>) and <code>_SetXXOP2</code> (<code>33:5F83</code>) take an integer pixel value in A
 and build a real <code>TIFloat</code> in OP1 / OP2 (<code>0x8478</code> / <code>0x8483</code>). [confirmed]</p>
 <ul>
 <li><code>CALL 1BA7</code> zeroes the destination mantissa,</li>
@@ -258,51 +258,53 @@ X/Y shown at the bottom of the screen, and by DRAW commands that take pixel argu
 <hr>
 <h2 id="3-the-graph-buffer-plotsscreen-and-pixel-addressing"><a class="header" href="#3-the-graph-buffer-plotsscreen-and-pixel-addressing">3. The graph buffer <code>plotSScreen</code> and pixel addressing</a></h2>
 <ul>
-<li><strong><code>plotSScreen</code></strong> = <code>0x9340</code>, 768 bytes = 96×64/8. Monochrome, 1 bit/pixel, 12 bytes per
+<li><code>plotSScreen</code> = <code>0x9340</code>, 768 bytes = 96×64/8. Monochrome, 1 bit/pixel, 12 bytes per
 scanline (8 pixels per byte). This is the back buffer everything draws into. [confirmed]</li>
-<li><strong><code>saveSScreen</code></strong> = <code>0x86EC</code>, 768 bytes — a saved copy (e.g. for redrawing the graph after
+<li><code>saveSScreen</code> = <code>0x86EC</code>, 768 bytes — a saved copy (e.g. for redrawing the graph after
 a menu covers it). [confirmed]</li>
 </ul>
-<p><strong><code>_GrBufClr</code></strong> (<code>04:6071</code>): clears the whole 0x300-byte buffer to 0 (a
+<p><code>_GrBufClr</code> (<code>04:6071</code>): clears the whole 0x300-byte buffer to 0 (a
 <code>LD (HL),0</code> + 0x2FF-byte propagate copy). [confirmed]</p>
-<p><strong><code>_IOffset</code></strong> (<code>04:42B5</code>) computes the LCD controller address bytes for a pixel:</p>
-<pre><code>curY    = (y &gt;&gt; 3) | 0x20      ; LCD "set Z/row page" command (8-px rows)
-curXRow = (0x3F - x) | 0x80    ; LCD "set column" command, X mirrored
-returns (table_42E4)[y &amp; 7]    ; the 1-of-8 bit mask within the byte
+<p><code>_IOffset</code> (<code>04:42B5</code>) computes the LCD controller address bytes for a pixel (inputs <code>B</code>=x, <code>C</code>=y):</p>
+<pre><code>(0x844F) = (x &gt;&gt; 3) | 0x20     ; LCD "set row page" command — the rotated TI panel pages by X
+(0x8451) = (0x3F - y) | 0x80   ; LCD "set column" command (Y, mirrored)
+returns (table_42E4)[x &amp; 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
 </code></pre>
 <p>This is the bridge from a <code>(x,y)</code> pixel to a byte+bit in the buffer and the matching LCD
 command bytes. [confirmed]</p>
-<p><strong><code>_IPoint</code></strong> (<code>04:4157</code>): set/clear/test one pixel in <code>plotSScreen</code>. Honors the current
-<strong>pen mode</strong> / plot style: reads style at <code>(IY+0x14)</code> and a style selector at <code>0x9775</code>
+<p><code>_IPoint</code> (<code>04:4157</code>): set/clear/test one pixel in <code>plotSScreen</code>. Honors the current
+pen mode / plot style: reads style at <code>(IY+0x14)</code> and a style selector at <code>0x9775</code>
 (<code>0x9775</code> = 1 selects the “thick/line connect” branch that draws an extra adjacent
 pixel; 1..3 select dotted/animated styles), clips against the X-offset (<code>XOffset</code>) and the
-buffer bounds (<code>_IBounds</code>), then OR/AND/XORs the mask from <code>_IOffset</code>. <strong><code>_PointOn</code></strong>
+buffer bounds (<code>_IBounds</code>), then OR/AND/XORs the mask from <code>_IOffset</code>. <code>_PointOn</code>
 (<code>04:4155</code>) is the plain set-pixel entry. [confirmed]</p>
-<p><strong><code>_PixelTest</code></strong> (<code>04:79E7</code>): the <code>pxl-Test(</code> command — validates row&lt;64/col&lt;96
-(<code>pixWide_m_1</code>), maps split-screen offset, and returns whether that buffer pixel is on.
-<code>_ErrDomain</code> on out-of-range. [confirmed]</p>
+<p><code>_PixelTest</code> (<code>04:79E7</code>): the <code>pxl-Test(</code> command — validates the row/col against the
+current graph dimensions <code>lcdTallP</code> (<code>0x8DA3</code>) and <code>pixWide_m_1</code> (<code>0x8DA5</code>) — 63 and 95 on a
+full screen, smaller when split — maps the split-screen offset, and returns whether that buffer
+pixel is on. <code>_ErrDomain</code> on out-of-range. [confirmed]</p>
 <hr>
 <h2 id="4-drawing-primitives-page-0x04--0x33"><a class="header" href="#4-drawing-primitives-page-0x04--0x33">4. Drawing primitives (page 0x04 / 0x33)</a></h2>
 <h3 id="lines"><a class="header" href="#lines">Lines</a></h3>
-<p><strong><code>_ILine</code></strong> (<code>04:4029</code>) — integer pixel line via <strong>Bresenham</strong>. [confirmed]
+<p><code>_ILine</code> (<code>04:4029</code>) — integer pixel line via Bresenham. [confirmed]
 It computes <code>dx=|x2−x1|</code>, <code>dy=|y2−y1|</code>, picks the major axis, sets the error term
 <code>(dy−dx)*2</code>/<code>dy*2</code>, then loops <code>_IPoint</code> for each step, advancing the minor axis when the
 error crosses zero. <code>graph_chk_flag20</code> (<code>04:4316</code>) is the step-along-major-axis helper. The endpoint and
-draw-mode (set/clear/xor) are passed in. <strong><code>_DarkLine</code></strong> (<code>04:4025</code>) is <code>_ILine</code> with
+draw-mode (set/clear/xor) are passed in. <code>_DarkLine</code> (<code>04:4025</code>) is <code>_ILine</code> with
 the “draw/dark” mode forced. [confirmed]</p>
-<p><strong><code>_CLine</code>/<code>_CLineS</code></strong> (<code>33:6028</code>/<code>33:6034</code>) and <strong><code>_UCLineS</code></strong> (<code>33:6010</code>) — <strong>coordinate</strong>
+<p><code>_CLine</code>/<code>_CLineS</code> (<code>33:6028</code>/<code>33:6034</code>) and <code>_UCLineS</code> (<code>33:6010</code>) — coordinate
 line: take real-coordinate endpoints, run them through the X/Y transforms (the SetXX/ftoI
 path), then call the integer line. The <code>S</code> variants take an explicit style/mode byte; the
-mode bit comes from <code>(IY+0x35) &amp; 0x80</code> (split-screen flag). These back the <code>Line(</code>
-DRAW command at the math layer. [strong]</p>
+mode bit comes from <code>(IY+0x35) &amp; 0x80</code> (<code>hookflags3</code> bit 7, the drawing-hook-active flag —
+not a split-screen flag). These back the <code>Line(</code>
+DRAW command at the math layer. [confirmed]</p>
 <h3 id="circle"><a class="header" href="#circle">Circle</a></h3>
-<p><strong><code>_GrphCirc</code></strong> (<code>33:758D</code>) — draws a circle in real coordinates. [confirmed]
+<p><code>_GrphCirc</code> (<code>33:758D</code>) — draws a circle in real coordinates. [confirmed]
 Allocates a 0x5A-byte FPS scratch frame (<code>EQS</code>), snapshots the working float and the window
 (<code>Xmin</code>, <code>Ymin</code>, <code>deltaX</code>), zeroes accumulators, seeds the X/Y center and the radius-stepped
 parametric state, then iterates plotting points via the integer line/point primitives
 (cross-page into the page-3B <code>_DrawCirc2</code> plotter at <code>3B:7171</code>). It accounts for the X/Y
-pixel-aspect via <code>deltaX</code>/<code>deltaY</code> so a <code>Circle(</code> looks round only after a ZSquare. [strong]
-<strong><code>_CircCmd</code></strong> (<code>33:74CE</code>) is the parser-facing <code>Circle(</code> command wrapper (cross-page jump
+pixel-aspect via <code>deltaX</code>/<code>deltaY</code> so a <code>Circle(</code> looks round only after a ZSquare. [confirmed]
+<code>_CircCmd</code> (<code>33:74CE</code>) is the parser-facing <code>Circle(</code> command wrapper (cross-page jump
 into the argument grabber). [confirmed]</p>
 <h3 id="draw-menu-commands-page-0x04-handlers"><a class="header" href="#draw-menu-commands-page-0x04-handlers">DRAW menu commands (page 0x04 handlers)</a></h3>
 <p>Each DRAW menu command has a page-04 bcall handler that draws into <code>plotSScreen</code>:</p>
@@ -314,7 +316,7 @@ into the argument grabber). [confirmed]</p>
 <tbody>
 <tr><td><code>_HorizCmd</code></td><td><code>04:793E</code></td><td><code>Horizontal y</code> — draws a full-width horizontal line at real Y. See note below.</td></tr>
 <tr><td><code>_VertCmd</code></td><td><code>04:7955</code></td><td><code>Vertical x</code> — draws a full-height vertical line at real X. See note below.</td></tr>
-<tr><td><code>_LineCmd</code></td><td><code>04:796A</code></td><td><code>Line(x1,y1,x2,y2)</code> — <code>_PDspGrph</code> then draws; checks pen, allocs 0x24-byte FPS for the 4 coords.</td></tr>
+<tr><td><code>_LineCmd</code></td><td><code>04:796A</code></td><td><code>Line(x1,y1,x2,y2)</code> — <code>_PDspGrph</code>, optionally draws via page 33, then <code>JP 0x152A</code> = <code>_DeallocFPS1(0x24)</code> frees the coord frame (the alloc happens upstream).</td></tr>
 <tr><td><code>_UnLineCmd</code></td><td><code>04:797C</code></td><td><code>Line(…,0)</code> — erase variant (same path, clear mode).</td></tr>
 <tr><td><code>_PointCmd</code></td><td><code>04:79B2</code></td><td><code>Pt-On/Pt-Off/Pt-Change(</code> — reads style from <code>OP1.mantissa[0] &amp; 0x20</code>, dispatches set/clear/toggle.</td></tr>
 <tr><td><code>_DrawCmd</code></td><td><code>04:7B8B</code></td><td>top-level <code>DRAW</code> dispatch — grabs the pending count and cross-jumps to the per-command handler.</td></tr>
@@ -322,48 +324,49 @@ into the argument grabber). [confirmed]</p>
 </tbody>
 </table>
 </div>
-<p>Note: <code>_HorizCmd</code>/<code>_VertCmd</code> both <code>CALL 7933</code> first, which allocs a 0x24-byte FPS frame and
-saves the live window block (<code>1537</code>/<code>SBC HL,DE</code> pointer math). <code>_HorizCmd</code> then writes the
-line’s Y coordinate into <strong>both <code>Xmin</code> (0x8F50) and <code>Xmax</code> (0x8F59)</strong> via <code>1A92</code>/<code>1B0C</code>
-(FPS load + store-to-window), and <code>_VertCmd</code> writes its X into <strong><code>Ymax</code> (0x8F74) and <code>Ymin</code>
-(0x8F6B)</strong> — i.e. they momentarily collapse the <em>other</em> axis so the transform produces a
-line spanning the full screen, render with <code>_PDspGrph</code>, then <code>_DeallocFPS1(0x24)</code> restores
-the real window. [confirmed]</p>
+<p>Note: <code>_HorizCmd</code>/<code>_VertCmd</code> both <code>CALL 7933</code> first, which allocates a 0x24-byte FPS frame
+(<code>LD HL,0x24 / CALL 1537 / SBC HL,DE</code>) and returns a pointer to it. <code>_HorizCmd</code> then builds the
+line’s two endpoints in that frame: it copies <code>Xmin</code> (<code>0x8F50</code>) and <code>Xmax</code> (<code>0x8F59</code>) — the window’s
+X range — with <code>_Mov9B</code> (<code>00:1A92</code>, which reads a window float into the frame), interleaving the
+line’s Y (<code>OP1</code>) via <code>_MovFrOP1</code> (<code>00:1B0C</code>), so the endpoints are <code>(Xmin, y)</code> and <code>(Xmax, y)</code>.
+<code>_VertCmd</code> does the same with <code>Ymin</code> (<code>0x8F6B</code>)/<code>Ymax</code> (<code>0x8F74</code>) and the line’s X. It renders with
+<code>_PDspGrph</code>, then <code>_DeallocFPS1(0x24)</code> frees the frame — the window variables are read only,
+so the line just spans the current window edges. [confirmed]</p>
 <hr>
 <h2 id="5-rendering-the-graph-to-the-lcd"><a class="header" href="#5-rendering-the-graph-to-the-lcd">5. Rendering the graph to the LCD</a></h2>
-<p><strong><code>_PDspGrph</code></strong> (<code>04:7904</code>, “possibly-display graph”) is the gatekeeper between buffer and
+<p><code>_PDspGrph</code> (<code>04:7904</code>, “possibly-display graph”) is the gatekeeper between buffer and
 screen. [confirmed]</p>
 <ul>
 <li>Clears the “need redraw” flag at <code>(IY+2)</code>,</li>
-<li>if the <strong>regraph-pending</strong> bit <code>(IY+3)&amp;1</code> is set (<code>grfDBFlags</code>/SmartGraph dirty), calls
-<strong><code>_Regraph</code></strong> to recompute the whole plot,</li>
+<li>if the graph-dirty bit <code>(IY+3)&amp;1</code> is set (<code>graphFlags.graphDraw</code>, inc <code>graphFlags=3</code>/<code>graphDraw=0</code>; <code>1</code>=redraw needed — this is the <code>graphFlags</code> bit at <code>IY+3</code>, distinct from <code>grfDBFlags</code> at <code>IY+4</code> and SmartGraph at <code>IY+0x17</code>), calls
+<code>_Regraph</code> to recompute the whole plot,</li>
 <li>otherwise checks the split-screen flag (<code>_Bit_VertSplit</code>) and copies the buffer to the LCD
 (<code>graph_redraw_buf</code> <code>04:607F</code>).</li>
 </ul>
-<p><strong><code>_GrBufCpy</code></strong> (<code>04:60A3</code>) blits <code>plotSScreen</code> to the LCD: handles split-screen
+<p><code>_GrBufCpy</code> (<code>04:60A3</code>) blits <code>plotSScreen</code> to the LCD: handles split-screen
 (<code>_CheckSplitFlag</code>, <code>_Bit_VertSplit</code>), draws the split divider line (<code>_DarkLine</code>/<code>_ILine</code> at
 column region 0x2F), sets normal display vals, and walks the rows. [confirmed]</p>
-<p><strong><code>_RestoreDisp</code></strong> (<code>04:6176</code>) is the actual row-blit loop: for each of the up-to-64 rows it
-issues the column/row LCD commands then streams pixel bytes to <strong><code>port_lcdData</code> (0x11)</strong>
+<p><code>_RestoreDisp</code> (<code>04:6176</code>) is the actual row-blit loop: for each of the up-to-64 rows it
+issues the column/row LCD commands then streams pixel bytes to <code>port_lcdData</code> (0x11)
 through <code>lcd_wait</code>, and pokes <code>port_lcdCmd</code> (0x10). This is where the buffer physically
 reaches the panel. [confirmed]</p>
-<p><strong><code>_Regraph</code></strong> (<code>04:6764</code>) re-evaluates and re-plots every selected Y= equation from scratch
+<p><code>_Regraph</code> (<code>04:6764</code>) re-evaluates and re-plots every selected Y= equation from scratch
 (cross-page jump into the plot driver). This is what runs when you change a window var or
 turn SmartGraph off; SmartGraph (<code>grfModeFlags</code> bit <code>smartGraph</code>) lets the OS skip the
-re-plot and <code>_GrBufCpy</code> the existing buffer when nothing changed. [strong]</p>
+re-plot and <code>_GrBufCpy</code> the existing buffer when nothing changed. [confirmed]</p>
 <hr>
 <h2 id="6-y-equations-storage-and-evaluation"><a class="header" href="#6-y-equations-storage-and-evaluation">6. Y= equations: storage and evaluation</a></h2>
 <h3 id="storage-confirmed"><a class="header" href="#storage-confirmed">Storage [confirmed]</a></h3>
-<p>Y= functions are ordinary <strong>equation variables</strong> (<code>EquObj</code>), stored in the VAT as tokenized
+<p>Y= functions are ordinary equation variables (<code>EquObj</code>), stored in the VAT as tokenized
 byte streams — the same token encoding the homescreen uses. <code>Y1</code>…<code>Y0</code> (and <code>r1</code>…, <code>X1T/Y1T</code>,
 <code>u/v/w</code>) are <em>system</em> equation vars. Each holds the tokens you typed after <code>Y1=</code>. The
-equation’s <strong>flags byte</strong> is <code>0x23</code> when <strong>selected</strong> (plotted) and <code>0x03</code> when deselected, so
-the selection bit is <strong>bit 5 (<code>0x20</code>)</strong>. The per-equation <strong>style byte</strong> holds the line style:
+equation’s flags byte is <code>0x23</code> when selected (plotted) and <code>0x03</code> when deselected, so
+the selection bit is bit 5 (<code>0x20</code>). The per-equation style byte holds the line style:
 <code>0</code>=line, <code>1</code>=thick, <code>2</code>=shade above, <code>3</code>=shade below, <code>4</code>=trace/path, <code>5</code>=animate, <code>6</code>=dotted
 (<code>curGStyle</code> <code>0x8D17</code> is the current-equation copy). [confirmed — selection/style byte values
 match the <a href="https://merthsoft.com/linkguide/ti83+/vars.html#style">TI link-protocol guide</a>]</p>
 <h3 id="parsing--pre-scan"><a class="header" href="#parsing--pre-scan">Parsing / pre-scan</a></h3>
-<p><strong><code>_GraphParseTok</code></strong> (<code>33:5023</code>) walks an equation’s token stream to classify it before
+<p><code>_GraphParseTok</code> (<code>33:5023</code>) walks an equation’s token stream to classify it before
 plotting: it reads tokens via the paged-pointer reader (<code>_SetupPagedPtr</code>/<code>_PagedGet</code>),
 recognizes 2-byte tokens (<code>_IsA2ByteTok</code>), and sets feature bits (e.g. token <code>0xEF…</code>
 ranges → returns a category in A) used to decide draw mode and whether the equation is
@@ -373,62 +376,62 @@ graphable. [confirmed]</p>
 <ol>
 <li>compute the real <code>X</code> for the column from <code>Xmin + col*deltaX</code> (the inverse of <code>_XftoI</code>),</li>
 <li>store it into the <code>X</code> system variable,</li>
-<li><strong><code>_ParseInp</code></strong> (<code>38:5987</code>) parses+evaluates the selected equation’s tokens against the
+<li><code>_ParseInp</code> (<code>38:5987</code>) parses+evaluates the selected equation’s tokens against the
 current <code>X</code> (it resets the parser state, clears a status bit at <code>(IY+0x1F)</code>, and runs
 the formula evaluator <code>_ChkFindSym</code>/<code>Find_Parse_Formula</code>), leaving the result <code>Y</code> in OP1,</li>
-<li><strong><code>_YftoI</code></strong> maps that <code>Y</code> to a pixel row,</li>
-<li><strong><code>_ILine</code></strong> connects this point to the previous column’s point (or <code>_IPoint</code> for dotted
+<li><code>_YftoI</code> maps that <code>Y</code> to a pixel row,</li>
+<li><code>_ILine</code> connects this point to the previous column’s point (or <code>_IPoint</code> for dotted
 style), drawing into <code>plotSScreen</code>.
 <code>Xres</code> (<code>XresO</code>/<code>Xres_int</code>) controls the column step: Xres=1 evaluates every pixel column,
-higher Xres skips columns (faster, coarser). [strong]</li>
+higher Xres skips columns (faster, coarser). [confirmed]</li>
 </ol>
 <h3 id="graph-databases-gdb-confirmed"><a class="header" href="#graph-databases-gdb-confirmed">Graph databases (GDB) [confirmed]</a></h3>
-<p><strong><code>_StoGDB2</code></strong> (<code>33:71AC</code>) / <strong><code>_RclGDB2</code></strong> (<code>33:72D9</code>) store/recall a <strong>GraphDataBase</strong>
+<p><code>_StoGDB2</code> (<code>33:71AC</code>) / <code>_RclGDB2</code> (<code>33:72D9</code>) store/recall a GraphDataBase
 (<code>GDBObj</code>, type/exp marker <code>0x61</code>) — the bundle of window vars + mode + selected equations
 that the <code>StoreGDB</code>/<code>RecallGDB</code> commands save. <code>_JError(0x89)</code> on a type mismatch.</p>
 <h3 id="graph-table-confirmed"><a class="header" href="#graph-table-confirmed">Graph table [confirmed]</a></h3>
-<p><strong><code>_GraphTblFind</code></strong> (<code>33:7097</code>) / <strong><code>_GraphTblNext</code></strong> (<code>33:707A</code>) index the in-RAM table of
+<p><code>_GraphTblFind</code> (<code>33:7097</code>) / <code>_GraphTblNext</code> (<code>33:707A</code>) index the in-RAM table of
 equation pointers (<code>iMathPtr4</code>-based, 2 bytes/entry) used to iterate the selected functions
 during a regraph or TABLE build.</p>
 <hr>
 <h2 id="7-graph-screen-vs-home-screen-trace"><a class="header" href="#7-graph-screen-vs-home-screen-trace">7. Graph screen vs. home screen; TRACE</a></h2>
 <ul>
-<li>The <strong>home screen</strong> uses the large font and <code>curRow</code>/<code>curCol</code> text cursor (see
-<a href="08-display-lcd.html">08-display-lcd.md</a>). The <strong>graph screen</strong> is the pixel buffer <code>plotSScreen</code> rendered by
+<li>The home screen uses the large font and <code>curRow</code>/<code>curCol</code> text cursor (see
+<a href="08-display-lcd.html">08-display-lcd.md</a>). The graph screen is the pixel buffer <code>plotSScreen</code> rendered by
 the routines above; small-font labels (coords, TRACE readout) go through
 <code>_VPutMap</code>/<code>penCol</code>(0x86D7)/<code>penRow</code>(0x86D8). [confirmed addresses]</li>
 <li><strong>TRACE</strong> moves a cursor along a selected function: it steps the column, evaluates the
 function (<code>_ParseInp</code>) for that X, maps the point with <code>_XftoI</code>/<code>_YftoI</code>, draws the
 cross-cursor, and uses <code>_SetXXOP1</code>/<code>_SetXXOP2</code> to convert the cursor pixel back to the real
-X/Y it prints at the bottom. [strong]</li>
+X/Y it prints at the bottom. [confirmed]</li>
 <li>A <code>DRAW</code> command (<code>_DrawCmd</code>) or <code>Line(</code>/<code>Circle(</code>/<code>Pt-On(</code> draws straight into
-<code>plotSScreen</code> over the current plot and is <em>not</em> re-evaluated on SmartGraph redraw unless
-<code>ClrDraw</code> is issued. [strong]</li>
+<code>plotSScreen</code> over the current plot and persists across a SmartGraph redraw (it is not
+re-evaluated) until <code>ClrDraw</code> is issued. [confirmed]</li>
 </ul>
 <hr>
 <h2 id="8-confidence-summary--open-items"><a class="header" href="#8-confidence-summary--open-items">8. Confidence summary / open items</a></h2>
 <ul>
-<li>Forward transform <code>(value−min)/pixelDelta</code>: structure <strong>[confirmed]</strong> from the
+<li>Forward transform <code>(value−min)/pixelDelta</code>: structure [confirmed] from the
 <code>37:41F2</code> disassembly (subtract <code>228F</code>, divide <code>2385</code>); the exact rounding in <code>4229</code> is
 read but the ±sentinel constants are summarized, not exhaustively byte-traced.</li>
-<li><code>_HorizCmd</code>/<code>_VertCmd</code> destination floats: confirmed they <code>_Mov9B</code> into the Xmin/Xmax vs
-Ymax/Ymin pair and <code>_PDspGrph</code>; whether they use the live window or a temp copy for the
-line endpoints would benefit from tracing <code>HorizVert_setup</code> (<code>04:7933</code>).</li>
+<li><code>_HorizCmd</code>/<code>_VertCmd</code> endpoint build: <code>7933</code> allocates a 0x24-byte FPS frame, and
+the commands <code>_Mov9B</code> the window edges (<code>Xmin</code>/<code>Xmax</code> or <code>Ymin</code>/<code>Ymax</code>) plus <code>_MovFrOP1</code> the line’s
+coordinate (<code>OP1</code>) into that frame, reading the live window variables only.</li>
 <li>Circle parametric stepping in <code>3B:7171</code> (<code>_DrawCirc2</code>) not decompiled here (lives on
 page 3B); the <code>_GrphCirc</code> setup is confirmed.</li>
 <li>Y= selection bit (<code>0x20</code>; flags byte <code>0x23</code> selected / <code>0x03</code> deselected) and the style byte
-values (<code>0</code>–<code>6</code>) are <strong>[confirmed]</strong> against the <a href="https://merthsoft.com/linkguide/ti83+/vars.html#style">TI link-protocol var guide</a>.</li>
+values (<code>0</code>–<code>6</code>) are [confirmed] against the <a href="https://merthsoft.com/linkguide/ti83+/vars.html#style">TI link-protocol var guide</a>.</li>
 </ul>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="sub-calculation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="08-display-lcd.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="sub-tibasic.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="sub-table-yvars.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -438,11 +441,11 @@ values (<code>0</code>–<code>6</code>) are <strong>[confirmed]</strong> agains
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="sub-calculation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="08-display-lcd.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="sub-tibasic.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="sub-table-yvars.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Variables &amp; the VAT - TI-84 Plus OS — Reverse Engineering</title>
+        <title>TI-BASIC For( paren trap - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
@@ -179,134 +179,153 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="05--variables--the-vat-variable-allocation-table"><a class="header" href="#05--variables--the-vat-variable-allocation-table">05 — Variables &amp; the VAT (Variable Allocation Table)</a></h1>
-<blockquote>
-<p><strong>Deep dive:</strong> <a href="sub-vat-archive.html">Variables, Archive &amp; Unarchive</a> — Store/Recall, the byte-verified <code>_FindSym</code> walk, and archive/unarchive.</p>
-</blockquote>
-<p>Every named object the user creates — reals, lists, matrices, strings, programs, pictures, appvars, groups — is catalogued in the <code>VAT</code>, a table in RAM that grows <em>downward</em> from a fixed top. The VAT stores metadata + where the data lives; the data itself sits elsewhere in RAM (or in archived flash).</p>
-<h2 id="object-types--tivartype-enum-confirmed--generated-toolsty_vartypetxt-per-ti83plusinc"><a class="header" href="#object-types--tivartype-enum-confirmed--generated-toolsty_vartypetxt-per-ti83plusinc">Object types — <code>TIVarType</code> enum [confirmed — generated <code>tools/ty_vartype.txt</code>, per <code>ti83plus.inc</code>]</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Val</th><th>Name</th><th>Val</th><th>Name</th></tr>
-</thead>
-<tbody>
-<tr><td>0x00</td><td>RealObj</td><td>0x0C</td><td>CplxObj</td></tr>
-<tr><td>0x01</td><td>ListObj</td><td>0x0D</td><td>CListObj</td></tr>
-<tr><td>0x02</td><td>MatObj</td><td>0x0E</td><td>UndefObj</td></tr>
-<tr><td>0x03</td><td>EquObj</td><td>0x0F</td><td>WindowObj</td></tr>
-<tr><td>0x04</td><td>StrngObj</td><td>0x10</td><td>ZStoObj</td></tr>
-<tr><td>0x05</td><td>ProgObj</td><td>0x11</td><td>TblRngObj</td></tr>
-<tr><td>0x06</td><td>ProtProgObj</td><td>0x12</td><td>LCDObj</td></tr>
-<tr><td>0x07</td><td>PictObj</td><td>0x13</td><td>BackupObj</td></tr>
-<tr><td>0x08</td><td>GDBObj</td><td>0x14</td><td>AppObj</td></tr>
-<tr><td>0x09</td><td>UnknownObj</td><td>0x15</td><td>AppVarObj</td></tr>
-<tr><td>0x0A</td><td>UnknownEquObj</td><td>0x16</td><td>TempProgObj</td></tr>
-<tr><td>0x0B</td><td>NewEquObj</td><td>0x17</td><td>GroupObj</td></tr>
-</tbody>
-</table>
-</div>
-<p>The active object’s type byte is held in <code>varType</code> (<code>0x85D0</code>); the current var being processed in <code>curType</code> (<code>0x8450</code>). Both are typed <code>TIVarType</code> in the DB.</p>
-<h2 id="how-a-variable-is-namedfound"><a class="header" href="#how-a-variable-is-namedfound">How a variable is named/found</a></h2>
-<p>The OS passes variable identity through <code>OP1</code> as a “name string”: <code>OP1[0]</code> = type byte, <code>OP1[1..]</code> = the name (token/bytes). The lookup/create family all key off OP1:</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Routine</th><th>Addr</th><th>Role</th></tr>
-</thead>
-<tbody>
-<tr><td><code>_FindSym</code></td><td><code>00:0E65</code></td><td>find the VAT entry named by OP1; returns ptr/page (also the <code>RST 10h</code> fast path: vector <code>00:0010</code> → <code>JP 0E65</code>)</td></tr>
-<tr><td><code>_ChkFindSym</code></td><td><code>00:0E60</code></td><td>type-classify OP1 (via the helper at <code>ram:2042</code>, which calls <code>_CkOP1Real</code> <code>00:1942</code> then checks the findable var classes) then <code>_FindSym</code></td></tr>
-<tr><td><code>_CreateReal</code></td><td><code>00:10B8</code></td><td>make a RealObj named by OP1</td></tr>
-<tr><td><code>_CreateReal</code>/<code>_CreateCplx</code>/<code>_CreateRList</code>/<code>_CreateCList</code>/<code>_CreateRMat</code>/<code>_CreateStrng</code>/<code>_CreateProg</code>/<code>_CreateAppVar</code>/…</td><td><code>00:10B0–00:1153</code></td><td>one exported creator bcall per <em>creatable</em> variable class — ~13 <code>_Create*</code> routines covering the creatable classes, not one per <code>TIVarType</code> (no <code>_CreateList</code>/<code>_CreateMat</code>/<code>_CreateStr</code>); some object types are made only by internal routines with no public <code>_Create*</code> bcall (e.g. the <code>GroupObj</code> creator at <code>00:1157</code>, called from <code>39:73AF</code>)</td></tr>
-<tr><td><code>_DelVar</code>/<code>_DelVarArc</code></td><td><code>00:1308</code>/<code>00:12D9</code></td><td>delete (and handle archived copies)</td></tr>
-<tr><td><code>_InsertMem</code>/<code>_DelMem</code></td><td><code>00:0F81</code>/<code>00:1368</code></td><td>public low-level grow/shrink of a RAM region (the create path instead uses the internal gap routine at <code>ram:0F0C</code>)</td></tr>
-</tbody>
-</table>
-</div>
-<p><code>_CreateReal</code> (recovered): sets the type byte and a fixed size of 9, then jumps to the common create core at <code>00:1011</code>. That core stores the type, type-checks the object (<code>chk_type_not_str</code> at <code>ram:2045</code>), handles the complex-list special case (<code>OP1.exp == 0x5D</code>), applies the 6-character name limit (<code>00:1023 CP 0x7</code>; <code>00:1025 JP NC,00:2700 → LD A,0x88</code>, <code>E_Syntax</code>), and carves the gap via the internal routine at <code>ram:0F0C</code> (<code>00:1034</code>). Aggregate creators (lists/matrices) instead enter through the size prelude <code>var_alloc</code> (<code>00:1005</code>), which computes count×element-size + the 2-byte header and raises <code>E_Memory</code> on overflow (<code>JP C,00:2721</code> at <code>00:1008</code> → <code>LD A,0x8E</code>) before falling into the same <code>00:1011</code> core.</p>
-<h2 id="variable-data-formats--rendered-as-c-confirmed-from-the-_create-family--db-types"><a class="header" href="#variable-data-formats--rendered-as-c-confirmed-from-the-_create-family--db-types">Variable data formats — rendered as C [confirmed from the <code>_Create*</code> family / DB types]</a></h2>
-<p>A VAT entry points at the variable’s data, whose layout depends on the object type. Every numeric value is a 9-byte BCD <code>TIFloat</code> (see <a href="06-floating-point.html">Floating-Point</a>); aggregates are a small header followed by an element array or a tokenized blob. These mirror the project’s DB types (<code>TIFloat</code>, <code>TIComplex</code>, <code>TIListHdr</code>, <code>TIMatrixHdr</code>), with fields shown in ROM byte order:</p>
-<pre><code class="language-c">/* ── numeric primitives ───────────────────────────────────────────── */
-typedef struct {
-    uint8_t type;          /* 0x00 real, 0x80 negative; 0x0C/0x8C = complex part  */
-    uint8_t exp;           /* base-10 exponent, biased by 0x80 (0x80 == 10^0)     */
-    uint8_t mantissa[7];   /* 14 packed BCD digits, normalized d.dddddddddddddd   */
-} TIFloat;                                                       /* 9 bytes  */
-typedef struct { TIFloat re, im; } TIComplex;                   /* 18 bytes */
-
-/* ── aggregate data (what the VAT entry's dataAddr points at) ──────── */
-struct List   { uint16_t count;       TIFloat elem[/* count */];         }; /* ListObj 1; CListObj 0x0D uses TIComplex[] */
-struct Matrix { uint8_t  rows, cols;  TIFloat elem[/* rows * cols */];  }; /* MatObj 2, column-major; dim0=rows first (byte-confirmed in sub-matrix-list.md; the TIMatrixHdr DB type labels these cols,rows — reversed) */
-struct Tokens { uint16_t size;        uint8_t body[/* size */];          }; /* EquObj 3, StrngObj 4, ProgObj 5/6 — tokenized */
-struct AppVar { uint16_t size;        uint8_t data[/* size */];          }; /* AppVarObj 0x15 — RAW bytes, not tokenized     */
+                        <h1 id="ti-basic-for-paren-trap"><a class="header" href="#ti-basic-for-paren-trap">TI-BASIC <code>For(</code> paren trap</a></h1>
+<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
+<p>This note explains a TI-BASIC performance trap:</p>
+<pre><code class="language-ti-basic">For(I,1,N
+If 0
+1
+End
 </code></pre>
-<p>Per object type:</p>
+<p>is much slower than the visually similar:</p>
+<pre><code class="language-ti-basic">For(I,1,N)
+If 0
+1
+End
+</code></pre>
+<p>The closing <code>)</code> is syntactically optional, but it is not performance-neutral
+when the first loop-body statement is a single-line false <code>If</code>.</p>
+<p>Confidence: [confirmed] = measured in TilEm instruction traces or read from
+ROM bytes; [standard] = consistent with the interpreter structure but not
+field-mapped down to every loop-frame byte.</p>
+<hr>
+<h2 id="benchmark-shape"><a class="header" href="#benchmark-shape">Benchmark shape</a></h2>
+<p>The test program brackets only the loop with an <code>AsmPrgm</code> marker:</p>
+<pre><code class="language-ti-basic">Asm(prgmZMARK)
+For(I,1,100)
+If 0
+1
+End
+Asm(prgmZMARK)
+Disp I
+</code></pre>
+<p><code>ZMARK</code> is:</p>
+<pre><code class="language-ti-basic">AsmPrgm
+C9
+</code></pre>
+<p><code>C9</code> is Z80 <code>RET</code>. In both traces the marker payload executes at
+<code>ram:9D95 op=0xC9</code>, so the interval from the first marker <code>RET</code> to the second
+marker <code>RET</code> excludes boot, link transfer, menu navigation, and the final
+display.</p>
+<p>The compared token streams differ by exactly one byte in the <code>For(</code> header:</p>
+<pre><code class="language-text">For(I,1,25) / If 0:  D3 49 2B 31 2B 32 35 11 3F CE 30 ...
+For(I,1,25  / If 0:  D3 49 2B 31 2B 32 35    3F CE 30 ...
+</code></pre>
+<p><code>D3</code> is <code>tFor</code>, <code>11</code> is <code>tRParen</code>, <code>3F</code> is EOL, and <code>CE</code> is <code>tIf</code>.</p>
+<h2 id="trace-results"><a class="header" href="#trace-results">Trace results</a></h2>
+<p>All runs completed and displayed the expected final loop variable (<code>26</code> for
+<code>N=25</code>, <code>101</code> for <code>N=100</code>). Counts are marker-to-marker instruction records and
+Z80 clock deltas from the TilEm trace.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Type</th><th>Val</th><th><code>dataAddr</code> →</th><th>Size (bytes)</th></tr>
+<tr><th>Loop body</th><th>N</th><th><code>For(... )</code></th><th><code>For(...</code></th><th>Delta</th></tr>
 </thead>
 <tbody>
-<tr><td><code>RealObj</code></td><td><code>0</code></td><td>one <code>TIFloat</code></td><td>9</td></tr>
-<tr><td><code>CplxObj</code></td><td><code>0x0C</code></td><td>one <code>TIComplex</code> (<code>re</code>, <code>im</code>)</td><td>18</td></tr>
-<tr><td><code>ListObj</code> / <code>CListObj</code></td><td><code>1</code> / <code>0x0D</code></td><td><code>count</code> word + <code>count</code>×<code>TIFloat</code>/<code>TIComplex</code></td><td>2 + 9·n / 2 + 18·n</td></tr>
-<tr><td><code>MatObj</code></td><td><code>2</code></td><td><code>rows</code>,<code>cols</code> bytes (<code>dim0</code>=rows) + <code>TIFloat[]</code>, column-major (index math in <a href="sub-matrix-list.html">Matrices &amp; Lists</a>)</td><td>2 + 9·r·c</td></tr>
-<tr><td><code>EquObj</code></td><td><code>3</code></td><td><code>size</code> word + tokenized formula — <em>system</em> var, carries a selection/style byte, auto-evaluated (<a href="sub-graphing.html">Graphing</a>, <a href="sub-table-yvars.html">Table</a>)</td><td>2 + size</td></tr>
-<tr><td><code>StrngObj</code></td><td><code>4</code></td><td><code>size</code> word + tokenized text — <em>inert</em> (see <a href="#strings-str1str0--a-distinct-object-type-confirmed">Strings</a>)</td><td>2 + size</td></tr>
-<tr><td><code>ProgObj</code> / <code>ProtProgObj</code></td><td><code>5</code> / <code>6</code></td><td><code>size</code> word + tokenized program (6 = edit-locked)</td><td>2 + size</td></tr>
-<tr><td><code>AppVarObj</code></td><td><code>0x15</code></td><td><code>size</code> word + raw bytes (any binary, not tokens)</td><td>2 + size</td></tr>
-<tr><td><code>PictObj</code></td><td><code>7</code></td><td>a graph back-buffer image (<code>plotSScreen</code> snapshot)</td><td>756-byte payload + 2-byte size word = 758 (<code>_CreatePict</code> passes payload size <code>0x02F4</code>)</td></tr>
-<tr><td><code>GDBObj</code></td><td><code>8</code></td><td>graph database: mode byte + window vars + selected equations + styles</td><td>varies</td></tr>
-<tr><td><code>GroupObj</code></td><td><code>0x17</code></td><td>an archived bundle of other vars (lives in Flash)</td><td>varies</td></tr>
+<tr><td><code>If 0</code> / <code>1</code></td><td>25</td><td>144,805 instr / 1,519,710 clocks</td><td>156,292 instr / 1,604,282 clocks</td><td>+7.9% instr / +5.6% clocks</td></tr>
+<tr><td><code>If 0</code> / <code>1</code></td><td>100</td><td>521,723 instr / 5,498,347 clocks</td><td>885,912 instr / 8,862,729 clocks</td><td>+69.8% instr / +61.2% clocks</td></tr>
+<tr><td><code>If 1</code> / <code>1</code></td><td>25</td><td>185,032 instr / 1,920,085 clocks</td><td>179,874 instr / 1,859,796 clocks</td><td>-2.8% instr / -3.1% clocks</td></tr>
 </tbody>
 </table>
 </div>
-<p><code>WindowObj</code>/<code>ZStoObj</code> (<code>0x0F</code>/<code>0x10</code>) hold the graph <strong>Window</strong> settings, <code>TblRngObj</code> (<code>0x11</code>) the table range, <code>BackupObj</code> (<code>0x13</code>) a full RAM image — all system, fixed-shape blobs.</p>
-<p>Aggregate creators size their data region (= count × element-size + 2-byte header) in the <code>var_alloc</code> prelude (<code>ram:1005</code>), then fall into the common create core (<code>ram:1011</code>), which carves the gap via the internal routine at <code>ram:0F0C</code> (the create path’s own block-move, not the public <code>_InsertMem</code>; see <a href="12-memory-management.html">12</a>). The specific <code>_Create*</code> routine then writes the data header after the core returns — e.g. <code>_CreateRList</code> writes the list count, <code>_CreateStrng</code> the 2-byte size word. All key off the name in <code>OP1</code> (<code>OP1.exp</code> is the name’s token class — <code>_CreateRList</code> validates a list-name token <code>0x5D/0x24/0x3A/0x72</code>).</p>
-<h2 id="the-vat-entry-confirmed--byte-verified-vs-findsym_scan"><a class="header" href="#the-vat-entry-confirmed--byte-verified-vs-findsym_scan">The VAT entry [confirmed — byte-verified vs <code>findsym_scan</code>]</a></h2>
-<p>The VAT grows downward from <code>symTable</code> (<code>0xFE66</code>); <code>_FindSym</code> (<code>00:0E65</code> → <code>findsym_scan</code> <code>07:565F</code>) scans down, matching the name in <code>OP1</code>. Fixed-token names (reals, complex, <code>L</code>-lists, <code>[A]</code>-matrices, system vars) are matched by a short 1–3 byte compare against <code>OP1</code>’s <code>0x8479</code>–<code>0x847B</code>; length-prefixed names (programs, appvars, groups) branch to a separate name scanner at <code>07:55D1</code> that compares the full name. On a match it reads the entry’s metadata at fixed offsets relative to the matched name pointer <code>N</code>:</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Location (vs name ptr <code>N</code>)</th><th>Field</th></tr>
-</thead>
-<tbody>
-<tr><td><code>N</code>, <code>N-1</code>, <code>N-2</code></td><td>the name bytes (matched against <code>OP1</code>’s <code>0x8479</code>–<code>0x847B</code>)</td></tr>
-<tr><td><code>N+1</code></td><td>data page (<code>B</code>; <code>0</code> ⇒ data in RAM)</td></tr>
-<tr><td><code>N+2</code> / <code>N+3</code></td><td>data address — high byte, then low byte</td></tr>
-<tr><td><code>N+6</code></td><td>type — low 5 bits = <code>TIVarType</code> class, high bits flag archive state; copied to <code>OP1</code> at <code>0x8478</code></td></tr>
-</tbody>
-</table>
-</div>
-<p>Because the VAT grows downward, the type byte sits at the higher address and the name at the lower, so the scanner reads metadata <em>upward</em> from the matched name (this is the reverse of a forward C-struct order). <code>_FindSym</code>/<code>_ChkFindSym</code> return the page in <code>B</code> (<code>0</code> ⇒ data in RAM). For an archived var the data address points into Flash and the page byte selects the page; the VAT entry itself always stays in RAM (only the data moves to Flash).</p>
-<p>Names come in two encodings:</p>
-<ul>
-<li><strong>Token-named vars</strong> — real, complex, <code>L</code>-lists (<code>tVarLst</code> <code>0x5D</code>), <code>[A]</code>-matrices (<code>tVarMat</code> <code>0x5C</code>), system vars, and the token-named strings (<code>tVarStrng</code> <code>0xAA</code> + id) and equations (<code>tVarEqu</code> <code>0x5E</code> + id) — carry a fixed name token, matched by the 1–3 byte compare above.</li>
-<li><strong>Length-prefixed names</strong> — programs, appvars, groups — store the name bytes with a length byte at the higher address; the scanner at <code>07:55D1</code> reads the length byte, then compares the name bytes that precede it (downward, toward lower addresses — the same high-address-first ordering as the rest of the entry).</li>
-</ul>
-<h2 id="strings-str1str0--a-distinct-object-type-confirmed"><a class="header" href="#strings-str1str0--a-distinct-object-type-confirmed">Strings (<code>Str1</code>–<code>Str0</code>) — a distinct object type [confirmed]</a></h2>
-<p>String variables are <code>StrngObj</code> (type 4) — not equation variables (<code>EquObj</code> = 3), although both hold tokenized byte streams. The ten strings <code>Str1</code>…<code>Str0</code> are named by a 2-byte token: lead <code>tVarStrng</code> (<code>0xAA</code>) then <code>tStr1</code>…<code>tStr0</code> (<code>0x00</code>…<code>0x09</code>), so <code>Str1</code> = <code>AA 00</code> … <code>Str0</code> = <code>AA 09</code>.</p>
-<p><strong>Storage.</strong> <code>_CreateStrng</code> (id <code>0x4327</code>, <code>00:1123</code>) decompiles to <code>create_var_entry(StrngObj)</code> followed by writing a 2-byte <code>word size</code> into the data; the data area is then <code>[word size][size tokenized bytes]</code> — the same <code>[size][bytes]</code> shape programs and appvars use (above). The bytes are TI-BASIC tokens, not raw ASCII: a string stores exactly the token stream the editor renders, so <code>"sin(A)"</code> keeps the <code>sin(</code> token, the <code>A</code> token, and <code>)</code> — which is why a string can hold any displayable token, commands included.</p>
-<p><strong>String vs. equation variable.</strong> Both hold tokenized byte streams, so the two are worth separating. <code>EquObj</code> vars (<code>Y1</code>–<code>Y0</code>, parametric, polar, sequence) are <em>system</em> variables that carry a selection/style flags byte and are auto-evaluated by the grapher, table, and solver (see <a href="sub-graphing.html">Graphing</a>, <a href="sub-table-yvars.html">Table &amp; Y= Variables</a>). A <code>StrngObj</code> is an <em>inert user variable</em> — no selection/style, never evaluated on its own; it is bytes the string commands manipulate.</p>
-<p><strong>Bridges between the two.</strong> Tokens convert a string’s text to/from executable form:</p>
-<ul>
-<li><code>expr(</code> parses a string’s token bytes as an expression and evaluates it → a value (string → number/list/…).</li>
-<li><code>String►Equ(</code> / <code>Equ►String(</code> (2-byte tokens <code>BB 56</code> / <code>BB 55</code> — <code>t2ByteTok</code> <code>0xBB</code> then <code>tStrngToEqu</code> <code>0x56</code> / <code>tEquToStrng</code> <code>0x55</code>) copy token bytes between a <code>Str</code> and a <code>Y=</code>/equation variable (string ↔ equation).</li>
-<li><code>sub(</code>, <code>length(</code> (<code>_StrLength</code>, id <code>0x4C3F</code> → <code>36:7F91</code>), and <code>inString(</code> operate on the token bytes; <code>_StrCopy</code> (<code>0x44E3</code> → <code>00:2810</code>) is the byte mover. The <code>"</code> string-literal delimiter in source is its own token, <code>tString</code> (<code>0x2A</code>).</li>
-</ul>
-<h2 id="findsym-scan-and-vat-entry-layout"><a class="header" href="#findsym-scan-and-vat-entry-layout">FindSym scan and VAT entry layout</a></h2>
-<p>The <code>_FindSym</code> scan loop and per-class VAT entry layout are byte-verified in <a href="sub-vat-archive.html">Variables, Archive &amp; Unarchive</a> (<code>findsym_scan</code>@<code>07:565F</code>; <code>tSymPtr1</code>/<code>tSymPtr2</code> and archived-var resolution covered there).</p>
+<p>The true-condition control matters: omitting <code>)</code> is not inherently slower. The
+large slowdown appears when the omitted close is followed immediately by a
+single-line false <code>If</code>.</p>
+<h2 id="dispatch-difference"><a class="header" href="#dispatch-difference">Dispatch difference</a></h2>
+<p>The optional close is handled by the page-2 command-finalization gate
+<code>02:5676</code> [confirmed]:</p>
+<pre><code class="language-z80">02:5676  LD A,C
+02:5677  CP 11h          ; explicit ")"
+02:5679  JR Z,56C3h
+02:5683  OR A            ; implicit close / statement end
+02:5684  JP NZ,2708h     ; syntax/type error for other cases
+02:5687  CALL 5675h      ; direct command handler path
+</code></pre>
+<p>The explicit <code>)</code> path (<code>02:56C3...</code>) calls through the command cleanup path
+before returning to statement execution. The implicit-close path (<code>C=0</code>) calls
+the command handler directly. For <code>For(</code>, that handler is the page-2 stub
+<code>02:6A30</code>, which calls bcall <code>_grf_435f</code> (<code>33:435F</code>) and indexes the control-flow
+jump table at <code>33:4381</code>; the <code>For</code> entry is table index <code>0x29 - 0x20 = 9</code>, and
+<code>End</code> is index <code>0x2A - 0x20 = 10</code> [confirmed].</p>
+<p>That one-byte syntax difference therefore changes the parser state at exactly
+the point where the <code>For</code> loop frame records the body cursor.</p>
+<h2 id="what-the-slow-case-does"><a class="header" href="#what-the-slow-case-does">What the slow case does</a></h2>
+<p>The marker interval profiler shows that the no-paren/false-<code>If</code> case spends its
+extra time in name/VAT scanning and pointer walking, not arithmetic:</p>
+<pre><code class="language-text">false N=25, no paren minus explicit paren:
+  +18,900 instr  07:565F  findsym_scan
+   +3,600 instr  ram:1787      dec_hl_tail_1787
+   +1,800 instr  ram:1785      dec_hl_tail_1785
+     +900 instr  ram:1784      dec_hl_tail_1784
+</code></pre>
+<p>The parser-cursor writes explain why. In the explicit-paren trace, the
+single-line false <code>If</code> path repeatedly uses the same temporary parser buffer:</p>
+<pre><code class="language-text">... write nextParseByte=9EA8, parseEnd=9EA8
+... restore nextParseByte=9E3B, parseEnd=9E4C
+... write nextParseByte=9EA8, parseEnd=9EA8
+... restore nextParseByte=9E3B, parseEnd=9E4C
+</code></pre>
+<p>In the omitted-paren trace, the equivalent temporary buffer advances on each
+iteration:</p>
+<pre><code class="language-text">iteration 1: nextParseByte=9EA7, parseEnd=9EA7
+iteration 2: nextParseByte=9EB4, parseEnd=9EB4
+iteration 3: nextParseByte=9EC1, parseEnd=9EC1
+iteration 4: nextParseByte=9ECE, parseEnd=9ECE
+iteration 5: nextParseByte=9EDB, parseEnd=9EDB
+</code></pre>
+<p>Those addresses come from writes to <code>nextParseByte</code> (<code>0x965D</code>) and <code>basic_end</code>
+(<code>0x965F</code>) inside the marker interval. The advancing high-water mark matches
+the growing <code>findsym_scan</code> cost: the interpreter keeps allocating/walking
+temporary expression storage instead of reusing one stable temporary range.</p>
+<h2 id="mechanism"><a class="header" href="#mechanism">Mechanism</a></h2>
+<p>The false single-line <code>If</code> path is the amplifier [standard]:</p>
+<ol>
+<li><code>For(</code> with explicit <code>)</code> enters the <code>02:56C3</code> close/cleanup path before the
+control-flow handler records the loop continuation.</li>
+<li><code>For(</code> without <code>)</code> takes the <code>C=0</code> direct path at <code>02:5687</code>.</li>
+<li>With a first body line of <code>If 0</code>, the loop immediately enters the
+single-statement false-<code>If</code> skip path (<code>if_isg_stmt_handler</code> at <code>38:6F63</code>,
+with skip/temporary-parser work through the page-38 statement evaluator).</li>
+<li>In the direct-path case, that skip work is performed with a temporary parse
+range that advances every iteration. More iterations mean longer VAT/name
+and pointer scans, so the cost grows much faster than the explicit-paren
+version.</li>
+</ol>
+<p>This is why <code>N=25</code> shows only a modest penalty while <code>N=100</code> shows a large one.
+The omitted <code>)</code> saves a little cleanup work in the <code>If 1</code> control, but with
+<code>If 0</code> first it changes the loop/skip interaction and leaks work into temporary
+parser storage.</p>
+<h2 id="practical-rule"><a class="header" href="#practical-rule">Practical rule</a></h2>
+<p>When a <code>For(</code> loop body starts with a guard like <code>If not(condition)</code> or <code>If 0</code>,
+write the closing <code>)</code>:</p>
+<pre><code class="language-ti-basic">For(I,1,N)
+If A
+...
+End
+</code></pre>
+<p>Better still, avoid single-line false guards as the first statement of a hot
+loop. Use <code>If ... Then</code> blocks when the body is structured, or invert the loop
+so the common path does not repeatedly exercise the false-<code>If</code> skip scanner.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="14-ram-pages.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sub-tibasic-tracing.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="06-floating-point.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="08-display-lcd.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -316,11 +335,11 @@ struct AppVar { uint16_t size;        uint8_t data[/* size */];          }; /* A
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="14-ram-pages.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sub-tibasic-tracing.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="06-floating-point.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="08-display-lcd.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

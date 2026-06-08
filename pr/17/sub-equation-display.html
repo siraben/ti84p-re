@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-595cf107.js";
+            window.path_to_searchindex_js = "searchindex-d6e82383.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-c47a8e66.js"></script>
+        <script src="toc-87758224.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -187,7 +187,7 @@ equation line, and the template menus. The implementation is concentrated on fla
 <code>39</code> and drives the display services described in <a href="08-display-lcd.html">Display &amp; LCD</a>.
 It consumes the token stream described in <a href="07-tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a>
 and preserves the OP registers described in <a href="06-floating-point.html">Floating-point engine</a>.</p>
-<p>The useful mental model is a <strong>cell-grid typesetter</strong>. The OS classifies each token,
+<p>The useful mental model is a cell-grid typesetter. The OS classifies each token,
 selects a compact handler record, walks the expression into rows and slots, maps each
 cell to pixel coordinates, and emits glyphs or graph-buffer rules. The live state is a
 small RAM block, a few display variables, and ROM tables — a flat cell grid, not a
@@ -240,7 +240,7 @@ measuring or preparing state; set means it may emit pixels. Several other <code>
 class selection: <code>(IY+0x09)</code> bit 0 selects fraction/argument context, while <code>(IY+0x02)</code>
 bits 4, 5, and 6 select exponent and alternate edit forms. [confirmed]</p>
 <h2 id="handler-records"><a class="header" href="#handler-records">Handler records</a></h2>
-<p>A visible expression is driven by <strong>handler records</strong> reached through the class table at
+<p>A visible expression is driven by handler records reached through the class table at
 <code>39:5E45</code>. Each class has one word entry:</p>
 <pre><code class="language-text">handler = word(39:5E45 + 2 * class)
 </code></pre>
@@ -319,7 +319,7 @@ example, class <code>0x08</code> and class <code>0x30</code> share the <code>fnI
 <p>The argument walker at <code>39:5167</code> manages multi-argument operators. It keeps the parser
 argument index in <code>0x85E0</code> and uses <code>0x85E2</code> as the argument count. Normal operands pass
 through <code>39:59E0</code>; variable operands pass through <code>39:59F9</code>. Both routes delegate token
-scanning to page 7 rather than inventing a second field order. [confirmed]</p>
+scanning to page 7, reusing its single field order. [confirmed]</p>
 <p>For <code>fnInt(expr,var,lower,upper[,tol])</code>, the visible MathPrint fields preserve parser
 order: slot 0 is the integrand, slot 1 is the variable, slot 2 is the lower endpoint,
 slot 3 is the upper endpoint, and slot 4 is the optional tolerance. The evaluator on
@@ -341,9 +341,11 @@ the final MathPrint operator form. [confirmed]</p>
     uint16_t cell_pointer;  /* pointer to descriptor cells */
 } EqDispTemplateDescriptor;
 </code></pre>
-<p>The mapper at <code>39:683D</code> converts a descriptor cell to pixels:</p>
-<p>$$x = \mathit{base}_x + 7 \cdot \mathit{col}$$</p>
-<p>$$y = \mathit{base}_y + \mathit{row} \cdot (\mathit{rowHeight} + 2)$$</p>
+<p>The mapper at <code>39:683D</code> converts a descriptor cell to pixels. The <code>+7</code> loop (<code>DEC B; ADD A,7</code>)
+builds the <em>high</em> byte and the <code>+(rowHeight+2)</code> loop builds the <em>low</em> byte; the caller stores
+<code>HL</code> to <code>penCol</code>(<code>0x86D7</code>, low→x) / <code>penRow</code>(<code>0x86D8</code>, high→y), so the two products land as:</p>
+<p>$$x\ (\mathit{penCol}) = \mathit{base}_x + \mathit{row} \cdot (\mathit{rowHeight} + 2)$$</p>
+<p>$$y\ (\mathit{penRow}) = \mathit{base}_y + 7 \cdot \mathit{col}$$</p>
 <p>The known descriptors are:</p>
 <div class="table-wrapper">
 <table>
@@ -379,8 +381,8 @@ rule drawn through the graph-buffer drawing machinery, not a character cell. [co
 <code>39:4CE9</code> raises classes in the <code>0x24..0x28</code> family and class <code>0x39</code> by forcing <code>0x844B</code>
 to a higher display row before emitting the selected cell. The per-row height accounting
 then folds that raised row into the parent layout. [confirmed]</p>
-<p>This means <code>X^2</code> is stored and walked as ordinary cells in different rows. The glyph for
-<code>2</code> is not special; the row selection is.</p>
+<p>This means <code>X^2</code> is stored and walked as ordinary cells in different rows. The row selection
+does the work; the glyph for <code>2</code> is the ordinary one.</p>
 <h2 id="radicals"><a class="header" href="#radicals">Radicals</a></h2>
 <p>The radical mark starts with the fixed large-font <code>Lroot</code> glyph (<code>0x10</code>). Its glyph bytes
 live at <code>07:466F</code>, and the root/power records contain the payload cell <code>00 10</code> in class
@@ -430,7 +432,7 @@ fixed integral cell. The final pixels still come from the ordinary output paths:
 <code>39:4E8E</code>/<code>39:4F1A</code> for fixed glyph cells, page <code>07:4588</code> for the large-font record copy,
 and the rectangle helpers for rule-like UI surfaces. [confirmed]</p>
 <h2 id="delimiters"><a class="header" href="#delimiters">Delimiters</a></h2>
-<p>The fixed delimiter families are handler records, not renderer-invented cells. Classes
+<p>The fixed delimiter families are handler records. Classes
 <code>0x17</code>, <code>0x18</code>, and <code>0x19</code> point to one-row records at <code>39:62C8</code>, <code>39:62DF</code>, and
 <code>39:62F6</code>. Each record contains ten cells. Page 7 maps those cells to output families
 <code>61 00..61 09</code>, <code>60 00..60 09</code>, and <code>AA 00..AA 09</code>. [confirmed]</p>
@@ -530,17 +532,17 @@ routines actually run</em> for each construct:</p>
 <tr><th>Rendered (entry line)</th><th>Page-<code>39</code> routines exercised</th><th>Path</th></tr>
 </thead>
 <tbody>
-<tr><td><code>X^2</code> (raised exponent)</td><td><code>eqdisp_emit_subexpr2</code> <code>4CA4</code>, <code>eqdisp_menu_or_emit</code> <code>53AD</code></td><td>light entry-line emit (<code>eqdisp_set_row_for_tok</code> <code>4CE9</code> is the static superscript-row helper but did <strong>not</strong> execute in this trace — it does run in the <code>1/2</code> trace)</td></tr>
-<tr><td><code>1/2</code> (n/d template)</td><td><code>eqdisp_compute_dims</code> <code>69C8</code>, <code>eqdisp_layout_token_geom</code> <code>68AE</code>, the <code>683D</code> cell-to-pixel mapper, <code>eqdisp_draw_fraction_bar</code> <code>6ABF</code>, <code>eqdisp_draw_box_jp</code> <code>6AF5</code>, <code>eqdisp_load_glyph18b2</code> <code>6B66</code>, <code>eqdisp_dispatch_token</code> <code>4A74</code></td><td><strong>descriptor / geometry</strong></td></tr>
-<tr><td><code>fnInt(</code> (MATH ▸ 9)</td><td><code>eqdisp_emit_glyph</code> <code>4E8E</code>, <code>eqdisp_map_token_glyph</code> <code>4F1A</code>, <code>eqdisp_emit_arglist</code> <code>4DE6</code>, <code>eqdisp_sum_arg_widths</code> <code>4DCA</code>, <code>eqdisp_emit_digit_chk</code> <code>4E0A</code></td><td><strong>handler record / multi-arg</strong></td></tr>
+<tr><td><code>X^2</code> (raised exponent)</td><td><code>eqdisp_emit_subexpr2</code> <code>4CA4</code>, <code>eqdisp_menu_or_emit</code> <code>53AD</code></td><td>light entry-line emit (<code>eqdisp_set_row_for_tok</code> <code>4CE9</code> is the static superscript-row helper but did not execute in this trace — it does run in the <code>1/2</code> trace)</td></tr>
+<tr><td><code>1/2</code> (n/d template)</td><td><code>eqdisp_compute_dims</code> <code>69C8</code>, <code>eqdisp_layout_token_geom</code> <code>68AE</code>, the <code>683D</code> cell-to-pixel mapper, <code>eqdisp_draw_fraction_bar</code> <code>6ABF</code>, <code>eqdisp_draw_box_jp</code> <code>6AF5</code>, <code>eqdisp_load_glyph18b2</code> <code>6B66</code>, <code>eqdisp_dispatch_token</code> <code>4A74</code></td><td>descriptor / geometry</td></tr>
+<tr><td><code>fnInt(</code> (MATH ▸ 9)</td><td><code>eqdisp_emit_glyph</code> <code>4E8E</code>, <code>eqdisp_map_token_glyph</code> <code>4F1A</code>, <code>eqdisp_emit_arglist</code> <code>4DE6</code>, <code>eqdisp_sum_arg_widths</code> <code>4DCA</code>, <code>eqdisp_emit_digit_chk</code> <code>4E0A</code></td><td>handler record / multi-arg</td></tr>
 </tbody>
 </table>
 </div>
 <p>This confirms the headline static result: the descriptor path (<code>69C8</code>/<code>68AE</code>/<code>683D</code>/<code>6ABF</code>)
 and the handler-record path (<code>4DCA</code>/<code>4DE6</code>/<code>4E8E</code>/<code>4F1A</code>) are mutually
 exclusive per construct, exactly as the two-mechanism model predicts. [confirmed]</p>
-<p><code>39:5167</code> (<code>eqdisp_layout_multiarg</code>) <strong>statically</strong> owns the multi-arg row
-composition, but it did <strong>not</strong> execute in this trace: the <code>fnInt(</code> template was
+<p><code>39:5167</code> (<code>eqdisp_layout_multiarg</code>) statically owns the multi-arg row
+composition, but it did not execute in this trace: the <code>fnInt(</code> template was
 inserted <em>empty</em> (<code>∫(0)dV</code>), so the operand-recursion branch was never driven —
 <code>5167</code> and its body (<code>5949</code>/<code>5B10</code>) show 0 hits, and the <code>--funcs</code> “5167” rollup
 bucket is a nearest-name artifact (only a <code>51F1/51F3</code> fragment ran). A <em>filled</em>
@@ -566,11 +568,11 @@ measured-fraction path calls <code>eqdisp_draw_box_jp</code> with <code>0x85EE</
 endpoint helper <code>39:6B1C</code> are named <code>eqdisp_decr_counters</code> /
 <code>eqdisp_advance_col6</code> in the symbol table, and the Ghidra <em>decompiler</em>
 mis-analyzes both (it shows bare decrement loops). The raw disassembly matches
-this page instead: <code>683D</code> does <code>A = base; loop: add a,7</code> (<code>x = base_x + 7·col</code>)
+this page instead: <code>683D</code> does <code>A = base; loop: add a,7</code> into the <em>high</em> byte (<code>y = base_y + 7·col</code> → <code>penRow</code>)
 and <code>6B1C</code> does <code>ld a,1Bh; … add a,7 (×n); add a,4</code> (<code>x_left = 0x1B + 7n</code>,
 <code>x_right = x_left + 4</code>). Trust <code>z80dasm</code> over the decompiler for these tight
 register-passing routines, as <a href="https://github.com/siraben/ti84p-re/blob/main/README.md">the README</a> advises. [confirmed]</p>
-<h2 id="remaining-detail"><a class="header" href="#remaining-detail">Remaining detail</a></h2>
+<h2 id="mathprint-pipeline-coverage"><a class="header" href="#mathprint-pipeline-coverage">MathPrint pipeline coverage</a></h2>
 <p>The static MathPrint pipeline is recovered: token classification, handler records,
 recursive operand order, descriptor templates, fraction UI geometry, fixed structural
 glyphs, display-byte remaps, generic output services, and multi-argument row composition.
@@ -601,7 +603,7 @@ remap) or a direct glyph via <code>39:4F1A</code> (<code>FC3C..40 → glyph (E�
 (<code>683D</code>, <code>6B1C</code>, <code>5167</code>/<code>5949</code>, pen conversion) is in
 <code>tools/geometry-spec.md</code>. [confirmed]</p>
 <h2 id="reconstruction-and-pixel-parity"><a class="header" href="#reconstruction-and-pixel-parity">Reconstruction and pixel parity</a></h2>
-<p>The render writes the LCD <strong>directly through the display ports</strong> (<code>OUT (0x11),A</code>
+<p>The render writes the LCD directly through the display ports (<code>OUT (0x11),A</code>
 data + <code>OUT (0x10),A</code> commands), not a RAM buffer, so the image is <em>completely
 reconstructible from the trace alone</em>. <code>tools/trace_lcd.py</code>
 replays that stream through the T6A04 controller to produce the exact 96×64
@@ -610,11 +612,10 @@ bitmap (verified identical to the recorded GIF), and
 <a href="https://siraben.github.io/ti84p-re/mathprint/">interactive renderer</a> against it. [confirmed]</p>
 <p>Against that exact reference: inline text, exponents (<code>X^2</code>), linear <code>1/2</code>,
 stacked fractions (<code>1//2</code>), and radicals (<code>sqrt(...)</code>) match the calculator
-<strong>100% pixel-for-pixel</strong>. The tall operators (integral, summation, nth root)
+100% pixel-for-pixel. The tall operators (integral, summation, nth root)
 match in operator sign, limits, and dimensions; their body’s internal glyph
 advances come from a RAM-relocated bcall (<code>0xC951</code>) whose width table is not in
-flash, so those few pixels are trace-pinned rather than ROM-derivable. The TI-84
-has no product (Π) template, so none is rendered. [confirmed]</p>
+flash, so those few pixels are trace-pinned rather than ROM-derivable. [confirmed]</p>
 <h2 id="data-driven-model"><a class="header" href="#data-driven-model">Data-driven model</a></h2>
 <p>The class table and every handler record are extracted from ROM to
 <code>web/mathprint/layout.json</code> by <code>tools/export-layout.py</code>;
@@ -632,7 +633,7 @@ the real records instead of approximating each construct.</p>
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="sub-link-transfer.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="09-keyboard-link.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -646,7 +647,7 @@ the real records instead of approximating each construct.</p>
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="sub-link-transfer.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="09-keyboard-link.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

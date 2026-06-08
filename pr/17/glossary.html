@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-595cf107.js";
+            window.path_to_searchindex_js = "searchindex-d6e82383.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-c47a8e66.js"></script>
+        <script src="toc-87758224.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -206,8 +206,8 @@
 </thead>
 <tbody>
 <tr><td><strong>BCD</strong></td><td>Binary-Coded Decimal — numbers stored as decimal digits (2 per byte), the format of all TI floats.</td></tr>
-<tr><td><strong><code>TIFloat</code></strong></td><td>The 9-byte float: 1 type/sign byte, 1 biased exponent, 7 bytes = 14 BCD mantissa digits. See <a href="06-floating-point.html">Floating-Point Engine</a>.</td></tr>
-<tr><td><strong>OP1–OP6</strong></td><td>The six 11-byte floating-point accumulator registers in RAM at <code>0x8478</code>+. <code>OP1</code> is the primary accumulator; binary ops use <code>OP1</code>+<code>OP2</code>, result in <code>OP1</code>.</td></tr>
+<tr><td><code>TIFloat</code></td><td>The 9-byte float: 1 type/sign byte, 1 biased exponent, 7 bytes = 14 BCD mantissa digits. See <a href="06-floating-point.html">Floating-Point Engine</a>.</td></tr>
+<tr><td><code>OP1</code>–<code>OP6</code></td><td>The six 11-byte floating-point accumulator registers in RAM at <code>0x8478</code>+. <code>OP1</code> is the primary accumulator; binary ops use <code>OP1</code>+<code>OP2</code>, result in <code>OP1</code>.</td></tr>
 <tr><td><strong>FPS</strong></td><td>Floating-Point Stack — a software stack (pointer at <code>0x9824</code>) for spilling OP registers during nested evaluation.</td></tr>
 <tr><td><strong>guard digits</strong></td><td>The 2 extra mantissa bytes past the 9-byte number (<code>OP1EXT</code>/<code>OP2EXT</code>), used for rounding during math.</td></tr>
 </tbody>
@@ -222,8 +222,8 @@
 <tbody>
 <tr><td><strong>VAT</strong></td><td>Variable Allocation Table — the RAM catalog of every named object, growing <em>down</em> from <code>symTable</code> (<code>0xFE66</code>). See <a href="05-variables-vat.html">Variables &amp; the VAT</a>.</td></tr>
 <tr><td><strong>object type</strong></td><td>The 1-byte type tag of a variable (<code>RealObj</code>=0, <code>ListObj</code>=1, <code>ProgObj</code>=5, <code>AppVarObj</code>=0x15…), modeled as the <code>TIVarType</code> enum.</td></tr>
-<tr><td><strong>archive</strong></td><td>Variables relocated to <strong>flash</strong> to save RAM; the VAT entry’s page byte then points into flash. See <a href="sub-vat-archive.html">Variables, Archive &amp; Unarchive</a>.</td></tr>
-<tr><td><strong>garbage collection</strong></td><td>Compacting the archive flash when it fills (“Garbage Collecting…”). The GC-core candidate <code>flash_gc_relocate</code>@<code>3C:7BD0</code> is not a defined function in the current live DB; that name is a project-local inferred label, not a WikiTI or <code>ti83plus.inc</code> equate.</td></tr>
+<tr><td><strong>archive</strong></td><td>Variables relocated to <em>flash</em> to save RAM; the VAT entry’s page byte then points into flash. See <a href="sub-vat-archive.html">Variables, Archive &amp; Unarchive</a>.</td></tr>
+<tr><td><strong>garbage collection</strong></td><td>Compacting the archive flash when it fills (“Garbage Collecting…”). The GC-core candidate <code>flash_gc_relocate</code>@<code>3C:7BD0</code> is a project-local inferred label, not a defined function in the current live DB nor a WikiTI or <code>ti83plus.inc</code> equate.</td></tr>
 <tr><td><strong>RAM heap</strong></td><td>The dynamic region from <code>userMem</code> (<code>0x9D95</code>) up to the VAT; managed by <code>_InsertMem</code>/<code>_DelMem</code>. See <a href="12-memory-management.html">Memory Management</a>.</td></tr>
 </tbody>
 </table>
@@ -235,7 +235,7 @@
 <tr><th>Symbol</th><th>Addr</th><th>Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>IY</strong></td><td>(reg)</td><td>Held at <code>flags</code> (<code>0x89F0</code>) almost everywhere, so <code>(IY+off)</code> indexes the <code>SystemFlags</code> bitfield.</td></tr>
+<tr><td><code>IY</code></td><td>(reg)</td><td>Held at <code>flags</code> (<code>0x89F0</code>) almost everywhere, so <code>(IY+off)</code> indexes the <code>SystemFlags</code> bitfield.</td></tr>
 <tr><td><code>flags</code></td><td>0x89F0</td><td>The IY-indexed system flag area (<code>SystemFlags</code> struct).</td></tr>
 <tr><td><code>OP1</code></td><td>0x8478</td><td>Primary FP accumulator.</td></tr>
 <tr><td><code>FPS</code></td><td>0x9824</td><td>Floating-point stack pointer.</td></tr>
