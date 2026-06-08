@@ -23,7 +23,7 @@ overhang, mirroring the OS pen pipeline.
 
 | Tool | Purpose |
 |------|---------|
-| `export-font.py` | ROM → `font.json` + `docs/font-table.md` |
+| `export-font.py` | ROM → `font.json` (glyph data for the renderer and its font-table tab) |
 | `export-layout.py` | ROM → `layout.json` (handler records, descriptors) |
 | `interp-cells.js` | resolve a record's cells to glyph/token/marker (data-driven) |
 | `trace_lcd.py` | reconstruct the exact LCD from a trace's `OUT 0x10/0x11` stream (T6A04) |
@@ -52,7 +52,7 @@ few pixels are trace-pinned rather than ROM-derivable.
 ## Regenerate
 
 ```sh
-python3 tools/export-font.py     # -> font.json + docs/font-table.md
+python3 tools/export-font.py     # -> font.json
 python3 tools/export-layout.py   # -> layout.json
 node tools/test-mathprint.js     # fuzz
 python3 tools/parity-mathprint.py  # calc-vs-model parity (needs TilEm + tools/rom.bin)

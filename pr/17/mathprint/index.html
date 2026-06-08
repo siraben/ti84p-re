@@ -9,6 +9,13 @@
 <body>
 <main>
   <h1>TI-84 Plus MathPrint renderer</h1>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="renderer">Renderer</button>
+    <button class="tab" data-tab="font">Font table</button>
+  </div>
+
+  <section id="tab-renderer">
   <p class="lede">
     Type an expression and it is typeset in 2-D using the calculator's real ROM
     font glyphs, following the page-<code>0x39</code> MathPrint layout engine
@@ -78,6 +85,18 @@
       <code>row_height + 2</code> px row step.
     </p>
   </details>
+  </section>
+
+  <section id="tab-font" hidden>
+    <p class="lede">
+      The ROM font glyphs extracted by <code>tools/export-font.py</code>, each drawn
+      on its pixel grid. The large font is 5&times;7 cells on page&nbsp;7 (drawn by
+      <code>_PutMap</code>, 07:4588); the small/variable-width font is on page&nbsp;3
+      (drawn by <code>_VPutMap</code>, 01:6293). Printable ASCII shows its character;
+      other codes show their ROM token name.
+    </p>
+    <div id="fonttable"></div>
+  </section>
 </main>
 <script src="app.js"></script>
 </body>

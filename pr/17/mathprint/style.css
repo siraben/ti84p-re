@@ -67,3 +67,22 @@ canvas { image-rendering: pixelated; max-width: 100%; }
 .syntax summary { cursor: pointer; color: var(--fg); }
 .syntax ul { margin: .5rem 0; padding-left: 1.2rem; }
 .syntax li { margin: .2rem 0; }
+
+.tabs { display: flex; gap: .5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+.tabs .tab {
+  background: none; color: var(--muted); border: 0; border-bottom: 2px solid transparent;
+  padding: .5rem .9rem; font-size: .9rem; cursor: pointer;
+}
+.tabs .tab:hover { color: var(--fg); }
+.tabs .tab.active { color: var(--fg); border-bottom-color: var(--accent); }
+
+#fonttable h2 { font-size: 1rem; color: var(--muted); font-weight: 500; margin: 1.5rem 0 .75rem; }
+.glyphgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: .6rem; }
+.glyphcell {
+  margin: 0; padding: .5rem; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; display: flex; flex-direction: column; align-items: center; gap: .35rem;
+}
+.glyphcell canvas { image-rendering: pixelated; }
+.glyphcell figcaption { display: flex; flex-direction: column; align-items: center; gap: .1rem; text-align: center; }
+.glyphcell .gcode { font-family: ui-monospace, Menlo, monospace; font-size: .72rem; color: var(--accent); }
+.glyphcell .gname { font-size: .72rem; color: var(--muted); word-break: break-all; }

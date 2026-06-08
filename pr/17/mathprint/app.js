@@ -297,13 +297,22 @@ function smallText(s) {
 //          frac := mul (('/') mul)* ; mul := pow (('*') pow | juxtaposition)* ;
 //          pow  := atom ('^' atom)* ; atom := num | ident | '(' expr ')' | func
 
+class ParseError extends Error { constructor(m) { super(m); this.name = 'ParseError'; } }
+
+// Strict recursive-descent parser: it accepts only a fully well-formed
+// expression — balanced parentheses, every template argument supplied, no stray
+// or trailing input — and throws a ParseError otherwise. The renderer catches
+// that and shows the message instead of a partial layout.
 function parse(src) {
   let i = 0;
   const s = src.replace(/\s+/g, '');
-  const peek = () => (i < s.length ? s[i] : '');   // '' at EOF: regex.test('') is false
+  if (s === '') return text('');                    // empty input renders nothing
+  const peek = () => (i < s.length ? s[i] : '');    // '' at EOF: regex.test('') is false
   const eat = c => { if (s[i] === c) { i++; return true; } return false; };
+  const at = msg => `${msg}${i < s.length ? ` before '${s[i]}'` : ' at end of input'} (column ${i + 1})`;
+  const expect = c => { if (s[i] !== c) throw new ParseError(at(`expected '${c}'`)); i++; };
   let steps = 0;
-  const guard = () => { if (++steps > 100000) throw new Error('parse step cap'); };
+  const guard = () => { if (++steps > 100000) throw new ParseError('expression too complex'); };
 
   function expr() { return add(); }
   function add() {
@@ -356,7 +365,7 @@ function parse(src) {
   function number() { let j = i; while (/[0-9.]/.test(peek())) i++; return s.slice(j, i); }
 
   function atom() {
-    if (eat('(')) { const b = expr(); eat(')'); return b; }
+    if (eat('(')) { const b = expr(); expect(')'); return b; }
     if (/[0-9.]/.test(peek())) return text(number());
     if (/[A-Za-z]/.test(peek())) {
       const id = ident();
@@ -365,39 +374,47 @@ function parse(src) {
         if (id === 'sum') return bigOpCall(id);
         if (id === 'nthroot') return nthRootCall();
         const args = call();
-        if (id === 'sqrt' || id === 'root') return radical(args[0]);
-        if (id === 'abs') return hcat([text('|'), args[0], text('|')]);
-        // unknown function: name followed by its parenthesised args
-        return hcat([text(id), parens(args[0] || text(''))]);
+        if (id === 'sqrt' || id === 'root') {
+          if (args.length !== 1) throw new ParseError(`${id}() takes one argument`);
+          return radical(args[0]);
+        }
+        if (id === 'abs') {
+          if (args.length !== 1) throw new ParseError('abs() takes one argument');
+          return hcat([text('|'), args[0], text('|')]);
+        }
+        if (args.length === 0) throw new ParseError(`${id}() needs an argument`);
+        // unknown function: name followed by its parenthesised, comma-joined args
+        const inner = args.reduce((acc, a, k) => (k ? hcat([acc, text(','), a]) : a));
+        return hcat([text(id), parens(inner)]);
       }
       return text(id);
     }
-    i++; return text('');  // skip stray char
+    throw new ParseError(at('unexpected input'));
   }
   function call() {
-    eat('(');
+    expect('(');
     const args = [];
     if (peek() !== ')') { args.push(expr()); while (eat(',')) args.push(expr()); }
-    eat(')');
+    expect(')');
     return args;
   }
   // int(lo, hi, body, var): read lo/hi as small-font strings when they are plain
   // tokens, otherwise as composed boxes; body and var as full expressions.
   function intCall() {
-    eat('(');
-    const lo = limitArg(); eat(',');
-    const hi = limitArg(); eat(',');
-    const body = expr(); eat(',');
-    const varBox = atom(); eat(')');
+    expect('(');
+    const lo = limitArg(); expect(',');
+    const hi = limitArg(); expect(',');
+    const body = expr(); expect(',');
+    const varBox = atom(); expect(')');
     return integral(lo, hi, body, varBox);
   }
   // sum(var,lo,hi,body): "var=lo" below the Σ, "hi" above, body to the right.
-  function bigOpCall(id) {
-    eat('(');
-    const v = limitArg(); eat(',');
-    const lo = limitArg(); eat(',');
-    const hi = limitArg(); eat(',');
-    const body = expr(); eat(')');
+  function bigOpCall() {
+    expect('(');
+    const v = limitArg(); expect(',');
+    const lo = limitArg(); expect(',');
+    const hi = limitArg(); expect(',');
+    const body = expr(); expect(')');
     const vs = typeof v === 'string' ? v : 'N';
     const ls = typeof lo === 'string' ? lo : '1';
     const hs = typeof hi === 'string' ? hi : 'n';
@@ -405,9 +422,9 @@ function parse(src) {
   }
   // nthroot(n, body): small-font index over the radical hook.
   function nthRootCall() {
-    eat('(');
-    const n = limitArg(); eat(',');
-    const body = expr(); eat(')');
+    expect('(');
+    const n = limitArg(); expect(',');
+    const body = expr(); expect(')');
     return nthRoot(n, body);
   }
   function limitArg() {
@@ -417,7 +434,9 @@ function parse(src) {
     i = j; return expr();                                               // complex -> box
   }
 
-  return expr();
+  const out = expr();
+  if (i !== s.length) throw new ParseError(at('unexpected input'));
+  return out;
 }
 
 // ---- canvas rendering -----------------------------------------------------
@@ -520,7 +539,13 @@ function render(step) {
     const tl = document.getElementById('timeline');
     if (tl && step == null) { tl.max = marks.length; tl.value = marks.length; }
   } catch (e) {
-    document.getElementById('err').textContent = String(e);
+    // Malformed input: render nothing and show why.
+    CUR = null;
+    const cv = document.getElementById('screen');
+    if (cv) { const ctx = cv.getContext('2d'); ctx.fillStyle = curColor().bg; ctx.fillRect(0, 0, cv.width, cv.height); }
+    document.getElementById('penlog').innerHTML = '';
+    document.getElementById('dims').textContent = '';
+    document.getElementById('err').textContent = e instanceof ParseError ? e.message : String(e);
   }
 }
 
@@ -543,6 +568,61 @@ function escapeHtml(s) {
   return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 }
 
+// ---- font-table tab -------------------------------------------------------
+
+// Draw one glyph bitmap (rows of 0/1) on a square pixel grid.
+function glyphCanvas(grid, cell = 9) {
+  const h = grid.length, w = grid.length ? grid[0].length : 0;
+  const cv = document.createElement('canvas');
+  cv.width = w * cell + 1;
+  cv.height = h * cell + 1;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#0f1217';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      ctx.fillStyle = grid[y][x] ? '#e6e9ee' : '#1c222c';
+      ctx.fillRect(x * cell + 1, y * cell + 1, cell - 1, cell - 1);
+    }
+  return cv;
+}
+
+// Build the font-table view once, on first visit: every ROM glyph on its grid.
+function buildFontTable() {
+  const host = document.getElementById('fonttable');
+  if (!host || host.dataset.built) return;
+  host.dataset.built = '1';
+  const sections = [
+    ['Large font — 5×7, page 7 (_PutMap)', FONT.large.glyphs, c => largeGlyph(c).rows],
+    ['Small / variable-width font — page 3 (_VPutMap)', FONT.small.glyphs, c => smallGlyph(c).rows],
+  ];
+  for (const [title, glyphs, toGrid] of sections) {
+    const h2 = document.createElement('h2');
+    h2.textContent = title;
+    host.appendChild(h2);
+    const grid = document.createElement('div');
+    grid.className = 'glyphgrid';
+    for (const code of Object.keys(glyphs).map(Number).sort((a, b) => a - b)) {
+      const cell = document.createElement('figure');
+      cell.className = 'glyphcell';
+      cell.appendChild(glyphCanvas(toGrid(code)));
+      const cap = document.createElement('figcaption');
+      const hex = '0x' + code.toString(16).toUpperCase().padStart(2, '0');
+      cap.innerHTML = `<span class="gcode">${hex}</span><span class="gname">${escapeHtml(glyphName(code))}</span>`;
+      cell.appendChild(cap);
+      grid.appendChild(cell);
+    }
+    host.appendChild(grid);
+  }
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.getElementById('tab-renderer').hidden = name !== 'renderer';
+  document.getElementById('tab-font').hidden = name !== 'font';
+  if (name === 'font') buildFontTable();
+}
+
 async function main() {
   FONT = await (await fetch('font.json')).json();
   const bar = document.getElementById('presets');
@@ -557,6 +637,7 @@ async function main() {
   document.getElementById('lcd').addEventListener('change', () => render());
   document.getElementById('pen').addEventListener('change', () => render());
   document.getElementById('play').addEventListener('click', playAnim);
+  document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
   document.getElementById('timeline').addEventListener('input', e => {
     stopAnim();
     const n = (CUR.marks || []).length;
@@ -573,6 +654,7 @@ if (typeof module !== 'undefined') {
   module.exports = {
     setFont: f => { FONT = f; },
     parse,
+    ParseError,
     penLog,
     toText: box => box.rows.map(r => r.map(c => (c ? '#' : '.')).join('')).join('\n'),
   };
