@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e2ed0df2.js";
+            window.path_to_searchindex_js = "searchindex-a6464ac3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -248,7 +248,7 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 </ul>
 <h3 id="roots--integer-parts-confirmed"><a class="header" href="#roots--integer-parts-confirmed">Roots &amp; integer parts [confirmed]</a></h3>
 <ul>
-<li><code>_SqRoot</code> <code>page_02:6E38</code>: <code>_ErrD_OP1NotPos</code> (→ DOMAIN if negative/complex-real), <code>fp_clear_guard</code>, <code>_ZeroOP3</code>, then a digit-by-digit BCD square-root extraction loop (<code>ram:1C9C</code> trial-subtract + <code>ram:1D4A</code> compare, halving the exponent up front). Not Newton’s method — classic long-hand sqrt.</li>
+<li><code>_SqRoot</code> <code>page_02:6E38</code>: <code>_ErrD_OP1NotPos</code> (→ DOMAIN if negative/complex-real), <code>fp_clear_guard</code>, <code>_ZeroOP3</code>, then a digit-by-digit BCD square-root extraction loop (<code>ram:1C9C</code> trial-subtract + <code>ram:1D4A</code> compare, halving the exponent up front). A classic long-hand sqrt, not Newton’s method.</li>
 <li><code>_Int</code>/<code>_Intgr</code> <code>ram:2621</code>/<code>2263</code>: floor. <code>_Trunc</code> <code>ram:2279</code> drops the fractional part (toward zero); <code>_Intgr</code> truncates then subtracts 1 (<code>_Minus1</code> <code>ram:2294</code>) when the original was negative, giving true floor.</li>
 <li><code>_Frac</code> <code>ram:24E3</code>: fractional part = x − trunc(x); shifts mantissa by the exponent and keeps the low digits.</li>
 <li><code>_Round</code> / <code>_RndGuard</code> <code>ram:2623</code> / <code>page_02:6A57</code>: round to the active display-digit count; <code>_Round</code> is a thin <code>cross_page_jump</code> wrapper (body banked off page 0).</li>
@@ -272,7 +272,7 @@ These constants are the BCD floats <code>π/180 = 1.745…e-2</code> and <code>1
 <li>reads a 3-byte <code>{lo, hi, page}</code> descriptor (page masked with <code>0x1F</code>/<code>0x3F</code> for 83+/84+ via ports 2/0x21),</li>
 <li><code>OUT (6),A</code> to bank the target page in at <code>4000</code>, then jumps to it.</li>
 </ol>
-<p>The ln/e^x sites that look similar are <em>not</em> cross-page dispatches. <code>ram:2362</code> calls the bcall
+<p>The ln/e^x sites that look similar are local calls, not cross-page dispatches. <code>ram:2362</code> calls the bcall
 entry at <code>ram:3DD1</code>, whose inline descriptor is <code>1E 7D 02</code>, so it invokes the page-0x02
 coefficient fetcher at <code>page_02:7D1E</code>. In <code>LD A,3; CALL 0x2362</code> / <code>LD A,6; CALL 0x2362</code>, the
 <code>3</code> and <code>6</code> are coefficient-table indexes, not target pages. <code>_EToX</code> falls through locally into
@@ -297,14 +297,14 @@ then falls through into the local <code>_TenX</code> body.</li>
 <ul>
 <li><code>_SinCosRad</code> <code>page_02:733E</code>, <code>_Sin</code> <code>7342</code>, <code>_Cos</code> <code>7346</code>, <code>_Tan</code> <code>734A</code>. Each loads a
 function selector byte into <code>0x8499</code> (<code>1</code>=sin, <code>2</code>=cos, <code>4</code>=tan; <code>0x80</code> bit set when
-<em>not</em> in the rad-special mode tested by <code>BIT 2,(IY+0)</code>; <code>_SinCosRad</code> forces <code>0x81</code>).</li>
+the rad-special mode tested by <code>BIT 2,(IY+0)</code> is off; <code>_SinCosRad</code> forces <code>0x81</code>).</li>
 <li>Range reduction: reads OP1 exponent; exponent ≥ 0x0C (|x| ≳ 10^12·) → <code>_ErrDomain</code>
 (“argument out of range”). It then reduces the angle modulo a quarter-period using the
 BCD constant table near <code>page_02:7D81</code> and runs the same table-driven digit recurrence
 as ln/eˣ over the signed near-unity tables at <code>page_02:7201</code> and <code>page_02:7281</code> (one row
 per digit step, sign-variant picked by <code>0x84A4</code> bit 7) — the per-step <code>bcd_sub_op1_op2</code>
 (<code>ram:1D8A</code>) / <code>bcd_add_8496_8480</code> (<code>ram:1D26</code>) are the shift-and-add BCD steps of that
-recurrence, <em>not</em> a fixed polynomial and <em>not</em> CORDIC for the forward trig. The per-row
+recurrence, not a fixed polynomial and not CORDIC for the forward trig. The per-row
 decoding of <code>02:7201</code>/<code>02:7281</code> is detailed in <a href="06-floating-point.html">06-floating-point.md</a>.</li>
 </ul>
 <h3 id="inverse-trig-confirmed"><a class="header" href="#inverse-trig-confirmed">Inverse trig [confirmed]</a></h3>

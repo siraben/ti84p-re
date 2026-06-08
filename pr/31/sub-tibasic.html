@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e2ed0df2.js";
+            window.path_to_searchindex_js = "searchindex-a6464ac3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -268,8 +268,8 @@ inside <code>parse_eval_expr</code>) and the same precedence selector (the label
 </code></pre>
 <p>The <code>param_2</code>/handler pointer is one of <code>0x4000</code> (base/term), <code>0x478c</code>
 (the postfix <code>^</code>/<code>!</code> production — it reads <code>+</code>/<code>^</code> (0x11),
-range-checks an exponent as a positive int, <code>_JError(0x84)</code> Domain otherwise; not a
-defined function in the live DB, a raw code target within <code>parse_eval_expr</code>),
+range-checks an exponent as a positive int, <code>_JError(0x84)</code> Domain otherwise; it is a
+raw code target within <code>parse_eval_expr</code>, not a defined function in the live DB),
 or <code>0x7175</code> (a leaf no-op). Selecting among these by <code>precLevel</code> (1/2/3) is how
 operator precedence is realized — nesting of productions, not a flat table
 (confirms <a href="07-tokenizer-basic.html">doc 07</a>’s “recursive-descent” claim). Results land in <code>OP1</code>; binary
@@ -287,7 +287,7 @@ is done by <code>chk_tok_end</code> (<code>38:72E0</code>) / <code>parse_cur_err
 <li><code>_StoAns</code> (<code>38:6251</code>) stores OP1 into <code>Ans</code> (<code>_CkOP1Real</code> path; the bytes that
 follow are the Ans-var token table). <code>_RclAns</code> (<code>38:679F</code>) = <code>_AnsName</code> then
 <code>_RclVarSym</code>.</li>
-<li><code>_AnsName</code> (<code>38:74B7</code>): <code>_ZeroOP1; (OP1+1)=0x72</code> (the name’s type/class byte at <code>0x8479</code>, not an exponent — OP1 holds a name here) — builds the OP1 name for
+<li><code>_AnsName</code> (<code>38:74B7</code>): <code>_ZeroOP1; (OP1+1)=0x72</code> (OP1 holds a name here, so the byte at <code>0x8479</code> is the name’s type/class tag rather than an exponent) — builds the OP1 name for
 the <code>Ans</code> variable (token class <code>0x72</code>).</li>
 <li><code>_StoSysTok</code>/<code>_RclSysTok</code> (<code>38:623B</code>/<code>683E</code>) store/recall a system token
 variable (Xmin etc.) into/from OP1.</li>
@@ -316,7 +316,7 @@ value 0xD0 vs 0xD4 tells the caller whether it landed on <code>Else</code> or <c
 <h3 id="if--then--else-execution-confirmed"><a class="header" href="#if--then--else-execution-confirmed">If / Then / Else execution [confirmed]</a></h3>
 <ul>
 <li>The <code>If</code> statement handler evaluates the condition into OP1 (real). If the
-next token is <em>not</em> <code>tThen</code>, it’s a single-statement <code>If</code> (execute the one
+next token is not <code>tThen</code>, it’s a single-statement <code>If</code> (execute the one
 statement when true, skip it when false). If <code>tThen</code>, it’s a block.</li>
 <li>The Else path is <code>if_else_skip_handler</code> (<code>38:5826</code>): on seeing <code>tElse(D0)</code> it repeatedly calls
 the block matcher <code>blockmatch_end_else</code> (<code>38:4130</code>) to skip the Else block to its matching End
@@ -324,8 +324,8 @@ the block matcher <code>blockmatch_end_else</code> (<code>38:4130</code>) to ski
 shared loop at <code>38:59C8</code>. Other <code>tElse</code> compares at <code>38:57B3/58A6/58C6</code>
 handle the symmetric “skip Then, run Else” and nested cases.</li>
 <li><code>if_isg_stmt_handler</code> (<code>38:6F63</code>) is the per-statement entry that special-cases <code>tIf</code> (<code>0xCE</code>)
-and <code>tISG</code> (<code>0xDA</code>, <code>IS&gt;(</code>): the second compare is <code>38:6F6C: CP 0xDA</code> (<code>tISG</code>, <em>not</em> <code>tStop</code>,
-which is <code>0xD9</code>). For <code>tIf</code> it sets grammar class <code>0x5F</code> and falls into the
+and <code>tISG</code> (<code>0xDA</code>, <code>IS&gt;(</code>): the second compare is <code>38:6F6C: CP 0xDA</code> (<code>tISG</code>, the
+adjacent token to <code>tStop</code> <code>0xD9</code>). For <code>tIf</code> it sets grammar class <code>0x5F</code> and falls into the
 shared precedence loop to evaluate the condition; unknown leading tokens here
 raise <code>_JError(0x88)</code> (<code>E_Syntax</code>) for ordinary unknown tokens, or <code>_JError(0x30)</code>
 (<code>E_Version</code>, “ERR:VERSION”) for tokens above <code>0xF5</code> (the reserved/newer-token range —
@@ -340,8 +340,8 @@ recording the loop variable, limit, step, and the <code>parsePtr</code> of the l
 re-tests the limit, and either re-seeds <code>parsePtr</code> to the loop top or falls
 through. The block matcher <code>blockmatch_end_else</code> (<code>38:4130</code>) is what bounds these bodies during
 skips (e.g. <code>While 0</code> skips straight to <code>End</code>).</li>
-<li><strong>Dispatch path (byte-traced).</strong> The For/While/Repeat/End/Return <em>execution</em> handlers are
-<em>not</em> on page 0x38 — page 0x38 only has the <code>tFor/tWhile/tRepeat/tEnd</code> compares inside
+<li><strong>Dispatch path (byte-traced).</strong> The For/While/Repeat/End/Return <em>execution</em> handlers live
+off page 0x38 — page 0x38 only has the <code>tFor/tWhile/tRepeat/tEnd</code> compares inside
 the <code>blockmatch_end_else</code> skip scanner (<code>38:4130…4180</code>). The live handlers are reached via
 the page-0x02 command dispatcher: <code>02:54BD</code> loads a per-token handler pointer
 (<code>LD HL,0x6A30</code> for <code>tFor</code>=<code>CP 0xD3</code>, <code>0x6A34</code> for <code>tEnd</code>=<code>CP 0xD4</code>, <code>0x6A2A</code> for
@@ -624,8 +624,8 @@ compile/copy the <code>AsmPrgm</code> body, hand off through <code>07:57B4</code
 payload byte itself at <code>ram:9D95 op=0x000000C9</code>, returning to BASIC immediately
 after. This <code>_ExecutePrgm</code> route is the ASM executor; it is not the ordinary
 BASIC <code>prgmNAME</code> subprogram path.</p>
-<p><code>ASMBRIDG.8xp</code> demonstrates a cooperative ASM-directed BASIC callback without
-pretending there is a public direct ASM-to-BASIC bcall. The wrapper runs:</p>
+<p><code>ASMBRIDG.8xp</code> demonstrates a cooperative ASM-directed BASIC callback that
+routes through a BASIC variable. The wrapper runs:</p>
 <pre><code class="language-ti-basic">Disp "BEFORE"
 Asm(prgmASMSIG)
 If Ans

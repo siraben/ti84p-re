@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e2ed0df2.js";
+            window.path_to_searchindex_js = "searchindex-a6464ac3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -223,7 +223,7 @@
 <tr><td><strong>VAT</strong></td><td>Variable Allocation Table — the RAM catalog of every named object, growing <em>down</em> from <code>symTable</code> (<code>0xFE66</code>). See <a href="05-variables-vat.html">Variables &amp; the VAT</a>.</td></tr>
 <tr><td><strong>object type</strong></td><td>The 1-byte type tag of a variable (<code>RealObj</code>=0, <code>ListObj</code>=1, <code>ProgObj</code>=5, <code>AppVarObj</code>=0x15…), modeled as the <code>TIVarType</code> enum.</td></tr>
 <tr><td><strong>archive</strong></td><td>Variables relocated to <em>flash</em> to save RAM; the VAT entry’s page byte then points into flash. See <a href="sub-vat-archive.html">Variables, Archive &amp; Unarchive</a>.</td></tr>
-<tr><td><strong>garbage collection</strong></td><td>Compacting the archive flash when it fills (“Garbage Collecting…”). The GC-core candidate <code>flash_gc_relocate</code>@<code>3C:7BD0</code> is not a defined function in the current live DB; that name is a project-local inferred label, not a WikiTI or <code>ti83plus.inc</code> equate.</td></tr>
+<tr><td><strong>garbage collection</strong></td><td>Compacting the archive flash when it fills (“Garbage Collecting…”). The GC-core candidate <code>flash_gc_relocate</code>@<code>3C:7BD0</code> is a project-local inferred label, not a defined function in the current live DB nor a WikiTI or <code>ti83plus.inc</code> equate.</td></tr>
 <tr><td><strong>RAM heap</strong></td><td>The dynamic region from <code>userMem</code> (<code>0x9D95</code>) up to the VAT; managed by <code>_InsertMem</code>/<code>_DelMem</code>. See <a href="12-memory-management.html">Memory Management</a>.</td></tr>
 </tbody>
 </table>

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e2ed0df2.js";
+            window.path_to_searchindex_js = "searchindex-a6464ac3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -256,7 +256,7 @@ page byte selects the Flash page; the VAT record itself always stays in RAM.</p>
 <li><code>5F45</code> resolves/creates the target symbol; then it copies the value. It dispatches on the
 destination name token (<code>849B</code>): list-element store (<code>0x2A</code> → bounds-checks via <code>_ErrDimension</code>),
 matrix element, etc. Ultimately a <code>_Create*</code> routine carves RAM with <code>_InsertMem</code> and the data is copied.</li>
-<li>A store into an archived var is <em>not</em> done in place; the OS unarchives first (you cannot rewrite
+<li>A store into an archived var is not done in place; the OS unarchives first (you cannot rewrite
 Flash in place) — see the <code>_Arc_Unarc</code> direction logic in §4. [I/H]</li>
 </ul>
 <p><strong>Recall</strong> <code>_RclVarSym</code> (<code>38:67B1</code>) and <code>_RclVarPush</code> (<code>3A:5D07</code>):</p>
@@ -267,7 +267,7 @@ recall (<code>63</code>/<code>2A</code>) it sizes the data with <code>_DataSize<
 <li><code>_DataSize</code> (<code>00:1485</code>): returns the variable’s data byte-count in DE from the type byte — real=9,
 list/cplx-list read the <code>word count</code> header, matrix uses cols×rows, and named types
 (<code>0x15</code> AppVar, <code>0x16</code>, <code>0x17</code> Group) read the leading <code>word size</code>.</li>
-<li>The recall code does <em>not</em> care whether the source is RAM or Flash for <em>reading</em> — Flash is
+<li>The recall code does not care whether the source is RAM or Flash for <em>reading</em> — Flash is
 memory-mapped read-only into the 0x4000 window. To <em>use</em> an archived program/var that must be
 modified or executed in RAM, the OS first copies it via <code>_FlashToRam</code> (§5). [H]</li>
 </ul>
@@ -364,7 +364,7 @@ Flash byte; <code>_FlashToRam2</code> (id 8054) is the companion Flash→RAM cop
 The retail boot table maps those APIs to boot-page bodies (<code>_WriteAByte</code>→<code>3F:4C9F</code>,
 <code>_WriteAByteSafe</code>→<code>3F:4C9A</code>, <code>_FlashToRam2</code>→<code>3F:4888</code>), which then wrap the lower-level
 page-3C/3D flash machinery below. Several page-3C/3D
-targets below are reached by byte trace but are <em>not</em> defined functions in the current live DB;
+targets below are reached by byte trace but are not defined functions in the current live DB;
 their <code>flash_*</code> names are project-local inferred labels (not WikiTI or <code>ti83plus.inc</code> equates):</p>
 <div class="table-wrapper">
 <table>
@@ -557,8 +557,8 @@ body-undisassembled until the lower-level page-3C/3D helper graph is split clean
 stored as one Flash blob. In <code>_Arc_Unarc</code> the <code>CP 0x17</code> → <code>26E0</code> reject sits on the B≠0 (in-Flash)
 branch, immediately before the unarchive worker <code>61F4</code> — so an archived group is not unarchived
 through <code>61F4</code>, and groups are handled by a separate routine that walks the group’s member list.
-That member-walk routine is <em>not</em>
-identifiable in the current Ghidra DB — <code>_Arc_Unarc</code>’s body past the entry <code>CALL</code> is not
+That member-walk routine remains
+unidentified in the current Ghidra DB — <code>_Arc_Unarc</code>’s body past the entry <code>CALL</code> is not
 disassembled here (cross-page <code>CALL</code> flagged non-returning), and no group-archive function is
 named or xref-reachable. Re-confirming it would need a linear disassembly pass like the one behind §4.</li>
 </ul>

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e2ed0df2.js";
+            window.path_to_searchindex_js = "searchindex-a6464ac3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -188,7 +188,7 @@ recalled by name (<code>x̄</code>, <code>Σx</code>, <code>RegEQ</code>, …).<
 <p>This doc covers the STAT <strong>CALC</strong> computations. The data source is the L1–L6
 lists (VAT/<a href="05-variables-vat.html">05-variables-vat.md</a>, <a href="sub-vat-archive.html">sub-vat-archive.md</a>); the arithmetic is the
 BCD FP engine (<a href="06-floating-point.html">06-floating-point.md</a>, <a href="sub-calculation.html">sub-calculation.md</a>). Stat plots and
-the <strong>DISTR</strong> menu are noted in §8/§9 — DISTR functions are <em>parser</em> functions,
+the <strong>DISTR</strong> menu are noted in §8/§9 — DISTR functions are parser functions,
 not part of the STAT‑CALC engine.</p>
 <p>Address form: <code>page:addr</code> (flash page in the <code>0x4000</code> slot) or <code>ram:addr</code> for the
 fixed page‑0 core at <code>0x0000</code>. The whole STAT‑CALC engine lives on flash page
@@ -245,7 +245,7 @@ menu) and are written by the test commands, not by 1/2‑Var Stats. An ANOVA blo
 <code>anovaf_vars</code> (<code>F_DF/F_SS/F_MS/E_DF/E_SS/E_MS</code>) follows.</p>
 <p><strong>STAT‑TESTS are separate command handlers [confirmed scope].</strong> <code>Z‑Test</code>/<code>T‑Test</code>/<code>χ²‑Test</code>/
 <code>2‑SampFTest</code>/<code>ANOVA(</code> etc. come in as their own 2‑byte <code>t2ByteTok</code> (<code>0xBB</code>)‑prefixed command tokens — e.g.
-<code>LinRegTTest=34h</code> noted in §3 — and are <em>not</em> dispatched through <code>_OneVar</code> (whose token map is
+<code>LinRegTTest=34h</code> noted in §3 — and are not dispatched through <code>_OneVar</code> (whose token map is
 only <code>F2</code>–<code>FF</code>, §3). They fill the <code>PStat…SStat</code>/<code>anovaf_vars</code> block above directly. No
 <code>PStat</code>/<code>ZStat</code>‑writing routine appears among the page‑0x3A <code>stat_*</code> symbols (all of which are
 the <code>_OneVar</code> accumulate/variance/median/regression engine), confirming the tests live in their
@@ -332,7 +332,7 @@ as a model index. From <code>ti83plus.inc</code>:</p>
 <code>SinReg=32h</code>, <code>Logistic=33h</code>, <code>LinRegTTest=34h</code> are 2‑byte <code>t2ByteTok</code> (<code>0xBB</code>)‑prefixed
 tokens (their <code>2Eh</code>/<code>2Fh</code>/<code>32h</code>/<code>33h</code>/<code>34h</code> values are the <em>second</em> byte after <code>0xBB</code>). Degree for the polynomial solver = the model index; the coefficient
 fan‑out into <code>QuadA..QuartE</code> is naturally sized by degree. [confirmed/standard]</p>
-<p><code>SortA(</code>/<code>SortD(</code> are <em>separate</em> tokens (<code>tSortA=E3h</code>, <code>tSortD=E4h</code>) with their
+<p><code>SortA(</code>/<code>SortD(</code> are separate tokens (<code>tSortA=E3h</code>, <code>tSortD=E4h</code>) with their
 own command handler — not <code>_OneVar</code>. The sort used here, <code>stat_sort</code> (<code>3A:7935</code>),
 is stat‑internal: its only callers are <code>stat_median_quartile</code> (<code>3A:79B9</code>) and
 <code>medmed_partition</code> (<code>3A:760F</code>) (xref‑confirmed), so it powers the 1‑Var median/
@@ -501,11 +501,11 @@ id <code>0x47A4</code>) is the <strong>ZoomStat</strong> routine that auto‑sca
 list data (sets <code>Xmin/Xmax/Ymin/Ymax</code> from <code>minX/maxX/minY/maxY</code>). See
 <a href="sub-graphing.html">sub-graphing.md</a>. [confirmed addresses / standard behavior]</p>
 <hr>
-<h2 id="9-distributions-distr-menu--not-part-of-statcalc-confirmed-scope"><a class="header" href="#9-distributions-distr-menu--not-part-of-statcalc-confirmed-scope">9. Distributions (DISTR menu) — <em>not</em> part of STAT‑CALC [confirmed scope]</a></h2>
+<h2 id="9-distributions-distr-menu--not-part-of-statcalc-confirmed-scope"><a class="header" href="#9-distributions-distr-menu--not-part-of-statcalc-confirmed-scope">9. Distributions (DISTR menu) — not part of STAT‑CALC [confirmed scope]</a></h2>
 <p><code>normalpdf(</code>, <code>normalcdf(</code>, <code>invNorm(</code>, <code>binompdf(</code>, <code>tcdf(</code>, <code>χ²cdf(</code>, <code>Fcdf(</code>,
 etc. are parser functions (DISTR‑menu tokens, the <code>t2ByteTok</code> (<code>0xBB</code>)‑prefixed
 two‑byte tokens like <code>tShadeNorm=35h</code>), evaluated through the normal function
-dispatch of the TI‑BASIC parser, <em>not</em> through <code>_OneVar</code>. They are not
+dispatch of the TI‑BASIC parser, not through <code>_OneVar</code>. They are not
 exposed as named bcalls in this OS image (a search of <code>bcall_targets.txt</code> finds
 only <code>_SetNorm_Vals</code> <code>00:220F</code>, a helper that copies the <em>display</em> “Normal mode”
 default values — unrelated to the normal <em>distribution</em>). Their numerical cores
@@ -515,10 +515,10 @@ transcendentals; they belong to the parser/<code>sub-tibasic</code> dispatch rat
 STAT subsystem documented here.
 [confirmed: not reachable from <code>_OneVar</code>; hypothesis: numerical method]</p>
 <p><strong>Grounding [confirmed].</strong> A name search of the whole‑OS image for <code>norm</code>/<code>stat</code>/distribution
-cores returns <em>no</em> <code>normalcdf</code>/<code>erf</code>/incomplete‑gamma/incomplete‑beta entry points — the only
+cores returns no <code>normalcdf</code>/<code>erf</code>/incomplete‑gamma/incomplete‑beta entry points — the only
 <code>*norm*</code> symbols are <code>_SetNorm_Vals</code> (<code>00:220F</code>, display “Normal mode” defaults),
 <code>fp_normalize</code>/<code>fp_norm_left</code> (mantissa normalisation), <code>cplx_norm_*</code> (complex modulus) and the
-<code>eqdisp_setnorm_split</code> layout helpers — <em>none</em> is a distribution. Likewise every <code>stat_*</code>
+<code>eqdisp_setnorm_split</code> layout helpers — none is a distribution. Likewise every <code>stat_*</code>
 symbol on page 0x3A is part of the <code>_OneVar</code> STAT‑CALC engine (accumulate / variance / median /
 sort / regression), not a DISTR core. So the erf / incomplete‑gamma / incomplete‑beta continued
 fractions are [I] — outside the STAT‑CALC engine, sitting behind the parser’s 2‑byte

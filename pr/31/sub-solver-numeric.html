@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e2ed0df2.js";
+            window.path_to_searchindex_js = "searchindex-a6464ac3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -279,7 +279,7 @@ against tolerance. The tolerance floor is the TIFloat constant <code>1.0e-13</co
 <code>39:46EA</code> (<code>00 73 10 …</code>); the residual-zero floor is <code>1.0e-99</code> at <code>39:46E1</code>
 (<code>00 1D 10 …</code>). On reaching tolerance the solver exits through the <code>39:4540 → 4553</code>
 branch (dynamically traced on an <code>X²−2 = 0</code> solve that converged to √2 ≈ 1.41421356);
-<code>39:4547</code> is a <code>CALL</code>, not the converged return, and was <em>not</em> on the observed path.
+<code>39:4547</code> is a <code>CALL</code>, not the converged return, and the observed path bypassed it.
 The tolerance tests at <code>446F</code>/<code>44D7</code>/<code>44F8</code> run under that trace; <code>45C7</code> is reached only
 on other convergence sub-paths. [confirmed]</li>
 </ul>
@@ -411,7 +411,7 @@ floating-point constant in the body: the TIFloat at <code>33:4E92</code>
 <code>33:4E5D</code> (<code>LD HL,0x4E92; CALL 0x1982</code>), immediately after the only transcendental bcall in
 the body, <code>33:4E56 EF AB 40</code> = bcall <code>_LnX</code> (0x40AB). So <code>ln(10)·100</code> is used purely to
 convert the requested significant-digit tolerance into a decimal error bound via
-<code>ln</code> — it is <em>not</em> a quadrature node or weight. There is no node/weight table anywhere in
+<code>ln</code> — it is a tolerance scaler, not a quadrature node or weight. There is no node/weight table anywhere in
 the body (the data after <code>33:4E92</code>, <code>FD CB 18 AE …</code>, decodes as code: <code>RES 5,(IY+0x18)</code>
 followed by LCD/keypad port I/O <code>DB 3A / D3 3A</code>). A Gauss–Kronrod rule would require a fixed
 block of ~7–15 irrational node and weight constants stored as TIFloats; their complete

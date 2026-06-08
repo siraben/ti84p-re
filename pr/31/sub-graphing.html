@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e2ed0df2.js";
+            window.path_to_searchindex_js = "searchindex-a6464ac3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -330,15 +330,15 @@ line’s two endpoints in that frame: it copies <code>Xmin</code> (<code>0x8F50<
 X range — with <code>_Mov9B</code> (<code>00:1A92</code>, which reads a window float into the frame), interleaving the
 line’s Y (<code>OP1</code>) via <code>_MovFrOP1</code> (<code>00:1B0C</code>), so the endpoints are <code>(Xmin, y)</code> and <code>(Xmax, y)</code>.
 <code>_VertCmd</code> does the same with <code>Ymin</code> (<code>0x8F6B</code>)/<code>Ymax</code> (<code>0x8F74</code>) and the line’s X. It renders with
-<code>_PDspGrph</code>, then <code>_DeallocFPS1(0x24)</code> frees the frame — the live window variables are <em>not</em>
-modified (the line just spans the current window edges). [confirmed]</p>
+<code>_PDspGrph</code>, then <code>_DeallocFPS1(0x24)</code> frees the frame — the window variables are read only,
+so the line just spans the current window edges. [confirmed]</p>
 <hr>
 <h2 id="5-rendering-the-graph-to-the-lcd"><a class="header" href="#5-rendering-the-graph-to-the-lcd">5. Rendering the graph to the LCD</a></h2>
 <p><code>_PDspGrph</code> (<code>04:7904</code>, “possibly-display graph”) is the gatekeeper between buffer and
 screen. [confirmed]</p>
 <ul>
 <li>Clears the “need redraw” flag at <code>(IY+2)</code>,</li>
-<li>if the graph-dirty bit <code>(IY+3)&amp;1</code> is set (<code>graphFlags.graphDraw</code>, inc <code>graphFlags=3</code>/<code>graphDraw=0</code>; <code>1</code>=redraw needed — this is <em>not</em> <code>grfDBFlags</code> at <code>IY+4</code> nor SmartGraph at <code>IY+0x17</code>), calls
+<li>if the graph-dirty bit <code>(IY+3)&amp;1</code> is set (<code>graphFlags.graphDraw</code>, inc <code>graphFlags=3</code>/<code>graphDraw=0</code>; <code>1</code>=redraw needed — this is the <code>graphFlags</code> bit at <code>IY+3</code>, distinct from <code>grfDBFlags</code> at <code>IY+4</code> and SmartGraph at <code>IY+0x17</code>), calls
 <code>_Regraph</code> to recompute the whole plot,</li>
 <li>otherwise checks the split-screen flag (<code>_Bit_VertSplit</code>) and copies the buffer to the LCD
 (<code>graph_redraw_buf</code> <code>04:607F</code>).</li>
@@ -405,8 +405,8 @@ function (<code>_ParseInp</code>) for that X, maps the point with <code>_XftoI</
 cross-cursor, and uses <code>_SetXXOP1</code>/<code>_SetXXOP2</code> to convert the cursor pixel back to the real
 X/Y it prints at the bottom. [confirmed]</li>
 <li>A <code>DRAW</code> command (<code>_DrawCmd</code>) or <code>Line(</code>/<code>Circle(</code>/<code>Pt-On(</code> draws straight into
-<code>plotSScreen</code> over the current plot and is <em>not</em> re-evaluated on SmartGraph redraw unless
-<code>ClrDraw</code> is issued. [confirmed]</li>
+<code>plotSScreen</code> over the current plot and persists across a SmartGraph redraw (it is not
+re-evaluated) until <code>ClrDraw</code> is issued. [confirmed]</li>
 </ul>
 <hr>
 <h2 id="8-confidence-summary--open-items"><a class="header" href="#8-confidence-summary--open-items">8. Confidence summary / open items</a></h2>
@@ -416,7 +416,7 @@ X/Y it prints at the bottom. [confirmed]</li>
 read but the ±sentinel constants are summarized, not exhaustively byte-traced.</li>
 <li><code>_HorizCmd</code>/<code>_VertCmd</code> endpoint build — resolved: <code>7933</code> allocates a 0x24-byte FPS frame, and
 the commands <code>_Mov9B</code> the window edges (<code>Xmin</code>/<code>Xmax</code> or <code>Ymin</code>/<code>Ymax</code>) plus <code>_MovFrOP1</code> the line’s
-coordinate (<code>OP1</code>) into that frame. The live window variables are not touched.</li>
+coordinate (<code>OP1</code>) into that frame, reading the live window variables only.</li>
 <li>Circle parametric stepping in <code>3B:7171</code> (<code>_DrawCirc2</code>) not decompiled here (lives on
 page 3B); the <code>_GrphCirc</code> setup is confirmed.</li>
 <li>Y= selection bit (<code>0x20</code>; flags byte <code>0x23</code> selected / <code>0x03</code> deselected) and the style byte

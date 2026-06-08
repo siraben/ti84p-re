@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e2ed0df2.js";
+            window.path_to_searchindex_js = "searchindex-a6464ac3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -193,7 +193,7 @@ not fully traced).</p>
 SystemFlags base is <code>IY = flags = 0x89F0</code>, so e.g. <code>(IY+0x0A)</code> = <code>flags + fmtFlags</code>.</p>
 <hr>
 <h2 id="1-flash-apps--find--launch"><a class="header" href="#1-flash-apps--find--launch">1. Flash Apps — find &amp; launch</a></h2>
-<p>This ROM appears to ship with <em>no</em> bundled apps in the local ROM-byte scan (zero <code>80 0F</code> headers found at page starts; not directly verifiable through the current MCP byte interface),
+<p>This ROM appears to ship with zero bundled apps in the local ROM-byte scan (zero <code>80 0F</code> headers found at page starts; not directly verifiable through the current MCP byte interface),
 but the entire find/launch machinery is present on <code>page 0x3D</code> (<code>_FindApp*</code>) and
 <code>page 0x3B</code> (<code>_AppInit</code> glue / app-quit). Apps are TI Flash Applications: a contiguous
 run of 16 KiB flash pages whose first page begins with a TLV app header.</p>
@@ -312,7 +312,7 @@ the decoded header table. The corpus keeps the same parser boundary rule:</p>
 </div>
 <p>So <code>4080</code> is a common app-entry convention, not the OS’s header parser boundary. Some
 apps end the parsed header at <code>4029</code>, <code>4070</code>, or exactly <code>4080</code>, and all remain valid
-because the <code>807</code> final field, not a 128-byte fixed struct, terminates the header.</p>
+because the <code>807</code> final field terminates the header.</p>
 <p>The public entry points for walking these fields are bcalls in <code>ti83plus.inc</code>:
 <code>_FindAppHeaderSubField</code> (bcall <code>0x80AB</code>) locates a field in an app header, and
 <code>_FindOSHeaderSubField</code> (bcall <code>0x8075</code>) does the same for the OS header. Both build on the
@@ -424,7 +424,7 @@ re-init lands in page-0 boot code.</p>
 <code>IY+0x34</code> bit6, <code>IY+0x35</code> bits0/1, and the word at <code>0x9B73</code>) so the calculator knows it is
 mid-reset. It then <code>JP 0x0BD9</code>, the RAM-init entry (<code>OUT (0)</code> page select, <code>LD SP,0xFFF7</code>,
 then <code>CALL 0x3EC1</code> — the cross-page trampoline that rebuilds the VAT, system vars, and LCD; see <a href="11-boot-contexts-errors.html">doc 11</a>), which rebuilds a
-clean default VAT and system state and re-enters the homescreen. The Flash archive is <em>not</em>
+clean default VAT and system state and re-enters the homescreen. The Flash archive is not
 touched by a plain RAM reset.</p>
 <h3 id="24-full-reset-page_0ram0b27-confirmed"><a class="header" href="#24-full-reset-page_0ram0b27-confirmed">2.4 Full reset (<code>page_0/ram:0B27</code>) [confirmed]</a></h3>
 <p>The harder reset (RESET ALL / power-on cold start) is at <code>ram:0B27</code>:</p>
@@ -436,7 +436,7 @@ touched by a plain RAM reset.</p>
 <h3 id="25-_cleanall--cleanup_temp_ram-page_0752cf--not-a-reset-confirmed"><a class="header" href="#25-_cleanall--cleanup_temp_ram-page_0752cf--not-a-reset-confirmed">2.5 <code>_CleanAll</code> / <code>cleanup_temp_ram</code> (<code>page_07:52CF</code>) — not a reset [confirmed]</a></h3>
 <p>Distinct from the MEM reset. <code>_CleanAll</code> (bcall <code>0x4A50</code>) only compacts temporary RAM
 after a command finishes: it shifts the FP stack (<code>fpBase</code>/<code>FPS</code>) down to <code>tempMem</code>, resets
-the <code>OPBase</code>/<code>OPS</code>/<code>pTemp</code> scratch pointers, and clears <code>pTempCnt</code>/<code>cleanTmp</code>. It does <em>not</em>
+the <code>OPBase</code>/<code>OPS</code>/<code>pTemp</code> scratch pointers, and clears <code>pTempCnt</code>/<code>cleanTmp</code>. It does not
 clear the VAT, user vars, or Flash (see <a href="12-memory-management.html">doc 12</a>). <code>_FixTempCnt</code> (<code>page_07:4FEC</code>) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.</p>
 <h3 id="26-flash-archive-gc--defragmenting--garbage-collecting-confirmed-behavior-display-label-addresses-undisassembled"><a class="header" href="#26-flash-archive-gc--defragmenting--garbage-collecting-confirmed-behavior-display-label-addresses-undisassembled">2.6 Flash archive GC — “Defragmenting…” / “Garbage Collecting…” [confirmed behavior; display-label addresses undisassembled]</a></h3>
@@ -503,7 +503,7 @@ bit5 <code>grfNoAxis</code>; <code>seqFlags</code> (<code>IY+0x0F</code>).</p>
 </div>
 <p>So Normal/Sci/Eng = (bit0, bit1): Normal = <code>00</code>, Sci = <code>01</code>, Eng = <code>11</code>.
 <code>fmtOverride</code> (<code>IY+0x0B</code>, <code>0x89FB</code>) is a working copy used during conversions.</p>
-<p>Float vs Fix N is <em>not</em> in <code>fmtFlags</code> — it is the separate byte <code>fmtDigits</code> =
+<p>Float vs Fix N is not in <code>fmtFlags</code> — it is the separate byte <code>fmtDigits</code> =
 <code>0x97B0</code>: value <code>0x00–0x09</code> = Fix-N decimal places, <code>0xFF</code> = Float.</p>
 <h3 id="34-mode-screen-plumbing"><a class="header" href="#34-mode-screen-plumbing">3.4 MODE screen plumbing</a></h3>
 <p>The MODE screen is a menu context (<code>cxMode</code>/<code>kMode</code>=0x45) reached via the event/key router
