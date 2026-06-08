@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
+            window.path_to_searchindex_js = "searchindex-034b6dd8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -309,10 +309,10 @@ the inter-bit wait. Under that decoding, the ROM constants are:</p>
 <tr><th>Port</th><th>CPU speed mode</th><th>Value</th><th>Divisor field</th><th>Wait field</th></tr>
 </thead>
 <tbody>
-<tr><td><code>0x09</code></td><td>0, 6 MHz</td><td><code>0x97</code> (<code>10010111b</code>)</td><td><code>100b</code> -&gt; divide by 16</td><td><code>0x17</code></td></tr>
-<tr><td><code>0x0A</code></td><td>1</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> -&gt; divide by 32</td><td><code>0x14</code></td></tr>
-<tr><td><code>0x0B</code></td><td>2, 15 MHz duplicate 1</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> -&gt; divide by 32</td><td><code>0x14</code></td></tr>
-<tr><td><code>0x0C</code></td><td>3, 15 MHz duplicate 2</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> -&gt; divide by 32</td><td><code>0x14</code></td></tr>
+<tr><td><code>0x09</code></td><td>0, 6 MHz</td><td><code>0x97</code> (<code>10010111b</code>)</td><td><code>100b</code> → divide by 16</td><td><code>0x17</code></td></tr>
+<tr><td><code>0x0A</code></td><td>1</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> → divide by 32</td><td><code>0x14</code></td></tr>
+<tr><td><code>0x0B</code></td><td>2, 15 MHz duplicate 1</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> → divide by 32</td><td><code>0x14</code></td></tr>
+<tr><td><code>0x0C</code></td><td>3, 15 MHz duplicate 2</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> → divide by 32</td><td><code>0x14</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -368,11 +368,11 @@ bjumps resolve as:</p>
 <tr><th><code>port 0x56</code> bit</th><th>Page-0 dispatch</th><th>Page-35 target</th><th>Observed role</th></tr>
 </thead>
 <tbody>
-<tr><td>4</td><td><code>00:0122</code> -&gt; <code>ram:3FA5</code></td><td><code>35:4B6A</code></td><td>line/event settle path; waits on <code>0x4D</code> bits 7 and 0, writes <code>0x57 = 0x22</code>.</td></tr>
-<tr><td>5</td><td><code>00:0127</code> -&gt; <code>ram:3FAB</code></td><td><code>35:4B9F</code></td><td>event clear/re-arm path; may clear <code>0x4C</code>, reset <code>USBFlag2</code> bit 6, and write <code>0x57 = 0x50/0x93</code>.</td></tr>
-<tr><td>6</td><td><code>00:0113</code> -&gt; <code>ram:3F93</code></td><td><code>35:40B2</code></td><td>USB setup path; sets <code>IY+0x1B</code> bit 5, initializes controller state, and waits for <code>0x4C = 0x1A/0x5A</code>.</td></tr>
-<tr><td>7</td><td><code>00:0118</code> -&gt; <code>ram:3F99</code></td><td><code>35:4C14</code></td><td>cleanup/reset path; clears <code>0x5B</code>, resets <code>USBFlag2</code> bit 0, and jumps through the common controller reset.</td></tr>
-<tr><td>1</td><td><code>00:011D</code> -&gt; <code>ram:3F9F</code></td><td><code>35:4031</code></td><td>alternate setup path; waits for <code>0x4C = 0x12/0x52</code> and uses endpoint/status ports <code>0x87</code>/<code>0x89</code>/<code>0x8B</code>.</td></tr>
+<tr><td>4</td><td><code>00:0122</code> → <code>ram:3FA5</code></td><td><code>35:4B6A</code></td><td>line/event settle path; waits on <code>0x4D</code> bits 7 and 0, writes <code>0x57 = 0x22</code>.</td></tr>
+<tr><td>5</td><td><code>00:0127</code> → <code>ram:3FAB</code></td><td><code>35:4B9F</code></td><td>event clear/re-arm path; may clear <code>0x4C</code>, reset <code>USBFlag2</code> bit 6, and write <code>0x57 = 0x50/0x93</code>.</td></tr>
+<tr><td>6</td><td><code>00:0113</code> → <code>ram:3F93</code></td><td><code>35:40B2</code></td><td>USB setup path; sets <code>IY+0x1B</code> bit 5, initializes controller state, and waits for <code>0x4C = 0x1A/0x5A</code>.</td></tr>
+<tr><td>7</td><td><code>00:0118</code> → <code>ram:3F99</code></td><td><code>35:4C14</code></td><td>cleanup/reset path; clears <code>0x5B</code>, resets <code>USBFlag2</code> bit 0, and jumps through the common controller reset.</td></tr>
+<tr><td>1</td><td><code>00:011D</code> → <code>ram:3F9F</code></td><td><code>35:4031</code></td><td>alternate setup path; waits for <code>0x4C = 0x12/0x52</code> and uses endpoint/status ports <code>0x87</code>/<code>0x89</code>/<code>0x8B</code>.</td></tr>
 </tbody>
 </table>
 </div>
@@ -421,9 +421,9 @@ mask to physical page <code>0x35</code>.</p>
 <tr><th>Need</th><th>OS surface</th><th>ROM support</th></tr>
 </thead>
 <tbody>
-<tr><td>Send or request a variable over USB/link</td><td><code>_GetVarCmdUSB</code>/<code>_LinkXferOP</code> (<code>50FB</code> -&gt; <code>3C:4DD2</code>) or <code>_SendVarCmd</code> (<code>4A14</code> -&gt; <code>3C:4EDD</code>)</td><td>Packet engine and USB-selection gate confirmed on page <code>3C</code>. <code>0x50FB</code> is <code>_GetVarCmdUSB</code> in <code>ti83plus.inc</code>.</td></tr>
-<tr><td>Send one byte on the active link transport</td><td><code>_SendAByte</code> (<code>4EE5</code> -&gt; <code>3C:420D</code>)</td><td>Assist branch writes <code>C</code> to port <code>0x0D</code> after port <code>0x09</code> bit 5.</td></tr>
-<tr><td>Receive one byte on the active link transport</td><td><code>_RecAByteIO</code> (<code>4F03</code> -&gt; <code>3C:443F</code>)</td><td>Status path checks port <code>0x09</code> and reads port <code>0x0A</code> on the assist path.</td></tr>
+<tr><td>Send or request a variable over USB/link</td><td><code>_GetVarCmdUSB</code>/<code>_LinkXferOP</code> (<code>50FB</code> → <code>3C:4DD2</code>) or <code>_SendVarCmd</code> (<code>4A14</code> → <code>3C:4EDD</code>)</td><td>Packet engine and USB-selection gate confirmed on page <code>3C</code>. <code>0x50FB</code> is <code>_GetVarCmdUSB</code> in <code>ti83plus.inc</code>.</td></tr>
+<tr><td>Send one byte on the active link transport</td><td><code>_SendAByte</code> (<code>4EE5</code> → <code>3C:420D</code>)</td><td>Assist branch writes <code>C</code> to port <code>0x0D</code> after port <code>0x09</code> bit 5.</td></tr>
+<tr><td>Receive one byte on the active link transport</td><td><code>_RecAByteIO</code> (<code>4F03</code> → <code>3C:443F</code>)</td><td>Status path checks port <code>0x09</code> and reads port <code>0x0A</code> on the assist path.</td></tr>
 <tr><td>Use the raw assist FIFO</td><td>Poll port <code>0x09</code> bit 5, then write the byte to port <code>0x0D</code>; for receive, observe port <code>0x09</code> bit 4/error bits and read port <code>0x0A</code>.</td><td>Confirmed as an OS pattern, but not a complete public API.</td></tr>
 </tbody>
 </table>

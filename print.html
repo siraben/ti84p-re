@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
+            window.path_to_searchindex_js = "searchindex-034b6dd8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -181,7 +181,7 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="ti-84-plus-os--reverse-engineering-notes-system-overview"><a class="header" href="#ti-84-plus-os--reverse-engineering-notes-system-overview">TI-84 Plus OS — Reverse-engineering notes: system overview</a></h1>
-<p>Target: <code>ti84plus.rom</code> (1 MiB flash dump). OS self-identifies as 2.55MP. CPU: Zilog Z80 (16-bit address bus, 64 KiB logical space) with hardware flash/RAM paging. Ghidra project: <code>~/Documents/ti84-re/ti84.gpr</code> (rebuild: <code>tools/build.sh</code>).</p>
+<p>Target: <code>ti84plus.rom</code> (1 MiB flash dump). OS self-identifies as 2.55MP. CPU: Zilog Z80 (16-bit address bus, 64 KiB logical space) with hardware flash/RAM paging. Ghidra project: <code>ti84.gpr</code> (rebuild: <code>tools/build.sh</code>).</p>
 <blockquote>
 <p>Confidence is flagged: [confirmed] = verified in disassembly/decompiler; [standard] = matches documented TI-83+/84+ architecture and is consistent with the disassembly; [hypothesis] = inferred, not yet verified.</p>
 </blockquote>
@@ -1688,7 +1688,7 @@ Programs that borrow page <code>83</code> must preserve or restore the OS-visibl
 <tbody>
 <tr><td><code>4000-7FFF</code></td><td><code>6</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page <code>0x80 | (value &amp; 7)</code></td><td>banked Flash page</td></tr>
 <tr><td><code>8000-BFFF</code></td><td><code>7</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page <code>0x80 | (value &amp; 7)</code></td><td><code>81</code></td></tr>
-<tr><td><code>C000-FFFF</code></td><td><code>5</code></td><td>low three bits select RAM page <code>0x80 | (value &amp; 7)</code></td><td><code>00</code> -&gt; RAM page <code>80</code></td></tr>
+<tr><td><code>C000-FFFF</code></td><td><code>5</code></td><td>low three bits select RAM page <code>0x80 | (value &amp; 7)</code></td><td><code>00</code> → RAM page <code>80</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -4503,7 +4503,7 @@ EF9B41EFBF4AC9
 <code>ZZBASIC.8xp</code> displays <code>BEFORE</code>, <code>CALLED</code>, <code>AFTER</code>, then <code>Done</code>. The trace
 hits the <code>AsmPrgm</code> payload at <code>ram:9D95</code>, <code>_OP1Set1</code> (<code>00:1B38</code>), <code>_StoAns</code>
 (<code>38:6251</code>), <code>_AnsName</code> (<code>38:74B7</code>) during <code>If Ans</code>, and the ordinary
-<code>prgmZZBASIC</code> body evaluator path (<code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>).
+<code>prgmZZBASIC</code> body evaluator path (<code>38:6910</code> → <code>38:6914</code> → <code>38:778F</code>).
 This is the practical callback convention: ASM returns a value through a BASIC
 variable, and BASIC performs the actual program call.</p>
 <p><code>ASMRTN.8xp</code> demonstrates the same <code>Ans</code> convention as a numeric return value:</p>
@@ -4685,7 +4685,7 @@ never displays the target program’s <code>CALLED</code> line. <code>_rclToQueu
 an edit-buffer queue helper guarded by <code>rclFlag.enableQueue</code>, not a standalone
 program executor.</p>
 <p><code>_ExecuteNewPrgm</code> (<code>00:265F</code>) is also stateful. An <code>AsmPrgm</code> probe with
-<code>OP1=ProgObj</code> and <code>HL -&gt; "ZZBASIC",0</code> enters <code>_ExecuteNewPrgm</code> and
+<code>OP1=ProgObj</code> and <code>HL → "ZZBASIC",0</code> enters <code>_ExecuteNewPrgm</code> and
 <code>findsym_scan</code>, then reaches <code>ERR:SYNTAX</code>. The same probe with <code>ZZBASIC</code> loaded
 as <code>ProtProgObj</code> and <code>OP1=06</code> gets through the copy/jump tail at <code>00:268A</code> and
 <code>00:268F</code>, but still stops at <code>ERR:SYNTAX</code> without displaying the target
@@ -5008,7 +5008,7 @@ entry/refill paths, the program-body evaluator call at <code>38:6914</code> into
 <p>The full smoke trace also hits <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> once while the
 homescreen evaluates the initial <code>prgmCALLSUB</code> command selected by the macro.
 That launch parse is not the same as the callee transition. The repeated
-subprogram body path is the private <code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>
+subprogram body path is the private <code>38:6910</code> → <code>38:6914</code> → <code>38:778F</code>
 sequence, reached after parser RAM has already been populated:</p>
 <div class="table-wrapper">
 <table>
@@ -5039,7 +5039,7 @@ inputs, scratch, and outputs.</p>
 <tr><td>Outputs</td><td>The callee stores results back to globals, list elements, or <code>Ans</code>.</td><td><code>SUBRT</code> increments shared <code>A</code>; <code>ABISUB</code> writes <code>A</code>, <code>L1(3)</code>, and <code>Ans</code>.</td></tr>
 <tr><td>Scratch</td><td>No automatic save/restore exists. Routines must document scratch variables.</td><td>The VAT and parser state are shared across caller and callee.</td></tr>
 <tr><td>Return/Stop</td><td><code>Return</code> exits the callee and resumes the caller. <code>Stop</code> terminates the whole program chain.</td><td><code>SUBRT</code> returns to <code>CALLSUB</code>, which then runs <code>Disp A</code>; <code>STOPSUB</code> stops <code>CALLSTOP</code> before caller text <code>AFTER</code> can display.</td></tr>
-<tr><td>Parser state</td><td><code>prgmNAME</code> runs with private parser/FPS state already set up by BASIC.</td><td>The callee path reaches <code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>.</td></tr>
+<tr><td>Parser state</td><td><code>prgmNAME</code> runs with private parser/FPS state already set up by BASIC.</td><td>The callee path reaches <code>38:6910</code> → <code>38:6914</code> → <code>38:778F</code>.</td></tr>
 </tbody>
 </table>
 </div>
@@ -5248,7 +5248,7 @@ Disp "AFTER"
 <code>BEFORE</code>, <code>CALLED</code>, <code>AFTER</code>, then <code>Done</code>. The trace hits the <code>AsmPrgm</code> payload
 at <code>ram:9D95</code>, <code>_OP1Set1</code> (<code>00:1B38</code>), <code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code>
 (<code>38:74B7</code>) while evaluating <code>If Ans</code>, and then the normal BASIC program-body
-path for <code>prgmZZBASIC</code> (<code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>). [confirmed]</p>
+path for <code>prgmZZBASIC</code> (<code>38:6910</code> → <code>38:6914</code> → <code>38:778F</code>). [confirmed]</p>
 <p>This is a callback convention, not a direct jump from ASM into a BASIC body.
 The ASM side communicates a return code through <code>Ans</code>; BASIC owns the parser
 state, performs the <code>prgm</code> call, and resumes after the target returns.</p>
@@ -5275,12 +5275,12 @@ hits <code>ram:9D95</code>, <code>_OP1Set2</code> (<code>00:1B50</code>), <code>
 <tr><th>Direction</th><th>Confirmed mechanism</th><th>Caveat</th></tr>
 </thead>
 <tbody>
-<tr><td>BASIC -&gt; ASM</td><td><code>Asm(prgmNAME)</code> parses <code>prgmNAME</code>, bcalls <code>_ExecutePrgm</code>, copies the <code>AsmPrgm</code> payload, then jumps through <code>ram:9D95</code>.</td><td>The payload runs in the calculator OS process; a bad payload can corrupt interpreter state.</td></tr>
-<tr><td>BASIC -&gt; BASIC</td><td><code>prgmNAME</code> enters the page-38 parser/VAT/body evaluator path and <code>Return</code> resumes the caller.</td><td>There is no local frame; variables, lists, and <code>Ans</code> are shared.</td></tr>
-<tr><td>ASM -&gt; BASIC callback</td><td>ASM stores a signal/result such as <code>Ans=1</code>, returns, and the BASIC wrapper conditionally runs <code>prgmNAME</code>.</td><td>BASIC must own the actual <code>prgm</code> call; this is cooperative, not an arbitrary ASM bcall into BASIC.</td></tr>
-<tr><td>ASM -&gt; BASIC value return</td><td>ASM stores a numeric result in <code>Ans</code> with <code>_StoAns</code>; BASIC resumes and evaluates <code>Ans</code>.</td><td>This returns data to BASIC, not control into a BASIC program body.</td></tr>
-<tr><td>ASM -&gt; VAT lookup</td><td><code>ASMFIND</code> builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code>.</td><td>Lookup is not execution; the wrapper returns and <code>ZZBASIC</code> does not display <code>CALLED</code>.</td></tr>
-<tr><td>Direct ASM -&gt; BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>ASMPARSE</code> reaches <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> and then <code>ERR:INVALID</code>; <code>ASMFORM</code> reaches <code>_Find_Parse_Formula</code> and then <code>ERR:UNDEFINED</code>; forced-command/edit-buffer probes did not call the target BASIC program.</td></tr>
+<tr><td>BASIC → ASM</td><td><code>Asm(prgmNAME)</code> parses <code>prgmNAME</code>, bcalls <code>_ExecutePrgm</code>, copies the <code>AsmPrgm</code> payload, then jumps through <code>ram:9D95</code>.</td><td>The payload runs in the calculator OS process; a bad payload can corrupt interpreter state.</td></tr>
+<tr><td>BASIC → BASIC</td><td><code>prgmNAME</code> enters the page-38 parser/VAT/body evaluator path and <code>Return</code> resumes the caller.</td><td>There is no local frame; variables, lists, and <code>Ans</code> are shared.</td></tr>
+<tr><td>ASM → BASIC callback</td><td>ASM stores a signal/result such as <code>Ans=1</code>, returns, and the BASIC wrapper conditionally runs <code>prgmNAME</code>.</td><td>BASIC must own the actual <code>prgm</code> call; this is cooperative, not an arbitrary ASM bcall into BASIC.</td></tr>
+<tr><td>ASM → BASIC value return</td><td>ASM stores a numeric result in <code>Ans</code> with <code>_StoAns</code>; BASIC resumes and evaluates <code>Ans</code>.</td><td>This returns data to BASIC, not control into a BASIC program body.</td></tr>
+<tr><td>ASM → VAT lookup</td><td><code>ASMFIND</code> builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code>.</td><td>Lookup is not execution; the wrapper returns and <code>ZZBASIC</code> does not display <code>CALLED</code>.</td></tr>
+<tr><td>Direct ASM → BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>ASMPARSE</code> reaches <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> and then <code>ERR:INVALID</code>; <code>ASMFORM</code> reaches <code>_Find_Parse_Formula</code> and then <code>ERR:UNDEFINED</code>; forced-command/edit-buffer probes did not call the target BASIC program.</td></tr>
 </tbody>
 </table>
 </div>
@@ -5299,7 +5299,7 @@ from the current parser cursor and builds the name object used by <code>Asm(</co
 <p>The confirmed BASIC subprogram path is different: the <code>CALLSUB</code>/<code>SUBRT</code> trace
 does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <code>_Find_Parse_Formula</code>, or
 <code>_SetParseVarProg</code>. It resolves the program name through the page-38
-parser/VAT path, enters the program-body evaluator at <code>38:6914</code> -&gt;
+parser/VAT path, enters the program-body evaluator at <code>38:6914</code> →
 <code>38:778F</code>, and lets <code>Return</code> unwind to the caller. Calling that same machinery
 from arbitrary ASM requires more than loading OP1 and bcalling a single public
 entry; it needs the same parser cursor, stack, error, and run-state setup that a
@@ -5376,7 +5376,7 @@ ABI for <code>AsmPrgm</code> payloads. [confirmed]</p>
 <p>The current open item is therefore precise: trace a small ASM payload that
 successfully invokes a BASIC program, identify the required parser/VAT/error
 state, and compare it to the rejected public routes above plus both confirmed
-paths: <code>Asm(</code> -&gt; <code>_ExecutePrgm</code> -&gt; <code>ram:9D95</code>, and BASIC <code>prgmNAME</code> -&gt;
+paths: <code>Asm(</code> → <code>_ExecutePrgm</code> → <code>ram:9D95</code>, and BASIC <code>prgmNAME</code> →
 <code>38:6914</code>/<code>38:778F</code> program-body evaluation.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="ti-basic-dynamic-tracing"><a class="header" href="#ti-basic-dynamic-tracing">TI-BASIC dynamic tracing</a></h1>
@@ -5462,7 +5462,7 @@ the final PNG/GIF for display or graph claims. This distinction matters for
 ran, while the final frame proves the graph-screen topology is visible.</p>
 <p>For parser and calling-convention claims, prefer resolved coverage plus a narrow
 routine trace. For example, the BASIC subprogram case uses the private
-<code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code> body-evaluator path after the top-level
+<code>38:6910</code> → <code>38:6914</code> → <code>38:778F</code> body-evaluator path after the top-level
 homescreen parse has already seeded parser RAM. That is why the negative
 ASM-to-BASIC probes in <a href="#ti-basic-programming-patterns">TI-BASIC programming patterns</a>
 are negative fixtures or probes: they reach useful ROM paths, but they
@@ -7327,10 +7327,10 @@ the inter-bit wait. Under that decoding, the ROM constants are:</p>
 <tr><th>Port</th><th>CPU speed mode</th><th>Value</th><th>Divisor field</th><th>Wait field</th></tr>
 </thead>
 <tbody>
-<tr><td><code>0x09</code></td><td>0, 6 MHz</td><td><code>0x97</code> (<code>10010111b</code>)</td><td><code>100b</code> -&gt; divide by 16</td><td><code>0x17</code></td></tr>
-<tr><td><code>0x0A</code></td><td>1</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> -&gt; divide by 32</td><td><code>0x14</code></td></tr>
-<tr><td><code>0x0B</code></td><td>2, 15 MHz duplicate 1</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> -&gt; divide by 32</td><td><code>0x14</code></td></tr>
-<tr><td><code>0x0C</code></td><td>3, 15 MHz duplicate 2</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> -&gt; divide by 32</td><td><code>0x14</code></td></tr>
+<tr><td><code>0x09</code></td><td>0, 6 MHz</td><td><code>0x97</code> (<code>10010111b</code>)</td><td><code>100b</code> → divide by 16</td><td><code>0x17</code></td></tr>
+<tr><td><code>0x0A</code></td><td>1</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> → divide by 32</td><td><code>0x14</code></td></tr>
+<tr><td><code>0x0B</code></td><td>2, 15 MHz duplicate 1</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> → divide by 32</td><td><code>0x14</code></td></tr>
+<tr><td><code>0x0C</code></td><td>3, 15 MHz duplicate 2</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> → divide by 32</td><td><code>0x14</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -7386,11 +7386,11 @@ bjumps resolve as:</p>
 <tr><th><code>port 0x56</code> bit</th><th>Page-0 dispatch</th><th>Page-35 target</th><th>Observed role</th></tr>
 </thead>
 <tbody>
-<tr><td>4</td><td><code>00:0122</code> -&gt; <code>ram:3FA5</code></td><td><code>35:4B6A</code></td><td>line/event settle path; waits on <code>0x4D</code> bits 7 and 0, writes <code>0x57 = 0x22</code>.</td></tr>
-<tr><td>5</td><td><code>00:0127</code> -&gt; <code>ram:3FAB</code></td><td><code>35:4B9F</code></td><td>event clear/re-arm path; may clear <code>0x4C</code>, reset <code>USBFlag2</code> bit 6, and write <code>0x57 = 0x50/0x93</code>.</td></tr>
-<tr><td>6</td><td><code>00:0113</code> -&gt; <code>ram:3F93</code></td><td><code>35:40B2</code></td><td>USB setup path; sets <code>IY+0x1B</code> bit 5, initializes controller state, and waits for <code>0x4C = 0x1A/0x5A</code>.</td></tr>
-<tr><td>7</td><td><code>00:0118</code> -&gt; <code>ram:3F99</code></td><td><code>35:4C14</code></td><td>cleanup/reset path; clears <code>0x5B</code>, resets <code>USBFlag2</code> bit 0, and jumps through the common controller reset.</td></tr>
-<tr><td>1</td><td><code>00:011D</code> -&gt; <code>ram:3F9F</code></td><td><code>35:4031</code></td><td>alternate setup path; waits for <code>0x4C = 0x12/0x52</code> and uses endpoint/status ports <code>0x87</code>/<code>0x89</code>/<code>0x8B</code>.</td></tr>
+<tr><td>4</td><td><code>00:0122</code> → <code>ram:3FA5</code></td><td><code>35:4B6A</code></td><td>line/event settle path; waits on <code>0x4D</code> bits 7 and 0, writes <code>0x57 = 0x22</code>.</td></tr>
+<tr><td>5</td><td><code>00:0127</code> → <code>ram:3FAB</code></td><td><code>35:4B9F</code></td><td>event clear/re-arm path; may clear <code>0x4C</code>, reset <code>USBFlag2</code> bit 6, and write <code>0x57 = 0x50/0x93</code>.</td></tr>
+<tr><td>6</td><td><code>00:0113</code> → <code>ram:3F93</code></td><td><code>35:40B2</code></td><td>USB setup path; sets <code>IY+0x1B</code> bit 5, initializes controller state, and waits for <code>0x4C = 0x1A/0x5A</code>.</td></tr>
+<tr><td>7</td><td><code>00:0118</code> → <code>ram:3F99</code></td><td><code>35:4C14</code></td><td>cleanup/reset path; clears <code>0x5B</code>, resets <code>USBFlag2</code> bit 0, and jumps through the common controller reset.</td></tr>
+<tr><td>1</td><td><code>00:011D</code> → <code>ram:3F9F</code></td><td><code>35:4031</code></td><td>alternate setup path; waits for <code>0x4C = 0x12/0x52</code> and uses endpoint/status ports <code>0x87</code>/<code>0x89</code>/<code>0x8B</code>.</td></tr>
 </tbody>
 </table>
 </div>
@@ -7439,9 +7439,9 @@ mask to physical page <code>0x35</code>.</p>
 <tr><th>Need</th><th>OS surface</th><th>ROM support</th></tr>
 </thead>
 <tbody>
-<tr><td>Send or request a variable over USB/link</td><td><code>_GetVarCmdUSB</code>/<code>_LinkXferOP</code> (<code>50FB</code> -&gt; <code>3C:4DD2</code>) or <code>_SendVarCmd</code> (<code>4A14</code> -&gt; <code>3C:4EDD</code>)</td><td>Packet engine and USB-selection gate confirmed on page <code>3C</code>. <code>0x50FB</code> is <code>_GetVarCmdUSB</code> in <code>ti83plus.inc</code>.</td></tr>
-<tr><td>Send one byte on the active link transport</td><td><code>_SendAByte</code> (<code>4EE5</code> -&gt; <code>3C:420D</code>)</td><td>Assist branch writes <code>C</code> to port <code>0x0D</code> after port <code>0x09</code> bit 5.</td></tr>
-<tr><td>Receive one byte on the active link transport</td><td><code>_RecAByteIO</code> (<code>4F03</code> -&gt; <code>3C:443F</code>)</td><td>Status path checks port <code>0x09</code> and reads port <code>0x0A</code> on the assist path.</td></tr>
+<tr><td>Send or request a variable over USB/link</td><td><code>_GetVarCmdUSB</code>/<code>_LinkXferOP</code> (<code>50FB</code> → <code>3C:4DD2</code>) or <code>_SendVarCmd</code> (<code>4A14</code> → <code>3C:4EDD</code>)</td><td>Packet engine and USB-selection gate confirmed on page <code>3C</code>. <code>0x50FB</code> is <code>_GetVarCmdUSB</code> in <code>ti83plus.inc</code>.</td></tr>
+<tr><td>Send one byte on the active link transport</td><td><code>_SendAByte</code> (<code>4EE5</code> → <code>3C:420D</code>)</td><td>Assist branch writes <code>C</code> to port <code>0x0D</code> after port <code>0x09</code> bit 5.</td></tr>
+<tr><td>Receive one byte on the active link transport</td><td><code>_RecAByteIO</code> (<code>4F03</code> → <code>3C:443F</code>)</td><td>Status path checks port <code>0x09</code> and reads port <code>0x0A</code> on the assist path.</td></tr>
 <tr><td>Use the raw assist FIFO</td><td>Poll port <code>0x09</code> bit 5, then write the byte to port <code>0x0D</code>; for receive, observe port <code>0x09</code> bit 4/error bits and read port <code>0x0A</code>.</td><td>Confirmed as an OS pattern, but not a complete public API.</td></tr>
 </tbody>
 </table>
@@ -8807,7 +8807,7 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 <li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), the <code>Asm(</code>/<code>AsmPrgm</code> compile/setup body before the traced payload handoff (<code>ram:9D95 op=0xC9</code> is confirmed), direct ASM-initiated BASIC program execution beyond VAT lookup and cooperative <code>Ans</code> callback (<code>_ChkFindSym</code> works from <code>AsmPrgm</code>; the <code>ASMFORM.8xp</code>/<code>ZZFORM.8xp</code> <code>_Find_Parse_Formula</code> fixture fails with <code>ERR:UNDEFINED</code>; the <code>ASMPARSE.8xp</code>/<code>ZZPARSE.8xp</code> <code>_ParseInpLastEnt</code> fixture fails with <code>ERR:INVALID</code>; <code>_ExecuteNewPrgm</code> reaches <code>ERR:SYNTAX</code>; <code>_JForceCmd</code> abandons the caller stack; <code>_PutTokString</code>/<code>_rclToQueue</code> are edit-buffer paths, not proven program-call entries), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
 </ol>
 <h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>
-<p>Reopen <code>~/Documents/ti84-re/ti84.gpr</code> (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in <code>tools/</code> and rebuild with <code>tools/build.sh</code>. The remaining items mostly need a headless raw-byte dump of regions the live decompiler leaves as unanalyzed data (the page-0x35 timer handler, the page-0x38 <code>0xBB</code>/class-3 dispatch tables).</p>
+<p>Reopen <code>ti84.gpr</code> (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in <code>tools/</code> and rebuild with <code>tools/build.sh</code>. The remaining items mostly need a headless raw-byte dump of regions the live decompiler leaves as unanalyzed data (the page-0x35 timer handler, the page-0x38 <code>0xBB</code>/class-3 dispatch tables).</p>
 
                     </main>
 

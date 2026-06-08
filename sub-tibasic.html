@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
+            window.path_to_searchindex_js = "searchindex-034b6dd8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -644,7 +644,7 @@ EF9B41EFBF4AC9
 <code>ZZBASIC.8xp</code> displays <code>BEFORE</code>, <code>CALLED</code>, <code>AFTER</code>, then <code>Done</code>. The trace
 hits the <code>AsmPrgm</code> payload at <code>ram:9D95</code>, <code>_OP1Set1</code> (<code>00:1B38</code>), <code>_StoAns</code>
 (<code>38:6251</code>), <code>_AnsName</code> (<code>38:74B7</code>) during <code>If Ans</code>, and the ordinary
-<code>prgmZZBASIC</code> body evaluator path (<code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>).
+<code>prgmZZBASIC</code> body evaluator path (<code>38:6910</code> → <code>38:6914</code> → <code>38:778F</code>).
 This is the practical callback convention: ASM returns a value through a BASIC
 variable, and BASIC performs the actual program call.</p>
 <p><code>ASMRTN.8xp</code> demonstrates the same <code>Ans</code> convention as a numeric return value:</p>
@@ -826,7 +826,7 @@ never displays the target program’s <code>CALLED</code> line. <code>_rclToQueu
 an edit-buffer queue helper guarded by <code>rclFlag.enableQueue</code>, not a standalone
 program executor.</p>
 <p><code>_ExecuteNewPrgm</code> (<code>00:265F</code>) is also stateful. An <code>AsmPrgm</code> probe with
-<code>OP1=ProgObj</code> and <code>HL -&gt; "ZZBASIC",0</code> enters <code>_ExecuteNewPrgm</code> and
+<code>OP1=ProgObj</code> and <code>HL → "ZZBASIC",0</code> enters <code>_ExecuteNewPrgm</code> and
 <code>findsym_scan</code>, then reaches <code>ERR:SYNTAX</code>. The same probe with <code>ZZBASIC</code> loaded
 as <code>ProtProgObj</code> and <code>OP1=06</code> gets through the copy/jump tail at <code>00:268A</code> and
 <code>00:268F</code>, but still stops at <code>ERR:SYNTAX</code> without displaying the target
