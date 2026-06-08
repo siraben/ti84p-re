@@ -297,22 +297,17 @@ function smallText(s) {
 //          frac := mul (('/') mul)* ; mul := pow (('*') pow | juxtaposition)* ;
 //          pow  := atom ('^' atom)* ; atom := num | ident | '(' expr ')' | func
 
-class ParseError extends Error { constructor(m) { super(m); this.name = 'ParseError'; } }
-
-// Strict recursive-descent parser: it accepts only a fully well-formed
-// expression — balanced parentheses, every template argument supplied, no stray
-// or trailing input — and throws a ParseError otherwise. The renderer catches
-// that and shows the message instead of a partial layout.
+// Lenient recursive-descent parser: it renders whatever is well-formed so far,
+// so the layout updates live as you type. A partial expression — an unclosed
+// paren or a template still missing arguments — lays out what it has rather
+// than refusing to render.
 function parse(src) {
   let i = 0;
   const s = src.replace(/\s+/g, '');
-  if (s === '') return text('');                    // empty input renders nothing
-  const peek = () => (i < s.length ? s[i] : '');    // '' at EOF: regex.test('') is false
+  const peek = () => (i < s.length ? s[i] : '');   // '' at EOF: regex.test('') is false
   const eat = c => { if (s[i] === c) { i++; return true; } return false; };
-  const at = msg => `${msg}${i < s.length ? ` before '${s[i]}'` : ' at end of input'} (column ${i + 1})`;
-  const expect = c => { if (s[i] !== c) throw new ParseError(at(`expected '${c}'`)); i++; };
   let steps = 0;
-  const guard = () => { if (++steps > 100000) throw new ParseError('expression too complex'); };
+  const guard = () => { if (++steps > 100000) throw new Error('parse step cap'); };
 
   function expr() { return add(); }
   function add() {
@@ -365,7 +360,7 @@ function parse(src) {
   function number() { let j = i; while (/[0-9.]/.test(peek())) i++; return s.slice(j, i); }
 
   function atom() {
-    if (eat('(')) { const b = expr(); expect(')'); return b; }
+    if (eat('(')) { const b = expr(); eat(')'); return b; }
     if (/[0-9.]/.test(peek())) return text(number());
     if (/[A-Za-z]/.test(peek())) {
       const id = ident();
@@ -374,47 +369,39 @@ function parse(src) {
         if (id === 'sum') return bigOpCall(id);
         if (id === 'nthroot') return nthRootCall();
         const args = call();
-        if (id === 'sqrt' || id === 'root') {
-          if (args.length !== 1) throw new ParseError(`${id}() takes one argument`);
-          return radical(args[0]);
-        }
-        if (id === 'abs') {
-          if (args.length !== 1) throw new ParseError('abs() takes one argument');
-          return hcat([text('|'), args[0], text('|')]);
-        }
-        if (args.length === 0) throw new ParseError(`${id}() needs an argument`);
-        // unknown function: name followed by its parenthesised, comma-joined args
-        const inner = args.reduce((acc, a, k) => (k ? hcat([acc, text(','), a]) : a));
-        return hcat([text(id), parens(inner)]);
+        if (id === 'sqrt' || id === 'root') return radical(args[0] || text(''));
+        if (id === 'abs') return hcat([text('|'), args[0] || text(''), text('|')]);
+        // unknown function: name followed by its parenthesised args
+        return hcat([text(id), parens(args[0] || text(''))]);
       }
       return text(id);
     }
-    throw new ParseError(at('unexpected input'));
+    i++; return text('');  // skip a stray char so live typing keeps rendering
   }
   function call() {
-    expect('(');
+    eat('(');
     const args = [];
     if (peek() !== ')') { args.push(expr()); while (eat(',')) args.push(expr()); }
-    expect(')');
+    eat(')');
     return args;
   }
   // int(lo, hi, body, var): read lo/hi as small-font strings when they are plain
   // tokens, otherwise as composed boxes; body and var as full expressions.
   function intCall() {
-    expect('(');
-    const lo = limitArg(); expect(',');
-    const hi = limitArg(); expect(',');
-    const body = expr(); expect(',');
-    const varBox = atom(); expect(')');
+    eat('(');
+    const lo = limitArg(); eat(',');
+    const hi = limitArg(); eat(',');
+    const body = expr(); eat(',');
+    const varBox = atom(); eat(')');
     return integral(lo, hi, body, varBox);
   }
   // sum(var,lo,hi,body): "var=lo" below the Σ, "hi" above, body to the right.
-  function bigOpCall() {
-    expect('(');
-    const v = limitArg(); expect(',');
-    const lo = limitArg(); expect(',');
-    const hi = limitArg(); expect(',');
-    const body = expr(); expect(')');
+  function bigOpCall(id) {
+    eat('(');
+    const v = limitArg(); eat(',');
+    const lo = limitArg(); eat(',');
+    const hi = limitArg(); eat(',');
+    const body = expr(); eat(')');
     const vs = typeof v === 'string' ? v : 'N';
     const ls = typeof lo === 'string' ? lo : '1';
     const hs = typeof hi === 'string' ? hi : 'n';
@@ -422,9 +409,9 @@ function parse(src) {
   }
   // nthroot(n, body): small-font index over the radical hook.
   function nthRootCall() {
-    expect('(');
-    const n = limitArg(); expect(',');
-    const body = expr(); expect(')');
+    eat('(');
+    const n = limitArg(); eat(',');
+    const body = expr(); eat(')');
     return nthRoot(n, body);
   }
   function limitArg() {
@@ -434,9 +421,7 @@ function parse(src) {
     i = j; return expr();                                               // complex -> box
   }
 
-  const out = expr();
-  if (i !== s.length) throw new ParseError(at('unexpected input'));
-  return out;
+  return expr();
 }
 
 // ---- canvas rendering -----------------------------------------------------
@@ -525,12 +510,13 @@ function render(step) {
     const marks = draw(box, scale, curColor(), showPen, step);
     const cur = (step != null && step > 0 && step <= marks.length) ? step - 1 : -1;
     const rows = marks.map((m, i) =>
-      `<tr class="${i === cur ? 'cur' : ''}"><td>${i}</td><td>${escapeHtml(m.ch)}</td>` +
+      `<tr class="${i === cur ? 'cur' : ''}" data-step="${i + 1}"><td>${i}</td><td>${escapeHtml(m.ch)}</td>` +
       `<td>${m.x}</td><td>${m.y}</td><td>${m.font || (m.type === 'rule' ? 'rule' : '')}</td>` +
       `<td>${escapeHtml(m.via || '')}</td></tr>`).join('');
     document.getElementById('penlog').innerHTML =
       `<p class="note">Display list — elements in OS emission (draw) order with ` +
       `pen X/Y (top-left), font, and the ROM routine that emits them. ` +
+      `Click a row to jump the timeline to that draw step. ` +
       `0x86D7/0x86D8 hold penX/penY; large glyphs go through _PutMap (07:4588), ` +
       `small (exponents, limits, fraction digits) through _VPutMap (01:6293).</p>` +
       `<table><thead><tr><th>#</th><th>elem</th><th>penX</th><th>penY</th>` +
@@ -539,13 +525,7 @@ function render(step) {
     const tl = document.getElementById('timeline');
     if (tl && step == null) { tl.max = marks.length; tl.value = marks.length; }
   } catch (e) {
-    // Malformed input: render nothing and show why.
-    CUR = null;
-    const cv = document.getElementById('screen');
-    if (cv) { const ctx = cv.getContext('2d'); ctx.fillStyle = curColor().bg; ctx.fillRect(0, 0, cv.width, cv.height); }
-    document.getElementById('penlog').innerHTML = '';
-    document.getElementById('dims').textContent = '';
-    document.getElementById('err').textContent = e instanceof ParseError ? e.message : String(e);
+    document.getElementById('err').textContent = String(e);
   }
 }
 
@@ -638,6 +618,32 @@ async function main() {
   document.getElementById('pen').addEventListener('change', () => render());
   document.getElementById('play').addEventListener('click', playAnim);
   document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+  document.getElementById('penlog').addEventListener('click', e => {
+    const tr = e.target.closest('tr[data-step]');
+    if (!tr) return;
+    stopAnim();
+    const step = +tr.dataset.step;
+    const n = (CUR && CUR.marks) ? CUR.marks.length : 0;
+    const tl = document.getElementById('timeline');
+    if (tl) tl.value = step;
+    render(step >= n ? null : step);   // last row: reveal structural rules, like the timeline at max
+  });
+  // Left/Right arrow keys step the draw order (when not typing in a field).
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const ae = document.activeElement;
+    if (ae && ae.tagName === 'INPUT') return;        // let text/range inputs handle their own arrows
+    if (document.getElementById('tab-renderer').hidden) return;
+    const n = (CUR && CUR.marks) ? CUR.marks.length : 0;
+    if (!n) return;
+    const tl = document.getElementById('timeline');
+    let step = tl ? +tl.value : n;
+    step = Math.max(0, Math.min(n, step + (e.key === 'ArrowRight' ? 1 : -1)));
+    stopAnim();
+    if (tl) tl.value = step;
+    render(step >= n ? null : step);
+    e.preventDefault();
+  });
   document.getElementById('timeline').addEventListener('input', e => {
     stopAnim();
     const n = (CUR.marks || []).length;
@@ -654,7 +660,6 @@ if (typeof module !== 'undefined') {
   module.exports = {
     setFont: f => { FONT = f; },
     parse,
-    ParseError,
     penLog,
     toText: box => box.rows.map(r => r.map(c => (c ? '#' : '.')).join('')).join('\n'),
   };
