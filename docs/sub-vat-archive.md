@@ -86,7 +86,7 @@ page byte selects the Flash page; the VAT record itself always stays in RAM.
 - `5F45` resolves/creates the target symbol; then it copies the value. It dispatches on the
   destination name token (`849B`): list-element store (`0x2A` → bounds-checks via `_ErrDimension`),
   matrix element, etc. Ultimately a `_Create*` routine carves RAM with `_InsertMem` and the data is copied.
-- A store into an archived var is *not* done in place; the OS unarchives first (you cannot rewrite
+- A store into an archived var is not done in place; the OS unarchives first (you cannot rewrite
   Flash in place) — see the `_Arc_Unarc` direction logic in §4. [I/H]
 
 **Recall** `_RclVarSym` (`38:67B1`) and `_RclVarPush` (`3A:5D07`):
@@ -96,7 +96,7 @@ page byte selects the Flash page; the VAT record itself always stays in RAM.
 - `_DataSize` (`00:1485`): returns the variable's data byte-count in DE from the type byte — real=9,
   list/cplx-list read the `word count` header, matrix uses cols×rows, and named types
   (`0x15` AppVar, `0x16`, `0x17` Group) read the leading `word size`.
-- The recall code does *not* care whether the source is RAM or Flash for *reading* — Flash is
+- The recall code does not care whether the source is RAM or Flash for *reading* — Flash is
   memory-mapped read-only into the 0x4000 window. To *use* an archived program/var that must be
   modified or executed in RAM, the OS first copies it via `_FlashToRam` (§5). [H]
 
@@ -209,7 +209,7 @@ Flash byte; `_FlashToRam2` (id 8054) is the companion Flash→RAM copy of `_Flas
 The retail boot table maps those APIs to boot-page bodies (`_WriteAByte`→`3F:4C9F`,
 `_WriteAByteSafe`→`3F:4C9A`, `_FlashToRam2`→`3F:4888`), which then wrap the lower-level
 page-3C/3D flash machinery below. Several page-3C/3D
-targets below are reached by byte trace but are *not* defined functions in the current live DB;
+targets below are reached by byte trace but are not defined functions in the current live DB;
 their `flash_*` names are project-local inferred labels (not WikiTI or `ti83plus.inc` equates):
 
 | Trampoline (RAM) | → page:addr | Role |
@@ -393,7 +393,7 @@ Ports: `0x06` = bank-A page select (Flash window), `0x14` = Flash write/erase co
   stored as one Flash blob. In `_Arc_Unarc` the `CP 0x17` → `26E0` reject sits on the B≠0 (in-Flash)
   branch, immediately before the unarchive worker `61F4` — so an archived group is not unarchived
   through `61F4`, and groups are handled by a separate routine that walks the group's member list.
-  That member-walk routine is *not*
-  identifiable in the current Ghidra DB — `_Arc_Unarc`'s body past the entry `CALL` is not
+  That member-walk routine remains
+  unidentified in the current Ghidra DB — `_Arc_Unarc`'s body past the entry `CALL` is not
   disassembled here (cross-page `CALL` flagged non-returning), and no group-archive function is
   named or xref-reachable. Re-confirming it would need a linear disassembly pass like the one behind §4.

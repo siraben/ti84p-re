@@ -64,7 +64,7 @@ Convenience / derived ops:
 - **Negation**: `_InvOP1S` `ram:24BD` (XOR OP1.type with 0x80, guarding against −0), `_InvOP2S` `ram:24CD`, `_InvOP1SC` `ram:24BA` (both). `_CkOP1Pos` `ram:1E5D` ANDs OP1.type with 0x80. [confirmed]
 
 ### Roots & integer parts [confirmed]
-- `_SqRoot` `page_02:6E38`: `_ErrD_OP1NotPos` (→ DOMAIN if negative/complex-real), `fp_clear_guard`, `_ZeroOP3`, then a digit-by-digit BCD square-root extraction loop (`ram:1C9C` trial-subtract + `ram:1D4A` compare, halving the exponent up front). Not Newton's method — classic long-hand sqrt.
+- `_SqRoot` `page_02:6E38`: `_ErrD_OP1NotPos` (→ DOMAIN if negative/complex-real), `fp_clear_guard`, `_ZeroOP3`, then a digit-by-digit BCD square-root extraction loop (`ram:1C9C` trial-subtract + `ram:1D4A` compare, halving the exponent up front). A classic long-hand sqrt, not Newton's method.
 - `_Int`/`_Intgr` `ram:2621`/`2263`: floor. `_Trunc` `ram:2279` drops the fractional part (toward zero); `_Intgr` truncates then subtracts 1 (`_Minus1` `ram:2294`) when the original was negative, giving true floor.
 - `_Frac` `ram:24E3`: fractional part = x − trunc(x); shifts mantissa by the exponent and keeps the low digits.
 - `_Round` / `_RndGuard` `ram:2623` / `page_02:6A57`: round to the active display-digit count; `_Round` is a thin `cross_page_jump` wrapper (body banked off page 0).
@@ -88,7 +88,7 @@ Banked ROM calls use a bcall-style trampoline.
 3. reads a 3-byte `{lo, hi, page}` descriptor (page masked with `0x1F`/`0x3F` for 83+/84+ via ports 2/0x21),
 4. `OUT (6),A` to bank the target page in at `4000`, then jumps to it.
 
-The ln/e^x sites that look similar are *not* cross-page dispatches. `ram:2362` calls the bcall
+The ln/e^x sites that look similar are local calls, not cross-page dispatches. `ram:2362` calls the bcall
 entry at `ram:3DD1`, whose inline descriptor is `1E 7D 02`, so it invokes the page-0x02
 coefficient fetcher at `page_02:7D1E`. In `LD A,3; CALL 0x2362` / `LD A,6; CALL 0x2362`, the
 `3` and `6` are coefficient-table indexes, not target pages. `_EToX` falls through locally into
@@ -113,14 +113,14 @@ the `_TenX` body at `page_02:7069`; the ln/e^x/sin-cos coefficient tables are on
 ### Trig — sin/cos/tan [confirmed]
 - `_SinCosRad` `page_02:733E`, `_Sin` `7342`, `_Cos` `7346`, `_Tan` `734A`. Each loads a
   function selector byte into `0x8499` (`1`=sin, `2`=cos, `4`=tan; `0x80` bit set when
-  *not* in the rad-special mode tested by `BIT 2,(IY+0)`; `_SinCosRad` forces `0x81`).
+  the rad-special mode tested by `BIT 2,(IY+0)` is off; `_SinCosRad` forces `0x81`).
 - Range reduction: reads OP1 exponent; exponent ≥ 0x0C (|x| ≳ 10^12·) → `_ErrDomain`
   ("argument out of range"). It then reduces the angle modulo a quarter-period using the
   BCD constant table near `page_02:7D81` and runs the same table-driven digit recurrence
   as ln/eˣ over the signed near-unity tables at `page_02:7201` and `page_02:7281` (one row
   per digit step, sign-variant picked by `0x84A4` bit 7) — the per-step `bcd_sub_op1_op2`
   (`ram:1D8A`) / `bcd_add_8496_8480` (`ram:1D26`) are the shift-and-add BCD steps of that
-  recurrence, *not* a fixed polynomial and *not* CORDIC for the forward trig. The per-row
+  recurrence, not a fixed polynomial and not CORDIC for the forward trig. The per-row
   decoding of `02:7201`/`02:7281` is detailed in [06-floating-point.md](06-floating-point.md).
 
 ### Inverse trig [confirmed]

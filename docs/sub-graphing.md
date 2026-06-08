@@ -168,8 +168,8 @@ line's two endpoints in that frame: it copies `Xmin` (`0x8F50`) and `Xmax` (`0x8
 X range — with `_Mov9B` (`00:1A92`, which reads a window float into the frame), interleaving the
 line's Y (`OP1`) via `_MovFrOP1` (`00:1B0C`), so the endpoints are `(Xmin, y)` and `(Xmax, y)`.
 `_VertCmd` does the same with `Ymin` (`0x8F6B`)/`Ymax` (`0x8F74`) and the line's X. It renders with
-`_PDspGrph`, then `_DeallocFPS1(0x24)` frees the frame — the live window variables are *not*
-modified (the line just spans the current window edges). [confirmed]
+`_PDspGrph`, then `_DeallocFPS1(0x24)` frees the frame — the window variables are read only,
+so the line just spans the current window edges. [confirmed]
 
 ---
 
@@ -178,7 +178,7 @@ modified (the line just spans the current window edges). [confirmed]
 `_PDspGrph` (`04:7904`, "possibly-display graph") is the gatekeeper between buffer and
 screen. [confirmed]
 - Clears the "need redraw" flag at `(IY+2)`,
-- if the graph-dirty bit `(IY+3)&1` is set (`graphFlags.graphDraw`, inc `graphFlags=3`/`graphDraw=0`; `1`=redraw needed — this is *not* `grfDBFlags` at `IY+4` nor SmartGraph at `IY+0x17`), calls
+- if the graph-dirty bit `(IY+3)&1` is set (`graphFlags.graphDraw`, inc `graphFlags=3`/`graphDraw=0`; `1`=redraw needed — this is the `graphFlags` bit at `IY+3`, distinct from `grfDBFlags` at `IY+4` and SmartGraph at `IY+0x17`), calls
   `_Regraph` to recompute the whole plot,
 - otherwise checks the split-screen flag (`_Bit_VertSplit`) and copies the buffer to the LCD
   (`graph_redraw_buf` `04:607F`).
@@ -254,8 +254,8 @@ during a regraph or TABLE build.
   cross-cursor, and uses `_SetXXOP1`/`_SetXXOP2` to convert the cursor pixel back to the real
   X/Y it prints at the bottom. [confirmed]
 - A `DRAW` command (`_DrawCmd`) or `Line(`/`Circle(`/`Pt-On(` draws straight into
-  `plotSScreen` over the current plot and is *not* re-evaluated on SmartGraph redraw unless
-  `ClrDraw` is issued. [confirmed]
+  `plotSScreen` over the current plot and persists across a SmartGraph redraw (it is not
+  re-evaluated) until `ClrDraw` is issued. [confirmed]
 
 ---
 
@@ -266,7 +266,7 @@ during a regraph or TABLE build.
   read but the ±sentinel constants are summarized, not exhaustively byte-traced.
 - `_HorizCmd`/`_VertCmd` endpoint build — resolved: `7933` allocates a 0x24-byte FPS frame, and
   the commands `_Mov9B` the window edges (`Xmin`/`Xmax` or `Ymin`/`Ymax`) plus `_MovFrOP1` the line's
-  coordinate (`OP1`) into that frame. The live window variables are not touched.
+  coordinate (`OP1`) into that frame, reading the live window variables only.
 - Circle parametric stepping in `3B:7171` (`_DrawCirc2`) not decompiled here (lives on
   page 3B); the `_GrphCirc` setup is confirmed.
 - Y= selection bit (`0x20`; flags byte `0x23` selected / `0x03` deselected) and the style byte

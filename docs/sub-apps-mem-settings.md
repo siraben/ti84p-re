@@ -18,7 +18,7 @@ SystemFlags base is `IY = flags = 0x89F0`, so e.g. `(IY+0x0A)` = `flags + fmtFla
 
 ## 1. Flash Apps — find & launch
 
-This ROM appears to ship with *no* bundled apps in the local ROM-byte scan (zero `80 0F` headers found at page starts; not directly verifiable through the current MCP byte interface),
+This ROM appears to ship with zero bundled apps in the local ROM-byte scan (zero `80 0F` headers found at page starts; not directly verifiable through the current MCP byte interface),
 but the entire find/launch machinery is present on `page 0x3D` (`_FindApp*`) and
 `page 0x3B` (`_AppInit` glue / app-quit). Apps are TI Flash Applications: a contiguous
 run of 16 KiB flash pages whose first page begins with a TLV app header.
@@ -134,7 +134,7 @@ the decoded header table. The corpus keeps the same parser boundary rule:
 
 So `4080` is a common app-entry convention, not the OS's header parser boundary. Some
 apps end the parsed header at `4029`, `4070`, or exactly `4080`, and all remain valid
-because the `807` final field, not a 128-byte fixed struct, terminates the header.
+because the `807` final field terminates the header.
 
 The public entry points for walking these fields are bcalls in `ti83plus.inc`:
 `_FindAppHeaderSubField` (bcall `0x80AB`) locates a field in an app header, and
@@ -249,7 +249,7 @@ A handful of flag bits are explicitly preserved across the wipe (`IY+0x3F` bit7,
 `IY+0x34` bit6, `IY+0x35` bits0/1, and the word at `0x9B73`) so the calculator knows it is
 mid-reset. It then `JP 0x0BD9`, the RAM-init entry (`OUT (0)` page select, `LD SP,0xFFF7`,
 then `CALL 0x3EC1` — the cross-page trampoline that rebuilds the VAT, system vars, and LCD; see [doc 11](11-boot-contexts-errors.md)), which rebuilds a
-clean default VAT and system state and re-enters the homescreen. The Flash archive is *not*
+clean default VAT and system state and re-enters the homescreen. The Flash archive is not
 touched by a plain RAM reset.
 
 ### 2.4 Full reset (`page_0/ram:0B27`) [confirmed]
@@ -266,7 +266,7 @@ This zeroes the *entire* 32 KiB RAM and does the deepest re-init.
 
 Distinct from the MEM reset. `_CleanAll` (bcall `0x4A50`) only compacts temporary RAM
 after a command finishes: it shifts the FP stack (`fpBase`/`FPS`) down to `tempMem`, resets
-the `OPBase`/`OPS`/`pTemp` scratch pointers, and clears `pTempCnt`/`cleanTmp`. It does *not*
+the `OPBase`/`OPS`/`pTemp` scratch pointers, and clears `pTempCnt`/`cleanTmp`. It does not
 clear the VAT, user vars, or Flash (see [doc 12](12-memory-management.md)). `_FixTempCnt` (`page_07:4FEC`) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.
 
@@ -340,7 +340,7 @@ bit5 `grfNoAxis`; `seqFlags` (`IY+0x0F`).
 So Normal/Sci/Eng = (bit0, bit1): Normal = `00`, Sci = `01`, Eng = `11`.
 `fmtOverride` (`IY+0x0B`, `0x89FB`) is a working copy used during conversions.
 
-Float vs Fix N is *not* in `fmtFlags` — it is the separate byte `fmtDigits` =
+Float vs Fix N is not in `fmtFlags` — it is the separate byte `fmtDigits` =
 `0x97B0`: value `0x00–0x09` = Fix-N decimal places, `0xFF` = Float.
 
 ### 3.4 MODE screen plumbing

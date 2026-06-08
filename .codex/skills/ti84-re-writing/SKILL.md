@@ -90,10 +90,10 @@ Ground every non-obvious claim.
 | `[standard]` | Publicly documented TI-83+/84+ architecture that is consistent with the ROM, but not traced byte-for-byte in the current page. |
 | `[hypothesis]` | Inferred or not yet verified. Treat it as unstable. |
 
-These three are the only tiers. Do not introduce `[strong]` or `[inferred]`.
-Fold a "strong" claim into `[confirmed]` when ROM signals pin its load-bearing
-structure, or `[hypothesis]` when the specific claim is an un-traced inference;
-fold `[inferred]` into `[standard]` (documented behavior) or `[hypothesis]`.
+These three tiers are the complete set. Map a legacy `[strong]` to `[confirmed]`
+when ROM signals pin its load-bearing structure, or to `[hypothesis]` when the
+claim is an un-traced inference; map a legacy `[inferred]` to `[standard]` or
+`[hypothesis]` by the strength of the evidence.
 
 - Cite the address, bcall ID, RAM label, port, table, or source that anchors the
   claim.
@@ -106,10 +106,9 @@ fold `[inferred]` into `[standard]` (documented behavior) or `[hypothesis]`.
 - Some early deep dives use shorthand `[C]`, `[H]`, or `[I]`. Treat those as
   legacy approximations of `[confirmed]`, `[standard]`, and `[hypothesis]`, and
   prefer the full flags in new prose.
-- Write a flag as a plain bracketed token: `[confirmed]`, not `**[confirmed]**`.
-  Never bold a confidence flag, in prose, tables, headings, or per-page legends.
-- A per-page confidence legend states the three tiers in plain text. Do not bold
-  the flag tokens it defines.
+- Write a flag as a plain bracketed token — `[confirmed]`, not bold — in prose,
+  tables, headings, and per-page legends alike. Authors reach for bold here by
+  habit; flags read better plain.
 
 ## Mechanics
 
@@ -128,8 +127,8 @@ fold `[inferred]` into `[standard]` (documented behavior) or `[hypothesis]`.
 
 Dashes:
 
-- Use a spaced em dash ` — ` for a parenthetical break or appositive in prose.
-  Do not use ` -- ` or a spaced hyphen ` - ` for this.
+- Use a spaced em dash ` — ` for a parenthetical break or appositive in prose
+  (not the `--` or ` - ` shorthands that plain-text habits produce).
 - Use an en dash `–` for a numeric, address, or register range: `0x08`–`0x0D`,
   `4E35`–`4E73`, `L1`–`L4`, `OP1`–`OP6`, indices `8`–`10`. Use an en dash for a
   two-name compound such as Gauss–Kronrod.
@@ -143,18 +142,16 @@ Dashes:
 Bold and italic (follows the Google developer style guide and Wikipedia MOS:
 bold only for UI elements and run-in headings; italics for emphasis, sparingly):
 
-- Bold is reserved for two things: a UI element the user presses or selects — a
-  calculator key or menu name such as **Y=**, **MODE**, **GRAPH**, **TRACE**,
+- Bold marks two things, and only these: a UI element the user presses or selects
+  — a calculator key or menu name such as **Y=**, **MODE**, **GRAPH**, **TRACE**,
   **WINDOW**, **TBLSET**, **[2nd]** — and a run-in paragraph label that ends with
   `.` or `:` such as **Dynamic confirmation.** or **Deep dive:**.
-- Do not bold for emphasis. Italics carry emphasis, and only where word choice
-  cannot — usually the sentence already makes the point, so prefer no markup at
-  all. Reserve `*not*`-style italics for a genuine contrast the reader would miss.
-- Do not bold addresses, routine names, ports, registers, tokens, or terms. They
-  take code or notation markup (`` `0x9F` ``, `` `_GetKey` ``, `02:6F1B`); do not
-  also bold them. Introduce a new term in italics on first use, then plain.
-- Do not bold confidence flags (see Evidence and confidence). Do not stack bold
-  and italic on one span.
+- Emphasis is italic and sparing. Usually the sentence already carries the point,
+  so add italics only on a genuine contrast the reader would miss. Bold is not an
+  emphasis tool — that is the habit this rule exists to break.
+- Addresses, routine names, ports, registers, and tokens take code or notation
+  markup (`` `0x9F` ``, `` `_GetKey` ``, `02:6F1B`), which already sets them off.
+  Introduce a new term in italics on first use, then plain.
 
 Page subtitle line:
 
@@ -163,8 +160,8 @@ Page subtitle line:
 
 Lists:
 
-- Use `-` as the bullet marker throughout. Do not mix in `*` or `+` markers; a
-  line-leading `+` renders as a stray bullet.
+- Use `-` as the bullet marker throughout (a line-leading `*` or `+` renders as a
+  stray bullet).
 
 ## Methodology language
 
@@ -193,11 +190,11 @@ Replace those with an address, bytes if useful, and the current interpretation.
 
 - The opening summary tells the reader what the page covers.
 - Headings are sentence case and match `docs/SUMMARY.md` when applicable.
-- Non-obvious claims carry `[confirmed]`, `[standard]`, or `[hypothesis]`, plain
-  and never bolded; no `[strong]` or `[inferred]` tier.
+- Non-obvious claims carry `[confirmed]`, `[standard]`, or `[hypothesis]`, written
+  plain.
 - Dashes follow the typography rules: spaced em dash for breaks, en dash for
-  ranges, hyphen for compounds. Bold is reserved for sparing emphasis and run-in
-  labels. Bullets use `-`.
+  ranges, hyphen for compounds. Bold marks UI elements and run-in labels; emphasis
+  is italic and sparing. Bullets use `-`.
 - Addresses use `pp:addr`, `ram:addr`, `page_pp:addr`, or bare `0x....`
   intentionally.
 - Official and inferred names follow `_CamelCase` and `snake_case`.

@@ -95,8 +95,8 @@ loop:
 
 The `param_2`/handler pointer is one of `0x4000` (base/term), `0x478c`
 (the postfix `^`/`!` production — it reads `+`/`^` (0x11),
-range-checks an exponent as a positive int, `_JError(0x84)` Domain otherwise; not a
-defined function in the live DB, a raw code target within `parse_eval_expr`),
+range-checks an exponent as a positive int, `_JError(0x84)` Domain otherwise; it is a
+raw code target within `parse_eval_expr`, not a defined function in the live DB),
 or `0x7175` (a leaf no-op). Selecting among these by `precLevel` (1/2/3) is how
 operator precedence is realized — nesting of productions, not a flat table
 (confirms [doc 07](07-tokenizer-basic.md)'s "recursive-descent" claim). Results land in `OP1`; binary
@@ -118,7 +118,7 @@ is done by `chk_tok_end` (`38:72E0`) / `parse_cur_err_illegal` (`38:70F8`).
 - `_StoAns` (`38:6251`) stores OP1 into `Ans` (`_CkOP1Real` path; the bytes that
   follow are the Ans-var token table). `_RclAns` (`38:679F`) = `_AnsName` then
   `_RclVarSym`.
-- `_AnsName` (`38:74B7`): `_ZeroOP1; (OP1+1)=0x72` (the name's type/class byte at `0x8479`, not an exponent — OP1 holds a name here) — builds the OP1 name for
+- `_AnsName` (`38:74B7`): `_ZeroOP1; (OP1+1)=0x72` (OP1 holds a name here, so the byte at `0x8479` is the name's type/class tag rather than an exponent) — builds the OP1 name for
   the `Ans` variable (token class `0x72`).
 - `_StoSysTok`/`_RclSysTok` (`38:623B`/`683E`) store/recall a system token
   variable (Xmin etc.) into/from OP1.
@@ -156,7 +156,7 @@ value 0xD0 vs 0xD4 tells the caller whether it landed on `Else` or `End`.
 ### If / Then / Else execution [confirmed]
 
 - The `If` statement handler evaluates the condition into OP1 (real). If the
-  next token is *not* `tThen`, it's a single-statement `If` (execute the one
+  next token is not `tThen`, it's a single-statement `If` (execute the one
   statement when true, skip it when false). If `tThen`, it's a block.
 - The Else path is `if_else_skip_handler` (`38:5826`): on seeing `tElse(D0)` it repeatedly calls
   the block matcher `blockmatch_end_else` (`38:4130`) to skip the Else block to its matching End
@@ -164,8 +164,8 @@ value 0xD0 vs 0xD4 tells the caller whether it landed on `Else` or `End`.
   shared loop at `38:59C8`. Other `tElse` compares at `38:57B3/58A6/58C6`
   handle the symmetric "skip Then, run Else" and nested cases.
 - `if_isg_stmt_handler` (`38:6F63`) is the per-statement entry that special-cases `tIf` (`0xCE`)
-  and `tISG` (`0xDA`, `IS>(`): the second compare is `38:6F6C: CP 0xDA` (`tISG`, *not* `tStop`,
-  which is `0xD9`). For `tIf` it sets grammar class `0x5F` and falls into the
+  and `tISG` (`0xDA`, `IS>(`): the second compare is `38:6F6C: CP 0xDA` (`tISG`, the
+  adjacent token to `tStop` `0xD9`). For `tIf` it sets grammar class `0x5F` and falls into the
   shared precedence loop to evaluate the condition; unknown leading tokens here
   raise `_JError(0x88)` (`E_Syntax`) for ordinary unknown tokens, or `_JError(0x30)`
   (`E_Version`, "ERR:VERSION") for tokens above `0xF5` (the reserved/newer-token range —
@@ -180,8 +180,8 @@ value 0xD0 vs 0xD4 tells the caller whether it landed on `Else` or `End`.
   re-tests the limit, and either re-seeds `parsePtr` to the loop top or falls
   through. The block matcher `blockmatch_end_else` (`38:4130`) is what bounds these bodies during
   skips (e.g. `While 0` skips straight to `End`).
-- **Dispatch path (byte-traced).** The For/While/Repeat/End/Return *execution* handlers are
-  *not* on page 0x38 — page 0x38 only has the `tFor/tWhile/tRepeat/tEnd` compares inside
+- **Dispatch path (byte-traced).** The For/While/Repeat/End/Return *execution* handlers live
+  off page 0x38 — page 0x38 only has the `tFor/tWhile/tRepeat/tEnd` compares inside
   the `blockmatch_end_else` skip scanner (`38:4130…4180`). The live handlers are reached via
   the page-0x02 command dispatcher: `02:54BD` loads a per-token handler pointer
   (`LD HL,0x6A30` for `tFor`=`CP 0xD3`, `0x6A34` for `tEnd`=`CP 0xD4`, `0x6A2A` for
@@ -494,8 +494,8 @@ payload byte itself at `ram:9D95 op=0x000000C9`, returning to BASIC immediately
 after. This `_ExecutePrgm` route is the ASM executor; it is not the ordinary
 BASIC `prgmNAME` subprogram path.
 
-`ASMBRIDG.8xp` demonstrates a cooperative ASM-directed BASIC callback without
-pretending there is a public direct ASM-to-BASIC bcall. The wrapper runs:
+`ASMBRIDG.8xp` demonstrates a cooperative ASM-directed BASIC callback that
+routes through a BASIC variable. The wrapper runs:
 
 ```ti-basic
 Disp "BEFORE"

@@ -86,7 +86,7 @@ The active context lives at a fixed RAM block (`Context` struct, base `cxMain`=`
 
 `_AppInit` copies the 6 vectors (12 bytes, +0..+11) from an app's header into this block, then sets `cxPage`. Because `cxCurApp` is a key code, a mode-switch key naturally selects the context to load.
 
-The full `_AppInit` body confirms the offsets directly — `HL` points at the app's 12-byte vector header, `LDIR` lands them at `cxMain`=`0x858D`, and the byte that follows the 12 vectors becomes a flags byte; `cxPage` is then loaded from the live bank-A page-select (port 6), *not* copied from the header:
+The full `_AppInit` body confirms the offsets directly — `HL` points at the app's 12-byte vector header, `LDIR` lands them at `cxMain`=`0x858D`, and the byte that follows the 12 vectors becomes a flags byte; `cxPage` is then loaded from the live bank-A page-select (port 6), not copied from the header:
 
 ```z80
 _AppInit (ram:0936):

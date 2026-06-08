@@ -3,8 +3,7 @@
 *TI-84 Plus OS 2.55MP — performance and tracing notes.*
 
 This page turns the interpreter traces into practical programming rules. It is
-not a style guide for calculator golf; it is a map from common TI-BASIC
-patterns to the OS paths they exercise.
+a map from common TI-BASIC patterns to the OS paths they exercise.
 
 Confidence follows [Conventions](conventions.md): [confirmed] = observed in
 the disassembly or the headless TilEm traces; [standard] = matches TI-BASIC

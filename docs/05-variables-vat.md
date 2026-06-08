@@ -32,7 +32,7 @@ The OS passes variable identity through `OP1` as a "name string": `OP1[0]` = typ
 | `_FindSym` | `00:0E65` | find the VAT entry named by OP1; returns ptr/page (also the `RST 10h` fast path: vector `00:0010` → `JP 0E65`) |
 | `_ChkFindSym` | `00:0E60` | type-classify OP1 (via the helper at `ram:2042`, which calls `_CkOP1Real` `00:1942` then checks the findable var classes) then `_FindSym` |
 | `_CreateReal` | `00:10B8` | make a RealObj named by OP1 |
-| `_CreateReal`/`_CreateCplx`/`_CreateRList`/`_CreateCList`/`_CreateRMat`/`_CreateStrng`/`_CreateProg`/`_CreateAppVar`/… | `00:10B0–00:1153` | one exported creator bcall per *creatable* variable class — ~13 `_Create*` routines, not one per `TIVarType` (no `_CreateList`/`_CreateMat`/`_CreateStr`); some object types are made only by internal routines with no public `_Create*` bcall (e.g. the `GroupObj` creator at `00:1157`, called from `39:73AF`) |
+| `_CreateReal`/`_CreateCplx`/`_CreateRList`/`_CreateCList`/`_CreateRMat`/`_CreateStrng`/`_CreateProg`/`_CreateAppVar`/… | `00:10B0–00:1153` | one exported creator bcall per *creatable* variable class — ~13 `_Create*` routines covering the creatable classes, not one per `TIVarType` (no `_CreateList`/`_CreateMat`/`_CreateStr`); some object types are made only by internal routines with no public `_Create*` bcall (e.g. the `GroupObj` creator at `00:1157`, called from `39:73AF`) |
 | `_DelVar`/`_DelVarArc` | `00:1308`/`00:12D9` | delete (and handle archived copies) |
 | `_InsertMem`/`_DelMem` | `00:0F81`/`00:1368` | public low-level grow/shrink of a RAM region (the create path instead uses the internal gap routine at `ram:0F0C`) |
 
@@ -76,7 +76,7 @@ Per object type:
 
 `WindowObj`/`ZStoObj` (`0x0F`/`0x10`) hold the graph **Window** settings, `TblRngObj` (`0x11`) the table range, `BackupObj` (`0x13`) a full RAM image — all system, fixed-shape blobs.
 
-Aggregate creators size their data region (= count × element-size + 2-byte header) in the `var_alloc` prelude (`ram:1005`), then fall into the common create core (`ram:1011`), which carves the gap via the internal routine at `ram:0F0C` (the create path's own block-move, *not* the public `_InsertMem`; see [12](12-memory-management.md)). The specific `_Create*` routine then writes the data header after the core returns — e.g. `_CreateRList` writes the list count, `_CreateStrng` the 2-byte size word. All key off the name in `OP1` (`OP1.exp` is the name's token class — `_CreateRList` validates a list-name token `0x5D/0x24/0x3A/0x72`).
+Aggregate creators size their data region (= count × element-size + 2-byte header) in the `var_alloc` prelude (`ram:1005`), then fall into the common create core (`ram:1011`), which carves the gap via the internal routine at `ram:0F0C` (the create path's own block-move, not the public `_InsertMem`; see [12](12-memory-management.md)). The specific `_Create*` routine then writes the data header after the core returns — e.g. `_CreateRList` writes the list count, `_CreateStrng` the 2-byte size word. All key off the name in `OP1` (`OP1.exp` is the name's token class — `_CreateRList` validates a list-name token `0x5D/0x24/0x3A/0x72`).
 
 ## The VAT entry [confirmed — byte-verified vs `findsym_scan`]
 
@@ -98,9 +98,9 @@ Names come in two encodings:
 
 ## Strings (`Str1`–`Str0`) — a distinct object type [confirmed]
 
-String variables are `StrngObj` (type 4) — *not* equation variables (`EquObj` = 3), although both hold tokenized byte streams. The ten strings `Str1`…`Str0` are named by a 2-byte token: lead `tVarStrng` (`0xAA`) then `tStr1`…`tStr0` (`0x00`…`0x09`), so `Str1` = `AA 00` … `Str0` = `AA 09`.
+String variables are `StrngObj` (type 4) — not equation variables (`EquObj` = 3), although both hold tokenized byte streams. The ten strings `Str1`…`Str0` are named by a 2-byte token: lead `tVarStrng` (`0xAA`) then `tStr1`…`tStr0` (`0x00`…`0x09`), so `Str1` = `AA 00` … `Str0` = `AA 09`.
 
-**Storage.** `_CreateStrng` (id `0x4327`, `00:1123`) decompiles to `create_var_entry(StrngObj)` followed by writing a 2-byte `word size` into the data; the data area is then `[word size][size tokenized bytes]` — the same `[size][bytes]` shape programs and appvars use (above). The bytes are TI-BASIC tokens, *not* raw ASCII: a string stores exactly the token stream the editor renders, so `"sin(A)"` keeps the `sin(` token, the `A` token, and `)` — which is why a string can hold any displayable token, commands included.
+**Storage.** `_CreateStrng` (id `0x4327`, `00:1123`) decompiles to `create_var_entry(StrngObj)` followed by writing a 2-byte `word size` into the data; the data area is then `[word size][size tokenized bytes]` — the same `[size][bytes]` shape programs and appvars use (above). The bytes are TI-BASIC tokens, not raw ASCII: a string stores exactly the token stream the editor renders, so `"sin(A)"` keeps the `sin(` token, the `A` token, and `)` — which is why a string can hold any displayable token, commands included.
 
 **String vs. equation variable.** Both hold tokenized byte streams, so the two are worth separating. `EquObj` vars (`Y1`–`Y0`, parametric, polar, sequence) are *system* variables that carry a selection/style flags byte and are auto-evaluated by the grapher, table, and solver (see [Graphing](sub-graphing.md), [Table & Y= Variables](sub-table-yvars.md)). A `StrngObj` is an *inert user variable* — no selection/style, never evaluated on its own; it is bytes the string commands manipulate.
 

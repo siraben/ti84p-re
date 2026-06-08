@@ -253,7 +253,7 @@ generated `DATA.8xp` was run under headless TilEm: the screen showed sorted
   `tDim`), which creates the `r×c` result (`5DBB` → `_CreateRMat 110F`) and stores the dims
   (`631B`/`631C`/`4825`) but performs no fill. `randM(` itself is a separate 2-byte token
   (`tRandM` = `0x20`, `0xBB`-prefix group); its per-cell random fill is the one residual still
-  open (§4) — and notably it does *not* use the `_Random` bcall (`0x4B79`): a ROM-wide scan finds
+  open (§4) — and notably it does not use the `_Random` bcall (`0x4B79`): a ROM-wide scan finds
   zero `RST 28h; .dw 0x4B79` sites, so randM's randomness comes from some other path. [H]
 - Matrix copy/reshape = `_DataSize`-counted byte copy of the float payload
   (`mele_copy9_d3` (`02:4539`)/`mele_copy9_loop` (`02:453F`)). [C]
@@ -311,7 +311,7 @@ walk lands element `src(r,c)` at `dst(c,r)` — a true transpose, which re-index
 `j`. [C]
 
 `02:4178` (`mat_fill_type1`) is a separate single-counter fill/apply in the `414A`–`4178` block,
-*not* the transpose body. [C]
+not the transpose body. [C]
 
 ### `augment(`, `dim(`, `List►matr(`, `Matr►list(` — per-function drivers [C/H]
 These are dispatched from the page-02 function-token evaluator (`list_fold_dispatch`, the
@@ -417,7 +417,7 @@ So the sign byte is the LSB of the swap-count applied via `_InvOP1S` (`00:24BD`)
 `43FB`/`442B`; the pivot product is the `238B`/`RST 30h` accumulate over the diagonal in
 `43E3–43F6`. The permutation undo (`420F`/`4259`) restores element order for the inverse. [C]
 
-### `rref(` / `ref(` — separate driver, *not* `42A6` [C/H]
+### `rref(` / `ref(` — separate driver, not `42A6` [C/H]
 `rref(`/`ref(` do not re-enter the `42A6` Gauss-Jordan engine. A function-xref shows
 `matrix_gauss_engine` (`02:42A6`) has exactly two callers — `mat_inverse_entry` (`02:5F80`,
 flag 0) and `det_entry` (`02:5FC0`, flag 0x40); there is no third call site (byte-confirmed
@@ -493,11 +493,11 @@ and the routine and condition that triggers it.
 | `02:4108` | `identity_build` | `identity(n)`: diagonal-1 fill (token 0xB4) [C] |
 | `02:412A` | `mat_transpose` | transpose `[A]ᵀ` body (token `0x0E`, dispatched `60E9`/called `60FE`): per-cell copy `dst(c,r)=src(r,c)` via the swapped dest header (§4) [C] |
 | `02:414E` | `mrow_swap_loop` | row swap/scale (elimination) [C] |
-| `02:4178` | `mat_fill_type1` | live DB name; single-counter per-cell fill/apply loop in the `414A`–`4178` block — *not* transpose (§4) [C] |
+| `02:4178` | `mat_fill_type1` | live DB name; single-counter per-cell fill/apply loop in the `414A`–`4178` block — not transpose (§4) [C] |
 | `02:4539` | `mele_copy9_d3` | bulk column-major float-payload copy (skip 2 dim bytes, `LDIR`); used by `augment(`/reshape (§4) [C] |
 | `02:4663` | `mat_gauss_engine` | live DB name; `min(H,L)` partial-pivoting elimination engine; only caller is the `augment(` `0x91` branch (`6379`). Its role inside plain `augment(` is the one open item (§4) [H] |
 | `02:4773` | `mat_to_list_cols` | `Matr►list(` 2-arg column-extract engine (only caller `63A0`): nested col×row walk copying matrix columns into list element(s) (§4) [C] |
-| `02:5264` | `cplx_swap_dispatch` | live DB name; complex OP-pair arrange/swap (`5344`/`52D3`) reached only from the `0xBD` branch (`62D0`) — *not* the `0xB5`/`dim(` matrix-create branch (§4) [C] |
+| `02:5264` | `cplx_swap_dispatch` | live DB name; complex OP-pair arrange/swap (`5344`/`52D3`) reached only from the `0xBD` branch (`62D0`) — not the `0xB5`/`dim(` matrix-create branch (§4) [C] |
 | `02:6238` | `mat_augment_copy` | `augment(` column-concat: allocate result (`5DE0`) + `4539` payload copy + re-point `84D3` (§4) [C] |
 | `02:49E3` | `lele_copy_until_eq` | live DB name; list-element copy-until-length-match (`21BB`, `RET Z`); inner copy of the `Matr►list(` 1-arg/list path (`6397`) (§4) [C] |
 | `02:41C1` | `abs_cmp_op1op2` | absolute-value compare: OP1 vs pivot [C] |
@@ -539,7 +539,7 @@ and the routine and condition that triggers it.
   exactly two callers (inverse `5F80`, det `5FC0`); rref/ref are 2-byte `0xBB`-lead function
   tokens dispatched via the page-38 evaluator's class-3 handler table at `38:7175` (§5). The
   *exact rref/ref body* sits behind that (unanalyzed-data) table and is the only residual: its
-  start address was not byte-isolated, but it is confirmed *not* `42A6`.
+  start address was not byte-isolated, but it is confirmed not to be `42A6`.
 - **RESOLVED** — det sign / pivot-product (`42A6` tail `43D8–4470`) and dim labelling. The det
   sign = LSB of the permutation-swap count applied via `_InvOP1S` (`24BD`) at `43FB`/`442B`;
   the magnitude is the `238B`/`RST 30h` diagonal-pivot accumulate (`43E3–43F6`); `420F`/`4259`
@@ -554,7 +554,7 @@ and the routine and condition that triggers it.
     with `02:49E3` as the 1-arg/list inner copy. [C]
   - `augment(` (`0x91` @ `635B`) → equal-rows guard (`CP L ; JP NC,2719`) + column-concat copy at
     `02:6238` (`5DE0` allocate + `02:4539` `LDIR` payload copy). [C]
-  - `dim(` (`0xB5` @ `62D4`; `0xB5` = `tDim`, *not* `randM(`) → creates the result and sets its
+  - `dim(` (`0xB5` @ `62D4`; `0xB5` = `tDim`, not `randM(`) → creates the result and sets its
     dims (`5DBB`/`5DEB`). `02:5264` (`cplx_swap_dispatch`, only caller `62D0` in the `0xBD` branch)
     is reached only from that complex branch, not here. [C]
   - `List►matr(` `0x8E` branch (`61C1`) → `02:7D19` + `_DataSize` copy (`4539`/`453F`) is
