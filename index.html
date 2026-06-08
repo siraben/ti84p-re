@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a6464ac3.js";
+            window.path_to_searchindex_js = "searchindex-7c293ef9.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -182,7 +182,7 @@
                         <h1 id="ti-84-plus-os--reverse-engineering-notes-system-overview"><a class="header" href="#ti-84-plus-os--reverse-engineering-notes-system-overview">TI-84 Plus OS — Reverse-engineering notes: system overview</a></h1>
 <p>Target: <code>ti84plus.rom</code> (1 MiB flash dump). OS self-identifies as 2.55MP. CPU: Zilog Z80 (16-bit address bus, 64 KiB logical space) with hardware flash/RAM paging. Ghidra project: <code>~/Documents/ti84-re/ti84.gpr</code> (rebuild: <code>tools/build.sh</code>).</p>
 <blockquote>
-<p>These are living notes written during RE. Confidence is flagged: [confirmed] = verified in disassembly/decompiler; [standard] = matches documented TI-83+/84+ architecture and is consistent with the disassembly; [hypothesis] = inferred, not yet verified.</p>
+<p>Confidence is flagged: [confirmed] = verified in disassembly/decompiler; [standard] = matches documented TI-83+/84+ architecture and is consistent with the disassembly; [hypothesis] = inferred, not yet verified.</p>
 </blockquote>
 <h2 id="the-big-picture"><a class="header" href="#the-big-picture">The big picture</a></h2>
 <p>The TI-84+ is a Z80 machine that can only see 64 KiB at once, but has 1 MiB of flash and 128 KiB of RAM. It bridges that gap with a 4-slot paging scheme and a system-call (“bcall”) mechanism that lets code on one 16 KiB flash page call routines on any other page. The OS is a single-tasking monitor: a boot/kernel core on flash <code>page 0</code> (always mapped low), a large body of OS routines spread across the other flash pages and reached via bcalls, and a fixed RAM region holding the system state (flags, floating-point registers, display buffers, the variable table).</p>
@@ -236,15 +236,6 @@
 <p>(The <code>sub-*</code> docs are deep dives covering user-facing functionality and I/O internals: calculation, graphing, TI-BASIC, VAT/archive, apps, stats, matrices, solver, table, equation display, link, and USB/link assist.)</p>
 <p>New to these notes? Start with <a href="conventions.html">Conventions &amp; Methodology</a> (how to read the addresses and confidence flags) and the <a href="glossary.html">Glossary</a>; the <a href="bcall-index.html">bcall Index</a> is the full alphabetical system-call reference.</p>
 <p>Database state: the main <code>0x4xxx</code> bcall table is resolved, the retail boot bcall table (<code>0x8xxx</code>) is resolved from the local complete ROM, and TI-OS types are applied. Most boot bcall bodies are on page <code>3F</code>; USB boot routines such as <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> are on page <code>2F</code>. Rebuild: <code>tools/build.sh</code>.</p>
-<h2 id="key-anchors-found-so-far"><a class="header" href="#key-anchors-found-so-far">Key anchors found so far</a></h2>
-<ul>
-<li>Reset entry <code>reset</code> @ <code>ram:0000</code> [confirmed]</li>
-<li>bcall dispatcher <code>bcall_dispatcher</code> @ <code>ram:2a2f</code> (RST 28h) [confirmed]</li>
-<li>IM1 interrupt dispatcher <code>int_dispatch_sources</code> @ <code>ram:006f</code> (via RST 38h through the <code>ram:006d</code> shadow-register prologue) [confirmed]</li>
-<li>System flags base <code>flags</code> @ <code>0x89F0</code> (IY-indexed), typed <code>SystemFlags</code> [confirmed]</li>
-<li>FP registers <code>OP1</code>–<code>OP6</code> @ <code>0x8478</code>+ [standard]</li>
-<li>126 BCD float constants ROM-wide incl. π/180, 180/π [ROM-scan result; not directly verifiable through the current MCP byte interface]</li>
-</ul>
 
                     </main>
 
