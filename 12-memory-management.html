@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1bf8aa40.js";
+            window.path_to_searchindex_js = "searchindex-9b2b9ee8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -179,7 +179,7 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="12--memory-management-ram-heap--flash-archive"><a class="header" href="#12--memory-management-ram-heap--flash-archive">12 — Memory management (RAM heap &amp; Flash archive)</a></h1>
+                        <h1 id="memory-management-ram-heap--flash-archive"><a class="header" href="#memory-management-ram-heap--flash-archive">Memory management (RAM heap &amp; Flash archive)</a></h1>
 <p>How the OS allocates the ~24 KiB of user RAM between variables, temporaries, the FP stack, and the program being run — and how it offloads variables to Flash (“archive”).</p>
 <h2 id="the-ram-heap-confirmed-pointers-standard-layout"><a class="header" href="#the-ram-heap-confirmed-pointers-standard-layout">The RAM heap [confirmed pointers, standard layout]</a></h2>
 <p>The dynamic region runs from <code>userMem</code> (<code>0x9D95</code>) up to <code>symTable</code> (<code>0xFE66</code>). Two structures grow toward each other with free RAM in the middle:</p>
