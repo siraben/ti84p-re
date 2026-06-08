@@ -9,7 +9,7 @@ equation line, and the template menus. The implementation is concentrated on fla
 It consumes the token stream described in [Tokenizer & TI-BASIC](07-tokenizer-basic.md)
 and preserves the OP registers described in [Floating-point engine](06-floating-point.md).
 
-The useful mental model is a **cell-grid typesetter**. The OS classifies each token,
+The useful mental model is a cell-grid typesetter. The OS classifies each token,
 selects a compact handler record, walks the expression into rows and slots, maps each
 cell to pixel coordinates, and emits glyphs or graph-buffer rules. The live state is a
 small RAM block, a few display variables, and ROM tables — a flat cell grid, not a
@@ -62,7 +62,7 @@ bits 4, 5, and 6 select exponent and alternate edit forms. [confirmed]
 
 ## Handler records
 
-A visible expression is driven by **handler records** reached through the class table at
+A visible expression is driven by handler records reached through the class table at
 `39:5E45`. Each class has one word entry:
 
 ```text
@@ -180,7 +180,7 @@ typedef struct {
 ```
 
 The mapper at `39:683D` converts a descriptor cell to pixels. The `+7` loop (`DEC B; ADD A,7`)
-builds the **high** byte and the `+(rowHeight+2)` loop builds the **low** byte; the caller stores
+builds the *high* byte and the `+(rowHeight+2)` loop builds the *low* byte; the caller stores
 `HL` to `penCol`(`0x86D7`, low→x) / `penRow`(`0x86D8`, high→y), so the two products land as:
 
 $$x\ (\mathit{penCol}) = \mathit{base}_x + \mathit{row} \cdot (\mathit{rowHeight} + 2)$$
@@ -378,16 +378,16 @@ routines actually run* for each construct:
 
 | Rendered (entry line) | Page-`39` routines exercised | Path |
 |-----------------------|------------------------------|------|
-| `X^2` (raised exponent) | `eqdisp_emit_subexpr2` `4CA4`, `eqdisp_menu_or_emit` `53AD` | light entry-line emit (`eqdisp_set_row_for_tok` `4CE9` is the static superscript-row helper but did **not** execute in this trace — it does run in the `1/2` trace) |
-| `1/2` (n/d template) | `eqdisp_compute_dims` `69C8`, `eqdisp_layout_token_geom` `68AE`, the `683D` cell-to-pixel mapper, `eqdisp_draw_fraction_bar` `6ABF`, `eqdisp_draw_box_jp` `6AF5`, `eqdisp_load_glyph18b2` `6B66`, `eqdisp_dispatch_token` `4A74` | **descriptor / geometry** |
-| `fnInt(` (MATH ▸ 9) | `eqdisp_emit_glyph` `4E8E`, `eqdisp_map_token_glyph` `4F1A`, `eqdisp_emit_arglist` `4DE6`, `eqdisp_sum_arg_widths` `4DCA`, `eqdisp_emit_digit_chk` `4E0A` | **handler record / multi-arg** |
+| `X^2` (raised exponent) | `eqdisp_emit_subexpr2` `4CA4`, `eqdisp_menu_or_emit` `53AD` | light entry-line emit (`eqdisp_set_row_for_tok` `4CE9` is the static superscript-row helper but did *not* execute in this trace — it does run in the `1/2` trace) |
+| `1/2` (n/d template) | `eqdisp_compute_dims` `69C8`, `eqdisp_layout_token_geom` `68AE`, the `683D` cell-to-pixel mapper, `eqdisp_draw_fraction_bar` `6ABF`, `eqdisp_draw_box_jp` `6AF5`, `eqdisp_load_glyph18b2` `6B66`, `eqdisp_dispatch_token` `4A74` | descriptor / geometry |
+| `fnInt(` (MATH ▸ 9) | `eqdisp_emit_glyph` `4E8E`, `eqdisp_map_token_glyph` `4F1A`, `eqdisp_emit_arglist` `4DE6`, `eqdisp_sum_arg_widths` `4DCA`, `eqdisp_emit_digit_chk` `4E0A` | handler record / multi-arg |
 
 This confirms the headline static result: the descriptor path (`69C8`/`68AE`/`683D`/`6ABF`)
 and the handler-record path (`4DCA`/`4DE6`/`4E8E`/`4F1A`) are mutually
 exclusive per construct, exactly as the two-mechanism model predicts. [confirmed]
 
-`39:5167` (`eqdisp_layout_multiarg`) **statically** owns the multi-arg row
-composition, but it did **not** execute in this trace: the `fnInt(` template was
+`39:5167` (`eqdisp_layout_multiarg`) statically owns the multi-arg row
+composition, but it did *not* execute in this trace: the `fnInt(` template was
 inserted *empty* (`∫(0)dV`), so the operand-recursion branch was never driven —
 `5167` and its body (`5949`/`5B10`) show 0 hits, and the `--funcs` "5167" rollup
 bucket is a nearest-name artifact (only a `51F1/51F3` fragment ran). A *filled*
@@ -410,7 +410,7 @@ measured-fraction path calls `eqdisp_draw_box_jp` with `0x85EE`. [confirmed]
 endpoint helper `39:6B1C` are named `eqdisp_decr_counters` /
 `eqdisp_advance_col6` in the symbol table, and the Ghidra *decompiler*
 mis-analyzes both (it shows bare decrement loops). The raw disassembly matches
-this page instead: `683D` does `A = base; loop: add a,7` into the **high** byte (`y = base_y + 7·col` → `penRow`)
+this page instead: `683D` does `A = base; loop: add a,7` into the *high* byte (`y = base_y + 7·col` → `penRow`)
 and `6B1C` does `ld a,1Bh; … add a,7 (×n); add a,4` (`x_left = 0x1B + 7n`,
 `x_right = x_left + 4`). Trust `z80dasm` over the decompiler for these tight
 register-passing routines, as [the README](https://github.com/siraben/ti84p-re/blob/main/README.md) advises. [confirmed]

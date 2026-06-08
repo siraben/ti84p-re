@@ -19,8 +19,8 @@ Quick definitions for the terms and key RAM symbols used throughout this wiki.
 | Term | Meaning |
 |------|---------|
 | **BCD** | Binary-Coded Decimal — numbers stored as decimal digits (2 per byte), the format of all TI floats. |
-| **`TIFloat`** | The 9-byte float: 1 type/sign byte, 1 biased exponent, 7 bytes = 14 BCD mantissa digits. See [Floating-Point Engine](06-floating-point.md). |
-| **OP1–OP6** | The six 11-byte floating-point accumulator registers in RAM at `0x8478`+. `OP1` is the primary accumulator; binary ops use `OP1`+`OP2`, result in `OP1`. |
+| `TIFloat` | The 9-byte float: 1 type/sign byte, 1 biased exponent, 7 bytes = 14 BCD mantissa digits. See [Floating-Point Engine](06-floating-point.md). |
+| `OP1`–`OP6` | The six 11-byte floating-point accumulator registers in RAM at `0x8478`+. `OP1` is the primary accumulator; binary ops use `OP1`+`OP2`, result in `OP1`. |
 | **FPS** | Floating-Point Stack — a software stack (pointer at `0x9824`) for spilling OP registers during nested evaluation. |
 | **guard digits** | The 2 extra mantissa bytes past the 9-byte number (`OP1EXT`/`OP2EXT`), used for rounding during math. |
 
@@ -30,7 +30,7 @@ Quick definitions for the terms and key RAM symbols used throughout this wiki.
 |------|---------|
 | **VAT** | Variable Allocation Table — the RAM catalog of every named object, growing *down* from `symTable` (`0xFE66`). See [Variables & the VAT](05-variables-vat.md). |
 | **object type** | The 1-byte type tag of a variable (`RealObj`=0, `ListObj`=1, `ProgObj`=5, `AppVarObj`=0x15…), modeled as the `TIVarType` enum. |
-| **archive** | Variables relocated to **flash** to save RAM; the VAT entry's page byte then points into flash. See [Variables, Archive & Unarchive](sub-vat-archive.md). |
+| **archive** | Variables relocated to *flash* to save RAM; the VAT entry's page byte then points into flash. See [Variables, Archive & Unarchive](sub-vat-archive.md). |
 | **garbage collection** | Compacting the archive flash when it fills ("Garbage Collecting…"). The GC-core candidate `flash_gc_relocate`@`3C:7BD0` is not a defined function in the current live DB; that name is a project-local inferred label, not a WikiTI or `ti83plus.inc` equate. |
 | **RAM heap** | The dynamic region from `userMem` (`0x9D95`) up to the VAT; managed by `_InsertMem`/`_DelMem`. See [Memory Management](12-memory-management.md). |
 
@@ -38,7 +38,7 @@ Quick definitions for the terms and key RAM symbols used throughout this wiki.
 
 | Symbol | Addr | Meaning |
 |--------|------|---------|
-| **IY** | (reg) | Held at `flags` (`0x89F0`) almost everywhere, so `(IY+off)` indexes the `SystemFlags` bitfield. |
+| `IY` | (reg) | Held at `flags` (`0x89F0`) almost everywhere, so `(IY+off)` indexes the `SystemFlags` bitfield. |
 | `flags` | 0x89F0 | The IY-indexed system flag area (`SystemFlags` struct). |
 | `OP1` | 0x8478 | Primary FP accumulator. |
 | `FPS` | 0x9824 | Floating-point stack pointer. |

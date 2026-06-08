@@ -5,8 +5,8 @@
 How the student-facing parts of the OS work: launching Flash Apps, the **MEM → Reset**
 menu (what "RAM Cleared" erases), and the **MODE** screen format/mode flags.
 Addresses are `space:addr` where `ram`/`page_00`=`0000-3FFF`, flash pages mapped at
-`4000-7FFF`. Confidence flags follow [conventions.md](conventions.md): **[confirmed]** = read
-from disassembly; **[hypothesis]** = strong inference, not yet verified (used below for both
+`4000-7FFF`. Confidence flags follow [conventions.md](conventions.md): [confirmed] = read
+from disassembly; [hypothesis] = strong inference, not yet verified (used below for both
 strongly-inferred claims and *partial* traces where the code is RAM-resident / cross-page and
 not fully traced).
 
@@ -18,14 +18,14 @@ SystemFlags base is `IY = flags = 0x89F0`, so e.g. `(IY+0x0A)` = `flags + fmtFla
 
 ## 1. Flash Apps — find & launch
 
-This ROM appears to ship with **no bundled apps** in the local ROM-byte scan (zero `80 0F` headers found at page starts; not directly verifiable through the current MCP byte interface),
-but the entire find/launch machinery is present on **page 0x3D** (`_FindApp*`) and
-**page 0x3B** (`_AppInit` glue / app-quit). Apps are TI Flash Applications: a contiguous
-run of 16 KiB flash pages whose first page begins with a TLV **app header**.
+This ROM appears to ship with *no* bundled apps in the local ROM-byte scan (zero `80 0F` headers found at page starts; not directly verifiable through the current MCP byte interface),
+but the entire find/launch machinery is present on `page 0x3D` (`_FindApp*`) and
+`page 0x3B` (`_AppInit` glue / app-quit). Apps are TI Flash Applications: a contiguous
+run of 16 KiB flash pages whose first page begins with a TLV app header.
 
 ### 1.1 App header format (TLV) [confirmed]
 
-An app header is a sequence of **type-length-value fields** starting at offset 0 of the
+An app header is a sequence of type-length-value fields starting at offset 0 of the
 app's first page. Each field begins with two bytes in WikiTI's `TT TS` notation: the high
 12 bits are the field number, and the low nibble of the second byte encodes the payload
 length. The decoder bytes are around `page_3D:7285`, but the current Ghidra DB does not expose a live function there:
@@ -74,7 +74,7 @@ common `80 7F 00 00 00 00` form uses size nibble `F` with a four-byte zero, but 
 documents that length as ignored; the shorter `80 70` form is valid. The app body begins
 after the final field and any app-controlled padding. Bytes before the conventional
 `4080` entry point are not loader magic; they are field payload or padding, and an app can
-choose payload bytes that also decode as Z80. **[standard]**
+choose payload bytes that also decode as Z80. [standard]
 
 External sample check (not ROM evidence): the local Axe Parser `Axe.8xk` sample decodes to
 a base page whose `020D` date-stamp-signature field starts at `4027` and has a 64-byte
@@ -160,7 +160,7 @@ addresses behind these public entry points are not defined functions in the curr
 - `app_find_next_page` (`page_3D:5FB1`) — `appSearchPage (0x82A3) -= 1`; stops at page 7
   (low boundary of the app region); bjumps `appSearchPage:0x4000` to inspect the header.
 - `flash_set_sector_cnt` (`page_3D:727D` → helper `726E`) — initializes `0x82A3` to the model-selected page base plus one.
-- `_FindAppUp` (`5DDA`) / `_FindAppDn` (`5DE6`) — enumerate the **previous / next** app
+- `_FindAppUp` (`5DDA`) / `_FindAppDn` (`5DE6`) — enumerate the previous / next app
   in flash (for the APPS-menu list), both wrapping the common walker `_app_5de7` (`5DE7`).
   `_app_5de7` keeps two counts in BC (apps before/after) and tracks the current name in OP3.
 - `_FindAppNumPages` is present in the bcall table (`3D:4AA3`), but the current live DB has no function record at that address.
@@ -188,8 +188,8 @@ cxMain=753E cxPPutAway=754B cxPutAway=749F cxRedisp=754B cxErrorEP=754B cxSizeWi
 overrides `cxErrorEP (0x8595)=0x27D9`. After `_AppInit`, the main event loop runs the app
 through `call_context_main` (pages in `cxPage`, jumps `(cxMain)` — [doc 11](11-boot-contexts-errors.md)).
 
-Because `cxCurApp` (`0x859A`) **is a key code**, pressing a mode key selects the context to
-load ([doc 11](11-boot-contexts-errors.md)). The **App quit** restore-path candidate at
+Because `cxCurApp` (`0x859A`) is a key code, pressing a mode key selects the context to
+load ([doc 11](11-boot-contexts-errors.md)). The App quit restore-path candidate at
 `page_3B:7412` is not a defined function in the current live DB; the saved-context restore behavior
 stands as a byte-trace note (the label is project-local, not a WikiTI or `ti83plus.inc` equate).
 
@@ -198,7 +198,7 @@ stands as a byte-trace note (the label is project-local, not a WikiTI or `ti83pl
 ## 2. RAM clearing / memory reset
 
 The **MEM** menu (`[2nd][+]`, "MEMORY MANAGEMENT/DELETE" + "RESET") and its messages are on
-**page 0x01** (text/homescreen page). The reset *engine* is on **page 0x35**; the user-RAM
+`page 0x01` (text/homescreen page). The reset *engine* is on `page 0x35`; the user-RAM
 re-init lands in page-0 boot code.
 
 ### 2.1 The user-facing strings (page 0x01) [confirmed]
@@ -221,11 +221,11 @@ Dispatch is on the selected reset item held in `keyExtend` (`0x8446`):
 
 | `keyExtend` | action | message shown |
 |-------------|--------|---------------|
-| 1 | reset archived **vars** | `Arc Vars Cleared` (path `720B`) |
-| 2 | reset archived **apps** | `Apps Cleared` (path `7267`) |
-| 3 | reset **both** arc vars+apps | `Arc Vars & Apps Cleared` (path `7275`) |
-| 4 | reset **all** (RAM+archive) | `Resetting All...` (path `71F0`) |
-| else (0) | **RAM reset** ("RAM Cleared") | wipe + re-init (path `719F`) |
+| 1 | reset archived vars | `Arc Vars Cleared` (path `720B`) |
+| 2 | reset archived apps | `Apps Cleared` (path `7267`) |
+| 3 | reset both arc vars+apps | `Arc Vars & Apps Cleared` (path `7275`) |
+| 4 | reset all (RAM+archive) | `Resetting All...` (path `71F0`) |
+| else (0) | RAM reset ("RAM Cleared") | wipe + re-init (path `719F`) |
 
 ### 2.3 What "RAM Cleared" (RAM reset) zeroes [confirmed]
 
@@ -241,16 +241,16 @@ The RAM-reset path (`page_35:719F`):
 71E0 LD HL,0x9BD0; LD DE,0x9BD1; LD BC,0x642F; LD (HL),0; LDIR   ; *** zero user RAM 0x9BD0-0xFFFF ***
 71ED JP 0x0BD9                              ; re-init RAM (page-0 boot init)
 ```
-So a **RAM reset clears two blocks to 0**:
+So a RAM reset clears two blocks to 0:
 1. **System RAM** `0x8000–0x9BC3` (~7 KiB: OS scratch, the Context block, system buffers).
 2. **User RAM** `0x9BD0–0xFFFF` (`0x6430` = 25648 bytes, ~25 KiB: the VAT and all user variables/programs).
 
-A handful of flag bits are explicitly **preserved** across the wipe (`IY+0x3F` bit7,
+A handful of flag bits are explicitly preserved across the wipe (`IY+0x3F` bit7,
 `IY+0x34` bit6, `IY+0x35` bits0/1, and the word at `0x9B73`) so the calculator knows it is
-mid-reset. It then `JP 0x0BD9`, the **RAM-init** entry (`OUT (0)` page select, `LD SP,0xFFF7`,
+mid-reset. It then `JP 0x0BD9`, the RAM-init entry (`OUT (0)` page select, `LD SP,0xFFF7`,
 then `CALL 0x3EC1` — the cross-page trampoline that rebuilds the VAT, system vars, and LCD; see [doc 11](11-boot-contexts-errors.md)), which rebuilds a
-clean default VAT and system state and re-enters the homescreen. The Flash **archive is not
-touched** by a plain RAM reset.
+clean default VAT and system state and re-enters the homescreen. The Flash archive is *not*
+touched by a plain RAM reset.
 
 ### 2.4 Full reset (`page_0/ram:0B27`) [confirmed]
 
@@ -260,13 +260,13 @@ The harder reset (RESET ALL / power-on cold start) is at `ram:0B27`:
 0B41 LD HL,0x8000; LD DE,0x8001; LD BC,0x7FFF; LD (HL),0; LDIR   ; zero ALL of 0x8000-0xFFFF (32 KiB)
 0B4E ... preserve/inspect IY+0x3F; select sub-path; JP 0x3EA9/0x3EAF
 ```
-This zeroes the **entire** 32 KiB RAM and does the deepest re-init.
+This zeroes the *entire* 32 KiB RAM and does the deepest re-init.
 
 ### 2.5 `_CleanAll` / `cleanup_temp_ram` (`page_07:52CF`) — not a reset [confirmed]
 
-Distinct from the MEM reset. `_CleanAll` (bcall `0x4A50`) only **compacts temporary RAM**
+Distinct from the MEM reset. `_CleanAll` (bcall `0x4A50`) only compacts temporary RAM
 after a command finishes: it shifts the FP stack (`fpBase`/`FPS`) down to `tempMem`, resets
-the `OPBase`/`OPS`/`pTemp` scratch pointers, and clears `pTempCnt`/`cleanTmp`. It does **not**
+the `OPBase`/`OPS`/`pTemp` scratch pointers, and clears `pTempCnt`/`cleanTmp`. It does *not*
 clear the VAT, user vars, or Flash (see [doc 12](12-memory-management.md)). `_FixTempCnt` (`page_07:4FEC`) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.
 
@@ -290,7 +290,7 @@ exactly which bits.
 
 ### 3.1 Angle: Degree vs Radian — `trigFlags` (`IY+0`) [confirmed]
 
-`trigDeg = bit 2` of `trigFlags` (`0x89F0`): **1 = Degrees, 0 = Radians**. (Confirmed against WikiTI `Flags:00` and the ROM — `_Sin` (`02:7342`) tests `BIT 2,(IY+0)` to pick the degree path.)
+`trigDeg = bit 2` of `trigFlags` (`0x89F0`): 1 = Degrees, 0 = Radians. (Confirmed against WikiTI `Flags:00` and the ROM — `_Sin` (`02:7342`) tests `BIT 2,(IY+0)` to pick the degree path.)
 ```z80
 SET 2,(IY+0)   ; FD CB 00 D6  -> Degree
 RES 2,(IY+0)   ; FD CB 00 96  -> Radian
@@ -301,7 +301,7 @@ radians; the degree paths convert first).
 
 ### 3.2 Graph type: Func / Param / Polar / Seq — `grfModeFlags` (`IY+0x02`) [confirmed]
 
-The four graph-mode setters on **page 0x36** are **mutually exclusive**: each first clears
+The four graph-mode setters on `page 0x36` are mutually exclusive: each first clears
 all four bits via `clr_grfmode (page_36:7D00)`, then ORs in its own bit, then calls
 `_SetTblGraphDraw`. `param_1` is `IY`, so `*(param_1+2)` = `grfModeFlags`.
 
@@ -340,8 +340,8 @@ bit5 `grfNoAxis`; `seqFlags` (`IY+0x0F`).
 So Normal/Sci/Eng = (bit0, bit1): Normal = `00`, Sci = `01`, Eng = `11`.
 `fmtOverride` (`IY+0x0B`, `0x89FB`) is a working copy used during conversions.
 
-**Float vs Fix N** is *not* in `fmtFlags` — it is the separate byte **`fmtDigits` =
-`0x97B0`**: value `0x00–0x09` = Fix-N decimal places, `0xFF` = **Float**.
+Float vs Fix N is *not* in `fmtFlags` — it is the separate byte `fmtDigits` =
+`0x97B0`: value `0x00–0x09` = Fix-N decimal places, `0xFF` = Float.
 
 ### 3.4 MODE screen plumbing
 
@@ -349,7 +349,7 @@ The MODE screen is a menu context (`cxMode`/`kMode`=0x45) reached via the event/
 ([doc 11](11-boot-contexts-errors.md)). Its row strings live as token names on page 0x01 (`RadianN`/`DegreeO`/`NormalP`/
 `Float` at `page_01:49E4..4A06`; trailing letters are token-id bytes) and full-caps menu
 labels on page 0x37 (`DEGREE` `4A85`, `RADIAN` `4A8C`). Selecting a row writes the flag bits
-documented above directly (`SET/RES (IY+…)`, or stores into `fmtDigits`). **[hypothesis]** (partial) —
+documented above directly (`SET/RES (IY+…)`, or stores into `fmtDigits`). [hypothesis] (partial) —
 the per-row write table itself is reached through the menu dispatcher and was not traced
 line-by-line, but every target bit/byte is confirmed from the setters and inc equates.
 

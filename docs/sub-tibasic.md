@@ -7,19 +7,19 @@ How a student-written TI-BASIC program is stored, parsed, and executed on OS
 evaluator), [05-variables-vat.md](05-variables-vat.md) (OP1 naming, `_FindSym`), and
 [11-boot-contexts-errors.md](11-boot-contexts-errors.md) (contexts, `onSP`/`_JError`).
 
-Confidence: **[confirmed]** = decompiled/byte-verified here; **[strong]** =
-multiple consistent signals (token compares, call shape) but the dense Z80
-handler bodies don't fully reduce in the decompiler; **[inferred]** = standard
-TI-83+/84+ behavior consistent with what was seen.
+Confidence: [confirmed] = decompiled/byte-verified here, or multiple consistent
+signals (token compares, call shape) pin it even where the dense Z80 handler
+bodies don't fully reduce in the decompiler; [standard] = documented TI-83+/84+
+behavior consistent with what was seen; [hypothesis] = inferred, not yet verified.
 
 ---
 
 ## 1. How a program is stored [confirmed]
 
 A program is a VAT object of type `ProgObj` (5) / `ProtProgObj` (6) (see [doc 05](05-variables-vat.md)).
-Its data is `word size` followed by `size` bytes of **tokenized** body — the
+Its data is `word size` followed by `size` bytes of tokenized body — the
 exact byte stream the parser walks. No line numbers; lines are separated by the
-**EOL/newline token `0x3F`** (`tEnter`, shown as `cVar=='?'` = 0x3F in the
+EOL/newline token `0x3F` (`tEnter`, shown as `cVar=='?'` = 0x3F in the
 decompiled cursor code). Most tokens are 1 byte; the 11 lead bytes
 (`5C 5D 5E 60 61 62 63 7E BB AA EF`, the order of the `ram:1FF6` table) introduce 2-byte tokens ([doc 07](07-tokenizer-basic.md)).
 
@@ -55,24 +55,24 @@ is the primitive every control-flow scanner is built on.
 
 ---
 
-## 3. Top-level execution model [confirmed / strong]
+## 3. Top-level execution model [confirmed]
 
 - `_ParseInp` (`38:5987`) is the entry that parses/evaluates the entry line or a
   formula: it clears RAM `9305` (official equate `EST`, edit-screen height), calls `parse_init`, clears an editing flag
   (`*(IY+0x1F) &= 0xF7`), then tail-calls `_ChkFindSym` to resolve OP1.
-  **[confirmed]**
+  [confirmed]
 - `_Find_Parse_Formula` (`38:758A`) `_FindSym`s a named var then parses its
   stored formula; its body switches on var type (`0x0F` Window / `0x10` ZSto /
   `0x11` TblRng special-cased) before the cross-page parse. Used for Y-vars /
-  equations and for **running a program** (resolve ProgObj, point the cursor at
-  its body, run the statement loop). **[confirmed header, strong for prog-run]**
-- The **statement/expression evaluator** is the big recursive-descent core
-  `parse_eval_expr` (`38:5AB3`). The interpreter has **several entry variants**
+  equations and for running a program (resolve ProgObj, point the cursor at
+  its body, run the statement loop). [confirmed]
+- The statement/expression evaluator is the big recursive-descent core
+  `parse_eval_expr` (`38:5AB3`). The interpreter has several entry variants
   that all converge on the same shared inner loop (the code label at `38:59C8`,
   inside `parse_eval_expr`) and the same precedence selector (the label at
   `38:7010`): `38:59C5`, `38:5826`, `38:5CA7`,
   `38:6963`, `38:6F63`. Each variant does statement-type-specific setup/teardown
-  (FPS push, flag bits) and then runs the common token loop. **[confirmed]**
+  (FPS push, flag bits) and then runs the common token loop. [confirmed]
 
 ### The shared inner loop (`38:59C8`) [confirmed]
 
@@ -94,19 +94,19 @@ loop:
 ```
 
 The `param_2`/handler pointer is one of `0x4000` (base/term), `0x478c`
-(the **postfix `^`/`!` production** — it reads `+`/`^` (0x11),
+(the postfix `^`/`!` production — it reads `+`/`^` (0x11),
 range-checks an exponent as a positive int, `_JError(0x84)` Domain otherwise; not a
 defined function in the live DB, a raw code target within `parse_eval_expr`),
 or `0x7175` (a leaf no-op). Selecting among these by `precLevel` (1/2/3) is how
-operator **precedence** is realized — nesting of productions, not a flat table
-(confirms [doc 07](07-tokenizer-basic.md)'s "recursive-descent" claim). Results land in **OP1**; binary
+operator precedence is realized — nesting of productions, not a flat table
+(confirms [doc 07](07-tokenizer-basic.md)'s "recursive-descent" claim). Results land in `OP1`; binary
 operators are applied via the FP RST shortcuts (RST 30h `_FPAdd`, …) and
 `_BinOPExec`.
 
 ### Parser dispatch: page 0x38 begins with a handler-pointer table [confirmed]
 
-Raw bytes at `38:4000` are `9F 41 F0 45 1C 42 CC 41 D9 41 …` = a **flat array of
-2-byte little-endian handler pointers** (entries `0x419F, 0x45F0, 0x421C,
+Raw bytes at `38:4000` are `9F 41 F0 45 1C 42 CC 41 D9 41 …` = a flat array of
+2-byte little-endian handler pointers (entries `0x419F, 0x45F0, 0x421C,
 0x41CC, 0x41D9, …`), not executable code: `CALL 0x33AB` (`CD AB 33`) appears
 nowhere on page 0x38. The `38:7010` precedence
 selector indexes this table (`LD HL,0x4000`; add `2×class`; deref), with raw-code
@@ -125,14 +125,14 @@ is done by `chk_tok_end` (`38:72E0`) / `parse_cur_err_illegal` (`38:70F8`).
 
 ---
 
-## 4. Control flow [confirmed core, strong details]
+## 4. Control flow [confirmed]
 
 Control-flow tokens (`ti83plus.inc`): `tIf=CE tThen=CF tElse=D0 tWhile=D1
 tRepeat=D2 tFor=D3 tEnd=D4 tReturn=D5 tLbl=D6 tGoto=D7 tPause=D8 tStop=D9`.
 
 ### Block matcher / End-Else scanner: `blockmatch_end_else` (`38:4130`) [confirmed]
 
-This is the routine that **skips a block to its matching `End`/`Else`** (used to
+This is the routine that skips a block to its matching `End`/`Else` (used to
 skip the not-taken branch of `If` / `If…Then`, and to bound `For`/`While`/
 `Repeat` bodies). It keeps a nest-depth counter and walks via
 `parse_scan_tokens`:
@@ -153,51 +153,51 @@ Token compares verified at `38:4137 (CP D0)`, `414B (CP D4)`, `415D (CP D3)`,
 `4164 (CP D1)`, `4168 (CP D2)`, `416C (CP CE)`, `4179/41B3 (CP CF)`. Return
 value 0xD0 vs 0xD4 tells the caller whether it landed on `Else` or `End`.
 
-### If / Then / Else execution [strong]
+### If / Then / Else execution [confirmed]
 
 - The `If` statement handler evaluates the condition into OP1 (real). If the
-  next token is **not** `tThen`, it's a single-statement `If` (execute the one
+  next token is *not* `tThen`, it's a single-statement `If` (execute the one
   statement when true, skip it when false). If `tThen`, it's a block.
-- The **Else** path is `if_else_skip_handler` (`38:5826`): on seeing `tElse(D0)` it repeatedly calls
-  the block matcher `blockmatch_end_else` (`38:4130`) to **skip the Else block to its matching End**
+- The Else path is `if_else_skip_handler` (`38:5826`): on seeing `tElse(D0)` it repeatedly calls
+  the block matcher `blockmatch_end_else` (`38:4130`) to skip the Else block to its matching End
   (the "condition was true, ran Then, now jump over Else" case), then rejoins the
   shared loop at `38:59C8`. Other `tElse` compares at `38:57B3/58A6/58C6`
   handle the symmetric "skip Then, run Else" and nested cases.
 - `if_isg_stmt_handler` (`38:6F63`) is the per-statement entry that special-cases `tIf` (`0xCE`)
-  and `tISG` (`0xDA`, `IS>(`): the second compare is `38:6F6C: CP 0xDA` (`tISG`, **not** `tStop`,
+  and `tISG` (`0xDA`, `IS>(`): the second compare is `38:6F6C: CP 0xDA` (`tISG`, *not* `tStop`,
   which is `0xD9`). For `tIf` it sets grammar class `0x5F` and falls into the
   shared precedence loop to evaluate the condition; unknown leading tokens here
   raise `_JError(0x88)` (`E_Syntax`) for ordinary unknown tokens, or `_JError(0x30)`
   (`E_Version`, "ERR:VERSION") for tokens above `0xF5` (the reserved/newer-token range —
-  `0x30` is the message-table index, one below `0x31` ARCHIVE FULL). **[confirmed
-  bytes]**
+  `0x30` is the message-table index, one below `0x31` ARCHIVE FULL). [confirmed
+  bytes]
 
-### For( / While / Repeat / End [strong]
+### For( / While / Repeat / End [confirmed]
 
-- `For(`/`While`/`Repeat` push a **loop-control record onto the FPS/loop stack**
+- `For(`/`While`/`Repeat` push a loop-control record onto the FPS/loop stack
   recording the loop variable, limit, step, and the `parsePtr` of the loop top
   (so `End` can jump back). `End` pops/updates: increments the `For` variable,
   re-tests the limit, and either re-seeds `parsePtr` to the loop top or falls
   through. The block matcher `blockmatch_end_else` (`38:4130`) is what bounds these bodies during
   skips (e.g. `While 0` skips straight to `End`).
 - **Dispatch path (byte-traced).** The For/While/Repeat/End/Return *execution* handlers are
-  **not** on page 0x38 — page 0x38 only has the `tFor/tWhile/tRepeat/tEnd` compares inside
+  *not* on page 0x38 — page 0x38 only has the `tFor/tWhile/tRepeat/tEnd` compares inside
   the `blockmatch_end_else` skip scanner (`38:4130…4180`). The live handlers are reached via
   the page-0x02 command dispatcher: `02:54BD` loads a per-token handler pointer
   (`LD HL,0x6A30` for `tFor`=`CP 0xD3`, `0x6A34` for `tEnd`=`CP 0xD4`, `0x6A2A` for
   `tReturn`=`CP 0xD5`), and `tWhile`/`tRepeat` load a loop-type code (`LD A,0x26`/`0x27`)
   and `JP 0x6400`. `02:6400` and the `6A2A/6A30/6A34` stubs set a command index
-  (`0x28/0x29/0x2A`) and invoke bcall **`0x5140`/`0x513D`**, which both resolve to **page
-  0x33** (`_grf_435f`, target `33:435F`). `33:435F` does `SUB 0x20`, bounds-checks, and
-  indexes a **13-entry jump table at `33:4381`** (`0x47BB, 0x4A71, 0x4817, 0x4759, 0x47F5,
+  (`0x28/0x29/0x2A`) and invoke bcall `0x5140`/`0x513D`, which both resolve to page
+  0x33 (`_grf_435f`, target `33:435F`). `33:435F` does `SUB 0x20`, bounds-checks, and
+  indexes a 13-entry jump table at `33:4381` (`0x47BB, 0x4A71, 0x4817, 0x4759, 0x47F5,
   0x4AAA, 0x4B36, 0x4B4B, 0x45DE, 0x45D1, 0x459B, 0x4C93, 0x4CE8`) — the actual
   For/While/Repeat/End/Return bodies. The default `For` step uses `_OP2Set1` and the loop
   variable is stored via `_MovFrOP1`; `End` re-seeds the parse cursor from the loop-record's
-  saved position. **[confirmed dispatch chain into page 0x33; exact FPS record byte layout
-  not yet field-mapped — see residual]**
+  saved position. [confirmed dispatch chain into page 0x33; exact FPS record byte layout
+  not yet field-mapped — see residual]
 - `if_else_skip_handler` (`38:5826`)'s prologue calls `_DeallocFPS1` then
   `restore_982c_ctx` (`38:58DF`, which sets `pTempCnt`/`cleanTmp`) — FPS bookkeeping
-  consistent with pushing/popping a loop frame. **[strong]**
+  consistent with pushing/popping a loop frame. [hypothesis]
 - A trace-backed performance trap exists when `For(` omits its optional closing
   `)` and the first loop-body statement is a single-line false `If`: the
   implicit-close path at `02:5676` interacts with the false-`If` skip path and
@@ -210,24 +210,24 @@ value 0xD0 vs 0xD4 tells the caller whether it landed on `Else` or `End`.
   `tGoto(D7)`/`tLbl(D6)`: it advances over the (possibly 2-byte) label token(s)
   until EOL (`'?'`=0x3F) / end, records the position in `parsePtr`, then does a
   `cross_page_jump(0x14)` to the search routine. Token compares for `tLbl(D6)` at
-  `38:4870` and `38:7626`; `tGoto(D7)` at `38:762A`. **[confirmed]**
-- `Goto` resolves by **rescanning the program body from the top** for a matching
+  `38:4870` and `38:7626`; `tGoto(D7)` at `38:762A`. [confirmed]
+- `Goto` resolves by rescanning the program body from the top for a matching
   `Lbl name`, then setting `parsePtr` there — the classic TI-BASIC behavior that
   makes `Goto` O(program size) and makes `Goto` out of a loop leak the loop's
-  stack frame. **[inferred — standard, consistent with the rescan call shape]**
+  stack frame. [inferred — standard, consistent with the rescan call shape]
 - `Return`/`Stop` (`tReturn=D5`/`tStop=D9`) terminate execution at different
   scopes: `Return` exits the current BASIC program and resumes the caller, while
   `Stop` exits the whole BASIC program chain back to the homescreen context.
   `CALLSUB`/`SUBRT` and `CALLSTOP`/`STOPSUB` are run-confirmed fixtures for
-  those two cases. **[confirmed]**
+  those two cases. [confirmed]
 
 ---
 
 ## 5. I/O commands
 
-The **display primitives** live on pages 01/04/37; the **command (token)
-handlers** that parse arguments live mostly on **page 0x02** (the TI-BASIC
-command-execution page) and **page 0x39**, reached from the page-38 evaluator via
+The display primitives live on pages 01/04/37; the command (token)
+handlers that parse arguments live mostly on page 0x02 (the TI-BASIC
+command-execution page) and page 0x39, reached from the page-38 evaluator via
 cross-page jump (`RST2`/bjump). Token-compare sites located by ROM scan:
 
 | Command | Token | Handler site(s) | Display primitive used |
@@ -243,66 +243,66 @@ cross-page jump (`RST2`/bjump). Token-compare sites located by ROM scan:
 
 Details:
 
-- **`Disp` / `Disp expr`** — `_Disp` (`37:51D3`): sets a "text in display" flag
+- `Disp` / `Disp expr` — `_Disp` (`37:51D3`): sets a "text in display" flag
   (`IY+0x0D |= 4`), and when the active context is the home/run context
   (`cxCurApp == 'D'`) it clears graph-style state and cross-page-jumps into the
   paint routine; otherwise `RST5` (bjump) to the generic display path. Numeric
   results format via `_DispOP1A` (`04:7844`) → `_CkOP1Real`; strings/lists route
   through their formatters. Each `Disp` item ends with `_NewLine` (`01:5F4A`):
   `curCol=0`, and if `curRow+1 >= winBtm` it triggers scroll, else `curRow++`.
-  `_DispDone` (`01:69B0`) finishes. **[confirmed for `_Disp`/`_NewLine`]**
-- **`Output(row,col,value`** — `_OutputExpr` (`03:4AF2`, cross-page) writes at an
+  `_DispDone` (`01:69B0`) finishes. [confirmed for `_Disp`/`_NewLine`]
+- `Output(row,col,value` — `_OutputExpr` (`03:4AF2`, cross-page) writes at an
   absolute (row,col) without scrolling. Handler parses three comma-separated
-  args, range-checks row/col, then calls it. **[strong]**
-- **`Input` / `Prompt`** — these handlers (page 02) drop into the **entry-line
-  editor**: show the prompt (`?` for `Input`, `VAR=` for `Prompt`), let the user
+  args, range-checks row/col, then calls it. [confirmed]
+- `Input` / `Prompt` — these handlers (page 02) drop into the entry-line
+  editor: show the prompt (`?` for `Input`, `VAR=` for `Prompt`), let the user
   type, tokenize the input, and feed it back through the parser (`_ParseInp`) to
-  store into the target variable. The exact **argument-parsing order** (byte-traced):
+  store into the target variable. The exact argument-parsing order (byte-traced):
 
   - `Input` dispatch is `02:54EF` (`CP 0xDC`) and the body entry `02:54F6` reached via
     `02:641F` (`CP 0xDC → POP AF; CALL 0x649E; EX DE,HL; JP 0x54F6`). Order: (1) check
-    for an **optional leading argument** — a string/`Str`/`"…"` prompt *or* a `(row,col)`
-    pair, comma-terminated; (2) parse the **single store target variable**; (3) print the
-    prompt (`?` if no custom prompt was given); (4) run the entry-line editor; (5) tokenize
-    + `_ParseInp` the typed text; (6) `_MovFrOP1`/store into the target. With no args at
+    for an optional leading argument — a string/`Str`/`"…"` prompt *or* a `(row,col)`
+    pair, comma-terminated; (2) parse the single store target variable; (3) print the
+    prompt (`?` if no custom prompt was given); (4) run the entry-line editor; (5) tokenize +
+    `_ParseInp` the typed text; (6) `_MovFrOP1`/store into the target. With no args at
     all, `Input` pauses on the graph screen with a free-moving cursor.
-  - `Prompt` dispatch is `02:562F` (`CP 0xDD`) → `02:6699`. It is a **loop over a
-    comma-separated variable list** (`02:6699 LD DE,1; … ; 02:66BF CALL 0x1942; CP 0x04;
-    JR NZ,error` — each list item must classify as a **storable real/var, type 4**). For
+  - `Prompt` dispatch is `02:562F` (`CP 0xDD`) → `02:6699`. It is a loop over a
+    comma-separated variable list (`02:6699 LD DE,1; … ; 02:66BF CALL 0x1942; CP 0x04;
+    JR NZ,error` — each list item must classify as a storable real/var, type 4). For
     each variable: resolve its name (`02:66AC CALL 0x1DF3` then cross-page `CALL 0x3A89`),
     auto-print "`NAME=`", run the editor, parse the typed value, store it, then advance to
-    the next comma item. **[confirmed token sites + loop/validation bytes; entry-line
-    editor internals dense]**
-- **`Menu(`** — dispatched on page 02 at `02:555D` (`CP 0xE6`, → handler pointer
-  `LD HL,0x6A16; JP 0x5676`). Argument order: (1) parse the **title** string argument;
-  (2) then parse **(option-string, Lbl-name) pairs**, up to 7. `_DispMenuTitle` (`39:4D21`)
+    the next comma item. [confirmed token sites + loop/validation bytes; entry-line
+    editor internals dense]
+- `Menu(` — dispatched on page 02 at `02:555D` (`CP 0xE6`, → handler pointer
+  `LD HL,0x6A16; JP 0x5676`). Argument order: (1) parse the title string argument;
+  (2) then parse (option-string, Lbl-name) pairs, up to 7. `_DispMenuTitle` (`39:4D21`)
   draws the title; the handler stores each branch-target `Lbl`, draws the option rows,
   blocks for a key, and on selection performs a `Goto`-style jump to the chosen `Lbl`.
-  Token site also `38:5A8A`. **[confirmed dispatch; pair-parse order strong]**
-- **`Pause`** — displays (optionally an expression), then spins in a key-read
+  Token site also `38:5A8A`. [confirmed]
+- `Pause` — displays (optionally an expression), then spins in a key-read
   loop until `[ENTER]`; `Pause expr,N` (2.55MP) scrolls a list/matrix. Sites at
-  `02:55E7`, `39:6B8E`. **[strong]**
-- **`getKey`** — non-blocking: reads the current key and returns its code in OP1
+  `02:55E7`, `39:6B8E`. [confirmed]
+- `getKey` — non-blocking: reads the current key and returns its code in OP1
   (0 if none). Used as a value inside expressions, so it's wired as an operand
   token (`tGetKey=AD`) in the evaluator, not a statement. The keycode read itself is
-  the OS system call **`_GetKey`** (bcall `0x4972` → page 06 `06:491E`); the per-key
+  the OS system call `_GetKey` (bcall `0x4972` → page 06 `06:491E`); the per-key
   numeric codes returned are the standard TI `kXxx` constants (e.g. `kRight=1`,
   `kLeft=2`, `kUp=3`, `kDown=4`, `kEnter=5`, `kClear=9`, `k0..k9 = 0x8E…`).
-  `37:6700` is a fixed-width **token-attribute / opcode-template table** keyed by token, which
+  `37:6700` is a fixed-width token-attribute / opcode-template table keyed by token, which
   Ghidra renders as code. Byte-decoding it (`FE AD 1C 1B 18 EC 31 00
   84 …`) shows it begins `CP 0xAD` (tGetKey) / `CP 0x55` / `CP 0x54` and continues as
   records keyed by token (`FE xx` 1-byte, `FB xx`/`FC xx`/`F4 89` 2-byte tokens — getKey,
   stat/distribution and finance tokens), used by a (de)tokenizer/compiler rather than as a
   key→code map. The keycodes a `getKey` returns come from `_GetKey` on page 06, not this table.
-  **[confirmed: 37:6700 is a token-descriptor table; keycodes come from
-  `_GetKey` on page 06]**
-- **`ClrHome`** — clears the home-screen text shadow and resets the cursor to
-  (0,0). **[inferred — standard]**
+  [confirmed: 37:6700 is a token-descriptor table; keycodes come from
+  `_GetKey` on page 06]
+- `ClrHome` — clears the home-screen text shadow and resets the cursor to
+  (0,0). [inferred — standard]
 
-The **`_RunIndicOn`/`Off`** (`01:6518`/`6531`) busy indicator runs during
+The `_RunIndicOn`/`Off` (`01:6518`/`6531`) busy indicator runs during
 execution: `_RunIndicOn` sets `indicBusy=0xF0`, `indicCounter=1`, enables
 interrupts, sets `IY+0x12 |= 1`. The interpreter turns it on while a program
-runs and off at `Done`. **[confirmed]**
+runs and off at `Done`. [confirmed]
 
 ---
 
@@ -316,12 +316,12 @@ runs and off at `Done`. **[confirmed]**
    maps the token byte to a grammar/precedence class — tokens `≥0xF2` get `+0x12` (`38:6FBE: ADD A,0x12`),
    folding the high token page into the class space.
 4. The precedence level (`cVar4` = 1/2/3) selects the production handler base:
-   `0x4000` (base term — the **flat handler-pointer table**, indexed by token class),
+   `0x4000` (base term — the flat handler-pointer table, indexed by token class),
    `0x478C` (postfix `^`/`!`), or `0x7175` (leaf) — `0x478C` and `0x7175` are raw code
    targets inside `parse_eval_expr` (not defined functions in the live DB), whereas
    `0x4000` is the pointer table itself. Nesting these realizes precedence.
 5. Binary ops fold operands via FP RSTs (RST 30h `_FPAdd`; `_FPMult`=`00:238B`, …)
-   / `_BinOPExec`, leaving the result in **OP1**.
+   / `_BinOPExec`, leaving the result in `OP1`.
 6. Variable tokens become an OP1 name (type byte + name) and resolve via
    `_FindSym`/`_RclVarSym` ([doc 05](05-variables-vat.md)); store targets (`→VAR`) resolve through the
    `38:7600` name scanner (handles `[A]`/`L1`/`Str1`/Y-var/`Ans` classes,
@@ -369,7 +369,7 @@ page_01:66e5   _GetTokLen                 ; token byte-length (editor)
 page_01:66ea   _Get_Tok_Strng             ; token -> display string (editor)
 ```
 
-I/O command **token-handler** sites (page 02 = the command-exec page; dispatched
+I/O command token-handler sites (page 02 = the command-exec page; dispatched
 from the page-38 evaluator via cross-page jump):
 ```
 page_02:54ef   input_cmd_handler  (tInput DC)
@@ -610,7 +610,7 @@ glyph rendering, `_PDspGrph` (`04:7904`), `_StoSysTok` window stores,
 `_RestoreDisp`, and page-38 statement evaluation.
 
 `GRAPHLST.8xp` draws the same topology from list data. It stores edge endpoint
-coordinates in `L1`-`L4`, stores node centers in `L5` and `L6`, then loops over
+coordinates in `L1`–`L4`, stores node centers in `L5` and `L6`, then loops over
 those lists:
 
 ```ti-basic
@@ -844,23 +844,23 @@ rules and larger source-level examples.
 
 Three argument-handling and dispatch details, grounded in the bytes (see §5 / §4):
 
-- **`Input`/`Prompt`/`Menu` argument order (§5).** `Input` (`02:54EF`→`54F6`):
+- `Input`/`Prompt`/`Menu` argument order (§5). `Input` (`02:54EF`→`54F6`):
   optional leading prompt-string *or* `(row,col)` → single store var → editor → parse →
-  store. `Prompt` (`02:562F`→`6699`): loop over comma-separated **type-4 storable vars**,
+  store. `Prompt` (`02:562F`→`6699`): loop over comma-separated type-4 storable vars,
   each "`NAME=`" → editor → parse → store. `Menu(` (`02:555D`): title string, then up to 7
   (option-string, `Lbl`) pairs, then key-select → `Goto`-style jump.
-- **`For`/`While`/`Repeat`/`End` dispatch (§4).** Execution handlers live on
-  **page 0x33** (jump table `33:4381`, entered via bcall `0x5140`/`0x513D` = `33:435F` from
+- `For`/`While`/`Repeat`/`End` dispatch (§4). Execution handlers live on
+  page 0x33 (jump table `33:4381`, entered via bcall `0x5140`/`0x513D` = `33:435F` from
   the page-0x02 dispatcher at `02:54BD`/`02:6400`), not page 0x38. `End` re-seeds the parse
   cursor from the loop record's saved top position.
-- **`getKey` `37:6700` (§5).** A fixed-width
-  **token-attribute / opcode-template table** keyed by token (`FE/FB/FC/F4`-prefixed). The
+- `getKey` `37:6700` (§5). A fixed-width
+  token-attribute / opcode-template table keyed by token (`FE/FB/FC/F4`-prefixed). The
   keycodes a `getKey` returns come from the OS `_GetKey` system call (bcall `0x4972`, page 06),
   which returns the standard `kXxx` constants.
 
 Residual (genuinely unverified — would need deeper page-0x33 paged tracing):
-- The **exact byte layout of the For/While/Repeat loop-control record** on the FPS (field
+- The exact byte layout of the For/While/Repeat loop-control record on the FPS (field
   order/sizes for loop var, limit, step, and saved `parsePtr`) is not yet field-mapped; only
   the dispatch chain into the `33:4381` handlers is confirmed.
-- The page-0x02 `Input`/`Prompt` **entry-line editor internals** (cursor/redraw, 2.55MP
+- The page-0x02 `Input`/`Prompt` entry-line editor internals (cursor/redraw, 2.55MP
   multi-line) remain dense and are only confirmed at the argument-parse boundary.

@@ -19,7 +19,7 @@ This page categorizes the ~600 named bcall entry points (the OS's public API) by
 
 ## Reading the map
 
-The dominant fact: **this is a calculator** — roughly **two-thirds of the API is numeric**. Everything else is comparatively small glue. The architecture flows:
+The dominant fact: this is a calculator — roughly two-thirds of the API is numeric. Everything else is comparatively small glue. The architecture flows:
 
 ```mermaid
 flowchart TD
@@ -32,14 +32,14 @@ flowchart TD
     DISP --> R
 ```
 
-Cross-cutting services used by all of the above: **bcall/paging** ([03](03-bcall-mechanism.md)), **interrupts/APD** ([04](04-interrupts.md)), **error handling** (`_JError` + `TIError` codes), and the **system flags** (`SystemFlags` @ `flags`).
+Cross-cutting services used by all of the above: bcall/paging ([03](03-bcall-mechanism.md)), interrupts/APD ([04](04-interrupts.md)), error handling (`_JError` + `TIError` codes), and the system flags (`SystemFlags` @ `flags`).
 
 ## How the pieces connect (the through-line)
 1. **Interrupt** keeps time, scans the keypad into `kbdScanCode`, runs APD.
-2. **`_GetKey`** turns scan codes into key codes (`TIKeyCode`), driving menus and the homescreen.
-3. The **parser** reads tokenized input/programs, dispatching each `TIToken`.
-4. Number tokens → **FP engine** (OP1–OP6, BCD); name tokens → **VAT** (`_FindSym`).
-5. Results land in **OP1** and are rendered by the **display** subsystem.
-6. **bcall + paging** is the substrate that lets steps 3–5 live on different flash pages; **errors** unwind via `_JError`/`onSP`.
+2. `_GetKey` turns scan codes into key codes (`TIKeyCode`), driving menus and the homescreen.
+3. The parser reads tokenized input/programs, dispatching each `TIToken`.
+4. Number tokens → FP engine (OP1–OP6, BCD); name tokens → VAT (`_FindSym`).
+5. Results land in `OP1` and are rendered by the display subsystem.
+6. **bcall + paging** is the substrate that lets steps 3–5 live on different flash pages; errors unwind via `_JError`/`onSP`.
 
 See per-subsystem docs `01`–`09` for detail.
