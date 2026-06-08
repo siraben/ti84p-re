@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bba023a5.js";
+            window.path_to_searchindex_js = "searchindex-a6464ac3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -186,15 +186,15 @@
 <li><a href="00-system-overview.html">Overview</a> — the four pillars and the system through-line.</li>
 <li><a href="10-subsystem-map.html">Subsystem map</a> — see the whole API surface at once.</li>
 <li>Substrate: <a href="01-memory-map.html">Memory map</a> → <a href="02-paging.html">Paging</a> → <a href="03-bcall-mechanism.html">The bcall mechanism</a> → <a href="04-interrupts.html">Interrupts</a>.</li>
-<li>Pick a core subsystem (<a href="06-floating-point.html">Floating-point</a>, <a href="05-variables-vat.html">VAT</a>, <a href="07-tokenizer-basic.html">Tokenizer/TI-BASIC</a>, <a href="08-display-lcd.html">Display</a>…), then its <strong>feature deep-dive</strong> (<code>sub-*</code>).</li>
+<li>Pick a core subsystem (<a href="06-floating-point.html">Floating-point</a>, <a href="05-variables-vat.html">VAT</a>, <a href="07-tokenizer-basic.html">Tokenizer/TI-BASIC</a>, <a href="08-display-lcd.html">Display</a>…), then its <em>feature deep-dive</em> (<code>sub-*</code>).</li>
 <li><a href="glossary.html">Glossary</a> for any unfamiliar term.</li>
 </ol>
 <h2 id="address-notation"><a class="header" href="#address-notation">Address notation</a></h2>
 <ul>
-<li><strong><code>pp:addr</code></strong> — flash page <code>pp</code> (<code>00</code>–<code>3F</code>), logical address <code>addr</code>. Banked pages run in the <code>4000–7FFF</code> window, so e.g. <code>_PutS</code> at <code>01:5C39</code> means page 1, address <code>0x5C39</code>. Example: <code>3D:6745</code>.</li>
-<li><strong><code>ram:addr</code></strong> — page 0 (the always-mapped kernel) and the RAM window; Ghidra keeps page 0 in its <code>ram</code> space, so <code>ram:229E</code> ≡ <code>00:229E</code>.</li>
-<li><strong><code>page_pp:addr</code></strong> — the same as <code>pp:addr</code>, written in Ghidra’s overlay-space form (<code>page_38:4000</code>). Used where it matches the tool output.</li>
-<li>A bare <code>0x….</code> (no page) is a <strong>RAM data address or an unpaged value</strong> (e.g. <code>flags</code> <code>0x89F0</code>, the bcall-ID ranges <code>0x4xxx</code>/<code>0x8xxx</code>, a page number like <code>0x3B</code>).</li>
+<li><code>pp:addr</code> — flash page <code>pp</code> (<code>00</code>–<code>3F</code>), logical address <code>addr</code>. Banked pages run in the <code>4000–7FFF</code> window, so e.g. <code>_PutS</code> at <code>01:5C39</code> means page 1, address <code>0x5C39</code>. Example: <code>3D:6745</code>.</li>
+<li><code>ram:addr</code> — page 0 (the always-mapped kernel) and the RAM window; Ghidra keeps page 0 in its <code>ram</code> space, so <code>ram:229E</code> ≡ <code>00:229E</code>.</li>
+<li><code>page_pp:addr</code> — the same as <code>pp:addr</code>, written in Ghidra’s overlay-space form (<code>page_38:4000</code>). Used where it matches the tool output.</li>
+<li>A bare <code>0x….</code> (no page) is a RAM data address or an unpaged value (e.g. <code>flags</code> <code>0x89F0</code>, the bcall-ID ranges <code>0x4xxx</code>/<code>0x8xxx</code>, a page number like <code>0x3B</code>).</li>
 <li><strong>bcall ID ≠ address.</strong> A bcall has an <em>ID</em> (the 2-byte word after <code>rst 28h</code>, e.g. <code>_FindSym</code> = <code>42F4h</code>) and a <em>body address</em> (<code>00:0E65</code>). The ID indexes the jump table; it is not where the code lives.</li>
 </ul>
 <h2 id="confidence-flags"><a class="header" href="#confidence-flags">Confidence flags</a></h2>
@@ -205,26 +205,34 @@
 <tr><th>Flag</th><th>Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>[confirmed]</strong></td><td>Directly observed in the disassembly/decompiler of this ROM.</td></tr>
-<tr><td><strong>[standard]</strong></td><td>Matches the publicly-documented TI-83+/84+ architecture and is consistent with the disassembly, but not every byte was traced.</td></tr>
-<tr><td><strong>[hypothesis]</strong></td><td>Inferred / not yet verified — treat with caution.</td></tr>
+<tr><td>[confirmed]</td><td>Directly observed in the disassembly/decompiler of this ROM.</td></tr>
+<tr><td>[standard]</td><td>Matches the publicly-documented TI-83+/84+ architecture and is consistent with the disassembly, but not every byte was traced.</td></tr>
+<tr><td>[hypothesis]</td><td>Inferred / not yet verified — treat with caution.</td></tr>
 </tbody>
 </table>
 </div>
-<p>Some early deep-dive docs use shorthand <code>[C]</code>/<code>[H]</code>/<code>[I]</code> ≈ <code>[confirmed]</code>/<code>[standard]</code>/<code>[hypothesis]</code>; read them against this three-tier scheme.</p>
+<p>Some early deep-dive docs use shorthand <code>[C]</code>/<code>[H]</code>/<code>[I]</code> ≈ <code>[confirmed]</code>/<code>[standard]</code>/<code>[hypothesis]</code>; read them against this three-tier scheme. A flag is a plain bracketed token — <code>[confirmed]</code>, not <code>**[confirmed]**</code>. These three tiers are the whole scheme; there is no <code>[strong]</code> or <code>[inferred]</code> flag.</p>
+<h2 id="typography"><a class="header" href="#typography">Typography</a></h2>
+<ul>
+<li><strong>Em dash</strong> — a spaced em dash <code>—</code> sets off a parenthetical break in prose.</li>
+<li><strong>En dash</strong> — an en dash <code>–</code> joins a numeric, address, or register range: <code>0x08</code>–<code>0x0D</code>, <code>L1</code>–<code>L4</code>, <code>OP1</code>–<code>OP6</code>, and two-name compounds such as Gauss–Kronrod. A hyphen inside a single code span (<code>`0x8000-0x9BC3`</code>) is literal.</li>
+<li><strong>Hyphen</strong> — joins compound modifiers: <code>cross-page</code>, <code>byte-verified</code>, <code>little-endian</code>.</li>
+<li><strong>Bold</strong> is reserved for UI elements — a calculator key or menu name such as <strong>Y=</strong>, <strong>MODE</strong>, <strong>TRACE</strong> — and run-in labels ending in <code>.</code>/<code>:</code>. It is not used for emphasis; italics carry emphasis, sparingly, where word choice cannot. Confidence flags, addresses, ports, registers, and routine names take code/notation markup, not bold.</li>
+<li>Bullet lists use <code>-</code>.</li>
+</ul>
 <h2 id="function-naming"><a class="header" href="#function-naming">Function naming</a></h2>
 <ul>
-<li><strong><code>_CamelCase</code></strong> — an official TI bcall/equate name (from <code>ti83plus.inc</code>, the full 2007 TI-83 Plus SDK equates file, or the TI SDK), e.g. <code>_FindSym</code>, <code>_FPAdd</code>. High confidence.</li>
-<li><strong><code>snake_case</code></strong> — a name <strong>inferred during this RE</strong> from a routine’s behavior (which named routines it calls, which RAM/ports it touches), e.g. <code>findsym_scan</code>, <code>fp_normalize</code>. Accurate in aggregate; any single low-level helper name is a best-effort guess.</li>
+<li><code>_CamelCase</code> — an official TI bcall/equate name (from <code>ti83plus.inc</code>, the full 2007 TI-83 Plus SDK equates file, or the TI SDK), e.g. <code>_FindSym</code>, <code>_FPAdd</code>. High confidence.</li>
+<li><code>snake_case</code> — a name <em>inferred during this RE</em> from a routine’s behavior (which named routines it calls, which RAM/ports it touches), e.g. <code>findsym_scan</code>, <code>fp_normalize</code>. Accurate in aggregate; any single low-level helper name is a best-effort guess.</li>
 </ul>
 <h2 id="math-notation"><a class="header" href="#math-notation">Math notation</a></h2>
-<p>Formulas are written in LaTeX and rendered by <strong>KaTeX</strong> (offline, client-side): <code>$…$</code> for inline math and <code>$$…$$</code> (or <code>\[…\]</code>) for display. KaTeX skips <code>&lt;code&gt;</code>/<code>&lt;pre&gt;</code>, so <code>$</code>-prefixed hex like <code>$1A2F</code> inside code blocks is left untouched.</p>
+<p>Formulas are written in LaTeX and rendered by KaTeX (offline, client-side): <code>$…$</code> for inline math and <code>$$…$$</code> (or <code>\[…\]</code>) for display. KaTeX skips <code>&lt;code&gt;</code>/<code>&lt;pre&gt;</code>, so <code>$</code>-prefixed hex like <code>$1A2F</code> inside code blocks is left untouched.</p>
 <blockquote>
-<p><strong>Escaping caveat:</strong> mdBook runs markdown <em>before</em> the client-side KaTeX pass, and markdown strips a backslash before ASCII punctuation. So inside <code>$…$</code>/<code>$$…$$</code> you must <strong>double</strong> those escapes — write <code>\\,</code> (thin space), <code>\\%</code> (percent), <code>\\\\</code> (matrix/array row break), <code>\\{</code>/<code>\\}</code> — otherwise KaTeX receives <code>,</code>/<code>%</code>/<code>\</code> and mis-renders (a bare <code>%</code> even comments out the rest of the formula). Backslash-before-letter macros (<code>\frac</code>, <code>\sum</code>, <code>\sqrt</code>, …) are safe as-is. Fenced <code>```pseudocode</code>/<code>```mermaid</code> blocks are verbatim and need no doubling. <strong>Algorithms</strong> are written as <code>```pseudocode</code> blocks in <a href="https://github.com/SaswatPadhi/pseudocode.js">pseudocode.js</a> <code>\begin{algorithm}</code> syntax and typeset client-side. Diagrams use Mermaid (<code>```mermaid</code>) and render to SVG. See the repository <code>flake.nix</code>/<code>book.toml</code> for how the assets are vendored.</p>
+<p><strong>Escaping caveat:</strong> mdBook runs markdown <em>before</em> the client-side KaTeX pass, and markdown strips a backslash before ASCII punctuation. So inside <code>$…$</code>/<code>$$…$$</code> you must <em>double</em> those escapes — write <code>\\,</code> (thin space), <code>\\%</code> (percent), <code>\\\\</code> (matrix/array row break), <code>\\{</code>/<code>\\}</code> — otherwise KaTeX receives <code>,</code>/<code>%</code>/<code>\</code> and mis-renders (a bare <code>%</code> even comments out the rest of the formula). Backslash-before-letter macros (<code>\frac</code>, <code>\sum</code>, <code>\sqrt</code>, …) are safe as-is. Fenced <code>```pseudocode</code>/<code>```mermaid</code> blocks are verbatim and need no doubling. Algorithms are written as <code>```pseudocode</code> blocks in <a href="https://github.com/SaswatPadhi/pseudocode.js">pseudocode.js</a> <code>\begin{algorithm}</code> syntax and typeset client-side. Diagrams use Mermaid (<code>```mermaid</code>) and render to SVG. See the repository <code>flake.nix</code>/<code>book.toml</code> for how the assets are vendored.</p>
 </blockquote>
 <h2 id="how-this-re-was-produced"><a class="header" href="#how-this-re-was-produced">How this RE was produced</a></h2>
 <ul>
-<li><strong>The Ghidra database</strong> is rebuilt from the ROM by <code>tools/build.sh</code> (a 10-stage headless pipeline). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves and names routines from the main OS bcall table.</li>
+<li>The Ghidra database is rebuilt from the ROM by <code>tools/build.sh</code> (a 10-stage headless pipeline). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves and names routines from the main OS bcall table.</li>
 <li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored highest for the <code>0x4xxx</code> table — more known bcall IDs resolve to a valid <code>(addr, page)</code> entry there than on any other page — and is confirmed by the documented RST shortcuts (all six matched) and by every entry resolving and live-confirming once 0x3B is applied. <code>0x8xxx</code> bcall IDs index a retail boot table on page <code>3F</code> (with the USB boot entries on retail page <code>2F</code>). This <code>rom.bin</code> is a BootFree image — page <code>3F</code> carries the BootFree prefix <code>3E 3F D3 06 …</code> and page <code>2F</code> is blank (all <code>FF</code>) — so these <code>0x8xxx</code> body targets do not resolve and are left unnamed (<code>tools/bcalls8x_targets.txt</code> has no body rows); only their SDK equate names are known.</li>
 <li><strong>Decompiler caveats.</strong> Ghidra’s Z80 decompiler mis-renders some idioms — <code>SET b,(IY+d)</code> flag ops, the <code>CALL cross_page_jump</code> (<code>ram:2B09</code>) trampolines, and register-passed arguments on banked pages. Where the decompiler is unreliable the notes are grounded in the raw disassembly (and several deep-dives used a small custom Z80 decoder over the ROM to verify addresses byte-exactly).</li>
 <li><strong>Parallel multi-agent passes.</strong> The feature deep-dives (<code>sub-*</code>) and the final 100%-naming pass were produced by multiple agents working on isolated copies of the database, each owning a disjoint set of pages, then merged.</li>

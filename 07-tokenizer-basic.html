@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bba023a5.js";
+            window.path_to_searchindex_js = "searchindex-a6464ac3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -180,11 +180,11 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="07--tokenizer--ti-basic"><a class="header" href="#07--tokenizer--ti-basic">07 — Tokenizer &amp; TI-BASIC</a></h1>
-<p>TI-BASIC programs are stored as <strong>tokens</strong>, not text: every command, function, and variable is a token of 1 or 2 bytes. The OS <em>detokenizes</em> (token→display string) to show a program and <em>tokenizes</em> (keypress/text→token) on entry; the <strong>parser</strong> walks tokens to execute.</p>
+<p>TI-BASIC programs are stored as tokens, not text: every command, function, and variable is a token of 1 or 2 bytes. The OS detokenizes (token→display string) to show a program and tokenizes (keypress/text→token) on entry; the parser walks tokens to execute.</p>
 <h2 id="token-encoding-confirmed"><a class="header" href="#token-encoding-confirmed">Token encoding [confirmed]</a></h2>
 <ul>
-<li>Most tokens are <strong>one byte</strong> (<code>tStore</code>=0x04, <code>tBoxPlot</code>=0x05, operators, digits, letters, common commands). The Ghidra database models the byte values as the <code>TIToken</code> enum, built from the <code>t</code>-prefixed equates in <code>ti83plus.inc</code>.</li>
-<li>Some bytes are <strong>lead bytes</strong> of a <strong>two-byte token</strong>: the first byte selects a <em>table</em>, the second byte the entry.</li>
+<li>Most tokens are one byte (<code>tStore</code>=0x04, <code>tBoxPlot</code>=0x05, operators, digits, letters, common commands). The Ghidra database models the byte values as the <code>TIToken</code> enum, built from the <code>t</code>-prefixed equates in <code>ti83plus.inc</code>.</li>
+<li>Some bytes are lead bytes of a two-byte token: the first byte selects a table, the second byte the entry.</li>
 </ul>
 <h3 id="the-2-byte-lead-byte-set-confirmed"><a class="header" href="#the-2-byte-lead-byte-set-confirmed">The 2-byte lead-byte set [confirmed]</a></h3>
 <p><code>_IsA2ByteTok</code> (<code>ram:1FE8</code>) scans an 11-byte table at <code>ram:1FF6</code> to decide if a byte starts a 2-byte token. The bytes are:</p>
@@ -208,34 +208,34 @@
 </tbody>
 </table>
 </div>
-<p>So e.g. <code>5D 00</code> = list <code>L1</code>; <code>BB xx</code> = an extended command. The second byte indexes that group’s name/handler table. (String variables <code>Str1</code>–<code>Str0</code> use lead <code>AA</code>; they are a <strong>distinct VAT object type</strong> holding tokenized text — see <a href="05-variables-vat.html#strings-str1str0--a-distinct-object-type-confirmed">Strings</a>.)</p>
+<p>So e.g. <code>5D 00</code> = list <code>L1</code>; <code>BB xx</code> = an extended command. The second byte indexes that group’s name/handler table. (String variables <code>Str1</code>–<code>Str0</code> use lead <code>AA</code>; they are a distinct VAT object type holding tokenized text — see <a href="05-variables-vat.html#strings-str1str0--a-distinct-object-type-confirmed">Strings</a>.)</p>
 <h2 id="detokenize--token-length-confirmed"><a class="header" href="#detokenize--token-length-confirmed">Detokenize / token length [confirmed]</a></h2>
 <ul>
 <li><code>_GetTokLen</code> (<code>01:66E5</code>) returns the length of the detokenized display string for the token at HL: it calls <code>smallfont_glyph_ptr</code> (<code>01:6702</code>) to resolve the token’s string pointer, then reads the leading length byte (<code>LD A,(HL)</code>). It is <code>_IsA2ByteTok</code>, not <code>_GetTokLen</code>, that tests 1-byte vs 2-byte encoding.</li>
 <li><code>_Get_Tok_Strng</code> (<code>01:66EA</code>) returns the display string for a token (used by the program editor and <code>Disp</code>).</li>
 </ul>
 <h2 id="parser--interpreter-located--page-0x38"><a class="header" href="#parser--interpreter-located--page-0x38">Parser / interpreter [located — page 0x38]</a></h2>
-<p>The expression parser/evaluator lives on <strong>flash page 0x38</strong>. Entry points:</p>
+<p>The expression parser/evaluator lives on flash page 0x38. Entry points:</p>
 <ul>
-<li><code>_ParseInp</code> (<code>38:5987</code>) — parse/evaluate the input (homescreen/entry line). It calls <code>parse_init</code> (<code>38:5b7b</code>) to reset parser state, clears editing flags, then resolves via <code>_ChkFindSym</code>. <strong>[confirmed]</strong></li>
+<li><code>_ParseInp</code> (<code>38:5987</code>) — parse/evaluate the input (homescreen/entry line). It calls <code>parse_init</code> (<code>38:5b7b</code>) to reset parser state, clears editing flags, then resolves via <code>_ChkFindSym</code>. [confirmed]</li>
 <li><code>_ParseInpLastEnt</code> (<code>38:5984</code>) — public parser variant immediately before
 <code>_ParseInp</code>; the generated <code>ASMPARSE.8xp</code>/<code>ZZPARSE.8xp</code> fixture reaches it
 but fails with <code>ERR:INVALID</code> without running the named BASIC target.
-<strong>[confirmed negative probe]</strong></li>
+[confirmed negative probe]</li>
 <li><code>_Find_Parse_Formula</code> (<code>38:758A</code>) — <code>_FindSym</code> a variable then parse its stored
 formula (Y-vars, equations). The generated <code>ASMFORM.8xp</code>/<code>ZZFORM.8xp</code> fixture
 reaches it from an <code>AsmPrgm</code> payload but fails with <code>ERR:UNDEFINED</code> without
-running the named BASIC target. <strong>[confirmed negative probe]</strong></li>
-<li><code>parse_init</code> (<code>38:5b7b</code>) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). <strong>[confirmed]</strong></li>
+running the named BASIC target. [confirmed negative probe]</li>
+<li><code>parse_init</code> (<code>38:5b7b</code>) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). [confirmed]</li>
 </ul>
 <p>The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine (<a href="06-floating-point.html">06</a>), variable tokens resolve via the VAT (<a href="05-variables-vat.html">05</a>), and the busy indicator is driven by <code>_RunIndicOn</code> / <code>_RunIndicOff</code>. <code>_BinOPExec</code> applies a binary operator via OP1/OP2.</p>
 <h3 id="the-handler-dispatch-table-confirmed"><a class="header" href="#the-handler-dispatch-table-confirmed">The handler dispatch table [confirmed]</a></h3>
-<p>Page 0x38 <strong>begins</strong> with the parser’s handler dispatch at <strong><code>page_38:4000</code></strong> — a <strong>flat array of 2-byte little-endian handler pointers</strong>. Raw bytes are <code>9F 41 F0 45 1C 42 …</code> = entries <code>0x419F, 0x45F0, 0x421C, …</code> (all in-window <code>0x4xxx</code>/<code>0x47xx</code> code addresses), indexed by token class and dereferenced; the selector at <code>38:7010</code> loads <code>LD HL,0x4000</code> and adds <code>2×index</code> (see <a href="sub-tibasic.html">TI-BASIC Programs</a>).</p>
-<p>These handlers implement TI-BASIC <strong>statements/commands and operators</strong>. Sampling them by the routine they call:</p>
+<p>Page 0x38 begins with the parser’s handler dispatch at <code>page_38:4000</code> — a flat array of 2-byte little-endian handler pointers. Raw bytes are <code>9F 41 F0 45 1C 42 …</code> = entries <code>0x419F, 0x45F0, 0x421C, …</code> (all in-window <code>0x4xxx</code>/<code>0x47xx</code> code addresses), indexed by token class and dereferenced; the selector at <code>38:7010</code> loads <code>LD HL,0x4000</code> and adds <code>2×index</code> (see <a href="sub-tibasic.html">TI-BASIC Programs</a>).</p>
+<p>These handlers implement TI-BASIC statements/commands and operators. Sampling them by the routine they call:</p>
 <ul>
-<li>indices 8–10, 17–19, 38 → <code>bcall(_Regraph)</code> — <strong>graph commands</strong> (<code>DrawF</code>, <code>ZoomFit</code>, etc.).</li>
-<li>indices 14–16, 21–22 → <code>bcall(_Disp)</code> — <strong>display/output commands</strong> (<code>Disp</code>, <code>Output</code>).</li>
-<li>the “no-bcall” handlers are the <strong>arithmetic/operator</strong> productions — they drive OP1/OP2 through the FP engine via the <strong>RST shortcuts</strong> (RST 30h <code>_FPAdd</code>, etc.), which is why a bcall scan doesn’t flag them; variable handlers go through <code>_FindSym</code> (<a href="05-variables-vat.html">05</a>).</li>
+<li>indices 8–10, 17–19, 38 → <code>bcall(_Regraph)</code> — graph commands (<code>DrawF</code>, <code>ZoomFit</code>, etc.).</li>
+<li>indices 14–16, 21–22 → <code>bcall(_Disp)</code> — display/output commands (<code>Disp</code>, <code>Output</code>).</li>
+<li>the “no-bcall” handlers are the arithmetic/operator productions — they drive OP1/OP2 through the FP engine via the RST shortcuts (RST 30h <code>_FPAdd</code>, etc.), which is why a bcall scan doesn’t flag them; variable handlers go through <code>_FindSym</code> (<a href="05-variables-vat.html">05</a>).</li>
 </ul>
 <p>The first handlers: <code>page_38:419F, 45F0, 421C, …</code>.</p>
 <h3 id="parse-stream-cursor-confirmed"><a class="header" href="#parse-stream-cursor-confirmed">Parse-stream cursor [confirmed]</a></h3>
@@ -247,8 +247,8 @@ running the named BASIC target. <strong>[confirmed negative probe]</strong></li>
 </ul>
 <p>So the dispatch loop is: <code>parse_cur_tok</code> → index the pointer table at <code>page_38:4000</code> and call the selected handler (which may consume args via <code>parse_advance</code>) → repeat.</p>
 <p><strong>Main evaluator:</strong> <code>parse_eval_expr</code> (<code>38:5AB3</code>) is the big recursive-descent expression evaluator — it dispatches through handler function-pointers (<code>code *</code>) with operator precedence, reading via the cursor helpers and leaving the result in <code>OP1</code>. <code>_ParseInp</code> → <code>parse_init</code> → <code>parse_eval_expr</code>. <code>parse_scan_tokens</code> (<code>38:4180</code>) is a token-scan helper (skips to a delimiter, honoring 2-byte tokens via <code>_IsA2ByteTok</code>).</p>
-<p>The region at <code>page_38:4000</code> is a <strong>flat array of 2-byte handler pointers</strong> (entries <code>0x419F, 0x45F0, 0x421C, …</code>), not executable code — <code>CALL 0x33AB</code> (<code>CD AB 33</code>) appears nowhere on page 0x38. Each handler is itself recursive-descent code; the table selects which one to enter. See <a href="sub-tibasic.html">sub-tibasic.md</a> for the execution model (<code>eval_stmt_entry</code>@<code>38:59C5</code>, the <code>blockmatch_end_else</code>@<code>38:4130</code> End/Else matcher, <code>goto_lbl_name_scanner</code>@<code>38:4870</code>).</p>
-<p>The handlers are <strong>recursive-descent grammar productions</strong> (not flat per-operator routines): each reads via <code>parse_cur_tok</code>, conditionally recurses, and some load <strong>sub-dispatch tables</strong> (e.g. <code>page_38:5110</code>, <code>5127</code>) for finer token classes — implementing operator precedence by nesting. So “the + operator” isn’t one table entry; it’s handled within the term/factor production that drives <code>_FPAdd</code> (RST 30h).</p>
+<p>The region at <code>page_38:4000</code> is a flat array of 2-byte handler pointers (entries <code>0x419F, 0x45F0, 0x421C, …</code>), not executable code — <code>CALL 0x33AB</code> (<code>CD AB 33</code>) appears nowhere on page 0x38. Each handler is itself recursive-descent code; the table selects which one to enter. See <a href="sub-tibasic.html">sub-tibasic.md</a> for the execution model (<code>eval_stmt_entry</code>@<code>38:59C5</code>, the <code>blockmatch_end_else</code>@<code>38:4130</code> End/Else matcher, <code>goto_lbl_name_scanner</code>@<code>38:4870</code>).</p>
+<p>The handlers are recursive-descent grammar productions (not flat per-operator routines): each reads via <code>parse_cur_tok</code>, conditionally recurses, and some load sub-dispatch tables (e.g. <code>page_38:5110</code>, <code>5127</code>) for finer token classes — implementing operator precedence by nesting. So “the + operator” isn’t one table entry; it’s handled within the term/factor production that drives <code>_FPAdd</code> (RST 30h).</p>
 <p>The precedence levels (term/factor/unary productions) and sub-dispatch tables are mapped in <a href="sub-tibasic.html">TI-BASIC Programs</a> §3/§6.</p>
 <h2 id="tokenized-sample-programs"><a class="header" href="#tokenized-sample-programs">Tokenized sample programs</a></h2>
 <p>The raw bodies below are the bytes stored after a <code>ProgObj</code> size word. They can
@@ -273,7 +273,7 @@ for observed outputs and trace anchors.</p>
 <tr><td>Animation</td><td><code>ClrHome</code> / <code>For(I,1,8)</code> / <code>Output(1,I,"X")</code> / <code>End</code> / <code>Disp "DONE"</code></td><td><code>E1 3F D3 49 2B 31 2B 38 11 3F E0 31 2B 49 2B 2A 58 2A 11 3F D4 3F DE 2A 44 4F 4E 45 2A 3F</code></td></tr>
 <tr><td>Graph drawing</td><td><code>ClrDraw</code>, window stores, visible axes/diagonal, <code>Circle(47,31,10)</code>, <code>Text(0,0,"DFS")</code>, <code>DispGraph</code></td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphviz.tok</code>)</td></tr>
 <tr><td>Graph visualization</td><td><code>ClrDraw</code>, window stores, then <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> drawing the DFS topology</td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphdfs.tok</code>)</td></tr>
-<tr><td>List-driven graph visualization</td><td>edge endpoint lists <code>L1</code>-<code>L4</code>, node lists <code>L5</code>/<code>L6</code>, looped <code>Line(L1(I),...)</code> and <code>Circle(L5(I),...)</code></td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphlist.tok</code>)</td></tr>
+<tr><td>List-driven graph visualization</td><td>edge endpoint lists <code>L1</code>–<code>L4</code>, node lists <code>L5</code>/<code>L6</code>, looped <code>Line(L1(I),...)</code> and <code>Circle(L5(I),...)</code></td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphlist.tok</code>)</td></tr>
 <tr><td>BASIC subprogram</td><td><code>0-&gt;A</code> / <code>prgmSUBRT</code> / <code>Disp A</code>; callee <code>Disp "SUB"</code> / <code>A+1-&gt;A</code> / <code>Return</code></td><td>caller <code>30 04 41 3F 5F 53 55 42 52 54 3F DE 41 3F</code>; callee <code>DE 2A 53 55 42 2A 3F 41 70 31 04 41 3F D5 3F</code></td></tr>
 <tr><td>BASIC ABI fixture</td><td>caller initializes <code>L1</code> and <code>Ans</code>, calls <code>prgmABISUB</code>, then displays <code>A</code>, <code>L1</code>, and <code>Ans</code></td><td>caller <code>08 32 2B 34 ... DE 72 3F</code>; callee <code>72 70 5D 00 ... D5 3F</code> (full bodies in <code>tools/tibasic-samples/callabi.tok</code> and <code>abisub.tok</code>)</td></tr>
 <tr><td>Big integer add</td><td>list digits in <code>L1</code>/<code>L2</code>, carry <code>C</code>, indexed stores into <code>L3</code></td><td><code>08 35 2B 34 ... DE 5D 02 10 36 11 3F</code> (full body in <code>tools/tibasic-samples/bigadd.tok</code>)</td></tr>
@@ -298,7 +298,7 @@ structured-control tokens <code>While</code> (<code>D1</code>), <code>If</code> 
 equality (<code>6A</code>). [confirmed token bytes from <code>ti83plus.inc</code> and
 <code>token-tables.md</code>]</p>
 <h2 id="second-byte-tables"><a class="header" href="#second-byte-tables">Second-byte tables</a></h2>
-<p>Every 2-byte token group’s second-byte → token mapping (matrices, lists, Y-vars, system/window vars, the <code>BB</code> extended-command page, the <code>EF</code> 84+ page, etc.) is tabulated in <strong><a href="token-tables.html">2-Byte Token Tables</a></strong> — 492 tokens, sourced from <a href="https://github.com/TI-Toolkit/tokens">TI-Toolkit/tokens</a> and filtered to the 84+ 2.55MP.</p>
+<p>Every 2-byte token group’s second-byte → token mapping (matrices, lists, Y-vars, system/window vars, the <code>BB</code> extended-command page, the <code>EF</code> 84+ page, etc.) is tabulated in <a href="token-tables.html">2-Byte Token Tables</a> — 492 tokens, sourced from <a href="https://github.com/TI-Toolkit/tokens">TI-Toolkit/tokens</a> and filtered to the 84+ 2.55MP.</p>
 <p>(The main parser loop, handler dispatch, and <code>OP1</code>-as-name handoff are covered in <a href="sub-tibasic.html">TI-BASIC Programs</a>.)</p>
 
                     </main>

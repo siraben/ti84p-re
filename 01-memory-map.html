@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bba023a5.js";
+            window.path_to_searchindex_js = "searchindex-a6464ac3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -180,7 +180,7 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="01--memory-map"><a class="header" href="#01--memory-map">01 — Memory map</a></h1>
-<p>The Z80 sees a flat <strong>64 KiB</strong> logical space, divided into four <strong>16 KiB</strong> slots. Hardware paging (ports 6/7) decides which physical flash page or RAM page is visible in the two middle slots. See <a href="02-paging.html">02-paging.md</a> for the banking detail and <a href="14-ram-pages.html">14-ram-pages.md</a> for RAM page <code>83</code> and restore rules.</p>
+<p>The Z80 sees a flat 64 KiB logical space, divided into four 16 KiB slots. Hardware paging (ports 6/7) decides which physical flash page or RAM page is visible in the two middle slots. See <a href="02-paging.html">02-paging.md</a> for the banking detail and <a href="14-ram-pages.html">14-ram-pages.md</a> for RAM page <code>83</code> and restore rules.</p>
 <h2 id="logical-address-space-what-the-z80-sees"><a class="header" href="#logical-address-space-what-the-z80-sees">Logical address space (what the Z80 sees)</a></h2>
 <div class="table-wrapper">
 <table>
@@ -188,10 +188,10 @@
 <tr><th>Range</th><th>Slot</th><th>Contents</th><th>Notes</th></tr>
 </thead>
 <tbody>
-<tr><td><code>0000–3FFF</code></td><td>Flash bank 0</td><td><strong>Flash page 0</strong> (fixed)</td><td>Boot/kernel: RST vectors, dispatcher, FP/VAT core. Never swapped. <strong>[confirmed]</strong></td></tr>
-<tr><td><code>4000–7FFF</code></td><td>Flash bank A</td><td>Swappable <strong>flash page</strong> (port 6)</td><td>Paged bcall targets run here after the dispatcher banks their page in; page-0 bcall bodies instead execute in place below <code>4000</code> (e.g. <code>_JErrorNo</code>→<code>00:2799</code>). <strong>[confirmed]</strong></td></tr>
-<tr><td><code>8000–BFFF</code></td><td>Bank B</td><td>Swappable <strong>RAM/flash page</strong> (port 7)</td><td>Usually RAM. <strong>[standard]</strong></td></tr>
-<tr><td><code>C000–FFFF</code></td><td>RAM</td><td><strong>RAM page</strong> (MemC)</td><td>Normally RAM page 0, but page-selectable via <strong>port 5</strong> on the 84+ (not hard-fixed). Stack lives near the top. <strong>[standard]</strong></td></tr>
+<tr><td><code>0000–3FFF</code></td><td>Flash bank 0</td><td>Flash page 0 (fixed)</td><td>Boot/kernel: RST vectors, dispatcher, FP/VAT core. Never swapped. [confirmed]</td></tr>
+<tr><td><code>4000–7FFF</code></td><td>Flash bank A</td><td>Swappable flash page (port 6)</td><td>Paged bcall targets run here after the dispatcher banks their page in; page-0 bcall bodies instead execute in place below <code>4000</code> (e.g. <code>_JErrorNo</code>→<code>00:2799</code>). [confirmed]</td></tr>
+<tr><td><code>8000–BFFF</code></td><td>Bank B</td><td>Swappable RAM/flash page (port 7)</td><td>Usually RAM. [standard]</td></tr>
+<tr><td><code>C000–FFFF</code></td><td>RAM</td><td>RAM page (MemC)</td><td>Normally RAM page 0, but page-selectable via <code>port 5</code> on the 84+ (not hard-fixed). Stack lives near the top. [standard]</td></tr>
 </tbody>
 </table>
 </div>
@@ -203,19 +203,19 @@
 <tr><th>Page(s)</th><th>Role</th><th>Evidence</th></tr>
 </thead>
 <tbody>
-<tr><td><code>00</code></td><td>Boot/kernel core, mapped at <code>0000</code></td><td>RST vectors, <code>bcall_dispatcher</code>, FP/VAT/mem routines <strong>[confirmed]</strong></td></tr>
-<tr><td><code>01</code></td><td>OS routines (display, homescreen text, menus)</td><td><code>_PutC</code>,<code>_PutS</code>,<code>_ClrLCDFull</code>,<code>_NewLine</code> resolve here <strong>[confirmed]</strong></td></tr>
-<tr><td><code>06</code></td><td>OS routines (key input, parser-ish)</td><td><code>_GetKey</code>→<code>06:491E</code> <strong>[confirmed]</strong></td></tr>
-<tr><td><code>2F</code></td><td>USB boot support page</td><td>supplied by local <code>D84PBE2.8Xv</code>; retail page <code>3F</code> maps <code>_AttemptUSBOSReceive</code>→<code>2F:4145</code>, <code>_ReceiveOS_USB</code>→<code>2F:48CA</code>, <code>_InitUSB</code>→<code>2F:52A4</code>, <code>_KillUSB</code>→<code>2F:5961</code> <strong>[confirmed]</strong></td></tr>
-<tr><td><code>3B</code></td><td><strong>bcall jump table</strong></td><td>highest-scoring page for the <code>0x4xxx</code> bcall ID table; first entry <code>_JErrorNo</code>→<code>00:2799</code> <strong>[confirmed]</strong></td></tr>
-<tr><td><code>3C</code></td><td>Link code + OS version string (<code>"2.55MP"</code>)</td><td>page starts <code>32 2E 35 35 4D 50</code> <strong>[confirmed]</strong></td></tr>
-<tr><td><code>3E</code></td><td><strong>Certification page</strong> (per-calculator cert sector; effectively blank in this OS-only image — no certificate payload, only a few <code>00</code> bytes)</td><td>84+ cert page is <code>3E</code>, not <code>3F</code> <strong>[standard]</strong></td></tr>
-<tr><td><code>3F</code></td><td><strong>Retail boot page</strong></td><td>supplied by local <code>D84PBE1.8Xv</code>; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, contains boot version string <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table <strong>[confirmed]</strong></td></tr>
+<tr><td><code>00</code></td><td>Boot/kernel core, mapped at <code>0000</code></td><td>RST vectors, <code>bcall_dispatcher</code>, FP/VAT/mem routines [confirmed]</td></tr>
+<tr><td><code>01</code></td><td>OS routines (display, homescreen text, menus)</td><td><code>_PutC</code>,<code>_PutS</code>,<code>_ClrLCDFull</code>,<code>_NewLine</code> resolve here [confirmed]</td></tr>
+<tr><td><code>06</code></td><td>OS routines (key input, parser-ish)</td><td><code>_GetKey</code>→<code>06:491E</code> [confirmed]</td></tr>
+<tr><td><code>2F</code></td><td>USB boot support page</td><td>supplied by local <code>D84PBE2.8Xv</code>; retail page <code>3F</code> maps <code>_AttemptUSBOSReceive</code>→<code>2F:4145</code>, <code>_ReceiveOS_USB</code>→<code>2F:48CA</code>, <code>_InitUSB</code>→<code>2F:52A4</code>, <code>_KillUSB</code>→<code>2F:5961</code> [confirmed]</td></tr>
+<tr><td><code>3B</code></td><td>bcall jump table</td><td>highest-scoring page for the <code>0x4xxx</code> bcall ID table; first entry <code>_JErrorNo</code>→<code>00:2799</code> [confirmed]</td></tr>
+<tr><td><code>3C</code></td><td>Link code + OS version string (<code>"2.55MP"</code>)</td><td>page starts <code>32 2E 35 35 4D 50</code> [confirmed]</td></tr>
+<tr><td><code>3E</code></td><td>Certification page (per-calculator cert sector; effectively blank in this OS-only image — no certificate payload, only a few <code>00</code> bytes)</td><td>84+ cert page is <code>3E</code>, not <code>3F</code> [standard]</td></tr>
+<tr><td><code>3F</code></td><td>Retail boot page</td><td>supplied by local <code>D84PBE1.8Xv</code>; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, contains boot version string <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table [confirmed]</td></tr>
 </tbody>
 </table>
 </div>
 <p>Pages <code>01–3F</code> are loaded in Ghidra as overlays <code>page_01 … page_3F</code> (each at <code>4000</code>). Goto e.g. <code>page_01:5b4c</code> for <code>_PutC</code>.</p>
-<p>The assembled <code>tools/rom.bin</code> (the Ghidra build input) is a <strong>BootFree</strong> image — pages <code>2F</code> and <code>3F</code> are blank or BootFree-substituted there. The <code>2F</code>/<code>3F</code> rows above describe the retail USB/boot content from the local <code>D84PBE2.8Xv</code> / <code>D84PBE1.8Xv</code> segment files (the page-3F retail boot is also applied in <code>ti84plus_patched.rom</code>); those bodies are byte-decoded from those files, not from <code>rom.bin</code>.</p>
+<p>The assembled <code>tools/rom.bin</code> (the Ghidra build input) is a BootFree image — pages <code>2F</code> and <code>3F</code> are blank or BootFree-substituted there. The <code>2F</code>/<code>3F</code> rows above describe the retail USB/boot content from the local <code>D84PBE2.8Xv</code> / <code>D84PBE1.8Xv</code> segment files (the page-3F retail boot is also applied in <code>ti84plus_patched.rom</code>); those bodies are byte-decoded from those files, not from <code>rom.bin</code>.</p>
 <h2 id="key-ram-regions-named--typed"><a class="header" href="#key-ram-regions-named--typed">Key RAM regions (named &amp; typed)</a></h2>
 <div class="table-wrapper">
 <table>
@@ -223,15 +223,15 @@
 <tr><th>Addr</th><th>Name</th><th>Type</th><th>Purpose</th></tr>
 </thead>
 <tbody>
-<tr><td><code>0x8478–0x84B9</code></td><td><code>OP1</code>–<code>OP6</code></td><td><code>TIFloat</code> slot (9B body + 2B <code>…EXT</code> guard, 11B-spaced)</td><td>Floating-point accumulators <strong>[confirmed]</strong></td></tr>
-<tr><td><code>0x89F0</code></td><td><code>flags</code></td><td><code>SystemFlags</code> (74B)</td><td>IY-indexed system flag bitfield <strong>[confirmed]</strong></td></tr>
-<tr><td><code>0x844B/0x844C</code></td><td><code>curRow</code>/<code>curCol</code></td><td>byte</td><td>Homescreen text cursor (16 cols) <strong>[confirmed]</strong></td></tr>
-<tr><td><code>0x8447</code></td><td><code>contrast</code></td><td>byte</td><td>LCD contrast <strong>[confirmed]</strong></td></tr>
-<tr><td><code>0x843F/0x8444</code></td><td><code>kbdScanCode</code>/<code>kbdKey</code></td><td>byte</td><td>Last key scan code / key <strong>[confirmed]</strong></td></tr>
-<tr><td><code>0x9340</code></td><td><code>plotSScreen</code></td><td>byte[768]</td><td>Graph/display buffer (96×64/8) <strong>[confirmed]</strong></td></tr>
-<tr><td><code>0x86EC</code></td><td><code>saveSScreen</code></td><td>byte[768]</td><td>Saved screen buffer <strong>[confirmed]</strong></td></tr>
-<tr><td><code>0x9824</code></td><td><code>FPS</code></td><td>—</td><td>Floating-point stack pointer <strong>[standard]</strong></td></tr>
-<tr><td><code>0x85BC</code></td><td><code>onSP</code></td><td>—</td><td>SP saved by ON-interrupt <strong>[confirmed]</strong></td></tr>
+<tr><td><code>0x8478–0x84B9</code></td><td><code>OP1</code>–<code>OP6</code></td><td><code>TIFloat</code> slot (9B body + 2B <code>…EXT</code> guard, 11B-spaced)</td><td>Floating-point accumulators [confirmed]</td></tr>
+<tr><td><code>0x89F0</code></td><td><code>flags</code></td><td><code>SystemFlags</code> (74B)</td><td>IY-indexed system flag bitfield [confirmed]</td></tr>
+<tr><td><code>0x844B/0x844C</code></td><td><code>curRow</code>/<code>curCol</code></td><td>byte</td><td>Homescreen text cursor (16 cols) [confirmed]</td></tr>
+<tr><td><code>0x8447</code></td><td><code>contrast</code></td><td>byte</td><td>LCD contrast [confirmed]</td></tr>
+<tr><td><code>0x843F/0x8444</code></td><td><code>kbdScanCode</code>/<code>kbdKey</code></td><td>byte</td><td>Last key scan code / key [confirmed]</td></tr>
+<tr><td><code>0x9340</code></td><td><code>plotSScreen</code></td><td>byte[768]</td><td>Graph/display buffer (96×64/8) [confirmed]</td></tr>
+<tr><td><code>0x86EC</code></td><td><code>saveSScreen</code></td><td>byte[768]</td><td>Saved screen buffer [confirmed]</td></tr>
+<tr><td><code>0x9824</code></td><td><code>FPS</code></td><td>—</td><td>Floating-point stack pointer [standard]</td></tr>
+<tr><td><code>0x85BC</code></td><td><code>onSP</code></td><td>—</td><td>SP saved by ON-interrupt [confirmed]</td></tr>
 </tbody>
 </table>
 </div>
@@ -249,11 +249,11 @@ kernel touches many more (timer/crystal, USB-assist, and ASIC-control ports).</p
 <tr><td><code>01</code></td><td>keypad</td><td>Keyboard matrix select/read</td></tr>
 <tr><td><code>02</code></td><td>hwStatus</td><td>Status (bit7 used at reset)</td></tr>
 <tr><td><code>03</code></td><td>intMask</td><td>Interrupt enable mask</td></tr>
-<tr><td><code>04</code></td><td>intStatus / memMapMode</td><td><strong>Read</strong> = interrupting-device ID + ON-held; <strong>write</strong> = memory-map mode + timer rate</td></tr>
+<tr><td><code>04</code></td><td>intStatus / memMapMode</td><td><em>Read</em> = interrupting-device ID + ON-held; <em>write</em> = memory-map mode + timer rate</td></tr>
 <tr><td><code>05</code></td><td>mapBankC</td><td>RAM page in slot <code>C000</code> (MemC) on the 84+</td></tr>
 <tr><td><code>06</code></td><td>mapBankA</td><td>Flash page in slot <code>4000</code></td></tr>
 <tr><td><code>07</code></td><td>mapBankB</td><td>Page in slot <code>8000</code> (<code>0x81</code>=84+ mode seen in ISR)</td></tr>
-<tr><td><code>08</code>-<code>0D</code></td><td>usb/link assist</td><td>84+ hardware byte-assist control/status/data/FIFO ports; see <a href="sub-usb-asic.html">USB ASIC and link assist</a></td></tr>
+<tr><td><code>08</code>–<code>0D</code></td><td>usb/link assist</td><td>84+ hardware byte-assist control/status/data/FIFO ports; see <a href="sub-usb-asic.html">USB ASIC and link assist</a></td></tr>
 <tr><td><code>10/11</code></td><td>lcdCmd/lcdData</td><td>LCD controller</td></tr>
 <tr><td><code>20</code></td><td>cpuSpeed</td><td>0=6 MHz, 1=15 MHz (set in ISR)</td></tr>
 <tr><td><code>21</code></td><td>asicVer/ramSize</td><td>ASIC version &amp; RAM-page count; read in the kernel (e.g. <code>00:02AE</code>) and its low bits mask the slot-<code>4000</code> page number before <code>OUT (6)</code></td></tr>

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bba023a5.js";
+            window.path_to_searchindex_js = "searchindex-a6464ac3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -216,20 +216,20 @@ ram_init_after_reset (ram:0BD9):
 0690: LD A,0x7F; CALL call_context_main   ; run the active context's handler
 0699: POP AF; JP Z,0x05e6                 ; loop
 </code></pre>
-<p>So the loop pumps an <strong>event/context stack</strong> (8 slots from <code>0x84BF</code>, after the <code>INC HL</code>), routes each via the dispatcher at <code>ram:3F3F</code>, and ultimately runs the active context’s <code>cxMain</code> handler through <code>call_context_main</code>, looping forever.</p>
-<p>The <code>ram:3F3F</code> router is a bjump trampoline → <strong><code>event_key_router</code> (<code>page_07:4539</code>)</strong>: given a key code, it scans <strong>key→context dispatch tables</strong> (<code>07:4099</code>, ~105 entries, for 1-byte keys; <code>07:422C</code>/<code>4426</code> for extended 2-byte keys, using <code>_LdHLind</code>/<code>_CpHLDE</code>) and returns a <strong>routing code</strong>:</p>
+<p>So the loop pumps an event/context stack (8 slots from <code>0x84BF</code>, after the <code>INC HL</code>), routes each via the dispatcher at <code>ram:3F3F</code>, and ultimately runs the active context’s <code>cxMain</code> handler through <code>call_context_main</code>, looping forever.</p>
+<p>The <code>ram:3F3F</code> router is a bjump trampoline → <code>event_key_router</code> (<code>page_07:4539</code>): given a key code, it scans key→context dispatch tables (<code>07:4099</code>, ~105 entries, for 1-byte keys; <code>07:422C</code>/<code>4426</code> for extended 2-byte keys, using <code>_LdHLind</code>/<code>_CpHLDE</code>) and returns a routing code:</p>
 <ul>
 <li><code>0xFE</code> — normal: hand the key to the active context’s handler.</li>
-<li><code>0xFB</code> / <code>0xFC</code> — <strong>context switch</strong> / app launch (the key maps to a different context — recall <code>cxCurApp</code> <em>is</em> a key code, so e.g. <code>[GRAPH]</code> → the graph context).</li>
+<li><code>0xFB</code> / <code>0xFC</code> — context switch / app launch (the key maps to a different context — recall <code>cxCurApp</code> <em>is</em> a key code, so e.g. <code>[GRAPH]</code> → the graph context).</li>
 <li><code>0xFF</code>/<code>0x7F</code> — quit / no-op.</li>
 </ul>
-<p>So the router classifies a mode key before the active context sees it and returns a context-switch code (<code>0xFB</code>/<code>0xFC</code>); the caller then swaps the <code>cx*</code> vectors. The router itself only writes <code>keyExtend</code> (<code>0x8446</code>, the extended-key state) — its body holds no store to the <code>cx*</code> block. <strong>[confirmed]</strong></p>
+<p>So the router classifies a mode key before the active context sees it and returns a context-switch code (<code>0xFB</code>/<code>0xFC</code>); the caller then swaps the <code>cx*</code> vectors. The router itself only writes <code>keyExtend</code> (<code>0x8446</code>, the extended-key state) — its body holds no store to the <code>cx*</code> block. [confirmed]</p>
 <h2 id="contexts--how-the-os-implements-modesapps-confirmed--key-concept"><a class="header" href="#contexts--how-the-os-implements-modesapps-confirmed--key-concept">Contexts — how the OS implements “modes”/apps [confirmed — key concept]</a></h2>
-<p>The OS is single-tasking but multi-<strong>context</strong>. A <em>context</em> is the set of handler routines for whatever is currently in front of the user (homescreen, an editor, the graph screen, a Flash App). The active context’s vectors live in RAM at <strong><code>cxMain</code></strong> (and friends), with <strong><code>cxPage</code></strong> holding which flash page their code is on.</p>
+<p>The OS is single-tasking but multi-context. A <em>context</em> is the set of handler routines for whatever is currently in front of the user (homescreen, an editor, the graph screen, a Flash App). The active context’s vectors live in RAM at <code>cxMain</code> (and friends), with <code>cxPage</code> holding which flash page their code is on.</p>
 <ul>
-<li><code>_AppInit</code> (<code>ram:0936</code>) installs a context: copies <strong>12 bytes</strong> of handler vectors → <code>cxMain</code>, sets <code>flags.appFlags</code>, and saves <code>cxPage = port_mapBankA</code> (the page the app runs from). <strong>[confirmed]</strong></li>
-<li>The dispatched handlers include things like a <strong>key handler</strong>, <strong>(re)display/paint handler</strong>, and a <strong>PutAway</strong> (suspend) handler — the OS calls them through the <code>cx*</code> vectors, paging in <code>cxPage</code> first.</li>
-<li><code>_PutAway</code> (<code>ram:08AF</code>) calls the current context’s PutAway handler (<code>cxPPutAway</code>) to suspend/clean up — used on APD, when switching apps, or on <code>2nd+QUIT</code>. <strong>[confirmed]</strong></li>
+<li><code>_AppInit</code> (<code>ram:0936</code>) installs a context: copies 12 bytes of handler vectors → <code>cxMain</code>, sets <code>flags.appFlags</code>, and saves <code>cxPage = port_mapBankA</code> (the page the app runs from). [confirmed]</li>
+<li>The dispatched handlers include things like a key handler, (re)display/paint handler, and a PutAway (suspend) handler — the OS calls them through the <code>cx*</code> vectors, paging in <code>cxPage</code> first.</li>
+<li><code>_PutAway</code> (<code>ram:08AF</code>) calls the current context’s PutAway handler (<code>cxPPutAway</code>) to suspend/clean up — used on APD, when switching apps, or on <code>2nd+QUIT</code>. [confirmed]</li>
 </ul>
 <p>This is the backbone of the UI: the main event loop reads a key (<code>_GetKey</code>), then calls the active context’s key handler; switching screens swaps the <code>cx*</code> vectors.</p>
 <h3 id="context-block-layout-confirmed-from-ti83plusinc--xrefs"><a class="header" href="#context-block-layout-confirmed-from-ti83plusinc--xrefs">Context block layout [confirmed, from ti83plus.inc + xrefs]</a></h3>
@@ -247,13 +247,13 @@ ram_init_after_reset (ram:0BD9):
 <tr><td>+8</td><td>8595</td><td><code>cxErrorEP</code></td><td>error entry point ptr</td></tr>
 <tr><td>+10</td><td>8597</td><td><code>cxSizeWind</code></td><td>window-size handler ptr</td></tr>
 <tr><td>+12</td><td>8599</td><td><code>cxPage</code></td><td>flash page the handlers live on</td></tr>
-<tr><td>+13</td><td>859A</td><td><code>cxCurApp</code></td><td>current context id — <strong>equals a key code</strong> (<code>cxGraph</code>=kGraph, <code>cxCmd</code>=kQuit, <code>cxPrgmEdit</code>=kPrgmEd …)</td></tr>
+<tr><td>+13</td><td>859A</td><td><code>cxCurApp</code></td><td>current context id — equals a key code (<code>cxGraph</code>=kGraph, <code>cxCmd</code>=kQuit, <code>cxPrgmEdit</code>=kPrgmEd …)</td></tr>
 <tr><td>+14</td><td>859B</td><td><code>cxPrev</code></td><td>base of the 14-byte shadow of <code>cxMain</code>…<code>cxCurApp</code> (plus a separately-saved appFlags byte) — the suspended previous context</td></tr>
 </tbody>
 </table>
 </div>
-<p><code>_AppInit</code> copies the <strong>6 vectors (12 bytes, +0..+11)</strong> from an app’s header into this block, then sets <code>cxPage</code>. Because <code>cxCurApp</code> is a key code, a mode-switch key naturally selects the context to load.</p>
-<p>The full <code>_AppInit</code> body confirms the offsets directly — <code>HL</code> points at the app’s 12-byte vector header, <code>LDIR</code> lands them at <code>cxMain</code>=<code>0x858D</code>, and the byte that follows the 12 vectors becomes a flags byte; <code>cxPage</code> is then loaded from the live bank-A page-select (port 6), <em>not</em> copied from the header:</p>
+<p><code>_AppInit</code> copies the 6 vectors (12 bytes, +0..+11) from an app’s header into this block, then sets <code>cxPage</code>. Because <code>cxCurApp</code> is a key code, a mode-switch key naturally selects the context to load.</p>
+<p>The full <code>_AppInit</code> body confirms the offsets directly — <code>HL</code> points at the app’s 12-byte vector header, <code>LDIR</code> lands them at <code>cxMain</code>=<code>0x858D</code>, and the byte that follows the 12 vectors becomes a flags byte; <code>cxPage</code> is then loaded from the live bank-A page-select (port 6), not copied from the header:</p>
 <pre><code class="language-z80">_AppInit (ram:0936):
   ; HL = source (12-byte vector header) on entry
   LD DE,0x858D            ; -&gt; cxMain
@@ -275,12 +275,12 @@ call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; res
 <p>Errors use a non-local exit, not return codes:</p>
 <ul>
 <li>A routine detects a fault and calls <code>_JError</code> (<code>ram:2793</code>) with an error code in <code>A</code> (the <code>TIError</code> enum: <code>E_Domain</code>, <code>E_DivBy0</code>, <code>E_Memory</code>, … each ORed with <code>E_EDIT</code>=0x80 if re-editable). <code>_JError</code> stores the code to <code>errNo</code> (<code>0x86DD</code>); the sibling entry <code>_JErrorNo</code> (<code>ram:2799</code>) raises the already-stored <code>errNo</code> without taking a new code.</li>
-<li>The handler <strong>restores the stack from <code>errSP</code></strong> (<code>0x86DE</code>, <code>LD SP,(errSP)</code> at <code>ram:27BB</code>), restores a sane state, and displays the error screen (<code>ERR:</code> + message, with <code>1:Quit 2:Goto</code>). <code>errSP</code> is the current error frame; <code>_resetStacks</code> seeds it from <code>onSP</code> (<code>0x85BC</code>, the context-level saved SP) at context/parse start.</li>
+<li>The handler restores the stack from <code>errSP</code> (<code>0x86DE</code>, <code>LD SP,(errSP)</code> at <code>ram:27BB</code>), restores a sane state, and displays the error screen (<code>ERR:</code> + message, with <code>1:Quit 2:Goto</code>). <code>errSP</code> is the current error frame; <code>_resetStacks</code> seeds it from <code>onSP</code> (<code>0x85BC</code>, the context-level saved SP) at context/parse start.</li>
 <li>The <code>E_EDIT</code> bit (0x80) tells the handler the error is editable (offer “2:Goto” to jump to the offending token).</li>
 </ul>
 <p>So <code>errSP</code> + <code>_JError</code> together implement try/catch: a context seeds <code>errSP</code> (from <code>onSP</code>) at entry, and any depth of nested calls can abort straight back to it.</p>
 <h3 id="error-message-table-local-data-table-trace"><a class="header" href="#error-message-table-local-data-table-trace">Error-message table [local data-table trace]</a></h3>
-<p>The error screen shows <code>ERR:&lt;MESSAGE&gt;</code> (the <code>ERR:</code> prefix is on <code>page_01:4008</code>). A local data-table trace shows the handler masking the code (<code>AND 0x7F</code>), then for codes below <code>0x3A</code> indexing a little-endian pointer table at <strong><code>page_07:6ACC</code></strong> by <code>(code) − 1</code> (<code>LD HL,0x6ACC; ADD HL,DE; ADD HL,DE; CALL _LdHLind</code>) to fetch each message pointer; the message strings themselves sit consecutively from <code>page_07:6B3C</code> as null-terminated text. Codes <code>≥ 0x3A</code> (and the special-cased <code>0x36</code>/<code>0x37</code>/<code>0x39</code>) bypass the table and fall back to the <code>?</code> message at <code>page_07:6C5A</code>. The current MCP function/xref view does not prove this data-only table directly, so treat the addresses as a data trace rather than live function symbols:</p>
+<p>The error screen shows <code>ERR:&lt;MESSAGE&gt;</code> (the <code>ERR:</code> prefix is on <code>page_01:4008</code>). A local data-table trace shows the handler masking the code (<code>AND 0x7F</code>), then for codes below <code>0x3A</code> indexing a little-endian pointer table at <code>page_07:6ACC</code> by <code>(code) − 1</code> (<code>LD HL,0x6ACC; ADD HL,DE; ADD HL,DE; CALL _LdHLind</code>) to fetch each message pointer; the message strings themselves sit consecutively from <code>page_07:6B3C</code> as null-terminated text. Codes <code>≥ 0x3A</code> (and the special-cased <code>0x36</code>/<code>0x37</code>/<code>0x39</code>) bypass the table and fall back to the <code>?</code> message at <code>page_07:6C5A</code>. The current MCP function/xref view does not prove this data-only table directly, so treat the addresses as a data trace rather than live function symbols:</p>
 <div class="table-wrapper">
 <table>
 <thead>

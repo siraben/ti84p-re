@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bba023a5.js";
+            window.path_to_searchindex_js = "searchindex-a6464ac3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -182,14 +182,14 @@
                         <h1 id="calculation-engine"><a class="header" href="#calculation-engine">Calculation engine</a></h1>
 <p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
 <p>What happens between a college student typing <code>2*sin(π/6)+ln(5)</code> and seeing a number.
-All arithmetic is BCD floating point in the <strong>OP registers</strong> (<code>OP1</code>–<code>OP6</code> @ <code>0x8478</code>,
-11-byte spaced) with a software <strong>FP stack</strong> (<code>FPS</code> @ <code>0x9824</code>) for nested temporaries.
+All arithmetic is BCD floating point in the OP registers (<code>OP1</code>–<code>OP6</code> @ <code>0x8478</code>,
+11-byte spaced) with a software FP stack (<code>FPS</code> @ <code>0x9824</code>) for nested temporaries.
 See <a href="06-floating-point.html">06-floating-point.md</a> for the <code>TIFloat</code> byte format and <code>_FPAdd</code> internals; this doc
 covers the rest of the engine: ×, ÷, ^, roots, transcendentals, formatting, and errors.</p>
 <p>Address form below is <code>page:addr</code> (flash page in slot <code>4000</code>) or <code>ram:addr</code> for the fixed
 page-0 core mapped at <code>0000</code>. Page-0 routines are reached by <code>RST</code>/direct <code>CALL</code>; everything
-else through the bcall dispatcher. Confidence: <strong>[confirmed]</strong> = read from disassembly,
-<strong>[standard]</strong> = matches documented TI behavior, <strong>[hypothesis]</strong> = inferred.</p>
+else through the bcall dispatcher. Confidence: [confirmed] = read from disassembly,
+[standard] = matches documented TI behavior, [hypothesis] = inferred.</p>
 <hr>
 <h2 id="1-register--stack-model-confirmed"><a class="header" href="#1-register--stack-model-confirmed">1. Register &amp; stack model [confirmed]</a></h2>
 <p>Every calculation runs through the OP registers and the software FP stack; the table
@@ -209,11 +209,11 @@ gives each register’s RAM address and its role during an operation.</p>
 </table>
 </div>
 <p>A <code>TIFloat</code> is <code>type(+0) exp(+1) mantissa(+2..+8)</code>; <code>type</code> bit7 = sign, bits set 0x0C = complex.
-<code>exp</code> is base-10 biased by <code>0x80</code>. Sign is sign-magnitude, so <strong>negation is a single XOR 0x80</strong>.</p>
+<code>exp</code> is base-10 biased by <code>0x80</code>. Sign is sign-magnitude, so negation is a single <code>XOR 0x80</code>.</p>
 <h3 id="fp-stack-discipline-during-nested-expressions-confirmed"><a class="header" href="#fp-stack-discipline-during-nested-expressions-confirmed">FP-stack discipline during nested expressions [confirmed]</a></h3>
 <p>Binary/transcendental routines that need to preserve an operand spill it to <code>FPS</code>:</p>
 <ul>
-<li><code>_PushRealO1</code> (= <strong>RST 18h</strong>, <code>ram:155C</code>), <code>_PushReal</code>/<code>_PushRealOn</code>, <code>_PushOP1</code> (<code>ram:1599</code>).</li>
+<li><code>_PushRealO1</code> (= <code>RST 18h</code>, <code>ram:155C</code>), <code>_PushReal</code>/<code>_PushRealOn</code>, <code>_PushOP1</code> (<code>ram:1599</code>).</li>
 <li><code>_PopRealO1</code>…<code>_PopRealO6</code> (<code>ram:150F</code>…<code>14F6</code>), <code>_PopReal</code> (<code>ram:1512</code>).</li>
 <li><code>_AllocFPS</code>/<code>_DeallocFPS</code> (<code>ram:1534</code>/<code>1526</code>) grow/shrink the stack frame.</li>
 </ul>
@@ -230,7 +230,7 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 <tr><th>Op</th><th>Routine</th><th>Addr</th><th>Notes</th></tr>
 </thead>
 <tbody>
-<tr><td><code>+</code></td><td><code>_FPAdd</code></td><td><code>ram:229E</code> (= <strong>RST 30h</strong>)</td><td>sign-magnitude BCD add; see <a href="06-floating-point.html">06-floating-point.md</a>.</td></tr>
+<tr><td><code>+</code></td><td><code>_FPAdd</code></td><td><code>ram:229E</code> (= <code>RST 30h</code>)</td><td>sign-magnitude BCD add; see <a href="06-floating-point.html">06-floating-point.md</a>.</td></tr>
 <tr><td><code>−</code></td><td><code>_FPSub</code></td><td><code>ram:2297</code></td><td>flips <code>OP2.type</code> bit7 then falls into the add path.</td></tr>
 <tr><td><code>×</code></td><td><code>_FPMult</code></td><td><code>ram:238B</code></td><td><code>ram:250F</code> adds exponents (→ <code>_ErrOverflow</code> on carry past 0x7F), then digit-by-digit BCD multiply accumulating into OP3.</td></tr>
 <tr><td><code>÷</code></td><td><code>_FPDiv</code></td><td><code>ram:2541</code></td><td><code>_CkOP2FP0</code> first → <code>_JError(0x82)</code> DIVIDE BY 0 if divisor 0; else restoring BCD long division.</td></tr>
@@ -248,8 +248,8 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 </ul>
 <h3 id="roots--integer-parts-confirmed"><a class="header" href="#roots--integer-parts-confirmed">Roots &amp; integer parts [confirmed]</a></h3>
 <ul>
-<li><code>_SqRoot</code> <code>page_02:6E38</code>: <code>_ErrD_OP1NotPos</code> (→ DOMAIN if negative/complex-real), <code>fp_clear_guard</code>, <code>_ZeroOP3</code>, then a <strong>digit-by-digit BCD square-root extraction</strong> loop (<code>ram:1C9C</code> trial-subtract + <code>ram:1D4A</code> compare, halving the exponent up front). Not Newton’s method — classic long-hand sqrt.</li>
-<li><code>_Int</code>/<code>_Intgr</code> <code>ram:2621</code>/<code>2263</code>: <strong>floor</strong>. <code>_Trunc</code> <code>ram:2279</code> drops the fractional part (toward zero); <code>_Intgr</code> truncates then subtracts 1 (<code>_Minus1</code> <code>ram:2294</code>) when the original was negative, giving true floor.</li>
+<li><code>_SqRoot</code> <code>page_02:6E38</code>: <code>_ErrD_OP1NotPos</code> (→ DOMAIN if negative/complex-real), <code>fp_clear_guard</code>, <code>_ZeroOP3</code>, then a digit-by-digit BCD square-root extraction loop (<code>ram:1C9C</code> trial-subtract + <code>ram:1D4A</code> compare, halving the exponent up front). A classic long-hand sqrt, not Newton’s method.</li>
+<li><code>_Int</code>/<code>_Intgr</code> <code>ram:2621</code>/<code>2263</code>: floor. <code>_Trunc</code> <code>ram:2279</code> drops the fractional part (toward zero); <code>_Intgr</code> truncates then subtracts 1 (<code>_Minus1</code> <code>ram:2294</code>) when the original was negative, giving true floor.</li>
 <li><code>_Frac</code> <code>ram:24E3</code>: fractional part = x − trunc(x); shifts mantissa by the exponent and keeps the low digits.</li>
 <li><code>_Round</code> / <code>_RndGuard</code> <code>ram:2623</code> / <code>page_02:6A57</code>: round to the active display-digit count; <code>_Round</code> is a thin <code>cross_page_jump</code> wrapper (body banked off page 0).</li>
 </ul>
@@ -272,7 +272,7 @@ These constants are the BCD floats <code>π/180 = 1.745…e-2</code> and <code>1
 <li>reads a 3-byte <code>{lo, hi, page}</code> descriptor (page masked with <code>0x1F</code>/<code>0x3F</code> for 83+/84+ via ports 2/0x21),</li>
 <li><code>OUT (6),A</code> to bank the target page in at <code>4000</code>, then jumps to it.</li>
 </ol>
-<p>The ln/e^x sites that look similar are <strong>not</strong> cross-page dispatches. <code>ram:2362</code> calls the bcall
+<p>The ln/e^x sites that look similar are local calls, not cross-page dispatches. <code>ram:2362</code> calls the bcall
 entry at <code>ram:3DD1</code>, whose inline descriptor is <code>1E 7D 02</code>, so it invokes the page-0x02
 coefficient fetcher at <code>page_02:7D1E</code>. In <code>LD A,3; CALL 0x2362</code> / <code>LD A,6; CALL 0x2362</code>, the
 <code>3</code> and <code>6</code> are coefficient-table indexes, not target pages. <code>_EToX</code> falls through locally into
@@ -282,9 +282,9 @@ the <code>_TenX</code> body at <code>page_02:7069</code>; the ln/e^x/sin-cos coe
 <h2 id="5-transcendentals"><a class="header" href="#5-transcendentals">5. Transcendentals</a></h2>
 <h3 id="logarithms-confirmed"><a class="header" href="#logarithms-confirmed">Logarithms [confirmed]</a></h3>
 <ul>
-<li><code>_LnX</code> <code>page_02:6EFD</code>: <code>_CkOP1Pos</code>; <strong>non-positive real → <code>_ErrDomain</code></strong>. For a positive real it calls the real-log core (<code>_CLN</code> path, selector <code>C=2</code>); the <em>generic</em> entry handles complex args.</li>
+<li><code>_LnX</code> <code>page_02:6EFD</code>: <code>_CkOP1Pos</code>; non-positive real → <code>_ErrDomain</code>. For a positive real it calls the real-log core (<code>_CLN</code> path, selector <code>C=2</code>); the <em>generic</em> entry handles complex args.</li>
 <li><code>_LogX</code> <code>page_02:6F16</code>: same structure, base-10 selector <code>C=0</code>, guards <code>_ErrD_OP1_0</code>/<code>_ErrD_OP1NotPos</code>.</li>
-<li><code>_CLN</code> <code>page_02:6CCA</code> / <code>_CLog</code> <code>page_02:6CE7</code> — <strong>complex</strong> log: <code>_CAbs</code> (magnitude) → real <code>_LnX</code>/<code>_LogX</code> for the real part, <code>_ATan2Rad</code> (<code>page_02:76D4</code>) for the imaginary part (the argument/angle). Uses <code>_PushRealO1</code>/<code>_PopRealO2</code> to juggle the operand. This is why <code>ln(-2)</code> returns a complex result in <code>a+bi</code> mode but raises <code>_ErrNonReal</code> (0x87) in real mode.</li>
+<li><code>_CLN</code> <code>page_02:6CCA</code> / <code>_CLog</code> <code>page_02:6CE7</code> — complex log: <code>_CAbs</code> (magnitude) → real <code>_LnX</code>/<code>_LogX</code> for the real part, <code>_ATan2Rad</code> (<code>page_02:76D4</code>) for the imaginary part (the argument/angle). Uses <code>_PushRealO1</code>/<code>_PopRealO2</code> to juggle the operand. This is why <code>ln(-2)</code> returns a complex result in <code>a+bi</code> mode but raises <code>_ErrNonReal</code> (0x87) in real mode.</li>
 </ul>
 <h3 id="exponentials-confirmed"><a class="header" href="#exponentials-confirmed">Exponentials [confirmed]</a></h3>
 <ul>
@@ -296,23 +296,23 @@ then falls through into the local <code>_TenX</code> body.</li>
 <h3 id="trig--sincostan-confirmed"><a class="header" href="#trig--sincostan-confirmed">Trig — sin/cos/tan [confirmed]</a></h3>
 <ul>
 <li><code>_SinCosRad</code> <code>page_02:733E</code>, <code>_Sin</code> <code>7342</code>, <code>_Cos</code> <code>7346</code>, <code>_Tan</code> <code>734A</code>. Each loads a
-<strong>function selector</strong> byte into <code>0x8499</code> (<code>1</code>=sin, <code>2</code>=cos, <code>4</code>=tan; <code>0x80</code> bit set when
-<em>not</em> in the rad-special mode tested by <code>BIT 2,(IY+0)</code>; <code>_SinCosRad</code> forces <code>0x81</code>).</li>
-<li>Range reduction: reads OP1 exponent; <strong>exponent ≥ 0x0C (|x| ≳ 10^12·) → <code>_ErrDomain</code></strong>
+function selector byte into <code>0x8499</code> (<code>1</code>=sin, <code>2</code>=cos, <code>4</code>=tan; <code>0x80</code> bit set when
+the rad-special mode tested by <code>BIT 2,(IY+0)</code> is off; <code>_SinCosRad</code> forces <code>0x81</code>).</li>
+<li>Range reduction: reads OP1 exponent; exponent ≥ 0x0C (|x| ≳ 10^12·) → <code>_ErrDomain</code>
 (“argument out of range”). It then reduces the angle modulo a quarter-period using the
-BCD constant table near <code>page_02:7D81</code> and runs the <strong>same table-driven digit recurrence</strong>
+BCD constant table near <code>page_02:7D81</code> and runs the same table-driven digit recurrence
 as ln/eˣ over the signed near-unity tables at <code>page_02:7201</code> and <code>page_02:7281</code> (one row
 per digit step, sign-variant picked by <code>0x84A4</code> bit 7) — the per-step <code>bcd_sub_op1_op2</code>
 (<code>ram:1D8A</code>) / <code>bcd_add_8496_8480</code> (<code>ram:1D26</code>) are the shift-and-add BCD steps of that
-recurrence, <em>not</em> a fixed polynomial and <em>not</em> CORDIC for the forward trig. The per-row
+recurrence, not a fixed polynomial and not CORDIC for the forward trig. The per-row
 decoding of <code>02:7201</code>/<code>02:7281</code> is detailed in <a href="06-floating-point.html">06-floating-point.md</a>.</li>
 </ul>
 <h3 id="inverse-trig-confirmed"><a class="header" href="#inverse-trig-confirmed">Inverse trig [confirmed]</a></h3>
 <ul>
 <li><code>_ASinRad</code> <code>76DA</code>, <code>_ACosRad</code> <code>76C9</code>, <code>_ATanRad</code> <code>76CF</code>, <code>_ATan2Rad</code> <code>76D4</code>, plus the
 degree-mode <code>_ASin</code>/<code>_ACos</code>/<code>_ATan</code>/<code>_ATan2</code> at <code>76F1</code>/<code>76DF</code>/<code>76E9</code>/<code>7749</code>.</li>
-<li><code>_ASin</code>/<code>_ACos</code> call domain check <code>page_02:79D3</code>; <strong>|arg| &gt; 1 → <code>_ErrDomain</code></strong>.</li>
-<li>All inverse trig funnel into the shared <strong>arctangent CORDIC engine</strong> at <code>page_02:774B</code>
+<li><code>_ASin</code>/<code>_ACos</code> call domain check <code>page_02:79D3</code>; |arg| &gt; 1 → <code>_ErrDomain</code>.</li>
+<li>All inverse trig funnel into the shared arctangent CORDIC engine at <code>page_02:774B</code>
 (<code>B=0x20</code> seeds the octant/quadrant base written to <code>0x84A4</code>; the core is a base-10
 trial-subtract digit recurrence, not a fixed 32-step loop), with asin/acos expressed
 via atan2 of (x, √(1−x²)).</li>
@@ -343,7 +343,7 @@ displayable mantissa range, bumping a digit counter. Negative sign decrements th
 column count (<code>DEC (IX-3)</code>).</li>
 </ul>
 </li>
-<li><code>_FormEReal</code> <code>page_06:5799</code> — forces <strong>scientific/E</strong> notation by setting <code>0,(IY+0xc)</code> then calling <code>_FormReal</code>. [confirmed]</li>
+<li><code>_FormEReal</code> <code>page_06:5799</code> — forces scientific/E notation by setting <code>0,(IY+0xc)</code> then calling <code>_FormReal</code>. [confirmed]</li>
 <li><code>_FormBase</code> <code>page_06:57C0</code> — integer formatting in a base; requires <code>_CkOP1Real</code> (→ DATA TYPE / DOMAIN on non-real). [confirmed]</li>
 <li><code>_FormDCplx</code> <code>page_06:59D3</code> — complex <code>a+bi</code> / <code>r∠θ</code> formatting (calls <code>_FormReal</code> twice). [standard]</li>
 <li>Exponent ↔ ASCII helpers on page 0: <code>_ExpToHex</code> <code>ram:1E4E</code>, <code>_OP1ExpToDec</code> <code>ram:1E77</code>,
@@ -355,7 +355,7 @@ routines (see <a href="08-display-lcd.html">08-display-lcd.md</a>).</li>
 (via <code>_Mov9ToOP1</code> = RST 20h) when the token <code>Ans</code> is evaluated. [standard]</p>
 <hr>
 <h2 id="7-error-handling-confirmed"><a class="header" href="#7-error-handling-confirmed">7. Error handling [confirmed]</a></h2>
-<p>Errors are raised by loading an <strong>error code</strong> in <code>A</code> and jumping to <code>_JError</code> (<code>ram:2793</code>),
+<p>Errors are raised by loading an error code in <code>A</code> and jumping to <code>_JError</code> (<code>ram:2793</code>),
 which unwinds to the error context and shows the named message. The raiser cluster lives at
 <code>ram:26E8</code>+ — exact code map read from disassembly:</p>
 <div class="table-wrapper">

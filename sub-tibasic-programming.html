@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bba023a5.js";
+            window.path_to_searchindex_js = "searchindex-a6464ac3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-cbaaedfe.js"></script>
@@ -180,13 +180,12 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="ti-basic-programming-patterns"><a class="header" href="#ti-basic-programming-patterns">TI-BASIC programming patterns</a></h1>
-<p><em>TI-84 Plus OS 2.55MP – performance and tracing notes.</em></p>
+<p><em>TI-84 Plus OS 2.55MP — performance and tracing notes.</em></p>
 <p>This page turns the interpreter traces into practical programming rules. It is
-not a style guide for calculator golf; it is a map from common TI-BASIC
-patterns to the OS paths they exercise.</p>
-<p>Confidence follows <a href="conventions.html">Conventions</a>: <strong>[confirmed]</strong> = observed in
-the disassembly or the headless TilEm traces; <strong>[standard]</strong> = matches TI-BASIC
-semantics and the traced interpreter shape; <strong>[hypothesis]</strong> = useful pattern
+a map from common TI-BASIC patterns to the OS paths they exercise.</p>
+<p>Confidence follows <a href="conventions.html">Conventions</a>: [confirmed] = observed in
+the disassembly or the headless TilEm traces; [standard] = matches TI-BASIC
+semantics and the traced interpreter shape; [hypothesis] = useful pattern
 not yet traced end to end in this repo.</p>
 <hr>
 <h2 id="performance-rules-from-traces"><a class="header" href="#performance-rules-from-traces">Performance rules from traces</a></h2>
@@ -198,29 +197,29 @@ tokens and rebuilding temporary parse state. The
 <a href="sub-tibasic-for-paren.html"><code>For(</code> optional-paren trap</a> is the sharpest
 example: with a first-line false <code>If</code>, dropping the closing <code>)</code> made an
 <code>N=100</code> benchmark grow from 521,723 to 885,912 marker-to-marker instructions.
-<strong>[confirmed]</strong></li>
+[confirmed]</li>
 <li><strong>Prefer built-ins for list-wide work.</strong> <code>SortA(</code>, <code>cumSum(</code>, and <code>sum(</code>
 cross into OS routines that run one parser setup and then loop internally.
 The <code>DATA.8xp</code> trace hits <code>list_fold_dispatch</code> (<code>02:6104</code>) for <code>sum(</code> rather
 than reparsing an explicit BASIC accumulator loop for every element.
-<strong>[confirmed]</strong></li>
+[confirmed]</li>
 <li><strong>Cache list elements and dimensions.</strong> List indexing resolves a variable
 name through the VAT, checks type/dimension, computes an element address, and
 shuttles a 9-byte <code>TIFloat</code> through OP registers. Repeated <code>L1(I)</code> inside a
 loop is much more expensive than storing the element into a scalar once when
-the value is reused. <strong>[confirmed path, standard rule]</strong></li>
+the value is reused. [confirmed path, standard rule]</li>
 <li><strong>Avoid <code>Goto</code> in hot loops.</strong> <code>Goto</code> searches for a matching <code>Lbl</code> by
 scanning the program token stream, and escaping structured loops through
 <code>Goto</code> can leave loop bookkeeping behind. Use <code>For(</code>/<code>While</code>/<code>Repeat</code> plus
-<code>End</code> unless the jump is truly cold. <strong>[standard; scanner confirmed in
-<code>sub-tibasic.md</code>]</strong></li>
+<code>End</code> unless the jump is truly cold. [standard; scanner confirmed in
+<code>sub-tibasic.md</code>]</li>
 <li><strong>Batch display and graph output.</strong> <code>Disp</code> and <code>Output(</code> reach display
 primitives and LCD update paths; graph drawing reaches graph-buffer and pixel
 routines before display copy. Draw into the graph buffer and call
-<code>DispGraph</code> once when possible. <strong>[confirmed]</strong></li>
+<code>DispGraph</code> once when possible. [confirmed]</li>
 <li><strong>Write the optional syntax in loops.</strong> Closing <code>For(</code> with <code>)</code> costs at most
 a small command-finalization path, but it avoids the pathological
-implicit-close/false-<code>If</code> interaction. <strong>[confirmed]</strong></li>
+implicit-close/false-<code>If</code> interaction. [confirmed]</li>
 </ol>
 <h3 id="trace-backed-cost-map"><a class="header" href="#trace-backed-cost-map">Trace-backed cost map</a></h3>
 <div class="table-wrapper">
@@ -286,7 +285,7 @@ Disp "DONE"
 </code></pre>
 <p>Observed run: <code>ANIMTXT.8xp</code> leaves <code>DONEXXXX</code> on the first row, then <code>Done</code>. The
 trace hits page-38 parser paths, page-33 loop/math helpers, <code>_OutputExpr</code>
-(<code>03:4AF2</code>), <code>_Disp</code> (<code>37:51D3</code>), and LCD text routines. <strong>[confirmed]</strong></p>
+(<code>03:4AF2</code>), <code>_Disp</code> (<code>37:51D3</code>), and LCD text routines. [confirmed]</p>
 <p>The performance lesson is that animation is expensive twice: the interpreter
 parses each <code>Output(</code> call, then the display stack updates text/LCD state. For a
 real animation, keep loop bodies tiny and avoid recomputing strings or indexes
@@ -307,7 +306,7 @@ DispGraph
 <p>Observed run: <code>GRAPHV.8xp</code> ends on the graph screen with <code>DFS</code>, axes, a circle,
 and the diagonal line visible. The trace hits <code>_GrBufClr</code>, <code>_StoSysTok</code>,
 <code>_ILine</code> (<code>04:4029</code>), <code>graph_pixel_op</code>, <code>_IPoint</code>, <code>_PDspGrph</code> (<code>04:7904</code>), and
-the page-38 argument parser. <strong>[confirmed]</strong></p>
+the page-38 argument parser. [confirmed]</p>
 <p>The performance lesson is to draw several primitives into the graph buffer, then
 display the graph buffer once. Repeated home-screen <code>Output(</code> calls give you
 more text-layout overhead and less control over redraw timing.</p>
@@ -359,12 +358,12 @@ pixel-like coordinates cover the visible graph area.</p>
 <code>1-2</code>, <code>1-3</code>, and <code>2-4</code>. The trace hits <code>_ILine</code> (<code>04:4029</code>),
 <code>graph_pixel_op</code>, <code>_IPoint</code>, <code>_PDspGrph</code> (<code>04:7904</code>), small-font glyph
 rendering, window variable stores through <code>_StoSysTok</code>, <code>_RestoreDisp</code>, and
-page-38 statement evaluation. <strong>[confirmed]</strong></p>
+page-38 statement evaluation. [confirmed]</p>
 <p>The performance lesson is to separate graph data from graph drawing. Keep edge
 lists and traversal state in lists, but convert them to pixels in a single draw
 phase instead of interleaving traversal, display, and recalculation.</p>
 <p><code>GRAPHLST.8xp</code> makes that separation explicit. It stores edge endpoint
-coordinates in <code>L1</code>-<code>L4</code> and node centers in <code>L5</code>/<code>L6</code>, then draws edges and
+coordinates in <code>L1</code>–<code>L4</code> and node centers in <code>L5</code>/<code>L6</code>, then draws edges and
 nodes with loops:</p>
 <pre><code class="language-ti-basic">{10,10,35}-&gt;L1
 {44,44,54}-&gt;L2
@@ -383,7 +382,7 @@ End
 <code>GRAPHDFS.8xp</code>; the smoke runner checks the same node and edge crop regions.
 The trace additionally hits <code>list_var_index</code> and <code>_GetLToOP1</code>, proving that the
 draw arguments came through list element recall rather than hard-coded
-coordinates. <strong>[confirmed]</strong></p>
+coordinates. [confirmed]</p>
 <h3 id="basic-subprogram-calling-convention"><a class="header" href="#basic-subprogram-calling-convention">BASIC subprogram calling convention</a></h3>
 <p>Caller:</p>
 <pre><code class="language-ti-basic">0-&gt;A
@@ -402,7 +401,7 @@ exits the callee and resumes the caller. The trace hits the
 page-38 statement interpreter, VAT/name resolution (<code>findsym_scan</code>), parser
 entry/refill paths, the program-body evaluator call at <code>38:6914</code> into
 <code>eval_eqn_recursive</code> (<code>38:778F</code>), <code>_StoSysTok</code>, <code>_StoAns</code>, <code>_RclVarSym</code>, and
-<code>_Disp</code>. <strong>[confirmed]</strong></p>
+<code>_Disp</code>. [confirmed]</p>
 <p>The full smoke trace also hits <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> once while the
 homescreen evaluates the initial <code>prgmCALLSUB</code> command selected by the macro.
 That launch parse is not the same as the callee transition. The repeated
@@ -461,7 +460,7 @@ in shared scalar <code>A</code>, mutates shared <code>L1(3)</code> to <code>9</c
 callee expression so <code>Ans</code> is also <code>11</code>, and returns. The smoke runner checks
 the rendered scalar, list, <code>Ans</code>, and <code>Done</code> regions, and the trace hits
 <code>stmt_eval_body_entry</code>, <code>call_eval_eqn_recursive</code>, <code>eval_eqn_recursive</code>,
-<code>_AnsName</code>, and <code>store_list_elem</code>. <strong>[confirmed]</strong></p>
+<code>_AnsName</code>, and <code>store_list_elem</code>. [confirmed]</p>
 <p><code>CALLSTOP.8xp</code> and <code>STOPSUB.8xp</code> cover the non-returning branch:</p>
 <pre><code class="language-ti-basic">Disp "BEFORE"
 prgmSTOPSUB
@@ -477,7 +476,7 @@ then <code>Done</code>; <code>AFTER</code> never appears. The smoke runner check
 would be drawn if the caller resumed. The trace reaches <code>stmt_eval_body_entry</code>,
 <code>call_eval_eqn_recursive</code>, and <code>_Disp</code>. This confirms that <code>Stop</code> in a callee
 terminates the whole BASIC program chain instead of returning to the caller.
-<strong>[confirmed]</strong></p>
+[confirmed]</p>
 <h3 id="arbitrary-precision-decimal-addition"><a class="header" href="#arbitrary-precision-decimal-addition">Arbitrary-precision decimal addition</a></h3>
 <p><code>BIGADD.8xp</code> uses lists of base-10 digits in little-endian order. <code>12345</code> is
 <code>{5,4,3,2,1}</code>, <code>98765</code> is <code>{5,6,7,8,9}</code>, and the result is the list
@@ -499,7 +498,7 @@ Disp L3(6)
 <code>1</code>, and the program ends with <code>Done</code>. The trace hits list element address and
 store paths (<code>list_var_index</code>, <code>_AdrLEle</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>,
 <code>store_list_elem*</code>) plus <code>fnint_body</code>, <code>_FPDiv</code>, <code>_FPAdd</code>, <code>_FPSub</code>, and
-<code>_FPMult</code>. <strong>[confirmed]</strong></p>
+<code>_FPMult</code>. [confirmed]</p>
 <p>Performance notes: this is intentionally simple, but it is parser-heavy. For a
 general routine, cache <code>dim(L1)</code> and <code>dim(L2)</code> before the loop, avoid repeated
 list indexing when a digit is reused, and use a larger base only if you can
@@ -549,7 +548,7 @@ Disp L3(4)
 </code></pre>
 <p>Observed run: <code>BIGMUL.8xp</code> displays <code>{5 3 5 5 0}</code>, then <code>5</code>, then <code>Done</code>.
 The trace hits nested <code>For(</code> loop parsing, list element reads/stores, <code>_FPMult</code>,
-<code>_FPAdd</code>, <code>_FPSub</code>, <code>_GetLToOP1</code>, and <code>_PutToL</code>. <strong>[confirmed]</strong></p>
+<code>_FPAdd</code>, <code>_FPSub</code>, <code>_GetLToOP1</code>, and <code>_PutToL</code>. [confirmed]</p>
 <p>The invariant is that each inner-loop step normalizes one result cell
 <code>L3(I+J-1)</code> and carries into the next cell. This is still base-10 arithmetic,
 so it favors trace readability over speed. A larger base reduces the number of
@@ -588,7 +587,7 @@ Disp L3
 node <code>3</code> is pushed after node <code>2</code>. The final visited list is <code>{1 1 1 1}</code>. The
 trace hits <code>blockmatch_end_else</code>, <code>parse_scan_tokens</code>, <code>eval_stmt_entry</code>,
 parser refill/advance paths, <code>_Disp</code>, and the same list read/write helpers used
-by <code>BIGADD</code>. <strong>[confirmed]</strong></p>
+by <code>BIGADD</code>. [confirmed]</p>
 <p>Performance notes: this version scans all edges for every visited node, so it is
 easy to understand but O(VE) in BASIC-level work. For larger graphs, keep an
 offset table of edge ranges per node, avoid <code>augment(</code> in hot loops, and
@@ -618,7 +617,7 @@ C9
 <code>Asm(</code> command handler parses the following <code>prgmNAME</code> token stream, then
 bcalls <code>_ExecutePrgm</code> (<code>4E7C</code>, target <code>07:5758</code>). The trace shows that path
 compile/copy the <code>AsmPrgm</code> body and hand off through <code>07:57B4</code>, execute the
-payload byte at <code>ram:9D95 op=0xC9</code>, and return to BASIC. <strong>[confirmed]</strong></p>
+payload byte at <code>ram:9D95 op=0xC9</code>, and return to BASIC. [confirmed]</p>
 <p>Practical convention: pass data through OS variables or known RAM locations,
 validate inputs on the BASIC side, and make the ASM payload return normally with
 <code>RET</code> unless it intentionally transfers control elsewhere.</p>
@@ -646,7 +645,7 @@ Disp "AFTER"
 <code>BEFORE</code>, <code>CALLED</code>, <code>AFTER</code>, then <code>Done</code>. The trace hits the <code>AsmPrgm</code> payload
 at <code>ram:9D95</code>, <code>_OP1Set1</code> (<code>00:1B38</code>), <code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code>
 (<code>38:74B7</code>) while evaluating <code>If Ans</code>, and then the normal BASIC program-body
-path for <code>prgmZZBASIC</code> (<code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>). <strong>[confirmed]</strong></p>
+path for <code>prgmZZBASIC</code> (<code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>). [confirmed]</p>
 <p>This is a callback convention, not a direct jump from ASM into a BASIC body.
 The ASM side communicates a return code through <code>Ans</code>; BASIC owns the parser
 state, performs the <code>prgm</code> call, and resumes after the target returns.</p>
@@ -666,7 +665,7 @@ Disp A
 <p>Observed run: <code>ASMRTN.8xp</code> and <code>ASMVAL.8xp</code> display <code>5</code>, then <code>Done</code>. The trace
 hits <code>ram:9D95</code>, <code>_OP1Set2</code> (<code>00:1B50</code>), <code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code>,
 <code>_FPAdd</code>, and <code>_Disp</code>; the smoke runner also checks the final-frame result and
-<code>Done</code> regions. <strong>[confirmed]</strong></p>
+<code>Done</code> regions. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -701,7 +700,7 @@ parser/VAT path, enters the program-body evaluator at <code>38:6914</code> -&gt;
 <code>38:778F</code>, and lets <code>Return</code> unwind to the caller. Calling that same machinery
 from arbitrary ASM requires more than loading OP1 and bcalling a single public
 entry; it needs the same parser cursor, stack, error, and run-state setup that a
-live BASIC caller already has. <strong>[hypothesis]</strong></p>
+live BASIC caller already has. [hypothesis]</p>
 <p><code>ASMFIND.8xp</code> and <code>ZZFIND.8xp</code> make the VAT lookup boundary reproducible. The
 wrapper displays <code>BEFORE</code>, runs <code>Asm(prgmZZFIND)</code>, and displays <code>AFTER</code>. The
 payload builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code> (<code>42F1</code>):</p>
@@ -719,7 +718,7 @@ name: .db 05h,"ZZBASIC",00h
 <code>ram:9D95</code> and <code>findsym_scan</code>, and the smoke runner checks the wrapper output
 and a low-pixel region where an unexpected third line would appear. This proves
 ASM-side VAT lookup from an <code>AsmPrgm</code> context, not BASIC program execution.
-<strong>[confirmed]</strong></p>
+[confirmed]</p>
 <p>Generated negative fixtures make the execution boundary sharper.</p>
 <p><code>ASMFORM.8xp</code> and <code>ZZFORM.8xp</code> make the <code>_Find_Parse_Formula</code> negative probe
 reproducible. The payload is the same OP1-name setup as <code>ZZFIND</code>, but it bcalls
@@ -728,7 +727,7 @@ Observed run: the trace reaches <code>ram:9D95</code>, <code>_Find_Parse_Formula
 <code>parse_init_findsym</code>, <code>findsym_scan</code>, and <code>eval_stmt_entry</code>; the final screen is
 <code>ERR:UNDEFINED</code> with <code>1:Quit</code> and <code>2:Goto</code>. <code>ZZBASIC</code> never displays <code>CALLED</code>.
 That failed run confirms <code>_Find_Parse_Formula</code> is not a drop-in BASIC program
-executor from an arbitrary <code>AsmPrgm</code> context. <strong>[confirmed]</strong></p>
+executor from an arbitrary <code>AsmPrgm</code> context. [confirmed]</p>
 <p><code>ASMPARSE.8xp</code> and <code>ZZPARSE.8xp</code> make the <code>_ParseInpLastEnt</code> negative probe
 reproducible. The payload is the same OP1-name setup as <code>ZZFIND</code>, but it bcalls
 <code>_ParseInpLastEnt</code> (<code>4B07</code>, target <code>38:5984</code>) instead of <code>_ChkFindSym</code>.
@@ -738,7 +737,7 @@ Observed run: the trace reaches <code>_ParseInpLastEnt</code>, <code>_ParseInp</
 <code>2:Goto</code>. <code>ZZBASIC</code> never displays <code>CALLED</code>. Static disassembly explains the
 mismatch: after resolving the OP1-named object, <code>_ParseInp</code> continues through
 parser setup that expects a live parser/FPS call-frame shape. It is not a
-general “run this token stream” ABI for an arbitrary <code>AsmPrgm</code>. <strong>[confirmed]</strong></p>
+general “run this token stream” ABI for an arbitrary <code>AsmPrgm</code>. [confirmed]</p>
 <p>The homescreen command/edit-buffer route is also not a safe callable ABI. A
 temporary payload that did only:</p>
 <pre><code class="language-asm">ld a,05h          ; kEnter
@@ -750,7 +749,7 @@ ret
 <code>Disp "AFTER"</code> statement. The final screen showed repeated <code>BEFORE</code>/<code>Done</code>
 lines, and the trace hit <code>ram:0747</code> and <code>ram:9D95</code> repeatedly. The disassembly
 explains why: <code>_JForceCmd</code> reloads <code>SP</code> from <code>85BC</code> before dispatching the
-forced key, discarding the <code>AsmPrgm</code> caller’s stack. <strong>[confirmed]</strong></p>
+forced key, discarding the <code>AsmPrgm</code> caller’s stack. [confirmed]</p>
 <p>Two edit-buffer variants narrow that path further. A payload that bcalls
 <code>_PutTokString</code> (<code>4960</code>, target <code>06:46FD</code>) for the token bytes
 <code>5F 5A 5A 42 41 53 49 43</code> (<code>prgmZZBASIC</code>) returns to the wrapper and reaches
@@ -761,7 +760,7 @@ through the command loop; it still never displays <code>CALLED</code> from <code
 <code>_rclToQueue</code> (<code>49B4</code>, target <code>06:5F29</code>) is a related editor queue helper, but
 its ROM path depends on an already-open edit buffer (<code>editCursor</code>/<code>editTail</code>)
 and the <code>rclFlag.enableQueue</code> state; it does not create a BASIC program call
-frame. <strong>[confirmed probes; <code>_rclToQueue</code> role from disassembly]</strong></p>
+frame. [confirmed probes; <code>_rclToQueue</code> role from disassembly]</p>
 <p><code>_ExecuteNewPrgm</code> is the remaining tempting name, but temporary probes reject it
 as a public ASM-to-BASIC call path. A payload that sets <code>OP1</code> to <code>ProgObj</code>
 (<code>05</code>), points <code>HL</code> at the zero-terminated name <code>ZZBASIC</code>, and bcalls <code>4C3C</code>
@@ -771,7 +770,7 @@ enters <code>_ExecuteNewPrgm</code> (<code>00:265F</code>) and <code>findsym_sca
 hits <code>_ExecuteNewPrgm</code>, the copy tail at <code>00:268A</code>, and the jump at <code>00:268F</code>.
 It still ends at <code>ERR:SYNTAX</code> and never runs the target body. That makes
 <code>_ExecuteNewPrgm</code> another stateful OS helper, not a standalone program executor
-ABI for <code>AsmPrgm</code> payloads. <strong>[confirmed]</strong></p>
+ABI for <code>AsmPrgm</code> payloads. [confirmed]</p>
 <p>The current open item is therefore precise: trace a small ASM payload that
 successfully invokes a BASIC program, identify the required parser/VAT/error
 state, and compare it to the rejected public routes above plus both confirmed
