@@ -10,7 +10,7 @@ recalled by name (`x̄`, `Σx`, `RegEQ`, …).
 This doc covers the STAT **CALC** computations. The data source is the L1–L6
 lists (VAT/[05-variables-vat.md](05-variables-vat.md), [sub-vat-archive.md](sub-vat-archive.md)); the arithmetic is the
 BCD FP engine ([06-floating-point.md](06-floating-point.md), [sub-calculation.md](sub-calculation.md)). Stat plots and
-the **DISTR** menu are noted in §8/§9 — DISTR functions are *parser* functions,
+the **DISTR** menu are noted in §8/§9 — DISTR functions are parser functions,
 not part of the STAT‑CALC engine.
 
 Address form: `page:addr` (flash page in the `0x4000` slot) or `ram:addr` for the
@@ -68,7 +68,7 @@ menu) and are written by the test commands, not by 1/2‑Var Stats. An ANOVA blo
 
 **STAT‑TESTS are separate command handlers [confirmed scope].** `Z‑Test`/`T‑Test`/`χ²‑Test`/
 `2‑SampFTest`/`ANOVA(` etc. come in as their own 2‑byte `t2ByteTok` (`0xBB`)‑prefixed command tokens — e.g.
-`LinRegTTest=34h` noted in §3 — and are *not* dispatched through `_OneVar` (whose token map is
+`LinRegTTest=34h` noted in §3 — and are not dispatched through `_OneVar` (whose token map is
 only `F2`–`FF`, §3). They fill the `PStat…SStat`/`anovaf_vars` block above directly. No
 `PStat`/`ZStat`‑writing routine appears among the page‑0x3A `stat_*` symbols (all of which are
 the `_OneVar` accumulate/variance/median/regression engine), confirming the tests live in their
@@ -160,7 +160,7 @@ as a model index. From `ti83plus.inc`:
 tokens (their `2Eh`/`2Fh`/`32h`/`33h`/`34h` values are the *second* byte after `0xBB`). Degree for the polynomial solver = the model index; the coefficient
 fan‑out into `QuadA..QuartE` is naturally sized by degree. [confirmed/standard]
 
-`SortA(`/`SortD(` are *separate* tokens (`tSortA=E3h`, `tSortD=E4h`) with their
+`SortA(`/`SortD(` are separate tokens (`tSortA=E3h`, `tSortD=E4h`) with their
 own command handler — not `_OneVar`. The sort used here, `stat_sort` (`3A:7935`),
 is stat‑internal: its only callers are `stat_median_quartile` (`3A:79B9`) and
 `medmed_partition` (`3A:760F`) (xref‑confirmed), so it powers the 1‑Var median/
@@ -348,12 +348,12 @@ list data (sets `Xmin/Xmax/Ymin/Ymax` from `minX/maxX/minY/maxY`). See
 
 ---
 
-## 9. Distributions (DISTR menu) — *not* part of STAT‑CALC [confirmed scope]
+## 9. Distributions (DISTR menu) — not part of STAT‑CALC [confirmed scope]
 
 `normalpdf(`, `normalcdf(`, `invNorm(`, `binompdf(`, `tcdf(`, `χ²cdf(`, `Fcdf(`,
 etc. are parser functions (DISTR‑menu tokens, the `t2ByteTok` (`0xBB`)‑prefixed
 two‑byte tokens like `tShadeNorm=35h`), evaluated through the normal function
-dispatch of the TI‑BASIC parser, *not* through `_OneVar`. They are not
+dispatch of the TI‑BASIC parser, not through `_OneVar`. They are not
 exposed as named bcalls in this OS image (a search of `bcall_targets.txt` finds
 only `_SetNorm_Vals` `00:220F`, a helper that copies the *display* "Normal mode"
 default values — unrelated to the normal *distribution*). Their numerical cores
@@ -364,10 +364,10 @@ STAT subsystem documented here.
 [confirmed: not reachable from `_OneVar`; hypothesis: numerical method]
 
 **Grounding [confirmed].** A name search of the whole‑OS image for `norm`/`stat`/distribution
-cores returns *no* `normalcdf`/`erf`/incomplete‑gamma/incomplete‑beta entry points — the only
+cores returns no `normalcdf`/`erf`/incomplete‑gamma/incomplete‑beta entry points — the only
 `*norm*` symbols are `_SetNorm_Vals` (`00:220F`, display "Normal mode" defaults),
 `fp_normalize`/`fp_norm_left` (mantissa normalisation), `cplx_norm_*` (complex modulus) and the
-`eqdisp_setnorm_split` layout helpers — *none* is a distribution. Likewise every `stat_*`
+`eqdisp_setnorm_split` layout helpers — none is a distribution. Likewise every `stat_*`
 symbol on page 0x3A is part of the `_OneVar` STAT‑CALC engine (accumulate / variance / median /
 sort / regression), not a DISTR core. So the erf / incomplete‑gamma / incomplete‑beta continued
 fractions are [I] — outside the STAT‑CALC engine, sitting behind the parser's 2‑byte

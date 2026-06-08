@@ -104,7 +104,7 @@ seeds the bracket. The main loop runs from `39:4413`:
   `39:46EA` (`00 73 10 …`); the residual-zero floor is `1.0e-99` at `39:46E1`
   (`00 1D 10 …`). On reaching tolerance the solver exits through the `39:4540 → 4553`
   branch (dynamically traced on an `X²−2 = 0` solve that converged to √2 ≈ 1.41421356);
-  `39:4547` is a `CALL`, not the converged return, and was *not* on the observed path.
+  `39:4547` is a `CALL`, not the converged return, and the observed path bypassed it.
   The tolerance tests at `446F`/`44D7`/`44F8` run under that trace; `45C7` is reached only
   on other convergence sub-paths. [confirmed]
 
@@ -247,7 +247,7 @@ floating-point constant in the body: the TIFloat at `33:4E92`
 `33:4E5D` (`LD HL,0x4E92; CALL 0x1982`), immediately after the only transcendental bcall in
 the body, `33:4E56 EF AB 40` = bcall `_LnX` (0x40AB). So `ln(10)·100` is used purely to
 convert the requested significant-digit tolerance into a decimal error bound via
-`ln` — it is *not* a quadrature node or weight. There is no node/weight table anywhere in
+`ln` — it is a tolerance scaler, not a quadrature node or weight. There is no node/weight table anywhere in
 the body (the data after `33:4E92`, `FD CB 18 AE …`, decodes as code: `RES 5,(IY+0x18)`
 followed by LCD/keypad port I/O `DB 3A / D3 3A`). A Gauss–Kronrod rule would require a fixed
 block of ~7–15 irrational node and weight constants stored as TIFloats; their complete

@@ -150,7 +150,7 @@ The high-level loop is:
 The argument walker at `39:5167` manages multi-argument operators. It keeps the parser
 argument index in `0x85E0` and uses `0x85E2` as the argument count. Normal operands pass
 through `39:59E0`; variable operands pass through `39:59F9`. Both routes delegate token
-scanning to page 7 rather than inventing a second field order. [confirmed]
+scanning to page 7, reusing its single field order. [confirmed]
 
 For `fnInt(expr,var,lower,upper[,tol])`, the visible MathPrint fields preserve parser
 order: slot 0 is the integrand, slot 1 is the variable, slot 2 is the lower endpoint,
@@ -226,8 +226,8 @@ Superscripts are represented as row placement, not as a font attribute. The help
 to a higher display row before emitting the selected cell. The per-row height accounting
 then folds that raised row into the parent layout. [confirmed]
 
-This means `X^2` is stored and walked as ordinary cells in different rows. The glyph for
-`2` is not special; the row selection is.
+This means `X^2` is stored and walked as ordinary cells in different rows. The row selection
+does the work; the glyph for `2` is the ordinary one.
 
 ## Radicals
 
@@ -281,7 +281,7 @@ and the rectangle helpers for rule-like UI surfaces. [confirmed]
 
 ## Delimiters
 
-The fixed delimiter families are handler records, not renderer-invented cells. Classes
+The fixed delimiter families are handler records. Classes
 `0x17`, `0x18`, and `0x19` point to one-row records at `39:62C8`, `39:62DF`, and
 `39:62F6`. Each record contains ten cells. Page 7 maps those cells to output families
 `61 00..61 09`, `60 00..60 09`, and `AA 00..AA 09`. [confirmed]
@@ -378,7 +378,7 @@ routines actually run* for each construct:
 
 | Rendered (entry line) | Page-`39` routines exercised | Path |
 |-----------------------|------------------------------|------|
-| `X^2` (raised exponent) | `eqdisp_emit_subexpr2` `4CA4`, `eqdisp_menu_or_emit` `53AD` | light entry-line emit (`eqdisp_set_row_for_tok` `4CE9` is the static superscript-row helper but did *not* execute in this trace — it does run in the `1/2` trace) |
+| `X^2` (raised exponent) | `eqdisp_emit_subexpr2` `4CA4`, `eqdisp_menu_or_emit` `53AD` | light entry-line emit (`eqdisp_set_row_for_tok` `4CE9` is the static superscript-row helper but did not execute in this trace — it does run in the `1/2` trace) |
 | `1/2` (n/d template) | `eqdisp_compute_dims` `69C8`, `eqdisp_layout_token_geom` `68AE`, the `683D` cell-to-pixel mapper, `eqdisp_draw_fraction_bar` `6ABF`, `eqdisp_draw_box_jp` `6AF5`, `eqdisp_load_glyph18b2` `6B66`, `eqdisp_dispatch_token` `4A74` | descriptor / geometry |
 | `fnInt(` (MATH ▸ 9) | `eqdisp_emit_glyph` `4E8E`, `eqdisp_map_token_glyph` `4F1A`, `eqdisp_emit_arglist` `4DE6`, `eqdisp_sum_arg_widths` `4DCA`, `eqdisp_emit_digit_chk` `4E0A` | handler record / multi-arg |
 
@@ -387,7 +387,7 @@ and the handler-record path (`4DCA`/`4DE6`/`4E8E`/`4F1A`) are mutually
 exclusive per construct, exactly as the two-mechanism model predicts. [confirmed]
 
 `39:5167` (`eqdisp_layout_multiarg`) statically owns the multi-arg row
-composition, but it did *not* execute in this trace: the `fnInt(` template was
+composition, but it did not execute in this trace: the `fnInt(` template was
 inserted *empty* (`∫(0)dV`), so the operand-recursion branch was never driven —
 `5167` and its body (`5949`/`5B10`) show 0 hits, and the `--funcs` "5167" rollup
 bucket is a nearest-name artifact (only a `51F1/51F3` fragment ran). A *filled*

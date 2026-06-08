@@ -126,7 +126,7 @@ See [Calculation Engine](sub-calculation.md) for the ×/÷/^/root algorithms and
 
 ## Transcendental method [confirmed]
 
-The ln/e^x/sin-cos evaluators are local page-0x02 code plus page-0x02 coefficient tables. The apparent `LD A,n; CALL ram:2362` "page switch" sites are *not* banked series tails: Ghidra disassembly shows `ram:2362: CALL ram:3DD1`, and `ram:3DD1` is a bcall-table entry whose inline descriptor is `1E 7D 02` (`page_02:7D1E`). The real banked-call helper is `ram:2B09`. `ram:2362` fetches the page-0x02 coefficient indexed by `A` and then multiplies OP1 by it (it enters the `_FPMult` body at `ram:2392`). Therefore the preceding `LD A,n` is a coefficient-table index, not a target flash page. Raw ROM bytes at the supposed same-address page-0x03 targets are `0xFF`, and Ghidra has no page-0x03/page-0x06 functions there.
+The ln/e^x/sin-cos evaluators are local page-0x02 code plus page-0x02 coefficient tables. The apparent `LD A,n; CALL ram:2362` "page switch" sites are not banked series tails: Ghidra disassembly shows `ram:2362: CALL ram:3DD1`, and `ram:3DD1` is a bcall-table entry whose inline descriptor is `1E 7D 02` (`page_02:7D1E`). The real banked-call helper is `ram:2B09`. `ram:2362` fetches the page-0x02 coefficient indexed by `A` and then multiplies OP1 by it (it enters the `_FPMult` body at `ram:2392`). Therefore the preceding `LD A,n` is a coefficient-table index, not a target flash page. Raw ROM bytes at the supposed same-address page-0x03 targets are `0xFF`, and Ghidra has no page-0x03/page-0x06 functions there.
 
 ### The shared algorithm — digit-by-digit pseudo-division [confirmed]
 
