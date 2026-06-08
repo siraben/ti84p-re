@@ -415,7 +415,7 @@ and `6B1C` does `ld a,1Bh; … add a,7 (×n); add a,4` (`x_left = 0x1B + 7n`,
 `x_right = x_left + 4`). Trust `z80dasm` over the decompiler for these tight
 register-passing routines, as [the README](https://github.com/siraben/ti84p-re/blob/main/README.md) advises. [confirmed]
 
-## Remaining detail
+## MathPrint pipeline coverage
 
 The static MathPrint pipeline is recovered: token classification, handler records,
 recursive operand order, descriptor templates, fraction UI geometry, fixed structural

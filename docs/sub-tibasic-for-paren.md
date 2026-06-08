@@ -1,6 +1,6 @@
-# `For(` closing paren and false first-line `If`
+# TI-BASIC `For(` paren trap
 
-*TI-84 Plus OS 2.55MP — dynamic trace note.*
+*TI-84 Plus OS 2.55MP — feature deep dive.*
 
 This note explains a TI-BASIC performance trap:
 

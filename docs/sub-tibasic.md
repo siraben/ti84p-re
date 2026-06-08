@@ -840,7 +840,7 @@ rules and larger source-level examples.
 
 ---
 
-## 9. Resolved / residual
+## 9. Argument handling, loop dispatch, and getKey
 
 Three argument-handling and dispatch details, grounded in the bytes (see §5 / §4):
 

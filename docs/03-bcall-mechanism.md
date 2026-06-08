@@ -63,6 +63,6 @@ Example: `_PutMap`'s glyph blitter is reached via the trampoline at `ram:3B3D â†
 
 **Inline bjumps:** besides this trampoline table, `CALL cross_page_jump; .dw; .db` appears in other packed dispatch tables (e.g. a page-`3D` dispatch table near `ram:2B6B`) and inline within OS routines. Because `cross_page_jump` consumes the 3 inline bytes and tail-jumps (the target returns to the bjump's caller), the bytes after must be data and the call is non-returning. `tools/FixInlineBjumps.java` marks all 355 such sites in the complete local ROM, which substantially improved OS-wide disassembly coverage.
 
-## Limitations / TODO
+## Limitations
 - Keep the BootFree guard in place when regenerating from emulator-derived ROM images.
 - Some bcalls are *thunks*: e.g. `_FindSym`'s page-0 entry uses `cross_page_jump` to reach the real body on page 0x07.

@@ -368,23 +368,23 @@ Parser entries (page 0x38): `_ParseInp 5987`, `parse_eval_expr 5AB3`,
 
 ---
 
-## 6. Resolved / residual
+## 6. Findings
 
-The four open questions from the prior pass are now resolved against the bytes:
+Summary of the four sub-results:
 
-- **fnInt( quadrature rule — resolved (§3.2).** Not Gauss–Kronrod. The body has no node or
+- **fnInt( quadrature rule (§3.2).** Not Gauss–Kronrod. The body has no node or
   weight table; its sole FP constant is `ln(10)·100` at `33:4E92`, used (with bcall `_LnX`)
   to convert digit-tolerance to a decimal error bound. With explicit ×0.5 interval bisection
   and a coarse-vs-fine estimate comparison, it is an adaptive Newton–Cotes / Simpson-class
   bisection integrator. `33:4D1B` is executable code (`LD A,0x60; CALL fp_set_digit`).
-- **TVM `_SinH` (id 0x40CF) — resolved (§2.3).** The TVM rate loop calls `_SinH` at
+- **TVM `_SinH` (id 0x40CF) (§2.3).** The TVM rate loop calls `_SinH` at
   `3A:710B` (`0x40C6/0x40CF/0x40ED` are three distinct hyperbolic bcalls); it evaluates the
   annuity / compound factor in hyperbolic form for numerical stability at small rates.
-- **class-3 routing of `tFnInt`/`tNDeriv`/`tRoot` — resolved (§4.1).** Path is
+- **class-3 routing of `tFnInt`/`tNDeriv`/`tRoot` (§4.1).** Path is
   `BB-token → page-0x02 dispatcher (02:68F3/6904/58AD) → arg-parse + default-tol (02:6AF6,
   exp 0x7D = 1e-3) → paged call → page-0x33 bodies`, re-validated by `bb_token_scanner`
   (`33:504E`). The trampoline hides the static xref, confirming it is a generic paged call.
-- **page-0 helper cluster — resolved (§5).** Generic FPS slot save/restore (9-byte
+- **page-0 helper cluster (§5).** Generic FPS slot save/restore (9-byte
   TIFloat slots at `-(9*slot)` from frame base `(9302)`) plus the active-frame swapper at
   `ram:2800`, renamed `fps_swap_active_frame`; the store/load stubs are
   `fp_st_slotN_opX` / `fp_ld_op1_slotN`.

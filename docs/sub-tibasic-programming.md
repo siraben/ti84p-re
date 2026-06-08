@@ -1,6 +1,6 @@
 # TI-BASIC programming patterns
 
-*TI-84 Plus OS 2.55MP — performance and tracing notes.*
+*TI-84 Plus OS 2.55MP — feature deep dive.*
 
 This page turns the interpreter traces into practical programming rules. It is
 a map from common TI-BASIC patterns to the OS paths they exercise.
@@ -61,17 +61,16 @@ not yet traced end to end in this repo.
 ### Evidence manifest
 
 This branch keeps each claimed behavior tied to a runnable fixture or a
-negative probe trace. The visualization fixtures were rerun on 2026-06-07 and
-kept because they render visible output and pass first-to-final changed-pixel
-checks plus named crop-region checks for text, axes, circle arcs, nodes, and
-edges. `ANIMTXT` also has a distinct-frame threshold, so the animation fixture
+negative probe trace. The visualization fixtures render visible output and pass
+first-to-final changed-pixel checks plus named crop-region checks for text,
+axes, circle arcs, nodes, and edges. `ANIMTXT` also has a distinct-frame threshold, so the animation fixture
 must show multiple captured LCD states rather than only a final still. The
 smoke runner also checks final-screen regions for the main text, list, ASM
 interop, arbitrary-precision, and DFS outputs. The full
 `tools/tibasic_smoke.py` suite also passed on 2026-06-07 against the current
 branch state.
 
-| Goal area | Fixture or probe | Current evidence |
+| Goal area | Fixture or probe | Evidence |
 |-----------|------------------|------------------|
 | Hello world | `HELLO.8xp` | Displays `HELLO, WORLD`, then `Done`; reaches page-38 statement parsing and `_Disp`. |
 | Factorial | `FACTOR.8xp` | Prompt input `5` displays `120`; reaches loop parsing and `_FPMult`. |
@@ -86,7 +85,7 @@ branch state.
 | ASM-directed BASIC callback | `ASMBRIDG.8xp` + `ASMSIG.8xp` + `ZZBASIC.8xp` | ASM sets `Ans=1` with `_OP1Set1`/`_StoAns`, returns, and BASIC calls `prgmZZBASIC` through `If Ans`. |
 | ASM return value | `ASMRTN.8xp` + `ASMVAL.8xp` | ASM sets `Ans=2` with `_OP1Set2`/`_StoAns`; BASIC reads `Ans`, computes `Ans+3`, and displays `5`. |
 | ASM-side BASIC lookup | `ASMFIND.8xp` + `ZZFIND.8xp` + `ZZBASIC.8xp` | `AsmPrgm` can build `OP1={ProgObj,"ZZBASIC"}` and reach `findsym_scan`, then return to BASIC without running `ZZBASIC`. |
-| Direct ASM to BASIC execution | `ASMPARSE.8xp` + `ZZPARSE.8xp` + `ZZBASIC.8xp`; `ASMFORM.8xp` + `ZZFORM.8xp` + `ZZBASIC.8xp`; temporary probes | `_ParseInpLastEnt` reaches parser setup but ends at `ERR:INVALID`; `_Find_Parse_Formula` reaches parser/find setup but ends at `ERR:UNDEFINED`; `_ExecuteNewPrgm`, `_JForceCmd`, `_PutTokString`, and `_rclToQueue` do not prove a standalone callable BASIC-program ABI. |
+| Direct ASM to BASIC execution | `ASMPARSE.8xp` + `ZZPARSE.8xp` + `ZZBASIC.8xp`; `ASMFORM.8xp` + `ZZFORM.8xp` + `ZZBASIC.8xp`; probes | `_ParseInpLastEnt` reaches parser setup but ends at `ERR:INVALID`; `_Find_Parse_Formula` reaches parser/find setup but ends at `ERR:UNDEFINED`; `_ExecuteNewPrgm`, `_JForceCmd`, `_PutTokString`, and `_rclToQueue` do not prove a standalone callable BASIC-program ABI. |
 
 ## Run-confirmed fixtures
 
@@ -642,7 +641,7 @@ parser setup that expects a live parser/FPS call-frame shape. It is not a
 general "run this token stream" ABI for an arbitrary `AsmPrgm`. [confirmed]
 
 The homescreen command/edit-buffer route is also not a safe callable ABI. A
-temporary payload that did only:
+payload that did only:
 
 ```asm
 ld a,05h          ; kEnter
@@ -669,11 +668,10 @@ its ROM path depends on an already-open edit buffer (`editCursor`/`editTail`)
 and the `rclFlag.enableQueue` state; it does not create a BASIC program call
 frame. [confirmed probes; `_rclToQueue` role from disassembly]
 
-`_ExecuteNewPrgm` is the remaining tempting name, but temporary probes reject it
-as a public ASM-to-BASIC call path. A payload that sets `OP1` to `ProgObj`
-(`05`), points `HL` at the zero-terminated name `ZZBASIC`, and bcalls `4C3C`
-enters `_ExecuteNewPrgm` (`00:265F`) and `findsym_scan`, then ends at
-`ERR:SYNTAX`; `ZZBASIC` never displays `CALLED`. Repeating the test with
+`_ExecuteNewPrgm` (`00:265F`) is not a public ASM-to-BASIC entry — a payload
+that sets `OP1` to `ProgObj` (`05`), points `HL` at the zero-terminated name
+`ZZBASIC`, and bcalls `4C3C` enters it and `findsym_scan`, then ends at
+`ERR:SYNTAX` [confirmed]; `ZZBASIC` never displays `CALLED`. Repeating the test with
 `ZZBASIC` loaded as `ProtProgObj` (`06`) and `OP1=06` gets farther: the trace
 hits `_ExecuteNewPrgm`, the copy tail at `00:268A`, and the jump at `00:268F`.
 It still ends at `ERR:SYNTAX` and never runs the target body. That makes

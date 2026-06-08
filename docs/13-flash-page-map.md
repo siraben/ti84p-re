@@ -28,7 +28,7 @@ What lives on each of the 64 physical flash pages (16 KiB each). OS code occupie
 
 ## Page byte-scan notes (empty range, boot & system pages)
 
-This image appears OS-only in the local ROM-byte scan: scanning every page boundary found zero Flash-App headers (`80 0F …`), so no bundled apps are present in that scan. The current MCP interface does not expose raw byte search, so this remains a local scan result rather than an MCP-confirmed claim. Byte-level notes on the empty page range and the boot/system pages (some of which, e.g. `34–39`/`3B`/`3C`, also carry the bcalls listed above):
+No Flash-App headers (`80 0F`) appear at any page boundary; the image is OS-only [hypothesis]. Byte-level notes on the empty page range and the boot/system pages (some of which, e.g. `34–39`/`3B`/`3C`, also carry the bcalls listed above):
 
 | Page | Verified contents |
 |------|-------------------|
@@ -39,7 +39,7 @@ This image appears OS-only in the local ROM-byte scan: scanning every page bound
 | `3E` | **Certification page** — the per-calculator certificate sector (84+ cert page is `3E`, not `3F`). Blank (99% `0xFF`) in this OS-only image, since the cert is written per-device. The OS reads this sector through the `ti83plus.inc` cert bcalls: `_GetCertificateStart` (bcall `0x8057`) and `_GetCertificateEnd` (bcall `0x802D`) bound the sector, and `_FindFirstCertField` (bcall `0x8027`) / `_FindNextCertField` (bcall `0x8078`) walk its TLV fields. |
 | `3F` | **Retail boot page** — supplied by local `D84PBE1.8Xv`; starts `3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81`, carries boot version `1.03`, and hosts the `0x8xxx` boot bcall table. Boot/hardware-version bcalls now resolve to `_getBootVer` `3F:477C` (`0x80B7`) and `_getHardwareVersion` `3F:4781` (`0x80BA`). |
 
-The large-font glyph table is on page 0x07, base `07:45FF` — `put_glyph_large` (`07:4588`) computes the glyph pointer as `07:45FF + char*7` (7-byte stride, via the `07:45EB` adjuster) and copies an 8-byte record via `_Mov8B` to RAM `0x845A`; see [Display/LCD → Fonts](08-display-lcd.md#fonts-confirmed). Alternate large fonts live on pages 1 and 0x36 (selected by `(IY+0x35)` bits 5/1). Page 7 is the busiest data page (archive code, list/matrix, error messages, *and* the large font). [confirmed]
+The large-font glyph table is on page 0x07 (see [Display / LCD](08-display-lcd.md#fonts-confirmed)). Alternate large fonts live on pages 1 and 0x36 (selected by `(IY+0x35)` bits 5/1). Page 7 is the busiest data page (archive code, list/matrix, error messages, *and* the large font). [confirmed]
 
 ## Takeaway
 The OS is page-specialized: kernel + math on page 0, one subsystem per low page. A bcall is really "run subsystem X's routine on its page" — the page map *is* the subsystem decomposition, physically.

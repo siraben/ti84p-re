@@ -74,7 +74,7 @@ only `F2`–`FF`, §3). They fill the `PStat…SStat`/`anovaf_vars` block above 
 the `_OneVar` accumulate/variance/median/regression engine), confirming the tests live in their
 own command handlers reached from the parser's command dispatch, separate from the STAT‑CALC
 engine documented here. The exact per‑test handler addresses are not exposed as named routines
-in this DB. [confirmed: separate from `_OneVar`; addresses [I]]
+in this DB; those per-test handler addresses are [hypothesis]. [confirmed: separate from `_OneVar`]
 
 A scratch byte `0x8A36` (immediately below `statVars`) holds the stat‑command
 discriminator (the model index, set from the command token — see §3) for the
@@ -370,9 +370,9 @@ cores returns no `normalcdf`/`erf`/incomplete‑gamma/incomplete‑beta entry po
 `eqdisp_setnorm_split` layout helpers — none is a distribution. Likewise every `stat_*`
 symbol on page 0x3A is part of the `_OneVar` STAT‑CALC engine (accumulate / variance / median /
 sort / regression), not a DISTR core. So the erf / incomplete‑gamma / incomplete‑beta continued
-fractions are [I] — outside the STAT‑CALC engine, sitting behind the parser's 2‑byte
+fractions are [hypothesis] — outside the STAT‑CALC engine, sitting behind the parser's 2‑byte
 (`0xBB`‑prefixed) DISTR‑token function table; their exact page/address is not exposed as a
-named routine in this DB. [confirmed scope; address [I]]
+named routine in this DB. [confirmed scope; address hypothesis]
 
 ---
 
@@ -434,18 +434,18 @@ equations, depositing every output as a named `TIFloat` in the `statVars` block.
 `00:238A`=`_FPSquare`, `00:2541`=`_FPDiv`, `00:2294`=`_Minus1`, `02:6E38`/`3A:3939`
 =`_SqRoot`, `24BD`=`_InvOP1S`.
 
-## 12. Open items
-- **RESOLVED — `r` store offset.** `3A:684F` does `LD A,0x12 ; CALL 0x213D`
+## 12. Notes
+- **`r` store offset.** `3A:684F` does `LD A,0x12 ; CALL 0x213D`
   (`_Sto_StatVar`, id `0x12` = `tCorr`), i.e. `r → Corr (8ACA)`; `r²`/`R²` is the
   `r·r`/coefficient‑of‑determination from the same `6845` `_SqRoot`/`_FPDiv` cluster, surfaced
   through the same `Corr` slot (§5). (Residual: the `6845–6891` region is unanalyzed code in the
   DB, so only the `A=0x12` store sequence was byte‑pinned, not every intermediate.)
-- **RESOLVED (scope) — DISTR numerical cores** (erf/incomplete‑gamma/incomplete‑beta) are
+- **DISTR numerical cores** (erf/incomplete‑gamma/incomplete‑beta) are
   *outside* the STAT‑CALC engine: no distribution core is a named routine in this DB; they sit
-  behind the parser's 2‑byte DISTR‑token function table (`sub-tibasic`). Exact address [I] (§9).
-- **RESOLVED (scope) — STAT‑TESTS** (Z/T/χ²/F/ANOVA) that fill `PStat…SStat`/`anovaf_vars` are
+  behind the parser's 2‑byte DISTR‑token function table (`sub-tibasic`). Exact address [hypothesis] (§9).
+- **STAT‑TESTS** (Z/T/χ²/F/ANOVA) that fill `PStat…SStat`/`anovaf_vars` are
   *separate command handlers*, not reached through `_OneVar` (whose tokens are only `F2`–`FF`);
-  no `PStat`‑writing routine is among the page‑0x3A `stat_*` symbols (§1). Per‑test addresses [I].
+  no `PStat`‑writing routine is among the page‑0x3A `stat_*` symbols (§1). Per‑test addresses [hypothesis].
 - `stat_sort` (`3A:7935`) is a 49-byte setup that validates/counts the elements
   then dispatches the compare-swap via `rst 28h` (the bcall site isn't fully
   analyzed in the DB). The `SortA(`/`SortD(` *command* sort is a different routine

@@ -109,5 +109,5 @@ String variables are `StrngObj` (type 4) — not equation variables (`EquObj` = 
 - `String►Equ(` / `Equ►String(` (2-byte tokens `BB 56` / `BB 55` — `t2ByteTok` `0xBB` then `tStrngToEqu` `0x56` / `tEquToStrng` `0x55`) copy token bytes between a `Str` and a `Y=`/equation variable (string ↔ equation).
 - `sub(`, `length(` (`_StrLength`, id `0x4C3F` → `36:7F91`), and `inString(` operate on the token bytes; `_StrCopy` (`0x44E3` → `00:2810`) is the byte mover. The `"` string-literal delimiter in source is its own token, `tString` (`0x2A`).
 
-## Resolved
+## FindSym scan and VAT entry layout
 The `_FindSym` scan loop and per-class VAT entry layout are byte-verified in [Variables, Archive & Unarchive](sub-vat-archive.md) (`findsym_scan`@`07:565F`; `tSymPtr1`/`tSymPtr2` and archived-var resolution covered there).
