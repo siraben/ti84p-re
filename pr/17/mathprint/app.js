@@ -112,20 +112,28 @@ function center(rows, w) {
 
 // Fraction: numerator over a full-width rule over the denominator.
 // Bar row is the math axis (matches the OS centring a sibling glyph on the bar).
+const FRAC_SIDE = 1;     // px of horizontal side-bearing the OS reserves around a
+                         // fraction box. Trimmed away when a fraction stands alone
+                         // (so 1//2 stays 5 px wide), but it shows as real spacing
+                         // when the fraction abuts other glyphs — e.g. inside the
+                         // integral body's delimiters the calc leaves a 3 px gap
+                         // ( ( right edge x13, frac bar x17 ) = parens gap 2 + this 1.
 function fraction(num, den) {
   const n = trim(num), d = trim(den);   // the OS stacks tight small-font digits
-  const w = Math.max(bw(n), bw(d)) + FRAC_PAD;
+  const inner = Math.max(bw(n), bw(d)) + FRAC_PAD;
+  const w = inner + 2 * FRAC_SIDE;      // bar width plus a side-bearing column each side
   const gap = [new Array(w).fill(0)];
-  const bar = [new Array(w).fill(1)];
+  const bar = [new Array(w).fill(0)];
+  for (let x = FRAC_SIDE; x < FRAC_SIDE + inner; x++) bar[0][x] = 1;
   // 1px gap above and below the rule, matching the calculator
   const rows = center(n.rows, w).concat(gap, bar, gap, center(d.rows, w));
   const nPad = (w - bw(n)) >> 1, dPad = (w - bw(d)) >> 1;
-  const barMark = { ch: '─ bar', x: 0, y: bh(n) + 1, w, h: 1, type: 'rule',
+  const barMark = { ch: '─ bar', x: FRAC_SIDE, y: bh(n) + 1, w: inner, h: 1, type: 'rule',
                     via: 'eqdisp_draw_fraction_bar 39:6abf', vars: '0x85EE/0x85EF widths' };
   // emission order: numerator, rule, denominator
   const marks = shift(n.marks, nPad, 0)
     .concat([barMark], shift(d.marks, dPad, bh(n) + 3));
-  return { rows, baseline: bh(n) + 1, marks };   // math axis = the bar row
+  return { rows, baseline: bh(n) + 1, marks, kind: 'fraction' };   // math axis = the bar row
 }
 
 // Superscript: the exponent (small font, already trimmed) is anchored by its
@@ -187,13 +195,22 @@ function parens(box) {
   const h = bh(box);
   const lp = stretch(trim(largeGlyph(0x28)), h, 3);
   const rp = stretch(trim(largeGlyph(0x29)), h, 3);
+  // The OS wraps the content in delimiters of exactly the content's height,
+  // centred on the content (trace: ( spans the same rows as the body, no taller).
+  // stretch() centres the baseline at h>>1, which can disagree with the content
+  // baseline and make hcat add a phantom row; pin the delimiters to the content's
+  // baseline so the wrapped box is the same height as the body.
+  lp.baseline = rp.baseline = box.baseline;
   // emit the delimiters as ordered elements ( body ) so the draw animation shows
   // them as separate steps, matching the trace, not lumped into the final reveal
   lp.marks = [{ ch: '(', x: 0, y: 0, w: bw(lp), h: bh(lp), type: 'glyph',
                font: 'large', via: 'delimiter (stretched)' }];
   rp.marks = [{ ch: ')', x: 0, y: 0, w: bw(rp), h: bh(rp), type: 'glyph',
                font: 'large', via: 'delimiter (stretched)' }];
-  return hcat([lp, box, rp], 1);
+  // The OS leaves a 2 px gap between a delimiter and the wrapped content (trace
+  // int(1,2,(...)X,X): ( right edge x13, content X left edge x16 -> 2 blank cols),
+  // one more than the default text gap.
+  return hcat([lp, box, rp], 2);
 }
 
 // A big operator (∫, Σ): a tall sign with upper/lower limits stacked at its
@@ -215,21 +232,48 @@ function bigOp(signCode, signName, lo, hi, inner, stem) {
     for (let x = 0; x < bw(hiB); x++) if (hiB.rows[y][x]) out[y][bw(sign) + 1 + x] = 1;
   for (let y = 0; y < bh(loB); y++)
     for (let x = 0; x < bw(loB); x++) if (loB.rows[y][x]) out[h - bh(loB) + y][bw(sign) + 1 + x] = 1;
-  const signBox = { rows: out, baseline: h >> 1, marks: [
+  // The OS centres the body vertically on the sign and starts it 2 px after the
+  // sign+limit block (trace int(1,2,X^2,X): sign rows 0-19, limits at the sign's
+  // top/bottom corners, body ( at x = sign+limit_right + 2, body rows 5-14 i.e.
+  // (h-bodyH)/2). Place the body directly so its midpoint lands on the sign centre
+  // rather than its (off-centre) text baseline.
+  const blockW = bw(sign) + 1 + rw;        // sign + gap + limit column
+  const bodyX = blockW + 2;
+  const bodyTop = Math.max(0, Math.round((h - bh(inner)) / 2));
+  const W = Math.max(blockW, bodyX + bw(inner));
+  const fullH = Math.max(h, bodyTop + bh(inner));
+  const grid = blank(fullH, W);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < blockW; x++) if (out[y][x]) grid[y][x] = 1;
+  for (let y = 0; y < bh(inner); y++)
+    for (let x = 0; x < bw(inner); x++) if (inner.rows[y][x]) grid[bodyTop + y][bodyX + x] = 1;
+  const marks = [
     { ch: signName, x: 0, y: 0, w: bw(sign), h, type: 'glyph', font: 'large',
       via: `0x${signCode.toString(16)}` + (stem == null ? '' : ' (stretched)') },
     ...shift(hiB.marks, bw(sign) + 1, 0),
     ...shift(loB.marks, bw(sign) + 1, h - bh(loB)),
-  ] };
-  // trace: body starts ~6 px after the sign+limits block
-  return hcat([signBox, inner], 5);
+    ...shift(inner.marks, bodyX, bodyTop),
+  ];
+  // The OS reserves a 2 px right bearing after a big-operator box: anything that
+  // follows it (an additive "+", or a wrapping closing delimiter) sits 2 px past
+  // the integrand's last column (trace int(1,2,(1//2)X,X)+2: dX right edge x46,
+  // "+" left edge x48 -> 2 blank cols; and (int(...))+2: closing ) leftmost ink
+  // 4 px past dX = parens' 2 px gap + this 2 px bearing). adv > bw advances the
+  // pen that far without widening the bitmap.
+  return { rows: grid, baseline: bodyTop + inner.baseline, marks, adv: W + 2 };
 }
 
 // Definite integral: ∫ with limits, then ( body ) d var. lo/hi may be a string
 // (small font, like the OS) or a box. Lintegral 0x08 = top hook (rows 0-1),
 // stem (rows 2-4), bottom hook (rows 5-6); repeat a stem row when stretching.
 function integral(lo, hi, body, varBox) {
-  const inner = hcat([parens(body), text('d'), varBox || text('X')], 1);
+  // The OS wraps the whole integrand in tall parentheses (trace ∫((1/2)X)dX shows a
+  // single ( ... ) pair around the 1/2-times-X body; the user's literal parens
+  // around the fraction are elided, since a stacked fraction needs none). The
+  // closing delimiter then has a 2 px right bearing before the differential "d",
+  // and 1 px between "d" and the variable.
+  const diff = hcat([text('d'), varBox || text('X')], 1);
+  const inner = hcat([parens(body), diff], 2);
   return bigOp(0x08, '∫ Lintegral', lo, hi, inner, 3);
 }
 // Summation Σ (MATH>0, glyph 0xC6): the OS stacks the limits vertically - the
@@ -360,7 +404,20 @@ function parse(src) {
   function number() { let j = i; while (/[0-9.]/.test(peek())) i++; return s.slice(j, i); }
 
   function atom() {
-    if (eat('(')) { const b = expr(); eat(')'); return b; }
+    // Typed parens render as tall delimiters, matching the calculator. A lone
+    // stacked fraction is self-delimiting, so parens around just a fraction are
+    // elided (e.g. (1//2)X shows ½X, not (½)X).
+    if (eat('(')) {
+      const b = expr(); eat(')');
+      if (b.kind === 'fraction') return b;   // self-delimiting; no tall parens
+      // The OS reserves a 1 px right bearing after a typed parenthesised group:
+      // a following glyph sits 1 px past the closing delimiter's last column
+      // (trace (X)+2, (1//2+1)+2, (int(...))+2 all show the post-")" glyph one
+      // column further right than the default text gap). adv > bw advances the
+      // pen without widening the bitmap.
+      const p = parens(b);
+      return { ...p, adv: bw(p) + 1 };
+    }
     if (/[0-9.]/.test(peek())) return text(number());
     if (/[A-Za-z]/.test(peek())) {
       const id = ident();

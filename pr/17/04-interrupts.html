@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-493433b1.js";
+            window.path_to_searchindex_js = "searchindex-accbfdfb.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-76256a07.js"></script>
@@ -179,7 +179,7 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="04--interrupts-im1"><a class="header" href="#04--interrupts-im1">04 — Interrupts (IM1)</a></h1>
+                        <h1 id="interrupts-im1"><a class="header" href="#interrupts-im1">Interrupts (IM1)</a></h1>
 <p>The Z80 runs in interrupt mode 1: every maskable interrupt vectors to <code>0038h</code>. There is no vector table — one handler services all sources by polling status ports.</p>
 <h2 id="vector--handler-confirmed"><a class="header" href="#vector--handler-confirmed">Vector → handler [confirmed]</a></h2>
 <pre><code class="language-z80">0038:  JR  0x006d        ; RST 38h vector
