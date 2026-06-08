@@ -28,15 +28,7 @@ Every non-obvious claim is tagged:
 | [standard] | Matches the publicly-documented TI-83+/84+ architecture and is consistent with the disassembly, but not every byte was traced. |
 | [hypothesis] | Inferred / not yet verified — treat with caution. |
 
-Some early deep-dive docs use shorthand `[C]`/`[H]`/`[I]` ≈ `[confirmed]`/`[standard]`/`[hypothesis]`; read them against this three-tier scheme. A flag is a plain bracketed token — `[confirmed]`, not `**[confirmed]**`. These three tiers are the whole scheme; there is no `[strong]` or `[inferred]` flag.
-
-## Typography
-
-- **Em dash** — a spaced em dash ` — ` sets off a parenthetical break in prose.
-- **En dash** — an en dash `–` joins a numeric, address, or register range: `0x08`–`0x0D`, `L1`–`L4`, `OP1`–`OP6`, and two-name compounds such as Gauss–Kronrod. A hyphen inside a single code span (`` `0x8000-0x9BC3` ``) is literal.
-- **Hyphen** — joins compound modifiers: `cross-page`, `byte-verified`, `little-endian`.
-- **Bold** is reserved for UI elements — a calculator key or menu name such as **Y=**, **MODE**, **TRACE** — and run-in labels ending in `.`/`:`. It is not used for emphasis; italics carry emphasis, sparingly, where word choice cannot. Confidence flags, addresses, ports, registers, and routine names take code/notation markup, not bold.
-- Bullet lists use `-`.
+Some early deep-dive docs use shorthand `[C]`/`[H]`/`[I]` ≈ `[confirmed]`/`[standard]`/`[hypothesis]`; read them against this three-tier scheme.
 
 ## Function naming
 
@@ -45,9 +37,7 @@ Some early deep-dive docs use shorthand `[C]`/`[H]`/`[I]` ≈ `[confirmed]`/`[st
 
 ## Math notation
 
-Formulas are written in LaTeX and rendered by KaTeX (offline, client-side): `$…$` for inline math and `$$…$$` (or `\[…\]`) for display. KaTeX skips `<code>`/`<pre>`, so `$`-prefixed hex like `$1A2F` inside code blocks is left untouched.
-
-> **Escaping caveat:** mdBook runs markdown *before* the client-side KaTeX pass, and markdown strips a backslash before ASCII punctuation. So inside `$…$`/`$$…$$` you must *double* those escapes — write `\\,` (thin space), `\\%` (percent), `\\\\` (matrix/array row break), `\\{`/`\\}` — otherwise KaTeX receives `,`/`%`/`\` and mis-renders (a bare `%` even comments out the rest of the formula). Backslash-before-letter macros (`\frac`, `\sum`, `\sqrt`, …) are safe as-is. Fenced ` ```pseudocode `/` ```mermaid ` blocks are verbatim and need no doubling. Algorithms are written as ` ```pseudocode ` blocks in [pseudocode.js](https://github.com/SaswatPadhi/pseudocode.js) `\begin{algorithm}` syntax and typeset client-side. Diagrams use Mermaid (` ```mermaid `) and render to SVG. See the repository `flake.nix`/`book.toml` for how the assets are vendored.
+Formulas are written in LaTeX and rendered by KaTeX (offline, client-side): `$…$` for inline math and `$$…$$` for display. Algorithms render as pseudocode blocks and data/control-flow diagrams as Mermaid.
 
 ## How this RE was produced
 
