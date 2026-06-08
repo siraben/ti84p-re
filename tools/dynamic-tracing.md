@@ -11,13 +11,13 @@ The bridge between TilEm's trace and our static model is
 
 ## Why this is non-trivial
 
-TilEm records only the **logical 16-bit PC** of each instruction. On the
+TilEm records only the logical 16-bit PC of each instruction. On the
 84+, `4000–7FFF` and `8000–BFFF` are banked flash/RAM windows (see
 [docs/02-paging.md](../docs/02-paging.md)), so a logical PC like `0x412c` is
 ambiguous until you know which page ports 6/7 had selected. The resolver
 recovers banking by replaying the OUT instructions in the trace itself:
 
-- `OUT (n),A` — TilEm sets `WZ = (A<<8) | n`, so **port = `WZ & 0xFF`, value = `WZ >> 8`**.
+- `OUT (n),A` — TilEm sets `WZ = (A<<8) | n`, so port = `WZ & 0xFF`, value = `WZ >> 8`.
 - Port 5 selects the high RAM `C000` window (bank C), port 6 selects the `4000`
   window (bank A), and port 7 selects the `8000` window (bank B).
 - Ports 6/7 use bit 7 as the RAM selector. With bit 7 clear, low six bits select
@@ -68,7 +68,7 @@ Three gotchas that will otherwise waste your time:
 
 Macro syntax is one command per line (`wait`, `key NAME [hold T]`,
 `press`/`release`, `type`, `screenshot`, `memdump`); `#`/`//` start a
-**whole-line** comment only — a trailing `# …` after a command is parsed as a
+whole-line comment only — a trailing `# …` after a command is parsed as a
 (bad) hold-time. Full key-name list is in `tilem-headless/headless/script.c`.
 
 ## 3. Resolve the trace to Ghidra addresses

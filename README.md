@@ -1,8 +1,8 @@
 # TI-84 Plus OS — Reverse Engineering
 
-A reproducible Ghidra reverse-engineering project for the **TI-84 Plus** calculator OS (**version 2.55MP**), a Zilog **Z80** system. This repo contains the build scripts, derived symbol data, and reverse-engineering notes — **not** the ROM image (copyrighted) or the Ghidra database (regenerable).
+A reproducible Ghidra reverse-engineering project for the TI-84 Plus calculator OS (version 2.55MP), a Zilog Z80 system. This repo contains the build scripts, derived symbol data, and reverse-engineering notes — not the ROM image (copyrighted) or the Ghidra database (regenerable).
 
-📖 **Read the rendered wiki: <https://siraben.github.io/ti84p-re/>**
+📖 Read the rendered wiki: <https://siraben.github.io/ti84p-re/>
 
 ## What's here
 
@@ -17,7 +17,7 @@ The ROM (`ti84plus.rom`) and the Ghidra project (`*.gpr`/`*.rep`) are gitignored
 
 ## Browse the wiki
 
-The `docs/` are also a rendered **[mdBook](https://rust-lang.github.io/mdBook/) wiki** (sidebar nav + full-text search):
+The `docs/` are also a rendered [mdBook](https://rust-lang.github.io/mdBook/) wiki (sidebar nav + full-text search):
 
 ```sh
 nix run            # live server at http://127.0.0.1:3000
@@ -27,7 +27,7 @@ nix develop        # shell with mdbook
 
 ## Build
 
-Requires Ghidra 12.1 + JDK 21. With Ghidra **closed**:
+Requires Ghidra 12.1 + JDK 21. With Ghidra *closed*:
 
 ```sh
 tools/build.sh        # ~10s; rebuilds ~/Documents/ti84-re/ti84.gpr
@@ -52,16 +52,16 @@ Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `
 | Metric | Value |
 |--------|-------|
 | Functions | rebuilt from the local ROM by `tools/build.sh` |
-| bcall routines named | **679** total: 596 main-table bcalls + 83 retail boot-table bcalls |
+| bcall routines named | 679 total: 596 main-table bcalls + 83 retail boot-table bcalls |
 | bjump sites resolved | 355 inline sites + 87-entry trampoline table |
 | parser handlers | 84 (page 0x38 dispatch table) |
 | Defined data (strings/floats/typed) | 618 |
 | Flash pages loaded | 64 (1 MiB) |
-| Docs | 30 (15 core 00–13/99 + 11 subsystem deep-dives + 4 reference) |
+| Docs | 35 (16 core 00–14/99 + 15 subsystem deep-dives + 4 reference) |
 
 ## Architecture in one paragraph
 
-A Z80 (64 KiB address space) with hardware **paging** maps flash page 0 at `0000` (the kernel: RST vectors, the bcall dispatcher, FP/VAT/memory core) and swaps other 16 KiB flash pages into `4000` on demand. Code reaches routines on other pages via **bcalls** (`rst 28h` + a 2-byte ID resolved through a jump table on flash page `0x3B`). The OS is a single-tasking **context** machine: a main event loop runs the active context's handlers, switching contexts by key. All arithmetic flows through a 9-byte **BCD floating-point** engine (OP1–OP6); named objects live in the **VAT**; TI-BASIC is stored as 1/2-byte **tokens** executed by the parser on page `0x38`.
+A Z80 (64 KiB address space) with hardware paging maps flash page 0 at `0000` (the kernel: RST vectors, the bcall dispatcher, FP/VAT/memory core) and swaps other 16 KiB flash pages into `4000` on demand. Code reaches routines on other pages via bcalls (`rst 28h` + a 2-byte ID resolved through a jump table on flash page `0x3B`). The OS is a single-tasking context machine: a main event loop runs the active context's handlers, switching contexts by key. All arithmetic flows through a 9-byte BCD floating-point engine (OP1–OP6); named objects live in the VAT; TI-BASIC is stored as 1/2-byte tokens executed by the parser on page `0x38`.
 
 ## Documentation index
 
@@ -84,7 +84,7 @@ A Z80 (64 KiB address space) with hardware **paging** maps flash page 0 at `0000
 | [14](docs/14-ram-pages.md) | RAM page selectors, page `83`, and restore rules |
 | [99](docs/99-open-questions.md) | Future-work roadmap |
 
-**Subsystem deep-dives** (from parallel multi-agent RE): `sub-calculation`, `sub-graphing`, `sub-tibasic`, `sub-vat-archive`, `sub-apps-mem-settings`, `sub-statistics`, `sub-matrix-list`, `sub-solver-numeric`, `sub-table-yvars`, `sub-equation-display`, `sub-link-transfer`, `sub-usb-asic`.
+**Subsystem deep-dives** (from parallel multi-agent RE): `sub-calculation`, `sub-graphing`, `sub-tibasic`, `sub-tibasic-programming`, `sub-tibasic-tracing`, `sub-tibasic-for-paren`, `sub-vat-archive`, `sub-apps-mem-settings`, `sub-statistics`, `sub-matrix-list`, `sub-solver-numeric`, `sub-table-yvars`, `sub-equation-display`, `sub-link-transfer`, `sub-usb-asic`.
 
 **Reference**: [`glossary`](docs/glossary.md) (terms & key RAM symbols), [`conventions`](docs/conventions.md) (notation, confidence flags, methodology), [`bcall-index`](docs/bcall-index.md) (main and retail boot bcalls), [`token-tables`](docs/token-tables.md) (492 two-byte tokens, from TI-Toolkit/tokens).
 
@@ -93,9 +93,9 @@ A Z80 (64 KiB address space) with hardware **paging** maps flash page 0 at `0000
 Wiki authoring style lives in the repo-local Codex skill [`ti84-re-writing`](.codex/skills/ti84-re-writing/SKILL.md), which merges prose voice, positive framing, structure, sentence-case headings, address notation, confidence flags, function naming, and mdBook mechanics into one authoring guide. The reader-facing [`docs/conventions.md`](docs/conventions.md) remains the rendered explanation of notation and methodology. Claims are grounded against the live Ghidra DB (GhidraMCP over `:8080`); for routines its auto-analysis left undefined (cross-page trampolines break the call graph), decode `tools/rom.bin` directly — e.g. with `z80dasm`, validated against a routine Ghidra *does* define. For *dynamic* ground truth — what actually executes, isolated by coverage diff — run the ROM under headless TilEm and map the trace back onto the `page_NN:addr` model with [`tools/dynamic-tracing.md`](tools/dynamic-tracing.md). Run `nix build` before committing to confirm math and diagram fences parse.
 
 ## Legal
-Independent reverse-engineering notes for interoperability/education. **No copyrighted TI ROM image or OS code is included** — the ROM is gitignored and you supply your own dump. `ti83plus.inc` is TI's freely-distributed equates file (the full 2007 TI-83 Plus SDK include, the complete version as hosted on WikiTI). All trademarks belong to Texas Instruments; this project is not affiliated with or endorsed by TI.
+Independent reverse-engineering notes for interoperability/education. No copyrighted TI ROM image or OS code is included — the ROM is gitignored and you supply your own dump. `ti83plus.inc` is TI's freely-distributed equates file (the full 2007 TI-83 Plus SDK include, the complete version as hosted on WikiTI). All trademarks belong to Texas Instruments; this project is not affiliated with or endorsed by TI.
 
 ## Notes
 - `ti83plus.inc` is the full 2007 TI-83 Plus SDK equates file (the complete version as hosted on WikiTI), which replaces the earlier trimmed copy. It defines the 84+-era `0x8xxx` boot bcall IDs. With the local complete ROM assembled from `ti84plus_patched.rom`, `D84PBE1.8Xv`, and `D84PBE2.8Xv`, those entries resolve through retail page `3F`; the USB boot routines land on page `2F`.
-- ~1600 function names beyond the official bcalls are **RE-inferred** from behavior (callees, RAM/port touches) — accurate in aggregate, but a specific low-level helper's name is a best-effort guess; flagged by snake_case (vs the `_CamelCase` official TI bcalls).
-- Confidence flags in the docs: **[confirmed]** (seen in disassembly), **[standard]** (matches documented TI architecture), **[hypothesis]** (inferred).
+- ~1600 function names beyond the official bcalls are RE-inferred from behavior (callees, RAM/port touches) — accurate in aggregate, but a specific low-level helper's name is a best-effort guess; flagged by snake_case (vs the `_CamelCase` official TI bcalls).
+- Confidence flags in the docs: [confirmed] (seen in disassembly), [standard] (matches documented TI architecture), [hypothesis] (inferred).
