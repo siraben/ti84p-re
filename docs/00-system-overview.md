@@ -2,7 +2,7 @@
 
 Target: `ti84plus.rom` (1 MiB flash dump). OS self-identifies as 2.55MP. CPU: Zilog Z80 (16-bit address bus, 64 KiB logical space) with hardware flash/RAM paging. Ghidra project: `~/Documents/ti84-re/ti84.gpr` (rebuild: `tools/build.sh`).
 
-> These are living notes written during RE. Confidence is flagged: [confirmed] = verified in disassembly/decompiler; [standard] = matches documented TI-83+/84+ architecture and is consistent with the disassembly; [hypothesis] = inferred, not yet verified.
+> Confidence is flagged: [confirmed] = verified in disassembly/decompiler; [standard] = matches documented TI-83+/84+ architecture and is consistent with the disassembly; [hypothesis] = inferred, not yet verified.
 
 ## The big picture
 
@@ -57,12 +57,3 @@ Each row maps a documentation page to the subsystem it covers and its analysis s
 New to these notes? Start with [Conventions & Methodology](conventions.md) (how to read the addresses and confidence flags) and the [Glossary](glossary.md); the [bcall Index](bcall-index.md) is the full alphabetical system-call reference.
 
 Database state: the main `0x4xxx` bcall table is resolved, the retail boot bcall table (`0x8xxx`) is resolved from the local complete ROM, and TI-OS types are applied. Most boot bcall bodies are on page `3F`; USB boot routines such as `_AttemptUSBOSReceive`, `_ReceiveOS_USB`, `_InitUSB`, and `_KillUSB` are on page `2F`. Rebuild: `tools/build.sh`.
-
-## Key anchors found so far
-
-- Reset entry `reset` @ `ram:0000` [confirmed]
-- bcall dispatcher `bcall_dispatcher` @ `ram:2a2f` (RST 28h) [confirmed]
-- IM1 interrupt dispatcher `int_dispatch_sources` @ `ram:006f` (via RST 38h through the `ram:006d` shadow-register prologue) [confirmed]
-- System flags base `flags` @ `0x89F0` (IY-indexed), typed `SystemFlags` [confirmed]
-- FP registers `OP1`–`OP6` @ `0x8478`+ [standard]
-- 126 BCD float constants ROM-wide incl. π/180, 180/π [ROM-scan result; not directly verifiable through the current MCP byte interface]
