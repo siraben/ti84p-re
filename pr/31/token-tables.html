@@ -1,0 +1,866 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>2-byte token tables - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-e2ed0df2.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-cbaaedfe.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="2-byte-token-tables"><a class="header" href="#2-byte-token-tables">2-byte token tables</a></h1>
+<p>The second-byte tables for every 2-byte token on the TI-84 Plus (OS 2.55MP). The tokenizer detects a 2-byte lead via <code>_IsA2ByteTok</code> (<code>00:1FE8</code>) — see <a href="07-tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a> — then the second byte indexes the group below.</p>
+<p>Names are sourced from the <a href="https://github.com/TI-Toolkit/tokens">TI-Toolkit/tokens</a> sheet (<code>8X.xml</code>) and filtered to tokens that exist on the monochrome 84+ (≤ 2.55MP): the <code>TI-84+CSE</code>/<code>TI-84+CE</code> color/Python-era 2-byte tokens are excluded. The <code>Since</code> column is the model that introduced each token. Token text is the English <em>display</em> form (the source also carries an ASCII-<code>accessible</code> spelling, e.g. <code>&gt;DMS</code> for <code>►DMS</code>).</p>
+<p>492 two-byte tokens across 11 lead bytes. (Single-byte tokens are modeled by the <code>TIToken</code> enum — see <a href="07-tokenizer-basic.html">07</a>.)</p>
+<p>This file is generated by <code>tools/gen-token-tables.py</code>; edit that, not this.</p>
+<hr>
+<h2 id="5c--matrix-names--aj"><a class="header" href="#5c--matrix-names--aj"><code>5C</code> — Matrix names  (<code>[A]</code>–<code>[J]</code>)</a></h2>
+<p><em>10 tokens on the 84+ (2.55MP).</em>  Second byte → token:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>2nd</th><th>Token</th><th>Since</th></tr>
+</thead>
+<tbody>
+<tr><td><code>00</code></td><td><code>[A]</code></td><td>TI-82</td></tr>
+<tr><td><code>01</code></td><td><code>[B]</code></td><td>TI-82</td></tr>
+<tr><td><code>02</code></td><td><code>[C]</code></td><td>TI-82</td></tr>
+<tr><td><code>03</code></td><td><code>[D]</code></td><td>TI-82</td></tr>
+<tr><td><code>04</code></td><td><code>[E]</code></td><td>TI-82</td></tr>
+<tr><td><code>05</code></td><td><code>[F]</code></td><td>TI-83</td></tr>
+<tr><td><code>06</code></td><td><code>[G]</code></td><td>TI-83</td></tr>
+<tr><td><code>07</code></td><td><code>[H]</code></td><td>TI-83</td></tr>
+<tr><td><code>08</code></td><td><code>[I]</code></td><td>TI-83</td></tr>
+<tr><td><code>09</code></td><td><code>[J]</code></td><td>TI-83</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="5d--list-names--built-in-l₁l₆"><a class="header" href="#5d--list-names--built-in-l₁l₆"><code>5D</code> — List names  (built-in <code>L₁</code>–<code>L₆</code>)</a></h2>
+<p><em>6 tokens on the 84+ (2.55MP).</em>  Second byte → token:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>2nd</th><th>Token</th><th>Since</th></tr>
+</thead>
+<tbody>
+<tr><td><code>00</code></td><td><code>L₁</code></td><td>TI-82</td></tr>
+<tr><td><code>01</code></td><td><code>L₂</code></td><td>TI-82</td></tr>
+<tr><td><code>02</code></td><td><code>L₃</code></td><td>TI-82</td></tr>
+<tr><td><code>03</code></td><td><code>L₄</code></td><td>TI-82</td></tr>
+<tr><td><code>04</code></td><td><code>L₅</code></td><td>TI-82</td></tr>
+<tr><td><code>05</code></td><td><code>L₆</code></td><td>TI-82</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="5e--equation-variables--y-functions-parametric-polar-sequence"><a class="header" href="#5e--equation-variables--y-functions-parametric-polar-sequence"><code>5E</code> — Equation variables  (Y= functions, parametric, polar, sequence)</a></h2>
+<p><em>31 tokens on the 84+ (2.55MP).</em>  Second byte → token:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>2nd</th><th>Token</th><th>Since</th></tr>
+</thead>
+<tbody>
+<tr><td><code>10</code></td><td><code>Y₁</code></td><td>TI-82</td></tr>
+<tr><td><code>11</code></td><td><code>Y₂</code></td><td>TI-82</td></tr>
+<tr><td><code>12</code></td><td><code>Y₃</code></td><td>TI-82</td></tr>
+<tr><td><code>13</code></td><td><code>Y₄</code></td><td>TI-82</td></tr>
+<tr><td><code>14</code></td><td><code>Y₅</code></td><td>TI-82</td></tr>
+<tr><td><code>15</code></td><td><code>Y₆</code></td><td>TI-82</td></tr>
+<tr><td><code>16</code></td><td><code>Y₇</code></td><td>TI-82</td></tr>
+<tr><td><code>17</code></td><td><code>Y₈</code></td><td>TI-82</td></tr>
+<tr><td><code>18</code></td><td><code>Y₉</code></td><td>TI-82</td></tr>
+<tr><td><code>19</code></td><td><code>Y₀</code></td><td>TI-82</td></tr>
+<tr><td><code>20</code></td><td><code>X₁ᴛ</code></td><td>TI-82</td></tr>
+<tr><td><code>21</code></td><td><code>Y₁ᴛ</code></td><td>TI-82</td></tr>
+<tr><td><code>22</code></td><td><code>X₂ᴛ</code></td><td>TI-82</td></tr>
+<tr><td><code>23</code></td><td><code>Y₂ᴛ</code></td><td>TI-82</td></tr>
+<tr><td><code>24</code></td><td><code>X₃ᴛ</code></td><td>TI-82</td></tr>
+<tr><td><code>25</code></td><td><code>Y₃ᴛ</code></td><td>TI-82</td></tr>
+<tr><td><code>26</code></td><td><code>X₄ᴛ</code></td><td>TI-82</td></tr>
+<tr><td><code>27</code></td><td><code>Y₄ᴛ</code></td><td>TI-82</td></tr>
+<tr><td><code>28</code></td><td><code>X₅ᴛ</code></td><td>TI-82</td></tr>
+<tr><td><code>29</code></td><td><code>Y₅ᴛ</code></td><td>TI-82</td></tr>
+<tr><td><code>2A</code></td><td><code>X₆ᴛ</code></td><td>TI-82</td></tr>
+<tr><td><code>2B</code></td><td><code>Y₆ᴛ</code></td><td>TI-82</td></tr>
+<tr><td><code>40</code></td><td><code>r₁</code></td><td>TI-82</td></tr>
+<tr><td><code>41</code></td><td><code>r₂</code></td><td>TI-82</td></tr>
+<tr><td><code>42</code></td><td><code>r₃</code></td><td>TI-82</td></tr>
+<tr><td><code>43</code></td><td><code>r₄</code></td><td>TI-82</td></tr>
+<tr><td><code>44</code></td><td><code>r₅</code></td><td>TI-82</td></tr>
+<tr><td><code>45</code></td><td><code>r₆</code></td><td>TI-82</td></tr>
+<tr><td><code>80</code></td><td><code>u</code></td><td>TI-82</td></tr>
+<tr><td><code>81</code></td><td><code>v</code></td><td>TI-82</td></tr>
+<tr><td><code>82</code></td><td><code>w</code></td><td>TI-82</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="60--pictures--pic1pic0"><a class="header" href="#60--pictures--pic1pic0"><code>60</code> — Pictures  (<code>Pic1</code>–<code>Pic0</code>)</a></h2>
+<p><em>10 tokens on the 84+ (2.55MP).</em>  Second byte → token:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>2nd</th><th>Token</th><th>Since</th></tr>
+</thead>
+<tbody>
+<tr><td><code>00</code></td><td><code>Pic1</code></td><td>TI-82</td></tr>
+<tr><td><code>01</code></td><td><code>Pic2</code></td><td>TI-82</td></tr>
+<tr><td><code>02</code></td><td><code>Pic3</code></td><td>TI-82</td></tr>
+<tr><td><code>03</code></td><td><code>Pic4</code></td><td>TI-82</td></tr>
+<tr><td><code>04</code></td><td><code>Pic5</code></td><td>TI-82</td></tr>
+<tr><td><code>05</code></td><td><code>Pic6</code></td><td>TI-82</td></tr>
+<tr><td><code>06</code></td><td><code>Pic7</code></td><td>TI-83</td></tr>
+<tr><td><code>07</code></td><td><code>Pic8</code></td><td>TI-83</td></tr>
+<tr><td><code>08</code></td><td><code>Pic9</code></td><td>TI-83</td></tr>
+<tr><td><code>09</code></td><td><code>Pic0</code></td><td>TI-83</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="61--graph-databases--gdb1gdb0"><a class="header" href="#61--graph-databases--gdb1gdb0"><code>61</code> — Graph databases  (<code>GDB1</code>–<code>GDB0</code>)</a></h2>
+<p><em>10 tokens on the 84+ (2.55MP).</em>  Second byte → token:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>2nd</th><th>Token</th><th>Since</th></tr>
+</thead>
+<tbody>
+<tr><td><code>00</code></td><td><code>GDB1</code></td><td>TI-82</td></tr>
+<tr><td><code>01</code></td><td><code>GDB2</code></td><td>TI-82</td></tr>
+<tr><td><code>02</code></td><td><code>GDB3</code></td><td>TI-82</td></tr>
+<tr><td><code>03</code></td><td><code>GDB4</code></td><td>TI-82</td></tr>
+<tr><td><code>04</code></td><td><code>GDB5</code></td><td>TI-82</td></tr>
+<tr><td><code>05</code></td><td><code>GDB6</code></td><td>TI-82</td></tr>
+<tr><td><code>06</code></td><td><code>GDB7</code></td><td>TI-83</td></tr>
+<tr><td><code>07</code></td><td><code>GDB8</code></td><td>TI-83</td></tr>
+<tr><td><code>08</code></td><td><code>GDB9</code></td><td>TI-83</td></tr>
+<tr><td><code>09</code></td><td><code>GDB0</code></td><td>TI-83</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="62--statistics--regression--output-variables"><a class="header" href="#62--statistics--regression--output-variables"><code>62</code> — Statistics / regression / output variables</a></h2>
+<p><em>60 tokens on the 84+ (2.55MP).</em>  Second byte → token:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>2nd</th><th>Token</th><th>Since</th></tr>
+</thead>
+<tbody>
+<tr><td><code>01</code></td><td><code>RegEQ</code></td><td>TI-82</td></tr>
+<tr><td><code>02</code></td><td><code>n</code></td><td>TI-82</td></tr>
+<tr><td><code>03</code></td><td><code>x̄</code></td><td>TI-82</td></tr>
+<tr><td><code>04</code></td><td><code>Σx</code></td><td>TI-82</td></tr>
+<tr><td><code>05</code></td><td><code>Σx²</code></td><td>TI-82</td></tr>
+<tr><td><code>06</code></td><td><code>Sx</code></td><td>TI-82</td></tr>
+<tr><td><code>07</code></td><td><code>σx</code></td><td>TI-82</td></tr>
+<tr><td><code>08</code></td><td><code>minX</code></td><td>TI-82</td></tr>
+<tr><td><code>09</code></td><td><code>maxX</code></td><td>TI-82</td></tr>
+<tr><td><code>0A</code></td><td><code>minY</code></td><td>TI-82</td></tr>
+<tr><td><code>0B</code></td><td><code>maxY</code></td><td>TI-82</td></tr>
+<tr><td><code>0C</code></td><td><code>ȳ</code></td><td>TI-82</td></tr>
+<tr><td><code>0D</code></td><td><code>Σy</code></td><td>TI-82</td></tr>
+<tr><td><code>0E</code></td><td><code>Σy²</code></td><td>TI-82</td></tr>
+<tr><td><code>0F</code></td><td><code>Sy</code></td><td>TI-82</td></tr>
+<tr><td><code>10</code></td><td><code>σy</code></td><td>TI-82</td></tr>
+<tr><td><code>11</code></td><td><code>Σxy</code></td><td>TI-82</td></tr>
+<tr><td><code>12</code></td><td><code>r</code></td><td>TI-82</td></tr>
+<tr><td><code>13</code></td><td><code>Med</code></td><td>TI-82</td></tr>
+<tr><td><code>14</code></td><td><code>Q₁</code></td><td>TI-82</td></tr>
+<tr><td><code>15</code></td><td><code>Q₃</code></td><td>TI-82</td></tr>
+<tr><td><code>16</code></td><td><code>a</code></td><td>TI-82</td></tr>
+<tr><td><code>17</code></td><td><code>b</code></td><td>TI-82</td></tr>
+<tr><td><code>18</code></td><td><code>c</code></td><td>TI-82</td></tr>
+<tr><td><code>19</code></td><td><code>d</code></td><td>TI-82</td></tr>
+<tr><td><code>1A</code></td><td><code>e</code></td><td>TI-82</td></tr>
+<tr><td><code>1B</code></td><td><code>x₁</code></td><td>TI-82</td></tr>
+<tr><td><code>1C</code></td><td><code>x₂</code></td><td>TI-82</td></tr>
+<tr><td><code>1D</code></td><td><code>x₃</code></td><td>TI-82</td></tr>
+<tr><td><code>1E</code></td><td><code>y₁</code></td><td>TI-82</td></tr>
+<tr><td><code>1F</code></td><td><code>y₂</code></td><td>TI-82</td></tr>
+<tr><td><code>20</code></td><td><code>y₃</code></td><td>TI-82</td></tr>
+<tr><td><code>21</code></td><td><code>𝑛</code></td><td>TI-82</td></tr>
+<tr><td><code>22</code></td><td><code>p</code></td><td>TI-82</td></tr>
+<tr><td><code>23</code></td><td><code>z</code></td><td>TI-82</td></tr>
+<tr><td><code>24</code></td><td><code>t</code></td><td>TI-82</td></tr>
+<tr><td><code>25</code></td><td><code>χ²</code></td><td>TI-82</td></tr>
+<tr><td><code>26</code></td><td><code>𝙵</code></td><td>TI-82</td></tr>
+<tr><td><code>27</code></td><td><code>df</code></td><td>TI-82</td></tr>
+<tr><td><code>28</code></td><td><code>p̂</code></td><td>TI-82</td></tr>
+<tr><td><code>29</code></td><td><code>p̂₁</code></td><td>TI-82</td></tr>
+<tr><td><code>2A</code></td><td><code>p̂₂</code></td><td>TI-82</td></tr>
+<tr><td><code>2B</code></td><td><code>x̄₁</code></td><td>TI-82</td></tr>
+<tr><td><code>2C</code></td><td><code>Sx₁</code></td><td>TI-82</td></tr>
+<tr><td><code>2D</code></td><td><code>n₁</code></td><td>TI-82</td></tr>
+<tr><td><code>2E</code></td><td><code>x̄₂</code></td><td>TI-82</td></tr>
+<tr><td><code>2F</code></td><td><code>Sx₂</code></td><td>TI-82</td></tr>
+<tr><td><code>30</code></td><td><code>n₂</code></td><td>TI-82</td></tr>
+<tr><td><code>31</code></td><td><code>Sxp</code></td><td>TI-82</td></tr>
+<tr><td><code>32</code></td><td><code>lower</code></td><td>TI-82</td></tr>
+<tr><td><code>33</code></td><td><code>upper</code></td><td>TI-82</td></tr>
+<tr><td><code>34</code></td><td><code>s</code></td><td>TI-82</td></tr>
+<tr><td><code>35</code></td><td><code>r²</code></td><td>TI-82</td></tr>
+<tr><td><code>36</code></td><td><code>R²</code></td><td>TI-82</td></tr>
+<tr><td><code>37</code></td><td><code>df</code></td><td>TI-82</td></tr>
+<tr><td><code>38</code></td><td><code>SS</code></td><td>TI-82</td></tr>
+<tr><td><code>39</code></td><td><code>MS</code></td><td>TI-82</td></tr>
+<tr><td><code>3A</code></td><td><code>df</code></td><td>TI-82</td></tr>
+<tr><td><code>3B</code></td><td><code>SS</code></td><td>TI-82</td></tr>
+<tr><td><code>3C</code></td><td><code>MS</code></td><td>TI-82</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="63--window--system-variables"><a class="header" href="#63--window--system-variables"><code>63</code> — Window &amp; system variables</a></h2>
+<p><em>56 tokens on the 84+ (2.55MP).</em>  Second byte → token:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>2nd</th><th>Token</th><th>Since</th></tr>
+</thead>
+<tbody>
+<tr><td><code>00</code></td><td><code>ZXscl</code></td><td>TI-82</td></tr>
+<tr><td><code>01</code></td><td><code>ZYscl</code></td><td>TI-82</td></tr>
+<tr><td><code>02</code></td><td><code>Xscl</code></td><td>TI-82</td></tr>
+<tr><td><code>03</code></td><td><code>Yscl</code></td><td>TI-82</td></tr>
+<tr><td><code>04</code></td><td><code>UnStart</code></td><td>TI-82</td></tr>
+<tr><td><code>05</code></td><td><code>VnStart</code></td><td>TI-82</td></tr>
+<tr><td><code>06</code></td><td><code>U𝑛-₁</code></td><td>TI-82</td></tr>
+<tr><td><code>07</code></td><td><code>V𝑛-₁</code></td><td>TI-82</td></tr>
+<tr><td><code>08</code></td><td><code>ZUnStart</code></td><td>TI-82</td></tr>
+<tr><td><code>09</code></td><td><code>ZVnStart</code></td><td>TI-82</td></tr>
+<tr><td><code>0A</code></td><td><code>Xmin</code></td><td>TI-82</td></tr>
+<tr><td><code>0B</code></td><td><code>Xmax</code></td><td>TI-82</td></tr>
+<tr><td><code>0C</code></td><td><code>Ymin</code></td><td>TI-82</td></tr>
+<tr><td><code>0D</code></td><td><code>Ymax</code></td><td>TI-82</td></tr>
+<tr><td><code>0E</code></td><td><code>Tmin</code></td><td>TI-82</td></tr>
+<tr><td><code>0F</code></td><td><code>Tmax</code></td><td>TI-82</td></tr>
+<tr><td><code>10</code></td><td><code>θmin</code></td><td>TI-82</td></tr>
+<tr><td><code>11</code></td><td><code>θmax</code></td><td>TI-82</td></tr>
+<tr><td><code>12</code></td><td><code>ZXmin</code></td><td>TI-82</td></tr>
+<tr><td><code>13</code></td><td><code>ZXmax</code></td><td>TI-82</td></tr>
+<tr><td><code>14</code></td><td><code>ZYmin</code></td><td>TI-82</td></tr>
+<tr><td><code>15</code></td><td><code>ZYmax</code></td><td>TI-82</td></tr>
+<tr><td><code>16</code></td><td><code>Zθmin</code></td><td>TI-82</td></tr>
+<tr><td><code>17</code></td><td><code>Zθmax</code></td><td>TI-82</td></tr>
+<tr><td><code>18</code></td><td><code>ZTmin</code></td><td>TI-82</td></tr>
+<tr><td><code>19</code></td><td><code>ZTmax</code></td><td>TI-82</td></tr>
+<tr><td><code>1A</code></td><td><code>TblStart</code></td><td>TI-82</td></tr>
+<tr><td><code>1B</code></td><td><code>𝑛Min</code></td><td>TI-82</td></tr>
+<tr><td><code>1C</code></td><td><code>ZPlotStart</code></td><td>TI-82</td></tr>
+<tr><td><code>1D</code></td><td><code>𝑛Max</code></td><td>TI-82</td></tr>
+<tr><td><code>1E</code></td><td><code>Z𝑛Max</code></td><td>TI-82</td></tr>
+<tr><td><code>1F</code></td><td><code>𝑛Start</code></td><td>TI-82</td></tr>
+<tr><td><code>20</code></td><td><code>Z𝑛Min</code></td><td>TI-82</td></tr>
+<tr><td><code>21</code></td><td><code>ΔTbl</code></td><td>TI-82</td></tr>
+<tr><td><code>22</code></td><td><code>Tstep</code></td><td>TI-82</td></tr>
+<tr><td><code>23</code></td><td><code>θstep</code></td><td>TI-82</td></tr>
+<tr><td><code>24</code></td><td><code>ZTstep</code></td><td>TI-82</td></tr>
+<tr><td><code>25</code></td><td><code>Zθstep</code></td><td>TI-82</td></tr>
+<tr><td><code>26</code></td><td><code>ΔX</code></td><td>TI-82</td></tr>
+<tr><td><code>27</code></td><td><code>ΔY</code></td><td>TI-82</td></tr>
+<tr><td><code>28</code></td><td><code>XFact</code></td><td>TI-82</td></tr>
+<tr><td><code>29</code></td><td><code>YFact</code></td><td>TI-82</td></tr>
+<tr><td><code>2A</code></td><td><code>TblInput</code></td><td>TI-82</td></tr>
+<tr><td><code>2B</code></td><td><code>𝗡</code></td><td>TI-83</td></tr>
+<tr><td><code>2C</code></td><td><code>I%</code></td><td>TI-83</td></tr>
+<tr><td><code>2D</code></td><td><code>PV</code></td><td>TI-83</td></tr>
+<tr><td><code>2E</code></td><td><code>PMT</code></td><td>TI-83</td></tr>
+<tr><td><code>2F</code></td><td><code>FV</code></td><td>TI-83</td></tr>
+<tr><td><code>30</code></td><td><code>P/Y</code></td><td>TI-83</td></tr>
+<tr><td><code>31</code></td><td><code>C/Y</code></td><td>TI-83</td></tr>
+<tr><td><code>32</code></td><td><code>w(𝑛Min)</code></td><td>TI-83</td></tr>
+<tr><td><code>33</code></td><td><code>Zw(𝑛Min)</code></td><td>TI-83</td></tr>
+<tr><td><code>34</code></td><td><code>PlotStep</code></td><td>TI-83</td></tr>
+<tr><td><code>35</code></td><td><code>ZPlotStep</code></td><td>TI-83</td></tr>
+<tr><td><code>36</code></td><td><code>Xres</code></td><td>TI-83</td></tr>
+<tr><td><code>37</code></td><td><code>ZXres</code></td><td>TI-83</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="7e--graph-format--mode-tokens"><a class="header" href="#7e--graph-format--mode-tokens"><code>7E</code> — Graph-format &amp; mode tokens</a></h2>
+<p><em>19 tokens on the 84+ (2.55MP).</em>  Second byte → token:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>2nd</th><th>Token</th><th>Since</th></tr>
+</thead>
+<tbody>
+<tr><td><code>00</code></td><td><code>Sequential</code></td><td>TI-82</td></tr>
+<tr><td><code>01</code></td><td><code>Simul</code></td><td>TI-82</td></tr>
+<tr><td><code>02</code></td><td><code>PolarGC</code></td><td>TI-82</td></tr>
+<tr><td><code>03</code></td><td><code>RectGC</code></td><td>TI-82</td></tr>
+<tr><td><code>04</code></td><td><code>CoordOn</code></td><td>TI-82</td></tr>
+<tr><td><code>05</code></td><td><code>CoordOff</code></td><td>TI-82</td></tr>
+<tr><td><code>06</code></td><td><code>Connected</code></td><td>TI-82</td></tr>
+<tr><td><code>07</code></td><td><code>Dot</code></td><td>TI-82</td></tr>
+<tr><td><code>08</code></td><td><code>AxesOn</code></td><td>TI-82</td></tr>
+<tr><td><code>09</code></td><td><code>AxesOff</code></td><td>TI-82</td></tr>
+<tr><td><code>0A</code></td><td><code>GridOn</code></td><td>TI-82</td></tr>
+<tr><td><code>0B</code></td><td><code>GridOff</code></td><td>TI-82</td></tr>
+<tr><td><code>0C</code></td><td><code>LabelOn</code></td><td>TI-82</td></tr>
+<tr><td><code>0D</code></td><td><code>LabelOff</code></td><td>TI-82</td></tr>
+<tr><td><code>0E</code></td><td><code>Web</code></td><td>TI-82</td></tr>
+<tr><td><code>0F</code></td><td><code>Time</code></td><td>TI-82</td></tr>
+<tr><td><code>10</code></td><td><code>uvAxes</code></td><td>TI-82</td></tr>
+<tr><td><code>11</code></td><td><code>vwAxes</code></td><td>TI-82</td></tr>
+<tr><td><code>12</code></td><td><code>uwAxes</code></td><td>TI-82</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="aa--string-variables--str1str0"><a class="header" href="#aa--string-variables--str1str0"><code>AA</code> — String variables  (<code>Str1</code>–<code>Str0</code>)</a></h2>
+<p><em>10 tokens on the 84+ (2.55MP).</em>  Second byte → token:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>2nd</th><th>Token</th><th>Since</th></tr>
+</thead>
+<tbody>
+<tr><td><code>00</code></td><td><code>Str1</code></td><td>TI-83</td></tr>
+<tr><td><code>01</code></td><td><code>Str2</code></td><td>TI-83</td></tr>
+<tr><td><code>02</code></td><td><code>Str3</code></td><td>TI-83</td></tr>
+<tr><td><code>03</code></td><td><code>Str4</code></td><td>TI-83</td></tr>
+<tr><td><code>04</code></td><td><code>Str5</code></td><td>TI-83</td></tr>
+<tr><td><code>05</code></td><td><code>Str6</code></td><td>TI-83</td></tr>
+<tr><td><code>06</code></td><td><code>Str7</code></td><td>TI-83</td></tr>
+<tr><td><code>07</code></td><td><code>Str8</code></td><td>TI-83</td></tr>
+<tr><td><code>08</code></td><td><code>Str9</code></td><td>TI-83</td></tr>
+<tr><td><code>09</code></td><td><code>Str0</code></td><td>TI-83</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="bb--extended-command-page-2-byte-commands"><a class="header" href="#bb--extended-command-page-2-byte-commands"><code>BB</code> — Extended command page (2-byte commands)</a></h2>
+<p><em>232 tokens on the 84+ (2.55MP).</em>  Second byte → token:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>2nd</th><th>Token</th><th>Since</th></tr>
+</thead>
+<tbody>
+<tr><td><code>00</code></td><td><code>npv(</code></td><td>TI-83</td></tr>
+<tr><td><code>01</code></td><td><code>irr(</code></td><td>TI-83</td></tr>
+<tr><td><code>02</code></td><td><code>bal(</code></td><td>TI-83</td></tr>
+<tr><td><code>03</code></td><td><code>ΣPrn(</code></td><td>TI-83</td></tr>
+<tr><td><code>04</code></td><td><code>ΣInt(</code></td><td>TI-83</td></tr>
+<tr><td><code>05</code></td><td><code>►Nom(</code></td><td>TI-83</td></tr>
+<tr><td><code>06</code></td><td><code>►Eff(</code></td><td>TI-83</td></tr>
+<tr><td><code>07</code></td><td><code>dbd(</code></td><td>TI-83</td></tr>
+<tr><td><code>08</code></td><td><code>lcm(</code></td><td>TI-83</td></tr>
+<tr><td><code>09</code></td><td><code>gcd(</code></td><td>TI-83</td></tr>
+<tr><td><code>0A</code></td><td><code>randInt(</code></td><td>TI-83</td></tr>
+<tr><td><code>0B</code></td><td><code>randBin(</code></td><td>TI-83</td></tr>
+<tr><td><code>0C</code></td><td><code>sub(</code></td><td>TI-83</td></tr>
+<tr><td><code>0D</code></td><td><code>stdDev(</code></td><td>TI-83</td></tr>
+<tr><td><code>0E</code></td><td><code>variance(</code></td><td>TI-83</td></tr>
+<tr><td><code>0F</code></td><td><code>inString(</code></td><td>TI-83</td></tr>
+<tr><td><code>10</code></td><td><code>normalcdf(</code></td><td>TI-83</td></tr>
+<tr><td><code>11</code></td><td><code>invNorm(</code></td><td>TI-83</td></tr>
+<tr><td><code>12</code></td><td><code>tcdf(</code></td><td>TI-83</td></tr>
+<tr><td><code>13</code></td><td><code>χ²cdf(</code></td><td>TI-83</td></tr>
+<tr><td><code>14</code></td><td><code>𝙵cdf(</code></td><td>TI-83</td></tr>
+<tr><td><code>15</code></td><td><code>binompdf(</code></td><td>TI-83</td></tr>
+<tr><td><code>16</code></td><td><code>binomcdf(</code></td><td>TI-83</td></tr>
+<tr><td><code>17</code></td><td><code>poissonpdf(</code></td><td>TI-83</td></tr>
+<tr><td><code>18</code></td><td><code>poissoncdf(</code></td><td>TI-83</td></tr>
+<tr><td><code>19</code></td><td><code>geometpdf(</code></td><td>TI-83</td></tr>
+<tr><td><code>1A</code></td><td><code>geometcdf(</code></td><td>TI-83</td></tr>
+<tr><td><code>1B</code></td><td><code>normalpdf(</code></td><td>TI-83</td></tr>
+<tr><td><code>1C</code></td><td><code>tpdf(</code></td><td>TI-83</td></tr>
+<tr><td><code>1D</code></td><td><code>χ²pdf(</code></td><td>TI-83</td></tr>
+<tr><td><code>1E</code></td><td><code>𝙵pdf(</code></td><td>TI-83</td></tr>
+<tr><td><code>1F</code></td><td><code>randNorm(</code></td><td>TI-83</td></tr>
+<tr><td><code>20</code></td><td><code>tvm_Pmt</code></td><td>TI-83</td></tr>
+<tr><td><code>21</code></td><td><code>tvm_I%</code></td><td>TI-83</td></tr>
+<tr><td><code>22</code></td><td><code>tvm_PV</code></td><td>TI-83</td></tr>
+<tr><td><code>23</code></td><td><code>tvm_𝗡</code></td><td>TI-83</td></tr>
+<tr><td><code>24</code></td><td><code>tvm_FV</code></td><td>TI-83</td></tr>
+<tr><td><code>25</code></td><td><code>conj(</code></td><td>TI-83</td></tr>
+<tr><td><code>26</code></td><td><code>real(</code></td><td>TI-83</td></tr>
+<tr><td><code>27</code></td><td><code>imag(</code></td><td>TI-83</td></tr>
+<tr><td><code>28</code></td><td><code>angle(</code></td><td>TI-83</td></tr>
+<tr><td><code>29</code></td><td><code>cumSum(</code></td><td>TI-83</td></tr>
+<tr><td><code>2A</code></td><td><code>expr(</code></td><td>TI-83</td></tr>
+<tr><td><code>2B</code></td><td><code>length(</code></td><td>TI-83</td></tr>
+<tr><td><code>2C</code></td><td><code>ΔList(</code></td><td>TI-83</td></tr>
+<tr><td><code>2D</code></td><td><code>ref(</code></td><td>TI-83</td></tr>
+<tr><td><code>2E</code></td><td><code>rref(</code></td><td>TI-83</td></tr>
+<tr><td><code>2F</code></td><td><code>►Rect</code></td><td>TI-83</td></tr>
+<tr><td><code>30</code></td><td><code>►Polar</code></td><td>TI-83</td></tr>
+<tr><td><code>31</code></td><td><code>𝑒</code></td><td>TI-83</td></tr>
+<tr><td><code>32</code></td><td><code>SinReg </code></td><td>TI-83</td></tr>
+<tr><td><code>33</code></td><td><code>Logistic </code></td><td>TI-83</td></tr>
+<tr><td><code>34</code></td><td><code>LinRegTTest </code></td><td>TI-83</td></tr>
+<tr><td><code>35</code></td><td><code>ShadeNorm(</code></td><td>TI-83</td></tr>
+<tr><td><code>36</code></td><td><code>Shade_t(</code></td><td>TI-83</td></tr>
+<tr><td><code>37</code></td><td><code>Shadeχ²(</code></td><td>TI-83</td></tr>
+<tr><td><code>38</code></td><td><code>Shade𝙵(</code></td><td>TI-83</td></tr>
+<tr><td><code>39</code></td><td><code>Matr►list(</code></td><td>TI-83</td></tr>
+<tr><td><code>3A</code></td><td><code>List►matr(</code></td><td>TI-83</td></tr>
+<tr><td><code>3B</code></td><td><code>Z-Test(</code></td><td>TI-83</td></tr>
+<tr><td><code>3C</code></td><td><code>T-Test </code></td><td>TI-83</td></tr>
+<tr><td><code>3D</code></td><td><code>2-SampZTest(</code></td><td>TI-83</td></tr>
+<tr><td><code>3E</code></td><td><code>1-PropZTest(</code></td><td>TI-83</td></tr>
+<tr><td><code>3F</code></td><td><code>2-PropZTest(</code></td><td>TI-83</td></tr>
+<tr><td><code>40</code></td><td><code>χ²-Test(</code></td><td>TI-83</td></tr>
+<tr><td><code>41</code></td><td><code>ZInterval </code></td><td>TI-83</td></tr>
+<tr><td><code>42</code></td><td><code>2-SampZInt(</code></td><td>TI-83</td></tr>
+<tr><td><code>43</code></td><td><code>1-PropZInt(</code></td><td>TI-83</td></tr>
+<tr><td><code>44</code></td><td><code>2-PropZInt(</code></td><td>TI-83</td></tr>
+<tr><td><code>45</code></td><td><code>GraphStyle(</code></td><td>TI-83</td></tr>
+<tr><td><code>46</code></td><td><code>2-SampTTest </code></td><td>TI-83</td></tr>
+<tr><td><code>47</code></td><td><code>2-Samp𝙵Test </code></td><td>TI-83</td></tr>
+<tr><td><code>48</code></td><td><code>TInterval </code></td><td>TI-83</td></tr>
+<tr><td><code>49</code></td><td><code>2-SampTInt </code></td><td>TI-83</td></tr>
+<tr><td><code>4A</code></td><td><code>SetUpEditor </code></td><td>TI-83</td></tr>
+<tr><td><code>4B</code></td><td><code>Pmt_End</code></td><td>TI-83</td></tr>
+<tr><td><code>4C</code></td><td><code>Pmt_Bgn</code></td><td>TI-83</td></tr>
+<tr><td><code>4D</code></td><td><code>Real</code></td><td>TI-83</td></tr>
+<tr><td><code>4E</code></td><td><code>r𝑒^θ𝑖</code></td><td>TI-83</td></tr>
+<tr><td><code>4F</code></td><td><code>a+b𝑖</code></td><td>TI-83</td></tr>
+<tr><td><code>50</code></td><td><code>ExprOn</code></td><td>TI-83</td></tr>
+<tr><td><code>51</code></td><td><code>ExprOff</code></td><td>TI-83</td></tr>
+<tr><td><code>52</code></td><td><code>ClrAllLists</code></td><td>TI-83</td></tr>
+<tr><td><code>53</code></td><td><code>GetCalc(</code></td><td>TI-83</td></tr>
+<tr><td><code>54</code></td><td><code>DelVar</code></td><td>TI-83</td></tr>
+<tr><td><code>55</code></td><td><code>Equ►String(</code></td><td>TI-83</td></tr>
+<tr><td><code>56</code></td><td><code>String►Equ(</code></td><td>TI-83</td></tr>
+<tr><td><code>57</code></td><td><code>Clear Entries</code></td><td>TI-83</td></tr>
+<tr><td><code>58</code></td><td><code>Select(</code></td><td>TI-83</td></tr>
+<tr><td><code>59</code></td><td><code>ANOVA(</code></td><td>TI-83</td></tr>
+<tr><td><code>5A</code></td><td><code>ModBoxplot</code></td><td>TI-83</td></tr>
+<tr><td><code>5B</code></td><td><code>NormProbPlot</code></td><td>TI-83</td></tr>
+<tr><td><code>64</code></td><td><code>G-T</code></td><td>TI-83</td></tr>
+<tr><td><code>65</code></td><td><code>ZoomFit</code></td><td>TI-83</td></tr>
+<tr><td><code>66</code></td><td><code>DiagnosticOn</code></td><td>TI-83</td></tr>
+<tr><td><code>67</code></td><td><code>DiagnosticOff</code></td><td>TI-83</td></tr>
+<tr><td><code>68</code></td><td><code>Archive </code></td><td>TI-83+</td></tr>
+<tr><td><code>69</code></td><td><code>UnArchive </code></td><td>TI-83+</td></tr>
+<tr><td><code>6A</code></td><td><code>Asm(</code></td><td>TI-83+</td></tr>
+<tr><td><code>6B</code></td><td><code>AsmComp(</code></td><td>TI-83+</td></tr>
+<tr><td><code>6C</code></td><td><code>AsmPrgm</code></td><td>TI-83+</td></tr>
+<tr><td><code>6E</code></td><td><code>Á</code></td><td>TI-83+</td></tr>
+<tr><td><code>6F</code></td><td><code>À</code></td><td>TI-83+</td></tr>
+<tr><td><code>70</code></td><td><code>Â</code></td><td>TI-83+</td></tr>
+<tr><td><code>71</code></td><td><code>Ä</code></td><td>TI-83+</td></tr>
+<tr><td><code>72</code></td><td><code>á</code></td><td>TI-83+</td></tr>
+<tr><td><code>73</code></td><td><code>à</code></td><td>TI-83+</td></tr>
+<tr><td><code>74</code></td><td><code>â</code></td><td>TI-83+</td></tr>
+<tr><td><code>75</code></td><td><code>ä</code></td><td>TI-83+</td></tr>
+<tr><td><code>76</code></td><td><code>É</code></td><td>TI-83+</td></tr>
+<tr><td><code>77</code></td><td><code>È</code></td><td>TI-83+</td></tr>
+<tr><td><code>78</code></td><td><code>Ê</code></td><td>TI-83+</td></tr>
+<tr><td><code>79</code></td><td><code>Ë</code></td><td>TI-83+</td></tr>
+<tr><td><code>7A</code></td><td><code>é</code></td><td>TI-83+</td></tr>
+<tr><td><code>7B</code></td><td><code>è</code></td><td>TI-83+</td></tr>
+<tr><td><code>7C</code></td><td><code>ê</code></td><td>TI-83+</td></tr>
+<tr><td><code>7D</code></td><td><code>ë</code></td><td>TI-83+</td></tr>
+<tr><td><code>7F</code></td><td><code>Ì</code></td><td>TI-83+</td></tr>
+<tr><td><code>80</code></td><td><code>Î</code></td><td>TI-83+</td></tr>
+<tr><td><code>81</code></td><td><code>Ï</code></td><td>TI-83+</td></tr>
+<tr><td><code>82</code></td><td><code>í</code></td><td>TI-83+</td></tr>
+<tr><td><code>83</code></td><td><code>ì</code></td><td>TI-83+</td></tr>
+<tr><td><code>84</code></td><td><code>î</code></td><td>TI-83+</td></tr>
+<tr><td><code>85</code></td><td><code>ï</code></td><td>TI-83+</td></tr>
+<tr><td><code>86</code></td><td><code>Ó</code></td><td>TI-83+</td></tr>
+<tr><td><code>87</code></td><td><code>Ò</code></td><td>TI-83+</td></tr>
+<tr><td><code>88</code></td><td><code>Ô</code></td><td>TI-83+</td></tr>
+<tr><td><code>89</code></td><td><code>Ö</code></td><td>TI-83+</td></tr>
+<tr><td><code>8A</code></td><td><code>ó</code></td><td>TI-83+</td></tr>
+<tr><td><code>8B</code></td><td><code>ò</code></td><td>TI-83+</td></tr>
+<tr><td><code>8C</code></td><td><code>ô</code></td><td>TI-83+</td></tr>
+<tr><td><code>8D</code></td><td><code>ö</code></td><td>TI-83+</td></tr>
+<tr><td><code>8E</code></td><td><code>Ú</code></td><td>TI-83+</td></tr>
+<tr><td><code>8F</code></td><td><code>Ù</code></td><td>TI-83+</td></tr>
+<tr><td><code>90</code></td><td><code>Û</code></td><td>TI-83+</td></tr>
+<tr><td><code>91</code></td><td><code>Ü</code></td><td>TI-83+</td></tr>
+<tr><td><code>92</code></td><td><code>ú</code></td><td>TI-83+</td></tr>
+<tr><td><code>93</code></td><td><code>ù</code></td><td>TI-83+</td></tr>
+<tr><td><code>94</code></td><td><code>û</code></td><td>TI-83+</td></tr>
+<tr><td><code>95</code></td><td><code>ü</code></td><td>TI-83+</td></tr>
+<tr><td><code>96</code></td><td><code>Ç</code></td><td>TI-83+</td></tr>
+<tr><td><code>97</code></td><td><code>ç</code></td><td>TI-83+</td></tr>
+<tr><td><code>98</code></td><td><code>Ñ</code></td><td>TI-83+</td></tr>
+<tr><td><code>99</code></td><td><code>ñ</code></td><td>TI-83+</td></tr>
+<tr><td><code>9A</code></td><td><code>´</code></td><td>TI-83+</td></tr>
+<tr><td><code>9B</code></td><td><code>`</code></td><td>TI-83+</td></tr>
+<tr><td><code>9C</code></td><td><code>¨</code></td><td>TI-83+</td></tr>
+<tr><td><code>9D</code></td><td><code>¿</code></td><td>TI-83+</td></tr>
+<tr><td><code>9E</code></td><td><code>¡</code></td><td>TI-83+</td></tr>
+<tr><td><code>9F</code></td><td><code>α</code></td><td>TI-83+</td></tr>
+<tr><td><code>A0</code></td><td><code>β</code></td><td>TI-83+</td></tr>
+<tr><td><code>A1</code></td><td><code>γ</code></td><td>TI-83+</td></tr>
+<tr><td><code>A2</code></td><td><code>Δ</code></td><td>TI-83+</td></tr>
+<tr><td><code>A3</code></td><td><code>δ</code></td><td>TI-83+</td></tr>
+<tr><td><code>A4</code></td><td><code>ε</code></td><td>TI-83+</td></tr>
+<tr><td><code>A5</code></td><td><code>λ</code></td><td>TI-83+</td></tr>
+<tr><td><code>A6</code></td><td><code>μ</code></td><td>TI-83+</td></tr>
+<tr><td><code>A7</code></td><td><code>π</code></td><td>TI-83+</td></tr>
+<tr><td><code>A8</code></td><td><code>ρ</code></td><td>TI-83+</td></tr>
+<tr><td><code>A9</code></td><td><code>Σ</code></td><td>TI-83+</td></tr>
+<tr><td><code>AB</code></td><td><code>Φ</code></td><td>TI-83+</td></tr>
+<tr><td><code>AC</code></td><td><code>Ω</code></td><td>TI-83+</td></tr>
+<tr><td><code>AD</code></td><td><code>p̂</code></td><td>TI-83+</td></tr>
+<tr><td><code>AE</code></td><td><code>χ</code></td><td>TI-83+</td></tr>
+<tr><td><code>AF</code></td><td><code>𝙵</code></td><td>TI-83+</td></tr>
+<tr><td><code>B0</code></td><td><code>a</code></td><td>TI-83+</td></tr>
+<tr><td><code>B1</code></td><td><code>b</code></td><td>TI-83+</td></tr>
+<tr><td><code>B2</code></td><td><code>c</code></td><td>TI-83+</td></tr>
+<tr><td><code>B3</code></td><td><code>d</code></td><td>TI-83+</td></tr>
+<tr><td><code>B4</code></td><td><code>e</code></td><td>TI-83+</td></tr>
+<tr><td><code>B5</code></td><td><code>f</code></td><td>TI-83+</td></tr>
+<tr><td><code>B6</code></td><td><code>g</code></td><td>TI-83+</td></tr>
+<tr><td><code>B7</code></td><td><code>h</code></td><td>TI-83+</td></tr>
+<tr><td><code>B8</code></td><td><code>i</code></td><td>TI-83+</td></tr>
+<tr><td><code>B9</code></td><td><code>j</code></td><td>TI-83+</td></tr>
+<tr><td><code>BA</code></td><td><code>k</code></td><td>TI-83+</td></tr>
+<tr><td><code>BC</code></td><td><code>l</code></td><td>TI-83+</td></tr>
+<tr><td><code>BD</code></td><td><code>m</code></td><td>TI-83+</td></tr>
+<tr><td><code>BE</code></td><td><code>n</code></td><td>TI-83+</td></tr>
+<tr><td><code>BF</code></td><td><code>o</code></td><td>TI-83+</td></tr>
+<tr><td><code>C0</code></td><td><code>p</code></td><td>TI-83+</td></tr>
+<tr><td><code>C1</code></td><td><code>q</code></td><td>TI-83+</td></tr>
+<tr><td><code>C2</code></td><td><code>r</code></td><td>TI-83+</td></tr>
+<tr><td><code>C3</code></td><td><code>s</code></td><td>TI-83+</td></tr>
+<tr><td><code>C4</code></td><td><code>t</code></td><td>TI-83+</td></tr>
+<tr><td><code>C5</code></td><td><code>u</code></td><td>TI-83+</td></tr>
+<tr><td><code>C6</code></td><td><code>v</code></td><td>TI-83+</td></tr>
+<tr><td><code>C7</code></td><td><code>w</code></td><td>TI-83+</td></tr>
+<tr><td><code>C8</code></td><td><code>x</code></td><td>TI-83+</td></tr>
+<tr><td><code>C9</code></td><td><code>y</code></td><td>TI-83+</td></tr>
+<tr><td><code>CA</code></td><td><code>z</code></td><td>TI-83+</td></tr>
+<tr><td><code>CB</code></td><td><code>σ</code></td><td>TI-83+</td></tr>
+<tr><td><code>CC</code></td><td><code>τ</code></td><td>TI-83+</td></tr>
+<tr><td><code>CD</code></td><td><code>Í</code></td><td>TI-83+</td></tr>
+<tr><td><code>CE</code></td><td><code>GarbageCollect</code></td><td>TI-83+</td></tr>
+<tr><td><code>CF</code></td><td><code>~</code></td><td>TI-83+</td></tr>
+<tr><td><code>D1</code></td><td><code>@</code></td><td>TI-83+</td></tr>
+<tr><td><code>D2</code></td><td><code>#</code></td><td>TI-83+</td></tr>
+<tr><td><code>D3</code></td><td><code>$</code></td><td>TI-83+</td></tr>
+<tr><td><code>D4</code></td><td><code>&amp;</code></td><td>TI-83+</td></tr>
+<tr><td><code>D5</code></td><td><code>`</code></td><td>TI-83+</td></tr>
+<tr><td><code>D6</code></td><td><code>;</code></td><td>TI-83+</td></tr>
+<tr><td><code>D7</code></td><td><code>\</code></td><td>TI-83+</td></tr>
+<tr><td><code>D8</code></td><td><code>|</code></td><td>TI-83+</td></tr>
+<tr><td><code>D9</code></td><td><code>_</code></td><td>TI-83+</td></tr>
+<tr><td><code>DA</code></td><td><code>%</code></td><td>TI-83+</td></tr>
+<tr><td><code>DB</code></td><td><code>…</code></td><td>TI-83+</td></tr>
+<tr><td><code>DC</code></td><td><code>∠</code></td><td>TI-83+</td></tr>
+<tr><td><code>DD</code></td><td><code>ß</code></td><td>TI-83+</td></tr>
+<tr><td><code>DE</code></td><td><code>ˣ</code></td><td>TI-83+</td></tr>
+<tr><td><code>DF</code></td><td><code>ᴛ</code></td><td>TI-83+</td></tr>
+<tr><td><code>E0</code></td><td><code>₀</code></td><td>TI-83+</td></tr>
+<tr><td><code>E1</code></td><td><code>₁</code></td><td>TI-83+</td></tr>
+<tr><td><code>E2</code></td><td><code>₂</code></td><td>TI-83+</td></tr>
+<tr><td><code>E3</code></td><td><code>₃</code></td><td>TI-83+</td></tr>
+<tr><td><code>E4</code></td><td><code>₄</code></td><td>TI-83+</td></tr>
+<tr><td><code>E5</code></td><td><code>₅</code></td><td>TI-83+</td></tr>
+<tr><td><code>E6</code></td><td><code>₆</code></td><td>TI-83+</td></tr>
+<tr><td><code>E7</code></td><td><code>₇</code></td><td>TI-83+</td></tr>
+<tr><td><code>E8</code></td><td><code>₈</code></td><td>TI-83+</td></tr>
+<tr><td><code>E9</code></td><td><code>₉</code></td><td>TI-83+</td></tr>
+<tr><td><code>EA</code></td><td><code>₁₀</code></td><td>TI-83+</td></tr>
+<tr><td><code>EB</code></td><td><code>◄</code></td><td>TI-83+</td></tr>
+<tr><td><code>EC</code></td><td><code>►</code></td><td>TI-83+</td></tr>
+<tr><td><code>ED</code></td><td><code>↑</code></td><td>TI-83+</td></tr>
+<tr><td><code>EE</code></td><td><code>↓</code></td><td>TI-83+</td></tr>
+<tr><td><code>F0</code></td><td><code>×</code></td><td>TI-83+</td></tr>
+<tr><td><code>F1</code></td><td><code>∫</code></td><td>TI-83+</td></tr>
+<tr><td><code>F2</code></td><td><code>🡁</code></td><td>TI-83+</td></tr>
+<tr><td><code>F3</code></td><td><code>🠿</code></td><td>TI-83+</td></tr>
+<tr><td><code>F4</code></td><td><code>√</code></td><td>TI-83+</td></tr>
+<tr><td><code>F5</code></td><td><code>⌸</code></td><td>TI-83+</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="ef--ti-84-era-extended-tokens--datetime-clock-garbagecollect"><a class="header" href="#ef--ti-84-era-extended-tokens--datetime-clock-garbagecollect"><code>EF</code> — TI-84+-era extended tokens  (date/time, clock, GarbageCollect…)</a></h2>
+<p><em>48 tokens on the 84+ (2.55MP).</em>  Second byte → token:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>2nd</th><th>Token</th><th>Since</th></tr>
+</thead>
+<tbody>
+<tr><td><code>00</code></td><td><code>setDate(</code></td><td>TI-84+</td></tr>
+<tr><td><code>01</code></td><td><code>setTime(</code></td><td>TI-84+</td></tr>
+<tr><td><code>02</code></td><td><code>checkTmr(</code></td><td>TI-84+</td></tr>
+<tr><td><code>03</code></td><td><code>setDtFmt(</code></td><td>TI-84+</td></tr>
+<tr><td><code>04</code></td><td><code>setTmFmt(</code></td><td>TI-84+</td></tr>
+<tr><td><code>05</code></td><td><code>timeCnv(</code></td><td>TI-84+</td></tr>
+<tr><td><code>06</code></td><td><code>dayOfWk(</code></td><td>TI-84+</td></tr>
+<tr><td><code>07</code></td><td><code>getDtStr(</code></td><td>TI-84+</td></tr>
+<tr><td><code>08</code></td><td><code>getTmStr(</code></td><td>TI-84+</td></tr>
+<tr><td><code>09</code></td><td><code>getDate</code></td><td>TI-84+</td></tr>
+<tr><td><code>0A</code></td><td><code>getTime</code></td><td>TI-84+</td></tr>
+<tr><td><code>0B</code></td><td><code>startTmr</code></td><td>TI-84+</td></tr>
+<tr><td><code>0C</code></td><td><code>getDtFmt</code></td><td>TI-84+</td></tr>
+<tr><td><code>0D</code></td><td><code>getTmFmt</code></td><td>TI-84+</td></tr>
+<tr><td><code>0E</code></td><td><code>isClockOn</code></td><td>TI-84+</td></tr>
+<tr><td><code>0F</code></td><td><code>ClockOff</code></td><td>TI-84+</td></tr>
+<tr><td><code>10</code></td><td><code>ClockOn</code></td><td>TI-84+</td></tr>
+<tr><td><code>11</code></td><td><code>OpenLib(</code></td><td>TI-84+</td></tr>
+<tr><td><code>12</code></td><td><code>ExecLib </code></td><td>TI-84+</td></tr>
+<tr><td><code>13</code></td><td><code>invT(</code></td><td>TI-84+</td></tr>
+<tr><td><code>14</code></td><td><code>χ²GOF-Test(</code></td><td>TI-84+</td></tr>
+<tr><td><code>15</code></td><td><code>LinRegTInt </code></td><td>TI-84+</td></tr>
+<tr><td><code>16</code></td><td><code>Manual-Fit </code></td><td>TI-84+</td></tr>
+<tr><td><code>17</code></td><td><code>ZQuadrant1</code></td><td>TI-84+</td></tr>
+<tr><td><code>18</code></td><td><code>ZFrac1⁄2</code></td><td>TI-84+</td></tr>
+<tr><td><code>19</code></td><td><code>ZFrac1⁄3</code></td><td>TI-84+</td></tr>
+<tr><td><code>1A</code></td><td><code>ZFrac1⁄4</code></td><td>TI-84+</td></tr>
+<tr><td><code>1B</code></td><td><code>ZFrac1⁄5</code></td><td>TI-84+</td></tr>
+<tr><td><code>1C</code></td><td><code>ZFrac1⁄8</code></td><td>TI-84+</td></tr>
+<tr><td><code>1D</code></td><td><code>ZFrac1⁄10</code></td><td>TI-84+</td></tr>
+<tr><td><code>1E</code></td><td><code>⬚</code></td><td>TI-84+</td></tr>
+<tr><td><code>2E</code></td><td><code>⁄</code></td><td>TI-84+</td></tr>
+<tr><td><code>2F</code></td><td><code>󸏵</code></td><td>TI-84+</td></tr>
+<tr><td><code>30</code></td><td><code>►n⁄d◄►Un⁄d</code></td><td>TI-84+</td></tr>
+<tr><td><code>31</code></td><td><code>►F◄►D</code></td><td>TI-84+</td></tr>
+<tr><td><code>32</code></td><td><code>remainder(</code></td><td>TI-84+</td></tr>
+<tr><td><code>33</code></td><td><code>Σ(</code></td><td>TI-84+</td></tr>
+<tr><td><code>34</code></td><td><code>logBASE(</code></td><td>TI-84+</td></tr>
+<tr><td><code>35</code></td><td><code>randIntNoRep(</code></td><td>TI-84+</td></tr>
+<tr><td><code>37</code></td><td><code>MATHPRINT</code></td><td>TI-84+</td></tr>
+<tr><td><code>38</code></td><td><code>CLASSIC</code></td><td>TI-84+</td></tr>
+<tr><td><code>39</code></td><td><code>n⁄d</code></td><td>TI-84+</td></tr>
+<tr><td><code>3A</code></td><td><code>Un⁄d</code></td><td>TI-84+</td></tr>
+<tr><td><code>3B</code></td><td><code>AUTO</code></td><td>TI-84+</td></tr>
+<tr><td><code>3C</code></td><td><code>DEC</code></td><td>TI-84+</td></tr>
+<tr><td><code>3D</code></td><td><code>FRAC</code></td><td>TI-84+</td></tr>
+<tr><td><code>3F</code></td><td><code>STATWIZARD ON</code></td><td>TI-84+</td></tr>
+<tr><td><code>40</code></td><td><code>STATWIZARD OFF</code></td><td>TI-84+</td></tr>
+</tbody>
+</table>
+</div>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="bcall-index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="99-open-questions.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="bcall-index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="99-open-questions.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-5fa46c0a.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
