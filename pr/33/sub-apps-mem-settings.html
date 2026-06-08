@@ -1,0 +1,622 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Apps, memory reset &amp; settings - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-7c293ef9.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-cbaaedfe.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="apps-memory-reset-and-settings"><a class="header" href="#apps-memory-reset-and-settings">Apps, memory reset, and settings</a></h1>
+<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
+<p>How the student-facing parts of the OS work: launching Flash Apps, the <strong>MEM → Reset</strong>
+menu (what “RAM Cleared” erases), and the <strong>MODE</strong> screen format/mode flags.
+Addresses are <code>space:addr</code> where <code>ram</code>/<code>page_00</code>=<code>0000-3FFF</code>, flash pages mapped at
+<code>4000-7FFF</code>. Confidence flags follow <a href="conventions.html">conventions.md</a>: [confirmed] = read
+from disassembly; [hypothesis] = strong inference, not yet verified (used below for both
+strongly-inferred claims and <em>partial</em> traces where the code is RAM-resident / cross-page and
+not fully traced).</p>
+<p>Cross-references: <a href="11-boot-contexts-errors.html">doc 11</a> (contexts, <code>_AppInit</code>, event router), <a href="12-memory-management.html">doc 12</a> (RAM heap,
+<code>_CleanAll</code>), <a href="13-flash-page-map.html">doc 13</a> (flash page map). Flag bits use the <code>ti83plus.inc</code> equates; the
+SystemFlags base is <code>IY = flags = 0x89F0</code>, so e.g. <code>(IY+0x0A)</code> = <code>flags + fmtFlags</code>.</p>
+<hr>
+<h2 id="1-flash-apps--find--launch"><a class="header" href="#1-flash-apps--find--launch">1. Flash Apps — find &amp; launch</a></h2>
+<p>This ROM appears to ship with zero bundled apps in the local ROM-byte scan (zero <code>80 0F</code> headers found at page starts; not directly verifiable through the current MCP byte interface),
+but the entire find/launch machinery is present on <code>page 0x3D</code> (<code>_FindApp*</code>) and
+<code>page 0x3B</code> (<code>_AppInit</code> glue / app-quit). Apps are TI Flash Applications: a contiguous
+run of 16 KiB flash pages whose first page begins with a TLV app header.</p>
+<h3 id="11-app-header-format-tlv-confirmed"><a class="header" href="#11-app-header-format-tlv-confirmed">1.1 App header format (TLV) [confirmed]</a></h3>
+<p>An app header is a sequence of type-length-value fields starting at offset 0 of the
+app’s first page. Each field begins with two bytes in WikiTI’s <code>TT TS</code> notation: the high
+12 bits are the field number, and the low nibble of the second byte encodes the payload
+length. The decoder bytes are around <code>page_3D:7285</code>, but the current Ghidra DB does not expose a live function there:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>size nibble</th><th>field payload size</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0xD</code></td><td>1 byte</td></tr>
+<tr><td><code>0xE</code></td><td>2 bytes</td></tr>
+<tr><td><code>0xF</code></td><td>4 bytes</td></tr>
+</tbody>
+</table>
+</div>
+<pre><code class="language-z80">page_3D:7285  AND 0x0F; CP 0x0F -&gt; B=4 ; CP 0x0E -&gt; B=2 ; CP 0x0D -&gt; B=1
+</code></pre>
+<p>The master field at offset 0 is usually <code>80 0F …</code> (<code>field 800</code>, size nibble <code>F</code>, followed
+by a 4-byte size) — this is what the page-scan keys on to recognise an app. Fields carry
+the app name, the page count, flags, the date stamp, and signature-related data.</p>
+<p>The public header descriptions match the ROM parser and the local app corpus. Useful
+references are WikiTI’s
+<a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Certificate/Headers:Fields:Application_Headers">application-header</a>
+and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Certificate/Headers">certificate/header format</a>
+pages, TI’s
+<a href="https://isa.umh.es/calc/TI/TI83-84SDK/appheaderguide.pdf">AppHeader guide</a>, and
+Tari’s <a href="https://www.cemetech.net/forum/viewtopic.php?t=20732&amp;highlight=">Cemetech disassembly note</a>,
+which describes <code>.8xk</code> data as Intel HEX pages based at <code>0x4000</code> and app code as starting
+after field <code>807</code>.</p>
+<p>Common app-header fields in the sample corpus:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>field</th><th>meaning</th><th>observed payload</th></tr>
+</thead>
+<tbody>
+<tr><td><code>800</code></td><td>master Flash-variable field</td><td><code>800F</code> with a four-byte app length at the start of every sampled app</td></tr>
+<tr><td><code>801</code></td><td>developer/signing key</td><td><code>0104</code>, the TI-83+/84+ freeware/shareware app key</td></tr>
+<tr><td><code>802</code></td><td>program revision</td><td>one-byte revision, usually <code>1</code></td></tr>
+<tr><td><code>803</code></td><td>build number</td><td>one-byte build number, usually <code>1</code>; MirageOS uses <code>2</code></td></tr>
+<tr><td><code>804</code></td><td>app name</td><td>up to 8 bytes; examples include <code>Axe</code>, <code>MirageOS</code>, <code>USBDRV8X</code>, and <code>zStart</code></td></tr>
+<tr><td><code>808</code></td><td>page count</td><td>one byte; matches the decoded page count for Axe and CtlgHelp’s two-page apps</td></tr>
+<tr><td><code>809</code></td><td>disable TI splash screen</td><td>usually zero-length when present; zStart uses a 15-byte app-owned payload</td></tr>
+<tr><td><code>80C</code></td><td>lowest basecode</td><td>usb8x uses <code>02 1E</code>, decoded as basecode <code>2.30</code></td></tr>
+<tr><td><code>032</code></td><td>date stamp</td><td>six bytes; bytes 1-4 decode as seconds since 1997-01-01</td></tr>
+<tr><td><code>020</code></td><td>date-stamp signature / unchecked payload</td><td>usually 64 bytes; Axe stores executable helper bytes here</td></tr>
+<tr><td><code>807</code></td><td>final field</td><td>terminates the parsed header; the <code>807F</code> length bytes are ignored</td></tr>
+</tbody>
+</table>
+</div>
+<p>The app header is not a fixed 128-byte struct. The <code>807</code> final field terminates it. The
+common <code>80 7F 00 00 00 00</code> form uses size nibble <code>F</code> with a four-byte zero, but WikiTI
+documents that length as ignored; the shorter <code>80 70</code> form is valid. The app body begins
+after the final field and any app-controlled padding. Bytes before the conventional
+<code>4080</code> entry point are not loader magic; they are field payload or padding, and an app can
+choose payload bytes that also decode as Z80. [standard]</p>
+<p>External sample check (not ROM evidence): the local Axe Parser <code>Axe.8xk</code> sample decodes to
+a base page whose <code>020D</code> date-stamp-signature field starts at <code>4027</code> and has a 64-byte
+payload. Part of that payload is a Z80 helper at <code>4037</code>:</p>
+<p><a href="https://github.com/ti-kid">ti-kid</a> identified this Axe header case and published an annotated decode in
+<a href="https://github.com/ti-kid/Hatchet-Compiler/blob/master/Axe0_annotated.asm#L160">Hatchet-Compiler</a>;
+the local decode below uses that lead and verifies it against the extracted <code>Axe.8xk</code> bytes.</p>
+<pre><code class="language-z80">4037  POP AF
+4038  POP BC
+4039  POP DE
+403A  POP HL
+403B  PUSH HL
+403C  PUSH DE
+403D  PUSH BC
+403E  PUSH AF
+; ...
+4056  LD A,0C9h
+4058  CPIR
+405A  PUSH HL
+405B  IN A,(6)
+405D  DEC A
+405E  LD HL,4065h
+4061  RST 20h
+4062  JP 8478h
+4065  OUT (6),A
+4067  RET
+</code></pre>
+<p><code>RST 20h</code> is <code>_Mov9ToOP1</code>, so the helper copies the thunk at <code>4065</code> into OP1
+(<code>0x8478</code>) and jumps to OP1. That makes <code>OUT (6),A; RET</code> run from RAM after <code>A</code>
+has been set to the current bank-A page minus one. The preceding <code>CPIR</code> searches
+from <code>HL</code> for a <code>RET</code> byte (<code>0xC9</code>) and pushes the byte after it as the return
+address. The first half preserves the popped registers while it probes caller-owned
+bytes and can return early; the later page switch and RAM-thunk behavior are directly
+decoded from the sample bytes.</p>
+<p>The same sample’s conventional entry area at <code>4080</code> starts <code>NOP; JR 408C; JP 4097; JP 4548</code>. <code>tools/app_header_re.py</code> reproduces this pass: <code>--fetch-known</code> downloads a
+local corpus from ticalc.org into ignored <code>tools/app-samples/</code>, and <code>--markdown</code> prints
+the decoded header table. The corpus keeps the same parser boundary rule:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>app sample</th><th>pages field / decoded pages</th><th>final field end</th><th>entry bytes at <code>4080</code></th><th>header-area note</th></tr>
+</thead>
+<tbody>
+<tr><td>Axe</td><td>2 / 2</td><td><code>4070</code></td><td><code>00 18 09 C3 97 40 C3 48</code></td><td><code>020</code> payload contains the <code>4037</code> helper; then padding</td></tr>
+<tr><td>MirageOS</td><td>1 / 1</td><td><code>4070</code></td><td><code>C3 D3 65 C3 D9 47 C3 D6</code></td><td>padding to <code>4080</code></td></tr>
+<tr><td>Omnicalc</td><td>1 / 1</td><td><code>4070</code></td><td><code>C3 8C 40 C3 E5 79 C3 70</code></td><td>padding to <code>4080</code></td></tr>
+<tr><td>CalcSys</td><td>1 / 1</td><td><code>4070</code></td><td><code>C3 89 40 21 AA 98 CB DE</code></td><td>padding to <code>4080</code></td></tr>
+<tr><td>Symbolic</td><td>1 / 1</td><td><code>4070</code></td><td><code>18 2E 3A 4A 42 4A 4D 4A</code></td><td>padding to <code>4080</code></td></tr>
+<tr><td>BatLib</td><td>1 / 1</td><td><code>4070</code></td><td><code>C3 25 61 C3 6E 43 C3 DE</code></td><td>padding to <code>4080</code></td></tr>
+<tr><td>BatLib-modified Celtic 3 / Grammer / Omnicalc</td><td>1 / 1</td><td><code>4070</code></td><td>app-specific jump/vector bytes</td><td>same boundary; nonzero <code>807F</code> size bytes are ignored</td></tr>
+<tr><td>zStart 1.3.013 / zStart83</td><td>1 / 1</td><td><code>4080</code></td><td><code>18 11 83 C3 ...</code></td><td><code>809D0F</code> carries a 15-byte Z80 helper at <code>406B</code></td></tr>
+<tr><td>CtlgHelp / zChem from zStart</td><td>2 / 2 or 1 / 1</td><td><code>4070</code></td><td>app-specific bytes</td><td>padding to <code>4080</code></td></tr>
+<tr><td>usb8x</td><td>1 / 1</td><td><code>4029</code></td><td><code>00 00 00 00 00 00 00 96</code></td><td>mostly zero padding, plus <code>JP 4180h; JP 42EAh</code> at <code>4049</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>So <code>4080</code> is a common app-entry convention, not the OS’s header parser boundary. Some
+apps end the parsed header at <code>4029</code>, <code>4070</code>, or exactly <code>4080</code>, and all remain valid
+because the <code>807</code> final field terminates the header.</p>
+<p>The public entry points for walking these fields are bcalls in <code>ti83plus.inc</code>:
+<code>_FindAppHeaderSubField</code> (bcall <code>0x80AB</code>) locates a field in an app header, and
+<code>_FindOSHeaderSubField</code> (bcall <code>0x8075</code>) does the same for the OS header. Both build on the
+generic walkers <code>_FindSubField</code> (bcall <code>0x805D</code>), <code>_FindGroupedField</code> (bcall <code>0x8030</code>), and
+<code>_GetFieldSize</code> (bcall <code>0x805A</code>), which decode the TLV length nibble shown above. These IDs
+sit in the boot-page bcall range (<code>0x8000</code>+); the <code>0x8040</code>/<code>0x8070</code>/<code>0x8080</code> helpers the OS
+also reaches are a distinct group in the same range and are not these field walkers. The body
+addresses behind these public entry points are not defined functions in the current live DB.</p>
+<h3 id="12-_findapp--_findappup--_findappdn-confirmed"><a class="header" href="#12-_findapp--_findappup--_findappdn-confirmed">1.2 <code>_FindApp</code> / <code>_FindAppUp</code> / <code>_FindAppDn</code> [confirmed]</a></h3>
+<ul>
+<li><code>_FindApp</code> (<code>page_3D:5EE3</code>) — locate an app by name (OP1). Inits the search page,
+then loops <code>app_find_next_page (5FB1)</code> + a header-match step until done, returning the app’s
+start page and a found/not-found flag via <code>RST 28</code> (bcall) into RAM flash helpers.
+<pre><code class="language-z80">5EE3 CALL 727D            ; flash_set_sector_cnt -&gt; appSearchPage (0x82A3)
+5EE6 CALL 5FB1            ; step to next candidate page (DEC appSearchPage)
+5EE9 RET C                ; ran off the end -&gt; not found
+5EEA CALL 5EB2            ; read/compare this page's header
+5EED BIT 3,C; JR Z,5EE6   ; not a match -&gt; keep scanning
+</code></pre>
+</li>
+<li><code>app_find_next_page</code> (<code>page_3D:5FB1</code>) — <code>appSearchPage (0x82A3) -= 1</code>; stops at page 7
+(low boundary of the app region); bjumps <code>appSearchPage:0x4000</code> to inspect the header.</li>
+<li><code>flash_set_sector_cnt</code> (<code>page_3D:727D</code> → helper <code>726E</code>) — initializes <code>0x82A3</code> to the model-selected page base plus one.</li>
+<li><code>_FindAppUp</code> (<code>5DDA</code>) / <code>_FindAppDn</code> (<code>5DE6</code>) — enumerate the previous / next app
+in flash (for the APPS-menu list), both wrapping the common walker <code>_app_5de7</code> (<code>5DE7</code>).
+<code>_app_5de7</code> keeps two counts in BC (apps before/after) and tracks the current name in OP3.</li>
+<li><code>_FindAppNumPages</code> is present in the bcall table (<code>3D:4AA3</code>), but the current live DB has no function record at that address.</li>
+</ul>
+<p>State variables: <code>appSearchPage</code> = <code>0x82A3</code>, <code>0x8497</code>/<code>0x8481</code>/<code>0x9C87</code> are search-mode
+scratch (<code>0x9C87</code>=‘i’ selects the in-RAM “temp app” search variant).</p>
+<h3 id="13-launching-an-app-as-a-context-confirmed"><a class="header" href="#13-launching-an-app-as-a-context-confirmed">1.3 Launching an app as a context [confirmed]</a></h3>
+<p><code>_AppInit</code> (<code>ram:0936</code>, bcall <code>0x404B</code>) installs a context from an app header:</p>
+<pre><code>_AppInit(byte *hdr):                 ; HL -&gt; 13-byte vector block in the header
+  copy 12 bytes hdr[0..11] -&gt; cxMain (0x858D)   ; the 6 context vectors
+  flags.appFlags (IY+0x0D) = hdr[12]            ; appFlags byte
+  cxPage (0x8599) = port_mapBankA               ; the flash page the handlers run from
+</code></pre>
+<p>The 12 bytes are the 6 little-endian handler pointers (<code>cxMain</code>, <code>cxPPutAway</code>, <code>cxPutAway</code>,
+<code>cxRedisp</code>, <code>cxErrorEP</code>, <code>cxSizeWind</code> — see <a href="11-boot-contexts-errors.html">doc 11</a> §Context block). Example: the OS’s own
+default app vectors live at <code>page_3B:7571</code>:</p>
+<pre><code>3E 75 | 4B 75 | 9F 74 | 4B 75 | 4B 75 | 4B 75 | 0A
+cxMain=753E cxPPutAway=754B cxPutAway=749F cxRedisp=754B cxErrorEP=754B cxSizeWind=754B appFlags=0A
+</code></pre>
+<p><code>_ReloadAppEntryVecs</code> (<code>page_3B:73E4</code>, bcall <code>0x4C36</code>) calls <code>_AppInit</code> on that block, then
+overrides <code>cxErrorEP (0x8595)=0x27D9</code>. After <code>_AppInit</code>, the main event loop runs the app
+through <code>call_context_main</code> (pages in <code>cxPage</code>, jumps <code>(cxMain)</code> — <a href="11-boot-contexts-errors.html">doc 11</a>).</p>
+<p>Because <code>cxCurApp</code> (<code>0x859A</code>) is a key code, pressing a mode key selects the context to
+load (<a href="11-boot-contexts-errors.html">doc 11</a>). The App quit restore-path candidate at
+<code>page_3B:7412</code> is not a defined function in the current live DB; the saved-context restore behavior
+stands as a byte-trace note (the label is project-local, not a WikiTI or <code>ti83plus.inc</code> equate).</p>
+<hr>
+<h2 id="2-ram-clearing--memory-reset"><a class="header" href="#2-ram-clearing--memory-reset">2. RAM clearing / memory reset</a></h2>
+<p>The <strong>MEM</strong> menu (<code>[2nd][+]</code>, “MEMORY MANAGEMENT/DELETE” + “RESET”) and its messages are on
+<code>page 0x01</code> (text/homescreen page). The reset <em>engine</em> is on <code>page 0x35</code>; the user-RAM
+re-init lands in page-0 boot code.</p>
+<h3 id="21-the-user-facing-strings-page-0x01-confirmed"><a class="header" href="#21-the-user-facing-strings-page-0x01-confirmed">2.1 The user-facing strings (page 0x01) [confirmed]</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Addr</th><th>String</th></tr>
+</thead>
+<tbody>
+<tr><td><code>page_01:4076</code></td><td><code>Defragmenting...</code></td></tr>
+<tr><td><code>page_01:4098</code></td><td><code>Arc Vars Cleared</code></td></tr>
+<tr><td><code>page_01:40A9</code></td><td><code>  Apps Cleared</code></td></tr>
+<tr><td><code>page_01:40B8</code></td><td><code>Arc Vars &amp; Apps     Cleared</code></td></tr>
+<tr><td><code>page_01:4109</code></td><td><code>Resetting All...</code></td></tr>
+<tr><td><code>page_01:4126</code>+<code>412E</code></td><td><code>Garbage</code> + <code>Collecting...</code></td></tr>
+<tr><td><code>page_01:4234</code></td><td><code>Resetting...</code></td></tr>
+<tr><td><code>page_01:7425..746E</code></td><td>menu titles: <code>RESET MEMORY</code>, <code>RESET DEFAULTS</code>, <code>RESET ARC VARS</code>, <code>RESET ARC APPS</code>, <code>RESET ARC BOTH</code>, <code>RESET RAM</code></td></tr>
+<tr><td><code>page_01:747E</code></td><td>the long “Resetting ALL / RAM / Vars / Apps / Both …” warning help text</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="22-the-reset-dispatcher-mem_reset_dispatch--page_357180-confirmed"><a class="header" href="#22-the-reset-dispatcher-mem_reset_dispatch--page_357180-confirmed">2.2 The reset dispatcher (<code>mem_reset_dispatch</code> @ <code>page_35:7180</code>) [confirmed]</a></h3>
+<p>Dispatch is on the selected reset item held in <code>keyExtend</code> (<code>0x8446</code>):</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th><code>keyExtend</code></th><th>action</th><th>message shown</th></tr>
+</thead>
+<tbody>
+<tr><td>1</td><td>reset archived vars</td><td><code>Arc Vars Cleared</code> (path <code>720B</code>)</td></tr>
+<tr><td>2</td><td>reset archived apps</td><td><code>Apps Cleared</code> (path <code>7267</code>)</td></tr>
+<tr><td>3</td><td>reset both arc vars+apps</td><td><code>Arc Vars &amp; Apps Cleared</code> (path <code>7275</code>)</td></tr>
+<tr><td>4</td><td>reset all (RAM+archive)</td><td><code>Resetting All...</code> (path <code>71F0</code>)</td></tr>
+<tr><td>else (0)</td><td>RAM reset (“RAM Cleared”)</td><td>wipe + re-init (path <code>719F</code>)</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="23-what-ram-cleared-ram-reset-zeroes-confirmed"><a class="header" href="#23-what-ram-cleared-ram-reset-zeroes-confirmed">2.3 What “RAM Cleared” (RAM reset) zeroes [confirmed]</a></h3>
+<p>The RAM-reset path (<code>page_35:719F</code>):</p>
+<pre><code class="language-z80">719F BIT 1,(IY+0x35); JP Z,0x0B2F          ; first-stage vs full path select
+71A6 LD HL,(0x9B73)                         ; preserve a saved word
+71B4 LD A,(IY+0x3F); AND 0x7F               ; keep low 7 bits (clear bit 7) of flag byte 0x3F
+71B9 DI
+71BA LD HL,0x8000; LD DE,0x8001; LD BC,0x1BC3; LD (HL),0; LDIR   ; *** zero system RAM 0x8000-0x9BC3 ***
+71C7 LD (IY+0x3F),A                         ; restore the saved low 7 bits
+...   (restore IY+0x34 bit6, IY+0x35 bit0 from the preserved state)
+71E0 LD HL,0x9BD0; LD DE,0x9BD1; LD BC,0x642F; LD (HL),0; LDIR   ; *** zero user RAM 0x9BD0-0xFFFF ***
+71ED JP 0x0BD9                              ; re-init RAM (page-0 boot init)
+</code></pre>
+<p>So a RAM reset clears two blocks to 0:</p>
+<ol>
+<li><strong>System RAM</strong> <code>0x8000–0x9BC3</code> (~7 KiB: OS scratch, the Context block, system buffers).</li>
+<li><strong>User RAM</strong> <code>0x9BD0–0xFFFF</code> (<code>0x6430</code> = 25648 bytes, ~25 KiB: the VAT and all user variables/programs).</li>
+</ol>
+<p>A handful of flag bits are explicitly preserved across the wipe (<code>IY+0x3F</code> bit7,
+<code>IY+0x34</code> bit6, <code>IY+0x35</code> bits0/1, and the word at <code>0x9B73</code>) so the calculator knows it is
+mid-reset. It then <code>JP 0x0BD9</code>, the RAM-init entry (<code>OUT (0)</code> page select, <code>LD SP,0xFFF7</code>,
+then <code>CALL 0x3EC1</code> — the cross-page trampoline that rebuilds the VAT, system vars, and LCD; see <a href="11-boot-contexts-errors.html">doc 11</a>), which rebuilds a
+clean default VAT and system state and re-enters the homescreen. The Flash archive is not
+touched by a plain RAM reset.</p>
+<h3 id="24-full-reset-page_0ram0b27-confirmed"><a class="header" href="#24-full-reset-page_0ram0b27-confirmed">2.4 Full reset (<code>page_0/ram:0B27</code>) [confirmed]</a></h3>
+<p>The harder reset (RESET ALL / power-on cold start) is at <code>ram:0B27</code>:</p>
+<pre><code class="language-z80">0B27 LD SP,0; ... 0B37 DI; OUT (0),0xC0
+0B41 LD HL,0x8000; LD DE,0x8001; LD BC,0x7FFF; LD (HL),0; LDIR   ; zero ALL of 0x8000-0xFFFF (32 KiB)
+0B4E ... preserve/inspect IY+0x3F; select sub-path; JP 0x3EA9/0x3EAF
+</code></pre>
+<p>This zeroes the <em>entire</em> 32 KiB RAM and does the deepest re-init.</p>
+<h3 id="25-_cleanall--cleanup_temp_ram-page_0752cf--not-a-reset-confirmed"><a class="header" href="#25-_cleanall--cleanup_temp_ram-page_0752cf--not-a-reset-confirmed">2.5 <code>_CleanAll</code> / <code>cleanup_temp_ram</code> (<code>page_07:52CF</code>) — not a reset [confirmed]</a></h3>
+<p>Distinct from the MEM reset. <code>_CleanAll</code> (bcall <code>0x4A50</code>) only compacts temporary RAM
+after a command finishes: it shifts the FP stack (<code>fpBase</code>/<code>FPS</code>) down to <code>tempMem</code>, resets
+the <code>OPBase</code>/<code>OPS</code>/<code>pTemp</code> scratch pointers, and clears <code>pTempCnt</code>/<code>cleanTmp</code>. It does not
+clear the VAT, user vars, or Flash (see <a href="12-memory-management.html">doc 12</a>). <code>_FixTempCnt</code> (<code>page_07:4FEC</code>) marks temps
+≥ a count reclaimable then tail-calls the same compaction.</p>
+<h3 id="26-flash-archive-gc--defragmenting--garbage-collecting-confirmed-behavior-display-label-addresses-undisassembled"><a class="header" href="#26-flash-archive-gc--defragmenting--garbage-collecting-confirmed-behavior-display-label-addresses-undisassembled">2.6 Flash archive GC — “Defragmenting…” / “Garbage Collecting…” [confirmed behavior; display-label addresses undisassembled]</a></h3>
+<p>Separate from RAM reset: when the Flash archive fills, the OS rewrites live archived vars to
+fresh sectors and erases the old ones. The display dispatcher sits around <code>page_3C:7E23</code>
+(shows <code>Defragmenting...</code> <code>0x4076</code>) / <code>7E10</code>/<code>7E1C</code> (shows <code>Garbage Collecting...</code> <code>0x4126</code>+<code>412E</code>);
+<code>page_3C:7E00</code> is not a defined function in the current live DB (the label is project-local, not a
+WikiTI or <code>ti83plus.inc</code> equate).
+It clears <code>0x844B</code> (<code>curRow</code>, the text-row cursor — reset before the banner draws) and runs with the screen frozen (<code>DI</code>). The actual
+sector erase/write primitives are RAM-resident (flash control port <code>0x14</code>) — see <a href="12-memory-management.html">doc 12</a>.</p>
+<hr>
+<h2 id="3-mode--settings-flags"><a class="header" href="#3-mode--settings-flags">3. MODE / settings flags</a></h2>
+<p>The flag bytes live in the SystemFlags area at <code>IY = 0x89F0</code>. The MODE screen (<code>cxMode = kMode = 0x45</code>) is a menu context that flips these bits; the canonical setters below show
+exactly which bits.</p>
+<h3 id="31-angle-degree-vs-radian--trigflags-iy0-confirmed"><a class="header" href="#31-angle-degree-vs-radian--trigflags-iy0-confirmed">3.1 Angle: Degree vs Radian — <code>trigFlags</code> (<code>IY+0</code>) [confirmed]</a></h3>
+<p><code>trigDeg = bit 2</code> of <code>trigFlags</code> (<code>0x89F0</code>): 1 = Degrees, 0 = Radians. (Confirmed against WikiTI <code>Flags:00</code> and the ROM — <code>_Sin</code> (<code>02:7342</code>) tests <code>BIT 2,(IY+0)</code> to pick the degree path.)</p>
+<pre><code class="language-z80">SET 2,(IY+0)   ; FD CB 00 D6  -&gt; Degree
+RES 2,(IY+0)   ; FD CB 00 96  -&gt; Radian
+BIT 2,(IY+0)   ; FD CB 00 56  -&gt; tested by _Sin/_Cos/_Tan to select degree vs radian
+</code></pre>
+<p>Math routines branch on this bit to choose degree/radian variants (<code>_SinCosRad</code> etc. force
+radians; the degree paths convert first).</p>
+<h3 id="32-graph-type-func--param--polar--seq--grfmodeflags-iy0x02-confirmed"><a class="header" href="#32-graph-type-func--param--polar--seq--grfmodeflags-iy0x02-confirmed">3.2 Graph type: Func / Param / Polar / Seq — <code>grfModeFlags</code> (<code>IY+0x02</code>) [confirmed]</a></h3>
+<p>The four graph-mode setters on <code>page 0x36</code> are mutually exclusive: each first clears
+all four bits via <code>clr_grfmode (page_36:7D00)</code>, then ORs in its own bit, then calls
+<code>_SetTblGraphDraw</code>. <code>param_1</code> is <code>IY</code>, so <code>*(param_1+2)</code> = <code>grfModeFlags</code>.</p>
+<pre><code>clr_grfmode (page_36:7D00):  grfModeFlags &amp;= 0xEF &amp; 0xDF &amp; 0xBF &amp; 0x7F   ; clear bits 4,5,6,7
+</code></pre>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>bcall</th><th>addr</th><th>bit set</th><th>flag (inc)</th></tr>
+</thead>
+<tbody>
+<tr><td><code>_SetFuncM</code></td><td><code>page_36:7D11</code></td><td>bit 4 (<code>|0x10</code>)</td><td><code>grfFuncM</code> (Function)</td></tr>
+<tr><td><code>_SetPolM</code></td><td><code>page_36:7D2C</code></td><td>bit 5 (<code>|0x20</code>)</td><td><code>grfPolarM</code> (Polar)</td></tr>
+<tr><td><code>_SetParM</code></td><td><code>page_36:7D39</code></td><td>bit 6 (<code>|0x40</code>)</td><td><code>grfParamM</code> (Parametric)</td></tr>
+<tr><td><code>_SetSeqM</code></td><td><code>page_36:7D1F</code></td><td>bit 7 (<code>|0x80</code>)</td><td><code>grfRecurM</code> (Sequence/Recursion)</td></tr>
+</tbody>
+</table>
+</div>
+<p>Each setter first calls a small predicate (<code>page_36:0013/0254/0259/025E</code>) and only re-sets
+the mode if the parity/condition flag (<code>F</code> bit6) requires it, avoiding needless redraws.</p>
+<p>Other <code>grfModeFlags</code> bits (from inc, not in the setters above): bit3 <code>grfPolar</code>
+(rect↔polar coordinate readout). Related graph bytes: <code>grfDBFlags</code> (<code>IY+0x04</code>) bit0
+<code>grfDot</code> (line/dot), bit1 <code>grfSimul</code> (sequential/simultaneous), bit4 <code>grfNoCoord</code>,
+bit5 <code>grfNoAxis</code>; <code>seqFlags</code> (<code>IY+0x0F</code>).</p>
+<h3 id="33-numeric-format-normalscieng-floatfix-base--fmtflags-iy0x0a-confirmed-bits-from-inc"><a class="header" href="#33-numeric-format-normalscieng-floatfix-base--fmtflags-iy0x0a-confirmed-bits-from-inc">3.3 Numeric format: Normal/Sci/Eng, Float/Fix, base — <code>fmtFlags</code> (<code>IY+0x0A</code>) [confirmed (bits from inc)]</a></h3>
+<p><code>fmtFlags</code> byte at <code>0x89FA</code>:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>bit</th><th>name</th><th>meaning</th></tr>
+</thead>
+<tbody>
+<tr><td>0</td><td><code>fmtExponent</code></td><td>1 = show exponent (Sci/Eng), 0 = Normal</td></tr>
+<tr><td>1</td><td><code>fmtEng</code></td><td>1 = Engineering, 0 = Scientific (when exponent on)</td></tr>
+<tr><td>2-4</td><td><code>fmtBaseMask</code> (<code>fmtHex</code>/<code>fmtOct</code>/<code>fmtBin</code>)</td><td>integer base (Dec/Hex/Oct/Bin)</td></tr>
+<tr><td>5</td><td><code>fmtReal</code></td><td>real display mode</td></tr>
+<tr><td>6</td><td><code>fmtRect</code></td><td>rectangular complex display (a+bi)</td></tr>
+<tr><td>7</td><td><code>fmtPolar</code></td><td>polar complex display (re^θi)</td></tr>
+</tbody>
+</table>
+</div>
+<p>So Normal/Sci/Eng = (bit0, bit1): Normal = <code>00</code>, Sci = <code>01</code>, Eng = <code>11</code>.
+<code>fmtOverride</code> (<code>IY+0x0B</code>, <code>0x89FB</code>) is a working copy used during conversions.</p>
+<p>Float vs Fix N is not in <code>fmtFlags</code> — it is the separate byte <code>fmtDigits</code> =
+<code>0x97B0</code>: value <code>0x00–0x09</code> = Fix-N decimal places, <code>0xFF</code> = Float.</p>
+<h3 id="34-mode-screen-plumbing"><a class="header" href="#34-mode-screen-plumbing">3.4 MODE screen plumbing</a></h3>
+<p>The MODE screen is a menu context (<code>cxMode</code>/<code>kMode</code>=0x45) reached via the event/key router
+(<a href="11-boot-contexts-errors.html">doc 11</a>). Its row strings live as token names on page 0x01 (<code>RadianN</code>/<code>DegreeO</code>/<code>NormalP</code>/
+<code>Float</code> at <code>page_01:49E4..4A06</code>; trailing letters are token-id bytes) and full-caps menu
+labels on page 0x37 (<code>DEGREE</code> <code>4A85</code>, <code>RADIAN</code> <code>4A8C</code>). Selecting a row writes the flag bits
+documented above directly (<code>SET/RES (IY+…)</code>, or stores into <code>fmtDigits</code>). [hypothesis] (partial) —
+the per-row write table itself is reached through the menu dispatcher and was not traced
+line-by-line, but every target bit/byte is confirmed from the setters and inc equates.</p>
+<hr>
+<h2 id="4-confident-spaceaddr-index"><a class="header" href="#4-confident-spaceaddr-index">4. Confident <code>space:addr</code> index</a></h2>
+<pre><code>page_3D:5EE3   _FindApp
+page_3D:5DDA   _FindAppUp
+page_3D:5DE6   _FindAppDn
+page_3D:5DE7   _app_5de7
+page_3D:5FB1   app_find_next_page
+page_3D:727D   flash_set_sector_cnt
+page_3D:7285   TLV-length candidate (inferred label); no defined function in live DB
+page_3D:4AA3   _FindAppNumPages bcall target; no live function in current DB
+ram:0936       _AppInit
+ram:08AF       _PutAway
+page_3B:73E4   _ReloadAppEntryVecs
+page_3B:7571   default app vectors data block (12 bytes + appFlags), not a function
+page_3B:7412   app-quit restore candidate (inferred label); no defined function in live DB
+page_35:7180   mem_reset_dispatch
+page_35:719F   ram_reset_wipe         (zeroes 0x8000-0x9BC3 and 0x9BD0-0xFFFF)
+ram:0BD9       ram_init_after_reset
+ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
+page_3C:7E00   archive-GC-display candidate (inferred label); no defined function in live DB
+page_07:52CF   _CleanAll (cleanup_temp_ram)
+page_07:4FEC   _FixTempCnt
+page_36:7D11   _SetFuncM     (grfModeFlags bit4)
+page_36:7D1F   _SetSeqM      (grfModeFlags bit7)
+page_36:7D2C   _SetPolM      (grfModeFlags bit5)
+page_36:7D39   _SetParM      (grfModeFlags bit6)
+page_36:7D00   clr_grfmode   (clears grfModeFlags bits 4-7)
+</code></pre>
+<h3 id="key-systemflags--ram-addresses"><a class="header" href="#key-systemflags--ram-addresses">Key SystemFlags / RAM addresses</a></h3>
+<pre><code>0x89F0  flags (IY base)
+ +0x00  trigFlags   (bit2 trigDeg: 1=Degree,0=Radian)
+ +0x02  grfModeFlags(bit4 Func,bit5 Polar,bit6 Param,bit7 Seq; bit3 grfPolar)
+ +0x04  grfDBFlags  (bit0 Dot, bit1 Simul, bit4 NoCoord, bit5 NoAxis)
+ +0x0A  fmtFlags    (bit0 Exponent, bit1 Eng, bit2-4 base, bit5 Real, bit6 Rect, bit7 Polar)
+ +0x0B  fmtOverride
+ +0x0D  appFlags
+0x97B0  fmtDigits   (0-9 = Fix N, 0xFF = Float)
+0x82A3  appSearchPage
+0x8446  keyExtend   (reset-submenu selector 1..4; extended-key state)
+0x858D  cxMain ...  0x8599 cxPage  0x859A cxCurApp   (Context block, doc 11)
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="sub-vat-archive.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="sub-statistics.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="sub-vat-archive.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="sub-statistics.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-5fa46c0a.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
