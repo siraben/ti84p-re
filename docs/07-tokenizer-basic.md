@@ -49,14 +49,14 @@ The engine reads the token stream and dispatches each token to a handler; arithm
 
 ### The handler dispatch table [confirmed]
 
-Page 0x38 begins with the parser's handler dispatch at `page_38:4000` — a flat array of 2-byte little-endian handler pointers. Raw bytes are `9F 41 F0 45 1C 42 …` = entries `0x419F, 0x45F0, 0x421C, …` (all in-window `0x4xxx`/`0x47xx` code addresses), indexed by token class and dereferenced; the selector at `38:7010` loads `LD HL,0x4000` and adds `2×index` (see [TI-BASIC Programs](sub-tibasic.md)).
+Page 0x38 begins with the parser's handler dispatch at `38:4000` — a flat array of 2-byte little-endian handler pointers. Raw bytes are `9F 41 F0 45 1C 42 …` = entries `0x419F, 0x45F0, 0x421C, …` (all in-window `0x4xxx`/`0x47xx` code addresses), indexed by token class and dereferenced; the selector at `38:7010` loads `LD HL,0x4000` and adds `2×index` (see [TI-BASIC Programs](sub-tibasic.md)).
 
 These handlers implement TI-BASIC statements/commands and operators. Sampling them by the routine they call:
 - indices 8–10, 17–19, 38 → `bcall(_Regraph)` — graph commands (`DrawF`, `ZoomFit`, etc.).
 - indices 14–16, 21–22 → `bcall(_Disp)` — display/output commands (`Disp`, `Output`).
 - the "no-bcall" handlers are the arithmetic/operator productions — they drive OP1/OP2 through the FP engine via the RST shortcuts (RST 30h `_FPAdd`, etc.), which is why a bcall scan doesn't flag them; variable handlers go through `_FindSym` ([05](05-variables-vat.md)).
 
-The first handlers: `page_38:419F, 45F0, 421C, …`.
+The first handlers: `38:419F, 45F0, 421C, …`.
 
 ### Parse-stream cursor [confirmed]
 
@@ -65,13 +65,13 @@ The evaluator walks the token stream via a cursor in RAM: `parsePtr` (`0x965D` =
 - `parse_advance` (`38:7248`) — `parsePtr++` (advances the cursor and reloads `BC` from it). The bounds/refill check is the adjacent entry `38:7245`, which calls `0x1FD6` before falling into the increment.
 - `parse_expect_or_err` (`38:5CD8`) — fetch a token and raise `_ErrSyntax` (recording the position in `parsePtr`) if it isn't the expected one.
 
-So the dispatch loop is: `parse_cur_tok` → index the pointer table at `page_38:4000` and call the selected handler (which may consume args via `parse_advance`) → repeat.
+So the dispatch loop is: `parse_cur_tok` → index the pointer table at `38:4000` and call the selected handler (which may consume args via `parse_advance`) → repeat.
 
 **Main evaluator:** `parse_eval_expr` (`38:5AB3`) is the big recursive-descent expression evaluator — it dispatches through handler function-pointers (`code *`) with operator precedence, reading via the cursor helpers and leaving the result in `OP1`. `_ParseInp` → `parse_init` → `parse_eval_expr`. `parse_scan_tokens` (`38:4180`) is a token-scan helper (skips to a delimiter, honoring 2-byte tokens via `_IsA2ByteTok`).
 
-The region at `page_38:4000` is a flat array of 2-byte handler pointers (entries `0x419F, 0x45F0, 0x421C, …`), not executable code — `CALL 0x33AB` (`CD AB 33`) appears nowhere on page 0x38. Each handler is itself recursive-descent code; the table selects which one to enter. See [sub-tibasic.md](sub-tibasic.md) for the execution model (`eval_stmt_entry`@`38:59C5`, the `blockmatch_end_else`@`38:4130` End/Else matcher, `goto_lbl_name_scanner`@`38:4870`).
+The region at `38:4000` is a flat array of 2-byte handler pointers (entries `0x419F, 0x45F0, 0x421C, …`), not executable code — `CALL 0x33AB` (`CD AB 33`) appears nowhere on page 0x38. Each handler is itself recursive-descent code; the table selects which one to enter. See [sub-tibasic.md](sub-tibasic.md) for the execution model (`eval_stmt_entry`@`38:59C5`, the `blockmatch_end_else`@`38:4130` End/Else matcher, `goto_lbl_name_scanner`@`38:4870`).
 
-The handlers are recursive-descent grammar productions (not flat per-operator routines): each reads via `parse_cur_tok`, conditionally recurses, and some load sub-dispatch tables (e.g. `page_38:5110`, `5127`) for finer token classes — implementing operator precedence by nesting. So "the + operator" isn't one table entry; it's handled within the term/factor production that drives `_FPAdd` (RST 30h).
+The handlers are recursive-descent grammar productions (not flat per-operator routines): each reads via `parse_cur_tok`, conditionally recurses, and some load sub-dispatch tables (e.g. `38:5110`, `5127`) for finer token classes — implementing operator precedence by nesting. So "the + operator" isn't one table entry; it's handled within the term/factor production that drives `_FPAdd` (RST 30h).
 
 The precedence levels (term/factor/unary productions) and sub-dispatch tables are mapped in [TI-BASIC Programs](sub-tibasic.md) §3/§6.
 

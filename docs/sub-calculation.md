@@ -64,17 +64,17 @@ Convenience / derived ops:
 - **Negation**: `_InvOP1S` `ram:24BD` (XOR OP1.type with 0x80, guarding against −0), `_InvOP2S` `ram:24CD`, `_InvOP1SC` `ram:24BA` (both). `_CkOP1Pos` `ram:1E5D` ANDs OP1.type with 0x80. [confirmed]
 
 ### Roots & integer parts [confirmed]
-- `_SqRoot` `page_02:6E38`: `_ErrD_OP1NotPos` (→ DOMAIN if negative/complex-real), `fp_clear_guard`, `_ZeroOP3`, then a digit-by-digit BCD square-root extraction loop (`ram:1C9C` trial-subtract + `ram:1D4A` compare, halving the exponent up front). A classic long-hand sqrt, not Newton's method.
+- `_SqRoot` `02:6E38`: `_ErrD_OP1NotPos` (→ DOMAIN if negative/complex-real), `fp_clear_guard`, `_ZeroOP3`, then a digit-by-digit BCD square-root extraction loop (`ram:1C9C` trial-subtract + `ram:1D4A` compare, halving the exponent up front). A classic long-hand sqrt, not Newton's method.
 - `_Int`/`_Intgr` `ram:2621`/`2263`: floor. `_Trunc` `ram:2279` drops the fractional part (toward zero); `_Intgr` truncates then subtracts 1 (`_Minus1` `ram:2294`) when the original was negative, giving true floor.
 - `_Frac` `ram:24E3`: fractional part = x − trunc(x); shifts mantissa by the exponent and keeps the low digits.
-- `_Round` / `_RndGuard` `ram:2623` / `page_02:6A57`: round to the active display-digit count; `_Round` is a thin `cross_page_jump` wrapper (body banked off page 0).
+- `_Round` / `_RndGuard` `ram:2623` / `02:6A57`: round to the active display-digit count; `_Round` is a thin `cross_page_jump` wrapper (body banked off page 0).
 
 ---
 
 ## 3. Degree/radian & polar conversions [confirmed]
 - `_DToR` `ram:236B` (deg→rad): multiply OP1 by $\pi/180$ (`ram:235D` loads the constant) then normalize via `ram:249E`.
 - `_RToD` `ram:2374` (rad→deg): multiply by $180/\pi$ (`ram:2361`).
-- `_PToR` `page_02:50BD` polar→rectangular; pairs with the complex trig below.
+- `_PToR` `02:50BD` polar→rectangular; pairs with the complex trig below.
 These constants are the BCD floats `π/180 = 1.745…e-2` and `180/π = 5.729…e1` noted in
 [06-floating-point.md](06-floating-point.md)'s constant scan.
 
@@ -90,9 +90,9 @@ Banked ROM calls use a bcall-style trampoline.
 
 The ln/e^x sites that look similar are local calls, not cross-page dispatches. `ram:2362` calls the bcall
 entry at `ram:3DD1`, whose inline descriptor is `1E 7D 02`, so it invokes the page-0x02
-coefficient fetcher at `page_02:7D1E`. In `LD A,3; CALL 0x2362` / `LD A,6; CALL 0x2362`, the
+coefficient fetcher at `02:7D1E`. In `LD A,3; CALL 0x2362` / `LD A,6; CALL 0x2362`, the
 `3` and `6` are coefficient-table indexes, not target pages. `_EToX` falls through locally into
-the `_TenX` body at `page_02:7069`; the ln/e^x/sin-cos coefficient tables are on page 0x02
+the `_TenX` body at `02:7069`; the ln/e^x/sin-cos coefficient tables are on page 0x02
 (`7181`, `7201`, `7281`, and the constant block near `7D42`), not page 0x03/0x06/0x07.
 
 ---
@@ -100,24 +100,24 @@ the `_TenX` body at `page_02:7069`; the ln/e^x/sin-cos coefficient tables are on
 ## 5. Transcendentals
 
 ### Logarithms [confirmed]
-- `_LnX` `page_02:6EFD`: `_CkOP1Pos`; non-positive real → `_ErrDomain`. For a positive real it calls the real-log core (`_CLN` path, selector `C=2`); the *generic* entry handles complex args.
-- `_LogX` `page_02:6F16`: same structure, base-10 selector `C=0`, guards `_ErrD_OP1_0`/`_ErrD_OP1NotPos`.
-- `_CLN` `page_02:6CCA` / `_CLog` `page_02:6CE7` — complex log: `_CAbs` (magnitude) → real `_LnX`/`_LogX` for the real part, `_ATan2Rad` (`page_02:76D4`) for the imaginary part (the argument/angle). Uses `_PushRealO1`/`_PopRealO2` to juggle the operand. This is why `ln(-2)` returns a complex result in `a+bi` mode but raises `_ErrNonReal` (0x87) in real mode.
+- `_LnX` `02:6EFD`: `_CkOP1Pos`; non-positive real → `_ErrDomain`. For a positive real it calls the real-log core (`_CLN` path, selector `C=2`); the *generic* entry handles complex args.
+- `_LogX` `02:6F16`: same structure, base-10 selector `C=0`, guards `_ErrD_OP1_0`/`_ErrD_OP1NotPos`.
+- `_CLN` `02:6CCA` / `_CLog` `02:6CE7` — complex log: `_CAbs` (magnitude) → real `_LnX`/`_LogX` for the real part, `_ATan2Rad` (`02:76D4`) for the imaginary part (the argument/angle). Uses `_PushRealO1`/`_PopRealO2` to juggle the operand. This is why `ln(-2)` returns a complex result in `a+bi` mode but raises `_ErrNonReal` (0x87) in real mode.
 
 ### Exponentials [confirmed]
-- `_EToX` `page_02:705C` (e^x): loads the `log10(e)` constant through `ram:2362`/`page_02:7D1E`,
+- `_EToX` `02:705C` (e^x): loads the `log10(e)` constant through `ram:2362`/`02:7D1E`,
   then falls through into the local `_TenX` body.
-- `_TenX` `page_02:7066` (10^x): splits exponent into integer (digit shift) + fractional
-  (16-slot table-driven evaluation through `page_02:7181`). Argument too large → `_ErrOverflow`.
+- `_TenX` `02:7066` (10^x): splits exponent into integer (digit shift) + fractional
+  (16-slot table-driven evaluation through `02:7181`). Argument too large → `_ErrOverflow`.
 
 ### Trig — sin/cos/tan [confirmed]
-- `_SinCosRad` `page_02:733E`, `_Sin` `7342`, `_Cos` `7346`, `_Tan` `734A`. Each loads a
+- `_SinCosRad` `02:733E`, `_Sin` `7342`, `_Cos` `7346`, `_Tan` `734A`. Each loads a
   function selector byte into `0x8499` (`1`=sin, `2`=cos, `4`=tan; `0x80` bit set when
   the rad-special mode tested by `BIT 2,(IY+0)` is off; `_SinCosRad` forces `0x81`).
 - Range reduction: reads OP1 exponent; exponent ≥ 0x0C (|x| ≳ 10^12·) → `_ErrDomain`
   ("argument out of range"). It then reduces the angle modulo a quarter-period using the
-  BCD constant table near `page_02:7D81` and runs the same table-driven digit recurrence
-  as ln/eˣ over the signed near-unity tables at `page_02:7201` and `page_02:7281` (one row
+  BCD constant table near `02:7D81` and runs the same table-driven digit recurrence
+  as ln/eˣ over the signed near-unity tables at `02:7201` and `02:7281` (one row
   per digit step, sign-variant picked by `0x84A4` bit 7) — the per-step `bcd_sub_op1_op2`
   (`ram:1D8A`) / `bcd_add_8496_8480` (`ram:1D26`) are the shift-and-add BCD steps of that
   recurrence, not a fixed polynomial and not CORDIC for the forward trig. The per-row
@@ -126,8 +126,8 @@ the `_TenX` body at `page_02:7069`; the ln/e^x/sin-cos coefficient tables are on
 ### Inverse trig [confirmed]
 - `_ASinRad` `76DA`, `_ACosRad` `76C9`, `_ATanRad` `76CF`, `_ATan2Rad` `76D4`, plus the
   degree-mode `_ASin`/`_ACos`/`_ATan`/`_ATan2` at `76F1`/`76DF`/`76E9`/`7749`.
-- `_ASin`/`_ACos` call domain check `page_02:79D3`; |arg| > 1 → `_ErrDomain`.
-- All inverse trig funnel into the shared arctangent CORDIC engine at `page_02:774B`
+- `_ASin`/`_ACos` call domain check `02:79D3`; |arg| > 1 → `_ErrDomain`.
+- All inverse trig funnel into the shared arctangent CORDIC engine at `02:774B`
   (`B=0x20` seeds the octant/quadrant base written to `0x84A4`; the core is a base-10
   trial-subtract digit recurrence, not a fixed 32-step loop), with asin/acos expressed
   via atan2 of (x, √(1−x²)).
@@ -137,7 +137,7 @@ the `_TenX` body at `page_02:7069`; the ln/e^x/sin-cos coefficient tables are on
   at `7909`/`7956`/`7964`. Same `0x8499` selector mechanism; built from `_EToX` (`sinh = (e^x−e^-x)/2`, visible in the `_EToX`+`_FPDiv` sequence near `02:6D08`).
 
 ### Power operator `^` [confirmed]
-The general `a^b` lives at `page_02:6D08`+: it computes `b·ln(a)` then `e^()` and reconstructs
+The general `a^b` lives at `02:6D08`+: it computes `b·ln(a)` then `e^()` and reconstructs
 with `_SinCosRad` for the complex case — i.e. `a^b = e^(b·Ln a)`, with `_FPDiv`/`_FPMult`
 glue and `_OP2ToOP6`/`_OP6ToOP1` shuffles. Integer/√ special cases short-circuit to
 `_FPMult`/`_SqRoot`. This makes `^` the most FP-stack-heavy single operator a student hits.
@@ -149,7 +149,7 @@ glue and `_OP2ToOP6`/`_OP6ToOP1` shuffles. Integer/√ special cases short-circu
 When the homescreen shows a result (or `Ans`), the engine converts the `OP1` `TIFloat` to a
 digit string honoring the **MODE** screen (Normal/Sci/Eng, Float/Fix 0–9).
 
-- `_FormReal` `page_06:5ACF` — real-number formatter. [confirmed]
+- `_FormReal` `06:5ACF` — real-number formatter. [confirmed]
   - `fp_clear_guard`; zero → `_OP1Set0`; copies arg to OP5.
   - Reads the digit-count/mode flags from `(IY+0xc)` and the byte at `0x89FA` (active
     fixed/decimal-places setting; `(IX-1)` local holds the effective format byte).
@@ -157,12 +157,12 @@ digit string honoring the **MODE** screen (Normal/Sci/Eng, Float/Fix 0–9).
     (≈ the ±-exponent window) and renormalizes (`ram:1BE7`) to bring the value into the
     displayable mantissa range, bumping a digit counter. Negative sign decrements the leading
     column count (`DEC (IX-3)`).
-- `_FormEReal` `page_06:5799` — forces scientific/E notation by setting `0,(IY+0xc)` then calling `_FormReal`. [confirmed]
-- `_FormBase` `page_06:57C0` — integer formatting in a base; requires `_CkOP1Real` (→ DATA TYPE / DOMAIN on non-real). [confirmed]
-- `_FormDCplx` `page_06:59D3` — complex `a+bi` / `r∠θ` formatting (calls `_FormReal` twice). [standard]
+- `_FormEReal` `06:5799` — forces scientific/E notation by setting `0,(IY+0xc)` then calling `_FormReal`. [confirmed]
+- `_FormBase` `06:57C0` — integer formatting in a base; requires `_CkOP1Real` (→ DATA TYPE / DOMAIN on non-real). [confirmed]
+- `_FormDCplx` `06:59D3` — complex `a+bi` / `r∠θ` formatting (calls `_FormReal` twice). [standard]
 - Exponent ↔ ASCII helpers on page 0: `_ExpToHex` `ram:1E4E`, `_OP1ExpToDec` `ram:1E77`,
   `_DecO1Exp` `ram:1E6F` (decrement exp), `ram:1BCB` (BCD-digit → value). [confirmed]
-- The formatted string is then drawn by `_DispOP1A` (`page_04:7844`) / homescreen put-string
+- The formatted string is then drawn by `_DispOP1A` (`04:7844`) / homescreen put-string
   routines (see [08-display-lcd.md](08-display-lcd.md)).
 
 `Ans` is the last-result `TIFloat` saved in a system var and reloaded into `OP1`

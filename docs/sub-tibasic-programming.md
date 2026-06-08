@@ -506,12 +506,12 @@ validate inputs on the BASIC side, and make the ASM payload return normally with
 The run-confirmed way to let ASM choose a BASIC continuation is to keep BASIC in
 charge of the program call. `ASMSIG.8xp` sets `Ans` to `1` and returns:
 
-```asm
-rst 28h
+```z80
+RST 28h
 .dw 419Bh         ; _OP1Set1
-rst 28h
+RST 28h
 .dw 4ABFh         ; _StoAns
-ret
+RET
 ```
 
 The BASIC wrapper then branches on `Ans` and performs the ordinary `prgmNAME`
@@ -544,12 +544,12 @@ state, performs the `prgm` call, and resumes after the target returns.
 For a numeric return value without a BASIC callback, `ASMVAL.8xp` stores `2` in
 `Ans`:
 
-```asm
-rst 28h
+```z80
+RST 28h
 .dw 41A7h         ; _OP1Set2
-rst 28h
+RST 28h
 .dw 4ABFh         ; _StoAns
-ret
+RET
 ```
 
 The wrapper consumes it as an ordinary BASIC value:
@@ -600,14 +600,14 @@ live BASIC caller already has. [hypothesis]
 wrapper displays `BEFORE`, runs `Asm(prgmZZFIND)`, and displays `AFTER`. The
 payload builds `OP1={ProgObj,"ZZBASIC"}` and bcalls `_ChkFindSym` (`42F1`):
 
-```asm
-ld hl,name
-ld de,8478h        ; OP1
-ld bc,0009h
-ldir
-rst 28h
+```z80
+LD HL,name
+LD DE,8478h        ; OP1
+LD BC,0009h
+LDIR
+RST 28h
 .dw 42F1h          ; _ChkFindSym
-ret
+RET
 name: .db 05h,"ZZBASIC",00h
 ```
 
@@ -643,11 +643,11 @@ general "run this token stream" ABI for an arbitrary `AsmPrgm`. [confirmed]
 The homescreen command/edit-buffer route is also not a safe callable ABI. A
 payload that did only:
 
-```asm
-ld a,05h          ; kEnter
-rst 28h
+```z80
+LD A,05h          ; kEnter
+RST 28h
 .dw 402Ah         ; _JForceCmd
-ret
+RET
 ```
 
 entered `_JForceCmd` (`00:0747`) but never returned to the BASIC wrapper's

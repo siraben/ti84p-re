@@ -105,12 +105,12 @@ in a normal workflow." These paths are confirmed or have a concrete next scenari
 The computed bank-pair helpers use this selector formula:
 
 ```z80
-    ld a,b
-    sla a
-    out (5),a        ; pair index 0/1/2/3 -> pages 80/82/84/86 in bank C
-    inc a
-    or 80h
-    out (7),a        ; pair index 0/1/2/3 -> pages 81/83/85/87 in bank B
+    LD A,B
+    SLA A
+    OUT (5),A        ; pair index 0/1/2/3 -> pages 80/82/84/86 in bank C
+    INC A
+    OR 0x80
+    OUT (7),A        ; pair index 0/1/2/3 -> pages 81/83/85/87 in bank B
 ```
 
 Decoded callers set `B = 1`, selecting pages `82/83`; that explains the observed
@@ -133,17 +133,17 @@ more than anonymous free RAM. Keep the evidence classes separate:
 | `4100-433A` | USB communication buffers | WikiTI public note; the two traces on this page do not exercise USB transfer. [standard, not traced here] |
 
 Ghidra identifies the page-`83` block-copy helper at `ram:1868`. It saves the current
-port-`6` value, writes `83h` to port `6`, runs `LDIR`, and restores the previous page
+port-`6` value, writes `0x83` to port `6`, runs `LDIR`, and restores the previous page
 through the page-set helper:
 
 ```z80
 ram:1877  IN A,(6)
 ram:1879  PUSH AF
-ram:187A  LD A,83h
+ram:187A  LD A,0x83
 ram:187C  OUT (6),A
 ram:187E  LDIR
 ram:1880  POP AF
-ram:1881  CALL 181Ch
+ram:1881  CALL 0x181C
 ```
 
 Ghidra identifies the LCD capture helper at `ram:1890`. It maps page `83`, waits on
@@ -152,28 +152,28 @@ the LCD, reads port `11`, and stores each byte through `HL`:
 ```z80
 ram:189F  IN A,(6)
 ram:18A1  PUSH AF
-ram:18A2  LD A,83h
+ram:18A2  LD A,0x83
 ram:18A4  OUT (6),A
-ram:18A6  CALL 0CC3h
-ram:18A9  IN A,(11h)
+ram:18A6  CALL 0x0CC3
+ram:18A9  IN A,(0x11)
 ram:18AB  LD (HL),A
 ```
 
 The reset path on page `37` initializes the previous-entry pointers:
 
 ```z80
-37:6E0D  LD HL,577Eh
+37:6E0D  LD HL,0x577E
 37:6E10  LD (lastEntryPTR),HL
-37:6E13  LD HL,0000h
+37:6E13  LD HL,0x0000
 37:6E16  LD (numLastEntries),HL
 ```
 
 Page `38` has a second clear path with the same pointer reset:
 
 ```z80
-38:422D  LD HL,577Eh
+38:422D  LD HL,0x577E
 38:4230  LD (lastEntryPTR),HL
-38:4233  LD HL,0000h
+38:4233  LD HL,0x0000
 38:4236  LD (numLastEntries),HL
 ```
 
@@ -181,11 +181,11 @@ The homescreen entry-history code on page `33` uses the same constants and varia
 
 ```z80
 33:53D1  LD A,(numLastEntries)
-33:53E2  LD HL,5A7Eh
-33:53F7  LD HL,577Eh
+33:53E2  LD HL,0x5A7E
+33:53F7  LD HL,0x577E
 33:5430  LD A,(numLastEntries)
-33:543A  LD DE,577Eh
-33:5451  LD DE,577Eh
+33:543A  LD DE,0x577E
+33:5451  LD DE,0x577E
 33:5459  LD (lastEntryPTR),HL
 33:5462  LD HL,numLastEntries
 33:5465  INC (HL)
@@ -255,24 +255,24 @@ state that temporarily maps page `83` into bank B (`8000-BFFF`) and page `82` in
 bank C (`C000-FFFF`), restore the two RAM windows this way:
 
 ```z80
-    ld a,$81
-    out (7),a        ; 8000-BFFF back to RAM page 81
-    xor a
-    out (5),a        ; C000-FFFF back to RAM page 80
+    LD A,0x81
+    OUT (7),A        ; 8000-BFFF back to RAM page 81
+    XOR A
+    OUT (5),A        ; C000-FFFF back to RAM page 80
 ```
 
 For code that maps page `83` into bank A (`4000-7FFF`), preserve and restore port `6`:
 
 ```z80
-    in a,(6)
-    push af
+    IN A,(6)
+    PUSH AF
 
-    ld a,$83
-    out (6),a        ; map RAM page 83 at 4000-7FFF
+    LD A,0x83
+    OUT (6),A        ; map RAM page 83 at 4000-7FFF
     ; use 4000-7FFF here
 
-    pop af
-    out (6),a        ; restore previous Flash/RAM page selector
+    POP AF
+    OUT (6),A        ; restore previous Flash/RAM page selector
 ```
 
 Keep the nonstandard mapping inside a short critical section. The OS helper preserves
@@ -283,35 +283,35 @@ For code that may be called with nonstandard paging, preserve and restore the se
 for all touched windows:
 
 ```z80
-    in a,(6)
-    push af
-    in a,(7)
-    push af
-    in a,(5)
-    push af
+    IN A,(6)
+    PUSH AF
+    IN A,(7)
+    PUSH AF
+    IN A,(5)
+    PUSH AF
 
-    ld a,$83
-    out (7),a        ; map RAM page 83 at 8000-BFFF
+    LD A,0x83
+    OUT (7),A        ; map RAM page 83 at 8000-BFFF
     ; use 8000-BFFF here
 
-    pop af
-    out (5),a
-    pop af
-    out (7),a
-    pop af
-    out (6),a
+    POP AF
+    OUT (5),A
+    POP AF
+    OUT (7),A
+    POP AF
+    OUT (6),A
 ```
 
 The OS's own paged byte-store helper at `37:44AE` uses the normal restore pattern:
 
 ```z80
-37:44D0  OUT (5),A        ; A = page index << 1, trace case A = 02h (→ RAM page 82)
+37:44D0  OUT (5),A        ; A = page index << 1, trace case A = 0x02 (→ RAM page 82)
 37:44D2  INC A            ; A = 03
-37:44D3  OR 80h           ; A = 83h
-37:44D5  OUT (7),A        ; trace case: 83h
+37:44D3  OR 0x80          ; A = 0x83
+37:44D5  OUT (7),A        ; trace case: 0x83
 37:44D7  LD A,B
 37:44D8  LD (DE),A        ; byte store while RAM page 83 is visible
-37:44D9  LD A,81h
+37:44D9  LD A,0x81
 37:44DB  OUT (7),A
 37:44DD  XOR A
 37:44DE  OUT (5),A

@@ -37,7 +37,7 @@ length. The decoder bytes are around `3D:7285`, but the disassembly does not exp
 | `0xF` | 4 bytes |
 
 ```z80
-page_3D:7285  AND 0x0F; CP 0x0F -> B=4 ; CP 0x0E -> B=2 ; CP 0x0D -> B=1
+3D:7285  AND 0x0F; CP 0x0F -> B=4 ; CP 0x0E -> B=2 ; CP 0x0D -> B=1
 ```
 The master field at offset 0 is usually `80 0F …` (`field 800`, size nibble `F`, followed
 by a 4-byte size) — this is what the page-scan keys on to recognise an app. Fields carry
@@ -306,7 +306,7 @@ all four bits via `clr_grfmode (36:7D00)`, then ORs in its own bit, then calls
 `_SetTblGraphDraw`. `param_1` is `IY`, so `*(param_1+2)` = `grfModeFlags`.
 
 ```
-clr_grfmode (page_36:7D00):  grfModeFlags &= 0xEF & 0xDF & 0xBF & 0x7F   ; clear bits 4,5,6,7
+clr_grfmode (36:7D00):  grfModeFlags &= 0xEF & 0xDF & 0xBF & 0x7F   ; clear bits 4,5,6,7
 ```
 
 | bcall | addr | bit set | flag (inc) |
@@ -358,31 +358,31 @@ line-by-line, but every target bit/byte is confirmed from the setters and inc eq
 ## 4. Confident `space:addr` index
 
 ```
-page_3D:5EE3   _FindApp
-page_3D:5DDA   _FindAppUp
-page_3D:5DE6   _FindAppDn
-page_3D:5DE7   _app_5de7
-page_3D:5FB1   app_find_next_page
-page_3D:727D   flash_set_sector_cnt
-page_3D:7285   TLV-length candidate (inferred label); no defined function in live DB
-page_3D:4AA3   _FindAppNumPages bcall target; no live function in current DB
+3D:5EE3   _FindApp
+3D:5DDA   _FindAppUp
+3D:5DE6   _FindAppDn
+3D:5DE7   _app_5de7
+3D:5FB1   app_find_next_page
+3D:727D   flash_set_sector_cnt
+3D:7285   TLV-length candidate (inferred label); no defined function in live DB
+3D:4AA3   _FindAppNumPages bcall target; no live function in current DB
 ram:0936       _AppInit
 ram:08AF       _PutAway
-page_3B:73E4   _ReloadAppEntryVecs
-page_3B:7571   default app vectors data block (12 bytes + appFlags), not a function
-page_3B:7412   app-quit restore candidate (inferred label); no defined function in live DB
-page_35:7180   mem_reset_dispatch
-page_35:719F   ram_reset_wipe         (zeroes 0x8000-0x9BC3 and 0x9BD0-0xFFFF)
+3B:73E4   _ReloadAppEntryVecs
+3B:7571   default app vectors data block (12 bytes + appFlags), not a function
+3B:7412   app-quit restore candidate (inferred label); no defined function in live DB
+35:7180   mem_reset_dispatch
+35:719F   ram_reset_wipe         (zeroes 0x8000-0x9BC3 and 0x9BD0-0xFFFF)
 ram:0BD9       ram_init_after_reset
 ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
-page_3C:7E00   archive-GC-display candidate (inferred label); no defined function in live DB
-page_07:52CF   _CleanAll (cleanup_temp_ram)
-page_07:4FEC   _FixTempCnt
-page_36:7D11   _SetFuncM     (grfModeFlags bit4)
-page_36:7D1F   _SetSeqM      (grfModeFlags bit7)
-page_36:7D2C   _SetPolM      (grfModeFlags bit5)
-page_36:7D39   _SetParM      (grfModeFlags bit6)
-page_36:7D00   clr_grfmode   (clears grfModeFlags bits 4-7)
+3C:7E00   archive-GC-display candidate (inferred label); no defined function in live DB
+07:52CF   _CleanAll (cleanup_temp_ram)
+07:4FEC   _FixTempCnt
+36:7D11   _SetFuncM     (grfModeFlags bit4)
+36:7D1F   _SetSeqM      (grfModeFlags bit7)
+36:7D2C   _SetPolM      (grfModeFlags bit5)
+36:7D39   _SetParM      (grfModeFlags bit6)
+36:7D00   clr_grfmode   (clears grfModeFlags bits 4-7)
 ```
 
 ### Key SystemFlags / RAM addresses
