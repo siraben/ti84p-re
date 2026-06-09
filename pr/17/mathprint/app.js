@@ -141,20 +141,53 @@ function fraction(num, den) {
 // places the base low and the raised content high (trace: base penY~11, exponent
 // penY~0); a tall fraction exponent thus rises above the base instead of hanging
 // into it. For a single small digit this reduces to the old fixed 3px raise.
+// Trim blank rows (top/bottom) and trailing blank columns, but PRESERVE leading
+// blank columns — so an exponent keeps its left side-bearing (e.g. the 2 px the
+// OS reserves before a parenthesised group) while a trailing blank cell (the
+// small font's baked-in advance) is still cropped so a following glyph abuts it.
+function trimExp(box) {
+  const nb = box.rows.map(r => r.some(Boolean));
+  let top = nb.indexOf(true);
+  if (top < 0) return { rows: [[0]], baseline: 0, marks: [] };
+  const bot = nb.lastIndexOf(true) + 1;
+  const W = bw(box);
+  let right = 0;
+  for (let x = 0; x < W; x++)
+    if (box.rows.slice(top, bot).some(r => r[x])) right = x + 1;
+  return {
+    rows: box.rows.slice(top, bot).map(r => r.slice(0, right)),
+    baseline: Math.max(0, box.baseline - top),
+    marks: shift(box.marks, 0, -top),
+  };
+}
+
 function superscript(base, exp) {
-  const e = trim(exp);
+  const e = trimExp(exp);
   const bwid = bw(base), ewid = bw(e), eh = bh(e), bbh = bh(base);
   const baseTop = Math.max(eh - EXP_DROP, 0);
   const h = Math.max(baseTop + bbh, eh);
+  // The exponent starts at the base's pen ADVANCE, not its bitmap width: a base with
+  // a right side-bearing (a typed-paren group, adv = bw+1) carries that bearing into
+  // the gap before the exponent (calc (2-3)^(N-N): the "N" exponent is one px further
+  // right than over a bare-glyph base). gap = 1 + base right bearing.
+  const gap = 1 + Math.max(0, adv(base) - bwid);
   const out = [];
   for (let r = 0; r < h; r++) {
     const left = (r >= baseTop && r < baseTop + bbh)
       ? base.rows[r - baseTop] : new Array(bwid).fill(0);
     const right = (r < eh) ? e.rows[r] : new Array(ewid).fill(0);
-    out.push(left.concat([0], right));
+    out.push(left.concat(new Array(gap).fill(0), right));
   }
-  const marks = shift(base.marks, 0, baseTop).concat(shift(e.marks, bwid + 1, 0));
-  return { rows: out, baseline: baseTop + base.baseline, marks };
+  const marks = shift(base.marks, 0, baseTop).concat(shift(e.marks, bwid + gap, 0));
+  // A parenthesised exponent keeps a leading blank side-bearing (trimExp preserves
+  // it); the OS mirrors it as a right bearing, so a glyph that follows the raised
+  // group (the tall ")" closing an integrand around X^(1/2)) sits that far past the
+  // exponent's last ink, not abutting it. Advance the pen by that bearing without
+  // widening the bitmap, so a trailing context lands where the calc draws it.
+  let lead = 0;
+  while (lead < ewid && !e.rows.some(r => r[lead])) lead++;
+  const sbox = { rows: out, baseline: baseTop + base.baseline, marks };
+  return lead > 0 ? { ...sbox, adv: bw(sbox) + lead } : sbox;
 }
 
 // Stretch a fixed glyph's middle rows to a target height (tall ∫ and radicals).
@@ -171,10 +204,24 @@ function stretch(box, height, splitTop) {
 
 // Radical: ROM Lroot hook on the left, a vinculum bar across the radicand top.
 function radical(radicand) {
-  const rad = trim(radicand);
+  // trimExp (rows + trailing only) so a parenthesised radicand keeps its 1 px left
+  // side-bearing — the calc draws sqrt((X)) with the "(" one px further from the
+  // hook than a bare radicand; a bare radicand (no leading blank) is unaffected.
+  const rad = trimExp(radicand);
+  // The vinculum spans the radicand's pen ADVANCE, not just its ink. trimExp keeps
+  // leading blanks (placed at the root) but trims trailing ones; the calc draws the
+  // bar flush with the radicand's last CELL, which includes a baked-in trailing
+  // blank (large "1" in sqrt(X^2+1)) or a delimiter's right bearing (the ")" in
+  // sqrt((X)), adv > bw), but not for a flush glyph (large "3" in sqrt(3)). So
+  // measure the radicand's advance past its leading bearing.
+  // adv(radicand) is the radicand's full pen advance (bitmap width incl any baked-in
+  // trailing blank, plus a delimiter's right bearing); the radicand is drawn at the
+  // root with its leading blank intact (trimExp keeps it), so the bar runs from the
+  // root across exactly that advance.
+  const radvance = Math.max(bw(rad), adv(radicand));
   const h = bh(rad) + 2;                       // vinculum + 1 px gap above radicand
   const root = stretch(trim(largeGlyph(0x10)), h, 3);
-  const rw = bw(root), w = rw + 1 + bw(rad);
+  const rw = bw(root), w = rw + radvance;
   const out = blank(h, w);
   for (let y = 0; y < bh(root); y++)
     for (let x = 0; x < rw; x++) if (root.rows[y][x]) out[h - bh(root) + y][x] = 1;
@@ -192,6 +239,28 @@ function radical(radicand) {
 
 // Parentheses stretched to wrap a box (delimiter height follows content).
 function parens(box) {
+  // In a raised/subscript slot (exponent, integral/sum limit) the OS does NOT
+  // stretch the delimiters: it draws ordinary small-font ( and ) glyphs inline
+  // with the surrounding small run (trace X^(1/2): the exponent is the small
+  // single-row run "(1/2)", parens 5 px tall like the digits, 1 px gap — not a
+  // tall delimiter pair around a 2-D fraction). So in SMALL mode treat parens as
+  // a plain glyph run.
+  if (SMALL) {
+    // The OS reserves a 1 px left side-bearing for a parenthesised raised group: a
+    // digit exponent sits at base_width+1 (X^2: "2" one px past the base), and a
+    // parenthesised exponent's "(" sits one px further still (X^(1/2), A^(N-N): the
+    // "(" two px past the base). Prepend one blank column for that bearing; the
+    // trailing side comes from atom()'s post-")" advance. The parens-to-content
+    // join keeps the normal 1 px gap (trace (1/2): "(" to "1" is 1 px); only the
+    // inner operators (/, -, …) abut with 0 px (runGap).
+    const run = hcat([smallGlyph(0x28), box, smallGlyph(0x29)]);
+    const PAD = 1;
+    return {
+      rows: run.rows.map(r => new Array(PAD).fill(0).concat(r)),
+      baseline: run.baseline,
+      marks: shift(run.marks, PAD, 0),
+    };
+  }
   const h = bh(box);
   const lp = stretch(trim(largeGlyph(0x28)), h, 3);
   const rp = stretch(trim(largeGlyph(0x29)), h, 3);
@@ -306,20 +375,29 @@ function stackedOp(signCode, signName, varStr, lo, hi, body) {
 }
 function summation(varStr, lo, hi, body) { return stackedOp(0xC6, 'Σ Sigma', varStr, lo, hi, body); }
 
-// nth root: a small-font index at the radical's upper-left, then the radical.
+// nth root: a small-font index raised at the radical's upper-left "notch". The OS
+// lifts the index above the vinculum (raising the whole box) and tucks the radical
+// just to its right with a 1 px overlap, so the index sits in the hook's corner
+// (trace nthroot(2,3): index "2" rows 0-4 cols 0-3, radical stem at col 5, vinculum
+// from row 2 — the index rises 2 px above the radical top and the radical shifts
+// right by index_width-1).
 function nthRoot(indexStr, body) {
   const rad = radical(body);
   const wasSmall = SMALL; SMALL = true;
   const idx = trim(text(indexStr));
   SMALL = wasSmall;
-  const iw = bw(idx), h = bh(rad), w = iw + bw(rad);
+  const iw = bw(idx), ih = bh(idx);
+  const RAISE = 2;                 // px the index rises above the radical's vinculum
+  const radX = iw;  // radical hook starts just past the index's right edge
+  const h = RAISE + bh(rad);
+  const w = radX + bw(rad);
   const out = blank(h, w);
-  for (let y = 0; y < bh(idx); y++)              // index at top-left
+  for (let y = 0; y < ih; y++)                   // index at top-left
     for (let x = 0; x < iw; x++) if (idx.rows[y][x]) out[y][x] = 1;
-  for (let y = 0; y < h; y++)                    // radical to its right
-    for (let x = 0; x < bw(rad); x++) if (rad.rows[y][x]) out[y][iw + x] = 1;
-  const marks = shift(idx.marks, 0, 0).concat(shift(rad.marks, iw, 0));
-  return { rows: out, baseline: rad.baseline, marks };
+  for (let y = 0; y < bh(rad); y++)              // radical below-right, shifted down
+    for (let x = 0; x < bw(rad); x++) if (rad.rows[y][x]) out[RAISE + y][radX + x] = 1;
+  const marks = shift(idx.marks, 0, 0).concat(shift(rad.marks, radX, RAISE));
+  return { rows: out, baseline: RAISE + rad.baseline, marks };
 }
 
 // ---- text runs ------------------------------------------------------------
@@ -329,6 +407,12 @@ function nthRoot(indexStr, body) {
 
 let SMALL = false;
 function glyphFor(code) { return SMALL ? smallGlyph(code) : largeGlyph(code); }
+// Inter-token gap for a run. Large 5x7 glyphs advance by width+1 (a 1 px gap). The
+// small variable-width glyphs bake their advance into the cell (each carries a
+// trailing blank column), so a raised/subscript run abuts edge-to-edge with NO
+// extra gap (trace X^(1/2), A^(N-N): the exponent operators "/" and "-" are drawn
+// flush; GAP=1 over-spaces them 1 px per boundary). Used by every text-run join.
+function runGap() { return SMALL ? 0 : GAP; }
 
 function text(s) { return hcat([...s].map(ch => glyphFor(ch.charCodeAt(0)))); }
 function smallText(s) {
@@ -356,7 +440,7 @@ function parse(src) {
   function expr() { return add(); }
   function add() {
     let b = frac();
-    while (peek() === '+' || peek() === '-') { guard(); const op = s[i++]; b = hcat([b, text(op), frac()]); }
+    while (peek() === '+' || peek() === '-') { guard(); const op = s[i++]; b = hcat([b, text(op), frac()], runGap()); }
     return b;
   }
   function frac() {
@@ -373,7 +457,10 @@ function parse(src) {
         b = fraction(b, den);
         start = i;
       } else if (s[i] === '/') {                              // linear (the ÷ key)
-        i++; b = hcat([b, text('/'), mul()]); start = i;
+        // A raised/subscript linear divide (an exponent or limit "a/b") abuts its
+        // operands and the small "/" with no gap (trace X^(1/2): the exponent is
+        // "(1/2)" with the slash drawn edge-to-edge). At large size "/" keeps 1 px.
+        i++; b = hcat([b, text('/'), mul()], runGap()); start = i;
       } else break;
     }
     return b;
@@ -382,8 +469,8 @@ function parse(src) {
     let b = pow();
     for (;;) {
       guard();
-      if (peek() === '*') { i++; b = hcat([b, text('*'), pow()]); }
-      else if (isAtomStart(peek())) { b = hcat([b, pow()]); }   // implicit multiply
+      if (peek() === '*') { i++; b = hcat([b, text('*'), pow()], runGap()); }
+      else if (isAtomStart(peek())) { b = hcat([b, pow()], runGap()); }   // implicit multiply
       else break;
     }
     return b;
@@ -410,13 +497,21 @@ function parse(src) {
     if (eat('(')) {
       const b = expr(); eat(')');
       if (b.kind === 'fraction') return b;   // self-delimiting; no tall parens
-      // The OS reserves a 1 px right bearing after a typed parenthesised group:
-      // a following glyph sits 1 px past the closing delimiter's last column
-      // (trace (X)+2, (1//2+1)+2, (int(...))+2 all show the post-")" glyph one
-      // column further right than the default text gap). adv > bw advances the
-      // pen without widening the bitmap.
+      // The OS reserves a 1 px bearing on BOTH sides of a typed parenthesised
+      // group. Right: a following glyph sits 1 px past the closing delimiter (trace
+      // (X)+2, (1//2+1)+2, (int(...))+2 — the post-")" glyph one column further
+      // right than the default text gap). Left: a preceding glyph leaves 1 px before
+      // the opening delimiter (1//X+(A), sqrt((X)): the "(" sits one column right of
+      // a plain abutment). Model the left bearing as a leading blank column (a lone
+      // leading group is cropped away, so leading parens are unaffected); advance
+      // the pen 1 px past the bitmap for the right bearing.
       const p = parens(b);
-      return { ...p, adv: bw(p) + 1 };
+      const lp = {
+        rows: p.rows.map(r => [0].concat(r)),
+        baseline: p.baseline,
+        marks: shift(p.marks, 1, 0),
+      };
+      return { ...lp, adv: bw(lp) + 1 };
     }
     if (/[0-9.]/.test(peek())) return text(number());
     if (/[A-Za-z]/.test(peek())) {
