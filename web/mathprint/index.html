@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TI-84 Plus MathPrint renderer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <h1>TI-84 Plus MathPrint renderer</h1>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="renderer">Renderer</button>
+    <button class="tab" data-tab="font">Font table</button>
+  </div>
+
+  <section id="tab-renderer">
+  <p class="lede">
+    Type an expression and it is typeset in 2-D using the calculator's real ROM
+    font glyphs, following the page-<code>0x39</code> MathPrint layout engine
+    documented in the
+    <a href="../sub-equation-display.html">Equation display (MathPrint)</a> wiki page.
+    This is a reconstruction of the layout model, not the emulator; the glyph
+    bitmaps are extracted from the ROM by <code>tools/export-font.py</code>.
+  </p>
+
+  <div class="controls">
+    <label class="grow">
+      Expression
+      <input id="expr" type="text" spellcheck="false"
+             placeholder="e.g. int(1,2,(1/2)X,X)">
+    </label>
+    <label>
+      Scale <input id="scale" type="range" min="2" max="12" value="6">
+    </label>
+    <label class="check">
+      <input id="lcd" type="checkbox" checked> LCD tint
+    </label>
+    <label class="check">
+      <input id="pen" type="checkbox"> Pen X/Y
+    </label>
+  </div>
+
+  <div id="presets" class="presets"></div>
+
+  <div class="stage">
+    <canvas id="screen"></canvas>
+  </div>
+  <div class="timeline-row">
+    <button id="play">▶ Play draw order</button>
+    <input id="timeline" type="range" min="0" max="1" value="1">
+    <span class="hint">step the emission order</span>
+  </div>
+  <p class="note">
+    This steps the calculator's real draw order: after a measure pass the OS
+    emits whole glyphs and rules one at a time at pen coordinates
+    (0x86D7/0x86D8), in emission order — large glyphs via _PutMap (07:4588),
+    small ones via _VPutMap (01:6293), the fraction rule via
+    eqdisp_draw_fraction_bar (39:6abf). Each step highlights the element drawn
+    and the row below names the routine. Stretched structural marks (the ∫ stem,
+    parentheses, vinculum) appear at the final step.
+  </p>
+  <p class="meta"><span id="dims"></span> <span id="err" class="err"></span></p>
+
+  <div id="penlog" class="penlog"></div>
+
+  <details class="syntax">
+    <summary>Syntax</summary>
+    <ul>
+      <li><code>a/b</code> linear divide · <code>a//b</code> stacked fraction
+          (small-font digits, like the n/d template)</li>
+      <li><code>a^b</code> — exponent (small font; bottom sits 2&nbsp;px below the base top)</li>
+      <li><code>sqrt(x)</code> — radical (`2nd`+`x²`); <code>nthroot(n,x)</code> — nth root (`MATH→5`)</li>
+      <li><code>int(lo,hi,body,var)</code> — definite integral (∫, `MATH→9`)</li>
+      <li><code>sum(var,lo,hi,body)</code> — summation (Σ, `MATH→0`): <code>hi</code>
+          above, <code>var=lo</code> below, body to the right</li>
+      <li><code>abs(x)</code>, parentheses, <code>+ - * ^</code>, and implicit
+          multiplication (<code>2X</code>)</li>
+    </ul>
+    <p>
+      Every construct here corresponds to a real TI-84 template (no invented
+      ones). Geometry constants are ROM-confirmed: 5&nbsp;px large-font cells, a
+      7&nbsp;px fraction column unit (<code>x = base + 7·col</code>), a
+      <code>row_height + 2</code> px row step.
+    </p>
+  </details>
+  </section>
+
+  <section id="tab-font" hidden>
+    <p class="lede">
+      The ROM font glyphs extracted by <code>tools/export-font.py</code>, each drawn
+      on its pixel grid. The large font is 5&times;7 cells on page&nbsp;7 (drawn by
+      <code>_PutMap</code>, 07:4588); the small/variable-width font is on page&nbsp;3
+      (drawn by <code>_VPutMap</code>, 01:6293). Printable ASCII shows its character;
+      other codes show their ROM token name.
+    </p>
+    <div id="fonttable"></div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

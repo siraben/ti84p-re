@@ -47,6 +47,7 @@
             mdbook build --dest-dir $out
             python3 tools/check-mdbook-output.py $out
             python3 tools/check-katex-output.py $out
+            cp -r web/mathprint $out/mathprint   # standalone renderer, outside the book
           '';
           dontInstall = true;
           dontFixup = true;
