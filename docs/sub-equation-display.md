@@ -424,3 +424,56 @@ The row compositor is `39:5167`; the pixel emitters are the fixed glyph and rule
 listed above. Dynamic traces can still refine the exact runtime path for a specific
 expression and cursor state, but the static map now has the ROM routine that owns
 tall-template row composition.
+
+## Multi-arg path under trace
+
+Driving `fnInt(` with a real integrand (`MATH ▸ 9`, then filling the slots)
+*does* execute the multi-argument compositor — `eqdisp_layout_multiarg`
+(`39:5167`, 69 hits) runs with `eqdisp_emit_glyph` (`39:4E8E`),
+`eqdisp_map_token_glyph` (`39:4F1A`), and `eqdisp_emit_arglist` (`39:4DE6`). A
+fraction *inside* the integrand lights up both paths at once: the
+handler-record/multi-arg path for the `∫` plus the descriptor path
+(`69C8`/`683D`/`6ABF`) for the fraction, and `5167`'s row measurement is what
+grows the `∫` and its parentheses to the fraction height. Reproduce with
+`tools/macros/mathprint-fnint.macro`. [confirmed]
+
+## Cell encoding
+
+`eqdisp_emit_glyph` (`39:4E8E`) dispatches each `D:E` cell by its `D` byte:
+`D=0x1F` is a cursor marker (no draw), `D=0x82` a positional column glyph, and
+otherwise a token-name string draw (`39:6B66 → bcall 0xC945 → 01:6702`, the
+standard OS token-name drawer, table `01:4252` with the `07:4000` display→token
+remap) or a direct glyph via `39:4F1A` (`FC3C..40 → glyph (E−0x3C)+5`,
+`FE7D..81 → E−0x7D`, `E=0x42,D<0x0A → glyph D`). So `00C8` draws the literal name
+"fnInt(", not a glyph. The full decode is in
+`tools/cell-glyph-spec.md` and
+`tools/token-name-spec.md`; the placement geometry
+(`683D`, `6B1C`, `5167`/`5949`, pen conversion) is in
+`tools/geometry-spec.md`. [confirmed]
+
+## Reconstruction and pixel parity
+
+The render writes the LCD directly through the display ports (`OUT (0x11),A`
+data + `OUT (0x10),A` commands), not a RAM buffer, so the image is *completely
+reconstructible from the trace alone*. `tools/trace_lcd.py`
+replays that stream through the T6A04 controller to produce the exact 96×64
+bitmap (verified identical to the recorded GIF), and
+`tools/parity-mathprint.py` diffs the standalone
+[interactive renderer](https://siraben.github.io/ti84p-re/mathprint/) against it. [confirmed]
+
+Against that exact reference: inline text, exponents (`X^2`), linear `1/2`,
+stacked fractions (`1//2`), and radicals (`sqrt(...)`) match the calculator
+100% pixel-for-pixel. The tall operators (integral, summation, nth root)
+match in operator sign, limits, and dimensions; their body's internal glyph
+advances come from a RAM-relocated bcall (`0xC951`) whose width table is not in
+flash, so those few pixels are trace-pinned rather than ROM-derivable. [confirmed]
+
+## Data-driven model
+
+The class table and every handler record are extracted from ROM to
+`web/mathprint/layout.json` by `tools/export-layout.py`;
+the fonts to `web/mathprint/font.json` by
+`tools/export-font.py` (shown on the font-table tab of the interactive
+renderer). `tools/interp-cells.js`
+resolves record cells from that data per the specs above, so a renderer walks
+the real records instead of approximating each construct.

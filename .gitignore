@@ -44,7 +44,8 @@ __pycache__/
 /ti84_253.gpr
 /ti84_253.rep/
 
-# Local app samples used for reverse-engineering spot checks
+# TilEm save-state written next to the ROM
+*.sav
 /tools/app-samples/
 
 # Accuracy-audit working area — local scaffolding only, never committed
