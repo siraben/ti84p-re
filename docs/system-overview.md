@@ -10,12 +10,12 @@ The TI-84+ is a Z80 machine that can only see 64 KiB at once, but has 1 MiB of f
 
 Everything the user interacts with — the homescreen, TI-BASIC programs, graphing, the catalog — is built on four pillars:
 
-1. **Paging + bcalls** — how code and data beyond 64 KiB are reached. (see [02-paging.md](02-paging.md), [03-bcall-mechanism.md](03-bcall-mechanism.md))
-2. **The floating-point engine** — 9-byte BCD reals/complex in the OP1–OP6 registers; all math flows through these. ([06-floating-point.md](06-floating-point.md))
-3. **The variable system (VAT)** — named objects (reals, lists, matrices, strings, programs, appvars…) catalogued in the Variable Allocation Table. ([05-variables-vat.md](05-variables-vat.md))
-4. **The tokenizer/parser** — TI-BASIC is stored as 1- and 2-byte tokens; the parser executes them. ([07-tokenizer-basic.md](07-tokenizer-basic.md))
+1. **Paging + bcalls** — how code and data beyond 64 KiB are reached. (see [paging.md](paging.md), [bcall-mechanism.md](bcall-mechanism.md))
+2. **The floating-point engine** — 9-byte BCD reals/complex in the OP1–OP6 registers; all math flows through these. ([floating-point.md](floating-point.md))
+3. **The variable system (VAT)** — named objects (reals, lists, matrices, strings, programs, appvars…) catalogued in the Variable Allocation Table. ([variables-vat.md](variables-vat.md))
+4. **The tokenizer/parser** — TI-BASIC is stored as 1- and 2-byte tokens; the parser executes them. ([tokenizer-basic.md](tokenizer-basic.md))
 
-Around those sit the I/O subsystems: the IM1 interrupt that drives timing/APD/cursor/ON-key ([04-interrupts.md](04-interrupts.md)), the LCD driver, the keypad scanner, and the link port.
+Around those sit the I/O subsystems: the IM1 interrupt that drives timing/APD/cursor/ON-key ([interrupts.md](interrupts.md)), the LCD driver, the keypad scanner, and the link port.
 
 ## Subsystem index
 
@@ -23,21 +23,21 @@ Each row maps a documentation page to the subsystem it covers and its analysis s
 
 | Doc | Subsystem |
 |-----|-----------|
-| [01-memory-map.md](01-memory-map.md) | Address space, ports, RAM layout |
-| [02-paging.md](02-paging.md) | Flash/RAM banking (ports 6/7) |
-| [03-bcall-mechanism.md](03-bcall-mechanism.md) | rst 28h system calls + jump table |
-| [04-interrupts.md](04-interrupts.md) | IM1 ISR, timers, APD, ON key |
-| [05-variables-vat.md](05-variables-vat.md) | Variable Allocation Table, object types |
-| [06-floating-point.md](06-floating-point.md) | BCD float format, OP registers |
-| [07-tokenizer-basic.md](07-tokenizer-basic.md) | Token tables, parser/interpreter |
-| [08-display-lcd.md](08-display-lcd.md) | LCD ports, screen buffers |
-| [09-keyboard-link.md](09-keyboard-link.md) | Keypad scan, link protocol |
-| [10-subsystem-map.md](10-subsystem-map.md) | bcall API surface, system through-line |
-| [11-boot-contexts-errors.md](11-boot-contexts-errors.md) | Boot, context system, _JError/onSP |
-| [12-memory-management.md](12-memory-management.md) | RAM heap, VAT/userMem, Flash archive/GC |
-| [13-flash-page-map.md](13-flash-page-map.md) | What each of the 64 flash pages contains |
-| [14-ram-pages.md](14-ram-pages.md) | RAM page selectors, page `83`, and restore rules |
-| [99-open-questions.md](99-open-questions.md) | Prioritized future-work roadmap |
+| [memory-map.md](memory-map.md) | Address space, ports, RAM layout |
+| [paging.md](paging.md) | Flash/RAM banking (ports 6/7) |
+| [bcall-mechanism.md](bcall-mechanism.md) | rst 28h system calls + jump table |
+| [interrupts.md](interrupts.md) | IM1 ISR, timers, APD, ON key |
+| [variables-vat.md](variables-vat.md) | Variable Allocation Table, object types |
+| [floating-point.md](floating-point.md) | BCD float format, OP registers |
+| [tokenizer-basic.md](tokenizer-basic.md) | Token tables, parser/interpreter |
+| [display-lcd.md](display-lcd.md) | LCD ports, screen buffers |
+| [keyboard-link.md](keyboard-link.md) | Keypad scan, link protocol |
+| [subsystem-map.md](subsystem-map.md) | bcall API surface, system through-line |
+| [boot-contexts-errors.md](boot-contexts-errors.md) | Boot, context system, _JError/onSP |
+| [memory-management.md](memory-management.md) | RAM heap, VAT/userMem, Flash archive/GC |
+| [flash-page-map.md](flash-page-map.md) | What each of the 64 flash pages contains |
+| [ram-pages.md](ram-pages.md) | RAM page selectors, page `83`, and restore rules |
+| [open-questions.md](open-questions.md) | Prioritized future-work roadmap |
 | [sub-calculation.md](sub-calculation.md) | Calculation engine: FP ops, transcendentals, formatting, errors |
 | [sub-graphing.md](sub-graphing.md) | Graphing: window vars, coord↔pixel, draw primitives, Y= eval |
 | [sub-tibasic.md](sub-tibasic.md) | TI-BASIC: program execution, control flow, I/O commands |

@@ -57,7 +57,7 @@ Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `
 | parser handlers | 84 (page 0x38 dispatch table) |
 | Defined data (strings/floats/typed) | 618 |
 | Flash pages loaded | 64 (1 MiB) |
-| Docs | 35 (16 core 00–14/99 + 15 subsystem deep-dives + 4 reference) |
+| Docs | 35 (16 core + 15 subsystem deep-dives + 4 reference) |
 
 ## Architecture in one paragraph
 
@@ -65,24 +65,24 @@ A Z80 (64 KiB address space) with hardware paging maps flash page 0 at `0000` (t
 
 ## Documentation index
 
-| Doc | Subsystem |
-|-----|-----------|
-| [00](docs/00-system-overview.md) | System overview & the four pillars |
-| [01](docs/01-memory-map.md) | Address space, ports, RAM layout |
-| [02](docs/02-paging.md) | Flash/RAM banking |
-| [03](docs/03-bcall-mechanism.md) | `rst 28h` system calls + jump table (page 0x3B) |
-| [04](docs/04-interrupts.md) | IM1 ISR, timers, APD, ON key |
-| [05](docs/05-variables-vat.md) | Variable Allocation Table & object types |
-| [06](docs/06-floating-point.md) | BCD float format, OP registers, `_FPAdd` |
-| [07](docs/07-tokenizer-basic.md) | Tokens & the parser (page 0x38) |
-| [08](docs/08-display-lcd.md) | LCD driver, fonts, screen buffers |
-| [09](docs/09-keyboard-link.md) | Keypad scan, 2nd/ALPHA state machine & link protocol |
-| [10](docs/10-subsystem-map.md) | bcall API surface, system through-line |
-| [11](docs/11-boot-contexts-errors.md) | Boot, the context system, `_JError`/`onSP` |
-| [12](docs/12-memory-management.md) | RAM heap, VAT, Flash archive & GC |
-| [13](docs/13-flash-page-map.md) | What each of the 64 flash pages holds |
-| [14](docs/14-ram-pages.md) | RAM page selectors, page `83`, and restore rules |
-| [99](docs/99-open-questions.md) | Future-work roadmap |
+| Page | Subsystem |
+|------|-----------|
+| [System overview](docs/system-overview.md) | The four pillars and the system through-line |
+| [Memory map](docs/memory-map.md) | Address space, ports, RAM layout |
+| [Paging](docs/paging.md) | Flash/RAM banking |
+| [The bcall mechanism](docs/bcall-mechanism.md) | `rst 28h` system calls + jump table (page 0x3B) |
+| [Interrupts](docs/interrupts.md) | IM1 ISR, timers, APD, ON key |
+| [Variables & the VAT](docs/variables-vat.md) | Variable Allocation Table & object types |
+| [Floating-point](docs/floating-point.md) | BCD float format, OP registers, `_FPAdd` |
+| [Tokenizer & TI-BASIC](docs/tokenizer-basic.md) | Tokens & the parser (page 0x38) |
+| [Display & LCD](docs/display-lcd.md) | LCD driver, fonts, screen buffers |
+| [Keyboard & link](docs/keyboard-link.md) | Keypad scan, 2nd/ALPHA state machine & link protocol |
+| [Subsystem map](docs/subsystem-map.md) | bcall API surface, system through-line |
+| [Boot, contexts & errors](docs/boot-contexts-errors.md) | Boot, the context system, `_JError`/`onSP` |
+| [Memory management](docs/memory-management.md) | RAM heap, VAT, Flash archive & GC |
+| [Flash page map](docs/flash-page-map.md) | What each of the 64 flash pages holds |
+| [RAM pages](docs/ram-pages.md) | RAM page selectors, page `83`, and restore rules |
+| [Open questions](docs/open-questions.md) | Future-work roadmap |
 
 **Subsystem deep-dives** (from parallel multi-agent RE): `sub-calculation`, `sub-graphing`, `sub-tibasic`, `sub-tibasic-programming`, `sub-tibasic-tracing`, `sub-tibasic-for-paren`, `sub-vat-archive`, `sub-apps-mem-settings`, `sub-statistics`, `sub-matrix-list`, `sub-solver-numeric`, `sub-table-yvars`, `sub-equation-display`, `sub-link-transfer`, `sub-usb-asic`.
 

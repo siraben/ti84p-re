@@ -1,10 +1,8 @@
 # Link / data transfer
 
-*TI-84 Plus OS 2.55MP — feature deep dive.*
-
-Deep-dive companion to [09-keyboard-link.md](09-keyboard-link.md), focused on what a student transferring data
-touches: pushing a program/list/etc. to a computer (TI-Connect) or another calculator over the
-2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of [doc 09](09-keyboard-link.md)'s byte
+Companion to [keyboard-link.md](keyboard-link.md), focused on the data-transfer path:
+pushing a program/list/etc. to a computer (TI-Connect) or another calculator over the
+2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of [Keyboard & link](keyboard-link.md)'s byte
 primitives `_SendAByte` (`3C:420D`) and `_RecAByteIO` (`3C:443F`); the ASIC-facing assist/USB ports
 are covered separately in [USB ASIC and link assist](sub-usb-asic.md).
 
@@ -35,7 +33,7 @@ flowchart TB
       AK["send ACK 42FB · cmd 0x56"]
       CK["checksum 4167 / 6356"]
     end
-    subgraph BYTE["BYTE layer · doc 09"]
+    subgraph BYTE["BYTE layer · keyboard & link"]
       direction LR
       SB["_SendAByte 420D"]
       RB["_RecAByteIO 443F"]
@@ -81,7 +79,7 @@ save, `IY+0x3E` bit0 / `IY+0x3D` bit5 USB-presence.
 
 ## 2. The byte layer (recap + receive internals) [confirmed]
 
-Doc 09 covers `_SendAByte`. Two new things pinned here:
+[Keyboard & link](keyboard-link.md) covers `_SendAByte`. Two new things pinned here:
 
 ### 2a. Hardware-assist send `6BB2` [confirmed]
 `_SendAByte` (`3C:420D`) starts `CALL probe_hw_model_keep_a ; JP Z,0x6BB2` — if the model probe sets Z (the
@@ -94,9 +92,9 @@ Doc 09 covers `_SendAByte`. Two new things pinned here:
       LD A,C ; OUT (0x0D),A ; RET     ; *** write the byte to port 0x0D (assist FIFO) ***
 6BCA: CALL 6BE4 (decrement 9CAC) ; JR Z,6BBB (retry) ; else JP 4434 (timeout)
 ```
-So the assist path is: poll port 0x09 bit 5, then `OUT (0x0D),byte` — exactly the "FIFO" [doc 09](09-keyboard-link.md)
+So the assist path is: poll port 0x09 bit 5, then `OUT (0x0D),byte` — exactly the "FIFO" [Keyboard & link](keyboard-link.md)
 mentioned, with a CPU-speed-scaled timeout. The legacy bit-bang fall-through (port 0, send `1`/`2`,
-wait for echo, `DE`-timeout → `_JErrorNo`) is unchanged from [doc 09](09-keyboard-link.md).
+wait for echo, `DE`-timeout → `_JErrorNo`) is unchanged from [Keyboard & link](keyboard-link.md).
 
 ### 2b. Receive `_RecAByteIO` `443F` and decoder `444A` [confirmed]
 ```z80
@@ -242,7 +240,7 @@ i.e. the receiver reproduces the VAT-create / `_InsertMem` path from [sub-vat-ar
 
 ## 5. Silent-link variable send — `_LinkXferOP` (`3C:4DD2`) [confirmed]
 
-This is the headline path a student's "Send" hits (TI-Connect pulls a var, or a calc-to-calc send).
+This is the path a "Send" hits (TI-Connect pulls a var, or a calc-to-calc send).
 OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, then streams the DATA.
 
 ```z80

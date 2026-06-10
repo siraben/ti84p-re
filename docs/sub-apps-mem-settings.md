@@ -1,8 +1,6 @@
 # Apps, memory reset & settings
 
-*TI-84 Plus OS 2.55MP — feature deep dive.*
-
-How the student-facing parts of the OS work: launching Flash Apps, the **MEM → Reset**
+How the user-facing parts of the OS work: launching Flash Apps, the **MEM → Reset**
 menu (what "RAM Cleared" erases), and the **MODE** screen format/mode flags.
 Addresses are `space:addr` where `ram`/`page_00`=`0000-3FFF`, flash pages mapped at
 `4000-7FFF`. Confidence flags follow [conventions.md](conventions.md): [confirmed] = read
@@ -10,8 +8,8 @@ from disassembly; [hypothesis] = strong inference, not yet verified (used below 
 strongly-inferred claims and *partial* traces where the code is RAM-resident / cross-page and
 not fully traced).
 
-Cross-references: [doc 11](11-boot-contexts-errors.md) (contexts, `_AppInit`, event router), [doc 12](12-memory-management.md) (RAM heap,
-`_CleanAll`), [doc 13](13-flash-page-map.md) (flash page map). Flag bits use the `ti83plus.inc` equates; the
+Cross-references: [Boot contexts & errors](boot-contexts-errors.md) (contexts, `_AppInit`, event router), [Memory management](memory-management.md) (RAM heap,
+`_CleanAll`), [Flash page map](flash-page-map.md) (flash page map). Flag bits use the `ti83plus.inc` equates; the
 SystemFlags base is `IY = flags = 0x89F0`, so e.g. `(IY+0x0A)` = `flags + fmtFlags`.
 
 ---
@@ -178,7 +176,7 @@ _AppInit(byte *hdr):                 ; HL -> 13-byte vector block in the header
   cxPage (0x8599) = port_mapBankA               ; the flash page the handlers run from
 ```
 The 12 bytes are the 6 little-endian handler pointers (`cxMain`, `cxPPutAway`, `cxPutAway`,
-`cxRedisp`, `cxErrorEP`, `cxSizeWind` — see [doc 11](11-boot-contexts-errors.md) §Context block). Example: the OS's own
+`cxRedisp`, `cxErrorEP`, `cxSizeWind` — see [Boot contexts & errors](boot-contexts-errors.md) §Context block). Example: the OS's own
 default app vectors live at `3B:7571`:
 ```
 3E 75 | 4B 75 | 9F 74 | 4B 75 | 4B 75 | 4B 75 | 0A
@@ -186,12 +184,12 @@ cxMain=753E cxPPutAway=754B cxPutAway=749F cxRedisp=754B cxErrorEP=754B cxSizeWi
 ```
 `_ReloadAppEntryVecs` (`3B:73E4`, bcall `0x4C36`) calls `_AppInit` on that block, then
 overrides `cxErrorEP (0x8595)=0x27D9`. After `_AppInit`, the main event loop runs the app
-through `call_context_main` (pages in `cxPage`, jumps `(cxMain)` — [doc 11](11-boot-contexts-errors.md)).
+through `call_context_main` (pages in `cxPage`, jumps `(cxMain)` — [Boot contexts & errors](boot-contexts-errors.md)).
 
 Because `cxCurApp` (`0x859A`) is a key code, pressing a mode key selects the context to
-load ([doc 11](11-boot-contexts-errors.md)). The App quit restore-path candidate at
+load ([Boot contexts & errors](boot-contexts-errors.md)). The App quit restore-path candidate at
 `3B:7412` is not a defined function in the disassembly; the saved-context restore behavior
-stands as a byte-trace note (the label is project-local, not a WikiTI or `ti83plus.inc` equate).
+is a byte-trace note (the label is project-local, not a WikiTI or `ti83plus.inc` equate).
 
 ---
 
@@ -248,7 +246,7 @@ So a RAM reset clears two blocks to 0:
 A handful of flag bits are explicitly preserved across the wipe (`IY+0x3F` bit7,
 `IY+0x34` bit6, `IY+0x35` bits0/1, and the word at `0x9B73`) so the calculator knows it is
 mid-reset. It then `JP 0x0BD9`, the RAM-init entry (`OUT (0)` page select, `LD SP,0xFFF7`,
-then `CALL 0x3EC1` — the cross-page trampoline that rebuilds the VAT, system vars, and LCD; see [doc 11](11-boot-contexts-errors.md)), which rebuilds a
+then `CALL 0x3EC1` — the cross-page trampoline that rebuilds the VAT, system vars, and LCD; see [Boot contexts & errors](boot-contexts-errors.md)), which rebuilds a
 clean default VAT and system state and re-enters the homescreen. The Flash archive is not
 touched by a plain RAM reset.
 
@@ -267,7 +265,7 @@ This zeroes the *entire* 32 KiB RAM and does the deepest re-init.
 Distinct from the MEM reset. `_CleanAll` (bcall `0x4A50`) only compacts temporary RAM
 after a command finishes: it shifts the FP stack (`fpBase`/`FPS`) down to `tempMem`, resets
 the `OPBase`/`OPS`/`pTemp` scratch pointers, and clears `pTempCnt`/`cleanTmp`. It does not
-clear the VAT, user vars, or Flash (see [doc 12](12-memory-management.md)). `_FixTempCnt` (`07:4FEC`) marks temps
+clear the VAT, user vars, or Flash (see [Memory management](memory-management.md)). `_FixTempCnt` (`07:4FEC`) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.
 
 ### 2.6 Flash archive GC — "Defragmenting…" / "Garbage Collecting…" [confirmed behavior; display-label addresses undisassembled]
@@ -278,7 +276,7 @@ fresh sectors and erases the old ones. The display dispatcher sits around `3C:7E
 `3C:7E00` is not a defined function in the disassembly (the label is project-local, not a
 WikiTI or `ti83plus.inc` equate).
 It clears `0x844B` (`curRow`, the text-row cursor — reset before the banner draws) and runs with the screen frozen (`DI`). The actual
-sector erase/write primitives are RAM-resident (flash control port `0x14`) — see [doc 12](12-memory-management.md).
+sector erase/write primitives are RAM-resident (flash control port `0x14`) — see [Memory management](memory-management.md).
 
 ---
 
@@ -346,7 +344,7 @@ Float vs Fix N is not in `fmtFlags` — it is the separate byte `fmtDigits` =
 ### 3.4 MODE screen plumbing
 
 The MODE screen is a menu context (`cxMode`/`kMode`=0x45) reached via the event/key router
-([doc 11](11-boot-contexts-errors.md)). Its row strings live as token names on page 0x01 (`RadianN`/`DegreeO`/`NormalP`/
+([Boot contexts & errors](boot-contexts-errors.md)). Its row strings live as token names on page 0x01 (`RadianN`/`DegreeO`/`NormalP`/
 `Float` at `01:49E4..4A06`; trailing letters are token-id bytes) and full-caps menu
 labels on page 0x37 (`DEGREE` `4A85`, `RADIAN` `4A8C`). Selecting a row writes the flag bits
 documented above directly (`SET/RES (IY+…)`, or stores into `fmtDigits`). [hypothesis] (partial) —
@@ -397,5 +395,5 @@ ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
 0x97B0  fmtDigits   (0-9 = Fix N, 0xFF = Float)
 0x82A3  appSearchPage
 0x8446  keyExtend   (reset-submenu selector 1..4; extended-key state)
-0x858D  cxMain ...  0x8599 cxPage  0x859A cxCurApp   (Context block, doc 11)
+0x858D  cxMain ...  0x8599 cxPage  0x859A cxCurApp   (Context block, see Boot contexts & errors)
 ```

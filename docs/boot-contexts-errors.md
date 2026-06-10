@@ -1,6 +1,6 @@
 # Boot, contexts, and error handling
 
-Three cross-cutting mechanisms that tie the OS together: how it starts, how it switches "modes" (contexts), and how it aborts on error.
+Three cross-cutting mechanisms: how the OS starts, how it switches "modes" (contexts), and how it aborts on error.
 
 ## Boot [confirmed, partial]
 
@@ -34,7 +34,7 @@ ram_init_after_reset (ram:0BD9):
   CALL 0x3EC1                  ; continue init (page-0 kernel): VAT, sysflags, LCD …
 ```
 
-So RAM is wiped in two LDIR runs (`0x8000`–`0x9BC3`, then `0x9BD0`–`0xFFFF`, leaving the `0x9BC4`–`0x9BCF` window and the explicitly-saved flag bytes intact), then `ram:0BD9` resets the memory map (port 0) and the stack and hands off through `ram:3EC1`. This `ram:0BD9` entry is the same RAM re-init point cross-referenced from [12-memory-management](12-memory-management.md). The `ram:3EC1` continuation (VAT/sysflag/LCD bring-up) is page-0 kernel code and is statically present (`ram:3EC1` = `CALL 0x2B09; …`). *Residual: `JP 0x812c` targets the boot page (`3F:412C`); this `rom.bin` carries a BootFree substitute there, with the retail boot code in `D84PBE1.8Xv`.*
+So RAM is wiped in two LDIR runs (`0x8000`–`0x9BC3`, then `0x9BD0`–`0xFFFF`, leaving the `0x9BC4`–`0x9BCF` window and the explicitly-saved flag bytes intact), then `ram:0BD9` resets the memory map (port 0) and the stack and hands off through `ram:3EC1`. This `ram:0BD9` entry is the same RAM re-init point cross-referenced from [12-memory-management](memory-management.md). The `ram:3EC1` continuation (VAT/sysflag/LCD bring-up) is page-0 kernel code and is statically present (`ram:3EC1` = `CALL 0x2B09; …`). *Residual: `JP 0x812c` targets the boot page (`3F:412C`); this `rom.bin` carries a BootFree substitute there, with the retail boot code in `D84PBE1.8Xv`.*
 
 ### The main event loop [confirmed]
 
@@ -66,7 +66,7 @@ The OS is single-tasking but multi-context. A *context* is the set of handler ro
 - The dispatched handlers include things like a key handler, (re)display/paint handler, and a PutAway (suspend) handler — the OS calls them through the `cx*` vectors, paging in `cxPage` first.
 - `_PutAway` (`ram:08AF`) calls the current context's PutAway handler (`cxPPutAway`) to suspend/clean up — used on APD, when switching apps, or on `2nd+QUIT`. [confirmed]
 
-This is the backbone of the UI: the main event loop reads a key (`_GetKey`), then calls the active context's key handler; switching screens swaps the `cx*` vectors.
+The UI runs on this mechanism: the main event loop reads a key (`_GetKey`), then calls the active context's key handler; switching screens swaps the `cx*` vectors.
 
 ### Context block layout [confirmed, from ti83plus.inc + xrefs]
 
@@ -144,7 +144,7 @@ The `Code` column is each error's low 7 bits. Re-editable errors set the `E_EDIT
 
 ## Confirmed details
 - **`cx*` vector layout — confirmed.** The six 2-byte handler slots and `cxPage` offsets are pinned by tracing `_AppInit` (`ram:0936`): `LD DE,0x858D / LD BC,0x000C / LDIR` then `IN A,(6) / LD (0x8599),A`. See [Context block layout](#context-block-layout-confirmed-from-ti83plusinc--xrefs) above for the full offset table and `_AppInit` body. `_AppInit` installs the block; it is not the sole writer — `_POPCX` (bcall `0x49E1` → `07:6D1C`) restores a saved context into `cxMain`, and a save path at `07:5A8C` copies `cxMain` into the `cxPrev` shadow.
-- **Boot RAM-init trace — raw-disassembly trace.** Reset (`ram:0000`) → `028c` paging setup → `JP 0x812c` (boot page `3F:412C` — BootFree substitute in this `rom.bin`; retail boot in `D84PBE1.8Xv`). The RAM clear/re-init is `ram_reset_wipe` (`35:719f`): two `LDIR` zero-fills (`0x8000`–`0x9BC3`, `0x9BD0`–`0xFFFF`) preserving a few flag bytes, then `JP 0x0BD9` (`ram_init_after_reset`: port 0 = `0xC0`, stack reset in the raw trace, `CALL 0x3EC1`). The `ram:0BD9` entry matches the re-init point cross-referenced in [12-memory-management](12-memory-management.md). See [RAM clear / re-init](#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed).
+- **Boot RAM-init trace — raw-disassembly trace.** Reset (`ram:0000`) → `028c` paging setup → `JP 0x812c` (boot page `3F:412C` — BootFree substitute in this `rom.bin`; retail boot in `D84PBE1.8Xv`). The RAM clear/re-init is `ram_reset_wipe` (`35:719f`): two `LDIR` zero-fills (`0x8000`–`0x9BC3`, `0x9BD0`–`0xFFFF`) preserving a few flag bytes, then `JP 0x0BD9` (`ram_init_after_reset`: port 0 = `0xC0`, stack reset in the raw trace, `CALL 0x3EC1`). The `ram:0BD9` entry matches the re-init point cross-referenced in [12-memory-management](memory-management.md). See [RAM clear / re-init](#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed).
 - **Flash write/erase sector primitives.** Page-3D anchors include `flash_program_buf` `3D:678C`, the per-record status writers `3D:7C8F/7C93/7C97`, and `flash_erase_wait` `3D:5ED3`, with byte-poke loops copied to `ramCode` `0x8100`. The candidate labels `flash_program_core` `3D:61AF` and `flash_write_record` `3D:64AA` are not defined functions in the disassembly; both names are project-local inferred labels, not WikiTI or `ti83plus.inc` equates. The public single-byte flash writers are `_WriteAByte` (bcall `0x8021`) and `_WriteAByteSafe` (bcall `0x80C6`) in `ti83plus.inc`; these name the public entry points, whose bodies are likewise not defined functions in the disassembly. See [sub-vat-archive §6](sub-vat-archive.md#6-low-level-flash-write--erase-pages-3c3d-port-0x14-mixed).
 
 *Residual:* `JP 0x812c` targets the boot page (`3F:412C`); page `3F` is a BootFree substitute in this `rom.bin`, with the retail boot code in `D84PBE1.8Xv`. The `ram:3EC1` init continuation is page-0 kernel code and is statically present.

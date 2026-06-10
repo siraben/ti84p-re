@@ -1,7 +1,5 @@
 # TI-BASIC dynamic tracing
 
-*TI-84 Plus OS 2.55MP — feature deep dive.*
-
 TI-BASIC behavior in these notes is grounded by generated programs, headless
 TilEm runs, resolved instruction coverage, and screen captures. This page is
 the book-facing recipe for reproducing those traces; the lower-level tooling

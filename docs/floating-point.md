@@ -91,7 +91,7 @@ one nibble per `fp_shift_right_digit` call; if $\Delta > 15$ the smaller operand
 \end{algorithm}
 ```
 
-This is the canonical sign-magnitude BCD add. The full helper cluster is documented below.
+The full helper cluster is documented below.
 
 > **Dynamic confirmation.** Traced under headless TilEm: the `2+3` run
 > ([`home-2plus3.macro`](https://github.com/siraben/ti84p-re/blob/main/tools/macros/home-2plus3.macro)) enters `_FPAdd` and

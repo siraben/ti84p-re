@@ -1,6 +1,6 @@
 # Subsystem map (bcall API surface)
 
-This page categorizes the ~600 named bcall entry points (the OS's public API) by subsystem, so the whole OS surface is visible at once. This is the surface area user code and the OS itself program against.
+This page categorizes the ~600 named bcall entry points (the OS's public API) by subsystem, so the whole OS surface is visible at once. User code and the OS itself program against this surface.
 
 | Subsystem | ~bcalls | Representative entry points |
 |-----------|--------:|------------------------------|
@@ -19,7 +19,7 @@ This page categorizes the ~600 named bcall entry points (the OS's public API) by
 
 ## Reading the map
 
-The dominant fact: this is a calculator — roughly two-thirds of the API is numeric. Everything else is comparatively small glue. The architecture flows:
+This is a calculator: roughly two-thirds of the API is numeric, and everything else is comparatively small glue. The architecture flows:
 
 ```mermaid
 flowchart TD
@@ -32,7 +32,7 @@ flowchart TD
     DISP --> R
 ```
 
-Cross-cutting services used by all of the above: bcall/paging ([03](03-bcall-mechanism.md)), interrupts/APD ([04](04-interrupts.md)), error handling (`_JError` + `TIError` codes), and the system flags (`SystemFlags` @ `flags`).
+Cross-cutting services used by all of the above: bcall/paging ([03](bcall-mechanism.md)), interrupts/APD ([04](interrupts.md)), error handling (`_JError` + `TIError` codes), and the system flags (`SystemFlags` @ `flags`).
 
 ## How the pieces connect (the through-line)
 1. **Interrupt** keeps time, scans the keypad into `kbdScanCode`, runs APD.

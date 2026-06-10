@@ -13,7 +13,7 @@ The bridge between TilEm's trace and our static model is
 
 TilEm records only the logical 16-bit PC of each instruction. On the
 84+, `4000–7FFF` and `8000–BFFF` are banked flash/RAM windows (see
-[docs/02-paging.md](../docs/02-paging.md)), so a logical PC like `0x412c` is
+[docs/paging.md](../docs/paging.md)), so a logical PC like `0x412c` is
 ambiguous until you know which page ports 6/7 had selected. The resolver
 recovers banking by replaying the OUT instructions in the trace itself:
 
@@ -332,7 +332,7 @@ rather than paged-address resolution.
 - `ram:XXXX` → open that address directly (page 0 / RAM).
 - `page_NN:XXXX` → the `page_NN` overlay block in the Ghidra project; `XXXX` is
   the `4000`-window address. The same `(page,addr)` is what bcalls/bjumps
-  resolve to (see [docs/03-bcall-mechanism.md](../docs/03-bcall-mechanism.md)).
+  resolve to (see [docs/bcall-mechanism.md](../docs/bcall-mechanism.md)).
 - `rom=0x......` → byte offset into `tools/rom.bin` for raw decoding.
 
 ## Files
@@ -351,7 +351,7 @@ rather than paged-address resolution.
   [docs/sub-equation-display.md](../docs/sub-equation-display.md), "Dynamic confirmation").
 - `macros/{ln2,exp1,sin1,fpsub}.macro` — known-input runs (`ln(2)`, `e¹`, `sin(1)`,
   `5−2`) that drive the FP/transcendental algorithms in
-  [docs/06-floating-point.md](../docs/06-floating-point.md) for instruction-level
+  [docs/floating-point.md](../docs/floating-point.md) for instruction-level
   pseudocode verification (walk a routine with `--print --only-space --only-addr`).
 - `macros/solver-sqrt2.macro` — drives the Equation Solver to solve `X²−2=0`→√2,
   confirming the root-finder pseudocode in

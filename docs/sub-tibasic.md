@@ -1,11 +1,9 @@
 # TI-BASIC programs
 
-*TI-84 Plus OS 2.55MP — feature deep dive.*
-
-How a student-written TI-BASIC program is stored, parsed, and executed on OS
-2.55MP. Builds on [07-tokenizer-basic.md](07-tokenizer-basic.md) (tokens, cursor helpers, the page-0x38
-evaluator), [05-variables-vat.md](05-variables-vat.md) (OP1 naming, `_FindSym`), and
-[11-boot-contexts-errors.md](11-boot-contexts-errors.md) (contexts, `onSP`/`_JError`).
+How a TI-BASIC program is stored, parsed, and executed on OS
+2.55MP. Builds on [tokenizer-basic.md](tokenizer-basic.md) (tokens, cursor helpers, the page-0x38
+evaluator), [variables-vat.md](variables-vat.md) (OP1 naming, `_FindSym`), and
+[boot-contexts-errors.md](boot-contexts-errors.md) (contexts, `onSP`/`_JError`).
 
 Confidence: [confirmed] = decompiled/byte-verified here, or multiple consistent
 signals (token compares, call shape) pin it even where the dense Z80 handler
@@ -16,15 +14,15 @@ behavior consistent with what was seen; [hypothesis] = inferred, not yet verifie
 
 ## 1. How a program is stored [confirmed]
 
-A program is a VAT object of type `ProgObj` (5) / `ProtProgObj` (6) (see [doc 05](05-variables-vat.md)).
+A program is a VAT object of type `ProgObj` (5) / `ProtProgObj` (6) (see [Variables & the VAT](variables-vat.md)).
 Its data is `word size` followed by `size` bytes of tokenized body — the
 exact byte stream the parser walks. No line numbers; lines are separated by the
 EOL/newline token `0x3F` (`tEnter`, shown as `cVar=='?'` = 0x3F in the
 decompiled cursor code). Most tokens are 1 byte; the 11 lead bytes
-(`5C 5D 5E 60 61 62 63 7E BB AA EF`, the order of the `ram:1FF6` table) introduce 2-byte tokens ([doc 07](07-tokenizer-basic.md)).
+(`5C 5D 5E 60 61 62 63 7E BB AA EF`, the order of the `ram:1FF6` table) introduce 2-byte tokens ([Tokenizer & TI-BASIC](tokenizer-basic.md)).
 
 Editing/detokenizing for the program editor uses the page-01 token helpers
-([doc 07](07-tokenizer-basic.md), re-confirmed here):
+([Tokenizer & TI-BASIC](tokenizer-basic.md), re-confirmed here):
 - `_GetTokLen` (`01:66E5`) — returns 1 or 2 for the token at HL (length of the
   token's byte encoding), via `smallfont_glyph_ptr` (`01:6702`).
 - `_Get_Tok_Strng` (`01:66EA`) — returns the display string for a token
@@ -36,7 +34,7 @@ Editing/detokenizing for the program editor uses the page-01 token helpers
 
 ## 2. The parse-stream cursor [confirmed]
 
-The interpreter walks the token body through a RAM cursor ([doc 07](07-tokenizer-basic.md), all
+The interpreter walks the token body through a RAM cursor ([Tokenizer & TI-BASIC](tokenizer-basic.md), all
 re-verified by decompilation):
 
 | Helper | Addr | Behavior |
@@ -99,7 +97,7 @@ range-checks an exponent as a positive int, `_JError(0x84)` Domain otherwise; it
 raw code target within `parse_eval_expr`, not a defined function in the live DB),
 or `0x7175` (a leaf no-op). Selecting among these by `precLevel` (1/2/3) is how
 operator precedence is realized — nesting of productions, not a flat table
-(confirms [doc 07](07-tokenizer-basic.md)'s "recursive-descent" claim). Results land in `OP1`; binary
+(confirms [Tokenizer & TI-BASIC](tokenizer-basic.md)'s "recursive-descent" claim). Results land in `OP1`; binary
 operators are applied via the FP RST shortcuts (RST 30h `_FPAdd`, …) and
 `_BinOPExec`.
 
@@ -323,13 +321,13 @@ runs and off at `Done`. [confirmed]
 5. Binary ops fold operands via FP RSTs (RST 30h `_FPAdd`; `_FPMult`=`00:238B`, …)
    / `_BinOPExec`, leaving the result in `OP1`.
 6. Variable tokens become an OP1 name (type byte + name) and resolve via
-   `_FindSym`/`_RclVarSym` ([doc 05](05-variables-vat.md)); store targets (`→VAR`) resolve through the
+   `_FindSym`/`_RclVarSym` ([Variables & the VAT](variables-vat.md)); store targets (`→VAR`) resolve through the
    `38:7600` name scanner (handles `[A]`/`L1`/`Str1`/Y-var/`Ans` classes,
    `_JError(0x8F)` on an attempt to store into `Ans`).
 7. Statement separators (`:` and EOL `0x3F`) end a statement; the loop re-enters
    for the next.
 
-The sub-tables `38:5110`/`38:5127` ([doc 07](07-tokenizer-basic.md)) are small token-class lookups
+The sub-tables `38:5110`/`38:5127` ([Tokenizer & TI-BASIC](tokenizer-basic.md)) are small token-class lookups
 (`38:5110` keys off `tDisp(DE)`/`tOutput(E0)` region; `38:5127` is a paired
 classifier) that the dispatch consults; both tail into `RST5` (bjump) handlers.
 

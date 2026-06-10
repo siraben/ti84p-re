@@ -57,7 +57,7 @@ While cooking raw scan codes into the `kXxx` key constants, `_GetKey` (`06:491E`
 | 6 | `shiftALock` | alpha lock — alpha survives across keys |
 | 7 | `shiftKeepAlph` | the alpha shift cannot be cancelled |
 
-The low three bits of the same `IY+0x12` byte are `indicFlags` (bit 0 `indicRun`, the run/busy indicator set by `_RunIndicOn`; see [04](04-interrupts.md)); `shiftFlags` occupies bits 3–7.
+The low three bits of the same `IY+0x12` byte are `indicFlags` (bit 0 `indicRun`, the run/busy indicator set by `_RunIndicOn`; see [04](interrupts.md)); `shiftFlags` occupies bits 3–7.
 
 `_GetKey` first dispatches on the pending modifier (`06:4AC3` `BIT 3` → the 2nd handler at `06:4B87`; `06:4ACA` `BIT 4` → the alpha handler at `06:4BFD`), then on the key. The transitions, with the `SET`/`RES` sites:
 
@@ -95,9 +95,9 @@ stateDiagram-v2
 `_KeyToString` (`01:6D10`) turns a key code into a TI-BASIC token for the editor. It's not a single flat table — it combines:
 - **range arithmetic**: contiguous key ranges map to token ranges by a fixed offset (e.g. key `0x1F`→`'P'`-based, `0x59`→`'a'` for lowercase) — letters/digits;
 - per-mode lookup tables on another page, reached via `cross_page_jump` (the 2nd/ALPHA-mode and function-key token tables);
-- special key codes `0xFB/0xFC/0xFE/0xFF` are not tokens — they're the menu / context-switch return codes the main event loop branches on (see [11](11-boot-contexts-errors.md)), so `_KeyToString` routes them out via `cross_page_jump` rather than translating.
+- special key codes `0xFB/0xFC/0xFE/0xFF` are not tokens — they're the menu / context-switch return codes the main event loop branches on (see [11](boot-contexts-errors.md)), so `_KeyToString` routes them out via `cross_page_jump` rather than translating.
 
-So the input path is: keypad → ISR → `kbdScanCode` → `_GetKey` (cooked `kXxx` + modifiers) → `_KeyToString` → token → parser ([07](07-tokenizer-basic.md)).
+So the input path is: keypad → ISR → `kbdScanCode` → `_GetKey` (cooked `kXxx` + modifiers) → `_KeyToString` → token → parser ([07](tokenizer-basic.md)).
 
 ## Link port
 

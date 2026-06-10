@@ -1,6 +1,6 @@
 # The bcall system-call mechanism
 
-This is the heart of how the OS spans 1 MiB with a 64 KiB CPU. A routine on any page calls a routine on any other page by `bcall` without knowing where it physically lives.
+`bcall` is how the OS spans 1 MiB with a 64 KiB CPU: a routine on any page calls a routine on any other page without knowing where it physically lives.
 
 ## The call site
 
