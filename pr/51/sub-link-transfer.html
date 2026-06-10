@@ -1,0 +1,618 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Link / data transfer - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-3e0e106f.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="link--data-transfer"><a class="header" href="#link--data-transfer">Link / data transfer</a></h1>
+<p>Companion to <a href="keyboard-link.html">keyboard-link.md</a>, focused on the data-transfer path:
+pushing a program/list/etc. to a computer (TI-Connect) or another calculator over the
+2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of <a href="keyboard-link.html">Keyboard &amp; link</a>’s byte
+primitives <code>_SendAByte</code> (<code>3C:420D</code>) and <code>_RecAByteIO</code> (<code>3C:443F</code>); the ASIC-facing assist/USB ports
+are covered separately in <a href="sub-usb-asic.html">USB ASIC and link assist</a>.</p>
+<p>Addresses here are read from the raw Z80 disassembly. The decompiler mis-renders this subsystem —
+it passes arguments in registers and does its state work with <code>SET/RES/BIT b,(IY+d)</code> flag ops that the
+C view shows as bogus <code>*(param+0xNN)</code> stores — so the notes follow the disassembly, not the C view.</p>
+<p>Page numbers are the masked flash page (<code>rawpage &amp; 0x3F</code>). The whole silent-link engine lives on
+flash page <code>3C</code> (shared with the flash/archive command code — see <a href="sub-vat-archive.html">sub-vat-archive.md</a>).</p>
+<hr>
+<h2 id="0-the-three-layers"><a class="header" href="#0-the-three-layers">0. The three layers</a></h2>
+<pre class="mermaid">flowchart TB
+    SRC(["user 'Send…' / TI-Connect"])
+    subgraph VAR["Variable layer · page 3C"]
+      LX["_LinkXferOP 3C:4DD2&lt;br/&gt;silent-link variable send"]
+      SV["_SendVarCmd 3C:4A14→4EDD&lt;br/&gt;DI / cleanup-wraps a send"]
+    end
+    subgraph PKT["PACKET layer"]
+      direction LR
+      SH["send header 41C3"]
+      RH["receive header 4338"]
+      SD["send DATA 40DA"]
+      RD["receive DATA 4292"]
+      AK["send ACK 42FB · cmd 0x56"]
+      CK["checksum 4167 / 6356"]
+    end
+    subgraph BYTE["BYTE layer · keyboard &amp; link"]
+      direction LR
+      SB["_SendAByte 420D"]
+      RB["_RecAByteIO 443F"]
+      HW["bit-bang port 0 + HW-assist FIFO ports 8/9/0D"]
+    end
+    SRC --&gt; VAR --&gt; PKT --&gt; BYTE
+</pre>
+
+<hr>
+<h2 id="1-ram-state-block-the-link-registers-confirmed"><a class="header" href="#1-ram-state-block-the-link-registers-confirmed">1. RAM state block (the link “registers”) [confirmed]</a></h2>
+<p>All labels below are confirmed from <code>ti83plus.inc</code>. This contiguous block at <code>0x8670</code> is the
+silent-link control/scratch area:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Addr</th><th>Label (<code>.inc</code>)</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td><code>8670</code></td><td><code>ioFlag</code></td><td>I/O state flags (bit4 tested on receive completion)</td></tr>
+<tr><td><code>8672</code></td><td><code>sndRecState</code></td><td>transfer-type / phase: <code>0x0A</code>=backup, <code>0x15</code>=var DATA, <code>0x0B</code>=request/dir</td></tr>
+<tr><td><code>8673</code></td><td><code>ioErrState</code></td><td>link error sub-state</td></tr>
+<tr><td><code>8674</code></td><td><code>header</code></td><td>packet header byte 0 = machine-ID</td></tr>
+<tr><td><code>8675</code></td><td><code>header+1</code></td><td>packet header byte 1 = command-ID</td></tr>
+<tr><td><code>8676</code></td><td><code>header+2</code></td><td>packet length, word (LE) — also the running payload byte budget</td></tr>
+<tr><td><code>8678</code></td><td>(running)</td><td>running 16-bit checksum accumulator (sum of payload byte values)</td></tr>
+<tr><td><code>867D</code></td><td><code>ioData</code></td><td>scratch: built var-header length / data ptr setup</td></tr>
+<tr><td><code>867F</code></td><td>—</td><td>the variable header (type+name) copied from OP1 via <code>_MovFrOP1</code></td></tr>
+<tr><td><code>8688/8689</code></td><td><code>ioNewData</code></td><td>“new var arrived” status (bit7 of <code>8689</code>)</td></tr>
+<tr><td><code>868B</code></td><td><code>bakHeader</code></td><td>saved 9-byte header for echo/ACK comparison (<code>_Mov9B</code> to/from <code>8674</code>)</td></tr>
+<tr><td><code>84DB</code></td><td><code>iMathPtr5</code></td><td>active data pointer during a streaming transfer</td></tr>
+<tr><td><code>9834</code></td><td><code>pagedCount</code></td><td>bytes buffered in the 16-byte staging block (Flash-write batching)</td></tr>
+<tr><td><code>9836</code></td><td><code>pagedGetPtr</code></td><td>write cursor into <code>pagedBuf</code></td></tr>
+<tr><td><code>983A</code></td><td><code>pagedBuf</code></td><td>16-byte staging block (received data flushed to RAM/Flash 16 at a time)</td></tr>
+<tr><td><code>9C86</code></td><td>—</td><td>HW-assist TX timeout reload (0xFA)</td></tr>
+<tr><td><code>9CAC</code></td><td>—</td><td>HW-assist TX/RX timeout down-counter (seeded from CPU speed, port 0x20)</td></tr>
+<tr><td><code>85D9</code></td><td><code>varClass</code></td><td>variable class (backup sub-type check, =0x0A)</td></tr>
+</tbody>
+</table>
+</div>
+<p>IY-relative flag bytes used by the link code (IY = <code>flags</code> base, <code>0x89F0</code>): <code>IY+0x1B</code> is the
+link-mode/peer-type byte (which machine-ID to advertise, USB-vs-DBUS, single-byte mode), <code>IY+0x12</code>
+bit2 “command in progress”, <code>IY+0x24</code> bit1/2 transfer-active, <code>IY+0xC</code> bit2 APD-disable
+save, <code>IY+0x3E</code> bit0 / <code>IY+0x3D</code> bit5 USB-presence.</p>
+<hr>
+<h2 id="2-the-byte-layer-recap--receive-internals-confirmed"><a class="header" href="#2-the-byte-layer-recap--receive-internals-confirmed">2. The byte layer (recap + receive internals) [confirmed]</a></h2>
+<p><a href="keyboard-link.html">Keyboard &amp; link</a> covers <code>_SendAByte</code>. Two new things pinned here:</p>
+<h3 id="2a-hardware-assist-send-6bb2-confirmed"><a class="header" href="#2a-hardware-assist-send-6bb2-confirmed">2a. Hardware-assist send <code>6BB2</code> [confirmed]</a></h3>
+<p><code>_SendAByte</code> (<code>3C:420D</code>) starts <code>CALL probe_hw_model_keep_a ; JP Z,0x6BB2</code> — if the model probe sets Z (the
+84+ link-assist hardware is present), it jumps to <code>3C:6BB2</code>:</p>
+<pre><code class="language-z80">6BB2: setup line / 2× short delay (6BD2 seeds 9CAC from port 0x20 = CPU speed)
+6BBB: LD A,0xFA ; (9C86)=A           ; reload inner timeout
+      IN A,(0x9) ; BIT 5,A           ; port 0x09 bit5 = TX buffer empty/ready
+      JR Z,6BCA                       ; not ready → spin
+      LD A,C ; OUT (0x0D),A ; RET     ; *** write the byte to port 0x0D (assist FIFO) ***
+6BCA: CALL 6BE4 (decrement 9CAC) ; JR Z,6BBB (retry) ; else JP 4434 (timeout)
+</code></pre>
+<p>So the assist path is: poll port 0x09 bit 5, then <code>OUT (0x0D),byte</code> — exactly the “FIFO” <a href="keyboard-link.html">Keyboard &amp; link</a>
+mentioned, with a CPU-speed-scaled timeout. The legacy bit-bang fall-through (port 0, send <code>1</code>/<code>2</code>,
+wait for echo, <code>DE</code>-timeout → <code>_JErrorNo</code>) is unchanged from <a href="keyboard-link.html">Keyboard &amp; link</a>.</p>
+<h3 id="2b-receive-_recabyteio-443f-and-decoder-444a-confirmed"><a class="header" href="#2b-receive-_recabyteio-443f-and-decoder-444a-confirmed">2b. Receive <code>_RecAByteIO</code> <code>443F</code> and decoder <code>444A</code> [confirmed]</a></h3>
+<pre><code class="language-z80">443F: DI ; CALL 447E (arm/clock the line) ; CALL 444A (get-status) ; RET C/NZ ; loop if Z
+444A:  CP 1                              ; result==1?  (got a real byte)
+       LD A,C                            ; A = the byte
+       JR NZ,4456
+       CP 0xE0 ; JP NZ,_ErrLinkXmit      ; in 'must-get-byte' mode, anything else = link error
+       JR 4470
+4456:  CP 0xE0 ; RET NZ                  ; caller passed sentinel 0xE0 = "non-blocking probe"
+       IN A,(0x2) ; AND 0x80             ; port 0x02 bit7 set = non-83+-Basic (has assist HW on 84+)
+       JR Z,4469                         ;   legacy:  6CC1 polls the bit-bang lines
+       IN A,(0x9) ; BIT 6,A ; JR NZ,4470 ; port 0x09 bit6 = transmission error → abort
+       AND 0x19 ; JR NZ,4475             ; port 0x09 bits 0x19 = link error/active flags
+4470:  CALL 6D17 ; XOR A ; RET           ; error/no byte → return 0
+</code></pre>
+<p>Key port semantics (84+ assist): port 0x09 bit 5 = TX ready, bit 6 = transmission error,
+bit 4 = byte received, bits 0x19 = error/active; port 0x0D = data FIFO; port 0x02
+bit 7 = non-83+-Basic (used here as the assist-present gate; WikiTI’s dedicated “link-assist
+available” flag is port 0x02 bit 6).
+The sentinel <code>0xE0</code> passed in <code>A</code> selects non-blocking (“peek-only”) vs. blocking-with-error
+behaviour. <code>_Rec1stByte</code> (<code>3C:439C</code>) / <code>_Rec1stByteNC</code> (<code>3C:43A3</code>, “no-clear”) are the same logic
+wrapped with APD/<code>_ApdSetup</code> and the bit-bang start-bit detect, used to wait for the <em>first</em> byte
+of an incoming packet (peer may be idle for a long time).</p>
+<hr>
+<h2 id="3-packet-framing--the-ti-link-protocol-confirmed"><a class="header" href="#3-packet-framing--the-ti-link-protocol-confirmed">3. Packet framing — the TI link protocol [confirmed]</a></h2>
+<p>A TI link packet is a 4-byte header optionally followed by data + 2-byte checksum:</p>
+<pre><code>  +--------+--------+--------+--------+   +============+----------+
+  | mach-ID|  cmd   |  len-lo|  len-hi|   |  data[len] | chk16 LE |
+  +--------+--------+--------+--------+   +============+----------+
+   8674     8675     8676     8677         streamed      8678 acc
+</code></pre>
+<p>As a C struct:</p>
+<pre><code class="language-c">typedef struct {
+    uint8_t machineID;   /* 0x8674: machine-ID (peer/local device class) */
+    uint8_t commandID;   /* 0x8675: command-ID                           */
+    uint8_t lenLo;       /* 0x8676: data length, low byte                */
+    uint8_t lenHi;       /* 0x8677: data length, high byte               */
+} LinkPacketHeader;                                  /* 4 bytes (0x8674..0x8677) */
+</code></pre>
+<h3 id="3a-send-a-header--41c3-confirmed"><a class="header" href="#3a-send-a-header--41c3-confirmed">3a. Send a header — <code>41C3</code> [confirmed]</a></h3>
+<pre><code class="language-z80">41C3: 6D4B (drive line) ; short delay ; CALL probe_hw_model_keep_a (model probe)
+      … (HW handshake on 84+, or bit-bang line-idle wait; failure → _ErrLinkXmit) …
+41F2: (8678)=0                              ; reset checksum accumulator
+      LD A,(8674) ; CALL _SendAByte         ; machine-ID
+      LD A,(8675) ; CALL _SendAByte         ; command-ID
+      LD A,(8676) ; CALL _SendAByte         ; length lo
+      LD A,(8677) ; CALL _SendAByte         ; length hi
+</code></pre>
+<p><code>419B</code> is the generic “send a 0-length control packet”: it sets the local machine-ID (<code>620A</code>),
+stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience entries: <code>4195</code> H=0x92 (EOT),
+<code>4199</code> H=0x09 (CTS), <code>41BC</code> ID=0x73/cmd=0x68 (RTS).</p>
+<h3 id="3b-receive-a-header--4338-confirmed"><a class="header" href="#3b-receive-a-header--4338-confirmed">3b. Receive a header — <code>4338</code> [confirmed]</a></h3>
+<pre><code class="language-z80">4338: CALL _RecAByteIO ; (8674)=A           ; machine-ID, validated against the known set:
+      0x95 0x73 0x23 0x74 0x82 0x02 0x12 0x83 0x03 0x13 0x08   (else fall to 2nd-byte machine list)
+4370: CALL _RecAByteIO ; (8675)=A           ; command-ID, validated: 0x68 0x47 0x74 0x2D … else _JErrorNo
+438F: CALL _RecAByteIO ; (8675)=A  (cmd)     ; (on the validated path)
+4392: CALL _RecAByteIO ; (8676)=A           ; length lo
+4395: CALL _RecAByteIO ; (8677)=A           ; length hi ; RET
+</code></pre>
+<p>An unrecognised machine-ID or command-ID byte aborts via <code>_JErrorNo</code> (→ <code>E_LnkErr</code> 0x9F).</p>
+<h3 id="3c-machine-id-selector--620a-confirmed"><a class="header" href="#3c-machine-id-selector--620a-confirmed">3c. Machine-ID selector — <code>620A</code> [confirmed]</a></h3>
+<p>The <em>local</em> machine-ID advertised in outgoing packets depends on the peer-type bits in <code>IY+0x1B</code>:</p>
+<pre><code class="language-z80">620A: L=0x82 ; BIT 2,(IY+0x1B) ; RET NZ     ; 0x82 = default / TI-84+ silent
+      L=0x95 ; BIT 1,(IY+0x1B) ; RET NZ     ; 0x95 = computer / TI-Connect (USB host)
+      L=0x83 ; BIT 3,(IY+0x1B) ; RET NZ
+      L=0x03 ; BIT 4,(IY+0x1B) ; RET NZ     ; 0x03 = TI-83
+      L=0x73 ; RET                          ; 0x73 = TI-73 / fallback
+</code></pre>
+<h3 id="3d-command-id-byte-cheat-sheet-hypothesis"><a class="header" href="#3d-command-id-byte-cheat-sheet-hypothesis">3d. Command-ID byte cheat-sheet [hypothesis]</a></h3>
+<p>Confirmed in the code; semantics are the standard TI link protocol:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>cmd</th><th>name</th><th>seen at</th><th>meaning</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x06</code></td><td><code>VAR</code></td><td><code>_LinkXferOP</code> reply check <code>4E86 CP 6</code></td><td>variable header packet (type+name+size)</td></tr>
+<tr><td><code>0x09</code></td><td><code>CTS</code></td><td><code>4199</code> (H=0x09)</td><td>clear-to-send (receiver ready for DATA)</td></tr>
+<tr><td><code>0x15</code></td><td><code>DATA</code></td><td><code>40DA</code>/<code>407C</code> send, <code>426D CP 0x15</code> recv</td><td>the variable’s data bytes</td></tr>
+<tr><td><code>0x2D</code></td><td><code>DEL</code></td><td>header-validate <code>4382 CP 0x2D</code></td><td>delete / directory variants</td></tr>
+<tr><td><code>0x36</code></td><td><code>SKIP/EXIT</code></td><td><code>_LinkXferOP</code> <code>4E7C CP 0x36</code></td><td>peer refused this var → abort transfer</td></tr>
+<tr><td><code>0x56</code></td><td><code>ACK</code></td><td>built by <code>42FB</code> (LD H,0x56); checked <code>418F CP 0x56</code></td><td>acknowledge</td></tr>
+<tr><td><code>0x5A</code></td><td><code>ERR/NAK</code></td><td>built by <code>6356</code>/<code>6385</code> (LD H,0x5A)</td><td>checksum/length error reply</td></tr>
+<tr><td><code>0x68</code></td><td><code>RTS</code></td><td><code>41BC</code> (LD H,0x68)</td><td>request-to-send</td></tr>
+<tr><td><code>0x92</code></td><td><code>EOT</code></td><td><code>4195</code> (H=0x92)</td><td>end of transmission</td></tr>
+<tr><td><code>0xA2</code>/<code>0xB7</code></td><td>request</td><td><code>_LinkXferOP</code> <code>4E2B/4E2F</code></td><td>request var (A2=DATA-type, B7=other)</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="3e-checksum--ack-tail-confirmed"><a class="header" href="#3e-checksum--ack-tail-confirmed">3e. Checksum / ACK tail [confirmed]</a></h3>
+<p>After the data payload, the sender appends the 16-bit sum and waits for the ACK:</p>
+<pre><code class="language-z80">4167 (send tail): LD HL,(8678) ; A=L ; CALL _SendAByte ; A=H ; CALL _SendAByte   ; chk lo, hi
+4178:  CALL 4318 (save hdr→bakHeader) ; CALL 4338 (recv reply header)
+417E:  LD A,(8675) ; … CALL 430F (compare/store) ; CP 0x56 ; RET Z ; JP _JErrorNo
+</code></pre>
+<p>On the <em>receive</em> side the matching check is <code>6356</code>: after streaming the payload it compares the
+accumulated checksum <code>8678</code> against the received 16-bit checksum; on mismatch it sends a <code>0x5A</code> ERR
+packet (<code>6385: LD H,0x5A ; CALL 419B</code>) and raises <code>_JErrorNo</code>. The ACK-builder <code>42FB</code> saves the
+caller’s header to <code>868B bakHeader</code>, then builds an ACK with a fresh local machine-ID (<code>CALL 620A</code>),
+command = <code>0x56</code>, length = 0, sends it, and <code>_Mov9B</code> restores the saved header.</p>
+<hr>
+<h2 id="4-receive-data-payload--4292-confirmed"><a class="header" href="#4-receive-data-payload--4292-confirmed">4. Receive DATA payload — <code>4292</code> [confirmed]</a></h2>
+<p><code>4261</code>/<code>4292</code> is the data-payload receiver. It streams <code>len</code> (<code>8676</code>) bytes from <code>_RecAByteIO</code>,
+buffering 16 at a time into <code>pagedBuf</code> (<code>983A</code>) and flushing the block (so an incoming archived
+variable is written straight to Flash via <code>6AB1</code>, which runs the port-0x14 flash-program stub —
+identical prologue to the archive writer in <a href="sub-vat-archive.html">sub-vat-archive.md</a> §6):</p>
+<pre><code class="language-z80">4292: BC=(8676) len ; (8678)=0
+      loop: HL=(84DB) dest ; 1FD6 (clock) ; _RecAByteIO → A
+            store A via pagedGetPtr (9836); INC pagedCount (9834)
+            when pagedCount==0x10 → CALL 6AB1 (flush 16 bytes to RAM/Flash)
+            (8678) += received_byte ; DEC BC ; loop while BC
+      flush remainder (6AB1)
+42EF: _RecAByteIO ×2 → received checksum ; CALL 6356 (verify len/sum, NAK 0x5A on mismatch)
+42FB: send ACK (cmd 0x56)
+</code></pre>
+<p>The header-classifier <code>6994</code> shows the receive-and-store sequence a var-receive runs:</p>
+<pre><code class="language-z80">6994: 4255 (reset chk) ; 6298 (machine-ID re-validate) ; RST4 on (867F) (classify var header)
+      6D4B/4338 recv header ; expect (8675)==0x09 (VAR/CTS) else _JErrorNo
+      4338 recv DATA header ; expect (8675)==0x15 (DATA) else _JErrorNo
+      BC=(8676) len ; RST5 → store the variable into the VAT (creates RAM/Flash entry)
+</code></pre>
+<p>i.e. the receiver reproduces the VAT-create / <code>_InsertMem</code> path from <a href="sub-vat-archive.html">sub-vat-archive.md</a>.</p>
+<hr>
+<h2 id="5-silent-link-variable-send--_linkxferop-3c4dd2-confirmed"><a class="header" href="#5-silent-link-variable-send--_linkxferop-3c4dd2-confirmed">5. Silent-link variable send — <code>_LinkXferOP</code> (<code>3C:4DD2</code>) [confirmed]</a></h2>
+<p>This is the path a “Send” hits (TI-Connect pulls a var, or a calc-to-calc send).
+OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, then streams the DATA.</p>
+<pre><code class="language-z80">_LinkXferOP (3C:4DD2):
+  CALL probe_hw_model_keep_a        ; model/HW probe; spin on port 0x20 if assist busy
+  SET 1,(IY+0x24)                   ; mark "transfer active"
+  RES 3,(IY+0x1B) ; save IY+0xC (APD) ; install cleanup handler 4F3E via 27DA (see §7)
+  CALL _OP1ToOP6                    ; preserve the var name
+  (build the var header into 867F) :
+      LD DE,0x867F ; CALL _MovFrOP1 ; *** header = var type byte + name token(s) ***
+  decide request command:
+      LD A,(8672) sndRecState ; CP 0x15 ;  A = 0xA2 (DATA-type)  else  0xB7
+      CALL 6971 (set "cmd in progress")
+  USB negotiation (when IY+0x1B bit0 &amp; bit5/6 set): poll port 0x4D bits 5/6, cross_page 2E0B
+  CALL 4055 (send the VAR/request header via 40DA→41C3)
+  CALL 6184 → _Rec1stByteNC (wait for peer reply)
+      CP 0x36 (SKIP/EXIT) → 427E ; _JErrorNo            ; peer refused
+      CP 0x06 (VAR/CTS ok) → continue, else 4D45 _JErrorNo
+  CALL 4255 ; CALL 687A (check transfer state 8688==0x07)
+  if sndRecState==0x15 (DATA):
+      CALL 4763 (resolve var data: type/size/ptr, archive-aware) ; CALL ... send DATA
+  else: send the symbol-table/listing payload (4261)
+  RES 1,(IY+0x24) ; FUN_ram_2800 (restore) ; JP 4F3E (cleanup)
+</code></pre>
+<h3 id="5a-resolve-the-variable-for-sending--4763-confirmed"><a class="header" href="#5a-resolve-the-variable-for-sending--4763-confirmed">5a. Resolve the variable for sending — <code>4763</code> [confirmed]</a></h3>
+<p><code>4763</code> reads the var-header type byte at <code>867F</code> and branches by class. For graph/equation types
+(<code>0x0F‥0x14</code>) it uses a cross-page helper; otherwise <code>47AB</code>: <code>_CkOP1Real</code>, checks size, then
+<code>_ChkFindSym</code> (<code>0E60</code>) to locate the VAT entry, and for an archived var it routes through the
+flash path (<code>_Chk_Batt_Low</code>, <code>83F7</code> size save). The actual data ptr/page/length come from
+<code>_SetupPagedPtr</code> inside the DATA sender.</p>
+<h3 id="5b-send-the-data-payload--40da-confirmed"><a class="header" href="#5b-send-the-data-payload--40da-confirmed">5b. Send the DATA payload — <code>40DA</code> [confirmed]</a></h3>
+<pre><code class="language-z80">40DA: CALL _SetupPagedPtr (17AC)            ; HL=data ptr, DE=len, A=page  ←  VAT entry resolution
+      (84DB)=ptr ; (8676)=len               ; iMathPtr5, packet length
+      6971 ; 620A (machine-ID) ; (8674)=ID
+      (special-case sndRecState==0x08 backup w/ varClass 0x0A: clamp len 0x37D, prepend 0x63 00)
+413D: CALL 41C3 (send DATA header, cmd already 0x15 from 4055)
+      HL=(84DB) ptr ; DE=(8676) len ; (8678)=0
+      loop 4150: 1FD6 (clock) ; _PagedGet (17BB) the next byte (handles Flash page-cross) ;
+                 41AB → _SendAByte ; accumulate (8678) ; DEC DE ; loop
+4167: send 2-byte checksum (8678 lo,hi) ; recv reply header ; CP 0x56 (ACK) ; else _JErrorNo
+</code></pre>
+<p><code>_PagedGet</code> makes the streamer transparent to RAM-vs-archived data: an archived program is read
+straight out of the Flash window, advancing the bank-A page (port 0x06) at the 0x8000 boundary,
+exactly like <code>_FlashToRam</code> (<a href="sub-vat-archive.html">sub-vat-archive.md</a> §5).</p>
+<hr>
+<h2 id="6-_sendvarcmd-3c4a14--body-3c4edd-confirmed"><a class="header" href="#6-_sendvarcmd-3c4a14--body-3c4edd-confirmed">6. <code>_SendVarCmd</code> (<code>3C:4A14</code> → body <code>3C:4EDD</code>) [confirmed]</a></h2>
+<p>The bcall most code/TI-BASIC reaches for to silent-send. It is a thin DI-wrapped front for the same
+machinery:</p>
+<pre><code class="language-z80">4EDD: DI ; save IY+0xC (APD) ; RES 2,(IY+0xC)
+      install cleanup 4F3E via 27DA
+      LD A,0x0B ; (8672)=A          ; sndRecState = request/directory
+      LD A,0xC9 ; CALL 6971         ; command setup
+      CALL 62B0 (clear link sub-state in 8A0B) ; SET 2,(IY+0x1B)
+      CALL 58ED (→ SET 1,(IY+0x24) ; _ChkFindSym)  ; locate the var
+      JR 4EAD (shared tail with _LinkXferOP: RES 1,(IY+0x24); 2800; JP 4F3E)
+</code></pre>
+<p>Note <code>4EDD</code> physically overlaps / shares the tail (<code>4EAD</code>) with <code>_LinkXferOP</code>; they are two
+entry points into one routine body. <code>_SendVarCmd</code> is the “send by name from the running context”
+door; <code>_LinkXferOP</code> is the “OP1 already set up, do the silent transfer” door.</p>
+<hr>
+<h2 id="7-apd-cleanup-and-the-line-idle-wait-confirmed"><a class="header" href="#7-apd-cleanup-and-the-line-idle-wait-confirmed">7. APD, cleanup, and the line idle wait [confirmed]</a></h2>
+<ul>
+<li><code>27DA</code> (<code>FUN_ram_27da</code>) installs an abort/cleanup callback (always <code>3C:4F3E</code>) so that if the
+transfer errors out via <code>_JError</code>, the link state, APD timer and <code>IY+0xC</code> APD bit are restored.
+<code>4F3E: POP AF ; BIT 2,A ; (restore IY+0xC bit2) ; → 4F31 (RES 2,(IY+0x12); re-enable timers; EI)</code>.</li>
+<li><code>_ApdSetup</code> (<code>00:03AE</code>) is called before any long blocking receive (<code>6177</code>, <code>6184</code>) so the calc
+doesn’t auto-power-down mid-transfer.</li>
+<li><code>62B0</code>/<code>62BB</code> clear the link error sub-state byte (<code>8A0B</code>, the low bits of <code>IY+0x1B</code>-area flags).</li>
+</ul>
+<hr>
+<h2 id="8-error-handling-confirmed"><a class="header" href="#8-error-handling-confirmed">8. Error handling [confirmed]</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Trigger</th><th>Address</th><th>Error</th></tr>
+</thead>
+<tbody>
+<tr><td>send/receive line timeout, bad echo, unexpected reply cmd</td><td><code>_JErrorNo</code> <code>00:2799</code></td><td><code>E_LnkErr</code> <code>0x9F</code> “ERR:LINK”</td></tr>
+<tr><td><code>_RecAByteIO</code> got non-byte in must-get mode; header-send line never went idle</td><td><code>_ErrLinkXmit</code> <code>00:278D</code> → <code>_JError(0x9F)</code></td><td><code>E_LnkErr</code> <code>0x9F</code></td></tr>
+<tr><td>received checksum/length mismatch</td><td><code>6356</code>→ sends 0x5A NAK → <code>2799</code></td><td><code>E_LnkErr</code> <code>0x9F</code></td></tr>
+<tr><td>peer sent SKIP/EXIT (0x36)</td><td><code>_LinkXferOP</code> <code>4E80/4E83</code></td><td><code>E_LnkErr</code> <code>0x9F</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The OS collapses the link failures into the single user-visible <code>E_LnkErr</code> (<code>0x9F</code>) “ERR:LINK”.
+The finer-grained codes <code>E_LinkIOChkSum</code> <code>0x22</code>, <code>E_LinkIOTimeOut</code> <code>0x23</code>, <code>E_LinkIOBusy</code> <code>0x24</code>,
+<code>E_LinkIOVer</code> <code>0x25</code> exist in the error table (<code>ty_error.txt</code>) and are used by the higher-level
+<em>assembly-callable file-transfer API</em> (e.g. <code>OpenSendFlag</code>/<code>Send</code>/<code>Receive</code> style), not by the raw
+silent-link engine documented here. [confirmed for 0x9F path; standard for the 0x22-25 mapping.]</p>
+<hr>
+<h2 id="9-end-to-end-send-prgm-to-computer-standard"><a class="header" href="#9-end-to-end-send-prgm-to-computer-standard">9. End-to-end: “Send PRGM to computer” [standard]</a></h2>
+<ol>
+<li>Host (TI-Connect, machine-ID 0x95) opens the USB/DBUS link; calc detects it (<code>IY+0x1B</code> bit1).</li>
+<li>Host requests the directory or a specific var; calc’s receiver (<code>4338</code>) parses the request
+header, <code>6994</code>/<code>6298</code> classify it.</li>
+<li>To send a var: <code>_LinkXferOP</code>/<code>_SendVarCmd</code> builds the VAR header (type byte + name from OP1,
+size) at <code>867F</code>, sends it (<code>41C3</code>, cmd path), waits for <code>CTS</code> (<code>0x09</code>).</li>
+<li><code>40DA</code> streams the <code>DATA</code> (<code>0x15</code>) payload via <code>_PagedGet</code>→<code>_SendAByte</code> (Flash-transparent),
+appends the 16-bit checksum, waits for <code>ACK</code> (<code>0x56</code>).</li>
+<li><code>_GetSysInfo</code> (<code>07:7345</code>, id <code>0x50DD</code>)-style metadata and an <code>EOT</code> (<code>0x92</code>) close the session.</li>
+<li>Receive direction is the mirror: header in → CTS out → DATA in (buffered 16 bytes →
+RAM/Flash via <code>6AB1</code>) → checksum verify (<code>6356</code>, NAK 0x5A on error) → ACK out → VAT store (RST5).</li>
+</ol>
+<hr>
+<h2 id="10-confident-address-index"><a class="header" href="#10-confident-address-index">10. Confident address index</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>space:addr</th><th>name</th><th>what</th></tr>
+</thead>
+<tbody>
+<tr><td><code>3C:420D</code></td><td><code>_SendAByte</code></td><td>send one byte: HW-assist (port 0x09/0x0D) or bit-bang (port 0)</td></tr>
+<tr><td><code>3C:6BB2</code></td><td><code>lnk_send_byte_hw</code></td><td>HW-assist send: poll port 0x09 bit5, <code>OUT (0x0D)</code></td></tr>
+<tr><td><code>3C:443F</code></td><td><code>_RecAByteIO</code></td><td>receive one byte (blocking)</td></tr>
+<tr><td><code>3C:444A</code></td><td><code>lnk_rec_status</code></td><td>RX status decode (port 0x09 bit6 = TX error / bit4 = byte received / 0x19 err; sentinel 0xE0)</td></tr>
+<tr><td><code>3C:439C</code></td><td><code>_Rec1stByte</code></td><td>wait for first byte of a packet (APD + start-bit)</td></tr>
+<tr><td><code>3C:43A3</code></td><td><code>_Rec1stByteNC</code></td><td>as above, no line-clear</td></tr>
+<tr><td><code>3C:41C3</code></td><td><code>lnk_send_header</code></td><td>send 4-byte header (ID, cmd, len-lo, len-hi)</td></tr>
+<tr><td><code>3C:419B</code></td><td><code>lnk_send_ctrl_pkt</code></td><td>send a 0-length control packet (cmd in H)</td></tr>
+<tr><td><code>3C:4195</code></td><td><code>lnk_send_eot</code></td><td>send EOT (cmd 0x92)</td></tr>
+<tr><td><code>3C:4199</code></td><td><code>lnk_send_cts</code></td><td>send CTS (cmd 0x09)</td></tr>
+<tr><td><code>3C:4338</code></td><td><code>lnk_recv_header</code></td><td>receive + validate 4-byte header</td></tr>
+<tr><td><code>3C:620A</code></td><td><code>lnk_local_machine_id</code></td><td>pick local machine-ID from IY+0x1B mode</td></tr>
+<tr><td><code>3C:42FB</code></td><td><code>lnk_send_ack</code></td><td>build+send ACK (cmd 0x56, fresh local machine-ID), restoring the saved header</td></tr>
+<tr><td><code>3C:4292</code></td><td><code>lnk_recv_data</code></td><td>receive DATA payload, 16-byte Flash batching, checksum</td></tr>
+<tr><td><code>3C:6356</code></td><td><code>lnk_verify_cksum</code></td><td>verify count vs len; NAK 0x5A on mismatch</td></tr>
+<tr><td><code>3C:6AB1</code></td><td><code>lnk_flush_block</code></td><td>flush 16-byte staging block to RAM/Flash (port 0x14)</td></tr>
+<tr><td><code>3C:4DD2</code></td><td><code>_LinkXferOP</code></td><td>silent-link variable send orchestrator (OP1=name)</td></tr>
+<tr><td><code>3C:4EDD</code></td><td><code>_SendVarCmd</code></td><td>bcall <code>_SendVarCmd</code> (4A14) body; DI-wrapped send-by-name</td></tr>
+<tr><td><code>3C:4763</code></td><td><code>lnk_resolve_var</code></td><td>resolve var class/size/ptr for sending (archive-aware)</td></tr>
+<tr><td><code>3C:40DA</code></td><td><code>lnk_send_data</code></td><td>send DATA payload (<code>_PagedGet</code>→<code>_SendAByte</code>) + checksum + ACK wait</td></tr>
+<tr><td><code>3C:4167</code></td><td><code>lnk_send_cksum_tail</code></td><td>append 16-bit checksum, recv reply, expect ACK 0x56</td></tr>
+<tr><td><code>3C:4F3E</code></td><td><code>lnk_cleanup</code></td><td>error/abort cleanup (restore APD/timers/flags)</td></tr>
+<tr><td><code>3C:62B0</code></td><td><code>lnk_clear_substate</code></td><td>clear link error sub-state (8A0B)</td></tr>
+<tr><td><code>3C:6994</code></td><td><code>lnk_recv_store</code></td><td>receive var + VAT store sequence (expects 0x09 then 0x15)</td></tr>
+<tr><td><code>00:278D</code></td><td><code>_ErrLinkXmit</code></td><td><code>_JError(0x9F)</code> E_LnkErr</td></tr>
+<tr><td><code>00:2799</code></td><td><code>_JErrorNo</code></td><td>raise current pending error (link → 0x9F)</td></tr>
+<tr><td><code>07:7345</code></td><td><code>_GetSysInfo</code> (id <code>0x50DD</code>)</td><td>system info reply (used in link sessions)</td></tr>
+<tr><td><code>00:4A14</code></td><td><code>_SendVarCmd</code> (bcall id)</td><td>→ 3C:4EDD</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Ports:</strong> <code>0x00</code> = bit-bang link (tip/ring); <code>0x08</code>–<code>0x0D</code> = HW link-assist control/status/data
+FIFO (port 0x09 bit5 TX-ready, bit6 transmission-error, bit4 byte-received, bits 0x19 error);
+<code>0x02</code> bit7 = non-83+-Basic (assist-present gate on 84+; WikiTI’s “link-assist available” is bit6);
+<code>0x20</code> = CPU speed (timeout scaling); <code>0x4D</code> bits5/6 = USB negotiation; <code>0x14</code> = Flash
+write/erase (received-to-archive path). See <a href="sub-usb-asic.html">sub-usb-asic.md</a> for the assist port
+state machine. RAM block: <code>ioFlag 8670 … bakHeader 868B</code>, staging
+<code>pagedBuf 983A</code>.</p>
+<p><strong>Command IDs:</strong> 0x06 VAR · 0x09 CTS · 0x15 DATA · 0x2D DEL · 0x36 SKIP/EXIT · 0x56 ACK ·
+0x5A ERR/NAK · 0x68 RTS · 0x92 EOT · 0xA2/0xB7 request. <strong>Machine IDs:</strong> 0x82/0x73 calc(84+/73),
+0x95 computer (TI-Connect), 0x03 TI-83, plus the 0x02/0x12/0x23/0x74/0x83/0x13/0x08 set accepted.</p>
+<h2 id="11-open-items"><a class="header" href="#11-open-items">11. Open items</a></h2>
+<ul>
+<li>The 0x22–0x25 fine-grained link error codes: which higher API (<code>Send</code>/<code>Receive</code> bcalls) emits
+them vs. the blanket 0x9F here. [standard]</li>
+<li>Backup (sndRecState 0x08 / varClass 0x0A) framing detail in <code>40DA</code> (the 0x37D clamp + 0x63 00
+prefix) — full backup-packet layout. [standard]</li>
+<li>The prior USB target gap is now mapped in <a href="sub-usb-asic.html">sub-usb-asic.md</a>: <code>_LinkXferOP</code> calls
+<code>ram:2E0B</code>, a <code>cross_page_jump</code> thunk to <code>35:4280</code>, after sampling port <code>0x4D</code>.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="keyboard-link.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="sub-usb-asic.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="keyboard-link.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="sub-usb-asic.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-5fa46c0a.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
