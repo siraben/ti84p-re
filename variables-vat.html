@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9b2b9ee8.js";
+            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-3e0e106f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -226,7 +226,7 @@
 </div>
 <p><code>_CreateReal</code> (recovered): sets the type byte and a fixed size of 9, then jumps to the common create core at <code>00:1011</code>. That core stores the type, type-checks the object (<code>chk_type_not_str</code> at <code>ram:2045</code>), handles the complex-list special case (<code>OP1.exp == 0x5D</code>), applies the 6-character name limit (<code>00:1023 CP 0x7</code>; <code>00:1025 JP NC,00:2700 → LD A,0x88</code>, <code>E_Syntax</code>), and carves the gap via the internal routine at <code>ram:0F0C</code> (<code>00:1034</code>). Aggregate creators (lists/matrices) instead enter through the size prelude <code>var_alloc</code> (<code>00:1005</code>), which computes count×element-size + the 2-byte header and raises <code>E_Memory</code> on overflow (<code>JP C,00:2721</code> at <code>00:1008</code> → <code>LD A,0x8E</code>) before falling into the same <code>00:1011</code> core.</p>
 <h2 id="variable-data-formats--rendered-as-c-confirmed-from-the-_create-family--db-types"><a class="header" href="#variable-data-formats--rendered-as-c-confirmed-from-the-_create-family--db-types">Variable data formats — rendered as C [confirmed from the <code>_Create*</code> family / DB types]</a></h2>
-<p>A VAT entry points at the variable’s data, whose layout depends on the object type. Every numeric value is a 9-byte BCD <code>TIFloat</code> (see <a href="06-floating-point.html">Floating-Point</a>); aggregates are a small header followed by an element array or a tokenized blob. These mirror the project’s DB types (<code>TIFloat</code>, <code>TIComplex</code>, <code>TIListHdr</code>, <code>TIMatrixHdr</code>), with fields shown in ROM byte order:</p>
+<p>A VAT entry points at the variable’s data, whose layout depends on the object type. Every numeric value is a 9-byte BCD <code>TIFloat</code> (see <a href="floating-point.html">Floating-Point</a>); aggregates are a small header followed by an element array or a tokenized blob. These mirror the project’s DB types (<code>TIFloat</code>, <code>TIComplex</code>, <code>TIListHdr</code>, <code>TIMatrixHdr</code>), with fields shown in ROM byte order:</p>
 <pre><code class="language-c">/* ── numeric primitives ───────────────────────────────────────────── */
 typedef struct {
     uint8_t type;          /* 0x00 real, 0x80 negative; 0x0C/0x8C = complex part  */
@@ -263,7 +263,7 @@ struct AppVar { uint16_t size;        uint8_t data[/* size */];          }; /* A
 </table>
 </div>
 <p><code>WindowObj</code>/<code>ZStoObj</code> (<code>0x0F</code>/<code>0x10</code>) hold the graph <strong>Window</strong> settings, <code>TblRngObj</code> (<code>0x11</code>) the table range, <code>BackupObj</code> (<code>0x13</code>) a full RAM image — all system, fixed-shape blobs.</p>
-<p>Aggregate creators size their data region (= count × element-size + 2-byte header) in the <code>var_alloc</code> prelude (<code>ram:1005</code>), then fall into the common create core (<code>ram:1011</code>), which carves the gap via the internal routine at <code>ram:0F0C</code> (the create path’s own block-move, not the public <code>_InsertMem</code>; see <a href="12-memory-management.html">12</a>). The specific <code>_Create*</code> routine then writes the data header after the core returns — e.g. <code>_CreateRList</code> writes the list count, <code>_CreateStrng</code> the 2-byte size word. All key off the name in <code>OP1</code> (<code>OP1.exp</code> is the name’s token class — <code>_CreateRList</code> validates a list-name token <code>0x5D/0x24/0x3A/0x72</code>).</p>
+<p>Aggregate creators size their data region (= count × element-size + 2-byte header) in the <code>var_alloc</code> prelude (<code>ram:1005</code>), then fall into the common create core (<code>ram:1011</code>), which carves the gap via the internal routine at <code>ram:0F0C</code> (the create path’s own block-move, not the public <code>_InsertMem</code>; see <a href="memory-management.html">12</a>). The specific <code>_Create*</code> routine then writes the data header after the core returns — e.g. <code>_CreateRList</code> writes the list count, <code>_CreateStrng</code> the 2-byte size word. All key off the name in <code>OP1</code> (<code>OP1.exp</code> is the name’s token class — <code>_CreateRList</code> validates a list-name token <code>0x5D/0x24/0x3A/0x72</code>).</p>
 <h2 id="the-vat-entry-confirmed--byte-verified-vs-findsym_scan"><a class="header" href="#the-vat-entry-confirmed--byte-verified-vs-findsym_scan">The VAT entry [confirmed — byte-verified vs <code>findsym_scan</code>]</a></h2>
 <p>The VAT grows downward from <code>symTable</code> (<code>0xFE66</code>); <code>_FindSym</code> (<code>00:0E65</code> → <code>findsym_scan</code> <code>07:565F</code>) scans down, matching the name in <code>OP1</code>. Fixed-token names (reals, complex, <code>L</code>-lists, <code>[A]</code>-matrices, system vars) are matched by a short 1–3 byte compare against <code>OP1</code>’s <code>0x8479</code>–<code>0x847B</code>; length-prefixed names (programs, appvars, groups) branch to a separate name scanner at <code>07:55D1</code> that compares the full name. On a match it reads the entry’s metadata at fixed offsets relative to the matched name pointer <code>N</code>:</p>
 <div class="table-wrapper">
@@ -302,11 +302,11 @@ struct AppVar { uint16_t size;        uint8_t data[/* size */];          }; /* A
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="14-ram-pages.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="ram-pages.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="06-floating-point.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="floating-point.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -316,11 +316,11 @@ struct AppVar { uint16_t size;        uint8_t data[/* size */];          }; /* A
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="14-ram-pages.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="ram-pages.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="06-floating-point.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="floating-point.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

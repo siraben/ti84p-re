@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9b2b9ee8.js";
+            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-3e0e106f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,14 +180,13 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="statistics"><a class="header" href="#statistics">Statistics</a></h1>
-<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
-<p>What happens between a college student entering data into <code>L1</code>/<code>L2</code>, pressing
+<p>What happens between entering data into <code>L1</code>/<code>L2</code>, pressing
 <strong>STAT ▸ CALC ▸ 1‑Var Stats</strong> (or <code>LinReg(ax+b)</code>, <code>QuadReg</code>, …), and seeing
 x̄, Σx, Sx, a, b, r, r² appear — and where every result is stored so it can be
 recalled by name (<code>x̄</code>, <code>Σx</code>, <code>RegEQ</code>, …).</p>
 <p>This doc covers the STAT <strong>CALC</strong> computations. The data source is the L1–L6
-lists (VAT/<a href="05-variables-vat.html">05-variables-vat.md</a>, <a href="sub-vat-archive.html">sub-vat-archive.md</a>); the arithmetic is the
-BCD FP engine (<a href="06-floating-point.html">06-floating-point.md</a>, <a href="sub-calculation.html">sub-calculation.md</a>). Stat plots and
+lists (VAT/<a href="variables-vat.html">variables-vat.md</a>, <a href="sub-vat-archive.html">sub-vat-archive.md</a>); the arithmetic is the
+BCD FP engine (<a href="floating-point.html">floating-point.md</a>, <a href="sub-calculation.html">sub-calculation.md</a>). Stat plots and
 the <strong>DISTR</strong> menu are noted in §8/§9 — DISTR functions are parser functions,
 not part of the STAT‑CALC engine.</p>
 <p>Address form: <code>page:addr</code> (flash page in the <code>0x4000</code> slot) or <code>ram:addr</code> for the
@@ -199,10 +198,10 @@ matches documented TI behavior, [hypothesis] = inferred.</p>
 trampolines, so the algorithm here is read primarily from the disassembly.</p>
 <hr>
 <h2 id="1-the-statvars-result-block-0x8a3a-confirmed"><a class="header" href="#1-the-statvars-result-block-0x8a3a-confirmed">1. The <code>statVars</code> result block (<code>0x8A3A</code>) [confirmed]</a></h2>
-<p>Every STAT‑CALC result is a 9‑byte <code>TIFloat</code> (see <a href="06-floating-point.html">06-floating-point.md</a>) written
+<p>Every STAT‑CALC result is a 9‑byte <code>TIFloat</code> (see <a href="floating-point.html">floating-point.md</a>) written
 into a fixed RAM table beginning at <code>statVars = 0x8A3A</code> (<code>statVars EQU 8A3Ah</code>
 in <code>ti83plus.inc</code>). Entries are packed at the 9‑byte <code>FPLEN</code> stride. These are the
-system variables a student recalls by name (<code>[2nd][STAT] ▸ VARS</code>):</p>
+system variables recalled by name (<code>[2nd][STAT] ▸ VARS</code>):</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -341,7 +340,7 @@ different routine on <code>page 0x02</code> (≈<code>02:5939</code>, comparator
 <a href="sub-matrix-list.html#sorta--sortd--list-sort-confirmed-comparator">Matrices &amp; Lists</a>.</p>
 <hr>
 <h2 id="4-the-accumulation-pass-3a6572--confirmed"><a class="header" href="#4-the-accumulation-pass-3a6572--confirmed">4. The accumulation pass (<code>3A:6572</code> …) [confirmed]</a></h2>
-<p>This is the heart of 1/2‑Var Stats and the regression sum‑setup. It makes a
+<p>This builds the power‑sums for 1/2‑Var Stats and the regression sum‑setup. It makes a
 single pass over the data list(s), accumulating the power‑sums needed for the
 mean, variance, and least‑squares normal equations. Read from disassembly:</p>
 <pre><code class="language-z80">6572: CALL 6f90/6f7d         ; default freq = 1 if no freq list given

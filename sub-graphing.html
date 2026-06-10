@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9b2b9ee8.js";
+            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-3e0e106f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,9 +180,8 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="graphing"><a class="header" href="#graphing">Graphing</a></h1>
-<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
-<p>What a college student touches when they press <strong>Y=</strong>, <strong>WINDOW</strong>, <strong>GRAPH</strong>, <strong>TRACE</strong>,
-or run a <strong>DRAW</strong> menu command. This traces the path real-coordinate → screen pixel →
+<p>What runs when the user presses <strong>Y=</strong>, <strong>WINDOW</strong>, <strong>GRAPH</strong>, <strong>TRACE</strong>,
+or runs a <strong>DRAW</strong> menu command. This traces the path real-coordinate → screen pixel →
 <code>plotSScreen</code> → LCD, plus the window variables, Y= equation storage, and DRAW primitives.</p>
 <p>Address form is <code>page:addr</code> (flash page hex : logical offset, routines run mapped at
 <code>0x4000</code>). Confidence: [confirmed] = read the code/data directly, or cross-checked
@@ -240,9 +239,9 @@ larger Y maps to a <em>smaller</em> row (screen Y grows downward),</li>
 bias <code>0x7F</code>) and rounds to an integer pixel; out-of-range loads ±large sentinel.
 <code>_YftoI</code> returns pixel row +1 (<code>INC A</code>) so callers get a 1-based / inverted row. [confirmed]</li>
 </ul>
-<p>So a student’s function value <code>y</code> at sample <code>x</code> becomes a <code>(col,row)</code> pair via two
-subtract-then-divide float ops against the window. This is the heart of plotting and TRACE
-coordinate readout.</p>
+<p>A function value <code>y</code> at sample <code>x</code> becomes a <code>(col,row)</code> pair via two
+subtract-then-divide float ops against the window. This conversion drives both plotting and
+the TRACE coordinate readout.</p>
 <h3 id="inverse-pixel-index--real-coordinate"><a class="header" href="#inverse-pixel-index--real-coordinate">Inverse: pixel index → real coordinate</a></h3>
 <p><code>_SetXXOP1</code> (<code>33:5F7E</code>) and <code>_SetXXOP2</code> (<code>33:5F83</code>) take an integer pixel value in A
 and build a real <code>TIFloat</code> in OP1 / OP2 (<code>0x8478</code> / <code>0x8483</code>). [confirmed]</p>
@@ -270,7 +269,7 @@ a menu covers it). [confirmed]</li>
 (0x8451) = (0x3F - y) | 0x80   ; LCD "set column" command (Y, mirrored)
 returns (table_42E4)[x &amp; 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
 </code></pre>
-<p>This is the bridge from a <code>(x,y)</code> pixel to a byte+bit in the buffer and the matching LCD
+<p>This maps a <code>(x,y)</code> pixel to a byte+bit in the buffer and produces the matching LCD
 command bytes. [confirmed]</p>
 <p><code>_IPoint</code> (<code>04:4157</code>): set/clear/test one pixel in <code>plotSScreen</code>. Honors the current
 pen mode / plot style: reads style at <code>(IY+0x14)</code> and a style selector at <code>0x9775</code>
@@ -334,8 +333,8 @@ line’s Y (<code>OP1</code>) via <code>_MovFrOP1</code> (<code>00:1B0C</code>),
 so the line just spans the current window edges. [confirmed]</p>
 <hr>
 <h2 id="5-rendering-the-graph-to-the-lcd"><a class="header" href="#5-rendering-the-graph-to-the-lcd">5. Rendering the graph to the LCD</a></h2>
-<p><code>_PDspGrph</code> (<code>04:7904</code>, “possibly-display graph”) is the gatekeeper between buffer and
-screen. [confirmed]</p>
+<p><code>_PDspGrph</code> (<code>04:7904</code>, “possibly-display graph”) decides whether to copy the buffer to the
+screen and whether a full re-plot is needed first. [confirmed]</p>
 <ul>
 <li>Clears the “need redraw” flag at <code>(IY+2)</code>,</li>
 <li>if the graph-dirty bit <code>(IY+3)&amp;1</code> is set (<code>graphFlags.graphDraw</code>, inc <code>graphFlags=3</code>/<code>graphDraw=0</code>; <code>1</code>=redraw needed — this is the <code>graphFlags</code> bit at <code>IY+3</code>, distinct from <code>grfDBFlags</code> at <code>IY+4</code> and SmartGraph at <code>IY+0x17</code>), calls
@@ -397,7 +396,7 @@ during a regraph or TABLE build.</p>
 <h2 id="7-graph-screen-vs-home-screen-trace"><a class="header" href="#7-graph-screen-vs-home-screen-trace">7. Graph screen vs. home screen; TRACE</a></h2>
 <ul>
 <li>The home screen uses the large font and <code>curRow</code>/<code>curCol</code> text cursor (see
-<a href="08-display-lcd.html">08-display-lcd.md</a>). The graph screen is the pixel buffer <code>plotSScreen</code> rendered by
+<a href="display-lcd.html">display-lcd.md</a>). The graph screen is the pixel buffer <code>plotSScreen</code> rendered by
 the routines above; small-font labels (coords, TRACE readout) go through
 <code>_VPutMap</code>/<code>penCol</code>(0x86D7)/<code>penRow</code>(0x86D8). [confirmed addresses]</li>
 <li><strong>TRACE</strong> moves a cursor along a selected function: it steps the column, evaluates the
@@ -427,7 +426,7 @@ values (<code>0</code>–<code>6</code>) are [confirmed] against the <a href="ht
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="08-display-lcd.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="display-lcd.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -441,7 +440,7 @@ values (<code>0</code>–<code>6</code>) are [confirmed] against the <a href="ht
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="08-display-lcd.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="display-lcd.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

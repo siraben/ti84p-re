@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>The bcall mechanism - TI-84 Plus OS — Reverse Engineering</title>
+        <title>Flash page map - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9b2b9ee8.js";
+            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-3e0e106f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,76 +179,67 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="the-bcall-system-call-mechanism"><a class="header" href="#the-bcall-system-call-mechanism">The bcall system-call mechanism</a></h1>
-<p>This is the heart of how the OS spans 1 MiB with a 64 KiB CPU. A routine on any page calls a routine on any other page by <code>bcall</code> without knowing where it physically lives.</p>
-<h2 id="the-call-site"><a class="header" href="#the-call-site">The call site</a></h2>
-<pre><code class="language-z80">RST 28h          ; opcode 0xEF
-.dw  &lt;bcall_id&gt;   ; 2-byte little-endian ID immediately after
-</code></pre>
-<p><code>rst 28h</code> is a 1-byte Z80 <code>call 0028h</code>. So the return address pushed on the stack points at the 2-byte ID. The dispatcher reads the ID <em>through the return address</em>, then fixes the return to skip those 2 bytes — i.e. execution resumes at <code>call_site + 3</code>. [confirmed] (modeled in Ghidra by setting each <code>rst 28h</code>’s fall-through to <code>+3</code> and typing the ID as a word.)</p>
-<h2 id="the-dispatcher--bcall_dispatcher--ram2a2f-confirmed"><a class="header" href="#the-dispatcher--bcall_dispatcher--ram2a2f-confirmed">The dispatcher — <code>bcall_dispatcher</code> @ <code>ram:2a2f</code> [confirmed]</a></h2>
-<p>From the decompiler:</p>
-<ol>
-<li>Read the 2-byte ID <code>dw</code> from the caller’s return address.</li>
-<li>Decode the ID’s high bits: <code>bit15</code>/<code>bit14</code> select the address class; the low bits form the table offset.</li>
-<li>Bank the bcall table page into slot A (via the helper at <code>ram:181c</code>, which sets <code>port_mapBankA</code>).</li>
-<li>Read the 3-byte table entry: target address (2) + target page (1).</li>
-<li>Bank the target page into slot A (<code>port_mapBankA = page</code>), save the previous page.</li>
-<li><code>call</code> the target. On return, restore the previous page and resume the caller at <code>+3</code>.</li>
-</ol>
-<h2 id="the-jump-table--flash-page-0x3b-confirmed"><a class="header" href="#the-jump-table--flash-page-0x3b-confirmed">The jump table — flash page <code>0x3B</code> [confirmed]</a></h2>
-<ul>
-<li>Located at the start of physical flash page <code>0x3B</code> (file offset <code>0x3B*0x4000 = 0xEC000</code>).</li>
-<li><strong>3-byte entries</strong>: <code>addr_lo, addr_hi, page</code>. IDs step by 3 from <code>0x4000</code>, so entry for ID <em>X</em> is at table offset <code>X-0x4000</code>.</li>
-<li>Resolution method (<code>tools/</code> Python): scored all 64 pages by how many of the named .inc IDs produced a valid <code>(addr∈4000..7FFF or page-0, page&lt;0x40)</code> entry; page <code>0x3B</code> scored highest (the page-selection heuristic uses a conservative validity filter chosen only to pick the table). Once <code>0x3B</code> is selected and applied, all 535 <code>.inc</code> IDs plus 61 RE-named entries (596 total) resolve and are live-confirmed.</li>
-<li>Validation: known bcalls land exactly where expected — <code>_PutS</code>→<code>01:5C39</code>, <code>_GetKey</code>→<code>06:491E</code>, <code>_ClrLCDFull</code>→<code>01:60E4</code>, <code>_GetCSC</code>→<code>00:04B2</code>, <code>_CreateReal</code>→<code>00:10B8</code>.</li>
-</ul>
-<p><code>tools/bcall_targets.txt</code> holds 596 resolved main-table bcall rows. <code>tools/bcalls8x_targets.txt</code> holds the retail boot-table (<code>0x8xxx</code>) rows only when the local ROM has the retail page <code>3F</code> and USB support page <code>2F</code> installed; with the checked-in BootFree <code>rom.bin</code> it has no body rows — only skip comments (the resolver refuses to emit <code>0x8xxx</code> bodies from a BootFree-substituted page <code>3F</code>). <code>tools/ApplyBcalls.java</code> disassembles and names the confirmed bodies it can resolve.</p>
-<h2 id="jump-table-id-ranges"><a class="header" href="#jump-table-id-ranges">Jump-table ID ranges</a></h2>
-<p>The dispatcher (<code>bcall_dispatcher</code>) decodes the ID’s top two bits to pick the table page: bit 15 set → page-byte <code>0x7F</code> (masked <code>&amp; 0x3F</code> → page <code>0x3F</code>); bit 14 set → <code>0x7B</code> (→ page <code>0x3B</code>); with <em>neither</em> bit set it falls through to <code>lookup_bcall_table_page</code> (<code>ram:2ADA</code>). The two tables real bcall IDs use:</p>
-<ul>
-<li><code>0x4xxx</code>–<code>0x7FFF</code> (bit 14 set): the main table on flash page <code>0x3B</code>, entry at offset <code>ID − 0x4000</code> (596 live-confirmed bcalls: 535 from the <code>.inc</code> + 61 RE-named).</li>
-<li><code>0x8xxx</code> (bit 15 set): the retail boot table is on physical page <code>3F</code>, indexed by <code>ID &amp; 0x7FFF</code>. <code>D84PBE1.8Xv</code> supplies the retail page <code>3F</code>; <code>D84PBE2.8Xv</code> supplies the companion USB boot support page <code>2F</code>. Most entries resolve to <code>3F:addr</code>; USB entries such as <code>_AttemptUSBOSReceive</code> (<code>80E4</code>) and <code>_InitUSB</code> (<code>8108</code>) resolve to <code>2F:addr</code>. <code>tools/resolve_bcalls.py</code> refuses to emit these targets from a BootFree-substituted page. [confirmed]</li>
-</ul>
-<p>Both resolved table formats are 3-byte entries: target address (little endian) plus page byte masked with <code>&amp; 0x3F</code>.</p>
-<h2 id="rst-shortcuts-fast-inlined-bcalls-confirmed"><a class="header" href="#rst-shortcuts-fast-inlined-bcalls-confirmed">RST shortcuts (fast inlined bcalls) [confirmed]</a></h2>
-<p>Five of the RST vectors are 1-byte fast paths for the hottest routines (each <code>JP</code>s to its page-0 handler, which is also reachable as a bcall — the table maps the same address). <code>rst 28h</code> is the bcall dispatcher itself (not a shortcut, and <code>ram:2A2F</code> is not a bcall target); it is listed here only to complete the vector set:</p>
+                        <h1 id="flash-page-map"><a class="header" href="#flash-page-map">Flash page map</a></h1>
+<p>What lives on each of the 64 physical flash pages (16 KiB each). OS code occupies pages <code>00–07</code> and <code>33–3D</code>; pages <code>08–32</code> are blank in this image; page <code>3E</code> is the certificate sector and <code>3F</code> the boot page. On a retail unit the upper pages can also carry Flash Apps, but this dump is OS-only — the page scan below reports zero Flash-App headers. The page roles below are characterized by the named bcall routines that resolve to each page (<code>tools/bcall_targets.txt</code>) plus function counts; the <code>0x8xxx</code> cert/boot/USB bcalls come instead from <code>ti83plus.inc</code> and the retail segment files (<code>bcall_targets.txt</code> does not carry the <code>0x8xxx</code> targets).</p>
+<h2 id="os-pages-carry-bcall-entry-points"><a class="header" href="#os-pages-carry-bcall-entry-points">OS pages (carry bcall entry points)</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Opcode</th><th>Vector → target</th><th>Routine</th></tr>
+<tr><th>Page</th><th style="text-align: right">Funcs</th><th>Role</th><th>Representative routines</th></tr>
 </thead>
 <tbody>
-<tr><td><code>rst 08h</code></td><td><code>0008→1A2F</code></td><td><code>_OP1ToOP2</code> (copy FP reg)</td></tr>
-<tr><td><code>rst 10h</code></td><td><code>0010→0E65</code></td><td><code>_FindSym</code> (VAT lookup)</td></tr>
-<tr><td><code>rst 18h</code></td><td><code>0018→155C</code></td><td><code>_PushRealO1</code> (push OP1 to FPS)</td></tr>
-<tr><td><code>rst 20h</code></td><td><code>0020→1B01</code></td><td><code>_Mov9ToOP1</code> (copy 9 bytes → OP1)</td></tr>
-<tr><td><code>rst 28h</code></td><td><code>0028→2A2F</code></td><td>bcall dispatcher</td></tr>
-<tr><td><code>rst 30h</code></td><td><code>0030→229E</code></td><td><code>_FPAdd</code> (float add)</td></tr>
+<tr><td><code>00</code></td><td style="text-align: right">928</td><td><strong>Kernel</strong> — mapped at <code>0000</code>; RST vectors, bcall dispatcher, FP core, VAT, memory, integer math</td><td><code>_JErrorNo</code>, <code>_LdHLind</code>, <code>_DivHLBy10</code>, <code>_FindSym</code>, <code>_FPAdd</code>, <code>_InsertMem</code></td></tr>
+<tr><td><code>01</code></td><td style="text-align: right">84</td><td>Text display / homescreen</td><td><code>_PutMap</code>, <code>_PutC</code>, <code>_PutS</code>, <code>_DispHL</code>, <code>_NewLine</code>, <code>_ClrLCDFull</code></td></tr>
+<tr><td><code>02</code></td><td style="text-align: right">271</td><td>Float transcendentals &amp; advanced math</td><td><code>_SqRoot</code>, <code>_LnX</code>, <code>_RnFx</code>, <code>_RndGuard</code></td></tr>
+<tr><td><code>03</code></td><td style="text-align: right">23</td><td>Edit-buffer / small font</td><td><code>_CloseEditBufNoR</code>, <code>_Load_SFont</code>, <code>_SFont_Len</code></td></tr>
+<tr><td><code>04</code></td><td style="text-align: right">66</td><td>Graph drawing (pixel/line)</td><td><code>_DarkLine</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_DarkPnt</code></td></tr>
+<tr><td><code>05</code></td><td style="text-align: right">118</td><td>TABLE editor + Graph-Table split-screen</td><td><code>table_editor_main</code>, <code>table_recompute</code>, <code>table_paint_grid</code></td></tr>
+<tr><td><code>06</code></td><td style="text-align: right">49</td><td>Key input &amp; edit/cursor</td><td><code>_GetKey</code>, <code>_CursorOn</code>, <code>_CursorOff</code>, <code>_PutTokString</code> (note <code>_GetCSC</code>’s body is on page 00)</td></tr>
+<tr><td><code>07</code></td><td style="text-align: right">44</td><td>Archive / list &amp; matrix ops; error messages; large-font glyph table @ <code>07:45FF</code> (7-byte stride) read by <code>put_glyph_large</code> (<code>07:4588</code>)</td><td><code>_Arc_Unarc</code>, <code>_CleanAll</code>, <code>_RedimMat</code>, <code>_IncLstSize</code>, <code>put_glyph_large</code></td></tr>
+<tr><td><code>33</code></td><td style="text-align: right">70</td><td>Graph coordinate math</td><td><code>_SetXXOP1</code>, <code>_UCLineS</code> (window↔pixel transforms)</td></tr>
+<tr><td><code>36</code></td><td style="text-align: right">24</td><td>Mode setters (Func/Param/Polar/Seq)</td><td><code>_SetFuncM</code>, <code>_SetParM</code>, <code>_SetPolM</code>, <code>_SetSeqM</code></td></tr>
+<tr><td><code>37</code></td><td style="text-align: right">23</td><td>Graph coord convert</td><td><code>_XftoI</code>, <code>_YftoI</code></td></tr>
+<tr><td><code>38</code></td><td style="text-align: right">277</td><td>TI-BASIC parser / evaluator</td><td><code>_ParseInp</code>, <code>_Find_Parse_Formula</code>, <code>parse_init</code></td></tr>
+<tr><td><code>39</code></td><td style="text-align: right">153</td><td>Equation pretty-printer (2D MathPrint layout) + menus</td><td><code>eqdisp_render_entry</code>, <code>eqdisp_emit_glyph</code>, <code>_DispMenuTitle</code></td></tr>
+<tr><td><code>3A</code></td><td style="text-align: right">85</td><td>Statistics (1/2-var, regressions) + TVM finance</td><td><code>_OneVar</code>, <code>reg_gauss_solve</code>, <code>tvm_solve_iterate</code></td></tr>
+<tr><td><code>34</code></td><td style="text-align: right">16</td><td>Crystal timers / clock, token scan</td><td><code>_CrystalTimerA</code>, <code>timer_scan_tbl</code></td></tr>
+<tr><td><code>35</code></td><td style="text-align: right">6</td><td>Memory-reset engine, factorial</td><td><code>mem_reset_dispatch</code>, <code>ram_reset_wipe</code>, <code>op1_factorial</code></td></tr>
+<tr><td><code>3B</code></td><td style="text-align: right">39</td><td>bcall jump table + mem utils</td><td>(table data) <code>_MemClear</code>, <code>_MemSet</code>, <code>_DrawCirc2</code></td></tr>
+<tr><td><code>3C</code></td><td style="text-align: right">72</td><td>Link / variable transfer</td><td><code>_SendAByte</code>, <code>_RecAByteIO</code>, <code>_SendVarCmd</code>, <code>_Rec1stByte</code></td></tr>
+<tr><td><code>3D</code></td><td style="text-align: right">61</td><td>App management &amp; Flash</td><td><code>_FindApp</code>, <code>_FindAppUp</code>, <code>_FindAppDn</code>, <code>_FlashToRam</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>All six match the documented TI-83+/84+ RST assignments — strong cross-confirmation of the table resolution.</p>
-<h2 id="bjump--the-sibling-mechanism-os-internal-cross-page-calls"><a class="header" href="#bjump--the-sibling-mechanism-os-internal-cross-page-calls">bjump — the sibling mechanism (OS-internal cross-page calls)</a></h2>
-<p>Besides bcalls, the OS calls <em>its own</em> cross-page routines via <code>bjump</code>: <code>CALL cross_page_jump</code> (<code>= CALL ram:2B09</code>) followed inline by <code>.dw addr; .db page</code>. <code>cross_page_jump</code> reads the stacked return address (its caller’s, via an <code>SP</code>-relative load — it does not <code>POP</code> it), fetches the 2-byte target + 1-byte page from the inline descriptor there, rewrites the return frame past those 3 bytes, banks the page (<code>&amp; 0x3F</code>), and returns into the target. The target’s <code>RET</code> then returns to <em>the bjump’s caller</em>, so it behaves like a call that consumes the 3 inline bytes.</p>
-<p>There is a trampoline table in the page-0 address range <code>ram:3B01–ram:3D0A</code>: 87 packed 6-byte entries, each a bjump to a hot OS routine on another page (<code>ram:3D0B</code> already begins a separate <code>CALL ram:2B49</code> table). The static Ghidra DB models it in the page-0/ROM address space; whether the table is copied to RAM at runtime is a hypothesis, not MCP-confirmed. Code invokes a routine by <code>CALL ram:3Bxx</code> into the table. <code>tools/bjumps.txt</code> lists every entry’s <code>(offset → page:addr)</code>; <code>tools/RamRoutines.java</code> marks the inline <code>.dw/.db</code> as data and comments each target.</p>
-<p>Example: <code>_PutMap</code>’s glyph blitter is reached via the trampoline at <code>ram:3B3D → 07:4588</code>.</p>
-<p><strong>Inline bjumps:</strong> besides this trampoline table, <code>CALL cross_page_jump; .dw; .db</code> appears in other packed dispatch tables (e.g. a page-<code>3D</code> dispatch table near <code>ram:2B6B</code>) and inline within OS routines. Because <code>cross_page_jump</code> consumes the 3 inline bytes and tail-jumps (the target returns to the bjump’s caller), the bytes after must be data and the call is non-returning. <code>tools/FixInlineBjumps.java</code> marks all 355 such sites in the complete local ROM, which substantially improved OS-wide disassembly coverage.</p>
-<h2 id="limitations"><a class="header" href="#limitations">Limitations</a></h2>
-<ul>
-<li>Keep the BootFree guard in place when regenerating from emulator-derived ROM images.</li>
-<li>Some bcalls are <em>thunks</em>: e.g. <code>_FindSym</code>’s page-0 entry uses <code>cross_page_jump</code> to reach the real body on page 0x07.</li>
-</ul>
+<h2 id="page-byte-scan-notes-empty-range-boot--system-pages"><a class="header" href="#page-byte-scan-notes-empty-range-boot--system-pages">Page byte-scan notes (empty range, boot &amp; system pages)</a></h2>
+<p>No Flash-App headers (<code>80 0F</code>) appear at any page boundary; the image is OS-only [hypothesis]. Byte-level notes on the empty page range and the boot/system pages (some of which, e.g. <code>34–39</code>/<code>3B</code>/<code>3C</code>, also carry the bcalls listed above):</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Page</th><th>Verified contents</th></tr>
+</thead>
+<tbody>
+<tr><td><code>08–32</code></td><td>Blank/unused in this OS image — 100% <code>0xFF</code> in <code>tools/rom.bin</code>. Page <code>2F</code> is the retail USB boot support page, but its code lives in the separate <code>D84PBE2.8Xv</code> segment (not in <code>rom.bin</code>); the retail page-<code>3F</code> boot table maps the <code>0x8xxx</code> USB bcalls (<code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_USBErrorCleanup</code>, <code>_InitUSB</code>, <code>_KillUSB</code>) into page <code>2F</code>. No app headers.</td></tr>
+<tr><td><code>34–39</code></td><td>More OS code (graph/mode/menu/timers); fill 0.2–17% <code>0xFF</code>.</td></tr>
+<tr><td><code>3B</code></td><td><strong>bcall jump table</strong> — starts <code>99 27 00</code> = entry 0 (<code>_JErrorNo</code>→<code>ram:2799</code>).</td></tr>
+<tr><td><code>3C</code></td><td>Link code + the OS version string — page starts with ASCII <code>32 2E 35 35 4D 50</code> = <code>"2.55MP"</code>.</td></tr>
+<tr><td><code>3E</code></td><td><strong>Certification page</strong> — the per-calculator certificate sector (84+ cert page is <code>3E</code>, not <code>3F</code>). Blank (99% <code>0xFF</code>) in this OS-only image, since the cert is written per-device. The OS reads this sector through the <code>ti83plus.inc</code> cert bcalls: <code>_GetCertificateStart</code> (bcall <code>0x8057</code>) and <code>_GetCertificateEnd</code> (bcall <code>0x802D</code>) bound the sector, and <code>_FindFirstCertField</code> (bcall <code>0x8027</code>) / <code>_FindNextCertField</code> (bcall <code>0x8078</code>) walk its TLV fields.</td></tr>
+<tr><td><code>3F</code></td><td><strong>Retail boot page</strong> — supplied by local <code>D84PBE1.8Xv</code>; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, carries boot version <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table. Boot/hardware-version bcalls now resolve to <code>_getBootVer</code> <code>3F:477C</code> (<code>0x80B7</code>) and <code>_getHardwareVersion</code> <code>3F:4781</code> (<code>0x80BA</code>).</td></tr>
+</tbody>
+</table>
+</div>
+<p>The large-font glyph table is on page 0x07 (see <a href="display-lcd.html#fonts-confirmed">Display / LCD</a>). Alternate large fonts live on pages 1 and 0x36 (selected by <code>(IY+0x35)</code> bits 5/1). Page 7 is the busiest data page (archive code, list/matrix, error messages, <em>and</em> the large font). [confirmed]</p>
+<h2 id="takeaway"><a class="header" href="#takeaway">Takeaway</a></h2>
+<p>The OS is page-specialized: kernel + math on page 0, one subsystem per low page. A bcall is really “run subsystem X’s routine on its page” — the page map <em>is</em> the subsystem decomposition, physically.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="02-paging.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sub-apps-mem-settings.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="04-interrupts.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="ram-pages.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -258,11 +249,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="02-paging.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sub-apps-mem-settings.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="04-interrupts.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="ram-pages.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

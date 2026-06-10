@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9b2b9ee8.js";
+            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-3e0e106f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,8 +180,7 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="variables-archive--unarchive"><a class="header" href="#variables-archive--unarchive">Variables, archive &amp; unarchive</a></h1>
-<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
-<p>Deep-dive companion to <a href="05-variables-vat.html">05-variables-vat.md</a> and <a href="12-memory-management.html">12-memory-management.md</a>, focused on what a
+<p>Companion to <a href="variables-vat.html">variables-vat.md</a> and <a href="memory-management.html">memory-management.md</a>, covering what a
 program that manages memory touches: the VAT walk (<code>_FindSym</code>), variable Store/Recall, and the
 Archive / UnArchive path (RAM ↔ Flash), the Flash garbage collector, and the memory checks.</p>
 <p>Every address here is read from the raw Z80 disassembly rather than the decompiler alone, which
@@ -240,7 +239,7 @@ with the 2 name bytes at <code>847A</code>/<code>847B</code>:</p>
 high bits flag the archive state. <code>_FindSym</code> returns: type in <code>A</code> and <code>8478</code>, data pointer in DE,
 and the page byte in <code>B</code> — <code>B</code> is the discriminator: zero for an in-RAM var, nonzero for a var
 whose data lives on a Flash page.</p>
-<p>VAT entry shapes (consistent with <code>_CreateR*</code> header writes — see <a href="05-variables-vat.html">05-variables-vat.md</a>):</p>
+<p>VAT entry shapes (consistent with <code>_CreateR*</code> header writes — see <a href="variables-vat.html">variables-vat.md</a>):</p>
 <ul>
 <li>single-char (real/cplx/<code>Ln</code>/<code>[A]</code>/sysvars): high-address-first name token, page byte, data pointer, and type byte; <code>findsym_scan</code> reads these as page at name+1, data pointer at name+2/+3, and type at name+6.</li>
 <li>named (prog/appvar/group/str/equ): high-address-first name bytes/length plus the same page/data/type fields; the exact byte order is easiest to reason about relative to the matched name token rather than as a forward C struct.</li>
@@ -272,7 +271,7 @@ modified or executed in RAM, the OS first copies it via <code>_FlashToRam</code>
 </ul>
 <hr>
 <h2 id="4-archive--unarchive--_arc_unarc-076248-confirmed"><a class="header" href="#4-archive--unarchive--_arc_unarc-076248-confirmed">4. Archive / unarchive — <code>_Arc_Unarc</code> (<code>07:6248</code>) [confirmed]</a></h2>
-<p>The headline. <code>bcall(_Arc_Unarc)</code>, OP1 = the variable name. It toggles the var between RAM and
+<p><code>bcall(_Arc_Unarc)</code>, OP1 = the variable name. It toggles the var between RAM and
 the Flash archive (the same entry point does both directions, deciding from the current state).</p>
 <pre><code class="language-z80">_Arc_Unarc (07:6248):
   SET 0,(IY+0x24)              ; flag: an archive operation is in progress
@@ -460,8 +459,8 @@ project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates.<
 <li>GC is callable from the user catalog (<code>Archive</code>/the MEM menu “Garbage Collect?” — string at
 <code>01:76C9</code>).</li>
 </ul>
-<p>So: archive = append to Flash; delete/unarchive = mark dead; when Flash fills, GC compacts. Exactly
-the classic TI-83+/84+ behaviour, now pinned to addresses.</p>
+<p>So: archive = append to Flash; delete/unarchive = mark dead; when Flash fills, GC compacts. This is
+the standard TI-83+/84+ behaviour, pinned to addresses here.</p>
 <hr>
 <h2 id="8-memory-checks-confirmed"><a class="header" href="#8-memory-checks-confirmed">8. Memory checks [confirmed]</a></h2>
 <ul>
@@ -570,7 +569,7 @@ named or xref-reachable. Confirming it would need a linear disassembly pass like
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="12-memory-management.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="memory-management.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -584,7 +583,7 @@ named or xref-reachable. Confirming it would need a linear disassembly pass like
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="12-memory-management.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="memory-management.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

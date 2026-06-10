@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9b2b9ee8.js";
+            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-3e0e106f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,9 +180,8 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="table--y-variables"><a class="header" href="#table--y-variables">Table &amp; Y= variables</a></h1>
-<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
-<p>What a college student touches when they enter functions in <strong>Y=</strong>, configure
-<strong>TBLSET</strong> (<code>2nd WINDOW</code>), and read the <strong>TABLE</strong> (<code>2nd GRAPH</code>) to tabulate
+<p>What the user touches when entering functions in <strong>Y=</strong>, configuring
+<strong>TBLSET</strong> (<code>2nd WINDOW</code>), and reading the <strong>TABLE</strong> (<code>2nd GRAPH</code>) to tabulate
 <code>Y1(X)</code>, <code>Y2(X)</code>, … over a range of <code>X</code>. Traces: where the table-setup settings
 live → how the OS, per X row, sets the <code>X</code> variable, evaluates each selected Y=
 function through the parser into OP1, formats the result, and lays the values out
@@ -190,8 +189,8 @@ as a text grid → how Y= equations are stored, selected, and styled → and the
 Table ↔ Y= ↔ parser ↔ display interaction.</p>
 <p>Builds on <a href="sub-graphing.html">sub-graphing.md</a> (Y= storage, the regraph/eval path, <code>plotSScreen</code>),
 <a href="sub-tibasic.html">sub-tibasic.md</a> (the page-38 parser, <code>_Find_Parse_Formula</code>, <code>_ParseInp</code>),
-<a href="05-variables-vat.html">05-variables-vat.md</a> (<code>EquObj</code>, <code>_FindSym</code>), <a href="08-display-lcd.html">08-display-lcd.md</a> (text grid via
-<code>_PutMap</code>/<code>_PutC</code>), and <a href="11-boot-contexts-errors.html">11-boot-contexts-errors.md</a> (the context/<code>cxMain</code>
+<a href="variables-vat.html">variables-vat.md</a> (<code>EquObj</code>, <code>_FindSym</code>), <a href="display-lcd.html">display-lcd.md</a> (text grid via
+<code>_PutMap</code>/<code>_PutC</code>), and <a href="boot-contexts-errors.html">boot-contexts-errors.md</a> (the context/<code>cxMain</code>
 mechanism that selects the TABLE editor vs TABLE-setup screens).</p>
 <p>Address form is <code>page:addr</code> (flash-page hex : logical offset; flash routines run
 mapped at <code>0x4000</code>). RAM addresses are absolute. Confidence:
@@ -252,7 +251,7 @@ is the list-step token <code>0x21</code>; <code>TblStart</code> uses <code>0x1A<
 <tr><th>Bit</th><th>Name</th><th>Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td>4 (<code>0x10</code>)</td><td><code>autoFill</code></td><td><strong>Indpnt</strong>: 0 = <code>Auto</code> (fill X from TblStart/ΔTbl), 1 = <code>Ask</code> (prompt the student for each X)</td></tr>
+<tr><td>4 (<code>0x10</code>)</td><td><code>autoFill</code></td><td><strong>Indpnt</strong>: 0 = <code>Auto</code> (fill X from TblStart/ΔTbl), 1 = <code>Ask</code> (prompt for each X)</td></tr>
 <tr><td>5 (<code>0x20</code>)</td><td><code>autoCalc</code></td><td><strong>Depend</strong>: 0 = <code>Auto</code> (compute Y immediately), 1 = <code>Ask</code> (compute a cell only on request)</td></tr>
 <tr><td>6 (<code>0x40</code>)</td><td><code>reTable</code></td><td>0 = cached table valid, 1 = must recompute the table</td></tr>
 </tbody>
@@ -390,7 +389,7 @@ incremental add:</p>
          LD HL,(0x91DC /* row idx */) ; ADD ; CALL _LdHLind ; ADD HL,DE
 </code></pre>
 <p>So row $k$ uses $X=\mathrm{TblMin}+k\cdot\mathrm{TblStep}$. (In <strong>Indpnt = Ask</strong> mode this driver is
-bypassed and the student types each X; see §3.4.) [confirmed structure]</p>
+bypassed and the user types each X; see §3.4.) [confirmed structure]</p>
 <h3 id="32-the-per-row-evaluation-set-x-evaluate-each-selected-y-confirmed"><a class="header" href="#32-the-per-row-evaluation-set-x-evaluate-each-selected-y-confirmed">3.2 The per-row evaluation: set X, evaluate each selected Y [confirmed]</a></h3>
 <p>For each row the recompute fills the cache by, per selected equation:</p>
 <ol>
@@ -436,8 +435,8 @@ scrolling is instant (no recompute):</p>
 </code></pre>
 <ul>
 <li><strong>Indpnt = Auto</strong> (bit4=0): the driver auto-fills X from TblStart/ΔTbl (§3.1).</li>
-<li><strong>Indpnt = Ask</strong> (bit4=1): the X column starts empty; the editor prompts the
-student to type each X, parses it (entry-line editor → <code>_ParseInp</code>), stores it
+<li><strong>Indpnt = Ask</strong> (bit4=1): the X column starts empty; the editor prompts for
+each X, parses it (entry-line editor → <code>_ParseInp</code>), stores it
 to <code>X</code>, then evaluates the Y columns for only that row.</li>
 <li><strong>Depend = Auto</strong> (bit5=0): Y cells compute immediately during the fill.</li>
 <li><strong>Depend = Ask</strong> (bit5=1): Y cells show blank until the cursor lands on one and
@@ -446,7 +445,7 @@ to <code>X</code>, then evaluates the Y columns for only that row.</li>
 <h3 id="35-rendering-the-grid-to-the-lcd--057e45-columnrow-paint-loop-confirmed"><a class="header" href="#35-rendering-the-grid-to-the-lcd--057e45-columnrow-paint-loop-confirmed">3.5 Rendering the grid to the LCD — <code>05:7E45</code> (column/row paint loop) [confirmed]</a></h3>
 <p>The table is a text grid (not the pixel graph buffer): up to 8 visible rows ×
 columns, drawn with the large font through the home-screen text primitives
-(<code>_PutMap</code>/<code>_PutC</code>, <a href="08-display-lcd.html">08-display-lcd.md</a>). The paint loop:</p>
+(<code>_PutMap</code>/<code>_PutC</code>, <a href="display-lcd.html">display-lcd.md</a>). The paint loop:</p>
 <pre><code class="language-z80">05:7E45  loop over visible rows:
            CALL 0x7E7C            ; position/clear the cell (selects buffer
                                   ;   0x9221 for one column or 0x91E2 for the other)
@@ -487,7 +486,7 @@ next TABLE view to recompute:</p>
 <p>Conversely only the recompute driver clears it (<code>05:5DD7</code>, <code>05:62FD</code>,
 <code>05:64DE</code> → <code>RES 6,(IY+0x13)</code>). [confirmed]</p>
 <hr>
-<h2 id="5-end-to-end-a-student-tabulates-y1x²--1"><a class="header" href="#5-end-to-end-a-student-tabulates-y1x²--1">5. End-to-end: a student tabulates Y1=X² + 1</a></h2>
+<h2 id="5-end-to-end-tabulating-y1x²--1"><a class="header" href="#5-end-to-end-tabulating-y1x²--1">5. End-to-end: tabulating Y1=X² + 1</a></h2>
 <ol>
 <li><strong>Y=</strong>: types <code>X²+1</code> after <code>Y1=</code>. The editor tokenizes it and stores the bytes
 as the <code>EquObj</code> <code>Y1</code> (token <code>5E 10</code>) in the VAT, with its flags byte’s select

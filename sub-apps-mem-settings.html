@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9b2b9ee8.js";
+            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-3e0e106f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,16 +180,15 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="apps-memory-reset--settings"><a class="header" href="#apps-memory-reset--settings">Apps, memory reset &amp; settings</a></h1>
-<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
-<p>How the student-facing parts of the OS work: launching Flash Apps, the <strong>MEM → Reset</strong>
+<p>How the user-facing parts of the OS work: launching Flash Apps, the <strong>MEM → Reset</strong>
 menu (what “RAM Cleared” erases), and the <strong>MODE</strong> screen format/mode flags.
 Addresses are <code>space:addr</code> where <code>ram</code>/<code>page_00</code>=<code>0000-3FFF</code>, flash pages mapped at
 <code>4000-7FFF</code>. Confidence flags follow <a href="conventions.html">conventions.md</a>: [confirmed] = read
 from disassembly; [hypothesis] = strong inference, not yet verified (used below for both
 strongly-inferred claims and <em>partial</em> traces where the code is RAM-resident / cross-page and
 not fully traced).</p>
-<p>Cross-references: <a href="11-boot-contexts-errors.html">doc 11</a> (contexts, <code>_AppInit</code>, event router), <a href="12-memory-management.html">doc 12</a> (RAM heap,
-<code>_CleanAll</code>), <a href="13-flash-page-map.html">doc 13</a> (flash page map). Flag bits use the <code>ti83plus.inc</code> equates; the
+<p>Cross-references: <a href="boot-contexts-errors.html">Boot contexts &amp; errors</a> (contexts, <code>_AppInit</code>, event router), <a href="memory-management.html">Memory management</a> (RAM heap,
+<code>_CleanAll</code>), <a href="flash-page-map.html">Flash page map</a> (flash page map). Flag bits use the <code>ti83plus.inc</code> equates; the
 SystemFlags base is <code>IY = flags = 0x89F0</code>, so e.g. <code>(IY+0x0A)</code> = <code>flags + fmtFlags</code>.</p>
 <hr>
 <h2 id="1-flash-apps--find--launch"><a class="header" href="#1-flash-apps--find--launch">1. Flash Apps — find &amp; launch</a></h2>
@@ -351,18 +350,18 @@ scratch (<code>0x9C87</code>=‘i’ selects the in-RAM “temp app” search va
   cxPage (0x8599) = port_mapBankA               ; the flash page the handlers run from
 </code></pre>
 <p>The 12 bytes are the 6 little-endian handler pointers (<code>cxMain</code>, <code>cxPPutAway</code>, <code>cxPutAway</code>,
-<code>cxRedisp</code>, <code>cxErrorEP</code>, <code>cxSizeWind</code> — see <a href="11-boot-contexts-errors.html">doc 11</a> §Context block). Example: the OS’s own
+<code>cxRedisp</code>, <code>cxErrorEP</code>, <code>cxSizeWind</code> — see <a href="boot-contexts-errors.html">Boot contexts &amp; errors</a> §Context block). Example: the OS’s own
 default app vectors live at <code>3B:7571</code>:</p>
 <pre><code>3E 75 | 4B 75 | 9F 74 | 4B 75 | 4B 75 | 4B 75 | 0A
 cxMain=753E cxPPutAway=754B cxPutAway=749F cxRedisp=754B cxErrorEP=754B cxSizeWind=754B appFlags=0A
 </code></pre>
 <p><code>_ReloadAppEntryVecs</code> (<code>3B:73E4</code>, bcall <code>0x4C36</code>) calls <code>_AppInit</code> on that block, then
 overrides <code>cxErrorEP (0x8595)=0x27D9</code>. After <code>_AppInit</code>, the main event loop runs the app
-through <code>call_context_main</code> (pages in <code>cxPage</code>, jumps <code>(cxMain)</code> — <a href="11-boot-contexts-errors.html">doc 11</a>).</p>
+through <code>call_context_main</code> (pages in <code>cxPage</code>, jumps <code>(cxMain)</code> — <a href="boot-contexts-errors.html">Boot contexts &amp; errors</a>).</p>
 <p>Because <code>cxCurApp</code> (<code>0x859A</code>) is a key code, pressing a mode key selects the context to
-load (<a href="11-boot-contexts-errors.html">doc 11</a>). The App quit restore-path candidate at
+load (<a href="boot-contexts-errors.html">Boot contexts &amp; errors</a>). The App quit restore-path candidate at
 <code>3B:7412</code> is not a defined function in the disassembly; the saved-context restore behavior
-stands as a byte-trace note (the label is project-local, not a WikiTI or <code>ti83plus.inc</code> equate).</p>
+is a byte-trace note (the label is project-local, not a WikiTI or <code>ti83plus.inc</code> equate).</p>
 <hr>
 <h2 id="2-ram-clearing--memory-reset"><a class="header" href="#2-ram-clearing--memory-reset">2. RAM clearing / memory reset</a></h2>
 <p>The <strong>MEM</strong> menu (<code>[2nd][+]</code>, “MEMORY MANAGEMENT/DELETE” + “RESET”) and its messages are on
@@ -423,7 +422,7 @@ re-init lands in page-0 boot code.</p>
 <p>A handful of flag bits are explicitly preserved across the wipe (<code>IY+0x3F</code> bit7,
 <code>IY+0x34</code> bit6, <code>IY+0x35</code> bits0/1, and the word at <code>0x9B73</code>) so the calculator knows it is
 mid-reset. It then <code>JP 0x0BD9</code>, the RAM-init entry (<code>OUT (0)</code> page select, <code>LD SP,0xFFF7</code>,
-then <code>CALL 0x3EC1</code> — the cross-page trampoline that rebuilds the VAT, system vars, and LCD; see <a href="11-boot-contexts-errors.html">doc 11</a>), which rebuilds a
+then <code>CALL 0x3EC1</code> — the cross-page trampoline that rebuilds the VAT, system vars, and LCD; see <a href="boot-contexts-errors.html">Boot contexts &amp; errors</a>), which rebuilds a
 clean default VAT and system state and re-enters the homescreen. The Flash archive is not
 touched by a plain RAM reset.</p>
 <h3 id="24-full-reset-page_0ram0b27-confirmed"><a class="header" href="#24-full-reset-page_0ram0b27-confirmed">2.4 Full reset (<code>page_0/ram:0B27</code>) [confirmed]</a></h3>
@@ -437,7 +436,7 @@ touched by a plain RAM reset.</p>
 <p>Distinct from the MEM reset. <code>_CleanAll</code> (bcall <code>0x4A50</code>) only compacts temporary RAM
 after a command finishes: it shifts the FP stack (<code>fpBase</code>/<code>FPS</code>) down to <code>tempMem</code>, resets
 the <code>OPBase</code>/<code>OPS</code>/<code>pTemp</code> scratch pointers, and clears <code>pTempCnt</code>/<code>cleanTmp</code>. It does not
-clear the VAT, user vars, or Flash (see <a href="12-memory-management.html">doc 12</a>). <code>_FixTempCnt</code> (<code>07:4FEC</code>) marks temps
+clear the VAT, user vars, or Flash (see <a href="memory-management.html">Memory management</a>). <code>_FixTempCnt</code> (<code>07:4FEC</code>) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.</p>
 <h3 id="26-flash-archive-gc--defragmenting--garbage-collecting-confirmed-behavior-display-label-addresses-undisassembled"><a class="header" href="#26-flash-archive-gc--defragmenting--garbage-collecting-confirmed-behavior-display-label-addresses-undisassembled">2.6 Flash archive GC — “Defragmenting…” / “Garbage Collecting…” [confirmed behavior; display-label addresses undisassembled]</a></h3>
 <p>Separate from RAM reset: when the Flash archive fills, the OS rewrites live archived vars to
@@ -446,7 +445,7 @@ fresh sectors and erases the old ones. The display dispatcher sits around <code>
 <code>3C:7E00</code> is not a defined function in the disassembly (the label is project-local, not a
 WikiTI or <code>ti83plus.inc</code> equate).
 It clears <code>0x844B</code> (<code>curRow</code>, the text-row cursor — reset before the banner draws) and runs with the screen frozen (<code>DI</code>). The actual
-sector erase/write primitives are RAM-resident (flash control port <code>0x14</code>) — see <a href="12-memory-management.html">doc 12</a>.</p>
+sector erase/write primitives are RAM-resident (flash control port <code>0x14</code>) — see <a href="memory-management.html">Memory management</a>.</p>
 <hr>
 <h2 id="3-mode--settings-flags"><a class="header" href="#3-mode--settings-flags">3. MODE / settings flags</a></h2>
 <p>The flag bytes live in the SystemFlags area at <code>IY = 0x89F0</code>. The MODE screen (<code>cxMode = kMode = 0x45</code>) is a menu context that flips these bits; the canonical setters below show
@@ -507,7 +506,7 @@ bit5 <code>grfNoAxis</code>; <code>seqFlags</code> (<code>IY+0x0F</code>).</p>
 <code>0x97B0</code>: value <code>0x00–0x09</code> = Fix-N decimal places, <code>0xFF</code> = Float.</p>
 <h3 id="34-mode-screen-plumbing"><a class="header" href="#34-mode-screen-plumbing">3.4 MODE screen plumbing</a></h3>
 <p>The MODE screen is a menu context (<code>cxMode</code>/<code>kMode</code>=0x45) reached via the event/key router
-(<a href="11-boot-contexts-errors.html">doc 11</a>). Its row strings live as token names on page 0x01 (<code>RadianN</code>/<code>DegreeO</code>/<code>NormalP</code>/
+(<a href="boot-contexts-errors.html">Boot contexts &amp; errors</a>). Its row strings live as token names on page 0x01 (<code>RadianN</code>/<code>DegreeO</code>/<code>NormalP</code>/
 <code>Float</code> at <code>01:49E4..4A06</code>; trailing letters are token-id bytes) and full-caps menu
 labels on page 0x37 (<code>DEGREE</code> <code>4A85</code>, <code>RADIAN</code> <code>4A8C</code>). Selecting a row writes the flag bits
 documented above directly (<code>SET/RES (IY+…)</code>, or stores into <code>fmtDigits</code>). [hypothesis] (partial) —
@@ -552,7 +551,7 @@ ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
 0x97B0  fmtDigits   (0-9 = Fix N, 0xFF = Float)
 0x82A3  appSearchPage
 0x8446  keyExtend   (reset-submenu selector 1..4; extended-key state)
-0x858D  cxMain ...  0x8599 cxPage  0x859A cxCurApp   (Context block, doc 11)
+0x858D  cxMain ...  0x8599 cxPage  0x859A cxCurApp   (Context block, see Boot contexts &amp; errors)
 </code></pre>
 
                     </main>
@@ -563,7 +562,7 @@ ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="13-flash-page-map.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="flash-page-map.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -577,7 +576,7 @@ ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="13-flash-page-map.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="flash-page-map.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

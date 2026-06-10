@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9b2b9ee8.js";
+            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-3e0e106f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,10 +180,9 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="link--data-transfer"><a class="header" href="#link--data-transfer">Link / data transfer</a></h1>
-<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
-<p>Deep-dive companion to <a href="09-keyboard-link.html">09-keyboard-link.md</a>, focused on what a student transferring data
-touches: pushing a program/list/etc. to a computer (TI-Connect) or another calculator over the
-2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of <a href="09-keyboard-link.html">doc 09</a>’s byte
+<p>Companion to <a href="keyboard-link.html">keyboard-link.md</a>, focused on the data-transfer path:
+pushing a program/list/etc. to a computer (TI-Connect) or another calculator over the
+2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of <a href="keyboard-link.html">Keyboard &amp; link</a>’s byte
 primitives <code>_SendAByte</code> (<code>3C:420D</code>) and <code>_RecAByteIO</code> (<code>3C:443F</code>); the ASIC-facing assist/USB ports
 are covered separately in <a href="sub-usb-asic.html">USB ASIC and link assist</a>.</p>
 <p>Addresses here are read from the raw Z80 disassembly. The decompiler mis-renders this subsystem —
@@ -208,7 +207,7 @@ flash page <code>3C</code> (shared with the flash/archive command code — see <
       AK["send ACK 42FB · cmd 0x56"]
       CK["checksum 4167 / 6356"]
     end
-    subgraph BYTE["BYTE layer · doc 09"]
+    subgraph BYTE["BYTE layer · keyboard &amp; link"]
       direction LR
       SB["_SendAByte 420D"]
       RB["_RecAByteIO 443F"]
@@ -254,7 +253,7 @@ bit2 “command in progress”, <code>IY+0x24</code> bit1/2 transfer-active, <co
 save, <code>IY+0x3E</code> bit0 / <code>IY+0x3D</code> bit5 USB-presence.</p>
 <hr>
 <h2 id="2-the-byte-layer-recap--receive-internals-confirmed"><a class="header" href="#2-the-byte-layer-recap--receive-internals-confirmed">2. The byte layer (recap + receive internals) [confirmed]</a></h2>
-<p>Doc 09 covers <code>_SendAByte</code>. Two new things pinned here:</p>
+<p><a href="keyboard-link.html">Keyboard &amp; link</a> covers <code>_SendAByte</code>. Two new things pinned here:</p>
 <h3 id="2a-hardware-assist-send-6bb2-confirmed"><a class="header" href="#2a-hardware-assist-send-6bb2-confirmed">2a. Hardware-assist send <code>6BB2</code> [confirmed]</a></h3>
 <p><code>_SendAByte</code> (<code>3C:420D</code>) starts <code>CALL probe_hw_model_keep_a ; JP Z,0x6BB2</code> — if the model probe sets Z (the
 84+ link-assist hardware is present), it jumps to <code>3C:6BB2</code>:</p>
@@ -265,9 +264,9 @@ save, <code>IY+0x3E</code> bit0 / <code>IY+0x3D</code> bit5 USB-presence.</p>
       LD A,C ; OUT (0x0D),A ; RET     ; *** write the byte to port 0x0D (assist FIFO) ***
 6BCA: CALL 6BE4 (decrement 9CAC) ; JR Z,6BBB (retry) ; else JP 4434 (timeout)
 </code></pre>
-<p>So the assist path is: poll port 0x09 bit 5, then <code>OUT (0x0D),byte</code> — exactly the “FIFO” <a href="09-keyboard-link.html">doc 09</a>
+<p>So the assist path is: poll port 0x09 bit 5, then <code>OUT (0x0D),byte</code> — exactly the “FIFO” <a href="keyboard-link.html">Keyboard &amp; link</a>
 mentioned, with a CPU-speed-scaled timeout. The legacy bit-bang fall-through (port 0, send <code>1</code>/<code>2</code>,
-wait for echo, <code>DE</code>-timeout → <code>_JErrorNo</code>) is unchanged from <a href="09-keyboard-link.html">doc 09</a>.</p>
+wait for echo, <code>DE</code>-timeout → <code>_JErrorNo</code>) is unchanged from <a href="keyboard-link.html">Keyboard &amp; link</a>.</p>
 <h3 id="2b-receive-_recabyteio-443f-and-decoder-444a-confirmed"><a class="header" href="#2b-receive-_recabyteio-443f-and-decoder-444a-confirmed">2b. Receive <code>_RecAByteIO</code> <code>443F</code> and decoder <code>444A</code> [confirmed]</a></h3>
 <pre><code class="language-z80">443F: DI ; CALL 447E (arm/clock the line) ; CALL 444A (get-status) ; RET C/NZ ; loop if Z
 444A:  CP 1                              ; result==1?  (got a real byte)
@@ -391,7 +390,7 @@ identical prologue to the archive writer in <a href="sub-vat-archive.html">sub-v
 <p>i.e. the receiver reproduces the VAT-create / <code>_InsertMem</code> path from <a href="sub-vat-archive.html">sub-vat-archive.md</a>.</p>
 <hr>
 <h2 id="5-silent-link-variable-send--_linkxferop-3c4dd2-confirmed"><a class="header" href="#5-silent-link-variable-send--_linkxferop-3c4dd2-confirmed">5. Silent-link variable send — <code>_LinkXferOP</code> (<code>3C:4DD2</code>) [confirmed]</a></h2>
-<p>This is the headline path a student’s “Send” hits (TI-Connect pulls a var, or a calc-to-calc send).
+<p>This is the path a “Send” hits (TI-Connect pulls a var, or a calc-to-calc send).
 OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, then streams the DATA.</p>
 <pre><code class="language-z80">_LinkXferOP (3C:4DD2):
   CALL probe_hw_model_keep_a        ; model/HW probe; spin on port 0x20 if assist busy
@@ -556,7 +555,7 @@ prefix) — full backup-packet layout. [standard]</li>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="09-keyboard-link.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="keyboard-link.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -570,7 +569,7 @@ prefix) — full backup-packet layout. [standard]</li>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="09-keyboard-link.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="keyboard-link.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9b2b9ee8.js";
+            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-3e0e106f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,25 +180,24 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="ti-basic-programs"><a class="header" href="#ti-basic-programs">TI-BASIC programs</a></h1>
-<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
-<p>How a student-written TI-BASIC program is stored, parsed, and executed on OS
-2.55MP. Builds on <a href="07-tokenizer-basic.html">07-tokenizer-basic.md</a> (tokens, cursor helpers, the page-0x38
-evaluator), <a href="05-variables-vat.html">05-variables-vat.md</a> (OP1 naming, <code>_FindSym</code>), and
-<a href="11-boot-contexts-errors.html">11-boot-contexts-errors.md</a> (contexts, <code>onSP</code>/<code>_JError</code>).</p>
+<p>How a TI-BASIC program is stored, parsed, and executed on OS
+2.55MP. Builds on <a href="tokenizer-basic.html">tokenizer-basic.md</a> (tokens, cursor helpers, the page-0x38
+evaluator), <a href="variables-vat.html">variables-vat.md</a> (OP1 naming, <code>_FindSym</code>), and
+<a href="boot-contexts-errors.html">boot-contexts-errors.md</a> (contexts, <code>onSP</code>/<code>_JError</code>).</p>
 <p>Confidence: [confirmed] = decompiled/byte-verified here, or multiple consistent
 signals (token compares, call shape) pin it even where the dense Z80 handler
 bodies don’t fully reduce in the decompiler; [standard] = documented TI-83+/84+
 behavior consistent with what was seen; [hypothesis] = inferred, not yet verified.</p>
 <hr>
 <h2 id="1-how-a-program-is-stored-confirmed"><a class="header" href="#1-how-a-program-is-stored-confirmed">1. How a program is stored [confirmed]</a></h2>
-<p>A program is a VAT object of type <code>ProgObj</code> (5) / <code>ProtProgObj</code> (6) (see <a href="05-variables-vat.html">doc 05</a>).
+<p>A program is a VAT object of type <code>ProgObj</code> (5) / <code>ProtProgObj</code> (6) (see <a href="variables-vat.html">Variables &amp; the VAT</a>).
 Its data is <code>word size</code> followed by <code>size</code> bytes of tokenized body — the
 exact byte stream the parser walks. No line numbers; lines are separated by the
 EOL/newline token <code>0x3F</code> (<code>tEnter</code>, shown as <code>cVar=='?'</code> = 0x3F in the
 decompiled cursor code). Most tokens are 1 byte; the 11 lead bytes
-(<code>5C 5D 5E 60 61 62 63 7E BB AA EF</code>, the order of the <code>ram:1FF6</code> table) introduce 2-byte tokens (<a href="07-tokenizer-basic.html">doc 07</a>).</p>
+(<code>5C 5D 5E 60 61 62 63 7E BB AA EF</code>, the order of the <code>ram:1FF6</code> table) introduce 2-byte tokens (<a href="tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a>).</p>
 <p>Editing/detokenizing for the program editor uses the page-01 token helpers
-(<a href="07-tokenizer-basic.html">doc 07</a>, re-confirmed here):</p>
+(<a href="tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a>, re-confirmed here):</p>
 <ul>
 <li><code>_GetTokLen</code> (<code>01:66E5</code>) — returns 1 or 2 for the token at HL (length of the
 token’s byte encoding), via <code>smallfont_glyph_ptr</code> (<code>01:6702</code>).</li>
@@ -209,7 +208,7 @@ formatters.</li>
 </ul>
 <hr>
 <h2 id="2-the-parse-stream-cursor-confirmed"><a class="header" href="#2-the-parse-stream-cursor-confirmed">2. The parse-stream cursor [confirmed]</a></h2>
-<p>The interpreter walks the token body through a RAM cursor (<a href="07-tokenizer-basic.html">doc 07</a>, all
+<p>The interpreter walks the token body through a RAM cursor (<a href="tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a>, all
 re-verified by decompilation):</p>
 <div class="table-wrapper">
 <table>
@@ -272,7 +271,7 @@ range-checks an exponent as a positive int, <code>_JError(0x84)</code> Domain ot
 raw code target within <code>parse_eval_expr</code>, not a defined function in the live DB),
 or <code>0x7175</code> (a leaf no-op). Selecting among these by <code>precLevel</code> (1/2/3) is how
 operator precedence is realized — nesting of productions, not a flat table
-(confirms <a href="07-tokenizer-basic.html">doc 07</a>’s “recursive-descent” claim). Results land in <code>OP1</code>; binary
+(confirms <a href="tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a>’s “recursive-descent” claim). Results land in <code>OP1</code>; binary
 operators are applied via the FP RST shortcuts (RST 30h <code>_FPAdd</code>, …) and
 <code>_BinOPExec</code>.</p>
 <h3 id="parser-dispatch-page-0x38-begins-with-a-handler-pointer-table-confirmed"><a class="header" href="#parser-dispatch-page-0x38-begins-with-a-handler-pointer-table-confirmed">Parser dispatch: page 0x38 begins with a handler-pointer table [confirmed]</a></h3>
@@ -496,13 +495,13 @@ targets inside <code>parse_eval_expr</code> (not defined functions in the live D
 <li>Binary ops fold operands via FP RSTs (RST 30h <code>_FPAdd</code>; <code>_FPMult</code>=<code>00:238B</code>, …)
 / <code>_BinOPExec</code>, leaving the result in <code>OP1</code>.</li>
 <li>Variable tokens become an OP1 name (type byte + name) and resolve via
-<code>_FindSym</code>/<code>_RclVarSym</code> (<a href="05-variables-vat.html">doc 05</a>); store targets (<code>→VAR</code>) resolve through the
+<code>_FindSym</code>/<code>_RclVarSym</code> (<a href="variables-vat.html">Variables &amp; the VAT</a>); store targets (<code>→VAR</code>) resolve through the
 <code>38:7600</code> name scanner (handles <code>[A]</code>/<code>L1</code>/<code>Str1</code>/Y-var/<code>Ans</code> classes,
 <code>_JError(0x8F)</code> on an attempt to store into <code>Ans</code>).</li>
 <li>Statement separators (<code>:</code> and EOL <code>0x3F</code>) end a statement; the loop re-enters
 for the next.</li>
 </ol>
-<p>The sub-tables <code>38:5110</code>/<code>38:5127</code> (<a href="07-tokenizer-basic.html">doc 07</a>) are small token-class lookups
+<p>The sub-tables <code>38:5110</code>/<code>38:5127</code> (<a href="tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a>) are small token-class lookups
 (<code>38:5110</code> keys off <code>tDisp(DE)</code>/<code>tOutput(E0)</code> region; <code>38:5127</code> is a paired
 classifier) that the dispatch consults; both tail into <code>RST5</code> (bjump) handlers.</p>
 <hr>
@@ -928,7 +927,7 @@ multi-line) remain dense and are only confirmed at the argument-parse boundary.<
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="07-tokenizer-basic.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="tokenizer-basic.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -942,7 +941,7 @@ multi-line) remain dense and are only confirmed at the argument-parse boundary.<
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="07-tokenizer-basic.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="tokenizer-basic.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

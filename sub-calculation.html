@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9b2b9ee8.js";
+            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-3e0e106f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,11 +180,10 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="calculation-engine"><a class="header" href="#calculation-engine">Calculation engine</a></h1>
-<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
-<p>What happens between a college student typing <code>2*sin(π/6)+ln(5)</code> and seeing a number.
+<p>What happens between the user typing <code>2*sin(π/6)+ln(5)</code> and seeing a number.
 All arithmetic is BCD floating point in the OP registers (<code>OP1</code>–<code>OP6</code> @ <code>0x8478</code>,
 11-byte spaced) with a software FP stack (<code>FPS</code> @ <code>0x9824</code>) for nested temporaries.
-See <a href="06-floating-point.html">06-floating-point.md</a> for the <code>TIFloat</code> byte format and <code>_FPAdd</code> internals; this doc
+See <a href="floating-point.html">floating-point.md</a> for the <code>TIFloat</code> byte format and <code>_FPAdd</code> internals; this doc
 covers the rest of the engine: ×, ÷, ^, roots, transcendentals, formatting, and errors.</p>
 <p>Address form below is <code>page:addr</code> (flash page in slot <code>4000</code>) or <code>ram:addr</code> for the fixed
 page-0 core mapped at <code>0000</code>. Page-0 routines are reached by <code>RST</code>/direct <code>CALL</code>; everything
@@ -230,7 +229,7 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 <tr><th>Op</th><th>Routine</th><th>Addr</th><th>Notes</th></tr>
 </thead>
 <tbody>
-<tr><td><code>+</code></td><td><code>_FPAdd</code></td><td><code>ram:229E</code> (= <code>RST 30h</code>)</td><td>sign-magnitude BCD add; see <a href="06-floating-point.html">06-floating-point.md</a>.</td></tr>
+<tr><td><code>+</code></td><td><code>_FPAdd</code></td><td><code>ram:229E</code> (= <code>RST 30h</code>)</td><td>sign-magnitude BCD add; see <a href="floating-point.html">floating-point.md</a>.</td></tr>
 <tr><td><code>−</code></td><td><code>_FPSub</code></td><td><code>ram:2297</code></td><td>flips <code>OP2.type</code> bit7 then falls into the add path.</td></tr>
 <tr><td><code>×</code></td><td><code>_FPMult</code></td><td><code>ram:238B</code></td><td><code>ram:250F</code> adds exponents (→ <code>_ErrOverflow</code> on carry past 0x7F), then digit-by-digit BCD multiply accumulating into OP3.</td></tr>
 <tr><td><code>÷</code></td><td><code>_FPDiv</code></td><td><code>ram:2541</code></td><td><code>_CkOP2FP0</code> first → <code>_JError(0x82)</code> DIVIDE BY 0 if divisor 0; else restoring BCD long division.</td></tr>
@@ -260,7 +259,7 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 <li><code>_RToD</code> <code>ram:2374</code> (rad→deg): multiply by $180/\pi$ (<code>ram:2361</code>).</li>
 <li><code>_PToR</code> <code>02:50BD</code> polar→rectangular; pairs with the complex trig below.
 These constants are the BCD floats <code>π/180 = 1.745…e-2</code> and <code>180/π = 5.729…e1</code> noted in
-<a href="06-floating-point.html">06-floating-point.md</a>’s constant scan.</li>
+<a href="floating-point.html">floating-point.md</a>’s constant scan.</li>
 </ul>
 <hr>
 <h2 id="4-cross-page-dispatch-cross_page_jump--ram2b09-confirmed"><a class="header" href="#4-cross-page-dispatch-cross_page_jump--ram2b09-confirmed">4. Cross-page dispatch (<code>cross_page_jump</code> @ <code>ram:2B09</code>) [confirmed]</a></h2>
@@ -305,7 +304,7 @@ as ln/eˣ over the signed near-unity tables at <code>02:7201</code> and <code>02
 per digit step, sign-variant picked by <code>0x84A4</code> bit 7) — the per-step <code>bcd_sub_op1_op2</code>
 (<code>ram:1D8A</code>) / <code>bcd_add_8496_8480</code> (<code>ram:1D26</code>) are the shift-and-add BCD steps of that
 recurrence, not a fixed polynomial and not CORDIC for the forward trig. The per-row
-decoding of <code>02:7201</code>/<code>02:7281</code> is detailed in <a href="06-floating-point.html">06-floating-point.md</a>.</li>
+decoding of <code>02:7201</code>/<code>02:7281</code> is detailed in <a href="floating-point.html">floating-point.md</a>.</li>
 </ul>
 <h3 id="inverse-trig-confirmed"><a class="header" href="#inverse-trig-confirmed">Inverse trig [confirmed]</a></h3>
 <ul>
@@ -326,7 +325,7 @@ at <code>7909</code>/<code>7956</code>/<code>7964</code>. Same <code>0x8499</cod
 <p>The general <code>a^b</code> lives at <code>02:6D08</code>+: it computes <code>b·ln(a)</code> then <code>e^()</code> and reconstructs
 with <code>_SinCosRad</code> for the complex case — i.e. <code>a^b = e^(b·Ln a)</code>, with <code>_FPDiv</code>/<code>_FPMult</code>
 glue and <code>_OP2ToOP6</code>/<code>_OP6ToOP1</code> shuffles. Integer/√ special cases short-circuit to
-<code>_FPMult</code>/<code>_SqRoot</code>. This makes <code>^</code> the most FP-stack-heavy single operator a student hits.</p>
+<code>_FPMult</code>/<code>_SqRoot</code>. <code>^</code> is the most FP-stack-heavy single operator.</p>
 <hr>
 <h2 id="6-number-entry--display-formatting"><a class="header" href="#6-number-entry--display-formatting">6. Number entry &amp; display formatting</a></h2>
 <p>When the homescreen shows a result (or <code>Ans</code>), the engine converts the <code>OP1</code> <code>TIFloat</code> to a
@@ -349,7 +348,7 @@ column count (<code>DEC (IX-3)</code>).</li>
 <li>Exponent ↔ ASCII helpers on page 0: <code>_ExpToHex</code> <code>ram:1E4E</code>, <code>_OP1ExpToDec</code> <code>ram:1E77</code>,
 <code>_DecO1Exp</code> <code>ram:1E6F</code> (decrement exp), <code>ram:1BCB</code> (BCD-digit → value). [confirmed]</li>
 <li>The formatted string is then drawn by <code>_DispOP1A</code> (<code>04:7844</code>) / homescreen put-string
-routines (see <a href="08-display-lcd.html">08-display-lcd.md</a>).</li>
+routines (see <a href="display-lcd.html">display-lcd.md</a>).</li>
 </ul>
 <p><code>Ans</code> is the last-result <code>TIFloat</code> saved in a system var and reloaded into <code>OP1</code>
 (via <code>_Mov9ToOP1</code> = RST 20h) when the token <code>Ans</code> is evaluated. [standard]</p>
@@ -423,7 +422,7 @@ which unwinds to the error context and shows the named message. The raiser clust
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="06-floating-point.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="floating-point.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -437,7 +436,7 @@ which unwinds to the error context and shows the named message. The raiser clust
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="06-floating-point.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="floating-point.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

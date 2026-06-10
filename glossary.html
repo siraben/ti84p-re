@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9b2b9ee8.js";
+            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-3e0e106f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -188,11 +188,11 @@
 <tr><th>Term</th><th>Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>bcall</strong></td><td>“branch call” — the OS system-call mechanism: <code>rst 28h</code> + a 2-byte ID, dispatched through a jump table to a routine on any flash page. See <a href="03-bcall-mechanism.html">The bcall Mechanism</a>.</td></tr>
+<tr><td><strong>bcall</strong></td><td>“branch call” — the OS system-call mechanism: <code>rst 28h</code> + a 2-byte ID, dispatched through a jump table to a routine on any flash page. See <a href="bcall-mechanism.html">The bcall Mechanism</a>.</td></tr>
 <tr><td><strong>bjump</strong></td><td>OS-internal cross-page <em>jump</em>: <code>CALL cross_page_jump; .dw addr; .db page</code> (a tail-jump). The sibling of bcall for the OS’s own use.</td></tr>
 <tr><td><strong>RST shortcut</strong></td><td>A 1-byte <code>rst NN</code> vector that fast-paths a hot routine (<code>rst 10h</code>=<code>_FindSym</code>, <code>rst 30h</code>=<code>_FPAdd</code>, <code>rst 28h</code>=the bcall dispatcher).</td></tr>
-<tr><td><strong>context</strong></td><td>The active “mode” (homescreen, Y= editor, graph, an app…). A block of handler vectors at <code>cxMain</code> (<code>0x858D</code>); the main loop runs the current context’s handlers. See <a href="11-boot-contexts-errors.html">Boot, Contexts &amp; Errors</a>.</td></tr>
-<tr><td><strong>paging / banking</strong></td><td>The Z80 sees 64 KiB; ports 6/7 swap which 16 KiB flash/RAM page is visible in the two middle slots. See <a href="02-paging.html">Paging</a>.</td></tr>
+<tr><td><strong>context</strong></td><td>The active “mode” (homescreen, Y= editor, graph, an app…). A block of handler vectors at <code>cxMain</code> (<code>0x858D</code>); the main loop runs the current context’s handlers. See <a href="boot-contexts-errors.html">Boot, Contexts &amp; Errors</a>.</td></tr>
+<tr><td><strong>paging / banking</strong></td><td>The Z80 sees 64 KiB; ports 6/7 swap which 16 KiB flash/RAM page is visible in the two middle slots. See <a href="paging.html">Paging</a>.</td></tr>
 <tr><td><strong>APD</strong></td><td>Auto Power Down — the timer-driven idle shutoff.</td></tr>
 <tr><td><strong>MathPrint</strong></td><td>The 2D “pretty-print” rendering of expressions; on this OS the engine is on page 0x39.</td></tr>
 </tbody>
@@ -206,7 +206,7 @@
 </thead>
 <tbody>
 <tr><td><strong>BCD</strong></td><td>Binary-Coded Decimal — numbers stored as decimal digits (2 per byte), the format of all TI floats.</td></tr>
-<tr><td><code>TIFloat</code></td><td>The 9-byte float: 1 type/sign byte, 1 biased exponent, 7 bytes = 14 BCD mantissa digits. See <a href="06-floating-point.html">Floating-Point Engine</a>.</td></tr>
+<tr><td><code>TIFloat</code></td><td>The 9-byte float: 1 type/sign byte, 1 biased exponent, 7 bytes = 14 BCD mantissa digits. See <a href="floating-point.html">Floating-Point Engine</a>.</td></tr>
 <tr><td><code>OP1</code>–<code>OP6</code></td><td>The six 11-byte floating-point accumulator registers in RAM at <code>0x8478</code>+. <code>OP1</code> is the primary accumulator; binary ops use <code>OP1</code>+<code>OP2</code>, result in <code>OP1</code>.</td></tr>
 <tr><td><strong>FPS</strong></td><td>Floating-Point Stack — a software stack (pointer at <code>0x9824</code>) for spilling OP registers during nested evaluation.</td></tr>
 <tr><td><strong>guard digits</strong></td><td>The 2 extra mantissa bytes past the 9-byte number (<code>OP1EXT</code>/<code>OP2EXT</code>), used for rounding during math.</td></tr>
@@ -220,11 +220,11 @@
 <tr><th>Term</th><th>Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>VAT</strong></td><td>Variable Allocation Table — the RAM catalog of every named object, growing <em>down</em> from <code>symTable</code> (<code>0xFE66</code>). See <a href="05-variables-vat.html">Variables &amp; the VAT</a>.</td></tr>
+<tr><td><strong>VAT</strong></td><td>Variable Allocation Table — the RAM catalog of every named object, growing <em>down</em> from <code>symTable</code> (<code>0xFE66</code>). See <a href="variables-vat.html">Variables &amp; the VAT</a>.</td></tr>
 <tr><td><strong>object type</strong></td><td>The 1-byte type tag of a variable (<code>RealObj</code>=0, <code>ListObj</code>=1, <code>ProgObj</code>=5, <code>AppVarObj</code>=0x15…), modeled as the <code>TIVarType</code> enum.</td></tr>
 <tr><td><strong>archive</strong></td><td>Variables relocated to <em>flash</em> to save RAM; the VAT entry’s page byte then points into flash. See <a href="sub-vat-archive.html">Variables, Archive &amp; Unarchive</a>.</td></tr>
 <tr><td><strong>garbage collection</strong></td><td>Compacting the archive flash when it fills (“Garbage Collecting…”). The GC-core candidate <code>flash_gc_relocate</code>@<code>3C:7BD0</code> is a project-local inferred label, not a defined function in the current live DB nor a WikiTI or <code>ti83plus.inc</code> equate.</td></tr>
-<tr><td><strong>RAM heap</strong></td><td>The dynamic region from <code>userMem</code> (<code>0x9D95</code>) up to the VAT; managed by <code>_InsertMem</code>/<code>_DelMem</code>. See <a href="12-memory-management.html">Memory Management</a>.</td></tr>
+<tr><td><strong>RAM heap</strong></td><td>The dynamic region from <code>userMem</code> (<code>0x9D95</code>) up to the VAT; managed by <code>_InsertMem</code>/<code>_DelMem</code>. See <a href="memory-management.html">Memory Management</a>.</td></tr>
 </tbody>
 </table>
 </div>
@@ -263,7 +263,7 @@
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="01-memory-map.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="memory-map.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -277,7 +277,7 @@
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="01-memory-map.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="memory-map.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

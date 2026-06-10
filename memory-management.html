@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9b2b9ee8.js";
+            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-3e0e106f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -193,7 +193,7 @@
     style C fill:#1b1b1b,stroke-dasharray:5 5
 </pre>
 
-<p>VAT entry layout: type, data ptr/page, name — see <a href="05-variables-vat.html">05-variables-vat.md</a>.</p>
+<p>VAT entry layout: type, data ptr/page, name — see <a href="variables-vat.html">variables-vat.md</a>.</p>
 <p>Boundary/work pointers (clustered at <code>0x9820–0x983A</code>) [confirmed addrs]:</p>
 <div class="table-wrapper">
 <table>
@@ -220,7 +220,7 @@
 <li><code>_EnoughMem</code> (<code>ram:0FA6</code>) — ensure N free bytes; if short, it walks the temp/scratch entries (9-byte stride from <code>pTemp</code> down to <code>OPBase</code>) and <code>_DelVar</code>s reclaimable temporaries to make room. [confirmed]</li>
 <li><code>_MemChk</code> (<code>ram:0E20</code>) — compute current free RAM.</li>
 </ul>
-<p>Variable-creation bcalls — <code>_CreateReal</code>, <code>_CreateStrng</code>, <code>_CreateAppVar</code>, <code>_CreateRList</code>, etc. (see <a href="05-variables-vat.html">05</a>) — share a create body (<code>_CreateReal</code> at <code>ram:10B8</code> jumps into <code>ram:1011</code>) that carves space via an internal gap routine at <code>ram:0F0C</code> — which does its own block move and updates the temp/FP-stack pointers, not the public <code>_InsertMem</code> — then registers the variable in the VAT.</p>
+<p>Variable-creation bcalls — <code>_CreateReal</code>, <code>_CreateStrng</code>, <code>_CreateAppVar</code>, <code>_CreateRList</code>, etc. (see <a href="variables-vat.html">05</a>) — share a create body (<code>_CreateReal</code> at <code>ram:10B8</code> jumps into <code>ram:1011</code>) that carves space via an internal gap routine at <code>ram:0F0C</code> — which does its own block move and updates the temp/FP-stack pointers, not the public <code>_InsertMem</code> — then registers the variable in the VAT.</p>
 <h2 id="flash-archive-confirmed-location"><a class="header" href="#flash-archive-confirmed-location">Flash archive [confirmed location]</a></h2>
 <p>To save scarce RAM, variables can be archived to Flash. The archive entry point is on <code>flash page 0x07</code>, while the low-level flash read/write/erase workers are on <code>page 0x3D</code>:</p>
 <ul>
@@ -241,7 +241,7 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="11-boot-contexts-errors.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="boot-contexts-errors.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -255,7 +255,7 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="11-boot-contexts-errors.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="boot-contexts-errors.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

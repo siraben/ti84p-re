@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9b2b9ee8.js";
+            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-3e0e106f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,11 +180,10 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="matrices--lists"><a class="header" href="#matrices--lists">Matrices &amp; lists</a></h1>
-<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
 <p>How the TI-84 Plus OS (2.55MP) stores, indexes, and computes on lists and
-matrices — the routines a college student hits doing linear algebra (<code>det(</code>, <code>[A]⁻¹</code>,
+matrices — the routines behind linear algebra (<code>det(</code>, <code>[A]⁻¹</code>,
 <code>rref(</code>, <code>[A]*[B]</code>, <code>identity(</code>, <code>T</code>) and data work (<code>L1+L2</code>, <code>dim(</code>, <code>sum(</code>, <code>seq(</code>,
-<code>SortA(</code>). Companion to <a href="05-variables-vat.html">05-variables-vat.md</a> (where the data lives), <a href="06-floating-point.html">06-floating-point.md</a>
+<code>SortA(</code>). Companion to <a href="variables-vat.html">variables-vat.md</a> (where the data lives), <a href="floating-point.html">floating-point.md</a>
 (how each element is computed), and <a href="sub-vat-archive.html">sub-vat-archive.md</a> (Store/Recall/Archive).</p>
 <p>All <code>page:addr</code> are read from the raw Z80 disassembly, not the decompiler alone.
 Page numbers are the masked flash page (<code>rawpage &amp; 0x3F</code>). The whole-OS image lives in one
@@ -209,7 +208,7 @@ of the data area (after the 2 dim bytes) is</p>
 there is no “vector unit”; matrix multiply is a triple loop of <code>_FPMult</code>+<code>_FPAdd</code>.</p>
 </li>
 <li>
-<p>The data area is found through the VAT (<code>_FindSym</code>, <a href="05-variables-vat.html">doc 05</a>): the VAT entry’s data
+<p>The data area is found through the VAT (<code>_FindSym</code>, <a href="variables-vat.html">Variables &amp; the VAT</a>): the VAT entry’s data
 pointer + page byte locate the <code>count</code>/<code>dim</code> header, after which all indexing is pointer
 arithmetic computed by <code>_AdrLEle</code>/<code>_AdrMEle</code>.</p>
 </li>
@@ -254,7 +253,7 @@ stored <code>dim0</code> (rows) then <code>dim1</code> (cols). The byte-confirme
 </blockquote>
 <hr>
 <h2 id="2-element-access--the-indexoffset-math-confirmed"><a class="header" href="#2-element-access--the-indexoffset-math-confirmed">2. Element access — the index→offset math [confirmed]</a></h2>
-<p>This is the heart of everything. Two address-calculators turn a 1-based index into a byte
+<p>Two address-calculators turn a 1-based index into a byte
 pointer, then a 9-byte move shuttles the <code>TIFloat</code> to/from <code>OP1</code>.</p>
 <h3 id="list-element-address--_adrlele-0247c5"><a class="header" href="#list-element-address--_adrlele-0247c5">List element address — <code>_AdrLEle</code> (<code>02:47C5</code>)</a></h3>
 <pre><code class="language-z80">_AdrLEle(index, listDataPtr):           ; HL=index, DE=listDataPtr
@@ -604,13 +603,13 @@ fact that it is a separate driver, not <code>42A6</code>, is confirmed by the tw
 <hr>
 <h2 id="6-how-it-ties-to-the-fp-engine-and-the-vat-confirmed"><a class="header" href="#6-how-it-ties-to-the-fp-engine-and-the-vat-confirmed">6. How it ties to the FP engine and the VAT [confirmed]</a></h2>
 <ul>
-<li>Every element is a <code>TIFloat</code> (<a href="06-floating-point.html">doc 06</a>). Indexing produces a <em>pointer</em>; the value is then
+<li>Every element is a <code>TIFloat</code> (<a href="floating-point.html">Floating-point</a>). Indexing produces a <em>pointer</em>; the value is then
 moved into <code>OP1</code>/<code>OP2</code> (<code>RST4</code> = load-9, <code>_Mov9B</code>, <code>_MovFrOP1</code>) and all arithmetic is the FP
 engine’s <code>RST 30h</code>(<code>_FPAdd</code>)/<code>_FPMult</code>/<code>_FPDiv</code>/<code>_FPSub</code>/<code>_FPRecip</code>. There is no SIMD; a
 matrix multiply is literally thousands of these calls. Complex elements (lists/<code>[i]</code>) carry a
 <code>0x0C</code> flag and use 18-byte (two-float) elements, split via <code>_CplxOPArrange</code>.</li>
 <li><strong>Where the data lives:</strong> the parser resolves the list/matrix name through <code>OP1</code> →
-<code>_FindSym</code>/<code>_ChkFindSym</code> (<a href="05-variables-vat.html">doc 05</a>/sub-vat) → VAT entry → data pointer (+ flash page if
+<code>_FindSym</code>/<code>_ChkFindSym</code> (<a href="variables-vat.html">Variables &amp; the VAT</a>/sub-vat) → VAT entry → data pointer (+ flash page if
 archived). The <code>count</code>/<code>dim</code> header is read first; then <code>_AdrLEle</code>/<code>_AdrMEle</code> do pointer
 math. A store into an archived matrix/list unarchives to RAM first (<code>_Arc_Unarc</code>;
 Flash cannot be written in place).</li>
