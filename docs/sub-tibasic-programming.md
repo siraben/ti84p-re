@@ -1,7 +1,5 @@
 # TI-BASIC programming patterns
 
-*TI-84 Plus OS 2.55MP — feature deep dive.*
-
 This page turns the interpreter traces into practical programming rules. It is
 a map from common TI-BASIC patterns to the OS paths they exercise.
 

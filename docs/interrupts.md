@@ -39,7 +39,7 @@ Entry saves context (`ex af,af'` / `exx` — the Z80 shadow registers, the class
 | `IY+0x0C` | 3 | `curFlags`·curOn | cursor currently drawn (blink phase) |
 | `IY+0x0C` | 2 | `curFlags`·curAble | cursor-blink enabled (`curLock` is bit 4) |
 | `IY+0x0F` | 7 | `seqFlags` bit7 | cleared @ `ram:0A8C` (`RES 7,(IY+0Fh)`) on the ON-key path |
-| `IY+0x12` | 3 | `shiftFlags`·shift2nd | the `[2nd]`-pending modifier flag; the ISR clears it at `ram:01E0` (`RES 3`) so a held `[2nd]` does not linger — see the [keyboard modifier state machine](09-keyboard-link.md) |
+| `IY+0x12` | 3 | `shiftFlags`·shift2nd | the `[2nd]`-pending modifier flag; the ISR clears it at `ram:01E0` (`RES 3`) so a held `[2nd]` does not linger — see the [keyboard modifier state machine](keyboard-link.md) |
 | `IY+0x12` | 0 | `indicFlags`·indicRun | run-indicator-on flag (set by `_RunIndicOn`); the byte is shared — bits 0–2 are `indicFlags`, bits 3–7 are `shiftFlags` |
 | `IY+0x16` | 0 | speed/ACK select | chooses the value re-written to int-mask port `0x03` on exit (`ram:00E6`) |
 | `IY+0x16` | 1 | (same byte) | link-busy sub-flag, reset @ `ram:015E` |

@@ -1,15 +1,13 @@
 # Equation display (MathPrint)
 
-*TI-84 Plus OS 2.55MP — feature deep dive.*
-
 MathPrint is the OS subsystem that turns a tokenized expression into a two-dimensional
 screen layout. It is used by the homescreen entry line, the Y= editor, the Solver
 equation line, and the template menus. The implementation is concentrated on flash page
-`39` and drives the display services described in [Display & LCD](08-display-lcd.md).
-It consumes the token stream described in [Tokenizer & TI-BASIC](07-tokenizer-basic.md)
-and preserves the OP registers described in [Floating-point engine](06-floating-point.md).
+`39` and drives the display services described in [Display & LCD](display-lcd.md).
+It consumes the token stream described in [Tokenizer & TI-BASIC](tokenizer-basic.md)
+and preserves the OP registers described in [Floating-point engine](floating-point.md).
 
-The useful mental model is a cell-grid typesetter. The OS classifies each token,
+The engine is a cell-grid typesetter. The OS classifies each token,
 selects a compact handler record, walks the expression into rows and slots, maps each
 cell to pixel coordinates, and emits glyphs or graph-buffer rules. The live state is a
 small RAM block, a few display variables, and ROM tables — a flat cell grid, not a

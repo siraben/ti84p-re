@@ -1,15 +1,13 @@
 # Statistics
 
-*TI-84 Plus OS 2.55MP — feature deep dive.*
-
-What happens between a college student entering data into `L1`/`L2`, pressing
+What happens between entering data into `L1`/`L2`, pressing
 **STAT ▸ CALC ▸ 1‑Var Stats** (or `LinReg(ax+b)`, `QuadReg`, …), and seeing
 x̄, Σx, Sx, a, b, r, r² appear — and where every result is stored so it can be
 recalled by name (`x̄`, `Σx`, `RegEQ`, …).
 
 This doc covers the STAT **CALC** computations. The data source is the L1–L6
-lists (VAT/[05-variables-vat.md](05-variables-vat.md), [sub-vat-archive.md](sub-vat-archive.md)); the arithmetic is the
-BCD FP engine ([06-floating-point.md](06-floating-point.md), [sub-calculation.md](sub-calculation.md)). Stat plots and
+lists (VAT/[variables-vat.md](variables-vat.md), [sub-vat-archive.md](sub-vat-archive.md)); the arithmetic is the
+BCD FP engine ([floating-point.md](floating-point.md), [sub-calculation.md](sub-calculation.md)). Stat plots and
 the **DISTR** menu are noted in §8/§9 — DISTR functions are parser functions,
 not part of the STAT‑CALC engine.
 
@@ -26,10 +24,10 @@ trampolines, so the algorithm here is read primarily from the disassembly.
 
 ## 1. The `statVars` result block (`0x8A3A`) [confirmed]
 
-Every STAT‑CALC result is a 9‑byte `TIFloat` (see [06-floating-point.md](06-floating-point.md)) written
+Every STAT‑CALC result is a 9‑byte `TIFloat` (see [floating-point.md](floating-point.md)) written
 into a fixed RAM table beginning at `statVars = 0x8A3A` (`statVars EQU 8A3Ah`
 in `ti83plus.inc`). Entries are packed at the 9‑byte `FPLEN` stride. These are the
-system variables a student recalls by name (`[2nd][STAT] ▸ VARS`):
+system variables recalled by name (`[2nd][STAT] ▸ VARS`):
 
 | Addr | Name (`.inc`) | User-facing var | Meaning |
 |------|---------------|-----------------|---------|
@@ -172,7 +170,7 @@ different routine on `page 0x02` (≈`02:5939`, comparator `_CpOP1OP2`) — see
 
 ## 4. The accumulation pass (`3A:6572` …) [confirmed]
 
-This is the heart of 1/2‑Var Stats and the regression sum‑setup. It makes a
+This builds the power‑sums for 1/2‑Var Stats and the regression sum‑setup. It makes a
 single pass over the data list(s), accumulating the power‑sums needed for the
 mean, variance, and least‑squares normal equations. Read from disassembly:
 

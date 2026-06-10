@@ -4,10 +4,10 @@ How to read these notes, and how they were produced.
 
 ## Suggested reading order
 
-1. [Overview](00-system-overview.md) — the four pillars and the system through-line.
-2. [Subsystem map](10-subsystem-map.md) — see the whole API surface at once.
-3. Substrate: [Memory map](01-memory-map.md) → [Paging](02-paging.md) → [The bcall mechanism](03-bcall-mechanism.md) → [Interrupts](04-interrupts.md).
-4. Pick a core subsystem ([Floating-point](06-floating-point.md), [VAT](05-variables-vat.md), [Tokenizer/TI-BASIC](07-tokenizer-basic.md), [Display](08-display-lcd.md)…), then its *feature deep-dive* (`sub-*`).
+1. [Overview](system-overview.md) — the four pillars and the system through-line.
+2. [Subsystem map](subsystem-map.md) — see the whole API surface at once.
+3. Substrate: [Memory map](memory-map.md) → [Paging](paging.md) → [The bcall mechanism](bcall-mechanism.md) → [Interrupts](interrupts.md).
+4. Pick a core subsystem ([Floating-point](floating-point.md), [VAT](variables-vat.md), [Tokenizer/TI-BASIC](tokenizer-basic.md), [Display](display-lcd.md)…), then its *feature deep-dive* (`sub-*`).
 5. [Glossary](glossary.md) for any unfamiliar term.
 
 ## Address notation

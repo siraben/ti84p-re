@@ -25,7 +25,7 @@ TI-BASIC programs are stored as tokens, not text: every command, function, and v
 | `AA` | `tVarStrng` — string variable (`Str1`…) |
 | `EF` | TI-84+-era extended token page |
 
-So e.g. `5D 00` = list `L1`; `BB xx` = an extended command. The second byte indexes that group's name/handler table. (String variables `Str1`–`Str0` use lead `AA`; they are a distinct VAT object type holding tokenized text — see [Strings](05-variables-vat.md#strings-str1str0--a-distinct-object-type-confirmed).)
+So e.g. `5D 00` = list `L1`; `BB xx` = an extended command. The second byte indexes that group's name/handler table. (String variables `Str1`–`Str0` use lead `AA`; they are a distinct VAT object type holding tokenized text — see [Strings](variables-vat.md#strings-str1str0--a-distinct-object-type-confirmed).)
 
 ## Detokenize / token length [confirmed]
 - `_GetTokLen` (`01:66E5`) returns the length of the detokenized display string for the token at HL: it calls `smallfont_glyph_ptr` (`01:6702`) to resolve the token's string pointer, then reads the leading length byte (`LD A,(HL)`). It is `_IsA2ByteTok`, not `_GetTokLen`, that tests 1-byte vs 2-byte encoding.
@@ -45,7 +45,7 @@ The expression parser/evaluator lives on flash page 0x38. Entry points:
   running the named BASIC target. [confirmed negative probe]
 - `parse_init` (`38:5b7b`) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). [confirmed]
 
-The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine ([06](06-floating-point.md)), variable tokens resolve via the VAT ([05](05-variables-vat.md)), and the busy indicator is driven by `_RunIndicOn` / `_RunIndicOff`. `_BinOPExec` applies a binary operator via OP1/OP2.
+The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine ([06](floating-point.md)), variable tokens resolve via the VAT ([05](variables-vat.md)), and the busy indicator is driven by `_RunIndicOn` / `_RunIndicOff`. `_BinOPExec` applies a binary operator via OP1/OP2.
 
 ### The handler dispatch table [confirmed]
 
@@ -54,7 +54,7 @@ Page 0x38 begins with the parser's handler dispatch at `38:4000` — a flat arra
 These handlers implement TI-BASIC statements/commands and operators. Sampling them by the routine they call:
 - indices 8–10, 17–19, 38 → `bcall(_Regraph)` — graph commands (`DrawF`, `ZoomFit`, etc.).
 - indices 14–16, 21–22 → `bcall(_Disp)` — display/output commands (`Disp`, `Output`).
-- the "no-bcall" handlers are the arithmetic/operator productions — they drive OP1/OP2 through the FP engine via the RST shortcuts (RST 30h `_FPAdd`, etc.), which is why a bcall scan doesn't flag them; variable handlers go through `_FindSym` ([05](05-variables-vat.md)).
+- the "no-bcall" handlers are the arithmetic/operator productions — they drive OP1/OP2 through the FP engine via the RST shortcuts (RST 30h `_FPAdd`, etc.), which is why a bcall scan doesn't flag them; variable handlers go through `_FindSym` ([05](variables-vat.md)).
 
 The first handlers: `38:419F, 45F0, 421C, …`.
 

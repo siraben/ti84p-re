@@ -1,9 +1,7 @@
 # Table & Y= variables
 
-*TI-84 Plus OS 2.55MP — feature deep dive.*
-
-What a college student touches when they enter functions in **Y=**, configure
-**TBLSET** (`2nd WINDOW`), and read the **TABLE** (`2nd GRAPH`) to tabulate
+What the user touches when entering functions in **Y=**, configuring
+**TBLSET** (`2nd WINDOW`), and reading the **TABLE** (`2nd GRAPH`) to tabulate
 `Y1(X)`, `Y2(X)`, … over a range of `X`. Traces: where the table-setup settings
 live → how the OS, per X row, sets the `X` variable, evaluates each selected Y=
 function through the parser into OP1, formats the result, and lays the values out
@@ -12,8 +10,8 @@ Table ↔ Y= ↔ parser ↔ display interaction.
 
 Builds on [sub-graphing.md](sub-graphing.md) (Y= storage, the regraph/eval path, `plotSScreen`),
 [sub-tibasic.md](sub-tibasic.md) (the page-38 parser, `_Find_Parse_Formula`, `_ParseInp`),
-[05-variables-vat.md](05-variables-vat.md) (`EquObj`, `_FindSym`), [08-display-lcd.md](08-display-lcd.md) (text grid via
-`_PutMap`/`_PutC`), and [11-boot-contexts-errors.md](11-boot-contexts-errors.md) (the context/`cxMain`
+[variables-vat.md](variables-vat.md) (`EquObj`, `_FindSym`), [display-lcd.md](display-lcd.md) (text grid via
+`_PutMap`/`_PutC`), and [boot-contexts-errors.md](boot-contexts-errors.md) (the context/`cxMain`
 mechanism that selects the TABLE editor vs TABLE-setup screens).
 
 Address form is `page:addr` (flash-page hex : logical offset; flash routines run
@@ -76,7 +74,7 @@ From `ti83plus.inc` and verified by the bit-ops below:
 
 | Bit | Name | Meaning |
 |-----|------|---------|
-| 4 (`0x10`) | `autoFill` | **Indpnt**: 0 = `Auto` (fill X from TblStart/ΔTbl), 1 = `Ask` (prompt the student for each X) |
+| 4 (`0x10`) | `autoFill` | **Indpnt**: 0 = `Auto` (fill X from TblStart/ΔTbl), 1 = `Ask` (prompt for each X) |
 | 5 (`0x20`) | `autoCalc` | **Depend**: 0 = `Auto` (compute Y immediately), 1 = `Ask` (compute a cell only on request) |
 | 6 (`0x40`) | `reTable`  | 0 = cached table valid, 1 = must recompute the table |
 
@@ -238,7 +236,7 @@ incremental add:
 ```
 
 So row $k$ uses $X=\mathrm{TblMin}+k\cdot\mathrm{TblStep}$. (In **Indpnt = Ask** mode this driver is
-bypassed and the student types each X; see §3.4.) [confirmed structure]
+bypassed and the user types each X; see §3.4.) [confirmed structure]
 
 ### 3.2 The per-row evaluation: set X, evaluate each selected Y [confirmed]
 
@@ -286,8 +284,8 @@ scrolling is instant (no recompute):
 ```
 
 - **Indpnt = Auto** (bit4=0): the driver auto-fills X from TblStart/ΔTbl (§3.1).
-- **Indpnt = Ask** (bit4=1): the X column starts empty; the editor prompts the
-  student to type each X, parses it (entry-line editor → `_ParseInp`), stores it
+- **Indpnt = Ask** (bit4=1): the X column starts empty; the editor prompts for
+  each X, parses it (entry-line editor → `_ParseInp`), stores it
   to `X`, then evaluates the Y columns for only that row.
 - **Depend = Auto** (bit5=0): Y cells compute immediately during the fill.
 - **Depend = Ask** (bit5=1): Y cells show blank until the cursor lands on one and
@@ -297,7 +295,7 @@ scrolling is instant (no recompute):
 
 The table is a text grid (not the pixel graph buffer): up to 8 visible rows ×
 columns, drawn with the large font through the home-screen text primitives
-(`_PutMap`/`_PutC`, [08-display-lcd.md](08-display-lcd.md)). The paint loop:
+(`_PutMap`/`_PutC`, [display-lcd.md](display-lcd.md)). The paint loop:
 
 ```z80
 05:7E45  loop over visible rows:
@@ -343,7 +341,7 @@ Conversely only the recompute driver clears it (`05:5DD7`, `05:62FD`,
 
 ---
 
-## 5. End-to-end: a student tabulates Y1=X² + 1
+## 5. End-to-end: tabulating Y1=X² + 1
 
 1. **Y=**: types `X²+1` after `Y1=`. The editor tokenizes it and stores the bytes
    as the `EquObj` `Y1` (token `5E 10`) in the VAT, with its flags byte's select

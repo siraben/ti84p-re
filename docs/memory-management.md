@@ -17,7 +17,7 @@ flowchart TB
     style C fill:#1b1b1b,stroke-dasharray:5 5
 ```
 
-VAT entry layout: type, data ptr/page, name — see [05-variables-vat.md](05-variables-vat.md).
+VAT entry layout: type, data ptr/page, name — see [variables-vat.md](variables-vat.md).
 
 Boundary/work pointers (clustered at `0x9820–0x983A`) [confirmed addrs]:
 
@@ -41,7 +41,7 @@ Boundary/work pointers (clustered at `0x9820–0x983A`) [confirmed addrs]:
 - `_EnoughMem` (`ram:0FA6`) — ensure N free bytes; if short, it walks the temp/scratch entries (9-byte stride from `pTemp` down to `OPBase`) and `_DelVar`s reclaimable temporaries to make room. [confirmed]
 - `_MemChk` (`ram:0E20`) — compute current free RAM.
 
-Variable-creation bcalls — `_CreateReal`, `_CreateStrng`, `_CreateAppVar`, `_CreateRList`, etc. (see [05](05-variables-vat.md)) — share a create body (`_CreateReal` at `ram:10B8` jumps into `ram:1011`) that carves space via an internal gap routine at `ram:0F0C` — which does its own block move and updates the temp/FP-stack pointers, not the public `_InsertMem` — then registers the variable in the VAT.
+Variable-creation bcalls — `_CreateReal`, `_CreateStrng`, `_CreateAppVar`, `_CreateRList`, etc. (see [05](variables-vat.md)) — share a create body (`_CreateReal` at `ram:10B8` jumps into `ram:1011`) that carves space via an internal gap routine at `ram:0F0C` — which does its own block move and updates the temp/FP-stack pointers, not the public `_InsertMem` — then registers the variable in the VAT.
 
 ## Flash archive [confirmed location]
 

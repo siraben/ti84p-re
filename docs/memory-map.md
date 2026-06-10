@@ -1,6 +1,6 @@
 # Memory map
 
-The Z80 sees a flat 64 KiB logical space, divided into four 16 KiB slots. Hardware paging (ports 6/7) decides which physical flash page or RAM page is visible in the two middle slots. See [02-paging.md](02-paging.md) for the banking detail and [14-ram-pages.md](14-ram-pages.md) for RAM page `83` and restore rules.
+The Z80 sees a flat 64 KiB logical space, divided into four 16 KiB slots. Hardware paging (ports 6/7) decides which physical flash page or RAM page is visible in the two middle slots. See [paging.md](paging.md) for the banking detail and [ram-pages.md](ram-pages.md) for RAM page `83` and restore rules.
 
 ## Logical address space (what the Z80 sees)
 

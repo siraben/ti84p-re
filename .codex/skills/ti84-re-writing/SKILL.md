@@ -42,6 +42,39 @@ notation, and mdBook-sensitive markup.
 - Do not use "easy", "simple", "just", "obviously", or "of course" to describe
   ROM behavior.
 
+## AI writing tells
+
+Slop patterns that an audit of this wiki actually surfaced. Any one used once may
+be fine; the problem is several together or one repeated. Lead with the
+byte-level fact instead.
+
+- Name what a routine does; do not introduce it with an architectural metaphor.
+  Avoid "this is the heart/bridge/gatekeeper/backbone of...", "at the heart
+  is...". Write "`_PDspGrph` copies the buffer to the screen", not "`_PDspGrph` is
+  the gatekeeper".
+- No persona or scene-setting ("what a student touches when they press..."). Name
+  the user neutrally ("the user", "the caller") and only where the behavior
+  depends on input.
+- Drop filler intensifiers ("literally", "the very same", "the exact same"). A
+  magnifier is allowed only when the bytes right there prove it.
+- Drop false-significance flags: "notably", "## Notable details", "the dominant
+  fact:", "the table gives it away", "the headline". State the fact; let the
+  address carry the weight.
+- Use "is", not "serves as", "stands as", "marks", or "represents" — unless
+  "marks" is a literal flag/bit operation.
+- No manufactured drama: no "Here's the kicker/thing", no self-posed question
+  answered next sentence ("The result? Devastating."), no "Let's break this
+  down", no "Despite these challenges...", no signposted "In conclusion/summary".
+- No invented concept labels ("the supervision paradox") and no vague
+  attributions ("experts say"); cite the address, table, port, or named source.
+- One metaphor at most, used once. Do not restate one idea many ways to feel
+  comprehensive.
+- House notation is not a tell: `—` as a definition/apposition separator
+  (`pp:addr` — flash page) and `→` as a flow arrow (`real → pixel → LCD`) are
+  correct here. The tell is the dramatic prose pause, not the separator.
+- A confidence-tagged `## Resolved` or `## Takeaway` block that pins addresses is
+  an intentional evidence log, not a fractal summary — keep it.
+
 ## Structure
 
 - Write for the human reading the page. The wiki documents the ROM, not its own
@@ -58,7 +91,11 @@ notation, and mdBook-sensitive markup.
   Map". Keep acronyms and proper nouns capitalized: VAT, LCD, TI-BASIC,
   MathPrint, API.
 - Keep a page H1 and its `docs/SUMMARY.md` entry aligned in sentence case and
-  core title. The H1 may include a section number or parenthetical the TOC omits.
+  core title. The H1 may include a parenthetical the TOC omits.
+- Do not number pages. Filenames and H1s carry no `NN-` prefix (`memory-map.md`,
+  `# Memory map`); ordering comes from `docs/SUMMARY.md`. Cross-reference pages by
+  title, not number: `[Boot contexts & errors](boot-contexts-errors.md)`, never
+  "see doc 11".
 - Do not put links inside headings. Leave a blank line after each heading.
 - Use tables for enumerations: routines, IDs, type bytes, bit layouts, ports.
 - Use prose for mechanisms.

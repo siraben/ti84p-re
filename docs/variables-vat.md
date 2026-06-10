@@ -40,7 +40,7 @@ The OS passes variable identity through `OP1` as a "name string": `OP1[0]` = typ
 
 ## Variable data formats — rendered as C [confirmed from the `_Create*` family / DB types]
 
-A VAT entry points at the variable's data, whose layout depends on the object type. Every numeric value is a 9-byte BCD `TIFloat` (see [Floating-Point](06-floating-point.md)); aggregates are a small header followed by an element array or a tokenized blob. These mirror the project's DB types (`TIFloat`, `TIComplex`, `TIListHdr`, `TIMatrixHdr`), with fields shown in ROM byte order:
+A VAT entry points at the variable's data, whose layout depends on the object type. Every numeric value is a 9-byte BCD `TIFloat` (see [Floating-Point](floating-point.md)); aggregates are a small header followed by an element array or a tokenized blob. These mirror the project's DB types (`TIFloat`, `TIComplex`, `TIListHdr`, `TIMatrixHdr`), with fields shown in ROM byte order:
 
 ```c
 /* ── numeric primitives ───────────────────────────────────────────── */
@@ -76,7 +76,7 @@ Per object type:
 
 `WindowObj`/`ZStoObj` (`0x0F`/`0x10`) hold the graph **Window** settings, `TblRngObj` (`0x11`) the table range, `BackupObj` (`0x13`) a full RAM image — all system, fixed-shape blobs.
 
-Aggregate creators size their data region (= count × element-size + 2-byte header) in the `var_alloc` prelude (`ram:1005`), then fall into the common create core (`ram:1011`), which carves the gap via the internal routine at `ram:0F0C` (the create path's own block-move, not the public `_InsertMem`; see [12](12-memory-management.md)). The specific `_Create*` routine then writes the data header after the core returns — e.g. `_CreateRList` writes the list count, `_CreateStrng` the 2-byte size word. All key off the name in `OP1` (`OP1.exp` is the name's token class — `_CreateRList` validates a list-name token `0x5D/0x24/0x3A/0x72`).
+Aggregate creators size their data region (= count × element-size + 2-byte header) in the `var_alloc` prelude (`ram:1005`), then fall into the common create core (`ram:1011`), which carves the gap via the internal routine at `ram:0F0C` (the create path's own block-move, not the public `_InsertMem`; see [12](memory-management.md)). The specific `_Create*` routine then writes the data header after the core returns — e.g. `_CreateRList` writes the list count, `_CreateStrng` the 2-byte size word. All key off the name in `OP1` (`OP1.exp` is the name's token class — `_CreateRList` validates a list-name token `0x5D/0x24/0x3A/0x72`).
 
 ## The VAT entry [confirmed — byte-verified vs `findsym_scan`]
 

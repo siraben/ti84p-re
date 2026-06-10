@@ -1,7 +1,5 @@
 # TI-BASIC `For(` paren trap
 
-*TI-84 Plus OS 2.55MP — feature deep dive.*
-
 This note explains a TI-BASIC performance trap:
 
 ```ti-basic

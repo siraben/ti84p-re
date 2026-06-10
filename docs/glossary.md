@@ -6,11 +6,11 @@ Quick definitions for the terms and key RAM symbols used throughout this wiki.
 
 | Term | Meaning |
 |------|---------|
-| **bcall** | "branch call" — the OS system-call mechanism: `rst 28h` + a 2-byte ID, dispatched through a jump table to a routine on any flash page. See [The bcall Mechanism](03-bcall-mechanism.md). |
+| **bcall** | "branch call" — the OS system-call mechanism: `rst 28h` + a 2-byte ID, dispatched through a jump table to a routine on any flash page. See [The bcall Mechanism](bcall-mechanism.md). |
 | **bjump** | OS-internal cross-page *jump*: `CALL cross_page_jump; .dw addr; .db page` (a tail-jump). The sibling of bcall for the OS's own use. |
 | **RST shortcut** | A 1-byte `rst NN` vector that fast-paths a hot routine (`rst 10h`=`_FindSym`, `rst 30h`=`_FPAdd`, `rst 28h`=the bcall dispatcher). |
-| **context** | The active "mode" (homescreen, Y= editor, graph, an app…). A block of handler vectors at `cxMain` (`0x858D`); the main loop runs the current context's handlers. See [Boot, Contexts & Errors](11-boot-contexts-errors.md). |
-| **paging / banking** | The Z80 sees 64 KiB; ports 6/7 swap which 16 KiB flash/RAM page is visible in the two middle slots. See [Paging](02-paging.md). |
+| **context** | The active "mode" (homescreen, Y= editor, graph, an app…). A block of handler vectors at `cxMain` (`0x858D`); the main loop runs the current context's handlers. See [Boot, Contexts & Errors](boot-contexts-errors.md). |
+| **paging / banking** | The Z80 sees 64 KiB; ports 6/7 swap which 16 KiB flash/RAM page is visible in the two middle slots. See [Paging](paging.md). |
 | **APD** | Auto Power Down — the timer-driven idle shutoff. |
 | **MathPrint** | The 2D "pretty-print" rendering of expressions; on this OS the engine is on page 0x39. |
 
@@ -19,7 +19,7 @@ Quick definitions for the terms and key RAM symbols used throughout this wiki.
 | Term | Meaning |
 |------|---------|
 | **BCD** | Binary-Coded Decimal — numbers stored as decimal digits (2 per byte), the format of all TI floats. |
-| `TIFloat` | The 9-byte float: 1 type/sign byte, 1 biased exponent, 7 bytes = 14 BCD mantissa digits. See [Floating-Point Engine](06-floating-point.md). |
+| `TIFloat` | The 9-byte float: 1 type/sign byte, 1 biased exponent, 7 bytes = 14 BCD mantissa digits. See [Floating-Point Engine](floating-point.md). |
 | `OP1`–`OP6` | The six 11-byte floating-point accumulator registers in RAM at `0x8478`+. `OP1` is the primary accumulator; binary ops use `OP1`+`OP2`, result in `OP1`. |
 | **FPS** | Floating-Point Stack — a software stack (pointer at `0x9824`) for spilling OP registers during nested evaluation. |
 | **guard digits** | The 2 extra mantissa bytes past the 9-byte number (`OP1EXT`/`OP2EXT`), used for rounding during math. |
@@ -28,11 +28,11 @@ Quick definitions for the terms and key RAM symbols used throughout this wiki.
 
 | Term | Meaning |
 |------|---------|
-| **VAT** | Variable Allocation Table — the RAM catalog of every named object, growing *down* from `symTable` (`0xFE66`). See [Variables & the VAT](05-variables-vat.md). |
+| **VAT** | Variable Allocation Table — the RAM catalog of every named object, growing *down* from `symTable` (`0xFE66`). See [Variables & the VAT](variables-vat.md). |
 | **object type** | The 1-byte type tag of a variable (`RealObj`=0, `ListObj`=1, `ProgObj`=5, `AppVarObj`=0x15…), modeled as the `TIVarType` enum. |
 | **archive** | Variables relocated to *flash* to save RAM; the VAT entry's page byte then points into flash. See [Variables, Archive & Unarchive](sub-vat-archive.md). |
 | **garbage collection** | Compacting the archive flash when it fills ("Garbage Collecting…"). The GC-core candidate `flash_gc_relocate`@`3C:7BD0` is a project-local inferred label, not a defined function in the current live DB nor a WikiTI or `ti83plus.inc` equate. |
-| **RAM heap** | The dynamic region from `userMem` (`0x9D95`) up to the VAT; managed by `_InsertMem`/`_DelMem`. See [Memory Management](12-memory-management.md). |
+| **RAM heap** | The dynamic region from `userMem` (`0x9D95`) up to the VAT; managed by `_InsertMem`/`_DelMem`. See [Memory Management](memory-management.md). |
 
 ## Registers & RAM symbols
 

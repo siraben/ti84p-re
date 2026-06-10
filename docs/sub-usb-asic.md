@@ -1,7 +1,5 @@
 # USB ASIC and link assist
 
-*TI-84 Plus OS 2.55MP — feature deep dive.*
-
 This page covers the OS-visible USB/link-assist hardware interface: the Z80 I/O ports the ROM uses,
 the byte FIFO path used by the link layer, and the places where `_LinkXferOP` chooses USB before
 falling back to the 2.5 mm link. It complements [Link / data transfer](sub-link-transfer.md), which

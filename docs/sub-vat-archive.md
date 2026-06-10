@@ -1,8 +1,6 @@
 # Variables, archive & unarchive
 
-*TI-84 Plus OS 2.55MP — feature deep dive.*
-
-Deep-dive companion to [05-variables-vat.md](05-variables-vat.md) and [12-memory-management.md](12-memory-management.md), focused on what a
+Companion to [variables-vat.md](variables-vat.md) and [memory-management.md](memory-management.md), covering what a
 program that manages memory touches: the VAT walk (`_FindSym`), variable Store/Recall, and the
 Archive / UnArchive path (RAM ↔ Flash), the Flash garbage collector, and the memory checks.
 
@@ -68,7 +66,7 @@ high bits flag the archive state. `_FindSym` returns: type in `A` and `8478`, da
 and the page byte in `B` — `B` is the discriminator: zero for an in-RAM var, nonzero for a var
 whose data lives on a Flash page.
 
-VAT entry shapes (consistent with `_CreateR*` header writes — see [05-variables-vat.md](05-variables-vat.md)):
+VAT entry shapes (consistent with `_CreateR*` header writes — see [variables-vat.md](variables-vat.md)):
 - single-char (real/cplx/`Ln`/`[A]`/sysvars): high-address-first name token, page byte, data pointer, and type byte; `findsym_scan` reads these as page at name+1, data pointer at name+2/+3, and type at name+6.
 - named (prog/appvar/group/str/equ): high-address-first name bytes/length plus the same page/data/type fields; the exact byte order is easiest to reason about relative to the matched name token rather than as a forward C struct.
 
@@ -102,7 +100,7 @@ page byte selects the Flash page; the VAT record itself always stays in RAM.
 
 ## 4. Archive / unarchive — `_Arc_Unarc` (`07:6248`) [confirmed]
 
-The headline. `bcall(_Arc_Unarc)`, OP1 = the variable name. It toggles the var between RAM and
+`bcall(_Arc_Unarc)`, OP1 = the variable name. It toggles the var between RAM and
 the Flash archive (the same entry point does both directions, deciding from the current state).
 
 ```z80
@@ -297,8 +295,8 @@ erasing the old ones.
 - GC is callable from the user catalog (`Archive`/the MEM menu "Garbage Collect?" — string at
   `01:76C9`).
 
-So: archive = append to Flash; delete/unarchive = mark dead; when Flash fills, GC compacts. Exactly
-the classic TI-83+/84+ behaviour, now pinned to addresses.
+So: archive = append to Flash; delete/unarchive = mark dead; when Flash fills, GC compacts. This is
+the standard TI-83+/84+ behaviour, pinned to addresses here.
 
 ---
 

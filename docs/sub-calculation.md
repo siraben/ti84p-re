@@ -1,11 +1,9 @@
 # Calculation engine
 
-*TI-84 Plus OS 2.55MP — feature deep dive.*
-
-What happens between a college student typing `2*sin(π/6)+ln(5)` and seeing a number.
+What happens between the user typing `2*sin(π/6)+ln(5)` and seeing a number.
 All arithmetic is BCD floating point in the OP registers (`OP1`–`OP6` @ `0x8478`,
 11-byte spaced) with a software FP stack (`FPS` @ `0x9824`) for nested temporaries.
-See [06-floating-point.md](06-floating-point.md) for the `TIFloat` byte format and `_FPAdd` internals; this doc
+See [floating-point.md](floating-point.md) for the `TIFloat` byte format and `_FPAdd` internals; this doc
 covers the rest of the engine: ×, ÷, ^, roots, transcendentals, formatting, and errors.
 
 Address form below is `page:addr` (flash page in slot `4000`) or `ram:addr` for the fixed
@@ -50,7 +48,7 @@ operands, then do BCD mantissa work and renormalize. Result in `OP1`.
 
 | Op | Routine | Addr | Notes |
 |----|---------|------|-------|
-| `+` | `_FPAdd` | `ram:229E` (= `RST 30h`) | sign-magnitude BCD add; see [06-floating-point.md](06-floating-point.md). |
+| `+` | `_FPAdd` | `ram:229E` (= `RST 30h`) | sign-magnitude BCD add; see [floating-point.md](floating-point.md). |
 | `−` | `_FPSub` | `ram:2297` | flips `OP2.type` bit7 then falls into the add path. |
 | `×` | `_FPMult` | `ram:238B` | `ram:250F` adds exponents (→ `_ErrOverflow` on carry past 0x7F), then digit-by-digit BCD multiply accumulating into OP3. |
 | `÷` | `_FPDiv` | `ram:2541` | `_CkOP2FP0` first → `_JError(0x82)` DIVIDE BY 0 if divisor 0; else restoring BCD long division. |
@@ -76,7 +74,7 @@ Convenience / derived ops:
 - `_RToD` `ram:2374` (rad→deg): multiply by $180/\pi$ (`ram:2361`).
 - `_PToR` `02:50BD` polar→rectangular; pairs with the complex trig below.
 These constants are the BCD floats `π/180 = 1.745…e-2` and `180/π = 5.729…e1` noted in
-[06-floating-point.md](06-floating-point.md)'s constant scan.
+[floating-point.md](floating-point.md)'s constant scan.
 
 ---
 
@@ -121,7 +119,7 @@ the `_TenX` body at `02:7069`; the ln/e^x/sin-cos coefficient tables are on page
   per digit step, sign-variant picked by `0x84A4` bit 7) — the per-step `bcd_sub_op1_op2`
   (`ram:1D8A`) / `bcd_add_8496_8480` (`ram:1D26`) are the shift-and-add BCD steps of that
   recurrence, not a fixed polynomial and not CORDIC for the forward trig. The per-row
-  decoding of `02:7201`/`02:7281` is detailed in [06-floating-point.md](06-floating-point.md).
+  decoding of `02:7201`/`02:7281` is detailed in [floating-point.md](floating-point.md).
 
 ### Inverse trig [confirmed]
 - `_ASinRad` `76DA`, `_ACosRad` `76C9`, `_ATanRad` `76CF`, `_ATan2Rad` `76D4`, plus the
@@ -140,7 +138,7 @@ the `_TenX` body at `02:7069`; the ln/e^x/sin-cos coefficient tables are on page
 The general `a^b` lives at `02:6D08`+: it computes `b·ln(a)` then `e^()` and reconstructs
 with `_SinCosRad` for the complex case — i.e. `a^b = e^(b·Ln a)`, with `_FPDiv`/`_FPMult`
 glue and `_OP2ToOP6`/`_OP6ToOP1` shuffles. Integer/√ special cases short-circuit to
-`_FPMult`/`_SqRoot`. This makes `^` the most FP-stack-heavy single operator a student hits.
+`_FPMult`/`_SqRoot`. `^` is the most FP-stack-heavy single operator.
 
 ---
 
@@ -163,7 +161,7 @@ digit string honoring the **MODE** screen (Normal/Sci/Eng, Float/Fix 0–9).
 - Exponent ↔ ASCII helpers on page 0: `_ExpToHex` `ram:1E4E`, `_OP1ExpToDec` `ram:1E77`,
   `_DecO1Exp` `ram:1E6F` (decrement exp), `ram:1BCB` (BCD-digit → value). [confirmed]
 - The formatted string is then drawn by `_DispOP1A` (`04:7844`) / homescreen put-string
-  routines (see [08-display-lcd.md](08-display-lcd.md)).
+  routines (see [display-lcd.md](display-lcd.md)).
 
 `Ans` is the last-result `TIFloat` saved in a system var and reloaded into `OP1`
 (via `_Mov9ToOP1` = RST 20h) when the token `Ans` is evaluated. [standard]

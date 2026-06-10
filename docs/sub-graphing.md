@@ -1,9 +1,7 @@
 # Graphing
 
-*TI-84 Plus OS 2.55MP — feature deep dive.*
-
-What a college student touches when they press **Y=**, **WINDOW**, **GRAPH**, **TRACE**,
-or run a **DRAW** menu command. This traces the path real-coordinate → screen pixel →
+What runs when the user presses **Y=**, **WINDOW**, **GRAPH**, **TRACE**,
+or runs a **DRAW** menu command. This traces the path real-coordinate → screen pixel →
 `plotSScreen` → LCD, plus the window variables, Y= equation storage, and DRAW primitives.
 
 Address form is `page:addr` (flash page hex : logical offset, routines run mapped at
@@ -67,9 +65,9 @@ Shared engine `37:41F2` computes $\mathrm{pixel}=\dfrac{\mathrm{value}-\mathrm{m
   bias `0x7F`) and rounds to an integer pixel; out-of-range loads ±large sentinel.
 `_YftoI` returns pixel row +1 (`INC A`) so callers get a 1-based / inverted row. [confirmed]
 
-So a student's function value `y` at sample `x` becomes a `(col,row)` pair via two
-subtract-then-divide float ops against the window. This is the heart of plotting and TRACE
-coordinate readout.
+A function value `y` at sample `x` becomes a `(col,row)` pair via two
+subtract-then-divide float ops against the window. This conversion drives both plotting and
+the TRACE coordinate readout.
 
 ### Inverse: pixel index → real coordinate
 
@@ -102,7 +100,7 @@ X/Y shown at the bottom of the screen, and by DRAW commands that take pixel argu
 (0x8451) = (0x3F - y) | 0x80   ; LCD "set column" command (Y, mirrored)
 returns (table_42E4)[x & 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
 ```
-This is the bridge from a `(x,y)` pixel to a byte+bit in the buffer and the matching LCD
+This maps a `(x,y)` pixel to a byte+bit in the buffer and produces the matching LCD
 command bytes. [confirmed]
 
 `_IPoint` (`04:4157`): set/clear/test one pixel in `plotSScreen`. Honors the current
@@ -175,8 +173,8 @@ so the line just spans the current window edges. [confirmed]
 
 ## 5. Rendering the graph to the LCD
 
-`_PDspGrph` (`04:7904`, "possibly-display graph") is the gatekeeper between buffer and
-screen. [confirmed]
+`_PDspGrph` (`04:7904`, "possibly-display graph") decides whether to copy the buffer to the
+screen and whether a full re-plot is needed first. [confirmed]
 - Clears the "need redraw" flag at `(IY+2)`,
 - if the graph-dirty bit `(IY+3)&1` is set (`graphFlags.graphDraw`, inc `graphFlags=3`/`graphDraw=0`; `1`=redraw needed — this is the `graphFlags` bit at `IY+3`, distinct from `grfDBFlags` at `IY+4` and SmartGraph at `IY+0x17`), calls
   `_Regraph` to recompute the whole plot,
@@ -246,7 +244,7 @@ during a regraph or TABLE build.
 ## 7. Graph screen vs. home screen; TRACE
 
 - The home screen uses the large font and `curRow`/`curCol` text cursor (see
-  [08-display-lcd.md](08-display-lcd.md)). The graph screen is the pixel buffer `plotSScreen` rendered by
+  [display-lcd.md](display-lcd.md)). The graph screen is the pixel buffer `plotSScreen` rendered by
   the routines above; small-font labels (coords, TRACE readout) go through
   `_VPutMap`/`penCol`(0x86D7)/`penRow`(0x86D8). [confirmed addresses]
 - **TRACE** moves a cursor along a selected function: it steps the column, evaluates the

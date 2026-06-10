@@ -1,11 +1,9 @@
 # Solver & numerical methods
 
-*TI-84 Plus OS 2.55MP — feature deep dive.*
-
-What happens when a calculus/algebra student uses the **equation Solver** / `solve(`,
+What happens when the user invokes the **equation Solver** / `solve(`,
 `nDeriv(`, `fnInt(`, or the **TVM finance solver**. All of these are *iterative*
 routines that repeatedly evaluate the user's expression through the BCD floating-point
-engine (see [sub-calculation.md](sub-calculation.md), [06-floating-point.md](06-floating-point.md)) and the TI-BASIC parser
+engine (see [sub-calculation.md](sub-calculation.md), [floating-point.md](floating-point.md)) and the TI-BASIC parser
 ([sub-tibasic.md](sub-tibasic.md)).
 
 Address form is `page:addr` (flash page banked at `0x4000`) or `ram:addr` for the fixed
@@ -54,7 +52,7 @@ root-finding engine living on flash page `0x39`. (The Solver app's UI — the
 `06:6ABB`, loaded by code at `06:6286`/`06:62EA`/`06:66F3`.)
 
 ### 1.1 The function-value evaluator `f(x)` [confirmed]
-At the heart is a callback that, given the trial value in `OP1`, returns `f(x) = left − right`
+A callback, given the trial value in `OP1`, returns `f(x) = left − right`
 of the equation. Located around `39:468F`:
 
 1. `_CkValidNum` (`ram:1E9B`), then `_MovFrOP1` (`ram:1B0C`) stores the current guess into
