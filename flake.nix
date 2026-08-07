@@ -11,6 +11,14 @@
       let
         pkgs = import nixpkgs { inherit system; };
         katexDir = "${pkgs.katex}/lib/node_modules/katex";
+        z80dasm = pkgs.stdenv.mkDerivation {
+          pname = "z80dasm";
+          version = "1.2.0";
+          src = pkgs.fetchurl {
+            url = "https://geeklan.co.uk/files/z80dasm-1.2.0.tar.gz";
+            hash = "sha256-jaLEpYo5F6ginewNqX5xj5Dt6EmFQk10RWV1v1rP7sg=";
+          };
+        };
         # pseudocode.js (renders LaTeX algorithm blocks; not packaged in nixpkgs)
         pseudocodeJs = pkgs.fetchurl {
           url = "https://cdn.jsdelivr.net/npm/pseudocode@2.4.1/build/pseudocode.min.js";
@@ -42,6 +50,7 @@
           dontInstall = true;
           dontFixup = true;
         };
+        packages.z80dasm = z80dasm;
 
         # `nix run` -> live server with hot-reload at http://127.0.0.1:3000
         apps.default = {
@@ -55,7 +64,11 @@
         };
 
         devShells.default = pkgs.mkShell {
-          packages = [ pkgs.mdbook pkgs.mdbook-mermaid ];
+          packages = [
+            pkgs.mdbook
+            pkgs.mdbook-mermaid
+            z80dasm
+          ];
           # In the dev shell, run:  setup-wiki-assets   (vendors KaTeX before `mdbook serve`)
           shellHook = ''
             export KATEX_DIR=${katexDir}
