@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3e0e106f.js"></script>
+        <script src="toc-24589cc4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -195,7 +195,7 @@ flash page <code>3C</code> (shared with the flash/archive command code — see <
 <pre class="mermaid">flowchart TB
     SRC(["user 'Send…' / TI-Connect"])
     subgraph VAR["Variable layer · page 3C"]
-      LX["_LinkXferOP 3C:4DD2&lt;br/&gt;silent-link variable send"]
+      LX["link_xfer_op 3C:4DD2&lt;br/&gt;silent-link variable send"]
       SV["_SendVarCmd 3C:4A14→4EDD&lt;br/&gt;DI / cleanup-wraps a send"]
     end
     subgraph PKT["PACKET layer"]
@@ -269,12 +269,12 @@ mentioned, with a CPU-speed-scaled timeout. The legacy bit-bang fall-through (po
 wait for echo, <code>DE</code>-timeout → <code>_JErrorNo</code>) is unchanged from <a href="keyboard-link.html">Keyboard &amp; link</a>.</p>
 <h3 id="2b-receive-_recabyteio-443f-and-decoder-444a-confirmed"><a class="header" href="#2b-receive-_recabyteio-443f-and-decoder-444a-confirmed">2b. Receive <code>_RecAByteIO</code> <code>443F</code> and decoder <code>444A</code> [confirmed]</a></h3>
 <pre><code class="language-z80">443F: DI ; CALL 447E (arm/clock the line) ; CALL 444A (get-status) ; RET C/NZ ; loop if Z
-444A:  CP 1                              ; result==1?  (got a real byte)
-       LD A,C                            ; A = the byte
-       JR NZ,4456
-       CP 0xE0 ; JP NZ,_ErrLinkXmit      ; in 'must-get-byte' mode, anything else = link error
+444A:  CP 1                              ; status 1 selects the error-status path
+       LD A,C                            ; A = candidate byte/status marker
+       JR NZ,4456                        ; other status: normal byte or marker
+       CP 0xE0 ; JP NZ,_ErrLinkXmit
        JR 4470
-4456:  CP 0xE0 ; RET NZ                  ; caller passed sentinel 0xE0 = "non-blocking probe"
+4456:  CP 0xE0 ; RET NZ                  ; return an ordinary byte from C
        IN A,(0x2) ; AND 0x80             ; port 0x02 bit7 set = non-83+-Basic (has assist HW on 84+)
        JR Z,4469                         ;   legacy:  6CC1 polls the bit-bang lines
        IN A,(0x9) ; BIT 6,A ; JR NZ,4470 ; port 0x09 bit6 = transmission error → abort
@@ -285,14 +285,17 @@ wait for echo, <code>DE</code>-timeout → <code>_JErrorNo</code>) is unchanged 
 bit 4 = byte received, bits 0x19 = error/active; port 0x0D = data FIFO; port 0x02
 bit 7 = non-83+-Basic (used here as the assist-present gate; WikiTI’s dedicated “link-assist
 available” flag is port 0x02 bit 6).
-The sentinel <code>0xE0</code> passed in <code>A</code> selects non-blocking (“peek-only”) vs. blocking-with-error
-behaviour. <code>_Rec1stByte</code> (<code>3C:439C</code>) / <code>_Rec1stByteNC</code> (<code>3C:43A3</code>, “no-clear”) are the same logic
+The assist receiver at <code>3C:6C20</code> returns a normal port-<code>0x0A</code> byte in <code>C</code> with
+<code>A=0</code>; the port-<code>0x09</code> bit-6 path returns <code>A=1</code>. <code>lnk_rec_status</code> compares the
+returned <code>C</code> value with <code>0xE0</code>; <code>_RecAByteIO</code> does not preserve a caller-supplied
+<code>A</code> value. The protocol meaning of the <code>0xE0</code> marker remains [hypothesis].
+<code>_Rec1stByte</code> (<code>3C:439C</code>) / <code>_Rec1stByteNC</code> (<code>3C:43A3</code>, “no-clear”) are the same logic
 wrapped with APD/<code>_ApdSetup</code> and the bit-bang start-bit detect, used to wait for the <em>first</em> byte
 of an incoming packet (peer may be idle for a long time).</p>
 <hr>
 <h2 id="3-packet-framing--the-ti-link-protocol-confirmed"><a class="header" href="#3-packet-framing--the-ti-link-protocol-confirmed">3. Packet framing — the TI link protocol [confirmed]</a></h2>
 <p>A TI link packet is a 4-byte header optionally followed by data + 2-byte checksum:</p>
-<pre><code>  +--------+--------+--------+--------+   +============+----------+
+<pre><code class="language-text">  +--------+--------+--------+--------+   +============+----------+
   | mach-ID|  cmd   |  len-lo|  len-hi|   |  data[len] | chk16 LE |
   +--------+--------+--------+--------+   +============+----------+
    8674     8675     8676     8677         streamed      8678 acc
@@ -342,16 +345,16 @@ stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience
 <tr><th>cmd</th><th>name</th><th>seen at</th><th>meaning</th></tr>
 </thead>
 <tbody>
-<tr><td><code>0x06</code></td><td><code>VAR</code></td><td><code>_LinkXferOP</code> reply check <code>4E86 CP 6</code></td><td>variable header packet (type+name+size)</td></tr>
+<tr><td><code>0x06</code></td><td><code>VAR</code></td><td><code>link_xfer_op</code> reply check <code>4E86 CP 6</code></td><td>variable header packet (type+name+size)</td></tr>
 <tr><td><code>0x09</code></td><td><code>CTS</code></td><td><code>4199</code> (H=0x09)</td><td>clear-to-send (receiver ready for DATA)</td></tr>
 <tr><td><code>0x15</code></td><td><code>DATA</code></td><td><code>40DA</code>/<code>407C</code> send, <code>426D CP 0x15</code> recv</td><td>the variable’s data bytes</td></tr>
 <tr><td><code>0x2D</code></td><td><code>DEL</code></td><td>header-validate <code>4382 CP 0x2D</code></td><td>delete / directory variants</td></tr>
-<tr><td><code>0x36</code></td><td><code>SKIP/EXIT</code></td><td><code>_LinkXferOP</code> <code>4E7C CP 0x36</code></td><td>peer refused this var → abort transfer</td></tr>
+<tr><td><code>0x36</code></td><td><code>SKIP/EXIT</code></td><td><code>link_xfer_op</code> <code>4E7C CP 0x36</code></td><td>peer refused this var → abort transfer</td></tr>
 <tr><td><code>0x56</code></td><td><code>ACK</code></td><td>built by <code>42FB</code> (LD H,0x56); checked <code>418F CP 0x56</code></td><td>acknowledge</td></tr>
 <tr><td><code>0x5A</code></td><td><code>ERR/NAK</code></td><td>built by <code>6356</code>/<code>6385</code> (LD H,0x5A)</td><td>checksum/length error reply</td></tr>
 <tr><td><code>0x68</code></td><td><code>RTS</code></td><td><code>41BC</code> (LD H,0x68)</td><td>request-to-send</td></tr>
 <tr><td><code>0x92</code></td><td><code>EOT</code></td><td><code>4195</code> (H=0x92)</td><td>end of transmission</td></tr>
-<tr><td><code>0xA2</code>/<code>0xB7</code></td><td>request</td><td><code>_LinkXferOP</code> <code>4E2B/4E2F</code></td><td>request var (A2=DATA-type, B7=other)</td></tr>
+<tr><td><code>0xA2</code>/<code>0xB7</code></td><td>request</td><td><code>link_xfer_op</code> <code>4E2B/4E2F</code></td><td>request var (A2=DATA-type, B7=other)</td></tr>
 </tbody>
 </table>
 </div>
@@ -389,10 +392,10 @@ identical prologue to the archive writer in <a href="sub-vat-archive.html">sub-v
 </code></pre>
 <p>i.e. the receiver reproduces the VAT-create / <code>_InsertMem</code> path from <a href="sub-vat-archive.html">sub-vat-archive.md</a>.</p>
 <hr>
-<h2 id="5-silent-link-variable-send--_linkxferop-3c4dd2-confirmed"><a class="header" href="#5-silent-link-variable-send--_linkxferop-3c4dd2-confirmed">5. Silent-link variable send — <code>_LinkXferOP</code> (<code>3C:4DD2</code>) [confirmed]</a></h2>
+<h2 id="5-silent-link-variable-send--link_xfer_op-3c4dd2-confirmed"><a class="header" href="#5-silent-link-variable-send--link_xfer_op-3c4dd2-confirmed">5. Silent-link variable send — <code>link_xfer_op</code> (<code>3C:4DD2</code>) [confirmed]</a></h2>
 <p>This is the path a “Send” hits (TI-Connect pulls a var, or a calc-to-calc send).
 OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, then streams the DATA.</p>
-<pre><code class="language-z80">_LinkXferOP (3C:4DD2):
+<pre><code class="language-z80">link_xfer_op (3C:4DD2):
   CALL probe_hw_model_keep_a        ; model/HW probe; spin on port 0x20 if assist busy
   SET 1,(IY+0x24)                   ; mark "transfer active"
   RES 3,(IY+0x1B) ; save IY+0xC (APD) ; install cleanup handler 4F3E via 27DA (see §7)
@@ -443,11 +446,11 @@ machinery:</p>
       LD A,0xC9 ; CALL 6971         ; command setup
       CALL 62B0 (clear link sub-state in 8A0B) ; SET 2,(IY+0x1B)
       CALL 58ED (→ SET 1,(IY+0x24) ; _ChkFindSym)  ; locate the var
-      JR 4EAD (shared tail with _LinkXferOP: RES 1,(IY+0x24); 2800; JP 4F3E)
+      JR 4EAD (shared tail with link_xfer_op: RES 1,(IY+0x24); 2800; JP 4F3E)
 </code></pre>
-<p>Note <code>4EDD</code> physically overlaps / shares the tail (<code>4EAD</code>) with <code>_LinkXferOP</code>; they are two
+<p>Note <code>4EDD</code> physically overlaps / shares the tail (<code>4EAD</code>) with <code>link_xfer_op</code>; they are two
 entry points into one routine body. <code>_SendVarCmd</code> is the “send by name from the running context”
-door; <code>_LinkXferOP</code> is the “OP1 already set up, do the silent transfer” door.</p>
+door; <code>link_xfer_op</code> is the “OP1 already set up, do the silent transfer” door.</p>
 <hr>
 <h2 id="7-apd-cleanup-and-the-line-idle-wait-confirmed"><a class="header" href="#7-apd-cleanup-and-the-line-idle-wait-confirmed">7. APD, cleanup, and the line idle wait [confirmed]</a></h2>
 <ul>
@@ -467,9 +470,9 @@ doesn’t auto-power-down mid-transfer.</li>
 </thead>
 <tbody>
 <tr><td>send/receive line timeout, bad echo, unexpected reply cmd</td><td><code>_JErrorNo</code> <code>00:2799</code></td><td><code>E_LnkErr</code> <code>0x9F</code> “ERR:LINK”</td></tr>
-<tr><td><code>_RecAByteIO</code> got non-byte in must-get mode; header-send line never went idle</td><td><code>_ErrLinkXmit</code> <code>00:278D</code> → <code>_JError(0x9F)</code></td><td><code>E_LnkErr</code> <code>0x9F</code></td></tr>
+<tr><td><code>lnk_rec_status</code> returned <code>A=1</code> with <code>C != 0xE0</code>; header-send line never went idle</td><td><code>_ErrLinkXmit</code> <code>00:278D</code> → <code>_JError(0x9F)</code></td><td><code>E_LnkErr</code> <code>0x9F</code></td></tr>
 <tr><td>received checksum/length mismatch</td><td><code>6356</code>→ sends 0x5A NAK → <code>2799</code></td><td><code>E_LnkErr</code> <code>0x9F</code></td></tr>
-<tr><td>peer sent SKIP/EXIT (0x36)</td><td><code>_LinkXferOP</code> <code>4E80/4E83</code></td><td><code>E_LnkErr</code> <code>0x9F</code></td></tr>
+<tr><td>peer sent SKIP/EXIT (0x36)</td><td><code>link_xfer_op</code> <code>4E80/4E83</code></td><td><code>E_LnkErr</code> <code>0x9F</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -477,14 +480,14 @@ doesn’t auto-power-down mid-transfer.</li>
 The finer-grained codes <code>E_LinkIOChkSum</code> <code>0x22</code>, <code>E_LinkIOTimeOut</code> <code>0x23</code>, <code>E_LinkIOBusy</code> <code>0x24</code>,
 <code>E_LinkIOVer</code> <code>0x25</code> exist in the error table (<code>ty_error.txt</code>) and are used by the higher-level
 <em>assembly-callable file-transfer API</em> (e.g. <code>OpenSendFlag</code>/<code>Send</code>/<code>Receive</code> style), not by the raw
-silent-link engine documented here. [confirmed for 0x9F path; standard for the 0x22-25 mapping.]</p>
+silent-link engine documented here. [standard]</p>
 <hr>
 <h2 id="9-end-to-end-send-prgm-to-computer-standard"><a class="header" href="#9-end-to-end-send-prgm-to-computer-standard">9. End-to-end: “Send PRGM to computer” [standard]</a></h2>
 <ol>
 <li>Host (TI-Connect, machine-ID 0x95) opens the USB/DBUS link; calc detects it (<code>IY+0x1B</code> bit1).</li>
 <li>Host requests the directory or a specific var; calc’s receiver (<code>4338</code>) parses the request
 header, <code>6994</code>/<code>6298</code> classify it.</li>
-<li>To send a var: <code>_LinkXferOP</code>/<code>_SendVarCmd</code> builds the VAR header (type byte + name from OP1,
+<li>To send a var: <code>link_xfer_op</code>/<code>_SendVarCmd</code> builds the VAR header (type byte + name from OP1,
 size) at <code>867F</code>, sends it (<code>41C3</code>, cmd path), waits for <code>CTS</code> (<code>0x09</code>).</li>
 <li><code>40DA</code> streams the <code>DATA</code> (<code>0x15</code>) payload via <code>_PagedGet</code>→<code>_SendAByte</code> (Flash-transparent),
 appends the 16-bit checksum, waits for <code>ACK</code> (<code>0x56</code>).</li>
@@ -503,7 +506,7 @@ RAM/Flash via <code>6AB1</code>) → checksum verify (<code>6356</code>, NAK 0x5
 <tr><td><code>3C:420D</code></td><td><code>_SendAByte</code></td><td>send one byte: HW-assist (port 0x09/0x0D) or bit-bang (port 0)</td></tr>
 <tr><td><code>3C:6BB2</code></td><td><code>lnk_send_byte_hw</code></td><td>HW-assist send: poll port 0x09 bit5, <code>OUT (0x0D)</code></td></tr>
 <tr><td><code>3C:443F</code></td><td><code>_RecAByteIO</code></td><td>receive one byte (blocking)</td></tr>
-<tr><td><code>3C:444A</code></td><td><code>lnk_rec_status</code></td><td>RX status decode (port 0x09 bit6 = TX error / bit4 = byte received / 0x19 err; sentinel 0xE0)</td></tr>
+<tr><td><code>3C:444A</code></td><td><code>lnk_rec_status</code></td><td>decode low-level status and returned <code>C</code>; port 0x09 bit6 selects status 1, and <code>C=0xE0</code> takes a special path whose protocol meaning remains [hypothesis]</td></tr>
 <tr><td><code>3C:439C</code></td><td><code>_Rec1stByte</code></td><td>wait for first byte of a packet (APD + start-bit)</td></tr>
 <tr><td><code>3C:43A3</code></td><td><code>_Rec1stByteNC</code></td><td>as above, no line-clear</td></tr>
 <tr><td><code>3C:41C3</code></td><td><code>lnk_send_header</code></td><td>send 4-byte header (ID, cmd, len-lo, len-hi)</td></tr>
@@ -516,7 +519,7 @@ RAM/Flash via <code>6AB1</code>) → checksum verify (<code>6356</code>, NAK 0x5
 <tr><td><code>3C:4292</code></td><td><code>lnk_recv_data</code></td><td>receive DATA payload, 16-byte Flash batching, checksum</td></tr>
 <tr><td><code>3C:6356</code></td><td><code>lnk_verify_cksum</code></td><td>verify count vs len; NAK 0x5A on mismatch</td></tr>
 <tr><td><code>3C:6AB1</code></td><td><code>lnk_flush_block</code></td><td>flush 16-byte staging block to RAM/Flash (port 0x14)</td></tr>
-<tr><td><code>3C:4DD2</code></td><td><code>_LinkXferOP</code></td><td>silent-link variable send orchestrator (OP1=name)</td></tr>
+<tr><td><code>3C:4DD2</code></td><td><code>link_xfer_op</code></td><td>silent-link variable send orchestrator (OP1=name)</td></tr>
 <tr><td><code>3C:4EDD</code></td><td><code>_SendVarCmd</code></td><td>bcall <code>_SendVarCmd</code> (4A14) body; DI-wrapped send-by-name</td></tr>
 <tr><td><code>3C:4763</code></td><td><code>lnk_resolve_var</code></td><td>resolve var class/size/ptr for sending (archive-aware)</td></tr>
 <tr><td><code>3C:40DA</code></td><td><code>lnk_send_data</code></td><td>send DATA payload (<code>_PagedGet</code>→<code>_SendAByte</code>) + checksum + ACK wait</td></tr>
@@ -547,7 +550,7 @@ state machine. RAM block: <code>ioFlag 8670 … bakHeader 868B</code>, staging
 them vs. the blanket 0x9F here. [standard]</li>
 <li>Backup (sndRecState 0x08 / varClass 0x0A) framing detail in <code>40DA</code> (the 0x37D clamp + 0x63 00
 prefix) — full backup-packet layout. [standard]</li>
-<li>The prior USB target gap is now mapped in <a href="sub-usb-asic.html">sub-usb-asic.md</a>: <code>_LinkXferOP</code> calls
+<li>The prior USB target gap is now mapped in <a href="sub-usb-asic.html">sub-usb-asic.md</a>: <code>link_xfer_op</code> calls
 <code>ram:2E0B</code>, a <code>cross_page_jump</code> thunk to <code>35:4280</code>, after sampling port <code>0x4D</code>.</li>
 </ul>
 
@@ -595,11 +598,11 @@ prefix) — full backup-packet layout. [standard]</li>
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

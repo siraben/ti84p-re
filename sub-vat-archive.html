@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3e0e106f.js"></script>
+        <script src="toc-24589cc4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -232,7 +232,8 @@ with the 2 name bytes at <code>847A</code>/<code>847B</code>:</p>
      A = (HL); A &amp;= 0x1F            ; *** mask off archive flag bits in high nibble ***
      SBC HL,DE ; RET C  (ran past end → not found)
      CP (HL) against token (8479); on match check name bytes (847A/847B) at HL-1/HL-2
-     else step HL -= 3 (single-char entries) / -= (6+nameLen) and continue
+     else step HL -= 3 from the name pointer (9 bytes type-to-type for fixed entries)
+          / -= (6+nameLen) for named entries, and continue
   on match:  B=(entry).pageByte, DE=dataPtr, A=(entry+6)=type; store type→8478
 </code></pre>
 <p>So each VAT entry is read high-address-first; the type byte’s low 5 bits are the <code>TIVarType</code>; the
@@ -241,14 +242,14 @@ and the page byte in <code>B</code> — <code>B</code> is the discriminator: zer
 whose data lives on a Flash page.</p>
 <p>VAT entry shapes (consistent with <code>_CreateR*</code> header writes — see <a href="variables-vat.html">variables-vat.md</a>):</p>
 <ul>
-<li>single-char (real/cplx/<code>Ln</code>/<code>[A]</code>/sysvars): high-address-first name token, page byte, data pointer, and type byte; <code>findsym_scan</code> reads these as page at name+1, data pointer at name+2/+3, and type at name+6.</li>
-<li>named (prog/appvar/group/str/equ): high-address-first name bytes/length plus the same page/data/type fields; the exact byte order is easiest to reason about relative to the matched name token rather than as a forward C struct.</li>
+<li>fixed-token entries (real/cplx/<code>Ln</code>/<code>[A]</code>/sysvars) occupy nine bytes. Relative to matched name token <code>N</code>, <code>findsym_scan</code> reads page at <code>N+1</code>, the high/low data-address bytes at <code>N+2</code>/<code>N+3</code>, skips version and T2 at <code>N+4</code>/<code>N+5</code>, and reads type at <code>N+6</code>.</li>
+<li>named entries (prog/appvar/group/str/equ) use a high-address-first variable-length name plus the same six metadata bytes. The exact byte order is easiest to reason about relative to the matched name token rather than as a forward C struct.</li>
 </ul>
 <p>For an archived entry the data address (<code>addrLSB/MSB</code>) points into the Flash window and the
 page byte selects the Flash page; the VAT record itself always stays in RAM.</p>
 <hr>
 <h2 id="3-store--recall-standard"><a class="header" href="#3-store--recall-standard">3. Store / Recall [standard]</a></h2>
-<p><strong>Store</strong> <code>_StoOther</code> (<code>38:62A9</code>) and siblings (<code>_StoAns</code>, <code>_StoX</code>, <code>_StoY</code>, … <code>38:6251–62A3</code>):</p>
+<p><strong>Store</strong> <code>_StoOther</code> (<code>38:62A9</code>) and siblings (<code>_StoAns</code>, <code>_StoX</code>, <code>_StoY</code>, … <code>38:6251-62A3</code>):</p>
 <ul>
 <li>Set OP1 type = 0xFF placeholder (<code>62A9: LD A,FF / LD (8478),A</code>), parse the destination name.</li>
 <li><code>5F45</code> resolves/creates the target symbol; then it copies the value. It dispatches on the
@@ -257,7 +258,7 @@ matrix element, etc. Ultimately a <code>_Create*</code> routine carves RAM with 
 <li>A store into an archived var is not done in place; the OS unarchives first (you cannot rewrite
 Flash in place) — see the <code>_Arc_Unarc</code> direction logic in §4. [hypothesis]</li>
 </ul>
-<p><strong>Recall</strong> <code>_RclVarSym</code> (<code>38:67B1</code>) and <code>_RclVarPush</code> (<code>3A:5D07</code>):</p>
+<p><strong>Recall</strong> <code>_RclVarSym</code> (<code>38:67B1</code>) and <code>rcl_var_push</code> (<code>3A:5D07</code>):</p>
 <ul>
 <li><code>_RclVarSym</code> calls <code>RST 10h</code> (<code>17A6</code>, a <code>_FindSym</code>+error-check wrapper: <code>RST 10h; JP C,271D</code>), then checks the name token (<code>8479</code>). For a list
 recall (<code>63</code>/<code>2A</code>) it sizes the data with <code>_DataSize</code> (<code>00:1485</code>) and copies it into a work buffer
@@ -290,7 +291,7 @@ the Flash archive (the same entry point does both directions, deciding from the 
 <p><code>628B</code> is the <em>archivable-name guard</em>: after <code>_CkOP1Real</code> it returns Z for the non-archivable
 single-letter real/sysvar name tokens <code>0x58 0x59 0x54 0x5B 0x52 0x72 0xFC</code> (<code>CP n; RET Z</code> chain), so
 <code>_Arc_Unarc</code>’s <code>JP Z,26E0</code> rejects them via the <code>26E0</code> shim (<code>LD A,0xB2</code> = E_Variable, ERR:VARIABLE →
-<code>_JError</code>); archivable classes (lists, matrices, programs, appvars, …) return NZ and continue. (<code>_arc_59f1</code> @<code>07:59F1</code> and <code>_arc_5936</code> @<code>07:5936</code> are companion name/range
+<code>_JError</code>); archivable classes (lists, matrices, programs, appvars, …) return NZ and continue. (<code>arc_59f1</code> @<code>07:59F1</code> and <code>arc_5936</code> @<code>07:5936</code> are companion name/range
 validators for the catalog archive command.)</p>
 <p>Direction note: the <code>B</code>-page test sends an <em>in-RAM</em> var (<code>B==0</code>) to <code>6107</code> (archive) and an
 <em>in-Flash</em> var (<code>B≠0</code>) to <code>61F4</code> (unarchive). <code>6107</code> is the one that programs Flash and frees the
@@ -354,7 +355,7 @@ the copier (6761..678A):
 an archived program/appvar is pulled back into RAM to be executed or edited. <code>ti83plus.inc</code> also
 names a sibling <code>_FlashToRam2</code> (id 8054); the retail boot table maps it to <code>3F:4888</code>.</p>
 <hr>
-<h2 id="6-low-level-flash-write--erase-pages-3c3d-port-0x14-mixed"><a class="header" href="#6-low-level-flash-write--erase-pages-3c3d-port-0x14-mixed">6. Low-level Flash write / erase (pages 3C/3D, port 0x14) [mixed]</a></h2>
+<h2 id="6-low-level-flash-write--erase-pages-3c3d-port-0x14-hypothesis"><a class="header" href="#6-low-level-flash-write--erase-pages-3c3d-port-0x14-hypothesis">6. Low-level Flash write / erase (pages 3C/3D, port 0x14) [hypothesis]</a></h2>
 <p>The Flash program/erase primitives live on flash pages <code>0x3C</code> / <code>0x3D</code> and are invoked through
 page-0 cross-page trampolines. The public bcall entry points for the byte writer are named in
 <code>ti83plus.inc</code>: <code>_WriteAByte</code> (id 8021) and <code>_WriteAByteSafe</code> (id 80C6) program a single
@@ -436,9 +437,9 @@ via the same model check, <code>3D:6745</code>) and erasing. <code>flash_set_sec
 loop jumps to <code>3D:5EF1</code> — <code>3D:5EE3</code> is the unrelated <code>_FindApp</code>) pages each sector to <code>0x4000</code> and
 issues the chip erase command via <code>RST 0x28</code>, decrementing
 <code>0x82A3</code> down toward the base page. The underlying Am29F-class chip uses 64 KB physical sectors
-(= 4 × 16 KB OS pages); the OS walks/erases at 16 KB page granularity. [64 KB physical-sector figure: hypothesis]</p>
+(= 4 × 16 KB OS pages); the OS walks/erases at 16 KB page granularity. [hypothesis]</p>
 <hr>
-<h2 id="7-flash-garbage-collector--garbage-collecting-mixed"><a class="header" href="#7-flash-garbage-collector--garbage-collecting-mixed">7. Flash garbage collector — “Garbage Collecting…” [mixed]</a></h2>
+<h2 id="7-flash-garbage-collector--garbage-collecting-hypothesis"><a class="header" href="#7-flash-garbage-collector--garbage-collecting-hypothesis">7. Flash garbage collector — “Garbage Collecting…” [hypothesis]</a></h2>
 <p>Distinct from <code>_CleanAll</code> (RAM/FP-stack cleanup, <code>07:52CF</code>). When the archive Flash fills, dead
 (unarchived/deleted) records must be reclaimed by rewriting the live records to fresh sectors and
 erasing the old ones.</p>
@@ -450,7 +451,7 @@ at <code>01:4076</code>. The display front-end candidate <code>3C:7E0D</code>
 (<code>CALL 7E0D</code> then <code>CALL 7219</code> then <code>CALL 7733</code>), <code>3C:720D</code> = relocate-only, and the archive-full
 auto-GC <code>3C:7204</code> runs <code>71FC</code> (GC) then retries the write at <code>7F1C</code>. <code>3C:7121</code> is an inferred
 label, not byte-confirmed in the disassembly.</li>
-<li>The relocation/erase-core candidate <code>3C:7BD0–7BF4</code>: tests a status flag, <code>7E6B</code>/<code>7C10</code> prepare the swap
+<li>The relocation/erase-core candidate <code>3C:7BD0-7BF4</code>: tests a status flag, <code>7E6B</code>/<code>7C10</code> prepare the swap
 sectors (writes <code>0xF0</code> marker, sets <code>97A6</code> sector counter, <code>8477</code>), <code>7BE3:CALL 7E0D</code> shows the
 banner, <code>7C1F</code> walks live VAT/Flash entries copying each valid (<code>0xFC</code>-marked) record to the
 new sector, and <code>7C04</code> finalizes (erases the old sectors, <code>SET 2,(IY+0x25)</code>). [standard] <code>3C:7BD0</code> is
@@ -499,7 +500,7 @@ the disassembly.</li>
 <tr><td><code>00:1485</code></td><td><code>_DataSize</code></td><td>variable data byte-size by type</td></tr>
 <tr><td><code>38:62A9</code></td><td><code>_StoOther</code></td><td>store value into named var</td></tr>
 <tr><td><code>38:67B1</code></td><td><code>_RclVarSym</code></td><td>recall var by symbol</td></tr>
-<tr><td><code>3A:5D07</code></td><td><code>_RclVarPush</code></td><td>recall var, push to FPS</td></tr>
+<tr><td><code>3A:5D07</code></td><td><code>rcl_var_push</code></td><td>recall var, push to FPS</td></tr>
 <tr><td><code>3D:6745</code></td><td><code>_FlashToRam</code></td><td>copy archived data Flash→RAM (page-aware); <code>ti83plus.inc</code> sibling <code>_FlashToRam2</code> (id 8054) is named but its body is unmapped in the disassembly</td></tr>
 <tr><td><code>3D:678C</code></td><td><code>flash_program_buf</code></td><td>live-MCP Flash programming/buffer helper</td></tr>
 <tr><td><code>3D:64AA</code></td><td><code>flash_write_record</code> (inferred label)</td><td>program an archived record to Flash candidate; not byte-confirmed in the disassembly</td></tr>
@@ -533,7 +534,7 @@ Ports: <code>0x06</code> = bank-A page select (Flash window), <code>0x14</code> 
 <h2 id="10-summary--open-items"><a class="header" href="#10-summary--open-items">10. Summary &amp; open items</a></h2>
 <ul>
 <li>
-<p><strong>Sector map / erase-block — [confirmed], see §6b.</strong> The archive pool is model-selected: base page
+<p><strong>Sector map / erase-block.</strong> [confirmed] See §6b. The archive pool is model-selected: base page
 <code>0x15</code>/<code>0x29</code>/<code>0x69</code> (<code>flash_page_select</code> <code>3D:726E</code>) up to top page <code>0x1E</code>/<code>0x3E</code>/<code>0x7E</code>
 (<code>flash_cmd_base</code> <code>3D:738B</code>); on a 1 MB TI-84 Plus that is raw pages ~<code>0x15…0x1E</code>. The OS pages
 the region into the <code>0x4000</code> window and erases one 16 KB page at a time (<code>flash_erase_wait</code>
@@ -541,19 +542,19 @@ the region into the <code>0x4000</code> window and erases one 16 KB page at a ti
 sector is 64 KB = 4 OS pages [hypothesis].</p>
 </li>
 <li>
-<p><strong>Record-status bytes — [confirmed], see §6a.</strong> Monotonic bit-clear: <code>0xFF</code> erased → <code>0xFE</code> in-progress
+<p><strong>Record-status bytes.</strong> [confirmed] See §6a. Monotonic bit-clear: <code>0xFF</code> erased → <code>0xFE</code> in-progress
 → <code>0xFC</code> valid via <code>flash_op_fe/fd/fb</code> (<code>3D:7C97/7C8F/7C93</code>) AND-masking; <code>0xF0</code> deleted is a direct write in the delete/GC path
 the status byte; <code>flash_find_nonff</code> (<code>3D:7DEA</code>) treats an all-<code>0xFF</code> header as free.</p>
 </li>
 <li>
-<p><strong>Lower-level flash helper bodies — address-keyed labels still inferred [hypothesis].</strong> The public bcall
+<p><strong>Lower-level flash helper bodies.</strong> [hypothesis] The address-keyed labels remain inferred. The public bcall
 entry points are canonical equates in <code>ti83plus.inc</code> and now resolve through the retail boot table:
 <code>_WriteAByte</code> (8021) → <code>3F:4C9F</code>, <code>_WriteAByteSafe</code> (80C6) → <code>3F:4C9A</code>, and <code>_FlashToRam2</code>
 (8054) → <code>3F:4888</code>. The address-keyed <code>flash_*</code> labels in §6/§9 stay inferred and
 body-undisassembled until the lower-level page-3C/3D helper graph is split cleanly.</p>
 </li>
 <li>
-<p><strong>Group archive path — partially pinned [hypothesis].</strong> <code>_DataSize</code> (<code>00:1485</code>) confirms a Group
+<p><strong>Group archive path.</strong> [hypothesis] The path is partially pinned. <code>_DataSize</code> (<code>00:1485</code>) confirms a Group
 (type <code>0x17</code>, like AppVar <code>0x15</code>/<code>0x16</code>) carries a leading word-size header, so a group <em>can</em> be
 stored as one Flash blob. In <code>_Arc_Unarc</code> the <code>CP 0x17</code> → <code>26E0</code> reject sits on the B≠0 (in-Flash)
 branch, immediately before the unarchive worker <code>61F4</code> — so an archived group is not unarchived
@@ -609,11 +610,11 @@ named or xref-reachable. Confirming it would need a linear disassembly pass like
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3e0e106f.js"></script>
+        <script src="toc-24589cc4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -183,10 +183,17 @@
 <p>The structural reverse-engineering is comprehensive (every subsystem mapped, both cross-page mechanisms resolved, full input→parse→eval→display pipeline documented). What remains is depth. Each item below is self-contained for a future session.</p>
 <h2 id="still-open"><a class="header" href="#still-open">Still open</a></h2>
 <ol>
-<li><strong>Flash sector write/erase primitive map</strong> — the live DB confirms anchors <code>flash_program_buf</code>@<code>3D:678C</code>, <code>flash_erase_wait</code>@<code>3D:5ED3</code>, <code>flash_cmd_base</code>@<code>3D:738B</code>, <code>flash_set_sector_cnt</code>@<code>3D:727D</code>, <code>flash_page_select</code>@<code>3D:726E</code>, <code>flash_find_nonff</code>@<code>3D:7DEA</code>, and <code>flash_op_fd/fb/fe</code>@<code>3D:7C8F/7C93/7C97</code>. The public bcall entry points for these primitives are named in <code>ti83plus.inc</code>: <code>_WriteAByte</code> (8021), <code>_WriteAByteSafe</code> (80C6), and <code>_FlashToRam2</code> (8054); the retail boot table maps them to <code>3F:4C9F</code>, <code>3F:4C9A</code>, and <code>3F:4888</code>. The candidate addresses <code>3D:61AF</code>, <code>3D:64AA</code>, <code>3D:62C2</code>, <code>3D:6413</code>, and <code>3D:6B9B</code> are still undisassembled (not defined functions) in the live DB; their <code>flash_*</code> names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates. See <a href="sub-vat-archive.html">sub-vat-archive.md</a> / <a href="memory-management.html">12</a>.</li>
-<li><strong>Flash archive garbage collector</strong> — the behavior is documented. The GC-path candidates <code>flash_gc_relocate</code>@<code>3C:7BD0</code>, <code>gc_show_screen</code>@<code>3C:7E0D</code>, and <code>flash_cmd_dispatch</code>@<code>3C:7121</code> are still undisassembled (not defined functions) in the live DB; those <code>flash_*</code>/<code>gc_*</code> names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates.</li>
+<li><strong>Flash sector write/erase primitive map.</strong> The live DB confirms anchors <code>flash_program_buf</code>@<code>3D:678C</code>, <code>flash_erase_wait</code>@<code>3D:5ED3</code>, <code>flash_cmd_base</code>@<code>3D:738B</code>, <code>flash_set_sector_cnt</code>@<code>3D:727D</code>, <code>flash_page_select</code>@<code>3D:726E</code>, <code>flash_find_nonff</code>@<code>3D:7DEA</code>, and <code>flash_op_fd/fb/fe</code>@<code>3D:7C8F/7C93/7C97</code>. The public bcall entry points for these primitives are named in <code>ti83plus.inc</code>: <code>_WriteAByte</code> (8021), <code>_WriteAByteSafe</code> (80C6), and <code>_FlashToRam2</code> (8054); the retail boot table maps them to <code>3F:4C9F</code>, <code>3F:4C9A</code>, and <code>3F:4888</code>. The candidate addresses <code>3D:61AF</code>, <code>3D:64AA</code>, <code>3D:62C2</code>, <code>3D:6413</code>, and <code>3D:6B9B</code> are still undisassembled (not defined functions) in the live DB; their <code>flash_*</code> names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates. See <a href="sub-vat-archive.html">Variables, archive &amp; unarchive</a> and <a href="memory-management.html">Memory management</a>.</li>
+<li><strong>Flash archive garbage collector.</strong> The behavior is documented. The GC-path candidates <code>flash_gc_relocate</code>@<code>3C:7BD0</code>, <code>gc_show_screen</code>@<code>3C:7E0D</code>, and <code>flash_cmd_dispatch</code>@<code>3C:7121</code> are still undisassembled (not defined functions) in the live DB; those <code>flash_*</code>/<code>gc_*</code> names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates.</li>
 <li><strong>Enum equates.</strong> Apply <code>TIKeyCode</code>/<code>TIError</code>/<code>TIVarType</code> to scalar operands in the relevant handlers (conservative, scoped).</li>
-<li><strong>Smaller residuals</strong> (in each doc’s local TODO): absolute APD timeout/blink period (page-0x35 crystal-timer handler is unanalyzed data), the For/While/Repeat FPS loop-frame byte layout (page-0x33 dispatch confirmed), the <code>Asm(</code>/<code>AsmPrgm</code> compile/setup body before the traced payload handoff (<code>ram:9D95 op=0xC9</code> is confirmed), direct ASM-initiated BASIC program execution beyond VAT lookup and cooperative <code>Ans</code> callback (<code>_ChkFindSym</code> works from <code>AsmPrgm</code>; the <code>ASMFORM.8xp</code>/<code>ZZFORM.8xp</code> <code>_Find_Parse_Formula</code> fixture fails with <code>ERR:UNDEFINED</code>; the <code>ASMPARSE.8xp</code>/<code>ZZPARSE.8xp</code> <code>_ParseInpLastEnt</code> fixture fails with <code>ERR:INVALID</code>; <code>_ExecuteNewPrgm</code> reaches <code>ERR:SYNTAX</code>; <code>_JForceCmd</code> abandons the caller stack; <code>_PutTokString</code>/<code>_rclToQueue</code> are edit-buffer paths, not proven program-call entries), and the group-archive member walk (<code>_Arc_Unarc</code>’s <code>CP 0x17</code> reject routes elsewhere; body fragmented by cross-page calls).</li>
+<li><strong>Forward-trigonometry table semantics.</strong> The range reduction and the table-driven recurrence are byte-pinned, but the exact rotation identity represented by each row at <code>02:7201</code>/<code>02:7281</code> remains open. See <a href="floating-point.html#_sincosrad--sincos-in-radians-02733e-confirmed">Floating point</a>.</li>
+<li><strong>Graph raster details.</strong> Exhaustively decode the rounding and sentinel handling at <code>37:4229</code>, then trace <code>_DrawCirc2</code> at <code>3B:7171</code> to recover its parametric stepping. The coordinate transforms and circle setup are already pinned. See <a href="sub-graphing.html#8-confidence-summary--open-items">Graphing</a>.</li>
+<li><strong>TABLE evaluation paths.</strong> Byte-trace the per-row <code>_StoX</code> and selected-Y evaluation calls in the page-05 fill loop. The Depend:Ask prompt path and the <code>TblRng</code> special case in <code>_Find_Parse_Formula</code> also need end-to-end traces. See <a href="sub-table-yvars.html#7-confidence-summary--open-items">Table &amp; Y= variables</a>.</li>
+<li><strong>Statistics command families.</strong> Locate and decode the DISTR numerical cores and each STAT-TEST handler that writes <code>PStat</code> through <code>SStat</code>. The intermediate calculations that produce <code>r</code> and <code>r²</code> in <code>3A:6845</code>–<code>6891</code> also need a complete byte trace. See <a href="sub-statistics.html#12-notes">Statistics</a>.</li>
+<li><strong>Link and USB residuals.</strong> Map link errors <code>0x22</code>–<code>0x25</code> to the higher APIs that emit them, recover backup framing around <code>3C:40DA</code>, and name the remaining page-35 USB register bits. Reconcile the retail boot-page USB bcall bodies with their <code>0x8xxx</code> names. See <a href="sub-link-transfer.html#11-open-items">Link transfer</a> and <a href="sub-usb-asic.html#limits">USB ASIC &amp; link assist</a>.</li>
+<li><strong>MathPrint runtime coverage.</strong> Trace representative expressions and cursor states through the statically recovered MathPrint compositor at <code>39:5167</code>. Existing macro fixtures cover power, fraction, and <code>fnInt(</code> layouts, but the exact runtime paths have not been recorded. See <a href="sub-equation-display.html#mathprint-pipeline-coverage">Equation display</a>.</li>
+<li><strong>Matrix and list residuals.</strong> Explain why plain <code>augment(</code> calls the partial-pivoting engine at <code>02:4663</code>; locate the <code>randM(</code> cell-fill path; identify the separate <code>rref(</code>/<code>ref(</code> driver; and finish the <code>seq(</code>/<code>SortA(</code>/<code>SortD(</code> collection and element-load traces. See <a href="sub-matrix-list.html#9-findings">Matrices &amp; lists</a>.</li>
+<li><strong>Smaller residuals.</strong> Recover the absolute APD timeout and cursor-blink period from the page-35 crystal-timer handler; map the For/While/Repeat FPS loop-frame bytes; recover the <code>Asm(</code>/<code>AsmPrgm</code> setup before the traced <code>ram:9D95</code> payload handoff; find a direct ASM-to-BASIC program-call entry beyond VAT lookup and the cooperative <code>Ans</code> callback; and trace the group-archive member walk after <code>_Arc_Unarc</code> rejects type <code>0x17</code>.</li>
 </ol>
 <h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>
 <p>Reopen <code>ti84.gpr</code> (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in <code>tools/</code> and rebuild with <code>tools/build.sh</code>. The remaining items mostly need a headless raw-byte dump of regions the live decompiler leaves as unanalyzed data (the page-0x35 timer handler, the page-0x38 <code>0xBB</code>/class-3 dispatch tables).</p>
@@ -229,11 +236,11 @@
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

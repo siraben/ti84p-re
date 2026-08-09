@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3e0e106f.js"></script>
+        <script src="toc-24589cc4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -213,10 +213,10 @@ OUT (port 5) &lt;- 0x00   C000-FFFF = RAM/0x80
 </code></pre>
 <p>The final restore values are therefore <code>port 7 = 0x81</code> and <code>port 5 = 0x00</code> for
 normal OS execution.</p>
-<h2 id="page-map-standard-cross-checked"><a class="header" href="#page-map-standard-cross-checked">Page map [standard, cross-checked]</a></h2>
+<h2 id="page-map-standard"><a class="header" href="#page-map-standard">Page map [standard]</a></h2>
 <p>WikiTI’s <a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages">RAM pages</a>
-page is a useful public map, but OS 2.55MP needs the page-<code>83</code> warnings to be read
-literally. The local dump at <code>wikiti-dump/main/83Plus:OS:Ram Pages.wiki</code> carries
+page is a useful public map, and its page-<code>83</code> warnings apply to OS 2.55MP. The
+local dump at <code>wikiti-dump/main/83Plus:OS:Ram Pages.wiki</code> carries
 the same current page-<code>83</code> notes. The local trace and disassembly support this table:</p>
 <div class="table-wrapper">
 <table>
@@ -283,7 +283,7 @@ in a normal workflow.” These paths are confirmed or have a concrete next scena
 <tr><td><code>83</code> display capture</td><td>Run <code>boot-idle.macro</code> or <code>graph-y1-x2.macro</code>.</td><td>Ghidra shows <code>_SaveDisp</code> (<code>39:5DD8</code>) calls <code>lcd_read_block</code> (<code>ram:1890</code>) at the <code>39:5E03</code> call site; coverage hits both, and writes <code>5A7E-5D7D</code>. [confirmed]</td></tr>
 <tr><td><code>83</code> homescreen previous-entry history</td><td>Run <code>home-2plus3.macro</code>.</td><td>The trace adds <code>577E-5790</code>, advances <code>lastEntryPTR</code> from <code>577E</code> to <code>5791</code>, and sets <code>numLastEntries</code> to <code>01</code>. [confirmed]</td></tr>
 <tr><td><code>83</code> expression scratch copy</td><td>Run <code>home-2plus3.macro</code>.</td><td>The trace adds <code>4373-4390</code> through <code>flash_copy_block</code> at <code>ram:1868</code>/<code>ram:187C</code>. [confirmed]</td></tr>
-<tr><td><code>83</code> split-screen/table copy</td><td>Enter a split-screen/table workflow that calls <code>_ScreenSplit</code>.</td><td>Ghidra shows <code>_ScreenSplit</code> at <code>05:7712</code> calls <code>flash_copy_block</code> at <code>05:772A</code>; this path is not hit by the current macros. [confirmed]</td></tr>
+<tr><td><code>83</code> split-screen/table copy</td><td>Enter a split-screen/table workflow that calls <code>screen_split</code>.</td><td>Ghidra shows <code>screen_split</code> at <code>05:7712</code> calls <code>flash_copy_block</code> at <code>05:772A</code>; this path is not hit by the current macros. [confirmed]</td></tr>
 <tr><td><code>83</code> edit-buffer initialization</td><td>Enter an edit-buffer workflow that reaches <code>editbuf_init_buf</code>.</td><td>Ghidra shows <code>editbuf_init_buf</code> at <code>03:6BC4</code> calls <code>flash_copy_block</code> at <code>03:6BCD</code>; this path is not hit by the current macros. [confirmed]</td></tr>
 <tr><td><code>83</code> app-menu state restore</td><td>Open an app/menu workflow that reaches <code>mnu_restore_app_state</code>.</td><td>Ghidra shows <code>mnu_restore_app_state</code> at <code>39:6D96</code> calls <code>flash_copy_block</code> at <code>39:6DA0</code>; this path is not hit by the current macros. [confirmed]</td></tr>
 <tr><td><code>84-87</code> independent pages</td><td>Use a forced RAM-page probe or a ROM path that passes pair index <code>2</code> or <code>3</code> to the computed bank-pair helper.</td><td>The ROM can compute these selectors, but raw immediate selector scans and current traces do not show a normal OS path selecting or writing them. [hypothesis]</td></tr>
@@ -299,10 +299,10 @@ in a normal workflow.” These paths are confirmed or have a concrete next scena
     OUT (7),A        ; pair index 0/1/2/3 -&gt; pages 81/83/85/87 in bank B
 </code></pre>
 <p>Decoded callers set <code>B = 1</code>, selecting pages <code>82/83</code>; that explains the observed
-<code>port 5 = 02</code>, <code>port 7 = 83</code> sequence. Pages <code>84–87</code> are reachable through the
+<code>port 5 = 02</code>, <code>port 7 = 83</code> sequence. Pages <code>84-87</code> are reachable through the
 helper but are not selected on any observed OS path [hypothesis]. The <code>B = 1</code>
 caller pattern is confirmed for the decoded callers above. [confirmed]</p>
-<h2 id="page-83-use-confirmed-and-standard"><a class="header" href="#page-83-use-confirmed-and-standard">Page <code>83</code> use [confirmed and standard]</a></h2>
+<h2 id="page-83-use-standard"><a class="header" href="#page-83-use-standard">Page <code>83</code> use [standard]</a></h2>
 <p>Page <code>83</code> is the page people most often borrow as scratch, but the ROM uses it as
 more than anonymous free RAM. Keep the evidence classes separate:</p>
 <div class="table-wrapper">
@@ -315,8 +315,8 @@ more than anonymous free RAM. Keep the evidence classes separate:</p>
 <tr><td><code>43D9-44BD</code></td><td>Boot/home page-<code>83</code> scratch copy</td><td>Present in the idle trace. The block write is the <code>LDIR</code> at <code>ram:187E</code> in the page-<code>83</code> copy helper (page <code>83</code> mapped via <code>OUT (6),A</code> at <code>ram:187C</code>), plus one byte stored at <code>37:44D8</code>. [confirmed]</td></tr>
 <tr><td><code>577E-5A7D</code></td><td>Homescreen previous-entry history</td><td>Page <code>33</code> references <code>577E</code>, the <code>5A7E</code> upper bound, <code>lastEntryPTR</code> (<code>0x8DA7</code>), and <code>numLastEntries</code> (<code>0x8E29</code>). The <code>2+3 ENTER</code> trace writes <code>577E-5790</code>, advances <code>lastEntryPTR</code> to <code>5791</code>, and sets <code>numLastEntries</code> to <code>01</code>. [confirmed]</td></tr>
 <tr><td><code>5A7E-5DF2</code></td><td>LCD/home display capture area</td><td>Present in the idle trace. The <code>_SaveDisp</code> LCD capture (<code>ram:1890</code>) fills the first <code>0x300</code> bytes, <code>5A7E-5D7D</code> (the 96×64 framebuffer); the <code>5D7E-5DF2</code> tail is additional page-<code>83</code> writes in the same scenario. Ghidra decompiles <code>ram:1890</code> as an LCD-read helper that maps page <code>83</code> through port <code>6</code> and stores bytes read from LCD port <code>11</code>. [confirmed]</td></tr>
-<tr><td><code>4000-4080</code></td><td>App base-page staging before app execution</td><td>WikiTI public note; the two traces on this page do not launch an app. [standard, not traced here]</td></tr>
-<tr><td><code>4100-433A</code></td><td>USB communication buffers</td><td>WikiTI public note; the two traces on this page do not exercise USB transfer. [standard, not traced here]</td></tr>
+<tr><td><code>4000-4080</code></td><td>App base-page staging before app execution</td><td>WikiTI public note; the two traces on this page do not launch an app. [standard]</td></tr>
+<tr><td><code>4100-433A</code></td><td>USB communication buffers</td><td>WikiTI public note; the two traces on this page do not exercise USB transfer. [standard]</td></tr>
 </tbody>
 </table>
 </div>
@@ -367,7 +367,7 @@ ram:18AB  LD (HL),A
 <p>If a program modifies the history buffer on page <code>83</code>, clearing <code>numLastEntries</code>
 at <code>0x8E29</code> prevents the homescreen from scrolling back into invalid entry data.
 That is the public WikiTI recovery advice, and the ROM confirms that <code>0x8E29</code> is
-the OS-visible previous-entry count. [standard, address confirmed]</p>
+the OS-visible previous-entry count. [standard]</p>
 <h2 id="dynamic-test-scenarios"><a class="header" href="#dynamic-test-scenarios">Dynamic test scenarios</a></h2>
 <p>The trace analyzer maps TilEm memory-write records back to physical RAM pages. Use
 it with full-range traces:</p>
@@ -412,8 +412,7 @@ range 5A7E-5DF2
 </table>
 </div>
 <p>Those values come from end-of-trace RAM reconstruction. The added page-<code>83</code> range
-<code>577E-5790</code> is exactly the bytes between the old and new <code>lastEntryPTR</code> values.
-[confirmed]</p>
+<code>577E-5790</code> is exactly the bytes between the old and new <code>lastEntryPTR</code> values. [confirmed]</p>
 <h2 id="restoring-after-page-83"><a class="header" href="#restoring-after-page-83">Restoring after page <code>83</code></a></h2>
 <p>Restore the selector for every window you changed. For code entered from normal TI-OS
 state that temporarily maps page <code>83</code> into bank B (<code>8000-BFFF</code>) and page <code>82</code> into
@@ -516,11 +515,11 @@ including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

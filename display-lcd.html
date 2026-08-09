@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3e0e106f.js"></script>
+        <script src="toc-24589cc4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -184,7 +184,7 @@
 <p><strong>Deep dives:</strong> <a href="sub-graphing.html">Graphing</a> (graph buffer → LCD, transforms) · <a href="sub-table-yvars.html">Table &amp; Y= Variables</a> (text grid).</p>
 </blockquote>
 <p>The TI-84+ shows a <code>96×64</code> monochrome image — the OS only ever drives a 96×64 region (<code>_ClrLCDFull</code> clears all 768 bytes of it: 8 row-passes × 12 columns × 8 data bytes). The underlying controller (Toshiba T6K04 / later Novatek) has wider video RAM (up to 128 px), so 96×64 is the <em>visible</em> area, not the controller’s geometry. It is reached through I/O ports <code>0x10</code> (command) and <code>0x11</code> (data). The OS keeps a graph/screen buffer in RAM and renders text via a built-in font.</p>
-<h2 id="controller-confirmed-against-code"><a class="header" href="#controller-confirmed-against-code">Controller [confirmed against code]</a></h2>
+<h2 id="controller-confirmed"><a class="header" href="#controller-confirmed">Controller [confirmed]</a></h2>
 <ul>
 <li><code>port_lcdCmd</code> (<code>0x10</code>): commands — set row, set column, set Y, on/off, contrast.</li>
 <li><code>port_lcdData</code> (<code>0x11</code>): read/write a byte of pixels at the current address.</li>
@@ -223,8 +223,8 @@
 </ul>
 <h2 id="lcd-command-bytes-and-glyph-table"><a class="header" href="#lcd-command-bytes-and-glyph-table">LCD command bytes and glyph table</a></h2>
 <ul>
-<li><strong>LCD command bytes confirmed</strong> by tracing <code>_ClrLCDFull</code> (<code>01:60E4</code>), <code>_ClearRow</code> (<code>01:6934</code>) and <code>lcd_set_col_cmd</code> (<code>01:5A89</code>): row (page) select = <code>0xB8 − 8·row</code> (range <code>0xB8 … 0x80</code>, stepping down by 8), column select = <code>0x20 + col</code> (range <code>0x20 … 0x2B</code>, 12 columns = 96 px), command port <code>0x10</code> / data port <code>0x11</code>, busy-wait via <code>ram:0CC3</code>. Contrast is held at RAM <code>contrast</code> (<code>0x8447</code>) and written to the data port <code>0x11</code> by <code>lcd_set_contrast</code> (<code>01:5A59</code>). See <a href="#controller-confirmed-against-code">Controller</a>. [confirmed]</li>
-<li><strong>Large-font glyph table pinned</strong>: page <code>0x07</code>, base <code>07:45FF</code>, <code>7-byte stride</code> (<code>put_glyph_large</code> @ <code>07:4588</code> → glyph ptr <code>07:45FF + char*7</code> via <code>07:45EB</code>, then <code>_Mov8B</code> copies an 8-byte record to RAM <code>0x845A</code>). See <a href="#fonts-confirmed">Fonts</a> and <a href="flash-page-map.html">Flash Page Map</a>. [confirmed]</li>
+<li><strong>LCD command bytes.</strong> [confirmed] Tracing <code>_ClrLCDFull</code> (<code>01:60E4</code>), <code>_ClearRow</code> (<code>01:6934</code>) and <code>lcd_set_col_cmd</code> (<code>01:5A89</code>) pins the row (page) select at <code>0xB8 − 8·row</code> (range <code>0xB8 … 0x80</code>, stepping down by 8), the column select at <code>0x20 + col</code> (range <code>0x20 … 0x2B</code>, 12 columns = 96 px), the command port at <code>0x10</code>, and the data port at <code>0x11</code>. Each access waits through <code>ram:0CC3</code>. RAM byte <code>contrast</code> (<code>0x8447</code>) holds the contrast value, which <code>lcd_set_contrast</code> (<code>01:5A59</code>) writes to data port <code>0x11</code>. See <a href="#controller-confirmed">Controller</a>.</li>
+<li><strong>Large-font glyph table.</strong> [confirmed] The table is on page <code>07</code> at <code>07:45FF</code>, with a 7-byte stride. <code>put_glyph_large</code> at <code>07:4588</code> computes <code>07:45FF + char*7</code> through <code>07:45EB</code>, then <code>_Mov8B</code> copies an 8-byte record to RAM at <code>0x845A</code>. See <a href="#fonts-confirmed">Fonts</a> and <a href="flash-page-map.html">Flash page map</a>.</li>
 </ul>
 
                     </main>
@@ -271,11 +271,11 @@
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

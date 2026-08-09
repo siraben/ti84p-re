@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3e0e106f.js"></script>
+        <script src="toc-24589cc4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -181,16 +181,16 @@
                     <main>
                         <h1 id="statistics"><a class="header" href="#statistics">Statistics</a></h1>
 <p>What happens between entering data into <code>L1</code>/<code>L2</code>, pressing
-<strong>STAT ▸ CALC ▸ 1‑Var Stats</strong> (or <code>LinReg(ax+b)</code>, <code>QuadReg</code>, …), and seeing
+<strong>STAT ▸ CALC ▸ 1-Var Stats</strong> (or <code>LinReg(ax+b)</code>, <code>QuadReg</code>, …), and seeing
 x̄, Σx, Sx, a, b, r, r² appear — and where every result is stored so it can be
 recalled by name (<code>x̄</code>, <code>Σx</code>, <code>RegEQ</code>, …).</p>
 <p>This doc covers the STAT <strong>CALC</strong> computations. The data source is the L1–L6
 lists (VAT/<a href="variables-vat.html">variables-vat.md</a>, <a href="sub-vat-archive.html">sub-vat-archive.md</a>); the arithmetic is the
 BCD FP engine (<a href="floating-point.html">floating-point.md</a>, <a href="sub-calculation.html">sub-calculation.md</a>). Stat plots and
 the <strong>DISTR</strong> menu are noted in §8/§9 — DISTR functions are parser functions,
-not part of the STAT‑CALC engine.</p>
+not part of the STAT-CALC engine.</p>
 <p>Address form: <code>page:addr</code> (flash page in the <code>0x4000</code> slot) or <code>ram:addr</code> for the
-fixed page‑0 core at <code>0x0000</code>. The whole STAT‑CALC engine lives on flash page
+fixed page-0 core at <code>0x0000</code>. The whole STAT-CALC engine lives on flash page
 <code>0x3A</code>. Confidence: [confirmed] = read from Z80 disassembly, [standard] =
 matches documented TI behavior, [hypothesis] = inferred.</p>
 <p>The Ghidra decompiler mis-renders the Z80
@@ -198,9 +198,9 @@ matches documented TI behavior, [hypothesis] = inferred.</p>
 trampolines, so the algorithm here is read primarily from the disassembly.</p>
 <hr>
 <h2 id="1-the-statvars-result-block-0x8a3a-confirmed"><a class="header" href="#1-the-statvars-result-block-0x8a3a-confirmed">1. The <code>statVars</code> result block (<code>0x8A3A</code>) [confirmed]</a></h2>
-<p>Every STAT‑CALC result is a 9‑byte <code>TIFloat</code> (see <a href="floating-point.html">floating-point.md</a>) written
+<p>Every STAT-CALC result is a 9-byte <code>TIFloat</code> (see <a href="floating-point.html">floating-point.md</a>) written
 into a fixed RAM table beginning at <code>statVars = 0x8A3A</code> (<code>statVars EQU 8A3Ah</code>
-in <code>ti83plus.inc</code>). Entries are packed at the 9‑byte <code>FPLEN</code> stride. These are the
+in <code>ti83plus.inc</code>). Entries are packed at the 9-byte <code>FPLEN</code> stride. These are the
 system variables recalled by name (<code>[2nd][STAT] ▸ VARS</code>):</p>
 <div class="table-wrapper">
 <table>
@@ -216,8 +216,8 @@ system variables recalled by name (<code>[2nd][STAT] ▸ VARS</code>):</p>
 <tr><td><code>8A67</code></td><td><code>StdPX</code></td><td><code>σx</code></td><td><em>population</em> std dev of x (÷ n)</td></tr>
 <tr><td><code>8A70</code></td><td><code>MinX</code></td><td><code>minX</code></td><td>minimum x</td></tr>
 <tr><td><code>8A79</code></td><td><code>MaxX</code></td><td><code>maxX</code></td><td>maximum x</td></tr>
-<tr><td><code>8A82</code></td><td><code>MinY</code></td><td><code>minY</code></td><td>minimum y (2‑Var)</td></tr>
-<tr><td><code>8A8B</code></td><td><code>MaxY</code></td><td><code>maxY</code></td><td>maximum y (2‑Var)</td></tr>
+<tr><td><code>8A82</code></td><td><code>MinY</code></td><td><code>minY</code></td><td>minimum y (2-Var)</td></tr>
+<tr><td><code>8A8B</code></td><td><code>MaxY</code></td><td><code>maxY</code></td><td>maximum y (2-Var)</td></tr>
 <tr><td><code>8A94</code></td><td><code>YMean</code></td><td><code>ȳ</code></td><td>mean of y</td></tr>
 <tr><td><code>8A9D</code></td><td><code>SumY</code></td><td><code>Σy</code></td><td>sum of y</td></tr>
 <tr><td><code>8AA6</code></td><td><code>SumYSqr</code></td><td><code>Σy²</code></td><td>sum of y²</td></tr>
@@ -233,41 +233,41 @@ system variables recalled by name (<code>[2nd][STAT] ▸ VARS</code>):</p>
 <tr><td><code>8B00</code></td><td><code>QuadC</code></td><td><code>c</code></td><td>regression coeff c</td></tr>
 <tr><td><code>8B09</code></td><td><code>CubeD</code></td><td><code>d</code></td><td>regression coeff d</td></tr>
 <tr><td><code>8B12</code></td><td><code>QuartE</code></td><td><code>e</code></td><td>regression coeff e</td></tr>
-<tr><td><code>8B1B</code>…<code>8B50</code></td><td><code>MedX1/2/3</code>, <code>MedY1/2/3</code> (<code>8B1B/8B24/8B2D/8B36/8B3F/8B48</code>)</td><td></td><td>Med‑Med (×3 partitions)</td></tr>
+<tr><td><code>8B1B</code>…<code>8B50</code></td><td><code>MedX1/2/3</code>, <code>MedY1/2/3</code> (<code>8B1B/8B24/8B2D/8B36/8B3F/8B48</code>)</td><td></td><td>Med-Med (×3 partitions)</td></tr>
 </tbody>
 </table>
 </div>
 <p>Continuing past the table (also <code>.inc</code>): <code>PStat</code>/<code>ZStat</code>/<code>TStat</code>/<code>ChiStat</code>/
 <code>FStat</code>/<code>DF</code>/<code>Phat…</code>/<code>MeanX1</code>/<code>StdX1</code>/<code>StatN1</code>/<code>MeanX2</code>/<code>StdX2</code>/<code>StatN2</code>/<code>StdXP2</code>/
-<code>SLower</code>/<code>SUpper</code>/<code>SStat</code> — these hold the inferential‑stats outputs (the STAT‑TESTS
-menu) and are written by the test commands, not by 1/2‑Var Stats. An ANOVA block
+<code>SLower</code>/<code>SUpper</code>/<code>SStat</code> — these hold the inferential-stats outputs (the STAT-TESTS
+menu) and are written by the test commands, not by 1/2-Var Stats. An ANOVA block
 <code>anovaf_vars</code> (<code>F_DF/F_SS/F_MS/E_DF/E_SS/E_MS</code>) follows.</p>
-<p><strong>STAT‑TESTS are separate command handlers [confirmed scope].</strong> <code>Z‑Test</code>/<code>T‑Test</code>/<code>χ²‑Test</code>/
-<code>2‑SampFTest</code>/<code>ANOVA(</code> etc. come in as their own 2‑byte <code>t2ByteTok</code> (<code>0xBB</code>)‑prefixed command tokens — e.g.
+<p><strong>STAT-TESTS are separate command handlers.</strong> [confirmed] <code>Z-Test</code>/<code>T-Test</code>/<code>χ²-Test</code>/
+<code>2-SampFTest</code>/<code>ANOVA(</code> etc. come in as their own 2-byte <code>t2ByteTok</code> (<code>0xBB</code>)-prefixed command tokens — e.g.
 <code>LinRegTTest=34h</code> noted in §3 — and are not dispatched through <code>_OneVar</code> (whose token map is
 only <code>F2</code>–<code>FF</code>, §3). They fill the <code>PStat…SStat</code>/<code>anovaf_vars</code> block above directly. No
-<code>PStat</code>/<code>ZStat</code>‑writing routine appears among the page‑0x3A <code>stat_*</code> symbols (all of which are
+<code>PStat</code>/<code>ZStat</code>-writing routine appears among the page-0x3A <code>stat_*</code> symbols (all of which are
 the <code>_OneVar</code> accumulate/variance/median/regression engine), confirming the tests live in their
-own command handlers reached from the parser’s command dispatch, separate from the STAT‑CALC
-engine documented here. The exact per‑test handler addresses are not exposed as named routines
-in this DB; those per-test handler addresses are [hypothesis]. [confirmed: separate from <code>_OneVar</code>]</p>
-<p>A scratch byte <code>0x8A36</code> (immediately below <code>statVars</code>) holds the stat‑command
+own command handlers reached from the parser’s command dispatch, separate from the STAT-CALC
+engine documented here. The exact per-test handler addresses are not exposed as named routines
+in this DB; those per-test handler addresses are [hypothesis]. [confirmed]</p>
+<p>A scratch byte <code>0x8A36</code> (immediately below <code>statVars</code>) holds the stat-command
 discriminator (the model index, set from the command token — see §3) for the
 duration of the computation. Working list/element pointers used by the loop live
-in the OP‑scratch RAM <code>0x84AF…0x84DB</code> (<code>84D3</code>=median data ptr, <code>84D5/84D7</code>=current
+in the OP-scratch RAM <code>0x84AF…0x84DB</code> (<code>84D3</code>=median data ptr, <code>84D5/84D7</code>=current
 x/y element ptr, <code>84D9</code>=sums matrix base, <code>84DB</code>=freq list ptr, <code>84B1/84B2</code>=loop
 counters, <code>84B3</code>=element count). [confirmed]</p>
-<p><strong>Recall by name:</strong> <code>_Rcl_StatVar</code> (<code>00:2149</code>, id <code>0x42DC</code>) is a page‑0 bcall
+<p><strong>Recall by name:</strong> <code>_Rcl_StatVar</code> (<code>00:2149</code>, id <code>0x42DC</code>) is a page-0 bcall
 trampoline (<code>CALL 0x3E07</code> → dispatcher, inline id <code>0xC9E7</code>) that loads the named
-statVar into <code>OP1</code>; the VAT‑level recall (<code>_RclVarSym</code>/<code>_RclVarPush</code>, see
-<a href="sub-vat-archive.html">sub-vat-archive.md</a>) routes the stat‑var name tokens (<code>tRegEq 0x01</code>, <code>tStatN 0x02</code>,
-<code>tXMean 0x03</code>, … <code>tCorr 0x12</code>, the <code>STATVARS</code> token group) to it. The name‑token
+statVar into <code>OP1</code>; the VAT-level recall (<code>_RclVarSym</code>/<code>rcl_var_push</code>, see
+<a href="sub-vat-archive.html">sub-vat-archive.md</a>) routes the stat-var name tokens (<code>tRegEq 0x01</code>, <code>tStatN 0x02</code>,
+<code>tXMean 0x03</code>, … <code>tCorr 0x12</code>, the <code>STATVARS</code> token group) to it. The name-token
 values are in <code>ti83plus.inc</code> (<code>tStatN=02h … tSumXY=11h, tCorr=12h, tMedX=13h</code>,
-regression coeffs via <code>tRegEq=01h</code>). [confirmed/standard]</p>
+regression coeffs via <code>tRegEq=01h</code>). [standard]</p>
 <hr>
-<h2 id="2-_onevar--the-statcalc-engine-entry-3a6420-id-0x4ba3-confirmed"><a class="header" href="#2-_onevar--the-statcalc-engine-entry-3a6420-id-0x4ba3-confirmed">2. <code>_OneVar</code> — the STAT‑CALC engine entry (<code>3A:6420</code>, id <code>0x4BA3</code>) [confirmed]</a></h2>
-<p><code>bcall(_OneVar)</code> is the single entry point for <em>all</em> STAT‑CALC commands
-(1‑Var, 2‑Var, and every regression). The parser invokes it after pushing the
+<h2 id="2-_onevar--the-stat-calc-engine-entry-3a6420-id-0x4ba3-confirmed"><a class="header" href="#2-_onevar--the-stat-calc-engine-entry-3a6420-id-0x4ba3-confirmed">2. <code>_OneVar</code> — the STAT-CALC engine entry (<code>3A:6420</code>, id <code>0x4BA3</code>) [confirmed]</a></h2>
+<p><code>bcall(_OneVar)</code> is the single entry point for <em>all</em> STAT-CALC commands
+(1-Var, 2-Var, and every regression). The parser invokes it after pushing the
 list arguments; the command token (<code>F2</code>–<code>FF</code>, see §3) selects the behaviour.</p>
 <pre><code class="language-z80">_OneVar (3A:6420):
   SET 5,(IY+9)            ; statFlags: "stat computation active"
@@ -300,7 +300,7 @@ list arguments; the command token (<code>F2</code>–<code>FF</code>, see §3) s
 <li><code>LD HL,0x8AEE</code> (= <code>QuadA</code>) is the regression coefficient destination; the
 solver writes <code>a,b,c,d,e</code> there in descending order of power.</li>
 <li><code>_ErrStat</code> (<code>00:2741</code>, id <code>0x44C2</code>, code <code>0x15</code> “STAT”) and <code>_ErrStatPlot</code>
-(<code>00:2759</code>, code <code>0x1B</code>) are the STAT‑specific error raisers; the <code>_OneVar</code>
+(<code>00:2759</code>, code <code>0x1B</code>) are the STAT-specific error raisers; the <code>_OneVar</code>
 body jumps to <code>0x2741</code> on e.g. fewer than the required data points.
 <code>_ErrDimMismatch</code> (<code>0x2715</code>) is raised if <code>L1</code> and <code>L2</code>/freq lengths differ
 (the <code>21bb</code> length compare at <code>6584</code>/<code>658a</code>).</li>
@@ -315,34 +315,34 @@ as a model index. From <code>ti83plus.inc</code>:</p>
 <tr><th>Token</th><th>Value</th><th>Command</th><th>Model</th></tr>
 </thead>
 <tbody>
-<tr><td><code>tOneVar</code></td><td><code>F2</code></td><td><code>1‑Var Stats</code></td><td>one variable</td></tr>
-<tr><td><code>tTwoVar</code></td><td><code>F3</code></td><td><code>2‑Var Stats</code></td><td>two variable</td></tr>
-<tr><td><code>tLR</code></td><td><code>F4</code></td><td><code>LinReg(a+bx)</code></td><td>degree‑1 (a+bx form)</td></tr>
-<tr><td><code>tLRExp</code></td><td><code>F5</code></td><td><code>ExpReg</code></td><td>y=a·bˣ (log‑linear)</td></tr>
-<tr><td><code>tLRLn</code></td><td><code>F6</code></td><td><code>LnReg</code></td><td>y=a+b·ln x (log‑x)</td></tr>
-<tr><td><code>tLRPwr</code></td><td><code>F7</code></td><td><code>PwrReg</code></td><td>y=a·xᵇ (log‑log)</td></tr>
-<tr><td><code>tMedMed</code></td><td><code>F8</code></td><td><code>Med‑Med</code></td><td>resistant line</td></tr>
-<tr><td><code>tQuad</code></td><td><code>F9</code></td><td><code>QuadReg</code></td><td>degree‑2</td></tr>
-<tr><td><code>tLR1</code></td><td><code>FF</code></td><td><code>LinReg(ax+b)</code></td><td>degree‑1 (ax+b form)</td></tr>
+<tr><td><code>tOneVar</code></td><td><code>F2</code></td><td><code>1-Var Stats</code></td><td>one variable</td></tr>
+<tr><td><code>tTwoVar</code></td><td><code>F3</code></td><td><code>2-Var Stats</code></td><td>two variable</td></tr>
+<tr><td><code>tLR</code></td><td><code>F4</code></td><td><code>LinReg(a+bx)</code></td><td>degree-1 (a+bx form)</td></tr>
+<tr><td><code>tLRExp</code></td><td><code>F5</code></td><td><code>ExpReg</code></td><td>y=a·bˣ (log-linear)</td></tr>
+<tr><td><code>tLRLn</code></td><td><code>F6</code></td><td><code>LnReg</code></td><td>y=a+b·ln x (log-x)</td></tr>
+<tr><td><code>tLRPwr</code></td><td><code>F7</code></td><td><code>PwrReg</code></td><td>y=a·xᵇ (log-log)</td></tr>
+<tr><td><code>tMedMed</code></td><td><code>F8</code></td><td><code>Med-Med</code></td><td>resistant line</td></tr>
+<tr><td><code>tQuad</code></td><td><code>F9</code></td><td><code>QuadReg</code></td><td>degree-2</td></tr>
+<tr><td><code>tLR1</code></td><td><code>FF</code></td><td><code>LinReg(ax+b)</code></td><td>degree-1 (ax+b form)</td></tr>
 </tbody>
 </table>
 </div>
 <p><code>CubicReg</code>/<code>QuartReg</code> come in as the regression tokens <code>tCubicR=2Eh</code>/<code>tQuartR=2Fh</code>;
-<code>SinReg=32h</code>, <code>Logistic=33h</code>, <code>LinRegTTest=34h</code> are 2‑byte <code>t2ByteTok</code> (<code>0xBB</code>)‑prefixed
+<code>SinReg=32h</code>, <code>Logistic=33h</code>, <code>LinRegTTest=34h</code> are 2-byte <code>t2ByteTok</code> (<code>0xBB</code>)-prefixed
 tokens (their <code>2Eh</code>/<code>2Fh</code>/<code>32h</code>/<code>33h</code>/<code>34h</code> values are the <em>second</em> byte after <code>0xBB</code>). Degree for the polynomial solver = the model index; the coefficient
-fan‑out into <code>QuadA..QuartE</code> is naturally sized by degree. [confirmed/standard]</p>
+fan-out into <code>QuadA..QuartE</code> is naturally sized by degree. [standard]</p>
 <p><code>SortA(</code>/<code>SortD(</code> are separate tokens (<code>tSortA=E3h</code>, <code>tSortD=E4h</code>) with their
 own command handler — not <code>_OneVar</code>. The sort used here, <code>stat_sort</code> (<code>3A:7935</code>),
-is stat‑internal: its only callers are <code>stat_median_quartile</code> (<code>3A:79B9</code>) and
-<code>medmed_partition</code> (<code>3A:760F</code>) (xref‑confirmed), so it powers the 1‑Var median/
-quartile and Med‑Med paths (§6). The <code>SortA(</code>/<code>SortD(</code> <em>command</em> sort is a
+is stat-internal: its only callers are <code>stat_median_quartile</code> (<code>3A:79B9</code>) and
+<code>medmed_partition</code> (<code>3A:760F</code>) (xref-confirmed), so it powers the 1-Var median/
+quartile and Med-Med paths (§6). The <code>SortA(</code>/<code>SortD(</code> <em>command</em> sort is a
 different routine on <code>page 0x02</code> (≈<code>02:5939</code>, comparator <code>_CpOP1OP2</code>) — see
-<a href="sub-matrix-list.html#sorta--sortd--list-sort-confirmed-comparator">Matrices &amp; Lists</a>.</p>
+<a href="sub-matrix-list.html#sorta--sortd--list-sort-confirmed">Matrices &amp; Lists</a>.</p>
 <hr>
 <h2 id="4-the-accumulation-pass-3a6572--confirmed"><a class="header" href="#4-the-accumulation-pass-3a6572--confirmed">4. The accumulation pass (<code>3A:6572</code> …) [confirmed]</a></h2>
-<p>This builds the power‑sums for 1/2‑Var Stats and the regression sum‑setup. It makes a
-single pass over the data list(s), accumulating the power‑sums needed for the
-mean, variance, and least‑squares normal equations. Read from disassembly:</p>
+<p>This builds the power-sums for 1/2-Var Stats and the regression sum-setup. It makes a
+single pass over the data list(s), accumulating the power-sums needed for the
+mean, variance, and least-squares normal equations. Read from disassembly:</p>
 <pre><code class="language-z80">6572: CALL 6f90/6f7d         ; default freq = 1 if no freq list given
 6584: CALL 21bb              ; if freq list present, length-check vs x-list
                              ;   → _ErrDimMismatch (2715) on mismatch
@@ -368,17 +368,17 @@ mean, variance, and least‑squares normal equations. Read from disassembly:</p>
    2999/29db/29a2 : guard-clear / OP-shuffle helpers
    66fe: JP C,6655  ; loop while elements remain
 </code></pre>
-<p>So one pass builds, for a degree‑<em>d</em> fit, the symmetric moment matrix of
-power‑sums <code>Σxⁱ</code> (i = 0 … 2d) and the right‑hand side <code>Σxⁱy</code>, stored as a small
-2‑D array reached by the RAM trampoline helpers <code>00:3A8F</code>/<code>3AA1</code>/<code>3AA7</code>/<code>3AAD</code>/<code>3AB9</code>
-(matrix‑element get/set by <code>(row B, col C)</code>). <code>StatN</code>, <code>SumX</code>, <code>SumXSqr</code>, <code>SumY</code>,
+<p>So one pass builds, for a degree-<em>d</em> fit, the symmetric moment matrix of
+power-sums <code>Σxⁱ</code> (i = 0 … 2d) and the right-hand side <code>Σxⁱy</code>, stored as a small
+2-D array reached by the RAM trampoline helpers <code>00:3A8F</code>/<code>3AA1</code>/<code>3AA7</code>/<code>3AAD</code>/<code>3AB9</code>
+(matrix-element get/set by <code>(row B, col C)</code>). <code>StatN</code>, <code>SumX</code>, <code>SumXSqr</code>, <code>SumY</code>,
 <code>SumYSqr</code>, <code>SumXY</code>, <code>MinX/MaxX/MinY/MaxY</code> are filled here directly. [confirmed]</p>
-<p><strong>Non‑polynomial regressions transform first</strong> [confirmed]: the front‑end at
+<p><strong>Non-polynomial regressions transform first</strong> [confirmed]: the front-end at
 <code>658a</code>+ checks the command code and, for <code>ExpReg</code>/<code>PwrReg</code> (<code>ln y</code>),
-<code>LnReg</code>/<code>PwrReg</code> (<code>ln x</code>), pre‑applies the logarithm to each element before
+<code>LnReg</code>/<code>PwrReg</code> (<code>ln x</code>), pre-applies the logarithm to each element before
 accumulating, then exponentiates the resulting linear coefficients off page 0x3A. The
-per‑element <code>ln</code> is in the element fetch <code>stat_next_elem</code> (<code>3A:6F6A</code>): <code>LD A,(8A36); CP 4; RET NC</code> then <code>bcall _LnX</code> at <code>3A:6F72</code> for model codes <code>&lt; 4</code> (<code>ExpReg</code>/<code>LnReg</code>/<code>PwrReg</code>); the
-back‑transform <code>_EToX</code>/<code>_TenX</code> lives on page 0x02 (see <code>sub-calculation.md §5</code>). This is the standard
+per-element <code>ln</code> is in the element fetch <code>stat_next_elem</code> (<code>3A:6F6A</code>): <code>LD A,(8A36); CP 4; RET NC</code> then <code>bcall _LnX</code> at <code>3A:6F72</code> for model codes <code>&lt; 4</code> (<code>ExpReg</code>/<code>LnReg</code>/<code>PwrReg</code>); the
+back-transform <code>_EToX</code>/<code>_TenX</code> lives on page 0x02 (see <code>sub-calculation.md §5</code>). This is the standard
 “linearize, fit a line, transform back” method; <code>r</code> is the correlation of the
 <em>transformed</em> data.</p>
 <h3 id="4a-mean--standard-deviation-confirmed"><a class="header" href="#4a-mean--standard-deviation-confirmed">4a. Mean &amp; standard deviation [confirmed]</a></h3>
@@ -388,7 +388,7 @@ back‑transform <code>_EToX</code>/<code>_TenX</code> lives on page 0x02 (see <
 6798: LD DE,8a55 ; CALL 6998   ; Σx² slot
 67a7: LD DE,8aa6 ; CALL 6998   ; Σy²   (2-Var)
 </code></pre>
-<p>The variance helpers (<code>3A:6984</code>/<code>6989</code>/<code>6998</code>) implement the one‑pass formula
+<p>The variance helpers (<code>3A:6984</code>/<code>6989</code>/<code>6998</code>) implement the one-pass formula
 <code>var = (Σx² − n·x̄²)/N</code> then <code>√</code>:</p>
 <pre><code class="language-z80">6998: _FPSquare(x̄) ; recall Σx² (15da) ; _FPMult ; (RST 30 _FPAdd / subtract) ; …
 6989: CALL _FPDiv (2541) ; CALL 3939 (_SqRoot wrapper) ; store
@@ -397,11 +397,11 @@ back‑transform <code>_EToX</code>/<code>_TenX</code> lives on page 0x02 (see <
 the population path divides by <code>n</code>, the sample path first does <code>_Minus1</code>
 (<code>00:2294</code>, n−1) — confirmed at <code>3A:677C</code>. <code>x̄ = Σx / n</code> via <code>_FPDiv</code>. [confirmed]</p>
 <hr>
-<h2 id="5-the-regression-solver--gaussjordan-on-the-normal-equations-3a67c6--confirmed"><a class="header" href="#5-the-regression-solver--gaussjordan-on-the-normal-equations-3a67c6--confirmed">5. The regression solver — Gauss‑Jordan on the normal equations (<code>3A:67C6</code> …) [confirmed]</a></h2>
-<p>For a polynomial fit the moment matrix from §4 is the augmented normal‑equations
-matrix <code>[ M | Σxⁱy ]</code>. <code>_OneVar</code> solves it in place by Gauss‑Jordan elimination
-(not a closed‑form determinant), then writes the coefficients to <code>QuadA…QuartE</code>.</p>
-<pre><code>67c6: build/copy the augmented matrix; 84d9 = base
+<h2 id="5-the-regression-solver--gauss-jordan-on-the-normal-equations-3a67c6--confirmed"><a class="header" href="#5-the-regression-solver--gauss-jordan-on-the-normal-equations-3a67c6--confirmed">5. The regression solver — Gauss-Jordan on the normal equations (<code>3A:67C6</code> …) [confirmed]</a></h2>
+<p>For a polynomial fit the moment matrix from §4 is the augmented normal-equations
+matrix <code>[ M | Σxⁱy ]</code>. <code>_OneVar</code> solves it in place by Gauss-Jordan elimination
+(not a closed-form determinant), then writes the coefficients to <code>QuadA…QuartE</code>.</p>
+<pre><code class="language-z80">67c6: build/copy the augmented matrix; 84d9 = base
 67d4..67e3: scale the pivot row
 67ec: LD BC,0202 ; CALL 3aad        ; pivot element (2,2)
 67f7: CALL 212d                     ; _ErrD check (zero pivot → SINGULAR MAT 0x83)
@@ -422,12 +422,12 @@ matrix <code>[ M | Σxⁱy ]</code>. <code>_OneVar</code> solves it in place by 
 </code></pre>
 <ul>
 <li>
-<p>A zero/near‑zero pivot raises <code>_ErrSingularMat</code> (0x83) “SINGULAR MAT”
+<p>A zero/near-zero pivot raises <code>_ErrSingularMat</code> (0x83) “SINGULAR MAT”
 (e.g. all x equal, or too few distinct points for the degree). The <code>LD A,0x35</code>/
-<code>0x36</code> and <code>CALL 0x213d</code> are the in‑solver guards. [confirmed]</p>
+<code>0x36</code> and <code>CALL 0x213d</code> are the in-solver guards. [confirmed]</p>
 </li>
 <li>
-<p>The solver is dimension‑generic: <code>LinReg</code> (2×2) → <code>a,b</code>; <code>QuadReg</code> (3×3) →
+<p>The solver is dimension-generic: <code>LinReg</code> (2×2) → <code>a,b</code>; <code>QuadReg</code> (3×3) →
 <code>a,b,c</code>; <code>CubicReg</code> (4×4) → <code>a,b,c,d</code>; <code>QuartReg</code> (5×5) → <code>a,b,c,d,e</code>. The
 coefficients land in <code>QuadA</code>(<code>8AEE</code>) downward. [confirmed]</p>
 </li>
@@ -441,24 +441,23 @@ pinned: at <code>3A:684F</code> the code does <code>LD A,0x12 ; CALL 0x213D</cod
 <code>_Sto_StatVar</code> (the store counterpart of <code>_Rcl_StatVar 00:2149</code> — both funnel through the
 <code>0x3E07</code> statVar dispatcher with the name id in <code>A</code>). Id <code>0x12</code> = <code>tCorr</code> = the <code>Corr</code>
 slot, so this single sequence is exactly <code>r → Corr (8ACA)</code>. The preceding <code>3A:6845</code>
-<code>_SqRoot</code>/<code>_FPDiv</code> cluster forms the ratio; <code>r²</code> (and <code>R²</code> for higher‑order fits) is the
-<code>r·r</code> / coefficient‑of‑determination derived from the same cluster and surfaced through the
-same <code>Corr</code> slot. [confirmed: the <code>A=0x12 → _Sto_StatVar</code> r‑store; standard formula]</p>
+<code>_SqRoot</code>/<code>_FPDiv</code> cluster forms the ratio; <code>r²</code> (and <code>R²</code> for higher-order fits) is the
+<code>r·r</code> / coefficient-of-determination derived from the same cluster and surfaced through the
+same <code>Corr</code> slot. [standard]</p>
 </li>
 <li>
-<p>The fitted equation is also written to <code>RegEQ</code> (the <code>Y=</code>‑style regression
+<p>The fitted equation is also written to <code>RegEQ</code> (the <code>Y=</code>-style regression
 equation system var, recalled via token <code>tRegEq=0x01</code>) so <code>RegEQ</code> can be pasted
 or graphed. [standard]</p>
 </li>
 </ul>
-<p>The <strong>Med‑Med</strong> model (<code>F8</code>) takes the resistant‑line branch (<code>3A:760F/79B9</code>):
-it sorts, splits the x‑sorted data into three equal partitions, takes the median
+<p>The <strong>Med-Med</strong> model (<code>F8</code>) takes the resistant-line branch (<code>3A:760F/79B9</code>):
+it sorts, splits the x-sorted data into three equal partitions, takes the median
 (x,y) of each (<code>MedX1/2/3</code>, <code>MedY1/2/3</code> at <code>8B1B</code>…), and fits the line through the
-outer two summary points adjusted toward the middle — classic Tukey median‑median.
-[confirmed path / standard]</p>
+outer two summary points adjusted toward the middle — classic Tukey median-median. [standard]</p>
 <hr>
 <h2 id="6-median-quartiles-minmax--the-sort-3a7935-3a79b9-confirmed"><a class="header" href="#6-median-quartiles-minmax--the-sort-3a7935-3a79b9-confirmed">6. Median, quartiles, min/max &amp; the sort (<code>3A:7935</code>, <code>3A:79B9</code>) [confirmed]</a></h2>
-<p>For <strong>1‑Var Stats</strong> the five‑number summary needs the data sorted:</p>
+<p>For <strong>1-Var Stats</strong> the five-number summary needs the data sorted:</p>
 <ul>
 <li><code>MinX</code>/<code>MaxX</code> are tracked during the §4 pass (running min/max compares).</li>
 <li>The median/quartile path (<code>3A:79B9</code> → <code>7A0B</code> …) sorts a working copy via the
@@ -467,65 +466,64 @@ internal sort <code>stat_sort</code> (<code>3A:7935</code>), then:
 <li><code>Med</code> (<code>MedX</code>, <code>8AD3</code>) = middle element (or mean of the two middle for even n),</li>
 <li><code>Q1</code> (<code>8ADC</code>) = median of the lower half, <code>Q3</code> (<code>8AE5</code>) = median of the upper
 half (TI’s “exclude the overall median when n is odd” convention),
-with frequency‑weighted positions (the <code>7B30</code>/<code>7B4C</code>/<code>7B6E</code> helpers walk the
-cumulative‑frequency index, and <code>198d</code>/<code>238b</code> interpolate the rank). [confirmed
-path / standard quartile rule]</li>
+with frequency-weighted positions (the <code>7B30</code>/<code>7B4C</code>/<code>7B6E</code> helpers walk the
+cumulative-frequency index, and <code>198d</code>/<code>238b</code> interpolate the rank). The ROM
+path is [confirmed]. The quartile rule is [standard].</li>
 </ul>
 </li>
 </ul>
-<p>The five‑number summary <code>(minX, Q1, Med, Q3, maxX)</code> is what the MED/box‑plot
+<p>The five-number summary <code>(minX, Q1, Med, Q3, maxX)</code> is what the MED/box-plot
 stat plot reads back out of <code>statVars</code>.</p>
 <hr>
-<h2 id="7-worked-flow-2var-stats-l1l2-then-linregaxb-l1l2y1-hypothesis-from-26"><a class="header" href="#7-worked-flow-2var-stats-l1l2-then-linregaxb-l1l2y1-hypothesis-from-26">7. Worked flow: <code>2‑Var Stats L1,L2</code> then <code>LinReg(ax+b) L1,L2,Y1</code> [hypothesis, from §§2–6]</a></h2>
+<h2 id="7-worked-flow-2-var-stats-l1l2-then-linregaxb-l1l2y1-hypothesis"><a class="header" href="#7-worked-flow-2-var-stats-l1l2-then-linregaxb-l1l2y1-hypothesis">7. Worked flow: <code>2-Var Stats L1,L2</code> then <code>LinReg(ax+b) L1,L2,Y1</code> [hypothesis]</a></h2>
 <ol>
 <li>Parser pushes the list args, sets <code>A = command token</code>, <code>bcall(_OneVar)</code>.</li>
-<li><code>_OneVar</code> parses args → x‑list ptr <code>(84D3)</code>, y‑list <code>(84D5)</code>, freq <code>(84DB)</code>;
+<li><code>_OneVar</code> parses args → x-list ptr <code>(84D3)</code>, y-list <code>(84D5)</code>, freq <code>(84DB)</code>;
 saves the model code to <code>(8A36)</code>.</li>
 <li><strong>Accumulation pass</strong> (§4): one walk of L1/L2 building <code>n, Σx, Σx², Σy, Σy², Σxy</code> and <code>minX/maxX/minY/maxY</code> into <code>statVars</code>, plus the 2×2 moment matrix.</li>
 <li><strong>Moments</strong> (§4a): $\bar x=\tfrac{\sum x}{n}$, $\bar y=\tfrac{\sum y}{n}$; the sample/population
 spreads $S_x,\sigma_x,S_y,\sigma_y$ via the variance helper (divide by $n-1$ vs $n$).</li>
-<li><strong>Solve</strong> (§5): Gauss‑Jordan on the normal equations $\left[\begin{array}{cc|c}\sum 1&amp;\sum x&amp;\sum y\\\sum x&amp;\sum x^2&amp;\sum xy\end{array}\right]$ →
+<li><strong>Solve</strong> (§5): Gauss-Jordan on the normal equations $\left[\begin{array}{cc|c}\sum 1&amp;\sum x&amp;\sum y\\\sum x&amp;\sum x^2&amp;\sum xy\end{array}\right]$ →
 <code>b=slope</code>, <code>a=intercept</code> → <code>QuadA/QuadB</code>; <code>r,r²</code> → <code>Corr</code>; equation → <code>RegEQ</code>,
 pasted into <code>Y1</code>.</li>
-<li>Results displayed by the STAT‑CALC report screen; all of x̄/Σx/…/a/b/r persist
+<li>Results displayed by the STAT-CALC report screen; all of x̄/Σx/…/a/b/r persist
 in <code>statVars</code> for later recall by name (<code>_Rcl_StatVar</code>).</li>
 </ol>
 <hr>
-<h2 id="8-stat-plots-standard--partially-confirmed"><a class="header" href="#8-stat-plots-standard--partially-confirmed">8. Stat plots [standard / partially confirmed]</a></h2>
+<h2 id="8-stat-plots-standard"><a class="header" href="#8-stat-plots-standard">8. Stat plots [standard]</a></h2>
 <p>Stat plots (Scatter <code>tScatter=FE</code>, xyLine <code>FD</code>, Histogram <code>tHist=FC</code>, box plots
-<code>tBoxIcon</code>, normal‑prob) are drawn by the graphing subsystem, reading the
-five‑number summary and the raw L1/L2 lists. <code>_ErrStatPlot</code> (<code>00:2759</code>, code
+<code>tBoxIcon</code>, normal-prob) are drawn by the graphing subsystem, reading the
+five-number summary and the raw L1/L2 lists. <code>_ErrStatPlot</code> (<code>00:2759</code>, code
 <code>0x1B</code>) guards an invalid/undefined plot configuration; <code>_ZmStats</code> (<code>33:65DC</code>,
-id <code>0x47A4</code>) is the <strong>ZoomStat</strong> routine that auto‑scales the window to the plotted
+id <code>0x47A4</code>) is the <strong>ZoomStat</strong> routine that auto-scales the window to the plotted
 list data (sets <code>Xmin/Xmax/Ymin/Ymax</code> from <code>minX/maxX/minY/maxY</code>). See
-<a href="sub-graphing.html">sub-graphing.md</a>. [confirmed addresses / standard behavior]</p>
+<a href="sub-graphing.html">sub-graphing.md</a>. [standard]</p>
 <hr>
-<h2 id="9-distributions-distr-menu--not-part-of-statcalc-confirmed-scope"><a class="header" href="#9-distributions-distr-menu--not-part-of-statcalc-confirmed-scope">9. Distributions (DISTR menu) — not part of STAT‑CALC [confirmed scope]</a></h2>
+<h2 id="9-distributions-distr-menu--not-part-of-stat-calc-confirmed"><a class="header" href="#9-distributions-distr-menu--not-part-of-stat-calc-confirmed">9. Distributions (DISTR menu) — not part of STAT-CALC [confirmed]</a></h2>
 <p><code>normalpdf(</code>, <code>normalcdf(</code>, <code>invNorm(</code>, <code>binompdf(</code>, <code>tcdf(</code>, <code>χ²cdf(</code>, <code>Fcdf(</code>,
-etc. are parser functions (DISTR‑menu tokens, the <code>t2ByteTok</code> (<code>0xBB</code>)‑prefixed
-two‑byte tokens like <code>tShadeNorm=35h</code>), evaluated through the normal function
-dispatch of the TI‑BASIC parser, not through <code>_OneVar</code>. They are not
+etc. are parser functions (DISTR-menu tokens, the <code>t2ByteTok</code> (<code>0xBB</code>)-prefixed
+two-byte tokens like <code>tShadeNorm=35h</code>), evaluated through the normal function
+dispatch of the TI-BASIC parser, not through <code>_OneVar</code>. They are not
 exposed as named bcalls in this OS image (a search of <code>bcall_targets.txt</code> finds
 only <code>_SetNorm_Vals</code> <code>00:220F</code>, a helper that copies the <em>display</em> “Normal mode”
 default values — unrelated to the normal <em>distribution</em>). Their numerical cores
-(error‑function / incomplete‑gamma / incomplete‑beta continued fractions) live on
-a banked flash page reached via the parser’s function table and the page‑02 FP
+(error-function / incomplete-gamma / incomplete-beta continued fractions) live on
+a banked flash page reached via the parser’s function table and the page-02 FP
 transcendentals; they belong to the parser/<code>sub-tibasic</code> dispatch rather than the
-STAT subsystem documented here.
-[confirmed: not reachable from <code>_OneVar</code>; hypothesis: numerical method]</p>
-<p><strong>Grounding [confirmed].</strong> A name search of the whole‑OS image for <code>norm</code>/<code>stat</code>/distribution
-cores returns no <code>normalcdf</code>/<code>erf</code>/incomplete‑gamma/incomplete‑beta entry points — the only
+STAT subsystem documented here. [hypothesis]</p>
+<p><strong>Negative search.</strong> [confirmed] A name search of the whole-OS image for <code>norm</code>/<code>stat</code>/distribution
+cores returns no <code>normalcdf</code>/<code>erf</code>/incomplete-gamma/incomplete-beta entry points — the only
 <code>*norm*</code> symbols are <code>_SetNorm_Vals</code> (<code>00:220F</code>, display “Normal mode” defaults),
 <code>fp_normalize</code>/<code>fp_norm_left</code> (mantissa normalisation), <code>cplx_norm_*</code> (complex modulus) and the
 <code>eqdisp_setnorm_split</code> layout helpers — none is a distribution. Likewise every <code>stat_*</code>
-symbol on page 0x3A is part of the <code>_OneVar</code> STAT‑CALC engine (accumulate / variance / median /
-sort / regression), not a DISTR core. So the erf / incomplete‑gamma / incomplete‑beta continued
-fractions are [hypothesis] — outside the STAT‑CALC engine, sitting behind the parser’s 2‑byte
-(<code>0xBB</code>‑prefixed) DISTR‑token function table; their exact page/address is not exposed as a
-named routine in this DB. [confirmed scope; address hypothesis]</p>
+symbol on page 0x3A is part of the <code>_OneVar</code> STAT-CALC engine (accumulate / variance / median /
+sort / regression), not a DISTR core. So the erf / incomplete-gamma / incomplete-beta continued
+fractions are [hypothesis] — outside the STAT-CALC engine, sitting behind the parser’s 2-byte
+(<code>0xBB</code>-prefixed) DISTR-token function table; their exact page/address is not exposed as a
+named routine in this DB. [hypothesis]</p>
 <hr>
 <h2 id="10-integration-summary"><a class="header" href="#10-integration-summary">10. Integration summary</a></h2>
-<pre><code>  L1..L6 lists (VAT data)                 statVars (0x8A3A)  ← results, recall-by-name
+<pre><code class="language-text">  L1..L6 lists (VAT data)                 statVars (0x8A3A)  ← results, recall-by-name
         │ (element fetch 3A:6F6A)               ▲
         ▼                                       │ (_Rcl_StatVar 00:2149)
    _OneVar (3A:6420, id 0x4BA3)  ──►  per-element accumulation pass (3A:6572)
@@ -538,9 +536,9 @@ named routine in this DB. [confirmed scope; address hypothesis]</p>
   errors: _ErrStat 00:2741 (0x15), _ErrStatPlot 00:2759 (0x1B),
           _ErrSingularMat 0x83, _ErrDimMismatch 00:2715 (0x8B)
 </code></pre>
-<p>The STAT subsystem is a thin data‑driven front‑end on page 0x3A that reads list
-data via the VAT, drives the page‑0/page‑02 BCD FP engine to build power‑sums, then
-either finalizes the moments or runs an in‑place Gauss‑Jordan solve of the normal
+<p>The STAT subsystem is a thin data-driven front-end on page 0x3A that reads list
+data via the VAT, drives the page-0/page-02 BCD FP engine to build power-sums, then
+either finalizes the moments or runs an in-place Gauss-Jordan solve of the normal
 equations, depositing every output as a named <code>TIFloat</code> in the <code>statVars</code> block.</p>
 <hr>
 <h2 id="11-confident-address-index-spaceaddr"><a class="header" href="#11-confident-address-index-spaceaddr">11. Confident address index (<code>space:addr</code>)</a></h2>
@@ -550,22 +548,22 @@ equations, depositing every output as a named <code>TIFloat</code> in the <code>
 <tr><th>space:addr</th><th>name</th><th>what</th></tr>
 </thead>
 <tbody>
-<tr><td><code>3A:6420</code></td><td><code>_OneVar</code></td><td>STAT‑CALC entry (1/2‑Var + all regressions), id 0x4BA3</td></tr>
-<tr><td><code>3A:6572</code></td><td><code>onevar_accumulate</code></td><td>one‑pass power‑sum accumulation loop</td></tr>
+<tr><td><code>3A:6420</code></td><td><code>_OneVar</code></td><td>STAT-CALC entry (1/2-Var + all regressions), id 0x4BA3</td></tr>
+<tr><td><code>3A:6572</code></td><td><code>onevar_accumulate</code></td><td>one-pass power-sum accumulation loop</td></tr>
 <tr><td><code>3A:6567</code></td><td><code>onevar_powmul</code></td><td>running power·freq product (OP1→OP2, ×)</td></tr>
 <tr><td><code>3A:6345</code></td><td><code>onevar_frame_teardown</code></td><td>restore stat error frame</td></tr>
 <tr><td><code>3A:6352</code></td><td><code>onevar_frame_teardown_tail</code></td><td>on-error tail calling <code>onevar_frame_teardown</code></td></tr>
 <tr><td><code>3A:6984</code></td><td><code>stat_stddev_pop</code></td><td>population variance/σ finalize (÷ n)</td></tr>
 <tr><td><code>3A:6989</code></td><td><code>stat_stddev_samp</code></td><td>sample variance/S finalize (÷ n−1)</td></tr>
 <tr><td><code>3A:6998</code></td><td><code>stat_var_core</code></td><td>(Σx²−n·x̄²) variance core + √</td></tr>
-<tr><td><code>3A:67C6</code></td><td><code>reg_gauss_solve</code></td><td>Gauss‑Jordan solve of normal equations</td></tr>
+<tr><td><code>3A:67C6</code></td><td><code>reg_gauss_solve</code></td><td>Gauss-Jordan solve of normal equations</td></tr>
 <tr><td><code>3A:69AF</code></td><td><code>reg_store_coeff</code></td><td>write a solved coefficient (matrix set)</td></tr>
 <tr><td><code>00:3A8F</code>/<code>3AA1</code>/<code>3AA7</code>/<code>3AAD</code>/<code>3AB9</code></td><td><code>stat_mtx_index/get/set</code></td><td>RAM trampolines for sums-matrix element access by (row,col)</td></tr>
 <tr><td><code>3A:6F6A</code></td><td><code>stat_next_elem</code></td><td>fetch next list element, advance ptr</td></tr>
 <tr><td><code>3A:6F7D</code>/<code>6F90</code></td><td><code>stat_freq_default</code></td><td>default frequency = 1</td></tr>
 <tr><td><code>3A:7935</code></td><td><code>stat_sort</code></td><td>stat-internal data sort (median/quartile, Med-Med)</td></tr>
-<tr><td><code>3A:79B9</code></td><td><code>stat_median_quartile</code></td><td>median/Q1/Q3 + Med‑Med medians</td></tr>
-<tr><td><code>3A:760F</code>/<code>75E4</code></td><td><code>medmed_partition</code></td><td>Med‑Med 3‑partition setup</td></tr>
+<tr><td><code>3A:79B9</code></td><td><code>stat_median_quartile</code></td><td>median/Q1/Q3 + Med-Med medians</td></tr>
+<tr><td><code>3A:760F</code>/<code>75E4</code></td><td><code>medmed_partition</code></td><td>Med-Med 3-partition setup</td></tr>
 <tr><td><code>00:2149</code></td><td><code>_Rcl_StatVar</code></td><td>recall a named statVar into OP1, id 0x42DC</td></tr>
 <tr><td><code>00:2741</code></td><td><code>_ErrStat</code></td><td>raise STAT error (code 0x15), id 0x44C2</td></tr>
 <tr><td><code>00:2759</code></td><td><code>_ErrStatPlot</code></td><td>raise STAT PLOT error (0x1B), id 0x44D1</td></tr>
@@ -575,8 +573,8 @@ equations, depositing every output as a named <code>TIFloat</code> in the <code>
 </tbody>
 </table>
 </div>
-<p><strong>RAM:</strong> <code>statVars=0x8A3A</code>, model‑discriminator <code>0x8A36</code>, work ptrs <code>0x84AF–0x84DB</code>
-(<code>84D3</code> x/median ptr, <code>84D5/84D7</code> element ptrs, <code>84D9</code> sums‑matrix base,
+<p><strong>RAM:</strong> <code>statVars=0x8A3A</code>, model-discriminator <code>0x8A36</code>, work ptrs <code>0x84AF-0x84DB</code>
+(<code>84D3</code> x/median ptr, <code>84D5/84D7</code> element ptrs, <code>84D9</code> sums-matrix base,
 <code>84DB</code> freq ptr, <code>84B1/84B2</code> loop counters, <code>84B3</code> element count).
 <strong>FP engine reused:</strong> <code>RST 30h</code>=<code>_FPAdd</code>, <code>RST 08h</code>=OP1→OP2, <code>00:238B</code>=<code>_FPMult</code>,
 <code>00:238A</code>=<code>_FPSquare</code>, <code>00:2541</code>=<code>_FPDiv</code>, <code>00:2294</code>=<code>_Minus1</code>, <code>02:6E38</code>/<code>3A:3939</code>
@@ -585,20 +583,20 @@ equations, depositing every output as a named <code>TIFloat</code> in the <code>
 <ul>
 <li><strong><code>r</code> store offset.</strong> <code>3A:684F</code> does <code>LD A,0x12 ; CALL 0x213D</code>
 (<code>_Sto_StatVar</code>, id <code>0x12</code> = <code>tCorr</code>), i.e. <code>r → Corr (8ACA)</code>; <code>r²</code>/<code>R²</code> is the
-<code>r·r</code>/coefficient‑of‑determination from the same <code>6845</code> <code>_SqRoot</code>/<code>_FPDiv</code> cluster, surfaced
-through the same <code>Corr</code> slot (§5). (Residual: the <code>6845–6891</code> region is unanalyzed code in the
-DB, so only the <code>A=0x12</code> store sequence was byte‑pinned, not every intermediate.)</li>
-<li><strong>DISTR numerical cores</strong> (erf/incomplete‑gamma/incomplete‑beta) are
-<em>outside</em> the STAT‑CALC engine: no distribution core is a named routine in this DB; they sit
-behind the parser’s 2‑byte DISTR‑token function table (<code>sub-tibasic</code>). Exact address [hypothesis] (§9).</li>
-<li><strong>STAT‑TESTS</strong> (Z/T/χ²/F/ANOVA) that fill <code>PStat…SStat</code>/<code>anovaf_vars</code> are
+<code>r·r</code>/coefficient-of-determination from the same <code>6845</code> <code>_SqRoot</code>/<code>_FPDiv</code> cluster, surfaced
+through the same <code>Corr</code> slot (§5). (Residual: the <code>6845-6891</code> region is unanalyzed code in the
+DB, so only the <code>A=0x12</code> store sequence was byte-pinned, not every intermediate.)</li>
+<li><strong>DISTR numerical cores</strong> (erf/incomplete-gamma/incomplete-beta) are
+<em>outside</em> the STAT-CALC engine: no distribution core is a named routine in this DB; they sit
+behind the parser’s 2-byte DISTR-token function table (<code>sub-tibasic</code>). Exact address [hypothesis] (§9).</li>
+<li><strong>STAT-TESTS</strong> (Z/T/χ²/F/ANOVA) that fill <code>PStat…SStat</code>/<code>anovaf_vars</code> are
 <em>separate command handlers</em>, not reached through <code>_OneVar</code> (whose tokens are only <code>F2</code>–<code>FF</code>);
-no <code>PStat</code>‑writing routine is among the page‑0x3A <code>stat_*</code> symbols (§1). Per‑test addresses [hypothesis].</li>
+no <code>PStat</code>-writing routine is among the page-0x3A <code>stat_*</code> symbols (§1). Per-test addresses [hypothesis].</li>
 <li><code>stat_sort</code> (<code>3A:7935</code>) is a 49-byte setup that validates/counts the elements
 then dispatches the compare-swap via <code>rst 28h</code> (the bcall site isn’t fully
 analyzed in the DB). The <code>SortA(</code>/<code>SortD(</code> <em>command</em> sort is a different routine
 (page 0x02, comparator <code>_CpOP1OP2</code>) — its complex-list ordering is documented in
-<a href="sub-matrix-list.html#sorta--sortd--list-sort-confirmed-comparator">Matrices &amp; Lists</a>.</li>
+<a href="sub-matrix-list.html#sorta--sortd--list-sort-confirmed">Matrices &amp; Lists</a>.</li>
 </ul>
 
                     </main>
@@ -645,11 +643,11 @@ analyzed in the DB). The <code>SortA(</code>/<code>SortD(</code> <em>command</em
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

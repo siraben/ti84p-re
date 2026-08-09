@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3e0e106f.js"></script>
+        <script src="toc-24589cc4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -257,8 +257,7 @@ typedef struct {
 <p><code>row_action[]</code> bytes are row labels or control actions. They are separate from the cell
 stream. The row-cell pointer routine at <code>39:4DCA</code> skips the row count, the per-row cell
 counts, and the row-action bytes before it reaches the packed two-byte cells. The cell
-emitter at <code>39:4DE6</code> then walks the selected row and calls <code>39:4E8E</code> for each <code>D:E</code> cell.
-[confirmed]</p>
+emitter at <code>39:4DE6</code> then walks the selected row and calls <code>39:4E8E</code> for each <code>D:E</code> cell. [confirmed]</p>
 <p>Examples:</p>
 <div class="table-wrapper">
 <table>
@@ -276,12 +275,10 @@ emitter at <code>39:4DE6</code> then walks the selected row and calls <code>39:4
 </table>
 </div>
 <p>The display cell <code>00 C8</code> is the visible <code>fnInt(</code> name. It appears in class <code>0x08</code> and
-class <code>0x30</code>; it is distinct from the fixed <code>Lintegral</code> glyph cells in class <code>0x0D</code>.
-[confirmed]</p>
+class <code>0x30</code>; it is distinct from the fixed <code>Lintegral</code> glyph cells in class <code>0x0D</code>. [confirmed]</p>
 <h2 id="token-classification"><a class="header" href="#token-classification">Token classification</a></h2>
 <p><code>eqdisp_dispatch_token</code> (<code>39:4A74</code>) turns an incoming token or action byte into a layout
-class. It first handles the special <code>0x3D</code> template handoff, then applies context bias.
-[confirmed]</p>
+class. It first handles the special <code>0x3D</code> template handoff, then applies context bias. [confirmed]</p>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{Class selection}
 \begin{algorithmic}
@@ -361,8 +358,7 @@ builds the <em>high</em> byte and the <code>+(rowHeight+2)</code> loop builds th
 </table>
 </div>
 <p>Descriptor <code>39:6880</code> contains <code>FE09</code>, <code>FB C8</code>, <code>00 C7</code>, <code>00 C8</code>, and <code>FB C7</code> in one row.
-That places <code>fnInt(</code> as a menu/template cell, not as a structural integral glyph.
-[confirmed]</p>
+That places <code>fnInt(</code> as a menu/template cell, not as a structural integral glyph. [confirmed]</p>
 <h2 id="fractions"><a class="header" href="#fractions">Fractions</a></h2>
 <p>Fractions are the most completely recovered dynamic template. The kind-2 fraction path
 uses <code>0x85EE</code> and <code>0x85EF</code> as measured numerator and denominator widths. It draws a fixed
@@ -537,7 +533,7 @@ routines actually run</em> for each construct:</p>
 </tbody>
 </table>
 </div>
-<p>This confirms the headline static result: the descriptor path (<code>69C8</code>/<code>68AE</code>/<code>683D</code>/<code>6ABF</code>)
+<p>This confirms the static result: the descriptor path (<code>69C8</code>/<code>68AE</code>/<code>683D</code>/<code>6ABF</code>)
 and the handler-record path (<code>4DCA</code>/<code>4DE6</code>/<code>4E8E</code>/<code>4F1A</code>) are mutually
 exclusive per construct, exactly as the two-mechanism model predicts. [confirmed]</p>
 <p><code>39:5167</code> (<code>eqdisp_layout_multiarg</code>) statically owns the multi-arg row
@@ -624,11 +620,11 @@ tall-template row composition.</p>
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

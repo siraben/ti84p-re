@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3e0e106f.js"></script>
+        <script src="toc-24589cc4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -188,7 +188,7 @@ or runs a <strong>DRAW</strong> menu command. This traces the path real-coordina
 against equate/convention; [standard] = matches documented TI behavior but not
 byte-verified here; [hypothesis] = inferred, not yet verified.</p>
 <hr>
-<h2 id="1-window-variables-ram-confirmed-addresses-from-ti83plusinc--code-refs"><a class="header" href="#1-window-variables-ram-confirmed-addresses-from-ti83plusinc--code-refs">1. Window variables (RAM) [confirmed addresses, from ti83plus.inc + code refs]</a></h2>
+<h2 id="1-window-variables-ram-confirmed"><a class="header" href="#1-window-variables-ram-confirmed">1. Window variables (RAM) [confirmed]</a></h2>
 <p>All graph window state lives in a contiguous block of 9-byte <code>TIFloat</code>s starting at <code>0x8F50</code>.
 These are the values the WINDOW editor writes and the grapher reads.</p>
 <div class="table-wrapper">
@@ -225,7 +225,7 @@ is 95 columns wide (0..94) and 63 tall (0..62), hence the /94 and /62. [standard
 <h3 id="forward-real-coordinate--pixel-index"><a class="header" href="#forward-real-coordinate--pixel-index">Forward: real coordinate → pixel index</a></h3>
 <p><code>_XftoI</code> (<code>37:41EB</code>) and <code>_YftoI</code> (<code>37:41DF</code>) convert an OP1 real coordinate to a
 pixel index. Both are thin shims around the shared engine at <code>37:41F2</code>: [confirmed]</p>
-<pre><code>_XftoI (37:41EB):  BC = 0x8E6A (X working float),  HL = shortX (0x9164),  SCF  → 41F2
+<pre><code class="language-z80">_XftoI (37:41EB):  BC = 0x8E6A (X working float),  HL = shortX (0x9164),  SCF  → 41F2
 _YftoI (37:41DF):  BC = Ymin   (0x8F6B),            HL = shortY (0x916D),  OR A → 41F2; INC A
 </code></pre>
 <p>Shared engine <code>37:41F2</code> computes $\mathrm{pixel}=\dfrac{\mathrm{value}-\mathrm{min}}{\mathrm{pixelDelta}}$:</p>
@@ -265,7 +265,7 @@ a menu covers it). [confirmed]</li>
 <p><code>_GrBufClr</code> (<code>04:6071</code>): clears the whole 0x300-byte buffer to 0 (a
 <code>LD (HL),0</code> + 0x2FF-byte propagate copy). [confirmed]</p>
 <p><code>_IOffset</code> (<code>04:42B5</code>) computes the LCD controller address bytes for a pixel (inputs <code>B</code>=x, <code>C</code>=y):</p>
-<pre><code>(0x844F) = (x &gt;&gt; 3) | 0x20     ; LCD "set row page" command — the rotated TI panel pages by X
+<pre><code class="language-pseudocode">(0x844F) = (x &gt;&gt; 3) | 0x20     ; LCD "set row page" command — the rotated TI panel pages by X
 (0x8451) = (0x3F - y) | 0x80   ; LCD "set column" command (Y, mirrored)
 returns (table_42E4)[x &amp; 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
 </code></pre>
@@ -319,7 +319,7 @@ into the argument grabber). [confirmed]</p>
 <tr><td><code>_UnLineCmd</code></td><td><code>04:797C</code></td><td><code>Line(…,0)</code> — erase variant (same path, clear mode).</td></tr>
 <tr><td><code>_PointCmd</code></td><td><code>04:79B2</code></td><td><code>Pt-On/Pt-Off/Pt-Change(</code> — reads style from <code>OP1.mantissa[0] &amp; 0x20</code>, dispatches set/clear/toggle.</td></tr>
 <tr><td><code>_DrawCmd</code></td><td><code>04:7B8B</code></td><td>top-level <code>DRAW</code> dispatch — grabs the pending count and cross-jumps to the per-command handler.</td></tr>
-<tr><td><code>_DrawZeroOP1</code></td><td><code>04:620B</code></td><td>seeds OP3=0 then draws (used for axis / <code>DrawF</code> zero baseline).</td></tr>
+<tr><td><code>draw_zero_op1</code></td><td><code>04:620B</code></td><td>seeds OP3=0 then draws (used for axis / <code>DrawF</code> zero baseline).</td></tr>
 </tbody>
 </table>
 </div>
@@ -362,10 +362,11 @@ byte streams — the same token encoding the homescreen uses. <code>Y1</code>…
 equation’s flags byte is <code>0x23</code> when selected (plotted) and <code>0x03</code> when deselected, so
 the selection bit is bit 5 (<code>0x20</code>). The per-equation style byte holds the line style:
 <code>0</code>=line, <code>1</code>=thick, <code>2</code>=shade above, <code>3</code>=shade below, <code>4</code>=trace/path, <code>5</code>=animate, <code>6</code>=dotted
-(<code>curGStyle</code> <code>0x8D17</code> is the current-equation copy). [confirmed — selection/style byte values
-match the <a href="https://merthsoft.com/linkguide/ti83+/vars.html#style">TI link-protocol guide</a>]</p>
+(<code>curGStyle</code> <code>0x8D17</code> is the current-equation copy). [confirmed] The
+selection/style byte values also match the
+<a href="https://merthsoft.com/linkguide/ti83+/vars.html#style">TI link-protocol guide</a>.</p>
 <h3 id="parsing--pre-scan"><a class="header" href="#parsing--pre-scan">Parsing / pre-scan</a></h3>
-<p><code>_GraphParseTok</code> (<code>33:5023</code>) walks an equation’s token stream to classify it before
+<p><code>graph_parse_tok</code> (<code>33:5023</code>) walks an equation’s token stream to classify it before
 plotting: it reads tokens via the paged-pointer reader (<code>_SetupPagedPtr</code>/<code>_PagedGet</code>),
 recognizes 2-byte tokens (<code>_IsA2ByteTok</code>), and sets feature bits (e.g. token <code>0xEF…</code>
 ranges → returns a category in A) used to decide draw mode and whether the equation is
@@ -389,7 +390,7 @@ higher Xres skips columns (faster, coarser). [confirmed]</li>
 (<code>GDBObj</code>, type/exp marker <code>0x61</code>) — the bundle of window vars + mode + selected equations
 that the <code>StoreGDB</code>/<code>RecallGDB</code> commands save. <code>_JError(0x89)</code> on a type mismatch.</p>
 <h3 id="graph-table-confirmed"><a class="header" href="#graph-table-confirmed">Graph table [confirmed]</a></h3>
-<p><code>_GraphTblFind</code> (<code>33:7097</code>) / <code>_GraphTblNext</code> (<code>33:707A</code>) index the in-RAM table of
+<p><code>graph_tbl_find</code> (<code>33:7097</code>) / <code>graph_tbl_next</code> (<code>33:707A</code>) index the in-RAM table of
 equation pointers (<code>iMathPtr4</code>-based, 2 bytes/entry) used to iterate the selected functions
 during a regraph or TABLE build.</p>
 <hr>
@@ -398,7 +399,7 @@ during a regraph or TABLE build.</p>
 <li>The home screen uses the large font and <code>curRow</code>/<code>curCol</code> text cursor (see
 <a href="display-lcd.html">display-lcd.md</a>). The graph screen is the pixel buffer <code>plotSScreen</code> rendered by
 the routines above; small-font labels (coords, TRACE readout) go through
-<code>_VPutMap</code>/<code>penCol</code>(0x86D7)/<code>penRow</code>(0x86D8). [confirmed addresses]</li>
+<code>_VPutMap</code>/<code>penCol</code>(0x86D7)/<code>penRow</code>(0x86D8). [confirmed]</li>
 <li><strong>TRACE</strong> moves a cursor along a selected function: it steps the column, evaluates the
 function (<code>_ParseInp</code>) for that X, maps the point with <code>_XftoI</code>/<code>_YftoI</code>, draws the
 cross-cursor, and uses <code>_SetXXOP1</code>/<code>_SetXXOP2</code> to convert the cursor pixel back to the real
@@ -466,11 +467,11 @@ values (<code>0</code>–<code>6</code>) are [confirmed] against the <a href="ht
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

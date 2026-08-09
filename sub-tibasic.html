@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3e0e106f.js"></script>
+        <script src="toc-24589cc4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -199,8 +199,10 @@ decompiled cursor code). Most tokens are 1 byte; the 11 lead bytes
 <p>Editing/detokenizing for the program editor uses the page-01 token helpers
 (<a href="tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a>, re-confirmed here):</p>
 <ul>
-<li><code>_GetTokLen</code> (<code>01:66E5</code>) — returns 1 or 2 for the token at HL (length of the
-token’s byte encoding), via <code>smallfont_glyph_ptr</code> (<code>01:6702</code>).</li>
+<li><code>_GetTokLen</code> (<code>01:66E5</code>) — accepts the packed token in <code>DE</code>, calls
+<code>smallfont_glyph_ptr</code> (<code>01:6702</code>) to resolve its display string, then returns
+the leading display-length byte in <code>A</code>.
+<code>_IsA2ByteTok</code> tests whether the encoded token occupies one or two bytes.</li>
 <li><code>_Get_Tok_Strng</code> (<code>01:66EA</code>) — returns the display string for a token
 (cross-page jump to the name table). The editor calls this per token to paint
 a line; <code>Disp</code> of a list/string also routes display text through related
@@ -219,16 +221,18 @@ re-verified by decompilation):</p>
 <tr><td><code>parse_cur_tok</code></td><td><code>38:72DA</code></td><td>fetch token at cursor (<code>parsePtr</code>); special-cases <code>:</code> token <code>0x3E</code> (<code>tColon</code>)/end <code>0x00</code></td></tr>
 <tr><td><code>parse_advance</code></td><td><code>38:7248</code></td><td><code>parsePtr</code> (<code>965D</code> = <code>nextParseByte</code>) ++, bounds-check vs <code>parseEnd</code> (<code>965F</code> = <code>basic_end</code>); refill via <code>deref_byte</code> (<code>38:5B79</code>)</td></tr>
 <tr><td><code>parse_expect_or_err</code></td><td><code>38:5CD8</code></td><td>fetch a token; if not the expected one, set <code>parsePtr</code> to the fault position and <code>_ErrSyntax</code></td></tr>
-<tr><td><code>parse_scan_tokens</code></td><td><code>38:4180</code></td><td>skip forward to a delimiter, honoring 2-byte tokens via <code>_IsA2ByteTok</code>; used by every block scanner</td></tr>
+<tr><td><code>parse_scan_tokens</code></td><td><code>38:4180</code></td><td>skip forward to a delimiter, treating quoted strings as indivisible and honoring 2-byte tokens via <code>_IsA2ByteTok</code>; used by every block scanner</td></tr>
 <tr><td><code>parse_init</code></td><td><code>38:5B7B</code></td><td>zero parse position bytes (+6/+7), clear a batch of parser flag bits in the IY flag area</td></tr>
 </tbody>
 </table>
 </div>
 <p><code>parsePtr</code> is the OS RAM byte <code>965D</code> (official equate <code>nextParseByte</code>); <code>parseEnd</code>
-is <code>965F</code> (<code>basic_end</code>). <code>parse_scan_tokens</code>
-loop: <code>parse_cur_tok</code>; if token==<code>0x2A</code> (<code>tString</code>, the <code>"</code> delimiter it tests for here)
-stop, else <code>_IsA2ByteTok</code> then <code>parse_advance</code> (twice for a 2-byte token). This
-is the primitive every control-flow scanner is built on.</p>
+is <code>965F</code> (<code>basic_end</code>). <code>parse_scan_tokens</code> calls the quoted-string scanner at
+<code>38:544D</code> when it sees <code>tString</code> (<code>0x2A</code>); that helper advances to the closing
+quote or EOL (<code>0x3F</code>), so delimiters inside the string do not end the outer
+scan. The caller then checks the statement delimiter and advances ordinary
+tokens, using <code>_IsA2ByteTok</code> to consume both bytes where required. This is the
+primitive every control-flow scanner is built on.</p>
 <hr>
 <h2 id="3-top-level-execution-model-confirmed"><a class="header" href="#3-top-level-execution-model-confirmed">3. Top-level execution model [confirmed]</a></h2>
 <ul>
@@ -250,7 +254,7 @@ inside <code>parse_eval_expr</code>) and the same precedence selector (the label
 (FPS push, flag bits) and then runs the common token loop. [confirmed]</li>
 </ul>
 <h3 id="the-shared-inner-loop-3859c8-confirmed"><a class="header" href="#the-shared-inner-loop-3859c8-confirmed">The shared inner loop (<code>38:59C8</code>) [confirmed]</a></h3>
-<pre><code>loop:
+<pre><code class="language-pseudocode">loop:
   parse_advance_refill / err_if_not_real_86   ; refresh cursor / housekeeping
   class = chk_tok_end()          ; classify current token
   if (IY+9 &amp; 0x80) class = set_split_rows()  ; alt classify for flagged tokens
@@ -299,7 +303,7 @@ variable (Xmin etc.) into/from OP1.</li>
 skip the not-taken branch of <code>If</code> / <code>If…Then</code>, and to bound <code>For</code>/<code>While</code>/
 <code>Repeat</code> bodies). It keeps a nest-depth counter and walks via
 <code>parse_scan_tokens</code>:</p>
-<pre><code>depth = 0
+<pre><code class="language-pseudocode">depth = 0
 loop:
   t = cur_token
   case t == tElse(D0):  if depth==0 -&gt; stop, return 0xD0 (Else)   ; else skip
@@ -328,8 +332,7 @@ adjacent token to <code>tStop</code> <code>0xD9</code>). For <code>tIf</code> it
 shared precedence loop to evaluate the condition; unknown leading tokens here
 raise <code>_JError(0x88)</code> (<code>E_Syntax</code>) for ordinary unknown tokens, or <code>_JError(0x30)</code>
 (<code>E_Version</code>, “ERR:VERSION”) for tokens above <code>0xF5</code> (the reserved/newer-token range —
-<code>0x30</code> is the message-table index, one below <code>0x31</code> ARCHIVE FULL). [confirmed
-bytes]</li>
+<code>0x30</code> is the message-table index, one below <code>0x31</code> ARCHIVE FULL). [confirmed]</li>
 </ul>
 <h3 id="for--while--repeat--end-confirmed"><a class="header" href="#for--while--repeat--end-confirmed">For( / While / Repeat / End [confirmed]</a></h3>
 <ul>
@@ -347,12 +350,12 @@ the page-0x02 command dispatcher: <code>02:54BD</code> loads a per-token handler
 <code>tReturn</code>=<code>CP 0xD5</code>), and <code>tWhile</code>/<code>tRepeat</code> load a loop-type code (<code>LD A,0x26</code>/<code>0x27</code>)
 and <code>JP 0x6400</code>. <code>02:6400</code> and the <code>6A2A/6A30/6A34</code> stubs set a command index
 (<code>0x28/0x29/0x2A</code>) and invoke bcall <code>0x5140</code>/<code>0x513D</code>, which both resolve to page
-0x33 (<code>_grf_435f</code>, target <code>33:435F</code>). <code>33:435F</code> does <code>SUB 0x20</code>, bounds-checks, and
+0x33 (<code>grf_435f</code>, target <code>33:435F</code>). <code>33:435F</code> does <code>SUB 0x20</code>, bounds-checks, and
 indexes a 13-entry jump table at <code>33:4381</code> (<code>0x47BB, 0x4A71, 0x4817, 0x4759, 0x47F5, 0x4AAA, 0x4B36, 0x4B4B, 0x45DE, 0x45D1, 0x459B, 0x4C93, 0x4CE8</code>) — the actual
 For/While/Repeat/End/Return bodies. The default <code>For</code> step uses <code>_OP2Set1</code> and the loop
 variable is stored via <code>_MovFrOP1</code>; <code>End</code> re-seeds the parse cursor from the loop-record’s
-saved position. [confirmed dispatch chain into page 0x33; exact FPS record byte layout
-not yet field-mapped — see residual]</li>
+saved position. The dispatch chain into page <code>33</code> is [confirmed]. The exact
+FPS record byte layout remains [hypothesis].</li>
 <li><code>if_else_skip_handler</code> (<code>38:5826</code>)’s prologue calls <code>_DeallocFPS1</code> then
 <code>restore_982c_ctx</code> (<code>38:58DF</code>, which sets <code>pTempCnt</code>/<code>cleanTmp</code>) — FPS bookkeeping
 consistent with pushing/popping a loop frame. [hypothesis]</li>
@@ -372,7 +375,7 @@ until EOL (<code>'?'</code>=0x3F) / end, records the position in <code>parsePtr<
 <li><code>Goto</code> resolves by rescanning the program body from the top for a matching
 <code>Lbl name</code>, then setting <code>parsePtr</code> there — the classic TI-BASIC behavior that
 makes <code>Goto</code> O(program size) and makes <code>Goto</code> out of a loop leak the loop’s
-stack frame. [inferred — standard, consistent with the rescan call shape]</li>
+stack frame. [standard]</li>
 <li><code>Return</code>/<code>Stop</code> (<code>tReturn=D5</code>/<code>tStop=D9</code>) terminate execution at different
 scopes: <code>Return</code> exits the current BASIC program and resumes the caller, while
 <code>Stop</code> exits the whole BASIC program chain back to the homescreen context.
@@ -412,7 +415,7 @@ paint routine; otherwise <code>RST5</code> (bjump) to the generic display path. 
 results format via <code>_DispOP1A</code> (<code>04:7844</code>) → <code>_CkOP1Real</code>; strings/lists route
 through their formatters. Each <code>Disp</code> item ends with <code>_NewLine</code> (<code>01:5F4A</code>):
 <code>curCol=0</code>, and if <code>curRow+1 &gt;= winBtm</code> it triggers scroll, else <code>curRow++</code>.
-<code>_DispDone</code> (<code>01:69B0</code>) finishes. [confirmed for <code>_Disp</code>/<code>_NewLine</code>]</p>
+<code>_DispDone</code> (<code>01:69B0</code>) finishes. [confirmed]</p>
 </li>
 <li>
 <p><code>Output(row,col,value</code> — <code>_OutputExpr</code> (<code>03:4AF2</code>, cross-page) writes at an
@@ -436,8 +439,8 @@ all, <code>Input</code> pauses on the graph screen with a free-moving cursor.</l
 comma-separated variable list (<code>02:6699 LD DE,1; … ; 02:66BF CALL 0x1942; CP 0x04; JR NZ,error</code> — each list item must classify as a storable real/var, type 4). For
 each variable: resolve its name (<code>02:66AC CALL 0x1DF3</code> then cross-page <code>CALL 0x3A89</code>),
 auto-print “<code>NAME=</code>”, run the editor, parse the typed value, store it, then advance to
-the next comma item. [confirmed token sites + loop/validation bytes; entry-line
-editor internals dense]</li>
+the next comma item. The token sites and loop/validation bytes are [confirmed];
+the entry-line editor internals remain unmapped.</li>
 </ul>
 </li>
 <li>
@@ -465,12 +468,12 @@ Ghidra renders as code. Byte-decoding it (<code>FE AD 1C 1B 18 EC 31 00 84 …</
 records keyed by token (<code>FE xx</code> 1-byte, <code>FB xx</code>/<code>FC xx</code>/<code>F4 89</code> 2-byte tokens — getKey,
 stat/distribution and finance tokens), used by a (de)tokenizer/compiler rather than as a
 key→code map. The keycodes a <code>getKey</code> returns come from <code>_GetKey</code> on page 06, not this table.
-[confirmed: 37:6700 is a token-descriptor table; keycodes come from
-<code>_GetKey</code> on page 06]</p>
+The token-descriptor table at <code>37:6700</code> and the page-06 keycode source are
+[confirmed].</p>
 </li>
 <li>
 <p><code>ClrHome</code> — clears the home-screen text shadow and resets the cursor to
-(0,0). [inferred — standard]</p>
+(0,0). [standard]</p>
 </li>
 </ul>
 <p>The <code>_RunIndicOn</code>/<code>Off</code> (<code>01:6518</code>/<code>6531</code>) busy indicator runs during
@@ -506,7 +509,7 @@ for the next.</li>
 classifier) that the dispatch consults; both tail into <code>RST5</code> (bjump) handlers.</p>
 <hr>
 <h2 id="7-confident-addresses-spaceaddr--name"><a class="header" href="#7-confident-addresses-spaceaddr--name">7. Confident addresses (space:addr → name)</a></h2>
-<pre><code>38:5987   _ParseInp                  ; parse/eval entry line or formula
+<pre><code class="language-text">38:5987   _ParseInp                  ; parse/eval entry line or formula
 38:5ab3   parse_eval_expr            ; recursive-descent statement/expr core
 38:59c5   eval_stmt_entry            ; statement-loop variant (shared loop label 38:59C8)
 38:5826   if_else_skip_handler       ; Else-branch skip via block matcher
@@ -533,12 +536,12 @@ classifier) that the dispatch consults; both tail into <code>RST5</code> (bjump)
 01:69b0   _DispDone                  ; finish a Disp
 01:6518   _RunIndicOn
 01:6531   _RunIndicOff
-01:66e5   _GetTokLen                 ; token byte-length (editor)
+01:66e5   _GetTokLen                 ; detokenized display-string length
 01:66ea   _Get_Tok_Strng             ; token -&gt; display string (editor)
 </code></pre>
 <p>I/O command token-handler sites (page 02 = the command-exec page; dispatched
 from the page-38 evaluator via cross-page jump):</p>
-<pre><code>02:54ef   input_cmd_handler  (tInput DC)
+<pre><code class="language-text">02:54ef   input_cmd_handler  (tInput DC)
 02:562f   prompt_cmd_handler (tPrompt DD)
 02:555d   menu_cmd_handler   (tMenu E6)
 02:55e7   pause_cmd_handler  (tPause D8)
@@ -967,11 +970,11 @@ multi-line) remain dense and are only confirmed at the argument-parse boundary.<
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

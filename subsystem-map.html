@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3e0e106f.js"></script>
+        <script src="toc-24589cc4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -192,7 +192,7 @@
 <tr><td><strong>Variables / VAT</strong></td><td style="text-align: right">~37</td><td><code>_FindSym</code>,<code>_ChkFindSym</code>,<code>_CreateReal</code>,<code>_CreateStrng</code>,<code>_CreateAppVar</code>,<code>_DelVar</code>,<code>_InsertMem</code>,<code>_Arc_Unarc</code></td></tr>
 <tr><td><strong>String / convert</strong></td><td style="text-align: right">~18</td><td><code>_ExpToHex</code>,<code>_OP1ExpToDec</code>,<code>_CreateStrng</code>,<code>_StrCopy</code>,<code>_Get_Tok_Strng</code></td></tr>
 <tr><td><strong>Parser / TI-BASIC</strong></td><td style="text-align: right">~18</td><td><code>_IsA2ByteTok</code>,<code>_GetTokLen</code>,<code>_BinOPExec</code>,<code>_ParseInp</code></td></tr>
-<tr><td><strong>Link / I-O</strong></td><td style="text-align: right">~15</td><td><code>_SendAByte</code>,<code>_RecAByteIO</code>,<code>_SendVarCmd</code>,<code>_Rec1stByte</code>,<code>_LinkXferOP</code></td></tr>
+<tr><td><strong>Link / I-O</strong></td><td style="text-align: right">~15</td><td><code>_SendAByte</code>,<code>_RecAByteIO</code>,<code>_SendVarCmd</code>,<code>_Rec1stByte</code>,<code>link_xfer_op</code></td></tr>
 <tr><td><strong>System / power</strong></td><td style="text-align: right">~15</td><td><code>_AppInit</code>,<code>_PutAway</code>,<code>_RandInit</code>,<code>_ApdSetup</code>,<code>_Chk_Batt_Low</code>,<code>_SetExSpeed</code>,<code>_JForceCmd</code></td></tr>
 <tr><td><strong>List / Matrix</strong></td><td style="text-align: right">~13</td><td><code>_CreateRList</code>,<code>_CreateCList</code>,<code>_CreateRMat</code>,<code>_ErrDimMismatch</code>,dim/element ops</td></tr>
 <tr><td><strong>Keyboard</strong></td><td style="text-align: right">~5</td><td><code>_GetCSC</code>,<code>_GetKey</code>,<code>_KeyToString</code></td></tr>
@@ -213,7 +213,7 @@
     DISP --&gt; R
 </pre>
 
-<p>Cross-cutting services used by all of the above: bcall/paging (<a href="bcall-mechanism.html">03</a>), interrupts/APD (<a href="interrupts.html">04</a>), error handling (<code>_JError</code> + <code>TIError</code> codes), and the system flags (<code>SystemFlags</code> @ <code>flags</code>).</p>
+<p>Cross-cutting services used by all of the above: <a href="bcall-mechanism.html">the bcall mechanism</a>, <a href="interrupts.html">interrupts and APD</a>, error handling (<code>_JError</code> + <code>TIError</code> codes), and the system flags (<code>SystemFlags</code> @ <code>flags</code>).</p>
 <h2 id="how-the-pieces-connect-the-through-line"><a class="header" href="#how-the-pieces-connect-the-through-line">How the pieces connect (the through-line)</a></h2>
 <ol>
 <li><strong>Interrupt</strong> keeps time, scans the keypad into <code>kbdScanCode</code>, runs APD.</li>
@@ -223,7 +223,7 @@
 <li>Results land in <code>OP1</code> and are rendered by the display subsystem.</li>
 <li><strong>bcall + paging</strong> is the substrate that lets steps 3–5 live on different flash pages; errors unwind via <code>_JError</code>/<code>onSP</code>.</li>
 </ol>
-<p>See per-subsystem docs <code>01</code>–<code>09</code> for detail.</p>
+<p>See the subsystem pages linked above and in the sidebar for detail.</p>
 
                     </main>
 
@@ -269,11 +269,11 @@
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

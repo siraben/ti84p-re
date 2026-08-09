@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3e0e106f.js"></script>
+        <script src="toc-24589cc4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -191,7 +191,7 @@
 </ol>
 <h2 id="address-notation"><a class="header" href="#address-notation">Address notation</a></h2>
 <ul>
-<li><code>pp:addr</code> — flash page <code>pp</code> (<code>00</code>–<code>3F</code>), logical address <code>addr</code>. Banked pages run in the <code>4000–7FFF</code> window, so e.g. <code>_PutS</code> at <code>01:5C39</code> means page 1, address <code>0x5C39</code>. Example: <code>3D:6745</code>.</li>
+<li><code>pp:addr</code> — flash page <code>pp</code> (<code>00</code>–<code>3F</code>), logical address <code>addr</code>. Banked pages run in the <code>4000-7FFF</code> window, so e.g. <code>_PutS</code> at <code>01:5C39</code> means page 1, address <code>0x5C39</code>. Example: <code>3D:6745</code>.</li>
 <li><code>ram:addr</code> — page 0 (the always-mapped kernel) and the RAM window; Ghidra keeps page 0 in its <code>ram</code> space, so <code>ram:229E</code> ≡ <code>00:229E</code>.</li>
 <li>Ghidra’s overlay space writes flash addresses as <code>page_pp:addr</code> (e.g. <code>page_38:4000</code>); the wiki normalizes these to the short <code>pp:addr</code> form, so <code>page_38:4000</code> is written <code>38:4000</code>.</li>
 <li>A bare <code>0x….</code> (no page) is a RAM data address or an unpaged value (e.g. <code>flags</code> <code>0x89F0</code>, the bcall-ID ranges <code>0x4xxx</code>/<code>0x8xxx</code>, a page number like <code>0x3B</code>).</li>
@@ -211,7 +211,6 @@
 </tbody>
 </table>
 </div>
-<p>Some early deep-dive docs use shorthand <code>[C]</code>/<code>[H]</code>/<code>[I]</code> ≈ <code>[confirmed]</code>/<code>[standard]</code>/<code>[hypothesis]</code>; read them against this three-tier scheme.</p>
 <h2 id="function-naming"><a class="header" href="#function-naming">Function naming</a></h2>
 <ul>
 <li><code>_CamelCase</code> — an official TI bcall/equate name (from <code>ti83plus.inc</code>, the full 2007 TI-83 Plus SDK equates file, or the TI SDK), e.g. <code>_FindSym</code>, <code>_FPAdd</code>. High confidence.</li>
@@ -222,7 +221,7 @@
 <h2 id="how-this-re-was-produced"><a class="header" href="#how-this-re-was-produced">How this RE was produced</a></h2>
 <ul>
 <li>The Ghidra database is rebuilt from the ROM by <code>tools/build.sh</code> (a 10-stage headless pipeline). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves and names routines from the main OS bcall table.</li>
-<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored highest for the <code>0x4xxx</code> table — more known bcall IDs resolve to a valid <code>(addr, page)</code> entry there than on any other page — and is confirmed by the documented RST shortcuts (all six matched) and by every entry resolving and live-confirming once 0x3B is applied. <code>0x8xxx</code> bcall IDs index a retail boot table on page <code>3F</code> (with the USB boot entries on retail page <code>2F</code>). This <code>rom.bin</code> is a BootFree image — page <code>3F</code> carries the BootFree prefix <code>3E 3F D3 06 …</code> and page <code>2F</code> is blank (all <code>FF</code>) — so these <code>0x8xxx</code> body targets do not resolve and are left unnamed (<code>tools/bcalls8x_targets.txt</code> has no body rows); only their SDK equate names are known.</li>
+<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored highest for the <code>0x4xxx</code> table — more known bcall IDs resolve to a valid <code>(addr, page)</code> entry there than on any other page — and is confirmed by the documented RST shortcuts (all six matched) and by every entry resolving and live-confirming once 0x3B is applied. <code>0x8xxx</code> bcall IDs index the retail boot table on page <code>3F</code>; several USB entries target page <code>2F</code>. The local <code>rom.bin</code> is assembled from the patched base plus the retail <code>D84PBE1.8Xv</code> and <code>D84PBE2.8Xv</code> payloads, so <code>tools/bcalls8x_targets.txt</code> contains 83 byte-resolved body rows. The resolver rejects these targets when page <code>3F</code> has a BootFree prefix.</li>
 <li><strong>Decompiler caveats.</strong> Ghidra’s Z80 decompiler mis-renders some idioms — <code>SET b,(IY+d)</code> flag ops, the <code>CALL cross_page_jump</code> (<code>ram:2B09</code>) trampolines, and register-passed arguments on banked pages. Where the decompiler is unreliable the notes are grounded in the raw disassembly (and several deep-dives used a small custom Z80 decoder over the ROM to verify addresses byte-exactly).</li>
 <li><strong>Parallel multi-agent passes.</strong> The feature deep-dives (<code>sub-*</code>) and the final 100%-naming pass were produced by multiple agents working on isolated copies of the database, each owning a disjoint set of pages, then merged.</li>
 </ul>
@@ -272,11 +271,11 @@
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3e0e106f.js"></script>
+        <script src="toc-24589cc4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -187,7 +187,7 @@
 006f:  int_dispatch_sources    ; live interrupt-source dispatcher
 </code></pre>
 <p><code>int_dispatch_sources</code> @ <code>ram:006F</code> runs after the two-byte prologue at <code>ram:006D</code>, with <code>IY = flags</code> (<code>0x89F0</code>), so <code>(IY+off)</code> reads/writes <code>SystemFlags</code> fields.</p>
-<h2 id="what-it-does-confirmed-from-decompiler"><a class="header" href="#what-it-does-confirmed-from-decompiler">What it does [confirmed from decompiler]</a></h2>
+<h2 id="what-it-does-confirmed"><a class="header" href="#what-it-does-confirmed">What it does [confirmed]</a></h2>
 <p>Entry saves context (<code>ex af,af'</code> / <code>exx</code> — the Z80 shadow registers, the classic TI ISR convention) then polls:</p>
 <ol>
 <li><code>port_usbIntStatus</code> (0x55) — the 84+ USB Interrupt State port. This OS overloads it as the ISR’s master “anything pending?” gate: <code>(val ^ 0xFF) &amp; 0x1F</code> tests the 5 active-low sources.</li>
@@ -202,7 +202,7 @@
 <li>Hardware-mode housekeeping: checks <code>port_mapBankB == 0x81</code> (84+ mode), and on one path sets <code>port_cpuSpeed = 1</code> (15 MHz) and <code>port_mapBankB = 0x81</code>.</li>
 <li>Restores context and <code>EI</code> / <code>RET</code>.</li>
 </ol>
-<h2 id="iyoff--systemflags-fields-the-isr-touches-confirmed-from-disassembly"><a class="header" href="#iyoff--systemflags-fields-the-isr-touches-confirmed-from-disassembly"><code>(IY+off)</code> → <code>SystemFlags</code> fields the ISR touches [confirmed from disassembly]</a></h2>
+<h2 id="iyoff--systemflags-fields-the-isr-touches-confirmed"><a class="header" href="#iyoff--systemflags-fields-the-isr-touches-confirmed"><code>(IY+off)</code> → <code>SystemFlags</code> fields the ISR touches [confirmed]</a></h2>
 <p><code>int_dispatch_sources</code> reads/writes these flag bits via <code>BIT/SET/RES b,(IY+d)</code>. Offsets are confirmed against the standard <code>ti83plus.inc</code> group layout; the anchor <code>apdFlags = IY+0x08</code> is confirmed in code (<code>_DisableApd</code>/<code>_EnableApd</code> @ <code>3B:7AA8</code>/<code>3B:7AAD</code> do <code>RES/SET 2,(IY+0x8)</code>), <code>curFlags = IY+0x0C</code> is confirmed (<code>_CursorOn</code>/<code>_CursorOff</code> @ <code>06:7D34</code>/<code>06:7C5F</code>).</p>
 <div class="table-wrapper">
 <table>
@@ -233,21 +233,21 @@
 </table>
 </div>
 <p>The byte <code>_GetCSC</code> (<code>00:04B2</code>) clears is <code>(IY+0)</code> bit3 (<code>*flags &amp; 0xF7</code>) — the <code>kbdSCR</code>/“new scan code ready” flag in the keyboard group.</p>
-<h2 id="timer-reprogramming-apd-timeout-and-cursor-blink-confirmed-mechanism-exact-tick-value-hypothesis"><a class="header" href="#timer-reprogramming-apd-timeout-and-cursor-blink-confirmed-mechanism-exact-tick-value-hypothesis">Timer reprogramming, APD timeout, and cursor blink [confirmed mechanism; exact tick value [hypothesis]]</a></h2>
-<p><strong>Interrupt sources &amp; ACK.</strong> The dispatcher polls the 84+ USB-interrupt ports first, then the two crystal hardware timers: it reads port <code>0x37</code> (crystal timer 3 status — <code>IN A,(0x37)</code> @ <code>ram:012D</code>, <code>BIT 1,A</code> @ <code>ram:012F</code>) and port <code>0x31</code> (crystal timer 1 status — <code>IN</code> @ <code>ram:013B</code>, <code>BIT 1</code> @ <code>ram:013D</code>). (Per the WikiTI port map the three crystal timers are <code>0x30–0x32</code> = timer 1, <code>0x33–0x35</code> = timer 2, <code>0x36–0x38</code> = timer 3.) Each maskable interrupt is ACKed by rewriting the int-mask port <code>0x03</code>. The common exit (<code>ram:00E4</code>) writes <code>0x0B</code>, or <code>0x0F</code> when <code>(IY+0x16)</code> bit0 is set (the second value re-enables the on-key + both timer sources at the higher CPU speed). The master ACK at <code>ram:00DC</code> writes <code>0x08</code> then the saved mask. Port <code>0x04</code> is loaded with <code>6</code> (<code>ram:09B5</code>/<code>ram:0C8C</code>) to re-arm the legacy 83+ timer line.</p>
+<h2 id="timer-reprogramming-apd-timeout-and-cursor-blink"><a class="header" href="#timer-reprogramming-apd-timeout-and-cursor-blink">Timer reprogramming, APD timeout, and cursor blink</a></h2>
+<p><strong>Interrupt sources &amp; ACK.</strong> The dispatcher polls the 84+ USB-interrupt ports first, then the two crystal hardware timers: it reads port <code>0x37</code> (crystal timer 3 status — <code>IN A,(0x37)</code> @ <code>ram:012D</code>, <code>BIT 1,A</code> @ <code>ram:012F</code>) and port <code>0x31</code> (crystal timer 1 status — <code>IN</code> @ <code>ram:013B</code>, <code>BIT 1</code> @ <code>ram:013D</code>). (Per the WikiTI port map the three crystal timers are <code>0x30-0x32</code> = timer 1, <code>0x33-0x35</code> = timer 2, <code>0x36-0x38</code> = timer 3.) Each maskable interrupt is ACKed by rewriting the int-mask port <code>0x03</code>. The common exit (<code>ram:00E4</code>) writes <code>0x0B</code>, or <code>0x0F</code> when <code>(IY+0x16)</code> bit0 is set (the second value re-enables the on-key + both timer sources at the higher CPU speed). The master ACK at <code>ram:00DC</code> writes <code>0x08</code> then the saved mask. Port <code>0x04</code> is loaded with <code>6</code> (<code>ram:09B5</code>/<code>ram:0C8C</code>) to re-arm the legacy 83+ timer line.</p>
 <p><strong>APD (auto-power-down) countdown.</strong> APD is a software down-counter decremented by the timer interrupt:</p>
 <ul>
-<li><code>apdSubTimer</code> (<code>0x8448</code>) / <code>apdTimer</code> (<code>0x8449</code>) hold the APD down-counter. <code>_ApdSetup</code> (<code>00:03AE</code>) writes the reload constant <code>0x74</code> to <code>0x8449</code> (<code>apdTimer</code>). The per-tick decrement is in page 0 at <code>ram:036C</code> (<code>LD HL,0x8448; DEC (HL); RET NZ; INC HL; DEC (HL)</code> — decrement <code>apdSubTimer</code>, and on its underflow <code>apdTimer</code>); a key press reloads the counter, so any key keeps the calc awake. The crystal-timer interrupt rate remains unreadable from this DB: when a timer-status bit is set the ISR dispatches to an unanalyzed handler — <code>35:4792</code> (via the <code>ram:3FB1</code> bjump) for timer 3 / port <code>0x37</code>, and <code>33:5EB4</code> (via <code>ram:3FB7</code>) for timer 1 / port <code>0x31</code> — so the wall-clock timeout cannot be derived from this DB. By the standard 83+/84+ design this yields the documented ~2–5 minute idle power-down. [reload constant + counter addresses + decrement site <code>ram:036C</code> confirmed; tick rate / absolute seconds [hypothesis]]</li>
+<li><code>apdSubTimer</code> (<code>0x8448</code>) / <code>apdTimer</code> (<code>0x8449</code>) hold the APD down-counter. <code>_ApdSetup</code> (<code>00:03AE</code>) writes the reload constant <code>0x74</code> to <code>0x8449</code> (<code>apdTimer</code>). The per-tick decrement is in page 0 at <code>ram:036C</code> (<code>LD HL,0x8448; DEC (HL); RET NZ; INC HL; DEC (HL)</code> — decrement <code>apdSubTimer</code>, and on its underflow <code>apdTimer</code>); a key press reloads the counter, so any key keeps the calc awake. [confirmed] The crystal-timer interrupt rate remains unreadable from this DB: when a timer-status bit is set the ISR dispatches to an unanalyzed handler — <code>35:4792</code> (via the <code>ram:3FB1</code> bjump) for timer 3 / port <code>0x37</code>, and <code>33:5EB4</code> (via <code>ram:3FB7</code>) for timer 1 / port <code>0x31</code> — so the wall-clock timeout cannot be derived from this DB. By the standard 83+/84+ design this yields the documented ~2–5 minute idle power-down. [hypothesis]</li>
 <li>The unrelated <code>indicCounter</code>/<code>indicBusy</code> pair (<code>0x8476</code>/<code>0x8477</code>) drives the run indicator (the moving-dashes busy spinner), not APD: <code>_RunIndicOn</code> (<code>01:6518</code>) seeds it (<code>0x8477 = 0xF0</code>, <code>0x8476 = 1</code>) and the tick routine at <code>ram:027B</code> (<code>dec_apd_timer</code> in the symbol map, though it decrements the run-indicator counter) does <code>DEC (0x8476); RET NZ</code> each timer tick, advancing the spinner via the expiry path (<code>ram:3FE1</code>) only on underflow. [confirmed]</li>
 </ul>
 <p><strong>Cursor blink cadence.</strong> The blink is the same kind of software down-counter, driven off the same timer interrupt:</p>
 <ul>
 <li><code>0x844A</code> (<code>curTime</code>) is the blink down-counter; <code>_CursorOn</code>/<code>_CursorOff</code> (<code>06:7D34</code>/<code>06:7C5F</code>) reload it with <code>0x32</code> (50) (<code>LD A,0x32; LD (0x844A),A</code>).</li>
-<li>The ISR tests <code>curAble</code> (<code>IY+0x0C</code> bit 2) at <code>ram:019B</code> and, if enabled, calls the cursor tick through the <code>ram:3FCF</code> bjump to <code>06:7C45</code>, which decrements <code>0x844A</code>; on underflow it toggles <code>curFlags</code> (<code>IY+0x0C</code>) bit 3 (curOn) to flip the glyph and reloads <code>0x32</code>. So the cadence is “toggle every 50 timer ticks”; only the absolute rate (the crystal-timer tick frequency) is ungrounded, which by the WikiTI-documented rate is ≈ 2 blinks/second. [reload value <code>0x32</code>, counter <code>0x844A</code>, and tick site <code>06:7C45</code> confirmed; Hz [hypothesis]]</li>
+<li>The ISR tests <code>curAble</code> (<code>IY+0x0C</code> bit 2) at <code>ram:019B</code> and, if enabled, calls the cursor tick through the <code>ram:3FCF</code> bjump to <code>06:7C45</code>, which decrements <code>0x844A</code>; on underflow it toggles <code>curFlags</code> (<code>IY+0x0C</code>) bit 3 (curOn) to flip the glyph and reloads <code>0x32</code>. The cadence is one toggle every 50 timer ticks. [confirmed] Only the absolute rate is ungrounded; the WikiTI-documented crystal-timer rate gives about two blinks per second. [hypothesis]</li>
 </ul>
-<h2 id="notable-details"><a class="header" href="#notable-details">Notable details</a></h2>
+<h2 id="interrupt-source-details"><a class="header" href="#interrupt-source-details">Interrupt-source details</a></h2>
 <ul>
-<li>This OS keys off the 84+ USB-interrupt ports 0x55/0x56 as the primary interrupt-state source, rather than the classic <code>0x03/0x04</code>. Port 0x55 is the USB Interrupt State (read; <code>(v^0xFF)&amp;0x1F</code> masks the active sources) and 0x56 is USB Line Events (read-only) — both are read sources, not a status/mask pair, despite the dispatch role. The legacy mask <code>0x03</code> is still written to ACK. [confirmed in code; ports per WikiTI]</li>
+<li>This OS keys off the 84+ USB-interrupt ports 0x55/0x56 as the primary interrupt-state source, rather than the classic <code>0x03/0x04</code>. Port 0x55 is the USB Interrupt State (read; <code>(v^0xFF)&amp;0x1F</code> masks the active sources) and 0x56 is USB Line Events (read-only) — both are read sources, not a status/mask pair, despite the dispatch role. The legacy mask <code>0x03</code> is still written to ACK. [confirmed]</li>
 <li>The ISR is where APD (auto power down) and the blinking cursor timing originate — both are software down-counters (<code>apdTimer 0x8449</code>/<code>curTime 0x844A</code>) ticked by the crystal timers (ports 0x37/0x31). The separate run-indicator spinner uses <code>indicCounter</code>/<code>indicBusy</code> (<code>0x8476</code>/<code>0x8477</code>), seeded by <code>_RunIndicOn</code>. [confirmed]</li>
 <li><code>_GetCSC</code> (<code>00:04B2</code>) cooperates with the ISR: the ISR (or keypad path) updates <code>kbdScanCode</code>; <code>_GetCSC</code> atomically reads and clears it with interrupts masked, also clearing <code>(IY+0)</code> bit3. [confirmed]</li>
 </ul>
@@ -300,11 +300,11 @@
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3e0e106f.js"></script>
+        <script src="toc-24589cc4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -206,12 +206,12 @@ than reparsing an explicit BASIC accumulator loop for every element.
 name through the VAT, checks type/dimension, computes an element address, and
 shuttles a 9-byte <code>TIFloat</code> through OP registers. Repeated <code>L1(I)</code> inside a
 loop is much more expensive than storing the element into a scalar once when
-the value is reused. [confirmed path, standard rule]</li>
+the value is reused. [standard]</li>
 <li><strong>Avoid <code>Goto</code> in hot loops.</strong> <code>Goto</code> searches for a matching <code>Lbl</code> by
 scanning the program token stream, and escaping structured loops through
 <code>Goto</code> can leave loop bookkeeping behind. Use <code>For(</code>/<code>While</code>/<code>Repeat</code> plus
-<code>End</code> unless the jump is truly cold. [standard; scanner confirmed in
-<code>sub-tibasic.md</code>]</li>
+<code>End</code> unless the jump is truly cold. [standard] The token-stream scanner is
+[confirmed] in <a href="sub-tibasic.html">TI-BASIC programs</a>.</li>
 <li><strong>Batch display and graph output.</strong> <code>Disp</code> and <code>Output(</code> reach display
 primitives and LCD update paths; graph drawing reaches graph-buffer and pixel
 routines before display copy. Draw into the graph buffer and call
@@ -473,8 +473,7 @@ then <code>Done</code>; <code>AFTER</code> never appears. The smoke runner check
 <code>STOP</code>, and <code>Done</code> regions and also checks a low-pixel region where <code>AFTER</code>
 would be drawn if the caller resumed. The trace reaches <code>stmt_eval_body_entry</code>,
 <code>call_eval_eqn_recursive</code>, and <code>_Disp</code>. This confirms that <code>Stop</code> in a callee
-terminates the whole BASIC program chain instead of returning to the caller.
-[confirmed]</p>
+terminates the whole BASIC program chain instead of returning to the caller. [confirmed]</p>
 <h3 id="arbitrary-precision-decimal-addition"><a class="header" href="#arbitrary-precision-decimal-addition">Arbitrary-precision decimal addition</a></h3>
 <p><code>BIGADD.8xp</code> uses lists of base-10 digits in little-endian order. <code>12345</code> is
 <code>{5,4,3,2,1}</code>, <code>98765</code> is <code>{5,6,7,8,9}</code>, and the result is the list
@@ -715,8 +714,7 @@ name: .db 05h,"ZZBASIC",00h
 <code>AFTER</code>, and <code>Done</code>; <code>ZZBASIC</code>’s <code>CALLED</code> text does not display. The trace hits
 <code>ram:9D95</code> and <code>findsym_scan</code>, and the smoke runner checks the wrapper output
 and a low-pixel region where an unexpected third line would appear. This proves
-ASM-side VAT lookup from an <code>AsmPrgm</code> context, not BASIC program execution.
-[confirmed]</p>
+ASM-side VAT lookup from an <code>AsmPrgm</code> context, not BASIC program execution. [confirmed]</p>
 <p>Generated negative fixtures make the execution boundary sharper.</p>
 <p><code>ASMFORM.8xp</code> and <code>ZZFORM.8xp</code> make the <code>_Find_Parse_Formula</code> negative probe
 reproducible. The payload is the same OP1-name setup as <code>ZZFIND</code>, but it bcalls
@@ -758,7 +756,7 @@ through the command loop; it still never displays <code>CALLED</code> from <code
 <code>_rclToQueue</code> (<code>49B4</code>, target <code>06:5F29</code>) is a related editor queue helper, but
 its ROM path depends on an already-open edit buffer (<code>editCursor</code>/<code>editTail</code>)
 and the <code>rclFlag.enableQueue</code> state; it does not create a BASIC program call
-frame. [confirmed probes; <code>_rclToQueue</code> role from disassembly]</p>
+frame. [confirmed]</p>
 <p><code>_ExecuteNewPrgm</code> (<code>00:265F</code>) is not a public ASM-to-BASIC entry — a payload
 that sets <code>OP1</code> to <code>ProgObj</code> (<code>05</code>), points <code>HL</code> at the zero-terminated name
 <code>ZZBASIC</code>, and bcalls <code>4C3C</code> enters it and <code>findsym_scan</code>, then ends at
@@ -818,11 +816,11 @@ paths: <code>Asm(</code> → <code>_ExecutePrgm</code> → <code>ram:9D95</code>
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

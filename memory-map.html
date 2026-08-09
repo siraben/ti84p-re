@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3e0e106f.js"></script>
+        <script src="toc-24589cc4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -188,14 +188,14 @@
 <tr><th>Range</th><th>Slot</th><th>Contents</th><th>Notes</th></tr>
 </thead>
 <tbody>
-<tr><td><code>0000–3FFF</code></td><td>Flash bank 0</td><td>Flash page 0 (fixed)</td><td>Boot/kernel: RST vectors, dispatcher, FP/VAT core. Never swapped. [confirmed]</td></tr>
-<tr><td><code>4000–7FFF</code></td><td>Flash bank A</td><td>Swappable flash page (port 6)</td><td>Paged bcall targets run here after the dispatcher banks their page in; page-0 bcall bodies instead execute in place below <code>4000</code> (e.g. <code>_JErrorNo</code>→<code>00:2799</code>). [confirmed]</td></tr>
-<tr><td><code>8000–BFFF</code></td><td>Bank B</td><td>Swappable RAM/flash page (port 7)</td><td>Usually RAM. [standard]</td></tr>
-<tr><td><code>C000–FFFF</code></td><td>RAM</td><td>RAM page (MemC)</td><td>Normally RAM page 0, but page-selectable via <code>port 5</code> on the 84+ (not hard-fixed). Stack lives near the top. [standard]</td></tr>
+<tr><td><code>0000-3FFF</code></td><td>Flash bank 0</td><td>Flash page 0 (fixed)</td><td>Boot/kernel: RST vectors, dispatcher, FP/VAT core. Never swapped. [confirmed]</td></tr>
+<tr><td><code>4000-7FFF</code></td><td>Flash bank A</td><td>Swappable flash page (port 6)</td><td>Paged bcall targets run here after the dispatcher banks their page in; page-0 bcall bodies instead execute in place below <code>4000</code> (e.g. <code>_JErrorNo</code>→<code>00:2799</code>). [confirmed]</td></tr>
+<tr><td><code>8000-BFFF</code></td><td>Bank B</td><td>Swappable RAM/flash page (port 7)</td><td>Usually RAM. [standard]</td></tr>
+<tr><td><code>C000-FFFF</code></td><td>RAM</td><td>RAM page (MemC)</td><td>Normally physical RAM page <code>80</code> (<code>port 5 = 0x00</code>), but page-selectable via port <code>5</code> on the 84+ (not hard-fixed). Stack lives near the top. [confirmed]</td></tr>
 </tbody>
 </table>
 </div>
-<p>In this OS the system RAM variables all live at <code>8000+</code>, so the static RE model treats <code>8000–FFFF</code> as one RAM block (see <code>tools/BuildTI84Full.java</code>).</p>
+<p>In this OS the system RAM variables all live at <code>8000+</code>, so the static RE model treats <code>8000-FFFF</code> as one RAM block (see <code>tools/BuildTI84Full.java</code>).</p>
 <h2 id="flash-layout-physical-1-mib--64--16-kib-pages"><a class="header" href="#flash-layout-physical-1-mib--64--16-kib-pages">Flash layout (physical, 1 MiB = 64 × 16 KiB pages)</a></h2>
 <div class="table-wrapper">
 <table>
@@ -214,8 +214,13 @@
 </tbody>
 </table>
 </div>
-<p>Pages <code>01–3F</code> are loaded in Ghidra as overlays <code>page_01 … page_3F</code> (each at <code>4000</code>). Goto e.g. <code>01:5b4c</code> for <code>_PutC</code>.</p>
-<p>The assembled <code>tools/rom.bin</code> (the Ghidra build input) is a BootFree image — pages <code>2F</code> and <code>3F</code> are blank or BootFree-substituted there. The <code>2F</code>/<code>3F</code> rows above describe the retail USB/boot content from the local <code>D84PBE2.8Xv</code> / <code>D84PBE1.8Xv</code> segment files (the page-3F retail boot is also applied in <code>ti84plus_patched.rom</code>); those bodies are byte-decoded from those files, not from <code>rom.bin</code>.</p>
+<p>Pages <code>01-3F</code> are loaded in Ghidra as overlays <code>page_01 … page_3F</code> (each at <code>4000</code>). Goto e.g. <code>01:5b4c</code> for <code>_PutC</code>.</p>
+<p>The assembled <code>tools/rom.bin</code> is the Ghidra build input. <code>tools/assemble_local_rom.py</code>
+starts with <code>ti84plus_patched.rom</code>, installs the <code>D84PBE2.8Xv</code> payload as page
+<code>2F</code>, and installs <code>D84PBE1.8Xv</code> as page <code>3F</code>. The page-<code>2F</code> and page-<code>3F</code>
+bodies above therefore decode directly from <code>rom.bin</code>. The resolver detects a
+BootFree input and omits retail targets if those two payloads have not been
+installed.</p>
 <h2 id="key-ram-regions-named--typed"><a class="header" href="#key-ram-regions-named--typed">Key RAM regions (named &amp; typed)</a></h2>
 <div class="table-wrapper">
 <table>
@@ -223,7 +228,7 @@
 <tr><th>Addr</th><th>Name</th><th>Type</th><th>Purpose</th></tr>
 </thead>
 <tbody>
-<tr><td><code>0x8478–0x84B9</code></td><td><code>OP1</code>–<code>OP6</code></td><td><code>TIFloat</code> slot (9B body + 2B <code>…EXT</code> guard, 11B-spaced)</td><td>Floating-point accumulators [confirmed]</td></tr>
+<tr><td><code>0x8478-0x84B9</code></td><td><code>OP1</code>–<code>OP6</code></td><td><code>TIFloat</code> slot (9B body + 2B <code>…EXT</code> guard, 11B-spaced)</td><td>Floating-point accumulators [confirmed]</td></tr>
 <tr><td><code>0x89F0</code></td><td><code>flags</code></td><td><code>SystemFlags</code> (74B)</td><td>IY-indexed system flag bitfield [confirmed]</td></tr>
 <tr><td><code>0x844B/0x844C</code></td><td><code>curRow</code>/<code>curCol</code></td><td>byte</td><td>Homescreen text cursor (16 cols) [confirmed]</td></tr>
 <tr><td><code>0x8447</code></td><td><code>contrast</code></td><td>byte</td><td>LCD contrast [confirmed]</td></tr>
@@ -236,7 +241,7 @@
 </table>
 </div>
 <p><code>IY</code> is held at <code>flags</code> (<code>0x89F0</code>) almost everywhere, so <code>(IY+off)</code> accesses index <code>SystemFlags</code> fields (<code>appFlags</code>, <code>kbdFlags</code>, …).</p>
-<h2 id="principal-io-ports-standard-cross-checked-vs-code"><a class="header" href="#principal-io-ports-standard-cross-checked-vs-code">Principal I/O ports [standard, cross-checked vs code]</a></h2>
+<h2 id="principal-io-ports-standard"><a class="header" href="#principal-io-ports-standard">Principal I/O ports [standard]</a></h2>
 <p>A curated selection of the ports most relevant to the memory map and paging; the
 kernel touches many more (timer/crystal, USB-assist, and ASIC-control ports).</p>
 <div class="table-wrapper">
@@ -253,11 +258,11 @@ kernel touches many more (timer/crystal, USB-assist, and ASIC-control ports).</p
 <tr><td><code>05</code></td><td>mapBankC</td><td>RAM page in slot <code>C000</code> (MemC) on the 84+</td></tr>
 <tr><td><code>06</code></td><td>mapBankA</td><td>Flash page in slot <code>4000</code></td></tr>
 <tr><td><code>07</code></td><td>mapBankB</td><td>Page in slot <code>8000</code> (<code>0x81</code>=84+ mode seen in ISR)</td></tr>
-<tr><td><code>08</code>–<code>0D</code></td><td>usb/link assist</td><td>84+ hardware byte-assist control/status/data/FIFO ports; see <a href="sub-usb-asic.html">USB ASIC and link assist</a></td></tr>
+<tr><td><code>08</code>–<code>0D</code></td><td>usb/link assist</td><td>84+ hardware byte-assist control/status/data/FIFO ports; see <a href="sub-usb-asic.html">USB ASIC &amp; link assist</a></td></tr>
 <tr><td><code>10/11</code></td><td>lcdCmd/lcdData</td><td>LCD controller</td></tr>
 <tr><td><code>20</code></td><td>cpuSpeed</td><td>0=6 MHz, 1=15 MHz (set in ISR)</td></tr>
 <tr><td><code>21</code></td><td>asicVer/ramSize</td><td>ASIC version &amp; RAM-page count; read in the kernel (e.g. <code>00:02AE</code>) and its low bits mask the slot-<code>4000</code> page number before <code>OUT (6)</code></td></tr>
-<tr><td><code>4D</code></td><td>usbLineState</td><td>USB line-state gate sampled by <code>_GetVarCmdUSB</code> (id <code>50FB</code>; Ghidra alias <code>_LinkXferOP</code>); bits 5/6 gate the <code>ram:2E0B</code> bjump to <code>35:4280</code></td></tr>
+<tr><td><code>4D</code></td><td>usbLineState</td><td>USB line-state gate sampled by <code>_GetVarCmdUSB</code> (id <code>50FB</code>; Ghidra alias <code>link_xfer_op</code>); bits 5/6 gate the <code>ram:2E0B</code> bjump to <code>35:4280</code></td></tr>
 <tr><td><code>55/56</code></td><td>usbIntStatus/usbLineEvents</td><td>USB interrupt state / line events (84+) — polled first in <code>int_dispatch_sources</code>; both read-only (port 0x56 is a read-only event bitmap, not a write mask)</td></tr>
 </tbody>
 </table>
@@ -307,11 +312,11 @@ kernel touches many more (timer/crystal, USB-assist, and ASIC-control ports).</p
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

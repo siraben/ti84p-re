@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8a245bf7.js";
+            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3e0e106f.js"></script>
+        <script src="toc-24589cc4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,16 +179,16 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="boot-contexts-and-error-handling"><a class="header" href="#boot-contexts-and-error-handling">Boot, contexts, and error handling</a></h1>
+                        <h1 id="boot-contexts--errors"><a class="header" href="#boot-contexts--errors">Boot, contexts &amp; errors</a></h1>
 <p>Three cross-cutting mechanisms: how the OS starts, how it switches “modes” (contexts), and how it aborts on error.</p>
-<h2 id="boot-confirmed-partial"><a class="header" href="#boot-confirmed-partial">Boot [confirmed, partial]</a></h2>
+<h2 id="boot-confirmed"><a class="header" href="#boot-confirmed">Boot [confirmed]</a></h2>
 <pre><code class="language-z80">0000 reset:  IN A,(2); AND 0x80; JP 0x028C   ; test port 2 bit7, go to boot continuation
 028c:        port_mapBankA = 0x1F             ; bank a flash page into 4000
              (cond) DAT_io_000E = 3; port_mapBankA = 0x7F   ; configure RAM/exec paging (port 0x0E)
              port_memMapMode = 7              ; OUT (4): memory-map mode 1 + slow timer rate
-             JP 0x812C                        ; into the boot page (3F:412C) — BootFree substitute here; retail boot in D84PBE1.8Xv
+             JP 0x812C                        ; into the retail boot page at 3F:412C
 </code></pre>
-<p>Boot configures the paging hardware (<code>OUT (6),0x7F</code> selects flash page <code>3F</code>, the boot page) and the memory-map/timer mode (<code>OUT (4)</code>), then ends <code>JP 0x812c</code> into the banked window where page <code>3F</code> sits — <code>3F:412C</code>. In this BootFree <code>rom.bin</code> page <code>3F</code> is a substitute placeholder (<code>3F:412C</code> re-maps paging rather than running the retail sequence); the retail boot page carries the real continuation (<code>D84PBE1.8Xv</code> / <code>ti84plus_patched.rom</code>, <code>3F:412C</code> = <code>IM 1; LD B,0; LD SP,0xFDFA; …</code>). The boot page eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen).</p>
+<p>Boot configures the paging hardware (<code>OUT (6),0x7F</code> selects flash page <code>3F</code>, the boot page) and the memory-map/timer mode (<code>OUT (4)</code>), then ends <code>JP 0x812c</code> into the banked window where page <code>3F</code> sits — <code>3F:412C</code>. The assembled <code>rom.bin</code> installs the retail <code>D84PBE1.8Xv</code> payload at page <code>3F</code>; the continuation begins <code>IM 1; LD B,0; LD SP,0xFDFA; …</code>. The boot page eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen).</p>
 <p>The boot page (<code>3F</code>) and its version queries are exposed to the OS through <code>ti83plus.inc</code> bcalls: <code>_getBootVer</code> (bcall <code>0x80B7</code> → <code>3F:477C</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code> → <code>3F:4781</code>). The USB boot support entry points route through the same table but land on page <code>2F</code>, for example <code>_AttemptUSBOSReceive</code> (<code>0x80E4</code> → <code>2F:4145</code>) and <code>_InitUSB</code> (<code>0x8108</code> → <code>2F:52A4</code>).</p>
 <h3 id="ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed"><a class="header" href="#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed">RAM clear / re-init (<code>ram_reset_wipe</code> → <code>ram:0BD9</code>) [confirmed]</a></h3>
 <p>The RAM-init proper is <code>ram_reset_wipe</code> (<code>35:719F</code>, reached on a full reset; the same routine backs the <code>[2nd]+[+] · 7 · 1 · 2</code> RAM-reset and the post-boot RAM clear). It zero-fills RAM in two blocks, preserving a handful of flag bits and <code>0x9B73</code> across the wipe:</p>
@@ -204,7 +204,7 @@ ram_init_after_reset (ram:0BD9):
   LD SP,0xFFF7                 ; reset stack to top of RAM
   CALL 0x3EC1                  ; continue init (page-0 kernel): VAT, sysflags, LCD …
 </code></pre>
-<p>So RAM is wiped in two LDIR runs (<code>0x8000</code>–<code>0x9BC3</code>, then <code>0x9BD0</code>–<code>0xFFFF</code>, leaving the <code>0x9BC4</code>–<code>0x9BCF</code> window and the explicitly-saved flag bytes intact), then <code>ram:0BD9</code> resets the memory map (port 0) and the stack and hands off through <code>ram:3EC1</code>. This <code>ram:0BD9</code> entry is the same RAM re-init point cross-referenced from <a href="memory-management.html">12-memory-management</a>. The <code>ram:3EC1</code> continuation (VAT/sysflag/LCD bring-up) is page-0 kernel code and is statically present (<code>ram:3EC1</code> = <code>CALL 0x2B09; …</code>). <em>Residual: <code>JP 0x812c</code> targets the boot page (<code>3F:412C</code>); this <code>rom.bin</code> carries a BootFree substitute there, with the retail boot code in <code>D84PBE1.8Xv</code>.</em></p>
+<p>So RAM is wiped in two LDIR runs (<code>0x8000</code>–<code>0x9BC3</code>, then <code>0x9BD0</code>–<code>0xFFFF</code>, leaving the <code>0x9BC4</code>–<code>0x9BCF</code> window and the explicitly-saved flag bytes intact), then <code>ram:0BD9</code> resets the memory map (port 0) and the stack and hands off through <code>ram:3EC1</code>. This <code>ram:0BD9</code> entry is the same RAM re-init point cross-referenced from <a href="memory-management.html">Memory management</a>. The <code>ram:3EC1</code> continuation (VAT/sysflag/LCD bring-up) is page-0 kernel code and is statically present (<code>ram:3EC1</code> = <code>CALL 0x2B09; …</code>). The reset jump to <code>3F:412C</code> is also present in the assembled database, so the page-0 and retail boot portions can be followed in one project.</p>
 <h3 id="the-main-event-loop-confirmed"><a class="header" href="#the-main-event-loop-confirmed">The main event loop [confirmed]</a></h3>
 <p><code>main_event_loop</code> @ <code>ram:05e6</code> (page 0) is the OS root dispatcher. Structure:</p>
 <pre><code class="language-z80">05e6: LD B,8;  LD HL,0x84BE        ; iterate an 8-entry event/context stack
@@ -224,7 +224,7 @@ ram_init_after_reset (ram:0BD9):
 <li><code>0xFF</code>/<code>0x7F</code> — quit / no-op.</li>
 </ul>
 <p>So the router classifies a mode key before the active context sees it and returns a context-switch code (<code>0xFB</code>/<code>0xFC</code>); the caller then swaps the <code>cx*</code> vectors. The router itself only writes <code>keyExtend</code> (<code>0x8446</code>, the extended-key state) — its body holds no store to the <code>cx*</code> block. [confirmed]</p>
-<h2 id="contexts--how-the-os-implements-modesapps-confirmed--key-concept"><a class="header" href="#contexts--how-the-os-implements-modesapps-confirmed--key-concept">Contexts — how the OS implements “modes”/apps [confirmed — key concept]</a></h2>
+<h2 id="contexts--how-the-os-implements-modesapps-confirmed"><a class="header" href="#contexts--how-the-os-implements-modesapps-confirmed">Contexts — how the OS implements “modes”/apps [confirmed]</a></h2>
 <p>The OS is single-tasking but multi-context. A <em>context</em> is the set of handler routines for whatever is currently in front of the user (homescreen, an editor, the graph screen, a Flash App). The active context’s vectors live in RAM at <code>cxMain</code> (and friends), with <code>cxPage</code> holding which flash page their code is on.</p>
 <ul>
 <li><code>_AppInit</code> (<code>ram:0936</code>) installs a context: copies 12 bytes of handler vectors → <code>cxMain</code>, sets <code>flags.appFlags</code>, and saves <code>cxPage = port_mapBankA</code> (the page the app runs from). [confirmed]</li>
@@ -232,7 +232,7 @@ ram_init_after_reset (ram:0BD9):
 <li><code>_PutAway</code> (<code>ram:08AF</code>) calls the current context’s PutAway handler (<code>cxPPutAway</code>) to suspend/clean up — used on APD, when switching apps, or on <code>2nd+QUIT</code>. [confirmed]</li>
 </ul>
 <p>The UI runs on this mechanism: the main event loop reads a key (<code>_GetKey</code>), then calls the active context’s key handler; switching screens swaps the <code>cx*</code> vectors.</p>
-<h3 id="context-block-layout-confirmed-from-ti83plusinc--xrefs"><a class="header" href="#context-block-layout-confirmed-from-ti83plusinc--xrefs">Context block layout [confirmed, from ti83plus.inc + xrefs]</a></h3>
+<h3 id="context-block-layout-confirmed"><a class="header" href="#context-block-layout-confirmed">Context block layout [confirmed]</a></h3>
 <p>The active context lives at a fixed RAM block (<code>Context</code> struct, base <code>cxMain</code>=<code>0x858D</code>):</p>
 <div class="table-wrapper">
 <table>
@@ -267,7 +267,7 @@ ram_init_after_reset (ram:0BD9):
 </code></pre>
 <p>The destination <code>0x858D</code> and length <code>0x000C</code> pin the six 2-byte handler slots <code>cxMain</code>(+0) <code>cxPPutAway</code>(+2) <code>cxPutAway</code>(+4) <code>cxRedisp</code>(+6) <code>cxErrorEP</code>(+8) <code>cxSizeWind</code>(+10), and the explicit <code>LD (0x8599),A</code> writes <code>cxPage</code> at +12 from port 6. <code>_AppInit</code> installs a context, but it is not the only writer: <code>_POPCX</code> (bcall <code>0x49E1</code>, body <code>07:6D1C</code>) restores a suspended context by <code>LDIR</code>ing 14 bytes <code>cxPrev</code>→<code>cxMain</code> (<code>0x859B</code>→<code>0x858D</code>) and copying a 15th byte into the app-flags, and a matching save path (the <code>LDIR</code> at <code>07:5A8C</code>) copies <code>cxMain</code>→<code>cxPrev</code>. <code>cxCurApp</code>(+13, <code>0x859A</code>) is the current context id (a key code); the shadow at <code>cxPrev</code>(<code>0x859B</code>) holds the suspended context.</p>
 <h3 id="how-a-context-handler-is-invoked-confirmed"><a class="header" href="#how-a-context-handler-is-invoked-confirmed">How a context handler is invoked [confirmed]</a></h3>
-<pre><code>call_context_main (ram:08fa):   set_bankA_page(cxPage); call (cxMain) via jp_hl; ret   ; run handler on its page, control returns here
+<pre><code class="language-pseudocode">call_context_main (ram:08fa):   set_bankA_page(cxPage); call (cxMain) via jp_hl; ret   ; run handler on its page, control returns here
 call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; restore port6
 </code></pre>
 <p>Primitives: <code>set_bankA_page</code> (<code>ram:078c</code>, <code>port6 = page</code>) and <code>jp_hl</code> (<code>ram:090b</code>, <code>jp (hl)</code> dynamic dispatch). The OS pages the handler in, runs it, and (for the savepage variant) restores the caller’s page.</p>
@@ -279,7 +279,7 @@ call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; res
 <li>The <code>E_EDIT</code> bit (0x80) tells the handler the error is editable (offer “2:Goto” to jump to the offending token).</li>
 </ul>
 <p>So <code>errSP</code> + <code>_JError</code> together implement try/catch: a context seeds <code>errSP</code> (from <code>onSP</code>) at entry, and any depth of nested calls can abort straight back to it.</p>
-<h3 id="error-message-table-local-data-table-trace"><a class="header" href="#error-message-table-local-data-table-trace">Error-message table [local data-table trace]</a></h3>
+<h3 id="error-message-table-confirmed"><a class="header" href="#error-message-table-confirmed">Error-message table [confirmed]</a></h3>
 <p>The error screen shows <code>ERR:&lt;MESSAGE&gt;</code> (the <code>ERR:</code> prefix is on <code>01:4008</code>). A local data-table trace shows the handler masking the code (<code>AND 0x7F</code>), then for codes below <code>0x3A</code> indexing a little-endian pointer table at <code>07:6ACC</code> by <code>(code) − 1</code> (<code>LD HL,0x6ACC; ADD HL,DE; ADD HL,DE; CALL _LdHLind</code>) to fetch each message pointer; the message strings themselves sit consecutively from <code>07:6B3C</code> as null-terminated text. Codes <code>≥ 0x3A</code> (and the special-cased <code>0x36</code>/<code>0x37</code>/<code>0x39</code>) bypass the table and fall back to the <code>?</code> message at <code>07:6C5A</code>. The current MCP function/xref view does not prove this data-only table directly, so treat the addresses as a data trace rather than live function symbols:</p>
 <div class="table-wrapper">
 <table>
@@ -306,11 +306,13 @@ call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; res
 <p>The <code>Code</code> column is each error’s low 7 bits. Re-editable errors set the <code>E_EDIT</code> (<code>0x80</code>) bit on top — <code>E_Overflow equ 1+E_EDIT</code>, <code>E_DivBy0 equ 2+E_EDIT</code>, … — while non-editable ones (<code>E_Label equ 20</code>, <code>E_Stat equ 21</code>, …) carry no such bit. The handler masks the code (<code>AND 0x7F</code>) before indexing. So the whole error pathway is: a routine <code>_JError</code>s a code → the handler restores <code>SP</code> from <code>errSP</code> → masks the code and looks up the message here → renders <code>ERR:&lt;msg&gt;</code>.</p>
 <h2 id="confirmed-details"><a class="header" href="#confirmed-details">Confirmed details</a></h2>
 <ul>
-<li><strong><code>cx*</code> vector layout — confirmed.</strong> The six 2-byte handler slots and <code>cxPage</code> offsets are pinned by tracing <code>_AppInit</code> (<code>ram:0936</code>): <code>LD DE,0x858D / LD BC,0x000C / LDIR</code> then <code>IN A,(6) / LD (0x8599),A</code>. See <a href="#context-block-layout-confirmed-from-ti83plusinc--xrefs">Context block layout</a> above for the full offset table and <code>_AppInit</code> body. <code>_AppInit</code> installs the block; it is not the sole writer — <code>_POPCX</code> (bcall <code>0x49E1</code> → <code>07:6D1C</code>) restores a saved context into <code>cxMain</code>, and a save path at <code>07:5A8C</code> copies <code>cxMain</code> into the <code>cxPrev</code> shadow.</li>
-<li><strong>Boot RAM-init trace — raw-disassembly trace.</strong> Reset (<code>ram:0000</code>) → <code>028c</code> paging setup → <code>JP 0x812c</code> (boot page <code>3F:412C</code> — BootFree substitute in this <code>rom.bin</code>; retail boot in <code>D84PBE1.8Xv</code>). The RAM clear/re-init is <code>ram_reset_wipe</code> (<code>35:719f</code>): two <code>LDIR</code> zero-fills (<code>0x8000</code>–<code>0x9BC3</code>, <code>0x9BD0</code>–<code>0xFFFF</code>) preserving a few flag bytes, then <code>JP 0x0BD9</code> (<code>ram_init_after_reset</code>: port 0 = <code>0xC0</code>, stack reset in the raw trace, <code>CALL 0x3EC1</code>). The <code>ram:0BD9</code> entry matches the re-init point cross-referenced in <a href="memory-management.html">12-memory-management</a>. See <a href="#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed">RAM clear / re-init</a>.</li>
-<li><strong>Flash write/erase sector primitives.</strong> Page-3D anchors include <code>flash_program_buf</code> <code>3D:678C</code>, the per-record status writers <code>3D:7C8F/7C93/7C97</code>, and <code>flash_erase_wait</code> <code>3D:5ED3</code>, with byte-poke loops copied to <code>ramCode</code> <code>0x8100</code>. The candidate labels <code>flash_program_core</code> <code>3D:61AF</code> and <code>flash_write_record</code> <code>3D:64AA</code> are not defined functions in the disassembly; both names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates. The public single-byte flash writers are <code>_WriteAByte</code> (bcall <code>0x8021</code>) and <code>_WriteAByteSafe</code> (bcall <code>0x80C6</code>) in <code>ti83plus.inc</code>; these name the public entry points, whose bodies are likewise not defined functions in the disassembly. See <a href="sub-vat-archive.html#6-low-level-flash-write--erase-pages-3c3d-port-0x14-mixed">sub-vat-archive §6</a>.</li>
+<li><strong><code>cx*</code> vector layout — confirmed.</strong> The six 2-byte handler slots and <code>cxPage</code> offsets are pinned by tracing <code>_AppInit</code> (<code>ram:0936</code>): <code>LD DE,0x858D / LD BC,0x000C / LDIR</code> then <code>IN A,(6) / LD (0x8599),A</code>. See <a href="#context-block-layout-confirmed">Context block layout</a> above for the full offset table and <code>_AppInit</code> body. <code>_AppInit</code> installs the block; it is not the sole writer — <code>_POPCX</code> (bcall <code>0x49E1</code> → <code>07:6D1C</code>) restores a saved context into <code>cxMain</code>, and a save path at <code>07:5A8C</code> copies <code>cxMain</code> into the <code>cxPrev</code> shadow.</li>
+<li><strong>Boot RAM-init trace — raw-disassembly trace.</strong> Reset (<code>ram:0000</code>) → <code>028c</code> paging setup → <code>JP 0x812c</code> (retail boot page <code>3F:412C</code>). The RAM clear/re-init is <code>ram_reset_wipe</code> (<code>35:719f</code>): two <code>LDIR</code> zero-fills (<code>0x8000</code>–<code>0x9BC3</code>, <code>0x9BD0</code>–<code>0xFFFF</code>) preserving a few flag bytes, then <code>JP 0x0BD9</code> (<code>ram_init_after_reset</code>: port 0 = <code>0xC0</code>, stack reset in the raw trace, <code>CALL 0x3EC1</code>). The <code>ram:0BD9</code> entry matches the re-init point cross-referenced in <a href="memory-management.html">Memory management</a>. See <a href="#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed">RAM clear / re-init</a>.</li>
+<li><strong>Flash write/erase sector primitives.</strong> Page-3D anchors include <code>flash_program_buf</code> <code>3D:678C</code>, the per-record status writers <code>3D:7C8F/7C93/7C97</code>, and <code>flash_erase_wait</code> <code>3D:5ED3</code>, with byte-poke loops copied to <code>ramCode</code> <code>0x8100</code>. The candidate labels <code>flash_program_core</code> <code>3D:61AF</code> and <code>flash_write_record</code> <code>3D:64AA</code> are not defined functions in the disassembly; both names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates. The public single-byte flash writers are <code>_WriteAByte</code> (bcall <code>0x8021</code>) and <code>_WriteAByteSafe</code> (bcall <code>0x80C6</code>) in <code>ti83plus.inc</code>; these name the public entry points, whose bodies are likewise not defined functions in the disassembly. See <a href="sub-vat-archive.html#6-low-level-flash-write--erase-pages-3c3d-port-0x14-hypothesis">sub-vat-archive §6</a>.</li>
 </ul>
-<p><em>Residual:</em> <code>JP 0x812c</code> targets the boot page (<code>3F:412C</code>); page <code>3F</code> is a BootFree substitute in this <code>rom.bin</code>, with the retail boot code in <code>D84PBE1.8Xv</code>. The <code>ram:3EC1</code> init continuation is page-0 kernel code and is statically present.</p>
+<p>The <code>JP 0x812c</code> target and the <code>ram:3EC1</code> init continuation are both present in
+the assembled database. The remaining boot gaps concern the detailed work of
+the retail sequence between those anchors.</p>
 
                     </main>
 
@@ -356,11 +358,11 @@ call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; res
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
