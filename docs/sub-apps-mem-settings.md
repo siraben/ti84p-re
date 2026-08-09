@@ -159,8 +159,8 @@ addresses behind these public entry points are not defined functions in the disa
   (low boundary of the app region); bjumps `appSearchPage:0x4000` to inspect the header.
 - `flash_set_sector_cnt` (`3D:727D` → helper `726E`) — initializes `0x82A3` to the model-selected page base plus one.
 - `_FindAppUp` (`5DDA`) / `_FindAppDn` (`5DE6`) — enumerate the previous / next app
-  in flash (for the APPS-menu list), both wrapping the common walker `_app_5de7` (`5DE7`).
-  `_app_5de7` keeps two counts in BC (apps before/after) and tracks the current name in OP3.
+  in flash (for the APPS-menu list), both wrapping the common walker `app_5de7` (`5DE7`).
+  `app_5de7` keeps two counts in BC (apps before/after) and tracks the current name in OP3.
 - `_FindAppNumPages` is present in the bcall table (`3D:4AA3`), but the disassembly has no function record at that address.
 
 State variables: `appSearchPage` = `0x82A3`, `0x8497`/`0x8481`/`0x9C87` are search-mode
@@ -169,7 +169,7 @@ scratch (`0x9C87`='i' selects the in-RAM "temp app" search variant).
 ### 1.3 Launching an app as a context [confirmed]
 
 `_AppInit` (`ram:0936`, bcall `0x404B`) installs a context from an app header:
-```
+```pseudocode
 _AppInit(byte *hdr):                 ; HL -> 13-byte vector block in the header
   copy 12 bytes hdr[0..11] -> cxMain (0x858D)   ; the 6 context vectors
   flags.appFlags (IY+0x0D) = hdr[12]            ; appFlags byte
@@ -178,7 +178,7 @@ _AppInit(byte *hdr):                 ; HL -> 13-byte vector block in the header
 The 12 bytes are the 6 little-endian handler pointers (`cxMain`, `cxPPutAway`, `cxPutAway`,
 `cxRedisp`, `cxErrorEP`, `cxSizeWind` — see [Boot contexts & errors](boot-contexts-errors.md) §Context block). Example: the OS's own
 default app vectors live at `3B:7571`:
-```
+```text
 3E 75 | 4B 75 | 9F 74 | 4B 75 | 4B 75 | 4B 75 | 0A
 cxMain=753E cxPPutAway=754B cxPutAway=749F cxRedisp=754B cxErrorEP=754B cxSizeWind=754B appFlags=0A
 ```
@@ -240,8 +240,8 @@ The RAM-reset path (`35:719F`):
 71ED JP 0x0BD9                              ; re-init RAM (page-0 boot init)
 ```
 So a RAM reset clears two blocks to 0:
-1. **System RAM** `0x8000–0x9BC3` (~7 KiB: OS scratch, the Context block, system buffers).
-2. **User RAM** `0x9BD0–0xFFFF` (`0x6430` = 25648 bytes, ~25 KiB: the VAT and all user variables/programs).
+1. **System RAM** `0x8000-0x9BC3` (~7 KiB: OS scratch, the Context block, system buffers).
+2. **User RAM** `0x9BD0-0xFFFF` (`0x6430` = 25648 bytes, ~25 KiB: the VAT and all user variables/programs).
 
 A handful of flag bits are explicitly preserved across the wipe (`IY+0x3F` bit7,
 `IY+0x34` bit6, `IY+0x35` bits0/1, and the word at `0x9B73`) so the calculator knows it is
@@ -268,7 +268,7 @@ the `OPBase`/`OPS`/`pTemp` scratch pointers, and clears `pTempCnt`/`cleanTmp`. I
 clear the VAT, user vars, or Flash (see [Memory management](memory-management.md)). `_FixTempCnt` (`07:4FEC`) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.
 
-### 2.6 Flash archive GC — "Defragmenting…" / "Garbage Collecting…" [confirmed behavior; display-label addresses undisassembled]
+### 2.6 Flash archive GC — "Defragmenting…" / "Garbage Collecting…" [confirmed]
 
 Separate from RAM reset: when the Flash archive fills, the OS rewrites live archived vars to
 fresh sectors and erases the old ones. The display dispatcher sits around `3C:7E23`
@@ -303,7 +303,7 @@ The four graph-mode setters on `page 0x36` are mutually exclusive: each first cl
 all four bits via `clr_grfmode (36:7D00)`, then ORs in its own bit, then calls
 `_SetTblGraphDraw`. `param_1` is `IY`, so `*(param_1+2)` = `grfModeFlags`.
 
-```
+```pseudocode
 clr_grfmode (36:7D00):  grfModeFlags &= 0xEF & 0xDF & 0xBF & 0x7F   ; clear bits 4,5,6,7
 ```
 
@@ -322,7 +322,7 @@ Other `grfModeFlags` bits (from inc, not in the setters above): bit3 `grfPolar`
 `grfDot` (line/dot), bit1 `grfSimul` (sequential/simultaneous), bit4 `grfNoCoord`,
 bit5 `grfNoAxis`; `seqFlags` (`IY+0x0F`).
 
-### 3.3 Numeric format: Normal/Sci/Eng, Float/Fix, base — `fmtFlags` (`IY+0x0A`) [confirmed (bits from inc)]
+### 3.3 Numeric format: Normal/Sci/Eng, Float/Fix, base — `fmtFlags` (`IY+0x0A`) [confirmed]
 
 `fmtFlags` byte at `0x89FA`:
 
@@ -339,7 +339,7 @@ So Normal/Sci/Eng = (bit0, bit1): Normal = `00`, Sci = `01`, Eng = `11`.
 `fmtOverride` (`IY+0x0B`, `0x89FB`) is a working copy used during conversions.
 
 Float vs Fix N is not in `fmtFlags` — it is the separate byte `fmtDigits` =
-`0x97B0`: value `0x00–0x09` = Fix-N decimal places, `0xFF` = Float.
+`0x97B0`: value `0x00-0x09` = Fix-N decimal places, `0xFF` = Float.
 
 ### 3.4 MODE screen plumbing
 
@@ -355,11 +355,11 @@ line-by-line, but every target bit/byte is confirmed from the setters and inc eq
 
 ## 4. Confident `space:addr` index
 
-```
+```text
 3D:5EE3   _FindApp
 3D:5DDA   _FindAppUp
 3D:5DE6   _FindAppDn
-3D:5DE7   _app_5de7
+3D:5DE7   app_5de7
 3D:5FB1   app_find_next_page
 3D:727D   flash_set_sector_cnt
 3D:7285   TLV-length candidate (inferred label); no defined function in live DB
@@ -384,7 +384,8 @@ ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
 ```
 
 ### Key SystemFlags / RAM addresses
-```
+
+```text
 0x89F0  flags (IY base)
  +0x00  trigFlags   (bit2 trigDeg: 1=Degree,0=Radian)
  +0x02  grfModeFlags(bit4 Func,bit5 Polar,bit6 Param,bit7 Seq; bit3 grfPolar)

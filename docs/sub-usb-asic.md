@@ -1,12 +1,12 @@
-# USB ASIC and link assist
+# USB ASIC & link assist
 
 This page covers the OS-visible USB/link-assist hardware interface: the Z80 I/O ports the ROM uses,
-the byte FIFO path used by the link layer, and the places where `_LinkXferOP` chooses USB before
+the byte FIFO path used by the link layer, and the places where `link_xfer_op` chooses USB before
 falling back to the 2.5 mm link. It complements [Link / data transfer](sub-link-transfer.md), which
 covers the TI link packet protocol and variable-transfer state machine.
 
 The full USB controller is broader than the variable-transfer path, but OS 2.55MP does expose enough
-of it to map the public USB entry points, the link-assist byte path, and the interrupt/event bridge.
+of it to map the public USB entry points, the link-assist byte path, and the interrupt/event path.
 This page is ROM-grounded: the confirmed claims below come from OS 2.55MP disassembly/decompilation
 and cite the address ranges that show them. External WikiTI names are used only as orientation where
 noted, not as proof.
@@ -17,10 +17,10 @@ The ROM shows four transport-facing surfaces:
 
 | Layer | Port range | Role |
 |-------|------------|------|
-| Legacy link | `0x00` | 2.5 mm tip/ring open-collector byte path. [confirmed: `3C:6C99`, `3C:6CF3`] |
-| Link-assist FIFO | `0x08`–`0x0D` | Hardware byte send/receive assist used below `_SendAByte` and `_RecAByteIO`. [confirmed: `3C:6BB1`–`6D53`] |
-| USB line / interrupt gates | `0x4D`, `0x55`, `0x56` | Line-state and event/status gates used before and during link handling. [confirmed: `3C:4E4A`, `00:006F`] |
-| USB controller / endpoints | `0x4A`–`0x5B`, `0x80`–`0xA2` | Page-35 USB host/device stack, including setup, endpoint FIFOs, callbacks, and data transfer. [confirmed: `35:4031`–`5B9B`] |
+| Legacy link | `0x00` | 2.5 mm tip/ring open-collector byte path. [confirmed] |
+| Link-assist FIFO | `0x08`–`0x0D` | Hardware byte send/receive assist used below `_SendAByte` and `_RecAByteIO`. [confirmed] |
+| USB line / interrupt gates | `0x4D`, `0x55`, `0x56` | Line-state and event/status gates used before and during link handling. [confirmed] |
+| USB controller / endpoints | `0x4A`–`0x5B`, `0x80`–`0xA2` | Page-35 USB host/device stack, including setup, endpoint FIFOs, callbacks, and data transfer. [confirmed] |
 
 In the variable-transfer code, the OS mostly treats USB as a transport selector around the existing
 TI link protocol. The packet layer still sends machine IDs, command bytes, checksums, ACK/NAK, and
@@ -28,7 +28,7 @@ EOT exactly as described in [sub-link-transfer.md](sub-link-transfer.md). The ha
 below that packet layer: bytes go through the assist FIFO when the ASIC path is enabled, and through
 port `0x00` bit-banging otherwise. [confirmed]
 
-## Observed port map [confirmed unless marked]
+## Observed port map [confirmed]
 
 | Port | Observed use in OS 2.55MP | Evidence |
 |------|---------------------------|----------|
@@ -40,7 +40,7 @@ port `0x00` bit-banging otherwise. [confirmed]
 | `0x0D` | Assist TX FIFO/data register. `_SendAByte` writes the outgoing byte here after port `0x09` bit 5 becomes set. | `3C:6BBC`–`6BBF` |
 | `0x20` | CPU speed bit used to select assist/link wait-loop reloads. The send timeout uses `0xFFFF` when bit 0 is set and `0x6800` when clear. | `3C:6BCC`, `3C:6C8B`, `3C:6CC1` |
 | `0x4C` | USB controller handshake/status byte. The page-35 stack compares it with `0x5A`/`0x1A` and `0x12`/`0x52`, and clears or primes it with `0x00`/`0x08` during setup. TilEm returns `0x22` to make the calc see no attached USB peer. | `35:42B7`, `35:42F6`, `35:403C`, `35:40E6`; TilEm `x4_io.c` |
-| `0x4D` | USB line-state gate. `_LinkXferOP` samples bits 5 and 6 before the page-0 bjump at `ram:2E0B`, which targets `35:4280`. Page-35 handlers also branch on bits 0, 1, 4, 5, 6, and 7. TilEm returns `0xA5` to emulate "USB disconnected." | `3C:4E4A`–`4E6F`, `35:42BF`, `35:4B6A`–`4B9F`; TilEm `x4_io.c` |
+| `0x4D` | USB line-state gate. `link_xfer_op` samples bits 5 and 6 before the page-0 bjump at `ram:2E0B`, which targets `35:4280`. Page-35 handlers also branch on bits 0, 1, 4, 5, 6, and 7. TilEm returns `0xA5` to emulate "USB disconnected." | `3C:4E4A`–`4E6F`, `35:42BF`, `35:4B6A`–`4B9F`; TilEm `x4_io.c` |
 | `0x55` | USB interrupt status, active-low in the low five bits. The IM1 dispatcher tests `(in(0x55) ^ 0xFF) & 0x1F` first. | `00:006F`–`0075` |
 | `0x56` | USB line-event bitmap used by the IM1 dispatcher after port `0x55` reports USB activity. Bits 4, 5, 6, 7, and 1 dispatch to page-35 handlers through page-0 bjumps. | `00:0085`–`00AE`, `00:0113`–`0127` |
 | `0x57`, `0x5B`, `0x4A`, `0x54` | USB controller control/ack registers used by page-35 setup and event handlers. The ROM confirms values such as `0x10`, `0x20`, `0x22`, `0x50`, `0x80`, `0x90`, `0x93` on `0x57`, `0x00`/`0x01` on `0x5B`, `0x20` on `0x4A`, and `0x02`/`0x44`/`0xC4` on `0x54`. | `35:4038`–`4060`, `35:42C5`–`42EA`, `35:4B6A`–`4C14` |
@@ -106,9 +106,11 @@ path:
 - The status masks `0x19` and `0x99` select error/activity cases before the code resets or re-arms
   the assist latch through port `0x08`.
 
-`lnk_rec_status` also uses the sentinel byte `0xE0`: callers pass it for a nonblocking/probe style
-receive check. If the caller requires a byte and the status path reports anything else, the code
-raises `E_LnkErr` through `_JError(0x9F)`. [confirmed]
+The assist receiver returns a normal byte in `C` with `A=0`; the port-`0x09`
+bit-6 path returns `A=1`. `lnk_rec_status` compares the returned `C` with
+`0xE0`, and raises `E_LnkErr` when `A=1` and `C != 0xE0`. `_RecAByteIO`
+preserves no caller-supplied `A`. The protocol meaning of the returned `0xE0`
+marker remains [hypothesis].
 
 The assist reset/enable sequence at `3C:6C3B` writes:
 
@@ -140,15 +142,14 @@ the inter-bit wait. Under that decoding, the ROM constants are:
 Direct ROM scans found the page-3C byte-transfer path writing those constants during setup, then
 using the read side of `0x09` for status and `0x0A` for received bytes. TilEm agrees on the runtime
 status/data behavior and stores ports `0x09`–`0x0C`, but its `x4`/`xn`/`xs`/`xz` models label the
-write-side settings as unknown or timeout-like and do not derive link timing from `0x97`/`0xB4`.
-[ROM-confirmed writes; WikiTI field names; TilEm storage-only]
+write-side settings as unknown or timeout-like and do not derive link timing from `0x97`/`0xB4`. [confirmed]
 
-## USB selection in `_LinkXferOP` [confirmed]
+## USB selection in `link_xfer_op` [confirmed]
 
-`_LinkXferOP` (`3C:4DD2`, bcall ID `0x50FB`) is the OS entry that sends a silent link request and
+`link_xfer_op` (`3C:4DD2`, bcall ID `0x50FB`) is the OS entry that sends a silent link request and
 prefers the USB path when its mode flags ask for it. `ti83plus.inc` names bcall `0x50FB`
 `_GetVarCmdUSB`, the USB variant of `_GetVarCmd` (`0x4A11`) / `_SendVarCmd` (`0x4A14`); that public
-name matches the USB-first variable-command behavior decoded here, while `_LinkXferOP` is the
+name matches the USB-first variable-command behavior decoded here, while `link_xfer_op` is the
 inferred name for the page-3C body. The ROM-confirmed setup is:
 
 - `OP1` holds the variable type/name.
@@ -165,13 +166,13 @@ The OS confirms that contract in the `4E35`–`4E73` gate:
    normal page mask. That routine calls the public `_InitUSBDevice` body at `35:42B0`, then accepts
    only TI vendor `0x0451` with product IDs `0xE003`, `0xE008`, or `0xE00F`; success returns carry
    clear, while mismatch or init failure returns carry set.
-5. On carry set, `_LinkXferOP` clears `IY+0x1B` bit 5 and continues into `lnk_send_data_867d`
+5. On carry set, `link_xfer_op` clears `IY+0x1B` bit 5 and continues into `lnk_send_data_867d`
    (`3C:4055`), which
    sends the same TI link request/VAR/DATA packets described in the link-transfer page.
 6. On carry clear, the USB path remains selected and the OS calls the bjump reached through
    `ram:3FC3` with `A=0x0A`.
 
-This makes `_LinkXferOP` a USB-first wrapper around the existing link transfer engine. It does not
+This makes `link_xfer_op` a USB-first wrapper around the existing link transfer engine. It does not
 replace the packet format. The transport choice happens before `_SendAByte` writes each byte through
 the assist FIFO or falls back to port `0x00`. [confirmed]
 
@@ -199,13 +200,13 @@ bjumps resolve as:
 | 7 | `00:0118` → `ram:3F99` | `35:4C14` | cleanup/reset path; clears `0x5B`, resets `USBFlag2` bit 0, and jumps through the common controller reset. |
 | 1 | `00:011D` → `ram:3F9F` | `35:4031` | alternate setup path; waits for `0x4C = 0x12/0x52` and uses endpoint/status ports `0x87`/`0x89`/`0x8B`. |
 
-[confirmed]
+Both paths are [confirmed].
 
 The timer/idle side of the same handler also bridges to the assist path. At `ram:01B1` it calls
 `ram:1837` (`IN A,(0x2); AND 0x80; XOR 0x80`), the same hardware-model gate used elsewhere before assist-port access. On the legacy path it checks `port 0x00 & 0x03`; on the assist
 path it checks `port 0x09 & 0x18`. If either assist bit is set, it reloads `0x9C86 = 0xFA`, pulses
 port `0x08` with `0x80` then `0x00`, sets `IY+0x3E` bit 0, and calls the common link activity hook
-at `ram:3FD5`. [confirmed: `00:01B1`–`01DB`]
+at `ram:3FD5`. [confirmed]
 
 For application code, this means a custom interrupt handler that does not chain to the OS handler
 must account for port `0x55`/`0x56` activity itself and then either reproduce the relevant page-35
@@ -224,7 +225,7 @@ mask to physical page `0x35`.
 | `50F2` | `_SendUSBData` | `35:4DD3` | Sends from `HL` with byte count in `DE`; stores progress at `0x9C7E`/`0x9C81` and writes 64-byte chunks to port `0xA2`. |
 | `50F5` | `_AppGetCBLUSB` | `3B:54C7` | Sets `IY+0x1B` bit 1, clears bit 2, then reaches `_GetVarCmdUSB`. |
 | `50F8` | `_AppGetCalcUSB` | `3B:54F0` | At `3B:54DE` clears `IY+0x16` bit 0 and sets `sndRecState`=0x15, then `bcall 0x50FB` (shared get-var path). |
-| `50FB` | `_GetVarCmdUSB` / `_LinkXferOP` | `3C:4DD2` | USB-first variable command wrapper described above. |
+| `50FB` | `_GetVarCmdUSB` / `link_xfer_op` | `3C:4DD2` | USB-first variable command wrapper described above. |
 | `5254` | `_InitUSBDeviceCallback` | `35:4696` | Initializes device mode, stores callback page/address at `0x9C13`/`0x9C14`, and returns `0xFC`–`0xFF` style error bytes with carry set on failure. |
 | `5257` / `5311` | `_KillUSBDevice` / `_RecycleUSB` | `35:46FC` / `35:5B9B` | Clears callback state and recycles through the same cleanup path. |
 | `525A` | `_SetUSBConfiguration` | `35:470B` | Builds an 8-byte request block at `0x9C29` and writes it through port `0xA0`. |
@@ -235,13 +236,13 @@ mask to physical page `0x35`.
 | `530B` | `_ToggleUSBSmartPadInput` | `35:5B84` | Sets or clears bit 3 in `0x9C75` according to `A == 1`. |
 | `530E` | `_IsUSBDeviceConnected` | `35:5B92` | Preserves `A`; returns flags from `IN (0x81) & 0x40` (bit 6). (The `.inc` comment guesses `bit 4,(81h)`, but the body actually masks bit 6.) |
 
-## How to use it in code [grounded by OS calls]
+## How to use it in code [confirmed]
 
 Prefer the OS entry points unless the program is deliberately writing a USB driver:
 
 | Need | OS surface | ROM support |
 |------|------------|-------------|
-| Send or request a variable over USB/link | `_GetVarCmdUSB`/`_LinkXferOP` (`50FB` → `3C:4DD2`) or `_SendVarCmd` (`4A14` → `3C:4EDD`) | Packet engine and USB-selection gate confirmed on page `3C`. `0x50FB` is `_GetVarCmdUSB` in `ti83plus.inc`. |
+| Send or request a variable over USB/link | `_GetVarCmdUSB`/`link_xfer_op` (`50FB` → `3C:4DD2`) or `_SendVarCmd` (`4A14` → `3C:4EDD`) | Packet engine and USB-selection gate confirmed on page `3C`. `0x50FB` is `_GetVarCmdUSB` in `ti83plus.inc`. |
 | Send one byte on the active link transport | `_SendAByte` (`4EE5` → `3C:420D`) | Assist branch writes `C` to port `0x0D` after port `0x09` bit 5. |
 | Receive one byte on the active link transport | `_RecAByteIO` (`4F03` → `3C:443F`) | Status path checks port `0x09` and reads port `0x0A` on the assist path. |
 | Use the raw assist FIFO | Poll port `0x09` bit 5, then write the byte to port `0x0D`; for receive, observe port `0x09` bit 4/error bits and read port `0x0A`. | Confirmed as an OS pattern, but not a complete public API. |
@@ -252,7 +253,7 @@ machine ID, command, length, payload checksum, ACK/NAK, and EOT. That framing is
 
 Practical rules:
 
-- Set up `IY+0x1B` consistently before calling `_LinkXferOP`. Bit 0 is the USB-first selector.
+- Set up `IY+0x1B` consistently before calling `link_xfer_op`. Bit 0 is the USB-first selector.
 - Do not write ports `0x08`–`0x0D` while the OS link engine is active; the OS keeps state in
   `IY+0x3E` bit 0, `0x9C86`, and `0x9CAC`.
 - If a custom interrupt handler is installed, either chain to the OS handler or service the same

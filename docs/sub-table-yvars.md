@@ -1,6 +1,6 @@
 # Table & Y= variables
 
-What the user touches when entering functions in **Y=**, configuring
+This page covers entering functions in **Y=**, configuring
 **TBLSET** (`2nd WINDOW`), and reading the **TABLE** (`2nd GRAPH`) to tabulate
 `Y1(X)`, `Y2(X)`, … over a range of `X`. Traces: where the table-setup settings
 live → how the OS, per X row, sets the `X` variable, evaluates each selected Y=
@@ -46,17 +46,17 @@ flowchart TB
     PARSER --> S3
 ```
 
-The TABLE feature reuses the exact same Y= storage and the same page-38
+The TABLE feature reuses the Y= storage and the same page-38
 recursive-descent evaluator the grapher and homescreen use; it adds only
 (a) the running-`X` driver from
 `TblMin`/`TblStep`, (b) a RAM value cache so scrolling doesn't recompute, and
-(c) a text-grid renderer. [confirmed for structure]
+(c) a text-grid renderer. [confirmed]
 
 ---
 
 ## 1. Table setup — where the settings live & how they're read
 
-### System variables (RAM `TIFloat`s) [confirmed addresses, ti83plus.inc + code]
+### System variables (RAM `TIFloat`s) [confirmed]
 
 | Addr | Name | Meaning | Token |
 |------|------|---------|-------|
@@ -66,9 +66,9 @@ recursive-descent evaluator the grapher and homescreen use; it adds only
 Both are 9-byte floats. They are ordinary system token variables: read/written
 through `_RclSysTok` (`38:683E`) / `_StoSysTok` (`38:623B`) using the token bytes
 above (the page-38 system-var token table lives around `38:61F1`). `ΔTbl`'s token
-is the list-step token `0x21`; `TblStart` uses `0x1A`. [confirmed token+addr]
+is the list-step token `0x21`; `TblStart` uses `0x1A`. [confirmed]
 
-### Mode flags — `tblFlags` (IY+19 = IY+0x13) [confirmed bit layout]
+### Mode flags — `tblFlags` (IY+19 = IY+0x13) [confirmed]
 
 From `ti83plus.inc` and verified by the bit-ops below:
 
@@ -128,7 +128,7 @@ Y-token:
 | `Y5` | `0x14` | | `Y0` | `0x19` |
 
 (Parametric `X1T/Y1T`=`0x20/0x21`…, polar `r1`…, and `u/v/w` sequences share the
-same `EquObj`/`tVarEqu` machinery.) [confirmed tokens]
+same `EquObj`/`tVarEqu` machinery.) [confirmed]
 
 ### Selection & style flags [confirmed]
 
@@ -140,8 +140,9 @@ same selected set the grapher plots, so deselecting `Y2` in the Y= editor (or
 clearing its `=` highlight) removes its column from the table. `curGStyle`
 (`0x8D17`) holds the in-progress style; `sGrFlags` bit `g_style_active`
 (IY+20 bit5) enables per-equation styles. The graphing doc covers the plot side; the
-*table* only reads the selection bit to decide which columns exist. [confirmed against the
-[TI link-protocol var guide](https://merthsoft.com/linkguide/ti83+/vars.html#style)]
+*table* only reads the selection bit to decide which columns exist. [confirmed]
+The values also match the
+[TI link-protocol var guide](https://merthsoft.com/linkguide/ti83+/vars.html#style).
 
 ### The selected-equation list — `iMathPtr4` (`0x84D9`) [confirmed]
 
@@ -151,9 +152,9 @@ decompile — they compute `0x84D9 + 2·n`):
 
 | bcall | Addr | Role |
 |-------|------|------|
-| `_GraphTblFind` | `33:7097` | (re)build the list of selected-equation pointers |
-| `_GraphTblNext` | `33:707A` | `_LdHLind(0x84D9 + 2·n)` — fetch the n-th equation pointer |
-| `_grf_7066` | `33:7066` | store a pointer into slot n (`0x84D9 + 2·n`) |
+| `graph_tbl_find` | `33:7097` | (re)build the list of selected-equation pointers |
+| `graph_tbl_next` | `33:707A` | `_LdHLind(0x84D9 + 2·n)` — fetch the n-th equation pointer |
+| `grf_7066` | `33:7066` | store a pointer into slot n (`0x84D9 + 2·n`) |
 
 This is the shared iterator the regraph driver and the table builder both walk
 to visit each selected `Yn`. [confirmed]
@@ -211,7 +212,7 @@ recompute driver, otherwise it repaints from the cached values. [confirmed]
 ```
 
 After a successful recompute it clears `reTable`, so subsequent scrolls reuse
-the cache until something marks it dirty again. [confirmed bytes]
+the cache until something marks it dirty again. [confirmed]
 
 ### 3.1 Seeding the running independent value [confirmed]
 
@@ -236,14 +237,14 @@ incremental add:
 ```
 
 So row $k$ uses $X=\mathrm{TblMin}+k\cdot\mathrm{TblStep}$. (In **Indpnt = Ask** mode this driver is
-bypassed and the user types each X; see §3.4.) [confirmed structure]
+bypassed and the user types each X; see §3.4.) [confirmed]
 
 ### 3.2 The per-row evaluation: set X, evaluate each selected Y [confirmed]
 
 For each row the recompute fills the cache by, per selected equation:
 1. store the running-X into the `X` system variable (`_StoX`, `38:62A3`),
 2. evaluate that equation's tokens against the current `X` — the table walks the
-   selected list via `_GraphTblNext` (`33:707A`) and runs each formula through the
+   selected list via `graph_tbl_next` (`33:707A`) and runs each formula through the
    page-38 evaluator (`_ParseInp` `38:5987` / the `_Find_Parse_Formula` path),
    leaving `Y` in `OP1` (exactly the grapher's per-column eval in
    `sub-graphing.md §6`),
@@ -254,7 +255,7 @@ The fill loop is `05:5EE1`: it strides the cell buffer at `0x91E2` in 9-byte
 top-row index `0x91E0`. The `X` column itself is written from the running-X; the
 `Y` columns from the evaluated OP1. [confirmed]
 
-### 3.3 The value cache & scrolling [confirmed buffers]
+### 3.3 The value cache & scrolling [confirmed]
 
 The table keeps the visible window of computed values in a RAM cache so that
 scrolling is instant (no recompute):
@@ -271,9 +272,9 @@ scrolling is instant (no recompute):
 `05:6014` performs the scroll: `LD HL,0x9221 ; LD DE,0x9260 ; LDIR` (copy a
 0x3F-byte block) and an `LDDR` shift of a 0xB4-byte region — i.e. when you press
 ↑/↓ past the cached window it slides the cache and only computes the one new row
-(or recomputes if `reTable`). [confirmed bytes]
+(or recomputes if `reTable`). [confirmed]
 
-### 3.4 Indpnt = Auto vs Ask, Depend = Auto vs Ask [confirmed test sites]
+### 3.4 Indpnt = Auto vs Ask, Depend = Auto vs Ask [confirmed]
 
 `05:6D40`/`05:6D51` read the mode bits to branch:
 
@@ -312,19 +313,19 @@ columns, drawn with the large font through the home-screen text primitives
 `05:7E7C` chooses the destination text buffer (`0x9221` vs `0x91E2`) based on the
 column index, and writes `0xFF`/blank sentinels for empty (Ask) cells. The bottom
 status line and the highlighted-cell full-precision readout reuse the same value
-cache. [confirmed loop + buffers]
+cache. [confirmed]
 
-### 3.6 Split graph-table mode — `_ScreenSplit` (`05:7712`) [confirmed]
+### 3.6 Split graph-table mode — `screen_split` (`05:7712`) [confirmed]
 
 The **G-T** mode (graph on the left half, table on the right) is set up by
-`_ScreenSplit` (bcall `0x5227`): it checks the split flag, calls `_Bit_VertSplit`,
+`screen_split` (bcall `0x5227`): it checks the split flag, calls `_Bit_VertSplit`,
 then `05:7544` and the table-init `05:773F` (seed running-X from TblMin), and
-cross-jumps to redraw. So G-T mode shares the very same table cache + running-X
+cross-jumps to redraw. G-T mode shares the table cache and running-X
 driver, rendered into the right columns alongside the plot. [confirmed]
 
 ---
 
-## 4. What marks the table dirty (`reTable` = 1) [confirmed sites]
+## 4. What marks the table dirty (`reTable` = 1) [confirmed]
 
 Anything that could change a tabulated value sets `tblFlags` bit6, forcing the
 next TABLE view to recompute:
@@ -353,7 +354,7 @@ Conversely only the recompute driver clears it (`05:5DD7`, `05:62FD`,
    `table_editor_main` (`05:5D0D`) sees `reTable=1` → `table_recompute`
    (`05:5DD7`):
    - seed running-X ← `TblMin` (`05:774B`),
-   - `_GraphTblFind`/`_GraphTblNext` (`33:7097`/`707A`) walk the selected
+   - `graph_tbl_find`/`graph_tbl_next` (`33:7097`/`707A`) walk the selected
      equation list at `iMathPtr4` (0x84D9) — here only `Y1`,
    - per row: `_StoX` the running-X, evaluate `Y1`'s tokens via the page-38
      evaluator (`_Find_Parse_Formula` / `_ParseInp`) → OP1 = `X²+1`, format and
@@ -369,7 +370,7 @@ Conversely only the recompute driver clears it (`05:5DD7`, `05:62FD`,
 
 ## 6. Confident addresses (`space:addr` → name)
 
-```
+```text
 ; --- TABLE setup settings & flags ---
 RAM  92B3   TblMin / TblStart                  ; first independent value (sys float)
 RAM  92BC   TblStep / ΔTbl                     ; row increment (sys float)
@@ -391,7 +392,7 @@ IY+19 b6    tblFlags.reTable  = table-dirty
 05:6d40  table_mode_test                  ; BIT autoFill/autoCalc (Auto vs Ask)
 05:7e45  table_paint_grid_loop            ; render cached cells as text columns
 05:7e7c  table_cell_select_buffer         ; pick cell text buffer 0x9221/0x91E2
-05:7712  _ScreenSplit                     ; Graph-Table split-screen setup
+05:7712  screen_split                     ; Graph-Table split-screen setup
 05:62fd  table_recompute_clear_reTable    ; another RES6 recompute exit
 
 ; --- table value-cache RAM ---
@@ -407,14 +408,14 @@ RAM  8622 / 862B     running independent value (current row's X)
 EquObj = 3 (VAT type)                          ; Y1..Y0 stored as tokenized formulas
 tokens: tVarEqu=0x5E + tY1=0x10 … tY0=0x19     ; Y-var name encoding
 RAM  84D9   iMathPtr4                          ; base of selected-equation pointer list
-33:7097  _GraphTblFind                    ; (re)build selected-equation list
-33:707a  _GraphTblNext                    ; fetch n-th equation ptr (0x84D9+2n)
-33:7066  _grf_7066                        ; store n-th equation ptr
+33:7097  graph_tbl_find                    ; (re)build selected-equation list
+33:707a  graph_tbl_next                    ; fetch n-th equation ptr (0x84D9+2n)
+33:7066  grf_7066                        ; store n-th equation ptr
 38:758a  _Find_Parse_Formula              ; FindSym Y-var + parse its formula → OP1
 38:5987  _ParseInp                        ; parse/eval a formula against current X
 38:62a3  _StoX                            ; store OP1 → X system var (per row)
 38:67ae  _RclX  / 38:67a4 _RclY / 38:626c _StoY
-33:5023  _GraphParseTok                   ; pre-scan equation tokens (graphable?)
+33:5023  graph_parse_tok                   ; pre-scan equation tokens (graphable?)
 
 ; --- reTable (dirty) setters ---
 38:6340 / 38:4809 / 38:54cd  parser sets reTable on Y=/var edit
@@ -434,7 +435,7 @@ RAM  84D9   iMathPtr4                          ; base of selected-equation point
   CALL/buffer structure is byte-pinned.
 - The exact per-row `_StoX` + selected-Y eval calls inside `05:5EE1`/the fill
   loop are [hypothesis] — the loop, buffers, and the shared selected-equation
-  iterator (`iMathPtr4` / `_GraphTblNext`) are confirmed; the individual on-page
+  iterator (`iMathPtr4` / `graph_tbl_next`) are confirmed; the individual on-page
   direct CALLs to `_StoX`/the evaluator were inferred from the identical
   grapher per-column path rather than each byte-traced.
 - Y= selection bit (`0x20`) — flags byte `0x23` selected / `0x03` deselected — and the

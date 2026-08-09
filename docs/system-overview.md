@@ -1,4 +1,4 @@
-# TI-84 Plus OS — Reverse-engineering notes: system overview
+# System overview
 
 Target: `ti84plus.rom` (1 MiB flash dump). OS self-identifies as 2.55MP. CPU: Zilog Z80 (16-bit address bus, 64 KiB logical space) with hardware flash/RAM paging. Ghidra project: `ti84.gpr` (rebuild: `tools/build.sh`).
 
@@ -54,6 +54,6 @@ Each row maps a documentation page to the subsystem it covers and its analysis s
 
 (The `sub-*` docs are deep dives covering user-facing functionality and I/O internals: calculation, graphing, TI-BASIC, VAT/archive, apps, stats, matrices, solver, table, equation display, link, and USB/link assist.)
 
-New to these notes? Start with [Conventions & Methodology](conventions.md) (how to read the addresses and confidence flags) and the [Glossary](glossary.md); the [bcall Index](bcall-index.md) is the full alphabetical system-call reference.
+New to these notes? Start with [Conventions & methodology](conventions.md) (how to read the addresses and confidence flags) and the [Glossary](glossary.md); the [bcall index](bcall-index.md) is the full alphabetical system-call reference.
 
 The main `0x4xxx` bcall table and the retail boot bcall table (`0x8xxx`, from the local complete ROM) both carry TI-OS types. Most boot bcall bodies are on page `3F`; USB boot routines such as `_AttemptUSBOSReceive`, `_ReceiveOS_USB`, `_InitUSB`, and `_KillUSB` are on page `2F`. Rebuild: `tools/build.sh`.

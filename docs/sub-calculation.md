@@ -30,6 +30,7 @@ A `TIFloat` is `type(+0) exp(+1) mantissa(+2..+8)`; `type` bit7 = sign, bits set
 `exp` is base-10 biased by `0x80`. Sign is sign-magnitude, so negation is a single `XOR 0x80`.
 
 ### FP-stack discipline during nested expressions [confirmed]
+
 Binary/transcendental routines that need to preserve an operand spill it to `FPS`:
 - `_PushRealO1` (= `RST 18h`, `ram:155C`), `_PushReal`/`_PushRealOn`, `_PushOP1` (`ram:1599`).
 - `_PopRealO1`…`_PopRealO6` (`ram:150F`…`14F6`), `_PopReal` (`ram:1512`).
@@ -62,6 +63,7 @@ Convenience / derived ops:
 - **Negation**: `_InvOP1S` `ram:24BD` (XOR OP1.type with 0x80, guarding against −0), `_InvOP2S` `ram:24CD`, `_InvOP1SC` `ram:24BA` (both). `_CkOP1Pos` `ram:1E5D` ANDs OP1.type with 0x80. [confirmed]
 
 ### Roots & integer parts [confirmed]
+
 - `_SqRoot` `02:6E38`: `_ErrD_OP1NotPos` (→ DOMAIN if negative/complex-real), `fp_clear_guard`, `_ZeroOP3`, then a digit-by-digit BCD square-root extraction loop (`ram:1C9C` trial-subtract + `ram:1D4A` compare, halving the exponent up front). A classic long-hand sqrt, not Newton's method.
 - `_Int`/`_Intgr` `ram:2621`/`2263`: floor. `_Trunc` `ram:2279` drops the fractional part (toward zero); `_Intgr` truncates then subtracts 1 (`_Minus1` `ram:2294`) when the original was negative, giving true floor.
 - `_Frac` `ram:24E3`: fractional part = x − trunc(x); shifts mantissa by the exponent and keeps the low digits.
@@ -70,6 +72,7 @@ Convenience / derived ops:
 ---
 
 ## 3. Degree/radian & polar conversions [confirmed]
+
 - `_DToR` `ram:236B` (deg→rad): multiply OP1 by $\pi/180$ (`ram:235D` loads the constant) then normalize via `ram:249E`.
 - `_RToD` `ram:2374` (rad→deg): multiply by $180/\pi$ (`ram:2361`).
 - `_PToR` `02:50BD` polar→rectangular; pairs with the complex trig below.
@@ -79,6 +82,7 @@ These constants are the BCD floats `π/180 = 1.745…e-2` and `180/π = 5.729…
 ---
 
 ## 4. Cross-page dispatch (`cross_page_jump` @ `ram:2B09`) [confirmed]
+
 Banked ROM calls use a bcall-style trampoline.
 `cross_page_jump`:
 1. saves the current page (`IN A,(6)`),
@@ -98,17 +102,20 @@ the `_TenX` body at `02:7069`; the ln/e^x/sin-cos coefficient tables are on page
 ## 5. Transcendentals
 
 ### Logarithms [confirmed]
+
 - `_LnX` `02:6EFD`: `_CkOP1Pos`; non-positive real → `_ErrDomain`. For a positive real it calls the real-log core (`_CLN` path, selector `C=2`); the *generic* entry handles complex args.
 - `_LogX` `02:6F16`: same structure, base-10 selector `C=0`, guards `_ErrD_OP1_0`/`_ErrD_OP1NotPos`.
 - `_CLN` `02:6CCA` / `_CLog` `02:6CE7` — complex log: `_CAbs` (magnitude) → real `_LnX`/`_LogX` for the real part, `_ATan2Rad` (`02:76D4`) for the imaginary part (the argument/angle). Uses `_PushRealO1`/`_PopRealO2` to juggle the operand. This is why `ln(-2)` returns a complex result in `a+bi` mode but raises `_ErrNonReal` (0x87) in real mode.
 
 ### Exponentials [confirmed]
+
 - `_EToX` `02:705C` (e^x): loads the `log10(e)` constant through `ram:2362`/`02:7D1E`,
   then falls through into the local `_TenX` body.
 - `_TenX` `02:7066` (10^x): splits exponent into integer (digit shift) + fractional
   (16-slot table-driven evaluation through `02:7181`). Argument too large → `_ErrOverflow`.
 
 ### Trig — sin/cos/tan [confirmed]
+
 - `_SinCosRad` `02:733E`, `_Sin` `7342`, `_Cos` `7346`, `_Tan` `734A`. Each loads a
   function selector byte into `0x8499` (`1`=sin, `2`=cos, `4`=tan; `0x80` bit set when
   the rad-special mode tested by `BIT 2,(IY+0)` is off; `_SinCosRad` forces `0x81`).
@@ -122,6 +129,7 @@ the `_TenX` body at `02:7069`; the ln/e^x/sin-cos coefficient tables are on page
   decoding of `02:7201`/`02:7281` is detailed in [floating-point.md](floating-point.md).
 
 ### Inverse trig [confirmed]
+
 - `_ASinRad` `76DA`, `_ACosRad` `76C9`, `_ATanRad` `76CF`, `_ATan2Rad` `76D4`, plus the
   degree-mode `_ASin`/`_ACos`/`_ATan`/`_ATan2` at `76F1`/`76DF`/`76E9`/`7749`.
 - `_ASin`/`_ACos` call domain check `02:79D3`; |arg| > 1 → `_ErrDomain`.
@@ -131,10 +139,12 @@ the `_TenX` body at `02:7069`; the ln/e^x/sin-cos coefficient tables are on page
   via atan2 of (x, √(1−x²)).
 
 ### Hyperbolics [confirmed]
+
 - `_SinHCosH` `7626`, `_TanH` `762A`, `_CosH` `762E`, `_SinH` `7632`; `_ATanH`/`_ASinH`/`_ACosH`
   at `7909`/`7956`/`7964`. Same `0x8499` selector mechanism; built from `_EToX` (`sinh = (e^x−e^-x)/2`, visible in the `_EToX`+`_FPDiv` sequence near `02:6D08`).
 
 ### Power operator `^` [confirmed]
+
 The general `a^b` lives at `02:6D08`+: it computes `b·ln(a)` then `e^()` and reconstructs
 with `_SinCosRad` for the complex case — i.e. `a^b = e^(b·Ln a)`, with `_FPDiv`/`_FPMult`
 glue and `_OP2ToOP6`/`_OP6ToOP1` shuffles. Integer/√ special cases short-circuit to
@@ -224,7 +234,8 @@ Errors (page 0): `_JError 2793`, raiser table `26E8`+, domain pre-checks `2119`�
 
 ---
 
-## 9. Worked flow: `2*sin(π/6)+ln(5)` [hypothesis, from the above]
+## 9. Worked flow: `2*sin(π/6)+ln(5)` [hypothesis]
+
 1. Parser pushes `2` (`OP1`), evaluates `sin(π/6)`: loads `π/6` into OP1, `_SinCosRad`/`_Sin`
    (selector `0x8499`), table-driven digit recurrence → `OP1=0.5`.
 2. `×`: the saved `2` is in `OP2` (or popped from FPS) → `_FPMult` → `OP1=1`.

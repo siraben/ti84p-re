@@ -84,8 +84,7 @@ typedef struct {
 `row_action[]` bytes are row labels or control actions. They are separate from the cell
 stream. The row-cell pointer routine at `39:4DCA` skips the row count, the per-row cell
 counts, and the row-action bytes before it reaches the packed two-byte cells. The cell
-emitter at `39:4DE6` then walks the selected row and calls `39:4E8E` for each `D:E` cell.
-[confirmed]
+emitter at `39:4DE6` then walks the selected row and calls `39:4E8E` for each `D:E` cell. [confirmed]
 
 Examples:
 
@@ -99,14 +98,12 @@ Examples:
 | `0x31` | `39:6433` | Stacked root/power row with a degree row. |
 
 The display cell `00 C8` is the visible `fnInt(` name. It appears in class `0x08` and
-class `0x30`; it is distinct from the fixed `Lintegral` glyph cells in class `0x0D`.
-[confirmed]
+class `0x30`; it is distinct from the fixed `Lintegral` glyph cells in class `0x0D`. [confirmed]
 
 ## Token classification
 
 `eqdisp_dispatch_token` (`39:4A74`) turns an incoming token or action byte into a layout
-class. It first handles the special `0x3D` template handoff, then applies context bias.
-[confirmed]
+class. It first handles the special `0x3D` template handoff, then applies context bias. [confirmed]
 
 ```pseudocode
 \begin{algorithm}
@@ -196,8 +193,7 @@ The known descriptors are:
 | `39:68A5` | descriptor family | Two-row, three-column descriptor. |
 
 Descriptor `39:6880` contains `FE09`, `FB C8`, `00 C7`, `00 C8`, and `FB C7` in one row.
-That places `fnInt(` as a menu/template cell, not as a structural integral glyph.
-[confirmed]
+That places `fnInt(` as a menu/template cell, not as a structural integral glyph. [confirmed]
 
 ## Fractions
 
@@ -380,7 +376,7 @@ routines actually run* for each construct:
 | `1/2` (n/d template) | `eqdisp_compute_dims` `69C8`, `eqdisp_layout_token_geom` `68AE`, the `683D` cell-to-pixel mapper, `eqdisp_draw_fraction_bar` `6ABF`, `eqdisp_draw_box_jp` `6AF5`, `eqdisp_load_glyph18b2` `6B66`, `eqdisp_dispatch_token` `4A74` | descriptor / geometry |
 | `fnInt(` (MATH ▸ 9) | `eqdisp_emit_glyph` `4E8E`, `eqdisp_map_token_glyph` `4F1A`, `eqdisp_emit_arglist` `4DE6`, `eqdisp_sum_arg_widths` `4DCA`, `eqdisp_emit_digit_chk` `4E0A` | handler record / multi-arg |
 
-This confirms the headline static result: the descriptor path (`69C8`/`68AE`/`683D`/`6ABF`)
+This confirms the static result: the descriptor path (`69C8`/`68AE`/`683D`/`6ABF`)
 and the handler-record path (`4DCA`/`4DE6`/`4E8E`/`4F1A`) are mutually
 exclusive per construct, exactly as the two-mechanism model predicts. [confirmed]
 

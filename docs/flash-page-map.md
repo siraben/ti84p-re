@@ -1,6 +1,6 @@
 # Flash page map
 
-What lives on each of the 64 physical flash pages (16 KiB each). OS code occupies pages `00–07` and `33–3D`; pages `08–32` are blank in this image; page `3E` is the certificate sector and `3F` the boot page. On a retail unit the upper pages can also carry Flash Apps, but this dump is OS-only — the page scan below reports zero Flash-App headers. The page roles below are characterized by the named bcall routines that resolve to each page (`tools/bcall_targets.txt`) plus function counts; the `0x8xxx` cert/boot/USB bcalls come instead from `ti83plus.inc` and the retail segment files (`bcall_targets.txt` does not carry the `0x8xxx` targets).
+What lives on each of the 64 physical flash pages (16 KiB each). OS code occupies pages `00-07` and `33-3D`; pages `08-2E` and `30-32` are blank in this image; page `2F` contains retail USB boot support, page `3E` is the certificate sector, and page `3F` is the retail boot page. On a retail unit the upper pages can also carry Flash Apps, but this dump is OS-only — the page scan below reports zero Flash-App headers. The page roles below are characterized by the named bcall routines that resolve to each page (`tools/bcall_targets.txt`) plus function counts; `tools/bcalls8x_targets.txt` carries the `0x8xxx` cert/boot/USB targets resolved from pages `2F` and `3F`.
 
 ## OS pages (carry bcall entry points)
 
@@ -20,7 +20,7 @@ What lives on each of the 64 physical flash pages (16 KiB each). OS code occupie
 | `38` | 277 | TI-BASIC parser / evaluator | `_ParseInp`, `_Find_Parse_Formula`, `parse_init` |
 | `39` | 153 | Equation pretty-printer (2D MathPrint layout) + menus | `eqdisp_render_entry`, `eqdisp_emit_glyph`, `_DispMenuTitle` |
 | `3A` | 85 | Statistics (1/2-var, regressions) + TVM finance | `_OneVar`, `reg_gauss_solve`, `tvm_solve_iterate` |
-| `34` | 16 | Crystal timers / clock, token scan | `_CrystalTimerA`, `timer_scan_tbl` |
+| `34` | 16 | Crystal timers / clock, token scan | `crystal_timer_a`, `timer_scan_tbl` |
 | `35` | 6 | Memory-reset engine, factorial | `mem_reset_dispatch`, `ram_reset_wipe`, `op1_factorial` |
 | `3B` | 39 | bcall jump table + mem utils | (table data) `_MemClear`, `_MemSet`, `_DrawCirc2` |
 | `3C` | 72 | Link / variable transfer | `_SendAByte`, `_RecAByteIO`, `_SendVarCmd`, `_Rec1stByte` |
@@ -28,12 +28,13 @@ What lives on each of the 64 physical flash pages (16 KiB each). OS code occupie
 
 ## Page byte-scan notes (empty range, boot & system pages)
 
-No Flash-App headers (`80 0F`) appear at any page boundary; the image is OS-only [hypothesis]. Byte-level notes on the empty page range and the boot/system pages (some of which, e.g. `34–39`/`3B`/`3C`, also carry the bcalls listed above):
+No Flash-App headers (`80 0F`) appear at any page boundary; the image is OS-only [hypothesis]. Byte-level notes on the empty page range and the boot/system pages (some of which, e.g. `34-39`/`3B`/`3C`, also carry the bcalls listed above):
 
 | Page | Verified contents |
 |------|-------------------|
-| `08–32` | Blank/unused in this OS image — 100% `0xFF` in `tools/rom.bin`. Page `2F` is the retail USB boot support page, but its code lives in the separate `D84PBE2.8Xv` segment (not in `rom.bin`); the retail page-`3F` boot table maps the `0x8xxx` USB bcalls (`_AttemptUSBOSReceive`, `_ReceiveOS_USB`, `_USBErrorCleanup`, `_InitUSB`, `_KillUSB`) into page `2F`. No app headers. |
-| `34–39` | More OS code (graph/mode/menu/timers); fill 0.2–17% `0xFF`. |
+| `08-2E`, `30-32` | Blank/unused in this OS image — 100% `0xFF` in `tools/rom.bin`. No app headers. |
+| `2F` | Retail USB boot support installed from `D84PBE2.8Xv`. The page-`3F` boot table maps `_AttemptUSBOSReceive`, `_ReceiveOS_USB`, `_USBErrorCleanup`, `_InitUSB`, and `_KillUSB` here; `tools/rom.bin` contains the payload and `tools/bcalls8x_targets.txt` records their bodies. |
+| `34-39` | More OS code (graph/mode/menu/timers); fill 0.2–17% `0xFF`. |
 | `3B` | **bcall jump table** — starts `99 27 00` = entry 0 (`_JErrorNo`→`ram:2799`). |
 | `3C` | Link code + the OS version string — page starts with ASCII `32 2E 35 35 4D 50` = `"2.55MP"`. |
 | `3E` | **Certification page** — the per-calculator certificate sector (84+ cert page is `3E`, not `3F`). Blank (99% `0xFF`) in this OS-only image, since the cert is written per-device. The OS reads this sector through the `ti83plus.inc` cert bcalls: `_GetCertificateStart` (bcall `0x8057`) and `_GetCertificateEnd` (bcall `0x802D`) bound the sector, and `_FindFirstCertField` (bcall `0x8027`) / `_FindNextCertField` (bcall `0x8078`) walk its TLV fields. |
@@ -42,4 +43,5 @@ No Flash-App headers (`80 0F`) appear at any page boundary; the image is OS-only
 The large-font glyph table is on page 0x07 (see [Display / LCD](display-lcd.md#fonts-confirmed)). Alternate large fonts live on pages 1 and 0x36 (selected by `(IY+0x35)` bits 5/1). Page 7 is the busiest data page (archive code, list/matrix, error messages, *and* the large font). [confirmed]
 
 ## Takeaway
+
 The OS is page-specialized: kernel + math on page 0, one subsystem per low page. A bcall is really "run subsystem X's routine on its page" — the page map *is* the subsystem decomposition, physically.

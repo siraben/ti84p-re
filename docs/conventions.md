@@ -12,7 +12,7 @@ How to read these notes, and how they were produced.
 
 ## Address notation
 
-- `pp:addr` — flash page `pp` (`00`–`3F`), logical address `addr`. Banked pages run in the `4000–7FFF` window, so e.g. `_PutS` at `01:5C39` means page 1, address `0x5C39`. Example: `3D:6745`.
+- `pp:addr` — flash page `pp` (`00`–`3F`), logical address `addr`. Banked pages run in the `4000-7FFF` window, so e.g. `_PutS` at `01:5C39` means page 1, address `0x5C39`. Example: `3D:6745`.
 - `ram:addr` — page 0 (the always-mapped kernel) and the RAM window; Ghidra keeps page 0 in its `ram` space, so `ram:229E` ≡ `00:229E`.
 - Ghidra's overlay space writes flash addresses as `page_pp:addr` (e.g. `page_38:4000`); the wiki normalizes these to the short `pp:addr` form, so `page_38:4000` is written `38:4000`.
 - A bare `0x….` (no page) is a RAM data address or an unpaged value (e.g. `flags` `0x89F0`, the bcall-ID ranges `0x4xxx`/`0x8xxx`, a page number like `0x3B`).
@@ -28,8 +28,6 @@ Every non-obvious claim is tagged:
 | [standard] | Matches the publicly-documented TI-83+/84+ architecture and is consistent with the disassembly, but not every byte was traced. |
 | [hypothesis] | Inferred / not yet verified — treat with caution. |
 
-Some early deep-dive docs use shorthand `[C]`/`[H]`/`[I]` ≈ `[confirmed]`/`[standard]`/`[hypothesis]`; read them against this three-tier scheme.
-
 ## Function naming
 
 - `_CamelCase` — an official TI bcall/equate name (from `ti83plus.inc`, the full 2007 TI-83 Plus SDK equates file, or the TI SDK), e.g. `_FindSym`, `_FPAdd`. High confidence.
@@ -42,7 +40,7 @@ Formulas are written in LaTeX and rendered by KaTeX (offline, client-side): `$�
 ## How this RE was produced
 
 - The Ghidra database is rebuilt from the ROM by `tools/build.sh` (a 10-stage headless pipeline). It loads all 64 flash pages (page 0 + overlays at `4000`), then resolves and names routines from the main OS bcall table.
-- **bcall table resolution.** The main jump table page was found by *scoring* all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid `(addr, page)` entry. Page 0x3B scored highest for the `0x4xxx` table — more known bcall IDs resolve to a valid `(addr, page)` entry there than on any other page — and is confirmed by the documented RST shortcuts (all six matched) and by every entry resolving and live-confirming once 0x3B is applied. `0x8xxx` bcall IDs index a retail boot table on page `3F` (with the USB boot entries on retail page `2F`). This `rom.bin` is a BootFree image — page `3F` carries the BootFree prefix `3E 3F D3 06 …` and page `2F` is blank (all `FF`) — so these `0x8xxx` body targets do not resolve and are left unnamed (`tools/bcalls8x_targets.txt` has no body rows); only their SDK equate names are known.
+- **bcall table resolution.** The main jump table page was found by *scoring* all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid `(addr, page)` entry. Page 0x3B scored highest for the `0x4xxx` table — more known bcall IDs resolve to a valid `(addr, page)` entry there than on any other page — and is confirmed by the documented RST shortcuts (all six matched) and by every entry resolving and live-confirming once 0x3B is applied. `0x8xxx` bcall IDs index the retail boot table on page `3F`; several USB entries target page `2F`. The local `rom.bin` is assembled from the patched base plus the retail `D84PBE1.8Xv` and `D84PBE2.8Xv` payloads, so `tools/bcalls8x_targets.txt` contains 83 byte-resolved body rows. The resolver rejects these targets when page `3F` has a BootFree prefix.
 - **Decompiler caveats.** Ghidra's Z80 decompiler mis-renders some idioms — `SET b,(IY+d)` flag ops, the `CALL cross_page_jump` (`ram:2B09`) trampolines, and register-passed arguments on banked pages. Where the decompiler is unreliable the notes are grounded in the raw disassembly (and several deep-dives used a small custom Z80 decoder over the ROM to verify addresses byte-exactly).
 - **Parallel multi-agent passes.** The feature deep-dives (`sub-*`) and the final 100%-naming pass were produced by multiple agents working on isolated copies of the database, each owning a disjoint set of pages, then merged.
 

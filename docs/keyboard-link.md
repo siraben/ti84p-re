@@ -1,18 +1,20 @@
 # Keyboard & link port
 
-> **Deep dive:** [Link / Data Transfer](sub-link-transfer.md) — the silent-link packet protocol and variable send/receive.
+The keypad scanner and link-port drivers provide the calculator's local input and wired data-transfer paths. The keyboard path turns matrix scans into cooked key codes, while the link path sends bytes through the legacy two-wire port or the hardware-assisted interface.
+
+> **Deep dive:** [Link / data transfer](sub-link-transfer.md) — the silent-link packet protocol and variable send/receive.
 
 ## Keyboard
 
 The keypad is a matrix read through `port 1` (`port_keypad`): write a group-select mask, read back the active columns. The interrupt triggers periodic scans; the result is debounced into `kbdScanCode` (`0x843F`).
 
 - `_GetCSC` (`00:04B2`) — "Get Cursor/Scan Code": with interrupts masked, returns `kbdScanCode` and clears it (one key per call, no repeat). Raw scan codes (`skXxx`). [confirmed]
-- `_GetKey` (`06:491E`) — the cooked key API: blocks, handles **2nd/ALPHA** modifier state, key repeat, and APD; returns a `TIKeyCode` (`kXxx`; a single byte, ~255 distinct values exposed under many named aliases). Also runs the cursor blink. Drives menus/homescreen. [confirmed entry; body large]
+- `_GetKey` (`06:491E`) — the cooked key API: blocks, handles **2nd/ALPHA** modifier state, key repeat, and APD; returns a `TIKeyCode` (`kXxx`; a single byte, ~255 distinct values exposed under many named aliases). Also runs the cursor blink. Drives menus/homescreen. [confirmed]
 - `_KeyToString` (`01:6D10`) — map a key code to its display token/string (for text entry).
 
 Scan codes (`skEnter`, hardware matrix position) differ from key codes (`kEnter`=5, post-modifier). `_GetCSC` returns the former; `_GetKey` the latter.
 
-### Matrix scan — port 1 group masks [confirmed from disassembly]
+### Matrix scan — port 1 group masks [confirmed]
 
 The low-level read primitive is `kbd_reset_port` (`ram:0480`): it writes a group-select mask to `port 1` (active-low — `0` bits select rows to drive), waits 4 `NOP`s for the lines to settle, reads the column bits back, then writes `0xFF` to release. (On 84+ hardware, `IN A,(0x02) bit7` + `IN A,(0x20)` gate the read against link/clock activity first.)
 
@@ -57,7 +59,7 @@ While cooking raw scan codes into the `kXxx` key constants, `_GetKey` (`06:491E`
 | 6 | `shiftALock` | alpha lock — alpha survives across keys |
 | 7 | `shiftKeepAlph` | the alpha shift cannot be cancelled |
 
-The low three bits of the same `IY+0x12` byte are `indicFlags` (bit 0 `indicRun`, the run/busy indicator set by `_RunIndicOn`; see [04](interrupts.md)); `shiftFlags` occupies bits 3–7.
+The low three bits of the same `IY+0x12` byte are `indicFlags` (bit 0 `indicRun`, the run/busy indicator set by `_RunIndicOn`; see [Interrupts (IM1)](interrupts.md)); `shiftFlags` occupies bits 3–7.
 
 `_GetKey` first dispatches on the pending modifier (`06:4AC3` `BIT 3` → the 2nd handler at `06:4B87`; `06:4ACA` `BIT 4` → the alpha handler at `06:4BFD`), then on the key. The transitions, with the `SET`/`RES` sites:
 
@@ -95,13 +97,13 @@ stateDiagram-v2
 `_KeyToString` (`01:6D10`) turns a key code into a TI-BASIC token for the editor. It's not a single flat table — it combines:
 - **range arithmetic**: contiguous key ranges map to token ranges by a fixed offset (e.g. key `0x1F`→`'P'`-based, `0x59`→`'a'` for lowercase) — letters/digits;
 - per-mode lookup tables on another page, reached via `cross_page_jump` (the 2nd/ALPHA-mode and function-key token tables);
-- special key codes `0xFB/0xFC/0xFE/0xFF` are not tokens — they're the menu / context-switch return codes the main event loop branches on (see [11](boot-contexts-errors.md)), so `_KeyToString` routes them out via `cross_page_jump` rather than translating.
+- special key codes `0xFB/0xFC/0xFE/0xFF` are not tokens — they're the menu / context-switch return codes the main event loop branches on (see [Boot, contexts & errors](boot-contexts-errors.md)), so `_KeyToString` routes them out via `cross_page_jump` rather than translating.
 
-So the input path is: keypad → ISR → `kbdScanCode` → `_GetKey` (cooked `kXxx` + modifiers) → `_KeyToString` → token → parser ([07](tokenizer-basic.md)).
+So the input path is: keypad → ISR → `kbdScanCode` → `_GetKey` (cooked `kXxx` + modifiers) → `_KeyToString` → token → parser ([Tokenizer & TI-BASIC](tokenizer-basic.md)).
 
 ## Link port
 
-The 2.5 mm I/O link has two open-collector lines (tip/ring), driven via `port 0` (`port_link`), with an 84+ hardware link-assist / USB path via ports `0x08`–`0x0D`. See [USB ASIC and link assist](sub-usb-asic.md) for the ASIC-facing port map and the `_LinkXferOP` USB-selection gate.
+The 2.5 mm I/O link has two open-collector lines (tip/ring), driven via `port 0` (`port_link`), with an 84+ hardware link-assist / USB path via ports `0x08`–`0x0D`. See [USB ASIC & link assist](sub-usb-asic.md) for the ASIC-facing port map and the `link_xfer_op` USB-selection gate.
 
 `_SendAByte` (`3C:420D`) shows both paths [confirmed]:
 - **Hardware-assisted** (when enabled): poll status `port 0x09` bit 5 (ready), then write the byte to `port 0x0D`; helper routines on page 3C manage the assist FIFO/timing.
@@ -111,4 +113,4 @@ The 2.5 mm I/O link has two open-collector lines (tip/ring), driven via `port 0`
 
 ### Variable-transfer command/packet framing
 
-A TI link packet is a 4-byte header (`machine-ID, command-ID, length-lo, length-hi`) optionally followed by `data[len]` and a 16-bit LE checksum; commands include `0x06` VAR, `0x09` CTS, `0x15` DATA, `0x56` ACK, `0x5A` NAK, `0x92` EOT. The full framing, the silent-link send/receive engine (`_LinkXferOP`, `_SendVarCmd`), checksum/ACK handling, and the 16-byte Flash-batched receive path are all reverse-engineered in [sub-link-transfer.md](sub-link-transfer.md) — see §3 (framing) and §5 (variable send). [confirmed]
+A TI link packet is a 4-byte header (`machine-ID, command-ID, length-lo, length-hi`) optionally followed by `data[len]` and a 16-bit LE checksum; commands include `0x06` VAR, `0x09` CTS, `0x15` DATA, `0x56` ACK, `0x5A` NAK, `0x92` EOT. The full framing, the silent-link send/receive engine (`link_xfer_op`, `_SendVarCmd`), checksum/ACK handling, and the 16-byte Flash-batched receive path are all reverse-engineered in [sub-link-transfer.md](sub-link-transfer.md) — see §3 (framing) and §5 (variable send). [confirmed]

@@ -29,12 +29,12 @@ not yet traced end to end in this repo.
    name through the VAT, checks type/dimension, computes an element address, and
    shuttles a 9-byte `TIFloat` through OP registers. Repeated `L1(I)` inside a
    loop is much more expensive than storing the element into a scalar once when
-   the value is reused. [confirmed path, standard rule]
+   the value is reused. [standard]
 4. **Avoid `Goto` in hot loops.** `Goto` searches for a matching `Lbl` by
    scanning the program token stream, and escaping structured loops through
    `Goto` can leave loop bookkeeping behind. Use `For(`/`While`/`Repeat` plus
-   `End` unless the jump is truly cold. [standard; scanner confirmed in
-   `sub-tibasic.md`]
+   `End` unless the jump is truly cold. [standard] The token-stream scanner is
+   [confirmed] in [TI-BASIC programs](sub-tibasic.md).
 5. **Batch display and graph output.** `Disp` and `Output(` reach display
    primitives and LCD update paths; graph drawing reaches graph-buffer and pixel
    routines before display copy. Draw into the graph buffer and call
@@ -317,8 +317,7 @@ then `Done`; `AFTER` never appears. The smoke runner checks the `BEFORE`,
 `STOP`, and `Done` regions and also checks a low-pixel region where `AFTER`
 would be drawn if the caller resumed. The trace reaches `stmt_eval_body_entry`,
 `call_eval_eqn_recursive`, and `_Disp`. This confirms that `Stop` in a callee
-terminates the whole BASIC program chain instead of returning to the caller.
-[confirmed]
+terminates the whole BASIC program chain instead of returning to the caller. [confirmed]
 
 ### Arbitrary-precision decimal addition
 
@@ -613,8 +612,7 @@ Observed run: `ASMFIND.8xp`, `ZZFIND.8xp`, and `ZZBASIC.8xp` display `BEFORE`,
 `AFTER`, and `Done`; `ZZBASIC`'s `CALLED` text does not display. The trace hits
 `ram:9D95` and `findsym_scan`, and the smoke runner checks the wrapper output
 and a low-pixel region where an unexpected third line would appear. This proves
-ASM-side VAT lookup from an `AsmPrgm` context, not BASIC program execution.
-[confirmed]
+ASM-side VAT lookup from an `AsmPrgm` context, not BASIC program execution. [confirmed]
 
 Generated negative fixtures make the execution boundary sharper.
 
@@ -664,7 +662,7 @@ through the command loop; it still never displays `CALLED` from `ZZBASIC`.
 `_rclToQueue` (`49B4`, target `06:5F29`) is a related editor queue helper, but
 its ROM path depends on an already-open edit buffer (`editCursor`/`editTail`)
 and the `rclFlag.enableQueue` state; it does not create a BASIC program call
-frame. [confirmed probes; `_rclToQueue` role from disassembly]
+frame. [confirmed]
 
 `_ExecuteNewPrgm` (`00:265F`) is not a public ASM-to-BASIC entry — a payload
 that sets `OP1` to `ProgObj` (`05`), points `HL` at the zero-terminated name
