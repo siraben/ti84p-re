@@ -1808,7 +1808,7 @@ FNINT_TEMPLATE_FLOW_ANCHORS = [
         0x02,
         0x68F3,
         "fe24200ddfcd381b3e7b327984ef834ac9",
-        "tFnInt evaluator branch: second byte 24 pushes a seeded OP1 constant through _FPSPushReal",
+        "tFnInt evaluator branch: second byte 24 pushes a seeded OP1 constant through fps_push_real",
     ),
     (
         0x02,
@@ -1835,7 +1835,7 @@ FNINT_EVAL_FLOW_ANCHORS = [
         0x02,
         0x68F3,
         "fe24200ddfcd381b3e7b327984ef834ac9",
-        "page-2 tFnInt branch: recognise second byte 24, seed OP1, push real through _FPSPushReal",
+        "page-2 tFnInt branch: recognise second byte 24, seed OP1, push real through fps_push_real",
     ),
     (
         0x02,
@@ -2548,21 +2548,21 @@ DRAW_PRIMITIVE_BCALLS = [
 ]
 
 DRAW_PRIMITIVE_GHIDRA_RST28_SITES = [
-    (0x4AC9, 0x52FF, "_grc_4611", "eqdisp_dispatch_token", "disabled-feature/message helper"),
-    (0x4D61, 0x48D9, "_unknown_48D9", "_DispMenuTitle", "menu-title display helper"),
+    (0x4AC9, 0x52FF, "grc_4611", "eqdisp_dispatch_token", "disabled-feature/message helper"),
+    (0x4D61, 0x48D9, "unknown_48d9", "_DispMenuTitle", "menu-title display helper"),
     (0x4EE6, 0x450D, "_PutPSB", "eqdisp_emit_glyph", "generic string/cell display"),
-    (0x4EEF, 0x51E5, "_scr_4619", "eqdisp_emit_glyph", "display/screen helper after cell fallback"),
-    (0x4FAE, 0x51CA, "_DispPagedStr", "eqdisp_layout_main", "paged-string display"),
-    (0x53A7, 0x4A68, "_arc_59f1", "eqdisp_layout_multiarg", "archive/app state helper"),
-    (0x554F, 0x51FA, "_grc_60cb", "mnu_show_and_getkey", "menu helper"),
-    (0x556C, 0x5203, "_sta_5d3c", "mnu_show_and_getkey", "state/menu helper"),
-    (0x5580, 0x5200, "_grc_5f42", "mnu_show_and_getkey", "menu helper"),
-    (0x55BC, 0x5200, "_grc_5f42", "mnu_show_and_getkey", "menu helper"),
-    (0x56D0, 0x4D6B, "_dsp_65ea", "mnu_show_and_getkey", "display/menu helper"),
-    (0x5860, 0x51D6, "_grc_5d44", "eqdisp_restore_disp_state", "graph/display state helper"),
-    (0x59B1, 0x5326, "_app_5de7", "eqdisp_emit_jp_d", "app helper"),
-    (0x59BE, 0x5326, "_app_5de7", "eqdisp_emit_var_jp_c", "app helper"),
-    (0x66A4, 0x51F1, "_scr_4056", "eqdisp_classify_paren", "screen/state helper"),
+    (0x4EEF, 0x51E5, "scr_4619", "eqdisp_emit_glyph", "display/screen helper after cell fallback"),
+    (0x4FAE, 0x51CA, "disp_paged_str", "eqdisp_layout_main", "paged-string display"),
+    (0x53A7, 0x4A68, "arc_59f1", "eqdisp_layout_multiarg", "archive/app state helper"),
+    (0x554F, 0x51FA, "grc_60cb", "mnu_show_and_getkey", "menu helper"),
+    (0x556C, 0x5203, "sta_5d3c", "mnu_show_and_getkey", "state/menu helper"),
+    (0x5580, 0x5200, "grc_5f42", "mnu_show_and_getkey", "menu helper"),
+    (0x55BC, 0x5200, "grc_5f42", "mnu_show_and_getkey", "menu helper"),
+    (0x56D0, 0x4D6B, "dsp_65ea", "mnu_show_and_getkey", "display/menu helper"),
+    (0x5860, 0x51D6, "grc_5d44", "eqdisp_restore_disp_state", "graph/display state helper"),
+    (0x59B1, 0x5326, "app_5de7", "eqdisp_emit_jp_d", "app helper"),
+    (0x59BE, 0x5326, "app_5de7", "eqdisp_emit_var_jp_c", "app helper"),
+    (0x66A4, 0x51F1, "scr_4056", "eqdisp_classify_paren", "screen/state helper"),
     (0x66DB, 0x49FC, "_SetNorm_Vals", "_ForceFullScreen", "display/window reset"),
     (0x67B6, 0x4D5C, "_ClearRect", "eqdisp_set_flag2_jp", "template chrome clear"),
     (0x6826, 0x4D5F, "_InvertRect", "gr_draw_at_row6", "template chrome invert"),
@@ -2571,15 +2571,15 @@ DRAW_PRIMITIVE_GHIDRA_RST28_SITES = [
     (0x6AF8, 0x4D8C, "_DrawRectBorderClear", "eqdisp_draw_box_jp", "fraction/descriptor rectangle"),
     (0x6B17, 0x4D5F, "_InvertRect", "eqdisp_draw_indent_jp", "focused fraction cell"),
     (0x6B9C, 0x45CA, "_KeyToString", "eqdisp_load_glyph18b2", "key string conversion"),
-    (0x6D2E, 0x5458, "_edt_6bd1", "eqdisp_get_ctx_kind", "editor/context helper"),
-    (0x6D5E, 0x5461, "_edt_69f8", "eqdisp_set_tok49_jp", "editor/token helper"),
+    (0x6D2E, 0x5458, "edt_6bd1", "eqdisp_get_ctx_kind", "editor/context helper"),
+    (0x6D5E, 0x5461, "edt_69f8", "eqdisp_set_tok49_jp", "editor/token helper"),
 ]
 
 DRAW_PRIMITIVE_RAW_RST28_CANDIDATES = [
     (
         0x4F04,
         0x51F4,
-        "_dsp_60d1",
+        "dsp_60d1",
         "post-overflow display helper: bcall table resolves 51F4 to page 35:60D1",
     ),
     (
@@ -3981,22 +3981,22 @@ OFFPAGE_DRAW_SERVICE_PATTERNS = [
     ("RST28 _SetTblGraphDraw", "ef004c"),
     ("RST28 _PointOn", "ef394c"),
     ("RST28 _DrawCirc2", "ef664c"),
-    ("RST28 _VertSplitDraw", "efdc48"),
+    ("RST28 vert_split_draw", "efdc48"),
     ("RST28 _Regraph", "ef8e48"),
-    ("RST28 _DrawZeroOP1", "ef7348"),
-    ("RST28 _grf_7066", "efc547"),
-    ("RST28 _GraphTblNext", "efc847"),
-    ("RST28 _GraphTblFind", "efcb47"),
-    ("RST28 _GraphParseTok", "ef0a51"),
-    ("RST28 _grf_435f", "ef4051"),
-    ("RST28 _grf_5e06", "ef7654"),
+    ("RST28 draw_zero_op1", "ef7348"),
+    ("RST28 grf_7066", "efc547"),
+    ("RST28 graph_tbl_next", "efc847"),
+    ("RST28 graph_tbl_find", "efcb47"),
+    ("RST28 graph_parse_tok", "ef0a51"),
+    ("RST28 grf_435f", "ef4051"),
+    ("RST28 grf_5e06", "ef7654"),
 ]
 
 OFFPAGE_COMMAND_DRAW_CONTEXT_WINDOWS = [
-    (0x00, 0x4A90, 0x4DD0, "page-0 _grf_5e06 caller / state helper"),
+    (0x00, 0x4A90, 0x4DD0, "page-0 grf_5e06 caller / state helper"),
     (0x02, 0x5630, 0x5668, "page-2 PixelTest prompt/command handler"),
     (0x02, 0x6400, 0x6420, "page-2 graph/parser helper"),
-    (0x33, 0x5DF0, 0x5E24, "page-33 _grf_5e06 state helper"),
+    (0x33, 0x5DF0, 0x5E24, "page-33 grf_5e06 state helper"),
     (0x33, 0x71A8, 0x7368, "page-33 graph storage/style helpers"),
     (0x33, 0x74D0, 0x7500, "page-33 DrawCirc2 graph helper"),
     (0x38, 0x4980, 0x4F50, "page-38 Regraph/VertSplitDraw command handlers"),
@@ -6675,7 +6675,7 @@ def dump_template_handoff_guard_flow(rom):
     print("\nraw Ghidra identities")
     print("  ram:2077 is BIT 5,(IY+44); this is the MathPrintActive predicate")
     print("  ram:36FF is a bjump to page_04:7FBA; Ghidra has not split page_04:7FBA into a function")
-    print("  39:66BD is eqdisp_peek_match_tok; 39:6DDB is _mnu_6ddb; 39:6773 is an inline wrapper")
+    print("  39:66BD is eqdisp_peek_match_tok; 39:6DDB is mnu_6ddb; 39:6773 is an inline wrapper")
     print("  39:67A0 is eqdisp_draw_window and jumps to 69C8 after drawing template chrome")
 
     print("\n672E branch interpretation")
@@ -8786,7 +8786,7 @@ def dump_offpage_draw_state_flow(rom):
     print("  this is still a page-granularity census, so intersections are candidates, not proof of dataflow")
     print("  page 39 is expected: it owns the MathPrint layout state and the descriptor/fraction draw-service calls")
     print("  command-level graph/display bcalls are included; they add only non-measured page-level coincidences")
-    print("  their local windows have no 85EE/85EF/9D27 refs; the page-33 _grf_5e06 window only touches 85DE before graph helper dispatch")
+    print("  their local windows have no 85EE/85EF/9D27 refs; the page-33 grf_5e06 window only touches 85DE before graph helper dispatch")
     print("  pages with draw services but no 85DE..85F2/9D27 refs are generic display/glyph providers")
     print("  page 35 has both a 9D27 reset/default seed and a _DarkLine caller, but the local windows do not intersect")
     print("  page 33/page 34 85EE intersections are closed more deeply by --offpage-85ee-candidate-flow")
@@ -9467,7 +9467,7 @@ def dump_square_marker_flow(rom):
     for page, addr in hits:
         print(f"  {page:02X}:{addr:04X}")
 
-    print("\npage-37 disabled-feature messages selected by _grc_4611")
+    print("\npage-37 disabled-feature messages selected by grc_4611")
     for action, addr, selector in (
         (0x05, 0x4B07, 0x9A),
         (0x06, 0x4B23, 0x9C),

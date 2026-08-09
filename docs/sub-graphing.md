@@ -11,7 +11,7 @@ byte-verified here; [hypothesis] = inferred, not yet verified.
 
 ---
 
-## 1. Window variables (RAM) [confirmed addresses, from ti83plus.inc + code refs]
+## 1. Window variables (RAM) [confirmed]
 
 All graph window state lives in a contiguous block of 9-byte `TIFloat`s starting at `0x8F50`.
 These are the values the WINDOW editor writes and the grapher reads.
@@ -50,7 +50,7 @@ is 95 columns wide (0..94) and 63 tall (0..62), hence the /94 and /62. [standard
 `_XftoI` (`37:41EB`) and `_YftoI` (`37:41DF`) convert an OP1 real coordinate to a
 pixel index. Both are thin shims around the shared engine at `37:41F2`: [confirmed]
 
-```
+```z80
 _XftoI (37:41EB):  BC = 0x8E6A (X working float),  HL = shortX (0x9164),  SCF  → 41F2
 _YftoI (37:41DF):  BC = Ymin   (0x8F6B),            HL = shortY (0x916D),  OR A → 41F2; INC A
 ```
@@ -95,7 +95,7 @@ X/Y shown at the bottom of the screen, and by DRAW commands that take pixel argu
 `LD (HL),0` + 0x2FF-byte propagate copy). [confirmed]
 
 `_IOffset` (`04:42B5`) computes the LCD controller address bytes for a pixel (inputs `B`=x, `C`=y):
-```
+```pseudocode
 (0x844F) = (x >> 3) | 0x20     ; LCD "set row page" command — the rotated TI panel pages by X
 (0x8451) = (0x3F - y) | 0x80   ; LCD "set column" command (Y, mirrored)
 returns (table_42E4)[x & 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
@@ -158,7 +158,7 @@ Each DRAW menu command has a page-04 bcall handler that draws into `plotSScreen`
 | `_UnLineCmd` | `04:797C` | `Line(…,0)` — erase variant (same path, clear mode). |
 | `_PointCmd` | `04:79B2` | `Pt-On/Pt-Off/Pt-Change(` — reads style from `OP1.mantissa[0] & 0x20`, dispatches set/clear/toggle. |
 | `_DrawCmd` | `04:7B8B` | top-level `DRAW` dispatch — grabs the pending count and cross-jumps to the per-command handler. |
-| `_DrawZeroOP1` | `04:620B` | seeds OP3=0 then draws (used for axis / `DrawF` zero baseline). |
+| `draw_zero_op1` | `04:620B` | seeds OP3=0 then draws (used for axis / `DrawF` zero baseline). |
 
 Note: `_HorizCmd`/`_VertCmd` both `CALL 7933` first, which allocates a 0x24-byte FPS frame
 (`LD HL,0x24 / CALL 1537 / SBC HL,DE`) and returns a pointer to it. `_HorizCmd` then builds the
@@ -200,23 +200,27 @@ re-plot and `_GrBufCpy` the existing buffer when nothing changed. [confirmed]
 ## 6. Y= equations: storage and evaluation
 
 ### Storage [confirmed]
+
 Y= functions are ordinary equation variables (`EquObj`), stored in the VAT as tokenized
 byte streams — the same token encoding the homescreen uses. `Y1`…`Y0` (and `r1`…, `X1T/Y1T`,
 `u/v/w`) are *system* equation vars. Each holds the tokens you typed after `Y1=`. The
 equation's flags byte is `0x23` when selected (plotted) and `0x03` when deselected, so
 the selection bit is bit 5 (`0x20`). The per-equation style byte holds the line style:
 `0`=line, `1`=thick, `2`=shade above, `3`=shade below, `4`=trace/path, `5`=animate, `6`=dotted
-(`curGStyle` `0x8D17` is the current-equation copy). [confirmed — selection/style byte values
-match the [TI link-protocol guide](https://merthsoft.com/linkguide/ti83+/vars.html#style)]
+(`curGStyle` `0x8D17` is the current-equation copy). [confirmed] The
+selection/style byte values also match the
+[TI link-protocol guide](https://merthsoft.com/linkguide/ti83+/vars.html#style).
 
 ### Parsing / pre-scan
-`_GraphParseTok` (`33:5023`) walks an equation's token stream to classify it before
+
+`graph_parse_tok` (`33:5023`) walks an equation's token stream to classify it before
 plotting: it reads tokens via the paged-pointer reader (`_SetupPagedPtr`/`_PagedGet`),
 recognizes 2-byte tokens (`_IsA2ByteTok`), and sets feature bits (e.g. token `0xEF…`
 ranges → returns a category in A) used to decide draw mode and whether the equation is
 graphable. [confirmed]
 
 ### Evaluation → points
+
 Plotting (driven by `_Regraph` → the page-04/38 plot loop) walks pixel columns left→right:
 1. compute the real `X` for the column from `Xmin + col*deltaX` (the inverse of `_XftoI`),
 2. store it into the `X` system variable,
@@ -230,12 +234,14 @@ Plotting (driven by `_Regraph` → the page-04/38 plot loop) walks pixel columns
 higher Xres skips columns (faster, coarser). [confirmed]
 
 ### Graph databases (GDB) [confirmed]
+
 `_StoGDB2` (`33:71AC`) / `_RclGDB2` (`33:72D9`) store/recall a GraphDataBase
 (`GDBObj`, type/exp marker `0x61`) — the bundle of window vars + mode + selected equations
 that the `StoreGDB`/`RecallGDB` commands save. `_JError(0x89)` on a type mismatch.
 
 ### Graph table [confirmed]
-`_GraphTblFind` (`33:7097`) / `_GraphTblNext` (`33:707A`) index the in-RAM table of
+
+`graph_tbl_find` (`33:7097`) / `graph_tbl_next` (`33:707A`) index the in-RAM table of
 equation pointers (`iMathPtr4`-based, 2 bytes/entry) used to iterate the selected functions
 during a regraph or TABLE build.
 
@@ -246,7 +252,7 @@ during a regraph or TABLE build.
 - The home screen uses the large font and `curRow`/`curCol` text cursor (see
   [display-lcd.md](display-lcd.md)). The graph screen is the pixel buffer `plotSScreen` rendered by
   the routines above; small-font labels (coords, TRACE readout) go through
-  `_VPutMap`/`penCol`(0x86D7)/`penRow`(0x86D8). [confirmed addresses]
+  `_VPutMap`/`penCol`(0x86D7)/`penRow`(0x86D8). [confirmed]
 - **TRACE** moves a cursor along a selected function: it steps the column, evaluates the
   function (`_ParseInp`) for that X, maps the point with `_XftoI`/`_YftoI`, draws the
   cross-cursor, and uses `_SetXXOP1`/`_SetXXOP2` to convert the cursor pixel back to the real

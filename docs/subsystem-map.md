@@ -9,7 +9,7 @@ This page categorizes the ~600 named bcall entry points (the OS's public API) by
 | **Variables / VAT** | ~37 | `_FindSym`,`_ChkFindSym`,`_CreateReal`,`_CreateStrng`,`_CreateAppVar`,`_DelVar`,`_InsertMem`,`_Arc_Unarc` |
 | **String / convert** | ~18 | `_ExpToHex`,`_OP1ExpToDec`,`_CreateStrng`,`_StrCopy`,`_Get_Tok_Strng` |
 | **Parser / TI-BASIC** | ~18 | `_IsA2ByteTok`,`_GetTokLen`,`_BinOPExec`,`_ParseInp` |
-| **Link / I-O** | ~15 | `_SendAByte`,`_RecAByteIO`,`_SendVarCmd`,`_Rec1stByte`,`_LinkXferOP` |
+| **Link / I-O** | ~15 | `_SendAByte`,`_RecAByteIO`,`_SendVarCmd`,`_Rec1stByte`,`link_xfer_op` |
 | **System / power** | ~15 | `_AppInit`,`_PutAway`,`_RandInit`,`_ApdSetup`,`_Chk_Batt_Low`,`_SetExSpeed`,`_JForceCmd` |
 | **List / Matrix** | ~13 | `_CreateRList`,`_CreateCList`,`_CreateRMat`,`_ErrDimMismatch`,dim/element ops |
 | **Keyboard** | ~5 | `_GetCSC`,`_GetKey`,`_KeyToString` |
@@ -32,9 +32,10 @@ flowchart TD
     DISP --> R
 ```
 
-Cross-cutting services used by all of the above: bcall/paging ([03](bcall-mechanism.md)), interrupts/APD ([04](interrupts.md)), error handling (`_JError` + `TIError` codes), and the system flags (`SystemFlags` @ `flags`).
+Cross-cutting services used by all of the above: [the bcall mechanism](bcall-mechanism.md), [interrupts and APD](interrupts.md), error handling (`_JError` + `TIError` codes), and the system flags (`SystemFlags` @ `flags`).
 
 ## How the pieces connect (the through-line)
+
 1. **Interrupt** keeps time, scans the keypad into `kbdScanCode`, runs APD.
 2. `_GetKey` turns scan codes into key codes (`TIKeyCode`), driving menus and the homescreen.
 3. The parser reads tokenized input/programs, dispatching each `TIToken`.
@@ -42,4 +43,4 @@ Cross-cutting services used by all of the above: bcall/paging ([03](bcall-mechan
 5. Results land in `OP1` and are rendered by the display subsystem.
 6. **bcall + paging** is the substrate that lets steps 3–5 live on different flash pages; errors unwind via `_JError`/`onSP`.
 
-See per-subsystem docs `01`–`09` for detail.
+See the subsystem pages linked above and in the sidebar for detail.

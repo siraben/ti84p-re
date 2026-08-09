@@ -21,7 +21,7 @@ flash page `3C` (shared with the flash/archive command code — see [sub-vat-arc
 flowchart TB
     SRC(["user 'Send…' / TI-Connect"])
     subgraph VAR["Variable layer · page 3C"]
-      LX["_LinkXferOP 3C:4DD2<br/>silent-link variable send"]
+      LX["link_xfer_op 3C:4DD2<br/>silent-link variable send"]
       SV["_SendVarCmd 3C:4A14→4EDD<br/>DI / cleanup-wraps a send"]
     end
     subgraph PKT["PACKET layer"]
@@ -82,6 +82,7 @@ save, `IY+0x3E` bit0 / `IY+0x3D` bit5 USB-presence.
 [Keyboard & link](keyboard-link.md) covers `_SendAByte`. Two new things pinned here:
 
 ### 2a. Hardware-assist send `6BB2` [confirmed]
+
 `_SendAByte` (`3C:420D`) starts `CALL probe_hw_model_keep_a ; JP Z,0x6BB2` — if the model probe sets Z (the
 84+ link-assist hardware is present), it jumps to `3C:6BB2`:
 ```z80
@@ -97,14 +98,15 @@ mentioned, with a CPU-speed-scaled timeout. The legacy bit-bang fall-through (po
 wait for echo, `DE`-timeout → `_JErrorNo`) is unchanged from [Keyboard & link](keyboard-link.md).
 
 ### 2b. Receive `_RecAByteIO` `443F` and decoder `444A` [confirmed]
+
 ```z80
 443F: DI ; CALL 447E (arm/clock the line) ; CALL 444A (get-status) ; RET C/NZ ; loop if Z
-444A:  CP 1                              ; result==1?  (got a real byte)
-       LD A,C                            ; A = the byte
-       JR NZ,4456
-       CP 0xE0 ; JP NZ,_ErrLinkXmit      ; in 'must-get-byte' mode, anything else = link error
+444A:  CP 1                              ; status 1 selects the error-status path
+       LD A,C                            ; A = candidate byte/status marker
+       JR NZ,4456                        ; other status: normal byte or marker
+       CP 0xE0 ; JP NZ,_ErrLinkXmit
        JR 4470
-4456:  CP 0xE0 ; RET NZ                  ; caller passed sentinel 0xE0 = "non-blocking probe"
+4456:  CP 0xE0 ; RET NZ                  ; return an ordinary byte from C
        IN A,(0x2) ; AND 0x80             ; port 0x02 bit7 set = non-83+-Basic (has assist HW on 84+)
        JR Z,4469                         ;   legacy:  6CC1 polls the bit-bang lines
        IN A,(0x9) ; BIT 6,A ; JR NZ,4470 ; port 0x09 bit6 = transmission error → abort
@@ -115,8 +117,11 @@ Key port semantics (84+ assist): port 0x09 bit 5 = TX ready, bit 6 = transmissio
 bit 4 = byte received, bits 0x19 = error/active; port 0x0D = data FIFO; port 0x02
 bit 7 = non-83+-Basic (used here as the assist-present gate; WikiTI's dedicated "link-assist
 available" flag is port 0x02 bit 6).
-The sentinel `0xE0` passed in `A` selects non-blocking ("peek-only") vs. blocking-with-error
-behaviour. `_Rec1stByte` (`3C:439C`) / `_Rec1stByteNC` (`3C:43A3`, "no-clear") are the same logic
+The assist receiver at `3C:6C20` returns a normal port-`0x0A` byte in `C` with
+`A=0`; the port-`0x09` bit-6 path returns `A=1`. `lnk_rec_status` compares the
+returned `C` value with `0xE0`; `_RecAByteIO` does not preserve a caller-supplied
+`A` value. The protocol meaning of the `0xE0` marker remains [hypothesis].
+`_Rec1stByte` (`3C:439C`) / `_Rec1stByteNC` (`3C:43A3`, "no-clear") are the same logic
 wrapped with APD/`_ApdSetup` and the bit-bang start-bit detect, used to wait for the *first* byte
 of an incoming packet (peer may be idle for a long time).
 
@@ -126,7 +131,7 @@ of an incoming packet (peer may be idle for a long time).
 
 A TI link packet is a 4-byte header optionally followed by data + 2-byte checksum:
 
-```
+```text
   +--------+--------+--------+--------+   +============+----------+
   | mach-ID|  cmd   |  len-lo|  len-hi|   |  data[len] | chk16 LE |
   +--------+--------+--------+--------+   +============+----------+
@@ -145,6 +150,7 @@ typedef struct {
 ```
 
 ### 3a. Send a header — `41C3` [confirmed]
+
 ```z80
 41C3: 6D4B (drive line) ; short delay ; CALL probe_hw_model_keep_a (model probe)
       … (HW handshake on 84+, or bit-bang line-idle wait; failure → _ErrLinkXmit) …
@@ -159,6 +165,7 @@ stores the command from `H`, and calls `41C3`. Convenience entries: `4195` H=0x9
 `4199` H=0x09 (CTS), `41BC` ID=0x73/cmd=0x68 (RTS).
 
 ### 3b. Receive a header — `4338` [confirmed]
+
 ```z80
 4338: CALL _RecAByteIO ; (8674)=A           ; machine-ID, validated against the known set:
       0x95 0x73 0x23 0x74 0x82 0x02 0x12 0x83 0x03 0x13 0x08   (else fall to 2nd-byte machine list)
@@ -170,6 +177,7 @@ stores the command from `H`, and calls `41C3`. Convenience entries: `4195` H=0x9
 An unrecognised machine-ID or command-ID byte aborts via `_JErrorNo` (→ `E_LnkErr` 0x9F).
 
 ### 3c. Machine-ID selector — `620A` [confirmed]
+
 The *local* machine-ID advertised in outgoing packets depends on the peer-type bits in `IY+0x1B`:
 ```z80
 620A: L=0x82 ; BIT 2,(IY+0x1B) ; RET NZ     ; 0x82 = default / TI-84+ silent
@@ -180,22 +188,24 @@ The *local* machine-ID advertised in outgoing packets depends on the peer-type b
 ```
 
 ### 3d. Command-ID byte cheat-sheet [hypothesis]
+
 Confirmed in the code; semantics are the standard TI link protocol:
 
 | cmd | name | seen at | meaning |
 |-----|------|---------|---------|
-| `0x06` | `VAR` | `_LinkXferOP` reply check `4E86 CP 6` | variable header packet (type+name+size) |
+| `0x06` | `VAR` | `link_xfer_op` reply check `4E86 CP 6` | variable header packet (type+name+size) |
 | `0x09` | `CTS` | `4199` (H=0x09) | clear-to-send (receiver ready for DATA) |
 | `0x15` | `DATA` | `40DA`/`407C` send, `426D CP 0x15` recv | the variable's data bytes |
 | `0x2D` | `DEL` | header-validate `4382 CP 0x2D` | delete / directory variants |
-| `0x36` | `SKIP/EXIT` | `_LinkXferOP` `4E7C CP 0x36` | peer refused this var → abort transfer |
+| `0x36` | `SKIP/EXIT` | `link_xfer_op` `4E7C CP 0x36` | peer refused this var → abort transfer |
 | `0x56` | `ACK` | built by `42FB` (LD H,0x56); checked `418F CP 0x56` | acknowledge |
 | `0x5A` | `ERR/NAK` | built by `6356`/`6385` (LD H,0x5A) | checksum/length error reply |
 | `0x68` | `RTS` | `41BC` (LD H,0x68) | request-to-send |
 | `0x92` | `EOT` | `4195` (H=0x92) | end of transmission |
-| `0xA2`/`0xB7` | request | `_LinkXferOP` `4E2B/4E2F` | request var (A2=DATA-type, B7=other) |
+| `0xA2`/`0xB7` | request | `link_xfer_op` `4E2B/4E2F` | request var (A2=DATA-type, B7=other) |
 
 ### 3e. Checksum / ACK tail [confirmed]
+
 After the data payload, the sender appends the 16-bit sum and waits for the ACK:
 ```z80
 4167 (send tail): LD HL,(8678) ; A=L ; CALL _SendAByte ; A=H ; CALL _SendAByte   ; chk lo, hi
@@ -238,13 +248,13 @@ i.e. the receiver reproduces the VAT-create / `_InsertMem` path from [sub-vat-ar
 
 ---
 
-## 5. Silent-link variable send — `_LinkXferOP` (`3C:4DD2`) [confirmed]
+## 5. Silent-link variable send — `link_xfer_op` (`3C:4DD2`) [confirmed]
 
 This is the path a "Send" hits (TI-Connect pulls a var, or a calc-to-calc send).
 OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, then streams the DATA.
 
 ```z80
-_LinkXferOP (3C:4DD2):
+link_xfer_op (3C:4DD2):
   CALL probe_hw_model_keep_a        ; model/HW probe; spin on port 0x20 if assist busy
   SET 1,(IY+0x24)                   ; mark "transfer active"
   RES 3,(IY+0x1B) ; save IY+0xC (APD) ; install cleanup handler 4F3E via 27DA (see §7)
@@ -267,6 +277,7 @@ _LinkXferOP (3C:4DD2):
 ```
 
 ### 5a. Resolve the variable for sending — `4763` [confirmed]
+
 `4763` reads the var-header type byte at `867F` and branches by class. For graph/equation types
 (`0x0F‥0x14`) it uses a cross-page helper; otherwise `47AB`: `_CkOP1Real`, checks size, then
 `_ChkFindSym` (`0E60`) to locate the VAT entry, and for an archived var it routes through the
@@ -274,6 +285,7 @@ flash path (`_Chk_Batt_Low`, `83F7` size save). The actual data ptr/page/length 
 `_SetupPagedPtr` inside the DATA sender.
 
 ### 5b. Send the DATA payload — `40DA` [confirmed]
+
 ```z80
 40DA: CALL _SetupPagedPtr (17AC)            ; HL=data ptr, DE=len, A=page  ←  VAT entry resolution
       (84DB)=ptr ; (8676)=len               ; iMathPtr5, packet length
@@ -302,11 +314,11 @@ machinery:
       LD A,0xC9 ; CALL 6971         ; command setup
       CALL 62B0 (clear link sub-state in 8A0B) ; SET 2,(IY+0x1B)
       CALL 58ED (→ SET 1,(IY+0x24) ; _ChkFindSym)  ; locate the var
-      JR 4EAD (shared tail with _LinkXferOP: RES 1,(IY+0x24); 2800; JP 4F3E)
+      JR 4EAD (shared tail with link_xfer_op: RES 1,(IY+0x24); 2800; JP 4F3E)
 ```
-Note `4EDD` physically overlaps / shares the tail (`4EAD`) with `_LinkXferOP`; they are two
+Note `4EDD` physically overlaps / shares the tail (`4EAD`) with `link_xfer_op`; they are two
 entry points into one routine body. `_SendVarCmd` is the "send by name from the running context"
-door; `_LinkXferOP` is the "OP1 already set up, do the silent transfer" door.
+door; `link_xfer_op` is the "OP1 already set up, do the silent transfer" door.
 
 ---
 
@@ -326,15 +338,15 @@ door; `_LinkXferOP` is the "OP1 already set up, do the silent transfer" door.
 | Trigger | Address | Error |
 |---------|---------|-------|
 | send/receive line timeout, bad echo, unexpected reply cmd | `_JErrorNo` `00:2799` | `E_LnkErr` `0x9F` "ERR:LINK" |
-| `_RecAByteIO` got non-byte in must-get mode; header-send line never went idle | `_ErrLinkXmit` `00:278D` → `_JError(0x9F)` | `E_LnkErr` `0x9F` |
+| `lnk_rec_status` returned `A=1` with `C != 0xE0`; header-send line never went idle | `_ErrLinkXmit` `00:278D` → `_JError(0x9F)` | `E_LnkErr` `0x9F` |
 | received checksum/length mismatch | `6356`→ sends 0x5A NAK → `2799` | `E_LnkErr` `0x9F` |
-| peer sent SKIP/EXIT (0x36) | `_LinkXferOP` `4E80/4E83` | `E_LnkErr` `0x9F` |
+| peer sent SKIP/EXIT (0x36) | `link_xfer_op` `4E80/4E83` | `E_LnkErr` `0x9F` |
 
 The OS collapses the link failures into the single user-visible `E_LnkErr` (`0x9F`) "ERR:LINK".
 The finer-grained codes `E_LinkIOChkSum` `0x22`, `E_LinkIOTimeOut` `0x23`, `E_LinkIOBusy` `0x24`,
 `E_LinkIOVer` `0x25` exist in the error table (`ty_error.txt`) and are used by the higher-level
 *assembly-callable file-transfer API* (e.g. `OpenSendFlag`/`Send`/`Receive` style), not by the raw
-silent-link engine documented here. [confirmed for 0x9F path; standard for the 0x22-25 mapping.]
+silent-link engine documented here. [standard]
 
 ---
 
@@ -343,7 +355,7 @@ silent-link engine documented here. [confirmed for 0x9F path; standard for the 0
 1. Host (TI-Connect, machine-ID 0x95) opens the USB/DBUS link; calc detects it (`IY+0x1B` bit1).
 2. Host requests the directory or a specific var; calc's receiver (`4338`) parses the request
    header, `6994`/`6298` classify it.
-3. To send a var: `_LinkXferOP`/`_SendVarCmd` builds the VAR header (type byte + name from OP1,
+3. To send a var: `link_xfer_op`/`_SendVarCmd` builds the VAR header (type byte + name from OP1,
    size) at `867F`, sends it (`41C3`, cmd path), waits for `CTS` (`0x09`).
 4. `40DA` streams the `DATA` (`0x15`) payload via `_PagedGet`→`_SendAByte` (Flash-transparent),
    appends the 16-bit checksum, waits for `ACK` (`0x56`).
@@ -360,7 +372,7 @@ silent-link engine documented here. [confirmed for 0x9F path; standard for the 0
 | `3C:420D` | `_SendAByte` | send one byte: HW-assist (port 0x09/0x0D) or bit-bang (port 0) |
 | `3C:6BB2` | `lnk_send_byte_hw` | HW-assist send: poll port 0x09 bit5, `OUT (0x0D)` |
 | `3C:443F` | `_RecAByteIO` | receive one byte (blocking) |
-| `3C:444A` | `lnk_rec_status` | RX status decode (port 0x09 bit6 = TX error / bit4 = byte received / 0x19 err; sentinel 0xE0) |
+| `3C:444A` | `lnk_rec_status` | decode low-level status and returned `C`; port 0x09 bit6 selects status 1, and `C=0xE0` takes a special path whose protocol meaning remains [hypothesis] |
 | `3C:439C` | `_Rec1stByte` | wait for first byte of a packet (APD + start-bit) |
 | `3C:43A3` | `_Rec1stByteNC` | as above, no line-clear |
 | `3C:41C3` | `lnk_send_header` | send 4-byte header (ID, cmd, len-lo, len-hi) |
@@ -373,7 +385,7 @@ silent-link engine documented here. [confirmed for 0x9F path; standard for the 0
 | `3C:4292` | `lnk_recv_data` | receive DATA payload, 16-byte Flash batching, checksum |
 | `3C:6356` | `lnk_verify_cksum` | verify count vs len; NAK 0x5A on mismatch |
 | `3C:6AB1` | `lnk_flush_block` | flush 16-byte staging block to RAM/Flash (port 0x14) |
-| `3C:4DD2` | `_LinkXferOP` | silent-link variable send orchestrator (OP1=name) |
+| `3C:4DD2` | `link_xfer_op` | silent-link variable send orchestrator (OP1=name) |
 | `3C:4EDD` | `_SendVarCmd` | bcall `_SendVarCmd` (4A14) body; DI-wrapped send-by-name |
 | `3C:4763` | `lnk_resolve_var` | resolve var class/size/ptr for sending (archive-aware) |
 | `3C:40DA` | `lnk_send_data` | send DATA payload (`_PagedGet`→`_SendAByte`) + checksum + ACK wait |
@@ -399,9 +411,10 @@ state machine. RAM block: `ioFlag 8670 … bakHeader 868B`, staging
 0x95 computer (TI-Connect), 0x03 TI-83, plus the 0x02/0x12/0x23/0x74/0x83/0x13/0x08 set accepted.
 
 ## 11. Open items
+
 - The 0x22–0x25 fine-grained link error codes: which higher API (`Send`/`Receive` bcalls) emits
   them vs. the blanket 0x9F here. [standard]
 - Backup (sndRecState 0x08 / varClass 0x0A) framing detail in `40DA` (the 0x37D clamp + 0x63 00
   prefix) — full backup-packet layout. [standard]
-- The prior USB target gap is now mapped in [sub-usb-asic.md](sub-usb-asic.md): `_LinkXferOP` calls
+- The prior USB target gap is now mapped in [sub-usb-asic.md](sub-usb-asic.md): `link_xfer_op` calls
   `ram:2E0B`, a `cross_page_jump` thunk to `35:4280`, after sampling port `0x4D`.

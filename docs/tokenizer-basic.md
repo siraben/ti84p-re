@@ -28,24 +28,29 @@ TI-BASIC programs are stored as tokens, not text: every command, function, and v
 So e.g. `5D 00` = list `L1`; `BB xx` = an extended command. The second byte indexes that group's name/handler table. (String variables `Str1`–`Str0` use lead `AA`; they are a distinct VAT object type holding tokenized text — see [Strings](variables-vat.md#strings-str1str0--a-distinct-object-type-confirmed).)
 
 ## Detokenize / token length [confirmed]
-- `_GetTokLen` (`01:66E5`) returns the length of the detokenized display string for the token at HL: it calls `smallfont_glyph_ptr` (`01:6702`) to resolve the token's string pointer, then reads the leading length byte (`LD A,(HL)`). It is `_IsA2ByteTok`, not `_GetTokLen`, that tests 1-byte vs 2-byte encoding.
+
+- `_GetTokLen` (`01:66E5`) accepts the packed one- or two-byte token in `DE`
+  and returns the length of its detokenized display string in `A`. It calls
+  `smallfont_glyph_ptr` (`01:6702`) to resolve the string pointer, then reads the
+  leading length byte (`LD A,(HL)`). `_IsA2ByteTok`, not `_GetTokLen`, tests the
+  encoded width.
 - `_Get_Tok_Strng` (`01:66EA`) returns the display string for a token (used by the program editor and `Disp`).
 
-## Parser / interpreter [located — page 0x38]
+## Parser / interpreter [confirmed]
 
 The expression parser/evaluator lives on flash page 0x38. Entry points:
 - `_ParseInp` (`38:5987`) — parse/evaluate the input (homescreen/entry line). It calls `parse_init` (`38:5b7b`) to reset parser state, clears editing flags, then resolves via `_ChkFindSym`. [confirmed]
 - `_ParseInpLastEnt` (`38:5984`) — public parser variant immediately before
   `_ParseInp`; the generated `ASMPARSE.8xp`/`ZZPARSE.8xp` fixture reaches it
   but fails with `ERR:INVALID` without running the named BASIC target.
-  [confirmed negative probe]
+  [confirmed]
 - `_Find_Parse_Formula` (`38:758A`) — `_FindSym` a variable then parse its stored
   formula (Y-vars, equations). The generated `ASMFORM.8xp`/`ZZFORM.8xp` fixture
   reaches it from an `AsmPrgm` payload but fails with `ERR:UNDEFINED` without
-  running the named BASIC target. [confirmed negative probe]
+  running the named BASIC target. [confirmed]
 - `parse_init` (`38:5b7b`) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). [confirmed]
 
-The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the FP engine ([06](floating-point.md)), variable tokens resolve via the VAT ([05](variables-vat.md)), and the busy indicator is driven by `_RunIndicOn` / `_RunIndicOff`. `_BinOPExec` applies a binary operator via OP1/OP2.
+The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the [floating-point engine](floating-point.md), variable tokens resolve via [the VAT](variables-vat.md), and the busy indicator is driven by `_RunIndicOn` / `_RunIndicOff`. `_BinOPExec` applies a binary operator via OP1/OP2.
 
 ### The handler dispatch table [confirmed]
 
@@ -54,7 +59,7 @@ Page 0x38 begins with the parser's handler dispatch at `38:4000` — a flat arra
 These handlers implement TI-BASIC statements/commands and operators. Sampling them by the routine they call:
 - indices 8–10, 17–19, 38 → `bcall(_Regraph)` — graph commands (`DrawF`, `ZoomFit`, etc.).
 - indices 14–16, 21–22 → `bcall(_Disp)` — display/output commands (`Disp`, `Output`).
-- the "no-bcall" handlers are the arithmetic/operator productions — they drive OP1/OP2 through the FP engine via the RST shortcuts (RST 30h `_FPAdd`, etc.), which is why a bcall scan doesn't flag them; variable handlers go through `_FindSym` ([05](variables-vat.md)).
+- the "no-bcall" handlers are the arithmetic/operator productions — they drive OP1/OP2 through the FP engine via the RST shortcuts (RST 30h `_FPAdd`, etc.), which is why a bcall scan doesn't flag them; variable handlers go through `_FindSym` ([Variables & the VAT](variables-vat.md)).
 
 The first handlers: `38:419F, 45F0, 421C, …`.
 
@@ -91,7 +96,7 @@ for observed outputs and trace anchors.
 | Factorial | `Prompt N` / `1->F` / `For(I,1,N)` / `F*I->F` / `End` / `Disp F` | `DD 4E 3F 31 04 46 3F D3 49 2B 31 2B 4E 11 3F 46 82 49 04 46 3F D4 3F DE 46 3F` |
 | Data | `{3,1,4,1,5}->L1` / `SortA(L1)` / `cumSum(L1)->L2` / `sum(L1)->S` / display results | `08 33 2B 31 2B 34 2B 31 2B 35 09 04 5D 00 3F E3 5D 00 11 3F BB 29 5D 00 11 04 5D 01 3F B6 5D 00 11 04 53 3F DE 5D 00 3F DE 5D 01 3F DE 53 3F` |
 | `Asm(` wrapper | `Disp "BEFORE"` / `Asm(prgmASMRET)` / `Disp "AFTER"` | `DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41 46 54 45 52 2A 3F` |
-| ASM callback bridge | `Asm(prgmASMSIG)` / `If Ans` / `prgmZZBASIC` | `DE 2A 42 45 ... 72 3F 5F 5A 5A ...` (full body in `tools/tibasic-samples/asmbridge.tok`) |
+| ASM callback handoff | `Asm(prgmASMSIG)` / `If Ans` / `prgmZZBASIC` | `DE 2A 42 45 ... 72 3F 5F 5A 5A ...` (full body in `tools/tibasic-samples/asmbridge.tok`) |
 | ASM return value | `Asm(prgmASMVAL)` / `Ans+3->A` / `Disp A` | `BB 6A 5F 41 53 4D 56 41 4C 11 3F 72 70 33 04 41 3F DE 41 3F` |
 | Animation | `ClrHome` / `For(I,1,8)` / `Output(1,I,"X")` / `End` / `Disp "DONE"` | `E1 3F D3 49 2B 31 2B 38 11 3F E0 31 2B 49 2B 2A 58 2A 11 3F D4 3F DE 2A 44 4F 4E 45 2A 3F` |
 | Graph drawing | `ClrDraw`, window stores, visible axes/diagonal, `Circle(47,31,10)`, `Text(0,0,"DFS")`, `DispGraph` | `85 3F 30 04 63 0A ... DF 3F` (full body in `tools/tibasic-samples/graphviz.tok`) |
@@ -116,11 +121,11 @@ newer samples add `Output(` (`E0`), graph commands (`85`, `93`, `9C`, `A5`,
 adds the loop variable `J` (`4A`) and indexed expressions such as `I+J-1`.
 `DFS` adds
 structured-control tokens `While` (`D1`), `If` (`CE`), `Then` (`CF`), and
-equality (`6A`). [confirmed token bytes from `ti83plus.inc` and
-`token-tables.md`]
+equality (`6A`). The token bytes are [confirmed] by `ti83plus.inc` and
+[2-byte token tables](token-tables.md).
 
 ## Second-byte tables
 
-Every 2-byte token group's second-byte → token mapping (matrices, lists, Y-vars, system/window vars, the `BB` extended-command page, the `EF` 84+ page, etc.) is tabulated in [2-Byte Token Tables](token-tables.md) — 492 tokens, sourced from [TI-Toolkit/tokens](https://github.com/TI-Toolkit/tokens) and filtered to the 84+ 2.55MP.
+Every 2-byte token group's second-byte → token mapping (matrices, lists, Y-vars, system/window vars, the `BB` extended-command page, the `EF` 84+ page, etc.) is tabulated in [2-byte token tables](token-tables.md) — 492 tokens, sourced from [TI-Toolkit/tokens](https://github.com/TI-Toolkit/tokens) and filtered to the 84+ 2.55MP.
 
 (The main parser loop, handler dispatch, and `OP1`-as-name handoff are covered in [TI-BASIC Programs](sub-tibasic.md).)

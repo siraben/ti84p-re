@@ -163,7 +163,7 @@ page_07:61dc	arc_save_info
 ram:1485	_DataSize
 page_38:62a9	_StoOther
 page_38:67b1	_RclVarSym
-page_3A:5D07	_RclVarPush
+page_3A:5D07	rcl_var_push
 page_3D:6745	_FlashToRam
 ram:0e20	_MemChk
 ram:0fa6	_EnoughMem
@@ -172,7 +172,7 @@ ram:1308	_DelVar
 page_3D:5EE3	_FindApp
 page_3D:5DDA	_FindAppUp
 page_3D:5DE6	_FindAppDn
-page_3D:5DE7	_app_5de7
+page_3D:5DE7	app_5de7
 page_3D:5FB1	app_find_next_page
 page_3D:727D	init_flash_page_counter
 page_3B:73E4	_ReloadAppEntryVecs

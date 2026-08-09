@@ -1,6 +1,6 @@
 # Summary
 
-[Overview](system-overview.md)
+[System overview](system-overview.md)
 
 # Orientation
 

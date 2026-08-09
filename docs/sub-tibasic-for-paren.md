@@ -95,7 +95,7 @@ The optional close is handled by the page-2 command-finalization gate
 The explicit `)` path (`02:56C3...`) calls through the command cleanup path
 before returning to statement execution. The implicit-close path (`C=0`) calls
 the command handler directly. For `For(`, that handler is the page-2 stub
-`02:6A30`, which calls bcall `_grf_435f` (`33:435F`) and indexes the control-flow
+`02:6A30`, which calls bcall `grf_435f` (`33:435F`) and indexes the control-flow
 jump table at `33:4381`; the `For` entry is table index `0x29 - 0x20 = 9`, and
 `End` is index `0x2A - 0x20 = 10` [confirmed].
 

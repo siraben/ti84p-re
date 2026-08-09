@@ -37,7 +37,8 @@ Ghidra program with address spaces `ram` (the page-0/RAM-resident 0x0000–0x7FF
 ## 1. Data layouts & the creator routines [confirmed]
 
 ### List — `_CreateRList` (`00:10C4`), `_CreateCList` (`00:1109`)
-```
+
+```pseudocode
 _CreateRList(count, dataPtrOut):
   reject unless OP1 name token (8478.exp) ∈ {0x5D, 0x24, 0x3A, 0x72}  ; list-name classes
   var_alloc(1)                  ; carve  count*9 + 2  bytes via _InsertMem
@@ -48,17 +49,18 @@ Layout: `[countLo countHi] [TIFloat e1] [TIFloat e2] …`. A complex list keeps 
 flag and 18-byte elements.
 
 ### Matrix — `_CreateRMat` (`00:1115`)
-```
+
+```pseudocode
 _CreateRMat(dimWord, dataPtrOut):
   _HTimesL()                    ; element count = H * L  (the two dims multiplied)
   var_alloc(2)                  ; carve  H*L*9 + 2  bytes
   header: LD (HL),C ; INC HL ; LD (HL),B   ; writes dim0 then dim1
 ```
-- `_HTimesL` (`00:1EF6`) is literally `result = H * L` (`B=H; HL=Σ L`, a `DJNZ` add loop) —
+- `_HTimesL` (`00:1EF6`) computes `result = H * L` (`B=H; HL=Σ L`, a `DJNZ` add loop) —
   it computes the element count from the two dimension bytes. [confirmed]
 - Header = two bytes `dim0,dim1`; data is `dim0*dim1` floats column-major.
 
-> **Dimension naming [confirmed].** Settled by disassembly. `_AdrMEle` (`02:4002`) reads the header's
+> **Dimension naming.** [confirmed] Settled by disassembly. `_AdrMEle` (`02:4002`) reads the header's
 > first byte (`LD A,(DE); LD L,A`) and uses it as the major stride, looping `(B−1)`
 > adds of it and then `+(C−1)` *within* a column (column-major). The major stride of a
 > column-major array is the number of rows, so the first header byte (`dim0`) = #rows,
@@ -76,6 +78,7 @@ Two address-calculators turn a 1-based index into a byte
 pointer, then a 9-byte move shuttles the `TIFloat` to/from `OP1`.
 
 ### List element address — `_AdrLEle` (`02:47C5`)
+
 ```z80
 _AdrLEle(index, listDataPtr):           ; HL=index, DE=listDataPtr
   INC DE ; INC DE                        ; skip the 2-byte count header
@@ -91,16 +94,17 @@ masks the type to ≤0x19 and sets carry for the complex case (drives the 18-byt
 
 Convenience wrappers (all = `_AdrLEle` then a 9-byte move through OP1, complex-aware): [confirmed]
 - `_GetLToOP1` (`02:47EA`) — list[i] → OP1 (real or complex via two `_Mov9B`).
-- `_RclListElemToOP1` (`02:47FB`), `_RclListElemB` (`02:47FE`) — recall to OP1 with the
+- `rcl_list_elem_to_op1` (`02:47FB`), `rcl_list_elem_b` (`02:47FE`) — recall to OP1 with the
   index pre-loaded in RAM (`84AF`/`84D3`).
 - `_PutToL` (`02:4829`) — OP1 → list[i]; `_CkValidNum` validates the float first, then
   copies, honoring the complex (`& 0xC`) element width.
-- `_RclCListElem` (`02:49A7`), `_RclCListElemB` (`02:49B5`) — complex-list element via
-  `_CplxOPArrange` (splits real/imag into OP1/OP2).
-- `_GetPosListElem` (`02:5BBB`) — fetch by a *positive-integer* index with `_CkOP1Pos`
+- `rcl_c_list_elem` (`02:49A7`), `rcl_c_list_elem_b` (`02:49B5`) — complex-list element via
+  `cplx_op_arrange` (splits real/imag into OP1/OP2).
+- `get_pos_list_elem` (`02:5BBB`) — fetch by a *positive-integer* index with `_CkOP1Pos`
   bounds (loads `A=0x15` = `E_Stat` and jumps to the error vector `ram:2741` on a bad index).
 
 ### Matrix element address — `_AdrMEle` (`02:4002`) [confirmed]
+
 ```z80
 _AdrMEle:                                 ; B=column idx0, C=row idx1, DE=matrixDataPtr
   if B==0 or C==0 -> LD A,0x78 ; JP 0x2793 ; 0-index rejected (error vector)
@@ -129,11 +133,12 @@ Matrix element wrappers: [confirmed]
   `_JError 0x8C` = `E_Dimension`), unarchives if needed, then `_PutToMat`. [standard]
 
 ### Internal index helpers reused by the algorithms [confirmed]
+
 - `mele_adr_af_jp` (`02:403C`) = `_AdrMEle(currentIJ) ; RST4` — "load `[M](i,j)` to OP1" (the elimination
   inner-loop read). Indices come from the loop state at `84AF/84B3/84B4`.
 - `mele_adr_to8483` (`02:4051`) = `_AdrMEle ; _Mov9B(→OP2@8483)` — load element to OP2.
 - `mele_put_af` (`02:405A`) / `mele_put_d3` (`02:405E`) = `_AdrMEle ; _CkValidNum ; _MovFrOP1` — store OP1 back to `[M](i,j)`.
-- `_ListIdxTimes9` (`35:79E9`) = `_HLTimes9(idx)` then a small dispatch (`RST4`) — the list
+- `list_idx_times9` (`35:79E9`) = `_HLTimes9(idx)` then a small dispatch (`RST4`) — the list
   analogue used in a few list-builder paths.
 
 ---
@@ -141,6 +146,7 @@ Matrix element wrappers: [confirmed]
 ## 3. List operations [standard]
 
 ### Create / resize / insert / delete
+
 | Routine | addr | Role |
 |---|---|---|
 | `_CreateRList` | `00:10C4` | new real list: `count*9+2` bytes (§1) [confirmed] |
@@ -150,22 +156,24 @@ Matrix element wrappers: [confirmed]
 | `_RedimMat`/`_ConvDim` | `07:4D3B` / `38:741F` | re-dimension (shared with matrices); `_ConvDim`/`_ConvDim00` (`38:741F/7422`) coerce OP1 to a real index first [confirmed] |
 
 ### `dim(`, `dim(L)→n`, list↔value
+
 `dim(` reads the `count` word straight from the list header; assigning `n→dim(L)` calls the
 resize path (`_IncLstSize`/`_DelListEl`) to grow/shrink, zero-filling new cells. List→matrix
 and matrix→list (`List►matr(`, `Matr►list(`) reshape via `_DataSize` + a column-major copy
 (`mele_copy9_d3` (`02:4539`)/`mele_copy9_loop` (`02:453F`), a `_DataSize`-counted byte copy of the float payload). [standard]
 
 ### List arithmetic `L1+L2`, scalar broadcast
+
 Binary list ops are element-wise folds: the parser walks both lists by index, loads
 `L1[i]`→OP1, `L2[i]`→OP2, applies the FP RST shortcut (`RST 30h _FPAdd`, `_FPSub`, `_FPMult`,
 `_FPDiv`), stores into a freshly `_CreateRList`'d result. Length mismatch ⇒ `E_DimMismatch`
-(`_ErrDimMismatch 00:2715`, `0x8B`); a list⊕scalar broadcasts the scalar across every element.
-[standard — the per-element FP path is confirmed; the outer driver is the parser's binary-op handler.]
+(`_ErrDimMismatch 00:2715`, `0x8B`); a list⊕scalar broadcasts the scalar across every element. [standard]
 
 ### `sum(`, `prod(` — higher-order folds over a list [confirmed]
+
 Tokens `0xB6`=`sum(`, `0xB7`=`prod(` load a *combiner function pointer* and fold the
 list (dispatcher `02:6104`):
-```
+```pseudocode
 sum(  : HL = 0x3A83 (cross-page → FP add-accumulate),  seed via _OP1Set0
 prod( : HL = 0x49B9 (seed accumulator = 1.0, _PushOP1), combine with _FPMult
         CALL 0x64B7 ; ... ; JP (HL)   ; apply the combiner across e1..eN
@@ -175,16 +183,17 @@ The fold seeds the accumulator (0 for sum, 1 for prod), then for each element do
 both route to `02:6140`). [confirmed]
 
 ### `seq(`, `cumSum(`, `SortA(`/`SortD(`, `mean(`/`median(`/`stdDev(` [hypothesis]
+
 - `seq(expr,var,lo,hi[,step])` evaluates `expr` for `var = lo..hi`, pushing each result
   and finally `_CreateRList`-ing the collected floats (the generic list-builder loop;
   `_SetSeqM 36:7D1F` is the sequence-graph variant). [standard]
 - `cumSum(` is a running `_FPAdd` writing back each partial sum (the sum-fold with the
   accumulator stored every step). [hypothesis]
 - `SortA(`/`SortD(` — list sort in place (`SortA(` co-sorts dependent lists); the comparator
-  and per-element sort key are detailed in the next subsection. [confirmed comparator]
+  and per-element sort key are detailed in the next subsection. [confirmed]
 - Stats (`mean/median/sum/stdDev/variance`) are list folds layered on `sum(`/sort. [hypothesis]
 
-### `SortA(` / `SortD(` — list sort [confirmed comparator]
+### `SortA(` / `SortD(` — list sort [confirmed]
 
 `SortA(` (`tSortA` `0xE3`) and `SortD(` (`tSortD` `0xE4`) sort a list in place — ascending and
 descending respectively; `SortA(L1,L2,…)` co-sorts the trailing lists by the same permutation. This
@@ -195,7 +204,7 @@ The sort body is on page `0x02` (around `02:5939`); it is reached only through t
 computed command dispatch, so it is unnamed. Its comparator is `_CpOP1OP2`
 (`00:198D`), confirmed by the call at `02:5939`.
 
-`_CpOP1OP2` compares two `TIFloat`s as real numbers [confirmed from disassembly]: it tests the
+`_CpOP1OP2` compares two `TIFloat`s as real numbers [confirmed]: it tests the
 sign (type byte bit 7), then the exponent, then the mantissa digits, and returns the
 ordering. It does not compute a magnitude and does not read an imaginary part. Each comparison
 therefore orders elements by the single 9-byte `TIFloat` the sort holds in `OP1`/`OP2`:
@@ -228,20 +237,20 @@ It exercises list literal creation, list variable tokens (`5D 00`/`5D 01`),
 in-place sorting, a running cumulative sum, a folded sum, and list display. The
 generated `DATA.8xp` was run under headless TilEm: the screen showed sorted
 `L1={1 1 3 4 5}`, cumulative `L2={1 2 5 9 14}`, and sum `14`; the trace hit
-`list_fold_dispatch` (`02:6104`) plus the page-38 list parse/store helpers.
-[dynamic run confirmed; list primitives above are confirmed where marked]
+`list_fold_dispatch` (`02:6104`) plus the page-38 list parse/store helpers. [confirmed]
 
 ---
 
 ## 4. Matrix operations [confirmed]
 
 ### `dim(`, redim, identity, copy
+
 - `dim([M])` reads the two header bytes → a 2-element list `{rows,cols}`; `{r,c}→dim([M])`
   reallocates via `_RedimMat` (`07:4D3B`), preserving overlapping cells and zero-filling new
   ones. [standard]
 - `identity(n)` (token `0xB4` → `identity_build` (`02:4108`)) [confirmed]: allocate `n×n`, then walk every cell
   writing `1.0` when `row==col` (the `exp==type` test) and `0` otherwise:
-  ```
+  ```z80
   _OP1Set1 ; for each (i,j): if i==j -> store 1.0 (mantissa[0]=0x10) else 0
   ```
 - `Fill(value,[M])` / `randM(` stamp a constant / random values across all cells via a
@@ -249,18 +258,20 @@ generated `DATA.8xp` was run under headless TilEm: the screen showed sorted
   `tDim`), which creates the `r×c` result (`5DBB` → `_CreateRMat 110F`) and stores the dims
   (`631B`/`631C`/`4825`) but performs no fill. `randM(` itself is a separate 2-byte token
   (`tRandM` = `0x20`, `0xBB`-prefix group); its per-cell random fill is the one residual still
-  open (§4) — and notably it does not use the `_Random` bcall (`0x4B79`): a ROM-wide scan finds
+  open (§4) — it does not use the `_Random` bcall (`0x4B79`): a ROM-wide scan finds
   zero `RST 28h; .dw 0x4B79` sites, so randM's randomness comes from some other path. [standard]
 - Matrix copy/reshape = `_DataSize`-counted byte copy of the float payload
   (`mele_copy9_d3` (`02:4539`)/`mele_copy9_loop` (`02:453F`)). [confirmed]
 
 ### `[A] + [B]`, `[A] - [B]`, scalar·[A] — element-wise [standard]
+
 Binary matrix add/sub apply the FP op per cell with a nested `for col { for row { load [M](r,c)→OP1;
 op; store } }` walk and require equal dims (`_ErrDimMismatch 0x8B`). The nested two-counter cell
 walk at `02:412A` is the transpose copy (§ transpose); the add/sub element-loop driver is a
 sibling in the same `412A`–`414E` family and is inferred here. [standard]
 
 ### `[A] * [B]` — matrix multiply [confirmed]
+
 The multiply body is at `02:40BA`. It is not a defined function in the disassembly (so the
 decompiler/MCP can't reach it), so this was decoded from `rom.bin` directly with `z80dasm`,
 cross-checked against a routine Ghidra *does* define. The body is called from `02:5FFF` (the
@@ -269,7 +280,7 @@ is also the `_SinCosRad` bcall ID in ti83plus.inc — a hex coincidence, unrelat
 address.)
 
 `40BA` is a classic O(n³) triple loop with an FP accumulator:
-```
+```pseudocode
 for each result cell (i,j):                  ; counters at 84B7, 84B4
     for k = 1 .. inner:                       ; inner counter at 84AF
         load [A](i,k)          (403C mele_adr_af_jp)
@@ -279,10 +290,12 @@ for each result cell (i,j):                  ; counters at 84B7, 84B4
 ```
 The three `dec (hl)` counters (`84AF` inner, `84B4`, `84B7`) each have a `jr nz` back-edge
 (`40E5`, `40F9`, `4100`); an inner-dim mismatch (`A.cols ≠ B.rows`) raises `_ErrDimMismatch`. An
-`n×n` product is `n³` `TIFloat` multiply+add steps. [confirmed — body decoded from `rom.bin`; callers
-`02:5FFF`/`4605`/`5B39` byte-verified]
+`n×n` product is `n³` `TIFloat` multiply+add steps. [confirmed] The body comes
+from direct `rom.bin` decoding; callers `02:5FFF`, `02:4605`, and `02:5B39`
+are byte-verified.
 
 ### Transpose `[A]ᵀ` — `02:412A`, dispatched from the `ᵀ` token `0x0E` [confirmed]
+
 The transpose operator `ᵀ` is the postfix token `tTrnspos` = `0x0E`. The page-02 command
 dispatcher handles it at `02:60E9` (`CP 0x0E`): it requires one matrix operand (`CP 0x02 ;
 JR NZ`), swaps the two dimension bytes for the result header (`60F5: LD A,H ; LD H,L ; LD L,A`),
@@ -310,6 +323,7 @@ walk lands element `src(r,c)` at `dst(c,r)` — a true transpose, which re-index
 not the transpose body. [confirmed]
 
 ### `augment(`, `dim(`, `List►matr(`, `Matr►list(` — per-function drivers [standard]
+
 These are dispatched from the page-02 function-token evaluator (`list_fold_dispatch`, the
 `CP imm ; JR/JP` chain that runs `5E46`/`60C8`–`63xx`, keyed on the token byte). Each command's
 body and its single caller are byte-verified below.
@@ -324,9 +338,9 @@ body and its single caller are byte-verified below.
 
 The matrix-element kernels these drivers share are `_AdrMEle`/`_AdrMRow` (`4002`/`4000`) for indexing,
 `4068` (`mele_store_ckvalid`) for validated stores, and `4539` (`mele_copy9_d3`) for the bulk
-column-major payload copy. Each command's dispatch site and body are byte-confirmed above; the
-single residual is `randM(`'s per-cell fill and `4663`'s elimination role inside `augment(`. [confirmed for
-the bodies; standard for those two residuals]
+column-major payload copy. Each command's dispatch site and body is
+[confirmed]. The remaining `randM(` per-cell fill and the role of `02:4663`
+inside `augment(` are [standard].
 
 ---
 
@@ -347,7 +361,8 @@ unverified) first type-checks the operand is a matrix (`chk_op_is_matrix` (`02:6
 `type==2 else E_DataType 0x89`), then `LD A,0x40 ; CALL 0x42A6`.
 
 ### The engine (`42A6`) [confirmed]
-```
+
+```pseudocode
 matrix_gauss_engine(A = mode flags):
   HL = dims (84AF); if H != L -> _JError(0x8C)   ; must be square (det/inverse)
   if 1x1: handle scalar directly (inverse = _FPRecip)
@@ -389,7 +404,8 @@ of the pivots (each row swap flips the sign); a zero pivot ⇒ `det = 0` (no err
 `[A]⁻¹` = full Gauss-Jordan (reduce to identity, the augmented identity becomes the
 inverse); a zero pivot ⇒ `ERR:SINGULAR MAT`.
 
-#### Det sign / pivot-product bytes in the tail (`02:43D8–4470`) [confirmed]
+#### Det sign / pivot-product bytes in the tail (`02:43D8-4470`) [confirmed]
+
 The determinant sign comes from the permutation parity, not a separate sign cell. Each
 physical row swap (`43B9`) calls `4259` to swap the matching pair in the permutation
 vector at `84D5`; the determinant magnitude is the running product of the diagonal pivots
@@ -411,9 +427,10 @@ formed during back-elimination. The tail that closes the det/inverse pass:
 ```
 So the sign byte is the LSB of the swap-count applied via `_InvOP1S` (`00:24BD`) at
 `43FB`/`442B`; the pivot product is the `238B`/`RST 30h` accumulate over the diagonal in
-`43E3–43F6`. The permutation undo (`420F`/`4259`) restores element order for the inverse. [confirmed]
+`43E3-43F6`. The permutation undo (`420F`/`4259`) restores element order for the inverse. [confirmed]
 
 ### `rref(` / `ref(` — separate driver, not `42A6` [standard]
+
 `rref(`/`ref(` do not re-enter the `42A6` Gauss-Jordan engine. A function-xref shows
 `matrix_gauss_engine` (`02:42A6`) has exactly two callers — `mat_inverse_entry` (`02:5F80`,
 flag 0) and `det_entry` (`02:5FC0`, flag 0x40); there is no third call site (byte-confirmed
@@ -429,10 +446,11 @@ the resolved handler). Their reduced-row-echelon elimination is therefore a dist
 non-square-tolerant driver reached through that table — a separate routine from `42A6`, using
 the same per-element FP primitives (`_FPDiv`/`_FPMult`/`_FPSub`) but with its own pivot loop
 that tolerates rectangular matrices and rank deficiency (zero rows left in place, no
-`SINGULAR MAT`). *The concrete rref/ref body sits behind the `38:7175` 2-byte handler table and
-was not byte-isolated in this pass (the table is unanalyzed data in the DB); the architectural
-fact that it is a separate driver, not `42A6`, is confirmed by the two-caller xref. [confirmed for the
-"separate driver" conclusion; standard for the exact body address.]*
+`SINGULAR MAT`). The concrete rref/ref body sits behind the `38:7175` 2-byte
+handler table and has not been byte-isolated because the table remains
+unanalyzed data in the DB. The two-caller xref establishes that it is a
+separate driver from `02:42A6` [confirmed]. Its exact body address remains
+[standard].
 
 ---
 
@@ -441,8 +459,8 @@ fact that it is a separate driver, not `42A6`, is confirmed by the two-caller xr
 - Every element is a `TIFloat` ([Floating-point](floating-point.md)). Indexing produces a *pointer*; the value is then
   moved into `OP1`/`OP2` (`RST4` = load-9, `_Mov9B`, `_MovFrOP1`) and all arithmetic is the FP
   engine's `RST 30h`(`_FPAdd`)/`_FPMult`/`_FPDiv`/`_FPSub`/`_FPRecip`. There is no SIMD; a
-  matrix multiply is literally thousands of these calls. Complex elements (lists/`[i]`) carry a
-  `0x0C` flag and use 18-byte (two-float) elements, split via `_CplxOPArrange`.
+  matrix multiply makes thousands of these calls. Complex elements (lists/`[i]`) carry a
+  `0x0C` flag and use 18-byte (two-float) elements, split via `cplx_op_arrange`.
 - **Where the data lives:** the parser resolves the list/matrix name through `OP1` →
   `_FindSym`/`_ChkFindSym` ([Variables & the VAT](variables-vat.md)/sub-vat) → VAT entry → data pointer (+ flash page if
   archived). The `count`/`dim` header is read first; then `_AdrLEle`/`_AdrMEle` do pointer
@@ -468,7 +486,7 @@ and the routine and condition that triggers it.
 | `0x89` | `E_DataType` | `det(`/matrix ops on a non-matrix operand (`chk_op_is_matrix` (`02:69B7`)) |
 | `0x8B` | `E_DimMismatch` (`ERR:DIM MISMATCH`) | add/sub/multiply with incompatible dims (`_ErrDimMismatch 00:2715`) |
 | `0x8C` | `E_Dimension` (`ERR:INVALID DIM`) | non-square det/inverse, out-of-range element store (`_ErrDimension 00:2719`, `_StMatEl`) |
-| `0x15` | `E_Stat` (via `ram:2741`) | `_GetPosListElem` bad index (`_CkOP1Pos`) |
+| `0x15` | `E_Stat` (via `ram:2741`) | `get_pos_list_elem` bad index (`_CkOP1Pos`) |
 
 ---
 
@@ -505,19 +523,19 @@ and the routine and condition that triggers it.
 | `02:461C` | `mat_max_abs` | maximum absolute element (pivot tolerance) [confirmed] |
 | `02:47C5` | `_AdrLEle` | list element address: `data+2+(i-1)*9` [confirmed] |
 | `02:47EA` | `_GetLToOP1` | list[i] → OP1 (complex-aware) [confirmed] |
-| `02:47FB` | `_RclListElemToOP1` | recall list elem to OP1 [confirmed] |
-| `02:47FE` | `_RclListElemB` | recall list elem (B-indexed) [confirmed] |
+| `02:47FB` | `rcl_list_elem_to_op1` | recall list elem to OP1 [confirmed] |
+| `02:47FE` | `rcl_list_elem_b` | recall list elem (B-indexed) [confirmed] |
 | `02:4829` | `_PutToL` | OP1 → list[i] (validated, complex-aware) [confirmed] |
-| `02:49A7` | `_RclCListElem` | complex-list element → OP1/OP2 [confirmed] |
-| `02:49B5` | `_RclCListElemB` | complex-list element (B-indexed) [confirmed] |
-| `02:5BBB` | `_GetPosListElem` | list element by positive index (bounds) [confirmed] |
+| `02:49A7` | `rcl_c_list_elem` | complex-list element → OP1/OP2 [confirmed] |
+| `02:49B5` | `rcl_c_list_elem_b` | complex-list element (B-indexed) [confirmed] |
+| `02:5BBB` | `get_pos_list_elem` | list element by positive index (bounds) [confirmed] |
 | `02:5E46` | `func_eval_dispatch` | single-byte function-token evaluator (0xB0–0xCD) [confirmed] |
 | `02:5F80` | `mat_inverse_entry` | `[A]⁻¹`: flag 0 → `matrix_gauss_engine` [confirmed] |
 | `02:5FC0` | `det_entry` | `det(`: flag 0x40 → `matrix_gauss_engine` [confirmed] |
 | `02:6104` | `list_fold_dispatch` | `sum(`/`prod(` higher-order list fold [confirmed] |
 | `02:69B7` | `chk_op_is_matrix` | require operand type==2 else E_DataType [confirmed] |
 | `ram:21C4` | `chk_type_lt_1a` | classify element type width: `AND 0x1F ; CP 0x1A ; CP 0x18 ; CCF` — real-vs-complex (0x0C) element width [confirmed] |
-| `35:79E9` | `_ListIdxTimes9` | list index ×9 + dispatch [confirmed] |
+| `35:79E9` | `list_idx_times9` | list index ×9 + dispatch [confirmed] |
 | `07:4D3B` | `_RedimMat` | re-dimension matrix/list [confirmed] |
 | `07:4F07` | `_InsertList`/`_IncLstSize` | grow a list in place [confirmed] |
 | `07:4F43` | `_DelListEl` | delete list element(s) [confirmed] |
@@ -531,14 +549,15 @@ and the routine and condition that triggers it.
 ---
 
 ## 9. Findings
+
 - `rref(`/`ref(` use a separate driver, not `42A6`. Xref proves `42A6` has
   exactly two callers (inverse `5F80`, det `5FC0`); rref/ref are 2-byte `0xBB`-lead function
   tokens dispatched via the page-38 evaluator's class-3 handler table at `38:7175` (§5). The
   *exact rref/ref body* sits behind that (unanalyzed-data) table and is the only residual: its
   start address was not byte-isolated, but it is confirmed not to be `42A6`.
-- det sign / pivot-product (`42A6` tail `43D8–4470`) and dim labelling. The det
+- det sign / pivot-product (`42A6` tail `43D8-4470`) and dim labelling. The det
   sign = LSB of the permutation-swap count applied via `_InvOP1S` (`24BD`) at `43FB`/`442B`;
-  the magnitude is the `238B`/`RST 30h` diagonal-pivot accumulate (`43E3–43F6`); `420F`/`4259`
+  the magnitude is the `238B`/`RST 30h` diagonal-pivot accumulate (`43E3-43F6`); `420F`/`4259`
   undo the column permutation for the inverse (§5). Row/col vs dim0/dim1 is now [confirmed]:
   `dim0` (first header byte) = #rows, and `_AdrMEle` takes `B=column`, `C=row` (§1/§2).
 - transpose, `Matr►list(`, and the `augment(` column-concat bodies. Each command's

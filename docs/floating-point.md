@@ -1,12 +1,12 @@
 # Floating-point engine
 
-> **Deep dive:** [Calculation Engine](sub-calculation.md) — ×, ÷, ^, roots, the transcendentals (sin/cos/ln/eˣ), and number formatting.
+> **Deep dive:** [Calculation engine](sub-calculation.md) — ×, ÷, ^, roots, the transcendentals (sin/cos/ln/eˣ), and number formatting.
 
 All TI-BASIC arithmetic runs through a BCD floating-point engine centered on the OP registers in RAM. The engine lives mostly on flash page 0 (it's hot), with the RST-30 shortcut for the most common op.
 
 ## Number format — `TIFloat` (9 bytes on disk) [confirmed]
 
-```
+```text
 +0  type      0x00 = real (positive), 0x80 = negative real;
               0x0C/0x8C = complex (paired with the imaginary part)
 +1  exp       base-100? no — base-10 exponent, biased by 0x80 (0x80 = 10^0)
@@ -34,7 +34,7 @@ where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD mant
 
 `OP1`–`OP6` at `0x8478`, spaced `11` bytes (`OP2`=0x8483 …). The extra 2 bytes past the 9-byte number are extended guard digits used during math: `OP1EXT`/`OP2EXT` = bytes +9/+10 (seen in `_FPAdd` as `0x8481`/`0x8482`). `OP1` is the primary accumulator; most routines take their argument in `OP1` (and `OP2` for binary ops) and return in `OP1`.
 
-## Core operations [confirmed from disassembly]
+## Core operations [confirmed]
 
 Every binary operation has the shape `OP1 ∘ OP2 → OP1`. Add and subtract walk the same five stages below; multiply and divide instead *combine* exponents (add them for `×`, subtract for `÷`) and multiply/divide the mantissas. Because the format is sign-magnitude BCD, the sign is settled separately — negating a value is a single `XOR 0x80` on its type byte — so the digit work always runs on a non-negative 14-digit mantissa:
 
@@ -118,9 +118,10 @@ These five page-0 primitives are shared by add/sub/mult/div and the transcendent
 Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize primitives.
 
 ## Floating-point stack (FPS) [standard]
+
 `FPS` (`0x9824`) is a software stack for temporaries; `_PushRealO1` (= `RST 18h`, `ram:155C`), `_PushReal`, `_PopRealO1` through `_PopRealO6`, `_PopReal`, `_AllocFPS`, and `_DeallocFPS` manage it. Used to spill OP registers during nested expression evaluation.
 
-## Multiply / divide / transcendentals [confirmed — located]
+## Multiply / divide / transcendentals [confirmed]
 
 The rest of the FP op set lives alongside add on page 0, with the transcendentals banked to page 0x02:
 
@@ -134,7 +135,7 @@ The rest of the FP op set lives alongside add on page 0, with the transcendental
 | `_EToX` | `02:705C` | eˣ |
 | `_SinCosRad` | `02:733E` | sin/cos (radians) |
 
-See [Calculation Engine](sub-calculation.md) for the ×/÷/^/root algorithms and number formatting.
+See [Calculation engine](sub-calculation.md) for the ×/÷/^/root algorithms and number formatting.
 
 ## Transcendental method [confirmed]
 
@@ -142,7 +143,7 @@ The ln/e^x/sin-cos evaluators are local page-0x02 code plus page-0x02 coefficien
 
 ### The shared algorithm — digit-by-digit pseudo-division [confirmed]
 
-The forward log and exp evaluators are a digit-by-digit pseudo-division recurrence — the algorithm BCD calculators have used since the 1960s. The table gives it away: `02:7181`'s 16 rows are exactly $\log_{10}(1+10^{-k})$ for $k=0\ldots15$ (matched to 14 digits — `[00]` = `log₁₀2`, `[01]` = `log₁₀1.1`, `[02]` = `log₁₀1.01`, …), which is precisely the per-step increment such a recurrence consumes. The recurrence runs on shift-and-add alone: scaling a BCD number by $1+10^{-k}$ is $x + (x\text{ shifted right }k\text{ digits})$, one `fp_shift_right_digit` (`ram:1bea`) plus one BCD-add, so the digit-by-digit recurrence core needs no general multiply (only the base-conversion scaling via `CALL ram:2362` enters `_FPMult`). (The traces show the shift `1bea` is shared, but the running-add entry differs: `_EToX` uses `fp_add_mantissa` `ram:1cb9`, while `_LnX` uses the sibling BCD-add entry `ram:1ca9` — `1cb9` fires 0× in the `ln(2)` loop, `1ca9` 0× in the `e¹` loop.)
+The forward log and exp evaluators are a digit-by-digit pseudo-division recurrence — the algorithm BCD calculators have used since the 1960s. The 16 rows at `02:7181` are exactly $\log_{10}(1+10^{-k})$ for $k=0\ldots15$ (matched to 14 digits — `[00]` = `log₁₀2`, `[01]` = `log₁₀1.1`, `[02]` = `log₁₀1.01`, …), which is the per-step increment such a recurrence consumes. The recurrence runs on shift-and-add alone: scaling a BCD number by $1+10^{-k}$ is $x + (x\text{ shifted right }k\text{ digits})$, one `fp_shift_right_digit` (`ram:1bea`) plus one BCD-add, so the digit-by-digit recurrence core needs no general multiply (only the base-conversion scaling via `CALL ram:2362` enters `_FPMult`). (The traces show the shift `1bea` is shared, but the running-add entry differs: `_EToX` uses `fp_add_mantissa` `ram:1cb9`, while `_LnX` uses the sibling BCD-add entry `ram:1ca9` — `1cb9` fires 0× in the `ln(2)` loop, `1ca9` 0× in the `e¹` loop.)
 
 **Logarithm.** With the exponent already split off so the mantissa is $x\in[1,10)$, the loop (`02:6F80`–`6FEE`) drives $x$ up toward $10$ by repeatedly scaling by the largest table factor that doesn't overshoot; the number of scalings at each position *is* the corresponding digit of the answer, and the running sum of the table entries is the logarithm:
 
@@ -228,7 +229,7 @@ This one keeps its range reduction on page 0x02 and is the most fully recovered:
 
 `02:7D1E` zeroes the OP2 type byte, indexes `02:7D42 + 9*A`, then copies the selected constant image into OP2. The only `LD A,n; CALL ram:2362` uses in this cluster are `A=3` (`log10(e)`) and `A=6` (`ln(10)`); the later trig reduction constants are loaded directly from the same nearby block.
 
-```
+```text
 02:7D42 constants, 9-byte stride:
   [00] 81 57 29 57 79 51 30 82 32
   [01] 80 15 70 79 63 26 79 48 97
@@ -243,7 +244,7 @@ This one keeps its range reduction on page 0x02 and is the most fully recovered:
 
 `02:7181` is the shared ln/e^x digit table loaded by `02:7301`/`02:7302`/`02:7305`. It has 16 8-byte rows:
 
-```
+```text
 [00] 30 10 29 99 56 63 98 12  [01] 04 13 92 68 51 58 22 50
 [02] 00 43 21 37 37 82 64 26  [03] 00 04 34 07 74 79 31 86
 [04] 00 00 43 42 72 76 86 27  [05] 00 00 04 34 29 23 10 45
@@ -256,7 +257,7 @@ This one keeps its range reduction on page 0x02 and is the most fully recovered:
 
 `02:7201` and `02:7281` are the forward sin/cos signed recurrence tables (the per-row near-unity factors the digit loop steps through, per the shared algorithm above). Each row is 16 bytes: the first 8-byte variant is selected when `0x84A4 bit 7` is clear, and the second 8-byte variant is selected when it is set.
 
-```
+```text
 02:7201:
 [00] 09 96 68 65 24 91 16 20 | 10 03 35 34 77 31 07 56
 [01] 09 99 96 66 68 66 65 24 | 10 00 03 33 35 33 34 76
@@ -278,4 +279,4 @@ This one keeps its range reduction on page 0x02 and is the most fully recovered:
 [07] 99 99 99 99 99 99 99 95 | 10 00 00 00 00 00 00 01
 ```
 
-The forward ln, e^x, and sin/cos paths all run on the table-driven digit recurrence above — a selector that steps through a coefficient table one row at a time, on shift-and-add (ln/e^x loaded from `02:7181`; sin/cos from `02:7201`/`02:7281`). The separate arctangent engine behind inverse trig uses a base-10 CORDIC iteration, documented in [Calculation Engine](sub-calculation.md).
+The forward ln, e^x, and sin/cos paths all run on the table-driven digit recurrence above — a selector that steps through a coefficient table one row at a time, on shift-and-add (ln/e^x loaded from `02:7181`; sin/cos from `02:7201`/`02:7281`). The separate arctangent engine behind inverse trig uses a base-10 CORDIC iteration, documented in [Calculation engine](sub-calculation.md).
