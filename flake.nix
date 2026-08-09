@@ -65,6 +65,8 @@
 
         devShells.default = pkgs.mkShell {
           packages = [
+            pkgs.ghidra
+            pkgs.jdk21
             pkgs.mdbook
             pkgs.mdbook-mermaid
             z80dasm

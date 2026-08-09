@@ -1,4 +1,4 @@
-# TI-84 Plus OS — Reverse Engineering
+# TI-84 Plus OS — Reverse engineering
 
 A reproducible Ghidra reverse-engineering project for the TI-84 Plus calculator OS (version 2.55MP), a Zilog Z80 system. This repo contains the build scripts, derived symbol data, and reverse-engineering notes — not the ROM image (copyrighted) or the Ghidra database (regenerable).
 
@@ -6,7 +6,7 @@ Read the rendered wiki: <https://siraben.github.io/ti84p-re/>
 
 ## What's here
 
-```
+```text
 docs/                  reverse-engineering notes, one file per subsystem (the rendered wiki)
 tools/                 build pipeline (Ghidra headless scripts) + derived symbol tables
 .codex/skills/         repo-local Codex skills, including the wiki authoring guide
@@ -27,11 +27,15 @@ nix develop        # shell with mdbook
 
 ## Build
 
-Requires Ghidra 12.1 + JDK 21. With Ghidra *closed*:
+Requires Ghidra 12.1 + JDK 21. The Nix development shell provides both. With
+Ghidra *closed*:
 
 ```sh
-tools/build.sh        # ~10s; rebuilds ti84.gpr
+nix develop -c tools/build.sh   # rebuilds ti84.gpr
 ```
+
+`tools/build.sh` also discovers Homebrew and upstream Ghidra installations. Set
+`GHIDRA_ANALYZE_HEADLESS` when the launcher is installed in another location.
 
 The pipeline (`build.sh`):
 1. `resolve_bcalls.py` — resolve the main bcall jump table (`0x4xxx`→page `0x3B`), the retail boot bcall table (`0x8xxx`→pages `0x3F`/`0x2F` when present), and the bjump trampoline table from the ROM
@@ -93,9 +97,11 @@ A Z80 (64 KiB address space) with hardware paging maps flash page 0 at `0000` (t
 Wiki authoring style lives in the repo-local Codex skill [`ti84-re-writing`](.codex/skills/ti84-re-writing/SKILL.md), which merges prose voice, positive framing, structure, sentence-case headings, address notation, confidence flags, function naming, and mdBook mechanics into one authoring guide. The reader-facing [`docs/conventions.md`](docs/conventions.md) remains the rendered explanation of notation and methodology. Claims are grounded against the live Ghidra DB (GhidraMCP over `:8080`); for routines its auto-analysis left undefined (cross-page trampolines break the call graph), decode `tools/rom.bin` directly — e.g. with `z80dasm`, validated against a routine Ghidra *does* define. For *dynamic* ground truth — what actually executes, isolated by coverage diff — run the ROM under headless TilEm and map the trace back onto the `page_NN:addr` model with [`tools/dynamic-tracing.md`](tools/dynamic-tracing.md). Run `nix build` before committing to confirm math and diagram fences parse.
 
 ## Legal
+
 Independent reverse-engineering notes for interoperability/education. No copyrighted TI ROM image or OS code is included — the ROM is gitignored and you supply your own dump. `ti83plus.inc` is TI's freely-distributed equates file (the full 2007 TI-83 Plus SDK include, the complete version as hosted on WikiTI). All trademarks belong to Texas Instruments; this project is not affiliated with or endorsed by TI.
 
 ## Notes
+
 - `ti83plus.inc` is the full 2007 TI-83 Plus SDK equates file (the complete version as hosted on WikiTI), which replaces the earlier trimmed copy. It defines the 84+-era `0x8xxx` boot bcall IDs. With the local complete ROM assembled from `ti84plus_patched.rom`, `D84PBE1.8Xv`, and `D84PBE2.8Xv`, those entries resolve through retail page `3F`; the USB boot routines land on page `2F`.
 - ~1600 function names beyond the official bcalls are RE-inferred from behavior (callees, RAM/port touches) — accurate in aggregate, but a specific low-level helper's name is a best-effort guess; flagged by snake_case (vs the `_CamelCase` official TI bcalls).
 - Confidence flags in the docs: [confirmed] (seen in disassembly), [standard] (matches documented TI architecture), [hypothesis] (inferred).

@@ -56,17 +56,23 @@ public class BuildTypes extends GhidraScript {
         dtm.addDataType(lh, DataTypeConflictHandler.REPLACE_HANDLER);
 
         StructureDataType mh = new StructureDataType("TIMatrixHdr", 0);
-        mh.add(new ByteDataType(), "cols", null); mh.add(new ByteDataType(), "rows", null);
+        mh.add(new ByteDataType(), "rows", null); mh.add(new ByteDataType(), "cols", null);
         mh.setDescription("followed by TIFloat[rows*cols], column-major");
         dtm.addDataType(mh, DataTypeConflictHandler.REPLACE_HANDLER);
 
-        // VAT record (RAM, grows downward) - representative layout
+        // Fixed-token VAT record.  The VAT grows downward, so this structure is
+        // ordered from the lowest-address name byte through the high-address
+        // type byte.  Named program/appvar/group entries have a variable-length
+        // name prefix but share the six metadata bytes after the matched name.
         StructureDataType vat = new StructureDataType("VATEntry", 0);
-        vat.add(new ByteDataType(), "typeID", "TIVarType");
-        vat.add(new ByteDataType(), "version", null);
-        vat.add(new WordDataType(), "dataAddr", null);
+        vat.add(new ArrayDataType(new ByteDataType(), 3, 1), "name", "fixed token/name bytes; high-address byte is matched first");
         vat.add(new ByteDataType(), "dataPage", "flash page, 0=RAM");
-        vat.add(new ByteDataType(), "nameLen", "name bytes follow (reverse order)");
+        vat.add(new ByteDataType(), "dataAddrHi", null);
+        vat.add(new ByteDataType(), "dataAddrLo", null);
+        vat.add(new ByteDataType(), "version", null);
+        vat.add(new ByteDataType(), "t2", "secondary type/version metadata");
+        vat.add(new ByteDataType(), "typeID", "low 5 bits = TIVarType; high bits carry archive state");
+        vat.setDescription("9-byte fixed-token VAT entry, stored high-address-first by the downward-growing VAT");
         dtm.addDataType(vat, DataTypeConflictHandler.REPLACE_HANDLER);
 
         // OS "context" control block (active mode's handler vectors) @ cxMain=0x858D
@@ -100,7 +106,12 @@ public class BuildTypes extends GhidraScript {
             byOff.computeIfAbsent(off, k -> new ArrayList<>()).add(p[0]);
         }
         if (byOff.isEmpty()) return;
-        int size = byOff.lastKey() + 1;
+        // `flags` is 0x89F0 and the next official region, `statVars`, begins at
+        // 0x8A3A.  Keep unnamed flag bytes in the structure so ROM accesses
+        // through IY+0x3F and later offsets remain inside the typed region.
+        int size = 0x8A3A - 0x89F0;
+        if (byOff.lastKey() >= size)
+            throw new IllegalStateException("flag-byte offset exceeds flags-to-statVars span");
         StructureDataType sf = new StructureDataType("SystemFlags", size);
         for (Map.Entry<Integer, List<String>> e : byOff.entrySet()) {
             String nm = e.getValue().get(0);
