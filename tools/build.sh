@@ -4,15 +4,32 @@
 # bcall naming, BCD floats, and TI-OS data types. Ghidra must be CLOSED.
 set -euo pipefail
 
-export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
-LX=/opt/homebrew/Cellar/ghidra/12.1/libexec
 T="$(cd "$(dirname "$0")" && pwd)"          # this tools/ dir
 PROJ="$(dirname "$T")"                        # repo root
 NAME=ti84
 
+# Nixpkgs exposes the headless launcher as `ghidra-analyzeHeadless`; the
+# upstream archive and Homebrew use `support/analyzeHeadless`.  An explicit
+# path remains available for installations with a different layout.
+if [[ -n "${GHIDRA_ANALYZE_HEADLESS:-}" ]]; then
+  ANALYZE_HEADLESS="$GHIDRA_ANALYZE_HEADLESS"
+elif command -v ghidra-analyzeHeadless >/dev/null 2>&1; then
+  ANALYZE_HEADLESS="$(command -v ghidra-analyzeHeadless)"
+elif command -v analyzeHeadless >/dev/null 2>&1; then
+  ANALYZE_HEADLESS="$(command -v analyzeHeadless)"
+elif [[ -x /opt/homebrew/Cellar/ghidra/12.1/libexec/support/analyzeHeadless ]]; then
+  ANALYZE_HEADLESS=/opt/homebrew/Cellar/ghidra/12.1/libexec/support/analyzeHeadless
+  if [[ -z "${JAVA_HOME:-}" && -d /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ]]; then
+    export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+  fi
+else
+  echo "Ghidra headless analyzer not found; run through 'nix develop -c tools/build.sh'" >&2
+  exit 1
+fi
+
 python3 "$T/resolve_bcalls.py"          # regenerate bcall_targets.txt (page&0x3F)
 rm -rf "$PROJ/$NAME.gpr" "$PROJ/$NAME.rep"
-"$LX/support/analyzeHeadless" "$PROJ" "$NAME" \
+"$ANALYZE_HEADLESS" "$PROJ" "$NAME" \
   -import "$T/ti84_page00.bin" -processor z80:LE:16:default \
   -loader BinaryLoader -loader-baseAddr 0x0000 \
   -scriptPath "$T" \
