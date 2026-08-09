@@ -6,23 +6,35 @@ TI-84 Plus OS under a headless build of [TilEm](https://github.com/siraben/tilem
 captures an instruction trace, and maps every executed address back onto this
 repo's Ghidra model (`page_NN:addr`) and a flat `tools/rom.bin` offset.
 
-The bridge between TilEm's trace and our static model is
+The resolver between TilEm's trace and the static model is
 [`tools/tilem_trace_resolve.py`](tilem_trace_resolve.py).
 
 ## Why this is non-trivial
 
-TilEm records only the logical 16-bit PC of each instruction. On the
-84+, `4000–7FFF` and `8000–BFFF` are banked flash/RAM windows (see
-[docs/paging.md](../docs/paging.md)), so a logical PC like `0x412c` is
-ambiguous until you know which page ports 6/7 had selected. The resolver
-recovers banking by replaying the OUT instructions in the trace itself:
+TilEm records only the logical 16-bit PC of each instruction. On the 84+, the
+upper three 16 KiB windows can be banked flash or RAM (see
+[docs/paging.md](../docs/paging.md)). A logical PC like `0x412c` is ambiguous
+until the mapping ports are known. The resolver recovers the mapping by
+replaying the `OUT` instructions in the trace:
 
 - `OUT (n),A` — TilEm sets `WZ = (A<<8) | n`, so port = `WZ & 0xFF`, value = `WZ >> 8`.
-- Port 5 selects the high RAM `C000` window (bank C), port 6 selects the `4000`
-  window (bank A), and port 7 selects the `8000` window (bank B).
+- Port 4 bit 0 selects paired or independent mapping. In paired mode, port 6
+  selects the even/odd pair at `0x4000` and `0x8000`, and port 7 selects the
+  `0xC000` window. In independent mode, ports 6, 7, and 5 select the three
+  windows respectively.
 - Ports 6/7 use bit 7 as the RAM selector. With bit 7 clear, low six bits select
   flash (`0x7F` maps as flash page `3F`); with bit 7 set, low three bits select
   RAM (`0x83` maps as RAM page `83`). Port 5 always selects RAM by low three bits.
+- Port `0x27` forces a configurable range at the top of the `0xC000` window to
+  RAM page `80`. Port `0x28` does the same at the bottom of the `0x8000` window
+  for RAM page `81`.
+
+The resolver maps an `OUT` instruction with the pre-write state that fetched
+that instruction. It applies the new port value only to later instructions.
+It recognizes `OUT (n),A`, `OUT (C),r`, and `OUT (C),0`. TLMT v2 does not store
+the memory byte emitted by `OUTI`, `OUTD`, `OTIR`, or `OTDR`; if one targets a
+mapping port, the resolver marks that port unknown until a later recoverable
+write establishes its value.
 
 It then maps each PC to a Ghidra address that matches `BuildTI84Full.java`'s
 overlay layout: page 0 → `ram:XXXX`, banked flash → `page_NN:XXXX` (overlay
@@ -74,36 +86,63 @@ whole-line comment only — a trailing `# …` after a command is parsed as a
 ## 3. Resolve the trace to Ghidra addresses
 
 ```sh
-# first N instructions, with symbol names from names.txt and flat ROM offsets
-tools/tilem_trace_resolve.py /tmp/b.trace --print 40 --names tools/names.txt
+# first N instructions, with the proven TilEm reset mapping, symbol names,
+# and flat ROM offsets
+tools/tilem_trace_resolve.py /tmp/b.trace --initial-mapping ti84p-reset \
+  --print 40 --names tools/names.txt
 
 # walk ONE routine's execution (with live registers) inside a multi-million-
 # instruction trace: filter --print by space and a logical-address window, and
 # page through it with --print-from. E.g. step through _LnX (02:6EFD) computing
 # ln(2):
 tools/tilem_trace_resolve.py /tmp/b.trace --print 200 \
+  --initial-mapping ti84p-reset \
   --only-space page_02 --only-addr 6efd-6ff0 --names tools/names.txt
 tools/tilem_trace_resolve.py /tmp/b.trace --print 200 --print-from 200 \
+  --initial-mapping ti84p-reset \
   --only-space page_02 --only-addr 6efd-6ff0 --names tools/names.txt   # next page
 
-# every bank switch (port 5 / port 6 / port 7 writes)
-tools/tilem_trace_resolve.py /tmp/b.trace --page-switches
+# every mapping write (ports 4–7, 0x27, and 0x28)
+tools/tilem_trace_resolve.py /tmp/b.trace --initial-mapping ti84p-reset \
+  --page-switches
 
-# physical RAM page writes, after replaying port 5/6/7 page selection
-tools/analyze_ram_page_trace.py /tmp/b.trace --page 0x83
+# physical RAM page writes
+tools/analyze_ram_page_trace.py /tmp/b.trace \
+  --initial-mapping ti84p-reset --page 0x83
 
 # coverage: distinct executed addresses + hit counts
-tools/tilem_trace_resolve.py /tmp/b.trace --coverage --sort count --names tools/names.txt
+tools/tilem_trace_resolve.py /tmp/b.trace --initial-mapping ti84p-reset \
+  --coverage --sort count --names tools/names.txt
 
 # function-level coverage (roll hits up to the nearest-preceding name),
 # optionally restricted to one address space:
-tools/tilem_trace_resolve.py /tmp/b.trace --funcs --only-space page_39 \
-  --sort count --names tools/names.txt
+tools/tilem_trace_resolve.py /tmp/b.trace --initial-mapping ti84p-reset \
+  --funcs --only-space page_39 --sort count --names tools/names.txt
 ```
 
-`--trace-range all` is required for paging to work — it captures page-0 and the
-banked windows. A `page_??:` prefix means a bankable PC was hit before the
-first OUT set that port (only the first few boot instructions).
+`--trace-range all` is required for paging to work — it captures page 0 and the
+banked windows. TLMT v2 does not store the mapping at the first record. Without
+an explicit initial state, the resolver emits `page_??:` and warns that paged
+coverage is incomplete until enough mapping writes appear.
+
+For a full trace captured with `--model ti84p --reset`, use
+`--initial-mapping ti84p-reset` only when the first traced instruction is the
+reset entry at `0x8000`. The resolver warns if this preset is used when the
+first traced PC differs. TilEm's `x4_reset()` initializes port 4 to `0x07`,
+ports 6/7 to `0x3F`, and ports `0x27`/`0x28` to zero; a new calculator
+initializes port 5 to zero. Paired mode therefore maps flash page `3E` at
+`0x4000` and page `3F` at both `0x8000` and `0xC000`. These values describe the
+TilEm `x4` model, not ROM-internal state.
+
+For any other starting state, pass the values at the first record explicitly
+with `--initial-port4`, `--initial-port5`, `--initial-port6`,
+`--initial-port7`, `--initial-port27`, and `--initial-port28`. Do not apply the
+reset preset to a wrapped ring trace: its oldest retained record normally
+occurs long after reset.
+
+Memory-write records precede the instruction record that generated them. The
+RAM-page analyzer retains those writes until the following instruction record
+so its event and top-PC output names the writing instruction.
 
 Output carries a flat `rom=0x......` offset for flash addresses, so you can
 sanity-check against the raw image, e.g.:
@@ -131,8 +170,10 @@ $TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
 $TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
   --macro tools/macros/home-2plus3.macro --trace /tmp/b.trace --trace-range all
 
-tools/tilem_trace_resolve.py /tmp/a.trace --coverage --sort addr --names tools/names.txt > /tmp/cov_a.txt
-tools/tilem_trace_resolve.py /tmp/b.trace --coverage --sort addr --names tools/names.txt > /tmp/cov_b.txt
+tools/tilem_trace_resolve.py /tmp/a.trace --initial-mapping ti84p-reset \
+  --coverage --sort addr --names tools/names.txt > /tmp/cov_a.txt
+tools/tilem_trace_resolve.py /tmp/b.trace --initial-mapping ti84p-reset \
+  --coverage --sort addr --names tools/names.txt > /tmp/cov_b.txt
 comm -13 <(awk '{print $2}' /tmp/cov_a.txt | sort) <(awk '{print $2}' /tmp/cov_b.txt | sort)
 ```
 
@@ -200,7 +241,8 @@ $TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
   --headless-record /tmp/tibasic.gif \
   --trace /tmp/tibasic.trace --trace-range all \
   tools/tibasic-samples/HELLO.8xp
-tools/tilem_trace_resolve.py /tmp/tibasic.trace --funcs \
+tools/tilem_trace_resolve.py /tmp/tibasic.trace \
+  --initial-mapping ti84p-reset --funcs \
   --only-space page_38 --sort count --names tools/names.txt
 ```
 
@@ -310,14 +352,23 @@ baseline and coverage diff if you need to isolate only interpreter execution.
 
 `--trace-backtrace FILE` keeps the most recent instructions in a RAM ring and
 writes them at exit — use it when you care about what led *up to* a failure.
-Decode with `--resync` (the ring may start mid-record):
+TLMT v2 does not identify a trace as a ring or save the port state at the oldest
+retained record. Pass `--ring` so the resolver checks whether retained mapping
+writes recover all windows:
 
 ```sh
 $TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
   --macro tools/macros/home-2plus3.macro \
   --trace-backtrace /tmp/bt.bin --trace-range all --trace-backtrace-limit 67108864
-tools/tilem_trace_resolve.py /tmp/bt.bin --resync --print 60 --names tools/names.txt
+tools/tilem_trace_resolve.py /tmp/bt.bin --ring --print 60 --names tools/names.txt
 ```
+
+If the warning appears, paged addresses remain `page_??:` until the required
+port writes occur. Supply the six `--initial-portN` values only when another
+trace or debugger snapshot establishes them at the ring's oldest record.
+Current TilEm backtrace files retain whole records. `--resync` is available for
+older or damaged traces with unknown bytes, but it cannot prove record alignment
+because TLMT v2 has no per-record checksum or framing marker.
 
 ### Stop conditions
 
