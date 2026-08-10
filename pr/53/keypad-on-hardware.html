@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c7e68805.js";
+            window.path_to_searchindex_js = "searchindex-b3523f8b.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -195,7 +195,7 @@
 <tr><td>TI-OS dynamic execution</td><td><code>tools/macros/power-cycle.macro</code> and <code>/tmp/tilem-power-cycle.trace</code></td><td>a complete <strong>[2nd]</strong>+<strong>ON</strong> shutdown/wake cycle and a live <strong>[2nd]</strong> matrix scan [confirmed]</td></tr>
 <tr><td>Public hardware notes</td><td>WikiTI ports <code>0x01</code>, <code>0x03</code>, and <code>0x04</code></td><td>matrix wiring, capacitance, ghosting, bounce, and interrupt-port semantics [standard]</td></tr>
 <tr><td>Emulator models</td><td>TilEm commit <code>f56ad63</code>, Wabbitemu commit <code>48c2dc0</code>, and MAME 0.287</td><td>three different matrix algorithms and ON-edge policies [standard]</td></tr>
-<tr><td>Native emulator execution</td><td>guarded Wabbitemu keypad run and guarded MAME keypad/interrupt runs</td><td>matrix reads and ON status before and after timer-driven evaluation [standard]</td></tr>
+<tr><td>Native emulator execution</td><td>guarded TilEm, Wabbitemu, and MAME keypad/interrupt runs</td><td>matrix reads, injected-key state, reset state, and ON status [standard]</td></tr>
 </tbody>
 </table>
 </div>
@@ -595,6 +595,20 @@ release, disable, and press while disabled produce port-<code>0x04</code> values
 latching in TilEm without executing the ROM. It does not establish the
 physical ASIC edge policy. [standard]</p>
 <p>TilEm begins with the union of selected rows, then repeatedly adds every row intersecting the current closed-bit set. It therefore propagates through an arbitrarily long chain of row intersections. It stores eight row bytes, including the physically unwired eighth row, and uses the OS-compatible matrix-position numbers for ordinary keys. Its injected identifier <code>0x29</code> represents the separate <strong>ON</strong> key rather than a port-<code>0x01</code> position. [standard]</p>
+<p><strong>Native TilEm confirmation.</strong> The guarded direct-core probe reads <code>0xFE</code> for
+one key and for two same-column keys in selected rows 0 and 1. The three-key
+rectangle reads <code>0xFC</code>, and the five-key transitive chain reads <code>0xF8</code>.
+Column 7 and row 7 both participate. Group bytes <code>0x00</code>, <code>0x7F</code>, <code>0x80</code>,
+<code>0xFE</code>, and <code>0xFF</code> remain stored exactly. [standard]</p>
+<p>The same run verifies immediate row-major scancodes 1–64, idempotent duplicate
+events, ignored scancodes 0 and 65, and keypad reset. Selecting group 5 while
+injecting <code>TILEM_KEY_ON</code> leaves the matrix at <code>0xFF</code>. ON press and release
+produce status <code>0x01</code> and <code>0x09</code>, respectively, when enabled. Two isolated
+runs produce identical canonical native JSON with SHA-256
+<code>1f75a4010773a7c8a108d62239cb937e02aa029affa55263906688eb73ba536c</code>.
+The native binary SHA-256 is
+<code>9553bdafadf042dd9af634221b52b8795b572d0c047f839e119dabc957063323</code>.
+[standard]</p>
 <p>Wabbitemu first constructs a result for each row by unioning that row with every row that directly intersects it. It does not iterate the result, so a three-row chain can stop after the second row where TilEm reaches the third. It considers rows 0–6 and ignores row 7. ON press detection compares the current state with a saved state when the standard-interrupt model runs; release updates the saved state without latching a request. [standard]</p>
 <p><strong>Native Wabbitemu confirmation.</strong> The guarded initialized-core probe reads <code>0xFE</code> for one key, <code>0xFE</code> for two same-column keys in selected rows 0 and 1, and <code>0xFC</code> for the three-key rectangle. The five-key transitive chain also reads <code>0xFC</code>, while the iterated TilEm model predicts <code>0xF8</code>. Selecting row 7 with one injected key reads <code>0xFF</code>. [standard]</p>
 <p>The same run observes port <code>0x04</code> change from <code>0x00</code> to <code>0x01</code> only after the standard-interrupt device evaluates a new ON press. Acknowledging while ON remains held leaves status <code>0x00</code>, including after another evaluation. Release changes the live level to <code>0x08</code>; evaluating that release does not set pending bit 0. The next press changes <code>0x00</code> to <code>0x01</code> when evaluated. The run advances zero T-states, so it establishes callback-state transitions rather than polling frequency or latency. [standard]</p>
@@ -613,6 +627,10 @@ the running driver. [standard]</p>
 ON-edge policies, and byte-confirmed App mouse movement model.
 <code>tools/describe_keypad_hardware.py</code> accepts numeric <code>GROUP,BIT</code> positions,
 which keeps ghost and unwired-position experiments independent of UI key names.
+<code>tools/tilem_keypad.py</code> derives an ordered native case report from that model.
+Its builder validates the pinned TilEm commit and tree before compilation.
+<code>tools/run_tilem_keypad_probe.py</code> guards the exact binary and writes the
+observations, source-model comparison, input identities, and evidence scope.
 <code>tools/wabbitemu_keypad_probe.py</code> provides the independent case oracle.
 <code>tools/run_wabbitemu_keypad_edge_probe.py</code> guards the native report with the
 exact OS 2.55MP ROM hash and writes a JSON manifest containing both binary
@@ -632,6 +650,23 @@ nix develop -c python tools/describe_keypad_hardware.py on press release
 nix develop -c python tools/describe_keypad_hardware.py mouse 0xF5 \
   --row 0x1F --column 0x30
 nix develop -c python tools/describe_keypad_hardware.py --json profiles
+
+tilem_keypad_tmp=$(mktemp -d /tmp/ti84-tilem-keypad.XXXXXX)
+git clone https://github.com/debrouxl/tilem.git "$tilem_keypad_tmp/tilem"
+git -C "$tilem_keypad_tmp/tilem" checkout \
+  f56ad637d0524ee841dd381be6ecbaf5b8975600
+nix shell \
+  github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
+  --command python tools/build_tilem_keypad_probe.py \
+  --source "$tilem_keypad_tmp/tilem" \
+  --output "$tilem_keypad_tmp/tilem-keypad-probe" --json
+
+tilem_keypad_parent=$(mktemp -d /tmp/ti84-tilem-keypad-report.XXXXXX)
+python tools/run_tilem_keypad_probe.py \
+  --binary "$tilem_keypad_tmp/tilem-keypad-probe" \
+  --expected-binary-sha256 \
+    9553bdafadf042dd9af634221b52b8795b572d0c047f839e119dabc957063323 \
+  --output-dir "$tilem_keypad_parent/run" --json
 
 keypad_probe_parent=$(mktemp -d /tmp/ti84-keypad-probe.XXXXXX)
 nix develop -c python tools/run_wabbitemu_keypad_edge_probe.py \
@@ -667,6 +702,7 @@ above additionally require disassembly of their surrounding routines.</p>
 <li>[confirmed] Explicit power-off and APD share the <code>ram:0A24</code> low-power tail; <strong>ON</strong> wake restores the interrupt mask and reinitializes the LCD.</li>
 <li>[standard] TilEm iterates matrix closure, Wabbitemu performs only pairwise closure, and MAME XORs selected positions.</li>
 <li>[standard] TilEm requests ON interrupts on press and release; Wabbitemu and MAME request only on press.</li>
+<li>[standard] A guarded direct-core TilEm run reproduces its transitive closure, eight stored rows, exact group byte, scancode bounds, separate ON path, both-edge latch, and reset state.</li>
 <li>[standard] A guarded initialized-core Wabbitemu run reproduces the pairwise matrix reads, ignored row 7, press-only ON latch, held-key suppression, and release rearming described by the pinned source.</li>
 <li>[standard] A guarded live-input MAME run reproduces its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, lack of matrix closure, and all-groups result.</li>
 <li>[standard] A guarded MAME interrupt run reproduces its press-only ON latch, held-press suppression, release rearming, live-level bit, and bit-0-clear acknowledgement.</li>
