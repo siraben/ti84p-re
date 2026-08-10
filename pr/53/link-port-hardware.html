@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-398a99ed.js";
+            window.path_to_searchindex_js = "searchindex-b45e00d0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -613,6 +613,18 @@ nix develop -c python tools/describe_link_port.py keyboard-rom
 The <code>keyboard-rom</code> command verifies the <code>0x50E9</code> bcall entry and hashes the
 three OS 2.55MP byte regions that support the decoder; it rejects a different
 control-flow body instead of applying the fixed status model silently.</p>
+<h3 id="prepared-physical-readback-matrix"><a class="header" href="#prepared-physical-readback-matrix">Prepared physical readback matrix</a></h3>
+<p>The <a href="hardware-probes.html#raw-two-wire-link-probe">raw two-wire link probe</a> writes
+all four low-bit drive states and records the complete port-<code>0x00</code> byte after 0,
+1, 4, and 16 <code>NOP</code> instructions. It repeats each point 16 times, compares the
+exported result with <code>port_read_value</code> from the reusable model, and releases
+both lines during cleanup. The decoder reports low-line, local-latch,
+exact-byte, stability, and idle-cleanup results separately. [confirmed] for the
+probe bytes and decoder; [hypothesis] for pending physical samples.</p>
+<p>The matrix must run with an empty connector because it preconditions both lines
+low before every target write. It can test the public disconnected truth table
+and bound a CPU-visible settling change. It cannot measure analog rise time or
+voltage without external instrumentation.</p>
 <p>Run the guarded TilEm matrix with the pinned clean source tree:</p>
 <pre><code class="language-sh">tilem_link_tmp=$(mktemp -d /tmp/ti84-tilem-link.XXXXXX)
 git clone https://github.com/debrouxl/tilem.git "$tilem_link_tmp/tilem"
@@ -668,6 +680,9 @@ transfer or attach a virtual cable.</p>
 <li>[standard] Port reads use active-high physical levels, writes use active-high pull-low controls, and bits 4–5 reflect the local output latch.</li>
 <li>[standard] Public hardware references map bit 0 to red/tip and bit 1 to white/ring.</li>
 <li>[standard] TilEm and Wabbitemu reproduce the raw open-collector truth table.</li>
+<li>[confirmed] The prepared <code>HWLINK</code> probe encodes the four-state, four-delay,
+16-trial matrix and releases both lines during cleanup; no physical AppVar has
+been recorded.</li>
 <li>[standard] The guarded TilEm run verifies the raw matrix, activity interrupt, all six assist handlers, LSB-first <code>0xA5</code> transfers, status and data acknowledgement, sticky error flag, auxiliary-register retention, and external-line retention across reset.</li>
 <li>[confirmed] The guarded MAME run reproduces its local readback and peer-input matrix while normal writes <code>1</code> and <code>2</code> leave both modeled connector outputs released.</li>
 <li>[standard] The guarded Wabbitemu run verifies the complete raw matrix, absent assist ports <code>0x0B</code>/<code>0x0C</code>, idle-ready and read-ready interrupts, LSB-first <code>0xA5</code> send and receive, data-register acknowledgement, and seeded-error read-to-clear behavior.</li>

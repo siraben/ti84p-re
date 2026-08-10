@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-398a99ed.js";
+            window.path_to_searchindex_js = "searchindex-b45e00d0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -182,13 +182,14 @@
                         <h1 id="physical-hardware-probes"><a class="header" href="#physical-hardware-probes">Physical hardware probes</a></h1>
 <p>The physical-probe suite builds small <code>AsmPrgm</code> programs and decodes their
 result AppVars. The sources cover MD5-assist edge behavior, RAM selector
-aliasing, execution-protection boundaries, repeated battery-level bcalls, and
-raw battery-comparator selectors, plus read-only ASIC and USB register
-snapshots. No exported result from a physical calculator has been recorded, so
-the hardware conclusions remain open.</p>
+aliasing, execution-protection boundaries, repeated battery-level bcalls, raw
+battery-comparator selectors, and raw two-wire link readback, plus read-only
+ASIC and USB register snapshots. No exported result from a physical calculator
+has been recorded, so the hardware conclusions remain open.</p>
 <h2 id="measurement-status"><a class="header" href="#measurement-status">Measurement status</a></h2>
 <p>The builder, link-file containers, entry jumps, bcall ID, frame layouts, and
-restoration instruction sequences have byte-level host validation. [confirmed]
+restoration or cleanup instruction sequences have byte-level host validation.
+[confirmed]
 Physical execution of any program remains [hypothesis] until an exported
 result AppVar is decoded and tied to a calculator and ASIC revision.</p>
 <div class="table-wrapper">
@@ -202,6 +203,7 @@ result AppVar is decoded and tied to a calculator and ASIC revision.</p>
 <tr><td>ASIC register snapshot</td><td><code>HWASIC</code></td><td><code>HWPASIC1</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Battery-level stability</td><td><code>HWBATT</code></td><td><code>HWBATT01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Raw battery selectors</td><td><code>HWBRAW</code></td><td><code>HWBRAW01</code></td><td>Not run on a recorded unit</td></tr>
+<tr><td>Raw link readback</td><td><code>HWLINK</code></td><td><code>HWLINK01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>USB control snapshot</td><td><code>HWPUSB</code></td><td><code>HWPUSB01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Flash execution boundaries</td><td><code>HWEF07</code>–<code>HWEF2A</code></td><td>matching <code>HWEF...01</code> names</td><td>Not run on a recorded unit</td></tr>
 <tr><td>RAM execution boundaries</td><td><code>HWER81</code>–<code>HWER84</code></td><td>matching <code>HWER...1</code> names</td><td>Not run on a recorded unit</td></tr>
@@ -218,7 +220,7 @@ hash manifest with:</p>
 <pre><code class="language-sh">nix develop -c python tools/build_hardware_probes.py \
   --output-dir /tmp/hardware-probes
 </code></pre>
-<p>The command emits the six snapshot and edge probes, ten single-fetch
+<p>The command emits the seven snapshot and edge probes, ten single-fetch
 execution probes, and <code>manifest.json</code>. The manifest records every target
 selector and scan range. It uses repository-relative source names and output
 basenames, so builds made in different checkout directories remain comparable.
@@ -229,6 +231,8 @@ a calculator backup before the first run. Then:</p>
 <ol>
 <li>Delete the probe’s result AppVar if it already exists.</li>
 <li>Run <code>Asm(prgmHWASIC)</code> for the read-only register snapshot.</li>
+<li>Disconnect the 2.5 mm link port, then run <code>Asm(prgmHWLINK)</code> for the raw-link
+sample with release-to-idle cleanup.</li>
 <li>Run <code>Asm(prgmHWBATT)</code> for the restoring battery-level sample.</li>
 <li>Run <code>Asm(prgmHWBRAW)</code> for the higher-risk direct-selector sample only after
 <code>HWBATT</code> succeeds and its result has been exported.</li>
@@ -252,7 +256,7 @@ interprets measurements. [confirmed]</p>
 <pre><code class="language-sh">python tools/decode_hardware_probe.py HWPMD511.8xv
 python tools/decode_hardware_probe.py --json \
   HWPASIC1.8xv HWBATT01.8xv HWBRAW01.8xv HWPUSB01.8xv \
-  HWPMD511.8xv HWPRAM21.8xv
+  HWLINK01.8xv HWPMD511.8xv HWPRAM21.8xv
 </code></pre>
 <p>The JSON form keeps the raw payload and adds named fields. Preserve the
 original exported AppVar even when a report has been generated.</p>
@@ -512,21 +516,68 @@ whose physical meanings remain incomplete. The snapshot does not enable USB,
 start a timer, or test presentation mirroring. Connected and disconnected
 captures on known TA2 and TA3 units are both needed. See <a href="sub-usb-asic.html#transceiver-and-enable-timer-ports-without-confirmed-rom-control-flow">USB ASIC and link
 assist</a>.</p>
+<h2 id="raw-two-wire-link-probe"><a class="header" href="#raw-two-wire-link-probe">Raw two-wire link probe</a></h2>
+<p>Probe ID 8 measures CPU-visible port-<code>0x00</code> readback with the 2.5 mm connector
+disconnected. For each target write <code>0</code>, <code>1</code>, <code>2</code>, and <code>3</code>, it first writes <code>3</code>
+to establish both-low, writes the target, waits for 0, 1, 4, or 16 <code>NOP</code>
+instructions, and reads the complete port byte. It repeats all 16 points 16
+times. [confirmed] for the assembled instruction sequence.</p>
+<p>The public disconnected digital contract predicts complete read bytes <code>0x03</code>,
+<code>0x12</code>, <code>0x21</code>, and <code>0x30</code> for target writes 0–3. The low two bits report the
+line levels; bits 4–5 report the local output latch. The decoder checks those
+fields separately and also reports exact-byte histograms. This distinction
+allows a physical result to preserve unexpected upper bits without losing the
+ROM-relevant low-line comparison. [standard] for the predicted table;
+[hypothesis] for pending physical values.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Payload range</th><th>Contents</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0</code>–<code>3</code></td><td>pre-sequence ports <code>0x00</code>, <code>0x03</code>, <code>0x04</code>, and <code>0x20</code></td></tr>
+<tr><td style="text-align: right"><code>4</code>–<code>259</code></td><td>256 samples in write-major, trial-major, delay-major order</td></tr>
+<tr><td style="text-align: right"><code>260</code>–<code>263</code></td><td>post-sequence ports <code>0x00</code>, <code>0x03</code>, <code>0x04</code>, and <code>0x20</code></td></tr>
+<tr><td style="text-align: right"><code>264</code></td><td>port-<code>0x00</code> read after writing zero to release both lines</td></tr>
+<tr><td style="text-align: right"><code>265</code></td><td>final port-<code>0x02</code> status</td></tr>
+</tbody>
+</table>
+</div>
+<p>The four <code>NOP</code> counts define instruction-spaced sample points, not wall-clock
+times. <code>OUT</code>, <code>IN</code>, and ASIC wait states contribute additional delay. A logic
+analyzer or oscilloscope is still required for voltage thresholds, pull-up
+resistance, and analog rise time. Comparing stable and unstable sample bins can
+nevertheless locate a digital readback change between the tested instruction
+gaps. [confirmed] for the code spacing; [hypothesis] for physical settling.</p>
+<p>Run this probe only with the link connector empty. It deliberately drives both
+lines low before every sample and can leave a link-activity request pending.
+It disables interrupts during the matrix, releases both lines, records
+port-<code>0x04</code> before and after, and restores the caller’s interrupt state before
+creating the AppVar. Cleanup does not depend on the unverified bits-4–5 latch
+readback. A reset or interruption before cleanup can leave a line asserted. Use
+a backed-up test calculator. Do not attach another calculator, Graph Link,
+TI-Keyboard, speaker, or other peripheral.</p>
+<p>The pinned SPASM-ng build produces 482 machine-code bytes with SHA-256
+<code>394b2bc9560f277c293d7257f324439619298d5f12c3a2a16cce00cd5f28a8b2</code>.
+The packaged 1,044-byte <code>HWLINK.8xp</code> has SHA-256
+<code>8eb8c9e16899044384efd43a01c29d8eef4ff43c92ce106f04419089a1481025</code>.
+[confirmed]</p>
 <h2 id="safety-boundary"><a class="header" href="#safety-boundary">Safety boundary</a></h2>
 <p>The RAM alias probe is designed to restore its writes, but it has not completed
 a physical run. A reset, power loss, assembly defect, or unexpected exception
 before the restoration loop can leave a changed byte. Use a backed-up test
 calculator and stable power. Do not run the RAM probe on a unit whose contents
 cannot be replaced.</p>
-<p>The snapshot, battery, raw-battery, and alias probes restore interrupt enable
-state before creating the result AppVar. Both battery probes restore ports
-<code>0x04</code>, <code>0x39</code>, <code>0x3A</code>, and the complete saved <code>traceFlags</code> byte. The raw probe
-also executes the ROM’s selector cleanup after every sample sequence. A
-returned execution probe restores port <code>0x06</code> and the interrupt state. A denied
-fetch may reset before those instructions. None of the probes modifies Flash
-directly. The result AppVar is the intended persistent write. [confirmed] for
-the source and assembled bytes; [hypothesis] for unmeasured physical execution
-and reset retention.</p>
+<p>The snapshot, battery, raw-battery, raw-link, and alias probes restore interrupt
+enable state before creating the result AppVar. Both battery probes restore
+ports <code>0x04</code>, <code>0x39</code>, <code>0x3A</code>, and the complete saved <code>traceFlags</code> byte. The
+raw-battery probe also executes the ROM’s selector cleanup after every sample
+sequence. The raw-link probe releases both link lines during cleanup. A returned
+execution probe restores port <code>0x06</code> and the interrupt state. A denied fetch may
+reset before those instructions. None of the probes modifies Flash directly.
+The result AppVar is the intended persistent write. [confirmed] for the source
+and assembled bytes; [hypothesis] for unmeasured physical execution and reset
+retention.</p>
 <h2 id="source-layout"><a class="header" href="#source-layout">Source layout</a></h2>
 <div class="table-wrapper">
 <table>
@@ -538,6 +589,7 @@ and reset retention.</p>
 <tr><td><code>tools/hardware-probes/asic-snapshot.asm</code></td><td>read-only ASIC, timing, and GPIO register snapshot</td></tr>
 <tr><td><code>tools/hardware-probes/battery-level.asm</code></td><td>repeated retail battery-level bcall and restoring state audit</td></tr>
 <tr><td><code>tools/hardware-probes/battery-raw.asm</code></td><td>repeated raw comparator-selector sequence and restoring state audit</td></tr>
+<tr><td><code>tools/hardware-probes/link-raw.asm</code></td><td>disconnected two-wire link readback and instruction-spaced settling matrix</td></tr>
 <tr><td><code>tools/hardware-probes/usb-snapshot.asm</code></td><td>read-only low-USB control and status snapshot</td></tr>
 <tr><td><code>tools/hardware-probes/md5-edge.asm</code></td><td>calculator-side MD5 measurements</td></tr>
 <tr><td><code>tools/hardware-probes/ram-alias.asm</code></td><td>calculator-side RAM alias and restoration measurements</td></tr>

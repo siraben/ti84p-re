@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-398a99ed.js";
+            window.path_to_searchindex_js = "searchindex-b45e00d0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -8589,13 +8589,14 @@ including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes
 <h1 id="physical-hardware-probes"><a class="header" href="#physical-hardware-probes">Physical hardware probes</a></h1>
 <p>The physical-probe suite builds small <code>AsmPrgm</code> programs and decodes their
 result AppVars. The sources cover MD5-assist edge behavior, RAM selector
-aliasing, execution-protection boundaries, repeated battery-level bcalls, and
-raw battery-comparator selectors, plus read-only ASIC and USB register
-snapshots. No exported result from a physical calculator has been recorded, so
-the hardware conclusions remain open.</p>
+aliasing, execution-protection boundaries, repeated battery-level bcalls, raw
+battery-comparator selectors, and raw two-wire link readback, plus read-only
+ASIC and USB register snapshots. No exported result from a physical calculator
+has been recorded, so the hardware conclusions remain open.</p>
 <h2 id="measurement-status"><a class="header" href="#measurement-status">Measurement status</a></h2>
 <p>The builder, link-file containers, entry jumps, bcall ID, frame layouts, and
-restoration instruction sequences have byte-level host validation. [confirmed]
+restoration or cleanup instruction sequences have byte-level host validation.
+[confirmed]
 Physical execution of any program remains [hypothesis] until an exported
 result AppVar is decoded and tied to a calculator and ASIC revision.</p>
 <div class="table-wrapper">
@@ -8609,6 +8610,7 @@ result AppVar is decoded and tied to a calculator and ASIC revision.</p>
 <tr><td>ASIC register snapshot</td><td><code>HWASIC</code></td><td><code>HWPASIC1</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Battery-level stability</td><td><code>HWBATT</code></td><td><code>HWBATT01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Raw battery selectors</td><td><code>HWBRAW</code></td><td><code>HWBRAW01</code></td><td>Not run on a recorded unit</td></tr>
+<tr><td>Raw link readback</td><td><code>HWLINK</code></td><td><code>HWLINK01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>USB control snapshot</td><td><code>HWPUSB</code></td><td><code>HWPUSB01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Flash execution boundaries</td><td><code>HWEF07</code>–<code>HWEF2A</code></td><td>matching <code>HWEF...01</code> names</td><td>Not run on a recorded unit</td></tr>
 <tr><td>RAM execution boundaries</td><td><code>HWER81</code>–<code>HWER84</code></td><td>matching <code>HWER...1</code> names</td><td>Not run on a recorded unit</td></tr>
@@ -8625,7 +8627,7 @@ hash manifest with:</p>
 <pre><code class="language-sh">nix develop -c python tools/build_hardware_probes.py \
   --output-dir /tmp/hardware-probes
 </code></pre>
-<p>The command emits the six snapshot and edge probes, ten single-fetch
+<p>The command emits the seven snapshot and edge probes, ten single-fetch
 execution probes, and <code>manifest.json</code>. The manifest records every target
 selector and scan range. It uses repository-relative source names and output
 basenames, so builds made in different checkout directories remain comparable.
@@ -8636,6 +8638,8 @@ a calculator backup before the first run. Then:</p>
 <ol>
 <li>Delete the probe’s result AppVar if it already exists.</li>
 <li>Run <code>Asm(prgmHWASIC)</code> for the read-only register snapshot.</li>
+<li>Disconnect the 2.5 mm link port, then run <code>Asm(prgmHWLINK)</code> for the raw-link
+sample with release-to-idle cleanup.</li>
 <li>Run <code>Asm(prgmHWBATT)</code> for the restoring battery-level sample.</li>
 <li>Run <code>Asm(prgmHWBRAW)</code> for the higher-risk direct-selector sample only after
 <code>HWBATT</code> succeeds and its result has been exported.</li>
@@ -8659,7 +8663,7 @@ interprets measurements. [confirmed]</p>
 <pre><code class="language-sh">python tools/decode_hardware_probe.py HWPMD511.8xv
 python tools/decode_hardware_probe.py --json \
   HWPASIC1.8xv HWBATT01.8xv HWBRAW01.8xv HWPUSB01.8xv \
-  HWPMD511.8xv HWPRAM21.8xv
+  HWLINK01.8xv HWPMD511.8xv HWPRAM21.8xv
 </code></pre>
 <p>The JSON form keeps the raw payload and adds named fields. Preserve the
 original exported AppVar even when a report has been generated.</p>
@@ -8919,21 +8923,68 @@ whose physical meanings remain incomplete. The snapshot does not enable USB,
 start a timer, or test presentation mirroring. Connected and disconnected
 captures on known TA2 and TA3 units are both needed. See <a href="#transceiver-and-enable-timer-ports-without-confirmed-rom-control-flow">USB ASIC and link
 assist</a>.</p>
+<h2 id="raw-two-wire-link-probe"><a class="header" href="#raw-two-wire-link-probe">Raw two-wire link probe</a></h2>
+<p>Probe ID 8 measures CPU-visible port-<code>0x00</code> readback with the 2.5 mm connector
+disconnected. For each target write <code>0</code>, <code>1</code>, <code>2</code>, and <code>3</code>, it first writes <code>3</code>
+to establish both-low, writes the target, waits for 0, 1, 4, or 16 <code>NOP</code>
+instructions, and reads the complete port byte. It repeats all 16 points 16
+times. [confirmed] for the assembled instruction sequence.</p>
+<p>The public disconnected digital contract predicts complete read bytes <code>0x03</code>,
+<code>0x12</code>, <code>0x21</code>, and <code>0x30</code> for target writes 0–3. The low two bits report the
+line levels; bits 4–5 report the local output latch. The decoder checks those
+fields separately and also reports exact-byte histograms. This distinction
+allows a physical result to preserve unexpected upper bits without losing the
+ROM-relevant low-line comparison. [standard] for the predicted table;
+[hypothesis] for pending physical values.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Payload range</th><th>Contents</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0</code>–<code>3</code></td><td>pre-sequence ports <code>0x00</code>, <code>0x03</code>, <code>0x04</code>, and <code>0x20</code></td></tr>
+<tr><td style="text-align: right"><code>4</code>–<code>259</code></td><td>256 samples in write-major, trial-major, delay-major order</td></tr>
+<tr><td style="text-align: right"><code>260</code>–<code>263</code></td><td>post-sequence ports <code>0x00</code>, <code>0x03</code>, <code>0x04</code>, and <code>0x20</code></td></tr>
+<tr><td style="text-align: right"><code>264</code></td><td>port-<code>0x00</code> read after writing zero to release both lines</td></tr>
+<tr><td style="text-align: right"><code>265</code></td><td>final port-<code>0x02</code> status</td></tr>
+</tbody>
+</table>
+</div>
+<p>The four <code>NOP</code> counts define instruction-spaced sample points, not wall-clock
+times. <code>OUT</code>, <code>IN</code>, and ASIC wait states contribute additional delay. A logic
+analyzer or oscilloscope is still required for voltage thresholds, pull-up
+resistance, and analog rise time. Comparing stable and unstable sample bins can
+nevertheless locate a digital readback change between the tested instruction
+gaps. [confirmed] for the code spacing; [hypothesis] for physical settling.</p>
+<p>Run this probe only with the link connector empty. It deliberately drives both
+lines low before every sample and can leave a link-activity request pending.
+It disables interrupts during the matrix, releases both lines, records
+port-<code>0x04</code> before and after, and restores the caller’s interrupt state before
+creating the AppVar. Cleanup does not depend on the unverified bits-4–5 latch
+readback. A reset or interruption before cleanup can leave a line asserted. Use
+a backed-up test calculator. Do not attach another calculator, Graph Link,
+TI-Keyboard, speaker, or other peripheral.</p>
+<p>The pinned SPASM-ng build produces 482 machine-code bytes with SHA-256
+<code>394b2bc9560f277c293d7257f324439619298d5f12c3a2a16cce00cd5f28a8b2</code>.
+The packaged 1,044-byte <code>HWLINK.8xp</code> has SHA-256
+<code>8eb8c9e16899044384efd43a01c29d8eef4ff43c92ce106f04419089a1481025</code>.
+[confirmed]</p>
 <h2 id="safety-boundary"><a class="header" href="#safety-boundary">Safety boundary</a></h2>
 <p>The RAM alias probe is designed to restore its writes, but it has not completed
 a physical run. A reset, power loss, assembly defect, or unexpected exception
 before the restoration loop can leave a changed byte. Use a backed-up test
 calculator and stable power. Do not run the RAM probe on a unit whose contents
 cannot be replaced.</p>
-<p>The snapshot, battery, raw-battery, and alias probes restore interrupt enable
-state before creating the result AppVar. Both battery probes restore ports
-<code>0x04</code>, <code>0x39</code>, <code>0x3A</code>, and the complete saved <code>traceFlags</code> byte. The raw probe
-also executes the ROM’s selector cleanup after every sample sequence. A
-returned execution probe restores port <code>0x06</code> and the interrupt state. A denied
-fetch may reset before those instructions. None of the probes modifies Flash
-directly. The result AppVar is the intended persistent write. [confirmed] for
-the source and assembled bytes; [hypothesis] for unmeasured physical execution
-and reset retention.</p>
+<p>The snapshot, battery, raw-battery, raw-link, and alias probes restore interrupt
+enable state before creating the result AppVar. Both battery probes restore
+ports <code>0x04</code>, <code>0x39</code>, <code>0x3A</code>, and the complete saved <code>traceFlags</code> byte. The
+raw-battery probe also executes the ROM’s selector cleanup after every sample
+sequence. The raw-link probe releases both link lines during cleanup. A returned
+execution probe restores port <code>0x06</code> and the interrupt state. A denied fetch may
+reset before those instructions. None of the probes modifies Flash directly.
+The result AppVar is the intended persistent write. [confirmed] for the source
+and assembled bytes; [hypothesis] for unmeasured physical execution and reset
+retention.</p>
 <h2 id="source-layout"><a class="header" href="#source-layout">Source layout</a></h2>
 <div class="table-wrapper">
 <table>
@@ -8945,6 +8996,7 @@ and reset retention.</p>
 <tr><td><code>tools/hardware-probes/asic-snapshot.asm</code></td><td>read-only ASIC, timing, and GPIO register snapshot</td></tr>
 <tr><td><code>tools/hardware-probes/battery-level.asm</code></td><td>repeated retail battery-level bcall and restoring state audit</td></tr>
 <tr><td><code>tools/hardware-probes/battery-raw.asm</code></td><td>repeated raw comparator-selector sequence and restoring state audit</td></tr>
+<tr><td><code>tools/hardware-probes/link-raw.asm</code></td><td>disconnected two-wire link readback and instruction-spaced settling matrix</td></tr>
 <tr><td><code>tools/hardware-probes/usb-snapshot.asm</code></td><td>read-only low-USB control and status snapshot</td></tr>
 <tr><td><code>tools/hardware-probes/md5-edge.asm</code></td><td>calculator-side MD5 measurements</td></tr>
 <tr><td><code>tools/hardware-probes/ram-alias.asm</code></td><td>calculator-side RAM alias and restoration measurements</td></tr>
@@ -15345,6 +15397,18 @@ nix develop -c python tools/describe_link_port.py keyboard-rom
 The <code>keyboard-rom</code> command verifies the <code>0x50E9</code> bcall entry and hashes the
 three OS 2.55MP byte regions that support the decoder; it rejects a different
 control-flow body instead of applying the fixed status model silently.</p>
+<h3 id="prepared-physical-readback-matrix"><a class="header" href="#prepared-physical-readback-matrix">Prepared physical readback matrix</a></h3>
+<p>The <a href="#raw-two-wire-link-probe">raw two-wire link probe</a> writes
+all four low-bit drive states and records the complete port-<code>0x00</code> byte after 0,
+1, 4, and 16 <code>NOP</code> instructions. It repeats each point 16 times, compares the
+exported result with <code>port_read_value</code> from the reusable model, and releases
+both lines during cleanup. The decoder reports low-line, local-latch,
+exact-byte, stability, and idle-cleanup results separately. [confirmed] for the
+probe bytes and decoder; [hypothesis] for pending physical samples.</p>
+<p>The matrix must run with an empty connector because it preconditions both lines
+low before every target write. It can test the public disconnected truth table
+and bound a CPU-visible settling change. It cannot measure analog rise time or
+voltage without external instrumentation.</p>
 <p>Run the guarded TilEm matrix with the pinned clean source tree:</p>
 <pre><code class="language-sh">tilem_link_tmp=$(mktemp -d /tmp/ti84-tilem-link.XXXXXX)
 git clone https://github.com/debrouxl/tilem.git "$tilem_link_tmp/tilem"
@@ -15400,6 +15464,9 @@ transfer or attach a virtual cable.</p>
 <li>[standard] Port reads use active-high physical levels, writes use active-high pull-low controls, and bits 4–5 reflect the local output latch.</li>
 <li>[standard] Public hardware references map bit 0 to red/tip and bit 1 to white/ring.</li>
 <li>[standard] TilEm and Wabbitemu reproduce the raw open-collector truth table.</li>
+<li>[confirmed] The prepared <code>HWLINK</code> probe encodes the four-state, four-delay,
+16-trial matrix and releases both lines during cleanup; no physical AppVar has
+been recorded.</li>
 <li>[standard] The guarded TilEm run verifies the raw matrix, activity interrupt, all six assist handlers, LSB-first <code>0xA5</code> transfers, status and data acknowledgement, sticky error flag, auxiliary-register retention, and external-line retention across reset.</li>
 <li>[confirmed] The guarded MAME run reproduces its local readback and peer-input matrix while normal writes <code>1</code> and <code>2</code> leave both modeled connector outputs released.</li>
 <li>[standard] The guarded Wabbitemu run verifies the complete raw matrix, absent assist ports <code>0x0B</code>/<code>0x0C</code>, idle-ready and read-ready interrupts, LSB-first <code>0xA5</code> send and receive, data-register acknowledgement, and seeded-error read-to-clear behavior.</li>
@@ -18052,7 +18119,8 @@ still require static reduction, fault injection, or physical measurement.</p>
 <li><strong>Graph raster details.</strong> Exhaustively decode the rounding and sentinel handling at <code>37:4229</code>, then trace <code>_DrawCirc2</code> at <code>3B:7171</code> to recover its parametric stepping. The coordinate transforms and circle setup are already pinned. See <a href="#8-confidence-summary--open-items">Graphing</a>.</li>
 <li><strong>TABLE evaluation paths.</strong> Byte-trace the per-row <code>_StoX</code> and selected-Y evaluation calls in the page-05 fill loop. The Depend:Ask prompt path and the <code>TblRng</code> special case in <code>_Find_Parse_Formula</code> also need end-to-end traces. See <a href="#7-confidence-summary--open-items">Table &amp; Y= variables</a>.</li>
 <li><strong>Statistics command families.</strong> Locate and decode the DISTR numerical cores and each STAT-TEST handler that writes <code>PStat</code> through <code>SStat</code>. The intermediate calculations that produce <code>r</code> and <code>r²</code> in <code>3A:6845</code>–<code>6891</code> also need a complete byte trace. See <a href="#12-notes">Statistics</a>.</li>
-<li><strong>Link and USB residuals.</strong> Determine why the legacy backup path normalizes the restored system-flags word to <code>0x0063</code>. The word’s destination at <code>0x89F0</code>, the <code>0x89F0</code>–<code>0x8D6C</code> section bounds, and the checksum coverage are byte-pinned. A complete direct indexed-bit audit shows that it clears the degree-mode, pending-keyboard, editor-open, answer-scroll, monitor-abandon, and one unnamed active bit while setting <code>donePrgm</code>. The remaining ambiguity is why active unnamed bits 0 and 1 and an otherwise unreferenced bit 6 of <code>0x89F0</code> are set. The current evidence does not distinguish a canonical post-restore state from model/version compatibility. The <code>0x22</code>–<code>0x25</code> variable-header dispatcher is classified as error, OS/AMS, Flash-application, and certificate handling, and the <code>0x22</code> error-table path resolves to <code>ERR:LINK</code>. The <code>3C:618D</code> both-low waveform is tied to installed error cleanup and its software duration is cycle-counted. A guarded direct-core TilEm run verifies the complete raw truth table, activity interrupt, all six assist handlers, LSB-first byte send and receive, idle/data acknowledgement, sticky error state, and its auxiliary-register and external-line reset retention. One guarded initialized-core Wabbitemu run verifies the same raw truth table, missing assist ports <code>0x0B</code>/<code>0x0C</code>, ready/read interrupts, LSB-first byte send and receive, and seeded-error read-to-clear behavior. Guarded MAME runs verify its PCR readback, connector-output mismatch, peer-input reads, assist advertisement, inert port <code>0x08</code>–<code>0x0D</code>, and the fixed disconnected <code>0x55 = 0x1F</code>/<code>0x56 = 0x00</code> pair inside an otherwise unmapped <code>0x4A</code>–<code>0x5B</code> block. Another Wabbitemu run verifies the Fake USB port set, missing port <code>0x54</code>, reset values, active-low interrupt summary, mask-independent event, repeat-event path, and latch masks. These remain emulator results. Physical tests still need to measure port-<code>0x00</code> pull-ups, thresholds, rise times, both CPU-speed timeout durations, and the pulse’s actual duration and voltage levels. Run the read-only USB snapshot on known TA2 and TA3 units, both connected and disconnected, to establish ports <code>0x49</code>, <code>0x51</code>, and <code>0x52</code> before testing their claimed transceiver and enable-timer behavior. Verify the FDRC-family register hypothesis and TI-specific PHY behavior on physical hardware, including the effects of port <code>0x4B</code> and the port-<code>0x4F</code>/<code>0x50</code> setup sequence. Capture port-<code>0x5A</code> presentation traffic to determine whether LCD-port writes produce two-byte endpoint-2 packets and whether the feature requires host mode. Then exercise the connected boot receive path. See <a href="#resolved-findings-and-open-hardware-tests-3">Two-wire link port hardware</a>, <a href="#11-open-items">Link transfer</a>, and <a href="#limits">USB ASIC and link assist</a>.</li>
+<li><strong>Link and USB residuals.</strong> Determine why the legacy backup path normalizes the restored system-flags word to <code>0x0063</code>. The word’s destination at <code>0x89F0</code>, the <code>0x89F0</code>–<code>0x8D6C</code> section bounds, and the checksum coverage are byte-pinned. A complete direct indexed-bit audit shows that it clears the degree-mode, pending-keyboard, editor-open, answer-scroll, monitor-abandon, and one unnamed active bit while setting <code>donePrgm</code>. The remaining ambiguity is why active unnamed bits 0 and 1 and an otherwise unreferenced bit 6 of <code>0x89F0</code> are set. The current evidence does not distinguish a canonical post-restore state from model/version compatibility. The <code>0x22</code>–<code>0x25</code> variable-header dispatcher is classified as error, OS/AMS, Flash-application, and certificate handling, and the <code>0x22</code> error-table path resolves to <code>ERR:LINK</code>. The <code>3C:618D</code> both-low waveform is tied to installed error cleanup and its software duration is cycle-counted. A guarded direct-core TilEm run verifies the complete raw truth table, activity interrupt, all six assist handlers, LSB-first byte send and receive, idle/data acknowledgement, sticky error state, and its auxiliary-register and external-line reset retention. One guarded initialized-core Wabbitemu run verifies the same raw truth table, missing assist ports <code>0x0B</code>/<code>0x0C</code>, ready/read interrupts, LSB-first byte send and receive, and seeded-error read-to-clear behavior. Guarded MAME runs verify its PCR readback, connector-output mismatch, peer-input reads, assist advertisement, inert port <code>0x08</code>–<code>0x0D</code>, and the fixed disconnected <code>0x55 = 0x1F</code>/<code>0x56 = 0x00</code> pair inside an otherwise unmapped <code>0x4A</code>–<code>0x5B</code> block. Another Wabbitemu run verifies the Fake USB port set, missing port <code>0x54</code>, reset values, active-low interrupt summary, mask-independent event, repeat-event path, and latch masks. These remain emulator results. Physical tests still need to measure port-<code>0x00</code> pull-ups, thresholds, rise times, both CPU-speed timeout durations, and the pulse’s actual duration and voltage levels. Run the read-only USB snapshot on known TA2 and TA3 units, both connected and disconnected, to establish ports <code>0x49</code>, <code>0x51</code>, and <code>0x52</code> before testing their claimed transceiver and enable-timer behavior. Verify the FDRC-family register hypothesis and TI-specific PHY behavior on physical hardware, including the effects of port <code>0x4B</code> and the port-<code>0x4F</code>/<code>0x50</code> setup sequence. Capture port-<code>0x5A</code> presentation traffic to determine whether LCD-port writes produce two-byte endpoint-2 packets and whether the feature requires host mode. Then exercise the connected boot receive path. See <a href="#resolved-findings-and-open-hardware-tests-3">Two-wire link port hardware</a>, <a href="#11-open-items">Link transfer</a>, and <a href="#limits">USB ASIC and link assist</a>.
+The prepared <a href="#raw-two-wire-link-probe">raw two-wire link probe</a> records the disconnected four-state truth table at four instruction gaps and releases both lines during cleanup. A physical run can constrain digital settling but does not replace voltage, pull-up, or rise-time measurements.</li>
 <li><strong>MD5 physical edge behavior.</strong> The valid 64-step path, boot API, two implementing emulator models, and MAME’s missing port block are reconciled in <a href="#md5-accelerator-and-boot-api">MD5 accelerator and boot API</a>. Guarded native TilEm and Wabbitemu runs exercise partial and fifth writes, high control bits, undefined operand reads, and read-time recalculation. The TilEm run also verifies complete reset clearing and zero modeled port latency under the locked compiler. A separate guarded MAME run confirms that its unmapped ports discard patterned writes and return zero for the known first <code>"abc"</code> step. The <a href="#md5-edge-probe">physical hardware probe</a> prepares the corresponding ASIC measurements. Physical TA2/TA3 tests still need to run it and add reset-retention and I/O wait-state measurements.</li>
 <li><strong>Memory-mapper overlay hardware.</strong> The boot transition, paired and independent modes, extended Flash selectors, and emulator implementations are reconciled in <a href="#paging">Paging</a>. A guarded initialized-core Wabbitemu run verifies its fixed-page opcode handoff, selector readback, duplicated even page in paired mode, <code>0x27</code> cutoff, independent-mode read/write/fetch overlays, and paired-mode overlay suppression. A guarded MAME run verifies its read-triggered fixed-page handoff, selector masks, adjacent paired pages, safe RAM banks through <code>0x86</code>, unmapped extended and overlay ports, and underlying read/write/fetch routing. Selector <code>0x87</code> remains source-only because MAME maps seven RAM pages. These are emulator results. Physical tests must resolve whether ports <code>0x27</code>/<code>0x28</code> remain active in paired mode, whether the <code>0xFB64</code> cutoff exists in the ASIC, and whether <a href="#mapping-and-forced-overlays">execution protection</a> follows the underlying window or forced RAM page.</li>
 <li><strong>Bus-timing and LCD-controller measurements.</strong> The boot values, wait-state decode, controller commands, display paths, and emulator implementations are reconciled in <a href="#bus-timing-and-wait-states">Bus timing and wait states</a> and <a href="#lcd-controller-and-display-bus">LCD controller and display bus</a>. Guarded initialized-core Wabbitemu runs verify its 60-T-state guard, 15-column increment cycle, direct hidden-column alias, one-transfer read latch, absent mirror ports, strict $48 + 64f$ ready boundary, write-based ready timestamp, complete wait-gate matrix, default and internal extra-speed matrices, and raw port-<code>0x2D</code> latch without low-power side effects. Guarded MAME runs verify its controller startup state, permanent busy-clear status, mirror ports, 15-byte hidden-column aliases, one-transfer read latch, 6-bit packing, stored analog fields, fixed ready bit, raw speed readback, exact 6:15 MHz loop ratio, unmapped <code>0x29</code>–<code>0x2F</code> block, and retained speed byte across soft reset. These are emulator results. Physical tests must measure each port-<code>0x2E</code> access class, CPU-speed readback and frequency across ASIC revisions, port-<code>0x2D</code> low-power behavior, LCD read-versus-write ready timing, controller-specific minimum delays, hidden-column bounds, status-read pointer behavior, and the unmodeled port-<code>0x2F</code> mode-3 timer prescaler across TA2 and TA3 controller revisions.</li>
