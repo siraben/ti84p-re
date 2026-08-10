@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4f37ba28.js";
+            window.path_to_searchindex_js = "searchindex-26dcd9b6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -222,11 +222,11 @@ and archive traces return <code>0xE1</code>, <code>0xE3</code>, and <code>0xE7</
 <tbody>
 <tr><td>0</td><td>Battery comparator result. <code>_Chk_Batt_Low</code> tests it at <code>00:0D20</code>; <code>_Chk_Batt_Level</code> tests it at <code>33:4EA3</code> and <code>33:4EE8</code>.</td><td>[confirmed] for the tested bit; [standard] for the electrical “battery good” polarity</td></tr>
 <tr><td>1</td><td>LCD-ready state. LCD wait loops continue while this bit is zero.</td><td>ROM wait helpers and the dynamic <code>0xE1</code> → <code>0xE3</code> transition [confirmed]</td></tr>
-<tr><td>2</td><td>Flash-unlocked state. The archive trace changes <code>0xE3</code> to <code>0xE7</code> after the port-<code>0x14</code> unlock sequence.</td><td>[confirmed]</td></tr>
-<tr><td>3</td><td>No meaning established for TI-84 Plus OS 2.55MP.</td><td>[hypothesis]</td></tr>
-<tr><td>4</td><td>No meaning established for TI-84 Plus OS 2.55MP.</td><td>[hypothesis]</td></tr>
-<tr><td>5</td><td>Publicly documented as USB-capable. Both emulators set it for their TI-84 Plus model.</td><td>[standard]</td></tr>
-<tr><td>6</td><td>Publicly documented as link-assist available. Both emulators set it for their TI-84 Plus model.</td><td>[standard]</td></tr>
+<tr><td>2</td><td>Flash-unlocked state. The archive trace changes <code>0xE3</code> to <code>0xE7</code> after the port-<code>0x14</code> unlock sequence. No direct status consumer in this ROM tests it.</td><td>[confirmed] for the observed state; [hypothesis] for any OS use outside the audited direct reads</td></tr>
+<tr><td>3</td><td>No meaning established. No direct status consumer in this ROM tests it.</td><td>[hypothesis]</td></tr>
+<tr><td>4</td><td>No meaning established. No direct status consumer in this ROM tests it.</td><td>[hypothesis]</td></tr>
+<tr><td>5</td><td>Publicly documented as USB-capable. Both emulators set it for their TI-84 Plus model, but this ROM does not test it directly.</td><td>[standard]</td></tr>
+<tr><td>6</td><td>Publicly documented as link-assist available. Both emulators set it for their TI-84 Plus model, but this ROM selects assist code through bit 7.</td><td>[standard] for the published field; [confirmed] for the ROM gate</td></tr>
 <tr><td>7</td><td>Advanced-family/model gate. <code>ram:1837</code> tests this bit before several TI-84 Plus-only paths. The certificate accessor at <code>3D:5247</code> selects the App-trial table at offset <code>0x1E50</code> when the bit is set and the alternate table at <code>0x1F18</code> when clear.</td><td>[confirmed] for the branches and table use; [standard] for the family label</td></tr>
 </tbody>
 </table>
@@ -243,6 +243,37 @@ and archive traces return <code>0xE1</code>, <code>0xE3</code>, and <code>0xE7</
 </tbody>
 </table>
 </div>
+<h3 id="complete-direct-consumer-audit"><a class="header" href="#complete-direct-consumer-audit">Complete direct-consumer audit</a></h3>
+<p>The 1 MiB ROM contains exactly 55 raw <code>DB 02</code> byte pairs, the opcode and
+operand for <code>IN A,(0x02)</code>. Every linear-disassembly candidate reaches one of
+three conservative A-register consumers within two following instructions:
+[confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Consumer mask</th><th style="text-align: right">Sites</th><th>ROM role and anchors</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0x01</code> — bit 0</td><td style="text-align: right">8</td><td>battery comparisons, including <code>_Chk_Batt_Low</code> at <code>00:0D20</code> and <code>_Chk_Batt_Level</code> at <code>33:4E9F</code> and <code>33:4EE6</code></td></tr>
+<tr><td style="text-align: right"><code>0x02</code> — bit 1</td><td style="text-align: right">3</td><td>LCD-ready waits at <code>00:0CC4</code>, <code>00:0CDC</code>, and <code>3F:744F</code></td></tr>
+<tr><td style="text-align: right"><code>0x80</code> — bit 7</td><td style="text-align: right">44</td><td>family-specific paging, keypad, link-assist, Flash, and boot paths; <code>ram:1839</code> is the shared model probe</td></tr>
+</tbody>
+</table>
+</div>
+<p>The <code>33:4E9F</code> battery path inserts <code>LD C,0</code> before <code>BIT 0,A</code>. Every other
+candidate tests <code>A</code> in the next instruction. The decoder crosses only
+instructions that preserve <code>A</code>; calls, branches, arithmetic, and unknown
+instructions produce an unclassified result. This ROM produces zero
+unclassified candidates. [confirmed]</p>
+<p>No immediate status read selects bits 2–6. The conservative literal-<code>C</code>
+resolver also finds no port-<code>0x02</code> access beyond these 55 immediate reads.
+This proves the complete immediate-opcode result and the straight-line
+literal-<code>C</code> result. It does not exclude a computed <code>C</code> value propagated across
+a call or control-flow merge. [confirmed]</p>
+<p>The assist routines therefore use bit 7 as their model-family gate. Public
+bit 6 remains a hardware capability field, but OS 2.55MP does not consult it
+before the link-assist port accesses described in
+<a href="sub-usb-asic.html#sending-one-byte-through-the-assist-fifo-confirmed">USB ASIC and link assist</a>.</p>
 <p>TilEm computes bits 0–2 from its battery value, LCD wait timer, and Flash lock.
 Wabbitemu does the same except that its TI-84 Plus battery result is fixed high.
 Their agreement supports the interpretation but does not replace a voltage or
@@ -526,11 +557,12 @@ physical ASIC measurements.</p>
 </table>
 </div>
 <h2 id="reusable-analysis-tools"><a class="header" href="#reusable-analysis-tools">Reusable analysis tools</a></h2>
-<p><code>tools/asic_control.py</code> decodes port-<code>0x02</code> values, the public port-<code>0x15</code>
-table, port-<code>0x21</code> modes, TilEm’s battery selector, and adjacent GPIO
-read-modify-write sequences. <code>tools/describe_asic_control.py</code> exposes those
-operations as a CLI. <code>tools/wabbitemu_asic_probe.py</code> validates native results
-against the reusable source model. <code>tools/run_wabbitemu_asic_edge_probe.py</code>
+<p><code>tools/asic_control.py</code> decodes port-<code>0x02</code> values and direct consumers, the
+public port-<code>0x15</code> table, port-<code>0x21</code> modes, TilEm’s battery selector, and
+adjacent GPIO read-modify-write sequences. <code>tools/describe_asic_control.py</code>
+exposes those operations as a CLI. <code>tools/wabbitemu_asic_probe.py</code> validates
+native results against the reusable source model.
+<code>tools/run_wabbitemu_asic_edge_probe.py</code>
 guards the exact ROM and native binary identities and writes a JSON manifest.
 <code>tools/wabbitemu_protection_port_probe.py</code> applies the adjacent boundary-port
 model from <code>tools/execution_protection.py</code>; its guarded CLI records the same
@@ -541,6 +573,8 @@ ROM, and Lua identities and retains the soft-reset output.
 <pre><code class="language-sh">nix develop -c python tools/describe_asic_control.py
 nix develop -c python tools/describe_asic_control.py --status 0xE7 --port21 0x20
 nix develop -c python tools/describe_asic_control.py --implementations --json
+nix develop -c python tools/describe_asic_control.py \
+  --scan-status-consumers --json
 nix develop -c python tools/describe_asic_control.py \
   --scan-gpio --page 0x2F --page 0x33 --page 0x35 --page 0x3F
 nix develop -c python tools/analyze_rom_io.py \
