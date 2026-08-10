@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-61ace8d5.js";
+            window.path_to_searchindex_js = "searchindex-95d34229.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -478,6 +478,9 @@ sector boundary.</p>
 <code>_WriteFlash</code>. It omits only the page-<code>3E</code> rejection. The core still masks
 <code>A</code> to six bits, rejects page <code>3F</code>, checks the call frame, and accepts a zero
 length as a no-op. [confirmed]</p>
+<p>The guarded retail-ROM usage probe calls this entry with <code>A=0x3E</code>, programs
+<code>3C C3</code> at <code>3E:4100</code>, and reads the same pair back through <code>_FlashToRam</code>.
+The bcall returns <code>AF=0x0044</code>. [confirmed] for pinned Wabbitemu execution.</p>
 <p>“Unsafe” does not mean that the routine bypasses physical protection. Port
 <code>0x14</code>, the port-<code>0x21</code> sector group, and the Flash chip still decide whether
 the command reaches and changes the array. Its page-<code>3E</code> access makes this
@@ -493,12 +496,18 @@ Page <code>3F</code> reaches the byte wrapper first, so that rejection has alrea
 <code>B</code> at <code>OP1</code>, set <code>BC=1</code>, and set <code>HL=0x8478</code>. This difference matters to a
 caller that tries to infer whether scratch state changed from the flags.
 [confirmed]</p>
+<p>The guarded retail-ROM usage probe exercises the accepted path at <code>08:4102</code>.
+It programs <code>0xFE → 0xFC</code>, returns <code>AF=0x0044</code>, and obtains <code>0xFC</code> through
+<code>_FlashToRam</code>. [confirmed] for pinned Wabbitemu execution.</p>
 <h3 id="_writeabyte"><a class="header" href="#_writeabyte"><code>_WriteAByte</code></a></h3>
 <p><code>_WriteAByte = 8021h</code> takes <code>A=page</code>, <code>DE=destination</code>, and <code>B=byte</code>.
 It stores <code>B</code> in <code>OP1</code>, sets <code>HL=0x8478</code> and <code>BC=1</code>, then enters
 <code>_WriteFlashUnsafe</code>. It permits page <code>3E</code> and rejects page <code>3F</code>. A successful
 call returns <code>A=0</code>, Z, <code>BC=0</code>, <code>HL=0x8479</code>, and <code>DE</code> one byte beyond the
 target. <code>OP1</code> retains the programmed byte. [confirmed]</p>
+<p>The guarded retail-ROM usage probe calls this entry on page <code>3E</code>, programs
+<code>0xFE → 0xF8</code> at <code>3E:4102</code>, leaves <code>OP1=0xF8</code>, and returns <code>AF=0x0044</code>.
+<code>_FlashToRam</code> returns <code>0xF8</code>. [confirmed] for pinned Wabbitemu execution.</p>
 <p>Use the byte entries for monotonic state changes such as <code>0xFE → 0xFC</code> or
 <code>0xFC → 0xF0</code>. A request that needs any <code>0→1</code> transition requires sector
 erase and reconstruction. A requested byte with the same DQ7 as the stored
@@ -519,6 +528,9 @@ geometry.</p>
 <p>A successful erase returns <code>A=0</code>, Z. A worker failure returns <code>A=0xF1</code>, NZ.
 The page-<code>3E</code> rejection instead returns <code>A=0x3E</code>, Z. Prevalidate the page,
 check <code>A=0</code>, and verify the complete physical sector. [confirmed]</p>
+<p>The guarded retail-ROM usage probe erases through page <code>0C</code>, returns
+<code>AF=0x0044</code>, and reads <code>0xFF</code> back at <code>0C:4000</code>. [confirmed] for pinned
+Wabbitemu execution.</p>
 <h3 id="_eraseflash"><a class="header" href="#_eraseflash"><code>_EraseFlash</code></a></h3>
 <p><code>_EraseFlash = 8024h</code> takes <code>A=page</code> and <code>HL=an address in the selected sector</code>. It performs no page mask or page guard. The worker maps <code>A</code>, issues a
 sector-erase command through <code>HL</code>, and returns the same success or failure
@@ -531,6 +543,9 @@ reset targets Flash rather than arbitrary RAM. This convention avoids the
 worker’s underspecified failure write; the public ABI itself does not require
 or synthesize it. [confirmed] for the write; [standard] for the Flash reset
 command.</p>
+<p>The guarded retail-ROM usage probe passes <code>HL=DE=0x4567</code> on page <code>10</code>.
+The bcall returns <code>AF=0x0044</code>, and <code>_FlashToRam</code> reads <code>0xFF</code> from the same
+interior sector address. [confirmed] for pinned Wabbitemu execution.</p>
 <h3 id="_erasecertificatesector"><a class="header" href="#_erasecertificatesector"><code>_EraseCertificateSector</code></a></h3>
 <p><code>_EraseCertificateSector = 8060h</code> accepts any <code>HL</code> whose high byte is <code>0x40</code>
 or <code>0x60</code>. It does not require <code>L=0</code>. It loads page <code>3E</code> and calls
@@ -541,6 +556,10 @@ It therefore hides worker success and failure as well as its own input
 rejection. Preserve the certificate through its OS-owned rebuild protocol and
 verify the selected sector; flags are not a result channel for this bcall.
 [confirmed]</p>
+<p>The guarded retail-ROM usage probe seeds <code>AF=0xA545</code> and passes <code>HL=DE=0x6001</code>.
+The returned <code>AF</code> remains <code>0xA545</code>, while <code>_FlashToRam</code> reads <code>0xFF</code> from
+<code>3E:6001</code>. This dynamically exercises the accepted nonzero-<code>L</code> path and the
+second 8 KiB certificate sector. [confirmed] for pinned Wabbitemu execution.</p>
 <h3 id="return-and-side-effect-matrix"><a class="header" href="#return-and-side-effect-matrix">Return and side-effect matrix</a></h3>
 <div class="table-wrapper">
 <table>
@@ -651,18 +670,19 @@ subject to the ASIC’s separate read protection. [confirmed] for the ROM
 scratch and worker; [standard] for the read gate.</p>
 <h3 id="executable-example-validation"><a class="header" href="#executable-example-validation">Executable example validation</a></h3>
 <p><code>tools/emulator-probes/flash-bcall-usage.asm</code> is the guarded executable form of
-the examples above. It uses the same register setup and bcall sequences to
-program <code>A5 5A</code> at <code>08:4100</code>, read the pair back, clear a marker from <code>FE</code> to
-<code>FC</code> at <code>08:4102</code>, read that byte back, erase through page <code>0C</code>, read the
-erased byte back, and set port <code>0x23</code> to <code>0x2A</code>. The probe stores each return
-instead of branching so the runner can check the complete result. [confirmed]</p>
+the examples above. It invokes <code>_WriteFlash</code>, <code>_WriteFlashUnsafe</code>,
+<code>_WriteAByteSafe</code>, <code>_WriteAByte</code>, <code>_EraseFlashPage</code>, <code>_EraseFlash</code>,
+<code>_EraseCertificateSector</code>, and <code>_SetFlashLowerBound</code>. It reads every changed
+location through <code>_FlashToRam</code>. The probe stores each return instead of
+branching so the runner can check the complete result. [confirmed]</p>
 <p>On 2026-08-10, the hash-guarded Wabbitemu adapter booted the exact OS 2.55MP
-ROM, established the retail protection state, injected the 111-byte program
+ROM, established the retail protection state, injected the 238-byte program
 into RAM, and opened only Wabbitemu’s in-memory Flash gate. The run reached
-<code>_WriteFlash</code>, <code>_WriteAByteSafe</code>, <code>_EraseFlashPage</code>, and
-<code>_SetFlashLowerBound</code> once each and <code>_FlashToRam</code> three times. It reached six
-RAM-worker entries and no execution-violation reset. [confirmed] for this
-pinned emulator run.</p>
+every named public entry. The shared <code>_WriteFlashUnsafe</code> core ran four times,
+the <code>_WriteAByte</code> body twice, and the <code>_EraseFlash</code> core three times because
+their safe and specialized wrappers fall through or call into them. Seven
+<code>_FlashToRam</code> calls brought the total to 14 RAM-worker entries. No execution
+violation occurred. [confirmed] for this pinned emulator run.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -670,17 +690,21 @@ pinned emulator run.</p>
 </thead>
 <tbody>
 <tr><td><code>_WriteFlash</code> return and readback</td><td><code>AF=0x0044</code>; array and copied bytes both <code>A5 5A</code></td></tr>
-<tr><td><code>_WriteAByteSafe</code> return, scratch, and readback</td><td><code>AF=0x0044</code>; <code>OP1=0xFC</code>; array and copied byte both <code>FC</code></td></tr>
-<tr><td><code>_EraseFlashPage</code> return and readback</td><td><code>AF=0x0044</code>; array and copied byte both <code>FF</code></td></tr>
+<tr><td><code>_WriteFlashUnsafe</code> page-<code>3E</code> return and readback</td><td><code>AF=0x0044</code>; array and copied bytes both <code>3C C3</code></td></tr>
+<tr><td><code>_WriteAByteSafe</code> return and readback</td><td><code>AF=0x0044</code>; array and copied byte both <code>FC</code></td></tr>
+<tr><td><code>_WriteAByte</code> page-<code>3E</code> return, scratch, and readback</td><td><code>AF=0x0044</code>; <code>OP1=0xF8</code>; array and copied byte both <code>F8</code></td></tr>
+<tr><td><code>_EraseFlashPage</code> return and readback</td><td><code>AF=0x0044</code>; <code>0C:4000</code> array and copied byte both <code>FF</code></td></tr>
+<tr><td><code>_EraseFlash</code> return and readback</td><td><code>AF=0x0044</code>; <code>10:4567</code> array and copied byte both <code>FF</code></td></tr>
+<tr><td><code>_EraseCertificateSector</code> return and readback</td><td>caller <code>AF=0xA545</code> preserved; <code>3E:6001</code> array and copied byte both <code>FF</code></td></tr>
 <tr><td>shared write scratch</td><td><code>(IY+0x25).1</code> clear after the accepted paths</td></tr>
 <tr><td><code>_SetFlashLowerBound</code> result</td><td>port-<code>0x23</code> upper bound <code>0x2A</code>; IFF2 clear</td></tr>
 </tbody>
 </table>
 </div>
 <p>The assembly source SHA-256 was
-<code>413408b1a72924002e9cb986e68411c1b4f64f381f50d1f1516f319df1c5354a</code>;
+<code>58c9b7554cfb9c907b7887c4d74c5cd5e4361a70a955b783d2d06607873df314</code>;
 the assembled machine-code SHA-256 was
-<code>42e6d659b652b4b0205759e48634edd46504141a04e79d3676344dce09ae525b</code>.
+<code>a6466627c25de11aa40b6737bbaf23d998c2c011ff159a0996b789d2ffb7b476</code>.
 See “Retail Flash bcall usage probe” in <code>tools/dynamic-tracing.md</code> for the
 guarded reproduction command. This execution validates the snippets against
 the original ROM bodies under pinned Wabbitemu. It does not validate the
