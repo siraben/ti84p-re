@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c91d9ea6.js";
+            window.path_to_searchindex_js = "searchindex-4f37ba28.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -307,11 +307,24 @@ restores each saved byte, verifies the restored values, and restores port
 <code>0x06</code>. [confirmed] for the assembled instruction sequence.</p>
 <p>An observed sequence of <code>11 22 33 44 55 66</code> distinguishes six independent
 selector backings for this address. <code>66 66 66 66 66 66</code> distinguishes a shared
-backing for selectors <code>82</code>–<code>87</code>. Other sequences require separate analysis.
-These interpretations follow from the write order; whether either topology
-appears on a specific calculator remains [hypothesis].</p>
+backing for selectors <code>82</code>–<code>87</code>. The decoder also infers partial equivalence
+classes. Because writes occur in ascending selector order, every selector in
+one class must read the pattern written through the highest-numbered member.
+Bytes outside <code>11 22 33 44 55 66</code>, or a group whose reported writer is not its
+highest member, produce <code>mixed-or-unexpected</code>. [confirmed]</p>
 <p>The decoder reports <code>restore_matches</code>. A false value means the post-restore
 reads differ from the saved bytes and invalidates a claim of successful cleanup.</p>
+<p>The standalone CLI accepts the six observed bytes or simulates an explicit
+selector-to-backing assignment:</p>
+<pre><code class="language-sh">python tools/describe_ram_topology.py --observed 666666666666
+python tools/describe_ram_topology.py \
+  --simulate-backings 0,0,1,1,2,3 --json
+</code></pre>
+<p>The pinned SPASM-ng build produces 214 machine-code bytes with SHA-256
+<code>be8e1dc12060cda657cf076196e9f27302822cf7307935b5bf4056b0c55c548d</code>.
+The packaged 508-byte <code>HWPRAM.8xp</code> has SHA-256
+<code>72da5a412b596161b50f03fa5d5f2018d88b26c51207208bdf63335a9c67f6e3</code>.
+[confirmed]</p>
 <h2 id="execution-protection-fetch-probes"><a class="header" href="#execution-protection-fetch-probes">Execution-protection fetch probes</a></h2>
 <p>Probe ID 4 tests one bank-A selector per program. It scans the configured range
 through data reads for an existing <code>RET</code> byte. It creates a result AppVar with a

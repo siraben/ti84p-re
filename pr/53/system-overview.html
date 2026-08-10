@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c91d9ea6.js";
+            window.path_to_searchindex_js = "searchindex-4f37ba28.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -185,7 +185,15 @@
 <p>Confidence is flagged: [confirmed] = verified in disassembly/decompiler; [standard] = matches documented TI-83+/84+ architecture and is consistent with the disassembly; [hypothesis] = inferred, not yet verified.</p>
 </blockquote>
 <h2 id="the-big-picture"><a class="header" href="#the-big-picture">The big picture</a></h2>
-<p>The TI-84+ is a Z80 machine that can only see 64 KiB at once, but has 1 MiB of flash and 128 KiB of RAM. It bridges that gap with a 4-slot paging scheme and a system-call (“bcall”) mechanism that lets code on one 16 KiB flash page call routines on any other page. The OS is a single-tasking monitor: a boot/kernel core on flash <code>page 0</code> (always mapped low), a large body of OS routines spread across the other flash pages and reached via bcalls, and a fixed RAM region holding the system state (flags, floating-point registers, display buffers, the variable table).</p>
+<p>The TI-84+ is a Z80 machine that can only see 64 KiB at once. The target has
+1 MiB of Flash and eight RAM selector values. Community hardware reports assign
+eight independent 16 KiB RAM blocks to early units. They assign 48 KiB to later
+units, with selectors <code>82</code>–<code>87</code> sharing one block. No physical result is recorded
+for the calculator used by this project. A four-slot paging scheme and a
+system-call (bcall) mechanism expose code and data beyond the current address
+space. The OS is a single-tasking monitor. Its boot/kernel core occupies Flash
+page <code>0</code>, other OS routines span banked Flash pages, and fixed RAM windows hold
+system state. See <a href="ram-pages.html">RAM pages</a> for the revision evidence.</p>
 <p>Everything the user interacts with — the homescreen, TI-BASIC programs, graphing, the catalog — is built on four pillars:</p>
 <ol>
 <li><strong>Paging + bcalls</strong> — how code and data beyond 64 KiB are reached. (see <a href="paging.html">paging.md</a>, <a href="bcall-mechanism.html">bcall-mechanism.md</a>)</li>

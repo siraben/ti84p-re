@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c91d9ea6.js";
+            window.path_to_searchindex_js = "searchindex-4f37ba28.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -186,7 +186,15 @@
 <p>Confidence is flagged: [confirmed] = verified in disassembly/decompiler; [standard] = matches documented TI-83+/84+ architecture and is consistent with the disassembly; [hypothesis] = inferred, not yet verified.</p>
 </blockquote>
 <h2 id="the-big-picture"><a class="header" href="#the-big-picture">The big picture</a></h2>
-<p>The TI-84+ is a Z80 machine that can only see 64 KiB at once, but has 1 MiB of flash and 128 KiB of RAM. It bridges that gap with a 4-slot paging scheme and a system-call (“bcall”) mechanism that lets code on one 16 KiB flash page call routines on any other page. The OS is a single-tasking monitor: a boot/kernel core on flash <code>page 0</code> (always mapped low), a large body of OS routines spread across the other flash pages and reached via bcalls, and a fixed RAM region holding the system state (flags, floating-point registers, display buffers, the variable table).</p>
+<p>The TI-84+ is a Z80 machine that can only see 64 KiB at once. The target has
+1 MiB of Flash and eight RAM selector values. Community hardware reports assign
+eight independent 16 KiB RAM blocks to early units. They assign 48 KiB to later
+units, with selectors <code>82</code>–<code>87</code> sharing one block. No physical result is recorded
+for the calculator used by this project. A four-slot paging scheme and a
+system-call (bcall) mechanism expose code and data beyond the current address
+space. The OS is a single-tasking monitor. Its boot/kernel core occupies Flash
+page <code>0</code>, other OS routines span banked Flash pages, and fixed RAM windows hold
+system state. See <a href="#ram-pages">RAM pages</a> for the revision evidence.</p>
 <p>Everything the user interacts with — the homescreen, TI-BASIC programs, graphing, the catalog — is built on four pillars:</p>
 <ol>
 <li><strong>Paging + bcalls</strong> — how code and data beyond 64 KiB are reached. (see <a href="#paging">paging.md</a>, <a href="#the-bcall-mechanism">bcall-mechanism.md</a>)</li>
@@ -7632,9 +7640,41 @@ probe bytes; [hypothesis] for all pending hardware results.</p>
 <p>The OS is page-specialized: kernel + math on page 0, one subsystem per low page. A bcall is really “run subsystem X’s routine on its page” — the page map <em>is</em> the subsystem decomposition, physically.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="ram-pages"><a class="header" href="#ram-pages">RAM pages</a></h1>
-<p>The TI-84 Plus maps banked RAM behind the Z80’s 16 KiB windows. OS 2.55MP traces
-exercise selectors <code>80</code>–<code>83</code>; only those selectors have direct trace coverage here.
-Programs that borrow page <code>83</code> must preserve or restore the OS-visible regions below.</p>
+<p>The TI-84 Plus maps banked RAM behind the Z80’s 16 KiB windows. This page
+separates selector values from physical backing, reconciles the reported
+128 KiB and 48 KiB revisions, traces OS use of selectors <code>80</code>–<code>83</code>, and gives
+restoration rules for programs that borrow banked RAM.</p>
+<h2 id="physical-integration-and-capacity-revisions"><a class="header" href="#physical-integration-and-capacity-revisions">Physical integration and capacity revisions</a></h2>
+<p>Datamath’s March 2004 board photographs show three main integrated circuits:
+the <code>TI REF 83PLUSB/TA2</code> ASIC, a <code>29LV800</code> Flash device, and the LCD driver.
+The accompanying board description places the Z80 core and RAM inside the
+ASIC. An external SRAM package therefore is not part of that photographed
+revision. [standard]</p>
+<p>WikiTI’s hardware history reports 128 KiB in the original TI-84 Plus design
+and a later reduction to 48 KiB. Its RAM-page table says units with port
+<code>0x15 &gt;= 0x55</code> map selectors <code>82</code>–<code>87</code> to one physical 16 KiB block. These are
+community hardware reports. Neither page supplies a primary TI specification,
+a dated transition, or a measurement tied to a photographed board. [standard]</p>
+<p>The two reported topologies use the same eight selector values: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Reported capacity</th><th>Physical backing</th><th>Consequence at one page offset</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right">128 KiB</td><td>eight independent 16 KiB blocks</td><td>selectors <code>80</code>–<code>87</code> can retain eight different bytes</td></tr>
+<tr><td style="text-align: right">48 KiB</td><td>blocks <code>80</code>, <code>81</code>, and one block shared by <code>82</code>–<code>87</code></td><td>the last write through any selector <code>82</code>–<code>87</code> is visible through all six</td></tr>
+</tbody>
+</table>
+</div>
+<p>Port <code>0x15</code> does not appear in any statically resolved OS 2.55MP I/O
+instruction. The public identity table associates <code>0x44</code> and <code>0x45</code> with
+128 KiB and <code>0x55</code> with 48 KiB, while Datamath identifies TA2 and TA3 package
+families without assigning their RAM capacity. Do not infer capacity from an
+ASIC label alone. The restoring probe records the package-independent port
+<code>0x15</code> byte and the observed selector groups in one frame. [confirmed] for
+the ROM scan and probe format; [standard] for the public identities;
+[hypothesis] for an unmeasured calculator’s topology.</p>
 <h2 id="page-selectors"><a class="header" href="#page-selectors">Page selectors</a></h2>
 <p>The public TI-84 Plus register contract uses two selector encodings. The OS trace
 confirms the values it executes, but it does not confirm the complete selector
@@ -7691,18 +7731,14 @@ independently support only the entries whose evidence column says [confirmed].</
 </tbody>
 </table>
 </div>
-<p>WikiTI claims that selectors <code>82</code>–<code>87</code> share one physical 16 KiB block when port
-<code>0x15</code> is at least <code>55h</code>. Wabbitemu has an optional <code>ram_version == 2</code> branch with
-the same topology. Selected internal pages 3–7 read and write
-<code>ram[2 * PAGE_SIZE]</code>; internal page 2 already addresses that block. These two
-software sources agree, but neither is a physical measurement. Treat the 48 KiB
-topology as [standard], pending a hardware alias probe. The ASIC identity table
-and physical test gaps are in
-<a href="#asic-status-identity-protection-and-gpio">ASIC status, identity, protection, and GPIO</a>. The
+<p>Wabbitemu has an optional <code>ram_version == 2</code> branch matching the reported
+48 KiB topology. Selected internal pages 3–7 read and write
+<code>ram[2 * PAGE_SIZE]</code>; internal page 2 already addresses that block. Emulator
+agreement with WikiTI does not establish a physical unit’s backing. The
 <a href="#ram-alias-probe">restoring RAM alias probe</a> records the
-original, patterned, and restored bytes for selectors <code>82</code>–<code>87</code>. Its source and
-host decoder are prepared, but no physical result is recorded. [confirmed] for
-the probe bytes; [hypothesis] for the physical topology.</p>
+original, patterned, and restored bytes for selectors <code>82</code>–<code>87</code>. No physical
+result has been recorded. [standard] for the sources; [confirmed] for the probe
+bytes; [hypothesis] for an unmeasured calculator’s topology.</p>
 <h2 id="emulator-implementations"><a class="header" href="#emulator-implementations">Emulator implementations</a></h2>
 <p>The pinned source revisions implement different RAM backing rules. These results
 describe software behavior and do not select the correct physical ASIC contract.</p>
@@ -7729,6 +7765,18 @@ physical topology; it does not assert that an emulator enables that topology by
 default. Run the same sequence with <code>--profile mame</code> and no alias option to expose
 MAME’s unmapped selector <code>87</code>. See <a href="#paging">Paging</a> for the complete mapper
 comparison.</p>
+<p>The alias-probe decoder reconstructs equivalence classes from the ordered
+patterns. Each selector in one class reads the pattern written through the
+highest-numbered selector in that class. The two expected endpoints and a
+partial-alias example are reproducible without a calculator:</p>
+<pre><code class="language-sh">python tools/describe_ram_topology.py --observed 112233445566
+python tools/describe_ram_topology.py --observed 666666666666
+python tools/describe_ram_topology.py \
+  --simulate-backings 0,0,1,1,2,3 --json
+</code></pre>
+<p>The simulated partial mapping produces <code>22 22 44 44 55 66</code> and groups
+<code>82</code>/<code>83</code>, <code>84</code>/<code>85</code>, <code>86</code>, and <code>87</code>. This is a decoder test case, not a
+reported hardware revision. [confirmed]</p>
 <h2 id="per-page-trace-coverage"><a class="header" href="#per-page-trace-coverage">Per-page trace coverage</a></h2>
 <p>The boot/home and <code>2+3 ENTER</code> traces exercise startup, homescreen initialization,
 display capture, parsing, evaluation, and previous-entry storage. They do not exercise
@@ -7955,6 +8003,22 @@ for all touched windows:</p>
 </code></pre>
 <p>The dynamic trace resolves the same sequence at instruction indices <code>712241-712250</code>,
 including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes. [confirmed]</p>
+<h2 id="sources-8"><a class="header" href="#sources-8">Sources</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Source</th><th>Use here</th></tr>
+</thead>
+<tbody>
+<tr><td><a href="http://www.datamath.org/Graphing/TI-84PLUS.htm">Datamath TI-84 Plus hardware</a> and <a href="http://www.datamath.org/Graphing/JPEG_TI-84PLUS_A.htm#PCB">March 2004 board photographs</a></td><td>Three-IC board inventory, ASIC-integrated RAM, and photographed <code>83PLUSB/TA2</code> package</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:History_of_TI-8x_hardware&amp;oldid=10880">WikiTI hardware history, revision 10880</a></td><td>Reported 128 KiB design and later 48 KiB revision</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages&amp;oldid=11670">WikiTI RAM pages, revision 11670</a></td><td>Reported selector uses and <code>82</code>–<code>87</code> alias threshold</td></tr>
+<tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a> and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c"><code>x4_memory.c</code></a></td><td>Independent-page emulator mapping</td></tr>
+<tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c">Wabbitemu <code>core.c</code></a> and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c"><code>83psehw.c</code></a></td><td>Optional reduced-RAM alias and model identity behavior</td></tr>
+<tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>Seven-block backing and raw-selector behavior</td></tr>
+</tbody>
+</table>
+</div>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="physical-hardware-probes"><a class="header" href="#physical-hardware-probes">Physical hardware probes</a></h1>
 <p>The physical-probe suite builds small <code>AsmPrgm</code> programs and decodes their
@@ -8084,11 +8148,24 @@ restores each saved byte, verifies the restored values, and restores port
 <code>0x06</code>. [confirmed] for the assembled instruction sequence.</p>
 <p>An observed sequence of <code>11 22 33 44 55 66</code> distinguishes six independent
 selector backings for this address. <code>66 66 66 66 66 66</code> distinguishes a shared
-backing for selectors <code>82</code>–<code>87</code>. Other sequences require separate analysis.
-These interpretations follow from the write order; whether either topology
-appears on a specific calculator remains [hypothesis].</p>
+backing for selectors <code>82</code>–<code>87</code>. The decoder also infers partial equivalence
+classes. Because writes occur in ascending selector order, every selector in
+one class must read the pattern written through the highest-numbered member.
+Bytes outside <code>11 22 33 44 55 66</code>, or a group whose reported writer is not its
+highest member, produce <code>mixed-or-unexpected</code>. [confirmed]</p>
 <p>The decoder reports <code>restore_matches</code>. A false value means the post-restore
 reads differ from the saved bytes and invalidates a claim of successful cleanup.</p>
+<p>The standalone CLI accepts the six observed bytes or simulates an explicit
+selector-to-backing assignment:</p>
+<pre><code class="language-sh">python tools/describe_ram_topology.py --observed 666666666666
+python tools/describe_ram_topology.py \
+  --simulate-backings 0,0,1,1,2,3 --json
+</code></pre>
+<p>The pinned SPASM-ng build produces 214 machine-code bytes with SHA-256
+<code>be8e1dc12060cda657cf076196e9f27302822cf7307935b5bf4056b0c55c548d</code>.
+The packaged 508-byte <code>HWPRAM.8xp</code> has SHA-256
+<code>72da5a412b596161b50f03fa5d5f2018d88b26c51207208bdf63335a9c67f6e3</code>.
+[confirmed]</p>
 <h2 id="execution-protection-fetch-probes"><a class="header" href="#execution-protection-fetch-probes">Execution-protection fetch probes</a></h2>
 <p>Probe ID 4 tests one bank-A selector per program. It scans the configured range
 through data reads for an existing <code>RET</code> byte. It creates a result AppVar with a
@@ -12493,7 +12570,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_lcd_probe.py \
 <li>[standard] A guarded MAME run verifies its startup state, status and command decode, permanent busy-clear state, mirror ports, safe hidden-column aliases, dummy-read latch, 6-bit packing, stored analog fields, constant ASIC-ready bit, and missing delay ports.</li>
 <li>[hypothesis] Physical tests should sweep hidden columns and time readiness after reads and writes independently.</li>
 </ul>
-<h2 id="sources-8"><a class="header" href="#sources-8">Sources</a></h2>
+<h2 id="sources-9"><a class="header" href="#sources-9">Sources</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -14128,7 +14205,7 @@ above additionally require disassembly of their surrounding routines.</p>
 <li>[hypothesis] The exact capacitance and minimum safe settle time should be measured across TA2 and TA3 calculators, including worst-case chords.</li>
 <li>[hypothesis] A logic-analyzer test should establish which physical ON transitions request interrupts on each ASIC revision rather than selecting an emulator policy by majority.</li>
 </ul>
-<h2 id="sources-9"><a class="header" href="#sources-9">Sources</a></h2>
+<h2 id="sources-10"><a class="header" href="#sources-10">Sources</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -15895,7 +15972,7 @@ does not establish physical signaling-rate divisors, wait states, electrical
 levels, or reset retention.</li>
 <li>TilEm, Wabbitemu, and MAME do not implement a connected page-35 transfer. The initialized-core Wabbitemu run confirms its port-registration, event-mask, contradictory-line-state, repeat-event, and paired-bit handler defects. Dynamic connected-path evidence therefore still requires physical hardware or a controlled port-level harness.</li>
 </ul>
-<h2 id="sources-10"><a class="header" href="#sources-10">Sources</a></h2>
+<h2 id="sources-11"><a class="header" href="#sources-11">Sources</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -17286,7 +17363,7 @@ still require static reduction, fault injection, or physical measurement.</p>
 <li><strong>MD5 physical edge behavior.</strong> The valid 64-step path, boot API, two implementing emulator models, and MAME’s missing port block are reconciled in <a href="#md5-accelerator-and-boot-api">MD5 accelerator and boot API</a>. Guarded native TilEm and Wabbitemu runs exercise partial and fifth writes, high control bits, undefined operand reads, and read-time recalculation. The TilEm run also verifies complete reset clearing and zero modeled port latency under the locked compiler. A separate guarded MAME run confirms that its unmapped ports discard patterned writes and return zero for the known first <code>"abc"</code> step. The <a href="#md5-edge-probe">physical hardware probe</a> prepares the corresponding ASIC measurements. Physical TA2/TA3 tests still need to run it and add reset-retention and I/O wait-state measurements.</li>
 <li><strong>Memory-mapper overlay hardware.</strong> The boot transition, paired and independent modes, extended Flash selectors, and emulator implementations are reconciled in <a href="#paging">Paging</a>. A guarded initialized-core Wabbitemu run verifies its fixed-page opcode handoff, selector readback, duplicated even page in paired mode, <code>0x27</code> cutoff, independent-mode read/write/fetch overlays, and paired-mode overlay suppression. A guarded MAME run verifies its read-triggered fixed-page handoff, selector masks, adjacent paired pages, safe RAM banks through <code>0x86</code>, unmapped extended and overlay ports, and underlying read/write/fetch routing. Selector <code>0x87</code> remains source-only because MAME maps seven RAM pages. These are emulator results. Physical tests must resolve whether ports <code>0x27</code>/<code>0x28</code> remain active in paired mode, whether the <code>0xFB64</code> cutoff exists in the ASIC, and whether <a href="#mapping-and-forced-overlays">execution protection</a> follows the underlying window or forced RAM page.</li>
 <li><strong>Bus-timing and LCD-controller measurements.</strong> The boot values, wait-state decode, controller commands, display paths, and emulator implementations are reconciled in <a href="#bus-timing-and-wait-states">Bus timing and wait states</a> and <a href="#lcd-controller-and-display-bus">LCD controller and display bus</a>. Guarded initialized-core Wabbitemu runs verify its 60-T-state guard, 15-column increment cycle, direct hidden-column alias, one-transfer read latch, absent mirror ports, strict $48 + 64f$ ready boundary, write-based ready timestamp, complete wait-gate matrix, default and internal extra-speed matrices, and raw port-<code>0x2D</code> latch without low-power side effects. Guarded MAME runs verify its controller startup state, permanent busy-clear status, mirror ports, 15-byte hidden-column aliases, one-transfer read latch, 6-bit packing, stored analog fields, fixed ready bit, raw speed readback, exact 6:15 MHz loop ratio, unmapped <code>0x29</code>–<code>0x2F</code> block, and retained speed byte across soft reset. These are emulator results. Physical tests must measure each port-<code>0x2E</code> access class, CPU-speed readback and frequency across ASIC revisions, port-<code>0x2D</code> low-power behavior, LCD read-versus-write ready timing, controller-specific minimum delays, hidden-column bounds, status-read pointer behavior, and the unmodeled port-<code>0x2F</code> mode-3 timer prescaler across TA2 and TA3 controller revisions.</li>
-<li><strong>ASIC status, RAM topology, execution protection, and GPIO measurements.</strong> The ROM’s battery routines, status-bit uses, protected port setup, and GPIO read-modify-write sequences are reconciled in <a href="#asic-status-identity-protection-and-gpio">ASIC status, identity, protection, and GPIO</a> and <a href="#execution-protection">Execution protection</a>. Guarded TilEm and Wabbitemu runs exercise both sides of their differing default Flash intervals. RAM runs also cover the common chunk edge, mode-0 and mode-1 disagreements, all four Wabbitemu modes, and its 16-bit high-bound wrap. Guarded initialized-core runs verify Wabbitemu’s port-<code>0x02</code> lock bit, RAM-revision identity split, the shared protected-write gate across ports <code>0x21</code>–<code>0x26</code>, port-<code>0x21</code> readback loss, port-<code>0x24</code> high-field clearing, RAM-bound wrap, absent port <code>0x39</code>, and the port-<code>0x3A</code> byte latch. A guarded MAME run verifies its raw gate-to-status shift, fixed identity, unprotected port-<code>0x21</code> nibble, missing ports <code>0x22</code>–<code>0x2F</code> and <code>0x39</code>–<code>0x3A</code>, live RAM execution with patterned protection writes, and retained gate/speed/control fields across soft reset. A Wabbitemu reset run verifies all fields written by <code>CPU_reset</code>, 14 retained component groups, the frontend’s LCD-only addition, and same-step execution after a violation. A TilEm reset run verifies its broader eight-group reset, nine retained groups, and a forbidden instruction’s surviving pre-reset RAM write. These remain emulator evidence. The <a href="#ram-alias-probe">RAM alias probe</a> prepares one restoring selector-topology measurement. The <a href="#execution-protection-fetch-probes">execution-fetch suite</a> prepares read-only retail-mode Flash and RAM fetches with pre-fetch result records. Physical TA1/TA2/TA3 tests must run them and measure battery-selector thresholds, port-<code>0x15</code> identity values, protected-register readback and high-value behavior, violation behavior, warm- and cold-reset retention, port-<code>0x39</code> direction polarity, and port-<code>0x3A</code> electrical signals.</li>
+<li><strong>ASIC status, RAM topology, execution protection, and GPIO measurements.</strong> The ROM’s battery routines, status-bit uses, protected port setup, and GPIO read-modify-write sequences are reconciled in <a href="#asic-status-identity-protection-and-gpio">ASIC status, identity, protection, and GPIO</a> and <a href="#execution-protection">Execution protection</a>. Guarded TilEm and Wabbitemu runs exercise both sides of their differing default Flash intervals. RAM runs also cover the common chunk edge, mode-0 and mode-1 disagreements, all four Wabbitemu modes, and its 16-bit high-bound wrap. Guarded initialized-core runs verify Wabbitemu’s port-<code>0x02</code> lock bit, RAM-revision identity split, the shared protected-write gate across ports <code>0x21</code>–<code>0x26</code>, port-<code>0x21</code> readback loss, port-<code>0x24</code> high-field clearing, RAM-bound wrap, absent port <code>0x39</code>, and the port-<code>0x3A</code> byte latch. A guarded MAME run verifies its raw gate-to-status shift, fixed identity, unprotected port-<code>0x21</code> nibble, missing ports <code>0x22</code>–<code>0x2F</code> and <code>0x39</code>–<code>0x3A</code>, live RAM execution with patterned protection writes, and retained gate/speed/control fields across soft reset. A Wabbitemu reset run verifies all fields written by <code>CPU_reset</code>, 14 retained component groups, the frontend’s LCD-only addition, and same-step execution after a violation. A TilEm reset run verifies its broader eight-group reset, nine retained groups, and a forbidden instruction’s surviving pre-reset RAM write. These remain emulator evidence. The <a href="#ram-alias-probe">RAM alias probe</a> prepares one restoring selector-topology measurement and now decodes partial alias groups. The <a href="#execution-protection-fetch-probes">execution-fetch suite</a> prepares read-only retail-mode Flash and RAM fetches with pre-fetch result records. Physical units must correlate the probe’s port-<code>0x15</code> byte and alias groups with PCB date and ASIC marking instead of assuming a TA label determines capacity. TA1/TA2/TA3 tests must also measure battery-selector thresholds, protected-register readback and high-value behavior, violation behavior, warm- and cold-reset retention, port-<code>0x39</code> direction polarity, and port-<code>0x3A</code> electrical signals.</li>
 <li><strong>MathPrint runtime coverage.</strong> Trace representative expressions and cursor states through the statically recovered MathPrint compositor at <code>39:5167</code>. Existing macro fixtures cover power, fraction, and <code>fnInt(</code> layouts, but the exact runtime paths have not been recorded. See <a href="#mathprint-pipeline-coverage">Equation display</a>.</li>
 <li><strong>Matrix and list residuals.</strong> Explain why plain <code>augment(</code> calls the partial-pivoting engine at <code>02:4663</code>; locate the <code>randM(</code> cell-fill path; identify the separate <code>rref(</code>/<code>ref(</code> driver; and finish the <code>seq(</code>/<code>SortA(</code>/<code>SortD(</code> collection and element-load traces. See <a href="#9-findings">Matrices &amp; lists</a>.</li>
 <li><strong>Smaller residuals.</strong> Map the For/While/Repeat FPS loop-frame bytes; recover the <code>Asm(</code>/<code>AsmPrgm</code> setup before the traced <code>ram:9D95</code> payload handoff; find a direct ASM-to-BASIC program-call entry beyond VAT lookup and the cooperative <code>Ans</code> callback; and trace the group-archive member walk after <code>_Arc_Unarc</code> rejects type <code>0x17</code>. A guarded direct-core run verifies TilEm’s complete source-divisor table, rounded count readback, off sources, ignored port-<code>0x2F</code>, counter-zero behavior, first/second expiry distinction, acknowledgement, unacknowledged non-loop restart, source-write retention, deterministic RTC transitions, reset retention, and torn byte reads. A guarded initialized-core run verifies Wabbitemu’s timer catch-up, counter-zero completion, first-underflow status bit 2, HALT-line suppression, retained interrupt generation, and frozen disabled RTC reads. A guarded MAME run verifies its fixed-crystal source collapse, immediate first decrement, idle counter zero, inverted mode polarity, one-reload loop, global completion clearing, and absent RTC block. TA2/TA3 hardware must still distinguish the published <code>33</code>/<code>328</code>/<code>3277</code> timer divisors from Wabbitemu/MAME’s <code>32</code>/<code>327</code>/<code>3276</code>, test counter zero and first-versus-second-expiry status bit 2, measure programmable-timer <code>HALT</code> behavior, and test disabled RTC reads plus rollover coherence. A guarded direct-core TilEm run verifies transitive keypad closure, all eight stored rows, complete group-byte storage, row-major scancode bounds, separate ON state, both ON edges, and reset clearing. Another guarded run verifies Wabbitemu’s pairwise keypad closure, ignored row 7, and press-only ON latch with release rearming. A guarded MAME live-input run verifies its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, and lack of matrix closure. These remain emulator evidence. Physical keypad work should measure worst-case matrix settling, ghosting under timed reads, switch bounce, and ON interrupt edges; see <a href="#resolved-findings-and-open-hardware-tests-2">Keypad and ON-key hardware</a>. The timer, APD, RTC, and power reconstruction is in <a href="#clock-timers-and-power">Clock, timers, and power</a>.</li>
