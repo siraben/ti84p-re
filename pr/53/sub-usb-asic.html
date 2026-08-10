@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cce2ab92.js";
+            window.path_to_searchindex_js = "searchindex-c91d9ea6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -248,6 +248,53 @@ database. Neutral labels retain <code>Unknown</code> for ports <code>0x4F</code>
 the ROM does not identify their signals. The file also applies the FDRC-family
 names below to ports <code>0x80</code>–<code>0xA2</code>. Those names identify the register layout;
 they do not prove the exact ASIC implementation or its electrical behavior.</p>
+<h2 id="transceiver-and-enable-timer-ports-without-confirmed-rom-control-flow"><a class="header" href="#transceiver-and-enable-timer-ports-without-confirmed-rom-control-flow">Transceiver and enable-timer ports without confirmed ROM control flow</a></h2>
+<p>WikiTI assigns low-level USB meanings to three ports that OS 2.55MP does not
+use through a confirmed I/O instruction:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Port</th><th>WikiTI description</th><th>Evidence limit</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x49</code></td><td>Raw USB-transceiver status, including proposed D+ and D− bits 1 and 2</td><td>The page calls several other bits only “something” or “possible.” No ROM read, emulator handler, datasheet, or physical sample confirms the bit map. [hypothesis]</td></tr>
+<tr><td><code>0x51</code></td><td>Delay between starting a separate 48 MHz crystal and enabling USB, counted in two-tick units from 32.768 kHz</td><td>No ROM write or cited primary source establishes the clock, unit, or enable effect. [hypothesis]</td></tr>
+<tr><td><code>0x52</code></td><td>Charge-pump enable timer with timing like port <code>0x51</code></td><td>The public description says only that it has “something to do” with charge-pump timing. [hypothesis]</td></tr>
+</tbody>
+</table>
+</div>
+<p>The complete immediate-port and conservative literal-<code>C</code> scan initially
+reports six candidates for these ports. Raw descriptor decoding accounts for
+four of them. <code>tools/analyze_rom_io.py</code> attaches this classification to each
+report and <code>--exclude-descriptors</code> removes the four structural overlaps:
+[confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Linear candidate</th><th>Actual bytes and role</th></tr>
+</thead>
+<tbody>
+<tr><td><code>00:3EDC</code> — apparent <code>OUT (0x51),A</code></td><td>Inline target <code>37:51D3</code>, page byte <code>0x77</code>, after <code>CALL 2B09h</code>; this is a cross-page call descriptor.</td></tr>
+<tr><td><code>37:46D7</code> — apparent <code>IN A,(0x52)</code></td><td>Low and high bytes <code>DB 52</code> of bcall ID <code>52DB</code>, <code>_ResetGraphSettings</code>.</td></tr>
+<tr><td><code>39:583F</code> — apparent <code>OUT (0x51),A</code></td><td>Low and high bytes <code>D3 51</code> of unnamed bcall ID <code>51D3</code>.</td></tr>
+<tr><td><code>3B:620A</code> — apparent <code>IN A,(0x49)</code></td><td>Low and high bytes <code>DB 49</code> of bcall ID <code>49DB</code>, which resolves to <code>36:7DA9</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The remaining apparent port-<code>0x49</code> instruction at <code>01:4304</code> and
+port-<code>0x51</code> instruction at <code>3B:4F45</code> lie in table-shaped byte regions. Neither
+has a direct page-local control-flow reference, and neither has trace evidence.
+They remain linear-disassembly candidates rather than I/O evidence. The scan
+confirms no OS 2.55MP transaction for ports <code>0x49</code>, <code>0x51</code>, or <code>0x52</code>.
+Computed <code>C</code>-register accesses that cross calls or control-flow joins remain
+outside this static proof. [confirmed]</p>
+<p>TilEm, Wabbitemu, and MAME omit all three ports from their TI-84 Plus USB
+handlers. Their omission cannot establish physical absence or reset values.
+The read-only <a href="hardware-probes.html#usb-control-snapshot">USB control snapshot</a>
+records these ports together with the adjacent low-USB controls on a physical
+calculator. No exported result has been recorded. [standard] for emulator
+coverage; [confirmed] for the assembled probe; [hypothesis] for pending
+physical values.</p>
 <h2 id="presentation-link-mirroring-setup"><a class="header" href="#presentation-link-mirroring-setup">Presentation-link mirroring setup</a></h2>
 <p>The helper at <code>35:58B2</code> sets <code>IY+0x41</code> bit 0, writes <code>0x01</code> to port
 <code>0x5A</code>, and reads the port back. <code>LD A,0x02</code> immediately replaces the read
@@ -699,6 +746,10 @@ nix develop -c python tools/describe_usb_hardware.py wabbit-port4a 0x08
 # Audit direct page-35 accesses whose ports lack project-local labels.
 nix develop -c python tools/analyze_rom_io.py \
   --page 0x35 --direct-only --unlisted --summary 0x40-0x7F
+
+# Retain only the two table-shaped candidates for unobserved USB ports.
+nix develop -c python tools/analyze_rom_io.py \
+  --direct-only --exclude-descriptors 0x49 0x51 0x52
 </code></pre>
 <p>The FDRC names and bit labels remain a controller-family hypothesis. The CLI identifies that evidence boundary in its register records; it does not promote imported Mentor names to TI silicon confirmation.</p>
 <h2 id="how-to-use-it-in-code-confirmed"><a class="header" href="#how-to-use-it-in-code-confirmed">How to use it in code [confirmed]</a></h2>
@@ -800,6 +851,9 @@ levels, or reset retention.</li>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>Fixed USB interrupt reads and absent controller/endpoint ports</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:09">WikiTI port <code>0x09</code></a></td><td>Historical link-assist timing-field interpretation, kept separate from ROM observations</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:4B">WikiTI port <code>0x4B</code></a></td><td>Historical USB-power orientation. The page calls its own bit descriptions mostly speculative.</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:49">WikiTI port <code>0x49</code></a></td><td>Historical raw-transceiver bit claims; no primary hardware source or ROM use found</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:51">WikiTI port <code>0x51</code></a></td><td>Historical USB enable-timer claim; physical clock and units remain unverified</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:52">WikiTI port <code>0x52</code></a></td><td>Historical charge-pump timer claim; physical behavior remains unverified</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:5A">WikiTI port <code>0x5A</code></a></td><td>Historical presentation-mirroring description, treated as an unverified physical claim beyond the ROM-visible setup sequence</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:50E9&amp;oldid=5510">WikiTI <code>_KeyboardGetKey</code> revision 5510</a></td><td>Historical TI-Keyboard transmitter sequence, checked against but not substituted for ROM control flow</td></tr>
 </tbody>
