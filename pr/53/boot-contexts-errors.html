@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e2a33ae1.js";
+            window.path_to_searchindex_js = "searchindex-d86e60c3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -329,10 +329,12 @@ call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; res
 <li><strong>Flash write and erase.</strong> The retail boot table maps <code>_WriteFlash</code> (<code>80C9</code>) to <code>3F:4C8F</code>, <code>_WriteFlashUnsafe</code> (<code>8087</code>) to <code>3F:4CA6</code>, <code>_WriteAByte</code> (<code>8021</code>) to <code>3F:4C9F</code>, and <code>_EraseFlash</code> (<code>8024</code>) to <code>3F:4C2A</code>. Their program and erase loops are copied to <code>ramCode</code> at <code>0x8100</code>. A successful archive trace executes <code>archive_write_record</code> at <code>3D:64AA</code>, three <code>_WriteAByte</code> calls, and six entries through <code>_WriteFlashUnsafe</code>. See <a href="flash-memory.html">Flash memory</a>. [confirmed]</li>
 </ul>
 <p>The <code>JP 0x812C</code> target and the <code>ram:3EC1</code> init continuation are both present in
-the assembled database. The retail hardware work before the first keypad scan
-and the <strong>MODE</strong> RAM diagnostic are decoded in
-<a href="boot-hardware.html">Retail boot hardware initialization</a>. The LCD diagnostic
-from <code>3F:4658</code> and later recovery/UI paths remain open.</p>
+the assembled database. The retail hardware work before the first keypad scan,
+the <strong>MODE</strong> RAM diagnostic, and the dormant LCD/keypad diagnostic at <code>3F:4658</code>
+are decoded in
+<a href="boot-hardware.html#dormant-lcd-and-keypad-diagnostic">Retail boot hardware initialization</a>.
+The sole branch to <code>3F:4658</code> is constant-false; later recovery/UI paths remain
+open. [confirmed]</p>
 
                     </main>
 

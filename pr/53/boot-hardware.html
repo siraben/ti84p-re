@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e2a33ae1.js";
+            window.path_to_searchindex_js = "searchindex-d86e60c3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -185,7 +185,8 @@
 checks that both RAM windows are writable, programs the ASIC registers, and
 selects an OS or recovery path. This page follows the executed sequence from
 <code>3F:4000</code> through the first keypad scan at <code>3F:422D</code> and decodes the destructive
-RAM diagnostic at <code>3F:461A</code>.</p>
+RAM diagnostic at <code>3F:461A</code>. It also documents dormant LCD and keypad test code
+at <code>3F:4658</code>.</p>
 <h2 id="evidence-boundaries"><a class="header" href="#evidence-boundaries">Evidence boundaries</a></h2>
 <div class="table-wrapper">
 <table>
@@ -194,8 +195,9 @@ RAM diagnostic at <code>3F:461A</code>.</p>
 </thead>
 <tbody>
 <tr><td>OS 2.55MP page <code>3F</code> bytes</td><td>instructions, branch targets, port values, safety checks, OS-validity tests, and RAM-test pattern</td><td>[confirmed]</td></tr>
-<tr><td>Rebuilt Ghidra database</td><td>function boundaries and callers for the keypad, display, OS-validation, and recovery helpers</td><td>[confirmed]</td></tr>
+<tr><td>Rebuilt Ghidra database</td><td>function boundaries and cross-references for the keypad, display, OS-validation, and recovery helpers</td><td>[confirmed]</td></tr>
 <tr><td>Full-reset TilEm instruction trace</td><td>one executed no-key startup path, ordered I/O values, mapper state, register values, and emulator clocks</td><td>[confirmed] for that pinned emulator run</td></tr>
+<tr><td>Direct-entry Wabbitemu probe</td><td>actual page-<code>3F</code> LCD helpers executing after a retail boot baseline, plus controller-RAM and contrast effects</td><td>[confirmed] for that pinned emulator run; not evidence that retail control flow reaches <code>3F:4658</code></td></tr>
 <tr><td>Standard Z80 timing tables</td><td>instruction timing used for the reset-delay calculation</td><td>[standard]</td></tr>
 <tr><td>Public port descriptions and emulator implementations</td><td>proposed electrical roles for the bytes written to link-assist, GPIO, USB, and wait-state ports</td><td>[standard] or [hypothesis] as marked on the subsystem pages</td></tr>
 <tr><td>Physical reset measurements</td><td>oscillator startup, electrical register effects, and RAM power-on state</td><td>[hypothesis] until measured</td></tr>
@@ -350,8 +352,9 @@ remain subject to the evidence limits on
 <a href="keypad-on-hardware.html">Keypad and ON-key hardware</a> and
 <a href="clock-timers-power.html">Clock, timers, and power</a>.</p>
 <h2 id="destructive-ram-diagnostic"><a class="header" href="#destructive-ram-diagnostic">Destructive RAM diagnostic</a></h2>
-<p>The <strong>MODE</strong> path reaches a boot diagnostic that tests main RAM and banked RAM.
-The worker at <code>3F:461A</code> takes the start address in <code>DE</code>, computes length
+<p>The <strong>MODE</strong> path at <code>3F:427E</code> jumps to <code>3F:4504</code>. Its later RAM-test path calls
+the worker at <code>3F:461A</code> to test main RAM and banked RAM. [confirmed]</p>
+<p>The worker at <code>3F:461A</code> takes the start address in <code>DE</code>, computes length
 <code>0x10000 - DE</code>, writes a repeating byte pattern, rewinds, and verifies the same
 pattern. The pattern is <code>0x00</code>, <code>0x01</code>, …, <code>0xFA</code>, then repeats at <code>0x00</code>.
 [confirmed]</p>
@@ -359,10 +362,99 @@ pattern. The pattern is <code>0x00</code>, <code>0x01</code>, …, <code>0xFA</c
 clears port <code>0x27</code> and tests RAM pages selected by port <code>0x05 = 2</code> through <code>7</code>,
 each from <code>0xC000</code>–<code>0xFFFF</code>. A mismatch clears port <code>0x05</code>, selects the error
 text at <code>3F:4800</code>, and jumps to the diagnostic display path. A successful pass
-calls the repeated key reader at <code>3F:6569</code> before returning. [confirmed]</p>
+calls the raw key reader at <code>3F:6569</code> before returning. A zero scan continues
+the RAM-page loop. A nonzero scan aborts it through <code>3F:460F</code>. [confirmed]</p>
 <p>This test overwrites every byte in each range and leaves the test pattern in
 place. It is suitable only for the boot diagnostic path, not for checking RAM
 that contains live state. [confirmed]</p>
+<h2 id="dormant-lcd-and-keypad-diagnostic"><a class="header" href="#dormant-lcd-and-keypad-diagnostic">Dormant LCD and keypad diagnostic</a></h2>
+<p>The retail ROM contains a complete LCD pattern, contrast, and keypad test at
+<code>3F:4658</code>, but the branch into it is constant-false. Ghidra finds one
+cross-reference to <code>3F:4658</code>, from <code>3F:4615</code>. The complete predecessor is:
+[confirmed]</p>
+<pre><code class="language-z80">3F:4610  xor a
+3F:4611  out (0x05),a
+3F:4613  cp 0x09
+3F:4615  jr z,3F:4658
+3F:4617  jp 3F:4510
+</code></pre>
+<p><code>OUT</code> preserves <code>A</code>. The <code>XOR A</code> therefore makes <code>CP 0x09</code> nonzero, and the
+conditional branch cannot be taken under Z80 semantics. A key read performed
+by the RAM worker can reach <code>3F:4610</code>, but <code>XOR A</code> discards that scan code
+before the compare. <strong>MODE</strong> can reach the RAM diagnostic; it does not make
+the LCD/keypad diagnostic reachable. [confirmed]</p>
+<p>The remaining subsections describe the dormant bytes. Dynamic results use an
+explicit RAM-harness entry and do not represent ordinary boot behavior.</p>
+<h3 id="lcd-pattern-helpers"><a class="header" href="#lcd-pattern-helpers">LCD pattern helpers</a></h3>
+<p>The helper at <code>3F:46EF</code> takes alternating row bytes in <code>D</code> and <code>E</code>. It selects
+row command <code>0x80</code> and each visible byte-column command from <code>0x20</code> through
+<code>0x2B</code>, then writes 64 data bytes per column. One call emits 24 command writes
+and 768 data writes. [confirmed]</p>
+<p>The helper at <code>3F:472E</code> takes a row command in <code>B</code> and a data byte in <code>D</code>. It
+writes the value once in each of the 12 visible byte columns. One call emits
+24 command writes and 12 data writes. [confirmed]</p>
+<p>The diagnostic presents these six screens: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Order</th><th>Visible screen</th><th>Construction</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right">1</td><td><code>0x81</code> in every visible byte, with rows 0 and 63 set to <code>0xFF</code></td><td>one <code>3F:46EF</code> fill plus two <code>3F:472E</code> rows</td></tr>
+<tr><td style="text-align: right">2</td><td>all <code>0xFF</code></td><td>equal-byte fill</td></tr>
+<tr><td style="text-align: right">3</td><td>all <code>0x00</code></td><td>equal-byte fill</td></tr>
+<tr><td style="text-align: right">4</td><td>alternating <code>0x55</code> and <code>0xAA</code> rows</td><td>alternating-byte fill</td></tr>
+<tr><td style="text-align: right">5</td><td>alternating <code>0x00</code> and <code>0xFF</code> rows</td><td>alternating-byte fill</td></tr>
+<tr><td style="text-align: right">6</td><td>all <code>0xAA</code></td><td>equal-byte fill</td></tr>
+</tbody>
+</table>
+</div>
+<p>The six stages emit 192 command writes and 4,632 data writes. After each stage,
+<code>3F:471A</code> selects CPU-speed value <code>0</code>, polls <code>3F:6569</code> until a key appears,
+restores CPU-speed value <code>1</code>, and returns Z for scan code <code>0x09</code> (<strong>ENTER</strong>).
+<strong>ENTER</strong> skips the remaining screen or contrast stages and advances to the
+keypad test. Other nonzero scan codes advance one stage. [confirmed]</p>
+<h3 id="contrast-sweep"><a class="header" href="#contrast-sweep">Contrast sweep</a></h3>
+<p>The contrast loop passes values <code>0x27</code> down through <code>0x01</code> to <code>3F:74F8</code>.
+That helper adds <code>0x18</code>, forces bits 7–6, waits for the LCD, and writes the
+result to port <code>0x10</code>. The emitted commands descend from <code>0xFF</code> through
+<code>0xD9</code>, covering controller contrast arguments 63 through 25 in 39
+key-advanced steps. [confirmed]</p>
+<p>Toshiba defines the larger T6K04 argument as darker. This direction comes from
+the controller data sheet, not from the ROM arithmetic. [standard] The routine
+clears the LCD after the sweep and calls <code>3F:74F5</code> to restore the contrast
+stored at <code>0x8447</code>. [confirmed]</p>
+<h3 id="keypad-sequence"><a class="header" href="#keypad-sequence">Keypad sequence</a></h3>
+<p>The table at <code>3F:478D</code> contains 49 two-byte entries. Each pair holds an expected
+scan code and a decimal position label. <code>3F:73A2</code> converts the label for
+display. The labels cover <code>11</code>–<code>15</code>, <code>21</code>–<code>26</code>, <code>31</code>–<code>34</code>, the five-entry rows
+<code>41</code>–<code>45</code> through <code>91</code>–<code>95</code>, and <code>102</code>–<code>105</code>. The first entry expects <strong>Y=</strong>
+(<code>0x35</code>) at position <code>11</code>; the final entry expects <strong>ENTER</strong> (<code>0x09</code>) at
+position <code>105</code>. All 49 scan codes are unique. [confirmed]</p>
+<p>For each entry, the loop ignores wrong keys and continues polling. <strong>ENTER</strong>
+aborts unless it is the final expected key. Successful completion clears the
+LCD, displays <code>OK</code> from <code>3F:4807</code>, waits for a non-<strong>MODE</strong> key, then jumps to
+<code>3F:424B</code>. [confirmed]</p>
+<h3 id="direct-entry-emulator-validation"><a class="header" href="#direct-entry-emulator-validation">Direct-entry emulator validation</a></h3>
+<p>The guarded Wabbitemu probe boots until the retail protection bounds are
+established, maps page <code>3F</code>, and injects a 30-byte RAM harness. The harness
+calls the actual ROM helpers at <code>3F:74C6</code>, <code>3F:46EF</code>, <code>3F:472E</code>, and <code>3F:74F8</code>.
+It does not patch the constant-false branch. [confirmed] for the harness and
+pinned emulator run.</p>
+<p>The native run executes 8,040 probe instructions and retains only helper-visit
+counters, transfer counts, two visible-screen hashes, boundary cells, and the
+final contrast field. It observes: [confirmed] for pinned Wabbitemu commit
+<code>48c2dc0</code>.</p>
+<ul>
+<li><code>3F:74C6</code> emits seven commands and falls through <code>3F:74F5</code> into <code>3F:74F8</code>;</li>
+<li><code>3F:46EF</code> emits 24 command and 768 data writes for alternating <code>0x55</code>/<code>0xAA</code> rows;</li>
+<li><code>3F:472E</code> emits 24 command and 12 data writes, changing all 12 bytes of row 63 to <code>0xFF</code>;</li>
+<li>an explicit <code>A = 0x27</code> call to <code>3F:74F8</code> emits <code>0xFF</code>, which Wabbitemu stores as its adjusted contrast level 39.</li>
+</ul>
+<p>These observations validate retail-ROM execution against Wabbitemu’s
+controller model. They do not establish normal boot execution, analog
+contrast, controller timing, or panel appearance. Physical behavior remains
+unmeasured. [hypothesis]</p>
 <h2 id="reproducing-the-checks"><a class="header" href="#reproducing-the-checks">Reproducing the checks</a></h2>
 <p><code>tools/boot_hardware.py</code> contains the timing arithmetic, ordered write
 manifest, exact Flash-gate wrapper classifier, and RAM-test pattern model.
@@ -372,6 +464,7 @@ python tools/describe_boot_hardware.py --json manifest
 python tools/describe_boot_hardware.py protected-writes
 python tools/describe_boot_hardware.py trace /path/to/full-reset.trace
 python tools/describe_boot_hardware.py ram-pattern 0x200
+python tools/describe_boot_hardware.py --json lcd-diagnostic
 </code></pre>
 <p>The trace analyzer reads binary TLMT records in one streaming pass, retains
 only counters and the 35 selected output events, and stops after the final
@@ -381,6 +474,13 @@ snapshot for every executed instruction. [confirmed]</p>
 <code>3F:4002</code> through <code>3F:422B</code>, including the call to <code>3F:6278</code>. The trace starts
 at logical <code>0x8000</code> under the TI-84 Plus reset mapping and resolves every
 banked instruction in this interval. [confirmed] for the pinned emulator run.</p>
+<p><code>tools/run_wabbitemu_lcd_diagnostic_probe.py</code> builds a hash-bearing evidence
+manifest for the explicit helper calls. It requires the pinned native runner
+and exact OS 2.55MP ROM:</p>
+<pre><code class="language-sh">python tools/run_wabbitemu_lcd_diagnostic_probe.py \
+  --binary /path/to/wabbitemu-headless \
+  --output-dir /tmp/ti84-lcd-diagnostic --json
+</code></pre>
 <h2 id="remaining-physical-tests"><a class="header" href="#remaining-physical-tests">Remaining physical tests</a></h2>
 <ul>
 <li>Measure the time from reset assertion to <code>3F:413F</code> on calculators with known
@@ -391,6 +491,8 @@ transient and whether an interrupted complement test can leave RAM changed.</li>
 of inferring electrical behavior from public names or emulator fields.</li>
 <li>Record cold-start RAM contents before the boot wrapper probes <code>0x8000</code> and
 <code>0xC000</code>.</li>
+<li>Enter the dormant LCD helper sequence on identified physical controller
+revisions and capture port timing, contrast voltage, and panel output.</li>
 </ul>
 <p>These measurements remain [hypothesis].</p>
 
