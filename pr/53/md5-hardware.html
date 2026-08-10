@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b3523f8b.js";
+            window.path_to_searchindex_js = "searchindex-58d9a435.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -191,7 +191,7 @@
 </thead>
 <tbody>
 <tr><td>Retail boot ROM</td><td><code>3F:68ED</code>–<code>3F:6BF5</code> and <code>3F:723F</code>–<code>3F:72EA</code></td><td>bcall ABI, buffers, descriptor format, exact port order, padding, length accounting, and hash transformation [confirmed]</td></tr>
-<tr><td>Dynamic execution</td><td><code>tools/tibasic-samples/MD5TEST.8xp</code>, a complete resolved TilEm trace, and guarded Wabbitemu and MAME probes</td><td>64 valid operations for <code>MD5("abc")</code>, Wabbitemu’s edge semantics, and MAME’s live unmapped-port behavior [confirmed]</td></tr>
+<tr><td>Dynamic execution</td><td><code>tools/tibasic-samples/MD5TEST.8xp</code>, a complete resolved TilEm trace, and guarded TilEm, Wabbitemu, and MAME probes</td><td>64 valid operations for <code>MD5("abc")</code>, implementing-emulator edge semantics, and MAME’s live unmapped-port behavior [confirmed]</td></tr>
 <tr><td>Independent calculation</td><td><code>tools/md5_hardware.py</code></td><td>every recorded result agrees with the 32-bit operation derived from the ROM and RFC 1321 [confirmed]</td></tr>
 <tr><td>Public hardware notes</td><td>WikiTI port <code>0x18</code> and MD5 bcall pages</td><td>historical port and ABI descriptions checked against the local ROM [standard]</td></tr>
 <tr><td>Emulator models</td><td>TilEm <code>f56ad63</code>, Wabbitemu <code>48c2dc0</code>, and MAME 0.287</td><td>shift-register policy, masking, reset policy, implemented undefined reads, and MAME’s missing port block [standard]</td></tr>
@@ -248,10 +248,10 @@ $$</p>
 </code></pre>
 <p>Four writes <code>b0</code>, <code>b1</code>, <code>b2</code>, <code>b3</code> therefore leave <code>r = b0 + 2^8 b1 + 2^16 b2 + 2^24 b3</code>. A fifth write discards the oldest low byte in both emulators. Physical behavior after fewer or more than four writes has not been measured. [standard] for emulator behavior; [hypothesis] for the physical sliding-register implementation.</p>
 <p>TilEm and Wabbitemu also mask a write to <code>0x1E</code> with <code>0x1F</code> and a write to <code>0x1F</code> with <code>0x03</code>. Both return zero for reads from <code>0x18</code>–<code>0x1B</code>. The ROM uses only valid rotate counts and modes and never reads those four ports, so the local image cannot verify the masks or zero values. [standard]</p>
-<p>A guarded native run exercises these edge cases through Wabbitemu’s
-<code>device_output</code> and <code>device_input</code> entry points. The adapter initializes the
-TI-84 Plus core with the exact OS 2.55MP image but does not execute the retail
-MD5 routine. [confirmed] for the pinned Wabbitemu run.</p>
+<p>Guarded native TilEm and Wabbitemu runs exercise these edge cases through their
+initialized-core port handlers. Neither adapter executes the retail MD5
+routine. The Wabbitemu adapter initializes its core with the exact OS 2.55MP
+image; the TilEm adapter does not load a ROM. [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -270,11 +270,27 @@ MD5 routine. [confirmed] for the pinned Wabbitemu run.</p>
 </table>
 </div>
 <p>The mixed result retains the old low byte <code>B4</code> read from port <code>0x1C</code>, then
-uses the new high bytes <code>97 3F 34</code> from ports <code>0x1D</code>–<code>0x1F</code>. This directly
-exercises Wabbitemu’s read-time recalculation. The direct port calls add zero
-T-states, so the run provides no timing evidence. The native binary SHA-256 is
+uses the new high bytes <code>97 3F 34</code> from ports <code>0x1D</code>–<code>0x1F</code>. Both runs
+therefore exercise read-time recalculation. Direct port calls add zero modeled
+CPU clocks in both implementations. [standard]</p>
+<p><strong>Native TilEm confirmation.</strong> The TilEm run also reads the stored control
+fields as shift 31 and mode 3 after raw <code>0xFF</code> writes. A seeded calculator
+reset clears all six operands, both controls, and the resulting word. Two
+isolated builds produce binary SHA-256
+<code>b461e9720e0c304b26ab95ca814943eddfba670dd7bd1e41b48d53a0f8c689c5</code>.
+Their canonical native JSON has SHA-256
+<code>97921226800da92b585b6d16a390355c157bf9aa5976fe47d183e87bbcbad1b8</code>.
+[standard]</p>
+<p>TilEm computes a zero-count rotation as
+<code>(result &lt;&lt; s) | (result &gt;&gt; (32 - s))</code>. With <code>s = 0</code>, the second operand shifts
+a 32-bit value by 32, which C99 leaves undefined. The locked GCC build produces
+the one-, three-, four-, and five-write results in the table. That observation
+is a property of this binary, not a portable result guaranteed by TilEm’s C
+source. [standard]</p>
+<p><strong>Native Wabbitemu confirmation.</strong> The Wabbitemu binary SHA-256 is
 <code>e5c64ec8630b0eaa9d42632ae8f559440678a567c00d0d1ce903fc99815afe81</code>.
-[confirmed] for the pinned Wabbitemu run.</p>
+Its initialized-core report matches every table row and advances zero
+T-states. [confirmed] for the pinned Wabbitemu run.</p>
 <p>MAME’s TI-84 Plus I/O map has no handlers for ports <code>0x18</code>–<code>0x1F</code>.
 The ROM transaction therefore reaches unmapped I/O instead of an MD5 assist
 block. MAME cannot execute the valid hardware-assisted compression path.
@@ -550,7 +566,7 @@ MD5Buffer+2… = digest bytes, low byte first
 <li>reads from <code>0x18</code>–<code>0x1B</code> returning zero;</li>
 <li>immediate calculation with no busy state or modeled latency.</li>
 </ul>
-<p>TilEm explicitly clears all six operands, the rotate count, and the mode on calculator reset. Its save-state format serializes every field. Wabbitemu also serializes these fields, but the local ROM writes them all before use. [standard]</p>
+<p>TilEm explicitly clears all six operands, the rotate count, and the mode on calculator reset. Its save-state format serializes every field. The guarded direct-core run reproduces the complete reset clearing. Wabbitemu also serializes these fields, but the local ROM writes them all before use. [standard]</p>
 <p>Agreement between two emulators is useful corroboration, not independent physical measurement. Both projects may derive edge behavior from the same public notes. The dynamic trace proves that TilEm handles the ROM’s valid transaction correctly and produces the standard digest. It does not prove invalid-write behavior on a TA2 or TA3 ASIC. [confirmed] for the exercised path; [hypothesis] for unmeasured hardware edges.</p>
 <p>MAME’s source map and guarded runtime agree that the driver omits the block.
 The runtime’s all-zero reads explain why a valid assist transaction yields
@@ -558,10 +574,11 @@ zero there. This evidence applies only to MAME 0.287. It does not weaken the
 ROM trace or imply that a physical TI-84 Plus lacks the accelerator.
 [confirmed] for the guarded MAME run; [standard] for the driver source.</p>
 <h2 id="reusable-implementation-model"><a class="header" href="#reusable-implementation-model">Reusable implementation model</a></h2>
-<p><code>tools/md5_hardware.py</code> now separates the independent arithmetic and trace
-decoder from pinned emulator I/O profiles. <code>Md5AssistImplementation</code> models
-the six sliding registers, control masks, read-time recalculation, undefined
-operand reads, and unmapped MAME writes. [standard]</p>
+<p><code>tools/md5_hardware.py</code> separates the independent arithmetic and trace decoder
+from pinned emulator I/O profiles. Its shared edge-case oracle derives both
+implementing-emulator reports. <code>Md5AssistImplementation</code> models the six
+sliding registers, control masks, read-time recalculation, undefined operand
+reads, and unmapped MAME writes. [standard]</p>
 <p>The comparison CLI defaults to the first compression step for <code>"abc"</code> and
 accepts replacement operands, mode, and rotate count. Its JSON report keeps
 unmapped ports distinct from a numeric read value:</p>
@@ -574,6 +591,26 @@ nix develop -c python tools/describe_md5_hardware.py \
 reports all eight ports as unmapped rather than assigning a portable open-bus
 byte. <code>tools/mame_md5.py</code> separately parses and validates MAME 0.287’s observed
 zero reads against the pinned I/O map and the independent arithmetic model.</p>
+<p>The guarded TilEm CLI validates the exact source commit, Git tree, and native
+binary. It records the shared edge matrix, reset state, modeled clock delta,
+compiler-specific binary identity, and physical-scope exclusion:</p>
+<pre><code class="language-sh">tilem_md5_tmp=$(mktemp -d /tmp/ti84-tilem-md5.XXXXXX)
+git clone https://github.com/debrouxl/tilem.git "$tilem_md5_tmp/tilem"
+git -C "$tilem_md5_tmp/tilem" checkout \
+  f56ad637d0524ee841dd381be6ecbaf5b8975600
+nix shell \
+  github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
+  --command python tools/build_tilem_md5_probe.py \
+  --source "$tilem_md5_tmp/tilem" \
+  --output "$tilem_md5_tmp/tilem-md5-probe" --json
+
+tilem_md5_parent=$(mktemp -d /tmp/ti84-tilem-md5-report.XXXXXX)
+python tools/run_tilem_md5_probe.py \
+  --binary "$tilem_md5_tmp/tilem-md5-probe" \
+  --expected-binary-sha256 \
+    b461e9720e0c304b26ab95ca814943eddfba670dd7bd1e41b48d53a0f8c689c5 \
+  --output-dir "$tilem_md5_parent/run" --json
+</code></pre>
 <p>The guarded CLI requires the exact MAME executable hash and OS 2.55MP image.
 It retains the native output, error log, input identities, and parsed report:</p>
 <pre><code class="language-sh">mame_md5_parent=$(mktemp -d /tmp/ti84-mame-md5.XXXXXX)
