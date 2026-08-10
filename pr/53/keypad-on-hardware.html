@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c36ec41e.js";
+            window.path_to_searchindex_js = "searchindex-a0faaee4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -588,6 +588,12 @@ clk=93378899  ram:0493  OUT (0x01) &lt;- 0xff
 </tbody>
 </table>
 </div>
+<p>The guarded TilEm direct-core interrupt probe begins with ON masked. Press,
+enable while held, release, acknowledge, press, acknowledge while held,
+release, disable, and press while disabled produce port-<code>0x04</code> values <code>00</code>,
+<code>00</code>, <code>09</code>, <code>08</code>, <code>01</code>, <code>00</code>, <code>09</code>, <code>08</code>, and <code>00</code>. This confirms both-edge
+latching in TilEm without executing the ROM. It does not establish the
+physical ASIC edge policy. [standard]</p>
 <p>TilEm begins with the union of selected rows, then repeatedly adds every row intersecting the current closed-bit set. It therefore propagates through an arbitrarily long chain of row intersections. It stores eight row bytes, including the physically unwired eighth row, and uses the OS-compatible matrix-position numbers for ordinary keys. Its injected identifier <code>0x29</code> represents the separate <strong>ON</strong> key rather than a port-<code>0x01</code> position. [standard]</p>
 <p>Wabbitemu first constructs a result for each row by unioning that row with every row that directly intersects it. It does not iterate the result, so a three-row chain can stop after the second row where TilEm reaches the third. It considers rows 0–6 and ignores row 7. ON press detection compares the current state with a saved state when the standard-interrupt model runs; release updates the saved state without latching a request. [standard]</p>
 <p><strong>Native Wabbitemu confirmation.</strong> The guarded initialized-core probe reads <code>0xFE</code> for one key, <code>0xFE</code> for two same-column keys in selected rows 0 and 1, and <code>0xFC</code> for the three-key rectangle. The five-key transitive chain also reads <code>0xFC</code>, while the iterated TilEm model predicts <code>0xF8</code>. Selecting row 7 with one injected key reads <code>0xFF</code>. [standard]</p>

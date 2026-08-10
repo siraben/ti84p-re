@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c36ec41e.js";
+            window.path_to_searchindex_js = "searchindex-a0faaee4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -194,6 +194,7 @@
 <tr><td>WikiTI ports <code>0x03</code> and <code>0x04</code></td><td>Bit-level enable, status, clear-on-zero, timer-rate, mapping, battery-selector, and low-power contract</td><td>[standard]</td></tr>
 <tr><td>TilEm commit <code>f56ad63</code> and Wabbitemu commit <code>48c2dc0</code></td><td>Two executable interpretations of the registers and their fidelity gaps</td><td>[standard]</td></tr>
 <tr><td>MAME 0.287 <code>ti84pv3</code> driver and Lua I/O trace</td><td>Third implementation, headless ON-wake execution, and explicit <code>MACHINE_NOT_WORKING</code> gaps</td><td>[standard]</td></tr>
+<tr><td>Guarded TilEm direct-core interrupt probe</td><td>Stored-mask readback, internal policy, acknowledgement, ON/link edges, timer callbacks, and reset ordering</td><td>[standard]</td></tr>
 <tr><td>Guarded Wabbitemu interrupt edge probe</td><td>Initialized-core mask, timer, acknowledgement, completion, and low-power transitions</td><td>[standard]</td></tr>
 <tr><td>Guarded MAME legacy-interrupt probe</td><td>CPU-I/O-space status, mask, ON-edge, fixed-timer, and soft-reset observations</td><td>[standard]</td></tr>
 </tbody>
@@ -419,6 +420,52 @@ MAME_IO frame=31 pc_after=0977 IN (0x04) -&gt; 0x01
 </table>
 </div>
 <p>Wabbitemu’s source comments state uncertainty about its standard-interrupt write behavior. Its model is useful as an independent implementation comparison, but disagreement must remain explicit. [standard]</p>
+<h3 id="native-tilem-interrupt-edges"><a class="header" href="#native-tilem-interrupt-edges">Native TilEm interrupt edges</a></h3>
+<p>A guarded direct-core run compiles the complete TilEm tree at commit
+<code>f56ad637d0524ee841dd381be6ecbaf5b8975600</code>. It calls the registered x4 port
+handlers and timer callbacks, plus the public keypad, link, timer, and reset
+functions. It does not execute the ROM. [standard]</p>
+<p>Port <code>0x03</code> stores all eight written bits. Writes <code>00</code>, <code>01</code>, <code>02</code>, <code>04</code>, <code>08</code>,
+<code>10</code>, and <code>FF</code> produce identical readback. The same writes select internal ON,
+power-on-HALT, and link enables from bits 0, 3, and 4. Either standard-timer bit
+clears TilEm’s <code>NO_HALT_INT</code> flag on all three programmable timers; both bits
+clear set that flag. All three timer flags agree in every case. [standard]</p>
+<p>The probe seeds all four legacy latches, all three programmable completion
+flags, and all three programmable CPU requests. Applying the seven values
+above through port <code>0x03</code> produces status <code>E8 E9 EA EC E8 F8 FF</code>. Applying
+them through port <code>0x02</code> produces the same sequence. Both paths leave the
+three programmable requests at internal mask <code>0x38</code>, and port <code>0x03</code> leaves
+completion bits 5–7 visible. This directly checks TilEm’s two clear-on-zero
+implementations. [standard]</p>
+<p>The ON sequence produces <code>00 00 09 08 01 00 09 08 00</code>: masked press, enable
+while held, release, acknowledge released, press, acknowledge held, release,
+disable, and press while disabled. TilEm therefore latches both enabled
+transitions. Timer callbacks with both masks clear remain at <code>08</code>. With both
+enabled, timer 1, either timer-2 callback, and both sources produce <code>0A</code>,
+<code>0C</code>, <code>0C</code>, and <code>0E</code>. [standard]</p>
+<p>Reset schedules timer 1, timer 2A, and timer 2B at initial delays 1,600,
+1,300, and 1,000 µs with 9,277 µs periods. Port-<code>0x04</code> writes select periods
+<code>1953</code>, <code>4395</code>, <code>6836</code>, and <code>9277</code> µs for all three without changing the
+current interval. An enabled external link-line transition sets status <code>18</code>;
+either acknowledgement path clears it to <code>08</code>, and a disabled transition does
+not latch. [standard]</p>
+<p>With the CPU halted and both standard timers disabled, programmable-timer-1
+expiry leaves completion status <code>0x28</code> but no CPU request. Enabling either
+standard timer clears the gate and produces internal request <code>0x08</code>; a running
+CPU also receives the request when both standard timers are disabled. This is
+TilEm’s policy, not a physical wake measurement. [standard]</p>
+<p>TilEm reset writes stored port <code>0x03 = 0x0B</code> directly after the generic keypad
+reset clears the internal ON enable. A fresh core therefore reads <code>0x0B</code> while
+the internal ON enable is zero. Reset also retains <code>poweronhalt</code>; after the
+probe first clears it, reset again reads <code>0x0B</code> while the retained power field
+is zero. Writing <code>0x0B</code> through the port handler synchronizes both fields to
+one. This inconsistency affects experiments that begin at initialized-core
+reset without executing the ROM’s first mask write. [standard]</p>
+<p>Two isolated executions produce identical canonical native JSON with SHA-256
+<code>1c1209e9c3f625b07c42288c21e9a5dbadddb38f12aee995c1fbc8daf1f8e8ad</code>.
+The binary SHA-256 is
+<code>23037df0fee48b3ec15656aae80b6181d97211e8eec325c2be81eef02b1ff840</code>.
+[standard]</p>
 <h3 id="native-wabbitemu-interrupt-edges"><a class="header" href="#native-wabbitemu-interrupt-edges">Native Wabbitemu interrupt edges</a></h3>
 <p>A guarded initialized-core run checks the source model through the registered
 port handlers. Port <code>0x03</code> resets to <code>0x00</code> and stores all eight bits of
@@ -504,7 +551,7 @@ runs produce identical canonical parsed native JSON with SHA-256
 <h2 id="reusable-debugging-tools"><a class="header" href="#reusable-debugging-tools">Reusable debugging tools</a></h2>
 <p><code>tools/interrupt_controller.py</code> provides typed decoders, exact timer periods,
 clear-on-zero acknowledgement, ROM status-test order, USB active-low decoding,
-and an immutable MAME legacy-interrupt state model.
+and immutable TilEm and MAME legacy-interrupt state models.
 <code>tools/describe_interrupt_controller.py</code> exposes focused CLI commands:
 [confirmed] for the ROM/public decoders; [standard] for the emulator model.</p>
 <pre><code class="language-sh">nix develop -c python tools/describe_interrupt_controller.py mask 0x0B
@@ -527,6 +574,11 @@ python tools/run_wabbitemu_interrupt_edge_probe.py \
 </code></pre>
 <p>The ROM is only a core-initialization fixture in this mode. No TI-OS
 instruction executes.</p>
+<p><code>tools/tilem_interrupt.py</code> supplies the typed direct-core report and checks it
+against the reusable TilEm state model. The guarded builder requires the exact
+clean source commit and tree. The runner requires the binary SHA-256 and
+refuses to reuse an output directory. The “Legacy interrupt matrix” section in
+<code>tools/dynamic-tracing.md</code> contains the reproduction commands.</p>
 <p><code>tools/mame_interrupt.py</code> parses the complete MAME report and checks it against
 the reusable state model. Its guarded CLI records the exact MAME, ROM, Lua,
 logs, and evidence scope:</p>
@@ -549,6 +601,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_interrupt_probe.py \
 <li>[confirmed] The OS acknowledgement sequence is <code>0x08</code> → handler-supplied byte → <code>0x0B</code> or <code>0x0F</code>.</li>
 <li>[confirmed] Shutdown writes <code>0x11</code> and executes <code>HALT</code>; the trace wakes through port-<code>0x04</code> value <code>0x01</code> after an ON press.</li>
 <li>[standard] Programmable completion bits remain observable independently of their interrupt-mode bits.</li>
+<li>[standard] The guarded TilEm run verifies stored mask readback, both clear-on-zero paths, ON press and release latches, both timer-2 callbacks, link transitions, programmable-timer HALT gating, and the reset readback/internal-policy mismatch.</li>
 <li>[standard] The guarded Wabbitemu run verifies complete mask readback, ON clearing, strict standard-timer expiry, both standard-timer acknowledgement paths, programmable completion readback, and its LCD-based low-power approximation.</li>
 <li>[standard] The guarded Wabbitemu USB run verifies its active-low line/protocol summary, mask-independent line event, and repeat-event path. It does not verify the ROM dispatcher or physical USB interrupt behavior.</li>
 <li>[standard] The guarded MAME run verifies shared status reads, three-bit mask behavior, direct port-<code>0x02</code> status injection, press-only ON sampling, both standard-timer pending bits within scheduled frames, and interrupt-field retention across soft reset.</li>
@@ -563,7 +616,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_interrupt_probe.py \
 <tbody>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:03">WikiTI port <code>0x03</code></a></td><td>enable mask, clear-on-zero acknowledgement, normal value, and low-power-on-<code>HALT</code> contract</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:04">WikiTI port <code>0x04</code></a></td><td>read-status fields, write controls, timer formula, and programmable completion distinction</td></tr>
-<tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a> and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/timers.c"><code>timers.c</code></a></td><td>legacy latches, mask handling, timer completion, <code>HALT</code> policy, and disconnected USB values</td></tr>
+<tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c"><code>x4_init.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/keypad.c"><code>keypad.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/link.c"><code>link.c</code></a>, and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/timers.c"><code>timers.c</code></a></td><td>legacy latches, reset ordering, ON/link edges, timer completion, <code>HALT</code> policy, and disconnected USB values</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code></a></td><td>independent standard-interrupt, mapping, ON, timer, and low-power implementation</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>TI-84 Plus machine status, I/O map, interrupt masks, standard timers, programmable timers, and fixed USB reads</td></tr>
 <tr><td>Local OS 2.55MP page-0 bytes</td><td>entry, gates, test order, handlers, acknowledgement, and exit</td></tr>

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c36ec41e.js";
+            window.path_to_searchindex_js = "searchindex-a0faaee4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -296,6 +296,13 @@ through the registered port handler. These values describe Wabbitemu only.
 <h3 id="dynamic-cadence"><a class="header" href="#dynamic-cadence">Dynamic cadence</a></h3>
 <p>A resolved TilEm trace enters <code>ram:0167</code> at steady intervals of 139,153–139,157 emulated CPU cycles after the OS reaches its 15 MHz state. TilEm schedules this timer at 9,277 µs, so its nominal interval is 139,155 cycles. Instruction-boundary acceptance accounts for the small spread. [confirmed]</p>
 <p>The hardware formula gives 9,277.34375 µs, or 139,160.15625 nominal 15 MHz cycles. TilEm rounds each rate to whole microseconds with the table <code>{1953, 4395, 6836, 9277}</code>. The five-cycle difference at the slow setting is emulator quantization, not evidence that the quartz formula differs. [standard]</p>
+<p>A guarded direct-core probe confirms the table through port-<code>0x04</code> writes.
+Each selection applies the same period to timer 1 and both timer-2 callbacks.
+The initial intervals remain 1,600, 1,300, and 1,000 µs across those writes,
+matching TilEm’s <code>tilem_z80_set_timer_period</code> contract. Direct callbacks with
+port-<code>0x03</code> mask <code>0x06</code> produce status <code>0x0A</code> for timer 1 and <code>0x0C</code> for
+either timer-2 callback. These are scheduler observations from pinned TilEm,
+not physical phase or frequency measurements. [standard]</p>
 <h2 id="kernel-tick-consumers"><a class="header" href="#kernel-tick-consumers">Kernel-tick consumers</a></h2>
 <p><code>standard_timer1_irq</code> at <code>ram:0167</code> performs the periodic kernel work below before returning through the common interrupt acknowledge path. [confirmed]</p>
 <div class="table-wrapper">
@@ -562,6 +569,12 @@ nix develop -c python tools/tilem_trace_resolve.py \
 </div>
 <h3 id="tilem-timer-and-rtc-policy"><a class="header" href="#tilem-timer-and-rtc-policy">TilEm timer and RTC policy</a></h3>
 <p>TilEm reproduces the paths used by this OS, but several model choices matter for timing experiments. [standard]</p>
+<p>Port-<code>0x03</code> bits 1 and 2 jointly control TilEm’s programmable-timer
+<code>NO_HALT_INT</code> flag. With both bits clear, a halted CPU receives no programmable
+request even though port-<code>0x04</code> exposes completion. Either bit set removes the
+gate for all three timers. A running CPU receives the request in either state.
+The guarded interrupt probe exercises all three cases through the direct timer
+callback. [standard]</p>
 <ul>
 <li>Standard-timer periods are rounded to whole microseconds: <code>{1953, 4395, 6836, 9277}</code>.</li>
 <li>Crystal-family programmable timers use the documented divisor table. CPU-family duration is measured in Z80 clocks and follows the speed selected at port <code>0x20</code>.</li>
@@ -614,7 +627,7 @@ both masks: clearing their pending fields after reset allows both to regenerate
 status <code>0x0E</code> during the next frame. These are MAME scheduler and reset results,
 not physical timer periods or retention. [standard]</p>
 <h2 id="reusable-timer-tools"><a class="header" href="#reusable-timer-tools">Reusable timer tools</a></h2>
-<p><code>tools/timer_hardware.py</code> exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM’s radix-255 chunks, and RTC implementation profiles. <code>tools/describe_timer_hardware.py</code> is a JSON-capable front end. The Wabbitemu and MAME report oracles validate native observations against that reusable source model. <code>tools/mame_interrupt.py</code> adds fixed standard-timer and reset-retention observations through the immutable MAME state in <code>tools/interrupt_controller.py</code>. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-<code>0x2D</code> implementation edges use <code>tools/wabbitemu_speed_probe.py</code> and its guarded CLI. These are emulator-comparison tools, not physical-hardware simulators.</p>
+<p><code>tools/timer_hardware.py</code> exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM’s radix-255 chunks, and RTC implementation profiles. <code>tools/describe_timer_hardware.py</code> is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models. <code>tools/tilem_interrupt.py</code> adds direct standard-timer scheduling and programmable-timer HALT-gate observations. <code>tools/mame_interrupt.py</code> adds fixed standard-timer and reset-retention observations through the immutable MAME state in <code>tools/interrupt_controller.py</code>. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-<code>0x2D</code> implementation edges use <code>tools/wabbitemu_speed_probe.py</code> and its guarded CLI. These are emulator-comparison tools, not physical-hardware simulators.</p>
 <pre><code class="language-sh">nix develop -c python tools/describe_timer_hardware.py \
   source 0x41 0x80 0xC0 --mode3-prescaler 4
 
@@ -649,6 +662,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 <li>[confirmed] Explicit power-off and APD share the low-power tail at <code>ram:0A24</code>.</li>
 <li>[standard] TilEm matches the published <code>33</code>/<code>328</code>/<code>3277</code> crystal divisors; pinned Wabbitemu and MAME sources use <code>32</code>/<code>327</code>/<code>3276</code>.</li>
 <li>[standard] TilEm, Wabbitemu, and MAME all omit the published port-<code>0x2F</code> prescaler from their <code>0xC0</code>-family timer models.</li>
+<li>[standard] A guarded TilEm run verifies its four whole-microsecond standard-timer periods, unchanged current intervals on rate writes, two timer-2 callbacks sharing one pending bit, and the three programmable-timer HALT-gate cases.</li>
 <li>[standard] A guarded initialized-core Wabbitemu run verifies single-step crystal catch-up, full CPU catch-up, first-underflow status bit 2, counter-zero completion, acknowledgement, HALT-line suppression with retained generation, and frozen disabled RTC reads.</li>
 <li>[standard] A guarded MAME run verifies fixed-crystal source-family collapse, its zero-delay first callback, idle counter zero, inverted mode-bit polarity, one-reload loop behavior, global completion clearing, source-off preservation, and unmapped auxiliary and RTC blocks.</li>
 <li>[standard] A separate guarded MAME run verifies both standard-timer pending bits, timer-1 status within one frame after port-<code>0x04</code> writes <code>0x00</code> and <code>0x06</code>, and retained legacy masks across soft reset.</li>
