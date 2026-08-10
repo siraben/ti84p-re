@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-58d9a435.js";
+            window.path_to_searchindex_js = "searchindex-54c86b77.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -2674,6 +2674,7 @@ payload; its BootFree guard otherwise leaves only diagnostic comments.
 <tr><td>TilEm commit <code>f56ad63</code> and Wabbitemu commit <code>48c2dc0</code></td><td>Two executable interpretations of the registers and their fidelity gaps</td><td>[standard]</td></tr>
 <tr><td>MAME 0.287 <code>ti84pv3</code> driver and Lua I/O trace</td><td>Third implementation, headless ON-wake execution, and explicit <code>MACHINE_NOT_WORKING</code> gaps</td><td>[standard]</td></tr>
 <tr><td>Guarded TilEm direct-core interrupt probe</td><td>Stored-mask readback, internal policy, acknowledgement, ON/link edges, timer callbacks, and reset ordering</td><td>[standard]</td></tr>
+<tr><td>Guarded TilEm direct-core link probe</td><td>Raw link-activity and assist idle, receive, and error interrupt transitions</td><td>[standard]</td></tr>
 <tr><td>Guarded Wabbitemu interrupt edge probe</td><td>Initialized-core mask, timer, acknowledgement, completion, and low-power transitions</td><td>[standard]</td></tr>
 <tr><td>Guarded MAME legacy-interrupt probe</td><td>CPU-I/O-space status, mask, ON-edge, fixed-timer, and soft-reset observations</td><td>[standard]</td></tr>
 </tbody>
@@ -2940,6 +2941,15 @@ probe first clears it, reset again reads <code>0x0B</code> while the retained po
 is zero. Writing <code>0x0B</code> through the port handler synchronizes both fields to
 one. This inconsistency affects experiments that begin at initialized-core
 reset without executing the ROM’s first mask write. [standard]</p>
+<p>A separate guarded link matrix checks the interrupt-facing parts of the same
+implementation while exercising complete raw and assist transactions. An
+enabled external peer-line transition asserts the raw link-activity request.
+Assist idle-ready reports <code>0x22</code>, receive-ready reports <code>0x31</code>, and both
+assert the CPU interrupt. Reading receive data changes status to <code>0x20</code>.
+Illegal both-low input reports <code>0x64</code>; its first status read clears the CPU
+request while retaining error status <code>0x60</code>. These are direct TilEm handler
+results, not physical interrupt-edge or acknowledgement measurements.
+[standard]</p>
 <p>Two isolated executions produce identical canonical native JSON with SHA-256
 <code>1c1209e9c3f625b07c42288c21e9a5dbadddb38f12aee995c1fbc8daf1f8e8ad</code>.
 The binary SHA-256 is
@@ -3058,6 +3068,10 @@ against the reusable TilEm state model. The guarded builder requires the exact
 clean source commit and tree. The runner requires the binary SHA-256 and
 refuses to reuse an output directory. The “Legacy interrupt matrix” section in
 <code>tools/dynamic-tracing.md</code> contains the reproduction commands.</p>
+<p><code>tools/tilem_link.py</code> checks the raw-activity and assist-interrupt transitions
+against the shared link model in <code>tools/link_port.py</code>. Its guarded builder and
+runner use the same clean-source and binary-hash requirements. The “Raw link
+and assist matrix” section in <code>tools/dynamic-tracing.md</code> contains the command.</p>
 <p><code>tools/mame_interrupt.py</code> parses the complete MAME report and checks it against
 the reusable state model. Its guarded CLI records the exact MAME, ROM, Lua,
 logs, and evidence scope:</p>
@@ -3081,6 +3095,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_interrupt_probe.py \
 <li>[confirmed] Shutdown writes <code>0x11</code> and executes <code>HALT</code>; the trace wakes through port-<code>0x04</code> value <code>0x01</code> after an ON press.</li>
 <li>[standard] Programmable completion bits remain observable independently of their interrupt-mode bits.</li>
 <li>[standard] The guarded TilEm run verifies stored mask readback, both clear-on-zero paths, ON press and release latches, both timer-2 callbacks, link transitions, programmable-timer HALT gating, and the reset readback/internal-policy mismatch.</li>
+<li>[standard] The guarded TilEm link run independently verifies raw activity, assist idle and receive requests, data acknowledgement, and interrupt-only acknowledgement of a retained error flag.</li>
 <li>[standard] The guarded Wabbitemu run verifies complete mask readback, ON clearing, strict standard-timer expiry, both standard-timer acknowledgement paths, programmable completion readback, and its LCD-based low-power approximation.</li>
 <li>[standard] The guarded Wabbitemu USB run verifies its active-low line/protocol summary, mask-independent line event, and repeat-event path. It does not verify the ROM dispatcher or physical USB interrupt behavior.</li>
 <li>[standard] The guarded MAME run verifies shared status reads, three-bit mask behavior, direct port-<code>0x02</code> status injection, press-only ON sampling, both standard-timer pending bits within scheduled frames, and interrupt-field retention across soft reset.</li>
@@ -13748,6 +13763,7 @@ above additionally require disassembly of their surrounding routines.</p>
 <tr><td>OS 2.55MP bytes</td><td>Values written to port <code>0x00</code>, values accepted on reads, bit order, acknowledgements, and error branches</td><td>[confirmed]</td></tr>
 <tr><td>TilEm and Wabbitemu</td><td>Two independent digital models of port reads, local output latches, connected endpoints, and link assist</td><td>[standard] where both match the public port contract</td></tr>
 <tr><td>MAME 0.287</td><td>A third raw-port implementation, optional link-bus devices, advertised assist state, and interrupt omissions</td><td>[standard]</td></tr>
+<tr><td>Guarded TilEm link edge probe</td><td>Direct-core raw truth table, assist port map, byte transfers, status, interrupts, and reset retention</td><td>[standard]</td></tr>
 <tr><td>Guarded Wabbitemu link edge probe</td><td>Initialized-core raw truth table, assist port map, byte transfers, status, and interrupts</td><td>[standard]</td></tr>
 <tr><td>Guarded MAME raw-link probe</td><td>CPU-visible PCR readback, connector-facing output fields, peer inputs, and advertised-but-inert assist ports</td><td>[confirmed] for the pinned emulator run</td></tr>
 <tr><td>TI Link Protocol Guide and WikiTI</td><td>Open-collector electrical description and red/tip versus white/ring names</td><td>[standard]</td></tr>
@@ -14020,6 +14036,31 @@ and self-drive reads. The separate <code>link_disconnect</code> function instead
 <code>client = NULL</code>, while the port handler unconditionally evaluates
 <code>client[0]</code>. A subsequent port read can therefore dereference a null pointer.
 This is an emulator lifecycle defect, not link-port behavior. [standard]</p>
+<h3 id="native-tilem-raw-and-assist-edges"><a class="header" href="#native-tilem-raw-and-assist-edges">Native TilEm raw and assist edges</a></h3>
+<p>A guarded direct-core run exercises TilEm’s registered port handlers and link
+state machine at commit <code>f56ad637d0524ee841dd381be6ecbaf5b8975600</code>.
+The raw port produces the same 16-value local-major truth table shown for
+Wabbitemu below. Writing <code>0xA6</code> gives <code>0x21</code>. Pulling peer line 0 low while the
+local latch is zero gives <code>0x02</code> and asserts the link-activity interrupt when
+port-<code>0x03</code> bit 4 enables it. [standard]</p>
+<p>TilEm maps all six assist ports from <code>0x08</code> through <code>0x0D</code>. A fresh disabled
+engine reads status <code>0x20</code>. Writes <code>0x91</code>, <code>0xA2</code>, <code>0xB3</code>, and <code>0xC4</code> to
+ports <code>0x09</code>–<code>0x0C</code> remain in internal auxiliary registers, while the read
+sides continue to return computed status or zero. [standard]</p>
+<p>Enabling idle-ready produces status <code>0x22</code> and asserts the CPU interrupt.
+Reading port <code>0x0D</code> leaves both conditions unchanged. Sending <code>0xA5</code> drives
+<code>2,1,2,1,1,2,1,2</code>, least-significant bit first, and returns to <code>0x22</code> after
+eight controlled acknowledgements. Receiving the same byte completes at
+<code>0x31</code>; reading port <code>0x0A</code> returns <code>0xA5</code> and changes status to <code>0x20</code>.
+[standard]</p>
+<p>An illegal both-low receive state produces status <code>0x64</code> and asserts the CPU
+interrupt. The first port-<code>0x09</code> read clears the interrupt request but retains
+the error flag, so the next status is <code>0x60</code>. Full reset restores port
+<code>0x08 = 0x80</code> and clears active assist state. It retains the four auxiliary
+registers and the externally supplied peer-line state. Direct port calls add
+zero modeled CPU clocks. These are initialized-core TilEm behaviors, not
+TI-OS execution, electrical measurements, or physical reset guarantees.
+[standard]</p>
 <h3 id="native-wabbitemu-raw-and-assist-edges"><a class="header" href="#native-wabbitemu-raw-and-assist-edges">Native Wabbitemu raw and assist edges</a></h3>
 <p>A guarded initialized-core run exercises the registered Wabbitemu handlers.
 The raw port produces this local-major matrix, with peer masks across each row:
@@ -14141,6 +14182,28 @@ nix develop -c python tools/describe_link_port.py keyboard-rom
 The <code>keyboard-rom</code> command verifies the <code>0x50E9</code> bcall entry and hashes the
 three OS 2.55MP byte regions that support the decoder; it rejects a different
 control-flow body instead of applying the fixed status model silently.</p>
+<p>Run the guarded TilEm matrix with the pinned clean source tree:</p>
+<pre><code class="language-sh">tilem_link_tmp=$(mktemp -d /tmp/ti84-tilem-link.XXXXXX)
+git clone https://github.com/debrouxl/tilem.git "$tilem_link_tmp/tilem"
+git -C "$tilem_link_tmp/tilem" checkout \
+  f56ad637d0524ee841dd381be6ecbaf5b8975600
+nix shell \
+  github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
+  --command python tools/build_tilem_link_probe.py \
+  --source "$tilem_link_tmp/tilem" \
+  --output "$tilem_link_tmp/tilem-link-probe" --json
+
+tilem_link_parent=$(mktemp -d /tmp/ti84-tilem-link-report.XXXXXX)
+python tools/run_tilem_link_probe.py \
+  --binary "$tilem_link_tmp/tilem-link-probe" \
+  --expected-binary-sha256 \
+    b878d9be860a92da72c5712e82a4c2974fb3cad125e078e61f8444172b887896 \
+  --output-dir "$tilem_link_parent/run" --json
+</code></pre>
+<p><code>tools/tilem_link.py</code> derives the expected raw matrix, byte order, assist
+status, acknowledgement, and reset boundary from <code>tools/link_port.py</code>. The
+guarded runner records the source tree, exact binary, native report, and
+evidence scope.</p>
 <p>Run the guarded Wabbitemu matrix with:</p>
 <pre><code class="language-sh">wabbit_link_parent=$(mktemp -d /tmp/ti84-wabbit-link.XXXXXX)
 python tools/run_wabbitemu_link_edge_probe.py \
@@ -14174,6 +14237,7 @@ transfer or attach a virtual cable.</p>
 <li>[standard] Port reads use active-high physical levels, writes use active-high pull-low controls, and bits 4–5 reflect the local output latch.</li>
 <li>[standard] Public hardware references map bit 0 to red/tip and bit 1 to white/ring.</li>
 <li>[standard] TilEm and Wabbitemu reproduce the raw open-collector truth table.</li>
+<li>[standard] The guarded TilEm run verifies the raw matrix, activity interrupt, all six assist handlers, LSB-first <code>0xA5</code> transfers, status and data acknowledgement, sticky error flag, auxiliary-register retention, and external-line retention across reset.</li>
 <li>[confirmed] The guarded MAME run reproduces its local readback and peer-input matrix while normal writes <code>1</code> and <code>2</code> leave both modeled connector outputs released.</li>
 <li>[standard] The guarded Wabbitemu run verifies the complete raw matrix, absent assist ports <code>0x0B</code>/<code>0x0C</code>, idle-ready and read-ready interrupts, LSB-first <code>0xA5</code> send and receive, data-register acknowledgement, and seeded-error read-to-clear behavior.</li>
 <li>[confirmed] MAME reports port <code>0x02 = C3</code>, while ports <code>0x08</code>–<code>0x0D</code> remain zero before and after patterned writes.</li>
@@ -15167,7 +15231,9 @@ paired line-state decoder, emulator profiles, and pure functions for Wabbitemu�
 <code>tools/describe_usb_hardware.py</code> exposes the general models as text or JSON.
 <code>tools/wabbitemu_usb_probe.py</code> validates native reports against the reusable handler model, while
 <code>tools/run_wabbitemu_usb_edge_probe.py</code> provides the exact-ROM guard and writes a hashed JSON
-manifest.</p>
+manifest. The link-assist state model remains in <code>tools/link_port.py</code>;
+<code>tools/tilem_link.py</code> and <code>tools/run_tilem_link_probe.py</code> add the guarded TilEm
+native report and manifest.</p>
 <pre><code class="language-sh"># Map global, indexed, dynamic-sizing, and FIFO registers.
 nix develop -c python tools/describe_usb_hardware.py \
   register 0x80 0x91 0x9F 0xA2
@@ -15203,6 +15269,24 @@ nix develop -c python tools/describe_usb_hardware.py wabbit-port4a 0x08
 <p>The raw FIFO sequence is only the byte layer. A working transfer still needs the packet layer:
 machine ID, command, length, payload checksum, ACK/NAK, and EOT. That framing is documented in
 <a href="#3-packet-framing--the-ti-link-protocol-confirmed">sub-link-transfer.md</a>.</p>
+<h3 id="native-tilem-link-assist-edges"><a class="header" href="#native-tilem-link-assist-edges">Native TilEm link-assist edges</a></h3>
+<p>The guarded TilEm direct-core probe maps all handlers from <code>0x08</code> through
+<code>0x0D</code>. A fresh disabled engine reports <code>0x20</code>. The read sides of
+ports <code>0x09</code>–<code>0x0C</code> remain computed status or zero after the write sides store
+<code>0x91</code>, <code>0xA2</code>, <code>0xB3</code>, and <code>0xC4</code>. This covers the complete four-register
+setup surface that OS 2.55MP initializes. [standard]</p>
+<p>Idle-ready reports <code>0x22</code> and asserts the CPU interrupt. Reading port <code>0x0D</code>
+does not acknowledge that condition. A completed <code>0xA5</code> receive reports
+<code>0x31</code>; reading port <code>0x0A</code> returns the byte and changes status to <code>0x20</code>.
+An illegal both-low input reports <code>0x64</code>; the first status read clears only the
+interrupt request, leaving error status <code>0x60</code>. [standard]</p>
+<p>Full reset restores port <code>0x08 = 0x80</code> and clears the active transfer fields,
+but retains the four auxiliary write registers and external peer-line state.
+Direct handler calls consume zero modeled CPU clocks. These results describe
+the pinned TilEm implementation, not physical assist timing or reset
+retention. See <a href="#native-tilem-raw-and-assist-edges">Two-wire link port hardware</a>
+for the raw matrix, LSB-first transfer sequence, and guarded command.
+[standard]</p>
 <h3 id="native-wabbitemu-link-assist-edges"><a class="header" href="#native-wabbitemu-link-assist-edges">Native Wabbitemu link-assist edges</a></h3>
 <p>The guarded Wabbitemu initialized-core probe maps ports <code>0x08</code>, <code>0x09</code>,
 <code>0x0A</code>, and <code>0x0D</code>; ports <code>0x0B</code> and <code>0x0C</code> are absent. This means its assist
@@ -15238,6 +15322,9 @@ carry-clear/carry-set result is decoded above.</li>
 imported bit meaning or the TI-specific PHY at ports <code>0x4A</code>–<code>0x5B</code>. TilEm does not model physical
 timing from the assist setup values. ROM-confirmed claims remain limited to written constants,
 comparisons, branch bits, RAM state, FIFO direction, and the transfer sequences cited above.</li>
+<li>The guarded TilEm link probe verifies handler-visible assist behavior, but it
+does not establish physical signaling-rate divisors, wait states, electrical
+levels, or reset retention.</li>
 <li>TilEm, Wabbitemu, and MAME do not implement a connected page-35 transfer. The initialized-core Wabbitemu run confirms its port-registration, event-mask, contradictory-line-state, repeat-event, and paired-bit handler defects. Dynamic connected-path evidence therefore still requires physical hardware or a controlled port-level harness.</li>
 </ul>
 <h2 id="sources-10"><a class="header" href="#sources-10">Sources</a></h2>
@@ -16622,7 +16709,7 @@ still require static reduction, fault injection, or physical measurement.</p>
 <li><strong>Graph raster details.</strong> Exhaustively decode the rounding and sentinel handling at <code>37:4229</code>, then trace <code>_DrawCirc2</code> at <code>3B:7171</code> to recover its parametric stepping. The coordinate transforms and circle setup are already pinned. See <a href="#8-confidence-summary--open-items">Graphing</a>.</li>
 <li><strong>TABLE evaluation paths.</strong> Byte-trace the per-row <code>_StoX</code> and selected-Y evaluation calls in the page-05 fill loop. The Depend:Ask prompt path and the <code>TblRng</code> special case in <code>_Find_Parse_Formula</code> also need end-to-end traces. See <a href="#7-confidence-summary--open-items">Table &amp; Y= variables</a>.</li>
 <li><strong>Statistics command families.</strong> Locate and decode the DISTR numerical cores and each STAT-TEST handler that writes <code>PStat</code> through <code>SStat</code>. The intermediate calculations that produce <code>r</code> and <code>r²</code> in <code>3A:6845</code>–<code>6891</code> also need a complete byte trace. See <a href="#12-notes">Statistics</a>.</li>
-<li><strong>Link and USB residuals.</strong> Determine why the legacy backup path normalizes the restored system-flags word to <code>0x0063</code>. The word’s destination at <code>0x89F0</code>, the <code>0x89F0</code>–<code>0x8D6C</code> section bounds, and the checksum coverage are byte-pinned. The <code>0x22</code>–<code>0x25</code> variable-header dispatcher is classified as error, OS/AMS, Flash-application, and certificate handling, and the <code>0x22</code> error-table path resolves to <code>ERR:LINK</code>. The <code>3C:618D</code> both-low waveform is tied to installed error cleanup and its software duration is cycle-counted. One guarded initialized-core Wabbitemu run verifies the complete raw truth table, missing assist ports <code>0x0B</code>/<code>0x0C</code>, ready/read interrupts, LSB-first byte send and receive, and seeded-error read-to-clear behavior. Guarded MAME runs verify its PCR readback, connector-output mismatch, peer-input reads, assist advertisement, inert port <code>0x08</code>–<code>0x0D</code>, and the fixed disconnected <code>0x55 = 0x1F</code>/<code>0x56 = 0x00</code> pair inside an otherwise unmapped <code>0x4A</code>–<code>0x5B</code> block. Another Wabbitemu run verifies the Fake USB port set, missing port <code>0x54</code>, reset values, active-low interrupt summary, mask-independent event, repeat-event path, and latch masks. These remain emulator results. Physical tests still need to measure port-<code>0x00</code> pull-ups, thresholds, rise times, both CPU-speed timeout durations, and the pulse’s actual duration and voltage levels. Verify the FDRC-family register hypothesis and TI-specific PHY behavior on physical hardware, then exercise the connected boot receive path. See <a href="#resolved-findings-and-open-hardware-tests-3">Two-wire link port hardware</a>, <a href="#11-open-items">Link transfer</a>, and <a href="#limits">USB ASIC and link assist</a>.</li>
+<li><strong>Link and USB residuals.</strong> Determine why the legacy backup path normalizes the restored system-flags word to <code>0x0063</code>. The word’s destination at <code>0x89F0</code>, the <code>0x89F0</code>–<code>0x8D6C</code> section bounds, and the checksum coverage are byte-pinned. The <code>0x22</code>–<code>0x25</code> variable-header dispatcher is classified as error, OS/AMS, Flash-application, and certificate handling, and the <code>0x22</code> error-table path resolves to <code>ERR:LINK</code>. The <code>3C:618D</code> both-low waveform is tied to installed error cleanup and its software duration is cycle-counted. A guarded direct-core TilEm run verifies the complete raw truth table, activity interrupt, all six assist handlers, LSB-first byte send and receive, idle/data acknowledgement, sticky error state, and its auxiliary-register and external-line reset retention. One guarded initialized-core Wabbitemu run verifies the same raw truth table, missing assist ports <code>0x0B</code>/<code>0x0C</code>, ready/read interrupts, LSB-first byte send and receive, and seeded-error read-to-clear behavior. Guarded MAME runs verify its PCR readback, connector-output mismatch, peer-input reads, assist advertisement, inert port <code>0x08</code>–<code>0x0D</code>, and the fixed disconnected <code>0x55 = 0x1F</code>/<code>0x56 = 0x00</code> pair inside an otherwise unmapped <code>0x4A</code>–<code>0x5B</code> block. Another Wabbitemu run verifies the Fake USB port set, missing port <code>0x54</code>, reset values, active-low interrupt summary, mask-independent event, repeat-event path, and latch masks. These remain emulator results. Physical tests still need to measure port-<code>0x00</code> pull-ups, thresholds, rise times, both CPU-speed timeout durations, and the pulse’s actual duration and voltage levels. Verify the FDRC-family register hypothesis and TI-specific PHY behavior on physical hardware, then exercise the connected boot receive path. See <a href="#resolved-findings-and-open-hardware-tests-3">Two-wire link port hardware</a>, <a href="#11-open-items">Link transfer</a>, and <a href="#limits">USB ASIC and link assist</a>.</li>
 <li><strong>MD5 physical edge behavior.</strong> The valid 64-step path, boot API, two implementing emulator models, and MAME’s missing port block are reconciled in <a href="#md5-accelerator-and-boot-api">MD5 accelerator and boot API</a>. Guarded native TilEm and Wabbitemu runs exercise partial and fifth writes, high control bits, undefined operand reads, and read-time recalculation. The TilEm run also verifies complete reset clearing and zero modeled port latency under the locked compiler. A separate guarded MAME run confirms that its unmapped ports discard patterned writes and return zero for the known first <code>"abc"</code> step. The <a href="#md5-edge-probe">physical hardware probe</a> prepares the corresponding ASIC measurements. Physical TA2/TA3 tests still need to run it and add reset-retention and I/O wait-state measurements.</li>
 <li><strong>Memory-mapper overlay hardware.</strong> The boot transition, paired and independent modes, extended Flash selectors, and emulator implementations are reconciled in <a href="#paging">Paging</a>. A guarded initialized-core Wabbitemu run verifies its fixed-page opcode handoff, selector readback, duplicated even page in paired mode, <code>0x27</code> cutoff, independent-mode read/write/fetch overlays, and paired-mode overlay suppression. A guarded MAME run verifies its read-triggered fixed-page handoff, selector masks, adjacent paired pages, safe RAM banks through <code>0x86</code>, unmapped extended and overlay ports, and underlying read/write/fetch routing. Selector <code>0x87</code> remains source-only because MAME maps seven RAM pages. These are emulator results. Physical tests must resolve whether ports <code>0x27</code>/<code>0x28</code> remain active in paired mode, whether the <code>0xFB64</code> cutoff exists in the ASIC, and whether <a href="#mapping-and-forced-overlays">execution protection</a> follows the underlying window or forced RAM page.</li>
 <li><strong>Bus-timing and LCD-controller measurements.</strong> The boot values, wait-state decode, controller commands, display paths, and emulator implementations are reconciled in <a href="#bus-timing-and-wait-states">Bus timing and wait states</a> and <a href="#lcd-controller-and-display-bus">LCD controller and display bus</a>. Guarded initialized-core Wabbitemu runs verify its 60-T-state guard, 15-column increment cycle, direct hidden-column alias, one-transfer read latch, absent mirror ports, strict $48 + 64f$ ready boundary, write-based ready timestamp, complete wait-gate matrix, default and internal extra-speed matrices, and raw port-<code>0x2D</code> latch without low-power side effects. Guarded MAME runs verify its controller startup state, permanent busy-clear status, mirror ports, 15-byte hidden-column aliases, one-transfer read latch, 6-bit packing, stored analog fields, fixed ready bit, raw speed readback, exact 6:15 MHz loop ratio, unmapped <code>0x29</code>–<code>0x2F</code> block, and retained speed byte across soft reset. These are emulator results. Physical tests must measure each port-<code>0x2E</code> access class, CPU-speed readback and frequency across ASIC revisions, port-<code>0x2D</code> low-power behavior, LCD read-versus-write ready timing, controller-specific minimum delays, hidden-column bounds, status-read pointer behavior, and the unmodeled port-<code>0x2F</code> mode-3 timer prescaler across TA2 and TA3 controller revisions.</li>
@@ -16630,7 +16717,7 @@ still require static reduction, fault injection, or physical measurement.</p>
 <li><strong>MathPrint runtime coverage.</strong> Trace representative expressions and cursor states through the statically recovered MathPrint compositor at <code>39:5167</code>. Existing macro fixtures cover power, fraction, and <code>fnInt(</code> layouts, but the exact runtime paths have not been recorded. See <a href="#mathprint-pipeline-coverage">Equation display</a>.</li>
 <li><strong>Matrix and list residuals.</strong> Explain why plain <code>augment(</code> calls the partial-pivoting engine at <code>02:4663</code>; locate the <code>randM(</code> cell-fill path; identify the separate <code>rref(</code>/<code>ref(</code> driver; and finish the <code>seq(</code>/<code>SortA(</code>/<code>SortD(</code> collection and element-load traces. See <a href="#9-findings">Matrices &amp; lists</a>.</li>
 <li><strong>Smaller residuals.</strong> Map the For/While/Repeat FPS loop-frame bytes; recover the <code>Asm(</code>/<code>AsmPrgm</code> setup before the traced <code>ram:9D95</code> payload handoff; find a direct ASM-to-BASIC program-call entry beyond VAT lookup and the cooperative <code>Ans</code> callback; and trace the group-archive member walk after <code>_Arc_Unarc</code> rejects type <code>0x17</code>. A guarded direct-core run verifies TilEm’s complete source-divisor table, rounded count readback, off sources, ignored port-<code>0x2F</code>, counter-zero behavior, first/second expiry distinction, acknowledgement, unacknowledged non-loop restart, source-write retention, deterministic RTC transitions, reset retention, and torn byte reads. A guarded initialized-core run verifies Wabbitemu’s timer catch-up, counter-zero completion, first-underflow status bit 2, HALT-line suppression, retained interrupt generation, and frozen disabled RTC reads. A guarded MAME run verifies its fixed-crystal source collapse, immediate first decrement, idle counter zero, inverted mode polarity, one-reload loop, global completion clearing, and absent RTC block. TA2/TA3 hardware must still distinguish the published <code>33</code>/<code>328</code>/<code>3277</code> timer divisors from Wabbitemu/MAME’s <code>32</code>/<code>327</code>/<code>3276</code>, test counter zero and first-versus-second-expiry status bit 2, measure programmable-timer <code>HALT</code> behavior, and test disabled RTC reads plus rollover coherence. A guarded direct-core TilEm run verifies transitive keypad closure, all eight stored rows, complete group-byte storage, row-major scancode bounds, separate ON state, both ON edges, and reset clearing. Another guarded run verifies Wabbitemu’s pairwise keypad closure, ignored row 7, and press-only ON latch with release rearming. A guarded MAME live-input run verifies its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, and lack of matrix closure. These remain emulator evidence. Physical keypad work should measure worst-case matrix settling, ghosting under timed reads, switch bounce, and ON interrupt edges; see <a href="#resolved-findings-and-open-hardware-tests-2">Keypad and ON-key hardware</a>. The timer, APD, RTC, and power reconstruction is in <a href="#clock-timers-and-power">Clock, timers, and power</a>.</li>
-<li><strong>Interrupt-controller physical tests.</strong> A guarded direct-core TilEm run verifies complete mask readback, both clear-on-zero acknowledgement paths, ON press and release latches, both timer-2 callbacks, link transitions, programmable-timer HALT gating, and its reset readback/internal-policy mismatch. A guarded initialized-core Wabbitemu run verifies full mask readback, ON-latch clearing, its rounded standard-timer rates, strict expiry edge, port-<code>0x03</code> and port-<code>0x02</code> timer acknowledgement, programmable completion readback, and LCD-based low-power approximation. A guarded MAME run verifies shared port-<code>0x03</code>/<code>0x04</code> status, direct port-<code>0x02</code> pending-field writes, three-bit port-<code>0x03</code> masking, press-only timer-sampled ON edges, both standard-timer pending bits during scheduled frames, and retained interrupt fields across soft reset. These are emulator results. On TA2 and TA3 calculators, measure which ON transitions latch a request, which link transitions wake low power, whether simultaneous legacy requests are coalesced by the port-<code>0x03</code> clear-on-zero sequence, and which timer configurations can wake <code>HALT</code>. Compare the results with the explicit TilEm, Wabbitemu, and MAME differences in <a href="#emulator-comparison-2">Interrupts (IM1)</a>.</li>
+<li><strong>Interrupt-controller physical tests.</strong> A guarded direct-core TilEm run verifies complete mask readback, both clear-on-zero acknowledgement paths, ON press and release latches, both timer-2 callbacks, link transitions, programmable-timer HALT gating, and its reset readback/internal-policy mismatch. A separate guarded TilEm link run verifies raw activity plus assist idle, receive, and sticky-error interrupt transitions. A guarded initialized-core Wabbitemu run verifies full mask readback, ON-latch clearing, its rounded standard-timer rates, strict expiry edge, port-<code>0x03</code> and port-<code>0x02</code> timer acknowledgement, programmable completion readback, and LCD-based low-power approximation. A guarded MAME run verifies shared port-<code>0x03</code>/<code>0x04</code> status, direct port-<code>0x02</code> pending-field writes, three-bit port-<code>0x03</code> masking, press-only timer-sampled ON edges, both standard-timer pending bits during scheduled frames, and retained interrupt fields across soft reset. These are emulator results. On TA2 and TA3 calculators, measure which ON transitions latch a request, which link transitions wake low power, whether simultaneous legacy requests are coalesced by the port-<code>0x03</code> clear-on-zero sequence, and which timer configurations can wake <code>HALT</code>. Compare the results with the explicit TilEm, Wabbitemu, and MAME differences in <a href="#emulator-comparison-2">Interrupts (IM1)</a>.</li>
 </ol>
 <h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>
 <p>Reopen <code>ti84.gpr</code> (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in <code>tools/</code> and rebuild with <code>tools/build.sh</code>. The remaining static items mostly need raw-byte decoding of regions the live decompiler leaves as unanalyzed data, including the page-<code>0x38</code> <code>0xBB</code>/class-3 dispatch tables. Hardware-only timer and RTC quirks need measurements on physical calculators.</p>

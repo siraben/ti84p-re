@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-58d9a435.js";
+            window.path_to_searchindex_js = "searchindex-54c86b77.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -615,7 +615,9 @@ paired line-state decoder, emulator profiles, and pure functions for Wabbitemu�
 <code>tools/describe_usb_hardware.py</code> exposes the general models as text or JSON.
 <code>tools/wabbitemu_usb_probe.py</code> validates native reports against the reusable handler model, while
 <code>tools/run_wabbitemu_usb_edge_probe.py</code> provides the exact-ROM guard and writes a hashed JSON
-manifest.</p>
+manifest. The link-assist state model remains in <code>tools/link_port.py</code>;
+<code>tools/tilem_link.py</code> and <code>tools/run_tilem_link_probe.py</code> add the guarded TilEm
+native report and manifest.</p>
 <pre><code class="language-sh"># Map global, indexed, dynamic-sizing, and FIFO registers.
 nix develop -c python tools/describe_usb_hardware.py \
   register 0x80 0x91 0x9F 0xA2
@@ -651,6 +653,24 @@ nix develop -c python tools/describe_usb_hardware.py wabbit-port4a 0x08
 <p>The raw FIFO sequence is only the byte layer. A working transfer still needs the packet layer:
 machine ID, command, length, payload checksum, ACK/NAK, and EOT. That framing is documented in
 <a href="sub-link-transfer.html#3-packet-framing--the-ti-link-protocol-confirmed">sub-link-transfer.md</a>.</p>
+<h3 id="native-tilem-link-assist-edges"><a class="header" href="#native-tilem-link-assist-edges">Native TilEm link-assist edges</a></h3>
+<p>The guarded TilEm direct-core probe maps all handlers from <code>0x08</code> through
+<code>0x0D</code>. A fresh disabled engine reports <code>0x20</code>. The read sides of
+ports <code>0x09</code>–<code>0x0C</code> remain computed status or zero after the write sides store
+<code>0x91</code>, <code>0xA2</code>, <code>0xB3</code>, and <code>0xC4</code>. This covers the complete four-register
+setup surface that OS 2.55MP initializes. [standard]</p>
+<p>Idle-ready reports <code>0x22</code> and asserts the CPU interrupt. Reading port <code>0x0D</code>
+does not acknowledge that condition. A completed <code>0xA5</code> receive reports
+<code>0x31</code>; reading port <code>0x0A</code> returns the byte and changes status to <code>0x20</code>.
+An illegal both-low input reports <code>0x64</code>; the first status read clears only the
+interrupt request, leaving error status <code>0x60</code>. [standard]</p>
+<p>Full reset restores port <code>0x08 = 0x80</code> and clears the active transfer fields,
+but retains the four auxiliary write registers and external peer-line state.
+Direct handler calls consume zero modeled CPU clocks. These results describe
+the pinned TilEm implementation, not physical assist timing or reset
+retention. See <a href="link-port-hardware.html#native-tilem-raw-and-assist-edges">Two-wire link port hardware</a>
+for the raw matrix, LSB-first transfer sequence, and guarded command.
+[standard]</p>
 <h3 id="native-wabbitemu-link-assist-edges"><a class="header" href="#native-wabbitemu-link-assist-edges">Native Wabbitemu link-assist edges</a></h3>
 <p>The guarded Wabbitemu initialized-core probe maps ports <code>0x08</code>, <code>0x09</code>,
 <code>0x0A</code>, and <code>0x0D</code>; ports <code>0x0B</code> and <code>0x0C</code> are absent. This means its assist
@@ -686,6 +706,9 @@ carry-clear/carry-set result is decoded above.</li>
 imported bit meaning or the TI-specific PHY at ports <code>0x4A</code>–<code>0x5B</code>. TilEm does not model physical
 timing from the assist setup values. ROM-confirmed claims remain limited to written constants,
 comparisons, branch bits, RAM state, FIFO direction, and the transfer sequences cited above.</li>
+<li>The guarded TilEm link probe verifies handler-visible assist behavior, but it
+does not establish physical signaling-rate divisors, wait states, electrical
+levels, or reset retention.</li>
 <li>TilEm, Wabbitemu, and MAME do not implement a connected page-35 transfer. The initialized-core Wabbitemu run confirms its port-registration, event-mask, contradictory-line-state, repeat-event, and paired-bit handler defects. Dynamic connected-path evidence therefore still requires physical hardware or a controlled port-level harness.</li>
 </ul>
 <h2 id="sources"><a class="header" href="#sources">Sources</a></h2>

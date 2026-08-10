@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-58d9a435.js";
+            window.path_to_searchindex_js = "searchindex-54c86b77.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -195,6 +195,7 @@
 <tr><td>TilEm commit <code>f56ad63</code> and Wabbitemu commit <code>48c2dc0</code></td><td>Two executable interpretations of the registers and their fidelity gaps</td><td>[standard]</td></tr>
 <tr><td>MAME 0.287 <code>ti84pv3</code> driver and Lua I/O trace</td><td>Third implementation, headless ON-wake execution, and explicit <code>MACHINE_NOT_WORKING</code> gaps</td><td>[standard]</td></tr>
 <tr><td>Guarded TilEm direct-core interrupt probe</td><td>Stored-mask readback, internal policy, acknowledgement, ON/link edges, timer callbacks, and reset ordering</td><td>[standard]</td></tr>
+<tr><td>Guarded TilEm direct-core link probe</td><td>Raw link-activity and assist idle, receive, and error interrupt transitions</td><td>[standard]</td></tr>
 <tr><td>Guarded Wabbitemu interrupt edge probe</td><td>Initialized-core mask, timer, acknowledgement, completion, and low-power transitions</td><td>[standard]</td></tr>
 <tr><td>Guarded MAME legacy-interrupt probe</td><td>CPU-I/O-space status, mask, ON-edge, fixed-timer, and soft-reset observations</td><td>[standard]</td></tr>
 </tbody>
@@ -461,6 +462,15 @@ probe first clears it, reset again reads <code>0x0B</code> while the retained po
 is zero. Writing <code>0x0B</code> through the port handler synchronizes both fields to
 one. This inconsistency affects experiments that begin at initialized-core
 reset without executing the ROM’s first mask write. [standard]</p>
+<p>A separate guarded link matrix checks the interrupt-facing parts of the same
+implementation while exercising complete raw and assist transactions. An
+enabled external peer-line transition asserts the raw link-activity request.
+Assist idle-ready reports <code>0x22</code>, receive-ready reports <code>0x31</code>, and both
+assert the CPU interrupt. Reading receive data changes status to <code>0x20</code>.
+Illegal both-low input reports <code>0x64</code>; its first status read clears the CPU
+request while retaining error status <code>0x60</code>. These are direct TilEm handler
+results, not physical interrupt-edge or acknowledgement measurements.
+[standard]</p>
 <p>Two isolated executions produce identical canonical native JSON with SHA-256
 <code>1c1209e9c3f625b07c42288c21e9a5dbadddb38f12aee995c1fbc8daf1f8e8ad</code>.
 The binary SHA-256 is
@@ -579,6 +589,10 @@ against the reusable TilEm state model. The guarded builder requires the exact
 clean source commit and tree. The runner requires the binary SHA-256 and
 refuses to reuse an output directory. The “Legacy interrupt matrix” section in
 <code>tools/dynamic-tracing.md</code> contains the reproduction commands.</p>
+<p><code>tools/tilem_link.py</code> checks the raw-activity and assist-interrupt transitions
+against the shared link model in <code>tools/link_port.py</code>. Its guarded builder and
+runner use the same clean-source and binary-hash requirements. The “Raw link
+and assist matrix” section in <code>tools/dynamic-tracing.md</code> contains the command.</p>
 <p><code>tools/mame_interrupt.py</code> parses the complete MAME report and checks it against
 the reusable state model. Its guarded CLI records the exact MAME, ROM, Lua,
 logs, and evidence scope:</p>
@@ -602,6 +616,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_interrupt_probe.py \
 <li>[confirmed] Shutdown writes <code>0x11</code> and executes <code>HALT</code>; the trace wakes through port-<code>0x04</code> value <code>0x01</code> after an ON press.</li>
 <li>[standard] Programmable completion bits remain observable independently of their interrupt-mode bits.</li>
 <li>[standard] The guarded TilEm run verifies stored mask readback, both clear-on-zero paths, ON press and release latches, both timer-2 callbacks, link transitions, programmable-timer HALT gating, and the reset readback/internal-policy mismatch.</li>
+<li>[standard] The guarded TilEm link run independently verifies raw activity, assist idle and receive requests, data acknowledgement, and interrupt-only acknowledgement of a retained error flag.</li>
 <li>[standard] The guarded Wabbitemu run verifies complete mask readback, ON clearing, strict standard-timer expiry, both standard-timer acknowledgement paths, programmable completion readback, and its LCD-based low-power approximation.</li>
 <li>[standard] The guarded Wabbitemu USB run verifies its active-low line/protocol summary, mask-independent line event, and repeat-event path. It does not verify the ROM dispatcher or physical USB interrupt behavior.</li>
 <li>[standard] The guarded MAME run verifies shared status reads, three-bit mask behavior, direct port-<code>0x02</code> status injection, press-only ON sampling, both standard-timer pending bits within scheduled frames, and interrupt-field retention across soft reset.</li>
