@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f4df5533.js";
+            window.path_to_searchindex_js = "searchindex-87a0bfb3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -5250,6 +5250,20 @@ call returns the masked page and NZ without launching the worker. [confirmed]</p
 <p>Use this entry only after validating the entire span. Its initial page check
 does not protect a call that begins below page <code>3E</code> and later crosses a page or
 sector boundary.</p>
+<p>The executable example programs two bytes from RAM at <code>08:4100</code>:</p>
+<!-- executable-snippet: write-flash -->
+<pre><code class="language-z80">    ld a,$08
+    ld de,$4100
+    ld hl,writeflash_payload
+    ld bc,writeflash_payload_end-writeflash_payload
+    rst $28
+    .dw $80C9
+    or a
+    jp nz,flash_failed
+</code></pre>
+<p>The guarded runner seeds both target bytes to <code>0xFF</code>, requires <code>AF=0x0044</code>,
+and verifies <code>A5 5A</code> in both the Flash array and a <code>_FlashToRam</code> buffer.
+[confirmed] for pinned Wabbitemu execution.</p>
 <h3 id="_writeflashunsafe"><a class="header" href="#_writeflashunsafe"><code>_WriteFlashUnsafe</code></a></h3>
 <p><code>_WriteFlashUnsafe = 8087h</code> has the same block ABI and worker results as
 <code>_WriteFlash</code>. It omits only the page-<code>3E</code> rejection. The core still masks
@@ -5258,6 +5272,16 @@ length as a no-op. [confirmed]</p>
 <p>The guarded retail-ROM usage probe calls this entry with <code>A=0x3E</code>, programs
 <code>3C C3</code> at <code>3E:4100</code>, and reads the same pair back through <code>_FlashToRam</code>.
 The bcall returns <code>AF=0x0044</code>. [confirmed] for pinned Wabbitemu execution.</p>
+<!-- executable-snippet: write-flash-unsafe -->
+<pre><code class="language-z80">    ld a,$3E
+    ld de,$4100
+    ld hl,writeflashunsafe_payload
+    ld bc,writeflashunsafe_payload_end-writeflashunsafe_payload
+    rst $28
+    .dw $8087
+    or a
+    jp nz,flash_failed
+</code></pre>
 <p>“Unsafe” does not mean that the routine bypasses physical protection. Port
 <code>0x14</code>, the port-<code>0x21</code> sector group, and the Flash chip still decide whether
 the command reaches and changes the array. Its page-<code>3E</code> access makes this
@@ -5276,6 +5300,15 @@ caller that tries to infer whether scratch state changed from the flags.
 <p>The guarded retail-ROM usage probe exercises the accepted path at <code>08:4102</code>.
 It programs <code>0xFE → 0xFC</code>, returns <code>AF=0x0044</code>, and obtains <code>0xFC</code> through
 <code>_FlashToRam</code>. [confirmed] for pinned Wabbitemu execution.</p>
+<!-- executable-snippet: write-a-byte-safe -->
+<pre><code class="language-z80">    ld a,$08
+    ld de,$4102
+    ld b,$FC
+    rst $28
+    .dw $80C6
+    or a
+    jp nz,flash_failed
+</code></pre>
 <h3 id="_writeabyte"><a class="header" href="#_writeabyte"><code>_WriteAByte</code></a></h3>
 <p><code>_WriteAByte = 8021h</code> takes <code>A=page</code>, <code>DE=destination</code>, and <code>B=byte</code>.
 It stores <code>B</code> in <code>OP1</code>, sets <code>HL=0x8478</code> and <code>BC=1</code>, then enters
@@ -5285,6 +5318,15 @@ target. <code>OP1</code> retains the programmed byte. [confirmed]</p>
 <p>The guarded retail-ROM usage probe calls this entry on page <code>3E</code>, programs
 <code>0xFE → 0xF8</code> at <code>3E:4102</code>, leaves <code>OP1=0xF8</code>, and returns <code>AF=0x0044</code>.
 <code>_FlashToRam</code> returns <code>0xF8</code>. [confirmed] for pinned Wabbitemu execution.</p>
+<!-- executable-snippet: write-a-byte -->
+<pre><code class="language-z80">    ld a,$3E
+    ld de,$4102
+    ld b,$F8
+    rst $28
+    .dw $8021
+    or a
+    jp nz,flash_failed
+</code></pre>
 <p>Use the byte entries for monotonic state changes such as <code>0xFE → 0xFC</code> or
 <code>0xFC → 0xF0</code>. A request that needs any <code>0→1</code> transition requires sector
 erase and reconstruction. A requested byte with the same DQ7 as the stored
@@ -5308,6 +5350,14 @@ check <code>A=0</code>, and verify the complete physical sector. [confirmed]</p>
 <p>The guarded retail-ROM usage probe erases through page <code>0C</code>, returns
 <code>AF=0x0044</code>, and reads <code>0xFF</code> back at <code>0C:4000</code>. [confirmed] for pinned
 Wabbitemu execution.</p>
+<!-- executable-snippet: erase-flash-page -->
+<pre><code class="language-z80">    ld a,$0C
+    ld de,$4000
+    rst $28
+    .dw $8084
+    or a
+    jp nz,flash_failed
+</code></pre>
 <h3 id="_eraseflash"><a class="header" href="#_eraseflash"><code>_EraseFlash</code></a></h3>
 <p><code>_EraseFlash = 8024h</code> takes <code>A=page</code> and <code>HL=an address in the selected sector</code>. It performs no page mask or page guard. The worker maps <code>A</code>, issues a
 sector-erase command through <code>HL</code>, and returns the same success or failure
@@ -5323,6 +5373,15 @@ command.</p>
 <p>The guarded retail-ROM usage probe passes <code>HL=DE=0x4567</code> on page <code>10</code>.
 The bcall returns <code>AF=0x0044</code>, and <code>_FlashToRam</code> reads <code>0xFF</code> from the same
 interior sector address. [confirmed] for pinned Wabbitemu execution.</p>
+<!-- executable-snippet: erase-flash -->
+<pre><code class="language-z80">    ld a,$10
+    ld hl,$4567
+    ld de,$4567
+    rst $28
+    .dw $8024
+    or a
+    jp nz,flash_failed
+</code></pre>
 <h3 id="_erasecertificatesector"><a class="header" href="#_erasecertificatesector"><code>_EraseCertificateSector</code></a></h3>
 <p><code>_EraseCertificateSector = 8060h</code> accepts any <code>HL</code> whose high byte is <code>0x40</code>
 or <code>0x60</code>. It does not require <code>L=0</code>. It loads page <code>3E</code> and calls
@@ -5337,6 +5396,15 @@ verify the selected sector; flags are not a result channel for this bcall.
 The returned <code>AF</code> remains <code>0xA545</code>, while <code>_FlashToRam</code> reads <code>0xFF</code> from
 <code>3E:6001</code>. This dynamically exercises the accepted nonzero-<code>L</code> path and the
 second 8 KiB certificate sector. [confirmed] for pinned Wabbitemu execution.</p>
+<!-- executable-snippet: erase-certificate-sector -->
+<pre><code class="language-z80">    ld hl,$A545
+    push hl
+    pop af
+    ld hl,$6001
+    ld de,$6001
+    rst $28
+    .dw $8060
+</code></pre>
 <h3 id="return-and-side-effect-matrix"><a class="header" href="#return-and-side-effect-matrix">Return and side-effect matrix</a></h3>
 <div class="table-wrapper">
 <table>
@@ -5358,82 +5426,18 @@ second 8 KiB certificate sector. [confirmed] for pinned Wabbitemu execution.</p>
 </div>
 <p>This matrix explains why <code>jr z,success</code> is insufficient. Validate page,
 address, span, and nonzero length first. Then test <code>A=0</code> and verify the array.</p>
-<h3 id="block-program-example"><a class="header" href="#block-program-example">Block-program example</a></h3>
-<p>This example shows the bcall mechanics and readback. It assumes that trusted
-OS or boot code already opened port <code>0x14</code>, owns the target sector, checked the
-battery, and will relock Flash on every exit. Copying an unlock byte sequence
-into this RAM routine would not satisfy the ASIC’s privileged-fetch rule.</p>
-<pre><code class="language-z80">; payload, metadata, and verify_buffer must all be safe RAM locations.
-; The complete span 08:4100..08:4100+payload_size-1 was validated first.
-    ld a,0x08
-    ld (target_page),a
-    ld de,0x4100
-    ld (target_address),de
-    ld hl,payload
-    ld bc,payload_end-payload
-    rst 0x28
-    .dw 0x80C9                 ; _WriteFlash
-
-    or a                       ; validated nonempty call requires A=0
-    jr nz,program_failed
-
-    ld a,(target_page)
-    ld hl,(target_address)
-    ld de,verify_buffer
-    ld bc,payload_end-payload
-    rst 0x28
-    .dw 0x5017                 ; _FlashToRam
-
-    ld hl,payload
-    ld de,verify_buffer
-    ld bc,payload_end-payload
-verify_loop:
-    ld a,(de)
-    cp (hl)
-    jr nz,verify_failed
-    inc de
-    inc hl
-    dec bc
-    ld a,b
-    or c
-    jr nz,verify_loop
-    jr program_verified
-
-target_page:
-    .db 0
-target_address:
-    .dw 0
-verify_buffer:
-    .ds payload_end-payload
-</code></pre>
-<p>The failure and success labels must all flow through the trusted owner’s
-relock and recovery code. <code>_WriteFlash</code> does not provide that epilogue.</p>
-<h3 id="single-byte-and-sector-erase-examples"><a class="header" href="#single-byte-and-sector-erase-examples">Single-byte and sector-erase examples</a></h3>
-<p>The byte example clears marker bits without erasing. The caller must first
-read the stored byte and require <code>(stored &amp; requested) = requested</code>.</p>
-<pre><code class="language-z80">    ld a,0x08
-    ld de,0x4102
-    ld b,0xFC                  ; example FE -&gt; FC marker transition
-    rst 0x28
-    .dw 0x80C6                 ; _WriteAByteSafe
-    or a
-    jr nz,program_failed
-    ; Remap or use _FlashToRam, then require (08:4102) == 0xFC.
-</code></pre>
-<p>The erase example selects the 64 KiB sector containing pages <code>0C</code>–<code>0F</code>.
-It assumes the caller has backed up every live byte in that sector and has a
-power-loss recovery record elsewhere.</p>
-<pre><code class="language-z80">    ld a,0x0C
-    ld de,0x4000               ; defensive DQ5 reset pointer
-    rst 0x28
-    .dw 0x8084                 ; _EraseFlashPage
-    or a
-    jr nz,erase_failed
-    ; Verify all of physical 0x30000..0x3FFFF before rebuilding it.
-</code></pre>
-<p>Neither example opens or closes the gate. That omission is deliberate: the
-required protected sequence must execute from a privileged Flash region and
-belongs to the trusted transaction owner, not to a portable RAM snippet.</p>
+<h3 id="checking-results"><a class="header" href="#checking-results">Checking results</a></h3>
+<p>The executable examples above assume that trusted OS or boot code already
+opened port <code>0x14</code>, checked the battery, established sector ownership and
+recovery state, and will relock Flash on every exit. Copying an unlock byte
+sequence into RAM does not satisfy the ASIC’s privileged-fetch rule.</p>
+<p>After a validated nonempty program or erase call, require <code>A=0</code>. Save the
+target page and address before the call because the write worker advances
+registers. Read the programmed span through <code>_FlashToRam</code> and compare every
+byte with the source. For erase, inspect the complete physical sector, not
+only the selected address. Every failure and success path must reach the
+trusted owner’s relock and recovery epilogue. [confirmed] for the return and
+clobber rules; [standard] for physical erase scope.</p>
 <h3 id="reading-back-with-_flashtoram"><a class="header" href="#reading-back-with-_flashtoram">Reading back with <code>_FlashToRam</code></a></h3>
 <p><code>_FlashToRam = 5017h</code>, body <code>3D:6745</code>, copies <code>BC</code> bytes from Flash at
 <code>A:HL</code> to RAM at <code>DE</code>. It advances the mapped Flash page when <code>HL</code> crosses
@@ -5445,15 +5449,31 @@ at <code>0x8100</code> and page scratch at <code>0x9868</code>, so a verificatio
 those locations while the copier runs. Locked certificate-page reads remain
 subject to the ASIC’s separate read protection. [confirmed] for the ROM
 scratch and worker; [standard] for the read gate.</p>
+<p>The executable example reads back the complete two-byte <code>_WriteFlash</code> vector:</p>
+<!-- executable-snippet: flash-to-ram -->
+<pre><code class="language-z80">    ld a,$08
+    ld hl,$4100
+    ld de,writeflash_copy
+    ld bc,writeflash_payload_end-writeflash_payload
+    rst $28
+    .dw $5017
+</code></pre>
 <h3 id="executable-example-validation"><a class="header" href="#executable-example-validation">Executable example validation</a></h3>
 <p><code>tools/emulator-probes/flash-bcall-usage.asm</code> is the guarded executable form of
 the examples above. It invokes <code>_WriteFlash</code>, <code>_WriteFlashUnsafe</code>,
 <code>_WriteAByteSafe</code>, <code>_WriteAByte</code>, <code>_EraseFlashPage</code>, <code>_EraseFlash</code>,
 <code>_EraseCertificateSector</code>, and <code>_SetFlashLowerBound</code>. It reads every changed
-location through <code>_FlashToRam</code>. The probe stores each return instead of
-branching so the runner can check the complete result. [confirmed]</p>
+location through <code>_FlashToRam</code>. The six calls with result-bearing <code>A</code> values
+branch to a failure loop unless <code>A=0</code>; the probe also stores every return so
+the runner can check the complete result. [confirmed]</p>
+<p>The nine short bcall call sequences on this page carry an
+<code>executable-snippet</code> tag. The reusable <code>tools/executable_snippets.py</code> parser
+requires their text to match the same tagged regions in the assembled probe
+byte for byte. The <code>tools/check_executable_snippets.py</code> CLI exposes that
+check. This catches documentation drift; Wabbitemu execution supplies the
+runtime result below.</p>
 <p>On 2026-08-10, the hash-guarded Wabbitemu adapter booted the exact OS 2.55MP
-ROM, established the retail protection state, injected the 238-byte program
+ROM, established the retail protection state, injected the 264-byte program
 into RAM, and opened only Wabbitemu’s in-memory Flash gate. The run reached
 every named public entry. The shared <code>_WriteFlashUnsafe</code> core ran four times,
 the <code>_WriteAByte</code> body twice, and the <code>_EraseFlash</code> core three times because
@@ -5479,9 +5499,9 @@ violation occurred. [confirmed] for this pinned emulator run.</p>
 </table>
 </div>
 <p>The assembly source SHA-256 was
-<code>58c9b7554cfb9c907b7887c4d74c5cd5e4361a70a955b783d2d06607873df314</code>;
+<code>ba91fa8a4d1d7c816b742a426dbb0216f927ec209f368534a13748d4683b42e7</code>;
 the assembled machine-code SHA-256 was
-<code>a6466627c25de11aa40b6737bbaf23d998c2c011ff159a0996b789d2ffb7b476</code>.
+<code>8f9ca5975c418871ba831c3536cba6e7e4f9f368520e1ad37650ef9c54d9249c</code>.
 See “Retail Flash bcall usage probe” in <code>tools/dynamic-tracing.md</code> for the
 guarded reproduction command. This execution validates the snippets against
 the original ROM bodies under pinned Wabbitemu. It does not validate the
@@ -6387,6 +6407,14 @@ flags, and the other general registers. It selects interrupt mode 1 and leaves
 maskable interrupts disabled. A caller must restore its prior interrupt-enable
 state and must already accept IM1 as the OS interrupt mode. [confirmed] for
 the routine; [standard] for the write gate.</p>
+<p>The executable probe writes the boot default upper bound:</p>
+<!-- executable-snippet: set-flash-lower-bound -->
+<pre><code class="language-z80">    ld a,$2A
+    rst $28
+    .dw $80CF
+</code></pre>
+<p>The guarded runner requires port <code>0x23 = 0x2A</code> and IFF2 clear after the call.
+[confirmed] for pinned Wabbitemu execution.</p>
 <p>This wrapper records IFF2 through <code>LD A,I</code>, calls the bcall, then conditionally
 restores interrupts. <code>POP AF</code> also restores the caller’s original <code>AF</code>:</p>
 <pre><code class="language-z80">    ld a,i
