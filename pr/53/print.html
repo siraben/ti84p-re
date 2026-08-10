@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-eb6d5761.js";
+            window.path_to_searchindex_js = "searchindex-3204b62c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -1323,9 +1323,13 @@ $f+1$; speed mode 0 applies no divisor. [standard]</p>
 modes 0–3. TilEm treats the <code>0xC0</code> family like its ordinary CPU-clock modes,
 and Wabbitemu’s timer-source update does not use port <code>0x2F</code>. The prescaler is
 therefore absent from both compared emulator paths. [standard]</p>
-<p>OS 2.55MP’s timer API can select <code>0xC0</code>-family sources, but the current traces
-do not execute a mode-3 prescaler measurement. The physical divisor remains a
-target for a counter-based test. [hypothesis]</p>
+<p>OS 2.55MP’s timer API can select <code>0xC0</code>-family sources. The prepared
+<a href="#programmable-timer-physical-probe"><code>HWTMR</code> probe</a> counts
+source-<code>0xE0</code> expiries against a crystal reference in CPU-speed modes 0–3. Its
+exact assembled image completes in pinned Wabbitemu and measures a prescaler
+near one, matching that emulator’s source implementation. No result from a
+physical calculator has been recorded. [confirmed] for the probe and emulator
+run; [hypothesis] for the physical divisor.</p>
 <h2 id="emulator-comparison"><a class="header" href="#emulator-comparison">Emulator comparison</a></h2>
 <div class="table-wrapper">
 <table>
@@ -1440,8 +1444,14 @@ Z80 M1 placement from Wabbitemu’s extra wait. The exact image completes throug
 the cleanup boundary in pinned Wabbitemu and selects its three-wait model. No
 physical result has been recorded. [confirmed] for the probe bytes, decoder,
 and emulator run; [hypothesis] for pending measurements.</p>
+<p>The guarded <a href="#programmable-timer-physical-probe">programmable-timer probe</a>
+prepares the port-<code>0x2F</code> mode-3 measurement. It also distinguishes crystal
+divisor, counter-zero, and expiry-status models while timers 1 and 2 are idle.
+The exact image completes through cleanup in pinned Wabbitemu. No exported
+physical result has been recorded. [confirmed] for the probe bytes, decoder,
+and emulator run; [hypothesis] for pending measurements.</p>
 <ul>
-<li>Run both prepared matrices on TA2 and TA3 units.</li>
+<li>Run all three prepared timing matrices on TA2 and TA3 units.</li>
 <li>Repeat the loop test with active-register gate bits 0 and 1 cleared to verify
 whether they disable all corresponding <code>0x2E</code> effects.</li>
 <li>Measure the interval from LCD writes and reads to port-<code>0x02</code> bit 1 becoming
@@ -1449,8 +1459,8 @@ ready. This distinguishes TilEm’s every-access restart from Wabbitemu’s
 write-based model.</li>
 <li>Find the lowest reliable ports-<code>0x29</code>–<code>0x2C</code> values for each LCD controller
 revision without assuming the published <code>0x0C</code> threshold is universal.</li>
-<li>Drive a programmable timer from a <code>0xC0</code>-family source and measure the
-port-<code>0x2F</code> divisor in each CPU-speed mode.</li>
+<li>Compare the <code>HWTMR</code> port-<code>0x2F</code> results across CPU-speed modes and ASIC
+revisions.</li>
 <li>Compare nominal and measured T-state wall times on TA2 and TA3 ASICs.</li>
 </ul>
 <h2 id="sources-1"><a class="header" href="#sources-1">Sources</a></h2>
@@ -3606,6 +3616,22 @@ completion bit remains set, the low mode read remains zero, and the next
 callback sets overflow bit 2. OS 2.55MP acknowledges before programming its
 next chunk, so the timer bcall path does not use this emulator edge. [standard]</p>
 <p>Port <code>0x2D</code> controls low-power behavior. Bit 0 keeps the quartz oscillator active on the TI-83 Plus Silver Edition; the TI-84 Plus RTC already requires it. Bit 1 allows the programmable timers to continue counting in low power. TI writes <code>0x03</code>. Public hardware tests report that these timers still do not reliably interrupt a halted CPU, so software should keep a standard timer enabled when it must escape <code>HALT</code>. [standard]</p>
+<h3 id="prepared-physical-discriminator"><a class="header" href="#prepared-physical-discriminator">Prepared physical discriminator</a></h3>
+<p>The guarded <a href="#programmable-timer-physical-probe"><code>HWTMR</code> probe</a>
+tests the four source-model disagreements without using <code>HALT</code>. It compares
+source <code>0x41</code> with the common source-<code>0x45</code> reference, measures source <code>0xE0</code>
+across CPU-speed requests 0–3, starts a source-<code>0x45</code> timer with counter zero,
+and captures status after two unacknowledged expiries. It snapshots ports
+<code>0x02</code>, <code>0x03</code>, <code>0x04</code>, <code>0x15</code>, <code>0x20</code>, <code>0x2D</code>, <code>0x2F</code>, and <code>0x30</code>–<code>0x35</code>.
+It runs only when timers 1 and 2 are idle and their completion bits are clear.
+Every polling loop is bounded. [confirmed] for the assembled source and host
+decoder.</p>
+<p>The exact image completes through its cleanup boundary in pinned Wabbitemu and
+selects that implementation’s divisor-32, omitted-port-<code>0x2F</code>, counter-zero
+completion, and first-expiry-bit-2 behaviors. This validates the program and
+decoder against a known model. No exported <code>HWTMR001</code> result from a calculator
+has been recorded, so the physical divisor, prescaler, zero-counter, and
+expiry-status edges remain [hypothesis].</p>
 <h2 id="undocumented-timer-bcall-api"><a class="header" href="#undocumented-timer-bcall-api">Undocumented timer bcall API</a></h2>
 <p>OS 2.55MP exposes one software timer backed by programmable timer 1. <code>ti83plus.inc</code> supplies official equate names, but the WikiTI pages for IDs <code>526C</code>–<code>5281</code> are absent. The ABI below is reconstructed from <code>33:5E1E</code>–<code>33:5F69</code>. [confirmed]</p>
 <h3 id="entry-points"><a class="header" href="#entry-points">Entry points</a></h3>
@@ -3865,6 +3891,20 @@ public low-power contract and cannot establish physical port-<code>0x2D</code> b
 <p><strong>Native Wabbitemu confirmation.</strong> The guarded initialized-core probe loads counter 3 with crystal source <code>0x41</code>, advances the emulated crystal by 320 ticks, and reads the counter three times without advancing time again. The reads are <code>0x02</code>, <code>0x01</code>, and <code>0x03</code>: each device evaluation consumes one pending divisor, and the third reloads the original count. Mode/status reads <code>0x04</code>, and port <code>0x04</code> reads <code>0x28</code>. [standard]</p>
 <p>The corresponding CPU-source case loads counter 3 with source <code>0x80</code> and advances four T-states. One counter read catches up three divisors, reloads <code>0x03</code>, and produces the same <code>0x04</code> mode/status and <code>0x28</code> port status. Loading counter zero and advancing 257 T-states reaches underflow after 256 decrements. It reads back zero with status <code>0x04</code> and port <code>0x04 = 0x28</code>. A mode write acknowledges that state, returning mode/status to <code>0x00</code> and port <code>0x04</code> to <code>0x08</code>. [standard]</p>
 <p>With mode <code>0x02</code>, source <code>0x80</code>, and counter 1, expiry during <code>HALT</code> leaves the CPU interrupt line clear while mode/status reads <code>0x06</code>. Evaluating the timer after leaving <code>HALT</code> asserts the retained interrupt request. The RTC case commits <code>0x12345678</code>, advances emulated time by 10.75 seconds, and reads <code>0x12345682</code>. Disabling the RTC freezes that value through an advance to 100 seconds. These tests inject emulator clock values directly; they do not measure wall-clock accuracy, callback cadence under CPU execution, or physical low-power behavior. [standard]</p>
+<p><strong>Assembled-probe confirmation.</strong> The exact 835-byte <code>HWTMR</code> image also runs
+after a retail OS 2.55MP boot. The guarded runner stops at <code>01:9EE4</code> before
+<code>_CreateAppVar</code>, after 1,645,212 probe instructions and 12,937,610 modeled
+T-states, with no execution-violation reset. Four samples infer source-<code>0x41</code>
+divisor <code>3568/111</code>, about 32.144. Speed requests 0–3 read back as 0, 1, 1,
+and 1, and the nonzero cases infer prescalers near one. Counter zero produces
+mode/status <code>0x04</code> and port <code>0x04 = 0x68</code>; both expiry samples expose bit 2.
+All saved timer, speed, port-<code>0x2F</code>, power-control, and interrupt-mask fields
+compare equal after cleanup. [confirmed] for the pinned Wabbitemu run.</p>
+<p>The shared injected-program adapter has SHA-256
+<code>c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1</code>.
+The machine-code SHA-256 is
+<code>6767caf1d714bc15e642de2f791151a060015fa0d9faebe1ebddd92d184df68a</code>.
+This execution does not create the result AppVar or measure physical timing.</p>
 <h3 id="mame-timer-and-rtc-policy"><a class="header" href="#mame-timer-and-rtc-policy">MAME timer and RTC policy</a></h3>
 <p>MAME maps only timer ports <code>0x30</code>–<code>0x38</code> from this block. Ports <code>0x2D</code>–<code>0x2F</code> and RTC ports <code>0x40</code>–<code>0x48</code> are unmapped. For every nonzero source value, a counter write selects one of the eight Wabbitemu-style crystal divisors from the low three bits and schedules at <code>32768/divisor</code> Hz. CPU-source family bits do not select the CPU clock. [standard]</p>
 <p>The initial callback is scheduled at zero delay, so a nonzero counter value $N$ reaches its first modeled expiry after $N-1$ periodic intervals; a value of one can expire immediately. Counter zero remains zero because the callback decrements only a nonzero count. At expiry, loop bit 0 reloads the counter once, but the callback then applies <code>loop &amp;= 2</code> and discards that bit. Mode bit 1 has inverted polarity: an interrupt and port-<code>0x04</code> completion are produced only when it is clear. A mode write also clears all three programmable completion bits globally rather than only the selected timer. [standard]</p>
@@ -3880,7 +3920,7 @@ both masks: clearing their pending fields after reset allows both to regenerate
 status <code>0x0E</code> during the next frame. These are MAME scheduler and reset results,
 not physical timer periods or retention. [standard]</p>
 <h2 id="reusable-timer-tools"><a class="header" href="#reusable-timer-tools">Reusable timer tools</a></h2>
-<p><code>tools/timer_hardware.py</code> exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM’s radix-255 chunks, and RTC implementation profiles. <code>tools/describe_timer_hardware.py</code> is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models. <code>tools/tilem_timer.py</code> adds the complete direct-core programmable-timer and deterministic RTC matrix. <code>tools/tilem_interrupt.py</code> adds direct standard-timer scheduling and programmable-timer HALT-gate observations. <code>tools/mame_interrupt.py</code> adds fixed standard-timer and reset-retention observations through the immutable MAME state in <code>tools/interrupt_controller.py</code>. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-<code>0x2D</code> implementation edges use <code>tools/wabbitemu_speed_probe.py</code> and its guarded CLI. These are emulator-comparison tools, not physical-hardware simulators.</p>
+<p><code>tools/timer_hardware.py</code> exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM’s radix-255 chunks, RTC implementation profiles, and the physical-probe discriminator. <code>tools/describe_timer_hardware.py</code> is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models. <code>tools/tilem_timer.py</code> adds the complete direct-core programmable-timer and deterministic RTC matrix. <code>tools/tilem_interrupt.py</code> adds direct standard-timer scheduling and programmable-timer HALT-gate observations. <code>tools/mame_interrupt.py</code> adds fixed standard-timer and reset-retention observations through the immutable MAME state in <code>tools/interrupt_controller.py</code>. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-<code>0x2D</code> implementation edges use <code>tools/wabbitemu_speed_probe.py</code> and its guarded CLI. <code>tools/run_wabbitemu_timer_physical_probe.py</code> executes the assembled physical discriminator through the shared injected-program runner. These are emulator-comparison tools, not physical-hardware simulators.</p>
 <pre><code class="language-sh">nix develop -c python tools/describe_timer_hardware.py \
   source 0x41 0x80 0xC0 --mode3-prescaler 4
 
@@ -3898,6 +3938,14 @@ nix develop -c python tools/run_wabbitemu_timer_edge_probe.py \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$timer_probe_parent/run" --json
+
+physical_timer_parent=$(mktemp -d /tmp/ti84-physical-timer.XXXXXX)
+nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --expected-binary-sha256 \
+    c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1 \
+  --output-dir "$physical_timer_parent/run" --json
 
 mame_timer_parent=$(mktemp -d /tmp/ti84-mame-timer.XXXXXX)
 nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
@@ -3918,13 +3966,14 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 <li>[standard] A guarded TilEm run verifies its four whole-microsecond standard-timer periods, unchanged current intervals on rate writes, two timer-2 callbacks sharing one pending bit, and the three programmable-timer HALT-gate cases.</li>
 <li>[standard] A guarded TilEm timer/RTC run verifies every source divisor, rounded count readback, off sources, ignored port-<code>0x2F</code>, counter-zero behavior, overflow and acknowledgement, the unacknowledged non-loop restart, per-timer status mapping, source-write retention, RTC freeze/re-enable/reset, and an exact torn read.</li>
 <li>[standard] A guarded initialized-core Wabbitemu run verifies single-step crystal catch-up, full CPU catch-up, first-underflow status bit 2, counter-zero completion, acknowledgement, HALT-line suppression with retained generation, and frozen disabled RTC reads.</li>
+<li>[confirmed] The exact assembled <code>HWTMR</code> image reproduces Wabbitemu’s divisor-32, omitted-prescaler, counter-zero-completion, and first-expiry-bit-2 model through its cleanup boundary. No physical result has been recorded.</li>
 <li>[standard] A guarded MAME run verifies fixed-crystal source-family collapse, its zero-delay first callback, idle counter zero, inverted mode-bit polarity, one-reload loop behavior, global completion clearing, source-off preservation, and unmapped auxiliary and RTC blocks.</li>
 <li>[standard] A separate guarded MAME run verifies both standard-timer pending bits, timer-1 status within one frame after port-<code>0x04</code> writes <code>0x00</code> and <code>0x06</code>, and retained legacy masks across soft reset.</li>
 <li>[standard] Wabbitemu’s low-level and frontend reset paths retain the timer context, delay registers, interrupt controller, programmable timers, and RTC. A guarded run confirms the directly seeded state. Physical reset retention remains open.</li>
 <li>[standard] TilEm’s full reset clears programmable timers and reschedules standard timers while retaining the global clock, RTC fields, and dynamic scheduler timers. A guarded direct-core run confirms the seeded boundaries. Physical reset retention remains open.</li>
 <li>[confirmed] The prepared <a href="#memory-bus-timing-probe">memory-bus timing probe</a> uses timer 2 only when its source and mode are zero, records completion state for every sample, and restores the idle counter byte. No physical result has been recorded.</li>
 <li>[hypothesis] Physical RTC reads can tear across a one-second rollover because no latch or OS retry is documented.</li>
-<li>[hypothesis] The physical crystal divisors, first-versus-second-expiry meaning of mode/status bit 2, counter-zero edge, and precise reason programmable timers fail to wake <code>HALT</code> need direct TA2/TA3 measurements.</li>
+<li>[hypothesis] The physical crystal divisors, port-<code>0x2F</code> prescaler, first-versus-second-expiry meaning of mode/status bit 2, counter-zero edge, and precise reason programmable timers fail to wake <code>HALT</code> need direct TA2/TA3 measurements.</li>
 <li>[hypothesis] Low-power behavior of port <code>0x2D</code>, disabled RTC reads, control-edge behavior, and rollover coherence should be checked on TA2 and TA3 hardware rather than inferred from emulators.</li>
 </ul>
 <h2 id="sources-5"><a class="header" href="#sources-5">Sources</a></h2>
@@ -8616,9 +8665,10 @@ including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes
 result AppVars. The sources cover MD5-assist edge behavior, RAM selector
 aliasing, execution-protection boundaries, repeated battery-level bcalls, raw
 battery-comparator selectors, memory-bus and prefix-M1 timing, keypad-matrix
-settling, and raw two-wire link readback, plus read-only ASIC and USB register
-snapshots. No exported result from a physical calculator has been recorded, so
-the hardware conclusions remain open.</p>
+settling, programmable-timer edge behavior, and raw two-wire link readback,
+plus read-only ASIC and USB register snapshots. No exported result from a
+physical calculator has been recorded, so the hardware conclusions remain
+open.</p>
 <h2 id="measurement-status"><a class="header" href="#measurement-status">Measurement status</a></h2>
 <p>The builder, link-file containers, entry jumps, bcall ID, frame layouts, and
 restoration or cleanup instruction sequences have byte-level host validation.
@@ -8640,6 +8690,7 @@ result AppVar is decoded and tied to a calculator and ASIC revision.</p>
 <tr><td>Keypad-matrix settling</td><td><code>HWKEYS</code></td><td><code>HWKEYS01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Six memory wait classes</td><td><code>HWBUS</code></td><td><code>HWBUS001</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Prefixed RAM M1 placement</td><td><code>HWPFX</code></td><td><code>HWPFX001</code></td><td>Not run on a recorded unit</td></tr>
+<tr><td>Programmable-timer edges</td><td><code>HWTMR</code></td><td><code>HWTMR001</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>USB control snapshot</td><td><code>HWPUSB</code></td><td><code>HWPUSB01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Flash execution boundaries</td><td><code>HWEF07</code>–<code>HWEF2A</code></td><td>matching <code>HWEF...01</code> names</td><td>Not run on a recorded unit</td></tr>
 <tr><td>RAM execution boundaries</td><td><code>HWER81</code>–<code>HWER84</code></td><td>matching <code>HWER...1</code> names</td><td>Not run on a recorded unit</td></tr>
@@ -8656,7 +8707,7 @@ hash manifest with:</p>
 <pre><code class="language-sh">nix develop -c python tools/build_hardware_probes.py \
   --output-dir /tmp/hardware-probes
 </code></pre>
-<p>The command emits the ten snapshot, edge, and timing probes, ten single-fetch
+<p>The command emits the 11 snapshot, edge, and timing probes, ten single-fetch
 execution probes, and <code>manifest.json</code>. The manifest records every target
 selector and scan range. It uses repository-relative source names and output
 basenames, so builds made in different checkout directories remain comparable.
@@ -8680,6 +8731,8 @@ or chord until the program returns.</li>
 Export its result before another mutating probe.</li>
 <li>Run <code>Asm(prgmHWPFX)</code> for the guarded prefix-M1 timing measurement. Export
 its result before another mutating probe.</li>
+<li>Run <code>Asm(prgmHWTMR)</code> for the guarded programmable-timer edge measurement.
+Export its result before another mutating probe.</li>
 <li>Run <code>Asm(prgmHWPRAM)</code> for the RAM probe only after the earlier transfer and run
 path works on that unit.</li>
 <li>Run at most one <code>HWEF...</code> or <code>HWER...</code> execution probe before exporting its
@@ -8698,7 +8751,7 @@ interprets measurements. [confirmed]</p>
 <pre><code class="language-sh">python tools/decode_hardware_probe.py HWPMD511.8xv
 python tools/decode_hardware_probe.py --json \
   HWPASIC1.8xv HWBATT01.8xv HWBRAW01.8xv HWPUSB01.8xv \
-  HWLINK01.8xv HWKEYS01.8xv HWBUS001.8xv HWPFX001.8xv \
+  HWLINK01.8xv HWKEYS01.8xv HWBUS001.8xv HWPFX001.8xv HWTMR001.8xv \
   HWPMD511.8xv HWPRAM21.8xv
 </code></pre>
 <p>The JSON form keeps the raw payload and adds named fields. Preserve the
@@ -9197,7 +9250,7 @@ single-prefix two-wait controls, so the decoder selects
 <code>wabbitemu-three-m1</code>. [confirmed] for this emulator execution.</p>
 <p>The native adapter was built from Wabbitemu commit
 <code>48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422</code>; the build has SHA-256
-<code>f908e73dda0b25da5b1b0c18be4fe458e121bb12def6b24b97722550b92c803f</code>.
+<code>c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1</code>.
 This run validates the assembled loops, timer sampling, restoration path, and
 the pinned emulator’s wait model. It does not execute AppVar creation, measure
 host wall time or electrical timing, or establish physical ASIC behavior.
@@ -9221,21 +9274,131 @@ probe manifest, calculator model, PCB or ASIC revision, and OS version together.
 The packaged 1,254-byte <code>HWPFX.8xp</code> has SHA-256
 <code>724a43e82e81de096025931a1aff052de270185f4c3d7ef856f8efeae76bbc77</code>.
 [confirmed]</p>
+<h2 id="programmable-timer-physical-probe"><a class="header" href="#programmable-timer-physical-probe">Programmable-timer physical probe</a></h2>
+<p>Probe ID 12 separates four programmable-timer edges on a physical ASIC:</p>
+<ul>
+<li>whether crystal source <code>0x41</code> divides 32.768 kHz by 33, as published and
+modeled by TilEm, or by 32, as modeled by Wabbitemu and MAME;</li>
+<li>whether the <code>0xC0</code> source family applies the speed-selected port-<code>0x2F</code>
+prescaler;</li>
+<li>whether counter value zero free-runs through a 256-count period, completes
+immediately, or remains idle; and</li>
+<li>whether mode/status bit 2 appears after the first or second unacknowledged
+expiry.</li>
+</ul>
+<p>These alternatives come from the raw WikiTI port descriptions and pinned
+TilEm, Wabbitemu, and MAME source. They define the discriminator, not the
+physical answer. [standard] for the source-specific models; [hypothesis] for
+the pending ASIC behavior.</p>
+<p>The entry guards require timer-1 and timer-2 source and mode/status ports to be
+zero. Port <code>0x04</code> completion bits 5–6 must also be clear. The probe records an
+outcome without starting a measurement when a guard fails. Every polling loop
+has a <code>0xFFFF</code> iteration bound, and outcome 6 reports a measurement timeout.
+[confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Outcome</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0</code></td><td>all guards passed and all measurements completed</td></tr>
+<tr><td style="text-align: right"><code>1</code></td><td>timer-1 source was active</td></tr>
+<tr><td style="text-align: right"><code>2</code></td><td>timer-1 mode/status was active</td></tr>
+<tr><td style="text-align: right"><code>3</code></td><td>timer-2 source was active</td></tr>
+<tr><td style="text-align: right"><code>4</code></td><td>timer-2 mode/status was active</td></tr>
+<tr><td style="text-align: right"><code>5</code></td><td>a programmable-timer completion bit was pending</td></tr>
+<tr><td style="text-align: right"><code>6</code></td><td>a bounded measurement loop timed out</td></tr>
+</tbody>
+</table>
+</div>
+<p>The four divisor trials run sources <code>0x41</code> and <code>0x45</code> together. Source <code>0x45</code>
+is the common 2,048 Hz reference in every compared model. Each trial retains
+both start and end counters, and the decoder aggregates the ratio instead of
+depending on one quantized sample. The mode-3 matrix writes <code>0x4B</code> to port
+<code>0x2F</code>, then writes CPU-speed requests 0–3, records the readback, and counts
+source-<code>0xE0</code> expiries against source <code>0x45</code>. The target timer uses a
+250-count loop so the decoder can reconstruct
+more than 255 target ticks. [confirmed] for the assembled measurement and
+decoder; [standard] for the named source models.</p>
+<p>The zero-counter case compares source <code>0x45</code> at counter zero with 31 ticks of
+source <code>0x46</code>. The expiry case records timer-1 mode/status and port <code>0x04</code>
+after an ordinary four-count loop expiry and again after the following
+unacknowledged 256-count overflow period. The reference timer supplies bounded
+completion windows; the program never executes <code>HALT</code>. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Payload range</th><th>Contents</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0</code>–<code>12</code></td><td>pre-sequence ports <code>0x02</code>, <code>0x03</code>, <code>0x04</code>, <code>0x15</code>, <code>0x20</code>, <code>0x2D</code>, <code>0x2F</code>, and <code>0x30</code>–<code>0x35</code></td></tr>
+<tr><td style="text-align: right"><code>13</code></td><td>outcome code</td></tr>
+<tr><td style="text-align: right"><code>14</code>–<code>29</code></td><td>four source-<code>0x41</code>/source-<code>0x45</code> counter trials</td></tr>
+<tr><td style="text-align: right"><code>30</code>–<code>65</code></td><td>four nine-byte mode-3 speed and expiry-count cases</td></tr>
+<tr><td style="text-align: right"><code>66</code>–<code>71</code></td><td>counter-zero case</td></tr>
+<tr><td style="text-align: right"><code>72</code>–<code>77</code></td><td>first- and second-expiry status case</td></tr>
+<tr><td style="text-align: right"><code>78</code>–<code>90</code></td><td>post-cleanup copy of the 13 pre-sequence ports</td></tr>
+</tbody>
+</table>
+</div>
+<p>Run and decode a physical result with:</p>
+<pre><code class="language-sh">python tools/decode_hardware_probe.py --json HWTMR001.8xv
+</code></pre>
+<p>The decoder reports raw counters and status bytes alongside the nearest source
+model. A nearest-model label describes that sample; it does not establish an
+ASIC-wide rule. Retain the exported AppVar, manifest, calculator and ASIC
+identity, CPU-speed readbacks, and artifact hashes together.</p>
+<p>The exact 835-byte assembled image completed in the pinned Wabbitemu core after
+a retail OS 2.55MP boot. The shared injected-program runner stopped at
+<code>01:9EE4</code>, immediately before <code>_CreateAppVar</code>, after 1,645,212 probe
+instructions and 12,937,610 modeled T-states. It recorded no
+execution-violation reset. [confirmed] for this emulator execution.</p>
+<p>The four trials inferred divisor <code>3568/111</code>, or about 32.144. The decoder
+selected the Wabbitemu/MAME divisor-32 model. Speed requests 0–3 read back as
+0, 1, 1, and 1. The nonzero cases inferred a port-<code>0x2F</code> prescaler near one,
+matching Wabbitemu’s omitted prescaler. Counter zero completed with
+mode/status <code>0x04</code> and port <code>0x04 = 0x68</code>. Both expiry samples read
+mode/status <code>0x05</code>, so bit 2 was present on the first expiry. Every restoration
+field compared equal. [confirmed] for the pinned Wabbitemu run.</p>
+<p>The native adapter uses Wabbitemu commit
+<code>48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422</code>, source-tree SHA-256
+<code>a8a4f97fc7952770bed317b4a477f80345894da38d14fad8f0bf0ee60aae71ba</code>,
+and binary SHA-256
+<code>c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1</code>.
+Run the same guarded path with:</p>
+<pre><code class="language-sh">nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
+  --binary /path/to/wabbitemu-headless \
+  --expected-binary-sha256 c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1 \
+  --output-dir /tmp/wabbitemu-timer-physical --json
+</code></pre>
+<p>This run validates the assembled control flow, bounded polling, result layout,
+cleanup, and decoder against one emulator implementation. It does not execute
+AppVar creation, measure wall time or crystal accuracy, or establish physical
+ASIC behavior. No <code>HWTMR001</code> result from a calculator is available.</p>
+<p>The pinned SPASM-ng build produces 835 machine-code bytes with SHA-256
+<code>6767caf1d714bc15e642de2f791151a060015fa0d9faebe1ebddd92d184df68a</code>.
+The packaged 1,750-byte <code>HWTMR.8xp</code> has SHA-256
+<code>2182a69520ad1e82e0c7b94ef96c5910ca50727b58c77173c4f428ba95cc329c</code>.
+[confirmed]</p>
 <h2 id="safety-boundary"><a class="header" href="#safety-boundary">Safety boundary</a></h2>
 <p>The RAM alias probe is designed to restore its writes, but it has not completed
 a physical run. A reset, power loss, assembly defect, or unexpected exception
 before the restoration loop can leave a changed byte. Use a backed-up test
 calculator and stable power. Do not run the RAM probe on a unit whose contents
 cannot be replaced.</p>
-<p>The snapshot, battery, raw-battery, raw-link, keypad, bus-timing, prefix-M1, and
-alias probes restore interrupt enable state before creating the result AppVar.
+<p>The snapshot, battery, raw-battery, raw-link, keypad, bus-timing, prefix-M1,
+programmable-timer, and alias probes restore interrupt enable state before
+creating the result AppVar.
 Both battery probes restore ports <code>0x04</code>, <code>0x39</code>, <code>0x3A</code>, and the complete
 saved <code>traceFlags</code> byte.
 The raw-battery probe also executes the ROM’s selector cleanup after every
 sample sequence. The raw-link probe releases both link lines during cleanup. A
 returned execution probe restores port <code>0x06</code> and the interrupt state. The
 keypad probe normalizes port <code>0x01</code> to the OS’s all-groups-unselected value
-<code>0xFF</code>. Both timing probes restore port <code>0x2E</code> and an initially idle timer 2.
+<code>0xFF</code>. The bus and prefix timing probes restore port <code>0x2E</code> and an initially
+idle timer 2. The programmable-timer probe restores CPU speed, port <code>0x2F</code>,
+and the initially idle timer-1 and timer-2 triplets. It snapshots port <code>0x2D</code>
+but does not write it.
 The bus-timing probe’s direct Flash writes are <code>0xF0</code> read-array resets, not
 program or erase sequences. The prefix-M1 probe accesses only user RAM and I/O.
 A denied fetch may reset before cleanup instructions. The result AppVar is the
@@ -9257,6 +9420,7 @@ physical execution and reset retention.</p>
 <tr><td><code>tools/hardware-probes/keypad-settle.asm</code></td><td>held-key and chord matrix-settling measurements</td></tr>
 <tr><td><code>tools/hardware-probes/bus-timing.asm</code></td><td>six-class Flash/RAM wait-state timing matrix</td></tr>
 <tr><td><code>tools/hardware-probes/prefix-m1.asm</code></td><td>prefixed-instruction RAM-M1 timing matrix</td></tr>
+<tr><td><code>tools/hardware-probes/timer-physical.asm</code></td><td>guarded programmable-timer divisor, prescaler, zero-counter, and expiry matrix</td></tr>
 <tr><td><code>tools/hardware-probes/usb-snapshot.asm</code></td><td>read-only low-USB control and status snapshot</td></tr>
 <tr><td><code>tools/hardware-probes/md5-edge.asm</code></td><td>calculator-side MD5 measurements</td></tr>
 <tr><td><code>tools/hardware-probes/ram-alias.asm</code></td><td>calculator-side RAM alias and restoration measurements</td></tr>
@@ -9264,8 +9428,10 @@ physical execution and reset retention.</p>
 <tr><td><code>tools/hardware_probe.py</code></td><td>reusable TI container, frame, and payload library</td></tr>
 <tr><td><code>tools/bus_timing.py</code></td><td>timing-register models and physical counter-pair decoder</td></tr>
 <tr><td><code>tools/prefix_fetch_models.py</code></td><td>hash-guarded emulator prefix-fetch source analysis</td></tr>
+<tr><td><code>tools/timer_hardware.py</code></td><td>reusable source, duration, RTC, and physical timer-result models</td></tr>
 <tr><td><code>tools/describe_prefix_fetch_models.py</code></td><td>text and JSON prefix-fetch comparison CLI</td></tr>
 <tr><td><code>tools/run_wabbitemu_prefix_m1_probe.py</code></td><td>exact-ROM guarded assembled-probe execution CLI</td></tr>
+<tr><td><code>tools/run_wabbitemu_timer_physical_probe.py</code></td><td>exact-ROM guarded assembled timer-probe execution CLI</td></tr>
 <tr><td><code>tools/battery_hardware.py</code></td><td>ROM decision tree and emulator threshold-region model</td></tr>
 <tr><td><code>tools/describe_battery_hardware.py</code></td><td>text and JSON threshold/sample model CLI</td></tr>
 <tr><td><code>tools/build_hardware_probes.py</code></td><td>SPASM runner, artifact validator, packager, and manifest CLI</td></tr>
@@ -18395,12 +18561,12 @@ The prepared <a href="#raw-two-wire-link-probe">raw two-wire link probe</a> reco
 <li><strong>MD5 physical edge behavior.</strong> The valid 64-step path, boot API, two implementing emulator models, and MAME’s missing port block are reconciled in <a href="#md5-accelerator-and-boot-api">MD5 accelerator and boot API</a>. Guarded native TilEm and Wabbitemu runs exercise partial and fifth writes, high control bits, undefined operand reads, and read-time recalculation. The TilEm run also verifies complete reset clearing and zero modeled port latency under the locked compiler. A separate guarded MAME run confirms that its unmapped ports discard patterned writes and return zero for the known first <code>"abc"</code> step. The <a href="#md5-edge-probe">physical hardware probe</a> prepares the corresponding ASIC measurements. Physical TA2/TA3 tests still need to run it and add reset-retention and I/O wait-state measurements.</li>
 <li><strong>Memory-mapper overlay hardware.</strong> The boot transition, paired and independent modes, extended Flash selectors, and emulator implementations are reconciled in <a href="#paging">Paging</a>. A guarded initialized-core Wabbitemu run verifies its fixed-page opcode handoff, selector readback, duplicated even page in paired mode, <code>0x27</code> cutoff, independent-mode read/write/fetch overlays, and paired-mode overlay suppression. A guarded MAME run verifies its read-triggered fixed-page handoff, selector masks, adjacent paired pages, safe RAM banks through <code>0x86</code>, unmapped extended and overlay ports, and underlying read/write/fetch routing. Selector <code>0x87</code> remains source-only because MAME maps seven RAM pages. These are emulator results. Physical tests must resolve whether ports <code>0x27</code>/<code>0x28</code> remain active in paired mode, whether the <code>0xFB64</code> cutoff exists in the ASIC, and whether <a href="#mapping-and-forced-overlays">execution protection</a> follows the underlying window or forced RAM page.</li>
 <li><strong>Bus-timing and LCD-controller measurements.</strong> The boot values, wait-state decode, controller commands, display paths, and emulator implementations are reconciled in <a href="#bus-timing-and-wait-states">Bus timing and wait states</a> and <a href="#lcd-controller-and-display-bus">LCD controller and display bus</a>. Guarded initialized-core Wabbitemu runs verify its 60-T-state guard, 15-column increment cycle, direct hidden-column alias, one-transfer read latch, absent mirror ports, strict $48 + 64f$ ready boundary, write-based ready timestamp, complete wait-gate matrix, default and internal extra-speed matrices, and raw port-<code>0x2D</code> latch without low-power side effects. Guarded MAME runs verify its controller startup state, permanent busy-clear status, mirror ports, 15-byte hidden-column aliases, one-transfer read latch, 6-bit packing, stored analog fields, fixed ready bit, raw speed readback, exact 6:15 MHz loop ratio, unmapped <code>0x29</code>–<code>0x2F</code> block, and retained speed byte across soft reset. These are emulator results. Physical tests must measure each port-<code>0x2E</code> access class, CPU-speed readback and frequency across ASIC revisions, port-<code>0x2D</code> low-power behavior, LCD read-versus-write ready timing, controller-specific minimum delays, hidden-column bounds, status-read pointer behavior, and the unmodeled port-<code>0x2F</code> mode-3 timer prescaler across TA2 and TA3 controller revisions.
-The prepared <a href="#memory-bus-timing-probe">memory-bus timing probe</a> pairs baseline and enabled timer-2 runs for all six port-<code>0x2E</code> classes. The separate <a href="#prefix-m1-timing-probe">prefix-M1 probe</a> covers unprefixed, CB, ED, DD, repeated-DD, and indexed-CB loops. Its exact assembled image completes in pinned Wabbitemu and distinguishes that core’s three-wait indexed-CB implementation from the documented Z80/TilEm two-M1 path. This is emulator evidence. Physical TA2/TA3 execution and separate LCD-ready, low-power, and mode-3-prescaler measurements remain open.</li>
+The prepared <a href="#memory-bus-timing-probe">memory-bus timing probe</a> pairs baseline and enabled timer-2 runs for all six port-<code>0x2E</code> classes. The separate <a href="#prefix-m1-timing-probe">prefix-M1 probe</a> covers unprefixed, CB, ED, DD, repeated-DD, and indexed-CB loops. Its exact assembled image completes in pinned Wabbitemu and distinguishes that core’s three-wait indexed-CB implementation from the documented Z80/TilEm two-M1 path. The prepared <a href="#programmable-timer-physical-probe"><code>HWTMR</code> probe</a> measures the mode-3 prescaler across CPU-speed requests and also distinguishes timer divisor, counter-zero, and expiry-status models. Its exact assembled image reproduces pinned Wabbitemu’s omitted prescaler. These are emulator results. Physical TA2/TA3 execution and separate LCD-ready and low-power measurements remain open.</li>
 <li><strong>ASIC status, RAM topology, execution protection, and GPIO measurements.</strong> The ROM’s battery routines, status-bit uses, protected port setup, and GPIO read-modify-write sequences are reconciled in <a href="#asic-status-identity-protection-and-gpio">ASIC status, identity, protection, and GPIO</a> and <a href="#execution-protection">Execution protection</a>. Complete immediate-opcode audits classify all 55 port-<code>0x02</code> reads, all 14 raw port-<code>0x21</code> pairs, and all 68 raw GPIO pairs. Port <code>0x02</code> has 44 bit-7, eight bit-0, and three bit-1 consumers. Port <code>0x21</code> has ten reads that all mask with <code>0x03</code>, one boot write, and three operand overlaps. The GPIO set has 65 reviewed instructions, two operand overlaps, and one table-data false decode. No raw pair remains unclassified. Guarded TilEm and Wabbitemu runs exercise both sides of their differing default Flash intervals. A separate pinned TilEm sweep verifies all four modeled battery thresholds and proves that its ordering makes <code>_Chk_Batt_Level</code> result 2 unreachable. RAM runs also cover the common chunk edge, mode-0 and mode-1 disagreements, all four Wabbitemu modes, and its 16-bit high-bound wrap. Guarded initialized-core runs verify Wabbitemu’s port-<code>0x02</code> lock bit, RAM-revision identity split, the shared protected-write gate across ports <code>0x21</code>–<code>0x26</code>, port-<code>0x21</code> readback loss, port-<code>0x24</code> high-field clearing, RAM-bound wrap, absent port <code>0x39</code>, and the port-<code>0x3A</code> byte latch. A guarded MAME run verifies its raw gate-to-status shift, fixed identity, unprotected port-<code>0x21</code> nibble, missing ports <code>0x22</code>–<code>0x2F</code> and <code>0x39</code>–<code>0x3A</code>, live RAM execution with patterned protection writes, and retained gate/speed/control fields across soft reset. A Wabbitemu reset run verifies all fields written by <code>CPU_reset</code>, 14 retained component groups, the frontend’s LCD-only addition, and same-step execution after a violation. A TilEm reset run verifies its broader eight-group reset, nine retained groups, and a forbidden instruction’s surviving pre-reset RAM write. These remain emulator evidence. The <a href="#battery-level-probe">battery-level probe</a> calls the retail bcall 16 times and verifies restoration state. The <a href="#ram-alias-probe">RAM alias probe</a> prepares one restoring selector-topology measurement and now decodes partial alias groups. The <a href="#execution-protection-fetch-probes">execution-fetch suite</a> prepares read-only retail-mode Flash and RAM fetches with pre-fetch result records. Physical units must correlate the probe’s port-<code>0x15</code> byte and alias groups with PCB date and ASIC marking instead of assuming a TA label determines capacity. TA1/TA2/TA3 tests must also sweep battery thresholds in both directions, test protected-register readback and high-value behavior, characterize violations and warm/cold reset retention, and measure port-<code>0x39</code> direction polarity plus port-<code>0x3A</code> electrical signals.
 The prepared <a href="#raw-battery-selector-probe">raw battery-selector probe</a> complements the battery-level probe by repeating all four comparator reads 16 times and reproducing the ROM cleanup after every sequence. Physical TA1, TA2, and TA3 work must run both probes across upward and downward controlled-voltage sweeps.</li>
 <li><strong>MathPrint runtime coverage.</strong> Trace representative expressions and cursor states through the statically recovered MathPrint compositor at <code>39:5167</code>. Existing macro fixtures cover power, fraction, and <code>fnInt(</code> layouts, but the exact runtime paths have not been recorded. See <a href="#mathprint-pipeline-coverage">Equation display</a>.</li>
 <li><strong>Matrix and list residuals.</strong> Explain why plain <code>augment(</code> calls the partial-pivoting engine at <code>02:4663</code>; locate the <code>randM(</code> cell-fill path; identify the separate <code>rref(</code>/<code>ref(</code> driver; and finish the <code>seq(</code>/<code>SortA(</code>/<code>SortD(</code> collection and element-load traces. See <a href="#9-findings">Matrices &amp; lists</a>.</li>
-<li><strong>Smaller residuals.</strong> Map the For/While/Repeat FPS loop-frame bytes; recover the <code>Asm(</code>/<code>AsmPrgm</code> setup before the traced <code>ram:9D95</code> payload handoff; find a direct ASM-to-BASIC program-call entry beyond VAT lookup and the cooperative <code>Ans</code> callback; and trace the group-archive member walk after <code>_Arc_Unarc</code> rejects type <code>0x17</code>. A guarded direct-core run verifies TilEm’s complete source-divisor table, rounded count readback, off sources, ignored port-<code>0x2F</code>, counter-zero behavior, first/second expiry distinction, acknowledgement, unacknowledged non-loop restart, source-write retention, deterministic RTC transitions, reset retention, and torn byte reads. A guarded initialized-core run verifies Wabbitemu’s timer catch-up, counter-zero completion, first-underflow status bit 2, HALT-line suppression, retained interrupt generation, and frozen disabled RTC reads. A guarded MAME run verifies its fixed-crystal source collapse, immediate first decrement, idle counter zero, inverted mode polarity, one-reload loop, global completion clearing, and absent RTC block. TA2/TA3 hardware must still distinguish the published <code>33</code>/<code>328</code>/<code>3277</code> timer divisors from Wabbitemu/MAME’s <code>32</code>/<code>327</code>/<code>3276</code>, test counter zero and first-versus-second-expiry status bit 2, measure programmable-timer <code>HALT</code> behavior, and test disabled RTC reads plus rollover coherence. A guarded direct-core TilEm run verifies transitive keypad closure, all eight stored rows, complete group-byte storage, row-major scancode bounds, separate ON state, both ON edges, and reset clearing. Another guarded run verifies Wabbitemu’s pairwise keypad closure, ignored row 7, and press-only ON latch with release rearming. A guarded MAME live-input run verifies its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, and lack of matrix closure. These remain emulator evidence. The prepared <a href="#keypad-settling-probe">keypad settling probe</a> samples all eight group writes at 0, 4, 16, and 64 <code>NOP</code> gaps for a held key or chord. Physical runs still need worst-case chords on TA2 and TA3 units, while switch bounce and ON interrupt edges require separate time-domain tests; see <a href="#resolved-findings-and-open-hardware-tests-2">Keypad and ON-key hardware</a>. The timer, APD, RTC, and power reconstruction is in <a href="#clock-timers-and-power">Clock, timers, and power</a>.</li>
+<li><strong>Smaller residuals.</strong> Map the For/While/Repeat FPS loop-frame bytes; recover the <code>Asm(</code>/<code>AsmPrgm</code> setup before the traced <code>ram:9D95</code> payload handoff; find a direct ASM-to-BASIC program-call entry beyond VAT lookup and the cooperative <code>Ans</code> callback; and trace the group-archive member walk after <code>_Arc_Unarc</code> rejects type <code>0x17</code>. A guarded direct-core run verifies TilEm’s complete source-divisor table, rounded count readback, off sources, ignored port-<code>0x2F</code>, counter-zero behavior, first/second expiry distinction, acknowledgement, unacknowledged non-loop restart, source-write retention, deterministic RTC transitions, reset retention, and torn byte reads. A guarded initialized-core run verifies Wabbitemu’s timer catch-up, counter-zero completion, first-underflow status bit 2, HALT-line suppression, retained interrupt generation, and frozen disabled RTC reads. A guarded MAME run verifies its fixed-crystal source collapse, immediate first decrement, idle counter zero, inverted mode polarity, one-reload loop, global completion clearing, and absent RTC block. The exact assembled <code>HWTMR</code> image reproduces Wabbitemu’s divisor-32, omitted-prescaler, counter-zero-completion, and first-expiry-bit-2 behavior through cleanup. No physical result is available. TA2/TA3 hardware must still distinguish the published <code>33</code>/<code>328</code>/<code>3277</code> timer divisors from Wabbitemu/MAME’s <code>32</code>/<code>327</code>/<code>3276</code>, test the port-<code>0x2F</code> prescaler, counter zero, first-versus-second-expiry status bit 2, programmable-timer <code>HALT</code> behavior, disabled RTC reads, and rollover coherence. A guarded direct-core TilEm run verifies transitive keypad closure, all eight stored rows, complete group-byte storage, row-major scancode bounds, separate ON state, both ON edges, and reset clearing. Another guarded run verifies Wabbitemu’s pairwise keypad closure, ignored row 7, and press-only ON latch with release rearming. A guarded MAME live-input run verifies its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, and lack of matrix closure. These remain emulator evidence. The prepared <a href="#keypad-settling-probe">keypad settling probe</a> samples all eight group writes at 0, 4, 16, and 64 <code>NOP</code> gaps for a held key or chord. Physical runs still need worst-case chords on TA2 and TA3 units, while switch bounce and ON interrupt edges require separate time-domain tests; see <a href="#resolved-findings-and-open-hardware-tests-2">Keypad and ON-key hardware</a>. The timer, APD, RTC, and power reconstruction is in <a href="#clock-timers-and-power">Clock, timers, and power</a>.</li>
 <li><strong>Interrupt-controller physical tests.</strong> A guarded direct-core TilEm run verifies complete mask readback, both clear-on-zero acknowledgement paths, ON press and release latches, both timer-2 callbacks, link transitions, programmable-timer HALT gating, and its reset readback/internal-policy mismatch. A separate guarded TilEm link run verifies raw activity plus assist idle, receive, and sticky-error interrupt transitions. A guarded initialized-core Wabbitemu run verifies full mask readback, ON-latch clearing, its rounded standard-timer rates, strict expiry edge, port-<code>0x03</code> and port-<code>0x02</code> timer acknowledgement, programmable completion readback, and LCD-based low-power approximation. A guarded MAME run verifies shared port-<code>0x03</code>/<code>0x04</code> status, direct port-<code>0x02</code> pending-field writes, three-bit port-<code>0x03</code> masking, press-only timer-sampled ON edges, both standard-timer pending bits during scheduled frames, and retained interrupt fields across soft reset. These are emulator results. On TA2 and TA3 calculators, measure which ON transitions latch a request, which link transitions wake low power, whether simultaneous legacy requests are coalesced by the port-<code>0x03</code> clear-on-zero sequence, and which timer configurations can wake <code>HALT</code>. Compare the results with the explicit TilEm, Wabbitemu, and MAME differences in <a href="#emulator-comparison-2">Interrupts (IM1)</a>.</li>
 </ol>
 <p>The ROM-wide I/O audit is complete. All 35 aligned non-descriptor immediate
