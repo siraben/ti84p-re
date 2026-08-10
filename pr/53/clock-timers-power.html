@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3204b62c.js";
+            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -707,7 +707,7 @@ mode/status <code>0x04</code> and port <code>0x04 = 0x68</code>; both expiry sam
 All saved timer, speed, port-<code>0x2F</code>, power-control, and interrupt-mask fields
 compare equal after cleanup. [confirmed] for the pinned Wabbitemu run.</p>
 <p>The shared injected-program adapter has SHA-256
-<code>c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1</code>.
+<code>617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce</code>.
 The machine-code SHA-256 is
 <code>6767caf1d714bc15e642de2f791151a060015fa0d9faebe1ebddd92d184df68a</code>.
 This execution does not create the result AppVar or measure physical timing.</p>
@@ -750,7 +750,7 @@ nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --expected-binary-sha256 \
-    c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1 \
+    617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce \
   --output-dir "$physical_timer_parent/run" --json
 
 mame_timer_parent=$(mktemp -d /tmp/ti84-mame-timer.XXXXXX)

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3204b62c.js";
+            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -769,7 +769,7 @@ single-prefix two-wait controls, so the decoder selects
 <code>wabbitemu-three-m1</code>. [confirmed] for this emulator execution.</p>
 <p>The native adapter was built from Wabbitemu commit
 <code>48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422</code>; the build has SHA-256
-<code>c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1</code>.
+<code>617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce</code>.
 This run validates the assembled loops, timer sampling, restoration path, and
 the pinned emulator’s wait model. It does not execute AppVar creation, measure
 host wall time or electrical timing, or establish physical ASIC behavior.
@@ -883,11 +883,11 @@ field compared equal. [confirmed] for the pinned Wabbitemu run.</p>
 <code>48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422</code>, source-tree SHA-256
 <code>a8a4f97fc7952770bed317b4a477f80345894da38d14fad8f0bf0ee60aae71ba</code>,
 and binary SHA-256
-<code>c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1</code>.
+<code>617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce</code>.
 Run the same guarded path with:</p>
 <pre><code class="language-sh">nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
   --binary /path/to/wabbitemu-headless \
-  --expected-binary-sha256 c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1 \
+  --expected-binary-sha256 617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce \
   --output-dir /tmp/wabbitemu-timer-physical --json
 </code></pre>
 <p>This run validates the assembled control flow, bounded polling, result layout,

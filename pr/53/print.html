@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3204b62c.js";
+            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -3901,7 +3901,7 @@ mode/status <code>0x04</code> and port <code>0x04 = 0x68</code>; both expiry sam
 All saved timer, speed, port-<code>0x2F</code>, power-control, and interrupt-mask fields
 compare equal after cleanup. [confirmed] for the pinned Wabbitemu run.</p>
 <p>The shared injected-program adapter has SHA-256
-<code>c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1</code>.
+<code>617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce</code>.
 The machine-code SHA-256 is
 <code>6767caf1d714bc15e642de2f791151a060015fa0d9faebe1ebddd92d184df68a</code>.
 This execution does not create the result AppVar or measure physical timing.</p>
@@ -3944,7 +3944,7 @@ nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --expected-binary-sha256 \
-    c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1 \
+    617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce \
   --output-dir "$physical_timer_parent/run" --json
 
 mame_timer_parent=$(mktemp -d /tmp/ti84-mame-timer.XXXXXX)
@@ -9250,7 +9250,7 @@ single-prefix two-wait controls, so the decoder selects
 <code>wabbitemu-three-m1</code>. [confirmed] for this emulator execution.</p>
 <p>The native adapter was built from Wabbitemu commit
 <code>48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422</code>; the build has SHA-256
-<code>c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1</code>.
+<code>617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce</code>.
 This run validates the assembled loops, timer sampling, restoration path, and
 the pinned emulator’s wait model. It does not execute AppVar creation, measure
 host wall time or electrical timing, or establish physical ASIC behavior.
@@ -9364,11 +9364,11 @@ field compared equal. [confirmed] for the pinned Wabbitemu run.</p>
 <code>48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422</code>, source-tree SHA-256
 <code>a8a4f97fc7952770bed317b4a477f80345894da38d14fad8f0bf0ee60aae71ba</code>,
 and binary SHA-256
-<code>c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1</code>.
+<code>617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce</code>.
 Run the same guarded path with:</p>
 <pre><code class="language-sh">nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
   --binary /path/to/wabbitemu-headless \
-  --expected-binary-sha256 c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1 \
+  --expected-binary-sha256 617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce \
   --output-dir /tmp/wabbitemu-timer-physical --json
 </code></pre>
 <p>This run validates the assembled control flow, bounded polling, result layout,
@@ -17046,6 +17046,62 @@ both requests. Port <code>0x5B</code> masks <code>0xFF</code> to bit 0, and port
 bits after the handler adds the selected bit. These directly seeded states
 test handler arithmetic; the run does not claim that registered ports can
 reach them naturally. [standard]</p>
+<h3 id="controlled-boot-rom-paths"><a class="header" href="#controlled-boot-rom-paths">Controlled boot-ROM paths</a></h3>
+<p>A separate Wabbitemu mode boots the retail OS 2.55MP ROM, installs controlled
+digital handlers for ports <code>0x4A</code>–<code>0x5B</code> and <code>0x80</code>–<code>0xA2</code>, and then calls the
+untouched page-<code>2F</code> boot routines from RAM. The two injected programs are:</p>
+<pre><code class="language-z80">; Call _InitUSB = 8108h, then stop in RAM.
+RST 28h
+.dw 8108h
+HALT
+
+; Dispatch event 40h through _AttemptUSBOSReceive = 80E4h.
+LD A,40h
+OR A                 ; NZ selects dispatch of the supplied event.
+RST 28h
+.dw 80E4h
+HALT
+</code></pre>
+<p>The pinned SPASM-independent byte images are <code>EF 08 81 76</code> and
+<code>3E 40 B7 EF E4 80 76</code>. The native runner executes those bytes and checks the
+page resolved by each bcall. It stops the second case at <code>2F:4170</code>, before the
+endpoint payload and Flash-programming pipeline. [confirmed] for these ROM
+dispatches in the controlled run.</p>
+<p>The harness returns <code>0x5A</code> or <code>0x02</code> from port <code>0x4C</code> to select handshake
+success or timeout. It returns nonzero or zero from port <code>0x8C</code> to select frame
+readiness or timeout. Port <code>0x4D</code> starts at <code>0xA5</code>; all other controlled bytes
+start at zero except the unused status defaults <code>0x55 = 0x1F</code> and
+<code>0x56 = 0x50</code>. This contract supplies digital branch inputs. It does not model
+a USB device, packet timing, or a PHY. [confirmed] for the harness contract.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Case</th><th>Controlled result</th><th style="text-align: right">Instructions / T-states</th><th>Polls and boundary</th><th>Return</th></tr>
+</thead>
+<tbody>
+<tr><td>initialization success</td><td><code>0x4C = 0x5A</code>, <code>0x8C != 0</code></td><td style="text-align: right">5,923 / 62,196</td><td>2 timeout ticks; 2 port-<code>0x4C</code> reads; 1 port-<code>0x8C</code> read</td><td>carry clear, <code>A = 0x01</code></td></tr>
+<tr><td>handshake timeout</td><td><code>0x4C = 0x02</code></td><td style="text-align: right">783,929 / 7,739,783</td><td>65,535 timeout ticks and port-<code>0x4C</code> reads</td><td>carry set, <code>A = 0x50</code></td></tr>
+<tr><td>frame timeout</td><td><code>0x4C = 0x5A</code>, <code>0x8C = 0</code></td><td style="text-align: right">3,012,144 / 28,842,346</td><td>327,676 timeout ticks; 327,670 port-<code>0x8C</code> reads</td><td>carry set, <code>A = 0x50</code></td></tr>
+<tr><td>event <code>0x40</code> dispatch</td><td>success inputs</td><td style="text-align: right">5,935 / 62,310</td><td>reaches <code>2F:4170</code> once</td><td>stopped at receive boundary</td></tr>
+</tbody>
+</table>
+</div>
+<p>Every case visits <code>_InitUSB</code> at <code>2F:52A4</code> and the reset helper at <code>2F:59C3</code>
+once. Success writes the byte-derived sequence
+<code>57:80 4C:00 54:02 4A:20 4B:00 54:00 54:C4 4C:08 87:FF 92:00 89:0E 8B:21</code>.
+The handshake-timeout path appends
+<code>5B:00 4C:00 54:02 57:50</code> after the eight-write initialization prefix. The
+frame-timeout path appends <code>4C:00 54:02 57:50</code> after endpoint setup and does
+not write port <code>0x5B</code>. The bytes at <code>2F:5958</code> contain the port-<code>0x5B</code> write;
+the frame cleanup at <code>2F:58C8</code> starts with <code>CALL 2F:591B</code> and bypasses it.
+[confirmed]</p>
+<p>The runner compares the complete 1 MiB Flash array before and after each case.
+All four comparisons report zero changed bytes and no execution-protection
+reset. This establishes that initialization, both timeouts, and dispatch up to
+<code>2F:4170</code> do not mutate Flash under these inputs. It does not exercise
+<code>_ReceiveOS_USB</code>, endpoint payload transfer, command-busy behavior, electrical
+USB signaling, or a calculator. [confirmed] for the controlled Wabbitemu ROM
+execution; [hypothesis] for corresponding physical behavior.</p>
 <h2 id="reusable-usb-tools"><a class="header" href="#reusable-usb-tools">Reusable USB tools</a></h2>
 <p><code>tools/usb_hardware.py</code> contains the FDRC offset map, the common HDRC comparison map, pinned source
 provenance, imported global bit names, link-assist rate fields, page-35 and boot-event decoders,
@@ -17053,7 +17109,9 @@ paired line-state decoder, emulator profiles, and pure functions for Wabbitemu�
 <code>tools/describe_usb_hardware.py</code> exposes the general models as text or JSON.
 <code>tools/wabbitemu_usb_probe.py</code> validates native reports against the reusable handler model, while
 <code>tools/run_wabbitemu_usb_edge_probe.py</code> provides the exact-ROM guard and writes a hashed JSON
-manifest. The link-assist state model remains in <code>tools/link_port.py</code>;
+manifest. <code>tools/wabbitemu_usb_rom.py</code> contains the byte-derived boot-ROM
+oracle, and <code>tools/run_wabbitemu_usb_rom_probe.py</code> exposes its four controlled
+cases as a hash-guarded JSON CLI. The link-assist state model remains in <code>tools/link_port.py</code>;
 <code>tools/tilem_link.py</code> and <code>tools/run_tilem_link_probe.py</code> add the guarded TilEm
 native report and manifest. <code>tools/port_definitions.py</code> parses the project port
 labels with duplicate checks. <code>tools/analyze_rom_io.py</code> uses that library to
@@ -17086,6 +17144,14 @@ nix develop -c python tools/analyze_rom_io.py \
 
 # Verify every candidate for every port absent from tools/ports.txt.
 nix develop -c python tools/describe_rom_io_coverage.py --json
+
+usb_rom_parent=$(mktemp -d /tmp/ti84-usb-rom.XXXXXX)
+nix develop -c python tools/run_wabbitemu_usb_rom_probe.py \
+  --rom tools/rom.bin \
+  --binary /path/to/wabbitemu-headless \
+  --expected-binary-sha256 \
+    617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce \
+  --output-dir "$usb_rom_parent/run" --json
 </code></pre>
 <p>The FDRC names and bit labels remain a controller-family hypothesis. The CLI identifies that evidence boundary in its register records; it does not promote imported Mentor names to TI silicon confirmation.</p>
 <h2 id="how-to-use-it-in-code-confirmed"><a class="header" href="#how-to-use-it-in-code-confirmed">How to use it in code [confirmed]</a></h2>
@@ -17154,7 +17220,7 @@ a stable public API.</li>
 <ul>
 <li>The ROM calls <code>ram:2E0B</code>, a <code>cross_page_jump</code> thunk to <code>35:4280</code>. Its
 carry-clear/carry-set result is decoded above.</li>
-<li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs and the boot-page <code>0x8xxx</code> USB entries are mapped above. The connected boot receive path remains dynamically untested because TilEm models USB as disconnected.</li>
+<li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs and the boot-page <code>0x8xxx</code> USB entries are mapped above. The controlled harness executes <code>_InitUSB</code>, both timeout paths, and <code>_AttemptUSBOSReceive</code> through <code>2F:4170</code>. Endpoint payload transfer and <code>_ReceiveOS_USB</code> remain dynamically untested.</li>
 <li>The FDRC layout names the endpoint register block, but physical tests have not confirmed every
 imported bit meaning or the TI-specific PHY at ports <code>0x4A</code>–<code>0x5B</code>. TilEm does not model physical
 timing from the assist setup values. ROM-confirmed claims remain limited to written constants,
@@ -17167,7 +17233,7 @@ host-mode restriction remain physically unverified.</li>
 <li>The guarded TilEm link probe verifies handler-visible assist behavior, but it
 does not establish physical signaling-rate divisors, wait states, electrical
 levels, or reset retention.</li>
-<li>TilEm, Wabbitemu, and MAME do not implement a connected page-35 transfer. The initialized-core Wabbitemu run confirms its port-registration, event-mask, contradictory-line-state, repeat-event, and paired-bit handler defects. Dynamic connected-path evidence therefore still requires physical hardware or a controlled port-level harness.</li>
+<li>TilEm, Wabbitemu, and MAME do not implement a connected page-35 transfer. The initialized-core Wabbitemu run confirms its port-registration, event-mask, contradictory-line-state, repeat-event, and paired-bit handler defects. The controlled port harness reaches the boot receive boundary, but a complete connected transfer still requires physical hardware or a device-level model.</li>
 </ul>
 <h2 id="sources-11"><a class="header" href="#sources-11">Sources</a></h2>
 <div class="table-wrapper">
@@ -18556,7 +18622,7 @@ still require static reduction, fault injection, or physical measurement.</p>
 <li><strong>Graph raster details.</strong> Exhaustively decode the rounding and sentinel handling at <code>37:4229</code>, then trace <code>_DrawCirc2</code> at <code>3B:7171</code> to recover its parametric stepping. The coordinate transforms and circle setup are already pinned. See <a href="#8-confidence-summary--open-items">Graphing</a>.</li>
 <li><strong>TABLE evaluation paths.</strong> Byte-trace the per-row <code>_StoX</code> and selected-Y evaluation calls in the page-05 fill loop. The Depend:Ask prompt path and the <code>TblRng</code> special case in <code>_Find_Parse_Formula</code> also need end-to-end traces. See <a href="#7-confidence-summary--open-items">Table &amp; Y= variables</a>.</li>
 <li><strong>Statistics command families.</strong> Locate and decode the DISTR numerical cores and each STAT-TEST handler that writes <code>PStat</code> through <code>SStat</code>. The intermediate calculations that produce <code>r</code> and <code>r²</code> in <code>3A:6845</code>–<code>6891</code> also need a complete byte trace. See <a href="#12-notes">Statistics</a>.</li>
-<li><strong>Link and USB residuals.</strong> Determine why the legacy backup path normalizes the restored system-flags word to <code>0x0063</code>. The word’s destination at <code>0x89F0</code>, the <code>0x89F0</code>–<code>0x8D6C</code> section bounds, and the checksum coverage are byte-pinned. A complete direct indexed-bit audit shows that it clears the degree-mode, pending-keyboard, editor-open, answer-scroll, monitor-abandon, and one unnamed active bit while setting <code>donePrgm</code>. The remaining ambiguity is why active unnamed bits 0 and 1 and an otherwise unreferenced bit 6 of <code>0x89F0</code> are set. The current evidence does not distinguish a canonical post-restore state from model/version compatibility. The <code>0x22</code>–<code>0x25</code> variable-header dispatcher is classified as error, OS/AMS, Flash-application, and certificate handling, and the <code>0x22</code> error-table path resolves to <code>ERR:LINK</code>. The <code>3C:618D</code> both-low waveform is tied to installed error cleanup and its software duration is cycle-counted. A guarded direct-core TilEm run verifies the complete raw truth table, activity interrupt, all six assist handlers, LSB-first byte send and receive, idle/data acknowledgement, sticky error state, and its auxiliary-register and external-line reset retention. One guarded initialized-core Wabbitemu run verifies the same raw truth table, missing assist ports <code>0x0B</code>/<code>0x0C</code>, ready/read interrupts, LSB-first byte send and receive, and seeded-error read-to-clear behavior. Guarded MAME runs verify its PCR readback, connector-output mismatch, peer-input reads, assist advertisement, inert port <code>0x08</code>–<code>0x0D</code>, and the fixed disconnected <code>0x55 = 0x1F</code>/<code>0x56 = 0x00</code> pair inside an otherwise unmapped <code>0x4A</code>–<code>0x5B</code> block. Another Wabbitemu run verifies the Fake USB port set, missing port <code>0x54</code>, reset values, active-low interrupt summary, mask-independent event, repeat-event path, and latch masks. These remain emulator results. Physical tests still need to measure port-<code>0x00</code> pull-ups, thresholds, rise times, both CPU-speed timeout durations, and the pulse’s actual duration and voltage levels. Run the read-only USB snapshot on known TA2 and TA3 units, both connected and disconnected, to establish ports <code>0x49</code>, <code>0x51</code>, and <code>0x52</code> before testing their claimed transceiver and enable-timer behavior. Verify the FDRC-family register hypothesis and TI-specific PHY behavior on physical hardware, including the effects of port <code>0x4B</code> and the port-<code>0x4F</code>/<code>0x50</code> setup sequence. Capture port-<code>0x5A</code> presentation traffic to determine whether LCD-port writes produce two-byte endpoint-2 packets and whether the feature requires host mode. Then exercise the connected boot receive path. See <a href="#resolved-findings-and-open-hardware-tests-3">Two-wire link port hardware</a>, <a href="#11-open-items">Link transfer</a>, and <a href="#limits">USB ASIC and link assist</a>.
+<li><strong>Link and USB residuals.</strong> Determine why the legacy backup path normalizes the restored system-flags word to <code>0x0063</code>. The word’s destination at <code>0x89F0</code>, the <code>0x89F0</code>–<code>0x8D6C</code> section bounds, and the checksum coverage are byte-pinned. A complete direct indexed-bit audit shows that it clears the degree-mode, pending-keyboard, editor-open, answer-scroll, monitor-abandon, and one unnamed active bit while setting <code>donePrgm</code>. The remaining ambiguity is why active unnamed bits 0 and 1 and an otherwise unreferenced bit 6 of <code>0x89F0</code> are set. The current evidence does not distinguish a canonical post-restore state from model/version compatibility. The <code>0x22</code>–<code>0x25</code> variable-header dispatcher is classified as error, OS/AMS, Flash-application, and certificate handling, and the <code>0x22</code> error-table path resolves to <code>ERR:LINK</code>. The <code>3C:618D</code> both-low waveform is tied to installed error cleanup and its software duration is cycle-counted. A guarded direct-core TilEm run verifies the complete raw truth table, activity interrupt, all six assist handlers, LSB-first byte send and receive, idle/data acknowledgement, sticky error state, and its auxiliary-register and external-line reset retention. One guarded initialized-core Wabbitemu run verifies the same raw truth table, missing assist ports <code>0x0B</code>/<code>0x0C</code>, ready/read interrupts, LSB-first byte send and receive, and seeded-error read-to-clear behavior. Guarded MAME runs verify its PCR readback, connector-output mismatch, peer-input reads, assist advertisement, inert port <code>0x08</code>–<code>0x0D</code>, and the fixed disconnected <code>0x55 = 0x1F</code>/<code>0x56 = 0x00</code> pair inside an otherwise unmapped <code>0x4A</code>–<code>0x5B</code> block. Another Wabbitemu run verifies the Fake USB port set, missing port <code>0x54</code>, reset values, active-low interrupt summary, mask-independent event, repeat-event path, and latch masks. A controlled port harness executes the retail <code>_InitUSB</code> success and timeout paths and dispatches event <code>0x40</code> through <code>_AttemptUSBOSReceive</code> to <code>2F:4170</code>; all four cases leave Flash unchanged. These remain emulator and controlled-harness results. Physical tests still need to measure port-<code>0x00</code> pull-ups, thresholds, rise times, both CPU-speed timeout durations, and the pulse’s actual duration and voltage levels. Run the read-only USB snapshot on known TA2 and TA3 units, both connected and disconnected, to establish ports <code>0x49</code>, <code>0x51</code>, and <code>0x52</code> before testing their claimed transceiver and enable-timer behavior. Verify the FDRC-family register hypothesis and TI-specific PHY behavior on physical hardware, including the effects of port <code>0x4B</code> and the port-<code>0x4F</code>/<code>0x50</code> setup sequence. Capture port-<code>0x5A</code> presentation traffic to determine whether LCD-port writes produce two-byte endpoint-2 packets and whether the feature requires host mode. Then exercise endpoint payload transfer and the complete connected boot receive path. See <a href="#resolved-findings-and-open-hardware-tests-3">Two-wire link port hardware</a>, <a href="#11-open-items">Link transfer</a>, and <a href="#limits">USB ASIC and link assist</a>.
 The prepared <a href="#raw-two-wire-link-probe">raw two-wire link probe</a> records the disconnected four-state truth table at four instruction gaps and releases both lines during cleanup. A physical run can constrain digital settling but does not replace voltage, pull-up, or rise-time measurements.</li>
 <li><strong>MD5 physical edge behavior.</strong> The valid 64-step path, boot API, two implementing emulator models, and MAME’s missing port block are reconciled in <a href="#md5-accelerator-and-boot-api">MD5 accelerator and boot API</a>. Guarded native TilEm and Wabbitemu runs exercise partial and fifth writes, high control bits, undefined operand reads, and read-time recalculation. The TilEm run also verifies complete reset clearing and zero modeled port latency under the locked compiler. A separate guarded MAME run confirms that its unmapped ports discard patterned writes and return zero for the known first <code>"abc"</code> step. The <a href="#md5-edge-probe">physical hardware probe</a> prepares the corresponding ASIC measurements. Physical TA2/TA3 tests still need to run it and add reset-retention and I/O wait-state measurements.</li>
 <li><strong>Memory-mapper overlay hardware.</strong> The boot transition, paired and independent modes, extended Flash selectors, and emulator implementations are reconciled in <a href="#paging">Paging</a>. A guarded initialized-core Wabbitemu run verifies its fixed-page opcode handoff, selector readback, duplicated even page in paired mode, <code>0x27</code> cutoff, independent-mode read/write/fetch overlays, and paired-mode overlay suppression. A guarded MAME run verifies its read-triggered fixed-page handoff, selector masks, adjacent paired pages, safe RAM banks through <code>0x86</code>, unmapped extended and overlay ports, and underlying read/write/fetch routing. Selector <code>0x87</code> remains source-only because MAME maps seven RAM pages. These are emulator results. Physical tests must resolve whether ports <code>0x27</code>/<code>0x28</code> remain active in paired mode, whether the <code>0xFB64</code> cutoff exists in the ASIC, and whether <a href="#mapping-and-forced-overlays">execution protection</a> follows the underlying window or forced RAM page.</li>

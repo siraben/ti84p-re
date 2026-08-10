@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3204b62c.js";
+            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -718,6 +718,62 @@ both requests. Port <code>0x5B</code> masks <code>0xFF</code> to bit 0, and port
 bits after the handler adds the selected bit. These directly seeded states
 test handler arithmetic; the run does not claim that registered ports can
 reach them naturally. [standard]</p>
+<h3 id="controlled-boot-rom-paths"><a class="header" href="#controlled-boot-rom-paths">Controlled boot-ROM paths</a></h3>
+<p>A separate Wabbitemu mode boots the retail OS 2.55MP ROM, installs controlled
+digital handlers for ports <code>0x4A</code>–<code>0x5B</code> and <code>0x80</code>–<code>0xA2</code>, and then calls the
+untouched page-<code>2F</code> boot routines from RAM. The two injected programs are:</p>
+<pre><code class="language-z80">; Call _InitUSB = 8108h, then stop in RAM.
+RST 28h
+.dw 8108h
+HALT
+
+; Dispatch event 40h through _AttemptUSBOSReceive = 80E4h.
+LD A,40h
+OR A                 ; NZ selects dispatch of the supplied event.
+RST 28h
+.dw 80E4h
+HALT
+</code></pre>
+<p>The pinned SPASM-independent byte images are <code>EF 08 81 76</code> and
+<code>3E 40 B7 EF E4 80 76</code>. The native runner executes those bytes and checks the
+page resolved by each bcall. It stops the second case at <code>2F:4170</code>, before the
+endpoint payload and Flash-programming pipeline. [confirmed] for these ROM
+dispatches in the controlled run.</p>
+<p>The harness returns <code>0x5A</code> or <code>0x02</code> from port <code>0x4C</code> to select handshake
+success or timeout. It returns nonzero or zero from port <code>0x8C</code> to select frame
+readiness or timeout. Port <code>0x4D</code> starts at <code>0xA5</code>; all other controlled bytes
+start at zero except the unused status defaults <code>0x55 = 0x1F</code> and
+<code>0x56 = 0x50</code>. This contract supplies digital branch inputs. It does not model
+a USB device, packet timing, or a PHY. [confirmed] for the harness contract.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Case</th><th>Controlled result</th><th style="text-align: right">Instructions / T-states</th><th>Polls and boundary</th><th>Return</th></tr>
+</thead>
+<tbody>
+<tr><td>initialization success</td><td><code>0x4C = 0x5A</code>, <code>0x8C != 0</code></td><td style="text-align: right">5,923 / 62,196</td><td>2 timeout ticks; 2 port-<code>0x4C</code> reads; 1 port-<code>0x8C</code> read</td><td>carry clear, <code>A = 0x01</code></td></tr>
+<tr><td>handshake timeout</td><td><code>0x4C = 0x02</code></td><td style="text-align: right">783,929 / 7,739,783</td><td>65,535 timeout ticks and port-<code>0x4C</code> reads</td><td>carry set, <code>A = 0x50</code></td></tr>
+<tr><td>frame timeout</td><td><code>0x4C = 0x5A</code>, <code>0x8C = 0</code></td><td style="text-align: right">3,012,144 / 28,842,346</td><td>327,676 timeout ticks; 327,670 port-<code>0x8C</code> reads</td><td>carry set, <code>A = 0x50</code></td></tr>
+<tr><td>event <code>0x40</code> dispatch</td><td>success inputs</td><td style="text-align: right">5,935 / 62,310</td><td>reaches <code>2F:4170</code> once</td><td>stopped at receive boundary</td></tr>
+</tbody>
+</table>
+</div>
+<p>Every case visits <code>_InitUSB</code> at <code>2F:52A4</code> and the reset helper at <code>2F:59C3</code>
+once. Success writes the byte-derived sequence
+<code>57:80 4C:00 54:02 4A:20 4B:00 54:00 54:C4 4C:08 87:FF 92:00 89:0E 8B:21</code>.
+The handshake-timeout path appends
+<code>5B:00 4C:00 54:02 57:50</code> after the eight-write initialization prefix. The
+frame-timeout path appends <code>4C:00 54:02 57:50</code> after endpoint setup and does
+not write port <code>0x5B</code>. The bytes at <code>2F:5958</code> contain the port-<code>0x5B</code> write;
+the frame cleanup at <code>2F:58C8</code> starts with <code>CALL 2F:591B</code> and bypasses it.
+[confirmed]</p>
+<p>The runner compares the complete 1 MiB Flash array before and after each case.
+All four comparisons report zero changed bytes and no execution-protection
+reset. This establishes that initialization, both timeouts, and dispatch up to
+<code>2F:4170</code> do not mutate Flash under these inputs. It does not exercise
+<code>_ReceiveOS_USB</code>, endpoint payload transfer, command-busy behavior, electrical
+USB signaling, or a calculator. [confirmed] for the controlled Wabbitemu ROM
+execution; [hypothesis] for corresponding physical behavior.</p>
 <h2 id="reusable-usb-tools"><a class="header" href="#reusable-usb-tools">Reusable USB tools</a></h2>
 <p><code>tools/usb_hardware.py</code> contains the FDRC offset map, the common HDRC comparison map, pinned source
 provenance, imported global bit names, link-assist rate fields, page-35 and boot-event decoders,
@@ -725,7 +781,9 @@ paired line-state decoder, emulator profiles, and pure functions for Wabbitemu�
 <code>tools/describe_usb_hardware.py</code> exposes the general models as text or JSON.
 <code>tools/wabbitemu_usb_probe.py</code> validates native reports against the reusable handler model, while
 <code>tools/run_wabbitemu_usb_edge_probe.py</code> provides the exact-ROM guard and writes a hashed JSON
-manifest. The link-assist state model remains in <code>tools/link_port.py</code>;
+manifest. <code>tools/wabbitemu_usb_rom.py</code> contains the byte-derived boot-ROM
+oracle, and <code>tools/run_wabbitemu_usb_rom_probe.py</code> exposes its four controlled
+cases as a hash-guarded JSON CLI. The link-assist state model remains in <code>tools/link_port.py</code>;
 <code>tools/tilem_link.py</code> and <code>tools/run_tilem_link_probe.py</code> add the guarded TilEm
 native report and manifest. <code>tools/port_definitions.py</code> parses the project port
 labels with duplicate checks. <code>tools/analyze_rom_io.py</code> uses that library to
@@ -758,6 +816,14 @@ nix develop -c python tools/analyze_rom_io.py \
 
 # Verify every candidate for every port absent from tools/ports.txt.
 nix develop -c python tools/describe_rom_io_coverage.py --json
+
+usb_rom_parent=$(mktemp -d /tmp/ti84-usb-rom.XXXXXX)
+nix develop -c python tools/run_wabbitemu_usb_rom_probe.py \
+  --rom tools/rom.bin \
+  --binary /path/to/wabbitemu-headless \
+  --expected-binary-sha256 \
+    617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce \
+  --output-dir "$usb_rom_parent/run" --json
 </code></pre>
 <p>The FDRC names and bit labels remain a controller-family hypothesis. The CLI identifies that evidence boundary in its register records; it does not promote imported Mentor names to TI silicon confirmation.</p>
 <h2 id="how-to-use-it-in-code-confirmed"><a class="header" href="#how-to-use-it-in-code-confirmed">How to use it in code [confirmed]</a></h2>
@@ -826,7 +892,7 @@ a stable public API.</li>
 <ul>
 <li>The ROM calls <code>ram:2E0B</code>, a <code>cross_page_jump</code> thunk to <code>35:4280</code>. Its
 carry-clear/carry-set result is decoded above.</li>
-<li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs and the boot-page <code>0x8xxx</code> USB entries are mapped above. The connected boot receive path remains dynamically untested because TilEm models USB as disconnected.</li>
+<li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs and the boot-page <code>0x8xxx</code> USB entries are mapped above. The controlled harness executes <code>_InitUSB</code>, both timeout paths, and <code>_AttemptUSBOSReceive</code> through <code>2F:4170</code>. Endpoint payload transfer and <code>_ReceiveOS_USB</code> remain dynamically untested.</li>
 <li>The FDRC layout names the endpoint register block, but physical tests have not confirmed every
 imported bit meaning or the TI-specific PHY at ports <code>0x4A</code>–<code>0x5B</code>. TilEm does not model physical
 timing from the assist setup values. ROM-confirmed claims remain limited to written constants,
@@ -839,7 +905,7 @@ host-mode restriction remain physically unverified.</li>
 <li>The guarded TilEm link probe verifies handler-visible assist behavior, but it
 does not establish physical signaling-rate divisors, wait states, electrical
 levels, or reset retention.</li>
-<li>TilEm, Wabbitemu, and MAME do not implement a connected page-35 transfer. The initialized-core Wabbitemu run confirms its port-registration, event-mask, contradictory-line-state, repeat-event, and paired-bit handler defects. Dynamic connected-path evidence therefore still requires physical hardware or a controlled port-level harness.</li>
+<li>TilEm, Wabbitemu, and MAME do not implement a connected page-35 transfer. The initialized-core Wabbitemu run confirms its port-registration, event-mask, contradictory-line-state, repeat-event, and paired-bit handler defects. The controlled port harness reaches the boot receive boundary, but a complete connected transfer still requires physical hardware or a device-level model.</li>
 </ul>
 <h2 id="sources"><a class="header" href="#sources">Sources</a></h2>
 <div class="table-wrapper">
