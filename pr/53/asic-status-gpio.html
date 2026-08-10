@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-26dcd9b6.js";
+            window.path_to_searchindex_js = "searchindex-832eb1d3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -210,7 +210,7 @@ calculator.</p>
 <p>The static I/O scanner reports candidates from a linear disassembly. Data can
 decode as instructions, so a candidate needs control-flow or trace evidence.
 The credible code for these ports is concentrated in page <code>00</code>, pages <code>2F</code>,
-<code>33</code>, <code>35</code>, <code>37</code>, and the retail boot page <code>3F</code>. [confirmed]</p>
+<code>33</code>, <code>35</code>–<code>37</code>, <code>3C</code>, <code>3D</code>, and the retail boot page <code>3F</code>. [confirmed]</p>
 <h2 id="port-0x02-status"><a class="header" href="#port-0x02-status">Port <code>0x02</code> status</a></h2>
 <p>Port <code>0x02</code> combines transient hardware state with model-family bits. The boot
 and archive traces return <code>0xE1</code>, <code>0xE3</code>, and <code>0xE7</code>. [confirmed]</p>
@@ -427,6 +427,39 @@ discarding the RAM execution field in bits 4–5. MAME does not implement the
 execution-protection ports controlled by that field. A native locked write of
 <code>0x33</code> reads back <code>0x03</code>; opening the port-<code>0x14</code> gate does not change results
 for writes <code>0x30</code>, <code>0x03</code>, <code>0x33</code>, or <code>0xFF</code>. [standard]</p>
+<h3 id="complete-immediate-io-audit"><a class="header" href="#complete-immediate-io-audit">Complete immediate-I/O audit</a></h3>
+<p>The ROM contains 11 raw <code>DB 21</code> pairs and three raw <code>D3 21</code> pairs. Ten reads
+are instructions, and every one immediately executes <code>AND 0x03</code>. The boot
+write at <code>3F:41DC</code> is the only <code>OUT (0x21),A</code> instruction. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Read sites</th><th>Consumer</th></tr>
+</thead>
+<tbody>
+<tr><td><code>00:02AE</code>, <code>00:1831</code>, <code>00:2B32</code>, <code>00:2B5B</code></td><td><code>AND 0x03</code></td></tr>
+<tr><td><code>2F:4DD5</code>, <code>2F:511D</code>, <code>36:5E90</code></td><td><code>AND 0x03</code></td></tr>
+<tr><td><code>3C:6BA8</code>, <code>3C:7F0C</code>, <code>3D:7392</code></td><td><code>AND 0x03</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The remaining three raw pairs overlap other instructions: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Raw pair</th><th>Owning instruction</th><th>Why it is not I/O</th></tr>
+</thead>
+<tbody>
+<tr><td><code>06:5A10</code> — <code>DB 21</code></td><td><code>06:5A0D: LD (IX-1),0xDB</code></td><td>The <code>DB</code> byte is the stored immediate; <code>21</code> begins the following <code>LD HL</code> instruction.</td></tr>
+<tr><td><code>05:6C96</code> — <code>D3 21</code></td><td><code>05:6C95: JR Z,05:6C6A</code></td><td>The <code>D3</code> byte is the relative displacement; <code>21</code> begins the following <code>LD HL</code> instruction.</td></tr>
+<tr><td><code>3C:5B91</code> — <code>D3 21</code></td><td><code>3C:5B90: JR 3C:5B65</code></td><td>The <code>D3</code> byte is the relative displacement; <code>21</code> begins the following <code>LD HL</code> instruction.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The rebuilt Ghidra database confirms instruction ownership for these
+boundaries. The raw scanner reports zero unclassified pairs and zero decoded
+instructions without a matching opcode pair. The conservative literal-<code>C</code>
+resolver finds no additional port-<code>0x21</code> access. [confirmed]</p>
 <h3 id="bits-01-flash-group"><a class="header" href="#bits-01-flash-group">Bits 0–1: Flash group</a></h3>
 <p>The OS repeatedly reads <code>port 0x21 &amp; 3</code> to distinguish the 1 MiB TI-84 Plus
 configuration from larger family members. The archive App scan at <code>3D:726E</code>
@@ -469,6 +502,38 @@ is self-contradictory. Its port-<code>0x3A</code> page recommends <code>0xE0</co
 writes <code>0xF0</code> at <code>3F:4214</code>, and the archive trace later reads back <code>0xF0</code> from
 port <code>0x39</code>. Those public direction claims remain [hypothesis] pending physical
 tests.</p>
+<h3 id="complete-immediate-io-audit-1"><a class="header" href="#complete-immediate-io-audit-1">Complete immediate-I/O audit</a></h3>
+<p>Raw-byte coverage separates GPIO code from accidental opcode pairs:
+[confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Port and direction</th><th style="text-align: right">Raw pairs</th><th style="text-align: right">Reviewed instructions</th><th>Other raw pairs</th></tr>
+</thead>
+<tbody>
+<tr><td><code>IN (0x39)</code></td><td style="text-align: right">14</td><td style="text-align: right">13</td><td><code>02:5142</code> is table-shaped data with no function or xrefs.</td></tr>
+<tr><td><code>OUT (0x39)</code></td><td style="text-align: right">16</td><td style="text-align: right">16</td><td>none</td></tr>
+<tr><td><code>IN (0x3A)</code></td><td style="text-align: right">21</td><td style="text-align: right">19</td><td><code>06:5A8D</code> and <code>3C:7365</code> overlap operands.</td></tr>
+<tr><td><code>OUT (0x3A)</code></td><td style="text-align: right">17</td><td style="text-align: right">17</td><td>none</td></tr>
+</tbody>
+</table>
+</div>
+<p>The two <code>DB 3A</code> overlaps begin on an <code>0xDB</code> operand byte. At <code>06:5A8C</code>, the
+owner is <code>CP 0xDB</code>; at <code>3C:7364</code>, the owner is a relative <code>JR</code> whose
+displacement is <code>0xDB</code>. In both cases, <code>0x3A</code> begins the following <code>LD A,(nn)</code>
+instruction. [confirmed]</p>
+<p>Of the 13 port-<code>0x39</code> reads, every one begins an adjacent read-modify-write.
+The 16 writes comprise those 13 updates and three direct <code>0xF0</code> writes at
+<code>ram:0D39</code>, <code>37:6D10</code>, and <code>3F:4214</code>. Port <code>0x3A</code> has 17 adjacent
+read-modify-write sequences. Its remaining two reads test bit 3 at <code>2F:521B</code>
+and <code>35:402C</code>. The page-<code>35</code> body duplicates the page-<code>2F</code> USB implementation.
+[confirmed]</p>
+<p>TilEm lacks a meaningful TI-84 Plus port-<code>0x3A</code> model, Wabbitemu lacks port
+<code>0x39</code>, and MAME maps neither port. Emulator execution can check control flow
+around these instructions, but it cannot validate the paired GPIO state or
+electrical effect. The sequences below are byte- and control-flow-validated
+against the ROM; their physical signal interpretation remains unmeasured.
+[confirmed] for the instructions; [hypothesis] for electrical behavior.</p>
 <h3 id="battery-gpio-sequence"><a class="header" href="#battery-gpio-sequence">Battery GPIO sequence</a></h3>
 <p><code>_Chk_Batt_Level</code> provides the clearest GPIO sequence: [confirmed]</p>
 <ol>
@@ -557,10 +622,12 @@ physical ASIC measurements.</p>
 </table>
 </div>
 <h2 id="reusable-analysis-tools"><a class="header" href="#reusable-analysis-tools">Reusable analysis tools</a></h2>
-<p><code>tools/asic_control.py</code> decodes port-<code>0x02</code> values and direct consumers, the
-public port-<code>0x15</code> table, port-<code>0x21</code> modes, TilEm’s battery selector, and
-adjacent GPIO read-modify-write sequences. <code>tools/describe_asic_control.py</code>
-exposes those operations as a CLI. <code>tools/wabbitemu_asic_probe.py</code> validates
+<p><code>tools/asic_control.py</code> decodes port-<code>0x02</code> values, generic immediate-port
+consumers and raw-opcode coverage, the public port-<code>0x15</code> table, port-<code>0x21</code>
+modes, TilEm’s battery selector, and adjacent GPIO read-modify-write sequences.
+Its raw audit distinguishes aligned instructions, operand overlaps, reviewed
+data, and unclassified pairs. <code>tools/describe_asic_control.py</code> exposes those
+operations as text or JSON. <code>tools/wabbitemu_asic_probe.py</code> validates
 native results against the reusable source model.
 <code>tools/run_wabbitemu_asic_edge_probe.py</code>
 guards the exact ROM and native binary identities and writes a JSON manifest.
@@ -576,7 +643,9 @@ nix develop -c python tools/describe_asic_control.py --implementations --json
 nix develop -c python tools/describe_asic_control.py \
   --scan-status-consumers --json
 nix develop -c python tools/describe_asic_control.py \
-  --scan-gpio --page 0x2F --page 0x33 --page 0x35 --page 0x3F
+  --scan-port21-consumers --scan-gpio --json
+nix develop -c python tools/describe_asic_control.py \
+  --audit-port 0x21 --audit-port 0x39 --audit-port 0x3A
 nix develop -c python tools/analyze_rom_io.py \
   0x02 0x15 0x21 0x39 0x3A --summary
 nix develop -c python tools/disassemble_rom.py 0x33 \
