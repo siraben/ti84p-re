@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4c48e5e2.js";
+            window.path_to_searchindex_js = "searchindex-c7a75514.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -1076,6 +1076,7 @@ detailed timing contract; MAME provides an explicit omission comparison.</p>
 <tr><td>TilEm and Wabbitemu source</td><td>independent decode of speed selection, LCD instruction delays, and memory wait bits</td><td>[standard]</td></tr>
 <tr><td>Native Wabbitemu execution</td><td>reset state, speed masks and frequencies, all seven delay latches, wait-gate selection, and port-<code>0x2D</code> side effects</td><td>[standard]</td></tr>
 <tr><td>MAME 0.287 source</td><td>binary CPU-speed selection and absence of the delay-register block</td><td>[standard]</td></tr>
+<tr><td>Guarded MAME ASIC-control run</td><td>raw speed readback, measured 6:15 instruction throughput, absent delay ports, and soft-reset retention</td><td>[standard]</td></tr>
 <tr><td>Public hardware tests</td><td>intended bit meanings, LCD failure thresholds, and mode-3 timer divisor</td><td>[standard]</td></tr>
 </tbody>
 </table>
@@ -1136,6 +1137,12 @@ and emulator behavior.</p>
 15 MHz. Directly setting <code>timer_version = 1</code> produces modes <code>0/1/2/3</code> at 6,
 15, 20, and 25 MHz. The direct setting represents Wabbitemu front-end state;
 it is not a calculator port transition. [standard]</p>
+<p>A guarded MAME run writes <code>00</code>, <code>01</code>, <code>02</code>, <code>03</code>, and <code>FF</code> to port <code>0x20</code> and
+reads the same five raw bytes back. A 50-T-state RAM counter advances 12,000
+times during five 20 ms frames after write zero and 30,000 times after write
+one. The exact 2.5 ratio dynamically distinguishes 6 MHz from 15 MHz. A MAME
+soft reset retains raw speed <code>0x03</code>; this is driver behavior, not a calculator
+reset claim. [standard]</p>
 <h2 id="boot-configuration"><a class="header" href="#boot-configuration">Boot configuration</a></h2>
 <p>The retail boot continuation writes the complete block after its RAM probes
 and link-assist initialization: [confirmed]</p>
@@ -1162,7 +1169,8 @@ must not be mistaken for TI-84 Plus OS policy. [standard]</p>
 <p>MAME accepts the later port-<code>0x20</code> speed write but drops all six boot writes to
 ports <code>0x29</code>–<code>0x2C</code>, <code>0x2E</code>, and <code>0x2F</code>. It therefore runs the ROM at the
 selected base clock without the programmable LCD or memory additions described
-below. [standard]</p>
+below. A native patterned-write run reads zero from every port <code>0x29</code>–<code>0x2F</code>
+both before and after the writes. [standard]</p>
 <h2 id="lcd-instruction-delay--ports-0x290x2c"><a class="header" href="#lcd-instruction-delay--ports-0x290x2c">LCD instruction delay — ports <code>0x29</code>–<code>0x2C</code></a></h2>
 <p>TilEm and Wabbitemu add [standard]</p>
 <p>$$
@@ -1374,6 +1382,12 @@ python tools/run_wabbitemu_speed_edge_probe.py \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$wabbit_speed_parent/run" --json
+
+mame_asic_parent=$(mktemp -d /tmp/ti84-mame-asic.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_asic_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_asic_parent/run" --json
 </code></pre>
 <p>The manifest labels the run as initialized-core emulator evidence and records
 both input hashes. <code>tools/wabbitemu_lcd_probe.py</code> derives its pointer, latch,
@@ -1381,7 +1395,9 @@ ready-hold, delay, wait-bit, and speed-clamp expectations from the reusable LCD
 and bus-timing libraries.</p>
 <p><code>tools/wabbitemu_speed_probe.py</code> derives speed, latch, and wait-mask
 expectations from <code>tools/bus_timing.py</code>. Its guarded CLI records both input
-hashes and labels the direct <code>timer_version = 1</code> configuration explicitly.</p>
+hashes and labels the direct <code>timer_version = 1</code> configuration explicitly.
+<code>tools/mame_asic.py</code> reuses the MAME timing profile for raw readback, binary
+clock selection, and the absent delay block.</p>
 <p>The executed initialization can be recovered from a full boot trace:</p>
 <pre><code class="language-sh">nix develop -c python tools/tilem_trace_resolve.py /tmp/boot.trace \
   --initial-mapping ti84p-reset --io-ports 20,29-2f
@@ -1447,6 +1463,7 @@ calculator.</p>
 <tr><td>MAME 0.287</td><td>A third implementation with fixed status and identity values, incompatible port-<code>0x21</code> masking, and no GPIO ports [standard]</td></tr>
 <tr><td>Guarded Wabbitemu <code>--asic-edge-probe</code> run</td><td>Initialized-core status, identity, protected-write, internal-field, readback, and GPIO-map observations [standard]</td></tr>
 <tr><td>Guarded Wabbitemu <code>--protection-port-probe</code> run</td><td>Shared write gate and internal-field behavior for ports <code>0x22</code>–<code>0x26</code> [standard]</td></tr>
+<tr><td>Guarded MAME ASIC-control run</td><td>Raw Flash-gate status, identity, speed, port-<code>0x21</code>, missing protection/GPIO ranges, USB constants, and soft-reset retention [standard]</td></tr>
 </tbody>
 </table>
 </div>
@@ -1497,11 +1514,14 @@ and selects <code>0x1F18</code> when bit 7 is clear. Wabbitemu independently mak
 same family split, setting bit 7 for its TI-84 Plus models and clearing it for
 its TI-83 Plus family. [confirmed] for the ROM branch and resolved TI-84 Plus
 values; [standard] for the emulator family mapping.</p>
-<p>MAME returns locked status <code>0xC3</code> and adds bit 2 after a Flash-unlock write.
-Its comparator and LCD-ready bits are fixed high. Bit 5 is fixed low, so this
-TI-84 Plus driver reports link assist but not USB capability. This is an
-emulator inconsistency, not evidence for a different ASIC status layout.
-[standard]</p>
+<p>MAME returns <code>0xC3 | (m_flash_unlocked &lt;&lt; 2)</code>, truncated to one byte. Its
+comparator and LCD-ready bits are fixed high. The normal gate values zero and
+one therefore return <code>0xC3</code> and <code>0xC7</code>. The handler does not normalize other
+bytes: writes <code>02</code>, <code>3F</code>, <code>40</code>, and <code>FF</code> return <code>CB</code>, <code>FF</code>, <code>C3</code>, and <code>FF</code>.
+Port <code>0x14</code> remains write-only and reads zero. Bit 5 is fixed low for the
+normal locked status, so this TI-84 Plus driver reports link assist but not USB
+capability. These are emulator inconsistencies, not evidence for a different
+ASIC status layout. [standard]</p>
 <h2 id="battery-comparison"><a class="header" href="#battery-comparison">Battery comparison</a></h2>
 <p>Port <code>0x04</code> has two roles on this hardware: its low bits configure mapping and
 standard-timer behavior, while bits 6–7 select a battery-comparison setting.
@@ -1633,7 +1653,9 @@ so it loses bits 4–5. [standard]</p>
 <p>MAME accepts writes without the protected-byte gate, stores <code>value &amp; 0x0F</code>,
 and returns that nibble. It can therefore expose undocumented bits 2–3 while
 discarding the RAM execution field in bits 4–5. MAME does not implement the
-execution-protection ports controlled by that field. [standard]</p>
+execution-protection ports controlled by that field. A native locked write of
+<code>0x33</code> reads back <code>0x03</code>; opening the port-<code>0x14</code> gate does not change results
+for writes <code>0x30</code>, <code>0x03</code>, <code>0x33</code>, or <code>0xFF</code>. [standard]</p>
 <h3 id="bits-01-flash-group"><a class="header" href="#bits-01-flash-group">Bits 0–1: Flash group</a></h3>
 <p>The OS repeatedly reads <code>port 0x21 &amp; 3</code> to distinguish the 1 MiB TI-84 Plus
 configuration from larger family members. The archive App scan at <code>3D:726E</code>
@@ -1730,6 +1752,21 @@ handlers, port-<code>0x24</code> high-field clearing, and the 16-bit RAM-bound w
 <a href="#native-protected-register-confirmation">Execution protection</a>
 for the complete value matrix and evidence limits. [standard]</p>
 <p>The same initialized core has no active device at port <code>0x39</code>; a read is rejected and produces the device layer’s <code>0xFF</code> fallback. Port <code>0x3A</code> is active, starts at zero, and reads back complete <code>0xA5</code> and <code>0x5A</code> writes. The run advances zero T-states and does not assign electrical direction or signal meaning to either GPIO port. [standard]</p>
+<p><strong>Native MAME confirmation.</strong> The guarded run reads startup values <code>C3</code>, <code>00</code>,
+<code>33</code>, <code>00</code>, and <code>00</code> from ports <code>0x02</code>, <code>0x14</code>, <code>0x15</code>, <code>0x20</code>, and <code>0x21</code>.
+The raw gate sweep produces <code>C3 C7 CB FF C3 FF</code> for writes
+<code>00 01 02 3F 40 FF</code>. Port <code>0x14</code> reads zero after every write. [standard]</p>
+<p>Ports <code>0x22</code>–<code>0x2F</code> and <code>0x39</code>–<code>0x3A</code> return zero before and after patterned
+writes. A 50-T-state counter continues executing from RAM while port <code>0x21</code>
+reads <code>0x03</code> and ports <code>0x22</code>–<code>0x26</code> retain no written byte. The five-frame
+counter records 12,000 iterations at the zero speed value and 30,000 at the
+nonzero value. This checks one RAM execution path, not the missing physical
+boundary rules. [standard]</p>
+<p>A scheduled MAME soft reset begins at <code>PC = 0x0000</code> but retains a gate value of
+one, raw speed <code>0x03</code>, and the port-<code>0x21</code> nibble from write <code>0xAB</code>. The reads
+are consequently <code>0xC7</code>, <code>0x03</code>, and <code>0x0B</code> after reset. The driver reset
+routine does not restore these fields. This is MAME reset behavior and does
+not establish calculator warm-reset retention. [standard]</p>
 <h2 id="emulator-comparison-1"><a class="header" href="#emulator-comparison-1">Emulator comparison</a></h2>
 <p>The three pinned implementations disagree on every control group not already
 established by ROM use. Their values are test oracles for the software, not
@@ -1740,7 +1777,7 @@ physical ASIC measurements.</p>
 <tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
 </thead>
 <tbody>
-<tr><td>Port <code>0x02</code></td><td>dynamic comparator, LCD-ready, and Flash lock; family bits 5–7 set</td><td>same layout, with the TI-84 Plus comparator fixed high</td><td>fixed <code>0xC3</code> when locked; Flash unlock adds bit 2</td></tr>
+<tr><td>Port <code>0x02</code></td><td>dynamic comparator, LCD-ready, and Flash lock; family bits 5–7 set</td><td>same layout, with the TI-84 Plus comparator fixed high</td><td>`0xC3</td></tr>
 <tr><td>Port <code>0x15</code></td><td>fixed <code>0x45</code></td><td>model and RAM-revision dependent</td><td>fixed <code>0x33</code></td></tr>
 <tr><td>Port <code>0x21</code> accepted readback</td><td><code>value &amp; 0x33</code>, subject to Flash unlock</td><td>only bits 0–1 survive its read defect</td><td><code>value &amp; 0x0F</code>, without protected-write gating</td></tr>
 <tr><td>GPIO</td><td>port <code>0x39</code> fixed at <code>0xF0</code>; no meaningful TI-84 Plus port <code>0x3A</code></td><td>port <code>0x3A</code> latch; port <code>0x39</code> absent</td><td>both ports absent</td></tr>
@@ -1757,7 +1794,9 @@ against the reusable source model. <code>tools/run_wabbitemu_asic_edge_probe.py<
 guards the exact ROM and native binary identities and writes a JSON manifest.
 <code>tools/wabbitemu_protection_port_probe.py</code> applies the adjacent boundary-port
 model from <code>tools/execution_protection.py</code>; its guarded CLI records the same
-two identities.
+two identities. <code>tools/mame_asic.py</code> combines the ASIC and bus-timing profiles
+with a typed native report. <code>tools/run_mame_asic_probe.py</code> guards the MAME,
+ROM, and Lua identities and retains the soft-reset output.
 [confirmed] for the ROM-analysis tools; [standard] for the emulator oracle.</p>
 <pre><code class="language-sh">nix develop -c python tools/describe_asic_control.py
 nix develop -c python tools/describe_asic_control.py --status 0xE7 --port21 0x20
@@ -1780,6 +1819,12 @@ nix develop -c python tools/run_wabbitemu_protection_port_probe.py \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$protected_port_parent/run" --json
+
+mame_asic_parent=$(mktemp -d /tmp/ti84-mame-asic.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_asic_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_asic_parent/run" --json
 </code></pre>
 <p>The I/O and GPIO scans generate candidates. A report becomes evidence for code
 only after raw-byte and control-flow review or a resolved execution trace.</p>
@@ -2397,6 +2442,11 @@ difference does not affect those executed paths. [confirmed]</p>
 fetch path reads the mapped Flash or RAM without an execution-protection
 predicate. Port <code>0x14</code> records an unlock value, but the paging and Flash-write
 paths do not consult it. [standard]</p>
+<p>A guarded native run writes patterns to ports <code>0x22</code>–<code>0x28</code>; all seven ports
+still read zero. With port <code>0x21 = 0x33</code>, writes <code>CC DD AA 10 20</code> to
+<code>0x22</code>–<code>0x26</code> also read back as five zero bytes while a 50-T-state loop
+continues executing from RAM page 0. This covers one allowed-by-absence fetch
+path. It does not emulate any boundary or violation response. [standard]</p>
 <p>MAME therefore cannot test any boundary or violation described on this page.
 The driver is marked <code>MACHINE_NOT_WORKING</code>, so this omission is a driver limit,
 not evidence that the physical ASIC lacks execution protection. See
@@ -6284,6 +6334,12 @@ write methods. Port <code>0x14</code> stores <code>m_flash_unlocked</code> and u
 memory-write path consults that value. The driver also omits ports <code>0x22</code>–<code>0x28</code>.
 MAME therefore accepts command writes without the protected byte sequence,
 sector override, or execution-protection state used by the ROM. [standard]</p>
+<p>The stored gate is a raw byte rather than a Boolean. A guarded sweep of writes
+<code>00 01 02 3F 40 FF</code> makes port <code>0x02</code> return <code>C3 C7 CB FF C3 FF</code>, following
+the driver’s truncated <code>0xC3 | (value &lt;&lt; 2)</code> expression. Port <code>0x14</code> itself
+reads zero. A scheduled soft reset retains write one and consequently returns
+<code>0xC7</code>; this is MAME reset behavior, not a physical lock-retention result.
+[standard]</p>
 <p>A separate guarded run maps Flash page <code>08</code> into the CPU’s <code>0x4000</code> window and
 issues commands through CPU program space while reading the gate state through
 I/O port <code>0x02</code>. A complete program while locked reports <code>C3</code> and changes the
@@ -14826,7 +14882,11 @@ names. [confirmed] for the operations; [hypothesis] for signal assignments.</p>
 <li>Port <code>0x4D</code> tries to select one D+ state with <code>BIT(1) &amp; ~BIT(0)</code> or its inverse. Each expression evaluates to one set bit. The handler ORs that bit into the line-state byte without clearing the paired bit.</li>
 </ul>
 <p>These inconsistencies prevent Wabbitemu from serving as a connected PHY reference. Its paired-state representation and active-low summary still provide an independent comparison with the ROM’s bit tests. The electrical labels remain emulator evidence because the ROM does not name the signals. [standard] for source behavior; [hypothesis] for physical signal assignments.</p>
-<p>MAME maps ports <code>0x55</code> and <code>0x56</code> to constant disconnected values <code>0x1F</code> and zero. Ports <code>0x4A</code>–<code>0x5B</code> outside that pair and the FDRC region at <code>0x80</code>–<code>0xA2</code> are absent from the TI-84 Plus map. [standard]</p>
+<p>MAME maps ports <code>0x55</code> and <code>0x56</code> to constant disconnected values <code>0x1F</code> and
+zero. Ports <code>0x4A</code>–<code>0x5B</code> outside that pair and the FDRC region at
+<code>0x80</code>–<code>0xA2</code> are absent from the TI-84 Plus map. A guarded native sweep reads
+zeros across <code>0x4A</code>–<code>0x5B</code> except for <code>0x55 = 0x1F</code>; patterned writes leave the
+complete block unchanged. A soft reset produces the same pair. [standard]</p>
 <h3 id="native-wabbitemu-usb-edges"><a class="header" href="#native-wabbitemu-usb-edges">Native Wabbitemu USB edges</a></h3>
 <p>A guarded initialized-core run invokes the registered handlers without
 executing TI-OS. Ports <code>0x4A</code>, <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code>, <code>0x5B</code>, and
@@ -16311,11 +16371,11 @@ still require static reduction, fault injection, or physical measurement.</p>
 <li><strong>Graph raster details.</strong> Exhaustively decode the rounding and sentinel handling at <code>37:4229</code>, then trace <code>_DrawCirc2</code> at <code>3B:7171</code> to recover its parametric stepping. The coordinate transforms and circle setup are already pinned. See <a href="#8-confidence-summary--open-items">Graphing</a>.</li>
 <li><strong>TABLE evaluation paths.</strong> Byte-trace the per-row <code>_StoX</code> and selected-Y evaluation calls in the page-05 fill loop. The Depend:Ask prompt path and the <code>TblRng</code> special case in <code>_Find_Parse_Formula</code> also need end-to-end traces. See <a href="#7-confidence-summary--open-items">Table &amp; Y= variables</a>.</li>
 <li><strong>Statistics command families.</strong> Locate and decode the DISTR numerical cores and each STAT-TEST handler that writes <code>PStat</code> through <code>SStat</code>. The intermediate calculations that produce <code>r</code> and <code>r²</code> in <code>3A:6845</code>–<code>6891</code> also need a complete byte trace. See <a href="#12-notes">Statistics</a>.</li>
-<li><strong>Link and USB residuals.</strong> Determine why the legacy backup path normalizes the restored system-flags word to <code>0x0063</code>. The word’s destination at <code>0x89F0</code>, the <code>0x89F0</code>–<code>0x8D6C</code> section bounds, and the checksum coverage are byte-pinned. The <code>0x22</code>–<code>0x25</code> variable-header dispatcher is classified as error, OS/AMS, Flash-application, and certificate handling, and the <code>0x22</code> error-table path resolves to <code>ERR:LINK</code>. The <code>3C:618D</code> both-low waveform is tied to installed error cleanup and its software duration is cycle-counted. One guarded initialized-core Wabbitemu run verifies the complete raw truth table, missing assist ports <code>0x0B</code>/<code>0x0C</code>, ready/read interrupts, LSB-first byte send and receive, and seeded-error read-to-clear behavior. A guarded MAME run verifies its PCR readback, connector-output mismatch, peer-input reads, assist advertisement, and inert port <code>0x08</code>–<code>0x0D</code> block. Another Wabbitemu run verifies the Fake USB port set, missing port <code>0x54</code>, reset values, active-low interrupt summary, mask-independent event, repeat-event path, and latch masks. These remain emulator results. Physical tests still need to measure port-<code>0x00</code> pull-ups, thresholds, rise times, both CPU-speed timeout durations, and the pulse’s actual duration and voltage levels. Verify the FDRC-family register hypothesis and TI-specific PHY behavior on physical hardware, then exercise the connected boot receive path. See <a href="#resolved-findings-and-open-hardware-tests-3">Two-wire link port hardware</a>, <a href="#11-open-items">Link transfer</a>, and <a href="#limits">USB ASIC and link assist</a>.</li>
+<li><strong>Link and USB residuals.</strong> Determine why the legacy backup path normalizes the restored system-flags word to <code>0x0063</code>. The word’s destination at <code>0x89F0</code>, the <code>0x89F0</code>–<code>0x8D6C</code> section bounds, and the checksum coverage are byte-pinned. The <code>0x22</code>–<code>0x25</code> variable-header dispatcher is classified as error, OS/AMS, Flash-application, and certificate handling, and the <code>0x22</code> error-table path resolves to <code>ERR:LINK</code>. The <code>3C:618D</code> both-low waveform is tied to installed error cleanup and its software duration is cycle-counted. One guarded initialized-core Wabbitemu run verifies the complete raw truth table, missing assist ports <code>0x0B</code>/<code>0x0C</code>, ready/read interrupts, LSB-first byte send and receive, and seeded-error read-to-clear behavior. Guarded MAME runs verify its PCR readback, connector-output mismatch, peer-input reads, assist advertisement, inert port <code>0x08</code>–<code>0x0D</code>, and the fixed disconnected <code>0x55 = 0x1F</code>/<code>0x56 = 0x00</code> pair inside an otherwise unmapped <code>0x4A</code>–<code>0x5B</code> block. Another Wabbitemu run verifies the Fake USB port set, missing port <code>0x54</code>, reset values, active-low interrupt summary, mask-independent event, repeat-event path, and latch masks. These remain emulator results. Physical tests still need to measure port-<code>0x00</code> pull-ups, thresholds, rise times, both CPU-speed timeout durations, and the pulse’s actual duration and voltage levels. Verify the FDRC-family register hypothesis and TI-specific PHY behavior on physical hardware, then exercise the connected boot receive path. See <a href="#resolved-findings-and-open-hardware-tests-3">Two-wire link port hardware</a>, <a href="#11-open-items">Link transfer</a>, and <a href="#limits">USB ASIC and link assist</a>.</li>
 <li><strong>MD5 physical edge behavior.</strong> The valid 64-step path, boot API, two implementing emulator models, and MAME’s missing port block are reconciled in <a href="#md5-accelerator-and-boot-api">MD5 accelerator and boot API</a>. A guarded native Wabbitemu run exercises partial and fifth writes, high control bits, undefined operand reads, and read-time recalculation. A separate guarded MAME run confirms that its unmapped ports discard patterned writes and return zero for the known first <code>"abc"</code> step. The <a href="#md5-edge-probe">physical hardware probe</a> prepares the corresponding ASIC measurements. Physical TA2/TA3 tests still need to run it and add reset-retention and I/O wait-state measurements.</li>
 <li><strong>Memory-mapper overlay hardware.</strong> The boot transition, paired and independent modes, extended Flash selectors, and emulator implementations are reconciled in <a href="#paging">Paging</a>. A guarded initialized-core Wabbitemu run verifies its fixed-page opcode handoff, selector readback, duplicated even page in paired mode, <code>0x27</code> cutoff, independent-mode read/write/fetch overlays, and paired-mode overlay suppression. A guarded MAME run verifies its read-triggered fixed-page handoff, selector masks, adjacent paired pages, safe RAM banks through <code>0x86</code>, unmapped extended and overlay ports, and underlying read/write/fetch routing. Selector <code>0x87</code> remains source-only because MAME maps seven RAM pages. These are emulator results. Physical tests must resolve whether ports <code>0x27</code>/<code>0x28</code> remain active in paired mode, whether the <code>0xFB64</code> cutoff exists in the ASIC, and whether <a href="#mapping-and-forced-overlays">execution protection</a> follows the underlying window or forced RAM page.</li>
-<li><strong>Bus-timing and LCD-controller measurements.</strong> The boot values, wait-state decode, controller commands, display paths, and emulator implementations are reconciled in <a href="#bus-timing-and-wait-states">Bus timing and wait states</a> and <a href="#lcd-controller-and-display-bus">LCD controller and display bus</a>. Guarded initialized-core Wabbitemu runs verify its 60-T-state guard, 15-column increment cycle, direct hidden-column alias, one-transfer read latch, absent mirror ports, strict $48 + 64f$ ready boundary, write-based ready timestamp, complete wait-gate matrix, default and internal extra-speed matrices, and raw port-<code>0x2D</code> latch without low-power side effects. A guarded MAME run verifies its controller startup state, permanent busy-clear status, mirror ports, 15-byte hidden-column aliases, one-transfer read latch, 6-bit packing, stored analog fields, fixed ready bit, and unmapped <code>0x29</code>–<code>0x2F</code> block. These are emulator results. Physical tests must measure each port-<code>0x2E</code> access class, CPU-speed readback and frequency across ASIC revisions, port-<code>0x2D</code> low-power behavior, LCD read-versus-write ready timing, controller-specific minimum delays, hidden-column bounds, status-read pointer behavior, and the unmodeled port-<code>0x2F</code> mode-3 timer prescaler across TA2 and TA3 controller revisions.</li>
-<li><strong>ASIC status, RAM topology, execution protection, and GPIO measurements.</strong> The ROM’s battery routines, status-bit uses, protected port setup, and GPIO read-modify-write sequences are reconciled in <a href="#asic-status-identity-protection-and-gpio">ASIC status, identity, protection, and GPIO</a> and <a href="#execution-protection">Execution protection</a>. Guarded TilEm and Wabbitemu runs exercise both sides of their differing default Flash intervals. RAM runs also cover the common chunk edge, mode-0 and mode-1 disagreements, all four Wabbitemu modes, and its 16-bit high-bound wrap. Guarded initialized-core runs verify Wabbitemu’s port-<code>0x02</code> lock bit, RAM-revision identity split, the shared protected-write gate across ports <code>0x21</code>–<code>0x26</code>, port-<code>0x21</code> readback loss, port-<code>0x24</code> high-field clearing, RAM-bound wrap, absent port <code>0x39</code>, and the port-<code>0x3A</code> byte latch. A Wabbitemu reset run verifies all fields written by <code>CPU_reset</code>, 14 retained component groups, the frontend’s LCD-only addition, and same-step execution after a violation. A TilEm reset run verifies its broader eight-group reset, nine retained groups, and a forbidden instruction’s surviving pre-reset RAM write. These remain emulator evidence. The <a href="#ram-alias-probe">RAM alias probe</a> prepares one restoring selector-topology measurement. The <a href="#execution-protection-fetch-probes">execution-fetch suite</a> prepares read-only retail-mode Flash and RAM fetches with pre-fetch result records. Physical TA1/TA2/TA3 tests must run them and measure battery-selector thresholds, port-<code>0x15</code> identity values, protected-register readback and high-value behavior, violation behavior, warm- and cold-reset retention, port-<code>0x39</code> direction polarity, and port-<code>0x3A</code> electrical signals.</li>
+<li><strong>Bus-timing and LCD-controller measurements.</strong> The boot values, wait-state decode, controller commands, display paths, and emulator implementations are reconciled in <a href="#bus-timing-and-wait-states">Bus timing and wait states</a> and <a href="#lcd-controller-and-display-bus">LCD controller and display bus</a>. Guarded initialized-core Wabbitemu runs verify its 60-T-state guard, 15-column increment cycle, direct hidden-column alias, one-transfer read latch, absent mirror ports, strict $48 + 64f$ ready boundary, write-based ready timestamp, complete wait-gate matrix, default and internal extra-speed matrices, and raw port-<code>0x2D</code> latch without low-power side effects. Guarded MAME runs verify its controller startup state, permanent busy-clear status, mirror ports, 15-byte hidden-column aliases, one-transfer read latch, 6-bit packing, stored analog fields, fixed ready bit, raw speed readback, exact 6:15 MHz loop ratio, unmapped <code>0x29</code>–<code>0x2F</code> block, and retained speed byte across soft reset. These are emulator results. Physical tests must measure each port-<code>0x2E</code> access class, CPU-speed readback and frequency across ASIC revisions, port-<code>0x2D</code> low-power behavior, LCD read-versus-write ready timing, controller-specific minimum delays, hidden-column bounds, status-read pointer behavior, and the unmodeled port-<code>0x2F</code> mode-3 timer prescaler across TA2 and TA3 controller revisions.</li>
+<li><strong>ASIC status, RAM topology, execution protection, and GPIO measurements.</strong> The ROM’s battery routines, status-bit uses, protected port setup, and GPIO read-modify-write sequences are reconciled in <a href="#asic-status-identity-protection-and-gpio">ASIC status, identity, protection, and GPIO</a> and <a href="#execution-protection">Execution protection</a>. Guarded TilEm and Wabbitemu runs exercise both sides of their differing default Flash intervals. RAM runs also cover the common chunk edge, mode-0 and mode-1 disagreements, all four Wabbitemu modes, and its 16-bit high-bound wrap. Guarded initialized-core runs verify Wabbitemu’s port-<code>0x02</code> lock bit, RAM-revision identity split, the shared protected-write gate across ports <code>0x21</code>–<code>0x26</code>, port-<code>0x21</code> readback loss, port-<code>0x24</code> high-field clearing, RAM-bound wrap, absent port <code>0x39</code>, and the port-<code>0x3A</code> byte latch. A guarded MAME run verifies its raw gate-to-status shift, fixed identity, unprotected port-<code>0x21</code> nibble, missing ports <code>0x22</code>–<code>0x2F</code> and <code>0x39</code>–<code>0x3A</code>, live RAM execution with patterned protection writes, and retained gate/speed/control fields across soft reset. A Wabbitemu reset run verifies all fields written by <code>CPU_reset</code>, 14 retained component groups, the frontend’s LCD-only addition, and same-step execution after a violation. A TilEm reset run verifies its broader eight-group reset, nine retained groups, and a forbidden instruction’s surviving pre-reset RAM write. These remain emulator evidence. The <a href="#ram-alias-probe">RAM alias probe</a> prepares one restoring selector-topology measurement. The <a href="#execution-protection-fetch-probes">execution-fetch suite</a> prepares read-only retail-mode Flash and RAM fetches with pre-fetch result records. Physical TA1/TA2/TA3 tests must run them and measure battery-selector thresholds, port-<code>0x15</code> identity values, protected-register readback and high-value behavior, violation behavior, warm- and cold-reset retention, port-<code>0x39</code> direction polarity, and port-<code>0x3A</code> electrical signals.</li>
 <li><strong>MathPrint runtime coverage.</strong> Trace representative expressions and cursor states through the statically recovered MathPrint compositor at <code>39:5167</code>. Existing macro fixtures cover power, fraction, and <code>fnInt(</code> layouts, but the exact runtime paths have not been recorded. See <a href="#mathprint-pipeline-coverage">Equation display</a>.</li>
 <li><strong>Matrix and list residuals.</strong> Explain why plain <code>augment(</code> calls the partial-pivoting engine at <code>02:4663</code>; locate the <code>randM(</code> cell-fill path; identify the separate <code>rref(</code>/<code>ref(</code> driver; and finish the <code>seq(</code>/<code>SortA(</code>/<code>SortD(</code> collection and element-load traces. See <a href="#9-findings">Matrices &amp; lists</a>.</li>
 <li><strong>Smaller residuals.</strong> Map the For/While/Repeat FPS loop-frame bytes; recover the <code>Asm(</code>/<code>AsmPrgm</code> setup before the traced <code>ram:9D95</code> payload handoff; find a direct ASM-to-BASIC program-call entry beyond VAT lookup and the cooperative <code>Ans</code> callback; and trace the group-archive member walk after <code>_Arc_Unarc</code> rejects type <code>0x17</code>. A guarded initialized-core run verifies Wabbitemu’s timer catch-up, counter-zero completion, first-underflow status bit 2, HALT-line suppression, retained interrupt generation, and frozen disabled RTC reads. A guarded MAME run verifies its fixed-crystal source collapse, immediate first decrement, idle counter zero, inverted mode polarity, one-reload loop, global completion clearing, and absent RTC block. TA2/TA3 hardware must still distinguish the published <code>33</code>/<code>328</code>/<code>3277</code> timer divisors from Wabbitemu/MAME’s <code>32</code>/<code>327</code>/<code>3276</code>, test counter zero and first-versus-second-expiry status bit 2, measure programmable-timer <code>HALT</code> behavior, and test disabled RTC reads plus rollover coherence. Another guarded run verifies Wabbitemu’s pairwise keypad closure, ignored row 7, and press-only ON latch with release rearming. A guarded MAME live-input run verifies its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, and lack of matrix closure. These remain emulator evidence. Physical keypad work should measure worst-case matrix settling and ON interrupt edges; see <a href="#resolved-findings-and-open-hardware-tests-2">Keypad and ON-key hardware</a>. The timer, APD, RTC, and power reconstruction is in <a href="#clock-timers-and-power">Clock, timers, and power</a>.</li>

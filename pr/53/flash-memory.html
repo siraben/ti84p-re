@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4c48e5e2.js";
+            window.path_to_searchindex_js = "searchindex-c7a75514.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -1735,6 +1735,12 @@ write methods. Port <code>0x14</code> stores <code>m_flash_unlocked</code> and u
 memory-write path consults that value. The driver also omits ports <code>0x22</code>–<code>0x28</code>.
 MAME therefore accepts command writes without the protected byte sequence,
 sector override, or execution-protection state used by the ROM. [standard]</p>
+<p>The stored gate is a raw byte rather than a Boolean. A guarded sweep of writes
+<code>00 01 02 3F 40 FF</code> makes port <code>0x02</code> return <code>C3 C7 CB FF C3 FF</code>, following
+the driver’s truncated <code>0xC3 | (value &lt;&lt; 2)</code> expression. Port <code>0x14</code> itself
+reads zero. A scheduled soft reset retains write one and consequently returns
+<code>0xC7</code>; this is MAME reset behavior, not a physical lock-retention result.
+[standard]</p>
 <p>A separate guarded run maps Flash page <code>08</code> into the CPU’s <code>0x4000</code> window and
 issues commands through CPU program space while reading the gate state through
 I/O port <code>0x02</code>. A complete program while locked reports <code>C3</code> and changes the

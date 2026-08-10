@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4c48e5e2.js";
+            window.path_to_searchindex_js = "searchindex-c7a75514.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -200,6 +200,7 @@ detailed timing contract; MAME provides an explicit omission comparison.</p>
 <tr><td>TilEm and Wabbitemu source</td><td>independent decode of speed selection, LCD instruction delays, and memory wait bits</td><td>[standard]</td></tr>
 <tr><td>Native Wabbitemu execution</td><td>reset state, speed masks and frequencies, all seven delay latches, wait-gate selection, and port-<code>0x2D</code> side effects</td><td>[standard]</td></tr>
 <tr><td>MAME 0.287 source</td><td>binary CPU-speed selection and absence of the delay-register block</td><td>[standard]</td></tr>
+<tr><td>Guarded MAME ASIC-control run</td><td>raw speed readback, measured 6:15 instruction throughput, absent delay ports, and soft-reset retention</td><td>[standard]</td></tr>
 <tr><td>Public hardware tests</td><td>intended bit meanings, LCD failure thresholds, and mode-3 timer divisor</td><td>[standard]</td></tr>
 </tbody>
 </table>
@@ -260,6 +261,12 @@ and emulator behavior.</p>
 15 MHz. Directly setting <code>timer_version = 1</code> produces modes <code>0/1/2/3</code> at 6,
 15, 20, and 25 MHz. The direct setting represents Wabbitemu front-end state;
 it is not a calculator port transition. [standard]</p>
+<p>A guarded MAME run writes <code>00</code>, <code>01</code>, <code>02</code>, <code>03</code>, and <code>FF</code> to port <code>0x20</code> and
+reads the same five raw bytes back. A 50-T-state RAM counter advances 12,000
+times during five 20 ms frames after write zero and 30,000 times after write
+one. The exact 2.5 ratio dynamically distinguishes 6 MHz from 15 MHz. A MAME
+soft reset retains raw speed <code>0x03</code>; this is driver behavior, not a calculator
+reset claim. [standard]</p>
 <h2 id="boot-configuration"><a class="header" href="#boot-configuration">Boot configuration</a></h2>
 <p>The retail boot continuation writes the complete block after its RAM probes
 and link-assist initialization: [confirmed]</p>
@@ -286,7 +293,8 @@ must not be mistaken for TI-84 Plus OS policy. [standard]</p>
 <p>MAME accepts the later port-<code>0x20</code> speed write but drops all six boot writes to
 ports <code>0x29</code>–<code>0x2C</code>, <code>0x2E</code>, and <code>0x2F</code>. It therefore runs the ROM at the
 selected base clock without the programmable LCD or memory additions described
-below. [standard]</p>
+below. A native patterned-write run reads zero from every port <code>0x29</code>–<code>0x2F</code>
+both before and after the writes. [standard]</p>
 <h2 id="lcd-instruction-delay--ports-0x290x2c"><a class="header" href="#lcd-instruction-delay--ports-0x290x2c">LCD instruction delay — ports <code>0x29</code>–<code>0x2C</code></a></h2>
 <p>TilEm and Wabbitemu add [standard]</p>
 <p>$$
@@ -498,6 +506,12 @@ python tools/run_wabbitemu_speed_edge_probe.py \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$wabbit_speed_parent/run" --json
+
+mame_asic_parent=$(mktemp -d /tmp/ti84-mame-asic.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_asic_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_asic_parent/run" --json
 </code></pre>
 <p>The manifest labels the run as initialized-core emulator evidence and records
 both input hashes. <code>tools/wabbitemu_lcd_probe.py</code> derives its pointer, latch,
@@ -505,7 +519,9 @@ ready-hold, delay, wait-bit, and speed-clamp expectations from the reusable LCD
 and bus-timing libraries.</p>
 <p><code>tools/wabbitemu_speed_probe.py</code> derives speed, latch, and wait-mask
 expectations from <code>tools/bus_timing.py</code>. Its guarded CLI records both input
-hashes and labels the direct <code>timer_version = 1</code> configuration explicitly.</p>
+hashes and labels the direct <code>timer_version = 1</code> configuration explicitly.
+<code>tools/mame_asic.py</code> reuses the MAME timing profile for raw readback, binary
+clock selection, and the absent delay block.</p>
 <p>The executed initialization can be recovered from a full boot trace:</p>
 <pre><code class="language-sh">nix develop -c python tools/tilem_trace_resolve.py /tmp/boot.trace \
   --initial-mapping ti84p-reset --io-ports 20,29-2f

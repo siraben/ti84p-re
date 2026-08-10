@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4c48e5e2.js";
+            window.path_to_searchindex_js = "searchindex-c7a75514.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -754,6 +754,11 @@ difference does not affect those executed paths. [confirmed]</p>
 fetch path reads the mapped Flash or RAM without an execution-protection
 predicate. Port <code>0x14</code> records an unlock value, but the paging and Flash-write
 paths do not consult it. [standard]</p>
+<p>A guarded native run writes patterns to ports <code>0x22</code>–<code>0x28</code>; all seven ports
+still read zero. With port <code>0x21 = 0x33</code>, writes <code>CC DD AA 10 20</code> to
+<code>0x22</code>–<code>0x26</code> also read back as five zero bytes while a 50-T-state loop
+continues executing from RAM page 0. This covers one allowed-by-absence fetch
+path. It does not emulate any boundary or violation response. [standard]</p>
 <p>MAME therefore cannot test any boundary or violation described on this page.
 The driver is marked <code>MACHINE_NOT_WORKING</code>, so this omission is a driver limit,
 not evidence that the physical ASIC lacks execution protection. See

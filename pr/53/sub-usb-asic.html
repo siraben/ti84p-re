@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4c48e5e2.js";
+            window.path_to_searchindex_js = "searchindex-c7a75514.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -581,7 +581,11 @@ names. [confirmed] for the operations; [hypothesis] for signal assignments.</p>
 <li>Port <code>0x4D</code> tries to select one D+ state with <code>BIT(1) &amp; ~BIT(0)</code> or its inverse. Each expression evaluates to one set bit. The handler ORs that bit into the line-state byte without clearing the paired bit.</li>
 </ul>
 <p>These inconsistencies prevent Wabbitemu from serving as a connected PHY reference. Its paired-state representation and active-low summary still provide an independent comparison with the ROM’s bit tests. The electrical labels remain emulator evidence because the ROM does not name the signals. [standard] for source behavior; [hypothesis] for physical signal assignments.</p>
-<p>MAME maps ports <code>0x55</code> and <code>0x56</code> to constant disconnected values <code>0x1F</code> and zero. Ports <code>0x4A</code>–<code>0x5B</code> outside that pair and the FDRC region at <code>0x80</code>–<code>0xA2</code> are absent from the TI-84 Plus map. [standard]</p>
+<p>MAME maps ports <code>0x55</code> and <code>0x56</code> to constant disconnected values <code>0x1F</code> and
+zero. Ports <code>0x4A</code>–<code>0x5B</code> outside that pair and the FDRC region at
+<code>0x80</code>–<code>0xA2</code> are absent from the TI-84 Plus map. A guarded native sweep reads
+zeros across <code>0x4A</code>–<code>0x5B</code> except for <code>0x55 = 0x1F</code>; patterned writes leave the
+complete block unchanged. A soft reset produces the same pair. [standard]</p>
 <h3 id="native-wabbitemu-usb-edges"><a class="header" href="#native-wabbitemu-usb-edges">Native Wabbitemu USB edges</a></h3>
 <p>A guarded initialized-core run invokes the registered handlers without
 executing TI-OS. Ports <code>0x4A</code>, <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code>, <code>0x5B</code>, and
