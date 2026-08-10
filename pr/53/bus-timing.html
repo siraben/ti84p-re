@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c3a79e88.js";
+            window.path_to_searchindex_js = "searchindex-4736e60f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -531,9 +531,16 @@ clock selection, and the absent delay block.</p>
 captures ports <code>0x20</code>, <code>0x29</code>–<code>0x2C</code>, <code>0x2E</code>, and <code>0x2F</code> before a mutating
 timing test. It does not measure any delay. No physical snapshot is recorded.
 [confirmed] for the probe bytes; [hypothesis] for pending readback values.</p>
+<p>The guarded <a href="hardware-probes.html#memory-bus-timing-probe">memory-bus timing probe</a>
+prepares paired timer-2 measurements for all six access classes. Its counted
+loops separate fixed-Flash opcode fetches, Flash data reads, safe Flash reset
+writes, RAM opcode fetches, RAM non-opcode reads, and idempotent RAM writes.
+It restores the entry timing byte and an initially idle timer 2. No exported
+physical result has been recorded. [confirmed] for the probe bytes and decoder;
+[hypothesis] for pending measurements.</p>
 <ul>
-<li>Count fixed Flash and RAM loops while toggling each port-<code>0x2E</code> bit. Separate
-M1 fetches, data reads, and writes, and include one- and two-prefix opcodes.</li>
+<li>Run the prepared six-class matrix on TA2 and TA3 units. Then extend the M1
+case with one- and two-prefix opcodes to test per-prefix placement.</li>
 <li>Repeat the loop test with active-register gate bits 0 and 1 cleared to verify
 whether they disable all corresponding <code>0x2E</code> effects.</li>
 <li>Measure the interval from LCD writes and reads to port-<code>0x02</code> bit 1 becoming

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c3a79e88.js";
+            window.path_to_searchindex_js = "searchindex-4736e60f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -738,6 +738,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 <li>[standard] A separate guarded MAME run verifies both standard-timer pending bits, timer-1 status within one frame after port-<code>0x04</code> writes <code>0x00</code> and <code>0x06</code>, and retained legacy masks across soft reset.</li>
 <li>[standard] Wabbitemu’s low-level and frontend reset paths retain the timer context, delay registers, interrupt controller, programmable timers, and RTC. A guarded run confirms the directly seeded state. Physical reset retention remains open.</li>
 <li>[standard] TilEm’s full reset clears programmable timers and reschedules standard timers while retaining the global clock, RTC fields, and dynamic scheduler timers. A guarded direct-core run confirms the seeded boundaries. Physical reset retention remains open.</li>
+<li>[confirmed] The prepared <a href="hardware-probes.html#memory-bus-timing-probe">memory-bus timing probe</a> uses timer 2 only when its source and mode are zero, records completion state for every sample, and restores the idle counter byte. No physical result has been recorded.</li>
 <li>[hypothesis] Physical RTC reads can tear across a one-second rollover because no latch or OS retry is documented.</li>
 <li>[hypothesis] The physical crystal divisors, first-versus-second-expiry meaning of mode/status bit 2, counter-zero edge, and precise reason programmable timers fail to wake <code>HALT</code> need direct TA2/TA3 measurements.</li>
 <li>[hypothesis] Low-power behavior of port <code>0x2D</code>, disabled RTC reads, control-edge behavior, and rollover coherence should be checked on TA2 and TA3 hardware rather than inferred from emulators.</li>
