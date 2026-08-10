@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-54c86b77.js";
+            window.path_to_searchindex_js = "searchindex-61ace8d5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -181,7 +181,7 @@
                     <main>
                         <h1 id="flash-memory"><a class="header" href="#flash-memory">Flash memory</a></h1>
 <p><em>TI-84 Plus OS 2.55MP — Flash hardware, boot bcalls, and archive writes.</em></p>
-<p>The TI-84 Plus programs Flash through three distinct layers: ASIC access control, an AMD-compatible command state machine in the Flash chip, and boot-page bcalls that execute their write loops from RAM. This page separates those layers, reconstructs <code>_WriteFlash</code> and the erase APIs byte for byte, and follows a normal <code>Archive prgmA</code> operation into the hardware path.</p>
+<p>The TI-84 Plus programs Flash through three distinct layers: ASIC access control, an AMD-compatible command state machine in the Flash chip, and boot-page bcalls that execute their write loops from RAM. This page separates those layers, gives calling conventions and examples for the Flash bcalls, reconstructs their workers byte for byte, and follows a normal <code>Archive prgmA</code> operation into the hardware path.</p>
 <h2 id="evidence-layers"><a class="header" href="#evidence-layers">Evidence layers</a></h2>
 <p>The mechanisms below use several evidence sources. A claim marked [confirmed] comes from the local OS 2.55MP image or a complete TilEm execution trace. A claim marked [standard] comes from the named hardware source and agrees with the ROM. Emulator behavior is identified explicitly. It establishes what that emulator implements, not what the physical ASIC or Flash chip does.</p>
 <div class="table-wrapper">
@@ -371,21 +371,321 @@ physical boundaries. [confirmed] for the boot values and pinned emulator runs;
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Bcall</th><th style="text-align: right">ID</th><th>Body</th><th>Inputs</th><th>Result</th></tr>
+<tr><th>Bcall</th><th style="text-align: right">ID</th><th>Body</th><th>Inputs</th><th>Intended distinction</th></tr>
 </thead>
 <tbody>
-<tr><td><code>_WriteAByte</code></td><td style="text-align: right"><code>8021</code></td><td><code>3F:4C9F</code></td><td><code>A</code> page, <code>DE</code> destination, <code>B</code> byte</td><td>worker result or early guard result below</td></tr>
-<tr><td><code>_EraseFlash</code></td><td style="text-align: right"><code>8024</code></td><td><code>3F:4C2A</code></td><td><code>A</code> page, <code>HL</code> sector address</td><td>worker result or direct-call guard below</td></tr>
-<tr><td><code>_EraseCertificateSector</code></td><td style="text-align: right"><code>8060</code></td><td><code>3F:4E3F</code></td><td><code>HL=0x4000</code> or <code>0x6000</code></td><td>preserves caller registers and flags; hides worker result</td></tr>
-<tr><td><code>_EraseFlashPage</code></td><td style="text-align: right"><code>8084</code></td><td><code>3F:4C1E</code></td><td><code>A</code> page</td><td>worker result or page guard below</td></tr>
-<tr><td><code>_WriteFlashUnsafe</code></td><td style="text-align: right"><code>8087</code></td><td><code>3F:4CA6</code></td><td><code>A</code> page, <code>DE</code> destination, <code>BC</code> length, <code>HL</code> RAM source</td><td>worker result or early guard result below</td></tr>
-<tr><td><code>_WriteAByteSafe</code></td><td style="text-align: right"><code>80C6</code></td><td><code>3F:4C9A</code></td><td><code>A</code> page, <code>DE</code> destination, <code>B</code> byte</td><td>worker result or early guard result below</td></tr>
-<tr><td><code>_WriteFlash</code></td><td style="text-align: right"><code>80C9</code></td><td><code>3F:4C8F</code></td><td><code>A</code> page, <code>DE</code> destination, <code>BC</code> length, <code>HL</code> RAM source</td><td>worker result or early guard result below</td></tr>
-<tr><td><code>_SetFlashLowerBound</code></td><td style="text-align: right"><code>80CF</code></td><td><code>3F:4784</code></td><td><code>A</code> value for port <code>0x23</code></td><td>preserves <code>A</code>; leaves interrupts disabled</td></tr>
+<tr><td><code>_WriteAByte</code></td><td style="text-align: right"><code>8021</code></td><td><code>3F:4C9F</code></td><td><code>A</code> page, <code>DE</code> destination, <code>B</code> byte</td><td>one byte; permits page <code>3E</code>, rejects page <code>3F</code></td></tr>
+<tr><td><code>_EraseFlash</code></td><td style="text-align: right"><code>8024</code></td><td><code>3F:4C2A</code></td><td><code>A</code> page, <code>HL</code> address in the sector</td><td>raw sector selector; no page guard</td></tr>
+<tr><td><code>_EraseCertificateSector</code></td><td style="text-align: right"><code>8060</code></td><td><code>3F:4E3F</code></td><td><code>H=0x40</code> or <code>H=0x60</code>; <code>L</code> unchecked</td><td>select one 8 KiB certificate sector; hides erase result</td></tr>
+<tr><td><code>_EraseFlashPage</code></td><td style="text-align: right"><code>8084</code></td><td><code>3F:4C1E</code></td><td><code>A</code> page</td><td>use <code>0x4000</code> in that page; rejects page <code>3E</code></td></tr>
+<tr><td><code>_WriteFlashUnsafe</code></td><td style="text-align: right"><code>8087</code></td><td><code>3F:4CA6</code></td><td><code>A</code> page, <code>DE</code> destination, <code>BC</code> length, <code>HL</code> RAM source</td><td>block write; permits page <code>3E</code>, rejects page <code>3F</code></td></tr>
+<tr><td><code>_WriteAByteSafe</code></td><td style="text-align: right"><code>80C6</code></td><td><code>3F:4C9A</code></td><td><code>A</code> page, <code>DE</code> destination, <code>B</code> byte</td><td>one byte; rejects pages <code>3E</code> and <code>3F</code></td></tr>
+<tr><td><code>_WriteFlash</code></td><td style="text-align: right"><code>80C9</code></td><td><code>3F:4C8F</code></td><td><code>A</code> page, <code>DE</code> destination, <code>BC</code> length, <code>HL</code> RAM source</td><td>block write; rejects pages <code>3E</code> and <code>3F</code></td></tr>
+<tr><td><code>_SetFlashLowerBound</code></td><td style="text-align: right"><code>80CF</code></td><td><code>3F:4784</code></td><td><code>A</code> value for port <code>0x23</code></td><td>change an execution-protection bound; leaves interrupts disabled</td></tr>
 </tbody>
 </table>
 </div>
 <p>WikiTI’s ABI agrees with these register uses and says the block-write source must be RAM. The ROM adds exact page guards, call-site checks, return values, and boundary behavior described below. [standard] for the published ABI; [confirmed] for the additions.</p>
+<h2 id="programmer-facing-bcall-guide"><a class="header" href="#programmer-facing-bcall-guide">Programmer-facing bcall guide</a></h2>
+<p>These bcalls expose the command workers. They do not provide the allocation,
+battery policy, ownership checks, transaction journal, or gate management used
+by the archive subsystem. A normal program that wants to archive or unarchive
+a variable should use <code>_Arc_Unarc</code> rather than choose a raw Flash address.
+Low-level calls are appropriate only when the caller owns the target region and
+also owns the surrounding recovery policy. [confirmed] for the bcall behavior;
+[standard] for using the public variable API.</p>
+<h3 id="shared-preconditions-and-hygiene"><a class="header" href="#shared-preconditions-and-hygiene">Shared preconditions and hygiene</a></h3>
+<p>Every modifying bcall below has these caller obligations: [confirmed] for the
+ROM behavior unless marked otherwise.</p>
+<ul>
+<li>Open the protected port-<code>0x14</code> gate before the call and close it on every
+exit. The Flash bcalls do neither operation. Code executing from ordinary RAM
+cannot satisfy the privileged-fetch sequence by copying its bytes into RAM.</li>
+<li>Check battery state before opening the gate. The OS archive path calls
+<code>_Chk_Batt_Low</code> before its own Flash transaction, but the boot workers do not.</li>
+<li>Establish ownership of the complete physical sector. Flash programming can
+only clear bits from one to zero. Restoring a zero bit to one requires an
+erase, which affects 64 KiB for ordinary pages and the smaller top-boot
+sectors shown under <a href="#sector-geometry">Sector geometry</a>. [standard]</li>
+<li>Keep a recovery record outside the sector being changed if interruption must
+be survivable. The raw bcalls have no power-loss journal.</li>
+<li>Use <code>rst 28h</code> with the bcall ID. Do not call the page-<code>3F</code> body address. The
+raw write and erase cores reject a direct caller whose immediate return
+address is at or above <code>0x8000</code>.</li>
+<li>Keep the stack, source, and destination buffers away from <code>0x8100</code>–<code>0x817B</code>.
+The launcher overwrites that range with the block-program worker. The erase
+worker occupies <code>0x8100</code>–<code>0x8151</code>. The launcher also writes its saved IFF
+state at <code>0x82A2</code>.</li>
+<li>Keep <code>IY</code> at the OS <code>flags</code> base for the write calls. The accepted block path
+clears <code>(IY+0x25).1</code>; its unused low-source branch can set the same unnamed
+scratch bit. <code>_WriteAByte</code> additionally overwrites the first byte of <code>OP1</code> at
+<code>0x8478</code>.</li>
+<li>Treat <code>A</code>, <code>BC</code>, <code>DE</code>, <code>HL</code>, flags, <code>OP1</code>, and the scratch locations above as
+clobbered when their selected path uses them. The launchers preserve <code>IX</code> and
+restore the interrupt-enabled state that existed on entry.</li>
+<li>Validate the arguments before interpreting the result. Several rejected or
+no-op paths return flags that resemble success. After a validated nonempty
+call, require <code>A=0</code>, then read back the complete programmed span or erased
+sector. A locked write can return <code>A=0</code>, Z in TilEm without changing Flash.</li>
+</ul>
+<p>The labels “safe” and “unsafe” describe only the page-<code>3E</code> software guard.
+Neither safe entry checks the port-<code>0x14</code> gate, physical protection, archive
+ownership, destination address, length, battery, or power-loss state.
+[confirmed]</p>
+<h3 id="choosing-a-write-bcall"><a class="header" href="#choosing-a-write-bcall">Choosing a write bcall</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Need</th><th>Entry</th><th>Programmer-visible differences</th></tr>
+</thead>
+<tbody>
+<tr><td>Program a RAM block outside the certificate and boot pages</td><td><code>_WriteFlash</code></td><td>Rejects starting pages <code>3E</code> and <code>3F</code>; still requires complete span validation.</td></tr>
+<tr><td>Program a RAM block in certificate page <code>3E</code></td><td><code>_WriteFlashUnsafe</code></td><td>Permits starting page <code>3E</code>; intended only for an owner of certificate update policy.</td></tr>
+<tr><td>Clear bits in one ordinary byte</td><td><code>_WriteAByteSafe</code></td><td>Copies <code>B</code> through <code>OP1</code>; rejects pages <code>3E</code> and <code>3F</code>.</td></tr>
+<tr><td>Clear bits in one certificate byte</td><td><code>_WriteAByte</code></td><td>Copies <code>B</code> through <code>OP1</code>; permits page <code>3E</code> and rejects page <code>3F</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The block worker expects <code>DE</code> in <code>0x4000</code>–<code>0x7FFF</code> and a RAM source with
+<code>HL &gt;= 0x8000</code>. The ROM does not enforce either condition. For nonzero length
+$n$, validate the final target before the call:</p>
+<p>$$
+p_{final} = p + \left\lfloor
+\frac{(DE - 0x4000) + n - 1}{0x4000}
+\right\rfloor
+$$</p>
+<p>Also require <code>DE</code> in the banked window, ensure the RAM source plus $n$ does not
+wrap, and keep the source outside the worker and scratch ranges. For
+<code>_WriteFlash</code>, require every page through $p_{final}$ to stay below <code>3E</code>.
+Crossing from page <code>3D</code> toward <code>3E</code> does not stop cleanly: the worker wraps
+<code>DE</code> to <code>0x4000</code> but leaves page <code>3D</code> mapped. [confirmed]</p>
+<h3 id="_writeflash"><a class="header" href="#_writeflash"><code>_WriteFlash</code></a></h3>
+<p><code>_WriteFlash = 80C9h</code> is the ordinary block entry. Inputs are <code>A=page</code>,
+<code>DE=destination</code>, <code>BC=length</code>, and <code>HL=RAM source</code>. It masks the page with
+<code>0x3F</code>, rejects page <code>3E</code>, and then enters <code>_WriteFlashUnsafe</code>, which rejects
+page <code>3F</code>. A validated, nonempty successful call returns <code>A=0</code>, Z. A worker
+failure returns <code>A=0x3F</code>, NZ. [confirmed]</p>
+<p>On success, <code>BC=0</code>, while <code>HL</code> and <code>DE</code> point one byte beyond the source and
+destination spans. On a program failure, <code>HL</code> and <code>DE</code> identify the failing
+bytes and <code>BC</code> retains the decrement already performed by <code>LDI</code>. The page
+guards are exceptional: they return nonzero <code>A</code> with Z. A zero-length accepted
+call returns the masked page and NZ without launching the worker. [confirmed]</p>
+<p>Use this entry only after validating the entire span. Its initial page check
+does not protect a call that begins below page <code>3E</code> and later crosses a page or
+sector boundary.</p>
+<h3 id="_writeflashunsafe"><a class="header" href="#_writeflashunsafe"><code>_WriteFlashUnsafe</code></a></h3>
+<p><code>_WriteFlashUnsafe = 8087h</code> has the same block ABI and worker results as
+<code>_WriteFlash</code>. It omits only the page-<code>3E</code> rejection. The core still masks
+<code>A</code> to six bits, rejects page <code>3F</code>, checks the call frame, and accepts a zero
+length as a no-op. [confirmed]</p>
+<p>“Unsafe” does not mean that the routine bypasses physical protection. Port
+<code>0x14</code>, the port-<code>0x21</code> sector group, and the Flash chip still decide whether
+the command reaches and changes the array. Its page-<code>3E</code> access makes this
+entry suitable for OS-owned certificate work, not for ordinary archive data.
+[confirmed] for the software entry; [standard] for the hardware gates.</p>
+<h3 id="_writeabytesafe"><a class="header" href="#_writeabytesafe"><code>_WriteAByteSafe</code></a></h3>
+<p><code>_WriteAByteSafe = 80C6h</code> takes <code>A=page</code>, <code>DE=destination</code>, and <code>B=byte</code>.
+It masks the page, rejects page <code>3E</code>, and falls into <code>_WriteAByte</code>. The shared
+unsafe core later rejects page <code>3F</code>. Its accepted path therefore has the same
+page exclusions as <code>_WriteFlash</code>. [confirmed]</p>
+<p>An early page-<code>3E</code> rejection leaves <code>BC</code>, <code>DE</code>, <code>HL</code>, and <code>OP1</code> untouched.
+Page <code>3F</code> reaches the byte wrapper first, so that rejection has already stored
+<code>B</code> at <code>OP1</code>, set <code>BC=1</code>, and set <code>HL=0x8478</code>. This difference matters to a
+caller that tries to infer whether scratch state changed from the flags.
+[confirmed]</p>
+<h3 id="_writeabyte"><a class="header" href="#_writeabyte"><code>_WriteAByte</code></a></h3>
+<p><code>_WriteAByte = 8021h</code> takes <code>A=page</code>, <code>DE=destination</code>, and <code>B=byte</code>.
+It stores <code>B</code> in <code>OP1</code>, sets <code>HL=0x8478</code> and <code>BC=1</code>, then enters
+<code>_WriteFlashUnsafe</code>. It permits page <code>3E</code> and rejects page <code>3F</code>. A successful
+call returns <code>A=0</code>, Z, <code>BC=0</code>, <code>HL=0x8479</code>, and <code>DE</code> one byte beyond the
+target. <code>OP1</code> retains the programmed byte. [confirmed]</p>
+<p>Use the byte entries for monotonic state changes such as <code>0xFE → 0xFC</code> or
+<code>0xFC → 0xF0</code>. A request that needs any <code>0→1</code> transition requires sector
+erase and reconstruction. A requested byte with the same DQ7 as the stored
+byte can produce false success when the ASIC gate blocks the command, so verify
+the byte after every call. [confirmed] for the ROM and pinned TilEm result;
+[standard] for NOR programming direction.</p>
+<h3 id="_eraseflashpage"><a class="header" href="#_eraseflashpage"><code>_EraseFlashPage</code></a></h3>
+<p><code>_EraseFlashPage = 8084h</code> takes <code>A=page</code>. It masks the page to six bits,
+chooses address <code>0x4000</code>, rejects page <code>3E</code>, and enters <code>_EraseFlash</code>. For page
+zero it changes the address to <code>0x0000</code>. It does not reject page <code>3F</code>.
+[confirmed]</p>
+<p>The name refers to the logical page used to select a sector. It does not limit
+the erase to 16 KiB. On an ordinary archive page, the command erases the
+containing 64 KiB sector. Initialize <code>DE</code> to a writable Flash address in the
+same mapping before the call; the DQ5 failure tail writes reset byte <code>0xF0</code>
+through undocumented <code>DE</code>. [confirmed] for the worker; [standard] for erase
+geometry.</p>
+<p>A successful erase returns <code>A=0</code>, Z. A worker failure returns <code>A=0xF1</code>, NZ.
+The page-<code>3E</code> rejection instead returns <code>A=0x3E</code>, Z. Prevalidate the page,
+check <code>A=0</code>, and verify the complete physical sector. [confirmed]</p>
+<h3 id="_eraseflash"><a class="header" href="#_eraseflash"><code>_EraseFlash</code></a></h3>
+<p><code>_EraseFlash = 8024h</code> takes <code>A=page</code> and <code>HL=an address in the selected sector</code>. It performs no page mask or page guard. The worker maps <code>A</code>, issues a
+sector-erase command through <code>HL</code>, and returns the same success or failure
+values as <code>_EraseFlashPage</code>. <code>BC</code>, <code>DE</code>, and <code>HL</code> are otherwise retained by
+the erase path, but failure can write <code>0xF0</code> to the address in <code>DE</code>.
+[confirmed]</p>
+<p>Choose this entry when the target must be an address other than the page start,
+including a top-boot sector boundary. Set <code>DE=HL</code> defensively so the failure
+reset targets Flash rather than arbitrary RAM. This convention avoids the
+worker’s underspecified failure write; the public ABI itself does not require
+or synthesize it. [confirmed] for the write; [standard] for the Flash reset
+command.</p>
+<h3 id="_erasecertificatesector"><a class="header" href="#_erasecertificatesector"><code>_EraseCertificateSector</code></a></h3>
+<p><code>_EraseCertificateSector = 8060h</code> accepts any <code>HL</code> whose high byte is <code>0x40</code>
+or <code>0x60</code>. It does not require <code>L=0</code>. It loads page <code>3E</code> and calls
+<code>_EraseFlash</code>, selecting one of the two 8 KiB certificate sectors. Other high
+bytes return without work. [confirmed]</p>
+<p>The wrapper restores the caller’s <code>AF</code> after both accepted and rejected calls.
+It therefore hides worker success and failure as well as its own input
+rejection. Preserve the certificate through its OS-owned rebuild protocol and
+verify the selected sector; flags are not a result channel for this bcall.
+[confirmed]</p>
+<h3 id="return-and-side-effect-matrix"><a class="header" href="#return-and-side-effect-matrix">Return and side-effect matrix</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Path</th><th>Returned <code>A</code> and flags</th><th>Other visible state</th></tr>
+</thead>
+<tbody>
+<tr><td>block or byte program succeeds</td><td><code>A=0</code>, Z</td><td><code>BC=0</code>; <code>HL</code>/<code>DE</code> advanced; page worker ends on page <code>3F</code> before bcall mapping restoration</td></tr>
+<tr><td>block or byte program fails DQ polling</td><td><code>A=0x3F</code>, NZ</td><td><code>HL</code>/<code>DE</code> at failing byte; <code>BC</code> already decremented</td></tr>
+<tr><td>safe write rejects page <code>3E</code></td><td><code>A=0x3E</code>, Z</td><td>wrapper-specific scratch changes described above</td></tr>
+<tr><td>unsafe core rejects page <code>3F</code></td><td><code>A=0x3F</code>, Z</td><td>no worker; byte wrapper may already have changed <code>OP1</code>, <code>BC</code>, and <code>HL</code></td></tr>
+<tr><td>accepted zero-length block</td><td>masked page, NZ</td><td>no worker; write scratch bit unchanged</td></tr>
+<tr><td>erase succeeds</td><td><code>A=0</code>, Z</td><td>caller <code>BC</code>, <code>DE</code>, and <code>HL</code> retained by the erase worker</td></tr>
+<tr><td>erase fails DQ polling</td><td><code>A=0xF1</code>, NZ</td><td>writes <code>0xF0</code> through incoming <code>DE</code></td></tr>
+<tr><td><code>_EraseFlashPage</code> rejects page <code>3E</code></td><td><code>A=0x3E</code>, Z</td><td>no worker</td></tr>
+<tr><td><code>_EraseCertificateSector</code> returns</td><td>caller’s original <code>AF</code></td><td>accepted and rejected cases are indistinguishable through flags</td></tr>
+</tbody>
+</table>
+</div>
+<p>This matrix explains why <code>jr z,success</code> is insufficient. Validate page,
+address, span, and nonzero length first. Then test <code>A=0</code> and verify the array.</p>
+<h3 id="block-program-example"><a class="header" href="#block-program-example">Block-program example</a></h3>
+<p>This example shows the bcall mechanics and readback. It assumes that trusted
+OS or boot code already opened port <code>0x14</code>, owns the target sector, checked the
+battery, and will relock Flash on every exit. Copying an unlock byte sequence
+into this RAM routine would not satisfy the ASIC’s privileged-fetch rule.</p>
+<pre><code class="language-z80">; payload, metadata, and verify_buffer must all be safe RAM locations.
+; The complete span 08:4100..08:4100+payload_size-1 was validated first.
+    ld a,0x08
+    ld (target_page),a
+    ld de,0x4100
+    ld (target_address),de
+    ld hl,payload
+    ld bc,payload_end-payload
+    rst 0x28
+    .dw 0x80C9                 ; _WriteFlash
+
+    or a                       ; validated nonempty call requires A=0
+    jr nz,program_failed
+
+    ld a,(target_page)
+    ld hl,(target_address)
+    ld de,verify_buffer
+    ld bc,payload_end-payload
+    rst 0x28
+    .dw 0x5017                 ; _FlashToRam
+
+    ld hl,payload
+    ld de,verify_buffer
+    ld bc,payload_end-payload
+verify_loop:
+    ld a,(de)
+    cp (hl)
+    jr nz,verify_failed
+    inc de
+    inc hl
+    dec bc
+    ld a,b
+    or c
+    jr nz,verify_loop
+    jr program_verified
+
+target_page:
+    .db 0
+target_address:
+    .dw 0
+verify_buffer:
+    .ds payload_end-payload
+</code></pre>
+<p>The failure and success labels must all flow through the trusted owner’s
+relock and recovery code. <code>_WriteFlash</code> does not provide that epilogue.</p>
+<h3 id="single-byte-and-sector-erase-examples"><a class="header" href="#single-byte-and-sector-erase-examples">Single-byte and sector-erase examples</a></h3>
+<p>The byte example clears marker bits without erasing. The caller must first
+read the stored byte and require <code>(stored &amp; requested) = requested</code>.</p>
+<pre><code class="language-z80">    ld a,0x08
+    ld de,0x4102
+    ld b,0xFC                  ; example FE -&gt; FC marker transition
+    rst 0x28
+    .dw 0x80C6                 ; _WriteAByteSafe
+    or a
+    jr nz,program_failed
+    ; Remap or use _FlashToRam, then require (08:4102) == 0xFC.
+</code></pre>
+<p>The erase example selects the 64 KiB sector containing pages <code>0C</code>–<code>0F</code>.
+It assumes the caller has backed up every live byte in that sector and has a
+power-loss recovery record elsewhere.</p>
+<pre><code class="language-z80">    ld a,0x0C
+    ld de,0x4000               ; defensive DQ5 reset pointer
+    rst 0x28
+    .dw 0x8084                 ; _EraseFlashPage
+    or a
+    jr nz,erase_failed
+    ; Verify all of physical 0x30000..0x3FFFF before rebuilding it.
+</code></pre>
+<p>Neither example opens or closes the gate. That omission is deliberate: the
+required protected sequence must execute from a privileged Flash region and
+belongs to the trusted transaction owner, not to a portable RAM snippet.</p>
+<h3 id="reading-back-with-_flashtoram"><a class="header" href="#reading-back-with-_flashtoram">Reading back with <code>_FlashToRam</code></a></h3>
+<p><code>_FlashToRam = 5017h</code>, body <code>3D:6745</code>, copies <code>BC</code> bytes from Flash at
+<code>A:HL</code> to RAM at <code>DE</code>. It advances the mapped Flash page when <code>HL</code> crosses
+<code>0x8000</code> and restores the previous port-<code>0x06</code> mapping after its RAM worker
+returns. It does not need the Flash write gate for ordinary readable pages.
+[confirmed]</p>
+<p>The call consumes <code>BC</code> and advances <code>HL</code> and <code>DE</code>. It uses worker RAM beginning
+at <code>0x8100</code> and page scratch at <code>0x9868</code>, so a verification buffer must avoid
+those locations while the copier runs. Locked certificate-page reads remain
+subject to the ASIC’s separate read protection. [confirmed] for the ROM
+scratch and worker; [standard] for the read gate.</p>
+<h3 id="executable-example-validation"><a class="header" href="#executable-example-validation">Executable example validation</a></h3>
+<p><code>tools/emulator-probes/flash-bcall-usage.asm</code> is the guarded executable form of
+the examples above. It uses the same register setup and bcall sequences to
+program <code>A5 5A</code> at <code>08:4100</code>, read the pair back, clear a marker from <code>FE</code> to
+<code>FC</code> at <code>08:4102</code>, read that byte back, erase through page <code>0C</code>, read the
+erased byte back, and set port <code>0x23</code> to <code>0x2A</code>. The probe stores each return
+instead of branching so the runner can check the complete result. [confirmed]</p>
+<p>On 2026-08-10, the hash-guarded Wabbitemu adapter booted the exact OS 2.55MP
+ROM, established the retail protection state, injected the 111-byte program
+into RAM, and opened only Wabbitemu’s in-memory Flash gate. The run reached
+<code>_WriteFlash</code>, <code>_WriteAByteSafe</code>, <code>_EraseFlashPage</code>, and
+<code>_SetFlashLowerBound</code> once each and <code>_FlashToRam</code> three times. It reached six
+RAM-worker entries and no execution-violation reset. [confirmed] for this
+pinned emulator run.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Observation</th><th>Guarded result</th></tr>
+</thead>
+<tbody>
+<tr><td><code>_WriteFlash</code> return and readback</td><td><code>AF=0x0044</code>; array and copied bytes both <code>A5 5A</code></td></tr>
+<tr><td><code>_WriteAByteSafe</code> return, scratch, and readback</td><td><code>AF=0x0044</code>; <code>OP1=0xFC</code>; array and copied byte both <code>FC</code></td></tr>
+<tr><td><code>_EraseFlashPage</code> return and readback</td><td><code>AF=0x0044</code>; array and copied byte both <code>FF</code></td></tr>
+<tr><td>shared write scratch</td><td><code>(IY+0x25).1</code> clear after the accepted paths</td></tr>
+<tr><td><code>_SetFlashLowerBound</code> result</td><td>port-<code>0x23</code> upper bound <code>0x2A</code>; IFF2 clear</td></tr>
+</tbody>
+</table>
+</div>
+<p>The assembly source SHA-256 was
+<code>413408b1a72924002e9cb986e68411c1b4f64f381f50d1f1516f319df1c5354a</code>;
+the assembled machine-code SHA-256 was
+<code>42e6d659b652b4b0205759e48634edd46504141a04e79d3676344dce09ae525b</code>.
+See “Retail Flash bcall usage probe” in <code>tools/dynamic-tracing.md</code> for the
+guarded reproduction command. This execution validates the snippets against
+the original ROM bodies under pinned Wabbitemu. It does not validate the
+privileged port-<code>0x14</code> sequence, allocation or journaling, interruption,
+timing, or behavior of a physical Flash device.</p>
 <h2 id="_writeflash-entry-paths"><a class="header" href="#_writeflash-entry-paths"><code>_WriteFlash</code> entry paths</a></h2>
 <p>The four write entry points converge on the core at <code>3F:4CA6</code>. [confirmed]</p>
 <pre class="mermaid">flowchart TD
@@ -1267,8 +1567,11 @@ from an erasing sector. It also requires DQ7 erase polling within a selected
 sector. TilEm’s global <code>0x08</code>/<code>0x4C</code> alternation therefore models DQ2 outside
 the selected sector more broadly than the data sheet specifies. [standard]
 Physical TI-84 Plus behavior at these boundaries remains unmeasured.</p>
-<h2 id="_setflashlowerbound"><a class="header" href="#_setflashlowerbound"><code>_SetFlashLowerBound</code></a></h2>
-<p>The official name is misleading on the TI-84 Plus: <code>_SetFlashLowerBound</code> writes port <code>0x23</code>, which is the upper end of the modeled forbidden Flash-execution interval. Its complete body is: [confirmed]</p>
+<h2 id="_setflashlowerbound-bcall"><a class="header" href="#_setflashlowerbound-bcall"><code>_SetFlashLowerBound</code> bcall</a></h2>
+<p><code>_SetFlashLowerBound = 80CFh</code> takes the new bound in <code>A</code>. The official name is
+misleading on the TI-84 Plus: the body writes port <code>0x23</code>, which is the upper
+end of the modeled forbidden Flash-execution interval. It does not program or
+erase the Flash array. Its complete body is: [confirmed]</p>
 <pre><code class="language-z80">3F:4784  nop
 3F:4785  nop
 3F:4786  im 1
@@ -1277,7 +1580,27 @@ Physical TI-84 Plus behavior at these boundaries remains unmeasured.</p>
 3F:478B  di
 3F:478C  ret
 </code></pre>
-<p>The leading bytes form the protected-port sequence. Flash must already be unlocked for port <code>0x23</code> to accept the write. The routine leaves interrupts disabled and preserves the value in <code>A</code>. See <a href="execution-protection.html#_setflashlowerbound">Execution protection</a> for the cross-emulator boundary comparison. [confirmed] for the routine; [standard] for the write gate.</p>
+<p>The leading bytes form the protected-port sequence. Flash must already be
+unlocked for port <code>0x23</code> to accept the write. The routine preserves <code>A</code>, the
+flags, and the other general registers. It selects interrupt mode 1 and leaves
+maskable interrupts disabled. A caller must restore its prior interrupt-enable
+state and must already accept IM1 as the OS interrupt mode. [confirmed] for
+the routine; [standard] for the write gate.</p>
+<p>This wrapper records IFF2 through <code>LD A,I</code>, calls the bcall, then conditionally
+restores interrupts. <code>POP AF</code> also restores the caller’s original <code>AF</code>:</p>
+<pre><code class="language-z80">    ld a,i
+    push af                     ; P/V records the prior IFF2 value
+    ld a,0x2A
+    rst 0x28
+    .dw 0x80CF                  ; _SetFlashLowerBound; returns with DI
+    pop af
+    jp po,interrupts_restored   ; prior IFF2 was clear
+    ei
+interrupts_restored:
+</code></pre>
+<p>The example assumes that trusted code already opened the protected-write gate
+and will close it. See <a href="execution-protection.html#_setflashlowerbound">Execution protection</a>
+for the cross-emulator boundary comparison.</p>
 <h2 id="archive-allocation-above-the-hardware-api"><a class="header" href="#archive-allocation-above-the-hardware-api">Archive allocation above the hardware API</a></h2>
 <p>The archive manager and the raw Flash API solve different problems. The boot bcalls program an address supplied by their caller. Page-3D code chooses an archive record location, maintains record states, and invokes the boot API. [confirmed]</p>
 <h3 id="dynamic-archive-boundary"><a class="header" href="#dynamic-archive-boundary">Dynamic archive boundary</a></h3>
