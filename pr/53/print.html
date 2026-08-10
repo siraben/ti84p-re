@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-565c5d80.js";
+            window.path_to_searchindex_js = "searchindex-3fb7708a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -1479,7 +1479,8 @@ calculator.</p>
 decode as instructions, so a candidate needs control-flow or trace evidence.
 The credible code for these ports is concentrated in page <code>00</code>, pages <code>2F</code>,
 <code>33</code>, <code>35</code>–<code>37</code>, <code>3C</code>, <code>3D</code>, and the retail boot page <code>3F</code>. [confirmed]</p>
-<h2 id="complete-unlisted-port-candidate-audit"><a class="header" href="#complete-unlisted-port-candidate-audit">Complete unlisted-port candidate audit</a></h2>
+<h2 id="complete-rom-io-candidate-audit"><a class="header" href="#complete-rom-io-candidate-audit">Complete ROM I/O candidate audit</a></h2>
+<h3 id="unlisted-immediate-ports"><a class="header" href="#unlisted-immediate-ports">Unlisted immediate ports</a></h3>
 <p>A full linear scan of the 1 MiB retail ROM finds 35 aligned immediate-port
 candidates whose 21 apparent port values are absent from the project port map.
 This count removes inline bcall and bjump descriptors. None establishes an I/O
@@ -1512,9 +1513,30 @@ target to any candidate. Ghidra places <code>03:6DE1</code> inside
 <p>A reset/idle TLMT trace executes 1,753,851 instructions and reaches none of the
 35 locations. This trace result covers one emulator scenario. The byte and
 control-flow classifications, rather than trace absence, establish that these
-linear candidates do not add ports to the ROM inventory. Computed <code>C</code> values
-that cross calls or control-flow merges remain outside the static scan.
-[confirmed]</p>
+linear candidates do not add ports to the ROM inventory. [confirmed]</p>
+<h3 id="register-and-block-io"><a class="header" href="#register-and-block-io">Register and block I/O</a></h3>
+<p>A separate raw-byte scan finds every <code>ED</code>-prefixed register and block-I/O
+opcode pair. It does not depend on recovering the value of <code>C</code> across calls or
+control-flow joins. The exact retail ROM contains 37 pairs and no <code>ED</code> prefix
+at a 16 KiB page boundary. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Raw pairs</th><th>Classification</th><th>Evidence</th></tr>
+</thead>
+<tbody>
+<tr><td><code>37:58A9</code> (<code>INI</code>), <code>37:5944</code> (<code>OUTI</code>)</td><td>resolved instructions ×2</td><td>Straight-line loads select RTC ports <code>0x48</code> and <code>0x44</code>; both instructions belong to page-<code>37</code> functions.</td></tr>
+<tr><td><code>04:4178</code>, <code>04:4182</code>, <code>04:6F5B</code>, <code>05:40E7</code>, <code>05:428C</code>, <code>05:46E5</code>, <code>05:7159</code>, <code>05:715F</code>, <code>38:57AC</code>, <code>38:57D7</code>, <code>38:57F5</code>, <code>38:589F</code>, <code>38:75AF</code>, <code>39:73B7</code>, <code>3C:4EFE</code>, <code>3C:53E2</code>, <code>3C:783B</code>, <code>3C:7F99</code>, <code>3F:540E</code>, <code>3F:5C92</code>, <code>3F:63E0</code>, <code>3F:6C1A</code>, <code>3F:6C2A</code>, <code>3F:6C37</code>, <code>3F:6C54</code>, <code>3F:6C70</code>, <code>3F:6C90</code></td><td>operand overlaps ×27</td><td>Each <code>ED xx</code> pair straddles a little-endian operand inside an owning <code>CALL</code>, <code>JP</code>, or <code>LD</code> instruction.</td></tr>
+<tr><td><code>01:428C</code>, <code>07:4465</code>, <code>38:40C4</code>, <code>38:48B4</code>, <code>39:7268</code>, <code>3B:4F15</code>, <code>3F:408D</code>, <code>3F:567B</code></td><td>reviewed data ×8</td><td>Rebuilt Ghidra has no containing function or xref, and the page-local direct-target scan finds no target.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The 27 operand sites include <code>ED 41</code> inside <code>JP Z,0x41ED</code> at <code>04:4177</code>,
+<code>ED 70</code> inside <code>CALL 0x70ED</code> at <code>04:6F5A</code>, and <code>ED 40</code> inside
+<code>LD HL,0x40ED</code> at <code>39:73B6</code>. The scanner resolves the two aligned
+instructions from their preceding literal loads and <code>DEC C</code>. No other raw pair
+is an I/O instruction, so this ROM has no hidden computed-<code>C</code> access to an
+unlisted, status, GPIO, or USB port. [confirmed]</p>
 <p><code>tools/rom_io_coverage.py</code> contains the reusable scanner and review manifest.
 The manifest pins retail ROM SHA-256
 <code>7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d</code>.
@@ -1526,8 +1548,10 @@ nix develop -c python tools/describe_rom_io_coverage.py --json
 nix develop -c python tools/describe_rom_io_coverage.py \
   --trace /tmp/trace-benchmark.tlmt
 </code></pre>
-<p>The complete result is 34 <code>reviewed-data</code> entries and one
-<code>operand-overlap</code>, with zero unresolved candidates. [confirmed]</p>
+<p>The complete direct result is 34 <code>reviewed-data</code> entries and one
+<code>operand-overlap</code>. The indirect result is 27 <code>operand-overlap</code>, eight
+<code>reviewed-data</code>, and two <code>resolved-instruction</code> entries. Both manifests have
+zero unresolved candidates. [confirmed]</p>
 <h2 id="port-0x02-status"><a class="header" href="#port-0x02-status">Port <code>0x02</code> status</a></h2>
 <p>Port <code>0x02</code> combines transient hardware state with model-family bits. The boot
 and archive traces return <code>0xE1</code>, <code>0xE3</code>, and <code>0xE7</code>. [confirmed]</p>
@@ -1582,11 +1606,9 @@ candidate tests <code>A</code> in the next instruction. The decoder crosses only
 instructions that preserve <code>A</code>; calls, branches, arithmetic, and unknown
 instructions produce an unclassified result. This ROM produces zero
 unclassified candidates. [confirmed]</p>
-<p>No immediate status read selects bits 2–6. The conservative literal-<code>C</code>
-resolver also finds no port-<code>0x02</code> access beyond these 55 immediate reads.
-This proves the complete immediate-opcode result and the straight-line
-literal-<code>C</code> result. It does not exclude a computed <code>C</code> value propagated across
-a call or control-flow merge. [confirmed]</p>
+<p>No status read selects bits 2–6. The complete raw register/block-I/O census
+finds no port-<code>0x02</code> access beyond these 55 immediate reads. This result does
+not depend on propagating <code>C</code> across a call or control-flow merge. [confirmed]</p>
 <p>The assist routines therefore use bit 7 as their model-family gate. Public
 bit 6 remains a hardware capability field, but OS 2.55MP does not consult it
 before the link-assist port accesses described in
@@ -3591,6 +3613,35 @@ $$</p>
 <h3 id="raw-os-access"><a class="header" href="#raw-os-access">Raw OS access</a></h3>
 <p><code>rtc_read_seconds</code> at <code>37:58A1</code> reads current ports in the order <code>0x48</code>, <code>0x47</code>, <code>0x46</code>, <code>0x45</code> into <code>0x8499</code>–<code>0x849C</code>. The following conversion loop turns that 32-bit integer into the OS floating-point/date representation. [confirmed]</p>
 <p><code>rtc_write_seconds</code> at <code>37:593F</code> writes the four converted bytes in the reverse port order <code>0x44</code>, <code>0x43</code>, <code>0x42</code>, <code>0x41</code>, then emits the <code>0x01</code> → <code>0x03</code> control sequence. [confirmed]</p>
+<p>The exact-ROM disassembly shows both block-I/O loops:</p>
+<pre><code class="language-z80">; 37:58A1 — bytes 21 99 84 06 04 0E 49 0D ED A2 20 FB
+ld hl,0x8499
+ld b,4
+ld c,0x49
+.read_byte:
+dec c
+ini
+jr nz,.read_byte
+
+; 37:593C — bytes 21 99 84 06 04 0E 45 0D ED A3 20 FB
+ld hl,0x8499
+ld b,4
+ld c,0x45
+.write_byte:
+dec c
+outi
+jr nz,.write_byte
+</code></pre>
+<p><code>INI</code> increments <code>HL</code> and decrements <code>B</code>, so the first loop pairs ascending RAM
+addresses with descending current-time ports. <code>OUTI</code> applies the same register
+updates to the staged set ports. [confirmed]</p>
+<p><code>tools/describe_rom_io_coverage.py</code> reproduces this result from the pinned ROM.
+Its raw scan covers all 37 possible register and block-I/O opcode pairs in the
+image, including pairs inside operands and data. It also verifies that no
+16 KiB page ends with an <code>ED</code> prefix. Only <code>37:58A9</code> and <code>37:5944</code> survive as
+aligned instructions with a statically resolved port. Regression tests pin
+their ports to <code>0x48</code> and <code>0x44</code>. This is ROM evidence; the separate TilEm RTC
+probes below test emulator behavior. [confirmed]</p>
 <p>The hardware documentation does not describe a snapshot/latch operation for current-time reads. The OS reads high byte first, which reduces but does not eliminate the possibility of a rollover between the four port reads. No retry or two-pass coherence check appears at <code>37:58A1</code>. [confirmed] for the OS sequence; [hypothesis] for physical rollover behavior.</p>
 <p>TilEm reads host <code>time_t</code> separately on every current-register access. A
 probe-controlled rollover from <code>0x00FFFFFF</code> to <code>0x01000000</code> between the
@@ -15928,12 +15979,14 @@ report and <code>--exclude-descriptors</code> removes the four structural overla
 <p>The remaining apparent port-<code>0x49</code> instruction at <code>01:4304</code> and
 port-<code>0x51</code> instruction at <code>3B:4F45</code> lie in table-shaped byte regions. Neither
 has a direct page-local control-flow reference, and neither has trace evidence.
-The complete <a href="#complete-unlisted-port-candidate-audit">unlisted-port candidate audit</a>
+The complete <a href="#complete-rom-io-candidate-audit">ROM I/O candidate audit</a>
 also finds no containing Ghidra function or xref for either location. They are
 reviewed data decodes rather than I/O evidence. The scan confirms no OS 2.55MP
 transaction for ports <code>0x49</code>, <code>0x51</code>, or <code>0x52</code>.
-Computed <code>C</code>-register accesses that cross calls or control-flow joins remain
-outside this static proof. [confirmed]</p>
+The separate raw <code>ED</code>-opcode census covers register and block I/O without
+assuming that <code>C</code> can be propagated through control flow. Its only two aligned
+instructions access RTC ports <code>0x48</code> and <code>0x44</code>, so it adds no hidden USB-port
+transaction. [confirmed]</p>
 <p>TilEm, Wabbitemu, and MAME omit all three ports from their TI-84 Plus USB
 handlers. Their omission cannot establish physical absence or reset values.
 The read-only <a href="#usb-control-snapshot">USB control snapshot</a>
@@ -17880,10 +17933,12 @@ still require static reduction, fault injection, or physical measurement.</p>
 <li><strong>Smaller residuals.</strong> Map the For/While/Repeat FPS loop-frame bytes; recover the <code>Asm(</code>/<code>AsmPrgm</code> setup before the traced <code>ram:9D95</code> payload handoff; find a direct ASM-to-BASIC program-call entry beyond VAT lookup and the cooperative <code>Ans</code> callback; and trace the group-archive member walk after <code>_Arc_Unarc</code> rejects type <code>0x17</code>. A guarded direct-core run verifies TilEm’s complete source-divisor table, rounded count readback, off sources, ignored port-<code>0x2F</code>, counter-zero behavior, first/second expiry distinction, acknowledgement, unacknowledged non-loop restart, source-write retention, deterministic RTC transitions, reset retention, and torn byte reads. A guarded initialized-core run verifies Wabbitemu’s timer catch-up, counter-zero completion, first-underflow status bit 2, HALT-line suppression, retained interrupt generation, and frozen disabled RTC reads. A guarded MAME run verifies its fixed-crystal source collapse, immediate first decrement, idle counter zero, inverted mode polarity, one-reload loop, global completion clearing, and absent RTC block. TA2/TA3 hardware must still distinguish the published <code>33</code>/<code>328</code>/<code>3277</code> timer divisors from Wabbitemu/MAME’s <code>32</code>/<code>327</code>/<code>3276</code>, test counter zero and first-versus-second-expiry status bit 2, measure programmable-timer <code>HALT</code> behavior, and test disabled RTC reads plus rollover coherence. A guarded direct-core TilEm run verifies transitive keypad closure, all eight stored rows, complete group-byte storage, row-major scancode bounds, separate ON state, both ON edges, and reset clearing. Another guarded run verifies Wabbitemu’s pairwise keypad closure, ignored row 7, and press-only ON latch with release rearming. A guarded MAME live-input run verifies its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, and lack of matrix closure. These remain emulator evidence. Physical keypad work should measure worst-case matrix settling, ghosting under timed reads, switch bounce, and ON interrupt edges; see <a href="#resolved-findings-and-open-hardware-tests-2">Keypad and ON-key hardware</a>. The timer, APD, RTC, and power reconstruction is in <a href="#clock-timers-and-power">Clock, timers, and power</a>.</li>
 <li><strong>Interrupt-controller physical tests.</strong> A guarded direct-core TilEm run verifies complete mask readback, both clear-on-zero acknowledgement paths, ON press and release latches, both timer-2 callbacks, link transitions, programmable-timer HALT gating, and its reset readback/internal-policy mismatch. A separate guarded TilEm link run verifies raw activity plus assist idle, receive, and sticky-error interrupt transitions. A guarded initialized-core Wabbitemu run verifies full mask readback, ON-latch clearing, its rounded standard-timer rates, strict expiry edge, port-<code>0x03</code> and port-<code>0x02</code> timer acknowledgement, programmable completion readback, and LCD-based low-power approximation. A guarded MAME run verifies shared port-<code>0x03</code>/<code>0x04</code> status, direct port-<code>0x02</code> pending-field writes, three-bit port-<code>0x03</code> masking, press-only timer-sampled ON edges, both standard-timer pending bits during scheduled frames, and retained interrupt fields across soft reset. These are emulator results. On TA2 and TA3 calculators, measure which ON transitions latch a request, which link transitions wake low power, whether simultaneous legacy requests are coalesced by the port-<code>0x03</code> clear-on-zero sequence, and which timer configurations can wake <code>HALT</code>. Compare the results with the explicit TilEm, Wabbitemu, and MAME differences in <a href="#emulator-comparison-2">Interrupts (IM1)</a>.</li>
 </ol>
-<p>The ROM-wide unlisted-port audit is complete. All 35 aligned non-descriptor
-candidates are reviewed as 34 table-data decodes and one operand overlap, so no
-unresolved immediate-port candidate remains. Computed <code>C</code> values across calls
-or control-flow merges and the physical tests above remain open. [confirmed]</p>
+<p>The ROM-wide I/O audit is complete. All 35 aligned non-descriptor immediate
+candidates are reviewed as 34 table-data decodes and one operand overlap. A
+raw census also classifies all 37 register/block-I/O opcode pairs as 27 operand
+overlaps, eight data pairs, and the two RTC instructions at <code>37:58A9</code> and
+<code>37:5944</code>. No unresolved immediate or computed-<code>C</code> candidate remains. The
+physical tests above remain open. [confirmed]</p>
 <h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>
 <p>Reopen <code>ti84.gpr</code> (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in <code>tools/</code> and rebuild with <code>tools/build.sh</code>. The remaining static items mostly need raw-byte decoding of regions the live decompiler leaves as unanalyzed data, including the page-<code>0x38</code> <code>0xBB</code>/class-3 dispatch tables. Hardware-only timer and RTC quirks need measurements on physical calculators.</p>
 

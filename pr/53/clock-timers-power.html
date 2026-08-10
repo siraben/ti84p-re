@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-565c5d80.js";
+            window.path_to_searchindex_js = "searchindex-3fb7708a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -489,6 +489,35 @@ $$</p>
 <h3 id="raw-os-access"><a class="header" href="#raw-os-access">Raw OS access</a></h3>
 <p><code>rtc_read_seconds</code> at <code>37:58A1</code> reads current ports in the order <code>0x48</code>, <code>0x47</code>, <code>0x46</code>, <code>0x45</code> into <code>0x8499</code>–<code>0x849C</code>. The following conversion loop turns that 32-bit integer into the OS floating-point/date representation. [confirmed]</p>
 <p><code>rtc_write_seconds</code> at <code>37:593F</code> writes the four converted bytes in the reverse port order <code>0x44</code>, <code>0x43</code>, <code>0x42</code>, <code>0x41</code>, then emits the <code>0x01</code> → <code>0x03</code> control sequence. [confirmed]</p>
+<p>The exact-ROM disassembly shows both block-I/O loops:</p>
+<pre><code class="language-z80">; 37:58A1 — bytes 21 99 84 06 04 0E 49 0D ED A2 20 FB
+ld hl,0x8499
+ld b,4
+ld c,0x49
+.read_byte:
+dec c
+ini
+jr nz,.read_byte
+
+; 37:593C — bytes 21 99 84 06 04 0E 45 0D ED A3 20 FB
+ld hl,0x8499
+ld b,4
+ld c,0x45
+.write_byte:
+dec c
+outi
+jr nz,.write_byte
+</code></pre>
+<p><code>INI</code> increments <code>HL</code> and decrements <code>B</code>, so the first loop pairs ascending RAM
+addresses with descending current-time ports. <code>OUTI</code> applies the same register
+updates to the staged set ports. [confirmed]</p>
+<p><code>tools/describe_rom_io_coverage.py</code> reproduces this result from the pinned ROM.
+Its raw scan covers all 37 possible register and block-I/O opcode pairs in the
+image, including pairs inside operands and data. It also verifies that no
+16 KiB page ends with an <code>ED</code> prefix. Only <code>37:58A9</code> and <code>37:5944</code> survive as
+aligned instructions with a statically resolved port. Regression tests pin
+their ports to <code>0x48</code> and <code>0x44</code>. This is ROM evidence; the separate TilEm RTC
+probes below test emulator behavior. [confirmed]</p>
 <p>The hardware documentation does not describe a snapshot/latch operation for current-time reads. The OS reads high byte first, which reduces but does not eliminate the possibility of a rollover between the four port reads. No retry or two-pass coherence check appears at <code>37:58A1</code>. [confirmed] for the OS sequence; [hypothesis] for physical rollover behavior.</p>
 <p>TilEm reads host <code>time_t</code> separately on every current-register access. A
 probe-controlled rollover from <code>0x00FFFFFF</code> to <code>0x01000000</code> between the

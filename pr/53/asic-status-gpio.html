@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-565c5d80.js";
+            window.path_to_searchindex_js = "searchindex-3fb7708a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -211,7 +211,8 @@ calculator.</p>
 decode as instructions, so a candidate needs control-flow or trace evidence.
 The credible code for these ports is concentrated in page <code>00</code>, pages <code>2F</code>,
 <code>33</code>, <code>35</code>–<code>37</code>, <code>3C</code>, <code>3D</code>, and the retail boot page <code>3F</code>. [confirmed]</p>
-<h2 id="complete-unlisted-port-candidate-audit"><a class="header" href="#complete-unlisted-port-candidate-audit">Complete unlisted-port candidate audit</a></h2>
+<h2 id="complete-rom-io-candidate-audit"><a class="header" href="#complete-rom-io-candidate-audit">Complete ROM I/O candidate audit</a></h2>
+<h3 id="unlisted-immediate-ports"><a class="header" href="#unlisted-immediate-ports">Unlisted immediate ports</a></h3>
 <p>A full linear scan of the 1 MiB retail ROM finds 35 aligned immediate-port
 candidates whose 21 apparent port values are absent from the project port map.
 This count removes inline bcall and bjump descriptors. None establishes an I/O
@@ -244,9 +245,30 @@ target to any candidate. Ghidra places <code>03:6DE1</code> inside
 <p>A reset/idle TLMT trace executes 1,753,851 instructions and reaches none of the
 35 locations. This trace result covers one emulator scenario. The byte and
 control-flow classifications, rather than trace absence, establish that these
-linear candidates do not add ports to the ROM inventory. Computed <code>C</code> values
-that cross calls or control-flow merges remain outside the static scan.
-[confirmed]</p>
+linear candidates do not add ports to the ROM inventory. [confirmed]</p>
+<h3 id="register-and-block-io"><a class="header" href="#register-and-block-io">Register and block I/O</a></h3>
+<p>A separate raw-byte scan finds every <code>ED</code>-prefixed register and block-I/O
+opcode pair. It does not depend on recovering the value of <code>C</code> across calls or
+control-flow joins. The exact retail ROM contains 37 pairs and no <code>ED</code> prefix
+at a 16 KiB page boundary. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Raw pairs</th><th>Classification</th><th>Evidence</th></tr>
+</thead>
+<tbody>
+<tr><td><code>37:58A9</code> (<code>INI</code>), <code>37:5944</code> (<code>OUTI</code>)</td><td>resolved instructions ×2</td><td>Straight-line loads select RTC ports <code>0x48</code> and <code>0x44</code>; both instructions belong to page-<code>37</code> functions.</td></tr>
+<tr><td><code>04:4178</code>, <code>04:4182</code>, <code>04:6F5B</code>, <code>05:40E7</code>, <code>05:428C</code>, <code>05:46E5</code>, <code>05:7159</code>, <code>05:715F</code>, <code>38:57AC</code>, <code>38:57D7</code>, <code>38:57F5</code>, <code>38:589F</code>, <code>38:75AF</code>, <code>39:73B7</code>, <code>3C:4EFE</code>, <code>3C:53E2</code>, <code>3C:783B</code>, <code>3C:7F99</code>, <code>3F:540E</code>, <code>3F:5C92</code>, <code>3F:63E0</code>, <code>3F:6C1A</code>, <code>3F:6C2A</code>, <code>3F:6C37</code>, <code>3F:6C54</code>, <code>3F:6C70</code>, <code>3F:6C90</code></td><td>operand overlaps ×27</td><td>Each <code>ED xx</code> pair straddles a little-endian operand inside an owning <code>CALL</code>, <code>JP</code>, or <code>LD</code> instruction.</td></tr>
+<tr><td><code>01:428C</code>, <code>07:4465</code>, <code>38:40C4</code>, <code>38:48B4</code>, <code>39:7268</code>, <code>3B:4F15</code>, <code>3F:408D</code>, <code>3F:567B</code></td><td>reviewed data ×8</td><td>Rebuilt Ghidra has no containing function or xref, and the page-local direct-target scan finds no target.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The 27 operand sites include <code>ED 41</code> inside <code>JP Z,0x41ED</code> at <code>04:4177</code>,
+<code>ED 70</code> inside <code>CALL 0x70ED</code> at <code>04:6F5A</code>, and <code>ED 40</code> inside
+<code>LD HL,0x40ED</code> at <code>39:73B6</code>. The scanner resolves the two aligned
+instructions from their preceding literal loads and <code>DEC C</code>. No other raw pair
+is an I/O instruction, so this ROM has no hidden computed-<code>C</code> access to an
+unlisted, status, GPIO, or USB port. [confirmed]</p>
 <p><code>tools/rom_io_coverage.py</code> contains the reusable scanner and review manifest.
 The manifest pins retail ROM SHA-256
 <code>7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d</code>.
@@ -258,8 +280,10 @@ nix develop -c python tools/describe_rom_io_coverage.py --json
 nix develop -c python tools/describe_rom_io_coverage.py \
   --trace /tmp/trace-benchmark.tlmt
 </code></pre>
-<p>The complete result is 34 <code>reviewed-data</code> entries and one
-<code>operand-overlap</code>, with zero unresolved candidates. [confirmed]</p>
+<p>The complete direct result is 34 <code>reviewed-data</code> entries and one
+<code>operand-overlap</code>. The indirect result is 27 <code>operand-overlap</code>, eight
+<code>reviewed-data</code>, and two <code>resolved-instruction</code> entries. Both manifests have
+zero unresolved candidates. [confirmed]</p>
 <h2 id="port-0x02-status"><a class="header" href="#port-0x02-status">Port <code>0x02</code> status</a></h2>
 <p>Port <code>0x02</code> combines transient hardware state with model-family bits. The boot
 and archive traces return <code>0xE1</code>, <code>0xE3</code>, and <code>0xE7</code>. [confirmed]</p>
@@ -314,11 +338,9 @@ candidate tests <code>A</code> in the next instruction. The decoder crosses only
 instructions that preserve <code>A</code>; calls, branches, arithmetic, and unknown
 instructions produce an unclassified result. This ROM produces zero
 unclassified candidates. [confirmed]</p>
-<p>No immediate status read selects bits 2–6. The conservative literal-<code>C</code>
-resolver also finds no port-<code>0x02</code> access beyond these 55 immediate reads.
-This proves the complete immediate-opcode result and the straight-line
-literal-<code>C</code> result. It does not exclude a computed <code>C</code> value propagated across
-a call or control-flow merge. [confirmed]</p>
+<p>No status read selects bits 2–6. The complete raw register/block-I/O census
+finds no port-<code>0x02</code> access beyond these 55 immediate reads. This result does
+not depend on propagating <code>C</code> across a call or control-flow merge. [confirmed]</p>
 <p>The assist routines therefore use bit 7 as their model-family gate. Public
 bit 6 remains a hardware capability field, but OS 2.55MP does not consult it
 before the link-assist port accesses described in
