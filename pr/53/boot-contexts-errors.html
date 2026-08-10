@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-832eb1d3.js";
+            window.path_to_searchindex_js = "searchindex-e2a33ae1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-2f678117.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -195,6 +195,10 @@ same continuation. At <code>3F:414C</code>, the continuation changes to independ
 while page <code>3F</code> remains visible for the next instruction. See
 <a href="paging.html#boot-mapping-transition">Paging</a> for the complete window-by-window
 transition. [confirmed]</p>
+<p><a href="boot-hardware.html">Retail boot hardware initialization</a> follows the
+continuation through its reset delay, RAM-window safety checks, ordered ASIC
+programming, first keypad scan, OS-validity decision, and destructive RAM
+diagnostic. It also reconciles standard Z80 timing with the pinned TilEm trace.</p>
 <p>The assembled <code>rom.bin</code> validates and installs the retail <code>D84PBE1.8Xv</code>
 payload at page <code>3F</code>; the pinned base already contains the same 16 KiB page, so
 the installation changes no bytes. The continuation begins
@@ -324,9 +328,11 @@ call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; res
 <li><strong>Boot RAM-init trace — raw-disassembly trace.</strong> Emulator reset starts at logical <code>0x8000</code> on page <code>3F</code> and reaches <code>3F:412C</code>; the page-0 restart vector at <code>ram:0000</code> → <code>ram:028C</code> reaches the same continuation. The RAM clear/re-init is <code>ram_reset_wipe</code> (<code>35:719f</code>): two <code>LDIR</code> zero-fills (<code>0x8000</code>–<code>0x9BC3</code>, <code>0x9BD0</code>–<code>0xFFFF</code>) preserving a few flag bytes, then <code>JP 0x0BD9</code> (<code>ram_init_after_reset</code>: port 0 = <code>0xC0</code>, stack reset in the raw trace, <code>CALL 0x3EC1</code>). The <code>ram:0BD9</code> entry matches the re-init point cross-referenced in <a href="memory-management.html">Memory management</a>. See <a href="#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed">RAM clear / re-init</a>.</li>
 <li><strong>Flash write and erase.</strong> The retail boot table maps <code>_WriteFlash</code> (<code>80C9</code>) to <code>3F:4C8F</code>, <code>_WriteFlashUnsafe</code> (<code>8087</code>) to <code>3F:4CA6</code>, <code>_WriteAByte</code> (<code>8021</code>) to <code>3F:4C9F</code>, and <code>_EraseFlash</code> (<code>8024</code>) to <code>3F:4C2A</code>. Their program and erase loops are copied to <code>ramCode</code> at <code>0x8100</code>. A successful archive trace executes <code>archive_write_record</code> at <code>3D:64AA</code>, three <code>_WriteAByte</code> calls, and six entries through <code>_WriteFlashUnsafe</code>. See <a href="flash-memory.html">Flash memory</a>. [confirmed]</li>
 </ul>
-<p>The <code>JP 0x812c</code> target and the <code>ram:3EC1</code> init continuation are both present in
-the assembled database. The remaining boot gaps concern the detailed work of
-the retail sequence between those anchors.</p>
+<p>The <code>JP 0x812C</code> target and the <code>ram:3EC1</code> init continuation are both present in
+the assembled database. The retail hardware work before the first keypad scan
+and the <strong>MODE</strong> RAM diagnostic are decoded in
+<a href="boot-hardware.html">Retail boot hardware initialization</a>. The LCD diagnostic
+from <code>3F:4658</code> and later recovery/UI paths remain open.</p>
 
                     </main>
 
@@ -336,7 +342,7 @@ the retail sequence between those anchors.</p>
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="memory-management.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="boot-hardware.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -350,7 +356,7 @@ the retail sequence between those anchors.</p>
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="memory-management.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="boot-hardware.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
