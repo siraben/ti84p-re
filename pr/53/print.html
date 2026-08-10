@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3fb7708a.js";
+            window.path_to_searchindex_js = "searchindex-ee11aa46.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -1708,12 +1708,38 @@ parameters rather than measured ASIC facts. [standard]</p>
 </tbody>
 </table>
 </div>
-<p>This mapping conflicts with the ROM’s comparison order. If <code>0x86</code> fails at
-3.6 V in TilEm, the later 3.9 V comparison at <code>0x46</code> cannot succeed. Result 2
-is therefore unreachable in that emulator model. Physical measurements must
-establish the actual selector ordering, thresholds, hysteresis, and load
-conditions. [confirmed] for the code/model comparison; [hypothesis] for the
-unmeasured electrical behavior.</p>
+<p>This mapping conflicts with the ROM’s comparison order. Whenever the later
+<code>0x46</code> comparison succeeds at 3.9 V or above, the earlier <code>0x86</code> comparison at
+3.6 V has already returned level 3. Result 2 is therefore unreachable in that
+emulator model. Physical measurements must establish the actual selector
+ordering, thresholds, hysteresis, and load conditions. [confirmed] for the
+code/model comparison; [hypothesis] for the unmeasured electrical behavior.</p>
+<h3 id="pinned-tilem-comparator-sweep"><a class="header" href="#pinned-tilem-comparator-sweep">Pinned TilEm comparator sweep</a></h3>
+<p>A guarded direct-core run sets TilEm’s battery field from 3.0 through 4.5 V in
+0.1 V steps. For each value, it writes all four selectors through port <code>0x04</code>
+and reads port-<code>0x02</code> bit 0. The observed comparator mask uses bit order
+<code>0x06</code>, <code>0x46</code>, <code>0x86</code>, <code>0xC6</code>: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Modeled voltage</th><th style="text-align: right">Comparator mask</th><th style="text-align: right">ROM bcall result</th></tr>
+</thead>
+<tbody>
+<tr><td>below 3.3 V</td><td style="text-align: right"><code>0x0</code></td><td style="text-align: right">0</td></tr>
+<tr><td>3.3–3.5 V</td><td style="text-align: right"><code>0x1</code></td><td style="text-align: right">1</td></tr>
+<tr><td>3.6–3.8 V</td><td style="text-align: right"><code>0x5</code></td><td style="text-align: right">3</td></tr>
+<tr><td>3.9–4.2 V</td><td style="text-align: right"><code>0x7</code></td><td style="text-align: right">3</td></tr>
+<tr><td>4.3 V and above</td><td style="text-align: right"><code>0xF</code></td><td style="text-align: right">4</td></tr>
+</tbody>
+</table>
+</div>
+<p>The native mask transitions match the four source constants. The reusable
+model then applies the byte-verified decision tree at <code>33:4E9B</code>–<code>4EDA</code>.
+The combination reaches levels 0, 1, 3, and 4, but not level 2. The probe
+binary has SHA-256
+<code>47008d660c7ea3e88c07df3d41d5c3e34c51d49850a806d5d2e37d5ca6214029</code>.
+This run validates TilEm’s implementation; it does not measure a calculator’s
+battery rail. [confirmed] for the ROM tree; [standard] for the emulator run.</p>
 <h2 id="port-0x15-identity"><a class="header" href="#port-0x15-identity">Port <code>0x15</code> identity</a></h2>
 <p>WikiTI publishes the following read values. They are [standard] because this
 OS image does not use the port through an immediate or statically resolved
@@ -1977,6 +2003,10 @@ model from <code>tools/execution_protection.py</code>; its guarded CLI records t
 two identities. <code>tools/mame_asic.py</code> combines the ASIC and bus-timing profiles
 with a typed native report. <code>tools/run_mame_asic_probe.py</code> guards the MAME,
 ROM, and Lua identities and retains the soft-reset output.
+<code>tools/battery_hardware.py</code> formalizes the ROM result tree and threshold
+regions. <code>tools/describe_battery_hardware.py</code> exposes voltage and raw-sample
+queries as text or JSON. <code>tools/tilem_battery.py</code> validates a typed native
+comparator sweep against the same model.
 [confirmed] for the ROM-analysis tools; [standard] for the emulator oracle.</p>
 <pre><code class="language-sh">nix develop -c python tools/describe_asic_control.py
 nix develop -c python tools/describe_asic_control.py --status 0xE7 --port21 0x20
@@ -1991,6 +2021,9 @@ nix develop -c python tools/analyze_rom_io.py \
   0x02 0x15 0x21 0x39 0x3A --summary
 nix develop -c python tools/disassemble_rom.py 0x33 \
   --start 0x4E9B --end 0x4F02
+nix develop -c python tools/describe_battery_hardware.py --json
+nix develop -c python tools/describe_battery_hardware.py --voltage 3.6
+nix develop -c python tools/describe_battery_hardware.py --samples 1010
 
 asic_probe_parent=$(mktemp -d /tmp/ti84-asic-probe.XXXXXX)
 nix develop -c python tools/run_wabbitemu_asic_edge_probe.py \
@@ -2019,9 +2052,11 @@ configuration or data. It provides a baseline, not an electrical direction
 test. No physical snapshot is recorded. [confirmed] for the probe bytes;
 [hypothesis] for pending readback values.</p>
 <ul>
-<li>Sweep a controlled battery supply for all four port-<code>0x04</code> selectors. Record
-the port-<code>0x02</code> bit-0 transition in both directions to measure threshold and
-hysteresis.</li>
+<li>Run the restoring <a href="#battery-level-probe">battery-level probe</a>
+across an upward and downward controlled-supply sweep. It records 16 retail
+bcall results per point and verifies port/GPIO/flag cleanup. A separate raw
+port-<code>0x02</code> sampler is still needed to assign each individual selector
+threshold and hysteresis.</li>
 <li>Read port <code>0x15</code> on known TA1, TA2, and TA3 units and compare the result with
 package markings and installed RAM.</li>
 <li>Program each port-<code>0x21</code> field while Flash is unlocked. Test Flash protection
@@ -8553,9 +8588,9 @@ including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes
 <h1 id="physical-hardware-probes"><a class="header" href="#physical-hardware-probes">Physical hardware probes</a></h1>
 <p>The physical-probe suite builds small <code>AsmPrgm</code> programs and decodes their
 result AppVars. The sources cover MD5-assist edge behavior, RAM selector
-aliasing, execution-protection boundaries, and read-only ASIC and USB register
-snapshots. No exported result from a physical calculator has been recorded, so
-the hardware conclusions remain open.</p>
+aliasing, execution-protection boundaries, repeated battery-level bcalls, and
+read-only ASIC and USB register snapshots. No exported result from a physical
+calculator has been recorded, so the hardware conclusions remain open.</p>
 <h2 id="measurement-status"><a class="header" href="#measurement-status">Measurement status</a></h2>
 <p>The builder, link-file containers, entry jumps, bcall ID, frame layouts, and
 restoration instruction sequences have byte-level host validation. [confirmed]
@@ -8570,6 +8605,7 @@ result AppVar is decoded and tied to a calculator and ASIC revision.</p>
 <tr><td>MD5 edge behavior</td><td><code>HWPMD5</code></td><td><code>HWPMD511</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>RAM selector aliasing</td><td><code>HWPRAM</code></td><td><code>HWPRAM21</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>ASIC register snapshot</td><td><code>HWASIC</code></td><td><code>HWPASIC1</code></td><td>Not run on a recorded unit</td></tr>
+<tr><td>Battery-level stability</td><td><code>HWBATT</code></td><td><code>HWBATT01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>USB control snapshot</td><td><code>HWPUSB</code></td><td><code>HWPUSB01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Flash execution boundaries</td><td><code>HWEF07</code>–<code>HWEF2A</code></td><td>matching <code>HWEF...01</code> names</td><td>Not run on a recorded unit</td></tr>
 <tr><td>RAM execution boundaries</td><td><code>HWER81</code>–<code>HWER84</code></td><td>matching <code>HWER...1</code> names</td><td>Not run on a recorded unit</td></tr>
@@ -8586,7 +8622,7 @@ hash manifest with:</p>
 <pre><code class="language-sh">nix develop -c python tools/build_hardware_probes.py \
   --output-dir /tmp/hardware-probes
 </code></pre>
-<p>The command emits the four snapshot and edge probes, ten single-fetch
+<p>The command emits the five snapshot and edge probes, ten single-fetch
 execution probes, and <code>manifest.json</code>. The manifest records every target
 selector and scan range. It uses repository-relative source names and output
 basenames, so builds made in different checkout directories remain comparable.
@@ -8597,6 +8633,7 @@ a calculator backup before the first run. Then:</p>
 <ol>
 <li>Delete the probe’s result AppVar if it already exists.</li>
 <li>Run <code>Asm(prgmHWASIC)</code> for the read-only register snapshot.</li>
+<li>Run <code>Asm(prgmHWBATT)</code> for the restoring battery-level sample.</li>
 <li>Run <code>Asm(prgmHWPUSB)</code> for the read-only USB control snapshot.</li>
 <li>Run <code>Asm(prgmHWPMD5)</code> for the MD5 probe.</li>
 <li>Run <code>Asm(prgmHWPRAM)</code> for the RAM probe only after the earlier transfer and run
@@ -8616,7 +8653,7 @@ internal size word, the <code>HWP1</code> frame version, and the payload length 
 interprets measurements. [confirmed]</p>
 <pre><code class="language-sh">python tools/decode_hardware_probe.py HWPMD511.8xv
 python tools/decode_hardware_probe.py --json \
-  HWPASIC1.8xv HWPUSB01.8xv HWPMD511.8xv HWPRAM21.8xv
+  HWPASIC1.8xv HWBATT01.8xv HWPUSB01.8xv HWPMD511.8xv HWPRAM21.8xv
 </code></pre>
 <p>The JSON form keeps the raw payload and adds named fields. Preserve the
 original exported AppVar even when a report has been generated.</p>
@@ -8774,6 +8811,39 @@ electrical pin levels. Those tests require controlled register writes and
 external timing or voltage observations. See <a href="#open-physical-tests-1">Bus timing and wait
 states</a> and <a href="#open-physical-tests-2">ASIC status, identity,
 protection, and GPIO</a>.</p>
+<h2 id="battery-level-probe"><a class="header" href="#battery-level-probe">Battery-level probe</a></h2>
+<p>Probe ID 6 calls <code>_Chk_Batt_Level = 5221h</code> 16 times and records every value
+returned in <code>A</code>. The result frame also saves state before the first call, after
+the final call, and after cleanup: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Payload range</th><th>Contents</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0</code>–<code>3</code></td><td>pre-call ports <code>0x04</code>, <code>0x39</code>, and <code>0x3A</code>, then <code>(IY+0x18)</code> <code>traceFlags</code></td></tr>
+<tr><td style="text-align: right"><code>4</code>–<code>19</code></td><td>16 <code>_Chk_Batt_Level</code> results</td></tr>
+<tr><td style="text-align: right"><code>20</code>–<code>24</code></td><td>post-call status, ports <code>0x04</code>, <code>0x39</code>, <code>0x3A</code>, and <code>traceFlags</code></td></tr>
+<tr><td style="text-align: right"><code>25</code>–<code>28</code></td><td>readback after restoring the three ports and <code>traceFlags</code></td></tr>
+<tr><td style="text-align: right"><code>29</code></td><td>final port-<code>0x02</code> status</td></tr>
+</tbody>
+</table>
+</div>
+<p>The decoder rejects result bytes outside 0–4. It reports a five-bin histogram,
+a stable level only when all 16 samples agree, and <code>cleanup_matches</code> only when
+the three port readbacks and complete flag byte match their saved values.
+The probe restores the caller’s interrupt-enable state before creating the
+AppVar. [confirmed] for source, assembled bytes, and decoder behavior.</p>
+<p>Run the probe at a stable supply voltage, export <code>HWBATT01</code>, record the measured
+rail voltage and load externally, and delete the AppVar before the next point.
+An upward and downward sweep can locate OS-visible transitions and hysteresis.
+The result is the retail bcall’s level, not a direct voltage measurement or a
+raw comparator-bit trace. [hypothesis] for pending physical results.</p>
+<p>The pinned SPASM-ng build produces 304 machine-code bytes with SHA-256
+<code>4fcb9e9052fcccad350cd3b7901235a4cb87390eeb764e78e7be0686d0da99ea</code>.
+The packaged 688-byte <code>HWBATT.8xp</code> has SHA-256
+<code>9d075837dc399ec0771e563c747e7498b4c260fe6f4fee128f17a57ba238fea0</code>.
+[confirmed]</p>
 <h2 id="usb-control-snapshot"><a class="header" href="#usb-control-snapshot">USB control snapshot</a></h2>
 <p>Probe ID 5 reads ports <code>0x49</code>, <code>0x4A</code>–<code>0x4D</code>, <code>0x4F</code>–<code>0x52</code>,
 <code>0x54</code>–<code>0x57</code>, <code>0x5A</code>, and <code>0x5B</code>. Port <code>0x15</code> identity and port <code>0x02</code>
@@ -8803,12 +8873,14 @@ a physical run. A reset, power loss, assembly defect, or unexpected exception
 before the restoration loop can leave a changed byte. Use a backed-up test
 calculator and stable power. Do not run the RAM probe on a unit whose contents
 cannot be replaced.</p>
-<p>The snapshot and alias probes restore interrupt enable state before creating
-the result AppVar. A returned execution probe restores port <code>0x06</code> and the
-interrupt state. A denied fetch may reset before those instructions. None of
-the probes modifies Flash directly. The result AppVar is the intended
-persistent write. [confirmed] for the source and assembled bytes; [hypothesis]
-for unmeasured physical execution and reset retention.</p>
+<p>The snapshot, battery, and alias probes restore interrupt enable state before
+creating the result AppVar. The battery probe also restores ports <code>0x04</code>,
+<code>0x39</code>, <code>0x3A</code>, and the complete saved <code>traceFlags</code> byte. A returned execution
+probe restores port <code>0x06</code> and the interrupt state. A denied fetch may reset
+before those instructions. None of the probes modifies Flash directly. The
+result AppVar is the intended persistent write. [confirmed] for the source and
+assembled bytes; [hypothesis] for unmeasured physical execution and reset
+retention.</p>
 <h2 id="source-layout"><a class="header" href="#source-layout">Source layout</a></h2>
 <div class="table-wrapper">
 <table>
@@ -8818,11 +8890,14 @@ for unmeasured physical execution and reset retention.</p>
 <tbody>
 <tr><td><code>tools/hardware-probes/common.inc</code></td><td>OP1 setup, <code>_CreateAppVar</code>, and frame copy</td></tr>
 <tr><td><code>tools/hardware-probes/asic-snapshot.asm</code></td><td>read-only ASIC, timing, and GPIO register snapshot</td></tr>
+<tr><td><code>tools/hardware-probes/battery-level.asm</code></td><td>repeated retail battery-level bcall and restoring state audit</td></tr>
 <tr><td><code>tools/hardware-probes/usb-snapshot.asm</code></td><td>read-only low-USB control and status snapshot</td></tr>
 <tr><td><code>tools/hardware-probes/md5-edge.asm</code></td><td>calculator-side MD5 measurements</td></tr>
 <tr><td><code>tools/hardware-probes/ram-alias.asm</code></td><td>calculator-side RAM alias and restoration measurements</td></tr>
 <tr><td><code>tools/hardware-probes/execution-fetch.asm</code></td><td>parameterized read-only Flash and RAM fetch measurement</td></tr>
 <tr><td><code>tools/hardware_probe.py</code></td><td>reusable TI container, frame, and payload library</td></tr>
+<tr><td><code>tools/battery_hardware.py</code></td><td>ROM decision tree and emulator threshold-region model</td></tr>
+<tr><td><code>tools/describe_battery_hardware.py</code></td><td>text and JSON threshold/sample model CLI</td></tr>
 <tr><td><code>tools/build_hardware_probes.py</code></td><td>SPASM runner, artifact validator, packager, and manifest CLI</td></tr>
 <tr><td><code>tools/decode_hardware_probe.py</code></td><td>text and JSON result CLI</td></tr>
 </tbody>
@@ -17927,7 +18002,7 @@ still require static reduction, fault injection, or physical measurement.</p>
 <li><strong>MD5 physical edge behavior.</strong> The valid 64-step path, boot API, two implementing emulator models, and MAME’s missing port block are reconciled in <a href="#md5-accelerator-and-boot-api">MD5 accelerator and boot API</a>. Guarded native TilEm and Wabbitemu runs exercise partial and fifth writes, high control bits, undefined operand reads, and read-time recalculation. The TilEm run also verifies complete reset clearing and zero modeled port latency under the locked compiler. A separate guarded MAME run confirms that its unmapped ports discard patterned writes and return zero for the known first <code>"abc"</code> step. The <a href="#md5-edge-probe">physical hardware probe</a> prepares the corresponding ASIC measurements. Physical TA2/TA3 tests still need to run it and add reset-retention and I/O wait-state measurements.</li>
 <li><strong>Memory-mapper overlay hardware.</strong> The boot transition, paired and independent modes, extended Flash selectors, and emulator implementations are reconciled in <a href="#paging">Paging</a>. A guarded initialized-core Wabbitemu run verifies its fixed-page opcode handoff, selector readback, duplicated even page in paired mode, <code>0x27</code> cutoff, independent-mode read/write/fetch overlays, and paired-mode overlay suppression. A guarded MAME run verifies its read-triggered fixed-page handoff, selector masks, adjacent paired pages, safe RAM banks through <code>0x86</code>, unmapped extended and overlay ports, and underlying read/write/fetch routing. Selector <code>0x87</code> remains source-only because MAME maps seven RAM pages. These are emulator results. Physical tests must resolve whether ports <code>0x27</code>/<code>0x28</code> remain active in paired mode, whether the <code>0xFB64</code> cutoff exists in the ASIC, and whether <a href="#mapping-and-forced-overlays">execution protection</a> follows the underlying window or forced RAM page.</li>
 <li><strong>Bus-timing and LCD-controller measurements.</strong> The boot values, wait-state decode, controller commands, display paths, and emulator implementations are reconciled in <a href="#bus-timing-and-wait-states">Bus timing and wait states</a> and <a href="#lcd-controller-and-display-bus">LCD controller and display bus</a>. Guarded initialized-core Wabbitemu runs verify its 60-T-state guard, 15-column increment cycle, direct hidden-column alias, one-transfer read latch, absent mirror ports, strict $48 + 64f$ ready boundary, write-based ready timestamp, complete wait-gate matrix, default and internal extra-speed matrices, and raw port-<code>0x2D</code> latch without low-power side effects. Guarded MAME runs verify its controller startup state, permanent busy-clear status, mirror ports, 15-byte hidden-column aliases, one-transfer read latch, 6-bit packing, stored analog fields, fixed ready bit, raw speed readback, exact 6:15 MHz loop ratio, unmapped <code>0x29</code>–<code>0x2F</code> block, and retained speed byte across soft reset. These are emulator results. Physical tests must measure each port-<code>0x2E</code> access class, CPU-speed readback and frequency across ASIC revisions, port-<code>0x2D</code> low-power behavior, LCD read-versus-write ready timing, controller-specific minimum delays, hidden-column bounds, status-read pointer behavior, and the unmodeled port-<code>0x2F</code> mode-3 timer prescaler across TA2 and TA3 controller revisions.</li>
-<li><strong>ASIC status, RAM topology, execution protection, and GPIO measurements.</strong> The ROM’s battery routines, status-bit uses, protected port setup, and GPIO read-modify-write sequences are reconciled in <a href="#asic-status-identity-protection-and-gpio">ASIC status, identity, protection, and GPIO</a> and <a href="#execution-protection">Execution protection</a>. Complete immediate-opcode audits classify all 55 port-<code>0x02</code> reads, all 14 raw port-<code>0x21</code> pairs, and all 68 raw GPIO pairs. Port <code>0x02</code> has 44 bit-7, eight bit-0, and three bit-1 consumers. Port <code>0x21</code> has ten reads that all mask with <code>0x03</code>, one boot write, and three operand overlaps. The GPIO set has 65 reviewed instructions, two operand overlaps, and one table-data false decode. No raw pair remains unclassified. Guarded TilEm and Wabbitemu runs exercise both sides of their differing default Flash intervals. RAM runs also cover the common chunk edge, mode-0 and mode-1 disagreements, all four Wabbitemu modes, and its 16-bit high-bound wrap. Guarded initialized-core runs verify Wabbitemu’s port-<code>0x02</code> lock bit, RAM-revision identity split, the shared protected-write gate across ports <code>0x21</code>–<code>0x26</code>, port-<code>0x21</code> readback loss, port-<code>0x24</code> high-field clearing, RAM-bound wrap, absent port <code>0x39</code>, and the port-<code>0x3A</code> byte latch. A guarded MAME run verifies its raw gate-to-status shift, fixed identity, unprotected port-<code>0x21</code> nibble, missing ports <code>0x22</code>–<code>0x2F</code> and <code>0x39</code>–<code>0x3A</code>, live RAM execution with patterned protection writes, and retained gate/speed/control fields across soft reset. A Wabbitemu reset run verifies all fields written by <code>CPU_reset</code>, 14 retained component groups, the frontend’s LCD-only addition, and same-step execution after a violation. A TilEm reset run verifies its broader eight-group reset, nine retained groups, and a forbidden instruction’s surviving pre-reset RAM write. These remain emulator evidence. The <a href="#ram-alias-probe">RAM alias probe</a> prepares one restoring selector-topology measurement and now decodes partial alias groups. The <a href="#execution-protection-fetch-probes">execution-fetch suite</a> prepares read-only retail-mode Flash and RAM fetches with pre-fetch result records. Physical units must correlate the probe’s port-<code>0x15</code> byte and alias groups with PCB date and ASIC marking instead of assuming a TA label determines capacity. TA1/TA2/TA3 tests must also measure battery-selector thresholds, protected-register readback and high-value behavior, violation behavior, warm- and cold-reset retention, port-<code>0x39</code> direction polarity, and port-<code>0x3A</code> electrical signals.</li>
+<li><strong>ASIC status, RAM topology, execution protection, and GPIO measurements.</strong> The ROM’s battery routines, status-bit uses, protected port setup, and GPIO read-modify-write sequences are reconciled in <a href="#asic-status-identity-protection-and-gpio">ASIC status, identity, protection, and GPIO</a> and <a href="#execution-protection">Execution protection</a>. Complete immediate-opcode audits classify all 55 port-<code>0x02</code> reads, all 14 raw port-<code>0x21</code> pairs, and all 68 raw GPIO pairs. Port <code>0x02</code> has 44 bit-7, eight bit-0, and three bit-1 consumers. Port <code>0x21</code> has ten reads that all mask with <code>0x03</code>, one boot write, and three operand overlaps. The GPIO set has 65 reviewed instructions, two operand overlaps, and one table-data false decode. No raw pair remains unclassified. Guarded TilEm and Wabbitemu runs exercise both sides of their differing default Flash intervals. A separate pinned TilEm sweep verifies all four modeled battery thresholds and proves that its ordering makes <code>_Chk_Batt_Level</code> result 2 unreachable. RAM runs also cover the common chunk edge, mode-0 and mode-1 disagreements, all four Wabbitemu modes, and its 16-bit high-bound wrap. Guarded initialized-core runs verify Wabbitemu’s port-<code>0x02</code> lock bit, RAM-revision identity split, the shared protected-write gate across ports <code>0x21</code>–<code>0x26</code>, port-<code>0x21</code> readback loss, port-<code>0x24</code> high-field clearing, RAM-bound wrap, absent port <code>0x39</code>, and the port-<code>0x3A</code> byte latch. A guarded MAME run verifies its raw gate-to-status shift, fixed identity, unprotected port-<code>0x21</code> nibble, missing ports <code>0x22</code>–<code>0x2F</code> and <code>0x39</code>–<code>0x3A</code>, live RAM execution with patterned protection writes, and retained gate/speed/control fields across soft reset. A Wabbitemu reset run verifies all fields written by <code>CPU_reset</code>, 14 retained component groups, the frontend’s LCD-only addition, and same-step execution after a violation. A TilEm reset run verifies its broader eight-group reset, nine retained groups, and a forbidden instruction’s surviving pre-reset RAM write. These remain emulator evidence. The <a href="#battery-level-probe">battery-level probe</a> calls the retail bcall 16 times and verifies restoration state. The <a href="#ram-alias-probe">RAM alias probe</a> prepares one restoring selector-topology measurement and now decodes partial alias groups. The <a href="#execution-protection-fetch-probes">execution-fetch suite</a> prepares read-only retail-mode Flash and RAM fetches with pre-fetch result records. Physical units must correlate the probe’s port-<code>0x15</code> byte and alias groups with PCB date and ASIC marking instead of assuming a TA label determines capacity. TA1/TA2/TA3 tests must also sweep battery thresholds in both directions, test protected-register readback and high-value behavior, characterize violations and warm/cold reset retention, and measure port-<code>0x39</code> direction polarity plus port-<code>0x3A</code> electrical signals.</li>
 <li><strong>MathPrint runtime coverage.</strong> Trace representative expressions and cursor states through the statically recovered MathPrint compositor at <code>39:5167</code>. Existing macro fixtures cover power, fraction, and <code>fnInt(</code> layouts, but the exact runtime paths have not been recorded. See <a href="#mathprint-pipeline-coverage">Equation display</a>.</li>
 <li><strong>Matrix and list residuals.</strong> Explain why plain <code>augment(</code> calls the partial-pivoting engine at <code>02:4663</code>; locate the <code>randM(</code> cell-fill path; identify the separate <code>rref(</code>/<code>ref(</code> driver; and finish the <code>seq(</code>/<code>SortA(</code>/<code>SortD(</code> collection and element-load traces. See <a href="#9-findings">Matrices &amp; lists</a>.</li>
 <li><strong>Smaller residuals.</strong> Map the For/While/Repeat FPS loop-frame bytes; recover the <code>Asm(</code>/<code>AsmPrgm</code> setup before the traced <code>ram:9D95</code> payload handoff; find a direct ASM-to-BASIC program-call entry beyond VAT lookup and the cooperative <code>Ans</code> callback; and trace the group-archive member walk after <code>_Arc_Unarc</code> rejects type <code>0x17</code>. A guarded direct-core run verifies TilEm’s complete source-divisor table, rounded count readback, off sources, ignored port-<code>0x2F</code>, counter-zero behavior, first/second expiry distinction, acknowledgement, unacknowledged non-loop restart, source-write retention, deterministic RTC transitions, reset retention, and torn byte reads. A guarded initialized-core run verifies Wabbitemu’s timer catch-up, counter-zero completion, first-underflow status bit 2, HALT-line suppression, retained interrupt generation, and frozen disabled RTC reads. A guarded MAME run verifies its fixed-crystal source collapse, immediate first decrement, idle counter zero, inverted mode polarity, one-reload loop, global completion clearing, and absent RTC block. TA2/TA3 hardware must still distinguish the published <code>33</code>/<code>328</code>/<code>3277</code> timer divisors from Wabbitemu/MAME’s <code>32</code>/<code>327</code>/<code>3276</code>, test counter zero and first-versus-second-expiry status bit 2, measure programmable-timer <code>HALT</code> behavior, and test disabled RTC reads plus rollover coherence. A guarded direct-core TilEm run verifies transitive keypad closure, all eight stored rows, complete group-byte storage, row-major scancode bounds, separate ON state, both ON edges, and reset clearing. Another guarded run verifies Wabbitemu’s pairwise keypad closure, ignored row 7, and press-only ON latch with release rearming. A guarded MAME live-input run verifies its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, and lack of matrix closure. These remain emulator evidence. Physical keypad work should measure worst-case matrix settling, ghosting under timed reads, switch bounce, and ON interrupt edges; see <a href="#resolved-findings-and-open-hardware-tests-2">Keypad and ON-key hardware</a>. The timer, APD, RTC, and power reconstruction is in <a href="#clock-timers-and-power">Clock, timers, and power</a>.</li>

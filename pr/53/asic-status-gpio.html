@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3fb7708a.js";
+            window.path_to_searchindex_js = "searchindex-ee11aa46.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -440,12 +440,38 @@ parameters rather than measured ASIC facts. [standard]</p>
 </tbody>
 </table>
 </div>
-<p>This mapping conflicts with the ROM’s comparison order. If <code>0x86</code> fails at
-3.6 V in TilEm, the later 3.9 V comparison at <code>0x46</code> cannot succeed. Result 2
-is therefore unreachable in that emulator model. Physical measurements must
-establish the actual selector ordering, thresholds, hysteresis, and load
-conditions. [confirmed] for the code/model comparison; [hypothesis] for the
-unmeasured electrical behavior.</p>
+<p>This mapping conflicts with the ROM’s comparison order. Whenever the later
+<code>0x46</code> comparison succeeds at 3.9 V or above, the earlier <code>0x86</code> comparison at
+3.6 V has already returned level 3. Result 2 is therefore unreachable in that
+emulator model. Physical measurements must establish the actual selector
+ordering, thresholds, hysteresis, and load conditions. [confirmed] for the
+code/model comparison; [hypothesis] for the unmeasured electrical behavior.</p>
+<h3 id="pinned-tilem-comparator-sweep"><a class="header" href="#pinned-tilem-comparator-sweep">Pinned TilEm comparator sweep</a></h3>
+<p>A guarded direct-core run sets TilEm’s battery field from 3.0 through 4.5 V in
+0.1 V steps. For each value, it writes all four selectors through port <code>0x04</code>
+and reads port-<code>0x02</code> bit 0. The observed comparator mask uses bit order
+<code>0x06</code>, <code>0x46</code>, <code>0x86</code>, <code>0xC6</code>: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Modeled voltage</th><th style="text-align: right">Comparator mask</th><th style="text-align: right">ROM bcall result</th></tr>
+</thead>
+<tbody>
+<tr><td>below 3.3 V</td><td style="text-align: right"><code>0x0</code></td><td style="text-align: right">0</td></tr>
+<tr><td>3.3–3.5 V</td><td style="text-align: right"><code>0x1</code></td><td style="text-align: right">1</td></tr>
+<tr><td>3.6–3.8 V</td><td style="text-align: right"><code>0x5</code></td><td style="text-align: right">3</td></tr>
+<tr><td>3.9–4.2 V</td><td style="text-align: right"><code>0x7</code></td><td style="text-align: right">3</td></tr>
+<tr><td>4.3 V and above</td><td style="text-align: right"><code>0xF</code></td><td style="text-align: right">4</td></tr>
+</tbody>
+</table>
+</div>
+<p>The native mask transitions match the four source constants. The reusable
+model then applies the byte-verified decision tree at <code>33:4E9B</code>–<code>4EDA</code>.
+The combination reaches levels 0, 1, 3, and 4, but not level 2. The probe
+binary has SHA-256
+<code>47008d660c7ea3e88c07df3d41d5c3e34c51d49850a806d5d2e37d5ca6214029</code>.
+This run validates TilEm’s implementation; it does not measure a calculator’s
+battery rail. [confirmed] for the ROM tree; [standard] for the emulator run.</p>
 <h2 id="port-0x15-identity"><a class="header" href="#port-0x15-identity">Port <code>0x15</code> identity</a></h2>
 <p>WikiTI publishes the following read values. They are [standard] because this
 OS image does not use the port through an immediate or statically resolved
@@ -709,6 +735,10 @@ model from <code>tools/execution_protection.py</code>; its guarded CLI records t
 two identities. <code>tools/mame_asic.py</code> combines the ASIC and bus-timing profiles
 with a typed native report. <code>tools/run_mame_asic_probe.py</code> guards the MAME,
 ROM, and Lua identities and retains the soft-reset output.
+<code>tools/battery_hardware.py</code> formalizes the ROM result tree and threshold
+regions. <code>tools/describe_battery_hardware.py</code> exposes voltage and raw-sample
+queries as text or JSON. <code>tools/tilem_battery.py</code> validates a typed native
+comparator sweep against the same model.
 [confirmed] for the ROM-analysis tools; [standard] for the emulator oracle.</p>
 <pre><code class="language-sh">nix develop -c python tools/describe_asic_control.py
 nix develop -c python tools/describe_asic_control.py --status 0xE7 --port21 0x20
@@ -723,6 +753,9 @@ nix develop -c python tools/analyze_rom_io.py \
   0x02 0x15 0x21 0x39 0x3A --summary
 nix develop -c python tools/disassemble_rom.py 0x33 \
   --start 0x4E9B --end 0x4F02
+nix develop -c python tools/describe_battery_hardware.py --json
+nix develop -c python tools/describe_battery_hardware.py --voltage 3.6
+nix develop -c python tools/describe_battery_hardware.py --samples 1010
 
 asic_probe_parent=$(mktemp -d /tmp/ti84-asic-probe.XXXXXX)
 nix develop -c python tools/run_wabbitemu_asic_edge_probe.py \
@@ -751,9 +784,11 @@ configuration or data. It provides a baseline, not an electrical direction
 test. No physical snapshot is recorded. [confirmed] for the probe bytes;
 [hypothesis] for pending readback values.</p>
 <ul>
-<li>Sweep a controlled battery supply for all four port-<code>0x04</code> selectors. Record
-the port-<code>0x02</code> bit-0 transition in both directions to measure threshold and
-hysteresis.</li>
+<li>Run the restoring <a href="hardware-probes.html#battery-level-probe">battery-level probe</a>
+across an upward and downward controlled-supply sweep. It records 16 retail
+bcall results per point and verifies port/GPIO/flag cleanup. A separate raw
+port-<code>0x02</code> sampler is still needed to assign each individual selector
+threshold and hysteresis.</li>
 <li>Read port <code>0x15</code> on known TA1, TA2, and TA3 units and compare the result with
 package markings and installed RAM.</li>
 <li>Program each port-<code>0x21</code> field while Flash is unlocked. Test Flash protection
