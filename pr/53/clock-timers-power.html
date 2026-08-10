@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c7a75514.js";
+            window.path_to_searchindex_js = "searchindex-c36ec41e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -195,7 +195,7 @@
 <tr><td>TI-OS dynamic execution</td><td><code>tools/macros/power-cycle.macro</code> and resolved TilEm traces</td><td>standard-timer cadence and the explicit shutdown/HALT path [confirmed]</td></tr>
 <tr><td>Public hardware notes</td><td>WikiTI ports <code>0x03</code>, <code>0x04</code>, <code>0x20</code>, <code>0x2D</code>, <code>0x2F</code>, <code>0x30</code>–<code>0x38</code>, and <code>0x40</code>–<code>0x48</code></td><td>register semantics and oscillator-derived rates [standard]</td></tr>
 <tr><td>Emulator models</td><td>TilEm commit <code>f56ad63</code>, Wabbitemu commit <code>48c2dc0</code>, and MAME 0.287</td><td>independent timer decode, scheduling, status, interrupt, and RTC policies [standard]</td></tr>
-<tr><td>Native emulator execution</td><td>guarded Wabbitemu <code>--timer-edge-probe</code> run</td><td>initialized-core catch-up, zero-counter, acknowledgement, HALT-line, and RTC transitions [standard]</td></tr>
+<tr><td>Native emulator execution</td><td>guarded Wabbitemu timer run and guarded MAME timer/interrupt runs</td><td>catch-up, counter, acknowledgement, callback, HALT-line, reset, and RTC transitions [standard]</td></tr>
 </tbody>
 </table>
 </div>
@@ -606,8 +606,15 @@ public low-power contract and cannot establish physical port-<code>0x2D</code> b
 <p><strong>Native MAME confirmation.</strong> The guarded CPU-I/O-space probe parks the Z80 in a <code>DI</code> loop on isolated RAM. Source bytes <code>0x01</code>, <code>0x41</code>, and <code>0x81</code> each reduce counter <code>0xFF</code> to <code>0xEA</code> over 20 ms of emulated time. The 21 decrements comprise one zero-delay callback and 20 periods at 1,024 Hz. This confirms that the documented off, crystal, and CPU families all use low-three-bit divisor <code>32</code>. [standard]</p>
 <p>Counter zero remains zero with source <code>0x07</code> after 15 frames. The source readback remains <code>0x07</code>, and port <code>0x04</code> remains <code>0x08</code>. Source zero disables a running timer while preserving count <code>0x05</code>. A mode write retains only bits 0–1. Mode bit 1 set produces no completion; the same count with bit 1 clear sets timer-3 completion and changes port <code>0x04</code> from <code>0x08</code> to <code>0x88</code>. [standard]</p>
 <p>Loop mode reloads count one, clears bit 0, and schedules another zero-delay callback. The second callback stops the timer, leaving count, source, and mode at zero with completion set. Simultaneous timer-1 and timer-2 completion produces port <code>0x04 = 0x68</code>; writing timer 1’s mode clears both bits and returns <code>0x08</code>. Ports <code>0x2D</code>–<code>0x2F</code> and <code>0x40</code>–<code>0x48</code> return zero before and after patterned writes. Two isolated runs produce byte-identical reports with SHA-256 <code>5aab56b737495fef9c953522e1a3eee47d3e96637bc8266ce6258ff10d3e2c26</code>. [standard]</p>
+<p>A separate guarded legacy-interrupt run enables standard timer 1, standard
+timer 2, and both for one 20 ms frame. Port <code>0x04</code> reads <code>0x0A</code>, <code>0x0C</code>, and
+<code>0x0E</code>. Timer 1 produces <code>0x0A</code> after both configuration writes <code>0x00</code> and
+<code>0x06</code>, consistent with the source’s fixed callbacks. A soft reset retains
+both masks: clearing their pending fields after reset allows both to regenerate
+status <code>0x0E</code> during the next frame. These are MAME scheduler and reset results,
+not physical timer periods or retention. [standard]</p>
 <h2 id="reusable-timer-tools"><a class="header" href="#reusable-timer-tools">Reusable timer tools</a></h2>
-<p><code>tools/timer_hardware.py</code> exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM’s radix-255 chunks, and RTC implementation profiles. <code>tools/describe_timer_hardware.py</code> is a JSON-capable front end. The Wabbitemu and MAME report oracles validate native observations against that reusable source model. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-<code>0x2D</code> implementation edges use <code>tools/wabbitemu_speed_probe.py</code> and its guarded CLI. These are emulator-comparison tools, not physical-hardware simulators.</p>
+<p><code>tools/timer_hardware.py</code> exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM’s radix-255 chunks, and RTC implementation profiles. <code>tools/describe_timer_hardware.py</code> is a JSON-capable front end. The Wabbitemu and MAME report oracles validate native observations against that reusable source model. <code>tools/mame_interrupt.py</code> adds fixed standard-timer and reset-retention observations through the immutable MAME state in <code>tools/interrupt_controller.py</code>. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-<code>0x2D</code> implementation edges use <code>tools/wabbitemu_speed_probe.py</code> and its guarded CLI. These are emulator-comparison tools, not physical-hardware simulators.</p>
 <pre><code class="language-sh">nix develop -c python tools/describe_timer_hardware.py \
   source 0x41 0x80 0xC0 --mode3-prescaler 4
 
@@ -644,6 +651,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 <li>[standard] TilEm, Wabbitemu, and MAME all omit the published port-<code>0x2F</code> prescaler from their <code>0xC0</code>-family timer models.</li>
 <li>[standard] A guarded initialized-core Wabbitemu run verifies single-step crystal catch-up, full CPU catch-up, first-underflow status bit 2, counter-zero completion, acknowledgement, HALT-line suppression with retained generation, and frozen disabled RTC reads.</li>
 <li>[standard] A guarded MAME run verifies fixed-crystal source-family collapse, its zero-delay first callback, idle counter zero, inverted mode-bit polarity, one-reload loop behavior, global completion clearing, source-off preservation, and unmapped auxiliary and RTC blocks.</li>
+<li>[standard] A separate guarded MAME run verifies both standard-timer pending bits, timer-1 status within one frame after port-<code>0x04</code> writes <code>0x00</code> and <code>0x06</code>, and retained legacy masks across soft reset.</li>
 <li>[standard] Wabbitemu’s low-level and frontend reset paths retain the timer context, delay registers, interrupt controller, programmable timers, and RTC. A guarded run confirms the directly seeded state. Physical reset retention remains open.</li>
 <li>[standard] TilEm’s full reset clears programmable timers and reschedules standard timers while retaining the global clock, RTC fields, and dynamic scheduler timers. A guarded direct-core run confirms the seeded boundaries. Physical reset retention remains open.</li>
 <li>[hypothesis] Physical RTC reads can tear across a one-second rollover because no latch or OS retry is documented.</li>

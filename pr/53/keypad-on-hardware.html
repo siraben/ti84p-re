@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c7a75514.js";
+            window.path_to_searchindex_js = "searchindex-c36ec41e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -195,7 +195,7 @@
 <tr><td>TI-OS dynamic execution</td><td><code>tools/macros/power-cycle.macro</code> and <code>/tmp/tilem-power-cycle.trace</code></td><td>a complete <strong>[2nd]</strong>+<strong>ON</strong> shutdown/wake cycle and a live <strong>[2nd]</strong> matrix scan [confirmed]</td></tr>
 <tr><td>Public hardware notes</td><td>WikiTI ports <code>0x01</code>, <code>0x03</code>, and <code>0x04</code></td><td>matrix wiring, capacitance, ghosting, bounce, and interrupt-port semantics [standard]</td></tr>
 <tr><td>Emulator models</td><td>TilEm commit <code>f56ad63</code>, Wabbitemu commit <code>48c2dc0</code>, and MAME 0.287</td><td>three different matrix algorithms and ON-edge policies [standard]</td></tr>
-<tr><td>Native emulator execution</td><td>guarded Wabbitemu <code>--keypad-edge-probe</code> run</td><td>initialized-core matrix reads and ON status before and after standard-interrupt evaluation [standard]</td></tr>
+<tr><td>Native emulator execution</td><td>guarded Wabbitemu keypad run and guarded MAME keypad/interrupt runs</td><td>matrix reads and ON status before and after timer-driven evaluation [standard]</td></tr>
 </tbody>
 </table>
 </div>
@@ -594,6 +594,13 @@ clk=93378899  ram:0493  OUT (0x01) &lt;- 0xff
 <p>The same run observes port <code>0x04</code> change from <code>0x00</code> to <code>0x01</code> only after the standard-interrupt device evaluates a new ON press. Acknowledging while ON remains held leaves status <code>0x00</code>, including after another evaluation. Release changes the live level to <code>0x08</code>; evaluating that release does not set pending bit 0. The next press changes <code>0x00</code> to <code>0x01</code> when evaluated. The run advances zero T-states, so it establishes callback-state transitions rather than polling frequency or latency. [standard]</p>
 <p>MAME does not compute a union. Starting from <code>0xFF</code>, it XORs the column bit for every pressed key in every selected row. Two selected pressed positions in one column therefore toggle the bit twice and disappear from the read. Its ON press is sampled by the fixed 256 Hz standard-timer callback; a held press does not create another request until a callback has observed a release. The TI-84 Plus driver remains marked <code>MACHINE_NOT_WORKING</code>. [standard]</p>
 <p><strong>Native MAME confirmation.</strong> The guarded live-input probe injects exact group and column positions through MAME’s <code>:BIT0</code>–<code>:BIT7</code> fields. It waits for each forced value to cross a video-frame input update, then writes and reads port <code>0x01</code> through the main CPU I/O space. A single selected key reads <code>0xFE</code>; the same key in an unselected group reads <code>0xFF</code>. Two same-column keys in selected groups 0 and 1 cancel to <code>0xFF</code>, and the three-key rectangle reads <code>0xFE</code>. A key in column 7 reads <code>0x7F</code>. Selecting all groups with two positions in column 0 and one in column 1 reads <code>0xFD</code>. Writes <code>0xFF</code> and <code>0x7F</code> both leave every group unselected. Two isolated runs produce byte-identical native reports with SHA-256 <code>f684472b1f139b649245f54d140190bd5f91bf2508aa9e4764ddc0ce88079477</code>. [standard]</p>
+<p>A separate guarded interrupt run drives MAME’s <code>:ON</code> input while the Z80 waits
+in <code>DI</code> RAM. A masked press and enabling ON while it remains held both leave
+status zero. Release produces live level <code>0x08</code>; the next enabled press produces
+<code>0x01</code>, and release retains pending status <code>0x09</code>. Clearing port-<code>0x03</code> bit 0
+returns <code>0x08</code>. The adapter waits through the host-input update and timer-1
+sample, so the sequence verifies the press-only latch and release rearming in
+the running driver. [standard]</p>
 <p>These discrepancies are emulator behavior, not competing physical measurements. TilEm’s closure is topologically plausible for a diode-less matrix, but the physical result still depends on resistance, capacitance, switch state, and the delay between the group write and read. [hypothesis]</p>
 <h2 id="reusable-keypad-tools"><a class="header" href="#reusable-keypad-tools">Reusable keypad tools</a></h2>
 <p><code>tools/keypad_hardware.py</code> exposes the three source-pinned matrix algorithms,
@@ -605,7 +612,8 @@ which keeps ghost and unwired-position experiments independent of UI key names.
 exact OS 2.55MP ROM hash and writes a JSON manifest containing both binary
 hashes and evidence scope. <code>tools/mame_keypad.py</code> parses and checks the MAME
 matrix against the reusable source model. <code>tools/run_mame_keypad_probe.py</code>
-guards the exact MAME executable, ROM, Lua adapter, and isolated runtime.</p>
+guards the exact MAME executable, ROM, Lua adapter, and isolated runtime.
+<code>tools/mame_interrupt.py</code> adds the independent timer-sampled ON-edge sequence.</p>
 <pre><code class="language-sh"># Three-key rectangle: TilEm/Wabbitemu read 0xFC; MAME reads 0xFE.
 nix develop -c python tools/describe_keypad_hardware.py matrix \
   --mask 0xFE --key 0,0 --key 1,0 --key 1,1
@@ -655,6 +663,7 @@ above additionally require disassembly of their surrounding routines.</p>
 <li>[standard] TilEm requests ON interrupts on press and release; Wabbitemu and MAME request only on press.</li>
 <li>[standard] A guarded initialized-core Wabbitemu run reproduces the pairwise matrix reads, ignored row 7, press-only ON latch, held-key suppression, and release rearming described by the pinned source.</li>
 <li>[standard] A guarded live-input MAME run reproduces its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, lack of matrix closure, and all-groups result.</li>
+<li>[standard] A guarded MAME interrupt run reproduces its press-only ON latch, held-press suppression, release rearming, live-level bit, and bit-0-clear acknowledgement.</li>
 <li>[hypothesis] The exact capacitance and minimum safe settle time should be measured across TA2 and TA3 calculators, including worst-case chords.</li>
 <li>[hypothesis] A logic-analyzer test should establish which physical ON transitions request interrupts on each ASIC revision rather than selecting an emulator policy by majority.</li>
 </ul>

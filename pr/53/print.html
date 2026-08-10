@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c7a75514.js";
+            window.path_to_searchindex_js = "searchindex-c36ec41e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -2674,6 +2674,7 @@ payload; its BootFree guard otherwise leaves only diagnostic comments.
 <tr><td>TilEm commit <code>f56ad63</code> and Wabbitemu commit <code>48c2dc0</code></td><td>Two executable interpretations of the registers and their fidelity gaps</td><td>[standard]</td></tr>
 <tr><td>MAME 0.287 <code>ti84pv3</code> driver and Lua I/O trace</td><td>Third implementation, headless ON-wake execution, and explicit <code>MACHINE_NOT_WORKING</code> gaps</td><td>[standard]</td></tr>
 <tr><td>Guarded Wabbitemu interrupt edge probe</td><td>Initialized-core mask, timer, acknowledgement, completion, and low-power transitions</td><td>[standard]</td></tr>
+<tr><td>Guarded MAME legacy-interrupt probe</td><td>CPU-I/O-space status, mask, ON-edge, fixed-timer, and soft-reset observations</td><td>[standard]</td></tr>
 </tbody>
 </table>
 </div>
@@ -2947,8 +2948,44 @@ or establish physical interrupt acknowledgement behavior. [standard]</p>
 </tbody>
 </table>
 </div>
+<h3 id="native-mame-interrupt-edges"><a class="header" href="#native-mame-interrupt-edges">Native MAME interrupt edges</a></h3>
+<p>The guarded MAME run parks the Z80 in a <code>DI</code> loop on page-0 RAM and disables
+the programmable timers. At reset, ports <code>0x03</code> and <code>0x04</code> both read released
+ON status <code>0x08</code>. Writes <code>00</code>, <code>01</code>, <code>02</code>, <code>04</code>, <code>08</code>, <code>10</code>, and <code>FF</code> to port
+<code>0x03</code> leave both reads at <code>0x08</code>; the driver does not return the written mask.
+[standard]</p>
+<p>Writing <code>0x07</code> to port <code>0x02</code> directly creates status <code>0x0F</code>. Subsequent
+port-<code>0x03</code> writes <code>0x01</code>, <code>0x06</code>, <code>0xFF</code>, and <code>0x00</code> retain ON only, retain
+both standard timers, retain all three fields, and clear all three fields.
+Port <code>0x04</code> consequently reads <code>09</code>, <code>0E</code>, <code>0F</code>, and <code>08</code>. Port <code>0x02</code> still
+reads ASIC status <code>0xC3</code>; its write and read handlers have unrelated meanings.
+[standard]</p>
+<p>The live-input sequence begins with ON masked. A press, enabling ON while the
+button remains held, release, enabled press, enabled release, and bit-0-clear
+acknowledgement produce <code>00</code>, <code>00</code>, <code>08</code>, <code>01</code>, <code>09</code>, and <code>08</code>. The adapter
+waits through both the video input update and a 256 Hz timer-1 sample after
+each forced transition. This confirms MAME’s press-only latch and release
+rearming without executing the ROM handler. [standard]</p>
+<p>One 20 ms frame with only timer 1, only timer 2, or both enabled produces
+status <code>0x0A</code>, <code>0x0C</code>, or <code>0x0E</code>. Timer-1 status reaches <code>0x0A</code> after both
+port-<code>0x04</code> configuration writes <code>0x00</code> and <code>0x06</code>. These frame-level results
+show that both callbacks run and that neither configuration suppresses timer
+1; the pinned source, rather than this coarse interval, establishes the exact
+fixed 256 Hz and 512 Hz rates. [standard]</p>
+<p>A scheduled soft reset retains seeded status <code>0x0F</code> through the reset callback.
+After a port-<code>0x02</code> zero write clears pending state, the retained standard-timer
+masks regenerate <code>0x0E</code>; a new ON press changes the status to <code>0x07</code>. MAME’s
+reset hook restores the mapper but does not restore these interrupt fields.
+This is emulator reset behavior, not physical warm-reset evidence. Two isolated
+runs produce identical canonical parsed native JSON with SHA-256
+<code>bb4b38d444692b5136d96264fa3acf9fe95ef2f6a1879ab72e9a2ad8077c1def</code>.
+[standard]</p>
 <h2 id="reusable-debugging-tools"><a class="header" href="#reusable-debugging-tools">Reusable debugging tools</a></h2>
-<p><code>tools/interrupt_controller.py</code> provides typed decoders, exact timer periods, clear-on-zero acknowledgement, ROM status-test order, and USB active-low decoding. <code>tools/describe_interrupt_controller.py</code> exposes focused CLI commands: [confirmed]</p>
+<p><code>tools/interrupt_controller.py</code> provides typed decoders, exact timer periods,
+clear-on-zero acknowledgement, ROM status-test order, USB active-low decoding,
+and an immutable MAME legacy-interrupt state model.
+<code>tools/describe_interrupt_controller.py</code> exposes focused CLI commands:
+[confirmed] for the ROM/public decoders; [standard] for the emulator model.</p>
 <pre><code class="language-sh">nix develop -c python tools/describe_interrupt_controller.py mask 0x0B
 nix develop -c python tools/describe_interrupt_controller.py status 0x8B
 nix develop -c python tools/describe_interrupt_controller.py config 0x06
@@ -2969,6 +3006,15 @@ python tools/run_wabbitemu_interrupt_edge_probe.py \
 </code></pre>
 <p>The ROM is only a core-initialization fixture in this mode. No TI-OS
 instruction executes.</p>
+<p><code>tools/mame_interrupt.py</code> parses the complete MAME report and checks it against
+the reusable state model. Its guarded CLI records the exact MAME, ROM, Lua,
+logs, and evidence scope:</p>
+<pre><code class="language-sh">mame_interrupt_parent=$(mktemp -d /tmp/ti84-mame-interrupt.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_interrupt_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_interrupt_parent/run" --json
+</code></pre>
 <p><code>tools/mame_trace.py</code>, <code>tools/run_mame_io_trace.py</code>, and <code>tools/mame_io_trace.lua</code> provide the equivalent headless MAME path. The Lua tap accepts comma-separated ports and ranges, collapses identical polls, records post-I/O PCs, and can inject ON at selected video frames: [confirmed]</p>
 <pre><code class="language-sh">nix shell nixpkgs#mame -c python tools/run_mame_io_trace.py \
   --seconds 2 --ports 03-04,55-56 \
@@ -2984,6 +3030,7 @@ instruction executes.</p>
 <li>[standard] Programmable completion bits remain observable independently of their interrupt-mode bits.</li>
 <li>[standard] The guarded Wabbitemu run verifies complete mask readback, ON clearing, strict standard-timer expiry, both standard-timer acknowledgement paths, programmable completion readback, and its LCD-based low-power approximation.</li>
 <li>[standard] The guarded Wabbitemu USB run verifies its active-low line/protocol summary, mask-independent line event, and repeat-event path. It does not verify the ROM dispatcher or physical USB interrupt behavior.</li>
+<li>[standard] The guarded MAME run verifies shared status reads, three-bit mask behavior, direct port-<code>0x02</code> status injection, press-only ON sampling, both standard-timer pending bits within scheduled frames, and interrupt-field retention across soft reset.</li>
 <li>[hypothesis] Physical TA2 and TA3 tests should measure ON request edges, link wake transitions, simultaneous legacy-source coalescing, programmable-timer wake behavior, and battery-selector thresholds.</li>
 </ul>
 <h2 id="sources-4"><a class="header" href="#sources-4">Sources</a></h2>
@@ -3020,7 +3067,7 @@ instruction executes.</p>
 <tr><td>TI-OS dynamic execution</td><td><code>tools/macros/power-cycle.macro</code> and resolved TilEm traces</td><td>standard-timer cadence and the explicit shutdown/HALT path [confirmed]</td></tr>
 <tr><td>Public hardware notes</td><td>WikiTI ports <code>0x03</code>, <code>0x04</code>, <code>0x20</code>, <code>0x2D</code>, <code>0x2F</code>, <code>0x30</code>–<code>0x38</code>, and <code>0x40</code>–<code>0x48</code></td><td>register semantics and oscillator-derived rates [standard]</td></tr>
 <tr><td>Emulator models</td><td>TilEm commit <code>f56ad63</code>, Wabbitemu commit <code>48c2dc0</code>, and MAME 0.287</td><td>independent timer decode, scheduling, status, interrupt, and RTC policies [standard]</td></tr>
-<tr><td>Native emulator execution</td><td>guarded Wabbitemu <code>--timer-edge-probe</code> run</td><td>initialized-core catch-up, zero-counter, acknowledgement, HALT-line, and RTC transitions [standard]</td></tr>
+<tr><td>Native emulator execution</td><td>guarded Wabbitemu timer run and guarded MAME timer/interrupt runs</td><td>catch-up, counter, acknowledgement, callback, HALT-line, reset, and RTC transitions [standard]</td></tr>
 </tbody>
 </table>
 </div>
@@ -3431,8 +3478,15 @@ public low-power contract and cannot establish physical port-<code>0x2D</code> b
 <p><strong>Native MAME confirmation.</strong> The guarded CPU-I/O-space probe parks the Z80 in a <code>DI</code> loop on isolated RAM. Source bytes <code>0x01</code>, <code>0x41</code>, and <code>0x81</code> each reduce counter <code>0xFF</code> to <code>0xEA</code> over 20 ms of emulated time. The 21 decrements comprise one zero-delay callback and 20 periods at 1,024 Hz. This confirms that the documented off, crystal, and CPU families all use low-three-bit divisor <code>32</code>. [standard]</p>
 <p>Counter zero remains zero with source <code>0x07</code> after 15 frames. The source readback remains <code>0x07</code>, and port <code>0x04</code> remains <code>0x08</code>. Source zero disables a running timer while preserving count <code>0x05</code>. A mode write retains only bits 0–1. Mode bit 1 set produces no completion; the same count with bit 1 clear sets timer-3 completion and changes port <code>0x04</code> from <code>0x08</code> to <code>0x88</code>. [standard]</p>
 <p>Loop mode reloads count one, clears bit 0, and schedules another zero-delay callback. The second callback stops the timer, leaving count, source, and mode at zero with completion set. Simultaneous timer-1 and timer-2 completion produces port <code>0x04 = 0x68</code>; writing timer 1’s mode clears both bits and returns <code>0x08</code>. Ports <code>0x2D</code>–<code>0x2F</code> and <code>0x40</code>–<code>0x48</code> return zero before and after patterned writes. Two isolated runs produce byte-identical reports with SHA-256 <code>5aab56b737495fef9c953522e1a3eee47d3e96637bc8266ce6258ff10d3e2c26</code>. [standard]</p>
+<p>A separate guarded legacy-interrupt run enables standard timer 1, standard
+timer 2, and both for one 20 ms frame. Port <code>0x04</code> reads <code>0x0A</code>, <code>0x0C</code>, and
+<code>0x0E</code>. Timer 1 produces <code>0x0A</code> after both configuration writes <code>0x00</code> and
+<code>0x06</code>, consistent with the source’s fixed callbacks. A soft reset retains
+both masks: clearing their pending fields after reset allows both to regenerate
+status <code>0x0E</code> during the next frame. These are MAME scheduler and reset results,
+not physical timer periods or retention. [standard]</p>
 <h2 id="reusable-timer-tools"><a class="header" href="#reusable-timer-tools">Reusable timer tools</a></h2>
-<p><code>tools/timer_hardware.py</code> exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM’s radix-255 chunks, and RTC implementation profiles. <code>tools/describe_timer_hardware.py</code> is a JSON-capable front end. The Wabbitemu and MAME report oracles validate native observations against that reusable source model. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-<code>0x2D</code> implementation edges use <code>tools/wabbitemu_speed_probe.py</code> and its guarded CLI. These are emulator-comparison tools, not physical-hardware simulators.</p>
+<p><code>tools/timer_hardware.py</code> exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM’s radix-255 chunks, and RTC implementation profiles. <code>tools/describe_timer_hardware.py</code> is a JSON-capable front end. The Wabbitemu and MAME report oracles validate native observations against that reusable source model. <code>tools/mame_interrupt.py</code> adds fixed standard-timer and reset-retention observations through the immutable MAME state in <code>tools/interrupt_controller.py</code>. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-<code>0x2D</code> implementation edges use <code>tools/wabbitemu_speed_probe.py</code> and its guarded CLI. These are emulator-comparison tools, not physical-hardware simulators.</p>
 <pre><code class="language-sh">nix develop -c python tools/describe_timer_hardware.py \
   source 0x41 0x80 0xC0 --mode3-prescaler 4
 
@@ -3469,6 +3523,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 <li>[standard] TilEm, Wabbitemu, and MAME all omit the published port-<code>0x2F</code> prescaler from their <code>0xC0</code>-family timer models.</li>
 <li>[standard] A guarded initialized-core Wabbitemu run verifies single-step crystal catch-up, full CPU catch-up, first-underflow status bit 2, counter-zero completion, acknowledgement, HALT-line suppression with retained generation, and frozen disabled RTC reads.</li>
 <li>[standard] A guarded MAME run verifies fixed-crystal source-family collapse, its zero-delay first callback, idle counter zero, inverted mode-bit polarity, one-reload loop behavior, global completion clearing, source-off preservation, and unmapped auxiliary and RTC blocks.</li>
+<li>[standard] A separate guarded MAME run verifies both standard-timer pending bits, timer-1 status within one frame after port-<code>0x04</code> writes <code>0x00</code> and <code>0x06</code>, and retained legacy masks across soft reset.</li>
 <li>[standard] Wabbitemu’s low-level and frontend reset paths retain the timer context, delay registers, interrupt controller, programmable timers, and RTC. A guarded run confirms the directly seeded state. Physical reset retention remains open.</li>
 <li>[standard] TilEm’s full reset clears programmable timers and reschedules standard timers while retaining the global clock, RTC fields, and dynamic scheduler timers. A guarded direct-core run confirms the seeded boundaries. Physical reset retention remains open.</li>
 <li>[hypothesis] Physical RTC reads can tear across a one-second rollover because no latch or OS retry is documented.</li>
@@ -12998,7 +13053,7 @@ tall-template row composition.</p>
 <tr><td>TI-OS dynamic execution</td><td><code>tools/macros/power-cycle.macro</code> and <code>/tmp/tilem-power-cycle.trace</code></td><td>a complete <strong>[2nd]</strong>+<strong>ON</strong> shutdown/wake cycle and a live <strong>[2nd]</strong> matrix scan [confirmed]</td></tr>
 <tr><td>Public hardware notes</td><td>WikiTI ports <code>0x01</code>, <code>0x03</code>, and <code>0x04</code></td><td>matrix wiring, capacitance, ghosting, bounce, and interrupt-port semantics [standard]</td></tr>
 <tr><td>Emulator models</td><td>TilEm commit <code>f56ad63</code>, Wabbitemu commit <code>48c2dc0</code>, and MAME 0.287</td><td>three different matrix algorithms and ON-edge policies [standard]</td></tr>
-<tr><td>Native emulator execution</td><td>guarded Wabbitemu <code>--keypad-edge-probe</code> run</td><td>initialized-core matrix reads and ON status before and after standard-interrupt evaluation [standard]</td></tr>
+<tr><td>Native emulator execution</td><td>guarded Wabbitemu keypad run and guarded MAME keypad/interrupt runs</td><td>matrix reads and ON status before and after timer-driven evaluation [standard]</td></tr>
 </tbody>
 </table>
 </div>
@@ -13397,6 +13452,13 @@ clk=93378899  ram:0493  OUT (0x01) &lt;- 0xff
 <p>The same run observes port <code>0x04</code> change from <code>0x00</code> to <code>0x01</code> only after the standard-interrupt device evaluates a new ON press. Acknowledging while ON remains held leaves status <code>0x00</code>, including after another evaluation. Release changes the live level to <code>0x08</code>; evaluating that release does not set pending bit 0. The next press changes <code>0x00</code> to <code>0x01</code> when evaluated. The run advances zero T-states, so it establishes callback-state transitions rather than polling frequency or latency. [standard]</p>
 <p>MAME does not compute a union. Starting from <code>0xFF</code>, it XORs the column bit for every pressed key in every selected row. Two selected pressed positions in one column therefore toggle the bit twice and disappear from the read. Its ON press is sampled by the fixed 256 Hz standard-timer callback; a held press does not create another request until a callback has observed a release. The TI-84 Plus driver remains marked <code>MACHINE_NOT_WORKING</code>. [standard]</p>
 <p><strong>Native MAME confirmation.</strong> The guarded live-input probe injects exact group and column positions through MAME’s <code>:BIT0</code>–<code>:BIT7</code> fields. It waits for each forced value to cross a video-frame input update, then writes and reads port <code>0x01</code> through the main CPU I/O space. A single selected key reads <code>0xFE</code>; the same key in an unselected group reads <code>0xFF</code>. Two same-column keys in selected groups 0 and 1 cancel to <code>0xFF</code>, and the three-key rectangle reads <code>0xFE</code>. A key in column 7 reads <code>0x7F</code>. Selecting all groups with two positions in column 0 and one in column 1 reads <code>0xFD</code>. Writes <code>0xFF</code> and <code>0x7F</code> both leave every group unselected. Two isolated runs produce byte-identical native reports with SHA-256 <code>f684472b1f139b649245f54d140190bd5f91bf2508aa9e4764ddc0ce88079477</code>. [standard]</p>
+<p>A separate guarded interrupt run drives MAME’s <code>:ON</code> input while the Z80 waits
+in <code>DI</code> RAM. A masked press and enabling ON while it remains held both leave
+status zero. Release produces live level <code>0x08</code>; the next enabled press produces
+<code>0x01</code>, and release retains pending status <code>0x09</code>. Clearing port-<code>0x03</code> bit 0
+returns <code>0x08</code>. The adapter waits through the host-input update and timer-1
+sample, so the sequence verifies the press-only latch and release rearming in
+the running driver. [standard]</p>
 <p>These discrepancies are emulator behavior, not competing physical measurements. TilEm’s closure is topologically plausible for a diode-less matrix, but the physical result still depends on resistance, capacitance, switch state, and the delay between the group write and read. [hypothesis]</p>
 <h2 id="reusable-keypad-tools"><a class="header" href="#reusable-keypad-tools">Reusable keypad tools</a></h2>
 <p><code>tools/keypad_hardware.py</code> exposes the three source-pinned matrix algorithms,
@@ -13408,7 +13470,8 @@ which keeps ghost and unwired-position experiments independent of UI key names.
 exact OS 2.55MP ROM hash and writes a JSON manifest containing both binary
 hashes and evidence scope. <code>tools/mame_keypad.py</code> parses and checks the MAME
 matrix against the reusable source model. <code>tools/run_mame_keypad_probe.py</code>
-guards the exact MAME executable, ROM, Lua adapter, and isolated runtime.</p>
+guards the exact MAME executable, ROM, Lua adapter, and isolated runtime.
+<code>tools/mame_interrupt.py</code> adds the independent timer-sampled ON-edge sequence.</p>
 <pre><code class="language-sh"># Three-key rectangle: TilEm/Wabbitemu read 0xFC; MAME reads 0xFE.
 nix develop -c python tools/describe_keypad_hardware.py matrix \
   --mask 0xFE --key 0,0 --key 1,0 --key 1,1
@@ -13458,6 +13521,7 @@ above additionally require disassembly of their surrounding routines.</p>
 <li>[standard] TilEm requests ON interrupts on press and release; Wabbitemu and MAME request only on press.</li>
 <li>[standard] A guarded initialized-core Wabbitemu run reproduces the pairwise matrix reads, ignored row 7, press-only ON latch, held-key suppression, and release rearming described by the pinned source.</li>
 <li>[standard] A guarded live-input MAME run reproduces its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, lack of matrix closure, and all-groups result.</li>
+<li>[standard] A guarded MAME interrupt run reproduces its press-only ON latch, held-press suppression, release rearming, live-level bit, and bit-0-clear acknowledgement.</li>
 <li>[hypothesis] The exact capacitance and minimum safe settle time should be measured across TA2 and TA3 calculators, including worst-case chords.</li>
 <li>[hypothesis] A logic-analyzer test should establish which physical ON transitions request interrupts on each ASIC revision rather than selecting an emulator policy by majority.</li>
 </ul>
@@ -16379,7 +16443,7 @@ still require static reduction, fault injection, or physical measurement.</p>
 <li><strong>MathPrint runtime coverage.</strong> Trace representative expressions and cursor states through the statically recovered MathPrint compositor at <code>39:5167</code>. Existing macro fixtures cover power, fraction, and <code>fnInt(</code> layouts, but the exact runtime paths have not been recorded. See <a href="#mathprint-pipeline-coverage">Equation display</a>.</li>
 <li><strong>Matrix and list residuals.</strong> Explain why plain <code>augment(</code> calls the partial-pivoting engine at <code>02:4663</code>; locate the <code>randM(</code> cell-fill path; identify the separate <code>rref(</code>/<code>ref(</code> driver; and finish the <code>seq(</code>/<code>SortA(</code>/<code>SortD(</code> collection and element-load traces. See <a href="#9-findings">Matrices &amp; lists</a>.</li>
 <li><strong>Smaller residuals.</strong> Map the For/While/Repeat FPS loop-frame bytes; recover the <code>Asm(</code>/<code>AsmPrgm</code> setup before the traced <code>ram:9D95</code> payload handoff; find a direct ASM-to-BASIC program-call entry beyond VAT lookup and the cooperative <code>Ans</code> callback; and trace the group-archive member walk after <code>_Arc_Unarc</code> rejects type <code>0x17</code>. A guarded initialized-core run verifies Wabbitemu’s timer catch-up, counter-zero completion, first-underflow status bit 2, HALT-line suppression, retained interrupt generation, and frozen disabled RTC reads. A guarded MAME run verifies its fixed-crystal source collapse, immediate first decrement, idle counter zero, inverted mode polarity, one-reload loop, global completion clearing, and absent RTC block. TA2/TA3 hardware must still distinguish the published <code>33</code>/<code>328</code>/<code>3277</code> timer divisors from Wabbitemu/MAME’s <code>32</code>/<code>327</code>/<code>3276</code>, test counter zero and first-versus-second-expiry status bit 2, measure programmable-timer <code>HALT</code> behavior, and test disabled RTC reads plus rollover coherence. Another guarded run verifies Wabbitemu’s pairwise keypad closure, ignored row 7, and press-only ON latch with release rearming. A guarded MAME live-input run verifies its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, and lack of matrix closure. These remain emulator evidence. Physical keypad work should measure worst-case matrix settling and ON interrupt edges; see <a href="#resolved-findings-and-open-hardware-tests-2">Keypad and ON-key hardware</a>. The timer, APD, RTC, and power reconstruction is in <a href="#clock-timers-and-power">Clock, timers, and power</a>.</li>
-<li><strong>Interrupt-controller physical tests.</strong> A guarded initialized-core Wabbitemu run now verifies full mask readback, ON-latch clearing, its rounded standard-timer rates, strict expiry edge, port-<code>0x03</code> and port-<code>0x02</code> timer acknowledgement, programmable completion readback, and LCD-based low-power approximation. These are emulator results. On TA2 and TA3 calculators, measure which ON transitions latch a request, which link transitions wake low power, whether simultaneous legacy requests are coalesced by the port-<code>0x03</code> clear-on-zero sequence, and which timer configurations can wake <code>HALT</code>. Compare the results with the explicit TilEm and Wabbitemu differences in <a href="#emulator-comparison-2">Interrupts (IM1)</a>.</li>
+<li><strong>Interrupt-controller physical tests.</strong> A guarded initialized-core Wabbitemu run verifies full mask readback, ON-latch clearing, its rounded standard-timer rates, strict expiry edge, port-<code>0x03</code> and port-<code>0x02</code> timer acknowledgement, programmable completion readback, and LCD-based low-power approximation. A guarded MAME run verifies shared port-<code>0x03</code>/<code>0x04</code> status, direct port-<code>0x02</code> pending-field writes, three-bit port-<code>0x03</code> masking, press-only timer-sampled ON edges, both standard-timer pending bits during scheduled frames, and retained interrupt fields across soft reset. These are emulator results. On TA2 and TA3 calculators, measure which ON transitions latch a request, which link transitions wake low power, whether simultaneous legacy requests are coalesced by the port-<code>0x03</code> clear-on-zero sequence, and which timer configurations can wake <code>HALT</code>. Compare the results with the explicit TilEm, Wabbitemu, and MAME differences in <a href="#emulator-comparison-2">Interrupts (IM1)</a>.</li>
 </ol>
 <h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>
 <p>Reopen <code>ti84.gpr</code> (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in <code>tools/</code> and rebuild with <code>tools/build.sh</code>. The remaining static items mostly need raw-byte decoding of regions the live decompiler leaves as unanalyzed data, including the page-<code>0x38</code> <code>0xBB</code>/class-3 dispatch tables. Hardware-only timer and RTC quirks need measurements on physical calculators.</p>
