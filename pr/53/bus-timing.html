@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -450,17 +450,17 @@ run; [hypothesis] for the physical divisor.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Behavior</th><th>TilEm</th><th>Wabbitemu</th><th>MAME 0.287</th></tr>
+<tr><th>Behavior</th><th>TilEm</th><th>Wabbitemu</th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Port-<code>0x20</code> write</td><td>low two bits select modes 0–3; nonzero runs at 15 MHz</td><td>default TI-84 Plus state clamps modes 2–3 to mode 1; external <code>extraSpeed</code> enables 20/25 MHz</td><td>stores the raw byte; zero selects 6 MHz and any nonzero value selects 15 MHz</td></tr>
-<tr><td>Active <code>0x29</code>–<code>0x2C</code> register</td><td>indexed by port <code>0x20 &amp; 3</code></td><td>indexed by the accepted CPU-speed mode</td><td>registers absent</td></tr>
-<tr><td>LCD instruction addition</td><td>active byte shifted right by two</td><td>same</td><td>absent</td></tr>
-<tr><td>Memory gates and <code>0x2E</code> bits</td><td>all six access classes</td><td>all six access classes</td><td>absent</td></tr>
-<tr><td>Port <code>0x2D</code></td><td>low-power control outside this block</td><td>raw fifth delay latch; no timer or low-power transition</td><td>absent</td></tr>
-<tr><td>High-speed ready start</td><td>every LCD-port read or write</td><td>last successful LCD write</td><td>programmable interval absent</td></tr>
-<tr><td>LCD controller rejection</td><td>ready bit and controller model</td><td>also has a separate fixed 60-T-state controller-access guard</td><td>T6A04 device behavior without the ASIC delay block</td></tr>
-<tr><td>Mode-3 timer prescaler</td><td>not modeled</td><td>not modeled in the compared timer path</td><td>not modeled</td></tr>
+<tr><td>Port-<code>0x20</code> write</td><td>low two bits select modes 0–3; nonzero runs at 15 MHz</td><td>default TI-84 Plus state clamps modes 2–3 to mode 1; external <code>extraSpeed</code> enables 20/25 MHz</td><td>stores the raw byte; zero selects 6 MHz and any nonzero value selects 15 MHz</td><td>selects the browser emulator’s CPU-speed state</td></tr>
+<tr><td>Active <code>0x29</code>–<code>0x2C</code> register</td><td>indexed by port <code>0x20 &amp; 3</code></td><td>indexed by the accepted CPU-speed mode</td><td>registers absent</td><td>delay values are stored</td></tr>
+<tr><td>LCD instruction addition</td><td>active byte shifted right by two</td><td>same</td><td>absent</td><td>LCD uses its own busy interval</td></tr>
+<tr><td>Memory gates and <code>0x2E</code> bits</td><td>all six access classes</td><td>all six access classes</td><td>absent</td><td>no source-equivalent per-access wait insertion identified</td></tr>
+<tr><td>Port <code>0x2D</code></td><td>low-power control outside this block</td><td>raw fifth delay latch; no timer or low-power transition</td><td>absent</td><td>stored control state</td></tr>
+<tr><td>High-speed ready start</td><td>every LCD-port read or write</td><td>last successful LCD write</td><td>programmable interval absent</td><td>LCD readiness uses randomized controller timing</td></tr>
+<tr><td>LCD controller rejection</td><td>ready bit and controller model</td><td>also has a separate fixed 60-T-state controller-access guard</td><td>T6A04 device behavior without the ASIC delay block</td><td>controller transfers use the jsTIfied LCD timer</td></tr>
+<tr><td>Mode-3 timer prescaler</td><td>not modeled</td><td>not modeled in the compared timer path</td><td>not modeled</td><td>not modeled in the timer-source decoder</td></tr>
 </tbody>
 </table>
 </div>
@@ -498,7 +498,8 @@ describe Wabbitemu’s registered handler, not physical low-power behavior.
    3    0x2C  0x3B   15     14T     M1,write       write          176T       /3
 </code></pre>
 <p><code>doc-div</code> is the public port-<code>0x2F</code> divisor decode. It is not an emulator claim.
-Compare the three pinned implementations, including ignored MAME writes, with:</p>
+Compare the four pinned implementations, including ignored MAME writes and
+jsTIfied’s stored-delay model, with:</p>
 <pre><code class="language-sh">nix develop -c python tools/describe_bus_timing.py --compare
 nix develop -c python tools/describe_bus_timing.py --compare --json
 </code></pre>
@@ -593,6 +594,7 @@ revisions.</li>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c"><code>x4_memory.c</code></a>, and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c"><code>x4_init.c</code></a></td><td>delay decode, cycle placement, ready timer, and reset defaults</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code></a> and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c"><code>core.c</code></a></td><td>independent delay decode, cycle placement, and readiness comparison</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>mapped I/O ports, raw speed readback, binary clock selection, and absent delay block</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth CPU-speed, stored-delay, LCD-ready, and timer-source comparison</td></tr>
 </tbody>
 </table>
 </div>

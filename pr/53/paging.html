@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -333,19 +333,19 @@ is a test target rather than a vote. [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Detail</th><th>TilEm</th><th>Wabbitemu</th><th>MAME 0.287</th></tr>
+<tr><th>Detail</th><th>TilEm</th><th>Wabbitemu</th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Mapper ports</td><td><code>0x04</code>–<code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, <code>0x28</code></td><td>same</td><td>only <code>0x04</code>–<code>0x07</code></td></tr>
-<tr><td>Declared driver status</td><td>usable mapper</td><td>usable mapper</td><td><code>MACHINE_NOT_WORKING</code></td></tr>
-<tr><td>port <code>0x05</code> write</td><td>stores low four bits; maps low three</td><td>reduces low seven bits by RAM-page count</td><td>stores low three bits</td></tr>
-<tr><td>TI-84 Plus Flash selector</td><td>low six bits</td><td>extended formula, then Flash-size mask</td><td>low six bits for values below <code>0x80</code></td></tr>
-<tr><td>RAM selector</td><td>low three bits</td><td>low bits masked by RAM-page count</td><td>raw value <code>0x80</code>–<code>0xFF</code> becomes the bank number</td></tr>
-<tr><td>paired A</td><td>port-<code>0x06</code> page with bit 0 clear</td><td>same</td><td>same</td></tr>
-<tr><td>paired B</td><td>port-<code>0x06</code> page with bit 0 set</td><td>see expression bug below</td><td>port-<code>0x06</code> page with bit 0 set</td></tr>
-<tr><td>paired C</td><td>port-<code>0x07</code> page</td><td>same</td><td>same</td></tr>
-<tr><td>paired reads from <code>0x05</code>–<code>0x07</code></td><td>stored register values</td><td>active C/A/B page values</td><td>stored register values</td></tr>
-<tr><td>forced-RAM overlays</td><td>both modes</td><td>independent mode only</td><td>absent</td></tr>
+<tr><td>Mapper ports</td><td><code>0x04</code>–<code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, <code>0x28</code></td><td>same</td><td>only <code>0x04</code>–<code>0x07</code></td><td><code>0x04</code>–<code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, <code>0x28</code></td></tr>
+<tr><td>Declared driver status</td><td>usable mapper</td><td>usable mapper</td><td><code>MACHINE_NOT_WORKING</code></td><td>browser emulator source model</td></tr>
+<tr><td>port <code>0x05</code> write</td><td>stores low four bits; maps low three</td><td>reduces low seven bits by RAM-page count</td><td>stores low three bits</td><td>selects window C on TI-84 Plus</td></tr>
+<tr><td>TI-84 Plus Flash selector</td><td>low six bits</td><td>extended formula, then Flash-size mask</td><td>low six bits for values below <code>0x80</code></td><td>low selector plus ports <code>0x0E</code>/<code>0x0F</code> extensions</td></tr>
+<tr><td>RAM selector</td><td>low three bits</td><td>low bits masked by RAM-page count</td><td>raw value <code>0x80</code>–<code>0xFF</code> becomes the bank number</td><td><code>0x80</code> flag plus low three-bit page</td></tr>
+<tr><td>paired A</td><td>port-<code>0x06</code> page with bit 0 clear</td><td>same</td><td>same</td><td>even member selected from port <code>0x06</code></td></tr>
+<tr><td>paired B</td><td>port-<code>0x06</code> page with bit 0 set</td><td>see expression bug below</td><td>port-<code>0x06</code> page with bit 0 set</td><td>adjacent odd member</td></tr>
+<tr><td>paired C</td><td>port-<code>0x07</code> page</td><td>same</td><td>same</td><td>port-<code>0x07</code> page</td></tr>
+<tr><td>paired reads from <code>0x05</code>–<code>0x07</code></td><td>stored register values</td><td>active C/A/B page values</td><td>stored register values</td><td>stored selector state</td></tr>
+<tr><td>forced-RAM overlays</td><td>both modes</td><td>independent mode only</td><td>absent</td><td>implemented</td></tr>
 </tbody>
 </table>
 </div>
@@ -694,6 +694,7 @@ the physical page independently of MAME’s seven-page backing-map defect.</li>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a> and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c"><code>x4_memory.c</code></a></td><td>mapping modes, 64-page masks, overlays, and protection order</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code></a> and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c"><code>core.c</code></a></td><td>extended selectors, paired mode, overlays, and independent comparison</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>mapped ports, bank backing, selector writes, reset mapping, and read-latch behavior</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth source implementation of selector, paired-mode, and overlay routing; the deployed artifact is pinned by <code>tools/jstified_hardware.py</code></td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:04">WikiTI port <code>0x04</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:0E"><code>0x0E</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:0F"><code>0x0F</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:27"><code>0x27</code></a>, and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:28"><code>0x28</code></a></td><td>historical public register descriptions checked against ROM and emulators</td></tr>
 </tbody>
 </table>

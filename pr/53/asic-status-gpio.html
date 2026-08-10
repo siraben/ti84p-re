@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -701,20 +701,20 @@ are consequently <code>0xC7</code>, <code>0x03</code>, and <code>0x0B</code> aft
 routine does not restore these fields. This is MAME reset behavior and does
 not establish calculator warm-reset retention. [standard]</p>
 <h2 id="emulator-comparison"><a class="header" href="#emulator-comparison">Emulator comparison</a></h2>
-<p>The three pinned implementations disagree on every control group not already
+<p>The four pinned implementations disagree on several control groups not already
 established by ROM use. Their values are test oracles for the software, not
 physical ASIC measurements.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
+<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Port <code>0x02</code></td><td>dynamic comparator, LCD-ready, and Flash lock; family bits 5–7 set</td><td>same layout, with the TI-84 Plus comparator fixed high</td><td>`0xC3</td></tr>
-<tr><td>Port <code>0x15</code></td><td>fixed <code>0x45</code></td><td>model and RAM-revision dependent</td><td>fixed <code>0x33</code></td></tr>
-<tr><td>Port <code>0x21</code> accepted readback</td><td><code>value &amp; 0x33</code>, subject to Flash unlock</td><td>only bits 0–1 survive its read defect</td><td><code>value &amp; 0x0F</code>, without protected-write gating</td></tr>
-<tr><td>GPIO</td><td>port <code>0x39</code> fixed at <code>0xF0</code>; no meaningful TI-84 Plus port <code>0x3A</code></td><td>port <code>0x3A</code> latch; port <code>0x39</code> absent</td><td>both ports absent</td></tr>
-<tr><td>Driver status</td><td>usable model with unmeasured battery thresholds</td><td>usable model with implementation-specific defects</td><td>TI-84 Plus marked <code>MACHINE_NOT_WORKING</code></td></tr>
+<tr><td>Port <code>0x02</code></td><td>dynamic comparator, LCD-ready, and Flash lock; family bits 5–7 set</td><td>same layout, with the TI-84 Plus comparator fixed high</td><td>`0xC3</td><td>(raw gate &lt;&lt; 2)`, truncated to a byte</td></tr>
+<tr><td>Port <code>0x15</code></td><td>fixed <code>0x45</code></td><td>model and RAM-revision dependent</td><td>fixed <code>0x33</code></td><td>model-dependent identity value</td></tr>
+<tr><td>Port <code>0x21</code> accepted readback</td><td><code>value &amp; 0x33</code>, subject to Flash unlock</td><td>only bits 0–1 survive its read defect</td><td><code>value &amp; 0x0F</code>, without protected-write gating</td><td>stored while Flash-unlocked and used for page-level execution groups</td></tr>
+<tr><td>GPIO</td><td>port <code>0x39</code> fixed at <code>0xF0</code>; no meaningful TI-84 Plus port <code>0x3A</code></td><td>port <code>0x3A</code> latch; port <code>0x39</code> absent</td><td>both ports absent</td><td>software latches without physical GPIO modeling</td></tr>
+<tr><td>Driver status</td><td>usable model with unmeasured battery thresholds</td><td>usable model with implementation-specific defects</td><td>TI-84 Plus marked <code>MACHINE_NOT_WORKING</code></td><td>browser emulator source model</td></tr>
 </tbody>
 </table>
 </div>
@@ -815,6 +815,7 @@ externally forced pins against the ASIC.</li>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code> at <code>f56ad63</code></a></td><td>Battery table, status read, identity constant, protection mode, and fixed GPIO read</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code> at <code>48c2dc0</code></a></td><td>Independent port models and the port-<code>0x21</code> read defect</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>shared I/O map, fixed status and identity reads, port-<code>0x21</code> mask, missing GPIO, and driver status</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth status, identity, protected-write, execution-group, and software-GPIO model</td></tr>
 </tbody>
 </table>
 </div>

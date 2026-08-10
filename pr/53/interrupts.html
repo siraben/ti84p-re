@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -407,16 +407,16 @@ MAME_IO frame=31 pc_after=0977 IN (0x04) -&gt; 0x01
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Behavior</th><th>TilEm x4</th><th>Wabbitemu 83+SE/84+</th><th>Consequence</th></tr>
+<tr><th>Behavior</th><th>TilEm x4</th><th>Wabbitemu 83+SE/84+</th><th>jsTIfied <code>20170706a</code></th><th>Consequence</th></tr>
 </thead>
 <tbody>
-<tr><td>Port <code>0x03</code> read</td><td>returns stored mask</td><td>returns stored mask</td><td>mask reads agree [standard]</td></tr>
-<tr><td>Legacy clear-on-zero</td><td>clears ON, timer 1, timer 2, and link pending state on port-<code>0x03</code> writes</td><td>clears ON directly; disabling an overdue standard timer catches its phase up in the same port-<code>0x03</code> handler; port <code>0x02</code> can also catch it up</td><td>OS-style ON and standard-timer acknowledgement works, but no link latch exists [standard]</td></tr>
-<tr><td>Link status</td><td>implements port-<code>0x04</code> bit 4</td><td>omits bit 4 from port-<code>0x04</code> reads</td><td>link wake cannot be cross-checked there [standard]</td></tr>
-<tr><td>Standard timers</td><td>explicit pending interrupt bits when enabled</td><td>derives status from elapsed phase while enabled</td><td>simultaneous-source and latch tests can differ [standard]</td></tr>
-<tr><td>Programmable completion</td><td>exposes finished bits 5–7 independently of interrupt mode</td><td>exposes timer-underflow bits 5–7</td><td>both separate completion from mode, with different timer cores [standard]</td></tr>
-<tr><td><code>HALT</code> behavior</td><td>port-<code>0x03</code> bit 3 selects powered/low-power behavior; standard-timer mask controls programmable wake suppression</td><td>approximates low power by changing LCD activity and suppresses programmable-timer requests while halted</td><td>neither model proves physical ASIC power domains [standard]</td></tr>
-<tr><td>USB gate</td><td>disconnected fixed values <code>0x55 = 0x1F</code>, <code>0x56 = 0</code></td><td>partial <code>Fake USB</code> event model</td><td>connected USB interrupt service needs another test target [standard]</td></tr>
+<tr><td>Port <code>0x03</code> read</td><td>returns stored mask</td><td>returns stored mask</td><td>stores the interrupt mask</td><td>mask reads agree [standard]</td></tr>
+<tr><td>Legacy clear-on-zero</td><td>clears ON, timer 1, timer 2, and link pending state on port-<code>0x03</code> writes</td><td>clears ON directly; disabling an overdue standard timer catches its phase up in the same port-<code>0x03</code> handler; port <code>0x02</code> can also catch it up</td><td>tracks standard-timer and ON latches in emulator state</td><td>OS-style acknowledgement is modeled with different internal policies [standard]</td></tr>
+<tr><td>Link status</td><td>implements port-<code>0x04</code> bit 4</td><td>omits bit 4 from port-<code>0x04</code> reads</td><td>link state participates in the interrupt model</td><td>software agreement does not establish electrical wake behavior [standard]</td></tr>
+<tr><td>Standard timers</td><td>explicit pending interrupt bits when enabled</td><td>derives status from elapsed phase while enabled</td><td>schedules timer state in emulator cycle counters</td><td>simultaneous-source and latch tests can differ [standard]</td></tr>
+<tr><td>Programmable completion</td><td>exposes finished bits 5–7 independently of interrupt mode</td><td>exposes timer-underflow bits 5–7</td><td>retains per-timer completion and loop state</td><td>all separate completion from mode, with different timer cores [standard]</td></tr>
+<tr><td><code>HALT</code> behavior</td><td>port-<code>0x03</code> bit 3 selects powered/low-power behavior; standard-timer mask controls programmable wake suppression</td><td>approximates low power by changing LCD activity and suppresses programmable-timer requests while halted</td><td>halted CPU state is part of the browser scheduler</td><td>no model proves physical ASIC power domains [standard]</td></tr>
+<tr><td>USB gate</td><td>disconnected fixed values <code>0x55 = 0x1F</code>, <code>0x56 = 0</code></td><td>partial <code>Fake USB</code> event model</td><td>fixed disconnected values</td><td>connected USB interrupt service needs another test target [standard]</td></tr>
 </tbody>
 </table>
 </div>
@@ -634,6 +634,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_interrupt_probe.py \
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c"><code>x4_init.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/keypad.c"><code>keypad.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/link.c"><code>link.c</code></a>, and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/timers.c"><code>timers.c</code></a></td><td>legacy latches, reset ordering, ON/link edges, timer completion, <code>HALT</code> policy, and disconnected USB values</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code></a></td><td>independent standard-interrupt, mapping, ON, timer, and low-power implementation</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>TI-84 Plus machine status, I/O map, interrupt masks, standard timers, programmable timers, and fixed USB reads</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth interrupt-mask, timer, ON, link, halted-state, and fixed-USB implementation</td></tr>
 <tr><td>Local OS 2.55MP page-0 bytes</td><td>entry, gates, test order, handlers, acknowledgement, and exit</td></tr>
 <tr><td><code>/tmp/tilem-power-cycle.trace</code></td><td>shutdown and ON-wake execution sequence</td></tr>
 </tbody>

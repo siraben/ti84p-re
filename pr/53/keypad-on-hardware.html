@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -571,20 +571,20 @@ clk=93378899  ram:0493  OUT (0x01) &lt;- 0xff
 </code></pre>
 <p>The all-groups probe finds bit 5 low. The group walk later selects <code>0xBF</code>; bit 5 remains low, producing scan code <code>6 × 8 + 5 + 1 = 0x36</code>, <strong>2nd</strong>. Every sample releases the matrix afterward. [confirmed]</p>
 <h2 id="emulator-comparison"><a class="header" href="#emulator-comparison">Emulator comparison</a></h2>
-<p>All three pinned implementations omit electrical settling and mechanical bounce. Their keypad handlers return the current modeled matrix state without a delay, although MAME’s host input fields latch forced changes on a video-frame update. Their digital matrix algorithms do not agree. [standard]</p>
+<p>All four pinned implementations omit electrical settling and mechanical bounce. Their keypad handlers return the current modeled matrix state without a delay, although MAME’s host input fields latch forced changes on a video-frame update. Their digital matrix algorithms do not all agree. [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
+<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Selected rows</td><td>active-low write, all eight bits</td><td>complements the write, then considers seven rows</td><td>active-low write, seven rows</td></tr>
-<tr><td>Ordinary combination</td><td>OR of selected rows</td><td>OR of selected row results</td><td>XOR of each selected pressed position</td></tr>
-<tr><td>Ghosting</td><td>iterated transitive closure</td><td>one pairwise-overlap pass</td><td>none</td></tr>
-<tr><td>Same-column keys in two selected rows</td><td>remain low</td><td>remain low</td><td>XOR twice and cancel to high</td></tr>
-<tr><td>ON level</td><td>separate active-low port-<code>0x04</code> bit 3</td><td>separate active-low port-<code>0x04</code> bit 3</td><td>separate active-low port-<code>0x04</code> bit 3</td></tr>
-<tr><td>ON request edge</td><td>press and release</td><td>press only</td><td>press only</td></tr>
-<tr><td>ON detection</td><td>injected-state event</td><td>standard-interrupt device evaluation</td><td>fixed 256 Hz timer-1 callback</td></tr>
+<tr><td>Selected rows</td><td>active-low write, all eight bits</td><td>complements the write, then considers seven rows</td><td>active-low write, seven rows</td><td>active-low write and row scan</td></tr>
+<tr><td>Ordinary combination</td><td>OR of selected rows</td><td>OR of selected row results</td><td>XOR of each selected pressed position</td><td>selected key-state rows are combined into an active-low result</td></tr>
+<tr><td>Ghosting</td><td>iterated transitive closure</td><td>one pairwise-overlap pass</td><td>none</td><td>no electrical settling model</td></tr>
+<tr><td>Same-column keys in two selected rows</td><td>remain low</td><td>remain low</td><td>XOR twice and cancel to high</td><td>remain low</td></tr>
+<tr><td>ON level</td><td>separate active-low port-<code>0x04</code> bit 3</td><td>separate active-low port-<code>0x04</code> bit 3</td><td>separate active-low port-<code>0x04</code> bit 3</td><td>separate standard-interrupt state</td></tr>
+<tr><td>ON request edge</td><td>press and release</td><td>press only</td><td>press only</td><td>press only while not already latched</td></tr>
+<tr><td>ON detection</td><td>injected-state event</td><td>standard-interrupt device evaluation</td><td>fixed 256 Hz timer-1 callback</td><td>key-event handler</td></tr>
 </tbody>
 </table>
 </div>
@@ -731,6 +731,7 @@ physical AppVar has been recorded.</li>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/scancodes.h">TilEm <code>scancodes.h</code></a></td><td>injected key identifiers</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/keys.c">Wabbitemu <code>keys.c</code></a> and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c"><code>83psehw.c</code></a></td><td>pairwise matrix algorithm and press-edge ON latch</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>keypad map, XOR scan, and timer-polled ON edge</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth active-low matrix implementation and press-edge ON policy</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:4D47&amp;oldid=10268">WikiTI <code>_AppStartMouse</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:4D53&amp;oldid=3561"><code>_AppEraseMouse</code></a>, and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:4D65&amp;oldid=3210"><code>_AppUpdateMouse</code></a></td><td>literature names and published API synopsis; ROM bytes determine flag ownership and coordinate staging here</td></tr>
 <tr><td>Local headless TilEm <code>trace.c</code> at commit <code>8da5457</code></td><td>key-event trace record format</td></tr>
 </tbody>

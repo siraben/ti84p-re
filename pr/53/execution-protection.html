@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -194,7 +194,7 @@ checks, but several boundary details still require physical measurement.</p>
 <tbody>
 <tr><td>Retail boot page <code>3F</code></td><td>protected writes, register values, and <code>_SetFlashLowerBound</code> behavior</td><td>[confirmed]</td></tr>
 <tr><td>Complete-ROM static I/O scan</td><td>one write each to ports <code>0x21</code>, <code>0x22</code>, <code>0x25</code>, and <code>0x26</code>; two writes to port <code>0x23</code>; no resolved port-<code>0x24</code> access</td><td>[confirmed]</td></tr>
-<tr><td>TilEm x4 and Wabbitemu source</td><td>two executable software models, including their disagreements</td><td>[standard]</td></tr>
+<tr><td>TilEm x4, Wabbitemu, and jsTIfied source</td><td>three executable software models, including their disagreements</td><td>[standard]</td></tr>
 <tr><td>Guarded TilEm boundary traces</td><td>fetch, return, warning, and reset sequences at pages <code>07</code>, <code>08</code>, <code>29</code>, and <code>2A</code></td><td>[confirmed] for the pinned emulator run</td></tr>
 <tr><td>Guarded Wabbitemu boundary runs</td><td>fetch, return, marker, and instrumented reset sequences at pages <code>07</code>, <code>08</code>, <code>09</code>, <code>29</code>, and <code>2A</code></td><td>[confirmed] for the pinned emulator run</td></tr>
 <tr><td>Guarded RAM execution runs</td><td>chunk-edge and mode disagreements under pinned TilEm and Wabbitemu</td><td>[confirmed] for the pinned emulator runs</td></tr>
@@ -294,6 +294,13 @@ published contract and source comparison; [hypothesis] for hardware.</p>
 <p>Both emulator paths apply this rule to opcode fetches. Ordinary Flash data
 reads use a separate path. The locked certificate-page read censor is also a
 separate mechanism. [standard]</p>
+<p>jsTIfied stores ports <code>0x22</code> and <code>0x23</code> only while its Flash gate is open and
+builds page-level <code>run_lock</code> entries. A denied fetch sets its halted/reset state
+to <code>2</code>. Ports <code>0x25</code> and <code>0x26</code> are stored but do not participate in the fetch
+predicate, so jsTIfied cannot test the documented 1 KiB RAM-bound behavior.
+Its port-<code>0x21</code> handler instead rebuilds coarser RAM-page execution groups.
+These are properties of the pinned JavaScript source, not ASIC evidence.
+[standard]</p>
 <p>WikiTI also says page <code>0x00</code> always remains executable and that a forbidden
 fetch resets the calculator. Wabbitemu always permits page 0 and resets the CPU
 on a violation when no debugger callback is installed. TilEm’s interval test
@@ -856,6 +863,8 @@ mode-1 repetition disagreements, the common chunk edge, all four Wabbitemu
 modes, and the <code>0x40</code> wrap case. [standard] for source behavior; [confirmed]
 for the pinned emulator runs.</li>
 <li>The retail ROM has no statically resolved port-<code>0x24</code> access. [confirmed]</li>
+<li>jsTIfied implements page-level Flash and RAM execution groups, but its stored
+ports <code>0x25</code> and <code>0x26</code> do not affect instruction fetches. [standard]</li>
 <li>A guarded initialized-core Wabbitemu run verifies the common protected-write
 gate across ports <code>0x22</code>–<code>0x26</code>, the port-<code>0x24</code> high-field clearing defect,
 and 16-bit RAM-bound wrap at <code>0x40</code> and above. [standard]</li>
@@ -899,6 +908,7 @@ emulator agreement is only a test oracle for emulator behavior.</p>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/device.c">Wabbitemu <code>device.c</code> at <code>48c2dc0</code></a></td><td>global protected-port write gate</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code> at <code>48c2dc0</code></a></td><td>port handlers and port-<code>0x24</code> implementation</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/tree/mame0287/src/mame/ti">MAME <code>ti85.cpp</code> and <code>ti85_m.cpp</code> at <code>mame0287</code></a></td><td>absent execution-protection ports and unused Flash-unlock state</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>protected writes, page-level <code>run_lock</code>, violation reset, and unused stored RAM-bound ports</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:22">WikiTI port <code>0x22</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:23"><code>0x23</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:24"><code>0x24</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:25"><code>0x25</code></a>, and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:26"><code>0x26</code></a></td><td>public register descriptions, treated as secondary evidence</td></tr>
 </tbody>
 </table>

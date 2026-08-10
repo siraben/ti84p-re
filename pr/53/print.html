@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -697,19 +697,19 @@ is a test target rather than a vote. [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Detail</th><th>TilEm</th><th>Wabbitemu</th><th>MAME 0.287</th></tr>
+<tr><th>Detail</th><th>TilEm</th><th>Wabbitemu</th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Mapper ports</td><td><code>0x04</code>–<code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, <code>0x28</code></td><td>same</td><td>only <code>0x04</code>–<code>0x07</code></td></tr>
-<tr><td>Declared driver status</td><td>usable mapper</td><td>usable mapper</td><td><code>MACHINE_NOT_WORKING</code></td></tr>
-<tr><td>port <code>0x05</code> write</td><td>stores low four bits; maps low three</td><td>reduces low seven bits by RAM-page count</td><td>stores low three bits</td></tr>
-<tr><td>TI-84 Plus Flash selector</td><td>low six bits</td><td>extended formula, then Flash-size mask</td><td>low six bits for values below <code>0x80</code></td></tr>
-<tr><td>RAM selector</td><td>low three bits</td><td>low bits masked by RAM-page count</td><td>raw value <code>0x80</code>–<code>0xFF</code> becomes the bank number</td></tr>
-<tr><td>paired A</td><td>port-<code>0x06</code> page with bit 0 clear</td><td>same</td><td>same</td></tr>
-<tr><td>paired B</td><td>port-<code>0x06</code> page with bit 0 set</td><td>see expression bug below</td><td>port-<code>0x06</code> page with bit 0 set</td></tr>
-<tr><td>paired C</td><td>port-<code>0x07</code> page</td><td>same</td><td>same</td></tr>
-<tr><td>paired reads from <code>0x05</code>–<code>0x07</code></td><td>stored register values</td><td>active C/A/B page values</td><td>stored register values</td></tr>
-<tr><td>forced-RAM overlays</td><td>both modes</td><td>independent mode only</td><td>absent</td></tr>
+<tr><td>Mapper ports</td><td><code>0x04</code>–<code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, <code>0x28</code></td><td>same</td><td>only <code>0x04</code>–<code>0x07</code></td><td><code>0x04</code>–<code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, <code>0x28</code></td></tr>
+<tr><td>Declared driver status</td><td>usable mapper</td><td>usable mapper</td><td><code>MACHINE_NOT_WORKING</code></td><td>browser emulator source model</td></tr>
+<tr><td>port <code>0x05</code> write</td><td>stores low four bits; maps low three</td><td>reduces low seven bits by RAM-page count</td><td>stores low three bits</td><td>selects window C on TI-84 Plus</td></tr>
+<tr><td>TI-84 Plus Flash selector</td><td>low six bits</td><td>extended formula, then Flash-size mask</td><td>low six bits for values below <code>0x80</code></td><td>low selector plus ports <code>0x0E</code>/<code>0x0F</code> extensions</td></tr>
+<tr><td>RAM selector</td><td>low three bits</td><td>low bits masked by RAM-page count</td><td>raw value <code>0x80</code>–<code>0xFF</code> becomes the bank number</td><td><code>0x80</code> flag plus low three-bit page</td></tr>
+<tr><td>paired A</td><td>port-<code>0x06</code> page with bit 0 clear</td><td>same</td><td>same</td><td>even member selected from port <code>0x06</code></td></tr>
+<tr><td>paired B</td><td>port-<code>0x06</code> page with bit 0 set</td><td>see expression bug below</td><td>port-<code>0x06</code> page with bit 0 set</td><td>adjacent odd member</td></tr>
+<tr><td>paired C</td><td>port-<code>0x07</code> page</td><td>same</td><td>same</td><td>port-<code>0x07</code> page</td></tr>
+<tr><td>paired reads from <code>0x05</code>–<code>0x07</code></td><td>stored register values</td><td>active C/A/B page values</td><td>stored register values</td><td>stored selector state</td></tr>
+<tr><td>forced-RAM overlays</td><td>both modes</td><td>independent mode only</td><td>absent</td><td>implemented</td></tr>
 </tbody>
 </table>
 </div>
@@ -1058,6 +1058,7 @@ the physical page independently of MAME’s seven-page backing-map defect.</li>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a> and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c"><code>x4_memory.c</code></a></td><td>mapping modes, 64-page masks, overlays, and protection order</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code></a> and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c"><code>core.c</code></a></td><td>extended selectors, paired mode, overlays, and independent comparison</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>mapped ports, bank backing, selector writes, reset mapping, and read-latch behavior</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth source implementation of selector, paired-mode, and overlay routing; the deployed artifact is pinned by <code>tools/jstified_hardware.py</code></td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:04">WikiTI port <code>0x04</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:0E"><code>0x0E</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:0F"><code>0x0F</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:27"><code>0x27</code></a>, and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:28"><code>0x28</code></a></td><td>historical public register descriptions checked against ROM and emulators</td></tr>
 </tbody>
 </table>
@@ -1334,17 +1335,17 @@ run; [hypothesis] for the physical divisor.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Behavior</th><th>TilEm</th><th>Wabbitemu</th><th>MAME 0.287</th></tr>
+<tr><th>Behavior</th><th>TilEm</th><th>Wabbitemu</th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Port-<code>0x20</code> write</td><td>low two bits select modes 0–3; nonzero runs at 15 MHz</td><td>default TI-84 Plus state clamps modes 2–3 to mode 1; external <code>extraSpeed</code> enables 20/25 MHz</td><td>stores the raw byte; zero selects 6 MHz and any nonzero value selects 15 MHz</td></tr>
-<tr><td>Active <code>0x29</code>–<code>0x2C</code> register</td><td>indexed by port <code>0x20 &amp; 3</code></td><td>indexed by the accepted CPU-speed mode</td><td>registers absent</td></tr>
-<tr><td>LCD instruction addition</td><td>active byte shifted right by two</td><td>same</td><td>absent</td></tr>
-<tr><td>Memory gates and <code>0x2E</code> bits</td><td>all six access classes</td><td>all six access classes</td><td>absent</td></tr>
-<tr><td>Port <code>0x2D</code></td><td>low-power control outside this block</td><td>raw fifth delay latch; no timer or low-power transition</td><td>absent</td></tr>
-<tr><td>High-speed ready start</td><td>every LCD-port read or write</td><td>last successful LCD write</td><td>programmable interval absent</td></tr>
-<tr><td>LCD controller rejection</td><td>ready bit and controller model</td><td>also has a separate fixed 60-T-state controller-access guard</td><td>T6A04 device behavior without the ASIC delay block</td></tr>
-<tr><td>Mode-3 timer prescaler</td><td>not modeled</td><td>not modeled in the compared timer path</td><td>not modeled</td></tr>
+<tr><td>Port-<code>0x20</code> write</td><td>low two bits select modes 0–3; nonzero runs at 15 MHz</td><td>default TI-84 Plus state clamps modes 2–3 to mode 1; external <code>extraSpeed</code> enables 20/25 MHz</td><td>stores the raw byte; zero selects 6 MHz and any nonzero value selects 15 MHz</td><td>selects the browser emulator’s CPU-speed state</td></tr>
+<tr><td>Active <code>0x29</code>–<code>0x2C</code> register</td><td>indexed by port <code>0x20 &amp; 3</code></td><td>indexed by the accepted CPU-speed mode</td><td>registers absent</td><td>delay values are stored</td></tr>
+<tr><td>LCD instruction addition</td><td>active byte shifted right by two</td><td>same</td><td>absent</td><td>LCD uses its own busy interval</td></tr>
+<tr><td>Memory gates and <code>0x2E</code> bits</td><td>all six access classes</td><td>all six access classes</td><td>absent</td><td>no source-equivalent per-access wait insertion identified</td></tr>
+<tr><td>Port <code>0x2D</code></td><td>low-power control outside this block</td><td>raw fifth delay latch; no timer or low-power transition</td><td>absent</td><td>stored control state</td></tr>
+<tr><td>High-speed ready start</td><td>every LCD-port read or write</td><td>last successful LCD write</td><td>programmable interval absent</td><td>LCD readiness uses randomized controller timing</td></tr>
+<tr><td>LCD controller rejection</td><td>ready bit and controller model</td><td>also has a separate fixed 60-T-state controller-access guard</td><td>T6A04 device behavior without the ASIC delay block</td><td>controller transfers use the jsTIfied LCD timer</td></tr>
+<tr><td>Mode-3 timer prescaler</td><td>not modeled</td><td>not modeled in the compared timer path</td><td>not modeled</td><td>not modeled in the timer-source decoder</td></tr>
 </tbody>
 </table>
 </div>
@@ -1382,7 +1383,8 @@ describe Wabbitemu’s registered handler, not physical low-power behavior.
    3    0x2C  0x3B   15     14T     M1,write       write          176T       /3
 </code></pre>
 <p><code>doc-div</code> is the public port-<code>0x2F</code> divisor decode. It is not an emulator claim.
-Compare the three pinned implementations, including ignored MAME writes, with:</p>
+Compare the four pinned implementations, including ignored MAME writes and
+jsTIfied’s stored-delay model, with:</p>
 <pre><code class="language-sh">nix develop -c python tools/describe_bus_timing.py --compare
 nix develop -c python tools/describe_bus_timing.py --compare --json
 </code></pre>
@@ -1477,6 +1479,7 @@ revisions.</li>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c"><code>x4_memory.c</code></a>, and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c"><code>x4_init.c</code></a></td><td>delay decode, cycle placement, ready timer, and reset defaults</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code></a> and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c"><code>core.c</code></a></td><td>independent delay decode, cycle placement, and readiness comparison</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>mapped I/O ports, raw speed readback, binary clock selection, and absent delay block</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth CPU-speed, stored-delay, LCD-ready, and timer-source comparison</td></tr>
 </tbody>
 </table>
 </div>
@@ -2003,20 +2006,20 @@ are consequently <code>0xC7</code>, <code>0x03</code>, and <code>0x0B</code> aft
 routine does not restore these fields. This is MAME reset behavior and does
 not establish calculator warm-reset retention. [standard]</p>
 <h2 id="emulator-comparison-1"><a class="header" href="#emulator-comparison-1">Emulator comparison</a></h2>
-<p>The three pinned implementations disagree on every control group not already
+<p>The four pinned implementations disagree on several control groups not already
 established by ROM use. Their values are test oracles for the software, not
 physical ASIC measurements.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
+<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Port <code>0x02</code></td><td>dynamic comparator, LCD-ready, and Flash lock; family bits 5–7 set</td><td>same layout, with the TI-84 Plus comparator fixed high</td><td>`0xC3</td></tr>
-<tr><td>Port <code>0x15</code></td><td>fixed <code>0x45</code></td><td>model and RAM-revision dependent</td><td>fixed <code>0x33</code></td></tr>
-<tr><td>Port <code>0x21</code> accepted readback</td><td><code>value &amp; 0x33</code>, subject to Flash unlock</td><td>only bits 0–1 survive its read defect</td><td><code>value &amp; 0x0F</code>, without protected-write gating</td></tr>
-<tr><td>GPIO</td><td>port <code>0x39</code> fixed at <code>0xF0</code>; no meaningful TI-84 Plus port <code>0x3A</code></td><td>port <code>0x3A</code> latch; port <code>0x39</code> absent</td><td>both ports absent</td></tr>
-<tr><td>Driver status</td><td>usable model with unmeasured battery thresholds</td><td>usable model with implementation-specific defects</td><td>TI-84 Plus marked <code>MACHINE_NOT_WORKING</code></td></tr>
+<tr><td>Port <code>0x02</code></td><td>dynamic comparator, LCD-ready, and Flash lock; family bits 5–7 set</td><td>same layout, with the TI-84 Plus comparator fixed high</td><td>`0xC3</td><td>(raw gate &lt;&lt; 2)`, truncated to a byte</td></tr>
+<tr><td>Port <code>0x15</code></td><td>fixed <code>0x45</code></td><td>model and RAM-revision dependent</td><td>fixed <code>0x33</code></td><td>model-dependent identity value</td></tr>
+<tr><td>Port <code>0x21</code> accepted readback</td><td><code>value &amp; 0x33</code>, subject to Flash unlock</td><td>only bits 0–1 survive its read defect</td><td><code>value &amp; 0x0F</code>, without protected-write gating</td><td>stored while Flash-unlocked and used for page-level execution groups</td></tr>
+<tr><td>GPIO</td><td>port <code>0x39</code> fixed at <code>0xF0</code>; no meaningful TI-84 Plus port <code>0x3A</code></td><td>port <code>0x3A</code> latch; port <code>0x39</code> absent</td><td>both ports absent</td><td>software latches without physical GPIO modeling</td></tr>
+<tr><td>Driver status</td><td>usable model with unmeasured battery thresholds</td><td>usable model with implementation-specific defects</td><td>TI-84 Plus marked <code>MACHINE_NOT_WORKING</code></td><td>browser emulator source model</td></tr>
 </tbody>
 </table>
 </div>
@@ -2117,6 +2120,7 @@ externally forced pins against the ASIC.</li>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code> at <code>f56ad63</code></a></td><td>Battery table, status read, identity constant, protection mode, and fixed GPIO read</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code> at <code>48c2dc0</code></a></td><td>Independent port models and the port-<code>0x21</code> read defect</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>shared I/O map, fixed status and identity reads, port-<code>0x21</code> mask, missing GPIO, and driver status</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth status, identity, protected-write, execution-group, and software-GPIO model</td></tr>
 </tbody>
 </table>
 </div>
@@ -2136,7 +2140,7 @@ checks, but several boundary details still require physical measurement.</p>
 <tbody>
 <tr><td>Retail boot page <code>3F</code></td><td>protected writes, register values, and <code>_SetFlashLowerBound</code> behavior</td><td>[confirmed]</td></tr>
 <tr><td>Complete-ROM static I/O scan</td><td>one write each to ports <code>0x21</code>, <code>0x22</code>, <code>0x25</code>, and <code>0x26</code>; two writes to port <code>0x23</code>; no resolved port-<code>0x24</code> access</td><td>[confirmed]</td></tr>
-<tr><td>TilEm x4 and Wabbitemu source</td><td>two executable software models, including their disagreements</td><td>[standard]</td></tr>
+<tr><td>TilEm x4, Wabbitemu, and jsTIfied source</td><td>three executable software models, including their disagreements</td><td>[standard]</td></tr>
 <tr><td>Guarded TilEm boundary traces</td><td>fetch, return, warning, and reset sequences at pages <code>07</code>, <code>08</code>, <code>29</code>, and <code>2A</code></td><td>[confirmed] for the pinned emulator run</td></tr>
 <tr><td>Guarded Wabbitemu boundary runs</td><td>fetch, return, marker, and instrumented reset sequences at pages <code>07</code>, <code>08</code>, <code>09</code>, <code>29</code>, and <code>2A</code></td><td>[confirmed] for the pinned emulator run</td></tr>
 <tr><td>Guarded RAM execution runs</td><td>chunk-edge and mode disagreements under pinned TilEm and Wabbitemu</td><td>[confirmed] for the pinned emulator runs</td></tr>
@@ -2236,6 +2240,13 @@ published contract and source comparison; [hypothesis] for hardware.</p>
 <p>Both emulator paths apply this rule to opcode fetches. Ordinary Flash data
 reads use a separate path. The locked certificate-page read censor is also a
 separate mechanism. [standard]</p>
+<p>jsTIfied stores ports <code>0x22</code> and <code>0x23</code> only while its Flash gate is open and
+builds page-level <code>run_lock</code> entries. A denied fetch sets its halted/reset state
+to <code>2</code>. Ports <code>0x25</code> and <code>0x26</code> are stored but do not participate in the fetch
+predicate, so jsTIfied cannot test the documented 1 KiB RAM-bound behavior.
+Its port-<code>0x21</code> handler instead rebuilds coarser RAM-page execution groups.
+These are properties of the pinned JavaScript source, not ASIC evidence.
+[standard]</p>
 <p>WikiTI also says page <code>0x00</code> always remains executable and that a forbidden
 fetch resets the calculator. Wabbitemu always permits page 0 and resets the CPU
 on a violation when no debugger callback is installed. TilEm’s interval test
@@ -2798,6 +2809,8 @@ mode-1 repetition disagreements, the common chunk edge, all four Wabbitemu
 modes, and the <code>0x40</code> wrap case. [standard] for source behavior; [confirmed]
 for the pinned emulator runs.</li>
 <li>The retail ROM has no statically resolved port-<code>0x24</code> access. [confirmed]</li>
+<li>jsTIfied implements page-level Flash and RAM execution groups, but its stored
+ports <code>0x25</code> and <code>0x26</code> do not affect instruction fetches. [standard]</li>
 <li>A guarded initialized-core Wabbitemu run verifies the common protected-write
 gate across ports <code>0x22</code>–<code>0x26</code>, the port-<code>0x24</code> high-field clearing defect,
 and 16-bit RAM-bound wrap at <code>0x40</code> and above. [standard]</li>
@@ -2841,6 +2854,7 @@ emulator agreement is only a test oracle for emulator behavior.</p>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/device.c">Wabbitemu <code>device.c</code> at <code>48c2dc0</code></a></td><td>global protected-port write gate</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code> at <code>48c2dc0</code></a></td><td>port handlers and port-<code>0x24</code> implementation</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/tree/mame0287/src/mame/ti">MAME <code>ti85.cpp</code> and <code>ti85_m.cpp</code> at <code>mame0287</code></a></td><td>absent execution-protection ports and unused Flash-unlock state</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>protected writes, page-level <code>run_lock</code>, violation reset, and unused stored RAM-bound ports</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:22">WikiTI port <code>0x22</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:23"><code>0x23</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:24"><code>0x24</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:25"><code>0x25</code></a>, and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:26"><code>0x26</code></a></td><td>public register descriptions, treated as secondary evidence</td></tr>
 </tbody>
 </table>
@@ -3140,16 +3154,16 @@ MAME_IO frame=31 pc_after=0977 IN (0x04) -&gt; 0x01
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Behavior</th><th>TilEm x4</th><th>Wabbitemu 83+SE/84+</th><th>Consequence</th></tr>
+<tr><th>Behavior</th><th>TilEm x4</th><th>Wabbitemu 83+SE/84+</th><th>jsTIfied <code>20170706a</code></th><th>Consequence</th></tr>
 </thead>
 <tbody>
-<tr><td>Port <code>0x03</code> read</td><td>returns stored mask</td><td>returns stored mask</td><td>mask reads agree [standard]</td></tr>
-<tr><td>Legacy clear-on-zero</td><td>clears ON, timer 1, timer 2, and link pending state on port-<code>0x03</code> writes</td><td>clears ON directly; disabling an overdue standard timer catches its phase up in the same port-<code>0x03</code> handler; port <code>0x02</code> can also catch it up</td><td>OS-style ON and standard-timer acknowledgement works, but no link latch exists [standard]</td></tr>
-<tr><td>Link status</td><td>implements port-<code>0x04</code> bit 4</td><td>omits bit 4 from port-<code>0x04</code> reads</td><td>link wake cannot be cross-checked there [standard]</td></tr>
-<tr><td>Standard timers</td><td>explicit pending interrupt bits when enabled</td><td>derives status from elapsed phase while enabled</td><td>simultaneous-source and latch tests can differ [standard]</td></tr>
-<tr><td>Programmable completion</td><td>exposes finished bits 5–7 independently of interrupt mode</td><td>exposes timer-underflow bits 5–7</td><td>both separate completion from mode, with different timer cores [standard]</td></tr>
-<tr><td><code>HALT</code> behavior</td><td>port-<code>0x03</code> bit 3 selects powered/low-power behavior; standard-timer mask controls programmable wake suppression</td><td>approximates low power by changing LCD activity and suppresses programmable-timer requests while halted</td><td>neither model proves physical ASIC power domains [standard]</td></tr>
-<tr><td>USB gate</td><td>disconnected fixed values <code>0x55 = 0x1F</code>, <code>0x56 = 0</code></td><td>partial <code>Fake USB</code> event model</td><td>connected USB interrupt service needs another test target [standard]</td></tr>
+<tr><td>Port <code>0x03</code> read</td><td>returns stored mask</td><td>returns stored mask</td><td>stores the interrupt mask</td><td>mask reads agree [standard]</td></tr>
+<tr><td>Legacy clear-on-zero</td><td>clears ON, timer 1, timer 2, and link pending state on port-<code>0x03</code> writes</td><td>clears ON directly; disabling an overdue standard timer catches its phase up in the same port-<code>0x03</code> handler; port <code>0x02</code> can also catch it up</td><td>tracks standard-timer and ON latches in emulator state</td><td>OS-style acknowledgement is modeled with different internal policies [standard]</td></tr>
+<tr><td>Link status</td><td>implements port-<code>0x04</code> bit 4</td><td>omits bit 4 from port-<code>0x04</code> reads</td><td>link state participates in the interrupt model</td><td>software agreement does not establish electrical wake behavior [standard]</td></tr>
+<tr><td>Standard timers</td><td>explicit pending interrupt bits when enabled</td><td>derives status from elapsed phase while enabled</td><td>schedules timer state in emulator cycle counters</td><td>simultaneous-source and latch tests can differ [standard]</td></tr>
+<tr><td>Programmable completion</td><td>exposes finished bits 5–7 independently of interrupt mode</td><td>exposes timer-underflow bits 5–7</td><td>retains per-timer completion and loop state</td><td>all separate completion from mode, with different timer cores [standard]</td></tr>
+<tr><td><code>HALT</code> behavior</td><td>port-<code>0x03</code> bit 3 selects powered/low-power behavior; standard-timer mask controls programmable wake suppression</td><td>approximates low power by changing LCD activity and suppresses programmable-timer requests while halted</td><td>halted CPU state is part of the browser scheduler</td><td>no model proves physical ASIC power domains [standard]</td></tr>
+<tr><td>USB gate</td><td>disconnected fixed values <code>0x55 = 0x1F</code>, <code>0x56 = 0</code></td><td>partial <code>Fake USB</code> event model</td><td>fixed disconnected values</td><td>connected USB interrupt service needs another test target [standard]</td></tr>
 </tbody>
 </table>
 </div>
@@ -3367,6 +3381,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_interrupt_probe.py \
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c"><code>x4_init.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/keypad.c"><code>keypad.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/link.c"><code>link.c</code></a>, and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/timers.c"><code>timers.c</code></a></td><td>legacy latches, reset ordering, ON/link edges, timer completion, <code>HALT</code> policy, and disconnected USB values</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code></a></td><td>independent standard-interrupt, mapping, ON, timer, and low-power implementation</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>TI-84 Plus machine status, I/O map, interrupt masks, standard timers, programmable timers, and fixed USB reads</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth interrupt-mask, timer, ON, link, halted-state, and fixed-USB implementation</td></tr>
 <tr><td>Local OS 2.55MP page-0 bytes</td><td>entry, gates, test order, handlers, acknowledgement, and exit</td></tr>
 <tr><td><code>/tmp/tilem-power-cycle.trace</code></td><td>shutdown and ON-wake execution sequence</td></tr>
 </tbody>
@@ -3388,7 +3403,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_interrupt_probe.py \
 <tr><td>TI-OS banked code</td><td><code>33:5E1E</code>–<code>33:5F69</code> and <code>37:5359</code>–<code>37:5950</code></td><td>programmable-timer API and RTC conversion/access [confirmed]</td></tr>
 <tr><td>TI-OS dynamic execution</td><td><code>tools/macros/power-cycle.macro</code> and resolved TilEm traces</td><td>standard-timer cadence and the explicit shutdown/HALT path [confirmed]</td></tr>
 <tr><td>Public hardware notes</td><td>WikiTI ports <code>0x03</code>, <code>0x04</code>, <code>0x20</code>, <code>0x2D</code>, <code>0x2F</code>, <code>0x30</code>–<code>0x38</code>, and <code>0x40</code>–<code>0x48</code></td><td>register semantics and oscillator-derived rates [standard]</td></tr>
-<tr><td>Emulator models</td><td>TilEm commit <code>f56ad63</code>, Wabbitemu commit <code>48c2dc0</code>, and MAME 0.287</td><td>independent timer decode, scheduling, status, interrupt, and RTC policies [standard]</td></tr>
+<tr><td>Emulator models</td><td>TilEm commit <code>f56ad63</code>, Wabbitemu commit <code>48c2dc0</code>, MAME 0.287, and jsTIfied <code>20170706a</code></td><td>independent timer decode, scheduling, status, interrupt, and RTC policies [standard]</td></tr>
 <tr><td>Native emulator execution</td><td>guarded TilEm, Wabbitemu, and MAME timer/interrupt runs</td><td>source decode, scheduling, counter, acknowledgement, callback, HALT-line, reset, and RTC transitions [standard]</td></tr>
 </tbody>
 </table>
@@ -3810,16 +3825,16 @@ nix develop -c python tools/tilem_trace_resolve.py \
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Area</th><th>Documented contract</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
+<tr><th>Area</th><th>Documented contract</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Crystal divisors for <code>0x40</code>–<code>0x43</code></td><td><code>3</code>, <code>33</code>, <code>328</code>, <code>3277</code></td><td><code>3</code>, <code>33</code>, <code>328</code>, <code>3277</code></td><td><code>3</code>, <code>32</code>, <code>327</code>, <code>3276</code></td><td><code>3</code>, <code>32</code>, <code>327</code>, <code>3276</code></td></tr>
-<tr><td>CPU families</td><td>CPU clock divided by 1–64</td><td>implemented</td><td>implemented</td><td>all nonzero values instead use 32.768 kHz and the low-three-bit crystal table</td></tr>
-<tr><td>Mode-3 source</td><td>additional port-<code>0x2F</code> divisor</td><td>ordinary CPU-family decode</td><td>ordinary CPU-family decode</td><td>same fixed-crystal decode; port <code>0x2F</code> is unmapped</td></tr>
-<tr><td>Counter <code>0</code></td><td>recurring 256-count timer without completion</td><td>implemented</td><td>reaches ordinary underflow after 256 decrements</td><td>never decremented by the callback</td></tr>
-<tr><td>Mode bit 1</td><td>set requests interrupt</td><td>set requests interrupt</td><td>set requests interrupt</td><td>clear requests interrupt</td></tr>
-<tr><td>Mode/status bit 2</td><td>missed acknowledgement/overflow</td><td>set on a second unacknowledged expiry</td><td>set on the first underflow</td><td>never exposed; mode writes retain only bits 0–1</td></tr>
-<tr><td>RTC</td><td>ports <code>0x40</code>–<code>0x48</code></td><td>host wall time plus offset</td><td>emulated elapsed time plus base</td><td>unmapped</td></tr>
+<tr><td>Crystal divisors for <code>0x40</code>–<code>0x43</code></td><td><code>3</code>, <code>33</code>, <code>328</code>, <code>3277</code></td><td><code>3</code>, <code>33</code>, <code>328</code>, <code>3277</code></td><td><code>3</code>, <code>32</code>, <code>327</code>, <code>3276</code></td><td><code>3</code>, <code>32</code>, <code>327</code>, <code>3276</code></td><td><code>3</code>, <code>33</code>, <code>328</code>, <code>3277</code></td></tr>
+<tr><td>CPU families</td><td>CPU clock divided by 1–64</td><td>implemented</td><td>implemented</td><td>all nonzero values instead use 32.768 kHz and the low-three-bit crystal table</td><td>implemented with divisors 1–64</td></tr>
+<tr><td>Mode-3 source</td><td>additional port-<code>0x2F</code> divisor</td><td>ordinary CPU-family decode</td><td>ordinary CPU-family decode</td><td>same fixed-crystal decode; port <code>0x2F</code> is unmapped</td><td>ordinary CPU-family decode</td></tr>
+<tr><td>Counter <code>0</code></td><td>recurring 256-count timer without completion</td><td>implemented</td><td>reaches ordinary underflow after 256 decrements</td><td>never decremented by the callback</td><td>scheduled by the same countdown path as other reload values</td></tr>
+<tr><td>Mode bit 1</td><td>set requests interrupt</td><td>set requests interrupt</td><td>set requests interrupt</td><td>clear requests interrupt</td><td>set requests interrupt</td></tr>
+<tr><td>Mode/status bit 2</td><td>missed acknowledgement/overflow</td><td>set on a second unacknowledged expiry</td><td>set on the first underflow</td><td>never exposed; mode writes retain only bits 0–1</td><td>completion/loop state is held in emulator timer fields</td></tr>
+<tr><td>RTC</td><td>ports <code>0x40</code>–<code>0x48</code></td><td>host wall time plus offset</td><td>emulated elapsed time plus base</td><td>unmapped</td><td>implemented</td></tr>
 </tbody>
 </table>
 </div>
@@ -3901,7 +3916,7 @@ mode/status <code>0x04</code> and port <code>0x04 = 0x68</code>; both expiry sam
 All saved timer, speed, port-<code>0x2F</code>, power-control, and interrupt-mask fields
 compare equal after cleanup. [confirmed] for the pinned Wabbitemu run.</p>
 <p>The shared injected-program adapter has SHA-256
-<code>617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce</code>.
+<code>3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e</code>.
 The machine-code SHA-256 is
 <code>6767caf1d714bc15e642de2f791151a060015fa0d9faebe1ebddd92d184df68a</code>.
 This execution does not create the result AppVar or measure physical timing.</p>
@@ -3920,7 +3935,7 @@ both masks: clearing their pending fields after reset allows both to regenerate
 status <code>0x0E</code> during the next frame. These are MAME scheduler and reset results,
 not physical timer periods or retention. [standard]</p>
 <h2 id="reusable-timer-tools"><a class="header" href="#reusable-timer-tools">Reusable timer tools</a></h2>
-<p><code>tools/timer_hardware.py</code> exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM’s radix-255 chunks, RTC implementation profiles, and the physical-probe discriminator. <code>tools/describe_timer_hardware.py</code> is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models. <code>tools/tilem_timer.py</code> adds the complete direct-core programmable-timer and deterministic RTC matrix. <code>tools/tilem_interrupt.py</code> adds direct standard-timer scheduling and programmable-timer HALT-gate observations. <code>tools/mame_interrupt.py</code> adds fixed standard-timer and reset-retention observations through the immutable MAME state in <code>tools/interrupt_controller.py</code>. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-<code>0x2D</code> implementation edges use <code>tools/wabbitemu_speed_probe.py</code> and its guarded CLI. <code>tools/run_wabbitemu_timer_physical_probe.py</code> executes the assembled physical discriminator through the shared injected-program runner. These are emulator-comparison tools, not physical-hardware simulators.</p>
+<p><code>tools/timer_hardware.py</code> exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM’s radix-255 chunks, RTC implementation profiles, and the physical-probe discriminator. <code>tools/describe_timer_hardware.py</code> is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models; <code>tools/jstified_hardware.py</code> supplies a separately hash-guarded source profile without claiming a native run. <code>tools/tilem_timer.py</code> adds the complete direct-core programmable-timer and deterministic RTC matrix. <code>tools/tilem_interrupt.py</code> adds direct standard-timer scheduling and programmable-timer HALT-gate observations. <code>tools/mame_interrupt.py</code> adds fixed standard-timer and reset-retention observations through the immutable MAME state in <code>tools/interrupt_controller.py</code>. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-<code>0x2D</code> implementation edges use <code>tools/wabbitemu_speed_probe.py</code> and its guarded CLI. <code>tools/run_wabbitemu_timer_physical_probe.py</code> executes the assembled physical discriminator through the shared injected-program runner. These are emulator-comparison tools, not physical-hardware simulators.</p>
 <pre><code class="language-sh">nix develop -c python tools/describe_timer_hardware.py \
   source 0x41 0x80 0xC0 --mode3-prescaler 4
 
@@ -3944,7 +3959,7 @@ nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --expected-binary-sha256 \
-    617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce \
+    3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
   --output-dir "$physical_timer_parent/run" --json
 
 mame_timer_parent=$(mktemp -d /tmp/ti84-mame-timer.XXXXXX)
@@ -3962,7 +3977,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 <li>[confirmed] The timer bcall API exposes only ID <code>0x70</code>, uses radix-255 duration chunking, and keeps a saturating expiry count.</li>
 <li>[confirmed] Explicit power-off and APD share the low-power tail at <code>ram:0A24</code>.</li>
 <li>[standard] TilEm matches the published <code>33</code>/<code>328</code>/<code>3277</code> crystal divisors; pinned Wabbitemu and MAME sources use <code>32</code>/<code>327</code>/<code>3276</code>.</li>
-<li>[standard] TilEm, Wabbitemu, and MAME all omit the published port-<code>0x2F</code> prescaler from their <code>0xC0</code>-family timer models.</li>
+<li>[standard] TilEm, Wabbitemu, MAME, and jsTIfied all omit the published port-<code>0x2F</code> prescaler from their <code>0xC0</code>-family timer models.</li>
 <li>[standard] A guarded TilEm run verifies its four whole-microsecond standard-timer periods, unchanged current intervals on rate writes, two timer-2 callbacks sharing one pending bit, and the three programmable-timer HALT-gate cases.</li>
 <li>[standard] A guarded TilEm timer/RTC run verifies every source divisor, rounded count readback, off sources, ignored port-<code>0x2F</code>, counter-zero behavior, overflow and acknowledgement, the unacknowledged non-loop restart, per-timer status mapping, source-write retention, RTC freeze/re-enable/reset, and an exact torn read.</li>
 <li>[standard] A guarded initialized-core Wabbitemu run verifies single-step crystal catch-up, full CPU catch-up, first-underflow status bit 2, counter-zero completion, acknowledgement, HALT-line suppression with retained generation, and frozen disabled RTC reads.</li>
@@ -3995,6 +4010,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/calcs.c">TilEm <code>calcs.c</code></a> and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/z80.c"><code>z80.c</code></a></td><td>reset sequencing and scheduler-state retention</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code></a>, <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.h"><code>83psehw.h</code></a>, <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c"><code>core.c</code></a>, and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/interface/calc.c"><code>calc.c</code></a></td><td>independent source decode, catch-up, underflow, HALT, RTC, and reset-retention policies</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>mapped ports, scheduling, callback polarity, standard timers, and driver status</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth timer-source decoder, cycle scheduling, interrupt, low-power, and RTC policy</td></tr>
 </tbody>
 </table>
 </div>
@@ -5619,7 +5635,7 @@ ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
 <tr><td>Dynamic execution</td><td>archive and <code>GCFLASH</code> TilEm traces plus guarded TilEm, Wabbitemu, and MAME runs</td><td>ROM worker paths, GC sector ordering, execution limits, and native command-state behavior [confirmed] for the pinned emulator runs</td></tr>
 <tr><td>ASIC model</td><td>TilEm <code>x4_memory.c</code>, <code>x4_io.c</code>, and <code>x4_init.c</code></td><td>protected-byte recognizer, port gates, execution limits, and modeled sector protection [standard]</td></tr>
 <tr><td>Flash device</td><td>Datamath’s March 2004 board photograph and Fujitsu <code>MBM29LV800TA</code> data sheet</td><td>observed package marking, sector geometry, command cycles, DQ status semantics, and rated limits [standard]</td></tr>
-<tr><td>Emulator comparison</td><td>pinned TilEm, Wabbitemu, and MAME source</td><td>modeled command decode, mutation rules, status reads, timing, and missing ASIC gates [standard]</td></tr>
+<tr><td>Emulator comparison</td><td>pinned TilEm, Wabbitemu, MAME, and jsTIfied source</td><td>modeled command decode, mutation rules, status reads, timing, and missing ASIC gates [standard]</td></tr>
 </tbody>
 </table>
 </div>
@@ -5740,7 +5756,7 @@ establishes coverage of exact <code>LD (nn),A</code> candidates, not universal a
 every dynamically constructed command. [confirmed]</p>
 <h3 id="sector-geometry"><a class="header" href="#sector-geometry">Sector geometry</a></h3>
 <p>The Fujitsu <code>MBM29LV800TA</code> data sheet defines the top-boot geometry below.
-TilEm, Wabbitemu, and MAME use the same boundaries. [standard]</p>
+TilEm, Wabbitemu, MAME, and jsTIfied use the same boundaries. [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -7195,28 +7211,28 @@ nix develop -c z80dasm -a -t -g 0x4000 \
 </code></pre>
 <p>See <code>tools/dynamic-tracing.md</code> for page-resolution details and trace-format caveats.</p>
 <h2 id="emulator-comparison-4"><a class="header" href="#emulator-comparison-4">Emulator comparison</a></h2>
-<p>The three inspected emulators agree on the command bytes and top-boot sector
+<p>The four inspected emulators agree on the command bytes and top-boot sector
 boundaries used by the ROM. They differ at the points most useful for negative
 tests: illegal bit transitions, completion timing, status reads, and ASIC
 access control. [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Behavior</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
+<tr><th>Behavior</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Unlock addresses</td><td>low 12 bits <code>0xAAA</code>, <code>0x555</code></td><td>low 12 bits <code>0xAAA</code>, <code>0x555</code></td><td>accepts several AMD address conventions, including the ROM’s low-12-bit form</td></tr>
-<tr><td>Byte mutation</td><td><code>old &amp;= requested</code></td><td><code>old &amp;= requested</code></td><td><code>old = requested</code></td></tr>
-<tr><td>Successful program</td><td>7 µs real-time timer; 42 clocks at the 6 MHz reset speed</td><td>immediate array data</td><td>immediate array data</td></tr>
-<tr><td>Illegal <code>0→1</code> request</td><td>error state</td><td>one transient error read</td><td>writes the requested one bit</td></tr>
-<tr><td>Sector erase</td><td>50 µs command window, then 200 ms erase timer; 300 and 1,200,000 clocks at 6 MHz</td><td>immediate</td><td>immediate data mutation followed by a timer</td></tr>
-<tr><td>Autoselect</td><td>incomplete</td><td>modeled AMD manufacturer <code>0x01</code>, device <code>0xDA</code></td><td>IDs at offsets <code>0</code>/<code>1</code>; no compatible protection read</td></tr>
-<tr><td>Chip erase</td><td>writable sectors only; final status follows the last sector</td><td>immediate full-array fill, including boot</td><td>immediate full-array fill; stale/default busy range</td></tr>
-<tr><td>Fast program</td><td>command flow present; fidelity unresolved</td><td>implemented for TI-84 Plus Flash version 3</td><td>entry accepted, but <code>A0</code> excludes the AMD maker ID</td></tr>
-<tr><td>Erase suspend/resume</td><td>absent</td><td>absent</td><td>absent</td></tr>
-<tr><td>CFI query</td><td>absent</td><td>absent</td><td>absent for <code>AMD_29F800T</code></td></tr>
-<tr><td>Sector-protection autoselect read</td><td>unavailable with missing autoselect</td><td>offset <code>4</code> always returns zero</td><td>no data-sheet-compatible protection read</td></tr>
-<tr><td>ASIC write gate</td><td>protected-byte sequence, lock, and sector groups</td><td>privileged-page port-<code>0x14</code> gate and boot-page flags</td><td>no effective Flash-write gate</td></tr>
+<tr><td>Unlock addresses</td><td>low 12 bits <code>0xAAA</code>, <code>0x555</code></td><td>low 12 bits <code>0xAAA</code>, <code>0x555</code></td><td>accepts several AMD address conventions, including the ROM’s low-12-bit form</td><td>low 12 bits <code>0xAAA</code>, <code>0x555</code></td></tr>
+<tr><td>Byte mutation</td><td><code>old &amp;= requested</code></td><td><code>old &amp;= requested</code></td><td><code>old = requested</code></td><td><code>old &amp;= requested</code></td></tr>
+<tr><td>Successful program</td><td>7 µs real-time timer; 42 clocks at the 6 MHz reset speed</td><td>immediate array data</td><td>immediate array data</td><td>immediate array data</td></tr>
+<tr><td>Illegal <code>0→1</code> request</td><td>error state</td><td>one transient error read</td><td>writes the requested one bit</td><td>leaves the zero bit unchanged without an error state</td></tr>
+<tr><td>Sector erase</td><td>50 µs command window, then 200 ms erase timer; 300 and 1,200,000 clocks at 6 MHz</td><td>immediate</td><td>immediate data mutation followed by a timer</td><td>immediate; protected sector-table entries are skipped</td></tr>
+<tr><td>Autoselect</td><td>incomplete</td><td>modeled AMD manufacturer <code>0x01</code>, device <code>0xDA</code></td><td>IDs at offsets <code>0</code>/<code>1</code>; no compatible protection read</td><td>manufacturer <code>0xC2</code> and device <code>0xDA</code>; each recognized read exits ID mode</td></tr>
+<tr><td>Chip erase</td><td>writable sectors only; final status follows the last sector</td><td>immediate full-array fill, including boot</td><td>immediate full-array fill; stale/default busy range</td><td>immediate erase of unprotected sector-table entries</td></tr>
+<tr><td>Fast program</td><td>command flow present; fidelity unresolved</td><td>implemented for TI-84 Plus Flash version 3</td><td>entry accepted, but <code>A0</code> excludes the AMD maker ID</td><td>absent</td></tr>
+<tr><td>Erase suspend/resume</td><td>absent</td><td>absent</td><td>absent</td><td>absent</td></tr>
+<tr><td>CFI query</td><td>absent</td><td>absent</td><td>absent for <code>AMD_29F800T</code></td><td>absent</td></tr>
+<tr><td>Sector-protection autoselect read</td><td>unavailable with missing autoselect</td><td>offset <code>4</code> always returns zero</td><td>no data-sheet-compatible protection read</td><td>absent</td></tr>
+<tr><td>ASIC write gate</td><td>protected-byte sequence, lock, and sector groups</td><td>privileged-page port-<code>0x14</code> gate and boot-page flags</td><td>no effective Flash-write gate</td><td>protected-byte port-<code>0x14</code> gate; sector flag affects erase but not program</td></tr>
 </tbody>
 </table>
 </div>
@@ -7720,6 +7736,13 @@ fill those gaps because the pinned implementations disagree with the Fujitsu
 command table or omit the states. [hypothesis]</li>
 <li>The collector’s normal sector-copy policy and persistent phase dispatcher are reconstructed. TilEm cold-restart traces exercise all six ROM-written journal phases. Active <code>0xFF</code>, <code>0xFE</code>, <code>0xFC</code>, <code>0xF8</code>, and <code>0xE0</code> converge byte-for-byte with uninterrupted execution. Active <code>0xF0</code> has matching archive bytes and converges after the uninterrupted result performs deferred <code>0xE0</code> cleanup on its next boot. A deterministic eight-record constructor reproduces the record-authentic <code>0xF0</code> input byte for byte. Pinned Wabbitemu independently executes all six dispatcher branches and produces the corresponding complete TilEm images. Cuts during busy commands and physical power loss remain untested. [confirmed] for the emulator command-boundary runs; [hypothesis] for the remaining cases.</li>
 <li>Pinned Wabbitemu cold recovery takes the retail startup path from <code>00:0D73</code> through the protected unlock at <code>3D:60A6</code>, <code>gc_check_interrupted</code> at <code>3C:7BC7</code>, public Flash bcalls and copied block workers, and the relock at <code>3D:5CEF</code>. All six phase images take this path. [confirmed] for Wabbitemu; [hypothesis] for physical gate behavior.</li>
+<li>A controlled <code>_ReceiveOS_USB</code> run shows that <code>_DisplayOSProgress</code> precedes
+validation of an installer record’s page byte. Seeding the already-displayed
+page to <code>0x3E</code> immediately before that helper isolates the downstream page
+validator: page <code>0x3E</code> reaches <code>2F:49A2</code>, runs <code>_USBErrorCleanup</code>, and leaves
+the complete Flash array unchanged. This intervention does not establish the
+natural progress-byte behavior of a complete OS-install session. [confirmed]
+for the isolated Wabbitemu-core run; [hypothesis] for physical behavior.</li>
 </ul>
 <h2 id="sources-6"><a class="header" href="#sources-6">Sources</a></h2>
 <div class="table-wrapper">
@@ -7741,6 +7764,7 @@ command table or omit the states. [hypothesis]</li>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/flash.c">TilEm <code>flash.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/calcs.c"><code>calcs.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/z80.c"><code>z80.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c"><code>x4_memory.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c"><code>x4_io.c</code></a>, and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_subcore.c"><code>x4_subcore.c</code></a></td><td>pinned commit <code>f56ad637d0524ee841dd381be6ecbaf5b8975600</code>; <code>flash.c</code> SHA-256 <code>280e0e45b6e1f1ef21d779abb809eaef2d04d08db09feb87a459e079280c9545</code>; emulator command state, ASIC gates, sector table, full reset, and exception ordering</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c">Wabbitemu <code>core.c</code></a>, <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.h"><code>core.h</code></a>, and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c"><code>83psehw.c</code></a></td><td>pinned commit <code>48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422</code>; file SHA-256 values <code>7e7552577b9934a8e344d0bea8152e2b46ddf6840e997e478723cfde7c170c2b</code>, <code>6add613d150b55ffdabc8a784e1261b1fcac6e27f0519b1da835de4064b790ec</code>, and <code>3acba050bde4df46348aac703899e2980efb24b5fec83f3f0b5940a47f8327c4</code>; command state machine, erase geometry, and ASIC gates</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/devices/machine/intelfsh.cpp">MAME <code>intelfsh.cpp</code></a>, <a href="https://github.com/mamedev/mame/blob/mame0287/src/devices/machine/intelfsh.h"><code>intelfsh.h</code></a>, <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp"><code>ti85.cpp</code></a>, and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>pinned tag <code>mame0287</code>; file SHA-256 values <code>8fb7e74656801c7939246c9bc77dceab3b36561df33d9ef4201f786eb6713da0</code>, <code>42837497b8d3dfdcf1f1119168ae87bf4583c19238acf078c0efcf5dca1e64f9</code>, <code>33d77ae3ffc373088202cf79d9979d2a9b715eb1f451122cfd764d1a911d75a1</code>, and <code>ae9f8986a80a4ea3ee00c801787f48edb0447880099612949c3429017d1cdedf</code>; generic AMD device behavior and TI-84 Plus mapping</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/item.php?id=42">jsTIfied project 42</a>, <a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">deployed <code>20170706a</code> artifact</a>, and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror at <code>56246a1</code></a></td><td>deployed artifact SHA-256 <code>c7325a38f976f64eaa34182da17d838fe4831eece4650b92d5db710cf7a8fc5b</code>; fourth emulator implementation of geometry, commands, protection, and immediate mutation. The mirror aids review but is not byte-identical to the deployed artifact.</td></tr>
 </tbody>
 </table>
 </div>
@@ -8109,16 +8133,16 @@ MD5Buffer+2… = digest bytes, low byte first
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Behavior</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
+<tr><th>Behavior</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Ports <code>0x18</code>–<code>0x1F</code></td><td>mapped</td><td>mapped</td><td>absent; live reads return <code>00</code></td></tr>
-<tr><td>Operand writes</td><td>six 32-bit sliding registers</td><td>same</td><td>unmapped</td></tr>
-<tr><td>Control writes</td><td>shift masked to five bits; mode masked to two</td><td>same</td><td>unmapped</td></tr>
-<tr><td>Result reads</td><td>recalculated on each read from <code>0x1C</code>–<code>0x1F</code></td><td>same</td><td>unmapped; live reads return <code>00</code></td></tr>
-<tr><td>Reads from <code>0x18</code>–<code>0x1B</code></td><td>zero</td><td>zero</td><td>unmapped; live reads return <code>00</code></td></tr>
-<tr><td>Reset and state</td><td>fields cleared on reset and serialized</td><td>fields serialized</td><td>no MD5 state</td></tr>
-<tr><td>Driver status</td><td>usable implementation</td><td>usable implementation</td><td>TI-84 Plus marked <code>MACHINE_NOT_WORKING</code></td></tr>
+<tr><td>Ports <code>0x18</code>–<code>0x1F</code></td><td>mapped</td><td>mapped</td><td>absent; live reads return <code>00</code></td><td>mapped</td></tr>
+<tr><td>Operand writes</td><td>six 32-bit sliding registers</td><td>same</td><td>unmapped</td><td>implemented</td></tr>
+<tr><td>Control writes</td><td>shift masked to five bits; mode masked to two</td><td>same</td><td>unmapped</td><td>implemented</td></tr>
+<tr><td>Result reads</td><td>recalculated on each read from <code>0x1C</code>–<code>0x1F</code></td><td>same</td><td>unmapped; live reads return <code>00</code></td><td>implemented</td></tr>
+<tr><td>Reads from <code>0x18</code>–<code>0x1B</code></td><td>zero</td><td>zero</td><td>unmapped; live reads return <code>00</code></td><td>modeled by the port block</td></tr>
+<tr><td>Reset and state</td><td>fields cleared on reset and serialized</td><td>fields serialized</td><td>no MD5 state</td><td>emulator fields are reset and serialized</td></tr>
+<tr><td>Driver status</td><td>usable implementation</td><td>usable implementation</td><td>TI-84 Plus marked <code>MACHINE_NOT_WORKING</code></td><td>browser emulator source model</td></tr>
 </tbody>
 </table>
 </div>
@@ -8221,6 +8245,7 @@ probe bytes; [hypothesis] for all pending hardware results.</p>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/md5.c">TilEm <code>md5.c</code></a> and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c"><code>x4_io.c</code></a></td><td>emulator arithmetic, shift registers, masks, reads, and reset</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code></a></td><td>second emulator implementation of the same port block</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a></td><td>TI-84 Plus I/O map, absent MD5 ports, and driver status</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth implementation of the ports <code>0x18</code>–<code>0x1F</code> arithmetic block</td></tr>
 <tr><td><a href="http://www.datamath.org/Graphing/TI-84PLUS.htm">Datamath TI-84 Plus hardware</a></td><td>calculator hardware and ASIC identification context</td></tr>
 </tbody>
 </table>
@@ -9250,7 +9275,7 @@ single-prefix two-wait controls, so the decoder selects
 <code>wabbitemu-three-m1</code>. [confirmed] for this emulator execution.</p>
 <p>The native adapter was built from Wabbitemu commit
 <code>48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422</code>; the build has SHA-256
-<code>617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce</code>.
+<code>3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e</code>.
 This run validates the assembled loops, timer sampling, restoration path, and
 the pinned emulator’s wait model. It does not execute AppVar creation, measure
 host wall time or electrical timing, or establish physical ASIC behavior.
@@ -9364,11 +9389,11 @@ field compared equal. [confirmed] for the pinned Wabbitemu run.</p>
 <code>48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422</code>, source-tree SHA-256
 <code>a8a4f97fc7952770bed317b4a477f80345894da38d14fad8f0bf0ee60aae71ba</code>,
 and binary SHA-256
-<code>617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce</code>.
+<code>3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e</code>.
 Run the same guarded path with:</p>
 <pre><code class="language-sh">nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
   --binary /path/to/wabbitemu-headless \
-  --expected-binary-sha256 617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce \
+  --expected-binary-sha256 3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
   --output-dir /tmp/wabbitemu-timer-physical --json
 </code></pre>
 <p>This run validates the assembled control flow, bounded polling, result layout,
@@ -13184,7 +13209,7 @@ $$</p>
 <p><em>TI-84 Plus OS 2.55MP — Controller commands, video RAM, bus timing, initialization, blits, reads, contrast, and emulator fidelity.</em></p>
 <p>The TI-84 Plus drives a 96×64 monochrome panel through an external LCD controller on ports <code>0x10</code> and <code>0x11</code>. This page separates the visible panel from controller video RAM, reconstructs the OS command and transfer paths, traces initialization and clearing, and identifies behavior that varies across Toshiba and Novatek controller revisions.</p>
 <h2 id="evidence-layers-4"><a class="header" href="#evidence-layers-4">Evidence layers</a></h2>
-<p>The local ROM establishes what OS 2.55MP sends to the controller. Public hardware tests establish controller behavior that the ROM does not expose. TilEm, Wabbitemu, and MAME supply executable models whose choices are identified separately.</p>
+<p>The local ROM establishes what OS 2.55MP sends to the controller. Public hardware tests establish controller behavior that the ROM does not expose. TilEm, Wabbitemu, MAME, and jsTIfied supply executable models whose choices are identified separately.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -13535,24 +13560,24 @@ for the stage and keypad flow.</p>
 </ul>
 <p>The trace is an emulator execution record. It proves the ROM path and values but does not prove analog power behavior, physical busy duration, or controller-revision quirks.</p>
 <h2 id="emulator-comparison-5"><a class="header" href="#emulator-comparison-5">Emulator comparison</a></h2>
-<p>All three emulators implement the commands and visible 12-byte rows used by
+<p>All four emulators implement the commands and visible 12-byte rows used by
 OS 2.55MP. Their hidden-column, busy, and ASIC-timer behavior differs. These
 differences are emulator test cases, not physical-controller evidence.
 [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
+<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Controller RAM</td><td>1,024 bytes, 16 × 64</td><td>1,024 bytes, 16 × 64</td><td>960 bytes, 15 × 64</td></tr>
-<tr><td>8-bit column increment</td><td>accesses 0–15, then normalizes to 0</td><td>accesses 0–14, then wraps to 0</td><td>counts modulo 32 without a RAM bound</td></tr>
-<tr><td>Controller busy</td><td>50 or 70 cycles; early transfers rejected</td><td>60-T-state guard from the last accepted write</td><td>absent; busy status is always zero</td></tr>
-<tr><td>ASIC ready</td><td>port-<code>0x2F</code> timer starts on every LCD read or write</td><td>interval measured from the last accepted write</td><td>port-<code>0x02</code> bit 1 is always set</td></tr>
-<tr><td>Ports <code>0x12</code>/<code>0x13</code></td><td>aliases</td><td>absent</td><td>aliases</td></tr>
-<tr><td>Data-read latch</td><td>modeled</td><td>modeled</td><td>modeled</td></tr>
-<tr><td>Analog power and test modes</td><td>ignored</td><td>ignored</td><td>values partly stored; no analog effect</td></tr>
-<tr><td>Driver status</td><td>active TI-84 Plus trace target</td><td>source model</td><td><code>MACHINE_NOT_WORKING</code></td></tr>
+<tr><td>Controller RAM</td><td>1,024 bytes, 16 × 64</td><td>1,024 bytes, 16 × 64</td><td>960 bytes, 15 × 64</td><td>960 bytes, 15 × 64</td></tr>
+<tr><td>8-bit column increment</td><td>accesses 0–15, then normalizes to 0</td><td>accesses 0–14, then wraps to 0</td><td>counts modulo 32 without a RAM bound</td><td>accesses 0–14 around a 120-pixel row</td></tr>
+<tr><td>Controller busy</td><td>50 or 70 cycles; early transfers rejected</td><td>60-T-state guard from the last accepted write</td><td>absent; busy status is always zero</td><td>randomized 25–47-emulator-cycle interval</td></tr>
+<tr><td>ASIC ready</td><td>port-<code>0x2F</code> timer starts on every LCD read or write</td><td>interval measured from the last accepted write</td><td>port-<code>0x02</code> bit 1 is always set</td><td>status derives from the emulator’s LCD timer</td></tr>
+<tr><td>Ports <code>0x12</code>/<code>0x13</code></td><td>aliases</td><td>absent</td><td>aliases</td><td>aliases</td></tr>
+<tr><td>Data-read latch</td><td>modeled</td><td>modeled</td><td>modeled</td><td>modeled</td></tr>
+<tr><td>Analog power and test modes</td><td>ignored</td><td>ignored</td><td>values partly stored; no analog effect</td><td>drive fields and grayscale display physics modeled</td></tr>
+<tr><td>Driver status</td><td>active TI-84 Plus trace target</td><td>source model</td><td><code>MACHINE_NOT_WORKING</code></td><td>browser emulator source model</td></tr>
 </tbody>
 </table>
 </div>
@@ -13755,6 +13780,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_lcd_probe.py \
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/lcd.c">TilEm <code>lcd.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/calcs.c"><code>calcs.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c"><code>x4_io.c</code></a>, and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c"><code>x4_init.c</code></a></td><td>emulator video RAM, command decode, latches, port aliases, wait timers, and reset state</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/lcd.c">Wabbitemu <code>lcd.c</code></a>, <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c"><code>83psehw.c</code></a>, and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/interface/calc.c"><code>calc.c</code></a></td><td>controller RAM, pointer movement, transfer guard, ASIC-ready calculation, port registration, and frontend reset scope</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/devices/video/t6a04.cpp">MAME <code>t6a04.cpp</code></a>, <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp"><code>ti85.cpp</code></a>, and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>controller array and commands, TI-84 Plus port map, fixed ready bit, and driver status</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth controller model, 120-pixel storage, randomized busy interval, latch, and display physics</td></tr>
 </tbody>
 </table>
 </div>
@@ -15234,20 +15260,20 @@ clk=93378899  ram:0493  OUT (0x01) &lt;- 0xff
 </code></pre>
 <p>The all-groups probe finds bit 5 low. The group walk later selects <code>0xBF</code>; bit 5 remains low, producing scan code <code>6 × 8 + 5 + 1 = 0x36</code>, <strong>2nd</strong>. Every sample releases the matrix afterward. [confirmed]</p>
 <h2 id="emulator-comparison-6"><a class="header" href="#emulator-comparison-6">Emulator comparison</a></h2>
-<p>All three pinned implementations omit electrical settling and mechanical bounce. Their keypad handlers return the current modeled matrix state without a delay, although MAME’s host input fields latch forced changes on a video-frame update. Their digital matrix algorithms do not agree. [standard]</p>
+<p>All four pinned implementations omit electrical settling and mechanical bounce. Their keypad handlers return the current modeled matrix state without a delay, although MAME’s host input fields latch forced changes on a video-frame update. Their digital matrix algorithms do not all agree. [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
+<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Selected rows</td><td>active-low write, all eight bits</td><td>complements the write, then considers seven rows</td><td>active-low write, seven rows</td></tr>
-<tr><td>Ordinary combination</td><td>OR of selected rows</td><td>OR of selected row results</td><td>XOR of each selected pressed position</td></tr>
-<tr><td>Ghosting</td><td>iterated transitive closure</td><td>one pairwise-overlap pass</td><td>none</td></tr>
-<tr><td>Same-column keys in two selected rows</td><td>remain low</td><td>remain low</td><td>XOR twice and cancel to high</td></tr>
-<tr><td>ON level</td><td>separate active-low port-<code>0x04</code> bit 3</td><td>separate active-low port-<code>0x04</code> bit 3</td><td>separate active-low port-<code>0x04</code> bit 3</td></tr>
-<tr><td>ON request edge</td><td>press and release</td><td>press only</td><td>press only</td></tr>
-<tr><td>ON detection</td><td>injected-state event</td><td>standard-interrupt device evaluation</td><td>fixed 256 Hz timer-1 callback</td></tr>
+<tr><td>Selected rows</td><td>active-low write, all eight bits</td><td>complements the write, then considers seven rows</td><td>active-low write, seven rows</td><td>active-low write and row scan</td></tr>
+<tr><td>Ordinary combination</td><td>OR of selected rows</td><td>OR of selected row results</td><td>XOR of each selected pressed position</td><td>selected key-state rows are combined into an active-low result</td></tr>
+<tr><td>Ghosting</td><td>iterated transitive closure</td><td>one pairwise-overlap pass</td><td>none</td><td>no electrical settling model</td></tr>
+<tr><td>Same-column keys in two selected rows</td><td>remain low</td><td>remain low</td><td>XOR twice and cancel to high</td><td>remain low</td></tr>
+<tr><td>ON level</td><td>separate active-low port-<code>0x04</code> bit 3</td><td>separate active-low port-<code>0x04</code> bit 3</td><td>separate active-low port-<code>0x04</code> bit 3</td><td>separate standard-interrupt state</td></tr>
+<tr><td>ON request edge</td><td>press and release</td><td>press only</td><td>press only</td><td>press only while not already latched</td></tr>
+<tr><td>ON detection</td><td>injected-state event</td><td>standard-interrupt device evaluation</td><td>fixed 256 Hz timer-1 callback</td><td>key-event handler</td></tr>
 </tbody>
 </table>
 </div>
@@ -15394,6 +15420,7 @@ physical AppVar has been recorded.</li>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/scancodes.h">TilEm <code>scancodes.h</code></a></td><td>injected key identifiers</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/keys.c">Wabbitemu <code>keys.c</code></a> and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c"><code>83psehw.c</code></a></td><td>pairwise matrix algorithm and press-edge ON latch</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>keypad map, XOR scan, and timer-polled ON edge</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth active-low matrix implementation and press-edge ON policy</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:4D47&amp;oldid=10268">WikiTI <code>_AppStartMouse</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:4D53&amp;oldid=3561"><code>_AppEraseMouse</code></a>, and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:4D65&amp;oldid=3210"><code>_AppUpdateMouse</code></a></td><td>literature names and published API synopsis; ROM bytes determine flag ownership and coordinate staging here</td></tr>
 <tr><td>Local headless TilEm <code>trace.c</code> at commit <code>8da5457</code></td><td>key-event trace record format</td></tr>
 </tbody>
@@ -15649,18 +15676,18 @@ These are executable software behaviors, not measurements of the ASIC.
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Detail</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
+<tr><th>Detail</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Raw write <code>1</code>/<code>2</code> reaches connector</td><td>yes</td><td>yes</td><td>no; both external lines are released</td></tr>
-<tr><td>Disconnected read after <code>1</code>/<code>2</code></td><td><code>0x12</code>/<code>0x21</code></td><td><code>0x12</code>/<code>0x21</code></td><td><code>0x12</code>/<code>0x21</code></td></tr>
-<tr><td>Peer pull-low affects reads</td><td>yes</td><td>yes</td><td>yes</td></tr>
-<tr><td>Read bits 4–5</td><td>local low-two-bit latch</td><td>local low-two-bit latch</td><td>low write bits copied into PCR bits 4–5</td></tr>
-<tr><td>Link-assist advertisement</td><td>yes</td><td>yes</td><td>yes, through port <code>0x02 = 0xC3</code></td></tr>
-<tr><td>Assist ports present</td><td><code>0x08</code>–<code>0x0D</code></td><td><code>0x08</code>, <code>0x09</code>, <code>0x0A</code>, <code>0x0D</code></td><td>only port <code>0x09</code>, fixed read zero</td></tr>
-<tr><td>Assist byte transfer</td><td>implemented</td><td>implemented</td><td>absent</td></tr>
-<tr><td>Raw-line activity interrupt</td><td>transition model present</td><td>no transition assertion in the raw port handler</td><td>absent from mask, status, and port handlers</td></tr>
-<tr><td>Driver status</td><td>usable link model</td><td>usable link model</td><td><code>MACHINE_NOT_WORKING</code></td></tr>
+<tr><td>Raw write <code>1</code>/<code>2</code> reaches connector</td><td>yes</td><td>yes</td><td>no; both external lines are released</td><td>yes, through the browser link endpoint</td></tr>
+<tr><td>Disconnected read after <code>1</code>/<code>2</code></td><td><code>0x12</code>/<code>0x21</code></td><td><code>0x12</code>/<code>0x21</code></td><td><code>0x12</code>/<code>0x21</code></td><td>modeled raw-line latch and peer state</td></tr>
+<tr><td>Peer pull-low affects reads</td><td>yes</td><td>yes</td><td>yes</td><td>yes</td></tr>
+<tr><td>Read bits 4–5</td><td>local low-two-bit latch</td><td>local low-two-bit latch</td><td>low write bits copied into PCR bits 4–5</td><td>local output state</td></tr>
+<tr><td>Link-assist advertisement</td><td>yes</td><td>yes</td><td>yes, through port <code>0x02 = 0xC3</code></td><td>yes</td></tr>
+<tr><td>Assist ports present</td><td><code>0x08</code>–<code>0x0D</code></td><td><code>0x08</code>, <code>0x09</code>, <code>0x0A</code>, <code>0x0D</code></td><td>only port <code>0x09</code>, fixed read zero</td><td><code>0x08</code>–<code>0x0D</code> state machine</td></tr>
+<tr><td>Assist byte transfer</td><td>implemented</td><td>implemented</td><td>absent</td><td>implemented</td></tr>
+<tr><td>Raw-line activity interrupt</td><td>transition model present</td><td>no transition assertion in the raw port handler</td><td>absent from mask, status, and port handlers</td><td>modeled through link state changes</td></tr>
+<tr><td>Driver status</td><td>usable link model</td><td>usable link model</td><td><code>MACHINE_NOT_WORKING</code></td><td>browser emulator source model</td></tr>
 </tbody>
 </table>
 </div>
@@ -15919,6 +15946,7 @@ been recorded.</li>
 <li><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/link.c">TilEm link core at <code>f56ad63</code></a> and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c"><code>x4_io.c</code></a> — raw lines, activity interrupt, link assist, and timeout policy.</li>
 <li><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code> at <code>48c2dc0</code></a> and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/link.c"><code>link.c</code></a> — raw port, assist engine, virtual-cable handshake, and disconnect lifecycle.</li>
 <li><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a>, <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a>, and <a href="https://github.com/mamedev/mame/blob/mame0287/src/devices/bus/ti8x/ti8x.cpp"><code>ti8x.cpp</code></a> — I/O coverage, PCR expressions, connector callbacks, and generic link-bus state machine.</li>
+<li><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a> — fourth raw-line, browser endpoint, and link-assist implementation.</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="link--data-transfer"><a class="header" href="#link--data-transfer">Link / data transfer</a></h1>
@@ -16620,7 +16648,7 @@ The separate raw <code>ED</code>-opcode census covers register and block I/O wit
 assuming that <code>C</code> can be propagated through control flow. Its only two aligned
 instructions access RTC ports <code>0x48</code> and <code>0x44</code>, so it adds no hidden USB-port
 transaction. [confirmed]</p>
-<p>TilEm, Wabbitemu, and MAME omit all three ports from their TI-84 Plus USB
+<p>TilEm, Wabbitemu, MAME, and jsTIfied omit all three ports from their TI-84 Plus USB
 handlers. Their omission cannot establish physical absence or reset values.
 The read-only <a href="#usb-control-snapshot">USB control snapshot</a>
 records these ports together with the adjacent low-USB controls on a physical
@@ -16673,7 +16701,7 @@ outgoing bulk endpoint 2, and that the feature works only in host mode. The
 page also labels part of its packet interpretation untested. No cited vendor
 datasheet or physical capture establishes the packet format or host-mode
 restriction, so those details remain [hypothesis].</p>
-<p>TilEm, Wabbitemu, and MAME do not implement port <code>0x5A</code> or a connected
+<p>TilEm, Wabbitemu, MAME, and jsTIfied do not implement port <code>0x5A</code> or a connected
 endpoint-2 transfer for this calculator. Emulator execution therefore cannot
 validate the mirroring behavior. The port accesses above were regenerated from
 the retail OS 2.55MP bytes with <code>tools/analyze_rom_io.py</code>; the surrounding
@@ -16991,20 +17019,20 @@ port <code>0x39</code>. Their low-bit read-modify-write sequences are decoded in
 The ROM ties those bits to USB setup but does not expose their electrical signal
 names. [confirmed] for the operations; [hypothesis] for signal assignments.</p>
 <h2 id="emulator-comparison-8"><a class="header" href="#emulator-comparison-8">Emulator comparison</a></h2>
-<p>The three pinned emulators implement disconnected or partial USB behavior. None implements the page-35 endpoint transactions needed for a connected transfer. [standard]</p>
+<p>The four pinned emulators implement disconnected or partial USB behavior. None implements the page-35 endpoint transactions needed for a connected transfer. [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
+<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Controller ports</td><td>fixed reads at <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code></td><td>handlers at <code>0x4A</code>, <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code>, <code>0x5B</code>, and <code>0x80</code></td><td>fixed reads at <code>0x55</code> and <code>0x56</code> only</td></tr>
-<tr><td>Initial/disconnected <code>0x4C</code>, <code>0x4D</code></td><td><code>0x22</code>, <code>0xA5</code></td><td><code>0x22</code>, <code>0xA5</code></td><td>unmapped</td></tr>
-<tr><td>Initial <code>0x55</code>, <code>0x56</code>, <code>0x57</code></td><td><code>0x1F</code>, <code>0x00</code>, <code>0x50</code></td><td><code>0x1F</code>, <code>0x50</code>, <code>0x00</code></td><td><code>0x1F</code>, <code>0x00</code>, unmapped</td></tr>
-<tr><td>Line/event state</td><td>fixed</td><td>paired-state latch and event byte</td><td>none</td></tr>
-<tr><td>FDRC block</td><td>unmapped</td><td>only device address at <code>0x80</code></td><td>unmapped</td></tr>
-<tr><td>Connected transfer</td><td>unavailable</td><td>unavailable</td><td>unavailable</td></tr>
-<tr><td>Driver status</td><td>disconnected traces run</td><td>source calls the block <code>Fake USB</code></td><td>TI-84 Plus driver is <code>MACHINE_NOT_WORKING</code></td></tr>
+<tr><td>Controller ports</td><td>fixed reads at <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code></td><td>handlers at <code>0x4A</code>, <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code>, <code>0x5B</code>, and <code>0x80</code></td><td>fixed reads at <code>0x55</code> and <code>0x56</code> only</td><td>fixed reads at <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code></td></tr>
+<tr><td>Initial/disconnected <code>0x4C</code>, <code>0x4D</code></td><td><code>0x22</code>, <code>0xA5</code></td><td><code>0x22</code>, <code>0xA5</code></td><td>unmapped</td><td><code>0x22</code>, <code>0xA5</code></td></tr>
+<tr><td>Initial <code>0x55</code>, <code>0x56</code>, <code>0x57</code></td><td><code>0x1F</code>, <code>0x00</code>, <code>0x50</code></td><td><code>0x1F</code>, <code>0x50</code>, <code>0x00</code></td><td><code>0x1F</code>, <code>0x00</code>, unmapped</td><td><code>0x1F</code>, <code>0x00</code>, <code>0x50</code></td></tr>
+<tr><td>Line/event state</td><td>fixed</td><td>paired-state latch and event byte</td><td>none</td><td>fixed</td></tr>
+<tr><td>FDRC block</td><td>unmapped</td><td>only device address at <code>0x80</code></td><td>unmapped</td><td>unmapped</td></tr>
+<tr><td>Connected transfer</td><td>unavailable</td><td>unavailable</td><td>unavailable</td><td>unavailable</td></tr>
+<tr><td>Driver status</td><td>disconnected traces run</td><td>source calls the block <code>Fake USB</code></td><td>TI-84 Plus driver is <code>MACHINE_NOT_WORKING</code></td><td>fixed disconnected browser-emulator values</td></tr>
 </tbody>
 </table>
 </div>
@@ -17102,11 +17130,48 @@ reset. This establishes that initialization, both timeouts, and dispatch up to
 <code>_ReceiveOS_USB</code>, endpoint payload transfer, command-busy behavior, electrical
 USB signaling, or a calculator. [confirmed] for the controlled Wabbitemu ROM
 execution; [hypothesis] for corresponding physical behavior.</p>
+<h3 id="controlled-installer-record-rejection"><a class="header" href="#controlled-installer-record-rejection">Controlled installer-record rejection</a></h3>
+<p>A second constant-memory mode continues from <code>_InitUSB</code> into
+<code>_ReceiveOS_USB</code> at <code>2F:48CA</code>. Direct entry requires the session state normally
+created by the preceding negotiation: <code>IY = 0x89F0</code>, frame size <code>0x0104</code>,
+staged offset zero, timeout <code>0x0014</code>, and bit 0 of <code>IY+0x42</code> set. The harness
+scripts three endpoint FIFO packets: [confirmed]</p>
+<pre><code class="language-text">0000000205
+E000
+0000000C0400000000000500003E000000
+</code></pre>
+<p>The first two packets form the five-byte type-<code>0x05</code> transport header and its
+<code>E0 00</code> acknowledgement payload. The final type-<code>0x04</code> frame selects service
+<code>0x0005</code> and supplies an installer record whose page byte is <code>0x3E</code>. The ROM
+transmits the exact request and acknowledgement below: [confirmed]</p>
+<pre><code class="language-text">0000000E040000000800030000010400000000
+0000000205E000
+</code></pre>
+<p>Execution reaches stream receive at <code>2F:4610</code>, installer dispatch at
+<code>2F:495B</code>, <code>_DisplayOSProgress</code>, page validation at <code>2F:5079</code>, the invalid-page
+branch at <code>2F:49A2</code>, and <code>_USBErrorCleanup</code> at <code>2F:5958</code>. It stops at
+<code>2F:5000</code>, before the error UI. <code>_DisplayOSProgress</code> precedes page validation,
+so the isolated validator case explicitly seeds <code>0x82A3 = 0x3E</code> immediately
+before that call. This makes the progress helper a no-op for the already
+displayed page and prevents its unrelated persistent progress-byte update from
+obscuring the rejection path. The complete Flash comparison then reports zero
+changed bytes. [confirmed] for this controlled Wabbitemu-core execution.</p>
+<p>This intervention is part of the result, not a claim about a natural complete
+OS-install session. The run validates transport framing, the retail calling
+context, record dispatch, page rejection, cleanup, and unchanged Flash across
+the isolated rejection. It does not model a USB device, endpoint timing, a PHY,
+natural progress persistence, or a physical calculator. [standard]</p>
 <h2 id="reusable-usb-tools"><a class="header" href="#reusable-usb-tools">Reusable USB tools</a></h2>
 <p><code>tools/usb_hardware.py</code> contains the FDRC offset map, the common HDRC comparison map, pinned source
 provenance, imported global bit names, link-assist rate fields, page-35 and boot-event decoders,
 paired line-state decoder, emulator profiles, and pure functions for Wabbitemu’s USB read handlers.
 <code>tools/describe_usb_hardware.py</code> exposes the general models as text or JSON.
+<code>tools/wabbitemu_usb_receive.py</code> decodes the transport frames and enforces the
+exact receive packets, ROM transmissions, execution boundaries, calling
+context, intervention, and whole-Flash result. The guarded
+<code>tools/run_wabbitemu_usb_receive_probe.py</code> CLI checks both ROM and adapter
+hashes and writes a JSON manifest. The native runner stores packet payloads and
+fixed counters only; it does not emit an instruction-by-instruction trace.
 <code>tools/wabbitemu_usb_probe.py</code> validates native reports against the reusable handler model, while
 <code>tools/run_wabbitemu_usb_edge_probe.py</code> provides the exact-ROM guard and writes a hashed JSON
 manifest. <code>tools/wabbitemu_usb_rom.py</code> contains the byte-derived boot-ROM
@@ -17150,8 +17215,16 @@ nix develop -c python tools/run_wabbitemu_usb_rom_probe.py \
   --rom tools/rom.bin \
   --binary /path/to/wabbitemu-headless \
   --expected-binary-sha256 \
-    617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce \
+    3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
   --output-dir "$usb_rom_parent/run" --json
+
+usb_receive_parent=$(mktemp -d /tmp/ti84-usb-receive.XXXXXX)
+nix develop -c python tools/run_wabbitemu_usb_receive_probe.py \
+  --rom tools/rom.bin \
+  --binary /path/to/wabbitemu-headless \
+  --expected-binary-sha256 \
+    3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
+  --output-dir "$usb_receive_parent/run" --json
 </code></pre>
 <p>The FDRC names and bit labels remain a controller-family hypothesis. The CLI identifies that evidence boundary in its register records; it does not promote imported Mentor names to TI silicon confirmation.</p>
 <h2 id="how-to-use-it-in-code-confirmed"><a class="header" href="#how-to-use-it-in-code-confirmed">How to use it in code [confirmed]</a></h2>
@@ -17220,7 +17293,7 @@ a stable public API.</li>
 <ul>
 <li>The ROM calls <code>ram:2E0B</code>, a <code>cross_page_jump</code> thunk to <code>35:4280</code>. Its
 carry-clear/carry-set result is decoded above.</li>
-<li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs and the boot-page <code>0x8xxx</code> USB entries are mapped above. The controlled harness executes <code>_InitUSB</code>, both timeout paths, and <code>_AttemptUSBOSReceive</code> through <code>2F:4170</code>. Endpoint payload transfer and <code>_ReceiveOS_USB</code> remain dynamically untested.</li>
+<li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs and the boot-page <code>0x8xxx</code> USB entries are mapped above. The controlled harness executes <code>_InitUSB</code>, both timeout paths, <code>_AttemptUSBOSReceive</code> through <code>2F:4170</code>, and a scripted <code>_ReceiveOS_USB</code> installer record through invalid-page cleanup. A natural connected transfer and valid page-programming session remain dynamically untested.</li>
 <li>The FDRC layout names the endpoint register block, but physical tests have not confirmed every
 imported bit meaning or the TI-specific PHY at ports <code>0x4A</code>–<code>0x5B</code>. TilEm does not model physical
 timing from the assist setup values. ROM-confirmed claims remain limited to written constants,
@@ -17233,7 +17306,7 @@ host-mode restriction remain physically unverified.</li>
 <li>The guarded TilEm link probe verifies handler-visible assist behavior, but it
 does not establish physical signaling-rate divisors, wait states, electrical
 levels, or reset retention.</li>
-<li>TilEm, Wabbitemu, and MAME do not implement a connected page-35 transfer. The initialized-core Wabbitemu run confirms its port-registration, event-mask, contradictory-line-state, repeat-event, and paired-bit handler defects. The controlled port harness reaches the boot receive boundary, but a complete connected transfer still requires physical hardware or a device-level model.</li>
+<li>TilEm, Wabbitemu, MAME, and jsTIfied do not implement a connected page-35 transfer. The initialized-core Wabbitemu run confirms its port-registration, event-mask, contradictory-line-state, repeat-event, and paired-bit handler defects. The controlled port harness now drives exact endpoint FIFO packets through invalid-page cleanup, but a natural complete transfer still requires physical hardware or a device-level model.</li>
 </ul>
 <h2 id="sources-11"><a class="header" href="#sources-11">Sources</a></h2>
 <div class="table-wrapper">
@@ -17251,6 +17324,7 @@ levels, or reset retention.</li>
 <tr><td><a href="https://github.com/brandonlw/Linky/tree/89586b0d33796d9746934560c030bb247193d37a">Linky at <code>89586b0</code></a></td><td>Independent calculator software that names MUSBFDRC and exercises the same ports</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code> at <code>48c2dc0</code></a></td><td>Partial line-state and interrupt model, with the implementation limits described above</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>Fixed USB interrupt reads and absent controller/endpoint ports</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/item.php?id=42">jsTIfied project 42</a> and <a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">deployed <code>20170706a</code> artifact</a></td><td>fixed disconnected values matching TilEm and absence of an endpoint/FDRC model; artifact SHA-256 <code>c7325a38f976f64eaa34182da17d838fe4831eece4650b92d5db710cf7a8fc5b</code></td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:09">WikiTI port <code>0x09</code></a></td><td>Historical link-assist timing-field interpretation, kept separate from ROM observations</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:4B">WikiTI port <code>0x4B</code></a></td><td>Historical USB-power orientation. The page calls its own bit descriptions mostly speculative.</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:49">WikiTI port <code>0x49</code></a></td><td>Historical raw-transceiver bit claims; no primary hardware source or ROM use found</td></tr>
@@ -18622,7 +18696,7 @@ still require static reduction, fault injection, or physical measurement.</p>
 <li><strong>Graph raster details.</strong> Exhaustively decode the rounding and sentinel handling at <code>37:4229</code>, then trace <code>_DrawCirc2</code> at <code>3B:7171</code> to recover its parametric stepping. The coordinate transforms and circle setup are already pinned. See <a href="#8-confidence-summary--open-items">Graphing</a>.</li>
 <li><strong>TABLE evaluation paths.</strong> Byte-trace the per-row <code>_StoX</code> and selected-Y evaluation calls in the page-05 fill loop. The Depend:Ask prompt path and the <code>TblRng</code> special case in <code>_Find_Parse_Formula</code> also need end-to-end traces. See <a href="#7-confidence-summary--open-items">Table &amp; Y= variables</a>.</li>
 <li><strong>Statistics command families.</strong> Locate and decode the DISTR numerical cores and each STAT-TEST handler that writes <code>PStat</code> through <code>SStat</code>. The intermediate calculations that produce <code>r</code> and <code>r²</code> in <code>3A:6845</code>–<code>6891</code> also need a complete byte trace. See <a href="#12-notes">Statistics</a>.</li>
-<li><strong>Link and USB residuals.</strong> Determine why the legacy backup path normalizes the restored system-flags word to <code>0x0063</code>. The word’s destination at <code>0x89F0</code>, the <code>0x89F0</code>–<code>0x8D6C</code> section bounds, and the checksum coverage are byte-pinned. A complete direct indexed-bit audit shows that it clears the degree-mode, pending-keyboard, editor-open, answer-scroll, monitor-abandon, and one unnamed active bit while setting <code>donePrgm</code>. The remaining ambiguity is why active unnamed bits 0 and 1 and an otherwise unreferenced bit 6 of <code>0x89F0</code> are set. The current evidence does not distinguish a canonical post-restore state from model/version compatibility. The <code>0x22</code>–<code>0x25</code> variable-header dispatcher is classified as error, OS/AMS, Flash-application, and certificate handling, and the <code>0x22</code> error-table path resolves to <code>ERR:LINK</code>. The <code>3C:618D</code> both-low waveform is tied to installed error cleanup and its software duration is cycle-counted. A guarded direct-core TilEm run verifies the complete raw truth table, activity interrupt, all six assist handlers, LSB-first byte send and receive, idle/data acknowledgement, sticky error state, and its auxiliary-register and external-line reset retention. One guarded initialized-core Wabbitemu run verifies the same raw truth table, missing assist ports <code>0x0B</code>/<code>0x0C</code>, ready/read interrupts, LSB-first byte send and receive, and seeded-error read-to-clear behavior. Guarded MAME runs verify its PCR readback, connector-output mismatch, peer-input reads, assist advertisement, inert port <code>0x08</code>–<code>0x0D</code>, and the fixed disconnected <code>0x55 = 0x1F</code>/<code>0x56 = 0x00</code> pair inside an otherwise unmapped <code>0x4A</code>–<code>0x5B</code> block. Another Wabbitemu run verifies the Fake USB port set, missing port <code>0x54</code>, reset values, active-low interrupt summary, mask-independent event, repeat-event path, and latch masks. A controlled port harness executes the retail <code>_InitUSB</code> success and timeout paths and dispatches event <code>0x40</code> through <code>_AttemptUSBOSReceive</code> to <code>2F:4170</code>; all four cases leave Flash unchanged. These remain emulator and controlled-harness results. Physical tests still need to measure port-<code>0x00</code> pull-ups, thresholds, rise times, both CPU-speed timeout durations, and the pulse’s actual duration and voltage levels. Run the read-only USB snapshot on known TA2 and TA3 units, both connected and disconnected, to establish ports <code>0x49</code>, <code>0x51</code>, and <code>0x52</code> before testing their claimed transceiver and enable-timer behavior. Verify the FDRC-family register hypothesis and TI-specific PHY behavior on physical hardware, including the effects of port <code>0x4B</code> and the port-<code>0x4F</code>/<code>0x50</code> setup sequence. Capture port-<code>0x5A</code> presentation traffic to determine whether LCD-port writes produce two-byte endpoint-2 packets and whether the feature requires host mode. Then exercise endpoint payload transfer and the complete connected boot receive path. See <a href="#resolved-findings-and-open-hardware-tests-3">Two-wire link port hardware</a>, <a href="#11-open-items">Link transfer</a>, and <a href="#limits">USB ASIC and link assist</a>.
+<li><strong>Link and USB residuals.</strong> Determine why the legacy backup path normalizes the restored system-flags word to <code>0x0063</code>. The word’s destination at <code>0x89F0</code>, the <code>0x89F0</code>–<code>0x8D6C</code> section bounds, and the checksum coverage are byte-pinned. A complete direct indexed-bit audit shows that it clears the degree-mode, pending-keyboard, editor-open, answer-scroll, monitor-abandon, and one unnamed active bit while setting <code>donePrgm</code>. The remaining ambiguity is why active unnamed bits 0 and 1 and an otherwise unreferenced bit 6 of <code>0x89F0</code> are set. The current evidence does not distinguish a canonical post-restore state from model/version compatibility. The <code>0x22</code>–<code>0x25</code> variable-header dispatcher is classified as error, OS/AMS, Flash-application, and certificate handling, and the <code>0x22</code> error-table path resolves to <code>ERR:LINK</code>. The <code>3C:618D</code> both-low waveform is tied to installed error cleanup and its software duration is cycle-counted. A guarded direct-core TilEm run verifies the complete raw truth table, activity interrupt, all six assist handlers, LSB-first byte send and receive, idle/data acknowledgement, sticky error state, and its auxiliary-register and external-line reset retention. One guarded initialized-core Wabbitemu run verifies the same raw truth table, missing assist ports <code>0x0B</code>/<code>0x0C</code>, ready/read interrupts, LSB-first byte send and receive, and seeded-error read-to-clear behavior. Guarded MAME runs verify its PCR readback, connector-output mismatch, peer-input reads, assist advertisement, inert port <code>0x08</code>–<code>0x0D</code>, and the fixed disconnected <code>0x55 = 0x1F</code>/<code>0x56 = 0x00</code> pair inside an otherwise unmapped <code>0x4A</code>–<code>0x5B</code> block. Another Wabbitemu run verifies the Fake USB port set, missing port <code>0x54</code>, reset values, active-low interrupt summary, mask-independent event, repeat-event path, and latch masks. A controlled port harness executes the retail <code>_InitUSB</code> success and timeout paths and dispatches event <code>0x40</code> through <code>_AttemptUSBOSReceive</code> to <code>2F:4170</code>; all four cases leave Flash unchanged. A second controlled run scripts exact endpoint FIFO packets through <code>_ReceiveOS_USB</code>, reaches service-5 installer dispatch, rejects page <code>0x3E</code>, runs cleanup, and leaves Flash unchanged after an explicit progress-state intervention. These remain emulator and controlled-harness results, not a natural connected install. Physical tests still need to measure port-<code>0x00</code> pull-ups, thresholds, rise times, both CPU-speed timeout durations, and the pulse’s actual duration and voltage levels. Run the read-only USB snapshot on known TA2 and TA3 units, both connected and disconnected, to establish ports <code>0x49</code>, <code>0x51</code>, and <code>0x52</code> before testing their claimed transceiver and enable-timer behavior. Verify the FDRC-family register hypothesis and TI-specific PHY behavior on physical hardware, including the effects of port <code>0x4B</code> and the port-<code>0x4F</code>/<code>0x50</code> setup sequence. Capture port-<code>0x5A</code> presentation traffic to determine whether LCD-port writes produce two-byte endpoint-2 packets and whether the feature requires host mode. Then exercise endpoint payload transfer and the complete connected boot receive path. See <a href="#resolved-findings-and-open-hardware-tests-3">Two-wire link port hardware</a>, <a href="#11-open-items">Link transfer</a>, and <a href="#limits">USB ASIC and link assist</a>.
 The prepared <a href="#raw-two-wire-link-probe">raw two-wire link probe</a> records the disconnected four-state truth table at four instruction gaps and releases both lines during cleanup. A physical run can constrain digital settling but does not replace voltage, pull-up, or rise-time measurements.</li>
 <li><strong>MD5 physical edge behavior.</strong> The valid 64-step path, boot API, two implementing emulator models, and MAME’s missing port block are reconciled in <a href="#md5-accelerator-and-boot-api">MD5 accelerator and boot API</a>. Guarded native TilEm and Wabbitemu runs exercise partial and fifth writes, high control bits, undefined operand reads, and read-time recalculation. The TilEm run also verifies complete reset clearing and zero modeled port latency under the locked compiler. A separate guarded MAME run confirms that its unmapped ports discard patterned writes and return zero for the known first <code>"abc"</code> step. The <a href="#md5-edge-probe">physical hardware probe</a> prepares the corresponding ASIC measurements. Physical TA2/TA3 tests still need to run it and add reset-retention and I/O wait-state measurements.</li>
 <li><strong>Memory-mapper overlay hardware.</strong> The boot transition, paired and independent modes, extended Flash selectors, and emulator implementations are reconciled in <a href="#paging">Paging</a>. A guarded initialized-core Wabbitemu run verifies its fixed-page opcode handoff, selector readback, duplicated even page in paired mode, <code>0x27</code> cutoff, independent-mode read/write/fetch overlays, and paired-mode overlay suppression. A guarded MAME run verifies its read-triggered fixed-page handoff, selector masks, adjacent paired pages, safe RAM banks through <code>0x86</code>, unmapped extended and overlay ports, and underlying read/write/fetch routing. Selector <code>0x87</code> remains source-only because MAME maps seven RAM pages. These are emulator results. Physical tests must resolve whether ports <code>0x27</code>/<code>0x28</code> remain active in paired mode, whether the <code>0xFB64</code> cutoff exists in the ASIC, and whether <a href="#mapping-and-forced-overlays">execution protection</a> follows the underlying window or forced RAM page.</li>

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -428,18 +428,18 @@ These are executable software behaviors, not measurements of the ASIC.
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Detail</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
+<tr><th>Detail</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Raw write <code>1</code>/<code>2</code> reaches connector</td><td>yes</td><td>yes</td><td>no; both external lines are released</td></tr>
-<tr><td>Disconnected read after <code>1</code>/<code>2</code></td><td><code>0x12</code>/<code>0x21</code></td><td><code>0x12</code>/<code>0x21</code></td><td><code>0x12</code>/<code>0x21</code></td></tr>
-<tr><td>Peer pull-low affects reads</td><td>yes</td><td>yes</td><td>yes</td></tr>
-<tr><td>Read bits 4–5</td><td>local low-two-bit latch</td><td>local low-two-bit latch</td><td>low write bits copied into PCR bits 4–5</td></tr>
-<tr><td>Link-assist advertisement</td><td>yes</td><td>yes</td><td>yes, through port <code>0x02 = 0xC3</code></td></tr>
-<tr><td>Assist ports present</td><td><code>0x08</code>–<code>0x0D</code></td><td><code>0x08</code>, <code>0x09</code>, <code>0x0A</code>, <code>0x0D</code></td><td>only port <code>0x09</code>, fixed read zero</td></tr>
-<tr><td>Assist byte transfer</td><td>implemented</td><td>implemented</td><td>absent</td></tr>
-<tr><td>Raw-line activity interrupt</td><td>transition model present</td><td>no transition assertion in the raw port handler</td><td>absent from mask, status, and port handlers</td></tr>
-<tr><td>Driver status</td><td>usable link model</td><td>usable link model</td><td><code>MACHINE_NOT_WORKING</code></td></tr>
+<tr><td>Raw write <code>1</code>/<code>2</code> reaches connector</td><td>yes</td><td>yes</td><td>no; both external lines are released</td><td>yes, through the browser link endpoint</td></tr>
+<tr><td>Disconnected read after <code>1</code>/<code>2</code></td><td><code>0x12</code>/<code>0x21</code></td><td><code>0x12</code>/<code>0x21</code></td><td><code>0x12</code>/<code>0x21</code></td><td>modeled raw-line latch and peer state</td></tr>
+<tr><td>Peer pull-low affects reads</td><td>yes</td><td>yes</td><td>yes</td><td>yes</td></tr>
+<tr><td>Read bits 4–5</td><td>local low-two-bit latch</td><td>local low-two-bit latch</td><td>low write bits copied into PCR bits 4–5</td><td>local output state</td></tr>
+<tr><td>Link-assist advertisement</td><td>yes</td><td>yes</td><td>yes, through port <code>0x02 = 0xC3</code></td><td>yes</td></tr>
+<tr><td>Assist ports present</td><td><code>0x08</code>–<code>0x0D</code></td><td><code>0x08</code>, <code>0x09</code>, <code>0x0A</code>, <code>0x0D</code></td><td>only port <code>0x09</code>, fixed read zero</td><td><code>0x08</code>–<code>0x0D</code> state machine</td></tr>
+<tr><td>Assist byte transfer</td><td>implemented</td><td>implemented</td><td>absent</td><td>implemented</td></tr>
+<tr><td>Raw-line activity interrupt</td><td>transition model present</td><td>no transition assertion in the raw port handler</td><td>absent from mask, status, and port handlers</td><td>modeled through link state changes</td></tr>
+<tr><td>Driver status</td><td>usable link model</td><td>usable link model</td><td><code>MACHINE_NOT_WORKING</code></td><td>browser emulator source model</td></tr>
 </tbody>
 </table>
 </div>
@@ -698,6 +698,7 @@ been recorded.</li>
 <li><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/link.c">TilEm link core at <code>f56ad63</code></a> and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c"><code>x4_io.c</code></a> — raw lines, activity interrupt, link assist, and timeout policy.</li>
 <li><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code> at <code>48c2dc0</code></a> and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/link.c"><code>link.c</code></a> — raw port, assist engine, virtual-cable handshake, and disconnect lifecycle.</li>
 <li><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a>, <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a>, and <a href="https://github.com/mamedev/mame/blob/mame0287/src/devices/bus/ti8x/ti8x.cpp"><code>ti8x.cpp</code></a> — I/O coverage, PCR expressions, connector callbacks, and generic link-bus state machine.</li>
+<li><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a> — fourth raw-line, browser endpoint, and link-assist implementation.</li>
 </ul>
 
                     </main>

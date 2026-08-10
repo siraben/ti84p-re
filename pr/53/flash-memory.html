@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -194,7 +194,7 @@
 <tr><td>Dynamic execution</td><td>archive and <code>GCFLASH</code> TilEm traces plus guarded TilEm, Wabbitemu, and MAME runs</td><td>ROM worker paths, GC sector ordering, execution limits, and native command-state behavior [confirmed] for the pinned emulator runs</td></tr>
 <tr><td>ASIC model</td><td>TilEm <code>x4_memory.c</code>, <code>x4_io.c</code>, and <code>x4_init.c</code></td><td>protected-byte recognizer, port gates, execution limits, and modeled sector protection [standard]</td></tr>
 <tr><td>Flash device</td><td>Datamath’s March 2004 board photograph and Fujitsu <code>MBM29LV800TA</code> data sheet</td><td>observed package marking, sector geometry, command cycles, DQ status semantics, and rated limits [standard]</td></tr>
-<tr><td>Emulator comparison</td><td>pinned TilEm, Wabbitemu, and MAME source</td><td>modeled command decode, mutation rules, status reads, timing, and missing ASIC gates [standard]</td></tr>
+<tr><td>Emulator comparison</td><td>pinned TilEm, Wabbitemu, MAME, and jsTIfied source</td><td>modeled command decode, mutation rules, status reads, timing, and missing ASIC gates [standard]</td></tr>
 </tbody>
 </table>
 </div>
@@ -315,7 +315,7 @@ establishes coverage of exact <code>LD (nn),A</code> candidates, not universal a
 every dynamically constructed command. [confirmed]</p>
 <h3 id="sector-geometry"><a class="header" href="#sector-geometry">Sector geometry</a></h3>
 <p>The Fujitsu <code>MBM29LV800TA</code> data sheet defines the top-boot geometry below.
-TilEm, Wabbitemu, and MAME use the same boundaries. [standard]</p>
+TilEm, Wabbitemu, MAME, and jsTIfied use the same boundaries. [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -1770,28 +1770,28 @@ nix develop -c z80dasm -a -t -g 0x4000 \
 </code></pre>
 <p>See <code>tools/dynamic-tracing.md</code> for page-resolution details and trace-format caveats.</p>
 <h2 id="emulator-comparison"><a class="header" href="#emulator-comparison">Emulator comparison</a></h2>
-<p>The three inspected emulators agree on the command bytes and top-boot sector
+<p>The four inspected emulators agree on the command bytes and top-boot sector
 boundaries used by the ROM. They differ at the points most useful for negative
 tests: illegal bit transitions, completion timing, status reads, and ASIC
 access control. [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Behavior</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
+<tr><th>Behavior</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Unlock addresses</td><td>low 12 bits <code>0xAAA</code>, <code>0x555</code></td><td>low 12 bits <code>0xAAA</code>, <code>0x555</code></td><td>accepts several AMD address conventions, including the ROM’s low-12-bit form</td></tr>
-<tr><td>Byte mutation</td><td><code>old &amp;= requested</code></td><td><code>old &amp;= requested</code></td><td><code>old = requested</code></td></tr>
-<tr><td>Successful program</td><td>7 µs real-time timer; 42 clocks at the 6 MHz reset speed</td><td>immediate array data</td><td>immediate array data</td></tr>
-<tr><td>Illegal <code>0→1</code> request</td><td>error state</td><td>one transient error read</td><td>writes the requested one bit</td></tr>
-<tr><td>Sector erase</td><td>50 µs command window, then 200 ms erase timer; 300 and 1,200,000 clocks at 6 MHz</td><td>immediate</td><td>immediate data mutation followed by a timer</td></tr>
-<tr><td>Autoselect</td><td>incomplete</td><td>modeled AMD manufacturer <code>0x01</code>, device <code>0xDA</code></td><td>IDs at offsets <code>0</code>/<code>1</code>; no compatible protection read</td></tr>
-<tr><td>Chip erase</td><td>writable sectors only; final status follows the last sector</td><td>immediate full-array fill, including boot</td><td>immediate full-array fill; stale/default busy range</td></tr>
-<tr><td>Fast program</td><td>command flow present; fidelity unresolved</td><td>implemented for TI-84 Plus Flash version 3</td><td>entry accepted, but <code>A0</code> excludes the AMD maker ID</td></tr>
-<tr><td>Erase suspend/resume</td><td>absent</td><td>absent</td><td>absent</td></tr>
-<tr><td>CFI query</td><td>absent</td><td>absent</td><td>absent for <code>AMD_29F800T</code></td></tr>
-<tr><td>Sector-protection autoselect read</td><td>unavailable with missing autoselect</td><td>offset <code>4</code> always returns zero</td><td>no data-sheet-compatible protection read</td></tr>
-<tr><td>ASIC write gate</td><td>protected-byte sequence, lock, and sector groups</td><td>privileged-page port-<code>0x14</code> gate and boot-page flags</td><td>no effective Flash-write gate</td></tr>
+<tr><td>Unlock addresses</td><td>low 12 bits <code>0xAAA</code>, <code>0x555</code></td><td>low 12 bits <code>0xAAA</code>, <code>0x555</code></td><td>accepts several AMD address conventions, including the ROM’s low-12-bit form</td><td>low 12 bits <code>0xAAA</code>, <code>0x555</code></td></tr>
+<tr><td>Byte mutation</td><td><code>old &amp;= requested</code></td><td><code>old &amp;= requested</code></td><td><code>old = requested</code></td><td><code>old &amp;= requested</code></td></tr>
+<tr><td>Successful program</td><td>7 µs real-time timer; 42 clocks at the 6 MHz reset speed</td><td>immediate array data</td><td>immediate array data</td><td>immediate array data</td></tr>
+<tr><td>Illegal <code>0→1</code> request</td><td>error state</td><td>one transient error read</td><td>writes the requested one bit</td><td>leaves the zero bit unchanged without an error state</td></tr>
+<tr><td>Sector erase</td><td>50 µs command window, then 200 ms erase timer; 300 and 1,200,000 clocks at 6 MHz</td><td>immediate</td><td>immediate data mutation followed by a timer</td><td>immediate; protected sector-table entries are skipped</td></tr>
+<tr><td>Autoselect</td><td>incomplete</td><td>modeled AMD manufacturer <code>0x01</code>, device <code>0xDA</code></td><td>IDs at offsets <code>0</code>/<code>1</code>; no compatible protection read</td><td>manufacturer <code>0xC2</code> and device <code>0xDA</code>; each recognized read exits ID mode</td></tr>
+<tr><td>Chip erase</td><td>writable sectors only; final status follows the last sector</td><td>immediate full-array fill, including boot</td><td>immediate full-array fill; stale/default busy range</td><td>immediate erase of unprotected sector-table entries</td></tr>
+<tr><td>Fast program</td><td>command flow present; fidelity unresolved</td><td>implemented for TI-84 Plus Flash version 3</td><td>entry accepted, but <code>A0</code> excludes the AMD maker ID</td><td>absent</td></tr>
+<tr><td>Erase suspend/resume</td><td>absent</td><td>absent</td><td>absent</td><td>absent</td></tr>
+<tr><td>CFI query</td><td>absent</td><td>absent</td><td>absent for <code>AMD_29F800T</code></td><td>absent</td></tr>
+<tr><td>Sector-protection autoselect read</td><td>unavailable with missing autoselect</td><td>offset <code>4</code> always returns zero</td><td>no data-sheet-compatible protection read</td><td>absent</td></tr>
+<tr><td>ASIC write gate</td><td>protected-byte sequence, lock, and sector groups</td><td>privileged-page port-<code>0x14</code> gate and boot-page flags</td><td>no effective Flash-write gate</td><td>protected-byte port-<code>0x14</code> gate; sector flag affects erase but not program</td></tr>
 </tbody>
 </table>
 </div>
@@ -2295,6 +2295,13 @@ fill those gaps because the pinned implementations disagree with the Fujitsu
 command table or omit the states. [hypothesis]</li>
 <li>The collector’s normal sector-copy policy and persistent phase dispatcher are reconstructed. TilEm cold-restart traces exercise all six ROM-written journal phases. Active <code>0xFF</code>, <code>0xFE</code>, <code>0xFC</code>, <code>0xF8</code>, and <code>0xE0</code> converge byte-for-byte with uninterrupted execution. Active <code>0xF0</code> has matching archive bytes and converges after the uninterrupted result performs deferred <code>0xE0</code> cleanup on its next boot. A deterministic eight-record constructor reproduces the record-authentic <code>0xF0</code> input byte for byte. Pinned Wabbitemu independently executes all six dispatcher branches and produces the corresponding complete TilEm images. Cuts during busy commands and physical power loss remain untested. [confirmed] for the emulator command-boundary runs; [hypothesis] for the remaining cases.</li>
 <li>Pinned Wabbitemu cold recovery takes the retail startup path from <code>00:0D73</code> through the protected unlock at <code>3D:60A6</code>, <code>gc_check_interrupted</code> at <code>3C:7BC7</code>, public Flash bcalls and copied block workers, and the relock at <code>3D:5CEF</code>. All six phase images take this path. [confirmed] for Wabbitemu; [hypothesis] for physical gate behavior.</li>
+<li>A controlled <code>_ReceiveOS_USB</code> run shows that <code>_DisplayOSProgress</code> precedes
+validation of an installer record’s page byte. Seeding the already-displayed
+page to <code>0x3E</code> immediately before that helper isolates the downstream page
+validator: page <code>0x3E</code> reaches <code>2F:49A2</code>, runs <code>_USBErrorCleanup</code>, and leaves
+the complete Flash array unchanged. This intervention does not establish the
+natural progress-byte behavior of a complete OS-install session. [confirmed]
+for the isolated Wabbitemu-core run; [hypothesis] for physical behavior.</li>
 </ul>
 <h2 id="sources"><a class="header" href="#sources">Sources</a></h2>
 <div class="table-wrapper">
@@ -2316,6 +2323,7 @@ command table or omit the states. [hypothesis]</li>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/flash.c">TilEm <code>flash.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/calcs.c"><code>calcs.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/z80.c"><code>z80.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c"><code>x4_memory.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c"><code>x4_io.c</code></a>, and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_subcore.c"><code>x4_subcore.c</code></a></td><td>pinned commit <code>f56ad637d0524ee841dd381be6ecbaf5b8975600</code>; <code>flash.c</code> SHA-256 <code>280e0e45b6e1f1ef21d779abb809eaef2d04d08db09feb87a459e079280c9545</code>; emulator command state, ASIC gates, sector table, full reset, and exception ordering</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c">Wabbitemu <code>core.c</code></a>, <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.h"><code>core.h</code></a>, and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c"><code>83psehw.c</code></a></td><td>pinned commit <code>48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422</code>; file SHA-256 values <code>7e7552577b9934a8e344d0bea8152e2b46ddf6840e997e478723cfde7c170c2b</code>, <code>6add613d150b55ffdabc8a784e1261b1fcac6e27f0519b1da835de4064b790ec</code>, and <code>3acba050bde4df46348aac703899e2980efb24b5fec83f3f0b5940a47f8327c4</code>; command state machine, erase geometry, and ASIC gates</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/devices/machine/intelfsh.cpp">MAME <code>intelfsh.cpp</code></a>, <a href="https://github.com/mamedev/mame/blob/mame0287/src/devices/machine/intelfsh.h"><code>intelfsh.h</code></a>, <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp"><code>ti85.cpp</code></a>, and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>pinned tag <code>mame0287</code>; file SHA-256 values <code>8fb7e74656801c7939246c9bc77dceab3b36561df33d9ef4201f786eb6713da0</code>, <code>42837497b8d3dfdcf1f1119168ae87bf4583c19238acf078c0efcf5dca1e64f9</code>, <code>33d77ae3ffc373088202cf79d9979d2a9b715eb1f451122cfd764d1a911d75a1</code>, and <code>ae9f8986a80a4ea3ee00c801787f48edb0447880099612949c3429017d1cdedf</code>; generic AMD device behavior and TI-84 Plus mapping</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/item.php?id=42">jsTIfied project 42</a>, <a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">deployed <code>20170706a</code> artifact</a>, and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror at <code>56246a1</code></a></td><td>deployed artifact SHA-256 <code>c7325a38f976f64eaa34182da17d838fe4831eece4650b92d5db710cf7a8fc5b</code>; fourth emulator implementation of geometry, commands, protection, and immediate mutation. The mirror aids review but is not byte-identical to the deployed artifact.</td></tr>
 </tbody>
 </table>
 </div>

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -292,7 +292,7 @@ The separate raw <code>ED</code>-opcode census covers register and block I/O wit
 assuming that <code>C</code> can be propagated through control flow. Its only two aligned
 instructions access RTC ports <code>0x48</code> and <code>0x44</code>, so it adds no hidden USB-port
 transaction. [confirmed]</p>
-<p>TilEm, Wabbitemu, and MAME omit all three ports from their TI-84 Plus USB
+<p>TilEm, Wabbitemu, MAME, and jsTIfied omit all three ports from their TI-84 Plus USB
 handlers. Their omission cannot establish physical absence or reset values.
 The read-only <a href="hardware-probes.html#usb-control-snapshot">USB control snapshot</a>
 records these ports together with the adjacent low-USB controls on a physical
@@ -345,7 +345,7 @@ outgoing bulk endpoint 2, and that the feature works only in host mode. The
 page also labels part of its packet interpretation untested. No cited vendor
 datasheet or physical capture establishes the packet format or host-mode
 restriction, so those details remain [hypothesis].</p>
-<p>TilEm, Wabbitemu, and MAME do not implement port <code>0x5A</code> or a connected
+<p>TilEm, Wabbitemu, MAME, and jsTIfied do not implement port <code>0x5A</code> or a connected
 endpoint-2 transfer for this calculator. Emulator execution therefore cannot
 validate the mirroring behavior. The port accesses above were regenerated from
 the retail OS 2.55MP bytes with <code>tools/analyze_rom_io.py</code>; the surrounding
@@ -663,20 +663,20 @@ port <code>0x39</code>. Their low-bit read-modify-write sequences are decoded in
 The ROM ties those bits to USB setup but does not expose their electrical signal
 names. [confirmed] for the operations; [hypothesis] for signal assignments.</p>
 <h2 id="emulator-comparison"><a class="header" href="#emulator-comparison">Emulator comparison</a></h2>
-<p>The three pinned emulators implement disconnected or partial USB behavior. None implements the page-35 endpoint transactions needed for a connected transfer. [standard]</p>
+<p>The four pinned emulators implement disconnected or partial USB behavior. None implements the page-35 endpoint transactions needed for a connected transfer. [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
+<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Controller ports</td><td>fixed reads at <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code></td><td>handlers at <code>0x4A</code>, <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code>, <code>0x5B</code>, and <code>0x80</code></td><td>fixed reads at <code>0x55</code> and <code>0x56</code> only</td></tr>
-<tr><td>Initial/disconnected <code>0x4C</code>, <code>0x4D</code></td><td><code>0x22</code>, <code>0xA5</code></td><td><code>0x22</code>, <code>0xA5</code></td><td>unmapped</td></tr>
-<tr><td>Initial <code>0x55</code>, <code>0x56</code>, <code>0x57</code></td><td><code>0x1F</code>, <code>0x00</code>, <code>0x50</code></td><td><code>0x1F</code>, <code>0x50</code>, <code>0x00</code></td><td><code>0x1F</code>, <code>0x00</code>, unmapped</td></tr>
-<tr><td>Line/event state</td><td>fixed</td><td>paired-state latch and event byte</td><td>none</td></tr>
-<tr><td>FDRC block</td><td>unmapped</td><td>only device address at <code>0x80</code></td><td>unmapped</td></tr>
-<tr><td>Connected transfer</td><td>unavailable</td><td>unavailable</td><td>unavailable</td></tr>
-<tr><td>Driver status</td><td>disconnected traces run</td><td>source calls the block <code>Fake USB</code></td><td>TI-84 Plus driver is <code>MACHINE_NOT_WORKING</code></td></tr>
+<tr><td>Controller ports</td><td>fixed reads at <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code></td><td>handlers at <code>0x4A</code>, <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code>, <code>0x5B</code>, and <code>0x80</code></td><td>fixed reads at <code>0x55</code> and <code>0x56</code> only</td><td>fixed reads at <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code></td></tr>
+<tr><td>Initial/disconnected <code>0x4C</code>, <code>0x4D</code></td><td><code>0x22</code>, <code>0xA5</code></td><td><code>0x22</code>, <code>0xA5</code></td><td>unmapped</td><td><code>0x22</code>, <code>0xA5</code></td></tr>
+<tr><td>Initial <code>0x55</code>, <code>0x56</code>, <code>0x57</code></td><td><code>0x1F</code>, <code>0x00</code>, <code>0x50</code></td><td><code>0x1F</code>, <code>0x50</code>, <code>0x00</code></td><td><code>0x1F</code>, <code>0x00</code>, unmapped</td><td><code>0x1F</code>, <code>0x00</code>, <code>0x50</code></td></tr>
+<tr><td>Line/event state</td><td>fixed</td><td>paired-state latch and event byte</td><td>none</td><td>fixed</td></tr>
+<tr><td>FDRC block</td><td>unmapped</td><td>only device address at <code>0x80</code></td><td>unmapped</td><td>unmapped</td></tr>
+<tr><td>Connected transfer</td><td>unavailable</td><td>unavailable</td><td>unavailable</td><td>unavailable</td></tr>
+<tr><td>Driver status</td><td>disconnected traces run</td><td>source calls the block <code>Fake USB</code></td><td>TI-84 Plus driver is <code>MACHINE_NOT_WORKING</code></td><td>fixed disconnected browser-emulator values</td></tr>
 </tbody>
 </table>
 </div>
@@ -774,11 +774,48 @@ reset. This establishes that initialization, both timeouts, and dispatch up to
 <code>_ReceiveOS_USB</code>, endpoint payload transfer, command-busy behavior, electrical
 USB signaling, or a calculator. [confirmed] for the controlled Wabbitemu ROM
 execution; [hypothesis] for corresponding physical behavior.</p>
+<h3 id="controlled-installer-record-rejection"><a class="header" href="#controlled-installer-record-rejection">Controlled installer-record rejection</a></h3>
+<p>A second constant-memory mode continues from <code>_InitUSB</code> into
+<code>_ReceiveOS_USB</code> at <code>2F:48CA</code>. Direct entry requires the session state normally
+created by the preceding negotiation: <code>IY = 0x89F0</code>, frame size <code>0x0104</code>,
+staged offset zero, timeout <code>0x0014</code>, and bit 0 of <code>IY+0x42</code> set. The harness
+scripts three endpoint FIFO packets: [confirmed]</p>
+<pre><code class="language-text">0000000205
+E000
+0000000C0400000000000500003E000000
+</code></pre>
+<p>The first two packets form the five-byte type-<code>0x05</code> transport header and its
+<code>E0 00</code> acknowledgement payload. The final type-<code>0x04</code> frame selects service
+<code>0x0005</code> and supplies an installer record whose page byte is <code>0x3E</code>. The ROM
+transmits the exact request and acknowledgement below: [confirmed]</p>
+<pre><code class="language-text">0000000E040000000800030000010400000000
+0000000205E000
+</code></pre>
+<p>Execution reaches stream receive at <code>2F:4610</code>, installer dispatch at
+<code>2F:495B</code>, <code>_DisplayOSProgress</code>, page validation at <code>2F:5079</code>, the invalid-page
+branch at <code>2F:49A2</code>, and <code>_USBErrorCleanup</code> at <code>2F:5958</code>. It stops at
+<code>2F:5000</code>, before the error UI. <code>_DisplayOSProgress</code> precedes page validation,
+so the isolated validator case explicitly seeds <code>0x82A3 = 0x3E</code> immediately
+before that call. This makes the progress helper a no-op for the already
+displayed page and prevents its unrelated persistent progress-byte update from
+obscuring the rejection path. The complete Flash comparison then reports zero
+changed bytes. [confirmed] for this controlled Wabbitemu-core execution.</p>
+<p>This intervention is part of the result, not a claim about a natural complete
+OS-install session. The run validates transport framing, the retail calling
+context, record dispatch, page rejection, cleanup, and unchanged Flash across
+the isolated rejection. It does not model a USB device, endpoint timing, a PHY,
+natural progress persistence, or a physical calculator. [standard]</p>
 <h2 id="reusable-usb-tools"><a class="header" href="#reusable-usb-tools">Reusable USB tools</a></h2>
 <p><code>tools/usb_hardware.py</code> contains the FDRC offset map, the common HDRC comparison map, pinned source
 provenance, imported global bit names, link-assist rate fields, page-35 and boot-event decoders,
 paired line-state decoder, emulator profiles, and pure functions for Wabbitemu’s USB read handlers.
 <code>tools/describe_usb_hardware.py</code> exposes the general models as text or JSON.
+<code>tools/wabbitemu_usb_receive.py</code> decodes the transport frames and enforces the
+exact receive packets, ROM transmissions, execution boundaries, calling
+context, intervention, and whole-Flash result. The guarded
+<code>tools/run_wabbitemu_usb_receive_probe.py</code> CLI checks both ROM and adapter
+hashes and writes a JSON manifest. The native runner stores packet payloads and
+fixed counters only; it does not emit an instruction-by-instruction trace.
 <code>tools/wabbitemu_usb_probe.py</code> validates native reports against the reusable handler model, while
 <code>tools/run_wabbitemu_usb_edge_probe.py</code> provides the exact-ROM guard and writes a hashed JSON
 manifest. <code>tools/wabbitemu_usb_rom.py</code> contains the byte-derived boot-ROM
@@ -822,8 +859,16 @@ nix develop -c python tools/run_wabbitemu_usb_rom_probe.py \
   --rom tools/rom.bin \
   --binary /path/to/wabbitemu-headless \
   --expected-binary-sha256 \
-    617f7f5bce09115794911aa19e5fa3ed549169f548cbb8e6bc2ddbf4859343ce \
+    3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
   --output-dir "$usb_rom_parent/run" --json
+
+usb_receive_parent=$(mktemp -d /tmp/ti84-usb-receive.XXXXXX)
+nix develop -c python tools/run_wabbitemu_usb_receive_probe.py \
+  --rom tools/rom.bin \
+  --binary /path/to/wabbitemu-headless \
+  --expected-binary-sha256 \
+    3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
+  --output-dir "$usb_receive_parent/run" --json
 </code></pre>
 <p>The FDRC names and bit labels remain a controller-family hypothesis. The CLI identifies that evidence boundary in its register records; it does not promote imported Mentor names to TI silicon confirmation.</p>
 <h2 id="how-to-use-it-in-code-confirmed"><a class="header" href="#how-to-use-it-in-code-confirmed">How to use it in code [confirmed]</a></h2>
@@ -892,7 +937,7 @@ a stable public API.</li>
 <ul>
 <li>The ROM calls <code>ram:2E0B</code>, a <code>cross_page_jump</code> thunk to <code>35:4280</code>. Its
 carry-clear/carry-set result is decoded above.</li>
-<li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs and the boot-page <code>0x8xxx</code> USB entries are mapped above. The controlled harness executes <code>_InitUSB</code>, both timeout paths, and <code>_AttemptUSBOSReceive</code> through <code>2F:4170</code>. Endpoint payload transfer and <code>_ReceiveOS_USB</code> remain dynamically untested.</li>
+<li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs and the boot-page <code>0x8xxx</code> USB entries are mapped above. The controlled harness executes <code>_InitUSB</code>, both timeout paths, <code>_AttemptUSBOSReceive</code> through <code>2F:4170</code>, and a scripted <code>_ReceiveOS_USB</code> installer record through invalid-page cleanup. A natural connected transfer and valid page-programming session remain dynamically untested.</li>
 <li>The FDRC layout names the endpoint register block, but physical tests have not confirmed every
 imported bit meaning or the TI-specific PHY at ports <code>0x4A</code>–<code>0x5B</code>. TilEm does not model physical
 timing from the assist setup values. ROM-confirmed claims remain limited to written constants,
@@ -905,7 +950,7 @@ host-mode restriction remain physically unverified.</li>
 <li>The guarded TilEm link probe verifies handler-visible assist behavior, but it
 does not establish physical signaling-rate divisors, wait states, electrical
 levels, or reset retention.</li>
-<li>TilEm, Wabbitemu, and MAME do not implement a connected page-35 transfer. The initialized-core Wabbitemu run confirms its port-registration, event-mask, contradictory-line-state, repeat-event, and paired-bit handler defects. The controlled port harness reaches the boot receive boundary, but a complete connected transfer still requires physical hardware or a device-level model.</li>
+<li>TilEm, Wabbitemu, MAME, and jsTIfied do not implement a connected page-35 transfer. The initialized-core Wabbitemu run confirms its port-registration, event-mask, contradictory-line-state, repeat-event, and paired-bit handler defects. The controlled port harness now drives exact endpoint FIFO packets through invalid-page cleanup, but a natural complete transfer still requires physical hardware or a device-level model.</li>
 </ul>
 <h2 id="sources"><a class="header" href="#sources">Sources</a></h2>
 <div class="table-wrapper">
@@ -923,6 +968,7 @@ levels, or reset retention.</li>
 <tr><td><a href="https://github.com/brandonlw/Linky/tree/89586b0d33796d9746934560c030bb247193d37a">Linky at <code>89586b0</code></a></td><td>Independent calculator software that names MUSBFDRC and exercises the same ports</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code> at <code>48c2dc0</code></a></td><td>Partial line-state and interrupt model, with the implementation limits described above</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>Fixed USB interrupt reads and absent controller/endpoint ports</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/item.php?id=42">jsTIfied project 42</a> and <a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">deployed <code>20170706a</code> artifact</a></td><td>fixed disconnected values matching TilEm and absence of an endpoint/FDRC model; artifact SHA-256 <code>c7325a38f976f64eaa34182da17d838fe4831eece4650b92d5db710cf7a8fc5b</code></td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:09">WikiTI port <code>0x09</code></a></td><td>Historical link-assist timing-field interpretation, kept separate from ROM observations</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:4B">WikiTI port <code>0x4B</code></a></td><td>Historical USB-power orientation. The page calls its own bit descriptions mostly speculative.</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:49">WikiTI port <code>0x49</code></a></td><td>Historical raw-transceiver bit claims; no primary hardware source or ROM use found</td></tr>

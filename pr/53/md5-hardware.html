@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -543,16 +543,16 @@ MD5Buffer+2… = digest bytes, low byte first
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Behavior</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
+<tr><th>Behavior</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Ports <code>0x18</code>–<code>0x1F</code></td><td>mapped</td><td>mapped</td><td>absent; live reads return <code>00</code></td></tr>
-<tr><td>Operand writes</td><td>six 32-bit sliding registers</td><td>same</td><td>unmapped</td></tr>
-<tr><td>Control writes</td><td>shift masked to five bits; mode masked to two</td><td>same</td><td>unmapped</td></tr>
-<tr><td>Result reads</td><td>recalculated on each read from <code>0x1C</code>–<code>0x1F</code></td><td>same</td><td>unmapped; live reads return <code>00</code></td></tr>
-<tr><td>Reads from <code>0x18</code>–<code>0x1B</code></td><td>zero</td><td>zero</td><td>unmapped; live reads return <code>00</code></td></tr>
-<tr><td>Reset and state</td><td>fields cleared on reset and serialized</td><td>fields serialized</td><td>no MD5 state</td></tr>
-<tr><td>Driver status</td><td>usable implementation</td><td>usable implementation</td><td>TI-84 Plus marked <code>MACHINE_NOT_WORKING</code></td></tr>
+<tr><td>Ports <code>0x18</code>–<code>0x1F</code></td><td>mapped</td><td>mapped</td><td>absent; live reads return <code>00</code></td><td>mapped</td></tr>
+<tr><td>Operand writes</td><td>six 32-bit sliding registers</td><td>same</td><td>unmapped</td><td>implemented</td></tr>
+<tr><td>Control writes</td><td>shift masked to five bits; mode masked to two</td><td>same</td><td>unmapped</td><td>implemented</td></tr>
+<tr><td>Result reads</td><td>recalculated on each read from <code>0x1C</code>–<code>0x1F</code></td><td>same</td><td>unmapped; live reads return <code>00</code></td><td>implemented</td></tr>
+<tr><td>Reads from <code>0x18</code>–<code>0x1B</code></td><td>zero</td><td>zero</td><td>unmapped; live reads return <code>00</code></td><td>modeled by the port block</td></tr>
+<tr><td>Reset and state</td><td>fields cleared on reset and serialized</td><td>fields serialized</td><td>no MD5 state</td><td>emulator fields are reset and serialized</td></tr>
+<tr><td>Driver status</td><td>usable implementation</td><td>usable implementation</td><td>TI-84 Plus marked <code>MACHINE_NOT_WORKING</code></td><td>browser emulator source model</td></tr>
 </tbody>
 </table>
 </div>
@@ -655,6 +655,7 @@ probe bytes; [hypothesis] for all pending hardware results.</p>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/md5.c">TilEm <code>md5.c</code></a> and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c"><code>x4_io.c</code></a></td><td>emulator arithmetic, shift registers, masks, reads, and reset</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code></a></td><td>second emulator implementation of the same port block</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a></td><td>TI-84 Plus I/O map, absent MD5 ports, and driver status</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth implementation of the ports <code>0x18</code>–<code>0x1F</code> arithmetic block</td></tr>
 <tr><td><a href="http://www.datamath.org/Graphing/TI-84PLUS.htm">Datamath TI-84 Plus hardware</a></td><td>calculator hardware and ASIC identification context</td></tr>
 </tbody>
 </table>

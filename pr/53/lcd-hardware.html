@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cb48bafa.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -183,7 +183,7 @@
 <p><em>TI-84 Plus OS 2.55MP — Controller commands, video RAM, bus timing, initialization, blits, reads, contrast, and emulator fidelity.</em></p>
 <p>The TI-84 Plus drives a 96×64 monochrome panel through an external LCD controller on ports <code>0x10</code> and <code>0x11</code>. This page separates the visible panel from controller video RAM, reconstructs the OS command and transfer paths, traces initialization and clearing, and identifies behavior that varies across Toshiba and Novatek controller revisions.</p>
 <h2 id="evidence-layers"><a class="header" href="#evidence-layers">Evidence layers</a></h2>
-<p>The local ROM establishes what OS 2.55MP sends to the controller. Public hardware tests establish controller behavior that the ROM does not expose. TilEm, Wabbitemu, and MAME supply executable models whose choices are identified separately.</p>
+<p>The local ROM establishes what OS 2.55MP sends to the controller. Public hardware tests establish controller behavior that the ROM does not expose. TilEm, Wabbitemu, MAME, and jsTIfied supply executable models whose choices are identified separately.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -534,24 +534,24 @@ for the stage and keypad flow.</p>
 </ul>
 <p>The trace is an emulator execution record. It proves the ROM path and values but does not prove analog power behavior, physical busy duration, or controller-revision quirks.</p>
 <h2 id="emulator-comparison"><a class="header" href="#emulator-comparison">Emulator comparison</a></h2>
-<p>All three emulators implement the commands and visible 12-byte rows used by
+<p>All four emulators implement the commands and visible 12-byte rows used by
 OS 2.55MP. Their hidden-column, busy, and ASIC-timer behavior differs. These
 differences are emulator test cases, not physical-controller evidence.
 [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th></tr>
+<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
 </thead>
 <tbody>
-<tr><td>Controller RAM</td><td>1,024 bytes, 16 × 64</td><td>1,024 bytes, 16 × 64</td><td>960 bytes, 15 × 64</td></tr>
-<tr><td>8-bit column increment</td><td>accesses 0–15, then normalizes to 0</td><td>accesses 0–14, then wraps to 0</td><td>counts modulo 32 without a RAM bound</td></tr>
-<tr><td>Controller busy</td><td>50 or 70 cycles; early transfers rejected</td><td>60-T-state guard from the last accepted write</td><td>absent; busy status is always zero</td></tr>
-<tr><td>ASIC ready</td><td>port-<code>0x2F</code> timer starts on every LCD read or write</td><td>interval measured from the last accepted write</td><td>port-<code>0x02</code> bit 1 is always set</td></tr>
-<tr><td>Ports <code>0x12</code>/<code>0x13</code></td><td>aliases</td><td>absent</td><td>aliases</td></tr>
-<tr><td>Data-read latch</td><td>modeled</td><td>modeled</td><td>modeled</td></tr>
-<tr><td>Analog power and test modes</td><td>ignored</td><td>ignored</td><td>values partly stored; no analog effect</td></tr>
-<tr><td>Driver status</td><td>active TI-84 Plus trace target</td><td>source model</td><td><code>MACHINE_NOT_WORKING</code></td></tr>
+<tr><td>Controller RAM</td><td>1,024 bytes, 16 × 64</td><td>1,024 bytes, 16 × 64</td><td>960 bytes, 15 × 64</td><td>960 bytes, 15 × 64</td></tr>
+<tr><td>8-bit column increment</td><td>accesses 0–15, then normalizes to 0</td><td>accesses 0–14, then wraps to 0</td><td>counts modulo 32 without a RAM bound</td><td>accesses 0–14 around a 120-pixel row</td></tr>
+<tr><td>Controller busy</td><td>50 or 70 cycles; early transfers rejected</td><td>60-T-state guard from the last accepted write</td><td>absent; busy status is always zero</td><td>randomized 25–47-emulator-cycle interval</td></tr>
+<tr><td>ASIC ready</td><td>port-<code>0x2F</code> timer starts on every LCD read or write</td><td>interval measured from the last accepted write</td><td>port-<code>0x02</code> bit 1 is always set</td><td>status derives from the emulator’s LCD timer</td></tr>
+<tr><td>Ports <code>0x12</code>/<code>0x13</code></td><td>aliases</td><td>absent</td><td>aliases</td><td>aliases</td></tr>
+<tr><td>Data-read latch</td><td>modeled</td><td>modeled</td><td>modeled</td><td>modeled</td></tr>
+<tr><td>Analog power and test modes</td><td>ignored</td><td>ignored</td><td>values partly stored; no analog effect</td><td>drive fields and grayscale display physics modeled</td></tr>
+<tr><td>Driver status</td><td>active TI-84 Plus trace target</td><td>source model</td><td><code>MACHINE_NOT_WORKING</code></td><td>browser emulator source model</td></tr>
 </tbody>
 </table>
 </div>
@@ -754,6 +754,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_lcd_probe.py \
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/lcd.c">TilEm <code>lcd.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/calcs.c"><code>calcs.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c"><code>x4_io.c</code></a>, and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c"><code>x4_init.c</code></a></td><td>emulator video RAM, command decode, latches, port aliases, wait timers, and reset state</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/lcd.c">Wabbitemu <code>lcd.c</code></a>, <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c"><code>83psehw.c</code></a>, and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/interface/calc.c"><code>calc.c</code></a></td><td>controller RAM, pointer movement, transfer guard, ASIC-ready calculation, port registration, and frontend reset scope</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/devices/video/t6a04.cpp">MAME <code>t6a04.cpp</code></a>, <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp"><code>ti85.cpp</code></a>, and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>controller array and commands, TI-84 Plus port map, fixed ready bit, and driver status</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth controller model, 120-pixel storage, randomized busy interval, latch, and display physics</td></tr>
 </tbody>
 </table>
 </div>
