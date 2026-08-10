@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ee11aa46.js";
+            window.path_to_searchindex_js = "searchindex-398a99ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -183,8 +183,9 @@
 <p>The physical-probe suite builds small <code>AsmPrgm</code> programs and decodes their
 result AppVars. The sources cover MD5-assist edge behavior, RAM selector
 aliasing, execution-protection boundaries, repeated battery-level bcalls, and
-read-only ASIC and USB register snapshots. No exported result from a physical
-calculator has been recorded, so the hardware conclusions remain open.</p>
+raw battery-comparator selectors, plus read-only ASIC and USB register
+snapshots. No exported result from a physical calculator has been recorded, so
+the hardware conclusions remain open.</p>
 <h2 id="measurement-status"><a class="header" href="#measurement-status">Measurement status</a></h2>
 <p>The builder, link-file containers, entry jumps, bcall ID, frame layouts, and
 restoration instruction sequences have byte-level host validation. [confirmed]
@@ -200,6 +201,7 @@ result AppVar is decoded and tied to a calculator and ASIC revision.</p>
 <tr><td>RAM selector aliasing</td><td><code>HWPRAM</code></td><td><code>HWPRAM21</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>ASIC register snapshot</td><td><code>HWASIC</code></td><td><code>HWPASIC1</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Battery-level stability</td><td><code>HWBATT</code></td><td><code>HWBATT01</code></td><td>Not run on a recorded unit</td></tr>
+<tr><td>Raw battery selectors</td><td><code>HWBRAW</code></td><td><code>HWBRAW01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>USB control snapshot</td><td><code>HWPUSB</code></td><td><code>HWPUSB01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Flash execution boundaries</td><td><code>HWEF07</code>–<code>HWEF2A</code></td><td>matching <code>HWEF...01</code> names</td><td>Not run on a recorded unit</td></tr>
 <tr><td>RAM execution boundaries</td><td><code>HWER81</code>–<code>HWER84</code></td><td>matching <code>HWER...1</code> names</td><td>Not run on a recorded unit</td></tr>
@@ -216,7 +218,7 @@ hash manifest with:</p>
 <pre><code class="language-sh">nix develop -c python tools/build_hardware_probes.py \
   --output-dir /tmp/hardware-probes
 </code></pre>
-<p>The command emits the five snapshot and edge probes, ten single-fetch
+<p>The command emits the six snapshot and edge probes, ten single-fetch
 execution probes, and <code>manifest.json</code>. The manifest records every target
 selector and scan range. It uses repository-relative source names and output
 basenames, so builds made in different checkout directories remain comparable.
@@ -228,6 +230,8 @@ a calculator backup before the first run. Then:</p>
 <li>Delete the probe’s result AppVar if it already exists.</li>
 <li>Run <code>Asm(prgmHWASIC)</code> for the read-only register snapshot.</li>
 <li>Run <code>Asm(prgmHWBATT)</code> for the restoring battery-level sample.</li>
+<li>Run <code>Asm(prgmHWBRAW)</code> for the higher-risk direct-selector sample only after
+<code>HWBATT</code> succeeds and its result has been exported.</li>
 <li>Run <code>Asm(prgmHWPUSB)</code> for the read-only USB control snapshot.</li>
 <li>Run <code>Asm(prgmHWPMD5)</code> for the MD5 probe.</li>
 <li>Run <code>Asm(prgmHWPRAM)</code> for the RAM probe only after the earlier transfer and run
@@ -247,7 +251,8 @@ internal size word, the <code>HWP1</code> frame version, and the payload length 
 interprets measurements. [confirmed]</p>
 <pre><code class="language-sh">python tools/decode_hardware_probe.py HWPMD511.8xv
 python tools/decode_hardware_probe.py --json \
-  HWPASIC1.8xv HWBATT01.8xv HWPUSB01.8xv HWPMD511.8xv HWPRAM21.8xv
+  HWPASIC1.8xv HWBATT01.8xv HWBRAW01.8xv HWPUSB01.8xv \
+  HWPMD511.8xv HWPRAM21.8xv
 </code></pre>
 <p>The JSON form keeps the raw payload and adds named fields. Preserve the
 original exported AppVar even when a report has been generated.</p>
@@ -438,6 +443,52 @@ raw comparator-bit trace. [hypothesis] for pending physical results.</p>
 The packaged 688-byte <code>HWBATT.8xp</code> has SHA-256
 <code>9d075837dc399ec0771e563c747e7498b4c260fe6f4fee128f17a57ba238fea0</code>.
 [confirmed]</p>
+<h2 id="raw-battery-selector-probe"><a class="header" href="#raw-battery-selector-probe">Raw battery-selector probe</a></h2>
+<p>Probe ID 7 samples the port-<code>0x02</code> comparator after each selector used by
+<code>_Chk_Batt_Level</code>. It runs the sequence 16 times and records one four-bit mask
+per sequence. The bit assignment stays in numeric selector order even though
+the ROM tests the final three selectors in another order: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Mask bit</th><th style="text-align: right">Port-<code>0x04</code> selector</th><th style="text-align: right">Sample order</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right">0</td><td style="text-align: right"><code>0x06</code></td><td style="text-align: right">first</td></tr>
+<tr><td style="text-align: right">1</td><td style="text-align: right"><code>0x46</code></td><td style="text-align: right">fourth</td></tr>
+<tr><td style="text-align: right">2</td><td style="text-align: right"><code>0x86</code></td><td style="text-align: right">third</td></tr>
+<tr><td style="text-align: right">3</td><td style="text-align: right"><code>0xC6</code></td><td style="text-align: right">second</td></tr>
+</tbody>
+</table>
+</div>
+<p>Each selector write executes five calls to <code>00:0CEB</code>, then reads comparator bit
+0 from port <code>0x02</code>. The first <code>0x06</code> sample precedes the port-<code>0x3A</code> bit-7
+enable. The probe then samples <code>0xC6</code>, <code>0x86</code>, and <code>0x46</code>. It continues through
+all four selectors even when the initial sample is zero. The retail bcall can
+return early instead. [confirmed] from the assembled probe and the ROM path at
+<code>33:4EDC</code>–<code>33:4EE8</code>.</p>
+<p>After each sequence, the probe reproduces the cleanup at <code>33:4EEB</code>–<code>33:4F00</code>:
+it sets port-<code>0x39</code> bit 4, pulses port-<code>0x3A</code> bit 4 around
+<code>A=0x40; CALL 00:0CED</code>, and clears port-<code>0x3A</code> bits 4 and 7. The common 30-byte
+state layout matches the battery-level probe, with raw masks at offsets
+<code>4</code>–<code>19</code> and post-sequence state at offsets <code>20</code>–<code>24</code>. The decoder rejects
+masks above <code>0x0F</code>. It reports a 16-bin histogram, a stable mask only when all
+samples agree, pass counts for each selector, and <code>cleanup_matches</code>. [confirmed]</p>
+<p>Run <code>HWBATT</code> before this probe at each voltage point. Export both AppVars and
+record the externally measured rail voltage and load. Sweep upward and downward
+slowly enough to distinguish threshold crossings from noise and hysteresis.
+<code>HWBATT01</code> records the OS-visible result; <code>HWBRAW01</code> identifies which selector
+comparators passed. Neither AppVar measures voltage. [hypothesis] for pending
+physical results.</p>
+<p>This probe directly manipulates battery-selection GPIO. An interruption or
+reset before cleanup can leave the selection state changed. Use a backed-up
+test calculator, stable externally current-limited power, and an independently
+verified voltage before running it. Do not run it as the first probe on a unit.</p>
+<p>The pinned SPASM-ng build produces 397 machine-code bytes with SHA-256
+<code>d28548e32a53189f32c6ba7f2a4aba85278453ebcf8d1fba8f788f735f24b57c</code>.
+The packaged 874-byte <code>HWBRAW.8xp</code> has SHA-256
+<code>c0316a51a5262a32143fa72fe11c8ba510ee9aee1f87f8e28466777c54057586</code>.
+[confirmed]</p>
 <h2 id="usb-control-snapshot"><a class="header" href="#usb-control-snapshot">USB control snapshot</a></h2>
 <p>Probe ID 5 reads ports <code>0x49</code>, <code>0x4A</code>–<code>0x4D</code>, <code>0x4F</code>–<code>0x52</code>,
 <code>0x54</code>–<code>0x57</code>, <code>0x5A</code>, and <code>0x5B</code>. Port <code>0x15</code> identity and port <code>0x02</code>
@@ -467,14 +518,15 @@ a physical run. A reset, power loss, assembly defect, or unexpected exception
 before the restoration loop can leave a changed byte. Use a backed-up test
 calculator and stable power. Do not run the RAM probe on a unit whose contents
 cannot be replaced.</p>
-<p>The snapshot, battery, and alias probes restore interrupt enable state before
-creating the result AppVar. The battery probe also restores ports <code>0x04</code>,
-<code>0x39</code>, <code>0x3A</code>, and the complete saved <code>traceFlags</code> byte. A returned execution
-probe restores port <code>0x06</code> and the interrupt state. A denied fetch may reset
-before those instructions. None of the probes modifies Flash directly. The
-result AppVar is the intended persistent write. [confirmed] for the source and
-assembled bytes; [hypothesis] for unmeasured physical execution and reset
-retention.</p>
+<p>The snapshot, battery, raw-battery, and alias probes restore interrupt enable
+state before creating the result AppVar. Both battery probes restore ports
+<code>0x04</code>, <code>0x39</code>, <code>0x3A</code>, and the complete saved <code>traceFlags</code> byte. The raw probe
+also executes the ROM’s selector cleanup after every sample sequence. A
+returned execution probe restores port <code>0x06</code> and the interrupt state. A denied
+fetch may reset before those instructions. None of the probes modifies Flash
+directly. The result AppVar is the intended persistent write. [confirmed] for
+the source and assembled bytes; [hypothesis] for unmeasured physical execution
+and reset retention.</p>
 <h2 id="source-layout"><a class="header" href="#source-layout">Source layout</a></h2>
 <div class="table-wrapper">
 <table>
@@ -485,6 +537,7 @@ retention.</p>
 <tr><td><code>tools/hardware-probes/common.inc</code></td><td>OP1 setup, <code>_CreateAppVar</code>, and frame copy</td></tr>
 <tr><td><code>tools/hardware-probes/asic-snapshot.asm</code></td><td>read-only ASIC, timing, and GPIO register snapshot</td></tr>
 <tr><td><code>tools/hardware-probes/battery-level.asm</code></td><td>repeated retail battery-level bcall and restoring state audit</td></tr>
+<tr><td><code>tools/hardware-probes/battery-raw.asm</code></td><td>repeated raw comparator-selector sequence and restoring state audit</td></tr>
 <tr><td><code>tools/hardware-probes/usb-snapshot.asm</code></td><td>read-only low-USB control and status snapshot</td></tr>
 <tr><td><code>tools/hardware-probes/md5-edge.asm</code></td><td>calculator-side MD5 measurements</td></tr>
 <tr><td><code>tools/hardware-probes/ram-alias.asm</code></td><td>calculator-side RAM alias and restoration measurements</td></tr>

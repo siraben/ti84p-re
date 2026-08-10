@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ee11aa46.js";
+            window.path_to_searchindex_js = "searchindex-398a99ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -786,9 +786,10 @@ test. No physical snapshot is recorded. [confirmed] for the probe bytes;
 <ul>
 <li>Run the restoring <a href="hardware-probes.html#battery-level-probe">battery-level probe</a>
 across an upward and downward controlled-supply sweep. It records 16 retail
-bcall results per point and verifies port/GPIO/flag cleanup. A separate raw
-port-<code>0x02</code> sampler is still needed to assign each individual selector
-threshold and hysteresis.</li>
+bcall results per point and verifies port/GPIO/flag cleanup. Run the
+higher-risk <a href="hardware-probes.html#raw-battery-selector-probe">raw battery-selector probe</a>
+after it at each voltage point. The second result records all four comparator
+bits so the sweep can assign individual selector thresholds and hysteresis.</li>
 <li>Read port <code>0x15</code> on known TA1, TA2, and TA3 units and compare the result with
 package markings and installed RAM.</li>
 <li>Program each port-<code>0x21</code> field while Flash is unlocked. Test Flash protection
