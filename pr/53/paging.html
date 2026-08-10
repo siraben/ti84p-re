@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b85029df.js";
+            window.path_to_searchindex_js = "searchindex-4c48e5e2.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -200,6 +200,7 @@ or <code>0x28</code> a nonzero value, so their physical behavior remains unconfi
 <tr><td>Wabbitemu <code>83psehw.c</code> and <code>core.c</code></td><td>an independent implementation, including extended Flash pages and different overlay rules</td><td>[standard]</td></tr>
 <tr><td>Guarded Wabbitemu mapper run</td><td>initialized-core reset, selector readback, fixed-page handoff, paired mapping, and overlay routing</td><td>[standard]</td></tr>
 <tr><td>MAME 0.287 <code>ti85.cpp</code> and <code>ti85_m.cpp</code></td><td>a third implementation’s bank arithmetic, reset latch, mapped I/O, and backing ranges</td><td>[standard]</td></tr>
+<tr><td>Guarded MAME mapper run</td><td>fresh-reset latch qualifiers, selector masks, safe RAM banks, absent overlay ports, and read/write/fetch routing</td><td>[standard]</td></tr>
 <tr><td>Public port descriptions</td><td>intended family-wide contracts for ports <code>0x04</code>–<code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, and <code>0x28</code></td><td>[standard]</td></tr>
 </tbody>
 </table>
@@ -551,6 +552,35 @@ underlying Flash pages while both forced RAM markers remain unchanged. The
 same NOP/HALT discriminator executes the underlying HALT. These writes call
 Wabbitemu’s low-level mapper function; they test address routing, not Flash
 command acceptance. The run establishes emulator behavior only. [standard]</p>
+<h3 id="native-mame-mapper-edges"><a class="header" href="#native-mame-mapper-edges">Native MAME mapper edges</a></h3>
+<p>A guarded MAME 0.287 run uses five fresh processes so each handoff case starts
+with <code>m_booting</code> set. The untouched process reports <code>PC = 0x0000</code>, port reads
+<code>08 00 00 00</code> for <code>0x04</code>–<code>0x07</code>, and visible Flash prefixes <code>3E 07</code>, <code>DB 02</code>,
+<code>44 6F</code>, and <code>DB 02</code> in windows 0, A, B, and C. These prefixes identify pages
+<code>3F</code>, <code>00</code>, <code>01</code>, and <code>00</code> in the exact OS 2.55MP image. [standard]</p>
+<p>Reading A through Lua’s CPU program space changes the window-0 prefix from
+page <code>3F</code>’s <code>3E 07</code> to page <code>00</code>’s <code>DB 02</code>. This MAME Lua access carries read
+side effects; it is not a side-effect-free debugger peek. Three tiny programs
+in RAM then perform actual Z80 data reads in separate processes. An independent
+B read returns page-<code>02</code> byte <code>0E</code> and leaves page <code>3F</code> fixed. An A read returns
+page-<code>01</code> byte <code>44</code> and fixes page <code>00</code>. A paired B read returns page-<code>03</code> byte
+<code>02</code> and also fixes page <code>00</code>. Each program reaches the expected <code>HALT</code> at
+<code>0xC008</code>. [standard]</p>
+<p>The selector cases exercise only mapped backing. Flash write <code>0x41</code> reads back
+<code>01</code> and exposes page <code>01</code>; <code>0x7F</code> reads back <code>3F</code> and exposes page <code>3F</code>. RAM
+selectors <code>0x80</code>, <code>0x85</code>, and <code>0x86</code> reach seeded pages 0, 5, and 6. Port
+<code>0x05 = 0xFE</code> reads back <code>06</code> and reaches RAM page 6. In paired mode, port
+<code>0x06 = 0x02</code> exposes adjacent Flash pages <code>02</code> and <code>03</code>, while port
+<code>0x07 = 0x83</code> maps RAM page 3 into C. The probe omits selector <code>0x87</code>; the
+pinned address map places that bank beyond its seven mapped RAM pages.
+[standard]</p>
+<p>Ports <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, and <code>0x28</code> return zero before and after
+patterned writes. With underlying RAM pages 2 and 3 in B and C, writes at
+<code>0x8000</code> and <code>0xFB64</code> change those pages while seeded candidate overlay bytes
+in RAM pages 1 and 0 remain unchanged. A fetched discriminator executes marker
+<code>22</code> from underlying RAM page 2 rather than marker <code>11</code> from candidate overlay
+page 1. The run therefore covers MAME read, write, and instruction-fetch
+routing without treating the missing overlay as ASIC evidence. [standard]</p>
 <h2 id="interaction-with-execution-protection"><a class="header" href="#interaction-with-execution-protection">Interaction with execution protection</a></h2>
 <p>Ports <code>0x21</code>–<code>0x26</code> control Flash and RAM execution permissions. They do not
 select pages; see <a href="execution-protection.html">Execution protection</a> for their
@@ -626,6 +656,15 @@ code:</p>
 <p><code>tools/wabbitemu_mapper_probe.py</code> derives the native edge expectations from
 the same mapper profile. <code>tools/run_wabbitemu_mapper_edge_probe.py</code> requires
 the exact OS 2.55MP ROM and writes a hash-complete JSON manifest.</p>
+<p><code>tools/mame_mapper.py</code> derives the corresponding MAME oracle from the reusable
+profile and pinned ROM prefixes. The guarded CLI runs every latch case from a
+fresh machine:</p>
+<pre><code class="language-sh">mame_mapper_parent=$(mktemp -d /tmp/ti84-mame-mapper.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_mapper_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_mapper_parent/run" --json
+</code></pre>
 <h2 id="open-physical-tests"><a class="header" href="#open-physical-tests">Open physical tests</a></h2>
 <ul>
 <li>Write nonzero values to ports <code>0x27</code> and <code>0x28</code> in independent mode and test
