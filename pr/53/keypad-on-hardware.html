@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b45e00d0.js";
+            window.path_to_searchindex_js = "searchindex-c3a79e88.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -637,7 +637,11 @@ exact OS 2.55MP ROM hash and writes a JSON manifest containing both binary
 hashes and evidence scope. <code>tools/mame_keypad.py</code> parses and checks the MAME
 matrix against the reusable source model. <code>tools/run_mame_keypad_probe.py</code>
 guards the exact MAME executable, ROM, Lua adapter, and isolated runtime.
-<code>tools/mame_interrupt.py</code> adds the independent timer-sampled ON-edge sequence.</p>
+<code>tools/mame_interrupt.py</code> adds the independent timer-sampled ON-edge sequence.
+The <a href="hardware-probes.html#keypad-settling-probe">physical keypad settling probe</a>
+uses the same numeric group order but does not apply an emulator matrix model.
+It records every raw byte so held-key metadata and ASIC revision can be compared
+without assuming one of the three source algorithms.</p>
 <pre><code class="language-sh"># Three-key rectangle: TilEm/Wabbitemu read 0xFC; MAME reads 0xFE.
 nix develop -c python tools/describe_keypad_hardware.py matrix \
   --mask 0xFE --key 0,0 --key 1,0 --key 1,1
@@ -706,6 +710,9 @@ above additionally require disassembly of their surrounding routines.</p>
 <li>[standard] A guarded initialized-core Wabbitemu run reproduces the pairwise matrix reads, ignored row 7, press-only ON latch, held-key suppression, and release rearming described by the pinned source.</li>
 <li>[standard] A guarded live-input MAME run reproduces its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, lack of matrix closure, and all-groups result.</li>
 <li>[standard] A guarded MAME interrupt run reproduces its press-only ON latch, held-press suppression, release rearming, live-level bit, and bit-0-clear acknowledgement.</li>
+<li>[confirmed] The prepared <code>HWKEYS</code> probe encodes all eight group writes, four
+instruction gaps, and 16 trials per point, then unselects every group; no
+physical AppVar has been recorded.</li>
 <li>[hypothesis] The exact capacitance and minimum safe settle time should be measured across TA2 and TA3 calculators, including worst-case chords.</li>
 <li>[hypothesis] A logic-analyzer test should establish which physical ON transitions request interrupts on each ASIC revision rather than selecting an emulator policy by majority.</li>
 </ul>

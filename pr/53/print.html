@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b45e00d0.js";
+            window.path_to_searchindex_js = "searchindex-c3a79e88.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -8590,9 +8590,10 @@ including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes
 <p>The physical-probe suite builds small <code>AsmPrgm</code> programs and decodes their
 result AppVars. The sources cover MD5-assist edge behavior, RAM selector
 aliasing, execution-protection boundaries, repeated battery-level bcalls, raw
-battery-comparator selectors, and raw two-wire link readback, plus read-only
-ASIC and USB register snapshots. No exported result from a physical calculator
-has been recorded, so the hardware conclusions remain open.</p>
+battery-comparator selectors, keypad-matrix settling, and raw two-wire link
+readback, plus read-only ASIC and USB register snapshots. No exported result
+from a physical calculator has been recorded, so the hardware conclusions
+remain open.</p>
 <h2 id="measurement-status"><a class="header" href="#measurement-status">Measurement status</a></h2>
 <p>The builder, link-file containers, entry jumps, bcall ID, frame layouts, and
 restoration or cleanup instruction sequences have byte-level host validation.
@@ -8611,6 +8612,7 @@ result AppVar is decoded and tied to a calculator and ASIC revision.</p>
 <tr><td>Battery-level stability</td><td><code>HWBATT</code></td><td><code>HWBATT01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Raw battery selectors</td><td><code>HWBRAW</code></td><td><code>HWBRAW01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Raw link readback</td><td><code>HWLINK</code></td><td><code>HWLINK01</code></td><td>Not run on a recorded unit</td></tr>
+<tr><td>Keypad-matrix settling</td><td><code>HWKEYS</code></td><td><code>HWKEYS01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>USB control snapshot</td><td><code>HWPUSB</code></td><td><code>HWPUSB01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Flash execution boundaries</td><td><code>HWEF07</code>–<code>HWEF2A</code></td><td>matching <code>HWEF...01</code> names</td><td>Not run on a recorded unit</td></tr>
 <tr><td>RAM execution boundaries</td><td><code>HWER81</code>–<code>HWER84</code></td><td>matching <code>HWER...1</code> names</td><td>Not run on a recorded unit</td></tr>
@@ -8627,7 +8629,7 @@ hash manifest with:</p>
 <pre><code class="language-sh">nix develop -c python tools/build_hardware_probes.py \
   --output-dir /tmp/hardware-probes
 </code></pre>
-<p>The command emits the seven snapshot and edge probes, ten single-fetch
+<p>The command emits the eight snapshot and edge probes, ten single-fetch
 execution probes, and <code>manifest.json</code>. The manifest records every target
 selector and scan range. It uses repository-relative source names and output
 basenames, so builds made in different checkout directories remain comparable.
@@ -8640,6 +8642,8 @@ a calculator backup before the first run. Then:</p>
 <li>Run <code>Asm(prgmHWASIC)</code> for the read-only register snapshot.</li>
 <li>Disconnect the 2.5 mm link port, then run <code>Asm(prgmHWLINK)</code> for the raw-link
 sample with release-to-idle cleanup.</li>
+<li>Run <code>Asm(prgmHWKEYS)</code>, release the launch key, and hold the recorded test key
+or chord until the program returns.</li>
 <li>Run <code>Asm(prgmHWBATT)</code> for the restoring battery-level sample.</li>
 <li>Run <code>Asm(prgmHWBRAW)</code> for the higher-risk direct-selector sample only after
 <code>HWBATT</code> succeeds and its result has been exported.</li>
@@ -8651,7 +8655,7 @@ path works on that unit.</li>
 result. A denied fetch may reset the calculator.</li>
 <li>Export the new result AppVar to the host.</li>
 <li>Record the calculator model, PCB or ASIC revision, boot version, OS version,
-and artifact hashes with the exported file.</li>
+exact held keys, and artifact hashes with the exported file.</li>
 </ol>
 <p>Do not treat an emulator run as a physical result. TilEm and Wabbitemu are
 comparison implementations for the expected edge cases. MAME 0.287 does not
@@ -8663,7 +8667,7 @@ interprets measurements. [confirmed]</p>
 <pre><code class="language-sh">python tools/decode_hardware_probe.py HWPMD511.8xv
 python tools/decode_hardware_probe.py --json \
   HWPASIC1.8xv HWBATT01.8xv HWBRAW01.8xv HWPUSB01.8xv \
-  HWLINK01.8xv HWPMD511.8xv HWPRAM21.8xv
+  HWLINK01.8xv HWKEYS01.8xv HWPMD511.8xv HWPRAM21.8xv
 </code></pre>
 <p>The JSON form keeps the raw payload and adds named fields. Preserve the
 original exported AppVar even when a report has been generated.</p>
@@ -8969,22 +8973,72 @@ TI-Keyboard, speaker, or other peripheral.</p>
 The packaged 1,044-byte <code>HWLINK.8xp</code> has SHA-256
 <code>8eb8c9e16899044384efd43a01c29d8eef4ff43c92ce106f04419089a1481025</code>.
 [confirmed]</p>
+<h2 id="keypad-settling-probe"><a class="header" href="#keypad-settling-probe">Keypad settling probe</a></h2>
+<p>Probe ID 9 measures port-<code>0x01</code> after keypad group-selection edges. It first
+selects all groups and waits for the launch key to be released. It then waits
+for any held key or chord and records that all-groups read. A 65,535-iteration
+settling loop follows before the timed matrix begins. [confirmed] for the
+assembled control flow.</p>
+<p>For each group write <code>0xFE</code>, <code>0xFD</code>, <code>0xFB</code>, <code>0xF7</code>, <code>0xEF</code>, <code>0xDF</code>, <code>0xBF</code>,
+and <code>0x7F</code>, the probe first writes <code>0x00</code> to select every group, writes the
+target, waits for 0, 4, 16, or 64 <code>NOP</code> instructions, and reads port <code>0x01</code>.
+It repeats each group and delay point 16 times. The <code>0x7F</code> case also tests the
+otherwise unused eighth group-selection bit. [confirmed] for the assembled
+instruction sequence; [hypothesis] for its physical effect.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Payload range</th><th>Contents</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0</code>–<code>4</code></td><td>pre-sequence ports <code>0x01</code>, <code>0x02</code>, <code>0x03</code>, <code>0x04</code>, and <code>0x20</code></td></tr>
+<tr><td style="text-align: right"><code>5</code></td><td>all-groups read that triggered the held-chord delay</td></tr>
+<tr><td style="text-align: right"><code>6</code>–<code>517</code></td><td>512 samples in group-major, trial-major, delay-major order</td></tr>
+<tr><td style="text-align: right"><code>518</code>–<code>522</code></td><td>post-cleanup ports <code>0x01</code>, <code>0x02</code>, <code>0x03</code>, <code>0x04</code>, and <code>0x20</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The decoder reports raw samples, histograms, stable values, active-low pressed
+columns, and comparisons with the same trial’s 64-NOP value. It distinguishes
+an early sample with additional low columns from any other mismatch. That
+comparison can identify a read that has not yet released a column after the
+all-groups precondition without assuming which keys the operator held.
+[confirmed] for the decoder; [hypothesis] for pending physical samples.</p>
+<p>The fixed settling loop before measurement is 1,703,905 base T-states. This is
+about 0.284 seconds at nominal 6 MHz or 0.114 seconds at nominal 15 MHz. The
+probe records port <code>0x20</code> so a result retains the selected speed. These values
+exclude the preceding <code>LD DE,0xFFFF</code>; the timed sample points remain instruction
+gaps rather than wall-clock measurements. [confirmed] for the instruction
+count; [standard] for the nominal clock conversion.</p>
+<p>Delete <code>HWKEYS01</code> before the run. Release the launch key, then hold the exact
+test key or chord until the program returns. Record every held key with the
+exported AppVar. The probe will wait indefinitely if no key is pressed. It
+disables interrupts during the wait and matrix, writes <code>0xFF</code> to unselect all
+groups before restoring the caller’s interrupt state, and records adjacent
+status, interrupt, and speed ports before and after. It does not measure switch
+bounce, analog voltage, or a logic-analyzer waveform.</p>
+<p>The pinned SPASM-ng build produces 822 machine-code bytes with SHA-256
+<code>33936def9f7844131f77b970804e7fd8af79610cc93a041afcfb9fd507555e8e</code>.
+The packaged 1,724-byte <code>HWKEYS.8xp</code> has SHA-256
+<code>3479ac8eb426977d088c7587da816bc88a67ded0625962334a0a723ce3424d23</code>.
+[confirmed]</p>
 <h2 id="safety-boundary"><a class="header" href="#safety-boundary">Safety boundary</a></h2>
 <p>The RAM alias probe is designed to restore its writes, but it has not completed
 a physical run. A reset, power loss, assembly defect, or unexpected exception
 before the restoration loop can leave a changed byte. Use a backed-up test
 calculator and stable power. Do not run the RAM probe on a unit whose contents
 cannot be replaced.</p>
-<p>The snapshot, battery, raw-battery, raw-link, and alias probes restore interrupt
-enable state before creating the result AppVar. Both battery probes restore
-ports <code>0x04</code>, <code>0x39</code>, <code>0x3A</code>, and the complete saved <code>traceFlags</code> byte. The
-raw-battery probe also executes the ROM’s selector cleanup after every sample
-sequence. The raw-link probe releases both link lines during cleanup. A returned
-execution probe restores port <code>0x06</code> and the interrupt state. A denied fetch may
-reset before those instructions. None of the probes modifies Flash directly.
-The result AppVar is the intended persistent write. [confirmed] for the source
-and assembled bytes; [hypothesis] for unmeasured physical execution and reset
-retention.</p>
+<p>The snapshot, battery, raw-battery, raw-link, keypad, and alias probes restore
+interrupt enable state before creating the result AppVar. Both battery probes
+restore ports <code>0x04</code>, <code>0x39</code>, <code>0x3A</code>, and the complete saved <code>traceFlags</code> byte.
+The raw-battery probe also executes the ROM’s selector cleanup after every
+sample sequence. The raw-link probe releases both link lines during cleanup. A
+returned execution probe restores port <code>0x06</code> and the interrupt state. The
+keypad probe normalizes port <code>0x01</code> to the OS’s all-groups-unselected value
+<code>0xFF</code>. A denied fetch may reset before those instructions. None of the probes
+modifies Flash directly. The result AppVar is the intended persistent write.
+[confirmed] for the source and assembled bytes; [hypothesis] for unmeasured
+physical execution and reset retention.</p>
 <h2 id="source-layout"><a class="header" href="#source-layout">Source layout</a></h2>
 <div class="table-wrapper">
 <table>
@@ -8997,6 +9051,7 @@ retention.</p>
 <tr><td><code>tools/hardware-probes/battery-level.asm</code></td><td>repeated retail battery-level bcall and restoring state audit</td></tr>
 <tr><td><code>tools/hardware-probes/battery-raw.asm</code></td><td>repeated raw comparator-selector sequence and restoring state audit</td></tr>
 <tr><td><code>tools/hardware-probes/link-raw.asm</code></td><td>disconnected two-wire link readback and instruction-spaced settling matrix</td></tr>
+<tr><td><code>tools/hardware-probes/keypad-settle.asm</code></td><td>held-key and chord matrix-settling measurements</td></tr>
 <tr><td><code>tools/hardware-probes/usb-snapshot.asm</code></td><td>read-only low-USB control and status snapshot</td></tr>
 <tr><td><code>tools/hardware-probes/md5-edge.asm</code></td><td>calculator-side MD5 measurements</td></tr>
 <tr><td><code>tools/hardware-probes/ram-alias.asm</code></td><td>calculator-side RAM alias and restoration measurements</td></tr>
@@ -14870,7 +14925,11 @@ exact OS 2.55MP ROM hash and writes a JSON manifest containing both binary
 hashes and evidence scope. <code>tools/mame_keypad.py</code> parses and checks the MAME
 matrix against the reusable source model. <code>tools/run_mame_keypad_probe.py</code>
 guards the exact MAME executable, ROM, Lua adapter, and isolated runtime.
-<code>tools/mame_interrupt.py</code> adds the independent timer-sampled ON-edge sequence.</p>
+<code>tools/mame_interrupt.py</code> adds the independent timer-sampled ON-edge sequence.
+The <a href="#keypad-settling-probe">physical keypad settling probe</a>
+uses the same numeric group order but does not apply an emulator matrix model.
+It records every raw byte so held-key metadata and ASIC revision can be compared
+without assuming one of the three source algorithms.</p>
 <pre><code class="language-sh"># Three-key rectangle: TilEm/Wabbitemu read 0xFC; MAME reads 0xFE.
 nix develop -c python tools/describe_keypad_hardware.py matrix \
   --mask 0xFE --key 0,0 --key 1,0 --key 1,1
@@ -14939,6 +14998,9 @@ above additionally require disassembly of their surrounding routines.</p>
 <li>[standard] A guarded initialized-core Wabbitemu run reproduces the pairwise matrix reads, ignored row 7, press-only ON latch, held-key suppression, and release rearming described by the pinned source.</li>
 <li>[standard] A guarded live-input MAME run reproduces its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, lack of matrix closure, and all-groups result.</li>
 <li>[standard] A guarded MAME interrupt run reproduces its press-only ON latch, held-press suppression, release rearming, live-level bit, and bit-0-clear acknowledgement.</li>
+<li>[confirmed] The prepared <code>HWKEYS</code> probe encodes all eight group writes, four
+instruction gaps, and 16 trials per point, then unselects every group; no
+physical AppVar has been recorded.</li>
 <li>[hypothesis] The exact capacitance and minimum safe settle time should be measured across TA2 and TA3 calculators, including worst-case chords.</li>
 <li>[hypothesis] A logic-analyzer test should establish which physical ON transitions request interrupts on each ASIC revision rather than selecting an emulator policy by majority.</li>
 </ul>
@@ -18128,7 +18190,7 @@ The prepared <a href="#raw-two-wire-link-probe">raw two-wire link probe</a> reco
 The prepared <a href="#raw-battery-selector-probe">raw battery-selector probe</a> complements the battery-level probe by repeating all four comparator reads 16 times and reproducing the ROM cleanup after every sequence. Physical TA1, TA2, and TA3 work must run both probes across upward and downward controlled-voltage sweeps.</li>
 <li><strong>MathPrint runtime coverage.</strong> Trace representative expressions and cursor states through the statically recovered MathPrint compositor at <code>39:5167</code>. Existing macro fixtures cover power, fraction, and <code>fnInt(</code> layouts, but the exact runtime paths have not been recorded. See <a href="#mathprint-pipeline-coverage">Equation display</a>.</li>
 <li><strong>Matrix and list residuals.</strong> Explain why plain <code>augment(</code> calls the partial-pivoting engine at <code>02:4663</code>; locate the <code>randM(</code> cell-fill path; identify the separate <code>rref(</code>/<code>ref(</code> driver; and finish the <code>seq(</code>/<code>SortA(</code>/<code>SortD(</code> collection and element-load traces. See <a href="#9-findings">Matrices &amp; lists</a>.</li>
-<li><strong>Smaller residuals.</strong> Map the For/While/Repeat FPS loop-frame bytes; recover the <code>Asm(</code>/<code>AsmPrgm</code> setup before the traced <code>ram:9D95</code> payload handoff; find a direct ASM-to-BASIC program-call entry beyond VAT lookup and the cooperative <code>Ans</code> callback; and trace the group-archive member walk after <code>_Arc_Unarc</code> rejects type <code>0x17</code>. A guarded direct-core run verifies TilEm’s complete source-divisor table, rounded count readback, off sources, ignored port-<code>0x2F</code>, counter-zero behavior, first/second expiry distinction, acknowledgement, unacknowledged non-loop restart, source-write retention, deterministic RTC transitions, reset retention, and torn byte reads. A guarded initialized-core run verifies Wabbitemu’s timer catch-up, counter-zero completion, first-underflow status bit 2, HALT-line suppression, retained interrupt generation, and frozen disabled RTC reads. A guarded MAME run verifies its fixed-crystal source collapse, immediate first decrement, idle counter zero, inverted mode polarity, one-reload loop, global completion clearing, and absent RTC block. TA2/TA3 hardware must still distinguish the published <code>33</code>/<code>328</code>/<code>3277</code> timer divisors from Wabbitemu/MAME’s <code>32</code>/<code>327</code>/<code>3276</code>, test counter zero and first-versus-second-expiry status bit 2, measure programmable-timer <code>HALT</code> behavior, and test disabled RTC reads plus rollover coherence. A guarded direct-core TilEm run verifies transitive keypad closure, all eight stored rows, complete group-byte storage, row-major scancode bounds, separate ON state, both ON edges, and reset clearing. Another guarded run verifies Wabbitemu’s pairwise keypad closure, ignored row 7, and press-only ON latch with release rearming. A guarded MAME live-input run verifies its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, and lack of matrix closure. These remain emulator evidence. Physical keypad work should measure worst-case matrix settling, ghosting under timed reads, switch bounce, and ON interrupt edges; see <a href="#resolved-findings-and-open-hardware-tests-2">Keypad and ON-key hardware</a>. The timer, APD, RTC, and power reconstruction is in <a href="#clock-timers-and-power">Clock, timers, and power</a>.</li>
+<li><strong>Smaller residuals.</strong> Map the For/While/Repeat FPS loop-frame bytes; recover the <code>Asm(</code>/<code>AsmPrgm</code> setup before the traced <code>ram:9D95</code> payload handoff; find a direct ASM-to-BASIC program-call entry beyond VAT lookup and the cooperative <code>Ans</code> callback; and trace the group-archive member walk after <code>_Arc_Unarc</code> rejects type <code>0x17</code>. A guarded direct-core run verifies TilEm’s complete source-divisor table, rounded count readback, off sources, ignored port-<code>0x2F</code>, counter-zero behavior, first/second expiry distinction, acknowledgement, unacknowledged non-loop restart, source-write retention, deterministic RTC transitions, reset retention, and torn byte reads. A guarded initialized-core run verifies Wabbitemu’s timer catch-up, counter-zero completion, first-underflow status bit 2, HALT-line suppression, retained interrupt generation, and frozen disabled RTC reads. A guarded MAME run verifies its fixed-crystal source collapse, immediate first decrement, idle counter zero, inverted mode polarity, one-reload loop, global completion clearing, and absent RTC block. TA2/TA3 hardware must still distinguish the published <code>33</code>/<code>328</code>/<code>3277</code> timer divisors from Wabbitemu/MAME’s <code>32</code>/<code>327</code>/<code>3276</code>, test counter zero and first-versus-second-expiry status bit 2, measure programmable-timer <code>HALT</code> behavior, and test disabled RTC reads plus rollover coherence. A guarded direct-core TilEm run verifies transitive keypad closure, all eight stored rows, complete group-byte storage, row-major scancode bounds, separate ON state, both ON edges, and reset clearing. Another guarded run verifies Wabbitemu’s pairwise keypad closure, ignored row 7, and press-only ON latch with release rearming. A guarded MAME live-input run verifies its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, and lack of matrix closure. These remain emulator evidence. The prepared <a href="#keypad-settling-probe">keypad settling probe</a> samples all eight group writes at 0, 4, 16, and 64 <code>NOP</code> gaps for a held key or chord. Physical runs still need worst-case chords on TA2 and TA3 units, while switch bounce and ON interrupt edges require separate time-domain tests; see <a href="#resolved-findings-and-open-hardware-tests-2">Keypad and ON-key hardware</a>. The timer, APD, RTC, and power reconstruction is in <a href="#clock-timers-and-power">Clock, timers, and power</a>.</li>
 <li><strong>Interrupt-controller physical tests.</strong> A guarded direct-core TilEm run verifies complete mask readback, both clear-on-zero acknowledgement paths, ON press and release latches, both timer-2 callbacks, link transitions, programmable-timer HALT gating, and its reset readback/internal-policy mismatch. A separate guarded TilEm link run verifies raw activity plus assist idle, receive, and sticky-error interrupt transitions. A guarded initialized-core Wabbitemu run verifies full mask readback, ON-latch clearing, its rounded standard-timer rates, strict expiry edge, port-<code>0x03</code> and port-<code>0x02</code> timer acknowledgement, programmable completion readback, and LCD-based low-power approximation. A guarded MAME run verifies shared port-<code>0x03</code>/<code>0x04</code> status, direct port-<code>0x02</code> pending-field writes, three-bit port-<code>0x03</code> masking, press-only timer-sampled ON edges, both standard-timer pending bits during scheduled frames, and retained interrupt fields across soft reset. These are emulator results. On TA2 and TA3 calculators, measure which ON transitions latch a request, which link transitions wake low power, whether simultaneous legacy requests are coalesced by the port-<code>0x03</code> clear-on-zero sequence, and which timer configurations can wake <code>HALT</code>. Compare the results with the explicit TilEm, Wabbitemu, and MAME differences in <a href="#emulator-comparison-2">Interrupts (IM1)</a>.</li>
 </ol>
 <p>The ROM-wide I/O audit is complete. All 35 aligned non-descriptor immediate
