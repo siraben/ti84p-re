@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d86e60c3.js";
+            window.path_to_searchindex_js = "searchindex-565c5d80.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -284,8 +284,10 @@ report and <code>--exclude-descriptors</code> removes the four structural overla
 <p>The remaining apparent port-<code>0x49</code> instruction at <code>01:4304</code> and
 port-<code>0x51</code> instruction at <code>3B:4F45</code> lie in table-shaped byte regions. Neither
 has a direct page-local control-flow reference, and neither has trace evidence.
-They remain linear-disassembly candidates rather than I/O evidence. The scan
-confirms no OS 2.55MP transaction for ports <code>0x49</code>, <code>0x51</code>, or <code>0x52</code>.
+The complete <a href="asic-status-gpio.html#complete-unlisted-port-candidate-audit">unlisted-port candidate audit</a>
+also finds no containing Ghidra function or xref for either location. They are
+reviewed data decodes rather than I/O evidence. The scan confirms no OS 2.55MP
+transaction for ports <code>0x49</code>, <code>0x51</code>, or <code>0x52</code>.
 Computed <code>C</code>-register accesses that cross calls or control-flow joins remain
 outside this static proof. [confirmed]</p>
 <p>TilEm, Wabbitemu, and MAME omit all three ports from their TI-84 Plus USB
@@ -726,7 +728,8 @@ manifest. The link-assist state model remains in <code>tools/link_port.py</code>
 native report and manifest. <code>tools/port_definitions.py</code> parses the project port
 labels with duplicate checks. <code>tools/analyze_rom_io.py</code> uses that library to
 attach labels to static I/O reports and can restrict output to ports absent
-from the label file.</p>
+from the label file. <code>tools/rom_io_coverage.py</code> pins and reconciles the complete
+ROM-wide set of aligned non-descriptor candidates absent from that file.</p>
 <pre><code class="language-sh"># Map global, indexed, dynamic-sizing, and FIFO registers.
 nix develop -c python tools/describe_usb_hardware.py \
   register 0x80 0x91 0x9F 0xA2
@@ -750,6 +753,9 @@ nix develop -c python tools/analyze_rom_io.py \
 # Retain only the two table-shaped candidates for unobserved USB ports.
 nix develop -c python tools/analyze_rom_io.py \
   --direct-only --exclude-descriptors 0x49 0x51 0x52
+
+# Verify every candidate for every port absent from tools/ports.txt.
+nix develop -c python tools/describe_rom_io_coverage.py --json
 </code></pre>
 <p>The FDRC names and bit labels remain a controller-family hypothesis. The CLI identifies that evidence boundary in its register records; it does not promote imported Mentor names to TI silicon confirmation.</p>
 <h2 id="how-to-use-it-in-code-confirmed"><a class="header" href="#how-to-use-it-in-code-confirmed">How to use it in code [confirmed]</a></h2>

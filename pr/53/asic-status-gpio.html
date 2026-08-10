@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d86e60c3.js";
+            window.path_to_searchindex_js = "searchindex-565c5d80.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -211,6 +211,55 @@ calculator.</p>
 decode as instructions, so a candidate needs control-flow or trace evidence.
 The credible code for these ports is concentrated in page <code>00</code>, pages <code>2F</code>,
 <code>33</code>, <code>35</code>–<code>37</code>, <code>3C</code>, <code>3D</code>, and the retail boot page <code>3F</code>. [confirmed]</p>
+<h2 id="complete-unlisted-port-candidate-audit"><a class="header" href="#complete-unlisted-port-candidate-audit">Complete unlisted-port candidate audit</a></h2>
+<p>A full linear scan of the 1 MiB retail ROM finds 35 aligned immediate-port
+candidates whose 21 apparent port values are absent from the project port map.
+This count removes inline bcall and bjump descriptors. None establishes an I/O
+operation. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Candidate locations</th><th>Apparent ports and directions</th><th>Classification</th></tr>
+</thead>
+<tbody>
+<tr><td><code>01:4304</code>, <code>01:446A</code>, <code>01:446E</code>, <code>01:4C5A</code>, <code>01:556D</code>, <code>01:6E55</code>, <code>01:6E95</code>, <code>01:7CD6</code></td><td><code>0x49</code> OUT; <code>0x4E</code> IN/OUT; <code>0x5E</code> IN ×2; <code>0x6E</code> IN; <code>0x70</code> OUT; <code>0xFF</code> OUT</td><td>table-shaped data ×8</td></tr>
+<tr><td><code>03:630B</code>, <code>03:6323</code>, <code>03:634F</code>, <code>03:6367</code>, <code>03:656F</code></td><td><code>0xFE</code> IN ×2/OUT ×2; <code>0x65</code> IN</td><td>table-shaped data ×5</td></tr>
+<tr><td><code>03:6DE1</code></td><td><code>0x9C</code> IN</td><td>operand overlap in <code>LD HL,0x9CDB</code> at <code>03:6DE0</code></td></tr>
+<tr><td><code>07:4076</code></td><td><code>0xD1</code> OUT</td><td>table-shaped data</td></tr>
+<tr><td><code>33:4010</code></td><td><code>0x6B</code> OUT</td><td>table-shaped data</td></tr>
+<tr><td><code>34:6CF5</code>, <code>34:6CF7</code>, <code>34:73AB</code>, <code>34:73AD</code></td><td><code>0x6D</code> OUT ×2; <code>0x73</code> IN ×2</td><td>table-shaped data ×4</td></tr>
+<tr><td><code>37:6A9C</code>, <code>37:6B14</code></td><td><code>0x6B</code> IN ×2</td><td>table-shaped data ×2</td></tr>
+<tr><td><code>38:6A00</code></td><td><code>0xDC</code> IN</td><td>table-shaped data</td></tr>
+<tr><td><code>3A:7D81</code>, <code>3A:7FED</code></td><td><code>0x5E</code> IN; <code>0xDB</code> IN</td><td>table-shaped data ×2</td></tr>
+<tr><td><code>3B:47B9</code>, <code>3B:4F45</code>, <code>3B:52AE</code>, <code>3B:535C</code>, <code>3B:5467</code></td><td><code>0x6F</code> OUT; <code>0x51</code> OUT; <code>0x6E</code> IN; <code>0x5D</code> IN; <code>0x6D</code> IN</td><td>table-shaped data ×5</td></tr>
+<tr><td><code>3F:40FC</code>, <code>3F:4111</code>, <code>3F:56F7</code>, <code>3F:671B</code>, <code>3F:67F7</code></td><td><code>0x5E</code> OUT; <code>0x63</code> IN; <code>0xD1</code> IN; <code>0xE7</code> OUT; <code>0xE6</code> IN</td><td>table-shaped data ×5</td></tr>
+</tbody>
+</table>
+</div>
+<p>The rebuilt Ghidra database gives the 34 table candidates no containing
+function and no xrefs. A page-local direct <code>CALL</code>/<code>JP</code> scan also finds no
+target to any candidate. Ghidra places <code>03:6DE1</code> inside
+<code>editbuf_clr_hibit</code>, but the owning instruction starts at <code>03:6DE0</code>; bytes
+<code>DB 9C</code> are the little-endian operand of <code>LD HL,0x9CDB</code>. [confirmed]</p>
+<p>A reset/idle TLMT trace executes 1,753,851 instructions and reaches none of the
+35 locations. This trace result covers one emulator scenario. The byte and
+control-flow classifications, rather than trace absence, establish that these
+linear candidates do not add ports to the ROM inventory. Computed <code>C</code> values
+that cross calls or control-flow merges remain outside the static scan.
+[confirmed]</p>
+<p><code>tools/rom_io_coverage.py</code> contains the reusable scanner and review manifest.
+The manifest pins retail ROM SHA-256
+<code>7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d</code>.
+The CLI fails on a different ROM, a missing or duplicate review, a stale
+location, or changed instruction bytes. <code>--trace</code> uses the constant-memory
+point counter instead of constructing an object for every instruction:</p>
+<pre><code class="language-sh">nix develop -c python tools/describe_rom_io_coverage.py
+nix develop -c python tools/describe_rom_io_coverage.py --json
+nix develop -c python tools/describe_rom_io_coverage.py \
+  --trace /tmp/trace-benchmark.tlmt
+</code></pre>
+<p>The complete result is 34 <code>reviewed-data</code> entries and one
+<code>operand-overlap</code>, with zero unresolved candidates. [confirmed]</p>
 <h2 id="port-0x02-status"><a class="header" href="#port-0x02-status">Port <code>0x02</code> status</a></h2>
 <p>Port <code>0x02</code> combines transient hardware state with model-family bits. The boot
 and archive traces return <code>0xE1</code>, <code>0xE3</code>, and <code>0xE7</code>. [confirmed]</p>
@@ -629,6 +678,8 @@ Its raw audit distinguishes aligned instructions, operand overlaps, reviewed
 data, and unclassified pairs. <code>tools/describe_asic_control.py</code> exposes those
 operations as text or JSON. <code>tools/wabbitemu_asic_probe.py</code> validates
 native results against the reusable source model.
+<code>tools/rom_io_coverage.py</code> and <code>tools/describe_rom_io_coverage.py</code> separately
+reconcile every direct candidate for ports absent from the project port map.
 <code>tools/run_wabbitemu_asic_edge_probe.py</code>
 guards the exact ROM and native binary identities and writes a JSON manifest.
 <code>tools/wabbitemu_protection_port_probe.py</code> applies the adjacent boundary-port
