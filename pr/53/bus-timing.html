@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4736e60f.js";
+            window.path_to_searchindex_js = "searchindex-eb6d5761.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -360,10 +360,21 @@ bytes have gate bits 0 and 1 set, the OS policy in every speed mode is:
 </tbody>
 </table>
 </div>
-<p>A prefixed Z80 instruction performs more than one M1 fetch. The emulator adds
-the Flash opcode delay to the prefix and the following opcode separately. This
-matches public reports that the observed addition doubles for a one-prefix
-instruction. [standard]</p>
+<p>A CB-, ED-, DD-, or FD-prefixed Z80 instruction performs two M1 fetches. Both
+TilEm and Wabbitemu apply the opcode wait to the prefix and following opcode.
+A repeated DD or FD prefix adds another M1 fetch in both cores. [standard] for
+the Z80 bus cycle and pinned emulator source paths.</p>
+<p>Indexed CB instructions expose a model difference. The Z80 fetches DD or FD
+and CB with M1 signaling, then reads the displacement and final opcode without
+M1. TilEm follows this split in <code>z80main.h:674</code> and <code>z80ddfd.h:301</code>.
+Wabbitemu routes the final opcode through <code>CPU_opcode_fetch</code> at <code>core/core.c:832</code>,
+then decrements <code>R</code> at line 836. Its wait model therefore counts three opcode
+waits while its visible refresh count remains two. The hash-guarded
+<code>describe_prefix_fetch_models.py</code> CLI reproduces this result from the pinned
+source trees. The exact assembled <code>HWPFX</code> program also reproduces the split in
+the pinned Wabbitemu runtime: its indexed-CB row adds 30 timer ticks, compared
+with 25 for the three ordinary one-prefix rows and 29 for repeated DD.
+[confirmed] for the emulator run; physical ASIC placement remains open.</p>
 <p>The delay follows the physical page selected by the mapper in TilEm. An opcode
 executed from banked RAM uses the RAM M1 bit; the same logical address backed
 by Flash uses the Flash bit. See <a href="paging.html">Paging</a> for physical-page
@@ -538,9 +549,15 @@ writes, RAM opcode fetches, RAM non-opcode reads, and idempotent RAM writes.
 It restores the entry timing byte and an initially idle timer 2. No exported
 physical result has been recorded. [confirmed] for the probe bytes and decoder;
 [hypothesis] for pending measurements.</p>
+<p>The guarded <a href="hardware-probes.html#prefix-m1-timing-probe">prefix-M1 timing probe</a>
+prepares paired RAM-M1 measurements for unprefixed, CB, ED, DD, repeated-DD,
+and indexed-CB shapes. The indexed-CB row distinguishes TilEm and documented
+Z80 M1 placement from Wabbitemu’s extra wait. The exact image completes through
+the cleanup boundary in pinned Wabbitemu and selects its three-wait model. No
+physical result has been recorded. [confirmed] for the probe bytes, decoder,
+and emulator run; [hypothesis] for pending measurements.</p>
 <ul>
-<li>Run the prepared six-class matrix on TA2 and TA3 units. Then extend the M1
-case with one- and two-prefix opcodes to test per-prefix placement.</li>
+<li>Run both prepared matrices on TA2 and TA3 units.</li>
 <li>Repeat the loop test with active-register gate bits 0 and 1 cleared to verify
 whether they disable all corresponding <code>0x2E</code> effects.</li>
 <li>Measure the interval from LCD writes and reads to port-<code>0x02</code> bit 1 becoming
