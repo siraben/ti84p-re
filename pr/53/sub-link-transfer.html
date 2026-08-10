@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-95d34229.js";
+            window.path_to_searchindex_js = "searchindex-f4df5533.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-2f678117.js"></script>
@@ -544,6 +544,48 @@ length from <code>0x848E</code>, sets <code>DE=0x89F0</code>, and calls the DATA
 restored system-flags byte is thus <code>0x63</code> (bits 0, 1, 5, and 6 set), and the
 second is zero. The sender fixes these bytes instead of copying their live
 values. [confirmed]</p>
+<p>The fixed word selects a mixture of persistent mode, input, display, and
+unnamed bits. The symbol column below comes from the bundled public
+<code>ti83plus.inc</code>; the instruction counts come from an independent raw scan of
+the retail ROM. Each count covers an exact memory-only <code>BIT</code>, <code>RES</code>, or <code>SET</code>
+instruction using <code>IY = 0x89F0</code>. [standard] for the public names; [confirmed]
+for the fixed values and byte-pattern counts.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>RAM bit</th><th>Sent</th><th>Public symbol</th><th>Direct ROM bit operations</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x89F0</code>.0</td><td>1</td><td><code>inDelete</code></td><td>10 <code>BIT</code>, 4 <code>RES</code>, 1 <code>SET</code></td></tr>
+<tr><td><code>0x89F0</code>.1</td><td>1</td><td>—</td><td>5 <code>BIT</code>, 4 <code>RES</code>, 2 <code>SET</code></td></tr>
+<tr><td><code>0x89F0</code>.2</td><td>0</td><td><code>trigDeg</code></td><td>13 <code>BIT</code>, 3 <code>RES</code>, 2 <code>SET</code></td></tr>
+<tr><td><code>0x89F0</code>.3</td><td>0</td><td><code>kbdSCR</code></td><td>2 <code>BIT</code>, 2 <code>RES</code>, 2 <code>SET</code></td></tr>
+<tr><td><code>0x89F0</code>.4</td><td>0</td><td><code>kbdKeyPress</code></td><td>1 <code>BIT</code>, 1 <code>RES</code>, 2 <code>SET</code></td></tr>
+<tr><td><code>0x89F0</code>.5</td><td>1</td><td><code>donePrgm</code></td><td>1 <code>BIT</code>, 0 <code>RES</code>, 4 <code>SET</code></td></tr>
+<tr><td><code>0x89F0</code>.6</td><td>1</td><td>—</td><td>none</td></tr>
+<tr><td><code>0x89F0</code>.7</td><td>0</td><td>—</td><td>4 <code>BIT</code>, 1 <code>RES</code>, 2 <code>SET</code></td></tr>
+<tr><td><code>0x89F1</code>.0</td><td>0</td><td>—</td><td>none</td></tr>
+<tr><td><code>0x89F1</code>.1</td><td>0</td><td>—</td><td>none</td></tr>
+<tr><td><code>0x89F1</code>.2</td><td>0</td><td><code>editOpen</code></td><td>39 <code>BIT</code>, 2 <code>RES</code>, 2 <code>SET</code></td></tr>
+<tr><td><code>0x89F1</code>.3</td><td>0</td><td><code>AnsScroll</code></td><td>6 <code>BIT</code>, 5 <code>RES</code>, 3 <code>SET</code></td></tr>
+<tr><td><code>0x89F1</code>.4</td><td>0</td><td><code>monAbandon</code></td><td>13 <code>BIT</code>, 12 <code>RES</code>, 8 <code>SET</code></td></tr>
+<tr><td><code>0x89F1</code>.5</td><td>0</td><td>—</td><td>1 <code>BIT</code>, 1 <code>RES</code>, 1 <code>SET</code></td></tr>
+<tr><td><code>0x89F1</code>.6–7</td><td>0</td><td>—</td><td>none</td></tr>
+</tbody>
+</table>
+</div>
+<p>This rules out a live-state snapshot. The fixed word clears the degree-mode
+bit, both pending-keyboard bits, the editor-open bit, answer scrolling, the
+monitor-abandon bit, and the unnamed active bit at <code>0x89F1</code>.5. It sets the
+public <code>donePrgm</code> bit. Those choices are consistent with a canonical
+post-restore state. Bits <code>0x89F0</code>.0, <code>.1</code>, and <code>.6</code> keep the stronger conclusion
+open: <code>.0</code> and <code>.1</code> have active consumers, while <code>.6</code> has no direct indexed
+bit operation anywhere in this ROM. No TI source or older-ROM comparison has
+yet been found that establishes whether those three values instead encode
+model or OS-version compatibility. [hypothesis]</p>
+<p>The audit is reproducible without subsystem-specific parsing:</p>
+<pre><code class="language-console">python3 tools/describe_backup.py legacy-flags
+</code></pre>
 <p><strong>External format evidence.</strong> [standard] tilibs commit
 <code>791d2535813fa7ffef8f9feadf110998d4ae57fb</code> provides an independent format
 check. <code>calc_73.cc::send_backup</code> passes <code>data_part1</code> unchanged to <code>SEND_XDP</code>.
@@ -715,7 +757,10 @@ state machine. RAM block: <code>ioFlag 8670 … bakHeader 868B</code>, staging
 <ul>
 <li>Determine why the legacy backup normalizer chooses system-flags word
 <code>0x0063</code>. Its RAM destination, replacement behavior, section bounds, and
-checksum coverage are confirmed.</li>
+checksum coverage are confirmed. A complete direct indexed-bit audit shows
+that the word clears degree-mode, keyboard, editor, answer-scroll, and
+monitor state while setting <code>donePrgm</code>; the remaining gap is why active
+unnamed bits 0 and 1 and unreferenced bit 6 of <code>0x89F0</code> are set.</li>
 <li>The prior USB target gap is now mapped in <a href="sub-usb-asic.html">sub-usb-asic.md</a>: <code>link_xfer_op</code> calls
 <code>ram:2E0B</code>, a <code>cross_page_jump</code> thunk to <code>35:4280</code>, after sampling port <code>0x4D</code>.</li>
 </ul>
