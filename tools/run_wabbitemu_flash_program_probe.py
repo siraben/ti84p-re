@@ -4,27 +4,26 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 
-from rom_signatures import TI84_PLUS_OS_255MP_SHA256
+from probe_cli import (
+    DEFAULT_ROM,
+    emit_result,
+    require_output_absent,
+    wabbitemu_identity,
+    write_manifest,
+)
 from wabbitemu_flash_probe import (
     DIRECT_PROGRAM_CASES,
     FlashProgramCase,
     parse_flash_program_case,
+)
+from wabbitemu_flash_probe import (
     validate_program_report as validate_report,
 )
 from wabbitemu_headless import (
-    WABBITEMU_COMMIT,
-    WabbitemuHeadlessError,
-    file_sha256,
     run_flash_program_probe,
 )
-
-
-TOOLS = Path(__file__).resolve().parent
-DEFAULT_ROM = TOOLS / "rom.bin"
-
 
 DEFAULT_CASES = DIRECT_PROGRAM_CASES
 
@@ -57,12 +56,8 @@ def main() -> None:
     cases = tuple(args.case) if args.case else DEFAULT_CASES
     if len(set(cases)) != len(cases):
         parser.error("each Flash program case may be specified only once")
-    if args.output_dir.exists():
-        parser.error(f"refusing to reuse existing output directory {args.output_dir}")
     try:
-        source_rom_sha256 = file_sha256(args.rom)
-        if source_rom_sha256 != TI84_PLUS_OS_255MP_SHA256:
-            raise ValueError("probe requires the exact local OS 2.55MP ROM")
+        require_output_absent(args.output_dir)
         reports = [
             validate_report(
                 case,
@@ -77,12 +72,7 @@ def main() -> None:
             for case in cases
         ]
         result = {
-            "emulator": "Wabbitemu",
-            "commit": WABBITEMU_COMMIT,
-            "binary": str(args.binary),
-            "binary_sha256": file_sha256(args.binary),
-            "source_rom": str(args.rom),
-            "source_rom_sha256": source_rom_sha256,
+            **wabbitemu_identity(args.binary, args.rom),
             "cases": reports,
             "launch": (
                 "direct initialized-core setup; four command writes and two "
@@ -93,24 +83,20 @@ def main() -> None:
                 "not a retail-ROM worker run or physical Flash behavior"
             ),
         }
-        args.output_dir.mkdir(parents=True)
-        manifest = args.output_dir / "manifest.json"
-        manifest.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
-    except (OSError, RuntimeError, ValueError, WabbitemuHeadlessError) as error:
+        manifest = write_manifest(args.output_dir, result)
+    except (OSError, RuntimeError, ValueError) as error:
         parser.error(str(error))
 
-    if args.json:
-        print(json.dumps(result, indent=2))
-        return
+    summary = []
     for item in reports:
         native = item["native"]
         legality = "illegal 0->1" if item["requested_zero_to_one"] else "legal"
-        print(
+        summary.append(
             f"old {native['initial']:02X} requested {native['requested']:02X}: "
             f"stored {native['stored']:02X}, reads "
             f"{native['first_read']:02X} {native['second_read']:02X} ({legality})"
         )
-    print(f"manifest: {manifest}")
+    emit_result(result, manifest, as_json=args.json, summary=summary)
 
 
 if __name__ == "__main__":

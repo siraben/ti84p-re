@@ -264,15 +264,15 @@ Chaining to the OS handler also inherits its assumptions: `IY` points to `flags`
 
 ## Emulator comparison
 
-| Behavior | TilEm x4 | Wabbitemu 83+SE/84+ | Consequence |
-|----------|----------|---------------------|-------------|
-| Port `0x03` read | returns stored mask | returns stored mask | mask reads agree [standard] |
-| Legacy clear-on-zero | clears ON, timer 1, timer 2, and link pending state on port-`0x03` writes | clears ON directly; disabling an overdue standard timer catches its phase up in the same port-`0x03` handler; port `0x02` can also catch it up | OS-style ON and standard-timer acknowledgement works, but no link latch exists [standard] |
-| Link status | implements port-`0x04` bit 4 | omits bit 4 from port-`0x04` reads | link wake cannot be cross-checked there [standard] |
-| Standard timers | explicit pending interrupt bits when enabled | derives status from elapsed phase while enabled | simultaneous-source and latch tests can differ [standard] |
-| Programmable completion | exposes finished bits 5–7 independently of interrupt mode | exposes timer-underflow bits 5–7 | both separate completion from mode, with different timer cores [standard] |
-| `HALT` behavior | port-`0x03` bit 3 selects powered/low-power behavior; standard-timer mask controls programmable wake suppression | approximates low power by changing LCD activity and suppresses programmable-timer requests while halted | neither model proves physical ASIC power domains [standard] |
-| USB gate | disconnected fixed values `0x55 = 0x1F`, `0x56 = 0` | partial `Fake USB` event model | connected USB interrupt service needs another test target [standard] |
+| Behavior | TilEm x4 | Wabbitemu 83+SE/84+ | jsTIfied `20170706a` | Consequence |
+|----------|----------|---------------------|-----------------------|-------------|
+| Port `0x03` read | returns stored mask | returns stored mask | stores the interrupt mask | mask reads agree [standard] |
+| Legacy clear-on-zero | clears ON, timer 1, timer 2, and link pending state on port-`0x03` writes | clears ON directly; disabling an overdue standard timer catches its phase up in the same port-`0x03` handler; port `0x02` can also catch it up | tracks standard-timer and ON latches in emulator state | OS-style acknowledgement is modeled with different internal policies [standard] |
+| Link status | implements port-`0x04` bit 4 | omits bit 4 from port-`0x04` reads | link state participates in the interrupt model | software agreement does not establish electrical wake behavior [standard] |
+| Standard timers | explicit pending interrupt bits when enabled | derives status from elapsed phase while enabled | schedules timer state in emulator cycle counters | simultaneous-source and latch tests can differ [standard] |
+| Programmable completion | exposes finished bits 5–7 independently of interrupt mode | exposes timer-underflow bits 5–7 | retains per-timer completion and loop state | all separate completion from mode, with different timer cores [standard] |
+| `HALT` behavior | port-`0x03` bit 3 selects powered/low-power behavior; standard-timer mask controls programmable wake suppression | approximates low power by changing LCD activity and suppresses programmable-timer requests while halted | halted CPU state is part of the browser scheduler | no model proves physical ASIC power domains [standard] |
+| USB gate | disconnected fixed values `0x55 = 0x1F`, `0x56 = 0` | partial `Fake USB` event model | fixed disconnected values | connected USB interrupt service needs another test target [standard] |
 
 Wabbitemu's source comments state uncertainty about its standard-interrupt write behavior. Its model is useful as an independent implementation comparison, but disagreement must remain explicit. [standard]
 
@@ -526,5 +526,6 @@ MAME prints a checksum warning for the locally assembled ROM and identifies the 
 | [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), [`x4_init.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c), [`keypad.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/keypad.c), [`link.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/link.c), and [`timers.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/timers.c) | legacy latches, reset ordering, ON/link edges, timer completion, `HALT` policy, and disconnected USB values |
 | [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | independent standard-interrupt, mapping, ON, timer, and low-power implementation |
 | [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | TI-84 Plus machine status, I/O map, interrupt masks, standard timers, programmable timers, and fixed USB reads |
+| [jsTIfied deployed `20170706a` artifact](https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a) and [readable mirror](https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js) | fourth interrupt-mask, timer, ON, link, halted-state, and fixed-USB implementation |
 | Local OS 2.55MP page-0 bytes | entry, gates, test order, handlers, acknowledgement, and exit |
 | `/tmp/tilem-power-cycle.trace` | shutdown and ON-wake execution sequence |

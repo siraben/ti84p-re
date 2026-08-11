@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-import subprocess
 
+from file_hashes import file_sha256
 from hardware_trace import iter_resolved_instructions
 from rom_signatures import TI84_PLUS_OS_255MP_SHA256
 from ti_program import asm_call_body, asmprgm_body, encode_program_file
-
 
 PAGE_SIZE = 0x4000
 ROM_SIZE = 0x100000
@@ -163,13 +163,7 @@ def digest(data: bytes) -> str:
 def file_digest(path: Path, *, chunk_size: int = 1024 * 1024) -> str:
     """Hash a potentially large trace without loading it as one byte string."""
 
-    if chunk_size <= 0:
-        raise ValueError("hash chunk size must be positive")
-    hasher = sha256()
-    with path.open("rb") as fp:
-        for chunk in iter(lambda: fp.read(chunk_size), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest()
+    return file_sha256(path, chunk_size=chunk_size)
 
 
 def validate_source_rom(source_rom: bytes) -> str:

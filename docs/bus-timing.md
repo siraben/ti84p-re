@@ -272,16 +272,16 @@ run; [hypothesis] for the physical divisor.
 
 ## Emulator comparison
 
-| Behavior | TilEm | Wabbitemu | MAME 0.287 |
-|----------|-------|------------|------------|
-| Port-`0x20` write | low two bits select modes 0–3; nonzero runs at 15 MHz | default TI-84 Plus state clamps modes 2–3 to mode 1; external `extraSpeed` enables 20/25 MHz | stores the raw byte; zero selects 6 MHz and any nonzero value selects 15 MHz |
-| Active `0x29`–`0x2C` register | indexed by port `0x20 & 3` | indexed by the accepted CPU-speed mode | registers absent |
-| LCD instruction addition | active byte shifted right by two | same | absent |
-| Memory gates and `0x2E` bits | all six access classes | all six access classes | absent |
-| Port `0x2D` | low-power control outside this block | raw fifth delay latch; no timer or low-power transition | absent |
-| High-speed ready start | every LCD-port read or write | last successful LCD write | programmable interval absent |
-| LCD controller rejection | ready bit and controller model | also has a separate fixed 60-T-state controller-access guard | T6A04 device behavior without the ASIC delay block |
-| Mode-3 timer prescaler | not modeled | not modeled in the compared timer path | not modeled |
+| Behavior | TilEm | Wabbitemu | MAME 0.287 | jsTIfied `20170706a` |
+|----------|-------|------------|------------|-----------------------|
+| Port-`0x20` write | low two bits select modes 0–3; nonzero runs at 15 MHz | default TI-84 Plus state clamps modes 2–3 to mode 1; external `extraSpeed` enables 20/25 MHz | stores the raw byte; zero selects 6 MHz and any nonzero value selects 15 MHz | selects the browser emulator's CPU-speed state |
+| Active `0x29`–`0x2C` register | indexed by port `0x20 & 3` | indexed by the accepted CPU-speed mode | registers absent | delay values are stored |
+| LCD instruction addition | active byte shifted right by two | same | absent | LCD uses its own busy interval |
+| Memory gates and `0x2E` bits | all six access classes | all six access classes | absent | no source-equivalent per-access wait insertion identified |
+| Port `0x2D` | low-power control outside this block | raw fifth delay latch; no timer or low-power transition | absent | stored control state |
+| High-speed ready start | every LCD-port read or write | last successful LCD write | programmable interval absent | LCD readiness uses randomized controller timing |
+| LCD controller rejection | ready bit and controller model | also has a separate fixed 60-T-state controller-access guard | T6A04 device behavior without the ASIC delay block | controller transfers use the jsTIfied LCD timer |
+| Mode-3 timer prescaler | not modeled | not modeled in the compared timer path | not modeled | not modeled in the timer-source decoder |
 
 The matching memory and LCD-instruction decode corroborates the public bit
 layout. MAME cannot corroborate that decode because it omits the block. The
@@ -327,7 +327,8 @@ documented (WikiTI pages retrieved 2026-08-09): speed-mode=1 clock=15MHz port20=
 ```
 
 `doc-div` is the public port-`0x2F` divisor decode. It is not an emulator claim.
-Compare the three pinned implementations, including ignored MAME writes, with:
+Compare the four pinned implementations, including ignored MAME writes and
+jsTIfied's stored-delay model, with:
 
 ```sh
 nix develop -c python tools/describe_bus_timing.py --compare
@@ -438,3 +439,4 @@ and emulator run; [hypothesis] for pending measurements.
 | [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), [`x4_memory.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c), and [`x4_init.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c) | delay decode, cycle placement, ready timer, and reset defaults |
 | [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) and [`core.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c) | independent delay decode, cycle placement, and readiness comparison |
 | [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | mapped I/O ports, raw speed readback, binary clock selection, and absent delay block |
+| [jsTIfied deployed `20170706a` artifact](https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a) and [readable mirror](https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js) | fourth CPU-speed, stored-delay, LCD-ready, and timer-source comparison |

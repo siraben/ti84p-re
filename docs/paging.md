@@ -153,18 +153,18 @@ The source-level comparison below describes the pinned implementations, not
 the ASIC. Agreement is useful corroboration of an intended rule; disagreement
 is a test target rather than a vote. [standard]
 
-| Detail | TilEm | Wabbitemu | MAME 0.287 |
-|--------|-------|------------|------------|
-| Mapper ports | `0x04`–`0x07`, `0x0E`, `0x0F`, `0x27`, `0x28` | same | only `0x04`–`0x07` |
-| Declared driver status | usable mapper | usable mapper | `MACHINE_NOT_WORKING` |
-| port `0x05` write | stores low four bits; maps low three | reduces low seven bits by RAM-page count | stores low three bits |
-| TI-84 Plus Flash selector | low six bits | extended formula, then Flash-size mask | low six bits for values below `0x80` |
-| RAM selector | low three bits | low bits masked by RAM-page count | raw value `0x80`–`0xFF` becomes the bank number |
-| paired A | port-`0x06` page with bit 0 clear | same | same |
-| paired B | port-`0x06` page with bit 0 set | see expression bug below | port-`0x06` page with bit 0 set |
-| paired C | port-`0x07` page | same | same |
-| paired reads from `0x05`–`0x07` | stored register values | active C/A/B page values | stored register values |
-| forced-RAM overlays | both modes | independent mode only | absent |
+| Detail | TilEm | Wabbitemu | MAME 0.287 | jsTIfied `20170706a` |
+|--------|-------|------------|------------|-----------------------|
+| Mapper ports | `0x04`–`0x07`, `0x0E`, `0x0F`, `0x27`, `0x28` | same | only `0x04`–`0x07` | `0x04`–`0x07`, `0x0E`, `0x0F`, `0x27`, `0x28` |
+| Declared driver status | usable mapper | usable mapper | `MACHINE_NOT_WORKING` | browser emulator source model |
+| port `0x05` write | stores low four bits; maps low three | reduces low seven bits by RAM-page count | stores low three bits | selects window C on TI-84 Plus |
+| TI-84 Plus Flash selector | low six bits | extended formula, then Flash-size mask | low six bits for values below `0x80` | low selector plus ports `0x0E`/`0x0F` extensions |
+| RAM selector | low three bits | low bits masked by RAM-page count | raw value `0x80`–`0xFF` becomes the bank number | `0x80` flag plus low three-bit page |
+| paired A | port-`0x06` page with bit 0 clear | same | same | even member selected from port `0x06` |
+| paired B | port-`0x06` page with bit 0 set | see expression bug below | port-`0x06` page with bit 0 set | adjacent odd member |
+| paired C | port-`0x07` page | same | same | port-`0x07` page |
+| paired reads from `0x05`–`0x07` | stored register values | active C/A/B page values | stored register values | stored selector state |
+| forced-RAM overlays | both modes | independent mode only | absent | implemented |
 
 Wabbitemu's reads are therefore not register snapshots in paired mode. Port
 `0x06` reads visible A, port `0x07` reads visible B, and port `0x05` reads the
@@ -569,4 +569,5 @@ nix shell nixpkgs#mame --command python tools/run_mame_mapper_probe.py \
 | [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) and [`x4_memory.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c) | mapping modes, 64-page masks, overlays, and protection order |
 | [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) and [`core.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c) | extended selectors, paired mode, overlays, and independent comparison |
 | [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | mapped ports, bank backing, selector writes, reset mapping, and read-latch behavior |
+| [jsTIfied deployed `20170706a` artifact](https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a) and [readable mirror](https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js) | fourth source implementation of selector, paired-mode, and overlay routing; the deployed artifact is pinned by `tools/jstified_hardware.py` |
 | [WikiTI port `0x04`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:04), [`0x0E`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:0E), [`0x0F`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:0F), [`0x27`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:27), and [`0x28`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:28) | historical public register descriptions checked against ROM and emulators |

@@ -13,7 +13,7 @@ checks, but several boundary details still require physical measurement.
 |----------|---------------------|------------|
 | Retail boot page `3F` | protected writes, register values, and `_SetFlashLowerBound` behavior | [confirmed] |
 | Complete-ROM static I/O scan | one write each to ports `0x21`, `0x22`, `0x25`, and `0x26`; two writes to port `0x23`; no resolved port-`0x24` access | [confirmed] |
-| TilEm x4 and Wabbitemu source | two executable software models, including their disagreements | [standard] |
+| TilEm x4, Wabbitemu, and jsTIfied source | three executable software models, including their disagreements | [standard] |
 | Guarded TilEm boundary traces | fetch, return, warning, and reset sequences at pages `07`, `08`, `29`, and `2A` | [confirmed] for the pinned emulator run |
 | Guarded Wabbitemu boundary runs | fetch, return, marker, and instrumented reset sequences at pages `07`, `08`, `09`, `29`, and `2A` | [confirmed] for the pinned emulator run |
 | Guarded RAM execution runs | chunk-edge and mode disagreements under pinned TilEm and Wabbitemu | [confirmed] for the pinned emulator runs |
@@ -121,6 +121,14 @@ published contract and source comparison; [hypothesis] for hardware.
 Both emulator paths apply this rule to opcode fetches. Ordinary Flash data
 reads use a separate path. The locked certificate-page read censor is also a
 separate mechanism. [standard]
+
+jsTIfied stores ports `0x22` and `0x23` only while its Flash gate is open and
+builds page-level `run_lock` entries. A denied fetch sets its halted/reset state
+to `2`. Ports `0x25` and `0x26` are stored but do not participate in the fetch
+predicate, so jsTIfied cannot test the documented 1 KiB RAM-bound behavior.
+Its port-`0x21` handler instead rebuilds coarser RAM-page execution groups.
+These are properties of the pinned JavaScript source, not ASIC evidence.
+[standard]
 
 WikiTI also says page `0x00` always remains executable and that a forbidden
 fetch resets the calculator. Wabbitemu always permits page 0 and resets the CPU
@@ -714,6 +722,8 @@ $ python tools/analyze_rom_io.py 0x21 0x22 0x23 0x24 0x25 0x26 --summary
   modes, and the `0x40` wrap case. [standard] for source behavior; [confirmed]
   for the pinned emulator runs.
 - The retail ROM has no statically resolved port-`0x24` access. [confirmed]
+- jsTIfied implements page-level Flash and RAM execution groups, but its stored
+  ports `0x25` and `0x26` do not affect instruction fetches. [standard]
 - A guarded initialized-core Wabbitemu run verifies the common protected-write
   gate across ports `0x22`–`0x26`, the port-`0x24` high-field clearing defect,
   and 16-bit RAM-bound wrap at `0x40` and above. [standard]
@@ -755,4 +765,5 @@ emulator agreement is only a test oracle for emulator behavior.
 | [Wabbitemu `device.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/device.c) | global protected-port write gate |
 | [Wabbitemu `83psehw.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | port handlers and port-`0x24` implementation |
 | [MAME `ti85.cpp` and `ti85_m.cpp` at `mame0287`](https://github.com/mamedev/mame/tree/mame0287/src/mame/ti) | absent execution-protection ports and unused Flash-unlock state |
+| [jsTIfied deployed `20170706a` artifact](https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a) and [readable mirror](https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js) | protected writes, page-level `run_lock`, violation reset, and unused stored RAM-bound ports |
 | [WikiTI port `0x22`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:22), [`0x23`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:23), [`0x24`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:24), [`0x25`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:25), and [`0x26`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:26) | public register descriptions, treated as secondary evidence |

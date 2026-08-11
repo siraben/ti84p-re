@@ -410,17 +410,17 @@ The all-groups probe finds bit 5 low. The group walk later selects `0xBF`; bit 5
 
 ## Emulator comparison
 
-All three pinned implementations omit electrical settling and mechanical bounce. Their keypad handlers return the current modeled matrix state without a delay, although MAME's host input fields latch forced changes on a video-frame update. Their digital matrix algorithms do not agree. [standard]
+All four pinned implementations omit electrical settling and mechanical bounce. Their keypad handlers return the current modeled matrix state without a delay, although MAME's host input fields latch forced changes on a video-frame update. Their digital matrix algorithms do not all agree. [standard]
 
-| Area | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 |
-|------|-----------------|------------------------|------------|
-| Selected rows | active-low write, all eight bits | complements the write, then considers seven rows | active-low write, seven rows |
-| Ordinary combination | OR of selected rows | OR of selected row results | XOR of each selected pressed position |
-| Ghosting | iterated transitive closure | one pairwise-overlap pass | none |
-| Same-column keys in two selected rows | remain low | remain low | XOR twice and cancel to high |
-| ON level | separate active-low port-`0x04` bit 3 | separate active-low port-`0x04` bit 3 | separate active-low port-`0x04` bit 3 |
-| ON request edge | press and release | press only | press only |
-| ON detection | injected-state event | standard-interrupt device evaluation | fixed 256 Hz timer-1 callback |
+| Area | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 | jsTIfied `20170706a` |
+|------|-----------------|------------------------|------------|-----------------------|
+| Selected rows | active-low write, all eight bits | complements the write, then considers seven rows | active-low write, seven rows | active-low write and row scan |
+| Ordinary combination | OR of selected rows | OR of selected row results | XOR of each selected pressed position | selected key-state rows are combined into an active-low result |
+| Ghosting | iterated transitive closure | one pairwise-overlap pass | none | no electrical settling model |
+| Same-column keys in two selected rows | remain low | remain low | XOR twice and cancel to high | remain low |
+| ON level | separate active-low port-`0x04` bit 3 | separate active-low port-`0x04` bit 3 | separate active-low port-`0x04` bit 3 | separate standard-interrupt state |
+| ON request edge | press and release | press only | press only | press only while not already latched |
+| ON detection | injected-state event | standard-interrupt device evaluation | fixed 256 Hz timer-1 callback | key-event handler |
 
 The guarded TilEm direct-core interrupt probe begins with ON masked. Press,
 enable while held, release, acknowledge, press, acknowledge while held,
@@ -581,5 +581,6 @@ above additionally require disassembly of their surrounding routines.
 | [TilEm `scancodes.h`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/scancodes.h) | injected key identifiers |
 | [Wabbitemu `keys.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/keys.c) and [`83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | pairwise matrix algorithm and press-edge ON latch |
 | [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | keypad map, XOR scan, and timer-polled ON edge |
+| [jsTIfied deployed `20170706a` artifact](https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a) and [readable mirror](https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js) | fourth active-low matrix implementation and press-edge ON policy |
 | [WikiTI `_AppStartMouse`](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:4D47&oldid=10268), [`_AppEraseMouse`](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:4D53&oldid=3561), and [`_AppUpdateMouse`](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:4D65&oldid=3210) | literature names and published API synopsis; ROM bytes determine flag ownership and coordinate staging here |
 | Local headless TilEm `trace.c` at commit `8da5457` | key-event trace record format |

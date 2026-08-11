@@ -4,12 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from collections import Counter
 from hashlib import sha256
-import json
 from pathlib import Path
-import sys
 
+from file_hashes import file_sha256
 from flash_replay import (
     FlashReplayError,
     find_gc_phase_snapshots,
@@ -22,7 +23,6 @@ from flash_trace import (
 )
 from hardware_trace import iter_resolved_memory_writes, trace_header
 from rom_signatures import TI84_PLUS_OS_255MP_SHA256
-
 
 TOOLS = Path(__file__).resolve().parent
 
@@ -57,16 +57,6 @@ def validate_replay_stream(commands) -> Counter[str]:
         rendered = ", ".join(f"{name}={count}" for name, count in sorted(unsafe.items()))
         raise FlashReplayError(f"trace has non-successful program invocation(s): {rendered}")
     return outcomes
-
-
-def file_sha256(path: Path) -> str:
-    """Hash a potentially large trace without retaining it in memory."""
-
-    digest = sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def main() -> None:

@@ -601,7 +601,7 @@ single-prefix two-wait controls, so the decoder selects
 
 The native adapter was built from Wabbitemu commit
 `48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422`; the build has SHA-256
-`c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1`.
+`3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e`.
 This run validates the assembled loops, timer sampling, restoration path, and
 the pinned emulator's wait model. It does not execute AppVar creation, measure
 host wall time or electrical timing, or establish physical ASIC behavior.
@@ -719,13 +719,13 @@ The native adapter uses Wabbitemu commit
 `48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422`, source-tree SHA-256
 `a8a4f97fc7952770bed317b4a477f80345894da38d14fad8f0bf0ee60aae71ba`,
 and binary SHA-256
-`c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1`.
+`3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e`.
 Run the same guarded path with:
 
 ```sh
 nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
   --binary /path/to/wabbitemu-headless \
-  --expected-binary-sha256 c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1 \
+  --expected-binary-sha256 3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
   --output-dir /tmp/wabbitemu-timer-physical --json
 ```
 

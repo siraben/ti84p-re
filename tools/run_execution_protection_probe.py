@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 from dataclasses import asdict
-import json
 from pathlib import Path
 
 from execution_protection import (
@@ -18,7 +18,7 @@ from execution_protection_fixture import (
     build_flash_execution_fixture,
     file_digest,
 )
-
+from probe_cli import emit_result, require_fresh_output_dir, write_json
 
 TOOLS = Path(__file__).resolve().parent
 SOURCE = TOOLS / "emulator-probes" / "execution-protection-flash.asm"
@@ -47,12 +47,9 @@ def main() -> None:
     pages = tuple(args.page) if args.page else DEFAULT_PAGES
     if len(set(pages)) != len(pages):
         parser.error("each --page may be specified only once")
-    if args.output_dir.exists():
-        parser.error(f"refusing to reuse existing output directory {args.output_dir}")
-
     try:
         source_rom = args.rom.read_bytes()
-        args.output_dir.mkdir(parents=True)
+        require_fresh_output_dir(args.output_dir)
         reports = []
         for page in pages:
             stem = f"page-{page:02x}"
@@ -151,21 +148,22 @@ def main() -> None:
             "evidence_scope": "pinned TilEm behavior; not physical ASIC behavior",
         }
         manifest = args.output_dir / "manifest.json"
-        manifest.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        write_json(manifest, report)
     except (OSError, RuntimeError, ValueError) as error:
         parser.error(str(error))
 
-    if args.json:
-        print(json.dumps(report, indent=2))
-        return
-    for item in reports:
-        trace = item["trace"]
-        print(
+    emit_result(
+        report,
+        manifest,
+        as_json=args.json,
+        summary=(
             f"page {item['page']:02X}: {trace['classification']} "
             f"call={trace['call_clock']} target={trace['target_clock']} "
             f"return={trace['return_clock']} reset={trace['reset_clock']}"
+            for item in reports
+            for trace in (item["trace"],)
         )
-    print(f"manifest: {manifest}")
+    )
 
 
 if __name__ == "__main__":

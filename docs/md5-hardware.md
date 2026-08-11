@@ -404,15 +404,15 @@ This separation matters when tracing ports: only the earlier MD5 compression rou
 
 ## Emulator comparison and fidelity limits
 
-| Behavior | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 |
-|----------|-----------------|----------------------|------------|
-| Ports `0x18`–`0x1F` | mapped | mapped | absent; live reads return `00` |
-| Operand writes | six 32-bit sliding registers | same | unmapped |
-| Control writes | shift masked to five bits; mode masked to two | same | unmapped |
-| Result reads | recalculated on each read from `0x1C`–`0x1F` | same | unmapped; live reads return `00` |
-| Reads from `0x18`–`0x1B` | zero | zero | unmapped; live reads return `00` |
-| Reset and state | fields cleared on reset and serialized | fields serialized | no MD5 state |
-| Driver status | usable implementation | usable implementation | TI-84 Plus marked `MACHINE_NOT_WORKING` |
+| Behavior | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 | jsTIfied `20170706a` |
+|----------|-----------------|----------------------|------------|-----------------------|
+| Ports `0x18`–`0x1F` | mapped | mapped | absent; live reads return `00` | mapped |
+| Operand writes | six 32-bit sliding registers | same | unmapped | implemented |
+| Control writes | shift masked to five bits; mode masked to two | same | unmapped | implemented |
+| Result reads | recalculated on each read from `0x1C`–`0x1F` | same | unmapped; live reads return `00` | implemented |
+| Reads from `0x18`–`0x1B` | zero | zero | unmapped; live reads return `00` | modeled by the port block |
+| Reset and state | fields cleared on reset and serialized | fields serialized | no MD5 state | emulator fields are reset and serialized |
+| Driver status | usable implementation | usable implementation | TI-84 Plus marked `MACHINE_NOT_WORKING` | browser emulator source model |
 
 TilEm and Wabbitemu agree on the implemented behaviors below: [standard]
 
@@ -531,4 +531,5 @@ A calculator schematic can identify the ASIC revision and external buses, but it
 | [TilEm `md5.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/md5.c) and [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) | emulator arithmetic, shift registers, masks, reads, and reset |
 | [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | second emulator implementation of the same port block |
 | [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) | TI-84 Plus I/O map, absent MD5 ports, and driver status |
+| [jsTIfied deployed `20170706a` artifact](https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a) and [readable mirror](https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js) | fourth implementation of the ports `0x18`–`0x1F` arithmetic block |
 | [Datamath TI-84 Plus hardware](http://www.datamath.org/Graphing/TI-84PLUS.htm) | calculator hardware and ASIC identification context |

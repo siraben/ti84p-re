@@ -4,22 +4,23 @@
 from __future__ import annotations
 
 import argparse
-import json
 import tempfile
 from pathlib import Path
 
 from build_hardware_probes import assemble_machine_code
 from hardware_probe import decode_probe_frame, decode_probe_measurements
-from rom_signatures import TI84_PLUS_OS_255MP_SHA256
+from probe_cli import (
+    DEFAULT_ROM,
+    emit_result,
+    require_fresh_output_dir,
+    require_output_absent,
+    validate_wabbitemu_probe_inputs,
+    write_json,
+)
 from wabbitemu_headless import (
     WABBITEMU_COMMIT,
-    WabbitemuHeadlessError,
-    file_sha256,
     run_timer_physical_probe,
 )
-
-TOOLS = Path(__file__).resolve().parent
-DEFAULT_ROM = TOOLS / "rom.bin"
 
 
 def validate_decoded_report(decoded: dict[str, object]) -> None:
@@ -58,18 +59,13 @@ def main() -> None:
     parser.add_argument("--spasm", default="spasm")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
-    if args.output_dir.exists():
-        parser.error(f"refusing to reuse existing output directory {args.output_dir}")
     try:
-        source_rom_sha256 = file_sha256(args.rom)
-        if source_rom_sha256 != TI84_PLUS_OS_255MP_SHA256:
-            raise ValueError("probe requires the exact local OS 2.55MP ROM")
-        binary_sha256 = file_sha256(args.binary)
-        if binary_sha256 != args.expected_binary_sha256.lower():
-            raise ValueError(
-                f"binary SHA-256 is {binary_sha256}; "
-                f"expected {args.expected_binary_sha256.lower()}"
-            )
+        require_output_absent(args.output_dir)
+        source_rom_sha256, binary_sha256 = validate_wabbitemu_probe_inputs(
+            args.rom,
+            args.binary,
+            args.expected_binary_sha256,
+        )
         machine_code = assemble_machine_code("timer-physical", spasm=args.spasm)
         with tempfile.TemporaryDirectory(prefix="ti84-timer-physical-") as directory:
             machine_path = Path(directory) / "HWTMR.bin"
@@ -111,22 +107,22 @@ def main() -> None:
                 "crystal accuracy, electrical timing, or physical ASIC behavior"
             ),
         }
-        args.output_dir.mkdir(parents=True)
+        require_fresh_output_dir(args.output_dir)
         (args.output_dir / "HWTMR.bin").write_bytes(machine_code)
-        manifest = args.output_dir / "manifest.json"
-        manifest.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
-    except (OSError, RuntimeError, ValueError, WabbitemuHeadlessError) as error:
+        manifest = write_json(args.output_dir / "manifest.json", result)
+    except (OSError, RuntimeError, ValueError) as error:
         parser.error(str(error))
 
-    if args.json:
-        print(json.dumps(result, indent=2))
-        return
-    print(
-        "timer model: "
-        + result["decoded_frame"]["measurements"]["measurements"]
-        ["crystal_divisor"]["closer_to"]
+    emit_result(
+        result,
+        manifest,
+        as_json=args.json,
+        summary=(
+            "timer model: "
+            + result["decoded_frame"]["measurements"]["measurements"]
+            ["crystal_divisor"]["closer_to"],
+        ),
     )
-    print(f"manifest: {manifest}")
 
 
 if __name__ == "__main__":

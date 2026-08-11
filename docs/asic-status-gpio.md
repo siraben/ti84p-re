@@ -514,17 +514,17 @@ not establish calculator warm-reset retention. [standard]
 
 ## Emulator comparison
 
-The three pinned implementations disagree on every control group not already
+The four pinned implementations disagree on several control groups not already
 established by ROM use. Their values are test oracles for the software, not
 physical ASIC measurements.
 
-| Area | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 |
-|------|-----------------|----------------------|------------|
-| Port `0x02` | dynamic comparator, LCD-ready, and Flash lock; family bits 5–7 set | same layout, with the TI-84 Plus comparator fixed high | `0xC3 | (raw gate << 2)`, truncated to a byte |
-| Port `0x15` | fixed `0x45` | model and RAM-revision dependent | fixed `0x33` |
-| Port `0x21` accepted readback | `value & 0x33`, subject to Flash unlock | only bits 0–1 survive its read defect | `value & 0x0F`, without protected-write gating |
-| GPIO | port `0x39` fixed at `0xF0`; no meaningful TI-84 Plus port `0x3A` | port `0x3A` latch; port `0x39` absent | both ports absent |
-| Driver status | usable model with unmeasured battery thresholds | usable model with implementation-specific defects | TI-84 Plus marked `MACHINE_NOT_WORKING` |
+| Area | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 | jsTIfied `20170706a` |
+|------|-----------------|----------------------|------------|-----------------------|
+| Port `0x02` | dynamic comparator, LCD-ready, and Flash lock; family bits 5–7 set | same layout, with the TI-84 Plus comparator fixed high | `0xC3 | (raw gate << 2)`, truncated to a byte | fixed family/battery baseline plus LCD-ready and Flash-lock fields |
+| Port `0x15` | fixed `0x45` | model and RAM-revision dependent | fixed `0x33` | model-dependent identity value |
+| Port `0x21` accepted readback | `value & 0x33`, subject to Flash unlock | only bits 0–1 survive its read defect | `value & 0x0F`, without protected-write gating | stored while Flash-unlocked and used for page-level execution groups |
+| GPIO | port `0x39` fixed at `0xF0`; no meaningful TI-84 Plus port `0x3A` | port `0x3A` latch; port `0x39` absent | both ports absent | software latches without physical GPIO modeling |
+| Driver status | usable model with unmeasured battery thresholds | usable model with implementation-specific defects | TI-84 Plus marked `MACHINE_NOT_WORKING` | browser emulator source model |
 
 ## Reusable analysis tools
 
@@ -626,3 +626,4 @@ test. No physical snapshot is recorded. [confirmed] for the probe bytes;
 | [TilEm `x4_io.c` at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) | Battery table, status read, identity constant, protection mode, and fixed GPIO read |
 | [Wabbitemu `83psehw.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | Independent port models and the port-`0x21` read defect |
 | [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | shared I/O map, fixed status and identity reads, port-`0x21` mask, missing GPIO, and driver status |
+| [jsTIfied deployed `20170706a` artifact](https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a) and [readable mirror](https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js) | fourth status, identity, protected-write, execution-group, and software-GPIO model |

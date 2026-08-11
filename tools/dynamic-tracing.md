@@ -1904,7 +1904,7 @@ python tools/run_wabbitemu_timer_physical_probe.py \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --expected-binary-sha256 \
-    c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1 \
+    3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
   --output-dir "$wabbit_timer_physical_parent/run" --json
 ```
 
@@ -1916,6 +1916,71 @@ execution-limit, stop-address, frame, and violation-reset checks avoid a second
 probe-specific control path. The retained manifest identifies the ROM, binary,
 machine code, runtime counters, decoded frame, and evidence scope. No result
 from a physical calculator is implied.
+
+Run the controlled retail USB boot paths through the same binary:
+
+```sh
+wabbit_usb_rom_parent=$(mktemp -d /tmp/ti84-wabbit-usb-rom.XXXXXX)
+python tools/run_wabbitemu_usb_rom_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --expected-binary-sha256 \
+    3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
+  --output-dir "$wabbit_usb_rom_parent/run" --json
+```
+
+This mode boots the retail ROM and uses short RAM-resident bcall harnesses for
+`_InitUSB` and `_AttemptUSBOSReceive`. Controlled handlers replace only the
+USB controller and endpoint ports. Four constant-memory summaries report
+success, handshake timeout, frame timeout, and event-`0x40` dispatch. The
+runner retains counters and at most 128 port writes per case instead of an
+instruction log. It also compares the complete Flash image and stops before
+endpoint payload handling. The result is controlled ROM-execution evidence,
+not connected-device, PHY, or physical-calculator evidence.
+
+Continue into the installer record dispatcher with exact scripted endpoint
+packets:
+
+```sh
+wabbit_usb_receive_parent=$(mktemp -d /tmp/ti84-wabbit-usb-receive.XXXXXX)
+nix develop -c python tools/run_wabbitemu_usb_receive_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --expected-binary-sha256 \
+    3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
+  --output-dir "$wabbit_usb_receive_parent/run" --json
+```
+
+This constant-memory mode validates the ROM's type-`0x04` request, the host
+type-`0x05` acknowledgement, service `0x0005`, page `0x3E`, record dispatch,
+page rejection, error cleanup, and the complete unchanged Flash array. It
+seeds the already-displayed progress page immediately before
+`_DisplayOSProgress` to isolate the downstream rejection; the manifest records
+that intervention. The adapter retains three received packets, two transmitted
+packets, fixed boundary counters, and the final state instead of a textual
+instruction log.
+
+## Pinning jsTIfied source behavior
+
+The Cemetech project page identifies jsTIfied, but the reusable profile checks
+the deployed JavaScript itself. Download and verify the exact `20170706a`
+artifact with:
+
+```sh
+nix develop -c curl -L \
+  'https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a' \
+  -o /tmp/jstified_compressed.js
+nix develop -c env PYTHONPATH=tools python \
+  tools/describe_jstified_hardware.py /tmp/jstified_compressed.js --json
+```
+
+`tools/jstified_hardware.py` requires size 297,128 and SHA-256
+`c7325a38f976f64eaa34182da17d838fe4831eece4650b92d5db710cf7a8fc5b`,
+then verifies source fingerprints for Flash commands, mapping, execution
+protection, timers, LCD, link assist, and fixed USB reads. Its feature profile
+is source evidence for a fourth emulator. The readable GitHub mirror at commit
+`56246a1181f90123a843ea17eb9e0f2fcda65113` aids review but is explicitly not
+treated as byte-identical to the deployed artifact.
 
 Run the guarded ASIC-control edge probe through the same binary:
 
@@ -2268,7 +2333,7 @@ rather than paged-address resolution.
 - [`mame_mapper_probe.lua`](mame_mapper_probe.lua) — fresh-process reset latch, selector, paired-bank, overlay-routing, and fetched-marker adapter for MAME.
 - [`mame_mapper.py`](mame_mapper.py) — typed MAME mapper report parser and oracle backed by the reusable mapper profile and pinned ROM prefixes.
 - [`run_mame_mapper_probe.py`](run_mame_mapper_probe.py) — exact-ROM and exact-MAME guarded five-case mapper CLI with retained logs and manifest.
-- [`wabbitemu_headless.cpp`](wabbitemu_headless.cpp) — minimal Linux adapter, wake scheduler, Flash sampler, protected-gate observer, exact copied-worker matcher, recovery-point recorder, and guarded execution, reset, Flash, retail-worker, MD5, keypad, timer, ASIC-control, LCD/bus, shared assembled-program injection, direct-entry LCD-diagnostic, speed/delay, interrupt, and link probe modes for the pinned Wabbitemu core.
+- [`wabbitemu_headless.cpp`](wabbitemu_headless.cpp) — minimal Linux adapter, wake scheduler, Flash sampler, protected-gate observer, exact copied-worker matcher, recovery-point recorder, and guarded execution, reset, Flash, retail-worker, MD5, keypad, timer, ASIC-control, LCD/bus, shared assembled-program injection, direct-entry LCD-diagnostic, speed/delay, interrupt, link, and compact scripted USB-receive probe modes for the pinned Wabbitemu core.
 - [`wabbitemu_headless.py`](wabbitemu_headless.py) — reusable pinned-source validation, build command, recovery and probe runners, typed gate/report parsing, shared assembled-program execution, retail-path validation, and image hashing.
 - [`wabbitemu_flash_probe.py`](wabbitemu_flash_probe.py) — shared Flash case parser plus command-family, byte-program, and retail-worker report oracles.
 - [`build_wabbitemu_headless.py`](build_wabbitemu_headless.py) — guarded compiler CLI for the exact pinned source tree.
@@ -2280,6 +2345,10 @@ rather than paged-address resolution.
 - [`run_wabbitemu_flash_worker_probe.py`](run_wabbitemu_flash_worker_probe.py) — guarded retail-ROM `_WriteFlashUnsafe` matrix with copied-worker path, register, poll-read, reset-tail, and hash checks.
 - [`run_wabbitemu_prefix_m1_probe.py`](run_wabbitemu_prefix_m1_probe.py) — exact-ROM and exact-binary guarded assembled timing-probe CLI with decoded model discrimination and restoration checks.
 - [`run_wabbitemu_timer_physical_probe.py`](run_wabbitemu_timer_physical_probe.py) — exact-ROM and exact-binary guarded assembled timer-probe CLI with decoded model discrimination and restoration checks.
+- [`wabbitemu_usb_receive.py`](wabbitemu_usb_receive.py) — exact transport-frame decoder and retail installer-record execution oracle.
+- [`run_wabbitemu_usb_receive_probe.py`](run_wabbitemu_usb_receive_probe.py) — exact-ROM and exact-binary guarded scripted USB-receive CLI with a retained JSON manifest.
+- [`jstified_hardware.py`](jstified_hardware.py) — pinned deployed-artifact identity, source fingerprints, provenance, and fourth-emulator hardware feature profile.
+- [`describe_jstified_hardware.py`](describe_jstified_hardware.py) — hash-guarded text and JSON jsTIfied source-profile CLI.
 - [`emulator-probes/flash-bcall-usage.asm`](emulator-probes/flash-bcall-usage.asm) — assembled programmer-facing `_WriteFlash`, `_WriteAByteSafe`, `_EraseFlashPage`, `_SetFlashLowerBound`, and `_FlashToRam` usage fixture.
 - [`flash_bcall_examples.py`](flash_bcall_examples.py) — reusable assembly, typed native-report parsing, and bcall/result/readback oracle.
 - [`run_wabbitemu_flash_bcall_probe.py`](run_wabbitemu_flash_bcall_probe.py) — exact-ROM guarded executable-example CLI with source, machine-code, adapter, and result hashes.
