@@ -13,7 +13,10 @@ The TI-84 Plus OS runs the Z80 in interrupt mode 1 (IM1) and polls the ASIC's in
 | WikiTI ports `0x03` and `0x04` | Bit-level enable, status, clear-on-zero, timer-rate, mapping, battery-selector, and low-power contract | [standard] |
 | TilEm commit `f56ad63` and Wabbitemu commit `48c2dc0` | Two executable interpretations of the registers and their fidelity gaps | [standard] |
 | MAME 0.287 `ti84pv3` driver and Lua I/O trace | Third implementation, headless ON-wake execution, and explicit `MACHINE_NOT_WORKING` gaps | [standard] |
+| Guarded TilEm direct-core interrupt probe | Stored-mask readback, internal policy, acknowledgement, ON/link edges, timer callbacks, and reset ordering | [standard] |
+| Guarded TilEm direct-core link probe | Raw link-activity and assist idle, receive, and error interrupt transitions | [standard] |
 | Guarded Wabbitemu interrupt edge probe | Initialized-core mask, timer, acknowledgement, completion, and low-power transitions | [standard] |
+| Guarded MAME legacy-interrupt probe | CPU-I/O-space status, mask, ON-edge, fixed-timer, and soft-reset observations | [standard] |
 
 The ROM proves how OS 2.55MP uses the registers. Public notes and emulators describe behavior inside the ASIC that the ROM cannot prove by itself. Emulator agreement is supporting evidence, not physical confirmation.
 
@@ -273,6 +276,71 @@ Chaining to the OS handler also inherits its assumptions: `IY` points to `flags`
 
 Wabbitemu's source comments state uncertainty about its standard-interrupt write behavior. Its model is useful as an independent implementation comparison, but disagreement must remain explicit. [standard]
 
+### Native TilEm interrupt edges
+
+A guarded direct-core run compiles the complete TilEm tree at commit
+`f56ad637d0524ee841dd381be6ecbaf5b8975600`. It calls the registered x4 port
+handlers and timer callbacks, plus the public keypad, link, timer, and reset
+functions. It does not execute the ROM. [standard]
+
+Port `0x03` stores all eight written bits. Writes `00`, `01`, `02`, `04`, `08`,
+`10`, and `FF` produce identical readback. The same writes select internal ON,
+power-on-HALT, and link enables from bits 0, 3, and 4. Either standard-timer bit
+clears TilEm's `NO_HALT_INT` flag on all three programmable timers; both bits
+clear set that flag. All three timer flags agree in every case. [standard]
+
+The probe seeds all four legacy latches, all three programmable completion
+flags, and all three programmable CPU requests. Applying the seven values
+above through port `0x03` produces status `E8 E9 EA EC E8 F8 FF`. Applying
+them through port `0x02` produces the same sequence. Both paths leave the
+three programmable requests at internal mask `0x38`, and port `0x03` leaves
+completion bits 5–7 visible. This directly checks TilEm's two clear-on-zero
+implementations. [standard]
+
+The ON sequence produces `00 00 09 08 01 00 09 08 00`: masked press, enable
+while held, release, acknowledge released, press, acknowledge held, release,
+disable, and press while disabled. TilEm therefore latches both enabled
+transitions. Timer callbacks with both masks clear remain at `08`. With both
+enabled, timer 1, either timer-2 callback, and both sources produce `0A`,
+`0C`, `0C`, and `0E`. [standard]
+
+Reset schedules timer 1, timer 2A, and timer 2B at initial delays 1,600,
+1,300, and 1,000 µs with 9,277 µs periods. Port-`0x04` writes select periods
+`1953`, `4395`, `6836`, and `9277` µs for all three without changing the
+current interval. An enabled external link-line transition sets status `18`;
+either acknowledgement path clears it to `08`, and a disabled transition does
+not latch. [standard]
+
+With the CPU halted and both standard timers disabled, programmable-timer-1
+expiry leaves completion status `0x28` but no CPU request. Enabling either
+standard timer clears the gate and produces internal request `0x08`; a running
+CPU also receives the request when both standard timers are disabled. This is
+TilEm's policy, not a physical wake measurement. [standard]
+
+TilEm reset writes stored port `0x03 = 0x0B` directly after the generic keypad
+reset clears the internal ON enable. A fresh core therefore reads `0x0B` while
+the internal ON enable is zero. Reset also retains `poweronhalt`; after the
+probe first clears it, reset again reads `0x0B` while the retained power field
+is zero. Writing `0x0B` through the port handler synchronizes both fields to
+one. This inconsistency affects experiments that begin at initialized-core
+reset without executing the ROM's first mask write. [standard]
+
+A separate guarded link matrix checks the interrupt-facing parts of the same
+implementation while exercising complete raw and assist transactions. An
+enabled external peer-line transition asserts the raw link-activity request.
+Assist idle-ready reports `0x22`, receive-ready reports `0x31`, and both
+assert the CPU interrupt. Reading receive data changes status to `0x20`.
+Illegal both-low input reports `0x64`; its first status read clears the CPU
+request while retaining error status `0x60`. These are direct TilEm handler
+results, not physical interrupt-edge or acknowledgement measurements.
+[standard]
+
+Two isolated executions produce identical canonical native JSON with SHA-256
+`1c1209e9c3f625b07c42288c21e9a5dbadddb38f12aee995c1fbc8daf1f8e8ad`.
+The binary SHA-256 is
+`23037df0fee48b3ec15656aae80b6181d97211e8eec325c2be81eef02b1ff840`.
+[standard]
+
 ### Native Wabbitemu interrupt edges
 
 A guarded initialized-core run checks the source model through the registered
@@ -326,9 +394,51 @@ MAME 0.287 provides a third comparison with larger known gaps: [standard]
 | Link and low power | no legacy link-pending field or ASIC power-domain transition | can execute the ROM wake path but cannot test physical link wake or low-power behavior |
 | USB | returns fixed `0x1F` and zero from ports `0x55` and `0x56` | disconnected path only |
 
+### Native MAME interrupt edges
+
+The guarded MAME run parks the Z80 in a `DI` loop on page-0 RAM and disables
+the programmable timers. At reset, ports `0x03` and `0x04` both read released
+ON status `0x08`. Writes `00`, `01`, `02`, `04`, `08`, `10`, and `FF` to port
+`0x03` leave both reads at `0x08`; the driver does not return the written mask.
+[standard]
+
+Writing `0x07` to port `0x02` directly creates status `0x0F`. Subsequent
+port-`0x03` writes `0x01`, `0x06`, `0xFF`, and `0x00` retain ON only, retain
+both standard timers, retain all three fields, and clear all three fields.
+Port `0x04` consequently reads `09`, `0E`, `0F`, and `08`. Port `0x02` still
+reads ASIC status `0xC3`; its write and read handlers have unrelated meanings.
+[standard]
+
+The live-input sequence begins with ON masked. A press, enabling ON while the
+button remains held, release, enabled press, enabled release, and bit-0-clear
+acknowledgement produce `00`, `00`, `08`, `01`, `09`, and `08`. The adapter
+waits through both the video input update and a 256 Hz timer-1 sample after
+each forced transition. This confirms MAME's press-only latch and release
+rearming without executing the ROM handler. [standard]
+
+One 20 ms frame with only timer 1, only timer 2, or both enabled produces
+status `0x0A`, `0x0C`, or `0x0E`. Timer-1 status reaches `0x0A` after both
+port-`0x04` configuration writes `0x00` and `0x06`. These frame-level results
+show that both callbacks run and that neither configuration suppresses timer
+1; the pinned source, rather than this coarse interval, establishes the exact
+fixed 256 Hz and 512 Hz rates. [standard]
+
+A scheduled soft reset retains seeded status `0x0F` through the reset callback.
+After a port-`0x02` zero write clears pending state, the retained standard-timer
+masks regenerate `0x0E`; a new ON press changes the status to `0x07`. MAME's
+reset hook restores the mapper but does not restore these interrupt fields.
+This is emulator reset behavior, not physical warm-reset evidence. Two isolated
+runs produce identical canonical parsed native JSON with SHA-256
+`bb4b38d444692b5136d96264fa3acf9fe95ef2f6a1879ab72e9a2ad8077c1def`.
+[standard]
+
 ## Reusable debugging tools
 
-`tools/interrupt_controller.py` provides typed decoders, exact timer periods, clear-on-zero acknowledgement, ROM status-test order, and USB active-low decoding. `tools/describe_interrupt_controller.py` exposes focused CLI commands: [confirmed]
+`tools/interrupt_controller.py` provides typed decoders, exact timer periods,
+clear-on-zero acknowledgement, ROM status-test order, USB active-low decoding,
+and immutable TilEm and MAME legacy-interrupt state models.
+`tools/describe_interrupt_controller.py` exposes focused CLI commands:
+[confirmed] for the ROM/public decoders; [standard] for the emulator model.
 
 ```sh
 nix develop -c python tools/describe_interrupt_controller.py mask 0x0B
@@ -360,6 +470,29 @@ python tools/run_wabbitemu_interrupt_edge_probe.py \
 The ROM is only a core-initialization fixture in this mode. No TI-OS
 instruction executes.
 
+`tools/tilem_interrupt.py` supplies the typed direct-core report and checks it
+against the reusable TilEm state model. The guarded builder requires the exact
+clean source commit and tree. The runner requires the binary SHA-256 and
+refuses to reuse an output directory. The “Legacy interrupt matrix” section in
+`tools/dynamic-tracing.md` contains the reproduction commands.
+
+`tools/tilem_link.py` checks the raw-activity and assist-interrupt transitions
+against the shared link model in `tools/link_port.py`. Its guarded builder and
+runner use the same clean-source and binary-hash requirements. The “Raw link
+and assist matrix” section in `tools/dynamic-tracing.md` contains the command.
+
+`tools/mame_interrupt.py` parses the complete MAME report and checks it against
+the reusable state model. Its guarded CLI records the exact MAME, ROM, Lua,
+logs, and evidence scope:
+
+```sh
+mame_interrupt_parent=$(mktemp -d /tmp/ti84-mame-interrupt.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_interrupt_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_interrupt_parent/run" --json
+```
+
 `tools/mame_trace.py`, `tools/run_mame_io_trace.py`, and `tools/mame_io_trace.lua` provide the equivalent headless MAME path. The Lua tap accepts comma-separated ports and ranges, collapses identical polls, records post-I/O PCs, and can inject ON at selected video frames: [confirmed]
 
 ```sh
@@ -377,8 +510,11 @@ MAME prints a checksum warning for the locally assembled ROM and identifies the 
 - [confirmed] The OS acknowledgement sequence is `0x08` → handler-supplied byte → `0x0B` or `0x0F`.
 - [confirmed] Shutdown writes `0x11` and executes `HALT`; the trace wakes through port-`0x04` value `0x01` after an ON press.
 - [standard] Programmable completion bits remain observable independently of their interrupt-mode bits.
+- [standard] The guarded TilEm run verifies stored mask readback, both clear-on-zero paths, ON press and release latches, both timer-2 callbacks, link transitions, programmable-timer HALT gating, and the reset readback/internal-policy mismatch.
+- [standard] The guarded TilEm link run independently verifies raw activity, assist idle and receive requests, data acknowledgement, and interrupt-only acknowledgement of a retained error flag.
 - [standard] The guarded Wabbitemu run verifies complete mask readback, ON clearing, strict standard-timer expiry, both standard-timer acknowledgement paths, programmable completion readback, and its LCD-based low-power approximation.
 - [standard] The guarded Wabbitemu USB run verifies its active-low line/protocol summary, mask-independent line event, and repeat-event path. It does not verify the ROM dispatcher or physical USB interrupt behavior.
+- [standard] The guarded MAME run verifies shared status reads, three-bit mask behavior, direct port-`0x02` status injection, press-only ON sampling, both standard-timer pending bits within scheduled frames, and interrupt-field retention across soft reset.
 - [hypothesis] Physical TA2 and TA3 tests should measure ON request edges, link wake transitions, simultaneous legacy-source coalescing, programmable-timer wake behavior, and battery-selector thresholds.
 
 ## Sources
@@ -387,7 +523,7 @@ MAME prints a checksum warning for the locally assembled ROM and identifies the 
 |--------|----------|
 | [WikiTI port `0x03`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:03) | enable mask, clear-on-zero acknowledgement, normal value, and low-power-on-`HALT` contract |
 | [WikiTI port `0x04`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:04) | read-status fields, write controls, timer formula, and programmable completion distinction |
-| [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) and [`timers.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/timers.c) | legacy latches, mask handling, timer completion, `HALT` policy, and disconnected USB values |
+| [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), [`x4_init.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c), [`keypad.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/keypad.c), [`link.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/link.c), and [`timers.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/timers.c) | legacy latches, reset ordering, ON/link edges, timer completion, `HALT` policy, and disconnected USB values |
 | [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | independent standard-interrupt, mapping, ON, timer, and low-power implementation |
 | [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | TI-84 Plus machine status, I/O map, interrupt masks, standard timers, programmable timers, and fixed USB reads |
 | Local OS 2.55MP page-0 bytes | entry, gates, test order, handlers, acknowledgement, and exit |

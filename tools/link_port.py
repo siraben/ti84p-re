@@ -8,15 +8,14 @@ means that line is high.  The deliberately neutral names ``line 0`` and
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from functools import reduce
 from hashlib import sha256
 from operator import or_
-from typing import Iterable
 
 from bcall_tables import main_target
 from rom_image import RomImage, RomLocation
-
 
 LINE_MASK = 0x03
 NOMINAL_LOW_SPEED_HZ = 6_000_000
@@ -26,6 +25,14 @@ TI_KEYBOARD_DELIMITERS = ("error", "ordinary", "timeout")
 TI_KEYBOARD_BCALL_ID = 0x50E9
 TI_KEYBOARD_BCALL_TABLE_PAGE = 0x3B
 WABBITEMU_ASSIST_PORTS = frozenset({0x08, 0x09, 0x0A, 0x0D})
+TILEM_LINK_ASSIST_READ_BYTE = 0x01
+TILEM_LINK_ASSIST_READ_BUSY = 0x02
+TILEM_LINK_ASSIST_READ_ERROR = 0x04
+TILEM_LINK_ASSIST_WRITE_BUSY = 0x08
+TILEM_LINK_ASSIST_WRITE_ERROR = 0x10
+TILEM_INTERRUPT_LINK_READ = 0x0400
+TILEM_INTERRUPT_LINK_IDLE = 0x0800
+TILEM_INTERRUPT_LINK_ERROR = 0x1000
 
 
 class KeyboardRomSignatureError(ValueError):
@@ -145,7 +152,9 @@ class KeyboardStatusReturn:
 KEYBOARD_STATUS_RETURNS = {
     item.status: item
     for item in (
-        KeyboardStatusReturn(0x00, "3C:6DA0", "no-activity", "no accepted link activity"),
+        KeyboardStatusReturn(
+            0x00, "3C:6DA0", "no-activity", "no accepted link activity"
+        ),
         KeyboardStatusReturn(
             0x01,
             "3C:6DDB",
@@ -494,7 +503,9 @@ def link_port_profile(
         return LINK_PORT_PROFILES[profile.lower()]
     except KeyError:
         choices = ", ".join(LINK_PORT_PROFILES)
-        raise ValueError(f"unknown link profile {profile!r}; choose {choices}") from None
+        raise ValueError(
+            f"unknown link profile {profile!r}; choose {choices}"
+        ) from None
 
 
 @dataclass(frozen=True)
@@ -570,9 +581,7 @@ def raw_port_truth_table() -> tuple[int, ...]:
     """Return local-major readback for all four local and peer masks."""
 
     return tuple(
-        port_read_value(local, peer)
-        for local in range(4)
-        for peer in range(4)
+        port_read_value(local, peer) for local in range(4) for peer in range(4)
     )
 
 
@@ -599,6 +608,30 @@ def wabbitemu_assist_status(
         | (0x20 if ready else 0)
         | (0x40 if error else 0)
         | (0x80 if sending else 0)
+    )
+
+
+def tilem_assist_status(flags: int, interrupts: int) -> int:
+    """Compose TilEm's port-``0x09`` link-assist status byte."""
+
+    if not 0 <= flags <= 0x1F:
+        raise ValueError("TilEm link-assist flags must be between 0 and 0x1F")
+    if interrupts < 0:
+        raise ValueError("TilEm interrupt mask must be nonnegative")
+    busy = flags & (TILEM_LINK_ASSIST_READ_BUSY | TILEM_LINK_ASSIST_WRITE_BUSY)
+    return (
+        (0 if busy else 0x20)
+        | (0x01 if interrupts & TILEM_INTERRUPT_LINK_READ else 0)
+        | (0x02 if interrupts & TILEM_INTERRUPT_LINK_IDLE else 0)
+        | (0x04 if interrupts & TILEM_INTERRUPT_LINK_ERROR else 0)
+        | (0x08 if flags & TILEM_LINK_ASSIST_READ_BUSY else 0)
+        | (0x10 if flags & TILEM_LINK_ASSIST_READ_BYTE else 0)
+        | (
+            0x40
+            if flags & (TILEM_LINK_ASSIST_READ_ERROR | TILEM_LINK_ASSIST_WRITE_ERROR)
+            else 0
+        )
+        | (0x80 if flags & TILEM_LINK_ASSIST_WRITE_BUSY else 0)
     )
 
 
@@ -642,8 +675,10 @@ def emulator_port_write(
     selected = link_port_profile(profile)
     value = byte(write_value, name="write value")
     peer = _line_mask(peer_drive, name="peer drive")
-    before = selected.reset_state if prior_state is None else byte(
-        prior_state, name="prior state"
+    before = (
+        selected.reset_state
+        if prior_state is None
+        else byte(prior_state, name="prior state")
     )
     if selected.key == "mame":
         after = mame_plus_state_after_write(value, before)
@@ -800,11 +835,7 @@ def abort_pulse_delay_tstates(
     if padding_nops < 0:
         raise ValueError("padding NOP count must be nonnegative")
 
-    inner_loop = (
-        inner_iterations * 4
-        + (inner_iterations - 1) * 12
-        + 7
-    )
+    inner_loop = inner_iterations * 4 + (inner_iterations - 1) * 12 + 7
     fixed_outer = 7 + padding_nops * 4 + inner_loop + 6 + 4 + 4
     outer_branches = (outer_iterations - 1) * 12 + 7
     return 10 + outer_iterations * fixed_outer + outer_branches

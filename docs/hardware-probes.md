@@ -148,6 +148,14 @@ A successful fetch executes `RET`, returns to the probe, and changes the AppVar
 outcome to `returned`. The program never writes the selected RAM or Flash page.
 [confirmed] for the assembled instruction sequence.
 
+The existing `RET` is also the only target opcode. It has no memory-write or
+I/O side effect, which limits risk if a protection exception is delivered after
+the opcode executes. Pinned TilEm uses that ordering: it completes a forbidden
+opcode and resets afterward. A pending result after reset therefore does not
+distinguish a suppressed opcode from an executed `RET` followed by reset. The
+probe measures return-versus-reset behavior, not the precise exception point.
+[standard] for TilEm; [hypothesis] for the physical ASIC.
+
 | Payload offset | Size | Field |
 |---------------:|-----:|-------|
 | `0` | 1 | target kind: 0 Flash, 1 RAM |

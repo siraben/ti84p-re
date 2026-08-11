@@ -2,71 +2,39 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
+
+from mame_runtime import (
+    MameRunConfiguration,
+    build_command,
+    headless_environment,
+    machine_rom_name,
+)
+
+__all__ = [
+    "MameTraceConfiguration",
+    "build_command",
+    "machine_rom_name",
+    "trace_environment",
+]
 
 
 @dataclass(frozen=True)
-class MameTraceConfiguration:
-    executable: str
-    machine: str
-    rom_root: Path
-    seconds: int
-    lua_script: Path
+class MameTraceConfiguration(MameRunConfiguration):
+    """A MAME run with I/O trace and optional ON-key controls."""
+
     ports: str
     on_press_frame: int | None = None
     on_release_frame: int | None = None
 
 
-def machine_rom_name(machine: str) -> str:
-    """Return the known MAME ROM filename for supported TI-84 Plus drivers."""
-
-    names = {
-        "ti84pv3": "ti84pv3v255mp.bin",
-    }
-    try:
-        return names[machine]
-    except KeyError as error:
-        raise ValueError(f"unknown ROM filename for MAME machine {machine!r}") from error
-
-
-def build_command(config: MameTraceConfiguration) -> list[str]:
-    """Build the noninteractive MAME invocation."""
-
-    if config.seconds <= 0:
-        raise ValueError("trace duration must be positive")
-    return [
-        config.executable,
-        config.machine,
-        "-rompath",
-        str(config.rom_root),
-        "-cfg_directory",
-        str(config.rom_root / "cfg"),
-        "-nvram_directory",
-        str(config.rom_root / "nvram"),
-        "-snapshot_directory",
-        str(config.rom_root / "snap"),
-        "-video",
-        "soft",
-        "-sound",
-        "none",
-        "-seconds_to_run",
-        str(config.seconds),
-        "-nothrottle",
-        "-skip_gameinfo",
-        "-autoboot_script",
-        str(config.lua_script),
-    ]
-
-
 def trace_environment(
-    config: MameTraceConfiguration, base: dict[str, str]
+    config: MameTraceConfiguration, base: Mapping[str, str]
 ) -> dict[str, str]:
     """Return an environment for SDL dummy output and Lua trace controls."""
 
-    result = dict(base)
-    result["SDL_VIDEODRIVER"] = "dummy"
-    result["SDL_AUDIODRIVER"] = "dummy"
+    result = headless_environment(base)
     result["MAME_TRACE_PORTS"] = config.ports
     for name, value in (
         ("MAME_ON_PRESS_FRAME", config.on_press_frame),

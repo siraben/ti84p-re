@@ -125,9 +125,10 @@ separate mechanism. [standard]
 WikiTI also says page `0x00` always remains executable and that a forbidden
 fetch resets the calculator. Wabbitemu always permits page 0 and resets the CPU
 on a violation when no debugger callback is installed. TilEm's interval test
-can deny page 0 when port `0x22 = 0`; it raises an execution exception and lets
-the frontend handle it. These custom-bound and post-violation behaviors remain
-physical test cases. [standard]
+can deny page 0 when port `0x22 = 0`. Its opcode-read handler raises an
+execution exception, and its Z80 loop performs a full calculator reset after
+the fetched opcode completes. These custom-bound and post-violation behaviors
+remain physical test cases. [standard]
 
 ### Guarded TilEm boundary trace
 
@@ -180,6 +181,58 @@ This dynamically confirms the inclusive `08`–`29` interval and reset policy
 implemented by this TilEm build. It does not decide the physical page-`08`
 boundary or validate Wabbitemu's lower-exclusive model. [confirmed] for TilEm;
 [hypothesis] for the physical lower edge and violation response.
+
+### TilEm reset and exception scope
+
+TilEm's `tilem_calc_reset` resets the Z80, LCD controller, link port, keypad,
+Flash command state, MD5 accelerator, programmable timers, and model-specific
+hardware state in sequence. The TI-84 Plus callback then selects this starting
+state: [standard]
+
+| Group | Reset value |
+|-------|-------------|
+| Z80 register pairs except `PC` | `0xFFFF` |
+| `PC`, `R` bit 7 | `0x8000`, `0x80` |
+| `IFF1`, `IFF2`, `IM`, interrupt requests, `HALT` | zero |
+| Mapper windows | page `00`, certificate page `3E`, boot page `3F`, boot page `3F` |
+| CPU speed | 6 MHz |
+| Protection ports `0x21`–`0x23`, `0x25`, `0x26` | `00`, `08`, `29`, `10`, `20` |
+| Flash command gate, state, and busy flag | locked, array-read mode, idle |
+| LCD controller | inactive, contrast 32, 8-bit mode, increment 7, row stride 16 |
+| Link output and assist, keypad, MD5, programmable timers | cleared or reset defaults |
+
+The reset retains all memory arrays, including LCD backing memory. It also
+retains Flash program-address, data, toggle, override-group, and emulation
+fields. External link-emulator state remains. The TI-84 Plus callback leaves
+port `0x05`, ports `0x09`–`0x0F`, the three RTC fields, and `LCD_WAIT`
+unchanged. Scheduler and debugger state also survives: the Z80 clock, access
+timestamps, emulation flags, dynamic timers, and breakpoints. [standard]
+
+A guarded direct-core run seeds eight reset groups and nine retained groups.
+All 17 match the source model. It records `PC=0x8000`, `SP=0xFFFF`, mapper
+windows `00/3E/3F/3F`, and a retained dynamic timer with 4,321 clocks
+remaining. Direct internal seeding tests TilEm implementation state, not a
+physical reset. [confirmed]
+
+TilEm's forbidden-fetch path does not suppress the opcode. The M1 read raises
+`TILEM_EXC_FLASH_EXEC`, returns the byte, and the Z80 executes the complete
+instruction. The main loop checks the exception afterward and calls
+`tilem_calc_reset`. The direct-core fixture maps Flash page `08` at `0x4000`
+and RAM page `0x40` at `0x8000`. Its forbidden instruction is
+`LD (0x8000),A` with `A=0x5A`. The run stops on the exception after reset with
+`PC=0x8000` and `AF=SP=0xFFFF`, while physical RAM byte `0x100000` contains
+`0x5A`. [confirmed]
+
+The boundary fixture above begins with `LD A,pp`; reset follows that first
+instruction, before its marker-store instruction. Its unchanged marker proves
+only that the second opcode did not execute. It does not prove that TilEm
+suppresses the forbidden opcode itself.
+
+The direct-core binary SHA-256 is
+`ab0a862b1fbb7f8a09a075fbd0ec61ebb0bab84d12d2a9c2a650813476cc7e5a`.
+The builder requires clean TilEm commit
+`f56ad637d0524ee841dd381be6ecbaf5b8975600` and Git tree
+`58316afe35d69e69353f0f743698144153051d4a`.
 
 ### Guarded Wabbitemu boundary run
 
@@ -395,10 +448,11 @@ The runtime comparison produced these boundary results: [confirmed]
 
 The TilEm target fetch occurs seven clocks after each `CALL`. Allowed marker
 routines return 44 clocks after the call. Denied targets reset seven clocks
-after the attempted fetch. Wabbitemu's callback records the violation and
-invokes the same `CPU_reset` function as its callback-free path. Timing between
-the two runners is not compared because the Wabbitemu harness reports
-instruction counts, not a TLMT clock trace.
+after the attempted fetch. TilEm completes the first target opcode during that
+interval. Wabbitemu's callback records the violation and invokes the same
+`CPU_reset` function as its callback-free path. Timing between the two runners
+is not compared because the Wabbitemu harness reports instruction counts, not
+a TLMT clock trace.
 
 The other Wabbitemu cases cover all four modes under the boot bounds:
 [confirmed]
@@ -531,6 +585,12 @@ fetch path reads the mapped Flash or RAM without an execution-protection
 predicate. Port `0x14` records an unlock value, but the paging and Flash-write
 paths do not consult it. [standard]
 
+A guarded native run writes patterns to ports `0x22`–`0x28`; all seven ports
+still read zero. With port `0x21 = 0x33`, writes `CC DD AA 10 20` to
+`0x22`–`0x26` also read back as five zero bytes while a 50-T-state loop
+continues executing from RAM page 0. This covers one allowed-by-absence fetch
+path. It does not emulate any boundary or violation response. [standard]
+
 MAME therefore cannot test any boundary or violation described on this page.
 The driver is marked `MACHINE_NOT_WORKING`, so this omission is a driver limit,
 not evidence that the physical ASIC lacks execution protection. See
@@ -575,6 +635,12 @@ nix develop -c python tools/run_execution_protection_probe.py \
 machine-code validation, reusable assembler entry point, packaging, and trace
 classifier. The CLI retains each derived ROM, program pair, log, trace, and a
 hash-complete `manifest.json` in the requested directory.
+
+The direct reset probe supplies the missing single-opcode control. Its build
+and run commands are under “Reset and execution exception” in the repository's
+`tools/dynamic-tracing.md`. The shared `tools/tilem_core.py` library validates
+the source tree and runs the binary. `tools/tilem_reset.py` parses the native
+report and checks the reset and retention vectors against the source model.
 
 The Wabbitemu CLI uses the same fixture library and adds page `09` to
 distinguish the two lower-edge predicates:
@@ -660,6 +726,11 @@ $ python tools/analyze_rom_io.py 0x21 0x22 0x23 0x24 0x25 0x26 --summary
   14 seeded retention groups and shows that an execution violation continues
   the interrupted `CPU_step` through one boot instruction. [standard] for the
   source model; [confirmed] for the pinned run.
+- TilEm's full reset reinitializes eight CPU, peripheral, and ASIC groups while
+  retaining memory plus selected Flash, link, RTC, scheduler, and debugger
+  fields. A forbidden opcode completes before that reset. A guarded direct-core
+  run verifies the reset inventory and a surviving RAM-store side effect.
+  [standard] for the source model; [confirmed] for the pinned run.
 
 Physical tests must determine whether page `0x08` executes, what exception or
 reset state follows a violation, and whether lower-greater-than-upper disables
@@ -675,7 +746,7 @@ emulator agreement is only a test oracle for emulator behavior.
 | Source | Use |
 |--------|-----|
 | OS 2.55MP and boot 1.03 ROM, especially `3F:41D5`–`4206` and `3F:4784`–`478C` | protected writes and bcall body |
-| [TilEm x4 memory model at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c) | Flash and RAM fetch predicates |
+| [TilEm `calcs.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/calcs.c), [`z80.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/z80.c), [`x4_init.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c), and [`x4_memory.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c) | full reset sequence, TI-84 Plus reset fields, Flash and RAM fetch predicates, and post-opcode exception handling |
 | [TilEm x4 I/O model at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) | protected register writes and mask updates |
 | Headless TilEm fork at `8da54573ac49fe271fa22c60924b4c6a7cb9639f` | boundary execution traces; binary SHA-256 `1c1f7dbe04fe074c2b9aca1657d0eb5ac5cfd1f7cbd480725eb7fb39b8126f33`, `x4_memory.c` SHA-256 `ddaa1e45330e3e4ad49486bd5c3675a0a0dff01bfda4d01817ba3387e309ac89` |
 | [TilEm xc memory model at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/xc/xc_memory.c) | port-`0x24` high-bound bits |

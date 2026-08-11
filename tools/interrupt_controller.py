@@ -7,9 +7,8 @@ models the public bit contract and the dispatch order visible in OS 2.55MP.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from fractions import Fraction
-
 
 LEGACY_SOURCE_BITS = {
     0: "on",
@@ -27,6 +26,7 @@ PROGRAMMABLE_SOURCE_BITS = {
 ROM_STATUS_TEST_BITS = (7, 5, 6, 2, 4, 0, 1)
 LEGACY_SOURCE_MASK = sum(1 << bit for bit in LEGACY_SOURCE_BITS)
 WABBITEMU_STANDARD_TIMER_RATES = (512, 227, 158, 108)
+MAME_STANDARD_TIMER_RATES = (256, 512)
 
 
 def _byte(value: int, name: str) -> int:
@@ -54,9 +54,7 @@ class Port03Mask:
     @property
     def enabled_sources(self) -> tuple[str, ...]:
         return tuple(
-            name
-            for bit, name in LEGACY_SOURCE_BITS.items()
-            if self.raw & (1 << bit)
+            name for bit, name in LEGACY_SOURCE_BITS.items() if self.raw & (1 << bit)
         )
 
     @property
@@ -98,9 +96,7 @@ class Port04Status:
     @property
     def legacy_pending_sources(self) -> tuple[str, ...]:
         return tuple(
-            name
-            for bit, name in LEGACY_SOURCE_BITS.items()
-            if self.raw & (1 << bit)
+            name for bit, name in LEGACY_SOURCE_BITS.items() if self.raw & (1 << bit)
         )
 
     @property
@@ -191,12 +187,193 @@ def rom_status_test_order(status: int) -> tuple[str, ...]:
 
     status = _byte(status, "port 0x04 status")
     names = {**LEGACY_SOURCE_BITS, **PROGRAMMABLE_SOURCE_BITS}
-    return tuple(
-        names[bit] for bit in ROM_STATUS_TEST_BITS if status & (1 << bit)
-    )
+    return tuple(names[bit] for bit in ROM_STATUS_TEST_BITS if status & (1 << bit))
 
 
 def usb_active_low_sources(value: int) -> int:
     """Return the active low-five-bit USB summary mask from port ``0x55``."""
 
     return (~_byte(value, "port 0x55 status")) & 0x1F
+
+
+@dataclass(frozen=True)
+class MameLegacyInterruptState:
+    """Model MAME 0.287's TI-84 Plus legacy interrupt fields.
+
+    This is an emulator-source model, not the public ASIC contract.  MAME
+    stores the ON mask separately from timer-mask bits 1-2, exposes status from
+    both ports ``0x03`` and ``0x04``, and treats a port-``0x02`` write as a
+    direct overwrite of the three pending fields.
+    """
+
+    on_mask: bool = False
+    timer_mask: int = 0
+    on_pending: bool = False
+    timer_pending: int = 0
+    programmable_pending: int = 0
+    on_pressed: bool = False
+
+    def __post_init__(self) -> None:
+        _byte(self.timer_mask, "MAME timer mask")
+        _byte(self.timer_pending, "MAME timer pending")
+        _byte(self.programmable_pending, "MAME programmable pending")
+        if self.timer_mask & ~0x06:
+            raise ValueError("MAME timer mask may contain only bits 1-2")
+        if self.timer_pending & ~0x06:
+            raise ValueError("MAME timer pending may contain only bits 1-2")
+        if self.programmable_pending & ~0xE0:
+            raise ValueError("MAME programmable pending may contain only bits 5-7")
+
+    @property
+    def status(self) -> int:
+        """Return MAME's shared port-``0x03``/``0x04`` status byte."""
+
+        return (
+            int(self.on_pending)
+            | self.timer_pending
+            | (0 if self.on_pressed else 0x08)
+            | self.programmable_pending
+        )
+
+    def write_port02(self, value: int) -> MameLegacyInterruptState:
+        """Apply MAME's direct pending-field write at port ``0x02``."""
+
+        value = _byte(value, "port 0x02 write")
+        return replace(
+            self,
+            on_pending=bool(value & 0x01),
+            timer_pending=value & 0x06,
+        )
+
+    def write_port03(self, value: int) -> MameLegacyInterruptState:
+        """Apply MAME's three-bit mask and clear-on-zero behavior."""
+
+        value = _byte(value, "port 0x03 write")
+        on_mask = bool(value & 0x01)
+        timer_mask = value & 0x06
+        return replace(
+            self,
+            on_mask=on_mask,
+            timer_mask=timer_mask,
+            on_pending=self.on_pending and on_mask,
+            timer_pending=self.timer_pending & timer_mask,
+        )
+
+    def sample_on(self, pressed: bool) -> MameLegacyInterruptState:
+        """Apply the press-only edge logic in MAME's timer-1 callback."""
+
+        edge = pressed and not self.on_pressed
+        return replace(
+            self,
+            on_pending=self.on_pending or (edge and self.on_mask),
+            on_pressed=pressed,
+        )
+
+    def standard_timer_tick(self, timer: int) -> MameLegacyInterruptState:
+        """Apply one enabled fixed-rate standard-timer callback."""
+
+        if timer not in (1, 2):
+            raise ValueError("MAME standard timer must be 1 or 2")
+        bit = 1 << timer
+        pending = self.timer_pending | (bit if self.timer_mask & bit else 0)
+        return replace(self, timer_pending=pending)
+
+    def soft_reset(self) -> MameLegacyInterruptState:
+        """Return MAME's retained fields across the TI-83 Plus reset hook."""
+
+        return self
+
+
+@dataclass(frozen=True)
+class TilemLegacyInterruptState:
+    """Model pinned TilEm's TI-84 Plus legacy interrupt policy.
+
+    This state uses the port-``0x04`` bit layout for pending sources.  TilEm's
+    internal link interrupt uses another bit, but the distinction is not
+    observable through the legacy status port.  Reset intentionally exposes
+    TilEm's port-``0x03`` readback/internal-enable mismatch.
+    """
+
+    port03: int = 0x0B
+    on_enabled: bool = False
+    keep_power_during_halt: bool = True
+    link_activity_enabled: bool = False
+    legacy_pending: int = 0
+    programmable_finished: int = 0
+    on_pressed: bool = False
+    user_timer_no_halt_interrupt: bool = False
+
+    def __post_init__(self) -> None:
+        _byte(self.port03, "TilEm port 0x03")
+        _byte(self.legacy_pending, "TilEm legacy pending status")
+        _byte(self.programmable_finished, "TilEm programmable status")
+        if self.legacy_pending & ~LEGACY_SOURCE_MASK:
+            raise ValueError("TilEm legacy pending status has unknown bits")
+        if self.programmable_finished & ~0xE0:
+            raise ValueError("TilEm programmable status may contain only bits 5-7")
+
+    @property
+    def status(self) -> int:
+        """Return TilEm's port-``0x04`` status byte."""
+
+        return (
+            self.legacy_pending
+            | (0 if self.on_pressed else 0x08)
+            | self.programmable_finished
+        )
+
+    def write_port02(self, value: int) -> TilemLegacyInterruptState:
+        """Apply TilEm's clear-on-zero legacy acknowledgement."""
+
+        value = _byte(value, "port 0x02 write")
+        return replace(
+            self,
+            legacy_pending=self.legacy_pending & value & LEGACY_SOURCE_MASK,
+        )
+
+    def write_port03(self, value: int) -> TilemLegacyInterruptState:
+        """Apply TilEm's mask, acknowledgement, link, power, and HALT policy."""
+
+        value = _byte(value, "port 0x03 write")
+        return replace(
+            self,
+            port03=value,
+            on_enabled=bool(value & 0x01),
+            keep_power_during_halt=bool(value & 0x08),
+            link_activity_enabled=bool(value & 0x10),
+            legacy_pending=self.legacy_pending & value & LEGACY_SOURCE_MASK,
+            user_timer_no_halt_interrupt=not bool(value & 0x06),
+        )
+
+    def sample_on(self, pressed: bool) -> TilemLegacyInterruptState:
+        """Latch either ON transition when TilEm's internal enable is set."""
+
+        changed = pressed != self.on_pressed
+        pending = self.legacy_pending
+        if changed and self.on_enabled:
+            pending |= 0x01
+        return replace(self, legacy_pending=pending, on_pressed=pressed)
+
+    def standard_timer_tick(self, timer: int) -> TilemLegacyInterruptState:
+        """Apply one of TilEm's three standard-timer callbacks."""
+
+        if timer not in (1, 2):
+            raise ValueError("TilEm standard timer must be 1 or 2")
+        bit = 1 << timer
+        pending = self.legacy_pending | (bit if self.port03 & bit else 0)
+        return replace(self, legacy_pending=pending)
+
+    def link_transition(self, *, visible: bool = True) -> TilemLegacyInterruptState:
+        """Apply one external-line transition visible past driven outputs."""
+
+        pending = self.legacy_pending
+        if visible and self.link_activity_enabled:
+            pending |= 0x10
+        return replace(self, legacy_pending=pending)
+
+    def soft_reset(self) -> TilemLegacyInterruptState:
+        """Apply TilEm's reset ordering while retaining the power policy."""
+
+        return TilemLegacyInterruptState(
+            keep_power_during_halt=self.keep_power_during_halt,
+        )
