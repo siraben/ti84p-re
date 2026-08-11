@@ -28,7 +28,80 @@ calculator.
 The static I/O scanner reports candidates from a linear disassembly. Data can
 decode as instructions, so a candidate needs control-flow or trace evidence.
 The credible code for these ports is concentrated in page `00`, pages `2F`,
-`33`, `35`, `37`, and the retail boot page `3F`. [confirmed]
+`33`, `35`–`37`, `3C`, `3D`, and the retail boot page `3F`. [confirmed]
+
+## Complete ROM I/O candidate audit
+
+### Unlisted immediate ports
+
+A full linear scan of the 1 MiB retail ROM finds 35 aligned immediate-port
+candidates whose 21 apparent port values are absent from the project port map.
+This count removes inline bcall and bjump descriptors. None establishes an I/O
+operation. [confirmed]
+
+| Candidate locations | Apparent ports and directions | Classification |
+|---------------------|-------------------------------|----------------|
+| `01:4304`, `01:446A`, `01:446E`, `01:4C5A`, `01:556D`, `01:6E55`, `01:6E95`, `01:7CD6` | `0x49` OUT; `0x4E` IN/OUT; `0x5E` IN ×2; `0x6E` IN; `0x70` OUT; `0xFF` OUT | table-shaped data ×8 |
+| `03:630B`, `03:6323`, `03:634F`, `03:6367`, `03:656F` | `0xFE` IN ×2/OUT ×2; `0x65` IN | table-shaped data ×5 |
+| `03:6DE1` | `0x9C` IN | operand overlap in `LD HL,0x9CDB` at `03:6DE0` |
+| `07:4076` | `0xD1` OUT | table-shaped data |
+| `33:4010` | `0x6B` OUT | table-shaped data |
+| `34:6CF5`, `34:6CF7`, `34:73AB`, `34:73AD` | `0x6D` OUT ×2; `0x73` IN ×2 | table-shaped data ×4 |
+| `37:6A9C`, `37:6B14` | `0x6B` IN ×2 | table-shaped data ×2 |
+| `38:6A00` | `0xDC` IN | table-shaped data |
+| `3A:7D81`, `3A:7FED` | `0x5E` IN; `0xDB` IN | table-shaped data ×2 |
+| `3B:47B9`, `3B:4F45`, `3B:52AE`, `3B:535C`, `3B:5467` | `0x6F` OUT; `0x51` OUT; `0x6E` IN; `0x5D` IN; `0x6D` IN | table-shaped data ×5 |
+| `3F:40FC`, `3F:4111`, `3F:56F7`, `3F:671B`, `3F:67F7` | `0x5E` OUT; `0x63` IN; `0xD1` IN; `0xE7` OUT; `0xE6` IN | table-shaped data ×5 |
+
+The rebuilt Ghidra database gives the 34 table candidates no containing
+function and no xrefs. A page-local direct `CALL`/`JP` scan also finds no
+target to any candidate. Ghidra places `03:6DE1` inside
+`editbuf_clr_hibit`, but the owning instruction starts at `03:6DE0`; bytes
+`DB 9C` are the little-endian operand of `LD HL,0x9CDB`. [confirmed]
+
+A reset/idle TLMT trace executes 1,753,851 instructions and reaches none of the
+35 locations. This trace result covers one emulator scenario. The byte and
+control-flow classifications, rather than trace absence, establish that these
+linear candidates do not add ports to the ROM inventory. [confirmed]
+
+### Register and block I/O
+
+A separate raw-byte scan finds every `ED`-prefixed register and block-I/O
+opcode pair. It does not depend on recovering the value of `C` across calls or
+control-flow joins. The exact retail ROM contains 37 pairs and no `ED` prefix
+at a 16 KiB page boundary. [confirmed]
+
+| Raw pairs | Classification | Evidence |
+|-----------|----------------|----------|
+| `37:58A9` (`INI`), `37:5944` (`OUTI`) | resolved instructions ×2 | Straight-line loads select RTC ports `0x48` and `0x44`; both instructions belong to page-`37` functions. |
+| `04:4178`, `04:4182`, `04:6F5B`, `05:40E7`, `05:428C`, `05:46E5`, `05:7159`, `05:715F`, `38:57AC`, `38:57D7`, `38:57F5`, `38:589F`, `38:75AF`, `39:73B7`, `3C:4EFE`, `3C:53E2`, `3C:783B`, `3C:7F99`, `3F:540E`, `3F:5C92`, `3F:63E0`, `3F:6C1A`, `3F:6C2A`, `3F:6C37`, `3F:6C54`, `3F:6C70`, `3F:6C90` | operand overlaps ×27 | Each `ED xx` pair straddles a little-endian operand inside an owning `CALL`, `JP`, or `LD` instruction. |
+| `01:428C`, `07:4465`, `38:40C4`, `38:48B4`, `39:7268`, `3B:4F15`, `3F:408D`, `3F:567B` | reviewed data ×8 | Rebuilt Ghidra has no containing function or xref, and the page-local direct-target scan finds no target. |
+
+The 27 operand sites include `ED 41` inside `JP Z,0x41ED` at `04:4177`,
+`ED 70` inside `CALL 0x70ED` at `04:6F5A`, and `ED 40` inside
+`LD HL,0x40ED` at `39:73B6`. The scanner resolves the two aligned
+instructions from their preceding literal loads and `DEC C`. No other raw pair
+is an I/O instruction, so this ROM has no hidden computed-`C` access to an
+unlisted, status, GPIO, or USB port. [confirmed]
+
+`tools/rom_io_coverage.py` contains the reusable scanner and review manifest.
+The manifest pins retail ROM SHA-256
+`7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d`.
+The CLI fails on a different ROM, a missing or duplicate review, a stale
+location, or changed instruction bytes. `--trace` uses the constant-memory
+point counter instead of constructing an object for every instruction:
+
+```sh
+nix develop -c python tools/describe_rom_io_coverage.py
+nix develop -c python tools/describe_rom_io_coverage.py --json
+nix develop -c python tools/describe_rom_io_coverage.py \
+  --trace /tmp/trace-benchmark.tlmt
+```
+
+The complete direct result is 34 `reviewed-data` entries and one
+`operand-overlap`. The indirect result is 27 `operand-overlap`, eight
+`reviewed-data`, and two `resolved-instruction` entries. Both manifests have
+zero unresolved candidates. [confirmed]
 
 ## Port `0x02` status
 
@@ -39,11 +112,11 @@ and archive traces return `0xE1`, `0xE3`, and `0xE7`. [confirmed]
 |-----|---------------------------|----------|
 | 0 | Battery comparator result. `_Chk_Batt_Low` tests it at `00:0D20`; `_Chk_Batt_Level` tests it at `33:4EA3` and `33:4EE8`. | [confirmed] for the tested bit; [standard] for the electrical “battery good” polarity |
 | 1 | LCD-ready state. LCD wait loops continue while this bit is zero. | ROM wait helpers and the dynamic `0xE1` → `0xE3` transition [confirmed] |
-| 2 | Flash-unlocked state. The archive trace changes `0xE3` to `0xE7` after the port-`0x14` unlock sequence. | [confirmed] |
-| 3 | No meaning established for TI-84 Plus OS 2.55MP. | [hypothesis] |
-| 4 | No meaning established for TI-84 Plus OS 2.55MP. | [hypothesis] |
-| 5 | Publicly documented as USB-capable. Both emulators set it for their TI-84 Plus model. | [standard] |
-| 6 | Publicly documented as link-assist available. Both emulators set it for their TI-84 Plus model. | [standard] |
+| 2 | Flash-unlocked state. The archive trace changes `0xE3` to `0xE7` after the port-`0x14` unlock sequence. No direct status consumer in this ROM tests it. | [confirmed] for the observed state; [hypothesis] for any OS use outside the audited direct reads |
+| 3 | No meaning established. No direct status consumer in this ROM tests it. | [hypothesis] |
+| 4 | No meaning established. No direct status consumer in this ROM tests it. | [hypothesis] |
+| 5 | Publicly documented as USB-capable. Both emulators set it for their TI-84 Plus model, but this ROM does not test it directly. | [standard] |
+| 6 | Publicly documented as link-assist available. Both emulators set it for their TI-84 Plus model, but this ROM selects assist code through bit 7. | [standard] for the published field; [confirmed] for the ROM gate |
 | 7 | Advanced-family/model gate. `ram:1837` tests this bit before several TI-84 Plus-only paths. The certificate accessor at `3D:5247` selects the App-trial table at offset `0x1E50` when the bit is set and the alternate table at `0x1F18` when clear. | [confirmed] for the branches and table use; [standard] for the family label |
 
 | Value | Bit-level interpretation |
@@ -51,6 +124,34 @@ and archive traces return `0xE1`, `0xE3`, and `0xE7`. [confirmed]
 | `0xE1` | Comparator high, LCD wait active, Flash locked, and bits 5–7 set [confirmed] |
 | `0xE3` | Comparator high, LCD ready, Flash locked, and bits 5–7 set [confirmed] |
 | `0xE7` | Comparator high, LCD ready, Flash unlocked, and bits 5–7 set [confirmed] |
+
+### Complete direct-consumer audit
+
+The 1 MiB ROM contains exactly 55 raw `DB 02` byte pairs, the opcode and
+operand for `IN A,(0x02)`. Every linear-disassembly candidate reaches one of
+three conservative A-register consumers within two following instructions:
+[confirmed]
+
+| Consumer mask | Sites | ROM role and anchors |
+|--------------:|------:|----------------------|
+| `0x01` — bit 0 | 8 | battery comparisons, including `_Chk_Batt_Low` at `00:0D20` and `_Chk_Batt_Level` at `33:4E9F` and `33:4EE6` |
+| `0x02` — bit 1 | 3 | LCD-ready waits at `00:0CC4`, `00:0CDC`, and `3F:744F` |
+| `0x80` — bit 7 | 44 | family-specific paging, keypad, link-assist, Flash, and boot paths; `ram:1839` is the shared model probe |
+
+The `33:4E9F` battery path inserts `LD C,0` before `BIT 0,A`. Every other
+candidate tests `A` in the next instruction. The decoder crosses only
+instructions that preserve `A`; calls, branches, arithmetic, and unknown
+instructions produce an unclassified result. This ROM produces zero
+unclassified candidates. [confirmed]
+
+No status read selects bits 2–6. The complete raw register/block-I/O census
+finds no port-`0x02` access beyond these 55 immediate reads. This result does
+not depend on propagating `C` across a call or control-flow merge. [confirmed]
+
+The assist routines therefore use bit 7 as their model-family gate. Public
+bit 6 remains a hardware capability field, but OS 2.55MP does not consult it
+before the link-assist port accesses described in
+[USB ASIC and link assist](sub-usb-asic.md#sending-one-byte-through-the-assist-fifo-confirmed).
 
 TilEm computes bits 0–2 from its battery value, LCD wait timer, and Flash lock.
 Wabbitemu does the same except that its TI-84 Plus battery result is fixed high.
@@ -208,6 +309,31 @@ execution-protection ports controlled by that field. A native locked write of
 `0x33` reads back `0x03`; opening the port-`0x14` gate does not change results
 for writes `0x30`, `0x03`, `0x33`, or `0xFF`. [standard]
 
+### Complete immediate-I/O audit
+
+The ROM contains 11 raw `DB 21` pairs and three raw `D3 21` pairs. Ten reads
+are instructions, and every one immediately executes `AND 0x03`. The boot
+write at `3F:41DC` is the only `OUT (0x21),A` instruction. [confirmed]
+
+| Read sites | Consumer |
+|------------|----------|
+| `00:02AE`, `00:1831`, `00:2B32`, `00:2B5B` | `AND 0x03` |
+| `2F:4DD5`, `2F:511D`, `36:5E90` | `AND 0x03` |
+| `3C:6BA8`, `3C:7F0C`, `3D:7392` | `AND 0x03` |
+
+The remaining three raw pairs overlap other instructions: [confirmed]
+
+| Raw pair | Owning instruction | Why it is not I/O |
+|----------|--------------------|-------------------|
+| `06:5A10` — `DB 21` | `06:5A0D: LD (IX-1),0xDB` | The `DB` byte is the stored immediate; `21` begins the following `LD HL` instruction. |
+| `05:6C96` — `D3 21` | `05:6C95: JR Z,05:6C6A` | The `D3` byte is the relative displacement; `21` begins the following `LD HL` instruction. |
+| `3C:5B91` — `D3 21` | `3C:5B90: JR 3C:5B65` | The `D3` byte is the relative displacement; `21` begins the following `LD HL` instruction. |
+
+The rebuilt Ghidra database confirms instruction ownership for these
+boundaries. The raw scanner reports zero unclassified pairs and zero decoded
+instructions without a matching opcode pair. The conservative literal-`C`
+resolver finds no additional port-`0x21` access. [confirmed]
+
 ### Bits 0–1: Flash group
 
 The OS repeatedly reads `port 0x21 & 3` to distinguish the 1 MiB TI-84 Plus
@@ -252,6 +378,37 @@ is self-contradictory. Its port-`0x3A` page recommends `0xE0`, but this boot
 writes `0xF0` at `3F:4214`, and the archive trace later reads back `0xF0` from
 port `0x39`. Those public direction claims remain [hypothesis] pending physical
 tests.
+
+### Complete immediate-I/O audit
+
+Raw-byte coverage separates GPIO code from accidental opcode pairs:
+[confirmed]
+
+| Port and direction | Raw pairs | Reviewed instructions | Other raw pairs |
+|--------------------|----------:|----------------------:|-----------------|
+| `IN (0x39)` | 14 | 13 | `02:5142` is table-shaped data with no function or xrefs. |
+| `OUT (0x39)` | 16 | 16 | none |
+| `IN (0x3A)` | 21 | 19 | `06:5A8D` and `3C:7365` overlap operands. |
+| `OUT (0x3A)` | 17 | 17 | none |
+
+The two `DB 3A` overlaps begin on an `0xDB` operand byte. At `06:5A8C`, the
+owner is `CP 0xDB`; at `3C:7364`, the owner is a relative `JR` whose
+displacement is `0xDB`. In both cases, `0x3A` begins the following `LD A,(nn)`
+instruction. [confirmed]
+
+Of the 13 port-`0x39` reads, every one begins an adjacent read-modify-write.
+The 16 writes comprise those 13 updates and three direct `0xF0` writes at
+`ram:0D39`, `37:6D10`, and `3F:4214`. Port `0x3A` has 17 adjacent
+read-modify-write sequences. Its remaining two reads test bit 3 at `2F:521B`
+and `35:402C`. The page-`35` body duplicates the page-`2F` USB implementation.
+[confirmed]
+
+TilEm lacks a meaningful TI-84 Plus port-`0x3A` model, Wabbitemu lacks port
+`0x39`, and MAME maps neither port. Emulator execution can check control flow
+around these instructions, but it cannot validate the paired GPIO state or
+electrical effect. The sequences below are byte- and control-flow-validated
+against the ROM; their physical signal interpretation remains unmeasured.
+[confirmed] for the instructions; [hypothesis] for electrical behavior.
 
 ### Battery GPIO sequence
 
@@ -348,11 +505,16 @@ physical ASIC measurements.
 
 ## Reusable analysis tools
 
-`tools/asic_control.py` decodes port-`0x02` values, the public port-`0x15`
-table, port-`0x21` modes, TilEm's battery selector, and adjacent GPIO
-read-modify-write sequences. `tools/describe_asic_control.py` exposes those
-operations as a CLI. `tools/wabbitemu_asic_probe.py` validates native results
-against the reusable source model. `tools/run_wabbitemu_asic_edge_probe.py`
+`tools/asic_control.py` decodes port-`0x02` values, generic immediate-port
+consumers and raw-opcode coverage, the public port-`0x15` table, port-`0x21`
+modes, TilEm's battery selector, and adjacent GPIO read-modify-write sequences.
+Its raw audit distinguishes aligned instructions, operand overlaps, reviewed
+data, and unclassified pairs. `tools/describe_asic_control.py` exposes those
+operations as text or JSON. `tools/wabbitemu_asic_probe.py` validates
+native results against the reusable source model.
+`tools/rom_io_coverage.py` and `tools/describe_rom_io_coverage.py` separately
+reconcile every direct candidate for ports absent from the project port map.
+`tools/run_wabbitemu_asic_edge_probe.py`
 guards the exact ROM and native binary identities and writes a JSON manifest.
 `tools/wabbitemu_protection_port_probe.py` applies the adjacent boundary-port
 model from `tools/execution_protection.py`; its guarded CLI records the same
@@ -366,7 +528,11 @@ nix develop -c python tools/describe_asic_control.py
 nix develop -c python tools/describe_asic_control.py --status 0xE7 --port21 0x20
 nix develop -c python tools/describe_asic_control.py --implementations --json
 nix develop -c python tools/describe_asic_control.py \
-  --scan-gpio --page 0x2F --page 0x33 --page 0x35 --page 0x3F
+  --scan-status-consumers --json
+nix develop -c python tools/describe_asic_control.py \
+  --scan-port21-consumers --scan-gpio --json
+nix develop -c python tools/describe_asic_control.py \
+  --audit-port 0x21 --audit-port 0x39 --audit-port 0x3A
 nix develop -c python tools/analyze_rom_io.py \
   0x02 0x15 0x21 0x39 0x3A --summary
 nix develop -c python tools/disassemble_rom.py 0x33 \

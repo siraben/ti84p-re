@@ -39,11 +39,14 @@ port `0x00` bit-banging otherwise. [confirmed]
 | `0x0B`, `0x0C` | Assist signaling-rate configuration for CPU speed modes 2 and 3, initialized with `0xB4`. The ROM byte-transfer path writes them during setup but does not read them back. TilEm stores the writes without emulating timing from the values. | `3C:6C3D`, `3C:6C3F`; WikiTI ports `0B`/`0C`; TilEm `x4_io.c` |
 | `0x0D` | Assist TX FIFO/data register. `_SendAByte` writes the outgoing byte here after port `0x09` bit 5 becomes set. | `3C:6BBC`–`6BBF` |
 | `0x20` | CPU speed bit used to select assist/link wait-loop reloads. The send timeout uses `0xFFFF` when bit 0 is set and `0x6800` when clear. | `3C:6BCC`, `3C:6C8B`, `3C:6CC1` |
+| `0x4B` | Controller-side setup control. Reset paths write `0x00`, then conditionally write `0x20`; another setup path writes `0x20` before waiting for port `0x4C = 0x5A`. WikiTI calls this USB power control, but describes its bit meanings as mostly speculative. | `35:4C69`, `35:4C76`–`4C80`, `35:59AB`; duplicated at `2F:59B6`, `2F:59C3`–`59CD`; WikiTI port `4B` |
 | `0x4C` | USB controller handshake/status byte. The page-35 stack compares it with `0x5A`/`0x1A` and `0x12`/`0x52`, and clears or primes it with `0x00`/`0x08` during setup. TilEm returns `0x22` to make the calc see no attached USB peer. | `35:42B7`, `35:42F6`, `35:403C`, `35:40E6`; TilEm `x4_io.c` |
 | `0x4D` | USB line-state gate. `link_xfer_op` samples bits 5 and 6 before the page-0 bjump at `ram:2E0B`, which targets `35:4280`. Page-35 handlers also branch on bits 0, 1, 4, 5, 6, and 7. TilEm returns `0xA5` to emulate "USB disconnected." | `3C:4E4A`–`4E6F`, `35:42BF`, `35:4B6A`–`4B9F`; TilEm `x4_io.c` |
+| `0x4F`, `0x50` | Unnamed setup controls used beside USB GPIO and line-state accesses. The ROM writes `0x27` to `0x50`. It then updates `0x4F` to `(old & 0xBF) | 0x88`, waits, and updates it to `old & 0x37`. The electrical and PHY effects are unknown. | `35:422D`–`424C`; duplicated at `2F:538A`–`53A9` |
 | `0x55` | USB interrupt status, active-low in the low five bits. The IM1 dispatcher tests `(in(0x55) ^ 0xFF) & 0x1F` first. | `00:006F`–`0075` |
 | `0x56` | USB line-event bitmap used by the IM1 dispatcher after port `0x55` reports USB activity. Bits 4, 5, 6, 7, and 1 dispatch to page-35 handlers through page-0 bjumps. | `00:0085`–`00AE`, `00:0113`–`0127` |
 | `0x57`, `0x5B`, `0x4A`, `0x54` | USB controller control/ack registers used by page-35 setup and event handlers. The ROM confirms values such as `0x10`, `0x20`, `0x22`, `0x50`, `0x80`, `0x90`, `0x93` on `0x57`, `0x00`/`0x01` on `0x5B`, `0x20` on `0x4A`, and `0x02`/`0x44`/`0xC4` on `0x54`. | `35:4038`–`4060`, `35:42C5`–`42EA`, `35:4B6A`–`4C14` |
+| `0x5A` | Presentation-link setup writes bit 0 and reads the port back. The next instruction replaces the read value, so this routine does not test the result. It then configures indexed endpoint 2. | `35:58B2`–`58DE` |
 | `0x80`–`0xA2` | Endpoint/status/FIFO region used by the public USB API. Examples: `_SendUSBData` writes 64-byte chunks to `0xA2`; `_RequestUSBData` reads 8-byte records from `0xA1`; setup/config paths write descriptor bytes through `0xA0` and use selector/status ports `0x8E`, `0x8F`, `0x91`, `0x94`, and `0x98`. | `35:4DD3`, `35:470B`, `35:48BA`, `35:48F8` |
 
 The endpoint receive helper at `35:4FA1` accepts a count in `B`, caps it at 64
@@ -54,10 +57,118 @@ bytes, receives it into `0x983A`, and calls the page-`3C` Flash-staging
 dispatcher in mode `3` at `36:415C`. RAM destinations use chunks of up to 64
 bytes and skip that Flash flush. [confirmed]
 
-The project-local `tools/ports.txt` names the confirmed assist and USB interrupt ports so future
-Ghidra rebuilds show the same surface in the database. It also applies the FDRC-family names below
-to ports `0x80`–`0xA2`. Those names identify the register layout; they do not prove the exact ASIC
-implementation or its electrical behavior.
+The project-local `tools/ports.txt` names the observed assist, USB-control, and
+USB-interrupt ports so future Ghidra rebuilds show the same surface in the
+database. Neutral labels retain `Unknown` for ports `0x4F` and `0x50` because
+the ROM does not identify their signals. The file also applies the FDRC-family
+names below to ports `0x80`–`0xA2`. Those names identify the register layout;
+they do not prove the exact ASIC implementation or its electrical behavior.
+
+## Transceiver and enable-timer ports without confirmed ROM control flow
+
+WikiTI assigns low-level USB meanings to three ports that OS 2.55MP does not
+use through a confirmed I/O instruction:
+
+| Port | WikiTI description | Evidence limit |
+|------|--------------------|----------------|
+| `0x49` | Raw USB-transceiver status, including proposed D+ and D− bits 1 and 2 | The page calls several other bits only “something” or “possible.” No ROM read, emulator handler, datasheet, or physical sample confirms the bit map. [hypothesis] |
+| `0x51` | Delay between starting a separate 48 MHz crystal and enabling USB, counted in two-tick units from 32.768 kHz | No ROM write or cited primary source establishes the clock, unit, or enable effect. [hypothesis] |
+| `0x52` | Charge-pump enable timer with timing like port `0x51` | The public description says only that it has “something to do” with charge-pump timing. [hypothesis] |
+
+The complete immediate-port and conservative literal-`C` scan initially
+reports six candidates for these ports. Raw descriptor decoding accounts for
+four of them. `tools/analyze_rom_io.py` attaches this classification to each
+report and `--exclude-descriptors` removes the four structural overlaps:
+[confirmed]
+
+| Linear candidate | Actual bytes and role |
+|------------------|-----------------------|
+| `00:3EDC` — apparent `OUT (0x51),A` | Inline target `37:51D3`, page byte `0x77`, after `CALL 2B09h`; this is a cross-page call descriptor. |
+| `37:46D7` — apparent `IN A,(0x52)` | Low and high bytes `DB 52` of bcall ID `52DB`, `_ResetGraphSettings`. |
+| `39:583F` — apparent `OUT (0x51),A` | Low and high bytes `D3 51` of unnamed bcall ID `51D3`. |
+| `3B:620A` — apparent `IN A,(0x49)` | Low and high bytes `DB 49` of bcall ID `49DB`, which resolves to `36:7DA9`. |
+
+The remaining apparent port-`0x49` instruction at `01:4304` and
+port-`0x51` instruction at `3B:4F45` lie in table-shaped byte regions. Neither
+has a direct page-local control-flow reference, and neither has trace evidence.
+The complete [ROM I/O candidate audit](asic-status-gpio.md#complete-rom-io-candidate-audit)
+also finds no containing Ghidra function or xref for either location. They are
+reviewed data decodes rather than I/O evidence. The scan confirms no OS 2.55MP
+transaction for ports `0x49`, `0x51`, or `0x52`.
+The separate raw `ED`-opcode census covers register and block I/O without
+assuming that `C` can be propagated through control flow. Its only two aligned
+instructions access RTC ports `0x48` and `0x44`, so it adds no hidden USB-port
+transaction. [confirmed]
+
+TilEm, Wabbitemu, and MAME omit all three ports from their TI-84 Plus USB
+handlers. Their omission cannot establish physical absence or reset values.
+The read-only [USB control snapshot](hardware-probes.md#usb-control-snapshot)
+records these ports together with the adjacent low-USB controls on a physical
+calculator. No exported result has been recorded. [standard] for emulator
+coverage; [confirmed] for the assembled probe; [hypothesis] for pending
+physical values.
+
+## Presentation-link mirroring setup
+
+The helper at `35:58B2` sets `IY+0x41` bit 0, writes `0x01` to port
+`0x5A`, and reads the port back. `LD A,0x02` immediately replaces the read
+value, so the helper does not branch on or retain it. The remaining writes
+select indexed endpoint 2 and initialize its transmit registers: [confirmed]
+
+```z80
+; 35:58B2
+SET 0,(IY+41h)
+LD A,01h
+OUT (5Ah),A
+IN A,(5Ah)       ; discarded by the following LD
+LD A,02h
+OUT (8Eh),A
+LD A,22h
+OUT (98h),A
+LD A,48h
+OUT (91h),A
+LD A,02h
+OUT (90h),A
+XOR A
+OUT (87h),A
+OUT (89h),A
+OUT (8Bh),A
+OUT (5Bh),A
+LD A,10h
+OUT (92h),A
+IN A,(92h)
+NOP
+NOP
+NOP
+RET
+```
+
+The port-`0x8E` index and port-`0x98` endpoint-type interpretation follow the
+FDRC-family match below. The exact writes and selected index are [confirmed];
+the imported register names remain [hypothesis].
+
+A static call scan finds one direct caller at `35:4481`. It calls this helper,
+then `35:3EF1`, then `35:58DF`. The last routine performs 64 iterations over
+LCD ports `0x10` and `0x11`: it writes commands, reads 12 data bytes, and
+writes those bytes back. This control flow ties the port-`0x5A` setup to LCD
+traffic and presentation mode, but the ROM alone does not expose what appears
+on the USB wire. [confirmed]
+
+WikiTI calls port `0x5A` the presentation-link mirroring enable. It reports
+that bit 0 mirrors writes to LCD ports `0x10` and `0x11` as two-byte packets on
+outgoing bulk endpoint 2, and that the feature works only in host mode. The
+page also labels part of its packet interpretation untested. No cited vendor
+datasheet or physical capture establishes the packet format or host-mode
+restriction, so those details remain [hypothesis].
+
+TilEm, Wabbitemu, and MAME do not implement port `0x5A` or a connected
+endpoint-2 transfer for this calculator. Emulator execution therefore cannot
+validate the mirroring behavior. The port accesses above were regenerated from
+the retail OS 2.55MP bytes with `tools/analyze_rom_io.py`; the surrounding
+instructions come from the same page through `tools/z80_disassembly.py`.
+Physical validation requires a presentation-link adapter or a controlled USB
+capture. [standard] for the emulator implementations; [confirmed] for the ROM
+sequence.
 
 ## Mentor FDRC register-family match [hypothesis]
 
@@ -458,7 +569,11 @@ paired line-state decoder, emulator profiles, and pure functions for Wabbitemu's
 `tools/run_wabbitemu_usb_edge_probe.py` provides the exact-ROM guard and writes a hashed JSON
 manifest. The link-assist state model remains in `tools/link_port.py`;
 `tools/tilem_link.py` and `tools/run_tilem_link_probe.py` add the guarded TilEm
-native report and manifest.
+native report and manifest. `tools/port_definitions.py` parses the project port
+labels with duplicate checks. `tools/analyze_rom_io.py` uses that library to
+attach labels to static I/O reports and can restrict output to ports absent
+from the label file. `tools/rom_io_coverage.py` pins and reconciles the complete
+ROM-wide set of aligned non-descriptor candidates absent from that file.
 
 ```sh
 # Map global, indexed, dynamic-sizing, and FIFO registers.
@@ -476,6 +591,17 @@ nix develop -c python tools/describe_usb_hardware.py assist 0x97 0xB4 0xE0
 nix develop -c python tools/describe_usb_hardware.py line 0xA5 0xE5
 nix develop -c python tools/describe_usb_hardware.py reads 0x4C 0x4D 0x55 0x56 0x57 0x80
 nix develop -c python tools/describe_usb_hardware.py wabbit-port4a 0x08
+
+# Audit direct page-35 accesses whose ports lack project-local labels.
+nix develop -c python tools/analyze_rom_io.py \
+  --page 0x35 --direct-only --unlisted --summary 0x40-0x7F
+
+# Retain only the two table-shaped candidates for unobserved USB ports.
+nix develop -c python tools/analyze_rom_io.py \
+  --direct-only --exclude-descriptors 0x49 0x51 0x52
+
+# Verify every candidate for every port absent from tools/ports.txt.
+nix develop -c python tools/describe_rom_io_coverage.py --json
 ```
 
 The FDRC names and bit labels remain a controller-family hypothesis. The CLI identifies that evidence boundary in its register records; it does not promote imported Mentor names to TI silicon confirmation.
@@ -556,6 +682,11 @@ Practical rules:
   imported bit meaning or the TI-specific PHY at ports `0x4A`–`0x5B`. TilEm does not model physical
   timing from the assist setup values. ROM-confirmed claims remain limited to written constants,
   comparisons, branch bits, RAM state, FIFO direction, and the transfer sequences cited above.
+- The ROM confirms the port-`0x4B` writes and the port-`0x4F`/`0x50`
+  read-modify-write sequence. It does not identify their electrical effects.
+  Port-`0x5A` bit 0, endpoint-2 setup, and subsequent LCD traffic are
+  ROM-confirmed; mirroring on the wire, its packet format, and the reported
+  host-mode restriction remain physically unverified.
 - The guarded TilEm link probe verifies handler-visible assist behavior, but it
   does not establish physical signaling-rate divisors, wait states, electrical
   levels, or reset retention.
@@ -575,4 +706,9 @@ Practical rules:
 | [Wabbitemu `83psehw.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | Partial line-state and interrupt model, with the implementation limits described above |
 | [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | Fixed USB interrupt reads and absent controller/endpoint ports |
 | [WikiTI port `0x09`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:09) | Historical link-assist timing-field interpretation, kept separate from ROM observations |
+| [WikiTI port `0x4B`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:4B) | Historical USB-power orientation. The page calls its own bit descriptions mostly speculative. |
+| [WikiTI port `0x49`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:49) | Historical raw-transceiver bit claims; no primary hardware source or ROM use found |
+| [WikiTI port `0x51`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:51) | Historical USB enable-timer claim; physical clock and units remain unverified |
+| [WikiTI port `0x52`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:52) | Historical charge-pump timer claim; physical behavior remains unverified |
+| [WikiTI port `0x5A`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:5A) | Historical presentation-mirroring description, treated as an unverified physical claim beyond the ROM-visible setup sequence |
 | [WikiTI `_KeyboardGetKey` revision 5510](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:50E9&oldid=5510) | Historical TI-Keyboard transmitter sequence, checked against but not substituted for ROM control flow |

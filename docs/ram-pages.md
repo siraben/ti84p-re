@@ -1,8 +1,39 @@
 # RAM pages
 
-The TI-84 Plus maps banked RAM behind the Z80's 16 KiB windows. OS 2.55MP traces
-exercise selectors `80`–`83`; only those selectors have direct trace coverage here.
-Programs that borrow page `83` must preserve or restore the OS-visible regions below.
+The TI-84 Plus maps banked RAM behind the Z80's 16 KiB windows. This page
+separates selector values from physical backing, reconciles the reported
+128 KiB and 48 KiB revisions, traces OS use of selectors `80`–`83`, and gives
+restoration rules for programs that borrow banked RAM.
+
+## Physical integration and capacity revisions
+
+Datamath's March 2004 board photographs show three main integrated circuits:
+the `TI REF 83PLUSB/TA2` ASIC, a `29LV800` Flash device, and the LCD driver.
+The accompanying board description places the Z80 core and RAM inside the
+ASIC. An external SRAM package therefore is not part of that photographed
+revision. [standard]
+
+WikiTI's hardware history reports 128 KiB in the original TI-84 Plus design
+and a later reduction to 48 KiB. Its RAM-page table says units with port
+`0x15 >= 0x55` map selectors `82`–`87` to one physical 16 KiB block. These are
+community hardware reports. Neither page supplies a primary TI specification,
+a dated transition, or a measurement tied to a photographed board. [standard]
+
+The two reported topologies use the same eight selector values: [standard]
+
+| Reported capacity | Physical backing | Consequence at one page offset |
+|------------------:|------------------|--------------------------------|
+| 128 KiB | eight independent 16 KiB blocks | selectors `80`–`87` can retain eight different bytes |
+| 48 KiB | blocks `80`, `81`, and one block shared by `82`–`87` | the last write through any selector `82`–`87` is visible through all six |
+
+Port `0x15` does not appear in any statically resolved OS 2.55MP I/O
+instruction. The public identity table associates `0x44` and `0x45` with
+128 KiB and `0x55` with 48 KiB, while Datamath identifies TA2 and TA3 package
+families without assigning their RAM capacity. Do not infer capacity from an
+ASIC label alone. The restoring probe records the package-independent port
+`0x15` byte and the observed selector groups in one frame. [confirmed] for
+the ROM scan and probe format; [standard] for the public identities;
+[hypothesis] for an unmeasured calculator's topology.
 
 ## Page selectors
 
@@ -58,18 +89,14 @@ independently support only the entries whose evidence column says [confirmed].
 | `86` | No use established here | WikiTI marks it execution-protected. [standard] |
 | `87` | No use established here | WikiTI describes it as unused under typical TI-OS execution. [standard] |
 
-WikiTI claims that selectors `82`–`87` share one physical 16 KiB block when port
-`0x15` is at least `55h`. Wabbitemu has an optional `ram_version == 2` branch with
-the same topology. Selected internal pages 3–7 read and write
-`ram[2 * PAGE_SIZE]`; internal page 2 already addresses that block. These two
-software sources agree, but neither is a physical measurement. Treat the 48 KiB
-topology as [standard], pending a hardware alias probe. The ASIC identity table
-and physical test gaps are in
-[ASIC status, identity, protection, and GPIO](asic-status-gpio.md). The
+Wabbitemu has an optional `ram_version == 2` branch matching the reported
+48 KiB topology. Selected internal pages 3–7 read and write
+`ram[2 * PAGE_SIZE]`; internal page 2 already addresses that block. Emulator
+agreement with WikiTI does not establish a physical unit's backing. The
 [restoring RAM alias probe](hardware-probes.md#ram-alias-probe) records the
-original, patterned, and restored bytes for selectors `82`–`87`. Its source and
-host decoder are prepared, but no physical result is recorded. [confirmed] for
-the probe bytes; [hypothesis] for the physical topology.
+original, patterned, and restored bytes for selectors `82`–`87`. No physical
+result has been recorded. [standard] for the sources; [confirmed] for the probe
+bytes; [hypothesis] for an unmeasured calculator's topology.
 
 ## Emulator implementations
 
@@ -96,6 +123,22 @@ physical topology; it does not assert that an emulator enables that topology by
 default. Run the same sequence with `--profile mame` and no alias option to expose
 MAME's unmapped selector `87`. See [Paging](paging.md) for the complete mapper
 comparison.
+
+The alias-probe decoder reconstructs equivalence classes from the ordered
+patterns. Each selector in one class reads the pattern written through the
+highest-numbered selector in that class. The two expected endpoints and a
+partial-alias example are reproducible without a calculator:
+
+```sh
+python tools/describe_ram_topology.py --observed 112233445566
+python tools/describe_ram_topology.py --observed 666666666666
+python tools/describe_ram_topology.py \
+  --simulate-backings 0,0,1,1,2,3 --json
+```
+
+The simulated partial mapping produces `22 22 44 44 55 66` and groups
+`82`/`83`, `84`/`85`, `86`, and `87`. This is a decoder test case, not a
+reported hardware revision. [confirmed]
 
 ## Per-page trace coverage
 
@@ -353,3 +396,14 @@ The OS's own paged byte-store helper at `37:44AE` uses the normal restore patter
 
 The dynamic trace resolves the same sequence at instruction indices `712241-712250`,
 including the final `port 7 = 81` and `port 5 = 00` writes. [confirmed]
+
+## Sources
+
+| Source | Use here |
+|--------|----------|
+| [Datamath TI-84 Plus hardware](http://www.datamath.org/Graphing/TI-84PLUS.htm) and [March 2004 board photographs](http://www.datamath.org/Graphing/JPEG_TI-84PLUS_A.htm#PCB) | Three-IC board inventory, ASIC-integrated RAM, and photographed `83PLUSB/TA2` package |
+| [WikiTI hardware history, revision 10880](https://wikiti.brandonw.net/index.php?title=83Plus:History_of_TI-8x_hardware&oldid=10880) | Reported 128 KiB design and later 48 KiB revision |
+| [WikiTI RAM pages, revision 11670](https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages&oldid=11670) | Reported selector uses and `82`–`87` alias threshold |
+| [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) and [`x4_memory.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c) | Independent-page emulator mapping |
+| [Wabbitemu `core.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c) and [`83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | Optional reduced-RAM alias and model identity behavior |
+| [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | Seven-block backing and raw-selector behavior |

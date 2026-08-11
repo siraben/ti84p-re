@@ -83,6 +83,38 @@ Macro syntax is one command per line (`wait`, `key NAME [hold T]`,
 whole-line comment only — a trailing `# …` after a command is parsed as a
 (bad) hold-time. Full key-name list is in `tilem-headless/headless/script.c`.
 
+### Trace storage and analysis cost
+
+TLMT is a binary record stream. Capture writes 48-byte instruction records,
+6-byte memory-write records, and 9-byte key events through a 1 MiB buffered
+stream rather than formatting one log line per instruction. A full trace still
+grows linearly with executed instructions, so keep scenarios short and use
+`--trace-backtrace` when only the events before a failure matter.
+
+The reusable `hardware_trace.iter_resolved_executions` iterator resolves the
+mapping and decodes optional I/O during one sequential read. Consumers can
+aggregate counters and selected events without retaining the instruction
+stream. For example, the retail boot validator stops at `3F:422B`:
+
+```sh
+python tools/describe_boot_hardware.py trace /tmp/b.trace
+```
+
+On the saved one-second reset trace, it consumes 134,851 of 269,645
+instructions, retains 35 matching output events plus counters, and emits three
+summary lines. Add `--json` before `trace` for machine-readable output. It does
+not generate a per-instruction text log. [confirmed]
+
+For exact-address coverage, `hardware_trace.count_resolved_trace_points`
+replays mapping changes without constructing instruction or execution objects.
+On a 1,753,851-instruction reset/idle trace, the targeted scan takes 5.57
+seconds versus 17.78 seconds through the general object iterator, about 3.2×
+faster. Its retained state is one mapper and a counter whose size depends on
+the requested point set, not the trace length. The input remains about 83 MiB
+because TLMT stores one 48-byte record per instruction. That audit retained no
+hit keys. The general iterator remains appropriate when a consumer needs
+register or I/O state from every yielded instruction. [confirmed]
+
 ## 3. Resolve the trace to Ghidra addresses
 
 ```sh
@@ -2098,7 +2130,8 @@ rather than paged-address resolution.
 ## Files
 
 - [`tilem_trace_resolve.py`](tilem_trace_resolve.py) — trace → paged Ghidra address resolver.
-- [`hardware_trace.py`](hardware_trace.py) — importable resolved-instruction, physical-RAM-page, I/O-event, and memory-write iterators.
+- [`hardware_trace.py`](hardware_trace.py) — importable one-pass resolved-execution, physical-RAM-page, I/O-event, and memory-write iterators, plus constant-memory point counting.
+- [`describe_boot_hardware.py`](describe_boot_hardware.py) — constant-memory retail-boot timing and ordered-I/O trace validator.
 - [`analyze_trace_points.py`](analyze_trace_points.py) — resolved-address visits, opcode/register filters, register-frequency summaries, and JSON reports.
 - [`analyze_ram_page_trace.py`](analyze_ram_page_trace.py) — trace memory writes → physical RAM page ranges.
 - [`analyze_memory_writes.py`](analyze_memory_writes.py) — arbitrary resolved memory-write filters by logical target, writing PC, target kind, clock, and JSON output.
@@ -2167,7 +2200,7 @@ rather than paged-address resolution.
 - [`mame_mapper_probe.lua`](mame_mapper_probe.lua) — fresh-process reset latch, selector, paired-bank, overlay-routing, and fetched-marker adapter for MAME.
 - [`mame_mapper.py`](mame_mapper.py) — typed MAME mapper report parser and oracle backed by the reusable mapper profile and pinned ROM prefixes.
 - [`run_mame_mapper_probe.py`](run_mame_mapper_probe.py) — exact-ROM and exact-MAME guarded five-case mapper CLI with retained logs and manifest.
-- [`wabbitemu_headless.cpp`](wabbitemu_headless.cpp) — minimal Linux adapter, wake scheduler, Flash sampler, protected-gate observer, exact copied-worker matcher, recovery-point recorder, and guarded execution, reset, Flash, retail-worker, MD5, keypad, timer, ASIC-control, LCD/bus, speed/delay, interrupt, and link probe modes for the pinned Wabbitemu core.
+- [`wabbitemu_headless.cpp`](wabbitemu_headless.cpp) — minimal Linux adapter, wake scheduler, Flash sampler, protected-gate observer, exact copied-worker matcher, recovery-point recorder, and guarded execution, reset, Flash, retail-worker, MD5, keypad, timer, ASIC-control, LCD/bus, direct-entry LCD-diagnostic, speed/delay, interrupt, and link probe modes for the pinned Wabbitemu core.
 - [`wabbitemu_headless.py`](wabbitemu_headless.py) — reusable pinned-source validation, build command, recovery and probe runners, typed gate/report parsing, retail-path validation, and image hashing.
 - [`wabbitemu_flash_probe.py`](wabbitemu_flash_probe.py) — shared Flash case parser plus command-family, byte-program, and retail-worker report oracles.
 - [`build_wabbitemu_headless.py`](build_wabbitemu_headless.py) — guarded compiler CLI for the exact pinned source tree.
@@ -2194,6 +2227,8 @@ rather than paged-address resolution.
 - [`run_wabbitemu_reset_retention_probe.py`](run_wabbitemu_reset_retention_probe.py) — exact-ROM and exact-binary guarded reset-retention CLI with direct-seeding scope labels.
 - [`wabbitemu_lcd_probe.py`](wabbitemu_lcd_probe.py) — reusable native LCD and bus-timing report oracle backed by the pointer, latch, timing-register, and implementation models.
 - [`run_wabbitemu_lcd_edge_probe.py`](run_wabbitemu_lcd_edge_probe.py) — guarded native controller-guard, hidden-column, latch, port-map, ASIC-ready, wait-field, and speed-clamp CLI.
+- [`wabbitemu_lcd_diagnostic_probe.py`](wabbitemu_lcd_diagnostic_probe.py) — reusable oracle for compact direct-entry execution of retail page-`3F` LCD helpers.
+- [`run_wabbitemu_lcd_diagnostic_probe.py`](run_wabbitemu_lcd_diagnostic_probe.py) — exact-ROM guarded LCD-helper CLI with transfer counts, visible-screen hashes, contrast state, and an explicit unreachable-path scope label.
 - [`wabbitemu_speed_probe.py`](wabbitemu_speed_probe.py) — reusable native CPU-speed, delay-latch, wait-gate, and port-`0x2D` report oracle backed by the bus-timing implementation model.
 - [`run_wabbitemu_speed_edge_probe.py`](run_wabbitemu_speed_edge_probe.py) — guarded native default/internal speed matrix, raw-latch, wait-gate, and port-`0x2D` side-effect CLI.
 - [`wabbitemu_interrupt_probe.py`](wabbitemu_interrupt_probe.py) — reusable native standard-interrupt and low-power oracle backed by exact mask, status, and Wabbitemu rate models.
@@ -2223,6 +2258,10 @@ rather than paged-address resolution.
 - [`describe_error.py`](describe_error.py) — text and JSON reports for the message selected by one or more raw error codes.
 - [`z80_io.py`](z80_io.py) — reusable immediate-port access decoding for static ROM disassembly.
 - [`analyze_rom_io.py`](analyze_rom_io.py) — selected-page or all-ROM static I/O-access inventory, inclusive port ranges, instruction context, and summaries.
+- [`asic_control.py`](asic_control.py) — reusable ASIC-status, identity, protection-mode, GPIO, generic immediate-port consumer, and raw-opcode coverage decoding.
+- [`describe_asic_control.py`](describe_asic_control.py) — JSON-capable ASIC-control report with complete-ROM port-`0x02`, port-`0x21`, and GPIO audits plus arbitrary `--audit-port` scans.
+- [`ram_topology.py`](ram_topology.py) — reusable ordered-pattern decoder for independent, shared, partial, and invalid RAM-selector alias observations.
+- [`describe_ram_topology.py`](describe_ram_topology.py) — JSON-capable decoder and backing-assignment simulator for `HWPRAM` results.
 - [`tibasic_smoke.py`](tibasic_smoke.py) — generated TI-BASIC fixture runner with
   trace-anchor checks and final-frame visual checks.
 - [`macros/home-2plus3.macro`](macros/home-2plus3.macro) — power on, dismiss splash, evaluate `2+3`.

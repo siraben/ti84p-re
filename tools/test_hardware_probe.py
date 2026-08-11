@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Regression tests for physical hardware-probe result containers."""
 
-from pathlib import Path
 import sys
 import unittest
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -117,6 +117,28 @@ class HardwareProbeTests(unittest.TestCase):
             report["measurements"]["topology_observation"],
         )
         self.assertTrue(report["measurements"]["restore_matches"])
+        self.assertEqual(
+            [["0x82", "0x83", "0x84", "0x85", "0x86", "0x87"]],
+            report["measurements"]["alias_groups"],
+        )
+
+    def test_ram_measurements_report_partial_alias_groups(self):
+        original = bytes.fromhex("102030405060")
+        observed = bytes.fromhex("222244445566")
+        frame = ProbeFrame(
+            probe_id=2,
+            asic_id=0x45,
+            status=0xE3,
+            payload=original + observed + original,
+        )
+
+        report = decode_probe_measurements(frame)
+
+        self.assertEqual("partial-selector-aliases", report["topology_observation"])
+        self.assertEqual(
+            [["0x82", "0x83"], ["0x84", "0x85"], ["0x86"], ["0x87"]],
+            report["alias_groups"],
+        )
 
     def test_known_probe_rejects_wrong_payload_size(self):
         frame = ProbeFrame(probe_id=2, asic_id=0x55, status=0xE3, payload=b"x")
@@ -151,6 +173,17 @@ class HardwareProbeTests(unittest.TestCase):
         self.assertEqual("returned", report["outcome"])
         self.assertEqual("0x07", report["registers"]["0x04"])
         self.assertEqual("0x08", report["registers"]["0x22"])
+
+    def test_usb_snapshot_maps_payload_bytes_to_ports(self):
+        payload = bytes(range(0x10, 0x1F))
+        frame = ProbeFrame(probe_id=5, asic_id=0x45, status=0xE3, payload=payload)
+
+        report = decode_probe_measurements(frame)
+
+        self.assertEqual("0x10", report["registers"]["0x49"])
+        self.assertEqual("0x17", report["registers"]["0x51"])
+        self.assertEqual("0x18", report["registers"]["0x52"])
+        self.assertEqual("0x1E", report["registers"]["0x5B"])
 
 
 if __name__ == "__main__":

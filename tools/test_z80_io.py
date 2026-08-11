@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """Regression tests for static Z80 I/O-access decoding."""
 
+import sys
 import unittest
 from pathlib import Path
-import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from rom_image import RomLocation
+from rom_image import PAGE_SIZE, RomImage, RomLocation
 from z80_disassembly import Z80Instruction
 from z80_io import (
     direct_io_access,
     iter_direct_io_accesses,
     iter_resolved_io_accesses,
     parse_port_specs,
+    raw_indirect_io_boundary_prefixes,
+    raw_indirect_io_locations,
 )
 
 
@@ -80,7 +82,6 @@ class Z80IOTests(unittest.TestCase):
             "jr nz,$+4",
             "pop bc",
             "ld c,a",
-            "inc c",
             "ldir",
             "rl c",
         )
@@ -93,10 +94,50 @@ class Z80IOTests(unittest.TestCase):
                 )
                 self.assertEqual((), tuple(iter_resolved_io_accesses(instructions)))
 
+    def test_tracks_literal_c_through_increment_and_decrement(self):
+        instructions = (
+            instruction(0x4000, "ld c,049h"),
+            instruction(0x4002, "dec c"),
+            instruction(0x4003, "ini"),
+            instruction(0x4005, "inc bc"),
+            instruction(0x4006, "outi"),
+        )
+
+        accesses = tuple(iter_resolved_io_accesses(instructions))
+
+        self.assertEqual([0x48, 0x49], [access.port for access in accesses])
+        self.assertEqual(["in", "out"], [access.direction for access in accesses])
+
+    def test_scans_raw_register_and_block_io_pairs(self):
+        data = bytearray(PAGE_SIZE * 2)
+        data[0x123:0x125] = bytes.fromhex("ED78")
+        data[PAGE_SIZE + 0x456 : PAGE_SIZE + 0x458] = bytes.fromhex("EDA3")
+        rom = RomImage(bytes(data))
+
+        candidates = raw_indirect_io_locations(rom)
+
+        self.assertEqual(
+            [("00:0123", "in", "IN A,(C)"), ("01:4456", "out", "OUTI")],
+            [
+                (str(item.location), item.direction, item.form)
+                for item in candidates
+            ],
+        )
+
+    def test_reports_page_ending_indirect_prefix(self):
+        data = bytearray(PAGE_SIZE * 2)
+        data[PAGE_SIZE - 1] = 0xED
+        rom = RomImage(bytes(data))
+
+        self.assertEqual(
+            (RomLocation(0, 0x3FFF),),
+            raw_indirect_io_boundary_prefixes(rom),
+        )
+
     def test_keeps_direct_access_source(self):
-        access = tuple(
+        access = next(
             iter_resolved_io_accesses((instruction(0x4000, "in a,(04dh)"),))
-        )[0]
+        )
 
         self.assertEqual("immediate", access.source)
 
@@ -125,9 +166,8 @@ class Z80IOTests(unittest.TestCase):
 
     def test_rejects_invalid_port_selectors(self):
         for spec in ("0x100", "0x82-0x80", "garbage", "0x80,"):
-            with self.subTest(spec=spec):
-                with self.assertRaises(ValueError):
-                    parse_port_specs((spec,))
+            with self.subTest(spec=spec), self.assertRaises(ValueError):
+                parse_port_specs((spec,))
 
 
 if __name__ == "__main__":

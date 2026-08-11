@@ -4,15 +4,17 @@
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 import json
-from pathlib import Path
 import sys
+from collections import Counter
+from dataclasses import asdict
+from pathlib import Path
 
+from port_definitions import PortDefinitionError, load_port_definitions
 from rom_image import RomImage
+from rom_io import inline_descriptor_at
 from z80_disassembly import DisassemblyError, disassemble_page
 from z80_io import iter_resolved_io_accesses, parse_port_specs
-
 
 TOOLS = Path(__file__).resolve().parent
 
@@ -30,6 +32,12 @@ def main() -> None:
     )
     parser.add_argument("--rom", type=Path, default=TOOLS / "rom.bin")
     parser.add_argument(
+        "--ports-file",
+        type=Path,
+        default=TOOLS / "ports.txt",
+        help="project-local port labels (default: tools/ports.txt)",
+    )
+    parser.add_argument(
         "--page",
         action="append",
         type=integer,
@@ -45,13 +53,24 @@ def main() -> None:
         action="store_true",
         help="exclude port accesses resolved from a literal C register",
     )
+    parser.add_argument(
+        "--unlisted",
+        action="store_true",
+        help="show only access candidates whose ports have no project-local label",
+    )
+    parser.add_argument(
+        "--exclude-descriptors",
+        action="store_true",
+        help="exclude candidates overlapping raw bcall or bjump descriptors",
+    )
     args = parser.parse_args()
 
     if args.before < 0 or args.after < 0:
         parser.error("--before and --after must be nonnegative")
     try:
         selected_ports = parse_port_specs(args.ports) if args.ports else None
-    except ValueError as error:
+        definitions = load_port_definitions(args.ports_file)
+    except (OSError, PortDefinitionError, ValueError) as error:
         parser.error(str(error))
 
     rom = RomImage.from_path(args.rom)
@@ -64,11 +83,18 @@ def main() -> None:
     try:
         for page in pages:
             instructions = disassemble_page(rom, page, executable=args.z80dasm)
-            indices = {id(instruction): index for index, instruction in enumerate(instructions)}
+            indices = {
+                id(instruction): index for index, instruction in enumerate(instructions)
+            }
             for access in iter_resolved_io_accesses(instructions, selected_ports):
                 if args.direct_only and access.source != "immediate":
                     continue
+                if args.unlisted and access.port in definitions:
+                    continue
                 instruction = access.instruction
+                descriptor = inline_descriptor_at(rom, instruction.location)
+                if args.exclude_descriptors and descriptor is not None:
+                    continue
                 index = indices[id(instruction)]
                 start = max(0, index - args.before)
                 stop = min(len(instructions), index + args.after + 1)
@@ -78,7 +104,15 @@ def main() -> None:
                         "bytes": instruction.data.hex(),
                         "direction": access.direction,
                         "port": access.port,
+                        "name": (
+                            None
+                            if access.port not in definitions
+                            else definitions[access.port].name
+                        ),
                         "source": access.source,
+                        "inline_descriptor": (
+                            None if descriptor is None else asdict(descriptor)
+                        ),
                         "instruction": instruction.text,
                         "context": [
                             {
@@ -103,7 +137,9 @@ def main() -> None:
     if args.summary:
         counts = Counter((report["port"], report["direction"]) for report in reports)
         for (port, direction), count in sorted(counts.items()):
-            print(f"0x{port:02X} {direction.upper():3} {count:4d}")
+            definition = definitions.get(port)
+            name = "(unlisted)" if definition is None else definition.name
+            print(f"0x{port:02X} {direction.upper():3} {count:4d} {name}")
     else:
         for report in reports:
             if args.before or args.after:
@@ -116,9 +152,14 @@ def main() -> None:
                         f"{context['bytes'].upper():<12} {context['instruction']}"
                     )
             else:
+                descriptor = report["inline_descriptor"]
+                suffix = ""
+                if descriptor is not None:
+                    suffix = f"; {descriptor['kind']} at {descriptor['owner_location']}"
                 print(
                     f"{report['location']}  {report['bytes'].upper():<8} "
-                    f"{report['instruction']} [{report['source']}]"
+                    f"{report['instruction']} [{report['source']}; "
+                    f"{report['name'] or 'unlisted'}{suffix}]"
                 )
     print(f"# {len(reports)} statically resolved I/O access candidate(s)")
 

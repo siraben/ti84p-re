@@ -320,6 +320,40 @@ To set the clock, software writes all four staged bytes, writes `0x01` to port `
 
 `rtc_write_seconds` at `37:593F` writes the four converted bytes in the reverse port order `0x44`, `0x43`, `0x42`, `0x41`, then emits the `0x01` → `0x03` control sequence. [confirmed]
 
+The exact-ROM disassembly shows both block-I/O loops:
+
+```z80
+; 37:58A1 — bytes 21 99 84 06 04 0E 49 0D ED A2 20 FB
+ld hl,0x8499
+ld b,4
+ld c,0x49
+.read_byte:
+dec c
+ini
+jr nz,.read_byte
+
+; 37:593C — bytes 21 99 84 06 04 0E 45 0D ED A3 20 FB
+ld hl,0x8499
+ld b,4
+ld c,0x45
+.write_byte:
+dec c
+outi
+jr nz,.write_byte
+```
+
+`INI` increments `HL` and decrements `B`, so the first loop pairs ascending RAM
+addresses with descending current-time ports. `OUTI` applies the same register
+updates to the staged set ports. [confirmed]
+
+`tools/describe_rom_io_coverage.py` reproduces this result from the pinned ROM.
+Its raw scan covers all 37 possible register and block-I/O opcode pairs in the
+image, including pairs inside operands and data. It also verifies that no
+16 KiB page ends with an `ED` prefix. Only `37:58A9` and `37:5944` survive as
+aligned instructions with a statically resolved port. Regression tests pin
+their ports to `0x48` and `0x44`. This is ROM evidence; the separate TilEm RTC
+probes below test emulator behavior. [confirmed]
+
 The hardware documentation does not describe a snapshot/latch operation for current-time reads. The OS reads high byte first, which reduces but does not eliminate the possibility of a rollover between the four port reads. No retry or two-pass coherence check appears at `37:58A1`. [confirmed] for the OS sequence; [hypothesis] for physical rollover behavior.
 
 TilEm reads host `time_t` separately on every current-register access. A

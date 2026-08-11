@@ -11,7 +11,12 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-from hardware_probe import APPVAR_TYPE, PROBE_FORMAT_VERSION, PROBE_MAGIC
+from hardware_probe import (
+    APPVAR_TYPE,
+    PROBE_FORMAT_VERSION,
+    PROBE_MAGIC,
+    USB_SNAPSHOT_PORTS,
+)
 from ti_program import asmprgm_body, encode_program_file
 
 
@@ -48,6 +53,13 @@ PROBES = {
     ),
     "asic-snapshot": ProbeDefinition(
         "asic-snapshot.asm", "HWASIC", "HWPASIC1", 3, 11
+    ),
+    "usb-snapshot": ProbeDefinition(
+        "usb-snapshot.asm",
+        "HWPUSB",
+        "HWPUSB01",
+        5,
+        len(USB_SNAPSHOT_PORTS),
     ),
     "exec-flash-07": ProbeDefinition(
         "execution-fetch.asm", "HWEF07", "HWEF0701", 4, 16,
@@ -193,6 +205,13 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
             or machine_code.index(create_call) > machine_code.index(guarded_fetch)
         ):
             raise ValueError(f"{probe_name} must create its result before the fetch")
+    if probe.probe_id == 5:
+        for port in USB_SNAPSHOT_PORTS:
+            direct_input = bytes((0xDB, port))
+            if machine_code.count(direct_input) != 1:
+                raise ValueError(
+                    f"{probe_name} must read port 0x{port:02X} exactly once"
+                )
 
 
 def package_probe(

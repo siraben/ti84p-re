@@ -6,7 +6,15 @@ Target: `ti84plus.rom` (1 MiB flash dump). OS self-identifies as 2.55MP. CPU: Zi
 
 ## The big picture
 
-The TI-84+ is a Z80 machine that can only see 64 KiB at once, but has 1 MiB of flash and 128 KiB of RAM. It bridges that gap with a 4-slot paging scheme and a system-call ("bcall") mechanism that lets code on one 16 KiB flash page call routines on any other page. The OS is a single-tasking monitor: a boot/kernel core on flash `page 0` (always mapped low), a large body of OS routines spread across the other flash pages and reached via bcalls, and a fixed RAM region holding the system state (flags, floating-point registers, display buffers, the variable table).
+The TI-84+ is a Z80 machine that can only see 64 KiB at once. The target has
+1 MiB of Flash and eight RAM selector values. Community hardware reports assign
+eight independent 16 KiB RAM blocks to early units. They assign 48 KiB to later
+units, with selectors `82`–`87` sharing one block. No physical result is recorded
+for the calculator used by this project. A four-slot paging scheme and a
+system-call (bcall) mechanism expose code and data beyond the current address
+space. The OS is a single-tasking monitor. Its boot/kernel core occupies Flash
+page `0`, other OS routines span banked Flash pages, and fixed RAM windows hold
+system state. See [RAM pages](ram-pages.md) for the revision evidence.
 
 Everything the user interacts with — the homescreen, TI-BASIC programs, graphing, the catalog — is built on four pillars:
 
