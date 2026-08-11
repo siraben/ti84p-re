@@ -365,11 +365,32 @@ The GC block has model-dependent RAM mirrors beginning at `0x837B` or
 | `+0x05` | `0x1DEF` | `3C:7EBA` | `0x8380`, `0x82AA` | Optional second page erased by the phase-`0xFC` branch. |
 | `+0x06` | `0x1DF0` | `3C:7EAF` | `0x8381`, `0x82AB` | Start of the archive-sector state array. |
 
+The initialization bounds are narrower than the certificate rebuild span.
+`3C:7E6B` first loads the current certificate data into RAM. The initializer at
+`3C:7317` then writes `0xFF` to 100 bytes beginning at `0x82A5` when port-`0x02`
+bit 7 is set; its bit-clear branch writes 18 bytes beginning at `0x837B`.
+Because the first six bytes are the fields above, those lengths leave capacity
+for 94 and 12 sector-state bytes respectively. [confirmed]
+
+The mode-`4` certificate rebuild path at `3D:4274` copies `0x66` bytes from
+`0x82A5`, two more than the TI-84 Plus initializer erases. Offsets `+0x64` and
+`+0x65` are therefore retained from the previously loaded certificate block;
+they are not initialized sector states. No direct semantic accessor for those
+two bytes has been found. [confirmed] for the load, initialization, and rebuild
+bounds; [hypothesis] for the trailing bytes' semantic owner.
+
 `3C:7DA9` indexes the sector-state array as
 `(archive_page >> 2) - 2`. Page `08` maps to slot `0`, page `0C` maps to slot
 `1`, and each later 64 KiB sector advances one slot. The normal path writes
 `0xFE` through `3C:7848`, then `0xFC` through `3C:7853`. The recovery path can
 write `0xFC` through `3C:7C54`. [confirmed]
+
+Capacity is not the live range. The no-App TI-84 Plus archive limit is `0x2A`,
+so the only possible sector-start pages below it are `08`, `0C`, `10`, `14`,
+`18`, `1C`, `20`, `24`, and `28`: slots `0`–`8`. Installed Apps can lower the
+limit further. The ROM's larger advanced-family branch can raise the exclusive
+limit to `0x6A`, which still uses only 25 slots. The remaining initialized bytes
+are spare capacity in this ROM's reachable archive geometry. [confirmed]
 
 `gc_recover_by_phase` at `3C:7C1F` dispatches the master byte. The branch
 targets and their joins show how each interrupted phase resumes: [confirmed]
@@ -419,12 +440,157 @@ python tools/analyze_gc_journal.py \
 an erased status and skips the branch to `3C:7BDD` and `3C:7C1F`.
 [confirmed]
 
-The handler bodies establish the operations selected after a restart. They do
-not prove the physical power-loss guarantee of stopping inside an erase or
-program command. That guarantee still needs fault-injection traces and
-physical power-cut tests at each transition. [hypothesis]
+### 7e. TilEm restart at six journal boundaries
 
-### 7e. Reproducing the command timeline
+The `GCFLASH` command trace can produce interrupted Flash images without
+guessing archive contents. `tools/flash_replay.py` applies decoded byte-program
+commands as `old & requested` and applies sector erases with the top-boot
+geometry. `tools/replay_flash_trace.py` stops when an initialized journal phase
+belongs to the sole certificate half whose base marker is `0x00`. [confirmed]
+
+This replay treats the command-shaped CPU writes as accepted device commands.
+The fixture supports that assumption in three independent ways: all 62 ordinary
+program invocations and all six certificate invocations end at OS success
+resets, the decoder finds no unmatched writes, and later trace reads use the
+programmed archive state. TLMT does not directly record ASIC or Flash-device
+acceptance, so the CLI requires `--accept-command-shapes`. [confirmed] for this
+fixture; [hypothesis] for an arbitrary trace.
+
+The active journal has flags `0xFB`, archive limit `0x2A`, selected sector page
+`0x08`, and active half base `0xFA000`. The `0xFF` snapshot begins only when
+`3E:6000` reaches its final `0x00` marker at clock `334577678`. The earlier
+`0xFF` program at `3E:7DED` occurs while that half is still inactive. The same
+trace then supplies active `0xFE` and `0xE0` snapshots: [confirmed]
+
+| Input phase | Original-trace trigger | Input image SHA-256 | Cold-restart path | Recovery command shapes |
+|------------:|-----------------------:|--------------------|-------------------|-------------------------|
+| `0xFF` | `334577678` | `4e484ad4b99f07a333ae3845ee795b36cb6181e9a829261b2d52ff7931ac8f05` | `3C:7BC7 → 3C:7C1F → 3C:7C43 → 3C:7CFB → 3C:7D30` | 582 programs, three erases, 36 resets |
+| `0xFE` | `334587331` | `b59cb47398bd186e2eaf7791ad42729e6f29f670da6b1854497eb7fbdbc362a8` | `3C:7BC7 → 3C:7C1F → 3C:7C48 → 3C:7CFB → 3C:7D30` | 581 programs, three erases, 35 resets |
+| `0xE0` | `338262732` | `9c85a13be6d123443457eb772a16664a4a49f06a3d1dc0340b8b8d96a9b12b6b` | `3C:7BC7 → 3C:7C1F → 3C:7D30` | 551 programs, two erases, 20 resets |
+
+Each input image boots with a fresh RAM reset under the pinned TilEm build. The
+`0xFF` and `0xFE` paths erase the page-`08` archive sector and both certificate
+halves while completing the sector move. The `0xE0` path programs the page-`0C`
+sector header to `0xF0` and performs certificate cleanup without erasing page
+`08`. [confirmed] for TilEm.
+
+Replaying each recovery trace over its input image produces SHA-256
+`8c857701d7da118d5c5f4c240ee21af91a10b95539059e74fb5e423368a683f9`.
+Replaying the uninterrupted `GCFLASH` trace from the pinned ROM produces the
+same 1 MiB image. `cmp` reports exact equality for all four images. This proves
+TilEm convergence after successful command boundaries at `0xFF`, `0xFE`, and
+`0xE0`; it does not model a cut during a pending program or erase. [confirmed]
+for TilEm.
+
+Two controlled archive topologies reach the other dispatcher states. The first
+starts with only two synthetic bytes: page `08`'s erased header becomes `0xFE`,
+and page `28`'s erased header becomes `0xF0`. `tools/gc_layout.py` builds the
+copy without modifying its source; `tools/build_gc_layout.py` requires the
+source hash, refuses existing output by default, and reports every mutation.
+The pinned-ROM input and controlled output hashes are: [confirmed]
+
+```text
+source:     7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d
+controlled: 788b3c088e2954be5e53689afa7ac07d80159086a45d213a53f88952a65dd2e1
+```
+
+The starting topology is synthetic, but the unmodified ROM writes the journal
+and all later archive state. Its `GCFLASH` trace reaches `3C:7801` and writes
+active `0xFC` and `0xF8` phases. Fresh-RAM cold boots visit the statically
+decoded recovery branches: [confirmed] for TilEm.
+
+| Input phase | Original-trace trigger | Input image SHA-256 | Recovery branch | Recovery command shapes |
+|------------:|-----------------------:|--------------------|-----------------|-------------------------|
+| `0xFC` | `340858598` | `f88f242026c8ae633764573f6dce0e2ef322668dbd149c36a8fb0732987da491` | `3C:7BC7 → 3C:7C1F → 3C:7CC6 → 3C:7D30` | 554 programs, four erases, 23 resets |
+| `0xF8` | `340966279` | `77b7671e1bdd287022e1863de50a324b9818487be4f05403016e7f4e57b3f782` | `3C:7BC7 → 3C:7C1F → 3C:7CDA → 3C:7D30` | 553 programs, three erases, 22 resets |
+
+Both recovery replays and uninterrupted execution produce the same complete
+image, SHA-256
+`0dcf62f7445f5bc44b93effb7fd4cdf90d1cf813ad5ea55dd1f7445e0c14003f`.
+This is byte-for-byte convergence from ROM-written phases; it does not make the
+two input header bytes calculator-authentic. [confirmed]
+
+The `0xF0` reference input contains eight ordinary program records in the
+page-`08` and page-`0C` sectors. Three 17,000-byte records and one 14,454-byte
+record fill each sector, leaving one erased trailing byte. Normal archive-UI
+runs and successful OS Flash-worker traces produce SHA-256
+`389ed80fe8635740f855c7b8ffec6312a5182027dd0605e8a6e2b094c8481452`.
+`tools/archive_fixture.py` independently serializes the observed record header
+and first-fit placement into erased 64 KiB sectors. Its guarded CLI reproduces
+that complete image byte for byte from `tools/rom.bin` and the eight ordered
+name/size pairs. [confirmed]
+
+Running `GCFLASH` from the reconstructed input puts its dead record in page
+`10`; page `08` and page `0C` remain occupied when
+`gc_check_archive_consistency` runs. An unmodified-ROM recapture takes the
+direct `0xFE → 0xF0` transition and reproduces the phase image hash below.
+[confirmed] for TilEm.
+
+| Phase | Reference trigger clock | Input image SHA-256 | Recovery branch |
+|------:|------------------------:|--------------------|-----------------|
+| `0xF0` | `333006337` | `df49d6ec77483e33944fdbcee969084fc065b01a4e44327f83246a9de363fcb2` | `3C:7BC7 → 3C:7C1F → 3C:7CE3 → 3C:7D30` |
+
+The reconstructed run reaches `0xF0` at clock `339126369`. Its trace SHA-256
+is `ffd6b2fb7a18713a2814666516f25f76bc9999314dfab83f3361c35e7bdd42ac`.
+Clock and whole-trace differences therefore leave the materialized phase image
+unchanged. [confirmed]
+
+The first uninterrupted and recovered outputs are not byte-identical. Their
+archive regions match, but 11 certificate bytes differ: uninterrupted execution
+ends with an active `0xE0` cleanup journal, while the `0xF0` restart completes
+that cleanup during its boot. Cold-booting the uninterrupted output once erases
+both certificate halves and produces the recovered SHA-256
+`39113ee67921340b8817e35576a8f8fda467122af7713b099f399512d65d9bc3`.
+Cold-booting the recovered output produces no Flash commands. Thus the `0xF0`
+case converges to the same stable Flash image after deferred `0xE0` cleanup,
+not at the first trace endpoint. [confirmed] for TilEm.
+
+TilEm and Wabbitemu exercise all six phase boundaries after successful command
+boundaries. Cuts during busy commands and physical power loss remain untested.
+[confirmed] for the emulator runs; [hypothesis] for the remaining cases.
+
+### 7f. Wabbitemu restart at six journal boundaries
+
+A Linux headless adapter now runs the pinned Wabbitemu commit `48c2dc0` without
+its Windows interface. The acquisition procedure verifies the codeload archive
+hash; the builder then verifies a path-and-content hash over all 334 extracted
+source files and the individual translation units. Its only compatibility
+changes remove the MSVC-only `__pragma` tokens and provide inert callbacks for
+debugger registration and disabled audio. The CPU, memory, Flash, device,
+keypad, interrupt, and LCD implementations are unmodified. [confirmed]
+
+Each run begins with fresh RAM, presses ON at 24,000,000 t-states, releases it
+at 24,900,000 t-states, executes at least 20,000,000 instructions, and requires
+ten identical Flash samples one million instructions apart. An unmodified-ROM
+baseline reaches the OS after the same wake transition without changing any of
+the 1 MiB Flash image. The interrupted runs execute these page-`0x3C` points:
+[confirmed]
+
+| Input phase | Wabbitemu dispatcher visits | Changed input bytes | Output SHA-256 |
+|------------:|------------------------------|--------------------:|----------------|
+| `0xFF` | `7BC7 → 7C1F → 7C43 → 7CFB → 7D30` | 74 | `8c857701d7da118d5c5f4c240ee21af91a10b95539059e74fb5e423368a683f9` |
+| `0xFE` | `7BC7 → 7C1F → 7C48 → 7CFB → 7D30` | 75 | `8c857701d7da118d5c5f4c240ee21af91a10b95539059e74fb5e423368a683f9` |
+| `0xFC` | `7BC7 → 7C1F → 7CC6 → 7D30` | 14 | `0dcf62f7445f5bc44b93effb7fd4cdf90d1cf813ad5ea55dd1f7445e0c14003f` |
+| `0xF8` | `7BC7 → 7C1F → 7CDA → 7D30` | 14 | `0dcf62f7445f5bc44b93effb7fd4cdf90d1cf813ad5ea55dd1f7445e0c14003f` |
+| `0xF0` | `7BC7 → 7C1F → 7CE3 → 7D30` | 131,082 | `39113ee67921340b8817e35576a8f8fda467122af7713b099f399512d65d9bc3` |
+| `0xE0` | `7BC7 → 7C1F → 7D30` | 12 | `8c857701d7da118d5c5f4c240ee21af91a10b95539059e74fb5e423368a683f9` |
+
+The outputs equal the corresponding uninterrupted TilEm replays byte for byte;
+matching only the journal byte or archive range was not used as the criterion.
+The `0xF0` run starts from the deterministically reconstructed `df49d6…` phase
+image. It executes 20,000,000 instructions and 231,942,592 t-states before
+reaching ten unchanged Flash samples. Its complete 1 MiB output equals both the
+TilEm recovery and the normalized uninterrupted result.
+`tools/compare_flash_images.py` enforces the input hashes and complete-image
+equality. [confirmed] for all six Wabbitemu command-boundary runs;
+[hypothesis] for cuts during busy commands and physical power loss.
+
+The native adapter, importable orchestration library, and guarded build/run
+CLIs are documented in `tools/dynamic-tracing.md`. Their JSON reports include
+input and output hashes, exact dispatcher visits, instruction and t-state
+counts, changed-byte counts, wake completion, and Flash-settling status.
+
+### 7g. Reproducing the command timeline
 
 `tools/flash_trace.py` is the importable AMD-command decoder. The CLI resolves mapping changes,
 decodes command sequences, and compacts adjacent program operations: [confirmed]
@@ -525,7 +691,7 @@ Ports: `0x06` = bank-A page select (Flash window), `0x14` = Flash write/erase co
   → `0xFC` valid via `flash_op_fe/fd/fb` (`3D:7C97/7C8F/7C93`) AND-masking; `0xF0` deleted is a direct write in the delete/GC path
   the status byte; `flash_find_nonff` (`3D:7DEA`) treats an all-`0xFF` header as free.
 
-- **Garbage collection.** [confirmed] `archive_gc_collect` at `3C:7733` moves live records in 64 KiB sector units and uses the inactive 8 KiB certificate half as a persistent journal. The `GCFLASH` trace copies the surviving `B` record from the page-`08` sector to page `0C`, erases the old sector, and rotates the empty scratch sector back to page `08`. The remaining [hypothesis] is the physical-power-loss guarantee for each recovery phase.
+- **Garbage collection.** [confirmed] `archive_gc_collect` at `3C:7733` moves live records in 64 KiB sector units and uses the inactive 8 KiB certificate half as a persistent journal. The ordinary `GCFLASH` trace copies the surviving `B` record from the page-`08` sector to page `0C`, erases the old sector, and rotates the empty scratch sector back to page `08`. TilEm and pinned Wabbitemu cold restarts exercise all six ROM-written journal phases. Five converge byte-for-byte with uninterrupted execution; `0xF0` converges after the uninterrupted result performs deferred `0xE0` cleanup on its next boot. [hypothesis] Physical power loss and cuts inside busy commands remain untested.
 - **Group archive path.** [hypothesis] The path is partially pinned. `_DataSize` (`00:1485`) confirms a Group
   (type `0x17`, like AppVar `0x15`/`0x16`) carries a leading word-size header, so a group *can* be
   stored as one Flash blob. In `_Arc_Unarc` the `CP 0x17` → `26E0` reject sits on the B≠0 (in-Flash)

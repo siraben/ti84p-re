@@ -41,7 +41,7 @@ and archive traces return `0xE1`, `0xE3`, and `0xE7`. [confirmed]
 | 4 | No meaning established for TI-84 Plus OS 2.55MP. | [hypothesis] |
 | 5 | Publicly documented as USB-capable. Both emulators set it for their TI-84 Plus model. | [standard] |
 | 6 | Publicly documented as link-assist available. Both emulators set it for their TI-84 Plus model. | [standard] |
-| 7 | Advanced-family/model gate. `ram:1837` tests this bit before several TI-84 Plus-only paths. | [confirmed] for the branch; [standard] for the family label |
+| 7 | Advanced-family/model gate. `ram:1837` tests this bit before several TI-84 Plus-only paths. The certificate accessor at `3D:5247` selects the App-trial table at offset `0x1E50` when the bit is set and the alternate table at `0x1F18` when clear. | [confirmed] for the branches and table use; [standard] for the family label |
 
 | Value | Bit-level interpretation |
 |-------|--------------------------|
@@ -53,6 +53,14 @@ TilEm computes bits 0–2 from its battery value, LCD wait timer, and Flash lock
 Wabbitemu does the same except that its TI-84 Plus battery result is fixed high.
 Their agreement supports the interpretation but does not replace a voltage or
 timing measurement. [standard]
+
+The certificate-tail use gives bit 7 a concrete persistent-data consequence.
+The model-selected clear, write, and query paths call `3D:5247`; the helper
+calls `ram:1837`, selects offset `0x1E50` for the TI-84 Plus trace values above,
+and selects `0x1F18` when bit 7 is clear. Wabbitemu independently makes the
+same family split, setting bit 7 for its TI-84 Plus models and clearing it for
+its TI-83 Plus family. [confirmed] for the ROM branch and resolved TI-84 Plus
+values; [standard] for the emulator family mapping.
 
 MAME returns locked status `0xC3` and adds bit 2 after a Flash-unlock write.
 Its comparator and LCD-ready bits are fixed high. Bit 5 is fixed low, so this

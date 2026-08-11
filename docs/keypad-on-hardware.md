@@ -75,7 +75,95 @@ When `mouseFlag1` bit 0 at `IY+0x2C` is set, group 0 has four accepted two-key v
 | `0xFA` | 0 and 2 | **↓**+**→** |
 | `0xFC` | 0 and 1 | **↓**+**←** |
 
-These bytes are active-low group samples, not ordinary values from the scan-code formula. The repeat filter treats values `0xF3` and above as repeatable. The flag's callers and user-visible purpose remain incompletely mapped; the standard include names only its byte as `mouseFlag1`. [confirmed] for scanner behavior; [hypothesis] for the wider mode.
+These bytes are active-low group samples, not ordinary values from the
+scan-code formula. The repeat filter treats values `0xF3` and above as
+repeatable. The public App mouse bcall family owns the enabling flag and
+interprets all four values as two-axis cursor movement. [confirmed]
+
+### App mouse flag lifecycle
+
+The App mouse API is a software cursor interface for applications. It uses the
+ordinary keypad scanner rather than a separate pointing device. The main bcall
+table maps its IDs to page `3B`; the public equates supply the names below.
+[confirmed] for mappings and bodies; [standard] for names.
+
+| Bcall | Body | Role |
+|-------|------|------|
+| `_AppStartMouse = 4D47` | `3B:78F9` | initialize the workspace, display the cursor, and wait for a supported key |
+| `_AppStartMouseNoSetup = 4D4A` | `3B:78FC` | display and wait without reinitializing the workspace |
+| `_AppMouseGetKey = 4D4D` | `3B:78FF` | enable diagonal scans, halt until `_GetCSC` returns an event, and classify it |
+| `_AppDispMouse = 4D50` | `3B:77D9` | select display rather than erase, then enter the shared cursor renderer |
+| `_AppEraseMouse = 4D53` | `3B:77CF` | select erase rather than display, then enter the shared cursor renderer |
+| `_AppSetupMouseMem = 4D56` | `3B:75B0` | set center coordinates and copy a 26-byte cursor workspace template to `0x8100` |
+| `_AppUpdateMouse = 4D65` | `3B:7A56` | redraw and commit the pending coordinates, then wait for another key |
+| `_AppDispPrevMouse = 4D68` | `3B:76BD` | restore or redraw the cursor around a pending movement |
+| `_AppUpdateMouseCoords = 4DA4` | `3B:7721` | apply the row delta before committing the coordinate word |
+| `_AppUpdateMouseXY = 4DCE` | `3B:7724` | copy pending coordinates to the committed word and clear both mouse flag bytes |
+| `_AppMouseForceKey = 4E55` | `3B:7913` | classify a supplied scan value without waiting for `_GetCSC` |
+| `_AppSetupMouseMemCoords = 4E58` | `3B:78B7` | initialize the workspace with caller-supplied coordinates |
+| `_AppMoveMouse = 4E5B` | `3B:78E6` | force one key, mark the redraw state, and update the cursor |
+
+A raw scan of all 64 physical pages finds four explicit bit-0 operations and
+one immediate write that replaces the complete byte at `IY+0x2C`. The
+surrounding instructions confirm all five as code. [confirmed]
+
+| Address | Instruction | Effect |
+|---------|-------------|--------|
+| `ram:0415` | `BIT 0,(IY+0x2C)` | admit the four group-0 diagonal samples when set |
+| `3B:773B` | `LD (IY+0x2C),0x00` | clear every `mouseFlag1` bit after committing pending coordinates |
+| `3B:7907` | `SET 0,(IY+0x2C)` | enable diagonal recognition immediately before `EI`, `HALT`, and `_GetCSC` |
+| `3B:791A` | `RES 0,(IY+0x2C)` | disable the mode after the first nonzero event and before key classification |
+| `3B:7A8B` | `RES 0,(IY+0x2C)` | ensure that `_ExecuteApp = 4C51` enters a new app with the mode disabled |
+
+`_AppMouseGetKey` re-enables the flag on every wait. `_AppUpdateMouse` commits
+the previous movement and jumps back to that wait. The scanner can therefore
+publish held diagonal repeats while the app continues the update/get-key loop,
+but unrelated input code sees ordinary multi-key rejection. [confirmed]
+
+```mermaid
+flowchart LR
+    START["_AppStartMouse<br/>4D47 · 3B:78F9"] --> SETUP["setup 0x8100 workspace<br/>row 31 · column 48"]
+    SETUP --> DISP["display cursor"]
+    DISP --> WAIT["_AppMouseGetKey<br/>set mouseFlag1 bit 0"]
+    WAIT --> SCAN["timer scanner<br/>ram:0406"]
+    SCAN --> CSC["_GetCSC<br/>ram:04B2"]
+    CSC --> FORCE["_AppMouseForceKey<br/>clear bit 0 · classify"]
+    FORCE --> APP["return pending movement to app"]
+    APP --> UPDATE["_AppUpdateMouse<br/>redraw · commit"]
+    UPDATE --> WAIT
+```
+
+### App mouse coordinate and key contract
+
+`_AppSetupMouseMem` writes `0x301F` to `0x986D`. The little-endian bytes are
+row `31` and column `48`, the center of the 64×96 display. `_AppMouseForceKey`
+copies this committed coordinate word to `0x8122`, adjusts the pending copy,
+and normally returns the pending word in `HL`. `_AppUpdateMouseXY` at
+`3B:7724` copies `0x8122` back to `0x986D`. This distinguishes the displayed
+cursor position from the next requested position. [confirmed]
+
+The row range is `0`–`63`; the column range is `0`–`95`. A diagonal at one
+edge still moves along its unblocked axis. A cardinal direction at its edge, or
+a diagonal blocked on both axes, returns to the internal wait loop instead of
+returning a no-movement result. [confirmed]
+
+| Scan value | Input | Pending-coordinate change |
+|-----------:|-------|---------------------------|
+| `0x01` | **↓** | row + 1 |
+| `0x02` | **←** | column − 1 |
+| `0x03` | **→** | column + 1 |
+| `0x04` | **↑** | row − 1 |
+| `0x09` | **ENTER** | no movement; return `A=0x0C` |
+| `0xF3` | **→**+**↑** | row − 1, column + 1 |
+| `0xF5` | **←**+**↑** | row − 1, column − 1 |
+| `0xFA` | **↓**+**→** | row + 1, column + 1 |
+| `0xFC` | **↓**+**←** | row + 1, column − 1 |
+
+A normal movement returns `A=0x0A` and the pending coordinates in `HL`. If
+`shift2nd` is already set, the same movement returns `A=0x08` without loading
+the coordinate word into `HL`. **ENTER** clears `shift2nd` and returns
+`A=0x0C`. Scan code `0x36` reaches an `XOR 0x00` no-op at `3B:792D` and waits
+again; every other unsupported value also waits. [confirmed]
 
 ## One port transaction
 
@@ -343,7 +431,10 @@ These discrepancies are emulator behavior, not competing physical measurements. 
 
 ## Reusable keypad tools
 
-`tools/keypad_hardware.py` exposes the three source-pinned matrix algorithms and ON-edge policies. `tools/describe_keypad_hardware.py` accepts numeric `GROUP,BIT` positions, which keeps ghost and unwired-position experiments independent of UI key names.
+`tools/keypad_hardware.py` exposes the three source-pinned matrix algorithms,
+ON-edge policies, and byte-confirmed App mouse movement model.
+`tools/describe_keypad_hardware.py` accepts numeric `GROUP,BIT` positions,
+which keeps ghost and unwired-position experiments independent of UI key names.
 
 ```sh
 # Three-key rectangle: TilEm/Wabbitemu read 0xFC; MAME reads 0xFE.
@@ -355,13 +446,30 @@ nix develop -c python tools/describe_keypad_hardware.py matrix \
   --mask 0xFE --key 0,0 --key 1,0 --key 1,1 --key 2,1 --key 2,2
 
 nix develop -c python tools/describe_keypad_hardware.py on press release
+nix develop -c python tools/describe_keypad_hardware.py mouse 0xF5 \
+  --row 0x1F --column 0x30
 nix develop -c python tools/describe_keypad_hardware.py --json profiles
 ```
+
+`tools/indexed_flags.py` provides the page-aware raw signature scan used for
+the flag-lifecycle audit. Its CLI accepts a ROM hash guard and emits JSON:
+
+```sh
+nix develop -c python tools/analyze_rom_flags.py \
+  --offset 0x2C --bit 0 --index iy \
+  --expect-sha256 \
+  7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d
+```
+
+The five results are raw byte-sequence candidates. The address-level claims
+above additionally require disassembly of their surrounding routines.
 
 ## Resolved findings and open hardware tests
 
 - [confirmed] The fast TI-84 Plus scan path tests CPU speed and executes three NOPs, a taken branch, and the shared four-NOP tail before reading port `0x01`.
 - [confirmed] Ordinary multi-key samples are rejected, while four diagonal-arrow active-low bytes bypass the ordinary scan-code formula under `mouseFlag1` bit 0.
+- [confirmed] The App mouse bcall family owns `mouseFlag1` bit 0. It enables the mode only while waiting for `_GetCSC` and maps the four raw bytes to two-axis cursor movement.
+- [confirmed] `_AppMouseForceKey` stages coordinates at `0x8122`; `_AppUpdateMouseXY` commits them to `0x986D` within row `0`–`63` and column `0`–`95`.
 - [confirmed] A new press is accepted immediately; release requires five consecutive zero samples.
 - [confirmed] Initial and subsequent repeat delays are 50 and 10 timer-1 ticks, and only arrows, diagonals, and **DEL** repeat at this layer.
 - [confirmed] `_GetCSC` is a destructive one-byte mailbox read, so it can lose overwritten events.
@@ -371,7 +479,6 @@ nix develop -c python tools/describe_keypad_hardware.py --json profiles
 - [standard] TilEm requests ON interrupts on press and release; Wabbitemu and MAME request only on press.
 - [hypothesis] The exact capacitance and minimum safe settle time should be measured across TA2 and TA3 calculators, including worst-case chords.
 - [hypothesis] A logic-analyzer test should establish which physical ON transitions request interrupts on each ASIC revision rather than selecting an emulator policy by majority.
-- [hypothesis] The callers and intended UI contract of the diagonal-arrow mode at `IY+0x2C` bit 0 need a complete banked-code trace.
 
 ## Sources
 
@@ -385,4 +492,5 @@ nix develop -c python tools/describe_keypad_hardware.py --json profiles
 | [TilEm `scancodes.h`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/scancodes.h) | injected key identifiers |
 | [Wabbitemu `keys.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/keys.c) and [`83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | pairwise matrix algorithm and press-edge ON latch |
 | [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | keypad map, XOR scan, and timer-polled ON edge |
+| [WikiTI `_AppStartMouse`](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:4D47&oldid=10268), [`_AppEraseMouse`](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:4D53&oldid=3561), and [`_AppUpdateMouse`](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:4D65&oldid=3210) | literature names and published API synopsis; ROM bytes determine flag ownership and coordinate staging here |
 | Local headless TilEm `trace.c` at commit `8da5457` | key-event trace record format |

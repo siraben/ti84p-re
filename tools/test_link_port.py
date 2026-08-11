@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
 """Regression tests for the reusable two-wire link-port model."""
 
+from pathlib import Path
 import unittest
 
 from link_port import (
+    KEYBOARD_STATUS_RETURNS,
     LINK_PORT_PROFILES,
+    KeyboardFrame,
+    KeyboardGetKeyObservation,
+    KeyboardRomSignatureError,
+    analyze_keyboard_rom,
     assemble_observed_byte,
     abort_pulse_delay_tstates,
     abort_pulse_instruction_count,
     abort_pulse_report,
     byte_drive_sequence,
+    classify_keyboard_getkey,
+    decode_ti_keyboard_frame,
     drive_mask,
     emulator_port_write,
     emulator_write_sequence,
@@ -25,9 +33,105 @@ from link_port import (
     receiver_ack_drive,
     sender_drive,
 )
+from rom_image import RomImage
+
+
+ROM = Path(__file__).resolve().parent / "rom.bin"
 
 
 class LinkPortTests(unittest.TestCase):
+    def test_keyboard_rom_guard_verifies_bcall_and_control_flow_regions(self):
+        analysis = analyze_keyboard_rom(RomImage.from_path(ROM))
+
+        self.assertEqual("3C:6D5E", analysis.target)
+        self.assertEqual("5e6d7c", analysis.bcall_table_bytes)
+        self.assertEqual(3, len(analysis.regions))
+
+    def test_keyboard_rom_guard_rejects_a_changed_status_body(self):
+        rom = RomImage.from_path(ROM)
+        data = bytearray(rom.data)
+        data[rom.flat_offset(0x3C, 0x444A)] ^= 1
+
+        with self.assertRaisesRegex(
+            KeyboardRomSignatureError,
+            "lnk_rec_status signature mismatch",
+        ):
+            analyze_keyboard_rom(RomImage(bytes(data)))
+
+    def test_logical_keyboard_decoder_consumes_but_does_not_return_data(self):
+        result = decode_ti_keyboard_frame(KeyboardFrame(data=0x42))
+
+        self.assertEqual(0x01, result.status)
+        self.assertEqual(0x42, result.data)
+        self.assertTrue(result.data_consumed)
+        self.assertFalse(result.data_returned)
+
+    def test_logical_keyboard_decoder_rejects_each_frame_component(self):
+        cases = (
+            (None, 0x00),
+            (KeyboardFrame(prefix=0xE1), 0x02),
+            (KeyboardFrame(delimiter="ordinary"), 0x02),
+            (KeyboardFrame(delimiter="timeout"), 0x02),
+            (KeyboardFrame(command=0x02), 0xFC),
+        )
+        for frame, status in cases:
+            with self.subTest(frame=frame):
+                self.assertEqual(status, decode_ti_keyboard_frame(frame).status)
+
+    def test_keyboard_control_flow_reaches_every_explicit_status_tail(self):
+        cases = {
+            0x00: KeyboardGetKeyObservation(assist_status=0),
+            0x01: KeyboardGetKeyObservation(),
+            0x02: KeyboardGetKeyObservation(frame=KeyboardFrame(prefix=0x42)),
+            0xF9: KeyboardGetKeyObservation(assist_status=0x40),
+            0xFA: KeyboardGetKeyObservation(
+                assist_status=0x50,
+                buffered_byte=0x42,
+            ),
+            0xFB: KeyboardGetKeyObservation(
+                assist_status=0x50,
+                buffered_byte=0xE0,
+            ),
+            0xFC: KeyboardGetKeyObservation(frame=KeyboardFrame(command=0x02)),
+            0xFD: KeyboardGetKeyObservation(
+                initial_high_lines=2,
+                assist_available=False,
+                receive_status=1,
+            ),
+            0xFE: KeyboardGetKeyObservation(
+                receive_status=1,
+                frame=KeyboardFrame(prefix=0x42),
+            ),
+            0xFF: KeyboardGetKeyObservation(error_handler_invoked=True),
+        }
+
+        self.assertEqual(set(KEYBOARD_STATUS_RETURNS), set(cases))
+        for expected, observation in cases.items():
+            with self.subTest(status=expected):
+                result = classify_keyboard_getkey(observation)
+                self.assertEqual(expected, result.status)
+                self.assertEqual(
+                    KEYBOARD_STATUS_RETURNS[expected].address,
+                    result.return_address,
+                )
+
+    def test_buffered_assist_prefix_skips_delimiter_test(self):
+        result = classify_keyboard_getkey(
+            KeyboardGetKeyObservation(
+                receive_status=1,
+                frame=KeyboardFrame(delimiter="ordinary", data=0x7F),
+            )
+        )
+
+        self.assertEqual(0x01, result.status)
+        self.assertTrue(result.data_consumed)
+
+    def test_entry_assist_error_data_requires_a_buffered_byte(self):
+        with self.assertRaises(ValueError):
+            classify_keyboard_getkey(
+                KeyboardGetKeyObservation(assist_status=0x50)
+            )
+
     def test_abort_pulse_loop_has_exact_rom_tstate_count(self):
         self.assertEqual(7_077_785, abort_pulse_delay_tstates())
         self.assertEqual(1_114_096, abort_pulse_instruction_count())

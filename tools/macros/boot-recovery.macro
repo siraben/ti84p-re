@@ -1,0 +1,12 @@
+# Cold-boot a replayed Flash image, wake the calculator, dismiss the splash,
+# and leave enough time for archive-GC interruption recovery to finish.
+# Run with --normal-speed --reset and a full-address trace.
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+wait 4s

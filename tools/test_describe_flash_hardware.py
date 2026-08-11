@@ -53,6 +53,36 @@ class DescribeFlashHardwareTests(unittest.TestCase):
         self.assertEqual("partial", profiles[1]["fast_program"]["status"])
         json.dumps(data)
 
+    def test_wabbitemu_poll_reports_one_pair_as_json_data(self):
+        data = report(
+            self.parser.parse_args(
+                [
+                    "wabbitemu-poll",
+                    "--old",
+                    "0x50",
+                    "--data",
+                    "0xD0",
+                    "--json",
+                ]
+            )
+        )
+        poll = data["wabbitemu_poll"]
+
+        self.assertEqual("stalled", poll["outcome"])
+        self.assertEqual(2, poll["repeat_loop_index"])
+        self.assertEqual(
+            [0x20, 0x50, 0x50, 0x50], [read["value"] for read in poll["reads"]]
+        )
+        json.dumps(data)
+
+    def test_wabbitemu_poll_without_pair_reports_exhaustive_summary(self):
+        data = report(self.parser.parse_args(["wabbitemu-poll"]))
+        summary = data["wabbitemu_summary"]
+
+        self.assertEqual(49152, summary["successes"])
+        self.assertEqual(4096, summary["failures"])
+        self.assertEqual(12288, summary["stalled"])
+
 
 if __name__ == "__main__":
     unittest.main()

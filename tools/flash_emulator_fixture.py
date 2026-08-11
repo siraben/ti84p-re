@@ -11,11 +11,12 @@ from dataclasses import dataclass
 import hashlib
 from typing import Callable
 
+from rom_signatures import TI84_PLUS_OS_255MP_SHA256
 from ti_program import asm_call_body, asmprgm_body, encode_program_file
 
 
 ROM_SIZE = 0x100000
-SOURCE_ROM_SHA256 = "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d"
+SOURCE_ROM_SHA256 = TI84_PLUS_OS_255MP_SHA256
 UNLOCK_RETURN_OFFSET = 0xF3068
 UNLOCK_RETURN_ORIGINAL = bytes.fromhex("f1cdb92bcdd566c9")
 UNLOCK_RETURN_PATCHED = bytes.fromhex("f1c9000000000000")
@@ -228,6 +229,41 @@ def _validate_locked_byte_noop_probe(machine_code: bytes) -> None:
         raise ValueError("locked-byte fixture must restore OP1 once")
 
 
+def _validate_low_source_cross_probe(machine_code: bytes) -> None:
+    for check, label in (
+        (bytes.fromhex("216800"), "fixed-page source"),
+        (bytes.fromhex("21ca4c"), "block-worker head"),
+        (bytes.fromhex("21d566"), "protected-lock wrapper"),
+    ):
+        if check not in machine_code:
+            raise ValueError(f"low-source fixture lacks its {label} ROM check")
+    for signature, label in (
+        (bytes.fromhex("4d50"), "fixed-page source"),
+        (bytes.fromhex("e63fd306cb7c2004fdcb25cefdcb254e"), "worker head"),
+        (bytes.fromhex("00000000f5af00f30000ed56f3d314f3"), "lock wrapper"),
+    ):
+        if signature not in machine_code:
+            raise ValueError(
+                f"low-source fixture lacks the expected {label} bytes"
+            )
+    if machine_code.count(WRITEFLASH_UNSAFE_BCALL) != 1:
+        raise ValueError(
+            "low-source fixture must contain one `_WriteFlashUnsafe` bcall"
+        )
+    if bytes.fromhex("3e3d11ff7f010200216800ef8780") not in machine_code:
+        raise ValueError("low-source fixture lacks its crossing call inputs")
+    if bytes.fromhex("cb8e") not in machine_code:
+        raise ValueError("low-source fixture does not clear the source-mode flag")
+    if machine_code.count(bytes.fromhex("3a008032")) != 2:
+        raise ValueError("low-source fixture must save and capture RAM 0x8000")
+    if machine_code.count(bytes.fromhex("320080")) != 1:
+        raise ValueError("low-source fixture does not restore RAM 0x8000")
+    if machine_code.count(bytes.fromhex("cdd566")) != 1:
+        raise ValueError("low-source fixture must call the lock wrapper once")
+    if machine_code.count(bytes.fromhex("d314")) != 1:
+        raise ValueError("low-source fixture may contain port 0x14 only in its signature")
+
+
 def _validate_erase_entry_returns_probe(machine_code: bytes) -> None:
     if bytes.fromhex("06081abec0") not in machine_code:
         raise ValueError("erase-entry fixture lacks its signature-check loop")
@@ -406,6 +442,20 @@ FLASH_FIXTURES = {
                 "aborts unless port 0x02 confirms it"
             ),
             validate_probe=_validate_locked_byte_noop_probe,
+        ),
+        FlashFixtureSpec(
+            name="low-source-cross",
+            source_name="writeflash-low-source-cross.asm",
+            program_name="EMULOW",
+            runner_name="ALOWSRC",
+            rom_name="ti84plus-writeflash-low-source.rom",
+            comment="Locked-Flash low-source crossing fixture",
+            patch_unlock=False,
+            warning=(
+                "emulator-only; temporarily writes and restores RAM 0x8000 "
+                "while the guarded probe keeps Flash locked"
+            ),
+            validate_probe=_validate_low_source_cross_probe,
         ),
         FlashFixtureSpec(
             name="erase-entry-returns",

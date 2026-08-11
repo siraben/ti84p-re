@@ -157,8 +157,14 @@ path:
 The assist receiver returns a normal byte in `C` with `A=0`; the port-`0x09`
 bit-6 path returns `A=1`. `lnk_rec_status` compares the returned `C` with
 `0xE0`, and raises `E_LnkErr` when `A=1` and `C != 0xE0`. `_RecAByteIO`
-preserves no caller-supplied `A`. The protocol meaning of the returned `0xE0`
-marker remains [hypothesis].
+preserves no caller-supplied `A`. The exceptional `0xE0` is the TI-Keyboard
+prefix, not an assist-register sentinel: `_KeyboardGetKey = 50E9`, body
+`3C:6D5E`, expects it before a deliberate DBUS error delimiter, command `0x01`,
+and a final data byte. The ROM-confirmed decoder and the independently sourced
+peripheral description are separated in
+[Two-wire link port hardware](link-port-hardware.md#the-ti-keyboard-error-delimiter).
+[confirmed] for the receive path and decoder; [standard] for the reported
+physical-keyboard transmitter sequence.
 
 The assist reset/enable sequence at `3C:6C3B` writes:
 
@@ -481,3 +487,4 @@ Practical rules:
 | [Wabbitemu `83psehw.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | Partial line-state and interrupt model, with the implementation limits described above |
 | [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | Fixed USB interrupt reads and absent controller/endpoint ports |
 | [WikiTI port `0x09`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:09) | Historical link-assist timing-field interpretation, kept separate from ROM observations |
+| [WikiTI `_KeyboardGetKey` revision 5510](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:50E9&oldid=5510) | Historical TI-Keyboard transmitter sequence, checked against but not substituted for ROM control flow |

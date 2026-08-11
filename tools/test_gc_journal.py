@@ -11,7 +11,9 @@ from gc_journal import (
     GcJournalSignatureError,
     journal_trace_events,
     MASTER_PHASE_OFFSET,
+    SECTOR_STATE_OFFSET,
     sector_state_index,
+    sector_state_count,
 )
 from rom_image import RomImage, RomLocation
 
@@ -30,8 +32,13 @@ class GcJournalTests(unittest.TestCase):
             with self.subTest(page=page), self.assertRaises(ValueError):
                 sector_state_index(page)
 
+    def test_sector_state_count_uses_exclusive_archive_limit(self):
+        self.assertEqual(4, sector_state_count(0x16))
+        self.assertEqual(9, sector_state_count(0x2A))
+        self.assertEqual(25, sector_state_count(0x6A))
+
     def test_rejects_rom_without_page_3c(self):
-        with self.assertRaisesRegex(GcJournalSignatureError, "page 0x3C"):
+        with self.assertRaisesRegex(GcJournalSignatureError, "pages 0x3C-0x3D"):
             analyze_gc_journal(RomImage(bytes(0x4000)))
 
     def test_rejects_dispatch_signature_mismatch(self):
@@ -59,6 +66,29 @@ class GcJournalTests(unittest.TestCase):
             (0xFF, 0xFE, 0xFC, 0xF8, 0xF0, 0xE0),
             tuple(case.value for case in result.phase_cases),
         )
+
+    def test_pinned_rom_reports_model_selected_initialization(self):
+        initialization = analyze_gc_journal(
+            RomImage.from_path(ROM)
+        ).initialization
+
+        self.assertEqual(
+            RomLocation(0x3C, 0x7E6B), initialization.load_current_entry
+        )
+        self.assertEqual(
+            RomLocation(0x3C, 0x7317), initialization.initialize_entry
+        )
+        self.assertEqual(0x82A5, initialization.set_bit_ram_base)
+        self.assertEqual(0x64, initialization.set_bit_erased_length)
+        self.assertEqual(0x837B, initialization.clear_bit_ram_base)
+        self.assertEqual(0x12, initialization.clear_bit_erased_length)
+        self.assertEqual(0x66, initialization.certificate_rebuild_length)
+        self.assertEqual(0x64, initialization.retained_tail_offset)
+        self.assertEqual(2, initialization.retained_tail_length)
+        self.assertEqual(0x2A, initialization.ti84_plus_archive_limit)
+        self.assertEqual(9, initialization.ti84_plus_live_sector_state_count)
+        self.assertEqual(0x6A, initialization.maximum_archive_limit)
+        self.assertEqual(25, initialization.maximum_live_sector_state_count)
 
     def test_pinned_rom_reports_phase_write_sites(self):
         result = analyze_gc_journal(RomImage.from_path(ROM))
@@ -116,6 +146,32 @@ class GcJournalTests(unittest.TestCase):
             event.kind for event in events
         ))
         self.assertEqual((None, 0), tuple(event.sector_index for event in events))
+
+    def test_trace_events_reject_state_slot_beyond_rom_archive_limit(self):
+        state_count = sector_state_count(0x6A)
+        commands = (
+            FlashCommand(
+                "byte_program",
+                5,
+                50,
+                0xFA000 + SECTOR_STATE_OFFSET + state_count - 1,
+                0xFE,
+                (),
+            ),
+            FlashCommand(
+                "byte_program",
+                10,
+                100,
+                0xFA000 + SECTOR_STATE_OFFSET + state_count,
+                0xFE,
+                (),
+            ),
+        )
+
+        events = journal_trace_events(commands)
+
+        self.assertEqual(1, len(events))
+        self.assertEqual(24, events[0].sector_index)
 
     def test_json_report_keeps_phase_values_numeric(self):
         report = build_report(analyze_gc_journal(RomImage.from_path(ROM)))

@@ -10,6 +10,7 @@ import sys
 
 from keypad_hardware import (
     KEYPAD_EMULATOR_PROFILES,
+    app_mouse_force_key,
     on_transition_requests_interrupt,
     read_keypad_matrix,
 )
@@ -47,6 +48,12 @@ def build_parser() -> argparse.ArgumentParser:
     on.add_argument("transitions", nargs="+", choices=("press", "release"))
     on.add_argument("--emulator", action="append")
     on.add_argument("--disabled", action="store_true")
+
+    mouse = commands.add_parser("mouse", help="model an App mouse key event")
+    mouse.add_argument("scan_code", type=integer)
+    mouse.add_argument("--row", type=integer, default=0x1F)
+    mouse.add_argument("--column", type=integer, default=0x30)
+    mouse.add_argument("--second", action="store_true")
     return parser
 
 
@@ -59,6 +66,17 @@ def report(args: argparse.Namespace) -> dict[str, object]:
                 asdict(read_keypad_matrix(emulator, args.mask, args.key))
                 for emulator in _emulators(args.emulator)
             ]
+        }
+    if args.command == "mouse":
+        return {
+            "mouse": asdict(
+                app_mouse_force_key(
+                    args.row,
+                    args.column,
+                    args.scan_code,
+                    second_modifier=args.second,
+                )
+            )
         }
     return {
         "transitions": [
@@ -93,6 +111,23 @@ def print_text(data: dict[str, object]) -> None:
                 f"closed=0x{row['apparent_closed_bits']:02X}"
             )
             print(f"  {row['algorithm']}")
+        return
+    if "mouse" in data:
+        mouse = data["mouse"]
+        code = (
+            "none"
+            if mouse["return_code"] is None
+            else f"0x{mouse['return_code']:02X}"
+        )
+        print(
+            f"{mouse['key']} 0x{mouse['scan_code']:02X}: "
+            f"({mouse['start_row']},{mouse['start_column']}) -> "
+            f"({mouse['row']},{mouse['column']})"
+        )
+        print(
+            f"  outcome={mouse['outcome']} return={code} "
+            f"coordinates-in-HL={str(mouse['coordinates_returned_in_hl']).lower()}"
+        )
         return
     for row in data["transitions"]:
         result = "interrupt" if row["interrupt_requested"] else "no interrupt"
