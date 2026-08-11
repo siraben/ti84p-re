@@ -46,6 +46,10 @@ A physical page can appear in more than one window. During boot, Flash page
 addresses in those windows then alias the same physical bytes at different
 offsets. [confirmed]
 
+![Independent mode gives each banked window its own selector; paired mode maps an adjacent page pair through windows A and B.](images/paging-windows.svg)
+
+**Mapper view.** Window 0 remains fixed. The boot example is [confirmed]; the complete paired and independent register contract is [standard].
+
 ## Mapping modes — port `0x04` bit 0
 
 Writing port `0x04` changes the memory mode and the standard-timer rate. Its
