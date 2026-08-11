@@ -64,12 +64,16 @@
 47	port_rtcNow2
 48	port_rtcNow3
 4A	port_usbPhySwitches
+4B	port_usbPowerControl
 4C	port_usbControllerStatus
 4D	port_usbLineState
+4F	port_usbUnknown4F
+50	port_usbUnknown50
 54	port_usbPhyControl
 55	port_usbIntStatus
 56	port_usbLineEvents
 57	port_usbLineEventMask
+5A	port_usbPresentationMirror
 5B	port_usbProtocolIntEnable
 80	port_usbFAddr
 81	port_usbPower

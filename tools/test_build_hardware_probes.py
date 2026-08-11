@@ -70,7 +70,7 @@ class HardwareProbeBuilderTests(unittest.TestCase):
         )
 
     def test_probe_definitions_use_stable_names_and_ids(self):
-        self.assertEqual({1, 2, 3, 4}, {probe.probe_id for probe in PROBES.values()})
+        self.assertEqual({1, 2, 3, 4, 5}, {probe.probe_id for probe in PROBES.values()})
         for probe in PROBES.values():
             self.assertLessEqual(len(probe.program), 8)
             self.assertEqual(8, len(probe.appvar))
@@ -141,6 +141,13 @@ class HardwareProbeBuilderTests(unittest.TestCase):
             validate_machine_code(
                 "exec-flash-08",
                 fixture_machine_code("exec-flash-08"),
+            )
+
+    def test_usb_probe_requires_every_direct_port_read(self):
+        with self.assertRaisesRegex(ValueError, "must read port 0x49"):
+            validate_machine_code(
+                "usb-snapshot",
+                fixture_machine_code("usb-snapshot"),
             )
 
     def test_builder_refuses_existing_output_directory(self):

@@ -2,8 +2,8 @@
 
 The physical-probe suite builds small `AsmPrgm` programs and decodes their
 result AppVars. The sources cover MD5-assist edge behavior, RAM selector
-aliasing, execution-protection boundaries, and a read-only ASIC register
-snapshot. No exported result from a physical calculator has been recorded, so
+aliasing, execution-protection boundaries, and read-only ASIC and USB register
+snapshots. No exported result from a physical calculator has been recorded, so
 the hardware conclusions remain open.
 
 ## Measurement status
@@ -18,6 +18,7 @@ result AppVar is decoded and tied to a calculator and ASIC revision.
 | MD5 edge behavior | `HWPMD5` | `HWPMD511` | Not run on a recorded unit |
 | RAM selector aliasing | `HWPRAM` | `HWPRAM21` | Not run on a recorded unit |
 | ASIC register snapshot | `HWASIC` | `HWPASIC1` | Not run on a recorded unit |
+| USB control snapshot | `HWPUSB` | `HWPUSB01` | Not run on a recorded unit |
 | Flash execution boundaries | `HWEF07`–`HWEF2A` | matching `HWEF...01` names | Not run on a recorded unit |
 | RAM execution boundaries | `HWER81`–`HWER84` | matching `HWER...1` names | Not run on a recorded unit |
 
@@ -36,7 +37,7 @@ nix develop -c python tools/build_hardware_probes.py \
   --output-dir /tmp/hardware-probes
 ```
 
-The command emits the three snapshot and edge probes, ten single-fetch
+The command emits the four snapshot and edge probes, ten single-fetch
 execution probes, and `manifest.json`. The manifest records every target
 selector and scan range. It uses repository-relative source names and output
 basenames, so builds made in different checkout directories remain comparable.
@@ -48,13 +49,14 @@ a calculator backup before the first run. Then:
 
 1. Delete the probe's result AppVar if it already exists.
 2. Run `Asm(prgmHWASIC)` for the read-only register snapshot.
-3. Run `Asm(prgmHWPMD5)` for the MD5 probe.
-4. Run `Asm(prgmHWPRAM)` for the RAM probe only after the earlier transfer and run
+3. Run `Asm(prgmHWPUSB)` for the read-only USB control snapshot.
+4. Run `Asm(prgmHWPMD5)` for the MD5 probe.
+5. Run `Asm(prgmHWPRAM)` for the RAM probe only after the earlier transfer and run
    path works on that unit.
-5. Run at most one `HWEF...` or `HWER...` execution probe before exporting its
+6. Run at most one `HWEF...` or `HWER...` execution probe before exporting its
    result. A denied fetch may reset the calculator.
-6. Export the new result AppVar to the host.
-7. Record the calculator model, PCB or ASIC revision, boot version, OS version,
+7. Export the new result AppVar to the host.
+8. Record the calculator model, PCB or ASIC revision, boot version, OS version,
    and artifact hashes with the exported file.
 
 Do not treat an emulator run as a physical result. TilEm and Wabbitemu are
@@ -70,7 +72,7 @@ interprets measurements. [confirmed]
 ```sh
 python tools/decode_hardware_probe.py HWPMD511.8xv
 python tools/decode_hardware_probe.py --json \
-  HWPASIC1.8xv HWPMD511.8xv HWPRAM21.8xv
+  HWPASIC1.8xv HWPUSB01.8xv HWPMD511.8xv HWPRAM21.8xv
 ```
 
 The JSON form keeps the raw payload and adds named fields. Preserve the
@@ -132,12 +134,29 @@ restores each saved byte, verifies the restored values, and restores port
 
 An observed sequence of `11 22 33 44 55 66` distinguishes six independent
 selector backings for this address. `66 66 66 66 66 66` distinguishes a shared
-backing for selectors `82`–`87`. Other sequences require separate analysis.
-These interpretations follow from the write order; whether either topology
-appears on a specific calculator remains [hypothesis].
+backing for selectors `82`–`87`. The decoder also infers partial equivalence
+classes. Because writes occur in ascending selector order, every selector in
+one class must read the pattern written through the highest-numbered member.
+Bytes outside `11 22 33 44 55 66`, or a group whose reported writer is not its
+highest member, produce `mixed-or-unexpected`. [confirmed]
 
 The decoder reports `restore_matches`. A false value means the post-restore
 reads differ from the saved bytes and invalidates a claim of successful cleanup.
+
+The standalone CLI accepts the six observed bytes or simulates an explicit
+selector-to-backing assignment:
+
+```sh
+python tools/describe_ram_topology.py --observed 666666666666
+python tools/describe_ram_topology.py \
+  --simulate-backings 0,0,1,1,2,3 --json
+```
+
+The pinned SPASM-ng build produces 214 machine-code bytes with SHA-256
+`be8e1dc12060cda657cf076196e9f27302822cf7307935b5bf4056b0c55c548d`.
+The packaged 508-byte `HWPRAM.8xp` has SHA-256
+`72da5a412b596161b50f03fa5d5f2018d88b26c51207208bdf63335a9c67f6e3`.
+[confirmed]
 
 ## Execution-protection fetch probes
 
@@ -215,6 +234,34 @@ external timing or voltage observations. See [Bus timing and wait
 states](bus-timing.md#open-physical-tests) and [ASIC status, identity,
 protection, and GPIO](asic-status-gpio.md#open-physical-tests).
 
+## USB control snapshot
+
+Probe ID 5 reads ports `0x49`, `0x4A`–`0x4D`, `0x4F`–`0x52`,
+`0x54`–`0x57`, `0x5A`, and `0x5B`. Port `0x15` identity and port `0x02`
+status remain in the common frame header. The 15-byte payload preserves this
+port order. [confirmed]
+
+The program performs no I/O writes. It disables interrupts across the reads so
+the OS interrupt handler cannot alter the sampled USB state between fields.
+It then restores the caller's interrupt-enable state before creating the
+result AppVar. The builder verifies one direct `IN` instruction for every
+listed port. [confirmed] for source and assembled bytes; [hypothesis] for
+physical read values.
+
+The pinned SPASM-ng build produces 174 machine-code bytes with SHA-256
+`8a720e21077a9cad678b20228b5f66c8c7f54a83651989da0fe75b9807dc7e7f`.
+The packaged 428-byte `HWPUSB.8xp` has SHA-256
+`dc2f769c4b6fc98a9b47f66b7f6acdd9523810956de131aa42079c4cfa25027c`.
+[confirmed]
+
+Ports `0x49`, `0x51`, and `0x52` test historical transceiver and enable-timer
+claims that have no confirmed OS 2.55MP transaction. Ports `0x4B`, `0x4F`,
+`0x50`, and `0x5A` provide readback for controls whose ROM writes are known but
+whose physical meanings remain incomplete. The snapshot does not enable USB,
+start a timer, or test presentation mirroring. Connected and disconnected
+captures on known TA2 and TA3 units are both needed. See [USB ASIC and link
+assist](sub-usb-asic.md#transceiver-and-enable-timer-ports-without-confirmed-rom-control-flow).
+
 ## Safety boundary
 
 The RAM alias probe is designed to restore its writes, but it has not completed
@@ -236,6 +283,7 @@ for unmeasured physical execution and reset retention.
 |------|---------|
 | `tools/hardware-probes/common.inc` | OP1 setup, `_CreateAppVar`, and frame copy |
 | `tools/hardware-probes/asic-snapshot.asm` | read-only ASIC, timing, and GPIO register snapshot |
+| `tools/hardware-probes/usb-snapshot.asm` | read-only low-USB control and status snapshot |
 | `tools/hardware-probes/md5-edge.asm` | calculator-side MD5 measurements |
 | `tools/hardware-probes/ram-alias.asm` | calculator-side RAM alias and restoration measurements |
 | `tools/hardware-probes/execution-fetch.asm` | parameterized read-only Flash and RAM fetch measurement |

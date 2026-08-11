@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
+import re
+import subprocess
 from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 from pathlib import Path
-import re
-import subprocess
-
 
 WABBITEMU_COMMIT = "48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422"
 WABBITEMU_ARCHIVE_URL = (
@@ -470,6 +469,54 @@ class WabbitemuLcdReport:
     requested_speed: int
     clamped_speed: int
     timer_version: int
+    source_rom_sha256: str = ""
+    binary_sha256: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class WabbitemuLcdDiagnosticReport:
+    """Stable fields from direct-entry execution of retail LCD helpers."""
+
+    probe_size: int
+    boot_steps: int
+    boot_tstates: int
+    max_probe_steps: int
+    probe_steps: int
+    probe_tstates: int
+    init_visits: int
+    fill_visits: int
+    line_visits: int
+    contrast_visits: int
+    init_commands: int
+    init_data: int
+    fill_commands: int
+    fill_data: int
+    line_commands: int
+    line_data: int
+    contrast_commands: int
+    contrast_data: int
+    command_writes: int
+    data_writes: int
+    init_active: bool
+    init_word_length: int
+    init_cursor_mode: int
+    fill_hash: int
+    line_hash: int
+    fill_row0_col0: int
+    fill_row1_col0: int
+    fill_row0_col11: int
+    fill_row0_col12: int
+    line_row63_col0: int
+    line_row63_col11: int
+    line_row62_col0: int
+    contrast_out: int
+    contrast_level: int
+    violation_resets: int
+    completed: bool
+    final_pc: int
     source_rom_sha256: str = ""
     binary_sha256: str = ""
 
@@ -1741,6 +1788,71 @@ def parse_lcd_report(line: str) -> WabbitemuLcdReport:
     except (TypeError, ValueError) as error:
         raise WabbitemuHeadlessError(
             f"invalid native LCD report: {line.strip()}"
+        ) from error
+
+
+def parse_lcd_diagnostic_report(line: str) -> WabbitemuLcdDiagnosticReport:
+    """Parse one direct-entry retail-ROM LCD-helper report."""
+
+    fields = {match["key"]: match["value"] for match in REPORT_PATTERN.finditer(line)}
+    booleans = {"init_active", "completed"}
+    numeric = {
+        "probe_size",
+        "boot_steps",
+        "boot_tstates",
+        "max_probe_steps",
+        "probe_steps",
+        "probe_tstates",
+        "init_visits",
+        "fill_visits",
+        "line_visits",
+        "contrast_visits",
+        "init_commands",
+        "init_data",
+        "fill_commands",
+        "fill_data",
+        "line_commands",
+        "line_data",
+        "contrast_commands",
+        "contrast_data",
+        "command_writes",
+        "data_writes",
+        "init_word_length",
+        "init_cursor_mode",
+        "fill_hash",
+        "line_hash",
+        "fill_row0_col0",
+        "fill_row1_col0",
+        "fill_row0_col11",
+        "fill_row0_col12",
+        "line_row63_col0",
+        "line_row63_col11",
+        "line_row62_col0",
+        "contrast_out",
+        "contrast_level",
+        "violation_resets",
+        "final_pc",
+    }
+    required = {"mode", *booleans, *numeric}
+    missing = sorted(required - fields.keys())
+    if missing:
+        raise WabbitemuHeadlessError(
+            "native LCD diagnostic report omits " + ", ".join(missing)
+        )
+    if fields["mode"] != "lcd-diagnostic-probe":
+        raise WabbitemuHeadlessError(
+            f"unexpected native LCD diagnostic mode {fields['mode']!r}"
+        )
+    try:
+        values: dict[str, object] = {name: int(fields[name], 0) for name in numeric}
+        bool_values = {name: int(fields[name], 0) for name in booleans}
+        if any(value not in (0, 1) for value in bool_values.values()):
+            raise ValueError("LCD diagnostic booleans must be zero or one")
+        values.update({name: bool(value) for name, value in bool_values.items()})
+        return WabbitemuLcdDiagnosticReport(**values)
+    except (TypeError, ValueError) as error:
+        raise WabbitemuHeadlessError(
+            f"invalid native LCD diagnostic report: {line.strip()}"
         ) from error
 
 
@@ -3029,6 +3141,60 @@ def run_lcd_edge_probe(
         raise WabbitemuHeadlessError(f"native LCD probe failed: {detail}")
     report = parse_lcd_report(completed.stdout)
     return WabbitemuLcdReport(
+        **{
+            **report.to_dict(),
+            "source_rom_sha256": file_sha256(source_rom),
+            "binary_sha256": file_sha256(binary),
+        }
+    )
+
+
+def run_lcd_diagnostic_probe(
+    binary: Path,
+    source_rom: Path,
+    *,
+    max_boot_steps: int = 5_000_000,
+    max_probe_steps: int = 250_000,
+) -> WabbitemuLcdDiagnosticReport:
+    """Directly execute retail-ROM LCD helpers after the guarded boot baseline."""
+
+    try:
+        rom_size = source_rom.stat().st_size
+    except OSError as error:
+        raise WabbitemuHeadlessError(
+            f"cannot inspect LCD diagnostic fixture: {error}"
+        ) from error
+    if rom_size != FLASH_SIZE:
+        raise WabbitemuHeadlessError(
+            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
+        )
+    if max_boot_steps <= 0 or max_probe_steps <= 0:
+        raise WabbitemuHeadlessError("LCD diagnostic step bounds must be positive")
+    command = [
+        str(binary),
+        "--lcd-diagnostic-probe",
+        str(source_rom),
+        str(max_boot_steps),
+        str(max_probe_steps),
+    ]
+    try:
+        completed = subprocess.run(
+            command,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError as error:
+        raise WabbitemuHeadlessError(
+            f"cannot execute native runner: {error}"
+        ) from error
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or f"exit {completed.returncode}"
+        raise WabbitemuHeadlessError(
+            f"native LCD diagnostic probe failed: {detail}"
+        )
+    report = parse_lcd_diagnostic_report(completed.stdout)
+    return WabbitemuLcdDiagnosticReport(
         **{
             **report.to_dict(),
             "source_rom_sha256": file_sha256(source_rom),

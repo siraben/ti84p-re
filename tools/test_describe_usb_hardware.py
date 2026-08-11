@@ -31,6 +31,12 @@ class DescribeUsbHardwareTests(unittest.TestCase):
         self.assertTrue(register["mapped"])
         self.assertIn("hypothesis", register["evidence"])
 
+    def test_unobserved_low_usb_ports_are_absent_from_all_profiles(self):
+        data = report(self.parser.parse_args(["reads", "0x49", "0x51", "0x52"]))
+
+        self.assertEqual(9, len(data["reads"]))
+        self.assertTrue(all(not row["modeled"] for row in data["reads"]))
+
 
 if __name__ == "__main__":
     unittest.main()

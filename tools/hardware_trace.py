@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections import Counter
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
 
 from tilem_trace_resolve import (
     IDX_AF,
@@ -71,6 +72,14 @@ class ResolvedInstruction:
 
 
 @dataclass(frozen=True)
+class ResolvedExecution:
+    """One resolved instruction and its optional decoded I/O operation."""
+
+    instruction: ResolvedInstruction
+    io_event: ResolvedIoEvent | None
+
+
+@dataclass(frozen=True)
 class ResolvedMemoryWrite:
     """One logical write attributed to the instruction that generated it."""
 
@@ -86,6 +95,14 @@ class ResolvedMemoryWrite:
     page_offset: int | None
     flat_address: int | None
     unresolved: bool
+
+
+@dataclass(frozen=True)
+class TracePointCounts:
+    """Constant-memory hit counts for selected resolved instruction points."""
+
+    processed_instructions: int
+    counts: dict[tuple[str, int], int]
 
 
 def make_banker(
@@ -252,7 +269,7 @@ def iter_resolved_memory_writes(
                 yield event
 
 
-def iter_resolved_instructions(
+def iter_resolved_executions(
     path: Path,
     *,
     initial_mapping: str = "unknown",
@@ -263,8 +280,9 @@ def iter_resolved_instructions(
     initial_port27: int | None = None,
     initial_port28: int | None = None,
     resync: bool = False,
-) -> Iterator[ResolvedInstruction]:
-    """Yield resolved instructions while replaying the trace mapping."""
+    decode_io: bool = True,
+) -> Iterator[ResolvedExecution]:
+    """Yield instructions and decoded I/O in one streaming mapping replay."""
 
     banker = make_banker(
         initial_mapping,
@@ -285,7 +303,7 @@ def iter_resolved_instructions(
             (space, address, flat_address, page), _switch = resolve_instruction(
                 banker, payload
             )
-            yield ResolvedInstruction(
+            instruction = ResolvedInstruction(
                 instruction_index=instruction_index,
                 clock=payload[IDX_CLOCK],
                 logical_pc=payload[IDX_PC],
@@ -308,7 +326,52 @@ def iter_resolved_instructions(
                 sp=payload[IDX_SP],
                 wz=payload[IDX_WZ],
             )
+            decoded = decode_io_event(payload) if decode_io else None
+            io_event = None
+            if decoded is not None:
+                direction, port, value, form = decoded
+                io_event = ResolvedIoEvent(
+                    instruction_index=instruction_index,
+                    clock=payload[IDX_CLOCK],
+                    logical_pc=payload[IDX_PC],
+                    space=space,
+                    address=address,
+                    direction=direction,
+                    port=port,
+                    value=value,
+                    form=form,
+                )
+            yield ResolvedExecution(instruction, io_event)
             instruction_index += 1
+
+
+def iter_resolved_instructions(
+    path: Path,
+    *,
+    initial_mapping: str = "unknown",
+    initial_port4: int | None = None,
+    initial_port5: int | None = None,
+    initial_port6: int | None = None,
+    initial_port7: int | None = None,
+    initial_port27: int | None = None,
+    initial_port28: int | None = None,
+    resync: bool = False,
+) -> Iterator[ResolvedInstruction]:
+    """Yield resolved instructions while replaying the trace mapping."""
+
+    for execution in iter_resolved_executions(
+        path,
+        initial_mapping=initial_mapping,
+        initial_port4=initial_port4,
+        initial_port5=initial_port5,
+        initial_port6=initial_port6,
+        initial_port7=initial_port7,
+        initial_port27=initial_port27,
+        initial_port28=initial_port28,
+        resync=resync,
+        decode_io=False,
+    ):
+        yield execution.instruction
 
 
 def iter_resolved_io_events(
@@ -326,6 +389,43 @@ def iter_resolved_io_events(
 ) -> Iterator[ResolvedIoEvent]:
     """Yield resolved I/O instructions while replaying the trace mapping."""
 
+    for execution in iter_resolved_executions(
+        path,
+        initial_mapping=initial_mapping,
+        initial_port4=initial_port4,
+        initial_port5=initial_port5,
+        initial_port6=initial_port6,
+        initial_port7=initial_port7,
+        initial_port27=initial_port27,
+        initial_port28=initial_port28,
+        resync=resync,
+    ):
+        if execution.io_event is not None and (
+            ports is None or execution.io_event.port in ports
+        ):
+            yield execution.io_event
+
+
+def count_resolved_trace_points(
+    path: Path,
+    points: set[tuple[str, int]] | frozenset[tuple[str, int]],
+    *,
+    initial_mapping: str = "unknown",
+    initial_port4: int | None = None,
+    initial_port5: int | None = None,
+    initial_port6: int | None = None,
+    initial_port7: int | None = None,
+    initial_port27: int | None = None,
+    initial_port28: int | None = None,
+    resync: bool = False,
+) -> TracePointCounts:
+    """Count selected resolved PCs without allocating per-instruction objects.
+
+    Mapping writes still replay for every instruction. Only requested points
+    enter the retained counter, which keeps memory use independent of trace
+    length and avoids constructing the higher-level execution dataclasses.
+    """
+
     banker = make_banker(
         initial_mapping,
         initial_port4=initial_port4,
@@ -335,28 +435,19 @@ def iter_resolved_io_events(
         initial_port27=initial_port27,
         initial_port28=initial_port28,
     )
-    instruction_index = 0
+    wanted = frozenset(points)
+    counts: Counter[tuple[str, int]] = Counter()
+    processed = 0
     with path.open("rb") as fp:
         read_header(fp)
         for record_type, payload in iter_records(fp, resync=resync):
             if record_type != 0x01:
                 continue
-            (space, address, _flat, _page), _switch = resolve_instruction(
+            (space, address, _flat_address, _page), _switch = resolve_instruction(
                 banker, payload
             )
-            decoded = decode_io_event(payload)
-            if decoded is not None:
-                direction, port, value, form = decoded
-                if ports is None or port in ports:
-                    yield ResolvedIoEvent(
-                        instruction_index=instruction_index,
-                        clock=payload[IDX_CLOCK],
-                        logical_pc=payload[IDX_PC],
-                        space=space,
-                        address=address,
-                        direction=direction,
-                        port=port,
-                        value=value,
-                        form=form,
-                    )
-            instruction_index += 1
+            point = (space, address)
+            if point in wanted:
+                counts[point] += 1
+            processed += 1
+    return TracePointCounts(processed, dict(counts))

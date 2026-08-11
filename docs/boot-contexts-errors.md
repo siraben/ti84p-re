@@ -20,6 +20,11 @@ while page `3F` remains visible for the next instruction. See
 [Paging](paging.md#boot-mapping-transition) for the complete window-by-window
 transition. [confirmed]
 
+[Retail boot hardware initialization](boot-hardware.md) follows the
+continuation through its reset delay, RAM-window safety checks, ordered ASIC
+programming, first keypad scan, OS-validity decision, and destructive RAM
+diagnostic. It also reconciles standard Z80 timing with the pinned TilEm trace.
+
 The assembled `rom.bin` validates and installs the retail `D84PBE1.8Xv`
 payload at page `3F`; the pinned base already contains the same 16 KiB page, so
 the installation changes no bytes. The continuation begins
@@ -163,6 +168,10 @@ The `Code` column is each error's low 7 bits. Re-editable errors set the `E_EDIT
 - **Boot RAM-init trace — raw-disassembly trace.** Emulator reset starts at logical `0x8000` on page `3F` and reaches `3F:412C`; the page-0 restart vector at `ram:0000` → `ram:028C` reaches the same continuation. The RAM clear/re-init is `ram_reset_wipe` (`35:719f`): two `LDIR` zero-fills (`0x8000`–`0x9BC3`, `0x9BD0`–`0xFFFF`) preserving a few flag bytes, then `JP 0x0BD9` (`ram_init_after_reset`: port 0 = `0xC0`, stack reset in the raw trace, `CALL 0x3EC1`). The `ram:0BD9` entry matches the re-init point cross-referenced in [Memory management](memory-management.md). See [RAM clear / re-init](#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed).
 - **Flash write and erase.** The retail boot table maps `_WriteFlash` (`80C9`) to `3F:4C8F`, `_WriteFlashUnsafe` (`8087`) to `3F:4CA6`, `_WriteAByte` (`8021`) to `3F:4C9F`, and `_EraseFlash` (`8024`) to `3F:4C2A`. Their program and erase loops are copied to `ramCode` at `0x8100`. A successful archive trace executes `archive_write_record` at `3D:64AA`, three `_WriteAByte` calls, and six entries through `_WriteFlashUnsafe`. See [Flash memory](flash-memory.md). [confirmed]
 
-The `JP 0x812c` target and the `ram:3EC1` init continuation are both present in
-the assembled database. The remaining boot gaps concern the detailed work of
-the retail sequence between those anchors.
+The `JP 0x812C` target and the `ram:3EC1` init continuation are both present in
+the assembled database. The retail hardware work before the first keypad scan,
+the **MODE** RAM diagnostic, and the dormant LCD/keypad diagnostic at `3F:4658`
+are decoded in
+[Retail boot hardware initialization](boot-hardware.md#dormant-lcd-and-keypad-diagnostic).
+The sole branch to `3F:4658` is constant-false; later recovery/UI paths remain
+open. [confirmed]

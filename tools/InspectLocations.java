@@ -48,11 +48,13 @@ public class InspectLocations extends GhidraScript {
             Function containing = getFunctionContaining(target);
             Function entry = getFunctionAt(target);
             Instruction instruction = getInstructionAt(target);
+            Instruction owner = getInstructionContaining(target);
             println(
                 "LOCATION\t" + target +
                 "\tentry=" + functionName(entry) +
                 "\tcontaining=" + functionName(containing) +
-                "\tinstruction=" + (instruction == null ? "-" : instruction)
+                "\tinstruction=" + (instruction == null ? "-" : instruction) +
+                "\towner=" + (owner == null ? "-" : owner.getAddress() + " " + owner)
             );
             ReferenceIterator iterator = references.getReferencesTo(target);
             int count = 0;

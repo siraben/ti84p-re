@@ -19,6 +19,7 @@
 - [Interrupts (IM1)](interrupts.md)
     - [Clock, timers, and power](clock-timers-power.md)
 - [Boot, contexts & errors](boot-contexts-errors.md)
+    - [Retail boot hardware initialization](boot-hardware.md)
 - [Memory management](memory-management.md)
     - [Variables, archive & unarchive](sub-vat-archive.md)
     - [Apps, memory reset & settings](sub-apps-mem-settings.md)

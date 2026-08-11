@@ -4,16 +4,35 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ram_topology import decode_ram_alias_payload
 
 TI_SIGNATURE = b"**TI83F*\x1a\x0a\x00"
 PROBE_MAGIC = b"HWP1"
 PROBE_FORMAT_VERSION = 1
 APPVAR_TYPE = 0x15
+USB_SNAPSHOT_PORTS = (
+    0x49,
+    0x4A,
+    0x4B,
+    0x4C,
+    0x4D,
+    0x4F,
+    0x50,
+    0x51,
+    0x52,
+    0x54,
+    0x55,
+    0x56,
+    0x57,
+    0x5A,
+    0x5B,
+)
 PROBE_NAMES = {
     1: "md5-edge",
     2: "ram-alias",
     3: "asic-snapshot",
     4: "execution-fetch",
+    5: "usb-snapshot",
 }
 
 
@@ -217,28 +236,10 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
             "mixed_result": word(16),
         }
     if frame.probe_id == 2:
-        if len(frame.payload) != 18:
-            raise ProbeFormatError(
-                f"RAM alias payload must contain 18 bytes, got {len(frame.payload)}"
-            )
-        original = frame.payload[0:6]
-        observed = frame.payload[6:12]
-        restored = frame.payload[12:18]
-        patterns = bytes((0x11, 0x22, 0x33, 0x44, 0x55, 0x66))
-        if observed == patterns:
-            topology = "independent-selectors"
-        elif observed == bytes((0x66,)) * 6:
-            topology = "selectors-82-through-87-alias"
-        else:
-            topology = "mixed-or-unexpected"
-        return {
-            "selectors": [f"0x{selector:02X}" for selector in range(0x82, 0x88)],
-            "original": original.hex().upper(),
-            "observed": observed.hex().upper(),
-            "restored": restored.hex().upper(),
-            "restore_matches": restored == original,
-            "topology_observation": topology,
-        }
+        try:
+            return decode_ram_alias_payload(frame.payload).to_dict()
+        except ValueError as error:
+            raise ProbeFormatError(str(error)) from error
     if frame.probe_id == 3:
         if len(frame.payload) != 11:
             raise ProbeFormatError(
@@ -282,6 +283,20 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
                     strict=True,
                 )
             },
+        }
+    if frame.probe_id == 5:
+        if len(frame.payload) != len(USB_SNAPSHOT_PORTS):
+            raise ProbeFormatError(
+                "USB snapshot payload must contain "
+                f"{len(USB_SNAPSHOT_PORTS)} bytes, got {len(frame.payload)}"
+            )
+        return {
+            "registers": {
+                f"0x{port:02X}": f"0x{value:02X}"
+                for port, value in zip(
+                    USB_SNAPSHOT_PORTS, frame.payload, strict=True
+                )
+            }
         }
     return {"payload_hex": frame.payload.hex().upper()}
 

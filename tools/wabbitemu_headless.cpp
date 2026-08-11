@@ -842,6 +842,248 @@ int run_lcd_edge_probe(int argc, char **argv) {
     return 0;
 }
 
+std::uint64_t visible_lcd_fnv1a64(const LCD_t &lcd) {
+    std::uint64_t hash = UINT64_C(14695981039346656037);
+    for (unsigned int row = 0; row < LCD_HEIGHT; ++row) {
+        for (unsigned int column = 0; column < 12; ++column) {
+            hash ^= lcd.display[row * LCD_MEM_WIDTH + column];
+            hash *= UINT64_C(1099511628211);
+        }
+    }
+    return hash;
+}
+
+int run_lcd_diagnostic_probe(int argc, char **argv) {
+    if (argc < 3 || argc > 5) {
+        std::fprintf(
+            stderr,
+            "usage: %s --lcd-diagnostic-probe INPUT.rom "
+            "[MAX_BOOT_STEPS [MAX_PROBE_STEPS]]\n",
+            argv[0]
+        );
+        return 2;
+    }
+    const std::uint64_t max_boot_steps =
+        argc >= 4 ? parse_count(argv[3], "MAX_BOOT_STEPS") : UINT64_C(5000000);
+    const std::uint64_t max_probe_steps =
+        argc >= 5 ? parse_count(argv[4], "MAX_PROBE_STEPS") : UINT64_C(250000);
+    if (max_boot_steps == 0 || max_probe_steps == 0) {
+        fail("LCD diagnostic probe step bounds must be positive");
+    }
+
+    // The harness maps retail boot page 3F and directly calls its LCD helpers.
+    // Marker PCs are the first instructions after each CALL.
+    constexpr unsigned short init_marker = kProbeOrigin + 7;
+    constexpr unsigned short fill_marker = kProbeOrigin + 14;
+    constexpr unsigned short line_marker = kProbeOrigin + 21;
+    constexpr unsigned short contrast_marker = kProbeOrigin + 29;
+    const unsigned char harness[] = {
+        0x3E, 0x3F, 0xD3, 0x06,
+        0xCD, 0xC6, 0x74,
+        0x16, 0x55, 0x1E, 0xAA, 0xCD, 0xEF, 0x46,
+        0x06, 0xBF, 0x16, 0xFF, 0xCD, 0x2E, 0x47,
+        0x3E, 0x27, 0x32, 0x47, 0x84, 0xCD, 0xF8, 0x74,
+        0x76,
+    };
+
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+
+    std::uint64_t boot_steps = 0;
+    while (boot_steps < max_boot_steps && !boot_protection_ready(memory)) {
+        CPU_step(&cpu);
+        ++boot_steps;
+    }
+    if (!boot_protection_ready(memory)) {
+        fail("retail boot did not establish and relock the expected protection bounds");
+    }
+    const std::uint64_t boot_tstates = timer.tstates;
+
+    memory.boot_mapped = FALSE;
+    memory.banks = memory.normal_banks;
+    memory.port07 = 0x80 | kProbeRamPage;
+    change_page(&memory, 2, kProbeRamPage, TRUE);
+    const std::size_t program_physical =
+        kProbeRamPage * PAGE_SIZE + mc_base(kProbeOrigin);
+    std::memcpy(memory.ram + program_physical, harness, sizeof(harness));
+    if (std::memcmp(
+            memory.banks[2].addr + mc_base(kProbeOrigin),
+            harness,
+            sizeof(harness)
+        ) != 0) {
+        fail("injected LCD diagnostic harness does not read back from RAM");
+    }
+
+    LCD_t *lcd = reinterpret_cast<LCD_t *>(cpu.pio.lcd);
+    std::memset(lcd->display, 0, sizeof(lcd->display));
+    cpu.pc = kProbeOrigin;
+    cpu.sp = kProbeStack;
+    cpu.halt = FALSE;
+    cpu.iff1 = FALSE;
+    cpu.iff2 = FALSE;
+    cpu.interrupt = FALSE;
+    cpu.ei_block = FALSE;
+    cpu.prefix = 0;
+    execution_violation_resets = 0;
+    cpu.exe_violation_callback = record_execution_violation;
+
+    unsigned int init_visits = 0;
+    unsigned int fill_visits = 0;
+    unsigned int line_visits = 0;
+    unsigned int contrast_visits = 0;
+    unsigned int command_writes = 0;
+    unsigned int data_writes = 0;
+    unsigned int init_commands = 0;
+    unsigned int init_data = 0;
+    unsigned int fill_commands = 0;
+    unsigned int fill_data = 0;
+    unsigned int line_commands = 0;
+    unsigned int line_data = 0;
+    unsigned int contrast_commands = 0;
+    unsigned int contrast_data = 0;
+    unsigned int previous_commands = 0;
+    unsigned int previous_data = 0;
+    unsigned int init_active = 0;
+    unsigned int init_word_length = 0;
+    unsigned int init_cursor_mode = 0;
+    std::uint64_t fill_hash = 0;
+    std::uint64_t line_hash = 0;
+    unsigned char fill_row0_col0 = 0;
+    unsigned char fill_row1_col0 = 0;
+    unsigned char fill_row0_col11 = 0;
+    unsigned char fill_row0_col12 = 0;
+    unsigned char line_row63_col0 = 0;
+    unsigned char line_row63_col11 = 0;
+    unsigned char line_row62_col0 = 0;
+    unsigned char contrast_out = 0;
+
+    std::uint64_t probe_steps = 0;
+    for (; probe_steps < max_probe_steps && !cpu.halt; ++probe_steps) {
+        const bank_state_t &pc_bank = memory.banks[mc_bank(cpu.pc)];
+        const bool boot_page = !pc_bank.ram && pc_bank.page == 0x3F;
+        if (boot_page && cpu.pc == 0x74C6) {
+            ++init_visits;
+        }
+        if (boot_page && cpu.pc == 0x46EF) {
+            ++fill_visits;
+        }
+        if (boot_page && cpu.pc == 0x472E) {
+            ++line_visits;
+        }
+        if (boot_page && cpu.pc == 0x74F8) {
+            ++contrast_visits;
+        }
+        if (cpu.pc == init_marker) {
+            init_commands = command_writes - previous_commands;
+            init_data = data_writes - previous_data;
+            previous_commands = command_writes;
+            previous_data = data_writes;
+            init_active = lcd->base.active != FALSE;
+            init_word_length = lcd->word_len;
+            init_cursor_mode = static_cast<unsigned int>(lcd->base.cursor_mode);
+        }
+        if (cpu.pc == fill_marker) {
+            fill_commands = command_writes - previous_commands;
+            fill_data = data_writes - previous_data;
+            previous_commands = command_writes;
+            previous_data = data_writes;
+            fill_hash = visible_lcd_fnv1a64(*lcd);
+            fill_row0_col0 = lcd->display[0 * LCD_MEM_WIDTH + 0];
+            fill_row1_col0 = lcd->display[1 * LCD_MEM_WIDTH + 0];
+            fill_row0_col11 = lcd->display[0 * LCD_MEM_WIDTH + 11];
+            fill_row0_col12 = lcd->display[0 * LCD_MEM_WIDTH + 12];
+        }
+        if (cpu.pc == line_marker) {
+            line_commands = command_writes - previous_commands;
+            line_data = data_writes - previous_data;
+            previous_commands = command_writes;
+            previous_data = data_writes;
+            line_hash = visible_lcd_fnv1a64(*lcd);
+            line_row63_col0 = lcd->display[63 * LCD_MEM_WIDTH + 0];
+            line_row63_col11 = lcd->display[63 * LCD_MEM_WIDTH + 11];
+            line_row62_col0 = lcd->display[62 * LCD_MEM_WIDTH + 0];
+        }
+        if (cpu.pc == contrast_marker) {
+            contrast_commands = command_writes - previous_commands;
+            contrast_data = data_writes - previous_data;
+        }
+        if (boot_page && mc_base(cpu.pc) + 1 < PAGE_SIZE &&
+            pc_bank.addr[mc_base(cpu.pc)] == 0xD3) {
+            const unsigned char port = pc_bank.addr[mc_base(cpu.pc) + 1];
+            if (port == 0x10) {
+                ++command_writes;
+                contrast_out = cpu.a;
+            } else if (port == 0x11) {
+                ++data_writes;
+            }
+        }
+        CPU_step(&cpu);
+        if (execution_violation_resets != 0) {
+            ++probe_steps;
+            break;
+        }
+    }
+
+    const bool completed = cpu.halt && execution_violation_resets == 0;
+    std::printf(
+        "mode=lcd-diagnostic-probe probe_size=%zu boot_steps=%" PRIu64 " "
+        "boot_tstates=%" PRIu64 " max_probe_steps=%" PRIu64 " "
+        "probe_steps=%" PRIu64 " probe_tstates=%" PRIu64 " "
+        "init_visits=%u fill_visits=%u line_visits=%u contrast_visits=%u "
+        "init_commands=%u init_data=%u fill_commands=%u fill_data=%u "
+        "line_commands=%u line_data=%u contrast_commands=%u contrast_data=%u "
+        "command_writes=%u data_writes=%u init_active=%u "
+        "init_word_length=%u init_cursor_mode=%u "
+        "fill_hash=0x%016" PRIx64 " line_hash=0x%016" PRIx64 " "
+        "fill_row0_col0=0x%02X fill_row1_col0=0x%02X "
+        "fill_row0_col11=0x%02X fill_row0_col12=0x%02X "
+        "line_row63_col0=0x%02X line_row63_col11=0x%02X "
+        "line_row62_col0=0x%02X contrast_out=0x%02X contrast_level=%u "
+        "violation_resets=%u completed=%d final_pc=0x%04X\n",
+        sizeof(harness),
+        boot_steps,
+        boot_tstates,
+        max_probe_steps,
+        probe_steps,
+        timer.tstates - boot_tstates,
+        init_visits,
+        fill_visits,
+        line_visits,
+        contrast_visits,
+        init_commands,
+        init_data,
+        fill_commands,
+        fill_data,
+        line_commands,
+        line_data,
+        contrast_commands,
+        contrast_data,
+        command_writes,
+        data_writes,
+        init_active,
+        init_word_length,
+        init_cursor_mode,
+        fill_hash,
+        line_hash,
+        fill_row0_col0,
+        fill_row1_col0,
+        fill_row0_col11,
+        fill_row0_col12,
+        line_row63_col0,
+        line_row63_col11,
+        line_row62_col0,
+        contrast_out,
+        lcd->base.contrast,
+        execution_violation_resets,
+        static_cast<int>(completed),
+        cpu.pc
+    );
+    return completed ? 0 : 3;
+}
+
 unsigned int memory_wait_mask(const memory_context_t &memory) {
     return
         (memory.read_OP_flash_tstates ? 0x01 : 0) |
@@ -3644,6 +3886,9 @@ int main(int argc, char **argv) {
     }
     if (argc >= 2 && std::strcmp(argv[1], "--lcd-edge-probe") == 0) {
         return run_lcd_edge_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--lcd-diagnostic-probe") == 0) {
+        return run_lcd_diagnostic_probe(argc, argv);
     }
     if (argc >= 2 && std::strcmp(argv[1], "--asic-edge-probe") == 0) {
         return run_asic_edge_probe(argc, argv);
