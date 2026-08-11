@@ -3,13 +3,22 @@
 
 import unittest
 from pathlib import Path
+import struct
 import sys
+import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from analyze_ram_page_trace import map_ram_write
-from hardware_trace import MemoryWriteAttributor
-from tilem_trace_resolve import Banker, IDX_OPCODE, IDX_PC, IDX_WZ
+from hardware_trace import MemoryWriteAttributor, iter_resolved_instructions
+from tilem_trace_resolve import (
+    Banker,
+    HEADER_FMT,
+    INSTR_FMT,
+    IDX_OPCODE,
+    IDX_PC,
+    IDX_WZ,
+)
 
 
 def instruction(pc, opcode=0x00, wz=0x0000):
@@ -60,6 +69,39 @@ class RamWriteMappingTests(unittest.TestCase):
         self.assertIsNone(map_ram_write(banker, 0xFFBF))
         self.assertEqual((0x80, 0x3FC0, 3),
                          map_ram_write(banker, 0xFFC0))
+
+
+class RamInstructionMappingTests(unittest.TestCase):
+    def test_resolved_instruction_reports_physical_ram_page(self):
+        fields = instruction(0x8123)
+        with tempfile.NamedTemporaryFile() as fp:
+            fp.write(struct.pack(HEADER_FMT, b"TLMT", 2, 7, 0, 0xFFFF, 0))
+            fp.write(b"\x01")
+            fp.write(struct.pack(INSTR_FMT, *fields))
+            fp.flush()
+
+            events = list(
+                iter_resolved_instructions(
+                    Path(fp.name),
+                    initial_port4=0,
+                    initial_port5=0,
+                    initial_port6=0x81,
+                    initial_port7=0x85,
+                    initial_port27=0,
+                    initial_port28=0,
+                )
+            )
+
+        self.assertEqual(1, len(events))
+        self.assertEqual(
+            ("ram", 0x8123, None, 5),
+            (
+                events[0].space,
+                events[0].address,
+                events[0].page,
+                events[0].physical_page,
+            ),
+        )
 
 
 class WriteAttributorTests(unittest.TestCase):

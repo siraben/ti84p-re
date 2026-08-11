@@ -68,11 +68,8 @@ class DescribeFlashHardwareTests(unittest.TestCase):
         )
         poll = data["wabbitemu_poll"]
 
-        self.assertEqual("stalled", poll["outcome"])
-        self.assertEqual(2, poll["repeat_loop_index"])
-        self.assertEqual(
-            [0x20, 0x50, 0x50, 0x50], [read["value"] for read in poll["reads"]]
-        )
+        self.assertEqual("failure", poll["outcome"])
+        self.assertEqual([0x20, 0x50], [read["value"] for read in poll["reads"]])
         json.dumps(data)
 
     def test_wabbitemu_poll_without_pair_reports_exhaustive_summary(self):
@@ -80,8 +77,7 @@ class DescribeFlashHardwareTests(unittest.TestCase):
         summary = data["wabbitemu_summary"]
 
         self.assertEqual(49152, summary["successes"])
-        self.assertEqual(4096, summary["failures"])
-        self.assertEqual(12288, summary["stalled"])
+        self.assertEqual(16384, summary["failures"])
 
 
 if __name__ == "__main__":

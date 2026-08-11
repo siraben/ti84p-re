@@ -377,6 +377,66 @@ page `0x08`, `ram:8122` outputs page `0x09`, and `ram:8124` has changed `DE`
 from `0x8000` to `0x4000`. Clock values depend on the complete run and macro
 timing; use the invocation report to narrow the point query after recapture.
 
+### Execution-protection boundary fixture
+
+`execution_protection_fixture.py` builds exact-ROM copies with a six-byte
+marker at `pp:7FF0`, validates the 75-byte assembly probe, and classifies a
+trace from its call, target-fetch, follow-up, return, and reset records. The
+default CLI run covers both sides of the boot bounds `08`–`29`:
+
+```sh
+probe_parent=$(mktemp -d)
+nix develop -c python tools/run_execution_protection_probe.py \
+  --tilem "$TILEM" --output-dir "$probe_parent/run" --json
+```
+
+The command refuses to reuse an output directory and never changes its source
+ROM. It emits a patched ROM copy, machine-code program, BASIC runner, complete
+trace, emulator log, and hashes for pages `07`, `08`, `29`, and `2A`. The
+classifier requires `07` and `2A` to return and `08` and `29` to enter the
+reset stub without reaching the marker's second instruction. See
+[Execution protection](../docs/execution-protection.md#guarded-tilem-boundary-trace)
+for the recorded clocks and identities.
+
+### RAM execution-protection fixtures
+
+`execution_protection_fixture.py` also validates RAM targets, packages TilEm
+program pairs, patches the boot mode immediate, and classifies physical-page
+fetches. The TilEm CLI changes only `3F:41D6` for modes 1–3. Its self-installing
+probe writes and reads back the six-byte target through data accesses before
+the guarded call:
+
+```sh
+ram_probe_parent=$(mktemp -d)
+nix develop -c python tools/run_tilem_ram_execution_probe.py \
+  --tilem "$TILEM" --output-dir "$ram_probe_parent/run" --json
+```
+
+The default run covers page-2 chunk 0 and chunk 1 in modes 0 and 1, plus the
+mode-1 page-5 and page-6 repetitions. It rejects any control-flow result or
+restricted-RAM warning count that disagrees with the pinned TilEm predicate.
+Each output directory contains the mode-specific ROM, assembly program, BASIC
+launcher, emulator log, complete trace, and hash-complete manifest. Complete
+traces are about 200 MB each.
+
+The native Wabbitemu CLI uses direct core injection after the retail boot has
+established and relocked the baseline registers:
+
+```sh
+wabbit_ram_parent=$(mktemp -d)
+nix develop -c python tools/run_wabbitemu_ram_execution_probe.py \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_ram_parent/run" --json
+```
+
+Its default 18 targets cover modes 0–3, odd-page shortcuts, the complete upper
+chunk, the next denied chunk, and the mode-1 disagreements. Custom
+`--lower-chunk`, `--upper-chunk`, and repeatable
+`--target MODE:PHYSICAL_PAGE:PAGE_OFFSET` arguments expose other cases. The
+runner checks the boot snapshot, configured 16-bit bounds, source and target
+mappings, markers, visits, resets, expected predicate, and all input hashes.
+Both launch methods remain emulator evidence, not physical ASIC measurements.
+
 ### Guarded Flash-worker fixtures
 
 `build_flash_emulator_fixture.py` creates a fixture copy of the exact local OS
@@ -725,12 +785,11 @@ labels it `worker_outcome: "failure"`. Poll reads return `0x00`, `0x60`, then
 `0x50`. These values describe pinned TilEm and the OS worker. They do not
 establish physical-device failure timing or status values.
 
-Do not reuse this fixture unchanged as a Wabbitemu failure probe. Pinned
-Wabbitemu source predicts that the same stored `0x50`, requested `0xD0` pair
-consumes its one error-status read before the ROM's separate DQ5 read. Later
-array reads keep DQ7 different and DQ5 clear, so the worker repeats its poll
-loop without terminating. This is a source-model prediction, not a captured
-Wabbitemu trace or a hardware result. [standard]
+Pinned Wabbitemu returns `0x20` for the first read of this pair and clears its
+error flag. The ROM worker tests DQ5 in that same `0x20` byte, then performs one
+final read. The final `0x50` leaves DQ7 different from requested `0xD0`, so the
+worker takes its failure tail. The guarded native worker probe below captures
+this path. It is not a hardware result.
 
 #### Internal certificate-program failure probe
 
@@ -982,7 +1041,7 @@ Current TilEm backtrace files retain whole records. `--resync` is available for
 older or damaged traces with unknown bytes, but it cannot prove record alignment
 because TLMT v2 has no per-record checksum or framing marker.
 
-### Pinned Wabbitemu headless recovery
+### Pinned Wabbitemu headless adapter
 
 The repository carries a minimal native adapter rather than a fork of
 Wabbitemu. Download and verify the pinned codeload archive, then build through
@@ -1010,6 +1069,87 @@ at preprocessing time and stubs callbacks used only by the GUI debugger and
 disabled audio; it does not patch CPU, Flash, memory, device, keypad,
 interrupt, or LCD behavior.
 
+The same binary has an explicit guarded execution-probe mode. The Python CLI
+builds exact-ROM fixtures through the shared library, waits for the retail boot
+to establish and relock all five protection registers, and then injects the
+validated 75-byte probe into physical RAM page 1:
+
+```sh
+wabbit_probe_parent=$(mktemp -d)
+nix develop -c python tools/run_wabbitemu_execution_probe.py \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_probe_parent/run" --json
+```
+
+The default page set is `07`, `08`, `09`, `29`, and `2A`. Page `09` separates
+Wabbitemu's lower-exclusive Flash predicate from TilEm's inclusive predicate.
+The native adapter verifies the marker bytes in the fixture ROM and the
+complete logical RAM copy before setting `PC=0x9D95`. Its violation callback
+records the event and invokes Wabbitemu's normal `CPU_reset` function. This is
+an emulator-core injection, not an OS/UI execution path or physical-hardware
+result. The CLI rejects unexpected bounds, mappings, marker values, control
+flow, resets, hashes, and classifications.
+
+The binary also exposes a direct Flash byte-program probe. This mode initializes
+the core, unlocks its in-memory ASIC gate, and sends `AA 55 A0` plus the target
+write through `CPU_mem_write`. It reads the target twice through
+`CPU_mem_read`. The guarded CLI requires the exact OS 2.55MP image. It checks
+the native report against fixed launch expectations and the independent source
+model in `flash_hardware.py`:
+
+```sh
+wabbit_program_parent=$(mktemp -d /tmp/ti84-wabbit-program.XXXXXX)
+python tools/run_wabbitemu_flash_program_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_program_parent/run" --json
+```
+
+The default matrix covers three legal requests and four illegal `0→1`
+requests, including both initial DQ6 states for one pair. The repeatable
+`--case INITIAL:REQUESTED[:TOGGLE]` option replaces the default matrix. The
+manifest records the complete native fields plus the ROM and binary hashes.
+This mode tests initialized Wabbitemu command-state behavior. It does not run
+the retail ROM worker and provides no physical-device or timing evidence.
+
+Run the guarded command-family matrix separately:
+
+```sh
+wabbit_command_parent=$(mktemp -d /tmp/ti84-wabbit-command.XXXXXX)
+python tools/run_wabbitemu_flash_command_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_command_parent/run" --json
+```
+
+This mode checks autoselect, reset from autoselect and a partial unlock,
+repeated fast programming and exit, one ordinary 64 KiB sector erase, and chip
+erase through the native core interfaces. It also verifies that a CFI query
+and an erase-suspend/resume attempt create no command state or array mutation.
+The sector case seeds its complete expected range plus both adjacent boundary
+bytes. The chip case counts the complete array and seeds the last boot-page
+byte. All mutations remain in Wabbitemu's allocated Flash array; the source ROM
+file is read-only input. The guarded CLI rejects every unexpected state,
+identifier, range, mutation count, hash, and T-state count.
+
+Run the guarded retail-worker matrix separately:
+
+```sh
+wabbit_worker_parent=$(mktemp -d /tmp/ti84-wabbit-worker.XXXXXX)
+python tools/run_wabbitemu_flash_worker_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_worker_parent/run" --json
+```
+
+This mode boots the exact ROM and injects only `rst 28h`, bcall ID `8087h`,
+`HALT`, and one source byte into RAM page 1. It sets the documented ABI
+registers and directly opens Wabbitemu's in-memory Flash gate. The retail bcall
+copies its original worker from `3F:4CCA` and runs it at `0x8100`. The default
+matrix covers legal success, illegal lower-bit false success, illegal DQ7
+failure with both stored DQ5 states, and both initial DQ6 states. It does not
+exercise the protected unlock sequence, an OS/UI caller, or physical Flash.
+
 Run one replayed image with an input-identity guard and a separate output:
 
 ```sh
@@ -1018,15 +1158,35 @@ python tools/run_wabbitemu_headless.py "$replay_dir/gc-phase-ff.rom" \
   --output "$wabbit_tmp/gc-recovered-ff.rom" \
   --expected-input-sha256 \
     4e484ad4b99f07a333ae3845ee795b36cb6181e9a829261b2d52ff7931ac8f05 \
+  --expected-output-sha256 \
+    8c857701d7da118d5c5f4c240ee21af91a10b95539059e74fb5e423368a683f9 \
+  --expect-gate-write '3F:4163:01:1>0' \
+  --expect-gate-write '3F:4221:00:0>1' \
+  --expect-gate-write '3D:60A6:01:1>0' \
+  --expect-gate-write '3D:5CEF:00:0>1' \
+  --require-retail-flash-path \
   --json
 ```
 
 The runner starts with fresh RAM, models the ON press/release used by the TilEm
 recovery macro, samples the entire Flash array while executing, and reports
-the known page-`0x3C` recovery points it executes. Settling means ten identical
-samples one million instructions apart after at least 20 million instructions;
-it is not a physical timing claim. Compare the reported complete output hash,
-not only the phase byte.
+the known page-`0x3C` recovery points it executes. The repeated gate-write
+options require the complete ordered list, including the boot-page pair and
+the recovery unlock/relock pair. `--require-retail-flash-path` requires an
+accepted unlock and relock, matching `_WriteFlashUnsafe` and byte-identical
+copied-worker entry counts, at least one program write per worker, one success
+tail per worker, and no failure tail. Settling means ten identical samples one
+million instructions apart after at least 20 million instructions; it is not
+a physical timing claim. Compare the reported complete output hash, not only
+the phase byte.
+
+The recovery path begins at the startup call at `00:0D73`. Its bjump stub
+enters `3D:6098`, whose protected bytes unlock at `3D:60A6`. The wrapper calls
+the `00:2BAD` bjump stub to reach `3C:7BC7`, then jumps to the shared page-`3D`
+lock sequence after recovery returns. The native report represents each gate
+write and lock transition as typed JSON fields. It also reports separate
+counts for public write/erase bcalls, exact block-worker entries, data writes,
+and success/failure reset tails.
 
 The reconstructed phase-`0xF0` image executes the `3C:7CE3` branch and settles
 after 20,000,000 instructions. Its output SHA-256 is
@@ -1082,7 +1242,7 @@ rather than paged-address resolution.
 ## Files
 
 - [`tilem_trace_resolve.py`](tilem_trace_resolve.py) — trace → paged Ghidra address resolver.
-- [`hardware_trace.py`](hardware_trace.py) — importable resolved-instruction, I/O-event, and memory-write iterators.
+- [`hardware_trace.py`](hardware_trace.py) — importable resolved-instruction, physical-RAM-page, I/O-event, and memory-write iterators.
 - [`analyze_trace_points.py`](analyze_trace_points.py) — resolved-address visits, opcode/register filters, register-frequency summaries, and JSON reports.
 - [`analyze_ram_page_trace.py`](analyze_ram_page_trace.py) — trace memory writes → physical RAM page ranges.
 - [`analyze_memory_writes.py`](analyze_memory_writes.py) — arbitrary resolved memory-write filters by logical target, writing PC, target kind, clock, and JSON output.
@@ -1090,10 +1250,17 @@ rather than paged-address resolution.
 - [`analyze_flash_trace.py`](analyze_flash_trace.py) — command-shaped write summaries, worker-invocation grouping, event filters, compact timelines, and JSON reports with explicit acceptance semantics.
 - [`flash_replay.py`](flash_replay.py) — accepted-command replay, NOR programming, top-boot erasure, active-certificate selection, and GC phase snapshots.
 - [`replay_flash_trace.py`](replay_flash_trace.py) — guarded CLI for complete replay and interrupted GC images with source/output hashes.
-- [`wabbitemu_headless.cpp`](wabbitemu_headless.cpp) — minimal Linux adapter, wake scheduler, Flash sampler, and recovery-point recorder for the pinned Wabbitemu core.
-- [`wabbitemu_headless.py`](wabbitemu_headless.py) — reusable pinned-source validation, build command, execution, report parsing, and image hashing.
+- [`wabbitemu_headless.cpp`](wabbitemu_headless.cpp) — minimal Linux adapter, wake scheduler, Flash sampler, protected-gate observer, exact copied-worker matcher, recovery-point recorder, and guarded execution, command-family, byte-program, and retail-worker probe modes for the pinned Wabbitemu core.
+- [`wabbitemu_headless.py`](wabbitemu_headless.py) — reusable pinned-source validation, build command, recovery and probe runners, typed gate/report parsing, retail-path validation, and image hashing.
+- [`wabbitemu_flash_probe.py`](wabbitemu_flash_probe.py) — shared Flash case parser plus command-family, byte-program, and retail-worker report oracles.
 - [`build_wabbitemu_headless.py`](build_wabbitemu_headless.py) — guarded compiler CLI for the exact pinned source tree.
-- [`run_wabbitemu_headless.py`](run_wabbitemu_headless.py) — guarded cold-boot CLI with input/output hashes and JSON coverage.
+- [`run_wabbitemu_headless.py`](run_wabbitemu_headless.py) — guarded cold-boot CLI with input/output hashes, exact gate-write expectations, retail Flash-path validation, and JSON coverage.
+- [`run_wabbitemu_execution_probe.py`](run_wabbitemu_execution_probe.py) — exact-ROM boundary-fixture CLI with expected-predicate, register, mapping, marker, reset, and hash checks.
+- [`run_wabbitemu_ram_execution_probe.py`](run_wabbitemu_ram_execution_probe.py) — guarded all-mode RAM target matrix with custom bound and target support.
+- [`run_wabbitemu_flash_program_probe.py`](run_wabbitemu_flash_program_probe.py) — guarded native byte-program matrix with source-model, report-field, ROM, and binary checks.
+- [`run_wabbitemu_flash_command_probe.py`](run_wabbitemu_flash_command_probe.py) — guarded native autoselect, reset, fast-program, erase, and unsupported-command matrix with complete mutation-range checks.
+- [`run_wabbitemu_flash_worker_probe.py`](run_wabbitemu_flash_worker_probe.py) — guarded retail-ROM `_WriteFlashUnsafe` matrix with copied-worker path, register, poll-read, reset-tail, and hash checks.
+- [`run_tilem_ram_execution_probe.py`](run_tilem_ram_execution_probe.py) — exact-ROM, mode-patched TilEm RAM boundary and repetition runner.
 - [`gc_layout.py`](gc_layout.py) — reusable validation and construction for explicit synthetic archive-sector headers.
 - [`build_gc_layout.py`](build_gc_layout.py) — hash-guarded CLI that reports every controlled layout mutation.
 - [`archive_fixture.py`](archive_fixture.py) — exact archive-record serialization and fresh erased-sector first-fit placement.
@@ -1108,7 +1275,10 @@ rather than paged-address resolution.
 - [`build_ti_program.py`](build_ti_program.py) — JSON-capable `.8xp` fixture builder.
 - [`z80_disassembly.py`](z80_disassembly.py) — reusable `z80dasm` parser and paged-ROM literal and call-target helpers.
 - [`analyze_rom_literals.py`](analyze_rom_literals.py) — all-page immediate-value candidates with optional nearby call/jump sinks.
-- [`analyze_rom_calls.py`](analyze_rom_calls.py) — direct `CALL`/`JP`, raw bcall, and inline cross-page bjump references with inferred target spaces, source-page filtering, instruction context, and JSON output.
+- [`rom_calls.py`](rom_calls.py) — reusable direct `CALL`/`JP`, raw bcall, inline cross-page bjump, and bjump-stub caller reports with inferred target spaces and marked instruction context.
+- [`analyze_rom_calls.py`](analyze_rom_calls.py) — thin CLI over `rom_calls.py` with source- and target-page filters plus text and JSON output.
+- [`execution_protection_fixture.py`](execution_protection_fixture.py) — exact-ROM marker patching, guarded probe validation, TI program packaging, and protected-fetch trace classification.
+- [`run_execution_protection_probe.py`](run_execution_protection_probe.py) — four-boundary TilEm runner with source, fixture, machine-code, and trace hashes.
 - [`error_table.py`](error_table.py) — reusable decoder for raw `_JError` codes and the page-`07` message-pointer table.
 - [`describe_error.py`](describe_error.py) — text and JSON reports for the message selected by one or more raw error codes.
 - [`z80_io.py`](z80_io.py) — reusable immediate-port access decoding for static ROM disassembly.

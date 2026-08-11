@@ -135,6 +135,23 @@ class HardwareProbeTests(unittest.TestCase):
         self.assertEqual("0xF0", report["registers"]["0x39"])
         self.assertEqual("0xA5", report["registers"]["0x3A"])
 
+    def test_execution_fetch_decodes_target_outcome_and_registers(self):
+        payload = bytes.fromhex(
+            "01820004000434420107821008292026"
+        )
+        frame = ProbeFrame(probe_id=4, asic_id=0x45, status=0xE3, payload=payload)
+
+        report = decode_probe_measurements(frame)
+
+        self.assertEqual("ram", report["target_kind"])
+        self.assertEqual("0x82", report["target_selector"])
+        self.assertEqual("0x0400", report["scan_start"])
+        self.assertEqual("0x0400", report["scan_length"])
+        self.assertEqual("0x4234", report["target_address"])
+        self.assertEqual("returned", report["outcome"])
+        self.assertEqual("0x07", report["registers"]["0x04"])
+        self.assertEqual("0x08", report["registers"]["0x22"])
+
 
 if __name__ == "__main__":
     unittest.main()

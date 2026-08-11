@@ -20,10 +20,12 @@ while page `3F` remains visible for the next instruction. See
 [Paging](paging.md#boot-mapping-transition) for the complete window-by-window
 transition. [confirmed]
 
-The assembled `rom.bin` installs the retail `D84PBE1.8Xv` payload at page
-`3F`; the continuation begins `IM 1; LD B,0; LD SP,0xFDFA; …`. The boot page
-eventually initializes RAM, the VAT, system flags, the LCD, and enters the main
-context (the homescreen).
+The assembled `rom.bin` validates and installs the retail `D84PBE1.8Xv`
+payload at page `3F`; the pinned base already contains the same 16 KiB page, so
+the installation changes no bytes. The continuation begins
+`IM 1; LD B,0; LD SP,0xFDFA; …`. The boot page eventually initializes RAM, the
+VAT, system flags, the LCD, and enters the main context (the homescreen).
+[confirmed]
 
 The boot page (`3F`) and its version queries are exposed to the OS through `ti83plus.inc` bcalls: `_getBootVer` (bcall `0x80B7` → `3F:477C`) and `_getHardwareVersion` (bcall `0x80BA` → `3F:4781`). The USB boot support entry points route through the same table but land on page `2F`, for example `_AttemptUSBOSReceive` (`0x80E4` → `2F:4145`) and `_InitUSB` (`0x8108` → `2F:52A4`).
 

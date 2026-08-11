@@ -32,6 +32,7 @@ class ProbeDefinition:
     appvar: str
     probe_id: int
     payload_size: int
+    defines: tuple[tuple[str, int], ...] = ()
 
     @property
     def source(self) -> Path:
@@ -47,6 +48,56 @@ PROBES = {
     ),
     "asic-snapshot": ProbeDefinition(
         "asic-snapshot.asm", "HWASIC", "HWPASIC1", 3, 11
+    ),
+    "exec-flash-07": ProbeDefinition(
+        "execution-fetch.asm", "HWEF07", "HWEF0701", 4, 16,
+        (("TARGET_KIND", 0), ("TARGET_SELECTOR", 0x07),
+         ("SCAN_START", 0x4000), ("SCAN_LENGTH", 0x4000)),
+    ),
+    "exec-flash-08": ProbeDefinition(
+        "execution-fetch.asm", "HWEF08", "HWEF0801", 4, 16,
+        (("TARGET_KIND", 0), ("TARGET_SELECTOR", 0x08),
+         ("SCAN_START", 0x4000), ("SCAN_LENGTH", 0x4000)),
+    ),
+    "exec-flash-09": ProbeDefinition(
+        "execution-fetch.asm", "HWEF09", "HWEF0901", 4, 16,
+        (("TARGET_KIND", 0), ("TARGET_SELECTOR", 0x09),
+         ("SCAN_START", 0x4000), ("SCAN_LENGTH", 0x4000)),
+    ),
+    "exec-flash-29": ProbeDefinition(
+        "execution-fetch.asm", "HWEF29", "HWEF2901", 4, 16,
+        (("TARGET_KIND", 0), ("TARGET_SELECTOR", 0x29),
+         ("SCAN_START", 0x4000), ("SCAN_LENGTH", 0x4000)),
+    ),
+    "exec-flash-2a": ProbeDefinition(
+        "execution-fetch.asm", "HWEF2A", "HWEF2A01", 4, 16,
+        (("TARGET_KIND", 0), ("TARGET_SELECTOR", 0x2A),
+         ("SCAN_START", 0x4000), ("SCAN_LENGTH", 0x4000)),
+    ),
+    "exec-ram-81": ProbeDefinition(
+        "execution-fetch.asm", "HWER81", "HWER8101", 4, 16,
+        (("TARGET_KIND", 1), ("TARGET_SELECTOR", 0x81),
+         ("SCAN_START", 0x4000), ("SCAN_LENGTH", 0x4000)),
+    ),
+    "exec-ram-82-chunk0": ProbeDefinition(
+        "execution-fetch.asm", "HWER820", "HWER82A1", 4, 16,
+        (("TARGET_KIND", 1), ("TARGET_SELECTOR", 0x82),
+         ("SCAN_START", 0x4000), ("SCAN_LENGTH", 0x0400)),
+    ),
+    "exec-ram-82-chunk1": ProbeDefinition(
+        "execution-fetch.asm", "HWER821", "HWER82B1", 4, 16,
+        (("TARGET_KIND", 1), ("TARGET_SELECTOR", 0x82),
+         ("SCAN_START", 0x4400), ("SCAN_LENGTH", 0x0400)),
+    ),
+    "exec-ram-83": ProbeDefinition(
+        "execution-fetch.asm", "HWER83", "HWER8301", 4, 16,
+        (("TARGET_KIND", 1), ("TARGET_SELECTOR", 0x83),
+         ("SCAN_START", 0x4000), ("SCAN_LENGTH", 0x4000)),
+    ),
+    "exec-ram-84": ProbeDefinition(
+        "execution-fetch.asm", "HWER84", "HWER8401", 4, 16,
+        (("TARGET_KIND", 1), ("TARGET_SELECTOR", 0x84),
+         ("SCAN_START", 0x4000), ("SCAN_LENGTH", 0x4000)),
     ),
 }
 
@@ -64,6 +115,24 @@ def probe_definition(probe_name: str) -> ProbeDefinition:
     if len(probe.appvar) != 8:
         raise ValueError(f"result AppVar name for {probe_name} must be eight bytes")
     return probe
+
+
+def initial_probe_payload(probe: ProbeDefinition) -> bytes:
+    """Return the exact payload bytes expected at the end of an artifact."""
+
+    if probe.probe_id != 4:
+        return bytes(probe.payload_size)
+    configuration = dict(probe.defines)
+    payload = (
+        bytes((configuration["TARGET_KIND"], configuration["TARGET_SELECTOR"]))
+        + configuration["SCAN_START"].to_bytes(2, "little")
+        + configuration["SCAN_LENGTH"].to_bytes(2, "little")
+        + b"\xFF\xFF"
+        + bytes(8)
+    )
+    if len(payload) != probe.payload_size:
+        raise ValueError("execution-fetch definition has an invalid payload size")
+    return payload
 
 
 def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
@@ -92,12 +161,38 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
         PROBE_MAGIC
         + bytes((PROBE_FORMAT_VERSION, probe.probe_id))
         + probe.payload_size.to_bytes(2, "little")
-        + bytes(2 + probe.payload_size)
+        + bytes(2)
+        + initial_probe_payload(probe)
     )
     if not machine_code.endswith(frame):
         raise ValueError(
             f"{probe_name} does not end with its {probe.payload_size}-byte result frame"
         )
+    if probe.probe_id == 4:
+        configuration = dict(probe.defines)
+        selector = configuration["TARGET_SELECTOR"]
+        scan_start = configuration["SCAN_START"]
+        scan_length = configuration["SCAN_LENGTH"]
+        required = (
+            (bytes((0x21, scan_start & 0xFF, scan_start >> 8)), "scan start"),
+            (bytes((0x01, scan_length & 0xFF, scan_length >> 8)), "scan length"),
+            (bytes.fromhex("E601"), "paired-mapping guard"),
+        )
+        for sequence, label in required:
+            if sequence not in machine_code:
+                raise ValueError(f"{probe_name} omits its {label}")
+        selector_write = bytes((0x3E, selector, 0xD3, 0x06))
+        if machine_code.count(selector_write) != 2:
+            raise ValueError(f"{probe_name} must map and recheck its target selector")
+        guarded_fetch = bytes.fromhex("D5E9")
+        if machine_code.count(guarded_fetch) != 1:
+            raise ValueError(f"{probe_name} must contain one guarded indirect fetch")
+        create_call = bytes((0xCD, (USER_MEM + 3) & 0xFF, (USER_MEM + 3) >> 8))
+        if (
+            machine_code.count(create_call) != 1
+            or machine_code.index(create_call) > machine_code.index(guarded_fetch)
+        ):
+            raise ValueError(f"{probe_name} must create its result before the fetch")
 
 
 def package_probe(
@@ -119,6 +214,7 @@ def package_probe(
         "program": probe.program,
         "result_appvar": probe.appvar,
         "payload_size": probe.payload_size,
+        "defines": {name: value for name, value in probe.defines},
         "machine_code_size": len(machine_code),
         "machine_code_sha256": hashlib.sha256(machine_code).hexdigest(),
         "program_file_size": len(program),
@@ -135,6 +231,11 @@ def assemble_probe(
     """Assemble one named probe and return its ``.8xp`` plus metadata."""
 
     probe = probe_definition(probe_name)
+    defines = [*probe.defines]
+    defines.extend(
+        (f"APPVAR_{index}", byte)
+        for index, byte in enumerate(probe.appvar.encode("ascii"))
+    )
     with tempfile.TemporaryDirectory(prefix="ti84-hwprobe-") as temp_dir:
         raw_path = Path(temp_dir) / f"{probe_name}.bin"
         completed = subprocess.run(
@@ -143,6 +244,7 @@ def assemble_probe(
                 "-N",
                 "-I",
                 str(PROBE_DIR),
+                *(f"-D{name}=${value:X}" for name, value in defines),
                 str(probe.source),
                 str(raw_path),
             ],
@@ -162,14 +264,18 @@ def build_probes(
 ) -> dict[str, object]:
     """Build probes into *output_dir* and return their stable manifest."""
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    rows = []
+    if output_dir.exists():
+        raise ValueError(f"refusing to reuse existing output directory {output_dir}")
+    artifacts = []
     for probe_name in probe_names:
         program, row = assemble_probe(probe_name, spasm=spasm)
         output_name = f"{row['program']}.8xp"
-        (output_dir / output_name).write_bytes(program)
         row["output"] = output_name
-        rows.append(row)
+        artifacts.append((program, row))
+    output_dir.mkdir(parents=True)
+    for program, row in artifacts:
+        (output_dir / row["output"]).write_bytes(program)
+    rows = [row for _program, row in artifacts]
     manifest: dict[str, object] = {"format": 1, "probes": rows}
     (output_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"

@@ -2,15 +2,15 @@
 
 The physical-probe suite builds small `AsmPrgm` programs and decodes their
 result AppVars. The sources cover MD5-assist edge behavior, RAM selector
-aliasing, and a read-only ASIC register snapshot. No exported result from a
-physical calculator has been recorded, so the hardware conclusions remain
-open.
+aliasing, execution-protection boundaries, and a read-only ASIC register
+snapshot. No exported result from a physical calculator has been recorded, so
+the hardware conclusions remain open.
 
 ## Measurement status
 
 The builder, link-file containers, entry jumps, bcall ID, frame layouts, and
 restoration instruction sequences have byte-level host validation. [confirmed]
-Physical execution of either program remains [hypothesis] until an exported
+Physical execution of any program remains [hypothesis] until an exported
 result AppVar is decoded and tied to a calculator and ASIC revision.
 
 | Probe | Program | Result AppVar | Physical status |
@@ -18,6 +18,8 @@ result AppVar is decoded and tied to a calculator and ASIC revision.
 | MD5 edge behavior | `HWPMD5` | `HWPMD511` | Not run on a recorded unit |
 | RAM selector aliasing | `HWPRAM` | `HWPRAM21` | Not run on a recorded unit |
 | ASIC register snapshot | `HWASIC` | `HWPASIC1` | Not run on a recorded unit |
+| Flash execution boundaries | `HWEF07`–`HWEF2A` | matching `HWEF...01` names | Not run on a recorded unit |
+| RAM execution boundaries | `HWER81`–`HWER84` | matching `HWER...1` names | Not run on a recorded unit |
 
 The eight-character AppVar names are versioned fixture names. Delete an
 existing result AppVar before rerunning its probe. `_CreateAppVar = 4E6A` does
@@ -26,7 +28,7 @@ path at `00:1129`–`00:112F`.
 
 ## Build and transfer
 
-SPASM-ng is part of the Nix development shell. Build both transfer files and a
+SPASM-ng is part of the Nix development shell. Build all transfer files and a
 hash manifest with:
 
 ```sh
@@ -34,23 +36,25 @@ nix develop -c python tools/build_hardware_probes.py \
   --output-dir /tmp/hardware-probes
 ```
 
-The command emits `HWPMD5.8xp`, `HWPRAM.8xp`, `HWASIC.8xp`, and
-`manifest.json`. The manifest uses repository-relative source names and output
+The command emits the three snapshot and edge probes, ten single-fetch
+execution probes, and `manifest.json`. The manifest records every target
+selector and scan range. It uses repository-relative source names and output
 basenames, so builds made in different checkout directories remain comparable.
-The hashes identify exact artifacts; they do not establish that a calculator
-executed them.
+The CLI refuses an existing output directory. The hashes identify exact
+artifacts; they do not establish that a calculator executed them.
 
 Transfer the `.8xp` files with TI Connect CE or another link program. Make
 a calculator backup before the first run. Then:
 
-1. Delete `HWPASIC1`, `HWPMD511`, or `HWPRAM21` if the corresponding result
-   AppVar exists.
+1. Delete the probe's result AppVar if it already exists.
 2. Run `Asm(prgmHWASIC)` for the read-only register snapshot.
 3. Run `Asm(prgmHWPMD5)` for the MD5 probe.
 4. Run `Asm(prgmHWPRAM)` for the RAM probe only after the earlier transfer and run
    path works on that unit.
-5. Export the new result AppVar to the host.
-6. Record the calculator model, PCB or ASIC revision, boot version, OS version,
+5. Run at most one `HWEF...` or `HWER...` execution probe before exporting its
+   result. A denied fetch may reset the calculator.
+6. Export the new result AppVar to the host.
+7. Record the calculator model, PCB or ASIC revision, boot version, OS version,
    and artifact hashes with the exported file.
 
 Do not treat an emulator run as a physical result. TilEm and Wabbitemu are
@@ -135,6 +139,55 @@ appears on a specific calculator remains [hypothesis].
 The decoder reports `restore_matches`. A false value means the post-restore
 reads differ from the saved bytes and invalidates a claim of successful cleanup.
 
+## Execution-protection fetch probes
+
+Probe ID 4 tests one bank-A selector per program. It scans the configured range
+through data reads for an existing `RET` byte. It creates a result AppVar with a
+pending outcome, remaps and verifies that byte, and performs `PUSH DE; JP (HL)`.
+A successful fetch executes `RET`, returns to the probe, and changes the AppVar
+outcome to `returned`. The program never writes the selected RAM or Flash page.
+[confirmed] for the assembled instruction sequence.
+
+| Payload offset | Size | Field |
+|---------------:|-----:|-------|
+| `0` | 1 | target kind: 0 Flash, 1 RAM |
+| `1` | 1 | port-`0x06` selector |
+| `2` | 2 | logical scan start |
+| `4` | 2 | scan length |
+| `6` | 2 | selected `RET` address, or `0xFFFF` |
+| `8` | 1 | outcome code |
+| `9` | 7 | ports `0x04`, `0x06`, `0x21`–`0x23`, `0x25`, and `0x26` |
+
+| Program | Result AppVar | Selector and scan range | TilEm x4 | Wabbitemu |
+|---------|---------------|-------------------------|----------|------------|
+| `HWEF07` | `HWEF0701` | Flash `07`, `0x4000`–`0x7FFF` | returned | returned |
+| `HWEF08` | `HWEF0801` | Flash `08`, `0x4000`–`0x7FFF` | violation reset | returned |
+| `HWEF09` | `HWEF0901` | Flash `09`, `0x4000`–`0x7FFF` | violation reset | violation reset |
+| `HWEF29` | `HWEF2901` | Flash `29`, `0x4000`–`0x7FFF` | violation reset | violation reset |
+| `HWEF2A` | `HWEF2A01` | Flash `2A`, `0x4000`–`0x7FFF` | returned | returned |
+| `HWER81` | `HWER8101` | RAM selector `81`, `0x4000`–`0x7FFF` | returned | returned |
+| `HWER820` | `HWER82A1` | RAM selector `82`, `0x4000`–`0x43FF` | violation reset | returned |
+| `HWER821` | `HWER82B1` | RAM selector `82`, `0x4400`–`0x47FF` | violation reset | violation reset |
+| `HWER83` | `HWER8301` | RAM selector `83`, `0x4000`–`0x7FFF` | returned | returned |
+| `HWER84` | `HWER8401` | RAM selector `84`, `0x4000`–`0x7FFF` | violation reset | violation reset |
+
+These outcomes assume the retail boot values: port `0x21` mode 0, Flash bounds
+`08`–`29`, and RAM chunk bounds `10`–`20`. They are predictions from the pinned
+emulator predicates, not physical results. The decoder reports ports `0x04`,
+`0x06`, `0x21`–`0x23`, `0x25`, and `0x26` from immediately before the test.
+
+In paired mapper mode, a port-`0x06` write remaps bank B with bank A. That can
+unmap the running probe. Every artifact therefore records
+`unsupported-paired-mapping` without writing port `0x06` or attempting the
+fetch when port `0x04` bit 0 is set. [standard] for the emulator predictions;
+[confirmed] for the artifact guard.
+
+The other outcomes are `no-ret-found` and `target-changed-before-fetch`.
+Neither measures execution protection. A pending AppVar after an observed
+reset is evidence only if the AppVar survived that reset unchanged. Export the
+file before running another probe, and record whether the calculator visibly
+reset. Reset retention and the physical fetch outcomes remain [hypothesis].
+
 ## ASIC register snapshot
 
 Probe ID 3 reads ports `0x04`, `0x20`, `0x21`, `0x29`–`0x2C`, `0x2E`, `0x2F`,
@@ -156,16 +209,18 @@ protection, and GPIO](asic-status-gpio.md#open-physical-tests).
 
 ## Safety boundary
 
-The RAM probe is designed to restore its writes, but it has not completed a
-physical run. A reset, power loss, assembly defect, or unexpected exception
+The RAM alias probe is designed to restore its writes, but it has not completed
+a physical run. A reset, power loss, assembly defect, or unexpected exception
 before the restoration loop can leave a changed byte. Use a backed-up test
 calculator and stable power. Do not run the RAM probe on a unit whose contents
 cannot be replaced.
 
-Both probes restore interrupt enable state before creating the result AppVar.
-They do not modify Flash directly. The result AppVar is the intended persistent
-write. [confirmed] for the source and assembled bytes; [hypothesis] for
-unmeasured physical execution.
+The snapshot and alias probes restore interrupt enable state before creating
+the result AppVar. A returned execution probe restores port `0x06` and the
+interrupt state. A denied fetch may reset before those instructions. None of
+the probes modifies Flash directly. The result AppVar is the intended
+persistent write. [confirmed] for the source and assembled bytes; [hypothesis]
+for unmeasured physical execution and reset retention.
 
 ## Source layout
 
@@ -175,6 +230,7 @@ unmeasured physical execution.
 | `tools/hardware-probes/asic-snapshot.asm` | read-only ASIC, timing, and GPIO register snapshot |
 | `tools/hardware-probes/md5-edge.asm` | calculator-side MD5 measurements |
 | `tools/hardware-probes/ram-alias.asm` | calculator-side RAM alias and restoration measurements |
+| `tools/hardware-probes/execution-fetch.asm` | parameterized read-only Flash and RAM fetch measurement |
 | `tools/hardware_probe.py` | reusable TI container, frame, and payload library |
 | `tools/build_hardware_probes.py` | SPASM runner, artifact validator, packager, and manifest CLI |
 | `tools/decode_hardware_probe.py` | text and JSON result CLI |

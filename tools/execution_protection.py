@@ -181,8 +181,12 @@ def wabbitemu_ram_execution_allowed(
     if not 0 <= page_offset < PAGE_SIZE:
         raise ValueError("RAM page offset must be between 0 and 0x3FFF")
     mode = _mode(mode)
-    lower = _byte(lower_chunk, "lower RAM chunk") * CHUNK_SIZE
-    upper = _byte(upper_chunk, "upper RAM chunk") * CHUNK_SIZE + CHUNK_SIZE - 1
+    # Wabbitemu stores both byte-scaled results in unsigned-short fields.
+    # Preserve the resulting 16-bit wrap for high custom port values.
+    lower = (_byte(lower_chunk, "lower RAM chunk") * CHUNK_SIZE) & 0xFFFF
+    upper = (
+        _byte(upper_chunk, "upper RAM chunk") * CHUNK_SIZE + CHUNK_SIZE - 1
+    ) & 0xFFFF
 
     if physical_page & (2 >> (mode + 1)):
         return True

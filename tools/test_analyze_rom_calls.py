@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from analyze_rom_calls import (
+from rom_calls import (
     bjump_call_reports_for_page,
     bjump_reports_for_page,
     call_reports_for_page,

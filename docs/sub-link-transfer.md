@@ -67,7 +67,7 @@ silent-link control/scratch area:
 | `8494` | — | saved user-memory boundary used after backup restore |
 | `9834` | `pagedCount` | bytes buffered in the 16-byte staging block (Flash-write batching) |
 | `9836` | `pagedGetPtr` | write cursor into `pagedBuf` |
-| `983A` | `pagedBuf` | 16-byte staging block (received data flushed to RAM/Flash 16 at a time) |
+| `983A` | `pagedBuf` | 16-byte staging block for received Flash-window data |
 | `9C86` | — | HW-assist TX timeout reload (0xFA) |
 | `9CAC` | — | HW-assist TX/RX timeout down-counter (seeded from CPU speed, port 0x20) |
 | `85D9` | `varClass` | variable class (backup sub-type check, =0x0A) |
@@ -233,22 +233,88 @@ command = `0x56`, length = 0, sends it, and `_Mov9B` restores the saved header.
 
 ---
 
-## 4. Receive DATA payload — `4292` [confirmed]
+## 4. Receive DATA payload — `3C:4292` [confirmed]
 
-`4261`/`4292` is the data-payload receiver. It streams `len` (`8676`) bytes from `_RecAByteIO`,
-buffering 16 at a time into `pagedBuf` (`983A`) and flushing the block (so an incoming archived
-variable is written straight to Flash via `6AB1`, which runs the port-0x14 flash-program stub —
-identical prologue to the archive writer in [sub-vat-archive.md](sub-vat-archive.md) §6):
+`3C:4261` stores the destination in `iMathPtr5` at `0x84DB`, validates a DATA
+header, and enters `3C:4292`. The payload loop loads the destination once at
+`3C:42AB`. Bit 7 of `H` then selects one of two storage paths: [confirmed]
+
+- A RAM destination (`HL >= 0x8000`) is written directly at `3C:42D4`, and the
+  loop increments `HL` after each byte.
+- A Flash-window destination (`HL < 0x8000`) is buffered at `0x983A`.
+  `3C:42CF` flushes each full 16-byte block through `3C:6AB1`, and `3C:42EC`
+  flushes a nonzero remainder.
+
 ```z80
 4292: BC=(8676) len ; (8678)=0
-      loop: HL=(84DB) dest ; 1FD6 (clock) ; _RecAByteIO → A
-            store A via pagedGetPtr (9836); INC pagedCount (9834)
-            when pagedCount==0x10 → CALL 6AB1 (flush 16 bytes to RAM/Flash)
+      if BC==0 → checksum tail
+      pagedGetPtr=983A ; pagedCount=0 ; HL=(84DB) dest
+      loop: 1FD6 (break check) ; _RecAByteIO → A
+            if BIT 7,H: (HL)=A ; INC HL
+            else: store A via pagedGetPtr ; INC pagedCount
+                  when pagedCount==0x10 → CALL 6AB1
             (8678) += received_byte ; DEC BC ; loop while BC
-      flush remainder (6AB1)
+      if pagedCount!=0 → CALL 6AB1
 42EF: _RecAByteIO ×2 → received checksum ; CALL 6356 (verify len/sum, NAK 0x5A on mismatch)
 42FB: send ACK (cmd 0x56)
 ```
+
+### Flash-window staging flush — `3C:6AB1` [confirmed]
+
+`flush_paged_flash_block` at `3C:6AB1` clears `pagedCount`, resets
+`pagedGetPtr` to `0x983A`, and loads the write state below. It preserves caller
+`BC`, `DE`, and `HL`. [confirmed]
+
+| `_WriteFlash` input | Source at `3C:6AB1` |
+|---------------------|----------------------|
+| `A` destination page | `arcInfo.page` at `0x83EE` |
+| `DE` destination address | `iMathPtr5` at `0x84DB` |
+| `BC` length | `B=0`, `C=pagedCount` from `0x9834` |
+| `HL` RAM source | `pagedBuf` at `0x983A` |
+
+The protected sequence at `3C:6AD9`–`3C:6AE5` opens the port-`0x14` command
+gate. The routine classifies the page through `3C:6B79`, calls `_WriteFlash`
+(`80C9h`) at `3C:6AF5`, and relocks through `3C:66D5`. The bytes are
+`EF C9 80`; this is the guarded `_WriteFlash` entry, not `_WriteFlashUnsafe`
+(`8087h`). [confirmed]
+
+`3C:6B79` preserves the incoming `A` around the model probes at `00:1837` and
+`00:182F`, then applies one range: [confirmed]
+
+| Model branch | Page mask | Upper bound, exclusive | Pages accepted by `3C:6AB1` |
+|--------------|-----------|------------------------|---------------------------------|
+| TI-84 Plus | `0x3F` | `0x2A` | `0x08`–`0x29` |
+| legacy | `0x1F` | `0x16` | `0x08`–`0x15` |
+| expanded | `0x7F` | `0x6A` | `0x08`–`0x69` |
+
+The TI-84 Plus branch requires port `0x02` bit 7 set and port `0x21` bits
+0–1 clear. A page below `0x08` or at or above the selected upper bound skips
+the bcall. [confirmed]
+
+After the bcall or page rejection, `3C:6B06` saves the resulting `DE` in
+`0x84DB`. The comparison at `3C:6B0A` increments the stored page at `0x83EE`
+when the starting `DE` is greater than or equal to the final `DE`. Normal
+receive callers pass 1–16 bytes on an eligible page. A dispatcher call with
+zero count or an invalid page leaves `DE` unchanged, so the equality case
+still increments the stored page. [confirmed]
+
+The direct callers are the full-block and remainder sites at `3C:42CF` and
+`3C:42EC`. Dispatcher mode `3` at `3C:6F57` also jumps here. The page-0 bjump
+stub at `00:2D45` targets that dispatcher; its only adjacent mode-`3` caller is
+`36:415C`. [confirmed]
+
+That caller belongs to the USB receive-to-memory loop at `36:40E7`. The Flash
+branch at `36:413A` caps a chunk at 16 bytes, points `HL` at `0x983A`, and calls
+the page-0 bjump stub at `00:2E17`. The stub targets the endpoint helper at
+`35:4FA1`, whose byte loop reads port `0xA1` at `35:500E`. The page-`36` loop
+then stores the count at `0x9834` and invokes dispatcher mode `3`. Its RAM
+branch at `36:416C` uses the same endpoint helper with chunks of at most 64
+bytes and does not call the Flash flush. [confirmed]
+
+`tools/analyze_link_flash_staging.py` checks the ROM signatures and complete
+caller sets. Its importable model also reports page classification, RAM-direct
+versus Flash-buffered routing, block counts, destination crossing, and the
+equality quirk.
 
 The header-classifier `6994` shows the receive-and-store sequence a var-receive runs:
 ```z80
@@ -453,8 +519,9 @@ DBus implementation for the OS, application, and certificate transfer shapes.
 4. `40DA` streams the `DATA` (`0x15`) payload via `_PagedGet`→`_SendAByte` (Flash-transparent),
    appends the 16-bit checksum, waits for `ACK` (`0x56`).
 5. `_GetSysInfo` (`07:7345`, id `0x50DD`)-style metadata and an `EOT` (`0x92`) close the session.
-6. Receive direction is the mirror: header in → CTS out → DATA in (buffered 16 bytes →
-   RAM/Flash via `6AB1`) → checksum verify (`6356`, NAK 0x5A on error) → ACK out → VAT store (RST5).
+6. Receive direction is the mirror: header in → CTS out → DATA in (RAM direct,
+   or Flash staged in 16-byte blocks through `3C:6AB1`) → checksum verify
+   (`3C:6356`, NAK `0x5A` on error) → ACK out → VAT store.
 
 ---
 
@@ -478,7 +545,7 @@ DBus implementation for the OS, application, and certificate transfer shapes.
 | `3C:42FB` | `lnk_send_ack` | build+send ACK (cmd 0x56, fresh local machine-ID), restoring the saved header |
 | `3C:4292` | `lnk_recv_data` | receive DATA payload, 16-byte Flash batching, checksum |
 | `3C:6356` | `lnk_verify_cksum` | verify count vs len; NAK 0x5A on mismatch |
-| `3C:6AB1` | `lnk_flush_block` | flush 16-byte staging block to RAM/Flash (port 0x14) |
+| `3C:6AB1` | `flush_paged_flash_block` | program one 1–16-byte staged Flash block through `_WriteFlash` and port `0x14` |
 | `3C:4DD2` | `link_xfer_op` | silent-link variable send orchestrator (OP1=name) |
 | `3C:4EDD` | `_SendVarCmd` | bcall `_SendVarCmd` (4A14) body; DI-wrapped send-by-name |
 | `3C:4763` | `lnk_resolve_var` | resolve var class/size/ptr for sending (archive-aware) |
@@ -500,7 +567,7 @@ FIFO (port 0x09 bit5 TX-ready, bit6 transmission-error, bit4 byte-received, bits
 `0x20` = CPU speed (timeout scaling); `0x4D` bits5/6 = USB negotiation; `0x14` = Flash
 write/erase (received-to-archive path). See [sub-usb-asic.md](sub-usb-asic.md) for the assist port
 state machine. RAM block: `ioFlag 8670 … bakHeader 868B`, staging
-`pagedBuf 983A`.
+`pagedBuf 983A` for Flash-window receive staging.
 
 **Command IDs:** 0x06 VAR · 0x09 CTS · 0x15 DATA · 0x2D DEL · 0x36 SKIP/EXIT · 0x56 ACK ·
 0x5A ERR/NAK · 0x68 RTS · 0x92 EOT · 0xA2/0xB7 request. **Machine IDs:** 0x82/0x73 calc(84+/73),

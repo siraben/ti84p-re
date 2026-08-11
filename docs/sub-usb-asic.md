@@ -46,6 +46,14 @@ port `0x00` bit-banging otherwise. [confirmed]
 | `0x57`, `0x5B`, `0x4A`, `0x54` | USB controller control/ack registers used by page-35 setup and event handlers. The ROM confirms values such as `0x10`, `0x20`, `0x22`, `0x50`, `0x80`, `0x90`, `0x93` on `0x57`, `0x00`/`0x01` on `0x5B`, `0x20` on `0x4A`, and `0x02`/`0x44`/`0xC4` on `0x54`. | `35:4038`–`4060`, `35:42C5`–`42EA`, `35:4B6A`–`4C14` |
 | `0x80`–`0xA2` | Endpoint/status/FIFO region used by the public USB API. Examples: `_SendUSBData` writes 64-byte chunks to `0xA2`; `_RequestUSBData` reads 8-byte records from `0xA1`; setup/config paths write descriptor bytes through `0xA0` and use selector/status ports `0x8E`, `0x8F`, `0x91`, `0x94`, and `0x98`. | `35:4DD3`, `35:470B`, `35:48BA`, `35:48F8` |
 
+The endpoint receive helper at `35:4FA1` accepts a count in `B`, caps it at 64
+bytes, and reads port `0xA1` in the loop at `35:500E`. The USB
+receive-to-memory body at `36:40E7` reaches it through the page-0 bjump stub at
+`00:2E17`. For a Flash-window destination, `36:413A` caps the chunk at 16
+bytes, receives it into `0x983A`, and calls the page-`3C` Flash-staging
+dispatcher in mode `3` at `36:415C`. RAM destinations use chunks of up to 64
+bytes and skip that Flash flush. [confirmed]
+
 The project-local `tools/ports.txt` names the confirmed assist and USB interrupt ports so future
 Ghidra rebuilds show the same surface in the database. It also applies the FDRC-family names below
 to ports `0x80`–`0xA2`. Those names identify the register layout; they do not prove the exact ASIC

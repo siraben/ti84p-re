@@ -13,7 +13,7 @@ tools/                 build pipeline (Ghidra headless scripts) + derived symbol
 flake.nix · book.toml  mdBook build/serve + vendored KaTeX/Mermaid/pseudocode assets
 ```
 
-The ROM (`ti84plus.rom`) and the Ghidra project (`*.gpr`/`*.rep`) are gitignored. Put local ROM artifacts under `tools/roms/` and run `python3 tools/assemble_local_rom.py` to create `tools/rom.bin` plus the 16 KiB page-0 slice at `tools/ti84_page00.bin`.
+The ROM and Ghidra project (`*.gpr`/`*.rep`) are gitignored. Put the three pinned local inputs under `tools/roms/`, then run `python3 tools/assemble_local_rom.py --check` to validate them without writing or `python3 tools/assemble_local_rom.py` to create `tools/rom.bin` plus the 16 KiB page-0 slice at `tools/ti84_page00.bin`. The validator decodes the two TI AppVar containers, checks their internal lengths and checksums, and requires the exact hashes recorded in `tools/rom_signatures.py`.
 
 ## Browse the wiki
 
@@ -102,10 +102,10 @@ Wiki authoring style lives in the repo-local Codex skill [`ti84-re-writing`](.co
 
 ## Legal
 
-Independent reverse-engineering notes for interoperability/education. No copyrighted TI ROM image or OS code is included — the ROM is gitignored and you supply your own dump. `ti83plus.inc` is TI's freely-distributed equates file (the full 2007 TI-83 Plus SDK include, the complete version as hosted on WikiTI). All trademarks belong to Texas Instruments; this project is not affiliated with or endorsed by TI.
+Independent reverse-engineering notes for interoperability/education. No copyrighted TI ROM image or OS code is included—the local ROM inputs are gitignored and must be supplied separately. `ti83plus.inc` is TI's freely-distributed equates file (the full 2007 TI-83 Plus SDK include, the complete version as hosted on WikiTI). All trademarks belong to Texas Instruments; this project is not affiliated with or endorsed by TI.
 
 ## Notes
 
-- `ti83plus.inc` is the full 2007 TI-83 Plus SDK equates file (the complete version as hosted on WikiTI), which replaces the earlier trimmed copy. It defines the 84+-era `0x8xxx` boot bcall IDs. With the local complete ROM assembled from `ti84plus_patched.rom`, `D84PBE1.8Xv`, and `D84PBE2.8Xv`, those entries resolve through retail page `3F`; the USB boot routines land on page `2F`.
+- `ti83plus.inc` is the full 2007 TI-83 Plus SDK equates file (the complete version as hosted on WikiTI), which replaces the earlier trimmed copy. It defines the 84+-era `0x8xxx` boot bcall IDs. With the validated local complete ROM assembled from `ti84plus_patched.rom`, `D84PBE1.8Xv`, and `D84PBE2.8Xv`, those entries resolve through retail page `3F`; the USB boot routines land on page `2F`. These files have exact, reproducible identities, but their acquisition history does not establish a physical-calculator capture.
 - ~1600 function names beyond the official bcalls are RE-inferred from behavior (callees, RAM/port touches) — accurate in aggregate, but a specific low-level helper's name is a best-effort guess; flagged by snake_case (vs the `_CamelCase` official TI bcalls).
 - Confidence flags in the docs: [confirmed] (seen in disassembly), [standard] (matches documented TI architecture), [hypothesis] (inferred).
