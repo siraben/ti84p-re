@@ -15,7 +15,7 @@ Everything the user interacts with — the homescreen, TI-BASIC programs, graphi
 3. **The variable system (VAT)** — named objects (reals, lists, matrices, strings, programs, appvars…) catalogued in the Variable Allocation Table. ([variables-vat.md](variables-vat.md))
 4. **The tokenizer/parser** — TI-BASIC is stored as 1- and 2-byte tokens; the parser executes them. ([tokenizer-basic.md](tokenizer-basic.md))
 
-Around those sit the I/O subsystems: the IM1 interrupt that drives timing/APD/cursor/ON-key ([interrupts.md](interrupts.md)), the LCD driver, the keypad scanner, and the link port.
+Around those sit the I/O subsystems: the IM1 interrupt dispatcher ([interrupts.md](interrupts.md)); the standard timers, RTC, and low-power state machine ([clock-timers-power.md](clock-timers-power.md)); the [MD5 round accelerator](md5-hardware.md); the LCD driver; the keypad scanner; and the link port.
 
 ## Subsystem index
 
@@ -27,11 +27,14 @@ Each row maps a documentation page to the subsystem it covers and its analysis s
 | [paging.md](paging.md) | Flash/RAM banking (ports 6/7) |
 | [bcall-mechanism.md](bcall-mechanism.md) | rst 28h system calls + jump table |
 | [interrupts.md](interrupts.md) | IM1 ISR, timers, APD, ON key |
+| [clock-timers-power.md](clock-timers-power.md) | Clock domains, programmable timer API, RTC, APD cadence, and power-off |
+| [md5-hardware.md](md5-hardware.md) | MD5-assist ports, boot digest API, round descriptors, and Rabin hash transformation |
 | [variables-vat.md](variables-vat.md) | Variable Allocation Table, object types |
 | [floating-point.md](floating-point.md) | BCD float format, OP registers |
 | [tokenizer-basic.md](tokenizer-basic.md) | Token tables, parser/interpreter |
 | [display-lcd.md](display-lcd.md) | LCD ports, screen buffers |
-| [keyboard-link.md](keyboard-link.md) | Keypad scan, link protocol |
+| [keyboard-link.md](keyboard-link.md) | Keyboard and link overview |
+| [keypad-on-hardware.md](keypad-on-hardware.md) | Matrix electrical behavior, scan timing, debounce, repeat, ON interrupts, and wake |
 | [subsystem-map.md](subsystem-map.md) | bcall API surface, system through-line |
 | [boot-contexts-errors.md](boot-contexts-errors.md) | Boot, context system, _JError/onSP |
 | [memory-management.md](memory-management.md) | RAM heap, VAT/userMem, Flash archive/GC |

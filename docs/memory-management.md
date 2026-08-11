@@ -48,13 +48,15 @@ Variable-creation bcalls — `_CreateReal`, `_CreateStrng`, `_CreateAppVar`, `_C
 To save scarce RAM, variables can be archived to Flash. The archive entry point is on `flash page 0x07`, while the low-level flash read/write/erase workers are on `page 0x3D`:
 - `_Arc_Unarc` (`07:6248`) — move OP1's variable between RAM and the Flash archive (toggles the archive bit, then relocates the data and rewrites the VAT entry's page to the Flash page).
 - `_FlashToRam` (id `5017` → body `3D:6745`) — copy archived data back into RAM.
-Archived vars are *appended* to Flash, which can't be overwritten in place, so deleting one only marks it dead. When the archive Flash fills, a garbage collector rewrites the live vars to fresh sectors and erases the old ones — the **Garbage Collecting** screen (stored as two ROM strings, `"Garbage"`/`"Collecting..."`, with three ASCII dots). That GC path is distinct from `_CleanAll`, but the older `flash_gc_relocate@3C:7BD0` / `gc_show_screen@3C:7E0D` labels are not present as functions in the current live Ghidra/MCP DB.
+Archived vars are *appended* to Flash, which cannot be overwritten in place, so deleting one only marks it dead. `archive_gc_collect` at `3C:7733` rewrites live records in 64 KiB sector units and erases the old sectors. `gc_show_screen` at `3C:7E0D` displays `"Garbage"` and `"Collecting..."` from page `01`. The collector also journals its phase in the inactive 8 KiB half of page `3E`. [confirmed]
 
 `_CleanAll` is RAM cleanup (not Flash GC) [confirmed]: `_CleanAll` (`07:52CF`) compacts the floating-point stack down to `tempMem` (`fpBase`/`FPS`) and the OP/scratch stack down to `pTemp` (it sets `OPBase = pTemp`, `LDDR`s the live span down, and sets `OPS` to its new top), reclaiming temporary RAM after a command/expression finishes. It does not touch Flash.
 
-Flash is erased a sector at a time but programmed byte-by-byte (the page-3D writer at `3D:64AA` calls the single-byte bcall `_WriteAByte`, id `8021`), via low-level routines through the flash-control port `0x14` (see [Variables, Archive & Unarchive](sub-vat-archive.md)) [confirmed]:
-- Confirmed page-3D anchors include `_FlashToRam` (`3D:6745`), `flash_program_buf` (`3D:678C`), `flash_erase_wait` (`3D:5ED3`), `flash_cmd_base` (`3D:738B`), and the status-bit helpers `flash_op_fd` (`3D:7C8F`), `flash_op_fb` (`3D:7C93`), `flash_op_fe` (`3D:7C97`).
-- Further page-3D flash routines at `3D:61AF`, `3D:6B9B`, `3D:64AA`, `3D:62C2`, and `3D:6413` are unnamed in the disassembly.
+Flash is erased a physical sector at a time but programmed byte by byte. `archive_write_record` at `3D:64AA` calls `_WriteAByte` (`8021`) and `_WriteFlashUnsafe` (`8087`) through the Flash-control port `0x14`. See [Flash memory](flash-memory.md) for the hardware and boot-bcall path, and [Variables, archive & unarchive](sub-vat-archive.md) for record format and allocation. [confirmed]
+
+- `_FlashToRam` (`3D:6745`) copies archived bytes through a worker at `0x8100`; `flash_to_ram_run_worker` at `3D:678C` installs that worker. [confirmed]
+- `archive_find_free_span` (`3D:62C2`) scans upward from page `08` to the dynamic App boundary from `archive_app_boundary` (`3D:6413`). The OS-only trace returns boundary `0x29` and selects `08:4000`. [confirmed]
+- `archive_write_record` (`3D:64AA`) writes record states `0xFE` then `0xFC`; the helpers at `3D:7C8F`, `3D:7C93`, and `3D:7C97` implement additional monotonic bit-clears. [confirmed]
 - Archive workers: `_Arc_Unarc` (`07:6248`) → `arc_ram_to_flash` (`07:6107`, RAM→Flash) / `arc_flash_to_ram` (`07:61F4`, Flash→RAM). (`_Arc_Unarc` dispatches on the FindSym page byte `B`: `B==0`/in-RAM → `6107` archive, `B≠0`/in-Flash → `61F4` unarchive.)
 
-The `_FindSym` VAT walk is byte-verified in [Variables, Archive & Unarchive](sub-vat-archive.md). Flash write/erase and GC routines on page 3D are partly unnamed [hypothesis].
+The `_FindSym` VAT walk, public Flash workers, and normal garbage-collection path are byte-verified in [Variables, archive & unarchive](sub-vat-archive.md) and [Flash memory](flash-memory.md). The remaining GC gap is restart behavior after power loss at each persistent phase marker. [hypothesis]

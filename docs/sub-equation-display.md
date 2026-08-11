@@ -3,7 +3,7 @@
 MathPrint is the OS subsystem that turns a tokenized expression into a two-dimensional
 screen layout. It is used by the homescreen entry line, the Y= editor, the Solver
 equation line, and the template menus. The implementation is concentrated on flash page
-`39` and drives the display services described in [Display & LCD](display-lcd.md).
+`39` and drives the display services described in [Display and LCD](display-lcd.md).
 It consumes the token stream described in [Tokenizer & TI-BASIC](tokenizer-basic.md)
 and preserves the OP registers described in [Floating-point engine](floating-point.md).
 

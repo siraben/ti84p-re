@@ -2,7 +2,7 @@
 
 Companion to [keyboard-link.md](keyboard-link.md), focused on the data-transfer path:
 pushing a program/list/etc. to a computer (TI-Connect) or another calculator over the
-2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of [Keyboard & link](keyboard-link.md)'s byte
+2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of [Keyboard and link](keyboard-link.md)'s byte
 primitives `_SendAByte` (`3C:420D`) and `_RecAByteIO` (`3C:443F`); the ASIC-facing assist/USB ports
 are covered separately in [USB ASIC and link assist](sub-usb-asic.md).
 
@@ -52,7 +52,7 @@ silent-link control/scratch area:
 | Addr | Label (`.inc`) | Meaning |
 |------|----------------|---------|
 | `8670` | `ioFlag` | I/O state flags (bit4 tested on receive completion) |
-| `8672` | `sndRecState` | transfer-type / phase: `0x0A`=backup, `0x15`=var DATA, `0x0B`=request/dir |
+| `8672` | `sndRecState` | transfer type / phase: `0x08` selects backup-send framing, `0x0A` appears in backup receive/orchestration, `0x15` is variable DATA, and `0x0B` is request/directory |
 | `8673` | `ioErrState` | link error sub-state |
 | `8674` | `header` | packet header byte 0 = machine-ID |
 | `8675` | `header+1` | packet header byte 1 = command-ID |
@@ -79,7 +79,7 @@ save, `IY+0x3E` bit0 / `IY+0x3D` bit5 USB-presence.
 
 ## 2. The byte layer (recap + receive internals) [confirmed]
 
-[Keyboard & link](keyboard-link.md) covers `_SendAByte`. Two new things pinned here:
+[Keyboard and link](keyboard-link.md) covers `_SendAByte`. Two new things pinned here:
 
 ### 2a. Hardware-assist send `6BB2` [confirmed]
 
@@ -93,9 +93,9 @@ save, `IY+0x3E` bit0 / `IY+0x3D` bit5 USB-presence.
       LD A,C ; OUT (0x0D),A ; RET     ; *** write the byte to port 0x0D (assist FIFO) ***
 6BCA: CALL 6BE4 (decrement 9CAC) ; JR Z,6BBB (retry) ; else JP 4434 (timeout)
 ```
-So the assist path is: poll port 0x09 bit 5, then `OUT (0x0D),byte` — exactly the "FIFO" [Keyboard & link](keyboard-link.md)
+So the assist path is: poll port 0x09 bit 5, then `OUT (0x0D),byte` — exactly the "FIFO" [Keyboard and link](keyboard-link.md)
 mentioned, with a CPU-speed-scaled timeout. The legacy bit-bang fall-through (port 0, send `1`/`2`,
-wait for echo, `DE`-timeout → `_JErrorNo`) is unchanged from [Keyboard & link](keyboard-link.md).
+wait for echo, `DE`-timeout → `_JErrorNo`) is unchanged from [Keyboard and link](keyboard-link.md).
 
 ### 2b. Receive `_RecAByteIO` `443F` and decoder `444A` [confirmed]
 
@@ -290,13 +290,32 @@ flash path (`_Chk_Batt_Low`, `83F7` size save). The actual data ptr/page/length 
 40DA: CALL _SetupPagedPtr (17AC)            ; HL=data ptr, DE=len, A=page  ←  VAT entry resolution
       (84DB)=ptr ; (8676)=len               ; iMathPtr5, packet length
       6971 ; 620A (machine-ID) ; (8674)=ID
-      (special-case sndRecState==0x08 backup w/ varClass 0x0A: clamp len 0x37D, prepend 0x63 00)
+      if sndRecState == 0x08 and varClass == 0x0A and len > 0x037D:
+          (8676)=0x037D ; send header
+          checksum=0 ; send 0x63,0x00
+          DE=0x037B ; HL=data ptr+2
 413D: CALL 41C3 (send DATA header, cmd already 0x15 from 4055)
       HL=(84DB) ptr ; DE=(8676) len ; (8678)=0
       loop 4150: 1FD6 (clock) ; _PagedGet (17BB) the next byte (handles Flash page-cross) ;
                  41AB → _SendAByte ; accumulate (8678) ; DEC DE ; loop
 4167: send 2-byte checksum (8678 lo,hi) ; recv reply header ; CP 0x56 (ACK) ; else _JErrorNo
 ```
+
+The comparison at `3C:410A` computes `0x037D - len`. An equal length takes the
+ordinary path; only a larger source enters the backup branch. The resulting
+wire payload is byte-pinned as follows. [confirmed]
+
+| Source length | DATA header length | DATA payload |
+|---------------|--------------------|--------------|
+| `len <= 0x037D` | `len` | `source[0:len]` |
+| `len > 0x037D` with `sndRecState = 0x08`, `varClass = 0x0A` | `0x037D` | `63 00` followed by `source[2:0x037D]` |
+
+The two prefix bytes replace the first two source bytes; they do not extend the
+payload. Calls to `3C:41AB` add `0x63`, `0x00`, and the remaining `0x037B`
+bytes to the same 16-bit checksum at `0x8678`. The checksum therefore covers
+all 893 transmitted bytes modulo `0x10000`. The meaning of the `0x0063`
+prefix remains [hypothesis].
+
 `_PagedGet` makes the streamer transparent to RAM-vs-archived data: an archived program is read
 straight out of the Flash window, advancing the bank-A page (port 0x06) at the 0x8000 boundary,
 exactly like `_FlashToRam` ([sub-vat-archive.md](sub-vat-archive.md) §5).
@@ -341,12 +360,31 @@ door; `link_xfer_op` is the "OP1 already set up, do the silent transfer" door.
 | `lnk_rec_status` returned `A=1` with `C != 0xE0`; header-send line never went idle | `_ErrLinkXmit` `00:278D` → `_JError(0x9F)` | `E_LnkErr` `0x9F` |
 | received checksum/length mismatch | `6356`→ sends 0x5A NAK → `2799` | `E_LnkErr` `0x9F` |
 | peer sent SKIP/EXIT (0x36) | `link_xfer_op` `4E80/4E83` | `E_LnkErr` `0x9F` |
+| incoming dispatch byte at `0x867F` equals `0x22` | `3C:463D` → `_JError` `00:2793` | raw error number `0x22` |
 
-The OS collapses the link failures into the single user-visible `E_LnkErr` (`0x9F`) "ERR:LINK".
-The finer-grained codes `E_LinkIOChkSum` `0x22`, `E_LinkIOTimeOut` `0x23`, `E_LinkIOBusy` `0x24`,
-`E_LinkIOVer` `0x25` exist in the error table (`ty_error.txt`) and are used by the higher-level
-*assembly-callable file-transfer API* (e.g. `OpenSendFlag`/`Send`/`Receive` style), not by the raw
-silent-link engine documented here. [standard]
+The ordinary timeout, checksum, and unexpected-command paths collapse to
+`E_LnkErr` (`0x9F`). The include file labels `0x22`–`0x25` as
+`E_LinkIOChkSum`, `E_LinkIOTimeOut`, `E_LinkIOBusy`, and `E_LinkIOVer`, but the
+same include block marks all four numbers obsolete. `ty_error.txt` copies those
+equates for Ghidra typing; it is not evidence of a live error table. [confirmed]
+
+The receive dispatcher loads `A` from `0x867F` at `3C:45D7`, then treats the
+four values separately. [confirmed]
+
+| Value | Dispatch evidence | Error behavior |
+|-------|-------------------|----------------|
+| `0x22` | `3C:463D` compares `A` and jumps directly to `00:2793` on equality | `_JError` receives `A = 0x22` |
+| `0x23` | `3C:45EA` selects the `3C:45EE` exchange path | This branch does not pass `0x23` to `_JError` |
+| `0x24` | `3C:45DA` selects a machine-ID check and `3C:512C` path | This branch does not pass `0x24` to `_JError` |
+| `0x25` | `3C:462D` selects a machine-ID check and `3C:5114` path | This branch does not pass `0x25` to `_JError` |
+
+A linear scan of all 64 physical pages finds 32 direct references to
+`_JError` at `00:2793` and no `rst 28h` call with bcall ID `44D7h`.
+Reviewing those direct sites finds the `0x22` path above, but no site that
+loads `0x23`, `0x24`, or `0x25` as a fixed `_JError` argument. The ROM bytes
+do not support the claim that a separate assembly-callable transfer API emits
+all four obsolete values. The user-visible meaning of the live raw `0x22`
+path still needs a controlled peer packet. [confirmed]
 
 ---
 
@@ -412,9 +450,11 @@ state machine. RAM block: `ioFlag 8670 … bakHeader 868B`, staging
 
 ## 11. Open items
 
-- The 0x22–0x25 fine-grained link error codes: which higher API (`Send`/`Receive` bcalls) emits
-  them vs. the blanket 0x9F here. [standard]
-- Backup (sndRecState 0x08 / varClass 0x0A) framing detail in `40DA` (the 0x37D clamp + 0x63 00
-  prefix) — full backup-packet layout. [standard]
+- Send controlled `0x22`–`0x25` values through the receive dispatcher and
+  record the visible result. The raw `0x22` `_JError` edge is confirmed; the
+  protocol meaning of all four values remains [hypothesis].
+- Identify the semantic meaning of the `0x0063` replacement word in the
+  oversized backup payload. Its position, transmitted length, and checksum
+  coverage are confirmed.
 - The prior USB target gap is now mapped in [sub-usb-asic.md](sub-usb-asic.md): `link_xfer_op` calls
   `ram:2E0B`, a `cross_page_jump` thunk to `35:4280`, after sampling port `0x4D`.

@@ -1,4 +1,4 @@
-# USB ASIC & link assist
+# USB ASIC and link assist
 
 This page covers the OS-visible USB/link-assist hardware interface: the Z80 I/O ports the ROM uses,
 the byte FIFO path used by the link layer, and the places where `link_xfer_op` chooses USB before
@@ -46,9 +46,40 @@ port `0x00` bit-banging otherwise. [confirmed]
 | `0x57`, `0x5B`, `0x4A`, `0x54` | USB controller control/ack registers used by page-35 setup and event handlers. The ROM confirms values such as `0x10`, `0x20`, `0x22`, `0x50`, `0x80`, `0x90`, `0x93` on `0x57`, `0x00`/`0x01` on `0x5B`, `0x20` on `0x4A`, and `0x02`/`0x44`/`0xC4` on `0x54`. | `35:4038`–`4060`, `35:42C5`–`42EA`, `35:4B6A`–`4C14` |
 | `0x80`–`0xA2` | Endpoint/status/FIFO region used by the public USB API. Examples: `_SendUSBData` writes 64-byte chunks to `0xA2`; `_RequestUSBData` reads 8-byte records from `0xA1`; setup/config paths write descriptor bytes through `0xA0` and use selector/status ports `0x8E`, `0x8F`, `0x91`, `0x94`, and `0x98`. | `35:4DD3`, `35:470B`, `35:48BA`, `35:48F8` |
 
-The project-local `tools/ports.txt` now names the confirmed assist and USB interrupt ports so future
-Ghidra rebuilds show the same surface in the database. These labels describe the observed OS use,
-not a complete vendor register map.
+The project-local `tools/ports.txt` names the confirmed assist and USB interrupt ports so future
+Ghidra rebuilds show the same surface in the database. It also applies the FDRC-family names below
+to ports `0x80`–`0xA2`. Those names identify the register layout; they do not prove the exact ASIC
+implementation or its electrical behavior.
+
+## Mentor FDRC register-family match [hypothesis]
+
+The controller region at `0x80`–`0x9B` has the byte-for-byte layout of the Mentor Graphics
+MUSBFDRC register file. Mentor's `mu_fdrdf.h` assigns offsets `0x00`–`0x1B` in the same order, and
+its FIFO base is offset `0x20`. Adding the TI base port `0x80` produces the complete map below.
+Multiple external and ROM signals identify the controller family, but the ROM does not contain a
+silicon identifier. The family identification therefore remains [hypothesis].
+
+| TI ports | FDRC names | ROM cross-check |
+|----------|------------|-----------------|
+| `0x80` | `FADDR` | The control-transfer path defers a device-address write until the status stage at `35:4630`. [confirmed] |
+| `0x81` | `POWER` | Initialization polls bit 6 and later writes or modifies bits 0–3. The FDRC masks call these `VBUSVAL`, `ENSUSPEND`, `SUSPENDM`, `RESUME`, and `RESET`. [confirmed] for the operations; [hypothesis] for the imported bit names |
+| `0x82`–`0x85` | `INTRTX1/2`, `INTRRX1/2` | The protocol handler reads transmit and receive endpoint-event bytes at `35:4D03` and `35:4D57`. [confirmed] |
+| `0x86` | `INTRUSB` | Host setup waits for bit 4; the peripheral handler branches on bit 2 at `35:40A2` and `35:4CFE`. Those masks match FDRC `CONNECT` and `RESET`. [confirmed] for the branches; [hypothesis] for the event names |
+| `0x87`–`0x8A` | `INTRTX1E/2E`, `INTRRX1E/2E` | Setup enables transmit events with `0xFF` at `35:407B` and receive endpoint events with `0x0E` at `35:4084`. [confirmed] |
+| `0x8B` | `INTRUSBE` | The ROM uses masks including `0x05`, `0x21`, `0xA1`, and `0xF7`. FDRC defines the bits as suspend, resume, reset/babble, SOF, connect, disconnect, session request, and VBUS error. [confirmed] for the masks; [hypothesis] for the imported names |
+| `0x8C`–`0x8D` | `FRAME1/2` | Initialization waits for the low frame byte to become nonzero at `35:411B` and `35:418D`. [confirmed] |
+| `0x8E` | `INDEX` | Endpoint setup and transfer routines select a pipe before using the shared endpoint registers. [confirmed] |
+| `0x8F` | `DEVCTL` | The ROM tests bit 7 for B-device state and bit 2 for host mode, then writes bit 0 to start a session. These are the FDRC `BDEVICE`, `HM`, and `SESSION` masks. [confirmed] for the operations; [hypothesis] for the imported names |
+| `0x90`–`0x92` | `TXMAXP`, `CSR0`/`TXCSR1`, `CSR02`/`TXCSR2` | Endpoint 0 uses `CSR0`; nonzero indexed endpoints use the transmit CSR pair. The ROM writes bit 1 to launch endpoint-0 packets and bit 0 to launch nonzero-endpoint packets. [confirmed] |
+| `0x93`–`0x97` | `RXMAXP`, `RXCSR1/2`, `COUNT0`/`RXCOUNT1/2` | Receive paths select an endpoint, test `RXCSR1` bit 0, read the count, drain the matching FIFO, and clear the ready condition. [confirmed] |
+| `0x98`–`0x9B` | `TXTYPE`, `TXINTERVAL`/`NAKLIMIT0`, `RXTYPE`, `RXINTERVAL` | Host setup writes endpoint type/address and interval values before starting transfers. [confirmed] |
+| `0xA0`–`0xA2` | endpoint FIFOs 0–2 | Control records use `0xA0`; receive and transmit paths use the FIFO selected for endpoints 1 and 2. [confirmed] |
+
+The FDRC ordering matters because the common HDRC/MUSB register layout places several interrupt
+registers at different offsets. The TI ROM's `INTRUSB` read at `0x86`, enable writes at
+`0x87`/`0x89`, and `INTRUSBE` write at `0x8B` match the FDRC ordering specifically. Linky commit
+`89586b0` independently calls this block MUSBFDRC and performs the same initialization sequence.
+Linky is calculator software evidence, not a vendor specification.
 
 ## Sending one byte through the assist FIFO [confirmed]
 
@@ -236,6 +267,105 @@ mask to physical page `0x35`.
 | `530B` | `_ToggleUSBSmartPadInput` | `35:5B84` | Sets or clears bit 3 in `0x9C75` according to `A == 1`. |
 | `530E` | `_IsUSBDeviceConnected` | `35:5B92` | Preserves `A`; returns flags from `IN (0x81) & 0x40` (bit 6). (The `.inc` comment guesses `bit 4,(81h)`, but the body actually masks bit 6.) |
 
+## Boot-page OS receive API
+
+The retail boot table on page `3F` also exposes a USB stack whose bodies run on page `2F`. This stack receives an operating-system image. It is separate from the page-35 application-facing API above. The table bytes and entry prologues can be reproduced with `tools/inspect_bcall.py`. [confirmed]
+
+| Bcall | ID | Table bytes | Body | Observed role |
+|-------|---:|-------------|------|---------------|
+| `_AttemptUSBOSReceive` | `80E4` | `45 41 2F` | `2F:4145` | Wait for or dispatch a USB line event, initialize the controller, then enter the OS-receive pipeline. [confirmed] |
+| `_ReceiveOS_USB` | `80F6` | `CA 48 2F` | `2F:48CA` | Negotiate transfer records and write the received OS image through the Flash-control path. [confirmed] |
+| `_USBErrorCleanup` | `8105` | `58 59 2F` | `2F:5958` | Clear port `0x5B`, restore controller line state, and re-arm according to port `0x4D`. [confirmed] |
+| `_InitUSB` | `8108` | `A4 52 2F` | `2F:52A4` | Initialize peripheral mode and return carry set after timeout cleanup. [confirmed] |
+| unnamed entry | `810B` | `C5 62 2F` | `2F:62C5` | Set port `0x81` mask `0x01`, then wait through the timer-3 delay helper. [confirmed] |
+| `_KillUSB` | `810E` | `61 59 2F` | `2F:5961` | Run the error-cleanup sequence with an additional `OUT (0x4C),0`. [confirmed] |
+
+Inspect a named entry and the unnamed slot directly:
+
+```sh
+nix develop -c python tools/inspect_bcall.py 0x8108 --bytes 24
+nix develop -c python tools/inspect_bcall.py 0x810B --bytes 24
+```
+
+### `_AttemptUSBOSReceive` input and dispatch
+
+The first instruction at `2F:4145` is `JR NZ,2F:414A`. The input Z flag therefore controls whether the routine waits for a new event. With Z set, `usb_wait_line_event` at `2F:514C` checks the cancel/timeout helper, then samples port `0x4D` bit 6. If that bit is clear, it returns `port 0x56 & 0xF2` instead. With Z clear, dispatch begins with the caller's `A` unchanged. [confirmed]
+
+The dispatcher tests event bits in this order: 5, 4, 6, then 7. Bits 5 or 4 call the line-state cleanup helper and resume waiting. Bit 6 calls `_InitUSB`. Bit 7 jumps to the common error exit at `2F:4FFD`. When none of those bits is set, the routine reads port `0x4D`; bit 5 selects `_InitUSB`, while the other branch calls the controller setup path at `2F:5220`. Both successful branches continue at `2F:4170` into the receive protocol. [confirmed]
+
+The `ti83plus.inc` comment says Z means “wait” and NZ means “dispatch the supplied port value.” The entry bytes verify that contract and establish the bit priority. [confirmed]
+
+### `_InitUSB` transaction and return
+
+`_InitUSB` sets `IY+0x1B` bit 5 and writes controller state 2 to `0x9C28`. It then performs this prefix: [confirmed]
+
+```z80
+; 2F:52AD
+LD A,80h
+OUT (57h),A
+XOR A
+OUT (4Ch),A
+IN A,(4Ch)
+LD A,02h
+OUT (54h),A
+LD A,20h
+OUT (4Ah),A
+CALL 59C3h
+LD A,08h
+OUT (4Ch),A
+```
+
+The reset helper at `2F:59C3` drives port `0x4B`, pulses port `0x54`, and uses programmable timer 3 through ports `0x36`–`0x38` for a delay. `_InitUSB` then waits for port `0x4C` to equal `0x1A` or `0x5A`. Each poll decrements a 16-bit `DE` timeout through `2F:5313`. [confirmed]
+
+After the handshake, the routine writes `0xFF` to port `0x87`, zero to `0x92`, reads `0x87`, writes `0x0E` to `0x89`, clears `0x9C26` and `0x9C27`, and writes `0x21` to `0x8B`. The tail at `2F:52F6` gives port `0x8C` five timeout windows to become nonzero. Success executes `OR A; RET`, which clears carry. Failure calls `_USBErrorCleanup` through `2F:5B87`, sets carry, and returns. [confirmed]
+
+The unnamed bcall `810B` reads port `0x81`, ORs mask `0x01`, writes the result back, and jumps to the timer-3 delay at `2F:5A06`. The `ti83plus.inc` comment calls this bit 1, while mask `0x01` sets bit 0. No controller-state poll occurs in this entry itself. [confirmed]
+
+### Receive and cleanup boundaries
+
+`_ReceiveOS_USB` disables interrupts, enters the record-transfer helpers, and feeds the values `0`, `8`, `3`, `0`, `0x0104`, `0`, and `0` through `2F:42AA`. It then sets port `0x20` to 1, clears receive state at `0x8271`, `0x822F`, and `0x83A4`, and uses `0x86EC` as a `0x0104`-byte record workspace. Later branches subtract a four-byte framing size, validate record fields, and program Flash through port `0x14`. [confirmed]
+
+This body is an OS installer, not a general USB receive primitive. It changes CPU speed, validates memory and page state, and writes Flash. Error branches converge on `2F:4FFD`, which calls `_USBErrorCleanup`. Application code should use the page-35 API instead. [confirmed]
+
+`_USBErrorCleanup` and `_KillUSB` share almost all their code: [confirmed]
+
+```z80
+; _USBErrorCleanup = 2F:5958
+XOR A
+OUT (5Bh),A
+CALL 591Bh
+JP 58D0h
+
+; _KillUSB = 2F:5961
+XOR A
+OUT (5Bh),A
+CALL 591Bh
+XOR A
+OUT (4Ch),A
+JP 58D0h
+```
+
+The helper at `2F:591B` chooses the port-`0x4C` value from port `0x4D` bits 5 and 6, writes `0x02` to port `0x54`, and clears low control bits on port `0x39`. The tail at `2F:58D0` re-arms port `0x57` according to the current line state. `_KillUSB` differs only by forcing port `0x4C` to zero between those helpers. [confirmed]
+
+### Emulator boundary
+
+TilEm does not implement a connected USB controller for this model. Upstream commit `f56ad63` returns fixed values `0x22`, `0xA5`, `0x1F`, `0x00`, and `0x50` from ports `0x4C`, `0x4D`, `0x55`, `0x56`, and `0x57`. Its `x4_io.c` has no write cases for the controller or endpoint ranges. [standard]
+
+The fixed port `0x4C = 0x22` value cannot satisfy `_InitUSB`'s `0x1A`/`0x5A` handshake. A TilEm trace can therefore exercise only timeout and disconnected cleanup. The connected receive path requires physical hardware, a USB-aware emulator, or a controlled port-level harness. [confirmed] for the ROM comparison; [hypothesis] for unmeasured physical timing.
+
+Wabbitemu commit `48c2dc0` contains a second, partial model. It maps port `0x4D` as four paired
+line states: D+ low/high in bits 0/1, D- low/high in bits 2/3, ID low/high in bits 4/5, and VBUS
+high/low in bits 6/7. Its port-`0x56` event latch uses the same adjacent low/high pairs, port
+`0x57` stores the event mask, and port `0x55` reports line and protocol interrupts as active-low
+bits 2 and 4. The ROM independently confirms the active-low gate, event-bit dispatch, and mask
+writes. It does not name the electrical states. The line labels therefore remain external emulator
+evidence. [confirmed] for the ROM operations; [hypothesis] for the Wabbitemu labels
+
+Wabbitemu labels this code `Fake USB`, implements only a small part of the endpoint block, and
+registers port `0x55` twice where the first registration was intended for `0x54`. Its port-`0x54`
+PHY model is consequently unreachable in that revision. These defects make the model useful for
+cross-checking register hypotheses, but not for connected-transfer confirmation.
+
 ## How to use it in code [confirmed]
 
 Prefer the OS entry points unless the program is deliberately writing a USB driver:
@@ -266,11 +396,20 @@ Practical rules:
 
 - The ROM calls `ram:2E0B`, a `cross_page_jump` thunk to `35:4280`. Its
   carry-clear/carry-set result is decoded above.
-- The public `0x50xx`/`0x52xx`/`0x53xx` USB APIs are mapped to bodies and sampled above. The boot-page
-  `0x8xxx` USB names (`_InitUSB`, `_KillUSB`, `_AttemptUSBOSReceive`, `_ReceiveOS_USB`,
-  `_USBErrorCleanup`) remain part of the repository-wide `0x8xxx` bcall-table reconciliation problem,
-  not a page-3C link-transfer gap.
-- The ROM does not give bit names for every page-35 controller register, and TilEm does not model
-  physical timing from the assist setup values. This page therefore treats the `0x97`/`0xB4` field
-  names as WikiTI-supported timing configuration, while ROM-confirmed claims remain limited to the
-  written constants, status/data port use, comparisons, branch bits, RAM state, and FIFO direction.
+- The public `0x50xx`/`0x52xx`/`0x53xx` USB APIs and the boot-page `0x8xxx` USB entries are mapped above. The connected boot receive path remains dynamically untested because TilEm models USB as disconnected.
+- The FDRC layout names the endpoint register block, but physical tests have not confirmed every
+  imported bit meaning or the TI-specific PHY at ports `0x4A`–`0x5B`. TilEm does not model physical
+  timing from the assist setup values. ROM-confirmed claims remain limited to written constants,
+  comparisons, branch bits, RAM state, FIFO direction, and the transfer sequences cited above.
+
+## Sources
+
+| Source | Use |
+|--------|-----|
+| Retail OS 2.55MP and boot 1.03 ROM bytes | Main and boot bcall tables, page-`2F`/`35` bodies, ports, branches, and RAM state |
+| `tools/ti83plus.inc` | Historical public names and comments, checked against table entries and bodies |
+| [TilEm `x4_io.c` at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) | Link-assist implementation and fixed disconnected USB reads |
+| [Mentor `mu_fdrdf.h` as preserved in `lightcube`](https://github.com/illusionlee/lightcube/blob/ac49c480c45c4106cba46a93fd4ae09969db5a1e/beken378/driver/usb/src/cd/mu_fdrdf.h) | FDRC register offsets and bit masks; controller-family evidence, not TI silicon identification |
+| [Linky at `89586b0`](https://github.com/brandonlw/Linky/tree/89586b0d33796d9746934560c030bb247193d37a) | Independent calculator software that names MUSBFDRC and exercises the same ports |
+| [Wabbitemu `83psehw.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | Partial line-state and interrupt model, with the implementation limits described above |
+| [WikiTI port `0x09`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:09) | Historical link-assist timing-field interpretation, kept separate from ROM observations |

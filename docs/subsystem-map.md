@@ -11,6 +11,7 @@ This page categorizes the ~600 named bcall entry points (the OS's public API) by
 | **Parser / TI-BASIC** | ~18 | `_IsA2ByteTok`,`_GetTokLen`,`_BinOPExec`,`_ParseInp` |
 | **Link / I-O** | ~15 | `_SendAByte`,`_RecAByteIO`,`_SendVarCmd`,`_Rec1stByte`,`link_xfer_op` |
 | **System / power** | ~15 | `_AppInit`,`_PutAway`,`_RandInit`,`_ApdSetup`,`_Chk_Batt_Low`,`_SetExSpeed`,`_JForceCmd` |
+| **Boot cryptography** | 5 | `_MD5Init`, `_MD5Update`, `_MD5Final`, `_SigModR`, `_TransformHash` |
 | **List / Matrix** | ~13 | `_CreateRList`,`_CreateCList`,`_CreateRMat`,`_ErrDimMismatch`,dim/element ops |
 | **Keyboard** | ~5 | `_GetCSC`,`_GetKey`,`_KeyToString` |
 | **Menu / UI** | ~5 | `_DispMenuTitle`,`_CursorOn`,`_CursorOff`,`_RunIndicOn`,`_RunIndicOff` |
@@ -32,7 +33,7 @@ flowchart TD
     DISP --> R
 ```
 
-Cross-cutting services used by all of the above: [the bcall mechanism](bcall-mechanism.md), [interrupts and APD](interrupts.md), error handling (`_JError` + `TIError` codes), and the system flags (`SystemFlags` @ `flags`).
+Cross-cutting services used by all of the above: [the bcall mechanism](bcall-mechanism.md), [interrupt dispatch](interrupts.md), [clock/timers/APD/power](clock-timers-power.md), [MD5 and boot signature arithmetic](md5-hardware.md), error handling (`_JError` + `TIError` codes), and the system flags (`SystemFlags` @ `flags`).
 
 ## How the pieces connect (the through-line)
 

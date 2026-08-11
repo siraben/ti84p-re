@@ -3,7 +3,7 @@
 ; supplementing the 2001-era ti83plus.inc (which predates many 84+ additions).
 ; All names below are RE-INFERRED from behavior, not official TI equates.
 ; They use unprefixed snake_case; address placeholders use these subsystem tags:
-;   fpx=float/math grf/grc=graph drw=draw scr=screen tmr=crystal-timer
+;   fpx=float/math grf/grc=graph drw=draw scr=screen
 ;   lnk=link app=app-mgmt dsp=display arc=archive mde=mode sta=stat edt=editor
 ;==============================================================================
 
@@ -28,9 +28,6 @@ vert_split_draw       .equ 48DCh    ; -> 05:5D88  (1 call site)
 mde_7da9            .equ 49DBh    ; -> 36:7DA9  (1 call site)
 arc_59f1            .equ 4A68h    ; -> 07:59F1  (1 call site)
 fps_push_real         .equ 4A83h    ; -> 07:6365  (1 call site)
-crystal_timer_a       .equ 4B49h    ; -> 34:5A99  (1 call site)
-crystal_timer_b       .equ 4B4Ch    ; -> 34:5A9D  (1 call site)
-crystal_timer_c       .equ 4B4Fh    ; -> 34:5AA1  (3 call sites)
 rcl_var_push          .equ 4B9Ah    ; -> 3A:5D07  (1 call site)
 sta_5eef            .equ 4B9Dh    ; -> 3A:5EEF  (2 call sites)
 sta_760f            .equ 4BA9h    ; -> 3A:760F  (1 call site)

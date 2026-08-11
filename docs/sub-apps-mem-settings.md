@@ -149,7 +149,7 @@ addresses behind these public entry points are not defined functions in the disa
   then loops `app_find_next_page (5FB1)` + a header-match step until done, returning the app's
   start page and a found/not-found flag via `RST 28` (bcall) into RAM flash helpers.
   ```z80
-  5EE3 CALL 727D            ; flash_set_sector_cnt -> appSearchPage (0x82A3)
+  5EE3 CALL 727D            ; init_flash_page_counter -> appSearchPage (0x82A3)
   5EE6 CALL 5FB1            ; step to next candidate page (DEC appSearchPage)
   5EE9 RET C                ; ran off the end -> not found
   5EEA CALL 5EB2            ; read/compare this page's header
@@ -157,7 +157,7 @@ addresses behind these public entry points are not defined functions in the disa
   ```
 - `app_find_next_page` (`3D:5FB1`) — `appSearchPage (0x82A3) -= 1`; stops at page 7
   (low boundary of the app region); bjumps `appSearchPage:0x4000` to inspect the header.
-- `flash_set_sector_cnt` (`3D:727D` → helper `726E`) — initializes `0x82A3` to the model-selected page base plus one.
+- `init_flash_page_counter` (`3D:727D` → `model_app_top_page` at `3D:726E`) — initializes `appSearchPage` at `0x82A3` to the model-selected top App page plus one.
 - `_FindAppUp` (`5DDA`) / `_FindAppDn` (`5DE6`) — enumerate the previous / next app
   in flash (for the APPS-menu list), both wrapping the common walker `app_5de7` (`5DE7`).
   `app_5de7` keeps two counts in BC (apps before/after) and tracks the current name in OP3.
@@ -270,13 +270,12 @@ clear the VAT, user vars, or Flash (see [Memory management](memory-management.md
 
 ### 2.6 Flash archive GC — "Defragmenting…" / "Garbage Collecting…" [confirmed]
 
-Separate from RAM reset: when the Flash archive fills, the OS rewrites live archived vars to
-fresh sectors and erases the old ones. The display dispatcher sits around `3C:7E23`
-(shows `Defragmenting...` `0x4076`) / `7E10`/`7E1C` (shows `Garbage Collecting...` `0x4126`+`412E`);
-`3C:7E00` is not a defined function in the disassembly (the label is project-local, not a
-WikiTI or `ti83plus.inc` equate).
-It clears `0x844B` (`curRow`, the text-row cursor — reset before the banner draws) and runs with the screen frozen (`DI`). The actual
-sector erase/write primitives are RAM-resident (flash control port `0x14`) — see [Memory management](memory-management.md).
+Separate from RAM reset: `gc_show_screen` at `3C:7E0D` displays `Garbage Collecting...`, while the
+related entry at `3C:7E23` displays `Defragmenting...`. `archive_gc_collect` at `3C:7733` rewrites
+live archive records in 64 KiB sector units and journals its phase in the inactive 8 KiB half of
+page `3E`. It clears `0x844B` (`curRow`) before drawing the banner and runs with interrupts disabled.
+The erase and program workers execute from RAM through Flash-control port `0x14`; see
+[Variables, archive & unarchive](sub-vat-archive.md#7-flash-garbage-collector-confirmed). [confirmed]
 
 ---
 
@@ -361,7 +360,7 @@ line-by-line, but every target bit/byte is confirmed from the setters and inc eq
 3D:5DE6   _FindAppDn
 3D:5DE7   app_5de7
 3D:5FB1   app_find_next_page
-3D:727D   flash_set_sector_cnt
+3D:727D   init_flash_page_counter
 3D:7285   TLV-length candidate (inferred label); no defined function in live DB
 3D:4AA3   _FindAppNumPages bcall target; no live function in current DB
 ram:0936       _AppInit
@@ -373,7 +372,9 @@ ram:08AF       _PutAway
 35:719F   ram_reset_wipe         (zeroes 0x8000-0x9BC3 and 0x9BD0-0xFFFF)
 ram:0BD9       ram_init_after_reset
 ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
-3C:7E00   archive-GC-display candidate (inferred label); no defined function in live DB
+3C:71F8   gc_command
+3C:7733   archive_gc_collect
+3C:7E0D   gc_show_screen
 07:52CF   _CleanAll (cleanup_temp_ram)
 07:4FEC   _FixTempCnt
 36:7D11   _SetFuncM     (grfModeFlags bit4)

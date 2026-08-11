@@ -13,6 +13,10 @@
 843C	appBank_jump
 843E	appPage
 843F	kbdScanCode
+8440	kbdLGSC
+8441	kbdPSC
+8442	kbdWUR
+8443	kbdDebncCnt
 8444	kbdKey
 8445	kbdGetKy
 8446	keyExtend

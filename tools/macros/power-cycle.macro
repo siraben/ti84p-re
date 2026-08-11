@@ -1,0 +1,17 @@
+# Power on, dismiss the RAM-cleared splash, enter the OS low-power state with
+# 2nd+ON, then wake with ON. Run at --normal-speed --reset.
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+wait 1s
+key 2ND
+key ON
+wait 2s
+key ON
+wait 2s
+screenshot /tmp/calc-power-cycle.png

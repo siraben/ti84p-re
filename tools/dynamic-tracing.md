@@ -106,9 +106,32 @@ tools/tilem_trace_resolve.py /tmp/b.trace --print 200 --print-from 200 \
 tools/tilem_trace_resolve.py /tmp/b.trace --initial-mapping ti84p-reset \
   --page-switches
 
+# decoded I/O on selected hexadecimal ports and inclusive ranges;
+# skip 200 matching events and print the next 100
+tools/tilem_trace_resolve.py /tmp/b.trace --initial-mapping ti84p-reset \
+  --names tools/names.txt --io-ports 10-13,2f \
+  --io-from 200 --io-count 100
+
+# injected key events, named and aligned to instruction clocks
+tools/tilem_trace_resolve.py /tmp/b.trace --initial-mapping ti84p-reset \
+  --names tools/names.txt --key-events
+
+# restrict both key and decoded-I/O output to an inclusive trace-clock window
+tools/tilem_trace_resolve.py /tmp/b.trace --initial-mapping ti84p-reset \
+  --names tools/names.txt --key-events --io-ports 01,03-04 \
+  --event-clock 93285080-93450000
+
 # physical RAM page writes
 tools/analyze_ram_page_trace.py /tmp/b.trace \
   --initial-mapping ti84p-reset --page 0x83
+
+# visits to several exact resolved addresses, with registers and trace clocks
+tools/analyze_trace_points.py /tmp/b.trace \
+  --point page_3C:7733 --point page_3C:7cfb
+
+# AMD Flash commands, physical erase sectors, values, and compact program runs
+tools/analyze_flash_trace.py /tmp/b.trace \
+  --clock 321347460-344829074 --timeline
 
 # coverage: distinct executed addresses + hit counts
 tools/tilem_trace_resolve.py /tmp/b.trace --initial-mapping ti84p-reset \
@@ -124,6 +147,22 @@ tools/tilem_trace_resolve.py /tmp/b.trace --initial-mapping ti84p-reset \
 banked windows. TLMT v2 does not store the mapping at the first record. Without
 an explicit initial state, the resolver emits `page_??:` and warns that paged
 coverage is incomplete until enough mapping writes appear.
+
+`--io-ports` accepts comma-separated hexadecimal bytes and inclusive ranges.
+The resolver decodes immediate and `(C)` forms of `IN` and `OUT`, prints the
+resolved instruction address and clock, and uses `tools/names.txt` when
+`--names` is supplied. Register and immediate transfers retain their byte
+value. TLMT v2 does not retain the memory byte used by `INI`, `IND`, `INIR`,
+`INDR`, `OUTI`, `OUTD`, `OTIR`, or `OTDR`, so block-I/O events report the value
+as `unknown`. `--io-from` and `--io-count` window the matching I/O events
+without changing coverage or ordinary `--print` output.
+
+`--key-events` prints TLMT v2 key-event records with the injected key name,
+press/release state, trace clock, and the current resolved PC. These are emulator
+input events, not port-`0x01` reads. `--event-clock START[-END]` accepts decimal
+or `0x`-prefixed 32-bit bounds and filters both `--key-events` and `--io-ports`
+output. It does not change mapping replay, coverage, or ordinary `--print`
+output.
 
 For a full trace captured with `--model ti84p --reset`, use
 `--initial-mapping ti84p-reset` only when the first traced instruction is the
@@ -206,6 +245,7 @@ They cover:
 | `hello` | `ClrHome`, `Disp`, string scanning, newline/display completion |
 | `factorial` | `Prompt`, stores, `For(`/`End`, FP multiply, loop `parsePtr` reseed |
 | `data` | list literal, `L1`/`L2` 2-byte names, `SortA(`, `cumSum(`, `sum(` |
+| `gcflash` | archive two real variables, retire one, accept `GarbageCollect`, and exercise the Flash GC state machine |
 | `asmret` | `AsmPrgm` body containing `C9` (`RET`) |
 | `asmcall` | BASIC wrapper that runs `Asm(prgmASMRET)` between two `Disp` calls |
 | `asmsig` | `AsmPrgm` body that sets `Ans=1` with `_OP1Set1` + `_StoAns` |
@@ -389,12 +429,22 @@ rather than paged-address resolution.
 ## Files
 
 - [`tilem_trace_resolve.py`](tilem_trace_resolve.py) — trace → paged Ghidra address resolver.
+- [`hardware_trace.py`](hardware_trace.py) — importable resolved-instruction, I/O-event, and memory-write iterators.
+- [`analyze_trace_points.py`](analyze_trace_points.py) — repeated resolved-address visits with registers and clocks.
 - [`analyze_ram_page_trace.py`](analyze_ram_page_trace.py) — trace memory writes → physical RAM page ranges.
+- [`flash_trace.py`](flash_trace.py) — importable AMD byte-program and sector-erase decoder.
+- [`analyze_flash_trace.py`](analyze_flash_trace.py) — Flash command summaries, event filters, and compact timelines.
+- [`z80_disassembly.py`](z80_disassembly.py) — reusable `z80dasm` parser and paged-ROM literal and call-target helpers.
+- [`analyze_rom_literals.py`](analyze_rom_literals.py) — all-page immediate-value candidates with optional nearby call/jump sinks.
+- [`analyze_rom_calls.py`](analyze_rom_calls.py) — all-page direct `CALL`/`JP` cross-references with instruction context.
+- [`z80_io.py`](z80_io.py) — reusable immediate-port access decoding for static ROM disassembly.
+- [`analyze_rom_io.py`](analyze_rom_io.py) — selected-page or all-ROM static I/O-access inventory, inclusive port ranges, instruction context, and summaries.
 - [`tibasic_smoke.py`](tibasic_smoke.py) — generated TI-BASIC fixture runner with
   trace-anchor checks and final-frame visual checks.
 - [`macros/home-2plus3.macro`](macros/home-2plus3.macro) — power on, dismiss splash, evaluate `2+3`.
 - [`macros/graph-y1-x2.macro`](macros/graph-y1-x2.macro) — power on, enter `Y1=X^2`, and graph it.
 - [`macros/boot-idle.macro`](macros/boot-idle.macro) — baseline for coverage diffs.
+- [`macros/power-cycle.macro`](macros/power-cycle.macro) — enter low power with **[2nd]**+**ON**, wait in the `ram:0A5C` HALT loop, and wake with **ON**; see [Clock, timers, and power](../docs/clock-timers-power.md).
 - [`macros/run-first-program-factorial5.macro`](macros/run-first-program-factorial5.macro) —
   launch the first TI-BASIC program and answer `5` at `Prompt N`.
 - `macros/mathprint-{power,fraction,fnint}.macro` — render `X²` / `1/2` / `fnInt(`
@@ -407,6 +457,17 @@ rather than paged-address resolution.
 - `macros/solver-sqrt2.macro` — drives the Equation Solver to solve `X²−2=0`→√2,
   confirming the root-finder pseudocode in
   [docs/sub-solver-numeric.md](../docs/sub-solver-numeric.md).
+
+For example, inventory the page-`0x35` controller block with two instructions
+of context on each side:
+
+```sh
+nix develop -c python tools/analyze_rom_io.py --page 0x35 --before 2 --after 2 0x80-0xA2
+```
+
+This output is a linear-disassembly candidate list. Confirm control flow before
+treating an apparent access as code because ROM data can decode as `IN` or
+`OUT` instructions.
 
 ## Trace format (quick reference)
 
