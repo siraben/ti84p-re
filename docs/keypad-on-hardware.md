@@ -233,6 +233,8 @@ The IM1 dispatcher reads port `0x04` and enters `ram:015B` when bit 0 is set. Th
 
 Port `0x04` bit 0 says that the source is pending; bit 3 says whether the button is currently held. Software must not substitute one for the other. The handler uses bit 3 to decide whether the stable state is press or release. [confirmed]
 
+The port-`0x03` clear-on-zero sequence, source priority, and the differing TilEm and Wabbitemu ON-edge policies are detailed in [Interrupts (IM1)](interrupts.md#on-request-versus-on-level).
+
 ## ON debounce
 
 `on_key_debounce_power` normalizes its timing before polling the level. On TI-84 Plus hardware, it saves port `0x20` in `E` and writes zero to select nominal 6 MHz. It then requires port-`0x04` bit 3 to remain unchanged for `0x1016`, or 4,118, loop iterations. Any change reloads the counter. [confirmed]

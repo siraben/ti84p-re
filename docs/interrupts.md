@@ -1,82 +1,294 @@
 # Interrupts (IM1)
 
-The Z80 runs in interrupt mode 1: every maskable interrupt vectors to `0038h`. There is no vector table — one handler services all sources by polling status ports.
+*TI-84 Plus OS 2.55MP — Interrupt masks, status, acknowledgement, dispatch, and low-power wake.*
 
-## Vector → handler [confirmed]
+The TI-84 Plus OS runs the Z80 in interrupt mode 1 (IM1) and polls the ASIC's interrupt status. This page separates the USB event gate from the legacy controller at ports `0x03` and `0x04`, then follows acknowledgement, priority, and `HALT` wake behavior.
+
+## Evidence layers
+
+| Evidence | Scope | Confidence |
+|----------|-------|------------|
+| Page-0 bytes at `ram:0038`–`ram:0244` | IM1 entry, USB and legacy gates, source-test order, handlers, acknowledgement, and exit | [confirmed] |
+| Power-cycle trace from `tools/macros/power-cycle.macro` | OS mask writes, low-power `HALT`, ON wake, status read, debounce, and restoration | [confirmed] |
+| WikiTI ports `0x03` and `0x04` | Bit-level enable, status, clear-on-zero, timer-rate, mapping, battery-selector, and low-power contract | [standard] |
+| TilEm commit `f56ad63` and Wabbitemu commit `48c2dc0` | Two executable interpretations of the registers and their fidelity gaps | [standard] |
+
+The ROM proves how OS 2.55MP uses the registers. Public notes and emulators describe behavior inside the ASIC that the ROM cannot prove by itself. Emulator agreement is supporting evidence, not physical confirmation.
+
+## IM1 entry and context
+
+IM1 accepts a maskable interrupt at fixed address `ram:0038`. The OS vector jumps to `ram:006D`, where it swaps `AF`, `BC`, `DE`, and `HL` with the alternate register set. The normal exit swaps them back, executes `EI`, and returns with `RETI`. [confirmed]
 
 ```z80
-0038:  JR  0x006d        ; RST 38h vector
-006d:  int_entry_save_alt_regs ; shadow-register save prologue
-006f:  int_dispatch_sources    ; live interrupt-source dispatcher
+ram:0038  jr ram:006D
+ram:006D  ex af,af'
+ram:006E  exx
+ram:006F  in a,(0x55)
+ram:0071  xor 0xFF
+ram:0073  and 0x1F
+ram:0075  jr z,ram:003A
 ```
 
-`int_dispatch_sources` @ `ram:006F` runs after the two-byte prologue at `ram:006D`, with `IY = flags` (`0x89F0`), so `(IY+off)` reads/writes `SystemFlags` fields.
+The handler uses the alternate general registers as its working context. It assumes `IY = flags` at `0x89F0` and uses the interrupted stack. It does not push `IY`, `IX`, or a complete register frame at entry. [confirmed]
 
-## What it does [confirmed]
+The normal exit restores the standard OS mask after source-specific work: [confirmed]
 
-Entry saves context (`ex af,af'` / `exx` — the Z80 shadow registers, the classic TI ISR convention) then polls:
+```z80
+ram:00E4  ld a,0x0B
+ram:00E6  bit 0,(iy+0x16)
+ram:00EA  jr z,ram:00EE
+ram:00EC  add a,0x04          ; select 0x0F when timer 2 is wanted
+ram:00EE  out (0x03),a
+ram:00F0  ex af,af'
+ram:00F1  exx
+ram:00F2  ei
+ram:00F3  reti
+```
 
-1. `port_usbIntStatus` (0x55) — the 84+ USB Interrupt State port. This OS overloads it as the ISR's master "anything pending?" gate: `(val ^ 0xFF) & 0x1F` tests the 5 active-low sources.
-2. `port_usbLineEvents` (0x56) — the USB Line Events port; a read-only event bitmap whose bits select the timer/link sub-handlers. (Port 0x56 is read-only, so it is not an interrupt mask.)
-3. Branches per source:
-   - ON key — sets an ON-flag; `onSP` (`0x85BC`) holds the SP to unwind to for the ON-break path.
-   - Standard timer 1 — enters `ram:0167`, which scans the keypad and advances the run-indicator, cursor, and APD counters.
-   - Programmable timers — checks timer 3 at port `0x37` and timer 1 at port `0x31`, then dispatches their banked handlers.
-   - Link activity — services the link port.
-4. Hardware-mode housekeeping: checks `port_mapBankB == 0x81` (84+ mode), and on one path sets `port_cpuSpeed = 1` (15 MHz) and `port_mapBankB = 0x81`.
-5. Restores context and `EI` / `RET`.
+## USB gate and legacy controller
 
-## `(IY+off)` → `SystemFlags` fields the ISR touches [confirmed]
+Port `0x55` is the active-low USB interrupt summary. The three instructions at `ram:006F` invert and mask its low five bits. A result of zero jumps directly to the legacy status read at `ram:003A`. A nonzero result enters the USB activity-hook and port-`0x56` event paths before the handler considers the legacy controller. [confirmed]
 
-`int_dispatch_sources` reads/writes these flag bits via `BIT/SET/RES b,(IY+d)`. Offsets are confirmed against the standard `ti83plus.inc` group layout; the anchor `apdFlags = IY+0x08` is confirmed in code (`_DisableApd`/`_EnableApd` @ `3B:7AA8`/`3B:7AAD` do `RES/SET 2,(IY+0x8)`), `curFlags = IY+0x0C` is confirmed (`_CursorOn`/`_CursorOff` @ `06:7D34`/`06:7C5F`).
+This ordering does not make port `0x55` a summary of ON, standard-timer, or legacy link requests. Those sources appear at port `0x04`. Port `0x56` is a USB line-event bitmap, not the mask for port `0x04`. [confirmed] for the separate ROM paths; [standard] for the register roles.
 
-| `(IY+off)` | bit | field / equate | meaning in the ISR |
-|------------|-----|----------------|--------------------|
-| `IY+0x03` | 1 | flag byte `0x03` bit1 | ON-key interrupt already latched (guards the ON-set path @ `ram:00F5`) |
-| `IY+0x03` | 0 | `graphFlags`·graphDraw | redraw-graph flag the ISR sets @ `ram:0109` |
-| `IY+0x08` | 2 | `apdFlags`·apdAble | APD enabled; toggled by `_DisableApd`/`_EnableApd` |
-| `IY+0x09` | 3 | `onFlags`·onRunning | calculator-running flag; tested before the 84+ USB-port path (`ram:008B`, `ram:099E`) |
-| `IY+0x09` | 4 | `onFlags`·onInterrupt | ON-key interrupt-request flag; set @ `ram:0A87` |
-| `IY+0x0C` | 3 | `curFlags`·curOn | cursor currently drawn (blink phase) |
-| `IY+0x0C` | 2 | `curFlags`·curAble | cursor-blink enabled (`curLock` is bit 4) |
-| `IY+0x0F` | 7 | `seqFlags` bit7 | cleared @ `ram:0A8C` (`RES 7,(IY+0Fh)`) on the ON-key path |
-| `IY+0x12` | 3 | `shiftFlags`·shift2nd | the **2nd**-pending modifier flag; the ISR clears it at `ram:01E0` (`RES 3`) so a held **2nd** does not linger — see [Keypad and ON-key hardware](keypad-on-hardware.md#modifier-state) |
-| `IY+0x12` | 0 | `indicFlags`·indicRun | run-indicator-on flag (set by `_RunIndicOn`); the byte is shared — bits 0–2 are `indicFlags`, bits 3–7 are `shiftFlags` |
-| `IY+0x16` | 0 | speed/ACK select | chooses the value re-written to int-mask port `0x03` on exit (`ram:00E6`) |
-| `IY+0x16` | 1 | (same byte) | link-busy sub-flag, reset @ `ram:015E` |
-| `IY+0x24` | 2 | link/transfer-active | guards the ON-break vs. link-restore decision (`ram:09EE`, `ram:0AAB`) |
-| `IY+0x28` | 7/3 | `APIFlg`·appRetKeyOff (b7) | ISR tests `BIT 7` (`appRetKeyOff`) @ `ram:09DB` and does `SET 3` @ `ram:09E1` on the ON-break path |
-| `IY+0x2C` | 0 | `mouseFlag1` bit0 | enables four diagonal-arrow raw values in `kbd_scan_matrix` at `ram:0415`; the wider mode remains open |
-| `IY+0x33` | 5/0 | context-restore sub-flags | branch selectors on the ON-break / restore path |
-| `IY+0x3A` | 0 | `hookflags5`·usbActivityHookActive | when set, the ISR runs the deferred USB-activity hook (`ram:032A`) and ACKs |
-| `IY+0x3F` | 7 | RAM-clear control | masked during the ON-key RAM wipe (`ram:0B3C`) |
-| `IY+0x44` | 2 | (uncharacterized) | a restore-path branch clears this bit; no standard equate identifies it |
+The disconnected TilEm x4 model returns `0x1F` from port `0x55` and zero from port `0x56`. Its ordinary trace therefore takes `ram:006F` → `ram:003A` without USB event work. [standard]
 
-The byte `_GetCSC` (`00:04B2`) clears is `(IY+0)` bit3 (`*flags & 0xF7`) — the `kbdSCR`/"new scan code ready" flag in the keyboard group.
+See [USB ASIC and link assist](sub-usb-asic.md#interrupt-integration-confirmed) for the port-`0x56` event-bit branches and page-35 handlers.
 
-## Standard and programmable timers
+## Port `0x03`: mask, acknowledgement, and power mode
 
-Reading port `0x04` reports all legacy and programmable timer sources. Bit 1 is standard hardware timer 1; bits 5–7 are programmable timers 1–3. These are separate hardware blocks. [standard]
+Port `0x03` controls the four legacy interrupt sources and the ASIC's behavior when the Z80 executes `HALT`. Public notes document readback for enable bits 0, 1, 2, and 4. TilEm and Wabbitemu return the complete stored byte, but physical readback of bit 3 is not documented. [standard] for the public fields and emulator behavior; [hypothesis] for physical bit-3 readback.
 
-The OS writes `0x06` to port `0x04`, selecting the slowest standard-timer rate. Timer 1 then fires every $304/32768$ seconds, about 107.789 Hz. Port `0x03` normally enables this source with value `0x0B`. [confirmed] for the writes; [standard] for the quartz-derived rate.
+| Bit | Meaning | Effect of writing zero | Evidence |
+|----:|---------|------------------------|----------|
+| 0 | ON interrupt enabled | disable and acknowledge the ON request | Public register contract; OS writes and both emulators [standard] |
+| 1 | standard timer 1 enabled | disable and acknowledge timer 1 | Public register contract; OS writes and TilEm [standard] |
+| 2 | standard timer 2 enabled | disable and acknowledge timer 2 | Public register contract; OS writes and TilEm [standard] |
+| 3 | write control: one keeps hardware powered during `HALT`; zero selects low power on `HALT` | select low power for the next `HALT` | Public register contract; OS shutdown sequence and both emulators [standard] |
+| 4 | legacy link-activity interrupt enabled | disable and acknowledge link activity | Public register contract; OS shutdown mask and TilEm [standard] |
+| 5–7 | no documented function | — | Public register contract [standard] |
 
-The banked programmable-timer handlers have distinct jobs: [confirmed]
+Bit 3 changes what `HALT` does. A write with bit 3 clear does not enter low power by itself. The CPU must execute `HALT`, and an enabled wake source must later request an interrupt. [standard]
 
-- Timer 3 status at port `0x37` dispatches to `usb_timeout_irq` at `35:4792`, which accesses the USB controller ports `0x8E`, `0x91`, and `0x92`.
-- Timer 1 status at port `0x31` dispatches to `timer_irq` at `33:5EB4`, which advances the `_StartTimer` bcall state machine.
-- Standard timer 1 enters `standard_timer1_irq` at `ram:0167`; this is the source that reaches APD and cursor code.
+The OS uses these values: [confirmed] for each ROM write and branch; [standard] for the hardware effect.
 
-The common exit at `ram:00E4` writes `0x0B`, or `0x0F` when `(IY+0x16)` bit 0 is set. The master acknowledge at `ram:00DC` writes `0x08` and then the desired mask. [confirmed]
+| Value | Enabled legacy sources | `HALT` behavior | OS use |
+|------:|------------------------|-----------------|--------|
+| `0x08` | none | powered | common clear-on-zero acknowledgement and shutdown cleanup |
+| `0x09` | ON | powered | transient standard-timer-1 acknowledgement path |
+| `0x0A` | standard timer 1 | powered | transient ON acknowledgement path |
+| `0x0B` | ON and standard timer 1 | powered | normal mask |
+| `0x0F` | ON and both standard timers | powered | normal exit when `(IY+0x16)` bit 0 requests timer 2 |
+| `0x11` | ON and link activity | low power | shutdown and wake loop |
 
-## APD and cursor cadence
+## Port `0x04` read: source and ON status
 
-`standard_timer1_irq` calls `apd_timer_tick` at `ram:0355`. When APD is enabled and running, the tail at `ram:036C` decrements `apdSubTimer` (`0x8448`) and then `apdTimer` (`0x8449`). `_ApdSetup` at `ram:03AE` reloads only the high byte with `0x74`, leaving the low-byte phase unchanged. Expiry therefore occurs after 29,441–29,696 ticks, or 273.134277–275.500000 seconds at the documented timer rate. [confirmed] for the counter; [standard] for wall time.
+Reading port `0x04` returns status. Bit 3 is the live active-low ON level; it is not an interrupt request. Bits 5–7 report programmable-timer completion even when the corresponding timer mode did not request a maskable interrupt. [standard]
 
-The cursor handler at `06:7C45` toggles after 50 ticks. That is 0.4638671875 seconds per state and 0.927734375 seconds per full on/off cycle. `run_indicator_tick` at `ram:027B` uses the separate `indicCounter` at `0x8476`. [confirmed] for the counters; [standard] for wall time.
+| Bit | Read meaning | OS use | Evidence |
+|----:|--------------|--------|----------|
+| 0 | ON request pending | branch to `ram:015B` | ROM test at `ram:00D2`–`ram:00D5` [confirmed]; latch role [standard] |
+| 1 | standard timer 1 pending | branch to `ram:0167` | ROM test at `ram:00D6`–`ram:00D9` [confirmed]; pending role [standard] |
+| 2 | standard timer 2 pending | branch to `ram:01F1` | ROM test at `ram:00C8`–`ram:00CB` [confirmed]; pending role [standard] |
+| 3 | one when ON is released, zero while pressed | debounce reads at `ram:0975` | ROM interpretation [confirmed]; electrical level [standard] |
+| 4 | legacy link activity pending | branch to `ram:01E0` | ROM test at `ram:00CD`–`ram:00D0` [confirmed]; pending role [standard] |
+| 5 | programmable timer 1 finished | test timer-1 mode at port `0x31` | ROM tests at `ram:0041` and `ram:013A` [confirmed]; completion role [standard] |
+| 6 | programmable timer 2 finished | page-35 handler with `A = 0x0B` | ROM tests at `ram:0046` and `ram:0154` [confirmed]; completion role [standard] |
+| 7 | programmable timer 3 finished | test timer-3 mode at port `0x37` | ROM tests at `ram:003C` and `ram:012C` [confirmed]; completion role [standard] |
 
-See [Clock, timers, and power](clock-timers-power.md) for the complete port maps, timer bcall ABI, RTC protocol, APD derivation, power-off flow, dynamic traces, and TilEm fidelity gaps.
+The OS reads one status byte and retains it in `A` while testing the source bits. Programmable timers 1 and 3 receive an extra check of bit 1 in their own mode/status ports before the OS calls their banked handlers. A finished bit can therefore be visible without being eligible for interrupt service. [confirmed]
 
-## Interrupt-source details
+## Port `0x04` write: three unrelated controls
 
-- This OS polls the 84+ USB interrupt ports `0x55`/`0x56` before port `0x04`. Port `0x55` is the USB interrupt state; `(v^0xFF)&0x1F` selects active-low sources. Port `0x56` is a read-only line-event bitmap. [confirmed]
-- `_GetCSC` (`ram:04B2`) cooperates with the ISR: the keypad path updates `kbdScanCode`; `_GetCSC` atomically reads and clears it with interrupts masked, also clearing `(IY+0)` bit 3. See [Keypad and ON-key hardware](keypad-on-hardware.md) for matrix timing, repeat, and ON debounce. [confirmed]
+Writing port `0x04` does not acknowledge the status returned by a read. A write selects the memory-map mode, standard-timer rate, and battery-comparator input. [standard]
+
+| Bits | Write meaning | Evidence |
+|-----:|---------------|----------|
+| 0 | zero selects independent mapping; one selects paired mapping | OS writes and mapper behavior [confirmed] for use; public contract and emulators [standard] for hardware |
+| 2–1 | standard-timer rate index `0`–`3`, fastest to slowest | OS writes `0x06`; public formula and emulators [standard] |
+| 5–3 | unused in the public contract | [standard] |
+| 7–6 | raw battery-comparator selector | OS battery-test writes; public contract [standard] |
+
+For TI-84 Plus standard timer 1, the published quartz-domain period is
+
+$$
+T_1 = \frac{64 + 80i}{32768}\text{ seconds},
+$$
+
+where $i$ is bits 2–1. Timer 2 runs at twice that frequency. OS value `0x06` selects independent mapping, rate index 3, and battery selector zero. [confirmed] for the OS value; [standard] for the field meanings and formula.
+
+The battery-selector bits identify comparator configurations. The ROM's write order does not prove that the raw two-bit number is a monotonic voltage level. Physical threshold and bit-order measurements remain open. [hypothesis]
+
+See [Paging](paging.md) for paired mapping and [Clock, timers, and power](clock-timers-power.md#standard-hardware-timers) for exact timer rates.
+
+## Dispatch order and simultaneous sources
+
+The legacy-status path tests port-`0x04` bits in this order: [confirmed]
+
+| Priority | Status bit | Candidate | Additional gate |
+|---------:|-----------:|-----------|-----------------|
+| 1 | 7 | programmable timer 3 | port `0x37` bit 1 |
+| 2 | 5 | programmable timer 1 | port `0x31` bit 1 |
+| 3 | 6 | programmable timer 2 | handler selected through `ram:0154` |
+| 4 | 2 | standard timer 2 | none in the dispatcher |
+| 5 | 4 | legacy link activity | none in the dispatcher |
+| 6 | 0 | ON request | none in the dispatcher |
+| 7 | 1 | standard timer 1 | none in the dispatcher |
+
+```z80
+ram:003A  in a,(0x04)
+ram:003C  bit 7,a
+ram:0041  bit 5,a
+ram:0046  bit 6,a
+ram:00C8  bit 2,a
+ram:00CD  bit 4,a
+ram:00D2  rra                 ; original bit 0 enters carry
+ram:00D6  rra                 ; original bit 1 enters carry
+```
+
+An eligible handler exits through acknowledgement instead of resuming at the next lower-priority bit. Simultaneous eligible sources are therefore not all dispatched from one port-`0x04` read. A timer-1 or timer-3 completion bit whose mode gate is clear is skipped, allowing the next candidate to be tested. [confirmed]
+
+The common port-`0x03` write of `0x08` clears all four legacy source bits at once under the public clear-on-zero contract and TilEm's model. Simultaneous lower-priority legacy requests can therefore be coalesced by the higher-priority service. A programmable-timer completion is acknowledged separately through its mode/status port. [standard] for latch behavior; [confirmed] for the OS write sequence.
+
+## Clear-on-zero acknowledgement
+
+The common acknowledgement helper preserves the handler-supplied byte in `A`, writes `0x08`, then writes the saved byte: [confirmed]
+
+```z80
+ram:00DC  push af
+ram:00DD  ld a,0x08
+ram:00DF  out (0x03),a
+ram:00E1  pop af
+ram:00E2  out (0x03),a
+```
+
+The first write clears the ON, standard-timer, and link source latches because their enable bits are all zero. Bit 3 remains one, so this acknowledgement does not request low power. The second write exposes the handler-supplied value only until the normal exit writes `0x0B` or `0x0F`. [confirmed] for values and ordering; [standard] for clear-on-zero semantics.
+
+Leaving a legacy pending bit uncleared causes another maskable request after `EI`. Rewriting the same all-enabled mask is not an acknowledgement because each set bit leaves its source enabled and pending. [standard]
+
+Programmable timers use a separate contract. Writing their mode/status ports `0x31`, `0x34`, or `0x37` clears finished/overflow state and removes that timer's request in TilEm and the public hardware description. Port `0x03` does not clear bits 5–7. [standard]
+
+## Standard and programmable timer distinction
+
+The standard timers belong to the legacy mask block. Port-`0x03` bits 1 and 2 enable their interrupt requests, and clearing those bits acknowledges them. Their rate comes from port-`0x04` bits 2–1. [standard]
+
+The three programmable timers have source, mode/status, and counter triplets at ports `0x30`–`0x38`. Their port-`0x04` bits are completion observations, not enable bits. Timer mode bit 1 selects whether completion requests a maskable interrupt. [standard]
+
+OS 2.55MP uses programmable timer 1 for its timer bcall state machine and programmable timer 3 for a USB timeout path. Standard timer 1 drives keypad scanning, cursor blink, the run indicator, and Auto Power Down (APD) through `ram:0167`. [confirmed]
+
+See [Clock, timers, and power](clock-timers-power.md) for programmable-timer modes, the bcall ABI, and kernel-tick consumers.
+
+## ON request versus ON level
+
+Port-`0x04` bit 0 is the ON interrupt latch. Bit 3 is the button's current active-low level. The dispatcher selects the ON handler from bit 0, while `on_key_debounce_power` at `ram:0964` repeatedly samples bit 3 to classify a stable press or release. [confirmed]
+
+The power-cycle trace reads `0x01` after the injected ON press. Bit 0 reports the request and bit 3 clear reports the held key. The two meanings coincide in this event but remain independent fields. [confirmed]
+
+TilEm requests an ON interrupt on both press and release transitions when enabled. Wabbitemu latches only a transition into its pressed state. The ROM handles either stable level, but it cannot determine the physical ASIC's edge policy. [standard] for emulator behavior; [hypothesis] for the unmeasured physical policy.
+
+See [Keypad and ON-key hardware](keypad-on-hardware.md#on-interrupt-and-level) for debounce timing and the OS ON state machine.
+
+## Link interrupt versus periodic link polling
+
+Port-`0x03` bit 4 controls the legacy link-activity interrupt. The shutdown mask `0x11` uses it as a wake source. The port-`0x04` bit-4 dispatcher branch enters the power restoration path at `ram:01E0`. [confirmed] for OS use; [standard] for the interrupt source.
+
+Normal operation uses mask `0x0B`, so legacy link interrupts are disabled. Standard timer 1 still performs a periodic silent-link check at `ram:01B1`: the raw path reads port `0x00`, and the assist path reads port `0x09`. This polling is separate from a direct port-`0x04` bit-4 request. [confirmed]
+
+See [Two-wire link port hardware](link-port-hardware.md#background-link-detection-and-interrupts) for both detection paths.
+
+## Low-power entry and wake
+
+The shared power-off tail first acknowledges legacy sources with `0x08`. It then writes `0x06` to port `0x04`, writes `0x11` to port `0x03`, enables interrupts, and loops on `HALT`. [confirmed]
+
+```z80
+ram:0A4B  out (0x04),a        ; A = 0x06
+ram:0A4F  out (0x03),a        ; A = 0x11
+ram:0A5B  ei
+ram:0A5C  halt
+ram:0A5D  jr ram:0A5C
+```
+
+Mask `0x11` disables both standard timers, enables ON and link activity, and clears the powered-`HALT` bit. The next `HALT` enters the ASIC low-power mode under the public contract. [confirmed] for the sequence; [standard] for the physical effect.
+
+A resolved TilEm trace records the transition and ON wake: [confirmed]
+
+```text
+clk=98010423   ram:0A29 OUT (0x03) <- 0x08
+clk=99871166   ram:0A4B OUT (0x04) <- 0x06
+clk=99871186   ram:0A4F OUT (0x03) <- 0x11
+clk=99871258   ram:0A5C HALT
+clk=99915117   ON pressed
+clk=99915172   ram:006F IN  (0x55) -> 0x1F
+clk=99915213   ram:003A IN  (0x04) -> 0x01
+clk=99915377   ram:0964 ON wake/debounce path
+clk=100195536  ram:09B5 power-on restoration
+```
+
+TilEm prevents programmable timers from waking `HALT` when both standard-timer bits in port `0x03` are clear. A programmable timer can still interrupt a running CPU in that state. This is an emulator policy approximating public reports that programmable timers do not reliably wake a halted CPU; it does not identify the physical ASIC mechanism. [standard]
+
+## Custom handler rules
+
+A custom IM2 handler, or code that replaces OS interrupt service, must account for each controller independently: [standard]
+
+- Preserve every register and mapping state that interrupted code can observe. The OS shadow-register convention is safe only while the interrupted program leaves those alternate registers to the OS.
+- Read port `0x55` as an active-low USB gate and port `0x04` as legacy/completion status. Do not interpret port-`0x04` bit 3 as a pending source.
+- Acknowledge legacy sources by clearing their port-`0x03` bits, then restore the intended mask. Acknowledge programmable timers through their own mode/status ports.
+- Keep handler code and any data it requires in mapped memory. Banked calls must preserve the interrupted mapping or restore it before returning.
+- Service or deliberately disable USB events. A port-`0x03` acknowledgement does not clear port-`0x55`/`0x56` state.
+- Enable a source capable of waking the chosen power mode before executing `HALT`.
+
+Chaining to the OS handler also inherits its assumptions: `IY` points to `flags`, normal RAM and page mappings are active, and the alternate general registers are available. [confirmed]
+
+## Emulator comparison
+
+| Behavior | TilEm x4 | Wabbitemu 83+SE/84+ | Consequence |
+|----------|----------|---------------------|-------------|
+| Port `0x03` read | returns stored mask | returns stored mask | mask reads agree [standard] |
+| Legacy clear-on-zero | clears ON, timer 1, timer 2, and link pending state on port-`0x03` writes | clears ON on port-`0x03`; advances timer phase from its port-`0x02` output handler | Wabbitemu does not reproduce the documented OS acknowledgement path [standard] |
+| Link status | implements port-`0x04` bit 4 | omits bit 4 from port-`0x04` reads | link wake cannot be cross-checked there [standard] |
+| Standard timers | explicit pending interrupt bits when enabled | derives status from elapsed phase while enabled | simultaneous-source and latch tests can differ [standard] |
+| Programmable completion | exposes finished bits 5–7 independently of interrupt mode | exposes timer-underflow bits 5–7 | both separate completion from mode, with different timer cores [standard] |
+| `HALT` behavior | port-`0x03` bit 3 selects powered/low-power behavior; standard-timer mask controls programmable wake suppression | approximates low power by changing LCD activity and suppresses programmable-timer requests while halted | neither model proves physical ASIC power domains [standard] |
+| USB gate | disconnected fixed values `0x55 = 0x1F`, `0x56 = 0` | partial `Fake USB` event model | connected USB interrupt service needs another test target [standard] |
+
+Wabbitemu's source comments state uncertainty about its standard-interrupt write behavior. Its model is useful as an independent implementation comparison, but disagreement must remain explicit. [standard]
+
+## Reusable debugging tools
+
+`tools/interrupt_controller.py` provides typed decoders, exact timer periods, clear-on-zero acknowledgement, ROM status-test order, and USB active-low decoding. `tools/describe_interrupt_controller.py` exposes focused CLI commands: [confirmed]
+
+```sh
+nix develop -c python tools/describe_interrupt_controller.py mask 0x0B
+nix develop -c python tools/describe_interrupt_controller.py status 0x8B
+nix develop -c python tools/describe_interrupt_controller.py config 0x06
+nix develop -c python tools/describe_interrupt_controller.py ack 0xF7 0x08
+```
+
+The trace command resolves mapper state, restricts output to interrupt ports, annotates each value, and collapses consecutive identical polls: [confirmed]
+
+```sh
+nix develop -c python tools/describe_interrupt_controller.py trace \
+  /tmp/tilem-power-cycle.trace --clock 97000000-101000000
+```
+
+Use `--all` to retain repeated ON-level polling and `--json` for machine-readable output.
+
+## Resolved findings and open hardware tests
+
+- [confirmed] OS 2.55MP tests USB activity before reading legacy status, but ports `0x55`/`0x56` remain separate from ports `0x03`/`0x04`.
+- [confirmed] The port-`0x04` test order is programmable timer 3, timer 1, timer 2, standard timer 2, link, ON, then standard timer 1.
+- [confirmed] The OS acknowledgement sequence is `0x08` → handler-supplied byte → `0x0B` or `0x0F`.
+- [confirmed] Shutdown writes `0x11` and executes `HALT`; the trace wakes through port-`0x04` value `0x01` after an ON press.
+- [standard] Programmable completion bits remain observable independently of their interrupt-mode bits.
+- [hypothesis] Physical TA2 and TA3 tests should measure ON request edges, link wake transitions, simultaneous legacy-source coalescing, programmable-timer wake behavior, and battery-selector thresholds.
+
+## Sources
+
+| Source | Used for |
+|--------|----------|
+| [WikiTI port `0x03`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:03) | enable mask, clear-on-zero acknowledgement, normal value, and low-power-on-`HALT` contract |
+| [WikiTI port `0x04`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:04) | read-status fields, write controls, timer formula, and programmable completion distinction |
+| [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) and [`timers.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/timers.c) | legacy latches, mask handling, timer completion, `HALT` policy, and disconnected USB values |
+| [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | independent standard-interrupt, mapping, ON, timer, and low-power implementation |
+| Local OS 2.55MP page-0 bytes | entry, gates, test order, handlers, acknowledgement, and exit |
+| `/tmp/tilem-power-cycle.trace` | shutdown and ON-wake execution sequence |

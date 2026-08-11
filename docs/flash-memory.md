@@ -67,13 +67,25 @@ The public write and erase bcalls expect Flash to be unlocked by their caller. T
 
 TilEm assigns protection group 1 to physical `0xB0000`–`0xBFFFF` and `0xFC000`–`0xFFFFF`. Port `0x21` bits 0–1 select the modeled override group while Flash is unlocked. A command can therefore pass the port-`0x14` lock and still be rejected for a protected physical sector. [standard]
 
+The retail boot programs port `0x21 = 0` at `3F:41DC`. Its low field also
+selects model-specific Flash page bounds, while bits 4–5 configure the RAM
+execution mask. See [ASIC status, identity, protection, and GPIO](asic-status-gpio.md)
+for the ROM uses, emulator equations, and public size tables. [confirmed] for
+the boot write; [standard] for the modeled protection behavior.
+
 This protection is separate from the safe bcall checks. For example, `_WriteAByte` permits starting page `3E` at the software layer, while the hardware still controls whether the affected sector is writable. [confirmed] for the bcall; [standard] for the ASIC model.
 
 ### Read and execution protection
 
 The certificate page is read-censored while Flash is locked. WikiTI documents the model-selected page as `1E`, `3E`, or `7E`; TilEm returns `0xFF` for locked reads of page `3E` on its TI-84 Plus model. [standard]
 
-Ports `0x22` and `0x23` define an inclusive forbidden Flash-execution interval. TilEm resets execution when the fetched page is at least port `0x22` and at most port `0x23`. Its reset values are `0x08` and `0x29`. Ports `0x25` and `0x26` similarly bound executable RAM in 1 KiB units. Writes to ports `0x21`, `0x22`, `0x23`, `0x25`, and `0x26` are accepted only while Flash is unlocked. [standard]
+Ports `0x22` and `0x23` define a forbidden Flash-execution interval. TilEm
+includes both endpoints, while Wabbitemu allows the lower page. The retail boot
+writes `0x08` and `0x29`. Ports `0x25` and `0x26` bound executable RAM in 1 KiB
+units. Both emulators accept writes to these protected ports only while Flash
+is unlocked. See [Execution protection](execution-protection.md) for the ROM
+sequence, exact equations, and unresolved physical boundaries. [confirmed] for
+the boot values; [standard] for the emulator behavior.
 
 These execution limits explain why the byte-poke loops run at `ramCode` (`0x8100`). They are distinct from the Flash chip's inability to provide ordinary array data while a program or erase operation is active. [confirmed] for the RAM workers; [standard] for the execution controls.
 
@@ -227,7 +239,7 @@ later copies the tail back. This behavior is visible as separate erases at physi
 
 ## `_SetFlashLowerBound`
 
-The official name is misleading on the TI-84 Plus: `_SetFlashLowerBound` writes port `0x23`, which is the upper end of the forbidden Flash-execution interval. Its complete body is: [confirmed]
+The official name is misleading on the TI-84 Plus: `_SetFlashLowerBound` writes port `0x23`, which is the upper end of the modeled forbidden Flash-execution interval. Its complete body is: [confirmed]
 
 ```z80
 3F:4784  nop
@@ -239,7 +251,7 @@ The official name is misleading on the TI-84 Plus: `_SetFlashLowerBound` writes 
 3F:478C  ret
 ```
 
-The leading bytes form the protected-port sequence. Flash must already be unlocked for port `0x23` to accept the write. The routine leaves interrupts disabled and preserves the value in `A`. [confirmed]
+The leading bytes form the protected-port sequence. Flash must already be unlocked for port `0x23` to accept the write. The routine leaves interrupts disabled and preserves the value in `A`. See [Execution protection](execution-protection.md#_setflashlowerbound) for the cross-emulator boundary comparison. [confirmed] for the routine; [standard] for the write gate.
 
 ## Archive allocation above the hardware API
 

@@ -2,8 +2,8 @@
 
 Companion to [keyboard-link.md](keyboard-link.md), focused on the data-transfer path:
 pushing a program/list/etc. to a computer (TI-Connect) or another calculator over the
-2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of [Keyboard and link](keyboard-link.md)'s byte
-primitives `_SendAByte` (`3C:420D`) and `_RecAByteIO` (`3C:443F`); the ASIC-facing assist/USB ports
+2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of the byte
+primitives `_SendAByte` (`3C:420D`) and `_RecAByteIO` (`3C:443F`), reconstructed in [Two-wire link port hardware](link-port-hardware.md); the ASIC-facing assist/USB ports
 are covered separately in [USB ASIC and link assist](sub-usb-asic.md).
 
 Addresses here are read from the raw Z80 disassembly. The decompiler mis-renders this subsystem —
@@ -79,7 +79,7 @@ save, `IY+0x3E` bit0 / `IY+0x3D` bit5 USB-presence.
 
 ## 2. The byte layer (recap + receive internals) [confirmed]
 
-[Keyboard and link](keyboard-link.md) covers `_SendAByte`. Two new things pinned here:
+[Two-wire link port hardware](link-port-hardware.md) covers the complete raw port-`0x00` send and receive handshakes. This section records how the byte entries select and report the hardware-assist path.
 
 ### 2a. Hardware-assist send `6BB2` [confirmed]
 
@@ -93,9 +93,7 @@ save, `IY+0x3E` bit0 / `IY+0x3D` bit5 USB-presence.
       LD A,C ; OUT (0x0D),A ; RET     ; *** write the byte to port 0x0D (assist FIFO) ***
 6BCA: CALL 6BE4 (decrement 9CAC) ; JR Z,6BBB (retry) ; else JP 4434 (timeout)
 ```
-So the assist path is: poll port 0x09 bit 5, then `OUT (0x0D),byte` — exactly the "FIFO" [Keyboard and link](keyboard-link.md)
-mentioned, with a CPU-speed-scaled timeout. The legacy bit-bang fall-through (port 0, send `1`/`2`,
-wait for echo, `DE`-timeout → `_JErrorNo`) is unchanged from [Keyboard and link](keyboard-link.md).
+So the assist path is: poll port 0x09 bit 5, then `OUT (0x0D),byte`, with a CPU-speed-scaled timeout. The legacy fall-through writes port `0x00` directly; see [Two-wire link port hardware](link-port-hardware.md) for its two-read polling loop and four-transition handshake.
 
 ### 2b. Receive `_RecAByteIO` `443F` and decoder `444A` [confirmed]
 
@@ -436,7 +434,7 @@ path still needs a controlled peer packet. [confirmed]
 | `07:7345` | `_GetSysInfo` (id `0x50DD`) | system info reply (used in link sessions) |
 | `00:4A14` | `_SendVarCmd` (bcall id) | → 3C:4EDD |
 
-**Ports:** `0x00` = bit-bang link (tip/ring); `0x08`–`0x0D` = HW link-assist control/status/data
+**Ports:** `0x00` = raw two-wire link; `0x08`–`0x0D` = HW link-assist control/status/data
 FIFO (port 0x09 bit5 TX-ready, bit6 transmission-error, bit4 byte-received, bits 0x19 error);
 `0x02` bit7 = non-83+-Basic (assist-present gate on 84+; WikiTI's "link-assist available" is bit6);
 `0x20` = CPU speed (timeout scaling); `0x4D` bits5/6 = USB negotiation; `0x14` = Flash

@@ -138,6 +138,10 @@ The row coordinate wraps across 64 rows. The controller-specific byte-column wid
 
 At high CPU speed, each access to ports `0x10`–`0x13` clears port-`0x02` bit 1 for a programmable interval. Port `0x2F` selects that interval in nominal 64-T-state steps with values 48, 112, 176, 240, 304, 368, 432, or 496 T-states. CPU-speed value `1` uses bits 0–1; value `2` uses bits 2–4; value `3` uses bits 5–7. CPU-speed value `0` leaves port-`0x02` bit 1 set. [standard]
 
+Ports `0x29`–`0x2C` separately add T-states to the LCD-port instruction and
+gate the Flash/RAM waits in port `0x2E`. [Bus timing and wait states](bus-timing.md)
+reconstructs the complete joint register block and both emulator models.
+
 The retail boot page writes `0x4B` to port `0x2F` at `3F:41D3`. With the OS's normal CPU-speed value `1`, the low field is `3`, selecting 240 T-states. At nominal 15 MHz this interval is 16 µs. [confirmed] for the writes and trace; [standard] for the hardware timer interpretation.
 
 The T6A04A datasheet specifies its internal busy interval as $2/f_{OSC} \leq T \leq 4/f_{OSC}$. It lists oscillator choices from about 26.88 kHz to 430.1 kHz, depending on external components and frequency-select pins. The ROM and emulator trace do not reveal the fitted controller's oscillator network, so the 16 µs ASIC wait cannot by itself identify the controller clock or its worst-case margin. [standard] for the formula and available oscillator settings; [hypothesis] for the unresolved board-specific margin.

@@ -23,7 +23,8 @@ How banking is recovered (no operand bytes are stored in the trace):
   selects the even/odd pages at 4000-7FFF and 8000-BFFF, and port 7 selects
   C000-FFFF. In independent mode, ports 6, 7, and 5 select those windows.
 For ports 6/7, bit 7 selects RAM and low bits select the RAM page; otherwise
-the low six bits select flash. Port 5 always selects RAM by low three bits.
+ports 0x0e/0x0f extend the Flash selector. Their high bits have no effect on
+this 64-page TI-84 Plus target. Port 5 always selects RAM by low three bits.
 Ports 0x27/0x28 force small ranges in the upper windows to RAM pages 0x80/0x81.
 
 OUT (C),0 has a recoverable zero value. TLMT v2 does not record the memory byte
@@ -41,6 +42,8 @@ import argparse
 import struct
 import sys
 
+from memory_mapper import MAPPING_PORTS, PAGE_SIZE, Ti83PlusMapper
+
 MAGIC = b"TLMT"
 HEADER_FMT = "<4sHHIII"
 HEADER_SIZE = struct.calcsize(HEADER_FMT)
@@ -56,8 +59,6 @@ IDX_AF, IDX_BC, IDX_DE, IDX_HL = 3, 4, 5, 6
 IDX_IX, IDX_IY, IDX_SP, IDX_PC_REG = 7, 8, 9, 10
 IDX_WZ = 12
 
-PAGE_SIZE = 0x4000
-
 # ED-prefixed OUT (C),r -> which register supplies the value.
 OUT_C_REG = {
     0xED41: "B", 0xED49: "C", 0xED51: "D", 0xED59: "E",
@@ -69,7 +70,6 @@ IN_C_REG = {
 }
 BLOCK_OUT = {0xEDA3, 0xEDAB, 0xEDB3, 0xEDBB}
 BLOCK_IN = {0xEDA2, 0xEDAA, 0xEDB2, 0xEDBA}
-MAPPING_PORTS = {4, 5, 6, 7, 0x27, 0x28}
 KEY_NAMES = {
     0x01: "DOWN", 0x02: "LEFT", 0x03: "RIGHT", 0x04: "UP",
     0x09: "ENTER", 0x0A: "ADD", 0x0B: "SUB", 0x0C: "MUL",
@@ -134,27 +134,8 @@ def iter_records(fp, resync=False):
             raise ValueError(f"unknown record type {t}")
 
 
-class Banker:
+class Banker(Ti83PlusMapper):
     """Track TI-84 Plus memory mapping by replaying OUT instructions."""
-
-    def __init__(self, *,
-                 initial_port4=None, initial_port5=None,
-                 initial_port6=None, initial_port7=None,
-                 initial_port27=None, initial_port28=None):
-        self.port4 = initial_port4
-        self.bank_c = initial_port5  # port 5
-        self.bank_a = initial_port6  # port 6
-        self.bank_b = initial_port7  # port 7
-        self.port27 = initial_port27
-        self.port28 = initial_port28
-        self.switches = 0
-
-    @classmethod
-    def ti84p_reset(cls):
-        """Return the mapping established by TilEm's x4_reset()."""
-        return cls(initial_port4=0x07, initial_port5=0x00,
-                   initial_port6=0x3F, initial_port7=0x3F,
-                   initial_port27=0x00, initial_port28=0x00)
 
     def feed(self, fields):
         """Apply this instruction's effect on banking; return (port, value) or None."""
@@ -183,93 +164,8 @@ class Banker:
 
         if port not in MAPPING_PORTS:
             return None
-        if port == 4:
-            self.port4, self.switches = value, self.switches + 1
-            return (4, value)
-        if port == 5:
-            self.bank_c, self.switches = value, self.switches + 1
-            return (5, value)
-        if port == 6:
-            self.bank_a, self.switches = value, self.switches + 1
-            return (6, value)
-        if port == 7:
-            self.bank_b, self.switches = value, self.switches + 1
-            return (7, value)
-        if port == 0x27:
-            self.port27, self.switches = value, self.switches + 1
-            return (0x27, value)
-        self.port28, self.switches = value, self.switches + 1
-        return (0x28, value)
-
-    def bank_page(self, port, value):
-        if value is None:
-            return None, None
-        if port == 5:
-            return "ram", 0x80 | (value & 0x07)
-        if value & 0x80:
-            return "ram", 0x80 | (value & 0x07)
-        return "flash", value & 0x3F
-
-    def mapped_page(self, region):
-        """Return (kind, page) for a logical 16 KiB window.
-
-        Port 4 bit 0 selects paired mode. In paired mode port 6 selects the
-        even/odd pair at 4000-7FFF and 8000-BFFF, while port 7 selects the
-        C000-FFFF window. In independent mode ports 6, 7, and 5 select those
-        three windows respectively.
-        """
-        if region == 0:
-            return "flash", 0
-        if self.port4 is None:
-            return None, None
-
-        if self.port4 & 1:
-            if region in (1, 2):
-                kind, page = self.bank_page(6, self.bank_a)
-                if page is None:
-                    return None, None
-                return kind, (page & ~1) | (region - 1)
-            return self.bank_page(7, self.bank_b)
-
-        if region == 1:
-            return self.bank_page(6, self.bank_a)
-        if region == 2:
-            return self.bank_page(7, self.bank_b)
-        return self.bank_page(5, self.bank_c)
-
-    def mapping_complete(self):
-        """Return whether all three banked windows can be resolved now."""
-        return (self.port27 is not None and self.port28 is not None
-                and all(self.mapped_page(region)[1] is not None
-                        for region in (1, 2, 3)))
-
-    def mapped_address(self, logical):
-        """Return (kind, page) after applying forced-RAM subranges."""
-        region = logical >> 14
-        if region == 2:
-            if self.port28 is None:
-                return None, None
-            if logical < 0x8000 + 64 * self.port28:
-                return "ram", 0x81
-        elif region == 3:
-            if self.port27 is None:
-                return None, None
-            if logical > 0xFFFF - 64 * self.port27:
-                return "ram", 0x80
-        return self.mapped_page(region)
-
-    def resolve(self, logical):
-        """Map a logical PC to (space, ghidra_addr, flat_rom_off_or_None, page_or_None)."""
-        region = logical >> 14
-        off = logical & 0x3FFF
-        if region == 0:                       # 0000-3FFF: fixed flash page 0
-            return ("ram", logical, logical, 0)
-        kind, page = self.mapped_address(logical)
-        if page is None:
-            return ("page_??", PAGE_SIZE + off, None, None)
-        if kind == "flash":
-            return (f"page_{page:02X}", PAGE_SIZE + off, page * PAGE_SIZE + off, page)
-        return ("ram", logical, None, None)    # banked RAM (e.g. 84+ RAM mode)
+        self.write_port(port, value)
+        return port, value
 
 
 def resolve_instruction(banker, fields):
@@ -439,6 +335,10 @@ def main():
                     help="port 6 value at the first record (hex or decimal)")
     ap.add_argument("--initial-port7", type=parse_byte, metavar="VALUE",
                     help="port 7 value at the first record (hex or decimal)")
+    ap.add_argument("--initial-port0e", type=parse_byte, metavar="VALUE",
+                    help="port 0x0e value at the first record (hex or decimal)")
+    ap.add_argument("--initial-port0f", type=parse_byte, metavar="VALUE",
+                    help="port 0x0f value at the first record (hex or decimal)")
     ap.add_argument("--initial-port27", type=parse_byte, metavar="VALUE",
                     help="port 0x27 value at the first record (hex or decimal)")
     ap.add_argument("--initial-port28", type=parse_byte, metavar="VALUE",
@@ -463,7 +363,8 @@ def main():
     ap.add_argument("--sort", choices=("count", "addr", "first"), default="first",
                     help="coverage sort order (default: first-seen)")
     ap.add_argument("--page-switches", action="store_true",
-                    help="print every port 4-7 / 0x27 / 0x28 mapping write")
+                    help="print every mapper write (ports 4-7, 0x0e-0x0f, "
+                         "and 0x27-0x28)")
     ap.add_argument("--io-ports", type=parse_port_set, metavar="PORTS",
                     help="print I/O events for hexadecimal ports/ranges, "
                          "e.g. 10-13,2f")
@@ -487,6 +388,7 @@ def main():
     names = load_names(args.names) if args.names else None
     explicit_ports = (args.initial_port4, args.initial_port5,
                       args.initial_port6, args.initial_port7,
+                      args.initial_port0e, args.initial_port0f,
                       args.initial_port27, args.initial_port28)
     if args.initial_mapping == "ti84p-reset":
         if any(value is not None for value in explicit_ports):
@@ -498,6 +400,8 @@ def main():
                         initial_port5=args.initial_port5,
                         initial_port6=args.initial_port6,
                         initial_port7=args.initial_port7,
+                        initial_port0e=args.initial_port0e,
+                        initial_port0f=args.initial_port0f,
                         initial_port27=args.initial_port27,
                         initial_port28=args.initial_port28)
 
@@ -565,6 +469,10 @@ def main():
                             else f"RAM/0x{selected:02x}")
                     print(f"{idx:>10}  OUT (port {port}) <- 0x{val:02x}   "
                           f"select = {kind}")
+                elif port in (0x0E, 0x0F):
+                    print(f"{idx:>10}  OUT (port 0x{port:02x}) <- "
+                          f"0x{val:02x}   Flash selector high bits = "
+                          f"0x{val & 3:02x}")
                 else:
                     print(f"{idx:>10}  OUT (port 0x{port:02x}) <- "
                           f"0x{val:02x}   forced-RAM extent")
@@ -673,6 +581,8 @@ def main():
               f"port5={fmt_port(banker.bank_c)} "
               f"port6={fmt_port(banker.bank_a)} "
               f"port7={fmt_port(banker.bank_b)} "
+              f"port0e={fmt_port(banker.port0e)} "
+              f"port0f={fmt_port(banker.port0f)} "
               f"port27={fmt_port(banker.port27)} "
               f"port28={fmt_port(banker.port28)}",
               file=sys.stderr)

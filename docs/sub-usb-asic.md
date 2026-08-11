@@ -17,7 +17,7 @@ The ROM shows four transport-facing surfaces:
 
 | Layer | Port range | Role |
 |-------|------------|------|
-| Legacy link | `0x00` | 2.5 mm tip/ring open-collector byte path. [confirmed] |
+| Legacy link | `0x00` | 2.5 mm raw bit-banged byte path; see [Two-wire link port hardware](link-port-hardware.md). [confirmed] |
 | Link-assist FIFO | `0x08`–`0x0D` | Hardware byte send/receive assist used below `_SendAByte` and `_RecAByteIO`. [confirmed] |
 | USB line / interrupt gates | `0x4D`, `0x55`, `0x56` | Line-state and event/status gates used before and during link handling. [confirmed] |
 | USB controller / endpoints | `0x4A`–`0x5B`, `0x80`–`0xA2` | Page-35 USB host/device stack, including setup, endpoint FIFOs, callbacks, and data transfer. [confirmed] |
@@ -209,7 +209,7 @@ the assist FIFO or falls back to port `0x00`. [confirmed]
 
 ## Interrupt integration [confirmed]
 
-The IM1 dispatcher (`ram:006F`) treats the USB interrupt status as its first source gate:
+The IM1 dispatcher (`ram:006F`) tests the USB interrupt status before the separate legacy controller:
 
 ```z80
 IN A,(0x55)
@@ -239,11 +239,15 @@ path it checks `port 0x09 & 0x18`. If either assist bit is set, it reloads `0x9C
 port `0x08` with `0x80` then `0x00`, sets `IY+0x3E` bit 0, and calls the common link activity hook
 at `ram:3FD5`. [confirmed]
 
+The raw-line encoding, the corresponding port-`0x00` receiver, and the distinction between this periodic check and a direct line interrupt are detailed in [Two-wire link port hardware](link-port-hardware.md#background-link-detection-and-interrupts).
+
 For application code, this means a custom interrupt handler that does not chain to the OS handler
 must account for port `0x55`/`0x56` activity itself and then either reproduce the relevant page-35
 event handling or deliberately leave USB disabled. The OS still acknowledges the legacy interrupt
 mask through port `0x03` on exit, but the USB event work is selected by `0x55`/`0x56` and page-35
-controller ports, not by a writeable `0x56` mask. [confirmed]
+controller ports, not by a writeable `0x56` mask. Port `0x55` is not a summary of ON, standard-timer,
+or legacy link requests. See [Interrupts (IM1)](interrupts.md#usb-gate-and-legacy-controller) for the
+two-stage dispatch and legacy acknowledgement. [confirmed]
 
 ## Public USB API bodies [confirmed]
 
@@ -346,6 +350,12 @@ JP 58D0h
 ```
 
 The helper at `2F:591B` chooses the port-`0x4C` value from port `0x4D` bits 5 and 6, writes `0x02` to port `0x54`, and clears low control bits on port `0x39`. The tail at `2F:58D0` re-arms port `0x57` according to the current line state. `_KillUSB` differs only by forcing port `0x4C` to zero between those helpers. [confirmed]
+
+The setup paths also update GPIO data at port `0x3A` and GPIO configuration at
+port `0x39`. Their low-bit read-modify-write sequences are decoded in
+[ASIC status, identity, protection, and GPIO](asic-status-gpio.md#usb-gpio-sequence).
+The ROM ties those bits to USB setup but does not expose their electrical signal
+names. [confirmed] for the operations; [hypothesis] for signal assignments.
 
 ### Emulator boundary
 

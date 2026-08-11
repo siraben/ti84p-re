@@ -47,13 +47,17 @@ The three timing blocks have different contracts: [standard]
 
 Port `0x20` selects CPU speed. Value `0` selects the nominal 6 MHz mode; values `1`–`3` select the nominal 15 MHz mode on the TI-84 Plus. TilEm models these as exactly 6 MHz and 15 MHz. Physical measurements published by WikiTI vary by ASIC revision and unit, so cycle-count conversion should name whether it uses nominal or measured frequency. [standard]
 
+The low two speed bits also select one of ports `0x29`–`0x2C` for LCD and
+memory wait states, plus a field in port `0x2F`. See
+[Bus timing and wait states](bus-timing.md). [standard]
+
 The standard timers and RTC remain tied to the quartz domain when the CPU speed changes. Programmable timers can instead select the CPU clock, so their wall time then changes with port `0x20`. [standard]
 
 ## Interrupt-source routing
 
-TI-OS uses IM1. `ram:0038` jumps to `ram:006D`, saves the alternate register set, polls the USB interrupt summary at port `0x55`, and falls through to port `0x04` when the USB block reports no active-low source. [confirmed]
+TI-OS uses IM1. `ram:0038` jumps to `ram:006D`, swaps in the alternate general registers, polls the active-low USB summary at port `0x55`, and falls through to the separate legacy status port `0x04` when the USB block reports no source. [confirmed]
 
-Reading port `0x04` reports the active sources: [standard]
+Reading port `0x04` reports legacy pending state, live ON level, and programmable-timer completion: [standard]
 
 | Bit | Source | OS branch from the dispatcher |
 |----:|--------|-------------------------------|
@@ -72,7 +76,9 @@ The two status handlers visible in this dispatch are unrelated to the kernel's A
 - `35:4792` stops programmable timer 3 and services a USB timeout/event structure through ports `0x8E`, `0x91`, and `0x92`.
 - `ram:0167` handles the standard timer-1 tick that reaches keypad scanning, cursor blink, the run indicator, and APD.
 
-The kernel normally writes `0x0B` to port `0x03`: ON and standard timer 1 can interrupt, timer 2 and link cannot, and bit 3 keeps the ASIC powered during `HALT`. The acknowledge sequence at `ram:00DC` writes `0x08` and then the desired mask. [confirmed]
+The status-test order is programmable timer 3, timer 1, timer 2, standard timer 2, link, ON, then standard timer 1. Programmable completion bits remain visible when their timer mode does not request an interrupt, so timers 1 and 3 receive an additional mode-bit check before their handlers run. [confirmed] for the test order and mode checks; [standard] for completion visibility.
+
+The kernel normally writes `0x0B` to port `0x03`: ON and standard timer 1 can interrupt, timer 2 and link cannot, and bit 3 keeps the ASIC powered during `HALT`. The acknowledge sequence at `ram:00DC` writes `0x08`, which clears all legacy source bits under the clear-on-zero contract, and then writes a handler-supplied byte. See [Interrupts (IM1)](interrupts.md#clear-on-zero-acknowledgement) for the complete register tables and simultaneous-source behavior. [confirmed] for the writes; [standard] for latch semantics.
 
 ## Standard hardware timers
 

@@ -24,9 +24,11 @@ Each row maps a documentation page to the subsystem it covers and its analysis s
 | Doc | Subsystem |
 |-----|-----------|
 | [memory-map.md](memory-map.md) | Address space, ports, RAM layout |
-| [paging.md](paging.md) | Flash/RAM banking (ports 6/7) |
+| [paging.md](paging.md) | Paired and independent Flash/RAM mapping, extended selectors, boot transition, and forced overlays |
+| [bus-timing.md](bus-timing.md) | CPU-speed-selected Flash, RAM, LCD, and timer wait-state registers |
+| [asic-status-gpio.md](asic-status-gpio.md) | ASIC status and identity, battery comparison, protection mode, and GPIO |
 | [bcall-mechanism.md](bcall-mechanism.md) | rst 28h system calls + jump table |
-| [interrupts.md](interrupts.md) | IM1 ISR, timers, APD, ON key |
+| [interrupts.md](interrupts.md) | IM1 entry, USB/legacy routing, masks, status, acknowledgement, priority, and wake |
 | [clock-timers-power.md](clock-timers-power.md) | Clock domains, programmable timer API, RTC, APD cadence, and power-off |
 | [md5-hardware.md](md5-hardware.md) | MD5-assist ports, boot digest API, round descriptors, and Rabin hash transformation |
 | [variables-vat.md](variables-vat.md) | Variable Allocation Table, object types |
