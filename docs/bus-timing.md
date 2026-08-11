@@ -59,6 +59,10 @@ That one byte controls two independent effects:
 - bits 2–7 select the T-states added to each LCD-port instruction;
 - bit 0 enables the Flash bits in port `0x2E`, and bit 1 enables the RAM bits.
 
+![CPU speed selects one delay register; that register controls LCD instruction additions and gates port 2E memory waits, while port 2F controls a separate LCD-ready hold.](images/bus-wait-timing.svg)
+
+**Timing model.** The register behavior is [standard], and the diagram's widths are conceptual. OS 2.55MP's register bytes and executed speed values are [confirmed].
+
 Changing port `0x20` changes the active byte immediately in TilEm and
 Wabbitemu. The OS does not need to rewrite ports `0x29`–`0x2C` when it moves
 between 6 and 15 MHz. Both emulators recompute memory delays on an accepted
