@@ -12,6 +12,7 @@ tools/roms/
 *.gpr
 *.rep/
 *.lock
+*.lock~
 !flake.lock
 *.ghidra
 
