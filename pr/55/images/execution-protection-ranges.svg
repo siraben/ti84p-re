@@ -12,26 +12,28 @@
 
   <rect class="panel" x="60" y="120" width="1080" height="330" rx="14"/>
   <text class="head" x="90" y="158">Flash pages · boot bounds port 22 = 08h, port 23 = 29h</text>
-  <g transform="translate(215 195)">
+  <g transform="translate(220 195)">
     <text class="head" x="-25" y="38" text-anchor="end">TilEm</text>
-    <rect class="allow" x="0" y="0" width="128" height="70" rx="8"/>
-    <rect class="edge" x="128" y="0" width="42" height="70"/>
-    <rect class="deny" x="170" y="0" width="544" height="70"/>
-    <rect class="allow" x="714" y="0" width="224" height="70" rx="8"/>
-    <text class="mono" x="64" y="31" text-anchor="middle">00–07</text><text class="text" x="64" y="55" text-anchor="middle">allow</text>
-    <text class="mono" x="149" y="43" text-anchor="middle">08</text>
-    <text class="mono" x="442" y="31" text-anchor="middle">09–29</text><text class="text" x="442" y="55" text-anchor="middle">deny</text>
-    <text class="mono" x="826" y="31" text-anchor="middle">2A–3F</text><text class="text" x="826" y="55" text-anchor="middle">allow</text>
+    <rect class="allow" x="0" y="0" width="112" height="70" rx="8"/>
+    <rect class="edge" x="112" y="0" width="14" height="70"/>
+    <rect class="deny" x="126" y="0" width="462" height="70"/>
+    <rect class="allow" x="588" y="0" width="308" height="70" rx="8"/>
+    <text class="mono" x="56" y="31" text-anchor="middle">00–07</text><text class="text" x="56" y="55" text-anchor="middle">allow</text>
+    <text class="mono" x="119" y="-8" text-anchor="middle">08</text>
+    <path d="M119 -5 V0" stroke="#d97706" stroke-width="2"/>
+    <text class="mono" x="357" y="31" text-anchor="middle">09–29</text><text class="text" x="357" y="55" text-anchor="middle">deny</text>
+    <text class="mono" x="742" y="31" text-anchor="middle">2A–3F</text><text class="text" x="742" y="55" text-anchor="middle">allow</text>
 
     <text class="head" x="-25" y="148" text-anchor="end">Wabbitemu</text>
-    <rect class="allow" x="0" y="110" width="170" height="70" rx="8"/>
-    <rect class="deny" x="170" y="110" width="544" height="70"/>
-    <rect class="allow" x="714" y="110" width="224" height="70" rx="8"/>
-    <text class="mono" x="85" y="141" text-anchor="middle">00–08</text><text class="text" x="85" y="165" text-anchor="middle">allow</text>
-    <text class="mono" x="442" y="141" text-anchor="middle">09–29</text><text class="text" x="442" y="165" text-anchor="middle">deny</text>
-    <text class="mono" x="826" y="141" text-anchor="middle">2A–3F</text><text class="text" x="826" y="165" text-anchor="middle">allow</text>
+    <rect class="allow" x="0" y="110" width="126" height="70" rx="8"/>
+    <rect class="deny" x="126" y="110" width="462" height="70"/>
+    <rect class="allow" x="588" y="110" width="308" height="70" rx="8"/>
+    <text class="mono" x="63" y="141" text-anchor="middle">00–08</text><text class="text" x="63" y="165" text-anchor="middle">allow</text>
+    <text class="mono" x="357" y="141" text-anchor="middle">09–29</text><text class="text" x="357" y="165" text-anchor="middle">deny</text>
+    <text class="mono" x="742" y="141" text-anchor="middle">2A–3F</text><text class="text" x="742" y="165" text-anchor="middle">allow</text>
   </g>
-  <text class="text" x="600" y="412" text-anchor="middle">Page 08 is the unresolved physical boundary: the public contract agrees with TilEm; hardware remains unmeasured.</text>
+  <text class="text" x="600" y="405" text-anchor="middle">Page 08 is the unresolved physical boundary: the public contract agrees with TilEm; hardware remains unmeasured.</text>
+  <text class="text" x="600" y="432" text-anchor="middle">Each strip spans pages 00–3F; widths are proportional to the number of 16 KiB pages.</text>
 
   <rect class="panel" x="60" y="485" width="1080" height="185" rx="14"/>
   <text class="head" x="90" y="523">RAM chunks · boot bounds port 25 = 10h, port 26 = 20h</text>

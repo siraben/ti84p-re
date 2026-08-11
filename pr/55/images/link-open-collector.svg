@@ -55,9 +55,9 @@
     <text class="head" x="540" y="30" text-anchor="middle">Physical line</text>
     <text class="mono" x="540" y="58" text-anchor="middle">high iff both release</text>
     <text class="mono" x="540" y="82" text-anchor="middle">low if either sinks</text>
-    <rect class="note" x="750" width="390" height="95" rx="10"/>
-    <text class="head" x="945" y="30" text-anchor="middle">Port 00 read</text>
-    <text class="mono" x="945" y="58" text-anchor="middle">low bits = physical high mask</text>
-    <text class="mono" x="945" y="82" text-anchor="middle">bits 4–5 = local latch</text>
+    <rect class="note" x="750" width="330" height="95" rx="10"/>
+    <text class="head" x="915" y="30" text-anchor="middle">Port 00 read</text>
+    <text class="mono" x="915" y="58" text-anchor="middle">low bits = physical high mask</text>
+    <text class="mono" x="915" y="82" text-anchor="middle">bits 4–5 = local latch</text>
   </g>
 </svg>

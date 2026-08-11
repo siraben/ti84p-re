@@ -52,7 +52,7 @@
     <rect class="array" x="985" y="75" width="80" height="220" rx="12"/>
     <text class="head" x="1025" y="112" text-anchor="middle" transform="rotate(90 1025 185)">physical sector</text>
 
-    <path class="arrow" d="M215 185 H247"/><path class="arrow" d="M445 185 H477"/><path class="arrow" d="M715 185 H747"/><path class="arrow" d="M945 185 H977"/>
+    <path class="arrow" d="M215 185 H252"/><path class="arrow" d="M445 185 H482"/><path class="arrow" d="M715 185 H752"/><path class="arrow" d="M945 185 H982"/>
 
     <rect class="array" x="25" y="335" width="1040" height="68" rx="10"/>
     <text class="mono" x="545" y="364" text-anchor="middle">logical page = 16 KiB mapper unit · erase sector = 8, 16, 32, or 64 KiB device unit</text>
