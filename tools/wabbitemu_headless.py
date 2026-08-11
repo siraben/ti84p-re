@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 from pathlib import Path
@@ -142,6 +143,33 @@ class WabbitemuExecutionReport:
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class WabbitemuInjectedHardwareReport:
+    """Stable fields from one injected physical-probe program."""
+
+    probe_size: int
+    boot_steps: int
+    boot_tstates: int
+    max_probe_steps: int
+    probe_steps: int
+    probe_tstates: int
+    call_address: int
+    violation_resets: int
+    outcome: int
+    completed: bool
+    frame_hex: str
+    final_pc: int
+    source_rom_sha256: str = ""
+    machine_code_sha256: str = ""
+    binary_sha256: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+WabbitemuPrefixM1Report = WabbitemuInjectedHardwareReport
 
 
 @dataclass(frozen=True)
@@ -1321,6 +1349,81 @@ def parse_execution_report(line: str) -> WabbitemuExecutionReport:
         raise WabbitemuHeadlessError(
             f"invalid native execution report: {line.strip()}"
         ) from error
+
+
+def _parse_injected_hardware_report(
+    line: str,
+    *,
+    expected_mode: str,
+    expected_frame_size: int,
+    label: str,
+) -> WabbitemuInjectedHardwareReport:
+    """Parse one native report from an injected physical-probe image."""
+
+    fields = {match["key"]: match["value"] for match in REPORT_PATTERN.finditer(line)}
+    numeric = {
+        "probe_size",
+        "boot_steps",
+        "boot_tstates",
+        "max_probe_steps",
+        "probe_steps",
+        "probe_tstates",
+        "call_address",
+        "violation_resets",
+        "outcome",
+        "final_pc",
+    }
+    required = {"mode", "completed", "frame_hex", *numeric}
+    missing = sorted(required - fields.keys())
+    if missing:
+        raise WabbitemuHeadlessError(
+            f"native {label} report omits " + ", ".join(missing)
+        )
+    if fields["mode"] != expected_mode:
+        raise WabbitemuHeadlessError(
+            f"unexpected native {label} mode {fields['mode']!r}"
+        )
+    try:
+        completed = int(fields["completed"], 0)
+        if completed not in (0, 1):
+            raise ValueError("completed must be zero or one")
+        frame = bytes.fromhex(fields["frame_hex"])
+        if len(frame) != expected_frame_size:
+            raise ValueError(
+                f"{label} frame must contain {expected_frame_size} bytes"
+            )
+        values = {name: int(fields[name], 0) for name in numeric}
+        return WabbitemuInjectedHardwareReport(
+            completed=bool(completed),
+            frame_hex=frame.hex().upper(),
+            **values,
+        )
+    except ValueError as error:
+        raise WabbitemuHeadlessError(
+            f"invalid native {label} report: {line.strip()}"
+        ) from error
+
+
+def parse_prefix_m1_report(line: str) -> WabbitemuPrefixM1Report:
+    """Parse one injected physical prefix-M1 program report."""
+
+    return _parse_injected_hardware_report(
+        line,
+        expected_mode="prefix-m1-probe",
+        expected_frame_size=73,
+        label="prefix-M1",
+    )
+
+
+def parse_timer_physical_report(line: str) -> WabbitemuInjectedHardwareReport:
+    """Parse one injected physical programmable-timer program report."""
+
+    return _parse_injected_hardware_report(
+        line,
+        expected_mode="timer-physical-probe",
+        expected_frame_size=101,
+        label="timer-physical",
+    )
 
 
 def parse_flash_program_report(line: str) -> WabbitemuFlashProgramReport:
@@ -3604,4 +3707,115 @@ def run_headless(
         report,
         input_sha256=file_sha256(input_image),
         output_sha256=file_sha256(output_image),
+    )
+
+
+def _run_injected_hardware_probe(
+    binary: Path,
+    source_rom: Path,
+    machine_code: Path,
+    *,
+    mode_flag: str,
+    report_parser: Callable[[str], WabbitemuInjectedHardwareReport],
+    label: str,
+    max_boot_steps: int = 5_000_000,
+    max_probe_steps: int = 1_500_000,
+) -> WabbitemuInjectedHardwareReport:
+    """Run one assembled physical-probe program through pinned Wabbitemu."""
+
+    try:
+        rom_size = source_rom.stat().st_size
+        probe_size = machine_code.stat().st_size
+    except OSError as error:
+        raise WabbitemuHeadlessError(
+            f"cannot inspect {label} fixture: {error}"
+        ) from error
+    if rom_size != FLASH_SIZE:
+        raise WabbitemuHeadlessError(
+            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
+        )
+    if probe_size <= 0:
+        raise WabbitemuHeadlessError(f"{label} machine code is empty")
+    if max_boot_steps <= 0 or max_probe_steps <= 0:
+        raise WabbitemuHeadlessError(f"{label} step bounds must be positive")
+    command = [
+        str(binary),
+        mode_flag,
+        str(source_rom),
+        str(machine_code),
+        str(max_boot_steps),
+        str(max_probe_steps),
+    ]
+    try:
+        completed = subprocess.run(
+            command,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError as error:
+        raise WabbitemuHeadlessError(
+            f"cannot execute native {label} probe: {error}"
+        ) from error
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip()
+        raise WabbitemuHeadlessError(
+            f"native {label} probe failed: {detail or completed.returncode}"
+        )
+    report = report_parser(completed.stdout)
+    if report.probe_size != probe_size:
+        raise WabbitemuHeadlessError(
+            f"native {label} probe size is {report.probe_size}; expected {probe_size}"
+        )
+    if not report.completed or report.outcome != 0:
+        raise WabbitemuHeadlessError(f"native {label} program did not complete")
+    return replace(
+        report,
+        source_rom_sha256=file_sha256(source_rom),
+        machine_code_sha256=file_sha256(machine_code),
+        binary_sha256=file_sha256(binary),
+    )
+
+
+def run_prefix_m1_probe(
+    binary: Path,
+    source_rom: Path,
+    machine_code: Path,
+    *,
+    max_boot_steps: int = 5_000_000,
+    max_probe_steps: int = 1_500_000,
+) -> WabbitemuPrefixM1Report:
+    """Run the assembled physical prefix-M1 program through pinned Wabbitemu."""
+
+    return _run_injected_hardware_probe(
+        binary,
+        source_rom,
+        machine_code,
+        mode_flag="--prefix-m1-probe",
+        report_parser=parse_prefix_m1_report,
+        label="prefix-M1",
+        max_boot_steps=max_boot_steps,
+        max_probe_steps=max_probe_steps,
+    )
+
+
+def run_timer_physical_probe(
+    binary: Path,
+    source_rom: Path,
+    machine_code: Path,
+    *,
+    max_boot_steps: int = 5_000_000,
+    max_probe_steps: int = 3_000_000,
+) -> WabbitemuInjectedHardwareReport:
+    """Run the assembled physical timer program through pinned Wabbitemu."""
+
+    return _run_injected_hardware_probe(
+        binary,
+        source_rom,
+        machine_code,
+        mode_flag="--timer-physical-probe",
+        report_parser=parse_timer_physical_report,
+        label="timer-physical",
+        max_boot_steps=max_boot_steps,
+        max_probe_steps=max_probe_steps,
     )

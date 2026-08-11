@@ -484,6 +484,10 @@ hashes and evidence scope. `tools/mame_keypad.py` parses and checks the MAME
 matrix against the reusable source model. `tools/run_mame_keypad_probe.py`
 guards the exact MAME executable, ROM, Lua adapter, and isolated runtime.
 `tools/mame_interrupt.py` adds the independent timer-sampled ON-edge sequence.
+The [physical keypad settling probe](hardware-probes.md#keypad-settling-probe)
+uses the same numeric group order but does not apply an emulator matrix model.
+It records every raw byte so held-key metadata and ASIC revision can be compared
+without assuming one of the three source algorithms.
 
 ```sh
 # Three-key rectangle: TilEm/Wabbitemu read 0xFC; MAME reads 0xFE.
@@ -559,6 +563,9 @@ above additionally require disassembly of their surrounding routines.
 - [standard] A guarded initialized-core Wabbitemu run reproduces the pairwise matrix reads, ignored row 7, press-only ON latch, held-key suppression, and release rearming described by the pinned source.
 - [standard] A guarded live-input MAME run reproduces its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, lack of matrix closure, and all-groups result.
 - [standard] A guarded MAME interrupt run reproduces its press-only ON latch, held-press suppression, release rearming, live-level bit, and bit-0-clear acknowledgement.
+- [confirmed] The prepared `HWKEYS` probe encodes all eight group writes, four
+  instruction gaps, and 16 trials per point, then unselects every group; no
+  physical AppVar has been recorded.
 - [hypothesis] The exact capacitance and minimum safe settle time should be measured across TA2 and TA3 calculators, including worst-case chords.
 - [hypothesis] A logic-analyzer test should establish which physical ON transitions request interrupts on each ASIC revision rather than selecting an emulator policy by majority.
 

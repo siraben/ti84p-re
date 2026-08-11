@@ -1,22 +1,118 @@
 #!/usr/bin/env python3
 """Regression tests for TI-84 Plus bus-delay decoding."""
 
+import sys
 import unittest
 from pathlib import Path
-import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from bus_timing import (
+    BUS_TIMING_PROBE_CASES,
     EMULATOR_PROFILE_KEYS,
+    PREFIX_M1_PROBE_CASES,
     TIMING_PROFILES,
     BusTiming,
     MemoryWaits,
     TimingImplementation,
+    decode_bus_timing_probe_measurements,
+    decode_prefix_m1_probe_measurements,
 )
 
 
 class BusTimingTests(unittest.TestCase):
+    def test_physical_probe_decoder_derives_deltas_and_clock_estimates(self):
+        deltas = (7, 6, 6, 22, 11, 6)
+        measurements = b"".join(
+            bytes((0xF5, 0, 0x08, 0xF5 - delta, 0, 0x08))
+            for delta in deltas
+        )
+
+        report = decode_bus_timing_probe_measurements(measurements)
+
+        self.assertEqual(2_048, report["timer_tick_hz"])
+        self.assertEqual(
+            [case.key for case in BUS_TIMING_PROBE_CASES],
+            [row["case"] for row in report["cases"]],
+        )
+        self.assertEqual(
+            deltas,
+            tuple(row["added_timer_ticks"] for row in report["cases"]),
+        )
+        self.assertEqual(
+            "41943040/7",
+            report["cases"][0]["inferred_cpu_hz_fraction"],
+        )
+        self.assertAlmostEqual(
+            5_592_405.333333333,
+            report["cases"][1]["inferred_cpu_hz"],
+        )
+
+    def test_physical_probe_decoder_invalidates_completed_timer(self):
+        measurements = bytearray(
+            b"".join(bytes((0xF5, 0, 0, 0xF0, 0, 0)) for _ in range(6))
+        )
+        measurements[1] = 0x04
+
+        report = decode_bus_timing_probe_measurements(bytes(measurements))
+
+        self.assertFalse(report["cases"][0]["valid"])
+        self.assertIsNone(report["cases"][0]["added_timer_ticks"])
+        self.assertIsNone(report["cases"][0]["inferred_cpu_hz"])
+
+    def test_physical_probe_decoder_rejects_wrong_measurement_size(self):
+        with self.assertRaisesRegex(ValueError, "36 bytes"):
+            decode_bus_timing_probe_measurements(b"x")
+
+    def test_prefix_probe_catalog_pins_instruction_bytes_and_model_split(self):
+        cases = {case.key: case for case in PREFIX_M1_PROBE_CASES}
+
+        self.assertEqual("CB42", cases["cb"].encoding.hex().upper())
+        self.assertEqual("DDCB0046", cases["dd_cb"].encoding.hex().upper())
+        self.assertEqual(2, cases["dd_cb"].z80_m1_fetches)
+        self.assertEqual(2, cases["dd_cb"].tilem_m1_fetches)
+        self.assertEqual(3, cases["dd_cb"].wabbitemu_m1_fetches)
+        self.assertEqual(
+            {"z80": 73_729, "tilem": 73_729, "wabbitemu": 86_017},
+            cases["dd_cb"].model_wait_sensitive_accesses(),
+        )
+
+    def test_prefix_probe_decoder_identifies_z80_and_tilem_ddcb_placement(self):
+        deltas = (21, 25, 25, 25, 29, 25)
+        measurements = b"".join(
+            bytes((0xE0, 0, 0, 0xE0 - delta, 0, 0)) for delta in deltas
+        )
+
+        report = decode_prefix_m1_probe_measurements(measurements)
+
+        self.assertEqual(
+            "z80-and-tilem-two-m1",
+            report["indexed_cb_discriminator"]["closer_to"],
+        )
+        dd_cb = report["cases"][5]
+        self.assertEqual("DDCB0046", dd_cb["encoding_hex"])
+        self.assertLess(
+            dd_cb["model_inferred_cpu_hz"]["z80"],
+            dd_cb["model_inferred_cpu_hz"]["wabbitemu"],
+        )
+
+    def test_prefix_probe_decoder_identifies_wabbitemu_ddcb_placement(self):
+        deltas = (21, 25, 25, 25, 29, 29)
+        measurements = b"".join(
+            bytes((0xE0, 0, 0, 0xE0 - delta, 0, 0)) for delta in deltas
+        )
+
+        report = decode_prefix_m1_probe_measurements(measurements)
+
+        self.assertEqual(
+            "wabbitemu-three-m1",
+            report["indexed_cb_discriminator"]["closer_to"],
+        )
+
+    def test_prefix_probe_decoder_rejects_wrong_measurement_size(self):
+        with self.assertRaisesRegex(ValueError, "36 bytes"):
+            decode_prefix_m1_probe_measurements(b"x")
+
     def test_os_lcd_access_delays_follow_speed_selected_register(self):
         timing = BusTiming.ti84p_os()
 

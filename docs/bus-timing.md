@@ -180,10 +180,22 @@ bytes have gate bits 0 and 1 set, the OS policy in every speed mode is:
 | non-opcode read | 0 | 0 |
 | write | 1 T-state | 1 T-state |
 
-A prefixed Z80 instruction performs more than one M1 fetch. The emulator adds
-the Flash opcode delay to the prefix and the following opcode separately. This
-matches public reports that the observed addition doubles for a one-prefix
-instruction. [standard]
+A CB-, ED-, DD-, or FD-prefixed Z80 instruction performs two M1 fetches. Both
+TilEm and Wabbitemu apply the opcode wait to the prefix and following opcode.
+A repeated DD or FD prefix adds another M1 fetch in both cores. [standard] for
+the Z80 bus cycle and pinned emulator source paths.
+
+Indexed CB instructions expose a model difference. The Z80 fetches DD or FD
+and CB with M1 signaling, then reads the displacement and final opcode without
+M1. TilEm follows this split in `z80main.h:674` and `z80ddfd.h:301`.
+Wabbitemu routes the final opcode through `CPU_opcode_fetch` at `core/core.c:832`,
+then decrements `R` at line 836. Its wait model therefore counts three opcode
+waits while its visible refresh count remains two. The hash-guarded
+`describe_prefix_fetch_models.py` CLI reproduces this result from the pinned
+source trees. The exact assembled `HWPFX` program also reproduces the split in
+the pinned Wabbitemu runtime: its indexed-CB row adds 30 timer ticks, compared
+with 25 for the three ordinary one-prefix rows and 29 for repeated DD.
+[confirmed] for the emulator run; physical ASIC placement remains open.
 
 The delay follows the physical page selected by the mapper in TilEm. An opcode
 executed from banked RAM uses the RAM M1 bit; the same logical address backed
@@ -250,9 +262,13 @@ modes 0–3. TilEm treats the `0xC0` family like its ordinary CPU-clock modes,
 and Wabbitemu's timer-source update does not use port `0x2F`. The prescaler is
 therefore absent from both compared emulator paths. [standard]
 
-OS 2.55MP's timer API can select `0xC0`-family sources, but the current traces
-do not execute a mode-3 prescaler measurement. The physical divisor remains a
-target for a counter-based test. [hypothesis]
+OS 2.55MP's timer API can select `0xC0`-family sources. The prepared
+[`HWTMR` probe](hardware-probes.md#programmable-timer-physical-probe) counts
+source-`0xE0` expiries against a crystal reference in CPU-speed modes 0–3. Its
+exact assembled image completes in pinned Wabbitemu and measures a prescaler
+near one, matching that emulator's source implementation. No result from a
+physical calculator has been recorded. [confirmed] for the probe and emulator
+run; [hypothesis] for the physical divisor.
 
 ## Emulator comparison
 
@@ -376,8 +392,30 @@ captures ports `0x20`, `0x29`–`0x2C`, `0x2E`, and `0x2F` before a mutating
 timing test. It does not measure any delay. No physical snapshot is recorded.
 [confirmed] for the probe bytes; [hypothesis] for pending readback values.
 
-- Count fixed Flash and RAM loops while toggling each port-`0x2E` bit. Separate
-  M1 fetches, data reads, and writes, and include one- and two-prefix opcodes.
+The guarded [memory-bus timing probe](hardware-probes.md#memory-bus-timing-probe)
+prepares paired timer-2 measurements for all six access classes. Its counted
+loops separate fixed-Flash opcode fetches, Flash data reads, safe Flash reset
+writes, RAM opcode fetches, RAM non-opcode reads, and idempotent RAM writes.
+It restores the entry timing byte and an initially idle timer 2. No exported
+physical result has been recorded. [confirmed] for the probe bytes and decoder;
+[hypothesis] for pending measurements.
+
+The guarded [prefix-M1 timing probe](hardware-probes.md#prefix-m1-timing-probe)
+prepares paired RAM-M1 measurements for unprefixed, CB, ED, DD, repeated-DD,
+and indexed-CB shapes. The indexed-CB row distinguishes TilEm and documented
+Z80 M1 placement from Wabbitemu's extra wait. The exact image completes through
+the cleanup boundary in pinned Wabbitemu and selects its three-wait model. No
+physical result has been recorded. [confirmed] for the probe bytes, decoder,
+and emulator run; [hypothesis] for pending measurements.
+
+The guarded [programmable-timer probe](hardware-probes.md#programmable-timer-physical-probe)
+prepares the port-`0x2F` mode-3 measurement. It also distinguishes crystal
+divisor, counter-zero, and expiry-status models while timers 1 and 2 are idle.
+The exact image completes through cleanup in pinned Wabbitemu. No exported
+physical result has been recorded. [confirmed] for the probe bytes, decoder,
+and emulator run; [hypothesis] for pending measurements.
+
+- Run all three prepared timing matrices on TA2 and TA3 units.
 - Repeat the loop test with active-register gate bits 0 and 1 cleared to verify
   whether they disable all corresponding `0x2E` effects.
 - Measure the interval from LCD writes and reads to port-`0x02` bit 1 becoming
@@ -385,8 +423,8 @@ timing test. It does not measure any delay. No physical snapshot is recorded.
   write-based model.
 - Find the lowest reliable ports-`0x29`–`0x2C` values for each LCD controller
   revision without assuming the published `0x0C` threshold is universal.
-- Drive a programmable timer from a `0xC0`-family source and measure the
-  port-`0x2F` divisor in each CPU-speed mode.
+- Compare the `HWTMR` port-`0x2F` results across CPU-speed modes and ASIC
+  revisions.
 - Compare nominal and measured T-state wall times on TA2 and TA3 ASICs.
 
 ## Sources

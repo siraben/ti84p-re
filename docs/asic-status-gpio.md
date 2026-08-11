@@ -245,12 +245,35 @@ parameters rather than measured ASIC facts. [standard]
 | `0x86` | 2 | 3.6 V |
 | `0xC6` | 3 | 4.3 V |
 
-This mapping conflicts with the ROM's comparison order. If `0x86` fails at
-3.6 V in TilEm, the later 3.9 V comparison at `0x46` cannot succeed. Result 2
-is therefore unreachable in that emulator model. Physical measurements must
-establish the actual selector ordering, thresholds, hysteresis, and load
-conditions. [confirmed] for the code/model comparison; [hypothesis] for the
-unmeasured electrical behavior.
+This mapping conflicts with the ROM's comparison order. Whenever the later
+`0x46` comparison succeeds at 3.9 V or above, the earlier `0x86` comparison at
+3.6 V has already returned level 3. Result 2 is therefore unreachable in that
+emulator model. Physical measurements must establish the actual selector
+ordering, thresholds, hysteresis, and load conditions. [confirmed] for the
+code/model comparison; [hypothesis] for the unmeasured electrical behavior.
+
+### Pinned TilEm comparator sweep
+
+A guarded direct-core run sets TilEm's battery field from 3.0 through 4.5 V in
+0.1 V steps. For each value, it writes all four selectors through port `0x04`
+and reads port-`0x02` bit 0. The observed comparator mask uses bit order
+`0x06`, `0x46`, `0x86`, `0xC6`: [standard]
+
+| Modeled voltage | Comparator mask | ROM bcall result |
+|-----------------|----------------:|-----------------:|
+| below 3.3 V | `0x0` | 0 |
+| 3.3–3.5 V | `0x1` | 1 |
+| 3.6–3.8 V | `0x5` | 3 |
+| 3.9–4.2 V | `0x7` | 3 |
+| 4.3 V and above | `0xF` | 4 |
+
+The native mask transitions match the four source constants. The reusable
+model then applies the byte-verified decision tree at `33:4E9B`–`4EDA`.
+The combination reaches levels 0, 1, 3, and 4, but not level 2. The probe
+binary has SHA-256
+`47008d660c7ea3e88c07df3d41d5c3e34c51d49850a806d5d2e37d5ca6214029`.
+This run validates TilEm's implementation; it does not measure a calculator's
+battery rail. [confirmed] for the ROM tree; [standard] for the emulator run.
 
 ## Port `0x15` identity
 
@@ -521,6 +544,10 @@ model from `tools/execution_protection.py`; its guarded CLI records the same
 two identities. `tools/mame_asic.py` combines the ASIC and bus-timing profiles
 with a typed native report. `tools/run_mame_asic_probe.py` guards the MAME,
 ROM, and Lua identities and retains the soft-reset output.
+`tools/battery_hardware.py` formalizes the ROM result tree and threshold
+regions. `tools/describe_battery_hardware.py` exposes voltage and raw-sample
+queries as text or JSON. `tools/tilem_battery.py` validates a typed native
+comparator sweep against the same model.
 [confirmed] for the ROM-analysis tools; [standard] for the emulator oracle.
 
 ```sh
@@ -537,6 +564,9 @@ nix develop -c python tools/analyze_rom_io.py \
   0x02 0x15 0x21 0x39 0x3A --summary
 nix develop -c python tools/disassemble_rom.py 0x33 \
   --start 0x4E9B --end 0x4F02
+nix develop -c python tools/describe_battery_hardware.py --json
+nix develop -c python tools/describe_battery_hardware.py --voltage 3.6
+nix develop -c python tools/describe_battery_hardware.py --samples 1010
 
 asic_probe_parent=$(mktemp -d /tmp/ti84-asic-probe.XXXXXX)
 nix develop -c python tools/run_wabbitemu_asic_edge_probe.py \
@@ -568,9 +598,12 @@ configuration or data. It provides a baseline, not an electrical direction
 test. No physical snapshot is recorded. [confirmed] for the probe bytes;
 [hypothesis] for pending readback values.
 
-- Sweep a controlled battery supply for all four port-`0x04` selectors. Record
-  the port-`0x02` bit-0 transition in both directions to measure threshold and
-  hysteresis.
+- Run the restoring [battery-level probe](hardware-probes.md#battery-level-probe)
+  across an upward and downward controlled-supply sweep. It records 16 retail
+  bcall results per point and verifies port/GPIO/flag cleanup. Run the
+  higher-risk [raw battery-selector probe](hardware-probes.md#raw-battery-selector-probe)
+  after it at each voltage point. The second result records all four comparator
+  bits so the sweep can assign individual selector thresholds and hysteresis.
 - Read port `0x15` on known TA1, TA2, and TA3 units and compare the result with
   package markings and installed RAM.
 - Program each port-`0x21` field while Flash is unlocked. Test Flash protection

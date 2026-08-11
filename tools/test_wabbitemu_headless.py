@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Regression tests for the pinned Wabbitemu headless adapter."""
 
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 from wabbitemu_headless import (
     COMPILE_SOURCES,
@@ -15,16 +15,18 @@ from wabbitemu_headless import (
     parse_flash_worker_report,
     parse_gate_transition,
     parse_gate_write,
-    parse_keypad_report,
     parse_interrupt_report,
+    parse_keypad_report,
     parse_lcd_report,
     parse_link_report,
-    parse_md5_edge_report,
     parse_mapper_report,
+    parse_md5_edge_report,
+    parse_prefix_m1_report,
     parse_protection_port_report,
     parse_ram_execution_report,
     parse_run_report,
     parse_speed_report,
+    parse_timer_physical_report,
     parse_timer_report,
     parse_usb_report,
     validate_retail_flash_path,
@@ -582,6 +584,47 @@ class WabbitemuHeadlessTests(unittest.TestCase):
             parse_ram_execution_report(
                 "mode=ram-execution-probe target_page=0x05"
             )
+
+    def test_parses_native_prefix_m1_status(self):
+        frame_hex = "AA" * 73
+        report = parse_prefix_m1_report(
+            "mode=prefix-m1-probe probe_size=587 boot_steps=1234 "
+            "boot_tstates=5678 max_probe_steps=1500000 probe_steps=4321 "
+            "probe_tstates=8765 call_address=0x9FDC violation_resets=0 "
+            f"outcome=0 completed=1 frame_hex={frame_hex} final_pc=0x9FDC"
+        )
+
+        self.assertTrue(report.completed)
+        self.assertEqual(587, report.probe_size)
+        self.assertEqual(0x9FDC, report.call_address)
+        self.assertEqual(frame_hex, report.frame_hex)
+
+    def test_rejects_incomplete_prefix_m1_status(self):
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "omits"):
+            parse_prefix_m1_report("mode=prefix-m1-probe probe_size=587")
+
+    def test_rejects_wrong_prefix_m1_frame_length(self):
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "invalid"):
+            parse_prefix_m1_report(
+                "mode=prefix-m1-probe probe_size=587 boot_steps=1 "
+                "boot_tstates=2 max_probe_steps=3 probe_steps=4 "
+                "probe_tstates=5 call_address=0x9FDC violation_resets=0 "
+                "outcome=0 completed=1 frame_hex=AA final_pc=0x9FDC"
+            )
+
+    def test_parses_native_physical_timer_status(self):
+        frame_hex = "BB" * 101
+        report = parse_timer_physical_report(
+            "mode=timer-physical-probe probe_size=831 boot_steps=1234 "
+            "boot_tstates=5678 max_probe_steps=3000000 probe_steps=4321 "
+            "probe_tstates=8765 call_address=0xA07A violation_resets=0 "
+            f"outcome=0 completed=1 frame_hex={frame_hex} final_pc=0xA07A"
+        )
+
+        self.assertTrue(report.completed)
+        self.assertEqual(831, report.probe_size)
+        self.assertEqual(0xA07A, report.call_address)
+        self.assertEqual(frame_hex, report.frame_hex)
 
 
 if __name__ == "__main__":

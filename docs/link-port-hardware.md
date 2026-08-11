@@ -481,6 +481,21 @@ The `keyboard-rom` command verifies the `0x50E9` bcall entry and hashes the
 three OS 2.55MP byte regions that support the decoder; it rejects a different
 control-flow body instead of applying the fixed status model silently.
 
+### Prepared physical readback matrix
+
+The [raw two-wire link probe](hardware-probes.md#raw-two-wire-link-probe) writes
+all four low-bit drive states and records the complete port-`0x00` byte after 0,
+1, 4, and 16 `NOP` instructions. It repeats each point 16 times, compares the
+exported result with `port_read_value` from the reusable model, and releases
+both lines during cleanup. The decoder reports low-line, local-latch,
+exact-byte, stability, and idle-cleanup results separately. [confirmed] for the
+probe bytes and decoder; [hypothesis] for pending physical samples.
+
+The matrix must run with an empty connector because it preconditions both lines
+low before every target write. It can test the public disconnected truth table
+and bound a CPU-visible settling change. It cannot measure analog rise time or
+voltage without external instrumentation.
+
 Run the guarded TilEm matrix with the pinned clean source tree:
 
 ```sh
@@ -548,6 +563,9 @@ transfer or attach a virtual cable.
 - [standard] Port reads use active-high physical levels, writes use active-high pull-low controls, and bits 4–5 reflect the local output latch.
 - [standard] Public hardware references map bit 0 to red/tip and bit 1 to white/ring.
 - [standard] TilEm and Wabbitemu reproduce the raw open-collector truth table.
+- [confirmed] The prepared `HWLINK` probe encodes the four-state, four-delay,
+  16-trial matrix and releases both lines during cleanup; no physical AppVar has
+  been recorded.
 - [standard] The guarded TilEm run verifies the raw matrix, activity interrupt, all six assist handlers, LSB-first `0xA5` transfers, status and data acknowledgement, sticky error flag, auxiliary-register retention, and external-line retention across reset.
 - [confirmed] The guarded MAME run reproduces its local readback and peer-input matrix while normal writes `1` and `2` leave both modeled connector outputs released.
 - [standard] The guarded Wabbitemu run verifies the complete raw matrix, absent assist ports `0x0B`/`0x0C`, idle-ready and read-ready interrupts, LSB-first `0xA5` send and receive, data-register acknowledgement, and seeded-error read-to-clear behavior.
