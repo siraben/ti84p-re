@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-24589cc4.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -182,13 +182,29 @@
                         <h1 id="boot-contexts--errors"><a class="header" href="#boot-contexts--errors">Boot, contexts &amp; errors</a></h1>
 <p>Three cross-cutting mechanisms: how the OS starts, how it switches “modes” (contexts), and how it aborts on error.</p>
 <h2 id="boot-confirmed"><a class="header" href="#boot-confirmed">Boot [confirmed]</a></h2>
-<pre><code class="language-z80">0000 reset:  IN A,(2); AND 0x80; JP 0x028C   ; test port 2 bit7, go to boot continuation
-028c:        port_mapBankA = 0x1F             ; bank a flash page into 4000
-             (cond) DAT_io_000E = 3; port_mapBankA = 0x7F   ; configure RAM/exec paging (port 0x0E)
-             port_memMapMode = 7              ; OUT (4): memory-map mode 1 + slow timer rate
-             JP 0x812C                        ; into the retail boot page at 3F:412C
+<pre><code class="language-z80">3F:4000:     LD A,0x07; OUT (0x04),A           ; paired mapping
+             LD A,0x7F; OUT (0x06),A           ; pages 3E/3F in 4000/8000
+             LD A,0x03; OUT (0x0E),A           ; extended Flash bits
+             JP 0x812C                         ; page 3F in the 8000 window
 </code></pre>
-<p>Boot configures the paging hardware (<code>OUT (6),0x7F</code> selects flash page <code>3F</code>, the boot page) and the memory-map/timer mode (<code>OUT (4)</code>), then ends <code>JP 0x812c</code> into the banked window where page <code>3F</code> sits — <code>3F:412C</code>. The assembled <code>rom.bin</code> installs the retail <code>D84PBE1.8Xv</code> payload at page <code>3F</code>; the continuation begins <code>IM 1; LD B,0; LD SP,0xFDFA; …</code>. The boot page eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen).</p>
+<p>The emulator reset trace begins at logical <code>0x8000</code>, where paired mode exposes
+<code>3F:4000</code>. The stub keeps page <code>3F</code> in the B window and jumps to logical
+<code>0x812C</code>, corresponding to <code>3F:412C</code>. Page 0 also has a restart vector at
+<code>00:0000</code> → <code>00:028C</code> that establishes the same paired mapping and reaches the
+same continuation. At <code>3F:414C</code>, the continuation changes to independent mode
+while page <code>3F</code> remains visible for the next instruction. See
+<a href="paging.html#boot-mapping-transition">Paging</a> for the complete window-by-window
+transition. [confirmed]</p>
+<p><a href="boot-hardware.html">Retail boot hardware initialization</a> follows the
+continuation through its reset delay, RAM-window safety checks, ordered ASIC
+programming, first keypad scan, OS-validity decision, and destructive RAM
+diagnostic. It also reconciles standard Z80 timing with the pinned TilEm trace.</p>
+<p>The assembled <code>rom.bin</code> validates and installs the retail <code>D84PBE1.8Xv</code>
+payload at page <code>3F</code>; the pinned base already contains the same 16 KiB page, so
+the installation changes no bytes. The continuation begins
+<code>IM 1; LD B,0; LD SP,0xFDFA; …</code>. The boot page eventually initializes RAM, the
+VAT, system flags, the LCD, and enters the main context (the homescreen).
+[confirmed]</p>
 <p>The boot page (<code>3F</code>) and its version queries are exposed to the OS through <code>ti83plus.inc</code> bcalls: <code>_getBootVer</code> (bcall <code>0x80B7</code> → <code>3F:477C</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code> → <code>3F:4781</code>). The USB boot support entry points route through the same table but land on page <code>2F</code>, for example <code>_AttemptUSBOSReceive</code> (<code>0x80E4</code> → <code>2F:4145</code>) and <code>_InitUSB</code> (<code>0x8108</code> → <code>2F:52A4</code>).</p>
 <h3 id="ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed"><a class="header" href="#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed">RAM clear / re-init (<code>ram_reset_wipe</code> → <code>ram:0BD9</code>) [confirmed]</a></h3>
 <p>The RAM-init proper is <code>ram_reset_wipe</code> (<code>35:719F</code>, reached on a full reset; the same routine backs the <code>[2nd]+[+] · 7 · 1 · 2</code> RAM-reset and the post-boot RAM clear). It zero-fills RAM in two blocks, preserving a handful of flag bits and <code>0x9B73</code> across the wipe:</p>
@@ -230,6 +246,7 @@ ram_init_after_reset (ram:0BD9):
 <li><code>_AppInit</code> (<code>ram:0936</code>) installs a context: copies 12 bytes of handler vectors → <code>cxMain</code>, sets <code>flags.appFlags</code>, and saves <code>cxPage = port_mapBankA</code> (the page the app runs from). [confirmed]</li>
 <li>The dispatched handlers include things like a key handler, (re)display/paint handler, and a PutAway (suspend) handler — the OS calls them through the <code>cx*</code> vectors, paging in <code>cxPage</code> first.</li>
 <li><code>_PutAway</code> (<code>ram:08AF</code>) calls the current context’s PutAway handler (<code>cxPPutAway</code>) to suspend/clean up — used on APD, when switching apps, or on <code>2nd+QUIT</code>. [confirmed]</li>
+<li><code>_PowerOff</code> (<code>5008</code>, body <code>ram:09E6</code>) performs context/display cleanup and joins the APD shutdown path at <code>ram:0A24</code>. The shared tail disables the standard timers, enables ON/link wake, and enters the low-power <code>HALT</code> loop at <code>ram:0A5C</code>. See <a href="clock-timers-power.html">Clock, timers, and power</a>. [confirmed]</li>
 </ul>
 <p>The UI runs on this mechanism: the main event loop reads a key (<code>_GetKey</code>), then calls the active context’s key handler; switching screens swaps the <code>cx*</code> vectors.</p>
 <h3 id="context-block-layout-confirmed"><a class="header" href="#context-block-layout-confirmed">Context block layout [confirmed]</a></h3>
@@ -280,7 +297,7 @@ call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; res
 </ul>
 <p>So <code>errSP</code> + <code>_JError</code> together implement try/catch: a context seeds <code>errSP</code> (from <code>onSP</code>) at entry, and any depth of nested calls can abort straight back to it.</p>
 <h3 id="error-message-table-confirmed"><a class="header" href="#error-message-table-confirmed">Error-message table [confirmed]</a></h3>
-<p>The error screen shows <code>ERR:&lt;MESSAGE&gt;</code> (the <code>ERR:</code> prefix is on <code>01:4008</code>). A local data-table trace shows the handler masking the code (<code>AND 0x7F</code>), then for codes below <code>0x3A</code> indexing a little-endian pointer table at <code>07:6ACC</code> by <code>(code) − 1</code> (<code>LD HL,0x6ACC; ADD HL,DE; ADD HL,DE; CALL _LdHLind</code>) to fetch each message pointer; the message strings themselves sit consecutively from <code>07:6B3C</code> as null-terminated text. Codes <code>≥ 0x3A</code> (and the special-cased <code>0x36</code>/<code>0x37</code>/<code>0x39</code>) bypass the table and fall back to the <code>?</code> message at <code>07:6C5A</code>. The current MCP function/xref view does not prove this data-only table directly, so treat the addresses as a data trace rather than live function symbols:</p>
+<p>The error screen shows <code>ERR:&lt;MESSAGE&gt;</code>; the <code>ERR:</code> prefix is at <code>01:4008</code>. The handler at <code>07:6A72</code> masks the code with <code>0x7F</code>, then indexes a little-endian pointer table at <code>07:6ACC</code> by <code>(code) − 1</code> for codes below <code>0x3A</code>. It fetches the pointer through <code>_LdHLind</code> and copies the selected null-terminated string. Codes <code>0x36</code>, <code>0x37</code>, <code>0x39</code>, and values at least <code>0x3A</code> bypass the table and select <code>?</code> at <code>07:6C5A</code>. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -299,30 +316,35 @@ call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; res
 <tr><td>10</td><td>E_Argument</td><td>ARGUMENT (6B92)</td></tr>
 <tr><td>11</td><td>E_DimMismatch</td><td>DIM MISMATCH (6B9B)</td></tr>
 <tr><td>12</td><td>E_Dimension</td><td>INVALID DIM (6BA8)</td></tr>
-<tr><td>…</td><td>…</td><td>UNDEFINED, MEMORY, INVALID, ILLEGAL NEST, BOUND, WINDOW RANGE, ZOOM, LABEL, STAT, SOLVER, … LINK (6C55)</td></tr>
+<tr><td>…</td><td>…</td><td>UNDEFINED, MEMORY, INVALID, ILLEGAL NEST, BOUND, WINDOW RANGE, ZOOM, LABEL, STAT, SOLVER, …</td></tr>
+<tr><td>31–35</td><td>link-error aliases</td><td>LINK (<code>6C55</code>)</td></tr>
 </tbody>
 </table>
 </div>
-<p>The <code>Code</code> column is each error’s low 7 bits. Re-editable errors set the <code>E_EDIT</code> (<code>0x80</code>) bit on top — <code>E_Overflow equ 1+E_EDIT</code>, <code>E_DivBy0 equ 2+E_EDIT</code>, … — while non-editable ones (<code>E_Label equ 20</code>, <code>E_Stat equ 21</code>, …) carry no such bit. The handler masks the code (<code>AND 0x7F</code>) before indexing. So the whole error pathway is: a routine <code>_JError</code>s a code → the handler restores <code>SP</code> from <code>errSP</code> → masks the code and looks up the message here → renders <code>ERR:&lt;msg&gt;</code>.</p>
+<p>The <code>Code</code> column is each error’s low 7 bits. Re-editable errors set the <code>E_EDIT</code> (<code>0x80</code>) bit on top — <code>E_Overflow equ 1+E_EDIT</code>, <code>E_DivBy0 equ 2+E_EDIT</code>, … — while non-editable ones (<code>E_Label equ 20</code>, <code>E_Stat equ 21</code>, …) carry no such bit. The handler masks the code (<code>AND 0x7F</code>) before indexing. Thus <code>_JError(0x22)</code> and <code>_JError(0x9F)</code> both select <code>LINK</code> at <code>07:6C55</code>, through pointer entries <code>07:6B0E</code> and <code>07:6B08</code>. <code>tools/describe_error.py</code> reproduces the table lookup from the ROM. [confirmed]</p>
 <h2 id="confirmed-details"><a class="header" href="#confirmed-details">Confirmed details</a></h2>
 <ul>
 <li><strong><code>cx*</code> vector layout — confirmed.</strong> The six 2-byte handler slots and <code>cxPage</code> offsets are pinned by tracing <code>_AppInit</code> (<code>ram:0936</code>): <code>LD DE,0x858D / LD BC,0x000C / LDIR</code> then <code>IN A,(6) / LD (0x8599),A</code>. See <a href="#context-block-layout-confirmed">Context block layout</a> above for the full offset table and <code>_AppInit</code> body. <code>_AppInit</code> installs the block; it is not the sole writer — <code>_POPCX</code> (bcall <code>0x49E1</code> → <code>07:6D1C</code>) restores a saved context into <code>cxMain</code>, and a save path at <code>07:5A8C</code> copies <code>cxMain</code> into the <code>cxPrev</code> shadow.</li>
-<li><strong>Boot RAM-init trace — raw-disassembly trace.</strong> Reset (<code>ram:0000</code>) → <code>028c</code> paging setup → <code>JP 0x812c</code> (retail boot page <code>3F:412C</code>). The RAM clear/re-init is <code>ram_reset_wipe</code> (<code>35:719f</code>): two <code>LDIR</code> zero-fills (<code>0x8000</code>–<code>0x9BC3</code>, <code>0x9BD0</code>–<code>0xFFFF</code>) preserving a few flag bytes, then <code>JP 0x0BD9</code> (<code>ram_init_after_reset</code>: port 0 = <code>0xC0</code>, stack reset in the raw trace, <code>CALL 0x3EC1</code>). The <code>ram:0BD9</code> entry matches the re-init point cross-referenced in <a href="memory-management.html">Memory management</a>. See <a href="#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed">RAM clear / re-init</a>.</li>
-<li><strong>Flash write/erase sector primitives.</strong> Page-3D anchors include <code>flash_program_buf</code> <code>3D:678C</code>, the per-record status writers <code>3D:7C8F/7C93/7C97</code>, and <code>flash_erase_wait</code> <code>3D:5ED3</code>, with byte-poke loops copied to <code>ramCode</code> <code>0x8100</code>. The candidate labels <code>flash_program_core</code> <code>3D:61AF</code> and <code>flash_write_record</code> <code>3D:64AA</code> are not defined functions in the disassembly; both names are project-local inferred labels, not WikiTI or <code>ti83plus.inc</code> equates. The public single-byte flash writers are <code>_WriteAByte</code> (bcall <code>0x8021</code>) and <code>_WriteAByteSafe</code> (bcall <code>0x80C6</code>) in <code>ti83plus.inc</code>; these name the public entry points, whose bodies are likewise not defined functions in the disassembly. See <a href="sub-vat-archive.html#6-low-level-flash-write--erase-pages-3c3d-port-0x14-hypothesis">sub-vat-archive §6</a>.</li>
+<li><strong>Boot RAM-init trace — raw-disassembly trace.</strong> Emulator reset starts at logical <code>0x8000</code> on page <code>3F</code> and reaches <code>3F:412C</code>; the page-0 restart vector at <code>ram:0000</code> → <code>ram:028C</code> reaches the same continuation. The RAM clear/re-init is <code>ram_reset_wipe</code> (<code>35:719f</code>): two <code>LDIR</code> zero-fills (<code>0x8000</code>–<code>0x9BC3</code>, <code>0x9BD0</code>–<code>0xFFFF</code>) preserving a few flag bytes, then <code>JP 0x0BD9</code> (<code>ram_init_after_reset</code>: port 0 = <code>0xC0</code>, stack reset in the raw trace, <code>CALL 0x3EC1</code>). The <code>ram:0BD9</code> entry matches the re-init point cross-referenced in <a href="memory-management.html">Memory management</a>. See <a href="#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed">RAM clear / re-init</a>.</li>
+<li><strong>Flash write and erase.</strong> The retail boot table maps <code>_WriteFlash</code> (<code>80C9</code>) to <code>3F:4C8F</code>, <code>_WriteFlashUnsafe</code> (<code>8087</code>) to <code>3F:4CA6</code>, <code>_WriteAByte</code> (<code>8021</code>) to <code>3F:4C9F</code>, and <code>_EraseFlash</code> (<code>8024</code>) to <code>3F:4C2A</code>. Their program and erase loops are copied to <code>ramCode</code> at <code>0x8100</code>. A successful archive trace executes <code>archive_write_record</code> at <code>3D:64AA</code>, three <code>_WriteAByte</code> calls, and six entries through <code>_WriteFlashUnsafe</code>. See <a href="flash-memory.html">Flash memory</a>. [confirmed]</li>
 </ul>
-<p>The <code>JP 0x812c</code> target and the <code>ram:3EC1</code> init continuation are both present in
-the assembled database. The remaining boot gaps concern the detailed work of
-the retail sequence between those anchors.</p>
+<p>The <code>JP 0x812C</code> target and the <code>ram:3EC1</code> init continuation are both present in
+the assembled database. The retail hardware work before the first keypad scan,
+the <strong>MODE</strong> RAM diagnostic, and the dormant LCD/keypad diagnostic at <code>3F:4658</code>
+are decoded in
+<a href="boot-hardware.html#dormant-lcd-and-keypad-diagnostic">Retail boot hardware initialization</a>.
+The sole branch to <code>3F:4658</code> is constant-false; later recovery/UI paths remain
+open. [confirmed]</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="interrupts.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="clock-timers-power.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="memory-management.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="boot-hardware.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -332,11 +354,11 @@ the retail sequence between those anchors.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="interrupts.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="clock-timers-power.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="memory-management.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="boot-hardware.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

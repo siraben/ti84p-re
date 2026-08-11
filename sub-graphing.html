@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-24589cc4.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -265,8 +265,8 @@ a menu covers it). [confirmed]</li>
 <p><code>_GrBufClr</code> (<code>04:6071</code>): clears the whole 0x300-byte buffer to 0 (a
 <code>LD (HL),0</code> + 0x2FF-byte propagate copy). [confirmed]</p>
 <p><code>_IOffset</code> (<code>04:42B5</code>) computes the LCD controller address bytes for a pixel (inputs <code>B</code>=x, <code>C</code>=y):</p>
-<pre><code class="language-pseudocode">(0x844F) = (x &gt;&gt; 3) | 0x20     ; LCD "set row page" command — the rotated TI panel pages by X
-(0x8451) = (0x3F - y) | 0x80   ; LCD "set column" command (Y, mirrored)
+<pre><code class="language-pseudocode">(0x844F) = (x &gt;&gt; 3) | 0x20     ; LCD byte-column command for the horizontal group
+(0x8451) = (0x3F - y) | 0x80   ; LCD row command, vertically mirrored
 returns (table_42E4)[x &amp; 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
 </code></pre>
 <p>This maps a <code>(x,y)</code> pixel to a byte+bit in the buffer and produces the matching LCD
@@ -346,7 +346,7 @@ screen and whether a full re-plot is needed first. [confirmed]</p>
 (<code>_CheckSplitFlag</code>, <code>_Bit_VertSplit</code>), draws the split divider line (<code>_DarkLine</code>/<code>_ILine</code> at
 column region 0x2F), sets normal display vals, and walks the rows. [confirmed]</p>
 <p><code>_RestoreDisp</code> (<code>04:6176</code>) is the actual row-blit loop: for each of the up-to-64 rows it
-issues the column/row LCD commands then streams pixel bytes to <code>port_lcdData</code> (0x11)
+issues the row and byte-column LCD commands, then streams pixel bytes to <code>port_lcdData</code> (<code>0x11</code>)
 through <code>lcd_wait</code>, and pokes <code>port_lcdCmd</code> (0x10). This is where the buffer physically
 reaches the panel. [confirmed]</p>
 <p><code>_Regraph</code> (<code>04:6764</code>) re-evaluates and re-plots every selected Y= equation from scratch
@@ -427,7 +427,7 @@ values (<code>0</code>–<code>6</code>) are [confirmed] against the <a href="ht
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="display-lcd.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="lcd-hardware.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -441,7 +441,7 @@ values (<code>0</code>–<code>6</code>) are [confirmed] against the <a href="ht
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="display-lcd.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="lcd-hardware.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Display &amp; LCD - TI-84 Plus OS — Reverse Engineering</title>
+        <title>Display and LCD - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-24589cc4.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,52 +179,82 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="display--lcd"><a class="header" href="#display--lcd">Display &amp; LCD</a></h1>
-<blockquote>
-<p><strong>Deep dives:</strong> <a href="sub-graphing.html">Graphing</a> (graph buffer → LCD, transforms) · <a href="sub-table-yvars.html">Table &amp; Y= Variables</a> (text grid).</p>
-</blockquote>
-<p>The TI-84+ shows a <code>96×64</code> monochrome image — the OS only ever drives a 96×64 region (<code>_ClrLCDFull</code> clears all 768 bytes of it: 8 row-passes × 12 columns × 8 data bytes). The underlying controller (Toshiba T6K04 / later Novatek) has wider video RAM (up to 128 px), so 96×64 is the <em>visible</em> area, not the controller’s geometry. It is reached through I/O ports <code>0x10</code> (command) and <code>0x11</code> (data). The OS keeps a graph/screen buffer in RAM and renders text via a built-in font.</p>
-<h2 id="controller-confirmed"><a class="header" href="#controller-confirmed">Controller [confirmed]</a></h2>
+                        <h1 id="display-and-lcd"><a class="header" href="#display-and-lcd">Display and LCD</a></h1>
+<p>The display subsystem turns text, graph buffers, menus, and equation layouts into the 96×64 monochrome image scanned from LCD-controller video RAM. This page maps the OS-facing render paths and software buffers; <a href="lcd-hardware.html">LCD controller and display bus</a> reconstructs commands, addressing, timing, initialization, reads, power, and controller-revision behavior.</p>
+<h2 id="display-paths"><a class="header" href="#display-paths">Display paths</a></h2>
+<p>The OS uses direct rendering for homescreen text and an explicit RAM back buffer for graphs. [confirmed]</p>
+<pre class="mermaid">flowchart LR
+    TEXT["text and menus"] --&gt; PUT["_PutMap / _VPutMap"]
+    PUT --&gt; LCD["controller video RAM"]
+    GRAPH["graph rasterizers"] --&gt; BUF["plotSScreen · 0x9340"]
+    BUF --&gt; CPY["_GrBufCpy"]
+    CPY --&gt; LCD
+    LCD --&gt; PANEL["96×64 panel"]
+    LCD --&gt; SAVE["_SaveDisp → saveSScreen"]
+    SAVE --&gt; RESTORE["_RestoreDisp"]
+    RESTORE --&gt; LCD
+</pre>
+
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Path</th><th>Main entry</th><th>Behavior</th></tr>
+</thead>
+<tbody>
+<tr><td>Large text</td><td><code>_PutMap</code> at <code>01:5A98</code></td><td>draws one large-font glyph directly into controller RAM</td></tr>
+<tr><td>Cooked character</td><td><code>_PutC</code> at <code>01:5B4C</code></td><td>calls <code>_PutMap</code>, advances <code>curCol</code>, and handles newline/wrap</td></tr>
+<tr><td>String</td><td><code>_PutS</code> at <code>01:5C39</code></td><td>emits a null-terminated large-font string</td></tr>
+<tr><td>Small text</td><td><code>_VPutMap</code>/<code>_VPutS</code></td><td>renders variable-width glyphs using <code>penCol</code>/<code>penRow</code></td></tr>
+<tr><td>Graph clear</td><td><code>_GrBufClr</code> at <code>04:6071</code></td><td>clears 768 bytes of <code>plotSScreen</code>; does not touch the LCD</td></tr>
+<tr><td>Graph blit</td><td><code>_GrBufCpy</code> at <code>04:60A3</code></td><td>copies selected graph-buffer rows to controller RAM</td></tr>
+<tr><td>Physical clear</td><td><code>_ClrLCDFull</code> at <code>01:60E4</code></td><td>writes zero to all 768 visible controller bytes</td></tr>
+<tr><td>Save/restore</td><td><code>_SaveDisp</code>/<code>_RestoreDisp</code></td><td>captures and restores the displayed image</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="software-display-state"><a class="header" href="#software-display-state">Software display state</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Address</th><th>Name</th><th style="text-align: right">Size</th><th>Role</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x8447</code></td><td><code>contrast</code></td><td style="text-align: right">1 byte</td><td>OS contrast level used to build controller command <code>0xC0</code>–<code>0xFF</code></td></tr>
+<tr><td><code>0x844A</code></td><td><code>curTime</code></td><td style="text-align: right">1 byte</td><td>timer-driven cursor blink countdown</td></tr>
+<tr><td><code>0x844B</code>/<code>0x844C</code></td><td><code>curRow</code>/<code>curCol</code></td><td style="text-align: right">2 bytes</td><td>16×8 homescreen character cursor</td></tr>
+<tr><td><code>0x845A</code>–<code>0x8461</code></td><td><code>lFont_record</code></td><td style="text-align: right">8 bytes</td><td>current large-font render record</td></tr>
+<tr><td><code>0x8508</code>–<code>0x8587</code></td><td><code>textShadow</code></td><td style="text-align: right">128 bytes</td><td>16×8 homescreen character shadow</td></tr>
+<tr><td><code>0x86EC</code>–<code>0x89EB</code></td><td><code>saveSScreen</code></td><td style="text-align: right">768 bytes</td><td>saved display image</td></tr>
+<tr><td><code>0x9340</code>–<code>0x963F</code></td><td><code>plotSScreen</code></td><td style="text-align: right">768 bytes</td><td>graph/back buffer, 12 bytes × 64 rows</td></tr>
+</tbody>
+</table>
+</div>
+<p>Controller video RAM is a third image store outside Z80 RAM. Direct text output can change it without changing <code>plotSScreen</code>, while graph drawing can change <code>plotSScreen</code> without changing the panel until <code>_GrBufCpy</code> runs. [confirmed]</p>
+<h2 id="large-font-text"><a class="header" href="#large-font-text">Large-font text</a></h2>
+<p><code>_PutMap</code> clamps character code zero and codes at or above <code>0xF8</code> to replacement code <code>0xD0</code>. It computes <code>character × 8</code> and bjumps to <code>put_glyph_large</code> at <code>07:4588</code>. [confirmed]</p>
+<p>The page-7 blitter adjusts that offset to a seven-byte packed stride:</p>
+<p>$$
+\text{glyph address} = \texttt{07:45FF} + 7c
+$$</p>
+<p>where $c$ is the character code. It then copies eight bytes into <code>lFont_record</code>, so the eighth byte overlaps the first byte of the next packed glyph. [confirmed]</p>
+<p>Two flags at <code>IY+0x35</code> select alternate font-hook sources before the page-7 table read. Bit 5 calls <code>3B:7BFB</code> with selector <code>A=0x01</code>; bit 1 calls <code>3B:7B9C</code> with selector <code>A=0x76</code>. With neither flag set, <code>_PutMap</code> reads the built-in table. [confirmed]</p>
+<p>The renderer positions the controller from <code>curRow</code> and <code>curCol</code>. Glyph edges use controller read-modify-write with the required dummy data read before the real byte. The complete bus sequence is in <a href="lcd-hardware.html#text-drawing-and-read-modify-write">LCD controller and display bus</a>.</p>
+<h2 id="cursor-and-indicators"><a class="header" href="#cursor-and-indicators">Cursor and indicators</a></h2>
+<p><code>_CursorOn</code> and <code>_CursorOff</code> reload <code>curTime</code> with 50. Standard hardware timer 1 reaches the cursor handler at <code>06:7C45</code>, which toggles the cursor every 50 ticks. See <a href="clock-timers-power.html#cursor-blink-cadence">Clock, timers, and power</a>. [confirmed]</p>
+<p>The run indicator uses <code>indicCounter</code> and <code>indicBusy</code> at <code>0x8476</code>/<code>0x8477</code>. <code>_RunIndicOn</code> seeds it, and <code>run_indicator_tick</code> at <code>ram:027B</code> advances it from the same standard-timer interrupt. <code>_ClrLCDFull</code> temporarily clears and then restores the indicator-enable bit around the physical clear. [confirmed]</p>
+<h2 id="numeric-and-string-output"><a class="header" href="#numeric-and-string-output">Numeric and string output</a></h2>
+<p><code>_DispHL</code> at <code>01:5BF6</code> converts <code>HL</code> to five decimal positions with repeated <code>_DivHLBy10</code>, stores digits backward in scratch RAM, replaces leading zeroes with spaces, and prints through <code>_PutC</code>. [confirmed]</p>
+<p><code>_PutC</code> wraps when <code>curCol</code> reaches 16 and calls the newline/scroll path. <code>_PutS</code> and related bounded-string entries repeat <code>_PutC</code> over character data. These APIs target the character-oriented homescreen state, not the graph buffer. [confirmed]</p>
+<h2 id="graph-and-equation-rendering"><a class="header" href="#graph-and-equation-rendering">Graph and equation rendering</a></h2>
+<p>Graph rasterizers write <code>plotSScreen</code> and call <code>_GrBufCpy</code> or <code>_PDspGrph</code> to expose the result. Coordinate transforms, clipping, line/circle algorithms, and graph state are covered in <a href="sub-graphing.html">Graphing</a>.</p>
+<p>MathPrint uses a separate layout engine before its glyphs reach the display primitives. Its descriptors, box tree, cursor geometry, and runtime gaps are covered in <a href="sub-equation-display.html">Equation display</a>.</p>
+<p>The table editor and Y= screens build text-grid state through their own context handlers. See <a href="sub-table-yvars.html">Table and Y= variables</a>.</p>
+<h2 id="related-deep-dives"><a class="header" href="#related-deep-dives">Related deep dives</a></h2>
 <ul>
-<li><code>port_lcdCmd</code> (<code>0x10</code>): commands — set row, set column, set Y, on/off, contrast.</li>
-<li><code>port_lcdData</code> (<code>0x11</code>): read/write a byte of pixels at the current address.</li>
-<li>The panel is organized in 8-pixel-tall rows; <code>_ClrLCDFull</code> (<code>01:60E4</code>) loads <code>A=0xB8</code>, subtracts <code>8</code> each pass and stops at <code>0x80</code> → row commands <code>0xB8 … 0x80</code> (8 rows of 8 px = 64 px tall), calling <code>_ClearRow</code> per row with interrupts masked (<code>DI</code>). [confirmed]</li>
-<li><strong>Command bytes</strong> (all grounded in <code>_ClrLCDFull</code>/<code>_ClearRow</code>/<code>lcd_set_col_cmd</code>):
-<ul>
-<li><strong>Row (page) select</strong> = <code>0xB8 − 8·row</code> for <code>row = 0…7</code> (i.e. <code>0xB8, 0xB0, … 0x80</code>), sent to <code>0x10</code> via <code>lcd_set_col_cmd</code> (<code>01:5A89</code>), which only emits the byte when <code>0x80 ≤ A &lt; 0xC0</code> (guards the row/Z-address range). <code>_ClrLCDFull</code> walks this by loading <code>A=0xB8</code>, calling <code>_ClearRow</code>, then <code>SUB 0x8</code> and looping while <code>A ≥ 0x80</code> (<code>B=0x80</code>).</li>
-<li><strong>Column select</strong> = <code>0x20 + col</code>, sent <em>raw</em> to <code>0x10</code>. <code>_ClearRow</code> (<code>01:6934</code>) walks <code>E</code> from <code>0x20</code> to <code>0x2B</code> (<code>CP 0x2C</code> terminates) = 12 columns (12 bytes × 8 px = 96 px wide), writing 8 data bytes to <code>0x11</code> per column — the <code>B=0x08</code> inner <code>djnz</code> loop writes one byte per pixel row (8 rows). [confirmed]</li>
-<li><strong>Contrast</strong>: <code>lcd_set_contrast</code> (<code>01:5A59</code>) writes the contrast level to the <em>data</em> port <code>0x11</code>; <code>lcd_get_contrast</code> (<code>01:5A60</code>) reads it back from the controller with <code>IN A,(0x11)</code> (the standard dummy+real LCD read), not a command re-send. The level is also held in RAM at <code>contrast</code> (<code>0x8447</code>); the <em>command-port</em> form <code>(contrast+0x18)|0xC0</code> is what <code>_LCD_DRIVERON</code> (page 06) and the <code>_GetKey</code> contrast keys send to <code>0x10</code>. [confirmed]</li>
-<li>Every port access is preceded by <code>CALL ram:0CC3</code> (<code>lcd_wait</code>), the controller-busy delay. [confirmed]</li>
-</ul>
-</li>
-</ul>
-<h2 id="text-output-confirmed"><a class="header" href="#text-output-confirmed">Text output [confirmed]</a></h2>
-<ul>
-<li><code>curRow</code>/<code>curCol</code> (<code>0x844B/844C</code>) — the homescreen text cursor (16 columns wide; <code>_PutC</code> wraps at col 16, calls <code>_NewLine</code>).</li>
-<li><code>_PutMap</code> (<code>01:5A98</code>) draws one large-font character at the cursor: it clamps invalid codes to <code>0xD0</code>, computes an initial <code>char * 8</code> offset, then bjumps to the page-7 large-font blitter, which adjusts that offset to the actual <code>7-byte-stride</code> glyph table before copying an 8-byte render record. [confirmed]</li>
-<li><code>_PutC</code> (<code>01:5B4C</code>) = <code>_PutMap</code> + advance cursor + newline handling; <code>_PutS</code> prints a string; <code>_NewLine</code> scrolls.</li>
-<li><code>_DispHL</code> (<code>01:5BF6</code>) prints <code>HL</code> as a right-justified 5-digit decimal: repeated <code>_DivHLBy10</code>, digits +<code>0x30</code>, leading zeros → spaces, writing the digits backward from <code>0x847C</code> into the <code>OP1</code> scratch area, then <code>_PutC</code>/<code>_PutMap</code> each digit. [confirmed]</li>
-</ul>
-<h2 id="screen-buffers-standard"><a class="header" href="#screen-buffers-standard">Screen buffers [standard]</a></h2>
-<ul>
-<li><code>plotSScreen</code> (<code>0x9340</code>, 768 bytes = 96×64/8) — the main graph/back buffer.</li>
-<li><code>saveSScreen</code> (<code>0x86EC</code>, 768 bytes) — saved copy (e.g. for menus over the graph).</li>
-<li><code>_GrBufCpy</code> (<code>04:60A3</code>) blits <code>plotSScreen</code> to the LCD; <code>_GrBufClr</code> (<code>04:6071</code>) zero-fills the 768-byte graph buffer (<code>LD HL,0x9340; LD (HL),0; LDIR</code>) and does not touch the LCD.</li>
-</ul>
-<h2 id="fonts-confirmed"><a class="header" href="#fonts-confirmed">Fonts [confirmed]</a></h2>
-<ul>
-<li><strong>Large font</strong>: glyph table is on page 7, base <code>07:45FF</code>, with a <code>7-byte stride</code> per glyph (not 8). <code>_PutMap</code> (<code>01:5A98</code>) clamps the code (<code>0</code> or <code>≥0xF8</code> → <code>0xD0</code>), computes <code>HL = char*8</code> (three <code>ADD HL,HL</code>), then bjumps via trampoline <code>ram:3B3D</code> to the blitter <code>put_glyph_large</code> (<code>07:4588</code>). The blitter does <code>HL = 07:45FF + char*8</code>, then <code>lgfont_glyph_ptr_adjust</code> (<code>07:45EB</code>) subtracts <code>char</code> (it shifts <code>char*8</code> right by 3 → <code>char</code>, then <code>SBC HL,DE</code>), yielding the real glyph pointer <strong><code>07:45FF + char*7</code></strong>. It then copies an 8-byte record via <code>_Mov8B</code> (<code>ram:1A94</code>, 8× <code>LDI</code>) into RAM at <code>0x845A</code> (<code>lFont_record</code>), which the renderer blits. [confirmed] <em>(The stride is 7 bytes while the copy is 8 bytes — the 8th byte overlaps the next glyph’s first row — so the table packs glyphs at <code>07:45FF + char*7</code>.)</em></li>
-<li><strong>Alternate large fonts</strong>: two bits in <code>(IY+0x35)</code> select a replacement glyph source before the page-7 table read — bit 5 loads <code>A=0x01</code> and calls <code>ram:36E7</code> (bjump to <code>3B:7BFB</code>), bit 1 loads <code>A=0x76</code> and calls <code>ram:3E1F</code> (bjump to <code>3B:7B9C</code>); both are font-hook routines on page <code>3B</code> that take the <code>A</code> value as a selector. When neither bit is set, the page-7 table at <code>07:45FF</code> is used. [confirmed]</li>
-<li><strong>Small/variable-width font</strong>: <code>_VPutMap</code>/<code>_VPutS</code> (graph screen, pixel-addressed via <code>penCol</code>/<code>penRow</code>).</li>
-</ul>
-<h2 id="indicators"><a class="header" href="#indicators">Indicators</a></h2>
-<ul>
-<li><code>flags.indicFlags</code> bit 0 = the run/busy indicator (the moving dashes top-right); <code>_ClrLCDFull</code> preserves it across a clear; <code>_RunIndicOn</code> / <code>_RunIndicOff</code> toggle it. [confirmed]</li>
-</ul>
-<h2 id="lcd-command-bytes-and-glyph-table"><a class="header" href="#lcd-command-bytes-and-glyph-table">LCD command bytes and glyph table</a></h2>
-<ul>
-<li><strong>LCD command bytes.</strong> [confirmed] Tracing <code>_ClrLCDFull</code> (<code>01:60E4</code>), <code>_ClearRow</code> (<code>01:6934</code>) and <code>lcd_set_col_cmd</code> (<code>01:5A89</code>) pins the row (page) select at <code>0xB8 − 8·row</code> (range <code>0xB8 … 0x80</code>, stepping down by 8), the column select at <code>0x20 + col</code> (range <code>0x20 … 0x2B</code>, 12 columns = 96 px), the command port at <code>0x10</code>, and the data port at <code>0x11</code>. Each access waits through <code>ram:0CC3</code>. RAM byte <code>contrast</code> (<code>0x8447</code>) holds the contrast value, which <code>lcd_set_contrast</code> (<code>01:5A59</code>) writes to data port <code>0x11</code>. See <a href="#controller-confirmed">Controller</a>.</li>
-<li><strong>Large-font glyph table.</strong> [confirmed] The table is on page <code>07</code> at <code>07:45FF</code>, with a 7-byte stride. <code>put_glyph_large</code> at <code>07:4588</code> computes <code>07:45FF + char*7</code> through <code>07:45EB</code>, then <code>_Mov8B</code> copies an 8-byte record to RAM at <code>0x845A</code>. See <a href="#fonts-confirmed">Fonts</a> and <a href="flash-page-map.html">Flash page map</a>.</li>
+<li><a href="lcd-hardware.html">LCD controller and display bus</a> — ports, status, commands, addressing, waits, initialization, clear/blit/read paths, contrast, power, dynamic I/O traces, and cross-emulator fidelity.</li>
+<li><a href="sub-graphing.html">Graphing</a> — graph buffer, transforms, pixels, lines, circles, and graph display.</li>
+<li><a href="sub-equation-display.html">Equation display</a> — MathPrint layout and compositing.</li>
+<li><a href="sub-table-yvars.html">Table and Y= variables</a> — table grid and function editor.</li>
 </ul>
 
                     </main>
@@ -235,7 +265,7 @@
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="sub-graphing.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="lcd-hardware.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -249,7 +279,7 @@
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="sub-graphing.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="lcd-hardware.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

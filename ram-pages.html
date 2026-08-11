@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-24589cc4.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,27 +180,64 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="ram-pages"><a class="header" href="#ram-pages">RAM pages</a></h1>
-<p>The TI-84 Plus has banked RAM pages behind the Z80’s 16 KiB windows. TI-OS normally
-keeps RAM page <code>81</code> in <code>8000-BFFF</code> and RAM page <code>80</code> in <code>C000-FFFF</code>, but ROM helpers
-temporarily map other pages for paged memory access. On OS 2.55MP, traces show page
-<code>83</code> writes during boot/home initialization and during homescreen expression entry.
-Programs that borrow page <code>83</code> must preserve or restore the OS-visible regions below.</p>
-<h2 id="page-selectors-confirmed"><a class="header" href="#page-selectors-confirmed">Page selectors [confirmed]</a></h2>
-<p>The 84+ memory ports use two encodings:</p>
+<p>The TI-84 Plus maps banked RAM behind the Z80’s 16 KiB windows. This page
+separates selector values from physical backing, reconciles the reported
+128 KiB and 48 KiB revisions, traces OS use of selectors <code>80</code>–<code>83</code>, and gives
+restoration rules for programs that borrow banked RAM.</p>
+<h2 id="physical-integration-and-capacity-revisions"><a class="header" href="#physical-integration-and-capacity-revisions">Physical integration and capacity revisions</a></h2>
+<p>Datamath’s March 2004 board photographs show three main integrated circuits:
+the <code>TI REF 83PLUSB/TA2</code> ASIC, a <code>29LV800</code> Flash device, and the LCD driver.
+The accompanying board description places the Z80 core and RAM inside the
+ASIC. An external SRAM package therefore is not part of that photographed
+revision. [standard]</p>
+<p>WikiTI’s hardware history reports 128 KiB in the original TI-84 Plus design
+and a later reduction to 48 KiB. Its RAM-page table says units with port
+<code>0x15 &gt;= 0x55</code> map selectors <code>82</code>–<code>87</code> to one physical 16 KiB block. These are
+community hardware reports. Neither page supplies a primary TI specification,
+a dated transition, or a measurement tied to a photographed board. [standard]</p>
+<p>The two reported topologies use the same eight selector values: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Reported capacity</th><th>Physical backing</th><th>Consequence at one page offset</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right">128 KiB</td><td>eight independent 16 KiB blocks</td><td>selectors <code>80</code>–<code>87</code> can retain eight different bytes</td></tr>
+<tr><td style="text-align: right">48 KiB</td><td>blocks <code>80</code>, <code>81</code>, and one block shared by <code>82</code>–<code>87</code></td><td>the last write through any selector <code>82</code>–<code>87</code> is visible through all six</td></tr>
+</tbody>
+</table>
+</div>
+<p>Port <code>0x15</code> does not appear in any statically resolved OS 2.55MP I/O
+instruction. The public identity table associates <code>0x44</code> and <code>0x45</code> with
+128 KiB and <code>0x55</code> with 48 KiB, while Datamath identifies TA2 and TA3 package
+families without assigning their RAM capacity. Do not infer capacity from an
+ASIC label alone. The restoring probe records the package-independent port
+<code>0x15</code> byte and the observed selector groups in one frame. [confirmed] for
+the ROM scan and probe format; [standard] for the public identities;
+[hypothesis] for an unmeasured calculator’s topology.</p>
+<h2 id="page-selectors"><a class="header" href="#page-selectors">Page selectors</a></h2>
+<p>The public TI-84 Plus register contract uses two selector encodings. The OS trace
+confirms the values it executes, but it does not confirm the complete selector
+space or the physical storage behind selectors <code>84</code>–<code>87</code>.</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Window</th><th>Port</th><th>Selector encoding</th><th>Normal TI-OS value</th></tr>
 </thead>
 <tbody>
-<tr><td><code>4000-7FFF</code></td><td><code>6</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page <code>0x80 | (value &amp; 7)</code></td><td>banked Flash page</td></tr>
-<tr><td><code>8000-BFFF</code></td><td><code>7</code></td><td>bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page <code>0x80 | (value &amp; 7)</code></td><td><code>81</code></td></tr>
-<tr><td><code>C000-FFFF</code></td><td><code>5</code></td><td>low three bits select RAM page <code>0x80 | (value &amp; 7)</code></td><td><code>00</code> → RAM page <code>80</code></td></tr>
+<tr><td><code>4000-7FFF</code></td><td><code>0x06</code></td><td>Bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page <code>0x80 | (value &amp; 7)</code></td><td>Banked Flash page</td></tr>
+<tr><td><code>8000-BFFF</code></td><td><code>0x07</code></td><td>Bit 7 clear selects Flash page <code>value &amp; 0x3F</code>; bit 7 set selects RAM page <code>0x80 | (value &amp; 7)</code></td><td><code>81</code></td></tr>
+<tr><td><code>C000-FFFF</code></td><td><code>0x05</code></td><td>The low three bits select RAM page <code>0x80 | (value &amp; 7)</code></td><td><code>00</code> → RAM page <code>80</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>This rule matches the dynamic resolver, TilEm’s <code>x4</code> memory mapper, and the OS
-trace. In the idle boot/home trace, the RAM-window writes are:</p>
+<p>TilEm implements this eight-page arithmetic. The trace confirms the executed
+selector values below. The complete contract is [standard]. The listed OS writes
+are [confirmed].</p>
+<p>In the idle boot/home trace, the RAM-window writes are:</p>
+<p>Ports <code>0x0E</code> and <code>0x0F</code> extend ports <code>0x06</code> and <code>0x07</code> only for Flash
+selectors. They do not change a selector with bit 7 set for RAM. See
+<a href="paging.html#extended-flash-bits--ports-0x0e-and-0x0f">Paging</a>. [standard]</p>
 <pre><code class="language-text">OUT (port 7) &lt;- 0x7f   8000-BFFF = page_3F
 OUT (port 7) &lt;- 0x81   8000-BFFF = RAM/0x81
 OUT (port 5) &lt;- 0x00   C000-FFFF = RAM/0x80
@@ -211,64 +248,100 @@ OUT (port 7) &lt;- 0x83   8000-BFFF = RAM/0x83
 OUT (port 7) &lt;- 0x81   8000-BFFF = RAM/0x81
 OUT (port 5) &lt;- 0x00   C000-FFFF = RAM/0x80
 </code></pre>
-<p>The final restore values are therefore <code>port 7 = 0x81</code> and <code>port 5 = 0x00</code> for
-normal OS execution.</p>
-<h2 id="page-map-standard"><a class="header" href="#page-map-standard">Page map [standard]</a></h2>
+<p>The trace restores port <code>0x07</code> to <code>0x81</code> and port <code>0x05</code> to <code>0x00</code> before normal
+OS execution resumes. [confirmed]</p>
+<h2 id="page-map"><a class="header" href="#page-map">Page map</a></h2>
 <p>WikiTI’s <a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages">RAM pages</a>
-page is a useful public map, and its page-<code>83</code> warnings apply to OS 2.55MP. The
-local dump at <code>wikiti-dump/main/83Plus:OS:Ram Pages.wiki</code> carries
-the same current page-<code>83</code> notes. The local trace and disassembly support this table:</p>
+page supplies the historical page descriptions. The trace and ROM disassembly
+independently support only the entries whose evidence column says [confirmed].</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>RAM page</th><th>Use</th></tr>
+<tr><th>RAM selector</th><th>Use</th><th>Evidence</th></tr>
 </thead>
 <tbody>
-<tr><td><code>80</code></td><td>Normal <code>C000-FFFF</code> RAM page. The boot/home trace restores this with <code>OUT (5),0</code>. WikiTI marks it execution-protected.</td></tr>
-<tr><td><code>81</code></td><td>Normal <code>8000-BFFF</code> RAM page. This contains the visible TI-OS RAM variables, OP registers, flags, graph buffers, user heap, and VAT window documented in <code>tools/ram.txt</code> and <code>ti83plus.inc</code>.</td></tr>
-<tr><td><code>82</code></td><td>Not a general OS work page under normal execution. The idle trace maps it briefly through port <code>5</code> as part of a paged RAM helper, then restores page <code>80</code>. WikiTI marks it execution-protected.</td></tr>
-<tr><td><code>83</code></td><td>Shared OS scratch/state page. OS 2.55MP maps it through port <code>6</code> for block copies and LCD capture, and through port <code>7</code> for a paged byte-store helper. Homescreen expression entry writes the previous-entry buffer at <code>577E</code>.</td></tr>
-<tr><td><code>84</code></td><td>Not used by TI-OS under typical execution; WikiTI marks it execution-protected.</td></tr>
-<tr><td><code>85</code></td><td>Not used by TI-OS under typical execution on full-RAM hardware.</td></tr>
-<tr><td><code>86</code></td><td>Not used by TI-OS under typical execution; WikiTI marks it execution-protected.</td></tr>
-<tr><td><code>87</code></td><td>Not used by TI-OS under typical execution on full-RAM hardware.</td></tr>
+<tr><td><code>80</code></td><td>Normal <code>C000-FFFF</code> RAM page</td><td>The boot/home trace restores it with <code>OUT (5),0</code>; WikiTI marks it execution-protected. [confirmed] for the restore; [standard] for the protection claim.</td></tr>
+<tr><td><code>81</code></td><td>Normal <code>8000-BFFF</code> RAM page</td><td>The traces access OS variables, OP registers, flags, graph buffers, the user heap, and the VAT window through this selector. [confirmed]</td></tr>
+<tr><td><code>82</code></td><td>Temporary half of an OS bank pair</td><td>The idle trace selects it through port <code>0x05</code> as part of a paged RAM helper, then restores selector <code>80</code>. No page-<code>82</code> store occurs. [confirmed]</td></tr>
+<tr><td><code>83</code></td><td>Shared OS scratch and state</td><td>OS 2.55MP maps it through port <code>0x06</code> for block copies and LCD capture, and through port <code>0x07</code> for a paged byte-store helper. Homescreen expression entry writes the previous-entry buffer at <code>577E</code>. [confirmed]</td></tr>
+<tr><td><code>84</code></td><td>No use established here</td><td>WikiTI marks it execution-protected. [standard]</td></tr>
+<tr><td><code>85</code></td><td>No use established here</td><td>WikiTI describes it as unused under typical TI-OS execution. [standard]</td></tr>
+<tr><td><code>86</code></td><td>No use established here</td><td>WikiTI marks it execution-protected. [standard]</td></tr>
+<tr><td><code>87</code></td><td>No use established here</td><td>WikiTI describes it as unused under typical TI-OS execution. [standard]</td></tr>
 </tbody>
 </table>
 </div>
-<p>On newer 48 KiB hardware, WikiTI says RAM pages <code>82-87</code> alias the same physical memory.
-WikiTI’s <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:15">port <code>15</code></a> page
-identifies ASIC value <code>55h</code> as the 48 KiB TA1 ASIC. Programs that use page <code>83</code> must not
-treat <code>82-87</code> as independent storage on that hardware. [standard]</p>
-<h2 id="per-page-trace-coverage-confirmed"><a class="header" href="#per-page-trace-coverage-confirmed">Per-page trace coverage [confirmed]</a></h2>
+<p>Wabbitemu has an optional <code>ram_version == 2</code> branch matching the reported
+48 KiB topology. Selected internal pages 3–7 read and write
+<code>ram[2 * PAGE_SIZE]</code>; internal page 2 already addresses that block. Emulator
+agreement with WikiTI does not establish a physical unit’s backing. The
+<a href="hardware-probes.html#ram-alias-probe">restoring RAM alias probe</a> records the
+original, patterned, and restored bytes for selectors <code>82</code>–<code>87</code>. No physical
+result has been recorded. [standard] for the sources; [confirmed] for the probe
+bytes; [hypothesis] for an unmeasured calculator’s topology.</p>
+<h2 id="emulator-implementations"><a class="header" href="#emulator-implementations">Emulator implementations</a></h2>
+<p>The pinned source revisions implement different RAM backing rules. These results
+describe software behavior and do not select the correct physical ASIC contract.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Implementation</th><th>Source-verified behavior</th><th>Limit</th></tr>
+</thead>
+<tbody>
+<tr><td>TilEm <code>f56ad637</code></td><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c"><code>x4_io.c</code></a> makes RAM selectors flat pages <code>0x40 | (value &amp; 7)</code>; <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c"><code>x4_memory.c</code></a> addresses each page independently. This gives eight distinct 16 KiB blocks. [standard]</td><td>It has no 48 KiB alias mode in the pinned mapper.</td></tr>
+<tr><td>Wabbitemu <code>48c2dc0</code></td><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c"><code>core.c</code></a> redirects reads and writes from selected pages 3–7 to physical page 2 when <code>ram_version == 2</code>. <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c#L1675"><code>memory_init_84p</code></a> zeroes the context and does not enable the branch. [standard]</td><td>The selected bank page remains separate from its aliased physical backing.</td></tr>
+<tr><td>MAME 0.287</td><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a> retains raw RAM selectors at ports <code>0x06</code> and <code>0x07</code>. <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp"><code>ti85.cpp</code></a> maps banked RAM across <code>0x200000</code>–<code>0x21BFFF</code>, exactly seven 16 KiB blocks, so selector <code>87</code> resolves beyond the map. [standard]</td><td>It neither wraps selector <code>87</code> nor implements the six-to-one 48 KiB alias. MAME marks the TI-84 Plus driver <code>MACHINE_NOT_WORKING</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The JSON-capable mapper CLI can reproduce Wabbitemu’s optional alias branch:</p>
+<pre><code class="language-sh">python tools/describe_memory_mapping.py --json map \
+  --profile wabbitemu --ram-alias-from 2 \
+  --write 4=0 --write 5=7 --write 6=0x87 --write 7=0x87
+</code></pre>
+<p>The report retains selector readbacks <code>07</code>, <code>87</code>, and <code>87</code> while all three RAM
+windows resolve to physical page <code>82</code>. <code>--ram-alias-from</code> configures a candidate
+physical topology; it does not assert that an emulator enables that topology by
+default. Run the same sequence with <code>--profile mame</code> and no alias option to expose
+MAME’s unmapped selector <code>87</code>. See <a href="paging.html">Paging</a> for the complete mapper
+comparison.</p>
+<p>The alias-probe decoder reconstructs equivalence classes from the ordered
+patterns. Each selector in one class reads the pattern written through the
+highest-numbered selector in that class. The two expected endpoints and a
+partial-alias example are reproducible without a calculator:</p>
+<pre><code class="language-sh">python tools/describe_ram_topology.py --observed 112233445566
+python tools/describe_ram_topology.py --observed 666666666666
+python tools/describe_ram_topology.py \
+  --simulate-backings 0,0,1,1,2,3 --json
+</code></pre>
+<p>The simulated partial mapping produces <code>22 22 44 44 55 66</code> and groups
+<code>82</code>/<code>83</code>, <code>84</code>/<code>85</code>, <code>86</code>, and <code>87</code>. This is a decoder test case, not a
+reported hardware revision. [confirmed]</p>
+<h2 id="per-page-trace-coverage"><a class="header" href="#per-page-trace-coverage">Per-page trace coverage</a></h2>
 <p>The boot/home and <code>2+3 ENTER</code> traces exercise startup, homescreen initialization,
 display capture, parsing, evaluation, and previous-entry storage. They do not exercise
 app launch, USB transfer, graph drawing, archive cleanup, or a 48 KiB ASIC. Within
-that scope, physical RAM-page writes are:</p>
+that scope, physical RAM-page writes for the executed selectors are:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>RAM page</th><th>Idle trace writes</th><th><code>2+3 ENTER</code> trace writes</th><th>Interpretation</th></tr>
+<tr><th>RAM selector</th><th>Idle trace writes</th><th><code>2+3 ENTER</code> trace writes</th><th>Interpretation</th></tr>
 </thead>
 <tbody>
-<tr><td><code>80</code></td><td><code>256227</code> writes, all page addresses touched</td><td><code>345702</code> writes, all page addresses touched</td><td>Normal high RAM page selected by port <code>5</code>; contains stack/system/user RAM activity in the <code>C000-FFFF</code> window.</td></tr>
-<tr><td><code>81</code></td><td><code>62947</code> writes, all page addresses touched</td><td><code>72638</code> writes, all page addresses touched</td><td>Normal <code>8000-BFFF</code> RAM page; contains the documented OS variables, flags, OP registers, heap, VAT window, and working buffers.</td></tr>
-<tr><td><code>82</code></td><td>no writes observed</td><td>no writes observed</td><td>Port <code>5</code> briefly selects raw value <code>02</code>, but the observed store is through page <code>83</code> in bank B. No page-<code>82</code> storage is confirmed by these traces.</td></tr>
-<tr><td><code>83</code></td><td><code>1882</code> writes to <code>43D9-44BD</code> and <code>5A7E-5DF2</code></td><td><code>3467</code> writes to <code>4373-4390</code>, <code>43D9-44BD</code>, <code>577E-5790</code>, and <code>5A7E-5DF2</code></td><td>Shared OS scratch/state page. See the range table below.</td></tr>
-<tr><td><code>84</code></td><td>no writes observed</td><td>no writes observed</td><td>No typical-use OS storage confirmed in these traces.</td></tr>
-<tr><td><code>85</code></td><td>no writes observed</td><td>no writes observed</td><td>No typical-use OS storage confirmed in these traces.</td></tr>
-<tr><td><code>86</code></td><td>no writes observed</td><td>no writes observed</td><td>No typical-use OS storage confirmed in these traces.</td></tr>
-<tr><td><code>87</code></td><td>no writes observed</td><td>no writes observed</td><td>No typical-use OS storage confirmed in these traces.</td></tr>
+<tr><td><code>80</code></td><td><code>256227</code> writes, all page addresses touched</td><td><code>345702</code> writes, all page addresses touched</td><td>Normal high RAM selected by port <code>0x05</code>; contains stack, system, and user RAM activity in <code>C000-FFFF</code>. [confirmed]</td></tr>
+<tr><td><code>81</code></td><td><code>62947</code> writes, all page addresses touched</td><td><code>72638</code> writes, all page addresses touched</td><td>Normal <code>8000-BFFF</code> RAM; contains OS variables, flags, OP registers, the heap, the VAT window, and working buffers. [confirmed]</td></tr>
+<tr><td><code>82</code></td><td>No writes observed</td><td>No writes observed</td><td>Port <code>0x05</code> briefly selects raw value <code>02</code>, but the observed store uses selector <code>83</code> in bank B. [confirmed]</td></tr>
+<tr><td><code>83</code></td><td><code>1882</code> writes to <code>43D9-44BD</code> and <code>5A7E-5DF2</code></td><td><code>3467</code> writes to <code>4373-4390</code>, <code>43D9-44BD</code>, <code>577E-5790</code>, and <code>5A7E-5DF2</code></td><td>Shared OS scratch and state. See the range table below. [confirmed]</td></tr>
 </tbody>
 </table>
 </div>
-<p>The zero-write rows mean “not hit by these scenarios,” not a global proof that the
-page is never used. On 48 KiB hardware, pages <code>82-87</code> alias page <code>83</code>, so writes
-intended for <code>84-87</code> would not be independent storage even if a program can select
-those page numbers. [standard]</p>
+<p>The traces never select <code>84</code>–<code>87</code>. That absence describes these scenarios; it does
+not establish how the selectors behave. Under the public 48 KiB contract, selectors
+<code>82</code>–<code>87</code> share one physical block rather than six independent pages. [standard]</p>
 <p>The graph scenario in <code>tools/macros/graph-y1-x2.macro</code> reaches the graph screen and
 still only writes pages <code>80</code>, <code>81</code>, and <code>83</code>. It increases normal page-<code>80</code>/<code>81</code>
 activity but leaves page-<code>83</code> at the same confirmed ranges as the idle trace.
-It does not hit pages <code>82</code> or <code>84-87</code>. [confirmed]</p>
+It does not write through selector <code>82</code> or select <code>84</code>–<code>87</code>. [confirmed]</p>
 <h2 id="how-to-hit-the-confirmed-paths"><a class="header" href="#how-to-hit-the-confirmed-paths">How to hit the confirmed paths</a></h2>
 <p>The useful distinction is between “page number can be selected” and “the OS uses it
 in a normal workflow.” These paths are confirmed or have a concrete next scenario:</p>
@@ -286,7 +359,7 @@ in a normal workflow.” These paths are confirmed or have a concrete next scena
 <tr><td><code>83</code> split-screen/table copy</td><td>Enter a split-screen/table workflow that calls <code>screen_split</code>.</td><td>Ghidra shows <code>screen_split</code> at <code>05:7712</code> calls <code>flash_copy_block</code> at <code>05:772A</code>; this path is not hit by the current macros. [confirmed]</td></tr>
 <tr><td><code>83</code> edit-buffer initialization</td><td>Enter an edit-buffer workflow that reaches <code>editbuf_init_buf</code>.</td><td>Ghidra shows <code>editbuf_init_buf</code> at <code>03:6BC4</code> calls <code>flash_copy_block</code> at <code>03:6BCD</code>; this path is not hit by the current macros. [confirmed]</td></tr>
 <tr><td><code>83</code> app-menu state restore</td><td>Open an app/menu workflow that reaches <code>mnu_restore_app_state</code>.</td><td>Ghidra shows <code>mnu_restore_app_state</code> at <code>39:6D96</code> calls <code>flash_copy_block</code> at <code>39:6DA0</code>; this path is not hit by the current macros. [confirmed]</td></tr>
-<tr><td><code>84-87</code> independent pages</td><td>Use a forced RAM-page probe or a ROM path that passes pair index <code>2</code> or <code>3</code> to the computed bank-pair helper.</td><td>The ROM can compute these selectors, but raw immediate selector scans and current traces do not show a normal OS path selecting or writing them. [hypothesis]</td></tr>
+<tr><td><code>84</code>–<code>87</code> independent pages</td><td>Use a forced RAM-page probe or a ROM path that passes pair index <code>2</code> or <code>3</code> to the computed bank-pair helper.</td><td>The ROM can compute these selectors, but raw immediate selector scans and current traces do not show a normal OS path selecting or writing them. [hypothesis]</td></tr>
 </tbody>
 </table>
 </div>
@@ -299,7 +372,7 @@ in a normal workflow.” These paths are confirmed or have a concrete next scena
     OUT (7),A        ; pair index 0/1/2/3 -&gt; pages 81/83/85/87 in bank B
 </code></pre>
 <p>Decoded callers set <code>B = 1</code>, selecting pages <code>82/83</code>; that explains the observed
-<code>port 5 = 02</code>, <code>port 7 = 83</code> sequence. Pages <code>84-87</code> are reachable through the
+<code>port 5 = 02</code>, <code>port 7 = 83</code> sequence. Selectors <code>84</code>–<code>87</code> are reachable through the
 helper but are not selected on any observed OS path [hypothesis]. The <code>B = 1</code>
 caller pattern is confirmed for the decoded callers above. [confirmed]</p>
 <h2 id="page-83-use-standard"><a class="header" href="#page-83-use-standard">Page <code>83</code> use [standard]</a></h2>
@@ -470,6 +543,22 @@ for all touched windows:</p>
 </code></pre>
 <p>The dynamic trace resolves the same sequence at instruction indices <code>712241-712250</code>,
 including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes. [confirmed]</p>
+<h2 id="sources"><a class="header" href="#sources">Sources</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Source</th><th>Use here</th></tr>
+</thead>
+<tbody>
+<tr><td><a href="http://www.datamath.org/Graphing/TI-84PLUS.htm">Datamath TI-84 Plus hardware</a> and <a href="http://www.datamath.org/Graphing/JPEG_TI-84PLUS_A.htm#PCB">March 2004 board photographs</a></td><td>Three-IC board inventory, ASIC-integrated RAM, and photographed <code>83PLUSB/TA2</code> package</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:History_of_TI-8x_hardware&amp;oldid=10880">WikiTI hardware history, revision 10880</a></td><td>Reported 128 KiB design and later 48 KiB revision</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages&amp;oldid=11670">WikiTI RAM pages, revision 11670</a></td><td>Reported selector uses and <code>82</code>–<code>87</code> alias threshold</td></tr>
+<tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a> and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c"><code>x4_memory.c</code></a></td><td>Independent-page emulator mapping</td></tr>
+<tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c">Wabbitemu <code>core.c</code></a> and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c"><code>83psehw.c</code></a></td><td>Optional reduced-RAM alias and model identity behavior</td></tr>
+<tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>Seven-block backing and raw-selector behavior</td></tr>
+</tbody>
+</table>
+</div>
 
                     </main>
 
@@ -479,7 +568,7 @@ including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="variables-vat.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="hardware-probes.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -493,7 +582,7 @@ including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="variables-vat.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="hardware-probes.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

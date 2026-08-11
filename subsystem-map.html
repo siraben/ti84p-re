@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-24589cc4.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -194,6 +194,7 @@
 <tr><td><strong>Parser / TI-BASIC</strong></td><td style="text-align: right">~18</td><td><code>_IsA2ByteTok</code>,<code>_GetTokLen</code>,<code>_BinOPExec</code>,<code>_ParseInp</code></td></tr>
 <tr><td><strong>Link / I-O</strong></td><td style="text-align: right">~15</td><td><code>_SendAByte</code>,<code>_RecAByteIO</code>,<code>_SendVarCmd</code>,<code>_Rec1stByte</code>,<code>link_xfer_op</code></td></tr>
 <tr><td><strong>System / power</strong></td><td style="text-align: right">~15</td><td><code>_AppInit</code>,<code>_PutAway</code>,<code>_RandInit</code>,<code>_ApdSetup</code>,<code>_Chk_Batt_Low</code>,<code>_SetExSpeed</code>,<code>_JForceCmd</code></td></tr>
+<tr><td><strong>Boot cryptography</strong></td><td style="text-align: right">5</td><td><code>_MD5Init</code>, <code>_MD5Update</code>, <code>_MD5Final</code>, <code>_SigModR</code>, <code>_TransformHash</code></td></tr>
 <tr><td><strong>List / Matrix</strong></td><td style="text-align: right">~13</td><td><code>_CreateRList</code>,<code>_CreateCList</code>,<code>_CreateRMat</code>,<code>_ErrDimMismatch</code>,dim/element ops</td></tr>
 <tr><td><strong>Keyboard</strong></td><td style="text-align: right">~5</td><td><code>_GetCSC</code>,<code>_GetKey</code>,<code>_KeyToString</code></td></tr>
 <tr><td><strong>Menu / UI</strong></td><td style="text-align: right">~5</td><td><code>_DispMenuTitle</code>,<code>_CursorOn</code>,<code>_CursorOff</code>,<code>_RunIndicOn</code>,<code>_RunIndicOff</code></td></tr>
@@ -213,7 +214,7 @@
     DISP --&gt; R
 </pre>
 
-<p>Cross-cutting services used by all of the above: <a href="bcall-mechanism.html">the bcall mechanism</a>, <a href="interrupts.html">interrupts and APD</a>, error handling (<code>_JError</code> + <code>TIError</code> codes), and the system flags (<code>SystemFlags</code> @ <code>flags</code>).</p>
+<p>Cross-cutting services used by all of the above: <a href="bcall-mechanism.html">the bcall mechanism</a>, <a href="interrupts.html">interrupt dispatch</a>, <a href="clock-timers-power.html">clock/timers/APD/power</a>, <a href="md5-hardware.html">MD5 and boot signature arithmetic</a>, error handling (<code>_JError</code> + <code>TIError</code> codes), and the system flags (<code>SystemFlags</code> @ <code>flags</code>).</p>
 <h2 id="how-the-pieces-connect-the-through-line"><a class="header" href="#how-the-pieces-connect-the-through-line">How the pieces connect (the through-line)</a></h2>
 <ol>
 <li><strong>Interrupt</strong> keeps time, scans the keypad into <code>kbdScanCode</code>, runs APD.</li>

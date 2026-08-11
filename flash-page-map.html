@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-24589cc4.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,7 +180,7 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="flash-page-map"><a class="header" href="#flash-page-map">Flash page map</a></h1>
-<p>What lives on each of the 64 physical flash pages (16 KiB each). OS code occupies pages <code>00-07</code> and <code>33-3D</code>; pages <code>08-2E</code> and <code>30-32</code> are blank in this image; page <code>2F</code> contains retail USB boot support, page <code>3E</code> is the certificate sector, and page <code>3F</code> is the retail boot page. On a retail unit the upper pages can also carry Flash Apps, but this dump is OS-only — the page scan below reports zero Flash-App headers. The page roles below are characterized by the named bcall routines that resolve to each page (<code>tools/bcall_targets.txt</code>) plus function counts; <code>tools/bcalls8x_targets.txt</code> carries the <code>0x8xxx</code> cert/boot/USB targets resolved from pages <code>2F</code> and <code>3F</code>.</p>
+<p>What lives on each of the 64 physical Flash pages (16 KiB each). OS code occupies pages <code>00</code>–<code>07</code> and <code>33</code>–<code>3D</code>; pages <code>08</code>–<code>2E</code> and <code>30</code>–<code>32</code> are blank in this image; page <code>2F</code> contains retail USB boot support, page <code>3E</code> holds two certificate sectors, and page <code>3F</code> is the retail boot page. On a retail unit, the blank range stores archived variables and can carry Flash Apps. See <a href="flash-memory.html">Flash memory</a> for physical erase-sector geometry and the dynamic archive/App boundary. The page roles below are characterized by the named bcall routines that resolve to each page (<code>tools/bcall_targets.txt</code>) plus function counts; <code>tools/bcalls8x_targets.txt</code> carries the <code>0x8xxx</code> certificate, boot, and USB targets resolved from pages <code>2F</code> and <code>3F</code>.</p>
 <h2 id="os-pages-carry-bcall-entry-points"><a class="header" href="#os-pages-carry-bcall-entry-points">OS pages (carry bcall entry points)</a></h2>
 <div class="table-wrapper">
 <table>
@@ -196,14 +196,14 @@
 <tr><td><code>05</code></td><td style="text-align: right">118</td><td>TABLE editor + Graph-Table split-screen</td><td><code>table_editor_main</code>, <code>table_recompute</code>, <code>table_paint_grid</code></td></tr>
 <tr><td><code>06</code></td><td style="text-align: right">49</td><td>Key input &amp; edit/cursor</td><td><code>_GetKey</code>, <code>_CursorOn</code>, <code>_CursorOff</code>, <code>_PutTokString</code> (note <code>_GetCSC</code>’s body is on page 00)</td></tr>
 <tr><td><code>07</code></td><td style="text-align: right">44</td><td>Archive / list &amp; matrix ops; error messages; large-font glyph table @ <code>07:45FF</code> (7-byte stride) read by <code>put_glyph_large</code> (<code>07:4588</code>)</td><td><code>_Arc_Unarc</code>, <code>_CleanAll</code>, <code>_RedimMat</code>, <code>_IncLstSize</code>, <code>put_glyph_large</code></td></tr>
-<tr><td><code>33</code></td><td style="text-align: right">70</td><td>Graph coordinate math</td><td><code>_SetXXOP1</code>, <code>_UCLineS</code> (window↔pixel transforms)</td></tr>
+<tr><td><code>33</code></td><td style="text-align: right">70</td><td>Graph coordinate math and programmable timer API</td><td><code>_SetXXOP1</code>, <code>_UCLineS</code>, <code>_InitTimer</code>, <code>_StartTimer</code>, <code>timer_irq</code></td></tr>
 <tr><td><code>36</code></td><td style="text-align: right">24</td><td>Mode setters (Func/Param/Polar/Seq)</td><td><code>_SetFuncM</code>, <code>_SetParM</code>, <code>_SetPolM</code>, <code>_SetSeqM</code></td></tr>
-<tr><td><code>37</code></td><td style="text-align: right">23</td><td>Graph coord convert</td><td><code>_XftoI</code>, <code>_YftoI</code></td></tr>
+<tr><td><code>37</code></td><td style="text-align: right">23</td><td>Graph coordinate conversion, RTC, and date/time formatting</td><td><code>_XftoI</code>, <code>_YftoI</code>, <code>_getDate</code>, <code>_getTime</code>, <code>rtc_read_seconds</code></td></tr>
 <tr><td><code>38</code></td><td style="text-align: right">277</td><td>TI-BASIC parser / evaluator</td><td><code>_ParseInp</code>, <code>_Find_Parse_Formula</code>, <code>parse_init</code></td></tr>
 <tr><td><code>39</code></td><td style="text-align: right">153</td><td>Equation pretty-printer (2D MathPrint layout) + menus</td><td><code>eqdisp_render_entry</code>, <code>eqdisp_emit_glyph</code>, <code>_DispMenuTitle</code></td></tr>
 <tr><td><code>3A</code></td><td style="text-align: right">85</td><td>Statistics (1/2-var, regressions) + TVM finance</td><td><code>_OneVar</code>, <code>reg_gauss_solve</code>, <code>tvm_solve_iterate</code></td></tr>
-<tr><td><code>34</code></td><td style="text-align: right">16</td><td>Crystal timers / clock, token scan</td><td><code>crystal_timer_a</code>, <code>timer_scan_tbl</code></td></tr>
-<tr><td><code>35</code></td><td style="text-align: right">6</td><td>Memory-reset engine, factorial</td><td><code>mem_reset_dispatch</code>, <code>ram_reset_wipe</code>, <code>op1_factorial</code></td></tr>
+<tr><td><code>34</code></td><td style="text-align: right">16</td><td>Token/parser scanning</td><td><code>_AHEADEQUAL</code>, <code>_PARSAHEADS</code>, <code>_PARSAHEAD</code>, <code>parse_scan_table</code></td></tr>
+<tr><td><code>35</code></td><td style="text-align: right">6</td><td>USB controller paths, memory-reset engine, factorial</td><td><code>usb_timeout_irq</code>, <code>mem_reset_dispatch</code>, <code>ram_reset_wipe</code>, <code>op1_factorial</code></td></tr>
 <tr><td><code>3B</code></td><td style="text-align: right">39</td><td>bcall jump table + mem utils</td><td>(table data) <code>_MemClear</code>, <code>_MemSet</code>, <code>_DrawCirc2</code></td></tr>
 <tr><td><code>3C</code></td><td style="text-align: right">72</td><td>Link / variable transfer</td><td><code>_SendAByte</code>, <code>_RecAByteIO</code>, <code>_SendVarCmd</code>, <code>_Rec1stByte</code></td></tr>
 <tr><td><code>3D</code></td><td style="text-align: right">61</td><td>App management &amp; Flash</td><td><code>_FindApp</code>, <code>_FindAppUp</code>, <code>_FindAppDn</code>, <code>_FlashToRam</code></td></tr>
@@ -219,16 +219,16 @@
 </thead>
 <tbody>
 <tr><td><code>08-2E</code>, <code>30-32</code></td><td>Blank/unused in this OS image — 100% <code>0xFF</code> in <code>tools/rom.bin</code>. No app headers.</td></tr>
-<tr><td><code>2F</code></td><td>Retail USB boot support installed from <code>D84PBE2.8Xv</code>. The page-<code>3F</code> boot table maps <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_USBErrorCleanup</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> here; <code>tools/rom.bin</code> contains the payload and <code>tools/bcalls8x_targets.txt</code> records their bodies.</td></tr>
-<tr><td><code>34-39</code></td><td>More OS code (graph/mode/menu/timers); fill 0.2–17% <code>0xFF</code>.</td></tr>
+<tr><td><code>2F</code></td><td>Retail USB boot support installed from the checksum- and hash-validated local <code>D84PBE2.8Xv</code>. This installation changes 8,615 bytes of the pinned base. The page-<code>3F</code> boot table maps <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_USBErrorCleanup</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> here; <code>tools/rom.bin</code> contains the payload and <code>tools/bcalls8x_targets.txt</code> records their bodies. [confirmed]</td></tr>
+<tr><td><code>34-39</code></td><td>More OS code (parser scan, USB, graph/mode/menu, RTC); fill 0.2–17% <code>0xFF</code>.</td></tr>
 <tr><td><code>3B</code></td><td><strong>bcall jump table</strong> — starts <code>99 27 00</code> = entry 0 (<code>_JErrorNo</code>→<code>ram:2799</code>).</td></tr>
-<tr><td><code>3C</code></td><td>Link code + the OS version string — page starts with ASCII <code>32 2E 35 35 4D 50</code> = <code>"2.55MP"</code>.</td></tr>
-<tr><td><code>3E</code></td><td><strong>Certification page</strong> — the per-calculator certificate sector (84+ cert page is <code>3E</code>, not <code>3F</code>). Blank (99% <code>0xFF</code>) in this OS-only image, since the cert is written per-device. The OS reads this sector through the <code>ti83plus.inc</code> cert bcalls: <code>_GetCertificateStart</code> (bcall <code>0x8057</code>) and <code>_GetCertificateEnd</code> (bcall <code>0x802D</code>) bound the sector, and <code>_FindFirstCertField</code> (bcall <code>0x8027</code>) / <code>_FindNextCertField</code> (bcall <code>0x8078</code>) walk its TLV fields.</td></tr>
-<tr><td><code>3F</code></td><td><strong>Retail boot page</strong> — supplied by local <code>D84PBE1.8Xv</code>; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, carries boot version <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table. Boot/hardware-version bcalls now resolve to <code>_getBootVer</code> <code>3F:477C</code> (<code>0x80B7</code>) and <code>_getHardwareVersion</code> <code>3F:4781</code> (<code>0x80BA</code>).</td></tr>
+<tr><td><code>3C</code></td><td>Link code, archive garbage collection, and the OS version string — page starts with ASCII <code>32 2E 35 35 4D 50</code> = <code>"2.55MP"</code>; <code>archive_gc_collect</code> is at <code>3C:7733</code>.</td></tr>
+<tr><td><code>3E</code></td><td><strong>Certification page and GC journal</strong> — two physical 8 KiB sectors. <code>_GetCertificateStart</code> (bcall <code>8057</code>) selects the active half; <code>_GetCertificateEnd</code> (<code>802D</code>) bounds it; <code>_FindFirstCertField</code> (<code>8027</code>) and <code>_FindNextCertField</code> (<code>8078</code>) walk TLV fields. GC transactionally copies the used tail through the inactive half and stores phase bytes near its end. [confirmed] for the ROM and GC trace.</td></tr>
+<tr><td><code>3F</code></td><td><strong>Retail boot page</strong> — the pinned base already matches the checksum- and hash-validated local <code>D84PBE1.8Xv</code> payload byte for byte; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, carries boot version <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table. Boot/hardware-version bcalls resolve to <code>_getBootVer</code> <code>3F:477C</code> (<code>0x80B7</code>) and <code>_getHardwareVersion</code> <code>3F:4781</code> (<code>0x80BA</code>). [confirmed]</td></tr>
 </tbody>
 </table>
 </div>
-<p>The large-font glyph table is on page 0x07 (see <a href="display-lcd.html#fonts-confirmed">Display / LCD</a>). Alternate large fonts live on pages 1 and 0x36 (selected by <code>(IY+0x35)</code> bits 5/1). Page 7 is the busiest data page (archive code, list/matrix, error messages, <em>and</em> the large font). [confirmed]</p>
+<p>The large-font glyph table is on page <code>0x07</code> (see <a href="display-lcd.html#large-font-text">Display and LCD</a>). Alternate large fonts live on pages <code>0x01</code> and <code>0x36</code> (selected by <code>IY+0x35</code> bits 5 and 1). Page <code>0x07</code> is the busiest data page: archive code, list and matrix code, error messages, and the large font. [confirmed]</p>
 <h2 id="takeaway"><a class="header" href="#takeaway">Takeaway</a></h2>
 <p>The OS is page-specialized: kernel + math on page 0, one subsystem per low page. A bcall is really “run subsystem X’s routine on its page” — the page map <em>is</em> the subsystem decomposition, physically.</p>
 
@@ -236,7 +236,7 @@
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="sub-apps-mem-settings.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="md5-hardware.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -250,7 +250,7 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="sub-apps-mem-settings.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="md5-hardware.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

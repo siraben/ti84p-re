@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-93c9ab50.js";
+            window.path_to_searchindex_js = "searchindex-947c32ae.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-24589cc4.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -200,10 +200,10 @@
 <ul>
 <li>Located at the start of physical flash page <code>0x3B</code> (file offset <code>0x3B*0x4000 = 0xEC000</code>).</li>
 <li><strong>3-byte entries</strong>: <code>addr_lo, addr_hi, page</code>. IDs step by 3 from <code>0x4000</code>, so entry for ID <em>X</em> is at table offset <code>X-0x4000</code>.</li>
-<li>Resolution method (<code>tools/</code> Python): scored all 64 pages by how many of the named .inc IDs produced a valid <code>(addr∈4000..7FFF or page-0, page&lt;0x40)</code> entry; page <code>0x3B</code> scored highest (the page-selection heuristic uses a conservative validity filter chosen only to pick the table). Once <code>0x3B</code> is selected and applied, all 535 <code>.inc</code> IDs plus 61 RE-named entries (596 total) resolve and are live-confirmed.</li>
+<li>Resolution method (<code>tools/</code> Python): scored all 64 pages by how many named IDs produced a valid <code>(addr∈4000..7FFF or page-0, page&lt;0x40)</code> entry; page <code>0x3B</code> scored highest (the page-selection heuristic uses a conservative validity filter chosen only to pick the table). Once <code>0x3B</code> is selected and applied, 621 entries resolve and are live-confirmed. Of those IDs, 599 also appear in the included SDK equates and 22 are project-inferred additions.</li>
 <li>Validation: known bcalls land exactly where expected — <code>_PutS</code>→<code>01:5C39</code>, <code>_GetKey</code>→<code>06:491E</code>, <code>_ClrLCDFull</code>→<code>01:60E4</code>, <code>_GetCSC</code>→<code>00:04B2</code>, <code>_CreateReal</code>→<code>00:10B8</code>.</li>
 </ul>
-<p><code>tools/bcall_targets.txt</code> holds 596 resolved main-table bcall rows.
+<p><code>tools/bcall_targets.txt</code> holds 621 resolved main-table bcall rows.
 <code>tools/bcalls8x_targets.txt</code> holds 83 retail boot-table (<code>0x8xxx</code>) rows resolved
 from the assembled local ROM. <code>tools/resolve_bcalls.py</code> emits those rows only
 when page <code>3F</code> has the retail prefix and page <code>2F</code> contains the companion USB
@@ -212,7 +212,7 @@ payload; its BootFree guard otherwise leaves only diagnostic comments.
 <h2 id="jump-table-id-ranges"><a class="header" href="#jump-table-id-ranges">Jump-table ID ranges</a></h2>
 <p>The dispatcher (<code>bcall_dispatcher</code>) decodes the ID’s top two bits to pick the table page: bit 15 set → page-byte <code>0x7F</code> (masked <code>&amp; 0x3F</code> → page <code>0x3F</code>); bit 14 set → <code>0x7B</code> (→ page <code>0x3B</code>); with <em>neither</em> bit set it falls through to <code>lookup_bcall_table_page</code> (<code>ram:2ADA</code>). The two tables real bcall IDs use:</p>
 <ul>
-<li><code>0x4xxx</code>–<code>0x7FFF</code> (bit 14 set): the main table on flash page <code>0x3B</code>, entry at offset <code>ID − 0x4000</code> (596 live-confirmed bcalls: 535 from the <code>.inc</code> + 61 RE-named).</li>
+<li><code>0x4xxx</code>–<code>0x7FFF</code> (bit 14 set): the main table on flash page <code>0x3B</code>, entry at offset <code>ID − 0x4000</code> (621 live-confirmed bcalls: 599 IDs also present in the included SDK equates and 22 project-inferred additions).</li>
 <li><code>0x8xxx</code> (bit 15 set): the retail boot table is on physical page <code>3F</code>, indexed by <code>ID &amp; 0x7FFF</code>. <code>D84PBE1.8Xv</code> supplies the retail page <code>3F</code>; <code>D84PBE2.8Xv</code> supplies the companion USB boot support page <code>2F</code>. Most entries resolve to <code>3F:addr</code>; USB entries such as <code>_AttemptUSBOSReceive</code> (<code>80E4</code>) and <code>_InitUSB</code> (<code>8108</code>) resolve to <code>2F:addr</code>. <code>tools/resolve_bcalls.py</code> refuses to emit these targets from a BootFree-substituted page. [confirmed]</li>
 </ul>
 <p>Both resolved table formats are 3-byte entries: target address (little endian) plus page byte masked with <code>&amp; 0x3F</code>.</p>
@@ -249,7 +249,7 @@ payload; its BootFree guard otherwise leaves only diagnostic comments.
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="paging.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="execution-protection.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -263,7 +263,7 @@ payload; its BootFree guard otherwise leaves only diagnostic comments.
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="paging.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="execution-protection.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
