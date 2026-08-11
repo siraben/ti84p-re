@@ -19,6 +19,10 @@ The 84+ memory ports use two encodings:
 This rule matches the dynamic resolver, TilEm's `x4` memory mapper, and the OS
 trace. In the idle boot/home trace, the RAM-window writes are:
 
+Ports `0x0E` and `0x0F` extend ports `0x06` and `0x07` only for Flash
+selectors. They do not change a selector with bit 7 set for RAM. See
+[Paging](paging.md#extended-flash-bits--ports-0x0e-and-0x0f). [standard]
+
 ```text
 OUT (port 7) <- 0x7f   8000-BFFF = page_3F
 OUT (port 7) <- 0x81   8000-BFFF = RAM/0x81
@@ -55,7 +59,9 @@ the same current page-`83` notes. The local trace and disassembly support this t
 On newer 48 KiB hardware, WikiTI says RAM pages `82-87` alias the same physical memory.
 WikiTI's [port `15`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:15) page
 identifies ASIC value `55h` as the 48 KiB TA1 ASIC. Programs that use page `83` must not
-treat `82-87` as independent storage on that hardware. [standard]
+treat `82-87` as independent storage on that hardware. This ROM does not read port
+`0x15`; the identity table and emulator limits are separated in
+[ASIC status, identity, protection, and GPIO](asic-status-gpio.md). [standard]
 
 ## Per-page trace coverage [confirmed]
 

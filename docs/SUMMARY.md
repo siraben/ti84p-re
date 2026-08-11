@@ -12,6 +12,9 @@
 
 - [Memory map](memory-map.md)
 - [Paging](paging.md)
+- [Bus timing and wait states](bus-timing.md)
+- [ASIC status, identity, protection, and GPIO](asic-status-gpio.md)
+- [Execution protection](execution-protection.md)
 - [The bcall mechanism](bcall-mechanism.md)
 - [Interrupts (IM1)](interrupts.md)
     - [Clock, timers, and power](clock-timers-power.md)
@@ -44,6 +47,7 @@
     - [Equation display (MathPrint)](sub-equation-display.md)
 - [Keyboard and link port](keyboard-link.md)
     - [Keypad and ON-key hardware](keypad-on-hardware.md)
+    - [Two-wire link port hardware](link-port-hardware.md)
     - [Link / data transfer](sub-link-transfer.md)
     - [USB ASIC and link assist](sub-usb-asic.md)
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""List immediate-port I/O accesses in selected physical ROM pages."""
+"""List statically resolved I/O accesses in selected physical ROM pages."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import sys
 
 from rom_image import RomImage
 from z80_disassembly import DisassemblyError, disassemble_page
-from z80_io import direct_io_access, parse_port_specs
+from z80_io import iter_resolved_io_accesses, parse_port_specs
 
 
 TOOLS = Path(__file__).resolve().parent
@@ -40,6 +40,11 @@ def main() -> None:
     parser.add_argument("--before", type=int, default=0, help="preceding context lines")
     parser.add_argument("--after", type=int, default=0, help="following context lines")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--direct-only",
+        action="store_true",
+        help="exclude port accesses resolved from a literal C register",
+    )
     args = parser.parse_args()
 
     if args.before < 0 or args.after < 0:
@@ -59,12 +64,12 @@ def main() -> None:
     try:
         for page in pages:
             instructions = disassemble_page(rom, page, executable=args.z80dasm)
-            for index, instruction in enumerate(instructions):
-                access = direct_io_access(instruction)
-                if access is None or (
-                    selected_ports is not None and access.port not in selected_ports
-                ):
+            indices = {id(instruction): index for index, instruction in enumerate(instructions)}
+            for access in iter_resolved_io_accesses(instructions, selected_ports):
+                if args.direct_only and access.source != "immediate":
                     continue
+                instruction = access.instruction
+                index = indices[id(instruction)]
                 start = max(0, index - args.before)
                 stop = min(len(instructions), index + args.after + 1)
                 reports.append(
@@ -73,6 +78,7 @@ def main() -> None:
                         "bytes": instruction.data.hex(),
                         "direction": access.direction,
                         "port": access.port,
+                        "source": access.source,
                         "instruction": instruction.text,
                         "context": [
                             {
@@ -112,9 +118,9 @@ def main() -> None:
             else:
                 print(
                     f"{report['location']}  {report['bytes'].upper():<8} "
-                    f"{report['instruction']}"
+                    f"{report['instruction']} [{report['source']}]"
                 )
-    print(f"# {len(reports)} immediate-port access candidate(s)")
+    print(f"# {len(reports)} statically resolved I/O access candidate(s)")
 
 
 if __name__ == "__main__":

@@ -142,6 +142,18 @@ class BankerTests(unittest.TestCase):
         self.assertEqual((0x27, 1), switch)
         self.assertEqual("ram", banker.resolve(0xFFC0)[0])
 
+    def test_extended_flash_port_write_is_tracked(self):
+        banker = Banker.ti84p_reset()
+
+        resolved, switch = resolve_instruction(
+            banker, instruction(0x1234, opcode=0xD3, wz=0x1F0E)
+        )
+
+        self.assertEqual("ram", resolved[0])
+        self.assertEqual((0x0E, 0x1F), switch)
+        self.assertEqual(3, banker.port0e)
+        self.assertEqual("page_3E", banker.resolve(0x4000)[0])
+
     def test_block_output_invalidates_forced_ram_extent(self):
         banker = Banker.ti84p_reset()
 

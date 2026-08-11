@@ -1,15 +1,19 @@
 # Memory map
 
-The Z80 sees a flat 64 KiB logical space, divided into four 16 KiB slots. Hardware paging (ports 6/7) decides which physical flash page or RAM page is visible in the two middle slots. See [paging.md](paging.md) for the banking detail and [ram-pages.md](ram-pages.md) for RAM page `83` and restore rules.
+The Z80 sees a flat 64 KiB logical space divided into four 16 KiB windows.
+Port `0x04` selects paired or independent mapping; ports `0x05`–`0x07` and
+their extensions select the physical Flash or RAM pages. See
+[Paging](paging.md) for the complete mapper and [RAM pages](ram-pages.md) for
+RAM page `83` and restore rules.
 
 ## Logical address space (what the Z80 sees)
 
 | Range | Slot | Contents | Notes |
 |-------|------|----------|-------|
-| `0000-3FFF` | Flash bank 0 | Flash page 0 (fixed) | Boot/kernel: RST vectors, dispatcher, FP/VAT core. Never swapped. [confirmed] |
-| `4000-7FFF` | Flash bank A | Swappable flash page (port 6) | Paged bcall targets run here after the dispatcher banks their page in; page-0 bcall bodies instead execute in place below `4000` (e.g. `_JErrorNo`→`00:2799`). [confirmed] |
-| `8000-BFFF` | Bank B | Swappable RAM/flash page (port 7) | Usually RAM. [standard] |
-| `C000-FFFF` | RAM | RAM page (MemC) | Normally physical RAM page `80` (`port 5 = 0x00`), but page-selectable via port `5` on the 84+ (not hard-fixed). Stack lives near the top. [confirmed] |
+| `0000-3FFF` | Window 0 | Flash page 0 (fixed) | Boot/kernel: RST vectors, dispatcher, FP/VAT core. Never swapped. [confirmed] |
+| `4000-7FFF` | Window A | Port `0x06` in independent mode; even half of the port-`0x06` pair in paired mode | Paged bcall targets run here after the dispatcher maps their page. [confirmed] |
+| `8000-BFFF` | Window B | Port `0x07` in independent mode; odd half of the port-`0x06` pair in paired mode | Normally RAM page `81`; boot executes page `3F` here in paired mode. [confirmed] |
+| `C000-FFFF` | Window C | Port `0x05` RAM in independent mode; port `0x07` in paired mode | Normally RAM page `80`; the stack lives near the top. [confirmed] |
 
 In this OS the system RAM variables all live at `8000+`, so the static RE model treats `8000-FFFF` as one RAM block (see `tools/BuildTI84Full.java`).
 
@@ -62,22 +66,29 @@ kernel touches many more (timer/crystal, USB-assist, and ASIC-control ports).
 
 | Port | Name | Purpose |
 |------|------|---------|
-| `00` | link | Link port lines |
+| `00` | link | Active-high pull-low controls on write and physical high-line levels on read; see [Two-wire link port hardware](link-port-hardware.md) |
 | `01` | keypad | Active-low matrix group select/read; see [Keypad and ON-key hardware](keypad-on-hardware.md) |
-| `02` | hwStatus | Status (bit7 used at reset) |
-| `03` | intMask | Interrupt enable mask |
-| `04` | intStatus / memMapMode | *Read* = interrupting-device ID + ON-held; *write* = memory-map mode + timer rate |
-| `05` | mapBankC | RAM page in slot `C000` (MemC) on the 84+ |
-| `06` | mapBankA | Flash page in slot `4000` |
-| `07` | mapBankB | Page in slot `8000` (`0x81`=84+ mode seen in ISR) |
+| `02` | hwStatus | Battery comparator, LCD-ready, Flash-lock, and family status; see [ASIC status, identity, protection, and GPIO](asic-status-gpio.md) |
+| `03` | intMask | Legacy interrupt enable/acknowledgement and low-power-on-`HALT` control; see [Interrupts (IM1)](interrupts.md#port-0x03-mask-acknowledgement-and-power-mode) |
+| `04` | intStatus / memMapMode | *Read* = legacy pending state, ON level, and programmable completion; *write* = mapping mode, standard-timer rate, and battery selector; see [Interrupts (IM1)](interrupts.md#port-0x04-read-source-and-on-status) |
+| `05` | mapBankC | RAM selector for window C in independent mode |
+| `06` | mapBankA | Flash/RAM selector for window A in independent mode or the A/B pair in paired mode |
+| `07` | mapBankB | Flash/RAM selector for window B in independent mode or window C in paired mode |
 | `08`–`0D` | usb/link assist | 84+ hardware byte-assist control/status/data/FIFO ports; see [USB ASIC and link assist](sub-usb-asic.md) |
+| `0E`/`0F` | mapBankAHigh/mapBankBHigh | High two Flash-page bits for ports `0x06`/`0x07`; no page effect on this 64-page TI-84 Plus |
 | `10/11` | lcdCmd/lcdData | LCD controller |
 | `18`–`1F` | MD5 assist | Six serial operand registers, rotate/mode control, and four result bytes; see [MD5 accelerator and boot API](md5-hardware.md) |
 | `20` | cpuSpeed | 0=6 MHz, 1=15 MHz (set in ISR) |
-| `21` | asicVer/ramSize | ASIC version & RAM-page count; read in the kernel (e.g. `00:02AE`) and its low bits mask the slot-`4000` page number before `OUT (6)` |
+| `15` | asicIdentity | Public ASIC/RAM/USB revision value; this ROM has no immediate or statically resolved literal-C access; see [ASIC status, identity, protection, and GPIO](asic-status-gpio.md) |
+| `21` | flashGroup/ramExec | Protected writable Flash grouping and RAM-execution mode; the boot writes zero at `3F:41DC`, and the kernel reads the low bits for model-specific page bounds; see [ASIC status, identity, protection, and GPIO](asic-status-gpio.md) |
+| `22`–`26` | execution bounds | Protected Flash-page and RAM-chunk bounds; see [Execution protection](execution-protection.md) |
+| `27`/`28` | forced RAM overlays | 64-byte-granularity page-`80`/`81` subranges; OS 2.55MP writes only zero, and paired-mode hardware behavior remains open |
 | `2D` | crystalControl | Quartz and programmable-timer behavior in low power |
-| `2F` | lcdTimerAdjust | LCD wait-state adjustment and programmable mode-3 prescaler |
+| `29`–`2C` | speedDelay | Speed-selected LCD instruction delays and Flash/RAM wait-state gates; see [Bus timing and wait states](bus-timing.md) |
+| `2E` | memoryDelay | Per-access Flash/RAM one-T-state additions; see [Bus timing and wait states](bus-timing.md) |
+| `2F` | lcdTimerAdjust | LCD-ready timing and programmable mode-3 prescaler; see [Bus timing and wait states](bus-timing.md) |
 | `30`–`38` | programmable timers | Three source/mode/counter triplets; see [Clock, timers, and power](clock-timers-power.md) |
+| `39`/`3A` | gpioConfig/gpioData | Battery-comparison and USB GPIO configuration/data; exact electrical signals remain open; see [ASIC status, identity, protection, and GPIO](asic-status-gpio.md) |
 | `40`–`48` | RTC | Control, staged set value, and current 32-bit seconds count |
 | `4D` | usbLineState | USB line-state gate sampled by `_GetVarCmdUSB` (id `50FB`; Ghidra alias `link_xfer_op`); bits 5/6 gate the `ram:2E0B` bjump to `35:4280` |
-| `55/56` | usbIntStatus/usbLineEvents | USB interrupt state / line events (84+) — polled first in `int_dispatch_sources`; both read-only (port 0x56 is a read-only event bitmap, not a write mask) |
+| `55/56` | usbIntStatus/usbLineEvents | USB interrupt state / line events (84+) — polled before the separate legacy controller; both read-only (port `0x56` is an event bitmap, not a write mask) |

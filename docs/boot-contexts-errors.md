@@ -5,14 +5,25 @@ Three cross-cutting mechanisms: how the OS starts, how it switches "modes" (cont
 ## Boot [confirmed]
 
 ```z80
-0000 reset:  IN A,(2); AND 0x80; JP 0x028C   ; test port 2 bit7, go to boot continuation
-028c:        port_mapBankA = 0x1F             ; bank a flash page into 4000
-             (cond) DAT_io_000E = 3; port_mapBankA = 0x7F   ; configure RAM/exec paging (port 0x0E)
-             port_memMapMode = 7              ; OUT (4): memory-map mode 1 + slow timer rate
-             JP 0x812C                        ; into the retail boot page at 3F:412C
+3F:4000:     LD A,0x07; OUT (0x04),A           ; paired mapping
+             LD A,0x7F; OUT (0x06),A           ; pages 3E/3F in 4000/8000
+             LD A,0x03; OUT (0x0E),A           ; extended Flash bits
+             JP 0x812C                         ; page 3F in the 8000 window
 ```
 
-Boot configures the paging hardware (`OUT (6),0x7F` selects flash page `3F`, the boot page) and the memory-map/timer mode (`OUT (4)`), then ends `JP 0x812c` into the banked window where page `3F` sits — `3F:412C`. The assembled `rom.bin` installs the retail `D84PBE1.8Xv` payload at page `3F`; the continuation begins `IM 1; LD B,0; LD SP,0xFDFA; …`. The boot page eventually initializes RAM, the VAT, system flags, the LCD, and enters the main context (the homescreen).
+The emulator reset trace begins at logical `0x8000`, where paired mode exposes
+`3F:4000`. The stub keeps page `3F` in the B window and jumps to logical
+`0x812C`, corresponding to `3F:412C`. Page 0 also has a restart vector at
+`00:0000` → `00:028C` that establishes the same paired mapping and reaches the
+same continuation. At `3F:414C`, the continuation changes to independent mode
+while page `3F` remains visible for the next instruction. See
+[Paging](paging.md#boot-mapping-transition) for the complete window-by-window
+transition. [confirmed]
+
+The assembled `rom.bin` installs the retail `D84PBE1.8Xv` payload at page
+`3F`; the continuation begins `IM 1; LD B,0; LD SP,0xFDFA; …`. The boot page
+eventually initializes RAM, the VAT, system flags, the LCD, and enters the main
+context (the homescreen).
 
 The boot page (`3F`) and its version queries are exposed to the OS through `ti83plus.inc` bcalls: `_getBootVer` (bcall `0x80B7` → `3F:477C`) and `_getHardwareVersion` (bcall `0x80BA` → `3F:4781`). The USB boot support entry points route through the same table but land on page `2F`, for example `_AttemptUSBOSReceive` (`0x80E4` → `2F:4145`) and `_InitUSB` (`0x8108` → `2F:52A4`).
 
@@ -146,7 +157,7 @@ The `Code` column is each error's low 7 bits. Re-editable errors set the `E_EDIT
 ## Confirmed details
 
 - **`cx*` vector layout — confirmed.** The six 2-byte handler slots and `cxPage` offsets are pinned by tracing `_AppInit` (`ram:0936`): `LD DE,0x858D / LD BC,0x000C / LDIR` then `IN A,(6) / LD (0x8599),A`. See [Context block layout](#context-block-layout-confirmed) above for the full offset table and `_AppInit` body. `_AppInit` installs the block; it is not the sole writer — `_POPCX` (bcall `0x49E1` → `07:6D1C`) restores a saved context into `cxMain`, and a save path at `07:5A8C` copies `cxMain` into the `cxPrev` shadow.
-- **Boot RAM-init trace — raw-disassembly trace.** Reset (`ram:0000`) → `028c` paging setup → `JP 0x812c` (retail boot page `3F:412C`). The RAM clear/re-init is `ram_reset_wipe` (`35:719f`): two `LDIR` zero-fills (`0x8000`–`0x9BC3`, `0x9BD0`–`0xFFFF`) preserving a few flag bytes, then `JP 0x0BD9` (`ram_init_after_reset`: port 0 = `0xC0`, stack reset in the raw trace, `CALL 0x3EC1`). The `ram:0BD9` entry matches the re-init point cross-referenced in [Memory management](memory-management.md). See [RAM clear / re-init](#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed).
+- **Boot RAM-init trace — raw-disassembly trace.** Emulator reset starts at logical `0x8000` on page `3F` and reaches `3F:412C`; the page-0 restart vector at `ram:0000` → `ram:028C` reaches the same continuation. The RAM clear/re-init is `ram_reset_wipe` (`35:719f`): two `LDIR` zero-fills (`0x8000`–`0x9BC3`, `0x9BD0`–`0xFFFF`) preserving a few flag bytes, then `JP 0x0BD9` (`ram_init_after_reset`: port 0 = `0xC0`, stack reset in the raw trace, `CALL 0x3EC1`). The `ram:0BD9` entry matches the re-init point cross-referenced in [Memory management](memory-management.md). See [RAM clear / re-init](#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed).
 - **Flash write and erase.** The retail boot table maps `_WriteFlash` (`80C9`) to `3F:4C8F`, `_WriteFlashUnsafe` (`8087`) to `3F:4CA6`, `_WriteAByte` (`8021`) to `3F:4C9F`, and `_EraseFlash` (`8024`) to `3F:4C2A`. Their program and erase loops are copied to `ramCode` at `0x8100`. A successful archive trace executes `archive_write_record` at `3D:64AA`, three `_WriteAByte` calls, and six entries through `_WriteFlashUnsafe`. See [Flash memory](flash-memory.md). [confirmed]
 
 The `JP 0x812c` target and the `ram:3EC1` init continuation are both present in

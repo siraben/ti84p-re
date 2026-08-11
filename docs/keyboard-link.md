@@ -2,7 +2,7 @@
 
 The keypad scanner and link-port drivers provide the calculator's local input and wired data-transfer paths. The keyboard path turns matrix scans into cooked key codes, while the link path sends bytes through the legacy two-wire port or the hardware-assisted interface.
 
-> **Deep dives:** [Keypad and ON-key hardware](keypad-on-hardware.md) covers the electrical matrix, scanner timing, debounce, repeat, ON interrupts, and wake. [Link / data transfer](sub-link-transfer.md) covers silent-link packets and variable send/receive.
+> **Deep dives:** [Keypad and ON-key hardware](keypad-on-hardware.md) covers the electrical matrix, scanner timing, debounce, repeat, ON interrupts, and wake. [Two-wire link port hardware](link-port-hardware.md) covers port `0x00`, electrical encoding, raw byte handshakes, timeouts, and background detection. [Link / data transfer](sub-link-transfer.md) covers silent-link packets and variable send/receive.
 
 ## Keyboard
 
@@ -26,13 +26,11 @@ So the input path is: keypad → ISR → `kbdScanCode` → `_GetKey` (cooked `kX
 
 ## Link port
 
-The 2.5 mm I/O link has two open-collector lines (tip/ring), driven via `port 0` (`port_link`), with an 84+ hardware link-assist / USB path via ports `0x08`–`0x0D`. See [USB ASIC and link assist](sub-usb-asic.md) for the ASIC-facing port map and the `link_xfer_op` USB-selection gate.
+The 2.5 mm I/O link uses two open-collector lines. Port `0x00` drives and samples them directly; ports `0x08`–`0x0D` provide the TI-84 Plus hardware-assisted byte path. [standard] for the electrical interface; [confirmed] for the ROM port use.
 
-`_SendAByte` (`3C:420D`) shows both paths [confirmed]:
-- **Hardware-assisted** (when enabled): poll status `port 0x09` bit 5 (ready), then write the byte to `port 0x0D`; helper routines on page 3C manage the assist FIFO/timing.
-- **Legacy bit-bang**: to send a bit, pull one line low (write `1` to `port_link` for a 0-bit, `2` for a 1-bit), wait for the receiver to mirror it, release, wait for idle — with a timeout that raises `E_LnkErr` (`0x9F`, "ERR:LINK") via `_JErrorNo` on failure (matching [sub-link-transfer.md](sub-link-transfer.md)). Repeats per bit of the byte.
+`_SendAByte = 4EE5`, body `3C:420D`, sends legacy bits least-significant first. It writes `1` for bit 0 and `2` for bit 1, waits for a both-low acknowledgement, releases its line, and waits for idle. `_RecAByteIO = 4F03`, body `3C:443F`, performs the inverse handshake. Both paths use bounded waits that enter the link-error machinery on timeout. [confirmed]
 
-`_RecAByteIO` (`3C:443F`) is the matching receive. Higher-level link commands (`_SendCmd` (bcall `4F3F`), variable transfer, plus screen-shot / remote-control commands) sit on top. (Note: the names `_CircCmd`/`_VertCmd` are documented in [sub-graphing.md](sub-graphing.md) as the graphing draw commands `Circle(` (`33:74CE`) and `Vertical` (`04:7955`); the link-layer command routines referenced here are distinct and were not separately traced — treat this as a [hypothesis].)
+[Two-wire link port hardware](link-port-hardware.md) reconstructs the port read/write inversion, four transitions, receiver rotation, errors, and timer-driven activity check. [USB ASIC and link assist](sub-usb-asic.md) covers the assist FIFO selected by the same byte routines.
 
 ### Variable-transfer command/packet framing
 
