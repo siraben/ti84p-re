@@ -1,0 +1,48 @@
+# Power on after a cold reset, create prgmA, and archive it through the MEM
+# menu. This drives the normal TI-OS archive path and its low-level flash
+# writer.
+set key_hold 0.15s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+
+# PRGM > NEW > Create New. The name field starts in alpha-lock mode, so the
+# MATH key enters A without an explicit ALPHA press.
+key PRGM
+wait 0.5s
+key RIGHT
+wait 0.5s
+key RIGHT
+wait 0.5s
+key ENTER
+wait 0.5s
+key MATH
+wait 0.5s
+key ENTER
+wait 1s
+
+# Give the program a one-token body, then return to the home screen.
+key 1
+key ENTER
+key 2ND
+key MODE
+wait 1s
+
+# 2nd + opens MEM. Item 5 inserts Archive on the home screen. PRGM then
+# selects the newly created program as its argument.
+key 2ND
+key ADD
+wait 0.5s
+key 5
+wait 0.5s
+key PRGM
+wait 0.5s
+key ENTER
+wait 0.5s
+key ENTER
+wait 5s
+screenshot /tmp/tilem-archive-program.png

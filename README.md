@@ -56,12 +56,12 @@ Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `
 | Metric | Value |
 |--------|-------|
 | Functions | rebuilt from the local ROM by `tools/build.sh` |
-| bcall routines named | 679 total: 596 main-table bcalls + 83 retail boot-table bcalls |
+| bcall routines named | 704 total: 621 main-table bcalls + 83 retail boot-table bcalls |
 | bjump sites resolved | 355 inline sites + 87-entry trampoline table |
 | parser handlers | 84 (page 0x38 dispatch table) |
 | Defined data (strings/floats/typed) | 618 |
 | Flash pages loaded | 64 (1 MiB) |
-| Docs | 35 (16 core + 15 subsystem deep-dives + 4 reference) |
+| Docs | 41 rendered Markdown pages |
 
 ## Architecture in one paragraph
 
@@ -76,14 +76,18 @@ A Z80 (64 KiB address space) with hardware paging maps flash page 0 at `0000` (t
 | [Paging](docs/paging.md) | Flash/RAM banking |
 | [The bcall mechanism](docs/bcall-mechanism.md) | `rst 28h` system calls + jump table (page 0x3B) |
 | [Interrupts](docs/interrupts.md) | IM1 ISR, timers, APD, ON key |
+| [Clock, timers, and power](docs/clock-timers-power.md) | Clock domains, timer API, RTC, APD cadence, shutdown, and TilEm fidelity |
+| [MD5 accelerator and boot API](docs/md5-hardware.md) | ASIC round operation, streaming digest bcalls, descriptors, traces, and signature transformation |
 | [Variables & the VAT](docs/variables-vat.md) | Variable Allocation Table & object types |
 | [Floating-point](docs/floating-point.md) | BCD float format, OP registers, `_FPAdd` |
 | [Tokenizer & TI-BASIC](docs/tokenizer-basic.md) | Tokens & the parser (page 0x38) |
 | [Display & LCD](docs/display-lcd.md) | LCD driver, fonts, screen buffers |
-| [Keyboard & link](docs/keyboard-link.md) | Keypad scan, 2nd/ALPHA state machine & link protocol |
+| [Keyboard and link](docs/keyboard-link.md) | Key input and wired-transfer overview |
+| [Keypad and ON-key hardware](docs/keypad-on-hardware.md) | Matrix timing, ghosting, debounce, repeat, ON interrupts, and wake |
 | [Subsystem map](docs/subsystem-map.md) | bcall API surface, system through-line |
 | [Boot, contexts & errors](docs/boot-contexts-errors.md) | Boot, the context system, `_JError`/`onSP` |
 | [Memory management](docs/memory-management.md) | RAM heap, VAT, Flash archive & GC |
+| [Flash memory](docs/flash-memory.md) | Flash chip geometry, ASIC protection, program/erase bcalls & archive trace |
 | [Flash page map](docs/flash-page-map.md) | What each of the 64 flash pages holds |
 | [RAM pages](docs/ram-pages.md) | RAM page selectors, page `83`, and restore rules |
 | [Open questions](docs/open-questions.md) | Future-work roadmap |

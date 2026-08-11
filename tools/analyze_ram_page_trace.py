@@ -11,6 +11,7 @@ import argparse
 from collections import Counter, defaultdict
 import sys
 
+from hardware_trace import MemoryWriteAttributor, resolve_memory_target
 from tilem_trace_resolve import (
     IDX_PC,
     Banker,
@@ -18,7 +19,6 @@ from tilem_trace_resolve import (
     iter_records,
     parse_byte,
     read_header,
-    resolve_instruction,
 )
 
 
@@ -34,13 +34,12 @@ def parse_int(value):
 
 
 def map_ram_write(banker, logical):
-    region = logical >> 14
-    if region == 0:
+    kind, page, offset, _flat, _unresolved = resolve_memory_target(
+        banker, logical
+    )
+    if kind != "ram" or page is None or offset is None:
         return None
-    kind, page = banker.mapped_address(logical)
-    if kind != "ram" or page is None:
-        return None
-    return page, logical - WINDOW_BASE[region], region
+    return page, offset, logical >> 14
 
 
 def ranges_for(offsets):
@@ -61,41 +60,6 @@ def ranges_for(offsets):
 
 def fmt_page_addr(offset):
     return f"{0x4000 + offset:04X}"
-
-
-class WriteAttributor:
-    """Associate write records with the instruction record that follows them."""
-
-    def __init__(self, banker):
-        self.banker = banker
-        self.pending = []
-        self.instr_idx = 0
-
-    def feed(self, rtype, payload):
-        if rtype == 0x02:
-            logical, value = payload
-            region = logical >> 14
-            kind, page = self.banker.mapped_address(logical)
-            unresolved = bool(region and page is None)
-            mapped = None
-            if kind == "ram" and page is not None:
-                mapped = (page, logical - WINDOW_BASE[region], region)
-            self.pending.append((logical, value, mapped, unresolved))
-            return []
-
-        if rtype != 0x01:
-            return []
-
-        pc = payload[IDX_PC]
-        (space, gaddr, _, _), _ = resolve_instruction(self.banker, payload)
-        resolved = (space, gaddr)
-        events = [
-            (self.instr_idx, logical, value, mapped, pc, resolved, unresolved)
-            for logical, value, mapped, unresolved in self.pending
-        ]
-        self.pending.clear()
-        self.instr_idx += 1
-        return events
 
 
 def main():
@@ -151,7 +115,7 @@ def main():
     matched = 0
     unresolved_writes = 0
     first_instr = True
-    attributor = WriteAttributor(banker)
+    attributor = MemoryWriteAttributor(banker)
 
     with open(args.trace, "rb") as fp:
         hdr = read_header(fp)
@@ -170,30 +134,31 @@ def main():
                           "Resolved pages may be wrong.", file=sys.stderr)
 
             for event in attributor.feed(rtype, payload):
-                (instr_idx, logical, value, mapped, pc, resolved,
-                 unresolved) = event
-                if unresolved:
+                if event.unresolved:
                     unresolved_writes += 1
                     continue
-                if mapped is None:
+                if (event.target_kind != "ram"
+                        or event.target_page is None
+                        or event.page_offset is None):
                     continue
-                page, offset, region = mapped
+                page = event.target_page
+                offset = event.page_offset
+                region = event.logical_address >> 14
                 if page != args.page:
                     continue
 
                 ent = writes[offset]
                 ent["count"] += 1
-                ent["first"] = (instr_idx if ent["first"] is None
+                ent["first"] = (event.instruction_index if ent["first"] is None
                                 else ent["first"])
-                ent["last"] = instr_idx
-                ent["values"][value] += 1
-                ent["pcs"][resolved] += 1
+                ent["last"] = event.instruction_index
+                ent["values"][event.value] += 1
+                ent["pcs"][(event.pc_space, event.pc_address)] += 1
 
                 matched += 1
                 if args.events and (args.limit == 0
                                     or len(events) < args.limit):
-                    events.append((instr_idx, logical, value, offset, region,
-                                   pc, resolved))
+                    events.append((event, offset, region))
 
     print(f"RAM page 0x{args.page:02X} writes: {matched}")
     print(f"unique page addresses: {len(writes)}")
@@ -223,12 +188,10 @@ def main():
 
     if args.events:
         print("\nEvents:")
-        for instr_idx, logical, value, offset, region, pc, resolved in events:
-            pc_s = "unknown"
-            if resolved is not None:
-                pc_s = fmt_addr(*resolved)
-            print(f"{instr_idx:9d}  logical={logical:04X}  "
-                  f"page_addr={fmt_page_addr(offset)}  value={value:02X}  "
+        for event, offset, region in events:
+            pc_s = fmt_addr(event.pc_space, event.pc_address)
+            print(f"{event.instruction_index:9d}  logical={event.logical_address:04X}  "
+                  f"page_addr={fmt_page_addr(offset)}  value={event.value:02X}  "
                   f"window={region}  pc={pc_s}")
 
 

@@ -145,13 +145,7 @@ RAM copy; `61F4` is the one that carves RAM and copies the data back out of Flas
 ```
 The data is appended to the archive Flash (Flash cannot be overwritten in place). The VAT entry's
 type byte gets its archive flag set and its data ptr/page rewritten to point into Flash; the old RAM
-copy is then released (the upward data heap shrinks). `3D:64AA` is the Flash writer that lays down a
-fresh archived record plus a copy of the symbol header/name and data (status marker bytes —
-`0xFE`=in-progress / `0xFC`=valid / `0xF0`=deleted, with `0xFF`=erased/empty; the bit-clearing
-mechanism is confirmed in §6a). `3D:64AA` is an inferred label, not byte-confirmed in the disassembly; the
-`flash_write_record` name for it is a project-local inferred label, not a WikiTI or `ti83plus.inc`
-equate. `_Chk_Batt_Low` (`00:0D07`) gates the Flash write — archiving aborts on low battery
-(`61C5: CALL _Chk_Batt_Low`).
+copy is then released (the upward data heap shrinks). `archive_write_record` at `3D:64AA` lays down a fresh archived record plus a copy of the symbol header, name, and data. The status markers are `0xFE` for in progress, `0xFC` for valid, `0xF0` for deleted, and `0xFF` for erased space. The successful archive trace executes the complete body and its six boot-page writes. [confirmed] `_Chk_Batt_Low` (`00:0D07`) gates the Flash write — archiving aborts on low battery (`07:61C5: CALL _Chk_Batt_Low`).
 
 ### 4b. Flash → RAM (unarchive), `61F4` [confirmed]
 
@@ -200,38 +194,20 @@ names a sibling `_FlashToRam2` (id 8054); the retail boot table maps it to `3F:4
 
 ---
 
-## 6. Low-level Flash write / erase (pages 3C/3D, port 0x14) [hypothesis]
+## 6. Archive record allocation and programming [confirmed]
 
-The Flash program/erase primitives live on flash pages `0x3C` / `0x3D` and are invoked through
-page-0 cross-page trampolines. The public bcall entry points for the byte writer are named in
-`ti83plus.inc`: `_WriteAByte` (id 8021) and `_WriteAByteSafe` (id 80C6) program a single
-Flash byte; `_FlashToRam2` (id 8054) is the companion Flash→RAM copy of `_FlashToRam` (§5).
-The retail boot table maps those APIs to boot-page bodies (`_WriteAByte`→`3F:4C9F`,
-`_WriteAByteSafe`→`3F:4C9A`, `_FlashToRam2`→`3F:4888`), which then wrap the lower-level
-page-3C/3D flash machinery below. Several page-3C/3D
-targets below are reached by byte trace but are inferred labels, not byte-confirmed in the disassembly;
-their `flash_*` names are project-local inferred labels (not WikiTI or `ti83plus.inc` equates):
+The archive manager chooses a free record and then calls the boot-page Flash API. [Flash memory](flash-memory.md) reconstructs port `0x14`, `_WriteFlash`, `_WriteFlashUnsafe`, `_WriteAByte`, erase sectors, DQ polling, and the RAM workers. This section covers the archive-specific layer above that API.
 
-| Trampoline (RAM) | → page:addr | Role |
-|------------------|-------------|------|
-| `00:2FF1` | `3D:64AA` (inferred label) | Flash program record candidate |
-| `00:2FDF` | `3D:61AF` (inferred label) | Flash program/erase core candidate |
-| `00:2FF7` | `3D:62C2` (inferred label) | Flash free-sector scan / allocate candidate |
-| `00:2FC1` | `3C:580E` | Flash command/menu entry |
-| `00:2FFD` | `3C:7121` (inferred label) | Flash command dispatcher candidate |
-| `00:32A9` | `05:4A6E` | complex-list special-case helper |
+| Trampoline | Target | Role |
+|------------|--------|------|
+| `ram:2FDF` | `3D:61AF` | prepare archive accounting and scan state |
+| `ram:2FF7` | `3D:62C2` `archive_find_free_span` | scan records for a span large enough for the new object |
+| `ram:2FF1` | `3D:64AA` `archive_write_record` | write the record marker, header, name, data, and final status |
+| `ram:3003` | `3D:6440` | copy an archived record to RAM and retire its Flash record |
 
-The program-core candidates `3D:64AA` and `3D:6440` share this unlock prologue (`3D:61AF` starts differently — `PUSH AF; PUSH HL; BIT 6,(IY+0x24)`):
-```z80
-RES 7,(IY+0x24) ; LD A,1 ; DI ; IM 1 ; DI ; OUT (0x14),A ; DI ; CALL FUN_ram_02bf
-```
-`OUT (0x14),A` toggles the Flash control port (0x14) to enable write/erase; `FUN_ram_02bf`
-sets up the RAM-resident write stub (the actual byte-poke loops run from RAM at `0x8100`/`ramCode`,
-because the CPU cannot fetch from a Flash chip mid-erase). `3D:6B9B`/`3D:6B6D` are bounds-checked
-byte-program candidate calls (return carry → caller raises `E_ArchFull`); neither is byte-confirmed
-in the disassembly. The public byte-write API for this layer is `_WriteAByte` (8021) /
-`_WriteAByteSafe` (80C6), which resolve to boot-page wrappers. The free-slot scan reads sector
-status bytes and sums free space to decide whether a GC is needed before a write.
+`archive_write_record` unlocks Flash with the protected port-`0x14` sequence. It writes an initial `0xF0` marker when the selected position requires one, starts the record with `0xFE`, writes the size and variable metadata, copies the data, and finalizes the status as `0xFC`. It uses `_WriteAByte` (`8021`, body `3F:4C9F`) for marker bytes and `_WriteFlashUnsafe` (`8087`, body `3F:4CA6`) for blocks. [confirmed]
+
+The bounds checks at `3D:6B6D` and `3D:6B9B` reject pages below `08` and pages at or above the dynamic App boundary from `3D:6413`. Both require the Flash destination to be at least `0x4000`; the block form at `3D:6B6D` also requires `HL >= 0x4000`. Carry reports rejection to the caller, which raises `E_ArchFull`. [confirmed]
 
 ### 6a. Record-status byte — the one-way bit-clearing scheme [confirmed]
 
@@ -255,52 +231,159 @@ can never be re-validated in place — it is reclaimed only by GC erasing the wh
 on each, treating an all-`0xFF` run as a free slot. (`3D:7C99` additionally folds in `AND 0xE7` and
 conditional `OR 0x10`/`OR 0x08` for the swap/relocate state bits driven by `(IY+0x1A).0` and `(IY+0).2`.)
 
-### 6b. Archive sector map / erase-block granularity [confirmed]
+### 6b. Dynamic archive and App boundary [confirmed]
 
-The physical Flash pages that form the archive pool are model-selected at runtime from the two model
-bits — port 2 bit 7 (`probe_hw_model_keep_a` `00:1837`) and port 0x21 low bits (`probe_port21_keep_a` `00:182F`):
+The archive begins at page `08`. `archive_app_boundary` (`3D:6413`) computes its exclusive upper bound by starting at the model-specific top App page from `3D:726E`, validating each installed App header, obtaining its span from `_FindAppNumPages` (`3D:4AA3`), and subtracting that span until it reaches the first page below the installed App run. [confirmed]
 
-| Model test | Archive base page (`flash_page_select` `3D:726E`) | Archive top page (`flash_cmd_base` `3D:738B`) | Page mask |
-|------------|-------------------------------------------------------|----------------------------------------------------|-----------|
-| port 2 bit 7 clear (1 MB) | `0x15` | `0x1E` | `AND 0x1F` (32 pages) |
-| port 0x21 == 0 (mid) | `0x29` | `0x3E` | `AND 0x3F` (64 pages) |
-| else (2 MB) | `0x69` | `0x7E` | *no* mask (full 8-bit page; `3D:6745` skips both `AND`s) |
+| Model test | Top App page from `3D:726E` | Certificate page from `3D:738B` |
+|------------|--------------------------------:|----------------------------------:|
+| port `0x02` bit 7 clear | `0x15` | `0x1E` |
+| port `0x21 & 3` equals zero | `0x29` | `0x3E` |
+| remaining branch | `0x69` | `0x7E` |
 
-So on a 1 MB TI-84 Plus the user archive occupies roughly raw pages `0x15…0x1E`, and the OS pages it
-into the `0x4000` window one 16 KB page at a time for both reading (`_FlashToRam`, masks `0x1F`/`0x3F`
-via the same model check, `3D:6745`) and erasing. `flash_set_sector_cnt` (`3D:727D`) loads
-`(base+1)` into the sector counter `0x82A3`; the erase routine `flash_erase_wait` (`3D:5ED3`, whose
-loop jumps to `3D:5EF1` — `3D:5EE3` is the unrelated `_FindApp`) pages each sector to `0x4000` and
-issues the chip erase command via `RST 0x28`, decrementing
-`0x82A3` down toward the base page. The underlying Am29F-class chip uses 64 KB physical sectors
-(= 4 × 16 KB OS pages); the OS walks/erases at 16 KB page granularity. [hypothesis]
+The second column is the App scan start, not an archive base. The third column selects the certificate page, not an archive endpoint. `archive_find_free_span` stores the computed boundary, starts at page `08`, and scans upward. On the OS-only TI-84 Plus image, the boundary is `0x29`; the successful `Archive prgmA` trace selects `08:4000`. Installed Apps consume pages downward from the upper end and reduce the archive interval. [confirmed]
+
+The ASIC pages Flash in 16 KiB units, but the chip erases ordinary sectors in 64 KiB units. Page `3E` contains two 8 KiB certificate sectors, and page `3F` is a 16 KiB boot sector. See [Sector geometry](flash-memory.md#sector-geometry). [standard]
 
 ---
 
-## 7. Flash garbage collector — "Garbage Collecting…" [hypothesis]
+## 7. Flash garbage collector [confirmed]
 
-Distinct from `_CleanAll` (RAM/FP-stack cleanup, `07:52CF`). When the archive Flash fills, dead
-(unarchived/deleted) records must be reclaimed by rewriting the live records to fresh sectors and
-erasing the old ones.
+The archive garbage collector compacts records in 64 KiB sector units. It also journals its phase
+in the inactive half of page `3E`, so startup code can distinguish an interrupted collection from a
+normal archive layout. This mechanism is separate from `_CleanAll`, which only compacts RAM.
 
-- The on-screen prompt string `"Garbage\0Collecting...\0"` is at `01:4126`; `"Defragmenting...\0"`
-  at `01:4076`. The display front-end candidate `3C:7E0D`
-  (`LD HL,0x4126 ... CALL 3E85`) is an inferred label, not byte-confirmed in the disassembly.
-- GC is driven from the command dispatcher candidate `3C:7121`: `3C:71F9` = "show GC screen + relocate"
-  (`CALL 7E0D` then `CALL 7219` then `CALL 7733`), `3C:720D` = relocate-only, and the archive-full
-  auto-GC `3C:7204` runs `71FC` (GC) then retries the write at `7F1C`. `3C:7121` is an inferred
-  label, not byte-confirmed in the disassembly.
-- The relocation/erase-core candidate `3C:7BD0-7BF4`: tests a status flag, `7E6B`/`7C10` prepare the swap
-  sectors (writes `0xF0` marker, sets `97A6` sector counter, `8477`), `7BE3:CALL 7E0D` shows the
-  banner, `7C1F` walks live VAT/Flash entries copying each valid (`0xFC`-marked) record to the
-  new sector, and `7C04` finalizes (erases the old sectors, `SET 2,(IY+0x25)`). [standard] `3C:7BD0` is
-  an inferred label, not byte-confirmed in the disassembly; the `flash_gc_relocate`/`gc_show_screen` names are
-  project-local inferred labels, not WikiTI or `ti83plus.inc` equates.
-- GC is callable from the user catalog (`Archive`/the MEM menu "Garbage Collect?" — string at
-  `01:76C9`).
+### 7a. Command and normal collector entries
 
-So: archive = append to Flash; delete/unarchive = mark dead; when Flash fills, GC compacts. This is
-the standard TI-83+/84+ behaviour, pinned to addresses here.
+`gc_command` at `3C:71F8` displays the two-line banner, runs a recovery preflight, and calls the
+normal collector: [confirmed]
+
+```z80
+3C:71F8  di
+3C:71F9  call 7E0Dh  ; gc_show_screen
+3C:71FC  call 7219h  ; gc_recovery_preflight
+3C:71FF  call 7733h  ; archive_gc_collect
+3C:7202  ei
+3C:7203  ret
+```
+
+`gc_show_screen` at `3C:7E0D` is byte-confirmed. It loads the strings at `01:4126` (`"Garbage"`)
+and `01:412E` (`"Collecting..."`). The related path at `3C:7E23` loads `01:4076`
+(`"Defragmenting..."`). [confirmed]
+
+The deterministic `GCFLASH` fixture archives `A` and `B`, unarchives `A`, accepts the
+`GarbageCollect` prompt, and reaches `3C:71F8`, `3C:7219`, `3C:7733`, and `3C:7CFB` once each. The
+preflight branch at `3C:7232` sees carry set and returns through `3C:7246`; it does not enter the
+recovery dispatcher during this normal run. [confirmed]
+
+### 7b. Four-page archive sectors
+
+`3C:749C` groups the current archive page into one physical 64 KiB sector: [confirmed]
+
+```z80
+ld a,(8435h)
+or 03h
+ld c,a            ; last 16 KiB page
+and 0FCh
+ld b,a            ; first 16 KiB page
+ret
+```
+
+`gc_check_archive_sectors` at `3C:7768` applies that grouping while scanning downward from the
+dynamic App boundary. It examines the byte at `4000` on the first page of each group, then checks
+record status bytes within a selected sector. In the fixture it tests nine group starts and finds
+the source sector at page `08`. [confirmed]
+
+Sector-header bytes use the same monotonic bit-clearing property as record statuses, but they are
+a separate structure. In the observed collection, `0xFE` identifies the erased scratch sector,
+`0xFC` and `0xF8` are copy-progress states, and `0xF0` identifies the committed sector containing
+the compacted records. Record bytes one or more bytes after the sector header independently use
+`0xFE`, `0xFC`, `0xF8`, and `0xF0`. [confirmed]
+
+### 7c. Observed sector-copy sequence
+
+`archive_gc_collect` at `3C:7733` executes the protected port-`0x14` unlock sequence. It checks the
+archive sectors, adjusts the Flash execution bound, prepares a destination sector, initializes the
+certificate journal, runs `gc_run_phase_machine` at `3C:7CFB`, restores the Flash bound with
+`_SetFlashLowerBound` (`80CF`), and returns. [confirmed]
+
+The trace decodes to 1,133 byte-program commands and seven physical sector erases. The ordinary
+archive-sector operations occur in this order: [confirmed]
+
+| Clock | Operation | Meaning |
+|------:|-----------|---------|
+| `325020849` | erase sector containing `0C:4000` | create the 64 KiB destination sector |
+| `328027494` | program `0C:4000 = 0xFE` | mark page `0C`'s sector as the scratch destination |
+| `334678845` | program `0C:4000 = 0xFC` | advance the destination-sector phase before record copy |
+| `334829015`–`334924553` | program `0C:4001`–`0C:4015` | copy and finalize the surviving `B` record |
+| `334939256` | program `08:4016 = 0xF8` | mark the old `B` record as moved |
+| `335005172` | program `0C:4000 = 0xF8` | advance the destination-sector phase |
+| `335063060` | program `08:4016 = 0xF0` | retire the old `B` record |
+| `335227372` | erase sector containing `08:4000` | reclaim the original 64 KiB sector |
+| `338253448` | program `08:4000 = 0xFE` | make page `08` the next empty scratch sector |
+| `338293984` | program `0C:4000 = 0xF0` | commit page `0C`'s sector with the compacted record |
+
+The copied record begins at `0C:4001`, immediately after the sector header. Its bytes are
+`FE 12 00 00 00 00 01 40 0C 42 00 00 00 80 20 00 00 00 00 00 00`; the first byte then changes
+to `0xFC`. The record matches the surviving archived real variable `B`. `3C:79A6` also updates its
+VAT location while moving the record. [confirmed]
+
+The final layout therefore contains an empty `0xFE` scratch sector at page `08` and a committed
+`0xF0` sector at page `0C`. The live `B` record remains `0xFC` at `0C:4001`. The `0xF0` byte at
+`0C:4000` is a sector header, not a deletion marker for the record that follows it. [confirmed]
+
+### 7d. Certificate-sector journal
+
+The collector uses the two 8 KiB halves of page `3E` transactionally. `_GetCertificateStart`
+(`8057`) selects the active half. `3D:48E3` toggles `H` with `0x20`, and
+`_EraseCertificateSector` (`8060`) erases the inactive half before the page-3D certificate rewrite
+helper runs. [confirmed]
+
+The fixture first erases `3E:6000`–`3E:7FFF`. It copies the used tail at `3E:7DD2`–`3E:7FFF` into
+that half, programs its base byte through `0x8F` to `0x00`, and erases the old half at
+`3E:4000`–`3E:5FFF`. After archive relocation it reverses the operation: it copies
+`3E:5DD2`–`3E:5FFF`, programs `3E:4000` through `0x8F` to `0x00`, and erases the temporary
+`3E:6000` half. Most copied bytes are `0xFF`; the boot worker still issues a program command for
+each one. [confirmed]
+
+Journal bytes near the end of the active half advance monotonically. The observed phase byte at
+logical `3E:7DED` changes from erased `0xFF` to `0xFE`, then to `0xE0`. The per-sector byte at
+`3E:7DF0` changes `0xFF → 0xFE → 0xFC` around the page-`08` erase. The RAM mirrors are in the
+model-selected tables at `0x82A5` or `0x837B`; helpers at `3C:7E78`–`3C:7EBA` select individual
+fields. [confirmed]
+
+`gc_recover_by_phase` at `3C:7C1F` dispatches the mirrored phase byte through cases `0xFF`,
+`0xFE`, `0xFC`, `0xF8`, `0xF0`, and `0xE0`. This is the interruption-recovery dispatcher, not the
+normal record-copy entry. `gc_check_interrupted` begins at `3C:7BC7`; `3C:7BD0` is a call inside
+that routine. The fixture's startup check reads an erased status, executes through `3C:7BDB`, and
+skips the branch to `3C:7BDD` and `3C:7C1F`. [confirmed]
+
+The exact crash guarantee attached to each phase value still needs fault-injection traces stopped
+after individual Flash commands. The bytes and dispatcher targets establish the journal state
+machine, but they do not prove which interrupted state is recoverable after physical power loss.
+[hypothesis]
+
+### 7e. Reproducing the command timeline
+
+`tools/flash_trace.py` is the importable AMD-command decoder. The CLI resolves mapping changes,
+decodes command sequences, and compacts adjacent program operations: [confirmed]
+
+```sh
+python tools/analyze_flash_trace.py \
+  /tmp/tibasic-smoke/gcflash.trace \
+  --clock 321347460-344829074 \
+  --timeline
+
+python tools/analyze_trace_points.py \
+  /tmp/tibasic-smoke/gcflash.trace \
+  --point page_3C:71f8 \
+  --point page_3C:7733 \
+  --point page_3C:7cfb
+```
+
+The user command is also reachable through the MEM prompt whose `"Garbage Collect?"` string is at
+`01:76C9`. Automatic collection on archive exhaustion calls the same collector before retrying the
+archive operation at `3C:7F1C`. [confirmed]
 
 ---
 
@@ -317,9 +400,7 @@ the standard TI-83+/84+ behaviour, pinned to addresses here.
   the `_Create*` routines and by the unarchive RAM-fit check (`61F4` calls it before allocating).
 - `_InsertMem` (`00:0F81`) / `_DelMem` (`00:1368`) — open / close a gap at HL by block-moving
   everything above; `_InsertMem` fails `E_Memory` if it would collide with the VAT.
-- Free archive (Flash) is computed inside the Flash layer. The free-space sum is at `3D:6413`
-  and the catalog "MEM" read path runs through `3C:7121`. Neither address is byte-confirmed in
-  the disassembly.
+- Free archive is computed inside the page-3D archive layer. `3D:61AF` prepares its accounting state, `archive_find_free_span` at `3D:62C2` searches for placement, and `archive_app_boundary` at `3D:6413` supplies the dynamic exclusive upper page. The catalog **MEM** path runs through `3C:7121`. [confirmed]
 
 ---
 
@@ -341,22 +422,27 @@ the standard TI-83+/84+ behaviour, pinned to addresses here.
 | `38:67B1` | `_RclVarSym` | recall var by symbol |
 | `3A:5D07` | `rcl_var_push` | recall var, push to FPS |
 | `3D:6745` | `_FlashToRam` | copy archived data Flash→RAM (page-aware); `ti83plus.inc` sibling `_FlashToRam2` (id 8054) is named but its body is unmapped in the disassembly |
-| `3D:678C` | `flash_program_buf` | live-MCP Flash programming/buffer helper |
-| `3D:64AA` | `flash_write_record` (inferred label) | program an archived record to Flash candidate; not byte-confirmed in the disassembly |
-| `3D:61AF` | `flash_program_core` (inferred label) | Flash program/erase core candidate; not byte-confirmed in the disassembly |
-| `3D:62C2` | `flash_alloc_sector` (inferred label) | scan/allocate next free archive sector candidate; not byte-confirmed in the disassembly |
-| `3D:6413` | `flash_free_scan` (inferred label) | sum free archive space / decide GC candidate; not byte-confirmed in the disassembly |
-| `3D:726E` | `flash_page_select` | archive base page by model (0x15/0x29/0x69) |
-| `3D:738B` | `flash_cmd_base` | archive top page by model (0x1E/0x3E/0x7E) |
-| `3D:727D` | `flash_set_sector_cnt` | shared page counter `0x82A3` = base+1 |
-| `3D:5ED3` | `flash_erase_wait` | erase a 16 KB archive page, wait for completion |
+| `3D:678C` | `flash_to_ram_run_worker` | copy the `_FlashToRam` worker to `0x8100` and execute it |
+| `3D:64AA` | `archive_write_record` | program a complete archive record; executed in the archive trace |
+| `3D:62C2` | `archive_find_free_span` | scan from page `08` to the dynamic App boundary for space |
+| `3D:6413` | `archive_app_boundary` | return the first page below the installed App run in `B` |
+| `3D:726E` | `model_app_top_page` | model-specific App scan start (`0x15`/`0x29`/`0x69`) |
+| `3D:738B` | `model_certificate_page` | model-specific certificate page (`0x1E`/`0x3E`/`0x7E`) |
+| `3D:727D` | `init_flash_page_counter` | set `appSearchPage` (`0x82A3`) to top App page + 1 |
 | `3D:7C97` / `3D:7C8F` / `3D:7C93` | `flash_op_fe/fd/fb` | clear status bit (0xFE/0xFD/0xFB AND-mask) |
 | `3D:7DEA` | `flash_find_nonff` | scan 13-byte header for all-0xFF (free slot) |
 | `00:1837` / `00:182F` | `probe_hw_model_keep_a` / `probe_port21_keep_a` | model bits: port 2 bit7 / port 0x21 low |
-| `3D:6B9B` | `flash_write_byte` (inferred label) | bounds-checked Flash byte program candidate; not byte-confirmed in the disassembly. Public byte-write bcalls `_WriteAByte` (8021) / `_WriteAByteSafe` (80C6) are named in `ti83plus.inc`, but the `0x8xxx` table does not yet map either ID to this body |
-| `3C:7121` | `flash_cmd_dispatch` (inferred label) | Archive/UnArchive/GC command dispatcher candidate; not byte-confirmed in the disassembly |
-| `3C:7BD0` | `flash_gc_relocate` (inferred label) | GC core candidate; not byte-confirmed in the disassembly |
-| `3C:7E0D` | `gc_show_screen` (inferred label) | "Garbage Collecting…" display front-end candidate; not byte-confirmed in the disassembly |
+| `3D:6B6D` / `3D:6B9B` | `flash_write_bounds_check` / `flash_write_byte_bounds_check` | enforce page `08` and dynamic App-boundary limits before block or byte writes |
+| `3C:71F8` | `gc_command` | display the Garbage Collecting screen, run recovery preflight, and call the collector |
+| `3C:7219` | `gc_recovery_preflight` | inspect persistent GC state and enter recovery only when needed |
+| `3C:7733` | `archive_gc_collect` | normal collector entry and Flash-unlock wrapper |
+| `3C:7768` | `gc_check_archive_sectors` | scan four-page archive sectors for a valid starting state |
+| `3C:77B5` | `gc_prepare_journal` | initialize the RAM phase table and inactive certificate half |
+| `3C:781A` | `gc_process_sector_states` | dispatch ordinary-sector copy, erase, and finalization work |
+| `3C:7BC7` | `gc_check_interrupted` | test persistent journal bits at startup |
+| `3C:7C1F` | `gc_recover_by_phase` | dispatch interrupted states `FF/FE/FC/F8/F0/E0` |
+| `3C:7CFB` | `gc_run_phase_machine` | run the normal sector pass and advance persistent phases |
+| `3C:7E0D` | `gc_show_screen` | display `"Garbage"` and `"Collecting..."` from page `01` |
 | `00:0E20` | `_MemChk` | free RAM = OPS − FPS |
 | `00:0FA6` | `_EnoughMem` | ensure N bytes; reclaim temps |
 | `00:0F81` | `_InsertMem` | open a RAM gap |
@@ -369,23 +455,16 @@ Strings: `01:4126` "Garbage Collecting…", `01:4076` "Defragmenting…", `07:6C
 Ports: `0x06` = bank-A page select (Flash window), `0x14` = Flash write/erase control,
 `0x02` bit7 = Flash-size/model. RAM run-from-RAM stub: `ramCode = 0x8100`.
 
-## 10. Summary & open items
+## 10. Summary and open items
 
-- **Sector map / erase-block.** [confirmed] See §6b. The archive pool is model-selected: base page
-  `0x15`/`0x29`/`0x69` (`flash_page_select` `3D:726E`) up to top page `0x1E`/`0x3E`/`0x7E`
-  (`flash_cmd_base` `3D:738B`); on a 1 MB TI-84 Plus that is raw pages ~`0x15…0x1E`. The OS pages
-  the region into the `0x4000` window and erases one 16 KB page at a time (`flash_erase_wait`
-  `3D:5ED3`, sector counter `0x82A3` from `flash_set_sector_cnt` `3D:727D`); the physical chip
-  sector is 64 KB = 4 OS pages [hypothesis].
+- **Archive allocation.** [confirmed] The allocator scans upward from page `08` to the exclusive App boundary from `3D:6413`. On the traced OS-only TI-84 Plus, that interval is pages `08`–`28`; the new record begins at `08:4000`.
+- **Hardware Flash path.** [confirmed] `archive_write_record` at `3D:64AA` invokes `_WriteAByte` and `_WriteFlashUnsafe`; the boot worker runs at `0x8100`, issues AMD byte-program commands, polls DQ7/DQ5, and returns success. See [Flash memory](flash-memory.md).
+- **Erase granularity.** [standard] Ordinary sectors are 64 KiB, not one 16 KiB paging unit. The top-boot geometry also has 32, 8, 8, and 16 KiB sectors at physical `0xF0000`–`0xFFFFF`.
 - **Record-status bytes.** [confirmed] See §6a. Monotonic bit-clear: `0xFF` erased → `0xFE` in-progress
   → `0xFC` valid via `flash_op_fe/fd/fb` (`3D:7C97/7C8F/7C93`) AND-masking; `0xF0` deleted is a direct write in the delete/GC path
   the status byte; `flash_find_nonff` (`3D:7DEA`) treats an all-`0xFF` header as free.
 
-- **Lower-level flash helper bodies.** [hypothesis] The address-keyed labels remain inferred. The public bcall
-  entry points are canonical equates in `ti83plus.inc` and now resolve through the retail boot table:
-  `_WriteAByte` (8021) → `3F:4C9F`, `_WriteAByteSafe` (80C6) → `3F:4C9A`, and `_FlashToRam2`
-  (8054) → `3F:4888`. The address-keyed `flash_*` labels in §6/§9 stay inferred and
-  body-undisassembled until the lower-level page-3C/3D helper graph is split cleanly.
+- **Garbage collection.** [confirmed] `archive_gc_collect` at `3C:7733` moves live records in 64 KiB sector units and uses the inactive 8 KiB certificate half as a persistent journal. The `GCFLASH` trace copies the surviving `B` record from the page-`08` sector to page `0C`, erases the old sector, and rotates the empty scratch sector back to page `08`. The remaining [hypothesis] is the physical-power-loss guarantee for each recovery phase.
 - **Group archive path.** [hypothesis] The path is partially pinned. `_DataSize` (`00:1485`) confirms a Group
   (type `0x17`, like AppVar `0x15`/`0x16`) carries a leading word-size header, so a group *can* be
   stored as one Flash blob. In `_Arc_Unarc` the `CP 0x17` → `26E0` reject sits on the B≠0 (in-Flash)

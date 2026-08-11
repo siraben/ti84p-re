@@ -1,0 +1,19 @@
+# Run the first loaded program, then preserve logical RAM for the MD5("abc")
+# fixture. Load ASMMD5.8xp and MD5TEST.8xp; alphabetical PRGM ordering puts
+# ASMMD5 first. MD5Hash begins at dump offset 0x0292 (logical 0x8292).
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 8s
+memdump /tmp/md5-abc.ram ram-logical
+screenshot /tmp/md5-abc.png

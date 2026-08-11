@@ -25,10 +25,10 @@ From the decompiler:
 
 - Located at the start of physical flash page `0x3B` (file offset `0x3B*0x4000 = 0xEC000`).
 - **3-byte entries**: `addr_lo, addr_hi, page`. IDs step by 3 from `0x4000`, so entry for ID *X* is at table offset `X-0x4000`.
-- Resolution method (`tools/` Python): scored all 64 pages by how many of the named .inc IDs produced a valid `(addr∈4000..7FFF or page-0, page<0x40)` entry; page `0x3B` scored highest (the page-selection heuristic uses a conservative validity filter chosen only to pick the table). Once `0x3B` is selected and applied, all 535 `.inc` IDs plus 61 RE-named entries (596 total) resolve and are live-confirmed.
+- Resolution method (`tools/` Python): scored all 64 pages by how many named IDs produced a valid `(addr∈4000..7FFF or page-0, page<0x40)` entry; page `0x3B` scored highest (the page-selection heuristic uses a conservative validity filter chosen only to pick the table). Once `0x3B` is selected and applied, 621 entries resolve and are live-confirmed. Of those IDs, 599 also appear in the included SDK equates and 22 are project-inferred additions.
 - Validation: known bcalls land exactly where expected — `_PutS`→`01:5C39`, `_GetKey`→`06:491E`, `_ClrLCDFull`→`01:60E4`, `_GetCSC`→`00:04B2`, `_CreateReal`→`00:10B8`.
 
-`tools/bcall_targets.txt` holds 596 resolved main-table bcall rows.
+`tools/bcall_targets.txt` holds 621 resolved main-table bcall rows.
 `tools/bcalls8x_targets.txt` holds 83 retail boot-table (`0x8xxx`) rows resolved
 from the assembled local ROM. `tools/resolve_bcalls.py` emits those rows only
 when page `3F` has the retail prefix and page `2F` contains the companion USB
@@ -38,7 +38,7 @@ payload; its BootFree guard otherwise leaves only diagnostic comments.
 ## Jump-table ID ranges
 
 The dispatcher (`bcall_dispatcher`) decodes the ID's top two bits to pick the table page: bit 15 set → page-byte `0x7F` (masked `& 0x3F` → page `0x3F`); bit 14 set → `0x7B` (→ page `0x3B`); with *neither* bit set it falls through to `lookup_bcall_table_page` (`ram:2ADA`). The two tables real bcall IDs use:
-- `0x4xxx`–`0x7FFF` (bit 14 set): the main table on flash page `0x3B`, entry at offset `ID − 0x4000` (596 live-confirmed bcalls: 535 from the `.inc` + 61 RE-named).
+- `0x4xxx`–`0x7FFF` (bit 14 set): the main table on flash page `0x3B`, entry at offset `ID − 0x4000` (621 live-confirmed bcalls: 599 IDs also present in the included SDK equates and 22 project-inferred additions).
 - `0x8xxx` (bit 15 set): the retail boot table is on physical page `3F`, indexed by `ID & 0x7FFF`. `D84PBE1.8Xv` supplies the retail page `3F`; `D84PBE2.8Xv` supplies the companion USB boot support page `2F`. Most entries resolve to `3F:addr`; USB entries such as `_AttemptUSBOSReceive` (`80E4`) and `_InitUSB` (`8108`) resolve to `2F:addr`. `tools/resolve_bcalls.py` refuses to emit these targets from a BootFree-substituted page. [confirmed]
 
 Both resolved table formats are 3-byte entries: target address (little endian) plus page byte masked with `& 0x3F`.

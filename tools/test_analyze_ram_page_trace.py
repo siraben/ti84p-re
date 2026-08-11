@@ -7,7 +7,8 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from analyze_ram_page_trace import WriteAttributor, map_ram_write
+from analyze_ram_page_trace import map_ram_write
+from hardware_trace import MemoryWriteAttributor
 from tilem_trace_resolve import Banker, IDX_OPCODE, IDX_PC, IDX_WZ
 
 
@@ -66,7 +67,7 @@ class WriteAttributorTests(unittest.TestCase):
         banker = Banker(initial_port4=0, initial_port5=0,
                         initial_port6=2, initial_port7=0x83,
                         initial_port27=0, initial_port28=0)
-        return WriteAttributor(banker)
+        return MemoryWriteAttributor(banker)
 
     def test_write_is_attributed_to_following_instruction_record(self):
         attributor = self.make_attributor()
@@ -76,13 +77,16 @@ class WriteAttributorTests(unittest.TestCase):
         events = attributor.feed(0x01, instruction(0x2345))
 
         self.assertEqual(1, len(events))
-        instr_idx, logical, value, mapped, pc, resolved, unresolved = events[0]
-        self.assertEqual(1, instr_idx)
-        self.assertEqual((0x8123, 0xAA), (logical, value))
-        self.assertEqual((0x83, 0x0123, 2), mapped)
-        self.assertEqual(0x2345, pc)
-        self.assertEqual(("ram", 0x2345), resolved)
-        self.assertFalse(unresolved)
+        event = events[0]
+        self.assertEqual(1, event.instruction_index)
+        self.assertEqual((0x8123, 0xAA), (event.logical_address, event.value))
+        self.assertEqual(("ram", 0x83, 0x0123),
+                         (event.target_kind, event.target_page,
+                          event.page_offset))
+        self.assertEqual(0x2345, event.logical_pc)
+        self.assertEqual(("ram", 0x2345),
+                         (event.pc_space, event.pc_address))
+        self.assertFalse(event.unresolved)
 
     def test_mapping_out_applies_before_next_instruction_writes(self):
         attributor = self.make_attributor()
@@ -91,7 +95,9 @@ class WriteAttributorTests(unittest.TestCase):
 
         events = attributor.feed(0x01, instruction(0x1001))
 
-        self.assertEqual((0x82, 0x0010, 2), events[0][3])
+        self.assertEqual(("ram", 0x82, 0x0010),
+                         (events[0].target_kind, events[0].target_page,
+                          events[0].page_offset))
 
     def test_trailing_write_remains_pending_without_instruction(self):
         attributor = self.make_attributor()

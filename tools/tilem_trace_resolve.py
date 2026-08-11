@@ -10,6 +10,12 @@ the mapping writes found in the trace and rewrites every PC into:
     (page 0 -> ram:XXXX, banked flash -> page_NN:XXXX, RAM -> ram:XXXX), and
   - a flat offset into tools/rom.bin (for flash), so you can z80dasm-check it.
 
+The optional --io-ports filter decodes IN/OUT instructions at resolved
+addresses. Immediate and register transfers include their byte values; TLMT v2
+cannot recover memory bytes used by block-I/O instructions. The optional
+--key-events output aligns injected press/release events with the same clocks
+and resolved address state.
+
 How banking is recovered (no operand bytes are stored in the trace):
   OUT (n),A  -> TilEm sets WZ = (A<<8) | n, so port = WZ & 0xFF, value = A = WZ>>8.
   OUT (C),r  -> port = C = BC & 0xFF, value = the source register.
@@ -57,8 +63,28 @@ OUT_C_REG = {
     0xED41: "B", 0xED49: "C", 0xED51: "D", 0xED59: "E",
     0xED61: "H", 0xED69: "L", 0xED79: "A",
 }
+IN_C_REG = {
+    0xED40: "B", 0xED48: "C", 0xED50: "D", 0xED58: "E",
+    0xED60: "H", 0xED68: "L", 0xED78: "A",
+}
 BLOCK_OUT = {0xEDA3, 0xEDAB, 0xEDB3, 0xEDBB}
+BLOCK_IN = {0xEDA2, 0xEDAA, 0xEDB2, 0xEDBA}
 MAPPING_PORTS = {4, 5, 6, 7, 0x27, 0x28}
+KEY_NAMES = {
+    0x01: "DOWN", 0x02: "LEFT", 0x03: "RIGHT", 0x04: "UP",
+    0x09: "ENTER", 0x0A: "ADD", 0x0B: "SUB", 0x0C: "MUL",
+    0x0D: "DIV", 0x0E: "POWER", 0x0F: "CLEAR", 0x11: "NEG",
+    0x12: "3", 0x13: "6", 0x14: "9", 0x15: "RPAREN",
+    0x16: "TAN", 0x17: "VARS", 0x19: "DECPNT", 0x1A: "2",
+    0x1B: "5", 0x1C: "8", 0x1D: "LPAREN", 0x1E: "COS",
+    0x1F: "PRGM", 0x20: "STAT", 0x21: "0", 0x22: "1",
+    0x23: "4", 0x24: "7", 0x25: "COMMA", 0x26: "SIN",
+    0x27: "APPS", 0x28: "GRAPHVAR", 0x29: "ON", 0x2A: "STO",
+    0x2B: "LN", 0x2C: "LOG", 0x2D: "SQUARE", 0x2E: "RECIP",
+    0x2F: "MATH", 0x30: "ALPHA", 0x31: "GRAPH", 0x32: "TRACE",
+    0x33: "ZOOM", 0x34: "WINDOW", 0x35: "Y=", 0x36: "2ND",
+    0x37: "MODE", 0x38: "DEL",
+}
 
 
 def read_header(fp):
@@ -315,6 +341,86 @@ def parse_byte(value):
     return parsed
 
 
+def parse_port_set(value):
+    """Parse comma-separated hexadecimal ports and inclusive ranges."""
+    ports = set()
+    try:
+        for item in value.split(","):
+            bounds = item.strip().split("-", 1)
+            lo = int(bounds[0], 16)
+            hi = int(bounds[1], 16) if len(bounds) > 1 else lo
+            if not 0 <= lo <= hi <= 0xFF:
+                raise ValueError
+            ports.update(range(lo, hi + 1))
+    except (ValueError, IndexError):
+        raise argparse.ArgumentTypeError(
+            "ports must be hexadecimal bytes or ranges, e.g. 10-13,2f"
+        ) from None
+    if not ports:
+        raise argparse.ArgumentTypeError("at least one port is required")
+    return ports
+
+
+def parse_clock_range(value):
+    """Parse a decimal or 0x-prefixed inclusive 32-bit clock range."""
+    try:
+        bounds = value.split("-", 1)
+        lo = int(bounds[0], 0)
+        hi = int(bounds[1], 0) if len(bounds) > 1 else lo
+        if not 0 <= lo <= hi <= 0xFFFFFFFF:
+            raise ValueError
+    except (ValueError, IndexError):
+        raise argparse.ArgumentTypeError(
+            "clock must be a 32-bit value or inclusive range"
+        ) from None
+    return lo, hi
+
+
+def clock_selected(clock, bounds):
+    return bounds is None or bounds[0] <= clock <= bounds[1]
+
+
+def register_byte(fields, register):
+    """Return an 8-bit register from a post-instruction trace record."""
+    pair, high = {
+        "A": (IDX_AF, True), "B": (IDX_BC, True),
+        "C": (IDX_BC, False), "D": (IDX_DE, True),
+        "E": (IDX_DE, False), "H": (IDX_HL, True),
+        "L": (IDX_HL, False),
+    }[register]
+    value = fields[pair]
+    return (value >> 8) & 0xFF if high else value & 0xFF
+
+
+def decode_io_event(fields):
+    """Return (direction, port, value, form) for an I/O opcode, else None.
+
+    Trace registers are captured after the instruction. WZ retains the
+    immediate port for IN/OUT (n),A and the pre-IN BC value for IN r,(C).
+    Block transfers do not retain the memory byte, so their value is None.
+    """
+    op = fields[IDX_OPCODE]
+    if op == 0xD3:                       # OUT (n),A
+        return "OUT", fields[IDX_WZ] & 0xFF, register_byte(fields, "A"), "(n),A"
+    if op == 0xDB:                       # IN A,(n)
+        return "IN", fields[IDX_WZ] & 0xFF, register_byte(fields, "A"), "A,(n)"
+    if op in OUT_C_REG:
+        reg = OUT_C_REG[op]
+        return "OUT", fields[IDX_BC] & 0xFF, register_byte(fields, reg), f"(C),{reg}"
+    if op == 0xED71:                     # undocumented OUT (C),0
+        return "OUT", fields[IDX_BC] & 0xFF, 0, "(C),0"
+    if op in IN_C_REG:
+        reg = IN_C_REG[op]
+        return "IN", fields[IDX_WZ] & 0xFF, register_byte(fields, reg), f"{reg},(C)"
+    if op == 0xED70:                     # undocumented IN (C), flags only
+        return "IN", fields[IDX_WZ] & 0xFF, None, "(C)"
+    if op in BLOCK_OUT:
+        return "OUT", fields[IDX_BC] & 0xFF, None, "block"
+    if op in BLOCK_IN:
+        return "IN", fields[IDX_BC] & 0xFF, None, "block"
+    return None
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -358,6 +464,19 @@ def main():
                     help="coverage sort order (default: first-seen)")
     ap.add_argument("--page-switches", action="store_true",
                     help="print every port 4-7 / 0x27 / 0x28 mapping write")
+    ap.add_argument("--io-ports", type=parse_port_set, metavar="PORTS",
+                    help="print I/O events for hexadecimal ports/ranges, "
+                         "e.g. 10-13,2f")
+    ap.add_argument("--io-count", type=int, default=0, metavar="N",
+                    help="stop printing I/O events after N matches (default: all)")
+    ap.add_argument("--io-from", type=int, default=0, metavar="N",
+                    help="skip the first N matching I/O events")
+    ap.add_argument("--key-events", action="store_true",
+                    help="print injected key press/release events with trace clocks")
+    ap.add_argument("--event-clock", type=parse_clock_range,
+                    metavar="START[-END]",
+                    help="restrict --io-ports and --key-events to an inclusive "
+                         "decimal or 0x-prefixed trace-clock range")
     ap.add_argument("--ring", action="store_true",
                     help="trace came from --trace-backtrace; enable mapping-"
                          "history safety warnings")
@@ -402,8 +521,21 @@ def main():
         printed = 0
         matched = 0         # instructions passing the --print filters (pre-skip)
         unresolved = 0
+        io_matched = 0
+        io_printed = 0
         first_instr = True
         for rtype, payload in iter_records(fp, resync=args.resync):
+            if rtype == 0x03:
+                pressed, key, clock, pc = payload
+                if args.key_events and clock_selected(clock, args.event_clock):
+                    space, gaddr, _flat, _page = banker.resolve(pc)
+                    action = "pressed" if pressed else "released"
+                    key_name = KEY_NAMES.get(key, "?")
+                    print(f"{idx:>8} clk={clock:<10} "
+                          f"{fmt_addr(space, gaddr):<14} "
+                          f"KEY {action:<8} 0x{key:02x} {key_name}"
+                          f"{name_for(names, space, gaddr)}")
+                continue
             if rtype != 0x01:
                 continue
             pc = payload[IDX_PC]
@@ -436,6 +568,21 @@ def main():
                 else:
                     print(f"{idx:>10}  OUT (port 0x{port:02x}) <- "
                           f"0x{val:02x}   forced-RAM extent")
+
+            ioe = decode_io_event(payload) if args.io_ports else None
+            if (ioe and ioe[1] in args.io_ports
+                    and clock_selected(payload[IDX_CLOCK], args.event_clock)):
+                direction, port, value, form = ioe
+                if io_matched >= args.io_from and \
+                        (not args.io_count or io_printed < args.io_count):
+                    arrow = "<-" if direction == "OUT" else "->"
+                    value_s = "unknown" if value is None else f"0x{value:02x}"
+                    print(f"{idx:>8} clk={payload[IDX_CLOCK]:<10} "
+                          f"{fmt_addr(space, gaddr):<14} "
+                          f"{direction:<3} (0x{port:02x}) {arrow} {value_s:<7} "
+                          f"[{form}]{name_for(names, space, gaddr)}")
+                    io_printed += 1
+                io_matched += 1
 
             if (args.coverage or args.funcs) and \
                     (not args.only_space or space == args.only_space):

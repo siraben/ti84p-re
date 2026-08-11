@@ -12,11 +12,15 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from hardware_debug import MemoryExpectation, MemoryMismatch, check_memory_expectation
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLES = ROOT / "tools" / "tibasic-samples"
 DEFAULT_MACRO = ROOT / "tools" / "macros" / "run-first-program.macro"
 FACTORIAL_MACRO = ROOT / "tools" / "macros" / "run-first-program-factorial5.macro"
+MD5_MACRO = ROOT / "tools" / "macros" / "run-first-program-md5.macro"
+GCFLASH_MACRO = ROOT / "tools" / "macros" / "run-first-program-gcflash.macro"
 NAMES = ROOT / "tools" / "names.txt"
 TRACE_RESOLVE = ROOT / "tools" / "tilem_trace_resolve.py"
 DEFAULT_ROM = ROOT / "tools" / "rom.bin"
@@ -40,6 +44,7 @@ class Case:
     min_changed_pixels: int = 0
     min_distinct_frames: int = 0
     visual_regions: tuple[VisualRegion, ...] = ()
+    memory_expectations: tuple[MemoryExpectation, ...] = ()
 
 
 GRAPH_TOPOLOGY_REGIONS = (
@@ -85,6 +90,19 @@ CASES: dict[str, Case] = {
             VisualRegion("Done marker", "28x9+66+40", 40),
         ),
     ),
+    "gcflash": Case(
+        ("GCFLASH.8xp",),
+        "BEFORE; Garbage collecting; GC DONE; Done",
+        (
+            "page_3C:71f8",
+            "page_3C:7219",
+            "page_3C:7733",
+            "page_3C:7cfb",
+            "page_3C:7e0d",
+            "page_3F:4c2a",
+        ),
+        GCFLASH_MACRO,
+    ),
     "asmcall": Case(
         ("ASMCALL.8xp", "ASMRET.8xp"),
         "BEFORE; AFTER; Done",
@@ -93,6 +111,25 @@ CASES: dict[str, Case] = {
             VisualRegion("BEFORE line", "36x9+0+9", 25),
             VisualRegion("AFTER line", "30x9+0+18", 60),
             VisualRegion("Done marker", "28x9+66+28", 25),
+        ),
+    ),
+    "asmmd5": Case(
+        ("ASMMD5.8xp", "MD5TEST.8xp"),
+        "BEFORE; MD5 DONE; Done; MD5Hash contains MD5(\"abc\")",
+        ("_MD5Init", "_MD5Update", "_MD5Final", "md5_assist_step"),
+        MD5_MACRO,
+        visual_regions=(
+            VisualRegion("BEFORE line", "36x9+0+9", 25),
+            VisualRegion("MD5 DONE line", "48x9+0+18", 50),
+            VisualRegion("Done marker", "28x9+66+28", 25),
+        ),
+        memory_expectations=(
+            MemoryExpectation(
+                "MD5Hash",
+                Path("/tmp/md5-abc.ram"),
+                0x0292,
+                bytes.fromhex("900150983cd24fb0d6963f7d28e17f72"),
+            ),
         ),
     ),
     "asmbridge": Case(
@@ -292,6 +329,8 @@ def resolve_trace(trace: Path, coverage: Path) -> str:
         "--coverage",
         "--sort",
         "addr",
+        "--initial-mapping",
+        "ti84p-reset",
         "--names",
         str(NAMES),
     ]
@@ -370,6 +409,9 @@ def run_case(name: str, case: Case, tilem: Path, rom: Path, out_dir: Path, keep_
     final_png = out_dir / f"{name}-final.png"
     coverage = out_dir / f"{name}.coverage.txt"
 
+    for expectation in case.memory_expectations:
+        expectation.dump.unlink(missing_ok=True)
+
     cmd = [
         str(tilem),
         "--headless",
@@ -390,6 +432,17 @@ def run_case(name: str, case: Case, tilem: Path, rom: Path, out_dir: Path, keep_
         *[str(SAMPLES / program) for program in case.programs],
     ]
     run(cmd, cwd=ROOT)
+
+    for expectation in case.memory_expectations:
+        try:
+            actual = check_memory_expectation(expectation)
+        except MemoryMismatch as error:
+            raise SystemExit(f"{name}: {error}") from error
+        print(
+            f"{name}: {expectation.name} at dump offset 0x{expectation.offset:X}: "
+            f"{actual.hex()}"
+        )
+
     extract_final_frame(gif, final_png)
     coverage_text = resolve_trace(trace, coverage)
 

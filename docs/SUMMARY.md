@@ -14,10 +14,13 @@
 - [Paging](paging.md)
 - [The bcall mechanism](bcall-mechanism.md)
 - [Interrupts (IM1)](interrupts.md)
+    - [Clock, timers, and power](clock-timers-power.md)
 - [Boot, contexts & errors](boot-contexts-errors.md)
 - [Memory management](memory-management.md)
     - [Variables, archive & unarchive](sub-vat-archive.md)
     - [Apps, memory reset & settings](sub-apps-mem-settings.md)
+- [Flash memory](flash-memory.md)
+- [MD5 accelerator and boot API](md5-hardware.md)
 - [Flash page map](flash-page-map.md)
 - [RAM pages](ram-pages.md)
 
@@ -34,13 +37,15 @@
     - [TI-BASIC programming patterns](sub-tibasic-programming.md)
     - [TI-BASIC dynamic tracing](sub-tibasic-tracing.md)
     - [TI-BASIC `For(` paren trap](sub-tibasic-for-paren.md)
-- [Display & LCD](display-lcd.md)
+- [Display and LCD](display-lcd.md)
+    - [LCD controller and display bus](lcd-hardware.md)
     - [Graphing](sub-graphing.md)
     - [Table & Y= variables](sub-table-yvars.md)
     - [Equation display (MathPrint)](sub-equation-display.md)
-- [Keyboard & link port](keyboard-link.md)
+- [Keyboard and link port](keyboard-link.md)
+    - [Keypad and ON-key hardware](keypad-on-hardware.md)
     - [Link / data transfer](sub-link-transfer.md)
-    - [USB ASIC & link assist](sub-usb-asic.md)
+    - [USB ASIC and link assist](sub-usb-asic.md)
 
 # Reference
 

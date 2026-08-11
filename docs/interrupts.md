@@ -19,9 +19,10 @@ Entry saves context (`ex af,af'` / `exx` — the Z80 shadow registers, the class
 1. `port_usbIntStatus` (0x55) — the 84+ USB Interrupt State port. This OS overloads it as the ISR's master "anything pending?" gate: `(val ^ 0xFF) & 0x1F` tests the 5 active-low sources.
 2. `port_usbLineEvents` (0x56) — the USB Line Events port; a read-only event bitmap whose bits select the timer/link sub-handlers. (Port 0x56 is read-only, so it is not an interrupt mask.)
 3. Branches per source:
-   - **ON key** — sets an ON-flag; `onSP` (`0x85BC`) holds the SP to unwind to for the ON-break path.
-   - **First/second timer** — drives the APD (auto-power-down) countdown and cursor blink; ACKs via the interrupt-mask port `0x03`.
-   - **Link activity** — services the link port.
+   - ON key — sets an ON-flag; `onSP` (`0x85BC`) holds the SP to unwind to for the ON-break path.
+   - Standard timer 1 — enters `ram:0167`, which scans the keypad and advances the run-indicator, cursor, and APD counters.
+   - Programmable timers — checks timer 3 at port `0x37` and timer 1 at port `0x31`, then dispatches their banked handlers.
+   - Link activity — services the link port.
 4. Hardware-mode housekeeping: checks `port_mapBankB == 0x81` (84+ mode), and on one path sets `port_cpuSpeed = 1` (15 MHz) and `port_mapBankB = 0x81`.
 5. Restores context and `EI` / `RET`.
 
@@ -39,13 +40,13 @@ Entry saves context (`ex af,af'` / `exx` — the Z80 shadow registers, the class
 | `IY+0x0C` | 3 | `curFlags`·curOn | cursor currently drawn (blink phase) |
 | `IY+0x0C` | 2 | `curFlags`·curAble | cursor-blink enabled (`curLock` is bit 4) |
 | `IY+0x0F` | 7 | `seqFlags` bit7 | cleared @ `ram:0A8C` (`RES 7,(IY+0Fh)`) on the ON-key path |
-| `IY+0x12` | 3 | `shiftFlags`·shift2nd | the `[2nd]`-pending modifier flag; the ISR clears it at `ram:01E0` (`RES 3`) so a held `[2nd]` does not linger — see the [keyboard modifier state machine](keyboard-link.md) |
+| `IY+0x12` | 3 | `shiftFlags`·shift2nd | the **2nd**-pending modifier flag; the ISR clears it at `ram:01E0` (`RES 3`) so a held **2nd** does not linger — see [Keypad and ON-key hardware](keypad-on-hardware.md#modifier-state) |
 | `IY+0x12` | 0 | `indicFlags`·indicRun | run-indicator-on flag (set by `_RunIndicOn`); the byte is shared — bits 0–2 are `indicFlags`, bits 3–7 are `shiftFlags` |
 | `IY+0x16` | 0 | speed/ACK select | chooses the value re-written to int-mask port `0x03` on exit (`ram:00E6`) |
 | `IY+0x16` | 1 | (same byte) | link-busy sub-flag, reset @ `ram:015E` |
 | `IY+0x24` | 2 | link/transfer-active | guards the ON-break vs. link-restore decision (`ram:09EE`, `ram:0AAB`) |
 | `IY+0x28` | 7/3 | `APIFlg`·appRetKeyOff (b7) | ISR tests `BIT 7` (`appRetKeyOff`) @ `ram:09DB` and does `SET 3` @ `ram:09E1` on the ON-break path |
-| `IY+0x2C` | 0 | `mouseFlag1` bit0 | scanner-active flag tested by `kbd_scan_autorepeat` @ `ram:0415` (the scan code itself is RAM `kbdScanCode` `0x843F`, not an IY flag) |
+| `IY+0x2C` | 0 | `mouseFlag1` bit0 | enables four diagonal-arrow raw values in `kbd_scan_matrix` at `ram:0415`; the wider mode remains open |
 | `IY+0x33` | 5/0 | context-restore sub-flags | branch selectors on the ON-break / restore path |
 | `IY+0x3A` | 0 | `hookflags5`·usbActivityHookActive | when set, the ISR runs the deferred USB-activity hook (`ram:032A`) and ACKs |
 | `IY+0x3F` | 7 | RAM-clear control | masked during the ON-key RAM wipe (`ram:0B3C`) |
@@ -53,24 +54,29 @@ Entry saves context (`ex af,af'` / `exx` — the Z80 shadow registers, the class
 
 The byte `_GetCSC` (`00:04B2`) clears is `(IY+0)` bit3 (`*flags & 0xF7`) — the `kbdSCR`/"new scan code ready" flag in the keyboard group.
 
-## Timer reprogramming, APD timeout, and cursor blink
+## Standard and programmable timers
 
-**Interrupt sources & ACK.** The dispatcher polls the 84+ USB-interrupt ports first, then the two crystal hardware timers: it reads port `0x37` (crystal timer 3 status — `IN A,(0x37)` @ `ram:012D`, `BIT 1,A` @ `ram:012F`) and port `0x31` (crystal timer 1 status — `IN` @ `ram:013B`, `BIT 1` @ `ram:013D`). (Per the WikiTI port map the three crystal timers are `0x30-0x32` = timer 1, `0x33-0x35` = timer 2, `0x36-0x38` = timer 3.) Each maskable interrupt is ACKed by rewriting the int-mask port `0x03`. The common exit (`ram:00E4`) writes `0x0B`, or `0x0F` when `(IY+0x16)` bit0 is set (the second value re-enables the on-key + both timer sources at the higher CPU speed). The master ACK at `ram:00DC` writes `0x08` then the saved mask. Port `0x04` is loaded with `6` (`ram:09B5`/`ram:0C8C`) to re-arm the legacy 83+ timer line.
+Reading port `0x04` reports all legacy and programmable timer sources. Bit 1 is standard hardware timer 1; bits 5–7 are programmable timers 1–3. These are separate hardware blocks. [standard]
 
-**APD (auto-power-down) countdown.** APD is a software down-counter decremented by the timer interrupt:
-- `apdSubTimer` (`0x8448`) / `apdTimer` (`0x8449`) hold the APD down-counter. `_ApdSetup` (`00:03AE`) writes the reload constant `0x74` to `0x8449` (`apdTimer`). The per-tick decrement is in page 0 at `ram:036C` (`LD HL,0x8448; DEC (HL); RET NZ; INC HL; DEC (HL)` — decrement `apdSubTimer`, and on its underflow `apdTimer`); a key press reloads the counter, so any key keeps the calc awake. [confirmed] The crystal-timer interrupt rate remains unreadable from this DB: when a timer-status bit is set the ISR dispatches to an unanalyzed handler — `35:4792` (via the `ram:3FB1` bjump) for timer 3 / port `0x37`, and `33:5EB4` (via `ram:3FB7`) for timer 1 / port `0x31` — so the wall-clock timeout cannot be derived from this DB. By the standard 83+/84+ design this yields the documented ~2–5 minute idle power-down. [hypothesis]
-- The unrelated `indicCounter`/`indicBusy` pair (`0x8476`/`0x8477`) drives the run indicator (the moving-dashes busy spinner), not APD: `_RunIndicOn` (`01:6518`) seeds it (`0x8477 = 0xF0`, `0x8476 = 1`) and the tick routine at `ram:027B` (`dec_apd_timer` in the symbol map, though it decrements the run-indicator counter) does `DEC (0x8476); RET NZ` each timer tick, advancing the spinner via the expiry path (`ram:3FE1`) only on underflow. [confirmed]
+The OS writes `0x06` to port `0x04`, selecting the slowest standard-timer rate. Timer 1 then fires every $304/32768$ seconds, about 107.789 Hz. Port `0x03` normally enables this source with value `0x0B`. [confirmed] for the writes; [standard] for the quartz-derived rate.
 
-**Cursor blink cadence.** The blink is the same kind of software down-counter, driven off the same timer interrupt:
-- `0x844A` (`curTime`) is the blink down-counter; `_CursorOn`/`_CursorOff` (`06:7D34`/`06:7C5F`) reload it with `0x32` (50) (`LD A,0x32; LD (0x844A),A`).
-- The ISR tests `curAble` (`IY+0x0C` bit 2) at `ram:019B` and, if enabled, calls the cursor tick through the `ram:3FCF` bjump to `06:7C45`, which decrements `0x844A`; on underflow it toggles `curFlags` (`IY+0x0C`) bit 3 (curOn) to flip the glyph and reloads `0x32`. The cadence is one toggle every 50 timer ticks. [confirmed] Only the absolute rate is ungrounded; the WikiTI-documented crystal-timer rate gives about two blinks per second. [hypothesis]
+The banked programmable-timer handlers have distinct jobs: [confirmed]
+
+- Timer 3 status at port `0x37` dispatches to `usb_timeout_irq` at `35:4792`, which accesses the USB controller ports `0x8E`, `0x91`, and `0x92`.
+- Timer 1 status at port `0x31` dispatches to `timer_irq` at `33:5EB4`, which advances the `_StartTimer` bcall state machine.
+- Standard timer 1 enters `standard_timer1_irq` at `ram:0167`; this is the source that reaches APD and cursor code.
+
+The common exit at `ram:00E4` writes `0x0B`, or `0x0F` when `(IY+0x16)` bit 0 is set. The master acknowledge at `ram:00DC` writes `0x08` and then the desired mask. [confirmed]
+
+## APD and cursor cadence
+
+`standard_timer1_irq` calls `apd_timer_tick` at `ram:0355`. When APD is enabled and running, the tail at `ram:036C` decrements `apdSubTimer` (`0x8448`) and then `apdTimer` (`0x8449`). `_ApdSetup` at `ram:03AE` reloads only the high byte with `0x74`, leaving the low-byte phase unchanged. Expiry therefore occurs after 29,441–29,696 ticks, or 273.134277–275.500000 seconds at the documented timer rate. [confirmed] for the counter; [standard] for wall time.
+
+The cursor handler at `06:7C45` toggles after 50 ticks. That is 0.4638671875 seconds per state and 0.927734375 seconds per full on/off cycle. `run_indicator_tick` at `ram:027B` uses the separate `indicCounter` at `0x8476`. [confirmed] for the counters; [standard] for wall time.
+
+See [Clock, timers, and power](clock-timers-power.md) for the complete port maps, timer bcall ABI, RTC protocol, APD derivation, power-off flow, dynamic traces, and TilEm fidelity gaps.
 
 ## Interrupt-source details
 
-- This OS keys off the 84+ USB-interrupt ports 0x55/0x56 as the primary interrupt-state source, rather than the classic `0x03/0x04`. Port 0x55 is the USB Interrupt State (read; `(v^0xFF)&0x1F` masks the active sources) and 0x56 is USB Line Events (read-only) — both are read sources, not a status/mask pair, despite the dispatch role. The legacy mask `0x03` is still written to ACK. [confirmed]
-- The ISR is where APD (auto power down) and the blinking cursor timing originate — both are software down-counters (`apdTimer 0x8449`/`curTime 0x844A`) ticked by the crystal timers (ports 0x37/0x31). The separate run-indicator spinner uses `indicCounter`/`indicBusy` (`0x8476`/`0x8477`), seeded by `_RunIndicOn`. [confirmed]
-- `_GetCSC` (`00:04B2`) cooperates with the ISR: the ISR (or keypad path) updates `kbdScanCode`; `_GetCSC` atomically reads and clears it with interrupts masked, also clearing `(IY+0)` bit3. [confirmed]
-
-## Timer tick rate (ungrounded)
-
-- The crystal-timer tick period (and therefore the APD timeout in seconds and cursor blink in Hz) depends on the unanalyzed timer-status handlers `35:4792` (timer 3 / port `0x37`, via `ram:3FB1`) and `33:5EB4` (timer 1 / port `0x31`, via `ram:3FB7`), which are data in this DB, so the absolute tick rate is not derivable here. The reload constants (`apdTimer 0x8449 = 0x74`, `curTime 0x844A = 0x32`), the counter addresses, and the page-0 / page-06 decrement sites (`ram:036C`, `06:7C45`) are confirmed; only the absolute tick rate is ungrounded. [hypothesis]
+- This OS polls the 84+ USB interrupt ports `0x55`/`0x56` before port `0x04`. Port `0x55` is the USB interrupt state; `(v^0xFF)&0x1F` selects active-low sources. Port `0x56` is a read-only line-event bitmap. [confirmed]
+- `_GetCSC` (`ram:04B2`) cooperates with the ISR: the keypad path updates `kbdScanCode`; `_GetCSC` atomically reads and clears it with interrupts masked, also clearing `(IY+0)` bit 3. See [Keypad and ON-key hardware](keypad-on-hardware.md) for matrix timing, repeat, and ON debounce. [confirmed]

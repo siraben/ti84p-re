@@ -87,6 +87,9 @@ T = {
     "cumsum": 0x29,
     "asm": 0x6A,
     "asmprgm": 0x6C,
+    "archive": 0x68,
+    "unarchive": 0x69,
+    "garbagecollect": 0xCE,
 }
 
 SYSVAR = {
@@ -149,11 +152,43 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
             T["disp"], T["S"], T["enter"],
         ],
     ),
+    "gcflash": (
+        'Disp "BEFORE"\n1->A\n2->B\nArchive A\nArchive B\nUnArchive A\nGarbageCollect\nDisp "GC DONE"',
+        [
+            T["disp"], *string_literal("BEFORE"), T["enter"],
+            T["1"], T["store"], T["A"], T["enter"],
+            T["2"], T["store"], T["B"], T["enter"],
+            T["2byte"], T["archive"], T["A"], T["enter"],
+            T["2byte"], T["archive"], T["B"], T["enter"],
+            T["2byte"], T["unarchive"], T["A"], T["enter"],
+            T["2byte"], T["garbagecollect"], T["enter"],
+            T["disp"], *string_literal("GC DONE"), T["enter"],
+        ],
+    ),
     "asmret": (
         "AsmPrgm\nC9",
         [
             T["2byte"], T["asmprgm"], T["enter"],
             T["C"], T["9"], T["enter"],
+        ],
+    ),
+    "md5test": (
+        "AsmPrgm\nEF8D8021B09D010300EF9080EF188021928211C09D011000EDB0C9616263",
+        [
+            T["2byte"], T["asmprgm"], T["enter"],
+            *hex_literal(
+                "EF8D8021B09D010300EF9080EF188021928211C09D011000EDB0C9616263"
+            ),
+            T["enter"],
+        ],
+    ),
+    "asmmd5": (
+        'Disp "BEFORE"\nAsm(prgmMD5TEST)\nDisp "MD5 DONE"',
+        [
+            T["disp"], *string_literal("BEFORE"), T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["M"], T["D"], T["5"],
+            T["T"], T["E"], T["S"], T["T"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("MD5 DONE"), T["enter"],
         ],
     ),
     "asmcall": (
@@ -549,7 +584,10 @@ PROGRAM_NAMES = {
     "hello": "HELLO",
     "factorial": "FACTOR",
     "data": "DATA",
+    "gcflash": "GCFLASH",
     "asmret": "ASMRET",
+    "md5test": "MD5TEST",
+    "asmmd5": "ASMMD5",
     "asmcall": "ASMCALL",
     "asmsig": "ASMSIG",
     "asmbridge": "ASMBRIDG",

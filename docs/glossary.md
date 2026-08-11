@@ -11,7 +11,9 @@ Quick definitions for the terms and key RAM symbols used throughout this wiki.
 | **RST shortcut** | A 1-byte `rst NN` vector that fast-paths a hot routine (`rst 10h`=`_FindSym`, `rst 30h`=`_FPAdd`, `rst 28h`=the bcall dispatcher). |
 | **context** | The active "mode" (homescreen, Y= editor, graph, an app…). A block of handler vectors at `cxMain` (`0x858D`); the main loop runs the current context's handlers. See [Boot, Contexts & Errors](boot-contexts-errors.md). |
 | **paging / banking** | The Z80 sees 64 KiB; ports 6/7 swap which 16 KiB flash/RAM page is visible in the two middle slots. See [Paging](paging.md). |
-| **APD** | Auto Power Down — the timer-driven idle shutoff. |
+| **APD** | Auto Power Down — the standard-timer-driven idle shutoff. See [Clock, timers, and power](clock-timers-power.md). |
+| **RTC** | Real-time clock — a 32-bit seconds counter with an epoch of 1 January 1997, exposed through ports `0x40`–`0x48`. |
+| **programmable timer** | One of three independent source/mode/counter blocks at ports `0x30`–`0x38`; distinct from the two standard interrupt timers. |
 | **MathPrint** | The 2D "pretty-print" rendering of expressions; on this OS the engine is on page 0x39. |
 
 ## Floating point
@@ -30,8 +32,10 @@ Quick definitions for the terms and key RAM symbols used throughout this wiki.
 |------|---------|
 | **VAT** | Variable Allocation Table — the RAM catalog of every named object, growing *down* from `symTable` (`0xFE66`). See [Variables & the VAT](variables-vat.md). |
 | **object type** | The 1-byte type tag of a variable (`RealObj`=0, `ListObj`=1, `ProgObj`=5, `AppVarObj`=0x15…), modeled as the `TIVarType` enum. |
-| **archive** | Variables relocated to *flash* to save RAM; the VAT entry's page byte then points into flash. See [Variables, Archive & Unarchive](sub-vat-archive.md). |
-| **garbage collection** | Compacting the archive flash when it fills ("Garbage Collecting…"). The GC-core candidate `flash_gc_relocate`@`3C:7BD0` is a project-local inferred label, not a defined function in the current live DB nor a WikiTI or `ti83plus.inc` equate. |
+| **archive** | Variables relocated to Flash to save RAM; the VAT entry's page byte then points into Flash. See [Variables, archive & unarchive](sub-vat-archive.md) and [Flash memory](flash-memory.md). |
+| **Flash page** | A 16 KiB ASIC paging unit selected through port `0x06`. It is not necessarily an erase sector; ordinary sectors span four pages. See [Flash memory](flash-memory.md). |
+| **Flash sector** | The smallest physical region restored to `0xFF` by one sector-erase operation. The one-megabyte top-boot chip uses 64 KiB ordinary sectors and 32/8/8/16 KiB sectors at the top. |
+| **garbage collection** | Compacting the Flash archive in physical sector units. `archive_gc_collect` at `3C:7733` copies live records, erases reclaimed sectors, and journals its phase in the inactive half of page `3E`. See [Variables, archive & unarchive](sub-vat-archive.md#7-flash-garbage-collector-confirmed). |
 | **RAM heap** | The dynamic region from `userMem` (`0x9D95`) up to the VAT; managed by `_InsertMem`/`_DelMem`. See [Memory Management](memory-management.md). |
 
 ## Registers & RAM symbols

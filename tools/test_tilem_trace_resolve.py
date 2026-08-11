@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Regression tests for TI-84 Plus trace address resolution."""
 
+import argparse
 import unittest
 from pathlib import Path
 import struct
@@ -15,19 +16,31 @@ from tilem_trace_resolve import (
     HEADER_FMT,
     INSTR_FMT,
     IDX_BC,
+    IDX_CLOCK,
+    IDX_AF,
+    IDX_DE,
+    IDX_HL,
     IDX_OPCODE,
     IDX_PC,
     IDX_WZ,
+    decode_io_event,
+    parse_clock_range,
+    parse_port_set,
     resolve_instruction,
 )
 
 
-def instruction(pc, opcode=0x00, wz=0x0000, bc=0x0000):
+def instruction(pc, opcode=0x00, wz=0x0000, af=0x0000, bc=0x0000,
+                de=0x0000, hl=0x0000, clock=0):
     fields = [0] * 23
     fields[IDX_PC] = pc
     fields[IDX_OPCODE] = opcode
+    fields[IDX_CLOCK] = clock
     fields[IDX_WZ] = wz
+    fields[IDX_AF] = af
     fields[IDX_BC] = bc
+    fields[IDX_DE] = de
+    fields[IDX_HL] = hl
     return tuple(fields)
 
 
@@ -140,15 +153,72 @@ class BankerTests(unittest.TestCase):
         self.assertEqual("page_??", banker.resolve(0x8000)[0])
 
 
+class IoDecodeTests(unittest.TestCase):
+    def test_immediate_output_uses_wz_port_and_post_a(self):
+        event = decode_io_event(
+            instruction(0x1234, opcode=0xD3, wz=0xA510, af=0xA544)
+        )
+
+        self.assertEqual(("OUT", 0x10, 0xA5, "(n),A"), event)
+
+    def test_immediate_input_returns_post_a(self):
+        event = decode_io_event(
+            instruction(0x1234, opcode=0xDB, wz=0xE311, af=0x7F44)
+        )
+
+        self.assertEqual(("IN", 0x11, 0x7F, "A,(n)"), event)
+
+    def test_in_c_uses_pre_input_port_from_wz(self):
+        event = decode_io_event(
+            instruction(0x1234, opcode=0xED48, wz=0x1230, bc=0x12AB)
+        )
+
+        self.assertEqual(("IN", 0x30, 0xAB, "C,(C)"), event)
+
+    def test_out_c_uses_post_register_and_unchanged_c_port(self):
+        event = decode_io_event(
+            instruction(0x1234, opcode=0xED51, bc=0x1211, de=0xA5E3)
+        )
+
+        self.assertEqual(("OUT", 0x11, 0xA5, "(C),D"), event)
+
+    def test_block_output_has_unknown_value(self):
+        event = decode_io_event(
+            instruction(0x1234, opcode=0xEDB3, bc=0x0711)
+        )
+
+        self.assertEqual(("OUT", 0x11, None, "block"), event)
+
+    def test_port_set_accepts_hex_ranges(self):
+        self.assertEqual({0x10, 0x11, 0x12, 0x13, 0x2F},
+                         parse_port_set("10-13,2f"))
+
+    def test_clock_range_accepts_decimal_and_prefixed_hex(self):
+        self.assertEqual((100, 0x100), parse_clock_range("100-0x100"))
+
+    def test_clock_range_rejects_reverse_and_overflow(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            parse_clock_range("200-100")
+        with self.assertRaises(argparse.ArgumentTypeError):
+            parse_clock_range("0x100000000")
+
+
 class CliSafetyTests(unittest.TestCase):
-    def write_trace(self, pc):
+    def write_trace(self, pc, **instruction_args):
         temp = tempfile.NamedTemporaryFile(delete=False)
         path = Path(temp.name)
         with temp:
             temp.write(struct.pack(HEADER_FMT, b"TLMT", 2, 7, 0, 0xFFFF, 0))
             temp.write(b"\x01")
-            temp.write(struct.pack(INSTR_FMT, *instruction(pc)))
+            temp.write(struct.pack(INSTR_FMT, *instruction(pc, **instruction_args)))
         self.addCleanup(path.unlink, missing_ok=True)
+        return path
+
+    def write_trace_with_key_event(self, pc, *, clock, key, pressed):
+        path = self.write_trace(pc)
+        with path.open("ab") as fp:
+            fp.write(b"\x03")
+            fp.write(struct.pack("<BBIH", pressed, key, clock, pc))
         return path
 
     def run_resolver(self, trace, *args):
@@ -171,6 +241,38 @@ class CliSafetyTests(unittest.TestCase):
 
         self.assertEqual(0, result.returncode)
         self.assertIn("lacks enough page-switch history", result.stderr)
+
+    def test_key_event_output_names_on_and_honors_clock_filter(self):
+        trace = self.write_trace_with_key_event(
+            0x1234, clock=150, key=0x29, pressed=1
+        )
+
+        shown = self.run_resolver(
+            trace, "--key-events", "--event-clock", "100-200"
+        )
+        hidden = self.run_resolver(
+            trace, "--key-events", "--event-clock", "151-200"
+        )
+
+        self.assertEqual(0, shown.returncode)
+        self.assertIn("KEY pressed  0x29 ON", shown.stdout)
+        self.assertNotIn("KEY pressed", hidden.stdout)
+
+    def test_io_event_honors_clock_filter(self):
+        trace = self.write_trace(
+            0x1234, opcode=0xD3, wz=0xAA01, af=0xAA00, clock=150
+        )
+
+        shown = self.run_resolver(
+            trace, "--io-ports", "01", "--event-clock", "100-200"
+        )
+        hidden = self.run_resolver(
+            trace, "--io-ports", "01", "--event-clock", "151-200"
+        )
+
+        self.assertEqual(0, shown.returncode)
+        self.assertIn("OUT (0x01) <- 0xaa", shown.stdout)
+        self.assertNotIn("OUT (0x01)", hidden.stdout)
 
 
 if __name__ == "__main__":

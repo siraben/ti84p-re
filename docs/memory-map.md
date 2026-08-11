@@ -22,8 +22,8 @@ In this OS the system RAM variables all live at `8000+`, so the static RE model 
 | `06` | OS routines (key input, parser-ish) | `_GetKey`→`06:491E` [confirmed] |
 | `2F` | USB boot support page | supplied by local `D84PBE2.8Xv`; retail page `3F` maps `_AttemptUSBOSReceive`→`2F:4145`, `_ReceiveOS_USB`→`2F:48CA`, `_InitUSB`→`2F:52A4`, `_KillUSB`→`2F:5961` [confirmed] |
 | `3B` | bcall jump table | highest-scoring page for the `0x4xxx` bcall ID table; first entry `_JErrorNo`→`00:2799` [confirmed] |
-| `3C` | Link code + OS version string (`"2.55MP"`) | page starts `32 2E 35 35 4D 50` [confirmed] |
-| `3E` | Certification page (per-calculator cert sector; effectively blank in this OS-only image — no certificate payload, only a few `00` bytes) | 84+ cert page is `3E`, not `3F` [standard] |
+| `3C` | Link code, archive GC, and OS version string (`"2.55MP"`) | page starts `32 2E 35 35 4D 50`; collector entry `3C:7733` [confirmed] |
+| `3E` | Two 8 KiB certificate sectors; the inactive half also carries the transactional GC journal | `_GetCertificateStart` (`8057`) and the GC command trace [confirmed] |
 | `3F` | Retail boot page | supplied by local `D84PBE1.8Xv`; starts `3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81`, contains boot version string `1.03`, and hosts the `0x8xxx` boot bcall table [confirmed] |
 
 Pages `01-3F` are loaded in Ghidra as overlays `page_01 … page_3F` (each at `4000`). Goto e.g. `01:5b4c` for `_PutC`.
@@ -43,7 +43,11 @@ installed.
 | `0x89F0` | `flags` | `SystemFlags` (74B) | IY-indexed system flag bitfield [confirmed] |
 | `0x844B/0x844C` | `curRow`/`curCol` | byte | Homescreen text cursor (16 cols) [confirmed] |
 | `0x8447` | `contrast` | byte | LCD contrast [confirmed] |
-| `0x843F/0x8444` | `kbdScanCode`/`kbdKey` | byte | Last key scan code / key [confirmed] |
+| `0x843F`–`0x8446` | `kbdScanCode` through `keyExtend` | 8 bytes | scan mailbox, release filter, repeat state, and cooked-key workspace; see [Keypad and ON-key hardware](keypad-on-hardware.md) [confirmed] |
+| `0x8448`–`0x844A` | `apdSubTimer`/`apdTimer`/`curTime` | 3 bytes | APD low/high countdown and cursor timer [confirmed] |
+| `0x8259`–`0x82A1` | MD5 state | 73 bytes, with gaps | working words, bit length, compact length prefix, and digest; see [MD5 accelerator and boot API](md5-hardware.md) [confirmed] |
+| `0x83A5`–`0x83E4` | `MD5Buffer` | 64 bytes | partial message block or transformed-hash output [confirmed] |
+| `0x9C0C`–`0x9C12` | timer API state | 7 bytes | programmable timer-1 state, durations, and expiry count [confirmed] |
 | `0x9340` | `plotSScreen` | byte[768] | Graph/display buffer (96×64/8) [confirmed] |
 | `0x86EC` | `saveSScreen` | byte[768] | Saved screen buffer [confirmed] |
 | `0x9824` | `FPS` | — | Floating-point stack pointer [standard] |
@@ -59,16 +63,21 @@ kernel touches many more (timer/crystal, USB-assist, and ASIC-control ports).
 | Port | Name | Purpose |
 |------|------|---------|
 | `00` | link | Link port lines |
-| `01` | keypad | Keyboard matrix select/read |
+| `01` | keypad | Active-low matrix group select/read; see [Keypad and ON-key hardware](keypad-on-hardware.md) |
 | `02` | hwStatus | Status (bit7 used at reset) |
 | `03` | intMask | Interrupt enable mask |
 | `04` | intStatus / memMapMode | *Read* = interrupting-device ID + ON-held; *write* = memory-map mode + timer rate |
 | `05` | mapBankC | RAM page in slot `C000` (MemC) on the 84+ |
 | `06` | mapBankA | Flash page in slot `4000` |
 | `07` | mapBankB | Page in slot `8000` (`0x81`=84+ mode seen in ISR) |
-| `08`–`0D` | usb/link assist | 84+ hardware byte-assist control/status/data/FIFO ports; see [USB ASIC & link assist](sub-usb-asic.md) |
+| `08`–`0D` | usb/link assist | 84+ hardware byte-assist control/status/data/FIFO ports; see [USB ASIC and link assist](sub-usb-asic.md) |
 | `10/11` | lcdCmd/lcdData | LCD controller |
+| `18`–`1F` | MD5 assist | Six serial operand registers, rotate/mode control, and four result bytes; see [MD5 accelerator and boot API](md5-hardware.md) |
 | `20` | cpuSpeed | 0=6 MHz, 1=15 MHz (set in ISR) |
 | `21` | asicVer/ramSize | ASIC version & RAM-page count; read in the kernel (e.g. `00:02AE`) and its low bits mask the slot-`4000` page number before `OUT (6)` |
+| `2D` | crystalControl | Quartz and programmable-timer behavior in low power |
+| `2F` | lcdTimerAdjust | LCD wait-state adjustment and programmable mode-3 prescaler |
+| `30`–`38` | programmable timers | Three source/mode/counter triplets; see [Clock, timers, and power](clock-timers-power.md) |
+| `40`–`48` | RTC | Control, staged set value, and current 32-bit seconds count |
 | `4D` | usbLineState | USB line-state gate sampled by `_GetVarCmdUSB` (id `50FB`; Ghidra alias `link_xfer_op`); bits 5/6 gate the `ram:2E0B` bjump to `35:4280` |
 | `55/56` | usbIntStatus/usbLineEvents | USB interrupt state / line events (84+) — polled first in `int_dispatch_sources`; both read-only (port 0x56 is a read-only event bitmap, not a write mask) |

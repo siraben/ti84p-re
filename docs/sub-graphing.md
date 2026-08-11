@@ -96,8 +96,8 @@ X/Y shown at the bottom of the screen, and by DRAW commands that take pixel argu
 
 `_IOffset` (`04:42B5`) computes the LCD controller address bytes for a pixel (inputs `B`=x, `C`=y):
 ```pseudocode
-(0x844F) = (x >> 3) | 0x20     ; LCD "set row page" command — the rotated TI panel pages by X
-(0x8451) = (0x3F - y) | 0x80   ; LCD "set column" command (Y, mirrored)
+(0x844F) = (x >> 3) | 0x20     ; LCD byte-column command for the horizontal group
+(0x8451) = (0x3F - y) | 0x80   ; LCD row command, vertically mirrored
 returns (table_42E4)[x & 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
 ```
 This maps a `(x,y)` pixel to a byte+bit in the buffer and produces the matching LCD
@@ -186,7 +186,7 @@ screen and whether a full re-plot is needed first. [confirmed]
 column region 0x2F), sets normal display vals, and walks the rows. [confirmed]
 
 `_RestoreDisp` (`04:6176`) is the actual row-blit loop: for each of the up-to-64 rows it
-issues the column/row LCD commands then streams pixel bytes to `port_lcdData` (0x11)
+issues the row and byte-column LCD commands, then streams pixel bytes to `port_lcdData` (`0x11`)
 through `lcd_wait`, and pokes `port_lcdCmd` (0x10). This is where the buffer physically
 reaches the panel. [confirmed]
 
