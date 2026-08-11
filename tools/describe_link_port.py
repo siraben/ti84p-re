@@ -12,6 +12,7 @@ from link_port import (
     LINK_EMULATOR_PROFILE_KEYS,
     LINK_PORT_PROFILES,
     assemble_observed_byte,
+    abort_pulse_report,
     byte_report,
     drive_mask,
     emulator_write_sequence,
@@ -68,6 +69,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     receive = commands.add_parser("receive", help="assemble eight observed states")
     receive.add_argument("states", nargs=8, type=mask)
+
+    abort = commands.add_parser(
+        "abort-pulse",
+        help="count the raw both-low abort delay loop",
+    )
+    abort.add_argument("--cpu-hz", type=integer, default=6_000_000)
+    abort.add_argument(
+        "--opcode-wait",
+        type=integer,
+        default=1,
+        help="T-states added to each Flash opcode fetch (default: OS mode 0 = 1)",
+    )
     return parser
 
 
@@ -116,6 +129,11 @@ def result(args: argparse.Namespace) -> dict[str, object]:
         }
     if args.command == "byte":
         return byte_report(args.value)
+    if args.command == "abort-pulse":
+        return abort_pulse_report(
+            args.cpu_hz,
+            opcode_wait_tstates=args.opcode_wait,
+        )
     value = assemble_observed_byte(args.states)
     return {
         "states": args.states,
@@ -181,6 +199,16 @@ def print_text(report: dict[str, object]) -> None:
                     f"receiver=0b{phase['receiver_drive']:02b} "
                     f"high=0b{phase['high_lines']:02b}"
                 )
+        return
+    if "delay_tstates" in report:
+        print(
+            f"{report['routine']}: base={report['base_tstates']}T + "
+            f"{report['opcode_fetches']} opcode fetches * "
+            f"{report['opcode_wait_tstates_per_fetch']}T = "
+            f"{report['delay_tstates']} T-states at "
+            f"{report['cpu_hz']} Hz = {report['nominal_seconds']:.9f} s"
+        )
+        print(f"  {report['scope']}")
         return
     states = " ".join(f"0b{state:02b}" for state in report["states"])
     bits = "".join(str(bit) for bit in report["bits"])

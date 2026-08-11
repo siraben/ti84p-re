@@ -53,11 +53,16 @@ implementation or its electrical behavior.
 
 ## Mentor FDRC register-family match [hypothesis]
 
-The controller region at `0x80`–`0x9B` has the byte-for-byte layout of the Mentor Graphics
-MUSBFDRC register file. Mentor's `mu_fdrdf.h` assigns offsets `0x00`–`0x1B` in the same order, and
-its FIFO base is offset `0x20`. Adding the TI base port `0x80` produces the complete map below.
-Multiple external and ROM signals identify the controller family, but the ROM does not contain a
-silicon identifier. The family identification therefore remains [hypothesis].
+The ROM-visible accesses in the controller region at `0x80`–`0x9B` align with the Mentor Graphics
+MUSBFDRC register file. A Mentor-authored 2004 `mu_fdrdf.h` header assigns offsets `0x00`–`0x1F`
+in the same order and places the non-AHB FIFO window at offset `0x20`. The preserved header labels
+itself proprietary; it is primary-origin source code in a third-party SDK tree, not a publicly
+released TI ASIC specification. The independent VSF FDRC implementation reproduces the compact
+ordering. Adding the candidate TI base port `0x80` produces the map below. [standard] for the two
+external layouts; [hypothesis] for applying that identity to the TI ASIC.
+
+The ROM does not contain a silicon identifier. Board-level identification remains open, so the
+family identification remains [hypothesis].
 
 | TI ports | FDRC names | ROM cross-check |
 |----------|------------|-----------------|
@@ -76,11 +81,22 @@ silicon identifier. The family identification therefore remains [hypothesis].
 | `0x9C`–`0x9F` | `TXFIFO1/2`, `RXFIFO1/2`; `FIFOSIZE`/`CONFIGDATA` aliases at `0x9F` | These offsets complete the Mentor FDRC register file. A static page-`2F`/`35` scan found no resolved immediate or literal-`C` access, so the TI use of these registers remains [hypothesis]. |
 | `0xA0`–`0xAF` | endpoint FIFOs 0–15 | Mentor's non-AHB macro maps endpoint $n$ to offset `0x20 + n`. The ROM confirms FIFO 0 at `0xA0`, FIFO 1 at `0xA1`, and FIFO 2 at `0xA2`; higher endpoints remain [hypothesis]. |
 
-The FDRC ordering matters because the common HDRC/MUSB register layout places several interrupt
-registers at different offsets. The TI ROM's `INTRUSB` read at `0x86`, enable writes at
-`0x87`/`0x89`, and `INTRUSBE` write at `0x8B` match the FDRC ordering specifically. Linky commit
-`89586b0` independently calls this block MUSBFDRC and performs the same initialization sequence.
-Linky is calculator software evidence, not a vendor specification.
+The FDRC ordering matters because the common HDRC/MUSB byte layout in Linux's Mentor/TI-copyrighted
+driver header places several interrupt registers at different offsets. These offsets distinguish
+the candidates:
+
+| TI port | Relative offset | FDRC candidate | Common HDRC candidate | ROM cross-check |
+|---------|-----------------|----------------|-----------------------|-----------------|
+| `0x86` | `0x06` | `INTRUSB` | low byte of `INTRTXE` | The ROM waits on bit 4 and branches on bit 2. FDRC names these global connect and reset/babble events. [confirmed] for the operations; [hypothesis] for the names |
+| `0x87` | `0x07` | `INTRTX1E` | high byte of `INTRTXE` | Setup writes `0xFF`. Both candidates make this byte an enable register, although they assign it to different endpoint ranges. This access alone does not distinguish the layouts. [confirmed] |
+| `0x89` | `0x09` | `INTRRX1E` | high byte of `INTRRXE` | Setup writes `0x0E`, matching receive endpoints 1–3 in the FDRC low-byte register. [confirmed] for the value; [hypothesis] for the imported endpoint names |
+| `0x8B` | `0x0B` | `INTRUSBE` | `INTRUSBE` | Both layouts agree at this offset; the write masks do not distinguish them. [confirmed] |
+| `0x8F` | `0x0F` | `DEVCTL` | `TESTMODE` | The ROM tests bits 7 and 2 and sets bit 0. FDRC names them B-device, host mode, and session. [confirmed] for the operations; [hypothesis] for the names |
+
+The combination at `0x86`, `0x89`, and `0x8F` favors the compact FDRC ordering over the common
+HDRC map. It does not identify the surrounding TI ASIC or its PHY. Linky commit `89586b0`
+independently calls this block MUSBFDRC and performs the same initialization sequence. Linky is
+calculator software evidence, not a vendor specification. [hypothesis]
 
 ## Sending one byte through the assist FIFO [confirmed]
 
@@ -389,12 +405,19 @@ MAME maps ports `0x55` and `0x56` to constant disconnected values `0x1F` and zer
 
 ## Reusable USB tools
 
-`tools/usb_hardware.py` contains the FDRC offset map, imported global bit names, link-assist rate fields, page-35 and boot-event decoders, paired line-state decoder, and pinned emulator profiles. `tools/describe_usb_hardware.py` exposes each model as text or JSON.
+`tools/usb_hardware.py` contains the FDRC offset map, the common HDRC comparison map, pinned source
+provenance, imported global bit names, link-assist rate fields, page-35 and boot-event decoders,
+paired line-state decoder, and emulator profiles. `tools/describe_usb_hardware.py` exposes each
+model as text or JSON.
 
 ```sh
 # Map global, indexed, dynamic-sizing, and FIFO registers.
 nix develop -c python tools/describe_usb_hardware.py \
   register 0x80 0x91 0x9F 0xA2
+
+# Compare the FDRC hypothesis with the common HDRC byte layout.
+nix develop -c python tools/describe_usb_hardware.py layouts
+nix develop -c python tools/describe_usb_hardware.py --json layouts
 
 # Keep active-low port-0x55 and port-0x56 interpretations separate.
 nix develop -c python tools/describe_usb_hardware.py events 0x1F 0x50
@@ -451,7 +474,9 @@ Practical rules:
 | Retail OS 2.55MP and boot 1.03 ROM bytes | Main and boot bcall tables, page-`2F`/`35` bodies, ports, branches, and RAM state |
 | `tools/ti83plus.inc` | Historical public names and comments, checked against table entries and bodies |
 | [TilEm `x4_io.c` at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) | Link-assist implementation and fixed disconnected USB reads |
-| [Mentor `mu_fdrdf.h` as preserved in `lightcube`](https://github.com/illusionlee/lightcube/blob/ac49c480c45c4106cba46a93fd4ae09969db5a1e/beken378/driver/usb/src/cd/mu_fdrdf.h) | FDRC register offsets and bit masks; controller-family evidence, not TI silicon identification |
+| [Mentor `mu_fdrdf.h` revision 1.7 as preserved in `lightcube`](https://github.com/illusionlee/lightcube/blob/ac49c480c45c4106cba46a93fd4ae09969db5a1e/beken378/driver/usb/src/cd/mu_fdrdf.h) | Mentor-authored 2004 FDRC register offsets and bit masks. The header labels itself proprietary; the mirror is controller-family evidence, not TI silicon identification. |
+| [VSF FDRC register structure at `4327394`](https://github.com/vsfteam/vsf/blob/4327394b125aae68f67ed48b3aa891fd203a6ca8/source/component/usb/driver/otg/musb/fdrc/vsf_musb_fdrc_hw.h) | Independent implementation that corroborates the compact FDRC byte ordering; not TI-84 Plus evidence |
+| [Linux `musb_regs.h` at `db2ddb8`](https://github.com/torvalds/linux/blob/db2ddb87143519e20a95aa36c60b36107b736a58/drivers/usb/musb/musb_regs.h) | Mentor/TI-copyrighted common HDRC/MUSB map used as the comparison candidate; not TI-84 Plus silicon documentation |
 | [Linky at `89586b0`](https://github.com/brandonlw/Linky/tree/89586b0d33796d9746934560c030bb247193d37a) | Independent calculator software that names MUSBFDRC and exercises the same ports |
 | [Wabbitemu `83psehw.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | Partial line-state and interrupt model, with the implementation limits described above |
 | [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | Fixed USB interrupt reads and absent controller/endpoint ports |

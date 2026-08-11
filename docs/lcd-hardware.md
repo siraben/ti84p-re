@@ -15,7 +15,9 @@ The local ROM establishes what OS 2.55MP sends to the controller. Public hardwar
 | TI-OS graph code | `04:6071`–`04:620A` | graph-buffer clear and LCD transfer loops [confirmed] |
 | TI-OS initialization | `_LCD_DRIVERON` at `06:4D02`–`06:4D3A` | mode, enable, power, and contrast command sequence [confirmed] |
 | Dynamic execution | resolved `home-2plus3` trace filtered to ports `0x10`–`0x13` and `0x2F` | exact initialization and clear transactions in TilEm [confirmed] |
-| Toshiba T6A04A datasheet | controller block diagram, command table, and timing specification | 120×64 display RAM, 80-series bus, counters, read latch, busy formula, and analog-drive controls [standard] |
+| Datamath module photographs | March 2004 TI-84 Plus LCD module and controller attribution | source-attributed Toshiba `T6K04` identity; the die itself is hidden under epoxy [standard] |
+| Toshiba T6K04 data sheet | exact controller block diagram, command table, and timing specification | 128×64 display RAM, 80-series bus, counters, read latch, busy formula, reset state, and analog-drive controls [standard] |
+| Toshiba T6A04A data sheet | compatible earlier controller documentation | 120×64 display RAM and family comparison [standard] |
 | Public hardware notes | WikiTI ports `0x02`, `0x10`–`0x13`, and `0x2F` | status bits, command meanings, controller variants, transfer timing, and hardware quirks [standard] |
 | Emulator model | Upstream TilEm `lcd.c`, `x4_io.c`, and `x4_init.c` at commit `f56ad63` | implemented video RAM, latches, delays, aliases, and fidelity limits [standard] |
 | Emulator comparison | Wabbitemu `lcd.c` and `83psehw.c` at `48c2dc0`; MAME `t6a04.cpp`, `ti85.cpp`, and `ti85_m.cpp` at `mame0287` | row strides, pointer bounds, busy handling, ASIC waits, and unsafe edge cases [standard] |
@@ -28,9 +30,23 @@ $$
 12 \times 64 = 768\text{ bytes}
 $$
 
-The controller can contain more video RAM than the panel displays. WikiTI reports 15 bytes per row, or 120 pixels, for T6A04/T6A04A controllers and 16 bytes per row, or 128 pixels, for T6K04 controllers. Later Novatek replacements may omit the off-screen area. [standard]
+The controller can contain more video RAM than the panel displays. Toshiba's
+data sheets specify 15 bytes per row, or 120 pixels, for T6A04A and 16 bytes
+per row, or 128 pixels, for T6K04. The T6K04 contains 8,192 bits of display RAM
+and exposes 128 column outputs plus 64 row outputs. Later Novatek replacements
+can differ. [standard]
 
-The local ROM uses only visible columns `0`–`11` in its full-screen clear and graph blit loops. It therefore does not identify which controller is fitted to a particular calculator. [confirmed]
+Datamath attributes the LCD module photographed from a March 2004 TI-84 Plus
+to Toshiba `T6K04`. The photograph shows the controller area under opaque
+epoxy, so it does not expose a readable die marking. The identification is a
+source-attributed module record rather than a marking read from the image.
+[standard]
+
+The local ROM uses only visible columns `0`–`11` in its full-screen clear and
+graph blit loops. It does not distinguish the 15-byte T6A04A row from the
+16-byte T6K04 row. Datamath's attribution supplies revision-specific external
+evidence that the ROM cannot. [confirmed] for the ROM access range; [standard]
+for the March 2004 controller attribution.
 
 ### Coordinate vocabulary
 
@@ -61,9 +77,20 @@ The OS paths decoded here use `0x10` and `0x11`. The resolved calculator trace c
 
 ### Controller-side signals
 
-The T6A04A reference controller exposes an 8-bit `DB0`–`DB7` bus for an 80-series processor. Its `D/I` input distinguishes command bytes from display-data bytes, `/WR` selects reading or writing, and `/CE` strobes the transfer. `/RST` resets the controller and `/STB` stops its oscillator and analog drive. The calculator ASIC turns port instructions into these controller-side operations, so Z80 code does not toggle the individual signals. [standard]
+The T6K04 exposes an 8-bit `DB0`–`DB7` bus for an 80-series processor. Its
+`D/I` input distinguishes command bytes from display-data bytes, `/WR` selects
+reading or writing, and `/CE` strobes the transfer. `/RST` resets the
+controller. `/STB` stops its oscillator, rejects commands and data, and drives
+the LCD supply outputs to `VDD`. The calculator ASIC turns port instructions
+into these controller-side operations, so Z80 code does not toggle the
+individual signals. [standard]
 
-The reference chip includes 120 column outputs, 64 row outputs, display RAM, an oscillator, contrast control, a DC–DC converter, and LCD-bias amplifiers. Replacement controllers can expose compatible port behavior without reproducing every internal analog block or off-screen RAM cell. [standard]
+The T6K04 includes 128 column outputs, 64 row outputs, display RAM, an
+oscillator, contrast control, five LCD-supply operational amplifiers, and a
+DC–DC converter with doubler, tripler, and quadrupler modes. Its logic supply
+range is 2.7–5.5 V, and Toshiba specifies a tape-carrier package (TCP).
+Replacement controllers can expose compatible port behavior without
+reproducing every internal analog block or off-screen RAM cell. [standard]
 
 ### Status read
 
@@ -73,6 +100,8 @@ Reading port `0x10` returns the controller state: [standard]
 |----:|---------|
 | 0 | increment direction when set; decrement when clear |
 | 1 | movement affects the byte column when set; row when clear |
+| 2 | fixed zero in the T6K04 status definition |
+| 3 | LCD-supply operational amplifier enabled when set |
 | 4 | controller reset state |
 | 5 | display enabled |
 | 6 | 8-bit transfer mode when set; 6-bit mode when clear |
@@ -96,17 +125,34 @@ The table separates public controller behavior from the subset used by this ROM.
 | `0x05` | increment row after each data transfer | OS vertical byte loops [confirmed] |
 | `0x06` | decrement byte column after each data transfer | documented controller mode [standard] |
 | `0x07` | increment byte column after each data transfer | OS horizontal row blits [confirmed] |
-| `0x08`–`0x0B` | power-supply enhancement | `_LCD_DRIVERON` selects `0x08` or `0x0B` [confirmed]; analog effect is controller-specific [standard] |
-| `0x0C`–`0x0F` | mirroring controls on newer controllers | not decoded in the local OS path [standard] |
-| `0x10`–`0x17` | power-supply level | `_LCD_DRIVERON` selects `0x16` or `0x17` [confirmed]; analog effect is controller-specific [standard] |
-| `0x18` | leave controller test mode | documented hardware command [standard] |
-| `0x1C`–`0x1F` | enter high-drive test modes | hardware tests report possible panel damage; the OS path does not use them [standard] |
-| `0x20`–`0x3F` | set byte column | visible OS range `0x20`–`0x2B` [confirmed] |
+| `0x08`–`0x0B` | select the duration of enhanced LCD-supply amplifier drive | `_LCD_DRIVERON` selects `0x08` or `0x0B` [confirmed]; T6K04 OPA2 behavior [standard] |
+| `0x0C`–`0x0F` | mirroring controls reported on newer controllers | absent from the T6K04 command table and unused by this ROM [standard] |
+| `0x10`–`0x17` | control LCD-supply amplifier state and ability; `0x14`–`0x17` keep it on | `_LCD_DRIVERON` selects `0x16` or `0x17` [confirmed]; T6K04 OPA1 behavior [standard] |
+| `0x18`–`0x1F` | T6K04 test-mode select | Toshiba says not to use this range; WikiTI separately reports `0x18` as test-mode exit and warns that high-drive modes can damage the panel [standard] |
+| `0x20`–`0x2F` | set T6K04 byte column in 8-bit mode | visible OS range `0x20`–`0x2B` [confirmed]; 16-column limit [standard] |
+| `0x20`–`0x35` | set T6K04 six-pixel group in 6-bit mode | OS selects 6-bit mode in an edge-rendering path [confirmed]; 22-entry limit [standard] |
 | `0x40`–`0x7F` | set displayed top-row offset | `_LCD_DRIVERON` writes `0x40` [confirmed] |
 | `0x80`–`0xBF` | set row | full 64-row range [confirmed] |
 | `0xC0`–`0xFF` | set controller contrast `0`–`63` | `_LCD_DRIVERON` derives the command from `contrast` [confirmed] |
 
-The power and test commands affect analog drive circuitry and vary across controller revisions. TilEm ignores them except for display enable, display disable, and contrast. [standard]
+The T6K04 defines contrast command `0xC0` as brightest and `0xFF` as darkest.
+The power and test commands affect analog drive circuitry and vary across
+controller revisions. TilEm ignores them except for display enable, display
+disable, and contrast. [standard]
+
+### Reset and standby states
+
+Driving T6K04 `/RST` low selects 8-bit transfers, byte-column increment, row
+and byte-column address zero, displayed top-row offset zero, display off,
+LCD-supply amplifier on at minimum ability, minimum enhancement, and minimum
+contrast. The status reset bit remains set while the controller is held in
+reset. Toshiba's reset-state list does not state that display RAM is cleared.
+[standard]
+
+Driving `/STB` low stops the oscillator, prevents command and data acceptance,
+reduces controller power, and drives `VLC1`–`VLC5` to `VDD`. The OS's display
+disable command `0x02` is a separate operation and does not clear display RAM.
+[standard]
 
 ## Data transfers and address movement
 
@@ -131,7 +177,15 @@ The routine then restores an OS-tracked row command from `0x8451` and selects ro
 
 ### Bounds and wrap behavior
 
-Public tests report that a Toshiba controller accepts column commands across `0x20`–`0x3F`, but transfers outside the implemented video-RAM width do not change RAM. Auto-movement wraps at the controller-specific last implemented column when the pointer began in range; a pointer explicitly placed beyond that range can continue through the five-bit command field before returning to zero. [standard]
+The T6K04 data sheet defines byte-column commands `0x20`–`0x2F` in 8-bit mode
+and six-pixel group commands `0x20`–`0x35` in 6-bit mode. Its address counter
+wraps across 16 or 22 entries respectively. Toshiba says not to issue a byte
+column beyond 15 in 8-bit mode. [standard]
+
+WikiTI reports that some Toshiba command decoders accept the wider
+`0x20`–`0x3F` field, while transfers outside implemented RAM do not change RAM.
+That out-of-range behavior is outside the T6K04 data-sheet contract and varies
+across controllers and emulators. [standard]
 
 The row coordinate wraps across 64 rows. The controller-specific byte-column width is one reason software should not use off-screen RAM as portable storage. [standard]
 
@@ -145,7 +199,38 @@ reconstructs the complete joint register block and both emulator models.
 
 The retail boot page writes `0x4B` to port `0x2F` at `3F:41D3`. With the OS's normal CPU-speed value `1`, the low field is `3`, selecting 240 T-states. At nominal 15 MHz this interval is 16 µs. [confirmed] for the writes and trace; [standard] for the hardware timer interpretation.
 
-The T6A04A datasheet specifies its internal busy interval as $2/f_{OSC} \leq T \leq 4/f_{OSC}$. It lists oscillator choices from about 26.88 kHz to 430.1 kHz, depending on external components and frequency-select pins. The ROM and emulator trace do not reveal the fitted controller's oscillator network, so the 16 µs ASIC wait cannot by itself identify the controller clock or its worst-case margin. [standard] for the formula and available oscillator settings; [hypothesis] for the unresolved board-specific margin.
+The T6K04 data sheet specifies its internal busy interval as
+$2/f_{OSC} \leq T \leq 4/f_{OSC}$. For a 35 Hz common drive, its four
+frequency-select examples use 28.56, 57.12, 228.48, and 456.96 kHz. They imply
+the following controller-busy ranges: [standard]
+
+| Example $f_{OSC}$ | T6K04 busy range |
+|------------------:|------------------:|
+| 28.56 kHz | 70.03–140.06 µs |
+| 57.12 kHz | 35.01–70.03 µs |
+| 228.48 kHz | 8.75–17.51 µs |
+| 456.96 kHz | 4.38–8.75 µs |
+
+Toshiba rates the oscillator input from 20 to 500 kHz and warns that mounting
+conditions affect an external-resistor oscillator. The module photograph does
+not resolve the frequency-select wiring or resistor value. The OS's 16 µs ASIC
+wait therefore cannot identify the fitted oscillator or prove worst-case
+controller margin by itself. [standard] for the T6K04 limits; [hypothesis] for
+the board-specific oscillator and margin.
+
+The controller's `/CE` switching limits are a separate timing layer. Toshiba
+specifies the following values at 25 °C: [standard]
+
+| Logic test condition | Minimum `/CE` cycle | Minimum `/CE` pulse | Minimum address setup | Minimum write-data setup | Maximum read-data delay |
+|----------------------|--------------------:|--------------------:|----------------------:|-------------------------:|------------------------:|
+| 3.0 V ± 10% | 1,000 ns | 450 ns | 100 ns | 280 ns | 350 ns |
+| 5.0 V ± 10% | 500 ns | 220 ns | 60 ns | 60 ns | 160 ns |
+
+These limits constrain the ASIC-to-controller strobe. The port-`0x2F` interval
+instead prevents the next access while the controller's internal operation can
+remain busy. Z80 instruction timing does not reveal the `/CE` waveform, so the
+physical strobe still requires a bus capture. [standard] for the controller
+limits; [hypothesis] for the ASIC waveform.
 
 `lcd_wait` preserves `AF` and spins on that ASIC-ready bit: [confirmed]
 
@@ -176,8 +261,8 @@ The three optional calls add fixed instruction delay when the OS flag at `IY+0x4
 | 2 | `0x05` | increment row after data transfers |
 | 3 | `0x01` | select 8-bit transfer mode |
 | 4 | `0x03` | enable display output |
-| 5 | `0x16` or `0x17` | select power-supply level |
-| 6 | `0x08` or `0x0B` | select power-supply enhancement |
+| 5 | `0x16` or `0x17` | select one of the upper LCD-supply amplifier abilities |
+| 6 | `0x08` or `0x0B` | select amplifier-enhancement duration |
 | 7 | `0xC0 OR (contrast + 0x18)` | program contrast |
 
 Calls to the hardware test at `ram:1837` choose between the two power values. In the resolved TI-84 Plus TilEm trace, the sequence is:
@@ -186,7 +271,10 @@ Calls to the hardware test at `ram:1837` choose between the two power values. In
 40 05 01 03 17 0B EF
 ```
 
-The final `0xEF` means controller contrast `0x2F`. The RAM byte `contrast` at `0x8447` was `0x17`, and `_LCD_DRIVERON` added `0x18`. [confirmed]
+The final `0xEF` means controller contrast `0x2F`. The RAM byte `contrast` at
+`0x8447` was `0x17`, and `_LCD_DRIVERON` added `0x18`. Toshiba defines larger
+T6K04 contrast arguments as darker, from brightest `0xC0` to darkest `0xFF`.
+[confirmed] for the ROM arithmetic; [standard] for the controller direction.
 
 The trace records this sequence twice during cold startup before the homescreen clear. This is OS behavior under the traced startup path, not a requirement that user code initialize the controller twice. [confirmed]
 
@@ -301,7 +389,7 @@ TilEm models the controller and the ASIC wait timer as separate mechanisms. [sta
 
 | Area | TilEm behavior | Fidelity consequence |
 |------|----------------|----------------------|
-| Video RAM | fixed 1,024-byte array, 16 bytes × 64 rows | models a 128-pixel-wide controller, not 120-pixel or no-extra-RAM variants |
+| Video RAM | fixed 1,024-byte array, 16 bytes × 64 rows | capacity matches T6K04, but not 120-pixel or no-extra-RAM variants |
 | Ports `0x12`/`0x13` | aliases command/status and data | models the documented second-chip-select mirrors |
 | Controller busy | 50 emulated cycles after an accepted access | direct too-fast accesses are ignored when delay emulation is enabled |
 | ASIC wait | port-`0x02` bit 1 remains clear for the port-`0x2F` interval | reproduces the OS wait loop independently of controller busy |
@@ -372,9 +460,34 @@ is marked `MACHINE_NOT_WORKING`; these omissions do not describe the ASIC.
 
 ### Reproducing pointer differences
 
-`tools/lcd_controller.py` provides command decoding, status composition, the
-dummy-read latch, and source-modeled pointer walks. The CLI compares an
-increment starting at hidden column 14:
+`tools/lcd_controller.py` provides the source-attributed T6K04 specification,
+vendor busy-time calculation, command decoding, status composition, the
+dummy-read latch, and source-modeled pointer walks. The hardware report keeps
+the module attribution and its photographic limit together:
+
+```console
+$ python tools/describe_lcd_controller.py hardware
+reported controller: Toshiba T6K04
+  calculator evidence: Datamath caption for a March 2004 TI-84 Plus module
+  limit: controller die is hidden under epoxy; no marking is visible
+  data sheet: 128x64 pixels, 8192 bits, 16 8-bit pages
+  interface: 8-bit 80-series MPU; logic supply=2.7-5.5 V; package=TCP
+  3 V bus: cycle>=1000 ns pulse>=450 ns read-delay<=350 ns
+  5 V bus: cycle>=500 ns pulse>=220 ns read-delay<=160 ns
+```
+
+The exact data-sheet formula can be evaluated at Toshiba's four example
+oscillator choices:
+
+```console
+$ python tools/describe_lcd_controller.py busy
+fOSC=28.56 kHz: 70.028-140.056 us
+fOSC=57.12 kHz: 35.014-70.028 us
+fOSC=228.48 kHz: 8.754-17.507 us
+fOSC=456.96 kHz: 4.377-8.754 us
+```
+
+The pointer CLI compares an increment starting at hidden column 14:
 
 ```console
 $ python tools/describe_lcd_controller.py walk --row 0 --column 14 --movement 7 --count 3
@@ -392,9 +505,9 @@ MAME
   2: requested=(0,16) access=(0,16) index=16 next=(0,17) [column-out-of-range]
 ```
 
-The `decode`, `profiles`, `status`, and `latch` subcommands accept `--json` for
-scripts. Transfer reports distinguish a controller column outside the modeled
-row from an index outside the complete backing array.
+The `hardware`, `busy`, `decode`, `profiles`, `status`, and `latch` subcommands
+accept `--json` for scripts. Transfer reports distinguish a controller column
+outside the modeled row from an index outside the complete backing array.
 
 ## Resolved findings and open hardware questions
 
@@ -404,7 +517,8 @@ row from an index outside the complete backing array.
 - [confirmed] `_ClrLCDFull` covers all 768 visible bytes with eight vertical bands.
 - [confirmed] `_GrBufClr` changes only RAM, while `_GrBufCpy` performs the controller transfer.
 - [confirmed] `_PowerOff` disables display output before the ASIC enters low power.
-- [hypothesis] The exact controller family and off-screen RAM width cannot be inferred from this OS image; they must be measured per calculator.
+- [standard] Datamath attributes the photographed March 2004 module to Toshiba `T6K04`, whose primary data sheet specifies 128×64 RAM. The die is hidden under epoxy, so the photograph does not independently expose its marking.
+- [hypothesis] The exact controller and off-screen RAM behavior still require per-calculator identification or measurement outside that source-attributed March 2004 module.
 - [hypothesis] The late-controller status-read pointer mutation, power-command analog effects, and off-screen retention need physical tests across TA2/TA3 board revisions.
 - [hypothesis] TilEm's five-cycle LCD I/O overhead and 50-cycle controller busy period should be compared with bus captures rather than treated as hardware constants.
 - [standard] Wabbitemu's 15-column increment cycle and write-based ready timer, plus MAME's unchecked 15-byte row, are emulator limits rather than hardware results.
@@ -419,7 +533,9 @@ row from an index outside the complete backing array.
 | [WikiTI port `0x11`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:11) | pixel data, output latch, dummy reads, 6-bit transfers, and transfer delay |
 | [WikiTI ports `0x12`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:12) and [`0x13`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:13) | second-chip-select mirrors |
 | [WikiTI port `0x2F`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2F) | ASIC wait-duration fields and defaults |
-| [Toshiba T6A04A datasheet](https://archive.org/details/t6a04a-datasheet) | controller pins and blocks, 120×64 RAM, commands, counters, dummy reads, and busy timing |
+| [Datamath March 2004 TI-84 Plus module](http://www.datamath.org/Graphing/JPEG_TI-84PLUS_A.htm#84TOSHIBA) and [LCD photograph](http://www.datamath.org/Graphing/Images/TI-84Plus_LCD_Z6.jpg) | source-attributed `T6K04` identity and the epoxy-covered module construction |
+| [Toshiba T6K04 data sheet](https://www.datasheetarchive.com/datasheet/T6K04/Toshiba?version=2), 2001-03-13 | exact 128×64 RAM, command and status tables, counter bounds, dummy reads, reset state, bus timing, oscillator choices, busy formula, supply range, and package; PDF SHA-256 `e53bcf3f12c1cba2011b886ab196b6e1827aea4c1a2d9fb28c3d6d501d986577` |
+| [Toshiba T6A04A data sheet](https://archive.org/details/t6a04a-datasheet) | compatible earlier 120×64 controller and family comparison |
 | [TilEm `lcd.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/lcd.c), [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), and [`x4_init.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c) | emulator video RAM, command decode, latches, port aliases, wait timers, and reset state |
 | [Wabbitemu `lcd.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/lcd.c) and [`83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | controller RAM, pointer movement, transfer guard, ASIC-ready calculation, and port registration |
 | [MAME `t6a04.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/devices/video/t6a04.cpp), [`ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp), and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | controller array and commands, TI-84 Plus port map, fixed ready bit, and driver status |

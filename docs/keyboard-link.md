@@ -30,6 +30,8 @@ The 2.5 mm I/O link uses two open-collector lines. Port `0x00` drives and sample
 
 `_SendAByte = 4EE5`, body `3C:420D`, sends legacy bits least-significant first. It writes `1` for bit 0 and `2` for bit 1, waits for a both-low acknowledgement, releases its line, and waits for idle. `_RecAByteIO = 4F03`, body `3C:443F`, performs the inverse handshake. Both paths use bounded waits that enter the link-error machinery on timeout. [confirmed]
 
+Installed error callback `3C:6136` reaches `3C:618D` for applicable transfer states. Its raw branch marks the link busy, selects nominal 6 MHz, drives both lines low for a 7,077,785-base-T-state loop, releases them, and clears busy; its USB branch skips port `0x00`. The documented Flash opcode wait raises the loop to 8,191,881 T-states. This is the OS's transport-specific abort cleanup. [confirmed] for the ROM role and base count; [standard] for the wait-state-adjusted count.
+
 [Two-wire link port hardware](link-port-hardware.md) reconstructs the port read/write inversion, four transitions, receiver rotation, errors, and timer-driven activity check. [USB ASIC and link assist](sub-usb-asic.md) covers the assist FIFO selected by the same byte routines.
 
 ### Variable-transfer command/packet framing

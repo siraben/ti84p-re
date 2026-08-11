@@ -63,6 +63,8 @@ silent-link control/scratch area:
 | `8688/8689` | `ioNewData` | "new var arrived" status (bit7 of `8689`) |
 | `868B` | `bakHeader` | saved 9-byte header for echo/ACK comparison (`_Mov9B` to/from `8674`) |
 | `84DB` | `iMathPtr5` | active data pointer during a streaming transfer |
+| `848E`–`8492` | — | three backup-section lengths parsed from or written to the backup header |
+| `8494` | — | saved user-memory boundary used after backup restore |
 | `9834` | `pagedCount` | bytes buffered in the 16-byte staging block (Flash-write batching) |
 | `9836` | `pagedGetPtr` | write cursor into `pagedBuf` |
 | `983A` | `pagedBuf` | 16-byte staging block (received data flushed to RAM/Flash 16 at a time) |
@@ -285,7 +287,7 @@ flash path (`_Chk_Batt_Low`, `83F7` size save). The actual data ptr/page/length 
 ### 5b. Send the DATA payload — `40DA` [confirmed]
 
 ```z80
-40DA: CALL _SetupPagedPtr (17AC)            ; HL=data ptr, DE=len, A=page  ←  VAT entry resolution
+40DA: CALL _SetupPagedPtr (17AC)            ; initialize the paged source from HL, DE, and B
       (84DB)=ptr ; (8676)=len               ; iMathPtr5, packet length
       6971 ; 620A (machine-ID) ; (8674)=ID
       if sndRecState == 0x08 and varClass == 0x0A and len > 0x037D:
@@ -308,11 +310,32 @@ wire payload is byte-pinned as follows. [confirmed]
 | `len <= 0x037D` | `len` | `source[0:len]` |
 | `len > 0x037D` with `sndRecState = 0x08`, `varClass = 0x0A` | `0x037D` | `63 00` followed by `source[2:0x037D]` |
 
-The two prefix bytes replace the first two source bytes; they do not extend the
-payload. Calls to `3C:41AB` add `0x63`, `0x00`, and the remaining `0x037B`
-bytes to the same 16-bit checksum at `0x8678`. The checksum therefore covers
-all 893 transmitted bytes modulo `0x10000`. The meaning of the `0x0063`
-prefix remains [hypothesis].
+The exceptional source is the first section of a three-part calculator backup.
+At `3C:4B52`, the backup reply passes `HL=0x89F0` and `DE=0x13A5` to the DATA
+sender. This source spans `flags` through `0x9D94`. The setup at `3C:4CCD`
+caps the advertised VAR length to `0x037D`; `3C:410F` applies the same cap to
+the DATA packet. The transmitted section therefore covers `0x89F0`–`0x8D6C`.
+[confirmed]
+
+The bytes `63 00` are the normalized image of RAM `0x89F0`–`0x89F1`, not an
+embedded section length. The restore path at `3C:46FC` loads the first section
+length from `0x848E`, sets `DE=0x89F0`, and calls the DATA receiver at
+`3C:4261`. The receiver writes the packet bytes to that destination. The first
+restored system-flags byte is thus `0x63` (bits 0, 1, 5, and 6 set), and the
+second is zero. The sender fixes these bytes instead of copying their live
+values. [confirmed]
+
+**External format evidence.** [standard] tilibs commit
+`791d2535813fa7ffef8f9feadf110998d4ae57fb` provides an independent format
+check. `calc_73.cc::send_backup` passes `data_part1` unchanged to `SEND_XDP`.
+`files8x.cc::ti8x_file_write_backup` writes `data_length1` before
+`data_part1`, outside the section bytes. The file and wire implementations
+therefore agree that `0x0063` belongs to the RAM image. The reason the ROM
+chooses this particular system-flags mask remains [hypothesis].
+
+Calls to `3C:41AB` add `0x63`, `0x00`, and the remaining `0x037B` bytes to the
+same 16-bit checksum at `0x8678`. The checksum covers all 893 transmitted bytes
+modulo `0x10000`. [confirmed]
 
 `_PagedGet` makes the streamer transparent to RAM-vs-archived data: an archived program is read
 straight out of the Flash window, advancing the bank-A page (port 0x06) at the 0x8000 boundary,
@@ -341,16 +364,21 @@ door; `link_xfer_op` is the "OP1 already set up, do the silent transfer" door.
 
 ## 7. APD, cleanup, and the line idle wait [confirmed]
 
-- `27DA` (`FUN_ram_27da`) installs an abort/cleanup callback (always `3C:4F3E`) so that if the
-  transfer errors out via `_JError`, the link state, APD timer and `IY+0xC` APD bit are restored.
+- `27DA` (`FUN_ram_27da`) installs an error callback. `link_xfer_op` and `_SendVarCmd` install
+  `3C:4F3E`, which restores link state, the APD timer, and `IY+0xC` bit 2 after `_JError`.
   `4F3E: POP AF ; BIT 2,A ; (restore IY+0xC bit2) ; → 4F31 (RES 2,(IY+0x12); re-enable timers; EI)`.
+- Six other transfer paths install page-0 stub `2D51`, which bjumps to `3C:6136`. That callback
+  dispatches on `sndRecState`; for the applicable non-DATA states it calls the raw/USB-aware abort
+  cleanup at `3C:618D`, then records `ioErrState=1` through stub `2F31` → `07:7AC3`. The raw branch
+  drives both port-`0x00` lines low for an exact software delay before releasing them. See
+  [Two-wire link port hardware](link-port-hardware.md#error-cleanup-and-the-both-low-abort-pulse).
 - `_ApdSetup` (`00:03AE`) is called before any long blocking receive (`6177`, `6184`) so the calc
   doesn't auto-power-down mid-transfer.
 - `62B0`/`62BB` clear the link error sub-state byte (`8A0B`, the low bits of `IY+0x1B`-area flags).
 
 ---
 
-## 8. Error handling [confirmed]
+## 8. Flash-object dispatch and error handling
 
 | Trigger | Address | Error |
 |---------|---------|-------|
@@ -358,31 +386,47 @@ door; `link_xfer_op` is the "OP1 already set up, do the silent transfer" door.
 | `lnk_rec_status` returned `A=1` with `C != 0xE0`; header-send line never went idle | `_ErrLinkXmit` `00:278D` → `_JError(0x9F)` | `E_LnkErr` `0x9F` |
 | received checksum/length mismatch | `6356`→ sends 0x5A NAK → `2799` | `E_LnkErr` `0x9F` |
 | peer sent SKIP/EXIT (0x36) | `link_xfer_op` `4E80/4E83` | `E_LnkErr` `0x9F` |
-| incoming dispatch byte at `0x867F` equals `0x22` | `3C:463D` → `_JError` `00:2793` | raw error number `0x22` |
+| incoming variable-header type at `0x867F` equals `0x22` | `3C:463D` → `_JError` `00:2793` | raw error `0x22`, displayed as `ERR:LINK` |
 
 The ordinary timeout, checksum, and unexpected-command paths collapse to
-`E_LnkErr` (`0x9F`). The include file labels `0x22`–`0x25` as
-`E_LinkIOChkSum`, `E_LinkIOTimeOut`, `E_LinkIOBusy`, and `E_LinkIOVer`, but the
-same include block marks all four numbers obsolete. `ty_error.txt` copies those
-equates for Ghidra typing; it is not evidence of a live error table. [confirmed]
+`E_LnkErr` (`0x9F`). The error display masks bit 7, so this becomes table code
+`0x1F`; pointer entry `07:6B08` selects `07:6C55`, the string `LINK`.
+`_JError(0x22)` uses pointer entry `07:6B0E`, which selects the same string.
+The two raw codes therefore produce the same visible `ERR:LINK` message.
+`error_table.py` decodes this ROM table, and `describe_error.py 0x22 0x9F`
+reproduces both lookups. [confirmed]
 
-The receive dispatcher loads `A` from `0x867F` at `3C:45D7`, then treats the
-four values separately. [confirmed]
+The include file labels `0x22`–`0x25` as `E_LinkIOChkSum`,
+`E_LinkIOTimeOut`, `E_LinkIOBusy`, and `E_LinkIOVer`, but the same block marks
+all four numbers obsolete. Those names do not describe the dispatcher at
+`3C:45D7`: it reloads the variable-header type from `0x867F`, not the packet
+command at `0x8675`. [confirmed]
 
-| Value | Dispatch evidence | Error behavior |
-|-------|-------------------|----------------|
-| `0x22` | `3C:463D` compares `A` and jumps directly to `00:2793` on equality | `_JError` receives `A = 0x22` |
-| `0x23` | `3C:45EA` selects the `3C:45EE` exchange path | This branch does not pass `0x23` to `_JError` |
-| `0x24` | `3C:45DA` selects a machine-ID check and `3C:512C` path | This branch does not pass `0x24` to `_JError` |
-| `0x25` | `3C:462D` selects a machine-ID check and `3C:5114` path | This branch does not pass `0x25` to `_JError` |
+The independent tilibs type tables name `0x23` OS/AMS, `0x24` Flash
+application, and `0x25` certificate; they define no Z80 Flash-object type at
+`0x22`. The ROM control flow agrees with those three names. [standard] for the
+host-library names; [confirmed] for the ROM branches.
+
+| Header type | ROM behavior |
+|-------------|--------------|
+| `0x22` | `3C:463D` jumps to `_JError` with `A=0x22`, producing `ERR:LINK`. |
+| `0x23` — OS/AMS | `3C:45EA` enters negotiation at `3C:45EE`; its `3C:5735` branch checks the battery, initializes MD5 through `_MD5Init = 808Dh`, and calls `_ReceiveOS = 8072h`. |
+| `0x24` — Flash application | `3C:45DA` requires sender machine ID `0x73`, then jumps to the application-specific path at `3C:512C`, whose first operation is `_Chk_Batt_Low`. A separate receive path at `3C:550D` also selects type `0x24` and requires PC sender ID `0x23`. |
+| `0x25` — certificate | `3C:462D` requires sender machine ID `0x73`, then jumps through `3C:5114` to the certificate path at `3C:566B`; that path calls `_FindFirstCertField = 8027h` and uses `0x00E8`-byte blocks at `3C:5659`. |
 
 A linear scan of all 64 physical pages finds 32 direct references to
 `_JError` at `00:2793` and no `rst 28h` call with bcall ID `44D7h`.
 Reviewing those direct sites finds the `0x22` path above, but no site that
 loads `0x23`, `0x24`, or `0x25` as a fixed `_JError` argument. The ROM bytes
 do not support the claim that a separate assembly-callable transfer API emits
-all four obsolete values. The user-visible meaning of the live raw `0x22`
-path still needs a controlled peer packet. [confirmed]
+all four obsolete values. The `0x22` collision is the only one of these four
+header branches that passes its value directly to `_JError`. [confirmed]
+
+The external cross-check uses tilibs commit
+[`791d253`](https://github.com/debrouxl/tilibs/blob/791d2535813fa7ffef8f9feadf110998d4ae57fb/libtifiles/trunk/src/types84p.h)
+for the type table and its
+[`calc_73.cc`](https://github.com/debrouxl/tilibs/blob/791d2535813fa7ffef8f9feadf110998d4ae57fb/libticalcs/trunk/src/calc_73.cc)
+DBus implementation for the OS, application, and certificate transfer shapes.
 
 ---
 
@@ -427,6 +471,8 @@ path still needs a controlled peer packet. [confirmed]
 | `3C:40DA` | `lnk_send_data` | send DATA payload (`_PagedGet`→`_SendAByte`) + checksum + ACK wait |
 | `3C:4167` | `lnk_send_cksum_tail` | append 16-bit checksum, recv reply, expect ACK 0x56 |
 | `3C:4F3E` | `lnk_cleanup` | error/abort cleanup (restore APD/timers/flags) |
+| `3C:6136` | `lnk_error_cleanup` | installed state-aware error callback; reaches raw/USB abort cleanup where applicable |
+| `3C:618D` | `lnk_abort_transport` | clear USB busy state or issue the raw both-low abort pulse |
 | `3C:62B0` | `lnk_clear_substate` | clear link error sub-state (8A0B) |
 | `3C:6994` | `lnk_recv_store` | receive var + VAT store sequence (expects 0x09 then 0x15) |
 | `00:278D` | `_ErrLinkXmit` | `_JError(0x9F)` E_LnkErr |
@@ -448,11 +494,8 @@ state machine. RAM block: `ioFlag 8670 … bakHeader 868B`, staging
 
 ## 11. Open items
 
-- Send controlled `0x22`–`0x25` values through the receive dispatcher and
-  record the visible result. The raw `0x22` `_JError` edge is confirmed; the
-  protocol meaning of all four values remains [hypothesis].
-- Identify the semantic meaning of the `0x0063` replacement word in the
-  oversized backup payload. Its position, transmitted length, and checksum
-  coverage are confirmed.
+- Determine why the legacy backup normalizer chooses system-flags word
+  `0x0063`. Its RAM destination, replacement behavior, section bounds, and
+  checksum coverage are confirmed.
 - The prior USB target gap is now mapped in [sub-usb-asic.md](sub-usb-asic.md): `link_xfer_op` calls
   `ram:2E0B`, a `cross_page_jump` thunk to `35:4280`, after sampling port `0x4D`.

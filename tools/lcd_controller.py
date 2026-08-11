@@ -1,8 +1,10 @@
-"""Reusable T6A04 command and emulator pointer models.
+"""Reusable Toshiba LCD-controller facts and emulator pointer models.
 
-The transfer walkers reproduce pinned TilEm, Wabbitemu, and MAME source.  They
-are debugging oracles for those implementations, not physical-controller
-claims.
+The physical specification comes from Toshiba's T6K04 data sheet.  Datamath
+attributes that controller to one photographed March 2004 TI-84 Plus module,
+but its die is covered by epoxy and has no visible marking.  Transfer walkers
+reproduce pinned emulator source; they are debugging oracles for those
+implementations, not physical-controller claims.
 """
 
 from __future__ import annotations
@@ -11,6 +13,81 @@ from dataclasses import dataclass
 
 
 LCD_ROWS = 64
+
+
+@dataclass(frozen=True)
+class LcdBusTiming:
+    """T6K04 `/CE` bus timing at one nominal logic supply."""
+
+    supply_volts: float
+    enable_cycle_min_ns: int
+    enable_pulse_min_ns: int
+    address_setup_min_ns: int
+    write_data_setup_min_ns: int
+    read_data_delay_max_ns: int
+
+
+@dataclass(frozen=True)
+class LcdControllerSpec:
+    """Primary-source properties plus source-attributed calculator identity."""
+
+    manufacturer: str
+    part: str
+    calculator_evidence: str
+    identification_limit: str
+    datasheet: str
+    columns: int
+    rows: int
+    ram_bits: int
+    eight_bit_pages: int
+    six_bit_pages: int
+    interface: str
+    logic_supply_volts: tuple[float, float]
+    package: str
+    oscillator_range_khz: tuple[int, int]
+    oscillator_choices_khz: tuple[float, ...]
+    busy_oscillator_periods: tuple[int, int]
+    bus_timings: tuple[LcdBusTiming, ...]
+
+    @property
+    def eight_bit_row_stride(self) -> int:
+        return self.columns // 8
+
+
+TOSHIBA_T6K04 = LcdControllerSpec(
+    manufacturer="Toshiba",
+    part="T6K04",
+    calculator_evidence="Datamath caption for a March 2004 TI-84 Plus module",
+    identification_limit="controller die is hidden under epoxy; no marking is visible",
+    datasheet="Toshiba T6K04, 2001-03-13",
+    columns=128,
+    rows=64,
+    ram_bits=8192,
+    eight_bit_pages=16,
+    six_bit_pages=22,
+    interface="8-bit 80-series MPU",
+    logic_supply_volts=(2.7, 5.5),
+    package="TCP",
+    oscillator_range_khz=(20, 500),
+    oscillator_choices_khz=(28.56, 57.12, 228.48, 456.96),
+    busy_oscillator_periods=(2, 4),
+    bus_timings=(
+        LcdBusTiming(3.0, 1000, 450, 100, 280, 350),
+        LcdBusTiming(5.0, 500, 220, 60, 60, 160),
+    ),
+)
+
+
+def t6k04_busy_interval_us(oscillator_khz: float) -> tuple[float, float]:
+    """Return Toshiba's ``2/fOSC`` to ``4/fOSC`` busy interval in microseconds."""
+
+    minimum, maximum = TOSHIBA_T6K04.oscillator_range_khz
+    if not minimum <= oscillator_khz <= maximum:
+        raise ValueError(
+            f"T6K04 oscillator must be between {minimum} and {maximum} kHz"
+        )
+    low, high = TOSHIBA_T6K04.busy_oscillator_periods
+    return low * 1000 / oscillator_khz, high * 1000 / oscillator_khz
 
 
 def _byte(value: int, name: str) -> int:

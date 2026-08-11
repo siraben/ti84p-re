@@ -7,6 +7,7 @@ from flash_trace import (
     FlashCommand,
     decode_amd_flash_commands,
     flash_sector,
+    group_byte_program_invocations,
     group_byte_program_runs,
 )
 from hardware_trace import ResolvedMemoryWrite
@@ -105,6 +106,40 @@ class FlashTraceTests(unittest.TestCase):
             [(0x20000, 0x20001), (0x20002, 0x20002), (0x30000, 0x30000)],
             [(run.start_address, run.end_address) for run in runs],
         )
+
+    def test_groups_worker_invocations_at_array_reset(self):
+        def command(kind, address, index, value=0):
+            write = flash_write(address, value, index)
+            return FlashCommand(kind, index, write.clock, address, value, (write,))
+
+        commands = [
+            command("byte_program", 0x23FFF, 1),
+            command("byte_program", 0x24000, 2),
+            command("array_reset", 0x24000, 3, 0xF0),
+            command("byte_program", 0x27FFF, 4),
+            command("byte_program", 0x24000, 5),
+            command("array_reset", 0x24000, 6, 0xF0),
+        ]
+
+        invocations = list(group_byte_program_invocations(commands))
+
+        self.assertEqual(2, len(invocations))
+        self.assertEqual((0x08, 0x09), invocations[0].pages)
+        self.assertEqual(1, invocations[0].page_crossings)
+        self.assertTrue(invocations[0].contiguous)
+        self.assertTrue(invocations[0].reset_matches_final_target)
+        self.assertEqual((0x09,), invocations[1].pages)
+        self.assertFalse(invocations[1].contiguous)
+
+    def test_keeps_unterminated_program_invocation(self):
+        write = flash_write(0x20000, 0x12, 1)
+        program = FlashCommand("byte_program", 1, 10, 0x20000, 0x12, (write,))
+        erase = FlashCommand("sector_erase", 2, 20, 0x30000, 0x30, ())
+
+        invocation = list(group_byte_program_invocations((program, erase)))[0]
+
+        self.assertIsNone(invocation.reset)
+        self.assertFalse(invocation.reset_matches_final_target)
 
 
 if __name__ == "__main__":

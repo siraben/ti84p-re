@@ -26,6 +26,7 @@
 - [MD5 accelerator and boot API](md5-hardware.md)
 - [Flash page map](flash-page-map.md)
 - [RAM pages](ram-pages.md)
+- [Physical hardware probes](hardware-probes.md)
 
 # Core subsystems
 

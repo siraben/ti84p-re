@@ -295,6 +295,11 @@ nix develop -c python tools/tilem_trace_resolve.py /tmp/boot.trace \
 
 ## Open physical tests
 
+The read-only [ASIC register snapshot](hardware-probes.md#asic-register-snapshot)
+captures ports `0x20`, `0x29`–`0x2C`, `0x2E`, and `0x2F` before a mutating
+timing test. It does not measure any delay. No physical snapshot is recorded.
+[confirmed] for the probe bytes; [hypothesis] for pending readback values.
+
 - Count fixed Flash and RAM loops while toggling each port-`0x2E` bit. Separate
   M1 fetches, data reads, and writes, and include one- and two-prefix opcodes.
 - Repeat the loop test with active-register gate bits 0 and 1 cleared to verify

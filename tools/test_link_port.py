@@ -6,6 +6,9 @@ import unittest
 from link_port import (
     LINK_PORT_PROFILES,
     assemble_observed_byte,
+    abort_pulse_delay_tstates,
+    abort_pulse_instruction_count,
+    abort_pulse_report,
     byte_drive_sequence,
     drive_mask,
     emulator_port_write,
@@ -25,6 +28,26 @@ from link_port import (
 
 
 class LinkPortTests(unittest.TestCase):
+    def test_abort_pulse_loop_has_exact_rom_tstate_count(self):
+        self.assertEqual(7_077_785, abort_pulse_delay_tstates())
+        self.assertEqual(1_114_096, abort_pulse_instruction_count())
+
+        report = abort_pulse_report()
+        self.assertEqual(6_000_000, report["cpu_hz"])
+        self.assertEqual(8_191_881, report["delay_tstates"])
+        self.assertAlmostEqual(1.3653135, report["nominal_seconds"])
+
+    def test_abort_pulse_counter_handles_small_loop(self):
+        # LD HL (10), one outer body (7 + 4 + 11 + 6 + 4 + 4), final JR (7).
+        self.assertEqual(
+            53,
+            abort_pulse_delay_tstates(
+                outer_iterations=1,
+                inner_iterations=1,
+                padding_nops=1,
+            ),
+        )
+
     def test_write_uses_only_low_two_bits(self):
         self.assertEqual(2, drive_mask(0xA6))
 

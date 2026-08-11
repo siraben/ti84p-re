@@ -69,6 +69,7 @@
             pkgs.jdk21
             pkgs.mdbook
             pkgs.mdbook-mermaid
+            pkgs.spasm-ng
             z80dasm
           ];
           # In the dev shell, run:  setup-wiki-assets   (vendors KaTeX before `mdbook serve`)

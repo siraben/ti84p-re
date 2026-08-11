@@ -38,6 +38,49 @@ class FlashCommandRun:
         return self.commands[-1].target_address
 
 
+@dataclass(frozen=True)
+class FlashProgramInvocation:
+    """Byte-program commands terminated by one worker array-reset write."""
+
+    commands: tuple[FlashCommand, ...]
+    reset: FlashCommand | None
+
+    @property
+    def start_address(self) -> int:
+        return self.commands[0].target_address
+
+    @property
+    def end_address(self) -> int:
+        return self.commands[-1].target_address
+
+    @property
+    def pages(self) -> tuple[int, ...]:
+        return tuple(
+            dict.fromkeys(
+                command.target_address // 0x4000 for command in self.commands
+            )
+        )
+
+    @property
+    def page_crossings(self) -> int:
+        return sum(
+            current.target_address // 0x4000
+            != previous.target_address // 0x4000
+            for previous, current in zip(self.commands, self.commands[1:])
+        )
+
+    @property
+    def contiguous(self) -> bool:
+        return all(
+            current.target_address == previous.target_address + 1
+            for previous, current in zip(self.commands, self.commands[1:])
+        )
+
+    @property
+    def reset_matches_final_target(self) -> bool:
+        return self.reset is not None and self.reset.target_address == self.end_address
+
+
 def _at(event: ResolvedMemoryWrite, address: int, value: int) -> bool:
     return event.flat_address == address and event.value == value
 
@@ -137,3 +180,30 @@ def group_byte_program_runs(
         pending.append(command)
     if pending:
         yield FlashCommandRun(tuple(pending))
+
+
+def group_byte_program_invocations(
+    commands: Iterable[FlashCommand],
+) -> Iterator[FlashProgramInvocation]:
+    """Group program commands by the worker's terminal ``0xF0`` reset.
+
+    A sector erase or unmatched write closes an unterminated group. This keeps
+    failure or truncated traces visible instead of merging them into the next
+    successful invocation.
+    """
+
+    pending: list[FlashCommand] = []
+    for command in commands:
+        if command.kind == "byte_program":
+            pending.append(command)
+            continue
+        if command.kind == "array_reset":
+            if pending:
+                yield FlashProgramInvocation(tuple(pending), command)
+                pending.clear()
+            continue
+        if pending:
+            yield FlashProgramInvocation(tuple(pending), None)
+            pending.clear()
+    if pending:
+        yield FlashProgramInvocation(tuple(pending), None)

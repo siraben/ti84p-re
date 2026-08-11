@@ -129,9 +129,18 @@ tools/analyze_ram_page_trace.py /tmp/b.trace \
 tools/analyze_trace_points.py /tmp/b.trace \
   --point page_3C:7733 --point page_3C:7cfb
 
+# filter a copied-worker entry and count its source pointers; --where is
+# repeatable, and both visits and summaries support --json
+tools/analyze_trace_points.py /tmp/b.trace --point ram:8100 \
+  --opcode 0xE6 --where 'DE<0x8000' --summary-register HL
+
 # AMD Flash commands, physical erase sectors, values, and compact program runs
 tools/analyze_flash_trace.py /tmp/b.trace \
   --clock 321347460-344829074 --timeline
+
+# group byte-program commands by the copied worker's terminal reset, or emit JSON
+tools/analyze_flash_trace.py /tmp/b.trace --invocations
+tools/analyze_flash_trace.py /tmp/b.trace --json
 
 # coverage: distinct executed addresses + hit counts
 tools/tilem_trace_resolve.py /tmp/b.trace --initial-mapping ti84p-reset \
@@ -318,6 +327,46 @@ a bounded low-pixel region where an unexpected third line would appear.
 regions. `ASMFORM` checks the matching `ERR:UNDEFINED`, `1:Quit`, and `2:Goto`
 regions.
 
+### Cross-page Flash-programming fixture
+
+`build_ti_program.py` generates large storage fixtures without checking binary
+files into the repository. The following pair sorts `AARCHIVE` before
+`ZBIGDATA`; the macro then selects the second program in the memory manager and
+archives it without executing its deliberately repetitive body:
+
+```sh
+python tools/build_ti_program.py /tmp/AARCHIVE.8xp \
+  --name AARCHIVE --body-size 1 --fill-byte 0x3F --json
+python tools/build_ti_program.py /tmp/ZBIGDATA.8xp \
+  --name ZBIGDATA --body-size 17000 --json
+
+$TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
+  --macro tools/macros/archive-second-program.macro \
+  --trace /tmp/writeflash-cross.trace --trace-range all \
+  /tmp/AARCHIVE.8xp /tmp/ZBIGDATA.8xp
+```
+
+This requires the same headless file-loading support described above. Load
+exactly these two unarchived programs: the macro opens **MEM** > **Mem Mgmt/Del**
+> **Prgm**, moves to the second entry, and presses **ENTER**. Decode the worker
+invocations and then inspect the three copied-worker instructions around the
+single boundary event:
+
+```sh
+python tools/analyze_flash_trace.py /tmp/writeflash-cross.trace --invocations
+python tools/analyze_flash_trace.py /tmp/writeflash-cross.trace --json
+python tools/analyze_trace_points.py /tmp/writeflash-cross.trace \
+  --point ram:811B --point ram:8122 --point ram:8124 \
+  --clock 230976500-230976650 --json
+```
+
+The recorded run contains one 17,002-command invocation from physical
+`0x20013` (`08:4013`) through `0x2427C` (`09:427C`). It is contiguous, crosses
+one page, and resets at the final target. At the boundary, `ram:811B` reads
+page `0x08`, `ram:8122` outputs page `0x09`, and `ram:8124` has changed `DE`
+from `0x8000` to `0x4000`. Clock values depend on the complete run and macro
+timing; use the invocation report to narrow the point query after recapture.
+
 Keep only one test program in RAM when using `run-first-program.macro`; it opens
 `PRGM`, selects the first `EXEC` entry, and presses `ENTER`. For `factorial`,
 use a variant that enters `5` at the prompt. For the `Asm(` smoke test, load both
@@ -430,13 +479,17 @@ rather than paged-address resolution.
 
 - [`tilem_trace_resolve.py`](tilem_trace_resolve.py) — trace → paged Ghidra address resolver.
 - [`hardware_trace.py`](hardware_trace.py) — importable resolved-instruction, I/O-event, and memory-write iterators.
-- [`analyze_trace_points.py`](analyze_trace_points.py) — repeated resolved-address visits with registers and clocks.
+- [`analyze_trace_points.py`](analyze_trace_points.py) — resolved-address visits, opcode/register filters, register-frequency summaries, and JSON reports.
 - [`analyze_ram_page_trace.py`](analyze_ram_page_trace.py) — trace memory writes → physical RAM page ranges.
 - [`flash_trace.py`](flash_trace.py) — importable AMD byte-program and sector-erase decoder.
-- [`analyze_flash_trace.py`](analyze_flash_trace.py) — Flash command summaries, event filters, and compact timelines.
+- [`analyze_flash_trace.py`](analyze_flash_trace.py) — Flash command summaries, worker-invocation grouping, event filters, compact timelines, and JSON reports.
+- [`ti_program.py`](ti_program.py) — importable tokenized-program and deterministic body builders.
+- [`build_ti_program.py`](build_ti_program.py) — JSON-capable `.8xp` fixture builder.
 - [`z80_disassembly.py`](z80_disassembly.py) — reusable `z80dasm` parser and paged-ROM literal and call-target helpers.
 - [`analyze_rom_literals.py`](analyze_rom_literals.py) — all-page immediate-value candidates with optional nearby call/jump sinks.
-- [`analyze_rom_calls.py`](analyze_rom_calls.py) — all-page direct `CALL`/`JP` cross-references with instruction context.
+- [`analyze_rom_calls.py`](analyze_rom_calls.py) — direct `CALL`/`JP`, raw bcall, and inline cross-page bjump references with inferred target spaces, source-page filtering, instruction context, and JSON output.
+- [`error_table.py`](error_table.py) — reusable decoder for raw `_JError` codes and the page-`07` message-pointer table.
+- [`describe_error.py`](describe_error.py) — text and JSON reports for the message selected by one or more raw error codes.
 - [`z80_io.py`](z80_io.py) — reusable immediate-port access decoding for static ROM disassembly.
 - [`analyze_rom_io.py`](analyze_rom_io.py) — selected-page or all-ROM static I/O-access inventory, inclusive port ranges, instruction context, and summaries.
 - [`tibasic_smoke.py`](tibasic_smoke.py) — generated TI-BASIC fixture runner with
@@ -445,6 +498,7 @@ rather than paged-address resolution.
 - [`macros/graph-y1-x2.macro`](macros/graph-y1-x2.macro) — power on, enter `Y1=X^2`, and graph it.
 - [`macros/boot-idle.macro`](macros/boot-idle.macro) — baseline for coverage diffs.
 - [`macros/power-cycle.macro`](macros/power-cycle.macro) — enter low power with **[2nd]**+**ON**, wait in the `ram:0A5C` HALT loop, and wake with **ON**; see [Clock, timers, and power](../docs/clock-timers-power.md).
+- [`macros/archive-second-program.macro`](macros/archive-second-program.macro) — archive the second of exactly two loaded programs through the memory-manager UI.
 - [`macros/run-first-program-factorial5.macro`](macros/run-first-program-factorial5.macro) —
   launch the first TI-BASIC program and answer `5` at `Prompt N`.
 - `macros/mathprint-{power,fraction,fnint}.macro` — render `X²` / `1/2` / `fnInt(`
@@ -468,6 +522,20 @@ nix develop -c python tools/analyze_rom_io.py --page 0x35 --before 2 --after 2 0
 This output is a linear-disassembly candidate list. Confirm control flow before
 treating an apparent access as code because ROM data can decode as `IN` or
 `OUT` instructions.
+
+The call-reference CLI applies the same rule. Direct targets are logical
+addresses, so filter the physical source page when auditing a same-page helper;
+raw bcall matching instead checks the complete `EF low high` byte sequence.
+Both modes can emit stable JSON records with a marked context window:
+
+```sh
+nix develop -c python tools/analyze_rom_calls.py \
+  --page 0x3D --before 3 --after 4 --json 0x45E7
+nix develop -c python tools/analyze_rom_calls.py \
+  --bcall --before 3 --after 4 --json 0x8024
+nix develop -c python tools/analyze_rom_calls.py \
+  --bjump --before 3 --after 4 --json 3D:6098
+```
 
 ## Trace format (quick reference)
 

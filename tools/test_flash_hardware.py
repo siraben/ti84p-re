@@ -5,6 +5,8 @@ import unittest
 
 from flash_hardware import (
     EMULATOR_PROFILES,
+    FUJITSU_MBM29LV800TA,
+    REPORTED_COMPATIBLE_PARTS,
     TOP_BOOT_SECTORS,
     emulator_profile,
     flash_sector,
@@ -18,6 +20,42 @@ from flash_hardware import (
 
 
 class FlashHardwareTests(unittest.TestCase):
+    def test_photographed_part_keeps_fujitsu_and_emulator_ids_distinct(self):
+        part = FUJITSU_MBM29LV800TA
+
+        self.assertEqual("MBM29LV800TA-70PFTN", part.orderable_part)
+        self.assertEqual((0xAAA, 0x555), part.byte_mode_unlock_addresses)
+        self.assertEqual(
+            (0x04, 0xDA),
+            (part.manufacturer_code, part.device_code_byte_mode),
+        )
+        self.assertEqual(
+            (8, 300),
+            (part.byte_program_typ_us, part.byte_program_max_us),
+        )
+        self.assertEqual(
+            (1000, 10000),
+            (part.sector_erase_typ_ms, part.sector_erase_max_ms),
+        )
+        self.assertEqual(
+            {0x01},
+            {
+                profile.autoselect_manufacturer_code
+                for profile in EMULATOR_PROFILES
+                if profile.autoselect_manufacturer_code is not None
+            },
+        )
+
+    def test_reported_compatible_parts_do_not_replace_observed_identity(self):
+        self.assertEqual(
+            ["AMIC", "Fujitsu", "Spansion", "Macronix"],
+            [part.manufacturer for part in REPORTED_COMPATIBLE_PARTS],
+        )
+        self.assertIn(
+            ("Spansion", "S29AL008D"),
+            [(part.manufacturer, part.family) for part in REPORTED_COMPATIBLE_PARTS],
+        )
+
     def test_sector_table_covers_device_without_gaps(self):
         self.assertEqual(0, TOP_BOOT_SECTORS[0].start)
         self.assertEqual(0x100000, TOP_BOOT_SECTORS[-1].end)
