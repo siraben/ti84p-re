@@ -19,6 +19,7 @@ detailed timing contract; MAME provides an explicit omission comparison.
 | TilEm and Wabbitemu source | independent decode of speed selection, LCD instruction delays, and memory wait bits | [standard] |
 | Native Wabbitemu execution | reset state, speed masks and frequencies, all seven delay latches, wait-gate selection, and port-`0x2D` side effects | [standard] |
 | MAME 0.287 source | binary CPU-speed selection and absence of the delay-register block | [standard] |
+| Guarded MAME ASIC-control run | raw speed readback, measured 6:15 instruction throughput, absent delay ports, and soft-reset retention | [standard] |
 | Public hardware tests | intended bit meanings, LCD failure thresholds, and mode-3 timer divisor | [standard] |
 
 The trace proves what the ROM writes and which CPU-speed values execute. It
@@ -80,6 +81,13 @@ A guarded initialized-core run writes `0xFC`–`0xFF`. The reset
 15, 20, and 25 MHz. The direct setting represents Wabbitemu front-end state;
 it is not a calculator port transition. [standard]
 
+A guarded MAME run writes `00`, `01`, `02`, `03`, and `FF` to port `0x20` and
+reads the same five raw bytes back. A 50-T-state RAM counter advances 12,000
+times during five 20 ms frames after write zero and 30,000 times after write
+one. The exact 2.5 ratio dynamically distinguishes 6 MHz from 15 MHz. A MAME
+soft reset retains raw speed `0x03`; this is driver behavior, not a calculator
+reset claim. [standard]
+
 ## Boot configuration
 
 The retail boot continuation writes the complete block after its RAM probes
@@ -112,7 +120,8 @@ must not be mistaken for TI-84 Plus OS policy. [standard]
 MAME accepts the later port-`0x20` speed write but drops all six boot writes to
 ports `0x29`–`0x2C`, `0x2E`, and `0x2F`. It therefore runs the ROM at the
 selected base clock without the programmable LCD or memory additions described
-below. [standard]
+below. A native patterned-write run reads zero from every port `0x29`–`0x2F`
+both before and after the writes. [standard]
 
 ## LCD instruction delay — ports `0x29`–`0x2C`
 
@@ -334,6 +343,12 @@ python tools/run_wabbitemu_speed_edge_probe.py \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$wabbit_speed_parent/run" --json
+
+mame_asic_parent=$(mktemp -d /tmp/ti84-mame-asic.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_asic_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_asic_parent/run" --json
 ```
 
 The manifest labels the run as initialized-core emulator evidence and records
@@ -344,6 +359,8 @@ and bus-timing libraries.
 `tools/wabbitemu_speed_probe.py` derives speed, latch, and wait-mask
 expectations from `tools/bus_timing.py`. Its guarded CLI records both input
 hashes and labels the direct `timer_version = 1` configuration explicitly.
+`tools/mame_asic.py` reuses the MAME timing profile for raw readback, binary
+clock selection, and the absent delay block.
 
 The executed initialization can be recovered from a full boot trace:
 

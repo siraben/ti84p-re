@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import Iterable, Iterator
 
 from hardware_trace import ResolvedIoEvent
-
 
 MASK32 = 0xFFFFFFFF
 MODE_NAMES = {0: "F", 1: "G", 2: "H", 3: "I"}
 MD5_PORTS = frozenset(range(0x18, 0x20))
+ABC_FIRST_STEP = (
+    0x67452301,
+    0xEFCDAB89,
+    0x98BADCFE,
+    0x10325476,
+    0x80636261,
+    0xD76AA478,
+)
 
 
 @dataclass(frozen=True)
@@ -81,6 +88,7 @@ def md5_implementation(profile: str) -> Md5ImplementationProfile:
         choices = ", ".join(MD5_IMPLEMENTATIONS)
         raise ValueError(f"unknown MD5 profile {profile!r}; choose {choices}") from None
 
+
 MD5_EVENT_SEQUENCE = (
     (("OUT", 0x1F),)
     + tuple(("OUT", port) for port in range(0x18, 0x1E) for _ in range(4))
@@ -132,6 +140,34 @@ def md5_assist_value(
     inner = (a + function + x + t) & MASK32
     rotated = ((inner << shift) | (inner >> ((32 - shift) & 31))) & MASK32
     return (b + rotated) & MASK32
+
+
+def md5_edge_values() -> dict[str, object]:
+    """Derive the shared TilEm/Wabbitemu MD5 edge-case observations."""
+
+    before_mutation = md5_assist_value(0, *ABC_FIRST_STEP, 7)
+    after_mutation = md5_assist_value(
+        0,
+        0xFFFFFFFF,
+        *ABC_FIRST_STEP[1:],
+        7,
+    )
+    return {
+        "reset_operand_reads": (0, 0, 0, 0),
+        "reset_result": 0,
+        "one_write_result": 0x11000000,
+        "three_write_result": 0x33221100,
+        "four_write_result": 0x44332211,
+        "five_write_result": 0x55443322,
+        "raw_shift": 0xFF,
+        "raw_mode": 0xFF,
+        "masked_control_result": md5_assist_value(3, 1, 2, 3, 4, 5, 6, 31),
+        "loaded_operand_reads": (0, 0, 0, 0),
+        "before_mutation_result": before_mutation,
+        "after_mutation_result": after_mutation,
+        "mixed_result": (before_mutation & 0xFF) | (after_mutation & 0xFFFFFF00),
+        "tstates": 0,
+    }
 
 
 class Md5AssistImplementation:

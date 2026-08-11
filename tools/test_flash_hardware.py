@@ -95,6 +95,14 @@ class FlashHardwareTests(unittest.TestCase):
         self.assertEqual(3, len({profile.name for profile in EMULATOR_PROFILES}))
         self.assertEqual("MAME", emulator_profile("mame").name)
 
+    def test_tilem_profile_uses_real_time_timer_units(self):
+        tilem = emulator_profile("tilem")
+
+        self.assertIn("7 us", tilem.program_completion)
+        self.assertIn("42 clocks", tilem.program_completion)
+        self.assertIn("200 ms", tilem.erase_completion)
+        self.assertIn("1200000 clocks", tilem.erase_completion)
+
     def test_command_profiles_keep_physical_and_emulator_support_distinct(self):
         self.assertEqual(4, len(FLASH_COMMAND_PROFILES))
         fujitsu = flash_command_profile("fujitsu mbm29lv800ta")

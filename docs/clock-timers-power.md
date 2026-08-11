@@ -15,7 +15,7 @@ The subsystem crosses ROM code, public hardware observations, and emulator polic
 | TI-OS dynamic execution | `tools/macros/power-cycle.macro` and resolved TilEm traces | standard-timer cadence and the explicit shutdown/HALT path [confirmed] |
 | Public hardware notes | WikiTI ports `0x03`, `0x04`, `0x20`, `0x2D`, `0x2F`, `0x30`–`0x38`, and `0x40`–`0x48` | register semantics and oscillator-derived rates [standard] |
 | Emulator models | TilEm commit `f56ad63`, Wabbitemu commit `48c2dc0`, and MAME 0.287 | independent timer decode, scheduling, status, interrupt, and RTC policies [standard] |
-| Native emulator execution | guarded Wabbitemu `--timer-edge-probe` run | initialized-core catch-up, zero-counter, acknowledgement, HALT-line, and RTC transitions [standard] |
+| Native emulator execution | guarded TilEm, Wabbitemu, and MAME timer/interrupt runs | source decode, scheduling, counter, acknowledgement, callback, HALT-line, reset, and RTC transitions [standard] |
 
 ## Hardware blocks and clock domains
 
@@ -120,6 +120,14 @@ A resolved TilEm trace enters `ram:0167` at steady intervals of 139,153–139,15
 
 The hardware formula gives 9,277.34375 µs, or 139,160.15625 nominal 15 MHz cycles. TilEm rounds each rate to whole microseconds with the table `{1953, 4395, 6836, 9277}`. The five-cycle difference at the slow setting is emulator quantization, not evidence that the quartz formula differs. [standard]
 
+A guarded direct-core probe confirms the table through port-`0x04` writes.
+Each selection applies the same period to timer 1 and both timer-2 callbacks.
+The initial intervals remain 1,600, 1,300, and 1,000 µs across those writes,
+matching TilEm's `tilem_z80_set_timer_period` contract. Direct callbacks with
+port-`0x03` mask `0x06` produce status `0x0A` for timer 1 and `0x0C` for
+either timer-2 callback. These are scheduler observations from pinned TilEm,
+not physical phase or frequency measurements. [standard]
+
 ## Kernel-tick consumers
 
 `standard_timer1_irq` at `ram:0167` performs the periodic kernel work below before returning through the common interrupt acknowledge path. [confirmed]
@@ -214,6 +222,14 @@ Writing a nonzero counter starts it when a valid source is selected. Counter val
 
 TilEm stops a timer on every source-register write and retains the current counter as the next loop value. This is emulator behavior in `tilem_user_timer_set_frequency`, not evidence that every physical ASIC revision retains the counter the same way. [standard]
 
+TilEm rounds crystal-family durations to whole microseconds before scheduling.
+For a freshly loaded counter value of one, sources `0x40`–`0x47` schedule at
+`92`, `1007`, `10010`, `100006`, `31`, `488`, `7813`, and `125000` µs. The
+counter read rescales that rounded remainder against a separately rounded
+256-count duration. It consequently reads `1 0 1 0 1 0 1 1` immediately
+after those eight starts. This readback pattern is a TilEm quantization effect,
+not a physical counter claim. [standard]
+
 ### Mode, completion, and acknowledgement
 
 | Mode/status bit | Meaning |
@@ -223,6 +239,12 @@ TilEm stops a timer on every source-register write and retains the current count
 | 2 | overflow: another expiry occurred before acknowledgement |
 
 Writing the mode/status port acknowledges completion, clears overflow, and removes the timer's interrupt request. The corresponding port-`0x04` bit records completion even when mode bit 1 did not request an interrupt. If looping remains active without a new mode write before the next expiry, the counter continues through a 256-count overflow cycle and sets status bit 2. [standard]
+
+TilEm also assigns a recurring 256-tick period when software restarts an
+already completed non-looping timer without first writing its mode port. The
+completion bit remains set, the low mode read remains zero, and the next
+callback sets overflow bit 2. OS 2.55MP acknowledges before programming its
+next chunk, so the timer bcall path does not use this emulator edge. [standard]
 
 Port `0x2D` controls low-power behavior. Bit 0 keeps the quartz oscillator active on the TI-83 Plus Silver Edition; the TI-84 Plus RTC already requires it. Bit 1 allows the programmable timers to continue counting in low power. TI writes `0x03`. Public hardware tests report that these timers still do not reliably interrupt a halted CPU, so software should keep a standard timer enabled when it must escape `HALT`. [standard]
 
@@ -299,6 +321,12 @@ To set the clock, software writes all four staged bytes, writes `0x01` to port `
 `rtc_write_seconds` at `37:593F` writes the four converted bytes in the reverse port order `0x44`, `0x43`, `0x42`, `0x41`, then emits the `0x01` → `0x03` control sequence. [confirmed]
 
 The hardware documentation does not describe a snapshot/latch operation for current-time reads. The OS reads high byte first, which reduces but does not eliminate the possibility of a rollover between the four port reads. No retry or two-pass coherence check appears at `37:58A1`. [confirmed] for the OS sequence; [hypothesis] for physical rollover behavior.
+
+TilEm reads host `time_t` separately on every current-register access. A
+probe-controlled rollover from `0x00FFFFFF` to `0x01000000` between the
+port-`0x48` read and the remaining bytes assembles `0x00000000`. This proves
+that pinned TilEm has no multi-byte RTC latch. It does not resolve whether the
+physical ASIC snapshots the current count. [standard]
 
 ### Date and time bcalls
 
@@ -388,6 +416,13 @@ The comparison below reproduces pinned source behavior. Agreement between implem
 
 TilEm reproduces the paths used by this OS, but several model choices matter for timing experiments. [standard]
 
+Port-`0x03` bits 1 and 2 jointly control TilEm's programmable-timer
+`NO_HALT_INT` flag. With both bits clear, a halted CPU receives no programmable
+request even though port-`0x04` exposes completion. Either bit set removes the
+gate for all three timers. A running CPU receives the request in either state.
+The guarded interrupt probe exercises all three cases through the direct timer
+callback. [standard]
+
 - Standard-timer periods are rounded to whole microseconds: `{1953, 4395, 6836, 9277}`.
 - Crystal-family programmable timers use the documented divisor table. CPU-family duration is measured in Z80 clocks and follows the speed selected at port `0x20`.
 - The `0xC0` family uses the ordinary CPU-family decode, so port `0x2F` does not prescale it.
@@ -395,7 +430,41 @@ TilEm reproduces the paths used by this OS, but several model choices matter for
 - An internal `NO_HALT_INT` flag suppresses programmable-timer interrupts during `HALT` when neither standard timer is enabled at port `0x03`.
 - The RTC uses host `time_t` plus an offset. Disabling it freezes the stored count rather than making current ports read zero.
 
+A full TilEm reset disables all three programmable timers and clears their
+frequency, reload, and status fields. It reschedules the standard timers but
+retains the global Z80 clock and dynamically allocated scheduler timers. The
+TI-84 Plus callback also leaves `CLOCK_MODE`, `CLOCK_INPUT`, and `CLOCK_DIFF`
+unchanged. A guarded direct-core run verifies each boundary. These are emulator
+lifecycle rules, not physical RTC or reset behavior. [standard]
+
 TilEm tracks completion internally for port `0x04` while exposing loop, interrupt enable, and overflow through the low three mode/status bits. The first nonzero-counter expiry sets completion; a second expiry without a mode write sets visible overflow bit 2. [standard]
+
+**Native TilEm confirmation.** The guarded direct-core matrix verifies all
+eight rounded crystal durations and all seven CPU divisors. Sources `0x00`,
+`0x01`, and `0x3F` leave the scheduler stopped while preserving a written
+counter. Source `0xC0` schedules one CPU clock with port `0x2F` set to `0x00`,
+`0x4A`, or `0xFF`. [standard]
+
+Counter zero schedules a recurring 256-tick callback without completion.
+One non-looping expiry produces internal status `0x100`, port-`0x04 = 0x28`,
+and no request. A second unacknowledged expiry changes the visible mode/status
+read to `0x04`. Interrupt mode produces internal request `0x08`; completing
+timers 1–3 cumulatively produces port-`0x04` values `0x28`, `0x68`, and
+`0xE8`, with internal request masks `0x08`, `0x18`, and `0x38`. A mode write
+clears completion and the matching request. A source write after four of ten
+CPU ticks — advanced directly in the probe's scheduler clock — retains counter
+six and stops the timer. [standard]
+
+The RTC case substitutes a deterministic `time_t` source inside the probe
+process. Committing `0x12345678`, advancing ten seconds, disabling for ninety,
+and re-enabling for five produces `0x12345678`, `0x12345682`, `0x12345682`,
+and `0x12345687`. A disabled commit of `0xDEADBEEF` survives full TilEm reset
+with control mode `0x02`. Two isolated executions produce identical canonical
+native JSON with SHA-256
+`0da06edc402dfb14945d28577f212face4c04c22b3b6ffc3e283a70e0ecb4aa5`.
+The binary SHA-256 is
+`fa665079fac1ace807930be8a3836385f6821ee9994c6454039b8ca85bb75d77`.
+[standard]
 
 ### Wabbitemu timer and RTC policy
 
@@ -429,15 +498,29 @@ With mode `0x02`, source `0x80`, and counter 1, expiry during `HALT` leaves the 
 
 ### MAME timer and RTC policy
 
-MAME maps only timer ports `0x30`–`0x38` from this block. It does not map port `0x2D`, port `0x2F`, or RTC ports `0x40`–`0x48`. For every nonzero source value, a counter write selects one of the eight Wabbitemu-style crystal divisors from the low three bits and schedules at `32768/divisor` Hz. CPU-source family bits do not select the CPU clock. [standard]
+MAME maps only timer ports `0x30`–`0x38` from this block. Ports `0x2D`–`0x2F` and RTC ports `0x40`–`0x48` are unmapped. For every nonzero source value, a counter write selects one of the eight Wabbitemu-style crystal divisors from the low three bits and schedules at `32768/divisor` Hz. CPU-source family bits do not select the CPU clock. [standard]
 
 The initial callback is scheduled at zero delay, so a nonzero counter value $N$ reaches its first modeled expiry after $N-1$ periodic intervals; a value of one can expire immediately. Counter zero remains zero because the callback decrements only a nonzero count. At expiry, loop bit 0 reloads the counter once, but the callback then applies `loop &= 2` and discards that bit. Mode bit 1 has inverted polarity: an interrupt and port-`0x04` completion are produced only when it is clear. A mode write also clears all three programmable completion bits globally rather than only the selected timer. [standard]
 
 The TI-84 Plus driver is marked `MACHINE_NOT_WORKING`. Its standard timers remain fixed at 256 Hz and 512 Hz, and port-`0x04` writes do not retime them. It can still run the repository ROM's page-0 ON-wake path, as shown in [Interrupts (IM1)](interrupts.md#emulator-comparison), but that execution does not validate the timer model. [standard]
 
+**Native MAME confirmation.** The guarded CPU-I/O-space probe parks the Z80 in a `DI` loop on isolated RAM. Source bytes `0x01`, `0x41`, and `0x81` each reduce counter `0xFF` to `0xEA` over 20 ms of emulated time. The 21 decrements comprise one zero-delay callback and 20 periods at 1,024 Hz. This confirms that the documented off, crystal, and CPU families all use low-three-bit divisor `32`. [standard]
+
+Counter zero remains zero with source `0x07` after 15 frames. The source readback remains `0x07`, and port `0x04` remains `0x08`. Source zero disables a running timer while preserving count `0x05`. A mode write retains only bits 0–1. Mode bit 1 set produces no completion; the same count with bit 1 clear sets timer-3 completion and changes port `0x04` from `0x08` to `0x88`. [standard]
+
+Loop mode reloads count one, clears bit 0, and schedules another zero-delay callback. The second callback stops the timer, leaving count, source, and mode at zero with completion set. Simultaneous timer-1 and timer-2 completion produces port `0x04 = 0x68`; writing timer 1's mode clears both bits and returns `0x08`. Ports `0x2D`–`0x2F` and `0x40`–`0x48` return zero before and after patterned writes. Two isolated runs produce byte-identical reports with SHA-256 `5aab56b737495fef9c953522e1a3eee47d3e96637bc8266ce6258ff10d3e2c26`. [standard]
+
+A separate guarded legacy-interrupt run enables standard timer 1, standard
+timer 2, and both for one 20 ms frame. Port `0x04` reads `0x0A`, `0x0C`, and
+`0x0E`. Timer 1 produces `0x0A` after both configuration writes `0x00` and
+`0x06`, consistent with the source's fixed callbacks. A soft reset retains
+both masks: clearing their pending fields after reset allows both to regenerate
+status `0x0E` during the next frame. These are MAME scheduler and reset results,
+not physical timer periods or retention. [standard]
+
 ## Reusable timer tools
 
-`tools/timer_hardware.py` exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM's radix-255 chunks, and RTC implementation profiles. `tools/describe_timer_hardware.py` is a JSON-capable front end. `tools/wabbitemu_timer_probe.py` validates native observations against that reusable source model. `tools/run_wabbitemu_timer_edge_probe.py` guards the ROM and binary identities and writes a JSON manifest. CPU-speed and port-`0x2D` implementation edges use `tools/wabbitemu_speed_probe.py` and its guarded CLI. These are emulator-comparison tools, not physical-hardware simulators.
+`tools/timer_hardware.py` exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM's radix-255 chunks, and RTC implementation profiles. `tools/describe_timer_hardware.py` is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models. `tools/tilem_timer.py` adds the complete direct-core programmable-timer and deterministic RTC matrix. `tools/tilem_interrupt.py` adds direct standard-timer scheduling and programmable-timer HALT-gate observations. `tools/mame_interrupt.py` adds fixed standard-timer and reset-retention observations through the immutable MAME state in `tools/interrupt_controller.py`. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-`0x2D` implementation edges use `tools/wabbitemu_speed_probe.py` and its guarded CLI. These are emulator-comparison tools, not physical-hardware simulators.
 
 ```sh
 nix develop -c python tools/describe_timer_hardware.py \
@@ -457,6 +540,12 @@ nix develop -c python tools/run_wabbitemu_timer_edge_probe.py \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$timer_probe_parent/run" --json
+
+mame_timer_parent=$(mktemp -d /tmp/ti84-mame-timer.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_timer_parent/run" --json
 ```
 
 ## Resolved findings and open hardware questions
@@ -469,8 +558,13 @@ nix develop -c python tools/run_wabbitemu_timer_edge_probe.py \
 - [confirmed] Explicit power-off and APD share the low-power tail at `ram:0A24`.
 - [standard] TilEm matches the published `33`/`328`/`3277` crystal divisors; pinned Wabbitemu and MAME sources use `32`/`327`/`3276`.
 - [standard] TilEm, Wabbitemu, and MAME all omit the published port-`0x2F` prescaler from their `0xC0`-family timer models.
+- [standard] A guarded TilEm run verifies its four whole-microsecond standard-timer periods, unchanged current intervals on rate writes, two timer-2 callbacks sharing one pending bit, and the three programmable-timer HALT-gate cases.
+- [standard] A guarded TilEm timer/RTC run verifies every source divisor, rounded count readback, off sources, ignored port-`0x2F`, counter-zero behavior, overflow and acknowledgement, the unacknowledged non-loop restart, per-timer status mapping, source-write retention, RTC freeze/re-enable/reset, and an exact torn read.
 - [standard] A guarded initialized-core Wabbitemu run verifies single-step crystal catch-up, full CPU catch-up, first-underflow status bit 2, counter-zero completion, acknowledgement, HALT-line suppression with retained generation, and frozen disabled RTC reads.
+- [standard] A guarded MAME run verifies fixed-crystal source-family collapse, its zero-delay first callback, idle counter zero, inverted mode-bit polarity, one-reload loop behavior, global completion clearing, source-off preservation, and unmapped auxiliary and RTC blocks.
+- [standard] A separate guarded MAME run verifies both standard-timer pending bits, timer-1 status within one frame after port-`0x04` writes `0x00` and `0x06`, and retained legacy masks across soft reset.
 - [standard] Wabbitemu's low-level and frontend reset paths retain the timer context, delay registers, interrupt controller, programmable timers, and RTC. A guarded run confirms the directly seeded state. Physical reset retention remains open.
+- [standard] TilEm's full reset clears programmable timers and reschedules standard timers while retaining the global clock, RTC fields, and dynamic scheduler timers. A guarded direct-core run confirms the seeded boundaries. Physical reset retention remains open.
 - [hypothesis] Physical RTC reads can tear across a one-second rollover because no latch or OS retry is documented.
 - [hypothesis] The physical crystal divisors, first-versus-second-expiry meaning of mode/status bit 2, counter-zero edge, and precise reason programmable timers fail to wake `HALT` need direct TA2/TA3 measurements.
 - [hypothesis] Low-power behavior of port `0x2D`, disabled RTC reads, control-edge behavior, and rollover coherence should be checked on TA2 and TA3 hardware rather than inferred from emulators.
@@ -488,5 +582,6 @@ nix develop -c python tools/run_wabbitemu_timer_edge_probe.py \
 | [WikiTI hardware history](https://wikiti.brandonw.net/index.php?title=83Plus:History_of_TI-8x_hardware) | ASIC integration, quartz oscillator, and TI-84 Plus RTC |
 | [Datamath TI-84 Plus hardware](http://www.datamath.org/Graphing/TI-84PLUS.htm) | TA2/TA3 identification, ASIC/PCB photographs, and 15 MHz specification |
 | [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), [`x4_init.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c), and [`timers.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/timers.c) | emulator timer, RTC, interrupt, and power policy |
+| [TilEm `calcs.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/calcs.c) and [`z80.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/z80.c) | reset sequencing and scheduler-state retention |
 | [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c), [`83psehw.h`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.h), [`core.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c), and [`calc.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/interface/calc.c) | independent source decode, catch-up, underflow, HALT, RTC, and reset-retention policies |
 | [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | mapped ports, scheduling, callback polarity, standard timers, and driver status |

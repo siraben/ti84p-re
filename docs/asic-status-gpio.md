@@ -23,6 +23,7 @@ calculator.
 | MAME 0.287 | A third implementation with fixed status and identity values, incompatible port-`0x21` masking, and no GPIO ports [standard] |
 | Guarded Wabbitemu `--asic-edge-probe` run | Initialized-core status, identity, protected-write, internal-field, readback, and GPIO-map observations [standard] |
 | Guarded Wabbitemu `--protection-port-probe` run | Shared write gate and internal-field behavior for ports `0x22`–`0x26` [standard] |
+| Guarded MAME ASIC-control run | Raw Flash-gate status, identity, speed, port-`0x21`, missing protection/GPIO ranges, USB constants, and soft-reset retention [standard] |
 
 The static I/O scanner reports candidates from a linear disassembly. Data can
 decode as instructions, so a candidate needs control-flow or trace evidence.
@@ -64,11 +65,14 @@ same family split, setting bit 7 for its TI-84 Plus models and clearing it for
 its TI-83 Plus family. [confirmed] for the ROM branch and resolved TI-84 Plus
 values; [standard] for the emulator family mapping.
 
-MAME returns locked status `0xC3` and adds bit 2 after a Flash-unlock write.
-Its comparator and LCD-ready bits are fixed high. Bit 5 is fixed low, so this
-TI-84 Plus driver reports link assist but not USB capability. This is an
-emulator inconsistency, not evidence for a different ASIC status layout.
-[standard]
+MAME returns `0xC3 | (m_flash_unlocked << 2)`, truncated to one byte. Its
+comparator and LCD-ready bits are fixed high. The normal gate values zero and
+one therefore return `0xC3` and `0xC7`. The handler does not normalize other
+bytes: writes `02`, `3F`, `40`, and `FF` return `CB`, `FF`, `C3`, and `FF`.
+Port `0x14` remains write-only and reads zero. Bit 5 is fixed low for the
+normal locked status, so this TI-84 Plus driver reports link assist but not USB
+capability. These are emulator inconsistencies, not evidence for a different
+ASIC status layout. [standard]
 
 ## Battery comparison
 
@@ -200,7 +204,9 @@ so it loses bits 4–5. [standard]
 MAME accepts writes without the protected-byte gate, stores `value & 0x0F`,
 and returns that nibble. It can therefore expose undocumented bits 2–3 while
 discarding the RAM execution field in bits 4–5. MAME does not implement the
-execution-protection ports controlled by that field. [standard]
+execution-protection ports controlled by that field. A native locked write of
+`0x33` reads back `0x03`; opening the port-`0x14` gate does not change results
+for writes `0x30`, `0x03`, `0x33`, or `0xFF`. [standard]
 
 ### Bits 0–1: Flash group
 
@@ -308,6 +314,24 @@ for the complete value matrix and evidence limits. [standard]
 
 The same initialized core has no active device at port `0x39`; a read is rejected and produces the device layer's `0xFF` fallback. Port `0x3A` is active, starts at zero, and reads back complete `0xA5` and `0x5A` writes. The run advances zero T-states and does not assign electrical direction or signal meaning to either GPIO port. [standard]
 
+**Native MAME confirmation.** The guarded run reads startup values `C3`, `00`,
+`33`, `00`, and `00` from ports `0x02`, `0x14`, `0x15`, `0x20`, and `0x21`.
+The raw gate sweep produces `C3 C7 CB FF C3 FF` for writes
+`00 01 02 3F 40 FF`. Port `0x14` reads zero after every write. [standard]
+
+Ports `0x22`–`0x2F` and `0x39`–`0x3A` return zero before and after patterned
+writes. A 50-T-state counter continues executing from RAM while port `0x21`
+reads `0x03` and ports `0x22`–`0x26` retain no written byte. The five-frame
+counter records 12,000 iterations at the zero speed value and 30,000 at the
+nonzero value. This checks one RAM execution path, not the missing physical
+boundary rules. [standard]
+
+A scheduled MAME soft reset begins at `PC = 0x0000` but retains a gate value of
+one, raw speed `0x03`, and the port-`0x21` nibble from write `0xAB`. The reads
+are consequently `0xC7`, `0x03`, and `0x0B` after reset. The driver reset
+routine does not restore these fields. This is MAME reset behavior and does
+not establish calculator warm-reset retention. [standard]
+
 ## Emulator comparison
 
 The three pinned implementations disagree on every control group not already
@@ -316,7 +340,7 @@ physical ASIC measurements.
 
 | Area | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 |
 |------|-----------------|----------------------|------------|
-| Port `0x02` | dynamic comparator, LCD-ready, and Flash lock; family bits 5–7 set | same layout, with the TI-84 Plus comparator fixed high | fixed `0xC3` when locked; Flash unlock adds bit 2 |
+| Port `0x02` | dynamic comparator, LCD-ready, and Flash lock; family bits 5–7 set | same layout, with the TI-84 Plus comparator fixed high | `0xC3 | (raw gate << 2)`, truncated to a byte |
 | Port `0x15` | fixed `0x45` | model and RAM-revision dependent | fixed `0x33` |
 | Port `0x21` accepted readback | `value & 0x33`, subject to Flash unlock | only bits 0–1 survive its read defect | `value & 0x0F`, without protected-write gating |
 | GPIO | port `0x39` fixed at `0xF0`; no meaningful TI-84 Plus port `0x3A` | port `0x3A` latch; port `0x39` absent | both ports absent |
@@ -332,7 +356,9 @@ against the reusable source model. `tools/run_wabbitemu_asic_edge_probe.py`
 guards the exact ROM and native binary identities and writes a JSON manifest.
 `tools/wabbitemu_protection_port_probe.py` applies the adjacent boundary-port
 model from `tools/execution_protection.py`; its guarded CLI records the same
-two identities.
+two identities. `tools/mame_asic.py` combines the ASIC and bus-timing profiles
+with a typed native report. `tools/run_mame_asic_probe.py` guards the MAME,
+ROM, and Lua identities and retains the soft-reset output.
 [confirmed] for the ROM-analysis tools; [standard] for the emulator oracle.
 
 ```sh
@@ -357,6 +383,12 @@ nix develop -c python tools/run_wabbitemu_protection_port_probe.py \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$protected_port_parent/run" --json
+
+mame_asic_parent=$(mktemp -d /tmp/ti84-mame-asic.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_asic_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_asic_parent/run" --json
 ```
 
 The I/O and GPIO scans generate candidates. A report becomes evidence for code

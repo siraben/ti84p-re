@@ -416,7 +416,11 @@ The partial model has five source-visible defects: [standard]
 
 These inconsistencies prevent Wabbitemu from serving as a connected PHY reference. Its paired-state representation and active-low summary still provide an independent comparison with the ROM's bit tests. The electrical labels remain emulator evidence because the ROM does not name the signals. [standard] for source behavior; [hypothesis] for physical signal assignments.
 
-MAME maps ports `0x55` and `0x56` to constant disconnected values `0x1F` and zero. Ports `0x4A`–`0x5B` outside that pair and the FDRC region at `0x80`–`0xA2` are absent from the TI-84 Plus map. [standard]
+MAME maps ports `0x55` and `0x56` to constant disconnected values `0x1F` and
+zero. Ports `0x4A`–`0x5B` outside that pair and the FDRC region at
+`0x80`–`0xA2` are absent from the TI-84 Plus map. A guarded native sweep reads
+zeros across `0x4A`–`0x5B` except for `0x55 = 0x1F`; patterned writes leave the
+complete block unchanged. A soft reset produces the same pair. [standard]
 
 ### Native Wabbitemu USB edges
 
@@ -452,7 +456,9 @@ paired line-state decoder, emulator profiles, and pure functions for Wabbitemu's
 `tools/describe_usb_hardware.py` exposes the general models as text or JSON.
 `tools/wabbitemu_usb_probe.py` validates native reports against the reusable handler model, while
 `tools/run_wabbitemu_usb_edge_probe.py` provides the exact-ROM guard and writes a hashed JSON
-manifest.
+manifest. The link-assist state model remains in `tools/link_port.py`;
+`tools/tilem_link.py` and `tools/run_tilem_link_probe.py` add the guarded TilEm
+native report and manifest.
 
 ```sh
 # Map global, indexed, dynamic-sizing, and FIFO registers.
@@ -488,6 +494,28 @@ Prefer the OS entry points unless the program is deliberately writing a USB driv
 The raw FIFO sequence is only the byte layer. A working transfer still needs the packet layer:
 machine ID, command, length, payload checksum, ACK/NAK, and EOT. That framing is documented in
 [sub-link-transfer.md](sub-link-transfer.md#3-packet-framing--the-ti-link-protocol-confirmed).
+
+### Native TilEm link-assist edges
+
+The guarded TilEm direct-core probe maps all handlers from `0x08` through
+`0x0D`. A fresh disabled engine reports `0x20`. The read sides of
+ports `0x09`–`0x0C` remain computed status or zero after the write sides store
+`0x91`, `0xA2`, `0xB3`, and `0xC4`. This covers the complete four-register
+setup surface that OS 2.55MP initializes. [standard]
+
+Idle-ready reports `0x22` and asserts the CPU interrupt. Reading port `0x0D`
+does not acknowledge that condition. A completed `0xA5` receive reports
+`0x31`; reading port `0x0A` returns the byte and changes status to `0x20`.
+An illegal both-low input reports `0x64`; the first status read clears only the
+interrupt request, leaving error status `0x60`. [standard]
+
+Full reset restores port `0x08 = 0x80` and clears the active transfer fields,
+but retains the four auxiliary write registers and external peer-line state.
+Direct handler calls consume zero modeled CPU clocks. These results describe
+the pinned TilEm implementation, not physical assist timing or reset
+retention. See [Two-wire link port hardware](link-port-hardware.md#native-tilem-raw-and-assist-edges)
+for the raw matrix, LSB-first transfer sequence, and guarded command.
+[standard]
 
 ### Native Wabbitemu link-assist edges
 
@@ -528,6 +556,9 @@ Practical rules:
   imported bit meaning or the TI-specific PHY at ports `0x4A`–`0x5B`. TilEm does not model physical
   timing from the assist setup values. ROM-confirmed claims remain limited to written constants,
   comparisons, branch bits, RAM state, FIFO direction, and the transfer sequences cited above.
+- The guarded TilEm link probe verifies handler-visible assist behavior, but it
+  does not establish physical signaling-rate divisors, wait states, electrical
+  levels, or reset retention.
 - TilEm, Wabbitemu, and MAME do not implement a connected page-35 transfer. The initialized-core Wabbitemu run confirms its port-registration, event-mask, contradictory-line-state, repeat-event, and paired-bit handler defects. Dynamic connected-path evidence therefore still requires physical hardware or a controlled port-level harness.
 
 ## Sources

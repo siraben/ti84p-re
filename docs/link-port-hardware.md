@@ -15,7 +15,9 @@ The sources answer different questions:
 | OS 2.55MP bytes | Values written to port `0x00`, values accepted on reads, bit order, acknowledgements, and error branches | [confirmed] |
 | TilEm and Wabbitemu | Two independent digital models of port reads, local output latches, connected endpoints, and link assist | [standard] where both match the public port contract |
 | MAME 0.287 | A third raw-port implementation, optional link-bus devices, advertised assist state, and interrupt omissions | [standard] |
+| Guarded TilEm link edge probe | Direct-core raw truth table, assist port map, byte transfers, status, interrupts, and reset retention | [standard] |
 | Guarded Wabbitemu link edge probe | Initialized-core raw truth table, assist port map, byte transfers, status, and interrupts | [standard] |
+| Guarded MAME raw-link probe | CPU-visible PCR readback, connector-facing output fields, peer inputs, and advertised-but-inert assist ports | [confirmed] for the pinned emulator run |
 | TI Link Protocol Guide and WikiTI | Open-collector electrical description and red/tip versus white/ring names | [standard] |
 | Physical measurements | Rise time, pull-up resistance, voltage thresholds, and ASIC-specific edge timing | [hypothesis] until measured on this hardware |
 
@@ -320,6 +322,36 @@ and self-drive reads. The separate `link_disconnect` function instead assigns
 `client[0]`. A subsequent port read can therefore dereference a null pointer.
 This is an emulator lifecycle defect, not link-port behavior. [standard]
 
+### Native TilEm raw and assist edges
+
+A guarded direct-core run exercises TilEm's registered port handlers and link
+state machine at commit `f56ad637d0524ee841dd381be6ecbaf5b8975600`.
+The raw port produces the same 16-value local-major truth table shown for
+Wabbitemu below. Writing `0xA6` gives `0x21`. Pulling peer line 0 low while the
+local latch is zero gives `0x02` and asserts the link-activity interrupt when
+port-`0x03` bit 4 enables it. [standard]
+
+TilEm maps all six assist ports from `0x08` through `0x0D`. A fresh disabled
+engine reads status `0x20`. Writes `0x91`, `0xA2`, `0xB3`, and `0xC4` to
+ports `0x09`–`0x0C` remain in internal auxiliary registers, while the read
+sides continue to return computed status or zero. [standard]
+
+Enabling idle-ready produces status `0x22` and asserts the CPU interrupt.
+Reading port `0x0D` leaves both conditions unchanged. Sending `0xA5` drives
+`2,1,2,1,1,2,1,2`, least-significant bit first, and returns to `0x22` after
+eight controlled acknowledgements. Receiving the same byte completes at
+`0x31`; reading port `0x0A` returns `0xA5` and changes status to `0x20`.
+[standard]
+
+An illegal both-low receive state produces status `0x64` and asserts the CPU
+interrupt. The first port-`0x09` read clears the interrupt request but retains
+the error flag, so the next status is `0x60`. Full reset restores port
+`0x08 = 0x80` and clears active assist state. It retains the four auxiliary
+registers and the externally supplied peer-line state. Direct port calls add
+zero modeled CPU clocks. These are initialized-core TilEm behaviors, not
+TI-OS execution, electrical measurements, or physical reset guarantees.
+[standard]
+
 ### Native Wabbitemu raw and assist edges
 
 A guarded initialized-core run exercises the registered Wabbitemu handlers.
@@ -376,6 +408,12 @@ Consequently, ordinary disconnected reads reproduce the public contract:
 | `0x02` | `0x20` | `2` | `0x21` |
 | `0x03` | `0x30` | `3` | `0x30` |
 
+A guarded MAME 0.287 run reproduces these reads through the main CPU I/O
+space: `03`, `12`, `21`, and `30`. It then writes zero to the PCR and injects
+the four peer pull-low masks through the link-port device's saved input fields.
+The resulting reads are `03`, `02`, `01`, and `00`. This confirms that the
+live read handler observes both the PCR latch and peer input state. [confirmed]
+
 The connector callbacks use different bits. MAME drives tip low only when
 write bits 2 and 4 are both set, and ring low only when bits 3 and 5 are both
 set. Normal OS writes `1` and `2` satisfy neither pair and therefore release
@@ -383,6 +421,13 @@ both external lines. Values `0x14` and `0x28` drive tip and ring respectively,
 but those are not the TI-84 Plus raw protocol values. A local MAME program can
 thus read an apparently correct self-latch while a connected link-bus device
 sees no asserted bit. [standard]
+
+The guarded run reads MAME's connector-facing `m_tip_out` and `m_ring_out`
+save items after every write. Values `0x00`–`0x03` leave both at `1`, meaning
+released. Write `0x14` changes the pair to `0,1`; `0x28` changes it to `1,0`;
+and `0x3C` changes it to `0,0`. These are internal MAME device levels. The run
+does not attach an optional link device or observe a physical connector.
+[confirmed]
 
 MAME's reusable link-bus layer has a four-phase bit/byte implementation,
 one-second timeout placeholders, collision handling, and optional bit-socket,
@@ -396,6 +441,13 @@ while its TI-84 Plus I/O map omits ports `0x08`, `0x0A`, `0x0B`, `0x0C`, and
 `0x0D`. Port `0x09` alone returns zero. OS 2.55MP therefore selects an assist
 path that this driver cannot execute. The driver also ignores port-`0x03` bit
 4 and never reports port-`0x04` link activity. [standard]
+
+The same native run reads port `0x02 = C3`. Ports `0x08`–`0x0D` all return
+zero before and after distinct writes `A8`–`AD`. The runtime result proves
+that no writable assist state is visible through those six ports. It cannot
+distinguish the fixed-zero handler at port `0x09` from the five unmapped
+ports; the pinned I/O map establishes that distinction. [confirmed] for the
+runtime values; [standard] for handler coverage.
 
 The emulator agreement corroborates the raw state transitions only where the
 implementations actually agree. None establishes analog voltage thresholds,
@@ -429,6 +481,32 @@ The `keyboard-rom` command verifies the `0x50E9` bcall entry and hashes the
 three OS 2.55MP byte regions that support the decoder; it rejects a different
 control-flow body instead of applying the fixed status model silently.
 
+Run the guarded TilEm matrix with the pinned clean source tree:
+
+```sh
+tilem_link_tmp=$(mktemp -d /tmp/ti84-tilem-link.XXXXXX)
+git clone https://github.com/debrouxl/tilem.git "$tilem_link_tmp/tilem"
+git -C "$tilem_link_tmp/tilem" checkout \
+  f56ad637d0524ee841dd381be6ecbaf5b8975600
+nix shell \
+  github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
+  --command python tools/build_tilem_link_probe.py \
+  --source "$tilem_link_tmp/tilem" \
+  --output "$tilem_link_tmp/tilem-link-probe" --json
+
+tilem_link_parent=$(mktemp -d /tmp/ti84-tilem-link-report.XXXXXX)
+python tools/run_tilem_link_probe.py \
+  --binary "$tilem_link_tmp/tilem-link-probe" \
+  --expected-binary-sha256 \
+    b878d9be860a92da72c5712e82a4c2974fb3cad125e078e61f8444172b887896 \
+  --output-dir "$tilem_link_parent/run" --json
+```
+
+`tools/tilem_link.py` derives the expected raw matrix, byte order, assist
+status, acknowledgement, and reset boundary from `tools/link_port.py`. The
+guarded runner records the source tree, exact binary, native report, and
+evidence scope.
+
 Run the guarded Wabbitemu matrix with:
 
 ```sh
@@ -443,6 +521,21 @@ python tools/run_wabbitemu_link_edge_probe.py \
 ports, and assist status from the reusable model. The guarded CLI requires the
 exact ROM and records the ROM and binary hashes.
 
+Run the guarded MAME raw-link matrix with:
+
+```sh
+mame_link_parent=$(mktemp -d /tmp/ti84-mame-link.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_link_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_link_parent/run" --json
+```
+
+`tools/mame_link.py` derives every expected read and connector output from
+`tools/link_port.py`. The guarded CLI retains the exact MAME, ROM, Lua script,
+native report, and parsed oracle identities. It does not execute a TI-OS
+transfer or attach a virtual cable.
+
 ## Resolved findings and open hardware tests
 
 - [confirmed] `_SendAByte` writes `1` for bit 0 and `2` for bit 1, least-significant bit first.
@@ -454,9 +547,12 @@ exact ROM and records the ROM and binary hashes.
 - [confirmed] The standard-timer path detects non-idle raw lines and routes them to the OS link-activity handler.
 - [standard] Port reads use active-high physical levels, writes use active-high pull-low controls, and bits 4–5 reflect the local output latch.
 - [standard] Public hardware references map bit 0 to red/tip and bit 1 to white/ring.
-- [standard] TilEm and Wabbitemu reproduce the raw open-collector truth table; MAME reproduces local readback but normal writes do not reach its connector device.
+- [standard] TilEm and Wabbitemu reproduce the raw open-collector truth table.
+- [standard] The guarded TilEm run verifies the raw matrix, activity interrupt, all six assist handlers, LSB-first `0xA5` transfers, status and data acknowledgement, sticky error flag, auxiliary-register retention, and external-line retention across reset.
+- [confirmed] The guarded MAME run reproduces its local readback and peer-input matrix while normal writes `1` and `2` leave both modeled connector outputs released.
 - [standard] The guarded Wabbitemu run verifies the complete raw matrix, absent assist ports `0x0B`/`0x0C`, idle-ready and read-ready interrupts, LSB-first `0xA5` send and receive, data-register acknowledgement, and seeded-error read-to-clear behavior.
-- [standard] MAME advertises link assist while omitting its control and data ports, and its driver is declared `MACHINE_NOT_WORKING`.
+- [confirmed] MAME reports port `0x02 = C3`, while ports `0x08`–`0x0D` remain zero before and after patterned writes.
+- [standard] MAME's source map gives port `0x09` a fixed-zero handler and omits the other five assist ports.
 - [hypothesis] Physical tests must measure pull-up resistance, high/low thresholds, line rise time, timeout duration at both CPU speeds, and the actual duration and voltage waveform of the `3C:618D` abort pulse.
 
 ## External references

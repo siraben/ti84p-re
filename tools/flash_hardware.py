@@ -132,7 +132,8 @@ FLASH_COMMAND_PROFILES = (
             "implemented", "programs old & requested through a timed busy model"
         ),
         sector_erase=_support(
-            "implemented", "uses a 200000-cycle busy and status model"
+            "implemented",
+            "uses a 50 us command window and 200 ms busy/status model",
         ),
         chip_erase=_support(
             "partial",
@@ -294,8 +295,14 @@ EMULATOR_PROFILES = (
         name="TilEm",
         revision="f56ad637d0524ee841dd381be6ecbaf5b8975600",
         program_rule="old & requested",
-        program_completion="7-cycle busy model with DQ7/DQ6 status",
-        erase_completion="200000-cycle busy model with DQ6/DQ2/DQ3 status",
+        program_completion=(
+            "7 us real-time timer with DQ7/DQ6 status "
+            "(42 clocks at the 6 MHz reset speed)"
+        ),
+        erase_completion=(
+            "50 us command window then 200 ms erase timer with DQ6/DQ2/DQ3 "
+            "status (300/1200000 clocks at the 6 MHz reset speed)"
+        ),
         autoselect="not implemented",
         autoselect_manufacturer_code=None,
         autoselect_device_code=None,

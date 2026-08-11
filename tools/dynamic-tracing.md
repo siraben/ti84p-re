@@ -1041,6 +1041,591 @@ Current TilEm backtrace files retain whole records. `--resync` is available for
 older or damaged traces with unknown bytes, but it cannot prove record alignment
 because TLMT v2 has no per-record checksum or framing marker.
 
+### Pinned TilEm direct-core probes
+
+`tilem_core.py` supplies clean-source validation, source enumeration, compiler
+construction, hashing, and captured native execution. `tilem_probe_support.c`
+supplies the allocation and diagnostic callbacks needed to link small probes
+against the complete core. Each builder requires the clean commit and Git tree
+before it compiles any source. Use the repository's locked Nixpkgs revision
+when `cc` is unavailable.
+
+#### Reset and execution exception
+
+```sh
+tilem_reset_tmp=$(mktemp -d /tmp/ti84-tilem-reset.XXXXXX)
+git clone https://github.com/debrouxl/tilem.git "$tilem_reset_tmp/tilem"
+git -C "$tilem_reset_tmp/tilem" checkout \
+  f56ad637d0524ee841dd381be6ecbaf5b8975600
+nix shell \
+  github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
+  --command python tools/build_tilem_reset_probe.py \
+  --source "$tilem_reset_tmp/tilem" \
+  --output "$tilem_reset_tmp/tilem-reset-probe" --json
+
+tilem_reset_parent=$(mktemp -d /tmp/ti84-tilem-reset-report.XXXXXX)
+python tools/run_tilem_reset_probe.py \
+  --binary "$tilem_reset_tmp/tilem-reset-probe" \
+  --expected-binary-sha256 \
+    ab0a862b1fbb7f8a09a075fbd0ec61ebb0bab84d12d2a9c2a650813476cc7e5a \
+  --output-dir "$tilem_reset_parent/run" --json
+```
+
+The source guard requires commit
+`f56ad637d0524ee841dd381be6ecbaf5b8975600`, tree
+`58316afe35d69e69353f0f743698144153051d4a`, and an unmodified tracked
+worktree. The probe seeds all reset components directly. It checks eight reset
+groups, nine retained groups, exact TI-84 Plus mapper and register defaults,
+and one restricted Flash instruction. That instruction writes a byte to mapped
+RAM before TilEm handles its pending exception and performs the full reset.
+The manifest labels this initialized-core scope; no TI-OS instruction or
+physical reset executes.
+
+#### Flash command and status matrix
+
+The Flash probe uses the same guarded source and shared support. It calls the
+core's physical-address Flash entry points against synthetic memory. It checks
+the command lock, reset, unsupported commands, fast mode, legal and illegal
+programming, status toggles, timer deadlines, sector boundaries, and both
+protection-override groups:
+
+```sh
+tilem_flash_tmp=$(mktemp -d /tmp/ti84-tilem-flash.XXXXXX)
+git clone https://github.com/debrouxl/tilem.git "$tilem_flash_tmp/tilem"
+git -C "$tilem_flash_tmp/tilem" checkout \
+  f56ad637d0524ee841dd381be6ecbaf5b8975600
+nix shell \
+  github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
+  --command python tools/build_tilem_flash_probe.py \
+  --source "$tilem_flash_tmp/tilem" \
+  --output "$tilem_flash_tmp/tilem-flash-probe" --json
+
+tilem_flash_parent=$(mktemp -d /tmp/ti84-tilem-flash-report.XXXXXX)
+python tools/run_tilem_flash_probe.py \
+  --binary "$tilem_flash_tmp/tilem-flash-probe" \
+  --expected-binary-sha256 \
+    31f8e15a348d15f876f103b8452340484893987e458023fd913280365db5c51d \
+  --output-dir "$tilem_flash_parent/run" --json
+```
+
+The scheduler converts TilEm's 7 µs program, 50 µs erase-window, and 200 ms
+erase inputs to 42, 300, and 1,200,000 clocks at the reset speed. The probe
+reads each status phase and directly invokes the registered Flash callback to
+advance between phases. It does not execute the retail ROM or a physical
+command.
+
+#### Legacy interrupt matrix
+
+The interrupt probe uses the same source guard and shared support. Its Python
+oracle reuses the immutable TilEm state in `interrupt_controller.py`. The C
+adapter calls the registered port and periodic-timer handlers, keypad and link
+entry points, programmable-timer expiry, and full reset:
+
+```sh
+tilem_interrupt_tmp=$(mktemp -d /tmp/ti84-tilem-interrupt.XXXXXX)
+git clone https://github.com/debrouxl/tilem.git "$tilem_interrupt_tmp/tilem"
+git -C "$tilem_interrupt_tmp/tilem" checkout \
+  f56ad637d0524ee841dd381be6ecbaf5b8975600
+nix shell \
+  github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
+  --command python tools/build_tilem_interrupt_probe.py \
+  --source "$tilem_interrupt_tmp/tilem" \
+  --output "$tilem_interrupt_tmp/tilem-interrupt-probe" --json
+
+tilem_interrupt_parent=$(mktemp -d /tmp/ti84-tilem-interrupt-report.XXXXXX)
+python tools/run_tilem_interrupt_probe.py \
+  --binary "$tilem_interrupt_tmp/tilem-interrupt-probe" \
+  --expected-binary-sha256 \
+    23037df0fee48b3ec15656aae80b6181d97211e8eec325c2be81eef02b1ff840 \
+  --output-dir "$tilem_interrupt_parent/run" --json
+```
+
+The native matrix checks full port-`0x03` readback; clear-on-zero behavior at
+ports `0x02` and `0x03`; ON press and release edges; the three standard-timer
+callbacks; current intervals and four selected periods; external link
+transitions; programmable-timer completion and CPU requests in halted and
+running states; and reset ordering. It exposes TilEm's stored
+port-`0x03 = 0x0B` with an internally disabled ON interrupt immediately after
+reset. A prior bit-3 write also remains in the internal power policy despite
+the reset readback. Writing `0x0B` through the port handler synchronizes both
+fields.
+
+Two isolated runs produce identical canonical native JSON with SHA-256
+`1c1209e9c3f625b07c42288c21e9a5dbadddb38f12aee995c1fbc8daf1f8e8ad`.
+The manifest labels the initialized-core scope. It does not execute TI-OS or
+measure interrupt voltage, physical timing, low-power domains, or reset
+retention.
+
+#### Programmable timer and RTC matrix
+
+`tilem_timer.py` derives source periods and expiry outcomes from the reusable
+timer model, then adds pinned scheduling, readback, reset, and RTC edge values.
+The C adapter replaces `time()` only inside the probe executable, making every
+RTC transition and byte-level rollover deterministic:
+
+```sh
+tilem_timer_tmp=$(mktemp -d /tmp/ti84-tilem-timer.XXXXXX)
+git clone https://github.com/debrouxl/tilem.git "$tilem_timer_tmp/tilem"
+git -C "$tilem_timer_tmp/tilem" checkout \
+  f56ad637d0524ee841dd381be6ecbaf5b8975600
+nix shell \
+  github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
+  --command python tools/build_tilem_timer_probe.py \
+  --source "$tilem_timer_tmp/tilem" \
+  --output "$tilem_timer_tmp/tilem-timer-probe" --json
+
+tilem_timer_parent=$(mktemp -d /tmp/ti84-tilem-timer-report.XXXXXX)
+python tools/run_tilem_timer_probe.py \
+  --binary "$tilem_timer_tmp/tilem-timer-probe" \
+  --expected-binary-sha256 \
+    fa665079fac1ace807930be8a3836385f6821ee9994c6454039b8ca85bb75d77 \
+  --output-dir "$tilem_timer_parent/run" --json
+```
+
+The probe checks all crystal and CPU divisor selections, three off-family
+values, three port-`0x2F` values under source `0xC0`, mode masking, counter
+zero, completion, overflow, interrupt generation, acknowledgement, all three
+status mappings, source-write retention, and the unacknowledged non-loop
+restart period. The RTC cases commit, advance, freeze, re-enable, reset, and
+force a rollover between individual current-register reads.
+
+Two isolated runs produce identical canonical native JSON with SHA-256
+`0da06edc402dfb14945d28577f212face4c04c22b3b6ffc3e283a70e0ecb4aa5`.
+The manifest identifies the substituted time source and initialized-core
+scope. The run does not execute the OS, measure the host clock, or establish
+physical divisor, power, rollover, or reset behavior.
+
+#### Keypad and ON-edge matrix
+
+`tilem_keypad.py` derives ordered matrix cases from the reusable model in
+`keypad_hardware.py`. The C adapter uses the initialized core's keypad API and
+TI-84 Plus port handlers. It checks transitive closure, all eight rows, exact
+group-byte storage, ordinary scancode bounds, duplicate events, the separate
+ON path, both enabled ON edges, and keypad reset:
+
+```sh
+tilem_keypad_tmp=$(mktemp -d /tmp/ti84-tilem-keypad.XXXXXX)
+git clone https://github.com/debrouxl/tilem.git "$tilem_keypad_tmp/tilem"
+git -C "$tilem_keypad_tmp/tilem" checkout \
+  f56ad637d0524ee841dd381be6ecbaf5b8975600
+nix shell \
+  github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
+  --command python tools/build_tilem_keypad_probe.py \
+  --source "$tilem_keypad_tmp/tilem" \
+  --output "$tilem_keypad_tmp/tilem-keypad-probe" --json
+
+tilem_keypad_parent=$(mktemp -d /tmp/ti84-tilem-keypad-report.XXXXXX)
+python tools/run_tilem_keypad_probe.py \
+  --binary "$tilem_keypad_tmp/tilem-keypad-probe" \
+  --expected-binary-sha256 \
+    9553bdafadf042dd9af634221b52b8795b572d0c047f839e119dabc957063323 \
+  --output-dir "$tilem_keypad_parent/run" --json
+```
+
+The ordered reads are `FF`, `FE`, `FF`, `FE`, `FC`, `F8`, `7F`, `FC`, and
+`FE`. They cover an unselected matrix, one selected key, an unselected key,
+same-column keys, a rectangle, a transitive chain, column 7, all selected
+groups, and row 7. Two isolated builds produce the same binary. Their
+canonical native JSON has SHA-256
+`1f75a4010773a7c8a108d62239cb937e02aa029affa55263906688eb73ba536c`.
+The run does not execute the OS or measure electrical settling, switch bounce,
+physical ghosting, or ASIC ON edges.
+
+#### MD5-assist edge matrix
+
+`tilem_md5.py` checks an ordered native report against the shared arithmetic
+and edge oracle in `md5_hardware.py`. The C adapter calls the TI-84 Plus port
+handlers directly. It covers partial and fifth operand writes, control masks,
+undefined operand reads, mid-read mutation, modeled clock cost, and full reset:
+
+```sh
+tilem_md5_tmp=$(mktemp -d /tmp/ti84-tilem-md5.XXXXXX)
+git clone https://github.com/debrouxl/tilem.git "$tilem_md5_tmp/tilem"
+git -C "$tilem_md5_tmp/tilem" checkout \
+  f56ad637d0524ee841dd381be6ecbaf5b8975600
+nix shell \
+  github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
+  --command python tools/build_tilem_md5_probe.py \
+  --source "$tilem_md5_tmp/tilem" \
+  --output "$tilem_md5_tmp/tilem-md5-probe" --json
+
+tilem_md5_parent=$(mktemp -d /tmp/ti84-tilem-md5-report.XXXXXX)
+python tools/run_tilem_md5_probe.py \
+  --binary "$tilem_md5_tmp/tilem-md5-probe" \
+  --expected-binary-sha256 \
+    b461e9720e0c304b26ab95ca814943eddfba670dd7bd1e41b48d53a0f8c689c5 \
+  --output-dir "$tilem_md5_parent/run" --json
+```
+
+The partial-write results are `11000000`, `33221100`, `44332211`, and
+`55443322`. Raw `FF` control writes store shift 31 and mode 3. Mutating `A`
+after reading the low result byte assembles `343F97B4` from old result
+`D6D117B4` and new result `343F9701`. Two isolated builds produce binary
+SHA-256 `b461e9720e0c304b26ab95ca814943eddfba670dd7bd1e41b48d53a0f8c689c5`.
+Their canonical native JSON has SHA-256
+`97921226800da92b585b6d16a390355c157bf9aa5976fe47d183e87bbcbad1b8`.
+
+The zero-shift cases exercise a nonportable shift-by-32 expression in TilEm's
+C source. The manifest therefore scopes these observations to the locked
+compiler and exact binary. The run does not execute TI-OS or establish any
+physical ASIC behavior.
+
+#### Raw link and assist matrix
+
+`tilem_link.py` validates raw line reads, link-activity interrupts, assist
+ports, byte transfers, status acknowledgement, reset retention, and modeled
+clock cost against the reusable source model in `link_port.py`. The C adapter
+calls the registered TI-84 Plus port handlers and link state machine directly:
+
+```sh
+tilem_link_tmp=$(mktemp -d /tmp/ti84-tilem-link.XXXXXX)
+git clone https://github.com/debrouxl/tilem.git "$tilem_link_tmp/tilem"
+git -C "$tilem_link_tmp/tilem" checkout \
+  f56ad637d0524ee841dd381be6ecbaf5b8975600
+nix shell \
+  github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
+  --command python tools/build_tilem_link_probe.py \
+  --source "$tilem_link_tmp/tilem" \
+  --output "$tilem_link_tmp/tilem-link-probe" --json
+
+tilem_link_parent=$(mktemp -d /tmp/ti84-tilem-link-report.XXXXXX)
+python tools/run_tilem_link_probe.py \
+  --binary "$tilem_link_tmp/tilem-link-probe" \
+  --expected-binary-sha256 \
+    b878d9be860a92da72c5712e82a4c2974fb3cad125e078e61f8444172b887896 \
+  --output-dir "$tilem_link_parent/run" --json
+```
+
+The raw truth table is `03 02 01 00`, `12 12 10 10`, `21 20 21 20`, and
+`30 30 30 30`. A peer-line transition asserts the enabled activity interrupt.
+The disabled assist status is `0x20`; idle-ready is `0x22`; receive completion
+is `0x31` before the `0xA5` data read and `0x20` afterward. Illegal both-low
+input produces `0x64`; the first status read clears the interrupt but leaves
+`0x60`. Reset retains the four auxiliary write registers and external line
+state while clearing active assist fields. Direct calls add zero modeled CPU
+clocks.
+
+Two isolated builds produce binary SHA-256
+`b878d9be860a92da72c5712e82a4c2974fb3cad125e078e61f8444172b887896`.
+Their canonical native JSON has SHA-256
+`7f649da90850ef5c00bd2472f1cc9772eb6f50b75ed462fc7527bbd7c6a7ce59`.
+The manifest limits the result to pinned initialized-core TilEm behavior. The
+run does not execute TI-OS, exercise a virtual-cable lifecycle, measure
+electrical timing, or establish physical reset retention.
+
+### Pinned MAME Flash probe
+
+`mame_runtime.py` provides shared MAME identity, configuration, isolated
+headless-environment, command, process, logging, and manifest helpers. Its
+guarded probe operation validates the executable, ROM, and Lua script before
+creating the runtime tree. `mame_trace.py` reuses the lower-level library for
+I/O traces. The Flash-specific parser and oracle are in
+`mame_flash.py`; `run_mame_flash_probe.py` is the guarded CLI. The independent
+sector and chip-erase types, parser, and image oracle are in
+`mame_flash_erase.py`. `mame_flash_gate.py` provides the typed CPU-visible gate
+report and complete-image oracle; `run_mame_flash_gate_probe.py` is its guarded
+CLI.
+
+The CLI requires a caller-supplied executable SHA-256 and MAME 0.287. It also
+requires the exact local OS 2.55MP ROM. It places the ROM, configuration,
+NVRAM, and snapshots under a new output directory, retains standard output and
+standard error, and writes a manifest with every input and result identity.
+Run the packaged MAME through Nix when it is not installed globally:
+
+```sh
+mame_flash_parent=$(mktemp -d /tmp/ti84-mame-flash.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_flash_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_flash_parent/run" --json
+```
+
+The Lua adapter writes and reads the `ti84pv3` machine's mapped `:membank0`
+Flash interface. It checks autoselect, reset, CFI, unlock bypass, legal and
+illegal byte programming, one 8 KiB top-sector erase, the incorrect 64 KiB
+busy-read range, and timer completion. The Python oracle compares all reported
+fields with the pinned MAME source model. It also compares the complete saved
+1 MiB Flash array with its own mutation model and requires output SHA-256
+`1dc4eec678252588df24118e96603b6c80806b8b9ea8e0e12b2169ac6aae3935`.
+The adapter does not execute a TI-OS Flash routine or a physical command.
+
+The gate adapter maps Flash page `08` into CPU program space, reads gate status
+through I/O port `0x02`, and changes port `0x14` between AMD command phases. It
+programs the same byte with a complete command while locked, a locked-to-
+unlocked transition, and an unlocked-to-locked transition. All three commands
+take effect, with final byte `20`; the complete saved image must have SHA-256
+`2fd21a6b139a641d40a71a0e68df492e4555e79c6f1cf44858b4dcfd9158bbeb`:
+
+```sh
+mame_gate_parent=$(mktemp -d /tmp/ti84-mame-gate.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_flash_gate_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_gate_parent/run" --json
+```
+
+The locked, unlocked, and relocked status reads are `C3`, `C7`, and `C3`.
+CPU-mapped and direct-device reads agree after each command. This confirms the
+MAME driver's missing write gate through its CPU and I/O spaces, but says
+nothing about the physical ASIC.
+
+`run_mame_flash_erase_probe.py` uses a separate runtime tree. It seeds each
+selected sector and adjacent probe through byte-program commands, waits for
+array reads before advancing, and then chip-erases the isolated image. A
+periodic callback observes chip completion because erasing boot Flash stops
+the calculator driver from producing frame callbacks. The final image must be
+exactly one MiB of `FF` with SHA-256
+`f5fb04aa5b882706b9309e885f19477261336ef76a150c3b4d3489dfac3953ec`:
+
+```sh
+mame_erase_parent=$(mktemp -d /tmp/ti84-mame-erase.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_flash_erase_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_erase_parent/run" --json
+```
+
+The native report pins sector completion frames `50`, `75`, `88`, `101`, and
+`126`. Chip erase starts at emulated second 2 and exposes array data at second
+18. The report oracle also verifies selected mutation ranges, fixed 64 KiB busy
+ranges, stale chip-erase status scope, and every boundary byte. This remains
+MAME behavior rather than TI-OS or physical evidence.
+
+### Pinned MAME MD5-port probe
+
+`mame_md5.py` parses the native port report and calculates the expected first
+padded-`"abc"` result with the independent arithmetic model in
+`md5_hardware.py`. `run_mame_md5_probe.py` uses the shared guarded MAME runtime:
+
+```sh
+mame_md5_parent=$(mktemp -d /tmp/ti84-mame-md5.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_md5_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_md5_parent/run" --json
+```
+
+The Lua adapter reads ports `0x18`–`0x1F`, writes a distinct value to every
+port, reads them again, and issues the complete 30-access transaction used by
+the first MD5 step. Initial, post-pattern, and post-transaction reads are eight
+zero bytes. The result is `0x00000000`; the independent expected result is
+`0xD6D117B4`. Two isolated runs produce identical parsed reports. This is
+CPU-I/O-space evidence for MAME 0.287's absent MD5 block, not retail-ROM or
+physical-hardware evidence.
+
+### Pinned MAME raw-link probe
+
+`mame_link.py` parses raw-write, connector-output, peer-input, and assist-port
+cases. Its oracle derives the expected values from `link_port.py` rather than
+duplicating the PCR and connector formulas. Run it through the shared guarded
+MAME runtime:
+
+```sh
+mame_link_parent=$(mktemp -d /tmp/ti84-mame-link.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_link_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_link_parent/run" --json
+```
+
+The Lua adapter issues writes `00`, `01`, `02`, `03`, `14`, `28`, and `3C`
+through CPU I/O space. It records port-`0x00` readback and the link-port
+device's saved tip/ring output fields after each write. It also injects all
+four peer pull-low masks through the corresponding saved input fields. Normal
+writes produce reads `03`, `12`, `21`, and `30` while releasing both modeled
+connector outputs. The peer reads are `03`, `02`, `01`, and `00`.
+
+Port `0x02` returns `C3`. Ports `0x08`–`0x0D` return six zero bytes before and
+after patterned writes. Two isolated runs produce identical parsed reports.
+This validates MAME's internal CPU, PCR, and connector-facing state. It does
+not execute a TI-OS transfer, attach an optional MAME link device, or measure
+physical electrical behavior.
+
+### Pinned MAME keypad probe
+
+`mame_keypad.py` parses the ordered live-input matrix and checks it against the
+MAME branch of the reusable model in `keypad_hardware.py`. The guarded CLI uses
+the shared MAME runtime:
+
+```sh
+mame_keypad_parent=$(mktemp -d /tmp/ti84-mame-keypad.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_keypad_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_keypad_parent/run" --json
+```
+
+The Lua adapter resolves group masks from MAME's `:BIT0`–`:BIT7` live input
+fields. Forced input values cross one video-frame update before the adapter
+writes and reads port `0x01` through the main CPU I/O space. The ordered reads
+are `FF`, `FF`, `FE`, `FF`, `FF`, `FE`, `7F`, and `FD` for the release-byte,
+bit-7-only, single-key, unselected-key, same-column, rectangle, column-7, and
+all-selected cases. The same-column `FF` result directly confirms MAME's XOR
+cancellation. The rectangle `FE` result confirms that MAME does not apply
+TilEm or Wabbitemu matrix closure.
+
+Two isolated runs produce byte-identical native reports with SHA-256
+`f684472b1f139b649245f54d140190bd5f91bf2508aa9e4764ddc0ce88079477`.
+This validates MAME 0.287's live input fields and keypad handlers. It does not
+execute the TI-OS scanner or measure electrical settling, bounce, or a physical
+matrix.
+
+### Pinned MAME legacy-interrupt probe
+
+`mame_interrupt.py` parses shared status reads, mask writes, ON transitions,
+standard-timer latches, and reset retention. Its oracle uses the immutable MAME
+state model in `interrupt_controller.py`. Run it through the shared guarded
+runtime:
+
+```sh
+mame_interrupt_parent=$(mktemp -d /tmp/ti84-mame-interrupt.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_interrupt_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_interrupt_parent/run" --json
+```
+
+The Lua adapter parks the Z80 in `DI` RAM, disables programmable timers, and
+uses only CPU-I/O-space accesses for the legacy controller. Ports `0x03` and
+`0x04` both read `08` after each mask write in `00 01 02 04 08 10 FF`.
+Writing `07` to port `0x02`, then applying port-`0x03` masks `01 06 FF 00`,
+produces status `09 0E 0F 08`.
+
+The live ON sequence produces `00 00 08 01 09 08` for masked press,
+held-button enable, release, enabled press, enabled release, and
+acknowledgement. One frame with timer 1, timer 2, or both enabled produces
+`0A`, `0C`, or `0E`. Soft reset retains seeded status `0F`; after direct status
+clear, the retained masks regenerate timer status `0E`, and a new ON press
+produces `07`.
+
+Two isolated runs produce identical canonical parsed native JSON with SHA-256
+`bb4b38d444692b5136d96264fa3acf9fe95ef2f6a1879ab72e9a2ad8077c1def`.
+This is MAME legacy-interrupt, input-sampling, scheduler, and reset evidence.
+It does not establish physical interrupt edges, timer rates, acknowledgement,
+link wake, low power, or reset retention.
+
+### Pinned MAME timer and RTC probe
+
+`mame_timer.py` parses the complete timer, status, auxiliary-port, and RTC-port
+report. Its oracle derives source divisors and expiry polarity from
+`timer_hardware.py`. Run it through the shared guarded MAME runtime:
+
+```sh
+mame_timer_parent=$(mktemp -d /tmp/ti84-mame-timer.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_timer_parent/run" --json
+```
+
+The Lua adapter maps page-0 RAM at `0xC000` and parks the Z80 in `DI; JR $`.
+It then drives ports through the CPU I/O space while MAME's scheduler advances.
+Sources `01`, `41`, and `81` each reduce counter `FF` to `EA` during one 20 ms
+frame. This is 21 decrements: the initial zero-delay callback plus 20 periods
+at 1,024 Hz. The run also records idle counter zero, source-zero disable,
+mode-bit masking, inverted interrupt polarity, loop self-clearing, and a mode
+write that clears completion for all three timers.
+
+Ports `0x2D`–`0x2F` and `0x40`–`0x48` return zero before and after patterned
+writes. Two isolated runs produce byte-identical native reports with SHA-256
+`5aab56b737495fef9c953522e1a3eee47d3e96637bc8266ce6258ff10d3e2c26`.
+This is MAME 0.287 callback and mapping evidence. It does not execute the TI-OS
+timer API or measure physical crystal, RTC, interrupt, or low-power behavior.
+
+### Pinned MAME LCD-controller probe
+
+`mame_lcd.py` parses controller fields, status, pointer walks, read-latch
+values, 6-bit packing, and ASIC-port coverage. Its oracle reuses the MAME
+profile and pointer/latch models in `lcd_controller.py`:
+
+```sh
+mame_lcd_parent=$(mktemp -d /tmp/ti84-mame-lcd.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_lcd_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_lcd_parent/run" --json
+```
+
+The Lua adapter parks the Z80 in page-0 RAM. It reads the untouched controller
+startup state, then seeds named save items between independent cases. All
+controller transfers use the mirrored CPU I/O ports. The run verifies status
+`43` at reset, permanent busy-clear status, command decoding, ports `0x12` and
+`0x13`, four writes across backing indices 14–17, safe direct indices 15 and
+31, the `00 12 34` dummy-read sequence, and `FD 50` from two 6-bit writes.
+
+Port `0x02` returns `C3`. Ports `0x29`–`0x2F` return zero before and after
+patterned writes. Two isolated runs produce byte-identical native reports with
+SHA-256 `d6930650a96383710be7ebb772675b5a494cba2450827b12a535c963fa464bfc`.
+The adapter deliberately omits row 63, column 31 because the source computes
+index 976 outside the 960-byte C++ array. This is MAME behavior, not physical
+controller or ASIC evidence.
+
+### Pinned MAME ASIC-control probe
+
+`mame_asic.py` combines the reusable ASIC-control and MAME timing profiles with
+a typed native report. The Lua adapter drives mapped and absent ports through
+the CPU I/O space, runs a fixed RAM counter at both clocks, and schedules one
+soft reset:
+
+```sh
+mame_asic_parent=$(mktemp -d /tmp/ti84-mame-asic.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_asic_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_asic_parent/run" --json
+```
+
+Port-`0x14` writes `00 01 02 3F 40 FF` produce port-`0x02` reads
+`C3 C7 CB FF C3 FF`; port `0x14` always reads zero. Port `0x20` retains every
+raw byte in `00 01 02 03 FF`. The 50-T-state loop advances 12,000 times in
+100 ms at write zero and 30,000 times after write one, matching the source's
+6 MHz and 15 MHz clocks.
+
+Port `0x21` accepts writes with the gate closed and reads `value & 0x0F`.
+Ports `0x22`–`0x2F` and `0x39`–`0x3A` discard patterned writes. Across
+`0x4A`–`0x5B`, only constant reads `0x55 = 0x1F` and `0x56 = 0x00` are mapped.
+A soft reset returns to `PC = 0x0000` while retaining gate one, raw speed
+`0x03`, and port-`0x21 = 0x0B` from write `0xAB`.
+
+Two isolated runs produce identical canonical parsed native JSON with SHA-256
+`bbf6c3c8f05a43daa854f404401aa4d7cd8ed89599c00a2c211541e0416eb3e5`.
+This is MAME 0.287 control and reset evidence. It does not establish physical
+battery, protection, clock, GPIO, USB, or warm-reset behavior.
+
+### Pinned MAME memory-mapper probe
+
+`mame_mapper.py` parses five fresh-machine reports and checks them against the
+MAME profile in `memory_mapper.py`. A fresh process is required for each
+fixed-page case because the TI-84 Plus driver does not register `m_booting` as
+a saved item. Run the complete guarded matrix through the shared runtime:
+
+```sh
+mame_mapper_parent=$(mktemp -d /tmp/ti84-mame-mapper.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_mapper_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_mapper_parent/run" --json
+```
+
+One case reads the untouched reset map through Lua. Lua CPU-program-space
+reads carry normal read side effects in this build, so its A read changes the
+fixed prefix from page `3F`'s `3E 07` to page `00`'s `DB 02`. Three other
+cases execute `LD A,(nn)` from seeded RAM. Independent B leaves page `3F`
+fixed; A and paired B select fixed page `00`. The mapping case verifies the
+six-bit Flash mask, port-`0x05`'s three-bit mask, adjacent paired pages, and
+safe RAM selectors through `0x86`.
+
+Ports `0x0E`, `0x0F`, `0x27`, and `0x28` return zero after patterned writes.
+Seeded markers show that reads and writes continue through the underlying B
+and C banks. A fetched program returns marker `22` from RAM page 2 rather than
+candidate overlay marker `11` from RAM page 1. Selector `0x87` is deliberately
+not executed because MAME maps only seven 16 KiB RAM pages.
+
+Two isolated matrices produce identical canonical parsed native JSON with
+SHA-256 `6466b5eecedb20332e915337b9e5007a4704af48fc45c26c6ffca1b613910967`.
+This is MAME 0.287 mapper evidence. It does not establish physical overlay,
+RAM-decoder, or boot-latch behavior.
+
 ### Pinned Wabbitemu headless adapter
 
 The repository carries a minimal native adapter rather than a fork of
@@ -1477,6 +2062,67 @@ rather than paged-address resolution.
 - [`analyze_flash_trace.py`](analyze_flash_trace.py) — command-shaped write summaries, worker-invocation grouping, event filters, compact timelines, and JSON reports with explicit acceptance semantics.
 - [`flash_replay.py`](flash_replay.py) — accepted-command replay, NOR programming, top-boot erasure, active-certificate selection, and GC phase snapshots.
 - [`replay_flash_trace.py`](replay_flash_trace.py) — guarded CLI for complete replay and interrupted GC images with source/output hashes.
+- [`tilem_core.py`](tilem_core.py) — reusable pinned-source validator, complete source enumerator, build command, hashing, and native-process capture.
+- [`tilem_probe_support.c`](tilem_probe_support.c) and [`tilem_probe_support.h`](tilem_probe_support.h) — shared allocation, diagnostics, and TI-84 Plus core construction for direct probes.
+- [`tilem_reset_probe.c`](tilem_reset_probe.c) — direct-core TilEm reset and forbidden-opcode side-effect adapter.
+- [`tilem_reset.py`](tilem_reset.py) — typed reset report parser, disposition model, and oracle.
+- [`build_tilem_reset_probe.py`](build_tilem_reset_probe.py) — clean-commit and Git-tree guarded TilEm reset-probe compiler CLI.
+- [`run_tilem_reset_probe.py`](run_tilem_reset_probe.py) — exact-binary guarded TilEm reset and execution-exception CLI.
+- [`tilem_flash_probe.c`](tilem_flash_probe.c) — direct-core command, status, timer, and erase-geometry adapter.
+- [`tilem_flash.py`](tilem_flash.py) — typed Flash report parser and pinned-source oracle.
+- [`build_tilem_flash_probe.py`](build_tilem_flash_probe.py) — shared-core, clean-source guarded Flash-probe compiler CLI.
+- [`run_tilem_flash_probe.py`](run_tilem_flash_probe.py) — exact-binary guarded Flash command/status CLI.
+- [`tilem_interrupt_probe.c`](tilem_interrupt_probe.c) — direct-core legacy interrupt, acknowledgement, callback, link, programmable-timer, and reset adapter.
+- [`tilem_interrupt.py`](tilem_interrupt.py) — typed interrupt report parser and oracle backed by the reusable state model.
+- [`build_tilem_interrupt_probe.py`](build_tilem_interrupt_probe.py) — clean-source guarded TilEm interrupt-probe compiler CLI.
+- [`run_tilem_interrupt_probe.py`](run_tilem_interrupt_probe.py) — exact-binary guarded legacy-interrupt CLI.
+- [`tilem_timer_probe.c`](tilem_timer_probe.c) — direct-core programmable-timer and deterministic RTC adapter.
+- [`tilem_timer.py`](tilem_timer.py) — typed timer/RTC report parser and oracle backed by reusable timing models.
+- [`build_tilem_timer_probe.py`](build_tilem_timer_probe.py) — clean-source guarded TilEm timer-probe compiler CLI.
+- [`run_tilem_timer_probe.py`](run_tilem_timer_probe.py) — exact-binary guarded programmable-timer and RTC CLI.
+- [`tilem_keypad_probe.c`](tilem_keypad_probe.c) — direct-core keypad matrix, scancode, ON-edge, and reset adapter.
+- [`tilem_keypad.py`](tilem_keypad.py) — typed keypad report parser and oracle backed by the reusable matrix model.
+- [`build_tilem_keypad_probe.py`](build_tilem_keypad_probe.py) — clean-source guarded TilEm keypad-probe compiler CLI.
+- [`run_tilem_keypad_probe.py`](run_tilem_keypad_probe.py) — exact-binary guarded keypad and ON-edge CLI.
+- [`tilem_md5_probe.c`](tilem_md5_probe.c) — direct-core sliding-register, control-mask, read-mutation, clock, and reset adapter.
+- [`tilem_md5.py`](tilem_md5.py) — typed MD5 report parser and oracle backed by the reusable arithmetic model.
+- [`build_tilem_md5_probe.py`](build_tilem_md5_probe.py) — clean-source guarded TilEm MD5-probe compiler CLI.
+- [`run_tilem_md5_probe.py`](run_tilem_md5_probe.py) — exact-binary guarded MD5-assist edge CLI.
+- [`mame_runtime.py`](mame_runtime.py) — reusable MAME identity, guarded input validation, isolated runtime, command, logging, process, and manifest helpers.
+- [`mame_trace.py`](mame_trace.py) — reusable I/O-trace configuration layered on the shared MAME runtime.
+- [`mame_flash_probe.lua`](mame_flash_probe.lua) — mapped MAME Flash command, status, erase-range, and timer adapter.
+- [`mame_flash.py`](mame_flash.py) — typed MAME Flash report parser, pinned-source oracle, and complete-image model.
+- [`run_mame_flash_probe.py`](run_mame_flash_probe.py) — exact-ROM and exact-MAME guarded Flash CLI with retained logs, NVRAM, and manifest.
+- [`mame_flash_gate_probe.lua`](mame_flash_gate_probe.lua) — CPU-mapped Flash command adapter with port-`0x14` transitions and port-`0x02` status reads.
+- [`mame_flash_gate.py`](mame_flash_gate.py) — typed MAME gate-report parser, pinned-source oracle, and complete-image model.
+- [`run_mame_flash_gate_probe.py`](run_mame_flash_gate_probe.py) — exact-ROM and exact-MAME guarded CPU-visible Flash-gate CLI.
+- [`mame_flash_erase_probe.lua`](mame_flash_erase_probe.lua) — mapped five-sector geometry, fixed busy-range, chip-erase, and timer adapter.
+- [`mame_flash_erase.py`](mame_flash_erase.py) — typed sector/chip report oracle and all-`FF` complete-image validator.
+- [`run_mame_flash_erase_probe.py`](run_mame_flash_erase_probe.py) — guarded isolated erase-matrix CLI with retained logs, NVRAM, and manifest.
+- [`mame_md5_probe.lua`](mame_md5_probe.lua) — CPU-I/O-space port-coverage and known MD5-step adapter for MAME.
+- [`mame_md5.py`](mame_md5.py) — typed MAME MD5 report parser and pinned-map oracle backed by independent arithmetic.
+- [`run_mame_md5_probe.py`](run_mame_md5_probe.py) — exact-ROM and exact-MAME guarded MD5-port CLI with retained logs and manifest.
+- [`mame_link_probe.lua`](mame_link_probe.lua) — CPU-I/O-space raw-link, connector-output, peer-input, and assist-port adapter for MAME.
+- [`mame_link.py`](mame_link.py) — typed MAME link report parser and pinned-source oracle backed by the reusable link model.
+- [`run_mame_link_probe.py`](run_mame_link_probe.py) — exact-ROM and exact-MAME guarded raw-link CLI with retained logs and manifest.
+- [`mame_keypad_probe.lua`](mame_keypad_probe.lua) — frame-latched live-input group/column and CPU-I/O-space keypad adapter for MAME.
+- [`mame_keypad.py`](mame_keypad.py) — typed MAME keypad report parser and pinned-source oracle backed by the reusable matrix model.
+- [`run_mame_keypad_probe.py`](run_mame_keypad_probe.py) — exact-ROM and exact-MAME guarded keypad-matrix CLI with retained logs and manifest.
+- [`mame_interrupt_probe.lua`](mame_interrupt_probe.lua) — parked-CPU legacy status, mask, live ON, standard-timer, and soft-reset adapter for MAME.
+- [`mame_interrupt.py`](mame_interrupt.py) — typed MAME legacy-interrupt report parser and oracle backed by the reusable interrupt state model.
+- [`run_mame_interrupt_probe.py`](run_mame_interrupt_probe.py) — exact-ROM and exact-MAME guarded interrupt-controller CLI with retained logs and manifest.
+- [`mame_timer_probe.lua`](mame_timer_probe.lua) — parked-CPU programmable-timer, status, auxiliary-port, and absent-RTC adapter for MAME.
+- [`mame_timer.py`](mame_timer.py) — typed MAME timer report parser and oracle backed by the reusable timing and expiry models.
+- [`run_mame_timer_probe.py`](run_mame_timer_probe.py) — exact-ROM and exact-MAME guarded timer/RTC CLI with retained logs and manifest.
+- [`mame_lcd_probe.lua`](mame_lcd_probe.lua) — parked-CPU controller-state, mirrored-port, safe hidden-column, latch, packing, and missing-wait adapter for MAME.
+- [`mame_lcd.py`](mame_lcd.py) — typed MAME LCD report parser and oracle backed by the reusable status, pointer, and latch models.
+- [`run_mame_lcd_probe.py`](run_mame_lcd_probe.py) — exact-ROM and exact-MAME guarded LCD-controller CLI with retained logs and manifest.
+- [`mame_asic_probe.lua`](mame_asic_probe.lua) — CPU-I/O-space status, gate, speed, protection/GPIO/USB coverage, clock-loop, and soft-reset adapter for MAME.
+- [`mame_asic.py`](mame_asic.py) — typed MAME ASIC report parser and oracle backed by the reusable control and timing profiles.
+- [`run_mame_asic_probe.py`](run_mame_asic_probe.py) — exact-ROM and exact-MAME guarded ASIC-control CLI with retained logs and manifest.
+- [`mame_mapper_probe.lua`](mame_mapper_probe.lua) — fresh-process reset latch, selector, paired-bank, overlay-routing, and fetched-marker adapter for MAME.
+- [`mame_mapper.py`](mame_mapper.py) — typed MAME mapper report parser and oracle backed by the reusable mapper profile and pinned ROM prefixes.
+- [`run_mame_mapper_probe.py`](run_mame_mapper_probe.py) — exact-ROM and exact-MAME guarded five-case mapper CLI with retained logs and manifest.
 - [`wabbitemu_headless.cpp`](wabbitemu_headless.cpp) — minimal Linux adapter, wake scheduler, Flash sampler, protected-gate observer, exact copied-worker matcher, recovery-point recorder, and guarded execution, reset, Flash, retail-worker, MD5, keypad, timer, ASIC-control, LCD/bus, speed/delay, interrupt, and link probe modes for the pinned Wabbitemu core.
 - [`wabbitemu_headless.py`](wabbitemu_headless.py) — reusable pinned-source validation, build command, recovery and probe runners, typed gate/report parsing, retail-path validation, and image hashing.
 - [`wabbitemu_flash_probe.py`](wabbitemu_flash_probe.py) — shared Flash case parser plus command-family, byte-program, and retail-worker report oracles.

@@ -402,7 +402,11 @@ TilEm models the controller and the ASIC wait timer as separate mechanisms. [sta
 | Out-of-range columns | wraps against the fixed 16-byte stride before transfer | differs from documented behavior on narrower controllers |
 | Low power | frame output blanks when the LCD is inactive or the halted ASIC powers down | approximates visible power state rather than electrical retention |
 
-TilEm reset initializes controller contrast to 32, 8-bit mode, byte-column increment, row and column zero, and display disabled. OS initialization then replaces those values. [standard]
+TilEm reset initializes controller contrast to 32, 8-bit mode, byte-column
+increment, row and column zero, and display disabled. It does not clear the LCD
+backing array. A guarded direct-core reset retains a seeded display byte while
+rebuilding every controller field above. OS initialization then replaces the
+controller values. [standard] for source; [confirmed] for the pinned run.
 
 ### Wabbitemu behavior and fidelity gaps
 
@@ -486,6 +490,14 @@ first read, and no speed-selected LCD instruction delay is applied. The driver
 is marked `MACHINE_NOT_WORKING`; these omissions do not describe the ASIC.
 [standard]
 
+**Native MAME confirmation.** The guarded CPU-I/O-space probe reads the untouched controller startup state before seeding later independent cases. Ports `0x10` and `0x12` both return status `0x43`. All 960 backing bytes are zero, and the row, column, Z address, output latch, and display-enable fields are zero. Eight-bit mode, column movement, and increment direction are selected. Port `0x02` returns `0xC3`. [standard]
+
+Four immediate status reads after display enable all return `0x63`; busy bit 7 remains clear. Movement commands `0x04`–`0x07` produce statuses `0x60`, `0x61`, `0x62`, and `0x63`. Word-length commands change the status between `0x23` and `0x63`. A display-off write through port `0x12` is visible at port `0x10`, and a display-on write through port `0x10` is visible at port `0x12`. Contrast `0xEF`, OPA1 `0x17`, OPA2 `0x0B`, and Z-address `0x7F` store `0x2F`, `3`, `3`, and `0x3F`. [standard]
+
+Four incrementing writes from row 0, column 14 store `A0 A1 A2 A3` at array indices 14–17 and leave column `0x12`. A direct row-0 column-15 write reaches index 15, which is row 1 column 0 in the 15-byte stride. Row-0 column 31 reaches index 31, which is row 2 column 1, then wraps the pointer to zero. Sequential reads over bytes `0x12`, `0x34`, and `0x56` return `0x00`, `0x12`, and `0x34`. Two 6-bit writes of `0x3F` and `0x15` pack into bytes `0xFD` and `0x50`. [standard]
+
+Ports `0x29`–`0x2F` return seven zero bytes before and after patterned writes. Two isolated runs produce byte-identical native reports with SHA-256 `d6930650a96383710be7ebb772675b5a494cba2450827b12a535c963fa464bfc`. The probe does not execute row 63, column 31; the source-computed index 976 remains an unexecuted unsafe case. [standard]
+
 ### Reproducing pointer differences
 
 `tools/lcd_controller.py` provides the source-attributed T6K04 specification,
@@ -542,6 +554,18 @@ requires the exact OS 2.55MP ROM, records the ROM and native-binary hashes, and
 checks every field through `tools/wabbitemu_lcd_probe.py`. The ROM is only an
 initialized-core fixture in this mode; no TI-OS instruction executes.
 
+`tools/mame_lcd.py` parses the MAME state, pointer, latch, packing, and port-map
+matrix against `tools/lcd_controller.py`. The guarded CLI retains the exact
+MAME, ROM, Lua-adapter, output, and evidence-scope identities:
+
+```sh
+mame_lcd_parent=$(mktemp -d /tmp/ti84-mame-lcd.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_lcd_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_lcd_parent/run" --json
+```
+
 ## Resolved findings and open hardware questions
 
 - [confirmed] OS 2.55MP waits through port-`0x02` bit 1 and does not busy-poll port `0x10` in `lcd_wait`.
@@ -555,6 +579,7 @@ initialized-core fixture in this mode; no TI-OS instruction executes.
 - [hypothesis] The late-controller status-read pointer mutation, power-command analog effects, and off-screen retention need physical tests across TA2/TA3 board revisions.
 - [hypothesis] TilEm's five-cycle LCD I/O overhead and 50-cycle controller busy period should be compared with bus captures rather than treated as hardware constants.
 - [standard] Wabbitemu's 15-column increment cycle and write-based ready timer, plus MAME's unchecked 15-byte row, are emulator limits rather than hardware results.
+- [standard] A guarded MAME run verifies its startup state, status and command decode, permanent busy-clear state, mirror ports, safe hidden-column aliases, dummy-read latch, 6-bit packing, stored analog fields, constant ASIC-ready bit, and missing delay ports.
 - [hypothesis] Physical tests should sweep hidden columns and time readiness after reads and writes independently.
 
 ## Sources
@@ -569,6 +594,6 @@ initialized-core fixture in this mode; no TI-OS instruction executes.
 | [Datamath March 2004 TI-84 Plus module](http://www.datamath.org/Graphing/JPEG_TI-84PLUS_A.htm#84TOSHIBA) and [LCD photograph](http://www.datamath.org/Graphing/Images/TI-84Plus_LCD_Z6.jpg) | source-attributed `T6K04` identity and the epoxy-covered module construction |
 | [Toshiba T6K04 data sheet](https://www.datasheetarchive.com/datasheet/T6K04/Toshiba?version=2), 2001-03-13 | exact 128×64 RAM, command and status tables, counter bounds, dummy reads, reset state, bus timing, oscillator choices, busy formula, supply range, and package; PDF SHA-256 `e53bcf3f12c1cba2011b886ab196b6e1827aea4c1a2d9fb28c3d6d501d986577` |
 | [Toshiba T6A04A data sheet](https://archive.org/details/t6a04a-datasheet) | compatible earlier 120×64 controller and family comparison |
-| [TilEm `lcd.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/lcd.c), [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), and [`x4_init.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c) | emulator video RAM, command decode, latches, port aliases, wait timers, and reset state |
+| [TilEm `lcd.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/lcd.c), [`calcs.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/calcs.c), [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), and [`x4_init.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c) | emulator video RAM, command decode, latches, port aliases, wait timers, and reset state |
 | [Wabbitemu `lcd.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/lcd.c), [`83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c), and [`calc.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/interface/calc.c) | controller RAM, pointer movement, transfer guard, ASIC-ready calculation, port registration, and frontend reset scope |
 | [MAME `t6a04.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/devices/video/t6a04.cpp), [`ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp), and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | controller array and commands, TI-84 Plus port map, fixed ready bit, and driver status |

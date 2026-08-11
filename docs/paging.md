@@ -19,6 +19,7 @@ or `0x28` a nonzero value, so their physical behavior remains unconfirmed.
 | Wabbitemu `83psehw.c` and `core.c` | an independent implementation, including extended Flash pages and different overlay rules | [standard] |
 | Guarded Wabbitemu mapper run | initialized-core reset, selector readback, fixed-page handoff, paired mapping, and overlay routing | [standard] |
 | MAME 0.287 `ti85.cpp` and `ti85_m.cpp` | a third implementation's bank arithmetic, reset latch, mapped I/O, and backing ranges | [standard] |
+| Guarded MAME mapper run | fresh-reset latch qualifiers, selector masks, safe RAM banks, absent overlay ports, and read/write/fetch routing | [standard] |
 | Public port descriptions | intended family-wide contracts for ports `0x04`–`0x07`, `0x0E`, `0x0F`, `0x27`, and `0x28` | [standard] |
 
 The target ROM runs on a TI-84 Plus with 64 Flash pages and eight RAM page
@@ -396,6 +397,40 @@ same NOP/HALT discriminator executes the underlying HALT. These writes call
 Wabbitemu's low-level mapper function; they test address routing, not Flash
 command acceptance. The run establishes emulator behavior only. [standard]
 
+### Native MAME mapper edges
+
+A guarded MAME 0.287 run uses five fresh processes so each handoff case starts
+with `m_booting` set. The untouched process reports `PC = 0x0000`, port reads
+`08 00 00 00` for `0x04`–`0x07`, and visible Flash prefixes `3E 07`, `DB 02`,
+`44 6F`, and `DB 02` in windows 0, A, B, and C. These prefixes identify pages
+`3F`, `00`, `01`, and `00` in the exact OS 2.55MP image. [standard]
+
+Reading A through Lua's CPU program space changes the window-0 prefix from
+page `3F`'s `3E 07` to page `00`'s `DB 02`. This MAME Lua access carries read
+side effects; it is not a side-effect-free debugger peek. Three tiny programs
+in RAM then perform actual Z80 data reads in separate processes. An independent
+B read returns page-`02` byte `0E` and leaves page `3F` fixed. An A read returns
+page-`01` byte `44` and fixes page `00`. A paired B read returns page-`03` byte
+`02` and also fixes page `00`. Each program reaches the expected `HALT` at
+`0xC008`. [standard]
+
+The selector cases exercise only mapped backing. Flash write `0x41` reads back
+`01` and exposes page `01`; `0x7F` reads back `3F` and exposes page `3F`. RAM
+selectors `0x80`, `0x85`, and `0x86` reach seeded pages 0, 5, and 6. Port
+`0x05 = 0xFE` reads back `06` and reaches RAM page 6. In paired mode, port
+`0x06 = 0x02` exposes adjacent Flash pages `02` and `03`, while port
+`0x07 = 0x83` maps RAM page 3 into C. The probe omits selector `0x87`; the
+pinned address map places that bank beyond its seven mapped RAM pages.
+[standard]
+
+Ports `0x0E`, `0x0F`, `0x27`, and `0x28` return zero before and after
+patterned writes. With underlying RAM pages 2 and 3 in B and C, writes at
+`0x8000` and `0xFB64` change those pages while seeded candidate overlay bytes
+in RAM pages 1 and 0 remain unchanged. A fetched discriminator executes marker
+`22` from underlying RAM page 2 rather than marker `11` from candidate overlay
+page 1. The run therefore covers MAME read, write, and instruction-fetch
+routing without treating the missing overlay as ASIC evidence. [standard]
+
 ## Interaction with execution protection
 
 Ports `0x21`–`0x26` control Flash and RAM execution permissions. They do not
@@ -495,6 +530,18 @@ nix develop -c python tools/analyze_rom_io.py \
 `tools/wabbitemu_mapper_probe.py` derives the native edge expectations from
 the same mapper profile. `tools/run_wabbitemu_mapper_edge_probe.py` requires
 the exact OS 2.55MP ROM and writes a hash-complete JSON manifest.
+
+`tools/mame_mapper.py` derives the corresponding MAME oracle from the reusable
+profile and pinned ROM prefixes. The guarded CLI runs every latch case from a
+fresh machine:
+
+```sh
+mame_mapper_parent=$(mktemp -d /tmp/ti84-mame-mapper.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_mapper_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_mapper_parent/run" --json
+```
 
 ## Open physical tests
 

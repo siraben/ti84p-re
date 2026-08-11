@@ -11,7 +11,7 @@ The mechanisms below use several evidence sources. A claim marked [confirmed] co
 | Layer | Main evidence | What it establishes |
 |-------|---------------|---------------------|
 | TI-OS and boot code | `tools/rom.bin`, especially `3D:61AF`–`3D:6BC4` and `3F:4784`–`3F:4E56` | bcall ABI, guards, RAM workers, archive allocation, and status handling [confirmed] |
-| Dynamic execution | archive and `GCFLASH` TilEm traces plus guarded Wabbitemu runs | ROM worker paths, GC sector ordering, execution limits, and native command-state behavior [confirmed] for the pinned emulator runs |
+| Dynamic execution | archive and `GCFLASH` TilEm traces plus guarded TilEm, Wabbitemu, and MAME runs | ROM worker paths, GC sector ordering, execution limits, and native command-state behavior [confirmed] for the pinned emulator runs |
 | ASIC model | TilEm `x4_memory.c`, `x4_io.c`, and `x4_init.c` | protected-byte recognizer, port gates, execution limits, and modeled sector protection [standard] |
 | Flash device | Datamath's March 2004 board photograph and Fujitsu `MBM29LV800TA` data sheet | observed package marking, sector geometry, command cycles, DQ status semantics, and rated limits [standard] |
 | Emulator comparison | pinned TilEm, Wabbitemu, and MAME source | modeled command decode, mutation rules, status reads, timing, and missing ASIC gates [standard] |
@@ -1261,9 +1261,9 @@ access control. [standard]
 |----------|-----------------|------------------------|------------|
 | Unlock addresses | low 12 bits `0xAAA`, `0x555` | low 12 bits `0xAAA`, `0x555` | accepts several AMD address conventions, including the ROM's low-12-bit form |
 | Byte mutation | `old &= requested` | `old &= requested` | `old = requested` |
-| Successful program | 7-cycle modeled busy state | immediate array data | immediate array data |
+| Successful program | 7 µs real-time timer; 42 clocks at the 6 MHz reset speed | immediate array data | immediate array data |
 | Illegal `0→1` request | error state | one transient error read | writes the requested one bit |
-| Sector erase | 200,000-cycle model | immediate | immediate data mutation followed by a timer |
+| Sector erase | 50 µs command window, then 200 ms erase timer; 300 and 1,200,000 clocks at 6 MHz | immediate | immediate data mutation followed by a timer |
 | Autoselect | incomplete | modeled AMD manufacturer `0x01`, device `0xDA` | IDs at offsets `0`/`1`; no compatible protection read |
 | Chip erase | writable sectors only; final status follows the last sector | immediate full-array fill, including boot | immediate full-array fill; stale/default busy range |
 | Fast program | command flow present; fidelity unresolved | implemented for TI-84 Plus Flash version 3 | entry accepted, but `A0` excludes the AMD maker ID |
@@ -1272,9 +1272,10 @@ access control. [standard]
 | Sector-protection autoselect read | unavailable with missing autoselect | offset `4` always returns zero | no data-sheet-compatible protection read |
 | ASIC write gate | protected-byte sequence, lock, and sector groups | privileged-page port-`0x14` gate and boot-page flags | no effective Flash-write gate |
 
-These are source-level results. MAME marks the complete TI-84 Plus driver
-`MACHINE_NOT_WORKING`. None of the divergences resolves physical behavior.
-[standard]
+The table combines source results with guarded runtime checks described below.
+MAME marks the complete TI-84 Plus driver `MACHINE_NOT_WORKING`. None of the
+divergences resolves physical behavior. [standard] for the source models;
+[confirmed] for the pinned runtime observations.
 
 The emulator autoselect rows differ from the photographed Fujitsu part's data
 sheet, which specifies `0x04/0xDA`. Matching device code `0xDA` establishes a
@@ -1285,9 +1286,16 @@ photographed package. [standard]
 
 TilEm implements the same command progression used by the ROM: `AA`, `55`, then `A0` for program, or `80`, `AA`, `55`, `30` for sector erase. It matches command addresses by physical low 12 bits `0xAAA` and `0x555`. [standard]
 
-Its program operation computes `stored_byte &= requested_byte`. A requested `0→1` transition leaves the zero bit unchanged and enters the emulator's error state. During program busy, DQ7 is complemented and DQ6 toggles; the modeled delay is seven cycles when delay emulation is enabled. [standard]
+Its program operation computes `stored_byte &= requested_byte`. A requested
+`0→1` transition leaves the zero bit unchanged and enters the emulator's error
+state. During program busy, DQ7 is complemented and DQ6 toggles. The delay
+argument is 7 µs, not seven CPU cycles. TilEm's real-time scheduler converts it
+to 42 clocks at the 6 MHz reset speed. [standard]
 
-During erase, DQ6 and DQ2 toggle. DQ3 distinguishes the 50-cycle erase-command window from the modeled 200,000-cycle erase operation. The ROM's erase worker polls DQ7 and DQ5 rather than those toggle bits. [standard]
+During erase, DQ6 and DQ2 toggle. DQ3 distinguishes a 50 µs command window
+from the modeled 200 ms erase operation. Those deadlines are 300 and 1,200,000
+clocks at 6 MHz. The ROM's erase worker polls DQ7 and DQ5 rather than those
+toggle bits. [standard]
 
 TilEm's source comment lists fast program among unfinished work, but the state
 machine implements part of it. `AA 55 20` enters fast mode, `A0` selects one
@@ -1303,6 +1311,59 @@ group zero, this skips physical `0xB0000`–`0xBFFFF` and
 resets the recorded program address and timer, so the final busy status
 describes only the last writable sector. This differs from a single physical
 chip-erase operation. [standard]
+
+A guarded direct-core run exercises these states through
+`tilem_flash_write_byte` and `tilem_flash_read_byte`. It seeds synthetic memory
+and enables TilEm's delay model. The timer deadlines come from the scheduler;
+the fixture invokes the registered Flash callback directly to cross each
+deadline without executing TI-OS. [confirmed]
+
+| Program case | State after write | Busy reads | State after callback | Later reads |
+|--------------|-------------------|------------|----------------------|-------------|
+| legal `FF → 50` | array read, program busy, 42-clock deadline | `80`, `C0` | array read, idle | `50` |
+| illegal `50 → D0` | error, program busy, 42-clock deadline | `00`, `40` | error, idle | `20`, `60` repeatedly |
+
+The illegal request stores `0x50`. Program-busy status takes priority over the
+error state until the callback runs. The persistent error reads then set DQ5
+and toggle DQ6. A following `F0` write returns to array mode and reads `0x50`.
+This differs from Wabbitemu's one-read error lifetime. [confirmed]
+
+The sector case seeds all 65,536 bytes at physical `0x20000`–`0x2FFFF` to
+zero. The command changes all of them to `0xFF` immediately and changes no byte
+outside that range. Erase-window reads are `00`, `44`; erase-busy reads after
+the first callback are `08`, `4C`; the second callback exposes array byte
+`0xFF`. [confirmed]
+
+| Chip-erase override | Changed bytes | Bytes left non-`FF` | Last program address |
+|--------------------:|--------------:|--------------------:|---------------------:|
+| group 0 | 966,656 | 81,920 | `0xFA000` |
+| group 1 | 1,048,576 | 0 | `0xFC000` |
+
+Group 0 leaves `0xB0000`–`0xBFFFF` and `0xFC000`–`0xFFFFF` unchanged. Both
+runs finish in array state with one 300-clock erase-window deadline for the
+last admitted sector. The native matrix also confirms the partial fast-program
+flow and its `90 F0` exit. Autoselect logs an unimplemented-command warning;
+CFI query does nothing; `B0` in the erase-command window logs an undefined
+command and returns to array state without changing memory. [confirmed]
+
+The native binary SHA-256 is
+`31f8e15a348d15f876f103b8452340484893987e458023fd913280365db5c51d`.
+The build requires clean TilEm commit
+`f56ad637d0524ee841dd381be6ecbaf5b8975600` and Git tree
+`58316afe35d69e69353f0f743698144153051d4a`. These results describe the
+pinned emulator core, not the retail ROM worker or physical Flash. Build and
+run commands are under “Flash command and status matrix” in the repository's
+`tools/dynamic-tracing.md`. [confirmed]
+
+TilEm's full calculator reset clears the Flash unlock gate, command state, and
+busy flag. It retains the last program address and byte, toggle state,
+protection-override group, and delay-emulation flags. An execution-protection
+exception reaches this reset only after the forbidden opcode completes. A
+guarded direct-core fixture executes `LD (0x8000),A` from restricted Flash page
+`08`; its RAM write of `0x5A` survives the reset. This ordering is TilEm
+behavior, not evidence that the ASIC executes a denied instruction. [standard]
+for source; [confirmed] for the pinned run. See
+[TilEm reset and exception scope](execution-protection.md#tilem-reset-and-exception-scope).
 
 ### Wabbitemu behavior and limits
 
@@ -1526,6 +1587,77 @@ memory-write path consults that value. The driver also omits ports `0x22`–`0x2
 MAME therefore accepts command writes without the protected byte sequence,
 sector override, or execution-protection state used by the ROM. [standard]
 
+The stored gate is a raw byte rather than a Boolean. A guarded sweep of writes
+`00 01 02 3F 40 FF` makes port `0x02` return `C3 C7 CB FF C3 FF`, following
+the driver's truncated `0xC3 | (value << 2)` expression. Port `0x14` itself
+reads zero. A scheduled soft reset retains write one and consequently returns
+`0xC7`; this is MAME reset behavior, not a physical lock-retention result.
+[standard]
+
+A separate guarded run maps Flash page `08` into the CPU's `0x4000` window and
+issues commands through CPU program space while reading the gate state through
+I/O port `0x02`. A complete program while locked reports `C3` and changes the
+target from `FF` to `50`. A prefix started while locked and completed after an
+unlock reports `C7` and changes it to `D0`. A prefix started while unlocked and
+completed after relocking reports `C3` and changes it to `20`. CPU reads and
+direct generic-device reads agree after every case. [confirmed]
+
+The saved image differs from the source only at `0x20100` (`FF → 20`) and has
+SHA-256
+`2fd21a6b139a641d40a71a0e68df492e4555e79c6f1cf44858b4dcfd9158bbeb`.
+This CPU/I/O-space result confirms that MAME stores and exposes the port-`0x14`
+state without applying it to mapped Flash writes. It describes MAME 0.287, not
+the ASIC gate or physical Flash. [confirmed]
+
+A guarded MAME 0.287 run exercises the `ti84pv3` machine's mapped `:membank0`
+Flash interface through Lua. It uses the exact OS 2.55MP image but does not
+execute TI-OS Flash code. The report oracle checks every field against the
+pinned source model, and the image oracle compares the complete saved 1 MiB
+array against the expected command mutations. [confirmed]
+
+| Command or read | Runtime observation |
+|-----------------|---------------------|
+| Autoselect | offsets `0`, `1`, `2`, and `4` return `01`, `DA`, `00`, and `00` |
+| Byte program | `FF → 50` stores `50`; the illegal `50 → D0` request stores `D0` |
+| Array reset and CFI | `F0` after a partial unlock restores array reads; `98` leaves the programmed `D0` visible |
+| Unlock bypass | `AA 55 20` accepts the entry, but its `A0` program does not change `D0`; `90` exposes manufacturer ID `01`, and `F0` restores array byte `D0` |
+| 8 KiB top-sector erase | the selected `0xF8000`–`0xF9FFF` array range changes immediately; reads at `0xF8000`, `0xFA000`, and `0xFC000` expose busy status, while `0xE0000` remains an array read |
+| Timer completion | selected and adjacent reads return `FF`, boot Flash returns `3E`, and `0xE0000` returns `9F` at frame 20 |
+
+The saved Flash differs from the source ROM only at `0x20100` (`FF → D0`),
+`0xF8000` (`00 → FF`), and `0xF9FE0`–`0xF9FE1` (`00 → FF`). Its SHA-256 is
+`1dc4eec678252588df24118e96603b6c80806b8b9ea8e0e12b2169ac6aae3935`.
+The MAME executable SHA-256 is
+`fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91`.
+These identities and the retained manifest scope the result to MAME 0.287,
+not the retail worker or physical Flash. [confirmed]
+
+A separate guarded run seeds each sector boundary and its adjacent probes with
+`00` before issuing five sector erases. Each command changes only its selected
+array range. Busy reads cover 64 KiB from the selected start, including bytes
+past the 32 KiB and 8 KiB sectors. [confirmed]
+
+| Selected range | Source timer | Completion frame | Out-of-sector read while busy |
+|----------------|-------------:|-----------------:|-------------------------------|
+| `0xE0000`–`0xEFFFF` | 1,000 ms | 50 | `0xF0000 = 00` |
+| `0xF0000`–`0xF7FFF` | 500 ms | 75 | `0xF8000 = 08` |
+| `0xF8000`–`0xF9FFF` | 250 ms | 88 | `0xFA000 = 08` |
+| `0xFA000`–`0xFBFFF` | 250 ms | 101 | `0xFC000 = 08` |
+| `0xFC000`–`0xFFFFF` | 500 ms | 126 | `0xFBFFE = 00` |
+
+The frame deltas are 50, 25, 13, 13, and 25. At 50 frames/s, they match the
+source timers. The 250 ms cases appear on the next whole frame. Every seeded
+byte immediately outside the selected array range remains `00` after
+completion. [confirmed]
+
+Chip erase starts at emulated second 2 after the sector matrix. It immediately
+changes the complete array to `FF`, while reads in the last sector's stale busy
+range return `4C` and `08`. The periodic state probe observes array reads at
+second 18, exactly 16 emulated seconds later. The saved image contains no
+non-`FF` byte and has SHA-256
+`f5fb04aa5b882706b9309e885f19477261336ef76a150c3b4d3489dfac3953ec`.
+[confirmed]
+
 ### Reproducing the comparison
 
 `tools/flash_hardware.py` contains the photographed-device specification,
@@ -1589,6 +1721,39 @@ python tools/describe_flash_hardware.py --json commands
 nix develop -c python tools/analyze_flash_rom_commands.py --json
 ```
 
+The guarded MAME runtime probe requires the exact MAME binary hash and writes
+its command, input identities, report, complete NVRAM image comparison, and
+captured logs to a new output directory:
+
+```sh
+mame_flash_parent=$(mktemp -d /tmp/ti84-mame-flash.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_flash_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_flash_parent/run" --json
+```
+
+The CPU-visible gate probe uses the same guarded runtime and changes the gate
+between AMD command phases:
+
+```sh
+mame_gate_parent=$(mktemp -d /tmp/ti84-mame-gate.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_flash_gate_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_gate_parent/run" --json
+```
+
+The independent erase matrix uses the same guards and output contract:
+
+```sh
+mame_erase_parent=$(mktemp -d /tmp/ti84-mame-erase.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_flash_erase_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_erase_parent/run" --json
+```
+
 The `parts`, `geometry`, `profiles`, `commands`, `poll`, and `wabbitemu-poll`
 subcommands support `--json` for scripts. `tools/flash_trace.py` imports the
 same geometry library, so dynamic trace reports and emulator comparisons use
@@ -1618,7 +1783,10 @@ one sector definition.
 - `_WriteFlash`'s page-`3E` crossing behavior is byte-confirmed and dynamically reproduced in TilEm with an emulator-only patched-ROM fixture. It remains untested on a physical calculator. [confirmed] for the ROM and emulator trace; [hypothesis] for physical consequences.
 - `_EraseFlash`'s failure path uses undocumented `DE` as a reset-command pointer. Two internal certificate paths leave a Flash address there, while the `3D:60EE` reset path leaves inherited `DE`, the `3D:71C3` path carries metadata, and the public bcall accepts arbitrary `DE`. A forced physical DQ5 test with `DE` in RAM is still required. [confirmed] for the ROM paths; [hypothesis] for physical failure behavior.
 - The precise physical ASIC implementation of the protected-byte recognizer is represented here by WikiTI and TilEm behavior. The calculator schematic does not expose the ASIC's internal state machine. [standard]
-- Physical tests still need to measure legal and illegal byte-program status reads, including a requested `0→1` transition. TilEm, Wabbitemu, and MAME disagree on this case. [hypothesis]
+- Physical tests still need to measure legal and illegal byte-program status
+  reads, including a requested `0→1` transition. Guarded native matrices pin
+  the differing TilEm, Wabbitemu, and MAME results. None establishes physical
+  behavior. [confirmed] for the pinned emulator runs; [hypothesis] for hardware.
 - The Fujitsu data sheet bounds byte program at 300 µs and sector erase at 10 s, with 8 µs and 1 s typical values. Calculator-level duration, DQ toggle cadence, erase-suspend behavior, and top-boot busy-read boundaries remain unmeasured. [standard] for the part limits; [hypothesis] for behavior on a particular calculator.
 - Physical tests have not exercised chip erase, autoselect sector-protection
   reads, fast programming, or erase suspend/resume. Emulator agreement cannot
@@ -1641,6 +1809,6 @@ one sector definition.
 | [Datamath TI-84 Plus hardware](http://www.datamath.org/Graphing/TI-84PLUS.htm) and [March 2004 PCB photograph](http://www.datamath.org/Graphing/Images/TI-84Plus_PCB.jpg) | Fujitsu vendor identification and photographed `29LV800TA-70PFTN` marking |
 | [Datamath memory-component index](http://www.datamath.org/ROM_IC.htm#Flash_NOR_AMIC) | reported AMIC, Fujitsu, Spansion, and Macronix compatible families |
 | Fujitsu `MBM29LV800TA/BA` data sheet, DS05-20845-4E | exact part organization, suffixes, command table, autoselect IDs, status bits, polling algorithm, timing, and endurance; audited 59-page PDF SHA-256 `552a0ebc1de06b64507b7226e1d5bf4cebf8f61d6b5820e0cc796b1985186b19`; former DatasheetArchive download URL returned 404 on 2026-08-09 |
-| [TilEm `flash.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/flash.c), [`x4_memory.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c), [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), and [`x4_subcore.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_subcore.c) | pinned commit `f56ad637d0524ee841dd381be6ecbaf5b8975600`; `flash.c` SHA-256 `280e0e45b6e1f1ef21d779abb809eaef2d04d08db09feb87a459e079280c9545`; emulator command state machine, ASIC gates, and sector table |
+| [TilEm `flash.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/flash.c), [`calcs.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/calcs.c), [`z80.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/z80.c), [`x4_memory.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c), [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), and [`x4_subcore.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_subcore.c) | pinned commit `f56ad637d0524ee841dd381be6ecbaf5b8975600`; `flash.c` SHA-256 `280e0e45b6e1f1ef21d779abb809eaef2d04d08db09feb87a459e079280c9545`; emulator command state, ASIC gates, sector table, full reset, and exception ordering |
 | [Wabbitemu `core.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c), [`core.h`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.h), and [`83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | pinned commit `48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422`; file SHA-256 values `7e7552577b9934a8e344d0bea8152e2b46ddf6840e997e478723cfde7c170c2b`, `6add613d150b55ffdabc8a784e1261b1fcac6e27f0519b1da835de4064b790ec`, and `3acba050bde4df46348aac703899e2980efb24b5fec83f3f0b5940a47f8327c4`; command state machine, erase geometry, and ASIC gates |
 | [MAME `intelfsh.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/devices/machine/intelfsh.cpp), [`intelfsh.h`](https://github.com/mamedev/mame/blob/mame0287/src/devices/machine/intelfsh.h), [`ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp), and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | pinned tag `mame0287`; file SHA-256 values `8fb7e74656801c7939246c9bc77dceab3b36561df33d9ef4201f786eb6713da0`, `42837497b8d3dfdcf1f1119168ae87bf4583c19238acf078c0efcf5dca1e64f9`, `33d77ae3ffc373088202cf79d9979d2a9b715eb1f451122cfd764d1a911d75a1`, and `ae9f8986a80a4ea3ee00c801787f48edb0447880099612949c3429017d1cdedf`; generic AMD device behavior and TI-84 Plus mapping |
