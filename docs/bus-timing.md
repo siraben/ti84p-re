@@ -6,8 +6,8 @@ also gates the memory waits in port `0x2E`; port `0x2F` separately controls the
 high-speed LCD-ready interval and a documented programmable-timer prescaler.
 
 OS 2.55MP programs this block once during retail boot. The ROM bytes and trace
-pin the register values, while the detailed timing contract comes from public
-measurements and two emulator implementations.
+pin the register values. Public measurements, TilEm, and Wabbitemu supply the
+detailed timing contract; MAME provides an explicit omission comparison.
 
 ## Evidence and limits
 
@@ -17,6 +17,7 @@ measurements and two emulator implementations.
 | Resolved cold-boot trace | all six writes execute in order before normal CPU speed is selected | [confirmed] |
 | Whole-ROM immediate-port scan | no second control-flow-verified write to these registers in the analyzed ROM | [confirmed] |
 | TilEm and Wabbitemu source | independent decode of speed selection, LCD instruction delays, and memory wait bits | [standard] |
+| MAME 0.287 source | binary CPU-speed selection and absence of the delay-register block | [standard] |
 | Public hardware tests | intended bit meanings, LCD failure thresholds, and mode-3 timer divisor | [standard] |
 
 The trace proves what the ROM writes and which CPU-speed values execute. It
@@ -36,8 +37,10 @@ reported as emulator behavior, not physical measurements.
 | `0x2E` | one-T-state Flash and RAM access selectors | gated by bits 0–1 of the active `0x29`–`0x2C` register |
 | `0x2F` | high-speed LCD-ready interval and documented mode-3 timer prescaler | field selected by port `0x20` |
 
-All seven delay registers read back the last byte written in TilEm and
-Wabbitemu. Public descriptions give the same readback contract. [standard]
+TilEm and Wabbitemu read back the last byte written to ports `0x29`–`0x2C`,
+`0x2E`, and `0x2F`. Public descriptions give the same contract. MAME maps only
+port `0x20` from this block; its I/O map has no handler for the six
+delay-register writes. [standard]
 
 ## Selection pipeline
 
@@ -52,15 +55,21 @@ That one byte controls two independent effects:
 - bits 2–7 select the T-states added to each LCD-port instruction;
 - bit 0 enables the Flash bits in port `0x2E`, and bit 1 enables the RAM bits.
 
-Changing port `0x20` changes the active byte immediately. The OS does not need
-to rewrite ports `0x29`–`0x2C` when it moves between 6 and 15 MHz. Both
-emulators recompute memory delays on a speed write. [standard]
+Changing port `0x20` changes the active byte immediately in TilEm and
+Wabbitemu. The OS does not need to rewrite ports `0x29`–`0x2C` when it moves
+between 6 and 15 MHz. Both emulators recompute memory delays on an accepted
+speed write. [standard]
 
-On the TI-84 Plus, speed value 0 selects nominal 6 MHz and values 1–3 select
-nominal 15 MHz. OS 2.55MP uses values 0 and 1 in the captured workflows. See
+Under the public TI-84 Plus contract and TilEm, speed value 0 selects nominal
+6 MHz and values 1–3 select nominal 15 MHz. Wabbitemu's default TI-84 Plus
+context clamps writes 2–3 to mode 1. Its external `extraSpeed` option instead
+assigns 20 and 25 MHz to modes 2 and 3. MAME stores the raw byte and selects
+15 MHz for every nonzero value. These are software policies, not evidence for
+extra physical TI-84 Plus clocks. OS 2.55MP uses only values 0 and 1 in the
+captured workflows. See
 [Clock, timers, and power](clock-timers-power.md#cpu-speed) for frequency and
-ASIC-revision caveats. [confirmed] for executed values; [standard] for the
-nominal frequencies.
+ASIC-revision caveats. [confirmed] for executed values; [standard] for public
+and emulator behavior.
 
 ## Boot configuration
 
@@ -91,9 +100,14 @@ TilEm resets its internal registers to the older values `0x14`, `0x27`,
 differing value before normal OS operation. Emulator reset defaults therefore
 must not be mistaken for TI-84 Plus OS policy. [standard]
 
+MAME accepts the later port-`0x20` speed write but drops all six boot writes to
+ports `0x29`–`0x2C`, `0x2E`, and `0x2F`. It therefore runs the ROM at the
+selected base clock without the programmable LCD or memory additions described
+below. [standard]
+
 ## LCD instruction delay — ports `0x29`–`0x2C`
 
-Both emulators add [standard]
+TilEm and Wabbitemu add [standard]
 
 $$
 T_{\mathrm{LCD}} = D_s >> 2
@@ -180,7 +194,7 @@ Speed mode selects one field: [standard]
 | 2 | bits 2–4 | 3 bits |
 | 3 | bits 5–7 | 3 bits |
 
-For a selected field $f$, both emulators use [standard]
+For a selected field $f$, TilEm and Wabbitemu use [standard]
 
 $$
 T_{ready} = 48 + 64f
@@ -217,18 +231,20 @@ target for a counter-based test. [hypothesis]
 
 ## Emulator comparison
 
-| Behavior | TilEm | Wabbitemu |
-|----------|-------|------------|
-| Active `0x29`–`0x2C` register | indexed by port `0x20 & 3` | indexed by current CPU-speed mode |
-| LCD instruction addition | active byte shifted right by two | same |
-| Memory gates and `0x2E` bits | all six access classes | all six access classes |
-| High-speed ready start | every LCD-port read or write | last successful LCD write |
-| LCD controller rejection | ready bit and controller model | also has a separate fixed 60-T-state controller-access guard |
-| Mode-3 timer prescaler | not modeled | not modeled in the compared timer path |
+| Behavior | TilEm | Wabbitemu | MAME 0.287 |
+|----------|-------|------------|------------|
+| Port-`0x20` write | low two bits select modes 0–3; nonzero runs at 15 MHz | default TI-84 Plus state clamps modes 2–3 to mode 1; external `extraSpeed` enables 20/25 MHz | stores the raw byte; zero selects 6 MHz and any nonzero value selects 15 MHz |
+| Active `0x29`–`0x2C` register | indexed by port `0x20 & 3` | indexed by the accepted CPU-speed mode | registers absent |
+| LCD instruction addition | active byte shifted right by two | same | absent |
+| Memory gates and `0x2E` bits | all six access classes | all six access classes | absent |
+| High-speed ready start | every LCD-port read or write | last successful LCD write | programmable interval absent |
+| LCD controller rejection | ready bit and controller model | also has a separate fixed 60-T-state controller-access guard | T6A04 device behavior without the ASIC delay block |
+| Mode-3 timer prescaler | not modeled | not modeled in the compared timer path | not modeled |
 
 The matching memory and LCD-instruction decode corroborates the public bit
-layout. The readiness and timer differences remain emulator policy, not proof
-of physical timing.
+layout. MAME cannot corroborate that decode because it omits the block. The
+readiness, speed, and timer differences remain emulator policy, not proof of
+physical timing.
 
 ## Reproducing the decode
 
@@ -239,15 +255,28 @@ of physical timing.
 nix develop -c python tools/describe_bus_timing.py
 ```
 
-It reports:
+The default documented profile reports:
 
 ```text
-mode  port value  LCD-I/O  Flash +1T      RAM +1T        LCD-ready  timer-div
- 0    0x29  0x17     5T     M1,write       write            0T       /1
- 1    0x2A  0x27     9T     M1,write       write          240T       /4
- 2    0x2B  0x2F    11T     M1,write       write          176T       /3
- 3    0x2C  0x3B    14T     M1,write       write          176T       /3
+documented (WikiTI pages retrieved 2026-08-09): speed-mode=1 clock=15MHz port20=01/01
+  port2e=0x45 port2f=0x4B
+  mode  port value  MHz  LCD-I/O  Flash +1T      RAM +1T        LCD-ready  doc-div
+   0    0x29  0x17    6      5T     M1,write       write            0T       /1
+   1    0x2A  0x27   15      9T     M1,write       write          240T       /4
+   2    0x2B  0x2F   15     11T     M1,write       write          176T       /3
+   3    0x2C  0x3B   15     14T     M1,write       write          176T       /3
 ```
+
+`doc-div` is the public port-`0x2F` divisor decode. It is not an emulator claim.
+Compare the three pinned implementations, including ignored MAME writes, with:
+
+```sh
+nix develop -c python tools/describe_bus_timing.py --compare
+nix develop -c python tools/describe_bus_timing.py --compare --json
+```
+
+Pass `--extra-speeds` to model Wabbitemu's external 20/25 MHz option. The flag
+does not describe the default TI-84 Plus configuration.
 
 Repeated `--write PORT=VALUE` options make altered settings explicit. JSON is
 available for scripts:
@@ -289,3 +318,4 @@ nix develop -c python tools/tilem_trace_resolve.py /tmp/boot.trace \
 | [WikiTI port `0x2F`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2F) | LCD-ready intervals and mode-3 timer prescaler |
 | [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), [`x4_memory.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c), and [`x4_init.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c) | delay decode, cycle placement, ready timer, and reset defaults |
 | [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) and [`core.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c) | independent delay decode, cycle placement, and readiness comparison |
+| [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | mapped I/O ports, raw speed readback, binary clock selection, and absent delay block |

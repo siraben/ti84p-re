@@ -18,6 +18,111 @@ LINE_MASK = 0x03
 
 
 @dataclass(frozen=True)
+class LinkPortImplementationProfile:
+    """One public contract or pinned emulator's raw-link coverage."""
+
+    key: str
+    name: str
+    revision: str
+    write_model: str
+    reset_state: int
+    mapped_assist_ports: tuple[int, ...]
+    advertises_assist: bool
+    assist_operational: bool
+    raw_activity_interrupt: bool
+    driver_status: str
+    known_limit: str
+
+
+DOCUMENTED_LINK_PROFILE = LinkPortImplementationProfile(
+    key="documented",
+    name="Public digital contract",
+    revision="TI Link Protocol Guide and historical WikiTI description",
+    write_model="low-two-bit open-collector",
+    reset_state=0,
+    mapped_assist_ports=(),
+    advertises_assist=False,
+    assist_operational=False,
+    raw_activity_interrupt=True,
+    driver_status="reference contract; not an implementation",
+    known_limit="does not establish analog levels, timing, or ASIC reset behavior",
+)
+
+TILEM_LINK_PROFILE = LinkPortImplementationProfile(
+    key="tilem",
+    name="TilEm",
+    revision="f56ad637d0524ee841dd381be6ecbaf5b8975600",
+    write_model="low-two-bit open-collector",
+    reset_state=0,
+    mapped_assist_ports=(0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D),
+    advertises_assist=True,
+    assist_operational=True,
+    raw_activity_interrupt=True,
+    driver_status="usable raw and link-assist model",
+    known_limit="digital model only; assist timing includes implementation policy",
+)
+
+WABBITEMU_LINK_PROFILE = LinkPortImplementationProfile(
+    key="wabbitemu",
+    name="Wabbitemu",
+    revision="48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422",
+    write_model="low-two-bit open-collector",
+    reset_state=0,
+    mapped_assist_ports=(0x08, 0x09, 0x0A, 0x0D),
+    advertises_assist=True,
+    assist_operational=True,
+    raw_activity_interrupt=False,
+    driver_status="usable raw and link-assist model with source-level quirks",
+    known_limit=(
+        "disconnected peer aliases the local latch; link_disconnect leaves a null "
+        "client pointer"
+    ),
+)
+
+MAME_LINK_PROFILE = LinkPortImplementationProfile(
+    key="mame",
+    name="MAME",
+    revision="mame0287",
+    write_model="TI-Plus PCR latch with mismatched connector control bits",
+    reset_state=0,
+    mapped_assist_ports=(0x09,),
+    advertises_assist=True,
+    assist_operational=False,
+    raw_activity_interrupt=False,
+    driver_status="MACHINE_NOT_WORKING driver",
+    known_limit=(
+        "normal writes update readback but release the connector; assist is "
+        "advertised while its control/data ports are absent"
+    ),
+)
+
+LINK_PORT_PROFILES = {
+    profile.key: profile
+    for profile in (
+        DOCUMENTED_LINK_PROFILE,
+        TILEM_LINK_PROFILE,
+        WABBITEMU_LINK_PROFILE,
+        MAME_LINK_PROFILE,
+    )
+}
+LINK_EMULATOR_PROFILE_KEYS = ("tilem", "wabbitemu", "mame")
+
+
+def link_port_profile(
+    profile: str | LinkPortImplementationProfile,
+) -> LinkPortImplementationProfile:
+    """Resolve a profile key or return an already-resolved profile."""
+
+    if isinstance(profile, LinkPortImplementationProfile):
+        return profile
+    try:
+        return LINK_PORT_PROFILES[profile.lower()]
+    except KeyError:
+        choices = ", ".join(LINK_PORT_PROFILES)
+        raise ValueError(f"unknown link profile {profile!r}; choose {choices}") from None
+
+
+@dataclass(frozen=True)
 class HandshakePhase:
     """One externally visible phase of a raw link-bit transfer."""
 
@@ -25,6 +130,23 @@ class HandshakePhase:
     sender_drive: int
     receiver_drive: int
     high_lines: int
+
+    def as_dict(self) -> dict[str, int | str]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class LinkPortWriteResult:
+    """State and externally visible result of one emulator port-0 write."""
+
+    profile: str
+    write_value: int
+    state_before: int
+    state_after: int
+    local_latch: int
+    connector_drive: int
+    peer_drive: int
+    port_read: int
 
     def as_dict(self) -> dict[str, int | str]:
         return asdict(self)
@@ -67,6 +189,91 @@ def port_read_value(local_drive: int, peer_drive: int) -> int:
     local = _line_mask(local_drive, name="local drive")
     peer = _line_mask(peer_drive, name="peer drive")
     return physical_high_mask(local, peer) | (local << 4)
+
+
+def mame_plus_state_after_write(write_value: int, prior_state: int = 0) -> int:
+    """Apply MAME 0.287's ``ti8x_plus_serial_w`` PCR assignment."""
+
+    value = byte(write_value, name="write value")
+    prior = byte(prior_state, name="prior PCR state")
+    return (prior & 0xC8) | (value & 0x04) | ((value << 4) & 0x30)
+
+
+def mame_plus_connector_drive(write_value: int) -> int:
+    """Return lines MAME drives low through its connector callbacks."""
+
+    value = byte(write_value, name="write value")
+    tip_low = bool(value & 0x04) and bool(value & 0x10)
+    ring_low = bool(value & 0x08) and bool(value & 0x20)
+    return int(tip_low) | (int(ring_low) << 1)
+
+
+def mame_plus_port_read(pcr_state: int, peer_drive: int = 0) -> int:
+    """Apply MAME 0.287's TI-Plus raw serial read expression."""
+
+    pcr = byte(pcr_state, name="PCR state")
+    peer = _line_mask(peer_drive, name="peer drive")
+    tip_in = 0x02 if peer & 1 else 0x03
+    ring_in = 0x01 if peer & 2 else 0x03
+    inputs = (~(pcr >> 4) & 0xFF) & tip_in & ring_in
+    return inputs | (pcr & 0xFC)
+
+
+def emulator_port_write(
+    profile: str | LinkPortImplementationProfile,
+    write_value: int,
+    *,
+    prior_state: int | None = None,
+    peer_drive: int = 0,
+) -> LinkPortWriteResult:
+    """Apply one raw port write and calculate readback and connector output."""
+
+    selected = link_port_profile(profile)
+    value = byte(write_value, name="write value")
+    peer = _line_mask(peer_drive, name="peer drive")
+    before = selected.reset_state if prior_state is None else byte(
+        prior_state, name="prior state"
+    )
+    if selected.key == "mame":
+        after = mame_plus_state_after_write(value, before)
+        latch = (after >> 4) & LINE_MASK
+        connector = mame_plus_connector_drive(value)
+        read = mame_plus_port_read(after, peer)
+    else:
+        after = drive_mask(value)
+        latch = after
+        connector = after
+        read = port_read_value(after, peer)
+    return LinkPortWriteResult(
+        profile=selected.key,
+        write_value=value,
+        state_before=before,
+        state_after=after,
+        local_latch=latch,
+        connector_drive=connector,
+        peer_drive=peer,
+        port_read=read,
+    )
+
+
+def emulator_write_sequence(
+    profile: str | LinkPortImplementationProfile,
+    write_values: Iterable[int],
+    *,
+    peer_drive: int = 0,
+) -> tuple[LinkPortWriteResult, ...]:
+    """Apply a sequence of writes while preserving implementation state."""
+
+    selected = link_port_profile(profile)
+    state = selected.reset_state
+    results = []
+    for value in write_values:
+        result = emulator_port_write(
+            selected, value, prior_state=state, peer_drive=peer_drive
+        )
+        results.append(result)
+        state = result.state_after
+    return tuple(results)
 
 
 def sender_drive(bit: int) -> int:

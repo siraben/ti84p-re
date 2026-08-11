@@ -6,7 +6,7 @@ The TI-84 Plus drives a 96×64 monochrome panel through an external LCD controll
 
 ## Evidence layers
 
-The local ROM establishes what OS 2.55MP sends to the controller. Public hardware tests establish controller behavior that the ROM does not expose, while TilEm supplies an executable model whose choices are identified separately.
+The local ROM establishes what OS 2.55MP sends to the controller. Public hardware tests establish controller behavior that the ROM does not expose. TilEm, Wabbitemu, and MAME supply executable models whose choices are identified separately.
 
 | Layer | Main evidence | What it establishes |
 |-------|---------------|---------------------|
@@ -18,6 +18,7 @@ The local ROM establishes what OS 2.55MP sends to the controller. Public hardwar
 | Toshiba T6A04A datasheet | controller block diagram, command table, and timing specification | 120×64 display RAM, 80-series bus, counters, read latch, busy formula, and analog-drive controls [standard] |
 | Public hardware notes | WikiTI ports `0x02`, `0x10`–`0x13`, and `0x2F` | status bits, command meanings, controller variants, transfer timing, and hardware quirks [standard] |
 | Emulator model | Upstream TilEm `lcd.c`, `x4_io.c`, and `x4_init.c` at commit `f56ad63` | implemented video RAM, latches, delays, aliases, and fidelity limits [standard] |
+| Emulator comparison | Wabbitemu `lcd.c` and `83psehw.c` at `48c2dc0`; MAME `t6a04.cpp`, `ti85.cpp`, and `ti85_m.cpp` at `mame0287` | row strides, pointer bounds, busy handling, ASIC waits, and unsafe edge cases [standard] |
 
 ## Panel, controller, and video RAM
 
@@ -276,7 +277,25 @@ The trace captures three load-bearing sequences: [confirmed]
 
 The trace is an emulator execution record. It proves the ROM path and values but does not prove analog power behavior, physical busy duration, or controller-revision quirks.
 
-## TilEm behavior and fidelity gaps
+## Emulator comparison
+
+All three emulators implement the commands and visible 12-byte rows used by
+OS 2.55MP. Their hidden-column, busy, and ASIC-timer behavior differs. These
+differences are emulator test cases, not physical-controller evidence.
+[standard]
+
+| Area | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 |
+|------|-----------------|------------------------|------------|
+| Controller RAM | 1,024 bytes, 16 × 64 | 1,024 bytes, 16 × 64 | 960 bytes, 15 × 64 |
+| 8-bit column increment | accesses 0–15, then normalizes to 0 | accesses 0–14, then wraps to 0 | counts modulo 32 without a RAM bound |
+| Controller busy | 50 or 70 cycles; early transfers rejected | 60-T-state guard from the last accepted write | absent; busy status is always zero |
+| ASIC ready | port-`0x2F` timer starts on every LCD read or write | interval measured from the last accepted write | port-`0x02` bit 1 is always set |
+| Ports `0x12`/`0x13` | aliases | absent | aliases |
+| Data-read latch | modeled | modeled | modeled |
+| Analog power and test modes | ignored | ignored | values partly stored; no analog effect |
+| Driver status | active TI-84 Plus trace target | source model | `MACHINE_NOT_WORKING` |
+
+### TilEm behavior and fidelity gaps
 
 TilEm models the controller and the ASIC wait timer as separate mechanisms. [standard]
 
@@ -297,6 +316,86 @@ TilEm models the controller and the ASIC wait timer as separate mechanisms. [sta
 
 TilEm reset initializes controller contrast to 32, 8-bit mode, byte-column increment, row and column zero, and display disabled. OS initialization then replaces those values. [standard]
 
+### Wabbitemu behavior and fidelity gaps
+
+Wabbitemu allocates 16 bytes for each of 64 controller rows and displays the
+first 96 pixels. It decodes the same command groups as TilEm. Power and test
+commands have no controller effect. Its rendering queue uses repeated frames
+to approximate grayscale, which is a frontend policy rather than monochrome
+controller behavior. [standard]
+
+The 8-bit column-increment path wraps when the next column reaches 15. It
+therefore visits columns `0`–`14`; TilEm visits `0`–`15`. A direct command can
+still select column 15. Wabbitemu indexes that direct coordinate modulo its
+16-byte row. Commands `0x30`–`0x3F` therefore alias columns `0`–`15` instead of
+following the documented out-of-range behavior. [standard]
+
+Wabbitemu rejects command and data transfers made within 60 T-states of the
+last accepted LCD write. An early status read returns `0x80`; an early data
+read or write is discarded. Accepted reads advance the pointer and output
+latch but do not update the guard's timestamp. [standard]
+
+Its separate port-`0x02` ready calculation also measures from the last accepted
+write. It applies the port-`0x2F` field as $48 + 64n$ T-states. The speed-selected
+ports `0x29`–`0x2C` add their shifted instruction delay before either LCD port
+handler. This agrees with the register arithmetic, but the triggering event
+differs from TilEm's every-access timer. [standard]
+
+Wabbitemu registers ports `0x10` and `0x11` for this model but not the documented
+`0x12` and `0x13` aliases. It subtracts a model-specific base level of 24 from
+contrast commands before its grayscale renderer consumes the value. This
+display calibration is not controller voltage evidence. [standard]
+
+### MAME behavior and fidelity gaps
+
+MAME 0.287 attaches a generic T6A04 device to ports `0x10`–`0x13`. Its 960-byte
+array matches a 15-byte by 64-row controller. The OS-visible 12 columns, address
+movement, Z shift, display enable, 6-bit packing, and dummy-read latch are
+implemented. [standard]
+
+The five-bit column pointer is not checked against the 15-byte stride before a
+data read or write. Column 15 on row 0 indexes byte 15, which is row 1 column 0
+in the backing array. Column 31 on row 63 computes index 976, beyond the
+960-byte array. The OS stays within columns `0`–`11`, so its ordinary clear and
+blit loops do not trigger this C++ out-of-bounds path. [standard]
+
+The device source lists busy and contrast among its TODO items. The busy flag
+never becomes one. Contrast commands update a field, but screen rendering does
+not consume it. MAME stores the two power-control fields without modeling their
+analog effect. [standard]
+
+The TI-84 Plus driver returns port-`0x02` with bit 1 permanently set and does
+not map ports `0x29`–`0x2F`. The ROM's `lcd_wait` loop therefore exits on its
+first read, and no speed-selected LCD instruction delay is applied. The driver
+is marked `MACHINE_NOT_WORKING`; these omissions do not describe the ASIC.
+[standard]
+
+### Reproducing pointer differences
+
+`tools/lcd_controller.py` provides command decoding, status composition, the
+dummy-read latch, and source-modeled pointer walks. The CLI compares an
+increment starting at hidden column 14:
+
+```console
+$ python tools/describe_lcd_controller.py walk --row 0 --column 14 --movement 7 --count 3
+TilEm
+  0: requested=(0,14) access=(0,14) index=14 next=(0,15)
+  1: requested=(0,15) access=(0,15) index=15 next=(0,16)
+  2: requested=(0,16) access=(0,0) index=0 next=(0,1)
+Wabbitemu
+  0: requested=(0,14) access=(0,14) index=14 next=(0,0)
+  1: requested=(0,0) access=(0,0) index=0 next=(0,1)
+  2: requested=(0,1) access=(0,1) index=1 next=(0,2)
+MAME
+  0: requested=(0,14) access=(0,14) index=14 next=(0,15)
+  1: requested=(0,15) access=(0,15) index=15 next=(0,16) [column-out-of-range]
+  2: requested=(0,16) access=(0,16) index=16 next=(0,17) [column-out-of-range]
+```
+
+The `decode`, `profiles`, `status`, and `latch` subcommands accept `--json` for
+scripts. Transfer reports distinguish a controller column outside the modeled
+row from an index outside the complete backing array.
+
 ## Resolved findings and open hardware questions
 
 - [confirmed] OS 2.55MP waits through port-`0x02` bit 1 and does not busy-poll port `0x10` in `lcd_wait`.
@@ -308,6 +407,8 @@ TilEm reset initializes controller contrast to 32, 8-bit mode, byte-column incre
 - [hypothesis] The exact controller family and off-screen RAM width cannot be inferred from this OS image; they must be measured per calculator.
 - [hypothesis] The late-controller status-read pointer mutation, power-command analog effects, and off-screen retention need physical tests across TA2/TA3 board revisions.
 - [hypothesis] TilEm's five-cycle LCD I/O overhead and 50-cycle controller busy period should be compared with bus captures rather than treated as hardware constants.
+- [standard] Wabbitemu's 15-column increment cycle and write-based ready timer, plus MAME's unchecked 15-byte row, are emulator limits rather than hardware results.
+- [hypothesis] Physical tests should sweep hidden columns and time readiness after reads and writes independently.
 
 ## Sources
 
@@ -320,3 +421,5 @@ TilEm reset initializes controller contrast to 32, 8-bit mode, byte-column incre
 | [WikiTI port `0x2F`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2F) | ASIC wait-duration fields and defaults |
 | [Toshiba T6A04A datasheet](https://archive.org/details/t6a04a-datasheet) | controller pins and blocks, 120×64 RAM, commands, counters, dummy reads, and busy timing |
 | [TilEm `lcd.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/lcd.c), [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), and [`x4_init.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c) | emulator video RAM, command decode, latches, port aliases, wait timers, and reset state |
+| [Wabbitemu `lcd.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/lcd.c) and [`83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | controller RAM, pointer movement, transfer guard, ASIC-ready calculation, and port registration |
+| [MAME `t6a04.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/devices/video/t6a04.cpp), [`ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp), and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | controller array and commands, TI-84 Plus port map, fixed ready bit, and driver status |

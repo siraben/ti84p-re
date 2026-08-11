@@ -17,6 +17,7 @@ or `0x28` a nonzero value, so their physical behavior remains unconfirmed.
 | Resolved TilEm boot and homescreen traces | executed page transitions and logical-to-physical page resolution | [confirmed] |
 | TilEm `x4_io.c` and `x4_memory.c` | one emulator's paired mode, selector masks, forced overlays, and protection order | [standard] |
 | Wabbitemu `83psehw.c` and `core.c` | an independent implementation, including extended Flash pages and different overlay rules | [standard] |
+| MAME 0.287 `ti85.cpp` and `ti85_m.cpp` | a third implementation's bank arithmetic, reset latch, mapped I/O, and backing ranges | [standard] |
 | Public port descriptions | intended family-wide contracts for ports `0x04`–`0x07`, `0x0E`, `0x0F`, `0x27`, and `0x28` | [standard] |
 
 The target ROM runs on a TI-84 Plus with 64 Flash pages and eight RAM page
@@ -90,8 +91,9 @@ method. [confirmed]
 ### Ports `0x06` and `0x07`
 
 Bit 7 chooses the memory type. On the TI-84 Plus, these selector rules match
-the trace and both emulator implementations: [confirmed] for executed OS
-values; [standard] for the complete register contract.
+the trace, TilEm, and Wabbitemu: [confirmed] for executed OS values; [standard]
+for the complete register contract. MAME matches the OS-used Flash values and
+RAM selectors `0x80`–`0x86`, but does not wrap higher RAM values.
 
 | Selector | Physical page |
 |----------|---------------|
@@ -110,7 +112,9 @@ RAM page `0x80 | (value & 7)`. The normal value `0x00` therefore maps RAM page
 
 TilEm stores four low bits for port readback but uses only three in its page
 calculation. Wabbitemu reduces the low seven bits by the model's RAM page
-count. Both produce the same eight TI-84 Plus pages. [standard]
+count. MAME stores the low three bits. The arithmetic in all three selects the
+same eight page numbers, although MAME's backing range omits the last page as
+described below. [standard]
 
 ### Extended Flash bits — ports `0x0E` and `0x0F`
 
@@ -137,12 +141,101 @@ both during normal mapper initialization. [confirmed]
 TilEm's TI-84 Plus mapper stores and reads the low two bits but does not feed
 them into its 64-page calculation. Wabbitemu uses the family-wide formula and
 masks the result by the configured Flash size. These implementations agree for
-this target. [standard]
+this target. MAME does not map ports `0x0E` or `0x0F`; writes reach no handler.
+Its TI-84 Plus port-`0x06` and port-`0x07` handlers instead truncate every
+Flash selector below `0x80` to six bits. [standard]
+
+## Emulator mapper comparison
+
+The source-level comparison below describes the pinned implementations, not
+the ASIC. Agreement is useful corroboration of an intended rule; disagreement
+is a test target rather than a vote. [standard]
+
+| Detail | TilEm | Wabbitemu | MAME 0.287 |
+|--------|-------|------------|------------|
+| Mapper ports | `0x04`–`0x07`, `0x0E`, `0x0F`, `0x27`, `0x28` | same | only `0x04`–`0x07` |
+| Declared driver status | usable mapper | usable mapper | `MACHINE_NOT_WORKING` |
+| port `0x05` write | stores low four bits; maps low three | reduces low seven bits by RAM-page count | stores low three bits |
+| TI-84 Plus Flash selector | low six bits | extended formula, then Flash-size mask | low six bits for values below `0x80` |
+| RAM selector | low three bits | low bits masked by RAM-page count | raw value `0x80`–`0xFF` becomes the bank number |
+| paired A | port-`0x06` page with bit 0 clear | same | same |
+| paired B | port-`0x06` page with bit 0 set | see expression bug below | port-`0x06` page with bit 0 set |
+| paired C | port-`0x07` page | same | same |
+| paired reads from `0x05`–`0x07` | stored register values | active C/A/B page values | stored register values |
+| forced-RAM overlays | both modes | independent mode only | absent |
+
+Wabbitemu's reads are therefore not register snapshots in paired mode. Port
+`0x06` reads visible A, port `0x07` reads visible B, and port `0x05` reads the
+physical page visible in C without a RAM-type bit. A routine that writes an
+even page to port `0x06` and reads port `0x07` receives that duplicated even
+page under the pinned implementation. TilEm and MAME instead return their
+stored selector bytes from ports `0x05`–`0x07`. [standard]
+
+### Wabbitemu's paired-B expression
+
+Wabbitemu's `update_bootmap_pages` intends to construct the second member of
+the pair, but the pinned source assigns it with: [standard]
+
+```c
+page = normal_page | (!flash_version == 1);
+```
+
+Every supported Plus-family initializer gives `flash_version` a nonzero value.
+C operator precedence therefore evaluates `!flash_version` first, producing
+zero, and then compares zero with one, again producing zero. The expression is
+effectively `page | 0`. An odd port-`0x06` selection still produces the usual
+even/odd pair because A clears its low bit and B preserves the already-set bit.
+An even selection duplicates the even page into both A and B. TilEm and MAME
+instead produce the adjacent odd B page. [standard]
+
+This is a Wabbitemu implementation result, not evidence that the ASIC
+duplicates even pages. [hypothesis] for physical behavior until a hardware
+test exercises an even selector in paired mode.
+
+### MAME's raw RAM banks and short backing range
+
+For TI-84 Plus Flash values below `0x80`, MAME stores `value & 0x3F`. For RAM
+values at or above `0x80`, it stores the complete byte and passes that byte
+directly to the address-map bank. It does not reduce the selector modulo eight.
+Port `0x05` is the exception because its handler stores `value & 7`.
+[standard]
+
+The TI-84 Plus banked map provides Flash at offsets `0x000000`–`0x0FFFFF` and
+RAM at `0x200000`–`0x21BFFF`. The latter is seven, not eight, 16 KiB pages.
+Selectors `0x80`–`0x86` reach RAM; selector `0x87`, port-`0x05 = 7`, and every
+higher raw RAM selector land outside the mapped backing range. This boundary
+follows directly from the MAME address map and is an emulator defect, not a
+claim that TI-84 Plus RAM page `87` is absent. [standard]
+
+### Reset entry and fixed-page handoff
+
+The three emulators do not begin at the same logical address: [standard]
+
+| Implementation | Reset PC | Initial visible pages 0/A/B/C | Fixed-page handoff |
+|----------------|----------|-------------------------------|--------------------|
+| TilEm | `0x8000` | Flash `00`/`3E`/`3F`/`3F` | none; page 0 is already fixed |
+| Wabbitemu | `0x0000` | Flash `3F`/`00`/`00`, RAM `80` | first qualifying opcode fetch in A, or B while paired, changes fixed page `3F` to `00` |
+| MAME 0.287 | `0x0000` | Flash `3F`/`00`/`01`/`00` | a read from A, or from B while paired, clears the boot latch before returning the byte |
+
+MAME's reset initializes selectors `0x05`–`0x07` to zero, port `0x04` to one,
+and `m_booting` to true. Its fixed window consequently starts on page `3F`,
+while paired A/B are pages `00`/`01` and C is Flash page `00`. The handoff is
+implemented in read handlers, despite a comment saying it should apply only to
+opcode fetches. [standard]
+
+The pinned MAME source also swaps model constants in two machine-start
+functions: the `ti83pse` start assigns `TI84PSE`, and `ti84pse` assigns
+`TI83PSE`. The `ti84p` start correctly assigns `TI84P`, so the six-bit selector
+mask described here does execute for this article's target. The swapped names
+still make cross-model inferences from this driver unsafe without checking the
+actual machine configuration and `m_model` branch. MAME registers the TI-84
+Plus driver with `MACHINE_NOT_WORKING`; this comparison treats its source as an
+implementation oracle, not a fidelity endorsement. [standard]
 
 ## Boot mapping transition
 
-The retail boot page contains a reset stub at `3F:4000`. Under the emulator's
-reset mapping it executes at logical `0x8000`: [confirmed]
+The retail boot page contains a reset stub at `3F:4000`. Under TilEm's reset
+mapping it executes at logical `0x8000`: [confirmed]
 
 ```z80
 3F:4000  LD A,0x07
@@ -219,10 +312,10 @@ port `0x07`. Representative sites include `ram:0B78`, `05:5B66`, `2F:45A9`,
 ```
 
 Bit 7 of the port-`0x07` value is set, so the extended *Flash* bits do not
-participate in the resulting RAM page under the public contract or either
-emulator. The clear may be defensive state normalization or compatibility with
-another ASIC revision. The ROM does not establish that it is required.
-[hypothesis]
+participate in the resulting RAM page under the public contract, TilEm, or
+Wabbitemu. MAME has no extended selectors to clear. The clear may be defensive
+state normalization or compatibility with another ASIC revision. The ROM does
+not establish that it is required. [hypothesis]
 
 ## Forced RAM subranges — ports `0x27` and `0x28`
 
@@ -245,20 +338,20 @@ they do not confirm the nonzero mapping formula. [confirmed]
 
 ### Emulator disagreement
 
-The two emulator implementations disagree at the point most useful for a
+The three emulator implementations disagree at the point most useful for a
 hardware test: [standard]
 
-| Detail | TilEm | Wabbitemu |
-|--------|-------|------------|
-| Overlay active in paired mode | yes | no; checks `!boot_mapped` |
-| Port `0x28` range | complete formula above | complete formula above in independent mode |
-| Port `0x27` range | complete formula above | also requires the logical address to be at least `0xFB64` |
-| Read, write, and instruction fetch | all resolve through the overlay | data reads/writes use the overlay; execution checks retain some underlying-bank logic |
+| Detail | TilEm | Wabbitemu | MAME 0.287 |
+|--------|-------|------------|------------|
+| Overlay active in paired mode | yes | no; checks `!boot_mapped` | no overlay model |
+| Port `0x28` range | complete formula above | complete formula above in independent mode | port unmapped |
+| Port `0x27` range | complete formula above | also requires the logical address to be at least `0xFB64` | port unmapped |
+| Read, write, and instruction fetch | all resolve through the overlay | data reads/writes use the overlay; execution checks retain some underlying-bank logic | underlying bank only |
 
 WikiTI's historical description says these ports have no effect in paired
 mode, which agrees with Wabbitemu and disagrees with TilEm. None of these
-software sources proves the ASIC behavior. [hypothesis] for physical paired-mode
-behavior.
+software sources proves the ASIC behavior. Whether the overlays operate in
+physical paired mode remains a hypothesis. [hypothesis]
 
 ## Interaction with execution protection
 
@@ -283,7 +376,8 @@ difference does not affect the traced boot and homescreen paths. [confirmed]
 
 - Preserve every selector that the routine changes. Ports `0x05`, `0x06`,
   `0x07`, `0x0E`, `0x0F`, `0x27`, and `0x28` have readable state in the public
-  contract and both emulators. [standard]
+  contract, TilEm, and Wabbitemu. MAME does not implement the latter four.
+  [standard]
 - Do not use `IN A,(0x04)` to save the memory mode. Reads return interrupt
   status. Code entered under TI-OS can rely on its documented normal
   independent mode or must receive the mode from its caller. [standard]
@@ -303,16 +397,39 @@ difference does not affect the traced boot and homescreen paths. [confirmed]
 
 ## Reproducing the mapping
 
-`tools/memory_mapper.py` contains the reusable selector model.
-`tools/describe_memory_mapping.py` applies a sequence of writes and prints the
-resulting windows. This reproduces the final boot state shown above:
+`tools/memory_mapper.py` contains explicit `documented`, `tilem`, `wabbitemu`,
+and `mame` profiles. `tools/describe_memory_mapping.py` applies writes and
+reads, compares profiles, and can emit JSON. List the pinned coverage first:
+
+```sh
+nix develop -c python tools/describe_memory_mapping.py profiles
+```
+
+This reproduces the final TilEm boot state shown above:
 
 ```sh
 nix develop -c python tools/describe_memory_mapping.py \
+  map --profile tilem \
   --write 0x0e=3 --write 6=0x7f \
   --write 0x0f=3 --write 7=0x7f --write 4=6 \
   --write 7=0x81 --write 0x0e=0 --write 0x0f=0 \
   --write 5=0 --write 6=0x3f --write 7=0x80
+```
+
+An even paired selector exposes Wabbitemu's duplicated B page while also
+showing MAME's ignored high-selector and overlay writes:
+
+```sh
+nix develop -c python tools/describe_memory_mapping.py compare \
+  --write 4=1 --write 6=2 \
+  --write 0x0e=3 --write 0x27=0xff --write 0x28=1
+```
+
+To reproduce MAME's fixed-page read latch and machine-read the result:
+
+```sh
+nix develop -c python tools/describe_memory_mapping.py --json \
+  map --profile mame --read 0x4000
 ```
 
 The trace resolver uses the same library. To show the executed boot writes:
@@ -345,6 +462,10 @@ nix develop -c python tools/analyze_rom_io.py \
   cutoff models hardware or is an emulator-specific restriction.
 - Read ports `0x0E` and `0x0F` after writing values with upper bits set on TA2,
   TA3, and larger-Flash family members.
+- Select an even Flash page through port `0x06` in paired mode and verify that
+  window B exposes the adjacent odd page rather than Wabbitemu's duplicate.
+- Select RAM page `87` through ports `0x05`, `0x06`, and `0x07`; this confirms
+  the physical page independently of MAME's seven-page backing-map defect.
 
 ## Sources
 
@@ -353,4 +474,5 @@ nix develop -c python tools/analyze_rom_io.py \
 | OS 2.55MP `rom.bin`, especially `00:0000`–`029C`, `3F:4000`–`4210`, `37:44AE`, and `37:6D33` | executed selector sequences and reset values |
 | [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) and [`x4_memory.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c) | mapping modes, 64-page masks, overlays, and protection order |
 | [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) and [`core.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c) | extended selectors, paired mode, overlays, and independent comparison |
+| [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | mapped ports, bank backing, selector writes, reset mapping, and read-latch behavior |
 | [WikiTI port `0x04`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:04), [`0x0E`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:0E), [`0x0F`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:0F), [`0x27`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:27), and [`0x28`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:28) | historical public register descriptions checked against ROM and emulators |

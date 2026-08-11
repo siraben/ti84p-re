@@ -14,7 +14,7 @@ The port block is internal to the ASIC, so public descriptions and emulator code
 | Dynamic execution | `tools/tibasic-samples/MD5TEST.8xp` and a complete resolved TilEm trace | 64 operations for `MD5("abc")`, all port values, all modes, and the final digest [confirmed] |
 | Independent calculation | `tools/md5_hardware.py` | every recorded result agrees with the 32-bit operation derived from the ROM and RFC 1321 [confirmed] |
 | Public hardware notes | WikiTI port `0x18` and MD5 bcall pages | historical port and ABI descriptions checked against the local ROM [standard] |
-| Emulator models | TilEm upstream commit `f56ad63` and Wabbitemu commit `48c2dc0` | shift-register policy, masking, reset policy, and implemented undefined reads [standard] |
+| Emulator models | TilEm `f56ad63`, Wabbitemu `48c2dc0`, and MAME 0.287 | shift-register policy, masking, reset policy, implemented undefined reads, and MAME's missing port block [standard] |
 | Algorithm specification | RFC 1321 | MD5 state, Boolean functions, constants, rotations, padding, and test vectors [standard] |
 
 WikiTI is used as a comparison source, not as proof. For example, its `_MD5Update` page describes an eight-byte length, while the local routine updates only the low four bytes. Its `_TransformHash` page lists the four valid selectors, while the ROM maps every other nonzero low selector byte to the same branch as selector 3. [confirmed]
@@ -68,6 +68,11 @@ on write byte v to operand register r:
 Four writes `b0`, `b1`, `b2`, `b3` therefore leave `r = b0 + 2^8 b1 + 2^16 b2 + 2^24 b3`. A fifth write discards the oldest low byte in both emulators. Physical behavior after fewer or more than four writes has not been measured. [standard] for emulator behavior; [hypothesis] for the physical sliding-register implementation.
 
 TilEm and Wabbitemu also mask a write to `0x1E` with `0x1F` and a write to `0x1F` with `0x03`. Both return zero for reads from `0x18`–`0x1B`. The ROM uses only valid rotate counts and modes and never reads those four ports, so the local image cannot verify the masks or zero values. [standard]
+
+MAME's TI-84 Plus I/O map has no handlers for ports `0x18`–`0x1F`.
+The ROM transaction therefore reaches unmapped I/O instead of an MD5 assist
+block. MAME cannot execute the valid hardware-assisted compression path.
+Its TI-84 Plus driver is marked `MACHINE_NOT_WORKING`. [standard]
 
 ### One ROM transaction
 
@@ -345,7 +350,17 @@ This separation matters when tracing ports: only the earlier MD5 compression rou
 
 ## Emulator comparison and fidelity limits
 
-TilEm and Wabbitemu agree on the behaviors below: [standard]
+| Behavior | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 |
+|----------|-----------------|----------------------|------------|
+| Ports `0x18`–`0x1F` | mapped | mapped | absent |
+| Operand writes | six 32-bit sliding registers | same | unmapped |
+| Control writes | shift masked to five bits; mode masked to two | same | unmapped |
+| Result reads | recalculated on each read from `0x1C`–`0x1F` | same | unmapped |
+| Reads from `0x18`–`0x1B` | zero | zero | unmapped |
+| Reset and state | fields cleared on reset and serialized | fields serialized | no MD5 state |
+| Driver status | usable implementation | usable implementation | TI-84 Plus marked `MACHINE_NOT_WORKING` |
+
+TilEm and Wabbitemu agree on the implemented behaviors below: [standard]
 
 - six 32-bit operand registers;
 - byte writes implemented as right shift plus insertion at bit 24;
@@ -359,6 +374,30 @@ TilEm explicitly clears all six operands, the rotate count, and the mode on calc
 
 Agreement between two emulators is useful corroboration, not independent physical measurement. Both projects may derive edge behavior from the same public notes. The dynamic trace proves that TilEm handles the ROM's valid transaction correctly and produces the standard digest. It does not prove invalid-write behavior on a TA2 or TA3 ASIC. [confirmed] for the exercised path; [hypothesis] for unmeasured hardware edges.
 
+MAME's omission is evidence only about that driver. It does not weaken the ROM
+trace or imply that a physical TI-84 Plus lacks the accelerator. [standard]
+
+## Reusable implementation model
+
+`tools/md5_hardware.py` now separates the independent arithmetic and trace
+decoder from pinned emulator I/O profiles. `Md5AssistImplementation` models
+the six sliding registers, control masks, read-time recalculation, undefined
+operand reads, and unmapped MAME writes. [standard]
+
+The comparison CLI defaults to the first compression step for `"abc"` and
+accepts replacement operands, mode, and rotate count. Its JSON report keeps
+unmapped ports distinct from a numeric read value:
+
+```sh
+nix develop -c python tools/describe_md5_hardware.py
+nix develop -c python tools/describe_md5_hardware.py --json
+nix develop -c python tools/describe_md5_hardware.py \
+  --profile tilem --mode 3 --shift 0x1F --a 0x01234567
+```
+
+TilEm and Wabbitemu return `0xD6D117B4` for the default step. The MAME profile
+reports all eight ports as unmapped rather than inventing an open-bus byte.
+
 ## Security context
 
 MD5 no longer provides collision resistance and should not be selected for a new security design. The calculator's boot code uses it as one component of a historical application-signature format. This page describes compatibility behavior, not a recommendation to use MD5 for modern authentication. [standard]
@@ -367,7 +406,9 @@ The accelerator does not make the hash construction stronger. It only reduces th
 
 ## Open physical tests
 
-The ROM, trace, and two emulator models close the valid software path. These ASIC questions require a physical TI-83 Plus Silver Edition or TI-84 Plus test harness:
+The ROM, trace, and two implementing emulator models close the valid software
+path. MAME omits the block. These ASIC questions require a physical TI-83 Plus
+Silver Edition or TI-84 Plus test harness:
 
 - read `0x18`–`0x1B` after reset and after operand writes;
 - write one, three, four, and five bytes to one operand and recover its effect through a controlled calculation;
@@ -389,4 +430,5 @@ A calculator schematic can identify the ASIC revision and external buses, but it
 | [WikiTI `_TransformHash`](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:80A5) | historical Rabin transformation description, checked and narrowed against `3F:723F` |
 | [TilEm `md5.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/md5.c) and [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) | emulator arithmetic, shift registers, masks, reads, and reset |
 | [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | second emulator implementation of the same port block |
+| [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) | TI-84 Plus I/O map, absent MD5 ports, and driver status |
 | [Datamath TI-84 Plus hardware](http://www.datamath.org/Graphing/TI-84PLUS.htm) | calculator hardware and ASIC identification context |

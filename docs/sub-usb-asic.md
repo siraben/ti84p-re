@@ -73,7 +73,8 @@ silicon identifier. The family identification therefore remains [hypothesis].
 | `0x90`–`0x92` | `TXMAXP`, `CSR0`/`TXCSR1`, `CSR02`/`TXCSR2` | Endpoint 0 uses `CSR0`; nonzero indexed endpoints use the transmit CSR pair. The ROM writes bit 1 to launch endpoint-0 packets and bit 0 to launch nonzero-endpoint packets. [confirmed] |
 | `0x93`–`0x97` | `RXMAXP`, `RXCSR1/2`, `COUNT0`/`RXCOUNT1/2` | Receive paths select an endpoint, test `RXCSR1` bit 0, read the count, drain the matching FIFO, and clear the ready condition. [confirmed] |
 | `0x98`–`0x9B` | `TXTYPE`, `TXINTERVAL`/`NAKLIMIT0`, `RXTYPE`, `RXINTERVAL` | Host setup writes endpoint type/address and interval values before starting transfers. [confirmed] |
-| `0xA0`–`0xA2` | endpoint FIFOs 0–2 | Control records use `0xA0`; receive and transmit paths use the FIFO selected for endpoints 1 and 2. [confirmed] |
+| `0x9C`–`0x9F` | `TXFIFO1/2`, `RXFIFO1/2`; `FIFOSIZE`/`CONFIGDATA` aliases at `0x9F` | These offsets complete the Mentor FDRC register file. A static page-`2F`/`35` scan found no resolved immediate or literal-`C` access, so the TI use of these registers remains [hypothesis]. |
+| `0xA0`–`0xAF` | endpoint FIFOs 0–15 | Mentor's non-AHB macro maps endpoint $n$ to offset `0x20 + n`. The ROM confirms FIFO 0 at `0xA0`, FIFO 1 at `0xA1`, and FIFO 2 at `0xA2`; higher endpoints remain [hypothesis]. |
 
 The FDRC ordering matters because the common HDRC/MUSB register layout places several interrupt
 registers at different offsets. The TI ROM's `INTRUSB` read at `0x86`, enable writes at
@@ -357,24 +358,54 @@ port `0x39`. Their low-bit read-modify-write sequences are decoded in
 The ROM ties those bits to USB setup but does not expose their electrical signal
 names. [confirmed] for the operations; [hypothesis] for signal assignments.
 
-### Emulator boundary
+## Emulator comparison
 
-TilEm does not implement a connected USB controller for this model. Upstream commit `f56ad63` returns fixed values `0x22`, `0xA5`, `0x1F`, `0x00`, and `0x50` from ports `0x4C`, `0x4D`, `0x55`, `0x56`, and `0x57`. Its `x4_io.c` has no write cases for the controller or endpoint ranges. [standard]
+The three pinned emulators implement disconnected or partial USB behavior. None implements the page-35 endpoint transactions needed for a connected transfer. [standard]
 
-The fixed port `0x4C = 0x22` value cannot satisfy `_InitUSB`'s `0x1A`/`0x5A` handshake. A TilEm trace can therefore exercise only timeout and disconnected cleanup. The connected receive path requires physical hardware, a USB-aware emulator, or a controlled port-level harness. [confirmed] for the ROM comparison; [hypothesis] for unmeasured physical timing.
+| Area | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 |
+|------|-----------------|------------------------|------------|
+| Controller ports | fixed reads at `0x4C`, `0x4D`, `0x55`–`0x57` | handlers at `0x4A`, `0x4C`, `0x4D`, `0x55`–`0x57`, `0x5B`, and `0x80` | fixed reads at `0x55` and `0x56` only |
+| Initial/disconnected `0x4C`, `0x4D` | `0x22`, `0xA5` | `0x22`, `0xA5` | unmapped |
+| Initial `0x55`, `0x56`, `0x57` | `0x1F`, `0x00`, `0x50` | `0x1F`, `0x50`, `0x00` | `0x1F`, `0x00`, unmapped |
+| Line/event state | fixed | paired-state latch and event byte | none |
+| FDRC block | unmapped | only device address at `0x80` | unmapped |
+| Connected transfer | unavailable | unavailable | unavailable |
+| Driver status | disconnected traces run | source calls the block `Fake USB` | TI-84 Plus driver is `MACHINE_NOT_WORKING` |
 
-Wabbitemu commit `48c2dc0` contains a second, partial model. It maps port `0x4D` as four paired
-line states: D+ low/high in bits 0/1, D- low/high in bits 2/3, ID low/high in bits 4/5, and VBUS
-high/low in bits 6/7. Its port-`0x56` event latch uses the same adjacent low/high pairs, port
-`0x57` stores the event mask, and port `0x55` reports line and protocol interrupts as active-low
-bits 2 and 4. The ROM independently confirms the active-low gate, event-bit dispatch, and mask
-writes. It does not name the electrical states. The line labels therefore remain external emulator
-evidence. [confirmed] for the ROM operations; [hypothesis] for the Wabbitemu labels
+TilEm's fixed port `0x4C = 0x22` cannot satisfy `_InitUSB`'s `0x1A`/`0x5A` handshake. Its `x4_io.c` has no controller or endpoint write cases. A TilEm trace can therefore exercise timeout and disconnected cleanup, but not connected setup or receive. [standard] for emulator behavior; [confirmed] for the ROM comparison.
 
-Wabbitemu labels this code `Fake USB`, implements only a small part of the endpoint block, and
-registers port `0x55` twice where the first registration was intended for `0x54`. Its port-`0x54`
-PHY model is consequently unreachable in that revision. These defects make the model useful for
-cross-checking register hypotheses, but not for connected-transfer confirmation.
+Wabbitemu assigns paired states to port `0x4D`: D+ low/high in bits 0/1, D- low/high in bits 2/3, ID low/high in bits 4/5, and VBUS high/low in bits 6/7. Reset value `0xA5` therefore selects D+ low, D- low, ID high, and VBUS low under its own labels. Port `0x56` starts at `0x50`, port `0x57` stores an event mask, and port `0x55` reports line and protocol requests as active-low bits 2 and 4. [standard]
+
+The partial model has four source-visible defects: [standard]
+
+- Device initialization registers port `0x55` twice. The first handler was written for port `0x54`, so the port-`0x54` PHY control model is unreachable.
+- `GenerateUSBEvent` does not consult the mask stored at port `0x57`; it raises the CPU interrupt unconditionally.
+- From reset state, writing `0x08` to port `0x4A` sets VBUS-high bit 6 without clearing VBUS-low bit 7. The line byte becomes `0xE5`, in which both Wabbitemu VBUS state bits are set.
+- The same write records a D-minus-high event by changing the event byte from `0x50` to `0x58`, but it does not set D-minus-high in the line byte. Repeated writes can therefore regenerate the event.
+
+These inconsistencies prevent Wabbitemu from serving as a connected PHY reference. Its paired-state representation and active-low summary still provide an independent comparison with the ROM's bit tests. The electrical labels remain emulator evidence because the ROM does not name the signals. [standard] for source behavior; [hypothesis] for physical signal assignments.
+
+MAME maps ports `0x55` and `0x56` to constant disconnected values `0x1F` and zero. Ports `0x4A`–`0x5B` outside that pair and the FDRC region at `0x80`–`0xA2` are absent from the TI-84 Plus map. [standard]
+
+## Reusable USB tools
+
+`tools/usb_hardware.py` contains the FDRC offset map, imported global bit names, link-assist rate fields, page-35 and boot-event decoders, paired line-state decoder, and pinned emulator profiles. `tools/describe_usb_hardware.py` exposes each model as text or JSON.
+
+```sh
+# Map global, indexed, dynamic-sizing, and FIFO registers.
+nix develop -c python tools/describe_usb_hardware.py \
+  register 0x80 0x91 0x9F 0xA2
+
+# Keep active-low port-0x55 and port-0x56 interpretations separate.
+nix develop -c python tools/describe_usb_hardware.py events 0x1F 0x50
+
+nix develop -c python tools/describe_usb_hardware.py assist 0x97 0xB4 0xE0
+nix develop -c python tools/describe_usb_hardware.py line 0xA5 0xE5
+nix develop -c python tools/describe_usb_hardware.py reads 0x4C 0x4D 0x55 0x56 0x57 0x80
+nix develop -c python tools/describe_usb_hardware.py wabbit-port4a 0x08
+```
+
+The FDRC names and bit labels remain a controller-family hypothesis. The CLI identifies that evidence boundary in its register records; it does not promote imported Mentor names to TI silicon confirmation.
 
 ## How to use it in code [confirmed]
 
@@ -411,6 +442,7 @@ Practical rules:
   imported bit meaning or the TI-specific PHY at ports `0x4A`–`0x5B`. TilEm does not model physical
   timing from the assist setup values. ROM-confirmed claims remain limited to written constants,
   comparisons, branch bits, RAM state, FIFO direction, and the transfer sequences cited above.
+- TilEm, Wabbitemu, and MAME do not implement a connected page-35 transfer. Wabbitemu's paired-state model also contains the port-registration, event-mask, and contradictory-line-state defects listed above. Dynamic connected-path evidence therefore still requires physical hardware or a controlled port-level harness.
 
 ## Sources
 
@@ -422,4 +454,5 @@ Practical rules:
 | [Mentor `mu_fdrdf.h` as preserved in `lightcube`](https://github.com/illusionlee/lightcube/blob/ac49c480c45c4106cba46a93fd4ae09969db5a1e/beken378/driver/usb/src/cd/mu_fdrdf.h) | FDRC register offsets and bit masks; controller-family evidence, not TI silicon identification |
 | [Linky at `89586b0`](https://github.com/brandonlw/Linky/tree/89586b0d33796d9746934560c030bb247193d37a) | Independent calculator software that names MUSBFDRC and exercises the same ports |
 | [Wabbitemu `83psehw.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | Partial line-state and interrupt model, with the implementation limits described above |
+| [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | Fixed USB interrupt reads and absent controller/endpoint ports |
 | [WikiTI port `0x09`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:09) | Historical link-assist timing-field interpretation, kept separate from ROM observations |

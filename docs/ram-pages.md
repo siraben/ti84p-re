@@ -1,23 +1,26 @@
 # RAM pages
 
-The TI-84 Plus has banked RAM pages behind the Z80's 16 KiB windows. TI-OS normally
-keeps RAM page `81` in `8000-BFFF` and RAM page `80` in `C000-FFFF`, but ROM helpers
-temporarily map other pages for paged memory access. On OS 2.55MP, traces show page
-`83` writes during boot/home initialization and during homescreen expression entry.
+The TI-84 Plus maps banked RAM behind the Z80's 16 KiB windows. OS 2.55MP traces
+exercise selectors `80`–`83`; only those selectors have direct trace coverage here.
 Programs that borrow page `83` must preserve or restore the OS-visible regions below.
 
-## Page selectors [confirmed]
+## Page selectors
 
-The 84+ memory ports use two encodings:
+The public TI-84 Plus register contract uses two selector encodings. The OS trace
+confirms the values it executes, but it does not confirm the complete selector
+space or the physical storage behind selectors `84`–`87`.
 
 | Window | Port | Selector encoding | Normal TI-OS value |
 |--------|------|-------------------|--------------------|
-| `4000-7FFF` | `6` | bit 7 clear selects Flash page `value & 0x3F`; bit 7 set selects RAM page `0x80 \| (value & 7)` | banked Flash page |
-| `8000-BFFF` | `7` | bit 7 clear selects Flash page `value & 0x3F`; bit 7 set selects RAM page `0x80 \| (value & 7)` | `81` |
-| `C000-FFFF` | `5` | low three bits select RAM page `0x80 \| (value & 7)` | `00` → RAM page `80` |
+| `4000-7FFF` | `0x06` | Bit 7 clear selects Flash page `value & 0x3F`; bit 7 set selects RAM page `0x80 \| (value & 7)` | Banked Flash page |
+| `8000-BFFF` | `0x07` | Bit 7 clear selects Flash page `value & 0x3F`; bit 7 set selects RAM page `0x80 \| (value & 7)` | `81` |
+| `C000-FFFF` | `0x05` | The low three bits select RAM page `0x80 \| (value & 7)` | `00` → RAM page `80` |
 
-This rule matches the dynamic resolver, TilEm's `x4` memory mapper, and the OS
-trace. In the idle boot/home trace, the RAM-window writes are:
+TilEm implements this eight-page arithmetic. The trace confirms the executed
+selector values below. The complete contract is [standard]. The listed OS writes
+are [confirmed].
+
+In the idle boot/home trace, the RAM-window writes are:
 
 Ports `0x0E` and `0x0F` extend ports `0x06` and `0x07` only for Flash
 selectors. They do not change a selector with bit 7 set for RAM. See
@@ -35,61 +38,83 @@ OUT (port 7) <- 0x81   8000-BFFF = RAM/0x81
 OUT (port 5) <- 0x00   C000-FFFF = RAM/0x80
 ```
 
-The final restore values are therefore `port 7 = 0x81` and `port 5 = 0x00` for
-normal OS execution.
+The trace restores port `0x07` to `0x81` and port `0x05` to `0x00` before normal
+OS execution resumes. [confirmed]
 
-## Page map [standard]
+## Page map
 
 WikiTI's [RAM pages](https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages)
-page is a useful public map, and its page-`83` warnings apply to OS 2.55MP. The
-local dump at `wikiti-dump/main/83Plus:OS:Ram Pages.wiki` carries
-the same current page-`83` notes. The local trace and disassembly support this table:
+page supplies the historical page descriptions. The trace and ROM disassembly
+independently support only the entries whose evidence column says [confirmed].
 
-| RAM page | Use |
-|----------|-----|
-| `80` | Normal `C000-FFFF` RAM page. The boot/home trace restores this with `OUT (5),0`. WikiTI marks it execution-protected. |
-| `81` | Normal `8000-BFFF` RAM page. This contains the visible TI-OS RAM variables, OP registers, flags, graph buffers, user heap, and VAT window documented in `tools/ram.txt` and `ti83plus.inc`. |
-| `82` | Not a general OS work page under normal execution. The idle trace maps it briefly through port `5` as part of a paged RAM helper, then restores page `80`. WikiTI marks it execution-protected. |
-| `83` | Shared OS scratch/state page. OS 2.55MP maps it through port `6` for block copies and LCD capture, and through port `7` for a paged byte-store helper. Homescreen expression entry writes the previous-entry buffer at `577E`. |
-| `84` | Not used by TI-OS under typical execution; WikiTI marks it execution-protected. |
-| `85` | Not used by TI-OS under typical execution on full-RAM hardware. |
-| `86` | Not used by TI-OS under typical execution; WikiTI marks it execution-protected. |
-| `87` | Not used by TI-OS under typical execution on full-RAM hardware. |
+| RAM selector | Use | Evidence |
+|--------------|-----|----------|
+| `80` | Normal `C000-FFFF` RAM page | The boot/home trace restores it with `OUT (5),0`; WikiTI marks it execution-protected. [confirmed] for the restore; [standard] for the protection claim. |
+| `81` | Normal `8000-BFFF` RAM page | The traces access OS variables, OP registers, flags, graph buffers, the user heap, and the VAT window through this selector. [confirmed] |
+| `82` | Temporary half of an OS bank pair | The idle trace selects it through port `0x05` as part of a paged RAM helper, then restores selector `80`. No page-`82` store occurs. [confirmed] |
+| `83` | Shared OS scratch and state | OS 2.55MP maps it through port `0x06` for block copies and LCD capture, and through port `0x07` for a paged byte-store helper. Homescreen expression entry writes the previous-entry buffer at `577E`. [confirmed] |
+| `84` | No use established here | WikiTI marks it execution-protected. [standard] |
+| `85` | No use established here | WikiTI describes it as unused under typical TI-OS execution. [standard] |
+| `86` | No use established here | WikiTI marks it execution-protected. [standard] |
+| `87` | No use established here | WikiTI describes it as unused under typical TI-OS execution. [standard] |
 
-On newer 48 KiB hardware, WikiTI says RAM pages `82-87` alias the same physical memory.
-WikiTI's [port `15`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:15) page
-identifies ASIC value `55h` as the 48 KiB TA1 ASIC. Programs that use page `83` must not
-treat `82-87` as independent storage on that hardware. This ROM does not read port
-`0x15`; the identity table and emulator limits are separated in
-[ASIC status, identity, protection, and GPIO](asic-status-gpio.md). [standard]
+WikiTI claims that selectors `82`–`87` share one physical 16 KiB block when port
+`0x15` is at least `55h`. Wabbitemu has an optional `ram_version == 2` branch with
+the same topology. Selected internal pages 3–7 read and write
+`ram[2 * PAGE_SIZE]`; internal page 2 already addresses that block. These two
+software sources agree, but neither is a physical measurement. Treat the 48 KiB
+topology as [standard], pending a hardware alias probe. The ASIC identity table
+and physical test gaps are in
+[ASIC status, identity, protection, and GPIO](asic-status-gpio.md).
 
-## Per-page trace coverage [confirmed]
+## Emulator implementations
+
+The pinned source revisions implement different RAM backing rules. These results
+describe software behavior and do not select the correct physical ASIC contract.
+
+| Implementation | Source-verified behavior | Limit |
+|----------------|--------------------------|-------|
+| TilEm `f56ad637` | [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) makes RAM selectors flat pages `0x40 \| (value & 7)`; [`x4_memory.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c) addresses each page independently. This gives eight distinct 16 KiB blocks. [standard] | It has no 48 KiB alias mode in the pinned mapper. |
+| Wabbitemu `48c2dc0` | [`core.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c) redirects reads and writes from selected pages 3–7 to physical page 2 when `ram_version == 2`. [`memory_init_84p`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c#L1675) zeroes the context and does not enable the branch. [standard] | The selected bank page remains separate from its aliased physical backing. |
+| MAME 0.287 | [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) retains raw RAM selectors at ports `0x06` and `0x07`. [`ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) maps banked RAM across `0x200000`–`0x21BFFF`, exactly seven 16 KiB blocks, so selector `87` resolves beyond the map. [standard] | It neither wraps selector `87` nor implements the six-to-one 48 KiB alias. MAME marks the TI-84 Plus driver `MACHINE_NOT_WORKING`. |
+
+The JSON-capable mapper CLI can reproduce Wabbitemu's optional alias branch:
+
+```sh
+python tools/describe_memory_mapping.py --json map \
+  --profile wabbitemu --ram-alias-from 2 \
+  --write 4=0 --write 5=7 --write 6=0x87 --write 7=0x87
+```
+
+The report retains selector readbacks `07`, `87`, and `87` while all three RAM
+windows resolve to physical page `82`. `--ram-alias-from` configures a candidate
+physical topology; it does not assert that an emulator enables that topology by
+default. Run the same sequence with `--profile mame` and no alias option to expose
+MAME's unmapped selector `87`. See [Paging](paging.md) for the complete mapper
+comparison.
+
+## Per-page trace coverage
 
 The boot/home and `2+3 ENTER` traces exercise startup, homescreen initialization,
 display capture, parsing, evaluation, and previous-entry storage. They do not exercise
 app launch, USB transfer, graph drawing, archive cleanup, or a 48 KiB ASIC. Within
-that scope, physical RAM-page writes are:
+that scope, physical RAM-page writes for the executed selectors are:
 
-| RAM page | Idle trace writes | `2+3 ENTER` trace writes | Interpretation |
-|----------|-------------------|--------------------------|----------------|
-| `80` | `256227` writes, all page addresses touched | `345702` writes, all page addresses touched | Normal high RAM page selected by port `5`; contains stack/system/user RAM activity in the `C000-FFFF` window. |
-| `81` | `62947` writes, all page addresses touched | `72638` writes, all page addresses touched | Normal `8000-BFFF` RAM page; contains the documented OS variables, flags, OP registers, heap, VAT window, and working buffers. |
-| `82` | no writes observed | no writes observed | Port `5` briefly selects raw value `02`, but the observed store is through page `83` in bank B. No page-`82` storage is confirmed by these traces. |
-| `83` | `1882` writes to `43D9-44BD` and `5A7E-5DF2` | `3467` writes to `4373-4390`, `43D9-44BD`, `577E-5790`, and `5A7E-5DF2` | Shared OS scratch/state page. See the range table below. |
-| `84` | no writes observed | no writes observed | No typical-use OS storage confirmed in these traces. |
-| `85` | no writes observed | no writes observed | No typical-use OS storage confirmed in these traces. |
-| `86` | no writes observed | no writes observed | No typical-use OS storage confirmed in these traces. |
-| `87` | no writes observed | no writes observed | No typical-use OS storage confirmed in these traces. |
+| RAM selector | Idle trace writes | `2+3 ENTER` trace writes | Interpretation |
+|--------------|-------------------|--------------------------|----------------|
+| `80` | `256227` writes, all page addresses touched | `345702` writes, all page addresses touched | Normal high RAM selected by port `0x05`; contains stack, system, and user RAM activity in `C000-FFFF`. [confirmed] |
+| `81` | `62947` writes, all page addresses touched | `72638` writes, all page addresses touched | Normal `8000-BFFF` RAM; contains OS variables, flags, OP registers, the heap, the VAT window, and working buffers. [confirmed] |
+| `82` | No writes observed | No writes observed | Port `0x05` briefly selects raw value `02`, but the observed store uses selector `83` in bank B. [confirmed] |
+| `83` | `1882` writes to `43D9-44BD` and `5A7E-5DF2` | `3467` writes to `4373-4390`, `43D9-44BD`, `577E-5790`, and `5A7E-5DF2` | Shared OS scratch and state. See the range table below. [confirmed] |
 
-The zero-write rows mean "not hit by these scenarios," not a global proof that the
-page is never used. On 48 KiB hardware, pages `82-87` alias page `83`, so writes
-intended for `84-87` would not be independent storage even if a program can select
-those page numbers. [standard]
+The traces never select `84`–`87`. That absence describes these scenarios; it does
+not establish how the selectors behave. Under the public 48 KiB contract, selectors
+`82`–`87` share one physical block rather than six independent pages. [standard]
 
 The graph scenario in `tools/macros/graph-y1-x2.macro` reaches the graph screen and
 still only writes pages `80`, `81`, and `83`. It increases normal page-`80`/`81`
 activity but leaves page-`83` at the same confirmed ranges as the idle trace.
-It does not hit pages `82` or `84-87`. [confirmed]
+It does not write through selector `82` or select `84`–`87`. [confirmed]
 
 ## How to hit the confirmed paths
 
@@ -106,7 +131,7 @@ in a normal workflow." These paths are confirmed or have a concrete next scenari
 | `83` split-screen/table copy | Enter a split-screen/table workflow that calls `screen_split`. | Ghidra shows `screen_split` at `05:7712` calls `flash_copy_block` at `05:772A`; this path is not hit by the current macros. [confirmed] |
 | `83` edit-buffer initialization | Enter an edit-buffer workflow that reaches `editbuf_init_buf`. | Ghidra shows `editbuf_init_buf` at `03:6BC4` calls `flash_copy_block` at `03:6BCD`; this path is not hit by the current macros. [confirmed] |
 | `83` app-menu state restore | Open an app/menu workflow that reaches `mnu_restore_app_state`. | Ghidra shows `mnu_restore_app_state` at `39:6D96` calls `flash_copy_block` at `39:6DA0`; this path is not hit by the current macros. [confirmed] |
-| `84-87` independent pages | Use a forced RAM-page probe or a ROM path that passes pair index `2` or `3` to the computed bank-pair helper. | The ROM can compute these selectors, but raw immediate selector scans and current traces do not show a normal OS path selecting or writing them. [hypothesis] |
+| `84`–`87` independent pages | Use a forced RAM-page probe or a ROM path that passes pair index `2` or `3` to the computed bank-pair helper. | The ROM can compute these selectors, but raw immediate selector scans and current traces do not show a normal OS path selecting or writing them. [hypothesis] |
 
 The computed bank-pair helpers use this selector formula:
 
@@ -120,7 +145,7 @@ The computed bank-pair helpers use this selector formula:
 ```
 
 Decoded callers set `B = 1`, selecting pages `82/83`; that explains the observed
-`port 5 = 02`, `port 7 = 83` sequence. Pages `84-87` are reachable through the
+`port 5 = 02`, `port 7 = 83` sequence. Selectors `84`–`87` are reachable through the
 helper but are not selected on any observed OS path [hypothesis]. The `B = 1`
 caller pattern is confirmed for the decoded callers above. [confirmed]
 

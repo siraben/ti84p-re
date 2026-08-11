@@ -15,7 +15,7 @@ Everything the user interacts with — the homescreen, TI-BASIC programs, graphi
 3. **The variable system (VAT)** — named objects (reals, lists, matrices, strings, programs, appvars…) catalogued in the Variable Allocation Table. ([variables-vat.md](variables-vat.md))
 4. **The tokenizer/parser** — TI-BASIC is stored as 1- and 2-byte tokens; the parser executes them. ([tokenizer-basic.md](tokenizer-basic.md))
 
-Around those sit the I/O subsystems: the IM1 interrupt dispatcher ([interrupts.md](interrupts.md)); the standard timers, RTC, and low-power state machine ([clock-timers-power.md](clock-timers-power.md)); the [MD5 round accelerator](md5-hardware.md); the LCD driver; the keypad scanner; and the link port.
+Around those sit the I/O subsystems: the [Flash command path and boot write APIs](flash-memory.md); the IM1 interrupt dispatcher ([interrupts.md](interrupts.md)); the standard timers, RTC, and low-power state machine ([clock-timers-power.md](clock-timers-power.md)); the [MD5 round accelerator](md5-hardware.md); the LCD driver; the keypad scanner; and the link port.
 
 ## Subsystem index
 
@@ -24,6 +24,7 @@ Each row maps a documentation page to the subsystem it covers and its analysis s
 | Doc | Subsystem |
 |-----|-----------|
 | [memory-map.md](memory-map.md) | Address space, ports, RAM layout |
+| [flash-memory.md](flash-memory.md) | Flash geometry, protection, command sequences, boot write APIs, archive traces, and emulator differences |
 | [paging.md](paging.md) | Paired and independent Flash/RAM mapping, extended selectors, boot transition, and forced overlays |
 | [bus-timing.md](bus-timing.md) | CPU-speed-selected Flash, RAM, LCD, and timer wait-state registers |
 | [asic-status-gpio.md](asic-status-gpio.md) | ASIC status and identity, battery comparison, protection mode, and GPIO |

@@ -10,6 +10,76 @@ from hardware_trace import ResolvedIoEvent
 
 MASK32 = 0xFFFFFFFF
 MODE_NAMES = {0: "F", 1: "G", 2: "H", 3: "I"}
+MD5_PORTS = frozenset(range(0x18, 0x20))
+
+
+@dataclass(frozen=True)
+class Md5ImplementationProfile:
+    """One pinned emulator's MD5-assist I/O coverage."""
+
+    key: str
+    name: str
+    revision: str
+    mapped_ports: frozenset[int]
+    sliding_operands: bool
+    masked_controls: bool
+    recompute_on_read: bool
+    undefined_operand_reads: int | None
+    driver_status: str
+    known_limit: str
+
+
+MD5_IMPLEMENTATIONS = {
+    profile.key: profile
+    for profile in (
+        Md5ImplementationProfile(
+            "tilem",
+            "TilEm",
+            "f56ad637d0524ee841dd381be6ecbaf5b8975600",
+            MD5_PORTS,
+            True,
+            True,
+            True,
+            0,
+            "usable emulator implementation",
+            "result is recalculated independently for every byte read",
+        ),
+        Md5ImplementationProfile(
+            "wabbitemu",
+            "Wabbitemu",
+            "48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422",
+            MD5_PORTS,
+            True,
+            True,
+            True,
+            0,
+            "usable emulator implementation",
+            "result is recalculated independently for every byte read",
+        ),
+        Md5ImplementationProfile(
+            "mame",
+            "MAME",
+            "mame0287",
+            frozenset(),
+            False,
+            False,
+            False,
+            None,
+            "MACHINE_NOT_WORKING TI-84 Plus driver",
+            "ports 0x18-0x1F are absent from the I/O map",
+        ),
+    )
+}
+
+
+def md5_implementation(profile: str) -> Md5ImplementationProfile:
+    """Return one pinned emulator profile by case-insensitive key."""
+
+    try:
+        return MD5_IMPLEMENTATIONS[profile.lower()]
+    except KeyError:
+        choices = ", ".join(MD5_IMPLEMENTATIONS)
+        raise ValueError(f"unknown MD5 profile {profile!r}; choose {choices}") from None
 
 MD5_EVENT_SEQUENCE = (
     (("OUT", 0x1F),)
@@ -62,6 +132,72 @@ def md5_assist_value(
     inner = (a + function + x + t) & MASK32
     rotated = ((inner << shift) | (inner >> ((32 - shift) & 31))) & MASK32
     return (b + rotated) & MASK32
+
+
+class Md5AssistImplementation:
+    """Execute the pinned emulator port contract for one MD5 assist block."""
+
+    def __init__(self, profile: str = "tilem") -> None:
+        self.profile = md5_implementation(profile)
+        self.operands = [0] * 6
+        self.shift = 0
+        self.mode = 0
+        self.ignored_writes: list[tuple[int, int]] = []
+
+    def write_port(self, port: int, value: int) -> bool:
+        """Apply one byte write and return whether the profile maps it."""
+
+        if port not in MD5_PORTS:
+            return False
+        if not 0 <= value <= 0xFF:
+            raise ValueError("MD5 port values must be bytes")
+        if port not in self.profile.mapped_ports:
+            self.ignored_writes.append((port, value))
+            return False
+        if port <= 0x1D:
+            index = port - 0x18
+            self.operands[index] = (
+                (self.operands[index] >> 8) | (value << 24)
+            ) & MASK32
+        elif port == 0x1E:
+            self.shift = value & 0x1F
+        else:
+            self.mode = value & 0x03
+        return True
+
+    def result(self) -> int | None:
+        """Return the current computed word, or ``None`` for an absent block."""
+
+        if not self.profile.mapped_ports:
+            return None
+        return md5_assist_value(
+            self.mode,
+            *self.operands,
+            self.shift,
+        )
+
+    def read_port(self, port: int) -> int | None:
+        """Read one result byte or an implementation-defined operand port."""
+
+        if port not in self.profile.mapped_ports:
+            return None
+        if 0x18 <= port <= 0x1B:
+            return self.profile.undefined_operand_reads
+        if 0x1C <= port <= 0x1F:
+            result = self.result()
+            assert result is not None
+            return (result >> (8 * (port - 0x1C))) & 0xFF
+        return None
+
+    def load_word(self, port: int, value: int) -> None:
+        """Write a 32-bit operand in the ROM's least-significant-byte order."""
+
+        if not 0x18 <= port <= 0x1D:
+            raise ValueError("operand port must be 0x18 through 0x1D")
+        if not 0 <= value <= MASK32:
+            raise ValueError("operand must be a 32-bit word")
+        for shift in range(0, 32, 8):
+            self.write_port(port, (value >> shift) & 0xFF)
 
 
 @dataclass(frozen=True)

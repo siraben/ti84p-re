@@ -6,7 +6,7 @@ The TI-84 Plus reads most keys through an active-low 8×8 matrix on port `0x01`.
 
 ## Evidence layers
 
-The matrix's electrical behavior, the ROM's filtering policy, and TilEm's input model are separate evidence layers.
+The matrix's electrical behavior, the ROM's filtering policy, and emulator input models are separate evidence layers.
 
 | Layer | Main evidence | What it establishes |
 |-------|---------------|---------------------|
@@ -14,7 +14,7 @@ The matrix's electrical behavior, the ROM's filtering policy, and TilEm's input 
 | TI-OS banked code | `_GetKey = 4972`, body `06:491E` | blocking input, hooks, APD interaction, modifiers, and cooked key codes [confirmed] |
 | Dynamic execution | `tools/macros/power-cycle.macro` and `/tmp/tilem-power-cycle.trace` | a complete **[2nd]**+**ON** shutdown/wake cycle and a live **[2nd]** matrix scan [confirmed] |
 | Public hardware notes | WikiTI ports `0x01`, `0x03`, and `0x04` | matrix wiring, capacitance, ghosting, bounce, and interrupt-port semantics [standard] |
-| Emulator model | Upstream TilEm `keypad.c`, `x4_io.c`, and `scancodes.h` at commit `f56ad63` | implemented matrix closure, ON policy, and omitted physical effects [standard] |
+| Emulator models | TilEm commit `f56ad63`, Wabbitemu commit `48c2dc0`, and MAME 0.287 | three different matrix algorithms and ON-edge policies [standard] |
 
 ## Two input circuits
 
@@ -319,22 +319,44 @@ clk=93378899  ram:0493  OUT (0x01) <- 0xff
 
 The all-groups probe finds bit 5 low. The group walk later selects `0xBF`; bit 5 remains low, producing scan code `6 × 8 + 5 + 1 = 0x36`, **2nd**. Every sample releases the matrix afterward. [confirmed]
 
-## TilEm behavior and fidelity gaps
+## Emulator comparison
 
-TilEm's x4 model implements the logical topology needed by the OS but omits analog and mechanical behavior. [standard]
+All three pinned implementations return matrix state immediately and omit electrical settling and mechanical bounce. Their digital matrix algorithms do not agree. [standard]
 
-| Area | TilEm behavior | Consequence |
-|------|----------------|-------------|
-| Group selection | stores the last byte written to port `0x01` | active-low group scans work |
-| Matrix state | stores eight bytes of closed keys | ordinary chords and nonexistent positions can be represented |
-| Ghosting | computes transitive closure across intersecting groups | diode-less matrix ghosts appear |
-| Settling | returns the closure immediately | no capacitance or group-switch delay |
-| Bounce | changes a bit once per injected press/release | no mechanical bounce |
-| ON level | keeps a separate `onkeydown` boolean and exposes it as active-low port-`0x04` bit 3 | **ON** is correctly outside the matrix |
-| ON interrupt | when enabled, raises the source on both press and release transitions | this is emulator policy, not physical edge proof |
-| Trace events | records injected key ID, state, clock, and current PC | event timing can be aligned with OS instructions |
+| Area | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 |
+|------|-----------------|------------------------|------------|
+| Selected rows | active-low write, all eight bits | complements the write, then considers seven rows | active-low write, seven rows |
+| Ordinary combination | OR of selected rows | OR of selected row results | XOR of each selected pressed position |
+| Ghosting | iterated transitive closure | one pairwise-overlap pass | none |
+| Same-column keys in two selected rows | remain low | remain low | XOR twice and cancel to high |
+| ON level | separate active-low port-`0x04` bit 3 | separate active-low port-`0x04` bit 3 | separate active-low port-`0x04` bit 3 |
+| ON request edge | press and release | press only | press only |
+| ON detection | injected-state event | standard-interrupt device evaluation | fixed 256 Hz timer-1 callback |
 
-TilEm uses the same matrix-position numbers as the OS for ordinary keys and assigns `0x29` to **ON**. The trace event therefore identifies the requested emulator key; it is not a port-`0x01` sample. [standard]
+TilEm begins with the union of selected rows, then repeatedly adds every row intersecting the current closed-bit set. It therefore propagates through an arbitrarily long chain of row intersections. It stores eight row bytes, including the physically unwired eighth row, and uses the OS-compatible matrix-position numbers for ordinary keys. Its injected identifier `0x29` represents the separate **ON** key rather than a port-`0x01` position. [standard]
+
+Wabbitemu first constructs a result for each row by unioning that row with every row that directly intersects it. It does not iterate the result, so a three-row chain can stop after the second row where TilEm reaches the third. It considers rows 0–6 and ignores row 7. ON press detection compares the current state with a saved state when the standard-interrupt model runs; release updates the saved state without latching a request. [standard]
+
+MAME does not compute a union. Starting from `0xFF`, it XORs the column bit for every pressed key in every selected row. Two selected pressed positions in one column therefore toggle the bit twice and disappear from the read. Its ON press is sampled by the fixed 256 Hz standard-timer callback; a held press does not create another request until a callback has observed a release. The TI-84 Plus driver remains marked `MACHINE_NOT_WORKING`. [standard]
+
+These discrepancies are emulator behavior, not competing physical measurements. TilEm's closure is topologically plausible for a diode-less matrix, but the physical result still depends on resistance, capacitance, switch state, and the delay between the group write and read. [hypothesis]
+
+## Reusable keypad tools
+
+`tools/keypad_hardware.py` exposes the three source-pinned matrix algorithms and ON-edge policies. `tools/describe_keypad_hardware.py` accepts numeric `GROUP,BIT` positions, which keeps ghost and unwired-position experiments independent of UI key names.
+
+```sh
+# Three-key rectangle: TilEm/Wabbitemu read 0xFC; MAME reads 0xFE.
+nix develop -c python tools/describe_keypad_hardware.py matrix \
+  --mask 0xFE --key 0,0 --key 1,0 --key 1,1
+
+# Transitive chain: TilEm reaches bit 2; Wabbitemu stops at bit 1.
+nix develop -c python tools/describe_keypad_hardware.py matrix \
+  --mask 0xFE --key 0,0 --key 1,0 --key 1,1 --key 2,1 --key 2,2
+
+nix develop -c python tools/describe_keypad_hardware.py on press release
+nix develop -c python tools/describe_keypad_hardware.py --json profiles
+```
 
 ## Resolved findings and open hardware tests
 
@@ -345,8 +367,10 @@ TilEm uses the same matrix-position numbers as the OS for ordinary keys and assi
 - [confirmed] `_GetCSC` is a destructive one-byte mailbox read, so it can lose overwritten events.
 - [confirmed] ON debounce forces nominal 6 MHz and requires 4,118 stable reads, about 46.7 ms in the trace.
 - [confirmed] Explicit power-off and APD share the `ram:0A24` low-power tail; **ON** wake restores the interrupt mask and reinitializes the LCD.
+- [standard] TilEm iterates matrix closure, Wabbitemu performs only pairwise closure, and MAME XORs selected positions.
+- [standard] TilEm requests ON interrupts on press and release; Wabbitemu and MAME request only on press.
 - [hypothesis] The exact capacitance and minimum safe settle time should be measured across TA2 and TA3 calculators, including worst-case chords.
-- [hypothesis] A logic-analyzer test should establish which physical ON transitions request interrupts on each ASIC revision; TilEm deliberately requests on both edges.
+- [hypothesis] A logic-analyzer test should establish which physical ON transitions request interrupts on each ASIC revision rather than selecting an emulator policy by majority.
 - [hypothesis] The callers and intended UI contract of the diagonal-arrow mode at `IY+0x2C` bit 0 need a complete banked-code trace.
 
 ## Sources
@@ -359,4 +383,6 @@ TilEm uses the same matrix-position numbers as the OS for ordinary keys and assi
 | [TilEm `keypad.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/keypad.c) | matrix closure, instant key state, and ON edge policy |
 | [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) | port `0x01`, port `0x03`, and port `0x04` model |
 | [TilEm `scancodes.h`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/scancodes.h) | injected key identifiers |
+| [Wabbitemu `keys.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/keys.c) and [`83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | pairwise matrix algorithm and press-edge ON latch |
+| [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | keypad map, XOR scan, and timer-polled ON edge |
 | Local headless TilEm `trace.c` at commit `8da5457` | key-event trace record format |

@@ -6,7 +6,7 @@ The TI-84 Plus programs Flash through three distinct layers: ASIC access control
 
 ## Evidence layers
 
-The mechanisms below use three evidence sources. A claim marked [confirmed] comes from the local OS 2.55MP image or a complete TilEm execution trace. A claim marked [standard] comes from the named hardware source and agrees with the ROM. Emulator behavior is identified explicitly; it is evidence for TilEm's model, not by itself proof of a physical ASIC.
+The mechanisms below use several evidence sources. A claim marked [confirmed] comes from the local OS 2.55MP image or a complete TilEm execution trace. A claim marked [standard] comes from the named hardware source and agrees with the ROM. Emulator behavior is identified explicitly. It establishes what that emulator implements, not what the physical ASIC or Flash chip does.
 
 | Layer | Main evidence | What it establishes |
 |-------|---------------|---------------------|
@@ -14,6 +14,7 @@ The mechanisms below use three evidence sources. A claim marked [confirmed] come
 | Dynamic execution | archive and `GCFLASH` macro fixtures plus resolved TilEm traces | normal archive writes, GC sector ordering, register values, page selection, and successful returns [confirmed] |
 | ASIC model | TilEm `x4_memory.c`, `x4_io.c`, and `x4_init.c` | protected-byte recognizer, port gates, execution limits, and modeled sector protection [standard] |
 | Flash chip | Spansion/AMD 29LV800 identification and Am29LV/Am29F command documentation | sector geometry, `AA 55` command cycles, and DQ status semantics [standard] |
+| Emulator comparison | pinned TilEm, Wabbitemu, and MAME source | modeled command decode, mutation rules, status reads, timing, and missing ASIC gates [standard] |
 
 ## Physical organization
 
@@ -372,7 +373,28 @@ nix develop -c z80dasm -a -t -g 0x4000 \
 
 See `tools/dynamic-tracing.md` for page-resolution details and trace-format caveats.
 
-## TilEm behavior and limits
+## Emulator comparison
+
+The three inspected emulators agree on the command bytes and top-boot sector
+boundaries used by the ROM. They differ at the points most useful for negative
+tests: illegal bit transitions, completion timing, status reads, and ASIC
+access control. [standard]
+
+| Behavior | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 |
+|----------|-----------------|------------------------|------------|
+| Unlock addresses | low 12 bits `0xAAA`, `0x555` | low 12 bits `0xAAA`, `0x555` | accepts several AMD address conventions, including the ROM's low-12-bit form |
+| Byte mutation | `old &= requested` | `old &= requested` | `old = requested` |
+| Successful program | 7-cycle modeled busy state | immediate array data | immediate array data |
+| Illegal `0→1` request | error state | one transient error read | writes the requested one bit |
+| Sector erase | 200,000-cycle model | immediate | immediate data mutation followed by a timer |
+| Autoselect | incomplete | AMD `0x01`, device `0xDA` | AMD `0x01`, device `0xDA` |
+| ASIC write gate | protected-byte sequence, lock, and sector groups | privileged-page port-`0x14` gate and boot-page flags | no effective Flash-write gate |
+
+These are source-level results. MAME marks the complete TI-84 Plus driver
+`MACHINE_NOT_WORKING`. None of the divergences resolves physical behavior.
+[standard]
+
+### TilEm behavior and limits
 
 TilEm implements the same command progression used by the ROM: `AA`, `55`, then `A0` for program, or `80`, `AA`, `55`, `30` for sector erase. It matches command addresses by physical low 12 bits `0xAAA` and `0x555`. [standard]
 
@@ -382,11 +404,93 @@ During erase, DQ6 and DQ2 toggle. DQ3 distinguishes the 50-cycle erase-command w
 
 TilEm does not implement every chip mode. Its source explicitly leaves autoselect, erase suspend, fast program, and CFI incomplete. Those omissions do not affect the command paths exercised by `_WriteFlash` and `_EraseFlash`. [standard]
 
+### Wabbitemu behavior and limits
+
+Wabbitemu recognizes byte program, sector erase, chip erase, autoselect, and
+fast-program commands. It applies program data with `stored &= requested`.
+Successful programming returns to array mode immediately. [standard]
+
+An illegal `0→1` request sets an error flag. The next read returns complemented
+DQ7, set DQ5, and its current DQ6 toggle bit. That same read clears the error
+flag, so later reads return array data. This one-read lifetime is Wabbitemu
+behavior, not the hardware data-sheet polling contract. It can interact with
+the ROM worker's separate DQ7 and DQ5 reads in ways that depend on the stored
+byte. [standard]
+
+Sector erase changes the complete sector to `0xFF` before the next instruction
+and exposes no erase-busy interval. Its sector arithmetic matches the physical
+64, 32, 8, 8, and 16 KiB top-boot layout. The two 8 KiB sectors are the halves
+of page `3E`. [standard]
+
+Wabbitemu accepts a port-`0x14` write only while the current Flash page passes
+its privileged-page predicate. Its source names pages `2F`, `3C`, `3D`, and
+`3F` for the TI-84 Plus path; page `3E` does not pass that predicate. A separate
+write-validity check requires the resulting unlocked state and applies model
+flags to boot-page writes. This approximates the ASIC gates but does not model
+TilEm's byte-fetch recognizer. [standard]
+
+### MAME behavior and limits
+
+MAME 0.287 instantiates its generic `AMD_29F800T` device for the TI-84 Plus.
+The device has a one-megabyte array, AMD manufacturer ID `0x01`, device ID
+`0xDA`, and top-boot sector geometry. [standard]
+
+Its 8-bit byte-program path assigns `stored = requested`. It does not apply NOR
+AND semantics. A request to change a stored zero to one therefore succeeds in
+MAME, and the first ROM poll reads the assigned byte with matching DQ7. The
+program path has no timed busy mode or DQ5 failure state. [standard]
+
+Sector erase fills the selected sector with `0xFF` immediately, then enters a
+timed status mode. MAME uses 1,000 ms for a 64 KiB sector, 500 ms for the 32 KiB
+and 16 KiB sectors, and 250 ms for either 8 KiB sector. In-sector reads alternate
+`0x4C` and `0x08`, toggling DQ6 and DQ2 around a base DQ3 value. DQ5 stays clear.
+When the timer expires, reads return the already-erased array. [standard]
+
+The busy-read range has a separate geometry bug. MAME tests a 64 KiB interval
+from `m_erase_sector` even when it erased a 32, 16, or 8 KiB top-boot sector.
+Erasing the first page-`3E` half at `0xF8000`, for example, returns erase status
+for every read through `0xFFFFF` until the 250 ms timer ends. Only the selected
+8 KiB array region is changed. [standard]
+
+The TI driver maps every Flash bank directly to the generic device's read and
+write methods. Port `0x14` stores `m_flash_unlocked` and updates paging, but no
+memory-write path consults that value. The driver also omits ports `0x22`–`0x28`.
+MAME therefore accepts command writes without the protected byte sequence,
+sector override, or execution-protection state used by the ROM. [standard]
+
+### Reproducing the comparison
+
+`tools/flash_hardware.py` contains the sector table, source-modeled program
+rules, MAME erase status, and the ROM worker's DQ7/DQ5 decision. The focused CLI
+can expose negative cases without modifying an emulator:
+
+```console
+$ python tools/describe_flash_hardware.py program --old 0x00 --data 0xFF
+program old=0x00 requested=0xFF
+  TilEm: stored=0x00 poll=error state
+  Wabbitemu: stored=0x00 poll=one transient error-status read
+  MAME: stored=0xFF poll=array data
+  Wabbitemu error-read values (DQ6=0/1): 0x20 0x60
+```
+
+```console
+$ python tools/describe_flash_hardware.py mame-erase 0xF9000 --reads 4
+sector 0x0F8000-0x0F9FFF, timer=250 ms
+busy reads 0x0F8000-0x0FFFFF
+status: 0x4C 0x08 0x4C 0x08
+```
+
+The `geometry`, `profiles`, and `poll` subcommands also support `--json` for
+scripts. `tools/flash_trace.py` imports the same geometry library, so dynamic
+trace reports and emulator comparisons use one sector definition.
+
 ## Quirks and unresolved hardware questions
 
 - `_WriteFlash`'s page-`3E` crossing behavior is byte-confirmed but not hardware-tested on a physical calculator. The skipped `OUT (0x06),A` makes the continued target surprising. [confirmed] for the ROM; [hypothesis] for physical consequences.
 - `_EraseFlash`'s failure path writes reset value `0xF0` through undocumented register `DE`. The intended source of that pointer is not established. [confirmed]
 - The precise physical ASIC implementation of the protected-byte recognizer is represented here by WikiTI and TilEm behavior. The calculator schematic does not expose the ASIC's internal state machine. [standard]
+- Physical tests still need to measure legal and illegal byte-program status reads, including a requested `0→1` transition. TilEm, Wabbitemu, and MAME disagree on this case. [hypothesis]
+- Program and erase duration, DQ toggle cadence, erase-suspend behavior, and the top-boot busy-read boundaries remain unmeasured on a calculator. [hypothesis]
 - The collector's normal sector-copy policy and persistent phase dispatcher are reconstructed. Fault-injection traces still need to stop after each journal write and test restart behavior, especially on physical hardware. [hypothesis]
 
 ## Sources
@@ -401,3 +505,5 @@ TilEm does not implement every chip mode. Its source explicitly leaves autoselec
 | [Datamath TI-84 Plus hardware](http://www.datamath.org/Graphing/TI-84PLUS.htm) | Spansion `29LV800` identification |
 | [AMD Am29F800B data sheet](http://docs.eao.hawaii.edu/JCMT/i/012_HARPB/localOscillator/Manufacturers/Phytec/DataSh/AMD/FLASH/29F800BB.PDF) | compatible command table and DQ polling algorithm |
 | [TilEm `flash.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/flash.c), [`x4_memory.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c), [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), and [`x4_subcore.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_subcore.c) | emulator command state machine, ASIC gates, and sector table |
+| [Wabbitemu `core.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c) and [`83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | command state machine, program error read, erase geometry, port `0x14`, and write-validity gates |
+| [MAME `intelfsh.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/devices/machine/intelfsh.cpp), [`ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp), and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | generic AMD device behavior, TI-84 Plus mapping, I/O coverage, and driver status |

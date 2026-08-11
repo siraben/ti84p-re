@@ -6,7 +6,7 @@ The TI-84 Plus derives OS timekeeping from a 32.768 kHz crystal while the Z80 ru
 
 ## Evidence layers
 
-The subsystem crosses ROM code, public hardware observations, and emulator policy. A claim marked [confirmed] comes from the local OS 2.55MP image or a complete instruction trace. A claim marked [standard] comes from the named hardware source and agrees with the ROM. TilEm behavior is identified as emulator behavior rather than physical-ASIC proof.
+The subsystem crosses ROM code, public hardware observations, and emulator policy. A claim marked [confirmed] comes from the local OS 2.55MP image or a complete instruction trace. A claim marked [standard] comes from the named hardware or emulator source and agrees with the ROM where their scopes overlap. Emulator behavior is identified by implementation and revision rather than treated as physical-ASIC proof.
 
 | Layer | Main evidence | What it establishes |
 |-------|---------------|---------------------|
@@ -14,7 +14,7 @@ The subsystem crosses ROM code, public hardware observations, and emulator polic
 | TI-OS banked code | `33:5E1E`–`33:5F69` and `37:5359`–`37:5950` | programmable-timer API and RTC conversion/access [confirmed] |
 | Dynamic execution | `tools/macros/power-cycle.macro` and resolved TilEm traces | standard-timer cadence and the explicit shutdown/HALT path [confirmed] |
 | Public hardware notes | WikiTI ports `0x03`, `0x04`, `0x20`, `0x2D`, `0x2F`, `0x30`–`0x38`, and `0x40`–`0x48` | register semantics and oscillator-derived rates [standard] |
-| Emulator model | Upstream TilEm `x4_io.c`, `x4_init.c`, and `timers.c` at commit `f56ad63` | implemented timing, status transitions, RTC policy, and fidelity gaps [standard] |
+| Emulator models | TilEm commit `f56ad63`, Wabbitemu commit `48c2dc0`, and MAME 0.287 | independent timer decode, scheduling, status, interrupt, and RTC policies [standard] |
 
 ## Hardware blocks and clock domains
 
@@ -197,7 +197,7 @@ The high two frequency-register bits choose the clock family. The low bits encod
 
 Writing a nonzero counter starts it when a valid source is selected. Counter value zero represents 256 ticks, loops continuously, and does not assert the port-`0x04` completion bit. [standard]
 
-TilEm stops a timer on every source-register write and retains the current counter as the next loop value. This is emulator behavior in `tilem_user_timer_set_frequency`, not evidence that every physical ASIC revision retains the counter the same way.
+TilEm stops a timer on every source-register write and retains the current counter as the next loop value. This is emulator behavior in `tilem_user_timer_set_frequency`, not evidence that every physical ASIC revision retains the counter the same way. [standard]
 
 ### Mode, completion, and acknowledgement
 
@@ -355,22 +355,66 @@ nix develop -c python tools/tilem_trace_resolve.py \
   --only-addr 09e6-0a5d --print 180
 ```
 
-## TilEm behavior and fidelity gaps
+## Emulator comparison
+
+The comparison below reproduces pinned source behavior. Agreement between implementations is useful corroboration of a software contract, but it is not a substitute for a physical TA2 or TA3 measurement. [standard]
+
+| Area | Documented contract | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 |
+|------|---------------------|-----------------|------------------------|------------|
+| Crystal divisors for `0x40`–`0x43` | `3`, `33`, `328`, `3277` | `3`, `33`, `328`, `3277` | `3`, `32`, `327`, `3276` | `3`, `32`, `327`, `3276` |
+| CPU families | CPU clock divided by 1–64 | implemented | implemented | all nonzero values instead use 32.768 kHz and the low-three-bit crystal table |
+| Mode-3 source | additional port-`0x2F` divisor | ordinary CPU-family decode | ordinary CPU-family decode | same fixed-crystal decode; port `0x2F` is unmapped |
+| Counter `0` | recurring 256-count timer without completion | implemented | reaches ordinary underflow after 256 decrements | never decremented by the callback |
+| Mode bit 1 | set requests interrupt | set requests interrupt | set requests interrupt | clear requests interrupt |
+| Mode/status bit 2 | missed acknowledgement/overflow | set on a second unacknowledged expiry | set on the first underflow | never exposed; mode writes retain only bits 0–1 |
+| RTC | ports `0x40`–`0x48` | host wall time plus offset | emulated elapsed time plus base | unmapped |
+
+### TilEm timer and RTC policy
 
 TilEm reproduces the paths used by this OS, but several model choices matter for timing experiments. [standard]
 
-| Area | TilEm behavior | Consequence |
-|------|----------------|-------------|
-| Standard timers | whole-microsecond periods `{1953, 4395, 6836, 9277}` | small quantization from exact quartz ratios |
-| Programmable crystal modes | integer calculations derived from 32.768 kHz | documented `0x40`–`0x47` modes work |
-| Programmable CPU modes | divisors 1–64 based on bit 7 | follows CPU speed selected at port `0x20` |
-| Mode-3 prescaler | treats `0xC0` family like ordinary CPU mode | port-`0x2F` timer prescaling is not modeled |
-| Port `0x2D` | stores and reads the value | does not pause timers or oscillator in low power |
-| HALT timer quirk | internal `NO_HALT_INT` flag follows standard-timer enable bits in port `0x03` | approximates the observed need to keep a standard timer active |
-| RTC source | host `time_t` plus a stored offset | clock advances with host wall time, not emulated Z80 cycles |
-| Disabled RTC | returns a frozen stored count | differs from WikiTI's report that ports `0x45`–`0x48` read zero while disabled |
+- Standard-timer periods are rounded to whole microseconds: `{1953, 4395, 6836, 9277}`.
+- Crystal-family programmable timers use the documented divisor table. CPU-family duration is measured in Z80 clocks and follows the speed selected at port `0x20`.
+- The `0xC0` family uses the ordinary CPU-family decode, so port `0x2F` does not prescale it.
+- Port `0x2D` stores its low two bits but does not pause the oscillator or programmable timers in low power.
+- An internal `NO_HALT_INT` flag suppresses programmable-timer interrupts during `HALT` when neither standard timer is enabled at port `0x03`.
+- The RTC uses host `time_t` plus an offset. Disabling it freezes the stored count rather than making current ports read zero.
 
-TilEm's programmable-timer model tracks loop, interrupt-enable, completion, and overflow separately. Completion is an internal flag exposed through port `0x04`; the mode/status read exposes bits 0–2. This matches the split in the hardware notes and the OS ISR. [standard]
+TilEm tracks completion internally for port `0x04` while exposing loop, interrupt enable, and overflow through the low three mode/status bits. The first nonzero-counter expiry sets completion; a second expiry without a mode write sets visible overflow bit 2. [standard]
+
+### Wabbitemu timer and RTC policy
+
+Wabbitemu stops a programmable timer and clears its pending interrupt generation on a source write. It decodes the crystal-family divisors as `3`, `32`, `327`, `3276`, `1`, `16`, `256`, and `4096`; the three near-decimal divisors therefore differ from both the published table and TilEm. Its `0x80` and `0xC0` families both use the divided-CPU decode and ignore port `0x2F`. [standard]
+
+The crystal handler computes elapsed 32.768 kHz ticks but uses a single `if`, so one invocation decrements each crystal timer at most once even if multiple source periods elapsed. The CPU path uses `while` and catches up all elapsed divisors. On the first expiry, Wabbitemu reloads the original counter, stops if loop bit 0 is clear, sets the underflow flag exposed as mode/status bit 2 and port-`0x04` completion, and retains interrupt generation when mode bit 1 is set. It does not assert that interrupt while the emulated CPU is in `HALT`. [standard]
+
+Wabbitemu implements ports `0x40`–`0x48` from emulated elapsed seconds rather than host wall time. A bit-1 rising edge copies the staged value into the base. Bit-0 transitions start or stop elapsed-time accumulation, and disabled reads return the frozen base. Each staged-byte write also resets the stored elapsed-time reference; the OS set sequence commits immediately afterward, so this does not disturb the traced ROM path. [standard]
+
+### MAME timer and RTC policy
+
+MAME maps only timer ports `0x30`–`0x38` from this block. It does not map port `0x2D`, port `0x2F`, or RTC ports `0x40`–`0x48`. For every nonzero source value, a counter write selects one of the eight Wabbitemu-style crystal divisors from the low three bits and schedules at `32768/divisor` Hz. CPU-source family bits do not select the CPU clock. [standard]
+
+The initial callback is scheduled at zero delay, so a nonzero counter value $N$ reaches its first modeled expiry after $N-1$ periodic intervals; a value of one can expire immediately. Counter zero remains zero because the callback decrements only a nonzero count. At expiry, loop bit 0 reloads the counter once, but the callback then applies `loop &= 2` and discards that bit. Mode bit 1 has inverted polarity: an interrupt and port-`0x04` completion are produced only when it is clear. A mode write also clears all three programmable completion bits globally rather than only the selected timer. [standard]
+
+The TI-84 Plus driver is marked `MACHINE_NOT_WORKING`. Its standard timers remain fixed at 256 Hz and 512 Hz, and port-`0x04` writes do not retime them. It can still run the repository ROM's page-0 ON-wake path, as shown in [Interrupts (IM1)](interrupts.md#emulator-comparison), but that execution does not validate the timer model. [standard]
+
+## Reusable timer tools
+
+`tools/timer_hardware.py` exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM's radix-255 chunks, and RTC implementation profiles. `tools/describe_timer_hardware.py` is a JSON-capable front end. These are source-comparison oracles, not physical-hardware simulators.
+
+```sh
+nix develop -c python tools/describe_timer_hardware.py \
+  source 0x41 0x80 0xC0 --mode3-prescaler 4
+
+nix develop -c python tools/describe_timer_hardware.py \
+  duration --source 0x41 --counter 0xFF
+
+nix develop -c python tools/describe_timer_hardware.py \
+  expiry --mode 0x02 --halted --no-standard-timer
+
+nix develop -c python tools/describe_timer_hardware.py chunks 0x0100 0x0101
+nix develop -c python tools/describe_timer_hardware.py --json rtc
+```
 
 ## Resolved findings and open hardware questions
 
@@ -380,9 +424,11 @@ TilEm's programmable-timer model tracks loop, interrupt-enable, completion, and 
 - [confirmed] The cursor toggles every 50 kernel ticks.
 - [confirmed] The timer bcall API exposes only ID `0x70`, uses radix-255 duration chunking, and keeps a saturating expiry count.
 - [confirmed] Explicit power-off and APD share the low-power tail at `ram:0A24`.
+- [standard] TilEm matches the published `33`/`328`/`3277` crystal divisors; pinned Wabbitemu and MAME sources use `32`/`327`/`3276`.
+- [standard] TilEm, Wabbitemu, and MAME all omit the published port-`0x2F` prescaler from their `0xC0`-family timer models.
 - [hypothesis] Physical RTC reads can tear across a one-second rollover because no latch or OS retry is documented.
-- [hypothesis] The precise ASIC reason programmable timers fail to wake `HALT` remains undocumented.
-- [hypothesis] Low-power behavior of port `0x2D` and RTC reads should be checked on TA2 and TA3 hardware rather than inferred from TilEm.
+- [hypothesis] The physical crystal divisors, first-versus-second-expiry meaning of mode/status bit 2, counter-zero edge, and precise reason programmable timers fail to wake `HALT` need direct TA2/TA3 measurements.
+- [hypothesis] Low-power behavior of port `0x2D`, disabled RTC reads, control-edge behavior, and rollover coherence should be checked on TA2 and TA3 hardware rather than inferred from emulators.
 
 ## Sources
 
@@ -397,3 +443,5 @@ TilEm's programmable-timer model tracks loop, interrupt-enable, completion, and 
 | [WikiTI hardware history](https://wikiti.brandonw.net/index.php?title=83Plus:History_of_TI-8x_hardware) | ASIC integration, quartz oscillator, and TI-84 Plus RTC |
 | [Datamath TI-84 Plus hardware](http://www.datamath.org/Graphing/TI-84PLUS.htm) | TA2/TA3 identification, ASIC/PCB photographs, and 15 MHz specification |
 | [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), [`x4_init.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c), and [`timers.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/timers.c) | emulator timer, RTC, interrupt, and power policy |
+| [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) and [`83psehw.h`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.h) | independent source decode, catch-up, underflow, HALT, and RTC policies |
+| [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | mapped ports, scheduling, callback polarity, standard timers, and driver status |

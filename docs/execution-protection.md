@@ -244,6 +244,19 @@ forces RAM over a Flash-backed window or substitutes RAM page 0 or 1. See
 The normal OS boot and homescreen traces leave both overlays disabled, so this
 difference does not affect those executed paths. [confirmed]
 
+## MAME 0.287 omission
+
+MAME's TI-84 Plus I/O map does not register ports `0x22`–`0x28`. Its opcode
+fetch path reads the mapped Flash or RAM without an execution-protection
+predicate. Port `0x14` records an unlock value, but the paging and Flash-write
+paths do not consult it. [standard]
+
+MAME therefore cannot test any boundary or violation described on this page.
+The driver is marked `MACHINE_NOT_WORKING`, so this omission is a driver limit,
+not evidence that the physical ASIC lacks execution protection. See
+[Flash memory](flash-memory.md#mame-behavior-and-limits) for the resulting
+Flash-command behavior. [standard]
+
 ## Reproducing the models
 
 `tools/execution_protection.py` contains side-effect-free predicates and RAM
@@ -305,4 +318,5 @@ only a test oracle for emulator behavior.
 | [Wabbitemu `core.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c) | Flash and RAM fetch predicates |
 | [Wabbitemu `device.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/device.c) | global protected-port write gate |
 | [Wabbitemu `83psehw.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | port handlers and port-`0x24` implementation |
+| [MAME `ti85.cpp` and `ti85_m.cpp` at `mame0287`](https://github.com/mamedev/mame/tree/mame0287/src/mame/ti) | absent execution-protection ports and unused Flash-unlock state |
 | [WikiTI port `0x22`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:22), [`0x23`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:23), [`0x24`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:24), [`0x25`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:25), and [`0x26`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:26) | public register descriptions, treated as secondary evidence |

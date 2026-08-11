@@ -18,12 +18,90 @@ from z80_io import direct_io_access
 
 GPIO_PORTS = frozenset({0x39, 0x3A})
 TILEM_BATTERY_THRESHOLDS = (33, 39, 36, 43)
+ASIC_CONTROL_PORTS = frozenset({0x02, 0x15, 0x21, 0x39, 0x3A})
 
 
 def _byte(value: int) -> int:
     if not 0 <= value <= 0xFF:
         raise ValueError("register values must be bytes")
     return value
+
+
+@dataclass(frozen=True)
+class AsicImplementationProfile:
+    """Pinned I/O coverage for the ASIC-control ports on this page."""
+
+    key: str
+    name: str
+    revision: str
+    mapped_ports: frozenset[int]
+    fixed_port02_locked: int | None
+    fixed_port15: int | None
+    port21_read_policy: str
+    gpio_policy: str
+    driver_status: str
+
+
+ASIC_IMPLEMENTATIONS = {
+    profile.key: profile
+    for profile in (
+        AsicImplementationProfile(
+            "tilem",
+            "TilEm",
+            "f56ad637d0524ee841dd381be6ecbaf5b8975600",
+            frozenset({0x02, 0x15, 0x21, 0x39}),
+            None,
+            0x45,
+            "accepted write masked with 0x33",
+            "port 0x39 reads fixed 0xF0; port 0x3A has no TI-84 Plus model",
+            "usable emulator with unmeasured battery thresholds",
+        ),
+        AsicImplementationProfile(
+            "wabbitemu",
+            "Wabbitemu",
+            "48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422",
+            frozenset({0x02, 0x15, 0x21, 0x3A}),
+            None,
+            None,
+            "readback retains only written bits 0-1",
+            "port 0x3A is a latch; port 0x39 is absent",
+            "usable emulator with model-dependent identity",
+        ),
+        AsicImplementationProfile(
+            "mame",
+            "MAME",
+            "mame0287",
+            frozenset({0x02, 0x15, 0x21}),
+            0xC3,
+            0x33,
+            "write and readback masked with 0x0F",
+            "ports 0x39 and 0x3A are absent",
+            "MACHINE_NOT_WORKING TI-84 Plus driver",
+        ),
+    )
+}
+
+
+def asic_implementation(profile: str) -> AsicImplementationProfile:
+    """Return one pinned ASIC-control implementation profile."""
+
+    try:
+        return ASIC_IMPLEMENTATIONS[profile.lower()]
+    except KeyError:
+        choices = ", ".join(ASIC_IMPLEMENTATIONS)
+        raise ValueError(f"unknown ASIC profile {profile!r}; choose {choices}") from None
+
+
+def implementation_port21_readback(profile: str, written: int) -> int:
+    """Return port-``0x21`` readback after an accepted implementation write."""
+
+    written = _byte(written)
+    key = asic_implementation(profile).key
+    if key == "tilem":
+        return written & 0x33
+    if key == "wabbitemu":
+        return written & 0x03
+    return written & 0x0F
 
 
 @dataclass(frozen=True)
