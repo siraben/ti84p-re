@@ -63,6 +63,158 @@ FUJITSU_MBM29LV800TA = FlashDeviceSpec(
 
 
 @dataclass(frozen=True)
+class FlashCommandSupport:
+    """Support level and source-specific behavior for one command family."""
+
+    status: str
+    behavior: str
+
+
+@dataclass(frozen=True)
+class FlashCommandProfile:
+    """Command capabilities from one data sheet or pinned implementation."""
+
+    name: str
+    source_kind: str
+    revision: str
+    read_reset: FlashCommandSupport
+    autoselect: FlashCommandSupport
+    byte_program: FlashCommandSupport
+    sector_erase: FlashCommandSupport
+    chip_erase: FlashCommandSupport
+    erase_suspend_resume: FlashCommandSupport
+    fast_program: FlashCommandSupport
+    cfi: FlashCommandSupport
+    sector_protection_report: FlashCommandSupport
+
+
+def _support(status: str, behavior: str) -> FlashCommandSupport:
+    return FlashCommandSupport(status, behavior)
+
+
+FLASH_COMMAND_PROFILES = (
+    FlashCommandProfile(
+        name="Fujitsu MBM29LV800TA",
+        source_kind="data sheet",
+        revision="DS05-20845-4E",
+        read_reset=_support("defined", "F0, or AA 55 F0"),
+        autoselect=_support(
+            "defined",
+            "AA 55 90; byte-mode IDs are manufacturer 0x04 and device 0xDA",
+        ),
+        byte_program=_support("defined", "AA 55 A0, then address and data"),
+        sector_erase=_support("defined", "AA 55 80 AA 55 30"),
+        chip_erase=_support("defined", "AA 55 80 AA 55 10"),
+        erase_suspend_resume=_support(
+            "defined",
+            "B0 suspends sector erase; 30 resumes it",
+        ),
+        fast_program=_support(
+            "defined",
+            "AA 55 20 enters; repeated A0 plus address/data; 90 then F0 or 00 exits",
+        ),
+        cfi=_support("not defined", "the command table defines no CFI query"),
+        sector_protection_report=_support(
+            "defined",
+            "autoselect byte-mode address XX04 reports protection in DQ0",
+        ),
+    ),
+    FlashCommandProfile(
+        name="TilEm",
+        source_kind="emulator",
+        revision="f56ad637d0524ee841dd381be6ecbaf5b8975600",
+        read_reset=_support("implemented", "F0 returns to array-read state"),
+        autoselect=_support(
+            "not implemented",
+            "the 90 command logs a diagnostic and returns to array-read state",
+        ),
+        byte_program=_support(
+            "implemented", "programs old & requested through a timed busy model"
+        ),
+        sector_erase=_support(
+            "implemented", "uses a 200000-cycle busy and status model"
+        ),
+        chip_erase=_support(
+            "partial",
+            "erases only writable sectors; final busy status describes the last one",
+        ),
+        erase_suspend_resume=_support("not implemented", "no suspend state"),
+        fast_program=_support(
+            "partial",
+            "recognizes enter, repeated A0 program, and 90/F0 exit; timing fidelity is unresolved",
+        ),
+        cfi=_support("not implemented", "no CFI state"),
+        sector_protection_report=_support(
+            "not implemented", "autoselect reads are not implemented"
+        ),
+    ),
+    FlashCommandProfile(
+        name="Wabbitemu",
+        source_kind="emulator",
+        revision="48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422",
+        read_reset=_support("implemented", "F0 returns to read state"),
+        autoselect=_support(
+            "implemented", "reports manufacturer 0x01 and TI-84 Plus device 0xDA"
+        ),
+        byte_program=_support("implemented", "programs old & requested immediately"),
+        sector_erase=_support("implemented", "changes the selected sector immediately"),
+        chip_erase=_support(
+            "partial", "fills the complete array, including the boot sector, immediately"
+        ),
+        erase_suspend_resume=_support("not implemented", "no suspend state"),
+        fast_program=_support(
+            "implemented", "recognizes enter, repeated A0 program, and 90/F0 exit"
+        ),
+        cfi=_support("not implemented", "no CFI state"),
+        sector_protection_report=_support(
+            "partial", "autoselect offset 4 always reports unprotected"
+        ),
+    ),
+    FlashCommandProfile(
+        name="MAME",
+        source_kind="emulator",
+        revision="mame0287",
+        read_reset=_support("implemented", "F0 returns to array-read state"),
+        autoselect=_support(
+            "partial",
+            "reports manufacturer 0x01 at offset 0 and device 0xDA at offset 1",
+        ),
+        byte_program=_support("implemented", "assigns requested data immediately"),
+        sector_erase=_support(
+            "partial", "changes data immediately, then exposes a timed busy state"
+        ),
+        chip_erase=_support(
+            "partial",
+            "fills the complete array immediately; busy reads use a stale/default 64 KiB range",
+        ),
+        erase_suspend_resume=_support("not implemented", "no AMD suspend state"),
+        fast_program=_support(
+            "partial",
+            "accepts unlock-bypass entry, but A0 program and 90 fast exit "
+            "exclude the AMD_29F800T maker ID",
+        ),
+        cfi=_support("not implemented", "AMD_29F800T has no 98 query path"),
+        sector_protection_report=_support(
+            "not implemented",
+            "the generic AMD ID path returns fixed zero at a non-data-sheet "
+            "offset",
+        ),
+    ),
+)
+
+
+def flash_command_profile(name: str) -> FlashCommandProfile:
+    """Return a command profile by case-insensitive source name."""
+
+    normalized = name.casefold()
+    for profile in FLASH_COMMAND_PROFILES:
+        if profile.name.casefold() == normalized:
+            return profile
+    choices = ", ".join(profile.name for profile in FLASH_COMMAND_PROFILES)
+    raise ValueError(f"unknown Flash command profile {name!r}; choose {choices}")
+
+
+@dataclass(frozen=True)
 class ReportedCompatiblePart:
     """One compatible 1 MiB part listed by Datamath across calculator boards."""
 

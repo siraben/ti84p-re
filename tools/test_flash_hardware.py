@@ -5,10 +5,12 @@ import unittest
 
 from flash_hardware import (
     EMULATOR_PROFILES,
+    FLASH_COMMAND_PROFILES,
     FUJITSU_MBM29LV800TA,
     REPORTED_COMPATIBLE_PARTS,
     TOP_BOOT_SECTORS,
     emulator_profile,
+    flash_command_profile,
     flash_sector,
     mame_erase_busy_read_range,
     mame_erase_duration_ms,
@@ -90,6 +92,23 @@ class FlashHardwareTests(unittest.TestCase):
     def test_profiles_have_unique_names(self):
         self.assertEqual(3, len({profile.name for profile in EMULATOR_PROFILES}))
         self.assertEqual("MAME", emulator_profile("mame").name)
+
+    def test_command_profiles_keep_physical_and_emulator_support_distinct(self):
+        self.assertEqual(4, len(FLASH_COMMAND_PROFILES))
+        fujitsu = flash_command_profile("fujitsu mbm29lv800ta")
+        tilem = flash_command_profile("tilem")
+
+        self.assertEqual("data sheet", fujitsu.source_kind)
+        self.assertEqual("defined", fujitsu.erase_suspend_resume.status)
+        self.assertEqual("not defined", fujitsu.cfi.status)
+        self.assertEqual("partial", tilem.fast_program.status)
+        self.assertEqual("not implemented", tilem.erase_suspend_resume.status)
+        self.assertEqual("partial", flash_command_profile("MAME").fast_program.status)
+
+    def test_emulator_command_profiles_expose_chip_erase_qualification(self):
+        for name in ("TilEm", "Wabbitemu", "MAME"):
+            with self.subTest(name=name):
+                self.assertEqual("partial", flash_command_profile(name).chip_erase.status)
 
     def test_and_models_preserve_zero_bits(self):
         for emulator in ("TilEm", "Wabbitemu"):

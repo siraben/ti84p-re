@@ -10,6 +10,7 @@ import sys
 
 from flash_hardware import (
     EMULATOR_PROFILES,
+    FLASH_COMMAND_PROFILES,
     FUJITSU_MBM29LV800TA,
     REPORTED_COMPATIBLE_PARTS,
     TOP_BOOT_SECTORS,
@@ -36,6 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
         "parts", help="separate photographed hardware from compatible families"
     )
     commands.add_parser("profiles", help="compare pinned emulator profiles")
+    commands.add_parser("commands", help="compare command-set capabilities")
 
     geometry = commands.add_parser("geometry", help="resolve erase sectors")
     geometry.add_argument("addresses", nargs="*", type=integer)
@@ -66,6 +68,12 @@ def report(args: argparse.Namespace) -> dict[str, object]:
         }
     if args.command == "profiles":
         return {"profiles": [asdict(profile) for profile in EMULATOR_PROFILES]}
+    if args.command == "commands":
+        return {
+            "command_profiles": [
+                asdict(profile) for profile in FLASH_COMMAND_PROFILES
+            ]
+        }
     if args.command == "geometry":
         addresses = args.addresses or [sector.start for sector in TOP_BOOT_SECTORS]
         return {
@@ -142,6 +150,30 @@ def print_text(data: dict[str, object]) -> None:
             print(f"  erase: {profile['erase_completion']}")
             print(f"  autoselect: {profile['autoselect']}")
             print(f"  ASIC gate: {profile['asic_write_gate']}")
+        return
+    if "command_profiles" in data:
+        fields = (
+            "read_reset",
+            "autoselect",
+            "byte_program",
+            "sector_erase",
+            "chip_erase",
+            "erase_suspend_resume",
+            "fast_program",
+            "cfi",
+            "sector_protection_report",
+        )
+        for profile in data["command_profiles"]:
+            print(
+                f"{profile['name']} "
+                f"({profile['source_kind']}, {profile['revision']})"
+            )
+            for field in fields:
+                support = profile[field]
+                print(
+                    f"  {field.replace('_', ' ')}: {support['status']}; "
+                    f"{support['behavior']}"
+                )
         return
     if "addresses" in data:
         for item in data["addresses"]:

@@ -44,6 +44,15 @@ class DescribeFlashHardwareTests(unittest.TestCase):
             ],
         )
 
+    def test_commands_expose_nested_support_and_serialize(self):
+        data = report(self.parser.parse_args(["commands"]))
+        profiles = data["command_profiles"]
+
+        self.assertEqual("Fujitsu MBM29LV800TA", profiles[0]["name"])
+        self.assertEqual("defined", profiles[0]["erase_suspend_resume"]["status"])
+        self.assertEqual("partial", profiles[1]["fast_program"]["status"])
+        json.dumps(data)
+
 
 if __name__ == "__main__":
     unittest.main()
