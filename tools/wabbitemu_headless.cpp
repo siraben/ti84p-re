@@ -2872,6 +2872,318 @@ int run_flash_worker_probe(int argc, char **argv) {
     return std::strcmp(classification, "indeterminate") == 0 ? 3 : 0;
 }
 
+int run_flash_bcall_usage_probe(int argc, char **argv) {
+    if (argc < 4 || argc > 6) {
+        std::fprintf(
+            stderr,
+            "usage: %s --flash-bcall-usage-probe INPUT.rom PROBE.bin "
+            "[MAX_BOOT_STEPS [MAX_PROBE_STEPS]]\n",
+            argv[0]
+        );
+        return 2;
+    }
+    const std::uint64_t max_boot_steps =
+        argc >= 5 ? parse_count(argv[4], "MAX_BOOT_STEPS") : UINT64_C(5000000);
+    const std::uint64_t max_probe_steps =
+        argc >= 6 ? parse_count(argv[5], "MAX_PROBE_STEPS") : UINT64_C(250000);
+    if (max_boot_steps == 0 || max_probe_steps == 0) {
+        fail("Flash bcall usage step bounds must be positive");
+    }
+
+    constexpr unsigned short result_start = 0x9F00;
+    constexpr unsigned short writeflash_af_address = 0x9F00;
+    constexpr unsigned short writeflashunsafe_af_address = 0x9F02;
+    constexpr unsigned short writeabytesafe_af_address = 0x9F04;
+    constexpr unsigned short writeabyte_af_address = 0x9F06;
+    constexpr unsigned short erasepage_af_address = 0x9F08;
+    constexpr unsigned short eraseflash_af_address = 0x9F0A;
+    constexpr unsigned short erasecertificate_af_address = 0x9F0C;
+    constexpr unsigned short bound_iff_af_address = 0x9F0E;
+    constexpr unsigned short writeflash_copy_address = 0x9F20;
+    constexpr unsigned short writeflashunsafe_copy_address = 0x9F22;
+    constexpr unsigned short writeabytesafe_copy_address = 0x9F24;
+    constexpr unsigned short writeabyte_copy_address = 0x9F25;
+    constexpr unsigned short erasepage_copy_address = 0x9F26;
+    constexpr unsigned short eraseflash_copy_address = 0x9F27;
+    constexpr unsigned short erasecertificate_copy_address = 0x9F28;
+    constexpr unsigned char writeflash_page = 0x08;
+    constexpr unsigned short writeflash_offset = 0x0100;
+    constexpr unsigned char writeflashunsafe_page = 0x3E;
+    constexpr unsigned short writeflashunsafe_offset = 0x0100;
+    constexpr unsigned char writeabytesafe_page = 0x08;
+    constexpr unsigned short writeabytesafe_offset = 0x0102;
+    constexpr unsigned char writeabyte_page = 0x3E;
+    constexpr unsigned short writeabyte_offset = 0x0102;
+    constexpr unsigned char erasepage_page = 0x0C;
+    constexpr unsigned short erasepage_offset = 0x0000;
+    constexpr unsigned char eraseflash_page = 0x10;
+    constexpr unsigned short eraseflash_offset = 0x0567;
+    constexpr unsigned char erasecertificate_page = 0x3E;
+    constexpr unsigned short erasecertificate_offset = 0x2001;
+
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    const std::vector<unsigned char> probe = read_probe(argv[3]);
+    if (probe.size() > result_start - kProbeOrigin) {
+        fail("Flash bcall usage probe overlaps its fixed result block");
+    }
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+
+    std::uint64_t boot_steps = 0;
+    while (boot_steps < max_boot_steps && !boot_protection_ready(memory)) {
+        CPU_step(&cpu);
+        ++boot_steps;
+    }
+    if (!boot_protection_ready(memory)) {
+        fail("retail boot did not establish and relock the expected protection bounds");
+    }
+    const std::uint64_t boot_tstates = timer.tstates;
+
+    memory.boot_mapped = FALSE;
+    memory.banks = memory.normal_banks;
+    memory.port07 = 0x80 | kProbeRamPage;
+    change_page(&memory, 2, kProbeRamPage, TRUE);
+    const std::size_t program_physical =
+        kProbeRamPage * PAGE_SIZE + mc_base(kProbeOrigin);
+    const std::size_t results_physical =
+        kProbeRamPage * PAGE_SIZE + mc_base(result_start);
+    std::memcpy(memory.ram + program_physical, probe.data(), probe.size());
+    std::memset(memory.ram + results_physical, 0xCC, 0x40);
+    if (std::memcmp(
+            memory.banks[2].addr + mc_base(kProbeOrigin),
+            probe.data(),
+            probe.size()
+        ) != 0) {
+        fail("injected Flash bcall usage probe does not read back from RAM");
+    }
+
+    const auto flash_physical = [](unsigned char page, unsigned short offset) {
+        return static_cast<std::size_t>(page) * PAGE_SIZE + offset;
+    };
+    const std::size_t writeflash_physical =
+        flash_physical(writeflash_page, writeflash_offset);
+    const std::size_t writeflashunsafe_physical =
+        flash_physical(writeflashunsafe_page, writeflashunsafe_offset);
+    const std::size_t writeabytesafe_physical =
+        flash_physical(writeabytesafe_page, writeabytesafe_offset);
+    const std::size_t writeabyte_physical =
+        flash_physical(writeabyte_page, writeabyte_offset);
+    const std::size_t erasepage_physical =
+        flash_physical(erasepage_page, erasepage_offset);
+    const std::size_t eraseflash_physical =
+        flash_physical(eraseflash_page, eraseflash_offset);
+    const std::size_t erasecertificate_physical =
+        flash_physical(erasecertificate_page, erasecertificate_offset);
+    memory.flash[writeflash_physical] = 0xFF;
+    memory.flash[writeflash_physical + 1] = 0xFF;
+    memory.flash[writeflashunsafe_physical] = 0xFF;
+    memory.flash[writeflashunsafe_physical + 1] = 0xFF;
+    memory.flash[writeabytesafe_physical] = 0xFE;
+    memory.flash[writeabyte_physical] = 0xFE;
+    memory.flash[erasepage_physical] = 0x00;
+    memory.flash[eraseflash_physical] = 0x00;
+    memory.flash[erasecertificate_physical] = 0x00;
+    memory.flash_locked = FALSE;
+    memory.step = FLASH_READ;
+    memory.flash_error = FALSE;
+    memory.flash_toggles = 0;
+
+    cpu.pc = kProbeOrigin;
+    cpu.sp = kProbeStack;
+    cpu.halt = FALSE;
+    cpu.iff1 = FALSE;
+    cpu.iff2 = FALSE;
+    cpu.interrupt = FALSE;
+    cpu.ei_block = FALSE;
+    cpu.prefix = 0;
+    execution_violation_resets = 0;
+    cpu.exe_violation_callback = record_execution_violation;
+
+    unsigned int writeflash_visits = 0;
+    unsigned int writeflashunsafe_visits = 0;
+    unsigned int writeabytesafe_visits = 0;
+    unsigned int writeabyte_visits = 0;
+    unsigned int erasepage_visits = 0;
+    unsigned int eraseflash_visits = 0;
+    unsigned int erasecertificate_visits = 0;
+    unsigned int setbound_visits = 0;
+    unsigned int flashtoram_visits = 0;
+    unsigned int worker_entry_visits = 0;
+    std::uint64_t probe_steps = 0;
+    for (; probe_steps < max_probe_steps && !cpu.halt; ++probe_steps) {
+        const bank_state_t &pc_bank = memory.banks[mc_bank(cpu.pc)];
+        const bool boot_page = !pc_bank.ram && pc_bank.page == 0x3F;
+        const bool archive_page = !pc_bank.ram && pc_bank.page == 0x3D;
+        const bool worker_page = pc_bank.ram &&
+            pc_bank.page == kProbeRamPage && cpu.pc == 0x8100;
+        if (boot_page && cpu.pc == 0x4C8F) {
+            ++writeflash_visits;
+        }
+        if (boot_page && cpu.pc == 0x4CA6) {
+            ++writeflashunsafe_visits;
+        }
+        if (boot_page && cpu.pc == 0x4C9A) {
+            ++writeabytesafe_visits;
+        }
+        if (boot_page && cpu.pc == 0x4C9F) {
+            ++writeabyte_visits;
+        }
+        if (boot_page && cpu.pc == 0x4C1E) {
+            ++erasepage_visits;
+        }
+        if (boot_page && cpu.pc == 0x4C2A) {
+            ++eraseflash_visits;
+        }
+        if (boot_page && cpu.pc == 0x4E3F) {
+            ++erasecertificate_visits;
+        }
+        if (boot_page && cpu.pc == 0x4784) {
+            ++setbound_visits;
+        }
+        if (archive_page && cpu.pc == 0x6745) {
+            ++flashtoram_visits;
+        }
+        if (worker_page) {
+            ++worker_entry_visits;
+        }
+        CPU_step(&cpu);
+        if (execution_violation_resets != 0) {
+            ++probe_steps;
+            break;
+        }
+    }
+
+    const auto ram_byte = [&memory](unsigned short address) {
+        return memory.ram[
+            kProbeRamPage * PAGE_SIZE + mc_base(address)
+        ];
+    };
+    const auto ram_word = [&ram_byte](unsigned short address) {
+        return static_cast<unsigned short>(
+            ram_byte(address) |
+            static_cast<unsigned short>(ram_byte(address + 1)) << 8
+        );
+    };
+    const unsigned short writeflash_af = ram_word(writeflash_af_address);
+    const unsigned short writeflashunsafe_af =
+        ram_word(writeflashunsafe_af_address);
+    const unsigned short writeabytesafe_af = ram_word(writeabytesafe_af_address);
+    const unsigned short writeabyte_af = ram_word(writeabyte_af_address);
+    const unsigned short erasepage_af = ram_word(erasepage_af_address);
+    const unsigned short eraseflash_af = ram_word(eraseflash_af_address);
+    const unsigned short erasecertificate_af =
+        ram_word(erasecertificate_af_address);
+    const unsigned short bound_iff_af = ram_word(bound_iff_af_address);
+    const unsigned char writeflash_stored_0 = memory.flash[writeflash_physical];
+    const unsigned char writeflash_stored_1 =
+        memory.flash[writeflash_physical + 1];
+    const unsigned char writeflashunsafe_stored_0 =
+        memory.flash[writeflashunsafe_physical];
+    const unsigned char writeflashunsafe_stored_1 =
+        memory.flash[writeflashunsafe_physical + 1];
+    const unsigned char writeabytesafe_stored =
+        memory.flash[writeabytesafe_physical];
+    const unsigned char writeabyte_stored = memory.flash[writeabyte_physical];
+    const unsigned char erasepage_stored = memory.flash[erasepage_physical];
+    const unsigned char eraseflash_stored = memory.flash[eraseflash_physical];
+    const unsigned char erasecertificate_stored =
+        memory.flash[erasecertificate_physical];
+    const unsigned char writeflash_copy_0 = ram_byte(writeflash_copy_address);
+    const unsigned char writeflash_copy_1 =
+        ram_byte(writeflash_copy_address + 1);
+    const unsigned char writeflashunsafe_copy_0 =
+        ram_byte(writeflashunsafe_copy_address);
+    const unsigned char writeflashunsafe_copy_1 =
+        ram_byte(writeflashunsafe_copy_address + 1);
+    const unsigned char writeabytesafe_copy =
+        ram_byte(writeabytesafe_copy_address);
+    const unsigned char writeabyte_copy = ram_byte(writeabyte_copy_address);
+    const unsigned char erasepage_copy = ram_byte(erasepage_copy_address);
+    const unsigned char eraseflash_copy = ram_byte(eraseflash_copy_address);
+    const unsigned char erasecertificate_copy =
+        ram_byte(erasecertificate_copy_address);
+    const unsigned char context_byte = CPU_mem_read(&cpu, 0x89F0 + 0x25);
+    const unsigned char op1 = CPU_mem_read(&cpu, 0x8478);
+    const bool completed = cpu.halt && execution_violation_resets == 0;
+
+    std::printf(
+        "mode=flash-bcall-usage-probe probe_size=%zu boot_steps=%" PRIu64 " "
+        "boot_tstates=%" PRIu64 " max_probe_steps=%" PRIu64 " "
+        "probe_steps=%" PRIu64 " probe_tstates=%" PRIu64 " "
+        "writeflash_visits=%u writeflashunsafe_visits=%u "
+        "writeabytesafe_visits=%u writeabyte_visits=%u "
+        "erasepage_visits=%u eraseflash_visits=%u "
+        "erasecertificate_visits=%u setbound_visits=%u "
+        "flashtoram_visits=%u worker_entry_visits=%u violation_resets=%u "
+        "completed=%d writeflash_af=0x%04X writeflashunsafe_af=0x%04X "
+        "writeabytesafe_af=0x%04X writeabyte_af=0x%04X "
+        "erasepage_af=0x%04X eraseflash_af=0x%04X "
+        "erasecertificate_af=0x%04X bound_iff_af=0x%04X "
+        "writeflash_stored=%02X,%02X writeflash_copy=%02X,%02X "
+        "writeflashunsafe_stored=%02X,%02X "
+        "writeflashunsafe_copy=%02X,%02X "
+        "writeabytesafe_stored=0x%02X writeabytesafe_copy=0x%02X "
+        "writeabyte_stored=0x%02X writeabyte_copy=0x%02X "
+        "erasepage_stored=0x%02X erasepage_copy=0x%02X "
+        "eraseflash_stored=0x%02X eraseflash_copy=0x%02X "
+        "erasecertificate_stored=0x%02X erasecertificate_copy=0x%02X "
+        "op1=0x%02X context_bit1=%d "
+        "flash_upper=0x%02X flash_locked=%d final_pc=0x%04X\n",
+        probe.size(),
+        boot_steps,
+        boot_tstates,
+        max_probe_steps,
+        probe_steps,
+        timer.tstates - boot_tstates,
+        writeflash_visits,
+        writeflashunsafe_visits,
+        writeabytesafe_visits,
+        writeabyte_visits,
+        erasepage_visits,
+        eraseflash_visits,
+        erasecertificate_visits,
+        setbound_visits,
+        flashtoram_visits,
+        worker_entry_visits,
+        execution_violation_resets,
+        static_cast<int>(completed),
+        writeflash_af,
+        writeflashunsafe_af,
+        writeabytesafe_af,
+        writeabyte_af,
+        erasepage_af,
+        eraseflash_af,
+        erasecertificate_af,
+        bound_iff_af,
+        writeflash_stored_0,
+        writeflash_stored_1,
+        writeflash_copy_0,
+        writeflash_copy_1,
+        writeflashunsafe_stored_0,
+        writeflashunsafe_stored_1,
+        writeflashunsafe_copy_0,
+        writeflashunsafe_copy_1,
+        writeabytesafe_stored,
+        writeabytesafe_copy,
+        writeabyte_stored,
+        writeabyte_copy,
+        erasepage_stored,
+        erasepage_copy,
+        eraseflash_stored,
+        eraseflash_copy,
+        erasecertificate_stored,
+        erasecertificate_copy,
+        op1,
+        static_cast<int>((context_byte & 0x02) != 0),
+        memory.flash_upper,
+        static_cast<int>(memory.flash_locked),
+        cpu.pc
+    );
+    return completed ? 0 : 3;
+}
+
 int run_execution_probe(int argc, char **argv) {
     if (argc < 5 || argc > 7) {
         std::fprintf(
@@ -3350,6 +3662,9 @@ int main(int argc, char **argv) {
     }
     if (argc >= 2 && std::strcmp(argv[1], "--flash-worker-probe") == 0) {
         return run_flash_worker_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--flash-bcall-usage-probe") == 0) {
+        return run_flash_bcall_usage_probe(argc, argv);
     }
     if (argc >= 2 && std::strcmp(argv[1], "--flash-program-probe") == 0) {
         return run_flash_program_probe(argc, argv);

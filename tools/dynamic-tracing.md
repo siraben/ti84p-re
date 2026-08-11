@@ -1735,6 +1735,50 @@ matrix covers legal success, illegal lower-bit false success, illegal DQ7
 failure with both stored DQ5 states, and both initial DQ6 states. It does not
 exercise the protected unlock sequence, an OS/UI caller, or physical Flash.
 
+#### Retail Flash bcall usage probe
+
+The programmer-facing examples have a separate assembled probe. The reusable
+`flash_bcall_examples.py` library assembles the fixture, parses the native
+report, and checks bcall visits, copied-worker entries, return values, scratch
+state, array bytes, `_FlashToRam` copies, the port-`0x23` value, and IFF2. The
+CLI requires the exact OS 2.55MP ROM and refuses to reuse an output directory:
+
+```sh
+python tools/check_executable_snippets.py --json
+
+wabbit_bcall_parent=$(mktemp -d /tmp/ti84-wabbit-bcalls.XXXXXX)
+nix develop -c python tools/run_wabbitemu_flash_bcall_probe.py \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_bcall_parent/run" --json
+```
+
+The 2026-08-10 run assembled 264 bytes, booted the retail ROM for 134,845 CPU
+steps, and completed the injected probe in 4,346 steps. It visited every public
+modifying Flash entry plus `_SetFlashLowerBound`. The shared
+`_WriteFlashUnsafe`, `_WriteAByte`, and `_EraseFlash` bodies ran four, two, and
+three times as their wrappers converged. Seven `_FlashToRam` calls brought the
+RAM-worker-entry count to 14.
+
+Both block writes, both byte writes, `_EraseFlashPage`, and `_EraseFlash`
+returned `AF=0x0044`. The safe block stored `A5 5A` at `08:4100`; the unsafe
+block stored `3C C3` at `3E:4100`. The byte entries stored `FC` at `08:4102`
+and `F8` at `3E:4102`. The page, raw, and certificate erases produced `FF` at
+`0C:4000`, `10:4567`, and `3E:6001`. All seven array results matched their
+readback buffers. `_EraseCertificateSector` preserved seeded `AF=0xA545` for
+`HL=0x6001`; `OP1=0xF8`, the context scratch bit was clear, port `0x23` held
+`0x2A`, and IFF2 was clear after `_SetFlashLowerBound`.
+
+The assembly-source SHA-256 was
+`ba91fa8a4d1d7c816b742a426dbb0216f927ec209f368534a13748d4683b42e7`,
+the machine-code SHA-256 was
+`8f9ca5975c418871ba831c3536cba6e7e4f9f368520e1ad37650ef9c54d9249c`,
+and the rebuilt adapter SHA-256 was
+`6dec9c4f4a87466a27baa5e5e4fc90c644506d0a90baa9278d17407b9bc9dd36`.
+The runner directly opens only Wabbitemu's in-memory gate and seeds disposable
+array bytes. This is exact retail-ROM execution under a pinned emulator, not a
+test of the protected unlock sequence, OS allocation or journaling, power loss,
+timing, or physical Flash.
+
 Run the guarded Wabbitemu MD5 edge probe through the same binary:
 
 ```sh
@@ -2133,6 +2177,9 @@ rather than paged-address resolution.
 - [`run_wabbitemu_flash_program_probe.py`](run_wabbitemu_flash_program_probe.py) — guarded native byte-program matrix with source-model, report-field, ROM, and binary checks.
 - [`run_wabbitemu_flash_command_probe.py`](run_wabbitemu_flash_command_probe.py) — guarded native autoselect, reset, fast-program, erase, and unsupported-command matrix with complete mutation-range checks.
 - [`run_wabbitemu_flash_worker_probe.py`](run_wabbitemu_flash_worker_probe.py) — guarded retail-ROM `_WriteFlashUnsafe` matrix with copied-worker path, register, poll-read, reset-tail, and hash checks.
+- [`emulator-probes/flash-bcall-usage.asm`](emulator-probes/flash-bcall-usage.asm) — assembled programmer-facing `_WriteFlash`, `_WriteAByteSafe`, `_EraseFlashPage`, `_SetFlashLowerBound`, and `_FlashToRam` usage fixture.
+- [`flash_bcall_examples.py`](flash_bcall_examples.py) — reusable assembly, typed native-report parsing, and bcall/result/readback oracle.
+- [`run_wabbitemu_flash_bcall_probe.py`](run_wabbitemu_flash_bcall_probe.py) — exact-ROM guarded executable-example CLI with source, machine-code, adapter, and result hashes.
 - [`wabbitemu_md5_probe.py`](wabbitemu_md5_probe.py) — reusable native MD5 edge-report oracle backed by the independent arithmetic model.
 - [`run_wabbitemu_md5_edge_probe.py`](run_wabbitemu_md5_edge_probe.py) — guarded native MD5 sliding-register, control-mask, undefined-read, and read-time-recalculation CLI.
 - [`wabbitemu_keypad_probe.py`](wabbitemu_keypad_probe.py) — reusable native keypad and ON-edge report oracle backed by the pinned matrix model.
