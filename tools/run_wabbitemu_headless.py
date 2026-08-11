@@ -7,6 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
+from probe_cli import positive_int
 from wabbitemu_headless import (
     WabbitemuHeadlessError,
     file_sha256,
@@ -14,13 +15,6 @@ from wabbitemu_headless import (
     run_headless,
     validate_retail_flash_path,
 )
-
-
-def positive_count(value: str) -> int:
-    count = int(value, 0)
-    if count <= 0:
-        raise argparse.ArgumentTypeError("count must be positive")
-    return count
 
 
 def main() -> None:
@@ -37,10 +31,10 @@ def main() -> None:
         help="require this exact ordered native gate-write event; repeat as needed",
     )
     parser.add_argument("--require-retail-flash-path", action="store_true")
-    parser.add_argument("--max-steps", type=positive_count, default=200_000_000)
-    parser.add_argument("--min-steps", type=positive_count, default=20_000_000)
-    parser.add_argument("--sample-interval", type=positive_count, default=1_000_000)
-    parser.add_argument("--settle-samples", type=positive_count, default=10)
+    parser.add_argument("--max-steps", type=positive_int, default=200_000_000)
+    parser.add_argument("--min-steps", type=positive_int, default=20_000_000)
+    parser.add_argument("--sample-interval", type=positive_int, default=1_000_000)
+    parser.add_argument("--settle-samples", type=positive_int, default=10)
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()

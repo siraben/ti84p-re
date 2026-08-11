@@ -8,8 +8,9 @@ import shutil
 import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
-from hashlib import sha256
 from pathlib import Path
+
+from file_hashes import file_sha256
 
 MAME_VERSION = "0.287"
 MAME_TI84PV3_ROM_WARNING = (
@@ -101,16 +102,6 @@ class GuardedMameProbeRun:
             "stdout": str(self.layout.stdout),
             "stderr": str(self.layout.stderr),
         }
-
-
-def file_sha256(path: Path) -> str:
-    """Hash one file without loading it all into memory."""
-
-    digest = sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def machine_rom_name(machine: str) -> str:

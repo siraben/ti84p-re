@@ -69,6 +69,80 @@ struct GateWrite {
     bool after_locked;
 };
 
+struct UsbRomIoWrite {
+    unsigned char port;
+    unsigned char value;
+};
+
+struct UsbRomHarness {
+    bool handshake_success;
+    bool frame_success;
+    bool scripted_transfer;
+    bool script_error;
+    bool controller_status_controlled;
+    devp controller_status_code;
+    void *controller_status_aux;
+    unsigned char registers[MAX_DEVICES];
+    std::uint64_t input_counts[MAX_DEVICES];
+    std::uint64_t output_counts[MAX_DEVICES];
+    std::vector<UsbRomIoWrite> writes;
+    std::vector<std::vector<unsigned char>> receive_packets;
+    std::size_t receive_packet_index;
+    std::size_t receive_byte_index;
+    std::vector<std::vector<unsigned char>> transmit_packets;
+    std::vector<unsigned char> transmit_packet;
+};
+
+struct UsbRomCaseResult {
+    const char *name;
+    bool handshake_success;
+    bool frame_success;
+    std::uint64_t boot_steps;
+    std::uint64_t boot_tstates;
+    std::uint64_t probe_steps;
+    std::uint64_t probe_tstates;
+    unsigned int init_visits;
+    unsigned int reset_helper_visits;
+    unsigned int timeout_tick_visits;
+    unsigned int cleanup_visits;
+    unsigned int receive_boundary_visits;
+    unsigned int return_visits;
+    unsigned int violation_resets;
+    unsigned int flash_changed_bytes;
+    unsigned char final_a;
+    unsigned char final_f;
+    unsigned short final_pc;
+    bool completed;
+    UsbRomHarness io;
+};
+
+struct UsbRomReceiveResult {
+    std::uint64_t boot_steps;
+    std::uint64_t boot_tstates;
+    std::uint64_t probe_steps;
+    std::uint64_t probe_tstates;
+    unsigned int init_visits;
+    unsigned int receive_entry_visits;
+    unsigned int control_start_visits;
+    unsigned int ack_parse_visits;
+    unsigned int power_gate_value;
+    unsigned int receive_iy;
+    unsigned int page_check_visits;
+    unsigned int page_check_value;
+    unsigned int progress_visits;
+    bool progress_state_seeded;
+    unsigned int stream_receive_visits;
+    unsigned int record_dispatch_visits;
+    unsigned int invalid_page_visits;
+    unsigned int cleanup_visits;
+    unsigned int stop_visits;
+    unsigned int violation_resets;
+    unsigned int flash_changed_bytes;
+    unsigned short final_pc;
+    bool completed;
+    UsbRomHarness io;
+};
+
 bool block_program_worker_loaded(const memory_context_t &memory) {
     constexpr unsigned char source_page = 0x3F;
     constexpr unsigned short source_address = 0x4CCA;
@@ -1983,6 +2057,614 @@ int run_link_edge_probe(int argc, char **argv) {
         timer.tstates
     );
     return 0;
+}
+
+void usb_rom_harness_port(CPU_t *cpu, device_t *device) {
+    UsbRomHarness *harness = static_cast<UsbRomHarness *>(device->aux);
+    const unsigned int port = static_cast<unsigned int>(DEV_INDEX(device));
+    if (cpu->input) {
+        unsigned char value = harness->registers[port];
+        if (port == 0x4C) {
+            value = harness->handshake_success ? 0x5A : 0x02;
+        } else if (port == 0x8C) {
+            value = harness->frame_success ? 0x01 : 0x00;
+        } else if (harness->scripted_transfer) {
+            const bool packet_available =
+                harness->receive_packet_index < harness->receive_packets.size();
+            if (port == 0x8F) {
+                value = 0x04;
+            } else if (port == 0x82) {
+                value = static_cast<unsigned char>(
+                    0x04 | (packet_available ? 0x02 : 0x00)
+                );
+            } else if (port == 0x84) {
+                value = packet_available ? 0x06 : 0x00;
+            } else if (port == 0x86 || port == 0x91 || port == 0x94) {
+                value = 0x00;
+            } else if (port == 0x96) {
+                if (!packet_available) {
+                    harness->script_error = true;
+                    value = 0;
+                } else {
+                    const std::vector<unsigned char> &packet =
+                        harness->receive_packets[harness->receive_packet_index];
+                    value = static_cast<unsigned char>(
+                        packet.size() - harness->receive_byte_index
+                    );
+                }
+            } else if (port == 0xA1) {
+                if (!packet_available) {
+                    harness->script_error = true;
+                    value = 0;
+                } else {
+                    const std::vector<unsigned char> &packet =
+                        harness->receive_packets[harness->receive_packet_index];
+                    if (harness->receive_byte_index >= packet.size()) {
+                        harness->script_error = true;
+                        value = 0;
+                    } else {
+                        value = packet[harness->receive_byte_index++];
+                        if (harness->receive_byte_index == packet.size()) {
+                            ++harness->receive_packet_index;
+                            harness->receive_byte_index = 0;
+                        }
+                    }
+                }
+            }
+        }
+        ++harness->input_counts[port];
+        cpu->bus = value;
+        cpu->input = FALSE;
+    } else if (cpu->output) {
+        ++harness->output_counts[port];
+        harness->registers[port] = cpu->bus;
+        if (harness->writes.size() < 128) {
+            harness->writes.push_back(
+                UsbRomIoWrite{
+                    static_cast<unsigned char>(port),
+                    static_cast<unsigned char>(cpu->bus),
+                }
+            );
+        }
+        if (harness->scripted_transfer && port == 0xA2) {
+            harness->transmit_packet.push_back(
+                static_cast<unsigned char>(cpu->bus)
+            );
+        } else if (
+            harness->scripted_transfer && port == 0x91 &&
+            harness->registers[0x8E] == 0x02 && (cpu->bus & 0x01) != 0
+        ) {
+            if (harness->transmit_packet.empty()) {
+                harness->script_error = true;
+            } else {
+                harness->transmit_packets.push_back(harness->transmit_packet);
+                harness->transmit_packet.clear();
+            }
+        }
+        cpu->output = FALSE;
+    }
+}
+
+void install_usb_rom_harness(CPU_t *cpu, UsbRomHarness *harness) {
+    for (unsigned int port = 0x4A; port <= 0x5B; ++port) {
+        cpu->pio.devices[port].active = TRUE;
+        cpu->pio.devices[port].protected_port = FALSE;
+        cpu->pio.devices[port].aux = harness;
+        cpu->pio.devices[port].code = (devp) usb_rom_harness_port;
+    }
+    for (unsigned int port = 0x80; port <= 0xA2; ++port) {
+        cpu->pio.devices[port].active = TRUE;
+        cpu->pio.devices[port].protected_port = FALSE;
+        cpu->pio.devices[port].aux = harness;
+        cpu->pio.devices[port].code = (devp) usb_rom_harness_port;
+    }
+}
+
+void usb_rom_controller_status_port(CPU_t *cpu, device_t *device) {
+    UsbRomHarness *harness = static_cast<UsbRomHarness *>(device->aux);
+    const bool input = cpu->input != FALSE;
+    device->aux = harness->controller_status_aux;
+    device->code = harness->controller_status_code;
+    harness->controller_status_code(cpu, device);
+    device->aux = harness;
+    device->code = (devp) usb_rom_controller_status_port;
+    if (input) {
+        cpu->bus |= 0x80;
+        ++harness->input_counts[0x04];
+        harness->registers[0x04] = cpu->bus;
+    }
+}
+
+void install_usb_rom_controller_status_harness(
+    CPU_t *cpu,
+    UsbRomHarness *harness
+) {
+    harness->controller_status_code = cpu->pio.devices[0x04].code;
+    harness->controller_status_aux = cpu->pio.devices[0x04].aux;
+    cpu->pio.devices[0x04].aux = harness;
+    cpu->pio.devices[0x04].code = (devp) usb_rom_controller_status_port;
+    harness->controller_status_controlled = true;
+}
+
+UsbRomCaseResult run_usb_rom_case(
+    const std::vector<unsigned char> &input,
+    const char *name,
+    bool handshake_success,
+    bool frame_success,
+    bool attempt_receive,
+    std::uint64_t max_boot_steps,
+    std::uint64_t max_probe_steps
+) {
+    const unsigned char init_harness[] = {0xEF, 0x08, 0x81, 0x76};
+    const unsigned char attempt_harness[] = {
+        0x3E, 0x40, 0xB7, 0xEF, 0xE4, 0x80, 0x76,
+    };
+    const unsigned char *program =
+        attempt_receive ? attempt_harness : init_harness;
+    const std::size_t program_size =
+        attempt_receive ? sizeof(attempt_harness) : sizeof(init_harness);
+    const unsigned short return_address = static_cast<unsigned short>(
+        kProbeOrigin + (attempt_receive ? 6 : 3)
+    );
+
+    UsbRomCaseResult result{};
+    result.name = name;
+    result.handshake_success = handshake_success;
+    result.frame_success = frame_success;
+    result.io.handshake_success = handshake_success;
+    result.io.frame_success = frame_success;
+    result.io.registers[0x4D] = 0xA5;
+    result.io.registers[0x55] = 0x1F;
+    result.io.registers[0x56] = 0x50;
+
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+    while (result.boot_steps < max_boot_steps && !boot_protection_ready(memory)) {
+        CPU_step(&cpu);
+        ++result.boot_steps;
+    }
+    if (!boot_protection_ready(memory)) {
+        fail("retail boot did not establish USB ROM-probe protection bounds");
+    }
+    result.boot_tstates = timer.tstates;
+
+    memory.boot_mapped = FALSE;
+    memory.banks = memory.normal_banks;
+    memory.port07 = 0x80 | kProbeRamPage;
+    change_page(&memory, 2, kProbeRamPage, TRUE);
+    const std::size_t program_physical =
+        kProbeRamPage * PAGE_SIZE + mc_base(kProbeOrigin);
+    std::memcpy(memory.ram + program_physical, program, program_size);
+    if (std::memcmp(
+            memory.banks[2].addr + mc_base(kProbeOrigin),
+            program,
+            program_size
+        ) != 0) {
+        fail("injected USB ROM harness does not read back from RAM");
+    }
+    const std::vector<unsigned char> flash_before(
+        memory.flash, memory.flash + kTi84PlusFlashSize
+    );
+    install_usb_rom_harness(&cpu, &result.io);
+
+    cpu.pc = kProbeOrigin;
+    cpu.sp = kProbeStack;
+    cpu.halt = FALSE;
+    cpu.iff1 = FALSE;
+    cpu.iff2 = FALSE;
+    cpu.interrupt = FALSE;
+    cpu.ei_block = FALSE;
+    cpu.prefix = 0;
+    execution_violation_resets = 0;
+    cpu.exe_violation_callback = record_execution_violation;
+
+    for (; result.probe_steps < max_probe_steps; ++result.probe_steps) {
+        const bank_state_t &pc_bank = memory.banks[mc_bank(cpu.pc)];
+        const bool probe_ram = pc_bank.ram && pc_bank.page == kProbeRamPage;
+        const bool boot_usb_page = !pc_bank.ram && pc_bank.page == 0x2F;
+        if (probe_ram && cpu.pc == return_address) {
+            ++result.return_visits;
+            break;
+        }
+        if (boot_usb_page && cpu.pc == 0x4170) {
+            ++result.receive_boundary_visits;
+            if (attempt_receive) {
+                break;
+            }
+        }
+        if (boot_usb_page && cpu.pc == 0x52A4) {
+            ++result.init_visits;
+        } else if (boot_usb_page && cpu.pc == 0x59C3) {
+            ++result.reset_helper_visits;
+        } else if (boot_usb_page && cpu.pc == 0x5313) {
+            ++result.timeout_tick_visits;
+        } else if (boot_usb_page && (cpu.pc == 0x58C8 || cpu.pc == 0x5B87)) {
+            ++result.cleanup_visits;
+        }
+        CPU_step(&cpu);
+        if (execution_violation_resets != 0) {
+            ++result.probe_steps;
+            break;
+        }
+    }
+    result.probe_tstates = timer.tstates - result.boot_tstates;
+    result.violation_resets = execution_violation_resets;
+    result.flash_changed_bytes = static_cast<unsigned int>(count_differences(
+        flash_before, memory.flash, 0, kTi84PlusFlashSize
+    ));
+    result.final_a = cpu.a;
+    result.final_f = cpu.f;
+    result.final_pc = cpu.pc;
+    const bool returned = result.return_visits == 1;
+    const bool carry = (cpu.f & 0x01) != 0;
+    result.completed = execution_violation_resets == 0 &&
+        result.flash_changed_bytes == 0 && result.init_visits == 1 &&
+        (attempt_receive
+            ? result.receive_boundary_visits == 1
+            : returned && carry != (handshake_success && frame_success));
+    return result;
+}
+
+void print_usb_rom_case(const UsbRomCaseResult &result) {
+    std::printf(
+        "mode=usb-rom-probe case=%s handshake=%d frame=%d "
+        "boot_steps=%" PRIu64 " boot_tstates=%" PRIu64 " "
+        "probe_steps=%" PRIu64 " probe_tstates=%" PRIu64 " "
+        "init_visits=%u reset_helper_visits=%u timeout_tick_visits=%u "
+        "cleanup_visits=%u receive_boundary_visits=%u return_visits=%u "
+        "violation_resets=%u flash_changed_bytes=%u "
+        "input_4c=%" PRIu64 " input_4d=%" PRIu64 " input_8c=%" PRIu64 " "
+        "output_4a=%" PRIu64 " output_4b=%" PRIu64 " "
+        "output_4c=%" PRIu64 " output_54=%" PRIu64 " "
+        "output_57=%" PRIu64 " output_87=%" PRIu64 " "
+        "output_89=%" PRIu64 " output_8b=%" PRIu64 " "
+        "output_92=%" PRIu64 " final_a=0x%02X final_f=0x%02X "
+        "final_pc=0x%04X completed=%d writes=",
+        result.name,
+        result.handshake_success ? 1 : 0,
+        result.frame_success ? 1 : 0,
+        result.boot_steps,
+        result.boot_tstates,
+        result.probe_steps,
+        result.probe_tstates,
+        result.init_visits,
+        result.reset_helper_visits,
+        result.timeout_tick_visits,
+        result.cleanup_visits,
+        result.receive_boundary_visits,
+        result.return_visits,
+        result.violation_resets,
+        result.flash_changed_bytes,
+        result.io.input_counts[0x4C],
+        result.io.input_counts[0x4D],
+        result.io.input_counts[0x8C],
+        result.io.output_counts[0x4A],
+        result.io.output_counts[0x4B],
+        result.io.output_counts[0x4C],
+        result.io.output_counts[0x54],
+        result.io.output_counts[0x57],
+        result.io.output_counts[0x87],
+        result.io.output_counts[0x89],
+        result.io.output_counts[0x8B],
+        result.io.output_counts[0x92],
+        result.final_a,
+        result.final_f,
+        result.final_pc,
+        result.completed ? 1 : 0
+    );
+    for (std::size_t index = 0; index < result.io.writes.size(); ++index) {
+        const UsbRomIoWrite &write = result.io.writes[index];
+        std::printf(
+            "%s%02X%02X", index == 0 ? "" : ",", write.port, write.value
+        );
+    }
+    std::printf("\n");
+}
+
+int run_usb_rom_probe(int argc, char **argv) {
+    if (argc < 3 || argc > 5) {
+        std::fprintf(
+            stderr,
+            "usage: %s --usb-rom-probe INPUT.rom "
+            "[MAX_BOOT_STEPS [MAX_PROBE_STEPS]]\n",
+            argv[0]
+        );
+        return 2;
+    }
+    const std::uint64_t max_boot_steps =
+        argc >= 4 ? parse_count(argv[3], "MAX_BOOT_STEPS") : UINT64_C(5000000);
+    const std::uint64_t max_probe_steps =
+        argc >= 5 ? parse_count(argv[4], "MAX_PROBE_STEPS") : UINT64_C(8000000);
+    if (max_boot_steps == 0 || max_probe_steps == 0) {
+        fail("USB ROM-probe step bounds must be positive");
+    }
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    const UsbRomCaseResult cases[] = {
+        run_usb_rom_case(
+            input, "init-success", true, true, false,
+            max_boot_steps, max_probe_steps
+        ),
+        run_usb_rom_case(
+            input, "handshake-timeout", false, true, false,
+            max_boot_steps, max_probe_steps
+        ),
+        run_usb_rom_case(
+            input, "frame-timeout", true, false, false,
+            max_boot_steps, max_probe_steps
+        ),
+        run_usb_rom_case(
+            input, "attempt-event-40", true, true, true,
+            max_boot_steps, max_probe_steps
+        ),
+    };
+    bool completed = true;
+    for (const UsbRomCaseResult &result : cases) {
+        print_usb_rom_case(result);
+        completed = completed && result.completed;
+    }
+    return completed ? 0 : 3;
+}
+
+std::size_t usb_rom_packet_bytes(
+    const std::vector<std::vector<unsigned char>> &packets
+) {
+    std::size_t total = 0;
+    for (const std::vector<unsigned char> &packet : packets) {
+        total += packet.size();
+    }
+    return total;
+}
+
+void print_usb_rom_packets(
+    const std::vector<std::vector<unsigned char>> &packets
+) {
+    if (packets.empty()) {
+        std::printf("-");
+        return;
+    }
+    for (std::size_t packet_index = 0; packet_index < packets.size(); ++packet_index) {
+        if (packet_index != 0) {
+            std::printf(";");
+        }
+        for (unsigned char value : packets[packet_index]) {
+            std::printf("%02X", value);
+        }
+    }
+}
+
+UsbRomReceiveResult run_usb_rom_receive_case(
+    const std::vector<unsigned char> &input,
+    std::uint64_t max_boot_steps,
+    std::uint64_t max_probe_steps
+) {
+    const unsigned char program[] = {
+        0xFD, 0x21, 0xF0, 0x89,
+        0xEF, 0x08, 0x81,
+        0x38, 0x1C,
+        0xFD, 0xCB, 0x42, 0xC6,
+        0x21, 0x04, 0x01,
+        0x22, 0x94, 0x90,
+        0x21, 0x00, 0x00,
+        0x22, 0x99, 0x90,
+        0x3E, 0x14,
+        0x32, 0xA8, 0x90,
+        0xAF,
+        0x32, 0xA9, 0x90,
+        0xEF, 0xF6, 0x80,
+        0x76,
+    };
+
+    UsbRomReceiveResult result{};
+    result.io.handshake_success = true;
+    result.io.frame_success = true;
+    result.io.scripted_transfer = true;
+    result.io.registers[0x4D] = 0xA5;
+    result.io.registers[0x55] = 0x1F;
+    result.io.registers[0x56] = 0x50;
+    result.io.receive_packets = {
+        {0x00, 0x00, 0x00, 0x02, 0x05},
+        {0xE0, 0x00},
+        {
+            0x00, 0x00, 0x00, 0x0C, 0x04,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x05,
+            0x00, 0x00, 0x3E, 0x00, 0x00, 0x00,
+        },
+    };
+
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+    while (result.boot_steps < max_boot_steps && !boot_protection_ready(memory)) {
+        CPU_step(&cpu);
+        ++result.boot_steps;
+    }
+    if (!boot_protection_ready(memory)) {
+        fail("retail boot did not establish USB receive-probe protection bounds");
+    }
+    result.boot_tstates = timer.tstates;
+
+    memory.boot_mapped = FALSE;
+    memory.banks = memory.normal_banks;
+    memory.port07 = 0x80 | kProbeRamPage;
+    change_page(&memory, 2, kProbeRamPage, TRUE);
+    const std::size_t program_physical =
+        kProbeRamPage * PAGE_SIZE + mc_base(kProbeOrigin);
+    std::memcpy(memory.ram + program_physical, program, sizeof(program));
+    if (std::memcmp(
+            memory.banks[2].addr + mc_base(kProbeOrigin),
+            program,
+            sizeof(program)
+        ) != 0) {
+        fail("injected USB receive harness does not read back from RAM");
+    }
+    const std::vector<unsigned char> flash_before(
+        memory.flash, memory.flash + kTi84PlusFlashSize
+    );
+    install_usb_rom_harness(&cpu, &result.io);
+
+    cpu.pc = kProbeOrigin;
+    cpu.sp = kProbeStack;
+    cpu.halt = FALSE;
+    cpu.iff1 = FALSE;
+    cpu.iff2 = FALSE;
+    cpu.interrupt = FALSE;
+    cpu.ei_block = FALSE;
+    cpu.prefix = 0;
+    execution_violation_resets = 0;
+    cpu.exe_violation_callback = record_execution_violation;
+
+    for (; result.probe_steps < max_probe_steps; ++result.probe_steps) {
+        const bank_state_t &pc_bank = memory.banks[mc_bank(cpu.pc)];
+        const bool boot_usb_page = !pc_bank.ram && pc_bank.page == 0x2F;
+        const bool boot_page = !pc_bank.ram && pc_bank.page == 0x3F;
+        const bool probe_ram = pc_bank.ram && pc_bank.page == kProbeRamPage;
+        if (
+            probe_ram && cpu.pc == kProbeOrigin + 7 &&
+            !result.io.controller_status_controlled
+        ) {
+            install_usb_rom_controller_status_harness(&cpu, &result.io);
+        }
+        if (boot_usb_page && cpu.pc == 0x5000) {
+            ++result.stop_visits;
+            break;
+        }
+        if (boot_page && cpu.pc == 0x62D0) {
+            ++result.progress_visits;
+        }
+        if (
+            boot_usb_page && cpu.pc == 0x497B &&
+            !result.progress_state_seeded
+        ) {
+            mem_write(&memory, 0x82A3, 0x3E);
+            result.progress_state_seeded = true;
+        }
+        if (boot_usb_page && cpu.pc == 0x52A4) {
+            ++result.init_visits;
+        } else if (boot_usb_page && cpu.pc == 0x48CA) {
+            ++result.receive_entry_visits;
+            result.receive_iy = cpu.iy;
+        } else if (boot_usb_page && cpu.pc == 0x4289) {
+            ++result.control_start_visits;
+        } else if (boot_usb_page && cpu.pc == 0x450E) {
+            ++result.ack_parse_visits;
+        } else if (boot_usb_page && cpu.pc == 0x4931) {
+            result.power_gate_value = cpu.a;
+        } else if (boot_usb_page && cpu.pc == 0x499F) {
+            ++result.page_check_visits;
+            result.page_check_value = cpu.a;
+        } else if (boot_usb_page && cpu.pc == 0x49A2) {
+            if ((cpu.f & 0x01) != 0) {
+                ++result.invalid_page_visits;
+            }
+        } else if (boot_usb_page && cpu.pc == 0x4610) {
+            ++result.stream_receive_visits;
+        } else if (boot_usb_page && cpu.pc == 0x495B) {
+            ++result.record_dispatch_visits;
+        } else if (boot_usb_page && cpu.pc == 0x5958) {
+            ++result.cleanup_visits;
+        }
+        CPU_step(&cpu);
+        if (execution_violation_resets != 0) {
+            ++result.probe_steps;
+            break;
+        }
+    }
+    result.probe_tstates = timer.tstates - result.boot_tstates;
+    result.violation_resets = execution_violation_resets;
+    result.flash_changed_bytes = static_cast<unsigned int>(count_differences(
+        flash_before, memory.flash, 0, kTi84PlusFlashSize
+    ));
+    result.final_pc = cpu.pc;
+    result.completed = result.stop_visits == 1 && result.init_visits == 1 &&
+        result.receive_entry_visits == 1 && result.control_start_visits == 1 &&
+        result.ack_parse_visits == 1 && result.progress_visits == 1 &&
+        result.progress_state_seeded && result.receive_iy == 0x89F0 &&
+        result.stream_receive_visits == 1 && result.record_dispatch_visits == 1 &&
+        result.page_check_visits == 1 && result.page_check_value == 0x3E &&
+        result.invalid_page_visits == 1 && result.cleanup_visits == 1 &&
+        result.io.receive_packet_index == result.io.receive_packets.size() &&
+        result.io.receive_byte_index == 0 && result.io.transmit_packet.empty() &&
+        !result.io.script_error && execution_violation_resets == 0 &&
+        result.flash_changed_bytes == 0;
+    return result;
+}
+
+void print_usb_rom_receive_result(const UsbRomReceiveResult &result) {
+    std::printf(
+        "mode=usb-rom-receive-probe boot_steps=%" PRIu64 " "
+        "boot_tstates=%" PRIu64 " probe_steps=%" PRIu64 " "
+        "probe_tstates=%" PRIu64 " init_visits=%u receive_entry_visits=%u "
+        "control_start_visits=%u ack_parse_visits=%u stream_receive_visits=%u "
+        "record_dispatch_visits=%u progress_visits=%u "
+        "progress_state_seeded=%d receive_iy=0x%04X power_gate_value=0x%02X "
+        "page_check_visits=%u page_check_value=0x%02X "
+        "invalid_page_visits=%u cleanup_visits=%u "
+        "stop_visits=%u violation_resets=%u flash_changed_bytes=%u "
+        "rx_packet_count=%zu rx_bytes=%zu rx_consumed=%zu "
+        "tx_packet_count=%zu tx_bytes=%zu script_error=%d final_pc=0x%04X "
+        "completed=%d rx_packets=",
+        result.boot_steps,
+        result.boot_tstates,
+        result.probe_steps,
+        result.probe_tstates,
+        result.init_visits,
+        result.receive_entry_visits,
+        result.control_start_visits,
+        result.ack_parse_visits,
+        result.stream_receive_visits,
+        result.record_dispatch_visits,
+        result.progress_visits,
+        result.progress_state_seeded ? 1 : 0,
+        result.receive_iy,
+        result.power_gate_value,
+        result.page_check_visits,
+        result.page_check_value,
+        result.invalid_page_visits,
+        result.cleanup_visits,
+        result.stop_visits,
+        result.violation_resets,
+        result.flash_changed_bytes,
+        result.io.receive_packets.size(),
+        usb_rom_packet_bytes(result.io.receive_packets),
+        result.io.receive_packet_index,
+        result.io.transmit_packets.size(),
+        usb_rom_packet_bytes(result.io.transmit_packets),
+        result.io.script_error ? 1 : 0,
+        result.final_pc,
+        result.completed ? 1 : 0
+    );
+    print_usb_rom_packets(result.io.receive_packets);
+    std::printf(" tx_packets=");
+    print_usb_rom_packets(result.io.transmit_packets);
+    std::printf("\n");
+}
+
+int run_usb_rom_receive_probe(int argc, char **argv) {
+    if (argc < 3 || argc > 5) {
+        std::fprintf(
+            stderr,
+            "usage: %s --usb-rom-receive-probe INPUT.rom "
+            "[MAX_BOOT_STEPS [MAX_PROBE_STEPS]]\n",
+            argv[0]
+        );
+        return 2;
+    }
+    const std::uint64_t max_boot_steps =
+        argc >= 4 ? parse_count(argv[3], "MAX_BOOT_STEPS") : UINT64_C(5000000);
+    const std::uint64_t max_probe_steps =
+        argc >= 5 ? parse_count(argv[4], "MAX_PROBE_STEPS") : UINT64_C(8000000);
+    if (max_boot_steps == 0 || max_probe_steps == 0) {
+        fail("USB receive-probe step bounds must be positive");
+    }
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    const UsbRomReceiveResult result = run_usb_rom_receive_case(
+        input, max_boot_steps, max_probe_steps
+    );
+    print_usb_rom_receive_result(result);
+    return result.completed ? 0 : 3;
 }
 
 int run_usb_edge_probe(int argc, char **argv) {
@@ -4025,6 +4707,12 @@ int main(int argc, char **argv) {
     }
     if (argc >= 2 && std::strcmp(argv[1], "--usb-edge-probe") == 0) {
         return run_usb_edge_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--usb-rom-probe") == 0) {
+        return run_usb_rom_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--usb-rom-receive-probe") == 0) {
+        return run_usb_rom_receive_probe(argc, argv);
     }
     if (argc >= 2 && std::strcmp(argv[1], "--link-edge-probe") == 0) {
         return run_link_edge_probe(argc, argv);

@@ -14,7 +14,7 @@ The subsystem crosses ROM code, public hardware observations, and emulator polic
 | TI-OS banked code | `33:5E1E`–`33:5F69` and `37:5359`–`37:5950` | programmable-timer API and RTC conversion/access [confirmed] |
 | TI-OS dynamic execution | `tools/macros/power-cycle.macro` and resolved TilEm traces | standard-timer cadence and the explicit shutdown/HALT path [confirmed] |
 | Public hardware notes | WikiTI ports `0x03`, `0x04`, `0x20`, `0x2D`, `0x2F`, `0x30`–`0x38`, and `0x40`–`0x48` | register semantics and oscillator-derived rates [standard] |
-| Emulator models | TilEm commit `f56ad63`, Wabbitemu commit `48c2dc0`, and MAME 0.287 | independent timer decode, scheduling, status, interrupt, and RTC policies [standard] |
+| Emulator models | TilEm commit `f56ad63`, Wabbitemu commit `48c2dc0`, MAME 0.287, and jsTIfied `20170706a` | independent timer decode, scheduling, status, interrupt, and RTC policies [standard] |
 | Native emulator execution | guarded TilEm, Wabbitemu, and MAME timer/interrupt runs | source decode, scheduling, counter, acknowledgement, callback, HALT-line, reset, and RTC transitions [standard] |
 
 ## Hardware blocks and clock domains
@@ -455,15 +455,15 @@ nix develop -c python tools/tilem_trace_resolve.py \
 
 The comparison below reproduces pinned source behavior. Agreement between implementations is useful corroboration of a software contract, but it is not a substitute for a physical TA2 or TA3 measurement. [standard]
 
-| Area | Documented contract | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 |
-|------|---------------------|-----------------|------------------------|------------|
-| Crystal divisors for `0x40`–`0x43` | `3`, `33`, `328`, `3277` | `3`, `33`, `328`, `3277` | `3`, `32`, `327`, `3276` | `3`, `32`, `327`, `3276` |
-| CPU families | CPU clock divided by 1–64 | implemented | implemented | all nonzero values instead use 32.768 kHz and the low-three-bit crystal table |
-| Mode-3 source | additional port-`0x2F` divisor | ordinary CPU-family decode | ordinary CPU-family decode | same fixed-crystal decode; port `0x2F` is unmapped |
-| Counter `0` | recurring 256-count timer without completion | implemented | reaches ordinary underflow after 256 decrements | never decremented by the callback |
-| Mode bit 1 | set requests interrupt | set requests interrupt | set requests interrupt | clear requests interrupt |
-| Mode/status bit 2 | missed acknowledgement/overflow | set on a second unacknowledged expiry | set on the first underflow | never exposed; mode writes retain only bits 0–1 |
-| RTC | ports `0x40`–`0x48` | host wall time plus offset | emulated elapsed time plus base | unmapped |
+| Area | Documented contract | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 | jsTIfied `20170706a` |
+|------|---------------------|-----------------|------------------------|------------|-----------------------|
+| Crystal divisors for `0x40`–`0x43` | `3`, `33`, `328`, `3277` | `3`, `33`, `328`, `3277` | `3`, `32`, `327`, `3276` | `3`, `32`, `327`, `3276` | `3`, `33`, `328`, `3277` |
+| CPU families | CPU clock divided by 1–64 | implemented | implemented | all nonzero values instead use 32.768 kHz and the low-three-bit crystal table | implemented with divisors 1–64 |
+| Mode-3 source | additional port-`0x2F` divisor | ordinary CPU-family decode | ordinary CPU-family decode | same fixed-crystal decode; port `0x2F` is unmapped | ordinary CPU-family decode |
+| Counter `0` | recurring 256-count timer without completion | implemented | reaches ordinary underflow after 256 decrements | never decremented by the callback | scheduled by the same countdown path as other reload values |
+| Mode bit 1 | set requests interrupt | set requests interrupt | set requests interrupt | clear requests interrupt | set requests interrupt |
+| Mode/status bit 2 | missed acknowledgement/overflow | set on a second unacknowledged expiry | set on the first underflow | never exposed; mode writes retain only bits 0–1 | completion/loop state is held in emulator timer fields |
+| RTC | ports `0x40`–`0x48` | host wall time plus offset | emulated elapsed time plus base | unmapped | implemented |
 
 ### TilEm timer and RTC policy
 
@@ -560,7 +560,7 @@ All saved timer, speed, port-`0x2F`, power-control, and interrupt-mask fields
 compare equal after cleanup. [confirmed] for the pinned Wabbitemu run.
 
 The shared injected-program adapter has SHA-256
-`c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1`.
+`3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e`.
 The machine-code SHA-256 is
 `6767caf1d714bc15e642de2f791151a060015fa0d9faebe1ebddd92d184df68a`.
 This execution does not create the result AppVar or measure physical timing.
@@ -589,7 +589,7 @@ not physical timer periods or retention. [standard]
 
 ## Reusable timer tools
 
-`tools/timer_hardware.py` exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM's radix-255 chunks, RTC implementation profiles, and the physical-probe discriminator. `tools/describe_timer_hardware.py` is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models. `tools/tilem_timer.py` adds the complete direct-core programmable-timer and deterministic RTC matrix. `tools/tilem_interrupt.py` adds direct standard-timer scheduling and programmable-timer HALT-gate observations. `tools/mame_interrupt.py` adds fixed standard-timer and reset-retention observations through the immutable MAME state in `tools/interrupt_controller.py`. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-`0x2D` implementation edges use `tools/wabbitemu_speed_probe.py` and its guarded CLI. `tools/run_wabbitemu_timer_physical_probe.py` executes the assembled physical discriminator through the shared injected-program runner. These are emulator-comparison tools, not physical-hardware simulators.
+`tools/timer_hardware.py` exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM's radix-255 chunks, RTC implementation profiles, and the physical-probe discriminator. `tools/describe_timer_hardware.py` is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models; `tools/jstified_hardware.py` supplies a separately hash-guarded source profile without claiming a native run. `tools/tilem_timer.py` adds the complete direct-core programmable-timer and deterministic RTC matrix. `tools/tilem_interrupt.py` adds direct standard-timer scheduling and programmable-timer HALT-gate observations. `tools/mame_interrupt.py` adds fixed standard-timer and reset-retention observations through the immutable MAME state in `tools/interrupt_controller.py`. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-`0x2D` implementation edges use `tools/wabbitemu_speed_probe.py` and its guarded CLI. `tools/run_wabbitemu_timer_physical_probe.py` executes the assembled physical discriminator through the shared injected-program runner. These are emulator-comparison tools, not physical-hardware simulators.
 
 ```sh
 nix develop -c python tools/describe_timer_hardware.py \
@@ -615,7 +615,7 @@ nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --expected-binary-sha256 \
-    c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1 \
+    3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
   --output-dir "$physical_timer_parent/run" --json
 
 mame_timer_parent=$(mktemp -d /tmp/ti84-mame-timer.XXXXXX)
@@ -634,7 +634,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 - [confirmed] The timer bcall API exposes only ID `0x70`, uses radix-255 duration chunking, and keeps a saturating expiry count.
 - [confirmed] Explicit power-off and APD share the low-power tail at `ram:0A24`.
 - [standard] TilEm matches the published `33`/`328`/`3277` crystal divisors; pinned Wabbitemu and MAME sources use `32`/`327`/`3276`.
-- [standard] TilEm, Wabbitemu, and MAME all omit the published port-`0x2F` prescaler from their `0xC0`-family timer models.
+- [standard] TilEm, Wabbitemu, MAME, and jsTIfied all omit the published port-`0x2F` prescaler from their `0xC0`-family timer models.
 - [standard] A guarded TilEm run verifies its four whole-microsecond standard-timer periods, unchanged current intervals on rate writes, two timer-2 callbacks sharing one pending bit, and the three programmable-timer HALT-gate cases.
 - [standard] A guarded TilEm timer/RTC run verifies every source divisor, rounded count readback, off sources, ignored port-`0x2F`, counter-zero behavior, overflow and acknowledgement, the unacknowledged non-loop restart, per-timer status mapping, source-write retention, RTC freeze/re-enable/reset, and an exact torn read.
 - [standard] A guarded initialized-core Wabbitemu run verifies single-step crystal catch-up, full CPU catch-up, first-underflow status bit 2, counter-zero completion, acknowledgement, HALT-line suppression with retained generation, and frozen disabled RTC reads.
@@ -664,3 +664,4 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 | [TilEm `calcs.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/calcs.c) and [`z80.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/z80.c) | reset sequencing and scheduler-state retention |
 | [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c), [`83psehw.h`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.h), [`core.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c), and [`calc.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/interface/calc.c) | independent source decode, catch-up, underflow, HALT, RTC, and reset-retention policies |
 | [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | mapped ports, scheduling, callback polarity, standard timers, and driver status |
+| [jsTIfied deployed `20170706a` artifact](https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a) and [readable mirror](https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js) | fourth timer-source decoder, cycle scheduling, interrupt, low-power, and RTC policy |

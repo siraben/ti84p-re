@@ -282,17 +282,17 @@ The pinned sources implement materially different levels of the link stack.
 These are executable software behaviors, not measurements of the ASIC.
 [standard]
 
-| Detail | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 |
-|--------|------------------|----------------------|------------|
-| Raw write `1`/`2` reaches connector | yes | yes | no; both external lines are released |
-| Disconnected read after `1`/`2` | `0x12`/`0x21` | `0x12`/`0x21` | `0x12`/`0x21` |
-| Peer pull-low affects reads | yes | yes | yes |
-| Read bits 4–5 | local low-two-bit latch | local low-two-bit latch | low write bits copied into PCR bits 4–5 |
-| Link-assist advertisement | yes | yes | yes, through port `0x02 = 0xC3` |
-| Assist ports present | `0x08`–`0x0D` | `0x08`, `0x09`, `0x0A`, `0x0D` | only port `0x09`, fixed read zero |
-| Assist byte transfer | implemented | implemented | absent |
-| Raw-line activity interrupt | transition model present | no transition assertion in the raw port handler | absent from mask, status, and port handlers |
-| Driver status | usable link model | usable link model | `MACHINE_NOT_WORKING` |
+| Detail | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 | jsTIfied `20170706a` |
+|--------|------------------|----------------------|------------|-----------------------|
+| Raw write `1`/`2` reaches connector | yes | yes | no; both external lines are released | yes, through the browser link endpoint |
+| Disconnected read after `1`/`2` | `0x12`/`0x21` | `0x12`/`0x21` | `0x12`/`0x21` | modeled raw-line latch and peer state |
+| Peer pull-low affects reads | yes | yes | yes | yes |
+| Read bits 4–5 | local low-two-bit latch | local low-two-bit latch | low write bits copied into PCR bits 4–5 | local output state |
+| Link-assist advertisement | yes | yes | yes, through port `0x02 = 0xC3` | yes |
+| Assist ports present | `0x08`–`0x0D` | `0x08`, `0x09`, `0x0A`, `0x0D` | only port `0x09`, fixed read zero | `0x08`–`0x0D` state machine |
+| Assist byte transfer | implemented | implemented | absent | implemented |
+| Raw-line activity interrupt | transition model present | no transition assertion in the raw port handler | absent from mask, status, and port handlers | modeled through link state changes |
+| Driver status | usable link model | usable link model | `MACHINE_NOT_WORKING` | browser emulator source model |
 
 ### TilEm and Wabbitemu digital agreement
 
@@ -581,3 +581,4 @@ transfer or attach a virtual cable.
 - [TilEm link core at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/link.c) and [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) — raw lines, activity interrupt, link assist, and timeout policy.
 - [Wabbitemu `83psehw.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) and [`link.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/link.c) — raw port, assist engine, virtual-cable handshake, and disconnect lifecycle.
 - [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp), [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp), and [`ti8x.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/devices/bus/ti8x/ti8x.cpp) — I/O coverage, PCR expressions, connector callbacks, and generic link-bus state machine.
+- [jsTIfied deployed `20170706a` artifact](https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a) and [readable mirror](https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js) — fourth raw-line, browser endpoint, and link-assist implementation.

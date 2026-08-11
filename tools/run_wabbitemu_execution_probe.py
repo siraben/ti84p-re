@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 
 from execution_protection import (
@@ -17,12 +16,12 @@ from execution_protection_fixture import (
     build_flash_execution_fixture,
     file_digest,
 )
+from probe_cli import emit_result, positive_int, require_fresh_output_dir, write_json
 from wabbitemu_headless import (
     WABBITEMU_COMMIT,
     WabbitemuHeadlessError,
     run_execution_probe,
 )
-
 
 TOOLS = Path(__file__).resolve().parent
 SOURCE = TOOLS / "emulator-probes" / "execution-protection-flash.asm"
@@ -37,13 +36,6 @@ def byte(value: str) -> int:
     return parsed
 
 
-def positive_count(value: str) -> int:
-    count = int(value, 0)
-    if count <= 0:
-        raise argparse.ArgumentTypeError("count must be positive")
-    return count
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rom", type=Path, default=DEFAULT_ROM)
@@ -51,20 +43,17 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--page", type=byte, action="append")
     parser.add_argument("--spasm", default="spasm")
-    parser.add_argument("--max-boot-steps", type=positive_count, default=5_000_000)
-    parser.add_argument("--max-probe-steps", type=positive_count, default=1_000)
+    parser.add_argument("--max-boot-steps", type=positive_int, default=5_000_000)
+    parser.add_argument("--max-probe-steps", type=positive_int, default=1_000)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
     pages = tuple(args.page) if args.page else DEFAULT_PAGES
     if len(set(pages)) != len(pages):
         parser.error("each --page may be specified only once")
-    if args.output_dir.exists():
-        parser.error(f"refusing to reuse existing output directory {args.output_dir}")
-
     try:
         source_rom = args.rom.read_bytes()
-        args.output_dir.mkdir(parents=True)
+        require_fresh_output_dir(args.output_dir)
         reports = []
         for page in pages:
             stem = f"page-{page:02x}"
@@ -170,22 +159,23 @@ def main() -> None:
                 "or physical ASIC behavior"
             ),
         }
-        manifest.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+        write_json(manifest, result)
     except (OSError, RuntimeError, ValueError, WabbitemuHeadlessError) as error:
         parser.error(str(error))
 
-    if args.json:
-        print(json.dumps(result, indent=2))
-        return
-    for item in reports:
-        native = item["native"]
-        print(
+    emit_result(
+        result,
+        manifest,
+        as_json=args.json,
+        summary=(
             f"page {item['page']:02X}: {native['classification']} "
             f"call={native['call_visits']} target={native['target_visits']} "
             f"followup={native['target_followup_visits']} "
             f"reset={native['violation_resets']}"
+            for item in reports
+            for native in (item["native"],)
         )
-    print(f"manifest: {manifest}")
+    )
 
 
 if __name__ == "__main__":

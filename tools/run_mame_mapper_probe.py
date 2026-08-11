@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 from pathlib import Path
 
@@ -16,14 +15,13 @@ from mame_mapper import (
 from mame_runtime import (
     MAME_VERSION,
     GuardedMameProbeRun,
-    MameRuntimeError,
     run_guarded_probe,
     validate_rom_warning,
 )
+from probe_cli import DEFAULT_ROM, emit_result, require_output_absent, write_json
 from rom_signatures import TI84_PLUS_OS_255MP_SHA256
 
 TOOLS = Path(__file__).resolve().parent
-DEFAULT_ROM = TOOLS / "rom.bin"
 MACHINE = "ti84pv3"
 
 
@@ -62,10 +60,9 @@ def main() -> None:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
-    if args.output_dir.exists():
-        parser.error(f"refusing to reuse existing output directory {args.output_dir}")
     script = TOOLS / "mame_mapper_probe.lua"
     try:
+        require_output_absent(args.output_dir)
         runs = {
             case: _run_case(
                 case,
@@ -113,27 +110,26 @@ def main() -> None:
             ),
         }
         manifest = args.output_dir / "manifest.json"
-        manifest.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
-    except (OSError, MameRuntimeError) as error:
+        write_json(manifest, result)
+    except (OSError, ValueError) as error:
         parser.error(str(error))
 
-    if args.json:
-        print(json.dumps(result, indent=2))
-        return
     native = report["native"]
-    print(
-        "handoff: "
-        f"independent B={''.join(f'{value:02X}' for value in native['independent_b']['fixed_after'])}, "
-        f"A={''.join(f'{value:02X}' for value in native['window_a']['fixed_after'])}, "
-        f"paired B={''.join(f'{value:02X}' for value in native['paired_b']['fixed_after'])}"
+    emit_result(
+        result,
+        manifest,
+        as_json=args.json,
+        summary=[
+            "handoff: "
+            f"independent B={''.join(f'{value:02X}' for value in native['independent_b']['fixed_after'])}, "
+            f"A={''.join(f'{value:02X}' for value in native['window_a']['fixed_after'])}, "
+            f"paired B={''.join(f'{value:02X}' for value in native['paired_b']['fixed_after'])}",
+            "paired A/B/C: "
+            f"{''.join(f'{value:02X}' for value in native['paired_a'])}/"
+            f"{''.join(f'{value:02X}' for value in native['paired_b_bytes'])}/"
+            f"{native['paired_c']:02X}; fetch marker={native['fetch_marker']:02X}",
+        ],
     )
-    print(
-        "paired A/B/C: "
-        f"{''.join(f'{value:02X}' for value in native['paired_a'])}/"
-        f"{''.join(f'{value:02X}' for value in native['paired_b_bytes'])}/"
-        f"{native['paired_c']:02X}; fetch marker={native['fetch_marker']:02X}"
-    )
-    print(f"manifest: {manifest}")
 
 
 if __name__ == "__main__":

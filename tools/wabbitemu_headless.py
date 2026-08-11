@@ -8,6 +8,9 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 from pathlib import Path
+from typing import TypeVar
+
+from file_hashes import file_sha256
 
 WABBITEMU_COMMIT = "48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422"
 WABBITEMU_ARCHIVE_URL = (
@@ -41,6 +44,9 @@ REPORT_PATTERN = re.compile(r"(?P<key>[a-z0-9_]+)=(?P<value>\S+)")
 
 class WabbitemuHeadlessError(ValueError):
     """A pinned-source, build, execution, or report invariant failed."""
+
+
+ReportT = TypeVar("ReportT")
 
 
 @dataclass(frozen=True)
@@ -843,6 +849,94 @@ class WabbitemuUsbReport:
 
 
 @dataclass(frozen=True)
+class WabbitemuUsbRomCaseReport:
+    """Stable fields from one controlled retail USB-ROM execution case."""
+
+    case: str
+    handshake: bool
+    frame: bool
+    boot_steps: int
+    boot_tstates: int
+    probe_steps: int
+    probe_tstates: int
+    init_visits: int
+    reset_helper_visits: int
+    timeout_tick_visits: int
+    cleanup_visits: int
+    receive_boundary_visits: int
+    return_visits: int
+    violation_resets: int
+    flash_changed_bytes: int
+    input_4c: int
+    input_4d: int
+    input_8c: int
+    output_4a: int
+    output_4b: int
+    output_4c: int
+    output_54: int
+    output_57: int
+    output_87: int
+    output_89: int
+    output_8b: int
+    output_92: int
+    final_a: int
+    final_f: int
+    final_pc: int
+    completed: bool
+    writes: tuple[tuple[int, int], ...]
+    source_rom_sha256: str = ""
+    binary_sha256: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class WabbitemuUsbRomReceiveReport:
+    """Stable fields from the controlled retail USB record execution."""
+
+    boot_steps: int
+    boot_tstates: int
+    probe_steps: int
+    probe_tstates: int
+    init_visits: int
+    receive_entry_visits: int
+    control_start_visits: int
+    ack_parse_visits: int
+    stream_receive_visits: int
+    record_dispatch_visits: int
+    progress_visits: int
+    progress_state_seeded: bool
+    receive_iy: int
+    power_gate_value: int
+    page_check_visits: int
+    page_check_value: int
+    invalid_page_visits: int
+    cleanup_visits: int
+    stop_visits: int
+    violation_resets: int
+    flash_changed_bytes: int
+    rx_packet_count: int
+    rx_bytes: int
+    rx_consumed: int
+    tx_packet_count: int
+    tx_bytes: int
+    script_error: bool
+    final_pc: int
+    completed: bool
+    rx_packets: tuple[bytes, ...]
+    tx_packets: tuple[bytes, ...]
+    source_rom_sha256: str = ""
+    binary_sha256: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        result = asdict(self)
+        result["rx_packets"] = [packet.hex().upper() for packet in self.rx_packets]
+        result["tx_packets"] = [packet.hex().upper() for packet in self.tx_packets]
+        return result
+
+
+@dataclass(frozen=True)
 class WabbitemuMapperReport:
     """Stable fields emitted by the native memory-mapper edge probe."""
 
@@ -982,16 +1076,6 @@ class WabbitemuFlashWorkerReport:
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
-
-
-def file_sha256(path: Path) -> str:
-    """Return a streaming SHA-256 digest for *path*."""
-
-    digest = sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def source_tree_sha256(source: Path) -> str:
@@ -2544,6 +2628,178 @@ def parse_usb_report(line: str) -> WabbitemuUsbReport:
         ) from error
 
 
+def parse_usb_rom_case_report(line: str) -> WabbitemuUsbRomCaseReport:
+    """Parse one controlled retail USB-ROM execution report."""
+
+    fields = {match["key"]: match["value"] for match in REPORT_PATTERN.finditer(line)}
+    booleans = {"handshake", "frame", "completed"}
+    numeric = {
+        "boot_steps",
+        "boot_tstates",
+        "probe_steps",
+        "probe_tstates",
+        "init_visits",
+        "reset_helper_visits",
+        "timeout_tick_visits",
+        "cleanup_visits",
+        "receive_boundary_visits",
+        "return_visits",
+        "violation_resets",
+        "flash_changed_bytes",
+        "input_4c",
+        "input_4d",
+        "input_8c",
+        "output_4a",
+        "output_4b",
+        "output_4c",
+        "output_54",
+        "output_57",
+        "output_87",
+        "output_89",
+        "output_8b",
+        "output_92",
+        "final_a",
+        "final_f",
+        "final_pc",
+    }
+    required = {"mode", "case", "writes", *booleans, *numeric}
+    missing = sorted(required - fields.keys())
+    if missing:
+        raise WabbitemuHeadlessError(
+            "native USB ROM report omits " + ", ".join(missing)
+        )
+    if fields["mode"] != "usb-rom-probe":
+        raise WabbitemuHeadlessError(
+            f"unexpected native USB ROM mode {fields['mode']!r}"
+        )
+    try:
+        values: dict[str, object] = {
+            name: int(fields[name], 0) for name in numeric
+        }
+        bool_values = {name: int(fields[name], 0) for name in booleans}
+        if any(value not in (0, 1) for value in bool_values.values()):
+            raise ValueError("USB ROM report booleans must be zero or one")
+        encoded_writes = tuple(
+            bytes.fromhex(item)
+            for item in fields["writes"].split(",")
+            if item
+        )
+        if any(len(item) != 2 for item in encoded_writes):
+            raise ValueError("USB ROM writes must contain byte pairs")
+        writes = tuple((item[0], item[1]) for item in encoded_writes)
+        values.update({name: bool(value) for name, value in bool_values.items()})
+        return WabbitemuUsbRomCaseReport(
+            case=fields["case"],
+            writes=writes,
+            **values,
+        )
+    except (TypeError, ValueError) as error:
+        raise WabbitemuHeadlessError(
+            f"invalid native USB ROM report: {line.strip()}"
+        ) from error
+
+
+def parse_usb_rom_reports(output: str) -> tuple[WabbitemuUsbRomCaseReport, ...]:
+    """Parse the complete four-case retail USB-ROM report."""
+
+    lines = [line for line in output.splitlines() if line.strip()]
+    reports = tuple(parse_usb_rom_case_report(line) for line in lines)
+    expected_cases = {
+        "init-success",
+        "handshake-timeout",
+        "frame-timeout",
+        "attempt-event-40",
+    }
+    observed_cases = {report.case for report in reports}
+    if len(reports) != len(expected_cases) or observed_cases != expected_cases:
+        raise WabbitemuHeadlessError(
+            "native USB ROM report must contain each expected case exactly once"
+        )
+    return reports
+
+
+def _parse_usb_packets(encoded: str) -> tuple[bytes, ...]:
+    """Parse semicolon-separated endpoint packets from a native report."""
+
+    if encoded == "-":
+        return ()
+    packets = tuple(bytes.fromhex(item) for item in encoded.split(";"))
+    if any(not packet for packet in packets):
+        raise ValueError("USB packet entries must not be empty")
+    return packets
+
+
+def parse_usb_rom_receive_report(line: str) -> WabbitemuUsbRomReceiveReport:
+    """Parse one controlled retail USB record execution report."""
+
+    fields = {match["key"]: match["value"] for match in REPORT_PATTERN.finditer(line)}
+    booleans = {"progress_state_seeded", "script_error", "completed"}
+    numeric = {
+        "boot_steps",
+        "boot_tstates",
+        "probe_steps",
+        "probe_tstates",
+        "init_visits",
+        "receive_entry_visits",
+        "control_start_visits",
+        "ack_parse_visits",
+        "stream_receive_visits",
+        "record_dispatch_visits",
+        "progress_visits",
+        "receive_iy",
+        "power_gate_value",
+        "page_check_visits",
+        "page_check_value",
+        "invalid_page_visits",
+        "cleanup_visits",
+        "stop_visits",
+        "violation_resets",
+        "flash_changed_bytes",
+        "rx_packet_count",
+        "rx_bytes",
+        "rx_consumed",
+        "tx_packet_count",
+        "tx_bytes",
+        "final_pc",
+    }
+    required = {"mode", "rx_packets", "tx_packets", *booleans, *numeric}
+    missing = sorted(required - fields.keys())
+    if missing:
+        raise WabbitemuHeadlessError(
+            "native USB receive report omits " + ", ".join(missing)
+        )
+    if fields["mode"] != "usb-rom-receive-probe":
+        raise WabbitemuHeadlessError(
+            f"unexpected native USB receive mode {fields['mode']!r}"
+        )
+    try:
+        values: dict[str, object] = {
+            name: int(fields[name], 0) for name in numeric
+        }
+        bool_values = {name: int(fields[name], 0) for name in booleans}
+        if any(value not in (0, 1) for value in bool_values.values()):
+            raise ValueError("USB receive report booleans must be zero or one")
+        values.update({name: bool(value) for name, value in bool_values.items()})
+        report = WabbitemuUsbRomReceiveReport(
+            rx_packets=_parse_usb_packets(fields["rx_packets"]),
+            tx_packets=_parse_usb_packets(fields["tx_packets"]),
+            **values,
+        )
+        if report.rx_packet_count != len(report.rx_packets):
+            raise ValueError("USB receive packet count does not match packet data")
+        if report.rx_bytes != sum(map(len, report.rx_packets)):
+            raise ValueError("USB receive byte count does not match packet data")
+        if report.tx_packet_count != len(report.tx_packets):
+            raise ValueError("USB transmit packet count does not match packet data")
+        if report.tx_bytes != sum(map(len, report.tx_packets)):
+            raise ValueError("USB transmit byte count does not match packet data")
+        return report
+    except (TypeError, ValueError) as error:
+        raise WabbitemuHeadlessError(
+            f"invalid native USB receive report: {line.strip()}"
+        ) from error
+
+
 def parse_mapper_report(line: str) -> WabbitemuMapperReport:
     """Parse one native mapper registration, selector, and overlay report."""
 
@@ -2886,6 +3142,73 @@ def parse_ram_execution_report(line: str) -> WabbitemuRamExecutionReport:
         ) from error
 
 
+def _require_file_size(path: Path, expected: int, description: str) -> int:
+    """Require an exact fixture size with a consistent diagnostic."""
+
+    try:
+        observed = path.stat().st_size
+    except OSError as error:
+        raise WabbitemuHeadlessError(
+            f"cannot inspect {description}: {error}"
+        ) from error
+    if observed != expected:
+        raise WabbitemuHeadlessError(
+            f"{description} must contain 0x{expected:X} bytes, got 0x{observed:X}"
+        )
+    return observed
+
+
+def _run_native_command(
+    command: list[str],
+    description: str,
+    *,
+    accepted_returncodes: tuple[int, ...] = (0,),
+    include_stdout_error: bool = False,
+) -> str:
+    """Run one native adapter command and return its captured stdout."""
+
+    try:
+        completed = subprocess.run(
+            command,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError as error:
+        raise WabbitemuHeadlessError(
+            f"cannot execute native {description}: {error}"
+        ) from error
+    if completed.returncode not in accepted_returncodes:
+        detail = completed.stderr.strip()
+        if include_stdout_error:
+            detail = detail or completed.stdout.strip()
+        detail = detail or f"exit {completed.returncode}"
+        raise WabbitemuHeadlessError(f"native {description} failed: {detail}")
+    return completed.stdout
+
+
+def _run_rom_probe(
+    binary: Path,
+    source_rom: Path,
+    *,
+    mode: str,
+    description: str,
+    report_parser: Callable[[str], ReportT],
+) -> ReportT:
+    """Run a ROM-backed native mode and attach stable file identities."""
+
+    _require_file_size(source_rom, FLASH_SIZE, "source ROM")
+    output = _run_native_command(
+        [str(binary), mode, str(source_rom)],
+        description,
+    )
+    return replace(
+        report_parser(output),
+        source_rom_sha256=file_sha256(source_rom),
+        binary_sha256=file_sha256(binary),
+    )
+
+
 def run_flash_program_probe(
     binary: Path,
     source_rom: Path,
@@ -2901,14 +3224,7 @@ def run_flash_program_probe(
             raise WabbitemuHeadlessError(f"{name} Flash byte must be between 0 and 255")
     if initial_toggle not in (0, 0x40):
         raise WabbitemuHeadlessError("initial Flash toggle must be 0 or 0x40")
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot inspect Flash program fixture: {error}") from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
+    _require_file_size(source_rom, FLASH_SIZE, "source ROM")
     command = [
         str(binary),
         "--flash-program-probe",
@@ -2917,14 +3233,9 @@ def run_flash_program_probe(
         str(requested),
         str(initial_toggle),
     ]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native Flash program probe failed: {detail}")
-    report = parse_flash_program_report(completed.stdout)
+    report = parse_flash_program_report(
+        _run_native_command(command, "Flash program probe")
+    )
     if (report.initial, report.requested, report.initial_toggle) != (
         initial,
         requested,
@@ -2933,12 +3244,10 @@ def run_flash_program_probe(
         raise WabbitemuHeadlessError(
             "native Flash program report disagrees with the requested case"
         )
-    return WabbitemuFlashProgramReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+    return replace(
+        report,
+        source_rom_sha256=file_sha256(source_rom),
+        binary_sha256=file_sha256(binary),
     )
 
 
@@ -2948,31 +3257,12 @@ def run_flash_command_probe(
 ) -> WabbitemuFlashCommandReport:
     """Run the guarded command-family matrix through the pinned native core."""
 
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot inspect Flash command fixture: {error}"
-        ) from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
-    command = [str(binary), "--flash-command-probe", str(source_rom)]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native Flash command probe failed: {detail}")
-    report = parse_flash_command_report(completed.stdout)
-    return WabbitemuFlashCommandReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+    return _run_rom_probe(
+        binary,
+        source_rom,
+        mode="--flash-command-probe",
+        description="Flash command probe",
+        report_parser=parse_flash_command_report,
     )
 
 
@@ -2982,31 +3272,12 @@ def run_md5_edge_probe(
 ) -> WabbitemuMd5EdgeReport:
     """Run native MD5 edge cases through the pinned Wabbitemu core."""
 
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot inspect MD5 edge fixture: {error}"
-        ) from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
-    command = [str(binary), "--md5-edge-probe", str(source_rom)]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native MD5 edge probe failed: {detail}")
-    report = parse_md5_edge_report(completed.stdout)
-    return WabbitemuMd5EdgeReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+    return _run_rom_probe(
+        binary,
+        source_rom,
+        mode="--md5-edge-probe",
+        description="MD5 edge probe",
+        report_parser=parse_md5_edge_report,
     )
 
 
@@ -3016,31 +3287,12 @@ def run_keypad_edge_probe(
 ) -> WabbitemuKeypadReport:
     """Run native keypad matrix and ON-edge cases through Wabbitemu."""
 
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot inspect keypad fixture: {error}"
-        ) from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
-    command = [str(binary), "--keypad-edge-probe", str(source_rom)]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native keypad probe failed: {detail}")
-    report = parse_keypad_report(completed.stdout)
-    return WabbitemuKeypadReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+    return _run_rom_probe(
+        binary,
+        source_rom,
+        mode="--keypad-edge-probe",
+        description="keypad probe",
+        report_parser=parse_keypad_report,
     )
 
 
@@ -3050,31 +3302,12 @@ def run_timer_edge_probe(
 ) -> WabbitemuTimerReport:
     """Run native programmable-timer and RTC edges through Wabbitemu."""
 
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot inspect timer fixture: {error}"
-        ) from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
-    command = [str(binary), "--timer-edge-probe", str(source_rom)]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native timer probe failed: {detail}")
-    report = parse_timer_report(completed.stdout)
-    return WabbitemuTimerReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+    return _run_rom_probe(
+        binary,
+        source_rom,
+        mode="--timer-edge-probe",
+        description="timer probe",
+        report_parser=parse_timer_report,
     )
 
 
@@ -3084,31 +3317,12 @@ def run_asic_edge_probe(
 ) -> WabbitemuAsicReport:
     """Run native ASIC-control edges through Wabbitemu."""
 
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot inspect ASIC fixture: {error}"
-        ) from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
-    command = [str(binary), "--asic-edge-probe", str(source_rom)]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native ASIC probe failed: {detail}")
-    report = parse_asic_report(completed.stdout)
-    return WabbitemuAsicReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+    return _run_rom_probe(
+        binary,
+        source_rom,
+        mode="--asic-edge-probe",
+        description="ASIC probe",
+        report_parser=parse_asic_report,
     )
 
 
@@ -3118,31 +3332,12 @@ def run_speed_edge_probe(
 ) -> WabbitemuSpeedReport:
     """Run native CPU-speed and delay-register edges through Wabbitemu."""
 
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot inspect speed fixture: {error}"
-        ) from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
-    command = [str(binary), "--speed-edge-probe", str(source_rom)]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native speed probe failed: {detail}")
-    report = parse_speed_report(completed.stdout)
-    return WabbitemuSpeedReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+    return _run_rom_probe(
+        binary,
+        source_rom,
+        mode="--speed-edge-probe",
+        description="speed probe",
+        report_parser=parse_speed_report,
     )
 
 
@@ -3152,33 +3347,12 @@ def run_protection_port_probe(
 ) -> WabbitemuProtectionPortReport:
     """Run native protected-boundary register edges through Wabbitemu."""
 
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot inspect protection-port fixture: {error}"
-        ) from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
-    command = [str(binary), "--protection-port-probe", str(source_rom)]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(
-            f"native protection-port probe failed: {detail}"
-        )
-    report = parse_protection_port_report(completed.stdout)
-    return WabbitemuProtectionPortReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+    return _run_rom_probe(
+        binary,
+        source_rom,
+        mode="--protection-port-probe",
+        description="protection-port probe",
+        report_parser=parse_protection_port_report,
     )
 
 
@@ -3188,33 +3362,12 @@ def run_reset_retention_probe(
 ) -> WabbitemuResetReport:
     """Run low-level, frontend, and violation reset cases through Wabbitemu."""
 
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot inspect reset fixture: {error}"
-        ) from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
-    command = [str(binary), "--reset-retention-probe", str(source_rom)]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(
-            f"native reset-retention probe failed: {detail}"
-        )
-    report = parse_reset_report(completed.stdout)
-    return WabbitemuResetReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+    return _run_rom_probe(
+        binary,
+        source_rom,
+        mode="--reset-retention-probe",
+        description="reset-retention probe",
+        report_parser=parse_reset_report,
     )
 
 
@@ -3224,31 +3377,12 @@ def run_lcd_edge_probe(
 ) -> WabbitemuLcdReport:
     """Run native LCD controller and bus-timing edges through Wabbitemu."""
 
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot inspect LCD fixture: {error}"
-        ) from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
-    command = [str(binary), "--lcd-edge-probe", str(source_rom)]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native LCD probe failed: {detail}")
-    report = parse_lcd_report(completed.stdout)
-    return WabbitemuLcdReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+    return _run_rom_probe(
+        binary,
+        source_rom,
+        mode="--lcd-edge-probe",
+        description="LCD probe",
+        report_parser=parse_lcd_report,
     )
 
 
@@ -3261,16 +3395,7 @@ def run_lcd_diagnostic_probe(
 ) -> WabbitemuLcdDiagnosticReport:
     """Directly execute retail-ROM LCD helpers after the guarded boot baseline."""
 
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot inspect LCD diagnostic fixture: {error}"
-        ) from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
+    _require_file_size(source_rom, FLASH_SIZE, "source ROM")
     if max_boot_steps <= 0 or max_probe_steps <= 0:
         raise WabbitemuHeadlessError("LCD diagnostic step bounds must be positive")
     command = [
@@ -3280,29 +3405,13 @@ def run_lcd_diagnostic_probe(
         str(max_boot_steps),
         str(max_probe_steps),
     ]
-    try:
-        completed = subprocess.run(
-            command,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot execute native runner: {error}"
-        ) from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(
-            f"native LCD diagnostic probe failed: {detail}"
-        )
-    report = parse_lcd_diagnostic_report(completed.stdout)
-    return WabbitemuLcdDiagnosticReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+    report = parse_lcd_diagnostic_report(
+        _run_native_command(command, "LCD diagnostic probe")
+    )
+    return replace(
+        report,
+        source_rom_sha256=file_sha256(source_rom),
+        binary_sha256=file_sha256(binary),
     )
 
 
@@ -3312,31 +3421,12 @@ def run_interrupt_edge_probe(
 ) -> WabbitemuInterruptReport:
     """Run native standard-interrupt and low-power edges through Wabbitemu."""
 
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot inspect interrupt fixture: {error}"
-        ) from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
-    command = [str(binary), "--interrupt-edge-probe", str(source_rom)]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native interrupt probe failed: {detail}")
-    report = parse_interrupt_report(completed.stdout)
-    return WabbitemuInterruptReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+    return _run_rom_probe(
+        binary,
+        source_rom,
+        mode="--interrupt-edge-probe",
+        description="interrupt probe",
+        report_parser=parse_interrupt_report,
     )
 
 
@@ -3346,31 +3436,12 @@ def run_link_edge_probe(
 ) -> WabbitemuLinkReport:
     """Run native raw-link and link-assist edges through Wabbitemu."""
 
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot inspect link fixture: {error}"
-        ) from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
-    command = [str(binary), "--link-edge-probe", str(source_rom)]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native link probe failed: {detail}")
-    report = parse_link_report(completed.stdout)
-    return WabbitemuLinkReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+    return _run_rom_probe(
+        binary,
+        source_rom,
+        mode="--link-edge-probe",
+        description="link probe",
+        report_parser=parse_link_report,
     )
 
 
@@ -3380,31 +3451,78 @@ def run_usb_edge_probe(
 ) -> WabbitemuUsbReport:
     """Run native Fake USB registration and handler edges through Wabbitemu."""
 
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot inspect USB fixture: {error}"
-        ) from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
+    return _run_rom_probe(
+        binary,
+        source_rom,
+        mode="--usb-edge-probe",
+        description="USB probe",
+        report_parser=parse_usb_report,
+    )
+
+
+def run_usb_rom_probe(
+    binary: Path,
+    source_rom: Path,
+    *,
+    max_boot_steps: int = 5_000_000,
+    max_probe_steps: int = 8_000_000,
+) -> tuple[WabbitemuUsbRomCaseReport, ...]:
+    """Run controlled retail USB initialization paths through Wabbitemu."""
+
+    _require_file_size(source_rom, FLASH_SIZE, "source ROM")
+    if max_boot_steps <= 0 or max_probe_steps <= 0:
+        raise WabbitemuHeadlessError("USB ROM step bounds must be positive")
+    command = [
+        str(binary),
+        "--usb-rom-probe",
+        str(source_rom),
+        str(max_boot_steps),
+        str(max_probe_steps),
+    ]
+    output = _run_native_command(command, "USB ROM probe")
+    source_rom_sha256 = file_sha256(source_rom)
+    binary_sha256 = file_sha256(binary)
+    return tuple(
+        WabbitemuUsbRomCaseReport(
+            **{
+                **report.to_dict(),
+                "source_rom_sha256": source_rom_sha256,
+                "binary_sha256": binary_sha256,
+            }
         )
-    command = [str(binary), "--usb-edge-probe", str(source_rom)]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native USB probe failed: {detail}")
-    report = parse_usb_report(completed.stdout)
-    return WabbitemuUsbReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+        for report in parse_usb_rom_reports(output)
+    )
+
+
+def run_usb_rom_receive_probe(
+    binary: Path,
+    source_rom: Path,
+    *,
+    max_boot_steps: int = 5_000_000,
+    max_probe_steps: int = 2_000_000,
+) -> WabbitemuUsbRomReceiveReport:
+    """Run a controlled malformed installer record through the retail ROM."""
+
+    _require_file_size(source_rom, FLASH_SIZE, "source ROM")
+    if max_boot_steps <= 0 or max_probe_steps <= 0:
+        raise WabbitemuHeadlessError("USB receive step bounds must be positive")
+    command = [
+        str(binary),
+        "--usb-rom-receive-probe",
+        str(source_rom),
+        str(max_boot_steps),
+        str(max_probe_steps),
+    ]
+    output = _run_native_command(
+        command,
+        "USB receive probe",
+        include_stdout_error=True,
+    )
+    report = parse_usb_rom_receive_report(output.strip())
+    return replace(
+        report,
+        source_rom_sha256=file_sha256(source_rom),
+        binary_sha256=file_sha256(binary),
     )
 
 
@@ -3414,31 +3532,12 @@ def run_mapper_edge_probe(
 ) -> WabbitemuMapperReport:
     """Run native mapper registration, selector, and overlay edges."""
 
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot inspect mapper fixture: {error}"
-        ) from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
-    command = [str(binary), "--mapper-edge-probe", str(source_rom)]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native mapper probe failed: {detail}")
-    report = parse_mapper_report(completed.stdout)
-    return WabbitemuMapperReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+    return _run_rom_probe(
+        binary,
+        source_rom,
+        mode="--mapper-edge-probe",
+        description="mapper probe",
+        report_parser=parse_mapper_report,
     )
 
 
@@ -3461,14 +3560,7 @@ def run_flash_worker_probe(
         raise WabbitemuHeadlessError("initial Flash toggle must be 0 or 0x40")
     if max_boot_steps <= 0 or max_probe_steps <= 0:
         raise WabbitemuHeadlessError("Flash worker step bounds must be positive")
-    try:
-        rom_size = source_rom.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot inspect Flash worker ROM: {error}") from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
+    _require_file_size(source_rom, FLASH_SIZE, "source ROM")
     command = [
         str(binary),
         "--flash-worker-probe",
@@ -3479,14 +3571,9 @@ def run_flash_worker_probe(
         str(max_boot_steps),
         str(max_probe_steps),
     ]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native Flash worker probe failed: {detail}")
-    report = parse_flash_worker_report(completed.stdout)
+    report = parse_flash_worker_report(
+        _run_native_command(command, "Flash worker probe")
+    )
     if (
         report.initial,
         report.requested,
@@ -3496,12 +3583,10 @@ def run_flash_worker_probe(
         raise WabbitemuHeadlessError(
             "native Flash worker report disagrees with the requested case"
         )
-    return WabbitemuFlashWorkerReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "binary_sha256": file_sha256(binary),
-        }
+    return replace(
+        report,
+        source_rom_sha256=file_sha256(source_rom),
+        binary_sha256=file_sha256(binary),
     )
 
 
@@ -3530,15 +3615,13 @@ def run_ram_execution_probe(
         raise WabbitemuHeadlessError("RAM execution mode must be between 0 and 3")
     if not 0 <= lower_chunk <= 0xFF or not 0 <= upper_chunk <= 0xFF:
         raise WabbitemuHeadlessError("RAM chunk bounds must be bytes")
+    _require_file_size(source_rom, FLASH_SIZE, "source ROM")
     try:
-        rom_size = source_rom.stat().st_size
         probe_size = machine_code.stat().st_size
     except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot inspect RAM execution fixture: {error}") from error
-    if rom_size != FLASH_SIZE:
         raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
+            f"cannot inspect RAM execution machine code: {error}"
+        ) from error
     if probe_size <= 0:
         raise WabbitemuHeadlessError("RAM probe machine code is empty")
     if max_boot_steps <= 0 or max_probe_steps <= 0:
@@ -3557,14 +3640,13 @@ def run_ram_execution_probe(
         str(max_boot_steps),
         str(max_probe_steps),
     ]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode not in (0, 3):
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native RAM execution probe failed: {detail}")
-    report = parse_ram_execution_report(completed.stdout)
+    report = parse_ram_execution_report(
+        _run_native_command(
+            command,
+            "RAM execution probe",
+            accepted_returncodes=(0, 3),
+        )
+    )
     expected_identity = (
         physical_page,
         page_offset,
@@ -3585,13 +3667,11 @@ def run_ram_execution_probe(
         raise WabbitemuHeadlessError(
             "native RAM execution report disagrees with the requested fixture"
         )
-    return WabbitemuRamExecutionReport(
-        **{
-            **report.to_dict(),
-            "source_rom_sha256": file_sha256(source_rom),
-            "machine_code_sha256": file_sha256(machine_code),
-            "binary_sha256": file_sha256(binary),
-        }
+    return replace(
+        report,
+        source_rom_sha256=file_sha256(source_rom),
+        machine_code_sha256=file_sha256(machine_code),
+        binary_sha256=file_sha256(binary),
     )
 
 
@@ -3608,15 +3688,13 @@ def run_execution_probe(
 
     if not 0 <= page < 64:
         raise WabbitemuHeadlessError("Flash page must be between 0x00 and 0x3F")
+    _require_file_size(fixture_rom, FLASH_SIZE, "fixture ROM")
     try:
-        rom_size = fixture_rom.stat().st_size
         probe_size = machine_code.stat().st_size
     except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot inspect execution fixture: {error}") from error
-    if rom_size != FLASH_SIZE:
         raise WabbitemuHeadlessError(
-            f"fixture ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
+            f"cannot inspect execution-probe machine code: {error}"
+        ) from error
     if probe_size <= 0:
         raise WabbitemuHeadlessError("probe machine code is empty")
     if max_boot_steps <= 0 or max_probe_steps <= 0:
@@ -3631,14 +3709,13 @@ def run_execution_probe(
         str(max_boot_steps),
         str(max_probe_steps),
     ]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode not in (0, 3):
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native execution probe failed: {detail}")
-    report = parse_execution_report(completed.stdout)
+    report = parse_execution_report(
+        _run_native_command(
+            command,
+            "execution probe",
+            accepted_returncodes=(0, 3),
+        )
+    )
     if report.page != page:
         raise WabbitemuHeadlessError(
             f"native execution report page is 0x{report.page:02X}; expected 0x{page:02X}"
@@ -3648,13 +3725,11 @@ def run_execution_probe(
             f"native execution report probe size is {report.probe_size}; "
             f"expected {probe_size}"
         )
-    return WabbitemuExecutionReport(
-        **{
-            **report.to_dict(),
-            "fixture_rom_sha256": file_sha256(fixture_rom),
-            "machine_code_sha256": file_sha256(machine_code),
-            "binary_sha256": file_sha256(binary),
-        }
+    return replace(
+        report,
+        fixture_rom_sha256=file_sha256(fixture_rom),
+        machine_code_sha256=file_sha256(machine_code),
+        binary_sha256=file_sha256(binary),
     )
 
 
@@ -3670,14 +3745,7 @@ def run_headless(
 ) -> WabbitemuRunReport:
     """Cold-boot one image, wake it, and return a hash-complete run report."""
 
-    try:
-        input_size = input_image.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot inspect input image: {error}") from error
-    if input_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"input image must contain 0x{FLASH_SIZE:X} bytes, got 0x{input_size:X}"
-        )
+    _require_file_size(input_image, FLASH_SIZE, "input image")
     command = [
         str(binary),
         str(input_image),
@@ -3687,22 +3755,14 @@ def run_headless(
         str(sample_interval),
         str(settle_samples),
     ]
-    try:
-        completed = subprocess.run(command, text=True, capture_output=True)
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"cannot execute native runner: {error}") from error
-    if completed.returncode not in (0, 3):
-        detail = completed.stderr.strip() or f"exit {completed.returncode}"
-        raise WabbitemuHeadlessError(f"native runner failed: {detail}")
-    report = parse_run_report(completed.stdout)
-    try:
-        output_size = output_image.stat().st_size
-    except OSError as error:
-        raise WabbitemuHeadlessError(f"native runner produced no output image: {error}") from error
-    if output_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"output image must contain 0x{FLASH_SIZE:X} bytes, got 0x{output_size:X}"
+    report = parse_run_report(
+        _run_native_command(
+            command,
+            "runner",
+            accepted_returncodes=(0, 3),
         )
+    )
+    _require_file_size(output_image, FLASH_SIZE, "output image")
     return replace(
         report,
         input_sha256=file_sha256(input_image),
@@ -3723,17 +3783,13 @@ def _run_injected_hardware_probe(
 ) -> WabbitemuInjectedHardwareReport:
     """Run one assembled physical-probe program through pinned Wabbitemu."""
 
+    _require_file_size(source_rom, FLASH_SIZE, "source ROM")
     try:
-        rom_size = source_rom.stat().st_size
         probe_size = machine_code.stat().st_size
     except OSError as error:
         raise WabbitemuHeadlessError(
-            f"cannot inspect {label} fixture: {error}"
+            f"cannot inspect {label} machine code: {error}"
         ) from error
-    if rom_size != FLASH_SIZE:
-        raise WabbitemuHeadlessError(
-            f"source ROM must contain 0x{FLASH_SIZE:X} bytes, got 0x{rom_size:X}"
-        )
     if probe_size <= 0:
         raise WabbitemuHeadlessError(f"{label} machine code is empty")
     if max_boot_steps <= 0 or max_probe_steps <= 0:
@@ -3746,23 +3802,13 @@ def _run_injected_hardware_probe(
         str(max_boot_steps),
         str(max_probe_steps),
     ]
-    try:
-        completed = subprocess.run(
+    report = report_parser(
+        _run_native_command(
             command,
-            text=True,
-            capture_output=True,
-            check=False,
+            f"{label} probe",
+            include_stdout_error=True,
         )
-    except OSError as error:
-        raise WabbitemuHeadlessError(
-            f"cannot execute native {label} probe: {error}"
-        ) from error
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or completed.stdout.strip()
-        raise WabbitemuHeadlessError(
-            f"native {label} probe failed: {detail or completed.returncode}"
-        )
-    report = report_parser(completed.stdout)
+    )
     if report.probe_size != probe_size:
         raise WabbitemuHeadlessError(
             f"native {label} probe size is {report.probe_size}; expected {probe_size}"

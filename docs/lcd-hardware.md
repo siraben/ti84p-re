@@ -6,7 +6,7 @@ The TI-84 Plus drives a 96×64 monochrome panel through an external LCD controll
 
 ## Evidence layers
 
-The local ROM establishes what OS 2.55MP sends to the controller. Public hardware tests establish controller behavior that the ROM does not expose. TilEm, Wabbitemu, and MAME supply executable models whose choices are identified separately.
+The local ROM establishes what OS 2.55MP sends to the controller. Public hardware tests establish controller behavior that the ROM does not expose. TilEm, Wabbitemu, MAME, and jsTIfied supply executable models whose choices are identified separately.
 
 | Layer | Main evidence | What it establishes |
 |-------|---------------|---------------------|
@@ -391,21 +391,21 @@ The trace is an emulator execution record. It proves the ROM path and values but
 
 ## Emulator comparison
 
-All three emulators implement the commands and visible 12-byte rows used by
+All four emulators implement the commands and visible 12-byte rows used by
 OS 2.55MP. Their hidden-column, busy, and ASIC-timer behavior differs. These
 differences are emulator test cases, not physical-controller evidence.
 [standard]
 
-| Area | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 |
-|------|-----------------|------------------------|------------|
-| Controller RAM | 1,024 bytes, 16 × 64 | 1,024 bytes, 16 × 64 | 960 bytes, 15 × 64 |
-| 8-bit column increment | accesses 0–15, then normalizes to 0 | accesses 0–14, then wraps to 0 | counts modulo 32 without a RAM bound |
-| Controller busy | 50 or 70 cycles; early transfers rejected | 60-T-state guard from the last accepted write | absent; busy status is always zero |
-| ASIC ready | port-`0x2F` timer starts on every LCD read or write | interval measured from the last accepted write | port-`0x02` bit 1 is always set |
-| Ports `0x12`/`0x13` | aliases | absent | aliases |
-| Data-read latch | modeled | modeled | modeled |
-| Analog power and test modes | ignored | ignored | values partly stored; no analog effect |
-| Driver status | active TI-84 Plus trace target | source model | `MACHINE_NOT_WORKING` |
+| Area | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 | jsTIfied `20170706a` |
+|------|-----------------|------------------------|------------|-----------------------|
+| Controller RAM | 1,024 bytes, 16 × 64 | 1,024 bytes, 16 × 64 | 960 bytes, 15 × 64 | 960 bytes, 15 × 64 |
+| 8-bit column increment | accesses 0–15, then normalizes to 0 | accesses 0–14, then wraps to 0 | counts modulo 32 without a RAM bound | accesses 0–14 around a 120-pixel row |
+| Controller busy | 50 or 70 cycles; early transfers rejected | 60-T-state guard from the last accepted write | absent; busy status is always zero | randomized 25–47-emulator-cycle interval |
+| ASIC ready | port-`0x2F` timer starts on every LCD read or write | interval measured from the last accepted write | port-`0x02` bit 1 is always set | status derives from the emulator's LCD timer |
+| Ports `0x12`/`0x13` | aliases | absent | aliases | aliases |
+| Data-read latch | modeled | modeled | modeled | modeled |
+| Analog power and test modes | ignored | ignored | values partly stored; no analog effect | drive fields and grayscale display physics modeled |
+| Driver status | active TI-84 Plus trace target | source model | `MACHINE_NOT_WORKING` | browser emulator source model |
 
 ### TilEm behavior and fidelity gaps
 
@@ -628,3 +628,4 @@ nix shell nixpkgs#mame --command python tools/run_mame_lcd_probe.py \
 | [TilEm `lcd.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/lcd.c), [`calcs.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/calcs.c), [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), and [`x4_init.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c) | emulator video RAM, command decode, latches, port aliases, wait timers, and reset state |
 | [Wabbitemu `lcd.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/lcd.c), [`83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c), and [`calc.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/interface/calc.c) | controller RAM, pointer movement, transfer guard, ASIC-ready calculation, port registration, and frontend reset scope |
 | [MAME `t6a04.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/devices/video/t6a04.cpp), [`ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp), and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | controller array and commands, TI-84 Plus port map, fixed ready bit, and driver status |
+| [jsTIfied deployed `20170706a` artifact](https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a) and [readable mirror](https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js) | fourth controller model, 120-pixel storage, randomized busy interval, latch, and display physics |

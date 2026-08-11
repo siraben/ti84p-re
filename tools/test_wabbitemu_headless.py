@@ -29,6 +29,9 @@ from wabbitemu_headless import (
     parse_timer_physical_report,
     parse_timer_report,
     parse_usb_report,
+    parse_usb_rom_case_report,
+    parse_usb_rom_receive_report,
+    parse_usb_rom_reports,
     validate_retail_flash_path,
 )
 from wabbitemu_mapper_probe import expected_mapper_values
@@ -504,6 +507,113 @@ class WabbitemuHeadlessTests(unittest.TestCase):
     def test_rejects_incomplete_usb_status(self):
         with self.assertRaisesRegex(WabbitemuHeadlessError, "omits"):
             parse_usb_report("mode=usb-edge-probe port4a_active=1")
+
+    def test_parses_controlled_usb_rom_case(self):
+        report = parse_usb_rom_case_report(
+            "mode=usb-rom-probe case=init-success handshake=1 frame=1 "
+            "boot_steps=134845 boot_tstates=1746999 probe_steps=5923 "
+            "probe_tstates=62196 init_visits=1 reset_helper_visits=1 "
+            "timeout_tick_visits=2 cleanup_visits=0 "
+            "receive_boundary_visits=0 return_visits=1 violation_resets=0 "
+            "flash_changed_bytes=0 input_4c=2 input_4d=0 input_8c=1 "
+            "output_4a=1 output_4b=1 output_4c=2 output_54=3 output_57=1 "
+            "output_87=1 output_89=1 output_8b=1 output_92=1 "
+            "final_a=0x01 final_f=0x00 final_pc=0x9D98 completed=1 "
+            "writes=5780,4C00,5402"
+        )
+
+        self.assertEqual("init-success", report.case)
+        self.assertEqual(((0x57, 0x80), (0x4C, 0), (0x54, 2)), report.writes)
+        self.assertEqual(0x9D98, report.final_pc)
+        self.assertTrue(report.completed)
+
+    def test_parses_each_controlled_usb_rom_case_once(self):
+        base = (
+            "mode=usb-rom-probe case={case} handshake=1 frame=1 "
+            "boot_steps=1 boot_tstates=2 probe_steps=3 probe_tstates=4 "
+            "init_visits=1 reset_helper_visits=1 timeout_tick_visits=2 "
+            "cleanup_visits=0 receive_boundary_visits=0 return_visits=1 "
+            "violation_resets=0 flash_changed_bytes=0 input_4c=2 input_4d=0 "
+            "input_8c=1 output_4a=1 output_4b=1 output_4c=2 output_54=3 "
+            "output_57=1 output_87=1 output_89=1 output_8b=1 output_92=1 "
+            "final_a=1 final_f=0 final_pc=0x9D98 completed=1 writes=5780"
+        )
+        cases = (
+            "init-success",
+            "handshake-timeout",
+            "frame-timeout",
+            "attempt-event-40",
+        )
+        output = "\n".join(base.format(case=case) for case in cases)
+
+        reports = parse_usb_rom_reports(output)
+
+        self.assertEqual(cases, tuple(report.case for report in reports))
+
+    def test_parses_controlled_usb_receive_report(self):
+        report = parse_usb_rom_receive_report(
+            "mode=usb-rom-receive-probe boot_steps=134845 "
+            "boot_tstates=1746999 probe_steps=78862 probe_tstates=927502 "
+            "init_visits=1 receive_entry_visits=1 control_start_visits=1 "
+            "ack_parse_visits=1 stream_receive_visits=1 "
+            "record_dispatch_visits=1 progress_visits=1 "
+            "progress_state_seeded=1 receive_iy=0x89F0 "
+            "power_gate_value=0x08 page_check_visits=1 "
+            "page_check_value=0x3E invalid_page_visits=1 cleanup_visits=1 "
+            "stop_visits=1 violation_resets=0 flash_changed_bytes=0 "
+            "rx_packet_count=3 rx_bytes=24 rx_consumed=3 "
+            "tx_packet_count=2 tx_bytes=26 script_error=0 final_pc=0x5000 "
+            "completed=1 rx_packets=0000000205;E000;"
+            "0000000C0400000000000500003E000000 "
+            "tx_packets=0000000E040000000800030000010400000000;"
+            "0000000205E000"
+        )
+
+        self.assertEqual(0x3E, report.page_check_value)
+        self.assertEqual(3, len(report.rx_packets))
+        self.assertEqual(19, len(report.tx_packets[0]))
+        self.assertTrue(report.completed)
+
+    def test_rejects_usb_receive_packet_count_drift(self):
+        line = (
+            "mode=usb-rom-receive-probe boot_steps=1 boot_tstates=2 "
+            "probe_steps=3 probe_tstates=4 init_visits=1 "
+            "receive_entry_visits=1 control_start_visits=1 ack_parse_visits=1 "
+            "stream_receive_visits=1 record_dispatch_visits=1 "
+            "progress_visits=1 progress_state_seeded=1 receive_iy=0x89F0 "
+            "power_gate_value=8 page_check_visits=1 page_check_value=0x3E "
+            "invalid_page_visits=1 cleanup_visits=1 stop_visits=1 "
+            "violation_resets=0 flash_changed_bytes=0 rx_packet_count=2 "
+            "rx_bytes=5 rx_consumed=1 tx_packet_count=0 tx_bytes=0 "
+            "script_error=0 final_pc=0x5000 completed=1 "
+            "rx_packets=0000000000 tx_packets=-"
+        )
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "invalid"):
+            parse_usb_rom_receive_report(line)
+
+    def test_rejects_missing_or_duplicate_controlled_usb_rom_case(self):
+        base = (
+            "mode=usb-rom-probe case={case} handshake=1 frame=1 boot_steps=1 "
+            "boot_tstates=2 probe_steps=3 probe_tstates=4 init_visits=1 "
+            "reset_helper_visits=1 timeout_tick_visits=2 cleanup_visits=0 "
+            "receive_boundary_visits=0 return_visits=1 violation_resets=0 "
+            "flash_changed_bytes=0 input_4c=2 input_4d=0 input_8c=1 "
+            "output_4a=1 output_4b=1 output_4c=2 output_54=3 output_57=1 "
+            "output_87=1 output_89=1 output_8b=1 output_92=1 final_a=1 "
+            "final_f=0 final_pc=0x9D98 completed=1 writes=5780"
+        )
+        incomplete = "\n".join(
+            base.format(case=case)
+            for case in (
+                "init-success",
+                "handshake-timeout",
+                "frame-timeout",
+                "frame-timeout",
+            )
+        )
+
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "exactly once"):
+            parse_usb_rom_reports(incomplete)
 
     def test_parses_native_mapper_status(self):
         values = expected_mapper_values()

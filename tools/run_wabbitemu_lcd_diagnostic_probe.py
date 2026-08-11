@@ -4,20 +4,17 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 
-from rom_signatures import TI84_PLUS_OS_255MP_SHA256
-from wabbitemu_headless import (
-    WABBITEMU_COMMIT,
-    WabbitemuHeadlessError,
-    file_sha256,
-    run_lcd_diagnostic_probe,
+from probe_cli import (
+    DEFAULT_ROM,
+    build_wabbitemu_result,
+    emit_result,
+    require_output_absent,
+    write_manifest,
 )
+from wabbitemu_headless import run_lcd_diagnostic_probe
 from wabbitemu_lcd_diagnostic_probe import validate_lcd_diagnostic_report
-
-TOOLS = Path(__file__).resolve().parent
-DEFAULT_ROM = TOOLS / "rom.bin"
 
 
 def main() -> None:
@@ -30,58 +27,46 @@ def main() -> None:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
-    if args.output_dir.exists():
-        parser.error(f"refusing to reuse existing output directory {args.output_dir}")
     try:
-        source_rom_sha256 = file_sha256(args.rom)
-        if source_rom_sha256 != TI84_PLUS_OS_255MP_SHA256:
-            raise ValueError("probe requires the exact local OS 2.55MP ROM")
-        report = validate_lcd_diagnostic_report(
-            run_lcd_diagnostic_probe(
-                args.binary,
-                args.rom,
+        require_output_absent(args.output_dir)
+        result = build_wabbitemu_result(
+            binary=args.binary,
+            source_rom=args.rom,
+            runner=lambda binary, source_rom: run_lcd_diagnostic_probe(
+                binary,
+                source_rom,
                 max_boot_steps=args.max_boot_steps,
                 max_probe_steps=args.max_probe_steps,
-            )
-        )
-        result = {
-            "emulator": "Wabbitemu",
-            "commit": WABBITEMU_COMMIT,
-            "binary": str(args.binary),
-            "binary_sha256": file_sha256(args.binary),
-            "source_rom": str(args.rom),
-            "source_rom_sha256": source_rom_sha256,
-            "report": report,
-            "launch": (
+            ),
+            validator=validate_lcd_diagnostic_report,
+            launch=(
                 "direct entry from an injected RAM harness after retail boot "
                 "establishes the protection baseline"
             ),
-            "evidence_scope": (
+            evidence_scope=(
                 "actual OS 2.55MP routines at 3F:74C6, 3F:46EF, 3F:472E, "
                 "and 3F:74F8 executing in pinned Wabbitemu; not a reachable "
                 "retail boot path or physical LCD/ASIC behavior"
             ),
-        }
-        args.output_dir.mkdir(parents=True)
-        manifest = args.output_dir / "manifest.json"
-        manifest.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
-    except (OSError, RuntimeError, ValueError, WabbitemuHeadlessError) as error:
+        )
+        manifest = write_manifest(args.output_dir, result)
+    except (OSError, RuntimeError, ValueError) as error:
         parser.error(str(error))
 
-    if args.json:
-        print(json.dumps(result, indent=2))
-        return
+    report = result["report"]
     native = report["native"]
-    print(
-        f"fill={native['fill_hash']:016x} line={native['line_hash']:016x}; "
-        f"writes={native['command_writes']} command/"
-        f"{native['data_writes']} data"
+    emit_result(
+        result,
+        manifest,
+        as_json=args.json,
+        summary=(
+            f"fill={native['fill_hash']:016x} line={native['line_hash']:016x}; "
+            f"writes={native['command_writes']} command/"
+            f"{native['data_writes']} data",
+            f"contrast command=0x{native['contrast_out']:02X}, "
+            f"Wabbitemu level={native['contrast_level']}",
+        ),
     )
-    print(
-        f"contrast command=0x{native['contrast_out']:02X}, "
-        f"Wabbitemu level={native['contrast_level']}"
-    )
-    print(f"manifest: {manifest}")
 
 
 if __name__ == "__main__":

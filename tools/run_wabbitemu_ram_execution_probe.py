@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 
 from execution_protection import (
@@ -21,12 +20,12 @@ from execution_protection_fixture import (
     file_digest,
     validate_source_rom,
 )
+from probe_cli import emit_result, positive_int, require_fresh_output_dir, write_json
 from wabbitemu_headless import (
     WABBITEMU_COMMIT,
     WabbitemuHeadlessError,
     run_ram_execution_probe,
 )
-
 
 TOOLS = Path(__file__).resolve().parent
 SOURCE = TOOLS / "emulator-probes" / "execution-protection-ram.asm"
@@ -60,13 +59,6 @@ def byte(value: str) -> int:
     if not 0 <= parsed <= 0xFF:
         raise argparse.ArgumentTypeError("value must be a byte")
     return parsed
-
-
-def positive_count(value: str) -> int:
-    count = int(value, 0)
-    if count <= 0:
-        raise argparse.ArgumentTypeError("count must be positive")
-    return count
 
 
 def target(value: str) -> RamExecutionTarget:
@@ -106,21 +98,18 @@ def main() -> None:
         default=TI84P_BOOT_PROTECTION.ram_upper_chunk,
     )
     parser.add_argument("--spasm", default="spasm")
-    parser.add_argument("--max-boot-steps", type=positive_count, default=5_000_000)
-    parser.add_argument("--max-probe-steps", type=positive_count, default=1_000)
+    parser.add_argument("--max-boot-steps", type=positive_int, default=5_000_000)
+    parser.add_argument("--max-probe-steps", type=positive_int, default=1_000)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
     targets = tuple(args.target) if args.target else DEFAULT_TARGETS
     if len(set(targets)) != len(targets):
         parser.error("each RAM target may be specified only once")
-    if args.output_dir.exists():
-        parser.error(f"refusing to reuse existing output directory {args.output_dir}")
-
     try:
         source_rom = args.rom.read_bytes()
         source_rom_sha256 = validate_source_rom(source_rom)
-        args.output_dir.mkdir(parents=True)
+        require_fresh_output_dir(args.output_dir)
         reports = []
         for item in targets:
             machine_path = args.output_dir / f"{item.name}.bin"
@@ -250,22 +239,25 @@ def main() -> None:
             ),
         }
         manifest = args.output_dir / "manifest.json"
-        manifest.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+        write_json(manifest, result)
     except (OSError, RuntimeError, ValueError, WabbitemuHeadlessError) as error:
         parser.error(str(error))
 
-    if args.json:
-        print(json.dumps(result, indent=2))
-        return
-    for item in reports:
-        native = item["native"]
-        comparison = "agree" if item["predicates_agree"] else "differs from TilEm"
-        print(
+    emit_result(
+        result,
+        manifest,
+        as_json=args.json,
+        summary=(
             f"mode {item['mode']} page {item['selector']:02X} "
             f"offset {item['page_offset']:04X}: {native['classification']} "
             f"({comparison})"
+            for item in reports
+            for native in (item["native"],)
+            for comparison in (
+                "agree" if item["predicates_agree"] else "differs from TilEm",
+            )
         )
-    print(f"manifest: {manifest}")
+    )
 
 
 if __name__ == "__main__":

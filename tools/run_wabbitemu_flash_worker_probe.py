@@ -4,10 +4,16 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 
-from rom_signatures import TI84_PLUS_OS_255MP_SHA256
+from probe_cli import (
+    DEFAULT_ROM,
+    emit_result,
+    positive_int,
+    require_output_absent,
+    wabbitemu_identity,
+    write_manifest,
+)
 from wabbitemu_flash_probe import (
     WORKER_PROGRAM_CASES,
     FlashProgramCase,
@@ -15,15 +21,8 @@ from wabbitemu_flash_probe import (
     validate_worker_report,
 )
 from wabbitemu_headless import (
-    WABBITEMU_COMMIT,
-    WabbitemuHeadlessError,
-    file_sha256,
     run_flash_worker_probe,
 )
-
-
-TOOLS = Path(__file__).resolve().parent
-DEFAULT_ROM = TOOLS / "rom.bin"
 
 
 def program_case(value: str) -> FlashProgramCase:
@@ -33,15 +32,6 @@ def program_case(value: str) -> FlashProgramCase:
         return parse_flash_program_case(value)
     except ValueError as error:
         raise argparse.ArgumentTypeError(str(error)) from error
-
-
-def positive_count(value: str) -> int:
-    """Parse a positive instruction bound."""
-
-    count = int(value, 0)
-    if count <= 0:
-        raise argparse.ArgumentTypeError("count must be positive")
-    return count
 
 
 def main() -> None:
@@ -55,20 +45,16 @@ def main() -> None:
         action="append",
         help="custom INITIAL:REQUESTED[:TOGGLE] case; repeat as needed",
     )
-    parser.add_argument("--max-boot-steps", type=positive_count, default=5_000_000)
-    parser.add_argument("--max-probe-steps", type=positive_count, default=10_000)
+    parser.add_argument("--max-boot-steps", type=positive_int, default=5_000_000)
+    parser.add_argument("--max-probe-steps", type=positive_int, default=10_000)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
     cases = tuple(args.case) if args.case else WORKER_PROGRAM_CASES
     if len(set(cases)) != len(cases):
         parser.error("each Flash worker case may be specified only once")
-    if args.output_dir.exists():
-        parser.error(f"refusing to reuse existing output directory {args.output_dir}")
     try:
-        source_rom_sha256 = file_sha256(args.rom)
-        if source_rom_sha256 != TI84_PLUS_OS_255MP_SHA256:
-            raise ValueError("probe requires the exact local OS 2.55MP ROM")
+        require_output_absent(args.output_dir)
         reports = [
             validate_worker_report(
                 case,
@@ -85,12 +71,7 @@ def main() -> None:
             for case in cases
         ]
         result = {
-            "emulator": "Wabbitemu",
-            "commit": WABBITEMU_COMMIT,
-            "binary": str(args.binary),
-            "binary_sha256": file_sha256(args.binary),
-            "source_rom": str(args.rom),
-            "source_rom_sha256": source_rom_sha256,
+            **wabbitemu_identity(args.binary, args.rom),
             "cases": reports,
             "launch": (
                 "retail boot establishes protection state; the harness directly "
@@ -102,24 +83,20 @@ def main() -> None:
                 "not an OS/UI caller, protected unlock sequence, or physical Flash"
             ),
         }
-        args.output_dir.mkdir(parents=True)
-        manifest = args.output_dir / "manifest.json"
-        manifest.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
-    except (OSError, RuntimeError, ValueError, WabbitemuHeadlessError) as error:
+        manifest = write_manifest(args.output_dir, result)
+    except (OSError, RuntimeError, ValueError) as error:
         parser.error(str(error))
 
-    if args.json:
-        print(json.dumps(result, indent=2))
-        return
+    summary = []
     for item in reports:
         native = item["native"]
-        print(
+        summary.append(
             f"old {native['initial']:02X} requested {native['requested']:02X}: "
             f"stored {native['stored']:02X}, reads "
             f"{' '.join(f'{value:02X}' for value in native['poll_reads'])}, "
             f"{native['classification']} AF={native['return_af']:04X}"
         )
-    print(f"manifest: {manifest}")
+    emit_result(result, manifest, as_json=args.json, summary=summary)
 
 
 if __name__ == "__main__":

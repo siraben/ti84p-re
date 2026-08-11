@@ -4,10 +4,9 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
-import json
-from pathlib import Path
 import subprocess
+from dataclasses import asdict
+from pathlib import Path
 
 from execution_protection import (
     PAGE_SIZE,
@@ -22,7 +21,7 @@ from execution_protection_fixture import (
     build_tilem_ram_execution_fixture,
     file_digest,
 )
-
+from probe_cli import emit_result, require_fresh_output_dir, write_json
 
 TOOLS = Path(__file__).resolve().parent
 SOURCE = TOOLS / "emulator-probes" / "execution-protection-ram-tilem.asm"
@@ -70,12 +69,9 @@ def main() -> None:
     targets = tuple(args.target) if args.target else DEFAULT_TARGETS
     if len(set(targets)) != len(targets):
         parser.error("each RAM target may be specified only once")
-    if args.output_dir.exists():
-        parser.error(f"refusing to reuse existing output directory {args.output_dir}")
-
     try:
         source_rom = args.rom.read_bytes()
-        args.output_dir.mkdir(parents=True)
+        require_fresh_output_dir(args.output_dir)
         reports = []
         for item in targets:
             machine_path = args.output_dir / f"{item.name}.bin"
@@ -200,22 +196,25 @@ def main() -> None:
             ),
         }
         manifest = args.output_dir / "manifest.json"
-        manifest.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+        write_json(manifest, result)
     except (OSError, RuntimeError, ValueError) as error:
         parser.error(str(error))
 
-    if args.json:
-        print(json.dumps(result, indent=2))
-        return
-    for item in reports:
-        trace = item["trace"]
-        comparison = "agree" if item["predicates_agree"] else "differs from Wabbitemu"
-        print(
+    emit_result(
+        result,
+        manifest,
+        as_json=args.json,
+        summary=(
             f"mode {item['mode']} page {item['selector']:02X} "
             f"offset {item['page_offset']:04X}: {trace['classification']} "
             f"({comparison})"
+            for item in reports
+            for trace in (item["trace"],)
+            for comparison in (
+                "agree" if item["predicates_agree"] else "differs from Wabbitemu",
+            )
         )
-    print(f"manifest: {manifest}")
+    )
 
 
 if __name__ == "__main__":

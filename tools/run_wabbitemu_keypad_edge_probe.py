@@ -1,87 +1,50 @@
 #!/usr/bin/env python3
-"""Run guarded keypad matrix and ON-edge cases through pinned Wabbitemu."""
+"""Run guarded keypad and ON-key edges through pinned Wabbitemu."""
 
 from __future__ import annotations
 
-import argparse
-import json
-from pathlib import Path
-
-from rom_signatures import TI84_PLUS_OS_255MP_SHA256
-from wabbitemu_headless import (
-    WABBITEMU_COMMIT,
-    WabbitemuHeadlessError,
-    file_sha256,
-    run_keypad_edge_probe,
-)
+from probe_cli import Report, WabbitemuProbeCli
+from wabbitemu_headless import run_keypad_edge_probe
 from wabbitemu_keypad_probe import validate_keypad_report
 
 
-TOOLS = Path(__file__).resolve().parent
-DEFAULT_ROM = TOOLS / "rom.bin"
+def summarize(report: Report) -> tuple[str, ...]:
+    """Format the stable human-readable keypad summary."""
 
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--rom", type=Path, default=DEFAULT_ROM)
-    parser.add_argument("--binary", type=Path, required=True)
-    parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--json", action="store_true")
-    args = parser.parse_args()
-
-    if args.output_dir.exists():
-        parser.error(f"refusing to reuse existing output directory {args.output_dir}")
-    try:
-        source_rom_sha256 = file_sha256(args.rom)
-        if source_rom_sha256 != TI84_PLUS_OS_255MP_SHA256:
-            raise ValueError("probe requires the exact local OS 2.55MP ROM")
-        report = validate_keypad_report(
-            run_keypad_edge_probe(args.binary, args.rom)
-        )
-        result = {
-            "emulator": "Wabbitemu",
-            "commit": WABBITEMU_COMMIT,
-            "binary": str(args.binary),
-            "binary_sha256": file_sha256(args.binary),
-            "source_rom": str(args.rom),
-            "source_rom_sha256": source_rom_sha256,
-            "report": report,
-            "launch": (
-                "direct initialized-core keypad ports and standard-interrupt "
-                "device evaluation"
-            ),
-            "evidence_scope": (
-                "pinned Wabbitemu keypad and ON behavior checked against its "
-                "source model; not retail-ROM execution, electrical settling, "
-                "or physical ASIC behavior"
-            ),
-        }
-        args.output_dir.mkdir(parents=True)
-        manifest = args.output_dir / "manifest.json"
-        manifest.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
-    except (OSError, RuntimeError, ValueError, WabbitemuHeadlessError) as error:
-        parser.error(str(error))
-
-    if args.json:
-        print(json.dumps(result, indent=2))
-        return
     native = report["native"]
-    print(
+    return (
         "matrix reads: "
         f"single={native['single_read']:02X}, "
         f"same-column={native['same_column_read']:02X}, "
         f"rectangle={native['rectangle_read']:02X}, "
         f"transitive={native['transitive_read']:02X}, "
-        f"unwired={native['unwired_read']:02X}"
-    )
-    print(
+        f"unwired={native['unwired_read']:02X}",
         "ON status: "
         f"press={native['on_press_before_eval']:02X}→"
         f"{native['on_press_after_eval']:02X}, "
         f"held-after-ack={native['on_held_after_eval']:02X}, "
-        f"second-press={native['on_second_press_after_eval']:02X}"
+        f"second-press={native['on_second_press_after_eval']:02X}",
     )
-    print(f"manifest: {manifest}")
+
+
+PROBE = WabbitemuProbeCli(
+    runner=run_keypad_edge_probe,
+    validator=validate_keypad_report,
+    launch=(
+        "direct initialized-core keypad ports and standard-interrupt "
+        "device evaluation"
+    ),
+    evidence_scope=(
+        "pinned Wabbitemu keypad and ON behavior checked against its "
+        "source model; not retail-ROM execution, electrical settling, "
+        "or physical ASIC behavior"
+    ),
+    summarize=summarize,
+)
+
+
+def main() -> None:
+    PROBE.run(__doc__)
 
 
 if __name__ == "__main__":
