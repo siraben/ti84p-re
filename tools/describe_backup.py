@@ -4,9 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
+from backup_flags import audit_legacy_system_flags
+from rom_image import RomImage
 from ti8x_backup import parse_backup_path, rom_data_payload
 
 
@@ -30,6 +33,17 @@ def main() -> None:
     payload_parser.add_argument("--var-class", type=integer, default=0x0A)
     payload_parser.add_argument("--output", type=Path)
     payload_parser.add_argument("--json", action="store_true")
+
+    flags_parser = subparsers.add_parser(
+        "legacy-flags",
+        help="audit the fixed system-flags word against indexed ROM uses",
+    )
+    flags_parser.add_argument(
+        "--rom",
+        type=Path,
+        default=Path(__file__).resolve().parent / "rom.bin",
+    )
+    flags_parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
     if args.command == "file":
@@ -58,6 +72,32 @@ def main() -> None:
             f"checksum: stored=0x{report['stored_checksum']:04X} "
             f"computed=0x{report['computed_checksum']:04X} ({status})"
         )
+        return
+
+    if args.command == "legacy-flags":
+        rom = RomImage.from_path(args.rom)
+        rows = audit_legacy_system_flags(rom)
+        report = {
+            "rom_sha256": hashlib.sha256(rom.data).hexdigest(),
+            "normalized_word": 0x0063,
+            "normalized_bytes": "6300",
+            "bits": [row.as_dict() for row in rows],
+        }
+        if args.json:
+            print(json.dumps(report, indent=2))
+            return
+        print(
+            f"ROM SHA-256 {report['rom_sha256']}\n"
+            f"normalized word=0x{report['normalized_word']:04X} "
+            f"bytes={report['normalized_bytes']}"
+        )
+        for row in rows:
+            symbol = row.public_symbol or "-"
+            print(
+                f"+0x{row.byte_offset:02X} bit {row.bit}: "
+                f"value={row.normalized_value} symbol={symbol:<11} "
+                f"BIT={row.bit_tests} RES={row.resets} SET={row.sets}"
+            )
         return
 
     result = rom_data_payload(

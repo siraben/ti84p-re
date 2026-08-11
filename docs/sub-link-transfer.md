@@ -404,6 +404,47 @@ restored system-flags byte is thus `0x63` (bits 0, 1, 5, and 6 set), and the
 second is zero. The sender fixes these bytes instead of copying their live
 values. [confirmed]
 
+The fixed word selects a mixture of persistent mode, input, display, and
+unnamed bits. The symbol column below comes from the bundled public
+`ti83plus.inc`; the instruction counts come from an independent raw scan of
+the retail ROM. Each count covers an exact memory-only `BIT`, `RES`, or `SET`
+instruction using `IY = 0x89F0`. [standard] for the public names; [confirmed]
+for the fixed values and byte-pattern counts.
+
+| RAM bit | Sent | Public symbol | Direct ROM bit operations |
+|---------|------|---------------|---------------------------|
+| `0x89F0`.0 | 1 | `inDelete` | 10 `BIT`, 4 `RES`, 1 `SET` |
+| `0x89F0`.1 | 1 | — | 5 `BIT`, 4 `RES`, 2 `SET` |
+| `0x89F0`.2 | 0 | `trigDeg` | 13 `BIT`, 3 `RES`, 2 `SET` |
+| `0x89F0`.3 | 0 | `kbdSCR` | 2 `BIT`, 2 `RES`, 2 `SET` |
+| `0x89F0`.4 | 0 | `kbdKeyPress` | 1 `BIT`, 1 `RES`, 2 `SET` |
+| `0x89F0`.5 | 1 | `donePrgm` | 1 `BIT`, 0 `RES`, 4 `SET` |
+| `0x89F0`.6 | 1 | — | none |
+| `0x89F0`.7 | 0 | — | 4 `BIT`, 1 `RES`, 2 `SET` |
+| `0x89F1`.0 | 0 | — | none |
+| `0x89F1`.1 | 0 | — | none |
+| `0x89F1`.2 | 0 | `editOpen` | 39 `BIT`, 2 `RES`, 2 `SET` |
+| `0x89F1`.3 | 0 | `AnsScroll` | 6 `BIT`, 5 `RES`, 3 `SET` |
+| `0x89F1`.4 | 0 | `monAbandon` | 13 `BIT`, 12 `RES`, 8 `SET` |
+| `0x89F1`.5 | 0 | — | 1 `BIT`, 1 `RES`, 1 `SET` |
+| `0x89F1`.6–7 | 0 | — | none |
+
+This rules out a live-state snapshot. The fixed word clears the degree-mode
+bit, both pending-keyboard bits, the editor-open bit, answer scrolling, the
+monitor-abandon bit, and the unnamed active bit at `0x89F1`.5. It sets the
+public `donePrgm` bit. Those choices are consistent with a canonical
+post-restore state. Bits `0x89F0`.0, `.1`, and `.6` keep the stronger conclusion
+open: `.0` and `.1` have active consumers, while `.6` has no direct indexed
+bit operation anywhere in this ROM. No TI source or older-ROM comparison has
+yet been found that establishes whether those three values instead encode
+model or OS-version compatibility. [hypothesis]
+
+The audit is reproducible without subsystem-specific parsing:
+
+```console
+python3 tools/describe_backup.py legacy-flags
+```
+
 **External format evidence.** [standard] tilibs commit
 `791d2535813fa7ffef8f9feadf110998d4ae57fb` provides an independent format
 check. `calc_73.cc::send_backup` passes `data_part1` unchanged to `SEND_XDP`.
@@ -577,6 +618,9 @@ state machine. RAM block: `ioFlag 8670 … bakHeader 868B`, staging
 
 - Determine why the legacy backup normalizer chooses system-flags word
   `0x0063`. Its RAM destination, replacement behavior, section bounds, and
-  checksum coverage are confirmed.
+  checksum coverage are confirmed. A complete direct indexed-bit audit shows
+  that the word clears degree-mode, keyboard, editor, answer-scroll, and
+  monitor state while setting `donePrgm`; the remaining gap is why active
+  unnamed bits 0 and 1 and unreferenced bit 6 of `0x89F0` are set.
 - The prior USB target gap is now mapped in [sub-usb-asic.md](sub-usb-asic.md): `link_xfer_op` calls
   `ram:2E0B`, a `cross_page_jump` thunk to `35:4280`, after sampling port `0x4D`.
