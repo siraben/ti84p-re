@@ -15,6 +15,7 @@ from typing import Iterable
 
 
 LINE_MASK = 0x03
+NOMINAL_LOW_SPEED_HZ = 6_000_000
 
 
 @dataclass(frozen=True)
@@ -367,3 +368,82 @@ def byte_report(value: int) -> dict[str, object]:
             }
         )
     return {"value": value, "bit_order": "least-significant first", "bits": bits}
+
+
+def abort_pulse_delay_tstates(
+    *,
+    outer_iterations: int = 0xFFFF,
+    inner_iterations: int = 4,
+    padding_nops: int = 4,
+) -> int:
+    """Count the delay loop at ``3C:619D`` through ``3C:61AE``.
+
+    The count starts with ``LD HL,0xFFFF`` and ends after the final untaken
+    outer ``JR NZ``. It excludes the surrounding calls that change CPU speed,
+    assert the link lines, and restore the previous state.
+    """
+
+    if outer_iterations <= 0:
+        raise ValueError("outer iteration count must be positive")
+    if not 1 <= inner_iterations <= 0xFF:
+        raise ValueError("inner iteration count must be between 1 and 255")
+    if padding_nops < 0:
+        raise ValueError("padding NOP count must be nonnegative")
+
+    inner_loop = (
+        inner_iterations * 4
+        + (inner_iterations - 1) * 12
+        + 7
+    )
+    fixed_outer = 7 + padding_nops * 4 + inner_loop + 6 + 4 + 4
+    outer_branches = (outer_iterations - 1) * 12 + 7
+    return 10 + outer_iterations * fixed_outer + outer_branches
+
+
+def abort_pulse_instruction_count(
+    *,
+    outer_iterations: int = 0xFFFF,
+    inner_iterations: int = 4,
+    padding_nops: int = 4,
+) -> int:
+    """Count opcode fetches in the abort delay loop."""
+
+    abort_pulse_delay_tstates(
+        outer_iterations=outer_iterations,
+        inner_iterations=inner_iterations,
+        padding_nops=padding_nops,
+    )
+    instructions_per_outer = 5 + padding_nops + 2 * inner_iterations
+    return 1 + outer_iterations * instructions_per_outer
+
+
+def abort_pulse_report(
+    cpu_hz: int = NOMINAL_LOW_SPEED_HZ,
+    *,
+    opcode_wait_tstates: int = 1,
+) -> dict[str, object]:
+    """Return the ROM loop count and nominal wall time for the raw abort pulse."""
+
+    if cpu_hz <= 0:
+        raise ValueError("CPU frequency must be positive")
+    if opcode_wait_tstates < 0:
+        raise ValueError("opcode wait must be nonnegative")
+    base_tstates = abort_pulse_delay_tstates()
+    opcode_fetches = abort_pulse_instruction_count()
+    tstates = base_tstates + opcode_fetches * opcode_wait_tstates
+    return {
+        "routine": "3C:619D-61AE",
+        "outer_iterations": 0xFFFF,
+        "inner_iterations": 4,
+        "padding_nops": 4,
+        "base_tstates": base_tstates,
+        "opcode_fetches": opcode_fetches,
+        "opcode_wait_tstates_per_fetch": opcode_wait_tstates,
+        "delay_tstates": tstates,
+        "cpu_hz": cpu_hz,
+        "nominal_seconds": tstates / cpu_hz,
+        "scope": (
+            "delay loop only; surrounding calls and I/O are excluded; the "
+            "default one-T-state opcode wait matches the OS mode-0 Flash setup"
+        ),
+    }

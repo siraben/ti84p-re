@@ -13,18 +13,76 @@ The mechanisms below use several evidence sources. A claim marked [confirmed] co
 | TI-OS and boot code | `tools/rom.bin`, especially `3D:61AF`–`3D:6BC4` and `3F:4784`–`3F:4E56` | bcall ABI, guards, RAM workers, archive allocation, and status handling [confirmed] |
 | Dynamic execution | archive and `GCFLASH` macro fixtures plus resolved TilEm traces | normal archive writes, GC sector ordering, register values, page selection, and successful returns [confirmed] |
 | ASIC model | TilEm `x4_memory.c`, `x4_io.c`, and `x4_init.c` | protected-byte recognizer, port gates, execution limits, and modeled sector protection [standard] |
-| Flash chip | Spansion/AMD 29LV800 identification and Am29LV/Am29F command documentation | sector geometry, `AA 55` command cycles, and DQ status semantics [standard] |
+| Flash device | Datamath's March 2004 board photograph and Fujitsu `MBM29LV800TA` data sheet | observed package marking, sector geometry, command cycles, DQ status semantics, and rated limits [standard] |
 | Emulator comparison | pinned TilEm, Wabbitemu, and MAME source | modeled command decode, mutation rules, status reads, timing, and missing ASIC gates [standard] |
 
 ## Physical organization
 
-Datamath identifies a Spansion `29LV800` in the TI-84 Plus. It is a one-megabyte, byte-addressable NOR Flash device. The local ROM image and TilEm's TI-84 Plus model both use 64 logical pages of 16 KiB. [standard]
+### Identified board part and compatible family
 
-A logical Flash page is an ASIC paging unit, not an erase unit. Port `0x06` maps one page into the Z80's `0x4000`–`0x7FFF` bank-A window. The Flash chip erases the larger physical sector containing the command address. [standard]
+Datamath's photographed March 2004 TI-84 Plus board carries a Fujitsu package
+marked `29LV800TA-70PFTN`. Fujitsu's orderable part number adds its `MBM`
+prefix: `MBM29LV800TA-70PFTN`. This identifies the device on that photographed
+board. It does not establish one vendor for every TI-84 Plus revision.
+[standard]
+
+Datamath's NOR component index also lists AMIC `A29L800A`, Fujitsu `29LV800`,
+Spansion `S29AL008D`, and Macronix `MX29LV800` as compatible 1 MiB families.
+Those entries establish a reported compatible family, not which part a
+particular calculator contains. [standard]
+
+The Fujitsu suffixes and rated limits decode as follows. These are data-sheet
+limits rather than measurements of a calculator. [standard]
+
+| Marking or field | Meaning |
+|------------------|---------|
+| `8M (1M × 8/512K × 16)` | 8 Mbit array, used here as one MiB of byte-addressable NOR Flash |
+| `TA` | top-boot sector geometry |
+| `-70` | 70 ns maximum read access |
+| `PFTN` | 48-pin TSOP(I), normal-bend package |
+| supply | 3.0 V-only read, program, and erase |
+| program/erase endurance | minimum 100,000 cycles |
+| byte program | 8 µs typical, 300 µs maximum |
+| sector erase | 1 s typical, 10 s maximum |
+
+The local ROM image and TilEm's TI-84 Plus model use 64 logical pages of
+16 KiB. A logical Flash page is an ASIC paging unit, not an erase unit. Port
+`0x06` maps one page into the Z80's `0x4000`–`0x7FFF` bank-A window. The Flash
+device erases the larger physical sector containing the command address.
+[confirmed] for the ROM page count; [standard] for the device organization.
+
+### Data-sheet command and status interface
+
+In byte mode, the Fujitsu device decodes unlock addresses `0xAAA` and `0x555`.
+Byte program uses `AA 55 A0` followed by the destination and data. Sector erase
+uses `AA 55 80 AA 55 30`. A write of `0xF0` resets the command state machine to
+array-read mode, including after DQ5 reports an exceeded timing limit.
+[standard]
+
+The status outputs distinguish more states than the boot workers consume:
+[standard]
+
+| Bit | Fujitsu data-sheet behavior |
+|-----|-----------------------------|
+| DQ7 | complements programmed data bit 7 while program is active; reads 0 during erase and the array value after completion |
+| DQ6 | toggles during program, erase, and the sector-erase timeout window |
+| DQ5 | indicates exceeded program/erase timing; it can also follow an attempt to program a nonblank location without erasing |
+| DQ3 | distinguishes the open sector-erase command window from the active erase algorithm |
+| DQ2 | toggles for an erasing or erase-suspended sector and helps distinguish erase states from program states |
+
+The device also defines `0xB0` erase suspend and `0x30` erase resume commands.
+The retail workers issue neither command. [standard] for the command set;
+[confirmed] for the worker bytes.
+
+Fujitsu autoselect returns manufacturer `0x04` and top-boot byte-mode device
+`0xDA`. Wabbitemu and MAME instead return manufacturer `0x01` with the same
+device code. Their values identify the AMD-compatible emulator model, not the
+Fujitsu package in the Datamath photograph. [standard]
 
 ### Sector geometry
 
-TilEm models the top-boot geometry below, which matches the Am29LV800B family sector table. [standard]
+The Fujitsu `MBM29LV800TA` data sheet defines the top-boot geometry below.
+TilEm, Wabbitemu, and MAME use the same boundaries. [standard]
 
 | Physical range | Size | Logical pages or page portion |
 |----------------|-----:|-------------------------------|
@@ -167,7 +225,10 @@ The block worker repeats a four-write AMD byte-program sequence for each source 
 | 3 | `02` | `0x6AAA` | `0xA0` |
 | 4 | target | `DE` | byte from `(HL)` |
 
-The Flash chip decodes the physical low 12 address bits. Page `02`, logical `0x6AAA` is physical address `0xAAAA`; page `01`, logical `0x5555` is physical `0x5555`. Their low 12 bits are the byte-mode unlock addresses `0xAAA` and `0x555`. [confirmed] for the ROM addresses; [standard] for chip decoding.
+The device decodes the physical low 12 address bits. Page `02`, logical
+`0x6AAA` is physical address `0xAAAA`; page `01`, logical `0x5555` is physical
+`0x5555`. Their low 12 bits are the Fujitsu byte-mode unlock addresses `0xAAA`
+and `0x555`. [confirmed] for the ROM addresses; [standard] for device decoding.
 
 ### Completion polling
 
@@ -178,7 +239,10 @@ After `LDI` writes a byte and advances `HL`, `DE`, and `BC`, the worker steps ba
 3. If DQ5 is set, read and compare DQ7 once more.
 4. A second DQ7 mismatch takes the failure path.
 
-This is the algorithm in the AMD data-polling flowchart. During programming, DQ7 returns the complement of the requested data bit until completion. DQ5 indicates an exceeded timing limit, but DQ7 must be rechecked because both can change together. [standard]
+This is the algorithm in Fujitsu figure 22. During programming, DQ7 returns the
+complement of the requested data bit until completion. DQ5 indicates an
+exceeded timing limit. The data sheet requires the second DQ7 check because DQ7
+and DQ5 may change simultaneously. [standard]
 
 ### Return state
 
@@ -192,6 +256,10 @@ Forcing page `3F` is part of the worker ABI. The outer bcall dispatcher restores
 
 The intended path uses a RAM source, so source `H` has bit 7 set. On that path the worker detects `DE > 0x7FFF`, increments the current target page, and resets `DE=0x4000` before the next byte. [confirmed]
 
+The ordinary `Archive prgmA` trace groups its 17 byte-program commands into six worker invocations. The garbage-collection window groups 1,133 commands into 56 invocations, with a maximum length of 232 bytes. Every one is page-local, physically contiguous, and followed by a reset at its final target. These ordinary paths therefore exercise the worker but do not by themselves test its page-crossing branch. [confirmed]
+
+A deliberate TilEm trace archives a generated 17,000-byte `prgmZBIGDATA` through **MEM** > **Mem Mgmt/Del** > **Prgm**. One `_WriteFlashUnsafe` invocation programs all 17,002 bytes of the variable data, from physical `0x20013` (`08:4013`) through `0x2427C` (`09:427C`). The decoder observes exactly one `08:7FFF` to `09:4000` crossing, no discontinuity, and the terminal `0xF0` reset at `09:427C`. At the crossing, `ram:811B` reads port `0x06` with `A=0x08` at clock 230,976,551; `ram:8122` outputs `A=0x09` at clock 230,976,580; and `ram:8124` has reset `DE` from `0x8000` to `0x4000` at clock 230,976,590. This confirms the ordinary `08` to `09` software path in emulation; it is not a physical-calculator Flash test. [confirmed]
+
 The boundary code contains a page-`3E` quirk:
 
 ```z80
@@ -204,9 +272,49 @@ skip_out:
 ld de,0x4000
 ```
 
-A write that crosses from page `3D` computes page `3E` but skips the page-select output. It resets `DE` to `0x4000` and continues on the old mapping. This is not a clean stop at the certificate boundary. Starting `_WriteFlashUnsafe` on page `3E` can increment toward page `3F`; the hardware protection layer remains separate. [confirmed]
+A write that crosses from page `3D` computes page `3E` but skips the page-select output. It resets `DE` to `0x4000` and continues on the old mapping. This is not a clean stop at the certificate boundary. Starting `_WriteFlashUnsafe` on page `3E` can increment toward page `3F`; the hardware protection layer remains separate. This conclusion is byte-confirmed from the worker but has not been exercised dynamically or on a physical calculator. [confirmed]
 
-If source `H` has bit 7 clear, the worker sets `(IY+0x25).1` and skips destination-crossing logic. WikiTI's RAM-source requirement avoids this alternate path. Its intended purpose is not established. [confirmed] for the branch; [hypothesis] for any use outside the documented ABI.
+### Source-space branch and ROM callers
+
+If source `H` has bit 7 clear, the worker sets `(IY+0x25).1` and skips
+destination-crossing logic. An exhaustive raw-bcall scan of the retail ROM
+finds 20 `_WriteFlashUnsafe` (`8087`) candidates and three `_WriteFlash`
+(`80C9`) candidates. Static register reduction puts every source in RAM:
+[confirmed]
+
+| Page | Bcall sites and source `HL` |
+|------|-----------------------------|
+| `36` | `5E5C=82A5` |
+| `3C` | `630E=8000`, `6AA0=82A5`, `6AF5=983A` |
+| `3D` | `436C=8478`, `4670=9C9E`, `5050=82A5`, `5852=8000`, `58ED=8478`, `5926=8478`, `5CBA=83A5`, `6522=83F9`, `6578=8478`, `65BA=(83F3)`, `6A23=83FD`, `6A39=8402`, `6AA6=8000`, `6ACE=8000`, `718C=8000+offset`, `71E1=8479`, `7201=8000`, `7ABB=8479`, `7B72=983A` |
+
+At `3D:65BA`, the source is `arcInfo.destPtr`. Setup at `07:6331` saves the
+incoming data pointer from the variable lookup in that field. It is a RAM data
+pointer on the RAM-to-Flash path; the Flash-to-RAM path later replaces it at
+`07:622E` with the newly allocated RAM destination. The GC trace reaches this
+bcall twice with `HL=9E53`; the normal archive trace reaches it once with
+`HL=9E21`. The helper called before `3D:718C` returns either `8000` or
+`8000+offset` within its caller's established range. The local helpers at
+`3D:5258` and `3D:5964` preserve source `HL` for their dependent sites.
+[confirmed]
+
+The copied-worker entry provides an independent runtime check. Opcode `E6` at
+`ram:8100`, with destination `DE<8000`, identifies block-program entries. The
+GC trace contains 62: source `HL` is `8000` once, `83F9` twice, `83FD` once,
+`8402` once, `8478` 55 times, and `9E53` twice. The normal archive trace
+contains six: `83F9` once, `8478` four times, and `9E21` once. No observed
+entry takes the `H<80` branch. [confirmed]
+
+The alternate branch is not a general Flash-to-Flash copy path. The worker
+selects the destination page through port `0x06` before it reads the source. A
+source in the banked `4000`–`7FFF` window therefore aliases the destination
+page rather than retaining an independent source page. A source in the fixed
+`0000`–`3FFF` window can still be read, but after a destination byte at `7FFF`,
+the skipped crossing logic lets the next `LDI` write at `8000` in RAM. The
+branch is byte-confirmed but unused by every statically identified ROM call and
+both available write traces. Its intended external use, if any, remains
+unknown. [confirmed] for the ROM and trace behavior; [hypothesis] for a use
+outside the documented RAM-source ABI.
 
 ## Erase APIs and worker
 
@@ -226,6 +334,63 @@ The erase worker issues the six-cycle AMD sector-erase command: [confirmed]
 | 6 | target page | `HL` | `0x30` |
 
 It polls target DQ7 until it becomes 1. If DQ5 becomes 1 first, it takes the failure path. Success forces port `0x06` to page `3F` and returns `A=0`, Z. Failure loads `A=0xF0`, writes it through `DE`, executes `OR 1`, forces page `3F`, and returns `A=0xF1`, NZ. The write through `DE` is present in the copied worker even though `_EraseFlash` documents only `A` and `HL` as inputs. [confirmed]
+
+### Failure-path `DE` audit
+
+The RAM-worker launcher at `3F:48C5` saves the caller's `BC`, `DE`, and `HL`,
+copies the worker, restores those registers, and only then calls `0x8100`.
+It does not synthesize a reset pointer. The worker therefore receives whatever
+`DE` the caller supplied. [confirmed]
+
+The Fujitsu command table defines `0xF0` as a read/reset command accepted at any
+Flash address. Writing it through a Flash pointer is consequently a valid way
+to leave the status state and return to array reads. [standard] The ROM code
+does not check that `DE` is such a pointer. If `DE >= 0x8000`, the same
+instruction writes `0xF0` to RAM instead; the public `_EraseFlash` ABI does
+not document `DE` as an input. [confirmed] for the conditional ROM behavior;
+[hypothesis] for a physical test that deliberately reaches DQ5 with a RAM
+pointer.
+
+There is one raw `_EraseFlash` bcall sequence in the OS image, at `3D:45EA`.
+The wrapper at `3D:45E7` first selects the model-specific certificate page,
+then calls bcall `8024`. Four direct calls reach that wrapper on page `3D`:
+[confirmed]
+
+| Call | `DE` evidence at the erase |
+|------|-----------------------------|
+| `3D:40A3` | The helper at `3D:409F` and boot `_GetCertificateStart` preserve incoming `DE`. Its `3D:7A68` caller leaves `DE=0x1DE2`, a fixed-page Flash address. The `3D:71C3` path instead carries a metadata word returned by `3D:5B17`, not a pointer. |
+| `3D:4252` | `_GetCertificateStart` at `3D:424D`, followed by `EX DE,HL`, puts the active certificate-half start in `DE`. |
+| `3D:60EE` | The local branch toggles `HL` to the half being erased while preserving caller `DE`. Page-0 thunk `00:3EEB` reaches this routine from reset at `00:0D73` before any local `DE` initialization, and from two page-`37` call sites without an ABI constraint on `DE`. |
+| `3D:6127` | The alternating scan starts with `HL=0x4001`, `DE=0x6001`; on exit `DE` still points into the other certificate half. |
+
+The `3D:71C3` provenance is byte-specific. `3D:787B` calls `3D:5B17`, which
+saves a scan-result word, fetches an OS-header subfield through
+`_FindOSHeaderSubField`, reads its first byte, then forms returned `DE` from
+that byte and the saved scan count. The caller requires returned `D` to be
+nonzero, saves `DE` at `3D:7089`, and restores it at `3D:71B2` immediately
+before the erase branch. `_GetCertificateStart` preserves `DE` with explicit
+push/pop pairs at `3F:486E`–`3F:4884`. This path therefore transports archive
+and OS-header metadata through the erase call; it does not establish a Flash
+reset pointer. [confirmed]
+
+The `3D:60EE` entry is similarly caller-controlled. Its page-0 thunk is a raw
+`CALL 2B09; .dw 6098; .db 7D` descriptor at `00:3EEB`; masking the raw page
+selects physical page `3D`. The reset caller initializes `HL`, `SP`, and `IY`
+at `00:0D65`–`00:0D6F` but not `DE` before calling the thunk. The page-`3D`
+body and its Flash-byte reader preserve that inherited value through the erase
+at `3D:60EE`. [confirmed]
+
+The GC trace supplies a counterexample to any broader internal convention. Its
+seven entries at `3F:4C2A` carry `DE=0x802C`, `0x802C`, `0x802C`, `0x6000`,
+`0x7DF1`, `0x4001`, and `0x4000`. The first three are RAM pointers. All seven
+erases succeed, so none reaches `3F:4C83`; nevertheless, the launcher would
+preserve the same `DE` values for the failure path. [confirmed]
+
+Thus multiple certificate-wrapper paths intentionally or incidentally provide
+a Flash address suitable for the reset command, but the ROM as a whole has no
+such invariant and the convention does not extend the public ABI. The failure
+path is best classified as an underspecified interface with a conditionally
+unsafe RAM write. [confirmed]
 
 The `0x30` command erases a physical sector, not one logical page. `_EraseFlashPage` is therefore named for the page used to select a sector, not for 16 KiB erase granularity. [standard]
 
@@ -303,6 +468,8 @@ The executed write path is: [confirmed]
 The calls write an initial `0xF0` marker when needed, `0xFE`, a two-byte size field, an eight-byte header, a four-byte payload, and final status `0xFC`. Every boot-worker call follows the successful DQ7 path and returns `A=0`. [confirmed]
 
 The trace also resolves the archive-range ambiguity directly. `3D:6413` returns `B=0x29`; `3D:62C2` explicitly starts at page `08`; and the programmed physical target is page `08`. [confirmed]
+
+The generated large-program trace uses the same record path and demonstrates that the data block is not split at a 16 KiB page boundary: its 17,002-byte worker invocation crosses contiguously from page `08` to page `09`. The fixture builder, UI macro, decoder, and exact worker-point query are documented under “Cross-page Flash-programming fixture” in the repository's `tools/dynamic-tracing.md`. [confirmed]
 
 ## End-to-end garbage-collection trace
 
@@ -387,12 +554,17 @@ access control. [standard]
 | Successful program | 7-cycle modeled busy state | immediate array data | immediate array data |
 | Illegal `0→1` request | error state | one transient error read | writes the requested one bit |
 | Sector erase | 200,000-cycle model | immediate | immediate data mutation followed by a timer |
-| Autoselect | incomplete | AMD `0x01`, device `0xDA` | AMD `0x01`, device `0xDA` |
+| Autoselect | incomplete | modeled AMD manufacturer `0x01`, device `0xDA` | modeled AMD manufacturer `0x01`, device `0xDA` |
 | ASIC write gate | protected-byte sequence, lock, and sector groups | privileged-page port-`0x14` gate and boot-page flags | no effective Flash-write gate |
 
 These are source-level results. MAME marks the complete TI-84 Plus driver
 `MACHINE_NOT_WORKING`. None of the divergences resolves physical behavior.
 [standard]
+
+The emulator autoselect rows differ from the photographed Fujitsu part's data
+sheet, which specifies `0x04/0xDA`. Matching device code `0xDA` establishes a
+compatible top-boot command family; manufacturer `0x01` does not identify the
+photographed package. [standard]
 
 ### TilEm behavior and limits
 
@@ -460,9 +632,22 @@ sector override, or execution-protection state used by the ROM. [standard]
 
 ### Reproducing the comparison
 
-`tools/flash_hardware.py` contains the sector table, source-modeled program
-rules, MAME erase status, and the ROM worker's DQ7/DQ5 decision. The focused CLI
-can expose negative cases without modifying an emulator:
+`tools/flash_hardware.py` contains the photographed-device specification,
+reported compatible families, sector table, source-modeled program rules, MAME
+erase status, and the ROM worker's DQ7/DQ5 decision. The focused CLI separates
+physical and emulator identities and exposes negative cases without modifying
+an emulator:
+
+```console
+$ python tools/describe_flash_hardware.py parts
+photographed part: Fujitsu MBM29LV800TA-70PFTN
+  package marking: 29LV800TA-70PFTN
+  board evidence: Datamath March 2004 TI-84 Plus PCB photograph
+  data-sheet autoselect: manufacturer=0x04 device=0xDA
+  rated byte program: 8 us typical, 300 us maximum
+  rated sector erase: 1 s typical, 10 s maximum
+reported compatible families: AMIC A29L800A, Fujitsu 29LV800, Spansion S29AL008D, Macronix MX29LV800
+```
 
 ```console
 $ python tools/describe_flash_hardware.py program --old 0x00 --data 0xFF
@@ -480,17 +665,17 @@ busy reads 0x0F8000-0x0FFFFF
 status: 0x4C 0x08 0x4C 0x08
 ```
 
-The `geometry`, `profiles`, and `poll` subcommands also support `--json` for
-scripts. `tools/flash_trace.py` imports the same geometry library, so dynamic
-trace reports and emulator comparisons use one sector definition.
+The `parts`, `geometry`, `profiles`, and `poll` subcommands also support
+`--json` for scripts. `tools/flash_trace.py` imports the same geometry library,
+so dynamic trace reports and emulator comparisons use one sector definition.
 
 ## Quirks and unresolved hardware questions
 
 - `_WriteFlash`'s page-`3E` crossing behavior is byte-confirmed but not hardware-tested on a physical calculator. The skipped `OUT (0x06),A` makes the continued target surprising. [confirmed] for the ROM; [hypothesis] for physical consequences.
-- `_EraseFlash`'s failure path writes reset value `0xF0` through undocumented register `DE`. The intended source of that pointer is not established. [confirmed]
+- `_EraseFlash`'s failure path uses undocumented `DE` as a reset-command pointer. Two internal certificate paths leave a Flash address there, while the `3D:60EE` reset path leaves inherited `DE`, the `3D:71C3` path carries metadata, and the public bcall accepts arbitrary `DE`. A forced physical DQ5 test with `DE` in RAM is still required. [confirmed] for the ROM paths; [hypothesis] for physical failure behavior.
 - The precise physical ASIC implementation of the protected-byte recognizer is represented here by WikiTI and TilEm behavior. The calculator schematic does not expose the ASIC's internal state machine. [standard]
 - Physical tests still need to measure legal and illegal byte-program status reads, including a requested `0→1` transition. TilEm, Wabbitemu, and MAME disagree on this case. [hypothesis]
-- Program and erase duration, DQ toggle cadence, erase-suspend behavior, and the top-boot busy-read boundaries remain unmeasured on a calculator. [hypothesis]
+- The Fujitsu data sheet bounds byte program at 300 µs and sector erase at 10 s, with 8 µs and 1 s typical values. Calculator-level duration, DQ toggle cadence, erase-suspend behavior, and top-boot busy-read boundaries remain unmeasured. [standard] for the part limits; [hypothesis] for behavior on a particular calculator.
 - The collector's normal sector-copy policy and persistent phase dispatcher are reconstructed. Fault-injection traces still need to stop after each journal write and test restart behavior, especially on physical hardware. [hypothesis]
 
 ## Sources
@@ -502,8 +687,9 @@ trace reports and emulator comparisons use one sector definition.
 | [WikiTI `_WriteFlash`](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:80C9) and [`_WriteFlashUnsafe`](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:8087) | public ABI and RAM-source requirement |
 | [WikiTI `_EraseFlash`](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:8024) | sector-erase ABI and granularity warning |
 | [WikiTI ports `0x21`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:21), [`0x22`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:22), and [`0x23`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:23) | chip selection and Flash execution limits |
-| [Datamath TI-84 Plus hardware](http://www.datamath.org/Graphing/TI-84PLUS.htm) | Spansion `29LV800` identification |
-| [AMD Am29F800B data sheet](http://docs.eao.hawaii.edu/JCMT/i/012_HARPB/localOscillator/Manufacturers/Phytec/DataSh/AMD/FLASH/29F800BB.PDF) | compatible command table and DQ polling algorithm |
+| [Datamath TI-84 Plus hardware](http://www.datamath.org/Graphing/TI-84PLUS.htm) and [March 2004 PCB photograph](http://www.datamath.org/Graphing/Images/TI-84Plus_PCB.jpg) | Fujitsu vendor identification and photographed `29LV800TA-70PFTN` marking |
+| [Datamath memory-component index](http://www.datamath.org/ROM_IC.htm#Flash_NOR_AMIC) | reported AMIC, Fujitsu, Spansion, and Macronix compatible families |
+| [Fujitsu `MBM29LV800TA/BA` data sheet](https://www.datasheetarchive.com/pdf/download/distributors/Datasheets-12/DSA-234528.pdf), DS05-20845-4E | exact part organization, suffixes, command table, autoselect IDs, status bits, polling algorithm, timing, and endurance; PDF SHA-256 `552a0ebc1de06b64507b7226e1d5bf4cebf8f61d6b5820e0cc796b1985186b19` |
 | [TilEm `flash.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/flash.c), [`x4_memory.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c), [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), and [`x4_subcore.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_subcore.c) | emulator command state machine, ASIC gates, and sector table |
 | [Wabbitemu `core.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c) and [`83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | command state machine, program error read, erase geometry, port `0x14`, and write-validity gates |
 | [MAME `intelfsh.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/devices/machine/intelfsh.cpp), [`ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp), and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | generic AMD device behavior, TI-84 Plus mapping, I/O coverage, and driver status |

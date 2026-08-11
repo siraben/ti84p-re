@@ -418,6 +418,12 @@ Silver Edition or TI-84 Plus test harness:
 - determine reset and low-power retention across TA2 and TA3 revisions;
 - compare port availability on standard TI-83 Plus, Silver Edition, and TI-84 Plus ASICs.
 
+The [physical hardware probe](hardware-probes.md#md5-edge-probe)
+records undefined reads, a fifth operand write, high control bits, and a
+mid-read mutation in a versioned AppVar. Its calculator-side source and host
+decoder are prepared, but no physical result is recorded. [confirmed] for the
+probe bytes; [hypothesis] for all pending hardware results.
+
 A calculator schematic can identify the ASIC revision and external buses, but it cannot expose this internal datapath. Logic-level tests must infer the remaining behavior through I/O instructions and cycle measurements. [hypothesis]
 
 ## Sources

@@ -65,7 +65,11 @@ the same topology. Selected internal pages 3–7 read and write
 software sources agree, but neither is a physical measurement. Treat the 48 KiB
 topology as [standard], pending a hardware alias probe. The ASIC identity table
 and physical test gaps are in
-[ASIC status, identity, protection, and GPIO](asic-status-gpio.md).
+[ASIC status, identity, protection, and GPIO](asic-status-gpio.md). The
+[restoring RAM alias probe](hardware-probes.md#ram-alias-probe) records the
+original, patterned, and restored bytes for selectors `82`–`87`. Its source and
+host decoder are prepared, but no physical result is recorded. [confirmed] for
+the probe bytes; [hypothesis] for the physical topology.
 
 ## Emulator implementations
 

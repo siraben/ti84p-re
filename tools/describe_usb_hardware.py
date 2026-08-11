@@ -10,7 +10,9 @@ import sys
 
 from usb_hardware import (
     USB_EMULATOR_PROFILES,
+    USB_LAYOUT_SOURCES,
     boot_usb_event_action,
+    compare_usb_global_layouts,
     decode_fdrc_bits,
     decode_link_assist_rate,
     decode_usb_line_state,
@@ -32,6 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
 
     commands.add_parser("profiles", help="compare pinned emulator coverage")
+    commands.add_parser("layouts", help="compare pinned FDRC and common HDRC maps")
 
     registers = commands.add_parser("register", help="map TI ports to FDRC names")
     registers.add_argument("ports", nargs="+", type=integer)
@@ -62,6 +65,11 @@ def build_parser() -> argparse.ArgumentParser:
 def report(args: argparse.Namespace) -> dict[str, object]:
     if args.command == "profiles":
         return {"profiles": [asdict(profile) for profile in USB_EMULATOR_PROFILES]}
+    if args.command == "layouts":
+        return {
+            "sources": [asdict(source) for source in USB_LAYOUT_SOURCES],
+            "registers": [asdict(row) for row in compare_usb_global_layouts()],
+        }
     if args.command == "register":
         return {
             "registers": [
@@ -114,6 +122,20 @@ def report(args: argparse.Namespace) -> dict[str, object]:
 
 
 def print_text(data: dict[str, object]) -> None:
+    if "sources" in data:
+        for source in data["sources"]:
+            print(f"{source['layout']}: {source['document']} ({source['revision']})")
+            print(f"  {source['provenance']}")
+            print(f"  limit: {source['limit']}")
+        for row in data["registers"]:
+            fdrc = "/".join(row["fdrc_names"])
+            hdrc = "/".join(row["hdrc_names"])
+            relation = "same" if row["same_names"] else "different"
+            print(
+                f"0x{row['port']:02X} offset=0x{row['offset']:02X}: "
+                f"FDRC={fdrc} HDRC={hdrc} ({relation})"
+            )
+        return
     if "profiles" in data:
         for row in data["profiles"]:
             ports = " ".join(f"0x{port:02X}" for port in row["mapped_ports"])

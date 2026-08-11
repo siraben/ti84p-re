@@ -1265,8 +1265,10 @@ page_3C:5538	lnk_recv_end
 page_3C:5549	lnk_recv_reset
 page_3C:55b6	j_lnk_recv_end
 page_3C:58ed	lnk_set_flag24_find
+page_3C:6136	lnk_error_cleanup
 page_3C:617d	lnk_recv_hdr_byte
 page_3C:6184	lnk_recv_first
+page_3C:618d	lnk_abort_transport
 page_3C:61f1	lnk_copy_var_hdr
 page_3C:6298	lnk_handle_cmd
 page_3C:63a7	lnk_jump_9

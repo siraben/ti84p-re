@@ -324,6 +324,12 @@ only after raw-byte and control-flow review or a resolved execution trace.
 
 ## Open physical tests
 
+The read-only [ASIC register snapshot](hardware-probes.md#asic-register-snapshot)
+captures ports `0x15`, `0x21`, `0x39`, and `0x3A` without changing GPIO
+configuration or data. It provides a baseline, not an electrical direction
+test. No physical snapshot is recorded. [confirmed] for the probe bytes;
+[hypothesis] for pending readback values.
+
 - Sweep a controlled battery supply for all four port-`0x04` selectors. Record
   the port-`0x02` bit-0 transition in both directions to measure threshold and
   hysteresis.

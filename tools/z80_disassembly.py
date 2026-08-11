@@ -68,6 +68,15 @@ class BcallSite:
     id: int
 
 
+@dataclass(frozen=True)
+class BjumpSite:
+    """A raw cross-page jump descriptor following ``CALL 2B09h``."""
+
+    location: RomLocation
+    target: RomLocation
+    raw_page: int
+
+
 def parse_z80dasm(text: str, page: int) -> Iterator[Z80Instruction]:
     """Parse the stable address/byte comments emitted by ``z80dasm`` 1.2."""
 
@@ -160,6 +169,39 @@ def find_bcall_sites(
         id_value = int.from_bytes(data[offset + 1 : offset + 3], "little")
         if id_value in wanted:
             yield BcallSite(RomLocation(page, origin + offset), id_value)
+
+
+def find_bjump_sites(
+    rom: RomImage,
+    page: int,
+    targets: Iterable[RomLocation],
+    *,
+    trampoline: int = 0x2B09,
+) -> Iterator[BjumpSite]:
+    """Yield raw ``CALL trampoline; .dw address; .db page`` candidates.
+
+    The dispatcher masks the inline page byte to six bits on this ROM, so
+    requested targets use physical-page values while each report retains the
+    original descriptor byte.
+    """
+
+    wanted = {(target.page, target.address) for target in targets}
+    data = rom.page(page)
+    origin = 0 if page == 0 else 0x4000
+    call_prefix = bytes((0xCD, trampoline & 0xFF, trampoline >> 8))
+    for offset in range(len(data) - 5):
+        if data[offset : offset + 3] != call_prefix:
+            continue
+        address = int.from_bytes(data[offset + 3 : offset + 5], "little")
+        raw_page = data[offset + 5]
+        target = (raw_page & 0x3F, address)
+        if target not in wanted:
+            continue
+        yield BjumpSite(
+            location=RomLocation(page, origin + offset),
+            target=RomLocation(*target),
+            raw_page=raw_page,
+        )
 
 
 def direct_target(instruction: Z80Instruction) -> int | None:

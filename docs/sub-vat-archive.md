@@ -209,6 +209,8 @@ The archive manager chooses a free record and then calls the boot-page Flash API
 
 The bounds checks at `3D:6B6D` and `3D:6B9B` reject pages below `08` and pages at or above the dynamic App boundary from `3D:6413`. Both require the Flash destination to be at least `0x4000`; the block form at `3D:6B6D` also requires `HL >= 0x4000`. Carry reports rejection to the caller, which raises `E_ArchFull`. [confirmed]
 
+A generated 17,000-byte program makes the record data span pages. The traced record writer passes its 17,002-byte `[size][body]` field to one `_WriteFlashUnsafe` invocation, which programs physical `0x20013` through `0x2427C` continuously across `08:7FFF` to `09:4000`. The copied worker increments port `0x06` from `0x08` to `0x09`, resets `DE` to `0x4000`, and finishes with its `0xF0` reset at the final target. This is direct TilEm evidence for the ordinary archive page-crossing path, not a physical-calculator measurement. [confirmed]
+
 ### 6a. Record-status byte — the one-way bit-clearing scheme [confirmed]
 
 The status byte is a classic AMD/Am29F *monotonic bit-clear* marker: erased Flash is all-ones

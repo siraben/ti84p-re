@@ -5,11 +5,14 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter, defaultdict
+import json
 from pathlib import Path
+import sys
 
 from flash_trace import (
     decode_amd_flash_commands,
     flash_sector,
+    group_byte_program_invocations,
     group_byte_program_runs,
 )
 from hardware_trace import iter_resolved_memory_writes, trace_header
@@ -37,6 +40,29 @@ def contiguous_ranges(addresses: list[int]) -> list[tuple[int, int]]:
     return result
 
 
+def invocation_report(invocation) -> dict:
+    discontinuities = [
+        {"from": previous.target_address, "to": current.target_address}
+        for previous, current in zip(invocation.commands, invocation.commands[1:])
+        if current.target_address != previous.target_address + 1
+    ]
+    return {
+        "instruction_index": invocation.commands[0].instruction_index,
+        "clock": invocation.commands[0].clock,
+        "program_count": len(invocation.commands),
+        "start_address": invocation.start_address,
+        "end_address": invocation.end_address,
+        "pages": list(invocation.pages),
+        "page_crossings": invocation.page_crossings,
+        "contiguous": invocation.contiguous,
+        "discontinuities": discontinuities,
+        "reset_address": (
+            invocation.reset.target_address if invocation.reset is not None else None
+        ),
+        "reset_matches_final_target": invocation.reset_matches_final_target,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trace", type=Path)
@@ -59,6 +85,11 @@ def main() -> None:
         help="print erases and compact contiguous byte-program runs",
     )
     parser.add_argument(
+        "--invocations",
+        action="store_true",
+        help="print byte-program groups terminated by the worker reset write",
+    )
+    parser.add_argument(
         "--run-gap",
         type=int,
         default=100_000,
@@ -79,6 +110,7 @@ def main() -> None:
         help="restrict command rows by decoded kind; repeatable",
     )
     parser.add_argument("--resync", action="store_true")
+    parser.add_argument("--json", action="store_true", help="emit a JSON report")
     args = parser.parse_args()
 
     header = trace_header(args.trace)
@@ -101,6 +133,7 @@ def main() -> None:
         writes.append(event)
 
     commands = list(decode_amd_flash_commands(writes))
+    invocations = list(group_byte_program_invocations(commands))
     counts = Counter(command.kind for command in commands)
     programmed = sorted(
         command.target_address
@@ -110,6 +143,28 @@ def main() -> None:
     programmed_by_page: dict[int, list[int]] = defaultdict(list)
     for address in programmed:
         programmed_by_page[address // 0x4000].append(address)
+
+    if args.json:
+        json.dump(
+            {
+                "trace": str(args.trace),
+                "header": {
+                    "version": header.version,
+                    "range_start": header.range_start,
+                    "range_end": header.range_end,
+                },
+                "resolved_flash_writes": len(writes),
+                "unresolved_writes_skipped": unresolved,
+                "command_counts": dict(sorted(counts.items())),
+                "program_invocations": [
+                    invocation_report(invocation) for invocation in invocations
+                ],
+            },
+            sys.stdout,
+            indent=2,
+        )
+        print()
+        return
 
     print(
         f"trace v{header.version}, range=0x{header.range_start:04X}-"
@@ -157,6 +212,29 @@ def main() -> None:
             f"erase target {format_target(command.target_address)} -> "
             f"sector 0x{sector.start:05X}-0x{sector.start + sector.size - 1:05X}"
         )
+
+    if args.invocations:
+        print("\nProgram invocations:")
+        for invocation in invocations:
+            target = (
+                format_target(invocation.start_address)
+                if invocation.start_address == invocation.end_address
+                else f"{format_target(invocation.start_address)}.."
+                f"{format_target(invocation.end_address)}"
+            )
+            pages = ",".join(f"{page:02X}" for page in invocation.pages)
+            reset = (
+                "missing"
+                if invocation.reset is None
+                else format_target(invocation.reset.target_address)
+            )
+            print(
+                f"clk={invocation.commands[0].clock:<10d} program-call {target} "
+                f"count={len(invocation.commands)} pages={pages} "
+                f"crossings={invocation.page_crossings} "
+                f"contiguous={'yes' if invocation.contiguous else 'no'} "
+                f"reset={reset}"
+            )
 
     if args.events:
         shown = 0

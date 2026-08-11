@@ -10,9 +10,11 @@ import sys
 
 from lcd_controller import (
     LCD_EMULATOR_PROFILES,
+    TOSHIBA_T6K04,
     decode_lcd_command,
     lcd_status,
     read_latch_sequence,
+    t6k04_busy_interval_us,
     walk_lcd_transfers,
 )
 
@@ -26,7 +28,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", help="emit JSON")
     commands = parser.add_subparsers(dest="command", required=True)
 
+    commands.add_parser(
+        "hardware", help="show the source-attributed Toshiba T6K04 specification"
+    )
     commands.add_parser("profiles", help="compare pinned emulator profiles")
+
+    busy = commands.add_parser("busy", help="compute T6K04 busy-time bounds")
+    busy.add_argument("--oscillator-khz", type=float)
 
     decode = commands.add_parser("decode", help="decode controller commands")
     decode.add_argument("values", nargs="+", type=integer)
@@ -52,8 +60,26 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def report(args: argparse.Namespace) -> dict[str, object]:
+    if args.command == "hardware":
+        return {"controller": asdict(TOSHIBA_T6K04)}
     if args.command == "profiles":
         return {"profiles": [asdict(profile) for profile in LCD_EMULATOR_PROFILES]}
+    if args.command == "busy":
+        frequencies = (
+            [args.oscillator_khz]
+            if args.oscillator_khz is not None
+            else list(TOSHIBA_T6K04.oscillator_choices_khz)
+        )
+        return {
+            "intervals": [
+                {
+                    "oscillator_khz": frequency,
+                    "minimum_us": t6k04_busy_interval_us(frequency)[0],
+                    "maximum_us": t6k04_busy_interval_us(frequency)[1],
+                }
+                for frequency in frequencies
+            ]
+        }
     if args.command == "decode":
         return {"commands": [asdict(decode_lcd_command(value)) for value in args.values]}
     if args.command == "walk":
@@ -94,6 +120,38 @@ def report(args: argparse.Namespace) -> dict[str, object]:
 
 
 def print_text(data: dict[str, object]) -> None:
+    if "controller" in data:
+        controller = data["controller"]
+        print(f"reported controller: {controller['manufacturer']} {controller['part']}")
+        print(f"  calculator evidence: {controller['calculator_evidence']}")
+        print(f"  limit: {controller['identification_limit']}")
+        print(
+            f"  data sheet: {controller['columns']}x{controller['rows']} pixels, "
+            f"{controller['ram_bits']} bits, "
+            f"{controller['eight_bit_pages']} 8-bit pages"
+        )
+        print(
+            f"  interface: {controller['interface']}; "
+            f"logic supply={controller['logic_supply_volts'][0]:g}-"
+            f"{controller['logic_supply_volts'][1]:g} V; "
+            f"package={controller['package']}"
+        )
+        for timing in controller["bus_timings"]:
+            print(
+                f"  {timing['supply_volts']:g} V bus: "
+                f"cycle>={timing['enable_cycle_min_ns']} ns "
+                f"pulse>={timing['enable_pulse_min_ns']} ns "
+                f"read-delay<={timing['read_data_delay_max_ns']} ns"
+            )
+        return
+    if "intervals" in data:
+        for interval in data["intervals"]:
+            print(
+                f"fOSC={interval['oscillator_khz']:g} kHz: "
+                f"{interval['minimum_us']:.3f}-"
+                f"{interval['maximum_us']:.3f} us"
+            )
+        return
     if "profiles" in data:
         for profile in data["profiles"]:
             print(

@@ -10,6 +10,8 @@ import sys
 
 from flash_hardware import (
     EMULATOR_PROFILES,
+    FUJITSU_MBM29LV800TA,
+    REPORTED_COMPATIBLE_PARTS,
     TOP_BOOT_SECTORS,
     flash_sector,
     mame_erase_busy_read_range,
@@ -30,6 +32,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", help="emit JSON")
     commands = parser.add_subparsers(dest="command", required=True)
 
+    commands.add_parser(
+        "parts", help="separate photographed hardware from compatible families"
+    )
     commands.add_parser("profiles", help="compare pinned emulator profiles")
 
     geometry = commands.add_parser("geometry", help="resolve erase sectors")
@@ -52,6 +57,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def report(args: argparse.Namespace) -> dict[str, object]:
+    if args.command == "parts":
+        return {
+            "photographed_part": asdict(FUJITSU_MBM29LV800TA),
+            "reported_compatible_parts": [
+                asdict(part) for part in REPORTED_COMPATIBLE_PARTS
+            ],
+        }
     if args.command == "profiles":
         return {"profiles": [asdict(profile) for profile in EMULATOR_PROFILES]}
     if args.command == "geometry":
@@ -97,11 +109,38 @@ def report(args: argparse.Namespace) -> dict[str, object]:
 
 
 def print_text(data: dict[str, object]) -> None:
+    if "photographed_part" in data:
+        part = data["photographed_part"]
+        print(f"photographed part: {part['manufacturer']} {part['orderable_part']}")
+        print(f"  package marking: {part['photographed_marking']}")
+        print(f"  board evidence: {part['board_evidence']}")
+        print(
+            "  data-sheet autoselect: "
+            f"manufacturer=0x{part['manufacturer_code']:02X} "
+            f"device=0x{part['device_code_byte_mode']:02X}"
+        )
+        print(
+            "  rated byte program: "
+            f"{part['byte_program_typ_us']} us typical, "
+            f"{part['byte_program_max_us']} us maximum"
+        )
+        print(
+            "  rated sector erase: "
+            f"{part['sector_erase_typ_ms'] / 1000:g} s typical, "
+            f"{part['sector_erase_max_ms'] / 1000:g} s maximum"
+        )
+        compatible = ", ".join(
+            f"{item['manufacturer']} {item['family']}"
+            for item in data["reported_compatible_parts"]
+        )
+        print(f"reported compatible families: {compatible}")
+        return
     if "profiles" in data:
         for profile in data["profiles"]:
             print(f"{profile['name']} ({profile['revision']})")
             print(f"  program: {profile['program_rule']}; {profile['program_completion']}")
             print(f"  erase: {profile['erase_completion']}")
+            print(f"  autoselect: {profile['autoselect']}")
             print(f"  ASIC gate: {profile['asic_write_gate']}")
         return
     if "addresses" in data:

@@ -5,15 +5,54 @@ import unittest
 
 from lcd_controller import (
     LCD_EMULATOR_PROFILES,
+    TOSHIBA_T6K04,
     decode_lcd_command,
     lcd_emulator_profile,
     lcd_status,
     read_latch_sequence,
+    t6k04_busy_interval_us,
     walk_lcd_transfers,
 )
 
 
 class LcdControllerTests(unittest.TestCase):
+    def test_t6k04_primary_spec_has_sixteen_byte_rows(self):
+        self.assertEqual(
+            (128, 64, 8192),
+            (
+                TOSHIBA_T6K04.columns,
+                TOSHIBA_T6K04.rows,
+                TOSHIBA_T6K04.ram_bits,
+            ),
+        )
+        self.assertEqual(16, TOSHIBA_T6K04.eight_bit_row_stride)
+        self.assertEqual(
+            (16, 22),
+            (
+                TOSHIBA_T6K04.eight_bit_pages,
+                TOSHIBA_T6K04.six_bit_pages,
+            ),
+        )
+        self.assertEqual(
+            [(3.0, 1000, 350), (5.0, 500, 160)],
+            [
+                (
+                    timing.supply_volts,
+                    timing.enable_cycle_min_ns,
+                    timing.read_data_delay_max_ns,
+                )
+                for timing in TOSHIBA_T6K04.bus_timings
+            ],
+        )
+
+    def test_t6k04_busy_bounds_follow_oscillator_periods(self):
+        low, high = t6k04_busy_interval_us(456.96)
+
+        self.assertAlmostEqual(2000 / 456.96, low)
+        self.assertAlmostEqual(4000 / 456.96, high)
+        with self.assertRaises(ValueError):
+            t6k04_busy_interval_us(501)
+
     def test_decodes_os_initialization_commands(self):
         commands = [
             decode_lcd_command(value)

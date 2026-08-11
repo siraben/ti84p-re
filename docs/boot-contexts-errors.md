@@ -134,7 +134,7 @@ So `errSP` + `_JError` together implement try/catch: a context seeds `errSP` (fr
 
 ### Error-message table [confirmed]
 
-The error screen shows `ERR:<MESSAGE>` (the `ERR:` prefix is on `01:4008`). A local data-table trace shows the handler masking the code (`AND 0x7F`), then for codes below `0x3A` indexing a little-endian pointer table at `07:6ACC` by `(code) − 1` (`LD HL,0x6ACC; ADD HL,DE; ADD HL,DE; CALL _LdHLind`) to fetch each message pointer; the message strings themselves sit consecutively from `07:6B3C` as null-terminated text. Codes `≥ 0x3A` (and the special-cased `0x36`/`0x37`/`0x39`) bypass the table and fall back to the `?` message at `07:6C5A`. The current MCP function/xref view does not prove this data-only table directly, so treat the addresses as a data trace rather than live function symbols:
+The error screen shows `ERR:<MESSAGE>`; the `ERR:` prefix is at `01:4008`. The handler at `07:6A72` masks the code with `0x7F`, then indexes a little-endian pointer table at `07:6ACC` by `(code) − 1` for codes below `0x3A`. It fetches the pointer through `_LdHLind` and copies the selected null-terminated string. Codes `0x36`, `0x37`, `0x39`, and values at least `0x3A` bypass the table and select `?` at `07:6C5A`. [confirmed]
 
 | Code | `TIError` | Message @ page_07 |
 |------|-----------|-------------------|
@@ -150,9 +150,10 @@ The error screen shows `ERR:<MESSAGE>` (the `ERR:` prefix is on `01:4008`). A lo
 | 10 | E_Argument | ARGUMENT (6B92) |
 | 11 | E_DimMismatch | DIM MISMATCH (6B9B) |
 | 12 | E_Dimension | INVALID DIM (6BA8) |
-| … | … | UNDEFINED, MEMORY, INVALID, ILLEGAL NEST, BOUND, WINDOW RANGE, ZOOM, LABEL, STAT, SOLVER, … LINK (6C55) |
+| … | … | UNDEFINED, MEMORY, INVALID, ILLEGAL NEST, BOUND, WINDOW RANGE, ZOOM, LABEL, STAT, SOLVER, … |
+| 31–35 | link-error aliases | LINK (`6C55`) |
 
-The `Code` column is each error's low 7 bits. Re-editable errors set the `E_EDIT` (`0x80`) bit on top — `E_Overflow equ 1+E_EDIT`, `E_DivBy0 equ 2+E_EDIT`, … — while non-editable ones (`E_Label equ 20`, `E_Stat equ 21`, …) carry no such bit. The handler masks the code (`AND 0x7F`) before indexing. So the whole error pathway is: a routine `_JError`s a code → the handler restores `SP` from `errSP` → masks the code and looks up the message here → renders `ERR:<msg>`.
+The `Code` column is each error's low 7 bits. Re-editable errors set the `E_EDIT` (`0x80`) bit on top — `E_Overflow equ 1+E_EDIT`, `E_DivBy0 equ 2+E_EDIT`, … — while non-editable ones (`E_Label equ 20`, `E_Stat equ 21`, …) carry no such bit. The handler masks the code (`AND 0x7F`) before indexing. Thus `_JError(0x22)` and `_JError(0x9F)` both select `LINK` at `07:6C55`, through pointer entries `07:6B0E` and `07:6B08`. `tools/describe_error.py` reproduces the table lookup from the ROM. [confirmed]
 
 ## Confirmed details
 

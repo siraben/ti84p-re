@@ -10,6 +10,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from ti_program import encode_program_file
+
 T = {
     "store": 0x04,
     "lbrace": 0x08,
@@ -622,25 +624,11 @@ def hex_bytes(data: list[int]) -> str:
 
 def ti83p_program_file(name: str, body: list[int]) -> bytes:
     """Return a TI-83+/84+ .8xp file for a tokenized program body."""
-    calc_name = name.upper().encode("ascii")[:8]
-    prog_data = len(body).to_bytes(2, "little") + bytes(body)
-
-    entry = bytearray()
-    entry += (13).to_bytes(2, "little")      # TI-83+ variable-header length.
-    entry += len(prog_data).to_bytes(2, "little")
-    entry += bytes([0x05])                   # ProgObj.
-    entry += calc_name.ljust(8, b"\0")
-    entry += bytes([0x00, 0x00])             # version, archive flag.
-    entry += len(prog_data).to_bytes(2, "little")
-    entry += prog_data
-
-    header = (
-        b"**TI83F*"
-        + bytes([0x1A, 0x0A, 0x00])
-        + b"Codex TI-BASIC trace sample".ljust(42, b" ")
+    return encode_program_file(
+        name,
+        body,
+        comment="Codex TI-BASIC trace sample",
     )
-    payload = header + len(entry).to_bytes(2, "little") + entry
-    return payload + (sum(entry) & 0xFFFF).to_bytes(2, "little")
 
 
 def main() -> None:

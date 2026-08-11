@@ -1,8 +1,9 @@
 """Reusable USB register, event, and pinned-emulator comparison helpers.
 
-The FDRC names come from Mentor's published register header and remain a
-controller-family hypothesis for the TI ASIC.  Emulator profiles reproduce
-the named source revisions; they are not physical USB models.
+The FDRC names come from a Mentor-authored 2004 header preserved in a
+third-party SDK tree.  They remain a controller-family hypothesis for the TI
+ASIC.  Emulator profiles reproduce the named source revisions; they are not
+physical USB models.
 """
 
 from __future__ import annotations
@@ -45,6 +46,97 @@ FDRC_REGISTER_NAMES = (
     ("RXFIFO1",),
     ("RXFIFO2", "FIFOSIZE", "CONFIGDATA"),
 )
+
+# Byte view of the common HDRC/MUSB global register map in Linux musb_regs.h.
+# DEVCTL is at offset 0x60 in that layout rather than in this compact prefix.
+HDRC_GLOBAL_REGISTER_NAMES = (
+    ("FADDR",),
+    ("POWER",),
+    ("INTRTX1",),
+    ("INTRTX2",),
+    ("INTRRX1",),
+    ("INTRRX2",),
+    ("INTRTX1E",),
+    ("INTRTX2E",),
+    ("INTRRX1E",),
+    ("INTRRX2E",),
+    ("INTRUSB",),
+    ("INTRUSBE",),
+    ("FRAME1",),
+    ("FRAME2",),
+    ("INDEX",),
+    ("TESTMODE",),
+)
+
+
+@dataclass(frozen=True)
+class UsbLayoutSource:
+    """Pinned source used to identify or independently check a layout."""
+
+    layout: str
+    document: str
+    revision: str
+    provenance: str
+    url: str
+    limit: str
+
+
+USB_LAYOUT_SOURCES = (
+    UsbLayoutSource(
+        layout="FDRC",
+        document="mu_fdrdf.h revision 1.7",
+        revision="ac49c480c45c4106cba46a93fd4ae09969db5a1e",
+        provenance="Mentor-authored 2004 proprietary header preserved in a third-party SDK tree",
+        url="https://github.com/illusionlee/lightcube/blob/ac49c480c45c4106cba46a93fd4ae09969db5a1e/beken378/driver/usb/src/cd/mu_fdrdf.h",
+        limit="does not identify the TI ASIC or prove its electrical implementation",
+    ),
+    UsbLayoutSource(
+        layout="FDRC corroboration",
+        document="vsf_musb_fdrc_hw.h",
+        revision="4327394b125aae68f67ed48b3aa891fd203a6ca8",
+        provenance="independent Apache-licensed VSF implementation",
+        url="https://github.com/vsfteam/vsf/blob/4327394b125aae68f67ed48b3aa891fd203a6ca8/source/component/usb/driver/otg/musb/fdrc/vsf_musb_fdrc_hw.h",
+        limit="corroborates the register ordering but is not TI-84 Plus evidence",
+    ),
+    UsbLayoutSource(
+        layout="common HDRC/MUSB",
+        document="Linux musb_regs.h",
+        revision="db2ddb87143519e20a95aa36c60b36107b736a58",
+        provenance="Linux driver header carrying Mentor Graphics and Texas Instruments copyrights",
+        url="https://github.com/torvalds/linux/blob/db2ddb87143519e20a95aa36c60b36107b736a58/drivers/usb/musb/musb_regs.h",
+        limit="comparison layout only; it does not document the TI-84 Plus ASIC",
+    ),
+)
+
+
+@dataclass(frozen=True)
+class UsbLayoutComparison:
+    """FDRC and common HDRC names at one TI-relative byte offset."""
+
+    port: int
+    offset: int
+    fdrc_names: tuple[str, ...]
+    hdrc_names: tuple[str, ...]
+    same_names: bool
+
+
+def compare_usb_global_layouts() -> tuple[UsbLayoutComparison, ...]:
+    """Compare the compact FDRC and common HDRC byte maps at ports 0x80-0x8F."""
+
+    rows = []
+    for offset, (fdrc_names, hdrc_names) in enumerate(
+        zip(FDRC_REGISTER_NAMES, HDRC_GLOBAL_REGISTER_NAMES)
+    ):
+        rows.append(
+            UsbLayoutComparison(
+                port=FDRC_BASE + offset,
+                offset=offset,
+                fdrc_names=fdrc_names,
+                hdrc_names=hdrc_names,
+                same_names=fdrc_names == hdrc_names,
+            )
+        )
+    return tuple(rows)
 
 FDRC_POWER_BITS = {
     0: "ENSUSPEND",

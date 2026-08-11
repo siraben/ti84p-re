@@ -190,11 +190,38 @@ Port-`0x03` bit 4 also keeps link activity available as a wake source in the sta
 
 Port-`0x04` bit 4 has lower OS dispatch priority than the three programmable timers and standard timer 2, but higher priority than ON and standard timer 1. The branch enters the power-restoration path at `ram:01E0`. See [Interrupts (IM1)](interrupts.md#dispatch-order-and-simultaneous-sources) for acknowledgement and simultaneous-source behavior. [confirmed]
 
-## The both-low pulse at `3C:618D`
+## Error cleanup and the both-low abort pulse
 
-The routine at `3C:618D` checks `(IY+0x1B)` bit 5. On its raw-link branch it writes `3` to port `0x00`, executes a long nested delay, and writes `0` at `3C:61B3`. Callers occur in link and command paths on pages `05` and `3C`. [confirmed]
+### Callback provenance
 
-The standard DBus description assigns a sustained both-low state to abort signaling. The waveform at `3C:6198`–`61B3` is compatible with that role, but the callers and delay have not been reduced far enough to name this routine as the OS abort primitive. [hypothesis]
+`3C:618D` has one genuine direct caller, at `3C:614E`. Raw searches also find six `CALL 0x618D` instructions on page `05`, but those resolve to unrelated page-`05` code because both the call sites and destination occupy the same banked window. They are not callers of `3C:618D`. `analyze_rom_calls.py` now reports this inferred physical destination as `resolved_target`, which keeps same-address routines on different pages distinct. [confirmed]
+
+The real entry chain starts at page-0 bjump stub `00:2D51`, whose inline descriptor resolves to `3C:6136`. Six higher-level paths load `HL=0x2D51` and call the error-callback installer at `00:27DA`: `36:4BAD`, `36:5B7D`, `3D:6D77`, `3D:6EE3`, `3D:6F10`, and `3D:6F40`. The callback examines `sndRecState` at `0x8672`. State `0x0A` immediately rethrows the pending error. State `0x15` follows an `ioFlag` bit-1 branch without reaching the pulse. Other states fall through `3C:614C`, call `3C:618D`, and then invoke page-0 stub `00:2F31`, which resolves to `07:7AC3` and stores `1` in `ioErrState`. This makes the routine part of installed link-error cleanup rather than an arbitrary command delay. [confirmed]
+
+### Transport-specific cleanup
+
+`3C:618D` first tests link-mode bit 5 at `(IY+0x1B)`. The bit is set by USB initialization elsewhere in the ROM. When it is set, the routine skips all raw port activity and calls `lnk_clr_busy_b` at `3C:4F32`. The raw branch performs this sequence: [confirmed]
+
+```z80
+3C:6193  call 6971h       ; lnk_set_busy
+3C:6196  ld a,3
+3C:6198  out (0),a        ; pull both raw lines low
+3C:619A  call 0DBDh       ; save port 20; select speed mode 0
+           ... delay ...
+3C:61AE  call 0CF8h       ; restore saved port-20 bit 0
+3C:61B1  ld a,0
+3C:61B3  out (0),a        ; release both lines
+3C:61B5  call 4F32h       ; lnk_clr_busy_b
+3C:61B8  ret
+```
+
+The public DBus guide defines simultaneous assertion of both lines as the electrical error/abort condition. Error-callback provenance, explicit busy-state bracketing, the both-low/release waveform, and the USB bypass together identify `3C:618D` as the OS's transport abort cleanup; the pulse is specific to the raw two-wire path. [confirmed] for the ROM role; [standard] for the public waveform name.
+
+### Exact software delay
+
+The loop at `3C:619D`–`61AE` loads `HL=0xFFFF`. For every outer iteration it loads `A=4`, executes four padding `NOP`s, runs a four-iteration `DEC A`/`JR NZ` loop, decrements `HL`, and repeats until zero. Base Z80 timing is 7,077,785 T-states across 1,114,096 opcode fetches. Under the documented wait-state semantics, the OS's mode-0 configuration (`port 0x29=0x17`, `port 0x2E=0x45`) adds one T-state to each Flash opcode fetch, making the delay loop 8,191,881 T-states. At the nominal 6 MHz selected by `00:0DBD`, that is 1.3653135 seconds. `00:0CF8` later restores only bit 0 of the saved port-`0x20` byte, which is sufficient for the OS's normal modes `0` and `1` but would collapse modes `2` and `3`. The count excludes the surrounding calls and I/O instructions. [confirmed] for the base instruction and fetch counts; [standard] for the configured wait-state and nominal clock conversion.
+
+The archived protocol guide describes an abort assertion of approximately 250 µs and a two-second maximum bit time. This OS deliberately holds the condition far longer than that example while remaining below the nominal two-second timeout. Physical CPU frequency, wait-state behavior, and line rise/fall time still need measurement before assigning an exact oscilloscope duration. [standard] for the guide; [hypothesis] for the physical waveform.
 
 ## Emulator comparison
 
@@ -296,6 +323,7 @@ nix develop -c python tools/describe_link_port.py byte 0xA5
 nix develop -c python tools/describe_link_port.py receive 1 2 1 2 2 1 2 1
 nix develop -c python tools/describe_link_port.py compare 1 2 0
 nix develop -c python tools/describe_link_port.py emulator mame 0x14 0x28
+nix develop -c python tools/describe_link_port.py abort-pulse
 ```
 
 Add `--json` before the subcommand for machine-readable output. The model uses neutral line numbers so a trace remains valid even when the physical contact mapping is under review.
@@ -305,17 +333,19 @@ Add `--json` before the subcommand for machine-readable output. The model uses n
 - [confirmed] `_SendAByte` writes `1` for bit 0 and `2` for bit 1, least-significant bit first.
 - [confirmed] The receiver maps initial read `2` to bit 0 and read `1` to bit 1, then acknowledges on the other line.
 - [confirmed] Both-low is the acknowledgement midpoint during a valid transfer, but it is an error when a receiver sees it before choosing a bit.
+- [confirmed] The installed error callback reaches `3C:618D` for applicable transfer states; its raw branch brackets a both-low pulse with link-busy state and its USB branch skips the raw lines.
+- [confirmed] The raw delay loop is 7,077,785 base T-states and 8,191,881 T-states with the OS's mode-0 Flash opcode wait.
 - [confirmed] The standard-timer path detects non-idle raw lines and routes them to the OS link-activity handler.
 - [standard] Port reads use active-high physical levels, writes use active-high pull-low controls, and bits 4–5 reflect the local output latch.
 - [standard] Public hardware references map bit 0 to red/tip and bit 1 to white/ring.
 - [standard] TilEm and Wabbitemu reproduce the raw open-collector truth table; MAME reproduces local readback but normal writes do not reach its connector device.
 - [standard] MAME advertises link assist while omitting its control and data ports, and its driver is declared `MACHINE_NOT_WORKING`.
-- [hypothesis] Physical tests must measure pull-up resistance, high/low thresholds, line rise time, timeout duration at both CPU speeds, and the waveform and purpose of `3C:618D`.
+- [hypothesis] Physical tests must measure pull-up resistance, high/low thresholds, line rise time, timeout duration at both CPU speeds, and the actual duration and voltage waveform of the `3C:618D` abort pulse.
 
 ## External references
 
 - [WikiTI port `0x00`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:00) — public bit meanings and output-latch behavior; treated as a secondary source.
-- [TI Link Protocol Guide](https://www.ticalc.org/archives/files/fileinfo/247/24750.html) — archived open-collector, contact-name, and four-transition protocol description.
+- [TI Link Protocol Guide](https://www.ticalc.org/archives/files/fileinfo/247/24750.html) — archived open-collector, contact-name, four-transition, abort-condition, and timeout description.
 - [TilEm link core at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/link.c) and [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) — raw lines, activity interrupt, link assist, and timeout policy.
 - [Wabbitemu `83psehw.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) and [`link.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/link.c) — raw port, assist engine, virtual-cable handshake, and disconnect lifecycle.
 - [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp), [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp), and [`ti8x.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/devices/bus/ti8x/ti8x.cpp) — I/O coverage, PCR expressions, connector callbacks, and generic link-bus state machine.

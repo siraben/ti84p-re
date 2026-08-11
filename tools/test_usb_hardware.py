@@ -9,7 +9,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from usb_hardware import (
     USB_EMULATOR_PROFILES,
+    USB_LAYOUT_SOURCES,
     boot_usb_event_action,
+    compare_usb_global_layouts,
     decode_fdrc_bits,
     decode_link_assist_rate,
     decode_usb_line_state,
@@ -22,6 +24,20 @@ from usb_hardware import (
 
 
 class UsbHardwareTests(unittest.TestCase):
+    def test_layout_comparison_exposes_discriminating_offsets(self):
+        rows = {row.port: row for row in compare_usb_global_layouts()}
+
+        self.assertTrue(rows[0x80].same_names)
+        self.assertEqual(("INTRUSB",), rows[0x86].fdrc_names)
+        self.assertEqual(("INTRTX1E",), rows[0x86].hdrc_names)
+        self.assertEqual(("DEVCTL",), rows[0x8F].fdrc_names)
+        self.assertEqual(("TESTMODE",), rows[0x8F].hdrc_names)
+
+    def test_layout_sources_preserve_provenance_limits(self):
+        self.assertEqual(3, len(USB_LAYOUT_SOURCES))
+        self.assertIn("proprietary", USB_LAYOUT_SOURCES[0].provenance)
+        self.assertIn("does not identify", USB_LAYOUT_SOURCES[0].limit)
+
     def test_fdrc_global_and_indexed_aliases(self):
         self.assertEqual(("FADDR",), fdrc_register(0x80).names)
         self.assertEqual(("CSR0", "TXCSR1"), fdrc_register(0x91).names)

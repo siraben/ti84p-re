@@ -1,8 +1,10 @@
-"""Reusable TI-84 Plus Flash geometry and emulator-behavior models.
+"""Reusable TI-84 Plus Flash-device and emulator-behavior models.
 
-The geometry follows the one-megabyte top-boot device used by the calculator.
-The emulator helpers reproduce specific source implementations.  They are test
-oracles for those implementations, not claims about unmeasured hardware.
+The physical-device facts describe one photographed March 2004 board and the
+matching Fujitsu data sheet.  The geometry is shared by the compatible parts
+reported for other boards.  Emulator helpers reproduce pinned source
+implementations; they are test oracles for those implementations, not claims
+about unmeasured hardware.
 """
 
 from __future__ import annotations
@@ -12,6 +14,68 @@ from dataclasses import dataclass
 
 FLASH_SIZE = 0x100000
 PAGE_SIZE = 0x4000
+
+
+@dataclass(frozen=True)
+class FlashDeviceSpec:
+    """Data-sheet properties of the part on one photographed TI-84 Plus."""
+
+    manufacturer: str
+    orderable_part: str
+    photographed_marking: str
+    board_evidence: str
+    datasheet: str
+    capacity_bytes: int
+    byte_mode_unlock_addresses: tuple[int, int]
+    top_boot: bool
+    supply_volts: str
+    package: str
+    access_time_max_ns: int
+    program_erase_cycles_min: int
+    manufacturer_code: int
+    device_code_byte_mode: int
+    byte_program_typ_us: int
+    byte_program_max_us: int
+    sector_erase_typ_ms: int
+    sector_erase_max_ms: int
+
+
+FUJITSU_MBM29LV800TA = FlashDeviceSpec(
+    manufacturer="Fujitsu",
+    orderable_part="MBM29LV800TA-70PFTN",
+    photographed_marking="29LV800TA-70PFTN",
+    board_evidence="Datamath March 2004 TI-84 Plus PCB photograph",
+    datasheet="Fujitsu DS05-20845-4E",
+    capacity_bytes=FLASH_SIZE,
+    byte_mode_unlock_addresses=(0xAAA, 0x555),
+    top_boot=True,
+    supply_volts="3.0 V-only read/program/erase",
+    package="48-pin TSOP(I), normal bend",
+    access_time_max_ns=70,
+    program_erase_cycles_min=100_000,
+    manufacturer_code=0x04,
+    device_code_byte_mode=0xDA,
+    byte_program_typ_us=8,
+    byte_program_max_us=300,
+    sector_erase_typ_ms=1_000,
+    sector_erase_max_ms=10_000,
+)
+
+
+@dataclass(frozen=True)
+class ReportedCompatiblePart:
+    """One compatible 1 MiB part listed by Datamath across calculator boards."""
+
+    manufacturer: str
+    family: str
+
+
+REPORTED_COMPATIBLE_PARTS = (
+    ReportedCompatiblePart("AMIC", "A29L800A"),
+    ReportedCompatiblePart("Fujitsu", "29LV800"),
+    ReportedCompatiblePart("Spansion", "S29AL008D"),
+    ReportedCompatiblePart("Macronix", "MX29LV800"),
+)
 
 
 def _byte(value: int, name: str) -> int:
@@ -47,7 +111,7 @@ TOP_BOOT_SECTORS = tuple(
 
 
 def flash_sector(address: int) -> FlashSector:
-    """Return the Am29LV800B top-boot sector containing *address*."""
+    """Return the compatible top-boot sector containing *address*."""
 
     if not 0 <= address < FLASH_SIZE:
         raise ValueError(f"Flash address outside 1 MiB device: 0x{address:X}")
@@ -67,6 +131,8 @@ class EmulatorFlashProfile:
     program_completion: str
     erase_completion: str
     autoselect: str
+    autoselect_manufacturer_code: int | None
+    autoselect_device_code: int | None
     asic_write_gate: str
     driver_status: str
 
@@ -79,6 +145,8 @@ EMULATOR_PROFILES = (
         program_completion="7-cycle busy model with DQ7/DQ6 status",
         erase_completion="200000-cycle busy model with DQ6/DQ2/DQ3 status",
         autoselect="not implemented",
+        autoselect_manufacturer_code=None,
+        autoselect_device_code=None,
         asic_write_gate="protected-byte recognizer, port 0x14 lock, sector groups",
         driver_status="TI-84 Plus model used for dynamic traces",
     ),
@@ -89,6 +157,8 @@ EMULATOR_PROFILES = (
         program_completion="immediate; one transient error read for 0-to-1 requests",
         erase_completion="immediate",
         autoselect="manufacturer 0x01, TI-84 Plus device 0xDA",
+        autoselect_manufacturer_code=0x01,
+        autoselect_device_code=0xDA,
         asic_write_gate="privileged-page port 0x14 gate and boot-page model bits",
         driver_status="source model; no physical timing claim",
     ),
@@ -99,6 +169,8 @@ EMULATOR_PROFILES = (
         program_completion="immediate array read; no AMD program-busy status",
         erase_completion="data cleared immediately, then timed erase status",
         autoselect="manufacturer 0x01, device 0xDA",
+        autoselect_manufacturer_code=0x01,
+        autoselect_device_code=0xDA,
         asic_write_gate="none; port 0x14 state does not gate mapped Flash writes",
         driver_status="TI-84 Plus driver is MACHINE_NOT_WORKING",
     ),
