@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Regression tests for AMD Flash command decoding."""
 
+from dataclasses import replace
 import unittest
 
 from flash_trace import (
+    FLASH_WRITE_SEMANTICS,
     FlashCommand,
     decode_amd_flash_commands,
     flash_sector,
     group_byte_program_invocations,
     group_byte_program_runs,
+    program_transition_kind,
 )
 from hardware_trace import ResolvedMemoryWrite
 
@@ -32,6 +35,24 @@ def flash_write(address: int, value: int, index: int) -> ResolvedMemoryWrite:
 
 
 class FlashTraceTests(unittest.TestCase):
+    def test_write_semantics_do_not_claim_asic_acceptance(self):
+        self.assertIn("CPU write attempts", FLASH_WRITE_SEMANTICS)
+        self.assertIn(
+            "does not record ASIC or device acceptance",
+            FLASH_WRITE_SEMANTICS,
+        )
+
+    def test_classifies_normal_crossing_and_same_page_window_wrap(self):
+        self.assertEqual("contiguous", program_transition_kind(0x20000, 0x20001))
+        self.assertEqual("next-page", program_transition_kind(0x23FFF, 0x24000))
+        self.assertEqual(
+            "same-page-window-wrap",
+            program_transition_kind(0xF7FFF, 0xF4000),
+        )
+        self.assertEqual("discontinuity", program_transition_kind(0x20010, 0x20020))
+        with self.assertRaisesRegex(ValueError, "outside"):
+            program_transition_kind(0xFFFFF, 0x100000)
+
     def test_decodes_byte_program_sequence(self):
         writes = [
             flash_write(0xAAAA, 0xAA, 0),
@@ -128,8 +149,44 @@ class FlashTraceTests(unittest.TestCase):
         self.assertEqual(1, invocations[0].page_crossings)
         self.assertTrue(invocations[0].contiguous)
         self.assertTrue(invocations[0].reset_matches_final_target)
+        self.assertEqual("unknown-reset", invocations[0].worker_outcome)
         self.assertEqual((0x09,), invocations[1].pages)
         self.assertFalse(invocations[1].contiguous)
+
+    def test_reports_page_3e_skip_as_same_page_window_wrap(self):
+        commands = [
+            FlashCommand(
+                "byte_program",
+                1,
+                10,
+                0xF7FFF,
+                0x40,
+                (flash_write(0xF7FFF, 0x40, 1),),
+            ),
+            FlashCommand(
+                "byte_program",
+                2,
+                20,
+                0xF4000,
+                0xE0,
+                (flash_write(0xF4000, 0xE0, 2),),
+            ),
+            FlashCommand(
+                "array_reset",
+                3,
+                30,
+                0xF4000,
+                0xF0,
+                (flash_write(0xF4000, 0xF0, 3),),
+            ),
+        ]
+
+        invocation = list(group_byte_program_invocations(commands))[0]
+
+        self.assertEqual(("same-page-window-wrap",), invocation.transition_kinds)
+        self.assertEqual((0x3D,), invocation.pages)
+        self.assertEqual(0, invocation.page_crossings)
+        self.assertFalse(invocation.contiguous)
 
     def test_keeps_unterminated_program_invocation(self):
         write = flash_write(0x20000, 0x12, 1)
@@ -140,6 +197,28 @@ class FlashTraceTests(unittest.TestCase):
 
         self.assertIsNone(invocation.reset)
         self.assertFalse(invocation.reset_matches_final_target)
+        self.assertEqual("unterminated", invocation.worker_outcome)
+
+    def test_classifies_copied_worker_reset_paths(self):
+        program_write = flash_write(0xF7FFF, 0xD0, 1)
+        program = FlashCommand(
+            "byte_program", 1, 10, 0xF7FFF, 0xD0, (program_write,)
+        )
+
+        outcomes = []
+        for pc_address in (0x816B, 0x8175):
+            reset_write = replace(
+                flash_write(0xF7FFF, 0xF0, 2),
+                pc_address=pc_address,
+            )
+            reset = FlashCommand(
+                "array_reset", 2, 20, 0xF7FFF, 0xF0, (reset_write,)
+            )
+            outcomes.append(
+                list(group_byte_program_invocations((program, reset)))[0].worker_outcome
+            )
+
+        self.assertEqual(["success", "failure"], outcomes)
 
 
 if __name__ == "__main__":

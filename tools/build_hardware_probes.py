@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 
 from hardware_probe import APPVAR_TYPE, PROBE_FORMAT_VERSION, PROBE_MAGIC
-from tibasic_samples import T, hex_literal, ti83p_program_file
+from ti_program import asmprgm_body, encode_program_file
 
 
 TOOLS = Path(__file__).resolve().parent
@@ -66,20 +66,6 @@ def probe_definition(probe_name: str) -> ProbeDefinition:
     return probe
 
 
-def asmprgm_body(machine_code: bytes) -> list[int]:
-    """Return a tokenized ``AsmPrgm`` body containing *machine_code*."""
-
-    if not machine_code:
-        raise ValueError("probe machine code is empty")
-    return [
-        T["2byte"],
-        T["asmprgm"],
-        T["enter"],
-        *hex_literal(machine_code.hex()),
-        T["enter"],
-    ]
-
-
 def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
     """Check stable entry, result-frame, and AppVar-copy invariants."""
 
@@ -121,7 +107,11 @@ def package_probe(
 
     probe = probe_definition(probe_name)
     validate_machine_code(probe_name, machine_code)
-    program = ti83p_program_file(probe.program, asmprgm_body(machine_code))
+    program = encode_program_file(
+        probe.program,
+        asmprgm_body(machine_code),
+        comment="Codex TI-BASIC trace sample",
+    )
     metadata: dict[str, object] = {
         "probe": probe_name,
         "probe_id": probe.probe_id,

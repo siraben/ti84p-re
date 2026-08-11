@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Decode AMD Flash commands from a resolved TilEm instruction trace."""
+"""Decode AMD command-shaped CPU writes from a resolved TilEm trace."""
 
 from __future__ import annotations
 
@@ -10,10 +10,12 @@ from pathlib import Path
 import sys
 
 from flash_trace import (
+    FLASH_WRITE_SEMANTICS,
     decode_amd_flash_commands,
     flash_sector,
     group_byte_program_invocations,
     group_byte_program_runs,
+    program_transition_kind,
 )
 from hardware_trace import iter_resolved_memory_writes, trace_header
 from tilem_trace_resolve import parse_clock_range
@@ -42,7 +44,14 @@ def contiguous_ranges(addresses: list[int]) -> list[tuple[int, int]]:
 
 def invocation_report(invocation) -> dict:
     discontinuities = [
-        {"from": previous.target_address, "to": current.target_address}
+        {
+            "from": previous.target_address,
+            "to": current.target_address,
+            "kind": program_transition_kind(
+                previous.target_address,
+                current.target_address,
+            ),
+        }
         for previous, current in zip(invocation.commands, invocation.commands[1:])
         if current.target_address != previous.target_address + 1
     ]
@@ -55,11 +64,49 @@ def invocation_report(invocation) -> dict:
         "pages": list(invocation.pages),
         "page_crossings": invocation.page_crossings,
         "contiguous": invocation.contiguous,
+        "transition_kinds": list(invocation.transition_kinds),
         "discontinuities": discontinuities,
         "reset_address": (
             invocation.reset.target_address if invocation.reset is not None else None
         ),
+        "reset_pc": (
+            {
+                "space": invocation.reset_pc[0],
+                "address": invocation.reset_pc[1],
+            }
+            if invocation.reset_pc is not None
+            else None
+        ),
         "reset_matches_final_target": invocation.reset_matches_final_target,
+        "worker_outcome": invocation.worker_outcome,
+    }
+
+
+def structured_report(
+    trace: Path,
+    header,
+    writes: list,
+    unresolved: int,
+    commands: list,
+    invocations: list,
+) -> dict[str, object]:
+    """Return the stable JSON-facing report with explicit write semantics."""
+
+    counts = Counter(command.kind for command in commands)
+    return {
+        "trace": str(trace),
+        "header": {
+            "version": header.version,
+            "range_start": header.range_start,
+            "range_end": header.range_end,
+        },
+        "write_semantics": FLASH_WRITE_SEMANTICS,
+        "resolved_flash_write_attempts": len(writes),
+        "unresolved_writes_skipped": unresolved,
+        "command_shape_counts": dict(sorted(counts.items())),
+        "program_invocations": [
+            invocation_report(invocation) for invocation in invocations
+        ],
     }
 
 
@@ -146,20 +193,14 @@ def main() -> None:
 
     if args.json:
         json.dump(
-            {
-                "trace": str(args.trace),
-                "header": {
-                    "version": header.version,
-                    "range_start": header.range_start,
-                    "range_end": header.range_end,
-                },
-                "resolved_flash_writes": len(writes),
-                "unresolved_writes_skipped": unresolved,
-                "command_counts": dict(sorted(counts.items())),
-                "program_invocations": [
-                    invocation_report(invocation) for invocation in invocations
-                ],
-            },
+            structured_report(
+                args.trace,
+                header,
+                writes,
+                unresolved,
+                commands,
+                invocations,
+            ),
             sys.stdout,
             indent=2,
         )
@@ -170,11 +211,11 @@ def main() -> None:
         f"trace v{header.version}, range=0x{header.range_start:04X}-"
         f"0x{header.range_end:04X}"
     )
-    print(f"resolved Flash writes: {len(writes)}")
+    print(f"resolved CPU write attempts targeting Flash: {len(writes)}")
     if unresolved:
         print(f"unresolved writes skipped: {unresolved}")
     print(
-        "commands: "
+        "decoded command-shaped sequences: "
         f"byte_program={counts['byte_program']} "
         f"sector_erase={counts['sector_erase']} "
         f"array_reset={counts['array_reset']} "
@@ -233,8 +274,15 @@ def main() -> None:
                 f"count={len(invocation.commands)} pages={pages} "
                 f"crossings={invocation.page_crossings} "
                 f"contiguous={'yes' if invocation.contiguous else 'no'} "
-                f"reset={reset}"
+                f"reset={reset} outcome={invocation.worker_outcome}"
             )
+            unusual = [
+                kind
+                for kind in invocation.transition_kinds
+                if kind not in {"contiguous", "next-page"}
+            ]
+            if unusual:
+                print(f"  unusual transitions: {','.join(unusual)}")
 
     if args.events:
         shown = 0

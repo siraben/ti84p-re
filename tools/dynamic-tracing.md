@@ -134,7 +134,7 @@ tools/analyze_trace_points.py /tmp/b.trace \
 tools/analyze_trace_points.py /tmp/b.trace --point ram:8100 \
   --opcode 0xE6 --where 'DE<0x8000' --summary-register HL
 
-# AMD Flash commands, physical erase sectors, values, and compact program runs
+# AMD command-shaped CPU writes, physical targets, and compact program runs
 tools/analyze_flash_trace.py /tmp/b.trace \
   --clock 321347460-344829074 --timeline
 
@@ -151,6 +151,12 @@ tools/tilem_trace_resolve.py /tmp/b.trace --initial-mapping ti84p-reset \
 tools/tilem_trace_resolve.py /tmp/b.trace --initial-mapping ti84p-reset \
   --funcs --only-space page_39 --sort count --names tools/names.txt
 ```
+
+TilEm's TLMT records identify CPU writes to mapped Flash. They do not encode
+whether the ASIC gate or Flash device accepted a write. `analyze_flash_trace.py`
+therefore reports command-shaped write attempts. Check port-`0x14`/port-`0x02`
+state and final array data before treating a decoded sequence as a completed
+program or erase.
 
 `--trace-range all` is required for paging to work — it captures page 0 and the
 banked windows. TLMT v2 does not store the mapping at the first record. Without
@@ -367,6 +373,310 @@ page `0x08`, `ram:8122` outputs page `0x09`, and `ram:8124` has changed `DE`
 from `0x8000` to `0x4000`. Clock values depend on the complete run and macro
 timing; use the invocation report to narrow the point query after recapture.
 
+### Guarded Flash-worker fixtures
+
+`build_flash_emulator_fixture.py` creates a fixture copy of the exact local OS
+2.55MP image and two program files. It refuses a ROM whose SHA-256 is not
+`7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d`.
+The programming probes change eight bytes at physical `0xF3068`, the tail of
+the page-`3C` protected unlock wrapper, from `F1 CD B9 2B CD D5 66 C9` to
+`F1 C9 00 00 00 00 00 00`. The `_WriteFlashUnsafe` body and copied worker
+remain unchanged. The read-only `entry-returns` probe uses an unmodified ROM
+copy.
+
+The builder selects named probes through `--fixture`. `page-3e-cross` remains
+the default; `program-error` exercises the worker's DQ5 failure path, and
+`entry-returns` captures early guards without unlocking Flash. The
+`byte-entry-returns` fixture captures `_WriteAByteSafe` and `_WriteAByte`
+wrapper side effects on no-worker paths. `locked-byte-noop` shows the worker's
+DQ7 result while the ASIC gate remains locked. `erase-entry-returns` does the
+same for the erase APIs. The
+`certificate-erase-success` fixture exercises a complete 8 KiB erase on a
+patched ROM copy. `erase-busy-range` samples selected and unselected Flash
+regions during an active erase. Fixture metadata, optional patching,
+validation, and TI link-file packaging live in
+`flash_emulator_fixture.py`; the CLI only assembles the selected source and
+writes its artifacts.
+
+#### Entry-return probe
+
+`EMUWFENT` checks the unmodified `_WriteFlashUnsafe` entry signature and then
+captures `AF` after four no-write paths: safe page `3E`, unsafe page `3F`, zero
+length on page `3D`, and a direct call from RAM. It saves and restores port
+`0x06` plus the incoming interrupt state.
+
+```sh
+fixture_dir=$(mktemp -d /tmp/writeflash-entry-fixture.XXXXXX)
+nix develop -c python tools/build_flash_emulator_fixture.py \
+  --fixture entry-returns \
+  --rom tools/rom.bin --output-dir "$fixture_dir"
+
+TILEM=~/Git/tilem-headless/result/bin/tilem2
+$TILEM --headless \
+  --rom "$fixture_dir/ti84plus-writeflash-entry.rom" \
+  --model ti84p --normal-speed --reset \
+  --macro tools/macros/run-first-program.macro \
+  --trace /tmp/writeflash-entry.trace --trace-range all \
+  "$fixture_dir/AWRUNENT.8xp" "$fixture_dir/EMUWFENT.8xp"
+
+python tools/analyze_flash_trace.py /tmp/writeflash-entry.trace --json
+python tools/analyze_trace_points.py /tmp/writeflash-entry.trace \
+  --point ram:9DC5 --point ram:9DD8 \
+  --point ram:9DEB --point ram:9DFF --json
+```
+
+The validated run contains no CPU write attempts targeting mapped Flash. The
+four result points hold `AF=0x3E42`, `0x3F42`, `0x3DBB`, and `0xA591`,
+respectively. The fixture ROM SHA-256 equals the source ROM SHA-256; the
+manifest reports `"rom_modified": false`.
+
+#### Byte-entry return probe
+
+`EMUWBENT` verifies the 16 wrapper bytes from `3F:4C9A` through `3F:4CA9` on
+the unmodified ROM. It exercises safe page `3E`, safe page `3F`, unsafe page
+`3F`, and a direct `_WriteAByte` call from RAM. Every path returns before
+worker launch. The fixture saves and restores the original `OP1` byte.
+
+```sh
+fixture_dir=$(mktemp -d /tmp/writeabyte-entry-fixture.XXXXXX)
+nix develop -c python tools/build_flash_emulator_fixture.py \
+  --fixture byte-entry-returns \
+  --rom tools/rom.bin --output-dir "$fixture_dir"
+
+TILEM=~/Git/tilem-headless/result/bin/tilem2
+$TILEM --headless \
+  --rom "$fixture_dir/ti84plus-writeabyte-entry.rom" \
+  --model ti84p --normal-speed --reset \
+  --macro tools/macros/run-first-program.macro \
+  --trace /tmp/writeabyte-entry.trace --trace-range all \
+  "$fixture_dir/AWBENTRY.8xp" "$fixture_dir/EMUWBENT.8xp"
+
+python tools/analyze_flash_trace.py /tmp/writeabyte-entry.trace --json
+python tools/analyze_trace_points.py /tmp/writeabyte-entry.trace \
+  --point ram:9DD1 --point ram:9DE4 \
+  --point ram:9DF5 --point ram:9E08 \
+  --point ram:9E19 --point ram:9E2C \
+  --point ram:9E42 --point ram:9E55 --json
+```
+
+The trace contains zero CPU write attempts targeting mapped Flash. The safe
+page-`3E` result keeps the input `BC=0x2233`, `DE=0x4455`, `HL=0x6677`, and
+sentinel `OP1=0x11`. The other three paths return with `BC=1`, `HL=0x8478`,
+and `OP1` equal to the input `B`. Their `AF` results are `0x3F42`, `0x3F42`,
+and `0xA591`.
+
+#### Locked byte-program no-op probe
+
+`EMULOCK` verifies the `_WriteAByte` wrapper and protected page-`3C` lock
+wrapper on the unmodified ROM. It requires source byte `0x50` at `3D:7FFF`,
+calls the lock wrapper, and aborts unless port `0x02` bit 2 is clear. It then
+requests `0x40`, captures the worker result, and rereads the target and status
+port. The fixture restores the original `OP1` byte.
+
+```sh
+fixture_dir=$(mktemp -d /tmp/writeabyte-locked-fixture.XXXXXX)
+nix develop -c python tools/build_flash_emulator_fixture.py \
+  --fixture locked-byte-noop \
+  --rom tools/rom.bin --output-dir "$fixture_dir"
+
+TILEM=~/Git/tilem-headless/result/bin/tilem2
+$TILEM --headless \
+  --rom "$fixture_dir/ti84plus-writeabyte-locked.rom" \
+  --model ti84p --normal-speed --reset \
+  --macro tools/macros/run-first-program.macro \
+  --trace /tmp/writeabyte-locked.trace --trace-range all \
+  "$fixture_dir/ALOCKED.8xp" "$fixture_dir/EMULOCK.8xp"
+
+python tools/analyze_flash_trace.py \
+  /tmp/writeabyte-locked.trace --events --invocations --json
+python tools/analyze_trace_points.py /tmp/writeabyte-locked.trace \
+  --point ram:9DDC --point ram:8149 --point ram:814D \
+  --point ram:816B --point ram:9DF0 --point ram:9E03 \
+  --point ram:9E0D --point ram:9E12 --json
+```
+
+Port `0x02` is `0xE3` before and after the call, so TilEm's Flash-unlocked bit
+stays clear. The command decoder finds five CPU write attempts, shaped as one
+byte program and one reset, but TLMT does not encode ASIC acceptance. The
+worker reads `0x50`, sees DQ7 agree with requested `0x40`, and returns
+`AF=0x0044`, Z. `BC=0`, `DE=0x8000`, `HL=0x8479`, and `OP1=0x40`; the final
+array byte remains `0x50`.
+
+#### Erase-entry probe
+
+`EMUERENT` verifies the unmodified entry bytes for `_EraseFlashPage`,
+`_EraseFlash`, and `_EraseCertificateSector`. It captures the page-`3E` guard,
+the direct-call guard, and an invalid certificate address. None can launch an
+erase worker.
+
+```sh
+fixture_dir=$(mktemp -d /tmp/eraseflash-entry-fixture.XXXXXX)
+nix develop -c python tools/build_flash_emulator_fixture.py \
+  --fixture erase-entry-returns \
+  --rom tools/rom.bin --output-dir "$fixture_dir"
+
+TILEM=~/Git/tilem-headless/result/bin/tilem2
+$TILEM --headless \
+  --rom "$fixture_dir/ti84plus-eraseflash-entry.rom" \
+  --model ti84p --normal-speed --reset \
+  --macro tools/macros/run-first-program.macro \
+  --trace /tmp/eraseflash-entry.trace --trace-range all \
+  "$fixture_dir/AERUNENT.8xp" "$fixture_dir/EMUERENT.8xp"
+
+python tools/analyze_flash_trace.py /tmp/eraseflash-entry.trace --json
+python tools/analyze_trace_points.py /tmp/eraseflash-entry.trace \
+  --point ram:9DCD --point ram:9DE2 --point ram:9DF6 --json
+```
+
+The validated run contains no CPU write attempts targeting mapped Flash. The
+three result points hold `AF=0x3E42`, `0xA591`, and `0xA545`, respectively.
+The last value is the fixture's seeded caller value, preserved by the
+certificate wrapper. Its manifest reports `"rom_modified": false`.
+
+#### Certificate-erase success probe
+
+`EMUCERAS` checks the patched unlock-wrapper signature, seeds caller
+`AF=0xA545`, and invokes `_EraseCertificateSector` for `HL=0x4000`. It rereads
+the first byte while Flash remains unlocked, then relocks and restores the
+incoming interrupt state. The operation affects only the copied ROM image.
+
+```sh
+fixture_dir=$(mktemp -d /tmp/certificate-erase-fixture.XXXXXX)
+nix develop -c python tools/build_flash_emulator_fixture.py \
+  --fixture certificate-erase-success \
+  --rom tools/rom.bin --output-dir "$fixture_dir"
+
+TILEM=~/Git/tilem-headless/result/bin/tilem2
+$TILEM --headless \
+  --rom "$fixture_dir/ti84plus-certificate-erase-patched.rom" \
+  --model ti84p --normal-speed --reset \
+  --macro tools/macros/run-first-program.macro \
+  --trace /tmp/certificate-erase.trace --trace-range all \
+  "$fixture_dir/ACERASE.8xp" "$fixture_dir/EMUCERAS.8xp"
+
+python tools/analyze_flash_trace.py \
+  /tmp/certificate-erase.trace --events --timeline
+python tools/analyze_trace_points.py /tmp/certificate-erase.trace \
+  --point ram:8138 --summary-register AF --json
+python tools/analyze_trace_points.py /tmp/certificate-erase.trace \
+  --point ram:8143 --point ram:8151 --point page_3F:4E55 \
+  --point ram:9DBA --point ram:9DC3 --json
+```
+
+The trace decodes one sector erase at physical `0xF8000`. Its 24,497 target
+reads contain three `0x00`/`0x44` pairs, 12,245 `0x08`/`0x4C` pairs, and one
+final `0xFF`. The worker returns `A=0`, Z; the wrapper-visible result remains
+the seeded `AF=0xA545`; and the original `0x00` target byte reads back as
+`0xFF`.
+
+#### Erase-busy range probe
+
+`EMUERANG` checks the patched unlock-wrapper signature and issues
+`AA 55 80 AA 55 30` directly for `3E:4000`. After DQ3 reports active erase,
+it samples both ends of the selected sector, the adjacent and preceding
+sectors, the boot sector, and distant page `08`. It waits for DQ7 before
+capturing final array values and relocking Flash.
+
+```sh
+fixture_dir=$(mktemp -d /tmp/erase-busy-range-fixture.XXXXXX)
+nix develop -c python tools/build_flash_emulator_fixture.py \
+  --fixture erase-busy-range \
+  --rom tools/rom.bin --output-dir "$fixture_dir"
+
+TILEM=~/Git/tilem-headless/result/bin/tilem2
+$TILEM --headless \
+  --rom "$fixture_dir/ti84plus-eraseflash-range-patched.rom" \
+  --model ti84p --normal-speed --reset \
+  --macro tools/macros/run-first-program.macro \
+  --trace /tmp/erase-busy-range.trace --trace-range all \
+  "$fixture_dir/AERANGE.8xp" "$fixture_dir/EMUERANG.8xp"
+
+python tools/analyze_flash_trace.py \
+  /tmp/erase-busy-range.trace --events --timeline
+python tools/analyze_trace_points.py /tmp/erase-busy-range.trace \
+  --point ram:9DF5 --point ram:9DFB --point ram:9E01 \
+  --point ram:9E0B --point ram:9E15 --point ram:9E1F \
+  --point ram:9E2D --point ram:9E33 --point ram:9E39 \
+  --point ram:9E43 --point ram:9E4D --point ram:9E57 --json
+```
+
+The trace decodes one erase of physical `0xF8000`–`0xF9FFF`. Busy samples are
+`0x08`, `0x4C`, `0x08`, `0x4C`, `0x08`, and `0x4C` in the order above. Final
+samples are `0xFF`, `0xFF`, `0xFF`, `0x50`, `0x3E`, and `0xFF`. TilEm returns
+busy status even for the distant page-`08` read and emits one off-range
+warning. These results describe pinned TilEm; physical read scope remains
+unmeasured.
+
+#### Page-3E skip probe
+
+`EMUWF3E` checks all eight patched bytes before calling the wrapper. It exits
+without unlocking Flash on an unmodified ROM. `AWRUN3E` is the BASIC
+`Asm(prgmEMUWF3E)` launcher and sorts first in the program menu. Build and run
+the fixture only under emulation:
+
+```sh
+fixture_dir=$(mktemp -d /tmp/writeflash-fixture.XXXXXX)
+nix develop -c python tools/build_flash_emulator_fixture.py \
+  --fixture page-3e-cross \
+  --rom tools/rom.bin --output-dir "$fixture_dir"
+
+TILEM=~/Git/tilem-headless/result/bin/tilem2
+$TILEM --headless \
+  --rom "$fixture_dir/ti84plus-writeflash-3e-patched.rom" \
+  --model ti84p --normal-speed --reset \
+  --macro tools/macros/run-first-program.macro \
+  --trace /tmp/writeflash-3e-cross.trace --trace-range all \
+  "$fixture_dir/AWRUN3E.8xp" "$fixture_dir/EMUWF3E.8xp"
+
+python tools/analyze_flash_trace.py \
+  /tmp/writeflash-3e-cross.trace --events --invocations
+python tools/analyze_trace_points.py /tmp/writeflash-3e-cross.trace \
+  --point ram:811B --point ram:811D --point ram:811E \
+  --point ram:8120 --point ram:8122 --point ram:8124 --json
+```
+
+The validated TilEm run produced byte-program commands at physical `0xF7FFF`
+and `0xF4000`, followed by the worker reset at `0xF4000`. `ram:8122` was not
+executed. `flash_trace.py` labels the resulting physical-address jump
+`same-page-window-wrap`. This is emulator evidence for the ROM branch, not a
+physical-calculator result.
+
+#### Illegal-program probe
+
+`EMUWFERR` checks the same patched-ROM signature, then requests `0xD0` over the
+stored `0x50` at `3D:7FFF`. This forces TilEm's illegal `0→1` program state.
+The fixture captures returned `AF`, rereads the target byte, relocks Flash, and
+restores the incoming interrupt state.
+
+```sh
+fixture_dir=$(mktemp -d /tmp/writeflash-error-fixture.XXXXXX)
+nix develop -c python tools/build_flash_emulator_fixture.py \
+  --fixture program-error \
+  --rom tools/rom.bin --output-dir "$fixture_dir"
+
+TILEM=~/Git/tilem-headless/result/bin/tilem2
+$TILEM --headless \
+  --rom "$fixture_dir/ti84plus-writeflash-error-patched.rom" \
+  --model ti84p --normal-speed --reset \
+  --macro tools/macros/run-first-program.macro \
+  --trace /tmp/writeflash-program-error.trace --trace-range all \
+  "$fixture_dir/AWRUNERR.8xp" "$fixture_dir/EMUWFERR.8xp"
+
+python tools/analyze_flash_trace.py \
+  /tmp/writeflash-program-error.trace --events --invocations
+python tools/analyze_trace_points.py /tmp/writeflash-program-error.trace \
+  --point ram:814D --point ram:8155 --point ram:8159 \
+  --point ram:815D --point ram:8175 --point ram:817A \
+  --point ram:9DBE --point ram:9DC7 --json
+```
+
+The validated run decodes one byte-program command at physical `0xF7FFF` and
+one reset from failure-tail PC `ram:8175`. The structured invocation report
+labels it `worker_outcome: "failure"`. Poll reads return `0x00`, `0x60`, then
+`0x20`; the bcall returns `AF=0x3F2C`, and the final target read returns
+`0x50`. These values describe pinned TilEm and the OS worker. They do not
+establish physical-device failure timing or status values.
+
 Keep only one test program in RAM when using `run-first-program.macro`; it opens
 `PRGM`, selects the first `EXEC` entry, and presses `ENTER`. For `factorial`,
 use a variant that enters `5` at the prompt. For the `Asm(` smoke test, load both
@@ -481,9 +791,11 @@ rather than paged-address resolution.
 - [`hardware_trace.py`](hardware_trace.py) — importable resolved-instruction, I/O-event, and memory-write iterators.
 - [`analyze_trace_points.py`](analyze_trace_points.py) — resolved-address visits, opcode/register filters, register-frequency summaries, and JSON reports.
 - [`analyze_ram_page_trace.py`](analyze_ram_page_trace.py) — trace memory writes → physical RAM page ranges.
-- [`flash_trace.py`](flash_trace.py) — importable AMD byte-program and sector-erase decoder.
-- [`analyze_flash_trace.py`](analyze_flash_trace.py) — Flash command summaries, worker-invocation grouping, event filters, compact timelines, and JSON reports.
-- [`ti_program.py`](ti_program.py) — importable tokenized-program and deterministic body builders.
+- [`flash_trace.py`](flash_trace.py) — importable AMD command-shape decoder for CPU write attempts, including physical-address transition classification.
+- [`analyze_flash_trace.py`](analyze_flash_trace.py) — command-shaped write summaries, worker-invocation grouping, event filters, compact timelines, and JSON reports with explicit acceptance semantics.
+- [`flash_emulator_fixture.py`](flash_emulator_fixture.py) — reusable exact-ROM, optional-patch, probe-validation, and TI packaging contracts for named Flash fixtures.
+- [`build_flash_emulator_fixture.py`](build_flash_emulator_fixture.py) — thin CLI that assembles a named probe and writes its ROM copy, assembly program, BASIC launcher, and JSON manifest.
+- [`ti_program.py`](ti_program.py) — importable tokenized-program, `AsmPrgm`, `Asm(` launcher, and deterministic body builders.
 - [`build_ti_program.py`](build_ti_program.py) — JSON-capable `.8xp` fixture builder.
 - [`z80_disassembly.py`](z80_disassembly.py) — reusable `z80dasm` parser and paged-ROM literal and call-target helpers.
 - [`analyze_rom_literals.py`](analyze_rom_literals.py) — all-page immediate-value candidates with optional nearby call/jump sinks.

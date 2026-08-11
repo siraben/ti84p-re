@@ -1,4 +1,4 @@
-"""Reusable decoding for AMD-compatible Flash command traces."""
+"""Decode AMD command-shaped CPU write attempts in resolved Flash traces."""
 
 from __future__ import annotations
 
@@ -11,10 +11,36 @@ from hardware_trace import ResolvedMemoryWrite
 
 UNLOCK_ADDR_1 = 0x0AAAA
 UNLOCK_ADDR_2 = 0x05555
+PROGRAM_SUCCESS_RESET_PC = ("ram", 0x816B)
+PROGRAM_FAILURE_RESET_PC = ("ram", 0x8175)
+FLASH_WRITE_SEMANTICS = (
+    "resolved CPU write attempts targeting mapped Flash; "
+    "TLMT does not record ASIC or device acceptance"
+)
+
+
+def program_transition_kind(previous_address: int, current_address: int) -> str:
+    """Classify one pair of byte-program targets in physical address space."""
+
+    for address in (previous_address, current_address):
+        if not 0 <= address < FLASH_SIZE:
+            raise ValueError(f"Flash address outside 1 MiB device: 0x{address:X}")
+    if current_address == previous_address + 1:
+        if previous_address // 0x4000 != current_address // 0x4000:
+            return "next-page"
+        return "contiguous"
+    if (
+        (previous_address & 0x3FFF) == 0x3FFF
+        and current_address == (previous_address & ~0x3FFF)
+    ):
+        return "same-page-window-wrap"
+    return "discontinuity"
 
 
 @dataclass(frozen=True)
 class FlashCommand:
+    """One command-shaped write sequence, without an ASIC-acceptance claim."""
+
     kind: str
     instruction_index: int
     clock: int
@@ -77,8 +103,39 @@ class FlashProgramInvocation:
         )
 
     @property
+    def transition_kinds(self) -> tuple[str, ...]:
+        return tuple(
+            program_transition_kind(
+                previous.target_address,
+                current.target_address,
+            )
+            for previous, current in zip(self.commands, self.commands[1:])
+        )
+
+    @property
     def reset_matches_final_target(self) -> bool:
         return self.reset is not None and self.reset.target_address == self.end_address
+
+    @property
+    def reset_pc(self) -> tuple[str, int] | None:
+        """Return the PC attributed to the terminal reset write, when known."""
+
+        if self.reset is None or not self.reset.writes:
+            return None
+        reset_write = self.reset.writes[-1]
+        return reset_write.pc_space, reset_write.pc_address
+
+    @property
+    def worker_outcome(self) -> str:
+        """Classify the copied OS 2.55MP worker path that emitted the reset."""
+
+        if self.reset is None:
+            return "unterminated"
+        if self.reset_pc == PROGRAM_SUCCESS_RESET_PC:
+            return "success"
+        if self.reset_pc == PROGRAM_FAILURE_RESET_PC:
+            return "failure"
+        return "unknown-reset"
 
 
 def _at(event: ResolvedMemoryWrite, address: int, value: int) -> bool:
@@ -88,7 +145,7 @@ def _at(event: ResolvedMemoryWrite, address: int, value: int) -> bool:
 def decode_amd_flash_commands(
     writes: Iterable[ResolvedMemoryWrite],
 ) -> Iterator[FlashCommand]:
-    """Decode byte-program, sector-erase, reset, and unmatched Flash writes."""
+    """Decode command shapes without inferring ASIC or device acceptance."""
 
     events = [event for event in writes if event.target_kind == "flash"]
     index = 0

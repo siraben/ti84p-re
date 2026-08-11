@@ -8,10 +8,25 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from hardware_probe import decode_ti_variable_file
-from ti_program import encode_program_file, filled_program_body
+from ti_program import asm_call_body, asmprgm_body, encode_program_file, filled_program_body
 
 
 class TiProgramTests(unittest.TestCase):
+    def test_builds_assembly_source_and_call_bodies(self):
+        self.assertEqual(
+            b"\xBB\x6C\x3FC3B59D\x3F",
+            asmprgm_body(bytes.fromhex("C3B59D")),
+        )
+        self.assertEqual(
+            b"\xBB\x6A\x5FEMUWF3E\x11\x3F",
+            asm_call_body("emuwf3e"),
+        )
+
+        with self.assertRaisesRegex(ValueError, "start with a letter"):
+            asm_call_body("BAD-NAME")
+        with self.assertRaisesRegex(ValueError, "start with a letter"):
+            asm_call_body("3BAD")
+
     def test_builds_decodable_program_file(self):
         body = filled_program_body(5, fill_byte=0x31, last_byte=0x3F)
 

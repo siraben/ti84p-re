@@ -11,7 +11,6 @@ from build_hardware_probes import (
     CREATE_APPVAR_COPY,
     PROBES,
     PROBE_START,
-    asmprgm_body,
     package_probe,
     validate_machine_code,
 )
@@ -22,6 +21,7 @@ from hardware_probe import (
     decode_ti_variable_file,
 )
 from tibasic_samples import T
+from ti_program import asmprgm_body
 
 
 def fixture_machine_code(probe_name: str) -> bytes:
@@ -50,7 +50,7 @@ class HardwareProbeBuilderTests(unittest.TestCase):
         body = asmprgm_body(bytes.fromhex("C3B59D"))
 
         self.assertEqual(
-            [
+            bytes((
                 T["2byte"],
                 T["asmprgm"],
                 T["enter"],
@@ -61,7 +61,7 @@ class HardwareProbeBuilderTests(unittest.TestCase):
                 T["9"],
                 T["D"],
                 T["enter"],
-            ],
+            )),
             body,
         )
 
