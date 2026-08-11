@@ -11,7 +11,7 @@ The port block is internal to the ASIC, so public descriptions and emulator code
 | Layer | Main evidence | What it establishes |
 |-------|---------------|---------------------|
 | Retail boot ROM | `3F:68ED`–`3F:6BF5` and `3F:723F`–`3F:72EA` | bcall ABI, buffers, descriptor format, exact port order, padding, length accounting, and hash transformation [confirmed] |
-| Dynamic execution | `tools/tibasic-samples/MD5TEST.8xp` and a complete resolved TilEm trace | 64 operations for `MD5("abc")`, all port values, all modes, and the final digest [confirmed] |
+| Dynamic execution | `tools/tibasic-samples/MD5TEST.8xp`, a complete resolved TilEm trace, and a guarded native Wabbitemu edge probe | 64 valid operations for `MD5("abc")` plus Wabbitemu's partial writes, control masks, operand reads, and read-time recalculation [confirmed] |
 | Independent calculation | `tools/md5_hardware.py` | every recorded result agrees with the 32-bit operation derived from the ROM and RFC 1321 [confirmed] |
 | Public hardware notes | WikiTI port `0x18` and MD5 bcall pages | historical port and ABI descriptions checked against the local ROM [standard] |
 | Emulator models | TilEm `f56ad63`, Wabbitemu `48c2dc0`, and MAME 0.287 | shift-register policy, masking, reset policy, implemented undefined reads, and MAME's missing port block [standard] |
@@ -68,6 +68,29 @@ on write byte v to operand register r:
 Four writes `b0`, `b1`, `b2`, `b3` therefore leave `r = b0 + 2^8 b1 + 2^16 b2 + 2^24 b3`. A fifth write discards the oldest low byte in both emulators. Physical behavior after fewer or more than four writes has not been measured. [standard] for emulator behavior; [hypothesis] for the physical sliding-register implementation.
 
 TilEm and Wabbitemu also mask a write to `0x1E` with `0x1F` and a write to `0x1F` with `0x03`. Both return zero for reads from `0x18`–`0x1B`. The ROM uses only valid rotate counts and modes and never reads those four ports, so the local image cannot verify the masks or zero values. [standard]
+
+A guarded native run exercises these edge cases through Wabbitemu's
+`device_output` and `device_input` entry points. The adapter initializes the
+TI-84 Plus core with the exact OS 2.55MP image but does not execute the retail
+MD5 routine. [confirmed] for the pinned Wabbitemu run.
+
+| Case | Native result |
+|------|---------------|
+| Fresh reads from `0x18`–`0x1B` | `00 00 00 00`; the fresh calculated result is `0x00000000` |
+| One byte `11` written to operand `A` | `0x11000000` |
+| Three bytes `11 22 33` | `0x33221100` |
+| Four bytes `11 22 33 44` | `0x44332211` |
+| Fifth byte `55` | `0x55443322`; the former low byte `11` is discarded |
+| Raw shift and mode writes `FF`, `FF` | `0x00000004`, matching shift 31 and mode 3 for operands 1 through 6 |
+| Reads from `0x18`–`0x1B` after operand loads | `00 00 00 00` |
+| Mutate `A` between result-byte reads | old result `0xD6D117B4`, new result `0x343F9701`, assembled read `0x343F97B4` |
+
+The mixed result retains the old low byte `B4` read from port `0x1C`, then
+uses the new high bytes `97 3F 34` from ports `0x1D`–`0x1F`. This directly
+exercises Wabbitemu's read-time recalculation. The direct port calls add zero
+T-states, so the run provides no timing evidence. The native binary SHA-256 is
+`e5c64ec8630b0eaa9d42632ae8f559440678a567c00d0d1ce903fc99815afe81`.
+[confirmed] for the pinned Wabbitemu run.
 
 MAME's TI-84 Plus I/O map has no handlers for ports `0x18`–`0x1F`.
 The ROM transaction therefore reaches unmapped I/O instead of an MD5 assist

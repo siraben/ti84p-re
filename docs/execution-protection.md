@@ -17,6 +17,7 @@ checks, but several boundary details still require physical measurement.
 | Guarded TilEm boundary traces | fetch, return, warning, and reset sequences at pages `07`, `08`, `29`, and `2A` | [confirmed] for the pinned emulator run |
 | Guarded Wabbitemu boundary runs | fetch, return, marker, and instrumented reset sequences at pages `07`, `08`, `09`, `29`, and `2A` | [confirmed] for the pinned emulator run |
 | Guarded RAM execution runs | chunk-edge and mode disagreements under pinned TilEm and Wabbitemu | [confirmed] for the pinned emulator runs |
+| Guarded Wabbitemu protected-port run | registered-port gate, readback, high-field handling, and 16-bit RAM-bound storage | [standard] |
 | WikiTI port pages | public inclusive-bound descriptions and the larger-device port-`0x24` extension | [standard] |
 | Physical TA2/TA3 behavior | lower-edge, reset, violation, and overlay details | [hypothesis] until measured |
 
@@ -229,6 +230,59 @@ The derived fixture identities were: [confirmed]
 | `29` | `1590ddf2681c3636e119df3759909c43b62a49a9dbc74f5a4f00d6500ae9017d` | `f671bdb62e6bad19f33402eb919e70631cf7cc8f00b9f7f52114d052f86cea78` |
 | `2A` | `1ee90aef8e9795ef56b668ae36560ad6a4c99938055cd0e5763b930b0f585d2a` | `d5f72f96562ef5e96f4ddaa12954548d210650d9ca6bec365f75f1bb6f3bad1b` |
 
+### Wabbitemu reset scope
+
+Wabbitemu's `CPU_reset` is a CPU and mapper reset, not a complete hardware
+reinitialization. The function writes only these groups for the TI-84 Plus
+model: [standard]
+
+| Group | Reset value |
+|-------|-------------|
+| `PC`, `SP` | `0x0000` |
+| Interrupt mode | `1` |
+| Interrupt, `EI` block, `IFF1`, `IFF2`, `HALT`, and I/O flags | cleared |
+| Prefix state | zero |
+| Ports `0x27` and `0x28` remap counts | zero |
+| RAM execution bounds | `0x0000`–`0x03FF` |
+| Mapper windows | boot page `3F`, Flash page `00`, Flash page `00`, RAM page `00` |
+| Boot-map and page-0-change flags | cleared |
+| Legacy `protected_page[4]` array and selected group | zero |
+
+The function retains the other directly seeded state. This includes general
+and alternate CPU registers, `I`, `R`, bus state, RAM contents, the Flash
+command state, Flash lock and bounds, protection mode and selectors, timer
+frequency and T-states, delay registers, MD5 state, standard and programmable
+timers, RTC, keypad and ON state, raw link, link assist, USB, GPIO, and the LCD
+object. [standard]
+
+The frontend `calc_reset` calls `CPU_reset` and then the LCD reset callback.
+The LCD callback clears display memory and its queue, disables output, zeros
+the coordinates and last-read latch, selects 8-bit words, and sets contrast
+32. It retains the LCD access timestamp and port-`0x2F` delay field. No other
+peripheral reset follows. [standard]
+
+A guarded initialized-core run seeds 14 component groups before calling
+`CPU_reset`. All 14 retain their seeded values. The reset mapping is
+`3F/00/00/00`, the RAM bounds are `0x0000`–`0x03FF`, and the frontend-equivalent
+call produces the LCD state above while retaining `last_tstate = 654321` and
+`lcd_delay = 61`. Direct state seeding isolates field retention; it does not
+reproduce a physical warm or cold reset. [confirmed] for the pinned Wabbitemu
+run.
+
+An execution violation calls `CPU_reset` inside `CPU_opcode_fetch`, then
+continues the same `CPU_step`. A seeded `FLASH_PROGRAM` violation ends the
+command state, fetches boot bytes `3E 07`, executes `LD A,0x07`, and finishes
+at `PC=0x0002` after seven T-states. A seeded `FLASH_ERROR` violation fetches
+opcode `0x3E`, returns status byte `0xE0` for the immediate read, clears the
+error flag, executes `LD A,0xE0`, and also finishes at `PC=0x0002`. The command
+step remains `FLASH_ERROR` in the second case. This is an emulator control-flow
+quirk, not a physical reset model. [confirmed]
+
+The reset-retention manifest guards OS 2.55MP ROM SHA-256
+`7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d`
+and native-binary SHA-256
+`386be74e738f2a0f9ad17f12bae4cd44994b5a73835ab10d488c7b8232afd87e`.
+
 ## RAM instruction fetches
 
 TilEm x4 reduces a physical RAM byte offset $a$ to a 1 KiB chunk address. For
@@ -398,6 +452,35 @@ device, but its two high-bit assignment expressions lack parentheses around
 the masked bit before shifting. Both expressions evaluate to zero for an
 8-bit bus value under C operator precedence. [standard]
 
+## Native protected-register confirmation
+
+The guarded initialized-core probe finds active, protected handlers at every
+port from `0x22` through `0x26`. The reset core reads
+`0x10/0x30/0x00/0x00/0x00`. These are Wabbitemu initialization values, not the
+retail boot values in the table above. All five writes are rejected while the
+in-memory Flash lock remains closed. Reads remain active. [standard]
+
+The probe then opens the emulator's lock directly and seeds the internal Flash
+bounds as `0x01A5` and `0x02B6`. Writes of `0xCC` and `0xDD` to ports `0x22`
+and `0x23` produce `0x01CC` and `0x02DD`, confirming that both low-byte
+handlers preserve their seeded high bytes. Writing `0xFF` to port `0x24`
+reads back `0xFF` but changes the internal bounds to `0x00CC` and `0x00DD`.
+The native result matches Wabbitemu's precedence defect. It does not test a
+physical larger-device extension. [standard]
+
+The same run writes four edge values to both RAM-bound ports: [standard]
+
+| Written byte | Port-`0x25` read | Internal lower field | Port-`0x26` read | Internal upper field |
+|-------------:|-----------------:|---------------------:|-----------------:|---------------------:|
+| `0x3F` | `0x3F` | `0xFC00` | `0x3F` | `0xFFFF` |
+| `0x40` | `0x00` | `0x0000` | `0x00` | `0x03FF` |
+| `0x41` | `0x01` | `0x0400` | `0x01` | `0x07FF` |
+| `0xFF` | `0x3F` | `0xFC00` | `0x3F` | `0xFFFF` |
+
+The manifest records the exact ROM and native-binary hashes. Opening the lock
+and seeding high fields are direct emulator-core operations. This mode does
+not execute the ROM's protected-byte sequence or attempt an opcode fetch.
+
 ## `_SetFlashLowerBound`
 
 The official bcall name does not match the port written by its body.
@@ -429,6 +512,14 @@ path also evaluates the page shortcut before replacing the global address for
 a forced overlay. The two emulators can therefore disagree when an overlay
 forces RAM over a Flash-backed window or substitutes RAM page 0 or 1. See
 [Paging](paging.md#interaction-with-execution-protection). [standard]
+
+The guarded Wabbitemu mapper run places a NOP in forced RAM over an underlying
+Flash HALT. Independent mode executes the NOP; paired mode disables the
+overlay and executes the HALT. This confirms the fetched-byte routing through
+the initialized core. Both underlying Flash pages are permitted by the boot
+protection bounds, so the run does not distinguish which protection predicate
+Wabbitemu evaluated. That ordering remains established by pinned source.
+[standard]
 
 The normal OS boot and homescreen traces leave both overlays disabled, so this
 difference does not affect those executed paths. [confirmed]
@@ -523,6 +614,12 @@ nix develop -c python tools/run_wabbitemu_ram_execution_probe.py \
   --output-dir "$wrap_parent/run" \
   --lower-chunk 0x40 --upper-chunk 0x40 \
   --target 0:0:0 --target 0:2:0 --json
+
+protected_port_parent=$(mktemp -d /tmp/ti84-protected-port.XXXXXX)
+nix develop -c python tools/run_wabbitemu_protection_port_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$protected_port_parent/run" --json
 ```
 
 The boot bytes can be recovered independently:
@@ -551,6 +648,18 @@ $ python tools/analyze_rom_io.py 0x21 0x22 0x23 0x24 0x25 0x26 --summary
   modes, and the `0x40` wrap case. [standard] for source behavior; [confirmed]
   for the pinned emulator runs.
 - The retail ROM has no statically resolved port-`0x24` access. [confirmed]
+- A guarded initialized-core Wabbitemu run verifies the common protected-write
+  gate across ports `0x22`–`0x26`, the port-`0x24` high-field clearing defect,
+  and 16-bit RAM-bound wrap at `0x40` and above. [standard]
+- A guarded initialized-core Wabbitemu run confirms forced-RAM fetch routing in
+  independent mode and underlying-window fetch routing in paired mode. It does
+  not dynamically distinguish the Flash-versus-RAM protection predicate.
+  [standard]
+- Wabbitemu's low-level reset retains most peripheral and Flash state. Its
+  frontend adds only an LCD reset. A guarded initialized-core run verifies all
+  14 seeded retention groups and shows that an execution violation continues
+  the interrupted `CPU_step` through one boot instruction. [standard] for the
+  source model; [confirmed] for the pinned run.
 
 Physical tests must determine whether page `0x08` executes, what exception or
 reset state follows a violation, and whether lower-greater-than-upper disables
@@ -570,7 +679,8 @@ emulator agreement is only a test oracle for emulator behavior.
 | [TilEm x4 I/O model at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) | protected register writes and mask updates |
 | Headless TilEm fork at `8da54573ac49fe271fa22c60924b4c6a7cb9639f` | boundary execution traces; binary SHA-256 `1c1f7dbe04fe074c2b9aca1657d0eb5ac5cfd1f7cbd480725eb7fb39b8126f33`, `x4_memory.c` SHA-256 `ddaa1e45330e3e4ad49486bd5c3675a0a0dff01bfda4d01817ba3387e309ac89` |
 | [TilEm xc memory model at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/xc/xc_memory.c) | port-`0x24` high-bound bits |
-| [Wabbitemu `core.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c) | Flash and RAM fetch predicates |
+| [Wabbitemu `core.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c) | Flash and RAM fetch predicates, `CPU_reset`, and execution-violation control flow |
+| [Wabbitemu `calc.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/interface/calc.c) and [`lcd.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/lcd.c) | frontend reset scope and LCD reset fields |
 | [Wabbitemu `device.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/device.c) | global protected-port write gate |
 | [Wabbitemu `83psehw.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | port handlers and port-`0x24` implementation |
 | [MAME `ti85.cpp` and `ti85_m.cpp` at `mame0287`](https://github.com/mamedev/mame/tree/mame0287/src/mame/ti) | absent execution-protection ports and unused Flash-unlock state |

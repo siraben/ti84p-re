@@ -14,6 +14,7 @@ from dataclasses import dataclass
 CHUNK_SIZE = 0x400
 PAGE_SIZE = 0x4000
 TI84P_RAM_PAGES = 8
+WABBITEMU_BOUNDARY_PORTS = frozenset(range(0x22, 0x27))
 
 
 def _byte(value: int, name: str) -> int:
@@ -31,6 +32,12 @@ def _mode(value: int) -> int:
 def _address(value: int) -> int:
     if value < 0:
         raise ValueError("RAM address must be nonnegative")
+    return value
+
+
+def _word(value: int, name: str) -> int:
+    if not 0 <= value <= 0xFFFF:
+        raise ValueError(f"{name} must be a 16-bit unsigned value")
     return value
 
 
@@ -63,6 +70,64 @@ TI84P_BOOT_PROTECTION = ExecutionProtectionRegisters(
     ram_lower_chunk=0x10,
     ram_upper_chunk=0x20,
 )
+
+
+@dataclass
+class WabbitemuProtectionPortModel:
+    """Model Wabbitemu's registered port-``0x22``–``0x26`` handlers."""
+
+    flash_locked: bool = True
+    flash_lower: int = 0x0010
+    flash_upper: int = 0x0030
+    port24: int = 0x00
+    ram_lower: int = 0x0000
+    ram_upper: int = 0x03FF
+
+    def __post_init__(self) -> None:
+        self.flash_lower = _word(self.flash_lower, "lower Flash field")
+        self.flash_upper = _word(self.flash_upper, "upper Flash field")
+        self.port24 = _byte(self.port24, "port 0x24")
+        self.ram_lower = _word(self.ram_lower, "lower RAM field")
+        self.ram_upper = _word(self.ram_upper, "upper RAM field")
+
+    def write_port(self, port: int, value: int) -> bool:
+        """Apply one device-layer write and return whether it was accepted."""
+
+        if port not in WABBITEMU_BOUNDARY_PORTS:
+            return False
+        value = _byte(value, f"port 0x{port:02X}")
+        if self.flash_locked:
+            return False
+        if port == 0x22:
+            self.flash_lower = (self.flash_lower & 0xFF00) | value
+        elif port == 0x23:
+            self.flash_upper = (self.flash_upper & 0xFF00) | value
+        elif port == 0x24:
+            self.port24 = value
+            # Match Wabbitemu's parsed C expressions.  Shift binds before
+            # bitwise AND, so an eight-bit bus is masked with 0x100.
+            self.flash_upper = (self.flash_upper & 0x00FF) | (value & 0x100)
+            self.flash_lower = (self.flash_lower & 0x00FF) | (value & 0x100)
+        elif port == 0x25:
+            self.ram_lower = (value * CHUNK_SIZE) & 0xFFFF
+        else:
+            self.ram_upper = (value * CHUNK_SIZE + CHUNK_SIZE - 1) & 0xFFFF
+        return True
+
+    def read_port(self, port: int) -> int | None:
+        """Return one handler readback, or ``None`` for an unrelated port."""
+
+        if port == 0x22:
+            return self.flash_lower & 0xFF
+        if port == 0x23:
+            return self.flash_upper & 0xFF
+        if port == 0x24:
+            return self.port24
+        if port == 0x25:
+            return (self.ram_lower // CHUNK_SIZE) & 0xFF
+        if port == 0x26:
+            return ((self.ram_upper - (CHUNK_SIZE - 1)) // CHUNK_SIZE) & 0xFF
+        return None
 
 
 @dataclass(frozen=True)

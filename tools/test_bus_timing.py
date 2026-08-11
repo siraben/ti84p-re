@@ -99,6 +99,14 @@ class BusTimingTests(unittest.TestCase):
         self.assertEqual(25, extra.clock_mhz())
         self.assertEqual((0, 1, 2, 3), extra.selectable_speed_modes())
 
+    def test_wabbitemu_exposes_port2d_as_a_raw_delay_latch(self):
+        timing = TimingImplementation(profile="wabbitemu")
+
+        self.assertTrue(timing.write_port(0x2D, 0xA5))
+
+        self.assertEqual(0xA5, timing.read_port(0x2D))
+        self.assertIsNone(TimingImplementation(profile="tilem").read_port(0x2D))
+
     def test_mame_maps_only_binary_speed_and_ignores_delay_block(self):
         timing = TimingImplementation.ti84p_os("mame", speed_value=0x80)
 

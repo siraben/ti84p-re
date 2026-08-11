@@ -17,6 +17,7 @@ detailed timing contract; MAME provides an explicit omission comparison.
 | Resolved cold-boot trace | all six writes execute in order before normal CPU speed is selected | [confirmed] |
 | Whole-ROM immediate-port scan | no second control-flow-verified write to these registers in the analyzed ROM | [confirmed] |
 | TilEm and Wabbitemu source | independent decode of speed selection, LCD instruction delays, and memory wait bits | [standard] |
+| Native Wabbitemu execution | reset state, speed masks and frequencies, all seven delay latches, wait-gate selection, and port-`0x2D` side effects | [standard] |
 | MAME 0.287 source | binary CPU-speed selection and absence of the delay-register block | [standard] |
 | Public hardware tests | intended bit meanings, LCD failure thresholds, and mode-3 timer divisor | [standard] |
 
@@ -37,10 +38,12 @@ reported as emulator behavior, not physical measurements.
 | `0x2E` | one-T-state Flash and RAM access selectors | gated by bits 0–1 of the active `0x29`–`0x2C` register |
 | `0x2F` | high-speed LCD-ready interval and documented mode-3 timer prescaler | field selected by port `0x20` |
 
-TilEm and Wabbitemu read back the last byte written to ports `0x29`–`0x2C`,
-`0x2E`, and `0x2F`. Public descriptions give the same contract. MAME maps only
-port `0x20` from this block; its I/O map has no handler for the six
-delay-register writes. [standard]
+TilEm reads back the last byte written to ports `0x29`–`0x2C`, `0x2E`, and
+`0x2F`. Wabbitemu registers one generic latch handler across the complete
+`0x29`–`0x2F` range. Its port `0x2D` therefore stores a raw byte instead of
+implementing the separate low-power contract. MAME maps only port `0x20` from
+this block; its I/O map has no handler for the six delay-register writes.
+[standard]
 
 ## Selection pipeline
 
@@ -70,6 +73,12 @@ captured workflows. See
 [Clock, timers, and power](clock-timers-power.md#cpu-speed) for frequency and
 ASIC-revision caveats. [confirmed] for executed values; [standard] for public
 and emulator behavior.
+
+A guarded initialized-core run writes `0xFC`–`0xFF`. The reset
+`timer_version = 0` context reads back modes `0/1/1/1` at 6, 15, 15, and
+15 MHz. Directly setting `timer_version = 1` produces modes `0/1/2/3` at 6,
+15, 20, and 25 MHz. The direct setting represents Wabbitemu front-end state;
+it is not a calculator port transition. [standard]
 
 ## Boot configuration
 
@@ -214,6 +223,13 @@ including reads. Wabbitemu derives readiness from the last successful LCD
 write. This disagreement matters for read-heavy code and requires a physical
 test. [standard] for emulator behavior; [hypothesis] for ASIC read behavior.
 
+The guarded Wabbitemu initialized-core run sets speed mode 1 and field 3, then
+writes the LCD at T-state 2,000. Port `0x02` reads `0xE1` at T-state 2,240 and
+`0xE3` at 2,241. An accepted status read at 2,241 leaves the write timestamp at
+2,000 and leaves port `0x02` at `0xE3`. The comparison is strict rather than
+inclusive: readiness requires elapsed time greater than 240 T-states in this
+implementation. [standard]
+
 ## Programmable-timer mode-3 divisor
 
 Public documentation assigns a second role to the selected port-`0x2F` field.
@@ -237,6 +253,7 @@ target for a counter-based test. [hypothesis]
 | Active `0x29`–`0x2C` register | indexed by port `0x20 & 3` | indexed by the accepted CPU-speed mode | registers absent |
 | LCD instruction addition | active byte shifted right by two | same | absent |
 | Memory gates and `0x2E` bits | all six access classes | all six access classes | absent |
+| Port `0x2D` | low-power control outside this block | raw fifth delay latch; no timer or low-power transition | absent |
 | High-speed ready start | every LCD-port read or write | last successful LCD write | programmable interval absent |
 | LCD controller rejection | ready bit and controller model | also has a separate fixed 60-T-state controller-access guard | T6A04 device behavior without the ASIC delay block |
 | Mode-3 timer prescaler | not modeled | not modeled in the compared timer path | not modeled |
@@ -245,6 +262,23 @@ The matching memory and LCD-instruction decode corroborates the public bit
 layout. MAME cannot corroborate that decode because it omits the block. The
 readiness, speed, and timer differences remain emulator policy, not proof of
 physical timing.
+
+The same guarded Wabbitemu run dynamically checks three linked cases. Port
+`0x2A = 0x27` adds nine T-states to a status read. With port `0x2E = 0x45`, the
+enabled additions are Flash opcode fetch, Flash write, and RAM write. A write
+of speed value 3 reads back mode 1 in the reset TI-84 Plus context because
+`timer_version = 0` disables the external extra-speed modes. [standard]
+
+A dedicated speed run reads all seven reset latches as zero and verifies raw
+byte readback across ports `0x29`–`0x2F`. With active-register values
+`0x00/0x01/0x02/0x03` and port `0x2E = 0x77`, modes 0–3 produce wait masks
+`0x00/0x07/0x38/0x3F`: none, all Flash classes, all RAM classes, and all six
+classes.
+Writing `0x5A` to port `0x2D` changes only that latch. The active wait mask,
+CPU frequency, timer version, programmable-timer state, LCD-active state,
+`HALT`, interrupt line, and T-state count remain unchanged. These observations
+describe Wabbitemu's registered handler, not physical low-power behavior.
+[standard]
 
 ## Reproducing the decode
 
@@ -285,6 +319,31 @@ available for scripts:
 nix develop -c python tools/describe_bus_timing.py \
   --write 0x20=0 --write 0x29=0x17 --write 0x2e=0x45 --json
 ```
+
+Run the native boundary checks with the pinned Wabbitemu adapter:
+
+```sh
+wabbit_lcd_parent=$(mktemp -d /tmp/ti84-wabbit-lcd.XXXXXX)
+python tools/run_wabbitemu_lcd_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_lcd_parent/run" --json
+
+wabbit_speed_parent=$(mktemp -d /tmp/ti84-wabbit-speed.XXXXXX)
+python tools/run_wabbitemu_speed_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_speed_parent/run" --json
+```
+
+The manifest labels the run as initialized-core emulator evidence and records
+both input hashes. `tools/wabbitemu_lcd_probe.py` derives its pointer, latch,
+ready-hold, delay, wait-bit, and speed-clamp expectations from the reusable LCD
+and bus-timing libraries.
+
+`tools/wabbitemu_speed_probe.py` derives speed, latch, and wait-mask
+expectations from `tools/bus_timing.py`. Its guarded CLI records both input
+hashes and labels the direct `timer_version = 1` configuration explicitly.
 
 The executed initialization can be recovered from a full boot trace:
 

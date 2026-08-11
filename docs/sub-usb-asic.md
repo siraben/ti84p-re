@@ -406,23 +406,53 @@ TilEm's fixed port `0x4C = 0x22` cannot satisfy `_InitUSB`'s `0x1A`/`0x5A` hands
 
 Wabbitemu assigns paired states to port `0x4D`: D+ low/high in bits 0/1, D- low/high in bits 2/3, ID low/high in bits 4/5, and VBUS high/low in bits 6/7. Reset value `0xA5` therefore selects D+ low, D- low, ID high, and VBUS low under its own labels. Port `0x56` starts at `0x50`, port `0x57` stores an event mask, and port `0x55` reports line and protocol requests as active-low bits 2 and 4. [standard]
 
-The partial model has four source-visible defects: [standard]
+The partial model has five source-visible defects: [standard]
 
 - Device initialization registers port `0x55` twice. The first handler was written for port `0x54`, so the port-`0x54` PHY control model is unreachable.
 - `GenerateUSBEvent` does not consult the mask stored at port `0x57`; it raises the CPU interrupt unconditionally.
 - From reset state, writing `0x08` to port `0x4A` sets VBUS-high bit 6 without clearing VBUS-low bit 7. The line byte becomes `0xE5`, in which both Wabbitemu VBUS state bits are set.
 - The same write records a D-minus-high event by changing the event byte from `0x50` to `0x58`, but it does not set D-minus-high in the line byte. Repeated writes can therefore regenerate the event.
+- Port `0x4D` tries to select one D+ state with `BIT(1) & ~BIT(0)` or its inverse. Each expression evaluates to one set bit. The handler ORs that bit into the line-state byte without clearing the paired bit.
 
 These inconsistencies prevent Wabbitemu from serving as a connected PHY reference. Its paired-state representation and active-low summary still provide an independent comparison with the ROM's bit tests. The electrical labels remain emulator evidence because the ROM does not name the signals. [standard] for source behavior; [hypothesis] for physical signal assignments.
 
 MAME maps ports `0x55` and `0x56` to constant disconnected values `0x1F` and zero. Ports `0x4A`–`0x5B` outside that pair and the FDRC region at `0x80`–`0xA2` are absent from the TI-84 Plus map. [standard]
 
+### Native Wabbitemu USB edges
+
+A guarded initialized-core run invokes the registered handlers without
+executing TI-OS. Ports `0x4A`, `0x4C`, `0x4D`, `0x55`–`0x57`, `0x5B`, and
+`0x80` accept reads. Port `0x54` is inactive and returns the unhandled-port
+fallback `0xFF`. Reset reads are `0x04`, `0x22`, `0xA5`, `0x1F`, `0x50`,
+`0x00`, `0x00`, and `0x00` in mapped-port order. The run also checks the
+internal reset fields: line state `0xA5`, events `0x50`, mask zero, both
+interrupt fields clear, and all three stored control bytes zero. [standard]
+
+Port `0x57` stores both `0xFF` and zero. With the mask set to zero, writing
+`0x08` to port `0x4A` asserts Wabbitemu's CPU interrupt and line-interrupt
+fields. The line state becomes `0xE5`, the event byte becomes `0x58`, port
+`0x55` reads `0x1B`, and port `0x56` reads `0x58`. Clearing only the CPU
+interrupt field and repeating the same port write asserts it again. This
+confirms the mask omission and repeat-event path in the initialized core.
+[standard]
+
+Directly seeded handler-contract cases produce the complete port-`0x55`
+matrix `0x1F`, `0x1B`, `0x0F`, and `0x0B` for neither, line, protocol, and
+both requests. Port `0x5B` masks `0xFF` to bit 0, and port `0x80` masks it to
+`0x7F`. The two port-`0x4D` cases return `0xA7` and `0xE7`, retaining both D+
+bits after the handler adds the selected bit. These directly seeded states
+test handler arithmetic; the run does not claim that registered ports can
+reach them naturally. [standard]
+
 ## Reusable USB tools
 
 `tools/usb_hardware.py` contains the FDRC offset map, the common HDRC comparison map, pinned source
 provenance, imported global bit names, link-assist rate fields, page-35 and boot-event decoders,
-paired line-state decoder, and emulator profiles. `tools/describe_usb_hardware.py` exposes each
-model as text or JSON.
+paired line-state decoder, emulator profiles, and pure functions for Wabbitemu's USB read handlers.
+`tools/describe_usb_hardware.py` exposes the general models as text or JSON.
+`tools/wabbitemu_usb_probe.py` validates native reports against the reusable handler model, while
+`tools/run_wabbitemu_usb_edge_probe.py` provides the exact-ROM guard and writes a hashed JSON
+manifest.
 
 ```sh
 # Map global, indexed, dynamic-sizing, and FIFO registers.
@@ -459,6 +489,25 @@ The raw FIFO sequence is only the byte layer. A working transfer still needs the
 machine ID, command, length, payload checksum, ACK/NAK, and EOT. That framing is documented in
 [sub-link-transfer.md](sub-link-transfer.md#3-packet-framing--the-ti-link-protocol-confirmed).
 
+### Native Wabbitemu link-assist edges
+
+The guarded Wabbitemu initialized-core probe maps ports `0x08`, `0x09`,
+`0x0A`, and `0x0D`; ports `0x0B` and `0x0C` are absent. This means its assist
+engine cannot represent the OS's complete four-register signaling-rate setup
+for CPU speed modes 0–3. [standard]
+
+The same run sends and receives `0xA5` through controlled peer handshakes.
+Transmit completion reports `0x22`; receive completion reports `0x11`.
+Reading port `0x0D` clears ready, and reading port `0x0A` clears read-ready.
+Both enabled conditions assert Wabbitemu's CPU interrupt line. A separately
+seeded error produces `0x4C` and clears on the first port-`0x09` read, but the
+pinned source contains no path that sets the error field. These are emulator
+state-machine results, not physical assist timing or TI-OS execution.
+[standard]
+
+See [Two-wire link port hardware](link-port-hardware.md#native-wabbitemu-raw-and-assist-edges)
+for the full raw matrix, transfer sequence, and guarded command.
+
 Practical rules:
 
 - Set up `IY+0x1B` consistently before calling `link_xfer_op`. Bit 0 is the USB-first selector.
@@ -479,7 +528,7 @@ Practical rules:
   imported bit meaning or the TI-specific PHY at ports `0x4A`–`0x5B`. TilEm does not model physical
   timing from the assist setup values. ROM-confirmed claims remain limited to written constants,
   comparisons, branch bits, RAM state, FIFO direction, and the transfer sequences cited above.
-- TilEm, Wabbitemu, and MAME do not implement a connected page-35 transfer. Wabbitemu's paired-state model also contains the port-registration, event-mask, and contradictory-line-state defects listed above. Dynamic connected-path evidence therefore still requires physical hardware or a controlled port-level harness.
+- TilEm, Wabbitemu, and MAME do not implement a connected page-35 transfer. The initialized-core Wabbitemu run confirms its port-registration, event-mask, contradictory-line-state, repeat-event, and paired-bit handler defects. Dynamic connected-path evidence therefore still requires physical hardware or a controlled port-level harness.
 
 ## Sources
 

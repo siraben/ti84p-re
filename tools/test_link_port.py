@@ -30,8 +30,10 @@ from link_port import (
     observed_state_to_bit,
     physical_high_mask,
     port_read_value,
+    raw_port_truth_table,
     receiver_ack_drive,
     sender_drive,
+    wabbitemu_assist_status,
 )
 from rom_image import RomImage
 
@@ -164,6 +166,26 @@ class LinkPortTests(unittest.TestCase):
     def test_port_read_includes_local_latch(self):
         self.assertEqual(0x21, port_read_value(local_drive=2, peer_drive=0))
         self.assertEqual(0x20, port_read_value(local_drive=2, peer_drive=1))
+
+    def test_raw_truth_table_is_local_major(self):
+        self.assertEqual(
+            (
+                0x03, 0x02, 0x01, 0x00,
+                0x12, 0x12, 0x10, 0x10,
+                0x21, 0x20, 0x21, 0x20,
+                0x30, 0x30, 0x30, 0x30,
+            ),
+            raw_port_truth_table(),
+        )
+
+    def test_wabbitemu_assist_status_separates_flags_and_enables(self):
+        self.assertEqual(0, wabbitemu_assist_status(0x80, ready=True))
+        self.assertEqual(0x22, wabbitemu_assist_status(0x02, ready=True))
+        self.assertEqual(0x11, wabbitemu_assist_status(0x01, read_ready=True))
+        self.assertEqual(
+            0x4C,
+            wabbitemu_assist_status(0x04, receiving=True, error=True),
+        )
 
     def test_bit_encoding_and_receive_decode_are_inverses(self):
         self.assertEqual(1, sender_drive(0))

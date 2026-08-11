@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from execution_protection import (
     TI84P_BOOT_PROTECTION,
+    WabbitemuProtectionPortModel,
     tilem_flash_execution_allowed,
     tilem_ram_execution_allowed,
     tilem_ram_mask,
@@ -20,6 +21,49 @@ from execution_protection import (
 
 
 class ExecutionProtectionTests(unittest.TestCase):
+    def test_wabbitemu_boundary_ports_share_the_flash_lock_gate(self):
+        model = WabbitemuProtectionPortModel()
+
+        self.assertFalse(model.write_port(0x22, 0xAA))
+        self.assertEqual(0x10, model.read_port(0x22))
+
+        model.flash_locked = False
+        self.assertTrue(model.write_port(0x22, 0xAA))
+        self.assertEqual(0xAA, model.read_port(0x22))
+
+    def test_wabbitemu_port24_clears_seeded_high_bits(self):
+        model = WabbitemuProtectionPortModel(
+            flash_locked=False,
+            flash_lower=0x01CC,
+            flash_upper=0x02DD,
+        )
+
+        self.assertTrue(model.write_port(0x24, 0xFF))
+
+        self.assertEqual(0xFF, model.read_port(0x24))
+        self.assertEqual(0x00CC, model.flash_lower)
+        self.assertEqual(0x00DD, model.flash_upper)
+
+    def test_wabbitemu_ram_port_fields_wrap_at_16_bits(self):
+        model = WabbitemuProtectionPortModel(flash_locked=False)
+
+        lower = []
+        upper = []
+        for value in (0x3F, 0x40, 0x41, 0xFF):
+            self.assertTrue(model.write_port(0x25, value))
+            lower.append((model.read_port(0x25), model.ram_lower))
+            self.assertTrue(model.write_port(0x26, value))
+            upper.append((model.read_port(0x26), model.ram_upper))
+
+        self.assertEqual(
+            [(0x3F, 0xFC00), (0x00, 0x0000), (0x01, 0x0400), (0x3F, 0xFC00)],
+            lower,
+        )
+        self.assertEqual(
+            [(0x3F, 0xFFFF), (0x00, 0x03FF), (0x01, 0x07FF), (0x3F, 0xFFFF)],
+            upper,
+        )
+
     def test_boot_register_values(self):
         self.assertEqual(0, TI84P_BOOT_PROTECTION.ram_mode)
         self.assertEqual(0x08, TI84P_BOOT_PROTECTION.flash_lower)

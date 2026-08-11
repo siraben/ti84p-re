@@ -16,6 +16,7 @@ from interrupt_controller import (
     rom_status_test_order,
     standard_timer_period,
     usb_active_low_sources,
+    wabbitemu_standard_timer_period,
 )
 from describe_interrupt_controller import mask_report, status_report
 
@@ -54,6 +55,13 @@ class InterruptControllerTests(unittest.TestCase):
         self.assertEqual(Fraction(64, 32768), standard_timer_period(0x00, 1))
         self.assertEqual(Fraction(304, 32768), standard_timer_period(0x06, 1))
         self.assertEqual(Fraction(304, 65536), standard_timer_period(0x06, 2))
+
+    def test_wabbitemu_uses_rounded_rate_table(self):
+        self.assertEqual(Fraction(1, 512), wabbitemu_standard_timer_period(0x00))
+        self.assertEqual(Fraction(1, 227), wabbitemu_standard_timer_period(0x02))
+        self.assertEqual(Fraction(1, 158), wabbitemu_standard_timer_period(0x04))
+        self.assertEqual(Fraction(1, 108), wabbitemu_standard_timer_period(0x06))
+        self.assertEqual(Fraction(1, 216), wabbitemu_standard_timer_period(0x06, 2))
 
     def test_acknowledgement_clears_only_zeroed_legacy_sources(self):
         pending = 0xF7

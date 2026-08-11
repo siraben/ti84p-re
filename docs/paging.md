@@ -17,6 +17,7 @@ or `0x28` a nonzero value, so their physical behavior remains unconfirmed.
 | Resolved TilEm boot and homescreen traces | executed page transitions and logical-to-physical page resolution | [confirmed] |
 | TilEm `x4_io.c` and `x4_memory.c` | one emulator's paired mode, selector masks, forced overlays, and protection order | [standard] |
 | Wabbitemu `83psehw.c` and `core.c` | an independent implementation, including extended Flash pages and different overlay rules | [standard] |
+| Guarded Wabbitemu mapper run | initialized-core reset, selector readback, fixed-page handoff, paired mapping, and overlay routing | [standard] |
 | MAME 0.287 `ti85.cpp` and `ti85_m.cpp` | a third implementation's bank arithmetic, reset latch, mapped I/O, and backing ranges | [standard] |
 | Public port descriptions | intended family-wide contracts for ports `0x04`–`0x07`, `0x0E`, `0x0F`, `0x27`, and `0x28` | [standard] |
 
@@ -353,6 +354,48 @@ mode, which agrees with Wabbitemu and disagrees with TilEm. None of these
 software sources proves the ASIC behavior. Whether the overlays operate in
 physical paired mode remains a hypothesis. [hypothesis]
 
+### Native Wabbitemu mapper edges
+
+A guarded initialized-core run invokes the eight registered mapper handlers
+and the pinned core's memory paths directly. Reset reads are `0x08` from port
+`0x04` and zero from ports `0x05`–`0x07`, `0x0E`, `0x0F`, `0x27`, and
+`0x28`. The `0x08` is interrupt status, not the mapping mode. The visible
+reset windows are Flash `3F`/`00`/`00` and RAM `80`, with independent mode
+active and `hasChangedPage0` clear. [standard]
+
+A data read at `0x4000` leaves fixed page `3F` and the handoff flag unchanged.
+Executing a NOP from the same address changes fixed page `3F` to `00`, sets
+`hasChangedPage0`, and advances the PC to `0x4001`. This confirms that
+Wabbitemu's fixed-page handoff is an opcode-fetch effect. [standard]
+
+Writing `0xFF` to ports `0x0E` and `0x0F` reads back `0x03`. With those high
+fields set, a raw Flash selector of `0x7F` remains stored internally but ports
+`0x06` and `0x07` read the visible 64-page result `0x3F`. RAM selectors
+`0xFF` and `0xFE` remain stored while the visible windows read `0x87` and
+`0x86`. Port `0x05 = 0xFF` maps and reads RAM page 7 as `0x07`. [standard]
+
+The paired-mode case writes C/A/B selectors `0x05`, `0x02`, and `0x83`.
+Ports `0x05`–`0x07` then read `0x03`, `0x02`, and `0x02`; the visible windows
+are Flash page 2, duplicate Flash page 2, and RAM page 3. Port `0x04` still
+reads interrupt status `0x08`. This exercises the paired-B expression through
+the registered port handlers. [standard]
+
+Directly seeded backing bytes isolate the two forced ranges. In independent
+mode with `0x28 = 1` and `0x27 = 0xFF`, reads at `0x8000`, `0x803F`, and
+`0x8040` return markers `0xB0` and `0xB1` from RAM page 1, then underlying
+Flash marker `0xA2`. Reads at `0xFB63` and `0xFB64` return marker `0xC3` from
+underlying RAM page 5 and marker `0xD4` from forced RAM page 0. Low-level
+writes change RAM pages 1 and 0 while leaving the two underlying windows
+unchanged. A NOP in forced RAM over an underlying Flash HALT executes the NOP.
+[standard]
+
+Switching only to paired mode changes those five reads to underlying markers
+`0xE0`, `0xE1`, `0xE2`, `0xF3`, and `0xF4`. Low-level writes modify the
+underlying Flash pages while both forced RAM markers remain unchanged. The
+same NOP/HALT discriminator executes the underlying HALT. These writes call
+Wabbitemu's low-level mapper function; they test address routing, not Flash
+command acceptance. The run establishes emulator behavior only. [standard]
+
 ## Interaction with execution protection
 
 Ports `0x21`–`0x26` control Flash and RAM execution permissions. They do not
@@ -448,6 +491,10 @@ code:
 nix develop -c python tools/analyze_rom_io.py \
   --before 8 --after 8 0x0e-0x0f,0x27-0x28
 ```
+
+`tools/wabbitemu_mapper_probe.py` derives the native edge expectations from
+the same mapper profile. `tools/run_wabbitemu_mapper_edge_probe.py` requires
+the exact OS 2.55MP ROM and writes a hash-complete JSON manifest.
 
 ## Open physical tests
 

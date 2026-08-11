@@ -420,7 +420,7 @@ following the documented out-of-range behavior. [standard]
 
 Wabbitemu rejects command and data transfers made within 60 T-states of the
 last accepted LCD write. An early status read returns `0x80`; an early data
-read or write is discarded. Accepted reads advance the pointer and output
+read or write is discarded. Accepted data reads advance the pointer and output
 latch but do not update the guard's timestamp. [standard]
 
 Its separate port-`0x02` ready calculation also measures from the last accepted
@@ -433,6 +433,34 @@ Wabbitemu registers ports `0x10` and `0x11` for this model but not the documente
 `0x12` and `0x13` aliases. It subtracts a model-specific base level of 24 from
 contrast commands before its grayscale renderer consumes the value. This
 display calibration is not controller voltage evidence. [standard]
+
+A guarded initialized-core run at `48c2dc0` confirms these Wabbitemu-specific
+edges dynamically: [standard]
+
+| Case | Native observation |
+|------|--------------------|
+| Controller guard | a status read at 59 T-states returns busy `0x80`; one at 60 T-states is accepted |
+| Early write | a data write at 59 T-states leaves the cell and pointer unchanged |
+| Increment from column 14 | writes visit columns 14, 0, 1, and 2; column 15 remains unchanged |
+| Direct hidden columns | command column 15 accesses column 15; command column 31 aliases the same cell and wraps the pointer to 0 |
+| Read latch | three accepted reads return `0x00`, `0x12`, and `0x34` from cells containing `0x12`, `0x34`, and the following byte |
+| Read timestamp | three same-T-state reads advance the pointer without changing the last-successful-write timestamp |
+| Port map | reads of absent ports `0x12` and `0x13` are rejected and produce adapter fallback `0xFF` |
+
+Wabbitemu's low-level `CPU_reset` leaves the complete LCD object unchanged.
+The frontend `calc_reset` then invokes the LCD reset callback. A guarded
+frontend-equivalent call disables output; zeros `x`, `y`, `z`, the last-read
+latch, display RAM, and the grayscale queue; selects 8-bit words; and sets
+contrast 32. It retains the last-access T-state and `lcd_delay` field. This is
+frontend policy, not physical controller retention. [standard] for source;
+[confirmed] for the pinned initialized-core run.
+
+The LCD reset callback stores `word_len = 8`, while its status expression
+shifts the field as though it were Boolean. The reset-state controller transfers
+eight-bit data, but the first accepted status after display enable is `0x23`,
+with bit 6 clear. Sending command `0x01` stores Boolean one, after which the
+same status is `0x63`. This is a Wabbitemu state-representation defect, not
+evidence for a physical reset status. [standard]
 
 ### MAME behavior and fidelity gaps
 
@@ -509,6 +537,11 @@ The `hardware`, `busy`, `decode`, `profiles`, `status`, and `latch` subcommands
 accept `--json` for scripts. Transfer reports distinguish a controller column
 outside the modeled row from an index outside the complete backing array.
 
+`tools/run_wabbitemu_lcd_edge_probe.py` runs the guarded dynamic matrix. It
+requires the exact OS 2.55MP ROM, records the ROM and native-binary hashes, and
+checks every field through `tools/wabbitemu_lcd_probe.py`. The ROM is only an
+initialized-core fixture in this mode; no TI-OS instruction executes.
+
 ## Resolved findings and open hardware questions
 
 - [confirmed] OS 2.55MP waits through port-`0x02` bit 1 and does not busy-poll port `0x10` in `lcd_wait`.
@@ -537,5 +570,5 @@ outside the modeled row from an index outside the complete backing array.
 | [Toshiba T6K04 data sheet](https://www.datasheetarchive.com/datasheet/T6K04/Toshiba?version=2), 2001-03-13 | exact 128×64 RAM, command and status tables, counter bounds, dummy reads, reset state, bus timing, oscillator choices, busy formula, supply range, and package; PDF SHA-256 `e53bcf3f12c1cba2011b886ab196b6e1827aea4c1a2d9fb28c3d6d501d986577` |
 | [Toshiba T6A04A data sheet](https://archive.org/details/t6a04a-datasheet) | compatible earlier 120×64 controller and family comparison |
 | [TilEm `lcd.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/lcd.c), [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), and [`x4_init.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c) | emulator video RAM, command decode, latches, port aliases, wait timers, and reset state |
-| [Wabbitemu `lcd.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/lcd.c) and [`83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | controller RAM, pointer movement, transfer guard, ASIC-ready calculation, and port registration |
+| [Wabbitemu `lcd.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/lcd.c), [`83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c), and [`calc.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/interface/calc.c) | controller RAM, pointer movement, transfer guard, ASIC-ready calculation, port registration, and frontend reset scope |
 | [MAME `t6a04.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/devices/video/t6a04.cpp), [`ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp), and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | controller array and commands, TI-84 Plus port map, fixed ready bit, and driver status |

@@ -25,6 +25,7 @@ TI_KEYBOARD_COMMAND = 0x01
 TI_KEYBOARD_DELIMITERS = ("error", "ordinary", "timeout")
 TI_KEYBOARD_BCALL_ID = 0x50E9
 TI_KEYBOARD_BCALL_TABLE_PAGE = 0x3B
+WABBITEMU_ASSIST_PORTS = frozenset({0x08, 0x09, 0x0A, 0x0D})
 
 
 class KeyboardRomSignatureError(ValueError):
@@ -563,6 +564,42 @@ def port_read_value(local_drive: int, peer_drive: int) -> int:
     local = _line_mask(local_drive, name="local drive")
     peer = _line_mask(peer_drive, name="peer drive")
     return physical_high_mask(local, peer) | (local << 4)
+
+
+def raw_port_truth_table() -> tuple[int, ...]:
+    """Return local-major readback for all four local and peer masks."""
+
+    return tuple(
+        port_read_value(local, peer)
+        for local in range(4)
+        for peer in range(4)
+    )
+
+
+def wabbitemu_assist_status(
+    enable: int,
+    *,
+    receiving: bool = False,
+    read_ready: bool = False,
+    ready: bool = False,
+    error: bool = False,
+    sending: bool = False,
+) -> int:
+    """Compose Wabbitemu's port-``0x09`` link-assist status byte."""
+
+    enable = byte(enable, name="link-assist enable")
+    if enable & 0x80:
+        return 0
+    return (
+        (0x01 if enable & 0x01 and read_ready else 0)
+        | (0x02 if enable & 0x02 and ready else 0)
+        | (0x04 if enable & 0x04 and error else 0)
+        | (0x08 if receiving else 0)
+        | (0x10 if read_ready else 0)
+        | (0x20 if ready else 0)
+        | (0x40 if error else 0)
+        | (0x80 if sending else 0)
+    )
 
 
 def mame_plus_state_after_write(write_value: int, prior_state: int = 0) -> int:

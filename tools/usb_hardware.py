@@ -394,6 +394,74 @@ def emulator_initial_usb_read(emulator: str, port: int) -> int | None:
     return dict(profile.initial_reads).get(port)
 
 
+WABBITEMU_USB_PORTS = (0x4A, 0x4C, 0x4D, 0x55, 0x56, 0x57, 0x5B, 0x80)
+
+
+def wabbitemu_port4a_read(
+    stored: int, *, port54: int, port4c: int, line_state: int
+) -> int:
+    """Reproduce the pinned Fake USB port-``0x4A`` input handler."""
+
+    stored = _byte(stored, "stored port 0x4A")
+    port54 = _byte(port54, "stored port 0x54")
+    port4c = _byte(port4c, "stored port 0x4C")
+    line_state = _byte(line_state, "line state")
+    condition = (
+        port54 & 0x04
+        and port54 & 0x40
+        and port4c & 0x08
+        and line_state & 0x40
+    )
+    return stored + (0x01 if condition else 0x04)
+
+
+def wabbitemu_port4c_read(stored: int, *, port54: int) -> int:
+    """Reproduce the pinned Fake USB port-``0x4C`` input handler."""
+
+    stored = _byte(stored, "stored port 0x4C")
+    port54 = _byte(port54, "stored port 0x54")
+    value = 0x02 | stored
+    if port54 & 0x04:
+        value |= 0x10
+    if not port54 & 0x40:
+        value |= 0x20
+    if port54 & 0x80:
+        value |= 0x40
+    return value
+
+
+def wabbitemu_port4d_read(
+    line_state: int, *, port54: int, port4c: int
+) -> int:
+    """Reproduce the pinned port-``0x4D`` paired-bit expression exactly."""
+
+    line_state = _byte(line_state, "line state")
+    port54 = _byte(port54, "stored port 0x54")
+    port4c = _byte(port4c, "stored port 0x4C")
+    condition = (
+        port54 & 0x04
+        and port54 & 0x40
+        and port4c & 0x08
+        and line_state & 0x40
+    )
+    # The C source uses `BIT(1) & ~BIT(0)` and its inverse. Each expression
+    # evaluates to one set bit, so the handler never clears the paired bit.
+    return line_state | (0x02 if condition else 0x01)
+
+
+def wabbitemu_usb_summary(
+    *, line_interrupt: bool, protocol_interrupt: bool
+) -> int:
+    """Return Wabbitemu's active-low port-``0x55`` summary byte."""
+
+    value = 0x0B
+    if not line_interrupt:
+        value += 0x04
+    if not protocol_interrupt:
+        value += 0x10
+    return value
+
+
 @dataclass(frozen=True)
 class WabbitemuPort4AResult:
     """Exact state effects of Wabbitemu's port-``0x4A`` write handler."""
