@@ -12,6 +12,7 @@ The TI-84 Plus OS runs the Z80 in interrupt mode 1 (IM1) and polls the ASIC's in
 | Power-cycle trace from `tools/macros/power-cycle.macro` | OS mask writes, low-power `HALT`, ON wake, status read, debounce, and restoration | [confirmed] |
 | WikiTI ports `0x03` and `0x04` | Bit-level enable, status, clear-on-zero, timer-rate, mapping, battery-selector, and low-power contract | [standard] |
 | TilEm commit `f56ad63` and Wabbitemu commit `48c2dc0` | Two executable interpretations of the registers and their fidelity gaps | [standard] |
+| MAME 0.287 `ti84pv3` driver and Lua I/O trace | Third implementation, headless ON-wake execution, and explicit `MACHINE_NOT_WORKING` gaps | [standard] |
 
 The ROM proves how OS 2.55MP uses the registers. Public notes and emulators describe behavior inside the ASIC that the ROM cannot prove by itself. Emulator agreement is supporting evidence, not physical confirmation.
 
@@ -226,6 +227,24 @@ clk=100195536  ram:09B5 power-on restoration
 
 TilEm prevents programmable timers from waking `HALT` when both standard-timer bits in port `0x03` are clear. A programmable timer can still interrupt a running CPU in that state. This is an emulator policy approximating public reports that programmable timers do not reliably wake a halted CPU; it does not identify the physical ASIC mechanism. [standard]
 
+### MAME ON-wake trace
+
+MAME 0.287 includes the `ti84pv3` machine and accepts a 1 MiB OS 2.55MP image. The repository ROM has SHA-1 `ffddb460d7d4e79cc8fbd288d6895fd113d7f3bf`, while MAME's reference image has SHA-1 `d500540feca974f6e8fa269981cfb25dc951c338`. MAME warns about this difference because the repository image contains locally assembled boot pages. [confirmed]
+
+The Lua tap records the program counter after each I/O instruction. MAME reaches the shutdown mask, accepts an injected ON press, and enters the ROM debounce path: [confirmed]
+
+```text
+MAME_IO frame=20 pc_after=0DF3 OUT (0x03) <- 0x08
+MAME_IO frame=20 pc_after=0DF6 OUT (0x03) <- 0x00
+MAME_IO frame=20 pc_after=0C97 OUT (0x03) <- 0x11
+MAME_KEY frame=30 ON press
+MAME_IO frame=31 pc_after=0071 IN (0x55) -> 0x1F
+MAME_IO frame=31 pc_after=003C IN (0x04) -> 0x01
+MAME_IO frame=31 pc_after=0977 IN (0x04) -> 0x01
+```
+
+The trace confirms ROM control flow under MAME. It does not confirm MAME's register semantics. The driver itself marks every monochrome TI-84 Plus configuration `MACHINE_NOT_WORKING`. [standard]
+
 ## Custom handler rules
 
 A custom IM2 handler, or code that replaces OS interrupt service, must account for each controller independently: [standard]
@@ -253,6 +272,18 @@ Chaining to the OS handler also inherits its assumptions: `IY` points to `flags`
 
 Wabbitemu's source comments state uncertainty about its standard-interrupt write behavior. Its model is useful as an independent implementation comparison, but disagreement must remain explicit. [standard]
 
+MAME 0.287 provides a third comparison with larger known gaps: [standard]
+
+| Area | MAME `ti84pv3` behavior | Difference from the public contract |
+|------|---------------------------|-------------------------------------|
+| Port `0x03` read | calls the same status reader used by port `0x04` | returns status and ON level instead of the stored mask |
+| Port `0x03` write | masks ON and standard-timer pending fields with the written enable bits | models clear-on-zero for bits 0–2, but omits link bit 4 and low-power bit 3 |
+| Port `0x02` write | writes ON and standard-timer status through a handler whose comment says it is being ignored | does not match the documented port-`0x03` acknowledgement ownership |
+| Standard timers | allocates fixed 256 Hz and 512 Hz callbacks | port-`0x04` rate writes do not select the published 107.79–512 Hz range |
+| Programmable timers | requests an interrupt when mode bit 1 is clear and sets the port-`0x04` completion field on that same branch | reverses the documented interrupt-enable polarity and loses independent completion visibility |
+| Link and low power | no legacy link-pending field or ASIC power-domain transition | can execute the ROM wake path but cannot test physical link wake or low-power behavior |
+| USB | returns fixed `0x1F` and zero from ports `0x55` and `0x56` | disconnected path only |
+
 ## Reusable debugging tools
 
 `tools/interrupt_controller.py` provides typed decoders, exact timer periods, clear-on-zero acknowledgement, ROM status-test order, and USB active-low decoding. `tools/describe_interrupt_controller.py` exposes focused CLI commands: [confirmed]
@@ -273,6 +304,16 @@ nix develop -c python tools/describe_interrupt_controller.py trace \
 
 Use `--all` to retain repeated ON-level polling and `--json` for machine-readable output.
 
+`tools/mame_trace.py`, `tools/run_mame_io_trace.py`, and `tools/mame_io_trace.lua` provide the equivalent headless MAME path. The Lua tap accepts comma-separated ports and ranges, collapses identical polls, records post-I/O PCs, and can inject ON at selected video frames: [confirmed]
+
+```sh
+nix shell nixpkgs#mame -c python tools/run_mame_io_trace.py \
+  --seconds 2 --ports 03-04,55-56 \
+  --on-press-frame 30 --on-release-frame 34
+```
+
+MAME prints a checksum warning for the locally assembled ROM and identifies the expected and actual hashes. Keep that warning with captured evidence.
+
 ## Resolved findings and open hardware tests
 
 - [confirmed] OS 2.55MP tests USB activity before reading legacy status, but ports `0x55`/`0x56` remain separate from ports `0x03`/`0x04`.
@@ -290,5 +331,6 @@ Use `--all` to retain repeated ON-level polling and `--json` for machine-readabl
 | [WikiTI port `0x04`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:04) | read-status fields, write controls, timer formula, and programmable completion distinction |
 | [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) and [`timers.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/timers.c) | legacy latches, mask handling, timer completion, `HALT` policy, and disconnected USB values |
 | [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | independent standard-interrupt, mapping, ON, timer, and low-power implementation |
+| [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | TI-84 Plus machine status, I/O map, interrupt masks, standard timers, programmable timers, and fixed USB reads |
 | Local OS 2.55MP page-0 bytes | entry, gates, test order, handlers, acknowledgement, and exit |
 | `/tmp/tilem-power-cycle.trace` | shutdown and ON-wake execution sequence |

@@ -82,7 +82,7 @@ The table editor and Y= screens build text-grid state through their own context 
 
 ## Related deep dives
 
-- [LCD controller and display bus](lcd-hardware.md) — ports, status, commands, addressing, waits, initialization, clear/blit/read paths, contrast, power, dynamic I/O traces, and TilEm fidelity.
+- [LCD controller and display bus](lcd-hardware.md) — ports, status, commands, addressing, waits, initialization, clear/blit/read paths, contrast, power, dynamic I/O traces, and cross-emulator fidelity.
 - [Graphing](sub-graphing.md) — graph buffer, transforms, pixels, lines, circles, and graph display.
 - [Equation display](sub-equation-display.md) — MathPrint layout and compositing.
 - [Table and Y= variables](sub-table-yvars.md) — table grid and function editor.

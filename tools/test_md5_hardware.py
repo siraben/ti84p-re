@@ -8,7 +8,13 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from hardware_trace import ResolvedIoEvent
-from md5_hardware import Md5TraceError, decode_md5_steps, md5_assist_value
+from md5_hardware import (
+    MD5_IMPLEMENTATIONS,
+    Md5AssistImplementation,
+    Md5TraceError,
+    decode_md5_steps,
+    md5_assist_value,
+)
 
 
 def event(index, direction, port, value):
@@ -92,6 +98,62 @@ class Md5AssistTests(unittest.TestCase):
 
         with self.assertRaises(Md5TraceError):
             list(decode_md5_steps(events))
+
+    def test_tilem_and_wabbitemu_execute_the_first_abc_step(self):
+        operands = (
+            0x67452301,
+            0xEFCDAB89,
+            0x98BADCFE,
+            0x10325476,
+            0x80636261,
+            0xD76AA478,
+        )
+        for profile in ("tilem", "wabbitemu"):
+            assist = Md5AssistImplementation(profile)
+            assist.write_port(0x1F, 0)
+            for port, value in zip(range(0x18, 0x1E), operands):
+                assist.load_word(port, value)
+            assist.write_port(0x1E, 7)
+
+            self.assertEqual(0xD6D117B4, assist.result())
+            self.assertEqual(
+                [0xB4, 0x17, 0xD1, 0xD6],
+                [assist.read_port(port) for port in range(0x1C, 0x20)],
+            )
+            self.assertEqual([0, 0, 0, 0], [
+                assist.read_port(port) for port in range(0x18, 0x1C)
+            ])
+
+    def test_control_writes_are_masked(self):
+        assist = Md5AssistImplementation("tilem")
+
+        assist.write_port(0x1E, 0xFF)
+        assist.write_port(0x1F, 0xFF)
+
+        self.assertEqual(31, assist.shift)
+        self.assertEqual(3, assist.mode)
+
+    def test_result_bytes_recompute_after_operand_mutation(self):
+        assist = Md5AssistImplementation("wabbitemu")
+        for port, value in zip(range(0x18, 0x1E), (1, 2, 3, 4, 5, 6)):
+            assist.load_word(port, value)
+        assist.write_port(0x1E, 0)
+
+        low_before = assist.read_port(0x1C)
+        assist.load_word(0x18, 0xFFFFFFFF)
+        high_after = assist.read_port(0x1F)
+
+        self.assertNotEqual(low_before, assist.result() & 0xFF)
+        self.assertEqual(high_after, assist.result() >> 24)
+
+    def test_mame_omits_the_entire_md5_block(self):
+        assist = Md5AssistImplementation("mame")
+
+        self.assertFalse(assist.write_port(0x18, 0x12))
+        self.assertIsNone(assist.read_port(0x1C))
+        self.assertIsNone(assist.result())
+        self.assertEqual([(0x18, 0x12)], assist.ignored_writes)
+        self.assertEqual(set(), set(MD5_IMPLEMENTATIONS["mame"].mapped_ports))
 
 
 if __name__ == "__main__":

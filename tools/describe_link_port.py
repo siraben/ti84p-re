@@ -4,13 +4,18 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict
 import json
 import sys
 
 from link_port import (
+    LINK_EMULATOR_PROFILE_KEYS,
+    LINK_PORT_PROFILES,
     assemble_observed_byte,
     byte_report,
     drive_mask,
+    emulator_write_sequence,
+    link_port_profile,
     observed_state_to_bit,
     physical_high_mask,
     port_read_value,
@@ -40,6 +45,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", help="emit JSON")
     commands = parser.add_subparsers(dest="command", required=True)
 
+    commands.add_parser("profiles", help="compare pinned raw-link coverage")
+
+    emulator = commands.add_parser("emulator", help="apply writes to one profile")
+    emulator.add_argument("profile", choices=LINK_PORT_PROFILES)
+    emulator.add_argument("values", nargs="+", type=unsigned_byte)
+    emulator.add_argument("--peer", type=mask, default=0)
+
+    compare = commands.add_parser("compare", help="apply writes to all emulators")
+    compare.add_argument("values", nargs="+", type=unsigned_byte)
+    compare.add_argument("--peer", type=mask, default=0)
+
     drive = commands.add_parser("drive", help="decode a port-0 write")
     drive.add_argument("value", type=unsigned_byte)
 
@@ -56,6 +72,34 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def result(args: argparse.Namespace) -> dict[str, object]:
+    if args.command == "profiles":
+        profiles = []
+        for key in LINK_PORT_PROFILES:
+            profile = link_port_profile(key)
+            row = asdict(profile)
+            row["mapped_assist_ports"] = list(profile.mapped_assist_ports)
+            profiles.append(row)
+        return {"profiles": profiles}
+    if args.command in {"emulator", "compare"}:
+        keys = (
+            (args.profile,)
+            if args.command == "emulator"
+            else LINK_EMULATOR_PROFILE_KEYS
+        )
+        return {
+            "implementations": [
+                {
+                    "profile": key,
+                    "writes": [
+                        item.as_dict()
+                        for item in emulator_write_sequence(
+                            key, args.values, peer_drive=args.peer
+                        )
+                    ],
+                }
+                for key in keys
+            ]
+        }
     if args.command == "drive":
         drive = drive_mask(args.value)
         return {
@@ -81,6 +125,33 @@ def result(args: argparse.Namespace) -> dict[str, object]:
 
 
 def print_text(report: dict[str, object]) -> None:
+    if "profiles" in report:
+        for row in report["profiles"]:
+            ports = " ".join(f"0x{port:02X}" for port in row["mapped_assist_ports"])
+            print(f"{row['key']}: {row['name']} ({row['revision']})")
+            print(f"  write model: {row['write_model']}")
+            print(f"  assist ports: {ports or 'none'}")
+            print(
+                f"  assist: advertised={row['advertises_assist']} "
+                f"operational={row['assist_operational']}"
+            )
+            print(f"  status: {row['driver_status']}")
+            print(f"  limit: {row['known_limit']}")
+        return
+    if "implementations" in report:
+        for index, implementation in enumerate(report["implementations"]):
+            if index:
+                print()
+            print(f"{implementation['profile']}:")
+            for row in implementation["writes"]:
+                print(
+                    f"  write=0x{row['write_value']:02X} "
+                    f"state=0x{row['state_before']:02X}->0x{row['state_after']:02X} "
+                    f"latch=0b{row['local_latch']:02b} "
+                    f"connector-drive=0b{row['connector_drive']:02b} "
+                    f"read=0x{row['port_read']:02X}"
+                )
+        return
     if "write_value" in report:
         print(
             f"write=0x{report['write_value']:02X} drive=0b{report['drive_mask']:02b} "

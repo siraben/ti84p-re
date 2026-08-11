@@ -20,6 +20,7 @@ calculator.
 | WikiTI port pages | Public bit names, port-`0x15` identity values, and port-`0x21` size tables [standard] |
 | TilEm commit `f56ad63` | One executable model for battery comparison, Flash grouping, and RAM execution masks [standard] for the implementation; [hypothesis] for physical equivalence |
 | Wabbitemu commit `48c2dc0` | An independent status and protection model, including implementation defects described below [standard] for the implementation; [hypothesis] for physical equivalence |
+| MAME 0.287 | A third implementation with fixed status and identity values, incompatible port-`0x21` masking, and no GPIO ports [standard] |
 
 The static I/O scanner reports candidates from a linear disassembly. Data can
 decode as instructions, so a candidate needs control-flow or trace evidence.
@@ -52,6 +53,12 @@ TilEm computes bits 0–2 from its battery value, LCD wait timer, and Flash lock
 Wabbitemu does the same except that its TI-84 Plus battery result is fixed high.
 Their agreement supports the interpretation but does not replace a voltage or
 timing measurement. [standard]
+
+MAME returns locked status `0xC3` and adds bit 2 after a Flash-unlock write.
+Its comparator and LCD-ready bits are fixed high. Bit 5 is fixed low, so this
+TI-84 Plus driver reports link assist but not USB capability. This is an
+emulator inconsistency, not evidence for a different ASIC status layout.
+[standard]
 
 ## Battery comparison
 
@@ -148,6 +155,12 @@ revision. TilEm's TI-84 Plus model returns fixed `0x45` with a `???` source
 comment. Neither implementation verifies what a particular physical unit
 returns. [standard]
 
+MAME's shared TI-83 Plus Silver Edition/TI-84 Plus I/O map returns fixed
+`0x33` from port `0x15` for every machine using that map. The TI-84 Plus
+configuration therefore identifies itself as the public 83PL2M/TA2 row.
+MAME's `MACHINE_NOT_WORKING` declaration and shared handler make this a driver
+defect, not an alternate identity claim. [standard]
+
 The complete-ROM scan finds no immediate `IN` or `OUT` instruction for port
 `0x15`. The conservative C-register resolver also finds no access after a
 straight-line literal load into `C` or `BC`. Computed register-C accesses that
@@ -173,6 +186,11 @@ TilEm stores writes only while Flash is unlocked and exposes `value & 0x33`
 on reads. Wabbitemu also marks the port protected and stores the same two
 fields. Its read handler shifts the stored mode right by four a second time,
 so it loses bits 4–5. [standard]
+
+MAME accepts writes without the protected-byte gate, stores `value & 0x0F`,
+and returns that nibble. It can therefore expose undocumented bits 2–3 while
+discarding the RAM execution field in bits 4–5. MAME does not implement the
+execution-protection ports controlled by that field. [standard]
 
 ### Bits 0–1: Flash group
 
@@ -264,6 +282,24 @@ but does not register port `0x39`. Both emulators model a color-calculator
 backlight side effect for port-`0x3A` bit 5; that does not validate TI-84 Plus
 GPIO wiring. [standard]
 
+MAME maps neither port `0x39` nor port `0x3A`. Battery and USB code can execute
+through the driver, but those GPIO reads and writes reach no device handler.
+[standard]
+
+## Emulator comparison
+
+The three pinned implementations disagree on every control group not already
+established by ROM use. Their values are test oracles for the software, not
+physical ASIC measurements.
+
+| Area | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 |
+|------|-----------------|----------------------|------------|
+| Port `0x02` | dynamic comparator, LCD-ready, and Flash lock; family bits 5–7 set | same layout, with the TI-84 Plus comparator fixed high | fixed `0xC3` when locked; Flash unlock adds bit 2 |
+| Port `0x15` | fixed `0x45` | model and RAM-revision dependent | fixed `0x33` |
+| Port `0x21` accepted readback | `value & 0x33`, subject to Flash unlock | only bits 0–1 survive its read defect | `value & 0x0F`, without protected-write gating |
+| GPIO | port `0x39` fixed at `0xF0`; no meaningful TI-84 Plus port `0x3A` | port `0x3A` latch; port `0x39` absent | both ports absent |
+| Driver status | usable model with unmeasured battery thresholds | usable model with implementation-specific defects | TI-84 Plus marked `MACHINE_NOT_WORKING` |
+
 ## Reusable analysis tools
 
 `tools/asic_control.py` decodes port-`0x02` values, the public port-`0x15`
@@ -274,6 +310,7 @@ operations as a CLI. [confirmed]
 ```sh
 nix develop -c python tools/describe_asic_control.py
 nix develop -c python tools/describe_asic_control.py --status 0xE7 --port21 0x20
+nix develop -c python tools/describe_asic_control.py --implementations --json
 nix develop -c python tools/describe_asic_control.py \
   --scan-gpio --page 0x2F --page 0x33 --page 0x35 --page 0x3F
 nix develop -c python tools/analyze_rom_io.py \
@@ -311,3 +348,4 @@ only after raw-byte and control-flow review or a resolved execution trace.
 | [WikiTI ports `0x39`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:39) and [`0x3A`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:3A) | Historical GPIO interpretation, with the contradictions identified above |
 | [TilEm `x4_io.c` at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) | Battery table, status read, identity constant, protection mode, and fixed GPIO read |
 | [Wabbitemu `83psehw.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | Independent port models and the port-`0x21` read defect |
+| [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | shared I/O map, fixed status and identity reads, port-`0x21` mask, missing GPIO, and driver status |

@@ -5,18 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Iterator
 
+from flash_hardware import FLASH_SIZE, FlashSector, flash_sector
 from hardware_trace import ResolvedMemoryWrite
 
 
-FLASH_SIZE = 0x100000
 UNLOCK_ADDR_1 = 0x0AAAA
 UNLOCK_ADDR_2 = 0x05555
-
-
-@dataclass(frozen=True)
-class FlashSector:
-    start: int
-    size: int
 
 
 @dataclass(frozen=True)
@@ -42,22 +36,6 @@ class FlashCommandRun:
     @property
     def end_address(self) -> int:
         return self.commands[-1].target_address
-
-
-def flash_sector(address: int) -> FlashSector:
-    """Return the Am29LV800B top-boot sector containing *address*."""
-
-    if not 0 <= address < FLASH_SIZE:
-        raise ValueError(f"Flash address outside 1 MiB device: 0x{address:X}")
-    if address < 0xF0000:
-        return FlashSector(address & ~0xFFFF, 0x10000)
-    if address < 0xF8000:
-        return FlashSector(0xF0000, 0x8000)
-    if address < 0xFA000:
-        return FlashSector(0xF8000, 0x2000)
-    if address < 0xFC000:
-        return FlashSector(0xFA000, 0x2000)
-    return FlashSector(0xFC000, 0x4000)
 
 
 def _at(event: ResolvedMemoryWrite, address: int, value: int) -> bool:

@@ -7,7 +7,13 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from bus_timing import BusTiming, MemoryWaits
+from bus_timing import (
+    EMULATOR_PROFILE_KEYS,
+    TIMING_PROFILES,
+    BusTiming,
+    MemoryWaits,
+    TimingImplementation,
+)
 
 
 class BusTimingTests(unittest.TestCase):
@@ -61,6 +67,56 @@ class BusTimingTests(unittest.TestCase):
         timing = BusTiming.ti84p_os()
 
         self.assertFalse(timing.write_port(0x21, 0))
+
+    def test_profile_catalog_has_reference_and_three_emulators(self):
+        self.assertEqual(
+            {"documented", "tilem", "wabbitemu", "mame"},
+            set(TIMING_PROFILES),
+        )
+        self.assertEqual(("tilem", "wabbitemu", "mame"), EMULATOR_PROFILE_KEYS)
+
+    def test_tilem_keeps_four_delay_modes_at_two_cpu_frequencies(self):
+        timing = TimingImplementation.ti84p_os("tilem", speed_value=3)
+
+        self.assertEqual(3, timing.read_port(0x20))
+        self.assertEqual(15, timing.clock_mhz())
+        self.assertEqual((0, 1, 2, 3), timing.selectable_speed_modes())
+        self.assertEqual(
+            [5, 9, 11, 14],
+            [row["lcd_access_wait"] for row in timing.rows()],
+        )
+
+    def test_wabbitemu_extra_speed_option_controls_modes_two_and_three(self):
+        default = TimingImplementation.ti84p_os("wabbitemu", speed_value=3)
+        extra = TimingImplementation.ti84p_os(
+            "wabbitemu", speed_value=3, extra_speeds=True
+        )
+
+        self.assertEqual(1, default.read_port(0x20))
+        self.assertEqual(15, default.clock_mhz())
+        self.assertEqual((0, 1), default.selectable_speed_modes())
+        self.assertEqual(3, extra.read_port(0x20))
+        self.assertEqual(25, extra.clock_mhz())
+        self.assertEqual((0, 1, 2, 3), extra.selectable_speed_modes())
+
+    def test_mame_maps_only_binary_speed_and_ignores_delay_block(self):
+        timing = TimingImplementation.ti84p_os("mame", speed_value=0x80)
+
+        self.assertEqual(0x80, timing.read_port(0x20))
+        self.assertEqual(1, timing.decoder.speed_mode)
+        self.assertEqual(15, timing.clock_mhz())
+        self.assertEqual([], timing.rows())
+        self.assertEqual(
+            [
+                (0x29, 0x17),
+                (0x2A, 0x27),
+                (0x2B, 0x2F),
+                (0x2C, 0x3B),
+                (0x2E, 0x45),
+                (0x2F, 0x4B),
+            ],
+            timing.ignored_writes,
+        )
 
 
 if __name__ == "__main__":

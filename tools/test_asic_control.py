@@ -8,11 +8,14 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from asic_control import (
+    ASIC_IMPLEMENTATIONS,
+    asic_implementation,
     decode_battery_configuration,
     decode_port02,
     decode_port15,
     decode_port21,
     iter_gpio_read_modify_writes,
+    implementation_port21_readback,
 )
 from rom_image import RomLocation
 from z80_disassembly import Z80Instruction
@@ -95,6 +98,19 @@ class AsicControlTests(unittest.TestCase):
     def test_register_values_must_be_bytes(self):
         with self.assertRaises(ValueError):
             decode_port02(0x100)
+
+    def test_emulator_profiles_pin_mame_control_port_omissions(self):
+        mame = asic_implementation("mame")
+
+        self.assertEqual({0x02, 0x15, 0x21}, set(mame.mapped_ports))
+        self.assertEqual(0xC3, mame.fixed_port02_locked)
+        self.assertEqual(0x33, mame.fixed_port15)
+        self.assertEqual({"tilem", "wabbitemu", "mame"}, set(ASIC_IMPLEMENTATIONS))
+
+    def test_port21_readback_disagreements_are_executable(self):
+        self.assertEqual(0x33, implementation_port21_readback("tilem", 0xFF))
+        self.assertEqual(0x03, implementation_port21_readback("wabbitemu", 0xFF))
+        self.assertEqual(0x0F, implementation_port21_readback("mame", 0xFF))
 
 
 if __name__ == "__main__":

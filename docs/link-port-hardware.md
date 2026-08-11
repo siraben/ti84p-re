@@ -13,7 +13,8 @@ The sources answer different questions:
 | Source | What it establishes | Confidence |
 |--------|---------------------|------------|
 | OS 2.55MP bytes | Values written to port `0x00`, values accepted on reads, bit order, acknowledgements, and error branches | [confirmed] |
-| TilEm and Wabbitemu | Two independent digital models of port reads, local output latches, and connected endpoints | [standard] where both match the public port contract |
+| TilEm and Wabbitemu | Two independent digital models of port reads, local output latches, connected endpoints, and link assist | [standard] where both match the public port contract |
+| MAME 0.287 | A third raw-port implementation, optional link-bus devices, advertised assist state, and interrupt omissions | [standard] |
 | TI Link Protocol Guide and WikiTI | Open-collector electrical description and red/tip versus white/ring names | [standard] |
 | Physical measurements | Rise time, pull-up resistance, voltage thresholds, and ASIC-specific edge timing | [hypothesis] until measured on this hardware |
 
@@ -38,7 +39,11 @@ $$
 
 Wabbitemu uses the equivalent expression `((L | P) & 3) ^ 3`. Both models put the local output latch in read bits 4–5, giving `(L << 4) | H`. WikiTI documents the same latch behavior. [standard]
 
-The ROM masks reads with `AND 0x03`, so the raw byte routines do not depend on bits 2–7. The reusable model in `tools/link_port.py` intentionally models only the two line bits and the documented bits 4–5 latch.
+The ROM masks reads with `AND 0x03`, so the raw byte routines do not depend on
+bits 2–7. The reusable model in `tools/link_port.py` keeps the physical contract
+separate from implementation profiles. Its TilEm and Wabbitemu profiles use the
+two line bits and bits 4–5 latch directly; its MAME profile also preserves the
+internal PCR byte needed to reproduce that driver's expressions.
 
 ### Connector-contact names
 
@@ -191,26 +196,106 @@ The routine at `3C:618D` checks `(IY+0x1B)` bit 5. On its raw-link branch it wri
 
 The standard DBus description assigns a sustained both-low state to abort signaling. The waveform at `3C:6198`–`61B3` is compatible with that role, but the callers and delay have not been reduced far enough to name this routine as the OS abort primitive. [hypothesis]
 
-## Emulator fidelity
+## Emulator comparison
 
-TilEm and Wabbitemu agree on the digital port contract:
+The pinned sources implement materially different levels of the link stack.
+These are executable software behaviors, not measurements of the ASIC.
+[standard]
+
+| Detail | TilEm `f56ad63` | Wabbitemu `48c2dc0` | MAME 0.287 |
+|--------|------------------|----------------------|------------|
+| Raw write `1`/`2` reaches connector | yes | yes | no; both external lines are released |
+| Disconnected read after `1`/`2` | `0x12`/`0x21` | `0x12`/`0x21` | `0x12`/`0x21` |
+| Peer pull-low affects reads | yes | yes | yes |
+| Read bits 4–5 | local low-two-bit latch | local low-two-bit latch | low write bits copied into PCR bits 4–5 |
+| Link-assist advertisement | yes | yes | yes, through port `0x02 = 0xC3` |
+| Assist ports present | `0x08`–`0x0D` | `0x08`, `0x09`, `0x0A`, `0x0D` | only port `0x09`, fixed read zero |
+| Assist byte transfer | implemented | implemented | absent |
+| Raw-line activity interrupt | transition model present | no transition assertion in the raw port handler | absent from mask, status, and port handlers |
+| Driver status | usable link model | usable link model | `MACHINE_NOT_WORKING` |
+
+### TilEm and Wabbitemu digital agreement
+
+TilEm and Wabbitemu agree on the raw digital contract:
 
 - each endpoint stores a two-bit pull-low mask;
 - connected masks combine with OR because either endpoint can pull a line low;
 - reads invert the combined mask so set bits mean physically high lines;
 - read bits 4–5 report the local output latch.
 
-TilEm also implements the four-phase link-assist state machine. Wabbitemu's virtual-cable sender and receiver implement the same LSB-first raw handshake at a higher level. These implementations corroborate the state transitions. They do not establish analog voltage thresholds, pull-up values, connector wear behavior, or edge timing on a physical TI-84 Plus. [standard]
+TilEm's external-line setter detects a peer transition not already hidden by a
+local low output and can assert the link-activity interrupt when port `0x03`
+bit 4 enables it. Its link core also implements the four-phase assist state
+machine and two-second emulator timeout policy. [standard]
+
+Wabbitemu's port-`0x00` handler implements the same raw truth table, while its
+virtual-cable sender and receiver implement the LSB-first handshake at a higher
+level. The raw handler itself only updates and reads line masks; it does not
+assert a link-activity interrupt when the client mask changes. Its assist
+engine can assert CPU interrupts for read-ready, idle, and error conditions.
+[standard]
+
+Wabbitemu represents a disconnected calculator by making `client` point back
+to its own `host` latch. OR-ing the latch with itself gives the expected idle
+and self-drive reads. The separate `link_disconnect` function instead assigns
+`client = NULL`, while the port handler unconditionally evaluates
+`client[0]`. A subsequent port read can therefore dereference a null pointer.
+This is an emulator lifecycle defect, not link-port behavior. [standard]
+
+### MAME's readback-versus-connector split
+
+MAME's TI-Plus write handler copies write bits 0–1 into internal PCR bits 4–5.
+Its read handler masks the peer inputs with the inverse of those PCR bits.
+Consequently, ordinary disconnected reads reproduce the public contract:
+[standard]
+
+| Write | MAME PCR after reset | Local latch | Disconnected read |
+|-------|----------------------|-------------|-------------------|
+| `0x00` | `0x00` | `0` | `0x03` |
+| `0x01` | `0x10` | `1` | `0x12` |
+| `0x02` | `0x20` | `2` | `0x21` |
+| `0x03` | `0x30` | `3` | `0x30` |
+
+The connector callbacks use different bits. MAME drives tip low only when
+write bits 2 and 4 are both set, and ring low only when bits 3 and 5 are both
+set. Normal OS writes `1` and `2` satisfy neither pair and therefore release
+both external lines. Values `0x14` and `0x28` drive tip and ring respectively,
+but those are not the TI-84 Plus raw protocol values. A local MAME program can
+thus read an apparently correct self-latch while a connected link-bus device
+sees no asserted bit. [standard]
+
+MAME's reusable link-bus layer has a four-phase bit/byte implementation,
+one-second timeout placeholders, collision handling, and optional bit-socket,
+Graph Link, tee, and speaker devices. The TI-84 Plus host handler's mismatched
+control bits prevent normal raw writes from reaching those devices. The
+presence of the generic bus layer does not repair the calculator-side wiring.
+[standard]
+
+MAME also returns port `0x02 = 0xC3`, advertising link assist through bit 6,
+while its TI-84 Plus I/O map omits ports `0x08`, `0x0A`, `0x0B`, `0x0C`, and
+`0x0D`. Port `0x09` alone returns zero. OS 2.55MP therefore selects an assist
+path that this driver cannot execute. The driver also ignores port-`0x03` bit
+4 and never reports port-`0x04` link activity. [standard]
+
+The emulator agreement corroborates the raw state transitions only where the
+implementations actually agree. None establishes analog voltage thresholds,
+pull-up values, connector wear behavior, or edge timing on a physical TI-84
+Plus. Those analog details remain hypotheses until measured. [hypothesis]
 
 ## Reusable debugging tools
 
-`tools/link_port.py` provides the wired-AND model, port-read decoder, byte encoding, receive assembly, and four-phase trace. `tools/describe_link_port.py` exposes those operations as a CLI:
+`tools/link_port.py` provides the wired-AND model, port-read decoder, byte
+encoding, receive assembly, four-phase trace, and pinned implementation
+profiles. `tools/describe_link_port.py` exposes those operations as a CLI:
 
 ```sh
+nix develop -c python tools/describe_link_port.py profiles
 nix develop -c python tools/describe_link_port.py drive 0x02
 nix develop -c python tools/describe_link_port.py wire --local 1 --peer 2
 nix develop -c python tools/describe_link_port.py byte 0xA5
 nix develop -c python tools/describe_link_port.py receive 1 2 1 2 2 1 2 1
+nix develop -c python tools/describe_link_port.py compare 1 2 0
+nix develop -c python tools/describe_link_port.py emulator mame 0x14 0x28
 ```
 
 Add `--json` before the subcommand for machine-readable output. The model uses neutral line numbers so a trace remains valid even when the physical contact mapping is under review.
@@ -223,11 +308,14 @@ Add `--json` before the subcommand for machine-readable output. The model uses n
 - [confirmed] The standard-timer path detects non-idle raw lines and routes them to the OS link-activity handler.
 - [standard] Port reads use active-high physical levels, writes use active-high pull-low controls, and bits 4–5 reflect the local output latch.
 - [standard] Public hardware references map bit 0 to red/tip and bit 1 to white/ring.
+- [standard] TilEm and Wabbitemu reproduce the raw open-collector truth table; MAME reproduces local readback but normal writes do not reach its connector device.
+- [standard] MAME advertises link assist while omitting its control and data ports, and its driver is declared `MACHINE_NOT_WORKING`.
 - [hypothesis] Physical tests must measure pull-up resistance, high/low thresholds, line rise time, timeout duration at both CPU speeds, and the waveform and purpose of `3C:618D`.
 
 ## External references
 
 - [WikiTI port `0x00`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:00) — public bit meanings and output-latch behavior; treated as a secondary source.
 - [TI Link Protocol Guide](https://www.ticalc.org/archives/files/fileinfo/247/24750.html) — archived open-collector, contact-name, and four-transition protocol description.
-- [TilEm link core](https://github.com/debrouxl/tilem/blob/master/emu/link.c) — emulator implementation used for digital-model comparison.
-- [Wabbitemu](https://github.com/sputt/wabbitemu) — independent port and virtual-link implementation used for comparison.
+- [TilEm link core at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/link.c) and [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) — raw lines, activity interrupt, link assist, and timeout policy.
+- [Wabbitemu `83psehw.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) and [`link.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/link.c) — raw port, assist engine, virtual-cable handshake, and disconnect lifecycle.
+- [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp), [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp), and [`ti8x.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/devices/bus/ti8x/ti8x.cpp) — I/O coverage, PCR expressions, connector callbacks, and generic link-bus state machine.

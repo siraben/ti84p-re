@@ -10,6 +10,7 @@ from pathlib import Path
 import sys
 
 from asic_control import (
+    ASIC_IMPLEMENTATIONS,
     ASIC_IDENTITIES,
     decode_battery_configuration,
     decode_port02,
@@ -43,10 +44,22 @@ def main() -> None:
     parser.add_argument("--page", action="append", type=integer)
     parser.add_argument("--z80dasm", default="z80dasm", help="z80dasm executable")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--implementations",
+        action="store_true",
+        help="compare pinned emulator coverage for these ASIC-control ports",
+    )
     args = parser.parse_args()
 
     if not any(
-        (args.status, args.identity, args.port21, args.battery_config, args.scan_gpio)
+        (
+            args.status,
+            args.identity,
+            args.port21,
+            args.battery_config,
+            args.scan_gpio,
+            args.implementations,
+        )
     ):
         args.status = [0xE3]
         args.identity = sorted(ASIC_IDENTITIES)
@@ -101,6 +114,15 @@ def main() -> None:
         "port21_control": controls,
         "battery_configuration": battery,
         "gpio_read_modify_write": gpio,
+        "implementations": [
+            {
+                **asdict(profile),
+                "mapped_ports": sorted(profile.mapped_ports),
+            }
+            for profile in ASIC_IMPLEMENTATIONS.values()
+        ]
+        if args.implementations
+        else [],
     }
     if args.json:
         json.dump(result, sys.stdout, indent=2)
@@ -140,6 +162,18 @@ def main() -> None:
         print(
             f"{operation['location']} port 0x{operation['port']:02X} "
             f"{operation['operation']} 0x{operation['mask']:02X}"
+        )
+    for profile in result["implementations"]:
+        ports = ",".join(f"0x{port:02X}" for port in profile["mapped_ports"])
+        identity = (
+            "model-dependent"
+            if profile["fixed_port15"] is None
+            else f"0x{profile['fixed_port15']:02X}"
+        )
+        print(
+            f"{profile['key']} ({profile['revision']}): ports={ports} "
+            f"port15={identity}; port21={profile['port21_read_policy']}; "
+            f"GPIO={profile['gpio_policy']}"
         )
 
 
