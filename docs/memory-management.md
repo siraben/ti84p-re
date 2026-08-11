@@ -54,7 +54,9 @@ Archived vars are *appended* to Flash, which cannot be overwritten in place, so 
 
 Flash is erased a physical sector at a time but programmed byte by byte. `archive_write_record` at `3D:64AA` calls `_WriteAByte` (`8021`) and `_WriteFlashUnsafe` (`8087`) through the Flash-control port `0x14`. See [Flash memory](flash-memory.md) for the hardware and boot-bcall path, and [Variables, archive & unarchive](sub-vat-archive.md) for record format and allocation. [confirmed]
 
-- `_FlashToRam` (`3D:6745`) copies archived bytes through a worker at `0x8100`; `flash_to_ram_run_worker` at `3D:678C` installs that worker. [confirmed]
+- `_FlashToRam` (`3D:6745`) copies archived bytes through a worker at `0x8100`.
+  `ram_worker_launcher` at `3D:678C` installs that worker. The same launcher
+  also runs the internal certificate-page program worker. [confirmed]
 - `archive_find_free_span` (`3D:62C2`) scans upward from page `08` to the dynamic App boundary from `archive_app_boundary` (`3D:6413`). The OS-only trace returns boundary `0x29` and selects `08:4000`. [confirmed]
 - `archive_write_record` (`3D:64AA`) writes record states `0xFE` then `0xFC`; the helpers at `3D:7C8F`, `3D:7C93`, and `3D:7C97` implement additional monotonic bit-clears. [confirmed]
 - Archive workers: `_Arc_Unarc` (`07:6248`) → `arc_ram_to_flash` (`07:6107`, RAM→Flash) / `arc_flash_to_ram` (`07:61F4`, Flash→RAM). (`_Arc_Unarc` dispatches on the FindSym page byte `B`: `B==0`/in-RAM → `6107` archive, `B≠0`/in-Flash → `61F4` unarchive.)

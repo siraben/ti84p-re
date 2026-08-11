@@ -54,6 +54,22 @@ def error_fixture_machine_code() -> bytes:
     )
 
 
+def certificate_program_error_machine_code() -> bytes:
+    return (
+        PATCH_SIGNATURE_CHECK
+        + bytes.fromhex("06081abec2")
+        + bytes.fromhex("210a73060c1abec2")
+        + bytes.fromhex("21797306121abec2")
+        + bytes.fromhex("3e3ed3063a0040b7")
+        + bytes.fromhex("3e3dd306210a73110081018100edb0")
+        + bytes.fromhex("afd3063e3e110040010100")
+        + bytes.fromhex("cd0081f5e1")
+        + bytes.fromhex("db0632")
+        + bytes.fromhex("3e3ed3063a004032")
+        + bytes.fromhex("3e3cd306cdd566")
+    )
+
+
 def entry_returns_machine_code() -> bytes:
     return (
         ENTRY_SIGNATURE_CHECK
@@ -203,6 +219,7 @@ class FlashEmulatorFixtureTests(unittest.TestCase):
             {
                 "entry-returns",
                 "byte-entry-returns",
+                "certificate-program-error",
                 "locked-byte-noop",
                 "erase-entry-returns",
                 "certificate-erase-success",
@@ -212,6 +229,30 @@ class FlashEmulatorFixtureTests(unittest.TestCase):
             },
             set(FLASH_FIXTURES),
         )
+
+    def test_builds_guarded_certificate_program_error_fixture(self):
+        fixture = build_fixture(
+            self.rom,
+            certificate_program_error_machine_code(),
+            "certificate-program-error",
+        )
+        variable = decode_ti_variable_file(fixture.program)
+        runner = decode_ti_variable_file(fixture.runner)
+
+        self.assertEqual("EMUCFAIL", variable.name)
+        self.assertEqual("ACFAIL", runner.name)
+        self.assertTrue(fixture.spec.patch_unlock)
+        self.assertNotEqual(fixture.source_rom_sha256, fixture.fixture_rom_sha256)
+
+    def test_certificate_program_error_fixture_requires_direct_worker_call(self):
+        machine_code = certificate_program_error_machine_code()
+
+        with self.assertRaisesRegex(ValueError, "copied worker directly"):
+            build_fixture(
+                self.rom,
+                machine_code + WRITEFLASH_UNSAFE_BCALL,
+                "certificate-program-error",
+            )
 
     def test_builds_unmodified_entry_returns_fixture(self):
         fixture = build_fixture(

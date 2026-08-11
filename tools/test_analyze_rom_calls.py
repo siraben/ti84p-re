@@ -8,12 +8,13 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from analyze_rom_calls import (
+    bjump_call_reports_for_page,
     bjump_reports_for_page,
     call_reports_for_page,
     resolved_direct_target,
 )
 from rom_image import RomImage, RomLocation
-from z80_disassembly import Z80Instruction
+from z80_disassembly import BjumpSite, Z80Instruction
 
 
 def instruction(address: int, data: bytes, text: str) -> Z80Instruction:
@@ -100,6 +101,25 @@ class AnalyzeRomCallsTests(unittest.TestCase):
         self.assertEqual("3D:6098", report["target"])
         self.assertEqual(0x7D, report["raw_page"])
         self.assertEqual("cd092b98607d", report["bytes"])
+
+    def test_bjump_call_report_resolves_page_zero_stub(self):
+        instructions = (
+            instruction(0x0200, bytes.fromhex("CDA72B"), "call 02ba7h"),
+        )
+        stub = BjumpSite(
+            location=RomLocation(0, 0x2BA7),
+            target=RomLocation(0x3D, 0x4806),
+            raw_page=0x7D,
+        )
+
+        reports = bjump_call_reports_for_page(
+            instructions, (stub,), before=0, after=0
+        )
+
+        self.assertEqual(1, len(reports))
+        self.assertEqual("00:2BA7", reports[0]["stub"])
+        self.assertEqual("3D:4806", reports[0]["target"])
+        self.assertEqual(0x7D, reports[0]["raw_page"])
 
     def test_direct_target_resolution_keeps_banked_page_identity(self):
         self.assertEqual("00:2799", resolved_direct_target(0x3C, 0x2799))

@@ -13,6 +13,8 @@ UNLOCK_ADDR_1 = 0x0AAAA
 UNLOCK_ADDR_2 = 0x05555
 PROGRAM_SUCCESS_RESET_PC = ("ram", 0x816B)
 PROGRAM_FAILURE_RESET_PC = ("ram", 0x8175)
+CERTIFICATE_PROGRAM_SUCCESS_RESET_PC = ("ram", 0x8172)
+CERTIFICATE_PROGRAM_FAILURE_RESET_PC = ("ram", 0x817B)
 FLASH_WRITE_SEMANTICS = (
     "resolved CPU write attempts targeting mapped Flash; "
     "TLMT does not record ASIC or device acceptance"
@@ -135,6 +137,10 @@ class FlashProgramInvocation:
             return "success"
         if self.reset_pc == PROGRAM_FAILURE_RESET_PC:
             return "failure"
+        if self.reset_pc == CERTIFICATE_PROGRAM_SUCCESS_RESET_PC:
+            return "certificate-success"
+        if self.reset_pc == CERTIFICATE_PROGRAM_FAILURE_RESET_PC:
+            return "certificate-failure"
         return "unknown-reset"
 
 

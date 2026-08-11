@@ -10,11 +10,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from z80_disassembly import (
     direct_target,
     find_bcall_sites,
+    find_bjump_sites,
     find_literal_uses,
     nearby_direct_sinks,
     parse_z80dasm,
 )
-from rom_image import RomImage
+from rom_image import RomImage, RomLocation
 
 
 SAMPLE = """\
@@ -61,6 +62,18 @@ class Z80DisassemblyTests(unittest.TestCase):
         self.assertEqual(1, len(sites))
         self.assertEqual("00:0123", str(sites[0].location))
         self.assertEqual(0x44D7, sites[0].id)
+
+    def test_bjump_search_can_discover_all_inline_descriptors(self):
+        page = bytearray(0x4000)
+        page[0x100:0x106] = bytes.fromhex("CD092B06487D")
+        rom = RomImage(bytes(page))
+
+        sites = tuple(find_bjump_sites(rom, 0))
+
+        self.assertEqual(1, len(sites))
+        self.assertEqual(RomLocation(0, 0x0100), sites[0].location)
+        self.assertEqual(RomLocation(0x3D, 0x4806), sites[0].target)
+        self.assertEqual(0x7D, sites[0].raw_page)
 
 
 if __name__ == "__main__":

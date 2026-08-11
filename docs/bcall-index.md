@@ -33,7 +33,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `grc_454b` | `5263` | `37:454B` |
 | `grc_4556` | `5266` | `37:4556` |
 | `grc_4575` | `5269` | `37:4575` |
-| `grc_4611` | `52FF` | `37:4611` |
+| `_DispAppRestrictions` | `52FF` | `37:4611` |
 | `grc_51c2` | `517F` | `37:51C2` |
 | `grc_5223` | `51A0` | `37:5223` |
 | `grc_5d44` | `51D6` | `37:5D44` |

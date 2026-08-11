@@ -609,7 +609,7 @@
 527B	_WaitTimer
 527E	_CheckTimer
 5281	_CheckTimerRestart
-52FF	grc_4611
+52FF	_DispAppRestrictions
 5326	app_5de7
 5338	fpx_7dfe
 533B	fpx_7d9d
