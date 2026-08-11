@@ -1188,6 +1188,37 @@ The manifest labels the initialized-core scope. It does not execute TI-OS or
 measure interrupt voltage, physical timing, low-power domains, or reset
 retention.
 
+#### Battery comparator matrix
+
+`battery_hardware.py` encodes the byte-verified `_Chk_Batt_Level` decision
+tree and TilEm's four threshold constants. The native adapter sweeps the
+emulator's 0.1 V battery field and reads every port-`0x04` selector through the
+TI-84 Plus port-`0x02` handler:
+
+```sh
+tilem_battery_tmp=$(mktemp -d /tmp/ti84-tilem-battery.XXXXXX)
+git clone https://github.com/debrouxl/tilem.git "$tilem_battery_tmp/tilem"
+git -C "$tilem_battery_tmp/tilem" checkout \
+  f56ad637d0524ee841dd381be6ecbaf5b8975600
+nix shell \
+  github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
+  --command python tools/build_tilem_battery_probe.py \
+  --source "$tilem_battery_tmp/tilem" \
+  --output "$tilem_battery_tmp/tilem-battery-probe" --json
+
+tilem_battery_parent=$(mktemp -d /tmp/ti84-tilem-battery-report.XXXXXX)
+python tools/run_tilem_battery_probe.py \
+  --binary "$tilem_battery_tmp/tilem-battery-probe" \
+  --expected-binary-sha256 \
+    47008d660c7ea3e88c07df3d41d5c3e34c51d49850a806d5d2e37d5ca6214029 \
+  --output-dir "$tilem_battery_parent/run" --json
+```
+
+The guarded run observes masks `0`, `1`, `5`, `7`, and `F` across 3.0–4.5 V.
+The shared ROM model maps them to levels 0, 1, 3, 3, and 4. This pins level 2
+as unreachable under TilEm's threshold ordering. The manifest labels this as
+initialized-core emulator behavior, not a measured calculator voltage.
+
 #### Programmable timer and RTC matrix
 
 `tilem_timer.py` derives source periods and expiry outcomes from the reusable
@@ -1864,6 +1895,28 @@ reusable oracle derives source divisors and expiry fields from
 `timer_hardware.py`. This is emulator state-machine evidence rather than
 TI-OS execution, host timing, or physical ASIC behavior.
 
+Run the assembled programmable-timer physical discriminator through the shared
+injected-program runner:
+
+```sh
+wabbit_timer_physical_parent=$(mktemp -d /tmp/ti84-wabbit-timer-physical.XXXXXX)
+python tools/run_wabbitemu_timer_physical_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --expected-binary-sha256 \
+    c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1 \
+  --output-dir "$wabbit_timer_physical_parent/run" --json
+```
+
+This mode boots the retail OS, injects the exact `HWTMR` image into logical
+user RAM, and stops before `_CreateAppVar`. It verifies the probe ID, frame
+length, Wabbitemu-specific timer classifications, and complete guarded-state
+restoration. The same native runner handles `HWPFX`; its shared injection,
+execution-limit, stop-address, frame, and violation-reset checks avoid a second
+probe-specific control path. The retained manifest identifies the ROM, binary,
+machine code, runtime counters, decoded frame, and evidence scope. No result
+from a physical calculator is implied.
+
 Run the guarded ASIC-control edge probe through the same binary:
 
 ```sh
@@ -2153,6 +2206,21 @@ rather than paged-address resolution.
 - [`tilem_interrupt.py`](tilem_interrupt.py) — typed interrupt report parser and oracle backed by the reusable state model.
 - [`build_tilem_interrupt_probe.py`](build_tilem_interrupt_probe.py) — clean-source guarded TilEm interrupt-probe compiler CLI.
 - [`run_tilem_interrupt_probe.py`](run_tilem_interrupt_probe.py) — exact-binary guarded legacy-interrupt CLI.
+- [`battery_hardware.py`](battery_hardware.py) — ROM battery-level tree, TilEm threshold regions, and raw comparator queries.
+- [`describe_battery_hardware.py`](describe_battery_hardware.py) — text and JSON battery-model CLI.
+- [`hardware-probes/battery-level.asm`](hardware-probes/battery-level.asm) and [`hardware-probes/battery-raw.asm`](hardware-probes/battery-raw.asm) — restoring physical probes for OS-visible levels and per-selector comparator masks.
+- [`hardware-probes/link-raw.asm`](hardware-probes/link-raw.asm) — disconnected-port truth-table and instruction-spaced settling probe with release-to-idle cleanup.
+- [`hardware-probes/keypad-settle.asm`](hardware-probes/keypad-settle.asm) — held-key and chord matrix-settling probe with eight group writes and four instruction gaps.
+- [`hardware-probes/bus-timing.asm`](hardware-probes/bus-timing.asm) — guarded six-class Flash/RAM wait-state matrix using idle programmable timer 2.
+- [`hardware-probes/prefix-m1.asm`](hardware-probes/prefix-m1.asm) — guarded RAM-M1 matrix for ordinary, prefixed, repeated-prefix, and indexed-CB instructions.
+- [`hardware-probes/timer-physical.asm`](hardware-probes/timer-physical.asm) — guarded divisor, mode-3-prescaler, counter-zero, and expiry-status matrix.
+- [`prefix_fetch_models.py`](prefix_fetch_models.py) and [`describe_prefix_fetch_models.py`](describe_prefix_fetch_models.py) — hash-guarded TilEm/Wabbitemu prefix-fetch comparison library and CLI.
+- [`run_wabbitemu_prefix_m1_probe.py`](run_wabbitemu_prefix_m1_probe.py) — exact-ROM and exact-binary guarded execution of the assembled prefix-M1 probe through its cleanup boundary.
+- [`run_wabbitemu_timer_physical_probe.py`](run_wabbitemu_timer_physical_probe.py) — exact-ROM and exact-binary guarded execution of the assembled timer discriminator through its cleanup boundary.
+- [`tilem_battery_probe.c`](tilem_battery_probe.c) — direct-core voltage and selector sweep adapter.
+- [`tilem_battery.py`](tilem_battery.py) — typed battery report parser and shared-model oracle.
+- [`build_tilem_battery_probe.py`](build_tilem_battery_probe.py) — clean-source guarded battery-probe compiler CLI.
+- [`run_tilem_battery_probe.py`](run_tilem_battery_probe.py) — exact-binary guarded battery-comparator CLI.
 - [`tilem_timer_probe.c`](tilem_timer_probe.c) — direct-core programmable-timer and deterministic RTC adapter.
 - [`tilem_timer.py`](tilem_timer.py) — typed timer/RTC report parser and oracle backed by reusable timing models.
 - [`build_tilem_timer_probe.py`](build_tilem_timer_probe.py) — clean-source guarded TilEm timer-probe compiler CLI.
@@ -2200,8 +2268,8 @@ rather than paged-address resolution.
 - [`mame_mapper_probe.lua`](mame_mapper_probe.lua) — fresh-process reset latch, selector, paired-bank, overlay-routing, and fetched-marker adapter for MAME.
 - [`mame_mapper.py`](mame_mapper.py) — typed MAME mapper report parser and oracle backed by the reusable mapper profile and pinned ROM prefixes.
 - [`run_mame_mapper_probe.py`](run_mame_mapper_probe.py) — exact-ROM and exact-MAME guarded five-case mapper CLI with retained logs and manifest.
-- [`wabbitemu_headless.cpp`](wabbitemu_headless.cpp) — minimal Linux adapter, wake scheduler, Flash sampler, protected-gate observer, exact copied-worker matcher, recovery-point recorder, and guarded execution, reset, Flash, retail-worker, MD5, keypad, timer, ASIC-control, LCD/bus, direct-entry LCD-diagnostic, speed/delay, interrupt, and link probe modes for the pinned Wabbitemu core.
-- [`wabbitemu_headless.py`](wabbitemu_headless.py) — reusable pinned-source validation, build command, recovery and probe runners, typed gate/report parsing, retail-path validation, and image hashing.
+- [`wabbitemu_headless.cpp`](wabbitemu_headless.cpp) — minimal Linux adapter, wake scheduler, Flash sampler, protected-gate observer, exact copied-worker matcher, recovery-point recorder, and guarded execution, reset, Flash, retail-worker, MD5, keypad, timer, ASIC-control, LCD/bus, shared assembled-program injection, direct-entry LCD-diagnostic, speed/delay, interrupt, and link probe modes for the pinned Wabbitemu core.
+- [`wabbitemu_headless.py`](wabbitemu_headless.py) — reusable pinned-source validation, build command, recovery and probe runners, typed gate/report parsing, shared assembled-program execution, retail-path validation, and image hashing.
 - [`wabbitemu_flash_probe.py`](wabbitemu_flash_probe.py) — shared Flash case parser plus command-family, byte-program, and retail-worker report oracles.
 - [`build_wabbitemu_headless.py`](build_wabbitemu_headless.py) — guarded compiler CLI for the exact pinned source tree.
 - [`run_wabbitemu_headless.py`](run_wabbitemu_headless.py) — guarded cold-boot CLI with input/output hashes, exact gate-write expectations, retail Flash-path validation, and JSON coverage.
@@ -2210,6 +2278,8 @@ rather than paged-address resolution.
 - [`run_wabbitemu_flash_program_probe.py`](run_wabbitemu_flash_program_probe.py) — guarded native byte-program matrix with source-model, report-field, ROM, and binary checks.
 - [`run_wabbitemu_flash_command_probe.py`](run_wabbitemu_flash_command_probe.py) — guarded native autoselect, reset, fast-program, erase, and unsupported-command matrix with complete mutation-range checks.
 - [`run_wabbitemu_flash_worker_probe.py`](run_wabbitemu_flash_worker_probe.py) — guarded retail-ROM `_WriteFlashUnsafe` matrix with copied-worker path, register, poll-read, reset-tail, and hash checks.
+- [`run_wabbitemu_prefix_m1_probe.py`](run_wabbitemu_prefix_m1_probe.py) — exact-ROM and exact-binary guarded assembled timing-probe CLI with decoded model discrimination and restoration checks.
+- [`run_wabbitemu_timer_physical_probe.py`](run_wabbitemu_timer_physical_probe.py) — exact-ROM and exact-binary guarded assembled timer-probe CLI with decoded model discrimination and restoration checks.
 - [`emulator-probes/flash-bcall-usage.asm`](emulator-probes/flash-bcall-usage.asm) — assembled programmer-facing `_WriteFlash`, `_WriteAByteSafe`, `_EraseFlashPage`, `_SetFlashLowerBound`, and `_FlashToRam` usage fixture.
 - [`flash_bcall_examples.py`](flash_bcall_examples.py) — reusable assembly, typed native-report parsing, and bcall/result/readback oracle.
 - [`run_wabbitemu_flash_bcall_probe.py`](run_wabbitemu_flash_bcall_probe.py) — exact-ROM guarded executable-example CLI with source, machine-code, adapter, and result hashes.

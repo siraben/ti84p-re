@@ -4,21 +4,32 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 import hashlib
 import json
-from pathlib import Path
 import subprocess
 import tempfile
+from collections import Counter
+from dataclasses import dataclass
+from pathlib import Path
 
+from bus_timing import (
+    BUS_TIMING_PROBE_CASES,
+    BUS_TIMING_PROBE_MEASUREMENT_SIZE,
+    PREFIX_M1_PROBE_CASES,
+)
 from hardware_probe import (
     APPVAR_TYPE,
+    KEYPAD_SETTLE_SAMPLE_COUNT,
+    LINK_RAW_SAMPLE_COUNT,
     PROBE_FORMAT_VERSION,
     PROBE_MAGIC,
     USB_SNAPSHOT_PORTS,
 )
 from ti_program import asmprgm_body, encode_program_file
-
+from timer_hardware import (
+    PHYSICAL_TIMER_MEASUREMENT_SIZE,
+    PHYSICAL_TIMER_STATE_PORTS,
+)
 
 TOOLS = Path(__file__).resolve().parent
 PROBE_DIR = TOOLS / "hardware-probes"
@@ -26,6 +37,23 @@ USER_MEM = 0x9D95
 PROGRAM_LIMIT = 0xC000
 PROBE_START = 0x9DB5
 CREATE_APPVAR_COPY = b"\xEF\x6A\x4E\xE1\xC1\x13\x13\xED\xB0"
+TIMING_PROBE_EXPECTED_INPUTS = {
+    0x02: 2,
+    0x03: 2,
+    0x04: 3,
+    0x15: 1,
+    0x20: 2,
+    0x29: 2,
+    0x2A: 2,
+    0x2B: 2,
+    0x2C: 2,
+    0x2E: 2,
+    0x2F: 2,
+    0x33: 2,
+    0x34: 3,
+    0x35: 8,
+}
+TIMING_PROBE_EXPECTED_OUTPUTS = {0x2E: 8, 0x33: 7, 0x34: 7, 0x35: 7}
 
 
 @dataclass(frozen=True)
@@ -60,6 +88,53 @@ PROBES = {
         "HWPUSB01",
         5,
         len(USB_SNAPSHOT_PORTS),
+    ),
+    "battery-level": ProbeDefinition(
+        "battery-level.asm", "HWBATT", "HWBATT01", 6, 30
+    ),
+    "battery-raw": ProbeDefinition(
+        "battery-raw.asm", "HWBRAW", "HWBRAW01", 7, 30
+    ),
+    "link-raw": ProbeDefinition(
+        "link-raw.asm", "HWLINK", "HWLINK01", 8,
+        4 + LINK_RAW_SAMPLE_COUNT + 4 + 2,
+    ),
+    "keypad-settle": ProbeDefinition(
+        "keypad-settle.asm", "HWKEYS", "HWKEYS01", 9,
+        5 + 1 + KEYPAD_SETTLE_SAMPLE_COUNT + 5,
+    ),
+    "bus-timing": ProbeDefinition(
+        "bus-timing.asm",
+        "HWBUS",
+        "HWBUS001",
+        10,
+        13
+        + 1
+        + len(BUS_TIMING_PROBE_CASES)
+        * 2
+        * BUS_TIMING_PROBE_MEASUREMENT_SIZE
+        + 13,
+    ),
+    "prefix-m1": ProbeDefinition(
+        "prefix-m1.asm",
+        "HWPFX",
+        "HWPFX001",
+        11,
+        13
+        + 1
+        + len(PREFIX_M1_PROBE_CASES)
+        * 2
+        * BUS_TIMING_PROBE_MEASUREMENT_SIZE
+        + 13,
+    ),
+    "timer-physical": ProbeDefinition(
+        "timer-physical.asm",
+        "HWTMR",
+        "HWTMR001",
+        12,
+        len(PHYSICAL_TIMER_STATE_PORTS) * 2
+        + 1
+        + PHYSICAL_TIMER_MEASUREMENT_SIZE,
     ),
     "exec-flash-07": ProbeDefinition(
         "execution-fetch.asm", "HWEF07", "HWEF0701", 4, 16,
@@ -147,6 +222,21 @@ def initial_probe_payload(probe: ProbeDefinition) -> bytes:
     return payload
 
 
+def validate_timing_probe_io(probe_name: str, machine_code: bytes) -> None:
+    """Check shared timer-2 snapshot and restoration I/O counts."""
+
+    for port, count in TIMING_PROBE_EXPECTED_INPUTS.items():
+        if machine_code.count(bytes((0xDB, port))) != count:
+            raise ValueError(
+                f"{probe_name} must read port 0x{port:02X} exactly {count} times"
+            )
+    for port, count in TIMING_PROBE_EXPECTED_OUTPUTS.items():
+        if machine_code.count(bytes((0xD3, port))) != count:
+            raise ValueError(
+                f"{probe_name} must write port 0x{port:02X} exactly {count} times"
+            )
+
+
 def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
     """Check stable entry, result-frame, and AppVar-copy invariants."""
 
@@ -212,6 +302,263 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
                 raise ValueError(
                     f"{probe_name} must read port 0x{port:02X} exactly once"
                 )
+    if probe.probe_id == 6:
+        bcall = bytes.fromhex("EF2152")
+        if machine_code.count(bcall) != 16:
+            raise ValueError(
+                f"{probe_name} must call _Chk_Batt_Level exactly 16 times"
+            )
+        for port in (0x04, 0x39, 0x3A):
+            if machine_code.count(bytes((0xDB, port))) != 3:
+                raise ValueError(
+                    f"{probe_name} must read port 0x{port:02X} exactly three times"
+                )
+            if machine_code.count(bytes((0xD3, port))) != 1:
+                raise ValueError(
+                    f"{probe_name} must restore port 0x{port:02X} exactly once"
+                )
+        if machine_code.count(bytes.fromhex("FD7718")) != 1:
+            raise ValueError(f"{probe_name} must restore traceFlags exactly once")
+    if probe.probe_id == 7:
+        local_calls = Counter(
+            machine_code[index : index + 3]
+            for index, opcode in enumerate(machine_code[:-2])
+            if opcode == 0xCD
+        )
+        repeated_samplers = [
+            call for call, count in local_calls.items() if count == 16
+        ]
+        if len(repeated_samplers) != 1:
+            raise ValueError(
+                f"{probe_name} must contain 16 identical sampler calls"
+            )
+        sampler_target = int.from_bytes(repeated_samplers[0][1:3], "little")
+        if not USER_MEM <= sampler_target < USER_MEM + len(machine_code):
+            raise ValueError(f"{probe_name} sampler call must target local code")
+        for call, label in (
+            (bytes.fromhex("CDEB0C"), "five-call delay worker"),
+            (bytes.fromhex("CDED0C"), "cleanup delay"),
+        ):
+            if machine_code.count(call) != 1:
+                raise ValueError(f"{probe_name} must contain one {label}")
+        if bytes.fromhex("0605CDEB0C10") not in machine_code:
+            raise ValueError(
+                f"{probe_name} must loop over five calls to the delay worker"
+            )
+        expected_port_counts = {
+            0x04: (3, 3),
+            0x39: (4, 2),
+            0x3A: (7, 5),
+        }
+        for port, (reads, writes) in expected_port_counts.items():
+            if machine_code.count(bytes((0xDB, port))) != reads:
+                raise ValueError(
+                    f"{probe_name} must read port 0x{port:02X} exactly {reads} times"
+                )
+            if machine_code.count(bytes((0xD3, port))) != writes:
+                raise ValueError(
+                    f"{probe_name} must write port 0x{port:02X} exactly {writes} times"
+                )
+        for sequence, label in (
+            (bytes.fromhex("F680D33A"), "GPIO bit-7 enable"),
+            (bytes.fromhex("F610D33A3E40CDED0C"), "ROM cleanup pulse"),
+            (bytes.fromhex("E6EFD33A"), "GPIO bit-4 clear"),
+            (bytes.fromhex("E67FD33A"), "GPIO bit-7 clear"),
+        ):
+            if sequence not in machine_code:
+                raise ValueError(f"{probe_name} omits its {label}")
+        if machine_code.count(bytes.fromhex("FD7718")) != 1:
+            raise ValueError(f"{probe_name} must restore traceFlags exactly once")
+    if probe.probe_id == 8:
+        expected_inputs = {0x00: 7, 0x02: 2, 0x03: 2, 0x04: 2, 0x20: 2}
+        for port, count in expected_inputs.items():
+            if machine_code.count(bytes((0xDB, port))) != count:
+                raise ValueError(
+                    f"{probe_name} must read port 0x{port:02X} exactly {count} times"
+                )
+        if machine_code.count(bytes.fromhex("D300")) != 9:
+            raise ValueError(
+                f"{probe_name} must contain eight sample writes and one cleanup write"
+            )
+        if machine_code.count(bytes.fromhex("3E03D30079D300")) != 4:
+            raise ValueError(
+                f"{probe_name} must precondition and drive four timed sample points"
+            )
+        for nop_count in (0, 1, 4, 16):
+            sequence = (
+                bytes.fromhex("3E03D30079D300")
+                + bytes((0x00,)) * nop_count
+                + bytes.fromhex("DB007723")
+            )
+            if machine_code.count(sequence) != 1:
+                raise ValueError(
+                    f"{probe_name} must contain one {nop_count}-NOP sample point"
+                )
+        if bytes.fromhex("0610") not in machine_code:
+            raise ValueError(f"{probe_name} must repeat every point 16 times")
+        initializes_write = bytes.fromhex("0E00") in machine_code
+        stops_after_write_three = bytes.fromhex("0CCB51") in machine_code
+        if not initializes_write or not stops_after_write_three:
+            raise ValueError(f"{probe_name} must sweep link writes 0 through 3")
+        if machine_code.count(bytes.fromhex("AFD300")) != 1:
+            raise ValueError(f"{probe_name} must release both link lines once")
+    if probe.probe_id == 9:
+        expected_inputs = {0x01: 8, 0x02: 2, 0x03: 2, 0x04: 2, 0x15: 1, 0x20: 2}
+        for port, count in expected_inputs.items():
+            if machine_code.count(bytes((0xDB, port))) != count:
+                raise ValueError(
+                    f"{probe_name} must read port 0x{port:02X} exactly {count} times"
+                )
+        if machine_code.count(bytes.fromhex("D301")) != 10:
+            raise ValueError(
+                f"{probe_name} must contain nine sample/setup writes and one cleanup write"
+            )
+        if machine_code.count(bytes.fromhex("AFD30179D301")) != 4:
+            raise ValueError(
+                f"{probe_name} must precondition and select four timed sample points"
+            )
+        for nop_count in (0, 4, 16, 64):
+            sequence = (
+                bytes.fromhex("AFD30179D301")
+                + bytes((0x00,)) * nop_count
+                + bytes.fromhex("DB017723")
+            )
+            if machine_code.count(sequence) != 1:
+                raise ValueError(
+                    f"{probe_name} must contain one {nop_count}-NOP sample point"
+                )
+        if bytes.fromhex("0610") not in machine_code:
+            raise ValueError(f"{probe_name} must repeat every point 16 times")
+        if (
+            bytes.fromhex("0EFE") not in machine_code
+            or bytes.fromhex("CB01DA") not in machine_code
+        ):
+            raise ValueError(f"{probe_name} must rotate through all eight group writes")
+        if bytes.fromhex("AFD301DB013C20") not in machine_code:
+            raise ValueError(f"{probe_name} must wait for the launch key release")
+        if bytes.fromhex("DB013C28") not in machine_code:
+            raise ValueError(f"{probe_name} must wait for a held key or chord")
+        if bytes.fromhex("11FFFF1B7AB320") not in machine_code:
+            raise ValueError(f"{probe_name} must debounce the held chord")
+        if machine_code.count(bytes.fromhex("3EFFD301")) != 1:
+            raise ValueError(f"{probe_name} must unselect every keypad group once")
+    if probe.probe_id == 10:
+        validate_timing_probe_io(probe_name, machine_code)
+        required_counts = (
+            (bytes.fromhex("3E45D333AFD3343EFFD335"), 6, "timer setup"),
+            (bytes.fromhex("010010"), 1, "4,096-iteration loop"),
+            (bytes.fromhex("010040"), 5, "16,384-iteration loops"),
+            (bytes.fromhex("CDE60C"), 1, "fixed-page helper call"),
+            (bytes.fromhex("F5232BF1C9"), 1, "fixed-page helper signature"),
+            (bytes.fromhex("16F0"), 1, "Flash reset-command byte"),
+            (
+                bytes.fromhex("DD7700DB34DD7701DB04DD7702"),
+                1,
+                "measurement result sequence",
+            ),
+            (bytes.fromhex("AFD333D334"), 1, "timer stop and acknowledge"),
+        )
+        for sequence, count, label in required_counts:
+            if machine_code.count(sequence) != count:
+                raise ValueError(
+                    f"{probe_name} must contain its {label} exactly {count} times"
+                )
+    if probe.probe_id == 11:
+        validate_timing_probe_io(probe_name, machine_code)
+        required_counts = (
+            (bytes.fromhex("3E45D333AFD3343EFFD335"), 6, "timer setup"),
+            (bytes.fromhex("010030"), 6, "12,288-iteration loops"),
+            (bytes.fromhex("000B78B120"), 1, "unprefixed loop body"),
+            (bytes.fromhex("CB420B78B120"), 1, "CB-prefixed loop body"),
+            (bytes.fromhex("ED440B78B120"), 1, "ED-prefixed loop body"),
+            (bytes.fromhex("DD7C0B78B120"), 2, "DD-prefixed loop suffixes"),
+            (bytes.fromhex("DDDD7C0B78B120"), 1, "repeated-DD loop body"),
+            (bytes.fromhex("DDCB00460B78B120"), 1, "indexed-CB loop body"),
+            (
+                bytes.fromhex("DD7700DB34DD7701DB04DD7702"),
+                1,
+                "measurement result sequence",
+            ),
+            (bytes.fromhex("AFD333D334"), 1, "timer stop and acknowledge"),
+        )
+        for sequence, count, label in required_counts:
+            if machine_code.count(sequence) != count:
+                raise ValueError(
+                    f"{probe_name} must contain its {label} exactly {count} times"
+                )
+    if probe.probe_id == 12:
+        expected_inputs = {
+            0x02: 2,
+            0x03: 2,
+            0x04: 8,
+            0x15: 2,
+            0x20: 3,
+            0x2D: 2,
+            0x2F: 2,
+            0x30: 2,
+            0x31: 6,
+            0x32: 10,
+            0x33: 2,
+            0x34: 2,
+            0x35: 9,
+        }
+        expected_outputs = {
+            0x20: 2,
+            0x2F: 2,
+            0x30: 5,
+            0x31: 7,
+            0x32: 5,
+            0x33: 5,
+            0x34: 6,
+            0x35: 6,
+        }
+        for port, count in expected_inputs.items():
+            if machine_code.count(bytes((0xDB, port))) != count:
+                raise ValueError(
+                    f"{probe_name} must read port 0x{port:02X} exactly {count} times"
+                )
+        for port, count in expected_outputs.items():
+            if machine_code.count(bytes((0xD3, port))) != count:
+                raise ValueError(
+                    f"{probe_name} must write port 0x{port:02X} exactly {count} times"
+                )
+        required_counts = (
+            (
+                bytes.fromhex(
+                    "3E41D330AFD3313EFFD3323E45D333AFD3343EFFD335"
+                ),
+                1,
+                "0x41 crystal-divisor case",
+            ),
+            (bytes.fromhex("3E4BD32F"), 1, "fixed port-0x2F setup"),
+            (
+                bytes.fromhex(
+                    "3EE0D3303E01D3313EFAD3323E45D333AFD3343EFFD335"
+                ),
+                1,
+                "0xE0 mode-3 case",
+            ),
+            (
+                bytes.fromhex(
+                    "3E45D330AFD331D3323E46D333AFD3343E1FD335"
+                ),
+                1,
+                "counter-zero case",
+            ),
+            (
+                bytes.fromhex(
+                    "3E45D3303E01D3313E04D3323E45D333AFD3343E08D335"
+                ),
+                1,
+                "first/second-expiry case",
+            ),
+            (bytes.fromhex("01FFFF"), 3, "bounded polling loops"),
+        )
+        for sequence, count, label in required_counts:
+            if machine_code.count(sequence) != count:
+                raise ValueError(
+                    f"{probe_name} must contain its {label} exactly {count} times"
+                )
 
 
 def package_probe(
@@ -242,12 +589,12 @@ def package_probe(
     return program, metadata
 
 
-def assemble_probe(
+def assemble_machine_code(
     probe_name: str,
     *,
     spasm: str = "spasm",
-) -> tuple[bytes, dict[str, object]]:
-    """Assemble one named probe and return its ``.8xp`` plus metadata."""
+) -> bytes:
+    """Assemble and validate one named physical-probe machine image."""
 
     probe = probe_definition(probe_name)
     defines = [*probe.defines]
@@ -275,6 +622,18 @@ def assemble_probe(
             detail = (completed.stderr or completed.stdout).strip()
             raise RuntimeError(f"SPASM failed for {probe_name}: {detail}")
         machine_code = raw_path.read_bytes()
+    validate_machine_code(probe_name, machine_code)
+    return machine_code
+
+
+def assemble_probe(
+    probe_name: str,
+    *,
+    spasm: str = "spasm",
+) -> tuple[bytes, dict[str, object]]:
+    """Assemble one named probe and return its ``.8xp`` plus metadata."""
+
+    machine_code = assemble_machine_code(probe_name, spasm=spasm)
     return package_probe(probe_name, machine_code)
 
 

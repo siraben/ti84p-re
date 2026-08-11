@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """Regression tests for physical hardware-probe program packaging."""
 
-from pathlib import Path
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from build_hardware_probes import (
     CREATE_APPVAR_COPY,
-    PROBES,
     PROBE_START,
+    PROBES,
     build_probes,
     initial_probe_payload,
     package_probe,
@@ -23,8 +23,8 @@ from hardware_probe import (
     PROBE_MAGIC,
     decode_ti_variable_file,
 )
-from tibasic_samples import T
 from ti_program import asmprgm_body
+from tibasic_samples import T
 
 
 def fixture_machine_code(probe_name: str) -> bytes:
@@ -49,6 +49,38 @@ def fixture_machine_code(probe_name: str) -> bytes:
     )
 
 
+def fixture_raw_battery_machine_code() -> bytes:
+    """Return synthetic bytes satisfying the raw-probe structural contract."""
+
+    base = fixture_machine_code("battery-raw")
+    frame_size = 10 + PROBES["battery-raw"].payload_size
+    sampler = bytes.fromhex("CD009E") * 16
+    delay = bytes.fromhex("0605CDEB0C10FB")
+    gpio = (
+        bytes.fromhex("F680D33A")
+        + bytes.fromhex("F610D33A3E40CDED0C")
+        + bytes.fromhex("E6EFD33A")
+        + bytes.fromhex("E67FD33A")
+    )
+    ports = (
+        bytes.fromhex("DB04") * 3
+        + bytes.fromhex("D304") * 3
+        + bytes.fromhex("DB39") * 4
+        + bytes.fromhex("D339") * 2
+        + bytes.fromhex("DB3A") * 7
+        + bytes.fromhex("D33A")
+    )
+    return (
+        base[:-frame_size]
+        + sampler
+        + delay
+        + gpio
+        + ports
+        + bytes.fromhex("FD7718")
+        + base[-frame_size:]
+    )
+
+
 class HardwareProbeBuilderTests(unittest.TestCase):
     def test_asmprgm_body_wraps_uppercase_hex(self):
         body = asmprgm_body(bytes.fromhex("C3B59D"))
@@ -70,7 +102,10 @@ class HardwareProbeBuilderTests(unittest.TestCase):
         )
 
     def test_probe_definitions_use_stable_names_and_ids(self):
-        self.assertEqual({1, 2, 3, 4, 5}, {probe.probe_id for probe in PROBES.values()})
+        self.assertEqual(
+            {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
+            {probe.probe_id for probe in PROBES.values()},
+        )
         for probe in PROBES.values():
             self.assertLessEqual(len(probe.program), 8)
             self.assertEqual(8, len(probe.appvar))
@@ -150,10 +185,84 @@ class HardwareProbeBuilderTests(unittest.TestCase):
                 fixture_machine_code("usb-snapshot"),
             )
 
+    def test_battery_probe_requires_bcall_samples_and_restoration(self):
+        with self.assertRaisesRegex(ValueError, "call _Chk_Batt_Level"):
+            validate_machine_code(
+                "battery-level",
+                fixture_machine_code("battery-level"),
+            )
+
+    def test_raw_battery_probe_requires_repeated_sampler(self):
+        with self.assertRaisesRegex(ValueError, "16 identical sampler calls"):
+            validate_machine_code(
+                "battery-raw",
+                fixture_machine_code("battery-raw"),
+            )
+
+    def test_raw_battery_probe_accepts_complete_structure(self):
+        validate_machine_code(
+            "battery-raw",
+            fixture_raw_battery_machine_code(),
+        )
+
+    def test_raw_battery_probe_requires_delay_loop(self):
+        machine_code = fixture_raw_battery_machine_code().replace(
+            bytes.fromhex("0605CDEB0C10FB"),
+            bytes.fromhex("0604CDEB0C10FB"),
+        )
+
+        with self.assertRaisesRegex(ValueError, "five calls"):
+            validate_machine_code("battery-raw", machine_code)
+
+    def test_raw_battery_probe_requires_cleanup_delay(self):
+        machine_code = fixture_raw_battery_machine_code().replace(
+            bytes.fromhex("CDED0C"), bytes.fromhex("CDEC0C")
+        )
+
+        with self.assertRaisesRegex(ValueError, "cleanup delay"):
+            validate_machine_code("battery-raw", machine_code)
+
+    def test_raw_link_probe_requires_samples_and_cleanup(self):
+        with self.assertRaisesRegex(ValueError, "read port 0x00"):
+            validate_machine_code(
+                "link-raw",
+                fixture_machine_code("link-raw"),
+            )
+
+    def test_keypad_settle_probe_requires_samples_and_cleanup(self):
+        with self.assertRaisesRegex(ValueError, "read port 0x01"):
+            validate_machine_code(
+                "keypad-settle",
+                fixture_machine_code("keypad-settle"),
+            )
+
+    def test_bus_timing_probe_requires_guarded_measurement_structure(self):
+        with self.assertRaisesRegex(ValueError, "read port 0x02"):
+            validate_machine_code(
+                "bus-timing",
+                fixture_machine_code("bus-timing"),
+            )
+
+    def test_prefix_m1_probe_requires_guarded_measurement_structure(self):
+        with self.assertRaisesRegex(ValueError, "read port 0x02"):
+            validate_machine_code(
+                "prefix-m1",
+                fixture_machine_code("prefix-m1"),
+            )
+
+    def test_physical_timer_probe_requires_guarded_measurement_structure(self):
+        with self.assertRaisesRegex(ValueError, "read port 0x02"):
+            validate_machine_code(
+                "timer-physical",
+                fixture_machine_code("timer-physical"),
+            )
+
     def test_builder_refuses_existing_output_directory(self):
-        with tempfile.TemporaryDirectory() as directory:
-            with self.assertRaisesRegex(ValueError, "refusing to reuse"):
-                build_probes([], Path(directory))
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            self.assertRaisesRegex(ValueError, "refusing to reuse"),
+        ):
+            build_probes([], Path(directory))
 
 
 if __name__ == "__main__":

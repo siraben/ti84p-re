@@ -2,9 +2,24 @@
 
 from __future__ import annotations
 
+from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
 
+from bus_timing import (
+    BUS_TIMING_PROBE_CASES,
+    BUS_TIMING_PROBE_MEASUREMENT_SIZE,
+    PREFIX_M1_PROBE_CASES,
+    decode_bus_timing_probe_measurements,
+    decode_prefix_m1_probe_measurements,
+)
+from link_port import port_read_value
 from ram_topology import decode_ram_alias_payload
+from timer_hardware import (
+    PHYSICAL_TIMER_MEASUREMENT_SIZE,
+    PHYSICAL_TIMER_STATE_PORTS,
+    decode_physical_timer_measurements,
+)
 
 TI_SIGNATURE = b"**TI83F*\x1a\x0a\x00"
 PROBE_MAGIC = b"HWP1"
@@ -27,12 +42,37 @@ USB_SNAPSHOT_PORTS = (
     0x5A,
     0x5B,
 )
+LINK_RAW_WRITES = (0, 1, 2, 3)
+LINK_RAW_DELAY_NOPS = (0, 1, 4, 16)
+LINK_RAW_TRIALS = 16
+LINK_RAW_SAMPLE_COUNT = (
+    len(LINK_RAW_WRITES) * len(LINK_RAW_DELAY_NOPS) * LINK_RAW_TRIALS
+)
+KEYPAD_SETTLE_GROUP_WRITES = (0xFE, 0xFD, 0xFB, 0xF7, 0xEF, 0xDF, 0xBF, 0x7F)
+KEYPAD_SETTLE_DELAY_NOPS = (0, 4, 16, 64)
+KEYPAD_SETTLE_TRIALS = 16
+KEYPAD_SETTLE_HOLD_LOOP_ITERATIONS = 0xFFFF
+KEYPAD_SETTLE_HOLD_LOOP_BASE_T_STATES = (
+    (KEYPAD_SETTLE_HOLD_LOOP_ITERATIONS - 1) * 26 + 21
+)
+KEYPAD_SETTLE_SAMPLE_COUNT = (
+    len(KEYPAD_SETTLE_GROUP_WRITES)
+    * len(KEYPAD_SETTLE_DELAY_NOPS)
+    * KEYPAD_SETTLE_TRIALS
+)
 PROBE_NAMES = {
     1: "md5-edge",
     2: "ram-alias",
     3: "asic-snapshot",
     4: "execution-fetch",
     5: "usb-snapshot",
+    6: "battery-level",
+    7: "battery-raw",
+    8: "link-raw",
+    9: "keypad-settle",
+    10: "bus-timing",
+    11: "prefix-m1",
+    12: "timer-physical",
 }
 
 
@@ -215,6 +255,193 @@ def decode_probe_appvar(blob: bytes) -> tuple[TiVariable, ProbeFrame]:
     return variable, decode_probe_frame(payload)
 
 
+def _decode_restoring_samples(
+    frame: ProbeFrame,
+    *,
+    payload_name: str,
+    allowed_samples: range,
+    samples_key: str,
+    histogram_key: str,
+    stable_key: str,
+    post_key: str,
+) -> tuple[dict[str, object], tuple[int, ...]]:
+    """Decode the state-and-16-samples layout shared by battery probes."""
+
+    if len(frame.payload) != 30:
+        raise ProbeFormatError(
+            f"{payload_name} payload must contain 30 bytes, "
+            f"got {len(frame.payload)}"
+        )
+    samples = tuple(frame.payload[4:20])
+    if any(value not in allowed_samples for value in samples):
+        bounds = f"{allowed_samples.start} through {allowed_samples.stop - 1}"
+        raise ProbeFormatError(f"{payload_name} samples must be in range {bounds}")
+    counts = Counter(samples)
+    pre = frame.payload[0:4]
+    post = frame.payload[20:25]
+    restored = frame.payload[25:29]
+    report: dict[str, object] = {
+        "pre": {
+            "port_0x04": f"0x{pre[0]:02X}",
+            "port_0x39": f"0x{pre[1]:02X}",
+            "port_0x3A": f"0x{pre[2]:02X}",
+            "trace_flags": f"0x{pre[3]:02X}",
+            "status": f"0x{frame.status:02X}",
+        },
+        samples_key: list(samples),
+        histogram_key: {
+            str(value): counts.get(value, 0) for value in allowed_samples
+        },
+        stable_key: samples[0] if len(counts) == 1 else None,
+        post_key: {
+            "status": f"0x{post[0]:02X}",
+            "port_0x04": f"0x{post[1]:02X}",
+            "port_0x39": f"0x{post[2]:02X}",
+            "port_0x3A": f"0x{post[3]:02X}",
+            "trace_flags": f"0x{post[4]:02X}",
+        },
+        "restored": {
+            "port_0x04": f"0x{restored[0]:02X}",
+            "port_0x39": f"0x{restored[1]:02X}",
+            "port_0x3A": f"0x{restored[2]:02X}",
+            "trace_flags": f"0x{restored[3]:02X}",
+            "status": f"0x{frame.payload[29]:02X}",
+        },
+        "cleanup_matches": restored == pre,
+    }
+    return report, samples
+
+
+TIMING_PROBE_STATE_PORTS = (
+    0x02,
+    0x03,
+    0x04,
+    0x20,
+    0x29,
+    0x2A,
+    0x2B,
+    0x2C,
+    0x2E,
+    0x2F,
+    0x33,
+    0x34,
+    0x35,
+)
+
+
+def _decode_timing_probe(
+    frame: ProbeFrame,
+    *,
+    payload_name: str,
+    case_count: int,
+    outcome_names: dict[int, str],
+    measurement_decoder: Callable[[bytes], dict[str, object]],
+) -> dict[str, object]:
+    """Decode the shared state, outcome, sample, and restoration layout."""
+
+    measurement_size = case_count * 2 * BUS_TIMING_PROBE_MEASUREMENT_SIZE
+    expected_size = len(TIMING_PROBE_STATE_PORTS) * 2 + 1 + measurement_size
+    if len(frame.payload) != expected_size:
+        raise ProbeFormatError(
+            f"{payload_name} payload must contain {expected_size} bytes, "
+            f"got {len(frame.payload)}"
+        )
+    pre = frame.payload[: len(TIMING_PROBE_STATE_PORTS)]
+    outcome_code = frame.payload[len(TIMING_PROBE_STATE_PORTS)]
+    measurement_start = len(TIMING_PROBE_STATE_PORTS) + 1
+    measurement_end = measurement_start + measurement_size
+    raw_measurements = frame.payload[measurement_start:measurement_end]
+    post = frame.payload[measurement_end:]
+
+    def port_report(values: bytes) -> dict[str, str]:
+        return {
+            f"0x{port:02X}": f"0x{value:02X}"
+            for port, value in zip(TIMING_PROBE_STATE_PORTS, values, strict=True)
+        }
+
+    try:
+        measurements = (
+            measurement_decoder(raw_measurements) if outcome_code == 0 else None
+        )
+    except ValueError as error:
+        raise ProbeFormatError(str(error)) from error
+    return {
+        "outcome_code": outcome_code,
+        "outcome": outcome_names.get(outcome_code, f"unknown-{outcome_code}"),
+        "pre": port_report(pre),
+        "measurements": measurements,
+        "post": port_report(post),
+        "restored": {
+            "port_0x2E": post[8] == pre[8],
+            "timer_source": post[10] == pre[10],
+            "timer_mode": post[11] == pre[11],
+            "timer_counter": post[12] == pre[12],
+        },
+        "speed_unchanged": post[3] == pre[3],
+        "timing_gates_unchanged": post[4:8] == pre[4:8],
+    }
+
+
+def _decode_physical_timer_probe(frame: ProbeFrame) -> dict[str, object]:
+    """Decode the guarded programmable-timer physical-probe payload."""
+
+    state_size = len(PHYSICAL_TIMER_STATE_PORTS)
+    expected_size = state_size * 2 + 1 + PHYSICAL_TIMER_MEASUREMENT_SIZE
+    if len(frame.payload) != expected_size:
+        raise ProbeFormatError(
+            "timer-physical payload must contain "
+            f"{expected_size} bytes, got {len(frame.payload)}"
+        )
+    pre = frame.payload[:state_size]
+    outcome_code = frame.payload[state_size]
+    measurement_start = state_size + 1
+    measurement_end = measurement_start + PHYSICAL_TIMER_MEASUREMENT_SIZE
+    post = frame.payload[measurement_end:]
+
+    def port_report(values: bytes) -> dict[str, str]:
+        return {
+            f"0x{port:02X}": f"0x{value:02X}"
+            for port, value in zip(
+                PHYSICAL_TIMER_STATE_PORTS, values, strict=True
+            )
+        }
+
+    try:
+        measurements = (
+            decode_physical_timer_measurements(
+                frame.payload[measurement_start:measurement_end]
+            )
+            if outcome_code == 0
+            else None
+        )
+    except ValueError as error:
+        raise ProbeFormatError(str(error)) from error
+    outcome_names = {
+        0: "completed",
+        1: "timer-1-source-active",
+        2: "timer-1-mode-active",
+        3: "timer-2-source-active",
+        4: "timer-2-mode-active",
+        5: "timer-completion-pending",
+        6: "measurement-timeout",
+    }
+    return {
+        "outcome_code": outcome_code,
+        "outcome": outcome_names.get(outcome_code, f"unknown-{outcome_code}"),
+        "pre": port_report(pre),
+        "measurements": measurements,
+        "post": port_report(post),
+        "restored": {
+            "speed": post[4] == pre[4],
+            "power_control": post[5] == pre[5],
+            "port_0x2F": post[6] == pre[6],
+            "timer_1": post[7:10] == pre[7:10],
+            "timer_2": post[10:13] == pre[10:13],
+            "interrupt_mask": post[1] == pre[1],
+        },
+    }
+
+
 def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
     """Interpret the fixed payload for a known probe ID."""
 
@@ -298,6 +525,245 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
                 )
             }
         }
+    if frame.probe_id == 6:
+        report, _levels = _decode_restoring_samples(
+            frame,
+            payload_name="battery-level",
+            allowed_samples=range(5),
+            samples_key="level_samples",
+            histogram_key="sample_histogram",
+            stable_key="stable_level",
+            post_key="post_bcall",
+        )
+        return report
+    if frame.probe_id == 7:
+        report, masks = _decode_restoring_samples(
+            frame,
+            payload_name="battery-raw",
+            allowed_samples=range(16),
+            samples_key="mask_samples",
+            histogram_key="mask_histogram",
+            stable_key="stable_mask",
+            post_key="post_sequence",
+        )
+        selectors = (0x06, 0x46, 0x86, 0xC6)
+        report["selector_pass_counts"] = {
+            f"0x{selector:02X}": sum(
+                bool(mask & (1 << bit)) for mask in masks
+            )
+            for bit, selector in enumerate(selectors)
+        }
+        return report
+    if frame.probe_id == 8:
+        expected_size = 4 + LINK_RAW_SAMPLE_COUNT + 4 + 2
+        if len(frame.payload) != expected_size:
+            raise ProbeFormatError(
+                "link-raw payload must contain "
+                f"{expected_size} bytes, got {len(frame.payload)}"
+            )
+        pre = frame.payload[:4]
+        raw_samples = frame.payload[4 : 4 + LINK_RAW_SAMPLE_COUNT]
+        post = frame.payload[4 + LINK_RAW_SAMPLE_COUNT : -2]
+        cleanup_port00 = frame.payload[-2]
+        final_status = frame.payload[-1]
+        rows = []
+        for write_index, write_value in enumerate(LINK_RAW_WRITES):
+            expected = port_read_value(write_value, 0)
+            for delay_index, delay_nops in enumerate(LINK_RAW_DELAY_NOPS):
+                values = tuple(
+                    raw_samples[
+                        (
+                            (write_index * LINK_RAW_TRIALS + trial)
+                            * len(LINK_RAW_DELAY_NOPS)
+                        )
+                        + delay_index
+                    ]
+                    for trial in range(LINK_RAW_TRIALS)
+                )
+                counts = Counter(values)
+                rows.append(
+                    {
+                        "write": write_value,
+                        "delay_nops": delay_nops,
+                        "samples": list(values),
+                        "histogram": {
+                            f"0x{value:02X}": count
+                            for value, count in sorted(counts.items())
+                        },
+                        "stable_value": values[0] if len(counts) == 1 else None,
+                        "expected_disconnected": expected,
+                        "disconnected_match_count": values.count(expected),
+                        "low_line_match_count": sum(
+                            (value & 0x03) == (expected & 0x03)
+                            for value in values
+                        ),
+                        "local_latch_match_count": sum(
+                            ((value >> 4) & 0x03) == write_value
+                            for value in values
+                        ),
+                    }
+                )
+        return {
+            "pre": {
+                "port_0x00": f"0x{pre[0]:02X}",
+                "port_0x03": f"0x{pre[1]:02X}",
+                "port_0x04": f"0x{pre[2]:02X}",
+                "port_0x20": f"0x{pre[3]:02X}",
+                "status": f"0x{frame.status:02X}",
+            },
+            "sample_order": "write-major, trial-major, delay-major",
+            "trials_per_point": LINK_RAW_TRIALS,
+            "points": rows,
+            "disconnected_contract_matches": all(
+                row["disconnected_match_count"] == LINK_RAW_TRIALS
+                for row in rows
+            ),
+            "post": {
+                "port_0x00": f"0x{post[0]:02X}",
+                "port_0x03": f"0x{post[1]:02X}",
+                "port_0x04": f"0x{post[2]:02X}",
+                "port_0x20": f"0x{post[3]:02X}",
+            },
+            "cleanup": {
+                "port_0x00": f"0x{cleanup_port00:02X}",
+                "status": f"0x{final_status:02X}",
+            },
+            "pre_latch_was_idle": ((pre[0] >> 4) & 0x03) == 0,
+            "cleanup_idle_matches": cleanup_port00 == port_read_value(0, 0),
+        }
+    if frame.probe_id == 9:
+        expected_size = 5 + 1 + KEYPAD_SETTLE_SAMPLE_COUNT + 5
+        if len(frame.payload) != expected_size:
+            raise ProbeFormatError(
+                "keypad-settle payload must contain "
+                f"{expected_size} bytes, got {len(frame.payload)}"
+            )
+        pre = frame.payload[:5]
+        trigger = frame.payload[5]
+        raw_samples = frame.payload[6 : 6 + KEYPAD_SETTLE_SAMPLE_COUNT]
+        post = frame.payload[-5:]
+        rows = []
+        delay_count = len(KEYPAD_SETTLE_DELAY_NOPS)
+        for group_index, group_write in enumerate(KEYPAD_SETTLE_GROUP_WRITES):
+            values_by_delay = []
+            for delay_index in range(delay_count):
+                values_by_delay.append(
+                    tuple(
+                        raw_samples[
+                            (
+                                (group_index * KEYPAD_SETTLE_TRIALS + trial)
+                                * delay_count
+                            )
+                            + delay_index
+                        ]
+                        for trial in range(KEYPAD_SETTLE_TRIALS)
+                    )
+                )
+            reference_values = values_by_delay[-1]
+            for delay_nops, values in zip(
+                KEYPAD_SETTLE_DELAY_NOPS, values_by_delay, strict=True
+            ):
+                counts = Counter(values)
+                stable_value = values[0] if len(counts) == 1 else None
+                reference_matches = sum(
+                    value == reference
+                    for value, reference in zip(
+                        values, reference_values, strict=True
+                    )
+                )
+                extra_low = sum(
+                    value != reference and (value | reference) == reference
+                    for value, reference in zip(
+                        values, reference_values, strict=True
+                    )
+                )
+                rows.append(
+                    {
+                        "group_write": group_write,
+                        "selected_group": group_index,
+                        "delay_nops": delay_nops,
+                        "samples": list(values),
+                        "histogram": {
+                            f"0x{value:02X}": count
+                            for value, count in sorted(counts.items())
+                        },
+                        "stable_value": stable_value,
+                        "stable_pressed_columns": (
+                            (~stable_value) & 0xFF
+                            if stable_value is not None
+                            else None
+                        ),
+                        "reference_64_nop_match_count": reference_matches,
+                        "extra_low_vs_64_nop_count": extra_low,
+                        "other_difference_vs_64_nop_count": (
+                            KEYPAD_SETTLE_TRIALS
+                            - reference_matches
+                            - extra_low
+                        ),
+                    }
+                )
+        return {
+            "pre": {
+                "port_0x01": f"0x{pre[0]:02X}",
+                "port_0x02": f"0x{pre[1]:02X}",
+                "port_0x03": f"0x{pre[2]:02X}",
+                "port_0x04": f"0x{pre[3]:02X}",
+                "port_0x20": f"0x{pre[4]:02X}",
+                "asic_id": f"0x{frame.asic_id:02X}",
+                "status": f"0x{frame.status:02X}",
+            },
+            "trigger_all_groups_read": f"0x{trigger:02X}",
+            "trigger_pressed_columns": (~trigger) & 0xFF,
+            "sample_order": "group-major, trial-major, delay-major",
+            "trials_per_point": KEYPAD_SETTLE_TRIALS,
+            "pre_sample_hold_loop_iterations": KEYPAD_SETTLE_HOLD_LOOP_ITERATIONS,
+            "pre_sample_hold_loop_base_t_states": (
+                KEYPAD_SETTLE_HOLD_LOOP_BASE_T_STATES
+            ),
+            "points": rows,
+            "post": {
+                "port_0x01": f"0x{post[0]:02X}",
+                "port_0x02": f"0x{post[1]:02X}",
+                "port_0x03": f"0x{post[2]:02X}",
+                "port_0x04": f"0x{post[3]:02X}",
+                "port_0x20": f"0x{post[4]:02X}",
+            },
+            "entry_all_columns_high": pre[0] == 0xFF,
+            "cleanup_all_columns_high": post[0] == 0xFF,
+            "status_unchanged": post[1] == pre[1],
+            "interrupt_ports_unchanged": post[2:4] == pre[2:4],
+            "speed_unchanged": post[4] == pre[4],
+        }
+    if frame.probe_id == 10:
+        return _decode_timing_probe(
+            frame,
+            payload_name="bus-timing",
+            case_count=len(BUS_TIMING_PROBE_CASES),
+            outcome_names={
+                0: "completed",
+                1: "timer-source-active",
+                2: "timer-mode-active",
+                3: "flash-gate-unlocked",
+                4: "timing-gate-disabled",
+                5: "helper-signature-mismatch",
+            },
+            measurement_decoder=decode_bus_timing_probe_measurements,
+        )
+    if frame.probe_id == 11:
+        return _decode_timing_probe(
+            frame,
+            payload_name="prefix-M1",
+            case_count=len(PREFIX_M1_PROBE_CASES),
+            outcome_names={
+                0: "completed",
+                1: "timer-source-active",
+                2: "timer-mode-active",
+                3: "ram-timing-gate-disabled",
+            },
+            measurement_decoder=decode_prefix_m1_probe_measurements,
+        )
+    if frame.probe_id == 12:
+        return _decode_physical_timer_probe(frame)
     return {"payload_hex": frame.payload.hex().upper()}
 
 

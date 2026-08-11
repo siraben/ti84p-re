@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """Regression tests for timer, ROM-duration, and RTC comparison models."""
 
-from fractions import Fraction
-from pathlib import Path
 import sys
 import unittest
+from fractions import Fraction
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from describe_timer_hardware import build_parser, report
 from timer_hardware import (
+    PHYSICAL_TIMER_MEASUREMENT_SIZE,
     TIMER_IMPLEMENTATION_PROFILES,
+    decode_physical_timer_measurements,
     decode_timer_source,
     rom_timer_chunks,
     rom_timer_ticks,
@@ -135,6 +137,89 @@ class TimerHardwareTests(unittest.TestCase):
             decode_timer_source("Documented", 0xC0, mode3_prescaler=9)
         with self.assertRaises(ValueError):
             rom_timer_ticks(0x10000)
+
+    def test_decodes_wabbitemu_shaped_physical_timer_matrix(self):
+        crystal = bytes((255, 255, 143, 32)) * 4
+        mode3 = b"".join(
+            bytes(row)
+            for row in (
+                (0, 0, 254, 64, 250, 52, 34, 1, 8),
+                (1, 1, 254, 64, 250, 7, 86, 1, 8),
+                (2, 1, 254, 64, 250, 7, 86, 1, 8),
+                (3, 1, 254, 64, 250, 7, 86, 1, 8),
+            )
+        )
+        zero = bytes((0, 31, 31, 0, 4, 0x68))
+        expiry = bytes((250, 5, 0x68, 240, 5, 0x68))
+
+        report = decode_physical_timer_measurements(
+            crystal + mode3 + zero + expiry
+        )
+
+        self.assertEqual(
+            "wabbitemu-and-mame-divisor-32",
+            report["crystal_divisor"]["closer_to"],
+        )
+        self.assertEqual(
+            [
+                "equidistant",
+                "emulator-no-prescaler",
+                "emulator-no-prescaler",
+                "emulator-no-prescaler",
+            ],
+            [
+                row["closer_to"]
+                for row in report["mode3_prescaler"]["cases"]
+            ],
+        )
+        self.assertEqual(
+            "wabbitemu-completes-zero",
+            report["counter_zero"]["closer_to"],
+        )
+        self.assertEqual(
+            "wabbitemu-first-expiry",
+            report["expiry_status"]["closer_to"],
+        )
+
+    def test_decodes_documented_and_tilem_shaped_timer_edges(self):
+        crystal = bytes((255, 255, 147, 32)) * 4
+        mode3 = b"".join(
+            bytes(row)
+            for row in (
+                (0, 0, 254, 64, 250, 52, 34, 1, 8),
+                (1, 1, 254, 64, 250, 64, 21, 1, 8),
+                (2, 2, 254, 64, 250, 2, 28, 1, 8),
+                (3, 3, 254, 64, 250, 2, 28, 1, 8),
+            )
+        )
+        zero = bytes((0, 31, 31, 16, 0, 0x48))
+        expiry = bytes((252, 1, 0x68, 248, 5, 0x68))
+
+        report = decode_physical_timer_measurements(
+            crystal + mode3 + zero + expiry
+        )
+
+        self.assertEqual(
+            "documented-and-tilem-divisor-33",
+            report["crystal_divisor"]["closer_to"],
+        )
+        self.assertEqual(
+            "documented-port-0x2f-prescaler",
+            report["mode3_prescaler"]["cases"][1]["closer_to"],
+        )
+        self.assertEqual(
+            "documented-and-tilem-free-running-zero",
+            report["counter_zero"]["closer_to"],
+        )
+        self.assertEqual(
+            "documented-and-tilem-second-expiry",
+            report["expiry_status"]["closer_to"],
+        )
+
+    def test_rejects_wrong_physical_timer_measurement_size(self):
+        self.assertEqual(64, PHYSICAL_TIMER_MEASUREMENT_SIZE)
+        with self.assertRaisesRegex(ValueError, "64 bytes"):
+            decode_physical_timer_measurements(bytes(63))
 
 
 if __name__ == "__main__":

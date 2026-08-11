@@ -248,6 +248,25 @@ next chunk, so the timer bcall path does not use this emulator edge. [standard]
 
 Port `0x2D` controls low-power behavior. Bit 0 keeps the quartz oscillator active on the TI-83 Plus Silver Edition; the TI-84 Plus RTC already requires it. Bit 1 allows the programmable timers to continue counting in low power. TI writes `0x03`. Public hardware tests report that these timers still do not reliably interrupt a halted CPU, so software should keep a standard timer enabled when it must escape `HALT`. [standard]
 
+### Prepared physical discriminator
+
+The guarded [`HWTMR` probe](hardware-probes.md#programmable-timer-physical-probe)
+tests the four source-model disagreements without using `HALT`. It compares
+source `0x41` with the common source-`0x45` reference, measures source `0xE0`
+across CPU-speed requests 0–3, starts a source-`0x45` timer with counter zero,
+and captures status after two unacknowledged expiries. It snapshots ports
+`0x02`, `0x03`, `0x04`, `0x15`, `0x20`, `0x2D`, `0x2F`, and `0x30`–`0x35`.
+It runs only when timers 1 and 2 are idle and their completion bits are clear.
+Every polling loop is bounded. [confirmed] for the assembled source and host
+decoder.
+
+The exact image completes through its cleanup boundary in pinned Wabbitemu and
+selects that implementation's divisor-32, omitted-port-`0x2F`, counter-zero
+completion, and first-expiry-bit-2 behaviors. This validates the program and
+decoder against a known model. No exported `HWTMR001` result from a calculator
+has been recorded, so the physical divisor, prescaler, zero-counter, and
+expiry-status edges remain [hypothesis].
+
 ## Undocumented timer bcall API
 
 OS 2.55MP exposes one software timer backed by programmable timer 1. `ti83plus.inc` supplies official equate names, but the WikiTI pages for IDs `526C`–`5281` are absent. The ABI below is reconstructed from `33:5E1E`–`33:5F69`. [confirmed]
@@ -530,6 +549,22 @@ The corresponding CPU-source case loads counter 3 with source `0x80` and advance
 
 With mode `0x02`, source `0x80`, and counter 1, expiry during `HALT` leaves the CPU interrupt line clear while mode/status reads `0x06`. Evaluating the timer after leaving `HALT` asserts the retained interrupt request. The RTC case commits `0x12345678`, advances emulated time by 10.75 seconds, and reads `0x12345682`. Disabling the RTC freezes that value through an advance to 100 seconds. These tests inject emulator clock values directly; they do not measure wall-clock accuracy, callback cadence under CPU execution, or physical low-power behavior. [standard]
 
+**Assembled-probe confirmation.** The exact 835-byte `HWTMR` image also runs
+after a retail OS 2.55MP boot. The guarded runner stops at `01:9EE4` before
+`_CreateAppVar`, after 1,645,212 probe instructions and 12,937,610 modeled
+T-states, with no execution-violation reset. Four samples infer source-`0x41`
+divisor `3568/111`, about 32.144. Speed requests 0–3 read back as 0, 1, 1,
+and 1, and the nonzero cases infer prescalers near one. Counter zero produces
+mode/status `0x04` and port `0x04 = 0x68`; both expiry samples expose bit 2.
+All saved timer, speed, port-`0x2F`, power-control, and interrupt-mask fields
+compare equal after cleanup. [confirmed] for the pinned Wabbitemu run.
+
+The shared injected-program adapter has SHA-256
+`c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1`.
+The machine-code SHA-256 is
+`6767caf1d714bc15e642de2f791151a060015fa0d9faebe1ebddd92d184df68a`.
+This execution does not create the result AppVar or measure physical timing.
+
 ### MAME timer and RTC policy
 
 MAME maps only timer ports `0x30`–`0x38` from this block. Ports `0x2D`–`0x2F` and RTC ports `0x40`–`0x48` are unmapped. For every nonzero source value, a counter write selects one of the eight Wabbitemu-style crystal divisors from the low three bits and schedules at `32768/divisor` Hz. CPU-source family bits do not select the CPU clock. [standard]
@@ -554,7 +589,7 @@ not physical timer periods or retention. [standard]
 
 ## Reusable timer tools
 
-`tools/timer_hardware.py` exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM's radix-255 chunks, and RTC implementation profiles. `tools/describe_timer_hardware.py` is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models. `tools/tilem_timer.py` adds the complete direct-core programmable-timer and deterministic RTC matrix. `tools/tilem_interrupt.py` adds direct standard-timer scheduling and programmable-timer HALT-gate observations. `tools/mame_interrupt.py` adds fixed standard-timer and reset-retention observations through the immutable MAME state in `tools/interrupt_controller.py`. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-`0x2D` implementation edges use `tools/wabbitemu_speed_probe.py` and its guarded CLI. These are emulator-comparison tools, not physical-hardware simulators.
+`tools/timer_hardware.py` exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM's radix-255 chunks, RTC implementation profiles, and the physical-probe discriminator. `tools/describe_timer_hardware.py` is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models. `tools/tilem_timer.py` adds the complete direct-core programmable-timer and deterministic RTC matrix. `tools/tilem_interrupt.py` adds direct standard-timer scheduling and programmable-timer HALT-gate observations. `tools/mame_interrupt.py` adds fixed standard-timer and reset-retention observations through the immutable MAME state in `tools/interrupt_controller.py`. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-`0x2D` implementation edges use `tools/wabbitemu_speed_probe.py` and its guarded CLI. `tools/run_wabbitemu_timer_physical_probe.py` executes the assembled physical discriminator through the shared injected-program runner. These are emulator-comparison tools, not physical-hardware simulators.
 
 ```sh
 nix develop -c python tools/describe_timer_hardware.py \
@@ -574,6 +609,14 @@ nix develop -c python tools/run_wabbitemu_timer_edge_probe.py \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$timer_probe_parent/run" --json
+
+physical_timer_parent=$(mktemp -d /tmp/ti84-physical-timer.XXXXXX)
+nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --expected-binary-sha256 \
+    c0fb08c8600c711ee77fc3aa8e971beeb302bcb2d037edfdef18eb147690e2e1 \
+  --output-dir "$physical_timer_parent/run" --json
 
 mame_timer_parent=$(mktemp -d /tmp/ti84-mame-timer.XXXXXX)
 nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
@@ -595,12 +638,14 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 - [standard] A guarded TilEm run verifies its four whole-microsecond standard-timer periods, unchanged current intervals on rate writes, two timer-2 callbacks sharing one pending bit, and the three programmable-timer HALT-gate cases.
 - [standard] A guarded TilEm timer/RTC run verifies every source divisor, rounded count readback, off sources, ignored port-`0x2F`, counter-zero behavior, overflow and acknowledgement, the unacknowledged non-loop restart, per-timer status mapping, source-write retention, RTC freeze/re-enable/reset, and an exact torn read.
 - [standard] A guarded initialized-core Wabbitemu run verifies single-step crystal catch-up, full CPU catch-up, first-underflow status bit 2, counter-zero completion, acknowledgement, HALT-line suppression with retained generation, and frozen disabled RTC reads.
+- [confirmed] The exact assembled `HWTMR` image reproduces Wabbitemu's divisor-32, omitted-prescaler, counter-zero-completion, and first-expiry-bit-2 model through its cleanup boundary. No physical result has been recorded.
 - [standard] A guarded MAME run verifies fixed-crystal source-family collapse, its zero-delay first callback, idle counter zero, inverted mode-bit polarity, one-reload loop behavior, global completion clearing, source-off preservation, and unmapped auxiliary and RTC blocks.
 - [standard] A separate guarded MAME run verifies both standard-timer pending bits, timer-1 status within one frame after port-`0x04` writes `0x00` and `0x06`, and retained legacy masks across soft reset.
 - [standard] Wabbitemu's low-level and frontend reset paths retain the timer context, delay registers, interrupt controller, programmable timers, and RTC. A guarded run confirms the directly seeded state. Physical reset retention remains open.
 - [standard] TilEm's full reset clears programmable timers and reschedules standard timers while retaining the global clock, RTC fields, and dynamic scheduler timers. A guarded direct-core run confirms the seeded boundaries. Physical reset retention remains open.
+- [confirmed] The prepared [memory-bus timing probe](hardware-probes.md#memory-bus-timing-probe) uses timer 2 only when its source and mode are zero, records completion state for every sample, and restores the idle counter byte. No physical result has been recorded.
 - [hypothesis] Physical RTC reads can tear across a one-second rollover because no latch or OS retry is documented.
-- [hypothesis] The physical crystal divisors, first-versus-second-expiry meaning of mode/status bit 2, counter-zero edge, and precise reason programmable timers fail to wake `HALT` need direct TA2/TA3 measurements.
+- [hypothesis] The physical crystal divisors, port-`0x2F` prescaler, first-versus-second-expiry meaning of mode/status bit 2, counter-zero edge, and precise reason programmable timers fail to wake `HALT` need direct TA2/TA3 measurements.
 - [hypothesis] Low-power behavior of port `0x2D`, disabled RTC reads, control-edge behavior, and rollover coherence should be checked on TA2 and TA3 hardware rather than inferred from emulators.
 
 ## Sources

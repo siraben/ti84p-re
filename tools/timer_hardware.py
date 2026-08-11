@@ -10,10 +10,33 @@ from __future__ import annotations
 from dataclasses import dataclass
 from fractions import Fraction
 
-
 CRYSTAL_HZ = 32_768
 DOCUMENTED_CRYSTAL_DIVISORS = (3, 33, 328, 3277, 1, 16, 256, 4096)
 WABBIT_MAME_CRYSTAL_DIVISORS = (3, 32, 327, 3276, 1, 16, 256, 4096)
+PHYSICAL_TIMER_STATE_PORTS = (
+    0x02,
+    0x03,
+    0x04,
+    0x15,
+    0x20,
+    0x2D,
+    0x2F,
+    0x30,
+    0x31,
+    0x32,
+    0x33,
+    0x34,
+    0x35,
+)
+PHYSICAL_TIMER_CRYSTAL_TRIALS = 4
+PHYSICAL_TIMER_MODE3_CASES = 4
+PHYSICAL_TIMER_TARGET_LOOP_COUNT = 250
+PHYSICAL_TIMER_MEASUREMENT_SIZE = (
+    PHYSICAL_TIMER_CRYSTAL_TRIALS * 4
+    + PHYSICAL_TIMER_MODE3_CASES * 9
+    + 6
+    + 6
+)
 
 
 def _byte(value: int, name: str) -> int:
@@ -419,3 +442,209 @@ def rom_timer_chunks(duration: int) -> tuple[int, ...]:
     duration = _word(duration, "duration")
     full_chunks, final = divmod(duration, 0x100)
     return (255,) * full_chunks + ((final,) if final else ())
+
+
+def _fraction_report(value: Fraction | None) -> dict[str, object] | None:
+    if value is None:
+        return None
+    return {"fraction": str(value), "value": float(value)}
+
+
+def decode_physical_timer_measurements(data: bytes) -> dict[str, object]:
+    """Decode the guarded calculator-side programmable-timer matrix."""
+
+    if len(data) != PHYSICAL_TIMER_MEASUREMENT_SIZE:
+        raise ValueError(
+            "physical timer measurements must contain "
+            f"{PHYSICAL_TIMER_MEASUREMENT_SIZE} bytes"
+        )
+
+    offset = 0
+    crystal_rows = []
+    total_reference_ticks = 0
+    total_target_ticks = 0
+    for trial in range(PHYSICAL_TIMER_CRYSTAL_TRIALS):
+        target_start, reference_start, target_end, reference_end = data[
+            offset : offset + 4
+        ]
+        offset += 4
+        reference_ticks = reference_start - reference_end
+        target_ticks = target_start - target_end
+        valid = reference_ticks > 0 and target_ticks > 0
+        divisor = (
+            Fraction(16 * reference_ticks, target_ticks) if valid else None
+        )
+        if valid:
+            total_reference_ticks += reference_ticks
+            total_target_ticks += target_ticks
+        crystal_rows.append(
+            {
+                "trial": trial,
+                "target_source": 0x41,
+                "reference_source": 0x45,
+                "target_start": target_start,
+                "reference_start": reference_start,
+                "target_end": target_end,
+                "reference_end": reference_end,
+                "target_ticks": target_ticks if valid else None,
+                "reference_ticks": reference_ticks if valid else None,
+                "inferred_target_divisor": _fraction_report(divisor),
+                "valid": valid,
+            }
+        )
+    aggregate_divisor = (
+        Fraction(16 * total_reference_ticks, total_target_ticks)
+        if total_target_ticks > 0
+        else None
+    )
+    if aggregate_divisor is None:
+        crystal_closer_to = None
+    else:
+        distance_32 = abs(aggregate_divisor - 32)
+        distance_33 = abs(aggregate_divisor - 33)
+        if distance_32 < distance_33:
+            crystal_closer_to = "wabbitemu-and-mame-divisor-32"
+        elif distance_33 < distance_32:
+            crystal_closer_to = "documented-and-tilem-divisor-33"
+        else:
+            crystal_closer_to = "equidistant"
+
+    nominal_cpu_hz = (6_000_000, 15_000_000, 15_000_000, 15_000_000)
+    documented_prescalers = (1, 4, 3, 3)
+    mode3_rows = []
+    for case in range(PHYSICAL_TIMER_MODE3_CASES):
+        (
+            requested_mode,
+            actual_mode,
+            reference_start,
+            reference_end,
+            target_start,
+            target_end,
+            events,
+            target_status,
+            port04,
+        ) = data[offset : offset + 9]
+        offset += 9
+        reference_ticks = reference_start - reference_end
+        target_ticks = (
+            events * PHYSICAL_TIMER_TARGET_LOOP_COUNT
+            + target_start
+            - target_end
+        )
+        valid = (
+            requested_mode == case
+            and 0 <= actual_mode <= 3
+            and reference_ticks > 0
+            and target_ticks > 0
+        )
+        observed_prescaler = (
+            Fraction(
+                nominal_cpu_hz[actual_mode] * reference_ticks,
+                131_072 * target_ticks,
+            )
+            if valid
+            else None
+        )
+        expected_documented = documented_prescalers[actual_mode]
+        if observed_prescaler is None:
+            closer_to = None
+        else:
+            distance_documented = abs(
+                observed_prescaler - expected_documented
+            )
+            distance_emulator = abs(observed_prescaler - 1)
+            if distance_documented < distance_emulator:
+                closer_to = "documented-port-0x2f-prescaler"
+            elif distance_emulator < distance_documented:
+                closer_to = "emulator-no-prescaler"
+            else:
+                closer_to = "equidistant"
+        mode3_rows.append(
+            {
+                "requested_speed_mode": requested_mode,
+                "actual_speed_mode": actual_mode,
+                "reference_start": reference_start,
+                "reference_end": reference_end,
+                "reference_ticks": reference_ticks if valid else None,
+                "target_start": target_start,
+                "target_end": target_end,
+                "target_expiries": events,
+                "target_ticks": target_ticks if valid else None,
+                "target_status": target_status,
+                "port_0x04": port04,
+                "expected_documented_prescaler": expected_documented,
+                "observed_prescaler": _fraction_report(observed_prescaler),
+                "closer_to": closer_to,
+                "valid": valid,
+            }
+        )
+
+    (
+        zero_target_start,
+        zero_reference_start,
+        zero_reference_end,
+        zero_target_end,
+        zero_status,
+        zero_port04,
+    ) = data[offset : offset + 6]
+    offset += 6
+    if zero_status & 0x04 or zero_port04 & 0x20:
+        zero_closer_to = "wabbitemu-completes-zero"
+    elif zero_target_end == 0:
+        zero_closer_to = "mame-idle-or-phase-zero"
+    else:
+        zero_closer_to = "documented-and-tilem-free-running-zero"
+    zero_case = {
+        "target_source": 0x45,
+        "reference_source": 0x46,
+        "target_start": zero_target_start,
+        "reference_start": zero_reference_start,
+        "reference_end": zero_reference_end,
+        "target_end": zero_target_end,
+        "target_status": zero_status,
+        "port_0x04": zero_port04,
+        "closer_to": zero_closer_to,
+    }
+
+    first_counter, first_status, first_port04, second_counter, second_status, second_port04 = data[
+        offset : offset + 6
+    ]
+    first_bit2 = bool(first_status & 0x04)
+    second_bit2 = bool(second_status & 0x04)
+    if not first_bit2 and second_bit2:
+        expiry_closer_to = "documented-and-tilem-second-expiry"
+    elif first_bit2 and second_bit2:
+        expiry_closer_to = "wabbitemu-first-expiry"
+    else:
+        expiry_closer_to = "other"
+    expiry_case = {
+        "first": {
+            "counter": first_counter,
+            "status": first_status,
+            "port_0x04": first_port04,
+            "bit_2": first_bit2,
+        },
+        "second": {
+            "counter": second_counter,
+            "status": second_status,
+            "port_0x04": second_port04,
+            "bit_2": second_bit2,
+        },
+        "closer_to": expiry_closer_to,
+    }
+    return {
+        "crystal_divisor": {
+            "trials": crystal_rows,
+            "aggregate_inferred_divisor": _fraction_report(aggregate_divisor),
+            "closer_to": crystal_closer_to,
+        },
+        "mode3_prescaler": {
+            "port_0x2f": 0x4B,
+            "target_source": 0xE0,
+            "reference_source": 0x45,
+            "target_loop_count": PHYSICAL_TIMER_TARGET_LOOP_COUNT,
+            "cases": mode3_rows,
+        },
+        "counter_zero": zero_case,
+        "expiry_status": expiry_case,
+    }

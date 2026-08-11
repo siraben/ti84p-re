@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-
+from fractions import Fraction
 
 TIMING_PORTS = frozenset({0x20, 0x29, 0x2A, 0x2B, 0x2C, 0x2E, 0x2F})
 DELAY_PORTS = frozenset(TIMING_PORTS - {0x20})
 WABBITEMU_TIMING_PORTS = TIMING_PORTS | {0x2D}
 IMPLEMENTATION_PORTS = WABBITEMU_TIMING_PORTS
+BUS_TIMING_PROBE_TIMER_SOURCE = 0x45
+BUS_TIMING_PROBE_TIMER_TICK_HZ = 2_048
+BUS_TIMING_PROBE_MEASUREMENT_SIZE = 3
+PREFIX_M1_PROBE_ITERATIONS = 12_288
 
 
 @dataclass(frozen=True)
@@ -117,6 +121,294 @@ class MemoryWaits:
     ram_write: int
 
 
+@dataclass(frozen=True)
+class BusTimingProbeCase:
+    """One paired baseline/enabled physical wait-state measurement."""
+
+    key: str
+    wait_mask: int
+    iterations: int
+    wait_sensitive_accesses: int
+    operation: str
+
+
+BUS_TIMING_PROBE_CASES = (
+    BusTimingProbeCase(
+        "flash_opcode",
+        0x01,
+        4_096,
+        20_480,
+        "five fixed-page opcode fetches per call to 00:0CE6",
+    ),
+    BusTimingProbeCase(
+        "flash_read",
+        0x02,
+        16_384,
+        16_384,
+        "one fixed-page data read per iteration",
+    ),
+    BusTimingProbeCase(
+        "flash_write",
+        0x04,
+        16_384,
+        16_384,
+        "one locked 0xF0 reset-command write per iteration",
+    ),
+    BusTimingProbeCase(
+        "ram_opcode",
+        0x10,
+        16_384,
+        65_537,
+        "four loop opcode fetches per iteration plus the counter-read opcode",
+    ),
+    BusTimingProbeCase(
+        "ram_read",
+        0x20,
+        16_384,
+        32_769,
+        "one data and one branch-operand read per iteration plus the counter operand",
+    ),
+    BusTimingProbeCase(
+        "ram_write",
+        0x40,
+        16_384,
+        16_384,
+        "one idempotent scratch write per iteration",
+    ),
+)
+
+
+@dataclass(frozen=True)
+class PrefixM1ProbeCase:
+    """One RAM-resident instruction shape in the physical M1 matrix."""
+
+    key: str
+    encoding: bytes
+    instruction: str
+    z80_m1_fetches: int
+    tilem_m1_fetches: int
+    wabbitemu_m1_fetches: int
+    iterations: int = PREFIX_M1_PROBE_ITERATIONS
+    wait_mask: int = 0x10
+
+    @property
+    def wait_sensitive_accesses(self) -> int:
+        """Return Z80 M1 cycles in the complete timed loop."""
+
+        return (4 + self.z80_m1_fetches) * self.iterations + 1
+
+    @property
+    def operation(self) -> str:
+        """Return the instruction and exact bytes used by the loop."""
+
+        return f"{self.instruction} ({self.encoding.hex().upper()})"
+
+    def model_wait_sensitive_accesses(self) -> dict[str, int]:
+        """Return complete-loop M1 counts for the compared source models."""
+
+        return {
+            "z80": (4 + self.z80_m1_fetches) * self.iterations + 1,
+            "tilem": (4 + self.tilem_m1_fetches) * self.iterations + 1,
+            "wabbitemu": (
+                (4 + self.wabbitemu_m1_fetches) * self.iterations + 1
+            ),
+        }
+
+
+PREFIX_M1_PROBE_CASES = (
+    PrefixM1ProbeCase("unprefixed", bytes.fromhex("00"), "NOP", 1, 1, 1),
+    PrefixM1ProbeCase("cb", bytes.fromhex("CB42"), "BIT 0,D", 2, 2, 2),
+    PrefixM1ProbeCase("ed", bytes.fromhex("ED44"), "NEG", 2, 2, 2),
+    PrefixM1ProbeCase("dd", bytes.fromhex("DD7C"), "LD A,IXH", 2, 2, 2),
+    PrefixM1ProbeCase(
+        "dd_dd",
+        bytes.fromhex("DDDD7C"),
+        "LD A,IXH with a repeated DD prefix",
+        3,
+        3,
+        3,
+    ),
+    PrefixM1ProbeCase(
+        "dd_cb",
+        bytes.fromhex("DDCB0046"),
+        "BIT 0,(IX+0)",
+        2,
+        2,
+        3,
+    ),
+)
+
+
+def _decode_paired_wait_measurements(
+    data: bytes,
+    cases: tuple[BusTimingProbeCase | PrefixM1ProbeCase, ...],
+) -> dict[str, object]:
+    """Decode baseline/enabled timer-2 triples for one wait-state matrix."""
+
+    pair_size = 2 * BUS_TIMING_PROBE_MEASUREMENT_SIZE
+    expected_size = len(cases) * pair_size
+    if len(data) != expected_size:
+        raise ValueError(f"wait measurements must contain {expected_size} bytes")
+
+    rows = []
+    for index, case in enumerate(cases):
+        offset = index * pair_size
+        baseline_counter, baseline_mode, baseline_port04 = data[offset : offset + 3]
+        enabled_counter, enabled_mode, enabled_port04 = data[offset + 3 : offset + 6]
+        baseline_elapsed = 0xFF - baseline_counter
+        enabled_elapsed = 0xFF - enabled_counter
+        baseline_completed = bool(
+            (baseline_mode & 0x04) or (baseline_port04 & 0x40)
+        )
+        enabled_completed = bool(
+            (enabled_mode & 0x04) or (enabled_port04 & 0x40)
+        )
+        delta_ticks = enabled_elapsed - baseline_elapsed
+        valid = (
+            not baseline_completed
+            and not enabled_completed
+            and delta_ticks >= 0
+        )
+        inferred_hz = (
+            Fraction(
+                case.wait_sensitive_accesses * BUS_TIMING_PROBE_TIMER_TICK_HZ,
+                delta_ticks,
+            )
+            if valid and delta_ticks > 0
+            else None
+        )
+        rows.append(
+            {
+                "case": case.key,
+                "wait_mask": case.wait_mask,
+                "iterations": case.iterations,
+                "wait_sensitive_accesses": case.wait_sensitive_accesses,
+                "operation": case.operation,
+                "baseline": {
+                    "counter": baseline_counter,
+                    "mode": baseline_mode,
+                    "port_0x04": baseline_port04,
+                    "elapsed_timer_ticks": baseline_elapsed,
+                    "completed": baseline_completed,
+                },
+                "enabled": {
+                    "counter": enabled_counter,
+                    "mode": enabled_mode,
+                    "port_0x04": enabled_port04,
+                    "elapsed_timer_ticks": enabled_elapsed,
+                    "completed": enabled_completed,
+                },
+                "valid": valid,
+                "added_timer_ticks": delta_ticks if valid else None,
+                "wait_observed": bool(valid and delta_ticks > 0),
+                "inferred_cpu_hz_fraction": (
+                    str(inferred_hz) if inferred_hz is not None else None
+                ),
+                "inferred_cpu_hz": (
+                    float(inferred_hz) if inferred_hz is not None else None
+                ),
+            }
+        )
+    return {
+        "timer_source": BUS_TIMING_PROBE_TIMER_SOURCE,
+        "timer_tick_hz": BUS_TIMING_PROBE_TIMER_TICK_HZ,
+        "measurement_order": "case-major, baseline then enabled",
+        "cases": rows,
+    }
+
+
+def decode_bus_timing_probe_measurements(data: bytes) -> dict[str, object]:
+    """Decode paired timer-2 samples from the physical bus-timing probe."""
+
+    try:
+        return _decode_paired_wait_measurements(data, BUS_TIMING_PROBE_CASES)
+    except ValueError as error:
+        raise ValueError(
+            "bus-timing measurements must contain "
+            f"{len(BUS_TIMING_PROBE_CASES) * 2 * BUS_TIMING_PROBE_MEASUREMENT_SIZE} "
+            "bytes"
+        ) from error
+
+
+def decode_prefix_m1_probe_measurements(data: bytes) -> dict[str, object]:
+    """Decode the physical prefix-fetch matrix and its emulator discriminator."""
+
+    try:
+        report = _decode_paired_wait_measurements(data, PREFIX_M1_PROBE_CASES)
+    except ValueError as error:
+        raise ValueError(
+            "prefix-M1 measurements must contain "
+            f"{len(PREFIX_M1_PROBE_CASES) * 2 * BUS_TIMING_PROBE_MEASUREMENT_SIZE} "
+            "bytes"
+        ) from error
+
+    cases_by_key = {case.key: case for case in PREFIX_M1_PROBE_CASES}
+    rows_by_key = {row["case"]: row for row in report["cases"]}
+    for row in report["cases"]:
+        case = cases_by_key[row["case"]]
+        model_accesses = case.model_wait_sensitive_accesses()
+        delta_ticks = row["added_timer_ticks"]
+        row["encoding_hex"] = case.encoding.hex().upper()
+        row["instruction_m1_fetches"] = {
+            "z80": case.z80_m1_fetches,
+            "tilem": case.tilem_m1_fetches,
+            "wabbitemu": case.wabbitemu_m1_fetches,
+        }
+        row["model_wait_sensitive_accesses"] = model_accesses
+        row["model_inferred_cpu_hz"] = {
+            model: (
+                float(
+                    Fraction(
+                        accesses * BUS_TIMING_PROBE_TIMER_TICK_HZ,
+                        delta_ticks,
+                    )
+                )
+                if delta_ticks is not None and delta_ticks > 0
+                else None
+            )
+            for model, accesses in model_accesses.items()
+        }
+
+    single_prefix_ticks = tuple(
+        rows_by_key[key]["added_timer_ticks"] for key in ("cb", "ed", "dd")
+    )
+    dd_dd_ticks = rows_by_key["dd_dd"]["added_timer_ticks"]
+    dd_cb_ticks = rows_by_key["dd_cb"]["added_timer_ticks"]
+    if (
+        dd_dd_ticks is None
+        or dd_cb_ticks is None
+        or any(value is None for value in single_prefix_ticks)
+    ):
+        discriminator = {
+            "valid": False,
+            "closer_to": None,
+            "single_prefix_mean_ticks": None,
+            "repeated_prefix_ticks": dd_dd_ticks,
+            "indexed_cb_ticks": dd_cb_ticks,
+        }
+    else:
+        single_prefix_mean = Fraction(sum(single_prefix_ticks), 3)
+        distance_to_z80 = abs(Fraction(dd_cb_ticks) - single_prefix_mean)
+        distance_to_wabbitemu = abs(Fraction(dd_cb_ticks) - dd_dd_ticks)
+        if distance_to_z80 < distance_to_wabbitemu:
+            closer_to = "z80-and-tilem-two-m1"
+        elif distance_to_wabbitemu < distance_to_z80:
+            closer_to = "wabbitemu-three-m1"
+        else:
+            closer_to = "equidistant"
+        discriminator = {
+            "valid": True,
+            "closer_to": closer_to,
+            "single_prefix_mean_ticks": float(single_prefix_mean),
+            "repeated_prefix_ticks": dd_dd_ticks,
+            "indexed_cb_ticks": dd_cb_ticks,
+            "distance_to_z80_and_tilem_ticks": float(distance_to_z80),
+            "distance_to_wabbitemu_ticks": float(distance_to_wabbitemu),
+        }
+    report["indexed_cb_discriminator"] = discriminator
+    return report
+
+
 class BusTiming:
     """Track speed-dependent LCD and memory wait-state registers."""
 
@@ -154,7 +446,7 @@ class BusTiming:
         return value
 
     @classmethod
-    def ti84p_os(cls, speed_mode: int = 1) -> "BusTiming":
+    def ti84p_os(cls, speed_mode: int = 1) -> BusTiming:
         """Return the register values written by the retail boot page."""
 
         return cls(
@@ -278,7 +570,7 @@ class TimingImplementation:
         *,
         speed_value: int = 1,
         extra_speeds: bool = False,
-    ) -> "TimingImplementation":
+    ) -> TimingImplementation:
         """Apply the retail boot values and one later speed selection."""
 
         implementation = cls(profile=profile, extra_speeds=extra_speeds)

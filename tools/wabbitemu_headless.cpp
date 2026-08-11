@@ -3426,6 +3426,154 @@ int run_flash_bcall_usage_probe(int argc, char **argv) {
     return completed ? 0 : 3;
 }
 
+int run_injected_hardware_probe(
+    int argc,
+    char **argv,
+    const char *mode,
+    unsigned char probe_id,
+    std::size_t payload_size
+) {
+    if (argc < 4 || argc > 6) {
+        std::fprintf(
+            stderr,
+            "usage: %s %s INPUT.rom PROBE.bin "
+            "[MAX_BOOT_STEPS [MAX_PROBE_STEPS]]\n",
+            argv[0],
+            argv[1]
+        );
+        return 2;
+    }
+    const std::uint64_t max_boot_steps =
+        argc >= 5 ? parse_count(argv[4], "MAX_BOOT_STEPS") : UINT64_C(5000000);
+    const std::uint64_t max_probe_steps =
+        argc >= 6 ? parse_count(argv[5], "MAX_PROBE_STEPS") : UINT64_C(1500000);
+    if (max_boot_steps == 0 || max_probe_steps == 0) {
+        fail("injected hardware-probe step bounds must be positive");
+    }
+
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    const std::vector<unsigned char> probe = read_probe(argv[3]);
+    const unsigned char create_call[] = {0xCD, 0x98, 0x9D};
+    const unsigned char frame_marker[] = {
+        'H', 'W', 'P', '1', 0x01, probe_id,
+        static_cast<unsigned char>(payload_size & 0xFF),
+        static_cast<unsigned char>((payload_size >> 8) & 0xFF)
+    };
+    const std::size_t call_offset = find_unique(
+        probe,
+        create_call,
+        sizeof(create_call),
+        "CALL create_probe_appvar"
+    );
+    const std::size_t frame_offset = find_unique(
+        probe,
+        frame_marker,
+        sizeof(frame_marker),
+        "injected hardware-probe result frame"
+    );
+    const std::size_t frame_size = 10 + payload_size;
+    if (frame_offset + frame_size > probe.size()) {
+        fail("injected hardware-probe result frame extends past the probe image");
+    }
+    const unsigned short call_address = static_cast<unsigned short>(
+        kProbeOrigin + call_offset
+    );
+
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+
+    std::uint64_t boot_steps = 0;
+    while (boot_steps < max_boot_steps && !boot_protection_ready(memory)) {
+        CPU_step(&cpu);
+        ++boot_steps;
+    }
+    if (!boot_protection_ready(memory)) {
+        fail("retail boot did not establish and relock the expected protection bounds");
+    }
+    const std::uint64_t boot_tstates = timer.tstates;
+
+    memory.boot_mapped = FALSE;
+    memory.banks = memory.normal_banks;
+    memory.port07 = 0x80 | kProbeRamPage;
+    change_page(&memory, 2, kProbeRamPage, TRUE);
+    const std::size_t program_physical =
+        kProbeRamPage * PAGE_SIZE + mc_base(kProbeOrigin);
+    std::memcpy(memory.ram + program_physical, probe.data(), probe.size());
+    if (std::memcmp(
+            memory.banks[2].addr + mc_base(kProbeOrigin),
+            probe.data(),
+            probe.size()
+        ) != 0) {
+        fail("injected hardware probe does not read back from RAM");
+    }
+
+    cpu.pc = kProbeOrigin;
+    cpu.sp = kProbeStack;
+    cpu.halt = FALSE;
+    cpu.iff1 = FALSE;
+    cpu.iff2 = FALSE;
+    cpu.interrupt = FALSE;
+    cpu.ei_block = FALSE;
+    cpu.prefix = 0;
+    execution_violation_resets = 0;
+    cpu.exe_violation_callback = record_execution_violation;
+
+    std::uint64_t probe_steps = 0;
+    for (; probe_steps < max_probe_steps; ++probe_steps) {
+        if (cpu.pc == call_address) {
+            break;
+        }
+        CPU_step(&cpu);
+        if (execution_violation_resets != 0) {
+            ++probe_steps;
+            break;
+        }
+    }
+
+    const unsigned char *frame =
+        memory.ram + program_physical + frame_offset;
+    const unsigned char outcome = frame[10 + 13];
+    const bool completed =
+        cpu.pc == call_address && outcome == 0 && execution_violation_resets == 0;
+    std::printf(
+        "mode=%s probe_size=%zu boot_steps=%" PRIu64 " "
+        "boot_tstates=%" PRIu64 " max_probe_steps=%" PRIu64 " "
+        "probe_steps=%" PRIu64 " probe_tstates=%" PRIu64 " "
+        "call_address=0x%04X violation_resets=%u outcome=%u completed=%d "
+        "frame_hex=",
+        mode,
+        probe.size(),
+        boot_steps,
+        boot_tstates,
+        max_probe_steps,
+        probe_steps,
+        timer.tstates - boot_tstates,
+        call_address,
+        execution_violation_resets,
+        outcome,
+        static_cast<int>(completed)
+    );
+    for (std::size_t index = 0; index < frame_size; ++index) {
+        std::printf("%02X", frame[index]);
+    }
+    std::printf(" final_pc=0x%04X\n", cpu.pc);
+    return completed ? 0 : 3;
+}
+
+int run_prefix_m1_probe(int argc, char **argv) {
+    return run_injected_hardware_probe(
+        argc, argv, "prefix-m1-probe", 11, 63
+    );
+}
+
+int run_timer_physical_probe(int argc, char **argv) {
+    return run_injected_hardware_probe(
+        argc, argv, "timer-physical-probe", 12, 91
+    );
+}
+
 int run_execution_probe(int argc, char **argv) {
     if (argc < 5 || argc > 7) {
         std::fprintf(
@@ -3910,6 +4058,12 @@ int main(int argc, char **argv) {
     }
     if (argc >= 2 && std::strcmp(argv[1], "--flash-bcall-usage-probe") == 0) {
         return run_flash_bcall_usage_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--prefix-m1-probe") == 0) {
+        return run_prefix_m1_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--timer-physical-probe") == 0) {
+        return run_timer_physical_probe(argc, argv);
     }
     if (argc >= 2 && std::strcmp(argv[1], "--flash-program-probe") == 0) {
         return run_flash_program_probe(argc, argv);
