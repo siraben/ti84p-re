@@ -98,6 +98,42 @@ def _validate_program_error_probe(machine_code: bytes) -> None:
         raise ValueError("program-error fixture does not capture the stored byte")
 
 
+def _validate_certificate_program_error_probe(machine_code: bytes) -> None:
+    if PATCH_SIGNATURE_CHECK not in machine_code:
+        raise ValueError(
+            "certificate-program-error fixture lacks the patched-ROM signature check"
+        )
+    if bytes.fromhex("06081abec2") not in machine_code:
+        raise ValueError(
+            "certificate-program-error fixture lacks its patch-signature loop"
+        )
+    for sequence, label in (
+        (bytes.fromhex("210a73"), "worker-head address"),
+        (bytes.fromhex("060c1abec2"), "worker-head check"),
+        (bytes.fromhex("217973"), "worker-tail address"),
+        (bytes.fromhex("06121abec2"), "worker-tail check"),
+        (bytes.fromhex("3e3ed3063a0040b7"), "target-byte guard"),
+        (bytes.fromhex("3e3dd306210a73110081018100edb0"), "worker copy"),
+        (bytes.fromhex("afd3063e3e110040010100"), "page-zero call inputs"),
+        (bytes.fromhex("cd0081"), "worker call"),
+        (bytes.fromhex("f5e1"), "AF capture"),
+        (bytes.fromhex("db0632"), "restored-page capture"),
+        (bytes.fromhex("3e3ed3063a004032"), "stored-byte capture"),
+        (bytes.fromhex("3e3cd306cdd566"), "protected relock"),
+    ):
+        if sequence not in machine_code:
+            raise ValueError(
+                f"certificate-program-error fixture lacks its {label}"
+            )
+    if (
+        WRITEFLASH_UNSAFE_BCALL in machine_code
+        or WRITEABYTE_BCALL in machine_code
+    ):
+        raise ValueError(
+            "certificate-program-error fixture must call the copied worker directly"
+        )
+
+
 def _validate_entry_returns_probe(machine_code: bytes) -> None:
     if ENTRY_SIGNATURE_CHECK not in machine_code:
         raise ValueError("entry-returns fixture lacks the worker-entry ROM check")
@@ -314,6 +350,20 @@ FLASH_FIXTURES = {
                 "signature is present"
             ),
             validate_probe=_validate_program_error_probe,
+        ),
+        FlashFixtureSpec(
+            name="certificate-program-error",
+            source_name="certificate-program-error.asm",
+            program_name="EMUCFAIL",
+            runner_name="ACFAIL",
+            rom_name="ti84plus-certificate-program-error-patched.rom",
+            comment="Emulator-only certificate-program error fixture",
+            patch_unlock=True,
+            warning=(
+                "emulator-only; directly runs the guarded page-3D worker in a "
+                "patched ROM copy"
+            ),
+            validate_probe=_validate_certificate_program_error_probe,
         ),
         FlashFixtureSpec(
             name="entry-returns",

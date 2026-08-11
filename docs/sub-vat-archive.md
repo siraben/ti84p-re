@@ -348,22 +348,81 @@ that half, programs its base byte through `0x8F` to `0x00`, and erases the old h
 `3E:6000` half. Most copied bytes are `0xFF`; the boot worker still issues a program command for
 each one. [confirmed]
 
-Journal bytes near the end of the active half advance monotonically. The observed phase byte at
-logical `3E:7DED` changes from erased `0xFF` to `0xFE`, then to `0xE0`. The per-sector byte at
-`3E:7DF0` changes `0xFF → 0xFE → 0xFC` around the page-`08` erase. The RAM mirrors are in the
-model-selected tables at `0x82A5` or `0x837B`; helpers at `3C:7E78`–`3C:7EBA` select individual
-fields. [confirmed]
+The certificate rebuild dispatcher confirms the journal's half-relative span.
+Mode `3` replaces `0x1DEA`–`0x1E4F`. Mode `4` replaces that block and the
+validity tail at `0x1FE0`–`0x1FFF`. [confirmed]
 
-`gc_recover_by_phase` at `3C:7C1F` dispatches the mirrored phase byte through cases `0xFF`,
-`0xFE`, `0xFC`, `0xF8`, `0xF0`, and `0xE0`. This is the interruption-recovery dispatcher, not the
-normal record-copy entry. `gc_check_interrupted` begins at `3C:7BC7`; `3C:7BD0` is a call inside
-that routine. The fixture's startup check reads an erased status, executes through `3C:7BDB`, and
-skips the branch to `3C:7BDD` and `3C:7C1F`. [confirmed]
+The GC block has model-dependent RAM mirrors beginning at `0x837B` or
+`0x82A5`. The helper addresses pin its first fields: [confirmed]
 
-The exact crash guarantee attached to each phase value still needs fault-injection traces stopped
-after individual Flash commands. The bytes and dispatcher targets establish the journal state
-machine, but they do not prove which interrupted state is recoverable after physical power loss.
-[hypothesis]
+| Block offset | Certificate offset | Helper | RAM mirrors | ROM use |
+|-------------:|-------------------:|--------|-------------|---------|
+| `+0x00` | `0x1DEA` | `3C:7E78` | `0x837B`, `0x82A5` | Control flags tested during preparation and recovery. |
+| `+0x01` | `0x1DEB` | `3C:7E83` | `0x837C`, `0x82A6` | The archive App boundary from `3D:6413`, incremented once. |
+| `+0x02` | `0x1DEC` | `3C:7E8E` | `0x837D`, `0x82A7` | Selected 64 KiB archive-sector page. |
+| `+0x03` | `0x1DED` | `3C:7E99` | `0x837E`, `0x82A8` | Master recovery phase. |
+| `+0x04` | `0x1DEE` | `3C:7EA4` | `0x837F`, `0x82A9` | Page erased by the phase-`0xF8` recovery branch. |
+| `+0x05` | `0x1DEF` | `3C:7EBA` | `0x8380`, `0x82AA` | Optional second page erased by the phase-`0xFC` branch. |
+| `+0x06` | `0x1DF0` | `3C:7EAF` | `0x8381`, `0x82AB` | Start of the archive-sector state array. |
+
+`3C:7DA9` indexes the sector-state array as
+`(archive_page >> 2) - 2`. Page `08` maps to slot `0`, page `0C` maps to slot
+`1`, and each later 64 KiB sector advances one slot. The normal path writes
+`0xFE` through `3C:7848`, then `0xFC` through `3C:7853`. The recovery path can
+write `0xFC` through `3C:7C54`. [confirmed]
+
+`gc_recover_by_phase` at `3C:7C1F` dispatches the master byte. The branch
+targets and their joins show how each interrupted phase resumes: [confirmed]
+
+| Phase | Branch | Recovery action visible in the ROM | Join |
+|------:|--------|------------------------------------|------|
+| `0xFF` | `3C:7C43` | Run the phase-`0xFE` initializer. | `gc_run_phase_machine` at `3C:7CFB` |
+| `0xFE` | `3C:7C48` | Inspect pending sector slots, repair scratch-sector setup, and resume phase processing. | `3C:7CFB` after internal repair branches |
+| `0xFC` | `3C:7CC6` | Erase the selected recovery page and an optional second page through `_EraseFlashPage = 8084h`. | `3C:7D0A`, after the phase-`0xFC` write point |
+| `0xF8` | `3C:7CDA` | Erase the page stored at block offset `+0x04`. | `3C:7D1B`, after the phase-`0xF8` write point |
+| `0xF0` | `3C:7CE3` | Search `0xFC` and `0xF8` archive-sector headers, then repair or erase the remaining sector. | finalization at `3C:7D25` or `3C:7D2B` |
+| `0xE0` | `3C:7D30` | Run final journal cleanup through `3C:7B90` and `3C:7B2A`. | return |
+
+The shared writer at `3C:7AA6` updates Flash and the model-dependent RAM
+mirror. The normal phase machine emits the following values: [confirmed]
+
+| Value | Load and call | Condition |
+|------:|---------------|-----------|
+| `0xFE` | `3C:7ACF → 3C:7AD1` | Always after optional scratch-sector header programming. |
+| `0xFC` | `3C:7D05 → 3C:7D07` | Journal flags bit `3` is clear. |
+| `0xF8` | `3C:7D10 → 3C:7D12` | Journal flags bit `3` is clear. |
+| `0xF0` | `3C:7D20 → 3C:7D22` | The archive-sector consistency check returns carry. |
+| `0xE0` | `3C:7D2B → 3C:7D2D` | Always before final cleanup. |
+
+Every transition only clears bits. The complete ROM-reachable progression is
+`FF → FE → FC → F8 → F0 → E0`, with conditional edges that skip `FC/F8` or
+`F0`. The direct skip edges are `FE → F0`, `FE → E0`, and `F8 → E0`.
+[confirmed]
+
+The `GCFLASH` trace takes a short path. The master byte at `3E:7DED` receives
+`0xFE` at clock `334587331` and `0xE0` at clock `338262732`. Slot `0` at
+`3E:7DF0`, which maps page `08`, receives `0xFE` at clock `335222873` and
+`0xFC` at clock `338237430`. [confirmed] for the decoded TilEm trace.
+
+The rebuild worker also issues program commands with data `0xFF` while copying
+the block. Those commands cannot clear NOR bits and are not phase transitions.
+`tools/gc_journal.py` separates them from state-changing commands. Its CLI can
+report the static structure alone or correlate a trace: [confirmed]
+
+```sh
+python tools/analyze_gc_journal.py --json
+python tools/analyze_gc_journal.py \
+  --trace /tmp/tibasic-smoke/gcflash.trace --json
+```
+
+`gc_check_interrupted` begins at `3C:7BC7`. The fixture's startup check reads
+an erased status and skips the branch to `3C:7BDD` and `3C:7C1F`.
+[confirmed]
+
+The handler bodies establish the operations selected after a restart. They do
+not prove the physical power-loss guarantee of stopping inside an erase or
+program command. That guarantee still needs fault-injection traces and
+physical power-cut tests at each transition. [hypothesis]
 
 ### 7e. Reproducing the command timeline
 
@@ -424,7 +483,7 @@ archive operation at `3C:7F1C`. [confirmed]
 | `38:67B1` | `_RclVarSym` | recall var by symbol |
 | `3A:5D07` | `rcl_var_push` | recall var, push to FPS |
 | `3D:6745` | `_FlashToRam` | copy archived data Flash→RAM (page-aware); `ti83plus.inc` sibling `_FlashToRam2` (id 8054) is named but its body is unmapped in the disassembly |
-| `3D:678C` | `flash_to_ram_run_worker` | copy the `_FlashToRam` worker to `0x8100` and execute it |
+| `3D:678C` | `ram_worker_launcher` | copy a length-prefixed worker to `0x8100` and execute it; used by `_FlashToRam` and certificate-page programming |
 | `3D:64AA` | `archive_write_record` | program a complete archive record; executed in the archive trace |
 | `3D:62C2` | `archive_find_free_span` | scan from page `08` to the dynamic App boundary for space |
 | `3D:6413` | `archive_app_boundary` | return the first page below the installed App run in `B` |

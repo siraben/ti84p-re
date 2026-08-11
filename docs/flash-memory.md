@@ -321,6 +321,13 @@ The interrupt wrapper at `3F:48EE` records IFF2 from `LD A,I` in `0x82A2`, disab
 | sector erase | `0x0052` at `3F:4C3B` | `3F:4C3D`–`3F:4C8E` | `0x8100`–`0x8151` |
 | block program | `0x007C` at `3F:4CC8` | `3F:4CCA`–`3F:4D45` | `0x8100`–`0x817B` |
 
+Page `3D` contains a relocated copy of the same launcher structure at
+`3D:678C`. It runs the `_FlashToRam` descriptor at `3D:6761` and the internal
+certificate-program descriptor at `3D:7308`. Its interrupt wrapper at
+`3D:67B5` has the same IFF2-save, `DI`, conditional-`EI` behavior as the boot
+launcher. The inferred name `ram_worker_launcher` therefore describes both
+call paths. [confirmed]
+
 ## Block-program worker
 
 The block worker repeats a four-write AMD byte-program sequence for each source byte. It temporarily maps fixed pages `02` and `01` so the command addresses appear in bank A, then restores the target page for the data write. [confirmed]
@@ -365,6 +372,284 @@ target bytes, while `BC` retains the decrement performed by `LDI`.
 `_WriteAByte` destroys all three public ABI registers. [confirmed]
 
 Forcing page `3F` is part of the worker ABI. The outer bcall dispatcher restores the page mapping required by its caller after the boot routine returns. A direct caller that passes the low-address check must account for this mapping change itself. [confirmed]
+
+### Internal certificate-page programmer
+
+`certificate_write_byte` at `3D:72E5` launches a second byte-program worker.
+It sets `BC=1`, clears `(IY+0x25).1`, normalizes the target page for the current
+calculator model, and passes descriptor `3D:7308` to `ram_worker_launcher`.
+The descriptor contains 129 bytes at `3D:730A`–`3D:738A`. The boot block worker
+contains 124 bytes at `3F:4CCA`–`3F:4D45`. [confirmed]
+
+The only direct call to `certificate_write_byte` is `3D:4332`, inside
+`certificate_copy_from_flash` at `3D:431A`. The loop obtains an ordinary Flash
+page from `3D:5258`, stages one byte in OP1 with `_FlashToRam`, selects the
+model-specific certificate page through `model_certificate_page` at `3D:738B`,
+and programs the byte at the current certificate destination. Direct callers
+at `3D:426A` and `3D:4715` reach this loop. [confirmed]
+
+`certificate_copy_to_flash` at `3D:434B` performs the reverse transfer. Its
+prologue at `3D:433F` obtains and erases the ordinary Flash destination page.
+The loop stages a certificate byte in OP1 through `3D:42AC`, obtains the
+ordinary destination page through `3D:5258`, and calls `_WriteFlashUnsafe =
+8087h`. The direct callers at `3D:4127` and `3D:4707` pass destination address
+`0x4000`. [confirmed]
+
+Both loops belong to `certificate_rebuild_dispatch` at `3D:40F1`. The
+dispatcher stores its mode byte at `0x9C20`, copies certificate data to an
+ordinary Flash work area at `3D:4127`, rebuilds mode-dependent certificate
+fields, erases a model-selected certificate half through `3D:4252`, and can
+copy the work area back at `3D:426A`. This identifies the data directions and
+the rebuild role. Direct calls and page-0 bjump calls identify an owner for
+each mode. [confirmed]
+
+The dispatcher operates on the last `0x216` bytes of either 8 KiB certificate
+half. Its fixed offsets and lengths divide that tail into four contiguous
+blocks: [confirmed]
+
+| Half-relative offset | Length | Range |
+|----------------------|--------|-------|
+| `0x1DEA` | `0x66` | `0x1DEA`–`0x1E4F` |
+| `0x1E50` | `0xC8` | `0x1E50`–`0x1F17` |
+| `0x1F18` | `0xC8` | `0x1F18`–`0x1FDF` |
+| `0x1FE0` | `0x20` | `0x1FE0`–`0x1FFF` |
+
+The helper calls in each dispatch branch identify which span receives
+mode-specific replacement data. Other helpers clone retained spans from the
+active half to the opposite half. Mode `4` also exports `0x1E50`–`0x1F17` to
+`0x8000` and `0x1DD3`–`0x1DDF` to `0x80F0`. [confirmed]
+
+| Mode | Branch | Mode-specific replacement span |
+|------|--------|--------------------------------|
+| `0` | `3D:423F` | `0x1F18`–`0x1FFF` (`0xE8` bytes) |
+| `1` | `3D:41ED` | `0x1E50`–`0x1F17` (`0xC8` bytes) |
+| `2` | `3D:41DF` | `0x1F18`–`0x1FFF` (`0xE8` bytes) |
+| `3` | `3D:41FB` | `0x1DEA`–`0x1E4F` (`0x66` bytes) |
+| `4` | `3D:4209` | `0x1DEA`–`0x1E4F` and `0x1FE0`–`0x1FFF` |
+| `5` | `3D:421D` | `0x1FE0`–`0x1FFF` (`0x20` bytes) |
+| `6` | `3D:422B` | complete `0x1DEA`–`0x1FFF` tail (`0x216` bytes) |
+
+Neither copy loop nor the dispatcher writes port `0x14`. Five direct call
+sites enter the dispatcher: [confirmed]
+
+| Mode | Direct call | Byte-pinned gate context |
+|------|-------------|--------------------------|
+| `0` | `3D:66C7` | The full-reset path at `35:7205` reaches `3D:6673` through the page-0 trampoline at `00:2DC3`. `3D:6673` opens the gate at `3D:6680`; the tail at `3D:66CA` jumps to the shared relock routine. |
+| `1` | `3D:5774` | The App-deletion path at `3D:4018` and invalid-App cleanup at `3D:5F71` call `3D:5759`. The first path opens at `3D:400A`; the second opens at `3D:5F28`. |
+| `2` | `3D:437E` | The certificate receive path reaches `3D:4721`; Flash App receive preparation reaches `3D:5094`. Both inherit gate state. |
+| `5` | `3D:51D7` | The enclosing path opens at `3D:70DA`; later exits relock at `3D:7194`, `3D:71AA`, or `3D:71E4`. |
+| `6` | `3D:7D87` | `_RemoveAppRestrictions` at `3D:7C1B` opens at `3D:7C46`, calls the rebuild wrapper at `3D:7D82`, and relocks at `3D:7C8C`. |
+
+Modes `3` and `4` enter through the page-0 bjump stub at `00:2B77`. The stub's
+inline descriptor is `F1 40 7D`, which resolves to `3D:40F1`. Both callers
+belong to `gc_recovery_preflight` at `3C:7219`, which opens the Flash gate at
+`3C:7228`: [confirmed]
+
+| Mode | Page-`3C` call | Call chain | Role |
+|------|----------------|------------|------|
+| `3` | `3C:7558` | `3C:7219 → 3C:724A → 3C:7544 → 3C:7558 → 00:2B77 → 3D:40F1` | Rewrite the `0x1DEA`–`0x1E4F` recovery metadata after an archive-sector operation in the recovery loop. |
+| `4` | `3C:7313` | `3C:7219 → 3C:72A5 → 3C:7313 → 00:2B77 → 3D:40F1` | Initialize the certificate-backed recovery metadata before the loop. |
+
+Mode `0` initializes the OS/App-validity tail during full reset. `3D:6673`
+erases ordinary Flash page `8`, fills the `0xE8`-byte replacement buffer with
+`0xFF`, and stores `0xFE` at `0x836D`. That RAM byte corresponds to
+certificate offset `0x1FE0`. On models other than the TI-83 Plus, the routine
+also stores `0x7F` in the next byte before invoking mode `0`. [confirmed]
+
+Mode `1` clears a two-byte per-App trial entry when an App is removed. `3D:5759`
+stages the model-dependent `0x1E50`–`0x1F17` table, converts the App page to a
+two-byte index, writes `FF FF`, and invokes mode `1`. The table's use as an App
+trial table is also ROM-confirmed. The App receive path writes the same
+two-byte entry at `3D:5BB7`. The App-information path at `36:70B5` calls the
+reader at `3D:5466`, displays the ROM string `"Trials Remaining:"` at
+`01:41AA`, and prints values derived from the two bytes. The direct mode-`1`
+callers at `3D:4018` and `3D:5F71` belong to App deletion and invalid-App
+cleanup. [confirmed]
+
+One mode-`2` owner is the certificate receive path. The link header dispatcher
+selects certificate type `0x25` at `3C:565D`. After `_FindFirstCertField`, a
+field selector with `H=3` and `L & 0xF0 = 0x10` reaches the page-0 bjump stub
+at `00:2BFB` from `3C:5714`. That stub targets `3D:4771`. Its certificate-half
+rotation path calls `3D:46EE`, which invokes mode `2` at `3D:4721`. This pins
+mode `2` to rebuilding `0x1F18`–`0x1FFF` for that certificate-field selector.
+The other mode-`2` caller belongs to Flash App receive preparation. Header
+type `0x24` enters at `3C:550D`. The per-page call at `3C:55BD` reaches
+`3D:73BE` through the page-0 stub at `00:2D81`. `3D:73BE` checks the App page,
+clears its App-validity bit when necessary, and reaches `3D:5019` through
+`3D:5356`. That path stages `0x1F18`–`0x1FFF` and invokes mode `2` at
+`3D:5094`. [confirmed]
+
+These owners establish where mode `2` is used. They do not establish a field
+name for the `0x1F18`–`0x1FDF` table. [hypothesis] for that table's semantic
+meaning.
+
+The mode-`4` path fills the model-selected journal buffer at `0x82A5` or
+`0x8000`, initializes its phase bytes at `3C:72D1`–`3C:730D`, and invokes the
+dispatcher. The recovery loop reaches mode `3` through `3C:7544`. That routine
+selects an archive sector, calls `_EraseFlashPage = 8084h`, updates the RAM
+journal fields at `3C:7568` and `3C:7576`, then persists the `0x66`-byte block.
+[confirmed]
+
+The main bcall table pins mode `6` to the App-restriction API: [confirmed]
+
+| Bcall | ID | Page-`3D` entry |
+|-------|----|-----------------|
+| `_SetAppRestrictions` | `52F6h` | `3D:7B9B` |
+| `_RemoveAppRestrictions` | `52F9h` | `3D:7C1B` |
+| `_QueryAppRestrictions` | `52FCh` | `3D:7CBA` |
+
+The restriction storage occupies certificate offsets `0x1DD2`–`0x1DDF`.
+Offset `0x1DD2` is a control byte. The 13 bytes at `0x1DD3`–`0x1DDF` act as a
+record or as an App-restriction bitmap, depending on the API operation. For an
+App on Flash page $p$, the bitmap index is $p - 8$. `3D:7D69` divides that
+index by eight, and the mask helper at `3D:785D` uses least-significant-bit-first
+ordering. A clear bitmap bit means that the App is restricted. [confirmed]
+
+The low control-byte bits have these ROM-confirmed roles:
+
+| Bit | Mask | Clear-bit meaning | Evidence |
+|-----|------|-------------------|----------|
+| `0` | `0x01` | Base restriction control is active. | The type-`2` set and query paths at `3D:7C02` and `3D:7CD8`; aggregate type `3` is queried by `_ExecutePrgm` at `07:5758`, while equation/token paths query type `2`. |
+| `1` | `0x02` | `logBASE` is disabled. | Type `6` selects mask `0x02` at `3D:7CE3`; the UI string at `37:4A42` and query at `37:4E43` name `logBASE`. |
+| `2` | `0x04` | The summation token is disabled. | Type `7` selects mask `0x04` at `3D:7CDD`; the UI string at `37:4A54` and query at `37:4E52` name the summation token. |
+
+The API dispatch gives each restriction type the following behavior:
+
+| Type | Role | Set | Query | Remove |
+|------|------|-----|-------|--------|
+| `0` | App named in OP1 | Resolve the App page and clear its bitmap bit. | Test the resolved App's bitmap bit. | Unsupported. |
+| `1` | 13-byte restriction record | Program `0x847A`–`0x8486` into `0x1DD3`–`0x1DDF`. | Report whether any record byte differs from `0xFF`. | Replace the record with `0xFF`. |
+| `2` | Base restriction control | Clear control bit `0`. | Return `1` when bit `0` is clear. | Set control bit `0`. |
+| `3` | Aggregate restriction profile | Clear bit `0` and program the record. | Derive an active-profile mask from the control and record bytes. | Set bits `0`–`4` and replace the record with `0xFF`. |
+| `4` | Bulk App bitmap | Program the control byte and 13 bitmap bytes from `0x848E`–`0x849B`. | Count installed Apps whose bitmap bits are clear. | Unsupported. |
+| `5` | App page in `B` | Unsupported. | Test the selected App's bitmap bit. | Unsupported. |
+| `6` | `logBASE` restriction | Clear control bit `1`. | Return `4` when bit `1` is clear. | Set control bits `1` and `2`. |
+| `7` | Summation restriction | Clear control bit `2`. | Return `8` when bit `2` is clear. | Unsupported. |
+
+`_SetAppRestrictions` accepts types `0`–`4`, `6`, and `7`; it rejects type
+`5`. `_RemoveAppRestrictions` accepts types `1`, `2`, `3`, and `6`. Removal
+loads the 14-byte span into `0x8479` at `3D:7DCE`. The rebuild wrapper at
+`3D:7D82` invokes mode `6` and writes the updated span back. Set paths clear
+Flash bits with direct programming. Removal restores some cleared bits to one,
+so it rebuilds the complete `0x216`-byte certificate tail. [confirmed]
+
+Mode `5` sets a per-App validity bit. `locate_app_validity_bit` at `3D:51F6`
+starts with `_GetCertificateStart + 0x1FE0`, divides the calculated App index
+by eight at `3D:7D6B`, and retains the low three bits as the bit index.
+`set_app_validity_bit` at `3D:51BE` advances past `0x1FE0` before reading, so
+the bitmap starts at half-relative offset `0x1FE1`. The mask loop at `3D:785D`
+uses least-significant-bit-first ordering. [confirmed]
+
+The receive path from `_WriteToFlash` at `3D:6DA5` reaches the set routine at
+`3D:70E1`. If the bit is clear, `stage_app_validity_byte` at `3D:51A6` updates
+the `0x836D` tail buffer and calls mode `5` at `3D:51D7`. Setting a NOR Flash
+bit from zero to one requires the erase-and-rebuild path. The inverse routine,
+`clear_app_validity_bit` at `3D:51E4`, masks the bit to zero and reaches
+`_WriteAByte = 8021h` through `3D:7CB3`; programming one to zero does not
+require an erase. [confirmed]
+
+The boot bcall table and page-`3F` bodies independently confirm the OS-validity
+bit at offset `0x1FE0`: [confirmed]
+
+| Bcall | ID | Body | Behavior |
+|-------|----|------|----------|
+| `_MarkOSInvalid` | `8093h` | `3F:5209` | Stage `0x1F18`–`0x1FFF`, set bit `0` in the staged `0x1FE0` byte at `0x836D`, and erase/rebuild the certificate data. |
+| `_MarkOSValid` | `8099h` | `3F:51F5` | Read `0x1FE0`, clear bit `0`, and program the byte through `_WriteAByte = 8021h`. |
+| `_CheckOSValidated` | `809Ch` | `3F:52C6` | Read `0x1FE0` and test bit `0`. |
+
+Bit `0` clear means that the OS is valid; bit `0` set means that it is invalid.
+WikiTI gives the same field label, but the conclusion above comes from the boot
+ROM paths. WikiTI also labels `0x1DEA` as garbage-collection information. The
+mode-`3` and mode-`4` call chains independently confirm that the
+`0x1DEA`–`0x1E4F` block stores garbage-collection recovery metadata. The exact
+meaning of every byte in the block remains open. [confirmed] for block
+ownership; [hypothesis] for undecoded fields.
+
+`tools/certificate_rebuild.py` exposes the signature-checked reconstruction as
+a library. Its thin CLI reports the block partition, all seven branches,
+direct and bjump invocations, resolved mode owners, OS/App-validity metadata,
+and App-restriction behavior:
+
+```sh
+python tools/analyze_certificate_rebuild.py --json
+```
+
+`tools/gc_journal.py` decodes the `0x1DEA` recovery block, master phase
+dispatch, and archive-sector state indexing. Its CLI can correlate the static
+ROM paths with state-changing command writes in a TilEm trace. See
+[Variables, archive & unarchive](sub-vat-archive.md#7d-certificate-sector-journal)
+for the field and phase tables. [confirmed]
+
+```sh
+python tools/analyze_gc_journal.py --json
+python tools/analyze_gc_journal.py --trace /tmp/tibasic-smoke/gcflash.trace
+```
+
+The reusable call analyzer can resolve a banked target back through its page-0
+bjump stub and report candidate callers with linear-disassembly context:
+
+```sh
+nix develop -c python tools/analyze_rom_calls.py \
+  3D:4771 --bjump-call --before 5 --after 5
+```
+
+The complete-ROM raw scan and linear disassembly independently find 90 `D3 14`
+occurrences. All 90 use one of four privilege-sequence spellings: 70 load
+`A=1`, and 20 clear `A`. Page `3D` contains 34 unlock forms and the shared lock
+form at `3D:5CE6`. Page `3D` never writes port `0x21`. Its only resolved
+port-`0x21` access is the read at `3D:7392` that selects a model-specific
+certificate page. These paths do not change the modeled physical-sector
+override. [confirmed] for the ROM scan; [standard] for the emulator-defined
+override role.
+
+`tools/flash_gate.py` exposes the raw scanner as a library. The thin CLI keeps
+complete privileged sequences separate from unmatched `D3 14` candidates:
+
+```sh
+python tools/analyze_flash_gate.py --page 0x3D --json
+```
+
+The two program workers share the command writes, `LDI`, DQ7/DQ5 polling, and
+reset write. A sequence comparison aligns 116 bytes. Five byte spans encode
+the differences: [confirmed]
+
+| Behavior | Page-`3D` certificate worker | Boot block worker |
+|----------|------------------------------|-------------------|
+| Prologue | saves target page at `0x9868`, then saves the current port-`0x06` value | masks the target page to six bits and maps it directly |
+| Crossing sentinel | skips a page-select output when the next page is `0x7E` | skips it when the next page is `0x3E` |
+| Success mapping | restores the saved port-`0x06` value | forces page `0x3F` |
+| Failure mapping | restores the saved port-`0x06` value | forces page `0x3F` |
+| Failure return | returns the restored page in `A`; Z if that page is zero | returns `A=0x3F`, NZ |
+
+The page-`3D` caller ignores the worker flags after `3D:4332`. A DQ5 failure
+therefore does not stop its byte-copy loop. Even a caller that inspects the
+flags cannot treat Z as unconditional success: the failure tail writes `0xF0`
+at the target, pops the saved port-`0x06` value into `A`, restores that page,
+and executes `OR A`. A saved page zero produces Z on the failure path.
+[confirmed]
+
+The guarded `certificate-program-error` fixture copies the unmodified 129-byte
+worker to `0x8100`, saves page zero, and requests `0x80` over stored `0x00` at
+`3E:4000`. It runs only with the patched unlock wrapper and verifies the worker
+head, worker tail, and target byte before programming. Its machine-code SHA-256
+is `34fc6b71a0015cbcb13578a30ec195883a187ee43b234d6ab671d00275824429`.
+[confirmed]
+
+Pinned TilEm returns program-status values `0x00`, `0x60`, and `0x20`, then
+executes the failure reset at `ram:817B`. The trace decoder labels the
+invocation `certificate-failure`. The copied worker returns `AF=0x0044`, Z,
+with `BC=0`, `DE=0x4000`, `HL=0x9E63`, and port `0x06` restored to zero. The
+final target remains `0x00`. This dynamically confirms the worker tail in
+TilEm; physical DQ5 behavior remains unmeasured. [confirmed] for the ROM and
+TilEm trace; [hypothesis] for hardware.
+
+`tools/flash_workers.py` extracts two-byte-length descriptors and compares
+worker bytes. Its CLI reproduces the lengths, hashes, aligned-byte total, and
+five edit spans:
+
+```sh
+python tools/describe_flash_workers.py --json
+```
 
 ### Locked write can satisfy DQ7 under TilEm
 
@@ -1062,6 +1347,12 @@ so dynamic trace reports and emulator comparisons use one sector definition.
   the final array read confirm that the gate remained locked and the target
   remained `0x50`. Physical ASIC behavior remains unmeasured. [confirmed] for
   the ROM and TilEm trace; [hypothesis] for hardware.
+- The internal page-`3D` certificate programmer returns the saved port-`0x06`
+  page in `A` after a DQ5 failure. Saved page zero therefore produces Z, and
+  its only direct caller ignores the flags in every case. A guarded TilEm
+  fixture reproduces the Z failure with an unchanged target. Physical DQ5
+  behavior remains unmeasured. [confirmed] for the ROM and TilEm trace;
+  [hypothesis] for hardware.
 - `_EraseFlashPage` also rejects page `3E` with Z. The certificate-sector
   wrapper restores caller `AF` after valid and invalid inputs, so it does not
   expose an erase result through flags. A guarded TilEm erase confirms this
@@ -1081,6 +1372,7 @@ so dynamic trace reports and emulator comparisons use one sector definition.
 
 | Source | Use |
 |--------|-----|
+| [WikiTI certificate headers](https://wikiti.brandonw.net/index.php?title=83Plus:OS:Certificate/Headers&oldid=10644) | literature labels for certificate-tail offsets, kept separate from ROM-derived ownership |
 | [WikiTI port `0x14`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:14) | Flash command lock and certificate read protection |
 | [WikiTI protected ports](https://wikiti.brandonw.net/index.php?title=Category:83Plus:Ports:By_Address:Protected) | privileged pages and protected-byte sequence |
 | [WikiTI `_WriteFlash`](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:80C9) and [`_WriteFlashUnsafe`](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:8087) | public ABI and RAM-source requirement |

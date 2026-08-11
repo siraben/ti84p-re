@@ -677,6 +677,46 @@ labels it `worker_outcome: "failure"`. Poll reads return `0x00`, `0x60`, then
 `0x50`. These values describe pinned TilEm and the OS worker. They do not
 establish physical-device failure timing or status values.
 
+#### Internal certificate-program failure probe
+
+`EMUCFAIL` verifies the patched unlock wrapper plus the head and tail of the
+129-byte page-`3D` program worker. After unlocking, it requires stored `0x00`
+at `3E:4000`, copies the worker from `3D:730A` to `0x8100`, and directly calls
+it with port `0x06` set to page zero. The requested `0x80` forces TilEm's
+illegal `0→1` state. This fixture tests the copied worker's return tail, not the
+outer caller at `3D:4332`.
+
+```sh
+fixture_dir=$(mktemp -d /tmp/certificate-program-error.XXXXXX)
+nix develop -c python tools/build_flash_emulator_fixture.py \
+  --fixture certificate-program-error \
+  --rom tools/rom.bin --output-dir "$fixture_dir"
+
+TILEM=~/Git/tilem-headless/result/bin/tilem2
+$TILEM --headless \
+  --rom "$fixture_dir/ti84plus-certificate-program-error-patched.rom" \
+  --model ti84p --normal-speed --reset \
+  --macro tools/macros/run-first-program.macro \
+  --trace /tmp/certificate-program-error.trace --trace-range all \
+  "$fixture_dir/ACFAIL.8xp" "$fixture_dir/EMUCFAIL.8xp"
+
+python tools/analyze_flash_trace.py \
+  /tmp/certificate-program-error.trace --invocations --json
+python tools/analyze_trace_points.py /tmp/certificate-program-error.trace \
+  --point ram:8154 --point ram:815B --point ram:8160 \
+  --point ram:817B --point ram:9E06 --point ram:9E16 \
+  --point ram:9E1F --json
+```
+
+The fixture machine-code SHA-256 is
+`34fc6b71a0015cbcb13578a30ec195883a187ee43b234d6ab671d00275824429`.
+The trace decodes one byte-program attempt at physical `0xF8000` and one reset
+from `ram:817B`, classified as `certificate-failure`. Poll reads return
+`0x00`, `0x60`, and `0x20`. The worker returns `AF=0x0044`, Z, with `BC=0`,
+`DE=0x4000`, and `HL=0x9E63`. Port `0x06` is zero after return, and the target
+still reads `0x00`. These values describe the ROM worker under pinned TilEm;
+they do not establish physical status timing.
+
 Keep only one test program in RAM when using `run-first-program.macro`; it opens
 `PRGM`, selects the first `EXEC` entry, and presses `ENTER`. For `factorial`,
 use a variant that enters `5` at the prompt. For the `Asm(` smoke test, load both
@@ -793,6 +833,8 @@ rather than paged-address resolution.
 - [`analyze_ram_page_trace.py`](analyze_ram_page_trace.py) — trace memory writes → physical RAM page ranges.
 - [`flash_trace.py`](flash_trace.py) — importable AMD command-shape decoder for CPU write attempts, including physical-address transition classification.
 - [`analyze_flash_trace.py`](analyze_flash_trace.py) — command-shaped write summaries, worker-invocation grouping, event filters, compact timelines, and JSON reports with explicit acceptance semantics.
+- [`gc_journal.py`](gc_journal.py) — byte-verified GC journal fields, phase transitions, sector-state indexing, and state-changing trace-event extraction.
+- [`analyze_gc_journal.py`](analyze_gc_journal.py) — static GC journal reports with optional TilEm trace correlation and JSON output.
 - [`flash_emulator_fixture.py`](flash_emulator_fixture.py) — reusable exact-ROM, optional-patch, probe-validation, and TI packaging contracts for named Flash fixtures.
 - [`build_flash_emulator_fixture.py`](build_flash_emulator_fixture.py) — thin CLI that assembles a named probe and writes its ROM copy, assembly program, BASIC launcher, and JSON manifest.
 - [`ti_program.py`](ti_program.py) — importable tokenized-program, `AsmPrgm`, `Asm(` launcher, and deterministic body builders.

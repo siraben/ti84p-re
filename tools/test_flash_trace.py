@@ -206,7 +206,7 @@ class FlashTraceTests(unittest.TestCase):
         )
 
         outcomes = []
-        for pc_address in (0x816B, 0x8175):
+        for pc_address in (0x816B, 0x8175, 0x8172, 0x817B):
             reset_write = replace(
                 flash_write(0xF7FFF, 0xF0, 2),
                 pc_address=pc_address,
@@ -218,7 +218,15 @@ class FlashTraceTests(unittest.TestCase):
                 list(group_byte_program_invocations((program, reset)))[0].worker_outcome
             )
 
-        self.assertEqual(["success", "failure"], outcomes)
+        self.assertEqual(
+            [
+                "success",
+                "failure",
+                "certificate-success",
+                "certificate-failure",
+            ],
+            outcomes,
+        )
 
 
 if __name__ == "__main__":

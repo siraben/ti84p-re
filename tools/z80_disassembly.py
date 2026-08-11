@@ -174,7 +174,7 @@ def find_bcall_sites(
 def find_bjump_sites(
     rom: RomImage,
     page: int,
-    targets: Iterable[RomLocation],
+    targets: Iterable[RomLocation] | None = None,
     *,
     trampoline: int = 0x2B09,
 ) -> Iterator[BjumpSite]:
@@ -185,7 +185,11 @@ def find_bjump_sites(
     original descriptor byte.
     """
 
-    wanted = {(target.page, target.address) for target in targets}
+    wanted = (
+        None
+        if targets is None
+        else {(target.page, target.address) for target in targets}
+    )
     data = rom.page(page)
     origin = 0 if page == 0 else 0x4000
     call_prefix = bytes((0xCD, trampoline & 0xFF, trampoline >> 8))
@@ -195,7 +199,7 @@ def find_bjump_sites(
         address = int.from_bytes(data[offset + 3 : offset + 5], "little")
         raw_page = data[offset + 5]
         target = (raw_page & 0x3F, address)
-        if target not in wanted:
+        if wanted is not None and target not in wanted:
             continue
         yield BjumpSite(
             location=RomLocation(page, origin + offset),
