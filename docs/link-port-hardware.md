@@ -158,6 +158,56 @@ received_zero:
 
 Once the sender releases, the receiver writes `0`. It samples briefly for idle and uses `DJNZ` to begin the next bit. `_Rec1stByte` at `3C:439C` adds APD and first-activity handling before entering the same decoder. [confirmed]
 
+## The TI-Keyboard error delimiter
+
+Both-low has three context-dependent roles. It is the normal acknowledgement
+midpoint after a receiver has recognized a single-low data bit. It is a link
+error if the raw receiver sees both lines low before selecting a bit. The
+TI-Keyboard decoder deliberately uses that otherwise exceptional condition as
+a frame delimiter after prefix byte `0xE0`. [confirmed] for the ROM branches.
+
+`_KeyboardGetKey = 50E9` resolves through the main bcall table to `3C:6D5E`.
+After accepting `0xE0`, it calls `3C:6CC1`. The assist branch treats port-`0x09`
+bit 6 as the expected delimiter; the legacy branch waits for a non-idle raw
+state and accepts only the both-low value. A timeout or ordinary single-low
+state returns status `0x02`. The decoder then calls `3C:6D17` for two bytes.
+That helper compares the first with `0x01`, saves the comparison flags, receives
+the second, and restores the flags before returning. The second byte is
+therefore consumed as a scan code or modifier mask, but the public routine
+replaces it with status `0x01`. [confirmed]
+
+The complete accepted sequence is:
+
+```text
+0xE0
+deliberate DBUS error / both lines low
+0x01
+scan code or modifier mask
+```
+
+The ROM establishes the receiver grammar and status control flow. WikiTI's
+historical `_KeyboardGetKey` page independently says the TI-Keyboard transmits
+the same sequence, but no physical capture was made for this reconstruction.
+[standard] for that peripheral claim.
+
+The explicit OS 2.55MP return tails are:
+
+| Status | Tail | ROM condition |
+|--------|------|---------------|
+| `0x00` | `3C:6DA0` | No accepted raw or assist activity; the early no-assist return at `3C:6D6A` also leaves `A=0`. |
+| `0x01` | `3C:6DDB` | Prefix and delimiter accepted; first following byte is `0x01`. |
+| `0x02` | `3C:6DE2` | Ordinary receive did not produce `0xE0`, or the required delimiter condition failed. |
+| `0xF9` | `3C:6D95` | Entry assist status has bit 6, but neither masked buffered-data/activity bit. |
+| `0xFA` | `3C:6D8E` | Entry assist error has buffered data other than `0xE0`. |
+| `0xFB` | `3C:6D87` | Entry assist error has buffered `0xE0`; cleanup and two additional reads follow. |
+| `0xFC` | `3C:6DE9` | The first post-prefix byte is not `0x01`. |
+| `0xFD` | `3C:6DF0` | The legacy prefix receive returned nonzero low-level status. |
+| `0xFE` | `3C:6DF7` | The assist prefix receive returned nonzero status with `C != 0xE0`. |
+| `0xFF` | `3C:6DFE` | The installed error handler caught a lower-level error. |
+
+These descriptions follow the ROM branches rather than the historical status
+list, which does not fully characterize the `0xFC` and `0xFD` paths.
+
 ## Timeouts and malformed states
 
 The raw routines use loop counters, not a wall-clock register. CPU speed and I/O timing therefore affect the elapsed timeout. The fixed count alone does not justify a duration claim. [confirmed]
@@ -324,15 +374,24 @@ nix develop -c python tools/describe_link_port.py receive 1 2 1 2 2 1 2 1
 nix develop -c python tools/describe_link_port.py compare 1 2 0
 nix develop -c python tools/describe_link_port.py emulator mame 0x14 0x28
 nix develop -c python tools/describe_link_port.py abort-pulse
+nix develop -c python tools/describe_link_port.py keyboard \
+  --prefix 0xE0 --delimiter-error --command 0x01 --data 0x42
+nix develop -c python tools/describe_link_port.py keyboard-path \
+  --assist-status 0x50 --buffered 0xE0
+nix develop -c python tools/describe_link_port.py keyboard-rom
 ```
 
 Add `--json` before the subcommand for machine-readable output. The model uses neutral line numbers so a trace remains valid even when the physical contact mapping is under review.
+The `keyboard-rom` command verifies the `0x50E9` bcall entry and hashes the
+three OS 2.55MP byte regions that support the decoder; it rejects a different
+control-flow body instead of applying the fixed status model silently.
 
 ## Resolved findings and open hardware tests
 
 - [confirmed] `_SendAByte` writes `1` for bit 0 and `2` for bit 1, least-significant bit first.
 - [confirmed] The receiver maps initial read `2` to bit 0 and read `1` to bit 1, then acknowledges on the other line.
 - [confirmed] Both-low is the acknowledgement midpoint during a valid transfer, but it is an error when a receiver sees it before choosing a bit.
+- [confirmed] `_KeyboardGetKey` deliberately accepts that error condition after prefix `0xE0`, then consumes command `0x01` and one data byte while returning status `0x01`.
 - [confirmed] The installed error callback reaches `3C:618D` for applicable transfer states; its raw branch brackets a both-low pulse with link-busy state and its USB branch skips the raw lines.
 - [confirmed] The raw delay loop is 7,077,785 base T-states and 8,191,881 T-states with the OS's mode-0 Flash opcode wait.
 - [confirmed] The standard-timer path detects non-idle raw lines and routes them to the OS link-activity handler.
@@ -346,6 +405,7 @@ Add `--json` before the subcommand for machine-readable output. The model uses n
 
 - [WikiTI port `0x00`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:00) — public bit meanings and output-latch behavior; treated as a secondary source.
 - [TI Link Protocol Guide](https://www.ticalc.org/archives/files/fileinfo/247/24750.html) — archived open-collector, contact-name, four-transition, abort-condition, and timeout description.
+- [WikiTI `_KeyboardGetKey` revision 5510](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:50E9&oldid=5510) — historical peripheral sequence; treated as secondary literature and checked against the ROM decoder.
 - [TilEm link core at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/link.c) and [`x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) — raw lines, activity interrupt, link assist, and timeout policy.
 - [Wabbitemu `83psehw.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) and [`link.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/link.c) — raw port, assist engine, virtual-cable handshake, and disconnect lifecycle.
 - [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp), [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp), and [`ti8x.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/devices/bus/ti8x/ti8x.cpp) — I/O coverage, PCR expressions, connector callbacks, and generic link-bus state machine.

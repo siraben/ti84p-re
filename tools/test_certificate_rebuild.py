@@ -9,6 +9,7 @@ from certificate_rebuild import (
     CertificateRebuildSignatureError,
     find_bjump_mode_calls,
     find_direct_mode_calls,
+    find_page_direct_callers,
     TAIL_BLOCKS,
     TAIL_LENGTH,
     TAIL_START,
@@ -38,6 +39,18 @@ class CertificateRebuildTests(unittest.TestCase):
         self.assertEqual(5, calls[0].mode)
         self.assertEqual(RomLocation(0x3D, 0x4123), calls[0].load)
         self.assertEqual(RomLocation(0x3D, 0x4125), calls[0].call)
+
+    def test_finds_raw_page_local_direct_callers(self):
+        data = bytearray(b"\xFF" * (0x3E * 0x4000))
+        page_start = 0x3D * 0x4000
+        data[page_start + 0x0123 : page_start + 0x0126] = bytes.fromhex("CD4752")
+        data[page_start + 0x2345 : page_start + 0x2348] = bytes.fromhex("CD4752")
+
+        callers = find_page_direct_callers(RomImage(bytes(data)), 0x3D, 0x5247)
+
+        self.assertEqual(
+            (RomLocation(0x3D, 0x4123), RomLocation(0x3D, 0x6345)), callers
+        )
 
     def test_rejects_rom_without_page_3d(self):
         with self.assertRaisesRegex(CertificateRebuildSignatureError, "page 0x3D"):
@@ -178,6 +191,41 @@ class CertificateRebuildTests(unittest.TestCase):
         self.assertEqual("Trials Remaining:", trials.display_label)
         self.assertEqual(RomLocation(0x01, 0x41AA), trials.display_label_location)
         self.assertEqual(1, trials.clear_rebuild_mode)
+
+    def test_pinned_rom_reports_certificate_tail_accessors(self):
+        result = analyze_certificate_rebuild(RomImage.from_path(ROM))
+
+        self.assertEqual(
+            (0x5227, 0x522D, 0x5233, 0x5241, 0x5247, 0x5252),
+            tuple(accessor.entry.address for accessor in result.tail_accessors),
+        )
+        self.assertEqual(
+            (2, 6, 14, 3, 4, 1),
+            tuple(len(accessor.direct_callers) for accessor in result.tail_accessors),
+        )
+        self.assertEqual(
+            (0x490F, 0x5385, 0x548F, 0x5C0E),
+            tuple(
+                caller.address
+                for caller in result.tail_accessors[4].direct_callers
+            ),
+        )
+
+    def test_pinned_rom_reports_ti84_plus_trial_table_selection(self):
+        selection = analyze_certificate_rebuild(
+            RomImage.from_path(ROM)
+        ).model_selected_offset
+
+        self.assertEqual(RomLocation(0x3D, 0x5247), selection.accessor)
+        self.assertEqual(RomLocation(0x00, 0x1837), selection.probe)
+        self.assertEqual(0x02, selection.port)
+        self.assertEqual(0x80, selection.mask)
+        self.assertEqual(0x1E50, selection.set_bit_offset)
+        self.assertEqual(0x1F18, selection.clear_bit_offset)
+        self.assertEqual(
+            (0xE1, 0xE3, 0xE7), selection.ti84_plus_observed_port_values
+        )
+        self.assertEqual(0x1E50, selection.ti84_plus_selected_offset)
 
 
 if __name__ == "__main__":

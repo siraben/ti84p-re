@@ -117,6 +117,21 @@ def locked_byte_noop_machine_code() -> bytes:
     )
 
 
+def low_source_cross_machine_code() -> bytes:
+    return (
+        bytes.fromhex("21680021ca4c21d566")
+        + bytes.fromhex("4d50")
+        + bytes.fromhex("e63fd306cb7c2004fdcb25cefdcb254e")
+        + bytes.fromhex("00000000f5af00f30000ed56f3d314f3")
+        + bytes.fromhex("cb8e")
+        + bytes.fromhex("3e3d11ff7f010200216800")
+        + WRITEFLASH_UNSAFE_BCALL
+        + bytes.fromhex("3a008032") * 2
+        + bytes.fromhex("320080")
+        + bytes.fromhex("cdd566")
+    )
+
+
 def erase_entry_returns_machine_code() -> bytes:
     return (
         bytes.fromhex("211e4c212a4c213f4e")
@@ -221,6 +236,7 @@ class FlashEmulatorFixtureTests(unittest.TestCase):
                 "byte-entry-returns",
                 "certificate-program-error",
                 "locked-byte-noop",
+                "low-source-cross",
                 "erase-entry-returns",
                 "certificate-erase-success",
                 "erase-busy-range",
@@ -317,6 +333,41 @@ class FlashEmulatorFixtureTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "port 0x14"):
             build_fixture(self.rom, machine_code, "locked-byte-noop")
+
+    def test_builds_guarded_low_source_cross_fixture(self):
+        fixture = build_fixture(
+            self.rom,
+            low_source_cross_machine_code(),
+            "low-source-cross",
+        )
+        variable = decode_ti_variable_file(fixture.program)
+        runner = decode_ti_variable_file(fixture.runner)
+
+        self.assertEqual("EMULOW", variable.name)
+        self.assertEqual("ALOWSRC", runner.name)
+        self.assertFalse(fixture.spec.patch_unlock)
+        self.assertEqual(fixture.source_rom_sha256, fixture.fixture_rom_sha256)
+        self.assertEqual(self.rom, fixture.rom)
+
+    def test_low_source_fixture_requires_ram_restore(self):
+        machine_code = low_source_cross_machine_code().replace(
+            bytes.fromhex("320080"),
+            b"",
+            1,
+        )
+
+        with self.assertRaisesRegex(ValueError, "restore RAM"):
+            build_fixture(self.rom, machine_code, "low-source-cross")
+
+    def test_low_source_fixture_requires_ram_save_and_capture(self):
+        machine_code = low_source_cross_machine_code().replace(
+            bytes.fromhex("3a008032"),
+            b"",
+            1,
+        )
+
+        with self.assertRaisesRegex(ValueError, "save and capture RAM"):
+            build_fixture(self.rom, machine_code, "low-source-cross")
 
     def test_builds_unmodified_erase_entry_returns_fixture(self):
         fixture = build_fixture(

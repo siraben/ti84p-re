@@ -120,7 +120,20 @@ available" flag is port 0x02 bit 6).
 The assist receiver at `3C:6C20` returns a normal port-`0x0A` byte in `C` with
 `A=0`; the port-`0x09` bit-6 path returns `A=1`. `lnk_rec_status` compares the
 returned `C` value with `0xE0`; `_RecAByteIO` does not preserve a caller-supplied
-`A` value. The protocol meaning of the `0xE0` marker remains [hypothesis].
+`A` value. The exceptional byte is the TI-Keyboard frame prefix. The public
+`_KeyboardGetKey = 50E9` table entry resolves to `3C:6D5E`, whose decoder
+requires `0xE0`, a deliberate DBUS error delimiter, command byte `0x01`, and a
+final scan-code or modifier byte. `3C:6D17` preserves the comparison of the
+command byte with `0x01` while receiving the final byte. The public routine
+then discards that byte and returns status `0x01`. [confirmed]
+
+The ROM proves what the calculator accepts, not what a physical keyboard emits.
+The historical [WikiTI `_KeyboardGetKey` revision 5510](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:50E9&oldid=5510)
+independently describes the peripheral sending the same four-part sequence;
+that transmitter behavior remains [standard] until captured from hardware.
+The linked external disassembly is no longer available and was not used as
+evidence. See [Two-wire link port hardware](link-port-hardware.md#the-ti-keyboard-error-delimiter)
+for the status tails and executable decoder model.
 `_Rec1stByte` (`3C:439C`) / `_Rec1stByteNC` (`3C:43A3`, "no-clear") are the same logic
 wrapped with APD/`_ApdSetup` and the bit-bang start-bit detect, used to wait for the *first* byte
 of an incoming packet (peer may be idle for a long time).
@@ -452,7 +465,8 @@ DBus implementation for the OS, application, and certificate transfer shapes.
 | `3C:420D` | `_SendAByte` | send one byte: HW-assist (port 0x09/0x0D) or bit-bang (port 0) |
 | `3C:6BB2` | `lnk_send_byte_hw` | HW-assist send: poll port 0x09 bit5, `OUT (0x0D)` |
 | `3C:443F` | `_RecAByteIO` | receive one byte (blocking) |
-| `3C:444A` | `lnk_rec_status` | decode low-level status and returned `C`; port 0x09 bit6 selects status 1, and `C=0xE0` takes a special path whose protocol meaning remains [hypothesis] |
+| `3C:444A` | `lnk_rec_status` | decode low-level status and returned `C`; `C=0xE0` is the TI-Keyboard prefix and re-arms or joins its exceptional delimiter path |
+| `3C:6D5E` | `_KeyboardGetKey` | decode the `0xE0`, deliberate-error, `0x01`, data sequence and return a status byte |
 | `3C:439C` | `_Rec1stByte` | wait for first byte of a packet (APD + start-bit) |
 | `3C:43A3` | `_Rec1stByteNC` | as above, no line-clear |
 | `3C:41C3` | `lnk_send_header` | send 4-byte header (ID, cmd, len-lo, len-hi) |

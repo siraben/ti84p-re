@@ -17,6 +17,8 @@ from flash_hardware import (
     mame_erase_status_reads,
     program_byte,
     rom_program_poll_decision,
+    simulate_wabbitemu_rom_program_poll,
+    summarize_wabbitemu_rom_program_polls,
     wabbitemu_program_error_read,
 )
 
@@ -127,6 +129,62 @@ class FlashHardwareTests(unittest.TestCase):
         self.assertEqual(0xA0, wabbitemu_program_error_read(0x00))
         self.assertEqual(0xE0, wabbitemu_program_error_read(0x00, dq6=True))
         self.assertEqual(0x20, wabbitemu_program_error_read(0x80))
+
+    def test_wabbitemu_rom_poll_legal_program_succeeds_on_first_read(self):
+        result = simulate_wabbitemu_rom_program_poll(0xFF, 0xD0)
+
+        self.assertFalse(result.requested_zero_to_one)
+        self.assertEqual(0xD0, result.stored)
+        self.assertEqual("success", result.outcome)
+        self.assertEqual(
+            [(0xD0, "success")], [(read.value, read.decision) for read in result.reads]
+        )
+
+    def test_wabbitemu_rom_poll_accepts_illegal_lower_bit_request(self):
+        for old, requested in ((0x00, 0x01), (0x20, 0x21)):
+            with self.subTest(old=old, requested=requested):
+                result = simulate_wabbitemu_rom_program_poll(old, requested)
+                self.assertTrue(result.requested_zero_to_one)
+                self.assertEqual(old & requested, result.stored)
+                self.assertEqual("success", result.outcome)
+
+    def test_wabbitemu_rom_poll_fails_dq7_request_when_stored_dq5_is_set(self):
+        result = simulate_wabbitemu_rom_program_poll(0x20, 0xA0)
+
+        self.assertEqual(0x20, result.stored)
+        self.assertEqual("failure", result.outcome)
+        self.assertEqual([0x20, 0x20, 0x20], [read.value for read in result.reads])
+
+    def test_wabbitemu_rom_poll_stalls_when_dq7_differs_and_dq5_is_clear(self):
+        result = simulate_wabbitemu_rom_program_poll(0x50, 0xD0)
+
+        self.assertEqual(0x50, result.stored)
+        self.assertEqual("stalled", result.outcome)
+        self.assertEqual(2, result.repeat_loop_index)
+        self.assertEqual(
+            [0x20, 0x50, 0x50, 0x50], [read.value for read in result.reads]
+        )
+
+    def test_wabbitemu_rom_poll_dq6_toggle_does_not_change_decision(self):
+        result = simulate_wabbitemu_rom_program_poll(
+            0x50,
+            0xD0,
+            initial_error_dq6=True,
+        )
+
+        self.assertTrue(result.initial_error_dq6)
+        self.assertEqual(0x60, result.reads[0].value)
+        self.assertEqual("stalled", result.outcome)
+
+    def test_wabbitemu_rom_poll_exhaustive_outcomes(self):
+        summary = summarize_wabbitemu_rom_program_polls()
+
+        self.assertEqual(0x10000, summary.total_pairs)
+        self.assertEqual(49152, summary.successes)
+        self.assertEqual(4096, summary.failures)
+        self.assertEqual(12288, summary.stalled)
+        self.assertEqual(6561, summary.legal_successes)
+        self.assertEqual(42591, summary.illegal_reported_successes)
 
     def test_mame_erase_durations_follow_sector_size(self):
         self.assertEqual(1000, mame_erase_duration_ms(0xE0000))

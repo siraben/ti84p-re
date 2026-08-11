@@ -126,6 +126,30 @@ class AppTrialTable:
 
 
 @dataclass(frozen=True)
+class CertificateTailAccessor:
+    """One byte-verified certificate-relative address helper."""
+
+    entry: RomLocation
+    role: str
+    fixed_offset: int | None
+    direct_callers: tuple[RomLocation, ...]
+
+
+@dataclass(frozen=True)
+class ModelSelectedCertificateOffset:
+    """Port test that chooses between two certificate-relative offsets."""
+
+    accessor: RomLocation
+    probe: RomLocation
+    port: int
+    mask: int
+    set_bit_offset: int
+    clear_bit_offset: int
+    ti84_plus_observed_port_values: tuple[int, ...]
+    ti84_plus_selected_offset: int
+
+
+@dataclass(frozen=True)
 class RestrictionTypeBehavior:
     """Storage and API behavior for one App-restriction type value."""
 
@@ -178,6 +202,8 @@ class CertificateRebuildAnalysis:
     app_trials: AppTrialTable
     app_validity: AppValidityUpdate
     app_restrictions: AppRestrictionApi
+    tail_accessors: tuple[CertificateTailAccessor, ...]
+    model_selected_offset: ModelSelectedCertificateOffset
 
 
 TAIL_BLOCKS = (
@@ -298,6 +324,17 @@ _FIXED_SIGNATURES = (
     (
         RomLocation(PAGE, 0x51F6),
         bytes.fromhex("D5F547EFA880200ACD6E72903C4F0600"),
+    ),
+    (
+        RomLocation(PAGE, 0x5227),
+        bytes.fromhex(
+            "C501D31D180AC501E01F1804C501181FDDE5EF578009DDE1C1C9"
+            "C501EA1D18F0CD371820E7C501501E18E5C501E01F18DF"
+        ),
+    ),
+    (
+        RomLocation(0x00, 0x1837),
+        bytes.fromhex("C5F5DB02E680EE80C178C1C9"),
     ),
     (
         RomLocation(PAGE, 0x7D5C),
@@ -603,6 +640,28 @@ def find_direct_mode_calls(rom: RomImage) -> tuple[ModeCall, ...]:
     return tuple(calls)
 
 
+def find_page_direct_callers(
+    rom: RomImage, page_number: int, target: int
+) -> tuple[RomLocation, ...]:
+    """Find raw page-local ``CALL target`` byte sequences.
+
+    This intentionally does not depend on a disassembler.  Callers should
+    validate the complete result against a pinned ROM before treating every
+    byte match as an instruction.
+    """
+
+    if not 0 <= target <= 0xFFFF:
+        raise ValueError(f"call target must be 0x0000-0xFFFF, got 0x{target:X}")
+    page = rom.page(page_number)
+    origin = 0 if page_number == 0 else 0x4000
+    call = bytes((0xCD, target & 0xFF, target >> 8))
+    return tuple(
+        RomLocation(page_number, origin + offset)
+        for offset in range(len(page) - len(call) + 1)
+        if page[offset : offset + len(call)] == call
+    )
+
+
 def find_bjump_mode_calls(rom: RomImage) -> tuple[BjumpModeCall, ...]:
     """Find immediate mode loads that call a page-0 dispatcher bjump stub."""
 
@@ -697,6 +756,67 @@ def analyze_certificate_rebuild(rom: RomImage) -> CertificateRebuildAnalysis:
         raise CertificateRebuildSignatureError(
             "bjump mode-call set mismatch: expected "
             f"{expected_bjump_calls!r}, got {actual_bjump_calls!r}"
+        )
+
+    accessor_specs = (
+        (0x5227, "App-restriction record", 0x1DD3, (0x42D4, 0x7D7A)),
+        (
+            0x522D,
+            "OS/App-validity metadata",
+            0x1FE0,
+            (0x42B3, 0x4589, 0x4654, 0x47A8, 0x521D, 0x5448),
+        ),
+        (
+            0x5233,
+            "fixed 0x1F18 span",
+            0x1F18,
+            (
+                0x414B,
+                0x4288,
+                0x42EA,
+                0x42F2,
+                0x42FD,
+                0x4306,
+                0x47B1,
+                0x493D,
+                0x4CBD,
+                0x4F14,
+                0x5080,
+                0x5184,
+                0x51A8,
+                0x538F,
+            ),
+        ),
+        (
+            0x5241,
+            "garbage-collection metadata",
+            0x1DEA,
+            (0x4274, 0x4298, 0x42A3),
+        ),
+        (
+            0x5247,
+            "model-selected App-trial table",
+            None,
+            (0x490F, 0x5385, 0x548F, 0x5C0E),
+        ),
+        (0x5252, "OS/App-validity metadata", 0x1FE0, (0x430E,)),
+    )
+    tail_accessors = []
+    for entry, role, fixed_offset, expected_addresses in accessor_specs:
+        direct_callers = find_page_direct_callers(rom, PAGE, entry)
+        actual_addresses = tuple(caller.address for caller in direct_callers)
+        if actual_addresses != expected_addresses:
+            raise CertificateRebuildSignatureError(
+                f"direct caller set mismatch for 3D:{entry:04X}: expected "
+                f"{expected_addresses!r}, got {actual_addresses!r}"
+            )
+        tail_accessors.append(
+            CertificateTailAccessor(
+                entry=RomLocation(PAGE, entry),
+                role=role,
+                fixed_offset=fixed_offset,
+                direct_callers=direct_callers,
+            )
         )
 
     return CertificateRebuildAnalysis(
@@ -935,5 +1055,16 @@ def analyze_certificate_rebuild(rom: RomImage) -> CertificateRebuildAnalysis:
                     "unsupported",
                 ),
             ),
+        ),
+        tail_accessors=tuple(tail_accessors),
+        model_selected_offset=ModelSelectedCertificateOffset(
+            accessor=RomLocation(PAGE, 0x5247),
+            probe=RomLocation(0x00, 0x1837),
+            port=0x02,
+            mask=0x80,
+            set_bit_offset=0x1E50,
+            clear_bit_offset=0x1F18,
+            ti84_plus_observed_port_values=(0xE1, 0xE3, 0xE7),
+            ti84_plus_selected_offset=0x1E50,
         ),
     )

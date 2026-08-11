@@ -125,6 +125,10 @@ tools/tilem_trace_resolve.py /tmp/b.trace --initial-mapping ti84p-reset \
 tools/analyze_ram_page_trace.py /tmp/b.trace \
   --initial-mapping ti84p-reset --page 0x83
 
+# arbitrary resolved writes, filtered by logical target and writing PCs
+tools/analyze_memory_writes.py /tmp/b.trace --logical 0x8000 \
+  --pc ram:8149 --pc ram:816B --target-kind ram --json
+
 # visits to several exact resolved addresses, with registers and trace clocks
 tools/analyze_trace_points.py /tmp/b.trace \
   --point page_3C:7733 --point page_3C:7cfb
@@ -378,19 +382,20 @@ timing; use the invocation report to narrow the point query after recapture.
 `build_flash_emulator_fixture.py` creates a fixture copy of the exact local OS
 2.55MP image and two program files. It refuses a ROM whose SHA-256 is not
 `7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d`.
-The programming probes change eight bytes at physical `0xF3068`, the tail of
-the page-`3C` protected unlock wrapper, from `F1 CD B9 2B CD D5 66 C9` to
-`F1 C9 00 00 00 00 00 00`. The `_WriteFlashUnsafe` body and copied worker
-remain unchanged. The read-only `entry-returns` probe uses an unmodified ROM
-copy.
+Fixtures that need accepted Flash commands change eight bytes at physical
+`0xF3068`, the tail of the page-`3C` protected unlock wrapper, from
+`F1 CD B9 2B CD D5 66 C9` to `F1 C9 00 00 00 00 00 00`. The
+`_WriteFlashUnsafe` body and copied worker remain unchanged. Entry-return,
+locked-write, and low-source fixtures use an unmodified ROM copy.
 
 The builder selects named probes through `--fixture`. `page-3e-cross` remains
 the default; `program-error` exercises the worker's DQ5 failure path, and
 `entry-returns` captures early guards without unlocking Flash. The
 `byte-entry-returns` fixture captures `_WriteAByteSafe` and `_WriteAByte`
 wrapper side effects on no-worker paths. `locked-byte-noop` shows the worker's
-DQ7 result while the ASIC gate remains locked. `erase-entry-returns` does the
-same for the erase APIs. The
+DQ7 result while the ASIC gate remains locked. `low-source-cross` follows the
+worker's fixed-ROM source branch across logical `0x7FFF` into RAM.
+`erase-entry-returns` does the same for the erase APIs. The
 `certificate-erase-success` fixture exercises a complete 8 KiB erase on a
 patched ROM copy. `erase-busy-range` samples selected and unselected Flash
 regions during an active erase. Fixture metadata, optional patching,
@@ -607,6 +612,49 @@ busy status even for the distant page-`08` read and emits one off-range
 warning. These results describe pinned TilEm; physical read scope remains
 unmeasured.
 
+#### Low-source boundary probe
+
+`EMULOW` verifies fixed source bytes `4D 50` at `00:0068`, the first 16 bytes
+of the block worker at `3F:4CCA`, and the protected lock wrapper at `3C:66D5`.
+It calls that wrapper and aborts unless port `0x02` bit 2 reports Flash locked.
+It then calls `_WriteFlashUnsafe` with `A=0x3D`, `DE=0x7FFF`, `BC=2`, and
+`HL=0x0068`. The fixture saves and restores RAM `0x8000`, `(IY+0x25)`, port
+`0x06`, and the incoming interrupt state. Its ROM is unmodified.
+
+```sh
+fixture_dir=$(mktemp -d /tmp/writeflash-low-source.XXXXXX)
+nix develop -c python tools/build_flash_emulator_fixture.py \
+  --fixture low-source-cross \
+  --rom tools/rom.bin --output-dir "$fixture_dir"
+
+TILEM=~/Git/tilem-headless/result/bin/tilem2
+$TILEM --headless \
+  --rom "$fixture_dir/ti84plus-writeflash-low-source.rom" \
+  --model ti84p --normal-speed --reset \
+  --macro tools/macros/run-first-program.macro \
+  --trace /tmp/writeflash-low-source.trace --trace-range all \
+  "$fixture_dir/ALOWSRC.8xp" "$fixture_dir/EMULOW.8xp"
+
+python tools/analyze_flash_trace.py \
+  /tmp/writeflash-low-source.trace --events --invocations --json
+python tools/analyze_memory_writes.py /tmp/writeflash-low-source.trace \
+  --logical 0x8000 --pc ram:8149 --pc ram:816B \
+  --target-kind ram --clock 187318000-187320000 --json
+python tools/analyze_trace_points.py /tmp/writeflash-low-source.trace \
+  --point ram:8149 --point ram:816B --point ram:9E11 \
+  --point ram:9E21 --point ram:9E2E --point ram:9E36 \
+  --point ram:9E3C --clock 187318000-187320000 --json
+```
+
+At `ram:8149`, the first `LDI` attempts to program `0x4D` at `3D:7FFF`; the
+locked target remains `0x50`. The second `LDI` at the same copied-worker PC
+writes `0x50` to RAM `0x8000`. The terminal reset at `ram:816B` writes `0xF0`
+to that RAM address. The bcall returns with `AF=0x0044`, `BC=0`, `DE=0x8001`,
+and `HL=0x006A`; `(IY+0x25).1` is set, and port `0x02` reads `0xE3`. The
+fixture's machine-code SHA-256 is
+`bb8159803d67bbfdc354d523db7dbe72e02bf4469a89c79d2c7d033dd660074e`.
+These are pinned TilEm and unmodified-ROM results, not physical-device tests.
+
 #### Page-3E skip probe
 
 `EMUWF3E` checks all eight patched bytes before calling the wrapper. It exits
@@ -676,6 +724,13 @@ labels it `worker_outcome: "failure"`. Poll reads return `0x00`, `0x60`, then
 `0x20`; the bcall returns `AF=0x3F2C`, and the final target read returns
 `0x50`. These values describe pinned TilEm and the OS worker. They do not
 establish physical-device failure timing or status values.
+
+Do not reuse this fixture unchanged as a Wabbitemu failure probe. Pinned
+Wabbitemu source predicts that the same stored `0x50`, requested `0xD0` pair
+consumes its one error-status read before the ROM's separate DQ5 read. Later
+array reads keep DQ7 different and DQ5 clear, so the worker repeats its poll
+loop without terminating. This is a source-model prediction, not a captured
+Wabbitemu trace or a hardware result. [standard]
 
 #### Internal certificate-program failure probe
 
@@ -787,6 +842,124 @@ These traces include the startup link-transfer code because the patched headless
 runner loads the `.8xp` files during the traced process. Use an idle/load
 baseline and coverage diff if you need to isolate only interpreter execution.
 
+### Flash command replay and GC restart
+
+`flash_replay.py` applies accepted byte-program commands with the NOR
+`old & requested` rule and erases the top-boot sector selected by each erase
+command. `replay_flash_trace.py` is the guarded CLI. It requires an expected
+source-ROM hash, rejects unresolved or unmatched writes and non-successful OS
+program-worker outcomes, refuses existing outputs by default, and reports both
+input and output hashes.
+
+TLMT records CPU write attempts, not the ASIC gate or Flash device's acceptance
+decision. The CLI therefore refuses to write an image until
+`--accept-command-shapes` explicitly acknowledges that boundary. Establish
+acceptance from the surrounding trace before using this option. The `GCFLASH`
+fixture has successful worker resets, no unmatched writes, and later reads of
+the resulting archive state.
+
+Materialize every active phase reached by that trace:
+
+```sh
+replay_dir=$(mktemp -d /tmp/ti84-gc-replay.XXXXXX)
+python tools/replay_flash_trace.py /tmp/tibasic-smoke/gcflash.trace \
+  --rom tools/rom.bin --output-dir "$replay_dir" \
+  --phase 0xFF --phase 0xFE --phase 0xE0 \
+  --accept-command-shapes --json
+```
+
+Controlled archive-sector topologies use a separate reusable builder. It
+requires the pinned source identity and records every synthetic header byte;
+later journal transitions still require an unmodified-ROM trace:
+
+```sh
+python tools/build_gc_layout.py \
+  --output /tmp/gc-controlled.rom \
+  --sector-header 0x08=0xFE \
+  --sector-header 0x28=0xF0 \
+  --json
+```
+
+The record-authentic phase-`0xF0` path uses a fresh-sector constructor rather
+than controlled header bytes. It serializes the observed OS record fields,
+requires erased 64 KiB sectors, and places each generated program in first-fit
+order. This command reproduces the UI-generated input hash
+`389ed80fe8635740f855c7b8ffec6312a5182027dd0605e8a6e2b094c8481452`:
+
+```sh
+python tools/build_archive_fixture.py \
+  --rom tools/rom.bin --output /tmp/gcf0-seed.rom \
+  --sector 0x20000 --sector 0x30000 \
+  --program ZBIGDATA=17000 --program YBIGDAT2=17000 \
+  --program XBIGDAT3=17000 --program WBIGDAT4=17000 \
+  --program VBIGDAT5=17000 --program UBIGDAT6=17000 \
+  --program TBIGFILL=14454 --program SBIGFILL=14454 --json
+
+TILEM=~/Git/tilem-headless/result/bin/tilem2
+$TILEM --headless --rom /tmp/gcf0-seed.rom \
+  --model ti84p --normal-speed --reset \
+  --macro tools/macros/run-first-program-gcflash.macro \
+  --trace /tmp/gcf0-seed.trace --trace-range all \
+  tools/tibasic-samples/GCFLASH.8xp
+
+phase_dir=$(mktemp -d /tmp/gcf0-phase.XXXXXX)
+python tools/replay_flash_trace.py /tmp/gcf0-seed.trace \
+  --rom /tmp/gcf0-seed.rom \
+  --expected-rom-sha256 \
+    389ed80fe8635740f855c7b8ffec6312a5182027dd0605e8a6e2b094c8481452 \
+  --output-dir "$phase_dir" --phase 0xF0 \
+  --accept-command-shapes --json
+```
+
+The recaptured trace can have different clocks while the phase image remains
+byte-identical. Its required SHA-256 is
+`df49d6ec77483e33944fdbcee969084fc065b01a4e44327f83246a9de363fcb2`.
+
+The phase-`0xFF` snapshot is taken after the new certificate half's base byte
+becomes `0x00`, not when the still-inactive half first receives an `0xFF`
+master byte. This prevents an idle or incomplete certificate half from being
+misclassified as an active interruption journal.
+
+Cold-boot each image with fresh RAM and collect a full trace:
+
+```sh
+TILEM=~/Git/tilem-headless/result/bin/tilem2
+for phase in ff fe e0; do
+  "$TILEM" --headless --rom "$replay_dir/gc-phase-$phase.rom" \
+    --model ti84p --normal-speed --reset \
+    --macro tools/macros/boot-recovery.macro \
+    --trace "/tmp/gc-restart-$phase.trace" --trace-range all
+done
+```
+
+Check the dispatcher paths and recovery command timelines:
+
+```sh
+python tools/analyze_trace_points.py /tmp/gc-restart-ff.trace \
+  --point page_3C:7bc7 --point page_3C:7c1f \
+  --point page_3C:7c43 --point page_3C:7cfb \
+  --point page_3C:7d30
+python tools/analyze_flash_trace.py /tmp/gc-restart-ff.trace --timeline
+```
+
+The same CLI can replay a complete recovery trace over its interrupted input.
+Pass the exact input hash reported by the phase-snapshot command:
+
+```sh
+python tools/replay_flash_trace.py /tmp/gc-restart-ff.trace \
+  --rom "$replay_dir/gc-phase-ff.rom" \
+  --expected-rom-sha256 \
+    4e484ad4b99f07a333ae3845ee795b36cb6181e9a829261b2d52ff7931ac8f05 \
+  --output /tmp/gc-recovered-ff.rom --accept-command-shapes
+```
+
+Repeat for each phase, then compare the recovered images with a complete replay
+of the uninterrupted trace. Exact equality checks the complete Flash array,
+including archive records, sector headers, and both certificate halves. It is
+stronger than checking only the phase byte or dispatcher coverage. This method
+tests interruption after a completed command; it does not synthesize a partial
+program pulse or an erase cut during the busy interval.
+
 ### Backtrace ring (break on exit / crash)
 
 `--trace-backtrace FILE` keeps the most recent instructions in a RAM ring and
@@ -808,6 +981,87 @@ trace or debugger snapshot establishes them at the ring's oldest record.
 Current TilEm backtrace files retain whole records. `--resync` is available for
 older or damaged traces with unknown bytes, but it cannot prove record alignment
 because TLMT v2 has no per-record checksum or framing marker.
+
+### Pinned Wabbitemu headless recovery
+
+The repository carries a minimal native adapter rather than a fork of
+Wabbitemu. Download and verify the pinned codeload archive, then build through
+the guarded CLI. Use `nix develop -c` when `g++` is not installed globally:
+
+```sh
+wabbit_tmp=$(mktemp -d /tmp/ti84-wabbitemu.XXXXXX)
+curl -L \
+  https://codeload.github.com/sputt/wabbitemu/tar.gz/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422 \
+  -o "$wabbit_tmp/wabbitemu.tar.gz"
+printf '%s  %s\n' \
+  e65e20f5b45dbf5312e92a2619e3fbc0dfe228d4464134753fdc4930b7d12ac4 \
+  "$wabbit_tmp/wabbitemu.tar.gz" | sha256sum -c -
+tar -xzf "$wabbit_tmp/wabbitemu.tar.gz" -C "$wabbit_tmp"
+nix develop -c python tools/build_wabbitemu_headless.py \
+  --source "$wabbit_tmp/wabbitemu-48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422" \
+  --output "$wabbit_tmp/wabbitemu-headless" --json
+```
+
+The builder additionally checks the extracted 334-file path-and-content hash
+`a8a4f97fc7952770bed317b4a477f80345894da38d14fad8f0bf0ee60aae71ba`
+and the translation-unit hashes. It compiles Wabbitemu's TI-84 Plus CPU and
+hardware core directly. The adapter removes an MSVC-only `__pragma` construct
+at preprocessing time and stubs callbacks used only by the GUI debugger and
+disabled audio; it does not patch CPU, Flash, memory, device, keypad,
+interrupt, or LCD behavior.
+
+Run one replayed image with an input-identity guard and a separate output:
+
+```sh
+python tools/run_wabbitemu_headless.py "$replay_dir/gc-phase-ff.rom" \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output "$wabbit_tmp/gc-recovered-ff.rom" \
+  --expected-input-sha256 \
+    4e484ad4b99f07a333ae3845ee795b36cb6181e9a829261b2d52ff7931ac8f05 \
+  --json
+```
+
+The runner starts with fresh RAM, models the ON press/release used by the TilEm
+recovery macro, samples the entire Flash array while executing, and reports
+the known page-`0x3C` recovery points it executes. Settling means ten identical
+samples one million instructions apart after at least 20 million instructions;
+it is not a physical timing claim. Compare the reported complete output hash,
+not only the phase byte.
+
+The reconstructed phase-`0xF0` image executes the `3C:7CE3` branch and settles
+after 20,000,000 instructions. Its output SHA-256 is
+`39113ee67921340b8817e35576a8f8fda467122af7713b099f399512d65d9bc3`.
+Capture and replay the matching TilEm recovery before comparing complete
+outputs:
+
+```sh
+$TILEM --headless --rom "$phase_dir/gc-phase-f0.rom" \
+  --model ti84p --normal-speed --reset \
+  --macro tools/macros/boot-recovery.macro \
+  --trace /tmp/gcf0-restart.trace --trace-range all
+
+python tools/replay_flash_trace.py /tmp/gcf0-restart.trace \
+  --rom "$phase_dir/gc-phase-f0.rom" \
+  --expected-rom-sha256 \
+    df49d6ec77483e33944fdbcee969084fc065b01a4e44327f83246a9de363fcb2 \
+  --output /tmp/gcf0-recovered-tilem.rom \
+  --accept-command-shapes --json
+
+python tools/run_wabbitemu_headless.py "$phase_dir/gc-phase-f0.rom" \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output "$wabbit_tmp/gc-recovered-f0.rom" \
+  --expected-input-sha256 \
+    df49d6ec77483e33944fdbcee969084fc065b01a4e44327f83246a9de363fcb2 \
+  --json
+
+python tools/compare_flash_images.py \
+  "$wabbit_tmp/gc-recovered-f0.rom" /tmp/gcf0-recovered-tilem.rom \
+  --expected-left-sha256 \
+    39113ee67921340b8817e35576a8f8fda467122af7713b099f399512d65d9bc3 \
+  --expected-right-sha256 \
+    39113ee67921340b8817e35576a8f8fda467122af7713b099f399512d65d9bc3 \
+  --expect-equal --json
+```
 
 ### Stop conditions
 
@@ -831,8 +1085,21 @@ rather than paged-address resolution.
 - [`hardware_trace.py`](hardware_trace.py) — importable resolved-instruction, I/O-event, and memory-write iterators.
 - [`analyze_trace_points.py`](analyze_trace_points.py) — resolved-address visits, opcode/register filters, register-frequency summaries, and JSON reports.
 - [`analyze_ram_page_trace.py`](analyze_ram_page_trace.py) — trace memory writes → physical RAM page ranges.
+- [`analyze_memory_writes.py`](analyze_memory_writes.py) — arbitrary resolved memory-write filters by logical target, writing PC, target kind, clock, and JSON output.
 - [`flash_trace.py`](flash_trace.py) — importable AMD command-shape decoder for CPU write attempts, including physical-address transition classification.
 - [`analyze_flash_trace.py`](analyze_flash_trace.py) — command-shaped write summaries, worker-invocation grouping, event filters, compact timelines, and JSON reports with explicit acceptance semantics.
+- [`flash_replay.py`](flash_replay.py) — accepted-command replay, NOR programming, top-boot erasure, active-certificate selection, and GC phase snapshots.
+- [`replay_flash_trace.py`](replay_flash_trace.py) — guarded CLI for complete replay and interrupted GC images with source/output hashes.
+- [`wabbitemu_headless.cpp`](wabbitemu_headless.cpp) — minimal Linux adapter, wake scheduler, Flash sampler, and recovery-point recorder for the pinned Wabbitemu core.
+- [`wabbitemu_headless.py`](wabbitemu_headless.py) — reusable pinned-source validation, build command, execution, report parsing, and image hashing.
+- [`build_wabbitemu_headless.py`](build_wabbitemu_headless.py) — guarded compiler CLI for the exact pinned source tree.
+- [`run_wabbitemu_headless.py`](run_wabbitemu_headless.py) — guarded cold-boot CLI with input/output hashes and JSON coverage.
+- [`gc_layout.py`](gc_layout.py) — reusable validation and construction for explicit synthetic archive-sector headers.
+- [`build_gc_layout.py`](build_gc_layout.py) — hash-guarded CLI that reports every controlled layout mutation.
+- [`archive_fixture.py`](archive_fixture.py) — exact archive-record serialization and fresh erased-sector first-fit placement.
+- [`build_archive_fixture.py`](build_archive_fixture.py) — guarded deterministic program-layout CLI with source and output hashes.
+- [`flash_image_compare.py`](flash_image_compare.py) — byte-complete image hashes, difference ranges, and physical-page counts.
+- [`compare_flash_images.py`](compare_flash_images.py) — identity-guarded complete-image comparison CLI.
 - [`gc_journal.py`](gc_journal.py) — byte-verified GC journal fields, phase transitions, sector-state indexing, and state-changing trace-event extraction.
 - [`analyze_gc_journal.py`](analyze_gc_journal.py) — static GC journal reports with optional TilEm trace correlation and JSON output.
 - [`flash_emulator_fixture.py`](flash_emulator_fixture.py) — reusable exact-ROM, optional-patch, probe-validation, and TI packaging contracts for named Flash fixtures.
@@ -851,6 +1118,7 @@ rather than paged-address resolution.
 - [`macros/home-2plus3.macro`](macros/home-2plus3.macro) — power on, dismiss splash, evaluate `2+3`.
 - [`macros/graph-y1-x2.macro`](macros/graph-y1-x2.macro) — power on, enter `Y1=X^2`, and graph it.
 - [`macros/boot-idle.macro`](macros/boot-idle.macro) — baseline for coverage diffs.
+- [`macros/boot-recovery.macro`](macros/boot-recovery.macro) — cold-boot a replayed Flash image with fresh RAM and allow archive-GC recovery to finish.
 - [`macros/power-cycle.macro`](macros/power-cycle.macro) — enter low power with **[2nd]**+**ON**, wait in the `ram:0A5C` HALT loop, and wake with **ON**; see [Clock, timers, and power](../docs/clock-timers-power.md).
 - [`macros/archive-second-program.macro`](macros/archive-second-program.macro) — archive the second of exactly two loaded programs through the memory-manager UI.
 - [`macros/run-first-program-factorial5.macro`](macros/run-first-program-factorial5.macro) —

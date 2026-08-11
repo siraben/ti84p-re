@@ -20,6 +20,8 @@ from flash_hardware import (
     mame_erase_status_reads,
     program_byte,
     rom_program_poll_decision,
+    simulate_wabbitemu_rom_program_poll,
+    summarize_wabbitemu_rom_program_polls,
     wabbitemu_program_error_read,
 )
 
@@ -55,6 +57,24 @@ def build_parser() -> argparse.ArgumentParser:
     poll.add_argument("--first", type=integer, required=True)
     poll.add_argument("--dq5", type=integer)
     poll.add_argument("--final", type=integer)
+
+    wabbitemu_poll = commands.add_parser(
+        "wabbitemu-poll",
+        help="compose Wabbitemu's one-read error with the ROM poll worker",
+    )
+    wabbitemu_poll.add_argument("--old", type=integer)
+    wabbitemu_poll.add_argument("--data", type=integer)
+    wabbitemu_poll.add_argument(
+        "--dq6",
+        action="store_true",
+        help="set DQ6 on Wabbitemu's transient error read",
+    )
+    wabbitemu_poll.add_argument(
+        "--json",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
+    )
     return parser
 
 
@@ -83,8 +103,10 @@ def report(args: argparse.Namespace) -> dict[str, object]:
             ]
         }
     if args.command == "program":
-        results = [program_byte(profile.name, args.old, args.data)
-                   for profile in EMULATOR_PROFILES]
+        results = [
+            program_byte(profile.name, args.old, args.data)
+            for profile in EMULATOR_PROFILES
+        ]
         result = {
             "old": args.old,
             "requested": args.data,
@@ -105,6 +127,22 @@ def report(args: argparse.Namespace) -> dict[str, object]:
             "duration_ms": mame_erase_duration_ms(args.address),
             "busy_read_range": {"start": busy_start, "end": busy_end},
             "status_reads": list(mame_erase_status_reads(args.reads)),
+        }
+    if args.command == "wabbitemu-poll":
+        if (args.old is None) != (args.data is None):
+            raise ValueError("--old and --data must be supplied together")
+        if args.old is None:
+            return {
+                "wabbitemu_summary": asdict(summarize_wabbitemu_rom_program_polls())
+            }
+        return {
+            "wabbitemu_poll": asdict(
+                simulate_wabbitemu_rom_program_poll(
+                    args.old,
+                    args.data,
+                    initial_error_dq6=args.dq6,
+                )
+            )
         }
     return {
         "decision": rom_program_poll_decision(
@@ -205,6 +243,38 @@ def print_text(data: dict[str, object]) -> None:
         )
         print(f"busy reads 0x{busy['start']:06X}-0x{busy['end'] - 1:06X}")
         print(f"status: {statuses}")
+        return
+    if "wabbitemu_summary" in data:
+        summary = data["wabbitemu_summary"]
+        print(f"all byte pairs: {summary['total_pairs']}")
+        print(
+            "  outcomes: "
+            f"success={summary['successes']} failure={summary['failures']} "
+            f"stalled={summary['stalled']}"
+        )
+        print(f"  legal successes: {summary['legal_successes']}")
+        print(
+            "  illegal requests reported successful: "
+            f"{summary['illegal_reported_successes']}"
+        )
+        return
+    if "wabbitemu_poll" in data:
+        poll = data["wabbitemu_poll"]
+        print(
+            f"Wabbitemu/ROM old=0x{poll['old']:02X} "
+            f"requested=0x{poll['requested']:02X} stored=0x{poll['stored']:02X}"
+        )
+        for read in poll["reads"]:
+            print(
+                f"  read {read['index']}: {read['role']}=0x{read['value']:02X} "
+                f"-> {read['decision']}"
+            )
+        print(f"  outcome: {poll['outcome']}")
+        if poll["repeat_loop_index"] is not None:
+            print(
+                f"  repeats from read {poll['repeat_loop_index']}: "
+                f"{poll['repeat_reason']}"
+            )
         return
     print(data["decision"])
 

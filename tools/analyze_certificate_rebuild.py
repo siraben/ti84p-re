@@ -59,6 +59,23 @@ def build_report(analysis) -> dict[str, Any]:
     app_trials["delete_callers"] = [
         str(location) for location in analysis.app_trials.delete_callers
     ]
+    tail_accessors = []
+    for accessor in analysis.tail_accessors:
+        tail_accessors.append(
+            {
+                "entry": str(accessor.entry),
+                "role": accessor.role,
+                "fixed_offset": accessor.fixed_offset,
+                "direct_callers": [
+                    str(location) for location in accessor.direct_callers
+                ],
+            }
+        )
+    model_selected_offset = asdict(analysis.model_selected_offset)
+    for key in ("accessor", "probe"):
+        model_selected_offset[key] = str(
+            getattr(analysis.model_selected_offset, key)
+        )
     return {
         "rom_sha256": analysis.rom_sha256,
         "dispatcher": str(analysis.dispatcher),
@@ -105,9 +122,11 @@ def build_report(analysis) -> dict[str, Any]:
         "app_trials": app_trials,
         "app_validity": app_validity,
         "app_restrictions": app_restrictions,
+        "tail_accessors": tail_accessors,
+        "model_selected_offset": model_selected_offset,
         "evidence_scope": (
-            "ROM byte signatures and control/data flow only; external certificate "
-            "field names are not used"
+            "ROM byte signatures and control/data flow, plus resolved TI-84 Plus "
+            "port-trace values; external certificate field names are not used"
         ),
     }
 
@@ -165,6 +184,32 @@ def print_text(report: dict[str, Any]) -> None:
         f"  clear={trials['clear_routine']} via mode "
         f"{trials['clear_rebuild_mode']}; write={trials['write_routine']}; "
         f"query={trials['query_routine']}"
+    )
+    print("certificate-tail accessors:")
+    for accessor in report["tail_accessors"]:
+        if accessor["fixed_offset"] is None:
+            offset = "model-selected"
+        else:
+            offset = f"0x{accessor['fixed_offset']:04X}"
+        callers = ", ".join(accessor["direct_callers"])
+        print(
+            f"  {accessor['entry']}: {accessor['role']}; offset={offset}; "
+            f"callers={callers}"
+        )
+    selection = report["model_selected_offset"]
+    values = ", ".join(
+        f"0x{value:02X}" for value in selection["ti84_plus_observed_port_values"]
+    )
+    print("model-selected certificate offset:")
+    print(
+        f"  {selection['accessor']} calls {selection['probe']}; port "
+        f"0x{selection['port']:02X} mask 0x{selection['mask']:02X}; "
+        f"set -> 0x{selection['set_bit_offset']:04X}, "
+        f"clear -> 0x{selection['clear_bit_offset']:04X}"
+    )
+    print(
+        f"  TI-84 Plus observed values={values}; selected offset="
+        f"0x{selection['ti84_plus_selected_offset']:04X}"
     )
     validity = report["app_validity"]
     print("App-validity bitmap update:")

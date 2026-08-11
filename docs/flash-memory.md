@@ -414,6 +414,40 @@ blocks: [confirmed]
 | `0x1F18` | `0xC8` | `0x1F18`–`0x1FDF` |
 | `0x1FE0` | `0x20` | `0x1FE0`–`0x1FFF` |
 
+Six helpers at `3D:5227`–`3D:5256` add fixed or model-selected offsets to
+`_GetCertificateStart`'s result. Raw `CALL` scanning finds the complete direct
+caller sets without relying on disassembler labels: [confirmed]
+
+| Entry | Selected offset | Direct callers |
+|-------|-----------------|----------------|
+| `3D:5227` | `0x1DD3` | `3D:42D4`, `3D:7D7A` |
+| `3D:522D` | `0x1FE0` | `3D:42B3`, `3D:4589`, `3D:4654`, `3D:47A8`, `3D:521D`, `3D:5448` |
+| `3D:5233` | `0x1F18` | `3D:414B`, `3D:4288`, `3D:42EA`, `3D:42F2`, `3D:42FD`, `3D:4306`, `3D:47B1`, `3D:493D`, `3D:4CBD`, `3D:4F14`, `3D:5080`, `3D:5184`, `3D:51A8`, `3D:538F` |
+| `3D:5241` | `0x1DEA` | `3D:4274`, `3D:4298`, `3D:42A3` |
+| `3D:5247` | model-selected | `3D:490F`, `3D:5385`, `3D:548F`, `3D:5C0E` |
+| `3D:5252` | `0x1FE0` | `3D:430E` |
+
+The model-selected helper calls `00:1837`. That probe reads port `0x02`, masks
+bit 7, and preserves the resulting flags while restoring `A` and `BC`.
+`3D:5247` branches to the fixed `0x1F18` helper when the bit is clear and falls
+through to `0x1E50` when it is set. The resolved TI-84 Plus traces read `0xE1`,
+`0xE3`, or `0xE7`, so every observed TI-84 Plus state selects `0x1E50`.
+[confirmed]
+
+Wabbitemu independently returns a base value with bit 7 set for models at or
+above its `TI_84P` enum and clear for its TI-83 Plus family. This supports the
+family split implemented by the ROM but remains evidence about the emulator,
+not a physical measurement. [standard]
+
+Consequently `0x1E50`–`0x1F17` is the active App-trial table on TI-84 Plus.
+When port-`0x02` bit 7 is clear, the same clear, write, query, and display paths
+select the alternate table at `0x1F18`–`0x1FDF`. TI-84 Plus rebuild modes `0`
+and `2` still stage or replace that alternate-model span together with validity
+metadata, but no TI-84 Plus per-entry semantic accessor to that span has been
+identified. Giving it another TI-84 Plus field name would exceed the evidence.
+[confirmed] for selection and access; [hypothesis] for any further TI-84 Plus
+meaning.
+
 The helper calls in each dispatch branch identify which span receives
 mode-specific replacement data. Other helpers clone retained spans from the
 active half to the opposite half. Mode `4` also exports `0x1E50`–`0x1F17` to
@@ -457,9 +491,10 @@ certificate offset `0x1FE0`. On models other than the TI-83 Plus, the routine
 also stores `0x7F` in the next byte before invoking mode `0`. [confirmed]
 
 Mode `1` clears a two-byte per-App trial entry when an App is removed. `3D:5759`
-stages the model-dependent `0x1E50`–`0x1F17` table, converts the App page to a
-two-byte index, writes `FF FF`, and invokes mode `1`. The table's use as an App
-trial table is also ROM-confirmed. The App receive path writes the same
+stages the model-selected table, converts the App page to a two-byte index,
+writes `FF FF`, and invokes mode `1`. On TI-84 Plus that table is
+`0x1E50`–`0x1F17`. The table's use as an App trial table is also ROM-confirmed.
+The App receive path writes the same
 two-byte entry at `3D:5BB7`. The App-information path at `36:70B5` calls the
 reader at `3D:5466`, displays the ROM string `"Trials Remaining:"` at
 `01:41AA`, and prints values derived from the two bytes. The direct mode-`1`
@@ -479,9 +514,9 @@ clears its App-validity bit when necessary, and reaches `3D:5019` through
 `3D:5356`. That path stages `0x1F18`–`0x1FFF` and invokes mode `2` at
 `3D:5094`. [confirmed]
 
-These owners establish where mode `2` is used. They do not establish a field
-name for the `0x1F18`–`0x1FDF` table. [hypothesis] for that table's semantic
-meaning.
+These owners establish where mode `2` is used. They do not establish any
+additional TI-84 Plus field meaning for the alternate-model App-trial span at
+`0x1F18`–`0x1FDF`. [hypothesis] for such an additional meaning.
 
 The mode-`4` path fills the model-selected journal buffer at `0x82A5` or
 `0x8000`, initializes its phase bytes at `3C:72D1`–`3C:730D`, and invokes the
@@ -562,8 +597,17 @@ WikiTI gives the same field label, but the conclusion above comes from the boot
 ROM paths. WikiTI also labels `0x1DEA` as garbage-collection information. The
 mode-`3` and mode-`4` call chains independently confirm that the
 `0x1DEA`–`0x1E4F` block stores garbage-collection recovery metadata. The exact
-meaning of every byte in the block remains open. [confirmed] for block
-ownership; [hypothesis] for undecoded fields.
+meaning of every byte is not established: the first six fields and the live
+sector-state array are decoded, while the two retained trailing bytes at
+`0x1E4E`–`0x1E4F` have no direct semantic accessor. [confirmed] for block
+ownership and access bounds; [hypothesis] for the trailing bytes' owner.
+
+On the TI-84 Plus path, `3C:7E6B` loads the existing block and `3C:7317` writes
+`0xFF` over only the first `0x64` bytes in RAM at `0x82A5`. Mode `4` later
+rebuilds the full `0x66` bytes from that buffer, retaining offsets `+0x64` and
+`+0x65`. The first six initialized bytes are fixed fields, leaving 94 bytes of
+state-array capacity; the TI-84 Plus archive limit `0x2A` makes only slots
+`0`–`8` live. [confirmed]
 
 `tools/certificate_rebuild.py` exposes the signature-checked reconstruction as
 a library. Its thin CLI reports the block partition, all seven branches,
@@ -817,12 +861,32 @@ The alternate branch is not a general Flash-to-Flash copy path. The worker
 selects the destination page through port `0x06` before it reads the source. A
 source in the banked `4000`–`7FFF` window therefore aliases the destination
 page rather than retaining an independent source page. A source in the fixed
-`0000`–`3FFF` window can still be read, but after a destination byte at `7FFF`,
-the skipped crossing logic lets the next `LDI` write at `8000` in RAM. The
-branch is byte-confirmed but unused by every statically identified ROM call and
-both available write traces. Its intended external use, if any, remains
-unknown. [confirmed] for the ROM and trace behavior; [hypothesis] for a use
-outside the documented RAM-source ABI.
+`0000`–`3FFF` window can still be read. The guarded `low-source-cross` fixture
+tests that case on an unmodified ROM. It locks Flash through the protected
+wrapper at `3C:66D5`, confirms port `0x02` bit 2 is clear, and calls
+`_WriteFlashUnsafe` with `A=0x3D`, `DE=0x7FFF`, `BC=2`, and `HL=0x0068`.
+Source bytes `00:0068` and `00:0069` are `0x4D` and `0x50`. [confirmed]
+
+| Clock | Copied-worker address | Resolved write attempt and state |
+|------:|-----------------------|----------------------------------|
+| 187,318,374 | `ram:8149` | first `LDI`: `0x4D` to locked Flash at `3D:7FFF`; `BC=1`, `DE=8000`, `HL=0069` |
+| 187,318,708 | `ram:8149` | second `LDI`: `0x50` to RAM `8000`; `BC=0`, `DE=8001`, `HL=006A` |
+| 187,318,824 | `ram:816B` | terminal `0xF0` reset write also resolves to RAM `8000` |
+
+The bcall returns `AF=0x0044`, Z, with the final `BC`, `DE`, and `HL` values
+shown above. The probe captures RAM `8000=F0`, `(IY+0x25).1` set,
+`3D:7FFF=50`, and port `0x02=E3` before restoring its RAM and flag fixtures.
+The Flash decoder sees one command-shaped byte-program attempt and no Flash
+reset because the terminal reset resolves to RAM. The fixture ROM hash equals
+the source ROM hash; the probe's machine-code SHA-256 is
+`bb8159803d67bbfdc354d523db7dbe72e02bf4469a89c79d2c7d033dd660074e`.
+[confirmed] for pinned TilEm and the unmodified ROM.
+
+The branch remains unused by every statically identified ROM call and both
+available OS write traces. Its intended external use, if any, remains unknown.
+The dynamic result does not establish what a physical ASIC and Flash device do
+with the locked command-shaped write attempt. [hypothesis] for a use outside
+the documented RAM-source ABI and for physical consequences.
 
 ## Erase APIs and worker
 
@@ -1134,6 +1198,24 @@ python tools/analyze_trace_points.py \
   --point page_3C:7cfb
 ```
 
+The same decoded command stream can be replayed into immutable Flash images at
+active journal phases. Cold TilEm boots now exercise all six phase-dispatch
+branches. The `0xFF`, `0xFE`, `0xFC`, `0xF8`, and `0xE0` replays converge
+byte-for-byte with uninterrupted execution. The `0xF0` replay has identical
+archive bytes but completes certificate cleanup one boot earlier; cold-booting
+the uninterrupted result once produces the same stable image. See
+[Variables, archive & unarchive](sub-vat-archive.md#7e-tilem-restart-at-six-journal-boundaries)
+for the input and trace hashes, command counts, controlled-topology boundary,
+and deferred-cleanup result. [confirmed] for TilEm.
+
+Pinned Wabbitemu cold boots independently execute the same six dispatcher
+branches. Complete output images equal the corresponding TilEm recovery
+results. The record-authentic `0xF0` input is reconstructed from eight
+deterministic program records before the unmodified OS materializes its journal
+phase. See [Variables, archive & unarchive](sub-vat-archive.md#7f-wabbitemu-restart-at-six-journal-boundaries)
+for input hashes, dispatcher visits, and changed-byte counts. [confirmed] for
+the emulator command-boundary runs.
+
 ### Reproduce the trace
 
 Use the repository's Nix environment when `z80dasm` or another analysis utility is not installed globally. The trace itself is large, so it is generated outside the repository. [confirmed]
@@ -1221,6 +1303,26 @@ flag, so later reads return array data. This one-read lifetime is Wabbitemu
 behavior, not the hardware data-sheet polling contract. It can interact with
 the ROM worker's separate DQ7 and DQ5 reads in ways that depend on the stored
 byte. [standard]
+
+The pinned Wabbitemu source and the ROM worker produce four paths. The first
+ROM read consumes Wabbitemu's error status. The worker's separate DQ5 read then
+sees the stored array byte because the error flag is already clear. This table
+models emulator source combined with the byte-confirmed ROM poll logic; it does
+not describe physical Flash behavior. [standard] for Wabbitemu; [confirmed] for
+the ROM poll logic.
+
+| Program request | Stored-byte condition | ROM result |
+|-----------------|-----------------------|------------|
+| legal | `stored = requested` | succeeds on the first array read |
+| illegal `0→1` outside DQ7 | stored DQ7 matches requested DQ7 | succeeds even though at least one requested bit remains zero |
+| illegal DQ7 `0→1` | stored DQ5 is set | fails after the final DQ7 read |
+| illegal DQ7 `0→1` | stored DQ5 is clear | repeats the DQ7/DQ5 reads without terminating |
+
+Exhaustive enumeration of all 65,536 old/requested byte pairs gives 49,152
+successes, 4,096 failures, and 12,288 nonterminating paths. The successes
+contain 6,561 legal pairs and 42,591 illegal requests that the ROM reports as
+successful. These are deterministic consequences of the pinned source model,
+not observations from Wabbitemu execution or hardware. [standard]
 
 Sector erase changes the complete sector to `0xFF` before the next instruction
 and exposes no erase-busy interval. Its sector arithmetic matches the physical
@@ -1318,6 +1420,30 @@ program old=0x00 requested=0xFF
   Wabbitemu error-read values (DQ6=0/1): 0x20 0x60
 ```
 
+The Wabbitemu/ROM composition is available for one pair or as an exhaustive
+summary. The single-pair model defaults the persistent DQ6 toggle bit to clear;
+`--dq6` selects a set bit. DQ6 changes the first read value but not the ROM's
+DQ7/DQ5 decision.
+
+```console
+$ python tools/describe_flash_hardware.py wabbitemu-poll --old 0x50 --data 0xD0
+Wabbitemu/ROM old=0x50 requested=0xD0 stored=0x50
+  read 0: DQ7 poll=0x20 -> need-dq5-read
+  read 1: DQ5 poll=0x50 -> retry
+  read 2: DQ7 poll=0x50 -> need-dq5-read
+  read 3: DQ5 poll=0x50 -> retry
+  outcome: stalled
+  repeats from read 2: stored DQ7 differs from requested DQ7 while stored DQ5 remains clear
+```
+
+```console
+$ python tools/describe_flash_hardware.py wabbitemu-poll
+all byte pairs: 65536
+  outcomes: success=49152 failure=4096 stalled=12288
+  legal successes: 6561
+  illegal requests reported successful: 42591
+```
+
 ```console
 $ python tools/describe_flash_hardware.py mame-erase 0xF9000 --reads 4
 sector 0x0F8000-0x0F9FFF, timer=250 ms
@@ -1332,9 +1458,10 @@ python tools/describe_flash_hardware.py --json commands
 nix develop -c python tools/analyze_flash_rom_commands.py --json
 ```
 
-The `parts`, `geometry`, `profiles`, `commands`, and `poll` subcommands support
-`--json` for scripts. `tools/flash_trace.py` imports the same geometry library,
-so dynamic trace reports and emulator comparisons use one sector definition.
+The `parts`, `geometry`, `profiles`, `commands`, `poll`, and `wabbitemu-poll`
+subcommands support `--json` for scripts. `tools/flash_trace.py` imports the
+same geometry library, so dynamic trace reports and emulator comparisons use
+one sector definition.
 
 ## Quirks and unresolved hardware questions
 
@@ -1366,13 +1493,14 @@ so dynamic trace reports and emulator comparisons use one sector definition.
   reads, fast programming, or erase suspend/resume. Emulator agreement cannot
   fill those gaps because the pinned implementations disagree with the Fujitsu
   command table or omit the states. [hypothesis]
-- The collector's normal sector-copy policy and persistent phase dispatcher are reconstructed. Fault-injection traces still need to stop after each journal write and test restart behavior, especially on physical hardware. [hypothesis]
+- The collector's normal sector-copy policy and persistent phase dispatcher are reconstructed. TilEm cold-restart traces exercise all six ROM-written journal phases. Active `0xFF`, `0xFE`, `0xFC`, `0xF8`, and `0xE0` converge byte-for-byte with uninterrupted execution. Active `0xF0` has matching archive bytes and converges after the uninterrupted result performs deferred `0xE0` cleanup on its next boot. A deterministic eight-record constructor reproduces the record-authentic `0xF0` input byte for byte. Pinned Wabbitemu independently executes all six dispatcher branches and produces the corresponding complete TilEm images. Cuts during busy commands and physical power loss remain untested. [confirmed] for the emulator command-boundary runs; [hypothesis] for the remaining cases.
 
 ## Sources
 
 | Source | Use |
 |--------|-----|
 | [WikiTI certificate headers](https://wikiti.brandonw.net/index.php?title=83Plus:OS:Certificate/Headers&oldid=10644) | literature labels for certificate-tail offsets, kept separate from ROM-derived ownership |
+| [Wabbitemu `83psehw.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) | independent port-`0x02` family-bit implementation |
 | [WikiTI port `0x14`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:14) | Flash command lock and certificate read protection |
 | [WikiTI protected ports](https://wikiti.brandonw.net/index.php?title=Category:83Plus:Ports:By_Address:Protected) | privileged pages and protected-byte sequence |
 | [WikiTI `_WriteFlash`](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:80C9) and [`_WriteFlashUnsafe`](https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:8087) | public ABI and RAM-source requirement |

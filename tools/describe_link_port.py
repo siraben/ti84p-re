@@ -6,14 +6,20 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict
 import json
+from pathlib import Path
 import sys
 
 from link_port import (
     LINK_EMULATOR_PROFILE_KEYS,
     LINK_PORT_PROFILES,
+    KeyboardFrame,
+    KeyboardGetKeyObservation,
+    analyze_keyboard_rom,
     assemble_observed_byte,
     abort_pulse_report,
     byte_report,
+    classify_keyboard_getkey,
+    decode_ti_keyboard_frame,
     drive_mask,
     emulator_write_sequence,
     link_port_profile,
@@ -21,6 +27,10 @@ from link_port import (
     physical_high_mask,
     port_read_value,
 )
+from rom_image import RomImage
+
+
+TOOLS = Path(__file__).resolve().parent
 
 
 def integer(value: str) -> int:
@@ -81,6 +91,62 @@ def build_parser() -> argparse.ArgumentParser:
         default=1,
         help="T-states added to each Flash opcode fetch (default: OS mode 0 = 1)",
     )
+
+    keyboard = commands.add_parser(
+        "keyboard",
+        help="decode the logical TI-Keyboard frame consumed by _KeyboardGetKey",
+    )
+    keyboard.add_argument("--no-activity", action="store_true")
+    keyboard.add_argument("--prefix", type=unsigned_byte, default=0xE0)
+    keyboard.add_argument(
+        "--delimiter",
+        choices=("error", "ordinary", "timeout"),
+        default="error",
+    )
+    keyboard.add_argument(
+        "--delimiter-error",
+        dest="delimiter",
+        action="store_const",
+        const="error",
+        help="select the deliberate DBUS error delimiter",
+    )
+    keyboard.add_argument(
+        "--command",
+        dest="keyboard_command",
+        type=unsigned_byte,
+        default=0x01,
+    )
+    keyboard.add_argument("--data", type=unsigned_byte, default=0)
+
+    keyboard_path = commands.add_parser(
+        "keyboard-path",
+        help="classify an exact OS 2.55MP _KeyboardGetKey status path",
+    )
+    keyboard_path.add_argument("--initial-lines", type=mask, default=3)
+    keyboard_path.add_argument("--legacy", action="store_true")
+    keyboard_path.add_argument("--assist-status", type=unsigned_byte, default=0x10)
+    keyboard_path.add_argument("--buffered", type=unsigned_byte)
+    keyboard_path.add_argument("--receive-status", type=unsigned_byte, default=0)
+    keyboard_path.add_argument("--prefix", type=unsigned_byte, default=0xE0)
+    keyboard_path.add_argument(
+        "--delimiter",
+        choices=("error", "ordinary", "timeout"),
+        default="error",
+    )
+    keyboard_path.add_argument(
+        "--command",
+        dest="keyboard_command",
+        type=unsigned_byte,
+        default=0x01,
+    )
+    keyboard_path.add_argument("--data", type=unsigned_byte, default=0)
+    keyboard_path.add_argument("--error-handler", action="store_true")
+
+    keyboard_rom = commands.add_parser(
+        "keyboard-rom",
+        help="verify the ROM bytes underlying the TI-Keyboard model",
+    )
+    keyboard_rom.add_argument("--rom", type=Path, default=TOOLS / "rom.bin")
     return parser
 
 
@@ -134,6 +200,32 @@ def result(args: argparse.Namespace) -> dict[str, object]:
             args.cpu_hz,
             opcode_wait_tstates=args.opcode_wait,
         )
+    if args.command == "keyboard":
+        frame = None if args.no_activity else KeyboardFrame(
+            prefix=args.prefix,
+            delimiter=args.delimiter,
+            command=args.keyboard_command,
+            data=args.data,
+        )
+        return decode_ti_keyboard_frame(frame).as_dict()
+    if args.command == "keyboard-path":
+        observation = KeyboardGetKeyObservation(
+            initial_high_lines=args.initial_lines,
+            assist_available=not args.legacy,
+            assist_status=args.assist_status,
+            buffered_byte=args.buffered,
+            receive_status=args.receive_status,
+            frame=KeyboardFrame(
+                prefix=args.prefix,
+                delimiter=args.delimiter,
+                command=args.keyboard_command,
+                data=args.data,
+            ),
+            error_handler_invoked=args.error_handler,
+        )
+        return classify_keyboard_getkey(observation).as_dict()
+    if args.command == "keyboard-rom":
+        return analyze_keyboard_rom(RomImage.from_path(args.rom)).as_dict()
     value = assemble_observed_byte(args.states)
     return {
         "states": args.states,
@@ -143,6 +235,38 @@ def result(args: argparse.Namespace) -> dict[str, object]:
 
 
 def print_text(report: dict[str, object]) -> None:
+    if "bcall_table_bytes" in report:
+        print(
+            f"bcall=0x{report['bcall_id']:04X} "
+            f"table-page=0x{report['bcall_table_page']:02X} "
+            f"entry={report['bcall_table_bytes']} target={report['target']}"
+        )
+        for region in report["regions"]:
+            print(
+                f"  {region['name']}: {region['location']} "
+                f"length=0x{region['length']:X} sha256={region['sha256']}"
+            )
+        print(f"  ROM SHA-256: {report['rom_sha256']}")
+        return
+    if "status_name" in report:
+        print(
+            f"status=0x{report['status']:02X} {report['status_name']} "
+            f"({report['return_address']})"
+        )
+        print(f"  path: {report['path']}")
+        print(f"  ROM condition: {report['condition']}")
+        if report["prefix"] is not None:
+            print(
+                f"  frame: prefix=0x{report['prefix']:02X} "
+                f"delimiter={report['delimiter']} "
+                f"command=0x{report['command']:02X} "
+                f"data=0x{report['data']:02X}"
+            )
+            print(
+                f"  data byte: consumed={report['data_consumed']} "
+                f"returned={report['data_returned']}"
+            )
+        return
     if "profiles" in report:
         for row in report["profiles"]:
             ports = " ".join(f"0x{port:02X}" for port in row["mapped_assist_ports"])

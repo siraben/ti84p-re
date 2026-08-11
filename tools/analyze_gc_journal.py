@@ -25,6 +25,7 @@ TOOLS = Path(__file__).resolve().parent
 def build_report(analysis, trace_events=()) -> dict[str, Any]:
     """Convert the static analysis and optional dynamic events to JSON data."""
 
+    initialization = analysis.initialization
     return {
         "rom_sha256": analysis.rom_sha256,
         "block": {
@@ -83,6 +84,39 @@ def build_report(analysis, trace_events=()) -> dict[str, Any]:
             }
             for write in analysis.sector_state_writes
         ],
+        "initialization": {
+            "load_current_entry": str(initialization.load_current_entry),
+            "initialize_entry": str(initialization.initialize_entry),
+            "port": initialization.port,
+            "mask": initialization.mask,
+            "set_bit_ram_base": initialization.set_bit_ram_base,
+            "set_bit_erased_length": initialization.set_bit_erased_length,
+            "set_bit_sector_state_capacity": (
+                initialization.set_bit_erased_length - 6
+            ),
+            "clear_bit_ram_base": initialization.clear_bit_ram_base,
+            "clear_bit_erased_length": initialization.clear_bit_erased_length,
+            "clear_bit_sector_state_capacity": (
+                initialization.clear_bit_erased_length - 6
+            ),
+            "erased_byte": initialization.erased_byte,
+            "certificate_rebuild_entry": str(
+                initialization.certificate_rebuild_entry
+            ),
+            "certificate_rebuild_length": (
+                initialization.certificate_rebuild_length
+            ),
+            "retained_tail_offset": initialization.retained_tail_offset,
+            "retained_tail_length": initialization.retained_tail_length,
+            "ti84_plus_archive_limit": initialization.ti84_plus_archive_limit,
+            "ti84_plus_live_sector_state_count": (
+                initialization.ti84_plus_live_sector_state_count
+            ),
+            "maximum_archive_limit": initialization.maximum_archive_limit,
+            "maximum_live_sector_state_count": (
+                initialization.maximum_live_sector_state_count
+            ),
+        },
         "trace_events": [
             {
                 "kind": event.kind,
@@ -122,6 +156,37 @@ def print_text(report: dict[str, Any]) -> None:
             f"certificate=0x{field['certificate_offset']:04X} "
             f"helper={field['helper']} RAM={addresses}; {field['role']}"
         )
+    initialization = report["initialization"]
+    retained_tail_end = (
+        initialization["retained_tail_offset"]
+        + initialization["retained_tail_length"]
+        - 1
+    )
+    print("initialization:")
+    print(
+        f"  port 0x{initialization['port']:02X} mask "
+        f"0x{initialization['mask']:02X}; set-bit RAM="
+        f"0x{initialization['set_bit_ram_base']:04X} fills "
+        f"0x{initialization['set_bit_erased_length']:X} bytes with 0xFF "
+        f"({initialization['set_bit_sector_state_capacity']} state slots)"
+    )
+    print(
+        f"  clear-bit RAM=0x{initialization['clear_bit_ram_base']:04X} fills "
+        f"0x{initialization['clear_bit_erased_length']:X} bytes with 0xFF "
+        f"({initialization['clear_bit_sector_state_capacity']} state slots)"
+    )
+    print(
+        f"  rebuild={initialization['certificate_rebuild_entry']} length="
+        f"0x{initialization['certificate_rebuild_length']:X}; retained tail="
+        f"+0x{initialization['retained_tail_offset']:02X}-"
+        f"+0x{retained_tail_end:02X}"
+    )
+    print(
+        f"  TI-84 Plus archive limit=0x{initialization['ti84_plus_archive_limit']:02X} "
+        f"uses at most {initialization['ti84_plus_live_sector_state_count']} slots; "
+        f"largest ROM limit=0x{initialization['maximum_archive_limit']:02X} uses "
+        f"at most {initialization['maximum_live_sector_state_count']} slots"
+    )
     print(f"phase dispatch: {report['dispatch_entry']}")
     for case in report["phase_cases"]:
         continuation = case["continuation"] or "return"

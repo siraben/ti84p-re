@@ -1567,6 +1567,26 @@ ram:1fce	op1_exp_unbiased
 ram:1fd6	err_if_not_real_86
 ram:1fdd	test_flag_09_bit5
 ram:1fe2	test_graphFlags_bit1
+
+# App mouse cursor API (public bcall bodies and decoded helpers)
+page_3b:75b0	_AppSetupMouseMem
+page_3b:76ab	_AppUpdateMouseRow
+page_3b:76bd	_AppDispPrevMouse
+page_3b:7721	_AppUpdateMouseCoords
+page_3b:7724	_AppUpdateMouseXY
+page_3b:77cf	_AppEraseMouse
+page_3b:77d9	_AppDispMouse
+page_3b:77e1	_AppDrawMouse
+page_3b:781c	_AppDrawMouseDirect
+page_3b:78b7	_AppSetupMouseMemCoords
+page_3b:78e6	_AppMoveMouse
+page_3b:78f9	_AppStartMouse
+page_3b:78fc	_AppStartMouseNoSetup
+page_3b:78ff	_AppMouseGetKey
+page_3b:7913	_AppMouseForceKey
+page_3b:7983	app_mouse_move_right
+page_3b:79b1	app_mouse_move_left
+page_3b:7a56	_AppUpdateMouse
 ram:1fe7	find_in_table_1ff6
 ram:2045	chk_type_not_str
 ram:2050	chk_type_not_eqn

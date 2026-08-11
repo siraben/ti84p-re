@@ -10,12 +10,385 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from functools import reduce
+from hashlib import sha256
 from operator import or_
 from typing import Iterable
+
+from bcall_tables import main_target
+from rom_image import RomImage, RomLocation
 
 
 LINE_MASK = 0x03
 NOMINAL_LOW_SPEED_HZ = 6_000_000
+TI_KEYBOARD_PREFIX = 0xE0
+TI_KEYBOARD_COMMAND = 0x01
+TI_KEYBOARD_DELIMITERS = ("error", "ordinary", "timeout")
+TI_KEYBOARD_BCALL_ID = 0x50E9
+TI_KEYBOARD_BCALL_TABLE_PAGE = 0x3B
+
+
+class KeyboardRomSignatureError(ValueError):
+    """The selected ROM does not match the analyzed keyboard control flow."""
+
+
+@dataclass(frozen=True)
+class KeyboardRomRegion:
+    """One hashed OS 2.55MP region required by the keyboard analysis."""
+
+    name: str
+    location: RomLocation
+    length: int
+    expected_sha256: str
+
+
+KEYBOARD_ROM_REGIONS = (
+    KeyboardRomRegion(
+        "lnk_rec_status",
+        RomLocation(0x3C, 0x444A),
+        0x2D,
+        "144b35402b03f54641dfd29bb84febf9efe5be5d744c415413867c5b17544423",
+    ),
+    KeyboardRomRegion(
+        "keyboard_following_bytes",
+        RomLocation(0x3C, 0x6D17),
+        0x21,
+        "1ca84ef4fcc4ad719c21772d1455d9f8e6efaa9a6a63a2e9e6f226bb71e652b0",
+    ),
+    KeyboardRomRegion(
+        "keyboard_getkey",
+        RomLocation(0x3C, 0x6D5E),
+        0xA4,
+        "a75ae03d5a76576e8f7ef3cf8cef531a9e0c3fe4238afd753250e7f272611aa7",
+    ),
+)
+
+
+@dataclass(frozen=True)
+class KeyboardRomAnalysis:
+    """Verified ROM provenance for the TI-Keyboard control-flow model."""
+
+    rom_sha256: str
+    bcall_id: int
+    bcall_table_page: int
+    bcall_table_bytes: str
+    target: str
+    regions: tuple[dict[str, object], ...]
+
+    def as_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+def analyze_keyboard_rom(rom: RomImage) -> KeyboardRomAnalysis:
+    """Verify the bcall entry and byte regions used by the keyboard model."""
+
+    target = main_target(
+        rom,
+        TI_KEYBOARD_BCALL_TABLE_PAGE,
+        TI_KEYBOARD_BCALL_ID,
+        "_KeyboardGetKey",
+    )
+    expected_target = RomLocation(0x3C, 0x6D5E)
+    if target.location != expected_target or target.table_bytes != bytes.fromhex(
+        "5e6d7c"
+    ):
+        raise KeyboardRomSignatureError(
+            "_KeyboardGetKey bcall mismatch: expected table bytes 5e6d7c "
+            f"and target {expected_target}, got {target.table_bytes.hex()} "
+            f"and {target.location}"
+        )
+
+    verified_regions = []
+    for region in KEYBOARD_ROM_REGIONS:
+        data = rom.bytes_at(
+            region.location.page,
+            region.location.address,
+            region.length,
+        )
+        digest = sha256(data).hexdigest()
+        if digest != region.expected_sha256:
+            raise KeyboardRomSignatureError(
+                f"{region.name} signature mismatch at {region.location}: "
+                f"expected {region.expected_sha256}, got {digest}"
+            )
+        verified_regions.append(
+            {
+                "name": region.name,
+                "location": str(region.location),
+                "length": region.length,
+                "sha256": digest,
+            }
+        )
+    return KeyboardRomAnalysis(
+        rom_sha256=sha256(rom.data).hexdigest(),
+        bcall_id=TI_KEYBOARD_BCALL_ID,
+        bcall_table_page=TI_KEYBOARD_BCALL_TABLE_PAGE,
+        bcall_table_bytes=target.table_bytes.hex(),
+        target=str(target.location),
+        regions=tuple(verified_regions),
+    )
+
+
+@dataclass(frozen=True)
+class KeyboardStatusReturn:
+    """One explicit ``_KeyboardGetKey`` status tail in OS 2.55MP."""
+
+    status: int
+    address: str
+    name: str
+    condition: str
+
+    def as_dict(self) -> dict[str, int | str]:
+        return asdict(self)
+
+
+KEYBOARD_STATUS_RETURNS = {
+    item.status: item
+    for item in (
+        KeyboardStatusReturn(0x00, "3C:6DA0", "no-activity", "no accepted link activity"),
+        KeyboardStatusReturn(
+            0x01,
+            "3C:6DDB",
+            "keyboard-frame",
+            "prefix 0xE0, error delimiter, and command 0x01 accepted",
+        ),
+        KeyboardStatusReturn(
+            0x02,
+            "3C:6DE2",
+            "frame-mismatch",
+            "prefix or required error delimiter did not match",
+        ),
+        KeyboardStatusReturn(
+            0xF9,
+            "3C:6D95",
+            "assist-error-empty",
+            "entry assist status has bit 6 but neither masked bit 4 nor bit 0",
+        ),
+        KeyboardStatusReturn(
+            0xFA,
+            "3C:6D8E",
+            "assist-error-other-byte",
+            "entry assist error has buffered data other than 0xE0",
+        ),
+        KeyboardStatusReturn(
+            0xFB,
+            "3C:6D87",
+            "assist-error-keyboard-prefix",
+            "entry assist error has buffered 0xE0; cleanup reads follow",
+        ),
+        KeyboardStatusReturn(
+            0xFC,
+            "3C:6DE9",
+            "command-mismatch",
+            "first post-prefix byte is not command 0x01",
+        ),
+        KeyboardStatusReturn(
+            0xFD,
+            "3C:6DF0",
+            "legacy-receive-status",
+            "legacy prefix receive returns nonzero low-level status",
+        ),
+        KeyboardStatusReturn(
+            0xFE,
+            "3C:6DF7",
+            "assist-receive-status",
+            "assist prefix receive returns nonzero status and C is not 0xE0",
+        ),
+        KeyboardStatusReturn(
+            0xFF,
+            "3C:6DFE",
+            "error-handler",
+            "installed error handler catches a lower-level error",
+        ),
+    )
+}
+
+
+@dataclass(frozen=True)
+class KeyboardFrame:
+    """Logical bytes and delimiter consumed by the TI-Keyboard decoder."""
+
+    prefix: int = TI_KEYBOARD_PREFIX
+    delimiter: str = "error"
+    command: int = TI_KEYBOARD_COMMAND
+    data: int = 0
+
+
+@dataclass(frozen=True)
+class KeyboardGetKeyObservation:
+    """ROM-visible inputs needed to classify a ``_KeyboardGetKey`` path.
+
+    This keeps entry link-assist state and low-level receive status separate
+    from the logical keyboard frame.  It is a control-flow model, not an ASIC
+    timing model.
+    """
+
+    initial_high_lines: int = 0x03
+    assist_available: bool = True
+    assist_status: int = 0x10
+    buffered_byte: int | None = None
+    receive_status: int = 0
+    frame: KeyboardFrame = KeyboardFrame()
+    error_handler_invoked: bool = False
+
+
+@dataclass(frozen=True)
+class KeyboardGetKeyResult:
+    """A decoded public status plus the frame data the ROM does not return."""
+
+    status: int
+    status_name: str
+    return_address: str
+    condition: str
+    path: str
+    prefix: int | None
+    delimiter: str | None
+    command: int | None
+    data: int | None
+    data_consumed: bool
+    data_returned: bool = False
+
+    def as_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+def _keyboard_result(
+    status: int,
+    *,
+    path: str,
+    frame: KeyboardFrame | None = None,
+    data_consumed: bool = False,
+) -> KeyboardGetKeyResult:
+    status_return = KEYBOARD_STATUS_RETURNS[status]
+    return KeyboardGetKeyResult(
+        status=status,
+        status_name=status_return.name,
+        return_address=status_return.address,
+        condition=status_return.condition,
+        path=path,
+        prefix=None if frame is None else frame.prefix,
+        delimiter=None if frame is None else frame.delimiter,
+        command=None if frame is None else frame.command,
+        data=None if frame is None else frame.data,
+        data_consumed=data_consumed,
+    )
+
+
+def _validate_keyboard_frame(frame: KeyboardFrame) -> None:
+    byte(frame.prefix, name="keyboard prefix")
+    byte(frame.command, name="keyboard command")
+    byte(frame.data, name="keyboard data")
+    if frame.delimiter not in TI_KEYBOARD_DELIMITERS:
+        choices = ", ".join(TI_KEYBOARD_DELIMITERS)
+        raise ValueError(f"keyboard delimiter must be one of {choices}")
+
+
+def decode_ti_keyboard_frame(frame: KeyboardFrame | None) -> KeyboardGetKeyResult:
+    """Decode the logical four-part TI-Keyboard sequence.
+
+    ``None`` represents no link activity.  The successful public routine
+    returns status ``0x01``; it consumes but does not return the data byte.
+    """
+
+    if frame is None:
+        return _keyboard_result(0x00, path="no logical frame")
+    _validate_keyboard_frame(frame)
+    if frame.prefix != TI_KEYBOARD_PREFIX:
+        return _keyboard_result(0x02, path="prefix mismatch", frame=frame)
+    if frame.delimiter != "error":
+        return _keyboard_result(0x02, path="delimiter mismatch", frame=frame)
+    if frame.command != TI_KEYBOARD_COMMAND:
+        return _keyboard_result(
+            0xFC,
+            path="post-prefix command mismatch",
+            frame=frame,
+            data_consumed=True,
+        )
+    return _keyboard_result(
+        0x01,
+        path="accepted TI-Keyboard frame",
+        frame=frame,
+        data_consumed=True,
+    )
+
+
+def classify_keyboard_getkey(
+    observation: KeyboardGetKeyObservation,
+) -> KeyboardGetKeyResult:
+    """Classify every explicit OS 2.55MP ``_KeyboardGetKey`` status tail."""
+
+    _line_mask(observation.initial_high_lines, name="initial high-line mask")
+    byte(observation.assist_status, name="assist status")
+    byte(observation.receive_status, name="receive status")
+    _validate_keyboard_frame(observation.frame)
+    if observation.buffered_byte is not None:
+        byte(observation.buffered_byte, name="buffered byte")
+
+    if observation.error_handler_invoked:
+        return _keyboard_result(0xFF, path="installed error handler")
+
+    if observation.initial_high_lines == 0x03:
+        if not observation.assist_available:
+            return _keyboard_result(0x00, path="idle legacy lines")
+        if observation.assist_status & 0x40:
+            if not observation.assist_status & 0x11:
+                return _keyboard_result(0xF9, path="entry assist error without data")
+            if observation.buffered_byte is None:
+                raise ValueError("entry assist error with data requires buffered_byte")
+            if observation.buffered_byte != TI_KEYBOARD_PREFIX:
+                return _keyboard_result(
+                    0xFA,
+                    path="entry assist error with non-keyboard byte",
+                    frame=observation.frame,
+                )
+            return _keyboard_result(
+                0xFB,
+                path="entry assist error with keyboard prefix",
+                frame=observation.frame,
+                data_consumed=True,
+            )
+        if not observation.assist_status & 0x19:
+            return _keyboard_result(0x00, path="idle assist status")
+
+    frame = observation.frame
+    if observation.assist_available:
+        if observation.receive_status != 0:
+            if frame.prefix != TI_KEYBOARD_PREFIX:
+                return _keyboard_result(
+                    0xFE,
+                    path="assist receive status with non-keyboard byte",
+                    frame=frame,
+                )
+            # The buffered 0xE0 status path joins after the delimiter check.
+        else:
+            if frame.prefix != TI_KEYBOARD_PREFIX:
+                return _keyboard_result(0x02, path="prefix mismatch", frame=frame)
+            if frame.delimiter != "error":
+                return _keyboard_result(0x02, path="delimiter mismatch", frame=frame)
+    else:
+        if observation.receive_status != 0:
+            return _keyboard_result(
+                0xFD,
+                path="legacy receive returned nonzero status",
+                frame=frame,
+            )
+        if frame.prefix != TI_KEYBOARD_PREFIX:
+            return _keyboard_result(0x02, path="prefix mismatch", frame=frame)
+        if frame.delimiter != "error":
+            return _keyboard_result(0x02, path="delimiter mismatch", frame=frame)
+
+    if frame.command != TI_KEYBOARD_COMMAND:
+        return _keyboard_result(
+            0xFC,
+            path="post-prefix command mismatch",
+            frame=frame,
+            data_consumed=True,
+        )
+    return _keyboard_result(
+        0x01,
+        path="accepted TI-Keyboard frame",
+        frame=frame,
+        data_consumed=True,
+    )
 
 
 @dataclass(frozen=True)

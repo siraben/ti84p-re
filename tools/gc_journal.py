@@ -15,6 +15,8 @@ GC_BLOCK_OFFSET = 0x1DEA
 GC_BLOCK_LENGTH = 0x0066
 MASTER_PHASE_OFFSET = GC_BLOCK_OFFSET + 3
 SECTOR_STATE_OFFSET = GC_BLOCK_OFFSET + 6
+TI84_PLUS_ARCHIVE_LIMIT = 0x2A
+MAX_ARCHIVE_LIMIT = 0x6A
 CERTIFICATE_HALF_BASES = (0xF8000, 0xFA000)
 
 
@@ -90,6 +92,29 @@ class JournalTraceEvent:
 
 
 @dataclass(frozen=True)
+class JournalInitialization:
+    """Model-selected RAM erase-state initialization before GC."""
+
+    load_current_entry: RomLocation
+    initialize_entry: RomLocation
+    port: int
+    mask: int
+    set_bit_ram_base: int
+    set_bit_erased_length: int
+    clear_bit_ram_base: int
+    clear_bit_erased_length: int
+    erased_byte: int
+    certificate_rebuild_entry: RomLocation
+    certificate_rebuild_length: int
+    retained_tail_offset: int
+    retained_tail_length: int
+    ti84_plus_archive_limit: int
+    ti84_plus_live_sector_state_count: int
+    maximum_archive_limit: int
+    maximum_live_sector_state_count: int
+
+
+@dataclass(frozen=True)
 class GcJournalAnalysis:
     """Validated static description of the OS 2.55MP GC journal."""
 
@@ -104,6 +129,7 @@ class GcJournalAnalysis:
     transitions: tuple[PhaseTransition, ...]
     sector_state_writer: RomLocation
     sector_state_writes: tuple[SectorStateWrite, ...]
+    initialization: JournalInitialization
 
 
 FIELDS = (
@@ -276,6 +302,23 @@ SECTOR_STATE_WRITES = (
 
 _SIGNATURES = (
     (
+        RomLocation(PAGE, 0x72A5),
+        bytes.fromhex(
+            "CD7F2CCD6B7E21A582060ACD371820052100800680CB203EFF7723"
+            "10FCCD1773"
+        ),
+    ),
+    (
+        RomLocation(PAGE, 0x7317),
+        bytes.fromhex("21A5820664CD37182805217B8306123EFF772310FCC9"),
+    ),
+    (
+        RomLocation(PAGE, 0x77B5),
+        bytes.fromhex(
+            "3EF0327784CD6B7ECD1773FDCB24BE06FBCD717ECD6B2B783CCD837E77"
+        ),
+    ),
+    (
         RomLocation(PAGE, 0x7C1F),
         bytes.fromhex(
             "CD2A7BCD997E7EFEFF2819FEFE281AFEFC"
@@ -322,6 +365,25 @@ _SIGNATURES = (
             "218083CD3718C021AA82C9"
         ),
     ),
+    (
+        RomLocation(PAGE, 0x7EC5),
+        bytes.fromhex("3E15CD3718C03E29CD2F18C83E69C9"),
+    ),
+    (
+        RomLocation(0x3D, 0x4274),
+        bytes.fromhex("CD415201660011A582CDE348EBCD8B73CDE872C9"),
+    ),
+    (
+        RomLocation(0x3D, 0x4806),
+        bytes.fromhex(
+            "F5C5D5E5DDE5CD37182018FE01280CFE032010CDA342CDB342180B"
+            "CDDF42CDB3421803CDF242C3E746"
+        ),
+    ),
+    (
+        RomLocation(0x00, 0x2B6B),
+        bytes.fromhex("CD092B13647D"),
+    ),
 )
 
 
@@ -344,12 +406,21 @@ def sector_state_index(page: int) -> int:
     return (page >> 2) - 2
 
 
+def sector_state_count(archive_limit: int) -> int:
+    """Count 64 KiB sector-start pages below an exclusive archive limit."""
+
+    if not 0x08 <= archive_limit <= 0x100:
+        raise ValueError("archive limit must be in 0x08-0x100")
+    return len(range(0x08, archive_limit, 4))
+
+
 def analyze_gc_journal(rom: RomImage) -> GcJournalAnalysis:
     """Validate and report the OS 2.55MP archive-GC journal structure."""
 
-    if rom.page_count <= PAGE:
+    if rom.page_count <= 0x3D:
         raise GcJournalSignatureError(
-            f"ROM has {rom.page_count} page(s); physical page 0x{PAGE:02X} is required"
+            f"ROM has {rom.page_count} page(s); physical pages 0x{PAGE:02X}-0x3D "
+            "are required"
         )
     for location, expected in _SIGNATURES:
         _validate_bytes(rom, location, expected)
@@ -365,6 +436,29 @@ def analyze_gc_journal(rom: RomImage) -> GcJournalAnalysis:
         transitions=TRANSITIONS,
         sector_state_writer=RomLocation(PAGE, 0x7DA9),
         sector_state_writes=SECTOR_STATE_WRITES,
+        initialization=JournalInitialization(
+            load_current_entry=RomLocation(PAGE, 0x7E6B),
+            initialize_entry=RomLocation(PAGE, 0x7317),
+            port=0x02,
+            mask=0x80,
+            set_bit_ram_base=0x82A5,
+            set_bit_erased_length=0x64,
+            clear_bit_ram_base=0x837B,
+            clear_bit_erased_length=0x12,
+            erased_byte=0xFF,
+            certificate_rebuild_entry=RomLocation(0x3D, 0x4274),
+            certificate_rebuild_length=GC_BLOCK_LENGTH,
+            retained_tail_offset=0x64,
+            retained_tail_length=2,
+            ti84_plus_archive_limit=TI84_PLUS_ARCHIVE_LIMIT,
+            ti84_plus_live_sector_state_count=sector_state_count(
+                TI84_PLUS_ARCHIVE_LIMIT
+            ),
+            maximum_archive_limit=MAX_ARCHIVE_LIMIT,
+            maximum_live_sector_state_count=sector_state_count(
+                MAX_ARCHIVE_LIMIT
+            ),
+        ),
     )
 
 
@@ -387,7 +481,11 @@ def journal_trace_events(
             if certificate_offset == MASTER_PHASE_OFFSET:
                 kind = "master_phase"
                 sector_index = None
-            elif SECTOR_STATE_OFFSET <= certificate_offset < GC_BLOCK_OFFSET + 0x20:
+            elif (
+                SECTOR_STATE_OFFSET
+                <= certificate_offset
+                < SECTOR_STATE_OFFSET + sector_state_count(MAX_ARCHIVE_LIMIT)
+            ):
                 kind = "sector_state"
                 sector_index = certificate_offset - SECTOR_STATE_OFFSET
             else:

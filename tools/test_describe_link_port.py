@@ -42,6 +42,51 @@ class DescribeLinkPortTests(unittest.TestCase):
 
         self.assertIn("MACHINE_NOT_WORKING", encoded)
 
+    def test_keyboard_cli_reports_consumed_data_not_a_returned_scan_code(self):
+        args = self.parser.parse_args(
+            [
+                "keyboard",
+                "--prefix",
+                "0xE0",
+                "--delimiter-error",
+                "--command",
+                "0x01",
+                "--data",
+                "0x42",
+            ]
+        )
+
+        report = result(args)
+
+        self.assertEqual(0x01, report["status"])
+        self.assertEqual(0x42, report["data"])
+        self.assertTrue(report["data_consumed"])
+        self.assertFalse(report["data_returned"])
+
+    def test_keyboard_path_cli_exposes_assist_error_tail(self):
+        args = self.parser.parse_args(
+            [
+                "keyboard-path",
+                "--assist-status",
+                "0x50",
+                "--buffered",
+                "0xE0",
+            ]
+        )
+
+        report = result(args)
+
+        self.assertEqual(0xFB, report["status"])
+        self.assertEqual("3C:6D87", report["return_address"])
+
+    def test_keyboard_rom_cli_reports_verified_target(self):
+        args = self.parser.parse_args(["keyboard-rom"])
+
+        report = result(args)
+
+        self.assertEqual("3C:6D5E", report["target"])
+        self.assertEqual(3, len(report["regions"]))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,7 +1,8 @@
-"""Reusable keypad-matrix and ON-edge models for pinned emulators.
+"""Reusable TI-84 Plus keypad, ON-edge, and App mouse models.
 
-These functions reproduce source implementations for debugging.  They do not
-replace electrical measurements of a physical diode-less keypad matrix.
+The emulator functions reproduce pinned source implementations. The App mouse
+model reproduces byte-confirmed OS 2.55MP movement decisions. Neither replaces
+electrical measurements of a physical diode-less keypad matrix.
 """
 
 from __future__ import annotations
@@ -173,3 +174,119 @@ def on_transition_requests_interrupt(
     if not enabled:
         return False
     return transition == "press" or profile.name == "TilEm"
+
+
+APP_MOUSE_MAX_ROW = 0x3F
+APP_MOUSE_MAX_COLUMN = 0x5F
+
+
+@dataclass(frozen=True)
+class AppMouseKeyResult:
+    """One OS 2.55MP App mouse decision for a raw scanner event."""
+
+    start_row: int
+    start_column: int
+    scan_code: int
+    key: str
+    diagonal: bool
+    delta_row: int
+    delta_column: int
+    row: int
+    column: int
+    outcome: str
+    return_code: int | None
+    coordinates_returned_in_hl: bool
+
+
+APP_MOUSE_DIRECTIONS = {
+    0x01: ("down", 1, 0),
+    0x02: ("left", 0, -1),
+    0x03: ("right", 0, 1),
+    0x04: ("up", -1, 0),
+    0xF3: ("up-right", -1, 1),
+    0xF5: ("up-left", -1, -1),
+    0xFA: ("down-right", 1, 1),
+    0xFC: ("down-left", 1, -1),
+}
+
+
+def _coordinate(value: int, maximum: int, name: str) -> int:
+    if not 0 <= value <= maximum:
+        raise ValueError(f"{name} must be between 0 and {maximum}")
+    return value
+
+
+def app_mouse_force_key(
+    row: int,
+    column: int,
+    scan_code: int,
+    *,
+    second_modifier: bool = False,
+) -> AppMouseKeyResult:
+    """Model ``_AppMouseForceKey`` at ``3B:7913`` for one input event.
+
+    ``wait`` means the routine branches back into ``_AppMouseGetKey`` because
+    the key is unsupported or every requested movement axis is at its limit.
+    """
+
+    row = _coordinate(row, APP_MOUSE_MAX_ROW, "row")
+    column = _coordinate(column, APP_MOUSE_MAX_COLUMN, "column")
+    scan_code = _byte(scan_code, "scan code")
+    if scan_code == 0x09:
+        return AppMouseKeyResult(
+            row,
+            column,
+            scan_code,
+            "enter",
+            False,
+            0,
+            0,
+            row,
+            column,
+            "enter",
+            0x0C,
+            False,
+        )
+
+    direction = APP_MOUSE_DIRECTIONS.get(scan_code)
+    if direction is None:
+        return AppMouseKeyResult(
+            row,
+            column,
+            scan_code,
+            "unsupported",
+            False,
+            0,
+            0,
+            row,
+            column,
+            "wait",
+            None,
+            False,
+        )
+
+    key, requested_row, requested_column = direction
+    new_row = min(APP_MOUSE_MAX_ROW, max(0, row + requested_row))
+    new_column = min(APP_MOUSE_MAX_COLUMN, max(0, column + requested_column))
+    delta_row = new_row - row
+    delta_column = new_column - column
+    if delta_row == 0 and delta_column == 0:
+        outcome = "wait"
+        return_code = None
+    else:
+        outcome = "move"
+        return_code = 0x08 if second_modifier else 0x0A
+    return AppMouseKeyResult(
+        start_row=row,
+        start_column=column,
+        scan_code=scan_code,
+        key=key,
+        diagonal=scan_code >= 0xF3,
+        delta_row=delta_row,
+        delta_column=delta_column,
+        row=new_row,
+        column=new_column,
+        outcome=outcome,
+        return_code=return_code,
+        coordinates_returned_in_hl=outcome == "move" and not second_modifier,
+    )
