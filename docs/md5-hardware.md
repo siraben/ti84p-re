@@ -32,8 +32,8 @@ The six 32-bit operands are `A`, `B`, `C`, `D`, one message word `X`, and the ad
 
 | Mode | MD5 name | Function |
 |-----:|----------|----------|
-| `0` | F | $(B \mathbin{\&} C) \mathbin{\vert} ((\mathop{\sim}B) \mathbin{\&} D)$ |
-| `1` | G | $(B \mathbin{\&} D) \mathbin{\vert} (C \mathbin{\&} \mathop{\sim}D)$ |
+| `0` | F | $(B \mathbin{\\&} C) \mathbin{\vert} ((\mathop{\sim}B) \mathbin{\\&} D)$ |
+| `1` | G | $(B \mathbin{\\&} D) \mathbin{\vert} (C \mathbin{\\&} \mathop{\sim}D)$ |
 | `2` | H | $B \mathbin{\oplus} C \mathbin{\oplus} D$ |
 | `3` | I | $C \mathbin{\oplus} (B \mathbin{\vert} \mathop{\sim}D)$ |
 
@@ -291,7 +291,7 @@ The local boot page therefore supplies almost the entire MD5 control structure i
 $$
 p =
 \begin{cases}
-56-i, & i < 56 \\
+56-i, & i < 56 \\\\
 120-i, & i \ge 56
 \end{cases}
 $$

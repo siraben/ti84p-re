@@ -355,8 +355,8 @@ port-`0x21` mode $t = 0,1,2,3$, it computes: [standard]
 
 $$
 \begin{aligned}
-M_t &= (\mathtt{0x8000} \ll t) - \mathtt{0x400} \\
-m &= a \mathbin{\&} M_t \\
+M_t &= (\mathtt{0x8000} \ll t) - \mathtt{0x400} \\\\
+m &= a \mathbin{\\&} M_t \\\\
 \mathit{allowed} &= \mathtt{port25}\cdot\mathtt{0x400}
                    \le m \le
                    \mathtt{port26}\cdot\mathtt{0x400}
