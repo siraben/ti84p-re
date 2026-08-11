@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">TI-84 Plus LCD controller addressing in ordinary 8-bit mode</title>
+  <desc id="desc">The Z80 sends commands on port 10 and data on port 11. A row command selects one of 64 pixel rows and a byte-column command selects one of 16 controller columns. Twelve byte columns form the visible 96-pixel display; four controller columns are off-screen and nonportable. One data byte controls eight adjacent horizontal pixels.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}.panel{fill:#fff;stroke:#94a3b8;stroke-width:2}.title{fill:#0f172a;font:700 30px system-ui,sans-serif}.head{fill:#0f172a;font:700 21px system-ui,sans-serif}.text{fill:#334155;font:17px system-ui,sans-serif}.mono{fill:#0f172a;font:600 17px ui-monospace,SFMono-Regular,Consolas,monospace}.cmd{fill:#ede9fe;stroke:#7c3aed;stroke-width:2}.data{fill:#dbeafe;stroke:#2563eb;stroke-width:2}.visible{fill:#ecfeff;stroke:#0891b2;stroke-width:3}.off{fill:#f1f5f9;stroke:#64748b;stroke-width:2;stroke-dasharray:7 6}.pixel{stroke:#64748b;stroke-width:1}.active{fill:#fef3c7;stroke:#d97706;stroke-width:3}.arrow{stroke:#475569;stroke-width:2.5;fill:none;marker-end:url(#arrow)}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#475569"/></marker>
+  </defs>
+  <rect class="bg" width="1200" height="760" rx="18"/>
+  <text class="title" x="60" y="54">LCD addressing: row × byte column × data bits</text>
+  <text class="text" x="60" y="84">Ordinary OS drawing uses 8-bit mode: one transfer covers eight horizontal pixels.</text>
+
+  <g transform="translate(60 125)">
+    <rect class="panel" width="330" height="330" rx="14"/>
+    <text class="head" x="165" y="40" text-anchor="middle">Z80-facing ports</text>
+    <rect class="cmd" x="35" y="72" width="260" height="90" rx="10"/>
+    <text class="mono" x="165" y="105" text-anchor="middle">port 10 · command</text>
+    <text class="text" x="165" y="134" text-anchor="middle">row, column, mode, contrast</text>
+    <rect class="data" x="35" y="195" width="260" height="90" rx="10"/>
+    <text class="mono" x="165" y="228" text-anchor="middle">port 11 · data</text>
+    <text class="text" x="165" y="257" text-anchor="middle">read/write current unit</text>
+    <path class="arrow" d="M330 118 H420"/><path class="arrow" d="M330 240 H420"/>
+  </g>
+
+  <g transform="translate(480 125)">
+    <rect class="panel" width="660" height="550" rx="14"/>
+    <text class="head" x="330" y="40" text-anchor="middle">T6K04 display RAM and address counters</text>
+    <text class="mono" x="36" y="80">row command 80h–BFh → rows 0–63</text>
+    <text class="mono" x="36" y="110">column command 20h–2Fh → byte columns 0–15</text>
+
+    <rect class="visible" x="36" y="150" width="480" height="260" rx="6"/>
+    <rect class="off" x="516" y="150" width="108" height="260" rx="6"/>
+    <text class="head" x="276" y="180" text-anchor="middle">visible panel · 96 × 64 pixels</text>
+    <text class="text" x="570" y="180" text-anchor="middle">4 extra</text>
+    <text class="text" x="570" y="203" text-anchor="middle">columns</text>
+    <text class="text" x="570" y="226" text-anchor="middle">off-screen</text>
+
+    <g class="pixel">
+      <path d="M76 230 V410 M116 230 V410 M156 230 V410 M196 230 V410 M236 230 V410 M276 230 V410 M316 230 V410 M356 230 V410 M396 230 V410 M436 230 V410 M476 230 V410"/>
+      <path d="M36 275 H624 M36 320 H624 M36 365 H624"/>
+    </g>
+    <rect class="active" x="196" y="275" width="40" height="45"/>
+    <text class="mono" x="216" y="266" text-anchor="middle">byte</text>
+    <text class="mono" x="216" y="342" text-anchor="middle">8 pixels</text>
+
+    <path class="arrow" d="M36 435 H516"/>
+    <text class="text" x="276" y="466" text-anchor="middle">command 07h: increment byte column after transfer</text>
+    <path class="arrow" d="M650 150 V410"/>
+    <text class="text" x="642" y="280" text-anchor="middle" transform="rotate(-90 642 280)">command 05h: increment row</text>
+
+    <rect class="data" x="36" y="480" width="588" height="62" rx="9"/>
+    <text class="mono" x="330" y="507" text-anchor="middle">data byte b7 b6 b5 b4 b3 b2 b1 b0</text>
+    <text class="text" x="330" y="531" text-anchor="middle">eight adjacent pixels at the selected row and byte column</text>
+  </g>
+
+  <rect class="cmd" x="60" y="510" width="330" height="135" rx="12"/>
+  <text class="head" x="225" y="544" text-anchor="middle">Read-latch rule</text>
+  <text class="text" x="225" y="576" text-anchor="middle">first read returns the old latch</text>
+  <text class="text" x="225" y="604" text-anchor="middle">second read returns addressed data</text>
+  <text class="mono" x="225" y="632" text-anchor="middle">dummy read → useful read</text>
+</svg>

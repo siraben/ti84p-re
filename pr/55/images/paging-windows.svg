@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">TI-84 Plus logical memory windows in independent and paired mapping modes</title>
+  <desc id="desc">Two side-by-side stacks show the fixed 0000 to 3FFF window and the three banked 16 KiB windows. Independent mode uses ports 06, 07, and 05 separately. Paired mode uses port 06 for an even and odd page pair and port 07 for window C.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}.panel{fill:#fff;stroke:#94a3b8;stroke-width:2}.head{fill:#0f172a}.sub{fill:#334155}.label{fill:#0f172a;font:600 20px system-ui,sans-serif}.small{fill:#334155;font:16px system-ui,sans-serif}.mono{fill:#0f172a;font:600 17px ui-monospace,SFMono-Regular,Consolas,monospace}.title{fill:#0f172a;font:700 30px system-ui,sans-serif}.mode{fill:#fff;font:700 22px system-ui,sans-serif}.fixed{fill:#dbeafe;stroke:#2563eb;stroke-width:2}.banked{fill:#f1f5f9;stroke:#475569;stroke-width:2}.ram{fill:#dcfce7;stroke:#16a34a;stroke-width:2}.port{fill:#ede9fe;stroke:#7c3aed;stroke-width:2}.arrow{stroke:#475569;stroke-width:2.5;fill:none;marker-end:url(#arrow)}.dash{stroke-dasharray:7 6}.callout{fill:#f1f5f9;stroke:#64748b;stroke-width:1.5}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#475569"/></marker>
+  </defs>
+  <rect class="bg" width="1200" height="760" rx="18"/>
+  <text class="title" x="60" y="55">Four logical windows, two mapper interpretations</text>
+  <text class="small" x="60" y="85">The Z80 address selects a window; ASIC registers select the physical 16 KiB page behind it.</text>
+
+  <g transform="translate(60 120)">
+    <rect class="panel" width="510" height="550" rx="14"/>
+    <rect class="head" width="510" height="54" rx="14"/>
+    <rect class="head" y="38" width="510" height="16"/>
+    <text class="mode" x="255" y="35" text-anchor="middle">Independent mode · port 04 bit 0 = 0</text>
+
+    <g transform="translate(28 82)">
+      <rect class="fixed" width="280" height="82" rx="8"/>
+      <text class="mono" x="18" y="30">0000–3FFF · window 0</text>
+      <text class="label" x="18" y="60">Flash page 00 · fixed</text>
+      <rect class="port" x="330" y="16" width="125" height="50" rx="8"/>
+      <text class="mono" x="392" y="47" text-anchor="middle">fixed</text>
+    </g>
+    <g transform="translate(28 174)">
+      <rect class="banked" width="280" height="82" rx="8"/>
+      <text class="mono" x="18" y="30">4000–7FFF · window A</text>
+      <text class="small" x="18" y="59">Flash or RAM page</text>
+      <rect class="port" x="330" y="8" width="125" height="66" rx="8"/>
+      <text class="mono" x="392" y="34" text-anchor="middle">port 06</text>
+      <text class="small" x="392" y="58" text-anchor="middle">+ port 0E</text>
+      <path class="arrow" d="M330 41 H292"/>
+    </g>
+    <g transform="translate(28 266)">
+      <rect class="banked" width="280" height="82" rx="8"/>
+      <text class="mono" x="18" y="30">8000–BFFF · window B</text>
+      <text class="small" x="18" y="59">Flash or RAM page</text>
+      <rect class="port" x="330" y="8" width="125" height="66" rx="8"/>
+      <text class="mono" x="392" y="34" text-anchor="middle">port 07</text>
+      <text class="small" x="392" y="58" text-anchor="middle">+ port 0F</text>
+      <path class="arrow" d="M330 41 H292"/>
+    </g>
+    <g transform="translate(28 358)">
+      <rect class="ram" width="280" height="82" rx="8"/>
+      <text class="mono" x="18" y="30">C000–FFFF · window C</text>
+      <text class="small" x="18" y="59">RAM page 80 | (p05 &amp; 7)</text>
+      <rect class="port" x="330" y="16" width="125" height="50" rx="8"/>
+      <text class="mono" x="392" y="47" text-anchor="middle">port 05</text>
+      <path class="arrow" d="M330 41 H292"/>
+    </g>
+    <text class="small" x="28" y="518">Each banked window has an independent selector.</text>
+  </g>
+
+  <g transform="translate(630 120)">
+    <rect class="panel" width="510" height="550" rx="14"/>
+    <rect class="head" width="510" height="54" rx="14"/>
+    <rect class="head" y="38" width="510" height="16"/>
+    <text class="mode" x="255" y="35" text-anchor="middle">Paired mode · port 04 bit 0 = 1</text>
+
+    <g transform="translate(28 82)">
+      <rect class="fixed" width="280" height="82" rx="8"/>
+      <text class="mono" x="18" y="30">0000–3FFF · window 0</text>
+      <text class="label" x="18" y="60">Flash page 00 · fixed</text>
+      <rect class="port" x="330" y="16" width="125" height="50" rx="8"/>
+      <text class="mono" x="392" y="47" text-anchor="middle">fixed</text>
+    </g>
+    <g transform="translate(28 174)">
+      <rect class="banked" width="280" height="82" rx="8"/>
+      <text class="mono" x="18" y="30">4000–7FFF · window A</text>
+      <text class="small" x="18" y="59">port 06 page with bit 0 clear</text>
+      <rect class="port" x="330" y="45" width="125" height="82" rx="8"/>
+      <text class="mono" x="392" y="79" text-anchor="middle">port 06</text>
+      <text class="small" x="392" y="105" text-anchor="middle">adjacent pair</text>
+      <path class="arrow" d="M330 67 H292"/>
+    </g>
+    <g transform="translate(28 266)">
+      <rect class="banked" width="280" height="82" rx="8"/>
+      <text class="mono" x="18" y="30">8000–BFFF · window B</text>
+      <text class="small" x="18" y="59">same pair with bit 0 set</text>
+      <path class="arrow" d="M330 -1 C312 -1 312 41 292 41"/>
+    </g>
+    <g transform="translate(28 358)">
+      <rect class="banked" width="280" height="82" rx="8"/>
+      <text class="mono" x="18" y="30">C000–FFFF · window C</text>
+      <text class="small" x="18" y="59">page selected by port 07</text>
+      <rect class="port" x="330" y="16" width="125" height="50" rx="8"/>
+      <text class="mono" x="392" y="47" text-anchor="middle">port 07</text>
+      <path class="arrow" d="M330 41 H292"/>
+    </g>
+    <rect class="callout" x="28" y="462" width="454" height="62" rx="8"/>
+    <text class="small" x="44" y="488">Boot example: port 06 = 3F</text>
+    <text class="mono" x="44" y="513">A → Flash 3E · B → Flash 3F</text>
+  </g>
+
+  <g transform="translate(60 700)">
+    <rect class="fixed" width="22" height="22" rx="4"/><text class="small" x="32" y="18">fixed Flash</text>
+    <rect class="banked" x="160" width="22" height="22" rx="4"/><text class="small" x="192" y="18">banked Flash or RAM</text>
+    <rect class="ram" x="390" width="22" height="22" rx="4"/><text class="small" x="422" y="18">RAM-only selector</text>
+    <rect class="port" x="665" width="22" height="22" rx="4"/><text class="small" x="697" y="18">selector register</text>
+  </g>
+</svg>
