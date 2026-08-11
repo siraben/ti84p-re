@@ -34,6 +34,10 @@ The low two write bits are active-high drive controls. Setting a bit pulls that 
 | `2` | pull line 1 low | `1` |
 | `3` | pull both lines low | `0` |
 
+![Each link line has a pull-up and a low-side sink at either endpoint; the line is high only when both endpoints release it.](images/link-open-collector.svg)
+
+**Open-collector model.** The electrical contract is [standard]. OS 2.55MP's port values and bit order are [confirmed]; pull-up resistance, thresholds, and rise time remain [hypothesis] until measured.
+
 Let `L` be the local two-bit pull-low mask and `P` the peer mask. TilEm computes the physical high-line mask as:
 
 $$
