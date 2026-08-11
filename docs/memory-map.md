@@ -24,20 +24,26 @@ In this OS the system RAM variables all live at `8000+`, so the static RE model 
 | `00` | Boot/kernel core, mapped at `0000` | RST vectors, `bcall_dispatcher`, FP/VAT/mem routines [confirmed] |
 | `01` | OS routines (display, homescreen text, menus) | `_PutC`,`_PutS`,`_ClrLCDFull`,`_NewLine` resolve here [confirmed] |
 | `06` | OS routines (key input, parser-ish) | `_GetKey`→`06:491E` [confirmed] |
-| `2F` | USB boot support page | supplied by local `D84PBE2.8Xv`; retail page `3F` maps `_AttemptUSBOSReceive`→`2F:4145`, `_ReceiveOS_USB`→`2F:48CA`, `_InitUSB`→`2F:52A4`, `_KillUSB`→`2F:5961` [confirmed] |
+| `2F` | USB boot support page | validated local `D84PBE2.8Xv` supplies this page; retail page `3F` maps `_AttemptUSBOSReceive`→`2F:4145`, `_ReceiveOS_USB`→`2F:48CA`, `_InitUSB`→`2F:52A4`, `_KillUSB`→`2F:5961` [confirmed] |
 | `3B` | bcall jump table | highest-scoring page for the `0x4xxx` bcall ID table; first entry `_JErrorNo`→`00:2799` [confirmed] |
 | `3C` | Link code, archive GC, and OS version string (`"2.55MP"`) | page starts `32 2E 35 35 4D 50`; collector entry `3C:7733` [confirmed] |
 | `3E` | Two 8 KiB certificate sectors; the inactive half also carries the transactional GC journal | `_GetCertificateStart` (`8057`) and the GC command trace [confirmed] |
-| `3F` | Retail boot page | supplied by local `D84PBE1.8Xv`; starts `3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81`, contains boot version string `1.03`, and hosts the `0x8xxx` boot bcall table [confirmed] |
+| `3F` | Retail boot page | the patched base and validated local `D84PBE1.8Xv` contain the same page byte for byte; it starts `3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81`, contains boot version string `1.03`, and hosts the `0x8xxx` boot bcall table [confirmed] |
 
 Pages `01-3F` are loaded in Ghidra as overlays `page_01 … page_3F` (each at `4000`). Goto e.g. `01:5b4c` for `_PutC`.
 
 The assembled `tools/rom.bin` is the Ghidra build input. `tools/assemble_local_rom.py`
-starts with `ti84plus_patched.rom`, installs the `D84PBE2.8Xv` payload as page
-`2F`, and installs `D84PBE1.8Xv` as page `3F`. The page-`2F` and page-`3F`
-bodies above therefore decode directly from `rom.bin`. The resolver detects a
-BootFree input and omits retail targets if those two payloads have not been
-installed.
+starts with `ti84plus_patched.rom`, validates the complete TI AppVar containers,
+installs `D84PBE2.8Xv` as page `2F`, and installs `D84PBE1.8Xv` as page `3F`.
+The first installation changes 8,615 bytes; the second changes none because the
+base already has that exact page. The required SHA-256 identities are
+`90472848b5f56902287fd5d8b455e62d60e9ab054647c9a03c1c91a67fc1a95a`
+for the base and
+`7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d`
+for the result. These checks establish reproducible analysis inputs, not a
+physical-capture history. The page-`2F` and page-`3F` bodies above decode
+directly from `rom.bin`. The resolver detects a BootFree input and omits retail
+targets when the retail pages are absent.
 
 ## Key RAM regions (named & typed)
 

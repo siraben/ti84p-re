@@ -28,6 +28,7 @@ def instruction(**changes) -> ResolvedInstruction:
         "address": 0x8100,
         "flat_address": None,
         "page": None,
+        "physical_page": 1,
         "opcode": 0xE6,
         "af": 0,
         "bc": 1,

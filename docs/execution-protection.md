@@ -14,6 +14,9 @@ checks, but several boundary details still require physical measurement.
 | Retail boot page `3F` | protected writes, register values, and `_SetFlashLowerBound` behavior | [confirmed] |
 | Complete-ROM static I/O scan | one write each to ports `0x21`, `0x22`, `0x25`, and `0x26`; two writes to port `0x23`; no resolved port-`0x24` access | [confirmed] |
 | TilEm x4 and Wabbitemu source | two executable software models, including their disagreements | [standard] |
+| Guarded TilEm boundary traces | fetch, return, warning, and reset sequences at pages `07`, `08`, `29`, and `2A` | [confirmed] for the pinned emulator run |
+| Guarded Wabbitemu boundary runs | fetch, return, marker, and instrumented reset sequences at pages `07`, `08`, `09`, `29`, and `2A` | [confirmed] for the pinned emulator run |
+| Guarded RAM execution runs | chunk-edge and mode disagreements under pinned TilEm and Wabbitemu | [confirmed] for the pinned emulator runs |
 | WikiTI port pages | public inclusive-bound descriptions and the larger-device port-`0x24` extension | [standard] |
 | Physical TA2/TA3 behavior | lower-edge, reset, violation, and overlay details | [hypothesis] until measured |
 
@@ -125,6 +128,107 @@ can deny page 0 when port `0x22 = 0`; it raises an execution exception and lets
 the frontend handle it. These custom-bound and post-violation behaviors remain
 physical test cases. [standard]
 
+### Guarded TilEm boundary trace
+
+A controlled fixture tests both sides of the boot interval rather than
+inferring runtime behavior from source alone. Each derived ROM changes only six
+erased bytes at target `pp:7FF0` to this marker routine:
+
+```z80
+ld a,pp
+ld (0x8478),a
+ret
+```
+
+The 75-byte assembly program at `ram:9D95` first reads those six bytes as data
+and compares them with its embedded signature. It then seeds `0x8478`, maps
+the target page, and executes `CALL 0x7FF0` at `ram:9DBD`. A mismatch returns
+without attempting the fetch. The fixture builder requires the exact complete
+ROM hash, verifies that the patched span was `FF FF FF FF FF FF`, and writes a
+new ROM copy rather than modifying `tools/rom.bin`.
+
+The pinned headless TilEm run produced these control-flow sequences. Clock
+deltas are relative to the `CALL`; absolute clocks include UI launch timing.
+[confirmed]
+
+| Page | Recorded sequence after `ram:9DBD` | TilEm warning count | Outcome |
+|------|-------------------------------------|--------------------:|---------|
+| `07` | `07:7FF0` at +8, `07:7FF2` at +23, return `ram:9DC0` at +47 | 0 | returned |
+| `08` | attempted `08:7FF0` at +8, reset entry at +15; no `08:7FF2` or return | 1 | violation reset |
+| `29` | attempted `29:7FF0` at +8, reset entry at +15; no `29:7FF2` or return | 1 | violation reset |
+| `2A` | `2A:7FF0` at +8, `2A:7FF2` at +23, return `ram:9DC0` at +47 | 0 | returned |
+
+TilEm records the denied target's first opcode-fetch address before its main
+loop services the pending execution exception. It does not advance to the
+marker store at `pp:7FF2`; the next record is logical `0x8000`, followed by the
+retail reset stub's mapping writes and boot continuation. The first post-reset
+record is resolved with stale pre-reset mapper state because TLMT has no
+explicit internal-reset event, so the classifier uses the logical `0x8000`
+transition and the subsequent reset-stub sequence.
+
+The machine-code and trace identities were: [confirmed]
+
+| Page | Probe SHA-256 | Trace SHA-256 |
+|------|--------------|---------------|
+| `07` | `87c11964b6cf67624b2eff46e1a962c56f1684dd48db931a5cb68e08c1b84b4e` | `250cc9d2b8b3c85f5edb6391e847993e27e6c308c4a70d62dd5cfc8168af8e68` |
+| `08` | `ddd023d522d301315c0f4929f348499faca08c708e96c1333bf85e32505f9534` | `f9c1f142430aafc47b514ef220a707be01de02678e6cd22fcb1f6e5fb024eeac` |
+| `29` | `f671bdb62e6bad19f33402eb919e70631cf7cc8f00b9f7f52114d052f86cea78` | `ee3dac7ec1843c2a82ee321c0a3a16c95bc5898d3c70fb97296127dbf2020007` |
+| `2A` | `d5f72f96562ef5e96f4ddaa12954548d210650d9ca6bec365f75f1bb6f3bad1b` | `b9db26bc7ef69d97907118d0124213603632d9e2f3d9ebb56680b87d8644636d` |
+
+This dynamically confirms the inclusive `08`–`29` interval and reset policy
+implemented by this TilEm build. It does not decide the physical page-`08`
+boundary or validate Wabbitemu's lower-exclusive model. [confirmed] for TilEm;
+[hypothesis] for the physical lower edge and violation response.
+
+### Guarded Wabbitemu boundary run
+
+The pinned Wabbitemu core executed the same six-byte ROM markers and 75-byte
+RAM probes. The native adapter first cold-boots the fixture ROM. It waits until
+the retail boot establishes `0x08`, `0x29`, `0x4000`, and `0x83FF` as the Flash
+and RAM bounds. It also requires mode 0 and relocked Flash. Every run reached
+this state after
+134,845 instructions and 1,746,999 T-states at `3F:4223`. [confirmed] for the
+pinned emulator run.
+
+The adapter then maps physical RAM page 1 at `0x8000`, copies the probe to
+`ram:9D95`, verifies the complete copy through the logical mapping, and sets
+`PC=0x9D95`. This is a direct emulator-core injection, not an OS variable or UI
+launch. An execution-violation callback counts the event and calls the same
+`CPU_reset` function used by Wabbitemu's callback-free path. [confirmed] for the
+harness behavior.
+
+The native core produced these sequences: [confirmed]
+
+| Page | Sequence from `ram:9DBD` | Probe instructions | Marker | Outcome |
+|------|---------------------------|-------------------:|-------:|---------|
+| `07` | `07:7FF0`, `07:7FF2`, return `ram:9DC0` | 54 | `07` | returned |
+| `08` | `08:7FF0`, `08:7FF2`, return `ram:9DC0` | 54 | `08` | returned |
+| `09` | attempted `09:7FF0`; no `09:7FF2` or return; one reset | 52 | `A0` | violation reset |
+| `29` | attempted `29:7FF0`; no `29:7FF2` or return; one reset | 52 | `A0` | violation reset |
+| `2A` | `2A:7FF0`, `2A:7FF2`, return `ram:9DC0` | 54 | `2A` | returned |
+
+The probe seeds the marker with `A0` immediately before the call. The denied
+pages therefore show that the marker store at `pp:7FF2` did not execute. Page
+`08` returns while page `09` resets, dynamically distinguishing Wabbitemu's
+lower-exclusive interval from TilEm's inclusive interval. This establishes the
+pinned emulator's behavior only. The physical lower edge and violation state
+remain unmeasured. [confirmed] for Wabbitemu; [hypothesis] for hardware.
+
+The native binary SHA-256 is
+`07d56ac311cc6726d95f0e76987ce34af8814d07bcf1528f6b25375c083489f2`.
+It was built from pinned Wabbitemu commit `48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422`
+and source-tree SHA-256
+`a8a4f97fc7952770bed317b4a477f80345894da38d14fad8f0bf0ee60aae71ba`.
+The derived fixture identities were: [confirmed]
+
+| Page | Fixture ROM SHA-256 | Probe SHA-256 |
+|------|---------------------|---------------|
+| `07` | `ed2372b459cddd89deea6a27d00cd6f757d612c4f63db4feaf134665ad2e78cf` | `87c11964b6cf67624b2eff46e1a962c56f1684dd48db931a5cb68e08c1b84b4e` |
+| `08` | `b0d32c8f3af1f87c8fce8f7966ab45d588a8ed42ed9ce7708de38b4d7dc57934` | `ddd023d522d301315c0f4929f348499faca08c708e96c1333bf85e32505f9534` |
+| `09` | `7f2443e3aecceaa8c1ad60e0de4e2316caad3d17802ec3a719567a05e25a244c` | `f121bae475d56947bec80090bb3047fab478cc86db4dec897e4161f78df14584` |
+| `29` | `1590ddf2681c3636e119df3759909c43b62a49a9dbc74f5a4f00d6500ae9017d` | `f671bdb62e6bad19f33402eb919e70631cf7cc8f00b9f7f52114d052f86cea78` |
+| `2A` | `1ee90aef8e9795ef56b668ae36560ad6a4c99938055cd0e5763b930b0f585d2a` | `d5f72f96562ef5e96f4ddaa12954548d210650d9ca6bec365f75f1bb6f3bad1b` |
+
 ## RAM instruction fetches
 
 TilEm x4 reduces a physical RAM byte offset $a$ to a 1 KiB chunk address. For
@@ -190,6 +294,91 @@ not its page shortcut. Its mode-2 and mode-3 coverage happens to match TilEm
 within 128 KiB under these bounds. The source arithmetic still differs for
 other RAM sizes and bound values. These implementation results are not ASIC
 evidence.
+
+Wabbitemu stores `ram_lower` and `ram_upper` as 16-bit unsigned fields. Its
+port handlers multiply the 8-bit port value by `0x400` before assigning those
+fields. Values `0x40`–`0xFF` therefore wrap modulo `0x10000`. For example,
+writing `0x40` to both ports produces the implemented interval
+`0x0000`–`0x03FF`, not `0x10000`–`0x103FF`. TilEm retains the wider products.
+[standard] for the emulator sources; [hypothesis] for physical high-value
+behavior.
+
+### Guarded RAM execution runs
+
+Two guarded runners exercise the predicates through opcode fetches. Both use a
+six-byte target routine that stores a case marker at `0x8478` and returns. The
+source program reads back all six target bytes before it seeds `0x8478` with
+`0xA0` and calls the target. A returned case records its case marker. A denied
+case retains `0xA0`, omits the target store at logical target +2, and records
+one reset. [confirmed] for the pinned emulator runs.
+
+The Wabbitemu adapter cold-boots the exact ROM through the retail protection
+sequence. It then configures the requested RAM fields and injects the guarded
+source at physical RAM page 1, `ram:9D95`, plus the target routine. This is a
+direct emulator-core injection. Every default-bound case reached the baseline
+at `3F:4223` after 134,845 instructions and 1,746,999 T-states. Returned cases
+executed 47 injected instructions; denied cases reset on instruction 45.
+[confirmed]
+
+The TilEm runner changes only the immediate byte at `3F:41D6` when it selects
+a nonzero mode. Mode 1 changes that byte from `0x00` to `0x10`; the derived ROM
+SHA-256 is
+`47b38fa0fd747529dea85d4fe54d24bafdadeee29c8ade82014f4452ef52699f`.
+The OS launches a self-installing assembly program through the normal variable
+and UI path. The program writes the marker through data accesses before the
+guarded call. [confirmed]
+
+The runtime comparison produced these boundary results: [confirmed]
+
+| Mode | Physical target | TilEm | Wabbitemu | Predicate detail |
+|-----:|-----------------|-------|------------|------------------|
+| 0 | page `0x82`, offset `0x03F0` | violation reset | returned | Wabbitemu includes page-2 chunk 0 through its global range; TilEm's mode-0 mask maps it below the lower bound |
+| 0 | page `0x82`, offset `0x0400` | violation reset | violation reset | first target in chunk 1 |
+| 1 | page `0x82`, offset `0x03F0` | returned | returned | target lies wholly inside chunk 0 |
+| 1 | page `0x82`, offset `0x0400` | violation reset | violation reset | first target in chunk 1 |
+| 1 | page `0x85`, offset `0x3FF0` | returned | violation reset | TilEm repeats the full-page window after 64 KiB; Wabbitemu uses one global range |
+| 1 | page `0x86`, offset `0x03F0` | returned | violation reset | TilEm repeats the page-2 upper chunk after 64 KiB; Wabbitemu uses one global range |
+
+The TilEm target fetch occurs seven clocks after each `CALL`. Allowed marker
+routines return 44 clocks after the call. Denied targets reset seven clocks
+after the attempted fetch. Wabbitemu's callback records the violation and
+invokes the same `CPU_reset` function as its callback-free path. Timing between
+the two runners is not compared because the Wabbitemu harness reports
+instruction counts, not a TLMT clock trace.
+
+The other Wabbitemu cases cover all four modes under the boot bounds:
+[confirmed]
+
+| Mode | Returned targets | Violation-reset targets |
+|-----:|------------------|-------------------------|
+| 0 | page `0x81` offset `0x3FF0`; page `0x82` offset `0x03F0`; page `0x83` offset `0x3FF0` | page `0x82` offset `0x0400`; page `0x84` offset `0x0000` |
+| 1 | page `0x81` offset `0x3FF0`; page `0x82` offset `0x03F0` | page `0x82` offset `0x0400`; page `0x85` offset `0x3FF0`; page `0x86` offset `0x03F0` |
+| 2 | page `0x81` offset `0x3FF0`; page `0x82` offset `0x03F0` | page `0x82` offset `0x0400`; page `0x83` offset `0x0000` |
+| 3 | page `0x81` offset `0x3FF0`; page `0x82` offset `0x03F0` | page `0x82` offset `0x0400`; page `0x83` offset `0x0000` |
+
+A separate Wabbitemu run configured both chunk ports to `0x40`. The native
+report recorded the wrapped bounds `0x0000`–`0x03FF`. Mode-0 page `0x80`,
+offset `0x0000`, returned; page `0x82`, offset `0x0000`, reset. The first result
+comes from the wrapped global interval. The second lies outside it and has no
+odd-page shortcut. [confirmed] for Wabbitemu; [hypothesis] for hardware.
+
+The pinned identities for the cross-emulator cases were:
+
+| Mode and target | TilEm probe SHA-256 | TilEm trace SHA-256 | Wabbitemu probe SHA-256 |
+|-----------------|---------------------|---------------------|-------------------------|
+| mode 0, `0x82+0x03F0` | `a0853c1ea1f900a7b8b4c26d1091e5696265b993a214d20836c182743ae330c3` | `0bde946b277f0c3fe7c6040931ea1df6c265aa11d4fad6394cfeea5955dfe18b` | `783d757f767b0d89df7c68881413e0cb47a6652da2c94829f90972e3eb2a64cb` |
+| mode 0, `0x82+0x0400` | `9f82e2df6960cc6e0658c1db4b19e755bd544105be73fa476f8b17e34527a116` | `66853fc88e6a934577f1e70916df012f77e02ea7ab7e77b2caa4a9cda0a5e602` | `d068ef192978d9fbddada76d6f55320263315ad2b3344e64751cc33f9aa58d5f` |
+| mode 1, `0x82+0x03F0` | `7ef4086cf9fe4e938215cf3592435d13fcd0874a239e58fbdc50c78719531ff2` | `31601907572c2060adaa76d2031a138e225a5e73bdc8f84c50505178e1e871ee` | `f0843119d9a19ab5f5578f61160a8cb5ce723d12ed2b3ea13a5d9cdfc8857ce7` |
+| mode 1, `0x82+0x0400` | `1531839a1d11895ad14ddada9974da4c307eb1ba09b5b660b3f1858bf2659a7f` | `8a9ded0bb3479a86587579ae647a4c2604689f3f0dea9beba96b7fb1117415a9` | `d2ba9523c63f7645f61cfad45677b9afc3bc47a64b251f2d8f3daafadc8525b0` |
+| mode 1, `0x85+0x3FF0` | `4996653aca01db9c7ce67d7a367810cf4a07ee42fa65991920232a81d6b3074c` | `a76f11d993e1b5cf6e19feca1af4321637670a9f1c7f5232159096ea2ba0839f` | `857a38aa6ccf163ebac779c775d812e9ad9df844c870a9bbc42fdad7932da959` |
+| mode 1, `0x86+0x03F0` | `8851278b8f3b54b7a7e7a0ff206b03f98bbec6528a3d705598a054dcf5f501a0` | `e976f06992278db20f1b00c6faf2caf4140d7635de1af180f6491d103e0719ce` | `3c989491f4031cfac972cd72af55824d6a1ca8f384315ac3fbbd5ed0ad15a3c0` |
+
+The TilEm assembly source SHA-256 is
+`eafb257ff0190bfa8417269c981ab0ff94508e92a31b716c01814b0afe4bb2ca`.
+The Wabbitemu assembly source SHA-256 is
+`e21fe4374eec887b4877ad27ccb77dd458dcb38c24e48cb167ebb1438fc8d43c`.
+These runs establish emulator behavior only. Physical mode repetition,
+high-value wrapping, chunk endpoints, and reset state remain open measurements.
 
 ## Port `0x24` larger-device extension
 
@@ -281,6 +470,61 @@ Use `--json` for machine-readable output. Custom `--lower`, `--upper`,
 `--mode`, and `--ram-pages` values expose boundary cases without modifying an
 emulator.
 
+The guarded trace runner builds all four boundary fixtures in a fresh output
+directory, runs them, and rejects a classification that disagrees with the
+TilEm predicate:
+
+```sh
+probe_parent=$(mktemp -d)
+nix develop -c python tools/run_execution_protection_probe.py \
+  --tilem "$TILEM" --output-dir "$probe_parent/run" --json
+```
+
+`tools/execution_protection_fixture.py` holds the exact-ROM patching,
+machine-code validation, reusable assembler entry point, packaging, and trace
+classifier. The CLI retains each derived ROM, program pair, log, trace, and a
+hash-complete `manifest.json` in the requested directory.
+
+The Wabbitemu CLI uses the same fixture library and adds page `09` to
+distinguish the two lower-edge predicates:
+
+```sh
+wabbit_probe_parent=$(mktemp -d)
+nix develop -c python tools/run_wabbitemu_execution_probe.py \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_probe_parent/run" --json
+```
+
+It refuses an existing output directory. Each native report must contain the
+boot-register snapshot, exact injection mapping, call and target visit counts,
+marker value, reset count, fixture hashes, and native-binary hash.
+
+The RAM runners accept repeatable `MODE:PHYSICAL_PAGE:PAGE_OFFSET` targets.
+Their defaults cover the cross-emulator disagreements and all Wabbitemu modes:
+
+```sh
+tilem_ram_parent=$(mktemp -d)
+nix develop -c python tools/run_tilem_ram_execution_probe.py \
+  --tilem "$TILEM" --output-dir "$tilem_ram_parent/run" --json
+
+wabbit_ram_parent=$(mktemp -d)
+nix develop -c python tools/run_wabbitemu_ram_execution_probe.py \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_ram_parent/run" --json
+```
+
+The Wabbitemu CLI also accepts custom `--lower-chunk` and `--upper-chunk`
+values. The `0x40` wrap case is reproducible with:
+
+```sh
+wrap_parent=$(mktemp -d)
+nix develop -c python tools/run_wabbitemu_ram_execution_probe.py \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wrap_parent/run" \
+  --lower-chunk 0x40 --upper-chunk 0x40 \
+  --target 0:0:0 --target 0:2:0 --json
+```
+
 The boot bytes can be recovered independently:
 
 ```console
@@ -294,18 +538,28 @@ $ python tools/analyze_rom_io.py 0x21 0x22 0x23 0x24 0x25 0x26 --summary
   `0x23`, `0x25`, and `0x26` through protected byte sequences. [confirmed]
 - `_SetFlashLowerBound` writes port `0x23`, despite its official name.
   [confirmed]
-- TilEm denies the inclusive Flash interval. Wabbitemu allows its programmed
-  lower page. [standard]
+- TilEm denies the inclusive Flash interval. Four guarded TilEm traces execute
+  pages `07` and `2A` and reset on attempted fetches from pages `08` and `29`.
+  Wabbitemu allows its programmed lower page: guarded native runs execute pages
+  `07`, `08`, and `2A` and reset on attempted fetches from pages `09` and `29`.
+  [standard] for the source comparison; [confirmed] for the pinned emulator
+  runs.
 - TilEm applies a repeating RAM mask and inclusive 1 KiB chunk bounds.
-  Wabbitemu's modes 1–3 omit the intended page shortcut. [standard]
+  Wabbitemu's modes 1–3 omit the intended page shortcut and its 16-bit fields
+  wrap high chunk values. Guarded runs exercise the mode-0 extra chunk, both
+  mode-1 repetition disagreements, the common chunk edge, all four Wabbitemu
+  modes, and the `0x40` wrap case. [standard] for source behavior; [confirmed]
+  for the pinned emulator runs.
 - The retail ROM has no statically resolved port-`0x24` access. [confirmed]
 
 Physical tests must determine whether page `0x08` executes, what exception or
 reset state follows a violation, and whether lower-greater-than-upper disables
-each protection range. Tests should also sweep all 1 KiB RAM boundaries in all
-four modes, repeat them with ports `0x27` and `0x28` active, and record the
-register state after warm and cold resets. Until then, emulator agreement is
-only a test oracle for emulator behavior.
+each protection range. The [read-only physical fetch
+suite](hardware-probes.md#execution-protection-fetch-probes) prepares the
+retail-mode Flash edge and RAM chunk tests. Tests should also sweep all 1 KiB
+RAM boundaries in all four modes, repeat them with ports `0x27` and `0x28`
+active, and record the register state after warm and cold resets. Until then,
+emulator agreement is only a test oracle for emulator behavior.
 
 ## Sources
 
@@ -314,6 +568,7 @@ only a test oracle for emulator behavior.
 | OS 2.55MP and boot 1.03 ROM, especially `3F:41D5`–`4206` and `3F:4784`–`478C` | protected writes and bcall body |
 | [TilEm x4 memory model at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c) | Flash and RAM fetch predicates |
 | [TilEm x4 I/O model at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) | protected register writes and mask updates |
+| Headless TilEm fork at `8da54573ac49fe271fa22c60924b4c6a7cb9639f` | boundary execution traces; binary SHA-256 `1c1f7dbe04fe074c2b9aca1657d0eb5ac5cfd1f7cbd480725eb7fb39b8126f33`, `x4_memory.c` SHA-256 `ddaa1e45330e3e4ad49486bd5c3675a0a0dff01bfda4d01817ba3387e309ac89` |
 | [TilEm xc memory model at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/xc/xc_memory.c) | port-`0x24` high-bound bits |
 | [Wabbitemu `core.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c) | Flash and RAM fetch predicates |
 | [Wabbitemu `device.c` at `48c2dc0`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/device.c) | global protected-port write gate |

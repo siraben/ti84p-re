@@ -7,7 +7,13 @@ import argparse
 import json
 from pathlib import Path
 
-from wabbitemu_headless import WabbitemuHeadlessError, file_sha256, run_headless
+from wabbitemu_headless import (
+    WabbitemuHeadlessError,
+    file_sha256,
+    parse_gate_write,
+    run_headless,
+    validate_retail_flash_path,
+)
 
 
 def positive_count(value: str) -> int:
@@ -23,6 +29,14 @@ def main() -> None:
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--expected-input-sha256")
+    parser.add_argument("--expected-output-sha256")
+    parser.add_argument(
+        "--expect-gate-write",
+        action="append",
+        default=None,
+        help="require this exact ordered native gate-write event; repeat as needed",
+    )
+    parser.add_argument("--require-retail-flash-path", action="store_true")
     parser.add_argument("--max-steps", type=positive_count, default=200_000_000)
     parser.add_argument("--min-steps", type=positive_count, default=20_000_000)
     parser.add_argument("--sample-interval", type=positive_count, default=1_000_000)
@@ -45,6 +59,11 @@ def main() -> None:
                 raise WabbitemuHeadlessError(
                     f"input SHA-256 is {actual}; expected {expected}"
                 )
+        expected_gate_writes = (
+            None
+            if args.expect_gate_write is None
+            else tuple(parse_gate_write(value) for value in args.expect_gate_write)
+        )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         report = run_headless(
             args.binary,
@@ -55,6 +74,20 @@ def main() -> None:
             sample_interval=args.sample_interval,
             settle_samples=args.settle_samples,
         )
+        if args.expected_output_sha256:
+            expected = args.expected_output_sha256.casefold()
+            if report.output_sha256 != expected:
+                raise WabbitemuHeadlessError(
+                    f"output SHA-256 is {report.output_sha256}; expected {expected}"
+                )
+        if expected_gate_writes is not None and report.gate_writes != expected_gate_writes:
+            actual = ",".join(write.native_text() for write in report.gate_writes)
+            expected = ",".join(write.native_text() for write in expected_gate_writes)
+            raise WabbitemuHeadlessError(
+                f"gate writes are {actual or '-'}; expected {expected or '-'}"
+            )
+        if args.require_retail_flash_path:
+            validate_retail_flash_path(report)
     except WabbitemuHeadlessError as error:
         parser.error(str(error))
     payload = {

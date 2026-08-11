@@ -33,12 +33,12 @@ No Flash-App headers (`80 0F`) appear at any page boundary; the image is OS-only
 | Page | Verified contents |
 |------|-------------------|
 | `08-2E`, `30-32` | Blank/unused in this OS image — 100% `0xFF` in `tools/rom.bin`. No app headers. |
-| `2F` | Retail USB boot support installed from `D84PBE2.8Xv`. The page-`3F` boot table maps `_AttemptUSBOSReceive`, `_ReceiveOS_USB`, `_USBErrorCleanup`, `_InitUSB`, and `_KillUSB` here; `tools/rom.bin` contains the payload and `tools/bcalls8x_targets.txt` records their bodies. |
+| `2F` | Retail USB boot support installed from the checksum- and hash-validated local `D84PBE2.8Xv`. This installation changes 8,615 bytes of the pinned base. The page-`3F` boot table maps `_AttemptUSBOSReceive`, `_ReceiveOS_USB`, `_USBErrorCleanup`, `_InitUSB`, and `_KillUSB` here; `tools/rom.bin` contains the payload and `tools/bcalls8x_targets.txt` records their bodies. [confirmed] |
 | `34-39` | More OS code (parser scan, USB, graph/mode/menu, RTC); fill 0.2–17% `0xFF`. |
 | `3B` | **bcall jump table** — starts `99 27 00` = entry 0 (`_JErrorNo`→`ram:2799`). |
 | `3C` | Link code, archive garbage collection, and the OS version string — page starts with ASCII `32 2E 35 35 4D 50` = `"2.55MP"`; `archive_gc_collect` is at `3C:7733`. |
 | `3E` | **Certification page and GC journal** — two physical 8 KiB sectors. `_GetCertificateStart` (bcall `8057`) selects the active half; `_GetCertificateEnd` (`802D`) bounds it; `_FindFirstCertField` (`8027`) and `_FindNextCertField` (`8078`) walk TLV fields. GC transactionally copies the used tail through the inactive half and stores phase bytes near its end. [confirmed] for the ROM and GC trace. |
-| `3F` | **Retail boot page** — supplied by local `D84PBE1.8Xv`; starts `3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81`, carries boot version `1.03`, and hosts the `0x8xxx` boot bcall table. Boot/hardware-version bcalls now resolve to `_getBootVer` `3F:477C` (`0x80B7`) and `_getHardwareVersion` `3F:4781` (`0x80BA`). |
+| `3F` | **Retail boot page** — the pinned base already matches the checksum- and hash-validated local `D84PBE1.8Xv` payload byte for byte; starts `3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81`, carries boot version `1.03`, and hosts the `0x8xxx` boot bcall table. Boot/hardware-version bcalls resolve to `_getBootVer` `3F:477C` (`0x80B7`) and `_getHardwareVersion` `3F:4781` (`0x80BA`). [confirmed] |
 
 The large-font glyph table is on page `0x07` (see [Display and LCD](display-lcd.md#large-font-text)). Alternate large fonts live on pages `0x01` and `0x36` (selected by `IY+0x35` bits 5 and 1). Page `0x07` is the busiest data page: archive code, list and matrix code, error messages, and the large font. [confirmed]
 

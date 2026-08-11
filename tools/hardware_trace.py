@@ -58,6 +58,7 @@ class ResolvedInstruction:
     address: int
     flat_address: int | None
     page: int | None
+    physical_page: int | None
     opcode: int
     af: int
     bc: int
@@ -280,6 +281,7 @@ def iter_resolved_instructions(
         for record_type, payload in iter_records(fp, resync=resync):
             if record_type != 0x01:
                 continue
+            physical_kind, physical_page = banker.mapped_address(payload[IDX_PC])
             (space, address, flat_address, page), _switch = resolve_instruction(
                 banker, payload
             )
@@ -291,6 +293,11 @@ def iter_resolved_instructions(
                 address=address,
                 flat_address=flat_address,
                 page=page,
+                physical_page=(
+                    physical_page & 0x7F
+                    if physical_kind == "ram" and physical_page is not None
+                    else None
+                ),
                 opcode=payload[IDX_OPCODE],
                 af=payload[IDX_AF],
                 bc=payload[IDX_BC],

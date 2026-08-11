@@ -99,6 +99,11 @@ class ExecutionProtectionTests(unittest.TestCase):
         self.assertTrue(wabbitemu_ram_execution_allowed(2, 0x3FF, 3, 0x10, 0x20))
         self.assertFalse(wabbitemu_ram_execution_allowed(2, 0x400, 3, 0x10, 0x20))
 
+    def test_wabbitemu_high_chunk_ports_wrap_to_16_bits(self):
+        self.assertTrue(wabbitemu_ram_execution_allowed(0, 0, 3, 0x40, 0x40))
+        self.assertTrue(wabbitemu_ram_execution_allowed(0, 0x3FF, 3, 0x40, 0x40))
+        self.assertFalse(wabbitemu_ram_execution_allowed(4, 0, 3, 0x40, 0x40))
+
     def test_wabbitemu_default_page_coverage_matches_source_arithmetic(self):
         for mode in range(4):
             with self.subTest(mode=mode):

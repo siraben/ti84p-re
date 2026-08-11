@@ -11,7 +11,7 @@ The mechanisms below use several evidence sources. A claim marked [confirmed] co
 | Layer | Main evidence | What it establishes |
 |-------|---------------|---------------------|
 | TI-OS and boot code | `tools/rom.bin`, especially `3D:61AF`–`3D:6BC4` and `3F:4784`–`3F:4E56` | bcall ABI, guards, RAM workers, archive allocation, and status handling [confirmed] |
-| Dynamic execution | archive and `GCFLASH` macro fixtures plus resolved TilEm traces | normal archive writes, GC sector ordering, register values, page selection, and successful returns [confirmed] |
+| Dynamic execution | archive and `GCFLASH` TilEm traces plus guarded Wabbitemu runs | ROM worker paths, GC sector ordering, execution limits, and native command-state behavior [confirmed] for the pinned emulator runs |
 | ASIC model | TilEm `x4_memory.c`, `x4_io.c`, and `x4_init.c` | protected-byte recognizer, port gates, execution limits, and modeled sector protection [standard] |
 | Flash device | Datamath's March 2004 board photograph and Fujitsu `MBM29LV800TA` data sheet | observed package marking, sector geometry, command cycles, DQ status semantics, and rated limits [standard] |
 | Emulator comparison | pinned TilEm, Wabbitemu, and MAME source | modeled command decode, mutation rules, status reads, timing, and missing ASIC gates [standard] |
@@ -187,8 +187,9 @@ includes both endpoints, while Wabbitemu allows the lower page. The retail boot
 writes `0x08` and `0x29`. Ports `0x25` and `0x26` bound executable RAM in 1 KiB
 units. Both emulators accept writes to these protected ports only while Flash
 is unlocked. See [Execution protection](execution-protection.md) for the ROM
-sequence, exact equations, and unresolved physical boundaries. [confirmed] for
-the boot values; [standard] for the emulator behavior.
+sequence, exact equations, guarded Flash and RAM execution runs, and unresolved
+physical boundaries. [confirmed] for the boot values and pinned emulator runs;
+[standard] for the source models.
 
 These execution limits explain why the byte-poke loops run at `ramCode` (`0x8100`). They are distinct from the Flash chip's inability to provide ordinary array data while a program or erase operation is active. [confirmed] for the RAM workers; [standard] for the execution controls.
 
@@ -349,9 +350,10 @@ and `0x555`. [confirmed] for the ROM addresses; [standard] for device decoding.
 After `LDI` writes a byte and advances `HL`, `DE`, and `BC`, the worker steps back to compare the programmed byte with the target read: [confirmed]
 
 1. XOR source and target, then test bit 7. Equal DQ7 means the byte completed.
-2. If DQ7 differs, read target DQ5. Clear DQ5 means keep polling.
-3. If DQ5 is set, read and compare DQ7 once more.
-4. A second DQ7 mismatch takes the failure path.
+2. If DQ7 differs, restore that same target byte and test its DQ5 bit.
+3. Clear DQ5 repeats the first target read.
+4. Set DQ5 causes one final target read and DQ7 comparison.
+5. A second DQ7 mismatch takes the failure path.
 
 This is the algorithm in Fujitsu figure 22. During programming, DQ7 returns the
 complement of the requested data bit until completion. DQ5 indicates an
@@ -840,6 +842,17 @@ finds 20 `_WriteFlashUnsafe` (`8087`) candidates and three `_WriteFlash`
 | `3C` | `630E=8000`, `6AA0=82A5`, `6AF5=983A` |
 | `3D` | `436C=8478`, `4670=9C9E`, `5050=82A5`, `5852=8000`, `58ED=8478`, `5926=8478`, `5CBA=83A5`, `6522=83F9`, `6578=8478`, `65BA=(83F3)`, `6A23=83FD`, `6A39=8402`, `6AA6=8000`, `6ACE=8000`, `718C=8000+offset`, `71E1=8479`, `7201=8000`, `7ABB=8479`, `7B72=983A` |
 
+The page-`3C` site at `3C:6AF5` is `_WriteFlash` (`80C9h`). The
+`flush_paged_flash_block` caller at `3C:6AB1` loads `HL=0x983A`, `B=0`, and
+`C=(0x9834)` after opening the port-`0x14` gate. It accepts model-dependent
+pages only after the classifier at `3C:6B79`; the TI-84 Plus range is
+`0x08`–`0x29`. The link receiver reaches this staging path only when the
+destination loaded at `3C:42AB` has bit 15 clear. RAM destinations take the
+direct store at `3C:42D4`. The second mode-`3` owner is the USB
+receive-to-memory loop at `36:40E7`. It fills `0x983A` through the page-35
+endpoint helper at `35:4FA1`, which reads port `0xA1` at `35:500E`, then calls
+the page-`3C` dispatcher at `36:415C`. [confirmed]
+
 At `3D:65BA`, the source is `arcInfo.destPtr`. Setup at `07:6331` saves the
 incoming data pointer from the variable lookup in that field. It is a RAM data
 pointer on the RAM-to-Flash path; the Flash-to-RAM path later replaces it at
@@ -1300,29 +1313,115 @@ Successful programming returns to array mode immediately. [standard]
 An illegal `0→1` request sets an error flag. The next read returns complemented
 DQ7, set DQ5, and its current DQ6 toggle bit. That same read clears the error
 flag, so later reads return array data. This one-read lifetime is Wabbitemu
-behavior, not the hardware data-sheet polling contract. It can interact with
-the ROM worker's separate DQ7 and DQ5 reads in ways that depend on the stored
-byte. [standard]
+behavior, not the hardware data-sheet polling contract. The ROM worker tests
+DQ7 and DQ5 in that same first byte. [standard] for Wabbitemu source;
+[confirmed] for the ROM worker.
 
-The pinned Wabbitemu source and the ROM worker produce four paths. The first
-ROM read consumes Wabbitemu's error status. The worker's separate DQ5 read then
-sees the stored array byte because the error flag is already clear. This table
-models emulator source combined with the byte-confirmed ROM poll logic; it does
-not describe physical Flash behavior. [standard] for Wabbitemu; [confirmed] for
-the ROM poll logic.
+A guarded native run exercises seven byte pairs through Wabbitemu's
+`CPU_mem_write` and `CPU_mem_read` entry points. Each case issues `AA 55 A0`,
+programs page `08` offset `0x0100`, and reads the target twice. The harness
+unlocks the in-memory ASIC gate directly and replaces the target's initial byte
+before the command. It does not execute the retail ROM worker. [confirmed] for
+the pinned Wabbitemu run.
 
-| Program request | Stored-byte condition | ROM result |
-|-----------------|-----------------------|------------|
-| legal | `stored = requested` | succeeds on the first array read |
-| illegal `0→1` outside DQ7 | stored DQ7 matches requested DQ7 | succeeds even though at least one requested bit remains zero |
-| illegal DQ7 `0→1` | stored DQ5 is set | fails after the final DQ7 read |
-| illegal DQ7 `0→1` | stored DQ5 is clear | repeats the DQ7/DQ5 reads without terminating |
+| Initial | Requested | Initial DQ6 | Stored | First read | Second read |
+|--------:|----------:|------------:|-------:|-----------:|------------:|
+| `FF` | `50` | `00` | `50` | `50` | `50` |
+| `50` | `40` | `00` | `40` | `40` | `40` |
+| `80` | `00` | `00` | `00` | `00` | `00` |
+| `50` | `D0` | `00` | `50` | `20` | `50` |
+| `50` | `D0` | `40` | `50` | `60` | `50` |
+| `00` | `80` | `00` | `00` | `20` | `00` |
+| `00` | `01` | `00` | `00` | `A0` | `00` |
+
+The first three requests are legal and expose array data immediately. The four
+illegal requests set the error flag after programming `initial & requested`.
+Their first read clears that flag and flips DQ6. Their second read exposes the
+stored byte. All seven cases return to `FLASH_READ`; the initialized adapter
+adds zero T-states for these accesses, so this run provides no timing evidence.
+[confirmed] for the pinned Wabbitemu run.
+
+The native binary SHA-256 is
+`67077107b604e97cfb751cadf4392dca53d00d5bbc417b2f48c422eebb9ac560`.
+It uses pinned commit `48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422` and the exact
+OS 2.55MP image. The guarded CLI checks every native field against the
+fixed launch expectations and the independent Python source model before
+writing its manifest.
+
+The pinned Wabbitemu source and the ROM worker produce three paths. The first
+ROM read consumes Wabbitemu's error status. The worker tests both DQ7 and DQ5
+in that byte. Since Wabbitemu sets DQ5, every illegal request proceeds directly
+to one final array read. This table models emulator source combined with the
+byte-confirmed ROM poll logic. It does not describe physical Flash behavior.
+[standard] for Wabbitemu; [confirmed] for the ROM poll logic.
+
+| Program request | Final stored DQ7 | ROM result |
+|-----------------|------------------|------------|
+| legal | matches requested DQ7 | succeeds on the first array read |
+| illegal `0→1` outside DQ7 | matches requested DQ7 | succeeds after the final read even though lower requested bits remain zero |
+| illegal DQ7 `0→1` | differs from requested DQ7 | fails after the final read |
 
 Exhaustive enumeration of all 65,536 old/requested byte pairs gives 49,152
-successes, 4,096 failures, and 12,288 nonterminating paths. The successes
-contain 6,561 legal pairs and 42,591 illegal requests that the ROM reports as
-successful. These are deterministic consequences of the pinned source model,
-not observations from Wabbitemu execution or hardware. [standard]
+successes and 16,384 failures. No pair is nonterminating under this composition.
+The successes contain 6,561 legal pairs and 42,591 illegal requests that the
+ROM reports as successful. These exhaustive counts are deterministic
+consequences of the pinned source model, not an exhaustive Wabbitemu run or
+hardware observation. [standard]
+
+A second guarded mode boots the exact retail ROM, injects a four-byte
+`rst 28h`/`8087h` harness into RAM page 1, and sets the documented
+`_WriteFlashUnsafe` ABI registers. The bcall copies the original 124-byte
+worker from `3F:4CCA` to `0x8100` and executes it. The harness directly opens
+Wabbitemu's in-memory ASIC gate, so it does not test the protected port-`0x14`
+unlock sequence or an OS/UI caller. [confirmed] for the pinned native run.
+
+| Initial | Requested | Initial DQ6 | Worker reads | Stored | Result | `AF` |
+|--------:|----------:|------------:|--------------|-------:|--------|-----:|
+| `FF` | `50` | `00` | `50` | `50` | success | `0044` |
+| `00` | `01` | `00` | `A0`, `00` | `00` | success | `0044` |
+| `20` | `A0` | `00` | `20`, `20` | `20` | failure | `3F2C` |
+| `50` | `D0` | `00` | `20`, `50` | `50` | failure | `3F2C` |
+| `50` | `D0` | `40` | `60`, `50` | `50` | failure | `3F2C` |
+
+All five cases enter the copied worker once and issue one program write. The
+legal request takes the success reset at `ram:816B`. The illegal lower-bit
+request also takes that path after its final DQ7 read, despite leaving bit 0
+clear. Both illegal DQ7 requests take the failure reset at `ram:8175`,
+regardless of stored DQ5. DQ6 changes the first status byte but not the return
+path. [confirmed] for the pinned native run.
+
+The cold-recovery runner exercises a separate retail path without opening the
+gate through emulator state. Startup at `00:0D73` calls the bjump stub at
+`00:3EEB`, which resolves to `3D:6098`. The bytes at `3D:609C`–`3D:60A8`
+write `1` to port `0x14`; Wabbitemu changes `flash_locked` from true to false
+at the `OUT` at `3D:60A6`. The wrapper calls `00:2BAD` at `3D:6101` to enter
+`gc_check_interrupted` at `3C:7BC7`. Its return path jumps to the lock sequence
+at `3D:5CE6`, and the `OUT` at `3D:5CEF` changes `flash_locked` from false to
+true. The static gate scanner classifies both sequences and finds no
+unclassified port-`0x14` candidate on page `3D`. [confirmed]
+
+All six reconstructed recovery images take that protected unlock → recovery →
+relock path. The observer identifies the public block-program worker by
+comparing all 124 RAM bytes at `0x8100` with `3F:4CCA`–`3F:4D45`. Each
+`_WriteFlashUnsafe` visit reaches one matching worker entry and one success
+tail at `ram:816B`; no run reaches the failure tail at `ram:8175`. [confirmed]
+
+| Input phase | `_WriteFlashUnsafe` / worker entries | Data writes at `ram:8149` | `_EraseFlash` entries |
+|------------:|-------------------------------------:|-------------------------------:|----------------------:|
+| `0xFF` | 33 | 48 | 3 |
+| `0xFE` | 32 | 47 | 3 |
+| `0xFC` | 20 | 20 | 4 |
+| `0xF8` | 19 | 19 | 3 |
+| `0xF0` | 304 | 65,560 | 3 |
+| `0xE0` | 17 | 17 | 2 |
+
+These counts cover the exact public block-program worker. Other internal RAM
+workers can issue additional Flash commands during certificate rebuilding.
+The run is Wabbitemu evidence for the retail control path, not physical ASIC
+or Flash evidence. The observer binary SHA-256 is
+`242ca0d3ecab861ce1048285258d1e13ebc18a175bccf016397692fbe0f150db`.
+It uses pinned Wabbitemu commit
+`48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422`. [confirmed]
 
 Sector erase changes the complete sector to `0xFF` before the next instruction
 and exposes no erase-busy interval. Its sector arithmetic matches the physical
@@ -1335,6 +1434,31 @@ Its TI-84 Plus profile sets Flash version 3, which enables `AA 55 20`, repeated
 `A0` program operations, and `90 F0` exit. It has no erase-suspend or CFI state.
 Autoselect offset `4` always returns zero, so it reports every sector as
 unprotected. [standard]
+
+A guarded native command-family run checks these source claims through
+`CPU_mem_write` and `CPU_mem_read`. The adapter loads the exact OS 2.55MP image,
+opens Wabbitemu's in-memory gate, and keeps every mutation in the allocated
+Flash array. It does not execute a retail-ROM Flash routine. [confirmed] for
+the pinned Wabbitemu run.
+
+| Command path | Native observation |
+|--------------|--------------------|
+| Autoselect | `AA 55 90` enters `FLASH_AUTOSELECT`; offsets `0`, `2`, and `4` return `01`, `DA`, and `00` |
+| Array reset | `F0` returns autoselect and a partial `AA` sequence to `FLASH_READ` |
+| Fast program | `AA 55 20` enters `FLASH_FASTMODE`; two `A0` operations store `F0 & 50 = 50` and `AA & A0 = A0`, returning to fast mode after each |
+| Fast-mode exit | `90` enters `FLASH_FASTMODE_EXIT`; `F0` returns to `FLASH_READ` |
+| Sector erase | `AA 55 80 AA 55 30` changes all 65,536 seeded bytes at physical `0x20000`–`0x2FFFF` to `FF`; no byte outside the range changes |
+| Chip erase | `AA 55 80 AA 55 10` reduces 322,043 non-`FF` bytes to zero and changes a seeded byte at physical `0xFFFFF` from `00` to `FF` |
+| CFI query | `98` from array mode returns to `FLASH_READ` and changes no byte |
+| Erase suspend/resume | `B0` in `FLASH_ERASE_55` returns to `FLASH_READ`; the following `30` also leaves the array unchanged |
+
+The sector test seeds the complete 64 KiB sector and two adjacent boundary
+bytes before issuing the command. The chip test counts the complete 1 MiB
+array and explicitly seeds its final boot-page byte. The adapter records zero
+T-states for the direct calls, so the run provides no command-timing evidence.
+Its binary SHA-256 is
+`41304b9a760438440f60cbfeca394cd37252c929ef2043e692c0254b8d1cb52d`.
+[confirmed] for the pinned Wabbitemu run.
 
 Wabbitemu accepts a port-`0x14` write only while the current Flash page passes
 its privileged-page predicate. Its source names pages `2F`, `3C`, `3D`, and
@@ -1428,18 +1552,15 @@ DQ7/DQ5 decision.
 ```console
 $ python tools/describe_flash_hardware.py wabbitemu-poll --old 0x50 --data 0xD0
 Wabbitemu/ROM old=0x50 requested=0xD0 stored=0x50
-  read 0: DQ7 poll=0x20 -> need-dq5-read
-  read 1: DQ5 poll=0x50 -> retry
-  read 2: DQ7 poll=0x50 -> need-dq5-read
-  read 3: DQ5 poll=0x50 -> retry
-  outcome: stalled
-  repeats from read 2: stored DQ7 differs from requested DQ7 while stored DQ5 remains clear
+  read 0: DQ7/DQ5 poll=0x20 -> need-final-read
+  read 1: final DQ7 poll=0x50 -> failure
+  outcome: failure
 ```
 
 ```console
 $ python tools/describe_flash_hardware.py wabbitemu-poll
 all byte pairs: 65536
-  outcomes: success=49152 failure=4096 stalled=12288
+  outcomes: success=49152 failure=16384
   legal successes: 6561
   illegal requests reported successful: 42591
 ```
@@ -1494,6 +1615,7 @@ one sector definition.
   fill those gaps because the pinned implementations disagree with the Fujitsu
   command table or omit the states. [hypothesis]
 - The collector's normal sector-copy policy and persistent phase dispatcher are reconstructed. TilEm cold-restart traces exercise all six ROM-written journal phases. Active `0xFF`, `0xFE`, `0xFC`, `0xF8`, and `0xE0` converge byte-for-byte with uninterrupted execution. Active `0xF0` has matching archive bytes and converges after the uninterrupted result performs deferred `0xE0` cleanup on its next boot. A deterministic eight-record constructor reproduces the record-authentic `0xF0` input byte for byte. Pinned Wabbitemu independently executes all six dispatcher branches and produces the corresponding complete TilEm images. Cuts during busy commands and physical power loss remain untested. [confirmed] for the emulator command-boundary runs; [hypothesis] for the remaining cases.
+- Pinned Wabbitemu cold recovery takes the retail startup path from `00:0D73` through the protected unlock at `3D:60A6`, `gc_check_interrupted` at `3C:7BC7`, public Flash bcalls and copied block workers, and the relock at `3D:5CEF`. All six phase images take this path. [confirmed] for Wabbitemu; [hypothesis] for physical gate behavior.
 
 ## Sources
 

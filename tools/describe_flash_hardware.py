@@ -54,8 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     poll = commands.add_parser("poll", help="evaluate the ROM DQ poll path")
     poll.add_argument("--data", type=integer, required=True)
-    poll.add_argument("--first", type=integer, required=True)
-    poll.add_argument("--dq5", type=integer)
+    poll.add_argument("--status", type=integer, required=True)
     poll.add_argument("--final", type=integer)
 
     wabbitemu_poll = commands.add_parser(
@@ -147,8 +146,7 @@ def report(args: argparse.Namespace) -> dict[str, object]:
     return {
         "decision": rom_program_poll_decision(
             args.data,
-            args.first,
-            dq5_read=args.dq5,
+            args.status,
             final_read=args.final,
         )
     }
@@ -249,8 +247,7 @@ def print_text(data: dict[str, object]) -> None:
         print(f"all byte pairs: {summary['total_pairs']}")
         print(
             "  outcomes: "
-            f"success={summary['successes']} failure={summary['failures']} "
-            f"stalled={summary['stalled']}"
+            f"success={summary['successes']} failure={summary['failures']}"
         )
         print(f"  legal successes: {summary['legal_successes']}")
         print(
@@ -270,11 +267,6 @@ def print_text(data: dict[str, object]) -> None:
                 f"-> {read['decision']}"
             )
         print(f"  outcome: {poll['outcome']}")
-        if poll["repeat_loop_index"] is not None:
-            print(
-                f"  repeats from read {poll['repeat_loop_index']}: "
-                f"{poll['repeat_reason']}"
-            )
         return
     print(data["decision"])
 

@@ -13,6 +13,7 @@ PROBE_NAMES = {
     1: "md5-edge",
     2: "ram-alias",
     3: "asic-snapshot",
+    4: "execution-fetch",
 }
 
 
@@ -249,6 +250,38 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
                 f"0x{port:02X}": f"0x{value:02X}"
                 for port, value in zip(ports, frame.payload, strict=True)
             }
+        }
+    if frame.probe_id == 4:
+        if len(frame.payload) != 16:
+            raise ProbeFormatError(
+                "execution-fetch payload must contain 16 bytes, "
+                f"got {len(frame.payload)}"
+            )
+        kind_names = {0: "flash", 1: "ram"}
+        outcome_names = {
+            0: "pending-reset-or-interruption",
+            1: "returned",
+            2: "no-ret-found",
+            3: "target-changed-before-fetch",
+            4: "unsupported-paired-mapping",
+        }
+        kind = frame.payload[0]
+        outcome = frame.payload[8]
+        return {
+            "target_kind": kind_names.get(kind, f"unknown-{kind}"),
+            "target_selector": f"0x{frame.payload[1]:02X}",
+            "scan_start": f"0x{int.from_bytes(frame.payload[2:4], 'little'):04X}",
+            "scan_length": f"0x{int.from_bytes(frame.payload[4:6], 'little'):04X}",
+            "target_address": f"0x{int.from_bytes(frame.payload[6:8], 'little'):04X}",
+            "outcome": outcome_names.get(outcome, f"unknown-{outcome}"),
+            "registers": {
+                f"0x{port:02X}": f"0x{value:02X}"
+                for port, value in zip(
+                    (0x04, 0x06, 0x21, 0x22, 0x23, 0x25, 0x26),
+                    frame.payload[9:16],
+                    strict=True,
+                )
+            },
         }
     return {"payload_hex": frame.payload.hex().upper()}
 

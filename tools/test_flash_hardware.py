@@ -148,22 +148,19 @@ class FlashHardwareTests(unittest.TestCase):
                 self.assertEqual(old & requested, result.stored)
                 self.assertEqual("success", result.outcome)
 
-    def test_wabbitemu_rom_poll_fails_dq7_request_when_stored_dq5_is_set(self):
+    def test_wabbitemu_rom_poll_fails_illegal_dq7_request(self):
         result = simulate_wabbitemu_rom_program_poll(0x20, 0xA0)
 
         self.assertEqual(0x20, result.stored)
         self.assertEqual("failure", result.outcome)
-        self.assertEqual([0x20, 0x20, 0x20], [read.value for read in result.reads])
+        self.assertEqual([0x20, 0x20], [read.value for read in result.reads])
 
-    def test_wabbitemu_rom_poll_stalls_when_dq7_differs_and_dq5_is_clear(self):
+    def test_wabbitemu_rom_poll_fails_when_stored_dq5_is_clear(self):
         result = simulate_wabbitemu_rom_program_poll(0x50, 0xD0)
 
         self.assertEqual(0x50, result.stored)
-        self.assertEqual("stalled", result.outcome)
-        self.assertEqual(2, result.repeat_loop_index)
-        self.assertEqual(
-            [0x20, 0x50, 0x50, 0x50], [read.value for read in result.reads]
-        )
+        self.assertEqual("failure", result.outcome)
+        self.assertEqual([0x20, 0x50], [read.value for read in result.reads])
 
     def test_wabbitemu_rom_poll_dq6_toggle_does_not_change_decision(self):
         result = simulate_wabbitemu_rom_program_poll(
@@ -174,15 +171,14 @@ class FlashHardwareTests(unittest.TestCase):
 
         self.assertTrue(result.initial_error_dq6)
         self.assertEqual(0x60, result.reads[0].value)
-        self.assertEqual("stalled", result.outcome)
+        self.assertEqual("failure", result.outcome)
 
     def test_wabbitemu_rom_poll_exhaustive_outcomes(self):
         summary = summarize_wabbitemu_rom_program_polls()
 
         self.assertEqual(0x10000, summary.total_pairs)
         self.assertEqual(49152, summary.successes)
-        self.assertEqual(4096, summary.failures)
-        self.assertEqual(12288, summary.stalled)
+        self.assertEqual(16384, summary.failures)
         self.assertEqual(6561, summary.legal_successes)
         self.assertEqual(42591, summary.illegal_reported_successes)
 
@@ -202,26 +198,21 @@ class FlashHardwareTests(unittest.TestCase):
 
     def test_rom_poll_decisions(self):
         self.assertEqual("success", rom_program_poll_decision(0x80, 0x80))
-        self.assertEqual(
-            "need-dq5-read", rom_program_poll_decision(0x80, 0x00)
-        )
-        self.assertEqual(
-            "retry", rom_program_poll_decision(0x80, 0x00, dq5_read=0x00)
-        )
+        self.assertEqual("retry", rom_program_poll_decision(0x80, 0x00))
         self.assertEqual(
             "need-final-read",
-            rom_program_poll_decision(0x80, 0x00, dq5_read=0x20),
+            rom_program_poll_decision(0x80, 0x20),
         )
         self.assertEqual(
             "failure",
             rom_program_poll_decision(
-                0x80, 0x00, dq5_read=0x20, final_read=0x00
+                0x80, 0x20, final_read=0x00
             ),
         )
         self.assertEqual(
             "success",
             rom_program_poll_decision(
-                0x80, 0x00, dq5_read=0x20, final_read=0x80
+                0x80, 0x20, final_read=0x80
             ),
         )
 

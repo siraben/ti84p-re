@@ -585,8 +585,20 @@ TilEm recovery and the normalized uninterrupted result.
 equality. [confirmed] for all six Wabbitemu command-boundary runs;
 [hypothesis] for cuts during busy commands and physical power loss.
 
+The cold-start caller at `00:0D73` reaches the wrapper at `3D:6098` through
+the bjump stub at `00:3EEB`. Wabbitemu accepts the protected `OUT (0x14),A`
+at `3D:60A6`, changing its gate from locked to unlocked. The wrapper enters
+`gc_check_interrupted` at `3C:7BC7` through `00:2BAD`, then relocks at
+`3D:5CEF` after recovery returns. Every phase run records the same unlock and
+relock transitions. Between them, each run reaches `_WriteFlashUnsafe`, the
+byte-identical 124-byte worker copied from `3F:4CCA` to `0x8100`, and its
+success tail. No phase reaches that worker's failure tail. This is a genuine
+retail startup and recovery path under Wabbitemu, with no injected CPU state or
+direct assignment to `flash_locked`. [confirmed]
+
 The native adapter, importable orchestration library, and guarded build/run
 CLIs are documented in `tools/dynamic-tracing.md`. Their JSON reports include
+typed gate writes and transitions, retail-bcall and copied-worker coverage,
 input and output hashes, exact dispatcher visits, instruction and t-state
 counts, changed-byte counts, wake completion, and Flash-settling status.
 

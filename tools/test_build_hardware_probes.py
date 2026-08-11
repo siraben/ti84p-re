@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -11,6 +12,8 @@ from build_hardware_probes import (
     CREATE_APPVAR_COPY,
     PROBES,
     PROBE_START,
+    build_probes,
+    initial_probe_payload,
     package_probe,
     validate_machine_code,
 )
@@ -32,7 +35,8 @@ def fixture_machine_code(probe_name: str) -> bytes:
         PROBE_MAGIC
         + bytes((PROBE_FORMAT_VERSION, probe.probe_id))
         + probe.payload_size.to_bytes(2, "little")
-        + bytes(2 + probe.payload_size)
+        + bytes(2)
+        + initial_probe_payload(probe)
     )
     return (
         bytes((0xC3, PROBE_START & 0xFF, PROBE_START >> 8))
@@ -66,11 +70,23 @@ class HardwareProbeBuilderTests(unittest.TestCase):
         )
 
     def test_probe_definitions_use_stable_names_and_ids(self):
-        self.assertEqual({1, 2, 3}, {probe.probe_id for probe in PROBES.values()})
+        self.assertEqual({1, 2, 3, 4}, {probe.probe_id for probe in PROBES.values()})
         for probe in PROBES.values():
             self.assertLessEqual(len(probe.program), 8)
             self.assertEqual(8, len(probe.appvar))
             self.assertTrue(probe.source.is_file())
+
+    def test_execution_probe_definitions_cover_flash_and_ram_boundaries(self):
+        execution = {
+            name: dict(probe.defines)
+            for name, probe in PROBES.items()
+            if probe.probe_id == 4
+        }
+
+        self.assertEqual(10, len(execution))
+        self.assertEqual(0x08, execution["exec-flash-08"]["TARGET_SELECTOR"])
+        self.assertEqual(0x0400, execution["exec-ram-82-chunk0"]["SCAN_LENGTH"])
+        self.assertEqual(0x4400, execution["exec-ram-82-chunk1"]["SCAN_START"])
 
     def test_packaged_program_decodes_to_original_machine_code(self):
         machine_code = fixture_machine_code("md5-edge")
@@ -119,6 +135,18 @@ class HardwareProbeBuilderTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "size word"):
             validate_machine_code("md5-edge", machine_code)
+
+    def test_execution_probe_requires_guarded_fetch_sequences(self):
+        with self.assertRaisesRegex(ValueError, "omits|must"):
+            validate_machine_code(
+                "exec-flash-08",
+                fixture_machine_code("exec-flash-08"),
+            )
+
+    def test_builder_refuses_existing_output_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "refusing to reuse"):
+                build_probes([], Path(directory))
 
 
 if __name__ == "__main__":

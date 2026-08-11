@@ -410,8 +410,6 @@ class WabbitemuRomProgramPoll:
     initial_error_dq6: bool
     reads: tuple[WabbitemuRomPollRead, ...]
     outcome: str
-    repeat_loop_index: int | None
-    repeat_reason: str | None
 
 
 @dataclass(frozen=True)
@@ -421,7 +419,6 @@ class WabbitemuRomPollSummary:
     total_pairs: int
     successes: int
     failures: int
-    stalled: int
     legal_successes: int
     illegal_reported_successes: int
 
@@ -437,9 +434,9 @@ def simulate_wabbitemu_rom_program_poll(
     ``initial_error_dq6`` selects the persistent toggle bit on Wabbitemu's
     transient error read; that bit does not affect the ROM decision. Wabbitemu
     clears its program-error flag on the first read, so every later read returns
-    the stored array byte. For a nonterminating path, ``reads`` contains the
-    finite prefix through one complete repeating pair, and ``repeat_loop_index``
-    identifies the first read in that pair.
+    the stored array byte. The ROM tests DQ5 in the same byte it already read
+    for DQ7. Wabbitemu sets DQ5 in its transient error byte, so every illegal
+    request proceeds directly to one final DQ7 read.
     """
 
     old = _byte(old, "old value")
@@ -457,7 +454,7 @@ def simulate_wabbitemu_rom_program_poll(
         else stored
     )
     decision = rom_program_poll_decision(requested, first_read)
-    record("DQ7 poll", first_read, decision)
+    record("DQ7/DQ5 poll", first_read, decision)
     if decision == "success":
         return WabbitemuRomProgramPoll(
             old,
@@ -467,60 +464,16 @@ def simulate_wabbitemu_rom_program_poll(
             initial_error_dq6,
             tuple(reads),
             "success",
-            None,
-            None,
         )
 
-    dq5_decision = rom_program_poll_decision(
+    if decision != "need-final-read":
+        raise AssertionError("Wabbitemu error status did not set DQ5")
+    outcome = rom_program_poll_decision(
         requested,
         first_read,
-        dq5_read=stored,
+        final_read=stored,
     )
-    record("DQ5 poll", stored, dq5_decision)
-    if dq5_decision == "need-final-read":
-        outcome = rom_program_poll_decision(
-            requested,
-            first_read,
-            dq5_read=stored,
-            final_read=stored,
-        )
-        record("final DQ7 poll", stored, outcome)
-        return WabbitemuRomProgramPoll(
-            old,
-            requested,
-            stored,
-            zero_to_one,
-            initial_error_dq6,
-            tuple(reads),
-            outcome,
-            None,
-            None,
-        )
-
-    retry_index = len(reads)
-    retry_decision = rom_program_poll_decision(requested, stored)
-    record("DQ7 poll", stored, retry_decision)
-    if retry_decision == "success":
-        return WabbitemuRomProgramPoll(
-            old,
-            requested,
-            stored,
-            zero_to_one,
-            initial_error_dq6,
-            tuple(reads),
-            "success",
-            None,
-            None,
-        )
-
-    repeat_decision = rom_program_poll_decision(
-        requested,
-        stored,
-        dq5_read=stored,
-    )
-    record("DQ5 poll", stored, repeat_decision)
-    if repeat_decision != "retry":
-        raise AssertionError("array-data retry path unexpectedly terminated")
+    record("final DQ7 poll", stored, outcome)
     return WabbitemuRomProgramPoll(
         old=old,
         requested=requested,
@@ -528,18 +481,14 @@ def simulate_wabbitemu_rom_program_poll(
         requested_zero_to_one=zero_to_one,
         initial_error_dq6=initial_error_dq6,
         reads=tuple(reads),
-        outcome="stalled",
-        repeat_loop_index=retry_index,
-        repeat_reason=(
-            "stored DQ7 differs from requested DQ7 while stored DQ5 remains clear"
-        ),
+        outcome=outcome,
     )
 
 
 def summarize_wabbitemu_rom_program_polls() -> WabbitemuRomPollSummary:
     """Enumerate the ROM outcome for every old/requested byte pair."""
 
-    outcomes = {"success": 0, "failure": 0, "stalled": 0}
+    outcomes = {"success": 0, "failure": 0}
     legal_successes = 0
     illegal_reported_successes = 0
     for old in range(0x100):
@@ -555,7 +504,6 @@ def summarize_wabbitemu_rom_program_polls() -> WabbitemuRomPollSummary:
         total_pairs=0x10000,
         successes=outcomes["success"],
         failures=outcomes["failure"],
-        stalled=outcomes["stalled"],
         legal_successes=legal_successes,
         illegal_reported_successes=illegal_reported_successes,
     )
@@ -599,25 +547,22 @@ def mame_erase_busy_read_range(address: int) -> tuple[int, int]:
 
 def rom_program_poll_decision(
     requested: int,
-    first_read: int,
+    status_read: int,
     *,
-    dq5_read: int | None = None,
     final_read: int | None = None,
 ) -> str:
     """Evaluate the OS block worker's DQ7/DQ5 program-poll decision.
 
-    Returns ``success``, ``need-dq5-read``, ``retry``, ``need-final-read``, or
-    ``failure``.
+    The worker compares DQ7 and then tests DQ5 in ``status_read``. It performs
+    another read only for the final DQ7 check. Returns ``success``, ``retry``,
+    ``need-final-read``, or ``failure``.
     """
 
     requested = _byte(requested, "requested value")
-    first_read = _byte(first_read, "first read")
-    if not ((requested ^ first_read) & 0x80):
+    status_read = _byte(status_read, "status read")
+    if not ((requested ^ status_read) & 0x80):
         return "success"
-    if dq5_read is None:
-        return "need-dq5-read"
-    dq5_read = _byte(dq5_read, "DQ5 read")
-    if not (dq5_read & 0x20):
+    if not (status_read & 0x20):
         return "retry"
     if final_read is None:
         return "need-final-read"
