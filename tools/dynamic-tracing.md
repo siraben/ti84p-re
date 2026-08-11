@@ -1150,6 +1150,233 @@ matrix covers legal success, illegal lower-bit false success, illegal DQ7
 failure with both stored DQ5 states, and both initial DQ6 states. It does not
 exercise the protected unlock sequence, an OS/UI caller, or physical Flash.
 
+Run the guarded Wabbitemu MD5 edge probe through the same binary:
+
+```sh
+wabbit_md5_parent=$(mktemp -d /tmp/ti84-wabbit-md5.XXXXXX)
+python tools/run_wabbitemu_md5_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_md5_parent/run" --json
+```
+
+This direct-core mode reads the fresh operand and result ports, writes one,
+three, four, and five bytes to one sliding operand, sends high control bits,
+and mutates an operand between result-byte reads. The reusable oracle checks
+every result with `md5_assist_value`. This is initialized Wabbitemu device
+behavior, not retail-ROM execution, physical ASIC behavior, or timing
+evidence.
+
+Run the guarded keypad and ON-edge probe through the same binary:
+
+```sh
+wabbit_keypad_parent=$(mktemp -d /tmp/ti84-wabbit-keypad.XXXXXX)
+python tools/run_wabbitemu_keypad_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_keypad_parent/run" --json
+```
+
+This initialized-core mode checks a single key, same-column keys in two
+selected rows, a three-key rectangle, a transitive chain, and ignored row 7.
+It also reads port `0x04` around ON press, acknowledgement while held, release,
+and a second press. The probe invokes Wabbitemu's standard-interrupt device
+callback at explicit observation points and advances no T-states. Its results
+therefore establish emulator state transitions, not TI-OS execution, physical
+electrical behavior, or timing.
+
+Run the guarded programmable-timer and RTC edge probe through the same binary:
+
+```sh
+wabbit_timer_parent=$(mktemp -d /tmp/ti84-wabbit-timer.XXXXXX)
+python tools/run_wabbitemu_timer_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_timer_parent/run" --json
+```
+
+This initialized-core mode advances Wabbitemu's emulated crystal ticks,
+T-states, and elapsed seconds explicitly. It compares crystal and CPU catch-up,
+expires a zero counter, acknowledges completion, observes the interrupt line
+during and after `HALT`, and commits, advances, and freezes the RTC. The
+reusable oracle derives source divisors and expiry fields from
+`timer_hardware.py`. This is emulator state-machine evidence rather than
+TI-OS execution, host timing, or physical ASIC behavior.
+
+Run the guarded ASIC-control edge probe through the same binary:
+
+```sh
+wabbit_asic_parent=$(mktemp -d /tmp/ti84-wabbit-asic.XXXXXX)
+python tools/run_wabbitemu_asic_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_asic_parent/run" --json
+```
+
+This initialized-core mode reads port `0x02` across the in-memory Flash gate,
+changes Wabbitemu's RAM revision for port `0x15`, and checks port `0x21` while
+locked and directly unlocked. It reports both port-`0x21` readback and the
+internal Flash-group and RAM-execution fields, making the readback defect
+observable. It also distinguishes absent port `0x39` from the byte latch at
+port `0x3A`. This is emulator state evidence, not a retail protected-byte
+sequence or physical battery, identity, protection, or GPIO evidence.
+
+Run the guarded protected-boundary port probe through the same binary:
+
+```sh
+wabbit_protected_port_parent=$(mktemp -d /tmp/ti84-wabbit-protected-port.XXXXXX)
+python tools/run_wabbitemu_protection_port_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_protected_port_parent/run" --json
+```
+
+This initialized-core mode checks registration and the shared locked-write
+gate at ports `0x22`–`0x26`. After opening the emulator's in-memory gate, it
+checks low-byte preservation, port-`0x24` high-field clearing, and the
+`0x3F`/`0x40`/`0x41`/`0xFF` RAM-bound wrap matrix. Its reusable oracle is
+backed by `execution_protection.py`. Direct lock and high-field changes isolate
+the registered handlers; they do not execute the retail protected-byte
+sequence, fetch through the resulting bounds, or measure physical behavior.
+
+Run the guarded LCD-controller and bus-timing edge probe through the same
+binary:
+
+```sh
+wabbit_lcd_parent=$(mktemp -d /tmp/ti84-wabbit-lcd.XXXXXX)
+python tools/run_wabbitemu_lcd_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_lcd_parent/run" --json
+```
+
+This initialized-core mode checks the fixed controller guard at 59 and 60
+T-states, an early rejected write, hidden-column increment and alias behavior,
+the data-read latch, absent ports `0x12` and `0x13`, and the reset-status
+`word_len` defect. It also checks the strict 240-T-state ready boundary,
+read-versus-write timestamp policy, active LCD instruction delay, all six
+memory-wait fields, and default speed clamp. The reusable oracle derives the
+expected pointer, latch, ready, wait, and speed results from
+`lcd_controller.py` and `bus_timing.py`. This is Wabbitemu state-machine
+evidence, not TI-OS execution, host timing, or physical LCD/ASIC behavior.
+
+Run the guarded CPU-speed and delay-register edge probe through the same
+binary:
+
+```sh
+wabbit_speed_parent=$(mktemp -d /tmp/ti84-wabbit-speed.XXXXXX)
+python tools/run_wabbitemu_speed_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_speed_parent/run" --json
+```
+
+This initialized-core mode checks reset readback, the default 6/15 MHz speed
+clamp, the internally enabled 20/25 MHz modes, raw readback across ports
+`0x29`–`0x2F`, and all four Flash/RAM wait-gate combinations. It also verifies
+that Wabbitemu's generic port-`0x2D` latch does not change its timer, LCD,
+`HALT`, interrupt, frequency, or T-state state. The reusable oracle derives
+speed and wait fields from `bus_timing.py`. Directly setting
+`timer_version = 1` represents front-end configuration, not a calculator port.
+This is emulator-handler evidence, not TI-OS execution, electrical timing, or
+physical low-power behavior.
+
+Run the guarded standard-interrupt and low-power edge probe through the same
+binary:
+
+```sh
+wabbit_interrupt_parent=$(mktemp -d /tmp/ti84-wabbit-interrupt.XXXXXX)
+python tools/run_wabbitemu_interrupt_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_interrupt_parent/run" --json
+```
+
+This initialized-core mode checks full port-`0x03` readback, ON-latch
+acknowledgement, all four standard-timer rates, the strict timer-expiry edge,
+port-`0x03` and port-`0x02` timer catch-up, programmable completion bits, and
+Wabbitemu's LCD-based low-power approximation. Its reusable oracle derives
+mask and status fields from `interrupt_controller.py`. This is emulator
+state-machine evidence, not TI-OS execution, host timing, physical interrupt
+edges, or ASIC power-domain behavior.
+
+Run the guarded raw-link and link-assist edge probe through the same binary:
+
+```sh
+wabbit_link_parent=$(mktemp -d /tmp/ti84-wabbit-link.XXXXXX)
+python tools/run_wabbitemu_link_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_link_parent/run" --json
+```
+
+This initialized-core mode checks all 16 local/peer raw-line combinations,
+high write-bit masking, raw transition interrupt omission, assist port
+coverage, idle-ready, one complete `0xA5` send and receive, data-register
+acknowledgement, and seeded-error read-to-clear behavior. The reusable oracle
+derives the raw matrix, LSB-first byte order, and status fields from
+`link_port.py`. It does not run TI-OS, exercise virtual-cable lifecycle code,
+or measure electrical levels and timing.
+
+Run the guarded Fake USB edge probe through the same binary:
+
+```sh
+wabbit_usb_parent=$(mktemp -d /tmp/ti84-wabbit-usb.XXXXXX)
+python tools/run_wabbitemu_usb_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_usb_parent/run" --json
+```
+
+This initialized-core mode checks mapped and absent ports, reset reads and
+internal fields, event-mask storage, mask-independent and repeatable line
+events, the active-low interrupt-summary matrix, and the protocol-enable and
+device-address latches. Direct field seeding isolates the port-`0x4A` and
+port-`0x4D` handler arithmetic that registered ports cannot otherwise reach.
+The reusable oracle in `wabbitemu_usb_probe.py` derives every expected value
+from `usb_hardware.py`. This is pinned Wabbitemu handler evidence, not TI-OS
+execution, a connected endpoint transaction, or physical USB behavior.
+
+Run the guarded memory-mapper edge probe through the same binary:
+
+```sh
+wabbit_mapper_parent=$(mktemp -d /tmp/ti84-wabbit-mapper.XXXXXX)
+python tools/run_wabbitemu_mapper_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_mapper_parent/run" --json
+```
+
+This initialized-core mode checks mapper-port registration, reset mapping,
+the fixed-page opcode handoff, raw selector storage versus visible readback,
+the even-page paired expression, and both forced-RAM ranges. Seeded backing
+bytes distinguish boundary reads, low-level write destinations, and fetched
+NOP versus HALT bytes in independent and paired modes. The reusable oracle in
+`wabbitemu_mapper_probe.py` derives the expected mappings from
+`memory_mapper.py`. This is pinned emulator routing evidence, not TI-OS
+execution, Flash command acceptance, or physical ASIC behavior.
+
+Run the guarded reset-retention probe through the rebuilt binary:
+
+```sh
+wabbit_reset_parent=$(mktemp -d /tmp/ti84-wabbit-reset.XXXXXX)
+python tools/run_wabbitemu_reset_retention_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --expected-binary-sha256 \
+    386be74e738f2a0f9ad17f12bae4cd44994b5a73835ab10d488c7b8232afd87e \
+  --output-dir "$wabbit_reset_parent/run" --json
+```
+
+This mode seeds state directly, calls `CPU_reset`, performs the frontend's
+`CPU_reset` plus LCD-reset sequence, and triggers two execution violations.
+The reusable source model in `wabbitemu_reset.py` separates cleared, rebuilt,
+and retained fields. Its oracle checks all 14 retained component groups, the
+TI-84 Plus reset mapping, LCD-visible frontend state, and the program/error
+Flash-state paths through the remainder of `CPU_step`. The CLI guards the exact
+ROM and native-binary hashes. It does not run TI-OS reset code or measure
+physical reset and power-loss retention.
+
 Run one replayed image with an input-identity guard and a separate output:
 
 ```sh
@@ -1250,7 +1477,7 @@ rather than paged-address resolution.
 - [`analyze_flash_trace.py`](analyze_flash_trace.py) — command-shaped write summaries, worker-invocation grouping, event filters, compact timelines, and JSON reports with explicit acceptance semantics.
 - [`flash_replay.py`](flash_replay.py) — accepted-command replay, NOR programming, top-boot erasure, active-certificate selection, and GC phase snapshots.
 - [`replay_flash_trace.py`](replay_flash_trace.py) — guarded CLI for complete replay and interrupted GC images with source/output hashes.
-- [`wabbitemu_headless.cpp`](wabbitemu_headless.cpp) — minimal Linux adapter, wake scheduler, Flash sampler, protected-gate observer, exact copied-worker matcher, recovery-point recorder, and guarded execution, command-family, byte-program, and retail-worker probe modes for the pinned Wabbitemu core.
+- [`wabbitemu_headless.cpp`](wabbitemu_headless.cpp) — minimal Linux adapter, wake scheduler, Flash sampler, protected-gate observer, exact copied-worker matcher, recovery-point recorder, and guarded execution, reset, Flash, retail-worker, MD5, keypad, timer, ASIC-control, LCD/bus, speed/delay, interrupt, and link probe modes for the pinned Wabbitemu core.
 - [`wabbitemu_headless.py`](wabbitemu_headless.py) — reusable pinned-source validation, build command, recovery and probe runners, typed gate/report parsing, retail-path validation, and image hashing.
 - [`wabbitemu_flash_probe.py`](wabbitemu_flash_probe.py) — shared Flash case parser plus command-family, byte-program, and retail-worker report oracles.
 - [`build_wabbitemu_headless.py`](build_wabbitemu_headless.py) — guarded compiler CLI for the exact pinned source tree.
@@ -1260,6 +1487,26 @@ rather than paged-address resolution.
 - [`run_wabbitemu_flash_program_probe.py`](run_wabbitemu_flash_program_probe.py) — guarded native byte-program matrix with source-model, report-field, ROM, and binary checks.
 - [`run_wabbitemu_flash_command_probe.py`](run_wabbitemu_flash_command_probe.py) — guarded native autoselect, reset, fast-program, erase, and unsupported-command matrix with complete mutation-range checks.
 - [`run_wabbitemu_flash_worker_probe.py`](run_wabbitemu_flash_worker_probe.py) — guarded retail-ROM `_WriteFlashUnsafe` matrix with copied-worker path, register, poll-read, reset-tail, and hash checks.
+- [`wabbitemu_md5_probe.py`](wabbitemu_md5_probe.py) — reusable native MD5 edge-report oracle backed by the independent arithmetic model.
+- [`run_wabbitemu_md5_edge_probe.py`](run_wabbitemu_md5_edge_probe.py) — guarded native MD5 sliding-register, control-mask, undefined-read, and read-time-recalculation CLI.
+- [`wabbitemu_keypad_probe.py`](wabbitemu_keypad_probe.py) — reusable native keypad and ON-edge report oracle backed by the pinned matrix model.
+- [`run_wabbitemu_keypad_edge_probe.py`](run_wabbitemu_keypad_edge_probe.py) — guarded native matrix-topology, row-7, ON-latch, held-key, and release-rearming CLI.
+- [`wabbitemu_timer_probe.py`](wabbitemu_timer_probe.py) — reusable native programmable-timer and RTC report oracle backed by the pinned comparison model.
+- [`run_wabbitemu_timer_edge_probe.py`](run_wabbitemu_timer_edge_probe.py) — guarded native catch-up, zero-counter, acknowledgement, HALT-line, and RTC-freeze CLI.
+- [`wabbitemu_asic_probe.py`](wabbitemu_asic_probe.py) — reusable native status, identity, protection, and GPIO report oracle backed by the ASIC-control model.
+- [`run_wabbitemu_asic_edge_probe.py`](run_wabbitemu_asic_edge_probe.py) — guarded native port-`0x02`, port-`0x15`, protected port-`0x21`, and GPIO-map CLI.
+- [`wabbitemu_protection_port_probe.py`](wabbitemu_protection_port_probe.py) — reusable native port-`0x22`–`0x26` gate, high-field, and RAM-wrap oracle backed by the execution-protection model.
+- [`run_wabbitemu_protection_port_probe.py`](run_wabbitemu_protection_port_probe.py) — guarded native protected-boundary registration, readback, port-`0x24`, and 16-bit storage CLI.
+- [`wabbitemu_reset.py`](wabbitemu_reset.py) — reusable low-level, frontend, and execution-violation reset disposition model and native-report oracle.
+- [`run_wabbitemu_reset_retention_probe.py`](run_wabbitemu_reset_retention_probe.py) — exact-ROM and exact-binary guarded reset-retention CLI with direct-seeding scope labels.
+- [`wabbitemu_lcd_probe.py`](wabbitemu_lcd_probe.py) — reusable native LCD and bus-timing report oracle backed by the pointer, latch, timing-register, and implementation models.
+- [`run_wabbitemu_lcd_edge_probe.py`](run_wabbitemu_lcd_edge_probe.py) — guarded native controller-guard, hidden-column, latch, port-map, ASIC-ready, wait-field, and speed-clamp CLI.
+- [`wabbitemu_speed_probe.py`](wabbitemu_speed_probe.py) — reusable native CPU-speed, delay-latch, wait-gate, and port-`0x2D` report oracle backed by the bus-timing implementation model.
+- [`run_wabbitemu_speed_edge_probe.py`](run_wabbitemu_speed_edge_probe.py) — guarded native default/internal speed matrix, raw-latch, wait-gate, and port-`0x2D` side-effect CLI.
+- [`wabbitemu_interrupt_probe.py`](wabbitemu_interrupt_probe.py) — reusable native standard-interrupt and low-power oracle backed by exact mask, status, and Wabbitemu rate models.
+- [`run_wabbitemu_interrupt_edge_probe.py`](run_wabbitemu_interrupt_edge_probe.py) — guarded native mask, ON-latch, standard-timer, acknowledgement, completion, and low-power CLI.
+- [`wabbitemu_link_probe.py`](wabbitemu_link_probe.py) — reusable native raw-link and assist oracle backed by the link truth table, byte order, port map, and assist-status model.
+- [`run_wabbitemu_link_edge_probe.py`](run_wabbitemu_link_edge_probe.py) — guarded native raw matrix, assist send/receive, interrupt, acknowledgement, and error-status CLI.
 - [`run_tilem_ram_execution_probe.py`](run_tilem_ram_execution_probe.py) — exact-ROM, mode-patched TilEm RAM boundary and repetition runner.
 - [`gc_layout.py`](gc_layout.py) — reusable validation and construction for explicit synthetic archive-sector headers.
 - [`build_gc_layout.py`](build_gc_layout.py) — hash-guarded CLI that reports every controlled layout mutation.

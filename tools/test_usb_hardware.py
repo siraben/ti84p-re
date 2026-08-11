@@ -19,7 +19,11 @@ from usb_hardware import (
     fdrc_register,
     main_usb_event_targets,
     usb_active_low_summary_bits,
+    wabbitemu_port4a_read,
     wabbitemu_port4a_write,
+    wabbitemu_port4c_read,
+    wabbitemu_port4d_read,
+    wabbitemu_usb_summary,
 )
 
 
@@ -104,6 +108,48 @@ class UsbHardwareTests(unittest.TestCase):
         self.assertEqual(0x58, result.events_after)
         self.assertTrue(result.line_interrupt)
         self.assertEqual("both", decode_usb_line_state(result.line_state_after).vbus)
+
+    def test_wabbitemu_read_handlers_preserve_source_quirks(self):
+        self.assertEqual(
+            0x09,
+            wabbitemu_port4a_read(
+                0x08, port54=0x44, port4c=0x08, line_state=0xE5
+            ),
+        )
+        self.assertEqual(0x2A, wabbitemu_port4c_read(0x08, port54=0))
+        self.assertEqual(
+            0xA7, wabbitemu_port4d_read(0xA6, port54=0, port4c=0)
+        )
+        self.assertEqual(
+            0xE7,
+            wabbitemu_port4d_read(0xE5, port54=0x44, port4c=0x08),
+        )
+
+    def test_wabbitemu_usb_summary_matrix_is_active_low(self):
+        self.assertEqual(
+            0x1F,
+            wabbitemu_usb_summary(
+                line_interrupt=False, protocol_interrupt=False
+            ),
+        )
+        self.assertEqual(
+            0x1B,
+            wabbitemu_usb_summary(
+                line_interrupt=True, protocol_interrupt=False
+            ),
+        )
+        self.assertEqual(
+            0x0F,
+            wabbitemu_usb_summary(
+                line_interrupt=False, protocol_interrupt=True
+            ),
+        )
+        self.assertEqual(
+            0x0B,
+            wabbitemu_usb_summary(
+                line_interrupt=True, protocol_interrupt=True
+            ),
+        )
 
     def test_rejects_invalid_values_and_unsupported_bit_port(self):
         with self.assertRaises(ValueError):

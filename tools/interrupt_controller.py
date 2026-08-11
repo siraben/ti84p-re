@@ -26,6 +26,7 @@ PROGRAMMABLE_SOURCE_BITS = {
 
 ROM_STATUS_TEST_BITS = (7, 5, 6, 2, 4, 0, 1)
 LEGACY_SOURCE_MASK = sum(1 << bit for bit in LEGACY_SOURCE_BITS)
+WABBITEMU_STANDARD_TIMER_RATES = (512, 227, 158, 108)
 
 
 def _byte(value: int, name: str) -> int:
@@ -161,6 +162,16 @@ def standard_timer_period(value: int, timer: int = 1) -> Fraction:
     numerator = 64 + 80 * config.standard_timer_index
     denominator = 32768 * (2 if timer == 2 else 1)
     return Fraction(numerator, denominator)
+
+
+def wabbitemu_standard_timer_period(value: int, timer: int = 1) -> Fraction:
+    """Return the period selected by Wabbitemu's rounded rate table."""
+
+    config = decode_port04_configuration(value)
+    if timer not in (1, 2):
+        raise ValueError("standard timer must be 1 or 2")
+    rate = WABBITEMU_STANDARD_TIMER_RATES[config.standard_timer_index]
+    return Fraction(1, rate * (2 if timer == 2 else 1))
 
 
 def acknowledge_legacy_sources(pending: int, mask_write: int) -> int:

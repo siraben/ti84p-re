@@ -21,6 +21,8 @@ calculator.
 | TilEm commit `f56ad63` | One executable model for battery comparison, Flash grouping, and RAM execution masks [standard] for the implementation; [hypothesis] for physical equivalence |
 | Wabbitemu commit `48c2dc0` | An independent status and protection model, including implementation defects described below [standard] for the implementation; [hypothesis] for physical equivalence |
 | MAME 0.287 | A third implementation with fixed status and identity values, incompatible port-`0x21` masking, and no GPIO ports [standard] |
+| Guarded Wabbitemu `--asic-edge-probe` run | Initialized-core status, identity, protected-write, internal-field, readback, and GPIO-map observations [standard] |
+| Guarded Wabbitemu `--protection-port-probe` run | Shared write gate and internal-field behavior for ports `0x22`–`0x26` [standard] |
 
 The static I/O scanner reports candidates from a linear disassembly. Data can
 decode as instructions, so a candidate needs control-flow or trace evidence.
@@ -294,6 +296,18 @@ MAME maps neither port `0x39` nor port `0x3A`. Battery and USB code can execute
 through the driver, but those GPIO reads and writes reach no device handler.
 [standard]
 
+**Native Wabbitemu confirmation.** The guarded initialized-core probe reads port `0x02` as `0xE3` while the in-memory Flash gate is locked and as `0xE7` after directly opening that gate. With Wabbitemu's TI-84 Plus model, port `0x15` reads `0x44` at RAM revision 0 and `0x55` at RAM revision 2. [standard]
+
+Port `0x21` is active and protected. A write of `0x33` while Flash remains locked is rejected, leaving both internal fields and readback zero. After the probe directly opens the in-memory gate, writing `0x30` stores internal RAM execution mode 3 but reads back `0x00`. Writing `0x03` stores Flash group 3 and reads `0x03`. Writing `0x33` stores both internal fields while still reading `0x03`. This run exercises the protected device handler, not the retail ROM's port-`0x14` unlock sequence. [standard]
+
+A separate initialized-core run verifies the same locked-write rejection for
+every port from `0x22` through `0x26`. It also checks the Flash-bound low-byte
+handlers, port-`0x24` high-field clearing, and the 16-bit RAM-bound wrap. See
+[Execution protection](execution-protection.md#native-protected-register-confirmation)
+for the complete value matrix and evidence limits. [standard]
+
+The same initialized core has no active device at port `0x39`; a read is rejected and produces the device layer's `0xFF` fallback. Port `0x3A` is active, starts at zero, and reads back complete `0xA5` and `0x5A` writes. The run advances zero T-states and does not assign electrical direction or signal meaning to either GPIO port. [standard]
+
 ## Emulator comparison
 
 The three pinned implementations disagree on every control group not already
@@ -313,7 +327,13 @@ physical ASIC measurements.
 `tools/asic_control.py` decodes port-`0x02` values, the public port-`0x15`
 table, port-`0x21` modes, TilEm's battery selector, and adjacent GPIO
 read-modify-write sequences. `tools/describe_asic_control.py` exposes those
-operations as a CLI. [confirmed]
+operations as a CLI. `tools/wabbitemu_asic_probe.py` validates native results
+against the reusable source model. `tools/run_wabbitemu_asic_edge_probe.py`
+guards the exact ROM and native binary identities and writes a JSON manifest.
+`tools/wabbitemu_protection_port_probe.py` applies the adjacent boundary-port
+model from `tools/execution_protection.py`; its guarded CLI records the same
+two identities.
+[confirmed] for the ROM-analysis tools; [standard] for the emulator oracle.
 
 ```sh
 nix develop -c python tools/describe_asic_control.py
@@ -325,6 +345,18 @@ nix develop -c python tools/analyze_rom_io.py \
   0x02 0x15 0x21 0x39 0x3A --summary
 nix develop -c python tools/disassemble_rom.py 0x33 \
   --start 0x4E9B --end 0x4F02
+
+asic_probe_parent=$(mktemp -d /tmp/ti84-asic-probe.XXXXXX)
+nix develop -c python tools/run_wabbitemu_asic_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$asic_probe_parent/run" --json
+
+protected_port_parent=$(mktemp -d /tmp/ti84-protected-port.XXXXXX)
+nix develop -c python tools/run_wabbitemu_protection_port_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$protected_port_parent/run" --json
 ```
 
 The I/O and GPIO scans generate candidates. A report becomes evidence for code

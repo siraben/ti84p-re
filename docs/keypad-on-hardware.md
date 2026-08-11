@@ -12,9 +12,10 @@ The matrix's electrical behavior, the ROM's filtering policy, and emulator input
 |-------|---------------|---------------------|
 | TI-OS kernel | `ram:015B`, `ram:03B4`–`ram:04BE`, and `ram:0964`–`ram:0A5D` | matrix transactions, scan-code construction, release filtering, repeat, ON debounce, and low-power control [confirmed] |
 | TI-OS banked code | `_GetKey = 4972`, body `06:491E` | blocking input, hooks, APD interaction, modifiers, and cooked key codes [confirmed] |
-| Dynamic execution | `tools/macros/power-cycle.macro` and `/tmp/tilem-power-cycle.trace` | a complete **[2nd]**+**ON** shutdown/wake cycle and a live **[2nd]** matrix scan [confirmed] |
+| TI-OS dynamic execution | `tools/macros/power-cycle.macro` and `/tmp/tilem-power-cycle.trace` | a complete **[2nd]**+**ON** shutdown/wake cycle and a live **[2nd]** matrix scan [confirmed] |
 | Public hardware notes | WikiTI ports `0x01`, `0x03`, and `0x04` | matrix wiring, capacitance, ghosting, bounce, and interrupt-port semantics [standard] |
 | Emulator models | TilEm commit `f56ad63`, Wabbitemu commit `48c2dc0`, and MAME 0.287 | three different matrix algorithms and ON-edge policies [standard] |
+| Native emulator execution | guarded Wabbitemu `--keypad-edge-probe` run | initialized-core matrix reads and ON status before and after standard-interrupt evaluation [standard] |
 
 ## Two input circuits
 
@@ -425,6 +426,10 @@ TilEm begins with the union of selected rows, then repeatedly adds every row int
 
 Wabbitemu first constructs a result for each row by unioning that row with every row that directly intersects it. It does not iterate the result, so a three-row chain can stop after the second row where TilEm reaches the third. It considers rows 0–6 and ignores row 7. ON press detection compares the current state with a saved state when the standard-interrupt model runs; release updates the saved state without latching a request. [standard]
 
+**Native Wabbitemu confirmation.** The guarded initialized-core probe reads `0xFE` for one key, `0xFE` for two same-column keys in selected rows 0 and 1, and `0xFC` for the three-key rectangle. The five-key transitive chain also reads `0xFC`, while the iterated TilEm model predicts `0xF8`. Selecting row 7 with one injected key reads `0xFF`. [standard]
+
+The same run observes port `0x04` change from `0x00` to `0x01` only after the standard-interrupt device evaluates a new ON press. Acknowledging while ON remains held leaves status `0x00`, including after another evaluation. Release changes the live level to `0x08`; evaluating that release does not set pending bit 0. The next press changes `0x00` to `0x01` when evaluated. The run advances zero T-states, so it establishes callback-state transitions rather than polling frequency or latency. [standard]
+
 MAME does not compute a union. Starting from `0xFF`, it XORs the column bit for every pressed key in every selected row. Two selected pressed positions in one column therefore toggle the bit twice and disappear from the read. Its ON press is sampled by the fixed 256 Hz standard-timer callback; a held press does not create another request until a callback has observed a release. The TI-84 Plus driver remains marked `MACHINE_NOT_WORKING`. [standard]
 
 These discrepancies are emulator behavior, not competing physical measurements. TilEm's closure is topologically plausible for a diode-less matrix, but the physical result still depends on resistance, capacitance, switch state, and the delay between the group write and read. [hypothesis]
@@ -435,6 +440,10 @@ These discrepancies are emulator behavior, not competing physical measurements. 
 ON-edge policies, and byte-confirmed App mouse movement model.
 `tools/describe_keypad_hardware.py` accepts numeric `GROUP,BIT` positions,
 which keeps ghost and unwired-position experiments independent of UI key names.
+`tools/wabbitemu_keypad_probe.py` provides the independent case oracle.
+`tools/run_wabbitemu_keypad_edge_probe.py` guards the native report with the
+exact OS 2.55MP ROM hash and writes a JSON manifest containing both binary
+hashes and evidence scope.
 
 ```sh
 # Three-key rectangle: TilEm/Wabbitemu read 0xFC; MAME reads 0xFE.
@@ -449,6 +458,12 @@ nix develop -c python tools/describe_keypad_hardware.py on press release
 nix develop -c python tools/describe_keypad_hardware.py mouse 0xF5 \
   --row 0x1F --column 0x30
 nix develop -c python tools/describe_keypad_hardware.py --json profiles
+
+keypad_probe_parent=$(mktemp -d /tmp/ti84-keypad-probe.XXXXXX)
+nix develop -c python tools/run_wabbitemu_keypad_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$keypad_probe_parent/run" --json
 ```
 
 `tools/indexed_flags.py` provides the page-aware raw signature scan used for
@@ -477,6 +492,7 @@ above additionally require disassembly of their surrounding routines.
 - [confirmed] Explicit power-off and APD share the `ram:0A24` low-power tail; **ON** wake restores the interrupt mask and reinitializes the LCD.
 - [standard] TilEm iterates matrix closure, Wabbitemu performs only pairwise closure, and MAME XORs selected positions.
 - [standard] TilEm requests ON interrupts on press and release; Wabbitemu and MAME request only on press.
+- [standard] A guarded initialized-core Wabbitemu run reproduces the pairwise matrix reads, ignored row 7, press-only ON latch, held-key suppression, and release rearming described by the pinned source.
 - [hypothesis] The exact capacitance and minimum safe settle time should be measured across TA2 and TA3 calculators, including worst-case chords.
 - [hypothesis] A logic-analyzer test should establish which physical ON transitions request interrupts on each ASIC revision rather than selecting an emulator policy by majority.
 

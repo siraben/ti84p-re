@@ -15,6 +15,7 @@ The sources answer different questions:
 | OS 2.55MP bytes | Values written to port `0x00`, values accepted on reads, bit order, acknowledgements, and error branches | [confirmed] |
 | TilEm and Wabbitemu | Two independent digital models of port reads, local output latches, connected endpoints, and link assist | [standard] where both match the public port contract |
 | MAME 0.287 | A third raw-port implementation, optional link-bus devices, advertised assist state, and interrupt omissions | [standard] |
+| Guarded Wabbitemu link edge probe | Initialized-core raw truth table, assist port map, byte transfers, status, and interrupts | [standard] |
 | TI Link Protocol Guide and WikiTI | Open-collector electrical description and red/tip versus white/ring names | [standard] |
 | Physical measurements | Rise time, pull-up resistance, voltage thresholds, and ASIC-specific edge timing | [hypothesis] until measured on this hardware |
 
@@ -319,6 +320,48 @@ and self-drive reads. The separate `link_disconnect` function instead assigns
 `client[0]`. A subsequent port read can therefore dereference a null pointer.
 This is an emulator lifecycle defect, not link-port behavior. [standard]
 
+### Native Wabbitemu raw and assist edges
+
+A guarded initialized-core run exercises the registered Wabbitemu handlers.
+The raw port produces this local-major matrix, with peer masks across each row:
+[standard]
+
+| Local drive | Peer `0` | Peer `1` | Peer `2` | Peer `3` |
+|-------------|----------|----------|----------|----------|
+| `0` | `0x03` | `0x02` | `0x01` | `0x00` |
+| `1` | `0x12` | `0x12` | `0x10` | `0x10` |
+| `2` | `0x21` | `0x20` | `0x21` | `0x20` |
+| `3` | `0x30` | `0x30` | `0x30` | `0x30` |
+
+Writing `0xA6` gives `0x21`, so bits 2–7 do not alter the two-bit drive
+latch. Pulling peer line 0 low while the local latch is zero gives `0x02`.
+That peer-state change leaves the CPU interrupt line clear even when
+port-`0x03` bit 4 is enabled, matching the absence of transition logic in the
+raw handler. The probe assigns a controlled peer mask directly; it does not
+exercise Wabbitemu's connection or disconnection lifecycle. [standard]
+
+The initialized assist block maps ports `0x08`, `0x09`, `0x0A`, and `0x0D`.
+Ports `0x0B` and `0x0C` are absent and reject reads. Port `0x08` resets to
+`0x80`, while status and both data latches reset to zero. Enabling idle-ready
+interrupts produces status `0x22` and asserts the CPU line. Reading port
+`0x0D` clears ready and returns status to zero. [standard]
+
+Writing byte `0xA5` to port `0x0D` drives masks
+`2,1,2,1,1,2,1,2`, least-significant bit first. Eight controlled peer
+acknowledgements complete the transfer with status `0x22`; reading port
+`0x0D` returns `0xA5` and clears ready. The receive direction reconstructs
+`0xA5`, reports status `0x11`, asserts the CPU line, and clears read-ready when
+port `0x0A` is read. These transitions use Wabbitemu's device evaluator, not
+TI-OS or a physical cable. [standard]
+
+The pinned source contains no assignment that raises the assist error field.
+The probe seeds that internal field to test its observable contract. With
+error interrupts enabled and a single-low peer state being received, status
+is `0x4C` and the CPU line asserts. The first status read clears error; the
+second reads `0x08`, retaining only the receiving flag. This verifies the
+read-to-clear handler but does not establish a naturally reachable error path.
+[standard]
+
 ### MAME's readback-versus-connector split
 
 MAME's TI-Plus write handler copies write bits 0–1 into internal PCR bits 4–5.
@@ -386,6 +429,20 @@ The `keyboard-rom` command verifies the `0x50E9` bcall entry and hashes the
 three OS 2.55MP byte regions that support the decoder; it rejects a different
 control-flow body instead of applying the fixed status model silently.
 
+Run the guarded Wabbitemu matrix with:
+
+```sh
+wabbit_link_parent=$(mktemp -d /tmp/ti84-wabbit-link.XXXXXX)
+python tools/run_wabbitemu_link_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_link_parent/run" --json
+```
+
+`tools/wabbitemu_link_probe.py` derives the raw matrix, byte order, mapped
+ports, and assist status from the reusable model. The guarded CLI requires the
+exact ROM and records the ROM and binary hashes.
+
 ## Resolved findings and open hardware tests
 
 - [confirmed] `_SendAByte` writes `1` for bit 0 and `2` for bit 1, least-significant bit first.
@@ -398,6 +455,7 @@ control-flow body instead of applying the fixed status model silently.
 - [standard] Port reads use active-high physical levels, writes use active-high pull-low controls, and bits 4–5 reflect the local output latch.
 - [standard] Public hardware references map bit 0 to red/tip and bit 1 to white/ring.
 - [standard] TilEm and Wabbitemu reproduce the raw open-collector truth table; MAME reproduces local readback but normal writes do not reach its connector device.
+- [standard] The guarded Wabbitemu run verifies the complete raw matrix, absent assist ports `0x0B`/`0x0C`, idle-ready and read-ready interrupts, LSB-first `0xA5` send and receive, data-register acknowledgement, and seeded-error read-to-clear behavior.
 - [standard] MAME advertises link assist while omitting its control and data ports, and its driver is declared `MACHINE_NOT_WORKING`.
 - [hypothesis] Physical tests must measure pull-up resistance, high/low thresholds, line rise time, timeout duration at both CPU speeds, and the actual duration and voltage waveform of the `3C:618D` abort pulse.
 

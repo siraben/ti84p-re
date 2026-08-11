@@ -13,6 +13,7 @@ The TI-84 Plus OS runs the Z80 in interrupt mode 1 (IM1) and polls the ASIC's in
 | WikiTI ports `0x03` and `0x04` | Bit-level enable, status, clear-on-zero, timer-rate, mapping, battery-selector, and low-power contract | [standard] |
 | TilEm commit `f56ad63` and Wabbitemu commit `48c2dc0` | Two executable interpretations of the registers and their fidelity gaps | [standard] |
 | MAME 0.287 `ti84pv3` driver and Lua I/O trace | Third implementation, headless ON-wake execution, and explicit `MACHINE_NOT_WORKING` gaps | [standard] |
+| Guarded Wabbitemu interrupt edge probe | Initialized-core mask, timer, acknowledgement, completion, and low-power transitions | [standard] |
 
 The ROM proves how OS 2.55MP uses the registers. Public notes and emulators describe behavior inside the ASIC that the ROM cannot prove by itself. Emulator agreement is supporting evidence, not physical confirmation.
 
@@ -263,7 +264,7 @@ Chaining to the OS handler also inherits its assumptions: `IY` points to `flags`
 | Behavior | TilEm x4 | Wabbitemu 83+SE/84+ | Consequence |
 |----------|----------|---------------------|-------------|
 | Port `0x03` read | returns stored mask | returns stored mask | mask reads agree [standard] |
-| Legacy clear-on-zero | clears ON, timer 1, timer 2, and link pending state on port-`0x03` writes | clears ON on port-`0x03`; advances timer phase from its port-`0x02` output handler | Wabbitemu does not reproduce the documented OS acknowledgement path [standard] |
+| Legacy clear-on-zero | clears ON, timer 1, timer 2, and link pending state on port-`0x03` writes | clears ON directly; disabling an overdue standard timer catches its phase up in the same port-`0x03` handler; port `0x02` can also catch it up | OS-style ON and standard-timer acknowledgement works, but no link latch exists [standard] |
 | Link status | implements port-`0x04` bit 4 | omits bit 4 from port-`0x04` reads | link wake cannot be cross-checked there [standard] |
 | Standard timers | explicit pending interrupt bits when enabled | derives status from elapsed phase while enabled | simultaneous-source and latch tests can differ [standard] |
 | Programmable completion | exposes finished bits 5–7 independently of interrupt mode | exposes timer-underflow bits 5–7 | both separate completion from mode, with different timer cores [standard] |
@@ -271,6 +272,47 @@ Chaining to the OS handler also inherits its assumptions: `IY` points to `flags`
 | USB gate | disconnected fixed values `0x55 = 0x1F`, `0x56 = 0` | partial `Fake USB` event model | connected USB interrupt service needs another test target [standard] |
 
 Wabbitemu's source comments state uncertainty about its standard-interrupt write behavior. Its model is useful as an independent implementation comparison, but disagreement must remain explicit. [standard]
+
+### Native Wabbitemu interrupt edges
+
+A guarded initialized-core run checks the source model through the registered
+port handlers. Port `0x03` resets to `0x00` and stores all eight bits of
+`0xFF`. Writing `0xFE` clears a seeded ON latch while preserving `0xFE` as the
+mask readback. [standard]
+
+Wabbitemu selects standard-timer-1 rates of 512, 227, 158, and 108 Hz. The
+native periods round to 1,953,125, 4,405,286, 6,329,114, and 9,259,259 ns.
+Timer 2 at index 3 has a 4,629,630 ns period and starts 2,314,815 ns after
+timer 1. These are emulator intervals, not host-clock measurements or the
+documented physical formula. [standard]
+
+The expiry comparison is strict. At exactly one 108 Hz timer-1 period, port
+`0x04` reads released-ON status `0x08` and the CPU interrupt line remains
+clear. At the next representable emulator time, status is `0x0A` and the line
+asserts. The sequence `0x0A` → `0x08` → `0x0A` then reads `0x08`: disabling
+the overdue timer runs the handler's catch-up loop before re-enabling it. A
+port-`0x02` zero write produces the same idle result through Wabbitemu's second
+acknowledgement path. [standard]
+
+With all three programmable underflow flags seeded, port `0x04` reads `0xE8`.
+With the CPU halted, port-`0x03` bit 3 clear changes Wabbitemu's LCD activity
+field from on to off; setting bit 3 restores it. This is its visual low-power
+approximation, not evidence that a physical ASIC powers down the controller.
+[standard]
+
+### Native Wabbitemu USB interrupt edges
+
+A separate initialized-core run checks Wabbitemu's USB gate. With both USB
+request fields clear, port `0x55` reads `0x1F`. Directly selecting line,
+protocol, or both requests produces `0x1B`, `0x0F`, and `0x0B`. These values
+confirm active-low bits 2 and 4 in this emulator. [standard]
+
+Writing zero to port `0x57` does not mask a line event. A subsequent write of
+`0x08` to port `0x4A` raises the CPU interrupt, changes port `0x56` from
+`0x50` to `0x58`, and changes port `0x55` from `0x1F` to `0x1B`. Repeating the
+same write after clearing only the CPU interrupt raises it again. The run
+invokes Wabbitemu's handlers directly; it does not execute the ROM dispatcher
+or establish physical interrupt acknowledgement behavior. [standard]
 
 MAME 0.287 provides a third comparison with larger known gaps: [standard]
 
@@ -304,6 +346,20 @@ nix develop -c python tools/describe_interrupt_controller.py trace \
 
 Use `--all` to retain repeated ON-level polling and `--json` for machine-readable output.
 
+`tools/wabbitemu_interrupt_probe.py` adds the pinned Wabbitemu timer-rate and
+edge oracle. Run its exact-ROM, hash-recording CLI with:
+
+```sh
+wabbit_interrupt_parent=$(mktemp -d /tmp/ti84-wabbit-interrupt.XXXXXX)
+python tools/run_wabbitemu_interrupt_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_interrupt_parent/run" --json
+```
+
+The ROM is only a core-initialization fixture in this mode. No TI-OS
+instruction executes.
+
 `tools/mame_trace.py`, `tools/run_mame_io_trace.py`, and `tools/mame_io_trace.lua` provide the equivalent headless MAME path. The Lua tap accepts comma-separated ports and ranges, collapses identical polls, records post-I/O PCs, and can inject ON at selected video frames: [confirmed]
 
 ```sh
@@ -321,6 +377,8 @@ MAME prints a checksum warning for the locally assembled ROM and identifies the 
 - [confirmed] The OS acknowledgement sequence is `0x08` → handler-supplied byte → `0x0B` or `0x0F`.
 - [confirmed] Shutdown writes `0x11` and executes `HALT`; the trace wakes through port-`0x04` value `0x01` after an ON press.
 - [standard] Programmable completion bits remain observable independently of their interrupt-mode bits.
+- [standard] The guarded Wabbitemu run verifies complete mask readback, ON clearing, strict standard-timer expiry, both standard-timer acknowledgement paths, programmable completion readback, and its LCD-based low-power approximation.
+- [standard] The guarded Wabbitemu USB run verifies its active-low line/protocol summary, mask-independent line event, and repeat-event path. It does not verify the ROM dispatcher or physical USB interrupt behavior.
 - [hypothesis] Physical TA2 and TA3 tests should measure ON request edges, link wake transitions, simultaneous legacy-source coalescing, programmable-timer wake behavior, and battery-selector thresholds.
 
 ## Sources

@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass
 
 TIMING_PORTS = frozenset({0x20, 0x29, 0x2A, 0x2B, 0x2C, 0x2E, 0x2F})
 DELAY_PORTS = frozenset(TIMING_PORTS - {0x20})
+WABBITEMU_TIMING_PORTS = TIMING_PORTS | {0x2D}
+IMPLEMENTATION_PORTS = WABBITEMU_TIMING_PORTS
 
 
 @dataclass(frozen=True)
@@ -55,7 +57,7 @@ WABBITEMU_PROFILE = TimingImplementationProfile(
     key="wabbitemu",
     name="Wabbitemu",
     revision="48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422",
-    mapped_ports=TIMING_PORTS,
+    mapped_ports=WABBITEMU_TIMING_PORTS,
     speed_policy="modes 2-3 require the external extra-speed option",
     delay_registers=True,
     lcd_ready_policy="measure from the last successful LCD write",
@@ -265,6 +267,7 @@ class TimingImplementation:
         self.extra_speeds = extra_speeds
         self.decoder = BusTiming()
         self.port20 = 0
+        self.port2d = 0
         self.writes = 0
         self.ignored_writes: list[tuple[int, int]] = []
 
@@ -298,7 +301,7 @@ class TimingImplementation:
     def write_port(self, port: int, value: int) -> bool:
         """Apply a write and report whether this profile maps the port."""
 
-        if port not in TIMING_PORTS:
+        if port not in IMPLEMENTATION_PORTS:
             return False
         value = self._byte(value)
         if port not in self.profile.mapped_ports:
@@ -317,6 +320,8 @@ class TimingImplementation:
                 ):
                     mode = 1
             self.decoder.speed_mode = mode
+        elif port == 0x2D:
+            self.port2d = value
         else:
             self.decoder.write_port(port, value)
         self.writes += 1
@@ -333,6 +338,8 @@ class TimingImplementation:
             return self.decoder.speed_mode
         if 0x29 <= port <= 0x2C:
             return self.decoder.delay_ports[port - 0x29]
+        if port == 0x2D:
+            return self.port2d
         if port == 0x2E:
             return self.decoder.port2e
         if port == 0x2F:

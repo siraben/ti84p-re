@@ -1317,6 +1317,16 @@ behavior, not the hardware data-sheet polling contract. The ROM worker tests
 DQ7 and DQ5 in that same first byte. [standard] for Wabbitemu source;
 [confirmed] for the ROM worker.
 
+Wabbitemu's `CPU_reset` does not reset the Flash command step, error flag,
+toggle bit, write byte, delay, lock, or bounds. Its opcode-fetch path separately
+ends most non-read command states after an execution violation. A seeded
+`FLASH_PROGRAM` violation therefore returns to array mode before executing one
+boot instruction. A seeded `FLASH_ERROR` violation retains that command step;
+the boot instruction's immediate-byte read consumes status `0xE0` and clears
+only the error flag. Both cases finish the same `CPU_step` at `PC=0x0002`.
+[standard] for the source paths; [confirmed] for the guarded native run. See
+[Wabbitemu reset scope](execution-protection.md#wabbitemu-reset-scope).
+
 A guarded native run exercises seven byte pairs through Wabbitemu's
 `CPU_mem_write` and `CPU_mem_read` entry points. Each case issues `AA 55 A0`,
 programs page `08` offset `0x0100`, and reads the target twice. The harness

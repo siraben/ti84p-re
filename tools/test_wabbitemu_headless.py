@@ -8,16 +8,28 @@ from wabbitemu_headless import (
     COMPILE_SOURCES,
     WabbitemuHeadlessError,
     build_command,
+    parse_asic_report,
     parse_execution_report,
     parse_flash_command_report,
     parse_flash_program_report,
     parse_flash_worker_report,
     parse_gate_transition,
     parse_gate_write,
+    parse_keypad_report,
+    parse_interrupt_report,
+    parse_lcd_report,
+    parse_link_report,
+    parse_md5_edge_report,
+    parse_mapper_report,
+    parse_protection_port_report,
     parse_ram_execution_report,
     parse_run_report,
+    parse_speed_report,
+    parse_timer_report,
+    parse_usb_report,
     validate_retail_flash_path,
 )
+from wabbitemu_mapper_probe import expected_mapper_values
 
 
 class WabbitemuHeadlessTests(unittest.TestCase):
@@ -210,6 +222,308 @@ class WabbitemuHeadlessTests(unittest.TestCase):
             parse_flash_command_report(
                 "mode=flash-command-probe flash_size=0x100000"
             )
+
+    def test_parses_native_md5_edge_status(self):
+        report = parse_md5_edge_report(
+            "mode=md5-edge-probe reset_operand_reads=00,00,00,00 "
+            "reset_result=0x00000000 one_write_result=0x11000000 "
+            "three_write_result=0x33221100 four_write_result=0x44332211 "
+            "five_write_result=0x55443322 raw_shift=0xFF raw_mode=0xFF "
+            "masked_control_result=0x00000004 "
+            "loaded_operand_reads=00,00,00,00 "
+            "before_mutation_result=0xD6D117B4 "
+            "after_mutation_result=0x343F9701 mixed_result=0x343F97B4 "
+            "tstates=0\n"
+        )
+
+        self.assertEqual((0, 0, 0, 0), report.reset_operand_reads)
+        self.assertEqual(0x55443322, report.five_write_result)
+        self.assertEqual(0x343F97B4, report.mixed_result)
+
+    def test_rejects_incomplete_md5_edge_status(self):
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "omits"):
+            parse_md5_edge_report("mode=md5-edge-probe reset_result=0")
+
+    def test_parses_native_keypad_status(self):
+        report = parse_keypad_report(
+            "mode=keypad-edge-probe single_mask=0xFE single_read=0xFE "
+            "same_column_mask=0xFC same_column_read=0xFE "
+            "rectangle_mask=0xFE rectangle_read=0xFC "
+            "transitive_mask=0xFE transitive_read=0xFC "
+            "unwired_mask=0x7F unwired_read=0xFF "
+            "on_initial_status=0x08 on_enabled_status=0x08 "
+            "on_press_before_eval=0x00 on_press_after_eval=0x01 "
+            "on_held_after_ack=0x00 on_held_after_eval=0x00 "
+            "on_release_before_eval=0x08 on_release_after_eval=0x08 "
+            "on_second_press_before_eval=0x00 "
+            "on_second_press_after_eval=0x01 tstates=0\n"
+        )
+
+        self.assertEqual(0xFC, report.transitive_read)
+        self.assertEqual(0xFF, report.unwired_read)
+        self.assertEqual(0x01, report.on_second_press_after_eval)
+
+    def test_rejects_incomplete_keypad_status(self):
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "omits"):
+            parse_keypad_report("mode=keypad-edge-probe single_read=0xFE")
+
+    def test_parses_native_timer_status(self):
+        report = parse_timer_report(
+            "mode=timer-edge-probe crystal_source=0x41 crystal_divisor=32 "
+            "crystal_elapsed_ticks=320 crystal_reads=02,01,03 "
+            "crystal_status=0x04 crystal_port4=0x28 cpu_source=0x80 "
+            "cpu_divisor=1 cpu_elapsed_tstates=4 cpu_count_read=0x03 "
+            "cpu_status=0x04 cpu_port4=0x28 zero_elapsed_tstates=257 "
+            "zero_count_read=0x00 zero_status=0x04 zero_port4=0x28 "
+            "acknowledged_status=0x00 acknowledged_port4=0x08 "
+            "halted_count_read=0x01 halted_status=0x06 "
+            "interrupt_while_halted=0 interrupt_after_resume=1 "
+            "rtc_initial=0x00000000 rtc_committed=0x12345678 "
+            "rtc_running=0x12345682 rtc_frozen=0x12345682 "
+            "rtc_late_disabled=0x12345682 final_elapsed=100\n"
+        )
+
+        self.assertEqual((2, 1, 3), report.crystal_reads)
+        self.assertEqual(0x04, report.zero_status)
+        self.assertFalse(report.interrupt_while_halted)
+        self.assertTrue(report.interrupt_after_resume)
+
+    def test_rejects_incomplete_timer_status(self):
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "omits"):
+            parse_timer_report("mode=timer-edge-probe crystal_divisor=32")
+
+    def test_parses_native_asic_status(self):
+        report = parse_asic_report(
+            "mode=asic-edge-probe initial_flash_locked=1 "
+            "port02_locked=0xE3 port02_unlocked=0xE7 "
+            "port15_ram_v0=0x44 port15_ram_v2=0x55 "
+            "port39_active=0 port39_read_accepted=0 port39_read=0xFF "
+            "port3a_active=1 port3a_initial=0x00 "
+            "port3a_first_written=0xA5 port3a_first_read=0xA5 "
+            "port3a_second_written=0x5A port3a_second_read=0x5A "
+            "port21_active=1 port21_protected=1 locked_write_accepted=0 "
+            "locked_read=0x00 locked_internal_mode=0 locked_model_bits=0 "
+            "mode3_write_accepted=1 mode3_written=0x30 mode3_read=0x00 "
+            "mode3_internal_mode=3 mode3_model_bits=0 "
+            "group3_write_accepted=1 group3_written=0x03 group3_read=0x03 "
+            "group3_internal_mode=0 group3_model_bits=3 "
+            "combined_write_accepted=1 combined_written=0x33 "
+            "combined_read=0x03 combined_internal_mode=3 "
+            "combined_model_bits=3 tstates=0\n"
+        )
+
+        self.assertEqual(0x44, report.port15_ram_v0)
+        self.assertFalse(report.port39_active)
+        self.assertEqual(3, report.combined_internal_mode)
+        self.assertEqual(0x03, report.combined_read)
+
+    def test_rejects_incomplete_asic_status(self):
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "omits"):
+            parse_asic_report("mode=asic-edge-probe port02_locked=0xE3")
+
+    def test_parses_native_lcd_status(self):
+        report = parse_lcd_report(
+            "mode=lcd-edge-probe configured_lcd_delay=60 "
+            "port12_active=0 port12_read_accepted=0 port12_read=0xFF "
+            "port13_active=0 port13_read_accepted=0 port13_read=0xFF "
+            "early_status=0x80 boundary_status=0x23 status_last_tstate=60 "
+            "early_write_cell=0x00 early_write_column=0 "
+            "wrap_column14=0xA0 wrap_column15=0x00 wrap_column0=0xA1 "
+            "wrap_column1=0xA2 wrap_column2=0xA3 wrap_final_column=3 "
+            "direct_column15=0xB5 alias_column31=0xBF alias_final_column=0 "
+            "latch_reads=00,12,34 latch_read_tstates=1380 "
+            "latch_last_tstate=1320 latch_final_column=3 "
+            "ready_field=3 ready_hold=240 ready_last_tstate=2000 "
+            "ready_at_240=0xE1 ready_at_241=0xE3 "
+            "accepted_status_read=0x63 ready_after_read_last_tstate=2000 "
+            "ready_after_read=0xE3 delay_register=0x27 delay_before=3000 "
+            "delay_after=3009 delayed_status=0x63 "
+            "flash_opcode_wait=1 flash_read_wait=0 flash_write_wait=1 "
+            "ram_opcode_wait=0 ram_read_wait=0 ram_write_wait=1 "
+            "requested_speed=3 clamped_speed=1 timer_version=0\n"
+        )
+
+        self.assertEqual(0x23, report.boundary_status)
+        self.assertEqual((0, 0x12, 0x34), report.latch_reads)
+        self.assertFalse(report.port12_active)
+        self.assertTrue(report.flash_opcode_wait)
+
+    def test_rejects_incomplete_lcd_status(self):
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "omits"):
+            parse_lcd_report("mode=lcd-edge-probe configured_lcd_delay=60")
+
+    def test_parses_native_speed_status(self):
+        report = parse_speed_report(
+            "mode=speed-edge-probe port20_active=1 "
+            "delay_ports_active=1,1,1,1,1,1,1 "
+            "reset_speed=0 reset_frequency=6000000 reset_timer_version=0 "
+            "reset_delay_reads=00,00,00,00,00,00,00 "
+            "default_speed_reads=0,1,1,1 "
+            "default_frequencies=6000000,15000000,15000000,15000000 "
+            "extra_speed_reads=0,1,2,3 "
+            "extra_frequencies=6000000,15000000,20000000,25000000 "
+            "latch_written=A9,AA,AB,AC,AD,AE,AF "
+            "latch_reads=A9,AA,AB,AC,AD,AE,AF "
+            "wait_masks=00,07,38,3F "
+            "port2d_written=0x5A port2d_read=0x5A "
+            "port2d_wait_unchanged=1 port2d_freq_unchanged=1 "
+            "port2d_timer_version_unchanged=1 port2d_xtal_unchanged=1 "
+            "port2d_lcd_active_unchanged=1 port2d_halt_unchanged=1 "
+            "port2d_interrupt_unchanged=1 port2d_tstates_unchanged=1 "
+            "tstates=0\n"
+        )
+
+        self.assertEqual((0, 1, 1, 1), report.default_speed_reads)
+        self.assertEqual((0x00, 0x07, 0x38, 0x3F), report.wait_masks)
+        self.assertTrue(report.port2d_xtal_unchanged)
+
+    def test_rejects_incomplete_speed_status(self):
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "omits"):
+            parse_speed_report("mode=speed-edge-probe port20_active=1")
+
+    def test_parses_native_protection_port_status(self):
+        report = parse_protection_port_report(
+            "mode=protection-port-probe "
+            "port_active=1,1,1,1,1 port_protected=1,1,1,1,1 "
+            "initial_flash_locked=1 initial_reads=10,30,00,00,00 "
+            "initial_flash_lower=0x0010 initial_flash_upper=0x0030 "
+            "initial_port24=0x00 initial_ram_lower=0x0000 "
+            "initial_ram_upper=0x03FF locked_write_accepted=0,0,0,0,0 "
+            "locked_reads=10,30,00,00,00 configured_flash_locked=0 "
+            "seeded_flash_lower=0x01A5 seeded_flash_upper=0x02B6 "
+            "low_writes=CC,DD low_write_reads=CC,DD "
+            "low_write_flash_lower=0x01CC low_write_flash_upper=0x02DD "
+            "port24_written=0xFF port24_read=0xFF "
+            "port24_flash_lower=0x00CC port24_flash_upper=0x00DD "
+            "wrap_values=3F,40,41,FF ram_lower_reads=3F,00,01,3F "
+            "ram_lower_internal=FC00,0000,0400,FC00 "
+            "ram_upper_reads=3F,00,01,3F "
+            "ram_upper_internal=FFFF,03FF,07FF,FFFF tstates=0\n"
+        )
+
+        self.assertEqual((False,) * 5, report.locked_write_accepted)
+        self.assertEqual((0xCC, 0xDD), report.low_write_reads)
+        self.assertEqual((0xFFFF, 0x03FF, 0x07FF, 0xFFFF), report.ram_upper_internal)
+
+    def test_rejects_incomplete_protection_port_status(self):
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "omits"):
+            parse_protection_port_report(
+                "mode=protection-port-probe port_active=1,1,1,1,1"
+            )
+
+    def test_parses_native_interrupt_status(self):
+        report = parse_interrupt_report(
+            "mode=interrupt-edge-probe initial_mask=0x00 stored_mask=0xFF "
+            "on_latch_before_ack=1 on_latch_after_ack=0 "
+            "mask_after_on_ack=0xFE rate0_timer1_ns=1953125 "
+            "rate1_timer1_ns=4405286 rate2_timer1_ns=6329114 "
+            "rate3_timer1_ns=9259259 rate3_timer2_ns=4629630 "
+            "rate3_timer2_offset_ns=2314815 exact_boundary_status=0x08 "
+            "exact_boundary_interrupt=0 after_boundary_status=0x0A "
+            "after_boundary_interrupt=1 after_port3_ack_status=0x08 "
+            "before_port2_ack_status=0x0A after_port2_ack_status=0x08 "
+            "completion_status=0xE8 "
+            "low_power_lcd_active=0 restored_lcd_active=1 tstates=0\n"
+        )
+
+        self.assertEqual(0xFF, report.stored_mask)
+        self.assertEqual(9_259_259, report.rate3_timer1_ns)
+        self.assertFalse(report.exact_boundary_interrupt)
+        self.assertTrue(report.after_boundary_interrupt)
+
+    def test_rejects_incomplete_interrupt_status(self):
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "omits"):
+            parse_interrupt_report("mode=interrupt-edge-probe initial_mask=0")
+
+    def test_parses_native_link_status(self):
+        report = parse_link_report(
+            "mode=link-edge-probe port08_active=1 port09_active=1 "
+            "port0a_active=1 port0b_active=0 port0b_read_accepted=0 "
+            "port0b_read=0xFF port0c_active=0 port0c_read_accepted=0 "
+            "port0c_read=0xFF port0d_active=1 initial_enable=0x80 "
+            "initial_status=0x00 initial_in=0x00 initial_out=0x00 "
+            "raw_reads=03,02,01,00,12,12,10,10,21,20,21,20,30,30,30,30 "
+            "raw_high_write=0x21 raw_peer_read=0x02 raw_peer_interrupt=0 "
+            "idle_ready_status=0x22 idle_ready_interrupt=1 "
+            "idle_after_out_status=0x00 "
+            "assist_send_drives=02,01,02,01,01,02,01,02 "
+            "assist_send_status=0x22 assist_send_interrupt=1 "
+            "assist_send_out=0xA5 assist_send_after_out_status=0x00 "
+            "assist_receive_status=0x11 assist_receive_interrupt=1 "
+            "assist_receive_in=0xA5 assist_receive_after_in_status=0x00 "
+            "assist_error_status=0x4C assist_error_interrupt=1 "
+            "assist_error_after_read_status=0x08 tstates=0\n"
+        )
+
+        self.assertEqual(16, len(report.raw_reads))
+        self.assertEqual((2, 1, 2, 1, 1, 2, 1, 2), report.assist_send_drives)
+        self.assertEqual(0xA5, report.assist_receive_in)
+        self.assertFalse(report.raw_peer_interrupt)
+
+    def test_rejects_incomplete_link_status(self):
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "omits"):
+            parse_link_report("mode=link-edge-probe port08_active=1")
+
+    def test_parses_native_usb_status(self):
+        report = parse_usb_report(
+            "mode=usb-edge-probe port4a_active=1 port4c_active=1 "
+            "port4d_active=1 port54_active=0 port54_read_accepted=0 "
+            "port54_read=0xFF port55_active=1 port56_active=1 "
+            "port57_active=1 port5b_active=1 port80_active=1 "
+            "initial_port4a=0x04 initial_port4c=0x22 initial_port4d=0xA5 "
+            "initial_port55=0x1F initial_port56=0x50 initial_port57=0x00 "
+            "initial_port5b=0x00 initial_port80=0x00 "
+            "initial_line_state=0xA5 initial_events=0x50 "
+            "initial_event_mask=0x00 initial_line_interrupt=0 "
+            "initial_protocol_interrupt=0 initial_stored_port4a=0x00 "
+            "initial_stored_port4c=0x00 initial_stored_port54=0x00 "
+            "mask_ff_read=0xFF mask_zero_read=0x00 event_interrupt=1 "
+            "event_line_interrupt=1 event_line_state=0xE5 event_events=0x58 "
+            "event_port4a=0x0C event_port4d=0xE5 event_port55=0x1B "
+            "event_port56=0x58 repeated_event_interrupt=1 repeated_events=0x58 "
+            "summary_none=0x1F summary_line=0x1B summary_protocol=0x0F "
+            "summary_both=0x0B port5b_ff_read=0x01 "
+            "protocol_interrupt_enabled=1 port80_ff_read=0x7F "
+            "stored_dev_address=0x7F port4c_ff_read=0x2A "
+            "stored_port4c=0x08 port4d_false_pair=0xA7 "
+            "port4d_true_pair=0xE7 port4a_true_condition=0x09 "
+            "port4a_false_condition=0x0C tstates=0\n"
+        )
+
+        self.assertFalse(report.port54_active)
+        self.assertEqual(0xE5, report.event_line_state)
+        self.assertEqual((0x1F, 0x1B, 0x0F, 0x0B), (
+            report.summary_none,
+            report.summary_line,
+            report.summary_protocol,
+            report.summary_both,
+        ))
+
+    def test_rejects_incomplete_usb_status(self):
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "omits"):
+            parse_usb_report("mode=usb-edge-probe port4a_active=1")
+
+    def test_parses_native_mapper_status(self):
+        values = expected_mapper_values()
+        tokens = ["mode=mapper-edge-probe"]
+        for name, value in values.items():
+            rendered = str(int(value)) if isinstance(value, bool) else hex(value)
+            tokens.append(f"{name}={rendered}")
+
+        report = parse_mapper_report(" ".join(tokens))
+
+        self.assertEqual(0x3F, report.fixed_page_after_data_read)
+        self.assertEqual(0, report.fixed_page_after_opcode)
+        self.assertEqual((2, 2, 3), (
+            report.paired_a_page,
+            report.paired_b_page,
+            report.paired_c_page,
+        ))
+        self.assertTrue(report.paired_fetch_halted)
+
+    def test_rejects_incomplete_mapper_status(self):
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "omits"):
+            parse_mapper_report("mode=mapper-edge-probe port04_active=1")
 
     def test_parses_native_flash_worker_status(self):
         report = parse_flash_worker_report(

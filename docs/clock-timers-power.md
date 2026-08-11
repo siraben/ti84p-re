@@ -12,9 +12,10 @@ The subsystem crosses ROM code, public hardware observations, and emulator polic
 |-------|---------------|---------------------|
 | TI-OS kernel | `ram:0038`–`ram:04B2` and `ram:09B5`–`ram:0A5F` | interrupt routing, standard-timer consumers, APD counters, and shutdown [confirmed] |
 | TI-OS banked code | `33:5E1E`–`33:5F69` and `37:5359`–`37:5950` | programmable-timer API and RTC conversion/access [confirmed] |
-| Dynamic execution | `tools/macros/power-cycle.macro` and resolved TilEm traces | standard-timer cadence and the explicit shutdown/HALT path [confirmed] |
+| TI-OS dynamic execution | `tools/macros/power-cycle.macro` and resolved TilEm traces | standard-timer cadence and the explicit shutdown/HALT path [confirmed] |
 | Public hardware notes | WikiTI ports `0x03`, `0x04`, `0x20`, `0x2D`, `0x2F`, `0x30`–`0x38`, and `0x40`–`0x48` | register semantics and oscillator-derived rates [standard] |
 | Emulator models | TilEm commit `f56ad63`, Wabbitemu commit `48c2dc0`, and MAME 0.287 | independent timer decode, scheduling, status, interrupt, and RTC policies [standard] |
+| Native emulator execution | guarded Wabbitemu `--timer-edge-probe` run | initialized-core catch-up, zero-counter, acknowledgement, HALT-line, and RTC transitions [standard] |
 
 ## Hardware blocks and clock domains
 
@@ -46,6 +47,13 @@ The three timing blocks have different contracts: [standard]
 ### CPU speed
 
 Port `0x20` selects CPU speed. Value `0` selects the nominal 6 MHz mode; values `1`–`3` select the nominal 15 MHz mode on the TI-84 Plus. TilEm models these as exactly 6 MHz and 15 MHz. Physical measurements published by WikiTI vary by ASIC revision and unit, so cycle-count conversion should name whether it uses nominal or measured frequency. [standard]
+
+Pinned Wabbitemu starts at exactly 6 MHz. Its default TI-84 Plus context maps
+port-`0x20` values 0–3 to 6, 15, 15, and 15 MHz. An internal
+`timer_version = 1` setting maps them to 6, 15, 20, and 25 MHz. A guarded
+initialized-core run verifies both matrices. The internal setting is
+front-end configuration, not a calculator port or evidence of additional
+physical TI-84 Plus clock modes. [standard]
 
 The low two speed bits also select one of ports `0x29`–`0x2C` for LCD and
 memory wait states, plus a field in port `0x2F`. See
@@ -98,6 +106,13 @@ and timer 2 runs at twice its frequency. [standard]
 | `11` | 3 | 9.27734375 ms | 107.789474 Hz | 215.578947 Hz |
 
 TI-OS writes `0x06` to port `0x04` at several setup sites, including `ram:09B7`. Bit 0 is clear, selecting memory-map mode 0, and bits 1–2 select the slowest standard-timer rate. The kernel tick period is therefore exactly $304/32768$ seconds under the documented quartz model. [confirmed] for the write; [standard] for the physical rate.
+
+Wabbitemu instead stores a rounded rate table of 512, 227, 158, and 108 Hz.
+Its index-2 value differs from the documented 146.285714 Hz, while the other
+three approximate their corresponding public rates. A guarded initialized-core
+run records the resulting internal periods and checks the expiry boundary
+through the registered port handler. These values describe Wabbitemu only.
+[standard]
 
 ### Dynamic cadence
 
@@ -386,9 +401,31 @@ TilEm tracks completion internally for port `0x04` while exposing loop, interrup
 
 Wabbitemu stops a programmable timer and clears its pending interrupt generation on a source write. It decodes the crystal-family divisors as `3`, `32`, `327`, `3276`, `1`, `16`, `256`, and `4096`; the three near-decimal divisors therefore differ from both the published table and TilEm. Its `0x80` and `0xC0` families both use the divided-CPU decode and ignore port `0x2F`. [standard]
 
+Wabbitemu's low-level `CPU_reset` and frontend `calc_reset` do not reset the
+timer context, delay registers, standard interrupt controller, programmable
+timers, or RTC. A guarded initialized-core run retains seeded T-states
+`123456`, frequency 25 MHz, timer version 1, and byte-complete state for those
+peripherals. Direct seeding verifies emulator field retention only. It does not
+establish warm-reset, cold-reset, or power-loss behavior on an ASIC. [standard]
+for source; [confirmed] for the pinned run.
+
+Wabbitemu registers ports `0x29`–`0x2F` through one delay-latch handler. Port
+`0x2D` consequently stores all eight bits and only recomputes the memory-wait
+booleans from the active speed register and port `0x2E`. A native write to
+`0x2D` leaves the programmable-timer state, clock frequency, LCD-active state,
+`HALT`, interrupt line, and T-state count unchanged. This differs from the
+public low-power contract and cannot establish physical port-`0x2D` behavior.
+[standard]
+
 The crystal handler computes elapsed 32.768 kHz ticks but uses a single `if`, so one invocation decrements each crystal timer at most once even if multiple source periods elapsed. The CPU path uses `while` and catches up all elapsed divisors. On the first expiry, Wabbitemu reloads the original counter, stops if loop bit 0 is clear, sets the underflow flag exposed as mode/status bit 2 and port-`0x04` completion, and retains interrupt generation when mode bit 1 is set. It does not assert that interrupt while the emulated CPU is in `HALT`. [standard]
 
 Wabbitemu implements ports `0x40`–`0x48` from emulated elapsed seconds rather than host wall time. A bit-1 rising edge copies the staged value into the base. Bit-0 transitions start or stop elapsed-time accumulation, and disabled reads return the frozen base. Each staged-byte write also resets the stored elapsed-time reference; the OS set sequence commits immediately afterward, so this does not disturb the traced ROM path. [standard]
+
+**Native Wabbitemu confirmation.** The guarded initialized-core probe loads counter 3 with crystal source `0x41`, advances the emulated crystal by 320 ticks, and reads the counter three times without advancing time again. The reads are `0x02`, `0x01`, and `0x03`: each device evaluation consumes one pending divisor, and the third reloads the original count. Mode/status reads `0x04`, and port `0x04` reads `0x28`. [standard]
+
+The corresponding CPU-source case loads counter 3 with source `0x80` and advances four T-states. One counter read catches up three divisors, reloads `0x03`, and produces the same `0x04` mode/status and `0x28` port status. Loading counter zero and advancing 257 T-states reaches underflow after 256 decrements. It reads back zero with status `0x04` and port `0x04 = 0x28`. A mode write acknowledges that state, returning mode/status to `0x00` and port `0x04` to `0x08`. [standard]
+
+With mode `0x02`, source `0x80`, and counter 1, expiry during `HALT` leaves the CPU interrupt line clear while mode/status reads `0x06`. Evaluating the timer after leaving `HALT` asserts the retained interrupt request. The RTC case commits `0x12345678`, advances emulated time by 10.75 seconds, and reads `0x12345682`. Disabling the RTC freezes that value through an advance to 100 seconds. These tests inject emulator clock values directly; they do not measure wall-clock accuracy, callback cadence under CPU execution, or physical low-power behavior. [standard]
 
 ### MAME timer and RTC policy
 
@@ -400,7 +437,7 @@ The TI-84 Plus driver is marked `MACHINE_NOT_WORKING`. Its standard timers remai
 
 ## Reusable timer tools
 
-`tools/timer_hardware.py` exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM's radix-255 chunks, and RTC implementation profiles. `tools/describe_timer_hardware.py` is a JSON-capable front end. These are source-comparison oracles, not physical-hardware simulators.
+`tools/timer_hardware.py` exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM's radix-255 chunks, and RTC implementation profiles. `tools/describe_timer_hardware.py` is a JSON-capable front end. `tools/wabbitemu_timer_probe.py` validates native observations against that reusable source model. `tools/run_wabbitemu_timer_edge_probe.py` guards the ROM and binary identities and writes a JSON manifest. CPU-speed and port-`0x2D` implementation edges use `tools/wabbitemu_speed_probe.py` and its guarded CLI. These are emulator-comparison tools, not physical-hardware simulators.
 
 ```sh
 nix develop -c python tools/describe_timer_hardware.py \
@@ -414,6 +451,12 @@ nix develop -c python tools/describe_timer_hardware.py \
 
 nix develop -c python tools/describe_timer_hardware.py chunks 0x0100 0x0101
 nix develop -c python tools/describe_timer_hardware.py --json rtc
+
+timer_probe_parent=$(mktemp -d /tmp/ti84-timer-probe.XXXXXX)
+nix develop -c python tools/run_wabbitemu_timer_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$timer_probe_parent/run" --json
 ```
 
 ## Resolved findings and open hardware questions
@@ -426,6 +469,8 @@ nix develop -c python tools/describe_timer_hardware.py --json rtc
 - [confirmed] Explicit power-off and APD share the low-power tail at `ram:0A24`.
 - [standard] TilEm matches the published `33`/`328`/`3277` crystal divisors; pinned Wabbitemu and MAME sources use `32`/`327`/`3276`.
 - [standard] TilEm, Wabbitemu, and MAME all omit the published port-`0x2F` prescaler from their `0xC0`-family timer models.
+- [standard] A guarded initialized-core Wabbitemu run verifies single-step crystal catch-up, full CPU catch-up, first-underflow status bit 2, counter-zero completion, acknowledgement, HALT-line suppression with retained generation, and frozen disabled RTC reads.
+- [standard] Wabbitemu's low-level and frontend reset paths retain the timer context, delay registers, interrupt controller, programmable timers, and RTC. A guarded run confirms the directly seeded state. Physical reset retention remains open.
 - [hypothesis] Physical RTC reads can tear across a one-second rollover because no latch or OS retry is documented.
 - [hypothesis] The physical crystal divisors, first-versus-second-expiry meaning of mode/status bit 2, counter-zero edge, and precise reason programmable timers fail to wake `HALT` need direct TA2/TA3 measurements.
 - [hypothesis] Low-power behavior of port `0x2D`, disabled RTC reads, control-edge behavior, and rollover coherence should be checked on TA2 and TA3 hardware rather than inferred from emulators.
@@ -443,5 +488,5 @@ nix develop -c python tools/describe_timer_hardware.py --json rtc
 | [WikiTI hardware history](https://wikiti.brandonw.net/index.php?title=83Plus:History_of_TI-8x_hardware) | ASIC integration, quartz oscillator, and TI-84 Plus RTC |
 | [Datamath TI-84 Plus hardware](http://www.datamath.org/Graphing/TI-84PLUS.htm) | TA2/TA3 identification, ASIC/PCB photographs, and 15 MHz specification |
 | [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c), [`x4_init.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c), and [`timers.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/timers.c) | emulator timer, RTC, interrupt, and power policy |
-| [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) and [`83psehw.h`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.h) | independent source decode, catch-up, underflow, HALT, and RTC policies |
+| [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c), [`83psehw.h`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.h), [`core.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c), and [`calc.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/interface/calc.c) | independent source decode, catch-up, underflow, HALT, RTC, and reset-retention policies |
 | [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | mapped ports, scheduling, callback polarity, standard timers, and driver status |

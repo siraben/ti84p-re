@@ -10,15 +10,19 @@
 #include "core.h"
 #include "device.h"
 #include "keys.h"
+#include "lcd.h"
+#include "link.h"
 
 #undef max
 #undef min
 
 #include <cerrno>
+#include <cmath>
 #include <cinttypes>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <vector>
 
 // The headless runner never installs debugger breakpoints or enables audio.
@@ -214,6 +218,7 @@ void initialize(
     timer_context_t *timer,
     CPU_t *cpu
 ) {
+    std::memset(timer, 0, sizeof(*timer));
     int error = memory_init_84p(memory);
     error |= tc_init(timer, MHZ_6);
     error |= CPU_init(cpu, memory, timer);
@@ -226,6 +231,7 @@ void initialize(
     if (CPU_reset(cpu) != 0) {
         fail("Wabbitemu CPU reset failed");
     }
+    cpu->pio.lcd->reset(cpu);
 }
 
 void prepare_flash_command_probe(
@@ -273,6 +279,2047 @@ std::size_t count_differences(
         count += before[index] != after[index];
     }
     return count;
+}
+
+void write_device_port(CPU_t *cpu, unsigned char port, unsigned char value) {
+    cpu->bus = value;
+    if (device_output(cpu, port) != 0) {
+        fail("native device rejected an output", "direct device probe");
+    }
+}
+
+unsigned char read_device_port(CPU_t *cpu, unsigned char port) {
+    if (device_input(cpu, port) != 0) {
+        fail("native device rejected an input", "direct device probe");
+    }
+    return cpu->bus;
+}
+
+bool try_write_device_port(CPU_t *cpu, unsigned char port, unsigned char value) {
+    if (!cpu->pio.devices[port].active) {
+        return false;
+    }
+    cpu->bus = value;
+    return device_output(cpu, port) == 0;
+}
+
+struct DeviceReadResult {
+    bool accepted;
+    unsigned char value;
+};
+
+DeviceReadResult try_read_device_port(CPU_t *cpu, unsigned char port) {
+    cpu->bus = 0;
+    const bool accepted = device_input(cpu, port) == 0;
+    return {accepted, cpu->bus};
+}
+
+struct KeyPosition {
+    int group;
+    int bit;
+};
+
+unsigned char read_keypad_case(
+    CPU_t *cpu,
+    unsigned char group_mask,
+    const std::vector<KeyPosition> &keys
+) {
+    for (const KeyPosition &key : keys) {
+        keypad_press(cpu, key.group, key.bit);
+    }
+    write_device_port(cpu, 0x01, group_mask);
+    const unsigned char result = read_device_port(cpu, 0x01);
+    write_device_port(cpu, 0x01, 0xFF);
+    for (const KeyPosition &key : keys) {
+        keypad_release(cpu, key.group, key.bit);
+    }
+    return result;
+}
+
+void evaluate_device_port(CPU_t *cpu, unsigned char port, const char *context) {
+    device_t *device = &cpu->pio.devices[port];
+    if (!device->active || device->code == nullptr) {
+        fail("requested device is unavailable", context);
+    }
+    cpu->input = FALSE;
+    cpu->output = FALSE;
+    device->code(cpu, device);
+}
+
+int run_keypad_edge_probe(int argc, char **argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: %s --keypad-edge-probe INPUT.rom\n", argv[0]);
+        return 2;
+    }
+
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+
+    const unsigned char single_read = read_keypad_case(
+        &cpu, 0xFE, {{0, 0}}
+    );
+    const unsigned char same_column_read = read_keypad_case(
+        &cpu, 0xFC, {{0, 0}, {1, 0}}
+    );
+    const unsigned char rectangle_read = read_keypad_case(
+        &cpu, 0xFE, {{0, 0}, {1, 0}, {1, 1}}
+    );
+    const unsigned char transitive_read = read_keypad_case(
+        &cpu, 0xFE, {{0, 0}, {1, 0}, {1, 1}, {2, 1}, {2, 2}}
+    );
+    const unsigned char unwired_read = read_keypad_case(
+        &cpu, 0x7F, {{7, 0}}
+    );
+
+    const unsigned char on_initial_status = read_device_port(&cpu, 0x04);
+    write_device_port(&cpu, 0x03, 0x01);
+    const unsigned char on_enabled_status = read_device_port(&cpu, 0x04);
+    keypad_press(&cpu, KEYGROUP_ON, KEYBIT_ON);
+    const unsigned char on_press_before_eval = read_device_port(&cpu, 0x04);
+    evaluate_device_port(&cpu, 0x03, "keypad probe");
+    const unsigned char on_press_after_eval = read_device_port(&cpu, 0x04);
+
+    write_device_port(&cpu, 0x03, 0x00);
+    write_device_port(&cpu, 0x03, 0x01);
+    const unsigned char on_held_after_ack = read_device_port(&cpu, 0x04);
+    evaluate_device_port(&cpu, 0x03, "keypad probe");
+    const unsigned char on_held_after_eval = read_device_port(&cpu, 0x04);
+
+    keypad_release(&cpu, KEYGROUP_ON, KEYBIT_ON);
+    const unsigned char on_release_before_eval = read_device_port(&cpu, 0x04);
+    evaluate_device_port(&cpu, 0x03, "keypad probe");
+    const unsigned char on_release_after_eval = read_device_port(&cpu, 0x04);
+    keypad_press(&cpu, KEYGROUP_ON, KEYBIT_ON);
+    const unsigned char on_second_press_before_eval = read_device_port(&cpu, 0x04);
+    evaluate_device_port(&cpu, 0x03, "keypad probe");
+    const unsigned char on_second_press_after_eval = read_device_port(&cpu, 0x04);
+
+    std::printf(
+        "mode=keypad-edge-probe single_mask=0xFE single_read=0x%02X "
+        "same_column_mask=0xFC same_column_read=0x%02X "
+        "rectangle_mask=0xFE rectangle_read=0x%02X "
+        "transitive_mask=0xFE transitive_read=0x%02X "
+        "unwired_mask=0x7F unwired_read=0x%02X "
+        "on_initial_status=0x%02X on_enabled_status=0x%02X "
+        "on_press_before_eval=0x%02X on_press_after_eval=0x%02X "
+        "on_held_after_ack=0x%02X on_held_after_eval=0x%02X "
+        "on_release_before_eval=0x%02X on_release_after_eval=0x%02X "
+        "on_second_press_before_eval=0x%02X "
+        "on_second_press_after_eval=0x%02X tstates=%" PRIu64 "\n",
+        single_read,
+        same_column_read,
+        rectangle_read,
+        transitive_read,
+        unwired_read,
+        on_initial_status,
+        on_enabled_status,
+        on_press_before_eval,
+        on_press_after_eval,
+        on_held_after_ack,
+        on_held_after_eval,
+        on_release_before_eval,
+        on_release_after_eval,
+        on_second_press_before_eval,
+        on_second_press_after_eval,
+        timer.tstates
+    );
+    return 0;
+}
+
+void reset_programmable_timer(CPU_t *cpu) {
+    cpu->timer_c->tstates = 0;
+    cpu->timer_c->elapsed = 0.0;
+    write_device_port(cpu, 0x30, 0x00);
+    write_device_port(cpu, 0x31, 0x00);
+}
+
+void configure_programmable_timer(
+    CPU_t *cpu,
+    unsigned char source,
+    unsigned char mode,
+    unsigned char count
+) {
+    write_device_port(cpu, 0x30, source);
+    write_device_port(cpu, 0x31, mode);
+    write_device_port(cpu, 0x32, count);
+}
+
+std::uint32_t read_clock_word(CPU_t *cpu) {
+    std::uint32_t value = 0;
+    for (unsigned int index = 0; index < 4; ++index) {
+        value |= static_cast<std::uint32_t>(
+            read_device_port(cpu, static_cast<unsigned char>(0x45 + index))
+        ) << (8 * index);
+    }
+    return value;
+}
+
+void write_clock_word(CPU_t *cpu, std::uint32_t value) {
+    for (unsigned int index = 0; index < 4; ++index) {
+        write_device_port(
+            cpu,
+            static_cast<unsigned char>(0x41 + index),
+            static_cast<unsigned char>((value >> (8 * index)) & 0xFF)
+        );
+    }
+}
+
+int run_timer_edge_probe(int argc, char **argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: %s --timer-edge-probe INPUT.rom\n", argv[0]);
+        return 2;
+    }
+
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+
+    reset_programmable_timer(&cpu);
+    configure_programmable_timer(&cpu, 0x41, 0x00, 0x03);
+    timer.elapsed = 320.0 / 32768.0;
+    const unsigned char crystal_first_read = read_device_port(&cpu, 0x32);
+    const unsigned char crystal_second_read = read_device_port(&cpu, 0x32);
+    const unsigned char crystal_third_read = read_device_port(&cpu, 0x32);
+    const unsigned char crystal_status = read_device_port(&cpu, 0x31);
+    const unsigned char crystal_port4 = read_device_port(&cpu, 0x04);
+
+    reset_programmable_timer(&cpu);
+    configure_programmable_timer(&cpu, 0x80, 0x00, 0x03);
+    timer.tstates = 4;
+    const unsigned char cpu_count_read = read_device_port(&cpu, 0x32);
+    const unsigned char cpu_status = read_device_port(&cpu, 0x31);
+    const unsigned char cpu_port4 = read_device_port(&cpu, 0x04);
+
+    reset_programmable_timer(&cpu);
+    configure_programmable_timer(&cpu, 0x80, 0x00, 0x00);
+    timer.tstates = 257;
+    const unsigned char zero_count_read = read_device_port(&cpu, 0x32);
+    const unsigned char zero_status = read_device_port(&cpu, 0x31);
+    const unsigned char zero_port4 = read_device_port(&cpu, 0x04);
+    write_device_port(&cpu, 0x31, 0x00);
+    const unsigned char acknowledged_status = read_device_port(&cpu, 0x31);
+    const unsigned char acknowledged_port4 = read_device_port(&cpu, 0x04);
+
+    reset_programmable_timer(&cpu);
+    configure_programmable_timer(&cpu, 0x80, 0x02, 0x01);
+    cpu.interrupt = FALSE;
+    cpu.halt = TRUE;
+    timer.tstates = 2;
+    const unsigned char halted_count_read = read_device_port(&cpu, 0x32);
+    const unsigned char halted_status = read_device_port(&cpu, 0x31);
+    const bool interrupt_while_halted = cpu.interrupt != FALSE;
+    cpu.halt = FALSE;
+    read_device_port(&cpu, 0x32);
+    const bool interrupt_after_resume = cpu.interrupt != FALSE;
+
+    timer.tstates = 0;
+    timer.elapsed = 0.0;
+    const std::uint32_t rtc_initial = read_clock_word(&cpu);
+    write_clock_word(&cpu, UINT32_C(0x12345678));
+    write_device_port(&cpu, 0x40, 0x01);
+    write_device_port(&cpu, 0x40, 0x03);
+    const std::uint32_t rtc_committed = read_clock_word(&cpu);
+    timer.elapsed = 10.75;
+    const std::uint32_t rtc_running = read_clock_word(&cpu);
+    write_device_port(&cpu, 0x40, 0x00);
+    const std::uint32_t rtc_frozen = read_clock_word(&cpu);
+    timer.elapsed = 100.0;
+    const std::uint32_t rtc_late_disabled = read_clock_word(&cpu);
+
+    std::printf(
+        "mode=timer-edge-probe crystal_source=0x41 crystal_divisor=32 "
+        "crystal_elapsed_ticks=320 crystal_reads=%02X,%02X,%02X "
+        "crystal_status=0x%02X crystal_port4=0x%02X "
+        "cpu_source=0x80 cpu_divisor=1 cpu_elapsed_tstates=4 "
+        "cpu_count_read=0x%02X cpu_status=0x%02X cpu_port4=0x%02X "
+        "zero_elapsed_tstates=257 zero_count_read=0x%02X "
+        "zero_status=0x%02X zero_port4=0x%02X "
+        "acknowledged_status=0x%02X acknowledged_port4=0x%02X "
+        "halted_count_read=0x%02X halted_status=0x%02X "
+        "interrupt_while_halted=%d interrupt_after_resume=%d "
+        "rtc_initial=0x%08" PRIX32 " rtc_committed=0x%08" PRIX32 " "
+        "rtc_running=0x%08" PRIX32 " rtc_frozen=0x%08" PRIX32 " "
+        "rtc_late_disabled=0x%08" PRIX32 " final_elapsed=100\n",
+        crystal_first_read,
+        crystal_second_read,
+        crystal_third_read,
+        crystal_status,
+        crystal_port4,
+        cpu_count_read,
+        cpu_status,
+        cpu_port4,
+        zero_count_read,
+        zero_status,
+        zero_port4,
+        acknowledged_status,
+        acknowledged_port4,
+        halted_count_read,
+        halted_status,
+        interrupt_while_halted ? 1 : 0,
+        interrupt_after_resume ? 1 : 0,
+        rtc_initial,
+        rtc_committed,
+        rtc_running,
+        rtc_frozen,
+        rtc_late_disabled
+    );
+    return 0;
+}
+
+int run_asic_edge_probe(int argc, char **argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: %s --asic-edge-probe INPUT.rom\n", argv[0]);
+        return 2;
+    }
+
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+
+    const bool initial_flash_locked = memory.flash_locked != FALSE;
+    const unsigned char port02_locked = read_device_port(&cpu, 0x02);
+    const unsigned char port15_ram_v0 = read_device_port(&cpu, 0x15);
+    memory.ram_version = 2;
+    const unsigned char port15_ram_v2 = read_device_port(&cpu, 0x15);
+    memory.ram_version = 0;
+
+    const bool port39_active = cpu.pio.devices[0x39].active != FALSE;
+    const DeviceReadResult port39_read = try_read_device_port(&cpu, 0x39);
+    const bool port3a_active = cpu.pio.devices[0x3A].active != FALSE;
+    const unsigned char port3a_initial = read_device_port(&cpu, 0x3A);
+    write_device_port(&cpu, 0x3A, 0xA5);
+    const unsigned char port3a_first_read = read_device_port(&cpu, 0x3A);
+    write_device_port(&cpu, 0x3A, 0x5A);
+    const unsigned char port3a_second_read = read_device_port(&cpu, 0x3A);
+
+    const bool port21_active = cpu.pio.devices[0x21].active != FALSE;
+    const bool port21_protected = cpu.pio.devices[0x21].protected_port != FALSE;
+    const bool locked_write_accepted = try_write_device_port(&cpu, 0x21, 0x33);
+    const unsigned char locked_read = read_device_port(&cpu, 0x21);
+    const unsigned int locked_internal_mode = memory.prot_mode;
+    const unsigned int locked_model_bits = cpu.model_bits;
+
+    memory.flash_locked = FALSE;
+    const unsigned char port02_unlocked = read_device_port(&cpu, 0x02);
+    const bool mode3_write_accepted = try_write_device_port(&cpu, 0x21, 0x30);
+    const unsigned char mode3_read = read_device_port(&cpu, 0x21);
+    const unsigned int mode3_internal_mode = memory.prot_mode;
+    const unsigned int mode3_model_bits = cpu.model_bits;
+    const bool group3_write_accepted = try_write_device_port(&cpu, 0x21, 0x03);
+    const unsigned char group3_read = read_device_port(&cpu, 0x21);
+    const unsigned int group3_internal_mode = memory.prot_mode;
+    const unsigned int group3_model_bits = cpu.model_bits;
+    const bool combined_write_accepted = try_write_device_port(&cpu, 0x21, 0x33);
+    const unsigned char combined_read = read_device_port(&cpu, 0x21);
+    const unsigned int combined_internal_mode = memory.prot_mode;
+    const unsigned int combined_model_bits = cpu.model_bits;
+    memory.flash_locked = TRUE;
+
+    std::printf(
+        "mode=asic-edge-probe initial_flash_locked=%d "
+        "port02_locked=0x%02X port02_unlocked=0x%02X "
+        "port15_ram_v0=0x%02X port15_ram_v2=0x%02X "
+        "port39_active=%d port39_read_accepted=%d port39_read=0x%02X "
+        "port3a_active=%d port3a_initial=0x%02X "
+        "port3a_first_written=0xA5 port3a_first_read=0x%02X "
+        "port3a_second_written=0x5A port3a_second_read=0x%02X "
+        "port21_active=%d port21_protected=%d "
+        "locked_write_accepted=%d locked_read=0x%02X "
+        "locked_internal_mode=%u locked_model_bits=%u "
+        "mode3_write_accepted=%d mode3_written=0x30 mode3_read=0x%02X "
+        "mode3_internal_mode=%u mode3_model_bits=%u "
+        "group3_write_accepted=%d group3_written=0x03 group3_read=0x%02X "
+        "group3_internal_mode=%u group3_model_bits=%u "
+        "combined_write_accepted=%d combined_written=0x33 "
+        "combined_read=0x%02X combined_internal_mode=%u "
+        "combined_model_bits=%u tstates=%" PRIu64 "\n",
+        initial_flash_locked ? 1 : 0,
+        port02_locked,
+        port02_unlocked,
+        port15_ram_v0,
+        port15_ram_v2,
+        port39_active ? 1 : 0,
+        port39_read.accepted ? 1 : 0,
+        port39_read.value,
+        port3a_active ? 1 : 0,
+        port3a_initial,
+        port3a_first_read,
+        port3a_second_read,
+        port21_active ? 1 : 0,
+        port21_protected ? 1 : 0,
+        locked_write_accepted ? 1 : 0,
+        locked_read,
+        locked_internal_mode,
+        locked_model_bits,
+        mode3_write_accepted ? 1 : 0,
+        mode3_read,
+        mode3_internal_mode,
+        mode3_model_bits,
+        group3_write_accepted ? 1 : 0,
+        group3_read,
+        group3_internal_mode,
+        group3_model_bits,
+        combined_write_accepted ? 1 : 0,
+        combined_read,
+        combined_internal_mode,
+        combined_model_bits,
+        timer.tstates
+    );
+    return 0;
+}
+
+void write_lcd_after(CPU_t *cpu, unsigned char port, unsigned char value, unsigned int delta) {
+    cpu->timer_c->tstates += delta;
+    write_device_port(cpu, port, value);
+}
+
+int run_lcd_edge_probe(int argc, char **argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: %s --lcd-edge-probe INPUT.rom\n", argv[0]);
+        return 2;
+    }
+
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+    LCD_t *lcd = reinterpret_cast<LCD_t *>(cpu.pio.lcd);
+    lcd->base.last_tstate = 0;
+    timer.tstates = 0;
+
+    const bool port12_active = cpu.pio.devices[0x12].active != FALSE;
+    const bool port13_active = cpu.pio.devices[0x13].active != FALSE;
+    const DeviceReadResult port12_read = try_read_device_port(&cpu, 0x12);
+    const DeviceReadResult port13_read = try_read_device_port(&cpu, 0x13);
+
+    timer.tstates = 60;
+    write_device_port(&cpu, 0x10, 0x03);
+    timer.tstates = 119;
+    const unsigned char early_status = read_device_port(&cpu, 0x10);
+    timer.tstates = 120;
+    const unsigned char boundary_status = read_device_port(&cpu, 0x10);
+    const std::uint64_t status_last_tstate = lcd->base.last_tstate;
+
+    write_lcd_after(&cpu, 0x10, 0x01, 60);
+    write_lcd_after(&cpu, 0x10, 0x07, 60);
+    write_lcd_after(&cpu, 0x10, 0x80, 60);
+    write_lcd_after(&cpu, 0x10, 0x2E, 60);
+    write_lcd_after(&cpu, 0x11, 0xA0, 60);
+    write_lcd_after(&cpu, 0x11, 0xEE, 59);
+    const unsigned char early_write_cell = lcd->display[0];
+    const unsigned int early_write_column = lcd->base.y;
+    write_lcd_after(&cpu, 0x11, 0xA1, 1);
+    write_lcd_after(&cpu, 0x11, 0xA2, 60);
+    write_lcd_after(&cpu, 0x11, 0xA3, 60);
+    const unsigned char wrap_column14 = lcd->display[14];
+    const unsigned char wrap_column15 = lcd->display[15];
+    const unsigned char wrap_column0 = lcd->display[0];
+    const unsigned char wrap_column1 = lcd->display[1];
+    const unsigned char wrap_column2 = lcd->display[2];
+    const unsigned int wrap_final_column = lcd->base.y;
+
+    write_lcd_after(&cpu, 0x10, 0x81, 60);
+    write_lcd_after(&cpu, 0x10, 0x2F, 60);
+    write_lcd_after(&cpu, 0x11, 0xB5, 60);
+    const unsigned char direct_column15 = lcd->display[31];
+    write_lcd_after(&cpu, 0x10, 0x81, 60);
+    write_lcd_after(&cpu, 0x10, 0x3F, 60);
+    write_lcd_after(&cpu, 0x11, 0xBF, 60);
+    const unsigned char alias_column31 = lcd->display[31];
+    const unsigned int alias_final_column = lcd->base.y;
+
+    write_lcd_after(&cpu, 0x10, 0x82, 60);
+    write_lcd_after(&cpu, 0x10, 0x20, 60);
+    write_lcd_after(&cpu, 0x11, 0x12, 60);
+    write_lcd_after(&cpu, 0x11, 0x34, 60);
+    write_lcd_after(&cpu, 0x10, 0x82, 60);
+    write_lcd_after(&cpu, 0x10, 0x20, 60);
+    timer.tstates += 60;
+    const std::uint64_t latch_read_tstates = timer.tstates;
+    const unsigned char latch_first = read_device_port(&cpu, 0x11);
+    const unsigned char latch_second = read_device_port(&cpu, 0x11);
+    const unsigned char latch_third = read_device_port(&cpu, 0x11);
+    const std::uint64_t latch_last_tstate = lcd->base.last_tstate;
+    const unsigned int latch_final_column = lcd->base.y;
+
+    write_device_port(&cpu, 0x20, 0x01);
+    write_device_port(&cpu, 0x2A, 0x00);
+    write_device_port(&cpu, 0x2F, 0x03);
+    timer.tstates = 2000;
+    write_device_port(&cpu, 0x10, 0x03);
+    const std::uint64_t ready_last_tstate = lcd->base.last_tstate;
+    timer.tstates = 2240;
+    const unsigned char ready_at_240 = read_device_port(&cpu, 0x02);
+    timer.tstates = 2241;
+    const unsigned char ready_at_241 = read_device_port(&cpu, 0x02);
+    const unsigned char accepted_status_read = read_device_port(&cpu, 0x10);
+    const std::uint64_t ready_after_read_last_tstate = lcd->base.last_tstate;
+    const unsigned char ready_after_read = read_device_port(&cpu, 0x02);
+
+    write_device_port(&cpu, 0x2A, 0x27);
+    write_device_port(&cpu, 0x2E, 0x45);
+    timer.tstates = 3000;
+    const std::uint64_t delay_before = timer.tstates;
+    const unsigned char delayed_status = read_device_port(&cpu, 0x10);
+    const std::uint64_t delay_after = timer.tstates;
+    write_device_port(&cpu, 0x20, 0x03);
+    const unsigned char clamped_speed = read_device_port(&cpu, 0x20);
+
+    std::printf(
+        "mode=lcd-edge-probe configured_lcd_delay=60 "
+        "port12_active=%d port12_read_accepted=%d port12_read=0x%02X "
+        "port13_active=%d port13_read_accepted=%d port13_read=0x%02X "
+        "early_status=0x%02X boundary_status=0x%02X "
+        "status_last_tstate=%" PRIu64 " "
+        "early_write_cell=0x%02X early_write_column=%u "
+        "wrap_column14=0x%02X wrap_column15=0x%02X "
+        "wrap_column0=0x%02X wrap_column1=0x%02X wrap_column2=0x%02X "
+        "wrap_final_column=%u direct_column15=0x%02X "
+        "alias_column31=0x%02X alias_final_column=%u "
+        "latch_reads=%02X,%02X,%02X latch_read_tstates=%" PRIu64 " "
+        "latch_last_tstate=%" PRIu64 " latch_final_column=%u "
+        "ready_field=3 ready_hold=240 ready_last_tstate=%" PRIu64 " "
+        "ready_at_240=0x%02X ready_at_241=0x%02X "
+        "accepted_status_read=0x%02X "
+        "ready_after_read_last_tstate=%" PRIu64 " ready_after_read=0x%02X "
+        "delay_register=0x27 delay_before=%" PRIu64 " "
+        "delay_after=%" PRIu64 " delayed_status=0x%02X "
+        "flash_opcode_wait=%d flash_read_wait=%d flash_write_wait=%d "
+        "ram_opcode_wait=%d ram_read_wait=%d ram_write_wait=%d "
+        "requested_speed=3 clamped_speed=%u timer_version=%d\n",
+        port12_active ? 1 : 0,
+        port12_read.accepted ? 1 : 0,
+        port12_read.value,
+        port13_active ? 1 : 0,
+        port13_read.accepted ? 1 : 0,
+        port13_read.value,
+        early_status,
+        boundary_status,
+        status_last_tstate,
+        early_write_cell,
+        early_write_column,
+        wrap_column14,
+        wrap_column15,
+        wrap_column0,
+        wrap_column1,
+        wrap_column2,
+        wrap_final_column,
+        direct_column15,
+        alias_column31,
+        alias_final_column,
+        latch_first,
+        latch_second,
+        latch_third,
+        latch_read_tstates,
+        latch_last_tstate,
+        latch_final_column,
+        ready_last_tstate,
+        ready_at_240,
+        ready_at_241,
+        accepted_status_read,
+        ready_after_read_last_tstate,
+        ready_after_read,
+        delay_before,
+        delay_after,
+        delayed_status,
+        memory.read_OP_flash_tstates ? 1 : 0,
+        memory.read_NOP_flash_tstates ? 1 : 0,
+        memory.write_flash_tstates ? 1 : 0,
+        memory.read_OP_ram_tstates ? 1 : 0,
+        memory.read_NOP_ram_tstates ? 1 : 0,
+        memory.write_ram_tstates ? 1 : 0,
+        clamped_speed,
+        timer.timer_version
+    );
+    return 0;
+}
+
+unsigned int memory_wait_mask(const memory_context_t &memory) {
+    return
+        (memory.read_OP_flash_tstates ? 0x01 : 0) |
+        (memory.read_NOP_flash_tstates ? 0x02 : 0) |
+        (memory.write_flash_tstates ? 0x04 : 0) |
+        (memory.read_OP_ram_tstates ? 0x08 : 0) |
+        (memory.read_NOP_ram_tstates ? 0x10 : 0) |
+        (memory.write_ram_tstates ? 0x20 : 0);
+}
+
+int run_speed_edge_probe(int argc, char **argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: %s --speed-edge-probe INPUT.rom\n", argv[0]);
+        return 2;
+    }
+
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+
+    bool delay_ports_active[7];
+    unsigned char reset_delay_reads[7];
+    for (unsigned int index = 0; index < 7; ++index) {
+        const unsigned char port = static_cast<unsigned char>(0x29 + index);
+        delay_ports_active[index] = cpu.pio.devices[port].active != FALSE;
+        reset_delay_reads[index] = read_device_port(&cpu, port);
+    }
+    const unsigned char reset_speed = read_device_port(&cpu, 0x20);
+    const unsigned int reset_frequency = timer.freq;
+    const int reset_timer_version = timer.timer_version;
+
+    unsigned char default_speed_reads[4];
+    unsigned int default_frequencies[4];
+    for (unsigned int mode = 0; mode < 4; ++mode) {
+        write_device_port(&cpu, 0x20, static_cast<unsigned char>(0xFC + mode));
+        default_speed_reads[mode] = read_device_port(&cpu, 0x20);
+        default_frequencies[mode] = timer.freq;
+    }
+
+    // Wabbitemu's front end can set this field; no calculator port does so.
+    timer.timer_version = 1;
+    unsigned char extra_speed_reads[4];
+    unsigned int extra_frequencies[4];
+    for (unsigned int mode = 0; mode < 4; ++mode) {
+        write_device_port(&cpu, 0x20, static_cast<unsigned char>(0xFC + mode));
+        extra_speed_reads[mode] = read_device_port(&cpu, 0x20);
+        extra_frequencies[mode] = timer.freq;
+    }
+
+    unsigned char latch_written[7];
+    unsigned char latch_reads[7];
+    for (unsigned int index = 0; index < 7; ++index) {
+        const unsigned char port = static_cast<unsigned char>(0x29 + index);
+        latch_written[index] = static_cast<unsigned char>(0xA9 + index);
+        write_device_port(&cpu, port, latch_written[index]);
+        latch_reads[index] = read_device_port(&cpu, port);
+    }
+
+    write_device_port(&cpu, 0x29, 0x00);
+    write_device_port(&cpu, 0x2A, 0x01);
+    write_device_port(&cpu, 0x2B, 0x02);
+    write_device_port(&cpu, 0x2C, 0x03);
+    write_device_port(&cpu, 0x2E, 0x77);
+    unsigned int wait_masks[4];
+    for (unsigned int mode = 0; mode < 4; ++mode) {
+        write_device_port(&cpu, 0x20, static_cast<unsigned char>(mode));
+        wait_masks[mode] = memory_wait_mask(memory);
+    }
+
+    const unsigned int port2d_wait_before = memory_wait_mask(memory);
+    const unsigned int port2d_frequency_before = timer.freq;
+    const int port2d_timer_version_before = timer.timer_version;
+    const XTAL_t port2d_xtal_before = cpu.pio.se_aux->xtal;
+    const BOOL port2d_lcd_active_before = cpu.pio.lcd->active;
+    const BOOL port2d_halt_before = cpu.halt;
+    const BOOL port2d_interrupt_before = cpu.interrupt;
+    const std::uint64_t port2d_tstates_before = timer.tstates;
+    write_device_port(&cpu, 0x2D, 0x5A);
+    const unsigned char port2d_read = read_device_port(&cpu, 0x2D);
+
+    std::printf(
+        "mode=speed-edge-probe port20_active=%d "
+        "delay_ports_active=%d,%d,%d,%d,%d,%d,%d "
+        "reset_speed=%u reset_frequency=%u reset_timer_version=%d "
+        "reset_delay_reads=%02X,%02X,%02X,%02X,%02X,%02X,%02X "
+        "default_speed_reads=%u,%u,%u,%u "
+        "default_frequencies=%u,%u,%u,%u "
+        "extra_speed_reads=%u,%u,%u,%u "
+        "extra_frequencies=%u,%u,%u,%u "
+        "latch_written=%02X,%02X,%02X,%02X,%02X,%02X,%02X "
+        "latch_reads=%02X,%02X,%02X,%02X,%02X,%02X,%02X "
+        "wait_masks=%02X,%02X,%02X,%02X "
+        "port2d_written=0x5A port2d_read=0x%02X "
+        "port2d_wait_unchanged=%d port2d_freq_unchanged=%d "
+        "port2d_timer_version_unchanged=%d port2d_xtal_unchanged=%d "
+        "port2d_lcd_active_unchanged=%d port2d_halt_unchanged=%d "
+        "port2d_interrupt_unchanged=%d port2d_tstates_unchanged=%d "
+        "tstates=%" PRIu64 "\n",
+        cpu.pio.devices[0x20].active != FALSE ? 1 : 0,
+        delay_ports_active[0] ? 1 : 0,
+        delay_ports_active[1] ? 1 : 0,
+        delay_ports_active[2] ? 1 : 0,
+        delay_ports_active[3] ? 1 : 0,
+        delay_ports_active[4] ? 1 : 0,
+        delay_ports_active[5] ? 1 : 0,
+        delay_ports_active[6] ? 1 : 0,
+        reset_speed,
+        reset_frequency,
+        reset_timer_version,
+        reset_delay_reads[0], reset_delay_reads[1], reset_delay_reads[2],
+        reset_delay_reads[3], reset_delay_reads[4], reset_delay_reads[5],
+        reset_delay_reads[6],
+        default_speed_reads[0], default_speed_reads[1],
+        default_speed_reads[2], default_speed_reads[3],
+        default_frequencies[0], default_frequencies[1],
+        default_frequencies[2], default_frequencies[3],
+        extra_speed_reads[0], extra_speed_reads[1],
+        extra_speed_reads[2], extra_speed_reads[3],
+        extra_frequencies[0], extra_frequencies[1],
+        extra_frequencies[2], extra_frequencies[3],
+        latch_written[0], latch_written[1], latch_written[2], latch_written[3],
+        latch_written[4], latch_written[5], latch_written[6],
+        latch_reads[0], latch_reads[1], latch_reads[2], latch_reads[3],
+        latch_reads[4], latch_reads[5], latch_reads[6],
+        wait_masks[0], wait_masks[1], wait_masks[2], wait_masks[3],
+        port2d_read,
+        memory_wait_mask(memory) == port2d_wait_before ? 1 : 0,
+        timer.freq == port2d_frequency_before ? 1 : 0,
+        timer.timer_version == port2d_timer_version_before ? 1 : 0,
+        std::memcmp(
+            &cpu.pio.se_aux->xtal, &port2d_xtal_before, sizeof(XTAL_t)
+        ) == 0 ? 1 : 0,
+        cpu.pio.lcd->active == port2d_lcd_active_before ? 1 : 0,
+        cpu.halt == port2d_halt_before ? 1 : 0,
+        cpu.interrupt == port2d_interrupt_before ? 1 : 0,
+        timer.tstates == port2d_tstates_before ? 1 : 0,
+        timer.tstates
+    );
+    return 0;
+}
+
+int run_protection_port_probe(int argc, char **argv) {
+    if (argc != 3) {
+        std::fprintf(
+            stderr, "usage: %s --protection-port-probe INPUT.rom\n", argv[0]
+        );
+        return 2;
+    }
+
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+
+    const unsigned char ports[5] = {0x22, 0x23, 0x24, 0x25, 0x26};
+    bool port_active[5];
+    bool port_protected[5];
+    unsigned char initial_reads[5];
+    bool locked_write_accepted[5];
+    unsigned char locked_reads[5];
+    const bool initial_flash_locked = memory.flash_locked != FALSE;
+    const unsigned short initial_flash_lower = memory.flash_lower;
+    const unsigned short initial_flash_upper = memory.flash_upper;
+    const unsigned char initial_port24 = memory.port24;
+    const unsigned short initial_ram_lower = memory.ram_lower;
+    const unsigned short initial_ram_upper = memory.ram_upper;
+    for (unsigned int index = 0; index < 5; ++index) {
+        const unsigned char port = ports[index];
+        port_active[index] = cpu.pio.devices[port].active != FALSE;
+        port_protected[index] = cpu.pio.devices[port].protected_port != FALSE;
+        initial_reads[index] = read_device_port(&cpu, port);
+        locked_write_accepted[index] = try_write_device_port(
+            &cpu, port, static_cast<unsigned char>(0xA2 + index)
+        );
+        locked_reads[index] = read_device_port(&cpu, port);
+    }
+
+    memory.flash_locked = FALSE;
+    memory.flash_lower = 0x01A5;
+    memory.flash_upper = 0x02B6;
+    write_device_port(&cpu, 0x22, 0xCC);
+    write_device_port(&cpu, 0x23, 0xDD);
+    const unsigned char low_write_port22_read = read_device_port(&cpu, 0x22);
+    const unsigned char low_write_port23_read = read_device_port(&cpu, 0x23);
+    const unsigned short low_write_flash_lower = memory.flash_lower;
+    const unsigned short low_write_flash_upper = memory.flash_upper;
+
+    write_device_port(&cpu, 0x24, 0xFF);
+    const unsigned char port24_read = read_device_port(&cpu, 0x24);
+    const unsigned short port24_flash_lower = memory.flash_lower;
+    const unsigned short port24_flash_upper = memory.flash_upper;
+
+    const unsigned char wrap_values[4] = {0x3F, 0x40, 0x41, 0xFF};
+    unsigned char ram_lower_reads[4];
+    unsigned short ram_lower_internal[4];
+    unsigned char ram_upper_reads[4];
+    unsigned short ram_upper_internal[4];
+    for (unsigned int index = 0; index < 4; ++index) {
+        write_device_port(&cpu, 0x25, wrap_values[index]);
+        ram_lower_reads[index] = read_device_port(&cpu, 0x25);
+        ram_lower_internal[index] = memory.ram_lower;
+        write_device_port(&cpu, 0x26, wrap_values[index]);
+        ram_upper_reads[index] = read_device_port(&cpu, 0x26);
+        ram_upper_internal[index] = memory.ram_upper;
+    }
+
+    std::printf(
+        "mode=protection-port-probe "
+        "port_active=%d,%d,%d,%d,%d port_protected=%d,%d,%d,%d,%d "
+        "initial_flash_locked=%d initial_reads=%02X,%02X,%02X,%02X,%02X "
+        "initial_flash_lower=0x%04X initial_flash_upper=0x%04X "
+        "initial_port24=0x%02X initial_ram_lower=0x%04X "
+        "initial_ram_upper=0x%04X "
+        "locked_write_accepted=%d,%d,%d,%d,%d "
+        "locked_reads=%02X,%02X,%02X,%02X,%02X "
+        "configured_flash_locked=%d seeded_flash_lower=0x01A5 "
+        "seeded_flash_upper=0x02B6 low_writes=CC,DD "
+        "low_write_reads=%02X,%02X low_write_flash_lower=0x%04X "
+        "low_write_flash_upper=0x%04X port24_written=0xFF "
+        "port24_read=0x%02X port24_flash_lower=0x%04X "
+        "port24_flash_upper=0x%04X wrap_values=3F,40,41,FF "
+        "ram_lower_reads=%02X,%02X,%02X,%02X "
+        "ram_lower_internal=%04X,%04X,%04X,%04X "
+        "ram_upper_reads=%02X,%02X,%02X,%02X "
+        "ram_upper_internal=%04X,%04X,%04X,%04X "
+        "tstates=%" PRIu64 "\n",
+        port_active[0] ? 1 : 0, port_active[1] ? 1 : 0,
+        port_active[2] ? 1 : 0, port_active[3] ? 1 : 0,
+        port_active[4] ? 1 : 0,
+        port_protected[0] ? 1 : 0, port_protected[1] ? 1 : 0,
+        port_protected[2] ? 1 : 0, port_protected[3] ? 1 : 0,
+        port_protected[4] ? 1 : 0,
+        initial_flash_locked ? 1 : 0,
+        initial_reads[0], initial_reads[1], initial_reads[2],
+        initial_reads[3], initial_reads[4],
+        initial_flash_lower, initial_flash_upper, initial_port24,
+        initial_ram_lower, initial_ram_upper,
+        locked_write_accepted[0] ? 1 : 0,
+        locked_write_accepted[1] ? 1 : 0,
+        locked_write_accepted[2] ? 1 : 0,
+        locked_write_accepted[3] ? 1 : 0,
+        locked_write_accepted[4] ? 1 : 0,
+        locked_reads[0], locked_reads[1], locked_reads[2],
+        locked_reads[3], locked_reads[4],
+        memory.flash_locked != FALSE ? 1 : 0,
+        low_write_port22_read, low_write_port23_read,
+        low_write_flash_lower, low_write_flash_upper,
+        port24_read, port24_flash_lower, port24_flash_upper,
+        ram_lower_reads[0], ram_lower_reads[1],
+        ram_lower_reads[2], ram_lower_reads[3],
+        ram_lower_internal[0], ram_lower_internal[1],
+        ram_lower_internal[2], ram_lower_internal[3],
+        ram_upper_reads[0], ram_upper_reads[1],
+        ram_upper_reads[2], ram_upper_reads[3],
+        ram_upper_internal[0], ram_upper_internal[1],
+        ram_upper_internal[2], ram_upper_internal[3],
+        timer.tstates
+    );
+    return 0;
+}
+
+int run_reset_retention_probe(int argc, char **argv) {
+    if (argc != 3) {
+        std::fprintf(
+            stderr, "usage: %s --reset-retention-probe INPUT.rom\n", argv[0]
+        );
+        return 2;
+    }
+
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+    SE_AUX_t *se_aux = cpu.pio.se_aux;
+    LCD_t *lcd = reinterpret_cast<LCD_t *>(cpu.pio.lcd);
+
+    cpu.af = 0xA1F1;
+    cpu.bc = 0xB2C2;
+    cpu.de = 0xD3E3;
+    cpu.hl = 0xE4F4;
+    cpu.afp = 0x1525;
+    cpu.bcp = 0x2636;
+    cpu.dep = 0x3747;
+    cpu.hlp = 0x4858;
+    cpu.ix = 0x5969;
+    cpu.iy = 0x6A7A;
+    cpu.pc = 0x4567;
+    cpu.sp = 0x89AB;
+    cpu.i = 0x12;
+    cpu.r = 0x34;
+    cpu.bus = 0x56;
+    cpu.link_write = 0x03;
+    cpu.model_bits = 3;
+    cpu.imode = 2;
+    cpu.interrupt = TRUE;
+    cpu.ei_block = TRUE;
+    cpu.iff1 = TRUE;
+    cpu.iff2 = TRUE;
+    cpu.halt = TRUE;
+    cpu.read = TRUE;
+    cpu.write = TRUE;
+    cpu.output = TRUE;
+    cpu.input = TRUE;
+    cpu.prefix = 0xDD;
+
+    memory.ram[0x1234] = 0xA5;
+    memory.step = FLASH_FASTMODE_PROG;
+    memory.flash_write_delay = 0x12345678;
+    memory.flash_locked = FALSE;
+    memory.flash_write_byte = 0x5A;
+    memory.flash_error = TRUE;
+    memory.flash_toggles = 0x40;
+    memory.flash_lower = 0x01CC;
+    memory.flash_upper = 0x02DD;
+    memory.port24 = 0xEE;
+    memory.ram_lower = 0x4000;
+    memory.ram_upper = 0x83FF;
+    memory.prot_mode = MODE3;
+    memory.port06 = 0x12;
+    memory.port07 = 0x85;
+    memory.port0E = 0x34;
+    memory.port0F = 0x56;
+    memory.port27_remap_count = 0x12;
+    memory.port28_remap_count = 0x34;
+    memory.boot_mapped = TRUE;
+    memory.banks = memory.bootmap_banks;
+    memory.hasChangedPage0 = TRUE;
+    for (unsigned int index = 0; index < 4; ++index) {
+        memory.protected_page[index] = static_cast<int>(index + 1);
+    }
+    memory.protected_page_set = 2;
+
+    timer.tstates = 123456;
+    timer.freq = MHZ_25;
+    timer.elapsed = 12.5;
+    timer.lasttime = 34.5;
+    timer.timer_version = 1;
+
+    for (unsigned int index = 0; index < 7; ++index) {
+        se_aux->delay.reg[index] = static_cast<unsigned char>(0xA0 + index);
+    }
+    se_aux->md5.a = 0x12345678;
+    se_aux->md5.s = 0x1A;
+    se_aux->md5.mode = 3;
+    se_aux->linka.link_enable = 0xD4;
+    se_aux->linka.in = 0xA5;
+    se_aux->linka.out = 0x5A;
+    se_aux->linka.working = 0x33;
+    se_aux->xtal.ticks = 0x1234;
+    se_aux->xtal.timers[0].clock = 0x80;
+    se_aux->xtal.timers[0].count = 0x22;
+    se_aux->xtal.timers[0].active = TRUE;
+    se_aux->clock.enable = 3;
+    se_aux->clock.set = 0x12345678;
+    se_aux->clock.base = 0x23456789;
+    se_aux->clock.lasttime = 45.5;
+    se_aux->usb.USBLineState = 0xE5;
+    se_aux->usb.USBEvents = 0x58;
+    se_aux->usb.USBEventMask = 0xFF;
+    se_aux->usb.LineInterrupt = TRUE;
+    se_aux->gpio = 0x5A;
+
+    cpu.pio.stdint->intactive = 0xA5;
+    cpu.pio.stdint->mem = 0x5A;
+    cpu.pio.stdint->on_latch = TRUE;
+    cpu.pio.keypad->group = 0xFE;
+    cpu.pio.keypad->keys[0][0] = KEY_STATEDOWN;
+    cpu.pio.keypad->on_pressed = KEY_STATEDOWN;
+    cpu.pio.link->host = 0x01;
+    cpu.pio.link->client[0] = 0x02;
+
+    lcd->base.active = TRUE;
+    lcd->base.x = 4;
+    lcd->base.y = 5;
+    lcd->base.z = 6;
+    lcd->base.contrast = 17;
+    lcd->base.last_tstate = 654321;
+    lcd->word_len = 6;
+    lcd->lcd_delay = 61;
+    lcd->last_read = 0xA5;
+    lcd->display[0] = 0x5A;
+
+    const DELAY_t delay_before = se_aux->delay;
+    const MD5_t md5_before = se_aux->md5;
+    const LINKASSIST_t linka_before = se_aux->linka;
+    const XTAL_t xtal_before = se_aux->xtal;
+    const CLOCK_t clock_before = se_aux->clock;
+    const USB_t usb_before = se_aux->usb;
+    const STDINT_t stdint_before = *cpu.pio.stdint;
+    const keypad_t keypad_before = *cpu.pio.keypad;
+    const LCD_t lcd_before = *lcd;
+
+    CPU_reset(&cpu);
+
+    bool protected_pages_clear = memory.protected_page_set == 0;
+    for (unsigned int index = 0; index < 4; ++index) {
+        protected_pages_clear = protected_pages_clear &&
+            memory.protected_page[index] == 0;
+    }
+    const bool cpu_general_retained =
+        cpu.af == 0xA1F1 && cpu.bc == 0xB2C2 && cpu.de == 0xD3E3 &&
+        cpu.hl == 0xE4F4 && cpu.afp == 0x1525 && cpu.bcp == 0x2636 &&
+        cpu.dep == 0x3747 && cpu.hlp == 0x4858 && cpu.ix == 0x5969 &&
+        cpu.iy == 0x6A7A && cpu.i == 0x12 && cpu.r == 0x34 &&
+        cpu.bus == 0x56 && cpu.link_write == 0x03 && cpu.model_bits == 3;
+    const bool flash_command_retained =
+        memory.step == FLASH_FASTMODE_PROG &&
+        memory.flash_write_delay == 0x12345678 && !memory.flash_locked &&
+        memory.flash_write_byte == 0x5A && memory.flash_error &&
+        memory.flash_toggles == 0x40;
+    const bool flash_bounds_retained =
+        memory.flash_lower == 0x01CC && memory.flash_upper == 0x02DD &&
+        memory.port24 == 0xEE;
+    const bool protection_selectors_retained =
+        memory.prot_mode == MODE3 && memory.port06 == 0x12 &&
+        memory.port07 == 0x85 && memory.port0E == 0x34 &&
+        memory.port0F == 0x56;
+    const bool raw_link_retained =
+        cpu.pio.link->host == 0x02 && cpu.pio.link->client[0] == 0x02;
+    const bool usb_gpio_retained =
+        std::memcmp(&se_aux->usb, &usb_before, sizeof(USB_t)) == 0 &&
+        se_aux->gpio == 0x5A;
+    const bool retained[14] = {
+        cpu_general_retained,
+        memory.ram[0x1234] == 0xA5,
+        flash_command_retained,
+        flash_bounds_retained,
+        protection_selectors_retained,
+        timer.tstates == 123456 && timer.freq == MHZ_25 &&
+            timer.elapsed == 12.5 && timer.lasttime == 34.5 &&
+            timer.timer_version == 1,
+        std::memcmp(&se_aux->delay, &delay_before, sizeof(DELAY_t)) == 0,
+        std::memcmp(&se_aux->md5, &md5_before, sizeof(MD5_t)) == 0,
+        std::memcmp(cpu.pio.stdint, &stdint_before, sizeof(STDINT_t)) == 0,
+        std::memcmp(cpu.pio.keypad, &keypad_before, sizeof(keypad_t)) == 0,
+        raw_link_retained &&
+            std::memcmp(&se_aux->linka, &linka_before, sizeof(LINKASSIST_t)) == 0,
+        std::memcmp(&se_aux->xtal, &xtal_before, sizeof(XTAL_t)) == 0 &&
+            std::memcmp(&se_aux->clock, &clock_before, sizeof(CLOCK_t)) == 0,
+        usb_gpio_retained,
+        std::memcmp(lcd, &lcd_before, sizeof(LCD_t)) == 0,
+    };
+
+    const unsigned short reset_pc = cpu.pc;
+    const unsigned short reset_sp = cpu.sp;
+    const int reset_imode = cpu.imode;
+    const bool reset_interrupt = cpu.interrupt != FALSE;
+    const bool reset_ei_block = cpu.ei_block != FALSE;
+    const bool reset_iff1 = cpu.iff1 != FALSE;
+    const bool reset_iff2 = cpu.iff2 != FALSE;
+    const bool reset_halt = cpu.halt != FALSE;
+    const bool reset_io_flags =
+        cpu.read || cpu.write || cpu.output || cpu.input;
+    const int reset_prefix = cpu.prefix;
+    const unsigned short reset_ram_lower = memory.ram_lower;
+    const unsigned short reset_ram_upper = memory.ram_upper;
+    const int reset_port27 = memory.port27_remap_count;
+    const int reset_port28 = memory.port28_remap_count;
+    const bool reset_boot_mapped = memory.boot_mapped != FALSE;
+    const bool reset_page0_changed = memory.hasChangedPage0 != FALSE;
+    const bool reset_banks_normal = memory.banks == memory.normal_banks;
+    const unsigned char reset_pages[4] = {
+        static_cast<unsigned char>(memory.banks[0].page),
+        static_cast<unsigned char>(memory.banks[1].page),
+        static_cast<unsigned char>(memory.banks[2].page),
+        static_cast<unsigned char>(memory.banks[3].page),
+    };
+    const bool reset_page_ram[4] = {
+        memory.banks[0].ram != FALSE,
+        memory.banks[1].ram != FALSE,
+        memory.banks[2].ram != FALSE,
+        memory.banks[3].ram != FALSE,
+    };
+    const char *reset_flash_step = flash_step_name(memory.step);
+    const bool reset_flash_locked = memory.flash_locked != FALSE;
+    const bool reset_flash_error = memory.flash_error != FALSE;
+    const unsigned char reset_flash_toggle = memory.flash_toggles;
+    const unsigned char reset_flash_write_byte = memory.flash_write_byte;
+    const std::uint64_t reset_flash_delay = memory.flash_write_delay;
+    const unsigned short reset_flash_lower = memory.flash_lower;
+    const unsigned short reset_flash_upper = memory.flash_upper;
+    const unsigned char reset_port24 = memory.port24;
+    const int reset_prot_mode = memory.prot_mode;
+    const unsigned char reset_selectors[4] = {
+        memory.port06, memory.port07, memory.port0E, memory.port0F,
+    };
+    const unsigned char reset_ram_marker = memory.ram[0x1234];
+    const std::uint64_t reset_timer_tstates = timer.tstates;
+    const unsigned int reset_timer_freq = timer.freq;
+    const int reset_timer_version = timer.timer_version;
+
+    CPU_reset(&cpu);
+    cpu.pio.lcd->reset(&cpu);
+    const bool frontend_non_lcd_retained =
+        memory.step == FLASH_FASTMODE_PROG &&
+        std::memcmp(&se_aux->md5, &md5_before, sizeof(MD5_t)) == 0 &&
+        timer.freq == MHZ_25 && timer.timer_version == 1;
+    const bool frontend_display_clear = lcd->display[0] == 0;
+
+    memory.flash_lower = 0;
+    memory.flash_upper = 1;
+    memory.step = FLASH_PROGRAM;
+    memory.flash_error = FALSE;
+    memory.read_OP_flash_tstates = 0;
+    change_page(&memory, 1, 1, FALSE);
+    memory.banks = memory.normal_banks;
+    memory.boot_mapped = FALSE;
+    memory.hasChangedPage0 = TRUE;
+    cpu.pc = 0x4000;
+    cpu.sp = 0x7777;
+    cpu.af = 0xA5F5;
+    cpu.bc = 0xB6C6;
+    cpu.exe_violation_callback = nullptr;
+    timer.tstates = 0;
+    CPU_step(&cpu);
+    const unsigned short program_violation_pc = cpu.pc;
+    const unsigned short program_violation_af = cpu.af;
+    const unsigned short program_violation_bc = cpu.bc;
+    const unsigned short program_violation_sp = cpu.sp;
+    const std::uint64_t program_violation_tstates = timer.tstates;
+    const char *program_violation_flash_step = flash_step_name(memory.step);
+    const bool program_violation_flash_error = memory.flash_error != FALSE;
+
+    memory.flash_lower = 0;
+    memory.flash_upper = 1;
+    memory.step = FLASH_ERROR;
+    memory.flash_error = TRUE;
+    change_page(&memory, 1, 1, FALSE);
+    memory.banks = memory.normal_banks;
+    memory.boot_mapped = FALSE;
+    memory.hasChangedPage0 = TRUE;
+    cpu.pc = 0x4000;
+    cpu.sp = 0x8888;
+    cpu.af = 0xB5E5;
+    cpu.bc = 0xC6D6;
+    timer.tstates = 0;
+    CPU_step(&cpu);
+
+    std::printf(
+        "mode=reset-retention-probe reset_pc=0x%04X reset_sp=0x%04X "
+        "reset_imode=%d reset_interrupt=%d reset_ei_block=%d "
+        "reset_iff1=%d reset_iff2=%d reset_halt=%d reset_io_flags=%d "
+        "reset_prefix=%d cpu_general_retained=%d "
+        "reset_ram_lower=0x%04X reset_ram_upper=0x%04X "
+        "reset_port27=%d reset_port28=%d reset_boot_mapped=%d "
+        "reset_page0_changed=%d reset_banks_normal=%d "
+        "protected_pages_clear=%d reset_pages=%02X,%02X,%02X,%02X "
+        "reset_page_ram=%d,%d,%d,%d "
+        "retained=%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d "
+        "reset_flash_step=%s reset_flash_locked=%d "
+        "reset_flash_error=%d reset_flash_toggle=0x%02X "
+        "reset_flash_write_byte=0x%02X reset_flash_delay=%" PRIu64 " "
+        "reset_flash_lower=0x%04X reset_flash_upper=0x%04X "
+        "reset_port24=0x%02X reset_prot_mode=%d "
+        "reset_selectors=%02X,%02X,%02X,%02X reset_ram_marker=0x%02X "
+        "reset_timer_tstates=%" PRIu64 " reset_timer_freq=%u "
+        "reset_timer_version=%d frontend_lcd_active=%d "
+        "frontend_lcd_x=%u frontend_lcd_y=%u frontend_lcd_z=%u "
+        "frontend_lcd_contrast=%u frontend_lcd_word_len=%u "
+        "frontend_lcd_last_read=0x%02X frontend_lcd_display_clear=%d "
+        "frontend_lcd_last_tstate=%lld frontend_lcd_delay=%u "
+        "frontend_non_lcd_retained=%d "
+        "program_violation_pc=0x%04X program_violation_af=0x%04X "
+        "program_violation_bc=0x%04X program_violation_sp=0x%04X "
+        "program_violation_tstates=%" PRIu64 " "
+        "program_violation_flash_step=%s program_violation_flash_error=%d "
+        "error_violation_pc=0x%04X error_violation_af=0x%04X "
+        "error_violation_bc=0x%04X error_violation_sp=0x%04X "
+        "error_violation_tstates=%" PRIu64 " "
+        "error_violation_flash_step=%s error_violation_flash_error=%d\n",
+        reset_pc, reset_sp, reset_imode,
+        reset_interrupt ? 1 : 0, reset_ei_block ? 1 : 0,
+        reset_iff1 ? 1 : 0, reset_iff2 ? 1 : 0,
+        reset_halt ? 1 : 0, reset_io_flags ? 1 : 0, reset_prefix,
+        cpu_general_retained ? 1 : 0,
+        reset_ram_lower, reset_ram_upper, reset_port27, reset_port28,
+        reset_boot_mapped ? 1 : 0, reset_page0_changed ? 1 : 0,
+        reset_banks_normal ? 1 : 0, protected_pages_clear ? 1 : 0,
+        reset_pages[0], reset_pages[1], reset_pages[2], reset_pages[3],
+        reset_page_ram[0] ? 1 : 0, reset_page_ram[1] ? 1 : 0,
+        reset_page_ram[2] ? 1 : 0, reset_page_ram[3] ? 1 : 0,
+        retained[0] ? 1 : 0, retained[1] ? 1 : 0,
+        retained[2] ? 1 : 0, retained[3] ? 1 : 0,
+        retained[4] ? 1 : 0, retained[5] ? 1 : 0,
+        retained[6] ? 1 : 0, retained[7] ? 1 : 0,
+        retained[8] ? 1 : 0, retained[9] ? 1 : 0,
+        retained[10] ? 1 : 0, retained[11] ? 1 : 0,
+        retained[12] ? 1 : 0, retained[13] ? 1 : 0,
+        reset_flash_step, reset_flash_locked ? 1 : 0,
+        reset_flash_error ? 1 : 0, reset_flash_toggle,
+        reset_flash_write_byte, reset_flash_delay,
+        reset_flash_lower, reset_flash_upper, reset_port24, reset_prot_mode,
+        reset_selectors[0], reset_selectors[1],
+        reset_selectors[2], reset_selectors[3], reset_ram_marker,
+        reset_timer_tstates, reset_timer_freq, reset_timer_version,
+        lcd->base.active ? 1 : 0, lcd->base.x, lcd->base.y, lcd->base.z,
+        lcd->base.contrast, lcd->word_len, lcd->last_read,
+        frontend_display_clear ? 1 : 0,
+        static_cast<long long>(lcd->base.last_tstate), lcd->lcd_delay,
+        frontend_non_lcd_retained ? 1 : 0,
+        program_violation_pc, program_violation_af, program_violation_bc,
+        program_violation_sp, program_violation_tstates,
+        program_violation_flash_step,
+        program_violation_flash_error ? 1 : 0,
+        cpu.pc, cpu.af, cpu.bc, cpu.sp, timer.tstates,
+        flash_step_name(memory.step), memory.flash_error ? 1 : 0
+    );
+    return 0;
+}
+
+std::uint64_t seconds_to_nanoseconds(double seconds) {
+    return static_cast<std::uint64_t>(std::llround(seconds * 1000000000.0));
+}
+
+int run_interrupt_edge_probe(int argc, char **argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: %s --interrupt-edge-probe INPUT.rom\n", argv[0]);
+        return 2;
+    }
+
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+    STDINT_t *stdint = cpu.pio.stdint;
+
+    const unsigned char initial_mask = read_device_port(&cpu, 0x03);
+    write_device_port(&cpu, 0x03, 0xFF);
+    const unsigned char stored_mask = read_device_port(&cpu, 0x03);
+    stdint->on_latch = TRUE;
+    const bool on_latch_before_ack = stdint->on_latch != FALSE;
+    write_device_port(&cpu, 0x03, 0xFE);
+    const bool on_latch_after_ack = stdint->on_latch != FALSE;
+    const unsigned char mask_after_on_ack = read_device_port(&cpu, 0x03);
+
+    write_device_port(&cpu, 0x04, 0x00);
+    const std::uint64_t rate0_timer1_ns = seconds_to_nanoseconds(stdint->timermax1);
+    write_device_port(&cpu, 0x04, 0x02);
+    const std::uint64_t rate1_timer1_ns = seconds_to_nanoseconds(stdint->timermax1);
+    write_device_port(&cpu, 0x04, 0x04);
+    const std::uint64_t rate2_timer1_ns = seconds_to_nanoseconds(stdint->timermax1);
+    write_device_port(&cpu, 0x04, 0x06);
+    const std::uint64_t rate3_timer1_ns = seconds_to_nanoseconds(stdint->timermax1);
+    const std::uint64_t rate3_timer2_ns = seconds_to_nanoseconds(stdint->timermax2);
+    const std::uint64_t rate3_timer2_offset_ns = seconds_to_nanoseconds(
+        stdint->lastchk2 - stdint->lastchk1
+    );
+
+    stdint->lastchk1 = 0;
+    write_device_port(&cpu, 0x03, 0x0A);
+    timer.elapsed = stdint->timermax1;
+    const unsigned char exact_boundary_status = read_device_port(&cpu, 0x04);
+    cpu.interrupt = FALSE;
+    evaluate_device_port(&cpu, 0x03, "interrupt probe");
+    const bool exact_boundary_interrupt = cpu.interrupt != FALSE;
+    timer.elapsed = std::nextafter(
+        stdint->timermax1, std::numeric_limits<double>::infinity()
+    );
+    const unsigned char after_boundary_status = read_device_port(&cpu, 0x04);
+    cpu.interrupt = FALSE;
+    evaluate_device_port(&cpu, 0x03, "interrupt probe");
+    const bool after_boundary_interrupt = cpu.interrupt != FALSE;
+
+    write_device_port(&cpu, 0x03, 0x08);
+    write_device_port(&cpu, 0x03, 0x0A);
+    const unsigned char after_port3_ack_status = read_device_port(&cpu, 0x04);
+    timer.elapsed = std::nextafter(
+        stdint->lastchk1 + stdint->timermax1,
+        std::numeric_limits<double>::infinity()
+    );
+    const unsigned char before_port2_ack_status = read_device_port(&cpu, 0x04);
+    write_device_port(&cpu, 0x02, 0x00);
+    const unsigned char after_port2_ack_status = read_device_port(&cpu, 0x04);
+
+    write_device_port(&cpu, 0x03, 0x08);
+    cpu.pio.se_aux->xtal.timers[0].underflow = TRUE;
+    cpu.pio.se_aux->xtal.timers[1].underflow = TRUE;
+    cpu.pio.se_aux->xtal.timers[2].underflow = TRUE;
+    const unsigned char completion_status = read_device_port(&cpu, 0x04);
+
+    cpu.pio.lcd->active = TRUE;
+    cpu.halt = TRUE;
+    write_device_port(&cpu, 0x03, 0x00);
+    const bool low_power_lcd_active = cpu.pio.lcd->active != FALSE;
+    write_device_port(&cpu, 0x03, 0x08);
+    const bool restored_lcd_active = cpu.pio.lcd->active != FALSE;
+
+    std::printf(
+        "mode=interrupt-edge-probe initial_mask=0x%02X stored_mask=0x%02X "
+        "on_latch_before_ack=%d on_latch_after_ack=%d "
+        "mask_after_on_ack=0x%02X "
+        "rate0_timer1_ns=%" PRIu64 " rate1_timer1_ns=%" PRIu64 " "
+        "rate2_timer1_ns=%" PRIu64 " rate3_timer1_ns=%" PRIu64 " "
+        "rate3_timer2_ns=%" PRIu64 " rate3_timer2_offset_ns=%" PRIu64 " "
+        "exact_boundary_status=0x%02X exact_boundary_interrupt=%d "
+        "after_boundary_status=0x%02X after_boundary_interrupt=%d "
+        "after_port3_ack_status=0x%02X before_port2_ack_status=0x%02X "
+        "after_port2_ack_status=0x%02X "
+        "completion_status=0x%02X low_power_lcd_active=%d "
+        "restored_lcd_active=%d tstates=%" PRIu64 "\n",
+        initial_mask,
+        stored_mask,
+        on_latch_before_ack ? 1 : 0,
+        on_latch_after_ack ? 1 : 0,
+        mask_after_on_ack,
+        rate0_timer1_ns,
+        rate1_timer1_ns,
+        rate2_timer1_ns,
+        rate3_timer1_ns,
+        rate3_timer2_ns,
+        rate3_timer2_offset_ns,
+        exact_boundary_status,
+        exact_boundary_interrupt ? 1 : 0,
+        after_boundary_status,
+        after_boundary_interrupt ? 1 : 0,
+        after_port3_ack_status,
+        before_port2_ack_status,
+        after_port2_ack_status,
+        completion_status,
+        low_power_lcd_active ? 1 : 0,
+        restored_lcd_active ? 1 : 0,
+        timer.tstates
+    );
+    return 0;
+}
+
+int run_link_edge_probe(int argc, char **argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: %s --link-edge-probe INPUT.rom\n", argv[0]);
+        return 2;
+    }
+
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+    link_t *link = cpu.pio.link;
+    LINKASSIST_t *assist = &cpu.pio.se_aux->linka;
+    unsigned char peer = 0;
+    link->client = &peer;
+
+    const bool port08_active = cpu.pio.devices[0x08].active != FALSE;
+    const bool port09_active = cpu.pio.devices[0x09].active != FALSE;
+    const bool port0a_active = cpu.pio.devices[0x0A].active != FALSE;
+    const bool port0b_active = cpu.pio.devices[0x0B].active != FALSE;
+    const bool port0c_active = cpu.pio.devices[0x0C].active != FALSE;
+    const bool port0d_active = cpu.pio.devices[0x0D].active != FALSE;
+    const DeviceReadResult port0b_read = try_read_device_port(&cpu, 0x0B);
+    const DeviceReadResult port0c_read = try_read_device_port(&cpu, 0x0C);
+    const unsigned char initial_enable = read_device_port(&cpu, 0x08);
+    const unsigned char initial_status = read_device_port(&cpu, 0x09);
+    const unsigned char initial_in = read_device_port(&cpu, 0x0A);
+    const unsigned char initial_out = read_device_port(&cpu, 0x0D);
+
+    std::vector<unsigned char> raw_reads;
+    for (unsigned int local = 0; local < 4; ++local) {
+        for (unsigned int remote = 0; remote < 4; ++remote) {
+            peer = static_cast<unsigned char>(remote);
+            write_device_port(&cpu, 0x00, static_cast<unsigned char>(local));
+            raw_reads.push_back(read_device_port(&cpu, 0x00));
+        }
+    }
+    peer = 0;
+    write_device_port(&cpu, 0x00, 0xA6);
+    const unsigned char raw_high_write = read_device_port(&cpu, 0x00);
+    write_device_port(&cpu, 0x00, 0x00);
+    write_device_port(&cpu, 0x03, 0x10);
+    cpu.interrupt = FALSE;
+    peer = 1;
+    const unsigned char raw_peer_read = read_device_port(&cpu, 0x00);
+    const bool raw_peer_interrupt = cpu.interrupt != FALSE;
+    peer = 0;
+
+    write_device_port(&cpu, 0x08, 0x80);
+    write_device_port(&cpu, 0x08, 0x02);
+    cpu.interrupt = FALSE;
+    evaluate_device_port(&cpu, 0x09, "link probe");
+    const bool idle_ready_interrupt = cpu.interrupt != FALSE;
+    const unsigned char idle_ready_status = read_device_port(&cpu, 0x09);
+    read_device_port(&cpu, 0x0D);
+    const unsigned char idle_after_out_status = read_device_port(&cpu, 0x09);
+
+    write_device_port(&cpu, 0x08, 0x80);
+    read_device_port(&cpu, 0x0D);
+    write_device_port(&cpu, 0x08, 0x02);
+    write_device_port(&cpu, 0x0D, 0xA5);
+    cpu.interrupt = FALSE;
+    std::vector<unsigned char> assist_send_drives;
+    for (unsigned int bit = 0; bit < 8; ++bit) {
+        peer = 0;
+        evaluate_device_port(&cpu, 0x09, "link probe");
+        assist_send_drives.push_back(link->host & 3);
+        peer = static_cast<unsigned char>((link->host & 1) ? 2 : 1);
+        evaluate_device_port(&cpu, 0x09, "link probe");
+    }
+    peer = 0;
+    evaluate_device_port(&cpu, 0x09, "link probe");
+    const bool assist_send_interrupt = cpu.interrupt != FALSE;
+    const unsigned char assist_send_status = read_device_port(&cpu, 0x09);
+    const unsigned char assist_send_out = read_device_port(&cpu, 0x0D);
+    const unsigned char assist_send_after_out_status = read_device_port(&cpu, 0x09);
+
+    write_device_port(&cpu, 0x08, 0x80);
+    read_device_port(&cpu, 0x0D);
+    write_device_port(&cpu, 0x08, 0x01);
+    cpu.interrupt = FALSE;
+    constexpr unsigned char receive_byte = 0xA5;
+    for (unsigned int bit = 0; bit < 8; ++bit) {
+        peer = static_cast<unsigned char>((receive_byte & (1 << bit)) ? 2 : 1);
+        evaluate_device_port(&cpu, 0x09, "link probe");
+        peer = 0;
+        evaluate_device_port(&cpu, 0x09, "link probe");
+    }
+    const bool assist_receive_interrupt = cpu.interrupt != FALSE;
+    const unsigned char assist_receive_status = read_device_port(&cpu, 0x09);
+    const unsigned char assist_receive_in = read_device_port(&cpu, 0x0A);
+    const unsigned char assist_receive_after_in_status = read_device_port(&cpu, 0x09);
+
+    write_device_port(&cpu, 0x08, 0x80);
+    read_device_port(&cpu, 0x0D);
+    write_device_port(&cpu, 0x08, 0x04);
+    assist->error = TRUE;
+    peer = 1;
+    cpu.interrupt = FALSE;
+    evaluate_device_port(&cpu, 0x09, "link probe");
+    const bool assist_error_interrupt = cpu.interrupt != FALSE;
+    const unsigned char assist_error_status = read_device_port(&cpu, 0x09);
+    const unsigned char assist_error_after_read_status = read_device_port(&cpu, 0x09);
+
+    std::printf(
+        "mode=link-edge-probe "
+        "port08_active=%d port09_active=%d port0a_active=%d "
+        "port0b_active=%d port0b_read_accepted=%d port0b_read=0x%02X "
+        "port0c_active=%d port0c_read_accepted=%d port0c_read=0x%02X "
+        "port0d_active=%d initial_enable=0x%02X initial_status=0x%02X "
+        "initial_in=0x%02X initial_out=0x%02X raw_reads=",
+        port08_active ? 1 : 0,
+        port09_active ? 1 : 0,
+        port0a_active ? 1 : 0,
+        port0b_active ? 1 : 0,
+        port0b_read.accepted ? 1 : 0,
+        port0b_read.value,
+        port0c_active ? 1 : 0,
+        port0c_read.accepted ? 1 : 0,
+        port0c_read.value,
+        port0d_active ? 1 : 0,
+        initial_enable,
+        initial_status,
+        initial_in,
+        initial_out
+    );
+    for (std::size_t index = 0; index < raw_reads.size(); ++index) {
+        std::printf("%s%02X", index == 0 ? "" : ",", raw_reads[index]);
+    }
+    std::printf(
+        " raw_high_write=0x%02X raw_peer_read=0x%02X "
+        "raw_peer_interrupt=%d idle_ready_status=0x%02X "
+        "idle_ready_interrupt=%d idle_after_out_status=0x%02X "
+        "assist_send_drives=",
+        raw_high_write,
+        raw_peer_read,
+        raw_peer_interrupt ? 1 : 0,
+        idle_ready_status,
+        idle_ready_interrupt ? 1 : 0,
+        idle_after_out_status
+    );
+    for (std::size_t index = 0; index < assist_send_drives.size(); ++index) {
+        std::printf(
+            "%s%02X", index == 0 ? "" : ",", assist_send_drives[index]
+        );
+    }
+    std::printf(
+        " assist_send_status=0x%02X assist_send_interrupt=%d "
+        "assist_send_out=0x%02X assist_send_after_out_status=0x%02X "
+        "assist_receive_status=0x%02X assist_receive_interrupt=%d "
+        "assist_receive_in=0x%02X "
+        "assist_receive_after_in_status=0x%02X "
+        "assist_error_status=0x%02X assist_error_interrupt=%d "
+        "assist_error_after_read_status=0x%02X tstates=%" PRIu64 "\n",
+        assist_send_status,
+        assist_send_interrupt ? 1 : 0,
+        assist_send_out,
+        assist_send_after_out_status,
+        assist_receive_status,
+        assist_receive_interrupt ? 1 : 0,
+        assist_receive_in,
+        assist_receive_after_in_status,
+        assist_error_status,
+        assist_error_interrupt ? 1 : 0,
+        assist_error_after_read_status,
+        timer.tstates
+    );
+    return 0;
+}
+
+int run_usb_edge_probe(int argc, char **argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: %s --usb-edge-probe INPUT.rom\n", argv[0]);
+        return 2;
+    }
+
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+    USB_t *usb = &cpu.pio.se_aux->usb;
+
+    const bool port4a_active = cpu.pio.devices[0x4A].active != FALSE;
+    const bool port4c_active = cpu.pio.devices[0x4C].active != FALSE;
+    const bool port4d_active = cpu.pio.devices[0x4D].active != FALSE;
+    const bool port54_active = cpu.pio.devices[0x54].active != FALSE;
+    const bool port55_active = cpu.pio.devices[0x55].active != FALSE;
+    const bool port56_active = cpu.pio.devices[0x56].active != FALSE;
+    const bool port57_active = cpu.pio.devices[0x57].active != FALSE;
+    const bool port5b_active = cpu.pio.devices[0x5B].active != FALSE;
+    const bool port80_active = cpu.pio.devices[0x80].active != FALSE;
+    const DeviceReadResult port54_read = try_read_device_port(&cpu, 0x54);
+
+    const unsigned char initial_port4a = read_device_port(&cpu, 0x4A);
+    const unsigned char initial_port4c = read_device_port(&cpu, 0x4C);
+    const unsigned char initial_port4d = read_device_port(&cpu, 0x4D);
+    const unsigned char initial_port55 = read_device_port(&cpu, 0x55);
+    const unsigned char initial_port56 = read_device_port(&cpu, 0x56);
+    const unsigned char initial_port57 = read_device_port(&cpu, 0x57);
+    const unsigned char initial_port5b = read_device_port(&cpu, 0x5B);
+    const unsigned char initial_port80 = read_device_port(&cpu, 0x80);
+    const unsigned int initial_line_state = usb->USBLineState;
+    const unsigned int initial_events = usb->USBEvents;
+    const unsigned int initial_event_mask = usb->USBEventMask;
+    const bool initial_line_interrupt = usb->LineInterrupt != FALSE;
+    const bool initial_protocol_interrupt = usb->ProtocolInterrupt != FALSE;
+    const unsigned char initial_stored_port4a = usb->Port4A;
+    const unsigned char initial_stored_port4c = usb->Port4C;
+    const unsigned char initial_stored_port54 = usb->Port54;
+
+    write_device_port(&cpu, 0x57, 0xFF);
+    const unsigned char mask_ff_read = read_device_port(&cpu, 0x57);
+    write_device_port(&cpu, 0x57, 0x00);
+    const unsigned char mask_zero_read = read_device_port(&cpu, 0x57);
+    cpu.interrupt = FALSE;
+    write_device_port(&cpu, 0x4A, 0x08);
+    const bool event_interrupt = cpu.interrupt != FALSE;
+    const bool event_line_interrupt = usb->LineInterrupt != FALSE;
+    const unsigned int event_line_state = usb->USBLineState;
+    const unsigned int event_events = usb->USBEvents;
+    const unsigned char event_port4a = read_device_port(&cpu, 0x4A);
+    const unsigned char event_port4d = read_device_port(&cpu, 0x4D);
+    const unsigned char event_port55 = read_device_port(&cpu, 0x55);
+    const unsigned char event_port56 = read_device_port(&cpu, 0x56);
+    cpu.interrupt = FALSE;
+    write_device_port(&cpu, 0x4A, 0x08);
+    const bool repeated_event_interrupt = cpu.interrupt != FALSE;
+    const unsigned int repeated_events = usb->USBEvents;
+
+    usb->LineInterrupt = FALSE;
+    usb->ProtocolInterrupt = FALSE;
+    const unsigned char summary_none = read_device_port(&cpu, 0x55);
+    usb->LineInterrupt = TRUE;
+    usb->ProtocolInterrupt = FALSE;
+    const unsigned char summary_line = read_device_port(&cpu, 0x55);
+    usb->LineInterrupt = FALSE;
+    usb->ProtocolInterrupt = TRUE;
+    const unsigned char summary_protocol = read_device_port(&cpu, 0x55);
+    usb->LineInterrupt = TRUE;
+    usb->ProtocolInterrupt = TRUE;
+    const unsigned char summary_both = read_device_port(&cpu, 0x55);
+
+    write_device_port(&cpu, 0x5B, 0xFF);
+    const unsigned char port5b_ff_read = read_device_port(&cpu, 0x5B);
+    const bool protocol_interrupt_enabled = usb->ProtocolInterruptEnabled != FALSE;
+    write_device_port(&cpu, 0x80, 0xFF);
+    const unsigned char port80_ff_read = read_device_port(&cpu, 0x80);
+    const unsigned int stored_dev_address = usb->DevAddress;
+    write_device_port(&cpu, 0x4C, 0xFF);
+    const unsigned char port4c_ff_read = read_device_port(&cpu, 0x4C);
+    const unsigned char stored_port4c = usb->Port4C;
+
+    // Direct field seeding below tests handler contracts. These states are not
+    // claimed to be reachable through the registered Fake USB ports.
+    usb->Port54 = 0x00;
+    usb->Port4C = 0x00;
+    usb->USBLineState = 0xA6;
+    const unsigned char port4d_false_pair = read_device_port(&cpu, 0x4D);
+    usb->Port54 = 0x44;
+    usb->Port4C = 0x08;
+    usb->USBLineState = 0xE5;
+    const unsigned char port4d_true_pair = read_device_port(&cpu, 0x4D);
+    usb->Port4A = 0x08;
+    const unsigned char port4a_true_condition = read_device_port(&cpu, 0x4A);
+    usb->Port54 = 0x00;
+    const unsigned char port4a_false_condition = read_device_port(&cpu, 0x4A);
+
+    std::printf(
+        "mode=usb-edge-probe "
+        "port4a_active=%d port4c_active=%d port4d_active=%d "
+        "port54_active=%d port54_read_accepted=%d port54_read=0x%02X "
+        "port55_active=%d port56_active=%d port57_active=%d "
+        "port5b_active=%d port80_active=%d "
+        "initial_port4a=0x%02X initial_port4c=0x%02X "
+        "initial_port4d=0x%02X initial_port55=0x%02X "
+        "initial_port56=0x%02X initial_port57=0x%02X "
+        "initial_port5b=0x%02X initial_port80=0x%02X "
+        "initial_line_state=0x%X initial_events=0x%X "
+        "initial_event_mask=0x%X initial_line_interrupt=%d "
+        "initial_protocol_interrupt=%d initial_stored_port4a=0x%02X "
+        "initial_stored_port4c=0x%02X initial_stored_port54=0x%02X "
+        "mask_ff_read=0x%02X mask_zero_read=0x%02X "
+        "event_interrupt=%d event_line_interrupt=%d "
+        "event_line_state=0x%X event_events=0x%X "
+        "event_port4a=0x%02X event_port4d=0x%02X "
+        "event_port55=0x%02X event_port56=0x%02X "
+        "repeated_event_interrupt=%d repeated_events=0x%X "
+        "summary_none=0x%02X summary_line=0x%02X "
+        "summary_protocol=0x%02X summary_both=0x%02X "
+        "port5b_ff_read=0x%02X protocol_interrupt_enabled=%d "
+        "port80_ff_read=0x%02X stored_dev_address=0x%X "
+        "port4c_ff_read=0x%02X stored_port4c=0x%02X "
+        "port4d_false_pair=0x%02X port4d_true_pair=0x%02X "
+        "port4a_true_condition=0x%02X port4a_false_condition=0x%02X "
+        "tstates=%" PRIu64 "\n",
+        port4a_active ? 1 : 0,
+        port4c_active ? 1 : 0,
+        port4d_active ? 1 : 0,
+        port54_active ? 1 : 0,
+        port54_read.accepted ? 1 : 0,
+        port54_read.value,
+        port55_active ? 1 : 0,
+        port56_active ? 1 : 0,
+        port57_active ? 1 : 0,
+        port5b_active ? 1 : 0,
+        port80_active ? 1 : 0,
+        initial_port4a,
+        initial_port4c,
+        initial_port4d,
+        initial_port55,
+        initial_port56,
+        initial_port57,
+        initial_port5b,
+        initial_port80,
+        initial_line_state,
+        initial_events,
+        initial_event_mask,
+        initial_line_interrupt ? 1 : 0,
+        initial_protocol_interrupt ? 1 : 0,
+        initial_stored_port4a,
+        initial_stored_port4c,
+        initial_stored_port54,
+        mask_ff_read,
+        mask_zero_read,
+        event_interrupt ? 1 : 0,
+        event_line_interrupt ? 1 : 0,
+        event_line_state,
+        event_events,
+        event_port4a,
+        event_port4d,
+        event_port55,
+        event_port56,
+        repeated_event_interrupt ? 1 : 0,
+        repeated_events,
+        summary_none,
+        summary_line,
+        summary_protocol,
+        summary_both,
+        port5b_ff_read,
+        protocol_interrupt_enabled ? 1 : 0,
+        port80_ff_read,
+        stored_dev_address,
+        port4c_ff_read,
+        stored_port4c,
+        port4d_false_pair,
+        port4d_true_pair,
+        port4a_true_condition,
+        port4a_false_condition,
+        timer.tstates
+    );
+    return 0;
+}
+
+int run_mapper_edge_probe(int argc, char **argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: %s --mapper-edge-probe INPUT.rom\n", argv[0]);
+        return 2;
+    }
+
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+
+    const bool port04_active = cpu.pio.devices[0x04].active != FALSE;
+    const bool port05_active = cpu.pio.devices[0x05].active != FALSE;
+    const bool port06_active = cpu.pio.devices[0x06].active != FALSE;
+    const bool port07_active = cpu.pio.devices[0x07].active != FALSE;
+    const bool port0e_active = cpu.pio.devices[0x0E].active != FALSE;
+    const bool port0f_active = cpu.pio.devices[0x0F].active != FALSE;
+    const bool port27_active = cpu.pio.devices[0x27].active != FALSE;
+    const bool port28_active = cpu.pio.devices[0x28].active != FALSE;
+
+    const unsigned char initial_port04_status = read_device_port(&cpu, 0x04);
+    const unsigned char initial_port05 = read_device_port(&cpu, 0x05);
+    const unsigned char initial_port06 = read_device_port(&cpu, 0x06);
+    const unsigned char initial_port07 = read_device_port(&cpu, 0x07);
+    const unsigned char initial_port0e = read_device_port(&cpu, 0x0E);
+    const unsigned char initial_port0f = read_device_port(&cpu, 0x0F);
+    const unsigned char initial_port27 = read_device_port(&cpu, 0x27);
+    const unsigned char initial_port28 = read_device_port(&cpu, 0x28);
+    const bool initial_boot_mapped = memory.boot_mapped != FALSE;
+    const bool initial_page0_changed = memory.hasChangedPage0 != FALSE;
+    const unsigned char initial_fixed_page = memory.banks[0].page;
+    const unsigned char initial_a_page = memory.banks[1].page;
+    const unsigned char initial_b_page = memory.banks[2].page;
+    const unsigned char initial_c_page = memory.banks[3].page;
+    const bool initial_a_ram = memory.banks[1].ram != FALSE;
+    const bool initial_b_ram = memory.banks[2].ram != FALSE;
+    const bool initial_c_ram = memory.banks[3].ram != FALSE;
+
+    CPU_mem_read(&cpu, 0x4000);
+    const unsigned char fixed_page_after_data_read = memory.banks[0].page;
+    const bool page0_changed_after_data_read = memory.hasChangedPage0 != FALSE;
+    memory.flash[0] = 0x00;
+    cpu.pc = 0x4000;
+    CPU_step(&cpu);
+    const unsigned char fixed_page_after_opcode = memory.banks[0].page;
+    const bool page0_changed_after_opcode = memory.hasChangedPage0 != FALSE;
+    const unsigned short handoff_pc = cpu.pc;
+
+    write_device_port(&cpu, 0x05, 0xFF);
+    const unsigned char port05_ff_read = read_device_port(&cpu, 0x05);
+    write_device_port(&cpu, 0x0E, 0xFF);
+    write_device_port(&cpu, 0x06, 0x7F);
+    const unsigned char port0e_ff_read = read_device_port(&cpu, 0x0E);
+    const unsigned char port06_flash_read = read_device_port(&cpu, 0x06);
+    const unsigned char stored_port06_flash = memory.port06;
+    write_device_port(&cpu, 0x0F, 0xFF);
+    write_device_port(&cpu, 0x07, 0x7F);
+    const unsigned char port0f_ff_read = read_device_port(&cpu, 0x0F);
+    const unsigned char port07_flash_read = read_device_port(&cpu, 0x07);
+    const unsigned char stored_port07_flash = memory.port07;
+    write_device_port(&cpu, 0x06, 0xFF);
+    const unsigned char port06_ram_ff_read = read_device_port(&cpu, 0x06);
+    const unsigned char stored_port06_ram = memory.port06;
+    write_device_port(&cpu, 0x07, 0xFE);
+    const unsigned char port07_ram_fe_read = read_device_port(&cpu, 0x07);
+    const unsigned char stored_port07_ram = memory.port07;
+
+    write_device_port(&cpu, 0x05, 0x05);
+    write_device_port(&cpu, 0x06, 0x02);
+    write_device_port(&cpu, 0x07, 0x83);
+    write_device_port(&cpu, 0x04, 0x01);
+    const unsigned char paired_port04_status = read_device_port(&cpu, 0x04);
+    const unsigned char paired_port05 = read_device_port(&cpu, 0x05);
+    const unsigned char paired_port06 = read_device_port(&cpu, 0x06);
+    const unsigned char paired_port07 = read_device_port(&cpu, 0x07);
+    const bool paired_boot_mapped = memory.boot_mapped != FALSE;
+    const unsigned char paired_a_page = memory.banks[1].page;
+    const unsigned char paired_b_page = memory.banks[2].page;
+    const unsigned char paired_c_page = memory.banks[3].page;
+    const bool paired_a_ram = memory.banks[1].ram != FALSE;
+    const bool paired_b_ram = memory.banks[2].ram != FALSE;
+    const bool paired_c_ram = memory.banks[3].ram != FALSE;
+
+    write_device_port(&cpu, 0x04, 0x00);
+    write_device_port(&cpu, 0x06, 0x04);
+    write_device_port(&cpu, 0x07, 0x02);
+    write_device_port(&cpu, 0x05, 0x05);
+    write_device_port(&cpu, 0x28, 0x01);
+    write_device_port(&cpu, 0x27, 0xFF);
+    const unsigned char port27_ff_read = read_device_port(&cpu, 0x27);
+    const unsigned char port28_one_read = read_device_port(&cpu, 0x28);
+
+    memory.ram[1 * PAGE_SIZE + 0x0000] = 0xB0;
+    memory.ram[1 * PAGE_SIZE + 0x003F] = 0xB1;
+    memory.flash[2 * PAGE_SIZE + 0x0000] = 0xA0;
+    memory.flash[2 * PAGE_SIZE + 0x003F] = 0xA1;
+    memory.flash[2 * PAGE_SIZE + 0x0040] = 0xA2;
+    memory.ram[5 * PAGE_SIZE + 0x3B63] = 0xC3;
+    memory.ram[5 * PAGE_SIZE + 0x3B64] = 0xC4;
+    memory.ram[0 * PAGE_SIZE + 0x3B64] = 0xD4;
+    const unsigned char independent_8000 = mem_read(&memory, 0x8000);
+    const unsigned char independent_803f = mem_read(&memory, 0x803F);
+    const unsigned char independent_8040 = mem_read(&memory, 0x8040);
+    const unsigned char independent_fb63 = mem_read(&memory, 0xFB63);
+    const unsigned char independent_fb64 = mem_read(&memory, 0xFB64);
+    mem_write(&memory, 0x8000, 0xC1);
+    mem_write(&memory, 0xFB64, 0xC2);
+    const unsigned char independent_write_ram1 = memory.ram[1 * PAGE_SIZE];
+    const unsigned char independent_write_underlying_b = memory.flash[2 * PAGE_SIZE];
+    const unsigned char independent_write_ram0 = memory.ram[0 * PAGE_SIZE + 0x3B64];
+    const unsigned char independent_write_underlying_c = memory.ram[5 * PAGE_SIZE + 0x3B64];
+
+    memory.ram[1 * PAGE_SIZE] = 0x00;
+    memory.flash[2 * PAGE_SIZE] = 0x76;
+    cpu.pc = 0x8000;
+    cpu.halt = FALSE;
+    CPU_step(&cpu);
+    const bool independent_fetch_halted = cpu.halt != FALSE;
+
+    memory.flash[4 * PAGE_SIZE + 0x0000] = 0xE0;
+    memory.flash[4 * PAGE_SIZE + 0x003F] = 0xE1;
+    memory.flash[4 * PAGE_SIZE + 0x0040] = 0xE2;
+    memory.flash[2 * PAGE_SIZE + 0x3B63] = 0xF3;
+    memory.flash[2 * PAGE_SIZE + 0x3B64] = 0xF4;
+    write_device_port(&cpu, 0x04, 0x01);
+    const unsigned char paired_8000 = mem_read(&memory, 0x8000);
+    const unsigned char paired_803f = mem_read(&memory, 0x803F);
+    const unsigned char paired_8040 = mem_read(&memory, 0x8040);
+    const unsigned char paired_fb63 = mem_read(&memory, 0xFB63);
+    const unsigned char paired_fb64 = mem_read(&memory, 0xFB64);
+
+    memory.flash[4 * PAGE_SIZE] = 0x76;
+    memory.ram[1 * PAGE_SIZE] = 0x00;
+    cpu.pc = 0x8000;
+    cpu.halt = FALSE;
+    CPU_step(&cpu);
+    const bool paired_fetch_halted = cpu.halt != FALSE;
+    mem_write(&memory, 0x8000, 0xD1);
+    mem_write(&memory, 0xFB64, 0xD2);
+    const unsigned char paired_write_ram1 = memory.ram[1 * PAGE_SIZE];
+    const unsigned char paired_write_underlying_b = memory.flash[4 * PAGE_SIZE];
+    const unsigned char paired_write_ram0 = memory.ram[0 * PAGE_SIZE + 0x3B64];
+    const unsigned char paired_write_underlying_c = memory.flash[2 * PAGE_SIZE + 0x3B64];
+
+    std::printf(
+        "mode=mapper-edge-probe "
+        "port04_active=%d port05_active=%d port06_active=%d port07_active=%d "
+        "port0e_active=%d port0f_active=%d port27_active=%d port28_active=%d "
+        "initial_port04_status=0x%02X initial_port05=0x%02X "
+        "initial_port06=0x%02X initial_port07=0x%02X "
+        "initial_port0e=0x%02X initial_port0f=0x%02X "
+        "initial_port27=0x%02X initial_port28=0x%02X "
+        "initial_boot_mapped=%d initial_page0_changed=%d "
+        "initial_fixed_page=0x%02X initial_a_page=0x%02X "
+        "initial_b_page=0x%02X initial_c_page=0x%02X "
+        "initial_a_ram=%d initial_b_ram=%d initial_c_ram=%d "
+        "fixed_page_after_data_read=0x%02X page0_changed_after_data_read=%d "
+        "fixed_page_after_opcode=0x%02X page0_changed_after_opcode=%d "
+        "handoff_pc=0x%04X "
+        "port05_ff_read=0x%02X port0e_ff_read=0x%02X "
+        "port06_flash_read=0x%02X stored_port06_flash=0x%02X "
+        "port0f_ff_read=0x%02X port07_flash_read=0x%02X "
+        "stored_port07_flash=0x%02X port06_ram_ff_read=0x%02X "
+        "stored_port06_ram=0x%02X port07_ram_fe_read=0x%02X "
+        "stored_port07_ram=0x%02X "
+        "paired_port04_status=0x%02X paired_port05=0x%02X "
+        "paired_port06=0x%02X paired_port07=0x%02X "
+        "paired_boot_mapped=%d paired_a_page=0x%02X "
+        "paired_b_page=0x%02X paired_c_page=0x%02X "
+        "paired_a_ram=%d paired_b_ram=%d paired_c_ram=%d "
+        "port27_ff_read=0x%02X port28_one_read=0x%02X "
+        "independent_8000=0x%02X independent_803f=0x%02X "
+        "independent_8040=0x%02X independent_fb63=0x%02X "
+        "independent_fb64=0x%02X independent_write_ram1=0x%02X "
+        "independent_write_underlying_b=0x%02X "
+        "independent_write_ram0=0x%02X "
+        "independent_write_underlying_c=0x%02X "
+        "independent_fetch_halted=%d "
+        "paired_8000=0x%02X paired_803f=0x%02X "
+        "paired_8040=0x%02X paired_fb63=0x%02X paired_fb64=0x%02X "
+        "paired_fetch_halted=%d paired_write_ram1=0x%02X "
+        "paired_write_underlying_b=0x%02X paired_write_ram0=0x%02X "
+        "paired_write_underlying_c=0x%02X tstates=%" PRIu64 "\n",
+        port04_active ? 1 : 0,
+        port05_active ? 1 : 0,
+        port06_active ? 1 : 0,
+        port07_active ? 1 : 0,
+        port0e_active ? 1 : 0,
+        port0f_active ? 1 : 0,
+        port27_active ? 1 : 0,
+        port28_active ? 1 : 0,
+        initial_port04_status,
+        initial_port05,
+        initial_port06,
+        initial_port07,
+        initial_port0e,
+        initial_port0f,
+        initial_port27,
+        initial_port28,
+        initial_boot_mapped ? 1 : 0,
+        initial_page0_changed ? 1 : 0,
+        initial_fixed_page,
+        initial_a_page,
+        initial_b_page,
+        initial_c_page,
+        initial_a_ram ? 1 : 0,
+        initial_b_ram ? 1 : 0,
+        initial_c_ram ? 1 : 0,
+        fixed_page_after_data_read,
+        page0_changed_after_data_read ? 1 : 0,
+        fixed_page_after_opcode,
+        page0_changed_after_opcode ? 1 : 0,
+        handoff_pc,
+        port05_ff_read,
+        port0e_ff_read,
+        port06_flash_read,
+        stored_port06_flash,
+        port0f_ff_read,
+        port07_flash_read,
+        stored_port07_flash,
+        port06_ram_ff_read,
+        stored_port06_ram,
+        port07_ram_fe_read,
+        stored_port07_ram,
+        paired_port04_status,
+        paired_port05,
+        paired_port06,
+        paired_port07,
+        paired_boot_mapped ? 1 : 0,
+        paired_a_page,
+        paired_b_page,
+        paired_c_page,
+        paired_a_ram ? 1 : 0,
+        paired_b_ram ? 1 : 0,
+        paired_c_ram ? 1 : 0,
+        port27_ff_read,
+        port28_one_read,
+        independent_8000,
+        independent_803f,
+        independent_8040,
+        independent_fb63,
+        independent_fb64,
+        independent_write_ram1,
+        independent_write_underlying_b,
+        independent_write_ram0,
+        independent_write_underlying_c,
+        independent_fetch_halted ? 1 : 0,
+        paired_8000,
+        paired_803f,
+        paired_8040,
+        paired_fb63,
+        paired_fb64,
+        paired_fetch_halted ? 1 : 0,
+        paired_write_ram1,
+        paired_write_underlying_b,
+        paired_write_ram0,
+        paired_write_underlying_c,
+        timer.tstates
+    );
+    return 0;
+}
+
+void load_md5_word(CPU_t *cpu, unsigned char port, std::uint32_t value) {
+    for (unsigned int shift = 0; shift < 32; shift += 8) {
+        write_device_port(
+            cpu,
+            port,
+            static_cast<unsigned char>((value >> shift) & 0xFF)
+        );
+    }
+}
+
+std::uint32_t read_md5_result(CPU_t *cpu) {
+    std::uint32_t result = 0;
+    for (unsigned int index = 0; index < 4; ++index) {
+        result |= static_cast<std::uint32_t>(
+            read_device_port(cpu, static_cast<unsigned char>(0x1C + index))
+        ) << (8 * index);
+    }
+    return result;
+}
+
+int run_md5_edge_probe(int argc, char **argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: %s --md5-edge-probe INPUT.rom\n", argv[0]);
+        return 2;
+    }
+
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+
+    unsigned char reset_operand_reads[4];
+    for (unsigned int index = 0; index < 4; ++index) {
+        reset_operand_reads[index] = read_device_port(
+            &cpu, static_cast<unsigned char>(0x18 + index)
+        );
+    }
+    const std::uint32_t reset_result = read_md5_result(&cpu);
+
+    write_device_port(&cpu, 0x1F, 0x02);
+    write_device_port(&cpu, 0x1E, 0);
+    write_device_port(&cpu, 0x18, 0x11);
+    const std::uint32_t one_write_result = read_md5_result(&cpu);
+    write_device_port(&cpu, 0x18, 0x22);
+    write_device_port(&cpu, 0x18, 0x33);
+    const std::uint32_t three_write_result = read_md5_result(&cpu);
+    write_device_port(&cpu, 0x18, 0x44);
+    const std::uint32_t four_write_result = read_md5_result(&cpu);
+    write_device_port(&cpu, 0x18, 0x55);
+    const std::uint32_t five_write_result = read_md5_result(&cpu);
+
+    const std::uint32_t control_operands[] = {1, 2, 3, 4, 5, 6};
+    for (unsigned int index = 0; index < 6; ++index) {
+        load_md5_word(
+            &cpu,
+            static_cast<unsigned char>(0x18 + index),
+            control_operands[index]
+        );
+    }
+    write_device_port(&cpu, 0x1E, 0xFF);
+    write_device_port(&cpu, 0x1F, 0xFF);
+    const std::uint32_t masked_control_result = read_md5_result(&cpu);
+    unsigned char loaded_operand_reads[4];
+    for (unsigned int index = 0; index < 4; ++index) {
+        loaded_operand_reads[index] = read_device_port(
+            &cpu, static_cast<unsigned char>(0x18 + index)
+        );
+    }
+
+    const std::uint32_t mutation_operands[] = {
+        UINT32_C(0x67452301),
+        UINT32_C(0xEFCDAB89),
+        UINT32_C(0x98BADCFE),
+        UINT32_C(0x10325476),
+        UINT32_C(0x80636261),
+        UINT32_C(0xD76AA478),
+    };
+    for (unsigned int index = 0; index < 6; ++index) {
+        load_md5_word(
+            &cpu,
+            static_cast<unsigned char>(0x18 + index),
+            mutation_operands[index]
+        );
+    }
+    write_device_port(&cpu, 0x1E, 7);
+    write_device_port(&cpu, 0x1F, 0);
+    const std::uint32_t before_mutation_result = read_md5_result(&cpu);
+    const unsigned char mixed_low = read_device_port(&cpu, 0x1C);
+    load_md5_word(&cpu, 0x18, UINT32_C(0xFFFFFFFF));
+    const std::uint32_t after_mutation_result = read_md5_result(&cpu);
+    std::uint32_t mixed_result = mixed_low;
+    for (unsigned int index = 1; index < 4; ++index) {
+        mixed_result |= static_cast<std::uint32_t>(
+            read_device_port(&cpu, static_cast<unsigned char>(0x1C + index))
+        ) << (8 * index);
+    }
+
+    std::printf(
+        "mode=md5-edge-probe reset_operand_reads=%02X,%02X,%02X,%02X "
+        "reset_result=0x%08" PRIX32 " one_write_result=0x%08" PRIX32 " "
+        "three_write_result=0x%08" PRIX32 " "
+        "four_write_result=0x%08" PRIX32 " "
+        "five_write_result=0x%08" PRIX32 " "
+        "raw_shift=0xFF raw_mode=0xFF "
+        "masked_control_result=0x%08" PRIX32 " "
+        "loaded_operand_reads=%02X,%02X,%02X,%02X "
+        "before_mutation_result=0x%08" PRIX32 " "
+        "after_mutation_result=0x%08" PRIX32 " "
+        "mixed_result=0x%08" PRIX32 " tstates=%" PRIu64 "\n",
+        reset_operand_reads[0],
+        reset_operand_reads[1],
+        reset_operand_reads[2],
+        reset_operand_reads[3],
+        reset_result,
+        one_write_result,
+        three_write_result,
+        four_write_result,
+        five_write_result,
+        masked_control_result,
+        loaded_operand_reads[0],
+        loaded_operand_reads[1],
+        loaded_operand_reads[2],
+        loaded_operand_reads[3],
+        before_mutation_result,
+        after_mutation_result,
+        mixed_result,
+        timer.tstates
+    );
+    return 0;
 }
 
 int run_flash_command_probe(int argc, char **argv) {
@@ -1262,6 +3309,42 @@ void usage(const char *program) {
 }  // namespace
 
 int main(int argc, char **argv) {
+    if (argc >= 2 && std::strcmp(argv[1], "--reset-retention-probe") == 0) {
+        return run_reset_retention_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--protection-port-probe") == 0) {
+        return run_protection_port_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--speed-edge-probe") == 0) {
+        return run_speed_edge_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--mapper-edge-probe") == 0) {
+        return run_mapper_edge_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--usb-edge-probe") == 0) {
+        return run_usb_edge_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--link-edge-probe") == 0) {
+        return run_link_edge_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--interrupt-edge-probe") == 0) {
+        return run_interrupt_edge_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--lcd-edge-probe") == 0) {
+        return run_lcd_edge_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--asic-edge-probe") == 0) {
+        return run_asic_edge_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--timer-edge-probe") == 0) {
+        return run_timer_edge_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--keypad-edge-probe") == 0) {
+        return run_keypad_edge_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--md5-edge-probe") == 0) {
+        return run_md5_edge_probe(argc, argv);
+    }
     if (argc >= 2 && std::strcmp(argv[1], "--flash-command-probe") == 0) {
         return run_flash_command_probe(argc, argv);
     }
