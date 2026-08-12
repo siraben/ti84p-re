@@ -11,9 +11,10 @@ record interpreter or an emulator. Deployed beside the wiki at `/mathprint/`
 | File | Role |
 |------|------|
 | `index.html`, `style.css` | the interactive page |
-| `app.js` | the renderer: glyph/box primitives → layout constructs → expression parser → canvas + draw-order animation + pen-log |
+| `app.js` | renderer and two timelines: captured LCD writes for retained traces, or model elements for other expressions |
 | `font.json` | large (`07:45FF`) + small (`03:4CD6`) font glyphs, extracted from ROM |
 | `layout.json` | page `0x39` class-table records and selected descriptors for inspection |
+| `draw-order.json` | accepted visible-pixel LCD mutations from the retained integral traces |
 
 `app.js` is organized in sections: box primitives → layout constructs → text runs
 → expression parser → canvas rendering → UI. A "box" is `{rows, baseline, marks,
@@ -29,6 +30,7 @@ overhang. The marks are model-local composition metadata, not captured OS pen st
 | `interp-cells.js` | first-stage record-cell classifier for inspection |
 | `trace_lcd.py` | replay reset-origin TilEm LCD I/O with its pinned T6A04 model |
 | `parity-mathprint.py` | render an expression in TilEm and diff it against the model |
+| `export-mathprint-draw-order.py` | export ordered set/clear pixel mutations from hash-pinned TLMT traces |
 | `mathprint-trace-report.json` | hashes, exact entry counts, state bytes, and replay results for filled and nested integrals |
 | `test-mathprint.js` | fuzz + corpus: every generated expression parses and lays out |
 | `render-mathprint.py` | ASCII font/layout dump from ROM |
@@ -51,6 +53,12 @@ trace replay when tracing is enabled. Calculator parity requires the proprietary
 ROM. Filled-integral and nested-fraction results are recorded in
 `tools/mathprint-trace-report.json`; the large raw traces stay outside Git.
 
+The preview's captured timeline uses those two traces. It starts immediately
+before the final expression key is processed, then applies each accepted T6A04
+write that changes a visible pixel. The playback preserves overwritten and
+cleared pixels. Other expressions use the separately labeled model-element
+timeline. [confirmed]
+
 ## Regeneration
 
 ```sh
@@ -58,4 +66,7 @@ python3 tools/export-font.py     # -> font.json
 python3 tools/export-layout.py   # -> layout.json
 node tools/test-mathprint.js     # fuzz
 python3 tools/parity-mathprint.py  # calc-vs-model parity (needs TilEm + tools/rom.bin)
+python3 tools/export-mathprint-draw-order.py \
+  integral=/path/to/integral.trace \
+  integral_frac=/path/to/integral_frac.trace
 ```

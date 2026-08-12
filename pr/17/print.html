@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-955f5503.js";
+            window.path_to_searchindex_js = "searchindex-f33a83ba.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14819,6 +14819,12 @@ state remains unobserved.</p>
 The raw traces remain outside the repository because they are 162 MB and 202 MB.
 <code>tools/mathprint-trace-report.json</code> records their hashes, emulator provenance,
 exact entry counts, state bytes, and replay results. [confirmed]</p>
+<p><code>web/mathprint/draw-order.json</code> preserves the visible pixel mutations after the
+final expression key press. The filled-integral trace contains 351 accepted LCD
+writes that change 522 pixels; the nested trace contains 391 writes that change
+610 pixels. This sequence includes both set and clear transitions, so the
+interactive preview can replay the controller’s write order instead of an
+inferred glyph order. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
