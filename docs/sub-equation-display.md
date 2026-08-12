@@ -414,6 +414,13 @@ and `34:5DEF`. Its closed tail at `34:5E98`–`34:5EA6` passes `B=x`,
 `C=63-y`, and `D=1` to `_PointOn` at `04:4155`. Dynamic samples include
 `(x,y)=(3,0)` → `BC=033Fh` and `(32,20)` → `BC=202Bh`. [confirmed]
 
+The line wrappers share the viewport state at `0x8DFA`–`0x8E04`.
+`34:5D96` passes a clipped vertical segment to `04:431D`; `34:5DA6` swaps the
+axes and passes a clipped horizontal segment to `04:4382`. The nested trace's
+fraction rule enters `34:5DA6` with object coordinates `x=1`–`5`, `y=6` and
+origins `x=16`, `y=5`. Page `04` receives endpoints `(17,52)` and `(21,52)`.
+[confirmed]
+
 Exact point counts matter here. The resolver's `--funcs` mode groups an
 instruction under the nearest preceding symbol. It places 69 instructions in
 the `39:5167` bucket for each scenario even though the entry itself has zero

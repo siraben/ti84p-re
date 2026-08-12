@@ -101,6 +101,26 @@ expectEqual('34:5E98 lower fraction corner', rom.settledPointOperation(0x20, 0x1
 });
 expectEqual('34:5DD1 x clipping', rom.settledPointOperation(0x60, 0), null);
 expectEqual('34:5DEF y clipping', rom.settledPointOperation(0, 0x40), null);
+const fullViewport = {xOrigin:0, yOrigin:0, xMax:0x5f, yMax:0x3e, xClip:0, yClip:0};
+expectEqual('34:5D96 integral stem',
+  rom.settledVerticalOperation(2, 1, 0x15, fullViewport), {
+    kind:'line', axis:'vertical', from:{x:2,y:0x3e}, to:{x:2,y:0x2a},
+    routine:'34:5D96–5DA5 → 04:431D',
+  });
+expectEqual('34:5DA6 fraction bar with live origin',
+  rom.settledHorizontalOperation(1, 5, 6,
+    {xOrigin:16, yOrigin:5, xMax:0x5f, yMax:0x3e, xClip:0, yClip:0}), {
+    kind:'line', axis:'horizontal', from:{x:17,y:52}, to:{x:21,y:52},
+    routine:'34:5DA6–5DBD → 04:4382',
+  });
+expectEqual('34:5D96 endpoint sorting and clipping',
+  rom.settledVerticalOperation(3, 9, 1,
+    {xOrigin:0, yOrigin:0, xMax:0x5f, yMax:6, xClip:0, yClip:2}), {
+    kind:'line', axis:'vertical', from:{x:3,y:0x3f}, to:{x:3,y:0x39},
+    routine:'34:5D96–5DA5 → 04:431D',
+  });
+expectEqual('34:5DA6 fully clipped',
+  rom.settledHorizontalOperation(0, 2, 0, {...fullViewport, xClip:5}), null);
 
 for (const [expression, record] of Object.entries(drawOrder.scenarios)) {
   const final = mp.traceFrame(record, record.events.length)
