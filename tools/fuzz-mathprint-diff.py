@@ -7,41 +7,38 @@ X^(1/2) was in its corpus yet 78.9% vs the calc). This tool closes that gap: it
 generates random ASTs over the supported constructs and, for each, emits BOTH
 
   1. the model expression string (the syntax web/mathprint/app.js parse() accepts), and
-  2. the exact TilEm keystroke sequence that builds the SAME expression on the
+  2. a TilEm keystroke sequence intended to build the same expression on the
      home entry line,
 
 then renders the model (node mp.parse -> mp.toText) and the calculator (reuse
-tools/parity-mathprint.py run_calc + trace_lcd reconstruct, with the ERR-dialog
-fallback) and pixel-diffs them. Every mismatch is reported with the AST, expr,
+tools/parity-mathprint.py run_calc + trace_lcd replay) and pixel-diffs them.
+Every mismatch is reported with the AST, expr,
 keystrokes, match %, dims, and a side-by-side.
 
-The AST->keystroke emitter models the entry-line cursor exactly (after ^ the
+The AST-to-keystroke emitter models template navigation (after ^ the
 cursor is in the raised exponent slot and needs RIGHT to exit; ∫/Σ/√/n-d templates
 enter each slot with RIGHT and leave the last with RIGHT; a typed group is closed
-with RPAREN). It is VALIDATED first against the curated parity examples: run with
---validate and it must reproduce each example's expr and keystrokes and match the
-calc 100% before the random ASTs are trusted.
+with RPAREN). `--validate` exercises a curated AST set before random generation.
 
 Usage:
   python3 tools/fuzz-mathprint-diff.py --validate          # check emitter vs the curated examples
-  python3 tools/fuzz-mathprint-diff.py --seed 11 -n 25     # 25 random differential cases (all match)
+  python3 tools/fuzz-mathprint-diff.py --seed 11 -n 25     # 25 random differential cases
   python3 tools/fuzz-mathprint-diff.py --dry-run --seed 1 -n 30   # print expr+keys only, no calc
 
 Construct coverage and known model gaps
 ---------------------------------------
 The default generator covers number, variable, + - *, ^ (incl. nested a^b^c and
 parenthesised/abs/fraction bases with *, /, +, - exponents), / (linear), // (stacked
-fraction), sqrt, nthroot, abs, int, and parentheses, and every generated tree renders
-100 % model-vs-calc (a clean batch: --seed 11 -n 25). A few nestings are still kept
+fraction), sqrt, nthroot, abs, int, and parentheses. A few nestings are kept
 to their calc-faithful subset because the JS model is ~1 px off the ROM there (each
 documented at its gen_ast guard):
   * stacked-fraction operands beyond a single leaf (small-fraction glyph spacing)
   * a 2-D body inside abs |…| (a power or radical), and a 2-D power base whose math
     axis the superscript does not place exactly (nthroot index, ∫/Σ big operators)
-  * Σ summation — the renderer is intact but the Σ template's keystroke slot order is
+  * Σ summation — the Σ template's keystroke slot order is
     not yet pinned down (use --with-sum to drive it).
 These are real renderer gaps surfaced by this fuzzer, scoped out of the default
-corpus so a reproducible all-100 % batch is the regression gate; widening them is
+corpus; widening them is
 follow-up work on web/mathprint/app.js's small-font / baseline metrics.
 """
 import argparse
@@ -336,7 +333,7 @@ def show_ast(ast, depth=0):
 
 # ---- curated examples for emitter validation -------------------------------
 # AST forms of the 10 parity examples. The emitter must produce the same expr and
-# keystrokes the parity tool hand-wrote, and match the calc 100%.
+# keystrokes corresponding to the parity tool's curated expressions.
 CURATED = {
     "x_squared":   ("pow", ("var", "X"), ("num", "2")),
     "pow_half":    ("pow", ("var", "X"), ("ldiv", ("num", "1"), ("num", "2"))),
@@ -355,35 +352,14 @@ CURATED = {
 
 # ---- diff harness ----------------------------------------------------------
 
-def run_one(parity, ast, outdir, name, retries=1):
-    """Render model and calc, return (pct, bad, dim, calc, model).
-
-    TilEm's headless GIF capture is occasionally noisy (a refresh-blanked or
-    mid-animation frame), which shows up as a spurious low match. To keep results
-    reproducible, a below-100 % case is re-run up to `retries` times and the BEST
-    render is kept — a true layout bug stays below 100 % across re-runs, capture
-    noise does not."""
+def run_one(parity, ast, outdir, name):
+    """Render model and calculator trace, then return their pixel diff."""
     expr = to_expr(ast)
     keys = emit(ast)
     model = parity.js_bitmap(expr)
-    best = None
-    for attempt in range(retries + 2):
-        try:
-            shot, _ram, _ = parity.run_calc(keys, outdir, f"{name}_{attempt}", trace=False)
-            calc = parity.calc_bitmap(shot)
-            pct, bad, dim = parity.diff_metric(calc, model)
-        except (OSError, ValueError, IndexError) as exc:
-            # A corrupt/half-written TilEm GIF frame raises in Pillow; treat as a
-            # capture miss and re-run rather than aborting the whole batch.
-            print(f"     (capture error on {name} attempt {attempt}: {exc}; retrying)")
-            continue
-        if best is None or pct > best[0]:
-            best = (pct, bad, dim, calc)
-        if pct >= 100.0:
-            break
-    if best is None:                       # all attempts failed to capture
-        return expr, keys, 0.0, 0, "capture failed", [[0]], model
-    pct, bad, dim, calc = best
+    _captures, _ram, trace = parity.run_calc(keys, outdir, name, trace=True)
+    calc = parity.calc_from_trace(trace)
+    pct, bad, dim = parity.diff_metric(calc, model)
     return expr, keys, pct, bad, dim, calc, model
 
 
@@ -393,7 +369,7 @@ def main():
     ap.add_argument("-n", "--count", type=int, default=30)
     ap.add_argument("--depth", type=int, default=2)
     ap.add_argument("--validate", action="store_true",
-                    help="run the curated examples through the emitter (must be 100%%)")
+                    help="run the curated examples through the emitter and trace diff")
     ap.add_argument("--dry-run", action="store_true",
                     help="print AST/expr/keys only; do not run the calculator")
     ap.add_argument("--threshold", type=float, default=100.0,
@@ -405,6 +381,8 @@ def main():
     global INCLUDE_SUM
     INCLUDE_SUM = args.with_sum
     parity = _load_parity()
+    if not args.dry_run:
+        parity.validate_inputs()
     outdir = tempfile.mkdtemp(prefix="mp-fuzz-")
     print(f"seed={args.seed} count={args.count} depth={args.depth} artifacts={outdir}\n")
 

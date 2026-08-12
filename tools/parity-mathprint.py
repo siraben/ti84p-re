@@ -11,14 +11,18 @@ Requires: tools/rom.bin, a TilEm build, Pillow, node.
 Usage: python3 tools/parity-mathprint.py [name ...]   (default: all)
 """
 import json
+import hashlib
 import os
 import subprocess
 import sys
 import tempfile
 
+from rom_signatures import TI84_PLUS_OS_255MP_SHA256
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ROM = os.path.join(ROOT, "tools", "rom.bin")
-TILEM = os.path.expanduser("~/Git/tilem-headless/result/bin/tilem2")
+ROM = os.environ.get("TI84_ROM", os.path.join(ROOT, "tools", "rom.bin"))
+TILEM = os.path.expanduser(os.environ.get(
+    "TILEM", "~/Git/tilem-headless/result/bin/tilem2"))
 
 # Each example: js expression for the model, and the calculator keystrokes that
 # produce the same layout on the home entry line (after CLEAR). RIGHT leaves a
@@ -84,8 +88,11 @@ def run_calc(keys, outdir, name, trace=False):
     # ENTER, as a fallback ground truth (see calc_bitmap). The memdump captures the
     # same instant's RAM state.
     macro += f"wait 0.6s\nmemdump {ram} ram-logical\nscreenshot {shot}\n"
-    # press ENTER: a valid input echoes into the history as a cursor-free 2-D render
-    macro += "key ENTER\nwait 1.4s\n"
+    # A trace run stops on the settled entry line, keeping its coverage and LCD
+    # replay scoped to entry rendering. A screenshot-only run presses ENTER so
+    # calc_bitmap can use the cursor-free history echo.
+    if not trace:
+        macro += "key ENTER\nwait 1.4s\n"
     gif = os.path.join(outdir, f"{name}.gif")
     mac = os.path.join(outdir, f"{name}.macro")
     open(mac, "w").write(macro)
@@ -94,7 +101,16 @@ def run_calc(keys, outdir, name, trace=False):
     tr = os.path.join(outdir, f"{name}.trace")
     if trace:
         cmd += ["--trace", tr, "--trace-range", "all", "--trace-limit", "300000000"]
-    subprocess.run(cmd, check=True, capture_output=True, timeout=180)
+    try:
+        completed = subprocess.run(cmd, check=True, capture_output=True, text=True,
+                                   timeout=180)
+    except subprocess.CalledProcessError as error:
+        detail = (error.stderr or error.stdout or "no process output").strip()
+        raise RuntimeError(f"TilEm failed: {detail}") from error
+    if "Trace limit reached" in completed.stderr:
+        raise RuntimeError("TilEm trace limit reached; refusing a partial replay")
+    if trace and (not os.path.isfile(tr) or os.path.getsize(tr) == 0):
+        raise RuntimeError("TilEm did not produce the requested trace")
     return (gif, shot), ram, (tr if trace else None)
 
 
@@ -226,14 +242,13 @@ def crop_echo(grid):
 
 
 def calc_from_trace(trace):
-    """Exact reference: reconstruct the LCD from the trace's port writes (no GIF
-    capture noise) and isolate the top-left echo."""
+    """Replay the settled entry line from the trace and remove its cursor."""
     import importlib.util
     spec = importlib.util.spec_from_file_location(
         "tl", os.path.join(ROOT, "tools", "trace_lcd.py"))
     tl = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tl)
-    return crop_echo(tl.reconstruct(trace))
+    return crop_echo(strip_cursor(tl.reconstruct(trace)))
 
 
 def crop(grid):
@@ -307,18 +322,36 @@ def classify(fired):
     return " + ".join(parts) or "light entry-line"
 
 
+def validate_inputs():
+    if not os.path.isfile(TILEM):
+        raise SystemExit(f"TilEm executable not found: {TILEM} (set TILEM)")
+    if not os.path.isfile(ROM):
+        raise SystemExit(f"ROM image not found: {ROM} (set TI84_ROM)")
+    digest = hashlib.sha256(open(ROM, "rb").read()).hexdigest()
+    if digest != TI84_PLUS_OS_255MP_SHA256:
+        raise SystemExit(
+            f"ROM SHA-256 mismatch: expected {TI84_PLUS_OS_255MP_SHA256}, got {digest}"
+        )
+    return digest, hashlib.sha256(open(TILEM, "rb").read()).hexdigest()
+
+
 def main():
+    rom_digest, tilem_digest = validate_inputs()
     do_trace = "--no-trace" not in sys.argv
     names = [a for a in sys.argv[1:] if not a.startswith("--")] or list(EXAMPLES)
     outdir = tempfile.mkdtemp(prefix="mp-parity-")
+    print(f"ROM SHA-256: {rom_digest}")
+    print(f"TilEm executable SHA-256: {tilem_digest}")
     print(f"artifacts in {outdir}\n")
+    mismatches = 0
     for name in names:
         expr, keys = EXAMPLES[name]
         shot, ram, trace = run_calc(keys, outdir, name, trace=do_trace)
-        calc = calc_bitmap(shot)
+        calc = calc_from_trace(trace) if trace else calc_bitmap(shot)
         model = js_bitmap(expr)
         print(f"===== {name}: {expr} =====")
         pct, bad, dim = diff_metric(calc, model)
+        mismatches += bool(bad)
         print(f"calc {len(calc[0])}x{len(calc)}   model {len(model[0])}x{len(model)}"
               f"   match {pct:.1f}% ({bad} px off, {dim})")
         print(side_by_side(calc, model))
@@ -331,6 +364,8 @@ def main():
             print("  anchors fired: " + ", ".join(
                 f"{ANCHORS[a]}({fired[a]})" for a in sorted(fired)) or "none")
         print()
+    if mismatches:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
