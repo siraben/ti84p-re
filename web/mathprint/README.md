@@ -25,6 +25,10 @@ point and axis-aligned line wrappers at `34:5D96`–`34:5EA6`. It returns an
 explicit unresolved result where the `ram:025E`/`ram:0254` family-shape
 predicates remain open.
 
+The settled-redraw object dispatcher at `34:700C` is also translated as a
+13-entry kind-to-handler table. Record-field decoding remains explicit work;
+the trace shows transient records in high RAM that are absent from the final dump.
+
 `app.js` is organized in sections: box primitives → layout constructs → text runs
 → expression parser → canvas rendering → UI. A "box" is `{rows, baseline, marks,
 adv}`; `adv` (pen advance) is separate from bitmap width so glyphs can overhang.

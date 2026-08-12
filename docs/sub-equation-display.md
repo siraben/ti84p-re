@@ -396,6 +396,13 @@ descriptor geometry compose in one rendered expression. Neither trace reaches
 the exact entries `39:5167`, `39:5949`, `39:5B10`, `39:5B1D`, or `39:6ABF`.
 [confirmed]
 
+The settled walker dispatches object kinds `0`–`12` through the word table at
+`34:7012`. The handlers are `34:6D0C`, `706A`, `70B8`, `702C`, `7133`, `70A0`,
+`70E2`, `70E2`, `7087`, `7102`, `717E`, `70C1`, and `71C6`, in order. Kinds 6
+and 7 share `34:70E2`. The nested trace also visits transient records near
+`0xFBDB` and `0xFBEF`, so the final RAM dump does not contain every walked
+record. [confirmed]
+
 These page `39` entries occur before the final **GRAPHVAR** key press. The
 settled redraw after that key does not re-enter them. It calls `34:6D26` and
 `34:737A` from `34:4347` and `34:434A`, then traverses the display objects from

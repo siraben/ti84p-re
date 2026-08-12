@@ -121,6 +121,15 @@ expectEqual('34:5D96 endpoint sorting and clipping',
   });
 expectEqual('34:5DA6 fully clipped',
   rom.settledHorizontalOperation(0, 2, 0, {...fullViewport, xClip:5}), null);
+const objectHandlers = [0x6d0c,0x706a,0x70b8,0x702c,0x7133,0x70a0,0x70e2,
+  0x70e2,0x7087,0x7102,0x717e,0x70c1,0x71c6];
+objectHandlers.forEach((handler, kind) => expectEqual(`34:7012 object kind ${kind}`,
+  rom.settledObjectHandler(kind), {
+    kind, handler, tableAddress:0x7012 + 2 * kind, routine:'34:700C → 34:6105',
+  }));
+let rejectedObjectKind = false;
+try { rom.settledObjectHandler(13); } catch (error) { rejectedObjectKind = error instanceof RangeError; }
+expectEqual('34:7012 object kind bound', rejectedObjectKind, true);
 
 for (const [expression, record] of Object.entries(drawOrder.scenarios)) {
   const final = mp.traceFrame(record, record.events.length)

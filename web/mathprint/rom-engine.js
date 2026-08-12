@@ -307,6 +307,26 @@
     };
   }
 
+  // Word table at 34:7012, dispatched through 34:700C -> 34:6105. Kinds 6
+  // and 7 intentionally share one handler. This identifies the next Z80 entry;
+  // it does not assign semantic construct names before each record ABI is closed.
+  const SETTLED_OBJECT_HANDLERS = Object.freeze([
+    0x6d0c, 0x706a, 0x70b8, 0x702c, 0x7133, 0x70a0, 0x70e2,
+    0x70e2, 0x7087, 0x7102, 0x717e, 0x70c1, 0x71c6,
+  ]);
+
+  function settledObjectHandler(kind) {
+    byte(kind, 'settled object kind');
+    if (kind >= SETTLED_OBJECT_HANDLERS.length)
+      throw new RangeError(`settled object kind ${kind} is outside the 34:7012 table`);
+    return {
+      kind,
+      handler: SETTLED_OBJECT_HANDLERS[kind],
+      tableAddress: 0x7012 + 2 * kind,
+      routine: '34:700C → 34:6105',
+    };
+  }
+
   return {
     handlerRecord,
     handlerRow,
@@ -324,5 +344,6 @@
     settledPointOperation,
     settledVerticalOperation,
     settledHorizontalOperation,
+    settledObjectHandler,
   };
 });
