@@ -387,7 +387,9 @@
         throw new RangeError('settled child ID must be an unsigned word');
       return value;
     });
-    return {...normalized, childIds};
+    const payload = Array.from(input.payload || normalized.payload || [], (value, index) =>
+      byte(value, `settled record payload ${index}`));
+    return {...normalized, childIds, payload};
   }
 
   // 34:5D1A and 34:5D07 emit two endpoint points before either a straight
@@ -513,13 +515,39 @@
         const next = child(record, index);
         visit(next, {x:origin.x + next.word0B, y:origin.y + next.word0D});
       };
+      const renderChildAt = (index, x, y) => {
+        const next = child(record, index);
+        visit(next, {x:origin.x + x, y:origin.y + y});
+      };
       const emitChildLeaf = () => {
         const context = {origin:{...origin}, depth:state.depth};
+        const controls = {
+          emit: operation => emit(record, origin, operation),
+          record: id => {
+            if (!Number.isInteger(id) || id < 0 || id > 0xffff)
+              throw new RangeError('settled record ID must be an unsigned word');
+            const result = records.get(id);
+            if (!result)
+              throw new RangeError(`record ID 0x${id.toString(16)} is absent from the graph`);
+            return result;
+          },
+          visit: (id, nestedOrigin) => {
+            const result = records.get(id);
+            if (!result)
+              throw new RangeError(`record ID 0x${id.toString(16)} is absent from the graph`);
+            if (!nestedOrigin || !Number.isInteger(nestedOrigin.x) ||
+                !Number.isInteger(nestedOrigin.y))
+              throw new RangeError('settled nested origin must contain integer x and y');
+            visit(result, nestedOrigin);
+          },
+          state,
+        };
         const operations = options.renderLeaf
-          ? options.renderLeaf(record, context)
+          ? options.renderLeaf(record, context, controls)
           : [{kind:'leaf', objectType:record.type, routine:'34:660A object renderer'}];
+        if (operations === undefined) return;
         if (!Array.isArray(operations))
-          throw new TypeError('renderLeaf must return an array of operations');
+          throw new TypeError('renderLeaf must return an array of operations or undefined');
         for (const operation of operations) emit(record, origin, operation);
       };
 
@@ -608,15 +636,11 @@
           routine:'34:6472 → 34:5D96',
         });
         state.depth = 1;
+        const repeatX = secondEnd + 9;
+        renderChildAt(1, repeatX, record.word0B + 2);
         emit(record, origin, {
-          kind:'dynamic-pattern', x:secondEnd + 9, y:record.word0B + 2,
-          source:'child 1 parsed by 34:78B8/78FB',
-          condition:'34:64AD finds clipping bit 1 clear',
-          routine:'34:648B–64B3 → 34:6C37',
-        });
-        emit(record, origin, {
-          kind:'glyph', code:0x3d, x:secondEnd + 9, y:record.word0B + 2,
-          xAdjustment:'high byte of the post-branch DE value at 34:64B6',
+          kind:'glyph', code:0x3d, x:repeatX + first.word07,
+          y:record.word0B + 2,
           condition:'34:64C1 finds clipping bit 1 clear',
           routine:'34:64CB → 34:6C37',
         });
@@ -628,6 +652,7 @@
         const first = child(record, 1), second = child(record, 2);
         const operations = settledNthRootOperations(first.word07, second.word07);
         renderChild(1);
+        state.depth--;
         emit(record, origin, operations[1]);
         emit(record, origin, operations[2]);
         renderChild(2);
@@ -651,6 +676,7 @@
       case 0x27: {
         const first = child(record, 1);
         const operations = settledRadicalOperations(record.word07, first.word07);
+        state.depth--;
         emit(record, origin, operations[0]);
         emit(record, origin, operations[1]);
         emit(record, origin, operations[3]);
@@ -736,6 +762,129 @@
       throw new RangeError('settled graph origin must contain integer x and y');
     visit(records.get(rootId), {x:startOrigin.x,y:startOrigin.y});
     return output;
+  }
+
+  // The generic token renderer at 34:660A ultimately passes display codes to
+  // 34:6C37. These are the single-byte TI-BASIC tokens whose settled spelling
+  // is one glyph. Multi-glyph names and the remaining extended-token families
+  // stay explicit until their ROM string paths are translated.
+  const SETTLED_SINGLE_GLYPH_TOKENS = Object.freeze({
+    0x04:0x1c,
+    0x06:0x5b, 0x07:0x5d, 0x08:0x7b, 0x09:0x7d,
+    0x0a:0x15, 0x0b:0x14, 0x0c:0x11, 0x0d:0x12, 0x0e:0x16,
+    0x10:0x28, 0x11:0x29, 0x29:0x20, 0x2a:0x22, 0x2b:0x2c,
+    0x30:0x30, 0x31:0x31, 0x32:0x32, 0x33:0x33, 0x34:0x34,
+    0x35:0x35, 0x36:0x36, 0x37:0x37, 0x38:0x38, 0x39:0x39,
+    0x3a:0x2e,
+    0x41:0x41, 0x42:0x42, 0x43:0x43, 0x44:0x44, 0x45:0x45,
+    0x46:0x46, 0x47:0x47, 0x48:0x48, 0x49:0x49, 0x4a:0x4a,
+    0x4b:0x4b, 0x4c:0x4c, 0x4d:0x4d, 0x4e:0x4e, 0x4f:0x4f,
+    0x50:0x50, 0x51:0x51, 0x52:0x52, 0x53:0x53, 0x54:0x54,
+    0x55:0x55, 0x56:0x56, 0x57:0x57, 0x58:0x58, 0x59:0x59,
+    0x5a:0x5a,
+    0x6a:0x3d, 0x6b:0x3c, 0x6c:0x3e, 0x6d:0x17, 0x6e:0x19,
+    0x6f:0x18, 0x70:0x2b, 0x71:0x2d, 0x82:0x2a, 0x83:0x2f,
+    0xb0:0x1a,
+  });
+
+  function settledTokenGlyph(token) {
+    byte(token, 'settled token');
+    const code = SETTLED_SINGLE_GLYPH_TOKENS[token];
+    return code === undefined ? null : code;
+  }
+
+  // Execute the complete leaf byte stream entered at 34:660A. EF 1Fh..2Bh
+  // embeds a structural record ID, while EF 2Dh closes that embedded object.
+  // Structural handlers temporarily enter one depth below the containing leaf;
+  // their translated depth mutations then select the same large/small font as
+  // the ROM. The containing pen advances by the structural record's +9 word.
+  function executeSettledRecordProgram(inputs, entryId, options = {}) {
+    const initialDepth = options.depth === undefined ? 0 : byte(options.depth, 'settled depth');
+    const fontAdvance = (depth, code) => {
+      if (options.glyphAdvance) {
+        const value = options.glyphAdvance(depth, code);
+        if (!Number.isInteger(value) || value < 0 || value > 0xffff)
+          throw new RangeError('glyphAdvance must return a nonnegative integer');
+        return value;
+      }
+      return depth === 0 ? 6 : 4;
+    };
+
+    const renderLeaf = (record, context, controls) => {
+      const pen = {
+        x:0,
+        y:controls.state.depth === 0 ? record.word09 - 3 : 0,
+      };
+      for (let index = 0; index < record.payload.length;) {
+        const token = record.payload[index];
+        if (token === 0xef && index + 1 < record.payload.length) {
+          const subtype = record.payload[index + 1];
+          if (subtype === 0x2d) {
+            index += 2;
+            continue;
+          }
+          if (0x1f <= subtype && subtype <= 0x2b) {
+            if (index + 3 >= record.payload.length)
+              throw new RangeError(`record 0x${record.id.toString(16)} has a truncated embedded record`);
+            const id = record.payload[index + 2] | record.payload[index + 3] << 8;
+            const nested = controls.record(id);
+            if (nested.type !== subtype)
+              throw new RangeError(
+                `record 0x${record.id.toString(16)} embeds type 0x${subtype.toString(16)} ` +
+                `but record 0x${id.toString(16)} has type 0x${nested.type.toString(16)}`);
+            const savedDepth = controls.state.depth;
+            controls.state.depth = savedDepth + 1;
+            controls.visit(id, {
+              x:context.origin.x + pen.x,
+              y:context.origin.y + pen.y - (nested.word0B - 3),
+            });
+            controls.state.depth = savedDepth;
+            pen.x += nested.word09;
+            index += 4;
+            continue;
+          }
+          if (subtype === 0x1e) {
+            const code = 0xf7;
+            controls.emit({kind:'glyph', code, x:pen.x, y:pen.y,
+              tokenBytes:[0xef,subtype], routine:'34:660A–6704 → 34:6C37'});
+            pen.x += fontAdvance(controls.state.depth, code);
+            index += 2;
+            continue;
+          }
+        }
+
+        const resolved = options.resolveToken
+          ? options.resolveToken(record.payload, index, controls.state.depth)
+          : null;
+        if (resolved) {
+          if (!Array.isArray(resolved.codes) || !Number.isInteger(resolved.length) || resolved.length < 1)
+            throw new TypeError('resolveToken must return {codes, length}');
+          for (const rawCode of resolved.codes) {
+            const code = byte(rawCode, 'resolved settled glyph');
+            controls.emit({kind:'glyph', code, x:pen.x, y:pen.y,
+              tokenBytes:record.payload.slice(index, index + resolved.length),
+              routine:'34:660A–6704 → 34:6C37'});
+            pen.x += fontAdvance(controls.state.depth, code);
+          }
+          index += resolved.length;
+          continue;
+        }
+        const code = settledTokenGlyph(token);
+        if (code !== null) {
+          controls.emit({kind:'glyph', code, x:pen.x, y:pen.y,
+            tokenBytes:[token], routine:'34:660A–6704 → 34:6C37'});
+          pen.x += fontAdvance(controls.state.depth, code);
+        } else {
+          controls.emit({kind:'unresolved-token', bytes:[token], x:pen.x, y:pen.y,
+            routine:'34:660A–6704 token/string path'});
+        }
+        index++;
+      }
+    };
+
+    return executeSettledRecordGraph(inputs, entryId, {
+      ...options, depth:initialDepth, renderLeaf,
+    });
   }
 
   // Render-record type 20h dispatches through 34:6105/6119 to 34:620A. It
@@ -872,6 +1021,8 @@
     settledCompoundOperations,
     matrixChildCount,
     executeSettledRecordGraph,
+    executeSettledRecordProgram,
+    settledTokenGlyph,
     settledFractionOperations,
     settledSingleChildOperations,
     settledAbsoluteOperations,

@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6c25832a.js";
+            window.path_to_searchindex_js = "searchindex-01abe53c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14937,10 +14937,10 @@ dispatch table as an executable record-graph walker. It resolves child IDs
 through a node map, adds each child record’s <code>+0x0B</code> and <code>+0x0D</code> origins on
 recursive entry, preserves the handler’s depth changes, and returns ordered
 primitive and leaf operations. A settled expression enters this layer from a
-type-<code>0x00</code> leaf program at <code>34:660A</code>; executing that outer byte stream remains
-open. The <code>nDeriv(</code> handler retains two explicit dynamic operations:
-<code>34:78B8</code>/<code>34:78FB</code> parses child 1 to choose a pattern, and the later <code>0x3D</code>
-position uses the post-branch <code>DE</code> high byte. [confirmed]</p>
+type-<code>0x00</code> leaf program at <code>34:660A</code>. The program executor consumes its payload
+in order and invokes embedded structural records against the same pen and depth
+state. The <code>nDeriv(</code> handler renders child 1 again at <code>34:64B3</code>, then places
+display code <code>0x3D</code> after that child’s <code>+7</code> width. [confirmed]</p>
 <p>The trace analyzer recovers leaf records from the resolver path. At <code>34:6CCD</code>,
 <code>DE</code> is the one-based child index and <code>ram:8DF2</code> points at the parent. At
 <code>34:6CD8</code>, <code>DE</code> contains the selected child ID and <code>HL</code> points at its resolved
@@ -14959,6 +14959,11 @@ without drawing it. Ordinary payload bytes may follow. The settled
 <code>sum(N,1,3,N^2)</code> entry invokes type <code>0x29</code>, emits <code>N</code>, invokes type <code>0x2A</code>, and
 then closes the exponent object. This byte order matches the structural
 dispatch and glyph trace order. [confirmed]</p>
+<p><code>executeSettledRecordProgram()</code> translates this byte stream rather than
+replaying captured glyph events. Tests provide record headers, child IDs, and
+payload bytes as input. They compare the generated display-code, coordinate,
+depth, and order tuples with independently captured <code>34:6C37</code> observations for
+absolute value, summation with an exponent, and nested <code>nDeriv(</code>. [confirmed]</p>
 <p>Each dispatch also captures the viewport origin at <code>ram:8DFE</code>/<code>ram:8E00</code>.
 Nested fraction <code>1/2</code> reaches <code>34:5DA6</code> with the local rule <code>(1,6)</code>–<code>(5,6)</code>
 and origin <code>(16,5)</code>. Page 4 therefore receives the translated endpoints
