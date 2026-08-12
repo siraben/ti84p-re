@@ -45,6 +45,7 @@ function largeGlyph(code) {
   const W = FONT.large.width;
   const grid = rows.map(r => Array.from({ length: W }, (_, i) => (r >> (W - 1 - i)) & 1));
   return { rows: grid, baseline: (grid.length >> 1),  // centre on the math axis
+           recordWidth: W + 1,
            marks: [{ ch: glyphName(code), x: 0, y: 0, w: W, h: grid.length,
                      type: 'glyph', font: 'large', via: 'put_glyph_large 07:4588' }] };
 }
@@ -53,6 +54,7 @@ function smallGlyph(code) {
   const g = FONT.small.glyphs[code];
   const grid = g.rows.map(r => Array.from({ length: g.w }, (_, i) => (r >> (g.w - 1 - i)) & 1));
   return { rows: grid, baseline: (grid.length >> 1),
+           recordWidth: g.w,
            marks: [{ ch: glyphName(code), x: 0, y: 0, w: g.w, h: grid.length,
                      type: 'glyph', font: 'small', via: '_VPutMap 01:6293' }] };
 }
@@ -91,7 +93,9 @@ function hcat(boxes, gap = GAP) {
         if (b.rows[y][x]) out[top + y][xs[k] + x] = 1;
     marks.push(...shift(b.marks, xs[k], top));
   });
-  return { rows: out, baseline: above, marks, adv: pen, recordWidth: pen + 1 };
+  const last = boxes[boxes.length - 1];
+  const trailing = Math.max(0, recordWidth(last) - adv(last));
+  return { rows: out, baseline: above, marks, adv: pen, recordWidth: pen + trailing };
 }
 
 function trim(box) {
@@ -107,6 +111,7 @@ function trim(box) {
     rows: box.rows.slice(top, bot).map(r => r.slice(left, right)),
     baseline: Math.max(0, box.baseline - top),
     marks: shift(box.marks, -left, -top),
+    recordWidth: box.recordWidth,
   };
 }
 
@@ -192,6 +197,7 @@ function trimExp(box) {
     rows: box.rows.slice(top, bot).map(r => r.slice(0, right)),
     baseline: Math.max(0, box.baseline - top),
     marks: shift(box.marks, 0, -top),
+    recordWidth: box.recordWidth,
   };
 }
 
@@ -323,6 +329,38 @@ function parens(box) {
   // int(1,2,(...)X,X): ( right edge x13, content X left edge x16 -> 2 blank cols),
   // one more than the default text gap.
   return hcat([lp, box, rp], 2);
+}
+
+// Absolute-value record type 21h emits structural bars rather than large-font
+// "|" glyphs. The child is placed three pixels from the left record edge; the
+// handler draws both bars before entering the child renderer.
+function absoluteValue(body) {
+  const child = trimExp(body);
+  const h = bh(child);
+  const recordW = recordWidth(child) + 0x0c;
+  const operations = ROM_ENGINE
+    ? ROM_ENGINE.settledAbsoluteOperations(recordW, h)
+    : null;
+  const left = operations ? operations[0].from.x : 2;
+  const right = operations ? operations[1].from.x : recordW - 4;
+  const out = blank(h, right - left + 1);
+  const origin = left;
+  for (let y = 0; y < h; y++) {
+    out[y][left - origin] = 1;
+    out[y][right - origin] = 1;
+  }
+  const childX = 4;
+  for (let y = 0; y < bh(child); y++)
+    for (let x = 0; x < bw(child); x++)
+      if (child.rows[y][x]) out[y][childX + x] = 1;
+  const marks = [
+    {ch:'| left', x:0, y:0, w:1, h, type:'rule',
+     via:operations ? operations[0].routine : 'modeled absolute bar'},
+    {ch:'| right', x:right-origin, y:0, w:1, h, type:'rule',
+     via:operations ? operations[1].routine : 'modeled absolute bar'},
+    ...shift(child.marks, childX, 0),
+  ];
+  return {rows:out, baseline:child.baseline, marks, recordWidth:recordW};
 }
 
 // A big operator (∫, Σ): a tall sign with upper/lower limits stacked at its
@@ -465,22 +503,45 @@ function summation(varStr, lo, hi, body) { return stackedOp(0xC6, 'Σ Sigma', va
 // from row 2 — the index rises 2 px above the radical top and the radical shifts
 // right by index_width-1).
 function nthRoot(indexStr, body) {
-  const rad = radical(body);
   const wasSmall = SMALL; SMALL = true;
   const idx = trim(text(indexStr));
   SMALL = wasSmall;
+  const radicand = trimExp(body);
   const iw = bw(idx), ih = bh(idx);
-  const RAISE = 2;                 // px the index rises above the radical's vinculum
-  const radX = iw;  // radical hook starts just past the index's right edge
-  const h = RAISE + bh(rad);
-  const w = radX + bw(rad);
+  const operations = ROM_ENGINE
+    ? ROM_ENGINE.settledNthRootOperations(recordWidth(idx), recordWidth(body))
+    : null;
+  const RAISE = 2;
+  const hookX = operations ? operations[1].x : iw - 1;
+  const radX = hookX + 5;
+  const h = RAISE + bh(radicand) + 2;
+  const rule = operations ? operations[4] : {
+    from:{x:radX,y:RAISE}, to:{x:radX + recordWidth(body) - 1,y:RAISE},
+  };
+  const w = Math.max(iw, rule.to.x + 1, radX + bw(radicand));
   const out = blank(h, w);
-  for (let y = 0; y < ih; y++)                   // index at top-left
+  for (let y = 0; y < ih; y++)
     for (let x = 0; x < iw; x++) if (idx.rows[y][x]) out[y][x] = 1;
-  for (let y = 0; y < bh(rad); y++)              // radical below-right, shifted down
-    for (let x = 0; x < bw(rad); x++) if (rad.rows[y][x]) out[RAISE + y][radX + x] = 1;
-  const marks = shift(idx.marks, 0, 0).concat(shift(rad.marks, radX, RAISE));
-  return { rows: out, baseline: RAISE + rad.baseline, marks };
+  const hook = stretch(trim(largeGlyph(0x10)), bh(radicand) + 2, 3);
+  for (let y = 0; y < bh(hook); y++)
+    for (let x = 0; x < bw(hook); x++)
+      if (hook.rows[y][x] && hookX + x < w) out[RAISE + y][hookX + x] = 1;
+  for (let x = rule.from.x; x <= rule.to.x; x++) out[rule.from.y][x] = 1;
+  for (let y = 0; y < bh(radicand); y++)
+    for (let x = 0; x < bw(radicand); x++)
+      if (radicand.rows[y][x]) out[RAISE + 2 + y][radX + x] = 1;
+  const marks = [
+    ...shift(idx.marks, 0, 0),
+    {ch:'ⁿ√ hook', x:hookX, y:RAISE, w:5, h:5, type:'glyph', font:'large',
+     via:operations ? operations[1].routine : 'modeled nth-root hook'},
+    {ch:'ⁿ√ stem', x:hookX+2, y:RAISE+3, w:1, h:Math.max(1,h-RAISE-3), type:'rule',
+     via:operations ? operations[2].routine : 'modeled nth-root stem'},
+    ...shift(radicand.marks, radX, RAISE+2),
+    {ch:'─ vinculum', x:rule.from.x, y:rule.from.y,
+     w:rule.to.x-rule.from.x+1, h:1, type:'rule',
+     via:operations ? operations[4].routine : 'modeled nth-root vinculum'},
+  ];
+  return { rows: out, baseline: RAISE + 2 + radicand.baseline, marks };
 }
 
 // ---- text runs ------------------------------------------------------------
@@ -605,7 +666,7 @@ function parse(src) {
         if (id === 'nthroot') return nthRootCall();
         const args = call();
         if (id === 'sqrt' || id === 'root') return radical(args[0] || text(''));
-        if (id === 'abs') return hcat([text('|'), args[0] || text(''), text('|')]);
+        if (id === 'abs') return absoluteValue(args[0] || text(''));
         // unknown function: name followed by its parenthesised args
         return hcat([text(id), parens(args[0] || text(''))]);
       }

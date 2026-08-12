@@ -372,6 +372,50 @@
     ];
   }
 
+  // Render-record type 21h dispatches to 34:6347. The record's +7 word is the
+  // bar height and +9 is its width. It emits the two inclusive vertical bars,
+  // then traverses child 1. The intermediate 34:79C9 bookkeeping calls do not
+  // emit a visible primitive.
+  function settledAbsoluteOperations(width, height) {
+    byte(width, 'settled absolute width');
+    byte(height, 'settled absolute height');
+    if (width < 4)
+      throw new RangeError('settled absolute width must be at least four');
+    if (height < 1)
+      throw new RangeError('settled absolute height must be positive');
+    return [
+      {kind:'line', axis:'vertical', from:{x:2,y:0}, to:{x:2,y:height - 1},
+       routine:'34:6351 → 34:5D96'},
+      {kind:'line', axis:'vertical', from:{x:width - 4,y:0},
+       to:{x:width - 4,y:height - 1}, routine:'34:6360 → 34:5D96'},
+      {kind:'child', index:1, routine:'34:6366 → 34:636C'},
+    ];
+  }
+
+  // Render-record type 24h dispatches to 34:6315. It renders child 1, draws the
+  // five-byte root hook at x=child1(+7)-1, emits the hook's vertical segment,
+  // renders child 2, and draws an inclusive vinculum. The vinculum uses child
+  // 2's +7 word and starts at the hook x.
+  function settledNthRootOperations(indexWidth, radicandWidth) {
+    byte(indexWidth, 'settled nth-root index width');
+    byte(radicandWidth, 'settled nth-root radicand width');
+    if (indexWidth < 1)
+      throw new RangeError('settled nth-root index width must be positive');
+    const hookX = indexWidth - 1;
+    const ruleEnd = radicandWidth + hookX + 3;
+    byte(ruleEnd, 'settled nth-root vinculum endpoint');
+    return [
+      {kind:'child', index:1, routine:'34:6315 → 34:636C'},
+      {kind:'bitmap', x:hookX, y:0, width:5, height:5,
+       routine:'34:6321 → 34:62D0'},
+      {kind:'line', axis:'vertical', from:{x:hookX + 2,y:3},
+       to:{x:hookX + 2,y:4}, routine:'34:6331 → 34:5D96'},
+      {kind:'child', index:2, routine:'34:6334 → 34:6378'},
+      {kind:'line', axis:'horizontal', from:{x:hookX + 2,y:2},
+       to:{x:ruleEnd,y:2}, routine:'34:6344 → 34:5DA6'},
+    ];
+  }
+
   // Render-record type 27h dispatches to 34:62A1. 34:62D0 emits the ten-byte
   // root-hook bitmap first. The handler then draws its vertical stem, selects
   // child 1, reads that child's +7 width, emits the inclusive vinculum, and
@@ -434,6 +478,8 @@
     decodeSettledRecord,
     settledFractionOperations,
     settledSingleChildOperations,
+    settledAbsoluteOperations,
+    settledNthRootOperations,
     settledRadicalOperations,
     settledIntegralOperations,
   };

@@ -142,6 +142,22 @@ expectEqual('34:620A fraction chooses wider child', rom.settledFractionOperation
 expectEqual('34:6375 single-child traversal', rom.settledSingleChildOperations(), [
   {kind:'child', index:1, routine:'34:6375 → 34:636C'},
 ]);
+expectEqual('34:6347 absolute primitive order', rom.settledAbsoluteOperations(0x1e, 7), [
+  {kind:'line', axis:'vertical', from:{x:2,y:0}, to:{x:2,y:6},
+   routine:'34:6351 → 34:5D96'},
+  {kind:'line', axis:'vertical', from:{x:0x1a,y:0}, to:{x:0x1a,y:6},
+   routine:'34:6360 → 34:5D96'},
+  {kind:'child', index:1, routine:'34:6366 → 34:636C'},
+]);
+expectEqual('34:6315 nth-root primitive order', rom.settledNthRootOperations(4, 0x18), [
+  {kind:'child', index:1, routine:'34:6315 → 34:636C'},
+  {kind:'bitmap', x:3, y:0, width:5, height:5, routine:'34:6321 → 34:62D0'},
+  {kind:'line', axis:'vertical', from:{x:5,y:3}, to:{x:5,y:4},
+   routine:'34:6331 → 34:5D96'},
+  {kind:'child', index:2, routine:'34:6334 → 34:6378'},
+  {kind:'line', axis:'horizontal', from:{x:5,y:2}, to:{x:0x1e,y:2},
+   routine:'34:6344 → 34:5DA6'},
+]);
 expectEqual('settled record header ABI', rom.decodeSettledRecord([
   0x10,0x00,0x27,0x0f,0x00,0x01,0x00,0x0c,0x00,0x1b,
   0x00,0x08,0x00,0x00,0x00,0x00,0x00,0x01,0x00,0xef,

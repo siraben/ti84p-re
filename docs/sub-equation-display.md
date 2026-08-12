@@ -456,6 +456,18 @@ rendered width. The final editable-entry redraw has child width `0x1D` and a
 vinculum endpoint of `0x20`; cursor and edit-state geometry therefore remain
 separate from history-echo geometry. [confirmed]
 
+Render-record type `0x21` dispatches to the absolute-value handler at
+`34:6347`. The parent words at `+7` and `+9` supply height and width. The
+handler draws inclusive vertical bars at `x=2` and `x=w-4`, then renders child
+1 through `34:636C`. The cursor-free `abs(X-3)` history redraw reaches the line
+wrapper with `(x,y_1,y_2)=(2,0,6)` and `(0x1A,0,6)`. [confirmed]
+
+Render-record type `0x24` dispatches to the nth-root handler at `34:6315`. It
+renders index child 1, emits the root-hook bitmap at `x=w_1-1`, draws its short
+vertical segment, renders radicand child 2, and draws the vinculum. The
+cursor-free `nthroot(3,X+1)` history redraw reaches the wrappers with vertical
+segment `(5,3)`–`(5,4)` and vinculum `(5,2)`–`(0x18,2)`. [confirmed]
+
 The fixed 20-byte record header contains a two-byte ID at `+0`, a type byte at
 `+2`, eight unaligned little-endian words at `+3`, `+5`, `+7`, `+9`, `+0x0B`,
 `+0x0D`, `+0x0F`, and `+0x11`, and a byte at `+0x13`. The analyzer names words

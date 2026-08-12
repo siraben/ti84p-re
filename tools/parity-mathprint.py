@@ -74,6 +74,10 @@ EXAMPLES = {
                      ["MATH", "9", "1", "RIGHT", "2", "RIGHT",
                       "GRAPHVAR", "POWER", "LPAREN", "1", "DIV", "2", "RPAREN",
                       "RIGHT", "RIGHT", "GRAPHVAR"]),
+    "absolute": ("abs(X-3)", ["MATH", "RIGHT", "WAIT", "1", "WAIT",
+                                 "GRAPHVAR", "SUB", "3", "RIGHT"]),
+    "nth_root": ("nthroot(3,X+1)", ["3", "MATH", "5", "GRAPHVAR",
+                                         "ADD", "1", "RIGHT"]),
 }
 
 PRELUDE = ("set key_hold 0.18s\nset key_delay 0.1s\n"
