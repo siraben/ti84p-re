@@ -1,7 +1,8 @@
 # MathPrint renderer + reverse-engineering
 
-A standalone, ROM-grounded reconstruction of the TI-84 Plus OS 2.55MP MathPrint
-2-D layout engine (flash page `0x39`). Deployed beside the wiki at `/mathprint/`
+A standalone experimental model of TI-84 Plus OS 2.55MP MathPrint layouts. It
+uses ROM-extracted font bitmaps and trace-fitted box geometry; it is not a
+record interpreter or an emulator. Deployed beside the wiki at `/mathprint/`
 (outside the mdBook). The reader-facing write-up is
 [`docs/sub-equation-display.md`](../../docs/sub-equation-display.md).
 
@@ -12,12 +13,12 @@ A standalone, ROM-grounded reconstruction of the TI-84 Plus OS 2.55MP MathPrint
 | `index.html`, `style.css` | the interactive page |
 | `app.js` | the renderer: glyph/box primitives → layout constructs → expression parser → canvas + draw-order animation + pen-log |
 | `font.json` | large (`07:45FF`) + small (`03:4CD6`) font glyphs, extracted from ROM |
-| `layout.json` | the page-`0x39` class table + every handler record + descriptors |
+| `layout.json` | page-`0x39` class-table records and selected descriptors for inspection |
 
 `app.js` is organized in sections: box primitives → layout constructs → text runs
 → expression parser → canvas rendering → UI. A "box" is `{rows, baseline, marks,
 adv}`; `adv` (pen advance) is separate from the bitmap width so glyphs can
-overhang, mirroring the OS pen pipeline.
+overhang. The marks are model-local composition metadata, not captured OS pen state.
 
 ## Tooling (in `tools/`)
 
@@ -25,9 +26,9 @@ overhang, mirroring the OS pen pipeline.
 |------|---------|
 | `export-font.py` | ROM → `font.json` (glyph data for the renderer and its font-table tab) |
 | `export-layout.py` | ROM → `layout.json` (handler records, descriptors) |
-| `interp-cells.js` | resolve a record's cells to glyph/token/marker (data-driven) |
-| `trace_lcd.py` | reconstruct the exact LCD from a trace's `OUT 0x10/0x11` stream (T6A04) |
-| `parity-mathprint.py` | render an expression on the calc, diff vs the model (exact trace ref via `trace_lcd`) |
+| `interp-cells.js` | first-stage record-cell classifier for inspection |
+| `trace_lcd.py` | replay reset-origin TilEm LCD I/O with its pinned T6A04 model |
+| `parity-mathprint.py` | render an expression in TilEm and diff it against the model |
 | `test-mathprint.js` | fuzz + corpus: every generated expression parses and lays out |
 | `render-mathprint.py` | ASCII font/layout dump from ROM |
 
@@ -35,19 +36,19 @@ overhang, mirroring the OS pen pipeline.
 
 - `cell-glyph-spec.md` — the `D:E` cell → glyph/token/marker dispatch (`39:4E8E`,
   `39:4F1A`, the `07:44DE` family tables).
-- `token-name-spec.md` — token cells → drawn strings via the standard OS drawer
-  (`01:6702`, table `01:4252`, `07:4000` remap).
+- `token-name-spec.md` — ordinary cells → counted strings through `_KeyToString`
+  (`01:6D10`, pointer table `01:6E05`).
 - `geometry-spec.md` — placement math: `39:683D` cell→pixel, `39:6B1C` fraction
   endpoints, `39:5167`/`5949` row stepping, pen conversion.
 
-## Fidelity
+## Verification status
 
-Against the exact trace→LCD reference, the inline constructs are pixel-perfect:
-text, exponents (`X^2`), linear `1/2`, stacked fractions (`1//2`), and radicals
-(`sqrt(...)`). The tall operators (`int`, `sum`, nth root) match in operator
-sign, limits, and overall dimensions; their body's internal glyph advances come
-from a RAM-relocated bcall (`0xC951`) whose width table is not in flash, so those
-few pixels are trace-pinned rather than ROM-derivable.
+`tools/test-mathprint.js` currently passes 5,018 deterministic parse/layout
+smoke cases and checks rectangular boxes plus in-bounds composition marks. That
+is robustness evidence, not calculator fidelity. `parity-mathprint.py` now uses
+LCD trace replay when tracing is enabled, but the proprietary ROM and retained
+MathPrint traces are unavailable in this checkout, so the historical
+pixel-parity claims were not rerun and are not asserted here.
 
 ## Regenerate
 
