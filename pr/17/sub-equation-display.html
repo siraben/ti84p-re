@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ae7d3a29.js";
+            window.path_to_searchindex_js = "searchindex-1497b934.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -559,6 +559,10 @@ are <code>34:5FE7</code> → <code>ram:34E9</code> (158 writes), <code>34:6CA8</
 <code>ram:3579</code> (10). The remaining 25 writes precede the page <code>34</code> object traversal
 and come from the large-font path. The fixed-page stubs dispatch to page <code>04</code>
 line and point routines and page <code>01:6297</code> small-font output. [confirmed]</p>
+<p>The point wrapper at <code>34:5E85</code> clips each object coordinate through <code>34:5DD1</code>
+and <code>34:5DEF</code>. Its closed tail at <code>34:5E98</code>–<code>34:5EA6</code> passes <code>B=x</code>,
+<code>C=63-y</code>, and <code>D=1</code> to <code>_PointOn</code> at <code>04:4155</code>. Dynamic samples include
+<code>(x,y)=(3,0)</code> → <code>BC=033Fh</code> and <code>(32,20)</code> → <code>BC=202Bh</code>. [confirmed]</p>
 <p>Exact point counts matter here. The resolver’s <code>--funcs</code> mode groups an
 instruction under the nearest preceding symbol. It places 69 instructions in
 the <code>39:5167</code> bucket for each scenario even though the entry itself has zero

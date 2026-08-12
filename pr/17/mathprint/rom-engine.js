@@ -233,6 +233,23 @@
     return layoutClass === 0x06 && slot <= 2 ? 2 : 1;
   }
 
+  // 34:5E98..5EA6. The preceding 5DD1/5DEF calls clip the object coordinate
+  // against the active display bounds. The closed tail converts the accepted
+  // coordinate to page-4 graph coordinates, selects point-on mode D=1, calls
+  // 04:4155, and restores graph state through the surrounding bjumps.
+  function settledPointOperation(x, y) {
+    byte(x, 'settled point x');
+    byte(y, 'settled point y');
+    if (x >= 0x60 || y >= 0x40) return null;
+    return {
+      kind: 'point',
+      x,
+      y,
+      registers: { b: x, c: 0x3f - y, d: 1 },
+      routine: '34:5E98–5EA6 → 04:4155',
+    };
+  }
+
   return {
     handlerRecord,
     handlerRow,
@@ -247,5 +264,6 @@
     emitDescriptor,
     fractionEndpoint,
     multiArgumentRowStep,
+    settledPointOperation,
   };
 });

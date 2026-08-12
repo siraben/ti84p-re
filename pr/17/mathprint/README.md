@@ -20,7 +20,8 @@ reader-facing write-up is
 
 `rom-engine.js` translates handler lookup, row-cell emission, direct-glyph and
 delimiter classification, `_KeyToString` index arithmetic, descriptor selection
-and iteration, fraction endpoints, and class-6 row stepping. It returns an
+and iteration, fraction endpoints, class-6 row stepping, and the settled-redraw
+point-coordinate tail at `34:5E98`–`34:5EA6`. It returns an
 explicit unresolved result where the `ram:025E`/`ram:0254` family-shape
 predicates remain open.
 
