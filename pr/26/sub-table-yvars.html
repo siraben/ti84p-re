@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
+            window.path_to_searchindex_js = "searchindex-c66ba8da.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,9 +180,8 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="table--y-variables"><a class="header" href="#table--y-variables">Table &amp; Y= variables</a></h1>
-<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
-<p>What a college student touches when they enter functions in <strong>Y=</strong>, configure
-<strong>TBLSET</strong> (<code>2nd WINDOW</code>), and read the <strong>TABLE</strong> (<code>2nd GRAPH</code>) to tabulate
+<p>This page covers entering functions in <strong>Y=</strong>, configuring
+<strong>TBLSET</strong> (<code>2nd WINDOW</code>), and reading the <strong>TABLE</strong> (<code>2nd GRAPH</code>) to tabulate
 <code>Y1(X)</code>, <code>Y2(X)</code>, … over a range of <code>X</code>. Traces: where the table-setup settings
 live → how the OS, per X row, sets the <code>X</code> variable, evaluates each selected Y=
 function through the parser into OP1, formats the result, and lays the values out
@@ -190,8 +189,8 @@ as a text grid → how Y= equations are stored, selected, and styled → and the
 Table ↔ Y= ↔ parser ↔ display interaction.</p>
 <p>Builds on <a href="sub-graphing.html">sub-graphing.md</a> (Y= storage, the regraph/eval path, <code>plotSScreen</code>),
 <a href="sub-tibasic.html">sub-tibasic.md</a> (the page-38 parser, <code>_Find_Parse_Formula</code>, <code>_ParseInp</code>),
-<a href="05-variables-vat.html">05-variables-vat.md</a> (<code>EquObj</code>, <code>_FindSym</code>), <a href="08-display-lcd.html">08-display-lcd.md</a> (text grid via
-<code>_PutMap</code>/<code>_PutC</code>), and <a href="11-boot-contexts-errors.html">11-boot-contexts-errors.md</a> (the context/<code>cxMain</code>
+<a href="variables-vat.html">variables-vat.md</a> (<code>EquObj</code>, <code>_FindSym</code>), <a href="display-lcd.html">display-lcd.md</a> (text grid via
+<code>_PutMap</code>/<code>_PutC</code>), and <a href="boot-contexts-errors.html">boot-contexts-errors.md</a> (the context/<code>cxMain</code>
 mechanism that selects the TABLE editor vs TABLE-setup screens).</p>
 <p>Address form is <code>page:addr</code> (flash-page hex : logical offset; flash routines run
 mapped at <code>0x4000</code>). RAM addresses are absolute. Confidence:
@@ -221,14 +220,14 @@ yet verified.</p>
     PARSER --&gt; S3
 </pre>
 
-<p>The TABLE feature reuses the exact same Y= storage and the same page-38
+<p>The TABLE feature reuses the Y= storage and the same page-38
 recursive-descent evaluator the grapher and homescreen use; it adds only
 (a) the running-<code>X</code> driver from
 <code>TblMin</code>/<code>TblStep</code>, (b) a RAM value cache so scrolling doesn’t recompute, and
-(c) a text-grid renderer. [confirmed for structure]</p>
+(c) a text-grid renderer. [confirmed]</p>
 <hr>
 <h2 id="1-table-setup--where-the-settings-live--how-theyre-read"><a class="header" href="#1-table-setup--where-the-settings-live--how-theyre-read">1. Table setup — where the settings live &amp; how they’re read</a></h2>
-<h3 id="system-variables-ram-tifloats-confirmed-addresses-ti83plusinc--code"><a class="header" href="#system-variables-ram-tifloats-confirmed-addresses-ti83plusinc--code">System variables (RAM <code>TIFloat</code>s) [confirmed addresses, ti83plus.inc + code]</a></h3>
+<h3 id="system-variables-ram-tifloats-confirmed"><a class="header" href="#system-variables-ram-tifloats-confirmed">System variables (RAM <code>TIFloat</code>s) [confirmed]</a></h3>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -243,8 +242,8 @@ recursive-descent evaluator the grapher and homescreen use; it adds only
 <p>Both are 9-byte floats. They are ordinary system token variables: read/written
 through <code>_RclSysTok</code> (<code>38:683E</code>) / <code>_StoSysTok</code> (<code>38:623B</code>) using the token bytes
 above (the page-38 system-var token table lives around <code>38:61F1</code>). <code>ΔTbl</code>’s token
-is the list-step token <code>0x21</code>; <code>TblStart</code> uses <code>0x1A</code>. [confirmed token+addr]</p>
-<h3 id="mode-flags--tblflags-iy19--iy0x13-confirmed-bit-layout"><a class="header" href="#mode-flags--tblflags-iy19--iy0x13-confirmed-bit-layout">Mode flags — <code>tblFlags</code> (IY+19 = IY+0x13) [confirmed bit layout]</a></h3>
+is the list-step token <code>0x21</code>; <code>TblStart</code> uses <code>0x1A</code>. [confirmed]</p>
+<h3 id="mode-flags--tblflags-iy19--iy0x13-confirmed"><a class="header" href="#mode-flags--tblflags-iy19--iy0x13-confirmed">Mode flags — <code>tblFlags</code> (IY+19 = IY+0x13) [confirmed]</a></h3>
 <p>From <code>ti83plus.inc</code> and verified by the bit-ops below:</p>
 <div class="table-wrapper">
 <table>
@@ -252,7 +251,7 @@ is the list-step token <code>0x21</code>; <code>TblStart</code> uses <code>0x1A<
 <tr><th>Bit</th><th>Name</th><th>Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td>4 (<code>0x10</code>)</td><td><code>autoFill</code></td><td><strong>Indpnt</strong>: 0 = <code>Auto</code> (fill X from TblStart/ΔTbl), 1 = <code>Ask</code> (prompt the student for each X)</td></tr>
+<tr><td>4 (<code>0x10</code>)</td><td><code>autoFill</code></td><td><strong>Indpnt</strong>: 0 = <code>Auto</code> (fill X from TblStart/ΔTbl), 1 = <code>Ask</code> (prompt for each X)</td></tr>
 <tr><td>5 (<code>0x20</code>)</td><td><code>autoCalc</code></td><td><strong>Depend</strong>: 0 = <code>Auto</code> (compute Y immediately), 1 = <code>Ask</code> (compute a cell only on request)</td></tr>
 <tr><td>6 (<code>0x40</code>)</td><td><code>reTable</code></td><td>0 = cached table valid, 1 = must recompute the table</td></tr>
 </tbody>
@@ -303,7 +302,7 @@ Y-token:</p>
 </table>
 </div>
 <p>(Parametric <code>X1T/Y1T</code>=<code>0x20/0x21</code>…, polar <code>r1</code>…, and <code>u/v/w</code> sequences share the
-same <code>EquObj</code>/<code>tVarEqu</code> machinery.) [confirmed tokens]</p>
+same <code>EquObj</code>/<code>tVarEqu</code> machinery.) [confirmed]</p>
 <h3 id="selection--style-flags-confirmed"><a class="header" href="#selection--style-flags-confirmed">Selection &amp; style flags [confirmed]</a></h3>
 <p>Each equation’s flags byte is <code>0x23</code> when selected (plotted / tabulated) and
 <code>0x03</code> when deselected — i.e. the selection bit is bit 5 (<code>0x20</code>). The separate
@@ -313,8 +312,9 @@ same selected set the grapher plots, so deselecting <code>Y2</code> in the Y= ed
 clearing its <code>=</code> highlight) removes its column from the table. <code>curGStyle</code>
 (<code>0x8D17</code>) holds the in-progress style; <code>sGrFlags</code> bit <code>g_style_active</code>
 (IY+20 bit5) enables per-equation styles. The graphing doc covers the plot side; the
-<em>table</em> only reads the selection bit to decide which columns exist. [confirmed against the
-<a href="https://merthsoft.com/linkguide/ti83+/vars.html#style">TI link-protocol var guide</a>]</p>
+<em>table</em> only reads the selection bit to decide which columns exist. [confirmed]
+The values also match the
+<a href="https://merthsoft.com/linkguide/ti83+/vars.html#style">TI link-protocol var guide</a>.</p>
 <h3 id="the-selected-equation-list--imathptr4-0x84d9-confirmed"><a class="header" href="#the-selected-equation-list--imathptr4-0x84d9-confirmed">The selected-equation list — <code>iMathPtr4</code> (<code>0x84D9</code>) [confirmed]</a></h3>
 <p>The OS keeps an in-RAM table of 2-byte pointers to the selected equations’
 VAT entries, based at <code>iMathPtr4 = 0x84D9</code>. Three bcalls index it (verified by
@@ -325,9 +325,9 @@ decompile — they compute <code>0x84D9 + 2·n</code>):</p>
 <tr><th>bcall</th><th>Addr</th><th>Role</th></tr>
 </thead>
 <tbody>
-<tr><td><code>_GraphTblFind</code></td><td><code>33:7097</code></td><td>(re)build the list of selected-equation pointers</td></tr>
-<tr><td><code>_GraphTblNext</code></td><td><code>33:707A</code></td><td><code>_LdHLind(0x84D9 + 2·n)</code> — fetch the n-th equation pointer</td></tr>
-<tr><td><code>_grf_7066</code></td><td><code>33:7066</code></td><td>store a pointer into slot n (<code>0x84D9 + 2·n</code>)</td></tr>
+<tr><td><code>graph_tbl_find</code></td><td><code>33:7097</code></td><td>(re)build the list of selected-equation pointers</td></tr>
+<tr><td><code>graph_tbl_next</code></td><td><code>33:707A</code></td><td><code>_LdHLind(0x84D9 + 2·n)</code> — fetch the n-th equation pointer</td></tr>
+<tr><td><code>grf_7066</code></td><td><code>33:7066</code></td><td>store a pointer into slot n (<code>0x84D9 + 2·n</code>)</td></tr>
 </tbody>
 </table>
 </div>
@@ -373,7 +373,7 @@ recompute driver, otherwise it repaints from the cached values. [confirmed]</p>
          CALL 0x76BA
 </code></pre>
 <p>After a successful recompute it clears <code>reTable</code>, so subsequent scrolls reuse
-the cache until something marks it dirty again. [confirmed bytes]</p>
+the cache until something marks it dirty again. [confirmed]</p>
 <h3 id="31-seeding-the-running-independent-value-confirmed"><a class="header" href="#31-seeding-the-running-independent-value-confirmed">3.1 Seeding the running independent value [confirmed]</a></h3>
 <p><code>05:774B</code> initialises the per-table running <code>X</code>. It first clears a working float
 (<code>05:774B LD DE,0x8622 ; CALL 0x1920</code>), then at <code>05:7751</code> copies TblMin into the
@@ -390,13 +390,13 @@ incremental add:</p>
          LD HL,(0x91DC /* row idx */) ; ADD ; CALL _LdHLind ; ADD HL,DE
 </code></pre>
 <p>So row $k$ uses $X=\mathrm{TblMin}+k\cdot\mathrm{TblStep}$. (In <strong>Indpnt = Ask</strong> mode this driver is
-bypassed and the student types each X; see §3.4.) [confirmed structure]</p>
+bypassed and the user types each X; see §3.4.) [confirmed]</p>
 <h3 id="32-the-per-row-evaluation-set-x-evaluate-each-selected-y-confirmed"><a class="header" href="#32-the-per-row-evaluation-set-x-evaluate-each-selected-y-confirmed">3.2 The per-row evaluation: set X, evaluate each selected Y [confirmed]</a></h3>
 <p>For each row the recompute fills the cache by, per selected equation:</p>
 <ol>
 <li>store the running-X into the <code>X</code> system variable (<code>_StoX</code>, <code>38:62A3</code>),</li>
 <li>evaluate that equation’s tokens against the current <code>X</code> — the table walks the
-selected list via <code>_GraphTblNext</code> (<code>33:707A</code>) and runs each formula through the
+selected list via <code>graph_tbl_next</code> (<code>33:707A</code>) and runs each formula through the
 page-38 evaluator (<code>_ParseInp</code> <code>38:5987</code> / the <code>_Find_Parse_Formula</code> path),
 leaving <code>Y</code> in <code>OP1</code> (exactly the grapher’s per-column eval in
 <code>sub-graphing.md §6</code>),</li>
@@ -406,7 +406,7 @@ leaving <code>Y</code> in <code>OP1</code> (exactly the grapher’s per-column e
 (<code>TIFloat</code>) steps for up to 7 visible columns (<code>LD C,0x07</code>), keyed off the
 top-row index <code>0x91E0</code>. The <code>X</code> column itself is written from the running-X; the
 <code>Y</code> columns from the evaluated OP1. [confirmed]</p>
-<h3 id="33-the-value-cache--scrolling-confirmed-buffers"><a class="header" href="#33-the-value-cache--scrolling-confirmed-buffers">3.3 The value cache &amp; scrolling [confirmed buffers]</a></h3>
+<h3 id="33-the-value-cache--scrolling-confirmed"><a class="header" href="#33-the-value-cache--scrolling-confirmed">3.3 The value cache &amp; scrolling [confirmed]</a></h3>
 <p>The table keeps the visible window of computed values in a RAM cache so that
 scrolling is instant (no recompute):</p>
 <div class="table-wrapper">
@@ -427,8 +427,8 @@ scrolling is instant (no recompute):</p>
 <p><code>05:6014</code> performs the scroll: <code>LD HL,0x9221 ; LD DE,0x9260 ; LDIR</code> (copy a
 0x3F-byte block) and an <code>LDDR</code> shift of a 0xB4-byte region — i.e. when you press
 ↑/↓ past the cached window it slides the cache and only computes the one new row
-(or recomputes if <code>reTable</code>). [confirmed bytes]</p>
-<h3 id="34-indpnt--auto-vs-ask-depend--auto-vs-ask-confirmed-test-sites"><a class="header" href="#34-indpnt--auto-vs-ask-depend--auto-vs-ask-confirmed-test-sites">3.4 Indpnt = Auto vs Ask, Depend = Auto vs Ask [confirmed test sites]</a></h3>
+(or recomputes if <code>reTable</code>). [confirmed]</p>
+<h3 id="34-indpnt--auto-vs-ask-depend--auto-vs-ask-confirmed"><a class="header" href="#34-indpnt--auto-vs-ask-depend--auto-vs-ask-confirmed">3.4 Indpnt = Auto vs Ask, Depend = Auto vs Ask [confirmed]</a></h3>
 <p><code>05:6D40</code>/<code>05:6D51</code> read the mode bits to branch:</p>
 <pre><code class="language-z80">05:6D40  … CALL 0x74BE ; JR NZ ; BIT 4,(IY+0x13) ; RET   ; Indpnt (autoFill) test
          … CALL 0x74BE ; JR NZ ; BIT 5,(IY+0x13) ; RET   ; Depend (autoCalc) test
@@ -436,8 +436,8 @@ scrolling is instant (no recompute):</p>
 </code></pre>
 <ul>
 <li><strong>Indpnt = Auto</strong> (bit4=0): the driver auto-fills X from TblStart/ΔTbl (§3.1).</li>
-<li><strong>Indpnt = Ask</strong> (bit4=1): the X column starts empty; the editor prompts the
-student to type each X, parses it (entry-line editor → <code>_ParseInp</code>), stores it
+<li><strong>Indpnt = Ask</strong> (bit4=1): the X column starts empty; the editor prompts for
+each X, parses it (entry-line editor → <code>_ParseInp</code>), stores it
 to <code>X</code>, then evaluates the Y columns for only that row.</li>
 <li><strong>Depend = Auto</strong> (bit5=0): Y cells compute immediately during the fill.</li>
 <li><strong>Depend = Ask</strong> (bit5=1): Y cells show blank until the cursor lands on one and
@@ -446,7 +446,7 @@ to <code>X</code>, then evaluates the Y columns for only that row.</li>
 <h3 id="35-rendering-the-grid-to-the-lcd--057e45-columnrow-paint-loop-confirmed"><a class="header" href="#35-rendering-the-grid-to-the-lcd--057e45-columnrow-paint-loop-confirmed">3.5 Rendering the grid to the LCD — <code>05:7E45</code> (column/row paint loop) [confirmed]</a></h3>
 <p>The table is a text grid (not the pixel graph buffer): up to 8 visible rows ×
 columns, drawn with the large font through the home-screen text primitives
-(<code>_PutMap</code>/<code>_PutC</code>, <a href="08-display-lcd.html">08-display-lcd.md</a>). The paint loop:</p>
+(<code>_PutMap</code>/<code>_PutC</code>, <a href="display-lcd.html">display-lcd.md</a>). The paint loop:</p>
 <pre><code class="language-z80">05:7E45  loop over visible rows:
            CALL 0x7E7C            ; position/clear the cell (selects buffer
                                   ;   0x9221 for one column or 0x91E2 for the other)
@@ -460,15 +460,15 @@ columns, drawn with the large font through the home-screen text primitives
 <p><code>05:7E7C</code> chooses the destination text buffer (<code>0x9221</code> vs <code>0x91E2</code>) based on the
 column index, and writes <code>0xFF</code>/blank sentinels for empty (Ask) cells. The bottom
 status line and the highlighted-cell full-precision readout reuse the same value
-cache. [confirmed loop + buffers]</p>
-<h3 id="36-split-graph-table-mode--_screensplit-057712-confirmed"><a class="header" href="#36-split-graph-table-mode--_screensplit-057712-confirmed">3.6 Split graph-table mode — <code>_ScreenSplit</code> (<code>05:7712</code>) [confirmed]</a></h3>
+cache. [confirmed]</p>
+<h3 id="36-split-graph-table-mode--screen_split-057712-confirmed"><a class="header" href="#36-split-graph-table-mode--screen_split-057712-confirmed">3.6 Split graph-table mode — <code>screen_split</code> (<code>05:7712</code>) [confirmed]</a></h3>
 <p>The <strong>G-T</strong> mode (graph on the left half, table on the right) is set up by
-<code>_ScreenSplit</code> (bcall <code>0x5227</code>): it checks the split flag, calls <code>_Bit_VertSplit</code>,
+<code>screen_split</code> (bcall <code>0x5227</code>): it checks the split flag, calls <code>_Bit_VertSplit</code>,
 then <code>05:7544</code> and the table-init <code>05:773F</code> (seed running-X from TblMin), and
-cross-jumps to redraw. So G-T mode shares the very same table cache + running-X
+cross-jumps to redraw. G-T mode shares the table cache and running-X
 driver, rendered into the right columns alongside the plot. [confirmed]</p>
 <hr>
-<h2 id="4-what-marks-the-table-dirty-retable--1-confirmed-sites"><a class="header" href="#4-what-marks-the-table-dirty-retable--1-confirmed-sites">4. What marks the table dirty (<code>reTable</code> = 1) [confirmed sites]</a></h2>
+<h2 id="4-what-marks-the-table-dirty-retable--1-confirmed"><a class="header" href="#4-what-marks-the-table-dirty-retable--1-confirmed">4. What marks the table dirty (<code>reTable</code> = 1) [confirmed]</a></h2>
 <p>Anything that could change a tabulated value sets <code>tblFlags</code> bit6, forcing the
 next TABLE view to recompute:</p>
 <div class="table-wrapper">
@@ -487,7 +487,7 @@ next TABLE view to recompute:</p>
 <p>Conversely only the recompute driver clears it (<code>05:5DD7</code>, <code>05:62FD</code>,
 <code>05:64DE</code> → <code>RES 6,(IY+0x13)</code>). [confirmed]</p>
 <hr>
-<h2 id="5-end-to-end-a-student-tabulates-y1x²--1"><a class="header" href="#5-end-to-end-a-student-tabulates-y1x²--1">5. End-to-end: a student tabulates Y1=X² + 1</a></h2>
+<h2 id="5-end-to-end-tabulating-y1x²--1"><a class="header" href="#5-end-to-end-tabulating-y1x²--1">5. End-to-end: tabulating Y1=X² + 1</a></h2>
 <ol>
 <li><strong>Y=</strong>: types <code>X²+1</code> after <code>Y1=</code>. The editor tokenizes it and stores the bytes
 as the <code>EquObj</code> <code>Y1</code> (token <code>5E 10</code>) in the VAT, with its flags byte’s select
@@ -500,7 +500,7 @@ bit set (the <code>=</code> is highlighted). The parser store path sets <code>re
 (<code>05:5DD7</code>):
 <ul>
 <li>seed running-X ← <code>TblMin</code> (<code>05:774B</code>),</li>
-<li><code>_GraphTblFind</code>/<code>_GraphTblNext</code> (<code>33:7097</code>/<code>707A</code>) walk the selected
+<li><code>graph_tbl_find</code>/<code>graph_tbl_next</code> (<code>33:7097</code>/<code>707A</code>) walk the selected
 equation list at <code>iMathPtr4</code> (0x84D9) — here only <code>Y1</code>,</li>
 <li>per row: <code>_StoX</code> the running-X, evaluate <code>Y1</code>’s tokens via the page-38
 evaluator (<code>_Find_Parse_Formula</code> / <code>_ParseInp</code>) → OP1 = <code>X²+1</code>, format and
@@ -516,29 +516,29 @@ again and the next view recomputes.</li>
 </ol>
 <hr>
 <h2 id="6-confident-addresses-spaceaddr--name"><a class="header" href="#6-confident-addresses-spaceaddr--name">6. Confident addresses (<code>space:addr</code> → name)</a></h2>
-<pre><code>; --- TABLE setup settings &amp; flags ---
+<pre><code class="language-text">; --- TABLE setup settings &amp; flags ---
 RAM  92B3   TblMin / TblStart                  ; first independent value (sys float)
 RAM  92BC   TblStep / ΔTbl                     ; row increment (sys float)
 IY+19 b4    tblFlags.autoFill = Indpnt Auto/Ask
 IY+19 b5    tblFlags.autoCalc = Depend Auto/Ask
 IY+19 b6    tblFlags.reTable  = table-dirty
-page_02:7b20  tblsetup_handler                 ; TBLSET key/edit handler
-page_02:7b35  (retired label; no live function in the current Ghidra DB)
-page_37:5f10  tblset_cx_display                ; TBLSET screen reconcile → reTable
+02:7b20  tblsetup_handler                 ; TBLSET key/edit handler
+02:7b35  (retired label; no live function in the current Ghidra DB)
+37:5f10  tblset_cx_display                ; TBLSET screen reconcile → reTable
 
 ; --- TABLE editor / generator (page 05) ---
-page_05:5d0d  table_editor_main                ; reTable? recompute : use cache; paint
-page_05:5dd7  table_recompute                  ; seed X, fill cache, clear reTable
-page_05:774b  table_seed_runX_from_TblMin      ; runningX(0x862B) ← TblMin
-page_05:773f  table_seed_runX_from_TblMin2     ; same, split-graph path
-page_05:65dc  table_row_bound                   ; row-index bound check (91E0 vs (91DC))
-page_05:5ee1  table_fill_cache_loop            ; per-row value-cache fill (0x91E2)
-page_05:6014  table_scroll_cache               ; slide cell cache on scroll (LDIR/LDDR)
-page_05:6d40  table_mode_test                  ; BIT autoFill/autoCalc (Auto vs Ask)
-page_05:7e45  table_paint_grid_loop            ; render cached cells as text columns
-page_05:7e7c  table_cell_select_buffer         ; pick cell text buffer 0x9221/0x91E2
-page_05:7712  _ScreenSplit                     ; Graph-Table split-screen setup
-page_05:62fd  table_recompute_clear_reTable    ; another RES6 recompute exit
+05:5d0d  table_editor_main                ; reTable? recompute : use cache; paint
+05:5dd7  table_recompute                  ; seed X, fill cache, clear reTable
+05:774b  table_seed_runX_from_TblMin      ; runningX(0x862B) ← TblMin
+05:773f  table_seed_runX_from_TblMin2     ; same, split-graph path
+05:65dc  table_row_bound                   ; row-index bound check (91E0 vs (91DC))
+05:5ee1  table_fill_cache_loop            ; per-row value-cache fill (0x91E2)
+05:6014  table_scroll_cache               ; slide cell cache on scroll (LDIR/LDDR)
+05:6d40  table_mode_test                  ; BIT autoFill/autoCalc (Auto vs Ask)
+05:7e45  table_paint_grid_loop            ; render cached cells as text columns
+05:7e7c  table_cell_select_buffer         ; pick cell text buffer 0x9221/0x91E2
+05:7712  screen_split                     ; Graph-Table split-screen setup
+05:62fd  table_recompute_clear_reTable    ; another RES6 recompute exit
 
 ; --- table value-cache RAM ---
 RAM  918C/918E  XOutSym / XOutDat              ; X-column symbol + data ptr
@@ -553,17 +553,17 @@ RAM  8622 / 862B     running independent value (current row's X)
 EquObj = 3 (VAT type)                          ; Y1..Y0 stored as tokenized formulas
 tokens: tVarEqu=0x5E + tY1=0x10 … tY0=0x19     ; Y-var name encoding
 RAM  84D9   iMathPtr4                          ; base of selected-equation pointer list
-page_33:7097  _GraphTblFind                    ; (re)build selected-equation list
-page_33:707a  _GraphTblNext                    ; fetch n-th equation ptr (0x84D9+2n)
-page_33:7066  _grf_7066                        ; store n-th equation ptr
-page_38:758a  _Find_Parse_Formula              ; FindSym Y-var + parse its formula → OP1
-page_38:5987  _ParseInp                        ; parse/eval a formula against current X
-page_38:62a3  _StoX                            ; store OP1 → X system var (per row)
-page_38:67ae  _RclX  / 38:67a4 _RclY / 38:626c _StoY
-page_33:5023  _GraphParseTok                   ; pre-scan equation tokens (graphable?)
+33:7097  graph_tbl_find                    ; (re)build selected-equation list
+33:707a  graph_tbl_next                    ; fetch n-th equation ptr (0x84D9+2n)
+33:7066  grf_7066                        ; store n-th equation ptr
+38:758a  _Find_Parse_Formula              ; FindSym Y-var + parse its formula → OP1
+38:5987  _ParseInp                        ; parse/eval a formula against current X
+38:62a3  _StoX                            ; store OP1 → X system var (per row)
+38:67ae  _RclX  / 38:67a4 _RclY / 38:626c _StoY
+33:5023  graph_parse_tok                   ; pre-scan equation tokens (graphable?)
 
 ; --- reTable (dirty) setters ---
-page_38:6340 / 38:4809 / 38:54cd  parser sets reTable on Y=/var edit
+38:6340 / 38:4809 / 38:54cd  parser sets reTable on Y=/var edit
 (boot/RAM-clear)  sets reTable (init site not pinned; 00:4105 is a message string)
 </code></pre>
 <hr>
@@ -578,7 +578,7 @@ disassembly; the dense Z80 bodies don’t fully reduce in the decompiler but the
 CALL/buffer structure is byte-pinned.</li>
 <li>The exact per-row <code>_StoX</code> + selected-Y eval calls inside <code>05:5EE1</code>/the fill
 loop are [hypothesis] — the loop, buffers, and the shared selected-equation
-iterator (<code>iMathPtr4</code> / <code>_GraphTblNext</code>) are confirmed; the individual on-page
+iterator (<code>iMathPtr4</code> / <code>graph_tbl_next</code>) are confirmed; the individual on-page
 direct CALLs to <code>_StoX</code>/the evaluator were inferred from the identical
 grapher per-column path rather than each byte-traced.</li>
 <li>Y= selection bit (<code>0x20</code>) — flags byte <code>0x23</code> selected / <code>0x03</code> deselected — and the
@@ -636,11 +636,11 @@ the header switch but its full body (cross-page) was not traced here.</li>
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

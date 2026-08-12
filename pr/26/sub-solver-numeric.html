@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
+            window.path_to_searchindex_js = "searchindex-c66ba8da.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,11 +180,10 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="solver--numerical-methods"><a class="header" href="#solver--numerical-methods">Solver &amp; numerical methods</a></h1>
-<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
-<p>What happens when a calculus/algebra student uses the <strong>equation Solver</strong> / <code>solve(</code>,
+<p>What happens when the user invokes the <strong>equation Solver</strong> / <code>solve(</code>,
 <code>nDeriv(</code>, <code>fnInt(</code>, or the <strong>TVM finance solver</strong>. All of these are <em>iterative</em>
 routines that repeatedly evaluate the user’s expression through the BCD floating-point
-engine (see <a href="sub-calculation.html">sub-calculation.md</a>, <a href="06-floating-point.html">06-floating-point.md</a>) and the TI-BASIC parser
+engine (see <a href="sub-calculation.html">sub-calculation.md</a>, <a href="floating-point.html">floating-point.md</a>) and the TI-BASIC parser
 (<a href="sub-tibasic.html">sub-tibasic.md</a>).</p>
 <p>Address form is <code>page:addr</code> (flash page banked at <code>0x4000</code>) or <code>ram:addr</code> for the fixed
 page-0 core at <code>0x0000</code>. Confidence: [confirmed] = read from disassembly,
@@ -213,7 +212,7 @@ cheap relative jump.</p>
 </div>
 <p>The error message-name table is on page 0x07 starting at <code>07:6B81</code>. It is indexed by
 <code>(code − 0x88)</code>, so codes <code>0x88…0x9C</code> map to consecutive strings:</p>
-<pre><code>07:6B81 SYNTAX(88) DATA TYPE(89) ARGUMENT(8A) DIM MISMATCH(8B) INVALID DIM(8C)
+<pre><code class="language-text">07:6B81 SYNTAX(88) DATA TYPE(89) ARGUMENT(8A) DIM MISMATCH(8B) INVALID DIM(8C)
         UNDEFINED(8D) MEMORY(8E) INVALID(8F) ILLEGAL NEST(90) BOUND(91)
         WINDOW RANGE(92) ZOOM(93) LABEL(94) STAT(95) SOLVER(96) SINGULARTY(97)
         NO SIGN CHNG(98) ITERATIONS(99) BAD GUESS(9A) STAT PLOT(9B) TOL NOT MET(9C)
@@ -227,7 +226,7 @@ root-finding engine living on flash page <code>0x39</code>. (The Solver app’s 
 <code>EQUATION SOLVER</code> / <code>eqn:0=</code> / <code>bound=</code> / <code>left-rt=</code> screen — is drawn from strings at
 <code>06:6ABB</code>, loaded by code at <code>06:6286</code>/<code>06:62EA</code>/<code>06:66F3</code>.)</p>
 <h3 id="11-the-function-value-evaluator-fx-confirmed"><a class="header" href="#11-the-function-value-evaluator-fx-confirmed">1.1 The function-value evaluator <code>f(x)</code> [confirmed]</a></h3>
-<p>At the heart is a callback that, given the trial value in <code>OP1</code>, returns <code>f(x) = left − right</code>
+<p>A callback, given the trial value in <code>OP1</code>, returns <code>f(x) = left − right</code>
 of the equation. Located around <code>39:468F</code>:</p>
 <ol>
 <li><code>_CkValidNum</code> (<code>ram:1E9B</code>), then <code>_MovFrOP1</code> (<code>ram:1B0C</code>) stores the current guess into
@@ -246,8 +245,7 @@ re-raised via <code>_JErrorNo</code> (<code>JP 2799</code>). This is why <code>s
 inside the bracket without aborting. [confirmed]</li>
 </ol>
 <p>The sign test <code>39:463A</code> reads <code>OP1.type</code> (<code>8478</code>) and <code>OP2.type</code> (<code>8483</code>), masks <code>0x80</code>
-and XORs them: Z = same sign, NZ = opposite sign — the bracket sign-change predicate.
-[confirmed]</p>
+and XORs them: Z = same sign, NZ = opposite sign — the bracket sign-change predicate. [confirmed]</p>
 <h3 id="12-the-iteration-loop-confirmed"><a class="header" href="#12-the-iteration-loop-confirmed">1.2 The iteration loop [confirmed]</a></h3>
 <p>Setup (<code>39:43AD…4410</code>) evaluates <code>f</code> at the two user bounds, records their signs, and
 seeds the bracket. The main loop runs from <code>39:4413</code>:</p>
@@ -268,7 +266,7 @@ give the half-width $\tfrac{1}{2}(b-a)$ at <code>39:443C/443F</code>; adding $a$
 $x_{n+1}=x_n-f(x_n)\,\dfrac{b-a}{f(b)-f(a)}$. The result is compared against the bisection bound; the
 algorithm keeps the secant guess only if it stays inside the bracket, otherwise it
 falls back to the midpoint — a classic bisection ⊕ secant (Illinois/regula-falsi)
-hybrid, the documented TI behavior. [confirmed for the op sequence; method name standard]</li>
+hybrid, the documented TI behavior. [standard]</li>
 <li><strong>Sign-change bookkeeping:</strong> the byte at <code>0x84AF</code> (OP6 area) holds the running sign of
 <code>f</code> at the bracket ends; <code>XOR 0x80</code> toggles it (<code>39:44AB…44B3</code>). If the two bounds never
 bracketed a sign change, the path at <code>39:45CD…45DA JP 2749</code> raises NO SIGN CHNG.
@@ -336,7 +334,7 @@ END / $1$ for BEGIN):</p>
 <p>Implemented with <code>_FPRecip</code> (<code>ram:253D</code>, for <code>(1+i)^(−N)</code> via reciprocal/power),
 <code>_FPMult</code> (<code>238B</code>), <code>_FPDiv</code> (<code>2541</code>), <code>_FPAdd</code> (RST 30h), <code>_InvSub</code>/<code>_FPSub</code>
 (<code>227D</code>/<code>2297</code>) around <code>3A:70D6…7140</code>. The compound factor <code>(1+i)^N</code> is built with the
-power/exp helpers. [confirmed sequence; equation standard]</p>
+power/exp helpers. [standard]</p>
 <h3 id="22-the-iteration-confirmed"><a class="header" href="#22-the-iteration-confirmed">2.2 The iteration [confirmed]</a></h3>
 <p>Solving for <code>I%</code> (the only variable with no closed form) uses Newton’s method on the
 rate:</p>
@@ -358,21 +356,19 @@ three bcalls: <code>_SinH</code> (<code>0x40CF</code>, <code>3A:710B</code>), an
 <code>_FPMult</code>/<code>_OP1ToOP2</code>/<code>_FPSub</code> sequence (<code>CD 8B 23 … CD D4 16 CD 51 16 EF CF 40 CD 3F 16</code>)
 evaluates the annuity / compound-growth factor in hyperbolic form — the numerically
 stable way to form <code>(1+i)^N − 1</code> and <code>[1−(1+i)^-N]/i</code> for small rates <code>i</code>, avoiding
-catastrophic cancellation. This is the only transcendental call in the rate-Newton loop.
-[confirmed]</p>
+catastrophic cancellation. This is the only transcendental call in the rate-Newton loop. [confirmed]</p>
 <ul>
 <li>Exhausting the 64-iteration <code>DJNZ</code>/<code>DEC B</code> budget falls to <code>3A:7206 JP 274D</code> =
 ITERATIONS (0x99). Solving for <code>N</code>/<code>PV</code>/<code>PMT</code>/<code>FV</code> is closed-form (algebraic
-rearrangement) and does not iterate. [confirmed for I%; standard for the rest]</li>
+rearrangement) and does not iterate. [standard]</li>
 </ul>
 <p>The amortization helpers (<code>ΣPrn</code>, <code>ΣInt</code>, <code>bal(</code>, <code>Pmt_End</code>/<code>Pmt_Bgn</code>) and the finance
 function tokens (<code>tFinNPV 0x00</code>, <code>tFinIRR 0x01</code>, <code>tFinBAL 0x02</code>, <code>tFinPRN 0x03</code>,
 <code>tFinINT 0x04</code>, <code>tFinPV 0x2D</code>, <code>tFinPMT 0x2E</code>, <code>tFinFPMT 0x20</code>, <code>tFinPMTend 0x4B</code>,
 <code>tFinPMTbeg 0x4C</code>; all 0xEF-prefixed 2-byte tokens) are dispatched into this page.
-<code>IRR(</code> internally uses the same rate-Newton iteration and can also raise ITERATIONS.
-[confirmed token map; hypothesis for IRR sharing the loop]</p>
+<code>IRR(</code> internally uses the same rate-Newton iteration and can also raise ITERATIONS. [hypothesis]</p>
 <hr>
-<h2 id="3-nderiv-and-fnint--page-0x33-numeric-calculus-confirmed-core-method-hypothesis"><a class="header" href="#3-nderiv-and-fnint--page-0x33-numeric-calculus-confirmed-core-method-hypothesis">3. nDeriv( and fnInt( — page 0x33 numeric calculus [confirmed core, method hypothesis]</a></h2>
+<h2 id="3-nderiv-and-fnint--page-0x33-numeric-calculus-hypothesis"><a class="header" href="#3-nderiv-and-fnint--page-0x33-numeric-calculus-hypothesis">3. nDeriv( and fnInt( — page 0x33 numeric calculus [hypothesis]</a></h2>
 <p>The numeric-calculus engine is on flash page <code>0x33</code> (the graph-math page — appropriate,
 since both operate on a Y= expression). The function tokens are 0xBB-prefixed:
 <code>tRoot 0x22</code> (the <code>solve(</code>-style root token), <code>tFnInt 0x24</code> (fnInt), and
@@ -383,9 +379,9 @@ since both operate on a Y= expression). The function tokens are 0xBB-prefixed:
 <code>(f(x+ε) − f(x−ε)) / (2ε)</code> with default <code>ε = 1e-3</code>. The setup region <code>33:4C80…4D00</code>
 stores/restores the variable, evaluates <code>f</code> at <code>x±ε</code>, and divides by <code>2ε</code> using
 <code>_FPSub</code>/<code>_FPDiv</code> (<code>2297</code>/<code>2541</code>) and <code>_TimesPt5</code>. The <code>(97E7)</code>/<code>(97E9)</code> counters at
-<code>33:4C80</code>/<code>33:4CB4</code> track the two/three sub-evaluations. [confirmed it is a finite-
-difference with var save/restore; ε-default standard]</p>
-<h3 id="32-fnint--adaptive-numeric-integration-confirmed-adaptive-bisection-no-node-table"><a class="header" href="#32-fnint--adaptive-numeric-integration-confirmed-adaptive-bisection-no-node-table">3.2 fnInt( — adaptive numeric integration [confirmed: adaptive bisection, no node table]</a></h3>
+<code>33:4C80</code>/<code>33:4CB4</code> track the two/three sub-evaluations. The finite-difference
+and variable save/restore flow is [confirmed]. The default <code>ε</code> is [standard].</p>
+<h3 id="32-fnint--adaptive-numeric-integration-confirmed"><a class="header" href="#32-fnint--adaptive-numeric-integration-confirmed">3.2 fnInt( — adaptive numeric integration [confirmed]</a></h3>
 <p><code>fnInt(expr, var, a, b [,tol])</code> is an adaptive iterative quadrature. The body is the
 Ghidra function <code>fnint_body</code> at <code>33:4D00</code> (extent <code>33:4D00…4E91</code>):</p>
 <ul>
@@ -393,7 +389,7 @@ Ghidra function <code>fnint_body</code> at <code>33:4D00</code> (extent <code>33
 <code>_FPDiv</code> (<code>2541</code>). The bytes at <code>33:4D18</code> are executable code — <code>33:4D18 21 83 84</code>
 (<code>LD HL,0x8483</code>), <code>33:4D1B 3E 60</code> (<code>LD A,0x60</code>), <code>33:4D1D CD 65 1B</code> (<code>CALL fp_set_digit</code> <code>1B65</code>; not <code>_OP2SetA</code>, whose body is <code>1B24</code>) — loading the
 scalar <code>0x60 = 96</code>
-(a working digit/scale count), not a quadrature weight. [confirmed bytes]</li>
+(a working digit/scale count), not a quadrature weight. [confirmed]</li>
 <li>maintains a working set of partial sums in an FPS frame (<code>_AllocFPS 1534</code>,
 <code>_PopRealOx 14F6/150F/1505</code>, <code>_DeallocFPS 1526</code>, with slot offsets <code>DE=0x15/0x1B/0x24</code>)
 — endpoint values, the running estimate, and the previous estimate for the error test.
@@ -403,7 +399,7 @@ the <code>97E7</code>/<code>84AF</code> depth counters track subdivision depth; 
 <code>33:4E81 LD DE,0x0024 … C3 CB 45</code> and <code>33:4E8C 3D F5 C2 57 4D</code> = <code>DEC A; …; JP NZ,0x4D57</code>),
 and converges when the change in the estimate has exponent <code>≤ CP 0x74</code> (~10⁻¹²,
 <code>33:4E74</code>). Exhausting the refinement budget falls through to <code>33:4E8F JP 274D</code> =
-ITERATIONS (0x99). [confirmed loop/tolerance]</li>
+ITERATIONS (0x99). [confirmed]</li>
 </ul>
 <p><strong>Quadrature rule.</strong> A full byte scan of <code>33:4D00…4F00</code> finds exactly one
 floating-point constant in the body: the TIFloat at <code>33:4E92</code>
@@ -417,13 +413,14 @@ followed by LCD/keypad port I/O <code>DB 3A / D3 3A</code>). A Gauss–Kronrod r
 block of ~7–15 irrational node and weight constants stored as TIFloats; their complete
 absence, together with the explicit ×0.5 interval bisection and the coarse-vs-fine estimate
 comparison, rules out Gauss–Kronrod. The rule is an adaptive Newton–Cotes-style scheme
-with recursive interval bisection (Simpson-class), not Gauss–Kronrod. [confirmed: the
-only constant present is the ln-based tolerance scaler; no quadrature node table exists]</p>
+with recursive interval bisection (Simpson-class), not Gauss–Kronrod.
+[confirmed] The only constant present is the ln-based tolerance scaler; no
+quadrature node table exists.</p>
 <p>Both nDeriv( and fnInt( evaluate the user’s <code>f</code> by storing the running argument into the
 integration/derivative variable and re-running the parser, exactly like the Solver’s
 <code>f(x)</code> callback in §1.1 — the same “store var → parse_eval → read OP1” loop. [standard]</p>
 <hr>
-<h2 id="4-how-the-unknown-is-varied--the-parser-feedback-loop-confirmedstandard"><a class="header" href="#4-how-the-unknown-is-varied--the-parser-feedback-loop-confirmedstandard">4. How the unknown is varied — the parser feedback loop [confirmed/standard]</a></h2>
+<h2 id="4-how-the-unknown-is-varied--the-parser-feedback-loop-standard"><a class="header" href="#4-how-the-unknown-is-varied--the-parser-feedback-loop-standard">4. How the unknown is varied — the parser feedback loop [standard]</a></h2>
 <p>Every routine above shares this inner cycle, which is the whole reason they are slow:</p>
 <ol>
 <li>Place the trial value in <code>OP1</code> (<code>_Mov9ToOP1</code> / arithmetic result).</li>
@@ -448,7 +445,7 @@ bjump, and goes through the page-0x02 command-execution layer:</p>
 <ol>
 <li>The evaluator hands the operand token to the page-0x02 dispatcher, which recognises the
 <code>0xBB</code> group and the second byte: <code>tFnInt</code> at <code>02:68F3</code> (<code>CP 0x24</code>), <code>tNDeriv</code> at
-<code>02:6904</code> (<code>CP 0x25</code>), <code>tRoot</code> at <code>02:58AD</code>/<code>02:69BC</code> (<code>CP 0x22</code>). [confirmed bytes]</li>
+<code>02:6904</code> (<code>CP 0x25</code>), <code>tRoot</code> at <code>02:58AD</code>/<code>02:69BC</code> (<code>CP 0x22</code>). [confirmed]</li>
 <li>The page-0x02 handler parses the comma-separated argument list and sets defaults — e.g.
 the <code>nDeriv</code>/<code>fnInt</code> prologue at <code>02:6AF6</code> does <code>LD A,0x7D; LD (8479),A</code>, seeding the
 default tolerance exponent <code>0x7D</code> (= <code>1e-3</code>, the documented nDeriv ε) before the call.
@@ -459,12 +456,12 @@ to assign a small class index in <code>C</code> and <code>CALL 0x50AC</code>) an
 bodies <code>nderiv_body</code> (<code>33:4C80</code>) / <code>fnint_body</code> (<code>33:4D00</code>). Because the call crosses
 pages through the bcall/app-call trampoline, no static xref to these bodies survives
 in the Ghidra database — the mark of a generic paged call rather than an inline bjump.
-[confirmed path; trampoline hides the static edge]</li>
+[confirmed]</li>
 </ol>
 <hr>
-<h2 id="5-routine-index-spaceaddr--name-confirmed-unless-noted"><a class="header" href="#5-routine-index-spaceaddr--name-confirmed-unless-noted">5. Routine index (<code>space:addr  name</code>) [confirmed unless noted]</a></h2>
+<h2 id="5-routine-index-spaceaddr--name-confirmed"><a class="header" href="#5-routine-index-spaceaddr--name-confirmed">5. Routine index (<code>space:addr  name</code>) [confirmed]</a></h2>
 <p>Equation Solver / <code>solve(</code> (page 0x39):</p>
-<pre><code>39:43AD  solver_root_setup          (eval f at both bounds, seed bracket)
+<pre><code class="language-text">39:43AD  solver_root_setup          (eval f at both bounds, seed bracket)
 39:4413  solver_iterate             (bisection+secant hybrid main loop)
 39:463A  solver_sign_test           (OP1/OP2 sign-change predicate; Z=same sign)
 39:468F  solver_eval_fx             (store guess -&gt; reparse equation -&gt; f=left-right)
@@ -475,12 +472,12 @@ in the Ghidra database — the mark of a generic paged call rather than an inlin
 39:45A0  -&gt;ITERATIONS(0x99)  39:45AD -&gt;BAD GUESS(0x9A)  39:45DA -&gt;NO SIGN CHNG(0x98)
 </code></pre>
 <p>TVM / finance solver (page 0x3A):</p>
-<pre><code>3A:70A2  tvm_solve_iterate          (Newton on I%, 64-iter FPS-framed loop)
+<pre><code class="language-text">3A:70A2  tvm_solve_iterate          (Newton on I%, 64-iter FPS-framed loop)
 3A:7F02  tvm_load_var (iMathPtr1)   3A:7F0F  tvm_load_var (iMathPtr2)   (finance var accessors)
 3A:7206  -&gt;ITERATIONS(0x99)
 </code></pre>
 <p>Numeric calculus (page 0x33):</p>
-<pre><code>33:4C80  nderiv_body                (centered difference (f(x+e)-f(x-e))/2e, e=1e-3)
+<pre><code class="language-text">33:4C80  nderiv_body                (centered difference (f(x+e)-f(x-e))/2e, e=1e-3)
 33:4D00  fnint_body                 (adaptive bisection integrator; extent 4D00..4E91)
 33:4E56  -&gt;bcall _LnX (0x40AB)       (digit-tolerance -&gt; decimal error bound)
 33:4E8F  -&gt;ITERATIONS(0x99)
@@ -494,15 +491,15 @@ in the Ghidra database — the mark of a generic paged call rather than an inlin
 cluster” — these are generic FPS slot accessors used by the solver, fnInt/nDeriv and other
 FPS-framed routines; each slot is 9 bytes = one TIFloat, offset <code>-(9*slot)</code> from the frame
 base pointer <code>(9302)</code>):</p>
-<pre><code>ram:2800  fps_swap_active_frame      (swaps the active FPS frame pointer at (86DE) -- the
-                                      bracket/scope bookkeeping primitive)  [renamed]
+<pre><code class="language-text">ram:2800  fps_swap_active_frame      (swaps the active FPS frame pointer at (86DE) -- the
+                                      bracket/scope bookkeeping primitive)
 ram:2895/28C3/28D8/28E9/2903/2908/2914/291B  fp_st_slotN_opX
                                       (store OP1/OP3 into FPS slot 2/4/5/6/7/7/8/9)
 ram:29CF/29D7/29DB/2A0B/2A0F/2A13/2A17        fp_ld_op1_slotN
                                       (load OP1 from FPS slot 5/7/8/10/11/12/13)
 </code></pre>
 <p>Error stubs / table (page 0 &amp; 0x07):</p>
-<pre><code>ram:2749 _ErrSignChange(0x98)  ram:274D _ErrIterations(0x99)
+<pre><code class="language-text">ram:2749 _ErrSignChange(0x98)  ram:274D _ErrIterations(0x99)
 ram:2751 _ErrBadGuess(0x9A)    ram:2755 _ErrTolTooSmall(0x9C)
 ram:2793 _JError               07:6B81  error_name_table (indexed by code-0x88)
 </code></pre>
@@ -549,7 +546,7 @@ list/element accessor).</li>
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="07-tokenizer-basic.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="tokenizer-basic.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -563,7 +560,7 @@ list/element accessor).</li>
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="07-tokenizer-basic.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="tokenizer-basic.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
@@ -585,11 +582,11 @@ list/element accessor).</li>
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

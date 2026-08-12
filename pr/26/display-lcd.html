@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Flash page map - TI-84 Plus OS — Reverse Engineering</title>
+        <title>Display and LCD - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
+            window.path_to_searchindex_js = "searchindex-c66ba8da.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,67 +179,93 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="13--flash-page-map"><a class="header" href="#13--flash-page-map">13 — Flash page map</a></h1>
-<p>What lives on each of the 64 physical flash pages (16 KiB each). OS code occupies pages <code>00–07</code> and <code>33–3D</code>; pages <code>08–32</code> are blank in this image; page <code>3E</code> is the certificate sector and <code>3F</code> the boot page. On a retail unit the upper pages can also carry Flash Apps, but this dump is OS-only — the page scan below reports zero Flash-App headers. The page roles below are characterized by the named bcall routines that resolve to each page (<code>tools/bcall_targets.txt</code>) plus function counts; the <code>0x8xxx</code> cert/boot/USB bcalls come instead from <code>ti83plus.inc</code> and the retail segment files (<code>bcall_targets.txt</code> does not carry the <code>0x8xxx</code> targets).</p>
-<h2 id="os-pages-carry-bcall-entry-points"><a class="header" href="#os-pages-carry-bcall-entry-points">OS pages (carry bcall entry points)</a></h2>
+                        <h1 id="display-and-lcd"><a class="header" href="#display-and-lcd">Display and LCD</a></h1>
+<p>The display subsystem turns text, graph buffers, menus, and equation layouts into the 96×64 monochrome image scanned from LCD-controller video RAM. This page maps the OS-facing render paths and software buffers; <a href="lcd-hardware.html">LCD controller and display bus</a> reconstructs commands, addressing, timing, initialization, reads, power, and controller-revision behavior.</p>
+<h2 id="display-paths"><a class="header" href="#display-paths">Display paths</a></h2>
+<p>The OS uses direct rendering for homescreen text and an explicit RAM back buffer for graphs. [confirmed]</p>
+<pre class="mermaid">flowchart LR
+    TEXT["text and menus"] --&gt; PUT["_PutMap / _VPutMap"]
+    PUT --&gt; LCD["controller video RAM"]
+    GRAPH["graph rasterizers"] --&gt; BUF["plotSScreen · 0x9340"]
+    BUF --&gt; CPY["_GrBufCpy"]
+    CPY --&gt; LCD
+    LCD --&gt; PANEL["96×64 panel"]
+    LCD --&gt; SAVE["_SaveDisp → saveSScreen"]
+    SAVE --&gt; RESTORE["_RestoreDisp"]
+    RESTORE --&gt; LCD
+</pre>
+
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Page</th><th style="text-align: right">Funcs</th><th>Role</th><th>Representative routines</th></tr>
+<tr><th>Path</th><th>Main entry</th><th>Behavior</th></tr>
 </thead>
 <tbody>
-<tr><td><code>00</code></td><td style="text-align: right">928</td><td><strong>Kernel</strong> — mapped at <code>0000</code>; RST vectors, bcall dispatcher, FP core, VAT, memory, integer math</td><td><code>_JErrorNo</code>, <code>_LdHLind</code>, <code>_DivHLBy10</code>, <code>_FindSym</code>, <code>_FPAdd</code>, <code>_InsertMem</code></td></tr>
-<tr><td><code>01</code></td><td style="text-align: right">84</td><td>Text display / homescreen</td><td><code>_PutMap</code>, <code>_PutC</code>, <code>_PutS</code>, <code>_DispHL</code>, <code>_NewLine</code>, <code>_ClrLCDFull</code></td></tr>
-<tr><td><code>02</code></td><td style="text-align: right">271</td><td>Float transcendentals &amp; advanced math</td><td><code>_SqRoot</code>, <code>_LnX</code>, <code>_RnFx</code>, <code>_RndGuard</code></td></tr>
-<tr><td><code>03</code></td><td style="text-align: right">23</td><td>Edit-buffer / small font</td><td><code>_CloseEditBufNoR</code>, <code>_Load_SFont</code>, <code>_SFont_Len</code></td></tr>
-<tr><td><code>04</code></td><td style="text-align: right">66</td><td>Graph drawing (pixel/line)</td><td><code>_DarkLine</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_DarkPnt</code></td></tr>
-<tr><td><code>05</code></td><td style="text-align: right">118</td><td>TABLE editor + Graph-Table split-screen</td><td><code>table_editor_main</code>, <code>table_recompute</code>, <code>table_paint_grid</code></td></tr>
-<tr><td><code>06</code></td><td style="text-align: right">49</td><td>Key input &amp; edit/cursor</td><td><code>_GetKey</code>, <code>_CursorOn</code>, <code>_CursorOff</code>, <code>_PutTokString</code> (note <code>_GetCSC</code>’s body is on page 00)</td></tr>
-<tr><td><code>07</code></td><td style="text-align: right">44</td><td>Archive / list &amp; matrix ops; error messages; large-font glyph table @ <code>07:45FF</code> (7-byte stride) read by <code>put_glyph_large</code> (<code>07:4588</code>)</td><td><code>_Arc_Unarc</code>, <code>_CleanAll</code>, <code>_RedimMat</code>, <code>_IncLstSize</code>, <code>put_glyph_large</code></td></tr>
-<tr><td><code>33</code></td><td style="text-align: right">70</td><td>Graph coordinate math</td><td><code>_SetXXOP1</code>, <code>_UCLineS</code> (window↔pixel transforms)</td></tr>
-<tr><td><code>36</code></td><td style="text-align: right">24</td><td>Mode setters (Func/Param/Polar/Seq)</td><td><code>_SetFuncM</code>, <code>_SetParM</code>, <code>_SetPolM</code>, <code>_SetSeqM</code></td></tr>
-<tr><td><code>37</code></td><td style="text-align: right">23</td><td>Graph coord convert</td><td><code>_XftoI</code>, <code>_YftoI</code></td></tr>
-<tr><td><code>38</code></td><td style="text-align: right">277</td><td>TI-BASIC parser / evaluator</td><td><code>_ParseInp</code>, <code>_Find_Parse_Formula</code>, <code>parse_init</code></td></tr>
-<tr><td><code>39</code></td><td style="text-align: right">153</td><td>Equation pretty-printer (2D MathPrint layout) + menus</td><td><code>eqdisp_render_entry</code>, <code>eqdisp_emit_glyph</code>, <code>_DispMenuTitle</code></td></tr>
-<tr><td><code>3A</code></td><td style="text-align: right">85</td><td>Statistics (1/2-var, regressions) + TVM finance</td><td><code>_OneVar</code>, <code>reg_gauss_solve</code>, <code>tvm_solve_iterate</code></td></tr>
-<tr><td><code>34</code></td><td style="text-align: right">16</td><td>Crystal timers / clock, token scan</td><td><code>_CrystalTimerA</code>, <code>timer_scan_tbl</code></td></tr>
-<tr><td><code>35</code></td><td style="text-align: right">6</td><td>Memory-reset engine, factorial</td><td><code>mem_reset_dispatch</code>, <code>ram_reset_wipe</code>, <code>op1_factorial</code></td></tr>
-<tr><td><code>3B</code></td><td style="text-align: right">39</td><td>bcall jump table + mem utils</td><td>(table data) <code>_MemClear</code>, <code>_MemSet</code>, <code>_DrawCirc2</code></td></tr>
-<tr><td><code>3C</code></td><td style="text-align: right">72</td><td>Link / variable transfer</td><td><code>_SendAByte</code>, <code>_RecAByteIO</code>, <code>_SendVarCmd</code>, <code>_Rec1stByte</code></td></tr>
-<tr><td><code>3D</code></td><td style="text-align: right">61</td><td>App management &amp; Flash</td><td><code>_FindApp</code>, <code>_FindAppUp</code>, <code>_FindAppDn</code>, <code>_FlashToRam</code></td></tr>
+<tr><td>Large text</td><td><code>_PutMap</code> at <code>01:5A98</code></td><td>draws one large-font glyph directly into controller RAM</td></tr>
+<tr><td>Cooked character</td><td><code>_PutC</code> at <code>01:5B4C</code></td><td>calls <code>_PutMap</code>, advances <code>curCol</code>, and handles newline/wrap</td></tr>
+<tr><td>String</td><td><code>_PutS</code> at <code>01:5C39</code></td><td>emits a null-terminated large-font string</td></tr>
+<tr><td>Small text</td><td><code>_VPutMap</code>/<code>_VPutS</code></td><td>renders variable-width glyphs using <code>penCol</code>/<code>penRow</code></td></tr>
+<tr><td>Graph clear</td><td><code>_GrBufClr</code> at <code>04:6071</code></td><td>clears 768 bytes of <code>plotSScreen</code>; does not touch the LCD</td></tr>
+<tr><td>Graph blit</td><td><code>_GrBufCpy</code> at <code>04:60A3</code></td><td>copies selected graph-buffer rows to controller RAM</td></tr>
+<tr><td>Physical clear</td><td><code>_ClrLCDFull</code> at <code>01:60E4</code></td><td>writes zero to all 768 visible controller bytes</td></tr>
+<tr><td>Save/restore</td><td><code>_SaveDisp</code>/<code>_RestoreDisp</code></td><td>captures and restores the displayed image</td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="page-byte-scan-notes-empty-range-boot--system-pages"><a class="header" href="#page-byte-scan-notes-empty-range-boot--system-pages">Page byte-scan notes (empty range, boot &amp; system pages)</a></h2>
-<p>No Flash-App headers (<code>80 0F</code>) appear at any page boundary; the image is OS-only [hypothesis]. Byte-level notes on the empty page range and the boot/system pages (some of which, e.g. <code>34–39</code>/<code>3B</code>/<code>3C</code>, also carry the bcalls listed above):</p>
+<h2 id="software-display-state"><a class="header" href="#software-display-state">Software display state</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Page</th><th>Verified contents</th></tr>
+<tr><th>Address</th><th>Name</th><th style="text-align: right">Size</th><th>Role</th></tr>
 </thead>
 <tbody>
-<tr><td><code>08–32</code></td><td>Blank/unused in this OS image — 100% <code>0xFF</code> in <code>tools/rom.bin</code>. Page <code>2F</code> is the retail USB boot support page, but its code lives in the separate <code>D84PBE2.8Xv</code> segment (not in <code>rom.bin</code>); the retail page-<code>3F</code> boot table maps the <code>0x8xxx</code> USB bcalls (<code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_USBErrorCleanup</code>, <code>_InitUSB</code>, <code>_KillUSB</code>) into page <code>2F</code>. No app headers.</td></tr>
-<tr><td><code>34–39</code></td><td>More OS code (graph/mode/menu/timers); fill 0.2–17% <code>0xFF</code>.</td></tr>
-<tr><td><code>3B</code></td><td><strong>bcall jump table</strong> — starts <code>99 27 00</code> = entry 0 (<code>_JErrorNo</code>→<code>ram:2799</code>).</td></tr>
-<tr><td><code>3C</code></td><td>Link code + the OS version string — page starts with ASCII <code>32 2E 35 35 4D 50</code> = <code>"2.55MP"</code>.</td></tr>
-<tr><td><code>3E</code></td><td><strong>Certification page</strong> — the per-calculator certificate sector (84+ cert page is <code>3E</code>, not <code>3F</code>). Blank (99% <code>0xFF</code>) in this OS-only image, since the cert is written per-device. The OS reads this sector through the <code>ti83plus.inc</code> cert bcalls: <code>_GetCertificateStart</code> (bcall <code>0x8057</code>) and <code>_GetCertificateEnd</code> (bcall <code>0x802D</code>) bound the sector, and <code>_FindFirstCertField</code> (bcall <code>0x8027</code>) / <code>_FindNextCertField</code> (bcall <code>0x8078</code>) walk its TLV fields.</td></tr>
-<tr><td><code>3F</code></td><td><strong>Retail boot page</strong> — supplied by local <code>D84PBE1.8Xv</code>; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, carries boot version <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table. Boot/hardware-version bcalls now resolve to <code>_getBootVer</code> <code>3F:477C</code> (<code>0x80B7</code>) and <code>_getHardwareVersion</code> <code>3F:4781</code> (<code>0x80BA</code>).</td></tr>
+<tr><td><code>0x8447</code></td><td><code>contrast</code></td><td style="text-align: right">1 byte</td><td>OS contrast level used to build controller command <code>0xC0</code>–<code>0xFF</code></td></tr>
+<tr><td><code>0x844A</code></td><td><code>curTime</code></td><td style="text-align: right">1 byte</td><td>timer-driven cursor blink countdown</td></tr>
+<tr><td><code>0x844B</code>/<code>0x844C</code></td><td><code>curRow</code>/<code>curCol</code></td><td style="text-align: right">2 bytes</td><td>16×8 homescreen character cursor</td></tr>
+<tr><td><code>0x845A</code>–<code>0x8461</code></td><td><code>lFont_record</code></td><td style="text-align: right">8 bytes</td><td>current large-font render record</td></tr>
+<tr><td><code>0x8508</code>–<code>0x8587</code></td><td><code>textShadow</code></td><td style="text-align: right">128 bytes</td><td>16×8 homescreen character shadow</td></tr>
+<tr><td><code>0x86EC</code>–<code>0x89EB</code></td><td><code>saveSScreen</code></td><td style="text-align: right">768 bytes</td><td>saved display image</td></tr>
+<tr><td><code>0x9340</code>–<code>0x963F</code></td><td><code>plotSScreen</code></td><td style="text-align: right">768 bytes</td><td>graph/back buffer, 12 bytes × 64 rows</td></tr>
 </tbody>
 </table>
 </div>
-<p>The large-font glyph table is on page 0x07 (see <a href="08-display-lcd.html#fonts-confirmed">Display / LCD</a>). Alternate large fonts live on pages 1 and 0x36 (selected by <code>(IY+0x35)</code> bits 5/1). Page 7 is the busiest data page (archive code, list/matrix, error messages, <em>and</em> the large font). [confirmed]</p>
-<h2 id="takeaway"><a class="header" href="#takeaway">Takeaway</a></h2>
-<p>The OS is page-specialized: kernel + math on page 0, one subsystem per low page. A bcall is really “run subsystem X’s routine on its page” — the page map <em>is</em> the subsystem decomposition, physically.</p>
+<p>Controller video RAM is a third image store outside Z80 RAM. Direct text output can change it without changing <code>plotSScreen</code>, while graph drawing can change <code>plotSScreen</code> without changing the panel until <code>_GrBufCpy</code> runs. [confirmed]</p>
+<h2 id="large-font-text"><a class="header" href="#large-font-text">Large-font text</a></h2>
+<p><code>_PutMap</code> clamps character code zero and codes at or above <code>0xF8</code> to replacement code <code>0xD0</code>. It computes <code>character × 8</code> and bjumps to <code>put_glyph_large</code> at <code>07:4588</code>. [confirmed]</p>
+<p>The page-7 blitter adjusts that offset to a seven-byte packed stride:</p>
+<p>$$
+\text{glyph address} = \texttt{07:45FF} + 7c
+$$</p>
+<p>where $c$ is the character code. It then copies eight bytes into <code>lFont_record</code>, so the eighth byte overlaps the first byte of the next packed glyph. [confirmed]</p>
+<p>Two flags at <code>IY+0x35</code> select alternate font-hook sources before the page-7 table read. Bit 5 calls <code>3B:7BFB</code> with selector <code>A=0x01</code>; bit 1 calls <code>3B:7B9C</code> with selector <code>A=0x76</code>. With neither flag set, <code>_PutMap</code> reads the built-in table. [confirmed]</p>
+<p>The renderer positions the controller from <code>curRow</code> and <code>curCol</code>. Glyph edges use controller read-modify-write with the required dummy data read before the real byte. The complete bus sequence is in <a href="lcd-hardware.html#text-drawing-and-read-modify-write">LCD controller and display bus</a>.</p>
+<h2 id="cursor-and-indicators"><a class="header" href="#cursor-and-indicators">Cursor and indicators</a></h2>
+<p><code>_CursorOn</code> and <code>_CursorOff</code> reload <code>curTime</code> with 50. Standard hardware timer 1 reaches the cursor handler at <code>06:7C45</code>, which toggles the cursor every 50 ticks. See <a href="clock-timers-power.html#cursor-blink-cadence">Clock, timers, and power</a>. [confirmed]</p>
+<p>The run indicator uses <code>indicCounter</code> and <code>indicBusy</code> at <code>0x8476</code>/<code>0x8477</code>. <code>_RunIndicOn</code> seeds it, and <code>run_indicator_tick</code> at <code>ram:027B</code> advances it from the same standard-timer interrupt. <code>_ClrLCDFull</code> temporarily clears and then restores the indicator-enable bit around the physical clear. [confirmed]</p>
+<h2 id="numeric-and-string-output"><a class="header" href="#numeric-and-string-output">Numeric and string output</a></h2>
+<p><code>_DispHL</code> at <code>01:5BF6</code> converts <code>HL</code> to five decimal positions with repeated <code>_DivHLBy10</code>, stores digits backward in scratch RAM, replaces leading zeroes with spaces, and prints through <code>_PutC</code>. [confirmed]</p>
+<p><code>_PutC</code> wraps when <code>curCol</code> reaches 16 and calls the newline/scroll path. <code>_PutS</code> and related bounded-string entries repeat <code>_PutC</code> over character data. These APIs target the character-oriented homescreen state, not the graph buffer. [confirmed]</p>
+<h2 id="graph-and-equation-rendering"><a class="header" href="#graph-and-equation-rendering">Graph and equation rendering</a></h2>
+<p>Graph rasterizers write <code>plotSScreen</code> and call <code>_GrBufCpy</code> or <code>_PDspGrph</code> to expose the result. Coordinate transforms, clipping, line/circle algorithms, and graph state are covered in <a href="sub-graphing.html">Graphing</a>.</p>
+<p>MathPrint uses a separate layout engine before its glyphs reach the display primitives. Its descriptors, box tree, cursor geometry, and runtime gaps are covered in <a href="sub-equation-display.html">Equation display</a>.</p>
+<p>The table editor and Y= screens build text-grid state through their own context handlers. See <a href="sub-table-yvars.html">Table and Y= variables</a>.</p>
+<h2 id="related-deep-dives"><a class="header" href="#related-deep-dives">Related deep dives</a></h2>
+<ul>
+<li><a href="lcd-hardware.html">LCD controller and display bus</a> — ports, status, commands, addressing, waits, initialization, clear/blit/read paths, contrast, power, dynamic I/O traces, and cross-emulator fidelity.</li>
+<li><a href="sub-graphing.html">Graphing</a> — graph buffer, transforms, pixels, lines, circles, and graph display.</li>
+<li><a href="sub-equation-display.html">Equation display</a> — MathPrint layout and compositing.</li>
+<li><a href="sub-table-yvars.html">Table and Y= variables</a> — table grid and function editor.</li>
+</ul>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="sub-apps-mem-settings.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sub-tibasic-for-paren.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="14-ram-pages.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="lcd-hardware.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -249,11 +275,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="sub-apps-mem-settings.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sub-tibasic-for-paren.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="14-ram-pages.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="lcd-hardware.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
@@ -275,11 +301,11 @@
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

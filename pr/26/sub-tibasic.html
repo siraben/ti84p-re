@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
+            window.path_to_searchindex_js = "searchindex-c66ba8da.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,28 +180,29 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="ti-basic-programs"><a class="header" href="#ti-basic-programs">TI-BASIC programs</a></h1>
-<p><em>TI-84 Plus OS 2.55MP — feature deep dive.</em></p>
-<p>How a student-written TI-BASIC program is stored, parsed, and executed on OS
-2.55MP. Builds on <a href="07-tokenizer-basic.html">07-tokenizer-basic.md</a> (tokens, cursor helpers, the page-0x38
-evaluator), <a href="05-variables-vat.html">05-variables-vat.md</a> (OP1 naming, <code>_FindSym</code>), and
-<a href="11-boot-contexts-errors.html">11-boot-contexts-errors.md</a> (contexts, <code>onSP</code>/<code>_JError</code>).</p>
+<p>How a TI-BASIC program is stored, parsed, and executed on OS
+2.55MP. Builds on <a href="tokenizer-basic.html">tokenizer-basic.md</a> (tokens, cursor helpers, the page-0x38
+evaluator), <a href="variables-vat.html">variables-vat.md</a> (OP1 naming, <code>_FindSym</code>), and
+<a href="boot-contexts-errors.html">boot-contexts-errors.md</a> (contexts, <code>onSP</code>/<code>_JError</code>).</p>
 <p>Confidence: [confirmed] = decompiled/byte-verified here, or multiple consistent
 signals (token compares, call shape) pin it even where the dense Z80 handler
 bodies don’t fully reduce in the decompiler; [standard] = documented TI-83+/84+
 behavior consistent with what was seen; [hypothesis] = inferred, not yet verified.</p>
 <hr>
 <h2 id="1-how-a-program-is-stored-confirmed"><a class="header" href="#1-how-a-program-is-stored-confirmed">1. How a program is stored [confirmed]</a></h2>
-<p>A program is a VAT object of type <code>ProgObj</code> (5) / <code>ProtProgObj</code> (6) (see <a href="05-variables-vat.html">doc 05</a>).
+<p>A program is a VAT object of type <code>ProgObj</code> (5) / <code>ProtProgObj</code> (6) (see <a href="variables-vat.html">Variables &amp; the VAT</a>).
 Its data is <code>word size</code> followed by <code>size</code> bytes of tokenized body — the
 exact byte stream the parser walks. No line numbers; lines are separated by the
 EOL/newline token <code>0x3F</code> (<code>tEnter</code>, shown as <code>cVar=='?'</code> = 0x3F in the
 decompiled cursor code). Most tokens are 1 byte; the 11 lead bytes
-(<code>5C 5D 5E 60 61 62 63 7E BB AA EF</code>, the order of the <code>ram:1FF6</code> table) introduce 2-byte tokens (<a href="07-tokenizer-basic.html">doc 07</a>).</p>
+(<code>5C 5D 5E 60 61 62 63 7E BB AA EF</code>, the order of the <code>ram:1FF6</code> table) introduce 2-byte tokens (<a href="tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a>).</p>
 <p>Editing/detokenizing for the program editor uses the page-01 token helpers
-(<a href="07-tokenizer-basic.html">doc 07</a>, re-confirmed here):</p>
+(<a href="tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a>, re-confirmed here):</p>
 <ul>
-<li><code>_GetTokLen</code> (<code>01:66E5</code>) — returns 1 or 2 for the token at HL (length of the
-token’s byte encoding), via <code>smallfont_glyph_ptr</code> (<code>01:6702</code>).</li>
+<li><code>_GetTokLen</code> (<code>01:66E5</code>) — accepts the packed token in <code>DE</code>, calls
+<code>smallfont_glyph_ptr</code> (<code>01:6702</code>) to resolve its display string, then returns
+the leading display-length byte in <code>A</code>.
+<code>_IsA2ByteTok</code> tests whether the encoded token occupies one or two bytes.</li>
 <li><code>_Get_Tok_Strng</code> (<code>01:66EA</code>) — returns the display string for a token
 (cross-page jump to the name table). The editor calls this per token to paint
 a line; <code>Disp</code> of a list/string also routes display text through related
@@ -209,7 +210,7 @@ formatters.</li>
 </ul>
 <hr>
 <h2 id="2-the-parse-stream-cursor-confirmed"><a class="header" href="#2-the-parse-stream-cursor-confirmed">2. The parse-stream cursor [confirmed]</a></h2>
-<p>The interpreter walks the token body through a RAM cursor (<a href="07-tokenizer-basic.html">doc 07</a>, all
+<p>The interpreter walks the token body through a RAM cursor (<a href="tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a>, all
 re-verified by decompilation):</p>
 <div class="table-wrapper">
 <table>
@@ -220,16 +221,18 @@ re-verified by decompilation):</p>
 <tr><td><code>parse_cur_tok</code></td><td><code>38:72DA</code></td><td>fetch token at cursor (<code>parsePtr</code>); special-cases <code>:</code> token <code>0x3E</code> (<code>tColon</code>)/end <code>0x00</code></td></tr>
 <tr><td><code>parse_advance</code></td><td><code>38:7248</code></td><td><code>parsePtr</code> (<code>965D</code> = <code>nextParseByte</code>) ++, bounds-check vs <code>parseEnd</code> (<code>965F</code> = <code>basic_end</code>); refill via <code>deref_byte</code> (<code>38:5B79</code>)</td></tr>
 <tr><td><code>parse_expect_or_err</code></td><td><code>38:5CD8</code></td><td>fetch a token; if not the expected one, set <code>parsePtr</code> to the fault position and <code>_ErrSyntax</code></td></tr>
-<tr><td><code>parse_scan_tokens</code></td><td><code>38:4180</code></td><td>skip forward to a delimiter, honoring 2-byte tokens via <code>_IsA2ByteTok</code>; used by every block scanner</td></tr>
+<tr><td><code>parse_scan_tokens</code></td><td><code>38:4180</code></td><td>skip forward to a delimiter, treating quoted strings as indivisible and honoring 2-byte tokens via <code>_IsA2ByteTok</code>; used by every block scanner</td></tr>
 <tr><td><code>parse_init</code></td><td><code>38:5B7B</code></td><td>zero parse position bytes (+6/+7), clear a batch of parser flag bits in the IY flag area</td></tr>
 </tbody>
 </table>
 </div>
 <p><code>parsePtr</code> is the OS RAM byte <code>965D</code> (official equate <code>nextParseByte</code>); <code>parseEnd</code>
-is <code>965F</code> (<code>basic_end</code>). <code>parse_scan_tokens</code>
-loop: <code>parse_cur_tok</code>; if token==<code>0x2A</code> (<code>tString</code>, the <code>"</code> delimiter it tests for here)
-stop, else <code>_IsA2ByteTok</code> then <code>parse_advance</code> (twice for a 2-byte token). This
-is the primitive every control-flow scanner is built on.</p>
+is <code>965F</code> (<code>basic_end</code>). <code>parse_scan_tokens</code> calls the quoted-string scanner at
+<code>38:544D</code> when it sees <code>tString</code> (<code>0x2A</code>); that helper advances to the closing
+quote or EOL (<code>0x3F</code>), so delimiters inside the string do not end the outer
+scan. The caller then checks the statement delimiter and advances ordinary
+tokens, using <code>_IsA2ByteTok</code> to consume both bytes where required. This is the
+primitive every control-flow scanner is built on.</p>
 <hr>
 <h2 id="3-top-level-execution-model-confirmed"><a class="header" href="#3-top-level-execution-model-confirmed">3. Top-level execution model [confirmed]</a></h2>
 <ul>
@@ -251,7 +254,7 @@ inside <code>parse_eval_expr</code>) and the same precedence selector (the label
 (FPS push, flag bits) and then runs the common token loop. [confirmed]</li>
 </ul>
 <h3 id="the-shared-inner-loop-3859c8-confirmed"><a class="header" href="#the-shared-inner-loop-3859c8-confirmed">The shared inner loop (<code>38:59C8</code>) [confirmed]</a></h3>
-<pre><code>loop:
+<pre><code class="language-pseudocode">loop:
   parse_advance_refill / err_if_not_real_86   ; refresh cursor / housekeeping
   class = chk_tok_end()          ; classify current token
   if (IY+9 &amp; 0x80) class = set_split_rows()  ; alt classify for flagged tokens
@@ -272,7 +275,7 @@ range-checks an exponent as a positive int, <code>_JError(0x84)</code> Domain ot
 raw code target within <code>parse_eval_expr</code>, not a defined function in the live DB),
 or <code>0x7175</code> (a leaf no-op). Selecting among these by <code>precLevel</code> (1/2/3) is how
 operator precedence is realized — nesting of productions, not a flat table
-(confirms <a href="07-tokenizer-basic.html">doc 07</a>’s “recursive-descent” claim). Results land in <code>OP1</code>; binary
+(confirms <a href="tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a>’s “recursive-descent” claim). Results land in <code>OP1</code>; binary
 operators are applied via the FP RST shortcuts (RST 30h <code>_FPAdd</code>, …) and
 <code>_BinOPExec</code>.</p>
 <h3 id="parser-dispatch-page-0x38-begins-with-a-handler-pointer-table-confirmed"><a class="header" href="#parser-dispatch-page-0x38-begins-with-a-handler-pointer-table-confirmed">Parser dispatch: page 0x38 begins with a handler-pointer table [confirmed]</a></h3>
@@ -300,7 +303,7 @@ variable (Xmin etc.) into/from OP1.</li>
 skip the not-taken branch of <code>If</code> / <code>If…Then</code>, and to bound <code>For</code>/<code>While</code>/
 <code>Repeat</code> bodies). It keeps a nest-depth counter and walks via
 <code>parse_scan_tokens</code>:</p>
-<pre><code>depth = 0
+<pre><code class="language-pseudocode">depth = 0
 loop:
   t = cur_token
   case t == tElse(D0):  if depth==0 -&gt; stop, return 0xD0 (Else)   ; else skip
@@ -329,8 +332,7 @@ adjacent token to <code>tStop</code> <code>0xD9</code>). For <code>tIf</code> it
 shared precedence loop to evaluate the condition; unknown leading tokens here
 raise <code>_JError(0x88)</code> (<code>E_Syntax</code>) for ordinary unknown tokens, or <code>_JError(0x30)</code>
 (<code>E_Version</code>, “ERR:VERSION”) for tokens above <code>0xF5</code> (the reserved/newer-token range —
-<code>0x30</code> is the message-table index, one below <code>0x31</code> ARCHIVE FULL). [confirmed
-bytes]</li>
+<code>0x30</code> is the message-table index, one below <code>0x31</code> ARCHIVE FULL). [confirmed]</li>
 </ul>
 <h3 id="for--while--repeat--end-confirmed"><a class="header" href="#for--while--repeat--end-confirmed">For( / While / Repeat / End [confirmed]</a></h3>
 <ul>
@@ -348,12 +350,12 @@ the page-0x02 command dispatcher: <code>02:54BD</code> loads a per-token handler
 <code>tReturn</code>=<code>CP 0xD5</code>), and <code>tWhile</code>/<code>tRepeat</code> load a loop-type code (<code>LD A,0x26</code>/<code>0x27</code>)
 and <code>JP 0x6400</code>. <code>02:6400</code> and the <code>6A2A/6A30/6A34</code> stubs set a command index
 (<code>0x28/0x29/0x2A</code>) and invoke bcall <code>0x5140</code>/<code>0x513D</code>, which both resolve to page
-0x33 (<code>_grf_435f</code>, target <code>33:435F</code>). <code>33:435F</code> does <code>SUB 0x20</code>, bounds-checks, and
+0x33 (<code>grf_435f</code>, target <code>33:435F</code>). <code>33:435F</code> does <code>SUB 0x20</code>, bounds-checks, and
 indexes a 13-entry jump table at <code>33:4381</code> (<code>0x47BB, 0x4A71, 0x4817, 0x4759, 0x47F5, 0x4AAA, 0x4B36, 0x4B4B, 0x45DE, 0x45D1, 0x459B, 0x4C93, 0x4CE8</code>) — the actual
 For/While/Repeat/End/Return bodies. The default <code>For</code> step uses <code>_OP2Set1</code> and the loop
 variable is stored via <code>_MovFrOP1</code>; <code>End</code> re-seeds the parse cursor from the loop-record’s
-saved position. [confirmed dispatch chain into page 0x33; exact FPS record byte layout
-not yet field-mapped — see residual]</li>
+saved position. The dispatch chain into page <code>33</code> is [confirmed]. The exact
+FPS record byte layout remains [hypothesis].</li>
 <li><code>if_else_skip_handler</code> (<code>38:5826</code>)’s prologue calls <code>_DeallocFPS1</code> then
 <code>restore_982c_ctx</code> (<code>38:58DF</code>, which sets <code>pTempCnt</code>/<code>cleanTmp</code>) — FPS bookkeeping
 consistent with pushing/popping a loop frame. [hypothesis]</li>
@@ -373,7 +375,7 @@ until EOL (<code>'?'</code>=0x3F) / end, records the position in <code>parsePtr<
 <li><code>Goto</code> resolves by rescanning the program body from the top for a matching
 <code>Lbl name</code>, then setting <code>parsePtr</code> there — the classic TI-BASIC behavior that
 makes <code>Goto</code> O(program size) and makes <code>Goto</code> out of a loop leak the loop’s
-stack frame. [inferred — standard, consistent with the rescan call shape]</li>
+stack frame. [standard]</li>
 <li><code>Return</code>/<code>Stop</code> (<code>tReturn=D5</code>/<code>tStop=D9</code>) terminate execution at different
 scopes: <code>Return</code> exits the current BASIC program and resumes the caller, while
 <code>Stop</code> exits the whole BASIC program chain back to the homescreen context.
@@ -413,7 +415,7 @@ paint routine; otherwise <code>RST5</code> (bjump) to the generic display path. 
 results format via <code>_DispOP1A</code> (<code>04:7844</code>) → <code>_CkOP1Real</code>; strings/lists route
 through their formatters. Each <code>Disp</code> item ends with <code>_NewLine</code> (<code>01:5F4A</code>):
 <code>curCol=0</code>, and if <code>curRow+1 &gt;= winBtm</code> it triggers scroll, else <code>curRow++</code>.
-<code>_DispDone</code> (<code>01:69B0</code>) finishes. [confirmed for <code>_Disp</code>/<code>_NewLine</code>]</p>
+<code>_DispDone</code> (<code>01:69B0</code>) finishes. [confirmed]</p>
 </li>
 <li>
 <p><code>Output(row,col,value</code> — <code>_OutputExpr</code> (<code>03:4AF2</code>, cross-page) writes at an
@@ -437,8 +439,8 @@ all, <code>Input</code> pauses on the graph screen with a free-moving cursor.</l
 comma-separated variable list (<code>02:6699 LD DE,1; … ; 02:66BF CALL 0x1942; CP 0x04; JR NZ,error</code> — each list item must classify as a storable real/var, type 4). For
 each variable: resolve its name (<code>02:66AC CALL 0x1DF3</code> then cross-page <code>CALL 0x3A89</code>),
 auto-print “<code>NAME=</code>”, run the editor, parse the typed value, store it, then advance to
-the next comma item. [confirmed token sites + loop/validation bytes; entry-line
-editor internals dense]</li>
+the next comma item. The token sites and loop/validation bytes are [confirmed];
+the entry-line editor internals remain unmapped.</li>
 </ul>
 </li>
 <li>
@@ -466,12 +468,12 @@ Ghidra renders as code. Byte-decoding it (<code>FE AD 1C 1B 18 EC 31 00 84 …</
 records keyed by token (<code>FE xx</code> 1-byte, <code>FB xx</code>/<code>FC xx</code>/<code>F4 89</code> 2-byte tokens — getKey,
 stat/distribution and finance tokens), used by a (de)tokenizer/compiler rather than as a
 key→code map. The keycodes a <code>getKey</code> returns come from <code>_GetKey</code> on page 06, not this table.
-[confirmed: 37:6700 is a token-descriptor table; keycodes come from
-<code>_GetKey</code> on page 06]</p>
+The token-descriptor table at <code>37:6700</code> and the page-06 keycode source are
+[confirmed].</p>
 </li>
 <li>
 <p><code>ClrHome</code> — clears the home-screen text shadow and resets the cursor to
-(0,0). [inferred — standard]</p>
+(0,0). [standard]</p>
 </li>
 </ul>
 <p>The <code>_RunIndicOn</code>/<code>Off</code> (<code>01:6518</code>/<code>6531</code>) busy indicator runs during
@@ -496,55 +498,55 @@ targets inside <code>parse_eval_expr</code> (not defined functions in the live D
 <li>Binary ops fold operands via FP RSTs (RST 30h <code>_FPAdd</code>; <code>_FPMult</code>=<code>00:238B</code>, …)
 / <code>_BinOPExec</code>, leaving the result in <code>OP1</code>.</li>
 <li>Variable tokens become an OP1 name (type byte + name) and resolve via
-<code>_FindSym</code>/<code>_RclVarSym</code> (<a href="05-variables-vat.html">doc 05</a>); store targets (<code>→VAR</code>) resolve through the
+<code>_FindSym</code>/<code>_RclVarSym</code> (<a href="variables-vat.html">Variables &amp; the VAT</a>); store targets (<code>→VAR</code>) resolve through the
 <code>38:7600</code> name scanner (handles <code>[A]</code>/<code>L1</code>/<code>Str1</code>/Y-var/<code>Ans</code> classes,
 <code>_JError(0x8F)</code> on an attempt to store into <code>Ans</code>).</li>
 <li>Statement separators (<code>:</code> and EOL <code>0x3F</code>) end a statement; the loop re-enters
 for the next.</li>
 </ol>
-<p>The sub-tables <code>38:5110</code>/<code>38:5127</code> (<a href="07-tokenizer-basic.html">doc 07</a>) are small token-class lookups
+<p>The sub-tables <code>38:5110</code>/<code>38:5127</code> (<a href="tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a>) are small token-class lookups
 (<code>38:5110</code> keys off <code>tDisp(DE)</code>/<code>tOutput(E0)</code> region; <code>38:5127</code> is a paired
 classifier) that the dispatch consults; both tail into <code>RST5</code> (bjump) handlers.</p>
 <hr>
 <h2 id="7-confident-addresses-spaceaddr--name"><a class="header" href="#7-confident-addresses-spaceaddr--name">7. Confident addresses (space:addr → name)</a></h2>
-<pre><code>page_38:5987   _ParseInp                  ; parse/eval entry line or formula
-page_38:5ab3   parse_eval_expr            ; recursive-descent statement/expr core
-page_38:59c5   eval_stmt_entry            ; statement-loop variant (shared loop label 38:59C8)
-page_38:5826   if_else_skip_handler       ; Else-branch skip via block matcher
-page_38:6f63   if_isg_stmt_handler        ; per-statement If/IS&gt;( dispatch
-page_38:4130   blockmatch_end_else        ; nest-counting End/Else scanner
-page_38:4180   parse_scan_tokens          ; skip-to-delimiter (2-byte aware)
-page_38:4870   goto_lbl_name_scanner      ; scan label name, jump to search
-page_38:7600   store_target_name_scanner  ; →VAR store-target name scanner (inferred; live DB auto-name is set_tblgraph_draw_xpage)
-page_38:72da   parse_cur_tok
-page_38:7248   parse_advance
-page_38:5cd8   parse_expect_or_err
-page_38:5b7b   parse_init
-page_38:758a   _Find_Parse_Formula        ; FindSym + parse stored formula / run prog
-page_38:6251   _StoAns
-page_38:679f   _RclAns
-page_38:74b7   _AnsName                   ; OP1 = Ans name (class 0x72)
-page_38:623b   _StoSysTok
-page_38:683e   _RclSysTok
-page_37:51d3   _Disp                      ; home-screen text display
-page_03:4af2   _OutputExpr                ; Output( absolute row,col
-page_04:7844   _DispOP1A                  ; format+display OP1 (real)
-page_39:4d21   _DispMenuTitle             ; Menu( title bar
-page_01:5f4a   _NewLine                   ; cursor newline + scroll
-page_01:69b0   _DispDone                  ; finish a Disp
-page_01:6518   _RunIndicOn
-page_01:6531   _RunIndicOff
-page_01:66e5   _GetTokLen                 ; token byte-length (editor)
-page_01:66ea   _Get_Tok_Strng             ; token -&gt; display string (editor)
+<pre><code class="language-text">38:5987   _ParseInp                  ; parse/eval entry line or formula
+38:5ab3   parse_eval_expr            ; recursive-descent statement/expr core
+38:59c5   eval_stmt_entry            ; statement-loop variant (shared loop label 38:59C8)
+38:5826   if_else_skip_handler       ; Else-branch skip via block matcher
+38:6f63   if_isg_stmt_handler        ; per-statement If/IS&gt;( dispatch
+38:4130   blockmatch_end_else        ; nest-counting End/Else scanner
+38:4180   parse_scan_tokens          ; skip-to-delimiter (2-byte aware)
+38:4870   goto_lbl_name_scanner      ; scan label name, jump to search
+38:7600   store_target_name_scanner  ; →VAR store-target name scanner (inferred; live DB auto-name is set_tblgraph_draw_xpage)
+38:72da   parse_cur_tok
+38:7248   parse_advance
+38:5cd8   parse_expect_or_err
+38:5b7b   parse_init
+38:758a   _Find_Parse_Formula        ; FindSym + parse stored formula / run prog
+38:6251   _StoAns
+38:679f   _RclAns
+38:74b7   _AnsName                   ; OP1 = Ans name (class 0x72)
+38:623b   _StoSysTok
+38:683e   _RclSysTok
+37:51d3   _Disp                      ; home-screen text display
+03:4af2   _OutputExpr                ; Output( absolute row,col
+04:7844   _DispOP1A                  ; format+display OP1 (real)
+39:4d21   _DispMenuTitle             ; Menu( title bar
+01:5f4a   _NewLine                   ; cursor newline + scroll
+01:69b0   _DispDone                  ; finish a Disp
+01:6518   _RunIndicOn
+01:6531   _RunIndicOff
+01:66e5   _GetTokLen                 ; detokenized display-string length
+01:66ea   _Get_Tok_Strng             ; token -&gt; display string (editor)
 </code></pre>
 <p>I/O command token-handler sites (page 02 = the command-exec page; dispatched
 from the page-38 evaluator via cross-page jump):</p>
-<pre><code>page_02:54ef   input_cmd_handler  (tInput DC)
-page_02:562f   prompt_cmd_handler (tPrompt DD)
-page_02:555d   menu_cmd_handler   (tMenu E6)
-page_02:55e7   pause_cmd_handler  (tPause D8)
-page_02:673e   output_cmd_handler (tOutput E0)
-page_38:6ae6   output_dispatch    (CP E0 in evaluator)
+<pre><code class="language-text">02:54ef   input_cmd_handler  (tInput DC)
+02:562f   prompt_cmd_handler (tPrompt DD)
+02:555d   menu_cmd_handler   (tMenu E6)
+02:55e7   pause_cmd_handler  (tPause D8)
+02:673e   output_cmd_handler (tOutput E0)
+38:6ae6   output_dispatch    (CP E0 in evaluator)
 </code></pre>
 <hr>
 <h2 id="8-dynamic-confirmation-and-traceable-examples"><a class="header" href="#8-dynamic-confirmation-and-traceable-examples">8. Dynamic confirmation and traceable examples</a></h2>
@@ -644,7 +646,7 @@ EF9B41EFBF4AC9
 <code>ZZBASIC.8xp</code> displays <code>BEFORE</code>, <code>CALLED</code>, <code>AFTER</code>, then <code>Done</code>. The trace
 hits the <code>AsmPrgm</code> payload at <code>ram:9D95</code>, <code>_OP1Set1</code> (<code>00:1B38</code>), <code>_StoAns</code>
 (<code>38:6251</code>), <code>_AnsName</code> (<code>38:74B7</code>) during <code>If Ans</code>, and the ordinary
-<code>prgmZZBASIC</code> body evaluator path (<code>38:6910</code> -&gt; <code>38:6914</code> -&gt; <code>38:778F</code>).
+<code>prgmZZBASIC</code> body evaluator path (<code>38:6910</code> → <code>38:6914</code> → <code>38:778F</code>).
 This is the practical callback convention: ASM returns a value through a BASIC
 variable, and BASIC performs the actual program call.</p>
 <p><code>ASMRTN.8xp</code> demonstrates the same <code>Ans</code> convention as a numeric return value:</p>
@@ -826,7 +828,7 @@ never displays the target program’s <code>CALLED</code> line. <code>_rclToQueu
 an edit-buffer queue helper guarded by <code>rclFlag.enableQueue</code>, not a standalone
 program executor.</p>
 <p><code>_ExecuteNewPrgm</code> (<code>00:265F</code>) is also stateful. An <code>AsmPrgm</code> probe with
-<code>OP1=ProgObj</code> and <code>HL -&gt; "ZZBASIC",0</code> enters <code>_ExecuteNewPrgm</code> and
+<code>OP1=ProgObj</code> and <code>HL → "ZZBASIC",0</code> enters <code>_ExecuteNewPrgm</code> and
 <code>findsym_scan</code>, then reaches <code>ERR:SYNTAX</code>. The same probe with <code>ZZBASIC</code> loaded
 as <code>ProtProgObj</code> and <code>OP1=06</code> gets through the copy/jump tail at <code>00:268A</code> and
 <code>00:268F</code>, but still stops at <code>ERR:SYNTAX</code> without displaying the target
@@ -928,7 +930,7 @@ multi-line) remain dense and are only confirmed at the argument-parse boundary.<
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="07-tokenizer-basic.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="tokenizer-basic.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -942,7 +944,7 @@ multi-line) remain dense and are only confirmed at the argument-parse boundary.<
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="07-tokenizer-basic.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="tokenizer-basic.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
@@ -968,11 +970,11 @@ multi-line) remain dense and are only confirmed at the argument-parse boundary.<
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

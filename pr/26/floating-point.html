@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
+            window.path_to_searchindex_js = "searchindex-c66ba8da.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,23 +179,32 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="06--floating-point-engine"><a class="header" href="#06--floating-point-engine">06 — Floating-point engine</a></h1>
+                        <h1 id="floating-point-engine"><a class="header" href="#floating-point-engine">Floating-point engine</a></h1>
 <blockquote>
-<p><strong>Deep dive:</strong> <a href="sub-calculation.html">Calculation Engine</a> — ×, ÷, ^, roots, the transcendentals (sin/cos/ln/eˣ), and number formatting.</p>
+<p><strong>Deep dive:</strong> <a href="sub-calculation.html">Calculation engine</a> — ×, ÷, ^, roots, the transcendentals (sin/cos/ln/eˣ), and number formatting.</p>
 </blockquote>
 <p>All TI-BASIC arithmetic runs through a BCD floating-point engine centered on the OP registers in RAM. The engine lives mostly on flash page 0 (it’s hot), with the RST-30 shortcut for the most common op.</p>
 <h2 id="number-format--tifloat-9-bytes-on-disk-confirmed"><a class="header" href="#number-format--tifloat-9-bytes-on-disk-confirmed">Number format — <code>TIFloat</code> (9 bytes on disk) [confirmed]</a></h2>
-<pre><code>+0  type      0x00 = real (positive), 0x80 = negative real;
+<pre><code class="language-text">+0  type      0x00 = real (positive), 0x80 = negative real;
               0x0C/0x8C = complex (paired with the imaginary part)
 +1  exp       base-100? no — base-10 exponent, biased by 0x80 (0x80 = 10^0)
 +2..+8  mantissa   7 bytes = 14 packed BCD digits, normalized d.dddddddddddddd
+</code></pre>
+<p>As a C struct:</p>
+<pre><code class="language-c">typedef struct {
+    uint8_t type;          /* +0: 0x00 real (positive), 0x80 negative; 0x0C/0x8C complex part */
+    uint8_t exp;           /* +1: base-10 exponent, biased by 0x80 (0x80 == 10^0)             */
+    uint8_t mantissa[7];   /* +2..+8: 14 packed BCD digits, normalized d.dddddddddddddd        */
+} TIFloat;                                              /* 9 bytes on disk / in a stored var   */
+/* In an OP register slot the number occupies 11 bytes: the 9 above plus 2 trailing guard      */
+/* digit bytes (OP1EXT at +9/+10) used during math — see "OP registers" below.                 */
 </code></pre>
 <p>The stored value is</p>
 <p>$$v = \pm\,(d_0.d_1d_2\cdots d_{13})\times 10^{\,e-\mathtt{0x80}}$$</p>
 <p>where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD mantissa digits. A ROM-byte scan found roughly 126 candidate BCD constants ROM-wide [hypothesis] ($\pi/180 = 1.745\ldots\mathrm{e}{-2}$, $180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, plus the FP transcendental coefficient tables on page 0x02). The table addresses below are confirmed by Ghidra disassembly and raw ROM bytes.</p>
 <h2 id="op-registers--11-bytes-each-confirmed"><a class="header" href="#op-registers--11-bytes-each-confirmed">OP registers — 11 bytes each [confirmed]</a></h2>
 <p><code>OP1</code>–<code>OP6</code> at <code>0x8478</code>, spaced <code>11</code> bytes (<code>OP2</code>=0x8483 …). The extra 2 bytes past the 9-byte number are extended guard digits used during math: <code>OP1EXT</code>/<code>OP2EXT</code> = bytes +9/+10 (seen in <code>_FPAdd</code> as <code>0x8481</code>/<code>0x8482</code>). <code>OP1</code> is the primary accumulator; most routines take their argument in <code>OP1</code> (and <code>OP2</code> for binary ops) and return in <code>OP1</code>.</p>
-<h2 id="core-operations-confirmed-from-disassembly"><a class="header" href="#core-operations-confirmed-from-disassembly">Core operations [confirmed from disassembly]</a></h2>
+<h2 id="core-operations-confirmed"><a class="header" href="#core-operations-confirmed">Core operations [confirmed]</a></h2>
 <p>Every binary operation has the shape <code>OP1 ∘ OP2 → OP1</code>. Add and subtract walk the same five stages below; multiply and divide instead <em>combine</em> exponents (add them for <code>×</code>, subtract for <code>÷</code>) and multiply/divide the mantissas. Because the format is sign-magnitude BCD, the sign is settled separately — negating a value is a single <code>XOR 0x80</code> on its type byte — so the digit work always runs on a non-negative 14-digit mantissa:</p>
 <pre class="mermaid">flowchart LR
     A["clear guard digits&lt;br/&gt;fp_clear_guard"] --&gt; B["align exponents&lt;br/&gt;shift smaller right by Δ"]
@@ -248,7 +257,7 @@
 \end{algorithmic}
 \end{algorithm}
 </code></pre>
-<p>This is the canonical sign-magnitude BCD add. The full helper cluster is documented below.</p>
+<p>The full helper cluster is documented below.</p>
 <blockquote>
 <p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: the <code>2+3</code> run
 (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/home-2plus3.macro"><code>home-2plus3.macro</code></a>) enters <code>_FPAdd</code> and
@@ -278,7 +287,7 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 <p>Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize primitives.</p>
 <h2 id="floating-point-stack-fps-standard"><a class="header" href="#floating-point-stack-fps-standard">Floating-point stack (FPS) [standard]</a></h2>
 <p><code>FPS</code> (<code>0x9824</code>) is a software stack for temporaries; <code>_PushRealO1</code> (= <code>RST 18h</code>, <code>ram:155C</code>), <code>_PushReal</code>, <code>_PopRealO1</code> through <code>_PopRealO6</code>, <code>_PopReal</code>, <code>_AllocFPS</code>, and <code>_DeallocFPS</code> manage it. Used to spill OP registers during nested expression evaluation.</p>
-<h2 id="multiply--divide--transcendentals-confirmed--located"><a class="header" href="#multiply--divide--transcendentals-confirmed--located">Multiply / divide / transcendentals [confirmed — located]</a></h2>
+<h2 id="multiply--divide--transcendentals-confirmed"><a class="header" href="#multiply--divide--transcendentals-confirmed">Multiply / divide / transcendentals [confirmed]</a></h2>
 <p>The rest of the FP op set lives alongside add on page 0, with the transcendentals banked to page 0x02:</p>
 <div class="table-wrapper">
 <table>
@@ -296,11 +305,11 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 </tbody>
 </table>
 </div>
-<p>See <a href="sub-calculation.html">Calculation Engine</a> for the ×/÷/^/root algorithms and number formatting.</p>
+<p>See <a href="sub-calculation.html">Calculation engine</a> for the ×/÷/^/root algorithms and number formatting.</p>
 <h2 id="transcendental-method-confirmed"><a class="header" href="#transcendental-method-confirmed">Transcendental method [confirmed]</a></h2>
-<p>The ln/e^x/sin-cos evaluators are local page-0x02 code plus page-0x02 coefficient tables. The apparent <code>LD A,n; CALL ram:2362</code> “page switch” sites are not banked series tails: Ghidra disassembly shows <code>ram:2362: CALL ram:3DD1</code>, and <code>ram:3DD1</code> is a bcall-table entry whose inline descriptor is <code>1E 7D 02</code> (<code>page_02:7D1E</code>). The real banked-call helper is <code>ram:2B09</code>. <code>ram:2362</code> fetches the page-0x02 coefficient indexed by <code>A</code> and then multiplies OP1 by it (it enters the <code>_FPMult</code> body at <code>ram:2392</code>). Therefore the preceding <code>LD A,n</code> is a coefficient-table index, not a target flash page. Raw ROM bytes at the supposed same-address page-0x03 targets are <code>0xFF</code>, and Ghidra has no page-0x03/page-0x06 functions there.</p>
+<p>The ln/e^x/sin-cos evaluators are local page-0x02 code plus page-0x02 coefficient tables. The apparent <code>LD A,n; CALL ram:2362</code> “page switch” sites are not banked series tails: Ghidra disassembly shows <code>ram:2362: CALL ram:3DD1</code>, and <code>ram:3DD1</code> is a bcall-table entry whose inline descriptor is <code>1E 7D 02</code> (<code>02:7D1E</code>). The real banked-call helper is <code>ram:2B09</code>. <code>ram:2362</code> fetches the page-0x02 coefficient indexed by <code>A</code> and then multiplies OP1 by it (it enters the <code>_FPMult</code> body at <code>ram:2392</code>). Therefore the preceding <code>LD A,n</code> is a coefficient-table index, not a target flash page. Raw ROM bytes at the supposed same-address page-0x03 targets are <code>0xFF</code>, and Ghidra has no page-0x03/page-0x06 functions there.</p>
 <h3 id="the-shared-algorithm--digit-by-digit-pseudo-division-confirmed"><a class="header" href="#the-shared-algorithm--digit-by-digit-pseudo-division-confirmed">The shared algorithm — digit-by-digit pseudo-division [confirmed]</a></h3>
-<p>The forward log and exp evaluators are a digit-by-digit pseudo-division recurrence — the algorithm BCD calculators have used since the 1960s. The table gives it away: <code>02:7181</code>’s 16 rows are exactly $\log_{10}(1+10^{-k})$ for $k=0\ldots15$ (matched to 14 digits — <code>[00]</code> = <code>log₁₀2</code>, <code>[01]</code> = <code>log₁₀1.1</code>, <code>[02]</code> = <code>log₁₀1.01</code>, …), which is precisely the per-step increment such a recurrence consumes. The recurrence runs on shift-and-add alone: scaling a BCD number by $1+10^{-k}$ is $x + (x\text{ shifted right }k\text{ digits})$, one <code>fp_shift_right_digit</code> (<code>ram:1bea</code>) plus one BCD-add, so the digit-by-digit recurrence core needs no general multiply (only the base-conversion scaling via <code>CALL ram:2362</code> enters <code>_FPMult</code>). (The traces show the shift <code>1bea</code> is shared, but the running-add entry differs: <code>_EToX</code> uses <code>fp_add_mantissa</code> <code>ram:1cb9</code>, while <code>_LnX</code> uses the sibling BCD-add entry <code>ram:1ca9</code> — <code>1cb9</code> fires 0× in the <code>ln(2)</code> loop, <code>1ca9</code> 0× in the <code>e¹</code> loop.)</p>
+<p>The forward log and exp evaluators are a digit-by-digit pseudo-division recurrence — the algorithm BCD calculators have used since the 1960s. The 16 rows at <code>02:7181</code> are exactly $\log_{10}(1+10^{-k})$ for $k=0\ldots15$ (matched to 14 digits — <code>[00]</code> = <code>log₁₀2</code>, <code>[01]</code> = <code>log₁₀1.1</code>, <code>[02]</code> = <code>log₁₀1.01</code>, …), which is the per-step increment such a recurrence consumes. The recurrence runs on shift-and-add alone: scaling a BCD number by $1+10^{-k}$ is $x + (x\text{ shifted right }k\text{ digits})$, one <code>fp_shift_right_digit</code> (<code>ram:1bea</code>) plus one BCD-add, so the digit-by-digit recurrence core needs no general multiply (only the base-conversion scaling via <code>CALL ram:2362</code> enters <code>_FPMult</code>). (The traces show the shift <code>1bea</code> is shared, but the running-add entry differs: <code>_EToX</code> uses <code>fp_add_mantissa</code> <code>ram:1cb9</code>, while <code>_LnX</code> uses the sibling BCD-add entry <code>ram:1ca9</code> — <code>1cb9</code> fires 0× in the <code>ln(2)</code> loop, <code>1ca9</code> 0× in the <code>e¹</code> loop.)</p>
 <p><strong>Logarithm.</strong> With the exponent already split off so the mantissa is $x\in[1,10)$, the loop (<code>02:6F80</code>–<code>6FEE</code>) drives $x$ up toward $10$ by repeatedly scaling by the largest table factor that doesn’t overshoot; the number of scalings at each position <em>is</em> the corresponding digit of the answer, and the running sum of the table entries is the logarithm:</p>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{Logarithm by pseudo-division (table $c_k=\log_{10}(1+10^{-k})$ at \texttt{02:7181})}
@@ -374,7 +383,7 @@ described. On-screen result: <code>.8414709848</code>. (Per-row coefficient mean
 </blockquote>
 <h3 id="coefficient-tables-confirmed"><a class="header" href="#coefficient-tables-confirmed">Coefficient tables [confirmed]</a></h3>
 <p><code>02:7D1E</code> zeroes the OP2 type byte, indexes <code>02:7D42 + 9*A</code>, then copies the selected constant image into OP2. The only <code>LD A,n; CALL ram:2362</code> uses in this cluster are <code>A=3</code> (<code>log10(e)</code>) and <code>A=6</code> (<code>ln(10)</code>); the later trig reduction constants are loaded directly from the same nearby block.</p>
-<pre><code>02:7D42 constants, 9-byte stride:
+<pre><code class="language-text">02:7D42 constants, 9-byte stride:
   [00] 81 57 29 57 79 51 30 82 32
   [01] 80 15 70 79 63 26 79 48 97
   [02] 7F 78 53 98 16 33 97 44 83
@@ -386,7 +395,7 @@ described. On-screen result: <code>.8414709848</code>. (Per-row coefficient mean
   [08] 59 26 53 58 98 78 53 98 16
 </code></pre>
 <p><code>02:7181</code> is the shared ln/e^x digit table loaded by <code>02:7301</code>/<code>02:7302</code>/<code>02:7305</code>. It has 16 8-byte rows:</p>
-<pre><code>[00] 30 10 29 99 56 63 98 12  [01] 04 13 92 68 51 58 22 50
+<pre><code class="language-text">[00] 30 10 29 99 56 63 98 12  [01] 04 13 92 68 51 58 22 50
 [02] 00 43 21 37 37 82 64 26  [03] 00 04 34 07 74 79 31 86
 [04] 00 00 43 42 72 76 86 27  [05] 00 00 04 34 29 23 10 45
 [06] 00 00 00 43 42 94 26 48  [07] 00 00 00 04 34 29 44 60
@@ -396,7 +405,7 @@ described. On-screen result: <code>.8414709848</code>. (Per-row coefficient mean
 [14] 00 00 00 00 00 00 00 43  [15] 00 00 00 00 00 00 00 04
 </code></pre>
 <p><code>02:7201</code> and <code>02:7281</code> are the forward sin/cos signed recurrence tables (the per-row near-unity factors the digit loop steps through, per the shared algorithm above). Each row is 16 bytes: the first 8-byte variant is selected when <code>0x84A4 bit 7</code> is clear, and the second 8-byte variant is selected when it is set.</p>
-<pre><code>02:7201:
+<pre><code class="language-text">02:7201:
 [00] 09 96 68 65 24 91 16 20 | 10 03 35 34 77 31 07 56
 [01] 09 99 96 66 68 66 65 24 | 10 00 03 33 35 33 34 76
 [02] 09 99 99 96 66 66 68 67 | 10 00 00 03 33 33 35 33
@@ -416,13 +425,13 @@ described. On-screen result: <code>.8414709848</code>. (Per-row coefficient mean
 [06] 99 99 99 99 99 99 94 95 | 10 00 00 00 00 00 00 51
 [07] 99 99 99 99 99 99 99 95 | 10 00 00 00 00 00 00 01
 </code></pre>
-<p>The forward ln, e^x, and sin/cos paths all run on the table-driven digit recurrence above — a selector that steps through a coefficient table one row at a time, on shift-and-add (ln/e^x loaded from <code>02:7181</code>; sin/cos from <code>02:7201</code>/<code>02:7281</code>). The separate arctangent engine behind inverse trig uses a base-10 CORDIC iteration, documented in <a href="sub-calculation.html">Calculation Engine</a>.</p>
+<p>The forward ln, e^x, and sin/cos paths all run on the table-driven digit recurrence above — a selector that steps through a coefficient table one row at a time, on shift-and-add (ln/e^x loaded from <code>02:7181</code>; sin/cos from <code>02:7201</code>/<code>02:7281</code>). The separate arctangent engine behind inverse trig uses a base-10 CORDIC iteration, documented in <a href="sub-calculation.html">Calculation engine</a>.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="05-variables-vat.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="variables-vat.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -436,7 +445,7 @@ described. On-screen result: <code>.8414709848</code>. (Per-row coefficient mean
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="05-variables-vat.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="variables-vat.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
@@ -462,11 +471,11 @@ described. On-screen result: <code>.8414709848</code>. (Per-row coefficient mean
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

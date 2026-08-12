@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Interrupts (IM1) - TI-84 Plus OS — Reverse Engineering</title>
+        <title>Tokenizer &amp; TI-BASIC - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
+            window.path_to_searchindex_js = "searchindex-c66ba8da.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,92 +179,141 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="04--interrupts-im1"><a class="header" href="#04--interrupts-im1">04 — Interrupts (IM1)</a></h1>
-<p>The Z80 runs in interrupt mode 1: every maskable interrupt vectors to <code>0038h</code>. There is no vector table — one handler services all sources by polling status ports.</p>
-<h2 id="vector--handler-confirmed"><a class="header" href="#vector--handler-confirmed">Vector → handler [confirmed]</a></h2>
-<pre><code class="language-z80">0038:  JR  0x006d        ; RST 38h vector
-006d:  int_entry_save_alt_regs ; shadow-register save prologue
-006f:  int_dispatch_sources    ; live interrupt-source dispatcher
-</code></pre>
-<p><code>int_dispatch_sources</code> @ <code>ram:006F</code> runs after the two-byte prologue at <code>ram:006D</code>, with <code>IY = flags</code> (<code>0x89F0</code>), so <code>(IY+off)</code> reads/writes <code>SystemFlags</code> fields.</p>
-<h2 id="what-it-does-confirmed-from-decompiler"><a class="header" href="#what-it-does-confirmed-from-decompiler">What it does [confirmed from decompiler]</a></h2>
-<p>Entry saves context (<code>ex af,af'</code> / <code>exx</code> — the Z80 shadow registers, the classic TI ISR convention) then polls:</p>
-<ol>
-<li><code>port_usbIntStatus</code> (0x55) — the 84+ USB Interrupt State port. This OS overloads it as the ISR’s master “anything pending?” gate: <code>(val ^ 0xFF) &amp; 0x1F</code> tests the 5 active-low sources.</li>
-<li><code>port_usbLineEvents</code> (0x56) — the USB Line Events port; a read-only event bitmap whose bits select the timer/link sub-handlers. (Port 0x56 is read-only, so it is not an interrupt mask.)</li>
-<li>Branches per source:
+                        <h1 id="tokenizer--ti-basic"><a class="header" href="#tokenizer--ti-basic">Tokenizer &amp; TI-BASIC</a></h1>
+<p>TI-BASIC programs are stored as tokens, not text: every command, function, and variable is a token of 1 or 2 bytes. The OS detokenizes (token→display string) to show a program and tokenizes (keypress/text→token) on entry; the parser walks tokens to execute.</p>
+<h2 id="token-encoding-confirmed"><a class="header" href="#token-encoding-confirmed">Token encoding [confirmed]</a></h2>
 <ul>
-<li><strong>ON key</strong> — sets an ON-flag; <code>onSP</code> (<code>0x85BC</code>) holds the SP to unwind to for the ON-break path.</li>
-<li><strong>First/second timer</strong> — drives the APD (auto-power-down) countdown and cursor blink; ACKs via the interrupt-mask port <code>0x03</code>.</li>
-<li><strong>Link activity</strong> — services the link port.</li>
+<li>Most tokens are one byte (<code>tStore</code>=0x04, <code>tBoxPlot</code>=0x05, operators, digits, letters, common commands). The Ghidra database models the byte values as the <code>TIToken</code> enum, built from the <code>t</code>-prefixed equates in <code>ti83plus.inc</code>.</li>
+<li>Some bytes are lead bytes of a two-byte token: the first byte selects a table, the second byte the entry.</li>
 </ul>
-</li>
-<li>Hardware-mode housekeeping: checks <code>port_mapBankB == 0x81</code> (84+ mode), and on one path sets <code>port_cpuSpeed = 1</code> (15 MHz) and <code>port_mapBankB = 0x81</code>.</li>
-<li>Restores context and <code>EI</code> / <code>RET</code>.</li>
-</ol>
-<h2 id="iyoff--systemflags-fields-the-isr-touches-confirmed-from-disassembly"><a class="header" href="#iyoff--systemflags-fields-the-isr-touches-confirmed-from-disassembly"><code>(IY+off)</code> → <code>SystemFlags</code> fields the ISR touches [confirmed from disassembly]</a></h2>
-<p><code>int_dispatch_sources</code> reads/writes these flag bits via <code>BIT/SET/RES b,(IY+d)</code>. Offsets are confirmed against the standard <code>ti83plus.inc</code> group layout; the anchor <code>apdFlags = IY+0x08</code> is confirmed in code (<code>_DisableApd</code>/<code>_EnableApd</code> @ <code>3B:7AA8</code>/<code>3B:7AAD</code> do <code>RES/SET 2,(IY+0x8)</code>), <code>curFlags = IY+0x0C</code> is confirmed (<code>_CursorOn</code>/<code>_CursorOff</code> @ <code>06:7D34</code>/<code>06:7C5F</code>).</p>
+<h3 id="the-2-byte-lead-byte-set-confirmed"><a class="header" href="#the-2-byte-lead-byte-set-confirmed">The 2-byte lead-byte set [confirmed]</a></h3>
+<p><code>_IsA2ByteTok</code> (<code>ram:1FE8</code>) scans an 11-byte table at <code>ram:1FF6</code> to decide if a byte starts a 2-byte token. The bytes are:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th><code>(IY+off)</code></th><th>bit</th><th>field / equate</th><th>meaning in the ISR</th></tr>
+<tr><th>Byte</th><th>Meaning (.inc)</th></tr>
 </thead>
 <tbody>
-<tr><td><code>IY+0x03</code></td><td>1</td><td>flag byte <code>0x03</code> bit1</td><td>ON-key interrupt already latched (guards the ON-set path @ <code>ram:00F5</code>)</td></tr>
-<tr><td><code>IY+0x03</code></td><td>0</td><td><code>graphFlags</code>·graphDraw</td><td>redraw-graph flag the ISR sets @ <code>ram:0109</code></td></tr>
-<tr><td><code>IY+0x08</code></td><td>2</td><td><code>apdFlags</code>·apdAble</td><td>APD enabled; toggled by <code>_DisableApd</code>/<code>_EnableApd</code></td></tr>
-<tr><td><code>IY+0x09</code></td><td>3</td><td><code>onFlags</code>·onRunning</td><td>calculator-running flag; tested before the 84+ USB-port path (<code>ram:008B</code>, <code>ram:099E</code>)</td></tr>
-<tr><td><code>IY+0x09</code></td><td>4</td><td><code>onFlags</code>·onInterrupt</td><td>ON-key interrupt-request flag; set @ <code>ram:0A87</code></td></tr>
-<tr><td><code>IY+0x0C</code></td><td>3</td><td><code>curFlags</code>·curOn</td><td>cursor currently drawn (blink phase)</td></tr>
-<tr><td><code>IY+0x0C</code></td><td>2</td><td><code>curFlags</code>·curAble</td><td>cursor-blink enabled (<code>curLock</code> is bit 4)</td></tr>
-<tr><td><code>IY+0x0F</code></td><td>7</td><td><code>seqFlags</code> bit7</td><td>cleared @ <code>ram:0A8C</code> (<code>RES 7,(IY+0Fh)</code>) on the ON-key path</td></tr>
-<tr><td><code>IY+0x12</code></td><td>3</td><td><code>shiftFlags</code>·shift2nd</td><td>the <code>[2nd]</code>-pending modifier flag; the ISR clears it at <code>ram:01E0</code> (<code>RES 3</code>) so a held <code>[2nd]</code> does not linger — see the <a href="09-keyboard-link.html">keyboard modifier state machine</a></td></tr>
-<tr><td><code>IY+0x12</code></td><td>0</td><td><code>indicFlags</code>·indicRun</td><td>run-indicator-on flag (set by <code>_RunIndicOn</code>); the byte is shared — bits 0–2 are <code>indicFlags</code>, bits 3–7 are <code>shiftFlags</code></td></tr>
-<tr><td><code>IY+0x16</code></td><td>0</td><td>speed/ACK select</td><td>chooses the value re-written to int-mask port <code>0x03</code> on exit (<code>ram:00E6</code>)</td></tr>
-<tr><td><code>IY+0x16</code></td><td>1</td><td>(same byte)</td><td>link-busy sub-flag, reset @ <code>ram:015E</code></td></tr>
-<tr><td><code>IY+0x24</code></td><td>2</td><td>link/transfer-active</td><td>guards the ON-break vs. link-restore decision (<code>ram:09EE</code>, <code>ram:0AAB</code>)</td></tr>
-<tr><td><code>IY+0x28</code></td><td>7/3</td><td><code>APIFlg</code>·appRetKeyOff (b7)</td><td>ISR tests <code>BIT 7</code> (<code>appRetKeyOff</code>) @ <code>ram:09DB</code> and does <code>SET 3</code> @ <code>ram:09E1</code> on the ON-break path</td></tr>
-<tr><td><code>IY+0x2C</code></td><td>0</td><td><code>mouseFlag1</code> bit0</td><td>scanner-active flag tested by <code>kbd_scan_autorepeat</code> @ <code>ram:0415</code> (the scan code itself is RAM <code>kbdScanCode</code> <code>0x843F</code>, not an IY flag)</td></tr>
-<tr><td><code>IY+0x33</code></td><td>5/0</td><td>context-restore sub-flags</td><td>branch selectors on the ON-break / restore path</td></tr>
-<tr><td><code>IY+0x3A</code></td><td>0</td><td><code>hookflags5</code>·usbActivityHookActive</td><td>when set, the ISR runs the deferred USB-activity hook (<code>ram:032A</code>) and ACKs</td></tr>
-<tr><td><code>IY+0x3F</code></td><td>7</td><td>RAM-clear control</td><td>masked during the ON-key RAM wipe (<code>ram:0B3C</code>)</td></tr>
-<tr><td><code>IY+0x44</code></td><td>2</td><td>(uncharacterized)</td><td>a restore-path branch clears this bit; no standard equate identifies it</td></tr>
+<tr><td><code>5C</code></td><td><code>tVarMat</code> — matrix name (<code>[A]</code>…)</td></tr>
+<tr><td><code>5D</code></td><td><code>tVarLst</code> — list name (<code>L1</code>…)</td></tr>
+<tr><td><code>5E</code></td><td><code>tVarEqu</code> — equation variable (<code>Y1</code>, <code>r1</code>, …)</td></tr>
+<tr><td><code>60</code></td><td><code>tVarPict</code> — picture</td></tr>
+<tr><td><code>61</code></td><td><code>tVarGDB</code> — graph database</td></tr>
+<tr><td><code>62</code></td><td><code>tVarOut</code> — Y-vars / output</td></tr>
+<tr><td><code>63</code></td><td><code>tVarSys</code> — system var group (Xmin, …)</td></tr>
+<tr><td><code>7E</code></td><td>graph-format token group</td></tr>
+<tr><td><code>BB</code></td><td><code>t2ByteTok</code> — the general “extended commands” page (2.x additions)</td></tr>
+<tr><td><code>AA</code></td><td><code>tVarStrng</code> — string variable (<code>Str1</code>…)</td></tr>
+<tr><td><code>EF</code></td><td>TI-84+-era extended token page</td></tr>
 </tbody>
 </table>
 </div>
-<p>The byte <code>_GetCSC</code> (<code>00:04B2</code>) clears is <code>(IY+0)</code> bit3 (<code>*flags &amp; 0xF7</code>) — the <code>kbdSCR</code>/“new scan code ready” flag in the keyboard group.</p>
-<h2 id="timer-reprogramming-apd-timeout-and-cursor-blink-confirmed-mechanism-exact-tick-value-hypothesis"><a class="header" href="#timer-reprogramming-apd-timeout-and-cursor-blink-confirmed-mechanism-exact-tick-value-hypothesis">Timer reprogramming, APD timeout, and cursor blink [confirmed mechanism; exact tick value [hypothesis]]</a></h2>
-<p><strong>Interrupt sources &amp; ACK.</strong> The dispatcher polls the 84+ USB-interrupt ports first, then the two crystal hardware timers: it reads port <code>0x37</code> (crystal timer 3 status — <code>IN A,(0x37)</code> @ <code>ram:012D</code>, <code>BIT 1,A</code> @ <code>ram:012F</code>) and port <code>0x31</code> (crystal timer 1 status — <code>IN</code> @ <code>ram:013B</code>, <code>BIT 1</code> @ <code>ram:013D</code>). (Per the WikiTI port map the three crystal timers are <code>0x30–0x32</code> = timer 1, <code>0x33–0x35</code> = timer 2, <code>0x36–0x38</code> = timer 3.) Each maskable interrupt is ACKed by rewriting the int-mask port <code>0x03</code>. The common exit (<code>ram:00E4</code>) writes <code>0x0B</code>, or <code>0x0F</code> when <code>(IY+0x16)</code> bit0 is set (the second value re-enables the on-key + both timer sources at the higher CPU speed). The master ACK at <code>ram:00DC</code> writes <code>0x08</code> then the saved mask. Port <code>0x04</code> is loaded with <code>6</code> (<code>ram:09B5</code>/<code>ram:0C8C</code>) to re-arm the legacy 83+ timer line.</p>
-<p><strong>APD (auto-power-down) countdown.</strong> APD is a software down-counter decremented by the timer interrupt:</p>
+<p>So e.g. <code>5D 00</code> = list <code>L1</code>; <code>BB xx</code> = an extended command. The second byte indexes that group’s name/handler table. (String variables <code>Str1</code>–<code>Str0</code> use lead <code>AA</code>; they are a distinct VAT object type holding tokenized text — see <a href="variables-vat.html#strings-str1str0--a-distinct-object-type-confirmed">Strings</a>.)</p>
+<h2 id="detokenize--token-length-confirmed"><a class="header" href="#detokenize--token-length-confirmed">Detokenize / token length [confirmed]</a></h2>
 <ul>
-<li><code>apdSubTimer</code> (<code>0x8448</code>) / <code>apdTimer</code> (<code>0x8449</code>) hold the APD down-counter. <code>_ApdSetup</code> (<code>00:03AE</code>) writes the reload constant <code>0x74</code> to <code>0x8449</code> (<code>apdTimer</code>). The per-tick decrement is in page 0 at <code>ram:036C</code> (<code>LD HL,0x8448; DEC (HL); RET NZ; INC HL; DEC (HL)</code> — decrement <code>apdSubTimer</code>, and on its underflow <code>apdTimer</code>); a key press reloads the counter, so any key keeps the calc awake. The crystal-timer interrupt rate remains unreadable from this DB: when a timer-status bit is set the ISR dispatches to an unanalyzed handler — <code>35:4792</code> (via the <code>ram:3FB1</code> bjump) for timer 3 / port <code>0x37</code>, and <code>33:5EB4</code> (via <code>ram:3FB7</code>) for timer 1 / port <code>0x31</code> — so the wall-clock timeout cannot be derived from this DB. By the standard 83+/84+ design this yields the documented ~2–5 minute idle power-down. [reload constant + counter addresses + decrement site <code>ram:036C</code> confirmed; tick rate / absolute seconds [hypothesis]]</li>
-<li>The unrelated <code>indicCounter</code>/<code>indicBusy</code> pair (<code>0x8476</code>/<code>0x8477</code>) drives the run indicator (the moving-dashes busy spinner), not APD: <code>_RunIndicOn</code> (<code>01:6518</code>) seeds it (<code>0x8477 = 0xF0</code>, <code>0x8476 = 1</code>) and the tick routine at <code>ram:027B</code> (<code>dec_apd_timer</code> in the symbol map, though it decrements the run-indicator counter) does <code>DEC (0x8476); RET NZ</code> each timer tick, advancing the spinner via the expiry path (<code>ram:3FE1</code>) only on underflow. [confirmed]</li>
+<li><code>_GetTokLen</code> (<code>01:66E5</code>) accepts the packed one- or two-byte token in <code>DE</code>
+and returns the length of its detokenized display string in <code>A</code>. It calls
+<code>smallfont_glyph_ptr</code> (<code>01:6702</code>) to resolve the string pointer, then reads the
+leading length byte (<code>LD A,(HL)</code>). <code>_IsA2ByteTok</code>, not <code>_GetTokLen</code>, tests the
+encoded width.</li>
+<li><code>_Get_Tok_Strng</code> (<code>01:66EA</code>) returns the display string for a token (used by the program editor and <code>Disp</code>).</li>
 </ul>
-<p><strong>Cursor blink cadence.</strong> The blink is the same kind of software down-counter, driven off the same timer interrupt:</p>
+<h2 id="parser--interpreter-confirmed"><a class="header" href="#parser--interpreter-confirmed">Parser / interpreter [confirmed]</a></h2>
+<p>The expression parser/evaluator lives on flash page 0x38. Entry points:</p>
 <ul>
-<li><code>0x844A</code> (<code>curTime</code>) is the blink down-counter; <code>_CursorOn</code>/<code>_CursorOff</code> (<code>06:7D34</code>/<code>06:7C5F</code>) reload it with <code>0x32</code> (50) (<code>LD A,0x32; LD (0x844A),A</code>).</li>
-<li>The ISR tests <code>curAble</code> (<code>IY+0x0C</code> bit 2) at <code>ram:019B</code> and, if enabled, calls the cursor tick through the <code>ram:3FCF</code> bjump to <code>06:7C45</code>, which decrements <code>0x844A</code>; on underflow it toggles <code>curFlags</code> (<code>IY+0x0C</code>) bit 3 (curOn) to flip the glyph and reloads <code>0x32</code>. So the cadence is “toggle every 50 timer ticks”; only the absolute rate (the crystal-timer tick frequency) is ungrounded, which by the WikiTI-documented rate is ≈ 2 blinks/second. [reload value <code>0x32</code>, counter <code>0x844A</code>, and tick site <code>06:7C45</code> confirmed; Hz [hypothesis]]</li>
+<li><code>_ParseInp</code> (<code>38:5987</code>) — parse/evaluate the input (homescreen/entry line). It calls <code>parse_init</code> (<code>38:5b7b</code>) to reset parser state, clears editing flags, then resolves via <code>_ChkFindSym</code>. [confirmed]</li>
+<li><code>_ParseInpLastEnt</code> (<code>38:5984</code>) — public parser variant immediately before
+<code>_ParseInp</code>; the generated <code>ASMPARSE.8xp</code>/<code>ZZPARSE.8xp</code> fixture reaches it
+but fails with <code>ERR:INVALID</code> without running the named BASIC target.
+[confirmed]</li>
+<li><code>_Find_Parse_Formula</code> (<code>38:758A</code>) — <code>_FindSym</code> a variable then parse its stored
+formula (Y-vars, equations). The generated <code>ASMFORM.8xp</code>/<code>ZZFORM.8xp</code> fixture
+reaches it from an <code>AsmPrgm</code> payload but fails with <code>ERR:UNDEFINED</code> without
+running the named BASIC target. [confirmed]</li>
+<li><code>parse_init</code> (<code>38:5b7b</code>) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). [confirmed]</li>
 </ul>
-<h2 id="notable-details"><a class="header" href="#notable-details">Notable details</a></h2>
+<p>The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the <a href="floating-point.html">floating-point engine</a>, variable tokens resolve via <a href="variables-vat.html">the VAT</a>, and the busy indicator is driven by <code>_RunIndicOn</code> / <code>_RunIndicOff</code>. <code>_BinOPExec</code> applies a binary operator via OP1/OP2.</p>
+<h3 id="the-handler-dispatch-table-confirmed"><a class="header" href="#the-handler-dispatch-table-confirmed">The handler dispatch table [confirmed]</a></h3>
+<p>Page 0x38 begins with the parser’s handler dispatch at <code>38:4000</code> — a flat array of 2-byte little-endian handler pointers. Raw bytes are <code>9F 41 F0 45 1C 42 …</code> = entries <code>0x419F, 0x45F0, 0x421C, …</code> (all in-window <code>0x4xxx</code>/<code>0x47xx</code> code addresses), indexed by token class and dereferenced; the selector at <code>38:7010</code> loads <code>LD HL,0x4000</code> and adds <code>2×index</code> (see <a href="sub-tibasic.html">TI-BASIC Programs</a>).</p>
+<p>These handlers implement TI-BASIC statements/commands and operators. Sampling them by the routine they call:</p>
 <ul>
-<li>This OS keys off the 84+ USB-interrupt ports 0x55/0x56 as the primary interrupt-state source, rather than the classic <code>0x03/0x04</code>. Port 0x55 is the USB Interrupt State (read; <code>(v^0xFF)&amp;0x1F</code> masks the active sources) and 0x56 is USB Line Events (read-only) — both are read sources, not a status/mask pair, despite the dispatch role. The legacy mask <code>0x03</code> is still written to ACK. [confirmed in code; ports per WikiTI]</li>
-<li>The ISR is where APD (auto power down) and the blinking cursor timing originate — both are software down-counters (<code>apdTimer 0x8449</code>/<code>curTime 0x844A</code>) ticked by the crystal timers (ports 0x37/0x31). The separate run-indicator spinner uses <code>indicCounter</code>/<code>indicBusy</code> (<code>0x8476</code>/<code>0x8477</code>), seeded by <code>_RunIndicOn</code>. [confirmed]</li>
-<li><code>_GetCSC</code> (<code>00:04B2</code>) cooperates with the ISR: the ISR (or keypad path) updates <code>kbdScanCode</code>; <code>_GetCSC</code> atomically reads and clears it with interrupts masked, also clearing <code>(IY+0)</code> bit3. [confirmed]</li>
+<li>indices 8–10, 17–19, 38 → <code>bcall(_Regraph)</code> — graph commands (<code>DrawF</code>, <code>ZoomFit</code>, etc.).</li>
+<li>indices 14–16, 21–22 → <code>bcall(_Disp)</code> — display/output commands (<code>Disp</code>, <code>Output</code>).</li>
+<li>the “no-bcall” handlers are the arithmetic/operator productions — they drive OP1/OP2 through the FP engine via the RST shortcuts (RST 30h <code>_FPAdd</code>, etc.), which is why a bcall scan doesn’t flag them; variable handlers go through <code>_FindSym</code> (<a href="variables-vat.html">Variables &amp; the VAT</a>).</li>
 </ul>
-<h2 id="timer-tick-rate-ungrounded"><a class="header" href="#timer-tick-rate-ungrounded">Timer tick rate (ungrounded)</a></h2>
+<p>The first handlers: <code>38:419F, 45F0, 421C, …</code>.</p>
+<h3 id="parse-stream-cursor-confirmed"><a class="header" href="#parse-stream-cursor-confirmed">Parse-stream cursor [confirmed]</a></h3>
+<p>The evaluator walks the token stream via a cursor in RAM: <code>parsePtr</code> (<code>0x965D</code> = official <code>nextParseByte</code>, current position) and <code>parseEnd</code> (<code>0x965F</code> = <code>basic_end</code>, end). Named helpers on page 0x38:</p>
 <ul>
-<li>The crystal-timer tick period (and therefore the APD timeout in seconds and cursor blink in Hz) depends on the unanalyzed timer-status handlers <code>35:4792</code> (timer 3 / port <code>0x37</code>, via <code>ram:3FB1</code>) and <code>33:5EB4</code> (timer 1 / port <code>0x31</code>, via <code>ram:3FB7</code>), which are data in this DB, so the absolute tick rate is not derivable here. The reload constants (<code>apdTimer 0x8449 = 0x74</code>, <code>curTime 0x844A = 0x32</code>), the counter addresses, and the page-0 / page-06 decrement sites (<code>ram:036C</code>, <code>06:7C45</code>) are confirmed; only the absolute tick rate is ungrounded. [hypothesis]</li>
+<li><code>parse_cur_tok</code> (<code>38:72DA</code>) — fetch the token at the cursor.</li>
+<li><code>parse_advance</code> (<code>38:7248</code>) — <code>parsePtr++</code> (advances the cursor and reloads <code>BC</code> from it). The bounds/refill check is the adjacent entry <code>38:7245</code>, which calls <code>0x1FD6</code> before falling into the increment.</li>
+<li><code>parse_expect_or_err</code> (<code>38:5CD8</code>) — fetch a token and raise <code>_ErrSyntax</code> (recording the position in <code>parsePtr</code>) if it isn’t the expected one.</li>
 </ul>
+<p>So the dispatch loop is: <code>parse_cur_tok</code> → index the pointer table at <code>38:4000</code> and call the selected handler (which may consume args via <code>parse_advance</code>) → repeat.</p>
+<p><strong>Main evaluator:</strong> <code>parse_eval_expr</code> (<code>38:5AB3</code>) is the big recursive-descent expression evaluator — it dispatches through handler function-pointers (<code>code *</code>) with operator precedence, reading via the cursor helpers and leaving the result in <code>OP1</code>. <code>_ParseInp</code> → <code>parse_init</code> → <code>parse_eval_expr</code>. <code>parse_scan_tokens</code> (<code>38:4180</code>) is a token-scan helper (skips to a delimiter, honoring 2-byte tokens via <code>_IsA2ByteTok</code>).</p>
+<p>The region at <code>38:4000</code> is a flat array of 2-byte handler pointers (entries <code>0x419F, 0x45F0, 0x421C, …</code>), not executable code — <code>CALL 0x33AB</code> (<code>CD AB 33</code>) appears nowhere on page 0x38. Each handler is itself recursive-descent code; the table selects which one to enter. See <a href="sub-tibasic.html">sub-tibasic.md</a> for the execution model (<code>eval_stmt_entry</code>@<code>38:59C5</code>, the <code>blockmatch_end_else</code>@<code>38:4130</code> End/Else matcher, <code>goto_lbl_name_scanner</code>@<code>38:4870</code>).</p>
+<p>The handlers are recursive-descent grammar productions (not flat per-operator routines): each reads via <code>parse_cur_tok</code>, conditionally recurses, and some load sub-dispatch tables (e.g. <code>38:5110</code>, <code>5127</code>) for finer token classes — implementing operator precedence by nesting. So “the + operator” isn’t one table entry; it’s handled within the term/factor production that drives <code>_FPAdd</code> (RST 30h).</p>
+<p>The precedence levels (term/factor/unary productions) and sub-dispatch tables are mapped in <a href="sub-tibasic.html">TI-BASIC Programs</a> §3/§6.</p>
+<h2 id="tokenized-sample-programs"><a class="header" href="#tokenized-sample-programs">Tokenized sample programs</a></h2>
+<p>The raw bodies below are the bytes stored after a <code>ProgObj</code> size word. They can
+be regenerated, along with loadable <code>.8xp</code> files, with
+<code>tools/tibasic_samples.py --write-dir tools/tibasic-samples</code> and traced with
+the workflow in <code>tools/dynamic-tracing.md</code>. The generated samples were run under
+headless TilEm on OS 2.55MP; see
+<a href="sub-tibasic.html#8-dynamic-confirmation-and-traceable-examples">TI-BASIC programs</a>
+for observed outputs and trace anchors.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Program</th><th>Source</th><th>Body bytes</th></tr>
+</thead>
+<tbody>
+<tr><td>Hello</td><td><code>ClrHome</code> / <code>Disp "HELLO, WORLD"</code></td><td><code>E1 3F DE 2A 48 45 4C 4C 4F 2B 29 57 4F 52 4C 44 2A 3F</code></td></tr>
+<tr><td>Factorial</td><td><code>Prompt N</code> / <code>1-&gt;F</code> / <code>For(I,1,N)</code> / <code>F*I-&gt;F</code> / <code>End</code> / <code>Disp F</code></td><td><code>DD 4E 3F 31 04 46 3F D3 49 2B 31 2B 4E 11 3F 46 82 49 04 46 3F D4 3F DE 46 3F</code></td></tr>
+<tr><td>Data</td><td><code>{3,1,4,1,5}-&gt;L1</code> / <code>SortA(L1)</code> / <code>cumSum(L1)-&gt;L2</code> / <code>sum(L1)-&gt;S</code> / display results</td><td><code>08 33 2B 31 2B 34 2B 31 2B 35 09 04 5D 00 3F E3 5D 00 11 3F BB 29 5D 00 11 04 5D 01 3F B6 5D 00 11 04 53 3F DE 5D 00 3F DE 5D 01 3F DE 53 3F</code></td></tr>
+<tr><td><code>Asm(</code> wrapper</td><td><code>Disp "BEFORE"</code> / <code>Asm(prgmASMRET)</code> / <code>Disp "AFTER"</code></td><td><code>DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41 46 54 45 52 2A 3F</code></td></tr>
+<tr><td>ASM callback handoff</td><td><code>Asm(prgmASMSIG)</code> / <code>If Ans</code> / <code>prgmZZBASIC</code></td><td><code>DE 2A 42 45 ... 72 3F 5F 5A 5A ...</code> (full body in <code>tools/tibasic-samples/asmbridge.tok</code>)</td></tr>
+<tr><td>ASM return value</td><td><code>Asm(prgmASMVAL)</code> / <code>Ans+3-&gt;A</code> / <code>Disp A</code></td><td><code>BB 6A 5F 41 53 4D 56 41 4C 11 3F 72 70 33 04 41 3F DE 41 3F</code></td></tr>
+<tr><td>Animation</td><td><code>ClrHome</code> / <code>For(I,1,8)</code> / <code>Output(1,I,"X")</code> / <code>End</code> / <code>Disp "DONE"</code></td><td><code>E1 3F D3 49 2B 31 2B 38 11 3F E0 31 2B 49 2B 2A 58 2A 11 3F D4 3F DE 2A 44 4F 4E 45 2A 3F</code></td></tr>
+<tr><td>Graph drawing</td><td><code>ClrDraw</code>, window stores, visible axes/diagonal, <code>Circle(47,31,10)</code>, <code>Text(0,0,"DFS")</code>, <code>DispGraph</code></td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphviz.tok</code>)</td></tr>
+<tr><td>Graph visualization</td><td><code>ClrDraw</code>, window stores, then <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> drawing the DFS topology</td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphdfs.tok</code>)</td></tr>
+<tr><td>List-driven graph visualization</td><td>edge endpoint lists <code>L1</code>–<code>L4</code>, node lists <code>L5</code>/<code>L6</code>, looped <code>Line(L1(I),...)</code> and <code>Circle(L5(I),...)</code></td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphlist.tok</code>)</td></tr>
+<tr><td>BASIC subprogram</td><td><code>0-&gt;A</code> / <code>prgmSUBRT</code> / <code>Disp A</code>; callee <code>Disp "SUB"</code> / <code>A+1-&gt;A</code> / <code>Return</code></td><td>caller <code>30 04 41 3F 5F 53 55 42 52 54 3F DE 41 3F</code>; callee <code>DE 2A 53 55 42 2A 3F 41 70 31 04 41 3F D5 3F</code></td></tr>
+<tr><td>BASIC ABI fixture</td><td>caller initializes <code>L1</code> and <code>Ans</code>, calls <code>prgmABISUB</code>, then displays <code>A</code>, <code>L1</code>, and <code>Ans</code></td><td>caller <code>08 32 2B 34 ... DE 72 3F</code>; callee <code>72 70 5D 00 ... D5 3F</code> (full bodies in <code>tools/tibasic-samples/callabi.tok</code> and <code>abisub.tok</code>)</td></tr>
+<tr><td>Big integer add</td><td>list digits in <code>L1</code>/<code>L2</code>, carry <code>C</code>, indexed stores into <code>L3</code></td><td><code>08 35 2B 34 ... DE 5D 02 10 36 11 3F</code> (full body in <code>tools/tibasic-samples/bigadd.tok</code>)</td></tr>
+<tr><td>Big integer multiply</td><td>nested <code>For(</code> loops over digit lists, <code>L3(I+J-1)</code> accumulation, carry into <code>L3(I+J)</code></td><td><code>08 33 2B 32 ... DE 5D 02 10 34 11 3F</code> (full body in <code>tools/tibasic-samples/bigmul.tok</code>)</td></tr>
+<tr><td>DFS</td><td>edge lists <code>L1</code>/<code>L2</code>, visited <code>L3</code>, stack <code>L4</code>, <code>While</code>/<code>If Then</code>/nested <code>For</code></td><td><code>08 31 2B 31 ... D4 3F DE 5D 02 3F</code> (full body in <code>tools/tibasic-samples/dfs.tok</code>)</td></tr>
+</tbody>
+</table>
+</div>
+<p>These examples show the main token categories the parser must walk:
+statement separators (<code>3F</code>), string delimiters (<code>2A</code>), store (<code>04</code>), list names
+(<code>5D 00</code>/<code>5D 01</code>), extended <code>BB</code> tokens (<code>cumSum(</code> = <code>BB 29</code>, <code>Asm(</code> = <code>BB 6A</code>,
+<code>AsmPrgm</code> = <code>BB 6C</code>), and command tokens such as <code>Prompt</code> (<code>DD</code>), <code>Disp</code> (<code>DE</code>),
+<code>For(</code> (<code>D3</code>), <code>End</code> (<code>D4</code>), <code>ClrHome</code> (<code>E1</code>), and <code>SortA(</code> (<code>E3</code>). The
+newer samples add <code>Output(</code> (<code>E0</code>), graph commands (<code>85</code>, <code>93</code>, <code>9C</code>, <code>A5</code>,
+<code>DF</code>), system/window variables (<code>63 0A</code> through <code>63 0D</code> for
+<code>Xmin</code>/<code>Xmax</code>/<code>Ymin</code>/<code>Ymax</code>), <code>Ans</code> (<code>72</code>), <code>Return</code> (<code>D5</code>), list indexing with
+<code>(</code> (<code>10</code>) / <code>)</code> (<code>11</code>), <code>int(</code> (<code>B1</code>), arithmetic operators (<code>70</code>, <code>71</code>, <code>82</code>,
+<code>83</code>), and the program-name token (<code>5F</code>) before the name characters. <code>BIGMUL</code>
+adds the loop variable <code>J</code> (<code>4A</code>) and indexed expressions such as <code>I+J-1</code>.
+<code>DFS</code> adds
+structured-control tokens <code>While</code> (<code>D1</code>), <code>If</code> (<code>CE</code>), <code>Then</code> (<code>CF</code>), and
+equality (<code>6A</code>). The token bytes are [confirmed] by <code>ti83plus.inc</code> and
+<a href="token-tables.html">2-byte token tables</a>.</p>
+<h2 id="second-byte-tables"><a class="header" href="#second-byte-tables">Second-byte tables</a></h2>
+<p>Every 2-byte token group’s second-byte → token mapping (matrices, lists, Y-vars, system/window vars, the <code>BB</code> extended-command page, the <code>EF</code> 84+ page, etc.) is tabulated in <a href="token-tables.html">2-byte token tables</a> — 492 tokens, sourced from <a href="https://github.com/TI-Toolkit/tokens">TI-Toolkit/tokens</a> and filtered to the 84+ 2.55MP.</p>
+<p>(The main parser loop, handler dispatch, and <code>OP1</code>-as-name handoff are covered in <a href="sub-tibasic.html">TI-BASIC Programs</a>.)</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="03-bcall-mechanism.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sub-solver-numeric.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="11-boot-contexts-errors.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="sub-tibasic.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -274,11 +323,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="03-bcall-mechanism.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sub-solver-numeric.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="11-boot-contexts-errors.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="sub-tibasic.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
@@ -300,11 +349,11 @@
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>

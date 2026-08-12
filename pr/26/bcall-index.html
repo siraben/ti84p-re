@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5c321cc1.js";
+            window.path_to_searchindex_js = "searchindex-c66ba8da.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-76256a07.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,13 +180,71 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="bcall-index"><a class="header" href="#bcall-index">bcall index</a></h1>
-<p>The main table below lists the live-confirmed <code>0x4xxx</code> bcall system calls. Each has an <em>ID</em> (the 2-byte value after <code>rst 28h</code>) and a <em>body</em> at <code>page:addr</code>. Use your browser’s find, or the wiki search box. See <a href="03-bcall-mechanism.html">The bcall Mechanism</a> for how dispatch works. The <code>0x8xxx</code> boot bcall names at the end are official SDK equates resolved from the retail boot table on page <code>3F</code>; USB boot entries point into page <code>2F</code>.</p>
+<p>The main table below lists the live-confirmed <code>0x4xxx</code> bcall system calls. Each has an <em>ID</em> (the 2-byte value after <code>rst 28h</code>) and a <em>body</em> at <code>page:addr</code>. Use your browser’s find, or the wiki search box. See <a href="bcall-mechanism.html">The bcall Mechanism</a> for how dispatch works. The <code>0x8xxx</code> boot bcall names at the end are official SDK equates resolved from the retail boot table on page <code>3F</code>; USB boot entries point into page <code>2F</code>.</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>bcall</th><th>ID</th><th>Body (page:addr)</th></tr>
 </thead>
 <tbody>
+<tr><td><code>app_5de7</code></td><td><code>5326</code></td><td><code>3D:5DE7</code></td></tr>
+<tr><td><code>arc_5936</code></td><td><code>51AC</code></td><td><code>07:5936</code></td></tr>
+<tr><td><code>arc_59f1</code></td><td><code>4A68</code></td><td><code>07:59F1</code></td></tr>
+<tr><td><code>cplx_op_arrange</code></td><td><code>4648</code></td><td><code>02:494F</code></td></tr>
+<tr><td><code>c_log_prep</code></td><td><code>50FE</code></td><td><code>02:6F1B</code></td></tr>
+<tr><td><code>disp_paged_str</code></td><td><code>51CA</code></td><td><code>01:7C4D</code></td></tr>
+<tr><td><code>draw_zero_op1</code></td><td><code>4873</code></td><td><code>04:620B</code></td></tr>
+<tr><td><code>drw_5df1</code></td><td><code>53F5</code></td><td><code>04:5DF1</code></td></tr>
+<tr><td><code>drw_5df4</code></td><td><code>4825</code></td><td><code>04:5DF4</code></td></tr>
+<tr><td><code>drw_638e</code></td><td><code>487C</code></td><td><code>04:638E</code></td></tr>
+<tr><td><code>dsp_6240</code></td><td><code>4C42</code></td><td><code>01:6240</code></td></tr>
+<tr><td><code>dsp_65ea</code></td><td><code>4D6B</code></td><td><code>01:65EA</code></td></tr>
+<tr><td><code>edt_5d6f</code></td><td><code>5464</code></td><td><code>03:5D6F</code></td></tr>
+<tr><td><code>edt_69f8</code></td><td><code>5461</code></td><td><code>03:69F8</code></td></tr>
+<tr><td><code>edt_6bd1</code></td><td><code>5458</code></td><td><code>03:6BD1</code></td></tr>
+<tr><td><code>fps_push_real</code></td><td><code>4A83</code></td><td><code>07:6365</code></td></tr>
+<tr><td><code>fpx_4a7b</code></td><td><code>5185</code></td><td><code>02:4A7B</code></td></tr>
+<tr><td><code>fpx_5d70</code></td><td><code>4669</code></td><td><code>02:5D70</code></td></tr>
+<tr><td><code>fpx_5dbb</code></td><td><code>466C</code></td><td><code>02:5DBB</code></td></tr>
+<tr><td><code>fpx_7069</code></td><td><code>5101</code></td><td><code>02:7069</code></td></tr>
+<tr><td><code>fpx_7d9d</code></td><td><code>533B</code></td><td><code>02:7D9D</code></td></tr>
+<tr><td><code>fpx_7dfe</code></td><td><code>5338</code></td><td><code>02:7DFE</code></td></tr>
+<tr><td><code>get_pos_list_elem</code></td><td><code>4666</code></td><td><code>02:5BBB</code></td></tr>
+<tr><td><code>graph_parse_tok</code></td><td><code>510A</code></td><td><code>33:5023</code></td></tr>
+<tr><td><code>graph_tbl_find</code></td><td><code>47CB</code></td><td><code>33:7097</code></td></tr>
+<tr><td><code>graph_tbl_next</code></td><td><code>47C8</code></td><td><code>33:707A</code></td></tr>
+<tr><td><code>grc_454b</code></td><td><code>5263</code></td><td><code>37:454B</code></td></tr>
+<tr><td><code>grc_4556</code></td><td><code>5266</code></td><td><code>37:4556</code></td></tr>
+<tr><td><code>grc_4575</code></td><td><code>5269</code></td><td><code>37:4575</code></td></tr>
+<tr><td><code>_DispAppRestrictions</code></td><td><code>52FF</code></td><td><code>37:4611</code></td></tr>
+<tr><td><code>grc_51c2</code></td><td><code>517F</code></td><td><code>37:51C2</code></td></tr>
+<tr><td><code>grc_5223</code></td><td><code>51A0</code></td><td><code>37:5223</code></td></tr>
+<tr><td><code>grc_5d44</code></td><td><code>51D6</code></td><td><code>37:5D44</code></td></tr>
+<tr><td><code>grc_5f42</code></td><td><code>5200</code></td><td><code>37:5F42</code></td></tr>
+<tr><td><code>grc_60cb</code></td><td><code>51FA</code></td><td><code>37:60CB</code></td></tr>
+<tr><td><code>grf_435f</code></td><td><code>5140</code></td><td><code>33:435F</code></td></tr>
+<tr><td><code>grf_5e06</code></td><td><code>5476</code></td><td><code>33:5E06</code></td></tr>
+<tr><td><code>grf_7066</code></td><td><code>47C5</code></td><td><code>33:7066</code></td></tr>
+<tr><td><code>lcd_blit_region</code></td><td><code>4D26</code></td><td><code>07:5431</code></td></tr>
+<tr><td><code>link_xfer_op</code></td><td><code>50FB</code></td><td><code>3C:4DD2</code></td></tr>
+<tr><td><code>list_idx_times9</code></td><td><code>53D1</code></td><td><code>35:79E9</code></td></tr>
+<tr><td><code>lnk_62b0</code></td><td><code>5182</code></td><td><code>3C:62B0</code></td></tr>
+<tr><td><code>mde_7da9</code></td><td><code>49DB</code></td><td><code>36:7DA9</code></td></tr>
+<tr><td><code>mnu_6ddb</code></td><td><code>5467</code></td><td><code>39:6DDB</code></td></tr>
+<tr><td><code>op1_int_part_neg</code></td><td><code>489A</code></td><td><code>04:74E8</code></td></tr>
+<tr><td><code>push_zero_op1</code></td><td><code>4651</code></td><td><code>02:49C0</code></td></tr>
+<tr><td><code>rcl_c_list_elem</code></td><td><code>464B</code></td><td><code>02:49A7</code></td></tr>
+<tr><td><code>rcl_c_list_elem_b</code></td><td><code>464E</code></td><td><code>02:49B5</code></td></tr>
+<tr><td><code>rcl_list_elem_b</code></td><td><code>463C</code></td><td><code>02:47FE</code></td></tr>
+<tr><td><code>rcl_list_elem_to_op1</code></td><td><code>4639</code></td><td><code>02:47FB</code></td></tr>
+<tr><td><code>rcl_var_push</code></td><td><code>4B9A</code></td><td><code>3A:5D07</code></td></tr>
+<tr><td><code>screen_split</code></td><td><code>5227</code></td><td><code>05:7712</code></td></tr>
+<tr><td><code>scr_4056</code></td><td><code>51F1</code></td><td><code>05:4056</code></td></tr>
+<tr><td><code>scr_4619</code></td><td><code>51E5</code></td><td><code>05:4619</code></td></tr>
+<tr><td><code>sta_5d3c</code></td><td><code>5203</code></td><td><code>35:5D3C</code></td></tr>
+<tr><td><code>sta_5eef</code></td><td><code>4B9D</code></td><td><code>3A:5EEF</code></td></tr>
+<tr><td><code>sta_760f</code></td><td><code>4BA9</code></td><td><code>3A:760F</code></td></tr>
+<tr><td><code>vert_split_draw</code></td><td><code>48DC</code></td><td><code>05:5D88</code></td></tr>
 <tr><td><code>_AbsO1O2Cp</code></td><td><code>410E</code></td><td><code>00:1987</code></td></tr>
 <tr><td><code>_AbsO1PAbsO2</code></td><td><code>405A</code></td><td><code>00:225B</code></td></tr>
 <tr><td><code>_ACos</code></td><td><code>40DE</code></td><td><code>02:76DF</code></td></tr>
@@ -195,18 +253,16 @@
 <tr><td><code>_AdrLEle</code></td><td><code>462D</code></td><td><code>02:47C5</code></td></tr>
 <tr><td><code>_AdrMEle</code></td><td><code>4609</code></td><td><code>02:4002</code></td></tr>
 <tr><td><code>_AdrMRow</code></td><td><code>4606</code></td><td><code>02:4000</code></td></tr>
+<tr><td><code>_AHEADEQUAL</code></td><td><code>4B49</code></td><td><code>34:5A99</code></td></tr>
 <tr><td><code>_AllEq</code></td><td><code>4876</code></td><td><code>04:6218</code></td></tr>
 <tr><td><code>_AllocFPS</code></td><td><code>43A5</code></td><td><code>00:1534</code></td></tr>
 <tr><td><code>_AllocFPS1</code></td><td><code>43A8</code></td><td><code>00:1537</code></td></tr>
 <tr><td><code>_Angle</code></td><td><code>4102</code></td><td><code>02:6A38</code></td></tr>
 <tr><td><code>_AnsName</code></td><td><code>4B52</code></td><td><code>38:74B7</code></td></tr>
 <tr><td><code>_ApdSetup</code></td><td><code>4C93</code></td><td><code>00:03AE</code></td></tr>
-<tr><td><code>_app_5de7</code></td><td><code>5326</code></td><td><code>3D:5DE7</code></td></tr>
 <tr><td><code>_AppGetCalc</code></td><td><code>4C78</code></td><td><code>3B:54EC</code></td></tr>
 <tr><td><code>_AppGetCbl</code></td><td><code>4C75</code></td><td><code>3B:54C3</code></td></tr>
 <tr><td><code>_AppInit</code></td><td><code>404B</code></td><td><code>00:0936</code></td></tr>
-<tr><td><code>_arc_5936</code></td><td><code>51AC</code></td><td><code>07:5936</code></td></tr>
-<tr><td><code>_arc_59f1</code></td><td><code>4A68</code></td><td><code>07:59F1</code></td></tr>
 <tr><td><code>_Arc_Unarc</code></td><td><code>4FD8</code></td><td><code>07:6248</code></td></tr>
 <tr><td><code>_ASin</code></td><td><code>40E4</code></td><td><code>02:76F1</code></td></tr>
 <tr><td><code>_ASinH</code></td><td><code>40ED</code></td><td><code>02:7956</code></td></tr>
@@ -228,8 +284,12 @@
 <tr><td><code>_CEtoX</code></td><td><code>4EA9</code></td><td><code>02:6D1D</code></td></tr>
 <tr><td><code>_CFrac</code></td><td><code>4EC1</code></td><td><code>02:6DCF</code></td></tr>
 <tr><td><code>_CheckSplitFlag</code></td><td><code>49F0</code></td><td><code>00:2060</code></td></tr>
-<tr><td><code>_Chk_Batt_Low</code></td><td><code>50B3</code></td><td><code>00:0D07</code></td></tr>
+<tr><td><code>_CheckTimer</code></td><td><code>527E</code></td><td><code>33:5F16</code></td></tr>
+<tr><td><code>_CheckTimerRestart</code></td><td><code>5281</code></td><td><code>33:5F27</code></td></tr>
 <tr><td><code>_ChkFindSym</code></td><td><code>42F1</code></td><td><code>00:0E60</code></td></tr>
+<tr><td><code>_chkTimer0</code></td><td><code>5176</code></td><td><code>37:557E</code></td></tr>
+<tr><td><code>_chkTmr</code></td><td><code>5143</code></td><td><code>37:54C1</code></td></tr>
+<tr><td><code>_Chk_Batt_Low</code></td><td><code>50B3</code></td><td><code>00:0D07</code></td></tr>
 <tr><td><code>_CIntgr</code></td><td><code>4EC4</code></td><td><code>02:6DDD</code></td></tr>
 <tr><td><code>_CircCmd</code></td><td><code>47D4</code></td><td><code>33:74CE</code></td></tr>
 <tr><td><code>_CkInt</code></td><td><code>4234</code></td><td><code>00:1E06</code></td></tr>
@@ -251,7 +311,6 @@
 <tr><td><code>_CLineS</code></td><td><code>479B</code></td><td><code>33:6034</code></td></tr>
 <tr><td><code>_CLN</code></td><td><code>4EA0</code></td><td><code>02:6CCA</code></td></tr>
 <tr><td><code>_CLog</code></td><td><code>4EA3</code></td><td><code>02:6CE7</code></td></tr>
-<tr><td><code>_CLogPrep</code></td><td><code>50FE</code></td><td><code>02:6F1B</code></td></tr>
 <tr><td><code>_CloseEditBuf</code></td><td><code>48D3</code></td><td><code>05:5675</code></td></tr>
 <tr><td><code>_CloseEditBufNoR</code></td><td><code>476E</code></td><td><code>03:4743</code></td></tr>
 <tr><td><code>_CloseEditEqu</code></td><td><code>496C</code></td><td><code>06:4771</code></td></tr>
@@ -278,7 +337,6 @@
 <tr><td><code>_Cos</code></td><td><code>40C0</code></td><td><code>02:7346</code></td></tr>
 <tr><td><code>_CosH</code></td><td><code>40CC</code></td><td><code>02:762E</code></td></tr>
 <tr><td><code>_CpHLDE</code></td><td><code>400C</code></td><td><code>00:21BB</code></td></tr>
-<tr><td><code>_CplxOPArrange</code></td><td><code>4648</code></td><td><code>02:494F</code></td></tr>
 <tr><td><code>_CPoint</code></td><td><code>4DC8</code></td><td><code>04:43D8</code></td></tr>
 <tr><td><code>_CPointS</code></td><td><code>47F5</code></td><td><code>04:43DD</code></td></tr>
 <tr><td><code>_CpOP1OP2</code></td><td><code>4111</code></td><td><code>00:198D</code></td></tr>
@@ -352,9 +410,6 @@
 <tr><td><code>_CreateRMat</code></td><td><code>4321</code></td><td><code>00:1115</code></td></tr>
 <tr><td><code>_CreateStrng</code></td><td><code>4327</code></td><td><code>00:1123</code></td></tr>
 <tr><td><code>_CRecip</code></td><td><code>4E91</code></td><td><code>02:6BE6</code></td></tr>
-<tr><td><code>_CrystalTimerA</code></td><td><code>4B49</code></td><td><code>34:5A99</code></td></tr>
-<tr><td><code>_CrystalTimerB</code></td><td><code>4B4C</code></td><td><code>34:5A9D</code></td></tr>
-<tr><td><code>_CrystalTimerC</code></td><td><code>4B4F</code></td><td><code>34:5AA1</code></td></tr>
 <tr><td><code>_CSqRoot</code></td><td><code>4E9D</code></td><td><code>02:6C84</code></td></tr>
 <tr><td><code>_CSquare</code></td><td><code>4E8B</code></td><td><code>02:6BB4</code></td></tr>
 <tr><td><code>_CSub</code></td><td><code>4E85</code></td><td><code>02:6BA2</code></td></tr>
@@ -386,24 +441,14 @@
 <tr><td><code>_DisplayImage</code></td><td><code>4D9B</code></td><td><code>3B:6A72</code></td></tr>
 <tr><td><code>_DispMenuTitle</code></td><td><code>5065</code></td><td><code>39:4D21</code></td></tr>
 <tr><td><code>_DispOP1A</code></td><td><code>4BF7</code></td><td><code>04:7844</code></td></tr>
-<tr><td><code>_DispPagedStr</code></td><td><code>51CA</code></td><td><code>01:7C4D</code></td></tr>
 <tr><td><code>_DivHLBy10</code></td><td><code>400F</code></td><td><code>00:0269</code></td></tr>
 <tr><td><code>_DivHLByA</code></td><td><code>4012</code></td><td><code>00:026B</code></td></tr>
 <tr><td><code>_DrawCirc2</code></td><td><code>4C66</code></td><td><code>3B:7171</code></td></tr>
 <tr><td><code>_DrawCmd</code></td><td><code>48C1</code></td><td><code>04:7B8B</code></td></tr>
 <tr><td><code>_DrawRectBorder</code></td><td><code>4D7D</code></td><td><code>3B:68F5</code></td></tr>
 <tr><td><code>_DrawRectBorderClear</code></td><td><code>4D8C</code></td><td><code>3B:692A</code></td></tr>
-<tr><td><code>_DrawZeroOP1</code></td><td><code>4873</code></td><td><code>04:620B</code></td></tr>
-<tr><td><code>_drw_5df1</code></td><td><code>53F5</code></td><td><code>04:5DF1</code></td></tr>
-<tr><td><code>_drw_5df4</code></td><td><code>4825</code></td><td><code>04:5DF4</code></td></tr>
-<tr><td><code>_drw_638e</code></td><td><code>487C</code></td><td><code>04:638E</code></td></tr>
-<tr><td><code>_dsp_6240</code></td><td><code>4C42</code></td><td><code>01:6240</code></td></tr>
-<tr><td><code>_dsp_65ea</code></td><td><code>4D6B</code></td><td><code>01:65EA</code></td></tr>
 <tr><td><code>_DToR</code></td><td><code>4075</code></td><td><code>00:236B</code></td></tr>
 <tr><td><code>_EditProg</code></td><td><code>4A32</code></td><td><code>07:4F6B</code></td></tr>
-<tr><td><code>_edt_5d6f</code></td><td><code>5464</code></td><td><code>03:5D6F</code></td></tr>
-<tr><td><code>_edt_69f8</code></td><td><code>5461</code></td><td><code>03:69F8</code></td></tr>
-<tr><td><code>_edt_6bd1</code></td><td><code>5458</code></td><td><code>03:6BD1</code></td></tr>
 <tr><td><code>_EnableApd</code></td><td><code>4C87</code></td><td><code>3B:7AAD</code></td></tr>
 <tr><td><code>_EnoughMem</code></td><td><code>42FD</code></td><td><code>00:0FA6</code></td></tr>
 <tr><td><code>_EOP1NotReal</code></td><td><code>4279</code></td><td><code>00:1F06</code></td></tr>
@@ -413,23 +458,23 @@
 <tr><td><code>_ErrArgument</code></td><td><code>44AD</code></td><td><code>00:2711</code></td></tr>
 <tr><td><code>_ErrBadGuess</code></td><td><code>44CB</code></td><td><code>00:2751</code></td></tr>
 <tr><td><code>_ErrBreak</code></td><td><code>44BF</code></td><td><code>00:273D</code></td></tr>
-<tr><td><code>_ErrD_OP1_0</code></td><td><code>42D3</code></td><td><code>00:212D</code></td></tr>
-<tr><td><code>_ErrD_OP1_LE_0</code></td><td><code>42D0</code></td><td><code>00:212A</code></td></tr>
-<tr><td><code>_ErrD_OP1Not_R</code></td><td><code>42CA</code></td><td><code>00:2120</code></td></tr>
-<tr><td><code>_ErrD_OP1NotPos</code></td><td><code>42C7</code></td><td><code>00:2119</code></td></tr>
-<tr><td><code>_ErrD_OP1NotPosInt</code></td><td><code>42CD</code></td><td><code>00:2125</code></td></tr>
 <tr><td><code>_ErrDataType</code></td><td><code>44AA</code></td><td><code>00:2708</code></td></tr>
 <tr><td><code>_ErrDimension</code></td><td><code>44B3</code></td><td><code>00:2719</code></td></tr>
 <tr><td><code>_ErrDimMismatch</code></td><td><code>44B0</code></td><td><code>00:2715</code></td></tr>
 <tr><td><code>_ErrDivBy0</code></td><td><code>4498</code></td><td><code>00:26EC</code></td></tr>
 <tr><td><code>_ErrDomain</code></td><td><code>449E</code></td><td><code>00:26F4</code></td></tr>
+<tr><td><code>_ErrD_OP1NotPos</code></td><td><code>42C7</code></td><td><code>00:2119</code></td></tr>
+<tr><td><code>_ErrD_OP1NotPosInt</code></td><td><code>42CD</code></td><td><code>00:2125</code></td></tr>
+<tr><td><code>_ErrD_OP1Not_R</code></td><td><code>42CA</code></td><td><code>00:2120</code></td></tr>
+<tr><td><code>_ErrD_OP1_0</code></td><td><code>42D3</code></td><td><code>00:212D</code></td></tr>
+<tr><td><code>_ErrD_OP1_LE_0</code></td><td><code>42D0</code></td><td><code>00:212A</code></td></tr>
 <tr><td><code>_ErrIncrement</code></td><td><code>44A1</code></td><td><code>00:26F8</code></td></tr>
 <tr><td><code>_ErrInvalid</code></td><td><code>44BC</code></td><td><code>00:2729</code></td></tr>
 <tr><td><code>_ErrIterations</code></td><td><code>44C8</code></td><td><code>00:274D</code></td></tr>
 <tr><td><code>_ErrLinkXmit</code></td><td><code>44D4</code></td><td><code>00:278D</code></td></tr>
 <tr><td><code>_ErrMemory</code></td><td><code>44B9</code></td><td><code>00:2721</code></td></tr>
-<tr><td><code>_ErrNon_Real</code></td><td><code>44A4</code></td><td><code>00:26FC</code></td></tr>
 <tr><td><code>_ErrNonReal</code></td><td><code>4A8C</code></td><td><code>38:42E1</code></td></tr>
+<tr><td><code>_ErrNon_Real</code></td><td><code>44A4</code></td><td><code>00:26FC</code></td></tr>
 <tr><td><code>_ErrNotEnoughMem</code></td><td><code>448C</code></td><td><code>00:1735</code></td></tr>
 <tr><td><code>_ErrOverflow</code></td><td><code>4495</code></td><td><code>00:26E8</code></td></tr>
 <tr><td><code>_ErrSignChange</code></td><td><code>44C5</code></td><td><code>00:2749</code></td></tr>
@@ -446,7 +491,6 @@
 <tr><td><code>_Factorial</code></td><td><code>4B85</code></td><td><code>35:7995</code></td></tr>
 <tr><td><code>_FillRect</code></td><td><code>4D62</code></td><td><code>3B:6939</code></td></tr>
 <tr><td><code>_FillRectPattern</code></td><td><code>4D89</code></td><td><code>3B:6814</code></td></tr>
-<tr><td><code>_Find_Parse_Formula</code></td><td><code>4AF2</code></td><td><code>38:758A</code></td></tr>
 <tr><td><code>_FindAlphaDn</code></td><td><code>4A47</code></td><td><code>07:50B8</code></td></tr>
 <tr><td><code>_FindAlphaUp</code></td><td><code>4A44</code></td><td><code>07:50B5</code></td></tr>
 <tr><td><code>_FindApp</code></td><td><code>4C4E</code></td><td><code>3D:5EE3</code></td></tr>
@@ -454,6 +498,7 @@
 <tr><td><code>_FindAppNumPages</code></td><td><code>509B</code></td><td><code>3D:4AA3</code></td></tr>
 <tr><td><code>_FindAppUp</code></td><td><code>4C48</code></td><td><code>3D:5DDA</code></td></tr>
 <tr><td><code>_FindSym</code></td><td><code>42F4</code></td><td><code>00:0E65</code></td></tr>
+<tr><td><code>_Find_Parse_Formula</code></td><td><code>4AF2</code></td><td><code>38:758A</code></td></tr>
 <tr><td><code>_FiveExec</code></td><td><code>467E</code></td><td><code>02:69BC</code></td></tr>
 <tr><td><code>_FixTempCnt</code></td><td><code>4A3B</code></td><td><code>07:4FEC</code></td></tr>
 <tr><td><code>_FlashToRam</code></td><td><code>5017</code></td><td><code>3D:6745</code></td></tr>
@@ -467,42 +512,27 @@
 <tr><td><code>_FPDiv</code></td><td><code>4099</code></td><td><code>00:2541</code></td></tr>
 <tr><td><code>_FPMult</code></td><td><code>4084</code></td><td><code>00:238B</code></td></tr>
 <tr><td><code>_FPRecip</code></td><td><code>4096</code></td><td><code>00:253D</code></td></tr>
-<tr><td><code>_FPSPushReal</code></td><td><code>4A83</code></td><td><code>07:6365</code></td></tr>
 <tr><td><code>_FPSquare</code></td><td><code>4081</code></td><td><code>00:238A</code></td></tr>
 <tr><td><code>_FPSub</code></td><td><code>406F</code></td><td><code>00:2297</code></td></tr>
-<tr><td><code>_fpx_4a7b</code></td><td><code>5185</code></td><td><code>02:4A7B</code></td></tr>
-<tr><td><code>_fpx_5d70</code></td><td><code>4669</code></td><td><code>02:5D70</code></td></tr>
-<tr><td><code>_fpx_5dbb</code></td><td><code>466C</code></td><td><code>02:5DBB</code></td></tr>
-<tr><td><code>_fpx_7069</code></td><td><code>5101</code></td><td><code>02:7069</code></td></tr>
-<tr><td><code>_fpx_7d9d</code></td><td><code>533B</code></td><td><code>02:7D9D</code></td></tr>
-<tr><td><code>_fpx_7dfe</code></td><td><code>5338</code></td><td><code>02:7DFE</code></td></tr>
 <tr><td><code>_Frac</code></td><td><code>4093</code></td><td><code>00:24E3</code></td></tr>
-<tr><td><code>_Get_Tok_Strng</code></td><td><code>4594</code></td><td><code>01:66EA</code></td></tr>
 <tr><td><code>_GetBaseVer</code></td><td><code>4C6F</code></td><td><code>00:0284</code></td></tr>
 <tr><td><code>_GetCSC</code></td><td><code>4018</code></td><td><code>00:04B2</code></td></tr>
+<tr><td><code>_getDate</code></td><td><code>514F</code></td><td><code>37:550B</code></td></tr>
+<tr><td><code>_GetDateString</code></td><td><code>5152</code></td><td><code>37:55E8</code></td></tr>
+<tr><td><code>_getDtFmt</code></td><td><code>5155</code></td><td><code>37:5581</code></td></tr>
+<tr><td><code>_getDtStr</code></td><td><code>5158</code></td><td><code>37:55A9</code></td></tr>
 <tr><td><code>_GetKey</code></td><td><code>4972</code></td><td><code>06:491E</code></td></tr>
 <tr><td><code>_GetLToOP1</code></td><td><code>4636</code></td><td><code>02:47EA</code></td></tr>
 <tr><td><code>_GetMToOP1</code></td><td><code>4615</code></td><td><code>02:4044</code></td></tr>
-<tr><td><code>_GetPosListElem</code></td><td><code>4666</code></td><td><code>02:5BBB</code></td></tr>
 <tr><td><code>_GetSysInfo</code></td><td><code>50DD</code></td><td><code>07:7345</code></td></tr>
+<tr><td><code>_getTime</code></td><td><code>515B</code></td><td><code>37:5551</code></td></tr>
+<tr><td><code>_GetTimeString</code></td><td><code>515E</code></td><td><code>37:567E</code></td></tr>
+<tr><td><code>_getTmFmt</code></td><td><code>5161</code></td><td><code>37:5593</code></td></tr>
+<tr><td><code>_getTmStr</code></td><td><code>5164</code></td><td><code>37:55CF</code></td></tr>
 <tr><td><code>_GetTokLen</code></td><td><code>4591</code></td><td><code>01:66E5</code></td></tr>
-<tr><td><code>_GraphParseTok</code></td><td><code>510A</code></td><td><code>33:5023</code></td></tr>
-<tr><td><code>_GraphTblFind</code></td><td><code>47CB</code></td><td><code>33:7097</code></td></tr>
-<tr><td><code>_GraphTblNext</code></td><td><code>47C8</code></td><td><code>33:707A</code></td></tr>
+<tr><td><code>_Get_Tok_Strng</code></td><td><code>4594</code></td><td><code>01:66EA</code></td></tr>
 <tr><td><code>_GrBufClr</code></td><td><code>4BD0</code></td><td><code>04:6071</code></td></tr>
 <tr><td><code>_GrBufCpy</code></td><td><code>486A</code></td><td><code>04:60A3</code></td></tr>
-<tr><td><code>_grc_454b</code></td><td><code>5263</code></td><td><code>37:454B</code></td></tr>
-<tr><td><code>_grc_4556</code></td><td><code>5266</code></td><td><code>37:4556</code></td></tr>
-<tr><td><code>_grc_4575</code></td><td><code>5269</code></td><td><code>37:4575</code></td></tr>
-<tr><td><code>_grc_4611</code></td><td><code>52FF</code></td><td><code>37:4611</code></td></tr>
-<tr><td><code>_grc_51c2</code></td><td><code>517F</code></td><td><code>37:51C2</code></td></tr>
-<tr><td><code>_grc_5223</code></td><td><code>51A0</code></td><td><code>37:5223</code></td></tr>
-<tr><td><code>_grc_5d44</code></td><td><code>51D6</code></td><td><code>37:5D44</code></td></tr>
-<tr><td><code>_grc_5f42</code></td><td><code>5200</code></td><td><code>37:5F42</code></td></tr>
-<tr><td><code>_grc_60cb</code></td><td><code>51FA</code></td><td><code>37:60CB</code></td></tr>
-<tr><td><code>_grf_435f</code></td><td><code>5140</code></td><td><code>33:435F</code></td></tr>
-<tr><td><code>_grf_5e06</code></td><td><code>5476</code></td><td><code>33:5E06</code></td></tr>
-<tr><td><code>_grf_7066</code></td><td><code>47C5</code></td><td><code>33:7066</code></td></tr>
 <tr><td><code>_GrphCirc</code></td><td><code>47D7</code></td><td><code>33:758D</code></td></tr>
 <tr><td><code>_HLTimes9</code></td><td><code>40F9</code></td><td><code>00:1930</code></td></tr>
 <tr><td><code>_homeup</code></td><td><code>4558</code></td><td><code>01:6216</code></td></tr>
@@ -512,6 +542,7 @@
 <tr><td><code>_IBoundsFull</code></td><td><code>4D98</code></td><td><code>04:4306</code></td></tr>
 <tr><td><code>_ILine</code></td><td><code>47E0</code></td><td><code>04:4029</code></td></tr>
 <tr><td><code>_IncLstSize</code></td><td><code>4A29</code></td><td><code>07:4EF4</code></td></tr>
+<tr><td><code>_InitTimer</code></td><td><code>526C</code></td><td><code>33:5E38</code></td></tr>
 <tr><td><code>_InsertList</code></td><td><code>4A2C</code></td><td><code>07:4F07</code></td></tr>
 <tr><td><code>_InsertMem</code></td><td><code>42F7</code></td><td><code>00:0F81</code></td></tr>
 <tr><td><code>_Int</code></td><td><code>40A5</code></td><td><code>00:2621</code></td></tr>
@@ -526,6 +557,8 @@
 <tr><td><code>_IPoint</code></td><td><code>47E3</code></td><td><code>04:4157</code></td></tr>
 <tr><td><code>_IsA2ByteTok</code></td><td><code>42A3</code></td><td><code>00:1FE8</code></td></tr>
 <tr><td><code>_IsEditEmpty</code></td><td><code>492D</code></td><td><code>00:21A7</code></td></tr>
+<tr><td><code>_IsOneTwoThree</code></td><td><code>516D</code></td><td><code>37:5438</code></td></tr>
+<tr><td><code>_IsOP112or24</code></td><td><code>5173</code></td><td><code>37:5413</code></td></tr>
 <tr><td><code>_JError</code></td><td><code>44D7</code></td><td><code>00:2793</code></td></tr>
 <tr><td><code>_JErrorNo</code></td><td><code>4000</code></td><td><code>00:2799</code></td></tr>
 <tr><td><code>_JForceCmd</code></td><td><code>402A</code></td><td><code>00:0747</code></td></tr>
@@ -533,27 +566,22 @@
 <tr><td><code>_JForceGraphKey</code></td><td><code>5005</code></td><td><code>01:6BFD</code></td></tr>
 <tr><td><code>_JForceGraphNoKey</code></td><td><code>5002</code></td><td><code>01:6BFB</code></td></tr>
 <tr><td><code>_KeyToString</code></td><td><code>45CA</code></td><td><code>01:6D10</code></td></tr>
+<tr><td><code>_KillTimer</code></td><td><code>526F</code></td><td><code>33:5E4E</code></td></tr>
 <tr><td><code>_LCD_DRIVERON</code></td><td><code>4978</code></td><td><code>06:4D02</code></td></tr>
-<tr><td><code>_LcdBlitRegion</code></td><td><code>4D26</code></td><td><code>07:5431</code></td></tr>
 <tr><td><code>_LdHLind</code></td><td><code>4009</code></td><td><code>00:0033</code></td></tr>
 <tr><td><code>_LineCmd</code></td><td><code>48AC</code></td><td><code>04:796A</code></td></tr>
-<tr><td><code>_LinkXferOP</code></td><td><code>50FB</code></td><td><code>3C:4DD2</code></td></tr>
-<tr><td><code>_ListIdxTimes9</code></td><td><code>53D1</code></td><td><code>35:79E9</code></td></tr>
-<tr><td><code>_lnk_62b0</code></td><td><code>5182</code></td><td><code>3C:62B0</code></td></tr>
 <tr><td><code>_LnX</code></td><td><code>40AB</code></td><td><code>02:6EFD</code></td></tr>
-<tr><td><code>_Load_SFont</code></td><td><code>4783</code></td><td><code>03:4A8F</code></td></tr>
 <tr><td><code>_LoadCIndPaged</code></td><td><code>501D</code></td><td><code>00:029F</code></td></tr>
 <tr><td><code>_LoadDEIndPaged</code></td><td><code>501A</code></td><td><code>3C:6B36</code></td></tr>
 <tr><td><code>_LoadPattern</code></td><td><code>4CB1</code></td><td><code>01:6267</code></td></tr>
+<tr><td><code>_Load_SFont</code></td><td><code>4783</code></td><td><code>03:4A8F</code></td></tr>
 <tr><td><code>_LogX</code></td><td><code>40AE</code></td><td><code>02:6F16</code></td></tr>
 <tr><td><code>_Max</code></td><td><code>4057</code></td><td><code>00:224D</code></td></tr>
-<tr><td><code>_mde_7da9</code></td><td><code>49DB</code></td><td><code>36:7DA9</code></td></tr>
 <tr><td><code>_MemChk</code></td><td><code>42E5</code></td><td><code>00:0E20</code></td></tr>
 <tr><td><code>_MemClear</code></td><td><code>4C30</code></td><td><code>3B:7138</code></td></tr>
 <tr><td><code>_MemSet</code></td><td><code>4C33</code></td><td><code>3B:7139</code></td></tr>
 <tr><td><code>_Min</code></td><td><code>4054</code></td><td><code>00:2244</code></td></tr>
 <tr><td><code>_Minus1</code></td><td><code>406C</code></td><td><code>00:2294</code></td></tr>
-<tr><td><code>_mnu_6ddb</code></td><td><code>5467</code></td><td><code>39:6DDB</code></td></tr>
 <tr><td><code>_Mov10B</code></td><td><code>415C</code></td><td><code>00:1A90</code></td></tr>
 <tr><td><code>_Mov18B</code></td><td><code>47DA</code></td><td><code>00:192B</code></td></tr>
 <tr><td><code>_Mov7B</code></td><td><code>4168</code></td><td><code>00:1A96</code></td></tr>
@@ -572,7 +600,6 @@
 <tr><td><code>_OP1ExOP5</code></td><td><code>420D</code></td><td><code>00:1DA0</code></td></tr>
 <tr><td><code>_OP1ExOP6</code></td><td><code>4210</code></td><td><code>00:1DA5</code></td></tr>
 <tr><td><code>_OP1ExpToDec</code></td><td><code>4252</code></td><td><code>00:1E77</code></td></tr>
-<tr><td><code>_OP1IntPartNeg</code></td><td><code>489A</code></td><td><code>04:74E8</code></td></tr>
 <tr><td><code>_OP1Set0</code></td><td><code>41BF</code></td><td><code>00:1BA4</code></td></tr>
 <tr><td><code>_OP1Set1</code></td><td><code>419B</code></td><td><code>00:1B38</code></td></tr>
 <tr><td><code>_OP1Set2</code></td><td><code>41A7</code></td><td><code>00:1B50</code></td></tr>
@@ -626,8 +653,9 @@
 <tr><td><code>_OP6ToOP5</code></td><td><code>4141</code></td><td><code>00:1A53</code></td></tr>
 <tr><td><code>_OutputExpr</code></td><td><code>4BB2</code></td><td><code>03:4AF2</code></td></tr>
 <tr><td><code>_PagedGet</code></td><td><code>5023</code></td><td><code>00:17BB</code></td></tr>
+<tr><td><code>_PARSAHEAD</code></td><td><code>4B4F</code></td><td><code>34:5AA1</code></td></tr>
+<tr><td><code>_PARSAHEADS</code></td><td><code>4B4C</code></td><td><code>34:5A9D</code></td></tr>
 <tr><td><code>_ParseInp</code></td><td><code>4A9B</code></td><td><code>38:5987</code></td></tr>
-<tr><td><code>_ParseInpLastEnt</code></td><td><code>4B07</code></td><td><code>38:5984</code></td></tr>
 <tr><td><code>_PDspGrph</code></td><td><code>48A3</code></td><td><code>04:7904</code></td></tr>
 <tr><td><code>_PixelTest</code></td><td><code>48B5</code></td><td><code>04:79E7</code></td></tr>
 <tr><td><code>_Plus1</code></td><td><code>4069</code></td><td><code>00:2285</code></td></tr>
@@ -645,6 +673,7 @@
 <tr><td><code>_PopRealO5</code></td><td><code>4384</code></td><td><code>00:14FB</code></td></tr>
 <tr><td><code>_PopRealO6</code></td><td><code>4381</code></td><td><code>00:14F6</code></td></tr>
 <tr><td><code>_PosNo0Int</code></td><td><code>422E</code></td><td><code>00:1DF7</code></td></tr>
+<tr><td><code>_PowerOff</code></td><td><code>5008</code></td><td><code>00:09E6</code></td></tr>
 <tr><td><code>_PToR</code></td><td><code>40F3</code></td><td><code>02:50BD</code></td></tr>
 <tr><td><code>_PushMCplxO1</code></td><td><code>43CF</code></td><td><code>00:15A6</code></td></tr>
 <tr><td><code>_PushMCplxO3</code></td><td><code>43C6</code></td><td><code>00:1594</code></td></tr>
@@ -658,7 +687,6 @@
 <tr><td><code>_PushRealO4</code></td><td><code>43B1</code></td><td><code>00:154A</code></td></tr>
 <tr><td><code>_PushRealO5</code></td><td><code>43AE</code></td><td><code>00:1545</code></td></tr>
 <tr><td><code>_PushRealO6</code></td><td><code>43AB</code></td><td><code>00:1540</code></td></tr>
-<tr><td><code>_PushZeroOP1</code></td><td><code>4651</code></td><td><code>02:49C0</code></td></tr>
 <tr><td><code>_PutAway</code></td><td><code>4039</code></td><td><code>00:08AF</code></td></tr>
 <tr><td><code>_PutC</code></td><td><code>4504</code></td><td><code>01:5B4C</code></td></tr>
 <tr><td><code>_PutMap</code></td><td><code>4501</code></td><td><code>01:5A98</code></td></tr>
@@ -670,19 +698,14 @@
 <tr><td><code>_PutToMat</code></td><td><code>461E</code></td><td><code>02:406C</code></td></tr>
 <tr><td><code>_RandInit</code></td><td><code>4B7F</code></td><td><code>36:7E8A</code></td></tr>
 <tr><td><code>_Random</code></td><td><code>4B79</code></td><td><code>36:7DC9</code></td></tr>
-<tr><td><code>_Rcl_StatVar</code></td><td><code>42DC</code></td><td><code>00:2149</code></td></tr>
 <tr><td><code>_RclAns</code></td><td><code>4AD7</code></td><td><code>38:679F</code></td></tr>
-<tr><td><code>_RclCListElem</code></td><td><code>464B</code></td><td><code>02:49A7</code></td></tr>
-<tr><td><code>_RclCListElemB</code></td><td><code>464E</code></td><td><code>02:49B5</code></td></tr>
 <tr><td><code>_RclGDB2</code></td><td><code>47D1</code></td><td><code>33:72D9</code></td></tr>
-<tr><td><code>_RclListElemB</code></td><td><code>463C</code></td><td><code>02:47FE</code></td></tr>
-<tr><td><code>_RclListElemToOP1</code></td><td><code>4639</code></td><td><code>02:47FB</code></td></tr>
 <tr><td><code>_RclN</code></td><td><code>4ADD</code></td><td><code>38:67A9</code></td></tr>
 <tr><td><code>_RclSysTok</code></td><td><code>4AE6</code></td><td><code>38:683E</code></td></tr>
-<tr><td><code>_RclVarPush</code></td><td><code>4B9A</code></td><td><code>3A:5D07</code></td></tr>
 <tr><td><code>_RclVarSym</code></td><td><code>4AE3</code></td><td><code>38:67B1</code></td></tr>
 <tr><td><code>_RclX</code></td><td><code>4AE0</code></td><td><code>38:67AE</code></td></tr>
 <tr><td><code>_RclY</code></td><td><code>4ADA</code></td><td><code>38:67A4</code></td></tr>
+<tr><td><code>_Rcl_StatVar</code></td><td><code>42DC</code></td><td><code>00:2149</code></td></tr>
 <tr><td><code>_Rec1stByte</code></td><td><code>4EFA</code></td><td><code>3C:439C</code></td></tr>
 <tr><td><code>_Rec1stByteNC</code></td><td><code>4EFD</code></td><td><code>3C:43A3</code></td></tr>
 <tr><td><code>_RecAByteIO</code></td><td><code>4F03</code></td><td><code>3C:443F</code></td></tr>
@@ -690,6 +713,7 @@
 <tr><td><code>_Regraph</code></td><td><code>488E</code></td><td><code>04:6764</code></td></tr>
 <tr><td><code>_ReleaseBuffer</code></td><td><code>4771</code></td><td><code>03:47AC</code></td></tr>
 <tr><td><code>_ReloadAppEntryVecs</code></td><td><code>4C36</code></td><td><code>3B:73E4</code></td></tr>
+<tr><td><code>_RestartTimer</code></td><td><code>5275</code></td><td><code>33:5E9D</code></td></tr>
 <tr><td><code>_RestoreDisp</code></td><td><code>4870</code></td><td><code>04:6176</code></td></tr>
 <tr><td><code>_RName</code></td><td><code>427F</code></td><td><code>00:1F4C</code></td></tr>
 <tr><td><code>_RndGuard</code></td><td><code>409F</code></td><td><code>02:6A57</code></td></tr>
@@ -700,12 +724,10 @@
 <tr><td><code>_RunIndicOff</code></td><td><code>4570</code></td><td><code>01:6531</code></td></tr>
 <tr><td><code>_RunIndicOn</code></td><td><code>456D</code></td><td><code>01:6518</code></td></tr>
 <tr><td><code>_SaveDisp</code></td><td><code>4C7B</code></td><td><code>39:5DD8</code></td></tr>
-<tr><td><code>_scr_4056</code></td><td><code>51F1</code></td><td><code>05:4056</code></td></tr>
-<tr><td><code>_scr_4619</code></td><td><code>51E5</code></td><td><code>05:4619</code></td></tr>
-<tr><td><code>_ScreenSplit</code></td><td><code>5227</code></td><td><code>05:7712</code></td></tr>
 <tr><td><code>_SendAByte</code></td><td><code>4EE5</code></td><td><code>3C:420D</code></td></tr>
 <tr><td><code>_SendVarCmd</code></td><td><code>4A14</code></td><td><code>3C:4EDD</code></td></tr>
 <tr><td><code>_SetAllPlots</code></td><td><code>4FCC</code></td><td><code>38:49C7</code></td></tr>
+<tr><td><code>_setDate</code></td><td><code>516A</code></td><td><code>37:536E</code></td></tr>
 <tr><td><code>_SetExSpeed</code></td><td><code>50BF</code></td><td><code>00:0DCA</code></td></tr>
 <tr><td><code>_SetFuncM</code></td><td><code>4840</code></td><td><code>36:7D11</code></td></tr>
 <tr><td><code>_SetNorm_Vals</code></td><td><code>49FC</code></td><td><code>00:220F</code></td></tr>
@@ -713,10 +735,12 @@
 <tr><td><code>_SetPolM</code></td><td><code>4846</code></td><td><code>36:7D2C</code></td></tr>
 <tr><td><code>_SetSeqM</code></td><td><code>4843</code></td><td><code>36:7D1F</code></td></tr>
 <tr><td><code>_SetTblGraphDraw</code></td><td><code>4C00</code></td><td><code>00:00F5</code></td></tr>
+<tr><td><code>_setTime</code></td><td><code>5170</code></td><td><code>37:540D</code></td></tr>
 <tr><td><code>_SetupPagedPtr</code></td><td><code>5020</code></td><td><code>00:17AC</code></td></tr>
 <tr><td><code>_SetXXOP1</code></td><td><code>478C</code></td><td><code>33:5F7E</code></td></tr>
 <tr><td><code>_SetXXOP2</code></td><td><code>478F</code></td><td><code>33:5F83</code></td></tr>
 <tr><td><code>_SetXXXXOP2</code></td><td><code>4792</code></td><td><code>33:5F9E</code></td></tr>
+<tr><td><code>_SetZeroOne</code></td><td><code>5167</code></td><td><code>37:5359</code></td></tr>
 <tr><td><code>_SFont_Len</code></td><td><code>4786</code></td><td><code>03:4ABD</code></td></tr>
 <tr><td><code>_Sin</code></td><td><code>40BD</code></td><td><code>02:7342</code></td></tr>
 <tr><td><code>_SinCosRad</code></td><td><code>40BA</code></td><td><code>02:733E</code></td></tr>
@@ -726,14 +750,13 @@
 <tr><td><code>_SrchVLstDn</code></td><td><code>4F12</code></td><td><code>07:71D7</code></td></tr>
 <tr><td><code>_SrchVLstUp</code></td><td><code>4F0F</code></td><td><code>07:707F</code></td></tr>
 <tr><td><code>_SStringLength</code></td><td><code>4CB4</code></td><td><code>3B:61A6</code></td></tr>
-<tr><td><code>_sta_5d3c</code></td><td><code>5203</code></td><td><code>35:5D3C</code></td></tr>
-<tr><td><code>_sta_5eef</code></td><td><code>4B9D</code></td><td><code>3A:5EEF</code></td></tr>
-<tr><td><code>_sta_760f</code></td><td><code>4BA9</code></td><td><code>3A:760F</code></td></tr>
+<tr><td><code>_StartTimer</code></td><td><code>5272</code></td><td><code>33:5E58</code></td></tr>
 <tr><td><code>_StMatEl</code></td><td><code>4AE9</code></td><td><code>38:6C8F</code></td></tr>
 <tr><td><code>_StoAns</code></td><td><code>4ABF</code></td><td><code>38:6251</code></td></tr>
 <tr><td><code>_StoGDB2</code></td><td><code>47CE</code></td><td><code>33:71AC</code></td></tr>
 <tr><td><code>_StoN</code></td><td><code>4ACB</code></td><td><code>38:6274</code></td></tr>
 <tr><td><code>_StoOther</code></td><td><code>4AD4</code></td><td><code>38:62A9</code></td></tr>
+<tr><td><code>_StopTimer</code></td><td><code>5278</code></td><td><code>33:5F42</code></td></tr>
 <tr><td><code>_StoR</code></td><td><code>4AC5</code></td><td><code>38:6264</code></td></tr>
 <tr><td><code>_StoRand</code></td><td><code>4B7C</code></td><td><code>36:7E06</code></td></tr>
 <tr><td><code>_StoSysTok</code></td><td><code>4ABC</code></td><td><code>38:623B</code></td></tr>
@@ -749,6 +772,7 @@
 <tr><td><code>_TenX</code></td><td><code>40B7</code></td><td><code>02:7066</code></td></tr>
 <tr><td><code>_ThetaName</code></td><td><code>427C</code></td><td><code>00:1F48</code></td></tr>
 <tr><td><code>_ThreeExec</code></td><td><code>4675</code></td><td><code>02:64ED</code></td></tr>
+<tr><td><code>_timeCnv</code></td><td><code>5179</code></td><td><code>37:56C4</code></td></tr>
 <tr><td><code>_Times2</code></td><td><code>4066</code></td><td><code>00:2282</code></td></tr>
 <tr><td><code>_TimesPt5</code></td><td><code>407E</code></td><td><code>00:2382</code></td></tr>
 <tr><td><code>_TName</code></td><td><code>428E</code></td><td><code>00:1F69</code></td></tr>
@@ -758,11 +782,11 @@
 <tr><td><code>_UnLineCmd</code></td><td><code>48AF</code></td><td><code>04:797C</code></td></tr>
 <tr><td><code>_UnOPExec</code></td><td><code>4672</code></td><td><code>02:5E14</code></td></tr>
 <tr><td><code>_VertCmd</code></td><td><code>48A9</code></td><td><code>04:7955</code></td></tr>
-<tr><td><code>_VertSplitDraw</code></td><td><code>48DC</code></td><td><code>05:5D88</code></td></tr>
 <tr><td><code>_VPutMap</code></td><td><code>455E</code></td><td><code>01:6293</code></td></tr>
 <tr><td><code>_VPutS</code></td><td><code>4561</code></td><td><code>01:646D</code></td></tr>
 <tr><td><code>_VPutSN</code></td><td><code>4564</code></td><td><code>01:644D</code></td></tr>
 <tr><td><code>_VtoWHLDE</code></td><td><code>47FB</code></td><td><code>04:4410</code></td></tr>
+<tr><td><code>_WaitTimer</code></td><td><code>527B</code></td><td><code>33:5EA4</code></td></tr>
 <tr><td><code>_XftoI</code></td><td><code>4804</code></td><td><code>37:41EB</code></td></tr>
 <tr><td><code>_Xitof</code></td><td><code>47FE</code></td><td><code>04:441E</code></td></tr>
 <tr><td><code>_XName</code></td><td><code>4288</code></td><td><code>00:1F61</code></td></tr>
@@ -926,11 +950,11 @@
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
