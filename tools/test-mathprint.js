@@ -10,6 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const root = path.dirname(__dirname);
 const mp = require(path.join(root, 'web', 'mathprint', 'app.js'));
@@ -152,7 +153,9 @@ expectEqual('34:6347 absolute primitive order', rom.settledAbsoluteOperations(0x
 ]);
 expectEqual('34:6315 nth-root primitive order', rom.settledNthRootOperations(4, 0x18), [
   {kind:'child', index:1, routine:'34:6315 → 34:636C'},
-  {kind:'bitmap', x:3, y:0, width:5, height:5, routine:'34:6321 → 34:62D0'},
+  {kind:'bitmap', x:3, y:4, width:5, height:7,
+   rows:[0x04,0x04,0x04,0x04,0x14,0x0c,0x04],
+   routine:'34:6321 → 34:62D0 → 34:630C'},
   {kind:'line', axis:'vertical', from:{x:5,y:3}, to:{x:5,y:4},
    routine:'34:6331 → 34:5D96'},
   {kind:'child', index:2, routine:'34:6334 → 34:6378'},
@@ -208,14 +211,14 @@ expectEqual('settled graph absolute child ID and origin',
     ['glyph',0x0d,0,4,0],
   ]);
 const nthRootGraph = rom.executeSettledRecordGraph([
-  settledRecord(0x0f, 0x24, {}, [0x10,0x11]),
+  settledRecord(0x0f, 0x24, {word07:11}, [0x10,0x11]),
   settledRecord(0x10, 0x00, {word07:4}),
   settledRecord(0x11, 0x00, {word07:0x18,word0B:8,word0D:4}),
 ], 0x0f, {renderLeaf:leafGlyph});
 expectEqual('settled graph nth-root drawing order and child offsets',
   nthRootGraph.map(op => [op.kind, op.recordId, op.x === undefined ? op.from.x : op.x,
     op.y === undefined ? op.from.y : op.y]), [
-    ['glyph',0x10,0,0], ['bitmap',0x0f,3,0], ['line',0x0f,5,3],
+    ['glyph',0x10,0,0], ['bitmap',0x0f,3,4], ['line',0x0f,5,3],
     ['glyph',0x11,8,4], ['line',0x0f,5,2],
   ]);
 const nestedFractionGraph = rom.executeSettledRecordGraph([
@@ -311,8 +314,67 @@ expectEqual('settled nDeriv program independently reproduces trace glyph order',
     [0x32,22,0,1], [0x58,35,8,1], [0x3d,39,8,1], [0x58,43,8,1],
     [0x31,47,3,0],
   ]);
+const nthRootProgram = [
+  settledRecord(0x0e,0,{word09:7,word11:6},[],
+    [0xef,0x24,0x0f,0x00,0xef,0x2d]),
+  settledRecord(0x0f,0x24,{word07:11,word09:26,word0B:7},[0x10,0x11]),
+  settledRecord(0x10,0,{word05:5,word07:4,word09:2,word11:1},[],[0x33]),
+  settledRecord(0x11,0,{word05:7,word07:18,word09:3,word0B:8,word0D:4,word11:3},[],
+    [0x58,0x70,0x31]),
+];
+const radicalProgram = [
+  settledRecord(0x0f,0,{word09:8,word11:6},[],
+    [0xef,0x27,0x10,0x00,0xef,0x2d]),
+  settledRecord(0x10,0x27,{word07:12,word09:27,word0B:8},[0x11]),
+  settledRecord(0x11,0,{word05:10,word07:22,word09:6,word0B:5,word0D:2,word11:9},[],
+    [0x58,0xef,0x2a,0x12,0x00,0xef,0x2d,0x70,0x31]),
+  settledRecord(0x12,0x2a,{word07:10,word09:4,word0B:6,word0D:6},[0x13]),
+  settledRecord(0x13,0,{word05:5,word07:4,word09:2,word11:1},[],[0x32]),
+];
+const integralFractionProgram = [
+  settledRecord(0x07,0,{word09:11,word11:6},[],
+    [0xef,0x22,0x08,0x00,0xef,0x2d]),
+  settledRecord(0x08,0x22,{word07:23,word09:50,word0B:11},[0x09,0x0a,0x0b,0x0c]),
+  settledRecord(0x09,0,{word05:5,word07:4,word09:2,word0B:6,word0D:18,word11:1},[],[0x31]),
+  settledRecord(0x0a,0,{word05:5,word07:4,word09:2,word0B:6,word11:1},[],[0x32]),
+  settledRecord(0x0b,0,{word05:13,word07:14,word09:6,word0B:16,word0D:5,word11:7},[],
+    [0xef,0x20,0x0d,0x00,0xef,0x2d,0x58]),
+  settledRecord(0x0d,0x20,{word05:2,word07:13,word09:8,word0B:6},[0x0e,0x0f]),
+  settledRecord(0x0e,0,{word05:5,word07:4,word09:2,word0B:2,word11:1},[],[0x31]),
+  settledRecord(0x0f,0,{word05:5,word07:4,word09:2,word0B:2,word0D:8,word11:1},[],[0x32]),
+  settledRecord(0x0c,1,{word05:7,word07:6,word09:3,word0B:42,word0D:8,word11:1},[],[0x58]),
+];
+
+const settledRasterHash = (nodes, entryId) => {
+  const operations = rom.executeSettledRecordProgram(nodes, entryId, {
+    glyphAdvance:settledGlyphAdvance,
+  });
+  const bits = rom.rasterizeSettledOperations(operations, font).grid
+    .map(row => row.join('')).join('');
+  return crypto.createHash('sha256').update(bits).digest('hex');
+};
+// These hashes come from independent T6A04 replay at the return of the outer
+// 34:660A call. The record snapshots are executor inputs; LCD events are not.
+for (const [name,nodes,entryId,expected] of [
+  ['absolute',absoluteProgram,0x0d,'d0442f38290a446074d49f43cff43f852569143d8ab2851e914a59cec0ad087d'],
+  ['nth root',nthRootProgram,0x0e,'1b939a055eb331245bd8d2abf782fc9978fb3488a6dc61d660bbada0f463df30'],
+  ['radical',radicalProgram,0x0f,'8731b65f0db1f172145b596c0b85339e2ededb8dc3b883f9a423a01cb75185ae'],
+  ['summation',summationProgram,0x12,'9e73a0dce521895a417ebf80a723d6f608c24999935fc1bf38cb5cc744cc3b4f'],
+  ['nDeriv',nderivProgram,0x11,'15b36862c68d200239930acc52622c0f7898e66ad74c751fed1e03dd6ddeb3a5'],
+  ['nested integral/fraction',integralFractionProgram,0x07,'3e14504af269ef52a7d3032b2ab3f9c91460ffbc5c7f445f8d4b9aea9621d1aa'],
+]) expectEqual(`settled ${name} independently reproduces final LCD pixels`,
+                settledRasterHash(nodes,entryId), expected);
+
+expectEqual('34:6143 keeps incoming-A-dependent type 1F explicit',
+  rom.executeSettledRecordGraph([settledRecord(1,0x1f)],1), [{
+    kind:'unresolved-render',
+    missing:'incoming A and the selected 34:6143 branch',
+    routine:'34:6143', origin:{x:0,y:0}, recordId:1, recordType:0x1f, depth:1,
+  }]);
 expectEqual('34:62A1 radical primitive order', rom.settledRadicalOperations(8, 0x1d), [
-  {kind:'bitmap', x:0, y:0, width:5, height:10, routine:'34:62A4 → 34:62D0'},
+  {kind:'bitmap', x:0, y:1, width:5, height:7,
+   rows:[0x04,0x04,0x04,0x04,0x14,0x0c,0x04],
+   routine:'34:62A4 → 34:62D0 → 34:630C'},
   {kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:7},
    routine:'34:62AE → 34:5D96'},
   {kind:'child-select', index:1, routine:'34:62B1 → 34:6D4B'},

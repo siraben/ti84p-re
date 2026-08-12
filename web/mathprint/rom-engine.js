@@ -560,9 +560,9 @@
       switch (record.type) {
       case 0x1f:
         emit(record, origin, {
-          kind:'bitmap', x:0, y:0, width:5, height:7,
-          bytes:[0x05,0x02,0x01,0x00,0x1f,0x00,0x02,0x06],
-          routine:'34:6143 → 34:61BE → ram:3CCF',
+          kind:'unresolved-render',
+          missing:'incoming A and the selected 34:6143 branch',
+          routine:'34:6143',
         });
         break;
       case 0x20: {
@@ -650,7 +650,8 @@
       }
       case 0x24: {
         const first = child(record, 1), second = child(record, 2);
-        const operations = settledNthRootOperations(first.word07, second.word07);
+        const operations = settledNthRootOperations(
+          first.word07, second.word07, record.word07);
         renderChild(1);
         state.depth--;
         emit(record, origin, operations[1]);
@@ -887,6 +888,89 @@
     });
   }
 
+  function settledOperationPixels(operation, font) {
+    if (!operation || typeof operation !== 'object')
+      throw new TypeError('settled operation must be an object');
+    const pixels = [];
+    const point = (x, y) => {
+      if (!Number.isInteger(x) || !Number.isInteger(y))
+        throw new RangeError('settled pixel coordinate must be an integer');
+      pixels.push([x,y,1]);
+    };
+    if (operation.kind === 'point') {
+      point(operation.x, operation.y);
+    } else if (operation.kind === 'line') {
+      const dx = Math.sign(operation.to.x - operation.from.x);
+      const dy = Math.sign(operation.to.y - operation.from.y);
+      if (dx && dy) throw new RangeError('settled line must be axis-aligned');
+      let x = operation.from.x, y = operation.from.y;
+      for (;;) {
+        point(x,y);
+        if (x === operation.to.x && y === operation.to.y) break;
+        x += dx; y += dy;
+      }
+    } else if (operation.kind === 'glyph') {
+      if (!font || !font.large || !font.small)
+        throw new TypeError('settled glyph rasterization requires font data');
+      const small = operation.depth !== 0;
+      const glyph = small
+        ? font.small.glyphs[operation.code]
+        : {w:font.large.width,rows:font.large.glyphs[operation.code]};
+      if (!glyph || !Array.isArray(glyph.rows))
+        throw new RangeError(`font has no glyph 0x${operation.code.toString(16)}`);
+      // 34:6C37 reports the small-font pen row one pixel below the bitmap's
+      // first row. The large-font pen already names the bitmap's top row.
+      const top = operation.y - (small ? 1 : 0);
+      for (let row = 0; row < glyph.rows.length; row++)
+        for (let column = 0; column < glyph.w; column++)
+          if (glyph.rows[row] & 1 << (glyph.w - 1 - column))
+            point(operation.x + column, top + row);
+    } else if (operation.kind === 'glyph-run') {
+      if (!font || !font.large || !font.small)
+        throw new TypeError('settled glyph rasterization requires font data');
+      let x = operation.x;
+      for (const code of operation.codes) {
+        const glyph = operation.depth !== 0
+          ? font.small.glyphs[code]
+          : {w:font.large.width,rows:font.large.glyphs[code]};
+        if (!glyph) throw new RangeError(`font has no glyph 0x${code.toString(16)}`);
+        pixels.push(...settledOperationPixels(
+          {...operation,kind:'glyph',code,x}, font));
+        x += operation.depth !== 0 ? glyph.w : font.large.width + 1;
+      }
+    } else if (operation.kind === 'bitmap') {
+      if (!Array.isArray(operation.rows) || operation.rows.length !== operation.height)
+        throw new RangeError('settled bitmap must provide one row mask per row');
+      for (let row = 0; row < operation.height; row++)
+        for (let column = 0; column < operation.width; column++)
+          if (operation.rows[row] & 1 << (operation.width - 1 - column))
+            point(operation.x + column, operation.y + row);
+    } else if (!operation.kind.startsWith('unresolved-')) {
+      throw new RangeError(`cannot rasterize settled operation kind ${operation.kind}`);
+    }
+    return pixels;
+  }
+
+  function rasterizeSettledOperations(operations, font, options = {}) {
+    if (!Array.isArray(operations))
+      throw new TypeError('settled operations must be an array');
+    const width = options.width === undefined ? 96 : options.width;
+    const height = options.height === undefined ? 64 : options.height;
+    if (!Number.isInteger(width) || width < 1 || !Number.isInteger(height) || height < 1)
+      throw new RangeError('settled raster dimensions must be positive integers');
+    const grid = Array.from({length:height}, () => new Array(width).fill(0));
+    const events = operations.map((operation, operationIndex) => {
+      const changes = [];
+      for (const [x,y,value] of settledOperationPixels(operation, font)) {
+        if (x < 0 || y < 0 || x >= width || y >= height || grid[y][x] === value) continue;
+        grid[y][x] = value;
+        changes.push([x,y,value]);
+      }
+      return {operationIndex, operation, changes};
+    });
+    return {width,height,events,grid};
+  }
+
   // Render-record type 20h dispatches through 34:6105/6119 to 34:620A. It
   // renders child records 1 and 2, reads each child's word at +7, and chooses
   // the larger value. The inclusive rule runs from x=1 through max+1 at the
@@ -934,21 +1018,26 @@
   }
 
   // Render-record type 24h dispatches to 34:6315. It renders child 1, draws the
-  // five-byte root hook at x=child1(+7)-1, emits the hook's vertical segment,
+  // seven-row root hook at x=child1(+7)-1, emits the hook's vertical segment,
   // renders child 2, and draws an inclusive vinculum. The vinculum uses child
   // 2's +7 word and starts at the hook x.
-  function settledNthRootOperations(indexWidth, radicandWidth) {
+  function settledNthRootOperations(indexWidth, radicandWidth, height = 11) {
     byte(indexWidth, 'settled nth-root index width');
     byte(radicandWidth, 'settled nth-root radicand width');
+    byte(height, 'settled nth-root height');
     if (indexWidth < 1)
       throw new RangeError('settled nth-root index width must be positive');
+    if (height < 7)
+      throw new RangeError('settled nth-root height must be at least seven');
     const hookX = indexWidth - 1;
+    const hookY = height - 7;
     const ruleEnd = radicandWidth + hookX + 3;
     byte(ruleEnd, 'settled nth-root vinculum endpoint');
     return [
       {kind:'child', index:1, routine:'34:6315 → 34:636C'},
-      {kind:'bitmap', x:hookX, y:0, width:5, height:5,
-       routine:'34:6321 → 34:62D0'},
+      {kind:'bitmap', x:hookX, y:hookY, width:5, height:7,
+       rows:[0x04,0x04,0x04,0x04,0x14,0x0c,0x04],
+       routine:'34:6321 → 34:62D0 → 34:630C'},
       {kind:'line', axis:'vertical', from:{x:hookX + 2,y:3},
        to:{x:hookX + 2,y:4}, routine:'34:6331 → 34:5D96'},
       {kind:'child', index:2, routine:'34:6334 → 34:6378'},
@@ -957,7 +1046,7 @@
     ];
   }
 
-  // Render-record type 27h dispatches to 34:62A1. 34:62D0 emits the ten-byte
+  // Render-record type 27h dispatches to 34:62A1. 34:62D0 emits the seven-row
   // root-hook bitmap first. The handler then draws its vertical stem, selects
   // child 1, reads that child's +7 width, emits the inclusive vinculum, and
   // finally enters the child renderer at 34:660A.
@@ -966,12 +1055,15 @@
     byte(childWidth, 'settled radical child width');
     if (height < 2)
       throw new RangeError('settled radical height must be at least two');
+    if (height < 7)
+      throw new RangeError('settled radical height must fit the seven-row hook');
     const stemEnd = height - 1;
     const ruleEnd = childWidth + 3;
     byte(ruleEnd, 'settled radical vinculum endpoint');
     return [
-      {kind:'bitmap', x:0, y:0, width:5, height:10,
-       routine:'34:62A4 → 34:62D0'},
+      {kind:'bitmap', x:0, y:height - 7, width:5, height:7,
+       rows:[0x04,0x04,0x04,0x04,0x14,0x0c,0x04],
+       routine:'34:62A4 → 34:62D0 → 34:630C'},
       {kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:stemEnd},
        routine:'34:62AE → 34:5D96'},
       {kind:'child-select', index:1, routine:'34:62B1 → 34:6D4B'},
@@ -1022,6 +1114,8 @@
     matrixChildCount,
     executeSettledRecordGraph,
     executeSettledRecordProgram,
+    settledOperationPixels,
+    rasterizeSettledOperations,
     settledTokenGlyph,
     settledFractionOperations,
     settledSingleChildOperations,
