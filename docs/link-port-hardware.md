@@ -71,6 +71,12 @@ the idealized differential signal is $V_0 - V_1$: [standard]
 | `2` | released/high | driven low | positive |
 | `3` | driven low | driven low | zero |
 
+![Port writes 0 and 3 produce two distinct zero-differential states, while writes 1 and 2 produce opposite polarities by pulling one link line low.](images/link-differential-audio.svg)
+
+**Differential state map.** The three-level output follows the [standard]
+open-collector model. It shows logical polarity rather than analog voltage or
+safe loading; those physical properties remain [hypothesis].
+
 An interrupt routine can therefore write `1` and `2` for opposite polarities,
 or use either equal-line state for the midpoint. This is the same
 open-collector digital contract used by link transfers; it is not a separate
