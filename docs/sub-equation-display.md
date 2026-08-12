@@ -468,6 +468,64 @@ vertical segment, renders radicand child 2, and draws the vinculum. The
 cursor-free `nthroot(3,X+1)` history redraw reaches the wrappers with vertical
 segment `(5,3)`–`(5,4)` and vinculum `(5,2)`–`(0x18,2)`. [confirmed]
 
+The remaining settled render types map to calculator constructs through the
+source-token table at `34:594D` and post-**ENTER** traces. Type `0x23` renders
+`nDeriv(`, `0x25` renders $e^x$, `0x26` renders $10^x$, `0x28` renders
+`logBASE(`, `0x29` renders summation, and `0x2B` renders a dimensioned matrix.
+Type `0x1F` is a transient root/container type; an ordinary scalar history
+redraw does not dispatch it through `34:6105`. [confirmed]
+
+Types `0x25` and `0x26` share the body at `34:6381`. The handlers position and
+conditionally emit fixed display codes `0xDB` and `0x1D`, respectively. They
+then render child 1. The child record supplies its local origin through offsets
+`+0x0B` and `+0x0D`. [confirmed]
+
+Type `0x28` dispatches to `34:63B2`. It emits the three bytes returned by
+`_KeyToString` for `00C1h`, renders child 1, emits the opening compound shape
+through `34:5D1A`, renders child 2, and emits the closing compound shape through
+`34:5D07`. The settled `logBASE(2,8)` root has child IDs `0x0010` and `0x0011`.
+[confirmed]
+
+Type `0x29` dispatches to `34:6504`. It conditionally emits display code
+`0xC6`, renders children 1–3, and surrounds child 4 with the compound emitters
+at `34:5D1A` and `34:5D07`. It also conditionally emits display code `0x3D`
+between children 1 and 2. The settled `sum(N,1,3,N^2)` root contains child IDs
+`0x0014`–`0x0017`. [confirmed]
+
+Type `0x2B` dispatches to `34:65AA`. It emits the left vertical bracket and its
+two inward points, renders the matrix elements in child-ID order, then emits
+the right bracket and its points. `33:4F23` derives the element-loop bound from
+the dimensions at record bytes `+0x12` and `+0x13`. A settled $2\times2$
+identity matrix renders four children between the bracket operations.
+[confirmed]
+
+`web/mathprint/rom-engine.js` implements the complete `0x1F`–`0x2B` dispatch
+table as an executable record-graph walker. It resolves child IDs through a
+node map, adds each child record's `+0x0B` and `+0x0D` origins on recursive
+entry, preserves the handler's depth changes, and returns ordered primitive and
+leaf operations. The `nDeriv(` handler retains two explicit dynamic operations:
+`34:78B8`/`34:78FB` parses child 1 to choose a pattern, and the later `0x3D`
+position uses the post-branch `DE` high byte. [confirmed]
+
+The trace analyzer recovers leaf records from the resolver path. At `34:6CCD`,
+`DE` is the one-based child index and `ram:8DF2` points at the parent. At
+`34:6CD8`, `DE` contains the selected child ID and `HL` points at its resolved
+record. Pairing these observations produces the complete record graph visited
+by a settled render. [confirmed]
+
+Leaf payload begins at record offset `+0x13`; the word at `+0x11` gives its
+byte count. A one-byte scalar therefore stores its display byte at `+0x13`.
+Compound leaf objects retain the subsequent bytes in the same record. A leaf
+may construct and dispatch another structural record while it renders. The
+analyzer preserves these secondary dispatches in instruction order and uses
+the shallowest Z80 stack depth after the final key press to identify the
+enclosing record. [confirmed]
+
+Each dispatch also captures the viewport origin at `ram:8DFE`/`ram:8E00`.
+Nested fraction `1/2` reaches `34:5DA6` with the local rule `(1,6)`–`(5,6)`
+and origin `(16,5)`. Page 4 therefore receives the translated endpoints
+`(17,52)` and `(21,52)`. [confirmed]
+
 The fixed 20-byte record header contains a two-byte ID at `+0`, a type byte at
 `+2`, eight unaligned little-endian words at `+3`, `+5`, `+7`, `+9`, `+0x0B`,
 `+0x0D`, `+0x0F`, and `+0x11`, and a byte at `+0x13`. The analyzer names words

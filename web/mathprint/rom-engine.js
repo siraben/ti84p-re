@@ -346,6 +346,398 @@
     };
   }
 
+  const SETTLED_RENDER_HANDLERS = Object.freeze({
+    0x1f: 0x6143, 0x20: 0x620a, 0x21: 0x6347, 0x22: 0x622f,
+    0x23: 0x640e, 0x24: 0x6315, 0x25: 0x637e, 0x26: 0x63ad,
+    0x27: 0x62a1, 0x28: 0x63b2, 0x29: 0x6504, 0x2a: 0x6375,
+    0x2b: 0x65aa,
+  });
+
+  function settledRenderHandler(renderType) {
+    byte(renderType, 'settled render type');
+    const handler = SETTLED_RENDER_HANDLERS[renderType];
+    if (handler === undefined)
+      throw new RangeError(`settled render type 0x${renderType.toString(16)} is outside the 34:6119 table`);
+    return {
+      renderType,
+      handler,
+      tableAddress: 0x6119 + 2 * (renderType - 0x1f),
+      routine: '34:6105 → 34:6119',
+    };
+  }
+
+  function decodedSettledNode(input) {
+    if (!input || typeof input !== 'object')
+      throw new TypeError('settled record node must be an object');
+    const decoded = input.header ? decodeSettledRecord(input.header) : input;
+    const type = decoded.type === undefined ? decoded.render_type : decoded.type;
+    const id = decoded.id === undefined ? decoded.record_id : decoded.id;
+    const normalized = {...decoded, id, type};
+    for (const field of [
+      'id', 'type', 'word03', 'word05', 'word07', 'word09', 'word0B',
+      'word0D', 'word0F', 'word11', 'byte13',
+    ]) {
+      if (!Number.isInteger(normalized[field]) || normalized[field] < 0 || normalized[field] > 0xffff)
+        throw new RangeError(`settled record field ${field} is missing or invalid`);
+    }
+    byte(normalized.type, 'settled record type');
+    byte(normalized.byte13, 'settled record byte13');
+    const childIds = Array.from(input.childIds || input.child_ids || normalized.childIds || [], value => {
+      if (!Number.isInteger(value) || value < 0 || value > 0xffff)
+        throw new RangeError('settled child ID must be an unsigned word');
+      return value;
+    });
+    return {...normalized, childIds};
+  }
+
+  // 34:5D1A and 34:5D07 emit two endpoint points before either a straight
+  // five-row segment or two inner points plus a vertical segment. The selected
+  // current record's +5 word supplies the height. Keep the two wrapper modes
+  // separate because their outer and inner x coordinates cross over.
+  function settledCompoundOperations(mode, x, y, height) {
+    if (mode !== 'open' && mode !== 'close')
+      throw new RangeError('settled compound mode must be open or close');
+    byte(x, 'settled compound x');
+    byte(y, 'settled compound y');
+    byte(height, 'settled compound height');
+    if (height < 3)
+      throw new RangeError('settled compound height must be at least three');
+    const routine = mode === 'open' ? '34:5D1A' : '34:5D07';
+    const outerX = x + (mode === 'open' ? 3 : 1);
+    const operations = [
+      {kind:'point', x:outerX, y, routine:`${routine} → 34:5E85`},
+      {kind:'point', x:outerX, y:y + height - 1, routine:`${routine} → 34:5E85`},
+    ];
+    if (height === 5) {
+      operations.push({
+        kind:'line', axis:'vertical',
+        from:{x:x + 2,y:y + 1}, to:{x:x + 2,y:y + height - 2},
+        routine:`${routine} → 34:5D96`,
+      });
+      return operations;
+    }
+    operations.push(
+      {kind:'point', x:x + 2, y:y + 1, routine:`${routine} → 34:5E85`},
+      {kind:'point', x:x + 2, y:y + height - 2, routine:`${routine} → 34:5E85`},
+      {
+        kind:'line', axis:'vertical',
+        from:{x:x + (mode === 'open' ? 1 : 3),y:y + 2},
+        to:{x:x + (mode === 'open' ? 1 : 3),y:y + height - 3},
+        routine:`${routine} → 34:5D96`,
+      },
+    );
+    return operations;
+  }
+
+  const addPointOrigin = (operation, origin) => ({
+    ...operation, x: operation.x + origin.x, y: operation.y + origin.y,
+  });
+
+  function addOperationOrigin(operation, origin) {
+    if (operation.kind === 'line') return {
+      ...operation,
+      from:{x:operation.from.x + origin.x, y:operation.from.y + origin.y},
+      to:{x:operation.to.x + origin.x, y:operation.to.y + origin.y},
+    };
+    if (operation.kind === 'point' || operation.kind === 'glyph' ||
+        operation.kind === 'bitmap' || operation.kind === 'glyph-run')
+      return addPointOrigin(operation, origin);
+    return {...operation, origin:{...origin}};
+  }
+
+  function matrixChildCount(record) {
+    // 33:4F23 reads the dimensions at +12/+13, multiplies them through the
+    // 1EF6h service, and returns product+1. 34:65D0 decrements that loop bound.
+    const rows = record.word11 >> 8;
+    const columns = record.byte13;
+    const count = rows * columns;
+    if (!count || count > 0xff)
+      throw new RangeError(`matrix dimensions ${rows}x${columns} are invalid`);
+    return count;
+  }
+
+  // Execute structural render records as a graph. Child words following a
+  // parent header are IDs; this map performs the same logical resolution as
+  // 34:6CCD -> 34:4B05 -> 34:4A83. Recursive child origins come only from the
+  // selected child's +0Bh/+0Dh words, matching 34:6BCD/6BFD.
+  //
+  // Leaf records are outside the 1Fh..2Bh structural table. A caller may supply
+  // renderLeaf(record, context) to translate their object/glyph representation;
+  // otherwise the executor retains an explicit leaf operation.
+  function executeSettledRecordGraph(inputs, rootId, options = {}) {
+    if (!Array.isArray(inputs))
+      throw new TypeError('settled record graph must be an array');
+    if (!Number.isInteger(rootId) || rootId < 0 || rootId > 0xffff)
+      throw new RangeError('settled graph root ID must be an unsigned word');
+    const records = new Map();
+    for (const input of inputs) {
+      const record = decodedSettledNode(input);
+      if (records.has(record.id))
+        throw new RangeError(`duplicate settled record ID 0x${record.id.toString(16)}`);
+      records.set(record.id, record);
+    }
+    if (!records.has(rootId))
+      throw new RangeError(`settled root ID 0x${rootId.toString(16)} is absent`);
+
+    const output = [];
+    const active = new Set();
+    const state = {depth: options.depth === undefined ? 1 : byte(options.depth, 'settled depth')};
+
+    const child = (record, index) => {
+      const id = record.childIds[index - 1];
+      if (id === undefined)
+        throw new RangeError(`record 0x${record.id.toString(16)} has no child ${index}`);
+      const result = records.get(id);
+      if (!result)
+        throw new RangeError(`child ID 0x${id.toString(16)} is absent from the graph`);
+      return result;
+    };
+
+    const emit = (record, origin, operation) => {
+      const absolute = addOperationOrigin(operation, origin);
+      if (options.acceptOperation && !options.acceptOperation(absolute, record, state)) return;
+      output.push({...absolute, recordId:record.id, recordType:record.type, depth:state.depth});
+    };
+
+    const compound = (record, origin, mode, x, y, current) => {
+      for (const operation of settledCompoundOperations(mode, x, y, current.word05))
+        emit(record, origin, operation);
+    };
+
+    const visit = (record, origin) => {
+      if (active.has(record.id))
+        throw new RangeError(`cycle through settled record ID 0x${record.id.toString(16)}`);
+      active.add(record.id);
+
+      const renderChild = index => {
+        const next = child(record, index);
+        visit(next, {x:origin.x + next.word0B, y:origin.y + next.word0D});
+      };
+      const emitChildLeaf = () => {
+        const context = {origin:{...origin}, depth:state.depth};
+        const operations = options.renderLeaf
+          ? options.renderLeaf(record, context)
+          : [{kind:'leaf', objectType:record.type, routine:'34:660A object renderer'}];
+        if (!Array.isArray(operations))
+          throw new TypeError('renderLeaf must return an array of operations');
+        for (const operation of operations) emit(record, origin, operation);
+      };
+
+      if (record.type < 0x1f || record.type > 0x2b) {
+        emitChildLeaf();
+        active.delete(record.id);
+        return;
+      }
+
+      switch (record.type) {
+      case 0x1f:
+        emit(record, origin, {
+          kind:'bitmap', x:0, y:0, width:5, height:7,
+          bytes:[0x05,0x02,0x01,0x00,0x1f,0x00,0x02,0x06],
+          routine:'34:6143 → 34:61BE → ram:3CCF',
+        });
+        break;
+      case 0x20: {
+        const first = child(record, 1), second = child(record, 2);
+        renderChild(1);
+        renderChild(2);
+        emit(record, origin, settledFractionOperations(
+          first.word07, second.word07, record.word0B)[2]);
+        break;
+      }
+      case 0x21:
+        for (const operation of settledAbsoluteOperations(record.word09, record.word07))
+          if (operation.kind === 'line') emit(record, origin, operation);
+        state.depth--;
+        renderChild(1);
+        state.depth++;
+        break;
+      case 0x22: {
+        for (const operation of settledIntegralOperations(record.word07))
+          emit(record, origin, operation);
+        renderChild(1);
+        renderChild(2);
+        const third = child(record, 3);
+        compound(record, origin, 'open', third.word0B - 6, third.word0D, third);
+        state.depth--;
+        renderChild(3);
+        compound(record, origin, 'close', third.word0B + third.word07,
+                 third.word0D, third);
+        const fourth = child(record, 4);
+        emit(record, origin, {
+          kind:'glyph', code:0x64,
+          x:third.word0B + third.word07 + 6, y:fourth.word0D,
+          condition:'34:67C8 accepts child-4 vertical position',
+          routine:'34:6298 → 34:6C35 → 34:6C37',
+        });
+        renderChild(4);
+        state.depth++;
+        break;
+      }
+      case 0x23: {
+        const savedDepth = state.depth;
+        state.depth = 1;
+        emit(record, origin, {
+          kind:'glyph', code:0x64, x:3, y:record.word0B - 6,
+          condition:'34:6421 finds clipping bit 1 clear',
+          routine:'34:641E → 34:642A → 34:6C32',
+        });
+        emit(record, origin, {
+          kind:'glyph', code:0x64, x:1, y:record.word0B + 2,
+          condition:'34:6431 accepts the vertical position',
+          routine:'34:6431 → 34:6439 → 34:6C32',
+        });
+        const first = child(record, 1);
+        emit(record, origin, {
+          kind:'line', axis:'horizontal',
+          from:{x:0,y:record.word0B}, to:{x:first.word07 + 4,y:record.word0B},
+          routine:'34:644B → 34:5DA6',
+        });
+        state.depth = savedDepth;
+        renderChild(1);
+        const second = child(record, 2);
+        compound(record, origin, 'open', first.word07 + 6, second.word0D, second);
+        state.depth--;
+        renderChild(2);
+        const secondEnd = first.word07 + second.word07 + 12;
+        compound(record, origin, 'close', secondEnd, second.word0D, second);
+        emit(record, origin, {
+          kind:'line', axis:'vertical',
+          from:{x:secondEnd + 6,y:record.word0B - 3},
+          to:{x:secondEnd + 6,y:record.word0B + 6},
+          routine:'34:6472 → 34:5D96',
+        });
+        state.depth = 1;
+        emit(record, origin, {
+          kind:'dynamic-pattern', x:secondEnd + 9, y:record.word0B + 2,
+          source:'child 1 parsed by 34:78B8/78FB',
+          condition:'34:64AD finds clipping bit 1 clear',
+          routine:'34:648B–64B3 → 34:6C37',
+        });
+        emit(record, origin, {
+          kind:'glyph', code:0x3d, x:secondEnd + 9, y:record.word0B + 2,
+          xAdjustment:'high byte of the post-branch DE value at 34:64B6',
+          condition:'34:64C1 finds clipping bit 1 clear',
+          routine:'34:64CB → 34:6C37',
+        });
+        renderChild(3);
+        state.depth = savedDepth;
+        break;
+      }
+      case 0x24: {
+        const first = child(record, 1), second = child(record, 2);
+        const operations = settledNthRootOperations(first.word07, second.word07);
+        renderChild(1);
+        emit(record, origin, operations[1]);
+        emit(record, origin, operations[2]);
+        renderChild(2);
+        emit(record, origin, operations[4]);
+        break;
+      }
+      case 0x25:
+      case 0x26: {
+        const savedDepth = state.depth;
+        emit(record, origin, {
+          kind:'glyph', code:record.type === 0x25 ? 0xdb : 0x1d,
+          x:0, y:record.word07 - 7,
+          condition:'34:67C8 accepts the vertical position',
+          routine:record.type === 0x25 ? '34:637E → 34:6C37' : '34:63AD → 34:6C37',
+        });
+        state.depth = 1;
+        renderChild(1);
+        state.depth = savedDepth;
+        break;
+      }
+      case 0x27: {
+        const first = child(record, 1);
+        const operations = settledRadicalOperations(record.word07, first.word07);
+        emit(record, origin, operations[0]);
+        emit(record, origin, operations[1]);
+        emit(record, origin, operations[3]);
+        renderChild(1);
+        break;
+      }
+      case 0x28: {
+        state.depth--;
+        const y = record.word0B - (state.depth === 0 ? 3 : 2);
+        emit(record, origin, {
+          kind:'glyph-run', codes:[0x6c,0x6f,0x67], x:0, y,
+          condition:'34:67C8 accepts the vertical position',
+          routine:'34:63C7 → _KeyToString = 45CAh → 34:6C26',
+        });
+        const savedDepth = state.depth;
+        state.depth = 1;
+        renderChild(1);
+        state.depth = savedDepth;
+        const first = child(record, 1), second = child(record, 2);
+        const openX = first.word07 + (state.depth === 0 ? 18 : 11);
+        compound(record, origin, 'open', openX, 0, second);
+        renderChild(2);
+        state.depth++;
+        compound(record, origin, 'close', second.word07 + second.word0B, 0, second);
+        break;
+      }
+      case 0x29: {
+        const savedDepth = state.depth;
+        state.depth = 0;
+        const first = child(record, 1), second = child(record, 2);
+        const third = child(record, 3), fourth = child(record, 4);
+        const sigmaX = Math.floor((Math.max(
+          first.word07 + second.word07 + 4, third.word07) - 5) / 2);
+        emit(record, origin, {
+          kind:'glyph', code:0xc6, x:sigmaX, y:record.word0B - 3,
+          condition:'34:67C8 accepts the vertical position',
+          routine:'34:6517–651F → 34:6C37',
+        });
+        state.depth++;
+        renderChild(1);
+        emit(record, origin, {
+          kind:'glyph', code:0x3d,
+          x:first.word0B + first.word07, y:first.word0D + first.word09 - 2,
+          condition:'34:6536 accepts the vertical position',
+          routine:'34:653B–654F → 34:6C37',
+        });
+        renderChild(2);
+        renderChild(3);
+        state.depth = savedDepth - 1;
+        compound(record, origin, 'open', fourth.word0B - 6, fourth.word0D, fourth);
+        renderChild(4);
+        compound(record, origin, 'close', fourth.word0B + fourth.word07,
+                 fourth.word0D, fourth);
+        state.depth++;
+        break;
+      }
+      case 0x2a:
+        renderChild(1);
+        break;
+      case 0x2b: {
+        const h = record.word07 - 1;
+        emit(record, origin, {kind:'line', axis:'vertical',
+          from:{x:2,y:0}, to:{x:2,y:h}, routine:'34:65B4 → 34:5D96'});
+        emit(record, origin, {kind:'point', x:3, y:0, routine:'34:65BD → 34:5E85'});
+        emit(record, origin, {kind:'point', x:3, y:h, routine:'34:65C4 → 34:5E85'});
+        state.depth--;
+        const count = matrixChildCount(record);
+        for (let index = 1; index <= count; index++) renderChild(index);
+        state.depth++;
+        const x = record.word09 - 4;
+        emit(record, origin, {kind:'line', axis:'vertical',
+          from:{x,y:0}, to:{x,y:h}, routine:'34:65F9 → 34:5D96'});
+        emit(record, origin, {kind:'point', x:x - 1, y:0, routine:'34:6602 → 34:5E85'});
+        emit(record, origin, {kind:'point', x:x - 1, y:h, routine:'34:6607 → 34:5E85'});
+        break;
+      }
+      }
+      active.delete(record.id);
+    };
+
+    const startOrigin = options.origin || {x:0,y:0};
+    if (!Number.isInteger(startOrigin.x) || !Number.isInteger(startOrigin.y))
+      throw new RangeError('settled graph origin must contain integer x and y');
+    visit(records.get(rootId), {x:startOrigin.x,y:startOrigin.y});
+    return output;
+  }
+
   // Render-record type 20h dispatches through 34:6105/6119 to 34:620A. It
   // renders child records 1 and 2, reads each child's word at +7, and chooses
   // the larger value. The inclusive rule runs from x=1 through max+1 at the
@@ -476,6 +868,10 @@
     settledHorizontalOperation,
     settledObjectHandler,
     decodeSettledRecord,
+    settledRenderHandler,
+    settledCompoundOperations,
+    matrixChildCount,
+    executeSettledRecordGraph,
     settledFractionOperations,
     settledSingleChildOperations,
     settledAbsoluteOperations,

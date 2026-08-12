@@ -165,6 +165,90 @@ expectEqual('settled record header ABI', rom.decodeSettledRecord([
   id:0x10, type:0x27, word03:0x0f, word05:1, word07:0x0c,
   word09:0x1b, word0B:8, word0D:0, word0F:0, word11:1, byte13:0xef,
 });
+const renderHandlers = [0x6143,0x620a,0x6347,0x622f,0x640e,0x6315,0x637e,
+  0x63ad,0x62a1,0x63b2,0x6504,0x6375,0x65aa];
+renderHandlers.forEach((handler, index) => {
+  const renderType = 0x1f + index;
+  expectEqual(`34:6119 render type ${renderType.toString(16)}`,
+    rom.settledRenderHandler(renderType), {
+      renderType, handler, tableAddress:0x6119 + 2 * index,
+      routine:'34:6105 → 34:6119',
+    });
+});
+expectEqual('34:5D1A five-row compound',
+  rom.settledCompoundOperations('open', 10, 4, 5), [
+    {kind:'point',x:13,y:4,routine:'34:5D1A → 34:5E85'},
+    {kind:'point',x:13,y:8,routine:'34:5D1A → 34:5E85'},
+    {kind:'line',axis:'vertical',from:{x:12,y:5},to:{x:12,y:7},
+     routine:'34:5D1A → 34:5D96'},
+  ]);
+expectEqual('34:5D07 tall compound',
+  rom.settledCompoundOperations('close', 20, 6, 7), [
+    {kind:'point',x:21,y:6,routine:'34:5D07 → 34:5E85'},
+    {kind:'point',x:21,y:12,routine:'34:5D07 → 34:5E85'},
+    {kind:'point',x:22,y:7,routine:'34:5D07 → 34:5E85'},
+    {kind:'point',x:22,y:11,routine:'34:5D07 → 34:5E85'},
+    {kind:'line',axis:'vertical',from:{x:23,y:8},to:{x:23,y:10},
+     routine:'34:5D07 → 34:5D96'},
+  ]);
+const settledRecord = (id, type, fields = {}, childIds = []) => ({
+  id, type, word03:0, word05:0, word07:0, word09:0, word0B:0,
+  word0D:0, word0F:0, word11:0, byte13:0, ...fields, childIds,
+});
+const leafGlyph = record => [{kind:'glyph',code:record.id,x:0,y:0,routine:'test leaf'}];
+const absoluteGraph = rom.executeSettledRecordGraph([
+  settledRecord(0x0e, 0x21, {word07:7,word09:0x1e}, [0x0d]),
+  settledRecord(0x0d, 0x00, {word0B:4}),
+], 0x0e, {renderLeaf:leafGlyph});
+expectEqual('settled graph absolute child ID and origin',
+  absoluteGraph.map(op => [op.kind, op.recordId, op.depth,
+    op.from ? op.from.x : op.x, op.from ? op.from.y : op.y]), [
+    ['line',0x0e,1,2,0], ['line',0x0e,1,0x1a,0],
+    ['glyph',0x0d,0,4,0],
+  ]);
+const nthRootGraph = rom.executeSettledRecordGraph([
+  settledRecord(0x0f, 0x24, {}, [0x10,0x11]),
+  settledRecord(0x10, 0x00, {word07:4}),
+  settledRecord(0x11, 0x00, {word07:0x18,word0B:8,word0D:4}),
+], 0x0f, {renderLeaf:leafGlyph});
+expectEqual('settled graph nth-root drawing order and child offsets',
+  nthRootGraph.map(op => [op.kind, op.recordId, op.x === undefined ? op.from.x : op.x,
+    op.y === undefined ? op.from.y : op.y]), [
+    ['glyph',0x10,0,0], ['bitmap',0x0f,3,0], ['line',0x0f,5,3],
+    ['glyph',0x11,8,4], ['line',0x0f,5,2],
+  ]);
+const nestedFractionGraph = rom.executeSettledRecordGraph([
+  settledRecord(0x0d, 0x20, {word0B:6}, [0x0e,0x0f]),
+  settledRecord(0x0e, 0x00, {word07:4}),
+  settledRecord(0x0f, 0x00, {word07:4,word0D:8}),
+], 0x0d, {renderLeaf:leafGlyph,origin:{x:16,y:5}});
+expectEqual('settled nested fraction keeps local rule and live origin',
+  nestedFractionGraph.map(op => [op.kind,op.recordId,
+    op.from ? op.from.x : op.x, op.from ? op.from.y : op.y,
+    op.to ? op.to.x : null, op.to ? op.to.y : null]), [
+    ['glyph',0x0e,16,5,null,null],
+    ['glyph',0x0f,16,13,null,null],
+    ['line',0x0d,17,11,21,11],
+  ]);
+const matrixRoot = settledRecord(0x10, 0x2b,
+  {word05:4,word07:0x10,word09:0x1e,word11:0x0201,byte13:2},
+  [0x11,0x13,0x14,0x15]);
+expectEqual('33:4F23 matrix product', rom.matrixChildCount(matrixRoot), 4);
+const matrixGraph = rom.executeSettledRecordGraph([
+  matrixRoot,
+  settledRecord(0x11,0,{word0B:6,word0D:2}),
+  settledRecord(0x13,0,{word0B:16,word0D:2}),
+  settledRecord(0x14,0,{word0B:6,word0D:9}),
+  settledRecord(0x15,0,{word0B:16,word0D:9}),
+], 0x10, {renderLeaf:leafGlyph});
+expectEqual('settled matrix brackets surround row-major children',
+  matrixGraph.map(op => [op.kind,op.recordId,op.depth,
+    op.x === undefined ? op.from.x : op.x,op.y === undefined ? op.from.y : op.y]), [
+    ['line',0x10,1,2,0], ['point',0x10,1,3,0], ['point',0x10,1,3,15],
+    ['glyph',0x11,0,6,2], ['glyph',0x13,0,16,2],
+    ['glyph',0x14,0,6,9], ['glyph',0x15,0,16,9],
+    ['line',0x10,1,26,0], ['point',0x10,1,25,0], ['point',0x10,1,25,15],
+  ]);
 expectEqual('34:62A1 radical primitive order', rom.settledRadicalOperations(8, 0x1d), [
   {kind:'bitmap', x:0, y:0, width:5, height:10, routine:'34:62A4 → 34:62D0'},
   {kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:7},
