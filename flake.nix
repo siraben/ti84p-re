@@ -54,6 +54,7 @@
             node tools/test-mathprint.js
             python3 tools/test_trace_lcd.py
             python3 tools/test_mathprint_extractors.py
+            python3 tools/test_mathprint_draw_trace.py
           '';
           dontInstall = true;
           dontFixup = true;
