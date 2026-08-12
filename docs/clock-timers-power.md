@@ -269,6 +269,12 @@ physical timer edges prevent the nominal calculation from serving as a
 physical measurement. [confirmed] for the constants and control flow;
 [standard] for the timer decode; [hypothesis] for physical cadence.
 
+![The programmed timer path gives a nominal 31.25 kHz ISR and 17.36 tracker updates per second; the upstream 33,333.3 Hz tuning constant and one trace's 4,674 writes per second are separate evidence lanes.](images/badapple-timer-evidence.svg)
+
+**Cadence evidence.** The top lane combines [confirmed] application bytes with
+the [standard] timer decode. The encoder and trace lanes preserve their source
+contexts; neither measures physical calculator cadence.
+
 Port `0x2D` controls low-power behavior. Bit 0 keeps the quartz oscillator active on the TI-83 Plus Silver Edition; the TI-84 Plus RTC already requires it. Bit 1 allows the programmable timers to continue counting in low power. TI writes `0x03`. Public hardware tests report that these timers still do not reliably interrupt a halted CPU, so software should keep a standard timer enabled when it must escape `HALT`. [standard]
 
 ### Prepared physical discriminator
