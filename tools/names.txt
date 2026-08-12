@@ -1143,10 +1143,10 @@ page_39:67a0	eqdisp_draw_window
 page_39:67ac	eqdisp_set_flag2_jp
 page_39:6821	gr_draw_at_row6
 page_39:6833	eqdisp_draw_indented
-page_39:683d	eqdisp_decr_counters
+page_39:683d	eqdisp_descriptor_cell_to_pixel
 page_39:68ae	eqdisp_layout_token_geom
 page_39:69c8	eqdisp_compute_dims
-page_39:6abf	eqdisp_draw_fraction_bar
+page_39:6abf	eqdisp_focus_rectangle
 page_39:6af5	eqdisp_draw_box_jp
 page_39:6afd	eqdisp_draw_indent_jp
 page_39:6b1c	eqdisp_advance_col6

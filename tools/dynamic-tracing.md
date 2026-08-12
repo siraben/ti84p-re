@@ -2411,9 +2411,10 @@ rather than paged-address resolution.
 - [`macros/archive-second-program.macro`](macros/archive-second-program.macro) — archive the second of exactly two loaded programs through the memory-manager UI.
 - [`macros/run-first-program-factorial5.macro`](macros/run-first-program-factorial5.macro) —
   launch the first TI-BASIC program and answer `5` at `Prompt N`.
-- `macros/mathprint-{power,fraction,fnint}.macro` — render `X²` / `1/2` / `fnInt(`
-  to instrument the page-`0x39` MathPrint engine (worked example in
-  [docs/sub-equation-display.md](../docs/sub-equation-display.md), "Dynamic confirmation").
+- `macros/mathprint-{power,fraction,fnint,integral-fraction}.macro` — render
+  `X²`, `1/2`, a filled integral, and an integral with a nested fraction to
+  instrument the page `0x39` MathPrint engine (worked example in
+  [docs/sub-equation-display.md](../docs/sub-equation-display.md), "Filled and nested-integrand traces").
 - `macros/{ln2,exp1,sin1,fpsub}.macro` — known-input runs (`ln(2)`, `e¹`, `sin(1)`,
   `5−2`) that drive the FP/transcendental algorithms in
   [docs/floating-point.md](../docs/floating-point.md) for instruction-level

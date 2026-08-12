@@ -1,76 +1,76 @@
-# TI-84 Plus OS 2.55MP — page-0x39 cell → glyph / action spec
+# MathPrint cell dispatch
 
-How a MathPrint "handler record" CELL (a two-byte value `D:E`, e.g. `00C8`,
-`FE18`, `FC3F`) maps to a drawn large-font codepoint or a layout action.
+*TI-84 Plus OS 2.55MP — page `0x39` cell, glyph, and action decoding.*
 
-All addresses are `page:offset`. Raw bytes are quoted from `tools/rom.bin`
-(flash page P at file offset `P*0x4000`, logical window `0x4000..0x7FFF`).
-Glyph codepoints are indices into the **large font** on page 0x07 at
-base `0x45FF`, 7-byte stride: `glyph(code) = ROM[page07: 0x45FF + code*7]`
+This note explains how a two-byte MathPrint handler-record cell `D:E`, such as
+`00C8`, `FE18`, or `FC3F`, maps to a large-font codepoint or a layout action.
+
+All addresses use `pp:addr`. Raw bytes come from the pinned OS image identified
+by `tools/rom_signatures.py`. Unless marked otherwise, byte, table, and control-
+flow claims below are [confirmed]. Glyph codepoints index the large font on
+page `0x07` at `07:45FF`, with a 7-byte stride:
+`glyph(code) = ROM[07:45FF + code*7]`
 (see `tools/render-mathprint.py`).
 
-The authoritative emitter for layout.json cells is the page-0x39 routine
-`eqdisp_emit_glyph` (`39:4E8E`). The page-0x07 classifier `07:44DE` is the
-*classic* (non-MathPrint) editor char→token/glyph map; its FE/FC/FB sub-tables
-are reproduced here because they are the canonical family glyph tables, but note
-(see §3) that they return **expanded TI tokens**, not directly font codepoints.
+The authoritative emitter for `layout.json` cells is the page `0x39` routine
+`eqdisp_emit_glyph` (`39:4E8E`). The page `0x07` classifier `07:44DE` is the
+classic non-MathPrint editor char→token/glyph map; its FE/FC/FB subtables
+are reproduced here because they are the canonical family glyph tables. They
+return expanded TI tokens, not direct font codepoints.
 
 ---
 
-## 1. The D-byte dispatch rule (`eqdisp_emit_glyph`, 39:4E8E)
+## D-byte dispatch
 
 Cells are read as a stream of `(D,E)` pairs: the feeder
 `eqdisp_emit_arglist` (`39:4DE6`) does `ld d,(hl); inc hl; ld e,(hl); inc hl`
-then `call 4E8E`, so **D = first byte, E = second byte** of each pair.
+then `call 4E8E`, so `D` is the first byte and `E` is the second.
 
-`39:4E8E` raw:
-```
+`39:4E8E` begins:
+
+```z80
 7a fe 1f 20 2c ...        ; ld a,d / cp 1F / jr nz
 ... fe 82 20 08 ...       ; cp 82 / jr nz
 ... d5 cd 75 66 ...       ; (default) push de / call 6675
 ```
 
-Dispatch on **D**:
+Dispatch on `D`:
 
 | D value      | meaning / branch | what happens |
 |--------------|------------------|--------------|
-| `D = 0x1F`   | cursor / answer marker (`4E93`) | not a glyph; runs cursor/edit-area setup (`bcall 01B07`, `bcall 01790`, `02D09`, `03E85`), decrements `(0844Bh)`. **Layout action, draws nothing itself.** |
-| `D = 0x82`   | "raw column glyph" (`4EBF`) | `a = E - 0x3E; call 3B2B` — draws via the column/small-glyph routine. (E is a column index, not a font code.) |
-| everything else | generic path (`4ECB`) | 3-stage resolve: (a) named-token list check `6675`, (b) token-name draw `6B66`, (c) remap-to-glyph `eqdisp_map_token_glyph` `4F1A`. See §1.1. |
+| `D = 0x1F`   | cursor / answer marker (`39:4E93`) | Runs cursor/edit-area setup, decrements `0x844B`, and draws no glyph. |
+| `D = 0x82`   | indexed string/title (`39:4EBF`) | `A = E - 0x3E; call ram:3B2B` reaches the indexed-string printer at `01:7183`. `E` selects an entry, not a font code. |
+| everything else | generic path (`39:4ECB`) | Checks named-token lists at `39:6675`, selects a string at `39:6B66`, then tries the direct mapper at `39:4F1A`. |
 
-### 1.1 Generic path (D ∉ {0x1F, 0x82})
+### Generic path
 
-1. **`call 6675` (`eqdisp_classify_paren`)** — matches `D:E` against three
-   10-entry token lists (see §5). On match it stores `E→(08446h)`, `D→A` and
-   routes to the *styled / sub-table* name-draw path (used for ∑, ∏, integrals,
-   etc.).
-2. **`bit 6,(iy+036h)`** mode bit: if set, `call 2CBB` (alternate handling).
-   If `D = 0xFD`, force `D = 0x00` (`16 00` at `4EE1`) before:
-3. **`call 6B66` (named-token string draw)** — if `D = 0xFB` and `E` is one of
-   the special "named" codes, an inline Pascal string is drawn (see §6).
-   Otherwise `_KeyToString` (`bcall 0x45CA`, body `01:6D10`) selects a
+1. `call 6675` (`eqdisp_classify_paren`) matches `D:E` against three
+   10-entry token lists. On match it stores `E` to `0x8446`, moves `D` to `A`, and
+   routes to the fixed delimiter display-byte subtable path.
+2. `bit 6,(iy+036h)` selects alternate handling through `ram:2CBB` when set.
+   If `D = 0xFD`, force `D = 0x00` (`16 00` at `39:4EE1`) before:
+3. `39:6B66` selects an inline counted string when `D = 0xFB` and `E` is one of
+   the special named codes.
+   Otherwise `_KeyToString = 45CAh` (body `01:6D10`) selects a
    counted display string from the pair `D:E`.
-   This is the path that renders e.g. a `00:E` cell as a function name.
-4. **`call 4F1A` (`eqdisp_map_token_glyph`)** — if it returns **NC**, A holds a
-   large-font codepoint. The tail then reaches `bcall 0x51F4`; its resolved
-   target is a post-overflow display/menu helper, so this boundary alone does
-   not identify the final glyph blitter.
-   If it returns **C** (carry), the cell was *not* remappable to a single glyph
-   and the draw already happened in step 3 (token name) or is a no-op.
-   - On the carry path: `D = 0xFF` or `D = 0xFC` → finished; `E = 0x55` →
-     special; else cleanup.
+   This path renders a `00:E` cell as a function name.
+4. `39:4F1A` (`eqdisp_map_token_glyph`) returns NC with a large-font codepoint
+   in `A`, or C when no direct mapping exists. The tail reaches bcall ID
+   `51F4h`. Its resolved target is a post-overflow display/menu helper, so this
+   boundary does not identify the final glyph blitter. On the carry path, the
+   cell has no single-glyph mapping. `D = 0xFF` or `D = 0xFC` finishes, while
+   `E = 0x55` takes a special path.
 
-So a cell can resolve to **(i)** a layout/cursor action (D=0x1F),
-**(ii)** a token *name string* (steps 1/3, e.g. D=0x00 or FB-special), or
-**(iii)** a single large-font glyph (step 4 via `4F1A`).
+The result is a layout action, a counted string, or a direct large-font glyph.
 
 ---
 
-## 2. `eqdisp_map_token_glyph` (39:4F1A) — exact arithmetic
+## Direct glyph mapping
 
-Input `D:E`, output: **NC** ⇒ A = large-font codepoint; **C** ⇒ no single-glyph
-mapping. Raw (`39:4F1A`):
-```
+Input `D:E`; output NC means `A` holds a large-font codepoint. Carry means no
+single-glyph mapping. The bytes at `39:4F1A` are:
+
+```z80
 7a fe fc 20 0b      cp FC ; jr nz
 7b fe 41 30 1e      ld a,e ; cp 41 ; jr nc ->scf
 d6 3c d8            sub 3C ; ret c
@@ -93,20 +93,21 @@ b7 c9               or a ; ret              ; xx42: glyph = D  (carry clear)
 | `D, E=0x42`      | `D < 0x0A`           | `glyph = D`              → e.g. `0142`→1, `0942`→9 |
 | any other        | —                    | carry (handled elsewhere, usually a token name) |
 
-These five FC/FE codepoints `5..9` and `0..4` are consecutive font cells; in the
-ROM large font 0x00..0x09 are the small/sub-script style digit forms and
-0x05..0x09 the super/alt forms used by exponent layouts.
+The FC/FE codepoints `5`–`9` and `0`–`4` occupy consecutive font cells. In the
+ROM large font, `0x00`–`0x09` are small/subscript digit forms, and
+`0x05`–`0x09` are the alternate forms used by exponent layouts.
 
 ---
 
-## 3. Page-0x07 classifier `07:44DE` and the FE/FC/FB family tables
+## Page-`0x07` classifier and family tables
 
-`07:44DE` takes a **single display byte in A** (the classic editor encoding) and
-returns `D:E`. It is *not* the page-0x39 cell emitter, but its sub-tables are the
+`07:44DE` takes a single classic-editor display byte in `A` and returns `D:E`.
+It is not the page `0x39` cell emitter, but its subtables are the
 canonical family glyph/token tables.
 
-Raw (`07:44DE`):
-```
+The bytes at `07:44DE` are:
+
+```z80
 fe fe 28 3c     cp FE / jr z ->l451E   (FE family)
 fe fc 28 30     cp FC / jr z ->l4516   (FC family)
 fe fb 28 1e     cp FB / jr z ->l4508   (FB family)
@@ -117,29 +118,28 @@ d6 5a 21 00 40  sub 5A ; hl=0x4000     (default)
 5e c9           E=(hl) ; ret           (default: glyph = byte[0x4000+(A-0x5A)])
 ```
 
-Indexing per family (the in-family index is **RAM (08446h)**, the "font/mode
-sub-code" that the editor's encoder `07:4539` stored earlier):
+The in-family index is the font/mode subcode at `0x8446`, stored by `07:4539`.
 
-- **`cp 0x05` → glyph `0x3F`** (direct).
-- **default** → `glyph = byte[ page07: 0x4000 + (A − 0x5A) ]` (table §3a).
-- **FE family** (`l451E`): `i = (08446h)`.
-  - if `i < 0x69`: `glyph = byte[ 0x4099 + i ]`  (single-byte table §3b).
-  - if `i ≥ 0x69`: `i -= 0x69`; entry = WORD at `0x4102 + 2*i` → returns the
-    pair `D=byte[0x4102+2i], E=byte[+1]` (word table §3c).
-- **FC family** (`l4516`): `i = (08446h)`; entry = WORD at `0x422C + 2*i` (§3d).
-- **FB family** (`l4508`): `i = (08446h)`; **if `i ≥ 0x8C`, `i -= 0x7F`**;
-  entry = WORD at `0x4426 + 2*i` (§3e).
+- `cp 0x05` maps directly to glyph `0x3F`.
+- The default case reads `glyph = byte[07:4000 + (A - 0x5A)]`.
+- The FE family (`l451E`) uses `i = 0x8446`.
+  - If `i < 0x69`, `glyph = byte[07:4099 + i]`.
+  - If `i >= 0x69`, subtract `0x69` and read the pair at `07:4102 + 2*i`.
+- The FC family (`l4516`) reads a word at `07:422C + 2*i`.
+- The FB family (`l4508`) subtracts `0x7F` when `i >= 0x8C`, then reads
+  a word at `07:4426 + 2*i`.
 
-**Important:** the FE-high / FC / FB word tables (§3c–§3e) do **not** contain
+The FE-high, FC, and FB word tables contain expanded TI tokens, not
 font codepoints. Each 2-byte entry is itself a TI token `(lead, second)` — the
 lead bytes seen are 0x7E, 0x5D, 0x5C, 0x63, 0x60, 0x61, 0x62, 0xAA, 0xBB, 0xEF,
 0xFE, 0x28. `07:44DE` therefore *expands* a 1-byte editor code into a 2-byte
-token, which is then drawn by name / recursively classified. Only the **default**
-and **cp 0x05** cases yield a font glyph directly.
+token, which is then drawn by name or recursively classified. Only the default
+and `cp 0x05` cases yield a font glyph directly.
 
-### 3a. Default table — `page07:0x4000`, glyph = byte[0x4000+(code−0x5A)]
-code → glyph (large-font codepoint):
-```
+### Default table at `07:4000`
+Code to large-font glyph:
+
+```text
 5A→84 5B→00 5C→89 5D→8A 5E→8D 5F→88 60→8E 61→00 62→8B 63→86 64→87 65→90
 66→92 67→8C 68→8F 69→00 6A→A5 6B→85 6C→9C 6D→00 6E→A0 6F→9F 70→9E 71→9D
 72→A6 73→93 74→A7 75→00 76→00 77→00 78→00 79→00 7A→00 7B→00 7C→00 7D→00
@@ -158,9 +158,10 @@ F6→A2 F7→13 F8→9B F9→99 FA→9A FB→98 FC→B2 FD→6A FE→6F FF→6C
 (Note: maps the editor's letter/op codes onto the large font; e.g. C7→0x25 "/",
 C8→0x24, C9→0x22, B6→0x0C etc.)
 
-### 3b. FE-low table — `page07:0x4099`, glyph = byte[0x4099+i] (i = (08446h) < 0x69)
-idx → glyph:
-```
+### FE-low table at `07:4099`
+Index to glyph:
+
+```text
 00→A8 01→A9 02→A1 03→A2 04→13 05→9B 06→99 07→9A 08→98 09→B2 0A→6A 0B→6F
 0C→6C 0D→6E 0E→6B 0F→6D 10→40 11→3C 12→3D 13→B8 14→FF 15→F1 16→0F 17→BD
 18→02 19→2E 1A→2F 1B→EC 1C→ED 1D→12 1E→B9 1F→BA 20→B1 21→AB 22→94 23→95
@@ -172,9 +173,10 @@ idx → glyph:
 60→E9 61→EA 62→A3 63→E7 64→E8 65→05 66→7F 67→80 68→81
 ```
 
-### 3c. FE-high token table — `page07:0x4102`, WORD[2*i] (i = (08446h)−0x69)
+### FE-high token table at `07:4102`
 Each entry is a 2-byte TI token `(D,E)`:
-```
+
+```text
 00:7E00 01:7E01 02:7E02 03:7E03 04:7E04 05:7E05 06:7E06 07:7E07 08:7E08 09:7E09
 0A:7E0A 0B:7E0B 0C:7E0C 0D:7E0D 0E:5D00 0F:5D01 10:5D02 11:5D03 12:5D04 13:5D05
 14:5C00 15:5C01 16:5C02 17:5C03 18:5C04 19:630A 1A:630B 1B:6302 1C:630C 1D:630D
@@ -184,8 +186,9 @@ Each entry is a 2-byte TI token `(D,E)`:
 3C:BB32 3D:BB31 3E:6000 3F:6001 ...
 ```
 
-### 3d. FC token table — `page07:0x422C`, WORD[2*i] (i = (08446h))
-```
+### FC token table at `07:422C`
+
+```text
 00:6100 01:6101 02:6102 03:5E10 04:5E11 05:5E12 06:5E13 07:5E14 08:5E15 09:5E16
 0A:5E17 0B:5E18 0C:5E19 0D:5E20 0E:5E21 0F:5E22 10:5E23 11:5E24 12:5E25 13:5E26
 14:5E27 15:5E28 16:5E29 17:5E2A 18:5E2B 19:5E40 1A:5E41 1B:5E42 1C:5E43 1D:5E44
@@ -198,8 +201,9 @@ Each entry is a 2-byte TI token `(D,E)`:
 5A:632B 5B:632C 5C:632D 5D:632E 5E:632F 5F:6330 ...
 ```
 
-### 3e. FB token table — `page07:0x4426`, WORD[2*i] (i = (08446h); if i≥0x8C, i−=0x7F)
-```
+### FB token table at `07:4426`
+
+```text
 00:5E82 01:BBD0 02:BBD1 03:BBD2 04:BBD3 05:BBD4 06:BBD5 07:BBD6 08:BBD7 09:BBD8
 0A:BBD9 0B:BBCF 0C:BBDA 0D:BBDB 0E:BBDC 0F:BBDD 10:BBDE 11:BBDF 12:BBE0 13:BBE1
 14:BBE2 15:BBE3 16:BBE4 17:BBE5 18:BBE6 19:BBE7 1A:BBE8 1B:BBE9 1C:BBEA 1D:BBEB
@@ -214,96 +218,96 @@ Each entry is a 2-byte TI token `(D,E)`:
 
 ---
 
-## 4. The `00:E` cell — token-name vs direct glyph
+## `00:E` cells
 
-For `D = 0x00` the cell takes the **generic path** (§1.1). `4F1A` returns carry
+For `D = 0x00`, the cell takes the generic path. `39:4F1A` returns carry
 (D=0 matches none of FC/FE/xx42), so no single-glyph mapping; instead the draw
-happens inside `6B66`:
+happens inside `39:6B66`:
 
-- `6B66` (`39:6B66`): `D ≠ 0xFB` falls to `39:6B9C`, whose complete bytes are
-  `EF CA 45 C9`: `_KeyToString` (`bcall 0x45CA`) followed by `RET`.
+- `39:6B66`: `D ≠ 0xFB` falls to `39:6B9C`, whose complete bytes are
+  `EF CA 45 C9`: `_KeyToString = 45CAh` followed by `RET`.
   `_KeyToString` uses the pair `D:E` to select a counted display string. The
   branch-specific index arithmetic is documented in `tools/token-name-spec.md`.
 
 So a `00:E` cell selects a `_KeyToString` display string. It is not a direct
-index into the standard token table. (Contrast: `FB:E` specials in §6 use inline
-hardcoded strings; `1F` is a cursor action; FC/FE/xx42 from §2 are single
-glyphs.)
+index into the standard token table. Selected `FB:E` values use inline strings;
+`1F` is a cursor action; and the FC, FE, and `xx42` forms above are single glyphs.
 
 ---
 
-## 5. Named-token lists checked by `6675` (`39:62CB / 62E2 / 62F9`)
+## Named-token lists
 
-`6675` calls `6667` three times; `6667` linear-scans **10** two-byte entries and
-returns Z on a `D:E` match. Matching cells take the *styled / sub-table* draw
-path (`E→(08446h)`, `D→A`, draw via `03B37`/`01BAF`, save `D:E`→`(08479h)`).
-These are the ∑/∏/integral-style operators that own a 2-D template.
+`39:6675` calls `39:6667` three times. The latter scans 10 two-byte entries and
+returns Z on a `D:E` match. Matching cells take the styled subtable draw
+path. `ram:3B37` reaches the display-byte remapper at `07:44DE`;
+`ram:1BAF` clears OP1. The path also saves `D:E` to `0x8479`.
+These are fixed delimiter families. Page `0x07` maps them to `6100`–`6109`,
+`6000`–`6009`, and `AA00`–`AA09`; they do not establish measured-height
+template geometry. [confirmed]
 
-- `62CB` (raw `fc 00 fc 01 fc 02 fc 1f fc 20 fc 21 fc 25 fc 26 fc 27 fc 28`):
-  **FC00 FC01 FC02 FC1F FC20 FC21 FC25 FC26 FC27 FC28**
-- `62E2` (raw `fe a7 fe a8 fe a9 fc 22 fc 23 fc 24 fc 29 fc 2a fc 2b fc 2c`):
-  **FEA7 FEA8 FEA9 FC22 FC23 FC24 FC29 FC2A FC2B FC2C**
-- `62F9` (raw `fc 50 fc 51 fc 52 fc 53 fc 54 fc 55 fc 56 fc 57 fc 58 fc 59`):
-  **FC50 FC51 FC52 FC53 FC54 FC55 FC56 FC57 FC58 FC59**
+- `39:62CB`: `FC00 FC01 FC02 FC1F FC20 FC21 FC25 FC26 FC27 FC28`
+- `39:62E2`: `FEA7 FEA8 FEA9 FC22 FC23 FC24 FC29 FC2A FC2B FC2C`
+- `39:62F9`: `FC50 FC51 FC52 FC53 FC54 FC55 FC56 FC57 FC58 FC59`
 
 (The `01 0a XX` bytes following each list are unrelated data, not list entries —
-`6667` reads exactly 10 entries.)
+`39:6667` reads exactly 10 entries.)
 
 ---
 
-## 6. FB-special inline name strings (`6B66`, 39:6BA9..6BDF)
+## Inline `FB` strings
 
-When `D = 0xFB`, `6B66` maps certain `E` to a **hardcoded length-prefixed ASCII
-string** drawn via `bcall 0x192B` / `(097F2h)`:
+When `D = 0xFB`, `39:6B66` maps certain `E` values to a hardcoded
+length-prefixed ASCII string in `0x97F2`. The caller at `39:4EE6` then invokes
+`_PutPSB = 450Dh` (body `01:5C52`) to draw the selected string. [confirmed]
 
 | cell `FB:E` | E    | string drawn (len-prefixed) |
 |-------------|------|-----------------------------|
-| `FBC8`      | 0xC8 | `summation Σ(` (12 bytes, `6BB2`) — only when `bit0,h` set |
-| `FBCA`      | 0xCA | `nΣd` (3 bytes, `6BA9`) |
-| `FBCB`      | 0xCB | `UnΣd` (4 bytes, `6BAD`) |
-| `FBD6`      | 0xD6 | `AUTO Answer` (11 bytes, `6BBF`) |
-| `FBD7`      | 0xD7 | `DEC Answer` (10 bytes, `6BD7`) |
-| `FBD8`      | 0xD8 | `FRAC Answer` (11 bytes, `6BCB`) |
+| `FBC8`      | 0xC8 | `summation Σ(` (12 bytes, `39:6BB2`) — only when `bit0,h` set |
+| `FBCA`      | 0xCA | `nΣd` (3 bytes, `39:6BA9`) |
+| `FBCB`      | 0xCB | `UnΣd` (4 bytes, `39:6BAD`) |
+| `FBD6`      | 0xD6 | `AUTO Answer` (11 bytes, `39:6BBF`) |
+| `FBD7`      | 0xD7 | `DEC Answer` (10 bytes, `39:6BD7`) |
+| `FBD8`      | 0xD8 | `FRAC Answer` (11 bytes, `39:6BCB`) |
 
 Any other `FB:E` (and any non-FB pair on this path) falls through to
-`_KeyToString` (`bcall 0x45CA`).
+`_KeyToString = 45CAh`.
 
 ---
 
-## 7. Cell → action (layout, not drawing) markers
+## Cell actions
 
 | cell           | action |
 |----------------|--------|
-| `D = 0x1F`     | cursor / answer-area marker; runs edit-area setup, draws no glyph, decrements line counter `(0844Bh)` (`39:4E8E` @4E93). |
+| `D = 0x1F`     | Cursor/answer-area marker; runs edit-area setup, draws no glyph, and decrements `0x844B` at `39:4E93`. |
 | `D = 0xFF, *`  | on the `4F1A`-carry path (`39:4EF3`) treated as a terminator/skip (no glyph). |
-| `D = 0xFC` with `E ≥ 0x41` (not in §2 range) | carry path; not a single glyph — either a §5-styled operator or a token name. |
-| `*:0x55` (E=0x55) on carry path | special-cased at `39:4EFD` (`call 03CB7`, `bcall 0x51F4`) — a layout/positioning helper. |
-| `D` matching §5 lists | 2-D template operator (∑, ∏, ∫, ...), drawn from a sub-table keyed by `E`→`(08446h)`. |
-| `D = 0x82`     | column glyph: `glyph index = E − 0x3E`, drawn by `03B2B` (the small/column draw path) — positional, not a font-table lookup. |
+| `D = 0xFC` with `E >= 0x41` | Carry path; either a styled operator or a token name, not a single glyph. |
+| `*:0x55` on the carry path | Special case at `39:4EFD`; calls `ram:3CB7` and bcall ID `51F4h`. |
+| `D` matching the named-token lists | Fixed delimiter display-byte remap, with `E` saved in `0x8446`. |
+| `D = 0x82`     | Indexed string/title: `index = E - 0x3E`, printed by `01:7183` through the `ram:3B2B` bjump. |
 
 ---
 
-## Bcalls referenced (resolved from the page-0x3B bcall table)
+## Referenced bcalls
 
-- `_PutPSB` = `0x450D` → page01:5C52 (draw length-prefixed string).
-- `_KeyToString` = `0x45CA` → `01:6D10` (counted-string selector used by `6B66`).
-- `0x51F4` → `35:60D1` (post-overflow display/menu helper; not a glyph-width service).
-- `0x51E5` (`_scr_4619`) → page05:4619.
-- `03FDB` (page-0, always-mapped) → inter-page trampoline (`call 2B09`,
-  3-byte target) into the page-01 glyph blit routine — the low-level char draw.
+- `_PutPSB = 450Dh` → `01:5C52` (draw length-prefixed string).
+- `_KeyToString = 45CAh` → `01:6D10` (counted-string selector used by `39:6B66`).
+- Bcall ID `51F4h` → `35:60D1` (post-overflow display/menu helper, not a glyph-width service).
+- Bcall ID `51E5h` (`_scr_4619`) → `05:4619`.
+- `ram:3FDB` → inter-page trampoline (`call ram:2B09`, 3-byte target) into the
+  page `0x01` glyph blit routine.
 
 ---
 
-## Unresolved / flagged
+## Open questions
 
 - `_KeyToString` uses branch-specific index arithmetic, not the standard token
   table directly. See `tools/token-name-spec.md` and the byte-anchored
   `key_to_string_index` verifier in `tools/dump-mathprint-layout.py`.
-- FE-high / FC / FB word tables (§3c–§3e) emit *expanded TI tokens*, not font
+- FE-high, FC, and FB word tables emit *expanded TI tokens*, not font
   codepoints; resolving those tokens to glyphs requires a second classification
-  pass (recursively through `07:44DE` / the OS token drawer). Only the §3a
-  default and the `cp 0x05` cases give a font codepoint directly.
-- `(08446h)` is a RAM mode/sub-code byte set by the classic editor encoder
-  (`07:4539`); for the page-0x39 MathPrint cell path it is set from `E` in the
-  §5 styled path. Its full lifecycle across both paths was not exhaustively
-  traced.
+  pass through `07:44DE` or the OS token drawer. Only the default and
+  `cp 0x05` cases give a font codepoint directly.
+- `0x8446` is a RAM mode/subcode byte set by the classic editor encoder
+  (`07:4539`); the page `0x39` MathPrint path sets it from `E` in the
+  styled path. Its full lifecycle across both paths was not exhaustively
+  traced. [hypothesis]

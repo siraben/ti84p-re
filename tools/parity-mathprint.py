@@ -10,19 +10,29 @@ renderer; the keystroke map below is what makes each layout reproducible.
 Requires: tools/rom.bin, a TilEm build, Pillow, node.
 Usage: python3 tools/parity-mathprint.py [name ...]   (default: all)
 """
+import argparse
 import json
 import hashlib
 import os
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
+from hardware_trace import count_resolved_trace_points, trace_header
 from rom_signatures import TI84_PLUS_OS_255MP_SHA256
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROM = os.environ.get("TI84_ROM", os.path.join(ROOT, "tools", "rom.bin"))
 TILEM = os.path.expanduser(os.environ.get(
     "TILEM", "~/Git/tilem-headless/result/bin/tilem2"))
+TILEM_SOURCE = "https://github.com/siraben/tilem-headless"
+TILEM_SOURCE_COMMIT = "d1bdc58dd321ae462a701e556fcb62bb925a78b1"
+TRACE_LIMIT = 300_000_000
+REPORT_FIXTURES = {
+    "integral": "tools/macros/mathprint-fnint.macro",
+    "integral_frac": "tools/macros/mathprint-integral-fraction.macro",
+}
 
 # Each example: js expression for the model, and the calculator keystrokes that
 # produce the same layout on the home entry line (after CLEAR). RIGHT leaves a
@@ -100,46 +110,56 @@ def run_calc(keys, outdir, name, trace=False):
            "--normal-speed", "--reset", "--macro", mac, "--headless-record", gif]
     tr = os.path.join(outdir, f"{name}.trace")
     if trace:
-        cmd += ["--trace", tr, "--trace-range", "all", "--trace-limit", "300000000"]
+        cmd += ["--trace", tr, "--trace-range", "all", "--trace-limit", str(TRACE_LIMIT)]
     try:
         completed = subprocess.run(cmd, check=True, capture_output=True, text=True,
                                    timeout=180)
     except subprocess.CalledProcessError as error:
         detail = (error.stderr or error.stdout or "no process output").strip()
         raise RuntimeError(f"TilEm failed: {detail}") from error
-    if "Trace limit reached" in completed.stderr:
+    if "trace limit" in completed.stderr.lower():
         raise RuntimeError("TilEm trace limit reached; refusing a partial replay")
     if trace and (not os.path.isfile(tr) or os.path.getsize(tr) == 0):
         raise RuntimeError("TilEm did not produce the requested trace")
-    return (gif, shot), ram, (tr if trace else None)
+    if trace:
+        header = trace_header(Path(tr))
+        if (header.version, header.range_start, header.range_end) != (
+            2, 0, 0xFFFF
+        ):
+            raise RuntimeError(
+                "TilEm trace is not a full-range TLMT v2 capture: "
+                f"version={header.version} range={header.range_start:#x}-"
+                f"{header.range_end:#x}"
+            )
+    return (gif, shot), ram, (tr if trace else None), mac
 
 
 # Documented page-0x39 anchors: which path does each construct take?
 ANCHORS = {
-    "4a74": "dispatch_token", "4dca": "sum_arg_widths", "4de6": "emit_arglist",
-    "4e8e": "emit_glyph", "4f1a": "map_token_glyph", "5167": "layout_multiarg",
-    "69c8": "compute_dims", "68ae": "layout_token_geom", "683d": "cell_to_pixel(683d)",
-    "6abf": "draw_fraction_bar", "4ce9": "set_row_for_tok",
+    "4a74": "dispatch_token", "4ca4": "emit_subexpr2",
+    "4dca": "sum_arg_widths", "4de6": "emit_arglist",
+    "4e8e": "emit_glyph", "4f1a": "map_token_glyph",
+    "5167": "layout_multiarg", "5949": "arg_kind",
+    "5b10": "emit_saved_operand", "5b1d": "emit_saved_variable",
+    "69c8": "compute_dims", "68ae": "layout_token_geom",
+    "683d": "descriptor_cell_to_pixel", "6abf": "focus_rectangle",
+    "4ce9": "set_row_for_tok",
 }
-HANDLER_PATH = {"4dca", "4de6", "4e8e", "4f1a", "5167"}
+HANDLER_PATH = {"4ca4", "4dca", "4de6", "4e8e", "4f1a"}
 DESCRIPTOR_PATH = {"69c8", "68ae", "683d", "6abf"}
 
 
 def analyze_trace(trace):
-    resolver = os.path.join(ROOT, "tools", "tilem_trace_resolve.py")
-    names = os.path.join(ROOT, "tools", "names.txt")
-    out = subprocess.run(["python3", resolver, trace, "--funcs",
-                          "--only-space", "page_39", "--sort", "count",
-                          "--names", names],
-                         check=True, capture_output=True, text=True).stdout
-    fired = {}
-    for line in out.splitlines():
-        parts = line.split()
-        if len(parts) >= 2 and parts[1].startswith("page_39:"):
-            addr = parts[1].split(":")[1]
-            if addr in ANCHORS:
-                fired[addr] = int(parts[0])
-    return fired
+    points = {("page_39", int(address, 16)) for address in ANCHORS}
+    report = count_resolved_trace_points(
+        Path(trace), points, initial_mapping="ti84p-reset"
+    )
+    fired = {
+        f"{address:04x}": count
+        for (space, address), count in report.counts.items()
+        if space == "page_39" and count
+    }
+    return fired, report.processed_instructions
 
 
 def read_state(ram):
@@ -316,7 +336,7 @@ def classify(fired):
     d = [a for a in fired if a in DESCRIPTOR_PATH]
     parts = []
     if h:
-        parts.append("handler-record/multi-arg")
+        parts.append("handler-record/subexpression")
     if d:
         parts.append("descriptor/geometry")
     return " + ".join(parts) or "light entry-line"
@@ -335,18 +355,45 @@ def validate_inputs():
     return digest, hashlib.sha256(open(TILEM, "rb").read()).hexdigest()
 
 
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("names", nargs="*", choices=EXAMPLES)
+    parser.add_argument("--no-trace", action="store_true")
+    parser.add_argument(
+        "--report",
+        metavar="PATH",
+        help="write a machine-readable report (requires trace capture)",
+    )
+    args = parser.parse_args()
+    if args.report and args.no_trace:
+        parser.error("--report requires trace capture")
+    return args
+
+
 def main():
+    args = parse_args()
     rom_digest, tilem_digest = validate_inputs()
-    do_trace = "--no-trace" not in sys.argv
-    names = [a for a in sys.argv[1:] if not a.startswith("--")] or list(EXAMPLES)
+    do_trace = not args.no_trace
+    names = args.names or list(EXAMPLES)
     outdir = tempfile.mkdtemp(prefix="mp-parity-")
     print(f"ROM SHA-256: {rom_digest}")
     print(f"TilEm executable SHA-256: {tilem_digest}")
     print(f"artifacts in {outdir}\n")
     mismatches = 0
+    scenarios = {}
     for name in names:
         expr, keys = EXAMPLES[name]
-        shot, ram, trace = run_calc(keys, outdir, name, trace=do_trace)
+        shot, ram, trace, generated_macro = run_calc(
+            keys, outdir, name, trace=do_trace
+        )
         calc = calc_from_trace(trace) if trace else calc_bitmap(shot)
         model = js_bitmap(expr)
         print(f"===== {name}: {expr} =====")
@@ -359,13 +406,75 @@ def main():
         print("state: " + "  ".join(
             f"0x{a:04x}={st[a]:#04x}" for a in sorted(st)))
         if trace:
-            fired = analyze_trace(trace)
+            fired, instructions = analyze_trace(trace)
             print("page-39 path: " + classify(fired))
-            print("  anchors fired: " + ", ".join(
-                f"{ANCHORS[a]}({fired[a]})" for a in sorted(fired)) or "none")
+            rendered_hits = ", ".join(
+                f"{ANCHORS[a]}({fired[a]})" for a in sorted(fired)
+            )
+            print("  exact entry hits: " + (rendered_hits or "none"))
+            fixture = REPORT_FIXTURES.get(name)
+            scenarios[name] = {
+                "expression": expr,
+                "key_sequence": keys,
+                "fixture": fixture,
+                "fixture_sha256": (
+                    sha256_file(os.path.join(ROOT, fixture)) if fixture else None
+                ),
+                "generated_macro_sha256": sha256_file(generated_macro),
+                "trace_bytes": os.path.getsize(trace),
+                "trace_sha256": sha256_file(trace),
+                "instructions": instructions,
+                "lcd_replay": {
+                    "calculator_size": [len(calc[0]), len(calc)],
+                    "model_size": [len(model[0]), len(model)],
+                    "mismatched_pixels": bad,
+                },
+                "state": {f"0x{address:04X}": f"0x{value:02X}"
+                          for address, value in sorted(st.items())},
+                "exact_page_39_entry_hits": {
+                    f"39:{address.upper()}": fired.get(address, 0)
+                    for address in ANCHORS
+                },
+            }
         print()
     if mismatches:
         raise SystemExit(1)
+    if args.report:
+        report = {
+            "schema": 2,
+            "rom": {
+                "model": "ti84p",
+                "os": "2.55MP",
+                "sha256": rom_digest,
+            },
+            "tilem": {
+                "source": TILEM_SOURCE,
+                "commit": TILEM_SOURCE_COMMIT,
+                "executable_sha256": tilem_digest,
+            },
+            "capture": {
+                "format": "TLMT v2",
+                "range": "all",
+                "trace_limit_bytes": TRACE_LIMIT,
+                "initial_mapping": "ti84p-reset",
+                "raw_traces": (
+                    "generated outside the repository because each retained "
+                    "scenario trace is larger than 150 MB"
+                ),
+                "reproduce": (
+                    "TILEM=$PWD/result/bin/tilem2 TI84_ROM=$PWD/tools/rom.bin "
+                    "python3 tools/parity-mathprint.py integral integral_frac "
+                    "--report tools/mathprint-trace-report.json"
+                ),
+            },
+            "scenarios": scenarios,
+            "resolver_caution": (
+                "Function rollups assign instructions to the nearest preceding "
+                "symbol. Use exact_page_39_entry_hits for routine-entry claims."
+            ),
+        }
+        Path(args.report).write_text(json.dumps(report, indent=2) + "\n")
+        print(f"wrote report: {args.report}")
 
 
 if __name__ == "__main__":

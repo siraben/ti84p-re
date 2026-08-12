@@ -1,10 +1,9 @@
-# MathPrint: render the fnInt( template (MATH > 9) - a tall multi-argument operator.
-# Exercises the handler-record + multi-arg path: eqdisp_emit_glyph (39:4e8e),
-# eqdisp_map_token_glyph (39:4f1a), eqdisp_emit_arglist (39:4de6),
-# eqdisp_sum_arg_widths (39:4dca) and the row compositor eqdisp_layout_multiarg
-# (39:5167). 0x85E8 kind = 0x00 (handler record, not a descriptor); 0x85E1 = 4 rows.
-set key_hold 0.16s
-set key_delay 0.09s
+# MathPrint: render the filled integral int(1,2,X^2,X).
+# This drives the page-39 handler-record path and the subexpression emitter at
+# 39:4CA4. Exact trace-point checks distinguish routine entries from the
+# resolver's nearest-symbol function buckets.
+set key_hold 0.18s
+set key_delay 0.1s
 wait 4s
 key ON
 wait 3s
@@ -12,16 +11,21 @@ key ENTER
 wait 1.5s
 key CLEAR
 key MATH
-wait 0.6s
 key 9
-wait 1s
-key GRAPHVAR
-key RIGHT
-key GRAPHVAR
-key RIGHT
-key 0
-key RIGHT
 key 1
-wait 1.5s
-screenshot /tmp/fnint.png
-memdump /tmp/fnint.ram ram-logical
+key RIGHT
+wait 0.35s
+key 2
+key RIGHT
+wait 0.35s
+key GRAPHVAR
+key POWER
+key 2
+key RIGHT
+wait 0.35s
+key RIGHT
+wait 0.35s
+key GRAPHVAR
+wait 0.6s
+screenshot /tmp/mathprint-fnint.png
+memdump /tmp/mathprint-fnint.ram ram-logical

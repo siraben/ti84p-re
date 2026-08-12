@@ -439,7 +439,11 @@ def count_resolved_trace_points(
     counts: Counter[tuple[str, int]] = Counter()
     processed = 0
     with path.open("rb") as fp:
-        read_header(fp)
+        header = read_header(fp)
+        if header["version"] != 2:
+            raise ValueError(
+                f"unsupported TLMT version {header['version']}; expected version 2"
+            )
         for record_type, payload in iter_records(fp, resync=resync):
             if record_type != 0x01:
                 continue

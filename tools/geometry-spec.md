@@ -1,52 +1,53 @@
-# TI-84 Plus OS 2.55MP — page-0x39 MathPrint placement geometry
+# MathPrint placement geometry
 
-Exact pen/pixel placement formulas for the MathPrint layout engine, derived from
-**raw** z80dasm of flash page `0x39` (and the leaf blitters on pages `01`/`07`).
-Addresses are `page:offset`; raw bytes are quoted from `tools/rom.bin`
-(flash page `P` at file offset `P*0x4000`, logical window `0x4000..0x7FFF`).
+*TI-84 Plus OS 2.55MP — page `0x39` coordinate and placement formulas.*
+
+This note gives byte-decoded pen and pixel formulas for the MathPrint layout
+engine. Addresses use `pp:addr`; RAM addresses use bare hexadecimal notation. Unless marked
+otherwise, the ROM-byte and control-flow claims below are [confirmed].
 
 Read alongside `tools/cell-glyph-spec.md` (cell→glyph), `tools/token-name-spec.md`
-(cell→string), and `docs/sub-equation-display.md` (architecture). **The Ghidra
-decompiler mis-analyzes the tight register-passing routines here (`683D`, `6B1C`)
-as bare decrement loops — every formula below is from the bytes, not the
-decompiler.**
+(cell→string), and `docs/sub-equation-display.md` (architecture). Ghidra's
+decompiler renders the tight register-passed loops at `39:683D` and `39:6B1C`
+as decrement loops. The decoded bytes below determine the formulas.
 
 ---
 
-## 0. The two coordinate systems
+## Coordinate systems
 
 The engine uses two distinct pen models. Which one a glyph uses depends on its
 blitter, not on the cell value.
 
 | Pen vars | Meaning | Units | Used by |
 |----------|---------|-------|---------|
-| `0x844B` / `0x844C` | curRow / curCol | **text cells** (rows of 8 px; cols are hardware 6-px text columns) | large-font glyphs via `_PutMap` (`01:5A98`) |
-| `0x86D7` / `0x86D8` | penX / penY | **pixels** (penX = `86D7`, penY = `86D8`) | small/variable-width font via `_VPutMap` (`01:6293`); descriptor templates; fraction rules |
+| `0x844B` / `0x844C` | curRow / curCol | text cells (8-pixel rows and 6-pixel hardware columns) | large-font glyphs via `_PutMap` (`01:5A98`) |
+| `0x86D7` / `0x86D8` | penX / penY | pixels | small/variable-width font via `_VPutMap` (`01:6293`); descriptor templates; fraction rules |
 
-`0x86D7` is the low byte (penX), `0x86D8` the high byte (penY); the engine writes
-the pair with `ld (086d7h),hl` / `ld (086d7h),de` so **L/E → penX, H/D → penY**
+`0x86D7` is the low byte (penX), and `0x86D8` is the high byte (penY). The engine writes
+the pair with `ld (086d7h),hl` or `ld (086d7h),de`, so L/E maps to penX and H/D maps to penY
 (verified at `39:67C5`, `39:6A2A`, `39:6B2F`).
 
-### 0.1 curRow → penY (the universal large-font vertical rule)
+### curRow to penY
 
-Every large-font row maps to pixels by **penY = curRow × 8**:
+Every large-font row maps to pixels by `penY = curRow * 8`:
 
-```
-39:4F62  3a 4b 84   ld a,(0844bh)   ; curRow
+```z80
+39:4F62  3a 4b 84   ld a,(0844bh)   ; curRow at 0x844B
          87 87 87   add a,a ×3      ; ×8
                     -> penY
-35:60D1  3a 4b 84 / 87 87 87 / 32 d8 86   ; (0844b)*8 -> (086d8h)  (same rule in the glyph composite drawer)
+35:60D1  3a 4b 84 / 87 87 87 / 32 d8 86   ; 0x844B * 8 -> 0x86D8
 ```
 
-So row spacing for large glyphs is a fixed **8 px**. (`curCol`→penX for the
-hardware large font is the LCD text-column register; see §5.)
+Large glyph rows are 8 pixels apart. `curCol` to penX conversion for the
+hardware large font uses the LCD text-column register.
 
 ---
 
-## 1. Descriptor cell → pixel mapper `39:683D`
+## Descriptor cell-to-pixel mapper
 
-Raw (`39:683D..685E`):
-```
+The bytes at `39:683D`–`39:685E` are:
+
+```z80
 683d  ed 5b e9 85   ld de,(085e9h)   ; E = base_x (085E9), D = base_y (085EA)
 6841  ed 4b df 85   ld bc,(085dfh)   ; C = (085DF) "row", B = (085E0) "slot/col"
 6845  7a            ld a,d           ; a = base_y
@@ -70,25 +71,24 @@ Raw (`39:683D..685E`):
 `dec`-then-`jp m` means the counter value `N` produces exactly `N` additions
 (`N=0` → no add; underflow to `0xFF` sets the sign flag and exits).
 
-**Result (HL stored straight into the pen pair at `39:6A2A`):**
+`39:6A2A` stores `HL` directly into the pen pair:
 
+```text
+penX (0x86D7) = base_x + (rowHeight + 2) · (0x85DF)
+penY (0x86D8) = base_y + 7 · (0x85E0)
 ```
-penX (086D7) = base_x + (rowHeight + 2) · (085DF)
-penY (086D8) = base_y + 7 · (085E0)
-```
 
-i.e. the **per-row X step is `rowHeight + 2`** and the **per-slot/col Y step is
-`7`**. (Note the engine drives a *transposed* menu grid here: the slot/column
-counter advances Y by 7, the row counter advances X by `rowHeight+2`. The bytes
-are unambiguous — `add a,7` uses the `B`=`085E0` counter into the H/penY byte,
-`add a,(rowHeight)+2` uses the `C`=`085DF` counter into the L/penX byte.)
+The per-row X step is `rowHeight + 2`, and the per-slot Y step is `7`. The menu
+grid is transposed: the slot counter advances Y, while the row counter advances
+X. `add a,7` uses `B` from `0x85E0` for H/penY. `add a,(rowHeight)+2` uses `C`
+from `0x85DF` for L/penX. [confirmed]
 
-### 1.1 Where base_x / base_y / rowHeight come from
+### Descriptor origins and row height
 
 Loaded by the descriptor selector `eqdisp_compute_dims` `39:69C8` from the chosen
 `EqDispTemplateDescriptor` (selected on `0x85E8 & 0x0F`):
 
-```
+```z80
 6a00  cd e2 6b   call 06be2h        ; DE = WORD[desc+0] = base_yx (LE: E=x, D=y)
 6a04  14         inc d              ; base_y += 1
 6a05  1c 1c      inc e ; inc e      ; base_x += 2
@@ -98,17 +98,18 @@ Loaded by the descriptor selector `eqdisp_compute_dims` `39:69C8` from the chose
 6a14  32 eb 85   ld (085ebh),a      ; (085EB)=rowHeight
 ```
 
-(`6BE2` = `ld e,(hl);inc hl;ld d,(hl);inc hl;ret`, a plain LE word read.)
+`39:6BE2` is `ld e,(hl); inc hl; ld d,(hl); inc hl; ret`, a little-endian
+word read.
 
-So for **each descriptor** (raw words from `web/mathprint/layout.json`):
+Each descriptor in `web/mathprint/layout.json` gives:
 
-```
+```text
 base_x = (base_yx & 0xFF) + 2
 base_y = (base_yx >> 8)   + 1
 rowHeight = desc[+4]
 ```
 
-| Descriptor | kind (`85E8&0F`) | base_yx | base_x | base_y | rowHeight | step_x=rh+2 | step_y=7 | cols×rows |
+| Descriptor | kind (`0x85E8 & 0x0F`) | base_yx | base_x | base_y | rowHeight | step_x=rh+2 | step_y=7 | cols×rows |
 |------------|------|---------|--------|--------|-----------|------|----|---------|
 | `39:686F` | 0 | `1801` | 3  | 25 | 6  | 8  | 7 | 4×1 |
 | `39:6880` | 1 | `1115` | 23 | 18 | 6  | 8  | 7 | 5×1 |
@@ -120,17 +121,19 @@ rowHeight = desc[+4]
 `box_yx`/`row_height`/`cols_rows`/`cell_ptr` fields follow at desc `+2/+4/+5/+7`
 (see the `EqDispTemplateDescriptor` struct in `docs/sub-equation-display.md`).
 
-The menu/template cell loop (`39:6A4C..6A89`) walks slot=`085E0` 0..cols-1 then
-row=`085DF` 0..rows-1, calling `683D` per cell and drawing at the returned pen.
+The menu/template cell loop (`39:6A4C`–`39:6A89`) walks the `0x85E0` slot from
+zero through `cols - 1`, then the `0x85DF` row from zero through `rows - 1`.
+It calls `39:683D` for each cell and draws at the returned pen. [confirmed]
 
 ---
 
-## 2. Fraction box / focus-rectangle geometry
+## Fraction box and focus-rectangle geometry
 
-### 2.1 Endpoint helper `39:6B1C`
+### Endpoint helper at `39:6B1C`
 
-Raw (`39:6B1C..6B2C`):
-```
+The bytes at `39:6B1C`–`39:6B2C` are:
+
+```z80
 6b1c  2e 07        ld l,007h        ; step = 7
 6b1e  47           ld b,a           ; B = n (column count); A on entry = n
 6b1f  3e 1b        ld a,01bh        ; a = 0x1B
@@ -145,8 +148,9 @@ Raw (`39:6B1C..6B2C`):
 6b2c  c9           ret
 ```
 
-**Confirmed:**
-```
+The helper computes: [confirmed]
+
+```text
 x_left   = 0x1B + 7·n
 x_right  = x_left + 4
 y_bottom = y_top + 6        (y_top supplied by the caller in H)
@@ -155,19 +159,21 @@ y_bottom = y_top + 6        (y_top supplied by the caller in H)
 Caveat: `djnz` with `n=0` underflows (256 iterations); callers always pass `n ≥ 1`
 (the measured numerator/denominator cell count).
 
-### 2.2 Box wrappers (callers of `6B1C`)
+### Box wrappers
 
 `39:6AFD` (numerator/denominator box) sets the y-top per the focused row from
-`085E0` bits and passes the measured width:
-```
+`0x85E0` bits and passes the measured width:
+
+```z80
 6b07  26 17   ld h,017h        ; numerator:   y_top = 0x17 (23)
 6b09  3a ee 85 ld a,(085eeh)    ;   n = numerator cell count
 6b0e  26 22   ld h,022h        ; denominator: y_top = 0x22 (34)
 6b10  3a ef 85 ld a,(085efh)    ;   n = denominator cell count
 ```
 
-`39:6ABF` (focus rectangle) sets y-top from the `085DF`/`085E0` row bits:
-```
+`39:6ABF` sets y-top from the `0x85DF`/`0x85E0` row bits:
+
+```z80
 6ad0  26 15   ld h,015h        ; y_top = 0x15 (21)   (row bit0 clear)
 6ad6  26 20   ld h,020h        ; y_top = 0x20 (32)   (row bit0 set)
 6ad8  79 / 3c / cd 1c 6b       ; n = (085DF)+1 ; call 6B1C
@@ -175,26 +181,31 @@ Caveat: `djnz` with `n=0` underflows (256 iterations); callers always pass `n �
 
 So a fraction focus/box rectangle is, for measured width `n` cells:
 
-```
-numerator box:    (x_left, 23) .. (x_right, 23+6)   x_left=0x1B+7n, x_right=x_left+4
-denominator box:  (x_left, 34) .. (x_right, 34+6)
-focus rect:       y_top ∈ {21, 32} by focused row; x as above with n=(085DF)+1
+```text
+numerator box:    (x_left, 23) to (x_right, 23+6)   x_left=0x1B+7n, x_right=x_left+4
+denominator box:  (x_left, 34) to (x_right, 34+6)
+focus rect:       y_top ∈ {21, 32} by focused row; x as above with n=(0x85DF)+1
 ```
 
-The visible **fraction bar** in a generic expression is a graph-buffer rule drawn
-by `eqdisp_draw_fraction_bar` `39:6ABF`→`00:3555` (a horizontal line), not a
-character cell; its endpoints are the same `x_left..x_right` span. The box-draw
-primitive is `39:6AF5` → `04822h/04833h` (rectangle fill/outline).
+All callers of `39:6ABF` belong to the kind-2 fraction-template focus UI. Carry
+selects erase versus draw through the rectangle-border bcalls. `39:6AF5` draws
+descriptor and fraction-template boxes. Neither helper establishes the visible
+bar in a generic expression. [confirmed]
 
 ---
 
-## 3. Multi-argument tall-operator compositor `39:5167`
-(`eqdisp_layout_multiarg` — ∫, Σ-style operators with limits + body)
+## Multi-argument tall-operator compositor
 
-### 3.1 Row advance per argument — `39:5949`
+`eqdisp_layout_multiarg` at `39:5167` implements multi-row argument placement
+when selected. The filled-integral and nested-fraction trace fixtures execute
+the separate subexpression path at `39:4CA4`; neither reaches this entry.
+[confirmed]
 
-Raw (`39:5949..5954`):
-```
+### Row advance per argument
+
+The bytes at `39:5949`–`39:5954` are:
+
+```z80
 5949  3a de 85   ld a,(085deh)    ; current layout class
 594c  fe 06      cp 006h
 594e  c0         ret nz           ; class != 6  -> return NZ
@@ -205,11 +216,12 @@ Raw (`39:5949..5954`):
 5954  c9         ret              ; class==6 && slot<=2 -> return Z
 ```
 
-`5949` returns **Z** only when the class is `0x06` *and* the current slot
-(`085E0`) is ≤ 2; otherwise **NZ**.
+`39:5949` returns Z only when the class is `0x06` and the current slot at
+`0x85E0` is at most 2. It returns NZ otherwise. [confirmed]
 
 In `39:5167` the returned flag selects the cursor-row (`0x844B`) step:
-```
+
+```z80
 51d5  21 4b 84   ld hl,0844bh
 51d8  f1         pop af            ; the saved 5949 result
 51d9  20 01      jr nz,051dch      ; NZ: skip the extra inc
@@ -217,92 +229,78 @@ In `39:5167` the returned flag selects the cursor-row (`0x844B`) step:
 51dc  34         inc (hl)          ;                -> +1
 ```
 
-**Row step rule:** `0x844B += 1` normally; `0x844B += 2` when `5949` returned Z
-(class 6, low slots) — i.e. a two-display-row argument. This is the "+1 or +2"
-the architecture note describes.
+The row step is `0x844B += 1` normally and `0x844B += 2` when `39:5949` returns
+Z. Class 6 therefore gives its low slots two display rows. [confirmed]
 
-### 3.2 Slot → row/baseline placement
+### Slot-to-baseline placement
 
-State used by `5167`:
-- `085E0` = current argument slot (parser order: integrand, var, lower, upper, tol).
-- `085E2` = argument count; `085E1` = handler row count.
-- `0984A` = baseline row (saved/restored around operand emission).
-- `0844B` = curRow; reset to **7** at the drain (`522C  21 07 00  ld hl,0007 ; ld (0844bh),hl` → curRow=7, curCol=0) before re-emitting the body.
+State used by `39:5167`:
 
-Per-argument the routine:
-1. `call 5949` → decide +1/+2 row step (§3.1), apply to `0844B`.
-2. `call 4E0A` (slot marker; sets `curCol=0`, `(0844C)=0`) with `C = 085E0`.
-3. Emit the saved operand via `5B10` (forward) or `5B1D`/`5B38` (reverse).
-4. `4E14` / `4E0A` advance the argument index and re-mark.
+- `0x85E0` is the current argument slot: integrand, variable, lower endpoint,
+  upper endpoint, then tolerance.
+- `0x85E2` is the argument count, and `0x85E1` is the handler row count.
+- `0x984A` is the baseline row saved around operand emission.
+- `0x844B` is curRow. `39:522C` resets it to 7, with curCol at zero, before
+  re-emitting the body.
 
-The operator-sign glyph (the `∫`/`Σ` cell) is emitted on the **baseline** axis
-(`0984A`), the limits on the rows above/below it (the +1/+2 stepped rows), and the
-body is re-emitted after `0844B` is reset to row 7 (`522C`) — i.e. the body
-starts on the baseline immediately to the right of the sign+limits block, at the
-penX left after the limits have been drawn.
+For each argument, the routine:
 
-### 3.3 Limit small-font placement
+1. Calls `39:5949` to select a one- or two-row step and apply it to `0x844B`.
+2. Calls `39:4E0A` to mark the slot and set `0x844C` to zero, with `C = 0x85E0`.
+3. `39:5B10` emits forward, while `39:5B1D`/`39:5B38` emit in reverse.
+4. `39:4E14`/`39:4E0A` advance and mark the next argument.
 
-Limits are drawn in the **variable-width small font** (`_VPutMap` `01:6293`) at
-explicit pixel pen coords (`086D7`/`086D8`), *not* at curRow×8. From the live
-trace of `int(1,2,1/2,X)`:
-
-```
-upper limit  penX=6  penY=0
-lower limit  penX=6  penY=18
-```
-
-So for the ∫ form the limits sit at the operator's **corners** (`penX≈6`, the
-upper at `penY=0`, the lower at `penY=18`); the sign occupies the rows between.
-(For a Σ form the limits are stacked **centered** over/under the sign rather than
-at the corners — same small-font pen path, different x centering.)
+The bytes restore the baseline at `0x984A` and reset `0x844B` to row 7 at
+`39:522C` before re-emitting the body. No retained exact trace connects this
+path to the filled-integral fixtures. [confirmed]
 
 ---
 
-## 4. Per-glyph horizontal advance (body)
+## Per-glyph horizontal advance
 
-### 4.1 Small / variable-width font (`_VPutMap`, `01:6293`)
+### Small variable-width font
 
-penX is a true pixel coordinate. `01:6293` reads `086D7` as penX, converts to the
-LCD column register by `penX >> 3` (`or 0x20`) with the low 3 bits as the bit
-offset, draws the glyph, then writes back **`086D7 = penX + glyph_width`**
-(`6315  32 d7 86  ld (086d7h),a`, where `a = penX + measured width`). Likewise
-penY = `086D8` directly (`62B5`). So small-font advance = the glyph's measured
+penX is a true pixel coordinate. `01:6293` reads `0x86D7` as penX, converts to the
+LCD column register by `penX >> 3` (`or 0x20`) with the low three bits as the bit
+offset, draws the glyph, then writes back `0x86D7 = penX + glyph_width`
+(`01:6315  32 d7 86  ld (086d7h),a`, where `a = penX + measured width`). Likewise,
+penY reads `0x86D8` directly at `01:62B5`. Small-font advance is the measured
 ink width (variable). This path renders exponents, integral/Σ limits, and the
 fraction numerator/denominator digits.
 
-### 4.2 Post-overflow display helper
+### Post-overflow display helper
 
-The bytes at `39:4F04` are `EF F4 51 C9`: `bcall 0x51F4`, followed by `RET`.
-The page-`0x3B` bcall table resolves `0x51F4` to `35:60D1`. That target uses
-fixed graph-pen positions and page-`0x01` display helpers; the byte-anchored
+The bytes at `39:4F04` are `EF F4 51 C9`: bcall ID `51F4h`, followed by `RET`.
+The page `0x3B` bcall table resolves it to `35:60D1`. That target uses
+fixed graph-pen positions and page `0x01` display helpers; the byte-anchored
 scan finds no references to the measured fraction fields `0x85EE`, `0x85EF`,
 or `0x9D27`. It is therefore a post-overflow display/menu helper, not evidence
 for a proportional MathPrint glyph-width service. [confirmed]
 
-The `C9` byte after the bcall is a `RET`, not the high byte of a `0xC951`
-bcall ID. Body-glyph advance remains trace-observed rather than statically
-attributed here.
+The `C9` byte after the bcall is a `RET`. The owner of MathPrint body-glyph
+advance remains [hypothesis].
 
-### 4.3 The classic hardware large font (`_PutMap`, `01:5A98`)
+### Classic hardware large font
 
 When a large glyph instead goes through `_PutMap` (the homescreen text writer),
-positioning is by the **hardware text grid**, not pixel penX:
-```
+positioning uses the hardware text grid rather than pixel penX:
+
+```z80
 01:5AC2  ld a,(0844bh) ; curRow -> Y via 01:6956
 01:5ACB  ld a,(0844ch) ; curCol
          e6 1f         ; & 0x1F
          c6 20         ; + 0x20   -> LCD column register (out (010h))
 ```
-i.e. curCol selects a fixed 6-px hardware text column (`column reg = (curCol &
+
+curCol selects a fixed 6-pixel hardware text column (`column reg = (curCol &
 0x1F) + 0x20`). This is the fixed-pitch path. The owner of MathPrint body
-advance is still unresolved (§4.2).
+advance is still unresolved.
 
 ---
 
-## 5. Summary of placement formulas
+## Placement formulas
 
-```
+```text
 penY (large font)            = curRow(0x844B) · 8
 
 Descriptor template cell:    penX = base_x + (rowHeight+2)·(0x85DF)
@@ -319,11 +317,6 @@ Fraction endpoint (39:6B1C): x_left  = 0x1B + 7·n      (n = measured width in c
 Multi-arg row step (39:5167/5949): 0x844B += 2 if (class==6 && slot<=2) else += 1
   body re-emit resets curRow=7 (0x844B), curCol=0 (0x844C)  at 39:522C
 
-Integral (∫) limits (small font, 39:5167 + _VPutMap):
-  upper  penX≈6, penY=0     ; lower penX≈6, penY=18   (operator corners)
-  sign on baseline rows between; body starts right of the sign+limits block.
-Summation (Σ) limits: stacked & centered over/under the sign (same small-font pen).
-
 Body glyph advance:
   small/variable font (_VPutMap 01:6293): penX += measured glyph width
   MathPrint body glyph advance:            not statically attributed here
@@ -332,21 +325,9 @@ Body glyph advance:
 
 ---
 
-## 6. Flagged / unresolved
+## Open questions
 
-- **Body-glyph advance is unresolved.** The observed coordinates do not, by
-  themselves, identify the routine that owns each advance. In particular,
-  `0x51F4` is not that routine. The `0x51F4` boundary is [confirmed]; ownership
-  of the observed advances remains [hypothesis].
-- **Σ vs ∫ limit centering.** `39:5167` selects the operator template, but the
-  exact x-centering offset for the stacked Σ limits (vs ∫ corner limits) is set in
-  the slot-marker/operand emitters (`4E0A`, `5B10`/`5B1D`) using the measured limit
-  width; the precise centering arithmetic was not isolated to a single constant.
-- **The `683D` grid is transposed** relative to a common intuitive row/column
-  reading. The bytes put the 7-step into **penY** (via the
-  `0x85E0` slot counter) and the `rowHeight+2` step into **penX** (via the
-  `0x85DF` row counter). The formula in §1 is the byte-accurate one; this only
-  governs the **descriptor menu/template** grids, not the main expression body
-  (which uses §3/§4).
-- `0x85DF`/`0x85E0` role names ("row"/"slot") follow the architecture doc field
-  map; the mapper consumes them positionally as above regardless of name.
+- Body-glyph advance remains [hypothesis]. Bcall ID `51F4h` does not identify
+  the routine that owns each advance.
+- The runtime selector for `39:5167` remains [hypothesis]. The retained filled
+  and nested-integral traces use `39:4CA4` instead.

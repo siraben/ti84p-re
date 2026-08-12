@@ -1,0 +1,36 @@
+# MathPrint: render int(1,2,(1//2)X,X) with a stacked fraction in the integrand.
+# This combines the handler-record/subexpression path with descriptor geometry.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key MATH
+key 9
+key 1
+key RIGHT
+wait 0.35s
+key 2
+key RIGHT
+wait 0.35s
+key ALPHA
+key YEQU
+wait 0.8s
+key 1
+wait 0.8s
+key 1
+key DOWN
+wait 0.35s
+key 2
+key RIGHT
+wait 0.35s
+key GRAPHVAR
+key RIGHT
+wait 0.35s
+key GRAPHVAR
+wait 0.6s
+memdump /tmp/mathprint-integral-fraction.ram ram-logical
+screenshot /tmp/mathprint-integral-fraction.png

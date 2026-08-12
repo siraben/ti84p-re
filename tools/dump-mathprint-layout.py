@@ -2540,8 +2540,8 @@ DRAW_PRIMITIVE_BCALLS = [
     (0x4EE6, 0x450D, "_PutPSB", "generic cell/string display after 6B66 buffer selection"),
     (0x67B6, 0x4D5C, "_ClearRect", "template chrome clears the full template/menu rectangle"),
     (0x6826, 0x4D5F, "_InvertRect", "template chrome inverts the active tab rectangle"),
-    (0x6AE9, 0x4D7D, "_DrawRectBorder", "fraction-bar/focused rectangle draw in set mode"),
-    (0x6AEE, 0x4D86, "_EraseRectBorder", "fraction-bar/focused rectangle draw in erase mode"),
+    (0x6AE9, 0x4D7D, "_DrawRectBorder", "fraction-template focus rectangle draw in set mode"),
+    (0x6AEE, 0x4D86, "_EraseRectBorder", "fraction-template focus rectangle draw in erase mode"),
     (0x6AF8, 0x4D8C, "_DrawRectBorderClear", "descriptor/fraction box border draw"),
     (0x6B17, 0x4D5F, "_InvertRect", "focused fraction endpoint/cell rectangle"),
     (0x6B9C, 0x45CA, "_KeyToString", "menu/key string conversion helper, not a glyph stretcher"),
@@ -2566,8 +2566,8 @@ DRAW_PRIMITIVE_GHIDRA_RST28_SITES = [
     (0x66DB, 0x49FC, "_SetNorm_Vals", "_ForceFullScreen", "display/window reset"),
     (0x67B6, 0x4D5C, "_ClearRect", "eqdisp_set_flag2_jp", "template chrome clear"),
     (0x6826, 0x4D5F, "_InvertRect", "gr_draw_at_row6", "template chrome invert"),
-    (0x6AE9, 0x4D7D, "_DrawRectBorder", "eqdisp_draw_fraction_bar", "fraction/descriptor rectangle"),
-    (0x6AEE, 0x4D86, "_EraseRectBorder", "eqdisp_draw_fraction_bar", "fraction/descriptor rectangle"),
+    (0x6AE9, 0x4D7D, "_DrawRectBorder", "eqdisp_focus_rectangle", "fraction/descriptor rectangle"),
+    (0x6AEE, 0x4D86, "_EraseRectBorder", "eqdisp_focus_rectangle", "fraction/descriptor rectangle"),
     (0x6AF8, 0x4D8C, "_DrawRectBorderClear", "eqdisp_draw_box_jp", "fraction/descriptor rectangle"),
     (0x6B17, 0x4D5F, "_InvertRect", "eqdisp_draw_indent_jp", "focused fraction cell"),
     (0x6B9C, 0x45CA, "_KeyToString", "eqdisp_load_glyph18b2", "key string conversion"),
@@ -3065,7 +3065,7 @@ SUFFIX_1F_FLOW_ANCHORS = [
     (
         0x654D,
         "010c6200100011061f031f081f071f041f011f021f051f091f0c1f",
-        "class 2A root/power row: Lroot/Linverse followed by low-byte E=1F cells",
+        "class 2A root/power row: 0010/0011 payload candidates followed by low-byte E=1F cells",
     ),
     (
         0x6433,
@@ -3464,7 +3464,7 @@ DISPLAY_BYTE_MAP_SAMPLES = [
     (0x00, 0xC8, "fnInt display/name cell"),
     (0x00, 0xC7, "nDeriv display/name cell"),
     (0x08, 0x42, "direct Lintegral glyph cell"),
-    (0x00, 0x10, "direct Lroot/root-record cell"),
+    (0x00, 0x10, "root/power record payload candidate"),
 ]
 
 OFFPAGE_RENDER_FLOW_ANCHORS = [
@@ -4808,7 +4808,7 @@ ROOT_FLOW_ANCHORS = [
     (
         0x654D,
         "010c6200100011061f031f081f071f041f011f021f051f091f0c1f",
-        "class 2A root/power row: action 62, Lroot/Linverse and 1F-suffixed display cells",
+        "class 2A root/power row: action 62, 0010/0011 payload candidates and 1F-suffixed display cells",
     ),
     (
         0x6433,
@@ -4822,7 +4822,7 @@ ROOT_FLOW_XREF_TARGETS = [0x6546, 0x654D, 0x6433]
 STRUCTURAL_GLYPH_CENSUS_CELLS = [
     (0xFC, 0x3F, "direct Lintegral FC-table large-font cell"),
     (0x08, 0x42, "direct Lintegral large-font cell"),
-    (0x00, 0x10, "direct Lroot display cell"),
+    (0x00, 0x10, "root/power payload candidate"),
     (0x00, 0xC6, "Sigma display token / glyph candidate"),
     (0x00, 0xC8, "fnInt display-name cell"),
     (0xFB, 0xC8, "square-up template marker"),
@@ -4858,13 +4858,13 @@ STRUCTURAL_SYMBOL_FLOW_ANCHORS = [
         0x39,
         0x654D,
         "010c6200100011061f031f081f071f041f011f021f051f091f0c1f",
-        "class 2A root/power row: 0010=Lroot plus low-byte E=1F token-string cells",
+        "class 2A root/power row: 0010 payload candidate plus low-byte E=1F token-string cells",
     ),
     (
         0x39,
         0x6433,
         "021201484600100011061f031f0012081f071f041f011f021f051f091f0b1f0c1f0d1f001b001c00130014",
-        "class 31 stacked root/power row: 0010=Lroot plus degree row; row action 48 is record metadata",
+        "class 31 stacked root/power row: 0010 payload candidate plus degree row; row action 48 is record metadata",
     ),
     (
         0x39,
@@ -5772,7 +5772,7 @@ def dump_record_cell_stream_flow(rom):
         (0x08, 0, 9, 1, 1, 0x0C, "square-up marker slot"),
         (0x0D, 0, 8, 1, 1, 0x0A, "direct Lintegral row-0 glyph slot"),
         (0x0D, 2, 8, 1, 3, 0x0A, "direct Lintegral row-2 glyph slot on later row"),
-        (0x31, 0, 0, 1, 1, 0x12, "stacked root/power Lroot slot"),
+        (0x31, 0, 0, 1, 1, 0x12, "stacked root/power 0010 payload slot"),
         (0x08, 0, 10, 1, 7, 0x0C, "row-7 continuation separator before final slot"),
         (0x08, 0, 11, 1, 7, 0x0C, "row-7 final-slot separator"),
     ]
@@ -7965,7 +7965,7 @@ def dump_key_string_structural_flow(rom):
     print("\ninterpretation")
     print("  0010 is ROM-backed as a root/power handler-record cell and page-7 fixed Lroot glyph bytes")
     print("  but 0010 is not a direct 4F1A glyph cell; if treated as ordinary _KeyToString, it indexes the 'All+' string")
-    print("  therefore the current tall-root renderer is glyph-data-backed, with row placement delegated to the 5167 compositor")
+    print("  therefore the final root-mark emitter remains upstream or dynamic; these facts do not connect it to 5167")
 
 
 def dump_lroot_final_emitter_boundary_flow(rom):
@@ -8066,7 +8066,7 @@ def dump_template_tracepoint_flow(rom):
     print("\ntrace proof target")
     print("  render fnInt(sqrt(X^2+1),X,1/2,3^2) and fnInt(sqrt((X^2+1)/X),X,1/2,3^2)")
     print("  record the ordered events at 4E8E/4EEA/07:4588 for glyph codes 08, 10, C6 and delimiter cells")
-    print("  record 39:6ABF/6B1C/6AF5 rectangle endpoints for fraction bars, radical bars, boxes, and focus rectangles")
+    print("  record 39:6ABF/6B1C/6AF5 rectangle endpoints to identify and exclude template boxes and focus rectangles")
     print("  record 01:6293 VPutMap calls to separate small labels/limits from large structural glyphs")
     print("  the missing algorithm is proved only when these dynamic events explain final integral/root/delimiter pixels")
     print("  without an emulator trace, the current static evidence remains a closed-boundary proof rather than full recovery")
@@ -8455,7 +8455,7 @@ def dump_generic_string_caller_flow(rom):
         (0xFB, 0xD8, "FRAC answer-mode string"),
         (0xFB, 0xD7, "DEC answer-mode string"),
         (0x00, 0xC8, "fnInt display-name cell"),
-        (0x00, 0x10, "root/power Lroot record cell"),
+        (0x00, 0x10, "root/power 0010 record cell"),
         (0x06, 0x1F, "low-byte 1F root/power cell"),
     ):
         idx, rule = key_to_string_index(d, e)
@@ -9237,7 +9237,7 @@ def dump_delimiter_display_map_flow(rom):
     print("  page-7 display-byte tables map those cells to 6100..6109, 6000..6009, or AA00..AA09")
     print("  raw page-39 output-cell byte coincidences are not decoded records/descriptors")
     print("  delimiter variants are generated display-byte outputs, not page-39 record/descriptor recipes")
-    print("  this closes the fixed delimiter-map surface; dynamic row-window movement belongs to the 5167 compositor")
+    print("  this closes the fixed delimiter-map surface; runtime height selection remains unidentified")
 
 
 def dump_delimiter_record_family_flow(rom):
@@ -9989,7 +9989,7 @@ def dump_structural_record_placement_flow(rom):
         print(f"  action {action:02X}: ptr={ptr:04X} text={label!r}")
 
     print("\nstructural glyph provenance")
-    for cell, name in (((0xFC, 0x3F), "row-0 Lintegral"), ((0x08, 0x42), "row-2 Lintegral"), ((0x00, 0x10), "root/power Lroot")):
+    for cell, name in (((0xFC, 0x3F), "row-0 Lintegral"), ((0x08, 0x42), "row-2 Lintegral"), ((0x00, 0x10), "root/power payload candidate")):
         d, e = cell
         mapped = map_token_glyph_cell(d, e)
         records = cell_record_locations(rom, cell)
@@ -10008,7 +10008,7 @@ def dump_structural_record_placement_flow(rom):
     print("  FC3F and 0842 are ROM-backed fixed Lintegral cells, emitted by ordinary row-cell placement through 4E8E/4F1A")
     print("  that record proves fixed structural glyph placement, not the inserted BB24 fnInt( display template")
     print("  BB24/BB25 remain page-7 parser-token table entries with no direct page-39 record-cell occurrence")
-    print("  the definite-integral template uses the 5167 row compositor to map parsed fnInt operands around fixed structural cells")
+    print("  the 5167 static path can map parsed operands around fixed structural cells, but its runtime selector remains unidentified")
 
 
 def main():

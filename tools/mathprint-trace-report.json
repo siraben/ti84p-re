@@ -1,0 +1,150 @@
+{
+  "schema": 2,
+  "rom": {
+    "model": "ti84p",
+    "os": "2.55MP",
+    "sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d"
+  },
+  "tilem": {
+    "source": "https://github.com/siraben/tilem-headless",
+    "commit": "d1bdc58dd321ae462a701e556fcb62bb925a78b1",
+    "executable_sha256": "d48ce996a3c1861e4656e9aee5882d42734ce1e195cf4230e9aaf91f1f106172"
+  },
+  "capture": {
+    "format": "TLMT v2",
+    "range": "all",
+    "trace_limit_bytes": 300000000,
+    "initial_mapping": "ti84p-reset",
+    "raw_traces": "generated outside the repository because each retained scenario trace is larger than 150 MB",
+    "reproduce": "TILEM=$PWD/result/bin/tilem2 TI84_ROM=$PWD/tools/rom.bin python3 tools/parity-mathprint.py integral integral_frac --report tools/mathprint-trace-report.json"
+  },
+  "scenarios": {
+    "integral": {
+      "expression": "int(1,2,X^2,X)",
+      "key_sequence": [
+        "MATH",
+        "9",
+        "1",
+        "RIGHT",
+        "2",
+        "RIGHT",
+        "GRAPHVAR",
+        "POWER",
+        "2",
+        "RIGHT",
+        "RIGHT",
+        "GRAPHVAR"
+      ],
+      "fixture": "tools/macros/mathprint-fnint.macro",
+      "fixture_sha256": "3733ebe2eb6731b757e30e4a942b0992a9d12ad0427fc04e76329872c547fe0e",
+      "generated_macro_sha256": "00004fff90c05c545b70e8a2e326c2c6e625c9678a2398136e1e70f6f5838868",
+      "trace_bytes": 162380520,
+      "trace_sha256": "18e5fbf9768d84a7ffbe7ad3a4194508e8135e70ec6f5123b31f3bae6b3656fc",
+      "instructions": 3293825,
+      "lcd_replay": {
+        "calculator_size": [
+          43,
+          20
+        ],
+        "model_size": [
+          43,
+          20
+        ],
+        "mismatched_pixels": 0
+      },
+      "state": {
+        "0x85DE": "0x00",
+        "0x85E1": "0x04",
+        "0x85E2": "0x0C",
+        "0x85E8": "0x00",
+        "0x85EB": "0x00",
+        "0x85EE": "0x00",
+        "0x85EF": "0x00"
+      },
+      "exact_page_39_entry_hits": {
+        "39:4A74": 1,
+        "39:4CA4": 1,
+        "39:4DCA": 2,
+        "39:4DE6": 1,
+        "39:4E8E": 7,
+        "39:4F1A": 14,
+        "39:5167": 0,
+        "39:5949": 0,
+        "39:5B10": 0,
+        "39:5B1D": 0,
+        "39:69C8": 0,
+        "39:68AE": 0,
+        "39:683D": 0,
+        "39:6ABF": 0,
+        "39:4CE9": 1
+      }
+    },
+    "integral_frac": {
+      "expression": "int(1,2,(1//2)X,X)",
+      "key_sequence": [
+        "MATH",
+        "9",
+        "1",
+        "RIGHT",
+        "2",
+        "RIGHT",
+        "ALPHA",
+        "YEQU",
+        "WAIT",
+        "1",
+        "WAIT",
+        "1",
+        "DOWN",
+        "2",
+        "RIGHT",
+        "GRAPHVAR",
+        "RIGHT",
+        "GRAPHVAR"
+      ],
+      "fixture": "tools/macros/mathprint-integral-fraction.macro",
+      "fixture_sha256": "a8e9f172b12c1ac6d74c953392833d118fbbdbc2381c275920b10a6ede3e13c6",
+      "generated_macro_sha256": "34690e43535fefae73bdaaded45158aa5e747dd1638dc21080f3c5f68706c4fa",
+      "trace_bytes": 202586646,
+      "trace_sha256": "9426d6730ef1c8d000ffb85c8786ee03cd625c8393598bc7efb4ea2de96346dc",
+      "instructions": 4105555,
+      "lcd_replay": {
+        "calculator_size": [
+          47,
+          23
+        ],
+        "model_size": [
+          47,
+          23
+        ],
+        "mismatched_pixels": 0
+      },
+      "state": {
+        "0x85DE": "0x00",
+        "0x85E1": "0x01",
+        "0x85E2": "0x04",
+        "0x85E8": "0x10",
+        "0x85EB": "0x06",
+        "0x85EE": "0x02",
+        "0x85EF": "0x02"
+      },
+      "exact_page_39_entry_hits": {
+        "39:4A74": 2,
+        "39:4CA4": 1,
+        "39:4DCA": 2,
+        "39:4DE6": 1,
+        "39:4E8E": 7,
+        "39:4F1A": 14,
+        "39:5167": 0,
+        "39:5949": 0,
+        "39:5B10": 0,
+        "39:5B1D": 0,
+        "39:69C8": 1,
+        "39:68AE": 1,
+        "39:683D": 5,
+        "39:6ABF": 0,
+        "39:4CE9": 2
+      }
+    }
+  },
+  "resolver_caution": "Function rollups assign instructions to the nearest preceding symbol. Use exact_page_39_entry_hits for routine-entry claims."
+}

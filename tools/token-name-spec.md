@@ -1,8 +1,8 @@
 # MathPrint cell strings through `_KeyToString`
 
-This note documents how TI-84 Plus OS 2.55MP converts an ordinary page-`0x39`
-MathPrint cell `D:E` into a counted display string. Addresses use
-`page:offset`. [confirmed]
+This note documents how TI-84 Plus OS 2.55MP converts an ordinary page `0x39`
+MathPrint cell `D:E` into a counted display string. Addresses use `pp:addr`.
+[confirmed]
 
 ## Call boundary
 
@@ -11,12 +11,12 @@ inline counted strings; all other cells reach `39:6B9C`. The complete bytes at
 that address are:
 
 ```z80
-6B9C: EF CA 45    bcall 0x45CA   ; _KeyToString
-6B9F: C9          ret
+39:6B9C  EF CA 45    bcall 45CAh   ; _KeyToString
+39:6B9F  C9          ret
 ```
 
-Thus the bcall ID is `0x45CA`, not `0xC945`: `CA 45` are its two little-endian
-ID bytes, and the following `C9` is a separate `RET`. The page-`0x3B` bcall
+The bcall ID is `_KeyToString = 45CAh`: `CA 45` are its two little-endian
+ID bytes, and the following `C9` is a separate `RET`. The page `0x3B` bcall
 table resolves `_KeyToString` to `01:6D10`. [confirmed]
 
 ## Index selection
@@ -38,7 +38,7 @@ For non-prefix cells, the recovered index rules are:
 | `E = 0x56` or `E = 0x42` | adjusted `E + 0x16 + D - 0x1B - 0x10`, clamped as above |
 | other `0x40 <= E < 0x5A` | adjusted `E - 0x1B - 0x10`, clamped as above |
 
-`D` values `0xFB`, `0xFC`, `0xFE`, and `0xFF`, `E >= 0x5A`, and the special
+`D` values `0xFB`, `0xFC`, `0xFE`, and `0xFF`; `E >= 0x5A`; and the special
 cell `D:E = 0x10:0x40` take separate control/prefix paths. Treating all of them
 as ordinary table indices is incorrect. [confirmed]
 
@@ -57,7 +57,6 @@ and returns local counted strings, including `FBC8`, `FBCA`, `FBCB`, `FBD6`,
 
 ## Scope
 
-This note intentionally does not claim that the MathPrint path is an alias of
-`_Get_Tok_Strng` or `_GETTOKSTRING`; the prior version made that inference from
-the misparsed `0xC945` ID. The confirmed path is `_KeyToString` at `01:6D10`,
-with its own branch-specific pointer-table indexing described above.
+The MathPrint path reaches `_KeyToString` at `01:6D10`, with the branch-specific
+pointer-table indexing described above. It does not establish an alias with
+`_Get_Tok_Strng` or `_GETTOKSTRING`. [confirmed]

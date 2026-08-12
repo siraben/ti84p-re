@@ -65,8 +65,8 @@ def parse_descriptor(rom, addr):
     cells = []
     if 0x4000 <= cell_ptr < 0x8000:
         co = romoff(PAGE, cell_ptr)
-        cols = cols_rows & 0xFF
-        rows = cols_rows >> 8
+        cols = cols_rows >> 8
+        rows = cols_rows & 0xFF
         for i in range(cols * rows):
             cells.append([rom[co + 2 * i], rom[co + 2 * i + 1]])
     return {"addr": addr, "base_yx": base_yx, "box_yx": box_yx,

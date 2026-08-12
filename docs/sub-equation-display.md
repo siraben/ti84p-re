@@ -25,13 +25,13 @@ flowchart TD
     geom --> coord["39:683D<br/>cell to pixel coordinate"]
     coord --> cell
     cell --> glyph["07:4588 / 01:6293<br/>glyph output"]
-    geom --> rules["39:6ABF / 00:3555<br/>rules and rectangles"]
+    geom --> rules["39:6ABF / ram:3555<br/>rules and rectangles"]
 ```
 
 ## Core state
 
-The layout engine keeps most of its state in `0x85DE..0x85F2`. The table below names the
-fields that matter for reading the page-39 code. [confirmed]
+The layout engine keeps most of its state in `0x85DE`–`0x85F2`. The table below names the
+fields that matter for reading the page `0x39` code. [confirmed]
 
 | RAM | Role | Meaning |
 |-----|------|---------|
@@ -40,7 +40,7 @@ fields that matter for reading the page-39 code. [confirmed]
 | `0x85E0` | slot index | Current argument or cell slot. |
 | `0x85E1` | row count | Number of rows in the current handler record. |
 | `0x85E2` | slot count | Number of cells or arguments in the active row. |
-| `0x85E3..0x85E6` | saved display state | Snapshot of shared display flags while the engine redraws. |
+| `0x85E3`–`0x85E6` | saved display state | Snapshot of shared display flags while the engine redraws. |
 | `0x85E7` | OP scratch | Saved `OP1` slot used while recursing into operands. |
 | `0x85E8` | template kind | Low nibble selects descriptor-backed template UI. |
 | `0x85E9/0x85EA` | descriptor origin | Packed pixel base used by descriptor cell mapping. |
@@ -93,7 +93,7 @@ Examples:
 | `0x08` | `39:608B` | Numeric-calculus operator row, including `nDeriv(` and `fnInt(`. |
 | `0x0D` | `39:60F9` | Fixed structural glyph rows, including direct `Lintegral` cells. |
 | `0x29` | `39:6546` | Group/root-family control row. |
-| `0x2A` | `39:654D` | Root/power row containing the `Lroot` payload cell. |
+| `0x2A` | `39:654D` | Root/power row containing the `00 10` payload cell. |
 | `0x30` | `39:6030` | Fraction-context variant of the class-`0x08` operator row. |
 | `0x31` | `39:6433` | Stacked root/power row with a degree row. |
 
@@ -142,23 +142,24 @@ The high-level loop is:
 5. Recurse into argument slots when a handler cell represents an operand.
 6. Restore the baseline row and emit visible cells during the draw pass.
 
-The argument walker at `39:5167` manages multi-argument operators. It keeps the parser
-argument index in `0x85E0` and uses `0x85E2` as the argument count. Normal operands pass
-through `39:59E0`; variable operands pass through `39:59F9`. Both routes delegate token
-scanning to page 7, reusing its single field order. [confirmed]
+The static caller graph assigns multi-argument walking to `39:5167`. When
+selected, it keeps the parser argument index in `0x85E0` and uses `0x85E2` as
+the argument count. Normal operands pass through `39:59E0`; variable operands
+pass through `39:59F9`. Both routes delegate token scanning to page 7, reusing
+its single field order. [confirmed]
 
 For `fnInt(expr,var,lower,upper[,tol])`, the visible MathPrint fields preserve parser
 order: slot 0 is the integrand, slot 1 is the variable, slot 2 is the lower endpoint,
 slot 3 is the upper endpoint, and slot 4 is the optional tolerance. The evaluator on
 pages `02` and `33` consumes the same order. [confirmed]
 
-The same routine is the tall-template row compositor. `eqdisp_layout_main` reaches
+The same routine implements tall-template row composition. `eqdisp_layout_main` reaches
 `39:5167` from the action-`0x08` window-advance path at `39:50A4` and the action-`0x04`
 drain path at `39:52B3`. `39:5167` calls `39:5949` to decide whether the next argument
 consumes one or two display rows, adjusts `0x844B`, emits slot markers through `39:4E0A`,
-and emits the saved operand through `39:5B10` or `39:5B1D`. The result is a row composition
-around fixed structural cells; the ROM does not use a separate stretch-bitmap routine for
-the final MathPrint operator form. [confirmed]
+and emits the saved operand through `39:5B10` or `39:5B1D`. These bytes define
+row composition around fixed structural cells. The filled and nested-integral
+traces below do not select this entry. [confirmed]
 
 ## Cell coordinates
 
@@ -210,13 +211,13 @@ $$x_\text{left} = \mathtt{0x1B} + 7n$$
 $$x_\text{right} = x_\text{left} + 4$$
 
 Static callers of `39:6ABF`, `39:6B1C`, and the box wrapper `39:6AF5` are all in this
-fraction-template UI path. The visible fraction bar in the generic expression layout is a
-rule drawn through the graph-buffer drawing machinery, not a character cell. [confirmed]
+fraction-template UI path. The emitter for the visible bar in a generic
+expression remains unidentified. [confirmed]
 
 ## Exponents and raised rows
 
 Superscripts are represented as row placement, not as a font attribute. The helper at
-`39:4CE9` raises classes in the `0x24..0x28` family and class `0x39` by forcing `0x844B`
+`39:4CE9` raises classes in the `0x24`–`0x28` family and class `0x39` by forcing `0x844B`
 to a higher display row before emitting the selected cell. The per-row height accounting
 then folds that raised row into the parent layout. [confirmed]
 
@@ -225,25 +226,24 @@ does the work; the glyph for `2` is the ordinary one.
 
 ## Radicals
 
-The radical mark starts with the fixed large-font `Lroot` glyph (`0x10`). Its glyph bytes
-live at `07:466F`, and the root/power records contain the payload cell `00 10` in class
-`0x2A` and class `0x31`. [confirmed]
+The large-font table contains the fixed `Lroot` glyph (`0x10`) at `07:466F`.
+The root/power records also contain the payload cell `00 10` in classes `0x2A`
+and `0x31`. These facts do not establish a direct emission path between the
+cell and that glyph. [confirmed]
 
 The same records also contain low-byte `E=1F` cells for related power/root pieces. Those
 cells follow the ordinary token-string path; they are not the special high-byte `D=1F`
 cell form used by the `39:4E8E` IX-backed branch. [confirmed]
 
-A tall radical is therefore a composition:
+The direct mapper at `39:4F1A` does not accept `00 10`. If that cell follows the
+ordinary string path, `_KeyToString` selects `All+`, not `Lroot`. The final
+root-mark emitter must therefore be selected by an upstream or dynamic path
+that remains unidentified. [hypothesis]
 
-1. A fixed `Lroot` glyph supplies the hook and top shape.
-2. The radicand is laid out as a recursive operand window.
-3. `39:5167` advances the operand row window when the radicand or degree spans rows.
-4. Parentheses or other delimiters are chosen around the resulting height when needed.
-
-The root mark is ROM-backed by fixed records and the generic cell emitter. The variable
-piece is operand placement, not a synthesized root bitmap: `39:5167` owns the recursive
-row-window composition, while `39:4E8E`/`39:4F1A` and the page-7 glyph blitter emit the
-fixed structural cells. [confirmed]
+The static `39:5167` path can advance a recursive operand window when selected,
+but the demonstrated traces do not connect it to the radical records. The
+precise division between fixed root glyphs, radicand placement, and any
+vinculum drawing remains open.
 
 ## Integrals and summations
 
@@ -253,37 +253,35 @@ The visible `fnInt(` menu cell and the structural integral glyph are separate th
 |---------|--------------|--------|
 | `fnInt(` display name | `00 C8` | Class `0x08`/`0x30` operator records and page-1 token-name strings. |
 | Fixed integral glyph | `Lintegral` `0x08` | Class `0x0D` cells `FC3F` and `08 42`, emitted through `39:4F1A`. |
-| Summation glyph | `0xC6` family | Fixed glyph data; no direct `00 C6` page-39 handler cell has been found. |
+| Summation glyph | `0xC6` family | Fixed glyph data; no direct `00 C6` page `0x39` handler cell has been found. |
 
 The fixed `Lintegral` glyph is emitted by the ordinary structural-glyph path:
 `39:4E8E` calls the delimiter classifier, falls through to `39:4F1A`, maps the cell to
 large-font code `0x08`, and emits it. [confirmed]
 
-The tall definite-integral layout is a higher-level composition around that glyph:
+The static `39:5167` path can compose argument slots around a fixed glyph:
 
 1. Place the tall integral glyph on the main axis.
-2. Use `39:5167` to walk the lower, upper, integrand, and variable slots in parser order.
+2. Walk the lower, upper, integrand, and variable slots in parser order.
 3. Update `0x844B` by the row step from `39:5949`.
 4. Emit slot markers through `39:4E0A`.
 5. Emit the operand bodies through `39:5B10` and `39:5B1D`.
 
-The parser slot order and display compositor are both identified. `39:5167` is the ROM
-routine that turns the measured argument slots into the visible row placement around the
-fixed integral cell. The final pixels still come from the ordinary output paths:
-`39:4E8E`/`39:4F1A` for fixed glyph cells, page `07:4588` for the large-font record copy,
-and the rectangle helpers for rule-like UI surfaces. [confirmed]
+The parser slot order and the static compositor are identified. The filled and
+nested-integral traces use `39:4CA4` instead, so the expression or cursor state
+that selects `39:5167` remains open. Fixed glyph cells use `39:4E8E` and
+`39:4F1A`; page `07:4588` copies large-font records. [confirmed]
 
 ## Delimiters
 
 The fixed delimiter families are handler records. Classes
 `0x17`, `0x18`, and `0x19` point to one-row records at `39:62C8`, `39:62DF`, and
 `39:62F6`. Each record contains ten cells. Page 7 maps those cells to output families
-`61 00..61 09`, `60 00..60 09`, and `AA 00..AA 09`. [confirmed]
+`61 00`–`61 09`, `60 00`–`60 09`, and `AA 00`–`AA 09`. [confirmed]
 
-This covers the fixed delimiter surface. The dynamic choice of delimiter height is part of
-the same row-window composition used by radicals and integrals: `39:5167` advances or
-backs the visible argument slot, while the delimiter families themselves remain fixed
-handler records and page-7 display-byte mappings. [confirmed]
+This covers the fixed delimiter surface. The delimiter families remain fixed
+handler records and page `0x07` display-byte mappings. A runtime path that
+selects their height remains unidentified. [confirmed]
 
 ## Emission paths
 
@@ -292,12 +290,12 @@ Cells reach pixels through a small set of output paths:
 | Path | Entry | Use |
 |------|-------|-----|
 | Generic cell emitter | `39:4E8E` | Dispatches two-byte display cells. |
-| Direct large glyph map | `39:4F1A` | Maps `FC3C..FC40`, `FE7D..FE81`, and `xx42` cells to large-font codes. |
+| Direct large glyph map | `39:4F1A` | Maps `FC3C`–`FC40`, `FE7D`–`FE81`, and `xx42` cells to large-font codes. |
 | String path | `39:6B66` + page `01:6D10` | Converts ordinary token cells to counted strings. |
 | Display-byte remap | page `07:44DE` | Remaps `FE`, `FC`, and `FB` prefixed display bytes. |
 | Small-font blit | page `01:6293` | `_VPutMap`; emits small labels and compact limits from `0x86D7`. |
 | Large-font blit | page `07:4588` | Copies one fixed large-font glyph record. |
-| Rule / rectangle helpers | `39:6ABF`, `39:6AF5`, `00:3555` | Draw fraction UI rectangles, boxes, and fixed chrome lines. |
+| Rule / rectangle helpers | `39:6ABF`, `39:6AF5`, `ram:3555` | Draw fraction UI rectangles, boxes, and fixed chrome lines. |
 
 The page-7 large-font service copies fixed glyph rows. It does not measure a radicand or
 stretch a glyph by itself. [confirmed]
@@ -358,90 +356,49 @@ anchors for readers who want to check the disassembly. [confirmed]
 | `07:4588` | Large-font fixed glyph blitter. |
 | `01:6293` | `_VPutMap` small-font pixel output. |
 
-## Dynamic confirmation
-
-The static map above was checked against live execution. The TI-84 Plus OS was
-run under headless TilEm, the entry line was driven to render each construct, and
-page-`39` execution was rolled up to function level with
-`tools/tilem_trace_resolve.py --funcs --only-space page_39` (see
-[dynamic tracing](https://github.com/siraben/ti84p-re/blob/main/tools/dynamic-tracing.md)). The macros are
-`tools/macros/mathprint-{power,fraction,fnint}.macro`. [confirmed]
-
-The traces distinguish two documented rendering mechanisms by which routines
-run in each scenario:
-
-| Rendered (entry line) | Page-`39` routines exercised | Path |
-|-----------------------|------------------------------|------|
-| `X^2` (raised exponent) | `eqdisp_emit_subexpr2` `4CA4`, `eqdisp_menu_or_emit` `53AD` | light entry-line emit (`eqdisp_set_row_for_tok` `4CE9` is the static superscript-row helper but did not execute in this trace — it does run in the `1/2` trace) |
-| `1/2` (n/d template) | `eqdisp_compute_dims` `69C8`, `eqdisp_layout_token_geom` `68AE`, the `683D` cell-to-pixel mapper, `eqdisp_draw_fraction_bar` `6ABF`, `eqdisp_draw_box_jp` `6AF5`, `eqdisp_load_glyph18b2` `6B66`, `eqdisp_dispatch_token` `4A74` | descriptor / geometry |
-| `fnInt(` (MATH ▸ 9) | `eqdisp_emit_glyph` `4E8E`, `eqdisp_map_token_glyph` `4F1A`, `eqdisp_emit_arglist` `4DE6`, `eqdisp_sum_arg_widths` `4DCA`, `eqdisp_emit_digit_chk` `4E0A` | handler record / multi-arg |
-
-The simple fraction scenario exercises the descriptor path
-(`69C8`/`68AE`/`683D`/`6ABF`), while the empty integral template exercises the
-handler-record path (`4DCA`/`4DE6`/`4E8E`/`4F1A`). Nested constructs can and do
-exercise both during one render. [confirmed]
-
-`39:5167` (`eqdisp_layout_multiarg`) statically owns multi-argument row
-composition, but it did not execute in the original empty-template trace: `fnInt(` was
-inserted *empty* (`∫(0)dV`), so the operand-recursion branch was never driven —
-`5167` and its body (`5949`/`5B10`) show 0 hits, and the `--funcs` "5167" rollup
-bucket is a nearest-name artifact (only a `51F1/51F3` fragment ran). A *filled*
-integrand is needed to drive `5167`. A later filled-integrand trace, described
-below, supplies that dynamic confirmation. [confirmed]
-
-The live state block matches the field map. Reading `0x85DE..0x85F2` from a RAM
-dump right after each render (`memdump … ram-logical`):
-
-| Field | `1/2` | `fnInt(` | Confirms |
-|-------|-------|----------|----------|
-| `0x85E8` template kind | `0x10` | `0x00` | `0x10` = the fraction *descriptor* kind; `0x00` = handler-record (no descriptor). |
-| `0x85EE`/`0x85EF` fraction width | `2`/`2` | `0`/`0` | Measured numerator/denominator widths (each `1` cell ≈ 2 px wide). |
-| `0x85E1` row count | — | `4` | Four rows for the tall integral (upper limit, body, lower limit, baseline). |
-
-`eqdisp_compute_dims` (`39:69C8`) decompiles consistently: it switches on
-`0x85E8 & 0x0F`, picks descriptor `686F`/`6880`/… by kind, and for the kind-2
-measured-fraction path calls `eqdisp_draw_box_jp` with `0x85EE`. [confirmed]
-
-**Decompiler caution.** The cell-to-pixel mapper `39:683D` and the fraction
-endpoint helper `39:6B1C` are named `eqdisp_decr_counters` /
-`eqdisp_advance_col6` in the symbol table, and the Ghidra *decompiler*
-mis-analyzes both (it shows bare decrement loops). The raw disassembly matches
-this page instead: `683D` does `A = base; loop: add a,7` into the *high* byte (`y = base_y + 7·col` → `penRow`)
-and `6B1C` does `ld a,1Bh; … add a,7 (×n); add a,4` (`x_left = 0x1B + 7n`,
-`x_right = x_left + 4`). Trust `z80dasm` over the decompiler for these tight
-register-passing routines, as [the README](https://github.com/siraben/ti84p-re/blob/main/README.md) advises. [confirmed]
-
 ## MathPrint pipeline coverage
 
-The static MathPrint pipeline is recovered: token classification, handler records,
+The static MathPrint map covers token classification, handler records,
 recursive operand order, descriptor templates, fraction UI geometry, fixed structural
 glyphs, display-byte remaps, generic output services, and multi-argument row composition.
 The row compositor is `39:5167`; the pixel emitters are the fixed glyph and rule paths
-listed above. Dynamic traces can still refine the exact runtime path for a specific
-expression and cursor state, but the static map now has the ROM routine that owns
-tall-template row composition.
+listed above. The runtime selection of `39:5167` for an expression and cursor
+state remains unobserved.
 
-## Multi-arg path under trace
+## Filled and nested-integrand traces
 
-Driving `fnInt(` with a filled integrand executes the multi-argument compositor:
-the historical trace recorded 69 hits at `eqdisp_layout_multiarg` (`39:5167`),
-along with `eqdisp_emit_glyph` (`39:4E8E`), `eqdisp_map_token_glyph`
-(`39:4F1A`), and `eqdisp_emit_arglist` (`39:4DE6`). The shipped
-`tools/macros/mathprint-fnint.macro` reproduces the filled-integrand scenario.
-No retained nested-fraction trace is available here, so simultaneous
-handler-record and descriptor-path execution is the expected composition but
-is not claimed as a rerun result. The 69-hit result comes from a prior run whose
-artifact was not retained, so it is not independently reproducible from this
-checkout.
+Two reset-origin TLMT v2 traces use the pinned ROM SHA-256
+`7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d`.
+The raw traces remain outside the repository because they are 162 MB and 202 MB.
+`tools/mathprint-trace-report.json` records their hashes, emulator provenance,
+exact entry counts, state bytes, and replay results. [confirmed]
+
+| Scenario | Exact page `0x39` entry hits | Final state | LCD replay |
+|----------|----------------------------|-------------|------------|
+| `int(1,2,X^2,X)` | `4CA4` ×1, `4DCA` ×2, `4DE6` ×1, `4E8E` ×7, `4F1A` ×14 | `0x85E1=04`, `0x85E8=00` | 43×20; zero pixels differ from the model. |
+| `int(1,2,(1//2)X,X)` | The same handler entries, plus `683D` ×5, `68AE` ×1, and `69C8` ×1 | `0x85E8=10`, `0x85EB=06`, `0x85EE=02`, `0x85EF=02` | 47×23; zero pixels differ from the model. |
+
+Both traces execute `eqdisp_emit_subexpr2` at `39:4CA4`, not the static
+multi-argument entry at `39:5167`. The nested case also executes the descriptor
+cell mapper and geometry selector, confirming that handler-record emission and
+descriptor geometry compose in one rendered expression. Neither trace reaches
+the exact entries `39:5167`, `39:5949`, `39:5B10`, `39:5B1D`, or `39:6ABF`.
+[confirmed]
+
+Exact point counts matter here. The resolver's `--funcs` mode groups an
+instruction under the nearest preceding symbol. It places 69 instructions in
+the `39:5167` bucket for each scenario even though the entry itself has zero
+hits. `tools/test_hardware_trace.py` covers this distinction. [confirmed]
 
 ## Cell encoding
 
 `eqdisp_emit_glyph` (`39:4E8E`) dispatches each `D:E` cell by its `D` byte:
-`D=0x1F` is a cursor marker (no draw), `D=0x82` a positional column glyph, and
-otherwise a counted-string selection (`39:6B66 → bcall 0x45CA → 01:6D10`,
+`D=0x1F` is a cursor marker (no draw), `D=0x82` selects an indexed string or
+title, and
+otherwise a counted-string selection (`39:6B66` → `_KeyToString = 45CAh` → `01:6D10`,
 `_KeyToString`, with its pointer table at `01:6E05`) or a direct glyph via
-`39:4F1A` (`FC3C..40 → glyph (E−0x3C)+5`,
-`FE7D..81 → E−0x7D`, `E=0x42,D<0x0A → glyph D`). So `00C8` draws the literal name
+`39:4F1A` (`FC3C`–`FC40` → glyph `E - 0x3C + 5`,
+`FE7D`–`FE81` → `E - 0x7D`, `E = 0x42` and `D < 0x0A` → glyph `D`). So `00C8` draws the literal name
 "fnInt(", not a glyph. The full decode is in
 `tools/cell-glyph-spec.md` and
 `tools/token-name-spec.md`; the placement geometry
@@ -458,11 +415,11 @@ emulator bitmap for a complete compatible trace; it is not a physical-controller
 claim. The controller behavior is [standard] for the pinned TilEm source model;
 synthetic tests confirm the replay implementation.
 
-`tools/parity-mathprint.py` now selects that replay when tracing is enabled.
-The proprietary OS image and retained MathPrint trace artifacts are not present
-in this checkout, so earlier broad 100% pixel-parity claims could not be rerun.
-The current 5,018-case Node test is a deterministic parser/layout smoke test,
-not calculator-parity evidence. [confirmed]
+`tools/parity-mathprint.py` selects that replay when tracing is enabled.
+The local ignored `tools/rom.bin` enables pinned-ROM reproduction when present.
+The 5,018-case Node test remains a deterministic parser/layout smoke test. The
+two trace scenarios above provide narrower calculator-parity evidence for their
+exact rendered expressions. [confirmed]
 
 ## Extracted records and interactive model
 

@@ -384,8 +384,8 @@ def main():
         # MATH > 9 fnInt( as a MathPrint definite-integral reconstruction:
         # glyphs come from ROM; this is a layout *model*. The real ROM owns tall-
         # template/multi-argument row composition in eqdisp_layout_multiarg
-        # (39:5167) - dynamically confirmed to fire for fnInt (see
-        # docs/sub-equation-display.md, "Dynamic confirmation").
+        # (39:5167). The retained fnInt traces use 39:4CA4 instead (see
+        # docs/sub-equation-display.md, "Filled and nested-integrand traces").
         # Entered as 9 1 RIGHT 2 RIGHT X RIGHT X -> the integral of X dX from 1 to 2.
         ("integral from 1 to 2 of (X) dX  (= 1.5)",
          hcat([definite_integral(T("@08"), limit_text(rom, "2"), limit_text(rom, "1")),
