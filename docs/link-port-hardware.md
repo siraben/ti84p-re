@@ -54,6 +54,32 @@ The archived TI Link Protocol Guide calls line 0 red/tip and line 1 white/ring. 
 
 OS 2.55MP sends a zero bit with write `1` and a one bit with write `2`. That agrees with the guide's rule that zero pulls red/tip first and one pulls white/ring first. [confirmed] for the write values; [standard] for the physical contact names.
 
+### Differential audio output
+
+Software can use the two output controls as a three-level differential source.
+If $V_0$ and $V_1$ denote the logical high/low levels of line 0 and line 1,
+the idealized differential signal is $V_0 - V_1$: [standard]
+
+| Port-`0x00` write | Line 0 | Line 1 | Idealized differential state |
+|------------------:|--------|--------|------------------------------|
+| `0` | released/high | released/high | zero |
+| `1` | driven low | released/high | negative |
+| `2` | released/high | driven low | positive |
+| `3` | driven low | driven low | zero |
+
+An interrupt routine can therefore write `1` and `2` for opposite polarities,
+or use either equal-line state for the midpoint. This is the same
+open-collector digital contract used by link transfers; it is not a separate
+audio peripheral. The repository's `tools/badapple/README.md` describes one
+software example and preserves the upstream program's oscillator and tracker
+encoding. [standard]
+
+The table does not specify voltage, output impedance, safe load, loudness, or
+analog bandwidth. Those depend on the unmeasured pull-ups, ASIC drive behavior,
+connector load, and edge timing. A physical calculator and load must be
+measured before treating the idealized levels as an electrical schematic.
+[hypothesis]
+
 ## Sending one byte at `3C:420D`
 
 `_SendAByte = 4EE5`, body `3C:420D`, copies the byte from `A` to `C`. The model probe at `3C:420E` selects the link-assist path when available. The legacy path sends eight bits least-significant first. [confirmed]
