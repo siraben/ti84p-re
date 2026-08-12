@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-024fbc99.js";
+            window.path_to_searchindex_js = "searchindex-955f5503.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14499,12 +14499,12 @@ recursively allocated box tree.</p>
     geom --&gt; coord["39:683D&lt;br/&gt;cell to pixel coordinate"]
     coord --&gt; cell
     cell --&gt; glyph["07:4588 / 01:6293&lt;br/&gt;glyph output"]
-    geom --&gt; rules["39:6ABF / 00:3555&lt;br/&gt;rules and rectangles"]
+    geom --&gt; rules["39:6ABF / ram:3555&lt;br/&gt;rules and rectangles"]
 </pre>
 
 <h2 id="core-state"><a class="header" href="#core-state">Core state</a></h2>
-<p>The layout engine keeps most of its state in <code>0x85DE..0x85F2</code>. The table below names the
-fields that matter for reading the page-39 code. [confirmed]</p>
+<p>The layout engine keeps most of its state in <code>0x85DE</code>–<code>0x85F2</code>. The table below names the
+fields that matter for reading the page <code>0x39</code> code. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -14516,7 +14516,7 @@ fields that matter for reading the page-39 code. [confirmed]</p>
 <tr><td><code>0x85E0</code></td><td>slot index</td><td>Current argument or cell slot.</td></tr>
 <tr><td><code>0x85E1</code></td><td>row count</td><td>Number of rows in the current handler record.</td></tr>
 <tr><td><code>0x85E2</code></td><td>slot count</td><td>Number of cells or arguments in the active row.</td></tr>
-<tr><td><code>0x85E3..0x85E6</code></td><td>saved display state</td><td>Snapshot of shared display flags while the engine redraws.</td></tr>
+<tr><td><code>0x85E3</code>–<code>0x85E6</code></td><td>saved display state</td><td>Snapshot of shared display flags while the engine redraws.</td></tr>
 <tr><td><code>0x85E7</code></td><td>OP scratch</td><td>Saved <code>OP1</code> slot used while recursing into operands.</td></tr>
 <tr><td><code>0x85E8</code></td><td>template kind</td><td>Low nibble selects descriptor-backed template UI.</td></tr>
 <tr><td><code>0x85E9/0x85EA</code></td><td>descriptor origin</td><td>Packed pixel base used by descriptor cell mapping.</td></tr>
@@ -14565,7 +14565,7 @@ emitter at <code>39:4DE6</code> then walks the selected row and calls <code>39:4
 <tr><td><code>0x08</code></td><td><code>39:608B</code></td><td>Numeric-calculus operator row, including <code>nDeriv(</code> and <code>fnInt(</code>.</td></tr>
 <tr><td><code>0x0D</code></td><td><code>39:60F9</code></td><td>Fixed structural glyph rows, including direct <code>Lintegral</code> cells.</td></tr>
 <tr><td><code>0x29</code></td><td><code>39:6546</code></td><td>Group/root-family control row.</td></tr>
-<tr><td><code>0x2A</code></td><td><code>39:654D</code></td><td>Root/power row containing the <code>Lroot</code> payload cell.</td></tr>
+<tr><td><code>0x2A</code></td><td><code>39:654D</code></td><td>Root/power row containing the <code>00 10</code> payload cell.</td></tr>
 <tr><td><code>0x30</code></td><td><code>39:6030</code></td><td>Fraction-context variant of the class-<code>0x08</code> operator row.</td></tr>
 <tr><td><code>0x31</code></td><td><code>39:6433</code></td><td>Stacked root/power row with a degree row.</td></tr>
 </tbody>
@@ -14609,21 +14609,22 @@ example, class <code>0x08</code> and class <code>0x30</code> share the <code>fnI
 <li>Recurse into argument slots when a handler cell represents an operand.</li>
 <li>Restore the baseline row and emit visible cells during the draw pass.</li>
 </ol>
-<p>The argument walker at <code>39:5167</code> manages multi-argument operators. It keeps the parser
-argument index in <code>0x85E0</code> and uses <code>0x85E2</code> as the argument count. Normal operands pass
-through <code>39:59E0</code>; variable operands pass through <code>39:59F9</code>. Both routes delegate token
-scanning to page 7, reusing its single field order. [confirmed]</p>
+<p>The static caller graph assigns multi-argument walking to <code>39:5167</code>. When
+selected, it keeps the parser argument index in <code>0x85E0</code> and uses <code>0x85E2</code> as
+the argument count. Normal operands pass through <code>39:59E0</code>; variable operands
+pass through <code>39:59F9</code>. Both routes delegate token scanning to page 7, reusing
+its single field order. [confirmed]</p>
 <p>For <code>fnInt(expr,var,lower,upper[,tol])</code>, the visible MathPrint fields preserve parser
 order: slot 0 is the integrand, slot 1 is the variable, slot 2 is the lower endpoint,
 slot 3 is the upper endpoint, and slot 4 is the optional tolerance. The evaluator on
 pages <code>02</code> and <code>33</code> consumes the same order. [confirmed]</p>
-<p>The same routine is the tall-template row compositor. <code>eqdisp_layout_main</code> reaches
+<p>The same routine implements tall-template row composition. <code>eqdisp_layout_main</code> reaches
 <code>39:5167</code> from the action-<code>0x08</code> window-advance path at <code>39:50A4</code> and the action-<code>0x04</code>
 drain path at <code>39:52B3</code>. <code>39:5167</code> calls <code>39:5949</code> to decide whether the next argument
 consumes one or two display rows, adjusts <code>0x844B</code>, emits slot markers through <code>39:4E0A</code>,
-and emits the saved operand through <code>39:5B10</code> or <code>39:5B1D</code>. The result is a row composition
-around fixed structural cells; the ROM does not use a separate stretch-bitmap routine for
-the final MathPrint operator form. [confirmed]</p>
+and emits the saved operand through <code>39:5B10</code> or <code>39:5B1D</code>. These bytes define
+row composition around fixed structural cells. The filled and nested-integral
+traces below do not select this entry. [confirmed]</p>
 <h2 id="cell-coordinates"><a class="header" href="#cell-coordinates">Cell coordinates</a></h2>
 <p>Descriptor-backed templates use a fixed ABI. A descriptor is:</p>
 <pre><code class="language-c">typedef struct {
@@ -14666,33 +14667,31 @@ cell. [confirmed]</p>
 <p>$$x_\text{left} = \mathtt{0x1B} + 7n$$</p>
 <p>$$x_\text{right} = x_\text{left} + 4$$</p>
 <p>Static callers of <code>39:6ABF</code>, <code>39:6B1C</code>, and the box wrapper <code>39:6AF5</code> are all in this
-fraction-template UI path. The visible fraction bar in the generic expression layout is a
-rule drawn through the graph-buffer drawing machinery, not a character cell. [confirmed]</p>
+fraction-template UI path. The emitter for the visible bar in a generic
+expression remains unidentified. [confirmed]</p>
 <h2 id="exponents-and-raised-rows"><a class="header" href="#exponents-and-raised-rows">Exponents and raised rows</a></h2>
 <p>Superscripts are represented as row placement, not as a font attribute. The helper at
-<code>39:4CE9</code> raises classes in the <code>0x24..0x28</code> family and class <code>0x39</code> by forcing <code>0x844B</code>
+<code>39:4CE9</code> raises classes in the <code>0x24</code>–<code>0x28</code> family and class <code>0x39</code> by forcing <code>0x844B</code>
 to a higher display row before emitting the selected cell. The per-row height accounting
 then folds that raised row into the parent layout. [confirmed]</p>
 <p>This means <code>X^2</code> is stored and walked as ordinary cells in different rows. The row selection
 does the work; the glyph for <code>2</code> is the ordinary one.</p>
 <h2 id="radicals"><a class="header" href="#radicals">Radicals</a></h2>
-<p>The radical mark starts with the fixed large-font <code>Lroot</code> glyph (<code>0x10</code>). Its glyph bytes
-live at <code>07:466F</code>, and the root/power records contain the payload cell <code>00 10</code> in class
-<code>0x2A</code> and class <code>0x31</code>. [confirmed]</p>
+<p>The large-font table contains the fixed <code>Lroot</code> glyph (<code>0x10</code>) at <code>07:466F</code>.
+The root/power records also contain the payload cell <code>00 10</code> in classes <code>0x2A</code>
+and <code>0x31</code>. These facts do not establish a direct emission path between the
+cell and that glyph. [confirmed]</p>
 <p>The same records also contain low-byte <code>E=1F</code> cells for related power/root pieces. Those
 cells follow the ordinary token-string path; they are not the special high-byte <code>D=1F</code>
 cell form used by the <code>39:4E8E</code> IX-backed branch. [confirmed]</p>
-<p>A tall radical is therefore a composition:</p>
-<ol>
-<li>A fixed <code>Lroot</code> glyph supplies the hook and top shape.</li>
-<li>The radicand is laid out as a recursive operand window.</li>
-<li><code>39:5167</code> advances the operand row window when the radicand or degree spans rows.</li>
-<li>Parentheses or other delimiters are chosen around the resulting height when needed.</li>
-</ol>
-<p>The root mark is ROM-backed by fixed records and the generic cell emitter. The variable
-piece is operand placement, not a synthesized root bitmap: <code>39:5167</code> owns the recursive
-row-window composition, while <code>39:4E8E</code>/<code>39:4F1A</code> and the page-7 glyph blitter emit the
-fixed structural cells. [confirmed]</p>
+<p>The direct mapper at <code>39:4F1A</code> does not accept <code>00 10</code>. If that cell follows the
+ordinary string path, <code>_KeyToString</code> selects <code>All+</code>, not <code>Lroot</code>. The final
+root-mark emitter must therefore be selected by an upstream or dynamic path
+that remains unidentified. [hypothesis]</p>
+<p>The static <code>39:5167</code> path can advance a recursive operand window when selected,
+but the demonstrated traces do not connect it to the radical records. The
+precise division between fixed root glyphs, radicand placement, and any
+vinculum drawing remains open.</p>
 <h2 id="integrals-and-summations"><a class="header" href="#integrals-and-summations">Integrals and summations</a></h2>
 <p>The visible <code>fnInt(</code> menu cell and the structural integral glyph are separate things.</p>
 <div class="table-wrapper">
@@ -14703,35 +14702,33 @@ fixed structural cells. [confirmed]</p>
 <tbody>
 <tr><td><code>fnInt(</code> display name</td><td><code>00 C8</code></td><td>Class <code>0x08</code>/<code>0x30</code> operator records and page-1 token-name strings.</td></tr>
 <tr><td>Fixed integral glyph</td><td><code>Lintegral</code> <code>0x08</code></td><td>Class <code>0x0D</code> cells <code>FC3F</code> and <code>08 42</code>, emitted through <code>39:4F1A</code>.</td></tr>
-<tr><td>Summation glyph</td><td><code>0xC6</code> family</td><td>Fixed glyph data; no direct <code>00 C6</code> page-39 handler cell has been found.</td></tr>
+<tr><td>Summation glyph</td><td><code>0xC6</code> family</td><td>Fixed glyph data; no direct <code>00 C6</code> page <code>0x39</code> handler cell has been found.</td></tr>
 </tbody>
 </table>
 </div>
 <p>The fixed <code>Lintegral</code> glyph is emitted by the ordinary structural-glyph path:
 <code>39:4E8E</code> calls the delimiter classifier, falls through to <code>39:4F1A</code>, maps the cell to
 large-font code <code>0x08</code>, and emits it. [confirmed]</p>
-<p>The tall definite-integral layout is a higher-level composition around that glyph:</p>
+<p>The static <code>39:5167</code> path can compose argument slots around a fixed glyph:</p>
 <ol>
 <li>Place the tall integral glyph on the main axis.</li>
-<li>Use <code>39:5167</code> to walk the lower, upper, integrand, and variable slots in parser order.</li>
+<li>Walk the lower, upper, integrand, and variable slots in parser order.</li>
 <li>Update <code>0x844B</code> by the row step from <code>39:5949</code>.</li>
 <li>Emit slot markers through <code>39:4E0A</code>.</li>
 <li>Emit the operand bodies through <code>39:5B10</code> and <code>39:5B1D</code>.</li>
 </ol>
-<p>The parser slot order and display compositor are both identified. <code>39:5167</code> is the ROM
-routine that turns the measured argument slots into the visible row placement around the
-fixed integral cell. The final pixels still come from the ordinary output paths:
-<code>39:4E8E</code>/<code>39:4F1A</code> for fixed glyph cells, page <code>07:4588</code> for the large-font record copy,
-and the rectangle helpers for rule-like UI surfaces. [confirmed]</p>
+<p>The parser slot order and the static compositor are identified. The filled and
+nested-integral traces use <code>39:4CA4</code> instead, so the expression or cursor state
+that selects <code>39:5167</code> remains open. Fixed glyph cells use <code>39:4E8E</code> and
+<code>39:4F1A</code>; page <code>07:4588</code> copies large-font records. [confirmed]</p>
 <h2 id="delimiters"><a class="header" href="#delimiters">Delimiters</a></h2>
 <p>The fixed delimiter families are handler records. Classes
 <code>0x17</code>, <code>0x18</code>, and <code>0x19</code> point to one-row records at <code>39:62C8</code>, <code>39:62DF</code>, and
 <code>39:62F6</code>. Each record contains ten cells. Page 7 maps those cells to output families
-<code>61 00..61 09</code>, <code>60 00..60 09</code>, and <code>AA 00..AA 09</code>. [confirmed]</p>
-<p>This covers the fixed delimiter surface. The dynamic choice of delimiter height is part of
-the same row-window composition used by radicals and integrals: <code>39:5167</code> advances or
-backs the visible argument slot, while the delimiter families themselves remain fixed
-handler records and page-7 display-byte mappings. [confirmed]</p>
+<code>61 00</code>–<code>61 09</code>, <code>60 00</code>–<code>60 09</code>, and <code>AA 00</code>–<code>AA 09</code>. [confirmed]</p>
+<p>This covers the fixed delimiter surface. The delimiter families remain fixed
+handler records and page <code>0x07</code> display-byte mappings. A runtime path that
+selects their height remains unidentified. [confirmed]</p>
 <h2 id="emission-paths"><a class="header" href="#emission-paths">Emission paths</a></h2>
 <p>Cells reach pixels through a small set of output paths:</p>
 <div class="table-wrapper">
@@ -14741,12 +14738,12 @@ handler records and page-7 display-byte mappings. [confirmed]</p>
 </thead>
 <tbody>
 <tr><td>Generic cell emitter</td><td><code>39:4E8E</code></td><td>Dispatches two-byte display cells.</td></tr>
-<tr><td>Direct large glyph map</td><td><code>39:4F1A</code></td><td>Maps <code>FC3C..FC40</code>, <code>FE7D..FE81</code>, and <code>xx42</code> cells to large-font codes.</td></tr>
+<tr><td>Direct large glyph map</td><td><code>39:4F1A</code></td><td>Maps <code>FC3C</code>–<code>FC40</code>, <code>FE7D</code>–<code>FE81</code>, and <code>xx42</code> cells to large-font codes.</td></tr>
 <tr><td>String path</td><td><code>39:6B66</code> + page <code>01:6D10</code></td><td>Converts ordinary token cells to counted strings.</td></tr>
 <tr><td>Display-byte remap</td><td>page <code>07:44DE</code></td><td>Remaps <code>FE</code>, <code>FC</code>, and <code>FB</code> prefixed display bytes.</td></tr>
 <tr><td>Small-font blit</td><td>page <code>01:6293</code></td><td><code>_VPutMap</code>; emits small labels and compact limits from <code>0x86D7</code>.</td></tr>
 <tr><td>Large-font blit</td><td>page <code>07:4588</code></td><td>Copies one fixed large-font glyph record.</td></tr>
-<tr><td>Rule / rectangle helpers</td><td><code>39:6ABF</code>, <code>39:6AF5</code>, <code>00:3555</code></td><td>Draw fraction UI rectangles, boxes, and fixed chrome lines.</td></tr>
+<tr><td>Rule / rectangle helpers</td><td><code>39:6ABF</code>, <code>39:6AF5</code>, <code>ram:3555</code></td><td>Draw fraction UI rectangles, boxes, and fixed chrome lines.</td></tr>
 </tbody>
 </table>
 </div>
@@ -14809,89 +14806,48 @@ anchors for readers who want to check the disassembly. [confirmed]</p>
 </tbody>
 </table>
 </div>
-<h2 id="dynamic-confirmation"><a class="header" href="#dynamic-confirmation">Dynamic confirmation</a></h2>
-<p>The static map above was checked against live execution. The TI-84 Plus OS was
-run under headless TilEm, the entry line was driven to render each construct, and
-page-<code>39</code> execution was rolled up to function level with
-<code>tools/tilem_trace_resolve.py --funcs --only-space page_39</code> (see
-<a href="https://github.com/siraben/ti84p-re/blob/main/tools/dynamic-tracing.md">dynamic tracing</a>). The macros are
-<code>tools/macros/mathprint-{power,fraction,fnint}.macro</code>. [confirmed]</p>
-<p>The traces distinguish two documented rendering mechanisms by which routines
-run in each scenario:</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Rendered (entry line)</th><th>Page-<code>39</code> routines exercised</th><th>Path</th></tr>
-</thead>
-<tbody>
-<tr><td><code>X^2</code> (raised exponent)</td><td><code>eqdisp_emit_subexpr2</code> <code>4CA4</code>, <code>eqdisp_menu_or_emit</code> <code>53AD</code></td><td>light entry-line emit (<code>eqdisp_set_row_for_tok</code> <code>4CE9</code> is the static superscript-row helper but did not execute in this trace — it does run in the <code>1/2</code> trace)</td></tr>
-<tr><td><code>1/2</code> (n/d template)</td><td><code>eqdisp_compute_dims</code> <code>69C8</code>, <code>eqdisp_layout_token_geom</code> <code>68AE</code>, the <code>683D</code> cell-to-pixel mapper, <code>eqdisp_draw_fraction_bar</code> <code>6ABF</code>, <code>eqdisp_draw_box_jp</code> <code>6AF5</code>, <code>eqdisp_load_glyph18b2</code> <code>6B66</code>, <code>eqdisp_dispatch_token</code> <code>4A74</code></td><td>descriptor / geometry</td></tr>
-<tr><td><code>fnInt(</code> (MATH ▸ 9)</td><td><code>eqdisp_emit_glyph</code> <code>4E8E</code>, <code>eqdisp_map_token_glyph</code> <code>4F1A</code>, <code>eqdisp_emit_arglist</code> <code>4DE6</code>, <code>eqdisp_sum_arg_widths</code> <code>4DCA</code>, <code>eqdisp_emit_digit_chk</code> <code>4E0A</code></td><td>handler record / multi-arg</td></tr>
-</tbody>
-</table>
-</div>
-<p>The simple fraction scenario exercises the descriptor path
-(<code>69C8</code>/<code>68AE</code>/<code>683D</code>/<code>6ABF</code>), while the empty integral template exercises the
-handler-record path (<code>4DCA</code>/<code>4DE6</code>/<code>4E8E</code>/<code>4F1A</code>). Nested constructs can and do
-exercise both during one render. [confirmed]</p>
-<p><code>39:5167</code> (<code>eqdisp_layout_multiarg</code>) statically owns multi-argument row
-composition, but it did not execute in the original empty-template trace: <code>fnInt(</code> was
-inserted <em>empty</em> (<code>∫(0)dV</code>), so the operand-recursion branch was never driven —
-<code>5167</code> and its body (<code>5949</code>/<code>5B10</code>) show 0 hits, and the <code>--funcs</code> “5167” rollup
-bucket is a nearest-name artifact (only a <code>51F1/51F3</code> fragment ran). A <em>filled</em>
-integrand is needed to drive <code>5167</code>. A later filled-integrand trace, described
-below, supplies that dynamic confirmation. [confirmed]</p>
-<p>The live state block matches the field map. Reading <code>0x85DE..0x85F2</code> from a RAM
-dump right after each render (<code>memdump … ram-logical</code>):</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Field</th><th><code>1/2</code></th><th><code>fnInt(</code></th><th>Confirms</th></tr>
-</thead>
-<tbody>
-<tr><td><code>0x85E8</code> template kind</td><td><code>0x10</code></td><td><code>0x00</code></td><td><code>0x10</code> = the fraction <em>descriptor</em> kind; <code>0x00</code> = handler-record (no descriptor).</td></tr>
-<tr><td><code>0x85EE</code>/<code>0x85EF</code> fraction width</td><td><code>2</code>/<code>2</code></td><td><code>0</code>/<code>0</code></td><td>Measured numerator/denominator widths (each <code>1</code> cell ≈ 2 px wide).</td></tr>
-<tr><td><code>0x85E1</code> row count</td><td>—</td><td><code>4</code></td><td>Four rows for the tall integral (upper limit, body, lower limit, baseline).</td></tr>
-</tbody>
-</table>
-</div>
-<p><code>eqdisp_compute_dims</code> (<code>39:69C8</code>) decompiles consistently: it switches on
-<code>0x85E8 &amp; 0x0F</code>, picks descriptor <code>686F</code>/<code>6880</code>/… by kind, and for the kind-2
-measured-fraction path calls <code>eqdisp_draw_box_jp</code> with <code>0x85EE</code>. [confirmed]</p>
-<p><strong>Decompiler caution.</strong> The cell-to-pixel mapper <code>39:683D</code> and the fraction
-endpoint helper <code>39:6B1C</code> are named <code>eqdisp_decr_counters</code> /
-<code>eqdisp_advance_col6</code> in the symbol table, and the Ghidra <em>decompiler</em>
-mis-analyzes both (it shows bare decrement loops). The raw disassembly matches
-this page instead: <code>683D</code> does <code>A = base; loop: add a,7</code> into the <em>high</em> byte (<code>y = base_y + 7·col</code> → <code>penRow</code>)
-and <code>6B1C</code> does <code>ld a,1Bh; … add a,7 (×n); add a,4</code> (<code>x_left = 0x1B + 7n</code>,
-<code>x_right = x_left + 4</code>). Trust <code>z80dasm</code> over the decompiler for these tight
-register-passing routines, as <a href="https://github.com/siraben/ti84p-re/blob/main/README.md">the README</a> advises. [confirmed]</p>
 <h2 id="mathprint-pipeline-coverage"><a class="header" href="#mathprint-pipeline-coverage">MathPrint pipeline coverage</a></h2>
-<p>The static MathPrint pipeline is recovered: token classification, handler records,
+<p>The static MathPrint map covers token classification, handler records,
 recursive operand order, descriptor templates, fraction UI geometry, fixed structural
 glyphs, display-byte remaps, generic output services, and multi-argument row composition.
 The row compositor is <code>39:5167</code>; the pixel emitters are the fixed glyph and rule paths
-listed above. Dynamic traces can still refine the exact runtime path for a specific
-expression and cursor state, but the static map now has the ROM routine that owns
-tall-template row composition.</p>
-<h2 id="multi-arg-path-under-trace"><a class="header" href="#multi-arg-path-under-trace">Multi-arg path under trace</a></h2>
-<p>Driving <code>fnInt(</code> with a filled integrand executes the multi-argument compositor:
-the historical trace recorded 69 hits at <code>eqdisp_layout_multiarg</code> (<code>39:5167</code>),
-along with <code>eqdisp_emit_glyph</code> (<code>39:4E8E</code>), <code>eqdisp_map_token_glyph</code>
-(<code>39:4F1A</code>), and <code>eqdisp_emit_arglist</code> (<code>39:4DE6</code>). The shipped
-<code>tools/macros/mathprint-fnint.macro</code> reproduces the filled-integrand scenario.
-No retained nested-fraction trace is available here, so simultaneous
-handler-record and descriptor-path execution is the expected composition but
-is not claimed as a rerun result. The 69-hit result comes from a prior run whose
-artifact was not retained, so it is not independently reproducible from this
-checkout.</p>
+listed above. The runtime selection of <code>39:5167</code> for an expression and cursor
+state remains unobserved.</p>
+<h2 id="filled-and-nested-integrand-traces"><a class="header" href="#filled-and-nested-integrand-traces">Filled and nested-integrand traces</a></h2>
+<p>Two reset-origin TLMT v2 traces use the pinned ROM SHA-256
+<code>7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d</code>.
+The raw traces remain outside the repository because they are 162 MB and 202 MB.
+<code>tools/mathprint-trace-report.json</code> records their hashes, emulator provenance,
+exact entry counts, state bytes, and replay results. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Scenario</th><th>Exact page <code>0x39</code> entry hits</th><th>Final state</th><th>LCD replay</th></tr>
+</thead>
+<tbody>
+<tr><td><code>int(1,2,X^2,X)</code></td><td><code>4CA4</code> ×1, <code>4DCA</code> ×2, <code>4DE6</code> ×1, <code>4E8E</code> ×7, <code>4F1A</code> ×14</td><td><code>0x85E1=04</code>, <code>0x85E8=00</code></td><td>43×20; zero pixels differ from the model.</td></tr>
+<tr><td><code>int(1,2,(1//2)X,X)</code></td><td>The same handler entries, plus <code>683D</code> ×5, <code>68AE</code> ×1, and <code>69C8</code> ×1</td><td><code>0x85E8=10</code>, <code>0x85EB=06</code>, <code>0x85EE=02</code>, <code>0x85EF=02</code></td><td>47×23; zero pixels differ from the model.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Both traces execute <code>eqdisp_emit_subexpr2</code> at <code>39:4CA4</code>, not the static
+multi-argument entry at <code>39:5167</code>. The nested case also executes the descriptor
+cell mapper and geometry selector, confirming that handler-record emission and
+descriptor geometry compose in one rendered expression. Neither trace reaches
+the exact entries <code>39:5167</code>, <code>39:5949</code>, <code>39:5B10</code>, <code>39:5B1D</code>, or <code>39:6ABF</code>.
+[confirmed]</p>
+<p>Exact point counts matter here. The resolver’s <code>--funcs</code> mode groups an
+instruction under the nearest preceding symbol. It places 69 instructions in
+the <code>39:5167</code> bucket for each scenario even though the entry itself has zero
+hits. <code>tools/test_hardware_trace.py</code> covers this distinction. [confirmed]</p>
 <h2 id="cell-encoding"><a class="header" href="#cell-encoding">Cell encoding</a></h2>
 <p><code>eqdisp_emit_glyph</code> (<code>39:4E8E</code>) dispatches each <code>D:E</code> cell by its <code>D</code> byte:
-<code>D=0x1F</code> is a cursor marker (no draw), <code>D=0x82</code> a positional column glyph, and
-otherwise a counted-string selection (<code>39:6B66 → bcall 0x45CA → 01:6D10</code>,
+<code>D=0x1F</code> is a cursor marker (no draw), <code>D=0x82</code> selects an indexed string or
+title, and
+otherwise a counted-string selection (<code>39:6B66</code> → <code>_KeyToString = 45CAh</code> → <code>01:6D10</code>,
 <code>_KeyToString</code>, with its pointer table at <code>01:6E05</code>) or a direct glyph via
-<code>39:4F1A</code> (<code>FC3C..40 → glyph (E−0x3C)+5</code>,
-<code>FE7D..81 → E−0x7D</code>, <code>E=0x42,D&lt;0x0A → glyph D</code>). So <code>00C8</code> draws the literal name
+<code>39:4F1A</code> (<code>FC3C</code>–<code>FC40</code> → glyph <code>E - 0x3C + 5</code>,
+<code>FE7D</code>–<code>FE81</code> → <code>E - 0x7D</code>, <code>E = 0x42</code> and <code>D &lt; 0x0A</code> → glyph <code>D</code>). So <code>00C8</code> draws the literal name
 “fnInt(”, not a glyph. The full decode is in
 <code>tools/cell-glyph-spec.md</code> and
 <code>tools/token-name-spec.md</code>; the placement geometry
@@ -14905,11 +14861,11 @@ rejection, and the controller’s 128×64 backing RAM. This reconstructs the
 emulator bitmap for a complete compatible trace; it is not a physical-controller
 claim. The controller behavior is [standard] for the pinned TilEm source model;
 synthetic tests confirm the replay implementation.</p>
-<p><code>tools/parity-mathprint.py</code> now selects that replay when tracing is enabled.
-The proprietary OS image and retained MathPrint trace artifacts are not present
-in this checkout, so earlier broad 100% pixel-parity claims could not be rerun.
-The current 5,018-case Node test is a deterministic parser/layout smoke test,
-not calculator-parity evidence. [confirmed]</p>
+<p><code>tools/parity-mathprint.py</code> selects that replay when tracing is enabled.
+The local ignored <code>tools/rom.bin</code> enables pinned-ROM reproduction when present.
+The 5,018-case Node test remains a deterministic parser/layout smoke test. The
+two trace scenarios above provide narrower calculator-parity evidence for their
+exact rendered expressions. [confirmed]</p>
 <h2 id="extracted-records-and-interactive-model"><a class="header" href="#extracted-records-and-interactive-model">Extracted records and interactive model</a></h2>
 <p>The class table, decoded handler records, and selected descriptors are extracted to
 <code>web/mathprint/layout.json</code> by <code>tools/export-layout.py</code>;
@@ -18820,7 +18776,7 @@ The prepared <a href="#raw-two-wire-link-probe">raw two-wire link probe</a> reco
 The prepared <a href="#memory-bus-timing-probe">memory-bus timing probe</a> pairs baseline and enabled timer-2 runs for all six port-<code>0x2E</code> classes. The separate <a href="#prefix-m1-timing-probe">prefix-M1 probe</a> covers unprefixed, CB, ED, DD, repeated-DD, and indexed-CB loops. Its exact assembled image completes in pinned Wabbitemu and distinguishes that core’s three-wait indexed-CB implementation from the documented Z80/TilEm two-M1 path. The prepared <a href="#programmable-timer-physical-probe"><code>HWTMR</code> probe</a> measures the mode-3 prescaler across CPU-speed requests and also distinguishes timer divisor, counter-zero, and expiry-status models. Its exact assembled image reproduces pinned Wabbitemu’s omitted prescaler. These are emulator results. Physical TA2/TA3 execution and separate LCD-ready and low-power measurements remain open.</li>
 <li><strong>ASIC status, RAM topology, execution protection, and GPIO measurements.</strong> The ROM’s battery routines, status-bit uses, protected port setup, and GPIO read-modify-write sequences are reconciled in <a href="#asic-status-identity-protection-and-gpio">ASIC status, identity, protection, and GPIO</a> and <a href="#execution-protection">Execution protection</a>. Complete immediate-opcode audits classify all 55 port-<code>0x02</code> reads, all 14 raw port-<code>0x21</code> pairs, and all 68 raw GPIO pairs. Port <code>0x02</code> has 44 bit-7, eight bit-0, and three bit-1 consumers. Port <code>0x21</code> has ten reads that all mask with <code>0x03</code>, one boot write, and three operand overlaps. The GPIO set has 65 reviewed instructions, two operand overlaps, and one table-data false decode. No raw pair remains unclassified. Guarded TilEm and Wabbitemu runs exercise both sides of their differing default Flash intervals. A separate pinned TilEm sweep verifies all four modeled battery thresholds and proves that its ordering makes <code>_Chk_Batt_Level</code> result 2 unreachable. RAM runs also cover the common chunk edge, mode-0 and mode-1 disagreements, all four Wabbitemu modes, and its 16-bit high-bound wrap. Guarded initialized-core runs verify Wabbitemu’s port-<code>0x02</code> lock bit, RAM-revision identity split, the shared protected-write gate across ports <code>0x21</code>–<code>0x26</code>, port-<code>0x21</code> readback loss, port-<code>0x24</code> high-field clearing, RAM-bound wrap, absent port <code>0x39</code>, and the port-<code>0x3A</code> byte latch. A guarded MAME run verifies its raw gate-to-status shift, fixed identity, unprotected port-<code>0x21</code> nibble, missing ports <code>0x22</code>–<code>0x2F</code> and <code>0x39</code>–<code>0x3A</code>, live RAM execution with patterned protection writes, and retained gate/speed/control fields across soft reset. A Wabbitemu reset run verifies all fields written by <code>CPU_reset</code>, 14 retained component groups, the frontend’s LCD-only addition, and same-step execution after a violation. A TilEm reset run verifies its broader eight-group reset, nine retained groups, and a forbidden instruction’s surviving pre-reset RAM write. These remain emulator evidence. The <a href="#battery-level-probe">battery-level probe</a> calls the retail bcall 16 times and verifies restoration state. The <a href="#ram-alias-probe">RAM alias probe</a> prepares one restoring selector-topology measurement and now decodes partial alias groups. The <a href="#execution-protection-fetch-probes">execution-fetch suite</a> prepares read-only retail-mode Flash and RAM fetches with pre-fetch result records. Physical units must correlate the probe’s port-<code>0x15</code> byte and alias groups with PCB date and ASIC marking instead of assuming a TA label determines capacity. TA1/TA2/TA3 tests must also sweep battery thresholds in both directions, test protected-register readback and high-value behavior, characterize violations and warm/cold reset retention, and measure port-<code>0x39</code> direction polarity plus port-<code>0x3A</code> electrical signals.
 The prepared <a href="#raw-battery-selector-probe">raw battery-selector probe</a> complements the battery-level probe by repeating all four comparator reads 16 times and reproducing the ROM cleanup after every sequence. Physical TA1, TA2, and TA3 work must run both probes across upward and downward controlled-voltage sweeps.</li>
-<li><strong>MathPrint runtime coverage.</strong> Trace representative expressions and cursor states through the statically recovered MathPrint compositor at <code>39:5167</code>. Existing macro fixtures cover power, fraction, and <code>fnInt(</code> layouts, but the exact runtime paths have not been recorded. See <a href="#mathprint-pipeline-coverage">Equation display</a>.</li>
+<li><strong>MathPrint runtime coverage.</strong> Exact trace-point reports cover a filled integral and an integral with a nested stacked fraction. Both use <code>39:4CA4</code>; neither reaches the static compositor entry at <code>39:5167</code>. Find the expression and cursor state that selects <code>39:5167</code>, then trace its row-step and saved-operand callees at <code>39:5949</code>, <code>39:5B10</code>, and <code>39:5B1D</code>. See <a href="#filled-and-nested-integrand-traces">Equation display</a>.</li>
 <li><strong>Matrix and list residuals.</strong> Explain why plain <code>augment(</code> calls the partial-pivoting engine at <code>02:4663</code>; locate the <code>randM(</code> cell-fill path; identify the separate <code>rref(</code>/<code>ref(</code> driver; and finish the <code>seq(</code>/<code>SortA(</code>/<code>SortD(</code> collection and element-load traces. See <a href="#9-findings">Matrices &amp; lists</a>.</li>
 <li><strong>Smaller residuals.</strong> Map the For/While/Repeat FPS loop-frame bytes; recover the <code>Asm(</code>/<code>AsmPrgm</code> setup before the traced <code>ram:9D95</code> payload handoff; find a direct ASM-to-BASIC program-call entry beyond VAT lookup and the cooperative <code>Ans</code> callback; and trace the group-archive member walk after <code>_Arc_Unarc</code> rejects type <code>0x17</code>. A guarded direct-core run verifies TilEm’s complete source-divisor table, rounded count readback, off sources, ignored port-<code>0x2F</code>, counter-zero behavior, first/second expiry distinction, acknowledgement, unacknowledged non-loop restart, source-write retention, deterministic RTC transitions, reset retention, and torn byte reads. A guarded initialized-core run verifies Wabbitemu’s timer catch-up, counter-zero completion, first-underflow status bit 2, HALT-line suppression, retained interrupt generation, and frozen disabled RTC reads. A guarded MAME run verifies its fixed-crystal source collapse, immediate first decrement, idle counter zero, inverted mode polarity, one-reload loop, global completion clearing, and absent RTC block. The exact assembled <code>HWTMR</code> image reproduces Wabbitemu’s divisor-32, omitted-prescaler, counter-zero-completion, and first-expiry-bit-2 behavior through cleanup. No physical result is available. TA2/TA3 hardware must still distinguish the published <code>33</code>/<code>328</code>/<code>3277</code> timer divisors from Wabbitemu/MAME’s <code>32</code>/<code>327</code>/<code>3276</code>, test the port-<code>0x2F</code> prescaler, counter zero, first-versus-second-expiry status bit 2, programmable-timer <code>HALT</code> behavior, disabled RTC reads, and rollover coherence. A guarded direct-core TilEm run verifies transitive keypad closure, all eight stored rows, complete group-byte storage, row-major scancode bounds, separate ON state, both ON edges, and reset clearing. Another guarded run verifies Wabbitemu’s pairwise keypad closure, ignored row 7, and press-only ON latch with release rearming. A guarded MAME live-input run verifies its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, and lack of matrix closure. These remain emulator evidence. The prepared <a href="#keypad-settling-probe">keypad settling probe</a> samples all eight group writes at 0, 4, 16, and 64 <code>NOP</code> gaps for a held key or chord. Physical runs still need worst-case chords on TA2 and TA3 units, while switch bounce and ON interrupt edges require separate time-domain tests; see <a href="#resolved-findings-and-open-hardware-tests-2">Keypad and ON-key hardware</a>. The timer, APD, RTC, and power reconstruction is in <a href="#clock-timers-and-power">Clock, timers, and power</a>.</li>
 <li><strong>Interrupt-controller physical tests.</strong> A guarded direct-core TilEm run verifies complete mask readback, both clear-on-zero acknowledgement paths, ON press and release latches, both timer-2 callbacks, link transitions, programmable-timer HALT gating, and its reset readback/internal-policy mismatch. A separate guarded TilEm link run verifies raw activity plus assist idle, receive, and sticky-error interrupt transitions. A guarded initialized-core Wabbitemu run verifies full mask readback, ON-latch clearing, its rounded standard-timer rates, strict expiry edge, port-<code>0x03</code> and port-<code>0x02</code> timer acknowledgement, programmable completion readback, and LCD-based low-power approximation. A guarded MAME run verifies shared port-<code>0x03</code>/<code>0x04</code> status, direct port-<code>0x02</code> pending-field writes, three-bit port-<code>0x03</code> masking, press-only timer-sampled ON edges, both standard-timer pending bits during scheduled frames, and retained interrupt fields across soft reset. These are emulator results. On TA2 and TA3 calculators, measure which ON transitions latch a request, which link transitions wake low power, whether simultaneous legacy requests are coalesced by the port-<code>0x03</code> clear-on-zero sequence, and which timer configurations can wake <code>HALT</code>. Compare the results with the explicit TilEm, Wabbitemu, and MAME differences in <a href="#emulator-comparison-2">Interrupts (IM1)</a>.</li>
