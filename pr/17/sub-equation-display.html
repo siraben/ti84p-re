@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e40c4886.js";
+            window.path_to_searchindex_js = "searchindex-8ddbb2ec.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -587,8 +587,25 @@ The nested-fraction trace reaches the line wrapper with <code>BC=1</code>, <code
 <code>HL=6</code>, yielding <code>(1,6)</code>–<code>(5,6)</code>. [confirmed]</p>
 <p>Render-record type <code>0x2A</code> dispatches to a <code>JP 34:636C</code> at <code>34:6375</code>.
 <code>34:636C</code> selects child record 1 through <code>34:6CCD</code> before entering the recursive
-renderer. The wrapper emits no point, line, or glyph itself. The focused <code>X^2</code>
-trace reaches only types <code>0x1F</code> and <code>0x2A</code> during its settled redraw. [confirmed]</p>
+renderer. The wrapper emits no point, line, or glyph itself. The corrected
+record-table trace identifies <code>0x2A</code> as the <code>X^2</code> root type. [confirmed]</p>
+<p>Render-record type <code>0x27</code> dispatches to the radical handler at <code>34:62A1</code>. It
+emits the ten-byte root-hook bitmap through <code>34:62D0</code>, draws the vertical stem,
+selects child 1, and reads that child’s word at offset <code>+7</code>. It then draws the
+inclusive vinculum from <code>(2,0)</code> through <code>(w+3,0)</code> and renders child 1 through
+<code>34:660A</code>. The cursor-free history redraw for <code>sqrt(X^2+1)</code> has height 8 and a
+child <code>+7</code> width of <code>0x17</code>. It reaches the wrappers with stem
+<code>(2,1)</code>–<code>(2,7)</code> and vinculum <code>(2,0)</code>–<code>(0x1A,0)</code>. This produces the 26-pixel
+rendered width. The final editable-entry redraw has child width <code>0x1D</code> and a
+vinculum endpoint of <code>0x20</code>; cursor and edit-state geometry therefore remain
+separate from history-echo geometry. [confirmed]</p>
+<p>The fixed 20-byte record header contains a two-byte ID at <code>+0</code>, a type byte at
+<code>+2</code>, eight unaligned little-endian words at <code>+3</code>, <code>+5</code>, <code>+7</code>, <code>+9</code>, <code>+0x0B</code>,
+<code>+0x0D</code>, <code>+0x0F</code>, and <code>+0x11</code>, and a byte at <code>+0x13</code>. The analyzer names words
+by offset until each render type establishes its meaning. Words following the
+root header are child IDs. <code>34:6CCD</code> passes an ID through <code>34:4B05</code> and
+<code>34:4A83</code> to resolve the child record; these words are not RAM pointers.
+[confirmed]</p>
 <p>Exact point counts matter here. The resolver’s <code>--funcs</code> mode groups an
 instruction under the nearest preceding symbol. It places 69 instructions in
 the <code>39:5167</code> bucket for each scenario even though the entry itself has zero

@@ -41,6 +41,17 @@ inclusive horizontal rule computed from both child `+7` widths and the parent
 Render-record type `0x2A` is translated as a child-1 traversal through
 `34:6375` and `34:636C`. The record emits no drawing primitive of its own.
 
+Render-record type `0x27` is translated through the root-hook bitmap, vertical
+stem, child selection, inclusive vinculum, and child traversal at `34:62A1`.
+The compositor carries the selected child's record-width metric separately from
+ink width and pen advance; this reproduces the cursor-free radical history echo
+without applying the wider editable-entry metric.
+
+`tools/analyze_mathprint_records.py` replays a full-range TLMT memory snapshot
+and writes, then captures 20-byte root/current records only when `34:6105` uses
+the render table at `34:6119`. The decoder preserves offset-based field names
+until a handler establishes a type-specific meaning.
+
 `app.js` is organized in sections: box primitives → layout constructs → text runs
 → expression parser → canvas rendering → UI. A "box" is `{rows, baseline, marks,
 adv}`; `adv` (pen advance) is separate from bitmap width so glyphs can overhang.
