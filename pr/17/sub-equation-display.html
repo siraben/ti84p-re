@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8ddbb2ec.js";
+            window.path_to_searchindex_js = "searchindex-9a0571ad.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -599,6 +599,16 @@ child <code>+7</code> width of <code>0x17</code>. It reaches the wrappers with s
 rendered width. The final editable-entry redraw has child width <code>0x1D</code> and a
 vinculum endpoint of <code>0x20</code>; cursor and edit-state geometry therefore remain
 separate from history-echo geometry. [confirmed]</p>
+<p>Render-record type <code>0x21</code> dispatches to the absolute-value handler at
+<code>34:6347</code>. The parent words at <code>+7</code> and <code>+9</code> supply height and width. The
+handler draws inclusive vertical bars at <code>x=2</code> and <code>x=w-4</code>, then renders child
+1 through <code>34:636C</code>. The cursor-free <code>abs(X-3)</code> history redraw reaches the line
+wrapper with <code>(x,y_1,y_2)=(2,0,6)</code> and <code>(0x1A,0,6)</code>. [confirmed]</p>
+<p>Render-record type <code>0x24</code> dispatches to the nth-root handler at <code>34:6315</code>. It
+renders index child 1, emits the root-hook bitmap at <code>x=w_1-1</code>, draws its short
+vertical segment, renders radicand child 2, and draws the vinculum. The
+cursor-free <code>nthroot(3,X+1)</code> history redraw reaches the wrappers with vertical
+segment <code>(5,3)</code>–<code>(5,4)</code> and vinculum <code>(5,2)</code>–<code>(0x18,2)</code>. [confirmed]</p>
 <p>The fixed 20-byte record header contains a two-byte ID at <code>+0</code>, a type byte at
 <code>+2</code>, eight unaligned little-endian words at <code>+3</code>, <code>+5</code>, <code>+7</code>, <code>+9</code>, <code>+0x0B</code>,
 <code>+0x0D</code>, <code>+0x0F</code>, and <code>+0x11</code>, and a byte at <code>+0x13</code>. The analyzer names words
