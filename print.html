@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-947c32ae.js";
+            window.path_to_searchindex_js = "searchindex-c66ba8da.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -3630,6 +3630,24 @@ already completed non-looping timer without first writing its mode port. The
 completion bit remains set, the low mode read remains zero, and the next
 callback sets overflow bit 2. OS 2.55MP acknowledges before programming its
 next chunk, so the timer bcall path does not use this emulator edge. [standard]</p>
+<h3 id="bad-apple-audio-timer-case"><a class="header" href="#bad-apple-audio-timer-case">Bad Apple audio timer case</a></h3>
+<p>The third-party Bad Apple application sets CPU-speed port <code>0x20</code> to <code>1</code>, then
+writes source <code>0x82</code>, mode <code>0x03</code>, and counter <code>120</code> to timer 1. Its interrupt
+routine acknowledges by rewriting <code>0x03</code> to port <code>0x31</code> and emits one link-port
+sample through port <code>0x00</code>. [confirmed] for the application source.</p>
+<p>Source <code>0x82</code> is the CPU-clock family divided by 4. At the nominal 15 MHz
+TI-84 Plus speed, the programmed cadence is therefore</p>
+<p>$$
+\frac{15{,}000{,}000}{4 \times 120} = 31{,}250\ \mathrm{Hz}.
+$$</p>
+<p>The program’s companion encoder instead uses 33,333.3 Hz when converting notes
+to oscillator counts. That value is an encoder tuning assumption rather than a
+decode of the active timer registers. The program advances its tracker after
+$24 \times 75 = 1{,}800$ interrupts, so both note pitch and tracker tempo depend
+on the actual timer cadence. Published CPU-frequency variation and unresolved
+physical timer edges prevent the nominal calculation from serving as a
+physical measurement. [confirmed] for the constants and control flow;
+[standard] for the timer decode; [hypothesis] for physical cadence.</p>
 <p>Port <code>0x2D</code> controls low-power behavior. Bit 0 keeps the quartz oscillator active on the TI-83 Plus Silver Edition; the TI-84 Plus RTC already requires it. Bit 1 allows the programmable timers to continue counting in low power. TI writes <code>0x03</code>. Public hardware tests report that these timers still do not reliably interrupt a halted CPU, so software should keep a standard timer enabled when it must escape <code>HALT</code>. [standard]</p>
 <h3 id="prepared-physical-discriminator"><a class="header" href="#prepared-physical-discriminator">Prepared physical discriminator</a></h3>
 <p>The guarded <a href="#programmable-timer-physical-probe"><code>HWTMR</code> probe</a>
@@ -3975,6 +3993,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 <li>[confirmed] APD expires 29,441–29,696 kernel ticks after <code>_ApdSetup</code>, depending on the untouched low-byte phase.</li>
 <li>[confirmed] The cursor toggles every 50 kernel ticks.</li>
 <li>[confirmed] The timer bcall API exposes only ID <code>0x70</code>, uses radix-255 duration chunking, and keeps a saturating expiry count.</li>
+<li>[confirmed] The Bad Apple application writes timer-1 tuple <code>0x82</code>/<code>0x03</code>/<code>120</code>; the documented CPU-clock decode gives 31.25 kHz at nominal 15 MHz, while its companion encoder assumes 33,333.3 Hz.</li>
 <li>[confirmed] Explicit power-off and APD share the low-power tail at <code>ram:0A24</code>.</li>
 <li>[standard] TilEm matches the published <code>33</code>/<code>328</code>/<code>3277</code> crystal divisors; pinned Wabbitemu and MAME sources use <code>32</code>/<code>327</code>/<code>3276</code>.</li>
 <li>[standard] TilEm, Wabbitemu, MAME, and jsTIfied all omit the published port-<code>0x2F</code> prescaler from their <code>0xC0</code>-family timer models.</li>
@@ -4003,6 +4022,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:20">WikiTI port <code>0x20</code></a></td><td>CPU-speed settings and physical measurements</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2D">WikiTI ports <code>0x2D</code></a> and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2F"><code>0x2F</code></a></td><td>low-power crystal control and mode-3 prescaler</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:30">WikiTI programmable timers</a></td><td>timer triplets, divisors, modes, overflow, and HALT quirk</td></tr>
+<tr><td><a href="https://github.com/fb39ca4/badapple-ti84/blob/111dcf10838fe44315cefb7874e8c2b3c5f35bd8/badapple.asm">Bad Apple application source at <code>111dcf1</code></a> and <a href="https://github.com/fb39ca4/badapple-ti84/blob/111dcf10838fe44315cefb7874e8c2b3c5f35bd8/util/audio.py">companion encoder</a></td><td>third-party timer setup, ISR output, tracker cadence, and note-counter constant</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:40">WikiTI RTC control</a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:41">set registers</a>, and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:45">current registers</a></td><td>RTC protocol and 1997 epoch</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:History_of_TI-8x_hardware">WikiTI hardware history</a></td><td>ASIC integration, quartz oscillator, and TI-84 Plus RTC</td></tr>
 <tr><td><a href="http://www.datamath.org/Graphing/TI-84PLUS.htm">Datamath TI-84 Plus hardware</a></td><td>TA2/TA3 identification, ASIC/PCB photographs, and 15 MHz specification</td></tr>
@@ -15479,6 +15499,34 @@ internal PCR byte needed to reproduce that driver’s expressions.</p>
 <h3 id="connector-contact-names"><a class="header" href="#connector-contact-names">Connector-contact names</a></h3>
 <p>The archived TI Link Protocol Guide calls line 0 red/tip and line 1 white/ring. WikiTI gives the same bit-to-contact mapping. It also describes both lines as open-collector outputs with pull-ups. [standard]</p>
 <p>OS 2.55MP sends a zero bit with write <code>1</code> and a one bit with write <code>2</code>. That agrees with the guide’s rule that zero pulls red/tip first and one pulls white/ring first. [confirmed] for the write values; [standard] for the physical contact names.</p>
+<h3 id="differential-audio-output"><a class="header" href="#differential-audio-output">Differential audio output</a></h3>
+<p>Software can use the two output controls as a three-level differential source.
+If $V_0$ and $V_1$ denote the logical high/low levels of line 0 and line 1,
+the idealized differential signal is $V_0 - V_1$: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Port-<code>0x00</code> write</th><th>Line 0</th><th>Line 1</th><th>Idealized differential state</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0</code></td><td>released/high</td><td>released/high</td><td>zero</td></tr>
+<tr><td style="text-align: right"><code>1</code></td><td>driven low</td><td>released/high</td><td>negative</td></tr>
+<tr><td style="text-align: right"><code>2</code></td><td>released/high</td><td>driven low</td><td>positive</td></tr>
+<tr><td style="text-align: right"><code>3</code></td><td>driven low</td><td>driven low</td><td>zero</td></tr>
+</tbody>
+</table>
+</div>
+<p>An interrupt routine can therefore write <code>1</code> and <code>2</code> for opposite polarities,
+or use either equal-line state for the midpoint. This is the same
+open-collector digital contract used by link transfers; it is not a separate
+audio peripheral. The repository’s <code>tools/badapple/README.md</code> describes one
+software example and preserves the upstream program’s oscillator and tracker
+encoding. [standard]</p>
+<p>The table does not specify voltage, output impedance, safe load, loudness, or
+analog bandwidth. Those depend on the unmeasured pull-ups, ASIC drive behavior,
+connector load, and edge timing. A physical calculator and load must be
+measured before treating the idealized levels as an electrical schematic.
+[hypothesis]</p>
 <h2 id="sending-one-byte-at-3c420d"><a class="header" href="#sending-one-byte-at-3c420d">Sending one byte at <code>3C:420D</code></a></h2>
 <p><code>_SendAByte = 4EE5</code>, body <code>3C:420D</code>, copies the byte from <code>A</code> to <code>C</code>. The model probe at <code>3C:420E</code> selects the link-assist path when available. The legacy path sends eight bits least-significant first. [confirmed]</p>
 <pre><code class="language-z80">3C:4214  LD B,8
