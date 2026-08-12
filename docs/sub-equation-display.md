@@ -504,10 +504,10 @@ dispatch table as an executable record-graph walker. It resolves child IDs
 through a node map, adds each child record's `+0x0B` and `+0x0D` origins on
 recursive entry, preserves the handler's depth changes, and returns ordered
 primitive and leaf operations. A settled expression enters this layer from a
-type-`0x00` leaf program at `34:660A`; executing that outer byte stream remains
-open. The `nDeriv(` handler retains two explicit dynamic operations:
-`34:78B8`/`34:78FB` parses child 1 to choose a pattern, and the later `0x3D`
-position uses the post-branch `DE` high byte. [confirmed]
+type-`0x00` leaf program at `34:660A`. The program executor consumes its payload
+in order and invokes embedded structural records against the same pen and depth
+state. The `nDeriv(` handler renders child 1 again at `34:64B3`, then places
+display code `0x3D` after that child's `+7` width. [confirmed]
 
 The trace analyzer recovers leaf records from the resolver path. At `34:6CCD`,
 `DE` is the one-based child index and `ram:8DF2` points at the parent. At
@@ -529,6 +529,12 @@ without drawing it. Ordinary payload bytes may follow. The settled
 `sum(N,1,3,N^2)` entry invokes type `0x29`, emits `N`, invokes type `0x2A`, and
 then closes the exponent object. This byte order matches the structural
 dispatch and glyph trace order. [confirmed]
+
+`executeSettledRecordProgram()` translates this byte stream rather than
+replaying captured glyph events. Tests provide record headers, child IDs, and
+payload bytes as input. They compare the generated display-code, coordinate,
+depth, and order tuples with independently captured `34:6C37` observations for
+absolute value, summation with an exponent, and nested `nDeriv(`. [confirmed]
 
 Each dispatch also captures the viewport origin at `ram:8DFE`/`ram:8E00`.
 Nested fraction `1/2` reaches `34:5DA6` with the local rule `(1,6)`–`(5,6)`

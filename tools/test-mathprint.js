@@ -15,7 +15,8 @@ const root = path.dirname(__dirname);
 const mp = require(path.join(root, 'web', 'mathprint', 'app.js'));
 const rom = require(path.join(root, 'web', 'mathprint', 'rom-engine.js'));
 const { resolveCell } = require(path.join(root, 'tools', 'interp-cells.js'));
-mp.setFont(JSON.parse(fs.readFileSync(path.join(root, 'web', 'mathprint', 'font.json'))));
+const font = JSON.parse(fs.readFileSync(path.join(root, 'web', 'mathprint', 'font.json')));
+mp.setFont(font);
 const layout = JSON.parse(fs.readFileSync(path.join(root, 'web', 'mathprint', 'layout.json')));
 mp.setLayout(layout);
 const drawOrder = JSON.parse(fs.readFileSync(path.join(root, 'web', 'mathprint', 'draw-order.json')));
@@ -191,9 +192,9 @@ expectEqual('34:5D07 tall compound',
     {kind:'line',axis:'vertical',from:{x:23,y:8},to:{x:23,y:10},
      routine:'34:5D07 → 34:5D96'},
   ]);
-const settledRecord = (id, type, fields = {}, childIds = []) => ({
+const settledRecord = (id, type, fields = {}, childIds = [], payload = []) => ({
   id, type, word03:0, word05:0, word07:0, word09:0, word0B:0,
-  word0D:0, word0F:0, word11:0, byte13:0, ...fields, childIds,
+  word0D:0, word0F:0, word11:0, byte13:0, ...fields, childIds, payload,
 });
 const leafGlyph = record => [{kind:'glyph',code:record.id,x:0,y:0,routine:'test leaf'}];
 const absoluteGraph = rom.executeSettledRecordGraph([
@@ -248,6 +249,67 @@ expectEqual('settled matrix brackets surround row-major children',
     ['glyph',0x11,0,6,2], ['glyph',0x13,0,16,2],
     ['glyph',0x14,0,6,9], ['glyph',0x15,0,16,9],
     ['line',0x10,1,26,0], ['point',0x10,1,25,0], ['point',0x10,1,25,15],
+  ]);
+
+const settledGlyphAdvance = (depth, code) => {
+  if (depth === 0) return 6;
+  const glyph = font.small.glyphs[code];
+  if (!glyph) throw new Error(`small glyph 0x${code.toString(16)} is absent`);
+  return glyph.w;
+};
+const settledGlyphStream = (nodes, entryId) => rom.executeSettledRecordProgram(
+  nodes, entryId, {glyphAdvance:settledGlyphAdvance},
+).filter(operation => operation.kind === 'glyph')
+  .map(operation => [operation.code,operation.x,operation.y,operation.depth]);
+
+const absoluteProgram = [
+  settledRecord(0x0d,0,{word09:3,word11:6},[],
+    [0xef,0x21,0x0e,0x00,0xef,0x2d]),
+  settledRecord(0x0e,0x21,{word07:7,word09:30,word0B:3},[0x0f]),
+  settledRecord(0x0f,0,{word07:18,word09:3,word0B:6,word11:3},[],
+    [0x58,0x71,0x33]),
+];
+expectEqual('settled absolute program independently reproduces trace glyph order',
+  settledGlyphStream(absoluteProgram,0x0d), [
+    [0x58,6,0,0], [0x2d,12,0,0], [0x33,18,0,0],
+  ]);
+
+const summationProgram = [
+  settledRecord(0x12,0,{word09:9,word11:13},[],
+    [0xef,0x29,0x13,0x00,0xef,0x2d,0x4e,
+     0xef,0x2a,0x18,0x00,0xef,0x2d]),
+  settledRecord(0x13,0x29,{word05:3,word07:19,word09:31,word0B:9},
+    [0x14,0x15,0x16,0x17]),
+  settledRecord(0x14,1,{word07:4,word09:2,word0D:14,word11:1},[],[0x4e]),
+  settledRecord(0x15,0,{word07:6,word09:2,word0B:8,word0D:14,word11:2},[],
+    [0xef,0x1e]),
+  settledRecord(0x16,0,{word07:4,word09:2,word0B:5,word11:1},[],[0x31]),
+  settledRecord(0x17,0,{word05:7,word07:6,word09:3,word0B:20,word0D:6,word11:1},[],[0x33]),
+  settledRecord(0x18,0x2a,{word07:16,word09:4,word0B:6,word0D:37},[0x19]),
+  settledRecord(0x19,0,{word07:4,word09:2,word11:1},[],[0x32]),
+];
+expectEqual('settled summation program independently reproduces trace glyph order',
+  settledGlyphStream(summationProgram,0x12), [
+    [0xc6,4,6,0], [0x4e,0,14,1], [0x3d,4,14,1], [0xf7,8,14,1],
+    [0x31,5,0,1], [0x33,20,6,0], [0x4e,31,6,0], [0x32,37,3,1],
+  ]);
+
+const nderivProgram = [
+  settledRecord(0x11,0,{word09:6,word11:7},[],
+    [0xef,0x23,0x12,0x00,0xef,0x2d,0x31]),
+  settledRecord(0x12,0x23,{word05:3,word07:13,word09:47,word0B:6},[0x13,0x14,0x15]),
+  settledRecord(0x13,1,{word05:5,word07:4,word09:2,word0B:5,word0D:8,word11:1},[],[0x58]),
+  settledRecord(0x14,0,{word05:10,word07:10,word09:6,word0B:16,word11:8},[],
+    [0xef,0x1e,0xef,0x2a,0x16,0x00,0xef,0x2d]),
+  settledRecord(0x16,0x2a,{word07:10,word09:4,word0B:6,word0D:6},[0x17]),
+  settledRecord(0x17,0,{word07:4,word09:2,word11:1},[],[0x32]),
+  settledRecord(0x15,0,{word05:5,word07:4,word09:2,word0B:43,word0D:8,word11:1},[],[0x58]),
+];
+expectEqual('settled nDeriv program independently reproduces trace glyph order',
+  settledGlyphStream(nderivProgram,0x11), [
+    [0x64,3,0,1], [0x64,1,8,1], [0x58,5,8,1], [0xf7,16,3,0],
+    [0x32,22,0,1], [0x58,35,8,1], [0x3d,39,8,1], [0x58,43,8,1],
+    [0x31,47,3,0],
   ]);
 expectEqual('34:62A1 radical primitive order', rom.settledRadicalOperations(8, 0x1d), [
   {kind:'bitmap', x:0, y:0, width:5, height:10, routine:'34:62A4 → 34:62D0'},

@@ -56,12 +56,12 @@ represented by an executable record-graph walker. The walker resolves child
 IDs, applies each child's `+0x0B`/`+0x0D` local origin, preserves depth changes,
 and emits ordered glyph, bitmap, point, line, compound-shape, and leaf
 operations. A full settled expression enters through a type-`0x00` leaf program
-at `34:660A`. Its payload invokes structural records inline. The program
-executor for that outer layer remains in progress. Live settled traces identify
-types `0x23`, `0x25`, `0x26`, `0x28`, `0x29`, and `0x2B` as `nDeriv(`, $e^x$,
-$10^x$, `logBASE(`, summation, and a dimensioned matrix. The data-dependent
-`nDeriv(` pattern branch remains explicit in the operation stream rather than
-assigning an unverified fixed glyph.
+at `34:660A`. `executeSettledRecordProgram()` consumes that payload in order,
+invokes embedded structural records, advances the shared pen by each record's
+`+9` metric, and maps translated one-glyph tokens to display codes. Unsupported
+token-string families produce explicit unresolved operations. Live settled
+traces identify types `0x23`, `0x25`, `0x26`, `0x28`, `0x29`, and `0x2B` as
+`nDeriv(`, $e^x$, $10^x$, `logBASE(`, summation, and a dimensioned matrix.
 
 `tools/analyze_mathprint_records.py` replays a full-range TLMT memory snapshot
 and writes, then captures 20-byte root/current records only when `34:6105` uses
@@ -111,10 +111,13 @@ arbitrary-expression compositor is still reconstructed rather than translated.
 ## Verification status
 
 `tools/test-mathprint.js` passes 5,018 deterministic parse/layout smoke cases and
-checks rectangular boxes plus in-bounds composition marks. These checks provide
-robustness evidence, not calculator fidelity. `parity-mathprint.py` uses LCD
-trace replay when tracing is enabled. Calculator parity requires the proprietary
-ROM. Filled-integral and nested-fraction results are recorded in
+checks rectangular boxes plus in-bounds composition marks. It also executes
+record-only fixtures for absolute value, summation with an exponent, and nested
+`nDeriv(`. The generated glyph code, coordinate, depth, and order must match the
+independently captured ROM trace. The expected stream is assertion data, not an
+executor input. `parity-mathprint.py` uses LCD trace replay when tracing is
+enabled. Calculator parity requires the proprietary ROM. Filled-integral and
+nested-fraction results are recorded in
 `tools/mathprint-trace-report.json`; the large raw traces stay outside Git.
 
 The preview's captured timeline uses those two traces. It starts immediately
