@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-98d30cc3.js";
+            window.path_to_searchindex_js = "searchindex-6c25832a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14932,11 +14932,13 @@ the right bracket and its points. <code>33:4F23</code> derives the element-loop 
 the dimensions at record bytes <code>+0x12</code> and <code>+0x13</code>. A settled $2\times2$
 identity matrix renders four children between the bracket operations.
 [confirmed]</p>
-<p><code>web/mathprint/rom-engine.js</code> implements the complete <code>0x1F</code>–<code>0x2B</code> dispatch
-table as an executable record-graph walker. It resolves child IDs through a
-node map, adds each child record’s <code>+0x0B</code> and <code>+0x0D</code> origins on recursive
-entry, preserves the handler’s depth changes, and returns ordered primitive and
-leaf operations. The <code>nDeriv(</code> handler retains two explicit dynamic operations:
+<p><code>web/mathprint/rom-engine.js</code> implements the complete <code>0x1F</code>–<code>0x2B</code> structural
+dispatch table as an executable record-graph walker. It resolves child IDs
+through a node map, adds each child record’s <code>+0x0B</code> and <code>+0x0D</code> origins on
+recursive entry, preserves the handler’s depth changes, and returns ordered
+primitive and leaf operations. A settled expression enters this layer from a
+type-<code>0x00</code> leaf program at <code>34:660A</code>; executing that outer byte stream remains
+open. The <code>nDeriv(</code> handler retains two explicit dynamic operations:
 <code>34:78B8</code>/<code>34:78FB</code> parses child 1 to choose a pattern, and the later <code>0x3D</code>
 position uses the post-branch <code>DE</code> high byte. [confirmed]</p>
 <p>The trace analyzer recovers leaf records from the resolver path. At <code>34:6CCD</code>,
@@ -14948,9 +14950,15 @@ by a settled render. [confirmed]</p>
 byte count. A one-byte scalar therefore stores its display byte at <code>+0x13</code>.
 Compound leaf objects retain the subsequent bytes in the same record. A leaf
 may construct and dispatch another structural record while it renders. The
-analyzer preserves these secondary dispatches in instruction order and uses
-the shallowest Z80 stack depth after the final key press to identify the
-enclosing record. [confirmed]</p>
+analyzer preserves these secondary dispatches in instruction order. It uses the
+first <code>34:660A</code> entry at the shallowest Z80 stack depth after the final key press
+to identify the enclosing leaf program. [confirmed]</p>
+<p>Within that program, <code>EF type id_lo id_hi</code> invokes the structural record with
+the given little-endian ID. <code>EF 2D</code> terminates or separates the embedded object
+without drawing it. Ordinary payload bytes may follow. The settled
+<code>sum(N,1,3,N^2)</code> entry invokes type <code>0x29</code>, emits <code>N</code>, invokes type <code>0x2A</code>, and
+then closes the exponent object. This byte order matches the structural
+dispatch and glyph trace order. [confirmed]</p>
 <p>Each dispatch also captures the viewport origin at <code>ram:8DFE</code>/<code>ram:8E00</code>.
 Nested fraction <code>1/2</code> reaches <code>34:5DA6</code> with the local rule <code>(1,6)</code>–<code>(5,6)</code>
 and origin <code>(16,5)</code>. Page 4 therefore receives the translated endpoints
