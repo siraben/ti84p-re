@@ -13,7 +13,7 @@ reader-facing write-up is
 |------|------|
 | `index.html`, `style.css` | the interactive page |
 | `app.js` | renderer and two timelines: captured LCD writes for retained traces, or model elements for other expressions |
-| `rom-engine.js` | direct JavaScript translations of closed page `0x39` and page `0x01` routines |
+| `rom-engine.js` | direct JavaScript translations of closed page `0x39`, page `0x34`, and page `0x01` routines |
 | `font.json` | large (`07:45FF`) + small (`03:4CD6`) font glyphs, extracted from ROM |
 | `layout.json` | page `0x39` class-table records and selected descriptors consumed by the translated routines |
 | `draw-order.json` | accepted visible-pixel LCD mutations from the retained integral traces |
@@ -51,10 +51,26 @@ Render-record type `0x21` executes the absolute-value bar pair followed by its
 child. Type `0x24` executes nth-root index, hook, stem, radicand, and vinculum
 operations in ROM order.
 
+The complete render table at `34:6119`, types `0x1F`–`0x2B`, is represented by
+an executable record-graph walker. The walker resolves child IDs, applies each
+child's `+0x0B`/`+0x0D` local origin, preserves depth changes, and emits ordered
+glyph, bitmap, point, line, compound-shape, and leaf operations. Live settled
+traces identify types `0x23`, `0x25`, `0x26`, `0x28`, `0x29`, and `0x2B` as
+`nDeriv(`, $e^x$, $10^x$, `logBASE(`, summation, and a dimensioned matrix.
+The data-dependent `nDeriv(` pattern branch remains explicit in the operation
+stream rather than assigning an unverified fixed glyph.
+
 `tools/analyze_mathprint_records.py` replays a full-range TLMT memory snapshot
 and writes, then captures 20-byte root/current records only when `34:6105` uses
 the render table at `34:6119`. The decoder preserves offset-based field names
-until a handler establishes a type-specific meaning.
+until a handler establishes a type-specific meaning. `--graph-json` exports
+the last dispatched graph in the JavaScript walker's node format. It pairs
+parent/index observations at `34:6CCD` with the resolved child ID and record
+pointer at `34:6CD8`, so the export includes structural records, leaf records,
+and leaf payload bytes beginning at `+0x13`. The ordered `dispatches` array
+retains secondary structural passes constructed while rendering a leaf, such
+as an exponent or nested fraction. Each dispatch also records the live
+`ram:8DFE`/`ram:8E00` viewport origin used by the primitive wrappers.
 
 `app.js` is organized in sections: box primitives → layout constructs → text runs
 → expression parser → canvas rendering → UI. A "box" is `{rows, baseline, marks,

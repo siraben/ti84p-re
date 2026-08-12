@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9a0571ad.js";
+            window.path_to_searchindex_js = "searchindex-98d30cc3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -609,6 +609,55 @@ renders index child 1, emits the root-hook bitmap at <code>x=w_1-1</code>, draws
 vertical segment, renders radicand child 2, and draws the vinculum. The
 cursor-free <code>nthroot(3,X+1)</code> history redraw reaches the wrappers with vertical
 segment <code>(5,3)</code>–<code>(5,4)</code> and vinculum <code>(5,2)</code>–<code>(0x18,2)</code>. [confirmed]</p>
+<p>The remaining settled render types map to calculator constructs through the
+source-token table at <code>34:594D</code> and post-<strong>ENTER</strong> traces. Type <code>0x23</code> renders
+<code>nDeriv(</code>, <code>0x25</code> renders $e^x$, <code>0x26</code> renders $10^x$, <code>0x28</code> renders
+<code>logBASE(</code>, <code>0x29</code> renders summation, and <code>0x2B</code> renders a dimensioned matrix.
+Type <code>0x1F</code> is a transient root/container type; an ordinary scalar history
+redraw does not dispatch it through <code>34:6105</code>. [confirmed]</p>
+<p>Types <code>0x25</code> and <code>0x26</code> share the body at <code>34:6381</code>. The handlers position and
+conditionally emit fixed display codes <code>0xDB</code> and <code>0x1D</code>, respectively. They
+then render child 1. The child record supplies its local origin through offsets
+<code>+0x0B</code> and <code>+0x0D</code>. [confirmed]</p>
+<p>Type <code>0x28</code> dispatches to <code>34:63B2</code>. It emits the three bytes returned by
+<code>_KeyToString</code> for <code>00C1h</code>, renders child 1, emits the opening compound shape
+through <code>34:5D1A</code>, renders child 2, and emits the closing compound shape through
+<code>34:5D07</code>. The settled <code>logBASE(2,8)</code> root has child IDs <code>0x0010</code> and <code>0x0011</code>.
+[confirmed]</p>
+<p>Type <code>0x29</code> dispatches to <code>34:6504</code>. It conditionally emits display code
+<code>0xC6</code>, renders children 1–3, and surrounds child 4 with the compound emitters
+at <code>34:5D1A</code> and <code>34:5D07</code>. It also conditionally emits display code <code>0x3D</code>
+between children 1 and 2. The settled <code>sum(N,1,3,N^2)</code> root contains child IDs
+<code>0x0014</code>–<code>0x0017</code>. [confirmed]</p>
+<p>Type <code>0x2B</code> dispatches to <code>34:65AA</code>. It emits the left vertical bracket and its
+two inward points, renders the matrix elements in child-ID order, then emits
+the right bracket and its points. <code>33:4F23</code> derives the element-loop bound from
+the dimensions at record bytes <code>+0x12</code> and <code>+0x13</code>. A settled $2\times2$
+identity matrix renders four children between the bracket operations.
+[confirmed]</p>
+<p><code>web/mathprint/rom-engine.js</code> implements the complete <code>0x1F</code>–<code>0x2B</code> dispatch
+table as an executable record-graph walker. It resolves child IDs through a
+node map, adds each child record’s <code>+0x0B</code> and <code>+0x0D</code> origins on recursive
+entry, preserves the handler’s depth changes, and returns ordered primitive and
+leaf operations. The <code>nDeriv(</code> handler retains two explicit dynamic operations:
+<code>34:78B8</code>/<code>34:78FB</code> parses child 1 to choose a pattern, and the later <code>0x3D</code>
+position uses the post-branch <code>DE</code> high byte. [confirmed]</p>
+<p>The trace analyzer recovers leaf records from the resolver path. At <code>34:6CCD</code>,
+<code>DE</code> is the one-based child index and <code>ram:8DF2</code> points at the parent. At
+<code>34:6CD8</code>, <code>DE</code> contains the selected child ID and <code>HL</code> points at its resolved
+record. Pairing these observations produces the complete record graph visited
+by a settled render. [confirmed]</p>
+<p>Leaf payload begins at record offset <code>+0x13</code>; the word at <code>+0x11</code> gives its
+byte count. A one-byte scalar therefore stores its display byte at <code>+0x13</code>.
+Compound leaf objects retain the subsequent bytes in the same record. A leaf
+may construct and dispatch another structural record while it renders. The
+analyzer preserves these secondary dispatches in instruction order and uses
+the shallowest Z80 stack depth after the final key press to identify the
+enclosing record. [confirmed]</p>
+<p>Each dispatch also captures the viewport origin at <code>ram:8DFE</code>/<code>ram:8E00</code>.
+Nested fraction <code>1/2</code> reaches <code>34:5DA6</code> with the local rule <code>(1,6)</code>–<code>(5,6)</code>
+and origin <code>(16,5)</code>. Page 4 therefore receives the translated endpoints
+<code>(17,52)</code> and <code>(21,52)</code>. [confirmed]</p>
 <p>The fixed 20-byte record header contains a two-byte ID at <code>+0</code>, a type byte at
 <code>+2</code>, eight unaligned little-endian words at <code>+3</code>, <code>+5</code>, <code>+7</code>, <code>+9</code>, <code>+0x0B</code>,
 <code>+0x0D</code>, <code>+0x0F</code>, and <code>+0x11</code>, and a byte at <code>+0x13</code>. The analyzer names words
