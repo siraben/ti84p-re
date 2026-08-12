@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// First-stage classifier for cells in the extracted page-0x39 records. Direct
-// glyphs and markers are resolved; string/control families remain explicit for
-// a later interpreter. See tools/cell-glyph-spec.md and token-name-spec.md.
+// Command-line view of the executable page-0x39 cell interpreter shared with
+// the browser. See tools/cell-glyph-spec.md and token-name-spec.md.
 //
 // Usage: node tools/interp-cells.js [classHex]   (default 08 = fnInt/nDeriv row)
 
@@ -9,24 +8,23 @@ const fs = require('fs');
 const path = require('path');
 const root = path.dirname(__dirname);
 const layout = JSON.parse(fs.readFileSync(path.join(root, 'web', 'mathprint', 'layout.json')));
+const rom = require(path.join(root, 'web', 'mathprint', 'rom-engine.js'));
 
-// Resolve one cell (d,e) -> {kind, ...}. Mirrors 39:4E8E dispatch + 39:4F1A map.
+// Preserve the older inspection vocabulary while delegating branch decisions
+// to the browser's executable 39:4E8E/4F1A translation.
 function resolveCell(d, e) {
-  if (d === 0x1F) return { kind: 'marker', what: 'cursor/answer-area (no draw)' };
-  if (d === 0x82) return { kind: 'colGlyph', index: e - 0x3E };
-  if (d === 0xFF) return { kind: 'marker', what: 'terminator' };
-  if (e === 0x55) return { kind: 'specialAction', d, e };
-  if (d === 0xFB && e === 0xC8)
-    return { kind: 'runtimeConditional', d, e, condition: 'bit 0,H' };
-  if (d === 0xFB && [0xCA, 0xCB, 0xD6, 0xD7, 0xD8].includes(e))
-    return { kind: 'inlineString', d, e };
-  // 39:4F1A direct glyph cases
-  if (d === 0xFC && e >= 0x3C && e <= 0x40) return { kind: 'glyph', code: (e - 0x3C) + 5 };
-  if (d === 0xFE && e >= 0x7D && e <= 0x81) return { kind: 'glyph', code: e - 0x7D };
-  if (e === 0x42 && d < 0x0A) return { kind: 'glyph', code: d };
-  // Other cells need _KeyToString or a family-specific control path. Do not
-  // pretend E is a standard token-table index: _KeyToString first transforms it.
-  if (d === 0x00) return { kind: 'keyString', d, e };
+  const decoded = rom.classifyCell(layout, d, e);
+  if (decoded.kind === 'cursorMarker')
+    return { kind: 'marker', what: 'cursor/answer-area (no draw)' };
+  if (decoded.kind === 'indexedString') return { kind: 'colGlyph', index: decoded.index };
+  if (decoded.kind === 'skip') return { kind: 'marker', what: 'terminator' };
+  if (decoded.kind === 'directGlyph') return { kind: 'glyph', code: decoded.glyph };
+  if (decoded.kind === 'conditionalInlineString')
+    return { kind: 'runtimeConditional', d, e, condition: decoded.condition };
+  if (decoded.kind === 'inlineString') return { kind: 'inlineString', d, e };
+  if (decoded.kind === 'specialAction') return { kind: 'specialAction', d, e };
+  if (decoded.kind === 'fixedDelimiter')
+    return { kind: 'delimiterFamily', d, e, family: decoded.layoutClass, index: decoded.index };
   if (d === 0xFB || d === 0xFC || d === 0xFE) return { kind: 'familyToken', d, e };
   return { kind: 'keyString', d, e };
 }
@@ -42,6 +40,7 @@ function fmt(d, e) {
   if (r.kind === 'inlineString') return `${hex} →inline string`;
   if (r.kind === 'specialAction') return `${hex} →special action`;
   if (r.kind === 'runtimeConditional') return `${hex} →conditional (${r.condition})`;
+  if (r.kind === 'delimiterFamily') return `${hex} →delimiter family ${r.family.toString(16)} #${r.index}`;
   return hex;
 }
 
