@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c66ba8da.js";
+            window.path_to_searchindex_js = "searchindex-dc69aa20.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -594,6 +594,8 @@ RAM values match the OS trace. [confirmed]</p>
 <code>3F</code> is visible through both A and B for part of the transition. Logical
 addresses in those windows then alias the same physical bytes at different
 offsets. [confirmed]</p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/paging-windows.svg" alt="Independent mode gives each banked window its own selector; paired mode maps an adjacent page pair through windows A and B."><span class="img-wrapper"><img src="images/paging-windows.svg" alt="Independent mode gives each banked window its own selector; paired mode maps an adjacent page pair through windows A and B."></span></label></p>
+<p><strong>Mapper view.</strong> Window 0 remains fixed. The boot example is [confirmed]; the complete paired and independent register contract is [standard].</p>
 <h2 id="mapping-modes--port-0x04-bit-0"><a class="header" href="#mapping-modes--port-0x04-bit-0">Mapping modes — port <code>0x04</code> bit 0</a></h2>
 <p>Writing port <code>0x04</code> changes the memory mode and the standard-timer rate. Its
 bit 0 controls the mapper. Reading the same port returns interrupt and key
@@ -1127,6 +1129,8 @@ $$</p>
 <li>bits 2–7 select the T-states added to each LCD-port instruction;</li>
 <li>bit 0 enables the Flash bits in port <code>0x2E</code>, and bit 1 enables the RAM bits.</li>
 </ul>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/bus-wait-timing.svg" alt="CPU speed selects one delay register; that register controls LCD instruction additions and gates port 2E memory waits, while port 2F controls a separate LCD-ready hold."><span class="img-wrapper"><img src="images/bus-wait-timing.svg" alt="CPU speed selects one delay register; that register controls LCD instruction additions and gates port 2E memory waits, while port 2F controls a separate LCD-ready hold."></span></label></p>
+<p><strong>Timing model.</strong> The register behavior is [standard], and the diagram’s widths are conceptual. OS 2.55MP’s register bytes and executed speed values are [confirmed].</p>
 <p>Changing port <code>0x20</code> changes the active byte immediately in TilEm and
 Wabbitemu. The OS does not need to rewrite ports <code>0x29</code>–<code>0x2C</code> when it moves
 between 6 and 15 MHz. Both emulators recompute memory delays on an accepted
@@ -2237,6 +2241,8 @@ allows page <code>0x08</code>, while TilEm denies it. Both deny page <code>0x09<
 <code>0x29</code>. WikiTI describes the lower bound as inclusive, which agrees with TilEm,
 but the physical page-<code>0x08</code> result remains unmeasured. [standard] for the
 published contract and source comparison; [hypothesis] for hardware.</p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/execution-protection-ranges.svg" alt="TilEm denies Flash pages 08 through 29, while Wabbitemu permits page 08 and denies 09 through 29; both permit the outer ranges."><span class="img-wrapper"><img src="images/execution-protection-ranges.svg" alt="TilEm denies Flash pages 08 through 29, while Wabbitemu permits page 08 and denies 09 through 29; both permit the outer ranges."></span></label></p>
+<p><strong>Boot execution ranges.</strong> The written bounds are [confirmed], and the emulator predicates are [standard]. The physical page-<code>08</code> boundary remains [hypothesis]. The RAM panel introduces the mode-dependent chunk model detailed below.</p>
 <p>Both emulator paths apply this rule to opcode fetches. Ordinary Flash data
 reads use a separate path. The locked certificate-page read censor is also a
 separate mechanism. [standard]</p>
@@ -2472,8 +2478,8 @@ and native-binary SHA-256
 port-<code>0x21</code> mode $t = 0,1,2,3$, it computes: [standard]</p>
 <p>$$
 \begin{aligned}
-M_t &amp;= (\mathtt{0x8000} \ll t) - \mathtt{0x400} \
-m &amp;= a \mathbin{&amp;} M_t \
+M_t &amp;= (\mathtt{0x8000} \ll t) - \mathtt{0x400} \\
+m &amp;= a \mathbin{\&amp;} M_t \\
 \mathit{allowed} &amp;= \mathtt{port25}\cdot\mathtt{0x400}
 \le m \le
 \mathtt{port26}\cdot\mathtt{0x400}
@@ -3648,6 +3654,10 @@ on the actual timer cadence. Published CPU-frequency variation and unresolved
 physical timer edges prevent the nominal calculation from serving as a
 physical measurement. [confirmed] for the constants and control flow;
 [standard] for the timer decode; [hypothesis] for physical cadence.</p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/badapple-timer-evidence.svg" alt="The programmed timer path gives a nominal 31.25 kHz ISR and 17.36 tracker updates per second; the upstream 33,333.3 Hz tuning constant and one trace’s 4,674 writes per second are separate evidence lanes."><span class="img-wrapper"><img src="images/badapple-timer-evidence.svg" alt="The programmed timer path gives a nominal 31.25 kHz ISR and 17.36 tracker updates per second; the upstream 33,333.3 Hz tuning constant and one trace’s 4,674 writes per second are separate evidence lanes."></span></label></p>
+<p><strong>Cadence evidence.</strong> The top lane combines [confirmed] application bytes with
+the [standard] timer decode. The encoder and trace lanes preserve their source
+contexts; neither measures physical calculator cadence.</p>
 <p>Port <code>0x2D</code> controls low-power behavior. Bit 0 keeps the quartz oscillator active on the TI-83 Plus Silver Edition; the TI-84 Plus RTC already requires it. Bit 1 allows the programmable timers to continue counting in low power. TI writes <code>0x03</code>. Public hardware tests report that these timers still do not reliably interrupt a halted CPU, so software should keep a standard timer enabled when it must escape <code>HALT</code>. [standard]</p>
 <h3 id="prepared-physical-discriminator"><a class="header" href="#prepared-physical-discriminator">Prepared physical discriminator</a></h3>
 <p>The guarded <a href="#programmable-timer-physical-probe"><code>HWTMR</code> probe</a>
@@ -5659,6 +5669,8 @@ ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
 </tbody>
 </table>
 </div>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/flash-write-layers.svg" alt="A Flash operation passes software guards, a RAM-resident worker, ASIC command gates, the Flash command state machine, and the physical sector. Execution protection is a separate fetch path."><span class="img-wrapper"><img src="images/flash-write-layers.svg" alt="A Flash operation passes software guards, a RAM-resident worker, ASIC command gates, the Flash command state machine, and the physical sector. Execution protection is a separate fetch path."></span></label></p>
+<p><strong>Write-layer schematic.</strong> Bcall guards and RAM-worker execution are [confirmed]. ASIC gate details and the AMD-compatible command state machine are [standard].</p>
 <h2 id="physical-organization"><a class="header" href="#physical-organization">Physical organization</a></h2>
 <h3 id="identified-board-part-and-compatible-family"><a class="header" href="#identified-board-part-and-compatible-family">Identified board part and compatible family</a></h3>
 <p>Datamath’s photographed March 2004 TI-84 Plus board carries a Fujitsu package
@@ -7823,8 +7835,8 @@ $$</p>
 <tr><th style="text-align: right">Mode</th><th>MD5 name</th><th>Function</th></tr>
 </thead>
 <tbody>
-<tr><td style="text-align: right"><code>0</code></td><td>F</td><td>$(B \mathbin{&amp;} C) \mathbin{\vert} ((\mathop{\sim}B) \mathbin{&amp;} D)$</td></tr>
-<tr><td style="text-align: right"><code>1</code></td><td>G</td><td>$(B \mathbin{&amp;} D) \mathbin{\vert} (C \mathbin{&amp;} \mathop{\sim}D)$</td></tr>
+<tr><td style="text-align: right"><code>0</code></td><td>F</td><td>$(B \mathbin{\&amp;} C) \mathbin{\vert} ((\mathop{\sim}B) \mathbin{\&amp;} D)$</td></tr>
+<tr><td style="text-align: right"><code>1</code></td><td>G</td><td>$(B \mathbin{\&amp;} D) \mathbin{\vert} (C \mathbin{\&amp;} \mathop{\sim}D)$</td></tr>
 <tr><td style="text-align: right"><code>2</code></td><td>H</td><td>$B \mathbin{\oplus} C \mathbin{\oplus} D$</td></tr>
 <tr><td style="text-align: right"><code>3</code></td><td>I</td><td>$C \mathbin{\oplus} (B \mathbin{\vert} \mathop{\sim}D)$</td></tr>
 </tbody>
@@ -8065,7 +8077,7 @@ $$</p>
 <p>$$
 p =
 \begin{cases}
-56-i, &amp; i &lt; 56 \
+56-i, &amp; i &lt; 56 \\
 120-i, &amp; i \ge 56
 \end{cases}
 $$</p>
@@ -13286,6 +13298,8 @@ for the March 2004 controller attribution.</p>
 </table>
 </div>
 <p>The Z-address command <code>0x40 + shift</code> changes which controller row appears at the top of the panel. It does not copy video RAM. Rows wrap modulo 64 when displayed. [standard]</p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/lcd-addressing.svg" alt="A TI-84 Plus calculator skin locates the selected row and byte column on the physical LCD; an enlarged controller row shows twelve visible byte columns, four off-screen columns, and the eight pixels in one data byte."><span class="img-wrapper"><img src="images/lcd-addressing.svg" alt="A TI-84 Plus calculator skin locates the selected row and byte column on the physical LCD; an enlarged controller row shows twelve visible byte columns, four off-screen columns, and the eight pixels in one data byte."></span></label></p>
+<p><strong>Ordinary 8-bit addressing.</strong> The TilEm skin locates the controller model on the calculator face. The visible 12-byte row and OS command ranges are [confirmed]; the T6K04’s 16-byte controller row, read latch, and off-screen storage are [standard].</p>
 <h2 id="port-interface-1"><a class="header" href="#port-interface-1">Port interface</a></h2>
 <div class="table-wrapper">
 <table>
@@ -14927,6 +14941,8 @@ tall-template row composition.</p>
 <p>The conventional scan-code number <code>0x29</code> occupies the unused matrix position at group 5, bit 0, but <strong>ON</strong> is not electrically present at that position. TilEm also uses <code>0x29</code> as its injected-key identifier. Port <code>0x04</code>, not port <code>0x01</code>, reports its physical state. [standard]</p>
 <h2 id="matrix-wiring-and-scan-codes"><a class="header" href="#matrix-wiring-and-scan-codes">Matrix wiring and scan codes</a></h2>
 <p>Writing port <code>0x01</code> selects groups with zero bits. Reading the same port returns one bit per key line, where zero means closed. <code>0xFF</code> releases every group, and <code>0x00</code> selects all groups. [standard]</p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/keypad-matrix-scan.svg" alt="Writing FB selects keypad group 2; pressing 6 pulls sense bit 2 low, so the scanner reads FB and constructs scan code 13 hexadecimal."><span class="img-wrapper"><img src="images/keypad-matrix-scan.svg" alt="Writing FB selects keypad group 2; pressing 6 pulls sense bit 2 low, so the scanner reads FB and constructs scan code 13 hexadecimal."></span></label></p>
+<p><strong>Worked matrix scan.</strong> The active-low electrical contract is [standard]. The group masks and <code>8g + b + 1</code> scan-code construction at <code>ram:0410</code>–<code>0453</code> are [confirmed].</p>
 <p>The table gives the complete TI-84 Plus matrix. Each parenthesized byte is the scan code that <code>kbd_scan_matrix</code> at <code>ram:0406</code> constructs for a single key. A dash is an unwired position. [confirmed] for the ROM formula; [standard] for the physical map.</p>
 <div class="table-wrapper">
 <table>
@@ -15486,6 +15502,8 @@ physical AppVar has been recorded.</li>
 </tbody>
 </table>
 </div>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/link-open-collector.svg" alt="Each link line has a pull-up and a low-side sink at either endpoint; the line is high only when both endpoints release it."><span class="img-wrapper"><img src="images/link-open-collector.svg" alt="Each link line has a pull-up and a low-side sink at either endpoint; the line is high only when both endpoints release it."></span></label></p>
+<p><strong>Open-collector model.</strong> The electrical contract is [standard]. OS 2.55MP’s port values and bit order are [confirmed]; pull-up resistance, thresholds, and rise time remain [hypothesis] until measured.</p>
 <p>Let <code>L</code> be the local two-bit pull-low mask and <code>P</code> the peer mask. TilEm computes the physical high-line mask as:</p>
 <p>$$
 H = \mathord{\sim}(L \mathbin{|} P) \mathbin{\&amp;} 3
@@ -15516,6 +15534,10 @@ the idealized differential signal is $V_0 - V_1$: [standard]</p>
 </tbody>
 </table>
 </div>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/link-differential-audio.svg" alt="Port writes 0 and 3 produce two distinct zero-differential states, while writes 1 and 2 produce opposite polarities by pulling one link line low."><span class="img-wrapper"><img src="images/link-differential-audio.svg" alt="Port writes 0 and 3 produce two distinct zero-differential states, while writes 1 and 2 produce opposite polarities by pulling one link line low."></span></label></p>
+<p><strong>Differential state map.</strong> The three-level output follows the [standard]
+open-collector model. It shows logical polarity rather than analog voltage or
+safe loading; those physical properties remain [hypothesis].</p>
 <p>An interrupt routine can therefore write <code>1</code> and <code>2</code> for opposite polarities,
 or use either equal-line state for the midpoint. This is the same
 open-collector digital contract used by link transfers; it is not a separate

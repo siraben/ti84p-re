@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c66ba8da.js";
+            window.path_to_searchindex_js = "searchindex-dc69aa20.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -218,6 +218,8 @@
 </tbody>
 </table>
 </div>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/link-open-collector.svg" alt="Each link line has a pull-up and a low-side sink at either endpoint; the line is high only when both endpoints release it."><span class="img-wrapper"><img src="images/link-open-collector.svg" alt="Each link line has a pull-up and a low-side sink at either endpoint; the line is high only when both endpoints release it."></span></label></p>
+<p><strong>Open-collector model.</strong> The electrical contract is [standard]. OS 2.55MP’s port values and bit order are [confirmed]; pull-up resistance, thresholds, and rise time remain [hypothesis] until measured.</p>
 <p>Let <code>L</code> be the local two-bit pull-low mask and <code>P</code> the peer mask. TilEm computes the physical high-line mask as:</p>
 <p>$$
 H = \mathord{\sim}(L \mathbin{|} P) \mathbin{\&amp;} 3
@@ -248,6 +250,10 @@ the idealized differential signal is $V_0 - V_1$: [standard]</p>
 </tbody>
 </table>
 </div>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/link-differential-audio.svg" alt="Port writes 0 and 3 produce two distinct zero-differential states, while writes 1 and 2 produce opposite polarities by pulling one link line low."><span class="img-wrapper"><img src="images/link-differential-audio.svg" alt="Port writes 0 and 3 produce two distinct zero-differential states, while writes 1 and 2 produce opposite polarities by pulling one link line low."></span></label></p>
+<p><strong>Differential state map.</strong> The three-level output follows the [standard]
+open-collector model. It shows logical polarity rather than analog voltage or
+safe loading; those physical properties remain [hypothesis].</p>
 <p>An interrupt routine can therefore write <code>1</code> and <code>2</code> for opposite polarities,
 or use either equal-line state for the midpoint. This is the same
 open-collector digital contract used by link transfers; it is not a separate

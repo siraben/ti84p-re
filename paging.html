@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c66ba8da.js";
+            window.path_to_searchindex_js = "searchindex-dc69aa20.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -230,6 +230,8 @@ RAM values match the OS trace. [confirmed]</p>
 <code>3F</code> is visible through both A and B for part of the transition. Logical
 addresses in those windows then alias the same physical bytes at different
 offsets. [confirmed]</p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/paging-windows.svg" alt="Independent mode gives each banked window its own selector; paired mode maps an adjacent page pair through windows A and B."><span class="img-wrapper"><img src="images/paging-windows.svg" alt="Independent mode gives each banked window its own selector; paired mode maps an adjacent page pair through windows A and B."></span></label></p>
+<p><strong>Mapper view.</strong> Window 0 remains fixed. The boot example is [confirmed]; the complete paired and independent register contract is [standard].</p>
 <h2 id="mapping-modes--port-0x04-bit-0"><a class="header" href="#mapping-modes--port-0x04-bit-0">Mapping modes — port <code>0x04</code> bit 0</a></h2>
 <p>Writing port <code>0x04</code> changes the memory mode and the standard-timer rate. Its
 bit 0 controls the mapper. Reading the same port returns interrupt and key

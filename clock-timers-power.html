@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c66ba8da.js";
+            window.path_to_searchindex_js = "searchindex-dc69aa20.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -439,6 +439,10 @@ on the actual timer cadence. Published CPU-frequency variation and unresolved
 physical timer edges prevent the nominal calculation from serving as a
 physical measurement. [confirmed] for the constants and control flow;
 [standard] for the timer decode; [hypothesis] for physical cadence.</p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/badapple-timer-evidence.svg" alt="The programmed timer path gives a nominal 31.25 kHz ISR and 17.36 tracker updates per second; the upstream 33,333.3 Hz tuning constant and one trace’s 4,674 writes per second are separate evidence lanes."><span class="img-wrapper"><img src="images/badapple-timer-evidence.svg" alt="The programmed timer path gives a nominal 31.25 kHz ISR and 17.36 tracker updates per second; the upstream 33,333.3 Hz tuning constant and one trace’s 4,674 writes per second are separate evidence lanes."></span></label></p>
+<p><strong>Cadence evidence.</strong> The top lane combines [confirmed] application bytes with
+the [standard] timer decode. The encoder and trace lanes preserve their source
+contexts; neither measures physical calculator cadence.</p>
 <p>Port <code>0x2D</code> controls low-power behavior. Bit 0 keeps the quartz oscillator active on the TI-83 Plus Silver Edition; the TI-84 Plus RTC already requires it. Bit 1 allows the programmable timers to continue counting in low power. TI writes <code>0x03</code>. Public hardware tests report that these timers still do not reliably interrupt a halted CPU, so software should keep a standard timer enabled when it must escape <code>HALT</code>. [standard]</p>
 <h3 id="prepared-physical-discriminator"><a class="header" href="#prepared-physical-discriminator">Prepared physical discriminator</a></h3>
 <p>The guarded <a href="hardware-probes.html#programmable-timer-physical-probe"><code>HWTMR</code> probe</a>
