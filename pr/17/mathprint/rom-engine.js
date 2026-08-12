@@ -250,6 +250,63 @@
     };
   }
 
+  function settledViewport(viewport) {
+    if (!viewport || typeof viewport !== 'object')
+      throw new TypeError('settled viewport is required');
+    const result = {};
+    for (const field of ['xOrigin', 'yOrigin', 'xMax', 'yMax', 'xClip', 'yClip'])
+      result[field] = byte(viewport[field], `settled viewport ${field}`);
+    return result;
+  }
+
+  const clipRange = (first, last, origin, clip, max) => {
+    let low = Math.min(first, last) + origin - clip;
+    let high = Math.max(first, last) + origin - clip;
+    if (high < 0 || low > max) return null;
+    low = Math.max(0, low);
+    high = Math.min(max, high);
+    return [low, high];
+  };
+
+  // 34:5D96..5DA5 -> ram:3573 -> 04:431D. HL is the fixed x coordinate;
+  // BC and DE are inclusive y endpoints. Page 4 converts y to 63-y before its
+  // line primitive, so the returned graph endpoints preserve that orientation.
+  function settledVerticalOperation(x, y1, y2, viewport) {
+    byte(x, 'settled vertical x');
+    byte(y1, 'settled vertical y1');
+    byte(y2, 'settled vertical y2');
+    const v = settledViewport(viewport);
+    const graphX = x + v.xOrigin - v.xClip;
+    if (graphX < 0 || graphX > v.xMax) return null;
+    const ys = clipRange(y1, y2, v.yOrigin, v.yClip, v.yMax);
+    if (!ys) return null;
+    return {
+      kind: 'line', axis: 'vertical',
+      from: { x: graphX, y: 0x3f - ys[0] },
+      to: { x: graphX, y: 0x3f - ys[1] },
+      routine: '34:5D96–5DA5 → 04:431D',
+    };
+  }
+
+  // 34:5DA6..5DBD -> ram:3579 -> 04:4382. The wrapper swaps axes before
+  // applying the same viewport family, yielding an inclusive horizontal line.
+  function settledHorizontalOperation(x1, x2, y, viewport) {
+    byte(x1, 'settled horizontal x1');
+    byte(x2, 'settled horizontal x2');
+    byte(y, 'settled horizontal y');
+    const v = settledViewport(viewport);
+    const graphY = y + v.yOrigin - v.yClip;
+    if (graphY < 0 || graphY > v.yMax) return null;
+    const xs = clipRange(x1, x2, v.xOrigin, v.xClip, v.xMax);
+    if (!xs) return null;
+    return {
+      kind: 'line', axis: 'horizontal',
+      from: { x: xs[0], y: 0x3f - graphY },
+      to: { x: xs[1], y: 0x3f - graphY },
+      routine: '34:5DA6–5DBD → 04:4382',
+    };
+  }
+
   return {
     handlerRecord,
     handlerRow,
@@ -265,5 +322,7 @@
     fractionEndpoint,
     multiArgumentRowStep,
     settledPointOperation,
+    settledVerticalOperation,
+    settledHorizontalOperation,
   };
 });

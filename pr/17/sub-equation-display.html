@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1497b934.js";
+            window.path_to_searchindex_js = "searchindex-ffe76699.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -563,6 +563,12 @@ line and point routines and page <code>01:6297</code> small-font output. [confir
 and <code>34:5DEF</code>. Its closed tail at <code>34:5E98</code>–<code>34:5EA6</code> passes <code>B=x</code>,
 <code>C=63-y</code>, and <code>D=1</code> to <code>_PointOn</code> at <code>04:4155</code>. Dynamic samples include
 <code>(x,y)=(3,0)</code> → <code>BC=033Fh</code> and <code>(32,20)</code> → <code>BC=202Bh</code>. [confirmed]</p>
+<p>The line wrappers share the viewport state at <code>0x8DFA</code>–<code>0x8E04</code>.
+<code>34:5D96</code> passes a clipped vertical segment to <code>04:431D</code>; <code>34:5DA6</code> swaps the
+axes and passes a clipped horizontal segment to <code>04:4382</code>. The nested trace’s
+fraction rule enters <code>34:5DA6</code> with object coordinates <code>x=1</code>–<code>5</code>, <code>y=6</code> and
+origins <code>x=16</code>, <code>y=5</code>. Page <code>04</code> receives endpoints <code>(17,52)</code> and <code>(21,52)</code>.
+[confirmed]</p>
 <p>Exact point counts matter here. The resolver’s <code>--funcs</code> mode groups an
 instruction under the nearest preceding symbol. It places 69 instructions in
 the <code>39:5167</code> bucket for each scenario even though the entry itself has zero
