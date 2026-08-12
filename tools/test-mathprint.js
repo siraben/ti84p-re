@@ -130,6 +130,14 @@ objectHandlers.forEach((handler, kind) => expectEqual(`34:7012 object kind ${kin
 let rejectedObjectKind = false;
 try { rom.settledObjectHandler(13); } catch (error) { rejectedObjectKind = error instanceof RangeError; }
 expectEqual('34:7012 object kind bound', rejectedObjectKind, true);
+expectEqual('34:622F integral primitive order', rom.settledIntegralOperations(0x17), [
+  {kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:0x15},
+   routine:'34:6239 → 34:5D96'},
+  {kind:'point', x:3, y:0, routine:'34:6244 → 34:5E85'},
+  {kind:'point', x:4, y:1, routine:'34:624B → 34:5E85'},
+  {kind:'point', x:1, y:0x16, routine:'34:6257 → 34:5E85'},
+  {kind:'point', x:0, y:0x15, routine:'34:625D → 34:5E85'},
+]);
 
 for (const [expression, record] of Object.entries(drawOrder.scenarios)) {
   const final = mp.traceFrame(record, record.events.length)

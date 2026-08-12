@@ -29,6 +29,10 @@ The settled-redraw object dispatcher at `34:700C` is also translated as a
 13-entry kind-to-handler table. Record-field decoding remains explicit work;
 the trace shows transient records in high RAM that are absent from the final dump.
 
+Render-record type `0x22` is translated through `34:622F`. The interactive
+integral sign now uses its exact vertical-segment and four-point operation order
+instead of stretching glyph `0x08`.
+
 `app.js` is organized in sections: box primitives → layout constructs → text runs
 → expression parser → canvas rendering → UI. A "box" is `{rows, baseline, marks,
 adv}`; `adv` (pen advance) is separate from bitmap width so glyphs can overhang.

@@ -428,6 +428,11 @@ fraction rule enters `34:5DA6` with object coordinates `x=1`–`5`, `y=6` and
 origins `x=16`, `y=5`. Page `04` receives endpoints `(17,52)` and `(21,52)`.
 [confirmed]
 
+Render-record type `0x22` dispatches through `34:6105` and the table at
+`34:6119` to `34:622F`. The word at record offset `+7` is the integral-sign
+height $h$. The handler draws the inclusive stem `(2,1)`–`(2,h-2)`, then hook
+points `(3,0)`, `(4,1)`, `(1,h-1)`, and `(0,h-2)`, in that order. [confirmed]
+
 Exact point counts matter here. The resolver's `--funcs` mode groups an
 instruction under the nearest preceding symbol. It places 69 instructions in
 the `39:5167` bucket for each scenario even though the entry itself has zero
