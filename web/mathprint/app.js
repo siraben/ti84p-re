@@ -10,6 +10,7 @@
 //   descriptor axes: 39:683D maps 7*column to penY and rowHeight+2 to penX
 
 let FONT = null;
+let DRAW_ORDER = { scenarios: {} };
 
 const GAP = 1;            // px between adjacent glyphs in a text run
 const EXP_DROP = 2;       // px the exponent bottom sits below the base top (was raise=3)
@@ -142,7 +143,7 @@ function fraction(num, den) {
   const rows = center(n.rows, w).concat(gap, bar, gap, center(d.rows, w));
   const nPad = (w - bw(n)) >> 1, dPad = (w - bw(d)) >> 1;
   const barMark = { ch: '─ bar', x: FRAC_SIDE, y: bh(n) + 1, w: inner, h: 1, type: 'rule',
-                    via: 'eqdisp_draw_fraction_bar 39:6abf', vars: '0x85EE/0x85EF widths' };
+                    via: 'trace-fitted rule; OS emitter unidentified', vars: 'modeled fraction widths' };
   // emission order: numerator, rule, denominator
   const marks = shift(n.marks, nPad, 0)
     .concat([barMark], shift(d.marks, dPad, bh(n) + 3));
@@ -658,36 +659,134 @@ const PRESETS = [
   ['nth root of a fraction', 'nthroot(N,X//2)'],
 ];
 
-let CUR = null, ANIM = null;   // current box + animation timer
+let CUR = null, CUR_TRACE = null, ANIM = null;
 
 function curColor() {
   return document.getElementById('lcd').checked
     ? { bg: '#c7d4b8', fg: '#2a3326' } : { bg: '#ffffff', fg: '#000000' };
 }
 
+function drawTraceGrid(grid, scale, color, changes) {
+  const canvas = document.getElementById('screen');
+  const ctx = canvas.getContext('2d');
+  const H = grid.length, W = H ? grid[0].length : 0;
+  const pad = 2;
+  canvas.width = (W + pad * 2) * scale;
+  canvas.height = (H + pad * 2) * scale;
+  ctx.fillStyle = color.bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = color.fg;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      if (grid[y][x]) ctx.fillRect((x + pad) * scale, (y + pad) * scale, scale, scale);
+  for (const [x, y, value] of changes || []) {
+    if (value) {
+      ctx.fillStyle = '#6ea8fe';
+      ctx.fillRect((x + pad) * scale, (y + pad) * scale, scale, scale);
+    } else {
+      // Use filled, integer-aligned edges. Canvas strokes straddle their path,
+      // which antialiases this one-pixel overlay at common odd line widths.
+      const left = (x + pad) * scale;
+      const top = (y + pad) * scale;
+      const edge = Math.max(1, Math.floor(scale / 4));
+      ctx.fillStyle = '#ff5050';
+      ctx.fillRect(left, top, scale, edge);
+      ctx.fillRect(left, top + scale - edge, scale, edge);
+      ctx.fillRect(left, top + edge, edge, Math.max(0, scale - 2 * edge));
+      ctx.fillRect(left + scale - edge, top + edge, edge,
+                   Math.max(0, scale - 2 * edge));
+    }
+  }
+}
+
+function decodeTraceGrid(rows) {
+  return rows.map(row => Array.from(row, pixel => pixel === '1' ? 1 : 0));
+}
+
+function traceFrame(record, step) {
+  const grid = decodeTraceGrid(record.initial);
+  const count = Math.max(0, Math.min(record.events.length, step));
+  for (let i = 0; i < count; i++)
+    for (const [x, y, value] of record.events[i].changes) grid[y][x] = value;
+  return grid;
+}
+
+function traceForExpression(expression) {
+  return (DRAW_ORDER.scenarios || {})[expression.trim()] || null;
+}
+
+function useTraceMode() {
+  return document.getElementById('source').value === 'trace' && CUR_TRACE;
+}
+
+function renderTrace(record, step, scale) {
+  const n = record.events.length;
+  const count = step == null ? n : Math.max(0, Math.min(n, step));
+  const current = step != null && count > 0 ? record.events[count - 1] : null;
+  drawTraceGrid(traceFrame(record, count), scale, curColor(), current && current.changes);
+  const rows = record.events.map((event, i) => {
+    const sets = event.changes.filter(change => change[2]).length;
+    const clears = event.changes.length - sets;
+    return `<tr class="${current && i === count - 1 ? 'cur' : ''}" data-step="${i + 1}">` +
+      `<td>${i}</td><td>${event.instruction_index}</td><td>${event.clock}</td>` +
+      `<td>0x${event.port.toString(16).padStart(2, '0')}</td>` +
+      `<td>0x${event.value.toString(16).padStart(2, '0')}</td>` +
+      `<td>${event.pointer[0]},${event.pointer[1]}</td>` +
+      `<td><span class="trace-set">+${sets}</span> ` +
+      `<span class="trace-clear">−${clears}</span></td></tr>`;
+  }).join('');
+  document.getElementById('penlog').innerHTML =
+    `<p class="note">Captured T6A04 writes in TLMT instruction order. Only accepted ` +
+    `writes that change a visible pixel appear. Click a row to jump to that write.</p>` +
+    `<table><thead><tr><th>#</th><th>instruction</th><th>clock</th><th>port</th>` +
+    `<th>byte</th><th>LCD x,y</th><th>pixels</th></tr></thead><tbody>${rows}</tbody></table>`;
+  document.getElementById('dims').textContent =
+    `${record.width}×${record.height} LCD · write ${count}/${n} · captured trace`;
+  const tl = document.getElementById('timeline');
+  if (step == null) { tl.max = n; tl.value = n; }
+}
+
+function renderModel(box, step, scale, showPen) {
+  const marks = draw(box, scale, curColor(), showPen, step);
+  const cur = (step != null && step > 0 && step <= marks.length) ? step - 1 : -1;
+  const rows = marks.map((m, i) =>
+    `<tr class="${i === cur ? 'cur' : ''}" data-step="${i + 1}"><td>${i}</td><td>${escapeHtml(m.ch)}</td>` +
+    `<td>${m.x}</td><td>${m.y}</td><td>${m.font || (m.type === 'rule' ? 'rule' : '')}</td>` +
+    `<td>${escapeHtml(m.via || '')}</td></tr>`).join('');
+  document.getElementById('penlog').innerHTML =
+    `<p class="note">Model display list — elements in composition order with ` +
+    `X/Y (top-left), font, and the corresponding ROM routine where known. ` +
+    `Click a row to jump the timeline to that draw step. ` +
+    `These coordinates are model-local, not RAM pen variables. Large glyph records pass through ` +
+    `put_glyph_large (07:4588); ` +
+    `small (exponents, limits, fraction digits) through _VPutMap (01:6293).</p>` +
+    `<table><thead><tr><th>#</th><th>elem</th><th>penX</th><th>penY</th>` +
+    `<th>font</th><th>emitted by</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const tl = document.getElementById('timeline');
+  if (step == null) { tl.max = marks.length; tl.value = marks.length; }
+}
+
 function render(step) {
   const scale = +document.getElementById('scale').value;
   const showPen = document.getElementById('pen').checked;
   try {
-    const box = CUR = parse(document.getElementById('expr').value);
-    const marks = draw(box, scale, curColor(), showPen, step);
-    const cur = (step != null && step > 0 && step <= marks.length) ? step - 1 : -1;
-    const rows = marks.map((m, i) =>
-      `<tr class="${i === cur ? 'cur' : ''}" data-step="${i + 1}"><td>${i}</td><td>${escapeHtml(m.ch)}</td>` +
-      `<td>${m.x}</td><td>${m.y}</td><td>${m.font || (m.type === 'rule' ? 'rule' : '')}</td>` +
-      `<td>${escapeHtml(m.via || '')}</td></tr>`).join('');
-    document.getElementById('penlog').innerHTML =
-      `<p class="note">Model display list — elements in composition order with ` +
-      `X/Y (top-left), font, and the corresponding ROM routine where known. ` +
-      `Click a row to jump the timeline to that draw step. ` +
-      `These coordinates are model-local, not RAM pen variables. Large glyph records pass through ` +
-      `put_glyph_large (07:4588); ` +
-      `small (exponents, limits, fraction digits) through _VPutMap (01:6293).</p>` +
-      `<table><thead><tr><th>#</th><th>elem</th><th>penX</th><th>penY</th>` +
-      `<th>font</th><th>emitted by</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const expression = document.getElementById('expr').value;
+    const box = CUR = parse(expression);
+    CUR_TRACE = traceForExpression(expression);
+    const traceRequested = document.getElementById('source').value === 'trace';
+    const actual = traceRequested && CUR_TRACE;
+    if (actual) renderTrace(CUR_TRACE, step, scale);
+    else renderModel(box, step, scale, showPen);
+    document.getElementById('timeline-hint').textContent = actual
+      ? 'step accepted LCD writes' : 'step model composition order';
+    document.getElementById('timeline-note').innerHTML = actual
+      ? `Captured mode replays accepted T6A04 writes from trace <code>${escapeHtml(CUR_TRACE.trace_sha256.slice(0, 12))}…</code> ` +
+        `in instruction order. Blue pixels are set; outlined red pixels are cleared.`
+      : (traceRequested
+          ? `No captured LCD timeline matches this expression. Showing the model display list. ` +
+            `Choose one of the two integral trace presets for write-level playback.`
+          : `Model mode steps inferred composition elements. It is not an OS draw timeline.`);
     document.getElementById('err').textContent = '';
-    const tl = document.getElementById('timeline');
-    if (tl && step == null) { tl.max = marks.length; tl.value = marks.length; }
   } catch (e) {
     document.getElementById('err').textContent = String(e);
   }
@@ -698,7 +797,8 @@ function stopAnim() { if (ANIM) { clearInterval(ANIM); ANIM = null; } }
 function playAnim() {
   stopAnim();
   if (!CUR) render();
-  const n = (CUR.marks || []).length;
+  const actual = useTraceMode();
+  const n = actual ? CUR_TRACE.events.length : (CUR.marks || []).length;
   let step = 0;
   const tl = document.getElementById('timeline');
   ANIM = setInterval(() => {
@@ -706,7 +806,7 @@ function playAnim() {
     if (tl) tl.value = step;
     render(step);
     if (step >= n) { stopAnim(); render(); }   // final: reveal structural rules too
-  }, 350);
+  }, actual ? 30 : 350);
 }
 function escapeHtml(s) {
   return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -768,7 +868,11 @@ function showTab(name) {
 }
 
 async function main() {
-  FONT = await (await fetch('font.json')).json();
+  const [fontResponse, orderResponse] = await Promise.all([
+    fetch('font.json'), fetch('draw-order.json'),
+  ]);
+  FONT = await fontResponse.json();
+  DRAW_ORDER = await orderResponse.json();
   const bar = document.getElementById('presets');
   PRESETS.forEach(([label, src]) => {
     const b = document.createElement('button');
@@ -780,6 +884,7 @@ async function main() {
   document.getElementById('scale').addEventListener('input', () => render());
   document.getElementById('lcd').addEventListener('change', () => render());
   document.getElementById('pen').addEventListener('change', () => render());
+  document.getElementById('source').addEventListener('change', () => { stopAnim(); render(); });
   document.getElementById('play').addEventListener('click', playAnim);
   document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
   document.getElementById('penlog').addEventListener('click', e => {
@@ -787,7 +892,7 @@ async function main() {
     if (!tr) return;
     stopAnim();
     const step = +tr.dataset.step;
-    const n = (CUR && CUR.marks) ? CUR.marks.length : 0;
+    const n = useTraceMode() ? CUR_TRACE.events.length : ((CUR && CUR.marks) ? CUR.marks.length : 0);
     const tl = document.getElementById('timeline');
     if (tl) tl.value = step;
     render(step >= n ? null : step);   // last row: reveal structural rules, like the timeline at max
@@ -796,9 +901,9 @@ async function main() {
   document.addEventListener('keydown', e => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     const ae = document.activeElement;
-    if (ae && ae.tagName === 'INPUT') return;        // let text/range inputs handle their own arrows
+    if (ae && ae.matches('input, select, textarea')) return;
     if (document.getElementById('tab-renderer').hidden) return;
-    const n = (CUR && CUR.marks) ? CUR.marks.length : 0;
+    const n = useTraceMode() ? CUR_TRACE.events.length : ((CUR && CUR.marks) ? CUR.marks.length : 0);
     if (!n) return;
     const tl = document.getElementById('timeline');
     let step = tl ? +tl.value : n;
@@ -810,7 +915,7 @@ async function main() {
   });
   document.getElementById('timeline').addEventListener('input', e => {
     stopAnim();
-    const n = (CUR.marks || []).length;
+    const n = useTraceMode() ? CUR_TRACE.events.length : (CUR.marks || []).length;
     render(+e.target.value >= n ? null : +e.target.value);
   });
   document.getElementById('expr').value = 'int(1,2,(1//2)X,X)';
@@ -825,6 +930,7 @@ if (typeof module !== 'undefined') {
     setFont: f => { FONT = f; },
     parse,
     penLog,
+    traceFrame,
     toText: box => box.rows.map(r => r.map(c => (c ? '#' : '.')).join('')).join('\n'),
   };
 }

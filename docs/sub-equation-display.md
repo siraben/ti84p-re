@@ -373,6 +373,13 @@ The raw traces remain outside the repository because they are 162 MB and 202 MB.
 `tools/mathprint-trace-report.json` records their hashes, emulator provenance,
 exact entry counts, state bytes, and replay results. [confirmed]
 
+`web/mathprint/draw-order.json` preserves the visible pixel mutations after the
+final expression key press. The filled-integral trace contains 351 accepted LCD
+writes that change 522 pixels; the nested trace contains 391 writes that change
+610 pixels. This sequence includes both set and clear transitions, so the
+interactive preview can replay the controller's write order instead of an
+inferred glyph order. [confirmed]
+
 | Scenario | Exact page `0x39` entry hits | Final state | LCD replay |
 |----------|----------------------------|-------------|------------|
 | `int(1,2,X^2,X)` | `4CA4` ×1, `4DCA` ×2, `4DE6` ×1, `4E8E` ×7, `4F1A` ×14 | `0x85E1=04`, `0x85E8=00` | 43×20; zero pixels differ from the model. |

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TI-84 Plus MathPrint renderer</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -40,6 +41,13 @@
     <label class="check">
       <input id="pen" type="checkbox"> Pen X/Y
     </label>
+    <label>
+      Timeline
+      <select id="source">
+        <option value="trace">Captured LCD writes</option>
+        <option value="model">Model elements</option>
+      </select>
+    </label>
   </div>
 
   <div id="presets" class="presets"></div>
@@ -50,13 +58,12 @@
   <div class="timeline-row">
     <button id="play">▶ Play draw order</button>
     <input id="timeline" type="range" min="0" max="1" value="1">
-    <span class="hint">step the model composition order</span>
+    <span id="timeline-hint" class="hint">step accepted LCD writes</span>
   </div>
-  <p class="note">
-    This steps the model's composition order. It is a pedagogical view of how
-    the boxes are assembled, not a captured OS draw timeline. Each step
-    highlights one modeled glyph or rule; the row below names the corresponding
-    ROM routine where that boundary is known.
+  <p id="timeline-note" class="note">
+    Captured mode replays accepted T6A04 writes from the pinned TilEm trace in
+    instruction order. Blue pixels are set by the selected write; outlined red
+    pixels are cleared. The two traced integral presets have captured timelines.
   </p>
   <p class="meta"><span id="dims"></span> <span id="err" class="err"></span></p>
 
