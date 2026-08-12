@@ -40,14 +40,20 @@
           pname = "ti84-re-wiki";
           version = "1.0";
           src = ./.;
-          nativeBuildInputs = [ pkgs.mdbook pkgs.mdbook-mermaid pkgs.bash pkgs.python3 pkgs.katex ];
+          nativeBuildInputs = [
+            pkgs.mdbook pkgs.mdbook-mermaid pkgs.bash pkgs.python3 pkgs.katex
+            pkgs.nodejs
+          ];
           buildPhase = ''
             mdbook-mermaid install .       # generate mermaid.min.js + mermaid-init.js
             ${setupAssets}                  # vendor KaTeX (css/js/fonts)
             mdbook build --dest-dir $out
+            cp -r web/mathprint $out/mathprint   # standalone renderer, outside the book
             python3 tools/check-mdbook-output.py $out
             python3 tools/check-katex-output.py $out
-            cp -r web/mathprint $out/mathprint   # standalone renderer, outside the book
+            node tools/test-mathprint.js
+            python3 tools/test_trace_lcd.py
+            python3 tools/test_mathprint_extractors.py
           '';
           dontInstall = true;
           dontFixup = true;

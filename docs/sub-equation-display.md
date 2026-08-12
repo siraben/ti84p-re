@@ -367,8 +367,8 @@ page-`39` execution was rolled up to function level with
 [dynamic tracing](https://github.com/siraben/ti84p-re/blob/main/tools/dynamic-tracing.md)). The macros are
 `tools/macros/mathprint-{power,fraction,fnint}.macro`. [confirmed]
 
-The trace cleanly separates the two documented rendering mechanisms by *which
-routines actually run* for each construct:
+The traces distinguish two documented rendering mechanisms by which routines
+run in each scenario:
 
 | Rendered (entry line) | Page-`39` routines exercised | Path |
 |-----------------------|------------------------------|------|
@@ -376,16 +376,18 @@ routines actually run* for each construct:
 | `1/2` (n/d template) | `eqdisp_compute_dims` `69C8`, `eqdisp_layout_token_geom` `68AE`, the `683D` cell-to-pixel mapper, `eqdisp_draw_fraction_bar` `6ABF`, `eqdisp_draw_box_jp` `6AF5`, `eqdisp_load_glyph18b2` `6B66`, `eqdisp_dispatch_token` `4A74` | descriptor / geometry |
 | `fnInt(` (MATH ▸ 9) | `eqdisp_emit_glyph` `4E8E`, `eqdisp_map_token_glyph` `4F1A`, `eqdisp_emit_arglist` `4DE6`, `eqdisp_sum_arg_widths` `4DCA`, `eqdisp_emit_digit_chk` `4E0A` | handler record / multi-arg |
 
-This confirms the static result: the descriptor path (`69C8`/`68AE`/`683D`/`6ABF`)
-and the handler-record path (`4DCA`/`4DE6`/`4E8E`/`4F1A`) are mutually
-exclusive per construct, exactly as the two-mechanism model predicts. [confirmed]
+The simple fraction scenario exercises the descriptor path
+(`69C8`/`68AE`/`683D`/`6ABF`), while the empty integral template exercises the
+handler-record path (`4DCA`/`4DE6`/`4E8E`/`4F1A`). Nested constructs can and do
+exercise both during one render. [confirmed]
 
-`39:5167` (`eqdisp_layout_multiarg`) statically owns the multi-arg row
-composition, but it did not execute in this trace: the `fnInt(` template was
+`39:5167` (`eqdisp_layout_multiarg`) statically owns multi-argument row
+composition, but it did not execute in the original empty-template trace: `fnInt(` was
 inserted *empty* (`∫(0)dV`), so the operand-recursion branch was never driven —
 `5167` and its body (`5949`/`5B10`) show 0 hits, and the `--funcs` "5167" rollup
 bucket is a nearest-name artifact (only a `51F1/51F3` fragment ran). A *filled*
-integrand would be needed to drive `5167` under a trace. [confirmed] (static); the dynamic path is open.
+integrand is needed to drive `5167`. A later filled-integrand trace, described
+below, supplies that dynamic confirmation. [confirmed]
 
 The live state block matches the field map. Reading `0x85DE..0x85F2` from a RAM
 dump right after each render (`memdump … ram-logical`):
@@ -421,23 +423,24 @@ tall-template row composition.
 
 ## Multi-arg path under trace
 
-Driving `fnInt(` with a real integrand (`MATH ▸ 9`, then filling the slots)
-*does* execute the multi-argument compositor — `eqdisp_layout_multiarg`
-(`39:5167`, 69 hits) runs with `eqdisp_emit_glyph` (`39:4E8E`),
-`eqdisp_map_token_glyph` (`39:4F1A`), and `eqdisp_emit_arglist` (`39:4DE6`). A
-fraction *inside* the integrand lights up both paths at once: the
-handler-record/multi-arg path for the `∫` plus the descriptor path
-(`69C8`/`683D`/`6ABF`) for the fraction, and `5167`'s row measurement is what
-grows the `∫` and its parentheses to the fraction height. Reproduce with
-`tools/macros/mathprint-fnint.macro`. [confirmed]
+Driving `fnInt(` with a filled integrand executes the multi-argument compositor:
+the historical trace recorded 69 hits at `eqdisp_layout_multiarg` (`39:5167`),
+along with `eqdisp_emit_glyph` (`39:4E8E`), `eqdisp_map_token_glyph`
+(`39:4F1A`), and `eqdisp_emit_arglist` (`39:4DE6`). The shipped
+`tools/macros/mathprint-fnint.macro` reproduces the filled-integrand scenario.
+No retained nested-fraction trace is available here, so simultaneous
+handler-record and descriptor-path execution is the expected composition but
+is not claimed as a rerun result. The 69-hit result comes from a prior run whose
+artifact was not retained, so it is not independently reproducible from this
+checkout.
 
 ## Cell encoding
 
 `eqdisp_emit_glyph` (`39:4E8E`) dispatches each `D:E` cell by its `D` byte:
 `D=0x1F` is a cursor marker (no draw), `D=0x82` a positional column glyph, and
-otherwise a token-name string draw (`39:6B66 → bcall 0xC945 → 01:6702`, the
-standard OS token-name drawer, table `01:4252` with the `07:4000` display→token
-remap) or a direct glyph via `39:4F1A` (`FC3C..40 → glyph (E−0x3C)+5`,
+otherwise a counted-string selection (`39:6B66 → bcall 0x45CA → 01:6D10`,
+`_KeyToString`, with its pointer table at `01:6E05`) or a direct glyph via
+`39:4F1A` (`FC3C..40 → glyph (E−0x3C)+5`,
 `FE7D..81 → E−0x7D`, `E=0x42,D<0x0A → glyph D`). So `00C8` draws the literal name
 "fnInt(", not a glyph. The full decode is in
 `tools/cell-glyph-spec.md` and
@@ -445,29 +448,28 @@ remap) or a direct glyph via `39:4F1A` (`FC3C..40 → glyph (E−0x3C)+5`,
 (`683D`, `6B1C`, `5167`/`5949`, pen conversion) is in
 `tools/geometry-spec.md`. [confirmed]
 
-## Reconstruction and pixel parity
+## Trace replay and renderer checks
 
-The render writes the LCD directly through the display ports (`OUT (0x11),A`
-data + `OUT (0x10),A` commands), not a RAM buffer, so the image is *completely
-reconstructible from the trace alone*. `tools/trace_lcd.py`
-replays that stream through the T6A04 controller to produce the exact 96×64
-bitmap (verified identical to the recorded GIF), and
-`tools/parity-mathprint.py` diffs the standalone
-[interactive renderer](https://siraben.github.io/ti84p-re/mathprint/) against it. [confirmed]
+The renderer writes through the LCD ports rather than a RAM framebuffer.
+`tools/trace_lcd.py` replays reset-origin TilEm TLMT v2 LCD I/O through the
+pinned TilEm T6A04 state model, including mirrored ports, data reads, busy-write
+rejection, and the controller's 128×64 backing RAM. This reconstructs the
+emulator bitmap for a complete compatible trace; it is not a physical-controller
+claim. The controller behavior is [standard] for the pinned TilEm source model;
+synthetic tests confirm the replay implementation.
 
-Against that exact reference: inline text, exponents (`X^2`), linear `1/2`,
-stacked fractions (`1//2`), and radicals (`sqrt(...)`) match the calculator
-100% pixel-for-pixel. The tall operators (integral, summation, nth root)
-match in operator sign, limits, and dimensions; their body's internal glyph
-advances come from a RAM-relocated bcall (`0xC951`) whose width table is not in
-flash, so those few pixels are trace-pinned rather than ROM-derivable. [confirmed]
+`tools/parity-mathprint.py` now selects that replay when tracing is enabled.
+The proprietary OS image and retained MathPrint trace artifacts are not present
+in this checkout, so earlier broad 100% pixel-parity claims could not be rerun.
+The current 5,018-case Node test is a deterministic parser/layout smoke test,
+not calculator-parity evidence. [confirmed]
 
-## Data-driven model
+## Extracted records and interactive model
 
-The class table and every handler record are extracted from ROM to
+The class table, decoded handler records, and selected descriptors are extracted to
 `web/mathprint/layout.json` by `tools/export-layout.py`;
 the fonts to `web/mathprint/font.json` by
 `tools/export-font.py` (shown on the font-table tab of the interactive
-renderer). `tools/interp-cells.js`
-resolves record cells from that data per the specs above, so a renderer walks
-the real records instead of approximating each construct.
+renderer). `tools/interp-cells.js` is a first-stage classifier for inspecting
+that data. The interactive renderer does not consume `layout.json`; it composes
+ROM font glyphs with a separate, trace-fitted box model. [confirmed]

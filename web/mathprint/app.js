@@ -1,13 +1,13 @@
-// MathPrint layout renderer — composes real TI-84 Plus ROM font glyphs into
-// 2-D layouts, mirroring the page-0x39 engine documented in
+// MathPrint layout model — composes real TI-84 Plus ROM font glyphs into
+// trace-fitted 2-D layouts inspired by the page-0x39 engine documented in
 // docs/sub-equation-display.md. A "box" is { rows: number[][] (0/1),
 // baseline: number } where baseline is the math-axis row index.
 //
-// Geometry constants are the ROM-confirmed ones:
+// Geometry inputs have different evidence scopes:
 //   large glyph: 5 px wide, 7 rows, 1 px advance gap  (07:45FF)
 //   exponent: bottom sits 2 px below base top (trace: base penY~11, exp penY~0)
-//   fraction column unit: 7 px  (683D cell-to-pixel mapper, x = base + 7*col)
-//   row step: row_height + 2 px (6857 height accumulator)
+//   selected horizontal spacing: 7 px (trace-fitted; separate from 39:683D)
+//   descriptor axes: 39:683D maps 7*column to penY and rowHeight+2 to penX
 
 let FONT = null;
 
@@ -25,7 +25,7 @@ function bh(box) { return box.rows.length; }
 
 // Pen log: each glyph carries a mark {ch, x, y} at its top-left in box-local
 // coordinates; composition shifts child marks so the final box holds the full
-// placement list (the "pen" positions), mirroring the OS pen pipeline.
+// model placement list. It is not a captured OS emission trace.
 function shift(marks, dx, dy) {
   return (marks || []).map(m => ({ ...m, x: m.x + dx, y: m.y + dy }));
 }
@@ -40,7 +40,7 @@ function largeGlyph(code) {
   const grid = rows.map(r => Array.from({ length: W }, (_, i) => (r >> (W - 1 - i)) & 1));
   return { rows: grid, baseline: (grid.length >> 1),  // centre on the math axis
            marks: [{ ch: glyphName(code), x: 0, y: 0, w: W, h: grid.length,
-                     type: 'glyph', font: 'large', via: '_PutMap 07:4588' }] };
+                     type: 'glyph', font: 'large', via: 'put_glyph_large 07:4588' }] };
 }
 function smallGlyph(code) {
   if (!FONT.small.glyphs[code]) return { rows: blank(7, 3), baseline: 3, marks: [] };
@@ -96,6 +96,19 @@ function trim(box) {
     baseline: Math.max(0, box.baseline - top),
     marks: shift(box.marks, -left, -top),
   };
+}
+
+function clipMarks(box) {
+  const W = bw(box), H = bh(box);
+  const marks = (box.marks || []).flatMap(m => {
+    const x0 = Math.max(0, m.x), y0 = Math.max(0, m.y);
+    const x1 = Math.min(W, m.x + (m.w || 1));
+    const y1 = Math.min(H, m.y + (m.h || 1));
+    return x1 > x0 && y1 > y0
+      ? [{ ...m, x: x0, y: y0, w: x1 - x0, h: y1 - y0 }]
+      : [];
+  });
+  return { ...box, marks };
 }
 
 function center(rows, w) {
@@ -573,15 +586,13 @@ function parse(src) {
     i = j; return expr();                                               // complex -> box
   }
 
-  return expr();
+  return clipMarks(expr());
 }
 
 // ---- canvas rendering -----------------------------------------------------
 
 // Draw the box. `step` (the emission element index, null = all) animates the
-// real OS draw order: each glyph/rule is emitted whole at its pen position, in
-// emission order, not a column sweep. Unmarked structural pixels (∫ stem,
-// parens, vinculum — separate rule/stretch draws) appear at the final step.
+// model composition order: each glyph/rule is revealed at its modeled position.
 function draw(box, scale, color, showPen, step) {
   const canvas = document.getElementById('screen');
   const ctx = canvas.getContext('2d');
@@ -666,10 +677,11 @@ function render(step) {
       `<td>${m.x}</td><td>${m.y}</td><td>${m.font || (m.type === 'rule' ? 'rule' : '')}</td>` +
       `<td>${escapeHtml(m.via || '')}</td></tr>`).join('');
     document.getElementById('penlog').innerHTML =
-      `<p class="note">Display list — elements in OS emission (draw) order with ` +
-      `pen X/Y (top-left), font, and the ROM routine that emits them. ` +
+      `<p class="note">Model display list — elements in composition order with ` +
+      `X/Y (top-left), font, and the corresponding ROM routine where known. ` +
       `Click a row to jump the timeline to that draw step. ` +
-      `0x86D7/0x86D8 hold penX/penY; large glyphs go through _PutMap (07:4588), ` +
+      `These coordinates are model-local, not RAM pen variables. Large glyph records pass through ` +
+      `put_glyph_large (07:4588); ` +
       `small (exponents, limits, fraction digits) through _VPutMap (01:6293).</p>` +
       `<table><thead><tr><th>#</th><th>elem</th><th>penX</th><th>penY</th>` +
       `<th>font</th><th>emitted by</th></tr></thead><tbody>${rows}</tbody></table>`;
