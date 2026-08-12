@@ -327,6 +327,25 @@
     };
   }
 
+  // Settled records store an ID at +0, a type byte at +2, eight unaligned
+  // little-endian words at +3..+11h, and a final byte at +13h. Keep the word
+  // names address-based until each type-specific interpretation is closed.
+  function decodeSettledRecord(header) {
+    if (!Array.isArray(header) && !(header instanceof Uint8Array))
+      throw new TypeError('settled record header must be an array of bytes');
+    if (header.length !== 0x14)
+      throw new RangeError('settled record header must contain 20 bytes');
+    const bytes = Array.from(header, (value, index) =>
+      byte(value, `settled record +${index.toString(16)}`));
+    const word = offset => bytes[offset] | (bytes[offset + 1] << 8);
+    return {
+      id: word(0), type: bytes[2],
+      word03: word(3), word05: word(5), word07: word(7), word09: word(9),
+      word0B: word(0x0b), word0D: word(0x0d), word0F: word(0x0f),
+      word11: word(0x11), byte13: bytes[0x13],
+    };
+  }
+
   // Render-record type 20h dispatches through 34:6105/6119 to 34:620A. It
   // renders child records 1 and 2, reads each child's word at +7, and chooses
   // the larger value. The inclusive rule runs from x=1 through max+1 at the
@@ -350,6 +369,30 @@
   function settledSingleChildOperations() {
     return [
       {kind:'child', index:1, routine:'34:6375 → 34:636C'},
+    ];
+  }
+
+  // Render-record type 27h dispatches to 34:62A1. 34:62D0 emits the ten-byte
+  // root-hook bitmap first. The handler then draws its vertical stem, selects
+  // child 1, reads that child's +7 width, emits the inclusive vinculum, and
+  // finally enters the child renderer at 34:660A.
+  function settledRadicalOperations(height, childWidth) {
+    byte(height, 'settled radical height');
+    byte(childWidth, 'settled radical child width');
+    if (height < 2)
+      throw new RangeError('settled radical height must be at least two');
+    const stemEnd = height - 1;
+    const ruleEnd = childWidth + 3;
+    byte(ruleEnd, 'settled radical vinculum endpoint');
+    return [
+      {kind:'bitmap', x:0, y:0, width:5, height:10,
+       routine:'34:62A4 → 34:62D0'},
+      {kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:stemEnd},
+       routine:'34:62AE → 34:5D96'},
+      {kind:'child-select', index:1, routine:'34:62B1 → 34:6D4B'},
+      {kind:'line', axis:'horizontal', from:{x:2,y:0}, to:{x:ruleEnd,y:0},
+       routine:'34:62C3 → 34:5DA6'},
+      {kind:'child', index:1, routine:'34:62C6 → 34:660A'},
     ];
   }
 
@@ -388,8 +431,10 @@
     settledVerticalOperation,
     settledHorizontalOperation,
     settledObjectHandler,
+    decodeSettledRecord,
     settledFractionOperations,
     settledSingleChildOperations,
+    settledRadicalOperations,
     settledIntegralOperations,
   };
 });

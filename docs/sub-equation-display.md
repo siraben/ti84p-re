@@ -442,8 +442,27 @@ The nested-fraction trace reaches the line wrapper with `BC=1`, `DE=5`, and
 
 Render-record type `0x2A` dispatches to a `JP 34:636C` at `34:6375`.
 `34:636C` selects child record 1 through `34:6CCD` before entering the recursive
-renderer. The wrapper emits no point, line, or glyph itself. The focused `X^2`
-trace reaches only types `0x1F` and `0x2A` during its settled redraw. [confirmed]
+renderer. The wrapper emits no point, line, or glyph itself. The corrected
+record-table trace identifies `0x2A` as the `X^2` root type. [confirmed]
+
+Render-record type `0x27` dispatches to the radical handler at `34:62A1`. It
+emits the ten-byte root-hook bitmap through `34:62D0`, draws the vertical stem,
+selects child 1, and reads that child's word at offset `+7`. It then draws the
+inclusive vinculum from `(2,0)` through `(w+3,0)` and renders child 1 through
+`34:660A`. The cursor-free history redraw for `sqrt(X^2+1)` has height 8 and a
+child `+7` width of `0x17`. It reaches the wrappers with stem
+`(2,1)`–`(2,7)` and vinculum `(2,0)`–`(0x1A,0)`. This produces the 26-pixel
+rendered width. The final editable-entry redraw has child width `0x1D` and a
+vinculum endpoint of `0x20`; cursor and edit-state geometry therefore remain
+separate from history-echo geometry. [confirmed]
+
+The fixed 20-byte record header contains a two-byte ID at `+0`, a type byte at
+`+2`, eight unaligned little-endian words at `+3`, `+5`, `+7`, `+9`, `+0x0B`,
+`+0x0D`, `+0x0F`, and `+0x11`, and a byte at `+0x13`. The analyzer names words
+by offset until each render type establishes its meaning. Words following the
+root header are child IDs. `34:6CCD` passes an ID through `34:4B05` and
+`34:4A83` to resolve the child record; these words are not RAM pointers.
+[confirmed]
 
 Exact point counts matter here. The resolver's `--funcs` mode groups an
 instruction under the nearest preceding symbol. It places 69 instructions in

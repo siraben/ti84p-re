@@ -63,6 +63,12 @@ function smallGlyph(code) {
 // of the next glyph rather than pushing it over). Like the OS pen pipeline.
 function adv(box) { return box.adv != null ? box.adv : bw(box); }
 
+// A record's +7 width includes the trailing structural edge that bitmap
+// cropping omits. Preserve it separately from both ink width and pen advance.
+function recordWidth(box) {
+  return box.recordWidth != null ? box.recordWidth : adv(box) + 1;
+}
+
 // Horizontal layout, aligned on the math axis (baseline). Each box is drawn
 // (OR'd) at its pen x; the pen moves by adv()+gap, so a low-adv box lets the
 // next one overhang it at non-colliding rows.
@@ -85,7 +91,7 @@ function hcat(boxes, gap = GAP) {
         if (b.rows[y][x]) out[top + y][xs[k] + x] = 1;
     marks.push(...shift(b.marks, xs[k], top));
   });
-  return { rows: out, baseline: above, marks, adv: pen };
+  return { rows: out, baseline: above, marks, adv: pen, recordWidth: pen + 1 };
 }
 
 function trim(box) {
@@ -247,21 +253,30 @@ function radical(radicand) {
   // root with its leading blank intact (trimExp keeps it), so the bar runs from the
   // root across exactly that advance.
   const radvance = Math.max(bw(rad), adv(radicand));
+  const childRecordWidth = recordWidth(radicand);
   const h = bh(rad) + 2;                       // vinculum + 1 px gap above radicand
   const root = stretch(trim(largeGlyph(0x10)), h, 3);
-  const rw = bw(root), w = rw + radvance;
+  const operations = ROM_ENGINE
+    ? ROM_ENGINE.settledRadicalOperations(h, childRecordWidth)
+    : null;
+  const rw = bw(root);
+  const rule = operations ? operations[3] : {from:{x:rw,y:0}, to:{x:rw+radvance-1,y:0}};
+  const w = Math.max(rw + radvance, rule.to.x + 1);
   const out = blank(h, w);
   for (let y = 0; y < bh(root); y++)
     for (let x = 0; x < rw; x++) if (root.rows[y][x]) out[h - bh(root) + y][x] = 1;
   for (let y = 0; y < bh(rad); y++)
     for (let x = 0; x < bw(rad); x++) if (rad.rows[y][x]) out[2 + y][rw + x] = 1;
-  for (let x = rw; x < w; x++) out[0][x] = 1;  // vinculum
-  const marks = shift(rad.marks, rw, 2).concat([
+  for (let x = rule.from.x; x <= rule.to.x; x++) out[0][x] = 1;
+  const marks = [
     { ch: '√ Lroot', x: 0, y: h - bh(root), w: rw, h: bh(root), type: 'glyph',
-      font: 'large', via: 'Lroot 07:466F (stretched)' },
-    { ch: '─ vinculum', x: rw, y: 0, w: w - rw, h: 1, type: 'rule',
-      via: 'graph-buffer rule' },
-  ]);
+      font: 'large', via: operations ? operations[0].routine : 'Lroot 07:466F (stretched)' },
+    { ch: '√ stem', x: 2, y: 1, w: 1, h: Math.max(1, h - 1), type: 'rule',
+      via: operations ? operations[1].routine : 'modeled radical stem' },
+    { ch: '─ vinculum', x: rule.from.x, y: 0, w: rule.to.x-rule.from.x+1, h: 1, type: 'rule',
+      via: operations ? operations[3].routine : 'graph-buffer rule' },
+    ...shift(rad.marks, rw, 2),
+  ];
   return { rows: out, baseline: (h >> 1) + 1, marks };
 }
 
