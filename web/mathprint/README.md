@@ -51,26 +51,31 @@ Render-record type `0x21` executes the absolute-value bar pair followed by its
 child. Type `0x24` executes nth-root index, hook, stem, radicand, and vinculum
 operations in ROM order.
 
-The complete render table at `34:6119`, types `0x1F`–`0x2B`, is represented by
-an executable record-graph walker. The walker resolves child IDs, applies each
-child's `+0x0B`/`+0x0D` local origin, preserves depth changes, and emits ordered
-glyph, bitmap, point, line, compound-shape, and leaf operations. Live settled
-traces identify types `0x23`, `0x25`, `0x26`, `0x28`, `0x29`, and `0x2B` as
-`nDeriv(`, $e^x$, $10^x$, `logBASE(`, summation, and a dimensioned matrix.
-The data-dependent `nDeriv(` pattern branch remains explicit in the operation
-stream rather than assigning an unverified fixed glyph.
+The complete structural render table at `34:6119`, types `0x1F`–`0x2B`, is
+represented by an executable record-graph walker. The walker resolves child
+IDs, applies each child's `+0x0B`/`+0x0D` local origin, preserves depth changes,
+and emits ordered glyph, bitmap, point, line, compound-shape, and leaf
+operations. A full settled expression enters through a type-`0x00` leaf program
+at `34:660A`. Its payload invokes structural records inline. The program
+executor for that outer layer remains in progress. Live settled traces identify
+types `0x23`, `0x25`, `0x26`, `0x28`, `0x29`, and `0x2B` as `nDeriv(`, $e^x$,
+$10^x$, `logBASE(`, summation, and a dimensioned matrix. The data-dependent
+`nDeriv(` pattern branch remains explicit in the operation stream rather than
+assigning an unverified fixed glyph.
 
 `tools/analyze_mathprint_records.py` replays a full-range TLMT memory snapshot
 and writes, then captures 20-byte root/current records only when `34:6105` uses
 the render table at `34:6119`. The decoder preserves offset-based field names
 until a handler establishes a type-specific meaning. `--graph-json` exports
-the last dispatched graph in the JavaScript walker's node format. It pairs
+the final settled record program and its reachable nodes. It selects the first
+post-key `34:660A` entry at the shallowest Z80 stack depth. The exporter pairs
 parent/index observations at `34:6CCD` with the resolved child ID and record
 pointer at `34:6CD8`, so the export includes structural records, leaf records,
 and leaf payload bytes beginning at `+0x13`. The ordered `dispatches` array
 retains secondary structural passes constructed while rendering a leaf, such
-as an exponent or nested fraction. Each dispatch also records the live
-`ram:8DFE`/`ram:8E00` viewport origin used by the primitive wrappers.
+as an exponent or nested fraction. An `EF type id_lo id_hi` payload sequence
+references one of those structural records. Each dispatch also records the
+live `ram:8DFE`/`ram:8E00` viewport origin used by the primitive wrappers.
 
 `app.js` is organized in sections: box primitives → layout constructs → text runs
 → expression parser → canvas rendering → UI. A "box" is `{rows, baseline, marks,

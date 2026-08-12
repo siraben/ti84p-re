@@ -499,11 +499,13 @@ the dimensions at record bytes `+0x12` and `+0x13`. A settled $2\times2$
 identity matrix renders four children between the bracket operations.
 [confirmed]
 
-`web/mathprint/rom-engine.js` implements the complete `0x1F`–`0x2B` dispatch
-table as an executable record-graph walker. It resolves child IDs through a
-node map, adds each child record's `+0x0B` and `+0x0D` origins on recursive
-entry, preserves the handler's depth changes, and returns ordered primitive and
-leaf operations. The `nDeriv(` handler retains two explicit dynamic operations:
+`web/mathprint/rom-engine.js` implements the complete `0x1F`–`0x2B` structural
+dispatch table as an executable record-graph walker. It resolves child IDs
+through a node map, adds each child record's `+0x0B` and `+0x0D` origins on
+recursive entry, preserves the handler's depth changes, and returns ordered
+primitive and leaf operations. A settled expression enters this layer from a
+type-`0x00` leaf program at `34:660A`; executing that outer byte stream remains
+open. The `nDeriv(` handler retains two explicit dynamic operations:
 `34:78B8`/`34:78FB` parses child 1 to choose a pattern, and the later `0x3D`
 position uses the post-branch `DE` high byte. [confirmed]
 
@@ -517,9 +519,16 @@ Leaf payload begins at record offset `+0x13`; the word at `+0x11` gives its
 byte count. A one-byte scalar therefore stores its display byte at `+0x13`.
 Compound leaf objects retain the subsequent bytes in the same record. A leaf
 may construct and dispatch another structural record while it renders. The
-analyzer preserves these secondary dispatches in instruction order and uses
-the shallowest Z80 stack depth after the final key press to identify the
-enclosing record. [confirmed]
+analyzer preserves these secondary dispatches in instruction order. It uses the
+first `34:660A` entry at the shallowest Z80 stack depth after the final key press
+to identify the enclosing leaf program. [confirmed]
+
+Within that program, `EF type id_lo id_hi` invokes the structural record with
+the given little-endian ID. `EF 2D` terminates or separates the embedded object
+without drawing it. Ordinary payload bytes may follow. The settled
+`sum(N,1,3,N^2)` entry invokes type `0x29`, emits `N`, invokes type `0x2A`, and
+then closes the exponent object. This byte order matches the structural
+dispatch and glyph trace order. [confirmed]
 
 Each dispatch also captures the viewport origin at `ram:8DFE`/`ram:8E00`.
 Nested fraction `1/2` reaches `34:5DA6` with the local rule `(1,6)`–`(5,6)`

@@ -12,6 +12,7 @@ from analyze_mathprint_records import (
     DecodedRecord,
     DispatchSnapshot,
     decode_record_header,
+    embedded_structural_records,
     graph_node_json,
     record_node_json,
     record,
@@ -94,6 +95,19 @@ class MathPrintRecordTests(unittest.TestCase):
             (300, 0x13, 0xFFBB, 0, 0),
             select_entry_dispatch(dispatches, 250),
         )
+
+    def test_finds_embedded_structural_records_in_program_order(self):
+        payload = (
+            0xEF, 0x29, 0x13, 0x00, 0xEF, 0x2D, 0x4E,
+            0xEF, 0x2A, 0x18, 0x00, 0xEF, 0x2D,
+        )
+        self.assertEqual(
+            ((0x29, 0x0013), (0x2A, 0x0018)),
+            embedded_structural_records(payload),
+        )
+
+    def test_does_not_treat_an_extended_leaf_token_as_a_record(self):
+        self.assertEqual((), embedded_structural_records((0xEF, 0x1E)))
 
     def test_captures_leaf_payload_from_offset_13(self):
         memory = bytearray(0x10000)

@@ -33,6 +33,7 @@ from tilem_trace_resolve import (
 
 RENDER_DISPATCH = ("page_34", 0x6105)
 RENDER_TABLE = 0x6119
+RENDER_ENTRY = ("page_34", 0x660A)
 SELECT_CHILD = ("page_34", 0x6CCD)
 CHILD_SELECTED = ("page_34", 0x6CD8)
 ROOT_POINTER = 0x8DF2
@@ -208,6 +209,27 @@ def select_entry_dispatch(
     return next(item for item in candidates if item[2] == shallowest_stack)
 
 
+def embedded_structural_records(payload: tuple[int, ...]) -> tuple[tuple[int, int], ...]:
+    """Return ``EF type id_lo id_hi`` references in leaf-program order."""
+
+    result: list[tuple[int, int]] = []
+    index = 0
+    while index < len(payload):
+        if (
+            index + 3 < len(payload)
+            and payload[index] == 0xEF
+            and 0x1F <= payload[index + 1] <= 0x2B
+        ):
+            result.append((
+                payload[index + 1],
+                payload[index + 2] | payload[index + 3] << 8,
+            ))
+            index += 4
+            continue
+        index += 1
+    return tuple(result)
+
+
 def resolved_record_graph(
     trace: Path,
     *,
@@ -215,7 +237,7 @@ def resolved_record_graph(
     initial_mapping: str = "ti84p-reset",
     resync: bool = False,
 ) -> dict[str, object]:
-    """Recover the last dispatched structural graph and its resolved records.
+    """Recover the final settled record program and its resolved records.
 
     ``34:6CCD`` receives a one-based child index in ``DE`` and resolves the ID
     stored after the parent's 20-byte header. At ``34:6CD8``, ``DE`` is that ID
@@ -228,6 +250,7 @@ def resolved_record_graph(
     nodes: dict[int, RecordSnapshot] = {}
     edges: dict[int, dict[int, int]] = {}
     dispatches: list[tuple[int, int, int, int, int]] = []
+    entries: list[tuple[int, int, int, int, int]] = []
     pending: tuple[int, int, int] | None = None
     last_key_press = 0
 
@@ -268,6 +291,17 @@ def resolved_record_graph(
                         word(memory, X_ORIGIN),
                         word(memory, Y_ORIGIN),
                     ))
+                elif site == RENDER_ENTRY:
+                    entry = record(memory, word(memory, CURRENT_POINTER))
+                    entry_id = decode_record_header(entry.header).record_id
+                    nodes[entry_id] = entry
+                    entries.append((
+                        instruction_index,
+                        entry_id,
+                        payload[IDX_SP],
+                        word(memory, X_ORIGIN),
+                        word(memory, Y_ORIGIN),
+                    ))
                 elif site == SELECT_CHILD:
                     parent = record(memory, word(memory, ROOT_POINTER))
                     parent_id = decode_record_header(parent.header).record_id
@@ -298,19 +332,21 @@ def resolved_record_graph(
                     pending = None
             instruction_index += 1
 
-    if not dispatches:
-        return {"trace": str(trace), "root_id": None, "nodes": []}
+    if not entries:
+        return {
+            "trace": str(trace), "entry_id": None, "root_id": None,
+            "entries": [], "dispatches": [], "nodes": [],
+        }
 
-    # A final key may trigger several structural dispatches. Summation first
-    # dispatches its 0x29 operator record, then reaches a 0x2A exponent wrapper
-    # from child 4's object renderer. The entry record is the first dispatch at
-    # the shallowest Z80 stack depth after the last injected key press.
+    # A final key may enter 34:660A several times. The enclosing leaf program is
+    # the first entry at the shallowest Z80 stack depth after that key. Nested
+    # structural handlers re-enter 34:660A lower on the stack for their children.
+    _entry_instruction, entry_id, _entry_stack, entry_x, entry_y = (
+        select_entry_dispatch(entries, last_key_press)
+    )
     final_dispatches = [item for item in dispatches if item[0] >= last_key_press]
     if not final_dispatches:
         final_dispatches = dispatches
-    _root_dispatch, root_id, _stack, _x_origin, _y_origin = select_entry_dispatch(
-        dispatches, last_key_press
-    )
     reachable: list[int] = []
     active: set[int] = set()
 
@@ -333,11 +369,24 @@ def resolved_record_graph(
                 )
             for index in sorted(indexed):
                 visit(indexed[index])
+        for embedded_type, embedded_id in embedded_structural_records(
+            nodes[record_id].payload
+        ):
+            if embedded_id not in nodes:
+                raise ValueError(
+                    f"record 0x{record_id:04X} embeds unresolved structural "
+                    f"record 0x{embedded_id:04X}"
+                )
+            decoded = decode_record_header(nodes[embedded_id].header)
+            if decoded.render_type != embedded_type:
+                raise ValueError(
+                    f"record 0x{record_id:04X} embeds type 0x{embedded_type:02X} "
+                    f"but record 0x{embedded_id:04X} has type 0x{decoded.render_type:02X}"
+                )
+            visit(embedded_id)
         active.remove(record_id)
 
-    visit(root_id)
-    for _index, dispatched_id, _stack, _x_origin, _y_origin in final_dispatches:
-        visit(dispatched_id)
+    visit(entry_id)
     graph_nodes = []
     for record_id in reachable:
         indexed = edges.get(record_id, {})
@@ -345,7 +394,20 @@ def resolved_record_graph(
         graph_nodes.append(record_node_json(nodes[record_id], child_ids))
     return {
         "trace": str(trace),
-        "root_id": root_id,
+        "entry_id": entry_id,
+        # Retain the old name while consumers migrate to entry_id.
+        "root_id": entry_id,
+        "origin": {"x": entry_x, "y": entry_y},
+        "entries": [
+            {
+                "instruction_index": index,
+                "record_id": record_id,
+                "stack_pointer": stack,
+                "origin": {"x": x_origin, "y": y_origin},
+            }
+            for index, record_id, stack, x_origin, y_origin in entries
+            if index >= last_key_press
+        ],
         "dispatches": [
             {
                 "instruction_index": index,
@@ -383,7 +445,7 @@ def main() -> None:
     parser.add_argument(
         "--graph-json",
         action="store_true",
-        help="write de-duplicated root nodes accepted by executeSettledRecordGraph",
+        help="write the final settled record program and its reachable nodes",
     )
     args = parser.parse_args()
     if args.from_index < 0:
@@ -392,6 +454,15 @@ def main() -> None:
         parser.error("--children must be nonnegative")
     if args.limit < 0:
         parser.error("--limit must be nonnegative")
+
+    if args.graph_json:
+        json.dump(resolved_record_graph(
+            args.trace,
+            from_index=args.from_index,
+            resync=args.resync,
+        ), fp=sys.stdout, indent=2)
+        print()
+        return
 
     snapshots = []
     counts: Counter[int] = Counter()
@@ -404,15 +475,6 @@ def main() -> None:
         counts[snapshot.render_type] += 1
         if not args.limit or len(snapshots) < args.limit:
             snapshots.append(snapshot)
-
-    if args.graph_json:
-        json.dump(resolved_record_graph(
-            args.trace,
-            from_index=args.from_index,
-            resync=args.resync,
-        ), fp=sys.stdout, indent=2)
-        print()
-        return
 
     if args.json:
         json.dump(
