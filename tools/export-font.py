@@ -17,8 +17,11 @@ Output (committed; the CI wiki build has no ROM):
 Usage: python3 tools/export-font.py [--rom tools/rom.bin]
 """
 import argparse
+import hashlib
 import json
 import os
+
+from rom_signatures import TI84_PLUS_OS_255MP_SHA256
 
 LARGE_PAGE, LARGE_ADDR, LARGE_STRIDE, LARGE_W, LARGE_ROWS = 0x07, 0x45FF, 7, 5, 7
 SMALL_PAGE, SMALL_ADDR, SMALL_STRIDE, SMALL_ROWS = 0x03, 0x4CD6, 8, 7
@@ -71,6 +74,7 @@ def extract(rom):
 
 def write_json(path, large, small):
     data = {
+        "romSha256": TI84_PLUS_OS_255MP_SHA256,
         "large": {"page": LARGE_PAGE, "addr": LARGE_ADDR, "stride": LARGE_STRIDE,
                   "width": LARGE_W, "rows": LARGE_ROWS, "glyphs": large},
         "small": {"page": SMALL_PAGE, "addr": SMALL_ADDR, "stride": SMALL_STRIDE,
@@ -94,6 +98,11 @@ def main():
     if not os.path.exists(args.rom):
         raise SystemExit(f"ROM image not found: {args.rom} (copyrighted, gitignored)")
     rom = open(args.rom, "rb").read()
+    digest = hashlib.sha256(rom).hexdigest()
+    if digest != TI84_PLUS_OS_255MP_SHA256:
+        raise SystemExit(
+            f"ROM SHA-256 mismatch: expected {TI84_PLUS_OS_255MP_SHA256}, got {digest}"
+        )
     large, small = extract(rom)
     write_json(args.json, large, small)
     print(f"wrote {args.json} ({len(large)} large glyphs, {len(small)} small glyphs)")

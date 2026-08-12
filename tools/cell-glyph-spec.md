@@ -48,10 +48,13 @@ Dispatch on **D**:
    If `D = 0xFD`, force `D = 0x00` (`16 00` at `4EE1`) before:
 3. **`call 6B66` (named-token string draw)** — if `D = 0xFB` and `E` is one of
    the special "named" codes, an inline Pascal string is drawn (see §6).
-   Otherwise `bcall 0xC945` draws the pair `D:E` as a **TI token, by name**.
+   Otherwise `_KeyToString` (`bcall 0x45CA`, body `01:6D10`) selects a
+   counted display string from the pair `D:E`.
    This is the path that renders e.g. a `00:E` cell as a function name.
 4. **`call 4F1A` (`eqdisp_map_token_glyph`)** — if it returns **NC**, A holds a
-   large-font codepoint and `bcall 0x51F4` (page35:60D1) draws that glyph.
+   large-font codepoint. The tail then reaches `bcall 0x51F4`; its resolved
+   target is a post-overflow display/menu helper, so this boundary alone does
+   not identify the final glyph blitter.
    If it returns **C** (carry), the cell was *not* remappable to a single glyph
    and the draw already happened in step 3 (token name) or is a no-op.
    - On the carry path: `D = 0xFF` or `D = 0xFC` → finished; `E = 0x55` →
@@ -217,13 +220,13 @@ For `D = 0x00` the cell takes the **generic path** (§1.1). `4F1A` returns carry
 (D=0 matches none of FC/FE/xx42), so no single-glyph mapping; instead the draw
 happens inside `6B66`:
 
-- `6B66` (`39:6B66`): `D ≠ 0xFB` ⇒ falls to `l6B9C`: `rst 28h` `ca 45 c9`
-  = `bcall 0xC945`. This is the generic **token-name string drawer**: it takes
-  the 2-byte value `D:E` as a TI token and renders the token's NAME using the
-  font. Hence `00C8` draws the *name* `fnInt(`, not a glyph.
+- `6B66` (`39:6B66`): `D ≠ 0xFB` falls to `39:6B9C`, whose complete bytes are
+  `EF CA 45 C9`: `_KeyToString` (`bcall 0x45CA`) followed by `RET`.
+  `_KeyToString` uses the pair `D:E` to select a counted display string. The
+  branch-specific index arithmetic is documented in `tools/token-name-spec.md`.
 
-So a `00:E` cell is interpreted as the (synthetic) two-byte token `0x00,E` and
-its **name string** is typeset. (Contrast: `FB:E` specials in §6 use inline
+So a `00:E` cell selects a `_KeyToString` display string. It is not a direct
+index into the standard token table. (Contrast: `FB:E` specials in §6 use inline
 hardcoded strings; `1F` is a cursor action; FC/FE/xx42 from §2 are single
 glyphs.)
 
@@ -262,8 +265,8 @@ string** drawn via `bcall 0x192B` / `(097F2h)`:
 | `FBD7`      | 0xD7 | `DEC Answer` (10 bytes, `6BD7`) |
 | `FBD8`      | 0xD8 | `FRAC Answer` (11 bytes, `6BCB`) |
 
-Any other `FB:E` (and any non-FB pair on this path) falls through to the generic
-`bcall 0xC945` token-name drawer.
+Any other `FB:E` (and any non-FB pair on this path) falls through to
+`_KeyToString` (`bcall 0x45CA`).
 
 ---
 
@@ -283,8 +286,8 @@ Any other `FB:E` (and any non-FB pair on this path) falls through to the generic
 ## Bcalls referenced (resolved from the page-0x3B bcall table)
 
 - `_PutPSB` = `0x450D` → page01:5C52 (draw length-prefixed string).
-- `0xC945` → page01 (token-name drawer used by `6B66`).
-- `0x51F4` → page35:60D1 (draw a single large-font glyph from A).
+- `_KeyToString` = `0x45CA` → `01:6D10` (counted-string selector used by `6B66`).
+- `0x51F4` → `35:60D1` (post-overflow display/menu helper; not a glyph-width service).
 - `0x51E5` (`_scr_4619`) → page05:4619.
 - `03FDB` (page-0, always-mapped) → inter-page trampoline (`call 2B09`,
   3-byte target) into the page-01 glyph blit routine — the low-level char draw.
@@ -293,11 +296,9 @@ Any other `FB:E` (and any non-FB pair on this path) falls through to the generic
 
 ## Unresolved / flagged
 
-- The exact NAME-string source for the generic `bcall 0xC945` token drawer
-  (page-01 routine) was not fully traced; it is the standard OS token-name
-  expander, so `00:E` → name follows OS token semantics. The assertion
-  `00C8 = "fnInt("` is consistent with this path but the OS token table itself
-  was not dumped here.
+- `_KeyToString` uses branch-specific index arithmetic, not the standard token
+  table directly. See `tools/token-name-spec.md` and the byte-anchored
+  `key_to_string_index` verifier in `tools/dump-mathprint-layout.py`.
 - FE-high / FC / FB word tables (§3c–§3e) emit *expanded TI tokens*, not font
   codepoints; resolving those tokens to glyphs requires a second classification
   pass (recursively through `07:44DE` / the OS token drawer). Only the §3a

@@ -271,32 +271,18 @@ penY = `086D8` directly (`62B5`). So small-font advance = the glyph's measured
 ink width (variable). This path renders exponents, integral/Σ limits, and the
 fraction numerator/denominator digits.
 
-### 4.2 Large font — proportional MathPrint glyphs
+### 4.2 Post-overflow display helper
 
-The structural body glyphs are emitted through the cell path `39:4E8E` →
-(`4F1A` NC) → **`bcall 0xC951`** at `39:4F04` (raw `ef 51 c9` = `rst 28h`,
-ID `0xC951`). `0xC951` has bit 15 set, so its dispatcher entry is read from the
-**RAM-resident** relocated bcall table (`res 7,d` → `0x4951`, page forced 0x7F);
-its flash body cannot be read statically (same situation as `0xC945`, the
-token-name drawer — see `tools/token-name-spec.md §1`). This is the proportional
-large-glyph drawer that advances penX by each glyph's rendered width.
+The bytes at `39:4F04` are `EF F4 51 C9`: `bcall 0x51F4`, followed by `RET`.
+The page-`0x3B` bcall table resolves `0x51F4` to `35:60D1`. That target uses
+fixed graph-pen positions and page-`0x01` display helpers; the byte-anchored
+scan finds no references to the measured fraction fields `0x85EE`, `0x85EF`,
+or `0x9D27`. It is therefore a post-overflow display/menu helper, not evidence
+for a proportional MathPrint glyph-width service. [confirmed]
 
-Its advance rule is pinned by the live trace of `int(1,2,X^2,X)` body:
-
-```
-glyph   penX   advance
-  (      16      —
-  X      24     +8   (open-paren is the wide cell)
-  )      30     +6
-  d      36     +6
-  X      42     +6
-```
-
-**Rule:** large-font body glyphs advance penX by their **proportional width**:
-≈ **6 px** for ordinary glyphs (digits, letters, `d`, `)`), and **8 px** for the
-wider parenthesis/operator cells. penY is the baseline `curRow × 8` (§0.1). The
-6-px nominal stride is the large font's standard advance; the parenthesis cell is
-2 px wider.
+The `C9` byte after the bcall is a `RET`, not the high byte of a `0xC951`
+bcall ID. Body-glyph advance remains trace-observed rather than statically
+attributed here.
 
 ### 4.3 The classic hardware large font (`_PutMap`, `01:5A98`)
 
@@ -309,8 +295,8 @@ positioning is by the **hardware text grid**, not pixel penX:
          c6 20         ; + 0x20   -> LCD column register (out (010h))
 ```
 i.e. curCol selects a fixed 6-px hardware text column (`column reg = (curCol &
-0x1F) + 0x20`). This is the fixed-pitch path; the proportional MathPrint body uses
-§4.2 instead.
+0x1F) + 0x20`). This is the fixed-pitch path. The owner of MathPrint body
+advance is still unresolved (§4.2).
 
 ---
 
@@ -340,7 +326,7 @@ Summation (Σ) limits: stacked & centered over/under the sign (same small-font p
 
 Body glyph advance:
   small/variable font (_VPutMap 01:6293): penX += measured glyph width
-  large proportional (bcall 0xC951):      penX += ~6 px (parens/wide ops ~8 px)
+  MathPrint body glyph advance:            not statically attributed here
   classic hardware (_PutMap 01:5A98):     LCD col reg = (curCol & 0x1F) + 0x20  (6-px pitch)
 ```
 
@@ -348,17 +334,16 @@ Body glyph advance:
 
 ## 6. Flagged / unresolved
 
-- **Proportional large-glyph widths are not statically derivable.** The body
-  drawer `bcall 0xC951` (and the token-name drawer `0xC945`) live in the
-  RAM-resident relocated bcall table (bit-15 IDs); their flash bodies cannot be
-  read from the ROM. The ≈6 px / 8 px advances in §4.2 are pinned by the live
-  pen-coordinate trace, not by reading the width table.
+- **Body-glyph advance is unresolved.** The observed coordinates do not, by
+  themselves, identify the routine that owns each advance. In particular,
+  `0x51F4` is not that routine. The `0x51F4` boundary is [confirmed]; ownership
+  of the observed advances remains [hypothesis].
 - **Σ vs ∫ limit centering.** `39:5167` selects the operator template, but the
   exact x-centering offset for the stacked Σ limits (vs ∫ corner limits) is set in
   the slot-marker/operand emitters (`4E0A`, `5B10`/`5B1D`) using the measured limit
   width; the precise centering arithmetic was not isolated to a single constant.
-- **The `683D` grid is transposed** relative to the `docs/sub-equation-display.md`
-  prose (`x = base_x + 7·col`). The bytes put the 7-step into **penY** (via the
+- **The `683D` grid is transposed** relative to a common intuitive row/column
+  reading. The bytes put the 7-step into **penY** (via the
   `0x85E0` slot counter) and the `rowHeight+2` step into **penX** (via the
   `0x85DF` row counter). The formula in §1 is the byte-accurate one; this only
   governs the **descriptor menu/template** grids, not the main expression body

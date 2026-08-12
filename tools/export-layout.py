@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Extract the page-0x39 MathPrint layout tables from the ROM into JSON.
+"""Extract selected page-0x39 MathPrint layout tables from the ROM into JSON.
 
 The page-0x39 typesetter is data-driven: a class table at 39:5E45 maps each
-layout class to a handler record, and each record encodes the rows/cells that
-lay out that construct. This dumps that data so the interactive renderer can
-walk the real records instead of approximating per-construct geometry.
+layout class to a handler record, and each record encodes rows and cells. This
+artifact supports record inspection; the interactive renderer does not consume
+it.
 
 Output: web/mathprint/layout.json
   { handlerTable, classCount,
@@ -12,8 +12,11 @@ Output: web/mathprint/layout.json
     descriptors: [ {addr, base_yx, box_yx, row_height, cols_rows, cell_ptr, cells:[[d,e],...]} ] }
 """
 import argparse
+import hashlib
 import json
 import os
+
+from rom_signatures import TI84_PLUS_OS_255MP_SHA256
 
 PAGE = 0x39
 HANDLER_TABLE = 0x5E45
@@ -62,7 +65,9 @@ def parse_descriptor(rom, addr):
     cells = []
     if 0x4000 <= cell_ptr < 0x8000:
         co = romoff(PAGE, cell_ptr)
-        for i in range(16):                       # read a bounded window of cells
+        cols = cols_rows & 0xFF
+        rows = cols_rows >> 8
+        for i in range(cols * rows):
             cells.append([rom[co + 2 * i], rom[co + 2 * i + 1]])
     return {"addr": addr, "base_yx": base_yx, "box_yx": box_yx,
             "row_height": row_height, "cols_rows": cols_rows,
@@ -79,6 +84,11 @@ def main():
     if not os.path.exists(args.rom):
         raise SystemExit(f"ROM not found: {args.rom} (copyrighted, gitignored)")
     rom = open(args.rom, "rb").read()
+    digest = hashlib.sha256(rom).hexdigest()
+    if digest != TI84_PLUS_OS_255MP_SHA256:
+        raise SystemExit(
+            f"ROM SHA-256 mismatch: expected {TI84_PLUS_OS_255MP_SHA256}, got {digest}"
+        )
 
     classes = []
     for cls in range(HANDLER_COUNT):
@@ -88,6 +98,7 @@ def main():
             entry.update(rec)
         classes.append(entry)
     data = {
+        "romSha256": TI84_PLUS_OS_255MP_SHA256,
         "handlerTable": HANDLER_TABLE,
         "classCount": HANDLER_COUNT,
         "classes": classes,
