@@ -38,6 +38,7 @@ arbitrary-expression compositor is still reconstructed rather than translated.
 | `export-layout.py` | ROM → `layout.json` (handler records, descriptors) |
 | `interp-cells.js` | command-line view of the browser's executable record-cell interpreter |
 | `analyze_mathprint_draw_trace.py` | attribute visible LCD mutations to dynamic page `0x34` and pixel-emitter call frames |
+| `InspectFunctions.java` | create temporary page-aware function entries and print focused Ghidra decompilation |
 | `trace_lcd.py` | replay reset-origin TilEm LCD I/O with its pinned T6A04 model |
 | `parity-mathprint.py` | render an expression in TilEm and diff it against the model |
 | `export-mathprint-draw-order.py` | export ordered set/clear pixel mutations from hash-pinned TLMT traces |

@@ -2,16 +2,17 @@
 
 MathPrint is the OS subsystem that turns a tokenized expression into a two-dimensional
 screen layout. It is used by the homescreen entry line, the Y= editor, the Solver
-equation line, and the template menus. The implementation is concentrated on flash page
-`39` and drives the display services described in [Display and LCD](display-lcd.md).
+equation line, and the template menus. Page `39` handles template editing and
+record selection. The settled homescreen redraw traverses display objects on
+page `34`. Both paths drive the services described in [Display and LCD](display-lcd.md).
 It consumes the token stream described in [Tokenizer & TI-BASIC](tokenizer-basic.md)
 and preserves the OP registers described in [Floating-point engine](floating-point.md).
 
-The engine is a cell-grid typesetter. The OS classifies each token,
-selects a compact handler record, walks the expression into rows and slots, maps each
-cell to pixel coordinates, and emits glyphs or graph-buffer rules. The live state is a
-small RAM block, a few display variables, and ROM tables — a flat cell grid, not a
-recursively allocated box tree.
+The editor path is a cell-grid typesetter. The OS classifies each token, selects
+a compact handler record, walks the expression into rows and slots, maps each
+cell to pixel coordinates, and emits glyphs or graph-buffer rules. A page `34`
+object walker redraws the settled expression through page `01` glyph output and
+page `04` line and point routines. [confirmed]
 
 ```mermaid
 flowchart TD
@@ -27,6 +28,9 @@ flowchart TD
     cell --> glyph["07:4588 / 01:6293<br/>glyph output"]
     geom --> rules["39:6ABF / ram:3555<br/>rules and rectangles"]
 ```
+
+The diagram shows the page `39` editor path. It does not describe the page `34`
+settled-expression walker. [confirmed]
 
 ## Core state
 
@@ -380,8 +384,8 @@ writes that change 522 pixels; the nested trace contains 391 writes that change
 interactive preview can replay the controller's write order instead of an
 inferred glyph order. [confirmed]
 
-| Scenario | Exact page `0x39` entry hits | Final state | LCD replay |
-|----------|----------------------------|-------------|------------|
+| Scenario | Page `0x39` editing hits | Final state | Settled LCD replay |
+|----------|--------------------------|-------------|--------------------|
 | `int(1,2,X^2,X)` | `4CA4` ×1, `4DCA` ×2, `4DE6` ×1, `4E8E` ×7, `4F1A` ×14 | `0x85E1=04`, `0x85E8=00` | 43×20; zero pixels differ from the model. |
 | `int(1,2,(1//2)X,X)` | The same handler entries, plus `683D` ×5, `68AE` ×1, and `69C8` ×1 | `0x85E8=10`, `0x85EB=06`, `0x85EE=02`, `0x85EF=02` | 47×23; zero pixels differ from the model. |
 
@@ -391,6 +395,19 @@ cell mapper and geometry selector, confirming that handler-record emission and
 descriptor geometry compose in one rendered expression. Neither trace reaches
 the exact entries `39:5167`, `39:5949`, `39:5B10`, `39:5B1D`, or `39:6ABF`.
 [confirmed]
+
+These page `39` entries occur before the final **GRAPHVAR** key press. The
+settled redraw after that key does not re-enter them. It calls `34:6D26` and
+`34:737A` from `34:4347` and `34:434A`, then traverses the display objects from
+`34:6016`. [confirmed]
+
+For the nested scenario, `tools/analyze_mathprint_draw_trace.py` attributes all
+391 visible-changing writes after the final key. The nearest page `34` frames
+are `34:5FE7` → `ram:34E9` (158 writes), `34:6CA8` → `ram:3CE1` (96),
+`34:5DA2` → `ram:3573` (78), `34:5EA3` → `ram:3567` (24), and `34:5DBA` →
+`ram:3579` (10). The remaining 25 writes precede the page `34` object traversal
+and come from the large-font path. The fixed-page stubs dispatch to page `04`
+line and point routines and page `01:6297` small-font output. [confirmed]
 
 Exact point counts matter here. The resolver's `--funcs` mode groups an
 instruction under the nearest preceding symbol. It places 69 instructions in
@@ -434,6 +451,9 @@ The class table, decoded handler records, and selected descriptors are extracted
 `web/mathprint/layout.json` by `tools/export-layout.py`;
 the fonts to `web/mathprint/font.json` by
 `tools/export-font.py` (shown on the font-table tab of the interactive
-renderer). `tools/interp-cells.js` is a first-stage classifier for inspecting
-that data. The interactive renderer does not consume `layout.json`; it composes
-ROM font glyphs with a separate, trace-fitted box model. [confirmed]
+renderer). `tools/interp-cells.js` and the browser share the executable
+translations in `web/mathprint/rom-engine.js`. The translated routines consume
+`layout.json` for handler lookup, row-cell iteration, direct glyph and delimiter
+classification, descriptor iteration, fraction endpoints, and class-6 row
+stepping. The arbitrary-expression compositor in `app.js` still uses a separate,
+trace-fitted box model. [confirmed]
