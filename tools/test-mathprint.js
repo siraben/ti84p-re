@@ -130,6 +130,15 @@ objectHandlers.forEach((handler, kind) => expectEqual(`34:7012 object kind ${kin
 let rejectedObjectKind = false;
 try { rom.settledObjectHandler(13); } catch (error) { rejectedObjectKind = error instanceof RangeError; }
 expectEqual('34:7012 object kind bound', rejectedObjectKind, true);
+expectEqual('34:620A fraction primitive order', rom.settledFractionOperations(4, 4, 6), [
+  {kind:'child', index:1, routine:'34:620A → 34:636C'},
+  {kind:'child', index:2, routine:'34:6214 → 34:6378'},
+  {kind:'line', axis:'horizontal', from:{x:1,y:6}, to:{x:5,y:6},
+   routine:'34:622C → 34:5DA6'},
+]);
+expectEqual('34:620A fraction chooses wider child', rom.settledFractionOperations(7, 3, 9)[2],
+  {kind:'line', axis:'horizontal', from:{x:1,y:9}, to:{x:8,y:9},
+   routine:'34:622C → 34:5DA6'});
 expectEqual('34:622F integral primitive order', rom.settledIntegralOperations(0x17), [
   {kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:0x15},
    routine:'34:6239 → 34:5D96'},

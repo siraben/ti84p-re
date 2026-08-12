@@ -433,6 +433,13 @@ Render-record type `0x22` dispatches through `34:6105` and the table at
 height $h$. The handler draws the inclusive stem `(2,1)`–`(2,h-2)`, then hook
 points `(3,0)`, `(4,1)`, `(1,h-1)`, and `(0,h-2)`, in that order. [confirmed]
 
+Render-record type `0x20` dispatches to `34:620A`. The handler renders child
+records 1 and 2 through `34:636C` and `34:6378`, then reads each child's word at
+offset `+7`. It draws an inclusive horizontal line from `(1,y)` to
+`(max(w_1,w_2)+1,y)`, where the parent word at offset `+0x0B` supplies $y$.
+The nested-fraction trace reaches the line wrapper with `BC=1`, `DE=5`, and
+`HL=6`, yielding `(1,6)`–`(5,6)`. [confirmed]
+
 Exact point counts matter here. The resolver's `--funcs` mode groups an
 instruction under the nearest preceding symbol. It places 69 instructions in
 the `39:5167` bucket for each scenario even though the entry itself has zero

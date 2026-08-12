@@ -139,19 +139,28 @@ const FRAC_SIDE = 1;     // px of horizontal side-bearing the OS reserves around
                          // ( ( right edge x13, frac bar x17 ) = parens gap 2 + this 1.
 function fraction(num, den) {
   const n = trim(num), d = trim(den);   // the OS stacks tight small-font digits
-  const inner = Math.max(bw(n), bw(d)) + FRAC_PAD;
+  const ruleY = bh(n) + 1;
+  const operations = ROM_ENGINE
+    ? ROM_ENGINE.settledFractionOperations(bw(n) + 1, bw(d) + 1, ruleY)
+    : null;
+  const rule = operations ? operations[2] : {
+    from:{x:FRAC_SIDE,y:ruleY},
+    to:{x:FRAC_SIDE + Math.max(bw(n), bw(d)) + FRAC_PAD - 1,y:ruleY},
+    routine:'modeled fraction rule',
+  };
+  const inner = rule.to.x - rule.from.x + 1;
   const w = inner + 2 * FRAC_SIDE;      // bar width plus a side-bearing column each side
   const gap = [new Array(w).fill(0)];
   const bar = [new Array(w).fill(0)];
-  for (let x = FRAC_SIDE; x < FRAC_SIDE + inner; x++) bar[0][x] = 1;
+  for (let x = rule.from.x; x <= rule.to.x; x++) bar[0][x] = 1;
   // 1px gap above and below the rule, matching the calculator
   const rows = center(n.rows, w).concat(gap, bar, gap, center(d.rows, w));
   const nPad = (w - bw(n)) >> 1, dPad = (w - bw(d)) >> 1;
-  const barMark = { ch: '─ bar', x: FRAC_SIDE, y: bh(n) + 1, w: inner, h: 1, type: 'rule',
-                    via: 'trace-fitted rule; OS emitter unidentified', vars: 'modeled fraction widths' };
-  // emission order: numerator, rule, denominator
+  const barMark = { ch: '─ bar', x: rule.from.x, y: ruleY, w: inner, h: 1, type: 'rule',
+                    via: rule.routine, vars: 'child +7 widths; parent +0x0B y' };
+  // 34:620A renders both children before tail-calling the rule wrapper.
   const marks = shift(n.marks, nPad, 0)
-    .concat([barMark], shift(d.marks, dPad, bh(n) + 3));
+    .concat(shift(d.marks, dPad, bh(n) + 3), [barMark]);
   return { rows, baseline: bh(n) + 1, marks, kind: 'fraction' };   // math axis = the bar row
 }
 
