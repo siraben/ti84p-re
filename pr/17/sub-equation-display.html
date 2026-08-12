@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d94b300a.js";
+            window.path_to_searchindex_js = "searchindex-2a8269ab.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -575,6 +575,10 @@ axes and passes a clipped horizontal segment to <code>04:4382</code>. The nested
 fraction rule enters <code>34:5DA6</code> with object coordinates <code>x=1</code>–<code>5</code>, <code>y=6</code> and
 origins <code>x=16</code>, <code>y=5</code>. Page <code>04</code> receives endpoints <code>(17,52)</code> and <code>(21,52)</code>.
 [confirmed]</p>
+<p>Render-record type <code>0x22</code> dispatches through <code>34:6105</code> and the table at
+<code>34:6119</code> to <code>34:622F</code>. The word at record offset <code>+7</code> is the integral-sign
+height $h$. The handler draws the inclusive stem <code>(2,1)</code>–<code>(2,h-2)</code>, then hook
+points <code>(3,0)</code>, <code>(4,1)</code>, <code>(1,h-1)</code>, and <code>(0,h-2)</code>, in that order. [confirmed]</p>
 <p>Exact point counts matter here. The resolver’s <code>--funcs</code> mode groups an
 instruction under the nearest preceding symbol. It places 69 instructions in
 the <code>39:5167</code> bucket for each scenario even though the entry itself has zero

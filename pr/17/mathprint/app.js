@@ -305,12 +305,13 @@ function parens(box) {
 // corners, then the body. `inner` is the already-composed body; `signCode` is the
 // large-font glyph; `stem` is the stem-row index to repeat when stretching (null
 // = do not stretch, e.g. Σ whose diagonals do not tile).
-function bigOp(signCode, signName, lo, hi, inner, stem) {
+function bigOp(signCode, signName, lo, hi, inner, stem, signBuilder) {
   const limit = v => trim(typeof v === 'string' ? smallText(v) : v);
   const loB = limit(lo), hiB = limit(hi);
   const symH = Math.max(bh(inner) + bh(hiB) + bh(loB), 11);
-  const sign = stem == null ? trim(largeGlyph(signCode))
-                            : stretch(trim(largeGlyph(signCode)), symH, stem);
+  const sign = signBuilder ? signBuilder(symH)
+    : (stem == null ? trim(largeGlyph(signCode))
+                    : stretch(trim(largeGlyph(signCode)), symH, stem));
   const rw = Math.max(bw(loB), bw(hiB));
   const h = bh(sign);
   const out = blank(h, bw(sign) + 1 + rw);
@@ -335,9 +336,12 @@ function bigOp(signCode, signName, lo, hi, inner, stem) {
     for (let x = 0; x < blockW; x++) if (out[y][x]) grid[y][x] = 1;
   for (let y = 0; y < bh(inner); y++)
     for (let x = 0; x < bw(inner); x++) if (inner.rows[y][x]) grid[bodyTop + y][bodyX + x] = 1;
-  const marks = [
+  const signMarks = signBuilder ? sign.marks : [
     { ch: signName, x: 0, y: 0, w: bw(sign), h, type: 'glyph', font: 'large',
       via: `0x${signCode.toString(16)}` + (stem == null ? '' : ' (stretched)') },
+  ];
+  const marks = [
+    ...signMarks,
     ...shift(hiB.marks, bw(sign) + 1, 0),
     ...shift(loB.marks, bw(sign) + 1, h - bh(loB)),
     ...shift(inner.marks, bodyX, bodyTop),
@@ -349,6 +353,27 @@ function bigOp(signCode, signName, lo, hi, inner, stem) {
   // 4 px past dX = parens' 2 px gap + this 2 px bearing). adv > bw advances the
   // pen that far without widening the bitmap.
   return { rows: grid, baseline: bodyTop + inner.baseline, marks, adv: W + 2 };
+}
+
+function settledIntegralSign(height) {
+  if (!ROM_ENGINE) return stretch(trim(largeGlyph(0x08)), height, 3);
+  const operations = ROM_ENGINE.settledIntegralOperations(height);
+  const rows = blank(height, 5);
+  const marks = [];
+  for (const operation of operations) {
+    if (operation.kind === 'point') {
+      rows[operation.y][operation.x] = 1;
+      marks.push({ch:'∫ hook point', x:operation.x, y:operation.y, w:1, h:1,
+                  type:'point', via:operation.routine});
+      continue;
+    }
+    const y0 = Math.min(operation.from.y, operation.to.y);
+    const y1 = Math.max(operation.from.y, operation.to.y);
+    for (let y = y0; y <= y1; y++) rows[y][operation.from.x] = 1;
+    marks.push({ch:'∫ stem', x:operation.from.x, y:y0, w:1, h:y1-y0+1,
+                type:'rule', via:operation.routine});
+  }
+  return {rows, baseline:height >> 1, marks};
 }
 
 // Definite integral: ∫ with limits, then ( body ) d var. lo/hi may be a string
@@ -373,8 +398,10 @@ function integral(lo, hi, body, varBox) {
     signCode = emitted.output.glyph;
     signVia = `39:${emitted.address.toString(16).toUpperCase()} → 39:4F1A`;
   }
-  const result = bigOp(signCode, '∫ Lintegral', lo, hi, inner, 3);
-  if (result.marks && result.marks.length) result.marks[0].via = signVia;
+  const result = bigOp(signCode, '∫ Lintegral', lo, hi, inner, 3,
+                       settledIntegralSign);
+  if (result.marks && result.marks.length)
+    result.marks[0].via += `; glyph selected by ${signVia}`;
   return result;
 }
 // Summation Σ (MATH>0, glyph 0xC6): the OS stacks the limits vertically - the

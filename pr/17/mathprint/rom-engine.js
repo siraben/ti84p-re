@@ -327,6 +327,23 @@
     };
   }
 
+  // Render-record type 22h dispatches through 34:6105/6119 to 34:622F. The
+  // record's word at +7 is the sign height. The handler emits one inclusive
+  // vertical segment, then four hook points in this exact order.
+  function settledIntegralOperations(height) {
+    byte(height, 'settled integral height');
+    if (height < 3)
+      throw new RangeError('settled integral height must be at least three');
+    return [
+      {kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:height - 2},
+       routine:'34:6239 → 34:5D96'},
+      {kind:'point', x:3, y:0, routine:'34:6244 → 34:5E85'},
+      {kind:'point', x:4, y:1, routine:'34:624B → 34:5E85'},
+      {kind:'point', x:1, y:height - 1, routine:'34:6257 → 34:5E85'},
+      {kind:'point', x:0, y:height - 2, routine:'34:625D → 34:5E85'},
+    ];
+  }
+
   return {
     handlerRecord,
     handlerRow,
@@ -345,5 +362,6 @@
     settledVerticalOperation,
     settledHorizontalOperation,
     settledObjectHandler,
+    settledIntegralOperations,
   };
 });
