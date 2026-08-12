@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3357af02.js";
+            window.path_to_searchindex_js = "searchindex-dc69aa20.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -233,6 +233,38 @@ internal PCR byte needed to reproduce that driver’s expressions.</p>
 <h3 id="connector-contact-names"><a class="header" href="#connector-contact-names">Connector-contact names</a></h3>
 <p>The archived TI Link Protocol Guide calls line 0 red/tip and line 1 white/ring. WikiTI gives the same bit-to-contact mapping. It also describes both lines as open-collector outputs with pull-ups. [standard]</p>
 <p>OS 2.55MP sends a zero bit with write <code>1</code> and a one bit with write <code>2</code>. That agrees with the guide’s rule that zero pulls red/tip first and one pulls white/ring first. [confirmed] for the write values; [standard] for the physical contact names.</p>
+<h3 id="differential-audio-output"><a class="header" href="#differential-audio-output">Differential audio output</a></h3>
+<p>Software can use the two output controls as a three-level differential source.
+If $V_0$ and $V_1$ denote the logical high/low levels of line 0 and line 1,
+the idealized differential signal is $V_0 - V_1$: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Port-<code>0x00</code> write</th><th>Line 0</th><th>Line 1</th><th>Idealized differential state</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0</code></td><td>released/high</td><td>released/high</td><td>zero</td></tr>
+<tr><td style="text-align: right"><code>1</code></td><td>driven low</td><td>released/high</td><td>negative</td></tr>
+<tr><td style="text-align: right"><code>2</code></td><td>released/high</td><td>driven low</td><td>positive</td></tr>
+<tr><td style="text-align: right"><code>3</code></td><td>driven low</td><td>driven low</td><td>zero</td></tr>
+</tbody>
+</table>
+</div>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/link-differential-audio.svg" alt="Port writes 0 and 3 produce two distinct zero-differential states, while writes 1 and 2 produce opposite polarities by pulling one link line low."><span class="img-wrapper"><img src="images/link-differential-audio.svg" alt="Port writes 0 and 3 produce two distinct zero-differential states, while writes 1 and 2 produce opposite polarities by pulling one link line low."></span></label></p>
+<p><strong>Differential state map.</strong> The three-level output follows the [standard]
+open-collector model. It shows logical polarity rather than analog voltage or
+safe loading; those physical properties remain [hypothesis].</p>
+<p>An interrupt routine can therefore write <code>1</code> and <code>2</code> for opposite polarities,
+or use either equal-line state for the midpoint. This is the same
+open-collector digital contract used by link transfers; it is not a separate
+audio peripheral. The repository’s <code>tools/badapple/README.md</code> describes one
+software example and preserves the upstream program’s oscillator and tracker
+encoding. [standard]</p>
+<p>The table does not specify voltage, output impedance, safe load, loudness, or
+analog bandwidth. Those depend on the unmeasured pull-ups, ASIC drive behavior,
+connector load, and edge timing. A physical calculator and load must be
+measured before treating the idealized levels as an electrical schematic.
+[hypothesis]</p>
 <h2 id="sending-one-byte-at-3c420d"><a class="header" href="#sending-one-byte-at-3c420d">Sending one byte at <code>3C:420D</code></a></h2>
 <p><code>_SendAByte = 4EE5</code>, body <code>3C:420D</code>, copies the byte from <code>A</code> to <code>C</code>. The model probe at <code>3C:420E</code> selects the link-assist path when available. The legacy path sends eight bits least-significant first. [confirmed]</p>
 <pre><code class="language-z80">3C:4214  LD B,8
