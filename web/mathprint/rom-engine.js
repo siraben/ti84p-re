@@ -656,8 +656,8 @@
         state.depth--;
         emit(record, origin, operations[1]);
         emit(record, origin, operations[2]);
-        renderChild(2);
         emit(record, origin, operations[4]);
+        renderChild(2);
         break;
       }
       case 0x25:
@@ -951,6 +951,122 @@
     return pixels;
   }
 
+  function settledBlits(operation, font) {
+    if (!font || !font.large || !font.small)
+      throw new TypeError('settled blit translation requires font data');
+    if (operation.kind === 'glyph') {
+      const small = operation.depth !== 0;
+      const glyph = small
+        ? font.small.glyphs[operation.code]
+        : {w:font.large.width,rows:font.large.glyphs[operation.code]};
+      if (!glyph || !Array.isArray(glyph.rows))
+        throw new RangeError(`font has no glyph 0x${operation.code.toString(16)}`);
+      return [{
+        x:operation.x,
+        y:operation.y - (small ? 1 : 0),
+        // 07:45B6 gives the large-font pattern a six-pixel cell and shifts
+        // each five-pixel row left, leaving the pen-advance column clear.
+        width:small ? glyph.w : font.large.width + 1,
+        rows:small ? glyph.rows : glyph.rows.map(row => row << 1),
+      }];
+    }
+    if (operation.kind === 'glyph-run') {
+      const result = [];
+      let x = operation.x;
+      for (const code of operation.codes) {
+        const glyph = operation.depth !== 0
+          ? font.small.glyphs[code]
+          : {w:font.large.width,rows:font.large.glyphs[code]};
+        if (!glyph) throw new RangeError(`font has no glyph 0x${code.toString(16)}`);
+        result.push(...settledBlits({...operation,kind:'glyph',code,x}, font));
+        x += operation.depth !== 0 ? glyph.w : font.large.width + 1;
+      }
+      return result;
+    }
+    if (operation.kind === 'bitmap') {
+      if (!Array.isArray(operation.rows) || operation.rows.length !== operation.height)
+        throw new RangeError('settled bitmap must provide one row mask per row');
+      return [{x:operation.x,y:operation.y,width:operation.width,rows:operation.rows}];
+    }
+    return [];
+  }
+
+  const settledGridByte = (grid, byteColumn, row) => {
+    let value = 0;
+    for (let bit = 0; bit < 8; bit++)
+      value |= grid[row][8 * byteColumn + bit] << (7 - bit);
+    return value;
+  };
+
+  const settledByteChanges = (before, after, byteColumn, row) => {
+    const changes = [];
+    for (let bit = 0; bit < 8; bit++) {
+      const mask = 1 << (7 - bit);
+      if ((before & mask) !== (after & mask))
+        changes.push([8 * byteColumn + bit,row,(after & mask) ? 1 : 0]);
+    }
+    return changes;
+  };
+
+  const settledStoreByte = (grid, byteColumn, row, value) => {
+    for (let bit = 0; bit < 8; bit++)
+      grid[row][8 * byteColumn + bit] = (value >> (7 - bit)) & 1;
+  };
+
+  // Translate the normal settled-render paths into accepted, visible-changing
+  // LCD data writes. Page 4 visits geometry one point at a time. _VPutMap at
+  // 01:6293 replaces the glyph cell row by row and writes a crossing row's
+  // right byte before its left byte (01:63CE–641A).
+  function settledOperationWrites(operation, font, grid) {
+    if (!Array.isArray(grid) || !grid.length || !Array.isArray(grid[0]))
+      throw new TypeError('settled LCD write translation requires a pixel grid');
+    const height = grid.length, width = grid[0].length;
+    if (width % 8)
+      throw new RangeError('settled LCD write grid width must be byte-aligned');
+    const writes = [];
+    const write = (byteColumn, row, value) => {
+      if (byteColumn < 0 || row < 0 || byteColumn >= width / 8 || row >= height) return;
+      const before = settledGridByte(grid, byteColumn, row);
+      value &= 0xff;
+      if (before === value) return;
+      const changes = settledByteChanges(before, value, byteColumn, row);
+      settledStoreByte(grid, byteColumn, row, value);
+      writes.push({pointer:[byteColumn,row],value,changes});
+    };
+
+    if (operation.kind === 'point' || operation.kind === 'line') {
+      for (const [x,y] of settledOperationPixels(operation, font)) {
+        if (x < 0 || y < 0 || x >= width || y >= height) continue;
+        const byteColumn = x >> 3;
+        write(byteColumn, y, settledGridByte(grid, byteColumn, y) | 1 << (7 - (x & 7)));
+      }
+      return writes;
+    }
+
+    for (const blit of settledBlits(operation, font)) {
+      for (let row = 0; row < blit.rows.length; row++) {
+        const y = blit.y + row;
+        if (y < 0 || y >= height) continue;
+        const firstByte = Math.floor(blit.x / 8);
+        const lastByte = Math.floor((blit.x + blit.width - 1) / 8);
+        for (let byteColumn = lastByte; byteColumn >= firstByte; byteColumn--) {
+          if (byteColumn < 0 || byteColumn >= width / 8) continue;
+          let coverage = 0, ink = 0;
+          for (let column = 0; column < blit.width; column++) {
+            const x = blit.x + column;
+            if ((x >> 3) !== byteColumn) continue;
+            const screenMask = 1 << (7 - (x & 7));
+            coverage |= screenMask;
+            if (blit.rows[row] & 1 << (blit.width - 1 - column)) ink |= screenMask;
+          }
+          const before = settledGridByte(grid, byteColumn, y);
+          write(byteColumn, y, (before & ~coverage) | ink);
+        }
+      }
+    }
+    return writes;
+  }
+
   function rasterizeSettledOperations(operations, font, options = {}) {
     if (!Array.isArray(operations))
       throw new TypeError('settled operations must be an array');
@@ -958,17 +1074,23 @@
     const height = options.height === undefined ? 64 : options.height;
     if (!Number.isInteger(width) || width < 1 || !Number.isInteger(height) || height < 1)
       throw new RangeError('settled raster dimensions must be positive integers');
-    const grid = Array.from({length:height}, () => new Array(width).fill(0));
+    const grid = options.initialGrid === undefined
+      ? Array.from({length:height}, () => new Array(width).fill(0))
+      : options.initialGrid.map(row => row.slice());
+    if (grid.length !== height || grid.some(row => row.length !== width ||
+        row.some(value => value !== 0 && value !== 1)))
+      throw new RangeError('settled initial grid must match the raster dimensions and contain bits');
+    const writes = [];
     const events = operations.map((operation, operationIndex) => {
-      const changes = [];
-      for (const [x,y,value] of settledOperationPixels(operation, font)) {
-        if (x < 0 || y < 0 || x >= width || y >= height || grid[y][x] === value) continue;
-        grid[y][x] = value;
-        changes.push([x,y,value]);
-      }
-      return {operationIndex, operation, changes};
+      const operationWrites = settledOperationWrites(operation, font, grid)
+        .map((item, writeIndex) => ({...item,operationIndex,writeIndex}));
+      writes.push(...operationWrites);
+      return {
+        operationIndex, operation, writes:operationWrites,
+        changes:operationWrites.flatMap(item => item.changes),
+      };
     });
-    return {width,height,events,grid};
+    return {width,height,events,writes,grid};
   }
 
   // Render-record type 20h dispatches through 34:6105/6119 to 34:620A. It
@@ -1040,9 +1162,10 @@
        routine:'34:6321 → 34:62D0 → 34:630C'},
       {kind:'line', axis:'vertical', from:{x:hookX + 2,y:3},
        to:{x:hookX + 2,y:4}, routine:'34:6331 → 34:5D96'},
-      {kind:'child', index:2, routine:'34:6334 → 34:6378'},
+      {kind:'child-select', index:2, routine:'34:6334 → 34:6CCA'},
       {kind:'line', axis:'horizontal', from:{x:hookX + 2,y:2},
        to:{x:ruleEnd,y:2}, routine:'34:6344 → 34:5DA6'},
+      {kind:'child', index:2, routine:'34:6344 → 34:62C3 → 34:62C6'},
     ];
   }
 
@@ -1115,6 +1238,7 @@
     executeSettledRecordGraph,
     executeSettledRecordProgram,
     settledOperationPixels,
+    settledOperationWrites,
     rasterizeSettledOperations,
     settledTokenGlyph,
     settledFractionOperations,
