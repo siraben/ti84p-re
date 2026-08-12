@@ -409,6 +409,11 @@ are `34:5FE7` → `ram:34E9` (158 writes), `34:6CA8` → `ram:3CE1` (96),
 and come from the large-font path. The fixed-page stubs dispatch to page `04`
 line and point routines and page `01:6297` small-font output. [confirmed]
 
+The point wrapper at `34:5E85` clips each object coordinate through `34:5DD1`
+and `34:5DEF`. Its closed tail at `34:5E98`–`34:5EA6` passes `B=x`,
+`C=63-y`, and `D=1` to `_PointOn` at `04:4155`. Dynamic samples include
+`(x,y)=(3,0)` → `BC=033Fh` and `(32,20)` → `BC=202Bh`. [confirmed]
+
 Exact point counts matter here. The resolver's `--funcs` mode groups an
 instruction under the nearest preceding symbol. It places 69 instructions in
 the `39:5167` bucket for each scenario even though the entry itself has zero

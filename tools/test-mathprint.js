@@ -91,6 +91,16 @@ expectEqual('39:6B1C endpoint', rom.fractionEndpoint(2, 0x17),
 expectEqual('39:5949 class-6 low slot', rom.multiArgumentRowStep(6, 2), 2);
 expectEqual('39:5949 class-6 high slot', rom.multiArgumentRowStep(6, 3), 1);
 expectEqual('39:5949 other class', rom.multiArgumentRowStep(5, 2), 1);
+expectEqual('34:5E98 top integral hook point', rom.settledPointOperation(3, 0), {
+  kind:'point', x:3, y:0, registers:{b:3,c:0x3f,d:1},
+  routine:'34:5E98–5EA6 → 04:4155',
+});
+expectEqual('34:5E98 lower fraction corner', rom.settledPointOperation(0x20, 0x14), {
+  kind:'point', x:0x20, y:0x14, registers:{b:0x20,c:0x2b,d:1},
+  routine:'34:5E98–5EA6 → 04:4155',
+});
+expectEqual('34:5DD1 x clipping', rom.settledPointOperation(0x60, 0), null);
+expectEqual('34:5DEF y clipping', rom.settledPointOperation(0, 0x40), null);
 
 for (const [expression, record] of Object.entries(drawOrder.scenarios)) {
   const final = mp.traceFrame(record, record.events.length)
