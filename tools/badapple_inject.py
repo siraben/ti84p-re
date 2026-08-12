@@ -7,7 +7,7 @@ signed Flash Application that bank-switches its own video/audio pages. The full
 app needs an SE-class (2 MB) calc; on a 1 MB 84+ the OS-only image here has 43
 erased pages (0x08-0x32), enough for the first ~2.5 min, which is plenty for an
 audio capture. The app is relocatable: at entry it reads its own page with
-`in a,($06)` and uses relative offsets, so it runs wherever we place it.
+`in a,(0x06)` and uses relative offsets, so it runs wherever we place it.
 
 Two obstacles this script handles:
 
@@ -15,22 +15,22 @@ Two obstacles this script handles:
    the OS app-loader (page-3D, garbled in the decompiler) is fragile. Instead we
    inject the app's pages directly and overwrite the entry of `_GetCSC` (ram:04b2,
    a page-0 key scanner the OS calls at the splash/home wait, after full RAM/IY/
-   hardware init) with `ld a,APP_PAGE; out($06),a; jp ENTRY`. The app's entry is
+   hardware init) with `ld a,APP_PAGE; out(0x06),a; jp ENTRY`. The app's entry is
    after its 128-byte header, at 0x4080.
 
-2. Flash execution protection (84+ "memory mapping", emulated in TilEm
-   x4_memory.c). Executing a flash page in the no-exec range resets the calc:
+2. Flash execution protection (emulated in TilEm x4_memory.c). Executing a
+   Flash page in the no-execute range resets the calculator:
        if (PORT22 <= page <= PORT23) -> TILEM_EXC_FLASH_EXEC   (reset)
-   RAM is the inverse (executable only within [PORT25,PORT26]*0x400). Boot sets
-   $22=0x08 (no-exec from page 0x08 up) and $25=0x10,$26=0x20 (RAM exec
-   0x9000-0xA000) -- but the app runs its main loop at statVars=0x8A3A. These
-   ports are WRITE-LOCKED: a write only takes effect right after the CPU fetches
-   the exact unlock sequence `00 00 ED 56 F3 D3` (NOP;NOP;IM1;DI;OUT), which is
-   why boot wraps every protection OUT in it. Rather than reproduce the unlock in
-   the launch stub, we patch boot's own immediates (its unlock already runs):
-       $22 (0x08 -> 0x40)  no flash page in 0x00-0x3F is forbidden
-       $25 (0x10 -> 0x00)  RAM exec lower = 0 (covers statVars 0x8A3A)
-       $26 (0x20 -> 0xFF)  RAM exec upper = max
+   RAM is the inverse (executable only within inclusive 1 KiB chunks
+   [PORT25,PORT26]). Boot sets PORT22=0x08,PORT23=0x29 (TilEm no-execute pages
+   0x08-0x29) and PORT25=0x10,PORT26=0x20 (permitted masked physical RAM
+   chunks), but the app runs its main loop at statVars=0x8A3A. TilEm
+   accepts these protected outputs after its privileged-page byte-sequence
+   gate. Rather than reproduce that emulator-specific gate in the launch stub,
+   we patch the boot's own immediates:
+       PORT22 (0x08 -> 0x40)  reverse the Flash no-execute interval
+       PORT25 (0x10 -> 0x00)  lower the RAM execution bound
+       PORT26 (0x20 -> 0xFF)  raise the RAM execution bound
 
 Usage: badapple_inject.py CLEAN_ROM APP_BIN OUT_ROM
   CLEAN_ROM : 1 MB TI-84+ OS image (same one Ghidra/TilEm use)

@@ -49,8 +49,8 @@ EOF
 
 # 5. Extract link-port (port 0x00) debug audio -> WAV -----------------------
 python3 "$REPO_TOOLS/extract_linkport_audio.py" badapple.trace -o badapple_linkport_15mhz.wav
-# Pitch/speed-corrected: the app targets the SE's ~33.3 kHz sound ISR; the 84+
-# timer here fires it ~7x slower, so compress time to restore the intended pitch.
+# Diagnostic normalization for the unexpectedly slow cadence in this particular
+# injected TilEm trace. This is not a model of the physical timer; see README.md.
 python3 "$REPO_TOOLS/extract_linkport_audio.py" badapple.trace \
   -o badapple_linkport_pitchcorrected.wav --cpu-hz 107000000
 echo "Done: $WORK/badapple_music.wav and $WORK/badapple_linkport_*.wav"

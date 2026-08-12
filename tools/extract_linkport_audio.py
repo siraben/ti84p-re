@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Extract TI-84 link-port (port 0x00) audio from a headless TilEm instruction trace.
 
-The TI-83+/84+ plays sound by toggling the two link lines (bits 0/1 of port 0x00,
-the tip/ring of the I/O jack) under a periodic interrupt; a speaker/headphone across
-the lines turns that bit-stream into sound. This tool replays every `OUT (0x00),A`
-in the trace, reconstructs the line state over emulated CPU clocks (zero-order hold),
-and resamples it to a WAV.
+TI-83 Plus/TI-84 Plus software can produce a differential waveform by toggling
+the two link lines (bits 0/1 of port 0x00, the tip/ring contacts of the I/O
+jack). This tool replays every `OUT (0x00),A` in the trace, reconstructs the
+line state over emulated CPU clocks (zero-order hold), and resamples it to a
+WAV. It models logical line states, not the voltage presented to a particular
+external load.
 
 CPU clock: the trace's `clk` field counts Z80 cycles. The 84+ runs the player at
 15 MHz (the app sets port 0x20=1), so we map clocks->seconds with --cpu-hz.

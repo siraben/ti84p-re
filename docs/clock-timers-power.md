@@ -246,6 +246,29 @@ completion bit remains set, the low mode read remains zero, and the next
 callback sets overflow bit 2. OS 2.55MP acknowledges before programming its
 next chunk, so the timer bcall path does not use this emulator edge. [standard]
 
+### Bad Apple audio timer case
+
+The third-party Bad Apple application sets CPU-speed port `0x20` to `1`, then
+writes source `0x82`, mode `0x03`, and counter `120` to timer 1. Its interrupt
+routine acknowledges by rewriting `0x03` to port `0x31` and emits one link-port
+sample through port `0x00`. [confirmed] for the application source.
+
+Source `0x82` is the CPU-clock family divided by 4. At the nominal 15 MHz
+TI-84 Plus speed, the programmed cadence is therefore
+
+$$
+\frac{15{,}000{,}000}{4 \times 120} = 31{,}250\ \mathrm{Hz}.
+$$
+
+The program's companion encoder instead uses 33,333.3 Hz when converting notes
+to oscillator counts. That value is an encoder tuning assumption rather than a
+decode of the active timer registers. The program advances its tracker after
+$24 \times 75 = 1{,}800$ interrupts, so both note pitch and tracker tempo depend
+on the actual timer cadence. Published CPU-frequency variation and unresolved
+physical timer edges prevent the nominal calculation from serving as a
+physical measurement. [confirmed] for the constants and control flow;
+[standard] for the timer decode; [hypothesis] for physical cadence.
+
 Port `0x2D` controls low-power behavior. Bit 0 keeps the quartz oscillator active on the TI-83 Plus Silver Edition; the TI-84 Plus RTC already requires it. Bit 1 allows the programmable timers to continue counting in low power. TI writes `0x03`. Public hardware tests report that these timers still do not reliably interrupt a halted CPU, so software should keep a standard timer enabled when it must escape `HALT`. [standard]
 
 ### Prepared physical discriminator
@@ -632,6 +655,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 - [confirmed] APD expires 29,441–29,696 kernel ticks after `_ApdSetup`, depending on the untouched low-byte phase.
 - [confirmed] The cursor toggles every 50 kernel ticks.
 - [confirmed] The timer bcall API exposes only ID `0x70`, uses radix-255 duration chunking, and keeps a saturating expiry count.
+- [confirmed] The Bad Apple application writes timer-1 tuple `0x82`/`0x03`/`120`; the documented CPU-clock decode gives 31.25 kHz at nominal 15 MHz, while its companion encoder assumes 33,333.3 Hz.
 - [confirmed] Explicit power-off and APD share the low-power tail at `ram:0A24`.
 - [standard] TilEm matches the published `33`/`328`/`3277` crystal divisors; pinned Wabbitemu and MAME sources use `32`/`327`/`3276`.
 - [standard] TilEm, Wabbitemu, MAME, and jsTIfied all omit the published port-`0x2F` prescaler from their `0xC0`-family timer models.
@@ -657,6 +681,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 | [WikiTI port `0x20`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:20) | CPU-speed settings and physical measurements |
 | [WikiTI ports `0x2D`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2D) and [`0x2F`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2F) | low-power crystal control and mode-3 prescaler |
 | [WikiTI programmable timers](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:30) | timer triplets, divisors, modes, overflow, and HALT quirk |
+| [Bad Apple application source at `111dcf1`](https://github.com/fb39ca4/badapple-ti84/blob/111dcf10838fe44315cefb7874e8c2b3c5f35bd8/badapple.asm) and [companion encoder](https://github.com/fb39ca4/badapple-ti84/blob/111dcf10838fe44315cefb7874e8c2b3c5f35bd8/util/audio.py) | third-party timer setup, ISR output, tracker cadence, and note-counter constant |
 | [WikiTI RTC control](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:40), [set registers](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:41), and [current registers](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:45) | RTC protocol and 1997 epoch |
 | [WikiTI hardware history](https://wikiti.brandonw.net/index.php?title=83Plus:History_of_TI-8x_hardware) | ASIC integration, quartz oscillator, and TI-84 Plus RTC |
 | [Datamath TI-84 Plus hardware](http://www.datamath.org/Graphing/TI-84PLUS.htm) | TA2/TA3 identification, ASIC/PCB photographs, and 15 MHz specification |
