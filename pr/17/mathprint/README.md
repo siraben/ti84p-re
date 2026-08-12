@@ -33,6 +33,11 @@ Render-record type `0x22` is translated through `34:622F`. The interactive
 integral sign now uses its exact vertical-segment and four-point operation order
 instead of stretching glyph `0x08`.
 
+Render-record type `0x20` is translated through its child traversal and rule
+emission at `34:620A`. Fractions now draw numerator, denominator, then the
+inclusive horizontal rule computed from both child `+7` widths and the parent
+`+0x0B` coordinate. Child placement within each record remains open.
+
 `app.js` is organized in sections: box primitives → layout constructs → text runs
 → expression parser → canvas rendering → UI. A "box" is `{rows, baseline, marks,
 adv}`; `adv` (pen advance) is separate from bitmap width so glyphs can overhang.

@@ -327,6 +327,24 @@
     };
   }
 
+  // Render-record type 20h dispatches through 34:6105/6119 to 34:620A. It
+  // renders child records 1 and 2, reads each child's word at +7, and chooses
+  // the larger value. The inclusive rule runs from x=1 through max+1 at the
+  // parent record's word at +0Bh.
+  function settledFractionOperations(firstWidth, secondWidth, y) {
+    byte(firstWidth, 'settled fraction first-child width');
+    byte(secondWidth, 'settled fraction second-child width');
+    byte(y, 'settled fraction rule y');
+    const x2 = Math.max(firstWidth, secondWidth) + 1;
+    byte(x2, 'settled fraction rule endpoint');
+    return [
+      {kind:'child', index:1, routine:'34:620A → 34:636C'},
+      {kind:'child', index:2, routine:'34:6214 → 34:6378'},
+      {kind:'line', axis:'horizontal', from:{x:1,y}, to:{x:x2,y},
+       routine:'34:622C → 34:5DA6'},
+    ];
+  }
+
   // Render-record type 22h dispatches through 34:6105/6119 to 34:622F. The
   // record's word at +7 is the sign height. The handler emits one inclusive
   // vertical segment, then four hook points in this exact order.
@@ -362,6 +380,7 @@
     settledVerticalOperation,
     settledHorizontalOperation,
     settledObjectHandler,
+    settledFractionOperations,
     settledIntegralOperations,
   };
 });

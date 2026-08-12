@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2a8269ab.js";
+            window.path_to_searchindex_js = "searchindex-deb16a31.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -579,6 +579,12 @@ origins <code>x=16</code>, <code>y=5</code>. Page <code>04</code> receives endpo
 <code>34:6119</code> to <code>34:622F</code>. The word at record offset <code>+7</code> is the integral-sign
 height $h$. The handler draws the inclusive stem <code>(2,1)</code>–<code>(2,h-2)</code>, then hook
 points <code>(3,0)</code>, <code>(4,1)</code>, <code>(1,h-1)</code>, and <code>(0,h-2)</code>, in that order. [confirmed]</p>
+<p>Render-record type <code>0x20</code> dispatches to <code>34:620A</code>. The handler renders child
+records 1 and 2 through <code>34:636C</code> and <code>34:6378</code>, then reads each child’s word at
+offset <code>+7</code>. It draws an inclusive horizontal line from <code>(1,y)</code> to
+<code>(max(w_1,w_2)+1,y)</code>, where the parent word at offset <code>+0x0B</code> supplies $y$.
+The nested-fraction trace reaches the line wrapper with <code>BC=1</code>, <code>DE=5</code>, and
+<code>HL=6</code>, yielding <code>(1,6)</code>–<code>(5,6)</code>. [confirmed]</p>
 <p>Exact point counts matter here. The resolver’s <code>--funcs</code> mode groups an
 instruction under the nearest preceding symbol. It places 69 instructions in
 the <code>39:5167</code> bucket for each scenario even though the entry itself has zero
