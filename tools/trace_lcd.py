@@ -16,6 +16,7 @@ Usage: import and call reconstruct(trace_path[, at_index]) -> 64x96 grid (0/1).
 """
 import importlib.util
 import os
+from dataclasses import dataclass
 
 _spec = importlib.util.spec_from_file_location(
     "r", os.path.join(os.path.dirname(os.path.abspath(__file__)), "tilem_trace_resolve.py"))
@@ -28,6 +29,29 @@ ROWS = 64
 BUSY_CLOCKS = 50
 CONTROL_PORTS = {0x10, 0x12}
 DATA_PORTS = {0x11, 0x13}
+
+
+@dataclass(frozen=True)
+class LcdMutation:
+    """One accepted LCD I/O instruction that changes visible pixels."""
+
+    instruction_index: int
+    clock: int
+    port: int
+    value: int
+    pointer_x: int
+    pointer_y: int
+    mode: int
+    changes: tuple[tuple[int, int, int], ...]
+
+
+@dataclass(frozen=True)
+class LcdMutationReplay:
+    """Visible LCD state and ordered mutations from one trace cutoff."""
+
+    initial: list[list[int]]
+    events: tuple[LcdMutation, ...]
+    final: list[list[int]]
 
 
 class T6A04:
@@ -133,6 +157,113 @@ class T6A04:
                 row.append((byte >> (7 - (px & 7))) & 1)
             grid.append(row)
         return grid
+
+
+def _grid_changes(before, after):
+    return tuple(
+        (x, y, after[y][x])
+        for y in range(ROWS)
+        for x in range(VISIBLE_WIDTH)
+        if before[y][x] != after[y][x]
+    )
+
+
+def replay_mutations(trace, from_index=0, strict=True):
+    """Return accepted visible-pixel mutations at and after ``from_index``.
+
+    The initial grid is the controller state immediately before the instruction
+    at ``from_index``. Events preserve TLMT instruction order and include both
+    set and clear transitions. Accepted writes that leave visible pixels
+    unchanged are omitted.
+    """
+
+    if from_index < 0:
+        raise ValueError("from_index must be nonnegative")
+    lcd = T6A04()
+    idx = 0
+    initial = None
+    events = []
+    with open(trace, "rb") as fp:
+        header = _r.read_header(fp)
+        if header["version"] != 2:
+            raise ValueError(f"unsupported TLMT version {header['version']}; expected 2")
+        if not (header["flags"] & 0x01):
+            raise ValueError("trace lacks required instruction records")
+        if (header["range_start"], header["range_end"]) != (0, 0xFFFF):
+            raise ValueError("LCD replay requires a full-range reset-origin trace")
+        first_instruction = True
+        for record_type, payload in _r.iter_records(fp, resync=not strict):
+            if record_type != 0x01:
+                continue
+            if first_instruction:
+                first_instruction = False
+                if payload[_r.IDX_PC] != 0x8000:
+                    raise ValueError(
+                        "LCD replay requires a reset-origin trace whose first PC is 0x8000"
+                    )
+            if idx == from_index:
+                initial = lcd.grid()
+            event = _r.decode_io_event(payload)
+            if event:
+                direction, port, value, form = event
+                port &= 0xFF
+                if port in CONTROL_PORTS | DATA_PORTS:
+                    if form == "block":
+                        if strict:
+                            raise ValueError(
+                                f"instruction {idx}: block {direction} to LCD port "
+                                f"0x{port:02x} cannot be replayed from TLMT v2"
+                            )
+                    elif direction == "IN" and port in DATA_PORTS:
+                        lcd.read(payload[_r.IDX_CLOCK])
+                    elif direction == "OUT" and port in CONTROL_PORTS:
+                        before = lcd.grid() if idx >= from_index else None
+                        accepted = lcd.control(value, payload[_r.IDX_CLOCK])
+                        if accepted and before is not None:
+                            changes = _grid_changes(before, lcd.grid())
+                            if changes:
+                                events.append(
+                                    LcdMutation(
+                                        idx,
+                                        payload[_r.IDX_CLOCK],
+                                        port,
+                                        value,
+                                        lcd.x,
+                                        lcd.y,
+                                        lcd.mode,
+                                        changes,
+                                    )
+                                )
+                    elif direction == "OUT":
+                        before = lcd.grid() if idx >= from_index else None
+                        pointer_x, pointer_y, mode = lcd.x, lcd.y, lcd.mode
+                        accepted = lcd.write(value, payload[_r.IDX_CLOCK])
+                        if accepted and before is not None:
+                            changes = _grid_changes(before, lcd.grid())
+                            if changes:
+                                events.append(
+                                    LcdMutation(
+                                        idx,
+                                        payload[_r.IDX_CLOCK],
+                                        port,
+                                        value,
+                                        pointer_x,
+                                        pointer_y,
+                                        mode,
+                                        changes,
+                                    )
+                                )
+            idx += 1
+        if first_instruction:
+            raise ValueError("LCD replay requires at least one instruction record")
+    if initial is None:
+        if from_index == idx:
+            initial = lcd.grid()
+        else:
+            raise ValueError(
+                f"from_index {from_index} is beyond the {idx}-instruction trace"
+            )
+    return LcdMutationReplay(initial, tuple(events), lcd.grid())
 
 
 def reconstruct(trace, at_index=None, strict=True):

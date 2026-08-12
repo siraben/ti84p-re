@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from tilem_trace_resolve import HEADER_FMT, IDX_AF, IDX_BC, IDX_CLOCK, IDX_OPCODE, IDX_WZ, INSTR_FMT
-from trace_lcd import BUSY_CLOCKS, STRIDE, T6A04, reconstruct
+from trace_lcd import BUSY_CLOCKS, STRIDE, T6A04, reconstruct, replay_mutations
 
 
 def instruction(opcode, clock, *, af=0, bc=0, wz=0, pc=0x8000):
@@ -71,6 +71,35 @@ class ControllerTests(unittest.TestCase):
 
 
 class TraceReplayTests(unittest.TestCase):
+    def test_mutation_replay_preserves_set_and_clear_write_order(self):
+        records = [
+            instruction(0xD3, 100, af=0x2000, wz=0x2010),
+            instruction(0xD3, 160, af=0x8000, wz=0x8011),
+            instruction(0xD3, 220, af=0x2000, wz=0x2010),
+            instruction(0xD3, 280, af=0x0000, wz=0x0011),
+        ]
+        with trace_file(records) as trace:
+            replay = replay_mutations(trace.name, from_index=1)
+        self.assertFalse(any(any(row) for row in replay.initial))
+        self.assertEqual(
+            [((0, 0, 1),), ((0, 0, 0),)],
+            [event.changes for event in replay.events],
+        )
+        self.assertFalse(any(any(row) for row in replay.final))
+
+    def test_mutation_replay_cutoff_starts_from_prior_lcd_state(self):
+        records = [
+            instruction(0xD3, 100, af=0x2000, wz=0x2010),
+            instruction(0xD3, 160, af=0x8000, wz=0x8011),
+            instruction(0xD3, 220, af=0x2100, wz=0x2110),
+            instruction(0xD3, 280, af=0x4000, wz=0x4011),
+        ]
+        with trace_file(records) as trace:
+            replay = replay_mutations(trace.name, from_index=2)
+        self.assertEqual(1, replay.initial[0][0])
+        self.assertEqual(((9, 0, 1),), replay.events[0].changes)
+        self.assertEqual(1, replay.final[0][9])
+
     def test_immediate_register_and_mirrored_outputs(self):
         records = [
             # OUT (0x12),A: mirrored command, select column zero.

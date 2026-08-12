@@ -15,6 +15,18 @@ const root = path.dirname(__dirname);
 const mp = require(path.join(root, 'web', 'mathprint', 'app.js'));
 const { resolveCell } = require(path.join(root, 'tools', 'interp-cells.js'));
 mp.setFont(JSON.parse(fs.readFileSync(path.join(root, 'web', 'mathprint', 'font.json'))));
+const drawOrder = JSON.parse(fs.readFileSync(path.join(root, 'web', 'mathprint', 'draw-order.json')));
+
+for (const [expression, record] of Object.entries(drawOrder.scenarios)) {
+  const final = mp.traceFrame(record, record.events.length)
+    .map(row => row.map(pixel => pixel ? '1' : '0').join(''));
+  if (JSON.stringify(final) !== JSON.stringify(record.final))
+    throw new Error(`${expression}: captured LCD timeline does not reach its final grid`);
+  const initial = mp.traceFrame(record, 0)
+    .map(row => row.map(pixel => pixel ? '1' : '0').join(''));
+  if (JSON.stringify(initial) !== JSON.stringify(record.initial))
+    throw new Error(`${expression}: captured LCD timeline does not preserve its initial grid`);
+}
 
 const CELL_CASES = [
   [[0xFC, 0x3C], { kind: 'glyph', code: 5 }],
