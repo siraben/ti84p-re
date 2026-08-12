@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ffe76699.js";
+            window.path_to_searchindex_js = "searchindex-d94b300a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14845,6 +14845,12 @@ cell mapper and geometry selector, confirming that handler-record emission and
 descriptor geometry compose in one rendered expression. Neither trace reaches
 the exact entries <code>39:5167</code>, <code>39:5949</code>, <code>39:5B10</code>, <code>39:5B1D</code>, or <code>39:6ABF</code>.
 [confirmed]</p>
+<p>The settled walker dispatches object kinds <code>0</code>–<code>12</code> through the word table at
+<code>34:7012</code>. The handlers are <code>34:6D0C</code>, <code>706A</code>, <code>70B8</code>, <code>702C</code>, <code>7133</code>, <code>70A0</code>,
+<code>70E2</code>, <code>70E2</code>, <code>7087</code>, <code>7102</code>, <code>717E</code>, <code>70C1</code>, and <code>71C6</code>, in order. Kinds 6
+and 7 share <code>34:70E2</code>. The nested trace also visits transient records near
+<code>0xFBDB</code> and <code>0xFBEF</code>, so the final RAM dump does not contain every walked
+record. [confirmed]</p>
 <p>These page <code>39</code> entries occur before the final <strong>GRAPHVAR</strong> key press. The
 settled redraw after that key does not re-enter them. It calls <code>34:6D26</code> and
 <code>34:737A</code> from <code>34:4347</code> and <code>34:434A</code>, then traverses the display objects from
