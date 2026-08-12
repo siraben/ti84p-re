@@ -440,6 +440,11 @@ offset `+7`. It draws an inclusive horizontal line from `(1,y)` to
 The nested-fraction trace reaches the line wrapper with `BC=1`, `DE=5`, and
 `HL=6`, yielding `(1,6)`–`(5,6)`. [confirmed]
 
+Render-record type `0x2A` dispatches to a `JP 34:636C` at `34:6375`.
+`34:636C` selects child record 1 through `34:6CCD` before entering the recursive
+renderer. The wrapper emits no point, line, or glyph itself. The focused `X^2`
+trace reaches only types `0x1F` and `0x2A` during its settled redraw. [confirmed]
+
 Exact point counts matter here. The resolver's `--funcs` mode groups an
 instruction under the nearest preceding symbol. It places 69 instructions in
 the `39:5167` bucket for each scenario even though the entry itself has zero
