@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Memory management - TI-84 Plus OS — Reverse Engineering</title>
+        <title>Flash page map - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-db524601.js";
+            window.path_to_searchindex_js = "searchindex-c66ba8da.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-bcf53af4.js"></script>
+        <script src="toc-a4cbc596.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,73 +179,68 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="12--memory-management-ram-heap--flash-archive"><a class="header" href="#12--memory-management-ram-heap--flash-archive">12 — Memory management (RAM heap &amp; Flash archive)</a></h1>
-<p>How the OS allocates the ~24 KiB of user RAM between variables, temporaries, the FP stack, and the program being run — and how it offloads variables to Flash (“archive”).</p>
-<h2 id="the-ram-heap-confirmed-pointers-standard-layout"><a class="header" href="#the-ram-heap-confirmed-pointers-standard-layout">The RAM heap [confirmed pointers, standard layout]</a></h2>
-<p>The dynamic region runs from <code>userMem</code> (<code>0x9D95</code>) up to <code>symTable</code> (<code>0xFE66</code>). Two structures grow toward each other with <strong>free RAM</strong> in the middle:</p>
-<pre class="mermaid">flowchart TB
-    A["0xFE66 · symTable — top of user RAM"]
-    B["VAT — variable names + metadata&lt;br/&gt;type, data ptr/page, name · grows DOWNWARD ↓"]
-    C["( free RAM )"]
-    D["user data — variable contents&lt;br/&gt;grows UPWARD ↑"]
-    E["0x9D95 · userMem — bottom of user RAM"]
-    A --- B --- C --- D --- E
-    style C fill:#1b1b1b,stroke-dasharray:5 5
-</pre>
-
-<p>VAT entry layout: type, data ptr/page, name — see <a href="05-variables-vat.html">05-variables-vat.md</a>.</p>
-<p>Boundary/work pointers (clustered at <code>0x9820–0x983A</code>) [confirmed addrs]:</p>
+                        <h1 id="flash-page-map"><a class="header" href="#flash-page-map">Flash page map</a></h1>
+<p>What lives on each of the 64 physical Flash pages (16 KiB each). OS code occupies pages <code>00</code>–<code>07</code> and <code>33</code>–<code>3D</code>; pages <code>08</code>–<code>2E</code> and <code>30</code>–<code>32</code> are blank in this image; page <code>2F</code> contains retail USB boot support, page <code>3E</code> holds two certificate sectors, and page <code>3F</code> is the retail boot page. On a retail unit, the blank range stores archived variables and can carry Flash Apps. See <a href="flash-memory.html">Flash memory</a> for physical erase-sector geometry and the dynamic archive/App boundary. The page roles below are characterized by the named bcall routines that resolve to each page (<code>tools/bcall_targets.txt</code>) plus function counts; <code>tools/bcalls8x_targets.txt</code> carries the <code>0x8xxx</code> certificate, boot, and USB targets resolved from pages <code>2F</code> and <code>3F</code>.</p>
+<h2 id="os-pages-carry-bcall-entry-points"><a class="header" href="#os-pages-carry-bcall-entry-points">OS pages (carry bcall entry points)</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Ptr</th><th>Addr</th><th>Role</th></tr>
+<tr><th>Page</th><th style="text-align: right">Funcs</th><th>Role</th><th>Representative routines</th></tr>
 </thead>
 <tbody>
-<tr><td><code>tempMem</code></td><td>9820</td><td>base of the temporary area</td></tr>
-<tr><td><code>fpBase</code></td><td>9822</td><td>floating-point stack base</td></tr>
-<tr><td><code>FPS</code></td><td>9824</td><td>FP stack pointer (grows; <code>_PushReal</code>/<code>_PopReal</code>)</td></tr>
-<tr><td><code>OPBase</code></td><td>9826</td><td>base of OP/symbol scratch</td></tr>
-<tr><td><code>pTemp</code></td><td>982E</td><td>temp-variable pointer</td></tr>
-<tr><td><code>progPtr</code></td><td>9830</td><td>currently-executing program pointer</td></tr>
-<tr><td><code>pagedBuf</code></td><td>983A</td><td>paged scratch buffer</td></tr>
+<tr><td><code>00</code></td><td style="text-align: right">928</td><td><strong>Kernel</strong> — mapped at <code>0000</code>; RST vectors, bcall dispatcher, FP core, VAT, memory, integer math</td><td><code>_JErrorNo</code>, <code>_LdHLind</code>, <code>_DivHLBy10</code>, <code>_FindSym</code>, <code>_FPAdd</code>, <code>_InsertMem</code></td></tr>
+<tr><td><code>01</code></td><td style="text-align: right">84</td><td>Text display / homescreen</td><td><code>_PutMap</code>, <code>_PutC</code>, <code>_PutS</code>, <code>_DispHL</code>, <code>_NewLine</code>, <code>_ClrLCDFull</code></td></tr>
+<tr><td><code>02</code></td><td style="text-align: right">271</td><td>Float transcendentals &amp; advanced math</td><td><code>_SqRoot</code>, <code>_LnX</code>, <code>_RnFx</code>, <code>_RndGuard</code></td></tr>
+<tr><td><code>03</code></td><td style="text-align: right">23</td><td>Edit-buffer / small font</td><td><code>_CloseEditBufNoR</code>, <code>_Load_SFont</code>, <code>_SFont_Len</code></td></tr>
+<tr><td><code>04</code></td><td style="text-align: right">66</td><td>Graph drawing (pixel/line)</td><td><code>_DarkLine</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_DarkPnt</code></td></tr>
+<tr><td><code>05</code></td><td style="text-align: right">118</td><td>TABLE editor + Graph-Table split-screen</td><td><code>table_editor_main</code>, <code>table_recompute</code>, <code>table_paint_grid</code></td></tr>
+<tr><td><code>06</code></td><td style="text-align: right">49</td><td>Key input &amp; edit/cursor</td><td><code>_GetKey</code>, <code>_CursorOn</code>, <code>_CursorOff</code>, <code>_PutTokString</code> (note <code>_GetCSC</code>’s body is on page 00)</td></tr>
+<tr><td><code>07</code></td><td style="text-align: right">44</td><td>Archive / list &amp; matrix ops; error messages; large-font glyph table @ <code>07:45FF</code> (7-byte stride) read by <code>put_glyph_large</code> (<code>07:4588</code>)</td><td><code>_Arc_Unarc</code>, <code>_CleanAll</code>, <code>_RedimMat</code>, <code>_IncLstSize</code>, <code>put_glyph_large</code></td></tr>
+<tr><td><code>33</code></td><td style="text-align: right">70</td><td>Graph coordinate math and programmable timer API</td><td><code>_SetXXOP1</code>, <code>_UCLineS</code>, <code>_InitTimer</code>, <code>_StartTimer</code>, <code>timer_irq</code></td></tr>
+<tr><td><code>36</code></td><td style="text-align: right">24</td><td>Mode setters (Func/Param/Polar/Seq)</td><td><code>_SetFuncM</code>, <code>_SetParM</code>, <code>_SetPolM</code>, <code>_SetSeqM</code></td></tr>
+<tr><td><code>37</code></td><td style="text-align: right">23</td><td>Graph coordinate conversion, RTC, and date/time formatting</td><td><code>_XftoI</code>, <code>_YftoI</code>, <code>_getDate</code>, <code>_getTime</code>, <code>rtc_read_seconds</code></td></tr>
+<tr><td><code>38</code></td><td style="text-align: right">277</td><td>TI-BASIC parser / evaluator</td><td><code>_ParseInp</code>, <code>_Find_Parse_Formula</code>, <code>parse_init</code></td></tr>
+<tr><td><code>39</code></td><td style="text-align: right">153</td><td>Equation pretty-printer (2D MathPrint layout) + menus</td><td><code>eqdisp_render_entry</code>, <code>eqdisp_emit_glyph</code>, <code>_DispMenuTitle</code></td></tr>
+<tr><td><code>3A</code></td><td style="text-align: right">85</td><td>Statistics (1/2-var, regressions) + TVM finance</td><td><code>_OneVar</code>, <code>reg_gauss_solve</code>, <code>tvm_solve_iterate</code></td></tr>
+<tr><td><code>34</code></td><td style="text-align: right">16</td><td>Token/parser scanning</td><td><code>_AHEADEQUAL</code>, <code>_PARSAHEADS</code>, <code>_PARSAHEAD</code>, <code>parse_scan_table</code></td></tr>
+<tr><td><code>35</code></td><td style="text-align: right">6</td><td>USB controller paths, memory-reset engine, factorial</td><td><code>usb_timeout_irq</code>, <code>mem_reset_dispatch</code>, <code>ram_reset_wipe</code>, <code>op1_factorial</code></td></tr>
+<tr><td><code>3B</code></td><td style="text-align: right">39</td><td>bcall jump table + mem utils</td><td>(table data) <code>_MemClear</code>, <code>_MemSet</code>, <code>_DrawCirc2</code></td></tr>
+<tr><td><code>3C</code></td><td style="text-align: right">72</td><td>Link / variable transfer</td><td><code>_SendAByte</code>, <code>_RecAByteIO</code>, <code>_SendVarCmd</code>, <code>_Rec1stByte</code></td></tr>
+<tr><td><code>3D</code></td><td style="text-align: right">61</td><td>App management &amp; Flash</td><td><code>_FindApp</code>, <code>_FindAppUp</code>, <code>_FindAppDn</code>, <code>_FlashToRam</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>So free RAM = (gap between the upward data heap and the downward VAT). When a variable grows/shrinks, everything above it shifts.</p>
-<h2 id="core-allocation-primitives-confirmed"><a class="header" href="#core-allocation-primitives-confirmed">Core allocation primitives [confirmed]</a></h2>
-<ul>
-<li><code>_InsertMem</code> (<code>00:0F81</code>) — open a gap of N bytes at HL by shifting all memory above it up (helper <code>FUN_ram_1398</code> is the block move); fails with <code>E_Memory</code> if it would collide with the VAT.</li>
-<li><code>_DelMem</code> (<code>00:1368</code>) — the inverse: close a gap, shifting memory down.</li>
-<li><code>_EnoughMem</code> (<code>00:0FA6</code>) — ensure N free bytes; if short, it walks the temp/scratch entries (9-byte stride from <code>pTemp</code> down to <code>OPBase</code>) and <code>_DelVar</code>s reclaimable temporaries to make room. <strong>[confirmed]</strong></li>
-<li><code>_MemChk</code> (<code>00:0E20</code>) — compute current free RAM.</li>
-</ul>
-<p>Every <code>_CreateXxx</code> (see <a href="05-variables-vat.html">05</a>) ultimately calls <code>_InsertMem</code> to carve space, then registers the variable in the VAT.</p>
-<h2 id="flash-archive-confirmed-location"><a class="header" href="#flash-archive-confirmed-location">Flash archive [confirmed location]</a></h2>
-<p>To save scarce RAM, variables can be <strong>archived</strong> to Flash. The archive code lives on <strong>flash page 0x07</strong>:</p>
-<ul>
-<li><code>_Arc_Unarc</code> (<code>07:6248</code>) — move OP1’s variable between RAM and the Flash archive (toggles the archive bit, then relocates the data and rewrites the VAT entry’s page to the Flash page).</li>
-<li><code>_FlashToRam</code> (id <code>5017</code> → body <code>3D:6745</code>) — copy archived data back into RAM.
-Archived vars are <em>appended</em> to Flash, which can’t be overwritten in place, so deleting one only marks it dead. When the archive Flash fills, a <strong>garbage collector</strong> rewrites the live vars to fresh sectors and erases the old ones — the <strong>“Garbage Collecting…”</strong> screen. That GC path is distinct from <code>_CleanAll</code>, but the older <code>flash_gc_relocate@3C:7BD0</code> / <code>gc_show_screen@3C:7E0D</code> labels are not present as functions in the current live Ghidra/MCP DB.</li>
-</ul>
-<p><code>_CleanAll</code> is RAM cleanup (not Flash GC) [confirmed from disassembly]: <code>_CleanAll</code> (<code>07:52CF</code>) compacts the <strong>floating-point stack</strong> (<code>fpBase</code>/<code>FPS</code> → <code>tempMem</code>) and resets the <code>OPBase</code>/<code>OPS</code>/<code>pTemp</code> scratch pointers, reclaiming temporary RAM after a command/expression finishes. It does <strong>not</strong> touch Flash.</p>
-<p>Flash is written/erased a sector at a time via low-level routines through the <strong>flash-control port <code>0x14</code></strong> (see <a href="sub-vat-archive.html">Variables, Archive &amp; Unarchive</a>) <strong>[partly confirmed]</strong>:</p>
-<ul>
-<li>Live MCP-confirmed page-3D anchors include <code>_FlashToRam</code> (<code>3D:6745</code>), <code>flash_program_buf</code> (<code>3D:678C</code>), <code>flash_erase_wait</code> (<code>3D:5ED3</code>), <code>flash_cmd_base</code> (<code>3D:738B</code>), and the status-bit helpers <code>flash_op_fd/fb/fe</code> (<code>3D:7C8F/7C93/7C97</code>).</li>
-<li>Older names such as <code>flash_program_core</code> (<code>3D:61AF</code>), <code>flash_write_byte</code> (<code>3D:6B9B</code>), <code>flash_write_record</code> (<code>3D:64AA</code>), <code>flash_alloc_sector</code> (<code>3D:62C2</code>), <code>flash_free_scan</code> (<code>3D:6413</code>), <code>flash_cmd_dispatch</code> (<code>3C:7121</code>), <code>flash_gc_relocate</code> (<code>3C:7BD0</code>), and <code>gc_show_screen</code> (<code>3C:7E0D</code>) came from an earlier trace but are not current live-MCP function symbols.</li>
-<li>Archive workers: <code>_Arc_Unarc</code> (<code>07:6248</code>) → <code>arc_ram_to_flash</code> (<code>07:61F4</code>) / <code>arc_flash_to_ram</code> (<code>07:6107</code>).</li>
-</ul>
-<h2 id="resolved"><a class="header" href="#resolved">Resolved</a></h2>
-<p>The <code>_FindSym</code> VAT walk is byte-verified in <a href="sub-vat-archive.html">Variables, Archive &amp; Unarchive</a>. Flash write/erase and GC still need a current MCP-backed symbol pass to replace the older address/name map.</p>
+<h2 id="page-byte-scan-notes-empty-range-boot--system-pages"><a class="header" href="#page-byte-scan-notes-empty-range-boot--system-pages">Page byte-scan notes (empty range, boot &amp; system pages)</a></h2>
+<p>No Flash-App headers (<code>80 0F</code>) appear at any page boundary; the image is OS-only [hypothesis]. Byte-level notes on the empty page range and the boot/system pages (some of which, e.g. <code>34-39</code>/<code>3B</code>/<code>3C</code>, also carry the bcalls listed above):</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Page</th><th>Verified contents</th></tr>
+</thead>
+<tbody>
+<tr><td><code>08-2E</code>, <code>30-32</code></td><td>Blank/unused in this OS image — 100% <code>0xFF</code> in <code>tools/rom.bin</code>. No app headers.</td></tr>
+<tr><td><code>2F</code></td><td>Retail USB boot support installed from the checksum- and hash-validated local <code>D84PBE2.8Xv</code>. This installation changes 8,615 bytes of the pinned base. The page-<code>3F</code> boot table maps <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_USBErrorCleanup</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> here; <code>tools/rom.bin</code> contains the payload and <code>tools/bcalls8x_targets.txt</code> records their bodies. [confirmed]</td></tr>
+<tr><td><code>34-39</code></td><td>More OS code (parser scan, USB, graph/mode/menu, RTC); fill 0.2–17% <code>0xFF</code>.</td></tr>
+<tr><td><code>3B</code></td><td><strong>bcall jump table</strong> — starts <code>99 27 00</code> = entry 0 (<code>_JErrorNo</code>→<code>ram:2799</code>).</td></tr>
+<tr><td><code>3C</code></td><td>Link code, archive garbage collection, and the OS version string — page starts with ASCII <code>32 2E 35 35 4D 50</code> = <code>"2.55MP"</code>; <code>archive_gc_collect</code> is at <code>3C:7733</code>.</td></tr>
+<tr><td><code>3E</code></td><td><strong>Certification page and GC journal</strong> — two physical 8 KiB sectors. <code>_GetCertificateStart</code> (bcall <code>8057</code>) selects the active half; <code>_GetCertificateEnd</code> (<code>802D</code>) bounds it; <code>_FindFirstCertField</code> (<code>8027</code>) and <code>_FindNextCertField</code> (<code>8078</code>) walk TLV fields. GC transactionally copies the used tail through the inactive half and stores phase bytes near its end. [confirmed] for the ROM and GC trace.</td></tr>
+<tr><td><code>3F</code></td><td><strong>Retail boot page</strong> — the pinned base already matches the checksum- and hash-validated local <code>D84PBE1.8Xv</code> payload byte for byte; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, carries boot version <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table. Boot/hardware-version bcalls resolve to <code>_getBootVer</code> <code>3F:477C</code> (<code>0x80B7</code>) and <code>_getHardwareVersion</code> <code>3F:4781</code> (<code>0x80BA</code>). [confirmed]</td></tr>
+</tbody>
+</table>
+</div>
+<p>The large-font glyph table is on page <code>0x07</code> (see <a href="display-lcd.html#large-font-text">Display and LCD</a>). Alternate large fonts live on pages <code>0x01</code> and <code>0x36</code> (selected by <code>IY+0x35</code> bits 5 and 1). Page <code>0x07</code> is the busiest data page: archive code, list and matrix code, error messages, and the large font. [confirmed]</p>
+<h2 id="takeaway"><a class="header" href="#takeaway">Takeaway</a></h2>
+<p>The OS is page-specialized: kernel + math on page 0, one subsystem per low page. A bcall is really “run subsystem X’s routine on its page” — the page map <em>is</em> the subsystem decomposition, physically.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="04-interrupts.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="md5-hardware.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="13-flash-page-map.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="ram-pages.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -255,11 +250,11 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="04-interrupts.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="md5-hardware.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="13-flash-page-map.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="ram-pages.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
@@ -281,11 +276,11 @@ Archived vars are <em>appended</em> to Flash, which can’t be overwritten in pl
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
