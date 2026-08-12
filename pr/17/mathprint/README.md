@@ -1,9 +1,10 @@
 # MathPrint renderer + reverse-engineering
 
 A standalone experimental model of TI-84 Plus OS 2.55MP MathPrint layouts. It
-uses ROM-extracted font bitmaps and trace-fitted box geometry; it is not a
-record interpreter or an emulator. Deployed beside the wiki at `/mathprint/`
-(outside the mdBook). The reader-facing write-up is
+uses ROM-extracted font bitmaps, executable translations of closed ROM routines,
+and trace-fitted box geometry for the remaining compositor. It is not an
+emulator. Deployed beside the wiki at `/mathprint/` (outside the mdBook). The
+reader-facing write-up is
 [`docs/sub-equation-display.md`](../../docs/sub-equation-display.md).
 
 ## Interactive page
@@ -12,14 +13,22 @@ record interpreter or an emulator. Deployed beside the wiki at `/mathprint/`
 |------|------|
 | `index.html`, `style.css` | the interactive page |
 | `app.js` | renderer and two timelines: captured LCD writes for retained traces, or model elements for other expressions |
+| `rom-engine.js` | direct JavaScript translations of closed page `0x39` and page `0x01` routines |
 | `font.json` | large (`07:45FF`) + small (`03:4CD6`) font glyphs, extracted from ROM |
-| `layout.json` | page `0x39` class-table records and selected descriptors for inspection |
+| `layout.json` | page `0x39` class-table records and selected descriptors consumed by the translated routines |
 | `draw-order.json` | accepted visible-pixel LCD mutations from the retained integral traces |
+
+`rom-engine.js` translates handler lookup, row-cell emission, direct-glyph and
+delimiter classification, `_KeyToString` index arithmetic, descriptor selection
+and iteration, fraction endpoints, and class-6 row stepping. It returns an
+explicit unresolved result where the `ram:025E`/`ram:0254` family-shape
+predicates remain open.
 
 `app.js` is organized in sections: box primitives → layout constructs → text runs
 → expression parser → canvas rendering → UI. A "box" is `{rows, baseline, marks,
-adv}`; `adv` (pen advance) is separate from the bitmap width so glyphs can
-overhang. The marks are model-local composition metadata, not captured OS pen state.
+adv}`; `adv` (pen advance) is separate from bitmap width so glyphs can overhang.
+The marks are model-local composition metadata, not captured OS pen state. The
+arbitrary-expression compositor is still reconstructed rather than translated.
 
 ## Tooling
 
@@ -27,7 +36,9 @@ overhang. The marks are model-local composition metadata, not captured OS pen st
 |------|---------|
 | `export-font.py` | ROM → `font.json` (glyph data for the renderer and its font-table tab) |
 | `export-layout.py` | ROM → `layout.json` (handler records, descriptors) |
-| `interp-cells.js` | first-stage record-cell classifier for inspection |
+| `interp-cells.js` | command-line view of the browser's executable record-cell interpreter |
+| `analyze_mathprint_draw_trace.py` | attribute visible LCD mutations to dynamic page `0x34` and pixel-emitter call frames |
+| `InspectFunctions.java` | create temporary page-aware function entries and print focused Ghidra decompilation |
 | `trace_lcd.py` | replay reset-origin TilEm LCD I/O with its pinned T6A04 model |
 | `parity-mathprint.py` | render an expression in TilEm and diff it against the model |
 | `export-mathprint-draw-order.py` | export ordered set/clear pixel mutations from hash-pinned TLMT traces |

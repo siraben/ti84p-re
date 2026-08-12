@@ -18,12 +18,12 @@
 
   <section id="tab-renderer">
   <p class="lede">
-    Type an expression and it is typeset in 2-D using the calculator's real ROM
-    font glyphs, following the page-<code>0x39</code> MathPrint layout engine
-    documented in the
+    Type an expression to inspect a 2-D model built from the calculator's ROM
+    font glyphs. Closed page-<code>0x39</code> record and descriptor routines run
+    through a direct JavaScript translation documented in the
     <a href="../sub-equation-display.html">Equation display (MathPrint)</a> wiki page.
-    This is a reconstruction of the layout model, not the emulator; the glyph
-    bitmaps are extracted from the ROM by <code>tools/export-font.py</code>.
+    Arbitrary-expression composition still uses the labeled reconstruction;
+    the two integral presets can instead replay captured calculator LCD writes.
   </p>
 
   <div class="controls">
@@ -85,8 +85,8 @@
     <p>
       The accepted syntax is a small, lenient notation for experimenting with
       TI-84 constructs; it is not TI-BASIC syntax or a complete template parser.
-      ROM-confirmed descriptor geometry is separate from the trace-fitted box
-      constants used by this model.
+      The executable ROM translations stop at unresolved branches. Trace-fitted
+      box constants remain in the model compositor.
     </p>
   </details>
   </section>
@@ -102,6 +102,7 @@
     <div id="fonttable"></div>
   </section>
 </main>
+<script src="rom-engine.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

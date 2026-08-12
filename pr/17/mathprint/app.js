@@ -10,7 +10,12 @@
 //   descriptor axes: 39:683D maps 7*column to penY and rowHeight+2 to penX
 
 let FONT = null;
+let LAYOUT = null;
 let DRAW_ORDER = { scenarios: {} };
+
+const ROM_ENGINE = typeof MathPrintRomEngine !== 'undefined'
+  ? MathPrintRomEngine
+  : (typeof require !== 'undefined' ? require('./rom-engine.js') : null);
 
 const GAP = 1;            // px between adjacent glyphs in a text run
 const EXP_DROP = 2;       // px the exponent bottom sits below the base top (was raise=3)
@@ -357,7 +362,20 @@ function integral(lo, hi, body, varBox) {
   // and 1 px between "d" and the variable.
   const diff = hcat([text('d'), varBox || text('X')], 1);
   const inner = hcat([parens(body), diff], 2);
-  return bigOp(0x08, '∫ Lintegral', lo, hi, inner, 3);
+  // Class 0Dh row 2, slot 8 is 0842. The translated 4DCA/4DE6/4E8E/4F1A
+  // path resolves that structural cell to Lintegral glyph 08h.
+  let signCode = 0x08;
+  let signVia = '0x08 (fallback before layout.json loads)';
+  if (LAYOUT && ROM_ENGINE) {
+    const emitted = ROM_ENGINE.emitHandlerRow(LAYOUT, 0x0d, 2).emissions[8];
+    if (emitted.output.kind !== 'directGlyph')
+      throw new Error('class 0D integral cell is not a direct glyph');
+    signCode = emitted.output.glyph;
+    signVia = `39:${emitted.address.toString(16).toUpperCase()} → 39:4F1A`;
+  }
+  const result = bigOp(signCode, '∫ Lintegral', lo, hi, inner, 3);
+  if (result.marks && result.marks.length) result.marks[0].via = signVia;
+  return result;
 }
 // Summation Σ (MATH>0, glyph 0xC6): the OS stacks the limits vertically - the
 // upper limit (end) small-centered ABOVE the sign, the lower limit "var=start"
@@ -868,10 +886,11 @@ function showTab(name) {
 }
 
 async function main() {
-  const [fontResponse, orderResponse] = await Promise.all([
-    fetch('font.json'), fetch('draw-order.json'),
+  const [fontResponse, layoutResponse, orderResponse] = await Promise.all([
+    fetch('font.json'), fetch('layout.json'), fetch('draw-order.json'),
   ]);
   FONT = await fontResponse.json();
+  LAYOUT = await layoutResponse.json();
   DRAW_ORDER = await orderResponse.json();
   const bar = document.getElementById('presets');
   PRESETS.forEach(([label, src]) => {
@@ -928,6 +947,7 @@ if (typeof document !== 'undefined') main();
 if (typeof module !== 'undefined') {
   module.exports = {
     setFont: f => { FONT = f; },
+    setLayout: value => { LAYOUT = value; },
     parse,
     penLog,
     traceFrame,
