@@ -345,6 +345,14 @@
     ];
   }
 
+  // Render-record type 2Ah dispatches to the single JP at 34:6375. That jump
+  // enters the child-1 wrapper at 34:636C; the record itself emits no primitive.
+  function settledSingleChildOperations() {
+    return [
+      {kind:'child', index:1, routine:'34:6375 → 34:636C'},
+    ];
+  }
+
   // Render-record type 22h dispatches through 34:6105/6119 to 34:622F. The
   // record's word at +7 is the sign height. The handler emits one inclusive
   // vertical segment, then four hook points in this exact order.
@@ -381,6 +389,7 @@
     settledHorizontalOperation,
     settledObjectHandler,
     settledFractionOperations,
+    settledSingleChildOperations,
     settledIntegralOperations,
   };
 });

@@ -38,6 +38,9 @@ emission at `34:620A`. Fractions now draw numerator, denominator, then the
 inclusive horizontal rule computed from both child `+7` widths and the parent
 `+0x0B` coordinate. Child placement within each record remains open.
 
+Render-record type `0x2A` is translated as a child-1 traversal through
+`34:6375` and `34:636C`. The record emits no drawing primitive of its own.
+
 `app.js` is organized in sections: box primitives → layout constructs → text runs
 → expression parser → canvas rendering → UI. A "box" is `{rows, baseline, marks,
 adv}`; `adv` (pen advance) is separate from bitmap width so glyphs can overhang.
