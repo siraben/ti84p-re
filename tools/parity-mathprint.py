@@ -83,7 +83,7 @@ PRELUDE = ("set key_hold 0.18s\nset key_delay 0.1s\n"
 NAV = {"RIGHT", "LEFT", "UP", "DOWN"}
 
 
-def run_calc(keys, outdir, name, trace=False):
+def run_calc(keys, outdir, name, trace=False, trace_history=False):
     macro = PRELUDE
     for k in keys:
         if k == "WAIT":                 # settle for a menu/template to appear
@@ -98,10 +98,11 @@ def run_calc(keys, outdir, name, trace=False):
     # ENTER, as a fallback ground truth (see calc_bitmap). The memdump captures the
     # same instant's RAM state.
     macro += f"wait 0.6s\nmemdump {ram} ram-logical\nscreenshot {shot}\n"
-    # A trace run stops on the settled entry line, keeping its coverage and LCD
-    # replay scoped to entry rendering. A screenshot-only run presses ENTER so
-    # calc_bitmap can use the cursor-free history echo.
-    if not trace:
+    # A normal trace run stops on the settled entry line, keeping its coverage
+    # and LCD replay scoped to entry rendering. A history trace and every
+    # screenshot-only run press ENTER so the cursor-free history echo can be
+    # compared against the model in the same display state.
+    if not trace or trace_history:
         macro += "key ENTER\nwait 1.4s\n"
     gif = os.path.join(outdir, f"{name}.gif")
     mac = os.path.join(outdir, f"{name}.macro")
@@ -368,6 +369,11 @@ def parse_args():
     parser.add_argument("names", nargs="*", choices=EXAMPLES)
     parser.add_argument("--no-trace", action="store_true")
     parser.add_argument(
+        "--trace-history",
+        action="store_true",
+        help="press ENTER during trace capture and compare the history echo",
+    )
+    parser.add_argument(
         "--report",
         metavar="PATH",
         help="write a machine-readable report (requires trace capture)",
@@ -375,6 +381,10 @@ def parse_args():
     args = parser.parse_args()
     if args.report and args.no_trace:
         parser.error("--report requires trace capture")
+    if args.trace_history and args.no_trace:
+        parser.error("--trace-history cannot be combined with --no-trace")
+    if args.trace_history and args.report:
+        parser.error("--trace-history cannot update the entry-line trace report")
     return args
 
 
@@ -392,7 +402,11 @@ def main():
     for name in names:
         expr, keys = EXAMPLES[name]
         shot, ram, trace, generated_macro = run_calc(
-            keys, outdir, name, trace=do_trace
+            keys,
+            outdir,
+            name,
+            trace=do_trace,
+            trace_history=args.trace_history,
         )
         calc = calc_from_trace(trace) if trace else calc_bitmap(shot)
         model = js_bitmap(expr)
