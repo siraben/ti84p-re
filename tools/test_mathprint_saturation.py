@@ -484,19 +484,20 @@ class SymbolicHandlerTests(unittest.TestCase):
 
 
 class OracleCoverageTests(unittest.TestCase):
-    def test_trace_cache_discards_old_schema_without_migration(self) -> None:
+    def test_trace_cache_discards_noncurrent_schema_without_migration(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "cache.json"
-            path.write_text(json.dumps({
-                "schema": 4,
-                "cfg_fingerprint": "cfg",
-                "entries": {"old": {"row": {}}},
-            }))
+            for schema in (4, 5, 7):
+                path.write_text(json.dumps({
+                    "schema": schema,
+                    "cfg_fingerprint": "cfg",
+                    "entries": {"old": {"row": {}}},
+                }))
 
-            self.assertEqual(
-                {"schema": 6, "cfg_fingerprint": "cfg", "entries": {}},
-                load_trace_cache(path, "cfg"),
-            )
+                self.assertEqual(
+                    {"schema": 6, "cfg_fingerprint": "cfg", "entries": {}},
+                    load_trace_cache(path, "cfg"),
+                )
 
     def test_trace_cache_keeps_only_matching_current_schema(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
