@@ -1689,6 +1689,27 @@ for (const [label, expression] of mp.presets) {
     throw new Error(`${label} (${expression}) has an unresolved render operation`);
 }
 
+expectEqual('browser presents a selective mechanism-diverse example set',
+  mp.presets.map(([label]) => label),[
+    'Ans plus 1 (RE)',
+    'X raised to Ans (RE)',
+    'sine of a radical (RE)',
+    'list L1 (RE)',
+    'remainder of Ans and 2 (RE)',
+    'stacked 1//2',
+    'grouped base squared (RE)',
+    '10 raised to X squared (RE)',
+    'log base 3 of one half (RE)',
+    '2 by 3 mixed matrix (RE)',
+    'nested fraction',
+    'absolute value of a radical and power (RE)',
+    'definite integral',
+    'integral of a fraction',
+    'summation (RE)',
+    'nth root of a fraction',
+    'nDeriv (RE)',
+  ]);
+
 expectEqual('34:6143 keeps incoming-A-dependent type 1F explicit',
   rom.executeSettledRecordGraph([settledRecord(1,0x1f)],1), [{
     kind:'unresolved-render',
