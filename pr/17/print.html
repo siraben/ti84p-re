@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b1991484.js";
+            window.path_to_searchindex_js = "searchindex-b14c46f7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14948,7 +14948,7 @@ $$</p>
 <p>Each element is centered within its row and column extent:</p>
 <p>$$
 X_{r,c}=x_c+\left\lfloor\frac{C_c-w_{r,c}}{2}\right\rfloor, \qquad
-Y_{r,c}=y_r+\left\lfloor\frac{R_r-h_{r,c}}{2}\right\rfloor.
+Y_{r,c}=y_r+\left\lfloor\frac{R_r-h_{r,c}+1}{2}\right\rfloor.
 $$</p>
 <p>For $m$ rows and $n$ columns, let $N_e$ be the element count, $H$ the matrix
 height, $W$ the matrix width, and $y_c$ the vertical center:</p>
@@ -14963,9 +14963,12 @@ $$</p>
 <code>+9</code>, and <code>+0x0B</code>, respectively. [confirmed]</p>
 <p>The word at <code>+0x11</code> stores the column count in its high byte and structural
 depth in its low byte. The byte at <code>+0x13</code> stores the row count. When the matrix
-contains more than one element, the allocation pass leaves one unused ID after
-the first child. The reachable child sequence is therefore <code>0x11</code>, <code>0x13</code>,
-<code>0x14</code>, and so on in captures whose matrix record is <code>0x10</code>. [confirmed]</p>
+contains more than one element, the allocation pass reserves the first child
+leaf and then leaves one unused ID before scanning that leaf for nested
+records. Primitive captures therefore have reachable child IDs <code>0x11</code>,
+<code>0x13</code>, <code>0x14</code>, and so on when the matrix record is <code>0x10</code>. A structural first
+cell uses <code>0x11</code> for the leaf, leaves <code>0x12</code> unused, and assigns its first nested
+record ID <code>0x13</code>. [confirmed]</p>
 <p>Five reset-origin traces cover $1\times1$, $1\times2$, $2\times2$,
 $2\times3$, and $3\times3$ matrices. The JavaScript constructor matches every
 captured record field, child ID, and element position. The matrix result begins
@@ -15384,9 +15387,12 @@ then <code>34:5AA7</code> scans with <code>B=20h</code>. The returned <code>BC</
 <code>2Bh</code> comma or the row-closing <code>07h</code>. The <code>0x9D05</code> result is <code>0</code> for a comma
 and <code>FFh</code> for the row close. The JavaScript scanner retains these results and
 derives row-major element ranges. Retained $1\times1$, $1\times2$,
-$2\times3$, and $3\times3$ value traces pin primitive numeric cells. Nested
-structural matrix cells remain closed until a trace pins the constructor’s
-resume path after the child boundary. [confirmed]</p>
+$2\times3$, and $3\times3$ value traces pin primitive numeric cells. A
+$2\times2$ trace with <code>sqrt(2)</code> and $X^2$ pins the structural-cell path. At
+<code>34:5BA7</code>, <code>B=20h</code> makes a function opener increment <code>D</code>. Its closing <code>11h</code>
+sets bit 6 in <code>B</code>, resumes the scan, and reaches the matrix delimiter. The
+JavaScript parse-ahead translation applies that branch to ordinary, <code>BB</code>, and
+<code>EF</code> opener classes. [confirmed]</p>
 <p>The browser expands every accepted byte into eight ordered pixel results. A
 timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement
