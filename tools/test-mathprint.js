@@ -310,6 +310,53 @@ const settledGlyphStream = (nodes, entryId) => rom.executeSettledRecordProgram(
 ).filter(operation => operation.kind === 'glyph')
   .map(operation => [operation.code,operation.x,operation.y,operation.depth]);
 
+for (const [bytes, expected] of [
+  [[0x5c,0x00], {codes:[0xc1,0x41,0x5d],length:2,table:'5C',tableIndex:0}],
+  [[0x5d,0x00], {codes:[0x4c,0x81],length:2,table:'5D',tableIndex:0}],
+  [[0x5e,0x10], {codes:[0x59,0x81],length:2,table:'5E10',tableIndex:0}],
+  [[0xaa,0x00], {codes:[0x53,0x74,0x72,0x31],length:2,table:'AA',tableIndex:0}],
+  [[0xbb,0xff], {codes:[0x73,0x65,0x74,0x44,0x61,0x74,0x65,0x28],
+                 length:2,table:'BB',tableIndex:0xf6}],
+]) expectEqual(`01:6702 resolves ${bytes.map(value => value.toString(16)).join(' ')}`,
+  rom.settledTokenSpelling(bytes,0), expected);
+expectEqual('01:6702 rejects a truncated two-byte token',
+  rom.settledTokenSpelling([0x5d],0), null);
+expectEqual('01:6702 keeps bytes beyond the EF pointer array unresolved',
+  rom.settledTokenSpelling([0xef,0x41],0), null);
+
+for (const [expression, payload, glyphs] of [
+  ['L1',[0x5d,0x00],[0x4c,0x81]],
+  ['Y1',[0x5e,0x10],[0x59,0x81]],
+  ['Str1',[0xaa,0x00],[0x53,0x74,0x72,0x31]],
+  ['[A]',[0x5c,0x00],[0xc1,0x41,0x5d]],
+  ['cumSum(L1)',[0xbb,0x29,0x5d,0x00,0x11],
+    [0x63,0x75,0x6d,0x53,0x75,0x6d,0x4c,0x81]],
+  ['remainder(Ans,2)',[0xef,0x32,0x72,0x2b,0x32,0x11],
+    [0x72,0x65,0x6d,0x61,0x69,0x6e,0x64,0x65,0x72,
+     0x41,0x6e,0x73,0x2c,0x32]],
+]) {
+  const program = mp.constructedProgramForExpression(expression);
+  if (!program) throw new Error(`${expression} has no extended-token record program`);
+  expectEqual(`${expression} preserves its native token bytes`,program.nodes[0].payload,payload);
+  const operations = rom.executeSettledRecordProgram(program.nodes,program.entry_id,{
+    origin:program.origin,glyphAdvance:settledGlyphAdvance,
+  });
+  expectEqual(`${expression} resolves every counted spelling glyph`,
+    operations.filter(operation => operation.kind === 'glyph')
+      .map(operation => operation.code),glyphs);
+  if (operations.some(operation => operation.kind.startsWith('unresolved')))
+    throw new Error(`${expression} has an unresolved pixel-level operation`);
+  const rendered = rom.rasterizeSettledOperations(operations,font);
+  if (!rendered.writes.length)
+    throw new Error(`${expression} has no generated LCD data-write timeline`);
+  const replayed = Array.from({length:rendered.height}, () =>
+    new Array(rendered.width).fill(0));
+  for (const write of rendered.writes)
+    for (const [x,y,value] of write.changes) replayed[y][x] = value;
+  expectEqual(`${expression} LCD timeline reaches its final pixel grid`,
+    replayed,rendered.grid);
+}
+
 const absoluteProgram = [
   settledRecord(0x0d,0,{word09:3,word11:6},[],
     [0xef,0x21,0x0e,0x00,0xef,0x2d]),

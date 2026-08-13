@@ -33,13 +33,34 @@ class ArtifactTests(unittest.TestCase):
         self.assertEqual([0x73, 0x69, 0x6E, 0x28],
                          table["entries"][0xC2]["codes"])
 
-    def test_two_byte_token_leads_remain_separate(self):
+    def test_two_byte_token_tables_match_rom_spellings(self):
         artifact = self.load("token-strings.json")
+        two_byte = artifact["twoByte"]
 
         self.assertEqual(
             [0x5C, 0x5D, 0x5E, 0x60, 0x61, 0x62,
              0x63, 0x7E, 0xAA, 0xBB, 0xEF],
-            artifact["twoByteLeadBytes"],
+            two_byte["leadBytes"],
+        )
+        tables = two_byte["tables"]
+        self.assertEqual([0xC1, 0x41, 0x5D],
+                         tables["5C"]["entries"][0]["codes"])
+        self.assertEqual([0x4C, 0x81],
+                         tables["5D"]["entries"][0]["codes"])
+        self.assertEqual([0x59, 0x81],
+                         tables["5E10"]["entries"][0]["codes"])
+        self.assertEqual([0x53, 0x74, 0x72, 0x31],
+                         tables["AA"]["entries"][0]["codes"])
+
+    def test_two_byte_table_boundaries_are_explicit(self):
+        tables = self.load("token-strings.json")["twoByte"]["tables"]
+
+        self.assertEqual(0x13, len(tables["7E"]["entries"]))
+        self.assertEqual(0xF7, len(tables["BB"]["entries"]))
+        self.assertEqual(0x41, len(tables["EF"]["entries"]))
+        self.assertEqual(
+            tables["BB"]["entries"][0xF6],
+            tables["EF"]["entries"][0],
         )
 
     def test_descriptor_cells_match_declared_dimensions(self):

@@ -887,6 +887,13 @@ const PRESETS = Object.freeze([
   ['tangent of X (RE)', 'tan(X)'],
   ['natural log of X (RE)', 'ln(X)'],
   ['common log of X (RE)', 'log(X)'],
+  ['list L1 (RE)', 'L1'],
+  ['L1 squared (RE)', 'L1^2'],
+  ['matrix name [A] (RE)', '[A]'],
+  ['equation variable Y1 (RE)', 'Y1'],
+  ['string variable Str1 (RE)', 'Str1'],
+  ['cumulative sum of L1 (RE)', 'cumSum(L1)'],
+  ['remainder of Ans and 2 (RE)', 'remainder(Ans,2)'],
   ['linear 1/2', '1/2'],
   ['stacked 1//2', '1//2'],
   ['X squared', 'X^2'],
@@ -1012,6 +1019,27 @@ function flatSettledTokenBytes(source) {
     else return null;
   }
   return bytes.length ? bytes : null;
+}
+
+const SETTLED_NAMED_VARIABLE_TOKENS = Object.freeze([
+  [/^L([1-6])/, match => [0x5d, Number(match[1]) - 1]],
+  [/^Y([1-9]|0)/, match => [0x5e, 0x10 + variableDigitIndex(match[1])]],
+  [/^Str([1-9]|0)/, match => [0xaa, variableDigitIndex(match[1])]],
+  [/^Pic([1-9]|0)/, match => [0x60, variableDigitIndex(match[1])]],
+  [/^GDB([1-9]|0)/, match => [0x61, variableDigitIndex(match[1])]],
+  [/^\[([A-J])\]/, match => [0x5c, match[1].charCodeAt(0) - 0x41]],
+]);
+
+function variableDigitIndex(digit) {
+  return digit === '0' ? 9 : Number(digit) - 1;
+}
+
+function settledNamedVariableAt(source) {
+  for (const [pattern, tokenBytes] of SETTLED_NAMED_VARIABLE_TOKENS) {
+    const match = pattern.exec(source);
+    if (match) return {length:match[0].length,tokens:tokenBytes(match)};
+  }
+  return null;
 }
 
 // Closed expression grammar for the translated record constructor. It keeps
@@ -1163,6 +1191,11 @@ function constructedSettledSpec(source) {
       offset += 3;
       return {kind:'tokens',tokens:[0x72]};
     }
+    const namedVariable = settledNamedVariableAt(source.slice(offset));
+    if (namedVariable) {
+      offset += namedVariable.length;
+      return {kind:'tokens',tokens:namedVariable.tokens};
+    }
     for (const [name, token] of [
       ['sin',0xc2], ['cos',0xc4], ['tan',0xc6], ['ln',0xbe], ['log',0xc0],
     ]) {
@@ -1173,6 +1206,28 @@ function constructedSettledSpec(source) {
       offset++;
       return sequence([
         {kind:'tokens',tokens:[token]}, argument,
+        {kind:'tokens',tokens:[0x11]},
+      ]);
+    }
+    for (const [name, tokens] of [
+      ['cumSum',[0xbb,0x29]], ['remainder',[0xef,0x32]],
+    ]) {
+      if (!source.startsWith(`${name}(`, offset)) continue;
+      offset += name.length + 1;
+      const parts = [];
+      const first = expression();
+      if (!first) return null;
+      parts.push(first);
+      while (source[offset] === ',') {
+        offset++;
+        const argument = expression();
+        if (!argument) return null;
+        parts.push({kind:'tokens',tokens:[0x2b]},argument);
+      }
+      if (source[offset] !== ')') return null;
+      offset++;
+      return sequence([
+        {kind:'tokens',tokens}, ...parts,
         {kind:'tokens',tokens:[0x11]},
       ]);
     }
@@ -1196,10 +1251,11 @@ function constructedSettledSpec(source) {
     if (!first) return null;
     parts.push(first);
     const beginsImplicitFactor = () => source[offset] === '('
+      || source[offset] === '['
       || /[A-Z0-9.]/.test(source[offset] || '')
       || ['int(', 'sum(', 'nDeriv(', 'nthroot(', 'sqrt(',
           'abs(', 'exp(', 'tenpow(', 'logbase(', 'matrix(', 'Ans',
-          'sin(', 'cos(', 'tan(', 'ln(', 'log(']
+          'sin(', 'cos(', 'tan(', 'ln(', 'log(', 'cumSum(', 'remainder(']
         .some(prefix => source.startsWith(prefix, offset));
     while (source[offset] === '*' || beginsImplicitFactor()) {
       const explicit = source[offset] === '*';
