@@ -965,6 +965,13 @@
         radicand:settledExpressionSpec(
           input.radicand, `${label} radicand`, active),
       };
+      if (kind === 'fraction') return {
+        kind,
+        numerator:settledExpressionSpec(
+          input.numerator, `${label} numerator`, active),
+        denominator:settledExpressionSpec(
+          input.denominator, `${label} denominator`, active),
+      };
       throw new RangeError(`${label} has unsupported kind ${JSON.stringify(kind)}`);
     } finally {
       active.delete(input);
@@ -1000,10 +1007,11 @@
       if (expression.kind === 'power') return expression.base[0];
       if (expression.kind === 'radical') return 0xef;
       if (expression.kind === 'nthRoot') return leadingByte(expression.index);
+      if (expression.kind === 'fraction') return 0xef;
       throw new RangeError(`unsupported settled leading-byte kind ${expression.kind}`);
     };
 
-    const build = (expression, renderDepth, parentId, structuralDepth) => {
+    const newLeaf = parentId => {
       const leafId = allocate();
       const leaf = {
         record_id:leafId, render_type:0, word03:parentId,
@@ -1011,6 +1019,20 @@
         word0F:0, word11:0, byte13:0, child_ids:[], payload:[],
       };
       nodes.push(leaf);
+      return leaf;
+    };
+
+    const finishLeaf = leaf => {
+      if (!leaf.payload.length)
+        throw new RangeError('settled leaf construction produced an empty payload');
+      checkedWord(leaf.payload.length, 'settled leaf payload length');
+      leaf.word0F = leaf.payload.length;
+      leaf.word11 = leaf.payload.length;
+      leaf.byte13 = leaf.payload[0];
+      return leaf;
+    };
+
+    const fillLeaf = (leaf, prepared, renderDepth) => {
 
       const addTokens = tokens => {
         const metrics = settledLeafMetrics(tokens, renderDepth, font);
@@ -1021,6 +1043,7 @@
         leaf.payload.push(...metrics.payload);
       };
       const addStructural = structural => {
+        structural.word03 = leaf.record_id;
         leaf.word05 = Math.max(leaf.word05, structural.word07);
         leaf.word07 = checkedWord(
           leaf.word07 + structural.word09, 'settled structural leaf width');
@@ -1037,109 +1060,205 @@
           for (const child of part.parts) addPart(child);
           return;
         }
-        if (part.kind === 'power') {
-          addTokens(part.base);
-          const renderType = settledStructuralTokenType(0x00, 0xf0);
-          if (renderType !== 0x2a)
-            throw new Error('34:594D power token mapping is inconsistent');
-          const structuralId = allocate();
-          const structural = {
-            record_id:structuralId, render_type:renderType, word03:leafId,
-            word05:settledRecordMetadata(renderType)[1],
-            word07:0, word09:0, word0B:0, word0D:0, word0F:0,
-            word11:structuralDepth + 1, byte13:0, child_ids:[], payload:[],
-          };
-          nodes.push(structural);
-          const child = build(
-            part.exponent, renderDepth + 1, structuralId, structuralDepth + 1);
-          const firstRaisedRow = renderDepth === 0;
-          structural.word07 = checkedWord(
-            child.word05 + (firstRaisedRow ? 5 : 3), 'power height');
-          structural.word09 = child.word07;
-          structural.word0B = checkedWord(
-            child.word09 + (firstRaisedRow ? 4 : 3), 'power baseline');
-          structural.word0D = firstRaisedRow ? 6 : 4;
-          structural.child_ids = [child.record_id];
-          addStructural(structural);
-          return;
-        }
-        if (part.kind === 'radical') {
-          const renderType = settledStructuralTokenType(0x00, 0xbc);
-          if (renderType !== 0x27)
-            throw new Error('34:594D radical token mapping is inconsistent');
-          const structuralId = allocate();
-          const structural = {
-            record_id:structuralId, render_type:renderType, word03:leafId,
-            word05:settledRecordMetadata(renderType)[1],
-            word07:0, word09:0, word0B:0, word0D:0, word0F:0,
-            word11:structuralDepth + 1, byte13:0, child_ids:[], payload:[],
-          };
-          nodes.push(structural);
-          const child = build(
-            part.radicand, renderDepth, structuralId, structuralDepth + 1);
-          child.word0B = 5;
-          child.word0D = 2;
-          structural.word07 = checkedWord(child.word05 + 2, 'radical height');
-          structural.word09 = checkedWord(child.word07 + 5, 'radical width');
-          structural.word0B = checkedWord(child.word09 + 2, 'radical baseline');
-          structural.child_ids = [child.record_id];
-          addStructural(structural);
-          return;
-        }
-        if (part.kind === 'nthRoot') {
-          const renderType = settledStructuralTokenType(0x00, 0xf1);
-          if (renderType !== 0x24)
-            throw new Error('34:594D nth-root token mapping is inconsistent');
-          const structuralId = allocate();
-          const structural = {
-            record_id:structuralId, render_type:renderType, word03:leafId,
-            word05:settledRecordMetadata(renderType)[2],
-            word07:0, word09:0, word0B:0, word0D:0,
-            word0F:0, word11:structuralDepth + 1,
-            byte13:renderDepth === 0 ? leadingByte(part.index) : 0,
-            child_ids:[], payload:[],
-          };
-          nodes.push(structural);
-          const index = build(
-            part.index, renderDepth + 1, structuralId, structuralDepth + 1);
-          // The type-24 metric pass keeps the index payload length at +11h but
-          // clears its +0Fh word. The renderer still consumes the full payload.
-          index.word0F = 0;
-          const radicand = build(
-            part.radicand, renderDepth, structuralId, structuralDepth + 1);
-          radicand.word0B = checkedWord(index.word07 + 4, 'nth-root radicand x');
-          radicand.word0D = 4;
-          structural.word07 = checkedWord(radicand.word05 + 4, 'nth-root height');
-          structural.word09 = checkedWord(
-            index.word07 + radicand.word07 + 4, 'nth-root width');
-          structural.word0B = checkedWord(
-            radicand.word09 + 4, 'nth-root baseline');
-          structural.child_ids = [index.record_id, radicand.record_id];
-          addStructural(structural);
+        if (part.kind === 'embedded') {
+          addStructural(part.structural);
           return;
         }
         throw new RangeError(`unsupported settled expression part ${part.kind}`);
       };
 
-      addPart(expression);
-      if (!leaf.payload.length)
-        throw new RangeError('settled leaf construction produced an empty payload');
-      checkedWord(leaf.payload.length, 'settled leaf payload length');
-      leaf.word0F = leaf.payload.length;
-      leaf.word11 = leaf.payload.length;
-      leaf.byte13 = leaf.payload[0];
-      return leaf;
+      addPart(prepared);
+      return finishLeaf(leaf);
     };
+
+    const materializeLeaf = (prepared, renderDepth, parentId) =>
+      fillLeaf(newLeaf(parentId), prepared, renderDepth);
+
+    // The record pass builds structural objects found in a fraction numerator
+    // before it allocates the enclosing type-20h record. The numerator leaf is
+    // allocated afterward and receives pointers to those earlier objects. This
+    // differs from the denominator and from every other translated child path.
+    // Preparing a leaf separately from materializing it retains that ROM order.
+    const prepare = (expression, renderDepth, structuralDepth,
+                     fractionNumerator = false) => {
+      if (expression.kind === 'tokens') return {
+        ...expression, fractionByte13:expression.tokens[0],
+      };
+      if (expression.kind === 'sequence') {
+        const parts = expression.parts.map((part, index) =>
+          prepare(part, renderDepth, structuralDepth,
+                  fractionNumerator && index === 0));
+        return {
+          kind:'sequence', parts,
+          fractionByte13:parts[0].fractionByte13,
+        };
+      }
+      if (expression.kind === 'power') {
+        const renderType = settledStructuralTokenType(0x00, 0xf0);
+        if (renderType !== 0x2a)
+          throw new Error('34:594D power token mapping is inconsistent');
+        const structuralId = allocate();
+        const structural = {
+          record_id:structuralId, render_type:renderType, word03:0,
+          word05:settledRecordMetadata(renderType)[1],
+          word07:0, word09:0, word0B:0, word0D:0, word0F:0,
+          word11:structuralDepth + 1,
+          byte13:fractionNumerator ? 0x10 : 0,
+          child_ids:[], payload:[],
+        };
+        nodes.push(structural);
+        const child = build(
+          expression.exponent, renderDepth + 1, structuralId, structuralDepth + 1);
+        const firstRaisedRow = renderDepth === 0;
+        structural.word07 = checkedWord(
+          child.word05 + (firstRaisedRow ? 5 : 3), 'power height');
+        structural.word09 = child.word07;
+        structural.word0B = checkedWord(
+          firstRaisedRow ? child.word05 + 1 : child.word09 + 3,
+          'power baseline');
+        structural.word0D = firstRaisedRow ? 6 : 4;
+        structural.child_ids = [child.record_id];
+        return {
+          kind:'sequence',
+          parts:[{kind:'tokens',tokens:expression.base},
+                 {kind:'embedded',structural}],
+          fractionByte13:0x10,
+        };
+      }
+      if (expression.kind === 'radical') {
+        const renderType = settledStructuralTokenType(0x00, 0xbc);
+        if (renderType !== 0x27)
+          throw new Error('34:594D radical token mapping is inconsistent');
+        const structuralId = allocate();
+        const structural = {
+          record_id:structuralId, render_type:renderType, word03:0,
+          word05:settledRecordMetadata(renderType)[1],
+          word07:0, word09:0, word0B:0, word0D:0, word0F:0,
+          word11:structuralDepth + 1,
+          byte13:fractionNumerator ? 0x10 : 0,
+          child_ids:[], payload:[],
+        };
+        nodes.push(structural);
+        const child = build(
+          expression.radicand, renderDepth, structuralId, structuralDepth + 1);
+        child.word0B = 5;
+        child.word0D = 2;
+        structural.word07 = checkedWord(child.word05 + 2, 'radical height');
+        structural.word09 = checkedWord(child.word07 + 5, 'radical width');
+        structural.word0B = checkedWord(child.word09 + 2, 'radical baseline');
+        structural.child_ids = [child.record_id];
+        return {
+          kind:'embedded', structural,
+          fractionByte13:fractionNumerator ? 0x10 : 0xef,
+        };
+      }
+      if (expression.kind === 'nthRoot') {
+        const renderType = settledStructuralTokenType(0x00, 0xf1);
+        if (renderType !== 0x24)
+          throw new Error('34:594D nth-root token mapping is inconsistent');
+        const structuralId = allocate();
+        const structural = {
+          record_id:structuralId, render_type:renderType, word03:0,
+          word05:settledRecordMetadata(renderType)[2],
+          word07:0, word09:0, word0B:0, word0D:0,
+          word0F:0, word11:structuralDepth + 1,
+          byte13:fractionNumerator ? 0x10
+            : structuralDepth === 0 ? leadingByte(expression.index) : 0,
+          child_ids:[], payload:[],
+        };
+        nodes.push(structural);
+        const index = build(
+          expression.index, renderDepth + 1, structuralId, structuralDepth + 1);
+        // The type-24 metric pass keeps the index payload length at +11h but
+        // clears its +0Fh word. The renderer still consumes the full payload.
+        index.word0F = 0;
+        const radicand = build(
+          expression.radicand, renderDepth, structuralId, structuralDepth + 1);
+        radicand.word0B = checkedWord(index.word07 + 4, 'nth-root radicand x');
+        radicand.word0D = 4;
+        structural.word07 = checkedWord(radicand.word05 + 4, 'nth-root height');
+        structural.word09 = checkedWord(
+          index.word07 + radicand.word07 + 4, 'nth-root width');
+        structural.word0B = checkedWord(
+          radicand.word09 + 4, 'nth-root baseline');
+        structural.child_ids = [index.record_id, radicand.record_id];
+        return {kind:'embedded',structural,fractionByte13:0xef};
+      }
+      if (expression.kind === 'fraction') {
+        const numeratorPrepared = prepare(
+          expression.numerator, renderDepth + 1, structuralDepth + 1, true);
+        const renderType = settledStructuralTokenType(0xef, 0x2e);
+        if (renderType !== 0x20)
+          throw new Error('34:594D fraction token mapping is inconsistent');
+        const structuralId = allocate();
+        const structural = {
+          record_id:structuralId, render_type:renderType, word03:0,
+          word05:settledRecordMetadata(renderType)[0],
+          word07:0, word09:0, word0B:0, word0D:0, word0F:0,
+          word11:structuralDepth + 1,
+          byte13:fractionNumerator ? 0x10
+            : structuralDepth === 0 ? numeratorPrepared.fractionByte13 : 0,
+          child_ids:[], payload:[],
+        };
+        nodes.push(structural);
+        const numerator = materializeLeaf(
+          numeratorPrepared, renderDepth + 1, structuralId);
+        numerator.word0F = 0;
+        const denominator = build(
+          expression.denominator, renderDepth + 1,
+          structuralId, structuralDepth + 1);
+        const width = Math.max(numerator.word07, denominator.word07);
+        numerator.word0B = checkedWord(
+          2 + Math.floor((width - numerator.word07) / 2),
+          'fraction numerator x');
+        numerator.word0D = 0;
+        denominator.word0B = checkedWord(
+          2 + Math.floor((width - denominator.word07) / 2),
+          'fraction denominator x');
+        denominator.word0D = checkedWord(
+          numerator.word05 + 3, 'fraction denominator y');
+        structural.word07 = checkedWord(
+          numerator.word05 + denominator.word05 + 3, 'fraction height');
+        structural.word09 = checkedWord(width + 4, 'fraction width');
+        structural.word0B = checkedWord(
+          numerator.word05 + 1, 'fraction baseline');
+        structural.child_ids = [numerator.record_id, denominator.record_id];
+        return {kind:'embedded',structural,fractionByte13:0xef};
+      }
+      throw new RangeError(`unsupported settled expression part ${expression.kind}`);
+    };
+
+    function build(expression, renderDepth, parentId, structuralDepth) {
+      const leaf = newLeaf(parentId);
+      return fillLeaf(
+        leaf, prepare(expression, renderDepth, structuralDepth), renderDepth);
+    }
 
     const root = build(spec, 0, firstId - 1, 0);
     for (const node of nodes)
       if (node.render_type >= 0x1f && node.byte13 === 0)
         node.byte13 = root.payload[0];
+    const nodeMap = new Map(nodes.map(node => [node.record_id,node]));
+    const orderedNodes = [];
+    const visited = new Set();
+    const visit = recordId => {
+      if (visited.has(recordId)) return;
+      const node = nodeMap.get(recordId);
+      if (!node) throw new Error(`constructed record 0x${recordId.toString(16)} is absent`);
+      visited.add(recordId);
+      orderedNodes.push(node);
+      for (const childId of node.child_ids) visit(childId);
+      for (let index = 0; index + 3 < node.payload.length; index++)
+        if (node.payload[index] === 0xef &&
+            0x1f <= node.payload[index + 1] && node.payload[index + 1] <= 0x2b)
+          visit(node.payload[index + 2] | node.payload[index + 3] << 8);
+    };
+    visit(root.record_id);
     return {
       entry_id:root.record_id,
       origin:{x:0,y:0},
       source:'34:4900, 34:5935, 34:7393, and 34:7609 translated compositional construction',
-      nodes,
+      nodes:orderedNodes,
     };
   }
 
@@ -1166,6 +1285,15 @@
       {kind:'nthRoot', index, radicand}, firstId, font);
     program.source =
       '34:4900, 34:5935, 34:7393, and 34:7609 translated nth-root construction';
+    return program;
+  }
+
+  function constructSettledFractionProgram(numerator, denominator,
+                                           firstId = 1, font = null) {
+    const program = constructSettledExpressionProgram(
+      {kind:'fraction', numerator, denominator}, firstId, font);
+    program.source =
+      '34:4900, 34:5935, 34:7393, and 34:7609 translated fraction construction';
     return program;
   }
 
@@ -1640,6 +1768,7 @@
     settledTokenGlyph,
     constructSettledAbsoluteProgram,
     constructSettledExpressionProgram,
+    constructSettledFractionProgram,
     constructSettledNthRootProgram,
     constructSettledPowerProgram,
     constructSettledRadicalProgram,

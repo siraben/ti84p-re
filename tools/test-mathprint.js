@@ -436,6 +436,10 @@ expectEqual('34:5935 maps the nth-root token through 34:594D',
   rom.settledStructuralTokenType(0x00,0xf1), 0x24);
 expectEqual('34:5996 selects the nth-root metadata row',
   rom.settledRecordMetadata(0x24), [0x01,0x01,0x02,0x00,0x00]);
+expectEqual('34:5935 maps the stacked-fraction token through 34:594D',
+  rom.settledStructuralTokenType(0xef,0x2e), 0x20);
+expectEqual('34:5996 selects the stacked-fraction metadata row',
+  rom.settledRecordMetadata(0x20), [0x02,0x01,0x02,0x00,0x00]);
 const constructedAbsolute = rom.constructSettledAbsoluteProgram([0x58,0x71,0x33],0x0d);
 expectEqual('absolute tokens independently construct the settled record graph',
   constructedAbsolute.nodes, recordPrograms.programs['abs(X-3)'].nodes);
@@ -509,6 +513,24 @@ for (const oracle of constructionOracles.nth_root_cases) {
     crypto.createHash('sha256').update(writeBytes).digest('hex'),
     oracle.accepted_write_sha256);
 }
+for (const oracle of constructionOracles.fraction_cases) {
+  const program = rom.constructSettledExpressionProgram(
+    oracle.spec, oracle.entry_id, font);
+  expectEqual(`${oracle.expression} independently constructs the fresh TilEm graph`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.origin, nodes:oracle.nodes});
+  const operations = rom.executeSettledRecordProgram(program.nodes, program.entry_id, {
+    origin:program.origin,
+    glyphAdvance:settledGlyphAdvance,
+  });
+  const writes = rom.rasterizeSettledOperations(operations, font).writes;
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write count`,
+    writes.length, oracle.accepted_write_count);
+  const writeBytes = Buffer.from(writes.flatMap(write => [...write.pointer,write.value]));
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write stream`,
+    crypto.createHash('sha256').update(writeBytes).digest('hex'),
+    oracle.accepted_write_sha256);
+}
 expectEqual('browser selects translated absolute record construction',
   mp.constructedProgramForExpression('abs(X-3)').nodes,
   rom.constructSettledAbsoluteProgram([0x58,0x71,0x33]).nodes);
@@ -541,6 +563,49 @@ expectEqual('browser constructs an nth root inside a raised exponent',
     kind:'power', base:[0x58],
     exponent:{kind:'nthRoot',index:[0x33],radicand:[0x32]},
   }, 1, font).nodes);
+expectEqual('browser constructs a stacked fraction from its operands',
+  mp.constructedProgramForExpression('12//X').nodes,
+  rom.constructSettledFractionProgram([0x31,0x32], [0x58], 1, font).nodes);
+expectEqual('browser constructs a structural fraction numerator in ROM ID order',
+  mp.constructedProgramForExpression('X^2//3').nodes,
+  rom.constructSettledFractionProgram(
+    {kind:'power',base:[0x58],exponent:[0x32]}, [0x33], 1, font).nodes);
+expectEqual('browser constructs a structural fraction denominator',
+  mp.constructedProgramForExpression('3//X^2').nodes,
+  rom.constructSettledFractionProgram(
+    [0x33], {kind:'power',base:[0x58],exponent:[0x32]}, 1, font).nodes);
+expectEqual('browser constructs a mixed structural fraction numerator',
+  mp.constructedProgramForExpression('(X^2+1)//3').nodes,
+  rom.constructSettledFractionProgram({
+    kind:'sequence',
+    parts:[{kind:'power',base:[0x58],exponent:[0x32]},[0x70,0x31]],
+  }, [0x33], 1, font).nodes);
+expectEqual('browser constructs a fraction nested in the denominator',
+  mp.constructedProgramForExpression('1//(2//3)').nodes,
+  rom.constructSettledFractionProgram(
+    [0x31], {kind:'fraction',numerator:[0x32],denominator:[0x33]}, 1, font).nodes);
+expectEqual('browser constructs a fraction nested in the numerator',
+  mp.constructedProgramForExpression('(1//2)//3').nodes,
+  rom.constructSettledFractionProgram(
+    {kind:'fraction',numerator:[0x31],denominator:[0x32]}, [0x33], 1, font).nodes);
+expectEqual('browser composes a fraction inside a radical',
+  mp.constructedProgramForExpression('sqrt(1//2)').nodes,
+  rom.constructSettledRadicalProgram(
+    {kind:'fraction',numerator:[0x31],denominator:[0x32]}, 1, font).nodes);
+expectEqual('browser composes a fraction inside a raised exponent',
+  mp.constructedProgramForExpression('X^(1//2)').nodes,
+  rom.constructSettledPowerProgram({
+    base:[0x58],
+    exponent:{kind:'fraction',numerator:[0x31],denominator:[0x32]},
+  }, 1, font).nodes);
+expectEqual('browser constructs a radical fraction numerator in ROM ID order',
+  mp.constructedProgramForExpression('sqrt(2)//3').nodes,
+  rom.constructSettledFractionProgram(
+    {kind:'radical',radicand:[0x32]}, [0x33], 1, font).nodes);
+expectEqual('browser constructs an nth-root fraction numerator in ROM ID order',
+  mp.constructedProgramForExpression('nthroot(3,2)//3').nodes,
+  rom.constructSettledFractionProgram(
+    {kind:'nthRoot',index:[0x33],radicand:[0x32]}, [0x33], 1, font).nodes);
 const constructedPower = rom.constructSettledPowerProgram(
   {base:[0x58], exponent:[0x32]}, 0x0d, font);
 expectEqual('power tokens independently construct the settled X^2 graph',
@@ -616,12 +681,21 @@ expectThrows('compositional constructor rejects an empty nth-root index', RangeE
   () => rom.constructSettledNthRootProgram([], [0x32], 1, font));
 expectThrows('compositional constructor rejects an empty nth-root radicand', RangeError,
   () => rom.constructSettledNthRootProgram([0x33], [], 1, font));
+expectThrows('compositional constructor rejects an empty fraction numerator', RangeError,
+  () => rom.constructSettledFractionProgram([], [0x32], 1, font));
+expectThrows('compositional constructor rejects an empty fraction denominator', RangeError,
+  () => rom.constructSettledFractionProgram([0x31], [], 1, font));
 expectThrows('compositional constructor rejects unsupported structural kinds', RangeError,
   () => rom.constructSettledExpressionProgram({kind:'integral'}, 1, font));
 expectThrows('compositional constructor rejects overflowing leaf metrics', RangeError,
   () => rom.constructSettledExpressionProgram(new Array(10923).fill(0x58), 1, font));
 expectThrows('compositional constructor rejects record ID exhaustion', RangeError,
   () => rom.constructSettledRadicalProgram([0x32], 0xffff, font));
+expectThrows('fraction constructor detects record ID exhaustion', RangeError,
+  () => rom.constructSettledFractionProgram([0x31], [0x32], 0xfffd, font));
+expectThrows('fraction constructor rejects overflowing child width', RangeError,
+  () => rom.constructSettledFractionProgram(
+    new Array(16384).fill(0x31), [0x32], 1, font));
 for (const [expression,nodes,entryId] of browserProgramCases) {
   const fixture = recordPrograms.programs[expression];
   expectEqual(`${expression} browser fixture entry`, fixture.entry_id, entryId);
@@ -653,11 +727,14 @@ expectEqual('nth-root browser path labels translated construction',
 expectEqual('compositional browser path labels translated construction',
   mp.generatedForExpression('X^sqrt(2)').programSource,
   '34:4900, 34:5935, 34:7393, and 34:7609 translated power construction');
+expectEqual('fraction browser path labels translated construction',
+  mp.generatedForExpression('1//2').programSource,
+  '34:4900, 34:5935, 34:7393, and 34:7609 translated fraction construction');
 expectEqual('remaining browser paths label captured record input',
   mp.generatedForExpression('sum(N,1,3,N^2)').programSource,
   'captured settled record snapshot');
-expectEqual('arbitrary expression has no captured record program',
-  mp.generatedForExpression('1//(2//3)'), null);
+expectEqual('arbitrary untranslated expression has no captured record program',
+  mp.generatedForExpression('A+(X)'), null);
 
 expectEqual('34:6143 keeps incoming-A-dependent type 1F explicit',
   rom.executeSettledRecordGraph([settledRecord(1,0x1f)],1), [{
