@@ -1374,15 +1374,92 @@
     0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x38,0x39,0x3a,0x3b,
   ]);
 
+  // 34:580C is the extended classifier reached after 34:5866 rejects a
+  // numeric run. A is the first byte selected by 34:56A4: ordinary tokens use
+  // their byte, while packed two-byte tokens use the lead byte. The routine
+  // accepts one token, or a bounded raw name after 5Fh and EBh. It returns Z
+  // for every accepted class and NZ for the default rejection.
+  function settledRaisedExtendedTokenClass(prefix, token) {
+    byte(prefix, 'settled raised classifier prefix');
+    byte(token, 'settled raised classifier token');
+    const a = prefix || token;
+    const path = [];
+    const branch = (address, taken) =>
+      path.push(`34:${address.toString(16).toUpperCase()}:` +
+        (taken ? 'taken' : 'fallthrough'));
+    branch(0x580e,a < 0x40);
+    if (a >= 0x40) {
+      branch(0x5812,a < 0x5c);
+      if (a < 0x5c) {
+        branch(0x585f,a === 0x5f);
+        return {accepted:true,nameByteLimit:a === 0x5f ? 8 : 0,path};
+      }
+      branch(0x5816,a < 0x64);
+      if (a < 0x64) {
+        branch(0x585f,a === 0x5f);
+        return {accepted:true,nameByteLimit:a === 0x5f ? 8 : 0,path};
+      }
+    }
+    branch(0x581b,a === 0x72);
+    if (a === 0x72) return {accepted:true,nameByteLimit:0,path};
+    branch(0x581f,a === 0xaa);
+    if (a === 0xaa) return {accepted:true,nameByteLimit:0,path};
+    branch(0x5823,a === 0xeb);
+    if (a === 0xeb) return {accepted:true,nameByteLimit:5,path};
+    branch(0x5827,a === 0x2c);
+    if (a === 0x2c) return {accepted:true,nameByteLimit:0,path};
+    branch(0x582b,a === 0xac);
+    if (a === 0xac) return {accepted:true,nameByteLimit:0,path};
+    branch(0x582f,a !== 0xbb);
+    if (a !== 0xbb) return {accepted:false,nameByteLimit:0,path};
+    branch(0x5833,token === 0x31);
+    return {accepted:token === 0x31,nameByteLimit:0,path};
+  }
+
+  function settledRaisedNameScan(bytes, start, limit) {
+    if (!Number.isInteger(start) || start < 0 || start > bytes.length)
+      throw new RangeError('settled raised name start is outside the input');
+    if (!Number.isInteger(limit) || limit < 1)
+      throw new RangeError('settled raised name limit must be positive');
+    const path = [];
+    const branch = (address, taken) =>
+      path.push(`34:${address.toString(16).toUpperCase()}:` +
+        (taken ? 'taken' : 'fallthrough'));
+    let end = start;
+    let stop = 'source_boundary';
+    for (let count = 0; count < limit; count++) {
+      branch(0x5840,end >= bytes.length);
+      if (end >= bytes.length) break;
+      const value = bytes[end];
+      const digit = 0x30 <= value && value < 0x3a;
+      branch(0x5845,digit);
+      if (!digit) {
+        branch(0x5849,value < 0x41);
+        if (value < 0x41) {
+          stop = 'non_name_byte_below_41h';
+          break;
+        }
+        branch(0x584d,value >= 0x5c);
+        if (value >= 0x5c) {
+          stop = 'non_name_byte_at_or_above_5Ch';
+          break;
+        }
+      }
+      end++;
+      const more = count + 1 < limit;
+      branch(0x5853,more);
+      if (!more) stop = 'byte_limit';
+    }
+    return {start,end,acceptedBytes:end - start,limit,stop,path};
+  }
+
   // Scan kind 1 enters 34:5699 for the F0h power and F1h nth-root
   // operators. The routine saves 0x965D, scans the raised operand, returns
   // its endpoint in BC, and restores 0x965D at 34:56AC–56B3. The retained
   // native traces cover the numeric path through 34:5866 and explicit
-  // 10h… 11h editor slots through 34:56BF–56D3. Named one- and two-byte
-  // operands such as Ans and L1 reach that slot branch because the live editor
-  // buffer retains the explicit 10h/11h boundary around every nonnumeric
-  // exponent. Keep the other unbounded 34:5699 token-class branches closed
-  // until they have byte-range oracles.
+  // 10h… 11h editor slots through 34:56BF–56D3. The 34:580C classifier is a
+  // finite packed-token partition. The 5Fh and EBh paths additionally scan at
+  // most eight or five following name bytes through 34:5836–5853.
   function settledRaisedOperandScan(input, operatorOffset = 0) {
     const native = settledNativeTokenUnits(input);
     if (!Number.isInteger(operatorOffset) || operatorOffset < 0 ||
@@ -1407,6 +1484,7 @@
     let end;
     let branch;
     let parseAhead = null;
+    let classifier = null;
     if (first.prefix === 0 && first.token === 0x10) {
       parseAhead = settledParseAhead(native.bytes,{
         entry:'direct5AA7', b:2, cursor:start,
@@ -1428,9 +1506,25 @@
                  native.units[unitIndex].token));
       branch = '34:56A7 → 34:5866';
     } else {
-      throw new RangeError(
-        `settled raised operand token at byte ${start} uses an untranslated ` +
-        '34:5699 token-class branch');
+      const classified = settledRaisedExtendedTokenClass(
+        first.prefix,first.token);
+      classifier = classified;
+      if (!classified.accepted)
+        throw new RangeError(
+          `settled raised operand token at byte ${start} is rejected by ` +
+          '34:580C');
+      end = first.next;
+      if (classified.nameByteLimit) {
+        // 34:58B8 advances past the designator token. The 34:583D loop then
+        // reads raw source bytes. 34:5CFB admits digits; 34:5847–584D admits
+        // 41h–5Bh. The carry return from 34:57E6 marks the source boundary.
+        classified.nameScan = settledRaisedNameScan(
+          native.bytes,end,classified.nameByteLimit);
+        end = classified.nameScan.end;
+      }
+      branch = classified.nameByteLimit
+        ? `34:580C → 34:5836 (max ${classified.nameByteLimit})`
+        : '34:580C → 34:5861';
     }
     return {
       renderType,
@@ -1445,6 +1539,7 @@
       returnedCursor:end,
       restoredCursor:start,
       branch,
+      classifier,
       parseAhead,
     };
   }
@@ -2280,6 +2375,21 @@
         throw new RangeError(
           `settled native structural type 0x${unsupportedStructuralType.toString(16)} ` +
           `at byte ${units[cursor].offset} has no translated constructor`);
+
+      // The 5Fh and EBh designators plus their bounded alphanumeric name are
+      // one parser atom. This matches the raised-operand endpoint selected by
+      // 34:5836–5855 instead of treating each name character as an implicit
+      // multiplication factor.
+      if (peek(0,0x5f) || peek(0,0xeb)) {
+        const designator = take();
+        const limit = designator.token === 0x5f ? 8 : 5;
+        const scan = settledRaisedNameScan(
+          native.bytes,designator.next,limit);
+        const bytes = designator.bytes.slice();
+        while (cursor < units.length && units[cursor].offset < scan.end)
+          bytes.push(...take().bytes);
+        return {kind:'tokens',tokens:bytes};
+      }
 
       // A numeric literal is one scanner atom. Letters and named two-byte
       // variables remain separate atoms so X^2 in 2X^2 binds only X.
@@ -3865,6 +3975,8 @@
     settledParseAhead,
     settledParseAheadFunctionToken,
     settledStructuralArgumentScan,
+    settledRaisedExtendedTokenClass,
+    settledRaisedNameScan,
     settledRaisedOperandScan,
     settledFractionOperandScan,
     settledMatrixContainerScan,
