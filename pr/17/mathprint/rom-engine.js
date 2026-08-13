@@ -2642,6 +2642,43 @@
       grid[row][8 * byteColumn + bit] = (value >> (7 - bit)) & 1;
   };
 
+  // Replay accepted T6A04 data bytes into its 96x64 visible bitmap. The LCD
+  // pointer names an eight-pixel byte column and a row; each accepted data
+  // write replaces all eight pixels in that byte. Supplying count exposes the
+  // pixel-level frame after any prefix of a draw stream.
+  function replaySettledLcdWrites(writes, options = {}) {
+    if (!Array.isArray(writes))
+      throw new TypeError('settled LCD writes must be an array');
+    const width = options.width === undefined ? 96 : options.width;
+    const height = options.height === undefined ? 64 : options.height;
+    const count = options.count === undefined ? writes.length : options.count;
+    if (!Number.isInteger(width) || width < 1 || width % 8 ||
+        !Number.isInteger(height) || height < 1)
+      throw new RangeError(
+        'settled LCD replay dimensions must be positive and byte-aligned');
+    if (!Number.isInteger(count) || count < 0 || count > writes.length)
+      throw new RangeError('settled LCD replay count is outside the write stream');
+    const grid = options.initialGrid === undefined
+      ? Array.from({length:height}, () => new Array(width).fill(0))
+      : options.initialGrid.map(row => row.slice());
+    if (grid.length !== height || grid.some(row => row.length !== width ||
+        row.some(value => value !== 0 && value !== 1)))
+      throw new RangeError(
+        'settled LCD replay grid must match the dimensions and contain bits');
+    for (let index = 0; index < count; index++) {
+      const write = writes[index];
+      if (!write || !Array.isArray(write.pointer) || write.pointer.length !== 2)
+        throw new TypeError(`settled LCD write ${index} has no pointer`);
+      const [byteColumn,row] = write.pointer;
+      if (!Number.isInteger(byteColumn) || !Number.isInteger(row) ||
+          byteColumn < 0 || byteColumn >= width / 8 || row < 0 || row >= height)
+        throw new RangeError(`settled LCD write ${index} is outside the display`);
+      settledStoreByte(grid, byteColumn, row,
+        byte(write.value, `settled LCD write ${index} value`));
+    }
+    return grid;
+  }
+
   // Translate the normal settled-render paths into accepted LCD data writes.
   // Page 4 visits geometry one point at a time. _VPutMap at 01:6293 replaces
   // the glyph cell row by row and writes a crossing row's right byte before
@@ -2899,6 +2936,7 @@
     encodeSettledExpressionTokens,
     settledExpressionFromTokens,
     constructSettledProgramFromTokens,
+    replaySettledLcdWrites,
     constructSettledAbsoluteProgram,
     constructSettledExpressionProgram,
     constructSettledFractionProgram,
