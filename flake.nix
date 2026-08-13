@@ -42,7 +42,7 @@
           src = ./.;
           nativeBuildInputs = [
             pkgs.mdbook pkgs.mdbook-mermaid pkgs.bash pkgs.python3 pkgs.katex
-            pkgs.nodejs
+            pkgs.nodejs pkgs.z3
           ];
           buildPhase = ''
             mdbook-mermaid install .       # generate mermaid.min.js + mermaid-init.js
@@ -55,6 +55,8 @@
             python3 tools/test_trace_lcd.py
             python3 tools/test_mathprint_extractors.py
             python3 tools/test_mathprint_draw_trace.py
+            python3 tools/test_analyze_mathprint_records.py
+            python3 tools/test_mathprint_saturation.py
           '';
           dontInstall = true;
           dontFixup = true;
@@ -80,6 +82,7 @@
             pkgs.mdbook-mermaid
             pkgs.python3
             pkgs.spasm-ng
+            pkgs.z3
             z80dasm
           ];
           # In the dev shell, run:  setup-wiki-assets   (vendors KaTeX before `mdbook serve`)
