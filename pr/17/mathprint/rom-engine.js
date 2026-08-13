@@ -1371,8 +1371,11 @@
   // operators. The routine saves 0x965D, scans the raised operand, returns
   // its endpoint in BC, and restores 0x965D at 34:56AC–56B3. The retained
   // native traces cover the numeric path through 34:5866 and explicit
-  // 10h… 11h editor slots through 34:56BF–56D3. Keep the other 34:5699
-  // token-class branches closed until they have byte-range oracles.
+  // 10h… 11h editor slots through 34:56BF–56D3. Named one- and two-byte
+  // operands such as Ans and L1 reach that slot branch because the live editor
+  // buffer retains the explicit 10h/11h boundary around every nonnumeric
+  // exponent. Keep the other unbounded 34:5699 token-class branches closed
+  // until they have byte-range oracles.
   function settledRaisedOperandScan(input, operatorOffset = 0) {
     const native = settledNativeTokenUnits(input);
     if (!Number.isInteger(operatorOffset) || operatorOffset < 0 ||

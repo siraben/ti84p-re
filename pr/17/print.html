@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7a0ad3f9.js";
+            window.path_to_searchindex_js = "searchindex-f972531f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15398,7 +15398,11 @@ bytes. The <code>2^(X^(2³))</code> editor buffer contains explicit <code>10h</c
 slots; separate calls return the outer and inner closing-slot endpoints. The
 JavaScript scanner translates these numeric and delimited-slot branches and
 requires native construction to stop at the same half-open byte boundary.
-Other kind-<code>1</code> token classes remain untranslated. [confirmed]</p>
+The <code>X^Ans</code> buffer stores <code>58 F0 10 72 11</code>; the <code>X^L1</code> buffer stores
+<code>58 F0 10 5D 00 11</code>. Both traces take <code>34:56BF</code> and return the byte after the
+closing <code>11h</code>. Raw native bytes for these one- and two-byte named operands now
+reproduce the captured record graphs and complete accepted LCD writes. Other
+unbounded kind-<code>1</code> token-class branches remain untranslated. [confirmed]</p>
 <p>Scan kind <code>2</code> enters <code>34:56DF</code> → <code>34:5795</code> for the <code>EF2Eh</code> and <code>EF2Fh</code>
 stacked-fraction operators. It rewinds to the numerator, calls <code>34:5AA7</code> with
 <code>B=14h</code>, and returns the operator’s <code>EFh</code> byte in <code>BC</code>. A second scan selects
