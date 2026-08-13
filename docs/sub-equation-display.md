@@ -448,21 +448,31 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, and large-glyph output. It recursively follows direct ROM
 edges from named entries, resolves the finite dispatch tables, overlays exact
-next-PC outcomes from 172 reset-origin traces, and lists external targets.
+next-PC outcomes from 175 reset-origin traces, and lists external targets.
 `tools/mathprint-saturation.json` records the resulting branches and trace
 hashes. [confirmed]
 
 The report is a symbolic-execution aid rather than a whole-machine proof. It
-models finite table indices exactly. It also partitions the state read by the
-type-`0x1F` handler at `34:6143`: incoming `A`, `(IY+44h).3`, and the word at
-`0x8520` produce ten terminal action classes. Stream length, arbitrary RAM,
-interrupt timing, and indirect targets outside the declared components remain
-outside that state model. [confirmed]
+models finite table indices exactly. The shared draw helper at `34:6143` has a
+$256 \times 2 \times 65{,}536 = 33{,}554{,}432$-state domain over incoming
+`A`, `(IY+44h).3`, and the word at `0x8520`. Complete predicate evaluation
+reduces that domain to 14 branch-path classes and ten terminal actions. The
+marker-tail gate at `34:759C` reduces its 16 predicate combinations to five
+branch-path classes. Stream length, arbitrary RAM, and indirect targets outside
+the declared components remain outside these finite models. [confirmed]
+
+The report keeps complete path witnesses separate from individual branch
+outcome witnesses. A class whose branch outcomes all occur somewhere in the
+corpus is not necessarily a class traversed by one invocation. The editor ABI
+at `34:6143` has two complete live path witnesses. The render-table ABI has one
+ROM-fixed class because `_LdHLind` fixes `A=0x43`. At `34:759C`, a branch
+outcome unique to each terminal class identifies which of its five paths have
+live witnesses. [confirmed]
 
 | Component | Reachable instructions | Conditional outcomes observed | Conditional outcomes in CFG | Instruction coverage |
 |-----------|-----------------------:|------------------------------:|----------------------------:|---------------------:|
 | Settled construction | 991 | 244 | 408 | 79.11% |
-| Settled rendering | 1,898 | 205 | 302 | 90.89% |
+| Settled rendering | 1,898 | 217 | 302 | 93.05% |
 | Metrics and geometry | 470 | 75 | 80 | 99.36% |
 | Record allocator | 64 | 7 | 8 | 98.44% |
 | Editor layout | 2,776 | 245 | 1,098 | 32.42% |
@@ -477,9 +487,9 @@ containing routine has been reached. The allocator is the only declared
 component whose every conditional branch has at least one observed outcome;
 three of its four branches have both outcomes. [confirmed]
 
-The report classifies all 2,184 enumerated outcomes. The traces exercise 912.
+The report classifies all 2,184 enumerated outcomes. The traces exercise 924.
 One allocator outcome is infeasible under its data invariant. Two metric
-outcomes are infeasible under the calculator call ABI. The other 1,269 remain
+outcomes are infeasible under the calculator call ABI. The other 1,257 remain
 unresolved because their required state or calling ABI is not yet proved. An
 unobserved outcome never becomes infeasible from absence alone.
 [confirmed]
@@ -499,10 +509,11 @@ fallthrough and `34:765D` return are infeasible under this calculator ABI.
 Synthetic direct calls to internal metric handlers do not share the ABI.
 [confirmed]
 
-An exact Z3 set-cover calculation reduces the 172 trace summaries to 20 while
-preserving all 912 observed outcomes. It minimizes trace count first, retained
-bytes second, and labels third. The 20 selected traces total 2,965,561,068
-bytes, and each contributes at least one outcome absent from the other 19.
+An exact Z3 set-cover calculation reduces the 175 trace summaries to 22 while
+preserving all 924 observed outcomes. It minimizes trace count first, retained
+bytes second, and labels third. The 22 selected traces total 3,188,345,442
+bytes. The report lists each selected trace's exclusive outcomes, proving that
+removing any one of the 22 loses coverage.
 This is a proven minimum for the supplied trace set, not for every input the OS
 can accept. The broad trace set remains an RE and regression corpus; the public
 gallery uses a smaller, diverse selection. [confirmed]
@@ -520,10 +531,12 @@ On its fallthrough, `34:75AB` reads the marker type from `editTail + 1`.
 `34:40F9` groups fraction (`0x20`), nth-root (`0x24`), and power (`0x2A`)
 markers; `34:75B0` takes its Z branch for this set. `34:75B8` then reads the
 nesting counter at `0x8515`, and `34:75BB` distinguishes zero from nonzero
-depth. A reset-origin `X^2` boundary insertion directly exercises eight
-previously absent outcomes through this chain. The table-context branch,
-non-special marker class, and nonzero-depth outcome remain unresolved.
-[confirmed]
+depth. `tools/macros/mathprint-power-boundary-insert.macro` reproduces the
+top-level power-marker path. The table-equation outcome at `34:75A9` taken,
+the non-special marker outcome at `34:75B0` fallthrough, and the nested special
+marker outcome at `34:75BB` fallthrough remain unresolved. The symbolic model
+establishes their local branch paths, but no retained calculator trace exercises
+them. [confirmed]
 
 The record-oracle corpus contains 105 captured cases. It includes types `0x20`
 through `0x2B`; the only missing structural type is `0x1F`. Each of those 12
@@ -531,15 +544,34 @@ types has a decoded record node and accepted-write oracle. This saturates the
 ordinary 12-type structural table domain used by the translated constructor,
 but it does not saturate all internal branches of those handlers. [confirmed]
 
-Type `0x1F` remains open. `34:6143` compares incoming `A` with `0x21`, `0x22`,
-`0x25`–`0x29`, and `0x2B`; it also reads `(IY+44h).3` and `0x8520`. The symbolic
-partition proves the possible terminal classes, but no retained settled record
-graph dispatches a type-`0x1F` node. Its call ABI and live state distribution
-therefore are not established. [confirmed]
+`34:6143` has two distinct entry ABIs. Render-table row 0 at `34:6119` contains
+the bytes `43 61`, the pointer `6143h`. `_LdHLind` at `00:0033` executes
+`LD A,(HL); INC HL; LD H,(HL); LD L,A; RET`. Its low-byte load therefore makes
+a type-`0x1F` table dispatch enter `34:6143` with `A=0x43`. That value follows
+the fixed default path to the seven-row bitmap at `34:61BE`; `(IY+44h).3` and
+`0x8520` do not affect this ABI. [confirmed]
+
+The editor calls the same helper through a different route. `06:7F29` loads
+`editTail`, `06:7F2D` reads the marker type at `editTail + 1` into `A`, and
+`06:7F2E` calls the bjump descriptor at `ram:30BD`. Its bytes
+`CD 09 2B 43 61 74` select `34:6143`. The radical-marker trace enters with
+`A=0x27` and `(IY+44h).3` set, selecting the bitmap at `34:630C`. The integral
+trace enters with `A=0x22` and emits display code `0x7C`. The reproducible
+inputs are `tools/macros/mathprint-radical-marker-insert.macro` and
+`tools/macros/mathprint-integral-marker-insert.macro`. [confirmed]
+
+Type `0x1F` remains open only as a captured record oracle. `34:4FD9` allocates
+it as a transient one-child root record. `34:6028` loads `A=0x1F`, and
+`34:602B` calls `34:7844` to store the current render type at `0x8DE7`. The
+following jump to `34:636C` renders child 1 without using the table at
+`34:6119`. No retained natural trace combines `0x8DE7=0x1F` with
+`34:6105` → `34:6143`. The JavaScript record walker implements the ROM-proven
+row-0 bitmap path, but it has no captured type-`0x1F` record/LCD oracle.
+[confirmed]
 
 Editor layout is also open. The page `39` class and handler tables, argument
 order, row composition, descriptor mapping, and draw paths are decoded. The
-retained corpus observes 239 of 1,098 declared editor branch outcomes. It does
+retained corpus observes 245 of 1,098 declared editor branch outcomes. It does
 not decode every in-progress editor state into a general AST, and it does not
 reach every cursor, menu, error, or row-composition path. [confirmed]
 
@@ -652,8 +684,9 @@ The remaining settled render types map to calculator constructs through the
 source-token table at `34:594D` and post-**ENTER** traces. Type `0x23` renders
 `nDeriv(`, `0x25` renders $e^x$, `0x26` renders $10^x$, `0x28` renders
 `logBASE(`, `0x29` renders summation, and `0x2B` renders a dimensioned matrix.
-Type `0x1F` is a transient root/container type; an ordinary scalar history
-redraw does not dispatch it through `34:6105`. [confirmed]
+Type `0x1F` is a transient one-child root type. The main draw entry at
+`34:6016` selects its child directly through `34:636C`, so an ordinary history
+redraw does not dispatch that root through `34:6105`. [confirmed]
 
 Types `0x25` and `0x26` share the body at `34:6381`. The handlers position and
 conditionally emit fixed display codes `0xDB` and `0x1D`, respectively. They
@@ -748,8 +781,10 @@ recursive entry, preserves the handler's depth changes, and returns ordered
 primitive and leaf operations. A settled expression enters this layer from a
 type-`0x00` leaf program at `34:660A`. The program executor consumes its payload
 in order and invokes embedded structural records against the same pen and depth
-state. The `nDeriv(` handler renders child 1 again at `34:64B3`, then places
-display code `0x3D` after that child's `+7` width. [confirmed]
+state. Row 0 uses the bitmap bytes at `34:61BE`, as fixed by the table-load ABI;
+the missing type-`0x1F` record oracle remains separate from that byte-level
+translation. The `nDeriv(` handler renders child 1 again at `34:64B3`, then
+places display code `0x3D` after that child's `+7` width. [confirmed]
 
 The trace analyzer recovers leaf records from the resolver path. At `34:6CCD`,
 `DE` is the one-based child index and `ram:8DF2` points at the parent. At
