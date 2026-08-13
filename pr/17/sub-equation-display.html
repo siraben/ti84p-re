@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b6236892.js";
+            window.path_to_searchindex_js = "searchindex-e46d034c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -1037,6 +1037,10 @@ deeply nested expressions pin every intermediate write and the packed final
 framebuffer without loading a captured write stream. These deterministic cases
 exercise summation, integral, <code>nDeriv(</code>, matrix, and a three-level raised
 fraction. [confirmed]</p>
+<p>The browser expands every accepted byte into eight ordered pixel results. A
+timeline row records the previous byte, replacement byte, all eight destination
+bits, and which bits changed. Accepted writes with equal previous and replacement
+bytes therefore remain visible in the trace. [confirmed]</p>
 <p>The text field uses a preview-specific semantic grammar. It does not emulate
 the TI-OS editor or decode its in-progress template AST. The translated path
 begins at the native byte stream produced by that frontend. [confirmed]</p>
