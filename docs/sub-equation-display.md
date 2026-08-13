@@ -703,9 +703,9 @@ return. The traces supply comparison oracles, not constructor input.
 [confirmed]
 
 The settled lower-bound leaf for `sum(N,1,3,N^2)` contains `0x31`. The byte
-pair `EF 1E` instead emits display code `0xF7`, the empty template square. It
-belongs to editable template state and does not occur in the settled summation
-graph. [confirmed]
+pair `EF 1E` instead emits display code `0xF7`, the empty template square. In
+the discarded summation capture, this pair came from editable template state;
+it does not occur in the settled summation graph. [confirmed]
 
 The type-`0x23` constructor maps source token `0025h` through `34:594D`.
 `34:4900` allocates the `nDeriv(` record, then reserves child leaves for the
