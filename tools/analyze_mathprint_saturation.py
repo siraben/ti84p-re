@@ -50,7 +50,7 @@ from z80_disassembly import (
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ROM = ROOT / "tools" / "rom.bin"
 DEFAULT_OUTPUT = ROOT / "tools" / "mathprint-saturation.json"
-TRACE_CACHE_SCHEMA = 2
+TRACE_CACHE_SCHEMA = 3
 EXHAUSTIVE_COVER_LIMIT = 24
 
 
@@ -690,9 +690,12 @@ def classify_outcome(
     if target is not None and next_point == target:
         return "taken"
     if branch.kind == "ret":
-        if branch_state is None or next_state is None:
+        if branch_state is None:
             return "returned"
-        if next_state["SP"] == ((branch_state["SP"] + 2) & 0xFFFF):
+        # TLMT v2 records registers after the named instruction executes. A
+        # taken RET therefore already contains the popped SP, so compare the
+        # preserved condition flags instead of waiting for another SP change.
+        if predicate_state(branch, branch_state)["predicate"] is True:
             return "returned"
     return None
 
@@ -731,8 +734,9 @@ def predicate_state(branch: Branch, state: dict[str, int]) -> dict[str, object]:
     """Project a register witness onto the value consumed by the branch."""
 
     if branch.kind == "djnz":
-        before = state["BC"] >> 8
-        after = (before - 1) & 0xFF
+        # TLMT v2 register fields are the post-instruction state.
+        after = state["BC"] >> 8
+        before = (after + 1) & 0xFF
         return {"B_before": before, "B_after": after, "predicate": after != 0}
     condition = branch_condition(branch)
     flag_mask = {
