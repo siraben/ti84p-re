@@ -964,6 +964,19 @@ synthetic tests confirm the replay implementation.
 
 `tools/parity-mathprint.py` selects that replay when tracing is enabled.
 The local ignored `tools/rom.bin` enables pinned-ROM reproduction when present.
+The browser's generated path encodes native calculator bytes, scans their
+one- and two-byte token boundaries through translations of `34:58F9` and
+`34:5911`, constructs settled records, and emits accepted LCD data bytes. Each
+write replaces one eight-pixel span in a 96×64 framebuffer. Five changed and
+deeply nested expressions pin every intermediate write and the packed final
+framebuffer without loading a captured write stream. These deterministic cases
+exercise summation, integral, `nDeriv(`, matrix, and a three-level raised
+fraction. [confirmed]
+
+The text field uses a preview-specific semantic grammar. It does not emulate
+the TI-OS editor or decode its in-progress template AST. The translated path
+begins at the native byte stream produced by that frontend. [confirmed]
+
 The 5,018-case Node test remains a deterministic parser/layout smoke test. Six
 settled record programs provide exact final-pixel and complete accepted-write
 parity for their expressions. Three fresh absolute-value cases, four power
@@ -1001,7 +1014,11 @@ trace-fitted box model. `web/mathprint/record-programs.json` contains six
 retained record snapshots for offline comparison. The browser does not fetch
 them. It constructs supported named-token, absolute-value, power,
 radical, nth-root, stacked-fraction, integral, summation, and `nDeriv(`
-expressions from tokens, including nesting among the structural forms. The
-translated renderer exposes every generated LCD write as a live timeline. This
-mode does not load a record fixture or captured LCD event stream.
-[confirmed]
+expressions from native token bytes, including nesting among the structural
+forms. The translated renderer exposes every generated LCD byte and the
+resulting pixel frame as a live timeline. This mode does not load a record
+fixture or captured LCD event stream. Dense scanner state at
+`34:5AA7`–`34:5CA8` remains open. [confirmed]
+
+The standalone nth-root encoder supplies an inferred template boundary because
+the retained trace does not expose the final source buffer. [hypothesis]
