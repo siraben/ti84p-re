@@ -1046,7 +1046,11 @@ bytes. The `2^(X^(2³))` editor buffer contains explicit `10h`–`11h` raised
 slots; separate calls return the outer and inner closing-slot endpoints. The
 JavaScript scanner translates these numeric and delimited-slot branches and
 requires native construction to stop at the same half-open byte boundary.
-Other kind-`1` token classes remain untranslated. [confirmed]
+The `X^Ans` buffer stores `58 F0 10 72 11`; the `X^L1` buffer stores
+`58 F0 10 5D 00 11`. Both traces take `34:56BF` and return the byte after the
+closing `11h`. Raw native bytes for these one- and two-byte named operands now
+reproduce the captured record graphs and complete accepted LCD writes. Other
+unbounded kind-`1` token-class branches remain untranslated. [confirmed]
 
 Scan kind `2` enters `34:56DF` → `34:5795` for the `EF2Eh` and `EF2Fh`
 stacked-fraction operators. It rewinds to the numerator, calls `34:5AA7` with

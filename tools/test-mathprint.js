@@ -694,6 +694,8 @@ for (const [label, expression, nativeTokens] of [
     [0x06,0x06,0x31,0x2b,0x32,0x07,
      0x06,0x33,0x2b,0x34,0x07,0x07]],
   ['named two-byte token','L1^2',[0x5d,0x00,0xf0,0x32]],
+  ['named single-byte raised slot','X^Ans',[0x58,0xf0,0x10,0x72,0x11]],
+  ['named two-byte raised slot','X^L1',[0x58,0xf0,0x10,0x5d,0x00,0x11]],
 ]) {
   const program = mp.constructedProgramForExpression(expression);
   if (!program) throw new Error(`${label} has no native-token browser program`);
@@ -702,6 +704,17 @@ for (const [label, expression, nativeTokens] of [
   const reparsed = rom.constructSettledProgramFromTokens(nativeTokens,1,font);
   expectEqual(`${label} native scanner reproduces its settled graph`,
     reparsed.nodes,program.nodes);
+}
+
+for (const [label,nativeTokens,expectedEnd] of [
+  ['Ans raised slot',[0x58,0xf0,0x10,0x72,0x11],5],
+  ['L1 raised slot',[0x58,0xf0,0x10,0x5d,0x00,0x11],6],
+]) {
+  const scan = rom.settledRaisedOperandScan(nativeTokens,1);
+  expectEqual(`34:5699 ${label} preserves the traced explicit boundary`,
+    [scan.start,scan.end,scan.returnedCursor,scan.restoredCursor,scan.branch,
+     scan.parseAhead.stopCursor],
+    [2,expectedEnd,expectedEnd,2,'34:56BB–56D3',expectedEnd - 1]);
 }
 
 for (const [label, nativeTokens, expectedPayload, expectedWrites] of [
@@ -1212,6 +1225,11 @@ for (const oracle of namedTokenOracles.cases) {
   const expectedBrowser = rom.constructSettledExpressionProgram(oracle.spec, 1, font);
   expectEqual(`${oracle.expression} browser grammar preserves native token bytes`,
     browser.nodes, expectedBrowser.nodes);
+  const nativeTokens = rom.encodeSettledExpressionTokens(oracle.spec);
+  const nativeProgram = rom.constructSettledProgramFromTokens(
+    nativeTokens, oracle.entry_id, font);
+  expectEqual(`${oracle.expression} native bytes reproduce the captured graph`,
+    nativeProgram.nodes, oracle.nodes);
 }
 for (const oracle of twoByteTokenOracles.cases) {
   const program = rom.constructSettledExpressionProgram(
@@ -1240,6 +1258,11 @@ for (const oracle of twoByteTokenOracles.cases) {
   const expectedBrowser = rom.constructSettledExpressionProgram(oracle.spec, 1, font);
   expectEqual(`${oracle.expression} browser grammar preserves two-byte token bytes`,
     browser.nodes, expectedBrowser.nodes);
+  const nativeTokens = rom.encodeSettledExpressionTokens(oracle.spec);
+  const nativeProgram = rom.constructSettledProgramFromTokens(
+    nativeTokens, oracle.entry_id, font);
+  expectEqual(`${oracle.expression} native bytes reproduce the captured graph`,
+    nativeProgram.nodes, oracle.nodes);
 }
 for (const oracle of constructionOracles.power_cases) {
   const program = rom.constructSettledPowerProgram(oracle.spec, oracle.entry_id, font);
