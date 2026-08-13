@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b14c46f7.js";
+            window.path_to_searchindex_js = "searchindex-7a0ad3f9.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15352,8 +15352,36 @@ one-byte tokens pass through <code>34:5A52</code>, <code>BB</code> tokens throug
 tokens through <code>34:5A14</code>. The JavaScript scanner applies those comparisons and
 ROM tables directly. Generic function runs can therefore contain translated
 structural children without depending on a list of preview function names.
-The <code>EF36h</code> mapping to structural type <code>0x2C</code> remains rejected because its
-constructor and renderer are not yet translated. [confirmed]</p>
+[confirmed]</p>
+<p><code>EF36h</code> takes an exceptional editor path. <code>34:5935</code> maps it to type <code>0x2C</code>,
+and <code>34:4690</code> branches through <code>34:473A</code> instead of using a row at <code>34:59AC</code>.
+<code>ram:2E41</code> reaches <code>35:7B37</code>, which checks the structural-depth byte at
+<code>0x8DB6</code>. The routine increments that byte and compares it with <code>0x05</code>. Values
+<code>0x00</code>–<code>0x03</code> return <code>A=0x2C</code> with carry clear. Values <code>0x04</code>–<code>0xFE</code> return
+<code>A=0x03</code> with carry set. An input of <code>0xFF</code> wraps to zero and takes the
+carry-clear path. On the carry-set path, <code>34:54D2</code> sets <code>(IY+45h).6</code> and writes
+<code>0x05</code> to <code>0x9D20</code>. [confirmed]</p>
+<p>Below the cap, <code>34:58A0</code> inserts <code>EF 2C 00 00 EF 2D</code>. <code>34:4862</code> allocates the
+type-<code>0x2C</code> record and patches its ID into the marker. The allocator at
+<code>33:4F42</code> supports types <code>0x1F</code>–<code>0x2B</code>; type <code>0x2C</code> indexes the adjacent bytes
+at <code>33:4FA9</code>. Those bytes produce <code>E=0x42</code>, <code>BC=0x0002</code>, and <code>HL=0x0018</code>.
+In the first observed context, the allocator creates record ID <code>8</code> with parent
+ID <code>7</code> and this 20-byte header: [confirmed]</p>
+<pre><code class="language-text">08 00 2C 07 00 01 00 06 00 03 00 00 00 00 00 06 00 01 00 EF
+</code></pre>
+<p>The parent leaf marker changes from <code>EF 2C 00 00 EF 2D</code> to
+<code>EF 2C 08 00 EF 2D</code>. Construction returns normally through <code>34:547E</code>.
+The terminal failure occurs during geometry calculation. <code>34:7609</code> indexes the
+13-word table at <code>34:7611</code> with type <code>0x2C</code> and reads the code bytes at
+<code>34:762B</code> as the word <code>3BCDh</code>. The dispatcher calls <code>ram:3BCD</code>, whose bjump
+reaches <code>03:467F</code>. That routine returns through the dispatcher’s extra stack
+word to <code>ram:0002</code>, entering the reset path through <code>ram:028C</code> and <code>3F:412C</code>.
+The JavaScript translation reports this reset boundary and does not define
+type-<code>0x2C</code> metadata, geometry, or rendering support. [confirmed]</p>
+<p>The English external token table names <code>EF37h</code> <code>MATHPRINT</code> and <code>EF38h</code>
+<code>CLASSIC</code>; it has no <code>EF36h</code> entry. These names come from the
+<a href="https://github.com/TI-Toolkit/tokens">TI-Toolkit token sheet</a>, not from the
+ROM-local control-flow trace. [hypothesis]</p>
 <p>The first byte of each row at <code>34:59AC</code> selects a scan policy at <code>34:5678</code>.
 Scan kind <code>3</code> enters <code>34:56E3</code> with <code>B=2</code> and selects one unary child. Scan kind
 <code>4</code> enters <code>34:56EC</code> with <code>C=1</code> for each source argument. The remaining
