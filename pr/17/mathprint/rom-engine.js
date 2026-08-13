@@ -1163,6 +1163,355 @@
     return {bytes,units};
   }
 
+  const SETTLED_PARSE_AHEAD_TABLE_59E9 = new Set([
+    0x10,0xda,0xdb,0x9c,0x93,0xa7,0xd2,0xd3,0xe0,
+    0xe2,0xe3,0xe4,0xe6,0xe7,0xe8,0xec,0xed,0xee,
+  ]);
+  const SETTLED_PARSE_AHEAD_TABLE_59FB = new Set([
+    0x3d,0x3e,0x3f,0x40,0x49,0x53,0x55,0x56,0x58,0x59,
+  ]);
+  const SETTLED_PARSE_AHEAD_OPERATORS_7F05 = new Set([
+    0x3c,0x3d,0x40,0x70,0x71,0x6a,0x6b,0x6c,0x6d,
+    0x6e,0x6f,0x82,0x83,0x95,0x94,0xf0,0xf1,
+  ]);
+
+  // Zero-result predicates at 34:5A14, 34:5A28, and 34:5A52. Keep the
+  // address names because their token classes have not all been assigned a
+  // stable semantic name.
+  function settledParseAheadClass5A14(token) {
+    return token === 0x13 || token < 0x09 ||
+      (0x32 <= token && token < 0x36) || token === 0xbb;
+  }
+
+  function settledParseAheadClass5A28(token) {
+    return token < 0x20 ||
+      (0x25 <= token && token < 0x2f) ||
+      (0x35 <= token && token < 0x3c) ||
+      (0x42 <= token && token < 0x48) ||
+      SETTLED_PARSE_AHEAD_TABLE_59FB.has(token);
+  }
+
+  function settledParseAheadClass5A52(token) {
+    return (0xb1 <= token && token < 0xce) ||
+      (0x12 <= token && token < 0x29) ||
+      (0x9e <= token && token < 0xa6) ||
+      SETTLED_PARSE_AHEAD_TABLE_59E9.has(token);
+  }
+
+  // Zero-result predicate at 34:5A75. 34:7EF5 supplies the first 17 entries;
+  // the remaining comparisons are inline at 34:5A79–5A98.
+  function settledParseAheadClass5A75(token) {
+    return SETTLED_PARSE_AHEAD_OPERATORS_7F05.has(token) ||
+      token === 0 || token === 0x29 || token === 0x2a || token === 0xb0 ||
+      (0x6a <= token && token < 0x72);
+  }
+
+  // Translate _AHEADEQUAL = 4B49h, _PARSAHEADS = 4B4Ch, _PARSAHEAD =
+  // 4B4Fh, and the internal entries at 34:5AA3, 34:5AA7, and 34:5AA9. The
+  // cursor follows 0x965D: it points immediately before the next byte. The
+  // inclusive end follows 0x965F. Returned offsets mirror HL, BC, DE, A,
+  // 0x9D02–0x9D05, Z, and C.
+  function settledParseAhead(input, options = {}) {
+    if (!Array.isArray(input) && !(input instanceof Uint8Array))
+      throw new TypeError('parse-ahead input must be an array of bytes');
+    const bytes = Array.from(input, (value, index) =>
+      byte(value, `parse-ahead byte ${index}`));
+    // The native scanner receives an editor buffer whose two-byte tokens are
+    // already complete. Reject malformed standalone inputs before translating
+    // pointer movement beyond a lead byte.
+    if (bytes.length) settledNativeTokenUnits(bytes);
+    const entry = options.entry === undefined ? 'parsAhead' : options.entry;
+    if (!['aheadEqual','parsAheadS','parsAhead','direct5AA7',
+          'internal5AA3','internal5AA9'].includes(entry))
+      throw new RangeError('parse-ahead entry is not recognized');
+    const originalCursor = options.cursor === undefined ? -1 : options.cursor;
+    const end = options.end === undefined ? bytes.length - 1 : options.end;
+    if (!Number.isInteger(originalCursor) || !Number.isInteger(end) ||
+        originalCursor < -1 || end < originalCursor || end >= bytes.length)
+      throw new RangeError('parse-ahead cursor or end is outside the input');
+    const callerB = byte(options.b === undefined ? 0 : options.b,
+      'parse-ahead B');
+    const callerC = byte(options.c === undefined ? 0 : options.c,
+      'parse-ahead C');
+    let b = entry === 'aheadEqual' ? 0x80
+      : entry === 'parsAheadS' ? 0x01
+      : entry === 'parsAhead' || entry === 'internal5AA3' ? 0
+      : callerB;
+    let c = entry === 'internal5AA3' || entry === 'internal5AA9'
+      ? callerC : 0;
+    b &= 0xbf; // 34:5ABA RES 6,B
+    let cursor = originalCursor;
+    let bc = cursor;
+    let d = 0, e = 0, counter = 0, braceCount = 0;
+    const events = [];
+    const maxSteps = options.maxSteps === undefined
+      ? Math.max(256, 32 * (end - originalCursor + 2))
+      : options.maxSteps;
+    if (!Number.isInteger(maxSteps) || maxSteps < 1)
+      throw new RangeError('parse-ahead maxSteps must be positive');
+    let steps = 0;
+    const bit = (value, index) => !!(value & 1 << index);
+    const mode23 = () => bit(b,3) || bit(b,2);
+    const modeBroad = () =>
+      bit(b,1) || bit(c,0) || bit(b,5) || bit(b,3) || bit(b,2);
+    const signed = value => value & 0x80 ? value - 0x100 : value;
+    const guard = () => {
+      if (++steps > maxSteps)
+        throw new RangeError(
+          'parse-ahead exceeded its bounded malformed-stream guard');
+    };
+    const peekNext = () => {
+      bc = cursor + 1;
+      return bc > end ? 0 : bytes[bc];
+    };
+    const advanceByte = () => {
+      cursor++;
+      bc = cursor;
+      return cursor > end ? 0 : bytes[cursor];
+    };
+    const record = (offset, token, branch) => events.push({
+      offset, token, branch, b, c, d, e, counter, braceCount,
+    });
+    const finish = (exitByte, accumulator, branch) => {
+      const scratch = [b,c,braceCount,e];
+      const status = byte(exitByte, 'parse-ahead exit byte');
+      return {
+        entry,
+        a:byte(accumulator, 'parse-ahead returned A'),
+        bc,
+        de:(d << 8) | counter,
+        hl:originalCursor,
+        b:(bc >> 8) & 0xff,
+        c:bc & 0xff,
+        d,
+        e:counter,
+        zero:status === 1,
+        carry:status === 1,
+        exitByte:status,
+        cursor:originalCursor,
+        stopCursor:bc,
+        scratch,
+        events,
+        branch,
+      };
+    };
+    const finishStatus1Zero = branch => finish(1,0,branch);
+    const finishStatus1 = (a, branch) => finish(1,a,branch);
+    const exitDepth = branch => {
+      if ((d | e) !== 0) return null;
+      return finish(0,0,branch);
+    };
+
+    // 34:7CC4 walks backward from BC for the quote branch. Its only caller
+    // here consumes the returned carry, so preserve that result directly.
+    const quoteBackwardCarry = () => {
+      let position = bc;
+      const previous = () => {
+        if (position <= 0) return null;
+        const unit = settledReadPackedTokenBackward(bytes, position, 0);
+        position = unit.offset;
+        return unit;
+      };
+      // 34:5911 returns the lead byte in A and sets carry for a two-byte
+      // token. It returns the ordinary token byte with carry clear otherwise.
+      const accumulator = unit => unit.length === 2
+        ? unit.prefix : unit.token;
+      const digitCarry = value => !(0x30 <= value && value < 0x3a);
+      let unit = previous();
+      if (!unit || digitCarry(accumulator(unit))) return true;
+      for (;;) {
+        unit = previous();
+        if (!unit) return true;
+        if (unit.length === 2) return true;
+        if (unit.token === 0xb0 ||
+            0x30 <= unit.token && unit.token < 0x3c) continue;
+        if (unit.token !== 0xae) return true;
+        unit = previous();
+        return !unit || digitCarry(accumulator(unit));
+      }
+    };
+
+    const scanQuotedRun = () => {
+      for (;;) {
+        guard();
+        const value = advanceByte();
+        if (cursor > end)
+          throw new RangeError(
+            'parse-ahead quoted run has no quote or enter terminator');
+        if (SETTLED_TWO_BYTE_LEADS.has(value)) {
+          advanceByte();
+          continue;
+        }
+        if (value === 0x2a || value === 0x3f) return value;
+      }
+    };
+
+    for (;;) {
+      guard();
+      if (bit(b,6)) {
+        // 34:5AD4 clears an editor flag outside this routine's returned ABI.
+      }
+      let a = peekNext();
+      record(bc,a,'34:5ACE');
+      if (a === 0x3e) {
+        if (mode23()) {
+          d = e = 0;
+          const result = exitDepth('34:5ADF–5AE7');
+          if (result) return result;
+          continue;
+        }
+        if (bit(b,7) || !bit(b,0))
+          return finishStatus1Zero('34:5AEA–5AF5');
+        cursor = bc;
+      } else {
+        if (a === 0 || a === 0x3f)
+          return finishStatus1Zero('34:5AFF–5B02');
+        if (a === 0x04) {
+          if (mode23()) {
+            d = e = 0;
+            const result = exitDepth('34:5B05–5B0C');
+            if (result) return result;
+            continue;
+          }
+          return finishStatus1(a,'34:5B05–5B0E');
+        }
+        if (bit(b,0) && a === 0x2a)
+          return finishStatus1(a,'34:5B11–5B19');
+        cursor = bc;
+        if (a === 0xbb) {
+          a = advanceByte(); // bjump 00:3057 -> 38:7248
+          if (settledParseAheadClass5A28(a)) {
+            if (!bit(b,5) && e === 0) d = (d + 1) & 0xff;
+            continue;
+          }
+          continue;
+        }
+        if (a === 0xef) {
+          a = advanceByte(); // bjump 00:3057 -> 38:7248
+          if (settledParseAheadClass5A14(a)) {
+            if (!bit(b,5) && e === 0) d = (d + 1) & 0xff;
+            continue;
+          }
+          if (!mode23()) {
+            if (0x1f <= a && a < 0x2c) cursor = bc + 4;
+            continue;
+          }
+          if (0x1f <= a && a < 0x2c) {
+            cursor = bc + 4;
+            const next = peekNext();
+            if (next === 0 || next === 0x3f) continue;
+            bc = cursor;
+            const result = exitDepth('34:5B51–5B6A');
+            if (result) return result;
+            continue;
+          }
+          bc--;
+          if (a === 0x2e || a === 0x2f) {
+            const result = exitDepth('34:5B6C–5B73');
+            if (result) return result;
+          }
+          continue;
+        }
+
+        if (settledParseAheadClass5A52(a)) {
+          if (!bit(b,5) && e === 0) d = (d + 1) & 0xff;
+          continue;
+        }
+        if (bit(b,3)) {
+          if (a === 0x82 || a === 0x83 || a === 0x94) {
+            const result = exitDepth('34:5B7E–5B95');
+            if (result) return result;
+            continue;
+          }
+          if (a < 0x82 || 0x84 <= a && a < 0x94) {
+            if (bit(b,2) && settledParseAheadClass5A75(a)) {
+              const result = exitDepth('34:5B98–5BA2');
+              if (result) return result;
+              continue;
+            }
+          }
+        } else if (bit(b,2) && settledParseAheadClass5A75(a)) {
+          const result = exitDepth('34:5B98–5BA2');
+          if (result) return result;
+          continue;
+        }
+
+        if (a === 0x2a) {
+          if (!modeBroad() || !quoteBackwardCarry()) {
+            a = scanQuotedRun();
+            if (a === 0x3f)
+              return finishStatus1Zero('34:5BB5–5BD2');
+            continue;
+          }
+        }
+        if (SETTLED_TWO_BYTE_LEADS.has(a)) {
+          cursor = bc + 1;
+          continue;
+        }
+        if (bit(b,0)) continue;
+        if (a === 0x11) {
+          if (!bit(b,5) && e !== 0) continue;
+          if (!modeBroad()) {
+            if (!bit(b,4)) {
+              d = (d - 1) & 0xff;
+              if (signed(d) < 0)
+                return finishStatus1(a,'34:5C21–5C34');
+            } else {
+              d = (d - 1) & 0xff;
+              if (signed(d) >= 0) continue;
+              counter = (counter + 1) & 0xff;
+              d = 0;
+              continue;
+            }
+          } else {
+            d = (d - 1) & 0xff;
+            if (d === 0) {
+              b |= 0x40;
+              continue;
+            }
+            if (signed(d) >= 0 || bit(c,0) || bit(b,5) || !bit(b,4)) {
+              d = (d + 1) & 0xff;
+              d = (d - 1) & 0xff;
+              if (signed(d) < 0)
+                return finishStatus1(a,'34:5BF8–5C34');
+              continue;
+            }
+            counter = (counter + 1) & 0xff;
+            d = 0;
+            continue;
+          }
+        }
+      }
+
+      if (a === 0x06 || a === 0x08) {
+        e = (e + 1) & 0xff;
+        braceCount = (braceCount + 1) & 0xff;
+        continue;
+      }
+      if (a === 0x07) {
+        if (!bit(b,5)) {
+          if (e !== 0) e = (e - 1) & 0xff;
+          continue;
+        }
+        if (d !== 0) {
+          if (e !== 0) e = (e - 1) & 0xff;
+          continue;
+        }
+        e = (e - 1) & 0xff;
+        if (signed(e) < 0) return finish(0,0,'34:5C45–5C5B');
+        continue;
+      }
+      if (a === 0x09) {
+        if (e !== 0) e = (e - 1) & 0xff;
+        continue;
+      }
+      if (!bit(b,7) && a === 0x2b && !bit(b,1)) {
+        const result = exitDepth('34:5C6C–5C84');
+        if (result) return result;
+      }
+    }
+  }
+
   const settledSequence = parts => {
     const flat = [];
     const append = part => {
@@ -1292,13 +1641,30 @@
     let power;
     let atom;
 
+    const parseAheadArgument = label => {
+      if (cursor >= units.length)
+        throw new RangeError(`${label} is empty`);
+      const start = units[cursor].offset;
+      const boundary = settledParseAhead(native.bytes,{
+        entry:'internal5AA3', c:1, cursor:start - 1,
+      });
+      const value = expression();
+      if (!value)
+        throw new RangeError(`${label} is empty`);
+      const parsedEnd = cursor < units.length
+        ? units[cursor].offset : native.bytes.length;
+      if (parsedEnd !== boundary.stopCursor)
+        throw new RangeError(
+          `${label} parser stopped at byte ${parsedEnd}; ` +
+          `34:5AA3 stopped at byte ${boundary.stopCursor}`);
+      return value;
+    };
+
     const parseArguments = (count, label) => {
       const result = [];
       for (let index = 0; index < count; index++) {
-        const value = expression();
-        if (!value)
-          throw new RangeError(`${label} argument ${index + 1} is empty`);
-        result.push(value);
+        result.push(parseAheadArgument(
+          `${label} argument ${index + 1}`));
         if (index + 1 < count) expect(0,0x2b,`${label} comma`);
       }
       expect(0,0x11,`${label} closing parenthesis`);
@@ -1307,16 +1673,10 @@
 
     const parseFunctionRun = opener => {
       const parts = [tokenNode(opener)];
-      const first = expression();
-      if (!first)
-        throw new RangeError('settled native function argument is empty');
-      parts.push(first);
+      parts.push(parseAheadArgument('settled native function argument'));
       while (peek(0,0x2b)) {
         parts.push(tokenNode(take()));
-        const next = expression();
-        if (!next)
-          throw new RangeError('settled native function argument is empty');
-        parts.push(next);
+        parts.push(parseAheadArgument('settled native function argument'));
       }
       parts.push(tokenNode(expect(0,0x11,'function closing parenthesis')));
       return settledSequence(parts);
@@ -2984,6 +3344,7 @@
     settledReadPackedToken,
     settledReadPackedTokenBackward,
     settledNativeTokenUnits,
+    settledParseAhead,
     encodeSettledExpressionTokens,
     settledExpressionFromTokens,
     constructSettledProgramFromTokens,
