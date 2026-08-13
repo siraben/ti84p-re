@@ -859,6 +859,11 @@ for (const [expression,nativeTokens,writeCount,writeHash,lcdHash] of [
      0x32,0xef,0x2e,0x33,0x11,0x11,0x11],
     36,'68e72bbf9297f85fb4daeb04a1b6f891434f8c570424982f742d2bad89344146',
     '0af8a5ff2cd2bc90699ee4cceccf6faea101e2dcdc5ff88cb4ab28d00526ca93'],
+  ['int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)',
+    [0x24,0x10,0x31,0xef,0x2e,0x32,0x11,0x58,0x2b,0x58,0x2b,0x31,0x2b,0x33,0x11,
+     0x70,0x24,0x10,0x31,0xef,0x2e,0x32,0x11,0x58,0x2b,0x58,0x2b,0x31,0x2b,0x33,0x11],
+    221,'1dd1291d71bd5d75580ee558655bb326fba504b8fd4e6de1957d91dacccf5094',
+    'ac4035ffa5f44e6cc02c8c162216f7d410646d8ca470910f3adb01cef47ad377'],
 ]) {
   const browserProgram = mp.constructedProgramForExpression(expression);
   expectEqual(`${expression} changed-input frontend emits native bytes`,
@@ -890,6 +895,17 @@ for (const [expression,nativeTokens,writeCount,writeHash,lcdHash] of [
         width:browser.width,height:browser.height,count:step,
       }));
 }
+
+const overflowingIntegral =
+  mp.generatedForExpression('int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)');
+expectEqual('long integral sum exposes its settled extent and LCD clipping', {
+  lcd:[overflowingIntegral.width,overflowingIntegral.height],
+  recordWidth:overflowingIntegral.recordWidth,
+  overflowRight:overflowingIntegral.overflowRight,
+  clippedInkPixels:overflowingIntegral.clippedInkPixels,
+}, {
+  lcd:[96,64], recordWidth:106, overflowRight:10, clippedInkPixels:20,
+});
 
 expectThrows('LCD replay rejects an out-of-bounds byte pointer', RangeError,
   () => rom.replaySettledLcdWrites([{pointer:[12,0],value:0xff}]));
@@ -1947,6 +1963,7 @@ const regressionExpressions = [
   '(A+B)//C', '1//(2//3)', 'sqrt(X^2+1)', 'abs(X-3)',
   'abs(X^2+1)', 'abs(sqrt(X^2+1))', 'int(1,2,X^2,X)',
   '(int(1,2,X^2,X))//3', 'int(1,2,(1//2)X,X)',
+  'int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)',
   'sqrt((X^2+1)//X)', 'sum(N,1,3,N^2)',
   '(sum(N,1,3,N^2))//2', 'nthroot(3,X+1)',
   'nDeriv(X^2,X,1)', '(nDeriv(X^2,X,3))//2', 'nthroot(N,X//2)',
@@ -1997,7 +2014,7 @@ expectEqual('browser presents a selective mechanism-diverse example set',
 expectEqual('full RE regression corpus remains independent of the visible gallery',
   [regressionExpressions.length,
    mp.presets.every(([, expression]) => regressionExpressions.includes(expression))],
-  [48, true]);
+  [49, true]);
 
 expectEqual('34:6119 fixes type-1F table dispatch to the default bitmap',
   rom.executeSettledRecordGraph([settledRecord(1,0x1f)],1), [{
@@ -2117,6 +2134,7 @@ function gen(depth) {
 const CORPUS = [
   '1/2', 'X^2', '(A+B)/C', '1/(2/3)', 'sqrt(X^2+1)', 'int(1,2,X^2,X)',
   'int(1,2,(1/2)X,X)', '(int(1,2,(1//2)X,X))+2', 'sqrt((X^2+1)/X)', 'X^2+2X+1', '(X+1)/(X-1)',
+  'int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)',
   '1/2+1/3', 'sqrt(2)/2', 'X^(1/2)', 'abs(X-3)', '2^X^2', '((1))', '',
 ];
 
