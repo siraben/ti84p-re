@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-65ac2dfc.js";
+            window.path_to_searchindex_js = "searchindex-83b6fb13.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -713,6 +713,26 @@ constructed record fields and every accepted LCD data write. Their streams
 contain 17, 22, 22, and 32 writes, respectively. These captures test one, two,
 and three raised levels without supplying records or writes to the constructor.
 [confirmed]</p>
+<p>The type-<code>0x25</code> and type-<code>0x26</code> constructors map source tokens <code>00BFh</code> and
+<code>00C1h</code> through <code>34:594D</code>. Both allocate one exponent child. The child begins at
+<code>x=6</code>, uses raised small-font metrics, and determines the parent height, width,
+and baseline. The handlers at <code>34:637E</code> and <code>34:63AD</code> emit fixed large-font
+display codes <code>0xDB</code> and <code>0x1D</code> before rendering that child. [confirmed]</p>
+<p>Reset-origin traces for <code>exp(12)</code>, <code>exp(X^2)</code>, <code>exp(1//2)</code>, and
+<code>tenpow(X^2)</code> match every constructed record field and accepted LCD data write.
+Each stream contains 22 writes. The JavaScript renderer generates the writes
+from the expression tree, constructed records, structural handlers, ROM font
+bitmaps, and LCD byte-packing logic. [confirmed]</p>
+<p>The type-<code>0x28</code> constructor maps source token <code>EF34h</code> through <code>34:594D</code> and
+reserves the base and argument leaves before scanning either payload. It places
+the base at <code>x=18</code> and the argument after the base width at $x=w_b+24$. The
+argument height and baseline determine the parent’s height and baseline. The
+parent width is $w_b+w_a+30$. [confirmed]</p>
+<p>Reset-origin traces for <code>logbase(12,345)</code>, <code>logbase(X,X^2)</code>,
+<code>logbase(3,1//2)</code>, and <code>logbase(1//2,3)</code> match every constructed record field.
+Their complete accepted-write streams contain 99, 79, 91, and 71 writes. These
+cases cover multi-token children, a powered argument, and a stacked fraction in
+each child position. [confirmed]</p>
 <p>Eight additional reset-origin traces cover radicals, sequences inside radicals,
 nested radicals, powers inside radicals, and radicals inside powers. The deepest
 cases are <code>sqrt(2^X^2)</code>, <code>sqrt(sqrt(2))</code>, <code>X^sqrt(2)</code>, and
@@ -862,11 +882,12 @@ JavaScript constructor matches every record field and ID. It also reproduces
 every accepted LCD data write through the outer <code>34:660A</code> return. The traces
 supply comparison oracles, not constructor input. [confirmed]</p>
 <p>Flat absolute-value bodies and expressions composed from ordinary token runs,
-right-associated powers, radicals, nth roots, and stacked fractions now run
-from tokens through record construction, layout, drawing operations, and LCD
-byte writes. Integrals, summations, and <code>nDeriv(</code> compose with the same
-translated forms in their arguments and in a stacked-fraction numerator. The
-remaining arbitrary-expression branches are still untranslated.
+right-associated powers, $e^x$, $10^x$, <code>logBASE(</code>, radicals, nth roots, and
+stacked fractions now run from tokens through record construction, layout,
+drawing operations, and LCD byte writes. Integrals, summations, and <code>nDeriv(</code>
+compose with the same translated forms in their arguments and in a
+stacked-fraction numerator. The remaining arbitrary-expression branches are
+still untranslated.
 [confirmed]</p>
 <p>Each dispatch also captures the viewport origin at <code>ram:8DFE</code>/<code>ram:8E00</code>.
 Nested fraction <code>1/2</code> reaches <code>34:5DA6</code> with the local rule <code>(1,6)</code>–<code>(5,6)</code>
@@ -911,11 +932,12 @@ settled record programs provide exact final-pixel and complete accepted-write
 parity for their expressions. Three fresh absolute-value cases, four power
 cases, eight power/radical composition cases, four nth-root cases, thirteen
 fraction cases, twelve integral cases, and eleven summation cases verify
-token-to-record construction and complete accepted-write streams. Twelve
-<code>nDeriv(</code> cases verify its three arguments, structural bodies, and recursive
-nesting. Six raised multi-argument numerator cases also require the settled
-record graph to decode to the asserted semantic expression. The deepest power
-oracle has three raised levels. Two longer trace
+token-to-record construction and complete accepted-write streams. Four
+exponential cases and four <code>logBASE(</code> cases verify their child metrics, nested
+structures, and accepted-write streams. Twelve <code>nDeriv(</code> cases verify its three
+arguments, structural bodies, and recursive nesting. Six raised multi-argument
+numerator cases also require the settled record graph to decode to the asserted
+semantic expression. The deepest power oracle has three raised levels. Two longer trace
 scenarios cover the editor and display activity around the final key press.
 [confirmed]</p>
 <h2 id="extracted-records-and-interactive-model"><a class="header" href="#extracted-records-and-interactive-model">Extracted records and interactive model</a></h2>
