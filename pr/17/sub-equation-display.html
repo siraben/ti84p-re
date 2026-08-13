@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-610c3e23.js";
+            window.path_to_searchindex_js = "searchindex-81cba0a3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -586,7 +586,7 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, and large-glyph output. It recursively follows direct ROM
 edges from named entries, resolves the finite dispatch tables, overlays exact
-next-PC outcomes from 171 reset-origin traces, and lists external targets.
+next-PC outcomes from 172 reset-origin traces, and lists external targets.
 <code>tools/mathprint-saturation.json</code> records the resulting branches and trace
 hashes. [confirmed]</p>
 <p>The report is a symbolic-execution aid rather than a whole-machine proof. It
@@ -602,8 +602,8 @@ outside that state model. [confirmed]</p>
 </thead>
 <tbody>
 <tr><td>Settled construction</td><td style="text-align: right">991</td><td style="text-align: right">244</td><td style="text-align: right">408</td><td style="text-align: right">79.11%</td></tr>
-<tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">202</td><td style="text-align: right">302</td><td style="text-align: right">90.25%</td></tr>
-<tr><td>Metrics and geometry</td><td style="text-align: right">470</td><td style="text-align: right">70</td><td style="text-align: right">80</td><td style="text-align: right">96.17%</td></tr>
+<tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">205</td><td style="text-align: right">302</td><td style="text-align: right">90.89%</td></tr>
+<tr><td>Metrics and geometry</td><td style="text-align: right">470</td><td style="text-align: right">75</td><td style="text-align: right">80</td><td style="text-align: right">99.36%</td></tr>
 <tr><td>Record allocator</td><td style="text-align: right">64</td><td style="text-align: right">7</td><td style="text-align: right">8</td><td style="text-align: right">98.44%</td></tr>
 <tr><td>Editor layout</td><td style="text-align: right">2,776</td><td style="text-align: right">245</td><td style="text-align: right">1,098</td><td style="text-align: right">32.42%</td></tr>
 <tr><td>Small-font and LCD output</td><td style="text-align: right">413</td><td style="text-align: right">76</td><td style="text-align: right">122</td><td style="text-align: right">71.19%</td></tr>
@@ -618,10 +618,11 @@ for that corpus. A branch with one or no outcomes remains open even when its
 containing routine has been reached. The allocator is the only declared
 component whose every conditional branch has at least one observed outcome;
 three of its four branches have both outcomes. [confirmed]</p>
-<p>The report classifies all 2,184 enumerated outcomes. The traces exercise 904.
-One allocator outcome is infeasible under its entry invariant. The other 1,279
-remain unresolved because their required state or calling ABI is not yet
-proved. An unobserved outcome never becomes infeasible from absence alone.
+<p>The report classifies all 2,184 enumerated outcomes. The traces exercise 912.
+One allocator outcome is infeasible under its data invariant. Two metric
+outcomes are infeasible under the calculator call ABI. The other 1,269 remain
+unresolved because their required state or calling ABI is not yet proved. An
+unobserved outcome never becomes infeasible from absence alone.
 [confirmed]</p>
 <p>The infeasible allocator outcome is the fallthrough at <code>33:4F4E</code>. The type
 <code>0x2B</code> path loads rows and columns from record offsets <code>+0x13</code> and <code>+0x12</code>, then
@@ -629,13 +630,36 @@ proved. An unobserved outcome never becomes infeasible from absence alone.
 <code>02:5DCF</code> raises <code>_ErrDimension</code> when either dimension is zero. A valid settled
 matrix record therefore reaches <code>33:4F4E</code> with a nonzero product and takes the
 branch. [confirmed]</p>
-<p>An exact Z3 set-cover calculation reduces the 171 trace summaries to 19 while
-preserving all 904 observed outcomes. It minimizes trace count first, retained
-bytes second, and labels third. The 19 selected traces total 2,847,171,954
-bytes, and each contributes at least one outcome absent from the other 18.
+<p>The calculator metric entries at <code>34:7377</code>, <code>34:737A</code>, and <code>34:7380</code> all pass
+through <code>34:7386</code>, which loads <code>B=0</code>. The recursive route stores that zero at
+<code>0x8512</code> and reloads it at <code>34:75F4</code> before <code>34:7606</code>. Induction over the
+dispatcher recursion therefore fixes <code>B=0</code>. The <code>B!=0</code> outcomes at <code>34:73CD</code>
+fallthrough and <code>34:765D</code> return are infeasible under this calculator ABI.
+Synthetic direct calls to internal metric handlers do not share the ABI.
+[confirmed]</p>
+<p>An exact Z3 set-cover calculation reduces the 172 trace summaries to 20 while
+preserving all 912 observed outcomes. It minimizes trace count first, retained
+bytes second, and labels third. The 20 selected traces total 2,965,561,068
+bytes, and each contributes at least one outcome absent from the other 19.
 This is a proven minimum for the supplied trace set, not for every input the OS
 can accept. The broad trace set remains an RE and regression corpus; the public
 gallery uses a smaller, diverse selection. [confirmed]</p>
+<p>The in-progress editor is a gap buffer. <code>editTop</code> (<code>0x96F4</code>) and <code>editCursor</code>
+(<code>0x96F6</code>) bound the left segment. <code>editTail</code> (<code>0x96F8</code>) and <code>editBtm</code>
+(<code>0x96FA</code>) bound the right segment. Moving across a structural object exposes
+the six-byte right-segment marker <code>EF type id_lo id_hi EF 2D</code>. An insertion at
+that boundary makes the metric walker enter <code>34:759C</code> with its parsed pointer
+at <code>editTail + 6</code>. The comparison at <code>34:75A1</code> then returns Z, so <code>34:75A5</code>
+falls through. [confirmed]</p>
+<p><code>34:789A</code> first distinguishes the table-equation context from other editors.
+On its fallthrough, <code>34:75AB</code> reads the marker type from <code>editTail + 1</code>.
+<code>34:40F9</code> groups fraction (<code>0x20</code>), nth-root (<code>0x24</code>), and power (<code>0x2A</code>)
+markers; <code>34:75B0</code> takes its Z branch for this set. <code>34:75B8</code> then reads the
+nesting counter at <code>0x8515</code>, and <code>34:75BB</code> distinguishes zero from nonzero
+depth. A reset-origin <code>X^2</code> boundary insertion directly exercises eight
+previously absent outcomes through this chain. The table-context branch,
+non-special marker class, and nonzero-depth outcome remain unresolved.
+[confirmed]</p>
 <p>The record-oracle corpus contains 105 captured cases. It includes types <code>0x20</code>
 through <code>0x2B</code>; the only missing structural type is <code>0x1F</code>. Each of those 12
 types has a decoded record node and accepted-write oracle. This saturates the
