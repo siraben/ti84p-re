@@ -89,7 +89,7 @@ class RecordFieldWrite:
     clock: int
     pc_space: str
     pc_address: int
-    record_id: int
+    final_record_id: int
     pointer: int
     offset: int
     field: str
@@ -208,7 +208,7 @@ def attribute_record_writes(
                     clock=getattr(write, "clock"),
                     pc_space=getattr(write, "pc_space"),
                     pc_address=getattr(write, "pc_address"),
-                    record_id=location.record_id,
+                    final_record_id=location.record_id,
                     pointer=location.pointer,
                     offset=offset,
                     field=record_field_name(

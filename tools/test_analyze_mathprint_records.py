@@ -164,7 +164,7 @@ class MathPrintRecordTests(unittest.TestCase):
         )]
         self.assertEqual(
             [(14, "word05.lo", 1)],
-            [(item.record_id, item.field, item.value)
+            [(item.final_record_id, item.field, item.value)
              for item in attribute_record_writes(writes, locations, nodes)],
         )
 
