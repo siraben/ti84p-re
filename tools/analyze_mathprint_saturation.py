@@ -676,7 +676,12 @@ def oracle_trace_features(paths: Iterable[Path]) -> dict[str, set[str]]:
                 if not isinstance(trace_sha256, str):
                     continue
                 tags = features[trace_sha256]
-                tags.add(f"oracle_family:{path.stem}:{family}")
+                case_key = (
+                    case.get("accepted_write_sha256")
+                    or case.get("final_lcd_sha256")
+                    or trace_sha256
+                )
+                tags.add(f"oracle_case:{path.stem}:{family}:{case_key}")
                 for node in case["nodes"]:
                     render_type = node.get("render_type") if isinstance(node, dict) else None
                     if not isinstance(render_type, int):

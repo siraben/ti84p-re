@@ -601,7 +601,7 @@ class OracleCoverageTests(unittest.TestCase):
             features = oracle_trace_features((path,))
 
         self.assertEqual({
-            "oracle_family:mathprint-test-oracles:power_cases",
+            "oracle_case:mathprint-test-oracles:power_cases:def",
             "record_oracle:type=0x00", "record_oracle:type=0x2A",
             "lcd_oracle:type=0x00", "lcd_oracle:type=0x2A",
         }, features["abc"])
