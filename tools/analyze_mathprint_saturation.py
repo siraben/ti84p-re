@@ -50,13 +50,16 @@ from z80_disassembly import (
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ROM = ROOT / "tools" / "rom.bin"
 DEFAULT_OUTPUT = ROOT / "tools" / "mathprint-saturation.json"
-TRACE_CACHE_SCHEMA = 4
+TRACE_CACHE_SCHEMA = 6
 EXHAUSTIVE_COVER_LIMIT = 24
 TRACE_PROVENANCE_NATURAL = "natural_calculator_input"
 TRACE_PROVENANCE_SYNTHETIC = "synthetic_state_injection"
 TRACE_PROVENANCE_VALUES = frozenset({
     TRACE_PROVENANCE_NATURAL,
     TRACE_PROVENANCE_SYNTHETIC,
+})
+NATIVE_TWO_BYTE_TOKEN_LEADS = frozenset({
+    0x5C, 0x5D, 0x5E, 0x60, 0x61, 0x62, 0x63, 0x7E, 0xBB, 0xAA, 0xEF,
 })
 
 
@@ -571,6 +574,79 @@ def word_rows(rows: Sequence[Sequence[int]]) -> list[int]:
     return [row[0] | row[1] << 8 for row in rows]
 
 
+def source_lookup_domain(rows: Sequence[Sequence[int]]) -> dict[str, object]:
+    """Partition 34:5935 by first matching row plus its no-match class."""
+
+    first_rows: dict[tuple[int, int], int] = {}
+    shadowed = []
+    decoded = []
+    for index, (low, high, render_type) in enumerate(rows):
+        packed = (high << 8) | low
+        key = (low, high)
+        if key in first_rows:
+            status = "shadowed_duplicate"
+            shadowed.append({
+                "row_index": index,
+                "shadowed_by": first_rows[key],
+                "token": f"{packed:04X}h",
+                "render_type": f"0x{render_type:02X}",
+            })
+        else:
+            status = "first_match"
+            first_rows[key] = index
+        decoded.append({
+            "row_index": index,
+            "token": f"{packed:04X}h",
+            "render_type": f"0x{render_type:02X}",
+            "lookup_status": status,
+        })
+    return {
+        "routine": "34:5935",
+        "input_domain": "all 65,536 packed D:E values",
+        "first_match_classes": len(first_rows),
+        "no_match_input_count": 0x10000 - len(first_rows),
+        "rows": decoded,
+        "shadowed_rows": shadowed,
+    }
+
+
+def indexed_table_domain(
+    rom: RomImage,
+    *,
+    name: str,
+    page: int,
+    address: int,
+    row_count: int,
+    row_width: int,
+    index_bias: int = 0,
+) -> dict[str, object]:
+    """Decode all 8-bit index results, including adjacent-byte overreads."""
+
+    rows = []
+    for incoming in range(0x100):
+        index = (incoming - index_bias) & 0xFF
+        offset = index * row_width
+        value = list(rom.bytes_at(page, address + offset, row_width))
+        rows.append({
+            "incoming_value": f"0x{incoming:02X}",
+            "index": index,
+            "status": "table_row" if index < row_count else "adjacent_rom_bytes",
+            "rom_address": f"{page:02X}:{address + offset:04X}",
+            "bytes": value,
+        })
+    return {
+        "name": name,
+        "table": f"{page:02X}:{address:04X}",
+        "row_count": row_count,
+        "row_width": row_width,
+        "index_bias": f"0x{index_bias:02X}",
+        "projected_input_domain": 0x100,
+        "valid_row_inputs": row_count,
+        "adjacent_byte_inputs": 0x100 - row_count,
+        "rows": rows,
+    }
+
+
 def iter_oracle_cases(document: object) -> Iterator[dict[str, object]]:
     if not isinstance(document, dict):
         return
@@ -580,6 +656,35 @@ def iter_oracle_cases(document: object) -> Iterator[dict[str, object]]:
         for item in value:
             if isinstance(item, dict) and isinstance(item.get("nodes"), list):
                 yield item
+
+
+def oracle_trace_features(paths: Iterable[Path]) -> dict[str, set[str]]:
+    """Map captured trace hashes to record, LCD, and corpus-family tags."""
+
+    features: dict[str, set[str]] = defaultdict(set)
+    for path in sorted(paths):
+        document = json.loads(path.read_text())
+        if not isinstance(document, dict):
+            continue
+        for family, raw_cases in document.items():
+            if not isinstance(raw_cases, list):
+                continue
+            for case in raw_cases:
+                if not isinstance(case, dict) or not isinstance(case.get("nodes"), list):
+                    continue
+                trace_sha256 = case.get("trace_sha256")
+                if not isinstance(trace_sha256, str):
+                    continue
+                tags = features[trace_sha256]
+                tags.add(f"oracle_family:{path.stem}:{family}")
+                for node in case["nodes"]:
+                    render_type = node.get("render_type") if isinstance(node, dict) else None
+                    if not isinstance(render_type, int):
+                        continue
+                    tags.add(f"record_oracle:type=0x{render_type:02X}")
+                    if isinstance(case.get("accepted_write_sha256"), str):
+                        tags.add(f"lcd_oracle:type=0x{render_type:02X}")
+    return dict(features)
 
 
 def oracle_coverage(paths: Iterable[Path]) -> dict[str, object]:
@@ -696,6 +801,232 @@ def symbolic_scan_kind_paths(
         for (terminal, outcomes), values in sorted(classes.items())
     ]
     return annotate_symbolic_outcome_coverage(paths, observed_outcomes)
+
+
+def raised_extended_token_path(a: int, e: int) -> dict[str, object]:
+    """Partition the packed-token classifier at 34:580C.
+
+    ``A`` is the value selected by 34:56A4: the lead byte for a packed
+    two-byte token and the token byte otherwise. ``E`` is the low byte of the
+    packed token. The bounded name loops entered for 5Fh and EBh depend on
+    following source bytes, so this model stops at their loop entry.
+    """
+
+    a &= 0xFF
+    e &= 0xFF
+    outcomes = []
+
+    def branch(address: int, taken: bool) -> None:
+        outcomes.append(f"34:{address:04X}:{'taken' if taken else 'fallthrough'}")
+
+    branch(0x580E, a < 0x40)
+    if a >= 0x40:
+        branch(0x5812, a < 0x5C)
+        if a < 0x5C:
+            branch(0x585F, a == 0x5F)
+            return {
+                "terminal": "bounded_name_scan_8" if a == 0x5F else "advance_one_token",
+                "name_byte_limit": 8 if a == 0x5F else 0,
+                "branch_outcomes": outcomes,
+            }
+        branch(0x5816, a < 0x64)
+        if a < 0x64:
+            branch(0x585F, a == 0x5F)
+            return {
+                "terminal": "bounded_name_scan_8" if a == 0x5F else "advance_one_token",
+                "name_byte_limit": 8 if a == 0x5F else 0,
+                "branch_outcomes": outcomes,
+            }
+
+    branch(0x581B, a == 0x72)
+    if a == 0x72:
+        return {
+            "terminal": "advance_one_token", "name_byte_limit": 0,
+            "branch_outcomes": outcomes,
+        }
+    branch(0x581F, a == 0xAA)
+    if a == 0xAA:
+        return {
+            "terminal": "advance_one_token", "name_byte_limit": 0,
+            "branch_outcomes": outcomes,
+        }
+    branch(0x5823, a == 0xEB)
+    if a == 0xEB:
+        return {
+            "terminal": "bounded_name_scan_5", "name_byte_limit": 5,
+            "branch_outcomes": outcomes,
+        }
+    branch(0x5827, a == 0x2C)
+    if a == 0x2C:
+        return {
+            "terminal": "advance_one_token", "name_byte_limit": 0,
+            "branch_outcomes": outcomes,
+        }
+    branch(0x582B, a == 0xAC)
+    if a == 0xAC:
+        return {
+            "terminal": "advance_one_token", "name_byte_limit": 0,
+            "branch_outcomes": outcomes,
+        }
+    branch(0x582F, a != 0xBB)
+    if a != 0xBB:
+        return {
+            "terminal": "rejected", "name_byte_limit": 0,
+            "branch_outcomes": outcomes,
+        }
+    branch(0x5833, e == 0x31)
+    return {
+        "terminal": "advance_one_token" if e == 0x31 else "rejected",
+        "name_byte_limit": 0,
+        "branch_outcomes": outcomes,
+    }
+
+
+def raised_classifier_caller_states() -> Iterator[tuple[int, int, str]]:
+    """Yield every packed-token state admitted by the 34:58F9 caller ABI."""
+
+    for token in range(0x100):
+        if (
+            token not in NATIVE_TWO_BYTE_TOKEN_LEADS
+            and token != 0xB0
+            and not 0x30 <= token < 0x3C
+        ):
+            yield token, token, f"{token:02X}h"
+    for lead in sorted(NATIVE_TWO_BYTE_TOKEN_LEADS):
+        for second in range(0x100):
+            if lead == 0xEF and second == 0x1E:
+                continue
+            yield lead, second, f"{lead:02X}{second:02X}h"
+
+
+def symbolic_raised_extended_token_paths(
+    observed_outcomes: Counter[tuple[str, int, str]] | None = None,
+) -> list[dict[str, object]]:
+    """Partition every valid packed-token input to 34:580C by complete path."""
+
+    classes: dict[
+        tuple[str, int, tuple[str, ...]], dict[str, object]
+    ] = {}
+    for a, e, token in raised_classifier_caller_states():
+        result = raised_extended_token_path(a, e)
+        key = (
+            str(result["terminal"]), int(result["name_byte_limit"]),
+            tuple(str(item) for item in result["branch_outcomes"]),
+        )
+        row = classes.setdefault(key, {
+            "projected_input_count": 0,
+            "representative_tokens": [],
+        })
+        row["projected_input_count"] += 1
+        representatives = row["representative_tokens"]
+        if len(representatives) < 4:
+            representatives.append(token)
+    paths = [
+        {
+            "terminal": terminal,
+            "name_byte_limit": name_limit,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, name_limit, outcomes)],
+        }
+        for terminal, name_limit, outcomes in sorted(classes)
+    ]
+    return annotate_symbolic_outcome_coverage(paths, observed_outcomes)
+
+
+RAISED_NAME_BYTE_CLASSES = {
+    "digit": {"count": 10, "representative": 0x30},
+    "letter": {"count": 27, "representative": 0x41},
+    "non_name_below_41h": {"count": 55, "representative": 0x00},
+    "non_name_at_or_above_5ch": {"count": 164, "representative": 0x5C},
+}
+
+
+def raised_name_loop_path(
+    prefix_classes: Sequence[str],
+    stop_class: str,
+    limit: int,
+) -> dict[str, object]:
+    """Model one complete 34:583D bounded-name loop path."""
+
+    if limit not in {5, 8}:
+        raise ValueError("34:583D has only the five- and eight-byte entry ABIs")
+    if len(prefix_classes) > limit:
+        raise ValueError("accepted name prefix exceeds the loop counter")
+    if any(value not in {"digit", "letter"} for value in prefix_classes):
+        raise ValueError("accepted prefix classes must be digits or letters")
+    if len(prefix_classes) == limit:
+        if stop_class != "byte_limit":
+            raise ValueError("a full accepted prefix stops at the byte limit")
+    elif stop_class not in {
+        "source_boundary", "non_name_below_41h", "non_name_at_or_above_5ch",
+    }:
+        raise ValueError("a short accepted prefix needs a ROM stop class")
+
+    outcomes: list[str] = []
+    for index, value in enumerate(prefix_classes):
+        outcomes.append("34:5840:fallthrough")
+        outcomes.append(
+            f"34:5845:{'taken' if value == 'digit' else 'fallthrough'}"
+        )
+        if value == "letter":
+            outcomes.extend(("34:5849:fallthrough", "34:584D:fallthrough"))
+        outcomes.append(
+            f"34:5853:{'fallthrough' if index + 1 == limit else 'taken'}"
+        )
+
+    if len(prefix_classes) < limit:
+        if stop_class == "source_boundary":
+            outcomes.append("34:5840:taken")
+        else:
+            outcomes.extend(("34:5840:fallthrough", "34:5845:fallthrough"))
+            if stop_class == "non_name_below_41h":
+                outcomes.append("34:5849:taken")
+            else:
+                outcomes.extend(("34:5849:fallthrough", "34:584D:taken"))
+
+    multiplicity = 1
+    representative = []
+    for value in prefix_classes:
+        info = RAISED_NAME_BYTE_CLASSES[value]
+        multiplicity *= int(info["count"])
+        representative.append(int(info["representative"]))
+    if stop_class in RAISED_NAME_BYTE_CLASSES:
+        info = RAISED_NAME_BYTE_CLASSES[stop_class]
+        multiplicity *= int(info["count"])
+        representative.append(int(info["representative"]))
+
+    return {
+        "accepted_prefix_classes": list(prefix_classes),
+        "accepted_prefix_length": len(prefix_classes),
+        "stop_class": stop_class,
+        "projected_input_count": multiplicity,
+        "representative_source_bytes": representative,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_raised_name_loop_paths(limit: int) -> list[dict[str, object]]:
+    """Partition every bounded byte-class projection through 34:583D."""
+
+    rows = []
+    for length in range(limit):
+        for mask in range(1 << length):
+            prefix = tuple(
+                "letter" if mask & (1 << index) else "digit"
+                for index in range(length)
+            )
+            for stop in (
+                "source_boundary", "non_name_below_41h",
+                "non_name_at_or_above_5ch",
+            ):
+                rows.append(raised_name_loop_path(prefix, stop, limit))
+    for mask in range(1 << limit):
+        prefix = tuple(
+            "letter" if mask & (1 << index) else "digit"
+            for index in range(limit)
+        )
+        rows.append(raised_name_loop_path(prefix, "byte_limit", limit))
+    return rows
 
 
 def type1f_path(a: int, iy44_bit3: int, value_8520: int) -> dict[str, object]:
@@ -1096,19 +1427,19 @@ def table_report(rom: RomImage, oracle: dict[str, object]) -> dict[str, object]:
             }
         )
 
+    source_lookup = source_lookup_domain(rows["source_token_to_type"])
     source = []
-    for first, second, render_type in rows["source_token_to_type"]:
-        source.append(
-            {
-                "token": f"{second:02X}{first:02X}h",
-                "bytes_de": [second, first],
-                "render_type": f"0x{render_type:02X}",
-                "exceptional": render_type == 0x2C,
-            }
-        )
+    for row, decoded in zip(rows["source_token_to_type"], source_lookup["rows"]):
+        first, second, render_type = row
+        source.append({
+            **decoded,
+            "bytes_de": [second, first],
+            "exceptional": render_type == 0x2C,
+        })
     editor_words = word_rows(rows["editor_class_handlers"])
     return {
         "source_token_map": source,
+        "source_token_lookup_domain": source_lookup,
         "structural_dispatch": structural,
         "scan_kinds": sorted({row[0] for row in rows["record_metadata"]}),
         "nonzero_scan_kinds": sorted({row[0] for row in rows["record_metadata"] if row[0]}),
@@ -1116,6 +1447,20 @@ def table_report(rom: RomImage, oracle: dict[str, object]) -> dict[str, object]:
             "entries": len(editor_words),
             "nonzero_pointers": sum(bool(value) for value in editor_words),
             "pointers": [f"39:{value:04X}" if value else None for value in editor_words],
+        },
+        "indexed_domains": {
+            "render_dispatch": indexed_table_domain(
+                rom, name="34:6105 structural render dispatch", page=0x34,
+                address=0x6119, row_count=13, row_width=2, index_bias=0x1F,
+            ),
+            "allocator_geometry": indexed_table_domain(
+                rom, name="33:4F6D allocator geometry lookup", page=0x33,
+                address=0x4F82, row_count=13, row_width=3, index_bias=0x1F,
+            ),
+            "editor_class": indexed_table_domain(
+                rom, name="39:4C27 editor class lookup", page=0x39,
+                address=0x5E45, row_count=68, row_width=2,
+            ),
         },
     }
 
@@ -1211,52 +1556,100 @@ def outcome_id(key: tuple[str, int, str]) -> str:
     return f"{prefix}:{address:04X}:{outcome}"
 
 
+def dynamic_path_feature(routine: str, result: dict[str, object]) -> str:
+    outcomes = ",".join(str(item) for item in result["branch_outcomes"])
+    return f"modeled_path:{routine}:{result['terminal']}:{outcomes}"
+
+
+def entry_feature(routine: str, fields: dict[str, int]) -> str:
+    values = ",".join(f"{name}=0x{value:X}" for name, value in fields.items())
+    return f"entry_state:{routine}:{values}"
+
+
+PATH_ROUTINE_BRANCHES = {
+    "34:5678": frozenset({0x567A, 0x567C, 0x5680, 0x5682, 0x5686, 0x5688}),
+    "34:583D": frozenset({0x5840, 0x5845, 0x5849, 0x584D, 0x5853}),
+    "34:6143": frozenset({
+        0x6145, 0x614E, 0x6157, 0x6166, 0x616C, 0x6170, 0x6178,
+        0x6181, 0x6186, 0x618E, 0x619F, 0x61A5, 0x61AB,
+    }),
+    "34:759C": frozenset({0x75A5, 0x75A9, 0x75B0, 0x75BB}),
+}
+
+
+def routine_path_terminal(routine: str, address: int, outcome: str) -> bool:
+    """Return whether one observed branch completes the modeled invocation."""
+
+    if routine == "34:5678":
+        return (
+            (address in {0x567A, 0x567C, 0x5680, 0x5682, 0x5686}
+             and outcome == "taken")
+            or address == 0x5688
+        )
+    if routine == "34:583D":
+        return (
+            (address == 0x5840 and outcome == "taken")
+            or (address in {0x5849, 0x584D} and outcome == "taken")
+            or (address == 0x5853 and outcome == "fallthrough")
+        )
+    if routine == "34:6143":
+        return (
+            address == 0x614E
+            or (address == 0x6157 and outcome == "fallthrough")
+            or (address in {
+                0x6166, 0x616C, 0x6178, 0x6186, 0x619F, 0x61A5,
+            } and outcome == "taken")
+            or address in {0x618E, 0x61AB}
+        )
+    if routine == "34:759C":
+        return (
+            (address == 0x75A5 and outcome == "returned")
+            or (address == 0x75A9 and outcome == "taken")
+            or (address == 0x75B0 and outcome == "fallthrough")
+            or address == 0x75BB
+        )
+    raise ValueError(f"unknown modeled routine {routine}")
+
+
 def trace_dynamic_features(
     outcomes: set[tuple[str, int, str]],
-    witnesses: dict[tuple[str, int, str], dict[str, object]],
+    entry_states: dict[tuple[str, int], set[tuple[int, int]]],
+    path_signatures: dict[str, set[tuple[str, ...]]] | None = None,
 ) -> set[str]:
-    """Tag branch outcomes and sound modeled path/state witnesses."""
+    """Tag outcomes plus complete paths derived from observed entry states."""
 
     features = {f"branch_outcome:{outcome_id(key)}" for key in outcomes}
-    for terminal, key in {
-        "generic_scan": ("page_34", 0x567A, "taken"),
-        "raised_operand_scan": ("page_34", 0x567C, "taken"),
-        "fraction_operand_scan": ("page_34", 0x5680, "taken"),
-        "single_argument_scan": ("page_34", 0x5682, "taken"),
-        "multi_argument_scan": ("page_34", 0x5686, "taken"),
-        "kind_5_scan": ("page_34", 0x5688, "taken"),
-        "kind_6_or_greater_scan": ("page_34", 0x5688, "fallthrough"),
-    }.items():
-        if key in outcomes:
-            features.add(f"modeled_path:34:5678:{terminal}")
-    for terminal, key in {
-        "return_nz_pointer_mismatch": ("page_34", 0x75A5, "returned"),
-        "return_nz_yequ_table": ("page_34", 0x75A9, "taken"),
-        "return_nz_other_marker": ("page_34", 0x75B0, "fallthrough"),
-        "return_z_special_marker_nested": ("page_34", 0x75BB, "fallthrough"),
-        "return_z_special_marker_top_level": ("page_34", 0x75BB, "taken"),
-    }.items():
-        if key in outcomes:
-            features.add(f"modeled_path:34:759C:{terminal}")
-    for a, address, outcome, bit in (
-        (0x27, 0x614E, "fallthrough", 0),
-        (0x27, 0x614E, "taken", 1),
-        (0x22, 0x6157, "fallthrough", 0),
-        (0x21, 0x6166, "taken", 0),
-        (0x25, 0x616C, "taken", 0),
-        (0x26, 0x619F, "taken", 0),
-        (0x28, 0x61A5, "taken", 0),
-        (0x29, 0x61AB, "taken", 0),
-    ):
-        key = ("page_34", address, outcome)
-        witness = witnesses.get(key)
-        if not witness or witness["state"]["A"] != a:
+    for a, _de in entry_states.get(("page_34", 0x5678), set()):
+        fields = {"A": a}
+        features.add(entry_feature("34:5678", fields))
+        features.add(dynamic_path_feature("34:5678", scan_kind_path(a)))
+    for a, de in entry_states.get(("page_34", 0x580C), set()):
+        fields = {"A": a, "E": de & 0xFF}
+        features.add(entry_feature("34:580C", fields))
+        features.add(dynamic_path_feature(
+            "34:580C", raised_extended_token_path(a, de & 0xFF)
+        ))
+    for a, _de in entry_states.get(("page_34", 0x6143), set()):
+        fields = {"A": a}
+        features.add(entry_feature("34:6143", fields))
+        # The current trace format does not contain IY-relative RAM or 8520h.
+        # Only paths whose tested predicates are fixed by A are sound here.
+        if a == 0x27 or a == 0x2B:
             continue
-        terminal = type1f_path(a, bit, 0)["terminal"]
-        features.add(f"entry_state:34:6143:A=0x{a:02X}")
-        features.add(
-            f"modeled_path:34:6143:A=0x{a:02X}:bit3={bit}:{terminal}"
-        )
+        features.add(dynamic_path_feature("34:6143", type1f_path(a, 0, 0)))
+    for _a, de in entry_states.get(("page_34", 0x5935), set()):
+        features.add(f"dispatch_input:34:5935:DE=0x{de:04X}")
+    for a, _de in entry_states.get(("page_34", 0x6105), set()):
+        features.add(f"dispatch_index:34:6105:type=0x{a:02X}")
+    for a, _de in entry_states.get(("page_33", 0x4F6D), set()):
+        features.add(f"dispatch_index:33:4F6D:index=0x{a:02X}")
+    for a, _de in entry_states.get(("page_39", 0x4C31), set()):
+        features.add(f"dispatch_index:39:4C31:class=0x{a:02X}")
+    # 34:759C reads pointer, application, marker, and nesting state from RAM.
+    # A register-only entry sample cannot select one of its complete paths.
+    for routine, paths in (path_signatures or {}).items():
+        for path in paths:
+            features.add(f"observed_path:{routine}:{','.join(path)}")
     return features
 
 
@@ -1272,12 +1665,23 @@ def scan_trace(
     Counter[tuple[str, int, str]],
     Counter[tuple[str, int]],
     dict[tuple[str, int, str], dict[str, object]],
+    dict[tuple[str, int], set[tuple[int, int]]],
+    dict[str, set[tuple[str, ...]]],
 ]:
     banker = make_banker("ti84p-reset")
     branch_outcomes: Counter[tuple[str, int, str]] = Counter()
     instruction_hits: Counter[tuple[str, int]] = Counter()
     pending: tuple[Branch, dict[str, int], int] | None = None
     witnesses: dict[tuple[str, int, str], dict[str, object]] = {}
+    feature_entries = {
+        ("page_33", 0x4F6D), ("page_34", 0x5678),
+        ("page_34", 0x580C), ("page_34", 0x5935),
+        ("page_34", 0x6105), ("page_34", 0x6143),
+        ("page_34", 0x759C), ("page_39", 0x4C31),
+    }
+    entry_states: dict[tuple[str, int], set[tuple[int, int]]] = defaultdict(set)
+    active_paths: dict[str, list[str]] = {}
+    path_signatures: dict[str, set[tuple[str, ...]]] = defaultdict(set)
     processed = 0
     unknown_transitions = 0
     with path.open("rb") as stream:
@@ -1290,6 +1694,8 @@ def scan_trace(
             (space, address, _flat, _page), _switch = resolve_instruction(banker, payload)
             point = (space, address)
             state = trace_register_state(payload)
+            if point in feature_entries:
+                entry_states[point].add((state["A"], state["DE"]))
             if pending is not None:
                 pending_branch, pending_state, pending_index = pending
                 outcome = classify_outcome(
@@ -1311,8 +1717,25 @@ def scan_trace(
                             ),
                         },
                     )
+                    branch_address = pending_branch.location.address
+                    for routine, addresses in PATH_ROUTINE_BRANCHES.items():
+                        if branch_address not in addresses or routine not in active_paths:
+                            continue
+                        identifier = outcome_id(key)
+                        active_paths[routine].append(identifier)
+                        if routine_path_terminal(routine, branch_address, outcome):
+                            path_signatures[routine].add(tuple(active_paths.pop(routine)))
             if point in instruction_universe:
                 instruction_hits[point] += 1
+            for routine, entry in (
+                ("34:5678", ("page_34", 0x5678)),
+                ("34:6143", ("page_34", 0x6143)),
+                ("34:759C", ("page_34", 0x759C)),
+            ):
+                if point == entry:
+                    active_paths[routine] = []
+            if point == ("page_34", 0x5840) and "34:583D" not in active_paths:
+                active_paths["34:583D"] = []
             branch = branch_index.get(point)
             pending = (
                 None if branch is None
@@ -1330,6 +1753,8 @@ def scan_trace(
         branch_outcomes,
         instruction_hits,
         witnesses,
+        dict(entry_states),
+        dict(path_signatures),
     )
 
 
@@ -1361,6 +1786,8 @@ def serialize_trace_summary(
     outcomes: Counter[tuple[str, int, str]],
     hits: Counter[tuple[str, int]],
     witnesses: dict[tuple[str, int, str], dict[str, object]],
+    entry_states: dict[tuple[str, int], set[tuple[int, int]]],
+    path_signatures: dict[str, set[tuple[str, ...]]],
 ) -> dict[str, object]:
     """Convert one trace scan to stable JSON cache data."""
 
@@ -1379,6 +1806,16 @@ def serialize_trace_summary(
             [space, address, outcome, value]
             for (space, address, outcome), value in sorted(witnesses.items())
         ],
+        "entry_states": [
+            [space, address, a, de]
+            for (space, address), states in sorted(entry_states.items())
+            for a, de in sorted(states)
+        ],
+        "path_signatures": [
+            [routine, list(path)]
+            for routine, paths in sorted(path_signatures.items())
+            for path in sorted(paths)
+        ],
     }
 
 
@@ -1389,6 +1826,8 @@ def deserialize_trace_summary(
     Counter[tuple[str, int, str]],
     Counter[tuple[str, int]],
     dict[tuple[str, int, str], dict[str, object]],
+    dict[tuple[str, int], set[tuple[int, int]]],
+    dict[str, set[tuple[str, ...]]],
 ]:
     """Restore one cached scan and bind its witnesses to the current label."""
 
@@ -1406,10 +1845,21 @@ def deserialize_trace_summary(
         value = dict(raw_value)
         value["trace"] = label
         witnesses[(space, address, outcome)] = value
-    return row, outcomes, hits, witnesses
+    entry_states: dict[tuple[str, int], set[tuple[int, int]]] = defaultdict(set)
+    for space, address, a, de in cached["entry_states"]:
+        entry_states[(space, address)].add((a, de))
+    path_signatures: dict[str, set[tuple[str, ...]]] = defaultdict(set)
+    for routine, path in cached["path_signatures"]:
+        path_signatures[routine].add(tuple(path))
+    return (
+        row, outcomes, hits, witnesses, dict(entry_states),
+        dict(path_signatures),
+    )
 
 
 def load_trace_cache(path: Path | None, fingerprint: str) -> dict[str, object]:
+    """Load only the current trace-summary schema and CFG fingerprint."""
+
     if path is None or not path.is_file():
         return {
             "schema": TRACE_CACHE_SCHEMA,
@@ -1877,22 +2327,29 @@ def build_report(
         trace_sha256 = digest(path)
         cached = cache_entries.get(trace_sha256)
         if cached is None:
-            row, local_outcomes, local_hits, local_witnesses = scan_trace(
+            (
+                row, local_outcomes, local_hits, local_witnesses,
+                local_entries, local_paths,
+            ) = scan_trace(
                 label, path, branch_index, instruction_universe,
                 trace_sha256=trace_sha256,
             )
             cache_entries[trace_sha256] = serialize_trace_summary(
-                row, local_outcomes, local_hits, local_witnesses
+                row, local_outcomes, local_hits, local_witnesses,
+                local_entries, local_paths,
             )
             if trace_cache is not None:
                 write_trace_cache(trace_cache, cache)
         else:
-            row, local_outcomes, local_hits, local_witnesses = (
-                deserialize_trace_summary(label, cached)
-            )
+            (
+                row, local_outcomes, local_hits, local_witnesses,
+                local_entries, local_paths,
+            ) = deserialize_trace_summary(label, cached)
         local_set = set(local_outcomes)
         trace_outcomes[label] = local_set
-        trace_features[label] = trace_dynamic_features(local_set, local_witnesses)
+        trace_features[label] = trace_dynamic_features(
+            local_set, local_entries, local_paths
+        )
         row["provenance"] = provenance.get(label, TRACE_PROVENANCE_NATURAL)
         row["unique_branch_outcomes"] = len(local_set)
         trace_rows.append(row)
@@ -1913,6 +2370,13 @@ def build_report(
     witnesses.update(natural_witnesses)
 
     oracle = oracle_coverage(ROOT.glob("tools/mathprint-*-oracles.json"))
+    oracle_features = oracle_trace_features(
+        ROOT.glob("tools/mathprint-*-oracles.json")
+    )
+    for row in trace_rows:
+        trace_features[row["label"]].update(
+            oracle_features.get(row["sha256"], set())
+        )
     table = table_report(rom, oracle)
     component_rows = {
         cfg.component.name: component_report(
@@ -2033,6 +2497,30 @@ def build_report(
                 "projected_input_domain": 0x100,
                 "rom_metadata_values": table["scan_kinds"],
                 "terminal_classes": symbolic_scan_kind_paths(outcomes),
+            },
+            "raised_extended_token_classifier": {
+                "routine": "34:580C",
+                "state": ["A selected by 34:56A4", "packed-token low byte E"],
+                "caller_precondition": (
+                    "A is an ordinary token byte or one of the 11 native "
+                    "two-byte lead bytes returned by 34:58F9"
+                ),
+                "projected_input_domain": sum(
+                    1 for _state in raised_classifier_caller_states()
+                ),
+                "terminal_classes": symbolic_raised_extended_token_paths(outcomes),
+                "bounded_name_loops": [
+                    {
+                        "designator": f"0x{designator:02X}",
+                        "routine": "34:5836–5855",
+                        "byte_limit": limit,
+                        "accepted_byte_classes": [
+                            "0x30–0x39 digits", "0x41–0x5B letters",
+                        ],
+                        "path_classes": symbolic_raised_name_loop_paths(limit),
+                    }
+                    for designator, limit in ((0xEB, 5), (0x5F, 8))
+                ],
             },
             "shared_marker_draw_helper": {
                 "routine": "34:6143",
