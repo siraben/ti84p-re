@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-749fb3ab.js";
+            window.path_to_searchindex_js = "searchindex-b6236892.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -1029,7 +1029,18 @@ claim. The controller behavior is [standard] for the pinned TilEm source model;
 synthetic tests confirm the replay implementation.</p>
 <p><code>tools/parity-mathprint.py</code> selects that replay when tracing is enabled.
 The local ignored <code>tools/rom.bin</code> enables pinned-ROM reproduction when present.
-The 5,018-case Node test remains a deterministic parser/layout smoke test. Six
+The browser’s generated path encodes native calculator bytes, scans their
+one- and two-byte token boundaries through translations of <code>34:58F9</code> and
+<code>34:5911</code>, constructs settled records, and emits accepted LCD data bytes. Each
+write replaces one eight-pixel span in a 96×64 framebuffer. Five changed and
+deeply nested expressions pin every intermediate write and the packed final
+framebuffer without loading a captured write stream. These deterministic cases
+exercise summation, integral, <code>nDeriv(</code>, matrix, and a three-level raised
+fraction. [confirmed]</p>
+<p>The text field uses a preview-specific semantic grammar. It does not emulate
+the TI-OS editor or decode its in-progress template AST. The translated path
+begins at the native byte stream produced by that frontend. [confirmed]</p>
+<p>The 5,018-case Node test remains a deterministic parser/layout smoke test. Six
 settled record programs provide exact final-pixel and complete accepted-write
 parity for their expressions. Three fresh absolute-value cases, four power
 cases, eight power/radical composition cases, four nth-root cases, thirteen
@@ -1064,10 +1075,13 @@ trace-fitted box model. <code>web/mathprint/record-programs.json</code> contains
 retained record snapshots for offline comparison. The browser does not fetch
 them. It constructs supported named-token, absolute-value, power,
 radical, nth-root, stacked-fraction, integral, summation, and <code>nDeriv(</code>
-expressions from tokens, including nesting among the structural forms. The
-translated renderer exposes every generated LCD write as a live timeline. This
-mode does not load a record fixture or captured LCD event stream.
-[confirmed]</p>
+expressions from native token bytes, including nesting among the structural
+forms. The translated renderer exposes every generated LCD byte and the
+resulting pixel frame as a live timeline. This mode does not load a record
+fixture or captured LCD event stream. Dense scanner state at
+<code>34:5AA7</code>–<code>34:5CA8</code> remains open. [confirmed]</p>
+<p>The standalone nth-root encoder supplies an inferred template boundary because
+the retained trace does not expose the final source buffer. [hypothesis]</p>
 
                     </main>
 

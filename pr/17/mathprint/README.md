@@ -139,9 +139,32 @@ data, not executor inputs. [confirmed]
 
 The JavaScript path constructs absolute-value, power, $e^x$, $10^x$,
 `logBASE(`, radical, nth-root, stacked-fraction, integral, summation, and
-`nDeriv(` expressions and numeric matrices from token bytes. It translates the
-`34:594D` token table and the relevant `34:4900`, `34:7393`, and `34:7609`
-record and metric paths.
+`nDeriv(` expressions and numeric matrices from native token bytes. The packed
+readers translate the forward scan at `34:58F9`, the backward scan at `34:5911`,
+and the 11 lead bytes tested by `_IsA2ByteTok` at `00:1FE8`. The structural
+parser translates the relevant `34:594D`, `34:4900`, `34:7393`, and `34:7609`
+record and metric paths. Dense scanner state at `34:5AA7`–`34:5CA8` remains
+open. [confirmed]
+
+The text field remains a preview-specific semantic frontend. It is not a
+translation of the TI-OS editor or its in-progress template AST. After that
+frontend encodes a supported expression, record construction and LCD rendering
+consume the native byte stream rather than replaying a captured graph or write
+stream. [confirmed]
+
+Five changed-input regressions start from native byte arrays for summation,
+integral, `nDeriv(`, matrix, and a three-level raised fraction. They construct
+the settled graph, generate 36–173 accepted LCD data writes, and replay each
+byte into the corresponding eight pixels of a 96×64 framebuffer. The tests
+pin the complete ordered write streams and packed final framebuffers. These
+hashes check deterministic composition; the fresh reset-origin traces below
+provide the independent calculator oracles. [confirmed]
+
+The raised-fraction and nth-root encoders add template boundary bytes that the
+settled scanner removes before record construction. Retained source buffers pin
+the raised-fraction case. The nth-root boundary remains an inferred standalone
+encoding because its retained trace does not expose the final source buffer.
+[hypothesis]
 Fresh reset-origin traces confirm every record field and accepted LCD data write
 for three absolute-value cases, four power cases, four exponential cases, four
 `logBASE(` cases, eight power/radical composition cases, four nth-root cases,

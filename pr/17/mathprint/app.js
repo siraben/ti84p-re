@@ -1385,10 +1385,12 @@ function renderGenerated(record, step, scale) {
   const rows = record.events.map((event, i) => {
     const sets = event.changes.filter(change => change[2]).length;
     const clears = event.changes.length - sets;
+    const firstPixel = 8 * event.pointer[0];
     return `<tr class="${current && i === count - 1 ? 'cur' : ''}" data-step="${i + 1}">` +
       `<td>${i}</td><td>${escapeHtml(operationLabel(event.operation))}</td>` +
       `<td>0x${event.value.toString(16).padStart(2, '0')}</td>` +
       `<td>${event.pointer[0]},${event.pointer[1]}</td>` +
+      `<td>${firstPixel}–${firstPixel + 7},${event.pointer[1]}</td>` +
       `<td><span class="trace-set">+${sets}</span> ` +
       `<span class="trace-clear">−${clears}</span></td>` +
       `<td>${escapeHtml(event.operation.routine || '')}</td></tr>`;
@@ -1399,8 +1401,10 @@ function renderGenerated(record, step, scale) {
     `<code>${escapeHtml(record.programSource)}</code>. Native bytes: ` +
     `<code>${escapeHtml((record.nativeTokens || []).map(value =>
       value.toString(16).padStart(2, '0')).join(' '))}</code>. No captured ` +
-    `LCD events are used as input. Click a row to jump to that write.</p>` +
-    `<table><thead><tr><th>#</th><th>operation</th><th>byte</th><th>LCD x,y</th>` +
+    `LCD events are used as input. Each byte replaces the listed eight-pixel ` +
+    `span. Click a row to jump to that write.</p>` +
+    `<table><thead><tr><th>#</th><th>operation</th><th>byte</th><th>byte col,row</th>` +
+    `<th>pixel x span,y</th>` +
     `<th>pixels</th><th>translated path</th></tr></thead><tbody>${rows}</tbody></table>`;
   document.getElementById('dims').textContent =
     `${record.width}×${record.height} LCD · write ${count}/${n} · RE-generated`;

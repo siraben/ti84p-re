@@ -23,12 +23,13 @@
     through a direct JavaScript translation documented in the
     <a href="../sub-equation-display.html">Equation display (MathPrint)</a> wiki page.
     Supported named-token, absolute-value, power, radical, nth-root,
-    stacked-fraction, integral, summation, and <code>nDeriv(</code> expressions construct settled
-    records from their input tokens,
+    stacked-fraction, integral, summation, and <code>nDeriv(</code> expressions
+    encode native calculator bytes, scan those bytes into settled records,
     including nesting among those structural forms and placement in a stacked
     fraction numerator. They then execute through
     the translated structural renderer and LCD blitters to generate every
-    accepted LCD data write. Other expressions fall back to the labeled
+    accepted LCD data write and replay each byte onto the 96&times;64 pixel grid.
+    Other expressions fall back to the labeled
     compositor. Captured calculator writes remain available as a separate
     oracle view for two integral scenarios.
   </p>
@@ -105,6 +106,8 @@
     <p>
       The accepted syntax is a small, lenient notation for experimenting with
       TI-84 constructs; it is not TI-BASIC syntax or a complete template parser.
+      This text grammar is a frontend; the RE-generated path begins with the
+      native bytes shown above its write table.
       The executable ROM translations stop at unresolved branches. Trace-fitted
       box constants remain in the model compositor.
     </p>
