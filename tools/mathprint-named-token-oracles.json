@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "source": "final settled named-token record graphs and outer 34:660A accepted LCD writes from reset-origin traces captured with TilEm d1bdc58dd321ae462a701e556fcb62bb925a78b1",
+  "final_lcd_sha256_format": "row-major 96x64 1bpp, 12 bytes per row, MSB first",
+  "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
+  "capture_executable_sha256": "f8f5dcfaee46ce6da56a7bf23cf9aec6fdb2919ea9468c41bfc6020e524e346e",
+  "cases": [
+    {
+      "expression": "Ans+1",
+      "spec": [114, 112, 49],
+      "trace_sha256": "efb38db805a607376a11629071e987dbf016ef80a573988bb478272bae93bf79",
+      "render_interval": [2016231, 2031573],
+      "accepted_write_count": 49,
+      "accepted_write_sha256": "3a042df1a1543016aec3336fe82951125d4587aca7ce77513ce9dae33e741e82",
+      "final_lcd_sha256": "cc03f46f8004642d15b71b239eead8a8c81440d02826f9710073518ab3f2d2d5",
+      "entry_id": 11,
+      "origin": {"x": 0, "y": 0},
+      "nodes": [
+        {"record_id": 11, "render_type": 0, "word03": 10, "word05": 7, "word07": 30, "word09": 3, "word0B": 0, "word0D": 0, "word0F": 3, "word11": 3, "byte13": 114, "child_ids": [], "payload": [114, 112, 49]}
+      ]
+    },
+    {
+      "expression": "Ans^2",
+      "spec": {"kind": "power", "base": [114], "exponent": [50]},
+      "trace_sha256": "1e5c62ed2d9c9eeaa5248d04167105409998b1027bdd08a936bb076f27e6f201",
+      "render_interval": [2026403, 2039931],
+      "accepted_write_count": 40,
+      "accepted_write_sha256": "2ddb3163d90384ec66faed5cde9da2ab01518cb650e10efe370613a80ad253cd",
+      "final_lcd_sha256": "d7652f21b59a0dfd3fd191d5bb6ae8fe5092daa05403119c9f1bbda14fed5545",
+      "entry_id": 13,
+      "origin": {"x": 0, "y": 0},
+      "nodes": [
+        {"record_id": 13, "render_type": 0, "word03": 12, "word05": 10, "word07": 22, "word09": 6, "word0B": 0, "word0D": 0, "word0F": 7, "word11": 7, "byte13": 114, "child_ids": [], "payload": [114, 239, 42, 14, 0, 239, 45]},
+        {"record_id": 14, "render_type": 42, "word03": 13, "word05": 1, "word07": 10, "word09": 4, "word0B": 6, "word0D": 18, "word0F": 0, "word11": 1, "byte13": 114, "child_ids": [15], "payload": []},
+        {"record_id": 15, "render_type": 0, "word03": 14, "word05": 5, "word07": 4, "word09": 2, "word0B": 0, "word0D": 0, "word0F": 1, "word11": 1, "byte13": 50, "child_ids": [], "payload": [50]}
+      ]
+    },
+    {
+      "expression": "sqrt(Ans)",
+      "spec": {"kind": "radical", "radicand": [114]},
+      "trace_sha256": "f0d5024aea55297729fdd2ea420982b28bda95ed09eeda2a45a50eba1e9f7d5f",
+      "render_interval": [2000846, 2026102],
+      "accepted_write_count": 63,
+      "accepted_write_sha256": "1b303460479a38ed62cb905710b401a68782449d97403c8766cb7a9c9a97d14a",
+      "final_lcd_sha256": "1e28d4e0749c5d0cb265d6bb93c6d75ee39bd3ff4b4649952fda625506ac4c21",
+      "entry_id": 13,
+      "origin": {"x": 0, "y": 0},
+      "nodes": [
+        {"record_id": 13, "render_type": 0, "word03": 12, "word05": 9, "word07": 23, "word09": 5, "word0B": 0, "word0D": 0, "word0F": 6, "word11": 6, "byte13": 239, "child_ids": [], "payload": [239, 39, 14, 0, 239, 45]},
+        {"record_id": 14, "render_type": 39, "word03": 13, "word05": 1, "word07": 9, "word09": 23, "word0B": 5, "word0D": 0, "word0F": 0, "word11": 1, "byte13": 239, "child_ids": [15], "payload": []},
+        {"record_id": 15, "render_type": 0, "word03": 14, "word05": 7, "word07": 18, "word09": 3, "word0B": 5, "word0D": 2, "word0F": 1, "word11": 1, "byte13": 114, "child_ids": [], "payload": [114]}
+      ]
+    },
+    {
+      "expression": "X^Ans",
+      "spec": {"kind": "power", "base": [88], "exponent": [114]},
+      "trace_sha256": "4b5404e1b91355d08f9834468e5e96aca098c1803d56160cf816690ed07ac92e",
+      "render_interval": [2020709, 2031805],
+      "accepted_write_count": 32,
+      "accepted_write_sha256": "d3cb023b06919401ecd7eb99d7290b1180d41b4981b6f6bc0dfb13ca80c732fb",
+      "final_lcd_sha256": "4db6fe96a02d32cd6d476cce2886d0951e994e165f91dba547c17665858fbfcb",
+      "entry_id": 13,
+      "origin": {"x": 0, "y": 0},
+      "nodes": [
+        {"record_id": 13, "render_type": 0, "word03": 12, "word05": 10, "word07": 17, "word09": 6, "word0B": 0, "word0D": 0, "word0F": 7, "word11": 7, "byte13": 88, "child_ids": [], "payload": [88, 239, 42, 14, 0, 239, 45]},
+        {"record_id": 14, "render_type": 42, "word03": 13, "word05": 1, "word07": 10, "word09": 11, "word0B": 6, "word0D": 6, "word0F": 0, "word11": 1, "byte13": 88, "child_ids": [15], "payload": []},
+        {"record_id": 15, "render_type": 0, "word03": 14, "word05": 5, "word07": 11, "word09": 2, "word0B": 0, "word0D": 0, "word0F": 1, "word11": 1, "byte13": 114, "child_ids": [], "payload": [114]}
+      ]
+    },
+    {
+      "expression": "sin(X)",
+      "spec": [194, 88, 17],
+      "trace_sha256": "36db6449e0aa4f62c9bfdf5c39eeffa374b21b174bcf9a6b32c5d136700f6cce",
+      "render_interval": [2022126, 2046359],
+      "accepted_write_count": 56,
+      "accepted_write_sha256": "898ba35ca99ed50af611f44935b9abaf9f84b2437aa9032aa3bab343f8f755fa",
+      "final_lcd_sha256": "2cd2be868e375673626fb0bb156aab7d50f21ff05462b35d00681d80a44455f5",
+      "entry_id": 11,
+      "origin": {"x": 0, "y": 0},
+      "nodes": [
+        {"record_id": 11, "render_type": 0, "word03": 10, "word05": 7, "word07": 36, "word09": 3, "word0B": 0, "word0D": 0, "word0F": 3, "word11": 3, "byte13": 194, "child_ids": [], "payload": [194, 88, 17]}
+      ]
+    },
+    {
+      "expression": "sin(sqrt(X))",
+      "spec": {"kind": "sequence", "parts": [[194], {"kind": "radical", "radicand": [88]}, [17]]},
+      "trace_sha256": "7d42d4a2db4fe804ab5cc5fef01e4ca2b90d92e865119e3254726d850f9cdb19",
+      "render_interval": [2277274, 2313815],
+      "accepted_write_count": 83,
+      "accepted_write_sha256": "0de5f5c9692ad93fe991b646e857538d932f3ef78955142790943160eace4dd2",
+      "final_lcd_sha256": "365d287715b379c6ba947500d3f72e59c5c09016f5bd113b87136f67be19b39e",
+      "entry_id": 13,
+      "origin": {"x": 0, "y": 0},
+      "nodes": [
+        {"record_id": 13, "render_type": 0, "word03": 12, "word05": 9, "word07": 41, "word09": 5, "word0B": 0, "word0D": 0, "word0F": 8, "word11": 8, "byte13": 194, "child_ids": [], "payload": [194, 239, 39, 14, 0, 239, 45, 17]},
+        {"record_id": 14, "render_type": 39, "word03": 13, "word05": 1, "word07": 9, "word09": 11, "word0B": 5, "word0D": 24, "word0F": 0, "word11": 1, "byte13": 194, "child_ids": [15], "payload": []},
+        {"record_id": 15, "render_type": 0, "word03": 14, "word05": 7, "word07": 6, "word09": 3, "word0B": 5, "word0D": 2, "word0F": 1, "word11": 1, "byte13": 88, "child_ids": [], "payload": [88]}
+      ]
+    }
+  ]
+}

@@ -16,6 +16,33 @@
     return value;
   };
 
+  let SETTLED_TOKEN_STRINGS = null;
+
+  function setSettledTokenStrings(input) {
+    const table = input && input.singleByte;
+    if (!table || table.page !== 0x01 || table.pointerTableAddress !== 0x4252 ||
+        !Array.isArray(table.entries) || table.entries.length !== 0x100 ||
+        !Array.isArray(input.twoByteLeadBytes))
+      throw new TypeError('expected the decoded 01:4252 token-string artifact');
+    const entries = table.entries.map((entry, token) => {
+      if (!entry || !Number.isInteger(entry.pointer) ||
+          !Number.isInteger(entry.metadata) || !Array.isArray(entry.codes) ||
+          !entry.codes.length)
+        throw new TypeError(`token-string entry 0x${token.toString(16)} is invalid`);
+      return {
+        pointer:entry.pointer,
+        metadata:byte(entry.metadata, `token 0x${token.toString(16)} metadata`),
+        codes:entry.codes.map((code, index) =>
+          byte(code, `token 0x${token.toString(16)} display code ${index}`)),
+      };
+    });
+    SETTLED_TOKEN_STRINGS = {
+      entries,
+      twoByteLeadBytes:new Set(input.twoByteLeadBytes.map((lead, index) =>
+        byte(lead, `two-byte token lead ${index}`))),
+    };
+  }
+
   function requireLayout(layout) {
     if (!layout || !Array.isArray(layout.classes) || !Array.isArray(layout.descriptors))
       throw new TypeError('expected a decoded MathPrint layout artifact');
@@ -806,9 +833,8 @@
   }
 
   // The generic token renderer at 34:660A ultimately passes display codes to
-  // 34:6C37. These are the single-byte TI-BASIC tokens whose settled spelling
-  // is one glyph. Multi-glyph names and the remaining extended-token families
-  // stay explicit until their ROM string paths are translated.
+  // 34:6C37. Keep the original closed one-glyph subset as a fallback for
+  // consumers that have not installed the ROM-extracted 01:4252 table.
   const SETTLED_SINGLE_GLYPH_TOKENS = Object.freeze({
     0x04:0x1c,
     0x06:0x5b, 0x07:0x5d, 0x08:0x7b, 0x09:0x7d,
@@ -834,6 +860,24 @@
     return code === undefined ? null : code;
   }
 
+  // `_GetTokLen` and `_Get_Tok_Strng` share `smallfont_glyph_ptr` at 01:6702.
+  // For prefix 00h it indexes the pointer table at 01:4252, whose entries point
+  // at one metadata byte followed by a counted display-code string. The
+  // proprietary ROM is absent from the web build, so export-token-strings.py
+  // commits that immutable decoded table.
+  function settledTokenSpelling(payload, index) {
+    if (!Array.isArray(payload) || !Number.isInteger(index) ||
+        index < 0 || index >= payload.length)
+      throw new RangeError('settled token spelling requires a payload index');
+    const token = byte(payload[index], 'settled token spelling byte');
+    if (SETTLED_TOKEN_STRINGS) {
+      if (SETTLED_TOKEN_STRINGS.twoByteLeadBytes.has(token)) return null;
+      return {codes:SETTLED_TOKEN_STRINGS.entries[token].codes.slice(),length:1};
+    }
+    const code = settledTokenGlyph(token);
+    return code === null ? null : {codes:[code],length:1};
+  }
+
   function settledLargeTokenAdvance(token) {
     byte(token, 'settled leaf token');
     if (settledTokenGlyph(token) === null)
@@ -856,26 +900,23 @@
         index++;
         continue;
       }
-      const code = settledTokenGlyph(token);
-      if (code === null)
-        throw new RangeError(`token 0x${token.toString(16)} has no translated glyph`);
-      if (depth === 0) {
-        width += settledLargeTokenAdvance(token);
-        continue;
+      const resolved = settledTokenSpelling(payload, index);
+      if (!resolved)
+        throw new RangeError(`token 0x${token.toString(16)} has no translated spelling`);
+      for (const code of resolved.codes) {
+        if (depth === 0 || code === 0x28 || code === 0x29) {
+          width += 6;
+          continue;
+        }
+        const glyph = font && font.small && font.small.glyphs
+          ? font.small.glyphs[code]
+          : null;
+        if (!glyph || !Number.isInteger(glyph.w) || glyph.w < 0)
+          throw new RangeError(
+            `small glyph 0x${code.toString(16)} requires ROM font metrics`);
+        width += glyph.w;
       }
-      // 34:6873 diverts parentheses into the compound-shape path. A raised
-      // parenthesis retains the ordinary six-pixel token-cell metric.
-      if (token === 0x10 || token === 0x11) {
-        width += 6;
-        continue;
-      }
-      const glyph = font && font.small && font.small.glyphs
-        ? font.small.glyphs[code]
-        : null;
-      if (!glyph || !Number.isInteger(glyph.w) || glyph.w < 0)
-        throw new RangeError(
-          `small glyph 0x${code.toString(16)} requires ROM font metrics`);
-      width += glyph.w;
+      index += resolved.length - 1;
     }
     return {payload, height:depth === 0 ? 7 : 5, width,
             baseline:depth === 0 ? 3 : 2};
@@ -1066,11 +1107,13 @@
       };
       const addStructural = structural => {
         structural.word03 = leaf.record_id;
+        // The metric pass records the object's horizontal anchor in the
+        // containing leaf before appending its six-byte embedded marker.
+        structural.word0D = leaf.word07;
         // The type-2Ah metric pass records the exponent's horizontal anchor at
         // +0Dh when the object is appended. It is the containing leaf's width
         // before the power object, including a grouped or structural base.
         if (structural.render_type === 0x2a) {
-          structural.word0D = leaf.word07;
           const ordinaryBaseline = renderDepth === 0 ? 3 : 2;
           const baseBaselineDelta = Math.max(0, leaf.word09 - ordinaryBaseline);
           structural.word07 = checkedWord(
@@ -1794,6 +1837,7 @@
       };
       const parenthesisMetrics = new Map();
       const stack = [];
+      const parenthesisKey = (index, codeIndex = 0) => `${index}:${codeIndex}`;
       const mergeMetrics = (left, right) => {
         if (!left) return right;
         const baseline = Math.max(left.baseline, right.baseline);
@@ -1807,7 +1851,7 @@
         let result = null;
         for (let cursor = start; cursor < end;) {
           const token = record.payload[cursor];
-          const grouped = parenthesisMetrics.get(cursor);
+          const grouped = parenthesisMetrics.get(parenthesisKey(cursor));
           if (token === 0x10 && grouped) {
             result = mergeMetrics(result, grouped);
             cursor = grouped.close + 1;
@@ -1834,18 +1878,58 @@
         }
         return result;
       };
-      for (let cursor = 0; cursor < record.payload.length; cursor++) {
-        if (record.payload[cursor] === 0x10) stack.push(cursor);
-        else if (record.payload[cursor] === 0x11 && stack.length) {
-          const open = stack.pop();
-          const metrics = rangeMetrics(open + 1, cursor) ||
+      for (let cursor = 0; cursor < record.payload.length;) {
+        if (record.payload[cursor] === 0xef && cursor + 1 < record.payload.length) {
+          const subtype = record.payload[cursor + 1];
+          if (subtype === 0x1e || subtype === 0x2d) {
+            cursor += 2;
+            continue;
+          }
+          if (0x1f <= subtype && subtype <= 0x2b) {
+            cursor += 4;
+            continue;
+          }
+        }
+        const resolved = settledTokenSpelling(record.payload, cursor);
+        const codes = resolved ? resolved.codes : [record.payload[cursor]];
+        for (let codeIndex = 0; codeIndex < codes.length; codeIndex++) {
+          const code = codes[codeIndex];
+          const key = parenthesisKey(cursor, codeIndex);
+          if (code === 0x28) stack.push({cursor,key});
+          else if (code === 0x29 && stack.length) {
+            const open = stack.pop();
+            const metrics = rangeMetrics(open.cursor + 1, cursor) ||
+              (controls.state.depth === 0
+                ? {height:7,baseline:3} : {height:5,baseline:2});
+            const pair = {...metrics,open:open.cursor,close:cursor};
+            parenthesisMetrics.set(open.key, pair);
+            parenthesisMetrics.set(key, pair);
+          }
+        }
+        cursor += resolved ? resolved.length : 1;
+      }
+
+      const emitDisplayCode = (code, tokenBytes, codeIndex, payloadIndex) => {
+        // 34:6873 applies after token detokenization, so a parenthesis embedded
+        // in a spelling such as `sin(` takes the same compound-shape path as an
+        // encoded 10h/11h parenthesis token.
+        if (code === 0x28 || code === 0x29) {
+          const mode = code === 0x28 ? 'open' : 'close';
+          const metrics = parenthesisMetrics.get(
+            parenthesisKey(payloadIndex, codeIndex)) ||
             (controls.state.depth === 0
               ? {height:7,baseline:3} : {height:5,baseline:2});
-          const pair = {...metrics,open,close:cursor};
-          parenthesisMetrics.set(open, pair);
-          parenthesisMetrics.set(cursor, pair);
+          for (const operation of settledCompoundOperations(
+            mode, pen.x, record.word09 - metrics.baseline,
+            metrics.height)) controls.emit(operation);
+          pen.x += 6;
+          return;
         }
-      }
+        controls.emit({kind:'glyph', code, x:pen.x, y:pen.y,
+          tokenBytes, routine:'34:660A–6704 → 34:6C37'});
+        pen.x += fontAdvance(controls.state.depth, code);
+      };
+
       for (let index = 0; index < record.payload.length;) {
         const token = record.payload[index];
         if (token === 0xef && index + 1 < record.payload.length) {
@@ -1885,34 +1969,25 @@
           }
         }
 
-        // 34:6873 diverts display codes 28h and 29h from 34:6C37 into the
-        // compound-parenthesis emitters. Their token cell still advances six
-        // pixels, while the shape spans the containing leaf's settled height.
+        // The direct parenthesis tokens also resolve to display codes 28h/29h.
         if (token === 0x10 || token === 0x11) {
-          const mode = token === 0x10 ? 'open' : 'close';
-          const metrics = parenthesisMetrics.get(index) ||
-            (controls.state.depth === 0
-              ? {height:7,baseline:3} : {height:5,baseline:2});
-          for (const operation of settledCompoundOperations(
-            mode, pen.x, record.word09 - metrics.baseline,
-            metrics.height)) controls.emit(operation);
-          pen.x += 6;
+          emitDisplayCode(token === 0x10 ? 0x28 : 0x29, [token], 0, index);
           index++;
           continue;
         }
 
-        const resolved = options.resolveToken
+        const resolved = (options.resolveToken
           ? options.resolveToken(record.payload, index, controls.state.depth)
-          : null;
+          : null) || settledTokenSpelling(record.payload, index);
         if (resolved) {
           if (!Array.isArray(resolved.codes) || !Number.isInteger(resolved.length) || resolved.length < 1)
             throw new TypeError('resolveToken must return {codes, length}');
-          for (const rawCode of resolved.codes) {
+          for (let codeIndex = 0; codeIndex < resolved.codes.length; codeIndex++) {
+            const rawCode = resolved.codes[codeIndex];
             const code = byte(rawCode, 'resolved settled glyph');
-            controls.emit({kind:'glyph', code, x:pen.x, y:pen.y,
-              tokenBytes:record.payload.slice(index, index + resolved.length),
-              routine:'34:660A–6704 → 34:6C37'});
-            pen.x += fontAdvance(controls.state.depth, code);
+            emitDisplayCode(
+              code, record.payload.slice(index, index + resolved.length),
+              codeIndex, index);
           }
           index += resolved.length;
           continue;
@@ -2309,6 +2384,8 @@
     settledOperationWrites,
     rasterizeSettledOperations,
     settledTokenGlyph,
+    settledTokenSpelling,
+    setSettledTokenStrings,
     constructSettledAbsoluteProgram,
     constructSettledExpressionProgram,
     constructSettledFractionProgram,

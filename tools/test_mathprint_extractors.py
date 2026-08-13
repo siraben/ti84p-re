@@ -18,9 +18,29 @@ class ArtifactTests(unittest.TestCase):
         return json.loads((ROOT / "web" / "mathprint" / name).read_text())
 
     def test_artifacts_identify_the_pinned_rom(self):
-        for name in ("font.json", "layout.json"):
+        for name in ("font.json", "layout.json", "token-strings.json"):
             self.assertEqual(TI84_PLUS_OS_255MP_SHA256,
                              self.load(name)["romSha256"])
+
+    def test_single_byte_token_spellings_match_rom_table(self):
+        artifact = self.load("token-strings.json")
+        table = artifact["singleByte"]
+
+        self.assertEqual(0x01, table["page"])
+        self.assertEqual(0x4252, table["pointerTableAddress"])
+        self.assertEqual(0x100, len(table["entries"]))
+        self.assertEqual([0x41, 0x6E, 0x73], table["entries"][0x72]["codes"])
+        self.assertEqual([0x73, 0x69, 0x6E, 0x28],
+                         table["entries"][0xC2]["codes"])
+
+    def test_two_byte_token_leads_remain_separate(self):
+        artifact = self.load("token-strings.json")
+
+        self.assertEqual(
+            [0x5C, 0x5D, 0x5E, 0x60, 0x61, 0x62,
+             0x63, 0x7E, 0xAA, 0xBB, 0xEF],
+            artifact["twoByteLeadBytes"],
+        )
 
     def test_descriptor_cells_match_declared_dimensions(self):
         for descriptor in self.load("layout.json")["descriptors"]:

@@ -18,6 +18,9 @@ const rom = require(path.join(root, 'web', 'mathprint', 'rom-engine.js'));
 const { resolveCell } = require(path.join(root, 'tools', 'interp-cells.js'));
 const font = JSON.parse(fs.readFileSync(path.join(root, 'web', 'mathprint', 'font.json')));
 mp.setFont(font);
+const tokenStrings = JSON.parse(fs.readFileSync(
+  path.join(root, 'web', 'mathprint', 'token-strings.json')));
+rom.setSettledTokenStrings(tokenStrings);
 const layout = JSON.parse(fs.readFileSync(path.join(root, 'web', 'mathprint', 'layout.json')));
 mp.setLayout(layout);
 const drawOrder = JSON.parse(fs.readFileSync(path.join(root, 'web', 'mathprint', 'draw-order.json')));
@@ -33,6 +36,8 @@ const groupingOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-grouping-oracles.json')));
 const structuralBaseOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-structural-base-oracles.json')));
+const namedTokenOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-named-token-oracles.json')));
 
 function expectEqual(label, actual, expected) {
   if (JSON.stringify(actual) !== JSON.stringify(expected))
@@ -47,6 +52,20 @@ function expectThrows(label, errorType, operation) {
     throw new Error(`${label}: threw ${error.constructor.name}, expected ${errorType.name}`);
   }
   throw new Error(`${label}: did not throw ${errorType.name}`);
+}
+
+function packedLcdBytes(grid) {
+  return Buffer.from(grid.flatMap(row => {
+    if (!Array.isArray(row) || row.length % 8)
+      throw new Error('LCD grid rows must be byte-aligned');
+    const bytes = [];
+    for (let x = 0; x < row.length; x += 8) {
+      let value = 0;
+      for (let bit = 0; bit < 8; bit++) value |= row[x + bit] << (7 - bit);
+      bytes.push(value);
+    }
+    return bytes;
+  }));
 }
 
 // Executable translations of closed page-39 routines. These expectations are
@@ -540,6 +559,34 @@ for (const oracle of structuralBaseOracles.cases) {
     throw new Error(`${oracle.expression} has no browser-constructed record program`);
   const expectedBrowser = rom.constructSettledExpressionProgram(oracle.spec, 1, font);
   expectEqual(`${oracle.expression} browser grammar preserves the structural-base AST`,
+    browser.nodes, expectedBrowser.nodes);
+}
+for (const oracle of namedTokenOracles.cases) {
+  const program = rom.constructSettledExpressionProgram(
+    oracle.spec, oracle.entry_id, font);
+  expectEqual(`${oracle.expression} independently constructs the named-token graph`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.origin, nodes:oracle.nodes});
+  const operations = rom.executeSettledRecordProgram(
+    program.nodes, program.entry_id, {
+      origin:program.origin, glyphAdvance:settledGlyphAdvance,
+    });
+  const rendered = rom.rasterizeSettledOperations(operations, font);
+  const writes = rendered.writes;
+  expectEqual(`${oracle.expression} reproduces accepted named-token write count`,
+    writes.length, oracle.accepted_write_count);
+  const writeBytes = Buffer.from(writes.flatMap(write => [...write.pointer,write.value]));
+  expectEqual(`${oracle.expression} reproduces accepted named-token write stream`,
+    crypto.createHash('sha256').update(writeBytes).digest('hex'),
+    oracle.accepted_write_sha256);
+  expectEqual(`${oracle.expression} reproduces the final captured LCD bitmap`,
+    crypto.createHash('sha256').update(packedLcdBytes(rendered.grid)).digest('hex'),
+    oracle.final_lcd_sha256);
+  const browser = mp.constructedProgramForExpression(oracle.expression);
+  if (!browser)
+    throw new Error(`${oracle.expression} has no browser-constructed record program`);
+  const expectedBrowser = rom.constructSettledExpressionProgram(oracle.spec, 1, font);
+  expectEqual(`${oracle.expression} browser grammar preserves native token bytes`,
     browser.nodes, expectedBrowser.nodes);
 }
 for (const oracle of constructionOracles.power_cases) {
