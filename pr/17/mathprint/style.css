@@ -21,13 +21,15 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 
 .controls { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; margin-bottom: 1rem; }
 .controls label { display: flex; flex-direction: column; gap: .25rem; font-size: .85rem; color: var(--muted); }
-.controls label.grow { flex: 1 1 280px; }
+.controls label.grow { flex: 1 0 100%; min-width: 0; }
 .controls label.check { flex-direction: row; align-items: center; gap: .4rem; }
-input[type=text] {
+textarea#expr {
+  display: block; width: 100%; min-width: 0; resize: vertical;
   background: var(--panel); color: var(--fg); border: 1px solid var(--border);
-  border-radius: 8px; padding: .55rem .7rem; font-family: ui-monospace, Menlo, monospace; font-size: 1rem;
+  border-radius: 8px; padding: .55rem .7rem; font-family: ui-monospace, Menlo, monospace;
+  font-size: 1rem; line-height: 1.4; overflow-wrap: anywhere;
 }
-input[type=text]:focus { outline: 2px solid var(--accent); border-color: transparent; }
+textarea#expr:focus { outline: 2px solid var(--accent); border-color: transparent; }
 select {
   background: var(--panel); color: var(--fg); border: 1px solid var(--border);
   border-radius: 8px; padding: .45rem .55rem;
