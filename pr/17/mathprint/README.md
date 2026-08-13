@@ -18,6 +18,7 @@ reader-facing write-up is
 | `layout.json` | page `0x39` class-table records and selected descriptors consumed by the translated routines |
 | `record-programs.json` | six settled record snapshots used as executable renderer inputs |
 | `draw-order.json` | accepted visible-pixel LCD mutations from the retained integral traces |
+| `tools/mathprint-construction-oracles.json` | fresh settled graphs and accepted-write hashes for independently constructed expressions |
 
 `rom-engine.js` translates handler lookup, row-cell emission, direct-glyph and
 delimiter classification, `_KeyToString` index arithmetic, descriptor selection
@@ -120,19 +121,28 @@ stream match independent trace oracles. The complete streams contain 49, 69,
 82, 91, 110, and 114 writes, respectively. Captured LCD events are assertion
 data, not executor inputs. [confirmed]
 
-The JavaScript path begins at a captured settled record snapshot. It does not
-yet translate the earlier token-to-record construction and layout pass. An
-arbitrary expression therefore uses the separately labeled compositor instead
-of claiming RE-generated parity. `parity-mathprint.py` uses LCD trace replay
-when tracing is enabled. Calculator parity requires the proprietary ROM.
-Filled-integral and nested-fraction results are recorded in
+The JavaScript path constructs flat absolute-value expressions from their token
+bytes. It translates the `34:594D` token table and the relevant `34:4900`,
+`34:7393`, and `34:7609` record and metric paths. Fresh reset-origin traces for
+`abs(2)`, `abs(X/2)`, and `abs(X+12)` confirm every record field and every
+accepted LCD data write. These cases do not load `record-programs.json` or an
+LCD event stream. The other five structural examples still begin at captured
+settled record snapshots. Nested and general token-to-record construction
+remains open, so arbitrary expressions use the separately labeled compositor
+instead of claiming RE-generated parity. [confirmed]
+
+`parity-mathprint.py` uses LCD trace replay when tracing is enabled. Calculator
+parity requires the proprietary ROM. Filled-integral and nested-fraction
+results are recorded in
 `tools/mathprint-trace-report.json`; the large raw traces stay outside Git.
 
-The preview executes all six snapshots in the browser and exposes every
-generated accepted LCD data write in order, including writes that do not change
-a pixel. Its captured timeline uses the two retained integral traces and keeps
-only visible-changing writes. Expressions without an executable record snapshot
-use the separately labeled model-element timeline. [confirmed]
+The preview constructs supported flat absolute-value expressions and executes
+the other five retained snapshots in the browser. It exposes every generated
+accepted LCD data write in order, including writes that do not change a pixel,
+and labels the input source for each timeline. Its captured timeline uses the
+two retained integral traces and keeps only visible-changing writes.
+Expressions without a translated constructor or executable record snapshot use
+the separately labeled model-element timeline. [confirmed]
 
 ## Regeneration
 

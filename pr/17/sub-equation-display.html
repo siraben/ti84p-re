@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4399cb7e.js";
+            window.path_to_searchindex_js = "searchindex-9ab839e0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -679,12 +679,20 @@ the five interior rows. It retains an interior zero row, but it does not emit
 the padding row above or below the glyph. A row that crosses an LCD byte
 boundary writes the right byte before the left byte at <code>01:63CE</code>–<code>01:641A</code>.
 The large-font path emits all seven rows of its fixed cell. [confirmed]</p>
-<p>These six programs begin from record snapshots captured at <code>34:660A</code>. The
-snapshots are executable inputs rather than captured drawing events. The
-earlier transformation from expression tokens to record headers, child IDs,
-origins, dimensions, and leaf payloads remains untranslated. Full
-arbitrary-expression parity requires that construction pass before the settled
-renderer. [confirmed]</p>
+<p>The absolute-value constructor translates a closed slice of the earlier record
+pass. <code>34:5935</code> maps source token <code>00B2h</code> through the table at <code>34:594D</code> to
+render type <code>0x21</code>. The translated <code>34:4900</code>, <code>34:7393</code>, and <code>34:7609</code> paths
+construct the containing leaf, the absolute-value record, its child leaf, and
+their settled metrics. Fresh reset-origin traces for <code>abs(2)</code>, <code>abs(X/2)</code>, and
+<code>abs(X+12)</code> match the generated record fields and every accepted LCD data write.
+The trace streams are comparison oracles and are not constructor inputs.
+[confirmed]</p>
+<p>Flat absolute-value bodies containing translated one-glyph tokens now run from
+tokens through record construction, layout, drawing operations, and LCD byte
+writes. The other five retained structural programs begin from record snapshots
+captured at <code>34:660A</code>. Nested and general expression construction remains open.
+Full arbitrary-expression parity requires translating the remaining record
+constructors and metric branches. [confirmed]</p>
 <p>Each dispatch also captures the viewport origin at <code>ram:8DFE</code>/<code>ram:8E00</code>.
 Nested fraction <code>1/2</code> reaches <code>34:5DA6</code> with the local rule <code>(1,6)</code>–<code>(5,6)</code>
 and origin <code>(16,5)</code>. Page 4 therefore receives the translated endpoints
@@ -725,8 +733,10 @@ synthetic tests confirm the replay implementation.</p>
 The local ignored <code>tools/rom.bin</code> enables pinned-ROM reproduction when present.
 The 5,018-case Node test remains a deterministic parser/layout smoke test. Six
 settled record programs provide exact final-pixel and complete accepted-write
-parity for their expressions. Two longer trace scenarios also cover the editor
-and display activity around the final key press. [confirmed]</p>
+parity for their expressions. Three fresh flat absolute-value cases also verify
+token-to-record construction and the resulting complete accepted-write streams.
+Two longer trace scenarios cover the editor and display activity around the
+final key press. [confirmed]</p>
 <h2 id="extracted-records-and-interactive-model"><a class="header" href="#extracted-records-and-interactive-model">Extracted records and interactive model</a></h2>
 <p>The class table, decoded handler records, and selected descriptors are extracted to
 <code>web/mathprint/layout.json</code> by <code>tools/export-layout.py</code>;
@@ -738,9 +748,11 @@ translations in <code>web/mathprint/rom-engine.js</code>. The translated routine
 classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in <code>app.js</code> still uses a separate,
 trace-fitted box model. <code>web/mathprint/record-programs.json</code> contains six
-captured record snapshots. The browser executes these through the translated
-renderer and exposes every generated LCD write as a live timeline. It does not
-load captured LCD events for that mode. [confirmed]</p>
+captured record snapshots. The browser constructs supported flat absolute-value
+expressions from tokens and uses snapshots for the other five retained paths.
+It executes both input forms through the translated renderer and exposes every
+generated LCD write as a live timeline. It does not load captured LCD events for
+that mode. [confirmed]</p>
 
                     </main>
 
