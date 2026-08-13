@@ -18,27 +18,48 @@
 
   let SETTLED_TOKEN_STRINGS = null;
 
+  const SETTLED_TWO_BYTE_TABLES = Object.freeze({
+    '5C':0x4452, '5D':0x4466,
+    '5E10':0x4472, '5E20':0x4486, '5E40':0x449e, '5E80':0x44aa,
+    '60':0x44b0, '61':0x44c4, 'AA':0x44d8,
+    '62':0x44ec, '63':0x4566, '7E':0x45d6,
+    'BB':0x45fc, 'EF':0x47e8,
+  });
+
   function setSettledTokenStrings(input) {
     const table = input && input.singleByte;
+    const twoByte = input && input.twoByte;
     if (!table || table.page !== 0x01 || table.pointerTableAddress !== 0x4252 ||
         !Array.isArray(table.entries) || table.entries.length !== 0x100 ||
-        !Array.isArray(input.twoByteLeadBytes))
-      throw new TypeError('expected the decoded 01:4252 token-string artifact');
-    const entries = table.entries.map((entry, token) => {
+        !twoByte || twoByte.page !== 0x01 || !Array.isArray(twoByte.leadBytes) ||
+        !twoByte.tables || twoByte.bbClampIndex !== 0xf6)
+      throw new TypeError('expected the decoded 01:6702 token-string artifact');
+    const decodeEntries = (rawEntries, label) => rawEntries.map((entry, token) => {
       if (!entry || !Number.isInteger(entry.pointer) ||
           !Number.isInteger(entry.metadata) || !Array.isArray(entry.codes) ||
           !entry.codes.length)
-        throw new TypeError(`token-string entry 0x${token.toString(16)} is invalid`);
+        throw new TypeError(`${label} entry 0x${token.toString(16)} is invalid`);
       return {
         pointer:entry.pointer,
-        metadata:byte(entry.metadata, `token 0x${token.toString(16)} metadata`),
+        metadata:byte(entry.metadata, `${label} 0x${token.toString(16)} metadata`),
         codes:entry.codes.map((code, index) =>
-          byte(code, `token 0x${token.toString(16)} display code ${index}`)),
+          byte(code, `${label} 0x${token.toString(16)} display code ${index}`)),
       };
     });
+    const entries = decodeEntries(table.entries, 'single-byte token');
+    const tables = {};
+    for (const [name, address] of Object.entries(SETTLED_TWO_BYTE_TABLES)) {
+      const decoded = twoByte.tables[name];
+      if (!decoded || decoded.pointerTableAddress !== address ||
+          !Array.isArray(decoded.entries) || !decoded.entries.length)
+        throw new TypeError(`two-byte token table ${name} is invalid`);
+      tables[name] = decodeEntries(decoded.entries, `two-byte table ${name}`);
+    }
     SETTLED_TOKEN_STRINGS = {
       entries,
-      twoByteLeadBytes:new Set(input.twoByteLeadBytes.map((lead, index) =>
+      tables,
+      bbClampIndex:twoByte.bbClampIndex,
+      twoByteLeadBytes:new Set(twoByte.leadBytes.map((lead, index) =>
         byte(lead, `two-byte token lead ${index}`))),
     };
   }
@@ -861,17 +882,54 @@
   }
 
   // `_GetTokLen` and `_Get_Tok_Strng` share `smallfont_glyph_ptr` at 01:6702.
-  // For prefix 00h it indexes the pointer table at 01:4252, whose entries point
-  // at one metadata byte followed by a counted display-code string. The
-  // proprietary ROM is absent from the web build, so export-token-strings.py
-  // commits that immutable decoded table.
+  // It selects a pointer table from D, transforms/clamps index E, and reads a
+  // pointer to one metadata byte followed by a counted display-code string.
+  // The proprietary ROM is absent from the web build, so
+  // export-token-strings.py commits those immutable decoded tables.
+  function settledTwoByteTokenSelection(lead, second) {
+    byte(lead, 'settled two-byte lead');
+    byte(second, 'settled two-byte index');
+    if (lead === 0x5c) return {table:'5C',index:second};
+    if (lead === 0x5d) return {table:'5D',index:second};
+    if (lead === 0x5e) {
+      // 01:671C clears each selected bank bit before using the remaining low
+      // bits as the pointer-table index. The first set bit wins.
+      if (second & 0x10) return {table:'5E10',index:second & ~0x10};
+      if (second & 0x20) return {table:'5E20',index:second & ~0x20};
+      if (second & 0x40) return {table:'5E40',index:second & ~0x40};
+      return {table:'5E80',index:second & ~0x80};
+    }
+    if (lead === 0x60) return {table:'60',index:second};
+    if (lead === 0x61) return {table:'61',index:second};
+    if (lead === 0x62) return {table:'62',index:second};
+    if (lead === 0x63) return {table:'63',index:second};
+    if (lead === 0x7e) return {table:'7E',index:second};
+    if (lead === 0xaa) return {table:'AA',index:second};
+    if (lead === 0xbb)
+      return {table:'BB',index:Math.min(second,0xf6)};
+    if (lead === 0xef) return {table:'EF',index:second};
+    return null;
+  }
+
   function settledTokenSpelling(payload, index) {
     if (!Array.isArray(payload) || !Number.isInteger(index) ||
         index < 0 || index >= payload.length)
       throw new RangeError('settled token spelling requires a payload index');
     const token = byte(payload[index], 'settled token spelling byte');
     if (SETTLED_TOKEN_STRINGS) {
-      if (SETTLED_TOKEN_STRINGS.twoByteLeadBytes.has(token)) return null;
+      if (SETTLED_TOKEN_STRINGS.twoByteLeadBytes.has(token)) {
+        if (index + 1 >= payload.length) return null;
+        const selection = settledTwoByteTokenSelection(
+          token, byte(payload[index + 1], 'settled two-byte token index'));
+        if (!selection) return null;
+        const table = SETTLED_TOKEN_STRINGS.tables[selection.table];
+        const entry = table && table[selection.index];
+        if (!entry) return null;
+        return {
+          codes:entry.codes.slice(), length:2,
+          table:selection.table, tableIndex:selection.index,
+        };
+      }
       return {codes:SETTLED_TOKEN_STRINGS.entries[token].codes.slice(),length:1};
     }
     const code = settledTokenGlyph(token);
@@ -1874,7 +1932,8 @@
           }
           result = mergeMetrics(result, controls.state.depth === 0
             ? {height:7,baseline:3} : {height:5,baseline:2});
-          cursor++;
+          const resolved = settledTokenSpelling(record.payload, cursor);
+          cursor += resolved ? resolved.length : 1;
         }
         return result;
       };
@@ -1895,10 +1954,11 @@
         for (let codeIndex = 0; codeIndex < codes.length; codeIndex++) {
           const code = codes[codeIndex];
           const key = parenthesisKey(cursor, codeIndex);
-          if (code === 0x28) stack.push({cursor,key});
+          if (code === 0x28)
+            stack.push({cursor,key,after:cursor + (resolved ? resolved.length : 1)});
           else if (code === 0x29 && stack.length) {
             const open = stack.pop();
-            const metrics = rangeMetrics(open.cursor + 1, cursor) ||
+            const metrics = rangeMetrics(open.after, cursor) ||
               (controls.state.depth === 0
                 ? {height:7,baseline:3} : {height:5,baseline:2});
             const pair = {...metrics,open:open.cursor,close:cursor};
