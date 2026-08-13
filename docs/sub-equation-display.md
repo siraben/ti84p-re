@@ -32,6 +32,39 @@ flowchart TD
 The diagram shows the page `39` editor path. It does not describe the page `34`
 settled-expression walker. [confirmed]
 
+## Two equation representations
+
+MathPrint uses two related representations. The page `39` editor path treats an
+expression as token classes, handler rows, argument slots, and packed `D:E`
+display cells. The class table at `39:5E45` contains 68 entries. Sixty-six
+entries point to decoded handler records; the class-`0x00` pointer does not
+decode as a page `39` handler, and class `0x13` has a null pointer. [confirmed]
+
+The settled page `34` path uses an arena of numbered records. A leaf record
+contains a token program. A structural record contains a fixed header followed
+by child record IDs. The two representations therefore are not one shared AST:
+page `39` composes editable rows and cells, while page `34` traverses a settled
+record graph. The conversion from the complete in-progress editor state to the
+first record allocated by `34:4900` remains open. [confirmed]
+
+```mermaid
+flowchart LR
+    tokens["Native token bytes"] --> editor["Page 39 editor state<br/>classes, rows, slots, D:E cells"]
+    editor -. "conversion boundary still open" .-> build["34:4900 construction pass"]
+    tokens --> scan["34:58F9 / 34:5A99<br/>token and argument scans"]
+    scan --> build
+    build --> graph["Settled record arena<br/>leaf programs + structural child IDs"]
+    graph --> metrics["34:7393 / 34:7609<br/>metrics and geometry"]
+    metrics --> render["34:6105 / 34:660A<br/>record and leaf rendering"]
+    render --> primitive["Page 1 / 4 / 7<br/>glyphs, points, and lines"]
+    primitive --> lcd["Accepted LCD data writes"]
+```
+
+This distinction matters when describing semantic structure. The settled graph
+can be decoded as an expression tree because structural child IDs preserve
+argument order. The handler records describe how an editable token class is
+laid out; they do not by themselves encode one whole equation tree. [confirmed]
+
 ## Core state
 
 The layout engine keeps most of its state in `0x85DE`–`0x85F2`. The table below names the
@@ -103,6 +136,54 @@ Examples:
 
 The display cell `00 C8` is the visible `fnInt(` name. It appears in class `0x08` and
 class `0x30`; it is distinct from the fixed `Lintegral` glyph cells in class `0x0D`. [confirmed]
+
+## Settled record graph
+
+Every settled record begins with this 20-byte header. The word names remain
+address-based where different render types assign different meanings. [confirmed]
+
+```c
+#pragma pack(push, 1)
+typedef struct {
+    uint16_t id;          /* +00h: arena ID */
+    uint8_t type;         /* +02h: leaf/object or structural render type */
+    uint16_t word03;      /* +03h: parent ID in captured constructed records */
+    uint16_t word05;      /* +05h: type-specific count or height */
+    uint16_t word07;      /* +07h: type-specific height or width */
+    uint16_t word09;      /* +09h: type-specific width */
+    uint16_t word0B;      /* +0Bh: local x origin for recursive entry */
+    uint16_t word0D;      /* +0Dh: local y origin or type-specific anchor */
+    uint16_t word0F;      /* +0Fh: type-specific flags or depth state */
+    uint16_t word11;      /* +11h: payload length or dimensions/depth */
+    uint8_t byte13;       /* +13h: first payload byte or type-specific data */
+} SettledRecordHeader;
+#pragma pack(pop)
+```
+
+Leaf types below `0x1F` store `word11` payload bytes beginning at `+0x13`.
+Structural types `0x1F`–`0x2B` retain the complete header and append
+little-endian child IDs at `+0x14`. `34:6CCD` resolves a child ID through
+`34:4B05` and `34:4A83`; the child words are not pointers. Captured construction
+writes place the parent record ID at `+3`. [confirmed]
+
+A leaf payload is also a small record program. The sequence
+`EF type id_lo id_hi` invokes a structural record. `EF 2D` closes or separates
+that embedded object without drawing a glyph. Ordinary native token bytes stay
+in program order around those markers. A power record of type `0x2A` binds the
+preceding leaf run as its base and child 1 as its exponent. [confirmed]
+
+Construction uses three ROM table families. `34:594D` maps 16 source-token
+pairs to render types. `34:59AC` gives one five-byte scan row for each type
+`0x1F`–`0x2B`. `33:4F82` gives the corresponding allocation geometry. The
+metric and geometry passes dispatch the same 13-type domain through `34:739F`
+and `34:7611`. [confirmed]
+
+The structural children preserve semantic argument order after the source scan
+applies the metadata permutation. For example, the integral metadata is
+`04 03 04 01 02`: scan kind 4 reads four source arguments and assigns them to
+children 3, 4, 1, and 2. The settled graph then stores lower endpoint, upper
+endpoint, body, and variable in the order consumed by the type-`0x22` renderer.
+[confirmed]
 
 ## Token classification
 
@@ -362,12 +443,84 @@ anchors for readers who want to check the disassembly. [confirmed]
 
 ## MathPrint pipeline coverage
 
-The static MathPrint map covers token classification, handler records,
-recursive operand order, descriptor templates, fraction UI geometry, fixed structural
-glyphs, display-byte remaps, generic output services, and multi-argument row composition.
-The row compositor is `39:5167`; the pixel emitters are the fixed glyph and rule paths
-listed above. The runtime selection of `39:5167` for an expression and cursor
-state remains unobserved.
+`tools/analyze_mathprint_saturation.py` bounds the coverage claim to eight
+declared components: settled construction, settled rendering, metrics and
+geometry, record allocation, editor layout, small-font/LCD output, point and
+line primitives, and large-glyph output. It recursively follows direct ROM
+edges from named entries, resolves the finite dispatch tables, overlays exact
+next-PC outcomes from 170 reset-origin traces, and lists external targets.
+`tools/mathprint-saturation.json` records the resulting branches and trace
+hashes. [confirmed]
+
+The report is a symbolic-execution aid rather than a whole-machine proof. It
+models finite table indices exactly. It also partitions the state read by the
+type-`0x1F` handler at `34:6143`: incoming `A`, `(IY+44h).3`, and the word at
+`0x8520` produce ten terminal action classes. Stream length, arbitrary RAM,
+interrupt timing, and indirect targets outside the declared components remain
+outside that state model. [confirmed]
+
+| Component | Reachable instructions | Conditional outcomes observed | Conditional outcomes in CFG | Instruction coverage |
+|-----------|-----------------------:|------------------------------:|----------------------------:|---------------------:|
+| Settled construction | 991 | 228 | 408 | 79.11% |
+| Settled rendering | 1,898 | 195 | 302 | 90.25% |
+| Metrics and geometry | 470 | 67 | 80 | 95.74% |
+| Record allocator | 64 | 7 | 8 | 98.44% |
+| Editor layout | 2,776 | 239 | 1,098 | 32.42% |
+| Small-font and LCD output | 413 | 76 | 122 | 71.19% |
+| Point and line primitives | 508 | 41 | 134 | 58.07% |
+| Large glyphs | 130 | 16 | 32 | 68.46% |
+
+These counts describe the declared CFG and retained saturation corpus, not all
+OS entry states. A branch with both outcomes observed is dynamically saturated
+for that corpus. A branch with one or no outcomes remains open even when its
+containing routine has been reached. The allocator is the only declared
+component whose every conditional branch has at least one observed outcome;
+three of its four branches have both outcomes. [confirmed]
+
+The report classifies all 2,184 enumerated outcomes. The traces exercise 869.
+One allocator outcome is infeasible under its entry invariant. The other 1,314
+remain unresolved because their required state or calling ABI is not yet
+proved. An unobserved outcome never becomes infeasible from absence alone.
+[confirmed]
+
+The infeasible allocator outcome is the fallthrough at `33:4F4E`. The type
+`0x2B` path loads rows and columns from record offsets `+0x13` and `+0x12`, then
+`_HTimesL` (`00:1EF6`) computes their product. The matrix-creation path at
+`02:5DCF` raises `_ErrDimension` when either dimension is zero. A valid settled
+matrix record therefore reaches `33:4F4E` with a nonzero product and takes the
+branch. [confirmed]
+
+An exact Z3 set-cover calculation reduces the 170 trace summaries to 18 while
+preserving all 869 observed outcomes. It minimizes trace count first, retained
+bytes second, and labels third. The 18 selected traces total 2,762,574,180
+bytes, and each contributes at least one outcome absent from the other 17.
+This is a proven minimum for the supplied trace set, not for every input the OS
+can accept. The broad trace set remains an RE and regression corpus; the public
+gallery uses a smaller, diverse selection. [confirmed]
+
+The record-oracle corpus contains 105 captured cases. It includes types `0x20`
+through `0x2B`; the only missing structural type is `0x1F`. Each of those 12
+types has a decoded record node and accepted-write oracle. This saturates the
+ordinary 12-type structural table domain used by the translated constructor,
+but it does not saturate all internal branches of those handlers. [confirmed]
+
+Type `0x1F` remains open. `34:6143` compares incoming `A` with `0x21`, `0x22`,
+`0x25`–`0x29`, and `0x2B`; it also reads `(IY+44h).3` and `0x8520`. The symbolic
+partition proves the possible terminal classes, but no retained settled record
+graph dispatches a type-`0x1F` node. Its call ABI and live state distribution
+therefore are not established. [confirmed]
+
+Editor layout is also open. The page `39` class and handler tables, argument
+order, row composition, descriptor mapping, and draw paths are decoded. The
+retained corpus observes 239 of 1,098 declared editor branch outcomes. It does
+not decode every in-progress editor state into a general AST, and it does not
+reach every cursor, menu, error, or row-composition path. [confirmed]
+
+Accepted LCD-write parity is a separate result. The translated cases compare
+every synchronous accepted data write, including writes that leave the byte
+unchanged. Timer-interrupt run-indicator writes stay outside the MathPrint
+parity surface. A matching byte stream proves the tested construction and draw
+path; it does not close an unobserved editor or parser branch. [confirmed]
 
 ## Filled and nested-integrand traces
 
