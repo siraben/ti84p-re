@@ -559,7 +559,13 @@ their settled metrics. Fresh reset-origin traces for `abs(2)`, `abs(X/2)`, and
 The trace streams are comparison oracles and are not constructor inputs.
 [confirmed]
 
-The power constructor translates the corresponding type-`0x2A` path.
+The compositional constructor translates the type-`0x2A` power and type-`0x27`
+radical paths. `34:5935` maps source token `00BCh` through `34:594D` to render
+type `0x27`; the containing leaf embeds the structural ID and constructs the
+radicand as child 1. Its settled height, width, and baseline derive from the
+child metrics. Raised radicals select the final five rows of the root-hook
+bitmap at `34:62D0`, while outer radicals use all seven rows. [confirmed]
+
 `34:5935` maps source token `00F0h` through `34:594D` to render type `0x2A`.
 The containing leaf embeds `EF 2A id_lo id_hi EF 2D`, and child 1 contains the
 raised payload. The metric branches at `34:7393` and `34:7609` distinguish the
@@ -573,13 +579,19 @@ contain 17, 22, 22, and 32 writes, respectively. These captures test one, two,
 and three raised levels without supplying records or writes to the constructor.
 [confirmed]
 
-Flat absolute-value bodies and right-associated power chains containing the
-translated one-glyph tokens now run from tokens through record construction,
-layout, drawing operations, and LCD byte writes. The other five retained
-structural programs begin from record snapshots captured at `34:660A`.
-Composition between unlike structural types and general expression construction
-remain open. Full arbitrary-expression parity requires translating the remaining
-record constructors and metric branches. [confirmed]
+Eight additional reset-origin traces cover radicals, sequences inside radicals,
+nested radicals, powers inside radicals, and radicals inside powers. The deepest
+cases are `sqrt(2^X^2)`, `sqrt(sqrt(2))`, `X^sqrt(2)`, and
+`sqrt(X^sqrt(2))`. Their generated graphs and complete accepted-write streams
+match the traces. The root bitmap comparison includes accepted writes whose
+value does not change the LCD byte. [confirmed]
+
+Flat absolute-value bodies and expressions composed from ordinary token runs,
+right-associated powers, and radicals now run from tokens through record
+construction, layout, drawing operations, and LCD byte writes. Nth root,
+summation, `nDeriv(`, and integral/fraction examples still begin from record
+snapshots captured at `34:660A`. Full arbitrary-expression parity requires the
+remaining structural constructors and metric branches. [confirmed]
 
 Each dispatch also captures the viewport origin at `ram:8DFE`/`ram:8E00`.
 Nested fraction `1/2` reaches `34:5DA6` with the local rule `(1,6)`–`(5,6)`
@@ -628,11 +640,11 @@ synthetic tests confirm the replay implementation.
 The local ignored `tools/rom.bin` enables pinned-ROM reproduction when present.
 The 5,018-case Node test remains a deterministic parser/layout smoke test. Six
 settled record programs provide exact final-pixel and complete accepted-write
-parity for their expressions. Three fresh flat absolute-value cases and four
-fresh power cases also verify token-to-record construction and the resulting
-complete accepted-write streams. The deepest power oracle has three raised
-levels. Two longer trace scenarios cover the editor and display activity around
-the final key press. [confirmed]
+parity for their expressions. Three fresh absolute-value cases, four power
+cases, and eight power/radical composition cases verify token-to-record
+construction and the resulting complete accepted-write streams. The deepest
+power oracle has three raised levels. Two longer trace scenarios cover the
+editor and display activity around the final key press. [confirmed]
 
 ## Extracted records and interactive model
 
@@ -646,8 +658,9 @@ translations in `web/mathprint/rom-engine.js`. The translated routines consume
 classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in `app.js` still uses a separate,
 trace-fitted box model. `web/mathprint/record-programs.json` contains six
-captured record snapshots. The browser constructs supported flat absolute-value
-expressions and right-associated power chains from tokens. It uses snapshots for
-the other five retained paths. Both input forms execute through the translated
-renderer and expose every generated LCD write as a live timeline. This mode does
-not load captured LCD events. [confirmed]
+captured record snapshots. The browser constructs supported absolute-value,
+power, and radical expressions from tokens, including nesting between powers
+and radicals. It uses snapshots for nth root, summation, `nDeriv(`, and the
+integral/fraction example. Both input forms execute through the translated
+renderer and expose every generated LCD write as a live timeline. This mode
+does not load captured LCD events. [confirmed]
