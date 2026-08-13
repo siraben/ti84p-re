@@ -540,9 +540,91 @@ for (const [label, bytes, operatorOffset, expected] of [
   },expected);
 }
 expectThrows('34:5699 rejects an untraced raised token-class branch',
-  RangeError, () => rom.settledRaisedOperandScan([0x58,0xf0,0x58],1));
+  RangeError, () => rom.settledRaisedOperandScan([0x58,0xf0,0x64],1));
 expectThrows('34:5699 rejects a missing raised close', RangeError,
   () => rom.settledRaisedOperandScan([0x58,0xf0,0x10,0x31],1));
+
+for (const [label,prefix,token,expected] of [
+  ['letter',0,0x58,{accepted:true,nameByteLimit:0}],
+  ['Ans',0,0x72,{accepted:true,nameByteLimit:0}],
+  ['matrix name',0x5c,0,{accepted:true,nameByteLimit:0}],
+  ['string name',0xaa,0,{accepted:true,nameByteLimit:0}],
+  ['pi',0,0xac,{accepted:true,nameByteLimit:0}],
+  ['program designator',0,0x5f,{accepted:true,nameByteLimit:8}],
+  ['list designator',0,0xeb,{accepted:true,nameByteLimit:5}],
+  ['BB31',0xbb,0x31,{accepted:true,nameByteLimit:0}],
+  ['other BB',0xbb,0x30,{accepted:false,nameByteLimit:0}],
+  ['mode token',0,0x64,{accepted:false,nameByteLimit:0}],
+]) {
+  const actual = rom.settledRaisedExtendedTokenClass(prefix,token);
+  expectEqual(`34:580C ${label}`,{
+    accepted:actual.accepted,nameByteLimit:actual.nameByteLimit,
+  },expected);
+}
+for (const [label,bytes,end,branch] of [
+  ['direct letter',[0x58,0xf0,0x59],3,'34:580C → 34:5861'],
+  ['direct Ans',[0x58,0xf0,0x72],3,'34:580C → 34:5861'],
+  ['direct L1',[0x58,0xf0,0x5d,0x00],4,'34:580C → 34:5861'],
+  ['program name',[0x58,0xf0,0x5f,0x41,0x31,0x42,0x70],6,
+    '34:580C → 34:5836 (max 8)'],
+  ['program name limit',[0x58,0xf0,0x5f,0x41,0x42,0x43,0x44,0x45,
+    0x46,0x47,0x48,0x49],11,'34:580C → 34:5836 (max 8)'],
+  ['list name low stop',[0x58,0xf0,0xeb,0x41,0x0a,0x2b],4,
+    '34:580C → 34:5836 (max 5)'],
+  ['list name high stop',[0x58,0xf0,0xeb,0x41,0x5c,0x00],4,
+    '34:580C → 34:5836 (max 5)'],
+]) {
+  const scan = rom.settledRaisedOperandScan(bytes,1);
+  expectEqual(`34:5699 ${label}`,{
+    start:scan.start,end:scan.end,returnedCursor:scan.returnedCursor,
+    restoredCursor:scan.restoredCursor,branch:scan.branch,
+    accepted:scan.classifier.accepted,
+    nameByteLimit:scan.classifier.nameByteLimit,
+  },{start:2,end,returnedCursor:end,restoredCursor:2,branch,
+    accepted:true,nameByteLimit:branch.includes('5836')
+      ? Number(branch.match(/max (\d+)/)[1]) : 0});
+}
+expectEqual('34:583D bounded name digit path',
+  rom.settledRaisedNameScan([0x31,0x41,0x2b],0,5),{
+    start:0,end:2,acceptedBytes:2,limit:5,
+    stop:'non_name_byte_below_41h',
+    path:[
+      '34:5840:fallthrough','34:5845:taken','34:5853:taken',
+      '34:5840:fallthrough','34:5845:fallthrough',
+      '34:5849:fallthrough','34:584D:fallthrough','34:5853:taken',
+      '34:5840:fallthrough','34:5845:fallthrough','34:5849:taken',
+    ],
+  });
+expectEqual('34:583D bounded name source boundary',
+  rom.settledRaisedNameScan([0x41],0,5),{
+    start:0,end:1,acceptedBytes:1,limit:5,stop:'source_boundary',
+    path:[
+      '34:5840:fallthrough','34:5845:fallthrough',
+      '34:5849:fallthrough','34:584D:fallthrough','34:5853:taken',
+      '34:5840:taken',
+    ],
+  });
+expectEqual('bounded program name is one expression atom',
+  rom.settledExpressionFromTokens([0x58,0xf0,0x5f,0x41,0x31]),{
+    kind:'power',base:{kind:'tokens',tokens:[0x58]},
+    exponent:{kind:'tokens',tokens:[0x5f,0x41,0x31]},
+  });
+for (const [label,nativeTokens] of [
+  ['changed direct letter power',[0x58,0xf0,0x59]],
+  ['changed direct Ans power',[0x58,0xf0,0x72]],
+  ['changed direct list power',[0x58,0xf0,0x5d,0x00]],
+  ['changed direct BB31 power',[0x58,0xf0,0xbb,0x31]],
+]) {
+  const generated = mp.generatedForNativeTokens(nativeTokens);
+  if (!generated || !generated.events.length)
+    throw new Error(`${label} has no generated LCD data-write timeline`);
+  if (generated.operations.some(operation => operation.kind.startsWith('unresolved')) ||
+      generated.events.some(event => event.pixels.length !== 8))
+    throw new Error(`${label} has an unresolved pixel-level operation`);
+  expectEqual(`${label} LCD replay`,
+    rom.replaySettledLcdWrites(generated.events),
+    generated.final.map(row => Array.from(row, pixel => Number(pixel))));
+}
 
 for (const [label, bytes, operatorOffset, numeratorStart, expected] of [
   ['single-token operands',[0x31,0xef,0x2e,0x32],1,0,{
