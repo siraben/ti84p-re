@@ -25,6 +25,8 @@ const recordPrograms = JSON.parse(fs.readFileSync(
   path.join(root, 'web', 'mathprint', 'record-programs.json')));
 const constructionOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-construction-oracles.json')));
+const exponentialLogBaseOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-exponential-logbase-oracles.json')));
 mp.setRecordPrograms(recordPrograms);
 
 function expectEqual(label, actual, expected) {
@@ -450,6 +452,17 @@ expectEqual('34:5935 maps the nDeriv token through 34:594D',
   rom.settledStructuralTokenType(0x00,0x25), 0x23);
 expectEqual('34:5996 selects the nDeriv metadata row',
   rom.settledRecordMetadata(0x23), [0x04,0x02,0x01,0x03,0x00]);
+expectEqual('34:5935 maps the e-power token through 34:594D',
+  rom.settledStructuralTokenType(0x00,0xbf), 0x25);
+expectEqual('34:5935 maps the ten-power token through 34:594D',
+  rom.settledStructuralTokenType(0x00,0xc1), 0x26);
+expectEqual('34:5935 maps the log-base token through 34:594D',
+  rom.settledStructuralTokenType(0xef,0x34), 0x28);
+expectEqual('34:5996 selects the exponential metadata rows',
+  [rom.settledRecordMetadata(0x25),rom.settledRecordMetadata(0x26)],
+  [[0x03,0x01,0x00,0x00,0x00],[0x03,0x01,0x00,0x00,0x00]]);
+expectEqual('34:5996 selects the log-base metadata row',
+  rom.settledRecordMetadata(0x28), [0x04,0x02,0x01,0x00,0x00]);
 const constructedAbsolute = rom.constructSettledAbsoluteProgram([0x58,0x71,0x33],0x0d);
 expectEqual('absolute tokens independently construct the settled record graph',
   constructedAbsolute.nodes, recordPrograms.programs['abs(X-3)'].nodes);
@@ -615,6 +628,24 @@ for (const oracle of constructionOracles.multiarg_fraction_numerator_cases) {
     crypto.createHash('sha256').update(writeBytes).digest('hex'),
     oracle.accepted_write_sha256);
 }
+for (const oracle of exponentialLogBaseOracles.cases) {
+  const program = rom.constructSettledExpressionProgram(
+    oracle.spec, oracle.entry_id, font);
+  expectEqual(`${oracle.expression} independently constructs the fresh TilEm graph`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.origin, nodes:oracle.nodes});
+  const operations = rom.executeSettledRecordProgram(program.nodes, program.entry_id, {
+    origin:program.origin,
+    glyphAdvance:settledGlyphAdvance,
+  });
+  const writes = rom.rasterizeSettledOperations(operations, font).writes;
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write count`,
+    writes.length, oracle.accepted_write_count);
+  const writeBytes = Buffer.from(writes.flatMap(write => [...write.pointer,write.value]));
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write stream`,
+    crypto.createHash('sha256').update(writeBytes).digest('hex'),
+    oracle.accepted_write_sha256);
+}
 expectEqual('browser selects translated absolute record construction',
   mp.constructedProgramForExpression('abs(X-3)').nodes,
   rom.constructSettledAbsoluteProgram([0x58,0x71,0x33]).nodes);
@@ -752,6 +783,10 @@ expectEqual('browser recursively reserves nested nDeriv arguments',
     body:{kind:'power',base:[0x41],exponent:[0x32]},value:[0x31],
   }, [0x32], 1, font).nodes);
 for (const oracle of constructionOracles.multiarg_fraction_numerator_cases)
+  expectEqual(`${oracle.expression} browser constructs the trace-decoded graph`,
+    mp.constructedProgramForExpression(oracle.expression).nodes,
+    rom.constructSettledExpressionProgram(oracle.spec, 1, font).nodes);
+for (const oracle of exponentialLogBaseOracles.cases)
   expectEqual(`${oracle.expression} browser constructs the trace-decoded graph`,
     mp.constructedProgramForExpression(oracle.expression).nodes,
     rom.constructSettledExpressionProgram(oracle.spec, 1, font).nodes);
