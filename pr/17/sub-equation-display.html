@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f972531f.js";
+            window.path_to_searchindex_js = "searchindex-d43d7074.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -208,6 +208,34 @@ page <code>04</code> line and point routines. [confirmed]</p>
 
 <p>The diagram shows the page <code>39</code> editor path. It does not describe the page <code>34</code>
 settled-expression walker. [confirmed]</p>
+<h2 id="two-equation-representations"><a class="header" href="#two-equation-representations">Two equation representations</a></h2>
+<p>MathPrint uses two related representations. The page <code>39</code> editor path treats an
+expression as token classes, handler rows, argument slots, and packed <code>D:E</code>
+display cells. The class table at <code>39:5E45</code> contains 68 entries. Sixty-six
+entries point to decoded handler records; the class-<code>0x00</code> pointer does not
+decode as a page <code>39</code> handler, and class <code>0x13</code> has a null pointer. [confirmed]</p>
+<p>The settled page <code>34</code> path uses an arena of numbered records. A leaf record
+contains a token program. A structural record contains a fixed header followed
+by child record IDs. The two representations therefore are not one shared AST:
+page <code>39</code> composes editable rows and cells, while page <code>34</code> traverses a settled
+record graph. The conversion from the complete in-progress editor state to the
+first record allocated by <code>34:4900</code> remains open. [confirmed]</p>
+<pre class="mermaid">flowchart LR
+    tokens["Native token bytes"] --&gt; editor["Page 39 editor state&lt;br/&gt;classes, rows, slots, D:E cells"]
+    editor -. "conversion boundary still open" .-&gt; build["34:4900 construction pass"]
+    tokens --&gt; scan["34:58F9 / 34:5A99&lt;br/&gt;token and argument scans"]
+    scan --&gt; build
+    build --&gt; graph["Settled record arena&lt;br/&gt;leaf programs + structural child IDs"]
+    graph --&gt; metrics["34:7393 / 34:7609&lt;br/&gt;metrics and geometry"]
+    metrics --&gt; render["34:6105 / 34:660A&lt;br/&gt;record and leaf rendering"]
+    render --&gt; primitive["Page 1 / 4 / 7&lt;br/&gt;glyphs, points, and lines"]
+    primitive --&gt; lcd["Accepted LCD data writes"]
+</pre>
+
+<p>This distinction matters when describing semantic structure. The settled graph
+can be decoded as an expression tree because structural child IDs preserve
+argument order. The handler records describe how an editable token class is
+laid out; they do not by themselves encode one whole equation tree. [confirmed]</p>
 <h2 id="core-state"><a class="header" href="#core-state">Core state</a></h2>
 <p>The layout engine keeps most of its state in <code>0x85DE</code>–<code>0x85F2</code>. The table below names the
 fields that matter for reading the page <code>0x39</code> code. [confirmed]</p>
@@ -279,6 +307,46 @@ emitter at <code>39:4DE6</code> then walks the selected row and calls <code>39:4
 </div>
 <p>The display cell <code>00 C8</code> is the visible <code>fnInt(</code> name. It appears in class <code>0x08</code> and
 class <code>0x30</code>; it is distinct from the fixed <code>Lintegral</code> glyph cells in class <code>0x0D</code>. [confirmed]</p>
+<h2 id="settled-record-graph"><a class="header" href="#settled-record-graph">Settled record graph</a></h2>
+<p>Every settled record begins with this 20-byte header. The word names remain
+address-based where different render types assign different meanings. [confirmed]</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint16_t id;          /* +00h: arena ID */
+    uint8_t type;         /* +02h: leaf/object or structural render type */
+    uint16_t word03;      /* +03h: parent ID in captured constructed records */
+    uint16_t word05;      /* +05h: type-specific count or height */
+    uint16_t word07;      /* +07h: type-specific height or width */
+    uint16_t word09;      /* +09h: type-specific width */
+    uint16_t word0B;      /* +0Bh: local x origin for recursive entry */
+    uint16_t word0D;      /* +0Dh: local y origin or type-specific anchor */
+    uint16_t word0F;      /* +0Fh: type-specific flags or depth state */
+    uint16_t word11;      /* +11h: payload length or dimensions/depth */
+    uint8_t byte13;       /* +13h: first payload byte or type-specific data */
+} SettledRecordHeader;
+#pragma pack(pop)
+</code></pre>
+<p>Leaf types below <code>0x1F</code> store <code>word11</code> payload bytes beginning at <code>+0x13</code>.
+Structural types <code>0x1F</code>–<code>0x2B</code> retain the complete header and append
+little-endian child IDs at <code>+0x14</code>. <code>34:6CCD</code> resolves a child ID through
+<code>34:4B05</code> and <code>34:4A83</code>; the child words are not pointers. Captured construction
+writes place the parent record ID at <code>+3</code>. [confirmed]</p>
+<p>A leaf payload is also a small record program. The sequence
+<code>EF type id_lo id_hi</code> invokes a structural record. <code>EF 2D</code> closes or separates
+that embedded object without drawing a glyph. Ordinary native token bytes stay
+in program order around those markers. A power record of type <code>0x2A</code> binds the
+preceding leaf run as its base and child 1 as its exponent. [confirmed]</p>
+<p>Construction uses three ROM table families. <code>34:594D</code> maps 16 source-token
+pairs to render types. <code>34:59AC</code> gives one five-byte scan row for each type
+<code>0x1F</code>–<code>0x2B</code>. <code>33:4F82</code> gives the corresponding allocation geometry. The
+metric and geometry passes dispatch the same 13-type domain through <code>34:739F</code>
+and <code>34:7611</code>. [confirmed]</p>
+<p>The structural children preserve semantic argument order after the source scan
+applies the metadata permutation. For example, the integral metadata is
+<code>04 03 04 01 02</code>: scan kind 4 reads four source arguments and assigns them to
+children 3, 4, 1, and 2. The settled graph then stores lower endpoint, upper
+endpoint, body, and variable in the order consumed by the type-<code>0x22</code> renderer.
+[confirmed]</p>
 <h2 id="token-classification"><a class="header" href="#token-classification">Token classification</a></h2>
 <p><code>eqdisp_dispatch_token</code> (<code>39:4A74</code>) turns an incoming token or action byte into a layout
 class. It first handles the special <code>0x3D</code> template handoff, then applies context bias. [confirmed]</p>
@@ -513,12 +581,81 @@ anchors for readers who want to check the disassembly. [confirmed]</p>
 </table>
 </div>
 <h2 id="mathprint-pipeline-coverage"><a class="header" href="#mathprint-pipeline-coverage">MathPrint pipeline coverage</a></h2>
-<p>The static MathPrint map covers token classification, handler records,
-recursive operand order, descriptor templates, fraction UI geometry, fixed structural
-glyphs, display-byte remaps, generic output services, and multi-argument row composition.
-The row compositor is <code>39:5167</code>; the pixel emitters are the fixed glyph and rule paths
-listed above. The runtime selection of <code>39:5167</code> for an expression and cursor
-state remains unobserved.</p>
+<p><code>tools/analyze_mathprint_saturation.py</code> bounds the coverage claim to eight
+declared components: settled construction, settled rendering, metrics and
+geometry, record allocation, editor layout, small-font/LCD output, point and
+line primitives, and large-glyph output. It recursively follows direct ROM
+edges from named entries, resolves the finite dispatch tables, overlays exact
+next-PC outcomes from 170 reset-origin traces, and lists external targets.
+<code>tools/mathprint-saturation.json</code> records the resulting branches and trace
+hashes. [confirmed]</p>
+<p>The report is a symbolic-execution aid rather than a whole-machine proof. It
+models finite table indices exactly. It also partitions the state read by the
+type-<code>0x1F</code> handler at <code>34:6143</code>: incoming <code>A</code>, <code>(IY+44h).3</code>, and the word at
+<code>0x8520</code> produce ten terminal action classes. Stream length, arbitrary RAM,
+interrupt timing, and indirect targets outside the declared components remain
+outside that state model. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Component</th><th style="text-align: right">Reachable instructions</th><th style="text-align: right">Conditional outcomes observed</th><th style="text-align: right">Conditional outcomes in CFG</th><th style="text-align: right">Instruction coverage</th></tr>
+</thead>
+<tbody>
+<tr><td>Settled construction</td><td style="text-align: right">991</td><td style="text-align: right">228</td><td style="text-align: right">408</td><td style="text-align: right">79.11%</td></tr>
+<tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">195</td><td style="text-align: right">302</td><td style="text-align: right">90.25%</td></tr>
+<tr><td>Metrics and geometry</td><td style="text-align: right">470</td><td style="text-align: right">67</td><td style="text-align: right">80</td><td style="text-align: right">95.74%</td></tr>
+<tr><td>Record allocator</td><td style="text-align: right">64</td><td style="text-align: right">7</td><td style="text-align: right">8</td><td style="text-align: right">98.44%</td></tr>
+<tr><td>Editor layout</td><td style="text-align: right">2,776</td><td style="text-align: right">239</td><td style="text-align: right">1,098</td><td style="text-align: right">32.42%</td></tr>
+<tr><td>Small-font and LCD output</td><td style="text-align: right">413</td><td style="text-align: right">76</td><td style="text-align: right">122</td><td style="text-align: right">71.19%</td></tr>
+<tr><td>Point and line primitives</td><td style="text-align: right">508</td><td style="text-align: right">41</td><td style="text-align: right">134</td><td style="text-align: right">58.07%</td></tr>
+<tr><td>Large glyphs</td><td style="text-align: right">130</td><td style="text-align: right">16</td><td style="text-align: right">32</td><td style="text-align: right">68.46%</td></tr>
+</tbody>
+</table>
+</div>
+<p>These counts describe the declared CFG and retained saturation corpus, not all
+OS entry states. A branch with both outcomes observed is dynamically saturated
+for that corpus. A branch with one or no outcomes remains open even when its
+containing routine has been reached. The allocator is the only declared
+component whose every conditional branch has at least one observed outcome;
+three of its four branches have both outcomes. [confirmed]</p>
+<p>The report classifies all 2,184 enumerated outcomes. The traces exercise 869.
+One allocator outcome is infeasible under its entry invariant. The other 1,314
+remain unresolved because their required state or calling ABI is not yet
+proved. An unobserved outcome never becomes infeasible from absence alone.
+[confirmed]</p>
+<p>The infeasible allocator outcome is the fallthrough at <code>33:4F4E</code>. The type
+<code>0x2B</code> path loads rows and columns from record offsets <code>+0x13</code> and <code>+0x12</code>, then
+<code>_HTimesL</code> (<code>00:1EF6</code>) computes their product. The matrix-creation path at
+<code>02:5DCF</code> raises <code>_ErrDimension</code> when either dimension is zero. A valid settled
+matrix record therefore reaches <code>33:4F4E</code> with a nonzero product and takes the
+branch. [confirmed]</p>
+<p>An exact Z3 set-cover calculation reduces the 170 trace summaries to 18 while
+preserving all 869 observed outcomes. It minimizes trace count first, retained
+bytes second, and labels third. The 18 selected traces total 2,762,574,180
+bytes, and each contributes at least one outcome absent from the other 17.
+This is a proven minimum for the supplied trace set, not for every input the OS
+can accept. The broad trace set remains an RE and regression corpus; the public
+gallery uses a smaller, diverse selection. [confirmed]</p>
+<p>The record-oracle corpus contains 105 captured cases. It includes types <code>0x20</code>
+through <code>0x2B</code>; the only missing structural type is <code>0x1F</code>. Each of those 12
+types has a decoded record node and accepted-write oracle. This saturates the
+ordinary 12-type structural table domain used by the translated constructor,
+but it does not saturate all internal branches of those handlers. [confirmed]</p>
+<p>Type <code>0x1F</code> remains open. <code>34:6143</code> compares incoming <code>A</code> with <code>0x21</code>, <code>0x22</code>,
+<code>0x25</code>–<code>0x29</code>, and <code>0x2B</code>; it also reads <code>(IY+44h).3</code> and <code>0x8520</code>. The symbolic
+partition proves the possible terminal classes, but no retained settled record
+graph dispatches a type-<code>0x1F</code> node. Its call ABI and live state distribution
+therefore are not established. [confirmed]</p>
+<p>Editor layout is also open. The page <code>39</code> class and handler tables, argument
+order, row composition, descriptor mapping, and draw paths are decoded. The
+retained corpus observes 239 of 1,098 declared editor branch outcomes. It does
+not decode every in-progress editor state into a general AST, and it does not
+reach every cursor, menu, error, or row-composition path. [confirmed]</p>
+<p>Accepted LCD-write parity is a separate result. The translated cases compare
+every synchronous accepted data write, including writes that leave the byte
+unchanged. Timer-interrupt run-indicator writes stay outside the MathPrint
+parity surface. A matching byte stream proves the tested construction and draw
+path; it does not close an unobserved editor or parser branch. [confirmed]</p>
 <h2 id="filled-and-nested-integrand-traces"><a class="header" href="#filled-and-nested-integrand-traces">Filled and nested-integrand traces</a></h2>
 <p>Two reset-origin TLMT v2 traces use the pinned ROM SHA-256
 <code>7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d</code>.
