@@ -1361,6 +1361,92 @@
     };
   }
 
+  // Scan kind 2 enters 34:56DF → 34:5795 for EF2Eh and EF2Fh stacked
+  // fractions. The parser calls 34:5AA7 with B=14h. A scan from immediately
+  // before the numerator returns the EF lead-byte offset, so the two-byte
+  // operator lies at [stopCursor, stopCursor+2). The kind-2 scan begins from
+  // that EF byte. 34:57A1–57C1 advances the saved source cursor when D or
+  // 0x9D05 is nonzero; expose that wrapper predicate separately from the
+  // parse-ahead counter in E.
+  function settledFractionOperandScan(input, operatorOffset,
+                                      numeratorStart = 0) {
+    const native = settledNativeTokenUnits(input);
+    if (!Number.isInteger(operatorOffset) || operatorOffset < 0 ||
+        operatorOffset >= native.bytes.length)
+      throw new RangeError('settled fraction operator offset is outside the input');
+    const operator = native.units.find(unit => unit.offset === operatorOffset);
+    if (!operator)
+      throw new RangeError(
+        'settled fraction operator offset is inside a two-byte token');
+    const renderType = settledStructuralTokenType(
+      operator.prefix,operator.token);
+    if (renderType !== 0x20 || settledRecordMetadata(renderType)[0] !== 2)
+      throw new RangeError(
+        'settled fraction operator does not select scan kind 2');
+    if (!Number.isInteger(numeratorStart) || numeratorStart < 0 ||
+        numeratorStart >= operator.offset)
+      throw new RangeError('settled fraction numerator start is invalid');
+    if (!native.units.some(unit => unit.offset === numeratorStart))
+      throw new RangeError(
+        'settled fraction numerator starts inside a two-byte token');
+    if (operator.offset === numeratorStart)
+      throw new RangeError('settled fraction numerator is empty');
+    if (operator.next >= native.bytes.length)
+      throw new RangeError('settled fraction denominator is empty');
+
+    const numeratorParseAhead = settledParseAhead(native.bytes,{
+      entry:'direct5AA7', b:0x14, cursor:numeratorStart - 1,
+    });
+    if (numeratorParseAhead.stopCursor !== operator.offset)
+      throw new RangeError(
+        `34:5795 found a fraction operator at byte ` +
+        `${numeratorParseAhead.stopCursor}, not byte ${operator.offset}`);
+    const denominatorParseAhead = settledParseAhead(native.bytes,{
+      entry:'direct5AA7', b:0x14, cursor:operator.offset,
+    });
+    const unwoundBoundaries = denominatorParseAhead.de & 0xff;
+    let denominatorEnd = denominatorParseAhead.stopCursor;
+    let remainingBoundaries = unwoundBoundaries;
+    while (remainingBoundaries && denominatorEnd > operator.next) {
+      denominatorEnd--;
+      if (native.bytes[denominatorEnd] === 0x11 ||
+          native.bytes[denominatorEnd] === 0x09) remainingBoundaries--;
+    }
+    if (denominatorEnd <= operator.next)
+      throw new RangeError('settled fraction denominator is empty');
+    if (denominatorEnd < native.bytes.length &&
+        !native.units.some(unit => unit.offset === denominatorEnd))
+      throw new Error(
+        'settled fraction denominator ends inside a two-byte token');
+    const wrapper = result => ({
+      nestingDepth:result.d,
+      unwoundBoundaryCount:result.e,
+      savedDepth:result.scratch[3],
+      parseCursor:result.stopCursor,
+      advancedSavedCursor:result.d !== 0 || result.scratch[3] !== 0,
+    });
+    return {
+      renderType,
+      scanKind:2,
+      metadata:settledRecordMetadata(renderType),
+      operator:{
+        offset:operator.offset, next:operator.next, length:operator.length,
+        prefix:operator.prefix, token:operator.token, packed:operator.packed,
+      },
+      numerator:{
+        start:numeratorStart, end:operator.offset,
+        parseAhead:numeratorParseAhead,
+        wrapper:wrapper(numeratorParseAhead),
+      },
+      denominator:{
+        start:operator.next, end:denominatorEnd,
+        parseAhead:denominatorParseAhead,
+        wrapper:wrapper(denominatorParseAhead),
+      },
+      stopCursor:denominatorEnd,
+    };
+  }
+
   // Zero-result predicate at 34:5A75. 34:7EF5 supplies the first 17 entries;
   // the remaining comparisons are inline at 34:5A79–5A98.
   function settledParseAheadClass5A75(token) {
@@ -1756,8 +1842,11 @@
         0x10,...encode(expression.radicand),0x11,
       ];
       if (expression.kind === 'fraction') {
-        const operand = child => child.kind === 'tokens'
-          ? encode(child) : [0x10,...encode(child),0x11];
+        const operand = child => {
+          if (child.kind === 'tokens') return encode(child);
+          if (child.kind === 'group') return encode(child);
+          return [0x10,...encode(child),0x11];
+        };
         return [
           ...operand(expression.numerator),0xef,0x2e,
           ...operand(expression.denominator),
@@ -2062,19 +2151,26 @@
     };
 
     fraction = () => {
-      let left = product();
+      const startCursor = cursor;
+      const left = product();
       if (!left) return null;
-      while (peek(0xef,0x2e) || peek(0xef,0x2f)) {
-        take();
-        const right = product();
-        if (!right)
-          throw new RangeError('settled native stacked fraction has no denominator');
-        left = {
-          kind:'fraction', numerator:unwrapFractionBoundary(left),
-          denominator:unwrapFractionBoundary(right),
-        };
-      }
-      return left;
+      if (!peek(0xef,0x2e) && !peek(0xef,0x2f)) return left;
+      const operator = take();
+      const scan = settledFractionOperandScan(
+        native.bytes,operator.offset,units[startCursor].offset);
+      const right = fraction();
+      if (!right)
+        throw new RangeError('settled native stacked fraction has no denominator');
+      const parsedEnd = cursor < units.length
+        ? units[cursor].offset : native.bytes.length;
+      if (parsedEnd !== scan.denominator.end)
+        throw new RangeError(
+          `settled native denominator parser stopped at byte ${parsedEnd}; ` +
+          `34:5795 stopped at byte ${scan.denominator.end}`);
+      return {
+        kind:'fraction', numerator:unwrapFractionBoundary(left),
+        denominator:unwrapFractionBoundary(right),
+      };
     };
 
     expression = () => {
@@ -2111,7 +2207,7 @@
       token:unit.token, packed:unit.packed,
     }));
     program.source =
-      '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction';
+      '34:5678, 34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction';
     return program;
   }
 
@@ -3566,6 +3662,7 @@
     settledParseAheadFunctionToken,
     settledStructuralArgumentScan,
     settledRaisedOperandScan,
+    settledFractionOperandScan,
     encodeSettledExpressionTokens,
     settledExpressionFromTokens,
     constructSettledProgramFromTokens,

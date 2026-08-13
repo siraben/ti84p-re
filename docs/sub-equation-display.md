@@ -1011,6 +1011,16 @@ JavaScript scanner translates these numeric and delimited-slot branches and
 requires native construction to stop at the same half-open byte boundary.
 Other kind-`1` token classes remain untranslated. [confirmed]
 
+Scan kind `2` enters `34:56DF` → `34:5795` for the `EF2Eh` and `EF2Fh`
+stacked-fraction operators. It rewinds to the numerator, calls `34:5AA7` with
+`B=14h`, and returns the operator's `EFh` byte in `BC`. A second scan selects
+the denominator range. The wrapper at `34:57A1`–`34:57C1` distinguishes
+nesting depth in `D`, unwound boundary count in `E`, and the saved depth byte
+at `ram:9D05`. The JavaScript scanner retains these results and verifies both
+operand ranges before constructing a type-`0x20` record. Leaf, powered,
+nested-denominator, and raised-fraction cases cover the translated branches.
+[confirmed]
+
 The browser expands every accepted byte into eight ordered pixel results. A
 timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement
@@ -1066,8 +1076,9 @@ forms. The translated renderer exposes every generated LCD byte and the
 resulting pixel frame as a live timeline. This mode does not load a record
 fixture or captured LCD event stream. Multi-argument and generic-function
 boundaries pass through the translated `34:5AA3` state machine. Numeric and
-delimited raised operands also pass through the translated `34:5699` scan.
-The remaining source grammar and record-construction branches are listed above.
+delimited raised operands also pass through the translated `34:5699` scan, and
+stacked-fraction operands pass through the translated `34:5795` scan. The
+remaining source grammar and record-construction branches are listed above.
 [confirmed]
 
 The standalone nth-root encoder supplies an inferred template boundary because

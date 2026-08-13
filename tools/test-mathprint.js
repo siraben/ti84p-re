@@ -531,6 +531,53 @@ expectThrows('34:5699 rejects an untraced raised token-class branch',
 expectThrows('34:5699 rejects a missing raised close', RangeError,
   () => rom.settledRaisedOperandScan([0x58,0xf0,0x10,0x31],1));
 
+for (const [label, bytes, operatorOffset, numeratorStart, expected] of [
+  ['single-token operands',[0x31,0xef,0x2e,0x32],1,0,{
+    numerator:[0,1,0,0,0,1,false], denominator:[3,4,0,0,0,4,false],
+    stopCursor:4,
+  }],
+  ['powered numerator',
+    [0x10,0x58,0xf0,0x32,0x11,0xef,0x2e,0x33],5,0,{
+      numerator:[0,5,0,0,0,5,false], denominator:[7,8,0,0,0,8,false],
+      stopCursor:8,
+    }],
+  ['nested denominator',
+    [0x31,0xef,0x2e,0x10,0x32,0xef,0x2e,0x33,0x11],1,0,{
+      numerator:[0,1,0,0,0,1,false], denominator:[3,9,0,0,0,9,false],
+      stopCursor:9,
+    }],
+  ['inner nested fraction',
+    [0x31,0xef,0x2e,0x10,0x32,0xef,0x2e,0x33,0x11],5,4,{
+      numerator:[4,5,0,0,0,5,false], denominator:[7,8,0,1,0,9,false],
+      stopCursor:8,
+    }],
+  ['raised fraction wrapper',
+    [0xf0,0x10,0x10,0x31,0xef,0x2e,0x32,0x11,0x11],4,3,{
+      numerator:[3,4,0,0,0,4,false], denominator:[6,7,0,2,0,9,false],
+      stopCursor:7,
+    }],
+]) {
+  const scan = rom.settledFractionOperandScan(
+    bytes,operatorOffset,numeratorStart);
+  const range = operand => [
+    operand.start,operand.end,operand.wrapper.nestingDepth,
+    operand.wrapper.unwoundBoundaryCount,operand.wrapper.savedDepth,
+    operand.wrapper.parseCursor,operand.wrapper.advancedSavedCursor,
+  ];
+  expectEqual(`34:5795 ${label}`,{
+    numerator:range(scan.numerator),
+    denominator:range(scan.denominator),
+    stopCursor:scan.stopCursor,
+  },expected);
+}
+expectThrows('34:5795 rejects an empty numerator', RangeError,
+  () => rom.settledFractionOperandScan([0xef,0x2e,0x31],0,0));
+expectThrows('34:5795 rejects an empty denominator', RangeError,
+  () => rom.settledFractionOperandScan([0x31,0xef,0x2e],1,0));
+expectThrows('34:5795 rejects a different fraction offset', RangeError,
+  () => rom.settledFractionOperandScan(
+    [0x31,0xef,0x2e,0x32,0xef,0x2e,0x33],4,0));
+
 for (const [label, bytes, stopCursor] of [
   ['nested comma in parentheses',[0x10,0x31,0x2b,0x32,0x11,0x2b,0x33],5],
   ['nested comma in braces',[0x08,0x31,0x2b,0x32,0x09,0x2b,0x33],5],
@@ -1441,7 +1488,7 @@ expectEqual('browser parses powers right associatively',
   }, 1, font).nodes);
 expectEqual('power browser path labels translated construction',
   mp.generatedForExpression('X^2').programSource,
-  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:5678, 34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 for (const expression of ['X^', '^2', 'X^^2'])
   expectEqual(`${expression} is outside the translated power grammar`,
     mp.constructedProgramForExpression(expression), null);
@@ -1593,28 +1640,28 @@ for (const [expression,nodes,entryId] of browserProgramCases) {
 }
 expectEqual('absolute browser path labels translated construction',
   mp.generatedForExpression('abs(X-3)').programSource,
-  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:5678, 34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('radical browser path labels translated construction',
   mp.generatedForExpression('sqrt(X^2+1)').programSource,
-  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:5678, 34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('nth-root browser path labels translated construction',
   mp.generatedForExpression('nthroot(3,X+1)').programSource,
-  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:5678, 34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('compositional browser path labels translated construction',
   mp.generatedForExpression('X^sqrt(2)').programSource,
-  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:5678, 34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('fraction browser path labels translated construction',
   mp.generatedForExpression('1//2').programSource,
-  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:5678, 34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('integral browser path labels translated construction',
   mp.generatedForExpression('int(1,2,X,X)').programSource,
-  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:5678, 34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('summation browser path labels translated construction',
   mp.generatedForExpression('sum(N,1,3,N^2)').programSource,
-  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:5678, 34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('nDeriv browser path labels translated construction',
   mp.generatedForExpression('nDeriv(X^2,X,1)').programSource,
-  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:5678, 34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 if (!mp.generatedForExpression('A+(X)'))
   throw new Error('visible grouped expression has no generated LCD write stream');
 
