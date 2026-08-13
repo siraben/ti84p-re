@@ -487,6 +487,50 @@ expectThrows('34:5678 rejects an offset inside a packed token', RangeError,
 expectThrows('34:5678 rejects a missing structural close', RangeError,
   () => rom.settledStructuralArgumentScan([0xb2,0x58]));
 
+for (const [label, bytes, operatorOffset, expected] of [
+  ['numeric raised run',[0x58,0xf0,0x31,0x32],1,{
+    renderType:0x2a, metadata:[1,1,0,0,0], start:2, end:4,
+    returnedCursor:4, restoredCursor:2, branch:'34:56A7 → 34:5866',
+    parseAhead:null,
+  }],
+  ['outer editor slot',
+    [0x32,0xf0,0x10,0x58,0xf0,0x10,0x32,0x0f,0x11,0x11],1,{
+      renderType:0x2a, metadata:[1,1,0,0,0], start:2, end:10,
+      returnedCursor:10, restoredCursor:2, branch:'34:56BB–56D3',
+      parseAhead:{a:0x11,stopCursor:9,de:0xff00,zero:true,carry:true,
+        scratch:[0x42,0,0,0]},
+    }],
+  ['nested editor slot',
+    [0x32,0xf0,0x10,0x58,0xf0,0x10,0x32,0x0f,0x11,0x11],4,{
+      renderType:0x2a, metadata:[1,1,0,0,0], start:5, end:9,
+      returnedCursor:9, restoredCursor:5, branch:'34:56BB–56D3',
+      parseAhead:{a:0x11,stopCursor:8,de:0xff00,zero:true,carry:true,
+        scratch:[2,0,0,0]},
+    }],
+  ['nth-root editor slot',[0x32,0xf1,0x10,0x58,0x70,0x31,0x11],1,{
+    renderType:0x24, metadata:[1,1,2,0,0], start:2, end:7,
+    returnedCursor:7, restoredCursor:2, branch:'34:56BB–56D3',
+    parseAhead:{a:0x11,stopCursor:6,de:0xff00,zero:true,carry:true,
+      scratch:[2,0,0,0]},
+  }],
+]) {
+  const scan = rom.settledRaisedOperandScan(bytes,operatorOffset);
+  expectEqual(`34:5699 ${label}`,{
+    renderType:scan.renderType,
+    metadata:scan.metadata,
+    start:scan.start,
+    end:scan.end,
+    returnedCursor:scan.returnedCursor,
+    restoredCursor:scan.restoredCursor,
+    branch:scan.branch,
+    parseAhead:scan.parseAhead && parseAheadAbi(scan.parseAhead),
+  },expected);
+}
+expectThrows('34:5699 rejects an untraced raised token-class branch',
+  RangeError, () => rom.settledRaisedOperandScan([0x58,0xf0,0x58],1));
+expectThrows('34:5699 rejects a missing raised close', RangeError,
+  () => rom.settledRaisedOperandScan([0x58,0xf0,0x10,0x31],1));
+
 for (const [label, bytes, stopCursor] of [
   ['nested comma in parentheses',[0x10,0x31,0x2b,0x32,0x11,0x2b,0x33],5],
   ['nested comma in braces',[0x08,0x31,0x2b,0x32,0x09,0x2b,0x33],5],
@@ -502,7 +546,8 @@ expectThrows('parse-ahead rejects a truncated two-byte token', RangeError,
   }));
 
 for (const [label, expression, nativeTokens] of [
-  ['right-associated power','2^X^2',[0x32,0xf0,0x58,0xf0,0x32]],
+  ['right-associated power','2^X^2',
+    [0x32,0xf0,0x10,0x58,0xf0,0x32,0x11]],
   ['raised fraction boundaries','X^(1//2)',
     [0x58,0xf0,0x10,0x10,0x31,0xef,0x2e,0x32,0x11,0x11]],
   ['nested fraction denominator','1//(2//3)',

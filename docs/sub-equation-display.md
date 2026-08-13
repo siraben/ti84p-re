@@ -1002,6 +1002,15 @@ source-byte range with its child index and verifies the terminating comma or
 `0x11` byte. The retained summation trace reaches `34:56EC` four times and
 matches those ranges. [confirmed]
 
+Scan kind `1` enters `34:5699` for `F0h` power and `F1h` nth-root operators.
+It saves the source cursor, returns an operand endpoint in `BC`, and restores
+the source cursor at `34:56AC`–`34:56B3`. `X^12` returns after both digit
+bytes. The `2^(X^(2³))` editor buffer contains explicit `10h`–`11h` raised
+slots; separate calls return the outer and inner closing-slot endpoints. The
+JavaScript scanner translates these numeric and delimited-slot branches and
+requires native construction to stop at the same half-open byte boundary.
+Other kind-`1` token classes remain untranslated. [confirmed]
+
 The browser expands every accepted byte into eight ordered pixel results. A
 timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement
@@ -1056,8 +1065,9 @@ expressions from native token bytes, including nesting among the structural
 forms. The translated renderer exposes every generated LCD byte and the
 resulting pixel frame as a live timeline. This mode does not load a record
 fixture or captured LCD event stream. Multi-argument and generic-function
-boundaries now pass through the translated `34:5AA3` state machine. The
-remaining source grammar and record-construction branches are listed above.
+boundaries pass through the translated `34:5AA3` state machine. Numeric and
+delimited raised operands also pass through the translated `34:5699` scan.
+The remaining source grammar and record-construction branches are listed above.
 [confirmed]
 
 The standalone nth-root encoder supplies an inferred template boundary because
