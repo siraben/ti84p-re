@@ -18,8 +18,9 @@
 
   <section id="tab-renderer">
   <p class="lede">
-    Type an expression to inspect a 2-D model built from the calculator's ROM
-    font glyphs. Closed page-<code>0x39</code> record and descriptor routines run
+    Type an expression or prefix native token bytes with <code>hex:</code> to
+    inspect the calculator's pixel-level LCD write stream. Closed
+    page-<code>0x39</code> record and descriptor routines run
     through a direct JavaScript translation documented in the
     <a href="../sub-equation-display.html">Equation display (MathPrint)</a> wiki page.
     Supported named-token, absolute-value, power, radical, nth-root,
@@ -29,8 +30,9 @@
     fraction numerator. They then execute through
     the translated structural renderer and LCD blitters to generate every
     accepted LCD data write and replay each byte onto the 96&times;64 pixel grid.
-    Other expressions fall back to the labeled
-    compositor. Captured calculator writes remain available as a separate
+    Raw native bytes never fall back to the labeled compositor: unsupported or
+    malformed streams report an error. Other text expressions can fall back to
+    that compositor. Captured calculator writes remain available as a separate
     oracle view for two integral scenarios.
   </p>
 
@@ -102,12 +104,16 @@
           use their native two-byte TI tokens</li>
       <li><code>cumSum(x)</code> and <code>remainder(x,y)</code> exercise the
           extended <code>BB</code> and <code>EF</code> token tables</li>
+      <li><code>hex: EF 33 4E F0 32 2B 4E 2B 31 2B 33 11</code> sends native
+          token bytes directly to the translated constructor and LCD writer</li>
     </ul>
     <p>
       The accepted syntax is a small, lenient notation for experimenting with
       TI-84 constructs; it is not TI-BASIC syntax or a complete template parser.
       This text grammar is a frontend; the RE-generated path begins with the
       native bytes shown above its write table.
+      A <code>hex:</code> input bypasses the text grammar and reports any
+      unsupported construction branch instead of using the model compositor.
       The executable ROM translations stop at unresolved branches. Trace-fitted
       box constants remain in the model compositor.
     </p>

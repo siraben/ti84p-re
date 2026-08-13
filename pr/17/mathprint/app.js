@@ -1352,9 +1352,40 @@ function constructedProgramForExpression(expression) {
   return ROM_ENGINE.constructSettledProgramFromTokens(nativeTokens, 1, FONT);
 }
 
+function parseNativeTokenInput(source) {
+  if (typeof source !== 'string')
+    throw new TypeError('native token input must be text');
+  const match = /^\s*hex\s*:(.*)$/is.exec(source);
+  if (!match) return null;
+  const body = match[1].trim();
+  if (!body)
+    throw new RangeError('native token input must contain at least one byte');
+  const fields = body.split(/[\s,]+/);
+  if (fields.some(field => !/^[0-9a-f]{2}$/i.test(field)))
+    throw new RangeError(
+      'native token bytes must use two hexadecimal digits separated by spaces or commas');
+  return fields.map(field => Number.parseInt(field, 16));
+}
+
+function constructedProgramForNativeTokens(nativeTokens) {
+  if (!ROM_ENGINE) return null;
+  return ROM_ENGINE.constructSettledProgramFromTokens(nativeTokens, 1, FONT);
+}
+
+function generatedForNativeTokens(nativeTokens) {
+  return generateRecordProgram(constructedProgramForNativeTokens(nativeTokens));
+}
+
 function generatedForExpression(expression) {
   const constructed = constructedProgramForExpression(expression);
   return generateRecordProgram(constructed);
+}
+
+function generatedForInput(source) {
+  const nativeTokens = parseNativeTokenInput(source);
+  return nativeTokens === null
+    ? generatedForExpression(source)
+    : generatedForNativeTokens(nativeTokens);
 }
 
 function activeTimeline() {
@@ -1471,16 +1502,22 @@ function render(step) {
   const scale = +document.getElementById('scale').value;
   const showPen = document.getElementById('pen').checked;
   try {
-    const expression = document.getElementById('expr').value;
-    const box = CUR = parse(expression);
-    CUR_TRACE = traceForExpression(expression);
-    CUR_GENERATED = generatedForExpression(expression);
-    const requested = document.getElementById('source').value;
+    const input = document.getElementById('expr').value;
+    const nativeTokens = parseNativeTokenInput(input);
+    const nativeInput = nativeTokens !== null;
+    CUR = nativeInput ? null : parse(input);
+    CUR_TRACE = nativeInput ? null : traceForExpression(input);
+    CUR_GENERATED = nativeInput
+      ? generatedForNativeTokens(nativeTokens)
+      : generatedForExpression(input);
+    const source = document.getElementById('source');
+    if (nativeInput && source.value !== 'generated') source.value = 'generated';
+    const requested = source.value;
     const generated = requested === 'generated' && CUR_GENERATED;
     const captured = requested === 'trace' && CUR_TRACE;
     if (generated) renderGenerated(CUR_GENERATED, step, scale);
     else if (captured) renderTrace(CUR_TRACE, step, scale);
-    else renderModel(box, step, scale, showPen);
+    else renderModel(CUR, step, scale, showPen);
     document.getElementById('timeline-hint').textContent = generated || captured
       ? (generated ? 'step every accepted LCD data write' : 'step visible-changing LCD writes')
       : 'step model composition order';
@@ -1488,7 +1525,8 @@ function render(step) {
       ? `Captured mode replays accepted T6A04 writes from trace <code>${escapeHtml(CUR_TRACE.trace_sha256.slice(0, 12))}…</code> ` +
         `in instruction order. Blue pixels are set; outlined red pixels are cleared.`
       : generated
-        ? `RE-generated mode starts from ${escapeHtml(CUR_GENERATED.programSource)}, then executes ` +
+        ? `${nativeInput ? 'Raw native-token mode' : 'RE-generated mode'} starts from ` +
+          `${escapeHtml(CUR_GENERATED.programSource)}, then executes ` +
           `record bytes through the translated structural renderer and ` +
           `blitters. Captured LCD events are comparison oracles only and are not loaded by this path.`
         : (requested === 'model'
@@ -1497,6 +1535,11 @@ function render(step) {
               `this expression. Showing the labeled heuristic model instead.`);
     document.getElementById('err').textContent = '';
   } catch (e) {
+    CUR = CUR_TRACE = CUR_GENERATED = null;
+    const canvas = document.getElementById('screen');
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    document.getElementById('dims').textContent = '';
+    document.getElementById('penlog').innerHTML = '';
     document.getElementById('err').textContent = String(e);
   }
 }
@@ -1649,8 +1692,12 @@ if (typeof module !== 'undefined') {
     penLog,
     traceFrame,
     generateRecordProgram,
+    parseNativeTokenInput,
+    constructedProgramForNativeTokens,
+    generatedForNativeTokens,
     constructedProgramForExpression,
     generatedForExpression,
+    generatedForInput,
     toText: box => box.rows.map(r => r.map(c => (c ? '#' : '.')).join('')).join('\n'),
   };
 }

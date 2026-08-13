@@ -1778,6 +1778,13 @@
           peek(0xbb,0x29) || peek(0xef,0x32))
         return parseFunctionRun(take());
 
+      const unsupportedStructuralType = settledStructuralTokenType(
+        units[cursor].prefix, units[cursor].token);
+      if (unsupportedStructuralType !== null)
+        throw new RangeError(
+          `settled native structural type 0x${unsupportedStructuralType.toString(16)} ` +
+          `at byte ${units[cursor].offset} has no translated constructor`);
+
       // A numeric literal is one scanner atom. Letters and named two-byte
       // variables remain separate atoms so X^2 in 2X^2 binds only X.
       if (peek(0,0x3a) || (units[cursor].prefix === 0 &&
