@@ -62,6 +62,15 @@ source order to child-record order. The native permutations are integral
 `[4,1,2,3]`. A retained summation trace pins the four kind-`4` calls and their
 returned boundaries.
 
+Structural scan kind `6` at `34:568A` now consumes native `06h`–`07h` matrix
+containers. It translates the `34:57C2` source-cursor rewind and the following
+`34:5AA7` call with `B=20h` for every element. Each returned range ends at a
+depth-zero `2Bh` column separator or row-closing `07h`. The raw native path
+checks the translated row and column count before constructing the matrix.
+Primitive numeric and signed cells are covered by retained value traces;
+nested structural cells remain rejected until their kind-`6` resume path is
+traced.
+
 Render-record type `0x22` is translated through `34:622F`. The interactive
 integral sign now uses its exact vertical-segment and four-point operation order
 instead of stretching glyph `0x08`.

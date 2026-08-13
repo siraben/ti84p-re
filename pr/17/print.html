@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-46bd9ff8.js";
+            window.path_to_searchindex_js = "searchindex-b1991484.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15377,6 +15377,16 @@ at <code>ram:9D05</code>. The JavaScript scanner retains these results and verif
 operand ranges before constructing a type-<code>0x20</code> record. Leaf, powered,
 nested-denominator, and raised-fraction cases cover the translated branches.
 [confirmed]</p>
+<p>Scan kind <code>6</code> enters <code>34:568A</code> for each matrix element. Native matrix values
+use <code>06h</code> and <code>07h</code> square-bracket tokens for the outer container and each row.
+<code>34:57C2</code> reads the current element token, rewinds <code>ram:965D</code> by one byte, and
+then <code>34:5AA7</code> scans with <code>B=20h</code>. The returned <code>BC</code> points to a depth-zero
+<code>2Bh</code> comma or the row-closing <code>07h</code>. The <code>0x9D05</code> result is <code>0</code> for a comma
+and <code>FFh</code> for the row close. The JavaScript scanner retains these results and
+derives row-major element ranges. Retained $1\times1$, $1\times2$,
+$2\times3$, and $3\times3$ value traces pin primitive numeric cells. Nested
+structural matrix cells remain closed until a trace pins the constructor’s
+resume path after the child boundary. [confirmed]</p>
 <p>The browser expands every accepted byte into eight ordered pixel results. A
 timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement
