@@ -870,11 +870,38 @@ function generateRecordProgram(program) {
       operation:operations[write.operationIndex],
       sequence:index,
     })),
+    programSource:program.source || 'captured settled record snapshot',
   };
 }
 
+const FLAT_SETTLED_OPERATOR_TOKENS = Object.freeze({
+  '+':0x70, '-':0x71, '*':0x82, '/':0x83,
+});
+
+function flatSettledTokenBytes(source) {
+  const bytes = [];
+  for (const ch of source) {
+    if (/[A-Z0-9]/.test(ch)) bytes.push(ch.charCodeAt(0));
+    else if (ch === '.') bytes.push(0x3a);
+    else if (FLAT_SETTLED_OPERATOR_TOKENS[ch] !== undefined)
+      bytes.push(FLAT_SETTLED_OPERATOR_TOKENS[ch]);
+    else return null;
+  }
+  return bytes.length ? bytes : null;
+}
+
+function constructedProgramForExpression(expression) {
+  if (!ROM_ENGINE) return null;
+  const match = /^abs\(([A-Z0-9.+*/-]+)\)$/.exec(expression.trim());
+  if (!match || match[1].includes('//')) return null;
+  const payload = flatSettledTokenBytes(match[1]);
+  return payload ? ROM_ENGINE.constructSettledAbsoluteProgram(payload) : null;
+}
+
 function generatedForExpression(expression) {
-  return generateRecordProgram((RECORD_PROGRAMS.programs || {})[expression.trim()]);
+  const constructed = constructedProgramForExpression(expression);
+  const fixture = (RECORD_PROGRAMS.programs || {})[expression.trim()];
+  return generateRecordProgram(constructed || fixture);
 }
 
 function activeTimeline() {
@@ -937,7 +964,8 @@ function renderGenerated(record, step, scale) {
   }).join('');
   document.getElementById('penlog').innerHTML =
     `<p class="note">RE-generated LCD data writes. JavaScript executes the settled ` +
-    `record program, geometry routines, glyph blitter, and byte packing; no captured ` +
+    `record program, geometry routines, glyph blitter, and byte packing. Input: ` +
+    `<code>${escapeHtml(record.programSource)}</code>. No captured ` +
     `LCD events are used as input. Click a row to jump to that write.</p>` +
     `<table><thead><tr><th>#</th><th>operation</th><th>byte</th><th>LCD x,y</th>` +
     `<th>pixels</th><th>translated path</th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -988,7 +1016,8 @@ function render(step) {
       ? `Captured mode replays accepted T6A04 writes from trace <code>${escapeHtml(CUR_TRACE.trace_sha256.slice(0, 12))}…</code> ` +
         `in instruction order. Blue pixels are set; outlined red pixels are cleared.`
       : generated
-        ? `RE-generated mode executes record bytes through the translated structural renderer and ` +
+        ? `RE-generated mode starts from ${escapeHtml(CUR_GENERATED.programSource)}, then executes ` +
+          `record bytes through the translated structural renderer and ` +
           `blitters. Captured LCD events are comparison oracles only and are not loaded by this path.`
         : (requested === 'model'
             ? `Model mode steps inferred composition elements. It is not an OS draw timeline.`
@@ -1148,6 +1177,7 @@ if (typeof module !== 'undefined') {
     penLog,
     traceFrame,
     generateRecordProgram,
+    constructedProgramForExpression,
     generatedForExpression,
     toText: box => box.rows.map(r => r.map(c => (c ? '#' : '.')).join('')).join('\n'),
   };
