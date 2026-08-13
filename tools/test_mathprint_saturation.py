@@ -26,9 +26,11 @@ from analyze_mathprint_saturation import (
     metric_marker_path,
     symbolic_metric_marker_paths,
     symbolic_type1f_paths,
+    type1f_entry_abis,
+    type1f_path,
     type1f_terminal,
 )
-from rom_image import RomLocation
+from rom_image import RomImage, RomLocation
 from z80_disassembly import Z80Instruction
 
 
@@ -163,6 +165,49 @@ class SymbolicHandlerTests(unittest.TestCase):
             terminals,
         )
 
+    def test_type1f_partition_preserves_distinct_branch_paths(self) -> None:
+        radical = type1f_path(0x27, 1, 0)
+        default = type1f_path(0x43, 0, 0)
+
+        self.assertEqual("bitmap_630C", radical["terminal"])
+        self.assertEqual(
+            ["34:6145:fallthrough", "34:614E:taken"],
+            radical["branch_outcomes"],
+        )
+        self.assertEqual("bitmap_61BE", default["terminal"])
+        self.assertIn("34:61AB:fallthrough", default["branch_outcomes"])
+
+    def test_type1f_entry_abis_separate_table_and_editor_origins(self) -> None:
+        rom = RomImage.from_path(Path(__file__).resolve().parent / "rom.bin")
+        witnesses = {
+            ("page_34", 0x6145, "fallthrough"): {
+                "trace": "radical", "instruction_index": 10,
+                "state": {"A": 0x27},
+            },
+            ("page_34", 0x614E, "taken"): {
+                "trace": "radical", "instruction_index": 13,
+                "state": {"A": 0x27},
+            },
+            ("page_34", 0x6145, "taken"): {
+                "trace": "integral", "instruction_index": 20,
+                "state": {"A": 0x22},
+            },
+            ("page_34", 0x6157, "fallthrough"): {
+                "trace": "integral", "instruction_index": 22,
+                "state": {"A": 0x22},
+            },
+        }
+
+        table, editor = type1f_entry_abis(rom, witnesses)
+        self.assertEqual("0x43", table["incoming_A"])
+        self.assertEqual("bitmap_61BE", table["terminal"])
+        self.assertEqual([], table["state_dependencies"])
+        self.assertEqual("byte at editTail + 1", editor["incoming_A"])
+        self.assertEqual(
+            [0x27, 0x22],
+            [row["A"] for row in editor["observed_entry_states"]],
+        )
+
     def test_metric_marker_gate_distinguishes_all_local_outcomes(self) -> None:
         self.assertEqual(
             "return_nz_pointer_mismatch",
@@ -235,6 +280,10 @@ class OracleCoverageTests(unittest.TestCase):
         )
         self.assertEqual(["alpha"], report["omitted"])
         self.assertEqual(30, report["selected_trace_bytes"])
+        self.assertEqual(
+            ["34:5000:fallthrough", "34:5010:taken"],
+            report["selected"][0]["exclusive_outcome_ids"],
+        )
         self.assertTrue(report["proven_minimum"])
 
     def test_exact_cover_beats_greedy_choice(self) -> None:

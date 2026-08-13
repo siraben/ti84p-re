@@ -250,7 +250,10 @@ TRANSLATION_SURFACES = (
         "rom": ["34:6105", "34:660A", "34:6CCD"],
         "javascript": ["executeSettledRecordGraph", "executeSettledRecordProgram"],
         "tests": ["tools/test-mathprint.js", "tools/mathprint-*-oracles.json"],
-        "scope": "types 20h–2Bh translated with oracles; type 1Fh remains state-dependent",
+        "scope": (
+            "types 20h–2Bh translated with oracles; the type-1Fh table ABI "
+            "is fixed, but lacks a captured record oracle"
+        ),
     },
     {
         "name": "font, primitive, and LCD emission",
@@ -625,21 +628,177 @@ def type1f_terminal(a: int, iy44_bit3: int, value_8520: int) -> str:
     return "bitmap_61BE"
 
 
-def symbolic_type1f_paths() -> list[dict[str, object]]:
-    # Boundary representatives partition every byte/word predicate in 34:6143.
-    by_terminal: dict[str, list[dict[str, int]]] = defaultdict(list)
+def type1f_path(a: int, iy44_bit3: int, value_8520: int) -> dict[str, object]:
+    """Return the exact conditional path through the shared 34:6143 helper."""
+
+    a &= 0xFF
+    iy44_bit3 = int(bool(iy44_bit3))
+    value_8520 &= 0xFFFF
+    outcomes = []
+
+    def branch(address: int, taken: bool) -> None:
+        outcomes.append(f"34:{address:04X}:{'taken' if taken else 'fallthrough'}")
+
+    branch(0x6145, a != 0x27)
+    if a == 0x27:
+        branch(0x614E, bool(iy44_bit3))
+        return {
+            "terminal": type1f_terminal(a, iy44_bit3, value_8520),
+            "branch_outcomes": outcomes,
+        }
+
+    branch(0x6157, a != 0x22)
+    if a == 0x22:
+        return {
+            "terminal": type1f_terminal(a, iy44_bit3, value_8520),
+            "branch_outcomes": outcomes,
+        }
+    branch(0x6166, a == 0x21)
+    if a == 0x21:
+        return {
+            "terminal": type1f_terminal(a, iy44_bit3, value_8520),
+            "branch_outcomes": outcomes,
+        }
+    branch(0x616C, a == 0x25)
+    if a == 0x25:
+        return {
+            "terminal": type1f_terminal(a, iy44_bit3, value_8520),
+            "branch_outcomes": outcomes,
+        }
+    branch(0x6170, a != 0x2B)
+    if a == 0x2B:
+        high, low = value_8520 >> 8, value_8520 & 0xFF
+        branch(0x6178, bool(high))
+        if high:
+            return {
+                "terminal": type1f_terminal(a, iy44_bit3, value_8520),
+                "branch_outcomes": outcomes,
+            }
+        branch(0x6181, not iy44_bit3)
+        bound = 8 if iy44_bit3 else 6
+        branch(0x6186, low >= bound)
+        if low >= bound:
+            return {
+                "terminal": type1f_terminal(a, iy44_bit3, value_8520),
+                "branch_outcomes": outcomes,
+            }
+        branch(0x618E, bool(iy44_bit3))
+        return {
+            "terminal": type1f_terminal(a, iy44_bit3, value_8520),
+            "branch_outcomes": outcomes,
+        }
+
+    branch(0x619F, a == 0x26)
+    if a == 0x26:
+        return {
+            "terminal": type1f_terminal(a, iy44_bit3, value_8520),
+            "branch_outcomes": outcomes,
+        }
+    branch(0x61A5, a == 0x28)
+    if a == 0x28:
+        return {
+            "terminal": type1f_terminal(a, iy44_bit3, value_8520),
+            "branch_outcomes": outcomes,
+        }
+    branch(0x61AB, a == 0x29)
+    return {
+        "terminal": type1f_terminal(a, iy44_bit3, value_8520),
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_type1f_paths(
+    a_values: Iterable[int] = range(0x100),
+) -> list[dict[str, object]]:
+    """Partition the helper state by complete branch path and terminal action."""
+
+    classes: dict[
+        tuple[str, tuple[str, ...]], list[dict[str, int]]
+    ] = defaultdict(list)
+    # These representatives straddle the high-byte and both low-byte bounds.
     representatives_8520 = (0, 1, 5, 6, 7, 8, 9, 0x0100)
-    for a in range(0x100):
+    for a in a_values:
         for bit in (0, 1):
             for value in representatives_8520:
-                terminal = type1f_terminal(a, bit, value)
-                if len(by_terminal[terminal]) < 4:
-                    by_terminal[terminal].append(
+                result = type1f_path(a, bit, value)
+                key = (
+                    str(result["terminal"]),
+                    tuple(str(item) for item in result["branch_outcomes"]),
+                )
+                if len(classes[key]) < 4:
+                    classes[key].append(
                         {"A": a, "iy44_bit3": bit, "word_8520": value}
                     )
     return [
-        {"terminal": terminal, "representative_states": states}
-        for terminal, states in sorted(by_terminal.items())
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            "representative_states": states,
+        }
+        for (terminal, outcomes), states in sorted(classes.items())
+    ]
+
+
+def type1f_entry_abis(
+    rom: RomImage,
+    witnesses: dict[tuple[str, int, str], dict[str, object]],
+) -> list[dict[str, object]]:
+    """Describe the two ROM-proven callers that share 34:6143."""
+
+    table_pointer = rom.u16le(0x34, 0x6119)
+    table_a = table_pointer & 0xFF
+    observed = []
+    first = witnesses.get(("page_34", 0x6145, "fallthrough"))
+    bit = witnesses.get(("page_34", 0x614E, "taken"))
+    if first and bit and first["trace"] == bit["trace"]:
+        observed.append({
+            "A": first["state"]["A"],
+            "iy44_bit3": 1,
+            "terminal": "bitmap_630C",
+            "trace": first["trace"],
+            "instruction_index": first["instruction_index"] - 1,
+        })
+    first_nonradical = witnesses.get(("page_34", 0x6145, "taken"))
+    integral = witnesses.get(("page_34", 0x6157, "fallthrough"))
+    if (
+        first_nonradical and integral
+        and first_nonradical["trace"] == integral["trace"]
+        and integral["state"]["A"] == 0x22
+    ):
+        observed.append({
+            "A": 0x22,
+            "terminal": "glyph_7C_set_iy32_bit2",
+            "trace": integral["trace"],
+            "instruction_index": first_nonradical["instruction_index"] - 1,
+        })
+    return [
+        {
+            "origin": "settled type-0x1F render-table dispatch",
+            "caller": "34:6105",
+            "entry_chain": "34:6105 → table 34:6119 → _LdHLind 00:0033 → 34:6143",
+            "rom_bytes": {
+                "table_entry": rom.bytes_at(0x34, 0x6119, 2).hex().upper(),
+                "pointer_loader": rom.bytes_at(0x00, 0x0033, 5).hex().upper(),
+            },
+            "incoming_A": f"0x{table_a:02X}",
+            "state_dependencies": [],
+            "terminal": type1f_terminal(table_a, 0, 0),
+            "path_classes": symbolic_type1f_paths((table_a,)),
+            "dynamic_record_oracle": False,
+        },
+        {
+            "origin": "live editor cursor feedback",
+            "caller": "06:7F29–7F2E",
+            "entry_chain": "06:7F2E → bjump descriptor ram:30BD → 34:6143",
+            "rom_bytes": {
+                "caller": rom.bytes_at(0x06, 0x7F29, 8).hex().upper(),
+                "bjump_descriptor": rom.bytes_at(0x00, 0x30BD, 6).hex().upper(),
+            },
+            "incoming_A": "byte at editTail + 1",
+            "state_dependencies": ["A", "(IY+44h).3", "word 0x8520 when A=0x2B"],
+            "path_classes": symbolic_type1f_paths(range(0x1F, 0x2C)),
+            "observed_entry_states": observed,
+        },
     ]
 
 
@@ -732,7 +891,7 @@ def table_report(rom: RomImage, oracle: dict[str, object]) -> dict[str, object]:
                 "geometry_handler": f"34:{geometry[index]:04X}",
                 "oracle_records": count,
                 "javascript_status": (
-                    "unresolved_stateful_handler" if render_type == 0x1F
+                    "fixed_table_abi_without_record_oracle" if render_type == 0x1F
                     else "translated_with_record_oracle" if count
                     else "translated_without_record_oracle"
                 ),
@@ -1164,6 +1323,9 @@ def minimize_trace_corpus(
                 "label": label,
                 "total_outcomes": len(trace_outcomes[label]),
                 "exclusive_outcomes": len(exclusive),
+                "exclusive_outcome_ids": [
+                    outcome_id(outcome) for outcome in sorted(exclusive)
+                ],
             }
         )
     return {
@@ -1243,11 +1405,11 @@ def open_paths(
     )
     return [
         {
-            "area": "render type 1Fh",
+            "area": "render type 1Fh record oracle",
             "status": "open",
             "reason": (
-                "34:6143 depends on incoming A, (IY+44h).3, and word 0x8520; "
-                "the retained record oracles do not dispatch a type-1Fh node"
+                "the 34:6119 table entry fixes A=43h and therefore the 61BEh "
+                "bitmap path, but no retained record oracle dispatches a type-1Fh node"
             ),
         },
         {
@@ -1461,6 +1623,7 @@ def build_report(
                 "routine": "34:6143",
                 "state": ["A", "(IY+44h).3", "word 0x8520"],
                 "terminal_classes": symbolic_type1f_paths(),
+                "entry_abis": type1f_entry_abis(rom, witnesses),
                 "dynamic_record_oracle": False,
             },
             "metric_marker_tail_gate": {
