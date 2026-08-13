@@ -540,7 +540,7 @@ The translated renderer then maps the ordered operations through the ROM font
 bitmaps, page-4 point and line behavior, `_VPutMap`, the page-7 large-glyph
 path, and LCD byte packing. Six settled programs reproduce every accepted LCD
 data write through the outer `34:660A` return: absolute value (49 writes), nth
-root (69), radical (82), summation (66), `nDeriv(` (110), and a nested
+root (69), radical (82), summation (66), `nDeriv(` (96), and a nested
 integral/fraction (114). This comparison includes accepted writes whose value
 does not change the displayed byte. [confirmed]
 
@@ -702,13 +702,50 @@ also reproduces every accepted LCD data write through the outer `34:660A`
 return. The traces supply comparison oracles, not constructor input.
 [confirmed]
 
+The settled lower-bound leaf for `sum(N,1,3,N^2)` contains `0x31`. The byte
+pair `EF 1E` instead emits display code `0xF7`, the empty template square. It
+belongs to editable template state and does not occur in the settled summation
+graph. [confirmed]
+
+The type-`0x23` constructor maps source token `0025h` through `34:594D`.
+`34:4900` allocates the `nDeriv(` record, then reserves child leaves for the
+variable, body, and evaluation value in that order. It fills those leaves
+before it allocates structural descendants of the body or value. A nested
+`nDeriv(` applies the same reservation rule recursively. [confirmed]
+
+For body metrics $(h_b,w_b,b_b)$ and variable and evaluation-value widths
+$w_v$ and $w_e$, the metric branches at `34:7485` and `34:76C2` produce
+[confirmed]
+
+$$
+\begin{aligned}
+B &= \max(6,b_b), & H &= \max(h_b,B+7), \\
+x_v &= 5, & y_v &= B+2, \\
+x_b &= 16, & y_b &= B-b_b, \\
+x_e &= w_b+w_v+29, & y_e &= B+2, \\
+W &= x_e+w_e.
+\end{aligned}
+$$
+
+The type-`0x23` record stores `3`, $H$, $W$, and $B$ at `+5`, `+7`, `+9`,
+and `+0x0B`. The variable leaf uses render type `1`. For the settled scalar
+case `nDeriv(X,X,1)`, the one-token body uses `EF 1E`; observed `A/A` and
+`X/A` cases retain their ordinary body token. This rule is specific to the
+one-token `X/X` case. [confirmed]
+
+Twelve reset-origin traces cover ordinary and unequal-width arguments, power,
+radical, fraction, nth-root, and integral bodies, plus nested `nDeriv(`. The
+JavaScript constructor matches every record field and ID. It also reproduces
+every accepted LCD data write through the outer `34:660A` return. The traces
+supply comparison oracles, not constructor input. [confirmed]
+
 Flat absolute-value bodies and expressions composed from ordinary token runs,
 right-associated powers, radicals, nth roots, and stacked fractions now run
 from tokens through record construction, layout, drawing operations, and LCD
-byte writes. Integrals and summations compose with the same translated forms in
-their limits and bodies. Only `nDeriv(` still begins from a record snapshot
-captured at `34:660A`. Full arbitrary-expression parity requires its constructor
-and the remaining metric branches. [confirmed]
+byte writes. Integrals, summations, and `nDeriv(` compose with the same
+translated forms in their arguments. Construction inside a fraction numerator
+and the remaining arbitrary-expression branches are still untranslated.
+[confirmed]
 
 Each dispatch also captures the viewport origin at `ram:8DFE`/`ram:8E00`.
 Nested fraction `1/2` reaches `34:5DA6` with the local rule `(1,6)`–`(5,6)`
@@ -760,9 +797,11 @@ settled record programs provide exact final-pixel and complete accepted-write
 parity for their expressions. Three fresh absolute-value cases, four power
 cases, eight power/radical composition cases, four nth-root cases, thirteen
 fraction cases, twelve integral cases, and eleven summation cases verify
-token-to-record construction and complete accepted-write streams. The deepest
-power oracle has three raised levels. Two longer trace scenarios cover the
-editor and display activity around the final key press. [confirmed]
+token-to-record construction and complete accepted-write streams. Twelve
+`nDeriv(` cases verify its three arguments, structural bodies, and recursive
+nesting. The deepest power oracle has three raised levels. Two longer trace
+scenarios cover the editor and display activity around the final key press.
+[confirmed]
 
 ## Extracted records and interactive model
 
@@ -776,9 +815,10 @@ translations in `web/mathprint/rom-engine.js`. The translated routines consume
 classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in `app.js` still uses a separate,
 trace-fitted box model. `web/mathprint/record-programs.json` contains six
-captured record snapshots. The browser constructs supported absolute-value,
-power, radical, nth-root, stacked-fraction, integral, and summation expressions
-from tokens, including nesting among the structural forms. It uses a snapshot
-only for `nDeriv(`. Both input forms execute through the translated
-renderer and expose every generated LCD write as a live timeline. This mode
-does not load captured LCD events. [confirmed]
+retained record snapshots for comparison. The browser constructor takes
+precedence over those fixtures. It constructs supported absolute-value, power,
+radical, nth-root, stacked-fraction, integral, summation, and `nDeriv(`
+expressions from tokens, including nesting among the structural forms. The
+translated renderer exposes every generated LCD write as a live timeline. This
+mode does not load a fixture or captured LCD events for those expressions.
+[confirmed]
