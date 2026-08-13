@@ -35,8 +35,9 @@ documented at its gen_ast guard):
   * stacked-fraction operands beyond a single leaf (small-fraction glyph spacing)
   * a 2-D body inside abs |…| (a power or radical), and a 2-D power base whose math
     axis the superscript does not place exactly (nthroot index, ∫/Σ big operators)
-  * Σ summation — the Σ template's keystroke slot order is
-    not yet pinned down (use --with-sum to drive it).
+  * Σ summation — the default differential path still exercises the heuristic
+    compositor, while the record constructor has separate exact trace oracles
+    (use --with-sum to drive calculator-versus-compositor cases).
 These are real renderer gaps surfaced by this fuzzer, scoped out of the default
 corpus; widening them is
 follow-up work on web/mathprint/app.js's small-font / baseline metrics.
@@ -74,11 +75,10 @@ VARS = ["X", "A", "N"]
 NUMS = ["1", "2", "3"]
 
 
-# Σ (summation) is excluded from the default construct set: its MathPrint template
-# has a split "var=start" bottom slot whose RIGHT-navigation order is not yet pinned
-# down (probing gives var, end, body, start, but the start slot does not reliably
-# fill), so the keystroke emitter cannot yet build an arbitrary Σ faithfully. The
-# renderer's summation() is intact and reachable with --with-sum for further work.
+# Σ (summation) stays outside the default heuristic-compositor differential set.
+# Its record constructor has exact graph and LCD-write oracles. The variable and
+# lower bound share the first field; RIGHT then advances to the upper bound and
+# body.
 INCLUDE_SUM = False
 
 
@@ -312,13 +312,13 @@ def emit(ast):
         return (["MATH", "9"] + emit(lo) + ["RIGHT"] + emit(hi) + ["RIGHT"] +
                 emit(body) + ["RIGHT"] + emit(var))
     if k == "sum":
-        # MATH 0 -> Σ template. Probing with distinct digits (4 R 5 R 6 R 7) shows
-        # the RIGHT-navigation slot order is: var, end(hi), body, start(lo) — the
-        # "var=start" pair on the bottom is split, with the start typed last. So
-        # var, RIGHT, hi, RIGHT, body, RIGHT, lo, then RIGHT exits.
+        # MATH 0 -> Σ template. The variable and lower bound share the first
+        # field: entering the variable moves the cursor across the equals sign
+        # into the lower-bound slot. RIGHT then advances to the upper bound and
+        # body; the final RIGHT exits the template.
         var, lo, hi, body = ast[1], ast[2], ast[3], ast[4]
-        return (["MATH", "0", "WAIT"] + emit(var) + ["RIGHT"] + emit(hi) + ["RIGHT"] +
-                emit(body) + ["RIGHT"] + emit(lo) + ["RIGHT"])
+        return (["MATH", "0", "WAIT"] + emit(var) + emit(lo) + ["RIGHT"] +
+                emit(hi) + ["RIGHT"] + emit(body) + ["RIGHT"])
     raise AssertionError(k)
 
 
@@ -347,6 +347,8 @@ CURATED = {
     "int_pow_half":("int", ("num", "1"), ("num", "2"),
                     ("pow", ("var", "X"), ("ldiv", ("num", "1"), ("num", "2"))),
                     ("var", "X")),
+    "summation":   ("sum", ("var", "N"), ("num", "1"), ("num", "3"),
+                    ("pow", ("var", "N"), ("num", "2"))),
 }
 
 
@@ -375,7 +377,7 @@ def main():
     ap.add_argument("--threshold", type=float, default=100.0,
                     help="report cases below this match %% (default 100: every mismatch)")
     ap.add_argument("--with-sum", action="store_true",
-                    help="include Σ summation in generation (emitter slot order WIP)")
+                    help="include Σ summation in calculator-versus-compositor generation")
     args = ap.parse_args()
 
     global INCLUDE_SUM

@@ -78,6 +78,9 @@ EXAMPLES = {
                                  "GRAPHVAR", "SUB", "3", "RIGHT"]),
     "nth_root": ("nthroot(3,X+1)", ["3", "MATH", "5", "GRAPHVAR",
                                          "ADD", "1", "RIGHT"]),
+    "summation": ("sum(N,1,3,N^2)",
+                  ["MATH", "0", "WAIT", "ALPHA", "LOG", "1", "RIGHT", "3",
+                   "RIGHT", "ALPHA", "LOG", "POWER", "2", "RIGHT", "RIGHT"]),
 }
 
 PRELUDE = ("set key_hold 0.18s\nset key_delay 0.1s\n"

@@ -1,16 +1,16 @@
 {
-  "schema": 6,
+  "schema": 7,
   "source": "final settled record graphs and outer 34:660A accepted LCD writes from reset-origin traces captured with TilEm d1bdc58dd321ae462a701e556fcb62bb925a78b1",
   "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
-  "tilem_sha256": "b41b9257d0d971d7a8d6fccf6b5dd15b26e0ec0e2d731a9d42def6403ed08f75",
+  "capture_executables": {"existing_cases":"b41b9257d0d971d7a8d6fccf6b5dd15b26e0ec0e2d731a9d42def6403ed08f75","summation_cases":"d48ce996a3c1861e4656e9aee5882d42734ce1e195cf4230e9aaf91f1f106172"},
   "absolute_cases": [
     {
       "expression": "abs(2)",
       "tokens": [50],
       "trace_sha256": "92d0a73dde8ebaae1925a78759966f590184a6884923267354e5637a85fa1e54",
-      "render_interval": [2493763, 2507366],
+      "render_interval": [2493763,2507366],
       "entry_id": 13,
-      "origin": {"x": 0, "y": 0},
+      "origin": {"x":0,"y":0},
       "accepted_write_count": 28,
       "accepted_write_sha256": "f1d6ff64a5cc8b96a2b8f3e4c9cb1bd8bb7b7eb4c7283faef38e4cdbef8ca3c9",
       "nodes": [
@@ -21,11 +21,11 @@
     },
     {
       "expression": "abs(X/2)",
-      "tokens": [88, 131, 50],
+      "tokens": [88,131,50],
       "trace_sha256": "c76d7879cc9dc746d6eee3340f36586dfca2eee7fcd5f728b650682f8163423a",
-      "render_interval": [2680280, 2701110],
+      "render_interval": [2680280,2701110],
       "entry_id": 13,
-      "origin": {"x": 0, "y": 0},
+      "origin": {"x":0,"y":0},
       "accepted_write_count": 49,
       "accepted_write_sha256": "3016539bd4e348fd5ae1f86394a287bc12f4dcfac95e65c6c603e9599d79814a",
       "nodes": [
@@ -36,11 +36,11 @@
     },
     {
       "expression": "abs(X+12)",
-      "tokens": [88, 112, 49, 50],
+      "tokens": [88,112,49,50],
       "trace_sha256": "01cb09abf965613a54371be2aa818535cbfe1f42627db146fd9fcd3f85a8b239",
-      "render_interval": [2778499, 2800849],
+      "render_interval": [2778499,2800849],
       "entry_id": 13,
-      "origin": {"x": 0, "y": 0},
+      "origin": {"x":0,"y":0},
       "accepted_write_count": 56,
       "accepted_write_sha256": "3a56ed147e986e50a5fe79bc3ceffb5572c0a3b803611f01fc9f6c5abd4db001",
       "nodes": [
@@ -53,11 +53,11 @@
   "power_cases": [
     {
       "expression": "X^2",
-      "spec": {"base": [88], "exponent": [50]},
+      "spec": {"base":[88],"exponent":[50]},
       "trace_sha256": "72311a2869ce326e99ab1bf03347b82643ef3fec316efab6dec5eef55cadfe1d",
-      "render_interval": [2020814, 2027248],
+      "render_interval": [2020814,2027248],
       "entry_id": 13,
-      "origin": {"x": 0, "y": 0},
+      "origin": {"x":0,"y":0},
       "accepted_write_count": 17,
       "accepted_write_sha256": "2bcc254beb6e316b1b4b1dd86c66e7b16c142573bd26f699967925ad4cb0ce0a",
       "nodes": [
@@ -68,11 +68,11 @@
     },
     {
       "expression": "X^12",
-      "spec": {"base": [88], "exponent": [49, 50]},
+      "spec": {"base":[88],"exponent":[49,50]},
       "trace_sha256": "07c993fcf0b7ed0539d5d99a214c57c957a3cfc2a622928072e24f8169158b41",
-      "render_interval": [2100964, 2109086],
+      "render_interval": [2100964,2109086],
       "entry_id": 13,
-      "origin": {"x": 0, "y": 0},
+      "origin": {"x":0,"y":0},
       "accepted_write_count": 22,
       "accepted_write_sha256": "874bd9bb81424544b385424eca31846e548c2c0de3bdd18da79a3dd596a63678",
       "nodes": [
@@ -83,11 +83,11 @@
     },
     {
       "expression": "2^X^2",
-      "spec": {"base": [50], "exponent": {"base": [88], "exponent": [50]}},
+      "spec": {"base":[50],"exponent":{"base":[88],"exponent":[50]}},
       "trace_sha256": "f61607ed5385f66b8b64b63eee52307c017246d3288a6730fc06d5cd47629792",
-      "render_interval": [2196047, 2205014],
+      "render_interval": [2196047,2205014],
       "entry_id": 15,
-      "origin": {"x": 0, "y": 0},
+      "origin": {"x":0,"y":0},
       "accepted_write_count": 22,
       "accepted_write_sha256": "13bdea0639d7440c5b0028338242784717c4c3414cf6eaf125c2b175727afeed",
       "nodes": [
@@ -100,11 +100,11 @@
     },
     {
       "expression": "2^X^2^3",
-      "spec": {"base": [50], "exponent": {"base": [88], "exponent": {"base": [50], "exponent": [51]}}},
+      "spec": {"base":[50],"exponent":{"base":[88],"exponent":{"base":[50],"exponent":[51]}}},
       "trace_sha256": "f2740f2615b5a43a759a775da302c18399191f46366c96b465386c561bbea086",
-      "render_interval": [2425606, 2438987],
+      "render_interval": [2425606,2438987],
       "entry_id": 17,
-      "origin": {"x": 0, "y": 0},
+      "origin": {"x":0,"y":0},
       "accepted_write_count": 32,
       "accepted_write_sha256": "81568d320eac7f6c913320f60a7251ab7a39f83713ec9b6cbe8dfb24d1cf3a28",
       "nodes": [
@@ -123,9 +123,9 @@
       "expression": "sqrt(2)",
       "spec": {"kind":"radical","radicand":[50]},
       "trace_sha256": "277c6801157fd1be369b0565dc88a7178a45a9171491b5a2f10c508a59fddd88",
-      "render_interval": [1991126, 2004359],
+      "render_interval": [1991126,2004359],
       "entry_id": 13,
-      "origin": {"x": 0, "y": 0},
+      "origin": {"x":0,"y":0},
       "accepted_write_count": 30,
       "accepted_write_sha256": "da738084a442951ff91fdcca90cdfb905f192e6d0ff7ad9cad165e76941b3e6f",
       "nodes": [
@@ -138,9 +138,9 @@
       "expression": "sqrt(X+12)",
       "spec": {"kind":"radical","radicand":[88,112,49,50]},
       "trace_sha256": "b0651890d4497cbbc4d40a2fea9cd5c9375c995d05f856d63d6277e828c38882",
-      "render_interval": [2282355, 2315974],
+      "render_interval": [2282355,2315974],
       "entry_id": 13,
-      "origin": {"x": 0, "y": 0},
+      "origin": {"x":0,"y":0},
       "accepted_write_count": 83,
       "accepted_write_sha256": "adfee6c1078dfd89abbd0ada04cafa46d3918908b79c895254d504ecb017611e",
       "nodes": [
@@ -153,9 +153,9 @@
       "expression": "sqrt(X^2)",
       "spec": {"kind":"radical","radicand":{"kind":"power","base":[88],"exponent":[50]}},
       "trace_sha256": "e94a7464e69687e37caef7f0b1edbf8eb7de537fe794fc9a6577ede70e98de04",
-      "render_interval": [2184524, 2203328],
+      "render_interval": [2184524,2203328],
       "entry_id": 15,
-      "origin": {"x": 0, "y": 0},
+      "origin": {"x":0,"y":0},
       "accepted_write_count": 42,
       "accepted_write_sha256": "839addae88f2b38ea0585636acc64cb89bc42c39561e78d757c46eb2d898e339",
       "nodes": [
@@ -170,9 +170,9 @@
       "expression": "sqrt(2^X^2)",
       "spec": {"kind":"radical","radicand":{"kind":"power","base":[50],"exponent":{"kind":"power","base":[88],"exponent":[50]}}},
       "trace_sha256": "3990bc844d6ecd60d10c1ebdbaa92fe412681d2137d36b3a7418867c7032fd4e",
-      "render_interval": [2407399, 2434320],
+      "render_interval": [2407399,2434320],
       "entry_id": 17,
-      "origin": {"x": 0, "y": 0},
+      "origin": {"x":0,"y":0},
       "accepted_write_count": 59,
       "accepted_write_sha256": "809aafec84d5cb25c4b358c5781c3a01c645ae55b116043aeac08773a189e277",
       "nodes": [
@@ -189,9 +189,9 @@
       "expression": "sqrt(X^2+1)",
       "spec": {"kind":"radical","radicand":{"kind":"sequence","parts":[{"kind":"power","base":[88],"exponent":[50]},[112,49]]}},
       "trace_sha256": "ec31ce5b20fcf27ada3327c210b4fe5900399e194759f88b2377688652875e55",
-      "render_interval": [2505260, 2539866],
+      "render_interval": [2505260,2539866],
       "entry_id": 15,
-      "origin": {"x": 0, "y": 0},
+      "origin": {"x":0,"y":0},
       "accepted_write_count": 82,
       "accepted_write_sha256": "56cd3a3c3b9eea8c2b99e96abee7d7175d5c3fd1e7930c4319aa1d464cc84750",
       "nodes": [
@@ -206,9 +206,9 @@
       "expression": "sqrt(sqrt(2))",
       "spec": {"kind":"radical","radicand":{"kind":"radical","radicand":[50]}},
       "trace_sha256": "516b701935e6f6d424a6aac337b6885c1d3bed2e50a9bde7cfc5c352291a4a81",
-      "render_interval": [2131751, 2155247],
+      "render_interval": [2131751,2155247],
       "entry_id": 15,
-      "origin": {"x": 0, "y": 0},
+      "origin": {"x":0,"y":0},
       "accepted_write_count": 53,
       "accepted_write_sha256": "1833bcc03b1eb12bc0c0972115b70b63b7b2f06658a01c707b8251f84d442f67",
       "nodes": [
@@ -223,9 +223,9 @@
       "expression": "X^sqrt(2)",
       "spec": {"kind":"power","base":[88],"exponent":{"kind":"radical","radicand":[50]}},
       "trace_sha256": "d180f80572ce6b953a432b66c4bf30b220c50f6d4a9738617e01d3080977a603",
-      "render_interval": [2159584, 2173369],
+      "render_interval": [2159584,2173369],
       "entry_id": 15,
-      "origin": {"x": 0, "y": 0},
+      "origin": {"x":0,"y":0},
       "accepted_write_count": 29,
       "accepted_write_sha256": "eaabfec20cca5d9a63d08e5eacdbf0d691084c1be207b76bfc3b3c6ffe5e4bf6",
       "nodes": [
@@ -240,9 +240,9 @@
       "expression": "sqrt(X^sqrt(2))",
       "spec": {"kind":"radical","radicand":{"kind":"power","base":[88],"exponent":{"kind":"radical","radicand":[50]}}},
       "trace_sha256": "f89648be8d9a926d73ac11c4ff7c42deb85a5786302c7005b10a74ad099e1c01",
-      "render_interval": [2336528, 2365288],
+      "render_interval": [2336528,2365288],
       "entry_id": 17,
-      "origin": {"x": 0, "y": 0},
+      "origin": {"x":0,"y":0},
       "accepted_write_count": 61,
       "accepted_write_sha256": "804468f091f8d7d647f4133802bff34ec57f2a53ee22cb666024cf01ba8d562f",
       "nodes": [
@@ -796,6 +796,227 @@
         {"record_id":30,"render_type":0,"word03":27,"word05":7,"word07":6,"word09":3,"word0B":16,"word0D":5,"word0F":1,"word11":1,"byte13":88,"child_ids":[],"payload":[88]},
         {"record_id":31,"render_type":1,"word03":27,"word05":7,"word07":6,"word09":3,"word0B":34,"word0D":5,"word0F":1,"word11":1,"byte13":88,"child_ids":[],"payload":[88]},
         {"record_id":26,"render_type":1,"word03":22,"word05":7,"word07":6,"word09":3,"word0B":70,"word0D":10,"word0F":1,"word11":1,"byte13":88,"child_ids":[],"payload":[88]}
+      ]
+    }
+  ],
+  "summation_cases": [
+    {
+      "expression": "sum(A,1,3,A^2)",
+      "spec": {"kind":"summation","variable":[65],"lower":[49],"upper":[51],"body":{"kind":"power","base":[65],"exponent":[50]}},
+      "trace_sha256": "af59563946afe507f1d7ae5a0e2b378917fdedc85d1640d876b69f18018c16ba",
+      "render_interval": [3370064,3401216],
+      "entry_id": 18,
+      "origin": {"x":0,"y":0},
+      "accepted_write_count": 66,
+      "accepted_write_sha256": "d43f23561e9ae5bf72764bf55adf236d240140f8783c3cee95e10bceba1d825a",
+      "nodes": [
+        {"record_id":18,"render_type":0,"word03":17,"word05":19,"word07":33,"word09":9,"word0B":0,"word0D":0,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,41,19,0,239,45]},
+        {"record_id":19,"render_type":41,"word03":18,"word05":3,"word07":19,"word09":33,"word0B":9,"word0D":0,"word0F":0,"word11":1,"byte13":239,"child_ids":[20,21,22,23],"payload":[]},
+        {"record_id":20,"render_type":1,"word03":19,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":14,"word0F":1,"word11":1,"byte13":65,"child_ids":[],"payload":[65]},
+        {"record_id":21,"render_type":0,"word03":19,"word05":5,"word07":4,"word09":2,"word0B":8,"word0D":14,"word0F":1,"word11":1,"byte13":49,"child_ids":[],"payload":[49]},
+        {"record_id":22,"render_type":0,"word03":19,"word05":5,"word07":4,"word09":2,"word0B":4,"word0D":0,"word0F":1,"word11":1,"byte13":51,"child_ids":[],"payload":[51]},
+        {"record_id":23,"render_type":0,"word03":19,"word05":10,"word07":10,"word09":6,"word0B":18,"word0D":3,"word0F":7,"word11":7,"byte13":65,"child_ids":[],"payload":[65,239,42,24,0,239,45]},
+        {"record_id":24,"render_type":42,"word03":23,"word05":1,"word07":10,"word09":4,"word0B":6,"word0D":6,"word0F":0,"word11":2,"byte13":239,"child_ids":[25],"payload":[]},
+        {"record_id":25,"render_type":0,"word03":24,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":0,"word0F":1,"word11":1,"byte13":50,"child_ids":[],"payload":[50]}
+      ]
+    },
+    {
+      "expression": "sum(N,12,3,N+12)",
+      "spec": {"kind":"summation","variable":[78],"lower":[49,50],"upper":[51],"body":[78,112,49,50]},
+      "trace_sha256": "1c49d0db8f14c1da2176c409b53a2896e398aeff6df1731395569111eb9b4387",
+      "render_interval": [3597927,3639307],
+      "entry_id": 16,
+      "origin": {"x":0,"y":0},
+      "accepted_write_count": 100,
+      "accepted_write_sha256": "d72380b80d89a539797b8b4925aa368365718795f4ad33ffa833c3c114df2928",
+      "nodes": [
+        {"record_id":16,"render_type":0,"word03":15,"word05":19,"word07":51,"word09":9,"word0B":0,"word0D":0,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,41,17,0,239,45]},
+        {"record_id":17,"render_type":41,"word03":16,"word05":3,"word07":19,"word09":51,"word0B":9,"word0D":0,"word0F":0,"word11":1,"byte13":239,"child_ids":[18,19,20,21],"payload":[]},
+        {"record_id":18,"render_type":1,"word03":17,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":14,"word0F":1,"word11":1,"byte13":78,"child_ids":[],"payload":[78]},
+        {"record_id":19,"render_type":0,"word03":17,"word05":5,"word07":8,"word09":2,"word0B":8,"word0D":14,"word0F":2,"word11":2,"byte13":49,"child_ids":[],"payload":[49,50]},
+        {"record_id":20,"render_type":0,"word03":17,"word05":5,"word07":4,"word09":2,"word0B":6,"word0D":0,"word0F":1,"word11":1,"byte13":51,"child_ids":[],"payload":[51]},
+        {"record_id":21,"render_type":0,"word03":17,"word05":7,"word07":24,"word09":3,"word0B":22,"word0D":6,"word0F":4,"word11":4,"byte13":78,"child_ids":[],"payload":[78,112,49,50]}
+      ]
+    },
+    {
+      "expression": "sum(N,1,23,N+12)",
+      "spec": {"kind":"summation","variable":[78],"lower":[49],"upper":[50,51],"body":[78,112,49,50]},
+      "trace_sha256": "505db8a8113bc7e6a13f52efef2531bda7965b3bd98000f9d6619ee8dd1a9abd",
+      "render_interval": [3492617,3533914],
+      "entry_id": 16,
+      "origin": {"x":0,"y":0},
+      "accepted_write_count": 100,
+      "accepted_write_sha256": "070620c563e2434c17c850d8bf838dbc2eef6eb3a34c76eebdc920f5f6d0a845",
+      "nodes": [
+        {"record_id":16,"render_type":0,"word03":15,"word05":19,"word07":47,"word09":9,"word0B":0,"word0D":0,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,41,17,0,239,45]},
+        {"record_id":17,"render_type":41,"word03":16,"word05":3,"word07":19,"word09":47,"word0B":9,"word0D":0,"word0F":0,"word11":1,"byte13":239,"child_ids":[18,19,20,21],"payload":[]},
+        {"record_id":18,"render_type":1,"word03":17,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":14,"word0F":1,"word11":1,"byte13":78,"child_ids":[],"payload":[78]},
+        {"record_id":19,"render_type":0,"word03":17,"word05":5,"word07":4,"word09":2,"word0B":8,"word0D":14,"word0F":1,"word11":1,"byte13":49,"child_ids":[],"payload":[49]},
+        {"record_id":20,"render_type":0,"word03":17,"word05":5,"word07":8,"word09":2,"word0B":2,"word0D":0,"word0F":2,"word11":2,"byte13":50,"child_ids":[],"payload":[50,51]},
+        {"record_id":21,"render_type":0,"word03":17,"word05":7,"word07":24,"word09":3,"word0B":18,"word0D":6,"word0F":4,"word11":4,"byte13":78,"child_ids":[],"payload":[78,112,49,50]}
+      ]
+    },
+    {
+      "expression": "sum(N,1,3,nthroot(3,N))",
+      "spec": {"kind":"summation","variable":[78],"lower":[49],"upper":[51],"body":{"kind":"nthRoot","index":[51],"radicand":[78]}},
+      "trace_sha256": "4c65c41970518d446cf155cab4b0a1983621e33d9e3c5aef100c26296d4d1dc3",
+      "render_interval": [3647497,3689950],
+      "entry_id": 19,
+      "origin": {"x":0,"y":0},
+      "accepted_write_count": 92,
+      "accepted_write_sha256": "a01162ef102669e6d0dc674ea7b487dd1e1eb2e1e4d65e7385b7cdc22e741c43",
+      "nodes": [
+        {"record_id":19,"render_type":0,"word03":18,"word05":19,"word07":37,"word09":9,"word0B":0,"word0D":0,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,41,20,0,239,45]},
+        {"record_id":20,"render_type":41,"word03":19,"word05":3,"word07":19,"word09":37,"word0B":9,"word0D":0,"word0F":0,"word11":1,"byte13":239,"child_ids":[21,22,23,24],"payload":[]},
+        {"record_id":21,"render_type":1,"word03":20,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":14,"word0F":1,"word11":1,"byte13":78,"child_ids":[],"payload":[78]},
+        {"record_id":22,"render_type":0,"word03":20,"word05":5,"word07":4,"word09":2,"word0B":8,"word0D":14,"word0F":1,"word11":1,"byte13":49,"child_ids":[],"payload":[49]},
+        {"record_id":23,"render_type":0,"word03":20,"word05":5,"word07":4,"word09":2,"word0B":4,"word0D":0,"word0F":1,"word11":1,"byte13":51,"child_ids":[],"payload":[51]},
+        {"record_id":24,"render_type":0,"word03":20,"word05":11,"word07":14,"word09":7,"word0B":18,"word0D":2,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,36,25,0,239,45]},
+        {"record_id":25,"render_type":36,"word03":24,"word05":2,"word07":11,"word09":14,"word0B":7,"word0D":0,"word0F":0,"word11":2,"byte13":239,"child_ids":[26,27],"payload":[]},
+        {"record_id":26,"render_type":0,"word03":25,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":0,"word0F":0,"word11":1,"byte13":51,"child_ids":[],"payload":[51]},
+        {"record_id":27,"render_type":0,"word03":25,"word05":7,"word07":6,"word09":3,"word0B":8,"word0D":4,"word0F":1,"word11":1,"byte13":78,"child_ids":[],"payload":[78]}
+      ]
+    },
+    {
+      "expression": "sum(N,1,3,1//2)",
+      "spec": {"kind":"summation","variable":[78],"lower":[49],"upper":[51],"body":{"kind":"fraction","numerator":[49],"denominator":[50]}},
+      "trace_sha256": "84f915b41017f59bd98d95e94a5908a96cd40f48224ba819cedbee00b608e0b6",
+      "render_interval": [4034076,4071102],
+      "entry_id": 19,
+      "origin": {"x":0,"y":0},
+      "accepted_write_count": 75,
+      "accepted_write_sha256": "aa3433c2566127868dc1cfebe79dfdd20af2f08400eaca06b50eb9e7386e27ac",
+      "nodes": [
+        {"record_id":19,"render_type":0,"word03":18,"word05":19,"word07":31,"word09":9,"word0B":0,"word0D":0,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,41,20,0,239,45]},
+        {"record_id":20,"render_type":41,"word03":19,"word05":3,"word07":19,"word09":31,"word0B":9,"word0D":0,"word0F":0,"word11":1,"byte13":239,"child_ids":[21,22,23,24],"payload":[]},
+        {"record_id":21,"render_type":1,"word03":20,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":14,"word0F":1,"word11":1,"byte13":78,"child_ids":[],"payload":[78]},
+        {"record_id":22,"render_type":0,"word03":20,"word05":5,"word07":4,"word09":2,"word0B":8,"word0D":14,"word0F":1,"word11":1,"byte13":49,"child_ids":[],"payload":[49]},
+        {"record_id":23,"render_type":0,"word03":20,"word05":5,"word07":4,"word09":2,"word0B":4,"word0D":0,"word0F":1,"word11":1,"byte13":51,"child_ids":[],"payload":[51]},
+        {"record_id":24,"render_type":0,"word03":20,"word05":13,"word07":8,"word09":6,"word0B":18,"word0D":3,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,32,25,0,239,45]},
+        {"record_id":25,"render_type":32,"word03":24,"word05":2,"word07":13,"word09":8,"word0B":6,"word0D":0,"word0F":0,"word11":2,"byte13":239,"child_ids":[26,27],"payload":[]},
+        {"record_id":26,"render_type":0,"word03":25,"word05":5,"word07":4,"word09":2,"word0B":2,"word0D":0,"word0F":0,"word11":1,"byte13":49,"child_ids":[],"payload":[49]},
+        {"record_id":27,"render_type":0,"word03":25,"word05":5,"word07":4,"word09":2,"word0B":2,"word0D":8,"word0F":1,"word11":1,"byte13":50,"child_ids":[],"payload":[50]}
+      ]
+    },
+    {
+      "expression": "sum(N,1,3,N)",
+      "spec": {"kind":"summation","variable":[78],"lower":[49],"upper":[51],"body":[78]},
+      "trace_sha256": "f177def0f2a814ff58cadd64e765f99c490174fa4f8c685f9f43a074de2e6277",
+      "render_interval": [3015477,3041329],
+      "entry_id": 16,
+      "origin": {"x":0,"y":0},
+      "accepted_write_count": 55,
+      "accepted_write_sha256": "da36d4610a7999907c4bfd189368f6a0003696179771ff629d151a7c7fda29c8",
+      "nodes": [
+        {"record_id":16,"render_type":0,"word03":15,"word05":19,"word07":29,"word09":9,"word0B":0,"word0D":0,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,41,17,0,239,45]},
+        {"record_id":17,"render_type":41,"word03":16,"word05":3,"word07":19,"word09":29,"word0B":9,"word0D":0,"word0F":0,"word11":1,"byte13":239,"child_ids":[18,19,20,21],"payload":[]},
+        {"record_id":18,"render_type":1,"word03":17,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":14,"word0F":1,"word11":1,"byte13":78,"child_ids":[],"payload":[78]},
+        {"record_id":19,"render_type":0,"word03":17,"word05":5,"word07":4,"word09":2,"word0B":8,"word0D":14,"word0F":1,"word11":1,"byte13":49,"child_ids":[],"payload":[49]},
+        {"record_id":20,"render_type":0,"word03":17,"word05":5,"word07":4,"word09":2,"word0B":4,"word0D":0,"word0F":1,"word11":1,"byte13":51,"child_ids":[],"payload":[51]},
+        {"record_id":21,"render_type":0,"word03":17,"word05":7,"word07":6,"word09":3,"word0B":18,"word0D":6,"word0F":1,"word11":1,"byte13":78,"child_ids":[],"payload":[78]}
+      ]
+    },
+    {
+      "expression": "sum(N,1,3,sqrt(N))",
+      "spec": {"kind":"summation","variable":[78],"lower":[49],"upper":[51],"body":{"kind":"radical","radicand":[78]}},
+      "trace_sha256": "2bed854e258923e9705c76db9d6efb3aae78cce297ab2e2bddba390f2a67485f",
+      "render_interval": [3334860,3373141],
+      "entry_id": 18,
+      "origin": {"x":0,"y":0},
+      "accepted_write_count": 82,
+      "accepted_write_sha256": "c3d411d26af7f64575b28cbd40728aa5ac5db252e2f3ae08fc36b68a38f16134",
+      "nodes": [
+        {"record_id":18,"render_type":0,"word03":17,"word05":19,"word07":34,"word09":9,"word0B":0,"word0D":0,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,41,19,0,239,45]},
+        {"record_id":19,"render_type":41,"word03":18,"word05":3,"word07":19,"word09":34,"word0B":9,"word0D":0,"word0F":0,"word11":1,"byte13":239,"child_ids":[20,21,22,23],"payload":[]},
+        {"record_id":20,"render_type":1,"word03":19,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":14,"word0F":1,"word11":1,"byte13":78,"child_ids":[],"payload":[78]},
+        {"record_id":21,"render_type":0,"word03":19,"word05":5,"word07":4,"word09":2,"word0B":8,"word0D":14,"word0F":1,"word11":1,"byte13":49,"child_ids":[],"payload":[49]},
+        {"record_id":22,"render_type":0,"word03":19,"word05":5,"word07":4,"word09":2,"word0B":4,"word0D":0,"word0F":1,"word11":1,"byte13":51,"child_ids":[],"payload":[51]},
+        {"record_id":23,"render_type":0,"word03":19,"word05":9,"word07":11,"word09":5,"word0B":18,"word0D":4,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,39,24,0,239,45]},
+        {"record_id":24,"render_type":39,"word03":23,"word05":1,"word07":9,"word09":11,"word0B":5,"word0D":0,"word0F":0,"word11":2,"byte13":239,"child_ids":[25],"payload":[]},
+        {"record_id":25,"render_type":0,"word03":24,"word05":7,"word07":6,"word09":3,"word0B":5,"word0D":2,"word0F":1,"word11":1,"byte13":78,"child_ids":[],"payload":[78]}
+      ]
+    },
+    {
+      "expression": "sum(N,1,3,sum(A,1,2,A))",
+      "spec": {"kind":"summation","variable":[78],"lower":[49],"upper":[51],"body":{"kind":"summation","variable":[65],"lower":[49],"upper":[50],"body":[65]}},
+      "trace_sha256": "60facf5fceb5206f9657844753a7b40c965a5d763c37e0398455bd80c5e6e790",
+      "render_interval": [4704804,4771546],
+      "entry_id": 21,
+      "origin": {"x":0,"y":0},
+      "accepted_write_count": 144,
+      "accepted_write_sha256": "57f6241f12f1e30760de51054be26952fcbc047e372a37d83671365f1bc014bb",
+      "nodes": [
+        {"record_id":21,"render_type":0,"word03":20,"word05":19,"word07":52,"word09":9,"word0B":0,"word0D":0,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,41,22,0,239,45]},
+        {"record_id":22,"render_type":41,"word03":21,"word05":3,"word07":19,"word09":52,"word0B":9,"word0D":0,"word0F":0,"word11":1,"byte13":239,"child_ids":[23,24,25,26],"payload":[]},
+        {"record_id":23,"render_type":1,"word03":22,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":14,"word0F":1,"word11":1,"byte13":78,"child_ids":[],"payload":[78]},
+        {"record_id":24,"render_type":0,"word03":22,"word05":5,"word07":4,"word09":2,"word0B":8,"word0D":14,"word0F":1,"word11":1,"byte13":49,"child_ids":[],"payload":[49]},
+        {"record_id":25,"render_type":0,"word03":22,"word05":5,"word07":4,"word09":2,"word0B":4,"word0D":0,"word0F":1,"word11":1,"byte13":51,"child_ids":[],"payload":[51]},
+        {"record_id":26,"render_type":0,"word03":22,"word05":19,"word07":29,"word09":9,"word0B":18,"word0D":0,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,41,27,0,239,45]},
+        {"record_id":27,"render_type":41,"word03":26,"word05":3,"word07":19,"word09":29,"word0B":9,"word0D":0,"word0F":0,"word11":2,"byte13":239,"child_ids":[28,29,30,31],"payload":[]},
+        {"record_id":28,"render_type":1,"word03":27,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":14,"word0F":1,"word11":1,"byte13":65,"child_ids":[],"payload":[65]},
+        {"record_id":29,"render_type":0,"word03":27,"word05":5,"word07":4,"word09":2,"word0B":8,"word0D":14,"word0F":1,"word11":1,"byte13":49,"child_ids":[],"payload":[49]},
+        {"record_id":30,"render_type":0,"word03":27,"word05":5,"word07":4,"word09":2,"word0B":4,"word0D":0,"word0F":1,"word11":1,"byte13":50,"child_ids":[],"payload":[50]},
+        {"record_id":31,"render_type":0,"word03":27,"word05":7,"word07":6,"word09":3,"word0B":18,"word0D":6,"word0F":1,"word11":1,"byte13":65,"child_ids":[],"payload":[65]}
+      ]
+    },
+    {
+      "expression": "sum(N,1+1,3+1,N)",
+      "spec": {"kind":"summation","variable":[78],"lower":[49,112,49],"upper":[51,112,49],"body":[78]},
+      "trace_sha256": "149880e2fa2cb97b55a6c5d1b3f20b1fe4ef98c86eff10664fa27122aa8a9daf",
+      "render_interval": [3487669,3520547],
+      "entry_id": 16,
+      "origin": {"x":0,"y":0},
+      "accepted_write_count": 75,
+      "accepted_write_sha256": "514e5b5cffac2fc112449242ae52aab2c17d5decfc76b3aecfd83e1887f6abdd",
+      "nodes": [
+        {"record_id":16,"render_type":0,"word03":15,"word05":19,"word07":37,"word09":9,"word0B":0,"word0D":0,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,41,17,0,239,45]},
+        {"record_id":17,"render_type":41,"word03":16,"word05":3,"word07":19,"word09":37,"word0B":9,"word0D":0,"word0F":0,"word11":1,"byte13":239,"child_ids":[18,19,20,21],"payload":[]},
+        {"record_id":18,"render_type":1,"word03":17,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":14,"word0F":1,"word11":1,"byte13":78,"child_ids":[],"payload":[78]},
+        {"record_id":19,"render_type":0,"word03":17,"word05":5,"word07":12,"word09":2,"word0B":8,"word0D":14,"word0F":3,"word11":3,"byte13":49,"child_ids":[],"payload":[49,112,49]},
+        {"record_id":20,"render_type":0,"word03":17,"word05":5,"word07":12,"word09":2,"word0B":4,"word0D":0,"word0F":3,"word11":3,"byte13":51,"child_ids":[],"payload":[51,112,49]},
+        {"record_id":21,"render_type":0,"word03":17,"word05":7,"word07":6,"word09":3,"word0B":26,"word0D":6,"word0F":1,"word11":1,"byte13":78,"child_ids":[],"payload":[78]}
+      ]
+    },
+    {
+      "expression": "sum(N,1^2,2^2,N)",
+      "spec": {"kind":"summation","variable":[78],"lower":{"kind":"power","base":[49],"exponent":[50]},"upper":{"kind":"power","base":[50],"exponent":[50]},"body":[78]},
+      "trace_sha256": "660fa184a35715ccf32f830413512d479a3c8ab822f0a85abd47732ccd6983e2",
+      "render_interval": [3832802,3867472],
+      "entry_id": 20,
+      "origin": {"x":0,"y":0},
+      "accepted_write_count": 72,
+      "accepted_write_sha256": "d6b58fb2c1dd5b21f8ab121f9528a183d15938b911fbd4d11be3d9d5d9e7e8e3",
+      "nodes": [
+        {"record_id":20,"render_type":0,"word03":19,"word05":25,"word07":33,"word09":12,"word0B":0,"word0D":0,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,41,21,0,239,45]},
+        {"record_id":21,"render_type":41,"word03":20,"word05":3,"word07":25,"word09":33,"word0B":12,"word0D":0,"word0F":0,"word11":1,"byte13":239,"child_ids":[22,23,24,25],"payload":[]},
+        {"record_id":22,"render_type":1,"word03":21,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":17,"word0F":1,"word11":1,"byte13":78,"child_ids":[],"payload":[78]},
+        {"record_id":23,"render_type":0,"word03":21,"word05":8,"word07":8,"word09":5,"word0B":8,"word0D":17,"word0F":7,"word11":7,"byte13":49,"child_ids":[],"payload":[49,239,42,26,0,239,45]},
+        {"record_id":26,"render_type":42,"word03":23,"word05":1,"word07":8,"word09":4,"word0B":5,"word0D":4,"word0F":0,"word11":2,"byte13":239,"child_ids":[27],"payload":[]},
+        {"record_id":27,"render_type":0,"word03":26,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":0,"word0F":1,"word11":1,"byte13":50,"child_ids":[],"payload":[50]},
+        {"record_id":24,"render_type":0,"word03":21,"word05":8,"word07":8,"word09":5,"word0B":4,"word0D":0,"word0F":7,"word11":7,"byte13":50,"child_ids":[],"payload":[50,239,42,28,0,239,45]},
+        {"record_id":28,"render_type":42,"word03":24,"word05":1,"word07":8,"word09":4,"word0B":5,"word0D":4,"word0F":0,"word11":2,"byte13":239,"child_ids":[29],"payload":[]},
+        {"record_id":29,"render_type":0,"word03":28,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":0,"word0F":1,"word11":1,"byte13":50,"child_ids":[],"payload":[50]},
+        {"record_id":25,"render_type":0,"word03":21,"word05":7,"word07":6,"word09":3,"word0B":22,"word0D":9,"word0F":1,"word11":1,"byte13":78,"child_ids":[],"payload":[78]}
+      ]
+    },
+    {
+      "expression": "sum(N,1,3,N^2)",
+      "spec": {"kind":"summation","variable":[78],"lower":[49],"upper":[51],"body":{"kind":"power","base":[78],"exponent":[50]}},
+      "trace_sha256": "c454986a2bb29c854cf1184224305929cce3626ea8e5fe44932865869a0b0784",
+      "render_interval": [3325700,3356852],
+      "entry_id": 18,
+      "origin": {"x":0,"y":0},
+      "accepted_write_count": 66,
+      "accepted_write_sha256": "59cb61779aac701b6e37c3a659e9c30acbfdff194b4421340225bc176f1f72bb",
+      "nodes": [
+        {"record_id":18,"render_type":0,"word03":17,"word05":19,"word07":33,"word09":9,"word0B":0,"word0D":0,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,41,19,0,239,45]},
+        {"record_id":19,"render_type":41,"word03":18,"word05":3,"word07":19,"word09":33,"word0B":9,"word0D":0,"word0F":0,"word11":1,"byte13":239,"child_ids":[20,21,22,23],"payload":[]},
+        {"record_id":20,"render_type":1,"word03":19,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":14,"word0F":1,"word11":1,"byte13":78,"child_ids":[],"payload":[78]},
+        {"record_id":21,"render_type":0,"word03":19,"word05":5,"word07":4,"word09":2,"word0B":8,"word0D":14,"word0F":1,"word11":1,"byte13":49,"child_ids":[],"payload":[49]},
+        {"record_id":22,"render_type":0,"word03":19,"word05":5,"word07":4,"word09":2,"word0B":4,"word0D":0,"word0F":1,"word11":1,"byte13":51,"child_ids":[],"payload":[51]},
+        {"record_id":23,"render_type":0,"word03":19,"word05":10,"word07":10,"word09":6,"word0B":18,"word0D":3,"word0F":7,"word11":7,"byte13":78,"child_ids":[],"payload":[78,239,42,24,0,239,45]},
+        {"record_id":24,"render_type":42,"word03":23,"word05":1,"word07":10,"word09":4,"word0B":6,"word0D":6,"word0F":0,"word11":2,"byte13":239,"child_ids":[25],"payload":[]},
+        {"record_id":25,"render_type":0,"word03":24,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":0,"word0F":1,"word11":1,"byte13":50,"child_ids":[],"payload":[50]}
       ]
     }
   ]

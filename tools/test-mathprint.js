@@ -443,6 +443,10 @@ expectEqual('34:5935 maps the integral token through 34:594D',
   rom.settledStructuralTokenType(0x00,0x24), 0x22);
 expectEqual('34:5996 selects the integral metadata row',
   rom.settledRecordMetadata(0x22), [0x04,0x03,0x04,0x01,0x02]);
+expectEqual('34:5935 maps the summation token through 34:594D',
+  rom.settledStructuralTokenType(0xef,0x33), 0x29);
+expectEqual('34:5996 selects the summation metadata row',
+  rom.settledRecordMetadata(0x29), [0x04,0x04,0x01,0x02,0x03]);
 const constructedAbsolute = rom.constructSettledAbsoluteProgram([0x58,0x71,0x33],0x0d);
 expectEqual('absolute tokens independently construct the settled record graph',
   constructedAbsolute.nodes, recordPrograms.programs['abs(X-3)'].nodes);
@@ -552,6 +556,24 @@ for (const oracle of constructionOracles.integral_cases) {
     crypto.createHash('sha256').update(writeBytes).digest('hex'),
     oracle.accepted_write_sha256);
 }
+for (const oracle of constructionOracles.summation_cases) {
+  const program = rom.constructSettledExpressionProgram(
+    oracle.spec, oracle.entry_id, font);
+  expectEqual(`${oracle.expression} independently constructs the fresh TilEm graph`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.origin, nodes:oracle.nodes});
+  const operations = rom.executeSettledRecordProgram(program.nodes, program.entry_id, {
+    origin:program.origin,
+    glyphAdvance:settledGlyphAdvance,
+  });
+  const writes = rom.rasterizeSettledOperations(operations, font).writes;
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write count`,
+    writes.length, oracle.accepted_write_count);
+  const writeBytes = Buffer.from(writes.flatMap(write => [...write.pointer,write.value]));
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write stream`,
+    crypto.createHash('sha256').update(writeBytes).digest('hex'),
+    oracle.accepted_write_sha256);
+}
 expectEqual('browser selects translated absolute record construction',
   mp.constructedProgramForExpression('abs(X-3)').nodes,
   rom.constructSettledAbsoluteProgram([0x58,0x71,0x33]).nodes);
@@ -641,6 +663,29 @@ expectEqual('browser recursively reserves nested integral arguments',
   rom.constructSettledIntegralProgram([0x31], [0x32], {
     kind:'integral', lower:[0x33], upper:[0x34], body:[0x58], variable:[0x58],
   }, [0x58], 1, font).nodes);
+expectEqual('browser constructs all four summation fields from tokens',
+  mp.constructedProgramForExpression('sum(N,1,3,N^2)').nodes,
+  rom.constructSettledSummationProgram(
+    [0x4e], [0x31], [0x33],
+    {kind:'power',base:[0x4e],exponent:[0x32]}, 1, font).nodes);
+expectEqual('constructed summation leaves no empty-slot placeholder',
+  settledGlyphStream(
+    mp.constructedProgramForExpression('sum(N,1,3,N^2)').nodes, 1)
+    .map(([code]) => code).includes(0xf7), false);
+expectEqual('browser constructs unequal-width summation bounds',
+  mp.constructedProgramForExpression('sum(N,12,3,N+12)').nodes,
+  rom.constructSettledSummationProgram(
+    [0x4e], [0x31,0x32], [0x33], [0x4e,0x70,0x31,0x32], 1, font).nodes);
+expectEqual('browser constructs structural summation bounds',
+  mp.constructedProgramForExpression('sum(N,1^2,2^2,N)').nodes,
+  rom.constructSettledSummationProgram(
+    [0x4e], {kind:'power',base:[0x31],exponent:[0x32]},
+    {kind:'power',base:[0x32],exponent:[0x32]}, [0x4e], 1, font).nodes);
+expectEqual('browser recursively reserves nested summation arguments',
+  mp.constructedProgramForExpression('sum(N,1,3,sum(A,1,2,A))').nodes,
+  rom.constructSettledSummationProgram([0x4e], [0x31], [0x33], {
+    kind:'summation', variable:[0x41], lower:[0x31], upper:[0x32], body:[0x41],
+  }, 1, font).nodes);
 const constructedPower = rom.constructSettledPowerProgram(
   {base:[0x58], exponent:[0x32]}, 0x0d, font);
 expectEqual('power tokens independently construct the settled X^2 graph',
@@ -741,13 +786,41 @@ const cyclicIntegral = {kind:'integral',lower:[0x31],upper:[0x32],variable:[0x58
 cyclicIntegral.body = cyclicIntegral;
 expectThrows('integral constructor rejects nested cycles', RangeError,
   () => rom.constructSettledExpressionProgram(cyclicIntegral, 1, font));
+for (const [label,variable,lower,upper,body] of [
+  ['variable',[],[0x31],[0x33],[0x4e]],
+  ['lower bound',[0x4e],[],[0x33],[0x4e]],
+  ['upper bound',[0x4e],[0x31],[],[0x4e]],
+  ['body',[0x4e],[0x31],[0x33],[]],
+]) expectThrows(`summation constructor rejects an empty ${label}`, RangeError,
+  () => rom.constructSettledSummationProgram(
+    variable, lower, upper, body, 1, font));
+expectThrows('summation constructor rejects a structural variable', RangeError,
+  () => rom.constructSettledSummationProgram(
+    {kind:'radical',radicand:[0x4e]}, [0x31], [0x33], [0x4e], 1, font));
+expectThrows('summation constructor detects record ID exhaustion', RangeError,
+  () => rom.constructSettledSummationProgram(
+    [0x4e], [0x31], [0x33], [0x4e], 0xfffb, font));
+expectThrows('summation constructor rejects overflowing body width', RangeError,
+  () => rom.constructSettledSummationProgram(
+    [0x4e], [0x31], [0x33], new Array(10921).fill(0x4e), 1, font));
+const cyclicSummation = {
+  kind:'summation',variable:[0x4e],lower:[0x31],upper:[0x33],
+};
+cyclicSummation.body = cyclicSummation;
+expectThrows('summation constructor rejects nested cycles', RangeError,
+  () => rom.constructSettledExpressionProgram(cyclicSummation, 1, font));
 for (const expression of [
   'int(,2,X,X)', 'int(1,,X,X)', 'int(1,2,,X)', 'int(1,2,X,)',
   'int(1,2,X)', 'int(1,2,X,X', 'int(1,2,X,sqrt(X))',
 ]) expectEqual(`${expression} is outside the translated integral grammar`,
   mp.constructedProgramForExpression(expression), null);
+for (const expression of [
+  'sum(,1,3,N)', 'sum(N,,3,N)', 'sum(N,1,,N)', 'sum(N,1,3,)',
+  'sum(N,1,3)', 'sum(N,1,3,N', 'sum(sqrt(N),1,3,N)',
+]) expectEqual(`${expression} is outside the translated summation grammar`,
+  mp.constructedProgramForExpression(expression), null);
 expectThrows('compositional constructor rejects unsupported structural kinds', RangeError,
-  () => rom.constructSettledExpressionProgram({kind:'summation'}, 1, font));
+  () => rom.constructSettledExpressionProgram({kind:'matrix'}, 1, font));
 expectThrows('compositional constructor rejects overflowing leaf metrics', RangeError,
   () => rom.constructSettledExpressionProgram(new Array(10923).fill(0x58), 1, font));
 expectThrows('compositional constructor rejects record ID exhaustion', RangeError,
@@ -794,8 +867,11 @@ expectEqual('fraction browser path labels translated construction',
 expectEqual('integral browser path labels translated construction',
   mp.generatedForExpression('int(1,2,X,X)').programSource,
   '34:4900, 34:5935, 34:7393, and 34:7609 translated integral construction');
-expectEqual('remaining browser paths label captured record input',
+expectEqual('summation browser path labels translated construction',
   mp.generatedForExpression('sum(N,1,3,N^2)').programSource,
+  '34:4900, 34:5935, 34:7393, and 34:7609 translated summation construction');
+expectEqual('remaining browser path labels captured record input',
+  mp.generatedForExpression('nDeriv(X^2,X,1)').programSource,
   'captured settled record snapshot');
 expectEqual('arbitrary untranslated expression has no captured record program',
   mp.generatedForExpression('A+(X)'), null);

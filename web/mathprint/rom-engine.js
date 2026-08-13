@@ -980,6 +980,14 @@
         variable:settledExpressionSpec(
           input.variable, `${label} variable`, active),
       };
+      if (kind === 'summation') return {
+        kind,
+        variable:settledExpressionSpec(
+          input.variable, `${label} variable`, active),
+        lower:settledExpressionSpec(input.lower, `${label} lower bound`, active),
+        upper:settledExpressionSpec(input.upper, `${label} upper bound`, active),
+        body:settledExpressionSpec(input.body, `${label} body`, active),
+      };
       throw new RangeError(`${label} has unsupported kind ${JSON.stringify(kind)}`);
     } finally {
       active.delete(input);
@@ -1017,6 +1025,7 @@
       if (expression.kind === 'nthRoot') return leadingByte(expression.index);
       if (expression.kind === 'fraction') return 0xef;
       if (expression.kind === 'integral') return 0xef;
+      if (expression.kind === 'summation') return 0xef;
       throw new RangeError(`unsupported settled leading-byte kind ${expression.kind}`);
     };
 
@@ -1299,6 +1308,78 @@
         ];
         return {kind:'embedded',structural,fractionByte13:0xef};
       }
+      if (expression.kind === 'summation') {
+        if (fractionNumerator)
+          throw new RangeError(
+            'summation construction in a fraction numerator remains untranslated');
+        if (expression.variable.kind !== 'tokens')
+          throw new RangeError('summation variable must be an ordinary token run');
+        const renderType = settledStructuralTokenType(0xef, 0x33);
+        if (renderType !== 0x29)
+          throw new Error('34:594D summation token mapping is inconsistent');
+        const structuralId = allocate();
+        const structural = {
+          record_id:structuralId, render_type:renderType, word03:0,
+          word05:3,
+          word07:0, word09:0, word0B:0, word0D:0, word0F:0,
+          word11:structuralDepth + 1, byte13:0xef,
+          child_ids:[], payload:[],
+        };
+        nodes.push(structural);
+
+        // The multi-argument pass reserves all four child leaves before it
+        // scans any payload for nested structural records.
+        const variable = newLeaf(structuralId);
+        const lower = newLeaf(structuralId);
+        const upper = newLeaf(structuralId);
+        const body = newLeaf(structuralId);
+        fillLeaf(variable, prepare(
+          expression.variable, renderDepth + 1, structuralDepth + 1),
+        renderDepth + 1);
+        fillLeaf(lower, prepare(
+          expression.lower, renderDepth + 1, structuralDepth + 1),
+        renderDepth + 1);
+        fillLeaf(upper, prepare(
+          expression.upper, renderDepth + 1, structuralDepth + 1),
+        renderDepth + 1);
+        fillLeaf(body, prepare(
+          expression.body, renderDepth, structuralDepth + 1), renderDepth);
+        variable.render_type = 1;
+
+        const upperWidth = upper.word07;
+        const lowerWidth = checkedWord(
+          variable.word07 + 4 + lower.word07, 'summation lower row width');
+        const operatorWidth = Math.max(upperWidth, lowerWidth, 12);
+        const upperSpace = Math.max(5, upper.word05);
+        const lowerSpace = Math.max(variable.word05, lower.word05);
+        const height = checkedWord(
+          upperSpace + 9 + lowerSpace, 'summation height');
+        const baseline = checkedWord(
+          upperSpace + 4, 'summation baseline');
+        const bodyX = checkedWord(operatorWidth + 6, 'summation body x');
+        const lowerRowY = checkedWord(
+          height - lowerSpace, 'summation lower row y');
+        variable.word0B = 0;
+        variable.word0D = lowerRowY;
+        lower.word0B = checkedWord(
+          variable.word07 + 4, 'summation lower-bound x');
+        lower.word0D = lowerRowY;
+        upper.word0B = checkedWord(
+          Math.floor((operatorWidth - upper.word07) / 2),
+          'summation upper-bound x');
+        upper.word0D = 0;
+        body.word0B = bodyX;
+        body.word0D = checkedWord(
+          baseline - body.word09, 'summation body y');
+        structural.word07 = height;
+        structural.word09 = checkedWord(
+          bodyX + body.word07 + 5, 'summation width');
+        structural.word0B = baseline;
+        structural.child_ids = [
+          variable.record_id, lower.record_id, upper.record_id, body.record_id,
+        ];
+        return {kind:'embedded',structural,fractionByte13:0xef};
+      }
       throw new RangeError(`unsupported settled expression part ${expression.kind}`);
     };
 
@@ -1377,6 +1458,15 @@
       {kind:'integral', lower, upper, body, variable}, firstId, font);
     program.source =
       '34:4900, 34:5935, 34:7393, and 34:7609 translated integral construction';
+    return program;
+  }
+
+  function constructSettledSummationProgram(variable, lower, upper, body,
+                                             firstId = 1, font = null) {
+    const program = constructSettledExpressionProgram(
+      {kind:'summation', variable, lower, upper, body}, firstId, font);
+    program.source =
+      '34:4900, 34:5935, 34:7393, and 34:7609 translated summation construction';
     return program;
   }
 
@@ -1856,6 +1946,7 @@
     constructSettledNthRootProgram,
     constructSettledPowerProgram,
     constructSettledRadicalProgram,
+    constructSettledSummationProgram,
     settledFractionOperations,
     settledSingleChildOperations,
     settledAbsoluteOperations,
