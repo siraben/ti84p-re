@@ -87,6 +87,19 @@ class TraceReplayTests(unittest.TestCase):
         )
         self.assertFalse(any(any(row) for row in replay.final))
 
+    def test_mutation_replay_retains_accepted_unchanged_data_writes(self):
+        records = [
+            instruction(0xD3, 100, af=0x2000, wz=0x2010),
+            instruction(0xD3, 160, af=0x0000, wz=0x0011),
+        ]
+        with trace_file(records) as trace:
+            replay = replay_mutations(trace.name)
+        self.assertEqual([], list(replay.events))
+        self.assertEqual([(0, 0, 0, ())], [
+            (event.pointer_x, event.pointer_y, event.value, event.changes)
+            for event in replay.writes
+        ])
+
     def test_mutation_replay_cutoff_starts_from_prior_lcd_state(self):
         records = [
             instruction(0xD3, 100, af=0x2000, wz=0x2010),

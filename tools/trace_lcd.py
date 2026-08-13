@@ -33,7 +33,7 @@ DATA_PORTS = {0x11, 0x13}
 
 @dataclass(frozen=True)
 class LcdMutation:
-    """One accepted LCD I/O instruction that changes visible pixels."""
+    """One accepted LCD data write and its visible pixel changes."""
 
     instruction_index: int
     clock: int
@@ -47,11 +47,12 @@ class LcdMutation:
 
 @dataclass(frozen=True)
 class LcdMutationReplay:
-    """Visible LCD state and ordered mutations from one trace cutoff."""
+    """Visible LCD state, accepted data writes, and visible mutations."""
 
     initial: list[list[int]]
     events: tuple[LcdMutation, ...]
     final: list[list[int]]
+    writes: tuple[LcdMutation, ...] = ()
 
 
 class T6A04:
@@ -169,12 +170,12 @@ def _grid_changes(before, after):
 
 
 def replay_mutations(trace, from_index=0, strict=True):
-    """Return accepted visible-pixel mutations at and after ``from_index``.
+    """Return accepted LCD data writes at and after ``from_index``.
 
     The initial grid is the controller state immediately before the instruction
-    at ``from_index``. Events preserve TLMT instruction order and include both
-    set and clear transitions. Accepted writes that leave visible pixels
-    unchanged are omitted.
+    at ``from_index``. ``writes`` preserves every accepted data write in TLMT
+    instruction order. ``events`` contains the subset with visible set or clear
+    transitions.
     """
 
     if from_index < 0:
@@ -183,6 +184,7 @@ def replay_mutations(trace, from_index=0, strict=True):
     idx = 0
     initial = None
     events = []
+    writes = []
     with open(trace, "rb") as fp:
         header = _r.read_header(fp)
         if header["version"] != 2:
@@ -240,19 +242,19 @@ def replay_mutations(trace, from_index=0, strict=True):
                         accepted = lcd.write(value, payload[_r.IDX_CLOCK])
                         if accepted and before is not None:
                             changes = _grid_changes(before, lcd.grid())
+                            write = LcdMutation(
+                                idx,
+                                payload[_r.IDX_CLOCK],
+                                port,
+                                value,
+                                pointer_x,
+                                pointer_y,
+                                mode,
+                                changes,
+                            )
+                            writes.append(write)
                             if changes:
-                                events.append(
-                                    LcdMutation(
-                                        idx,
-                                        payload[_r.IDX_CLOCK],
-                                        port,
-                                        value,
-                                        pointer_x,
-                                        pointer_y,
-                                        mode,
-                                        changes,
-                                    )
-                                )
+                                events.append(write)
             idx += 1
         if first_instruction:
             raise ValueError("LCD replay requires at least one instruction record")
@@ -263,7 +265,7 @@ def replay_mutations(trace, from_index=0, strict=True):
             raise ValueError(
                 f"from_index {from_index} is beyond the {idx}-instruction trace"
             )
-    return LcdMutationReplay(initial, tuple(events), lcd.grid())
+    return LcdMutationReplay(initial, tuple(events), lcd.grid(), tuple(writes))
 
 
 def reconstruct(trace, at_index=None, strict=True):

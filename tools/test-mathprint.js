@@ -354,11 +354,13 @@ const settledRasterHash = (nodes, entryId) => {
     .map(row => row.join('')).join('');
   return crypto.createHash('sha256').update(bits).digest('hex');
 };
-const settledWriteHash = (nodes, entryId) => {
+const settledWriteHash = (nodes, entryId, visibleOnly = false) => {
   const operations = rom.executeSettledRecordProgram(nodes, entryId, {
     glyphAdvance:settledGlyphAdvance,
   });
-  const bytes = rom.rasterizeSettledOperations(operations, font).writes
+  let writes = rom.rasterizeSettledOperations(operations, font).writes;
+  if (visibleOnly) writes = writes.filter(write => write.changes.length);
+  const bytes = writes
     .flatMap(write => [...write.pointer,write.value]);
   return crypto.createHash('sha256').update(Buffer.from(bytes)).digest('hex');
 };
@@ -381,6 +383,15 @@ for (const [name,nodes,entryId,expected] of [
   ['nDeriv',nderivProgram,0x11,'632a357aa5b55ab4d8fcc20a4e39e95c3f664166228c5a9625457e5fb5d645fc'],
   ['nested integral/fraction',integralFractionProgram,0x07,'f82758d431e616be056a6748e332b7dd5d859cb948f2192bdc99e7e14d38e237'],
 ]) expectEqual(`settled ${name} independently reproduces LCD write order`,
+                settledWriteHash(nodes,entryId,true), expected);
+for (const [name,nodes,entryId,expected] of [
+  ['absolute',absoluteProgram,0x0d,'0c11578979dbf5a5c6ef423dfbc4e1a465322e5e639257ccc44e69f910cdcf99'],
+  ['nth root',nthRootProgram,0x0e,'7b9fa6dd5d22b6e68570c45970764516b985780ce5de55c1945ac0b937ce99e5'],
+  ['radical',radicalProgram,0x0f,'56cd3a3c3b9eea8c2b99e96abee7d7175d5c3fd1e7930c4319aa1d464cc84750'],
+  ['summation',summationProgram,0x12,'4cb34332e177c4255fbcb816c4b2d35bfde37af28e19eec3954878fce3c604c8'],
+  ['nDeriv',nderivProgram,0x11,'0fd35d37d451e9df18349f062eebf72b3d913b27a31779cc9cd8b723f2365952'],
+  ['nested integral/fraction',integralFractionProgram,0x07,'2b8bc21220f632c2524e011418d51cc6040036941e076a642f6645b2b5d581a2'],
+]) expectEqual(`settled ${name} independently reproduces every accepted LCD data write`,
                 settledWriteHash(nodes,entryId), expected);
 
 expectEqual('34:6143 keeps incoming-A-dependent type 1F explicit',
@@ -389,11 +400,11 @@ expectEqual('34:6143 keeps incoming-A-dependent type 1F explicit',
     missing:'incoming A and the selected 34:6143 branch',
     routine:'34:6143', origin:{x:0,y:0}, recordId:1, recordType:0x1f, depth:1,
   }]);
-expectEqual('34:62A1 radical primitive order', rom.settledRadicalOperations(8, 0x1d), [
-  {kind:'bitmap', x:0, y:1, width:5, height:7,
+expectEqual('34:62A1 radical primitive order', rom.settledRadicalOperations(12, 0x1d), [
+  {kind:'bitmap', x:0, y:5, width:5, height:7,
    rows:[0x04,0x04,0x04,0x04,0x14,0x0c,0x04],
    routine:'34:62A4 → 34:62D0 → 34:630C'},
-  {kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:7},
+  {kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:4},
    routine:'34:62AE → 34:5D96'},
   {kind:'child-select', index:1, routine:'34:62B1 → 34:6D4B'},
   {kind:'line', axis:'horizontal', from:{x:2,y:0}, to:{x:0x20,y:0},

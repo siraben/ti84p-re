@@ -1013,10 +1013,10 @@
       grid[row][8 * byteColumn + bit] = (value >> (7 - bit)) & 1;
   };
 
-  // Translate the normal settled-render paths into accepted, visible-changing
-  // LCD data writes. Page 4 visits geometry one point at a time. _VPutMap at
-  // 01:6293 replaces the glyph cell row by row and writes a crossing row's
-  // right byte before its left byte (01:63CE–641A).
+  // Translate the normal settled-render paths into accepted LCD data writes.
+  // Page 4 visits geometry one point at a time. _VPutMap at 01:6293 replaces
+  // the glyph cell row by row and writes a crossing row's right byte before
+  // its left byte (01:63CE–641A).
   function settledOperationWrites(operation, font, grid) {
     if (!Array.isArray(grid) || !grid.length || !Array.isArray(grid[0]))
       throw new TypeError('settled LCD write translation requires a pixel grid');
@@ -1024,11 +1024,11 @@
     if (width % 8)
       throw new RangeError('settled LCD write grid width must be byte-aligned');
     const writes = [];
-    const write = (byteColumn, row, value) => {
+    const write = (byteColumn, row, value, retainUnchanged = false) => {
       if (byteColumn < 0 || row < 0 || byteColumn >= width / 8 || row >= height) return;
       const before = settledGridByte(grid, byteColumn, row);
       value &= 0xff;
-      if (before === value) return;
+      if (!retainUnchanged && before === value) return;
       const changes = settledByteChanges(before, value, byteColumn, row);
       settledStoreByte(grid, byteColumn, row, value);
       writes.push({pointer:[byteColumn,row],value,changes});
@@ -1038,13 +1038,24 @@
       for (const [x,y] of settledOperationPixels(operation, font)) {
         if (x < 0 || y < 0 || x >= width || y >= height) continue;
         const byteColumn = x >> 3;
-        write(byteColumn, y, settledGridByte(grid, byteColumn, y) | 1 << (7 - (x & 7)));
+        write(byteColumn, y,
+              settledGridByte(grid, byteColumn, y) | 1 << (7 - (x & 7)), true);
       }
       return writes;
     }
 
+    const largeGlyph = (operation.kind === 'glyph' || operation.kind === 'glyph-run') &&
+      operation.depth === 0;
+    const smallGlyph = (operation.kind === 'glyph' || operation.kind === 'glyph-run') &&
+      operation.depth !== 0;
     for (const blit of settledBlits(operation, font)) {
+      // The ROM font export includes one padding row above and below the five
+      // rows consumed by _VPutMap. 01:637E emits all five interior rows, even
+      // when a row is zero. This is observable for '=' and the division sign.
+      const firstRow = smallGlyph ? 1 : 0;
+      const lastRow = smallGlyph ? blit.rows.length - 2 : blit.rows.length - 1;
       for (let row = 0; row < blit.rows.length; row++) {
+        if (smallGlyph && (row < firstRow || row > lastRow)) continue;
         const y = blit.y + row;
         if (y < 0 || y >= height) continue;
         const firstByte = Math.floor(blit.x / 8);
@@ -1060,7 +1071,7 @@
             if (blit.rows[row] & 1 << (blit.width - 1 - column)) ink |= screenMask;
           }
           const before = settledGridByte(grid, byteColumn, y);
-          write(byteColumn, y, (before & ~coverage) | ink);
+          write(byteColumn, y, (before & ~coverage) | ink, largeGlyph || smallGlyph);
         }
       }
     }
@@ -1176,11 +1187,9 @@
   function settledRadicalOperations(height, childWidth) {
     byte(height, 'settled radical height');
     byte(childWidth, 'settled radical child width');
-    if (height < 2)
-      throw new RangeError('settled radical height must be at least two');
-    if (height < 7)
-      throw new RangeError('settled radical height must fit the seven-row hook');
-    const stemEnd = height - 1;
+    if (height < 9)
+      throw new RangeError('settled radical height must fit the hook and stem');
+    const stemEnd = height - 8;
     const ruleEnd = childWidth + 3;
     byte(ruleEnd, 'settled radical vinculum endpoint');
     return [
