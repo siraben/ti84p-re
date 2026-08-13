@@ -655,6 +655,18 @@ Five reset-origin traces cover `(X+1)`, `(X^2+1)`, `(X+1)^2`, `X^(1+2)`, and
 match these traces. The streams contain 49, 60, 59, 32, and 60 writes,
 respectively. [confirmed]
 
+When the base of a power ends in a structural object, the constructor writes
+`3` to that object's word at `+0x0F`. The type-`0x2A` height and baseline also
+increase by the base leaf's baseline above the ordinary baseline at that render
+depth. For `sqrt(X)^2`, the power record has height 12, baseline 8, and an
+`+0x0D` horizontal anchor of 11. [confirmed]
+
+Reset-origin traces for `sqrt(X)^2`, `abs(X)^2`, and
+`abs(sqrt(X^2+1))` match every generated record field and accepted LCD data
+write. Their complete streams contain 35, 33, and 113 writes, respectively.
+The nested case verifies the absolute-value bars, radical hook and vinculum,
+powered radicand, and leaf glyphs in ROM emission order. [confirmed]
+
 Fresh reset-origin traces for `X^2`, `X^12`, `2^X^2`, and `2^X^2^3` match the
 constructed record fields and every accepted LCD data write. Their streams
 contain 17, 22, 22, and 32 writes, respectively. These captures test one, two,
