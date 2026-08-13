@@ -526,9 +526,9 @@ to identify the enclosing leaf program. [confirmed]
 Within that program, `EF type id_lo id_hi` invokes the structural record with
 the given little-endian ID. `EF 2D` terminates or separates the embedded object
 without drawing it. Ordinary payload bytes may follow. The settled
-`sum(N,1,3,N^2)` entry invokes type `0x29`, emits `N`, invokes type `0x2A`, and
-then closes the exponent object. This byte order matches the structural
-dispatch and glyph trace order. [confirmed]
+`sum(N,1,3,N^2)` entry invokes type `0x29`. Its body child emits `N`, invokes
+type `0x2A`, and then closes the exponent object. This byte order matches the
+structural dispatch and glyph trace order. [confirmed]
 
 `executeSettledRecordProgram()` translates this byte stream rather than
 replaying captured glyph events. Tests provide record headers, child IDs, and
@@ -540,7 +540,7 @@ The translated renderer then maps the ordered operations through the ROM font
 bitmaps, page-4 point and line behavior, `_VPutMap`, the page-7 large-glyph
 path, and LCD byte packing. Six settled programs reproduce every accepted LCD
 data write through the outer `34:660A` return: absolute value (49 writes), nth
-root (69), radical (82), summation (91), `nDeriv(` (110), and a nested
+root (69), radical (82), summation (66), `nDeriv(` (110), and a nested
 integral/fraction (114). This comparison includes accepted writes whose value
 does not change the displayed byte. [confirmed]
 
@@ -666,13 +666,49 @@ field and ID. It also reproduces all accepted LCD data writes through the outer
 `34:660A` return. The traces supply comparison oracles, not constructor input.
 [confirmed]
 
+The type-`0x29` constructor maps summation source token `EF33h` through
+`34:594D`. `34:4900` allocates the summation record, then reserves child leaves
+for the variable, lower bound, upper bound, and body in that order. It fills
+their payloads after all four reservations. Structural arguments therefore
+allocate their records after the reserved leaves. A nested summation applies
+the same rule recursively. [confirmed]
+
+The variable, lower bound, and upper bound render one depth below the containing
+leaf. The body renders at the containing depth. The variable leaf uses render
+type `1`. For child height, width, and baseline metrics $(h,w,b)$, define
+[confirmed]
+
+$$
+\begin{aligned}
+L &= w_v+4+w_l, & O &= \max(w_u,L,12), \\
+S_u &= \max(5,h_u), & S_l &= \max(h_v,h_l), \\
+H &= S_u+9+S_l, & B &= S_u+4, \\
+x_b &= O+6, & W &= x_b+w_b+5.
+\end{aligned}
+$$
+
+The variable begins at $(0,H-S_l)$ and the lower bound begins at
+$(w_v+4,H-S_l)$. Placing both on the common lower row keeps structural lower
+bounds aligned with the variable. The upper bound begins at
+$(\lfloor(O-w_u)/2\rfloor,0)$. The body begins at $(x_b,B-b_b)$. The
+type-`0x29` record stores `3`, $H$, $W$, and $B$ at `+5`, `+7`, `+9`, and
+`+0x0B`, respectively. [confirmed]
+
+Eleven reset-origin traces cover the representative `sum(N,1,3,N^2)` case,
+unequal-width token limits, multi-token limits, power limits, radical,
+nth-root, fraction, and power bodies, a different variable, and a nested
+summation. The JavaScript constructor matches every record field and ID. It
+also reproduces every accepted LCD data write through the outer `34:660A`
+return. The traces supply comparison oracles, not constructor input.
+[confirmed]
+
 Flat absolute-value bodies and expressions composed from ordinary token runs,
 right-associated powers, radicals, nth roots, and stacked fractions now run
 from tokens through record construction, layout, drawing operations, and LCD
-byte writes. Integrals compose with the same translated forms in their bounds
-and body. Summation and `nDeriv(` examples still begin from record snapshots
-captured at `34:660A`. Full arbitrary-expression parity requires those
-constructors and remaining metric branches. [confirmed]
+byte writes. Integrals and summations compose with the same translated forms in
+their limits and bodies. Only `nDeriv(` still begins from a record snapshot
+captured at `34:660A`. Full arbitrary-expression parity requires its constructor
+and the remaining metric branches. [confirmed]
 
 Each dispatch also captures the viewport origin at `ram:8DFE`/`ram:8E00`.
 Nested fraction `1/2` reaches `34:5DA6` with the local rule `(1,6)`–`(5,6)`
@@ -723,10 +759,10 @@ The 5,018-case Node test remains a deterministic parser/layout smoke test. Six
 settled record programs provide exact final-pixel and complete accepted-write
 parity for their expressions. Three fresh absolute-value cases, four power
 cases, eight power/radical composition cases, four nth-root cases, thirteen
-fraction cases, and twelve integral cases verify token-to-record construction
-and complete accepted-write streams. The deepest power oracle has three raised
-levels. Two longer trace scenarios cover the editor and display activity around
-the final key press. [confirmed]
+fraction cases, twelve integral cases, and eleven summation cases verify
+token-to-record construction and complete accepted-write streams. The deepest
+power oracle has three raised levels. Two longer trace scenarios cover the
+editor and display activity around the final key press. [confirmed]
 
 ## Extracted records and interactive model
 
@@ -741,8 +777,8 @@ classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in `app.js` still uses a separate,
 trace-fitted box model. `web/mathprint/record-programs.json` contains six
 captured record snapshots. The browser constructs supported absolute-value,
-power, radical, nth-root, stacked-fraction, and integral expressions from
-tokens, including nesting among the structural forms. It uses snapshots for
-summation and `nDeriv(`. Both input forms execute through the translated
+power, radical, nth-root, stacked-fraction, integral, and summation expressions
+from tokens, including nesting among the structural forms. It uses a snapshot
+only for `nDeriv(`. Both input forms execute through the translated
 renderer and expose every generated LCD write as a live timeline. This mode
 does not load captured LCD events. [confirmed]
