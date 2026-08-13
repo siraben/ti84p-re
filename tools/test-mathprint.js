@@ -416,6 +416,23 @@ for (const [entry, expectedScratch] of [
     entry,b:0xff,c:0xff,
   })).scratch,expectedScratch);
 
+for (const [bytes, expected] of [
+  [[0x12],true], [[0x28],true], [[0x29],false],
+  [[0x9e],true], [[0xa5],true], [[0xa6],false],
+  [[0xb1],true], [[0xcd],true], [[0xce],false],
+  [[0xda],true], [[0xdb],true], [[0xee],true], [[0xef],false],
+  [[0xbb,0x1f],true], [[0xbb,0x20],false],
+  [[0xbb,0x25],true], [[0xbb,0x2e],true], [[0xbb,0x2f],false],
+  [[0xbb,0x49],true], [[0xbb,0x4a],false],
+  [[0xef,0x08],true], [[0xef,0x09],false],
+  [[0xef,0x13],true], [[0xef,0x2e],false],
+  [[0xef,0x32],true], [[0xef,0x35],true], [[0xef,0x36],false],
+  [[0x5d,0x00],false],
+]) expectEqual(`34:5A05 classifies ${bytes.map(value =>
+  value.toString(16).padStart(2,'0')).join(' ')}`,
+  rom.settledParseAheadFunctionToken(
+    bytes.length === 2 ? bytes[0] : 0, bytes.at(-1)), expected);
+
 for (const [label, bytes, stopCursor] of [
   ['nested comma in parentheses',[0x10,0x31,0x2b,0x32,0x11,0x2b,0x33],5],
   ['nested comma in braces',[0x08,0x31,0x2b,0x32,0x09,0x2b,0x33],5],
@@ -456,6 +473,34 @@ for (const [label, expression, nativeTokens] of [
   const reparsed = rom.constructSettledProgramFromTokens(nativeTokens,1,font);
   expectEqual(`${label} native scanner reproduces its settled graph`,
     reparsed.nodes,program.nodes);
+}
+
+for (const [label, nativeTokens, expectedPayload, expectedWrites] of [
+  ['single-byte multi-argument maximum',
+    [0x19,0x31,0x2b,0xbc,0x58,0x11,0x11],
+    [0x19,0x31,0x2b,0xef,0x27,0x02,0x00,0xef,0x2d,0x11], 104],
+  ['single-byte inverse sine',
+    [0xc3,0x58,0xf0,0x32,0x11],
+    [0xc3,0x58,0xef,0x2a,0x02,0x00,0xef,0x2d,0x11], 81],
+  ['BB multi-argument least common multiple',
+    [0xbb,0x08,0x36,0x2b,0xbc,0x58,0x11,0x11],
+    [0xbb,0x08,0x36,0x2b,0xef,0x27,0x02,0x00,0xef,0x2d,0x11], 104],
+  ['EF multi-argument random integer without repetition',
+    [0xef,0x35,0x31,0x2b,0x35,0x11],
+    [0xef,0x35,0x31,0x2b,0x35,0x11], 168],
+]) {
+  const program = rom.constructSettledProgramFromTokens(nativeTokens,1,font);
+  expectEqual(`${label} preserves the generic function and embedded child`,
+    program.nodes[0].payload,expectedPayload);
+  const generated = mp.generatedForNativeTokens(nativeTokens);
+  expectEqual(`${label} emits a complete accepted LCD byte stream`,
+    generated.events.length,expectedWrites);
+  if (generated.operations.some(operation => operation.kind.startsWith('unresolved')) ||
+      generated.events.some(event => event.pixels.length !== 8))
+    throw new Error(`${label} has an unresolved or incomplete pixel-level path`);
+  expectEqual(`${label} byte replay reaches its rasterized framebuffer`,
+    rom.replaySettledLcdWrites(generated.events),
+    generated.final.map(row => Array.from(row, pixel => Number(pixel))));
 }
 
 // These arbitrary inputs are deliberately absent from the captured graph/LCD

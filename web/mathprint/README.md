@@ -47,6 +47,13 @@ each nested argument boundary. A retained summation trace pins all four
 byte-decoded and regression-tested but do not all have independent dynamic
 oracles.
 
+The function-opener predicate at `34:5A05` is also translated. It dispatches
+ordinary tokens through `34:5A52`, `BB` tokens through `34:5A28`, and `EF`
+tokens through `34:5A14`. Raw native input can therefore retain structural
+children inside the full ROM-classified function-token ranges instead of a
+preview-name allowlist. The renderer still rejects structural record type
+`0x2C`, whose constructor and render dispatch remain unresolved.
+
 Render-record type `0x22` is translated through `34:622F`. The interactive
 integral sign now uses its exact vertical-segment and four-point operation order
 instead of stretching glyph `0x08`.

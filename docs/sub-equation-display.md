@@ -984,6 +984,14 @@ translation matches these registers, flags, and scratch bytes. Static byte
 decoding covers the other mode bits and token classes; they do not yet have
 independent dynamic coverage for every exit branch. [confirmed]
 
+`34:5A05` classifies function openers from packed `D:E` tokens. Ordinary
+one-byte tokens pass through `34:5A52`, `BB` tokens through `34:5A28`, and `EF`
+tokens through `34:5A14`. The JavaScript scanner applies those comparisons and
+ROM tables directly. Generic function runs can therefore contain translated
+structural children without depending on a list of preview function names.
+The `EF36h` mapping to structural type `0x2C` remains rejected because its
+constructor and renderer are not yet translated. [confirmed]
+
 The browser expands every accepted byte into eight ordered pixel results. A
 timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement
