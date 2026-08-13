@@ -312,6 +312,57 @@ const settledGlyphStream = (nodes, entryId) => rom.executeSettledRecordProgram(
 ).filter(operation => operation.kind === 'glyph')
   .map(operation => [operation.code,operation.x,operation.y,operation.depth]);
 
+expectEqual('34:58F9 reads a single-byte packed token',
+  rom.settledReadPackedToken([0x58,0x5d,0x00],0), {
+    prefix:0,token:0x58,packed:0x58,bytes:[0x58],offset:0,next:1,length:1,
+  });
+expectEqual('34:58F9 reads a two-byte packed token',
+  rom.settledReadPackedToken([0x58,0x5d,0x00],1), {
+    prefix:0x5d,token:0,packed:0x5d00,bytes:[0x5d,0],offset:1,next:3,length:2,
+  });
+expectEqual('34:5911 walks backward across a two-byte token',
+  rom.settledReadPackedTokenBackward([0x58,0x5d,0x00],3), {
+    prefix:0x5d,token:0,packed:0x5d00,bytes:[0x5d,0],offset:1,next:3,length:2,
+  });
+expectEqual('34:5911 walks backward across a single-byte token',
+  rom.settledReadPackedTokenBackward([0x58,0x5d,0x00],1), {
+    prefix:0,token:0x58,packed:0x58,bytes:[0x58],offset:0,next:1,length:1,
+  });
+expectThrows('34:58F9 rejects a truncated native two-byte token', RangeError,
+  () => rom.settledReadPackedToken([0x58,0x5d],1));
+expectEqual('native token iterator preserves packed offsets',
+  rom.settledNativeTokenUnits([0x58,0xf0,0x5d,0x00]).units.map(unit =>
+    [unit.offset,unit.length,unit.packed]),
+  [[0,1,0x58],[1,1,0xf0],[2,2,0x5d00]]);
+
+for (const [label, expression, nativeTokens] of [
+  ['right-associated power','2^X^2',[0x32,0xf0,0x58,0xf0,0x32]],
+  ['raised fraction boundaries','X^(1//2)',
+    [0x58,0xf0,0x10,0x10,0x31,0xef,0x2e,0x32,0x11,0x11]],
+  ['nested fraction denominator','1//(2//3)',
+    [0x31,0xef,0x2e,0x10,0x32,0xef,0x2e,0x33,0x11]],
+  ['integral storage order','int(1,2,X^2,X)',
+    [0x24,0x58,0xf0,0x32,0x2b,0x58,0x2b,0x31,0x2b,0x32,0x11]],
+  ['summation storage order','sum(N,1,3,N^2)',
+    [0xef,0x33,0x4e,0xf0,0x32,0x2b,0x4e,0x2b,0x31,0x2b,0x33,0x11]],
+  ['nDeriv storage order','nDeriv(X^2,X,1)',
+    [0x25,0x58,0xf0,0x32,0x2b,0x58,0x2b,0x31,0x11]],
+  ['logBASE storage order','logbase(12,345)',
+    [0xef,0x34,0x33,0x34,0x35,0x2b,0x31,0x32,0x11]],
+  ['matrix row-major braces','matrix(2,2,1,2,3,4)',
+    [0x08,0x08,0x31,0x2b,0x32,0x09,
+     0x08,0x33,0x2b,0x34,0x09,0x09]],
+  ['named two-byte token','L1^2',[0x5d,0x00,0xf0,0x32]],
+]) {
+  const program = mp.constructedProgramForExpression(expression);
+  if (!program) throw new Error(`${label} has no native-token browser program`);
+  expectEqual(`${label} emits native calculator bytes`,
+    program.native_tokens,nativeTokens);
+  const reparsed = rom.constructSettledProgramFromTokens(nativeTokens,1,font);
+  expectEqual(`${label} native scanner reproduces its settled graph`,
+    reparsed.nodes,program.nodes);
+}
+
 for (const [bytes, expected] of [
   [[0x5c,0x00], {codes:[0xc1,0x41,0x5d],length:2,table:'5C',tableIndex:0}],
   [[0x5d,0x00], {codes:[0x4c,0x81],length:2,table:'5D',tableIndex:0}],
@@ -1050,7 +1101,7 @@ expectEqual('browser parses powers right associatively',
   }, 1, font).nodes);
 expectEqual('power browser path labels translated construction',
   mp.generatedForExpression('X^2').programSource,
-  '34:4900, 34:5935, 34:7393, and 34:7609 translated power construction');
+  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 for (const expression of ['X^', '^2', 'X^^2'])
   expectEqual(`${expression} is outside the translated power grammar`,
     mp.constructedProgramForExpression(expression), null);
@@ -1202,28 +1253,28 @@ for (const [expression,nodes,entryId] of browserProgramCases) {
 }
 expectEqual('absolute browser path labels translated construction',
   mp.generatedForExpression('abs(X-3)').programSource,
-  '34:4900, 34:5935, 34:7393, and 34:7609 translated absolute construction');
+  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('radical browser path labels translated construction',
   mp.generatedForExpression('sqrt(X^2+1)').programSource,
-  '34:4900, 34:5935, 34:7393, and 34:7609 translated radical construction');
+  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('nth-root browser path labels translated construction',
   mp.generatedForExpression('nthroot(3,X+1)').programSource,
-  '34:4900, 34:5935, 34:7393, and 34:7609 translated nth-root construction');
+  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('compositional browser path labels translated construction',
   mp.generatedForExpression('X^sqrt(2)').programSource,
-  '34:4900, 34:5935, 34:7393, and 34:7609 translated power construction');
+  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('fraction browser path labels translated construction',
   mp.generatedForExpression('1//2').programSource,
-  '34:4900, 34:5935, 34:7393, and 34:7609 translated fraction construction');
+  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('integral browser path labels translated construction',
   mp.generatedForExpression('int(1,2,X,X)').programSource,
-  '34:4900, 34:5935, 34:7393, and 34:7609 translated integral construction');
+  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('summation browser path labels translated construction',
   mp.generatedForExpression('sum(N,1,3,N^2)').programSource,
-  '34:4900, 34:5935, 34:7393, and 34:7609 translated summation construction');
+  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('nDeriv browser path labels translated construction',
   mp.generatedForExpression('nDeriv(X^2,X,1)').programSource,
-  '34:4900, 34:5935, 34:7393, and 34:7609 translated nDeriv construction');
+  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 if (!mp.generatedForExpression('A+(X)'))
   throw new Error('visible grouped expression has no generated LCD write stream');
 
