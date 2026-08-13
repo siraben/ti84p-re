@@ -363,6 +363,76 @@ for (const [label, expression, nativeTokens] of [
     reparsed.nodes,program.nodes);
 }
 
+// These arbitrary inputs are deliberately absent from the captured graph/LCD
+// fixtures. They pin the complete native-byte -> record graph -> accepted LCD
+// byte stream -> 96x64 framebuffer path for changed values and deeper nesting.
+// The hashes are deterministic regressions, not independent calculator oracles.
+for (const [expression,nativeTokens,writeCount,writeHash,lcdHash] of [
+  ['sum(N,12,34,N^3+2)',
+    [0xef,0x33,0x4e,0xf0,0x33,0x70,0x32,0x2b,
+     0x4e,0x2b,0x31,0x32,0x2b,0x33,0x34,0x11],
+    104,'12efe48d6845f20c48f45fd0ff001bcf310ad5bc00729451a48a134504da16cc',
+    'a97bdbb88c4f92848b33ee78290b89cc550463bf5c4a60df4d88b806250bf188'],
+  ['int(12,34,(5//(6//7))X^3,X)',
+    [0x24,0x10,0x35,0xef,0x2e,0x10,0x36,0xef,
+     0x2e,0x37,0x11,0x11,0x58,0xf0,0x33,0x2b,
+     0x58,0x2b,0x31,0x32,0x2b,0x33,0x34,0x11],
+    172,'96f8cf4140ea734e73908e195608d03972e1baa1003798e2ee5995cf006587a4',
+    '52573ba7527565e61c5af338d8634feaf9bbbf75ab716ecc745b0a9a6edcbbf3'],
+  ['nDeriv((X^3+12)//sqrt(5),X,7)',
+    [0x25,0x10,0x58,0xf0,0x33,0x70,0x31,0x32,
+     0x11,0xef,0x2e,0x10,0xbc,0x35,0x11,0x11,
+     0x2b,0x58,0x2b,0x37,0x11],
+    173,'5003a3e479a9f50e30efe6e54efe844cbb2a34a04db768c2a10b5e5a73241f3d',
+    'ccd9a4f098e3d8270e139528606ca85fe6ce37bed275aa834c3d369a8140fb82'],
+  ['matrix(2,2,12,3^2,4//5,abs(6-7))',
+    [0x08,0x08,0x31,0x32,0x2b,0x33,0xf0,0x32,
+     0x09,0x08,0x34,0xef,0x2e,0x35,0x2b,0xb2,
+     0x36,0x71,0x37,0x11,0x09,0x09],
+    168,'41d5ef3982417a631efec075ef18da1481c3a1a3230441f28e0808104aa02753',
+    '8170bfc16ba71c53321a0fc72fc54b0f8f5b85d95f1ac8a4d76f90360bc049d3'],
+  ['X^(1//(2//3))',
+    [0x58,0xf0,0x10,0x10,0x31,0xef,0x2e,0x10,
+     0x32,0xef,0x2e,0x33,0x11,0x11,0x11],
+    36,'68e72bbf9297f85fb4daeb04a1b6f891434f8c570424982f742d2bad89344146',
+    '0af8a5ff2cd2bc90699ee4cceccf6faea101e2dcdc5ff88cb4ab28d00526ca93'],
+]) {
+  const browserProgram = mp.constructedProgramForExpression(expression);
+  expectEqual(`${expression} changed-input frontend emits native bytes`,
+    browserProgram.native_tokens,nativeTokens);
+  const program = rom.constructSettledProgramFromTokens(nativeTokens,1,font);
+  const operations = rom.executeSettledRecordProgram(
+    program.nodes,program.entry_id,{
+      origin:program.origin,glyphAdvance:settledGlyphAdvance,
+    });
+  if (operations.some(operation => operation.kind.startsWith('unresolved') ||
+      operation.kind === 'glyph' && operation.code === 0xf7))
+    throw new Error(`${expression} has an unresolved or empty pixel operation`);
+  const rendered = rom.rasterizeSettledOperations(operations,font);
+  expectEqual(`${expression} changed-input accepted LCD write count`,
+    rendered.writes.length,writeCount);
+  expectEqual(`${expression} changed-input accepted LCD write bytes`,
+    crypto.createHash('sha256').update(Buffer.from(rendered.writes.flatMap(
+      write => [...write.pointer,write.value]))).digest('hex'),writeHash);
+  const replayed = rom.replaySettledLcdWrites(rendered.writes);
+  expectEqual(`${expression} byte replay reaches the rasterized framebuffer`,
+    replayed,rendered.grid);
+  expectEqual(`${expression} changed-input packed 96x64 LCD`,
+    crypto.createHash('sha256').update(packedLcdBytes(replayed)).digest('hex'),lcdHash);
+  const browser = mp.generatedForExpression(expression);
+  for (const step of [0,1,Math.floor(browser.events.length / 2),browser.events.length])
+    expectEqual(`${expression} browser exposes pixel frame at write ${step}`,
+      mp.traceFrame(browser,step),
+      rom.replaySettledLcdWrites(browser.events,{
+        width:browser.width,height:browser.height,count:step,
+      }));
+}
+
+expectThrows('LCD replay rejects an out-of-bounds byte pointer', RangeError,
+  () => rom.replaySettledLcdWrites([{pointer:[12,0],value:0xff}]));
+expectThrows('LCD replay rejects a non-byte data value', RangeError,
+  () => rom.replaySettledLcdWrites([{pointer:[0,0],value:0x100}]));
+
 for (const [bytes, expected] of [
   [[0x5c,0x00], {codes:[0xc1,0x41,0x5d],length:2,table:'5C',tableIndex:0}],
   [[0x5d,0x00], {codes:[0x4c,0x81],length:2,table:'5D',tableIndex:0}],

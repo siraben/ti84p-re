@@ -971,8 +971,15 @@ function decodeTraceGrid(rows) {
 }
 
 function traceFrame(record, step) {
-  const grid = decodeTraceGrid(record.initial);
   const count = Math.max(0, Math.min(record.events.length, step));
+  const initial = decodeTraceGrid(record.initial);
+  if (ROM_ENGINE && typeof ROM_ENGINE.replaySettledLcdWrites === 'function' &&
+      record.events.every(event => Array.isArray(event.pointer) &&
+        Number.isInteger(event.value)))
+    return ROM_ENGINE.replaySettledLcdWrites(record.events, {
+      width:record.width, height:record.height, initialGrid:initial, count,
+    });
+  const grid = initial;
   for (let i = 0; i < count; i++)
     for (const [x, y, value] of record.events[i].changes) grid[y][x] = value;
   return grid;
