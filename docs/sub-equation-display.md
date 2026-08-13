@@ -599,10 +599,45 @@ Fresh traces for `nthroot(2,2)`, `nthroot(12,X+12)`,
 accepted LCD data write. These cases cover a multi-token index, a structural
 radicand, and a raised nth root. [confirmed]
 
+The type-`0x20` constructor maps the stacked-fraction source token `EF2Eh`
+through `34:594D`. It renders both children one depth below the containing leaf.
+For numerator height $h_n$, denominator height $h_d$, and child widths $w_n$
+and $w_d$, the settled metrics are [confirmed]
+
+$$
+\begin{aligned}
+w &= \max(w_n,w_d), \\
+x_n &= 2 + \left\lfloor\frac{w-w_n}{2}\right\rfloor, \\
+x_d &= 2 + \left\lfloor\frac{w-w_d}{2}\right\rfloor, \\
+y_d &= h_n + 3, \\
+H &= h_n + h_d + 3, \\
+W &= w + 4, \\
+B &= h_n + 1.
+\end{aligned}
+$$
+
+The numerator begins at $y=0$. The metric pass clears the numerator leaf's
+word at `+0x0F`. The renderer consumes its payload through the word at `+0x11`.
+[confirmed]
+
+`34:4900` allocates structural records in a fraction numerator before it
+allocates the enclosing type-`0x20` record. It allocates the numerator leaf
+afterward. For `(X^2)//3`, IDs `0x11` and `0x12` identify the power record and
+its exponent leaf. ID `0x13` identifies the fraction, `0x14` its numerator
+leaf, and `0x15` its denominator leaf. The graph points from the numerator leaf
+back to the earlier power record. A structural denominator follows the ordinary
+recursive allocation order. A fraction nested in the numerator recursively
+applies the same hoisting rule. [confirmed]
+
+Thirteen reset-origin traces cover leaf, sequence, power, radical, nth-root,
+and nested-fraction operands. The generated graphs match every captured record
+field and ID. Their accepted LCD data-write streams also match through the outer
+`34:660A` return. [confirmed]
+
 Flat absolute-value bodies and expressions composed from ordinary token runs,
-right-associated powers, radicals, and nth roots now run from tokens through
-record construction, layout, drawing operations, and LCD byte writes.
-Summation, `nDeriv(`, and integral/fraction examples still begin from record
+right-associated powers, radicals, nth roots, and stacked fractions now run
+from tokens through record construction, layout, drawing operations, and LCD
+byte writes. Summation, `nDeriv(`, and integral examples still begin from record
 snapshots captured at `34:660A`. Full arbitrary-expression parity requires the
 remaining structural constructors and metric branches. [confirmed]
 
@@ -673,8 +708,8 @@ classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in `app.js` still uses a separate,
 trace-fitted box model. `web/mathprint/record-programs.json` contains six
 captured record snapshots. The browser constructs supported absolute-value,
-power, radical, and nth-root expressions from tokens, including nesting among
-the structural forms. It uses snapshots for summation, `nDeriv(`, and the
-integral/fraction example. Both input forms execute through the translated
-renderer and expose every generated LCD write as a live timeline. This mode
-does not load captured LCD events. [confirmed]
+power, radical, nth-root, and stacked-fraction expressions from tokens,
+including nesting among the structural forms. It uses snapshots for summation,
+`nDeriv(`, and the integral example. Both input forms execute through the
+translated renderer and expose every generated LCD write as a live timeline.
+This mode does not load captured LCD events. [confirmed]
