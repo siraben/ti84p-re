@@ -67,9 +67,9 @@ containers. It translates the `34:57C2` source-cursor rewind and the following
 `34:5AA7` call with `B=20h` for every element. Each returned range ends at a
 depth-zero `2Bh` column separator or row-closing `07h`. The raw native path
 checks the translated row and column count before constructing the matrix.
-Primitive numeric and signed cells are covered by retained value traces;
-nested structural cells remain rejected until their kind-`6` resume path is
-traced.
+Primitive numeric and signed cells are covered by retained value traces. A
+retained $2\times2$ trace with `sqrt(2)` and $X^2$ pins the bit-5 parse-ahead
+resume path and the record-ID reservation before a structural first cell.
 
 Render-record type `0x22` is translated through `34:622F`. The interactive
 integral sign now uses its exact vertical-segment and four-point operation order

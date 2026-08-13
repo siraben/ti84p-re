@@ -520,7 +520,7 @@ Each element is centered within its row and column extent:
 
 $$
 X_{r,c}=x_c+\left\lfloor\frac{C_c-w_{r,c}}{2}\right\rfloor, \qquad
-Y_{r,c}=y_r+\left\lfloor\frac{R_r-h_{r,c}}{2}\right\rfloor.
+Y_{r,c}=y_r+\left\lfloor\frac{R_r-h_{r,c}+1}{2}\right\rfloor.
 $$
 
 For $m$ rows and $n$ columns, let $N_e$ be the element count, $H$ the matrix
@@ -539,9 +539,12 @@ The constructor stores $N_e$, $H$, $W$, and $y_c$ in the words at `+5`, `+7`,
 
 The word at `+0x11` stores the column count in its high byte and structural
 depth in its low byte. The byte at `+0x13` stores the row count. When the matrix
-contains more than one element, the allocation pass leaves one unused ID after
-the first child. The reachable child sequence is therefore `0x11`, `0x13`,
-`0x14`, and so on in captures whose matrix record is `0x10`. [confirmed]
+contains more than one element, the allocation pass reserves the first child
+leaf and then leaves one unused ID before scanning that leaf for nested
+records. Primitive captures therefore have reachable child IDs `0x11`,
+`0x13`, `0x14`, and so on when the matrix record is `0x10`. A structural first
+cell uses `0x11` for the leaf, leaves `0x12` unused, and assigns its first nested
+record ID `0x13`. [confirmed]
 
 Five reset-origin traces cover $1\times1$, $1\times2$, $2\times2$,
 $2\times3$, and $3\times3$ matrices. The JavaScript constructor matches every
@@ -1028,9 +1031,12 @@ then `34:5AA7` scans with `B=20h`. The returned `BC` points to a depth-zero
 `2Bh` comma or the row-closing `07h`. The `0x9D05` result is `0` for a comma
 and `FFh` for the row close. The JavaScript scanner retains these results and
 derives row-major element ranges. Retained $1\times1$, $1\times2$,
-$2\times3$, and $3\times3$ value traces pin primitive numeric cells. Nested
-structural matrix cells remain closed until a trace pins the constructor's
-resume path after the child boundary. [confirmed]
+$2\times3$, and $3\times3$ value traces pin primitive numeric cells. A
+$2\times2$ trace with `sqrt(2)` and $X^2$ pins the structural-cell path. At
+`34:5BA7`, `B=20h` makes a function opener increment `D`. Its closing `11h`
+sets bit 6 in `B`, resumes the scan, and reaches the matrix delimiter. The
+JavaScript parse-ahead translation applies that branch to ordinary, `BB`, and
+`EF` opener classes. [confirmed]
 
 The browser expands every accepted byte into eight ordered pixel results. A
 timeline row records the previous byte, replacement byte, all eight destination

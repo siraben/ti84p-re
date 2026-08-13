@@ -1733,7 +1733,8 @@
         if (a === 0xbb) {
           a = advanceByte(); // bjump 00:3057 -> 38:7248
           if (settledParseAheadClass5A28(a)) {
-            if (!bit(b,5) && e === 0) d = (d + 1) & 0xff;
+            // 34:5BA7–5BB1 increments D when bit 5 is set OR E is zero.
+            if (bit(b,5) || e === 0) d = (d + 1) & 0xff;
             continue;
           }
           continue;
@@ -1741,7 +1742,7 @@
         if (a === 0xef) {
           a = advanceByte(); // bjump 00:3057 -> 38:7248
           if (settledParseAheadClass5A14(a)) {
-            if (!bit(b,5) && e === 0) d = (d + 1) & 0xff;
+            if (bit(b,5) || e === 0) d = (d + 1) & 0xff;
             continue;
           }
           if (!mode23()) {
@@ -1766,7 +1767,7 @@
         }
 
         if (settledParseAheadClass5A52(a)) {
-          if (!bit(b,5) && e === 0) d = (d + 1) & 0xff;
+          if (bit(b,5) || e === 0) d = (d + 1) & 0xff;
           continue;
         }
         if (bit(b,3)) {
@@ -2628,12 +2629,15 @@
 
         const elements = [];
         for (let index = 0; index < expression.elements.length; index++) {
-          elements.push(build(
-            expression.elements[index], renderDepth,
-            structuralId, structuralDepth + 1));
-          // The type-2Bh pass reserves one internal ID after the first element.
-          // It is not referenced by the settled render graph.
+          // The matrix pass reserves the first element leaf, then one internal
+          // ID, before it scans that leaf for nested structural records. The
+          // reserved ID is absent from the settled render graph.
+          const element = newLeaf(structuralId);
           if (index === 0 && expression.elements.length > 1) allocate();
+          fillLeaf(element, prepare(
+            expression.elements[index], renderDepth, structuralDepth + 1),
+          renderDepth);
+          elements.push(element);
         }
         const columnWidths = Array.from({length:expression.columns}, () => 0);
         const rowHeights = Array.from({length:expression.rows}, () => 0);
@@ -2664,7 +2668,7 @@
               'matrix element x');
             element.word0D = checkedWord(
               rowStarts[row] +
-              Math.floor((rowHeights[row] - element.word05) / 2),
+              Math.floor((rowHeights[row] - element.word05 + 1) / 2),
               'matrix element y');
           }
         structural.word07 = checkedWord(y - 2, 'matrix height');

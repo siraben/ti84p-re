@@ -603,6 +603,15 @@ for (const [label, bytes, expected] of [
         [2,2,13,14,0x2b,12,14,0], [2,3,15,16,0x07,14,16,0xff],
       ],
     }],
+  ['two by two structural-cell trace',
+    [0x06,0x06,0xbc,0x32,0x11,0x2b,0x58,0x0d,0x07,
+     0x06,0x33,0x2b,0x34,0x07,0x07], {
+      rows:2, columns:2, stopCursor:15,
+      ranges:[
+        [1,1,2,5,0x2b,1,5,0], [1,2,6,8,0x07,5,8,0xff],
+        [2,1,10,11,0x2b,9,11,0], [2,2,12,13,0x07,11,13,0xff],
+      ],
+    }],
 ]) {
   const scan = rom.settledMatrixContainerScan(bytes);
   expectEqual(`34:568A ${label}`,{
@@ -630,9 +639,14 @@ expectThrows('34:568A rejects a ragged matrix value', RangeError,
     [0x06,0x06,0x31,0x07,0x06,0x32,0x2b,0x33,0x07,0x07]));
 expectThrows('34:568A rejects an empty matrix row', RangeError,
   () => rom.settledMatrixContainerScan([0x06,0x06,0x07,0x07]));
-expectThrows('34:568A keeps untranslated structural matrix cells closed',
-  RangeError, () => rom.settledMatrixContainerScan(
-    [0x06,0x06,0xb2,0x31,0x11,0x07,0x07]));
+expectEqual('34:5BA7 bit-5 matrix mode resumes after a nested close',
+  parseAheadAbi(rom.settledParseAhead(
+    [0x06,0x06,0xbc,0x32,0x11,0x2b,0x33,0x07,0x07],{
+      entry:'direct5AA7',b:0x20,cursor:1,
+    })),{
+    a:0,stopCursor:5,de:0,zero:false,carry:false,
+    scratch:[0x60,0,0,0],
+  });
 
 for (const [label, bytes, stopCursor] of [
   ['nested comma in parentheses',[0x10,0x31,0x2b,0x32,0x11,0x2b,0x33],5],
@@ -1488,6 +1502,31 @@ for (const oracle of matrixOracles.cases)
   expectEqual(`${oracle.expression} browser constructs the trace-decoded graph`,
     mp.constructedProgramForExpression(oracle.expression).nodes,
     rom.constructSettledExpressionProgram(oracle.spec, 1, font).nodes);
+const structuralMatrixProgram =
+  mp.constructedProgramForExpression('matrix(2,2,sqrt(2),X^2,3,4)');
+expectEqual('structural matrix trace fixes first-cell reservation and centering',
+  structuralMatrixProgram.nodes.map(node => ({
+    id:node.record_id, type:node.render_type, parent:node.word03,
+    x:node.word0B, y:node.word0D, children:node.child_ids,
+  })), [
+    {id:1,type:0,parent:0,x:0,y:0,children:[]},
+    {id:2,type:0x2b,parent:1,x:9,y:0,children:[3,7,10,11]},
+    {id:3,type:0,parent:2,x:6,y:1,children:[]},
+    {id:5,type:0x27,parent:3,x:5,y:0,children:[6]},
+    {id:6,type:0,parent:5,x:5,y:2,children:[]},
+    {id:7,type:0,parent:2,x:23,y:0,children:[]},
+    {id:8,type:0x2a,parent:7,x:6,y:6,children:[9]},
+    {id:9,type:0,parent:8,x:0,y:0,children:[]},
+    {id:10,type:0,parent:2,x:8,y:12,children:[]},
+    {id:11,type:0,parent:2,x:25,y:12,children:[]},
+  ]);
+expectEqual('structural matrix emits native square-bracket cells',
+  structuralMatrixProgram.native_tokens,
+  [0x06,0x06,0xbc,0x32,0x11,0x2b,0x58,0xf0,0x32,0x07,
+   0x06,0x33,0x2b,0x34,0x07,0x07]);
+if (mp.generatedForExpression('matrix(2,2,sqrt(2),X^2,3,4)')
+    .operations.some(operation => operation.kind.startsWith('unresolved')))
+  throw new Error('structural matrix has an unresolved generated operation');
 expectEqual('browser places matrix results at the right-aligned LCD origin',
   mp.constructedProgramForExpression('matrix(2,3,4,-2,0,-7,8,8)').origin,
   {x:41,y:9});
