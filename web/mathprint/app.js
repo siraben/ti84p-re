@@ -985,8 +985,26 @@ function generateRecordProgram(program) {
       glyphAdvance:(depth, code) => depth ? FONT.small.glyphs[code].w : 6,
     });
   const rendered = ROM_ENGINE.rasterizeSettledOperations(operations, FONT);
+  const entry = program.nodes.find(node => node.record_id === program.entry_id);
+  const recordWidth = entry && Number.isInteger(entry.word07)
+    ? entry.word07 : rendered.width;
+  const overflowRight = Math.max(0, recordWidth - rendered.width);
+  let clippedInkPixels = 0;
+    if (overflowRight) {
+    // Render into a byte-aligned audit surface to distinguish the translated
+    // settled record's full extent from the physical 96-pixel LCD viewport.
+    // These extra pixels are diagnostic only: final OS answer positioning for
+    // an overflowing settled record remains outside the translated slice.
+    const auditWidth = Math.ceil(recordWidth / 8) * 8;
+    const audit = ROM_ENGINE.rasterizeSettledOperations(
+      operations, FONT, {width:auditWidth,height:rendered.height});
+    for (const row of audit.grid)
+      for (let x = rendered.width; x < Math.min(recordWidth, row.length); x++)
+        clippedInkPixels += row[x];
+  }
   return {
     width:rendered.width, height:rendered.height,
+    recordWidth, overflowRight, clippedInkPixels,
     initial:Array.from({length:rendered.height}, () => '0'.repeat(rendered.width)),
     final:rendered.grid.map(row => row.join('')),
     operations,
@@ -1439,7 +1457,12 @@ function renderGenerated(record, step, scale) {
     `<th>pixel x span,y</th>` +
     `<th>8 pixels</th><th>changed</th><th>translated path</th></tr></thead><tbody>${rows}</tbody></table>`;
   document.getElementById('dims').textContent =
-    `${record.width}×${record.height} LCD · write ${count}/${n} · RE-generated`;
+    `${record.width}×${record.height} LCD` +
+    (record.overflowRight
+      ? ` · ${record.recordWidth} px record extent · ${record.overflowRight} px beyond viewport` +
+        ` (${record.clippedInkPixels} ink pixels clipped at this origin)`
+      : ` · ${record.recordWidth} px record extent`) +
+    ` · write ${count}/${n} · RE-generated`;
   const tl = document.getElementById('timeline');
   if (step == null) { tl.max = n; tl.value = n; }
 }
