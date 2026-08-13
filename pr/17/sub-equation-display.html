@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1265e5f7.js";
+            window.path_to_searchindex_js = "searchindex-d25d310e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -412,8 +412,15 @@ traces below do not select this entry. [confirmed]</p>
 <p>The mapper at <code>39:683D</code> converts a descriptor cell to pixels. The <code>+7</code> loop (<code>DEC B; ADD A,7</code>)
 builds the <em>high</em> byte and the <code>+(rowHeight+2)</code> loop builds the <em>low</em> byte; the caller stores
 <code>HL</code> to <code>penCol</code>(<code>0x86D7</code>, low→x) / <code>penRow</code>(<code>0x86D8</code>, high→y), so the two products land as:</p>
-<p>$$x\ (\mathit{penCol}) = \mathit{base}_x + \mathit{row} \cdot (\mathit{rowHeight} + 2)$$</p>
-<p>$$y\ (\mathit{penRow}) = \mathit{base}_y + 7 \cdot \mathit{col}$$</p>
+<p>$$
+\begin{aligned}
+x &amp;= \mathit{base}_x \\
+&amp;\quad + \mathit{row},(\mathit{rowHeight}+2).
+\end{aligned}
+$$</p>
+<p>$$
+y = \mathit{base}_y + 7,\mathit{col}.
+$$</p>
 <p>The known descriptors are:</p>
 <div class="table-wrapper">
 <table>
@@ -563,6 +570,7 @@ anchors for readers who want to check the disassembly. [confirmed]</p>
 <tr><td><code>39:4DE6</code></td><td>Row cell stream emitter.</td></tr>
 <tr><td><code>39:4E8E</code></td><td>Generic two-byte cell emitter.</td></tr>
 <tr><td><code>39:4F1A</code></td><td>Direct large-glyph classifier.</td></tr>
+<tr><td><code>39:4F08</code></td><td>Text-column overflow check before marker handling.</td></tr>
 <tr><td><code>39:4E0A</code></td><td>Argument-index marker emitter used by the row compositor.</td></tr>
 <tr><td><code>39:5167</code></td><td>Multi-argument operand walker and tall-template row compositor.</td></tr>
 <tr><td><code>39:5949</code></td><td>Row-step classifier for one-row versus two-row argument advance.</td></tr>
@@ -574,6 +582,7 @@ anchors for readers who want to check the disassembly. [confirmed]</p>
 <tr><td><code>39:69C8</code></td><td>Descriptor/fraction geometry selector.</td></tr>
 <tr><td><code>39:6ABF</code> / <code>39:6B1C</code></td><td>Fraction focus rectangle and endpoint helper.</td></tr>
 <tr><td><code>39:6B66</code></td><td>Generic string selector.</td></tr>
+<tr><td><code>39:6712</code></td><td>Overflow marker path; resets <code>curCol</code> and emits <code>:</code>.</td></tr>
 <tr><td><code>07:44DE</code></td><td>Display-byte remapper.</td></tr>
 <tr><td><code>07:4588</code></td><td>Large-font fixed glyph blitter.</td></tr>
 <tr><td><code>01:6293</code></td><td><code>_VPutMap</code> small-font pixel output.</td></tr>
@@ -595,7 +604,7 @@ two provenance classes separate.
 <code>tools/mathprint-saturation.json</code> records the resulting branches and trace
 hashes. [confirmed]</p>
 <p>The report is a symbolic-execution aid rather than a whole-machine proof. It
-decodes fixed table rows and partitions three projected input domains. The
+decodes fixed table rows and partitions selected projected input domains. The
 scan-kind dispatcher at <code>34:5678</code> partitions all 256 incoming <code>A</code> values into
 seven terminal paths. The shared draw helper at <code>34:6143</code> partitions the
 $256 \times 2 \times 65{,}536 = 33{,}554{,}432$ projected tuples over incoming
@@ -605,6 +614,25 @@ projected inputs, not every register and RAM state. The marker-tail callee at
 <code>34:759C</code> reduces 16 abstract predicate valuations to five return classes.
 Stream length, arbitrary RAM, and unmodeled indirect targets remain outside
 these finite models. [confirmed]</p>
+<p>The extended raised-token classifier at <code>34:580C</code> has a caller-scoped domain of
+3,047 packed-token states. <code>34:5866</code> handles numeric bytes and <code>B0h</code> first, and
+<code>34:5887</code> skips <code>EF1Eh</code>. The remaining ordinary bytes and 11 two-byte token
+families reduce to 12 complete classifier paths. The <code>5Fh</code> and <code>EBh</code>
+designators enter bounded eight- and five-byte name scans. The loop at
+<code>34:583D</code> accepts digits <code>30h</code>–<code>39h</code> and letters <code>41h</code>–<code>5Bh</code>; a source boundary
+or any other byte stops it. The analyzer enumerates every accepted digit/letter
+prefix, stop class, and counter exit. These are finite byte-class projections,
+not claims that every packed token or name occurs in a calculator-created
+expression. [confirmed]</p>
+<p>The table models also distinguish decoded rows from reachable indices.
+<code>34:5935</code> scans 16 source-token rows but has 15 first-match classes: row 6
+duplicates the <code>0006h</code> mapping at row 3 and can never win the first-match scan.
+The report partitions the other 65,521 packed <code>D:E</code> values into the no-match
+class. The render, allocator, and editor-class index models decode all 256
+8-bit inputs. Types <code>0x1F</code>–<code>0x2B</code> select the 13 render and allocator rows;
+class bytes <code>0x00</code>–<code>0x43</code> select the 68 editor rows. Other inputs read adjacent
+ROM bytes. This records local index behavior without asserting that each
+overread is reachable through a calculator entry. [confirmed]</p>
 <p>The metadata rows use scan kinds <code>0</code>, <code>1</code>, <code>2</code>, <code>3</code>, <code>4</code>, and <code>6</code>. Natural
 traces witness six of the seven dispatch classes. Scan kind <code>2</code> would take
 <code>34:5680</code> into the fraction scanner at <code>34:56DF</code>, but no retained invocation
@@ -627,10 +655,10 @@ return class identifies which callee paths have live witnesses. [confirmed]</p>
 </thead>
 <tbody>
 <tr><td>Settled construction</td><td style="text-align: right">991</td><td style="text-align: right">247 / 248</td><td style="text-align: right">408</td><td style="text-align: right">80.73% / 80.73%</td></tr>
-<tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">233 / 235</td><td style="text-align: right">302</td><td style="text-align: right">94.63% / 94.63%</td></tr>
+<tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">229 / 233</td><td style="text-align: right">302</td><td style="text-align: right">93.94% / 94.63%</td></tr>
 <tr><td>Metrics and geometry</td><td style="text-align: right">470</td><td style="text-align: right">75 / 75</td><td style="text-align: right">80</td><td style="text-align: right">99.36% / 99.36%</td></tr>
 <tr><td>Record allocator</td><td style="text-align: right">64</td><td style="text-align: right">7 / 7</td><td style="text-align: right">8</td><td style="text-align: right">98.44% / 98.44%</td></tr>
-<tr><td>Editor layout</td><td style="text-align: right">2,776</td><td style="text-align: right">245 / 245</td><td style="text-align: right">1,098</td><td style="text-align: right">32.42% / 32.42%</td></tr>
+<tr><td>Editor layout</td><td style="text-align: right">2,776</td><td style="text-align: right">255 / 255</td><td style="text-align: right">1,098</td><td style="text-align: right">33.03% / 33.03%</td></tr>
 <tr><td>Small-font and LCD output</td><td style="text-align: right">413</td><td style="text-align: right">81 / 81</td><td style="text-align: right">122</td><td style="text-align: right">75.54% / 75.54%</td></tr>
 <tr><td>Point and line primitives</td><td style="text-align: right">508</td><td style="text-align: right">48 / 48</td><td style="text-align: right">134</td><td style="text-align: right">59.45% / 59.45%</td></tr>
 <tr><td>Large glyphs</td><td style="text-align: right">130</td><td style="text-align: right">16 / 16</td><td style="text-align: right">32</td><td style="text-align: right">68.46% / 68.46%</td></tr>
@@ -645,10 +673,10 @@ have no wholly unobserved branch. The other six components still do. Three of
 the allocator’s four branches and 35 of the 40 metric branches have both
 outcomes. [confirmed]</p>
 <p>The report classifies all 2,184 enumerated outcomes. Natural calculator input
-exercises 952. The synthetic <code>EF36h</code> state adds three outcomes, for 955 across
+exercises 958. The synthetic <code>EF36h</code> state adds five outcomes, for 963 across
 all evidence. One allocator outcome is infeasible under its data invariant.
 Two metric outcomes are infeasible under the calculator call ABI. The full
-evidence set leaves 1,226 unresolved; the natural-only set leaves 1,229.
+evidence set leaves 1,218 unresolved; the natural-only set leaves 1,223.
 An unobserved outcome never becomes infeasible from absence alone. [confirmed]</p>
 <p>The infeasible allocator outcome is the fallthrough at <code>33:4F4E</code>. The type
 <code>0x2B</code> path loads rows and columns from record offsets <code>+0x13</code> and <code>+0x12</code>, then
@@ -663,43 +691,40 @@ dispatcher recursion therefore fixes <code>B=0</code>. The <code>B!=0</code> out
 fallthrough and <code>34:765D</code> return are infeasible under this calculator ABI.
 Synthetic direct calls to internal metric handlers do not share the ABI.
 [confirmed]</p>
-<p>An exact Z3 set-cover calculation reduces all 183 trace summaries to 23 while
-preserving all 955 observed individual branch outcomes. It minimizes trace
-count first, retained bytes second, and labels third. The selected traces total
-3,532,665,876 bytes. Every selected trace has an exclusive outcome relative to
-the other 22.</p>
-<p>The same calculation over the 182 natural traces produces a 23-trace minimum.
-It preserves all 952 natural outcomes in 3,589,756,968 bytes, and every selected
-trace again has an exclusive outcome. These are proven minima for the supplied
-trace sets and the branch-outcome feature universe. They do not preserve every
-complete invocation path, register or RAM state, dispatch row, record oracle,
-or LCD-write stream. The broad set remains the RE and regression corpus; the
-public gallery uses a smaller, diverse selection. [confirmed]</p>
-<p>A second exact cover adds the sound dynamic state features currently decoded:
-seven <code>34:6143</code> entry values and 15 complete paths through <code>34:5678</code>, <code>34:6143</code>,
-and <code>34:759C</code>. The full feature universe contains 977 tags; the natural-only
-universe contains 974. Both minimize to the same 23 traces and byte totals as
-the corresponding branch-outcome covers. This proves preservation for the
-modeled live features. It does not make unmodeled state part of the claim.
+<p>The report computes two exact Z3 covers. The first preserves every individual
+branch outcome observed in the supplied traces. It does not preserve complete
+invocation paths, register or RAM states, dispatch indices, record cases, or LCD
+write cases. The all-evidence and natural-only branch covers each select 23
+traces. They preserve 963 and 958 outcomes in 3,466,092,816 and 3,516,346,500
+bytes, respectively.</p>
+<p>The tagged cover includes branch outcomes, complete observed paths, entry-state
+projections, dispatch values, record types, LCD-oracle types, and every
+independent oracle case. Its all-evidence universe has 1,219 tags and needs 125
+traces. The natural-only universe has 1,214 tags and needs 124 traces. Every
+independent oracle case creates an exclusive tag for at least one trace, so
+this larger minimum is expected. Both covers minimize trace count first,
+retained bytes second, and labels third. The broad set remains the RE and
+regression corpus; the public gallery uses a smaller, diverse selection.
 [confirmed]</p>
-<p>The four key-driven additions below are retained by the new 23-trace minimum.
-Together they contribute 21 outcomes absent from the earlier 175-trace union:
-six from the log-base run, one from the integral run, and 14 from the
-<strong>Y=</strong>/table run. The radical run adds no union-new outcome, but it replaces
-larger or less complementary witnesses in the exact minimum. The macro paths
-contain no <code>memwrite</code> command or execution hook. The raw TLMT files remain
-outside the repository; their hashes identify the exact inputs used by the
-report. [confirmed]</p>
+<p>The tagged cover preserves only states represented by its tags. It does not
+turn unobserved RAM into an observed state or prove that the traces reach every
+symbolic valuation. The separate exhaustive models state their preconditions;
+the dynamic cover states what the retained traces actually exercise. [confirmed]</p>
+<p>The 23-trace all-evidence branch cover retains the log-base, integral, and
+<strong>Y=</strong>/table runs below. Other selected traces cover every outcome in the
+radical run, so the exact solver omits it. The macro paths contain no <code>memwrite</code>
+command or execution hook. The raw TLMT files remain outside the repository;
+their hashes identify the exact inputs used by the report. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Input</th><th>Reproduction macro</th><th>Trace SHA-256</th><th style="text-align: right">Exclusive outcomes in the 23-trace full minimum</th></tr>
+<tr><th>Input</th><th>Reproduction macro</th><th>Trace SHA-256</th><th>Full branch-cover result</th></tr>
 </thead>
 <tbody>
-<tr><td>Log-base marker insertion</td><td><code>tools/macros/mathprint-logbase-boundary-insert.macro</code></td><td><code>a49e4c13c93358662713da7f5e07862f42863d60a70ce18e141a90987914008b</code></td><td style="text-align: right">2</td></tr>
-<tr><td>Radical marker insertion</td><td><code>tools/macros/mathprint-radical-nonspecial-insert.macro</code></td><td><code>e7b79e37149f2b9b4a986bdbb114a89b03cd452bbecc6da20490edc972895e98</code></td><td style="text-align: right">3</td></tr>
-<tr><td>Integral marker insertion</td><td><code>tools/macros/mathprint-integral-boundary-insert.macro</code></td><td><code>328b8f52ebe939b35f79e676076984aa85ee59e05c06862647c4fc615069bb3c</code></td><td style="text-align: right">2</td></tr>
-<tr><td><strong>Y=</strong>/table/power round trip</td><td><code>tools/macros/mathprint-yequ-table-power-insert.macro</code></td><td><code>ac719f540d2adfca05d2ffa415f065b83eaf407f04fca42f5ae63c440a746b9d</code></td><td style="text-align: right">14</td></tr>
+<tr><td>Log-base marker insertion</td><td><code>tools/macros/mathprint-logbase-boundary-insert.macro</code></td><td><code>a49e4c13c93358662713da7f5e07862f42863d60a70ce18e141a90987914008b</code></td><td>2</td></tr>
+<tr><td>Radical marker insertion</td><td><code>tools/macros/mathprint-radical-nonspecial-insert.macro</code></td><td><code>e7b79e37149f2b9b4a986bdbb114a89b03cd452bbecc6da20490edc972895e98</code></td><td>Omitted</td></tr>
+<tr><td>Integral marker insertion</td><td><code>tools/macros/mathprint-integral-boundary-insert.macro</code></td><td><code>328b8f52ebe939b35f79e676076984aa85ee59e05c06862647c4fc615069bb3c</code></td><td>16</td></tr>
+<tr><td><strong>Y=</strong>/table/power round trip</td><td><code>tools/macros/mathprint-yequ-table-power-insert.macro</code></td><td><code>ac719f540d2adfca05d2ffa415f065b83eaf407f04fca42f5ae63c440a746b9d</code></td><td>16</td></tr>
 </tbody>
 </table>
 </div>
@@ -781,7 +806,7 @@ row-0 bitmap path, but it has no captured type-<code>0x1F</code> record/LCD orac
 [confirmed]</p>
 <p>Editor layout is also open. The page <code>39</code> class and handler tables, argument
 order, row composition, descriptor mapping, and draw paths are decoded. The
-retained corpus observes 245 of 1,098 declared editor branch outcomes. It does
+retained corpus observes 255 of 1,098 declared editor branch outcomes. It does
 not decode every in-progress editor state into a general AST, and it does not
 reach every cursor, menu, error, or row-composition path. [confirmed]</p>
 <p>Accepted LCD-write parity is a separate result. The translated cases compare
@@ -911,26 +936,37 @@ $2\times2$ identity matrix renders four children between the bracket operations.
 width $w_{r,c}$ and height $h_{r,c}$, define the column and row extents as
 [confirmed]</p>
 <p>$$
-C_c = \max_r w_{r,c}, \qquad R_r = \max_c h_{r,c}.
+\begin{aligned}
+C_c &amp;= \max_r w_{r,c}, \\
+R_r &amp;= \max_c h_{r,c}.
+\end{aligned}
 $$</p>
 <p>The first column begins at $x_0=6$, and each later column begins after the
 previous extent and a six-pixel gap. The first row begins at $y_0=0$, and each
 later row begins after the previous extent and a two-pixel gap:</p>
 <p>$$
-x_{c+1}=x_c+C_c+6, \qquad y_{r+1}=y_r+R_r+2.
+\begin{aligned}
+x_{c+1} &amp;= x_c+C_c+6, \\
+y_{r+1} &amp;= y_r+R_r+2.
+\end{aligned}
 $$</p>
 <p>Each element is centered within its row and column extent:</p>
 <p>$$
-X_{r,c}=x_c+\left\lfloor\frac{C_c-w_{r,c}}{2}\right\rfloor, \qquad
-Y_{r,c}=y_r+\left\lfloor\frac{R_r-h_{r,c}+1}{2}\right\rfloor.
+\begin{aligned}
+X_{r,c}
+&amp;= x_c+\left\lfloor\frac{C_c-w_{r,c}}{2}\right\rfloor, \\
+Y_{r,c}
+&amp;= y_r+\left\lfloor\frac{R_r-h_{r,c}+1}{2}\right\rfloor.
+\end{aligned}
 $$</p>
 <p>For $m$ rows and $n$ columns, let $N_e$ be the element count, $H$ the matrix
 height, $W$ the matrix width, and $y_c$ the vertical center:</p>
 <p>$$
 \begin{aligned}
-N_e &amp;= mn, &amp; H &amp;= \sum_r R_r+2(m-1), \
-W &amp;= 12+\sum_c C_c+6(n-1), &amp; y_c &amp;=
-\left\lfloor\frac{H}{2}\right\rfloor.
+N_e &amp;= mn, \\
+H &amp;= \sum_r R_r+2(m-1), \\
+W &amp;= 12+\sum_c C_c+6(n-1), \\
+y_c &amp;= \left\lfloor\frac{H}{2}\right\rfloor.
 \end{aligned}
 $$</p>
 <p>The constructor stores $N_e$, $H$, $W$, and $y_c$ in the words at <code>+5</code>, <code>+7</code>,
@@ -1133,12 +1169,12 @@ For numerator height $h_n$, denominator height $h_d$, and child widths $w_n$
 and $w_d$, the settled metrics are [confirmed]</p>
 <p>$$
 \begin{aligned}
-w &amp;= \max(w_n,w_d), \
-x_n &amp;= 2 + \left\lfloor\frac{w-w_n}{2}\right\rfloor, \
-x_d &amp;= 2 + \left\lfloor\frac{w-w_d}{2}\right\rfloor, \
-y_d &amp;= h_n + 3, \
-H &amp;= h_n + h_d + 3, \
-W &amp;= w + 4, \
+w &amp;= \max(w_n,w_d), \\
+x_n &amp;= 2 + \left\lfloor\frac{w-w_n}{2}\right\rfloor, \\
+x_d &amp;= 2 + \left\lfloor\frac{w-w_d}{2}\right\rfloor, \\
+y_d &amp;= h_n + 3, \\
+H &amp;= h_n + h_d + 3, \\
+W &amp;= w + 4, \\
 B &amp;= h_n + 1.
 \end{aligned}
 $$</p>
@@ -1181,10 +1217,14 @@ upper-bound metrics $(h_u,w_u)$, body metrics $(h_b,w_b,b_b)$, and variable
 metrics $(w_v,b_v)$, the integral positions and parent metrics are [confirmed]</p>
 <p>$$
 \begin{aligned}
-y_b &amp;= \max(5,h_u), &amp; s_l &amp;= \max(5,h_l), \
-H &amp;= y_b+h_b+s_l, &amp; B &amp;= y_b+b_b, \
-x_b &amp;= \max(w_l,w_u)+12, &amp; x_v &amp;= x_b+w_b+12, \
-W &amp;= x_v+w_v+2, &amp; y_v &amp;= B-b_v.
+y_b &amp;= \max(5,h_u), \\
+s_l &amp;= \max(5,h_l), \\
+H &amp;= y_b+h_b+s_l, \\
+B &amp;= y_b+b_b, \\
+x_b &amp;= \max(w_l,w_u)+12, \\
+x_v &amp;= x_b+w_b+12, \\
+W &amp;= x_v+w_v+2, \\
+y_v &amp;= B-b_v.
 \end{aligned}
 $$</p>
 <p>The lower bound begins at $(6,H-h_l)$, the upper bound at $(6,0)$, and the body
@@ -1208,10 +1248,14 @@ type <code>1</code>. For child height, width, and baseline metrics $(h,w,b)$, de
 [confirmed]</p>
 <p>$$
 \begin{aligned}
-L &amp;= w_v+4+w_l, &amp; O &amp;= \max(w_u,L,12), \
-S_u &amp;= \max(5,h_u), &amp; S_l &amp;= \max(h_v,h_l), \
-H &amp;= S_u+9+S_l, &amp; B &amp;= S_u+4, \
-x_b &amp;= O+6, &amp; W &amp;= x_b+w_b+5.
+L &amp;= w_v+4+w_l, \\
+O &amp;= \max(w_u,L,12), \\
+S_u &amp;= \max(5,h_u), \\
+S_l &amp;= \max(h_v,h_l), \\
+H &amp;= S_u+9+S_l, \\
+B &amp;= S_u+4, \\
+x_b &amp;= O+6, \\
+W &amp;= x_b+w_b+5.
 \end{aligned}
 $$</p>
 <p>The variable begins at $(0,H-S_l)$ and the lower bound begins at
@@ -1241,10 +1285,14 @@ $w_v$ and $w_e$, the metric branches at <code>34:7485</code> and <code>34:76C2</
 [confirmed]</p>
 <p>$$
 \begin{aligned}
-B &amp;= \max(6,b_b), &amp; H &amp;= \max(h_b,B+7), \
-x_v &amp;= 5, &amp; y_v &amp;= B+2, \
-x_b &amp;= 16, &amp; y_b &amp;= B-b_b, \
-x_e &amp;= w_b+w_v+29, &amp; y_e &amp;= B+2, \
+B &amp;= \max(6,b_b), \\
+H &amp;= \max(h_b,B+7), \\
+x_v &amp;= 5, \\
+y_v &amp;= B+2, \\
+x_b &amp;= 16, \\
+y_b &amp;= B-b_b, \\
+x_e &amp;= w_b+w_v+29, \\
+y_e &amp;= B+2, \\
 W &amp;= x_e+w_e.
 \end{aligned}
 $$</p>
@@ -1317,6 +1365,22 @@ deeply nested expressions pin every intermediate write and the packed final
 framebuffer without loading a captured write stream. These deterministic cases
 exercise summation, integral, <code>nDeriv(</code>, matrix, and a three-level raised
 fraction. [confirmed]</p>
+<p>The changed-input corpus also includes
+<code>int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)</code>. The translated constructor retains
+both structural records and computes a 106-pixel outer leaf width. Rendering
+at origin $(0,0)$ emits 221 accepted writes inside the 96×64 viewport; an
+audit raster finds 20 set pixels in the ten columns beyond its right edge.
+These counts are deterministic translation regressions, not a calculator
+capture. The page reports the record extent and clipped columns separately.
+[confirmed] for the translated record and LCD-write path</p>
+<p>The editor-side path has separate overflow behavior. <code>39:4F08</code> compares
+<code>curCol</code> (<code>0x844C</code>) with <code>0x0F</code> before marker handling and calls the fixed-bank
+<code>_EraseEOL</code> jump at <code>00:3CB7</code> on overflow. <code>39:6712</code> sets <code>curCol</code> to <code>1</code>, emits
+the <code>:</code> marker through <code>00:3FDB</code>, and gates subsequent display modes with
+<code>0x85E5</code>. These bytes establish an erase/marker boundary. They do not yet
+establish how the answer-display caller positions or scrolls a 106-pixel
+settled record, so the generated viewport does not claim calculator parity for
+that final placement. [confirmed]</p>
 <p>The retained <code>sum(N,1,3,N)</code> trace exposes four calls through <code>34:5AA3</code> with
 <code>C=1</code>. The scanner stops on the three depth-zero comma bytes. At the closing
 <code>0x11</code> byte, it returns <code>A=0x11</code>, <code>DE=0xFF00</code>, and sets Z and C. The JavaScript
@@ -1377,8 +1441,12 @@ requires native construction to stop at the same half-open byte boundary.
 The <code>X^Ans</code> buffer stores <code>58 F0 10 72 11</code>; the <code>X^L1</code> buffer stores
 <code>58 F0 10 5D 00 11</code>. Both traces take <code>34:56BF</code> and return the byte after the
 closing <code>11h</code>. Raw native bytes for these one- and two-byte named operands now
-reproduce the captured record graphs and complete accepted LCD writes. Other
-unbounded kind-<code>1</code> token-class branches remain untranslated. [confirmed]</p>
+reproduce the captured record graphs and complete accepted LCD writes.
+<code>34:580C</code> also admits direct letters, <code>Ans</code>, list, matrix, and string names,
+<code>π</code>, <code>BB31h</code>, and bounded <code>5Fh</code>/<code>EBh</code> names. The JavaScript translation applies
+the classifier and bounded name loop directly. It groups a name designator and
+its accepted bytes as one expression atom, so a raised name ends at the same
+half-open byte boundary as the ROM scan. [confirmed]</p>
 <p>Scan kind <code>2</code> enters <code>34:56DF</code> → <code>34:5795</code> for the <code>EF2Eh</code> and <code>EF2Fh</code>
 stacked-fraction operators. It rewinds to the numerator, calls <code>34:5AA7</code> with
 <code>B=14h</code>, and returns the operator’s <code>EFh</code> byte in <code>BC</code>. A second scan selects
