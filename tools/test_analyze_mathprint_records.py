@@ -254,8 +254,8 @@ class MathPrintRecordTests(unittest.TestCase):
             {"record_id": 1, "render_type": 0, "child_ids": [],
              "payload": [0xEF, 0x2B, 2, 0, 0xEF, 0x2D]},
             {"record_id": 2, "render_type": 0x2B,
-             "word11": 0x0201, "byte13": 2,
-             "child_ids": [3, 4, 5, 6], "payload": []},
+             "word11": 0x0301, "byte13": 2,
+             "child_ids": [3, 4, 5, 6, 7, 8], "payload": []},
             {"record_id": 3, "render_type": 0, "child_ids": [],
              "payload": [0x31]},
             {"record_id": 4, "render_type": 0, "child_ids": [],
@@ -263,12 +263,18 @@ class MathPrintRecordTests(unittest.TestCase):
             {"record_id": 5, "render_type": 0, "child_ids": [],
              "payload": [0x30]},
             {"record_id": 6, "render_type": 0, "child_ids": [],
-             "payload": [0x31]},
+             "payload": [0x32]},
+            {"record_id": 7, "render_type": 0, "child_ids": [],
+             "payload": [0x33]},
+            {"record_id": 8, "render_type": 0, "child_ids": [],
+             "payload": [0x34]},
         ]
         self.assertEqual(
             {
-                "kind": "matrix", "rows": 2, "columns": 2,
-                "elements": [[0x31], [0x30], [0x30], [0x31]],
+                "kind": "matrix", "rows": 2, "columns": 3,
+                "elements": [
+                    [0x31], [0x30], [0x30], [0x32], [0x33], [0x34],
+                ],
             },
             decode_settled_expression(nodes, 1),
         )

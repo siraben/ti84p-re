@@ -469,7 +469,7 @@ def decode_settled_expression(
                 raise ValueError(
                     f"settled matrix record 0x{record_id:04X} has no dimensions"
                 )
-            rows, columns = word11 >> 8, byte13
+            rows, columns = byte13, word11 >> 8
             if not rows or not columns:
                 raise ValueError(
                     f"settled matrix record 0x{record_id:04X} has zero dimensions"
