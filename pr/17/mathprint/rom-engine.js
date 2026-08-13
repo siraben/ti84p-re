@@ -2627,14 +2627,21 @@
     return value;
   };
 
-  const settledByteChanges = (before, after, byteColumn, row) => {
-    const changes = [];
+  const settledBytePixels = (before, after, byteColumn, row) => {
+    const pixels = [];
     for (let bit = 0; bit < 8; bit++) {
       const mask = 1 << (7 - bit);
-      if ((before & mask) !== (after & mask))
-        changes.push([8 * byteColumn + bit,row,(after & mask) ? 1 : 0]);
+      const previous = (before & mask) ? 1 : 0;
+      const value = (after & mask) ? 1 : 0;
+      pixels.push({
+        x:8 * byteColumn + bit,
+        y:row,
+        before:previous,
+        value,
+        changed:previous !== value,
+      });
     }
-    return changes;
+    return pixels;
   };
 
   const settledStoreByte = (grid, byteColumn, row, value) => {
@@ -2679,6 +2686,48 @@
     return grid;
   }
 
+  // Expand each accepted LCD byte into the eight visible pixels it replaces.
+  // This retains unchanged zero and one bits, which a mutation-only event list
+  // omits even though the controller accepts and stores the complete byte.
+  function traceSettledLcdWrites(writes, options = {}) {
+    if (!Array.isArray(writes))
+      throw new TypeError('settled LCD writes must be an array');
+    const width = options.width === undefined ? 96 : options.width;
+    const height = options.height === undefined ? 64 : options.height;
+    if (!Number.isInteger(width) || width < 1 || width % 8 ||
+        !Number.isInteger(height) || height < 1)
+      throw new RangeError(
+        'settled LCD trace dimensions must be positive and byte-aligned');
+    const grid = options.initialGrid === undefined
+      ? Array.from({length:height}, () => new Array(width).fill(0))
+      : options.initialGrid.map(row => row.slice());
+    if (grid.length !== height || grid.some(row => row.length !== width ||
+        row.some(value => value !== 0 && value !== 1)))
+      throw new RangeError(
+        'settled LCD trace grid must match the dimensions and contain bits');
+    const events = writes.map((write, index) => {
+      if (!write || !Array.isArray(write.pointer) || write.pointer.length !== 2)
+        throw new TypeError(`settled LCD write ${index} has no pointer`);
+      const [byteColumn,row] = write.pointer;
+      if (!Number.isInteger(byteColumn) || !Number.isInteger(row) ||
+          byteColumn < 0 || byteColumn >= width / 8 || row < 0 || row >= height)
+        throw new RangeError(`settled LCD write ${index} is outside the display`);
+      const value = byte(write.value, `settled LCD write ${index} value`);
+      const beforeValue = settledGridByte(grid, byteColumn, row);
+      const pixels = settledBytePixels(beforeValue, value, byteColumn, row);
+      settledStoreByte(grid, byteColumn, row, value);
+      return {
+        ...write,
+        beforeValue,
+        value,
+        pixels,
+        changes:pixels.filter(pixel => pixel.changed)
+          .map(pixel => [pixel.x,pixel.y,pixel.value]),
+      };
+    });
+    return {width,height,events,grid};
+  }
+
   // Translate the normal settled-render paths into accepted LCD data writes.
   // Page 4 visits geometry one point at a time. _VPutMap at 01:6293 replaces
   // the glyph cell row by row and writes a crossing row's right byte before
@@ -2695,9 +2744,11 @@
       const before = settledGridByte(grid, byteColumn, row);
       value &= 0xff;
       if (!retainUnchanged && before === value) return;
-      const changes = settledByteChanges(before, value, byteColumn, row);
+      const pixels = settledBytePixels(before, value, byteColumn, row);
+      const changes = pixels.filter(pixel => pixel.changed)
+        .map(pixel => [pixel.x,pixel.y,pixel.value]);
       settledStoreByte(grid, byteColumn, row, value);
-      writes.push({pointer:[byteColumn,row],value,changes});
+      writes.push({pointer:[byteColumn,row],beforeValue:before,value,pixels,changes});
     };
 
     if (operation.kind === 'point' || operation.kind === 'line') {
@@ -2937,6 +2988,7 @@
     settledExpressionFromTokens,
     constructSettledProgramFromTokens,
     replaySettledLcdWrites,
+    traceSettledLcdWrites,
     constructSettledAbsoluteProgram,
     constructSettledExpressionProgram,
     constructSettledFractionProgram,
