@@ -933,7 +933,7 @@ function curColor() {
     ? { bg: '#c7d4b8', fg: '#2a3326' } : { bg: '#ffffff', fg: '#000000' };
 }
 
-function drawTraceGrid(grid, scale, color, changes) {
+function drawTraceGrid(grid, scale, color, event) {
   const canvas = document.getElementById('screen');
   const ctx = canvas.getContext('2d');
   const H = grid.length, W = H ? grid[0].length : 0;
@@ -946,7 +946,19 @@ function drawTraceGrid(grid, scale, color, changes) {
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++)
       if (grid[y][x]) ctx.fillRect((x + pad) * scale, (y + pad) * scale, scale, scale);
-  for (const [x, y, value] of changes || []) {
+  if (event && Array.isArray(event.pixels)) {
+    const first = event.pixels[0];
+    const left = (first.x + pad) * scale;
+    const top = (first.y + pad) * scale;
+    const edge = Math.max(1, Math.floor(scale / 5));
+    ctx.fillStyle = '#ffc857';
+    ctx.fillRect(left, top, 8 * scale, edge);
+    ctx.fillRect(left, top + scale - edge, 8 * scale, edge);
+    ctx.fillRect(left, top + edge, edge, Math.max(0, scale - 2 * edge));
+    ctx.fillRect(left + 8 * scale - edge, top + edge, edge,
+                 Math.max(0, scale - 2 * edge));
+  }
+  for (const [x, y, value] of event && event.changes || []) {
     if (value) {
       ctx.fillStyle = '#6ea8fe';
       ctx.fillRect((x + pad) * scale, (y + pad) * scale, scale, scale);
@@ -987,6 +999,16 @@ function traceFrame(record, step) {
 
 function traceForExpression(expression) {
   return (DRAW_ORDER.scenarios || {})[expression.trim()] || null;
+}
+
+function pixelTrace(record) {
+  if (!ROM_ENGINE || typeof ROM_ENGINE.traceSettledLcdWrites !== 'function')
+    throw new Error('pixel-level LCD trace translation is unavailable');
+  return ROM_ENGINE.traceSettledLcdWrites(record.events, {
+    width:record.width,
+    height:record.height,
+    initialGrid:decodeTraceGrid(record.initial),
+  });
 }
 
 function generateRecordProgram(program) {
@@ -1343,26 +1365,34 @@ function activeTimeline() {
 }
 
 function renderTrace(record, step, scale) {
-  const n = record.events.length;
+  const traced = pixelTrace(record);
+  const events = traced.events;
+  const n = events.length;
   const count = step == null ? n : Math.max(0, Math.min(n, step));
-  const current = step != null && count > 0 ? record.events[count - 1] : null;
-  drawTraceGrid(traceFrame(record, count), scale, curColor(), current && current.changes);
-  const rows = record.events.map((event, i) => {
+  const current = step != null && count > 0 ? events[count - 1] : null;
+  drawTraceGrid(traceFrame(record, count), scale, curColor(), current);
+  const rows = events.map((event, i) => {
     const sets = event.changes.filter(change => change[2]).length;
     const clears = event.changes.length - sets;
+    const bits = event.pixels.map(pixel => pixel.value).join('');
     return `<tr class="${current && i === count - 1 ? 'cur' : ''}" data-step="${i + 1}">` +
       `<td>${i}</td><td>${event.instruction_index}</td><td>${event.clock}</td>` +
       `<td>0x${event.port.toString(16).padStart(2, '0')}</td>` +
-      `<td>0x${event.value.toString(16).padStart(2, '0')}</td>` +
+      `<td>0x${event.beforeValue.toString(16).padStart(2, '0')} → ` +
+      `0x${event.value.toString(16).padStart(2, '0')}</td>` +
       `<td>${event.pointer[0]},${event.pointer[1]}</td>` +
+      `<td>${bits}</td>` +
       `<td><span class="trace-set">+${sets}</span> ` +
       `<span class="trace-clear">−${clears}</span></td></tr>`;
   }).join('');
   document.getElementById('penlog').innerHTML =
-    `<p class="note">Captured T6A04 writes in TLMT instruction order. Only accepted ` +
-    `writes that change a visible pixel appear. Click a row to jump to that write.</p>` +
+    `<p class="note">Captured T6A04 writes in TLMT instruction order. Each row ` +
+    `shows the complete eight-pixel byte after the write; the retained fixture ` +
+    `contains only accepted writes that change a visible pixel. Click a row to ` +
+    `jump to that write.</p>` +
     `<table><thead><tr><th>#</th><th>instruction</th><th>clock</th><th>port</th>` +
-    `<th>byte</th><th>LCD x,y</th><th>pixels</th></tr></thead><tbody>${rows}</tbody></table>`;
+    `<th>byte before → after</th><th>LCD x,y</th><th>8 pixels</th>` +
+    `<th>changed</th></tr></thead><tbody>${rows}</tbody></table>`;
   document.getElementById('dims').textContent =
     `${record.width}×${record.height} LCD · write ${count}/${n} · captured trace`;
   const tl = document.getElementById('timeline');
@@ -1378,19 +1408,24 @@ function operationLabel(operation) {
 }
 
 function renderGenerated(record, step, scale) {
-  const n = record.events.length;
+  const traced = pixelTrace(record);
+  const events = traced.events;
+  const n = events.length;
   const count = step == null ? n : Math.max(0, Math.min(n, step));
-  const current = step != null && count > 0 ? record.events[count - 1] : null;
-  drawTraceGrid(traceFrame(record, count), scale, curColor(), current && current.changes);
-  const rows = record.events.map((event, i) => {
+  const current = step != null && count > 0 ? events[count - 1] : null;
+  drawTraceGrid(traceFrame(record, count), scale, curColor(), current);
+  const rows = events.map((event, i) => {
     const sets = event.changes.filter(change => change[2]).length;
     const clears = event.changes.length - sets;
     const firstPixel = 8 * event.pointer[0];
+    const bits = event.pixels.map(pixel => pixel.value).join('');
     return `<tr class="${current && i === count - 1 ? 'cur' : ''}" data-step="${i + 1}">` +
       `<td>${i}</td><td>${escapeHtml(operationLabel(event.operation))}</td>` +
-      `<td>0x${event.value.toString(16).padStart(2, '0')}</td>` +
+      `<td>0x${event.beforeValue.toString(16).padStart(2, '0')} → ` +
+      `0x${event.value.toString(16).padStart(2, '0')}</td>` +
       `<td>${event.pointer[0]},${event.pointer[1]}</td>` +
       `<td>${firstPixel}–${firstPixel + 7},${event.pointer[1]}</td>` +
+      `<td>${bits}</td>` +
       `<td><span class="trace-set">+${sets}</span> ` +
       `<span class="trace-clear">−${clears}</span></td>` +
       `<td>${escapeHtml(event.operation.routine || '')}</td></tr>`;
@@ -1403,9 +1438,9 @@ function renderGenerated(record, step, scale) {
       value.toString(16).padStart(2, '0')).join(' '))}</code>. No captured ` +
     `LCD events are used as input. Each byte replaces the listed eight-pixel ` +
     `span. Click a row to jump to that write.</p>` +
-    `<table><thead><tr><th>#</th><th>operation</th><th>byte</th><th>byte col,row</th>` +
+    `<table><thead><tr><th>#</th><th>operation</th><th>byte before → after</th><th>byte col,row</th>` +
     `<th>pixel x span,y</th>` +
-    `<th>pixels</th><th>translated path</th></tr></thead><tbody>${rows}</tbody></table>`;
+    `<th>8 pixels</th><th>changed</th><th>translated path</th></tr></thead><tbody>${rows}</tbody></table>`;
   document.getElementById('dims').textContent =
     `${record.width}×${record.height} LCD · write ${count}/${n} · RE-generated`;
   const tl = document.getElementById('timeline');

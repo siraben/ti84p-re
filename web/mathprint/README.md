@@ -217,7 +217,10 @@ The preview constructs supported named-token, absolute-value, power, $e^x$, $10^
 `logBASE(`, radical, nth-root, stacked-fraction, integral, summation,
 `nDeriv(`, and numeric matrix expressions. It exposes every generated accepted
 LCD data write in order, including writes that do not change a pixel, and
-labels the input source for each timeline. Its captured
+labels the input source for each timeline. Each timeline row shows the byte
+before and after the write, all eight resulting pixel values, and the subset
+that changed. The canvas outlines the complete eight-pixel destination span.
+Its captured
 timeline uses the two retained integral traces and keeps only visible-changing
 writes. Every shipped preset has a constructed record program, a nonempty
 96×64 accepted-write timeline, and no unresolved operation or empty-template

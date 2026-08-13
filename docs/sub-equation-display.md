@@ -973,6 +973,11 @@ framebuffer without loading a captured write stream. These deterministic cases
 exercise summation, integral, `nDeriv(`, matrix, and a three-level raised
 fraction. [confirmed]
 
+The browser expands every accepted byte into eight ordered pixel results. A
+timeline row records the previous byte, replacement byte, all eight destination
+bits, and which bits changed. Accepted writes with equal previous and replacement
+bytes therefore remain visible in the trace. [confirmed]
+
 The text field uses a preview-specific semantic grammar. It does not emulate
 the TI-OS editor or decode its in-progress template AST. The translated path
 begins at the native byte stream produced by that frontend. [confirmed]
