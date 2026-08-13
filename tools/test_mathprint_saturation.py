@@ -20,7 +20,15 @@ from analyze_mathprint_saturation import (
     exact_cover_z3,
     iter_oracle_cases,
     oracle_coverage,
+    oracle_trace_features,
     predicate_state,
+    raised_classifier_caller_states,
+    raised_extended_token_path,
+    raised_name_loop_path,
+    source_lookup_domain,
+    indexed_table_domain,
+    load_trace_cache,
+    routine_path_terminal,
     serialize_trace_summary,
     scan_kind_path,
     minimize_trace_corpus,
@@ -28,6 +36,8 @@ from analyze_mathprint_saturation import (
     metric_marker_path,
     minimize_trace_features,
     symbolic_metric_marker_paths,
+    symbolic_raised_extended_token_paths,
+    symbolic_raised_name_loop_paths,
     symbolic_scan_kind_paths,
     symbolic_type1f_paths,
     type1f_entry_abis,
@@ -105,6 +115,15 @@ class StaticBranchTests(unittest.TestCase):
                 {"F": 0x00, "SP": 0x9000}, {"F": 0x00, "SP": 0x9000},
             )
         )
+
+    def test_modeled_routine_path_terminals_match_local_exits(self) -> None:
+        self.assertTrue(routine_path_terminal("34:5678", 0x5680, "taken"))
+        self.assertFalse(routine_path_terminal("34:5678", 0x5680, "fallthrough"))
+        self.assertTrue(routine_path_terminal("34:583D", 0x5849, "taken"))
+        self.assertTrue(routine_path_terminal("34:583D", 0x5853, "fallthrough"))
+        self.assertTrue(routine_path_terminal("34:6143", 0x618E, "taken"))
+        self.assertTrue(routine_path_terminal("34:759C", 0x75A5, "returned"))
+        self.assertFalse(routine_path_terminal("34:759C", 0x75A5, "fallthrough"))
 
     def test_projects_flag_and_djnz_predicate_state(self) -> None:
         flag_branch = Branch(
@@ -184,6 +203,89 @@ class SymbolicHandlerTests(unittest.TestCase):
         )
         self.assertEqual("fraction_operand_scan", scan_kind_path(2)["terminal"])
         self.assertIn("34:5680:taken", scan_kind_path(2)["branch_outcomes"])
+
+    def test_raised_classifier_partitions_every_caller_admitted_token(self) -> None:
+        paths = symbolic_raised_extended_token_paths()
+
+        self.assertEqual(
+            len(tuple(raised_classifier_caller_states())),
+            sum(row["projected_input_count"] for row in paths),
+        )
+        self.assertEqual(3047, sum(row["projected_input_count"] for row in paths))
+        self.assertEqual(
+            {"advance_one_token", "bounded_name_scan_5",
+             "bounded_name_scan_8", "rejected"},
+            {row["terminal"] for row in paths},
+        )
+        self.assertEqual(
+            "advance_one_token", raised_extended_token_path(0xBB, 0x31)["terminal"]
+        )
+        self.assertEqual(
+            "rejected", raised_extended_token_path(0xBB, 0x30)["terminal"]
+        )
+
+    def test_bounded_name_loop_models_every_branch_and_stop_class(self) -> None:
+        for limit, expected_paths in ((5, 125), (8, 1021)):
+            paths = symbolic_raised_name_loop_paths(limit)
+            self.assertEqual(expected_paths, len(paths))
+            self.assertEqual(
+                {"source_boundary", "non_name_below_41h",
+                 "non_name_at_or_above_5ch", "byte_limit"},
+                {row["stop_class"] for row in paths},
+            )
+            outcomes = {
+                outcome for row in paths for outcome in row["branch_outcomes"]
+            }
+            self.assertEqual(
+                {
+                    "34:5840:taken", "34:5840:fallthrough",
+                    "34:5845:taken", "34:5845:fallthrough",
+                    "34:5849:taken", "34:5849:fallthrough",
+                    "34:584D:taken", "34:584D:fallthrough",
+                    "34:5853:taken", "34:5853:fallthrough",
+                },
+                outcomes,
+            )
+
+    def test_bounded_name_loop_keeps_digit_and_letter_paths_distinct(self) -> None:
+        digit = raised_name_loop_path(("digit",), "source_boundary", 5)
+        letter = raised_name_loop_path(("letter",), "source_boundary", 5)
+
+        self.assertIn("34:5845:taken", digit["branch_outcomes"])
+        self.assertNotIn("34:5849:fallthrough", digit["branch_outcomes"])
+        self.assertIn("34:5845:fallthrough", letter["branch_outcomes"])
+        self.assertIn("34:584D:fallthrough", letter["branch_outcomes"])
+        self.assertEqual(10, digit["projected_input_count"])
+        self.assertEqual(27, letter["projected_input_count"])
+
+    def test_source_lookup_reports_shadowed_duplicate_and_no_match(self) -> None:
+        rows = [
+            [0x06, 0x00, 0x2B],
+            [0xF0, 0x00, 0x2A],
+            [0x06, 0x00, 0x2C],
+        ]
+        report = source_lookup_domain(rows)
+
+        self.assertEqual(2, report["first_match_classes"])
+        self.assertEqual(0x10000 - 2, report["no_match_input_count"])
+        self.assertEqual("shadowed_duplicate", report["rows"][2]["lookup_status"])
+        self.assertEqual(0, report["shadowed_rows"][0]["shadowed_by"])
+
+    def test_index_domain_separates_rows_from_adjacent_bytes(self) -> None:
+        data = bytes(range(0x100)) * 0x4000
+        report = indexed_table_domain(
+            RomImage(data), name="test", page=0, address=0x100,
+            row_count=2, row_width=3, index_bias=0x1F,
+        )
+
+        self.assertEqual(2, report["valid_row_inputs"])
+        self.assertEqual(254, report["adjacent_byte_inputs"])
+        row = next(item for item in report["rows"]
+                   if item["incoming_value"] == "0x1F")
+        overread = next(item for item in report["rows"]
+                        if item["incoming_value"] == "0x21")
+        self.assertEqual("table_row", row["status"])
+        self.assertEqual("adjacent_rom_bytes", overread["status"])
 
     def test_type1f_word_boundaries_partition_both_iy_states(self) -> None:
         self.assertEqual(
@@ -382,6 +484,36 @@ class SymbolicHandlerTests(unittest.TestCase):
 
 
 class OracleCoverageTests(unittest.TestCase):
+    def test_trace_cache_discards_old_schema_without_migration(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "cache.json"
+            path.write_text(json.dumps({
+                "schema": 4,
+                "cfg_fingerprint": "cfg",
+                "entries": {"old": {"row": {}}},
+            }))
+
+            self.assertEqual(
+                {"schema": 6, "cfg_fingerprint": "cfg", "entries": {}},
+                load_trace_cache(path, "cfg"),
+            )
+
+    def test_trace_cache_keeps_only_matching_current_schema(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "cache.json"
+            current = {
+                "schema": 6,
+                "cfg_fingerprint": "cfg",
+                "entries": {"trace": {"entry_states": []}},
+            }
+            path.write_text(json.dumps(current))
+
+            self.assertEqual(current, load_trace_cache(path, "cfg"))
+            self.assertEqual(
+                {"schema": 6, "cfg_fingerprint": "new", "entries": {}},
+                load_trace_cache(path, "new"),
+            )
+
     def test_feature_minimum_preserves_tagged_state_and_path_features(self) -> None:
         report = minimize_trace_features(
             {
@@ -405,15 +537,33 @@ class OracleCoverageTests(unittest.TestCase):
             ("page_34", 0x616C, "taken"),
         }
         features = trace_dynamic_features(outcomes, {
-            ("page_34", 0x616C, "taken"): {"state": {"A": 0x25}},
-        })
+            ("page_34", 0x5678): {(2, 0)},
+            ("page_34", 0x580C): {(0xBB, 0xBB31)},
+            ("page_34", 0x6143): {(0x25, 0)},
+            ("page_34", 0x5935): {(0, 0xEF33)},
+            ("page_34", 0x6105): {(0x29, 0)},
+            ("page_33", 0x4F6D): {(0x0A, 0)},
+            ("page_39", 0x4C31): {(0x13, 0)},
+        }, {"34:759C": {(
+            "34:75A5:fallthrough", "34:75A9:fallthrough",
+            "34:75B0:taken", "34:75BB:taken",
+        )}})
 
-        self.assertIn("modeled_path:34:5678:fraction_operand_scan", features)
+        self.assertIn("entry_state:34:5678:A=0x2", features)
+        self.assertIn("entry_state:34:580C:A=0xBB,E=0x31", features)
         self.assertIn("entry_state:34:6143:A=0x25", features)
-        self.assertIn(
-            "modeled_path:34:6143:A=0x25:bit3=0:glyph_DB_set_iy32_bit2",
-            features,
-        )
+        self.assertTrue(any(feature.startswith(
+            "modeled_path:34:5678:fraction_operand_scan:") for feature in features))
+        self.assertTrue(any(feature.startswith(
+            "modeled_path:34:580C:advance_one_token:") for feature in features))
+        self.assertTrue(any(feature.startswith(
+            "modeled_path:34:6143:glyph_DB_set_iy32_bit2:") for feature in features))
+        self.assertTrue(any(feature.startswith(
+            "observed_path:34:759C:") for feature in features))
+        self.assertIn("dispatch_input:34:5935:DE=0xEF33", features)
+        self.assertIn("dispatch_index:34:6105:type=0x29", features)
+        self.assertIn("dispatch_index:33:4F6D:index=0x0A", features)
+        self.assertIn("dispatch_index:39:4C31:class=0x13", features)
 
     def test_finds_nested_case_lists_and_counts_record_types(self) -> None:
         document = {
@@ -435,6 +585,26 @@ class OracleCoverageTests(unittest.TestCase):
         self.assertEqual(2, report["cases"])
         self.assertEqual(2, report["unique_expressions"])
         self.assertEqual({"0x00": 2, "0x2A": 1}, report["record_types"])
+
+    def test_oracle_features_group_record_lcd_and_case_family(self) -> None:
+        document = {
+            "schema": 1,
+            "power_cases": [{
+                "expression": "X^2", "trace_sha256": "abc",
+                "accepted_write_sha256": "def",
+                "nodes": [{"render_type": 0}, {"render_type": 0x2A}],
+            }],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "mathprint-test-oracles.json"
+            path.write_text(json.dumps(document))
+            features = oracle_trace_features((path,))
+
+        self.assertEqual({
+            "oracle_family:mathprint-test-oracles:power_cases",
+            "record_oracle:type=0x00", "record_oracle:type=0x2A",
+            "lcd_oracle:type=0x00", "lcd_oracle:type=0x2A",
+        }, features["abc"])
 
     def test_minimizes_trace_outcomes_deterministically(self) -> None:
         a = ("page_34", 0x5000, "taken")
@@ -575,13 +745,19 @@ class OracleCoverageTests(unittest.TestCase):
 
         restored = deserialize_trace_summary(
             "new",
-            serialize_trace_summary(row, Counter({outcome: 3}), Counter({hit: 4}), witness),
+            serialize_trace_summary(
+                row, Counter({outcome: 3}), Counter({hit: 4}), witness,
+                {hit: {(0x25, 0x1234)}},
+                {"34:5678": {("34:5680:taken",)}},
+            ),
         )
 
         self.assertEqual("new", restored[0]["label"])
         self.assertEqual(3, restored[1][outcome])
         self.assertEqual(4, restored[2][hit])
         self.assertEqual("new", restored[3][outcome]["trace"])
+        self.assertEqual({(0x25, 0x1234)}, restored[4][hit])
+        self.assertEqual({("34:5680:taken",)}, restored[5]["34:5678"])
 
 
 if __name__ == "__main__":
