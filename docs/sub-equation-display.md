@@ -550,12 +550,21 @@ the padding row above or below the glyph. A row that crosses an LCD byte
 boundary writes the right byte before the left byte at `01:63CE`–`01:641A`.
 The large-font path emits all seven rows of its fixed cell. [confirmed]
 
-These six programs begin from record snapshots captured at `34:660A`. The
-snapshots are executable inputs rather than captured drawing events. The
-earlier transformation from expression tokens to record headers, child IDs,
-origins, dimensions, and leaf payloads remains untranslated. Full
-arbitrary-expression parity requires that construction pass before the settled
-renderer. [confirmed]
+The absolute-value constructor translates a closed slice of the earlier record
+pass. `34:5935` maps source token `00B2h` through the table at `34:594D` to
+render type `0x21`. The translated `34:4900`, `34:7393`, and `34:7609` paths
+construct the containing leaf, the absolute-value record, its child leaf, and
+their settled metrics. Fresh reset-origin traces for `abs(2)`, `abs(X/2)`, and
+`abs(X+12)` match the generated record fields and every accepted LCD data write.
+The trace streams are comparison oracles and are not constructor inputs.
+[confirmed]
+
+Flat absolute-value bodies containing translated one-glyph tokens now run from
+tokens through record construction, layout, drawing operations, and LCD byte
+writes. The other five retained structural programs begin from record snapshots
+captured at `34:660A`. Nested and general expression construction remains open.
+Full arbitrary-expression parity requires translating the remaining record
+constructors and metric branches. [confirmed]
 
 Each dispatch also captures the viewport origin at `ram:8DFE`/`ram:8E00`.
 Nested fraction `1/2` reaches `34:5DA6` with the local rule `(1,6)`–`(5,6)`
@@ -604,8 +613,10 @@ synthetic tests confirm the replay implementation.
 The local ignored `tools/rom.bin` enables pinned-ROM reproduction when present.
 The 5,018-case Node test remains a deterministic parser/layout smoke test. Six
 settled record programs provide exact final-pixel and complete accepted-write
-parity for their expressions. Two longer trace scenarios also cover the editor
-and display activity around the final key press. [confirmed]
+parity for their expressions. Three fresh flat absolute-value cases also verify
+token-to-record construction and the resulting complete accepted-write streams.
+Two longer trace scenarios cover the editor and display activity around the
+final key press. [confirmed]
 
 ## Extracted records and interactive model
 
@@ -619,6 +630,8 @@ translations in `web/mathprint/rom-engine.js`. The translated routines consume
 classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in `app.js` still uses a separate,
 trace-fitted box model. `web/mathprint/record-programs.json` contains six
-captured record snapshots. The browser executes these through the translated
-renderer and exposes every generated LCD write as a live timeline. It does not
-load captured LCD events for that mode. [confirmed]
+captured record snapshots. The browser constructs supported flat absolute-value
+expressions from tokens and uses snapshots for the other five retained paths.
+It executes both input forms through the translated renderer and exposes every
+generated LCD write as a live timeline. It does not load captured LCD events for
+that mode. [confirmed]
