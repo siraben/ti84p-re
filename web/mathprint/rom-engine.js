@@ -1893,7 +1893,7 @@
       token:unit.token, packed:unit.packed,
     }));
     program.source =
-      '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction';
+      '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction';
     return program;
   }
 

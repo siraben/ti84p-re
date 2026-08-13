@@ -966,12 +966,23 @@ synthetic tests confirm the replay implementation.
 The local ignored `tools/rom.bin` enables pinned-ROM reproduction when present.
 The browser's generated path encodes native calculator bytes, scans their
 one- and two-byte token boundaries through translations of `34:58F9` and
-`34:5911`, constructs settled records, and emits accepted LCD data bytes. Each
+`34:5911`, and splits nested arguments through the page-`34` parse-ahead state
+machine at `34:5A99`–`34:5CAC`. The translation includes the public
+`_AHEADEQUAL = 4B49h`, `_PARSAHEADS = 4B4Ch`, and `_PARSAHEAD = 4B4Fh`
+entries plus the internal entries at `34:5AA3`, `34:5AA7`, and `34:5AA9`.
+It constructs settled records and emits accepted LCD data bytes. Each
 write replaces one eight-pixel span in a 96×64 framebuffer. Five changed and
 deeply nested expressions pin every intermediate write and the packed final
 framebuffer without loading a captured write stream. These deterministic cases
 exercise summation, integral, `nDeriv(`, matrix, and a three-level raised
 fraction. [confirmed]
+
+The retained `sum(N,1,3,N)` trace exposes four calls through `34:5AA3` with
+`C=1`. The scanner stops on the three depth-zero comma bytes. At the closing
+`0x11` byte, it returns `A=0x11`, `DE=0xFF00`, and sets Z and C. The JavaScript
+translation matches these registers, flags, and scratch bytes. Static byte
+decoding covers the other mode bits and token classes; they do not yet have
+independent dynamic coverage for every exit branch. [confirmed]
 
 The browser expands every accepted byte into eight ordered pixel results. A
 timeline row records the previous byte, replacement byte, all eight destination
@@ -1022,8 +1033,10 @@ radical, nth-root, stacked-fraction, integral, summation, and `nDeriv(`
 expressions from native token bytes, including nesting among the structural
 forms. The translated renderer exposes every generated LCD byte and the
 resulting pixel frame as a live timeline. This mode does not load a record
-fixture or captured LCD event stream. Dense scanner state at
-`34:5AA7`–`34:5CA8` remains open. [confirmed]
+fixture or captured LCD event stream. Multi-argument and generic-function
+boundaries now pass through the translated `34:5AA3` state machine. The
+remaining source grammar and record-construction branches are listed above.
+[confirmed]
 
 The standalone nth-root encoder supplies an inferred template boundary because
 the retained trace does not expose the final source buffer. [hypothesis]

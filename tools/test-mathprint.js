@@ -1264,7 +1264,7 @@ expectEqual('browser parses powers right associatively',
   }, 1, font).nodes);
 expectEqual('power browser path labels translated construction',
   mp.generatedForExpression('X^2').programSource,
-  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 for (const expression of ['X^', '^2', 'X^^2'])
   expectEqual(`${expression} is outside the translated power grammar`,
     mp.constructedProgramForExpression(expression), null);
@@ -1416,28 +1416,28 @@ for (const [expression,nodes,entryId] of browserProgramCases) {
 }
 expectEqual('absolute browser path labels translated construction',
   mp.generatedForExpression('abs(X-3)').programSource,
-  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('radical browser path labels translated construction',
   mp.generatedForExpression('sqrt(X^2+1)').programSource,
-  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('nth-root browser path labels translated construction',
   mp.generatedForExpression('nthroot(3,X+1)').programSource,
-  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('compositional browser path labels translated construction',
   mp.generatedForExpression('X^sqrt(2)').programSource,
-  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('fraction browser path labels translated construction',
   mp.generatedForExpression('1//2').programSource,
-  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('integral browser path labels translated construction',
   mp.generatedForExpression('int(1,2,X,X)').programSource,
-  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('summation browser path labels translated construction',
   mp.generatedForExpression('sum(N,1,3,N^2)').programSource,
-  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 expectEqual('nDeriv browser path labels translated construction',
   mp.generatedForExpression('nDeriv(X^2,X,1)').programSource,
-  '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
+  '34:58F9, 34:5911, 34:5AA3, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction');
 if (!mp.generatedForExpression('A+(X)'))
   throw new Error('visible grouped expression has no generated LCD write stream');
 
