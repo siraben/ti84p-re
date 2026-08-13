@@ -462,6 +462,23 @@ def decode_settled_expression(
             0x24: 2, 0x25: 1, 0x26: 1, 0x27: 1,
             0x28: 2, 0x29: 4, 0x2A: 1,
         }.get(render_type)
+        if render_type == 0x2B:
+            word11 = node.get("word11")
+            byte13 = node.get("byte13")
+            if not isinstance(word11, int) or not isinstance(byte13, int):
+                raise ValueError(
+                    f"settled matrix record 0x{record_id:04X} has no dimensions"
+                )
+            rows, columns = word11 >> 8, byte13
+            if not rows or not columns:
+                raise ValueError(
+                    f"settled matrix record 0x{record_id:04X} has zero dimensions"
+                )
+            child_ids = children(node, rows * columns)
+            return {
+                "kind": "matrix", "rows": rows, "columns": columns,
+                "elements": [leaf(child_id) for child_id in child_ids],
+            }
         if child_count is None:
             raise ValueError(
                 f"settled record 0x{record_id:04X} type 0x{render_type:02X} "

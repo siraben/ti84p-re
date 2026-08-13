@@ -249,6 +249,30 @@ class MathPrintRecordTests(unittest.TestCase):
             decode_settled_expression(nodes, 1),
         )
 
+    def test_decodes_matrix_dimensions_and_row_major_elements(self):
+        nodes = [
+            {"record_id": 1, "render_type": 0, "child_ids": [],
+             "payload": [0xEF, 0x2B, 2, 0, 0xEF, 0x2D]},
+            {"record_id": 2, "render_type": 0x2B,
+             "word11": 0x0201, "byte13": 2,
+             "child_ids": [3, 4, 5, 6], "payload": []},
+            {"record_id": 3, "render_type": 0, "child_ids": [],
+             "payload": [0x31]},
+            {"record_id": 4, "render_type": 0, "child_ids": [],
+             "payload": [0x30]},
+            {"record_id": 5, "render_type": 0, "child_ids": [],
+             "payload": [0x30]},
+            {"record_id": 6, "render_type": 0, "child_ids": [],
+             "payload": [0x31]},
+        ]
+        self.assertEqual(
+            {
+                "kind": "matrix", "rows": 2, "columns": 2,
+                "elements": [[0x31], [0x30], [0x30], [0x31]],
+            },
+            decode_settled_expression(nodes, 1),
+        )
+
     def test_captures_leaf_payload_from_offset_13(self):
         memory = bytearray(0x10000)
         pointer = 0x9000
