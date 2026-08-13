@@ -642,6 +642,19 @@ first raised row from later raised rows. The JavaScript translation constructs
 right-associated record trees and obtains raised-glyph widths from the ROM
 small-font table. [confirmed]
 
+Parentheses remain ordinary leaf tokens `0x10` and `0x11` in the settled
+record. `34:6873` maps their display codes `0x28` and `0x29` to the compound
+emitters at `34:5D1A` and `34:5D07`. A raised parenthesis keeps a six-pixel
+token-cell metric. The shape height and baseline follow the enclosed payload.
+The type-`0x2A` word at `+0x0D` stores the containing leaf width accumulated
+before the power object. It is `0x1E` for `(X+1)^2`, after the five six-pixel
+leaf tokens, and `0x0C` for the power inside `(X^2+1)`. [confirmed]
+
+Five reset-origin traces cover `(X+1)`, `(X^2+1)`, `(X+1)^2`, `X^(1+2)`, and
+`abs(X^2+1)`. The generated record graphs and complete accepted-write streams
+match these traces. The streams contain 49, 60, 59, 32, and 60 writes,
+respectively. [confirmed]
+
 Fresh reset-origin traces for `X^2`, `X^12`, `2^X^2`, and `2^X^2^3` match the
 constructed record fields and every accepted LCD data write. Their streams
 contain 17, 22, 22, and 32 writes, respectively. These captures test one, two,
@@ -910,8 +923,10 @@ exponential cases and four `logBASE(` cases verify their child metrics, nested
 structures, and accepted-write streams. Twelve `nDeriv(` cases verify its three
 arguments, structural bodies, and recursive nesting. Six raised multi-argument
 numerator cases also require the settled record graph to decode to the asserted
-semantic expression. The deepest power oracle has three raised levels. Two longer trace
-scenarios cover the editor and display activity around the final key press.
+semantic expression. Five grouping cases cover flat and structural groups,
+grouped power operands, and a structural absolute-value child. The deepest
+power oracle has three raised levels. Two longer trace scenarios cover the
+editor and display activity around the final key press.
 [confirmed]
 
 ## Extracted records and interactive model
@@ -926,10 +941,10 @@ translations in `web/mathprint/rom-engine.js`. The translated routines consume
 classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in `app.js` still uses a separate,
 trace-fitted box model. `web/mathprint/record-programs.json` contains six
-retained record snapshots for comparison. The browser constructor takes
-precedence over those fixtures. It constructs supported absolute-value, power,
+retained record snapshots for offline comparison. The browser does not fetch
+them. It constructs supported absolute-value, power,
 radical, nth-root, stacked-fraction, integral, summation, and `nDeriv(`
 expressions from tokens, including nesting among the structural forms. The
 translated renderer exposes every generated LCD write as a live timeline. This
-mode does not load a fixture or captured LCD events for those expressions.
+mode does not load a record fixture or captured LCD event stream.
 [confirmed]

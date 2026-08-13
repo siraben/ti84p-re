@@ -16,11 +16,12 @@ reader-facing write-up is
 | `rom-engine.js` | direct JavaScript translations of closed page `0x39`, page `0x34`, and page `0x01` routines |
 | `font.json` | large (`07:45FF`) + small (`03:4CD6`) font glyphs, extracted from ROM |
 | `layout.json` | page `0x39` class-table records and selected descriptors consumed by the translated routines |
-| `record-programs.json` | six retained settled-record fixtures used for comparison after token construction |
+| `record-programs.json` | six retained settled-record fixtures used only by offline comparisons |
 | `draw-order.json` | accepted visible-pixel LCD mutations from the retained integral traces |
 | `tools/mathprint-construction-oracles.json` | fresh settled graphs and accepted-write hashes for independently constructed expressions |
 | `tools/mathprint-exponential-logbase-oracles.json` | fresh graph and accepted-write hashes for $e^x$, $10^x$, and `logBASE(` construction |
 | `tools/mathprint-matrix-oracles.json` | fresh matrix graphs, result origins, synchronous accepted-write hashes, and interrupt classification |
+| `tools/mathprint-grouping-oracles.json` | fresh grouping and nested absolute-value graphs plus accepted-write hashes |
 
 `rom-engine.js` translates handler lookup, row-cell emission, direct-glyph and
 delimiter classification, `_KeyToString` index arithmetic, descriptor selection
@@ -145,6 +146,12 @@ The trace graph for each of these six cases must decode to the asserted
 expression before graph and LCD-write parity is accepted. The fraction cases
 also cover structural operands, both recursive nesting directions, and
 composition inside radicals and powers.
+Five grouping traces additionally cover a flat group, a group containing a
+power, a grouped power base, a grouped exponent, and an absolute value whose
+body contains a power. Parentheses remain `0x10`/`0x11` leaf tokens. The
+renderer routes them through the compound-shape routines at `34:5D1A` and
+`34:5D07`, matching every accepted LCD write. The browser does not fetch
+`record-programs.json` for generated rendering.
 The integral cases cover structural bounds and a nested integral. The
 summation cases cover unequal-width limits, structural limits and bodies, and a
 nested summation. The `nDeriv(` cases cover unequal-width arguments, structural
