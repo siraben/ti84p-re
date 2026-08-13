@@ -15,6 +15,7 @@ reader-facing write-up is
 | `app.js` | renderer and three labeled timelines: RE-generated writes, captured writes, and model elements |
 | `rom-engine.js` | direct JavaScript translations of closed page `0x39`, page `0x34`, and page `0x01` routines |
 | `font.json` | large (`07:45FF`) + small (`03:4CD6`) font glyphs, extracted from ROM |
+| `token-strings.json` | single-byte token display strings selected through the table at `01:4252` |
 | `layout.json` | page `0x39` class-table records and selected descriptors consumed by the translated routines |
 | `record-programs.json` | six retained settled-record fixtures used only by offline comparisons |
 | `draw-order.json` | accepted visible-pixel LCD mutations from the retained integral traces |
@@ -23,6 +24,7 @@ reader-facing write-up is
 | `tools/mathprint-matrix-oracles.json` | fresh matrix graphs, result origins, synchronous accepted-write hashes, and interrupt classification |
 | `tools/mathprint-grouping-oracles.json` | fresh grouping and nested absolute-value graphs plus accepted-write hashes |
 | `tools/mathprint-structural-base-oracles.json` | fresh structural power-base and nested absolute/radical graphs plus accepted-write hashes |
+| `tools/mathprint-named-token-oracles.json` | fresh counted-token spelling graphs plus accepted-write hashes in flat, raised, and structural contexts |
 
 `rom-engine.js` translates handler lookup, row-cell emission, direct-glyph and
 delimiter classification, `_KeyToString` index arithmetic, descriptor selection
@@ -64,8 +66,9 @@ and emits ordered glyph, bitmap, point, line, compound-shape, and leaf
 operations. A full settled expression enters through a type-`0x00` leaf program
 at `34:660A`. `executeSettledRecordProgram()` consumes that payload in order,
 invokes embedded structural records, advances the shared pen by each record's
-`+9` metric, and maps translated one-glyph tokens to display codes. Unsupported
-token-string families produce explicit unresolved operations. Live settled
+`+9` metric, and maps single-byte tokens through the ROM-extracted counted
+strings selected by `smallfont_glyph_ptr` at `01:6702`. Two-byte token families
+produce explicit unresolved operations. Live settled
 traces identify types `0x23`, `0x25`, `0x26`, `0x28`, `0x29`, and `0x2B` as
 `nDeriv(`, $e^x$, $10^x$, `logBASE(`, summation, and a dimensioned matrix.
 
@@ -101,6 +104,7 @@ arbitrary-expression compositor is still reconstructed rather than translated.
 | Tool | Purpose |
 |------|---------|
 | `export-font.py` | ROM → `font.json` (glyph data for the renderer and its font-table tab) |
+| `export-token-strings.py` | ROM → `token-strings.json` (single-byte token spelling table) |
 | `export-layout.py` | ROM → `layout.json` (handler records, descriptors) |
 | `interp-cells.js` | command-line view of the browser's executable record-cell interpreter |
 | `analyze_mathprint_draw_trace.py` | attribute visible LCD mutations to dynamic page `0x34` and pixel-emitter call frames |
@@ -158,6 +162,12 @@ Three structural-composition traces cover `sqrt(X)^2`, `abs(X)^2`, and
 complete accepted LCD streams contain 35, 33, and 113 writes, respectively.
 The structural power-base cases pin the base marker at record offset `+0x0F`
 and the exponent's baseline adjustment.
+Six named-token traces cover `Ans+1`, `Ans^2`, `sqrt(Ans)`, `X^Ans`, `sin(X)`,
+and `sin(sqrt(X))`. The browser decodes the native tokens through the extracted
+`01:4252` table and matches every record field plus 49, 40, 63, 32, 56, and 83
+accepted LCD writes. Each final 96×64 LCD bitmap also matches the captured
+render interval. The opening parenthesis inside `sin(` follows the compound
+shape path at `34:5D1A` after `34:6873` receives display code `28h`.
 The integral cases cover structural bounds and a nested integral. The
 summation cases cover unequal-width limits, structural limits and bodies, and a
 nested summation. The `nDeriv(` cases cover unequal-width arguments, structural
@@ -179,7 +189,7 @@ parity requires the proprietary ROM. Filled-integral and nested-fraction
 results are recorded in
 `tools/mathprint-trace-report.json`; the large raw traces stay outside Git.
 
-The preview constructs supported absolute-value, power, $e^x$, $10^x$,
+The preview constructs supported named-token, absolute-value, power, $e^x$, $10^x$,
 `logBASE(`, radical, nth-root, stacked-fraction, integral, summation,
 `nDeriv(`, and numeric matrix expressions. It exposes every generated accepted
 LCD data write in order, including writes that do not change a pixel, and
@@ -195,6 +205,7 @@ model output when no generated or captured timeline matches.
 
 ```sh
 python3 tools/export-font.py     # -> font.json
+python3 tools/export-token-strings.py  # -> token-strings.json
 python3 tools/export-layout.py   # -> layout.json
 node tools/test-mathprint.js     # fuzz
 python3 tools/parity-mathprint.py  # calc-vs-model parity (needs TilEm + tools/rom.bin)

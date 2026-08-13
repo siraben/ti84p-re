@@ -605,6 +605,31 @@ payload bytes as input. They compare the generated display-code, coordinate,
 depth, and order tuples with independently captured `34:6C37` observations for
 absolute value, summation with an exponent, and nested `nDeriv(`. [confirmed]
 
+The ordinary-token path resolves a payload byte through
+`smallfont_glyph_ptr` (`01:6702`). A zero prefix selects the word table at
+`01:4252`. The selected pointer names one metadata byte followed by a counted
+display-code string. Token `72h` therefore expands to `A`, `n`, `s`, while
+token `C2h` expands to `s`, `i`, `n`, `(`. `_GetTokLen = 4591h` reads the
+count, and `_Get_Tok_Strng = 4594h` copies the counted bytes. The browser uses
+the ROM-extracted table in `web/mathprint/token-strings.json`; it does not
+split `Ans` or `sin` into independent input letters. [confirmed]
+
+`34:6873` receives each resulting display code. It diverts `28h` and `29h` to
+the compound-parenthesis emitters, including `28h` embedded in the spelling of
+`sin(`. The open shape therefore uses the point and line order from `34:5D1A`
+instead of the large-font glyph-row order. An explicit closing token `11h`
+resolves to `29h` and uses `34:5D07`. [confirmed]
+
+Six reset-origin traces cover `Ans+1`, `Ans^2`, `sqrt(Ans)`, `X^Ans`,
+`sin(X)`, and `sin(sqrt(X))`. Their generated graphs match every record field.
+Their complete accepted-write streams contain 49, 40, 63, 32, 56, and 83
+writes, respectively. Replaying each generated stream produces the same final
+96×64 LCD bitmap as replaying its captured `34:660A` interval. `X^Ans` verifies
+the variable-width small-font spelling. `sin(sqrt(X))` verifies a counted token
+spelling before a structural child and the compound shapes around its taller
+metrics. The structural record stores the containing leaf's accumulated
+horizontal anchor at `+0x0D`. [confirmed]
+
 The translated renderer then maps the ordered operations through the ROM font
 bitmaps, page-4 point and line behavior, `_VPutMap`, the page-7 large-glyph
 path, and LCD byte packing. Six settled programs reproduce every accepted LCD
@@ -872,6 +897,7 @@ every accepted LCD data write through the outer `34:660A` return. The traces
 supply comparison oracles, not constructor input. [confirmed]
 
 Flat absolute-value bodies and expressions composed from ordinary token runs,
+the native `Ans`, `sin(`, `cos(`, `tan(`, `ln(`, and `log(` tokens,
 right-associated powers, $e^x$, $10^x$, `logBASE(`, radicals, nth roots,
 stacked fractions, and numeric matrices now run from tokens through record
 construction, layout, drawing operations, and LCD byte writes. Integrals,
@@ -937,7 +963,9 @@ arguments, structural bodies, and recursive nesting. Six raised multi-argument
 numerator cases also require the settled record graph to decode to the asserted
 semantic expression. Five grouping cases cover flat and structural groups,
 grouped power operands, and a structural absolute-value child. The deepest
-power oracle has three raised levels. Two longer trace scenarios cover the
+power oracle has three raised levels. Six named-token cases verify counted
+spellings, raised small-font widths, compound parentheses, structural children,
+and complete accepted-write streams. Two longer trace scenarios cover the
 editor and display activity around the final key press.
 [confirmed]
 
@@ -945,16 +973,17 @@ editor and display activity around the final key press.
 
 The class table, decoded handler records, and selected descriptors are extracted to
 `web/mathprint/layout.json` by `tools/export-layout.py`;
-the fonts to `web/mathprint/font.json` by
-`tools/export-font.py` (shown on the font-table tab of the interactive
-renderer). `tools/interp-cells.js` and the browser share the executable
+the fonts to `web/mathprint/font.json` by `tools/export-font.py`; and the
+single-byte token spellings to `web/mathprint/token-strings.json` by
+`tools/export-token-strings.py`. The font data appears on the interactive
+renderer's font-table tab. `tools/interp-cells.js` and the browser share the executable
 translations in `web/mathprint/rom-engine.js`. The translated routines consume
 `layout.json` for handler lookup, row-cell iteration, direct glyph and delimiter
 classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in `app.js` still uses a separate,
 trace-fitted box model. `web/mathprint/record-programs.json` contains six
 retained record snapshots for offline comparison. The browser does not fetch
-them. It constructs supported absolute-value, power,
+them. It constructs supported named-token, absolute-value, power,
 radical, nth-root, stacked-fraction, integral, summation, and `nDeriv(`
 expressions from tokens, including nesting among the structural forms. The
 translated renderer exposes every generated LCD write as a live timeline. This

@@ -22,8 +22,8 @@
     font glyphs. Closed page-<code>0x39</code> record and descriptor routines run
     through a direct JavaScript translation documented in the
     <a href="../sub-equation-display.html">Equation display (MathPrint)</a> wiki page.
-    Supported absolute-value, power, radical, nth-root, stacked-fraction,
-    integral, summation, and <code>nDeriv(</code> expressions construct settled
+    Supported named-token, absolute-value, power, radical, nth-root,
+    stacked-fraction, integral, summation, and <code>nDeriv(</code> expressions construct settled
     records from their input tokens,
     including nesting among those structural forms and placement in a stacked
     fraction numerator. They then execute through
@@ -92,6 +92,9 @@
           the element count must equal <code>rows*columns</code></li>
       <li><code>abs(x)</code>, parentheses, <code>+ - * ^</code>, and implicit
           multiplication (<code>2X</code>)</li>
+      <li><code>Ans</code>, <code>sin(x)</code>, <code>cos(x)</code>,
+          <code>tan(x)</code>, <code>ln(x)</code>, and <code>log(x)</code>
+          use their native TI token spellings</li>
     </ul>
     <p>
       The accepted syntax is a small, lenient notation for experimenting with
