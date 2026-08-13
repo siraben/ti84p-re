@@ -11,6 +11,7 @@ from analyze_mathprint_records import (
     HEADER_SIZE,
     DecodedRecord,
     DispatchSnapshot,
+    decode_settled_expression,
     decode_record_header,
     embedded_structural_records,
     graph_node_json,
@@ -113,6 +114,85 @@ class MathPrintRecordTests(unittest.TestCase):
 
     def test_does_not_treat_an_extended_leaf_token_as_a_record(self):
         self.assertEqual((), embedded_structural_records((0xEF, 0x1E)))
+
+    def test_decodes_nested_multi_argument_expression_without_pixels(self):
+        nodes = [
+            {"record_id": 20, "render_type": 0, "child_ids": [],
+             "payload": [0xEF, 0x20, 27, 0, 0xEF, 0x2D]},
+            {"record_id": 27, "render_type": 0x20, "child_ids": [28, 29],
+             "payload": []},
+            {"record_id": 28, "render_type": 0, "child_ids": [],
+             "payload": [0xEF, 0x23, 21, 0, 0xEF, 0x2D]},
+            {"record_id": 21, "render_type": 0x23, "child_ids": [22, 23, 24],
+             "payload": []},
+            {"record_id": 22, "render_type": 1, "child_ids": [],
+             "payload": [0x58]},
+            {"record_id": 23, "render_type": 0, "child_ids": [],
+             "payload": [0xEF, 0x1E, 0xEF, 0x2A, 25, 0, 0xEF, 0x2D]},
+            {"record_id": 25, "render_type": 0x2A, "child_ids": [26],
+             "payload": []},
+            {"record_id": 26, "render_type": 0, "child_ids": [],
+             "payload": [0x33]},
+            {"record_id": 24, "render_type": 0, "child_ids": [],
+             "payload": [0x31]},
+            {"record_id": 29, "render_type": 0, "child_ids": [],
+             "payload": [0x32]},
+        ]
+        self.assertEqual(
+            {
+                "kind": "fraction",
+                "numerator": {
+                    "kind": "nDeriv", "variable": [0x58],
+                    "body": {"kind": "power", "base": [0x58],
+                             "exponent": [0x33]},
+                    "value": [0x31],
+                },
+                "denominator": [0x32],
+            },
+            decode_settled_expression(nodes, 20),
+        )
+
+    def test_exposes_an_extra_token_after_a_power(self):
+        nodes = [
+            {"record_id": 10, "render_type": 0, "child_ids": [],
+             "payload": [0xEF, 0x23, 11, 0, 0xEF, 0x2D]},
+            {"record_id": 11, "render_type": 0x23, "child_ids": [12, 1, 13],
+             "payload": []},
+            {"record_id": 12, "render_type": 1, "child_ids": [],
+             "payload": [0x58]},
+            {"record_id": 1, "render_type": 0, "child_ids": [],
+             "payload": [0xEF, 0x1E, 0xEF, 0x2A, 2, 0, 0xEF, 0x2D, 0x58]},
+            {"record_id": 2, "render_type": 0x2A, "child_ids": [3],
+             "payload": []},
+            {"record_id": 3, "render_type": 0, "child_ids": [],
+             "payload": [0x32]},
+            {"record_id": 13, "render_type": 0, "child_ids": [],
+             "payload": [0x31]},
+        ]
+        self.assertEqual(
+            {
+                "kind": "nDeriv", "variable": [0x58],
+                "body": {
+                    "kind": "sequence",
+                    "parts": [
+                        {"kind": "power", "base": [0x58],
+                         "exponent": [0x32]},
+                        [0x58],
+                    ],
+                },
+                "value": [0x31],
+            },
+            decode_settled_expression(nodes, 10),
+        )
+
+    def test_retains_ef1e_as_a_placeholder_outside_nderiv_body(self):
+        self.assertEqual(
+            {"kind": "extendedToken", "tokens": [0xEF, 0x1E]},
+            decode_settled_expression([
+                {"record_id": 1, "render_type": 0, "child_ids": [],
+                 "payload": [0xEF, 0x1E]},
+            ], 1),
+        )
 
     def test_captures_leaf_payload_from_offset_13(self):
         memory = bytearray(0x10000)

@@ -394,6 +394,198 @@ def embedded_structural_records(payload: tuple[int, ...]) -> tuple[tuple[int, in
     return tuple(result)
 
 
+def decode_settled_expression(
+    nodes: list[dict[str, object]], entry_id: int
+) -> object:
+    """Decode one settled record graph into its expression structure.
+
+    The result retains ordinary leaf runs as token-byte arrays. Structural
+    records become nested dictionaries in the same argument order consumed by
+    the page-34 renderer. Type ``0x2A`` is a postfix power record: its base is
+    the ordinary token run immediately before its embedded-record marker.
+
+    ``EF 1E`` is contextual. The type-``0x23`` construction path substitutes it
+    for the one-token ``X`` body in ``nDeriv(X,X,...)``. Outside that body it
+    remains an explicit extended token, including editable placeholder state.
+    """
+
+    by_id: dict[int, dict[str, object]] = {}
+    for node in nodes:
+        record_id = node.get("record_id")
+        if not isinstance(record_id, int):
+            raise ValueError("settled expression node is missing an integer record ID")
+        if record_id in by_id:
+            raise ValueError(f"duplicate settled expression record ID 0x{record_id:04X}")
+        by_id[record_id] = node
+    if entry_id not in by_id:
+        raise ValueError(f"settled expression entry ID 0x{entry_id:04X} is absent")
+
+    active: set[int] = set()
+
+    def children(node: dict[str, object], count: int) -> list[int]:
+        raw = node.get("child_ids")
+        if not isinstance(raw, list) or len(raw) != count or not all(
+            isinstance(value, int) for value in raw
+        ):
+            record_id = node["record_id"]
+            raise ValueError(
+                f"settled record 0x{record_id:04X} requires {count} child IDs"
+            )
+        return raw
+
+    def collapse(parts: list[object]) -> object:
+        merged: list[object] = []
+        for part in parts:
+            if (
+                isinstance(part, list)
+                and merged
+                and isinstance(merged[-1], list)
+            ):
+                merged[-1].extend(part)
+            else:
+                merged.append(part)
+        if not merged:
+            raise ValueError("settled leaf decodes to an empty expression")
+        if len(merged) == 1:
+            return merged[0]
+        return {"kind": "sequence", "parts": merged}
+
+    def structural(record_id: int) -> object:
+        node = by_id.get(record_id)
+        if node is None:
+            raise ValueError(f"embedded settled record ID 0x{record_id:04X} is absent")
+        render_type = node.get("render_type")
+        if not isinstance(render_type, int):
+            raise ValueError(f"settled record 0x{record_id:04X} has no integer type")
+        child_count = {
+            0x20: 2, 0x21: 1, 0x22: 4, 0x23: 3,
+            0x24: 2, 0x27: 1, 0x29: 4, 0x2A: 1,
+        }.get(render_type)
+        if child_count is None:
+            raise ValueError(
+                f"settled record 0x{record_id:04X} type 0x{render_type:02X} "
+                "has no translated expression decoder"
+            )
+        child_ids = children(node, child_count)
+        if render_type == 0x20:
+            return {
+                "kind": "fraction",
+                "numerator": leaf(child_ids[0]),
+                "denominator": leaf(child_ids[1]),
+            }
+        if render_type == 0x21:
+            return {"kind": "absolute", "body": leaf(child_ids[0])}
+        if render_type == 0x22:
+            return {
+                "kind": "integral",
+                "lower": leaf(child_ids[0]),
+                "upper": leaf(child_ids[1]),
+                "body": leaf(child_ids[2]),
+                "variable": leaf(child_ids[3]),
+            }
+        if render_type == 0x23:
+            return {
+                "kind": "nDeriv",
+                "variable": leaf(child_ids[0]),
+                "body": leaf(child_ids[1], context="nderiv_body"),
+                "value": leaf(child_ids[2]),
+            }
+        if render_type == 0x24:
+            return {
+                "kind": "nthRoot",
+                "index": leaf(child_ids[0]),
+                "radicand": leaf(child_ids[1]),
+            }
+        if render_type == 0x27:
+            return {"kind": "radical", "radicand": leaf(child_ids[0])}
+        if render_type == 0x29:
+            return {
+                "kind": "summation",
+                "variable": leaf(child_ids[0]),
+                "lower": leaf(child_ids[1]),
+                "upper": leaf(child_ids[2]),
+                "body": leaf(child_ids[3]),
+            }
+        assert render_type == 0x2A
+        return {"kind": "powerExponent", "exponent": leaf(child_ids[0])}
+
+    def leaf(record_id: int, *, context: str | None = None) -> object:
+        if record_id in active:
+            raise ValueError(f"settled expression contains a cycle at ID 0x{record_id:04X}")
+        node = by_id.get(record_id)
+        if node is None:
+            raise ValueError(f"settled leaf ID 0x{record_id:04X} is absent")
+        render_type = node.get("render_type")
+        if not isinstance(render_type, int) or render_type >= 0x1F:
+            raise ValueError(f"settled record 0x{record_id:04X} is not a leaf")
+        payload = node.get("payload")
+        if not isinstance(payload, list) or not all(isinstance(value, int) for value in payload):
+            raise ValueError(f"settled leaf 0x{record_id:04X} has no byte payload")
+        active.add(record_id)
+        try:
+            parts: list[object] = []
+            tokens: list[int] = []
+
+            def flush_tokens() -> None:
+                if tokens:
+                    parts.append(tokens.copy())
+                    tokens.clear()
+
+            index = 0
+            while index < len(payload):
+                token = payload[index]
+                if token != 0xEF:
+                    tokens.append(token)
+                    index += 1
+                    continue
+                if index + 1 >= len(payload):
+                    raise ValueError(f"settled leaf 0x{record_id:04X} ends with EF")
+                subtype = payload[index + 1]
+                if subtype == 0x2D:
+                    index += 2
+                    continue
+                if subtype == 0x1E:
+                    if context == "nderiv_body":
+                        tokens.append(0x58)
+                    else:
+                        flush_tokens()
+                        parts.append({"kind": "extendedToken", "tokens": [0xEF, 0x1E]})
+                    index += 2
+                    continue
+                if not 0x1F <= subtype <= 0x2B or index + 3 >= len(payload):
+                    raise ValueError(
+                        f"settled leaf 0x{record_id:04X} has unsupported EF "
+                        f"subtype 0x{subtype:02X}"
+                    )
+                embedded_id = payload[index + 2] | payload[index + 3] << 8
+                expression = structural(embedded_id)
+                if subtype == 0x2A:
+                    if expression.get("kind") != "powerExponent":
+                        raise ValueError(
+                            f"settled power marker references non-power ID 0x{embedded_id:04X}"
+                        )
+                    if not tokens:
+                        raise ValueError(
+                            f"settled power ID 0x{embedded_id:04X} has no preceding token base"
+                        )
+                    base = tokens.copy()
+                    tokens.clear()
+                    parts.append({
+                        "kind": "power", "base": base,
+                        "exponent": expression["exponent"],
+                    })
+                else:
+                    flush_tokens()
+                    parts.append(expression)
+                index += 4
+            flush_tokens()
+            return collapse(parts)
+        finally:
+            active.remove(record_id)
+
+    return leaf(entry_id)
+
+
 def resolved_record_graph(
     trace: Path,
     *,
@@ -559,6 +751,7 @@ def resolved_record_graph(
         node["pointer"] = nodes[record_id].pointer
         node["storage_size"] = record_storage_size(nodes[record_id], child_ids)
         graph_nodes.append(node)
+    expression = decode_settled_expression(graph_nodes, entry_id)
     return {
         "trace": str(trace),
         "entry_id": entry_id,
@@ -584,6 +777,7 @@ def resolved_record_graph(
             }
             for index, dispatched_id, stack, x_origin, y_origin in final_dispatches
         ],
+        "expression": expression,
         "nodes": graph_nodes,
     }
 
