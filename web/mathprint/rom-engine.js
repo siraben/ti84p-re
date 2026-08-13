@@ -689,7 +689,7 @@
       case 0x24: {
         const first = child(record, 1), second = child(record, 2);
         const operations = settledNthRootOperations(
-          first.word07, second.word07, record.word07);
+          first.word07, second.word07, record.word07, state.depth - 1);
         renderChild(1);
         state.depth--;
         emit(record, origin, operations[1]);
@@ -959,6 +959,12 @@
         radicand:settledExpressionSpec(
           input.radicand, `${label} radicand`, active),
       };
+      if (kind === 'nthRoot') return {
+        kind,
+        index:settledExpressionSpec(input.index, `${label} index`, active),
+        radicand:settledExpressionSpec(
+          input.radicand, `${label} radicand`, active),
+      };
       throw new RangeError(`${label} has unsupported kind ${JSON.stringify(kind)}`);
     } finally {
       active.delete(input);
@@ -988,6 +994,14 @@
     };
     const embedded = (renderType, recordId) =>
       [0xef, renderType, recordId & 0xff, recordId >> 8, 0xef, 0x2d];
+    const leadingByte = expression => {
+      if (expression.kind === 'tokens') return expression.tokens[0];
+      if (expression.kind === 'sequence') return leadingByte(expression.parts[0]);
+      if (expression.kind === 'power') return expression.base[0];
+      if (expression.kind === 'radical') return 0xef;
+      if (expression.kind === 'nthRoot') return leadingByte(expression.index);
+      throw new RangeError(`unsupported settled leading-byte kind ${expression.kind}`);
+    };
 
     const build = (expression, renderDepth, parentId, structuralDepth) => {
       const leafId = allocate();
@@ -1072,6 +1086,38 @@
           addStructural(structural);
           return;
         }
+        if (part.kind === 'nthRoot') {
+          const renderType = settledStructuralTokenType(0x00, 0xf1);
+          if (renderType !== 0x24)
+            throw new Error('34:594D nth-root token mapping is inconsistent');
+          const structuralId = allocate();
+          const structural = {
+            record_id:structuralId, render_type:renderType, word03:leafId,
+            word05:settledRecordMetadata(renderType)[2],
+            word07:0, word09:0, word0B:0, word0D:0,
+            word0F:0, word11:structuralDepth + 1,
+            byte13:renderDepth === 0 ? leadingByte(part.index) : 0,
+            child_ids:[], payload:[],
+          };
+          nodes.push(structural);
+          const index = build(
+            part.index, renderDepth + 1, structuralId, structuralDepth + 1);
+          // The type-24 metric pass keeps the index payload length at +11h but
+          // clears its +0Fh word. The renderer still consumes the full payload.
+          index.word0F = 0;
+          const radicand = build(
+            part.radicand, renderDepth, structuralId, structuralDepth + 1);
+          radicand.word0B = checkedWord(index.word07 + 4, 'nth-root radicand x');
+          radicand.word0D = 4;
+          structural.word07 = checkedWord(radicand.word05 + 4, 'nth-root height');
+          structural.word09 = checkedWord(
+            index.word07 + radicand.word07 + 4, 'nth-root width');
+          structural.word0B = checkedWord(
+            radicand.word09 + 4, 'nth-root baseline');
+          structural.child_ids = [index.record_id, radicand.record_id];
+          addStructural(structural);
+          return;
+        }
         throw new RangeError(`unsupported settled expression part ${part.kind}`);
       };
 
@@ -1087,7 +1133,8 @@
 
     const root = build(spec, 0, firstId - 1, 0);
     for (const node of nodes)
-      if (node.render_type >= 0x1f) node.byte13 = root.payload[0];
+      if (node.render_type >= 0x1f && node.byte13 === 0)
+        node.byte13 = root.payload[0];
     return {
       entry_id:root.record_id,
       origin:{x:0,y:0},
@@ -1111,6 +1158,14 @@
       {kind:'radical', radicand}, firstId, font);
     program.source =
       '34:4900, 34:5935, 34:7393, and 34:7609 translated radical construction';
+    return program;
+  }
+
+  function constructSettledNthRootProgram(index, radicand, firstId = 1, font = null) {
+    const program = constructSettledExpressionProgram(
+      {kind:'nthRoot', index, radicand}, firstId, font);
+    program.source =
+      '34:4900, 34:5935, 34:7393, and 34:7609 translated nth-root construction';
     return program;
   }
 
@@ -1473,28 +1528,32 @@
   }
 
   // Render-record type 24h dispatches to 34:6315. It renders child 1, draws the
-  // seven-row root hook at x=child1(+7)-1, emits the hook's vertical segment,
-  // renders child 2, and draws an inclusive vinculum. The vinculum uses child
-  // 2's +7 word and starts at the hook x.
-  function settledNthRootOperations(indexWidth, radicandWidth, height = 11) {
+  // root hook at x=child1(+7)-1, emits the hook's vertical segment, renders
+  // child 2, and draws an inclusive vinculum. 34:62D0 selects seven bitmap
+  // rows at outer depth and five in a raised row. The vinculum uses child 2's
+  // +7 word and starts at the hook x.
+  function settledNthRootOperations(indexWidth, radicandWidth, height = 11, depth = 0) {
     byte(indexWidth, 'settled nth-root index width');
     byte(radicandWidth, 'settled nth-root radicand width');
     byte(height, 'settled nth-root height');
+    byte(depth, 'settled nth-root depth');
     if (indexWidth < 1)
       throw new RangeError('settled nth-root index width must be positive');
-    if (height < 7)
-      throw new RangeError('settled nth-root height must be at least seven');
+    const fullRows = [0x04,0x04,0x04,0x04,0x14,0x0c,0x04];
+    const rows = depth === 0 ? fullRows : fullRows.slice(2);
+    if (height < rows.length)
+      throw new RangeError('settled nth-root height cannot place its hook');
     const hookX = indexWidth - 1;
-    const hookY = height - 7;
+    const hookY = height - rows.length;
     const ruleEnd = radicandWidth + hookX + 3;
     byte(ruleEnd, 'settled nth-root vinculum endpoint');
     return [
       {kind:'child', index:1, routine:'34:6315 → 34:636C'},
-      {kind:'bitmap', x:hookX, y:hookY, width:5, height:7,
-       rows:[0x04,0x04,0x04,0x04,0x14,0x0c,0x04],
+      {kind:'bitmap', x:hookX, y:hookY, width:5, height:rows.length,
+       rows, retainUnchanged:true,
        routine:'34:6321 → 34:62D0 → 34:630C'},
       {kind:'line', axis:'vertical', from:{x:hookX + 2,y:3},
-       to:{x:hookX + 2,y:4}, routine:'34:6331 → 34:5D96'},
+       to:{x:hookX + 2,y:hookY}, routine:'34:6331 → 34:5D96'},
       {kind:'child-select', index:2, routine:'34:6334 → 34:6CCA'},
       {kind:'line', axis:'horizontal', from:{x:hookX + 2,y:2},
        to:{x:ruleEnd,y:2}, routine:'34:6344 → 34:5DA6'},
@@ -1581,6 +1640,7 @@
     settledTokenGlyph,
     constructSettledAbsoluteProgram,
     constructSettledExpressionProgram,
+    constructSettledNthRootProgram,
     constructSettledPowerProgram,
     constructSettledRadicalProgram,
     settledFractionOperations,

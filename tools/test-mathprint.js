@@ -170,6 +170,7 @@ expectEqual('34:6315 nth-root primitive order', rom.settledNthRootOperations(4, 
   {kind:'child', index:1, routine:'34:6315 → 34:636C'},
   {kind:'bitmap', x:3, y:4, width:5, height:7,
    rows:[0x04,0x04,0x04,0x04,0x14,0x0c,0x04],
+   retainUnchanged:true,
    routine:'34:6321 → 34:62D0 → 34:630C'},
   {kind:'line', axis:'vertical', from:{x:5,y:3}, to:{x:5,y:4},
    routine:'34:6331 → 34:5D96'},
@@ -431,6 +432,10 @@ expectEqual('34:5935 maps the radical token through 34:594D',
   rom.settledStructuralTokenType(0x00,0xbc), 0x27);
 expectEqual('34:5996 selects the radical metadata row',
   rom.settledRecordMetadata(0x27), [0x03,0x01,0x00,0x00,0x00]);
+expectEqual('34:5935 maps the nth-root token through 34:594D',
+  rom.settledStructuralTokenType(0x00,0xf1), 0x24);
+expectEqual('34:5996 selects the nth-root metadata row',
+  rom.settledRecordMetadata(0x24), [0x01,0x01,0x02,0x00,0x00]);
 const constructedAbsolute = rom.constructSettledAbsoluteProgram([0x58,0x71,0x33],0x0d);
 expectEqual('absolute tokens independently construct the settled record graph',
   constructedAbsolute.nodes, recordPrograms.programs['abs(X-3)'].nodes);
@@ -486,6 +491,24 @@ for (const oracle of constructionOracles.composition_cases) {
     crypto.createHash('sha256').update(writeBytes).digest('hex'),
     oracle.accepted_write_sha256);
 }
+for (const oracle of constructionOracles.nth_root_cases) {
+  const program = rom.constructSettledExpressionProgram(
+    oracle.spec, oracle.entry_id, font);
+  expectEqual(`${oracle.expression} independently constructs the fresh TilEm graph`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.origin, nodes:oracle.nodes});
+  const operations = rom.executeSettledRecordProgram(program.nodes, program.entry_id, {
+    origin:program.origin,
+    glyphAdvance:settledGlyphAdvance,
+  });
+  const writes = rom.rasterizeSettledOperations(operations, font).writes;
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write count`,
+    writes.length, oracle.accepted_write_count);
+  const writeBytes = Buffer.from(writes.flatMap(write => [...write.pointer,write.value]));
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write stream`,
+    crypto.createHash('sha256').update(writeBytes).digest('hex'),
+    oracle.accepted_write_sha256);
+}
 expectEqual('browser selects translated absolute record construction',
   mp.constructedProgramForExpression('abs(X-3)').nodes,
   rom.constructSettledAbsoluteProgram([0x58,0x71,0x33]).nodes);
@@ -508,6 +531,16 @@ expectEqual('browser constructs nested radicals',
   mp.constructedProgramForExpression('sqrt(sqrt(2))').nodes,
   rom.constructSettledRadicalProgram(
     {kind:'radical',radicand:[0x32]}, 1, font).nodes);
+expectEqual('browser constructs a powered nth-root radicand',
+  mp.constructedProgramForExpression('nthroot(3,X^2)').nodes,
+  rom.constructSettledNthRootProgram(
+    [0x33], {kind:'power',base:[0x58],exponent:[0x32]}, 1, font).nodes);
+expectEqual('browser constructs an nth root inside a raised exponent',
+  mp.constructedProgramForExpression('X^nthroot(3,2)').nodes,
+  rom.constructSettledExpressionProgram({
+    kind:'power', base:[0x58],
+    exponent:{kind:'nthRoot',index:[0x33],radicand:[0x32]},
+  }, 1, font).nodes);
 const constructedPower = rom.constructSettledPowerProgram(
   {base:[0x58], exponent:[0x32]}, 0x0d, font);
 expectEqual('power tokens independently construct the settled X^2 graph',
@@ -579,6 +612,10 @@ expectThrows('compositional constructor rejects an empty sequence', RangeError,
   () => rom.constructSettledExpressionProgram({kind:'sequence',parts:[]}, 1, font));
 expectThrows('compositional constructor rejects an empty radical', RangeError,
   () => rom.constructSettledRadicalProgram([], 1, font));
+expectThrows('compositional constructor rejects an empty nth-root index', RangeError,
+  () => rom.constructSettledNthRootProgram([], [0x32], 1, font));
+expectThrows('compositional constructor rejects an empty nth-root radicand', RangeError,
+  () => rom.constructSettledNthRootProgram([0x33], [], 1, font));
 expectThrows('compositional constructor rejects unsupported structural kinds', RangeError,
   () => rom.constructSettledExpressionProgram({kind:'integral'}, 1, font));
 expectThrows('compositional constructor rejects overflowing leaf metrics', RangeError,
@@ -610,11 +647,14 @@ expectEqual('absolute browser path labels translated construction',
 expectEqual('radical browser path labels translated construction',
   mp.generatedForExpression('sqrt(X^2+1)').programSource,
   '34:4900, 34:5935, 34:7393, and 34:7609 translated radical construction');
+expectEqual('nth-root browser path labels translated construction',
+  mp.generatedForExpression('nthroot(3,X+1)').programSource,
+  '34:4900, 34:5935, 34:7393, and 34:7609 translated nth-root construction');
 expectEqual('compositional browser path labels translated construction',
   mp.generatedForExpression('X^sqrt(2)').programSource,
   '34:4900, 34:5935, 34:7393, and 34:7609 translated power construction');
 expectEqual('remaining browser paths label captured record input',
-  mp.generatedForExpression('nthroot(3,X+1)').programSource,
+  mp.generatedForExpression('sum(N,1,3,N^2)').programSource,
   'captured settled record snapshot');
 expectEqual('arbitrary expression has no captured record program',
   mp.generatedForExpression('1//(2//3)'), null);
@@ -655,6 +695,12 @@ expectEqual('34:630C preserves accepted unchanged raised-radical writes',
     [[0,2],0x20,[]], [[0,3],0x20,[]], [[0,4],0xa0,[]],
     [[0,5],0x60,[]], [[0,6],0x20,[]],
   ]);
+expectEqual('34:62D0 raised nth root selects the final five bitmap rows',
+  rom.settledNthRootOperations(4, 4, 9, 1)[1], {
+    kind:'bitmap', x:3, y:4, width:5, height:5,
+    rows:[0x04,0x04,0x14,0x0c,0x04], retainUnchanged:true,
+    routine:'34:6321 → 34:62D0 → 34:630C',
+  });
 expectEqual('34:622F integral primitive order', rom.settledIntegralOperations(0x17), [
   {kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:0x15},
    routine:'34:6239 → 34:5D96'},
