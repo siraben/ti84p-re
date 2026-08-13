@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-77bfc04b.js";
+            window.path_to_searchindex_js = "searchindex-f9a430a0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15063,6 +15063,16 @@ leaf tokens, and <code>0x0C</code> for the power inside <code>(X^2+1)</code>. [c
 <code>abs(X^2+1)</code>. The generated record graphs and complete accepted-write streams
 match these traces. The streams contain 49, 60, 59, 32, and 60 writes,
 respectively. [confirmed]</p>
+<p>When the base of a power ends in a structural object, the constructor writes
+<code>3</code> to that object’s word at <code>+0x0F</code>. The type-<code>0x2A</code> height and baseline also
+increase by the base leaf’s baseline above the ordinary baseline at that render
+depth. For <code>sqrt(X)^2</code>, the power record has height 12, baseline 8, and an
+<code>+0x0D</code> horizontal anchor of 11. [confirmed]</p>
+<p>Reset-origin traces for <code>sqrt(X)^2</code>, <code>abs(X)^2</code>, and
+<code>abs(sqrt(X^2+1))</code> match every generated record field and accepted LCD data
+write. Their complete streams contain 35, 33, and 113 writes, respectively.
+The nested case verifies the absolute-value bars, radical hook and vinculum,
+powered radicand, and leaf glyphs in ROM emission order. [confirmed]</p>
 <p>Fresh reset-origin traces for <code>X^2</code>, <code>X^12</code>, <code>2^X^2</code>, and <code>2^X^2^3</code> match the
 constructed record fields and every accepted LCD data write. Their streams
 contain 17, 22, 22, and 32 writes, respectively. These captures test one, two,

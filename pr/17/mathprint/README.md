@@ -22,6 +22,7 @@ reader-facing write-up is
 | `tools/mathprint-exponential-logbase-oracles.json` | fresh graph and accepted-write hashes for $e^x$, $10^x$, and `logBASE(` construction |
 | `tools/mathprint-matrix-oracles.json` | fresh matrix graphs, result origins, synchronous accepted-write hashes, and interrupt classification |
 | `tools/mathprint-grouping-oracles.json` | fresh grouping and nested absolute-value graphs plus accepted-write hashes |
+| `tools/mathprint-structural-base-oracles.json` | fresh structural power-base and nested absolute/radical graphs plus accepted-write hashes |
 
 `rom-engine.js` translates handler lookup, row-cell emission, direct-glyph and
 delimiter classification, `_KeyToString` index arithmetic, descriptor selection
@@ -152,6 +153,11 @@ body contains a power. Parentheses remain `0x10`/`0x11` leaf tokens. The
 renderer routes them through the compound-shape routines at `34:5D1A` and
 `34:5D07`, matching every accepted LCD write. The browser does not fetch
 `record-programs.json` for generated rendering.
+Three structural-composition traces cover `sqrt(X)^2`, `abs(X)^2`, and
+`abs(sqrt(X^2+1))`. Their generated graphs match every record field. Their
+complete accepted LCD streams contain 35, 33, and 113 writes, respectively.
+The structural power-base cases pin the base marker at record offset `+0x0F`
+and the exponent's baseline adjustment.
 The integral cases cover structural bounds and a nested integral. The
 summation cases cover unequal-width limits, structural limits and bodies, and a
 nested summation. The `nDeriv(` cases cover unequal-width arguments, structural
