@@ -433,6 +433,37 @@ expectThrows('LCD replay rejects an out-of-bounds byte pointer', RangeError,
 expectThrows('LCD replay rejects a non-byte data value', RangeError,
   () => rom.replaySettledLcdWrites([{pointer:[0,0],value:0x100}]));
 
+const pixelByteTrace = rom.traceSettledLcdWrites([
+  {pointer:[1,2],value:0xa5},
+  {pointer:[1,2],value:0xa5},
+  {pointer:[1,2],value:0x24},
+]);
+expectEqual('pixel LCD trace retains every bit of each accepted byte',
+  pixelByteTrace.events.map(event => ({
+    before:event.beforeValue,
+    after:event.value,
+    pixels:event.pixels.map(pixel => [pixel.x,pixel.y,pixel.before,pixel.value,pixel.changed]),
+  })), [
+    {before:0x00,after:0xa5,pixels:[
+      [8,2,0,1,true],[9,2,0,0,false],[10,2,0,1,true],[11,2,0,0,false],
+      [12,2,0,0,false],[13,2,0,1,true],[14,2,0,0,false],[15,2,0,1,true],
+    ]},
+    {before:0xa5,after:0xa5,pixels:[
+      [8,2,1,1,false],[9,2,0,0,false],[10,2,1,1,false],[11,2,0,0,false],
+      [12,2,0,0,false],[13,2,1,1,false],[14,2,0,0,false],[15,2,1,1,false],
+    ]},
+    {before:0xa5,after:0x24,pixels:[
+      [8,2,1,0,true],[9,2,0,0,false],[10,2,1,1,false],[11,2,0,0,false],
+      [12,2,0,0,false],[13,2,1,1,false],[14,2,0,0,false],[15,2,1,0,true],
+    ]},
+  ]);
+expectEqual('pixel LCD trace final grid matches ordinary byte replay',
+  pixelByteTrace.grid, rom.replaySettledLcdWrites([
+    {pointer:[1,2],value:0xa5},
+    {pointer:[1,2],value:0xa5},
+    {pointer:[1,2],value:0x24},
+  ]));
+
 for (const [bytes, expected] of [
   [[0x5c,0x00], {codes:[0xc1,0x41,0x5d],length:2,table:'5C',tableIndex:0}],
   [[0x5d,0x00], {codes:[0x4c,0x81],length:2,table:'5D',tableIndex:0}],
@@ -1357,7 +1388,12 @@ for (const [label, expression] of mp.presets) {
       generated.events.length === 0)
     throw new Error(`${label} (${expression}) has no pixel-level LCD write trace`);
   if (generated.events.some(event => !Array.isArray(event.pointer) ||
-      !Array.isArray(event.changes) || !Number.isInteger(event.value)))
+      !Array.isArray(event.changes) || !Number.isInteger(event.value) ||
+      !Number.isInteger(event.beforeValue) || !Array.isArray(event.pixels) ||
+      event.pixels.length !== 8 || event.pixels.some(pixel =>
+        !Number.isInteger(pixel.x) || !Number.isInteger(pixel.y) ||
+        ![0,1].includes(pixel.before) || ![0,1].includes(pixel.value) ||
+        pixel.changed !== (pixel.before !== pixel.value))))
     throw new Error(`${label} (${expression}) has an incomplete LCD write event`);
   if (generated.operations.some(operation => operation.kind === 'glyph' &&
       operation.code === 0xf7))
