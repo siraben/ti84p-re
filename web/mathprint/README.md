@@ -179,6 +179,13 @@ parser translates argument boundaries at `34:5AA3` plus the relevant
 `34:594D`, `34:4900`, `34:7393`, and `34:7609` record and metric paths.
 [confirmed]
 
+Raised operands use the packed-token classifier at `34:580C`. Its caller-scoped
+domain contains 3,047 states after the numeric and `EF1Eh` paths are removed.
+Direct letters, `Ans`, list, matrix, and string names, `π`, `BB31h`, and the
+bounded `5Fh`/`EBh` name forms follow the ROM comparisons. The bounded loop
+accepts only `30h`–`39h` and `41h`–`5Bh`, with limits of eight and five bytes.
+The parser keeps the designator and accepted name bytes in one atom. [confirmed]
+
 The text field accepts two input paths. Ordinary text uses a preview-specific
 semantic frontend; it is not a translation of the TI-OS editor or its
 in-progress template AST. A `hex:` prefix supplies space- or comma-separated
@@ -227,6 +234,16 @@ and `sin(sqrt(X))`. The browser decodes the native tokens through the extracted
 accepted LCD writes. Each final 96×64 LCD bitmap also matches the captured
 render interval. The opening parenthesis inside `sin(` follows the compound
 shape path at `34:5D1A` after `34:6873` receives display code `28h`.
+Changed-input regressions also construct direct `X^Y`, `X^Ans`, `X^L1`, and
+`X^(BB31h)` streams. Each generated accepted LCD write expands to its eight
+pixel results and replays to the generated final framebuffer.
+The long-input regression
+`int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)` constructs both integral records and a
+106-pixel outer leaf. The generated view reports that full record extent
+separately from the 96-pixel LCD viewport and retains the deterministic 221
+accepted writes inside it. Its current origin-and-clipping result is a
+translation regression, not an independent calculator oracle for final
+answer-display positioning.
 The integral cases cover structural bounds and a nested integral. The
 summation cases cover unequal-width limits, structural limits and bodies, and a
 nested summation. The `nDeriv(` cases cover unequal-width arguments, structural
