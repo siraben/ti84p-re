@@ -495,8 +495,67 @@ between children 1 and 2. The settled `sum(N,1,3,N^2)` root contains child IDs
 Type `0x2B` dispatches to `34:65AA`. It emits the left vertical bracket and its
 two inward points, renders the matrix elements in child-ID order, then emits
 the right bracket and its points. `33:4F23` derives the element-loop bound from
-the dimensions at record bytes `+0x12` and `+0x13`. A settled $2\times2$
-identity matrix renders four children between the bracket operations.
+the dimensions at record bytes `+0x12` and `+0x13`. The high byte at `+0x12`
+stores the column count. Byte `+0x13` stores the row count. A settled
+$2\times2$ identity matrix renders four children between the bracket operations.
+[confirmed]
+
+The type-`0x2B` constructor lays out elements in row-major order. For element
+width $w_{r,c}$ and height $h_{r,c}$, define the column and row extents as
+[confirmed]
+
+$$
+C_c = \max_r w_{r,c}, \qquad R_r = \max_c h_{r,c}.
+$$
+
+The first column begins at $x_0=6$, and each later column begins after the
+previous extent and a six-pixel gap. The first row begins at $y_0=0$, and each
+later row begins after the previous extent and a two-pixel gap:
+
+$$
+x_{c+1}=x_c+C_c+6, \qquad y_{r+1}=y_r+R_r+2.
+$$
+
+Each element is centered within its row and column extent:
+
+$$
+X_{r,c}=x_c+\left\lfloor\frac{C_c-w_{r,c}}{2}\right\rfloor, \qquad
+Y_{r,c}=y_r+\left\lfloor\frac{R_r-h_{r,c}}{2}\right\rfloor.
+$$
+
+For $m$ rows and $n$ columns, let $N_e$ be the element count, $H$ the matrix
+height, $W$ the matrix width, and $y_c$ the vertical center:
+
+$$
+\begin{aligned}
+N_e &= mn, & H &= \sum_r R_r+2(m-1), \\
+W &= 12+\sum_c C_c+6(n-1), & y_c &=
+\left\lfloor\frac{H}{2}\right\rfloor.
+\end{aligned}
+$$
+
+The constructor stores $N_e$, $H$, $W$, and $y_c$ in the words at `+5`, `+7`,
+`+9`, and `+0x0B`, respectively. [confirmed]
+
+The word at `+0x11` stores the column count in its high byte and structural
+depth in its low byte. The byte at `+0x13` stores the row count. When the matrix
+contains more than one element, the allocation pass leaves one unused ID after
+the first child. The reachable child sequence is therefore `0x11`, `0x13`,
+`0x14`, and so on in captures whose matrix record is `0x10`. [confirmed]
+
+Five reset-origin traces cover $1\times1$, $1\times2$, $2\times2$,
+$2\times3$, and $3\times3$ matrices. The JavaScript constructor matches every
+captured record field, child ID, and element position. The matrix result begins
+at LCD row 9 and uses $x=95-W$, where $W$ is the outer leaf width at `+7`.
+The generated streams match 32, 46, 92, 134, and 180 synchronous accepted LCD
+data writes, respectively. [confirmed]
+
+The $2\times3$ capture also contains eight accepted writes from the standard
+timer's run-indicator handler at `01:6BBA`–`01:6BFA`. That handler reads and
+rewrites LCD byte column 11 across rows 0–7 through `indicCounter` and
+`indicBusy` at `0x8476`/`0x8477`. Removing those asynchronous writes leaves the
+134-write MathPrint stream. The generated timeline models the synchronous
+settled renderer and labels the interrupt writes separately in its oracle.
 [confirmed]
 
 `web/mathprint/rom-engine.js` implements the complete `0x1F`–`0x2B` structural
@@ -788,12 +847,12 @@ every accepted LCD data write through the outer `34:660A` return. The traces
 supply comparison oracles, not constructor input. [confirmed]
 
 Flat absolute-value bodies and expressions composed from ordinary token runs,
-right-associated powers, $e^x$, $10^x$, `logBASE(`, radicals, nth roots, and
-stacked fractions now run from tokens through record construction, layout,
-drawing operations, and LCD byte writes. Integrals, summations, and `nDeriv(`
-compose with the same translated forms in their arguments and in a
-stacked-fraction numerator. The remaining arbitrary-expression branches are
-still untranslated.
+right-associated powers, $e^x$, $10^x$, `logBASE(`, radicals, nth roots,
+stacked fractions, and numeric matrices now run from tokens through record
+construction, layout, drawing operations, and LCD byte writes. Integrals,
+summations, and `nDeriv(` compose with the same translated forms in their
+arguments and in a stacked-fraction numerator. The remaining
+arbitrary-expression branches are still untranslated.
 [confirmed]
 
 Each dispatch also captures the viewport origin at `ram:8DFE`/`ram:8E00`.

@@ -467,6 +467,10 @@ expectEqual('34:5996 selects the exponential metadata rows',
   [[0x03,0x01,0x00,0x00,0x00],[0x03,0x01,0x00,0x00,0x00]]);
 expectEqual('34:5996 selects the log-base metadata row',
   rom.settledRecordMetadata(0x28), [0x04,0x02,0x01,0x00,0x00]);
+expectEqual('34:5935 maps the matrix token through 34:594D',
+  rom.settledStructuralTokenType(0xef,0x2b), 0x2b);
+expectEqual('34:5996 selects the matrix metadata row',
+  rom.settledRecordMetadata(0x2b), [0x06,0x10,0xda,0xdb,0x9c]);
 const constructedAbsolute = rom.constructSettledAbsoluteProgram([0x58,0x71,0x33],0x0d);
 expectEqual('absolute tokens independently construct the settled record graph',
   constructedAbsolute.nodes, recordPrograms.programs['abs(X-3)'].nodes);
