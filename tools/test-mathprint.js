@@ -295,23 +295,22 @@ expectEqual('settled absolute program independently reproduces trace glyph order
   ]);
 
 const summationProgram = [
-  settledRecord(0x12,0,{word09:9,word11:13},[],
-    [0xef,0x29,0x13,0x00,0xef,0x2d,0x4e,
-     0xef,0x2a,0x18,0x00,0xef,0x2d]),
-  settledRecord(0x13,0x29,{word05:3,word07:19,word09:31,word0B:9},
+  settledRecord(0x12,0,{word05:19,word07:33,word09:9,word11:6},[],
+    [0xef,0x29,0x13,0x00,0xef,0x2d]),
+  settledRecord(0x13,0x29,{word05:3,word07:19,word09:33,word0B:9},
     [0x14,0x15,0x16,0x17]),
-  settledRecord(0x14,1,{word07:4,word09:2,word0D:14,word11:1},[],[0x4e]),
-  settledRecord(0x15,0,{word07:6,word09:2,word0B:8,word0D:14,word11:2},[],
-    [0xef,0x1e]),
-  settledRecord(0x16,0,{word07:4,word09:2,word0B:5,word11:1},[],[0x31]),
-  settledRecord(0x17,0,{word05:7,word07:6,word09:3,word0B:20,word0D:6,word11:1},[],[0x33]),
-  settledRecord(0x18,0x2a,{word07:16,word09:4,word0B:6,word0D:37},[0x19]),
+  settledRecord(0x14,1,{word05:5,word07:4,word09:2,word0D:14,word11:1},[],[0x4e]),
+  settledRecord(0x15,0,{word05:5,word07:4,word09:2,word0B:8,word0D:14,word11:1},[],[0x31]),
+  settledRecord(0x16,0,{word05:5,word07:4,word09:2,word0B:4,word11:1},[],[0x33]),
+  settledRecord(0x17,0,{word05:10,word07:10,word09:6,word0B:18,word0D:3,word11:7},[],
+    [0x4e,0xef,0x2a,0x18,0x00,0xef,0x2d]),
+  settledRecord(0x18,0x2a,{word05:1,word07:10,word09:4,word0B:6,word0D:6,word11:2},[0x19]),
   settledRecord(0x19,0,{word07:4,word09:2,word11:1},[],[0x32]),
 ];
 expectEqual('settled summation program independently reproduces trace glyph order',
   settledGlyphStream(summationProgram,0x12), [
-    [0xc6,4,6,0], [0x4e,0,14,1], [0x3d,4,14,1], [0xf7,8,14,1],
-    [0x31,5,0,1], [0x33,20,6,0], [0x4e,31,6,0], [0x32,37,3,1],
+    [0xc6,3,6,0], [0x4e,0,14,1], [0x3d,4,14,1], [0x31,8,14,1],
+    [0x33,4,0,1], [0x4e,18,6,0], [0x32,24,3,1],
   ]);
 
 const nderivProgram = [
@@ -386,7 +385,7 @@ for (const [name,nodes,entryId,expected] of [
   ['absolute',absoluteProgram,0x0d,'d0442f38290a446074d49f43cff43f852569143d8ab2851e914a59cec0ad087d'],
   ['nth root',nthRootProgram,0x0e,'1b939a055eb331245bd8d2abf782fc9978fb3488a6dc61d660bbada0f463df30'],
   ['radical',radicalProgram,0x0f,'8731b65f0db1f172145b596c0b85339e2ededb8dc3b883f9a423a01cb75185ae'],
-  ['summation',summationProgram,0x12,'9e73a0dce521895a417ebf80a723d6f608c24999935fc1bf38cb5cc744cc3b4f'],
+  ['summation',summationProgram,0x12,'34ced684d56f59e6cf109a6d63bd07e314a086392b1b8e6881e1bb159087c052'],
   ['nDeriv',nderivProgram,0x11,'15b36862c68d200239930acc52622c0f7898e66ad74c751fed1e03dd6ddeb3a5'],
   ['nested integral/fraction',integralFractionProgram,0x07,'3e14504af269ef52a7d3032b2ab3f9c91460ffbc5c7f445f8d4b9aea9621d1aa'],
 ]) expectEqual(`settled ${name} independently reproduces final LCD pixels`,
@@ -395,7 +394,7 @@ for (const [name,nodes,entryId,expected] of [
   ['absolute',absoluteProgram,0x0d,'5215280de472ff2d94dc2b158b2edf22820c906b895d6272b5e009c10f6ab997'],
   ['nth root',nthRootProgram,0x0e,'de981d526c703a91d101e260d6aed69d3f750a4526a7d4c01b9187c060132b31'],
   ['radical',radicalProgram,0x0f,'4ab47d3ecc113ccf67f1c120e37e5d64ed697f5b6698c4f124274765b17f48fe'],
-  ['summation',summationProgram,0x12,'930d12d5c4ad8a8ecb3650776ac937753c755606a5046e11b2a8117873b2b0d9'],
+  ['summation',summationProgram,0x12,'abcbf43abbeb54c298f870ff06ae0d1aef4ed93155708a9dc89978d1c97c4cb6'],
   ['nDeriv',nderivProgram,0x11,'632a357aa5b55ab4d8fcc20a4e39e95c3f664166228c5a9625457e5fb5d645fc'],
   ['nested integral/fraction',integralFractionProgram,0x07,'f82758d431e616be056a6748e332b7dd5d859cb948f2192bdc99e7e14d38e237'],
 ]) expectEqual(`settled ${name} independently reproduces LCD write order`,
@@ -404,7 +403,7 @@ for (const [name,nodes,entryId,expected] of [
   ['absolute',absoluteProgram,0x0d,'0c11578979dbf5a5c6ef423dfbc4e1a465322e5e639257ccc44e69f910cdcf99'],
   ['nth root',nthRootProgram,0x0e,'7b9fa6dd5d22b6e68570c45970764516b985780ce5de55c1945ac0b937ce99e5'],
   ['radical',radicalProgram,0x0f,'56cd3a3c3b9eea8c2b99e96abee7d7175d5c3fd1e7930c4319aa1d464cc84750'],
-  ['summation',summationProgram,0x12,'4cb34332e177c4255fbcb816c4b2d35bfde37af28e19eec3954878fce3c604c8'],
+  ['summation',summationProgram,0x12,'59cb61779aac701b6e37c3a659e9c30acbfdff194b4421340225bc176f1f72bb'],
   ['nDeriv',nderivProgram,0x11,'0fd35d37d451e9df18349f062eebf72b3d913b27a31779cc9cd8b723f2365952'],
   ['nested integral/fraction',integralFractionProgram,0x07,'2b8bc21220f632c2524e011418d51cc6040036941e076a642f6645b2b5d581a2'],
 ]) expectEqual(`settled ${name} independently reproduces every accepted LCD data write`,
@@ -686,7 +685,7 @@ expectThrows('compositional constructor rejects an empty fraction numerator', Ra
 expectThrows('compositional constructor rejects an empty fraction denominator', RangeError,
   () => rom.constructSettledFractionProgram([0x31], [], 1, font));
 expectThrows('compositional constructor rejects unsupported structural kinds', RangeError,
-  () => rom.constructSettledExpressionProgram({kind:'integral'}, 1, font));
+  () => rom.constructSettledExpressionProgram({kind:'summation'}, 1, font));
 expectThrows('compositional constructor rejects overflowing leaf metrics', RangeError,
   () => rom.constructSettledExpressionProgram(new Array(10923).fill(0x58), 1, font));
 expectThrows('compositional constructor rejects record ID exhaustion', RangeError,
