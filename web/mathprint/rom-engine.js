@@ -906,8 +906,6 @@
     for (let index = 0; index < payload.length; index++) {
       const token = payload[index];
       if (token === 0xef && payload[index + 1] === 0x1e) {
-        if (depth !== 0)
-          throw new RangeError('EF 1Eh small-font metrics remain untranslated');
         width += 6;
         index++;
         continue;
@@ -1151,7 +1149,9 @@
         structural.word0B = checkedWord(
           firstRaisedRow ? child.word05 + 1 : child.word09 + 3,
           'power baseline');
-        structural.word0D = firstRaisedRow ? 6 : 4;
+        const contextualNDerivBase = expression.base.length === 2
+          && expression.base[0] === 0xef && expression.base[1] === 0x1e;
+        structural.word0D = firstRaisedRow || contextualNDerivBase ? 6 : 4;
         structural.child_ids = [child.record_id];
         return {
           kind:'sequence',
@@ -1261,9 +1261,6 @@
         return {kind:'embedded',structural,fractionByte13:0xef};
       }
       if (expression.kind === 'integral') {
-        if (fractionNumerator)
-          throw new RangeError(
-            'integral construction in a fraction numerator remains untranslated');
         if (expression.variable.kind !== 'tokens')
           throw new RangeError('integral variable must be an ordinary token run');
         const renderType = settledStructuralTokenType(0x00, 0x24);
@@ -1274,7 +1271,8 @@
           record_id:structuralId, render_type:renderType, word03:0,
           word05:settledRecordMetadata(renderType)[4],
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
-          word11:structuralDepth + 1, byte13:0xef,
+          word11:structuralDepth + 1,
+          byte13:fractionNumerator ? 0x10 : 0xef,
           child_ids:[], payload:[],
         };
         nodes.push(structural);
@@ -1286,15 +1284,19 @@
         const body = newLeaf(structuralId);
         const variable = newLeaf(structuralId);
         fillLeaf(lower, prepare(
-          expression.lower, renderDepth + 1, structuralDepth + 1),
+          expression.lower, renderDepth + 1, structuralDepth + 1,
+          fractionNumerator),
         renderDepth + 1);
         fillLeaf(upper, prepare(
-          expression.upper, renderDepth + 1, structuralDepth + 1),
+          expression.upper, renderDepth + 1, structuralDepth + 1,
+          fractionNumerator),
         renderDepth + 1);
         fillLeaf(body, prepare(
-          expression.body, renderDepth, structuralDepth + 1), renderDepth);
+          expression.body, renderDepth, structuralDepth + 1,
+          fractionNumerator), renderDepth);
         fillLeaf(variable, prepare(
-          expression.variable, renderDepth, structuralDepth + 1), renderDepth);
+          expression.variable, renderDepth, structuralDepth + 1,
+          fractionNumerator), renderDepth);
         variable.render_type = 1;
 
         const boundWidth = Math.max(lower.word07, upper.word07);
@@ -1305,8 +1307,9 @@
           bodyY + body.word05 + lowerSpace, 'integral height');
         const baseline = checkedWord(
           body.word09 + bodyY, 'integral baseline');
+        const differentialGap = renderDepth === 0 ? 12 : 10;
         const variableX = checkedWord(
-          bodyX + body.word07 + 12, 'integral variable x');
+          bodyX + body.word07 + differentialGap, 'integral variable x');
         lower.word0B = 6;
         lower.word0D = checkedWord(height - lower.word05, 'integral lower-bound y');
         upper.word0B = 6;
@@ -1323,12 +1326,12 @@
         structural.child_ids = [
           lower.record_id, upper.record_id, body.record_id, variable.record_id,
         ];
-        return {kind:'embedded',structural,fractionByte13:0xef};
+        return {
+          kind:'embedded', structural,
+          fractionByte13:fractionNumerator ? 0x10 : 0xef,
+        };
       }
       if (expression.kind === 'nDeriv') {
-        if (fractionNumerator)
-          throw new RangeError(
-            'nDeriv construction in a fraction numerator remains untranslated');
         if (expression.variable.kind !== 'tokens')
           throw new RangeError('nDeriv variable must be an ordinary token run');
         const renderType = settledStructuralTokenType(0x00, 0x25);
@@ -1340,7 +1343,8 @@
           // Type 23h selects the fourth byte in the 34:5996 metadata row.
           word05:settledRecordMetadata(renderType)[3],
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
-          word11:structuralDepth + 1, byte13:0xef,
+          word11:structuralDepth + 1,
+          byte13:fractionNumerator ? 0x10 : 0xef,
           child_ids:[], payload:[],
         };
         nodes.push(structural);
@@ -1351,19 +1355,35 @@
         const body = newLeaf(structuralId);
         const value = newLeaf(structuralId);
         fillLeaf(variable, prepare(
-          expression.variable, renderDepth + 1, structuralDepth + 1),
+          expression.variable, renderDepth + 1, structuralDepth + 1,
+          fractionNumerator),
         renderDepth + 1);
-        const bodyExpression = expression.body.kind === 'tokens'
+        let bodyExpression = expression.body.kind === 'tokens'
           && expression.body.tokens.length === 1
           && expression.body.tokens[0] === 0x58
           && expression.variable.tokens.length === 1
           && expression.variable.tokens[0] === 0x58
           ? {kind:'tokens', tokens:[0xef, 0x1e]}
           : expression.body;
+        if (fractionNumerator
+            && bodyExpression.kind === 'power'
+            && bodyExpression.base.length === 1
+            && bodyExpression.base[0] === 0x58
+            && expression.variable.tokens.length === 1
+            && expression.variable.tokens[0] === 0x58) {
+          bodyExpression = {
+            ...bodyExpression,
+            // In a raised nDeriv X/X body, 34:4900 writes EF 1E for the
+            // power base. The leaf renderer resolves that contextual token to X.
+            base:[0xef, 0x1e],
+          };
+        }
         fillLeaf(body, prepare(
-          bodyExpression, renderDepth, structuralDepth + 1), renderDepth);
+          bodyExpression, renderDepth, structuralDepth + 1,
+          fractionNumerator), renderDepth);
         fillLeaf(value, prepare(
-          expression.value, renderDepth + 1, structuralDepth + 1),
+          expression.value, renderDepth + 1, structuralDepth + 1,
+          fractionNumerator),
         renderDepth + 1);
         variable.render_type = 1;
 
@@ -1389,12 +1409,12 @@
         structural.child_ids = [
           variable.record_id, body.record_id, value.record_id,
         ];
-        return {kind:'embedded',structural,fractionByte13:0xef};
+        return {
+          kind:'embedded', structural,
+          fractionByte13:fractionNumerator ? 0x10 : 0xef,
+        };
       }
       if (expression.kind === 'summation') {
-        if (fractionNumerator)
-          throw new RangeError(
-            'summation construction in a fraction numerator remains untranslated');
         if (expression.variable.kind !== 'tokens')
           throw new RangeError('summation variable must be an ordinary token run');
         const renderType = settledStructuralTokenType(0xef, 0x33);
@@ -1405,7 +1425,8 @@
           record_id:structuralId, render_type:renderType, word03:0,
           word05:3,
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
-          word11:structuralDepth + 1, byte13:0xef,
+          word11:structuralDepth + 1,
+          byte13:fractionNumerator ? 0x10 : 0xef,
           child_ids:[], payload:[],
         };
         nodes.push(structural);
@@ -1417,16 +1438,20 @@
         const upper = newLeaf(structuralId);
         const body = newLeaf(structuralId);
         fillLeaf(variable, prepare(
-          expression.variable, renderDepth + 1, structuralDepth + 1),
+          expression.variable, renderDepth + 1, structuralDepth + 1,
+          fractionNumerator),
         renderDepth + 1);
         fillLeaf(lower, prepare(
-          expression.lower, renderDepth + 1, structuralDepth + 1),
+          expression.lower, renderDepth + 1, structuralDepth + 1,
+          fractionNumerator),
         renderDepth + 1);
         fillLeaf(upper, prepare(
-          expression.upper, renderDepth + 1, structuralDepth + 1),
+          expression.upper, renderDepth + 1, structuralDepth + 1,
+          fractionNumerator),
         renderDepth + 1);
         fillLeaf(body, prepare(
-          expression.body, renderDepth, structuralDepth + 1), renderDepth);
+          expression.body, renderDepth, structuralDepth + 1,
+          fractionNumerator), renderDepth);
         variable.render_type = 1;
 
         const upperWidth = upper.word07;
@@ -1461,7 +1486,10 @@
         structural.child_ids = [
           variable.record_id, lower.record_id, upper.record_id, body.record_id,
         ];
-        return {kind:'embedded',structural,fractionByte13:0xef};
+        return {
+          kind:'embedded', structural,
+          fractionByte13:fractionNumerator ? 0x10 : 0xef,
+        };
       }
       throw new RangeError(`unsupported settled expression part ${expression.kind}`);
     };

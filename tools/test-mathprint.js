@@ -595,6 +595,26 @@ for (const oracle of constructionOracles.nderiv_cases) {
     crypto.createHash('sha256').update(writeBytes).digest('hex'),
     oracle.accepted_write_sha256);
 }
+for (const oracle of constructionOracles.multiarg_fraction_numerator_cases) {
+  expectEqual(`${oracle.expression} trace graph decodes to the asserted expression`,
+    oracle.trace_decoded_spec, oracle.spec);
+  const program = rom.constructSettledExpressionProgram(
+    oracle.spec, oracle.entry_id, font);
+  expectEqual(`${oracle.expression} independently constructs the fresh TilEm graph`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.origin, nodes:oracle.nodes});
+  const operations = rom.executeSettledRecordProgram(program.nodes, program.entry_id, {
+    origin:program.origin,
+    glyphAdvance:settledGlyphAdvance,
+  });
+  const writes = rom.rasterizeSettledOperations(operations, font).writes;
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write count`,
+    writes.length, oracle.accepted_write_count);
+  const writeBytes = Buffer.from(writes.flatMap(write => [...write.pointer,write.value]));
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write stream`,
+    crypto.createHash('sha256').update(writeBytes).digest('hex'),
+    oracle.accepted_write_sha256);
+}
 expectEqual('browser selects translated absolute record construction',
   mp.constructedProgramForExpression('abs(X-3)').nodes,
   rom.constructSettledAbsoluteProgram([0x58,0x71,0x33]).nodes);
@@ -721,6 +741,10 @@ expectEqual('browser recursively reserves nested nDeriv arguments',
     kind:'nDeriv',variable:[0x41],
     body:{kind:'power',base:[0x41],exponent:[0x32]},value:[0x31],
   }, [0x32], 1, font).nodes);
+for (const oracle of constructionOracles.multiarg_fraction_numerator_cases)
+  expectEqual(`${oracle.expression} browser constructs the trace-decoded graph`,
+    mp.constructedProgramForExpression(oracle.expression).nodes,
+    rom.constructSettledExpressionProgram(oracle.spec, 1, font).nodes);
 const constructedPower = rom.constructSettledPowerProgram(
   {base:[0x58], exponent:[0x32]}, 0x0d, font);
 expectEqual('power tokens independently construct the settled X^2 graph',
