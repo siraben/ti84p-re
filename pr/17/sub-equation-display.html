@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4dfcac56.js";
+            window.path_to_searchindex_js = "searchindex-74044cfd.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -1047,6 +1047,13 @@ fraction. [confirmed]</p>
 translation matches these registers, flags, and scratch bytes. Static byte
 decoding covers the other mode bits and token classes; they do not yet have
 independent dynamic coverage for every exit branch. [confirmed]</p>
+<p><code>34:5A05</code> classifies function openers from packed <code>D:E</code> tokens. Ordinary
+one-byte tokens pass through <code>34:5A52</code>, <code>BB</code> tokens through <code>34:5A28</code>, and <code>EF</code>
+tokens through <code>34:5A14</code>. The JavaScript scanner applies those comparisons and
+ROM tables directly. Generic function runs can therefore contain translated
+structural children without depending on a list of preview function names.
+The <code>EF36h</code> mapping to structural type <code>0x2C</code> remains rejected because its
+constructor and renderer are not yet translated. [confirmed]</p>
 <p>The browser expands every accepted byte into eight ordered pixel results. A
 timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement

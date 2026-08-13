@@ -1198,6 +1198,18 @@
       SETTLED_PARSE_AHEAD_TABLE_59E9.has(token);
   }
 
+  // 34:5A05 selects the function-opener class used by the source scanner.
+  // D:E is the packed token returned by 34:58F9: ordinary one-byte tokens use
+  // D=0, while only BB and EF leads dispatch through secondary class tables.
+  function settledParseAheadFunctionToken(prefix, token) {
+    byte(prefix, 'parse-ahead function-token prefix');
+    byte(token, 'parse-ahead function token');
+    if (prefix === 0) return settledParseAheadClass5A52(token);
+    if (prefix === 0xbb) return settledParseAheadClass5A28(token);
+    if (prefix === 0xef) return settledParseAheadClass5A14(token);
+    return false;
+  }
+
   // Zero-result predicate at 34:5A75. 34:7EF5 supplies the first 17 entries;
   // the remaining comparisons are inline at 34:5A79–5A98.
   function settledParseAheadClass5A75(token) {
@@ -1773,9 +1785,8 @@
         const [argument,base] = parseArguments(2,'logBASE');
         return {kind:'logBase',base,argument};
       }
-      if (peek(0,0xc2) || peek(0,0xc4) || peek(0,0xc6) ||
-          peek(0,0xbe) || peek(0,0xc0) ||
-          peek(0xbb,0x29) || peek(0xef,0x32))
+      if (settledParseAheadFunctionToken(
+          units[cursor].prefix, units[cursor].token))
         return parseFunctionRun(take());
 
       const unsupportedStructuralType = settledStructuralTokenType(
@@ -3352,6 +3363,7 @@
     settledReadPackedTokenBackward,
     settledNativeTokenUnits,
     settledParseAhead,
+    settledParseAheadFunctionToken,
     encodeSettledExpressionTokens,
     settledExpressionFromTokens,
     constructSettledProgramFromTokens,
