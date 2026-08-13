@@ -586,10 +586,23 @@ cases are `sqrt(2^X^2)`, `sqrt(sqrt(2))`, `X^sqrt(2)`, and
 match the traces. The root bitmap comparison includes accepted writes whose
 value does not change the LCD byte. [confirmed]
 
+The type-`0x24` constructor maps source token `00F1h` through `34:594D`, then
+allocates the containing leaf, structural record, index child, and radicand
+child. The index uses the raised small-font metrics. The radicand begins four
+pixels after the index width and four pixels below the parent origin. Its
+height, width, and baseline determine the structural record metrics. At
+`34:62D0`, an outer nth root selects all seven root-hook rows and a raised nth
+root selects the final five. [confirmed]
+
+Fresh traces for `nthroot(2,2)`, `nthroot(12,X+12)`,
+`nthroot(3,X^2)`, and `X^nthroot(3,2)` match every generated record field and
+accepted LCD data write. These cases cover a multi-token index, a structural
+radicand, and a raised nth root. [confirmed]
+
 Flat absolute-value bodies and expressions composed from ordinary token runs,
-right-associated powers, and radicals now run from tokens through record
-construction, layout, drawing operations, and LCD byte writes. Nth root,
-summation, `nDeriv(`, and integral/fraction examples still begin from record
+right-associated powers, radicals, and nth roots now run from tokens through
+record construction, layout, drawing operations, and LCD byte writes.
+Summation, `nDeriv(`, and integral/fraction examples still begin from record
 snapshots captured at `34:660A`. Full arbitrary-expression parity requires the
 remaining structural constructors and metric branches. [confirmed]
 
@@ -641,10 +654,11 @@ The local ignored `tools/rom.bin` enables pinned-ROM reproduction when present.
 The 5,018-case Node test remains a deterministic parser/layout smoke test. Six
 settled record programs provide exact final-pixel and complete accepted-write
 parity for their expressions. Three fresh absolute-value cases, four power
-cases, and eight power/radical composition cases verify token-to-record
-construction and the resulting complete accepted-write streams. The deepest
-power oracle has three raised levels. Two longer trace scenarios cover the
-editor and display activity around the final key press. [confirmed]
+cases, eight power/radical composition cases, and four nth-root cases verify
+token-to-record construction and the resulting complete accepted-write
+streams. The deepest power oracle has three raised levels. Two longer trace
+scenarios cover the editor and display activity around the final key press.
+[confirmed]
 
 ## Extracted records and interactive model
 
@@ -659,8 +673,8 @@ classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in `app.js` still uses a separate,
 trace-fitted box model. `web/mathprint/record-programs.json` contains six
 captured record snapshots. The browser constructs supported absolute-value,
-power, and radical expressions from tokens, including nesting between powers
-and radicals. It uses snapshots for nth root, summation, `nDeriv(`, and the
+power, radical, and nth-root expressions from tokens, including nesting among
+the structural forms. It uses snapshots for summation, `nDeriv(`, and the
 integral/fraction example. Both input forms execute through the translated
 renderer and expose every generated LCD write as a live timeline. This mode
 does not load captured LCD events. [confirmed]

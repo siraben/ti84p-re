@@ -121,14 +121,14 @@ stream match independent trace oracles. The complete streams contain 49, 69,
 82, 91, 110, and 114 writes, respectively. Captured LCD events are assertion
 data, not executor inputs. [confirmed]
 
-The JavaScript path constructs absolute-value, power, and radical expressions
+The JavaScript path constructs absolute-value, power, radical, and nth-root expressions
 from token bytes. It translates the `34:594D` token table and the relevant
 `34:4900`, `34:7393`, and `34:7609` record and metric paths. Fresh reset-origin
 traces confirm every record field and accepted LCD data write for three
 absolute-value cases, four power cases, and eight power/radical composition
-cases. These cases include nested radicals and nesting between radicals and
-powers. They do not load `record-programs.json` or an LCD event stream. Nth
-root, summation, `nDeriv(`, and integral/fraction examples still begin at
+cases. Four nth-root traces add a multi-token index, a powered radicand, and a
+raised nth root. These cases do not load `record-programs.json` or an LCD event
+stream. Summation, `nDeriv(`, and integral/fraction examples still begin at
 captured settled record snapshots. [confirmed]
 
 `parity-mathprint.py` uses LCD trace replay when tracing is enabled. Calculator
@@ -136,8 +136,8 @@ parity requires the proprietary ROM. Filled-integral and nested-fraction
 results are recorded in
 `tools/mathprint-trace-report.json`; the large raw traces stay outside Git.
 
-The preview constructs supported absolute-value, power, and radical expressions
-and executes four retained snapshot-fed forms in the browser. It exposes every
+The preview constructs supported absolute-value, power, radical, and nth-root
+expressions and executes three retained snapshot-fed forms in the browser. It exposes every
 generated accepted LCD data write in order, including writes that do not change
 a pixel, and labels the input source for each timeline. Its captured timeline
 uses the two retained integral traces and keeps only visible-changing writes.
