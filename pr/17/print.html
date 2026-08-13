@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e46d034c.js";
+            window.path_to_searchindex_js = "searchindex-699a94c1.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15328,12 +15328,22 @@ synthetic tests confirm the replay implementation.</p>
 The local ignored <code>tools/rom.bin</code> enables pinned-ROM reproduction when present.
 The browser’s generated path encodes native calculator bytes, scans their
 one- and two-byte token boundaries through translations of <code>34:58F9</code> and
-<code>34:5911</code>, constructs settled records, and emits accepted LCD data bytes. Each
+<code>34:5911</code>, and splits nested arguments through the page-<code>34</code> parse-ahead state
+machine at <code>34:5A99</code>–<code>34:5CAC</code>. The translation includes the public
+<code>_AHEADEQUAL = 4B49h</code>, <code>_PARSAHEADS = 4B4Ch</code>, and <code>_PARSAHEAD = 4B4Fh</code>
+entries plus the internal entries at <code>34:5AA3</code>, <code>34:5AA7</code>, and <code>34:5AA9</code>.
+It constructs settled records and emits accepted LCD data bytes. Each
 write replaces one eight-pixel span in a 96×64 framebuffer. Five changed and
 deeply nested expressions pin every intermediate write and the packed final
 framebuffer without loading a captured write stream. These deterministic cases
 exercise summation, integral, <code>nDeriv(</code>, matrix, and a three-level raised
 fraction. [confirmed]</p>
+<p>The retained <code>sum(N,1,3,N)</code> trace exposes four calls through <code>34:5AA3</code> with
+<code>C=1</code>. The scanner stops on the three depth-zero comma bytes. At the closing
+<code>0x11</code> byte, it returns <code>A=0x11</code>, <code>DE=0xFF00</code>, and sets Z and C. The JavaScript
+translation matches these registers, flags, and scratch bytes. Static byte
+decoding covers the other mode bits and token classes; they do not yet have
+independent dynamic coverage for every exit branch. [confirmed]</p>
 <p>The browser expands every accepted byte into eight ordered pixel results. A
 timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement
@@ -15379,8 +15389,10 @@ radical, nth-root, stacked-fraction, integral, summation, and <code>nDeriv(</cod
 expressions from native token bytes, including nesting among the structural
 forms. The translated renderer exposes every generated LCD byte and the
 resulting pixel frame as a live timeline. This mode does not load a record
-fixture or captured LCD event stream. Dense scanner state at
-<code>34:5AA7</code>–<code>34:5CA8</code> remains open. [confirmed]</p>
+fixture or captured LCD event stream. Multi-argument and generic-function
+boundaries now pass through the translated <code>34:5AA3</code> state machine. The
+remaining source grammar and record-construction branches are listed above.
+[confirmed]</p>
 <p>The standalone nth-root encoder supplies an inferred template boundary because
 the retained trace does not expose the final source buffer. [hypothesis]</p>
 <div style="break-before: page; page-break-before: always;"></div>

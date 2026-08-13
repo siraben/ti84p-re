@@ -38,6 +38,15 @@ The settled-redraw object dispatcher at `34:700C` is also translated as a
 13-entry kind-to-handler table. Record-field decoding remains explicit work;
 the trace shows transient records in high RAM that are absent from the final dump.
 
+The page-`34` parse-ahead family at `34:5A99`–`34:5CAC` is translated with its
+six public and internal entry modes, token-class tables, delimiter counters,
+returned registers, flags, and `0x9D02`–`0x9D05` scratch bytes. Multi-argument
+and generic-function construction uses the internal `34:5AA3` entry to check
+each nested argument boundary. A retained summation trace pins all four
+`34:5AA3` calls against the native buffer; the remaining mode branches are
+byte-decoded and regression-tested but do not all have independent dynamic
+oracles.
+
 Render-record type `0x22` is translated through `34:622F`. The interactive
 integral sign now uses its exact vertical-segment and four-point operation order
 instead of stretching glyph `0x08`.
@@ -142,9 +151,9 @@ The JavaScript path constructs absolute-value, power, $e^x$, $10^x$,
 `nDeriv(` expressions and numeric matrices from native token bytes. The packed
 readers translate the forward scan at `34:58F9`, the backward scan at `34:5911`,
 and the 11 lead bytes tested by `_IsA2ByteTok` at `00:1FE8`. The structural
-parser translates the relevant `34:594D`, `34:4900`, `34:7393`, and `34:7609`
-record and metric paths. Dense scanner state at `34:5AA7`–`34:5CA8` remains
-open. [confirmed]
+parser translates argument boundaries at `34:5AA3` plus the relevant
+`34:594D`, `34:4900`, `34:7393`, and `34:7609` record and metric paths.
+[confirmed]
 
 The text field remains a preview-specific semantic frontend. It is not a
 translation of the TI-OS editor or its in-progress template AST. After that
