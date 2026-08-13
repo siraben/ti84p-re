@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f9a430a0.js";
+            window.path_to_searchindex_js = "searchindex-22f17bb2.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15020,6 +15020,28 @@ replaying captured glyph events. Tests provide record headers, child IDs, and
 payload bytes as input. They compare the generated display-code, coordinate,
 depth, and order tuples with independently captured <code>34:6C37</code> observations for
 absolute value, summation with an exponent, and nested <code>nDeriv(</code>. [confirmed]</p>
+<p>The ordinary-token path resolves a payload byte through
+<code>smallfont_glyph_ptr</code> (<code>01:6702</code>). A zero prefix selects the word table at
+<code>01:4252</code>. The selected pointer names one metadata byte followed by a counted
+display-code string. Token <code>72h</code> therefore expands to <code>A</code>, <code>n</code>, <code>s</code>, while
+token <code>C2h</code> expands to <code>s</code>, <code>i</code>, <code>n</code>, <code>(</code>. <code>_GetTokLen = 4591h</code> reads the
+count, and <code>_Get_Tok_Strng = 4594h</code> copies the counted bytes. The browser uses
+the ROM-extracted table in <code>web/mathprint/token-strings.json</code>; it does not
+split <code>Ans</code> or <code>sin</code> into independent input letters. [confirmed]</p>
+<p><code>34:6873</code> receives each resulting display code. It diverts <code>28h</code> and <code>29h</code> to
+the compound-parenthesis emitters, including <code>28h</code> embedded in the spelling of
+<code>sin(</code>. The open shape therefore uses the point and line order from <code>34:5D1A</code>
+instead of the large-font glyph-row order. An explicit closing token <code>11h</code>
+resolves to <code>29h</code> and uses <code>34:5D07</code>. [confirmed]</p>
+<p>Six reset-origin traces cover <code>Ans+1</code>, <code>Ans^2</code>, <code>sqrt(Ans)</code>, <code>X^Ans</code>,
+<code>sin(X)</code>, and <code>sin(sqrt(X))</code>. Their generated graphs match every record field.
+Their complete accepted-write streams contain 49, 40, 63, 32, 56, and 83
+writes, respectively. Replaying each generated stream produces the same final
+96×64 LCD bitmap as replaying its captured <code>34:660A</code> interval. <code>X^Ans</code> verifies
+the variable-width small-font spelling. <code>sin(sqrt(X))</code> verifies a counted token
+spelling before a structural child and the compound shapes around its taller
+metrics. The structural record stores the containing leaf’s accumulated
+horizontal anchor at <code>+0x0D</code>. [confirmed]</p>
 <p>The translated renderer then maps the ordered operations through the ROM font
 bitmaps, page-4 point and line behavior, <code>_VPutMap</code>, the page-7 large-glyph
 path, and LCD byte packing. Six settled programs reproduce every accepted LCD
@@ -15247,6 +15269,7 @@ JavaScript constructor matches every record field and ID. It also reproduces
 every accepted LCD data write through the outer <code>34:660A</code> return. The traces
 supply comparison oracles, not constructor input. [confirmed]</p>
 <p>Flat absolute-value bodies and expressions composed from ordinary token runs,
+the native <code>Ans</code>, <code>sin(</code>, <code>cos(</code>, <code>tan(</code>, <code>ln(</code>, and <code>log(</code> tokens,
 right-associated powers, $e^x$, $10^x$, <code>logBASE(</code>, radicals, nth roots,
 stacked fractions, and numeric matrices now run from tokens through record
 construction, layout, drawing operations, and LCD byte writes. Integrals,
@@ -15304,22 +15327,25 @@ arguments, structural bodies, and recursive nesting. Six raised multi-argument
 numerator cases also require the settled record graph to decode to the asserted
 semantic expression. Five grouping cases cover flat and structural groups,
 grouped power operands, and a structural absolute-value child. The deepest
-power oracle has three raised levels. Two longer trace scenarios cover the
+power oracle has three raised levels. Six named-token cases verify counted
+spellings, raised small-font widths, compound parentheses, structural children,
+and complete accepted-write streams. Two longer trace scenarios cover the
 editor and display activity around the final key press.
 [confirmed]</p>
 <h2 id="extracted-records-and-interactive-model"><a class="header" href="#extracted-records-and-interactive-model">Extracted records and interactive model</a></h2>
 <p>The class table, decoded handler records, and selected descriptors are extracted to
 <code>web/mathprint/layout.json</code> by <code>tools/export-layout.py</code>;
-the fonts to <code>web/mathprint/font.json</code> by
-<code>tools/export-font.py</code> (shown on the font-table tab of the interactive
-renderer). <code>tools/interp-cells.js</code> and the browser share the executable
+the fonts to <code>web/mathprint/font.json</code> by <code>tools/export-font.py</code>; and the
+single-byte token spellings to <code>web/mathprint/token-strings.json</code> by
+<code>tools/export-token-strings.py</code>. The font data appears on the interactive
+renderer’s font-table tab. <code>tools/interp-cells.js</code> and the browser share the executable
 translations in <code>web/mathprint/rom-engine.js</code>. The translated routines consume
 <code>layout.json</code> for handler lookup, row-cell iteration, direct glyph and delimiter
 classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in <code>app.js</code> still uses a separate,
 trace-fitted box model. <code>web/mathprint/record-programs.json</code> contains six
 retained record snapshots for offline comparison. The browser does not fetch
-them. It constructs supported absolute-value, power,
+them. It constructs supported named-token, absolute-value, power,
 radical, nth-root, stacked-fraction, integral, summation, and <code>nDeriv(</code>
 expressions from tokens, including nesting among the structural forms. The
 translated renderer exposes every generated LCD write as a live timeline. This

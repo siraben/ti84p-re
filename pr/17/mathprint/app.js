@@ -877,6 +877,16 @@ function draw(box, scale, color, showPen, step) {
 function penLog(box) { return (box.marks || []).slice(); }
 
 const PRESETS = Object.freeze([
+  ['Ans plus 1 (RE)', 'Ans+1'],
+  ['Ans squared (RE)', 'Ans^2'],
+  ['radical of Ans (RE)', 'sqrt(Ans)'],
+  ['X raised to Ans (RE)', 'X^Ans'],
+  ['sine of X (RE)', 'sin(X)'],
+  ['sine of a radical (RE)', 'sin(sqrt(X))'],
+  ['cosine of X (RE)', 'cos(X)'],
+  ['tangent of X (RE)', 'tan(X)'],
+  ['natural log of X (RE)', 'ln(X)'],
+  ['common log of X (RE)', 'log(X)'],
   ['linear 1/2', '1/2'],
   ['stacked 1//2', '1//2'],
   ['X squared', 'X^2'],
@@ -1149,6 +1159,23 @@ function constructedSettledSpec(source) {
       offset++;
       return {kind:'matrix', rows, columns, elements};
     }
+    if (source.startsWith('Ans', offset)) {
+      offset += 3;
+      return {kind:'tokens',tokens:[0x72]};
+    }
+    for (const [name, token] of [
+      ['sin',0xc2], ['cos',0xc4], ['tan',0xc6], ['ln',0xbe], ['log',0xc0],
+    ]) {
+      if (!source.startsWith(`${name}(`, offset)) continue;
+      offset += name.length + 1;
+      const argument = expression();
+      if (!argument || source[offset] !== ')') return null;
+      offset++;
+      return sequence([
+        {kind:'tokens',tokens:[token]}, argument,
+        {kind:'tokens',tokens:[0x11]},
+      ]);
+    }
     const match = /^[A-Z0-9.]+/.exec(source.slice(offset));
     if (!match) return null;
     offset += match[0].length;
@@ -1171,7 +1198,8 @@ function constructedSettledSpec(source) {
     const beginsImplicitFactor = () => source[offset] === '('
       || /[A-Z0-9.]/.test(source[offset] || '')
       || ['int(', 'sum(', 'nDeriv(', 'nthroot(', 'sqrt(',
-          'abs(', 'exp(', 'tenpow(', 'logbase(', 'matrix(']
+          'abs(', 'exp(', 'tenpow(', 'logbase(', 'matrix(', 'Ans',
+          'sin(', 'cos(', 'tan(', 'ln(', 'log(']
         .some(prefix => source.startsWith(prefix, offset));
     while (source[offset] === '*' || beginsImplicitFactor()) {
       const explicit = source[offset] === '*';
@@ -1463,12 +1491,14 @@ function showTab(name) {
 }
 
 async function main() {
-  const [fontResponse, layoutResponse, orderResponse] = await Promise.all([
+  const [fontResponse, layoutResponse, orderResponse, tokenResponse] = await Promise.all([
     fetch('font.json'), fetch('layout.json'), fetch('draw-order.json'),
+    fetch('token-strings.json'),
   ]);
   FONT = await fontResponse.json();
   LAYOUT = await layoutResponse.json();
   DRAW_ORDER = await orderResponse.json();
+  ROM_ENGINE.setSettledTokenStrings(await tokenResponse.json());
   const bar = document.getElementById('presets');
   PRESETS.forEach(([label, src]) => {
     const b = document.createElement('button');
