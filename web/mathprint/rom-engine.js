@@ -903,7 +903,15 @@
     if (!payload.length)
       throw new RangeError('settled leaf payload must not be empty');
     let width = 0;
-    for (const token of payload) {
+    for (let index = 0; index < payload.length; index++) {
+      const token = payload[index];
+      if (token === 0xef && payload[index + 1] === 0x1e) {
+        if (depth !== 0)
+          throw new RangeError('EF 1Eh small-font metrics remain untranslated');
+        width += 6;
+        index++;
+        continue;
+      }
       const code = settledTokenGlyph(token);
       if (code === null)
         throw new RangeError(`token 0x${token.toString(16)} has no translated glyph`);
@@ -980,6 +988,14 @@
         variable:settledExpressionSpec(
           input.variable, `${label} variable`, active),
       };
+      if (kind === 'nDeriv') return {
+        kind,
+        variable:settledExpressionSpec(
+          input.variable, `${label} variable`, active),
+        body:settledExpressionSpec(input.body, `${label} body`, active),
+        value:settledExpressionSpec(
+          input.value, `${label} evaluation value`, active),
+      };
       if (kind === 'summation') return {
         kind,
         variable:settledExpressionSpec(
@@ -1025,6 +1041,7 @@
       if (expression.kind === 'nthRoot') return leadingByte(expression.index);
       if (expression.kind === 'fraction') return 0xef;
       if (expression.kind === 'integral') return 0xef;
+      if (expression.kind === 'nDeriv') return 0xef;
       if (expression.kind === 'summation') return 0xef;
       throw new RangeError(`unsupported settled leading-byte kind ${expression.kind}`);
     };
@@ -1308,6 +1325,72 @@
         ];
         return {kind:'embedded',structural,fractionByte13:0xef};
       }
+      if (expression.kind === 'nDeriv') {
+        if (fractionNumerator)
+          throw new RangeError(
+            'nDeriv construction in a fraction numerator remains untranslated');
+        if (expression.variable.kind !== 'tokens')
+          throw new RangeError('nDeriv variable must be an ordinary token run');
+        const renderType = settledStructuralTokenType(0x00, 0x25);
+        if (renderType !== 0x23)
+          throw new Error('34:594D nDeriv token mapping is inconsistent');
+        const structuralId = allocate();
+        const structural = {
+          record_id:structuralId, render_type:renderType, word03:0,
+          // Type 23h selects the fourth byte in the 34:5996 metadata row.
+          word05:settledRecordMetadata(renderType)[3],
+          word07:0, word09:0, word0B:0, word0D:0, word0F:0,
+          word11:structuralDepth + 1, byte13:0xef,
+          child_ids:[], payload:[],
+        };
+        nodes.push(structural);
+
+        // The three-argument pass reserves variable, body, and evaluation-value
+        // leaves before it scans any child payload for structural records.
+        const variable = newLeaf(structuralId);
+        const body = newLeaf(structuralId);
+        const value = newLeaf(structuralId);
+        fillLeaf(variable, prepare(
+          expression.variable, renderDepth + 1, structuralDepth + 1),
+        renderDepth + 1);
+        const bodyExpression = expression.body.kind === 'tokens'
+          && expression.body.tokens.length === 1
+          && expression.body.tokens[0] === 0x58
+          && expression.variable.tokens.length === 1
+          && expression.variable.tokens[0] === 0x58
+          ? {kind:'tokens', tokens:[0xef, 0x1e]}
+          : expression.body;
+        fillLeaf(body, prepare(
+          bodyExpression, renderDepth, structuralDepth + 1), renderDepth);
+        fillLeaf(value, prepare(
+          expression.value, renderDepth + 1, structuralDepth + 1),
+        renderDepth + 1);
+        variable.render_type = 1;
+
+        // Type 23h's two metric passes at 34:7485 and 34:76C2 place the
+        // derivative fraction at the left, the body in delimiters, then
+        // repeat the variable after the evaluation bar before "=value".
+        const baseline = Math.max(6, body.word09);
+        const height = Math.max(body.word05, baseline + 7);
+        variable.word0B = 5;
+        variable.word0D = checkedWord(
+          baseline + 2, 'nDeriv variable y');
+        body.word0B = 16;
+        body.word0D = checkedWord(
+          baseline - body.word09, 'nDeriv body y');
+        value.word0B = checkedWord(
+          body.word07 + variable.word07 + 29, 'nDeriv value x');
+        value.word0D = checkedWord(
+          baseline + 2, 'nDeriv evaluation-value y');
+        structural.word07 = checkedWord(height, 'nDeriv height');
+        structural.word09 = checkedWord(
+          value.word0B + value.word07, 'nDeriv width');
+        structural.word0B = checkedWord(baseline, 'nDeriv baseline');
+        structural.child_ids = [
+          variable.record_id, body.record_id, value.record_id,
+        ];
+        return {kind:'embedded',structural,fractionByte13:0xef};
+      }
       if (expression.kind === 'summation') {
         if (fractionNumerator)
           throw new RangeError(
@@ -1467,6 +1550,15 @@
       {kind:'summation', variable, lower, upper, body}, firstId, font);
     program.source =
       '34:4900, 34:5935, 34:7393, and 34:7609 translated summation construction';
+    return program;
+  }
+
+  function constructSettledNDerivProgram(variable, body, value,
+                                          firstId = 1, font = null) {
+    const program = constructSettledExpressionProgram(
+      {kind:'nDeriv', variable, body, value}, firstId, font);
+    program.source =
+      '34:4900, 34:5935, 34:7393, and 34:7609 translated nDeriv construction';
     return program;
   }
 
@@ -1944,6 +2036,7 @@
     constructSettledFractionProgram,
     constructSettledIntegralProgram,
     constructSettledNthRootProgram,
+    constructSettledNDerivProgram,
     constructSettledPowerProgram,
     constructSettledRadicalProgram,
     constructSettledSummationProgram,

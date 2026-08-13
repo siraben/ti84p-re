@@ -314,21 +314,20 @@ expectEqual('settled summation program independently reproduces trace glyph orde
   ]);
 
 const nderivProgram = [
-  settledRecord(0x11,0,{word09:6,word11:7},[],
-    [0xef,0x23,0x12,0x00,0xef,0x2d,0x31]),
+  settledRecord(0x11,0,{word05:13,word07:47,word09:6,word11:6},[],
+    [0xef,0x23,0x12,0x00,0xef,0x2d]),
   settledRecord(0x12,0x23,{word05:3,word07:13,word09:47,word0B:6},[0x13,0x14,0x15]),
   settledRecord(0x13,1,{word05:5,word07:4,word09:2,word0B:5,word0D:8,word11:1},[],[0x58]),
-  settledRecord(0x14,0,{word05:10,word07:10,word09:6,word0B:16,word11:8},[],
-    [0xef,0x1e,0xef,0x2a,0x16,0x00,0xef,0x2d]),
+  settledRecord(0x14,0,{word05:10,word07:10,word09:6,word0B:16,word11:7},[],
+    [0x58,0xef,0x2a,0x16,0x00,0xef,0x2d]),
   settledRecord(0x16,0x2a,{word07:10,word09:4,word0B:6,word0D:6},[0x17]),
   settledRecord(0x17,0,{word07:4,word09:2,word11:1},[],[0x32]),
-  settledRecord(0x15,0,{word05:5,word07:4,word09:2,word0B:43,word0D:8,word11:1},[],[0x58]),
+  settledRecord(0x15,0,{word05:5,word07:4,word09:2,word0B:43,word0D:8,word11:1},[],[0x31]),
 ];
 expectEqual('settled nDeriv program independently reproduces trace glyph order',
   settledGlyphStream(nderivProgram,0x11), [
-    [0x64,3,0,1], [0x64,1,8,1], [0x58,5,8,1], [0xf7,16,3,0],
-    [0x32,22,0,1], [0x58,35,8,1], [0x3d,39,8,1], [0x58,43,8,1],
-    [0x31,47,3,0],
+    [0x64,3,0,1], [0x64,1,8,1], [0x58,5,8,1], [0x58,16,3,0],
+    [0x32,22,0,1], [0x58,35,8,1], [0x3d,39,8,1], [0x31,43,8,1],
   ]);
 const nthRootProgram = [
   settledRecord(0x0e,0,{word09:7,word11:6},[],
@@ -386,7 +385,7 @@ for (const [name,nodes,entryId,expected] of [
   ['nth root',nthRootProgram,0x0e,'1b939a055eb331245bd8d2abf782fc9978fb3488a6dc61d660bbada0f463df30'],
   ['radical',radicalProgram,0x0f,'8731b65f0db1f172145b596c0b85339e2ededb8dc3b883f9a423a01cb75185ae'],
   ['summation',summationProgram,0x12,'34ced684d56f59e6cf109a6d63bd07e314a086392b1b8e6881e1bb159087c052'],
-  ['nDeriv',nderivProgram,0x11,'15b36862c68d200239930acc52622c0f7898e66ad74c751fed1e03dd6ddeb3a5'],
+  ['nDeriv',nderivProgram,0x11,'f116d977a338a01cd1764a417eed93c5553771ee458ed7376a72cb347668c9f7'],
   ['nested integral/fraction',integralFractionProgram,0x07,'3e14504af269ef52a7d3032b2ab3f9c91460ffbc5c7f445f8d4b9aea9621d1aa'],
 ]) expectEqual(`settled ${name} independently reproduces final LCD pixels`,
                 settledRasterHash(nodes,entryId), expected);
@@ -395,7 +394,7 @@ for (const [name,nodes,entryId,expected] of [
   ['nth root',nthRootProgram,0x0e,'de981d526c703a91d101e260d6aed69d3f750a4526a7d4c01b9187c060132b31'],
   ['radical',radicalProgram,0x0f,'4ab47d3ecc113ccf67f1c120e37e5d64ed697f5b6698c4f124274765b17f48fe'],
   ['summation',summationProgram,0x12,'abcbf43abbeb54c298f870ff06ae0d1aef4ed93155708a9dc89978d1c97c4cb6'],
-  ['nDeriv',nderivProgram,0x11,'632a357aa5b55ab4d8fcc20a4e39e95c3f664166228c5a9625457e5fb5d645fc'],
+  ['nDeriv',nderivProgram,0x11,'27227b09148e4ceabb91f49990e278fba214c9f2b95ddf7456c988d6b212fd69'],
   ['nested integral/fraction',integralFractionProgram,0x07,'f82758d431e616be056a6748e332b7dd5d859cb948f2192bdc99e7e14d38e237'],
 ]) expectEqual(`settled ${name} independently reproduces LCD write order`,
                 settledWriteHash(nodes,entryId,true), expected);
@@ -404,7 +403,7 @@ for (const [name,nodes,entryId,expected] of [
   ['nth root',nthRootProgram,0x0e,'7b9fa6dd5d22b6e68570c45970764516b985780ce5de55c1945ac0b937ce99e5'],
   ['radical',radicalProgram,0x0f,'56cd3a3c3b9eea8c2b99e96abee7d7175d5c3fd1e7930c4319aa1d464cc84750'],
   ['summation',summationProgram,0x12,'59cb61779aac701b6e37c3a659e9c30acbfdff194b4421340225bc176f1f72bb'],
-  ['nDeriv',nderivProgram,0x11,'0fd35d37d451e9df18349f062eebf72b3d913b27a31779cc9cd8b723f2365952'],
+  ['nDeriv',nderivProgram,0x11,'62841da8f502b1d17ceb34f93ea183f4e22f389d410655f0f5cc9b81799b8f77'],
   ['nested integral/fraction',integralFractionProgram,0x07,'2b8bc21220f632c2524e011418d51cc6040036941e076a642f6645b2b5d581a2'],
 ]) expectEqual(`settled ${name} independently reproduces every accepted LCD data write`,
                 settledWriteHash(nodes,entryId), expected);
@@ -447,6 +446,10 @@ expectEqual('34:5935 maps the summation token through 34:594D',
   rom.settledStructuralTokenType(0xef,0x33), 0x29);
 expectEqual('34:5996 selects the summation metadata row',
   rom.settledRecordMetadata(0x29), [0x04,0x04,0x01,0x02,0x03]);
+expectEqual('34:5935 maps the nDeriv token through 34:594D',
+  rom.settledStructuralTokenType(0x00,0x25), 0x23);
+expectEqual('34:5996 selects the nDeriv metadata row',
+  rom.settledRecordMetadata(0x23), [0x04,0x02,0x01,0x03,0x00]);
 const constructedAbsolute = rom.constructSettledAbsoluteProgram([0x58,0x71,0x33],0x0d);
 expectEqual('absolute tokens independently construct the settled record graph',
   constructedAbsolute.nodes, recordPrograms.programs['abs(X-3)'].nodes);
@@ -557,6 +560,24 @@ for (const oracle of constructionOracles.integral_cases) {
     oracle.accepted_write_sha256);
 }
 for (const oracle of constructionOracles.summation_cases) {
+  const program = rom.constructSettledExpressionProgram(
+    oracle.spec, oracle.entry_id, font);
+  expectEqual(`${oracle.expression} independently constructs the fresh TilEm graph`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.origin, nodes:oracle.nodes});
+  const operations = rom.executeSettledRecordProgram(program.nodes, program.entry_id, {
+    origin:program.origin,
+    glyphAdvance:settledGlyphAdvance,
+  });
+  const writes = rom.rasterizeSettledOperations(operations, font).writes;
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write count`,
+    writes.length, oracle.accepted_write_count);
+  const writeBytes = Buffer.from(writes.flatMap(write => [...write.pointer,write.value]));
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write stream`,
+    crypto.createHash('sha256').update(writeBytes).digest('hex'),
+    oracle.accepted_write_sha256);
+}
+for (const oracle of constructionOracles.nderiv_cases) {
   const program = rom.constructSettledExpressionProgram(
     oracle.spec, oracle.entry_id, font);
   expectEqual(`${oracle.expression} independently constructs the fresh TilEm graph`,
@@ -686,6 +707,20 @@ expectEqual('browser recursively reserves nested summation arguments',
   rom.constructSettledSummationProgram([0x4e], [0x31], [0x33], {
     kind:'summation', variable:[0x41], lower:[0x31], upper:[0x32], body:[0x41],
   }, 1, font).nodes);
+expectEqual('browser constructs all three nDeriv fields from tokens',
+  mp.constructedProgramForExpression('nDeriv(X^2,X,1)').nodes,
+  rom.constructSettledNDerivProgram(
+    [0x58], {kind:'power',base:[0x58],exponent:[0x32]}, [0x31], 1, font).nodes);
+expectEqual('browser constructs structural nDeriv bodies',
+  mp.constructedProgramForExpression('nDeriv(sqrt(X),X,2)').nodes,
+  rom.constructSettledNDerivProgram(
+    [0x58], {kind:'radical',radicand:[0x58]}, [0x32], 1, font).nodes);
+expectEqual('browser recursively reserves nested nDeriv arguments',
+  mp.constructedProgramForExpression('nDeriv(nDeriv(A^2,A,1),X,2)').nodes,
+  rom.constructSettledNDerivProgram([0x58], {
+    kind:'nDeriv',variable:[0x41],
+    body:{kind:'power',base:[0x41],exponent:[0x32]},value:[0x31],
+  }, [0x32], 1, font).nodes);
 const constructedPower = rom.constructSettledPowerProgram(
   {base:[0x58], exponent:[0x32]}, 0x0d, font);
 expectEqual('power tokens independently construct the settled X^2 graph',
@@ -809,6 +844,25 @@ const cyclicSummation = {
 cyclicSummation.body = cyclicSummation;
 expectThrows('summation constructor rejects nested cycles', RangeError,
   () => rom.constructSettledExpressionProgram(cyclicSummation, 1, font));
+for (const [label,variable,body,value] of [
+  ['variable',[],[0x58],[0x31]],
+  ['body',[0x58],[],[0x31]],
+  ['evaluation value',[0x58],[0x58],[]],
+]) expectThrows(`nDeriv constructor rejects an empty ${label}`, RangeError,
+  () => rom.constructSettledNDerivProgram(variable, body, value, 1, font));
+expectThrows('nDeriv constructor rejects a structural variable', RangeError,
+  () => rom.constructSettledNDerivProgram(
+    {kind:'radical',radicand:[0x58]}, [0x58], [0x31], 1, font));
+expectThrows('nDeriv constructor detects record ID exhaustion', RangeError,
+  () => rom.constructSettledNDerivProgram(
+    [0x58], [0x58], [0x31], 0xfffc, font));
+expectThrows('nDeriv constructor rejects overflowing body width', RangeError,
+  () => rom.constructSettledNDerivProgram(
+    [0x58], new Array(10921).fill(0x58), [0x31], 1, font));
+const cyclicNDeriv = {kind:'nDeriv',variable:[0x58],value:[0x31]};
+cyclicNDeriv.body = cyclicNDeriv;
+expectThrows('nDeriv constructor rejects nested cycles', RangeError,
+  () => rom.constructSettledExpressionProgram(cyclicNDeriv, 1, font));
 for (const expression of [
   'int(,2,X,X)', 'int(1,,X,X)', 'int(1,2,,X)', 'int(1,2,X,)',
   'int(1,2,X)', 'int(1,2,X,X', 'int(1,2,X,sqrt(X))',
@@ -818,6 +872,11 @@ for (const expression of [
   'sum(,1,3,N)', 'sum(N,,3,N)', 'sum(N,1,,N)', 'sum(N,1,3,)',
   'sum(N,1,3)', 'sum(N,1,3,N', 'sum(sqrt(N),1,3,N)',
 ]) expectEqual(`${expression} is outside the translated summation grammar`,
+  mp.constructedProgramForExpression(expression), null);
+for (const expression of [
+  'nDeriv(,X,1)', 'nDeriv(X,,1)', 'nDeriv(X,X,)',
+  'nDeriv(X,X)', 'nDeriv(X,X,1', 'nDeriv(X,sqrt(X),1)',
+]) expectEqual(`${expression} is outside the translated nDeriv grammar`,
   mp.constructedProgramForExpression(expression), null);
 expectThrows('compositional constructor rejects unsupported structural kinds', RangeError,
   () => rom.constructSettledExpressionProgram({kind:'matrix'}, 1, font));
@@ -870,9 +929,9 @@ expectEqual('integral browser path labels translated construction',
 expectEqual('summation browser path labels translated construction',
   mp.generatedForExpression('sum(N,1,3,N^2)').programSource,
   '34:4900, 34:5935, 34:7393, and 34:7609 translated summation construction');
-expectEqual('remaining browser path labels captured record input',
+expectEqual('nDeriv browser path labels translated construction',
   mp.generatedForExpression('nDeriv(X^2,X,1)').programSource,
-  'captured settled record snapshot');
+  '34:4900, 34:5935, 34:7393, and 34:7609 translated nDeriv construction');
 expectEqual('arbitrary untranslated expression has no captured record program',
   mp.generatedForExpression('A+(X)'), null);
 

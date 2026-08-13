@@ -940,6 +940,19 @@ function constructedSettledSpec(source) {
       offset++;
       return {kind:'summation',variable,lower,upper,body};
     }
+    if (source.startsWith('nDeriv(', offset)) {
+      offset += 7;
+      const body = expression();
+      if (!body || source[offset] !== ',') return null;
+      offset++;
+      const variable = expression();
+      if (!variable || source[offset] !== ',') return null;
+      offset++;
+      const value = expression();
+      if (!value || source[offset] !== ')') return null;
+      offset++;
+      return {kind:'nDeriv',variable,body,value};
+    }
     if (source.startsWith('nthroot(', offset)) {
       offset += 8;
       const index = expression();
@@ -1048,6 +1061,7 @@ function constructedProgramForExpression(expression) {
   if (!spec) return null;
   if (spec.kind === 'integral' && spec.variable.kind !== 'tokens') return null;
   if (spec.kind === 'summation' && spec.variable.kind !== 'tokens') return null;
+  if (spec.kind === 'nDeriv' && spec.variable.kind !== 'tokens') return null;
   return spec.kind === 'power'
     ? ROM_ENGINE.constructSettledPowerProgram(spec, 1, FONT)
     : spec.kind === 'fraction'
@@ -1059,6 +1073,9 @@ function constructedProgramForExpression(expression) {
     : spec.kind === 'summation'
       ? ROM_ENGINE.constructSettledSummationProgram(
           spec.variable, spec.lower, spec.upper, spec.body, 1, FONT)
+    : spec.kind === 'nDeriv'
+      ? ROM_ENGINE.constructSettledNDerivProgram(
+          spec.variable, spec.body, spec.value, 1, FONT)
     : spec.kind === 'nthRoot'
       ? ROM_ENGINE.constructSettledNthRootProgram(
           spec.index, spec.radicand, 1, FONT)
