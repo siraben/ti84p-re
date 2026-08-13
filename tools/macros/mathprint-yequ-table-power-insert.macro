@@ -1,0 +1,31 @@
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key YEQU
+wait 1s
+key 2ND
+key GRAPH
+wait 1s
+key YEQU
+wait 1s
+key CLEAR
+key GRAPHVAR
+key POWER
+key 2
+key RIGHT
+wait 0.35s
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+wait 0.4s
+key 3
+wait 0.8s
+memdump /tmp/mathprint-yequ-table-power-insert.ram ram-logical
+screenshot /tmp/mathprint-yequ-table-power-insert.png

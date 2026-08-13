@@ -1,0 +1,25 @@
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key 2ND
+key SQUARE
+key GRAPHVAR
+key RIGHT
+wait 0.35s
+key LEFT
+wait 0.25s
+key LEFT
+wait 0.25s
+key LEFT
+wait 0.35s
+memdump /tmp/mathprint-radical-nonspecial-insert-pre.ram ram-logical
+screenshot /tmp/mathprint-radical-nonspecial-insert-pre.png
+key 3
+wait 0.8s
+memdump /tmp/mathprint-radical-nonspecial-insert.ram ram-logical
+screenshot /tmp/mathprint-radical-nonspecial-insert.png
