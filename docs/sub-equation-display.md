@@ -605,14 +605,19 @@ payload bytes as input. They compare the generated display-code, coordinate,
 depth, and order tuples with independently captured `34:6C37` observations for
 absolute value, summation with an exponent, and nested `nDeriv(`. [confirmed]
 
-The ordinary-token path resolves a payload byte through
-`smallfont_glyph_ptr` (`01:6702`). A zero prefix selects the word table at
-`01:4252`. The selected pointer names one metadata byte followed by a counted
-display-code string. Token `72h` therefore expands to `A`, `n`, `s`, while
-token `C2h` expands to `s`, `i`, `n`, `(`. `_GetTokLen = 4591h` reads the
-count, and `_Get_Tok_Strng = 4594h` copies the counted bytes. The browser uses
-the ROM-extracted table in `web/mathprint/token-strings.json`; it does not
-split `Ans` or `sin` into independent input letters. [confirmed]
+The ordinary-token path resolves payload bytes through `smallfont_glyph_ptr`
+at `01:6702`. A zero lead selects the word table at `01:4252`. The two-byte
+leads `5Ch`, `5Dh`, `5Eh`, `60h`–`63h`, `7Eh`, `AAh`, `BBh`, and `EFh` select
+tables at `01:4452`–`01:47E8`. The `5Eh` second byte selects one of four banks.
+The `BBh` path clamps indices `F6h`–`FFh` to `F6h`. [confirmed]
+
+Each selected pointer names one metadata byte followed by a counted
+display-code string. Token `72h` therefore expands to `A`, `n`, `s`. Token
+`C2h` expands to `s`, `i`, `n`, `(`. Two-byte token `5D 00` expands to `L` and
+the subscript-1 display code. `_GetTokLen = 4591h` reads the count, and
+`_Get_Tok_Strng = 4594h` copies the counted bytes. The browser uses the
+ROM-extracted tables in `web/mathprint/token-strings.json`; it preserves native
+token boundaries while constructing the settled record. [confirmed]
 
 `34:6873` receives each resulting display code. It diverts `28h` and `29h` to
 the compound-parenthesis emitters, including `28h` embedded in the spelling of
@@ -629,6 +634,14 @@ the variable-width small-font spelling. `sin(sqrt(X))` verifies a counted token
 spelling before a structural child and the compound shapes around its taller
 metrics. The structural record stores the containing leaf's accumulated
 horizontal anchor at `+0x0D`. [confirmed]
+
+Five reset-origin traces cover `L1`, `[A]`, `Y1`, `Str1`, and `X^L1`. Their
+generated record graphs match every field after normalizing record IDs. Their
+accepted-write streams contain 21, 35, 21, 42, and 22 writes. The generated
+stream and captured outer-`34:660A` interval have the same byte-column, row,
+and value for every write. Replaying either stream produces the same 96×64 LCD
+bitmap. `X^L1` verifies two-byte spelling and width in the small-font exponent
+path. [confirmed]
 
 The translated renderer then maps the ordered operations through the ROM font
 bitmaps, page-4 point and line behavior, `_VPutMap`, the page-7 large-glyph
@@ -965,8 +978,10 @@ semantic expression. Five grouping cases cover flat and structural groups,
 grouped power operands, and a structural absolute-value child. The deepest
 power oracle has three raised levels. Six named-token cases verify counted
 spellings, raised small-font widths, compound parentheses, structural children,
-and complete accepted-write streams. Two longer trace scenarios cover the
-editor and display activity around the final key press.
+and complete accepted-write streams. Five two-byte-token cases verify list,
+matrix-name, equation-variable, and string-variable tables in large and raised
+contexts. Two longer trace scenarios cover the editor and display activity
+around the final key press.
 [confirmed]
 
 ## Extracted records and interactive model
@@ -974,8 +989,9 @@ editor and display activity around the final key press.
 The class table, decoded handler records, and selected descriptors are extracted to
 `web/mathprint/layout.json` by `tools/export-layout.py`;
 the fonts to `web/mathprint/font.json` by `tools/export-font.py`; and the
-single-byte token spellings to `web/mathprint/token-strings.json` by
-`tools/export-token-strings.py`. The font data appears on the interactive
+single- and two-byte token spellings to
+`web/mathprint/token-strings.json` by `tools/export-token-strings.py`. The font
+data appears on the interactive
 renderer's font-table tab. `tools/interp-cells.js` and the browser share the executable
 translations in `web/mathprint/rom-engine.js`. The translated routines consume
 `layout.json` for handler lookup, row-cell iteration, direct glyph and delimiter

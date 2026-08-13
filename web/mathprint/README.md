@@ -15,7 +15,7 @@ reader-facing write-up is
 | `app.js` | renderer and three labeled timelines: RE-generated writes, captured writes, and model elements |
 | `rom-engine.js` | direct JavaScript translations of closed page `0x39`, page `0x34`, and page `0x01` routines |
 | `font.json` | large (`07:45FF`) + small (`03:4CD6`) font glyphs, extracted from ROM |
-| `token-strings.json` | single-byte token display strings selected through the table at `01:4252` |
+| `token-strings.json` | single- and two-byte token display strings selected by `01:6702` |
 | `layout.json` | page `0x39` class-table records and selected descriptors consumed by the translated routines |
 | `record-programs.json` | six retained settled-record fixtures used only by offline comparisons |
 | `draw-order.json` | accepted visible-pixel LCD mutations from the retained integral traces |
@@ -25,6 +25,7 @@ reader-facing write-up is
 | `tools/mathprint-grouping-oracles.json` | fresh grouping and nested absolute-value graphs plus accepted-write hashes |
 | `tools/mathprint-structural-base-oracles.json` | fresh structural power-base and nested absolute/radical graphs plus accepted-write hashes |
 | `tools/mathprint-named-token-oracles.json` | fresh counted-token spelling graphs plus accepted-write hashes in flat, raised, and structural contexts |
+| `tools/mathprint-two-byte-token-oracles.json` | fresh list, matrix-name, equation-variable, and string-variable graphs plus accepted-write and framebuffer hashes |
 
 `rom-engine.js` translates handler lookup, row-cell emission, direct-glyph and
 delimiter classification, `_KeyToString` index arithmetic, descriptor selection
@@ -66,9 +67,9 @@ and emits ordered glyph, bitmap, point, line, compound-shape, and leaf
 operations. A full settled expression enters through a type-`0x00` leaf program
 at `34:660A`. `executeSettledRecordProgram()` consumes that payload in order,
 invokes embedded structural records, advances the shared pen by each record's
-`+9` metric, and maps single-byte tokens through the ROM-extracted counted
-strings selected by `smallfont_glyph_ptr` at `01:6702`. Two-byte token families
-produce explicit unresolved operations. Live settled
+`+9` metric, and maps single- and two-byte tokens through the ROM-extracted
+counted strings selected by `smallfont_glyph_ptr` at `01:6702`. The two-byte
+selector preserves the `5Eh` banks and the `BBh` clamp. Live settled
 traces identify types `0x23`, `0x25`, `0x26`, `0x28`, `0x29`, and `0x2B` as
 `nDeriv(`, $e^x$, $10^x$, `logBASE(`, summation, and a dimensioned matrix.
 

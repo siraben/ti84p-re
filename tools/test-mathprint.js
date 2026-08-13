@@ -38,6 +38,8 @@ const structuralBaseOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-structural-base-oracles.json')));
 const namedTokenOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-named-token-oracles.json')));
+const twoByteTokenOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-two-byte-token-oracles.json')));
 
 function expectEqual(label, actual, expected) {
   if (JSON.stringify(actual) !== JSON.stringify(expected))
@@ -634,6 +636,34 @@ for (const oracle of namedTokenOracles.cases) {
     throw new Error(`${oracle.expression} has no browser-constructed record program`);
   const expectedBrowser = rom.constructSettledExpressionProgram(oracle.spec, 1, font);
   expectEqual(`${oracle.expression} browser grammar preserves native token bytes`,
+    browser.nodes, expectedBrowser.nodes);
+}
+for (const oracle of twoByteTokenOracles.cases) {
+  const program = rom.constructSettledExpressionProgram(
+    oracle.spec, oracle.entry_id, font);
+  expectEqual(`${oracle.expression} independently constructs the two-byte-token graph`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.origin, nodes:oracle.nodes});
+  const operations = rom.executeSettledRecordProgram(
+    program.nodes, program.entry_id, {
+      origin:program.origin, glyphAdvance:settledGlyphAdvance,
+    });
+  const rendered = rom.rasterizeSettledOperations(operations, font);
+  expectEqual(`${oracle.expression} reproduces accepted two-byte-token write count`,
+    rendered.writes.length, oracle.accepted_write_count);
+  const writeBytes = Buffer.from(rendered.writes.flatMap(
+    write => [...write.pointer,write.value]));
+  expectEqual(`${oracle.expression} reproduces accepted two-byte-token write stream`,
+    crypto.createHash('sha256').update(writeBytes).digest('hex'),
+    oracle.accepted_write_sha256);
+  expectEqual(`${oracle.expression} reproduces the two-byte-token LCD bitmap`,
+    crypto.createHash('sha256').update(packedLcdBytes(rendered.grid)).digest('hex'),
+    oracle.final_lcd_sha256);
+  const browser = mp.constructedProgramForExpression(oracle.expression);
+  if (!browser)
+    throw new Error(`${oracle.expression} has no browser-constructed record program`);
+  const expectedBrowser = rom.constructSettledExpressionProgram(oracle.spec, 1, font);
+  expectEqual(`${oracle.expression} browser grammar preserves two-byte token bytes`,
     browser.nodes, expectedBrowser.nodes);
 }
 for (const oracle of constructionOracles.power_cases) {
