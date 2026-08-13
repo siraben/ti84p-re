@@ -459,7 +459,8 @@ def decode_settled_expression(
             raise ValueError(f"settled record 0x{record_id:04X} has no integer type")
         child_count = {
             0x20: 2, 0x21: 1, 0x22: 4, 0x23: 3,
-            0x24: 2, 0x27: 1, 0x29: 4, 0x2A: 1,
+            0x24: 2, 0x25: 1, 0x26: 1, 0x27: 1,
+            0x28: 2, 0x29: 4, 0x2A: 1,
         }.get(render_type)
         if child_count is None:
             raise ValueError(
@@ -496,8 +497,18 @@ def decode_settled_expression(
                 "index": leaf(child_ids[0]),
                 "radicand": leaf(child_ids[1]),
             }
+        if render_type == 0x25:
+            return {"kind": "ePower", "exponent": leaf(child_ids[0])}
+        if render_type == 0x26:
+            return {"kind": "tenPower", "exponent": leaf(child_ids[0])}
         if render_type == 0x27:
             return {"kind": "radical", "radicand": leaf(child_ids[0])}
+        if render_type == 0x28:
+            return {
+                "kind": "logBase",
+                "base": leaf(child_ids[0]),
+                "argument": leaf(child_ids[1]),
+            }
         if render_type == 0x29:
             return {
                 "kind": "summation",

@@ -215,6 +215,40 @@ class MathPrintRecordTests(unittest.TestCase):
             ], 1),
         )
 
+    def test_decodes_exponential_and_logbase_records(self):
+        nodes = [
+            {"record_id": 1, "render_type": 0, "child_ids": [],
+             "payload": [0xEF, 0x25, 2, 0, 0xEF, 0x2D,
+                         0xEF, 0x26, 4, 0, 0xEF, 0x2D,
+                         0xEF, 0x28, 6, 0, 0xEF, 0x2D]},
+            {"record_id": 2, "render_type": 0x25, "child_ids": [3],
+             "payload": []},
+            {"record_id": 3, "render_type": 0, "child_ids": [],
+             "payload": [0x58]},
+            {"record_id": 4, "render_type": 0x26, "child_ids": [5],
+             "payload": []},
+            {"record_id": 5, "render_type": 0, "child_ids": [],
+             "payload": [0x32]},
+            {"record_id": 6, "render_type": 0x28, "child_ids": [7, 8],
+             "payload": []},
+            {"record_id": 7, "render_type": 0, "child_ids": [],
+             "payload": [0x33]},
+            {"record_id": 8, "render_type": 0, "child_ids": [],
+             "payload": [0x41, 0x70, 0x31]},
+        ]
+        self.assertEqual(
+            {
+                "kind": "sequence",
+                "parts": [
+                    {"kind": "ePower", "exponent": [0x58]},
+                    {"kind": "tenPower", "exponent": [0x32]},
+                    {"kind": "logBase", "base": [0x33],
+                     "argument": [0x41, 0x70, 0x31]},
+                ],
+            },
+            decode_settled_expression(nodes, 1),
+        )
+
     def test_captures_leaf_payload_from_offset_13(self):
         memory = bytearray(0x10000)
         pointer = 0x9000
