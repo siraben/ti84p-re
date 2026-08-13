@@ -350,8 +350,21 @@ expectThrows('raw native mode rejects a truncated two-byte token', RangeError,
   () => mp.generatedForInput('hex: 5D'));
 expectThrows('raw native mode rejects an unmatched group', RangeError,
   () => mp.generatedForInput('hex: 10 31'));
-expectThrows('raw native mode rejects an untranslated structural type', RangeError,
-  () => mp.generatedForInput('hex: EF 36 31 11'));
+let ef36BrowserError = null;
+try {
+  mp.generatedForInput('hex: EF 36 31 11');
+} catch (error) {
+  ef36BrowserError = error;
+}
+if (!(ef36BrowserError instanceof RangeError))
+  throw new Error('raw native EF36h path did not stop at the ROM reset boundary');
+expectEqual('raw native EF36h path reports the traced terminal dispatch',
+  [ef36BrowserError.code,ef36BrowserError.message,
+   ef36BrowserError.romPath.terminal.path], [
+    'SETTLED_EF36_RESET',
+    'EF36h constructs type 0x2C, whose out-of-range 34:7611 geometry dispatch resets through ram:3BCD',
+    ['34:7609','34:6105','ram:3BCD','03:467F','ram:0002','ram:028C','3F:412C'],
+  ]);
 
 const rawChangedSummation = mp.generatedForInput(
   'hex: EF 33 4E F0 33 70 32 2B 4E 2B 31 32 2B 33 34 11');
@@ -1004,6 +1017,61 @@ expectEqual('34:5935 maps the absolute token through 34:594D',
   rom.settledStructuralTokenType(0x00,0xb2), 0x21);
 expectEqual('34:5935 leaves an ordinary token unmapped',
   rom.settledStructuralTokenType(0x00,0x58), null);
+expectEqual('34:5935 maps EF36h to the exceptional type 2Ch path',
+  rom.settledStructuralTokenType(0xef,0x36), 0x2c);
+const ef36Path = rom.settledEf36SourcePath(0);
+expectEqual('EF36h inserts and patches the traced embedded-record marker',
+  [ef36Path.status,ef36Path.returnA,ef36Path.carry,
+   ef36Path.insertion.placeholderBytes,ef36Path.insertion.patchedBytes], [
+    'reset',0x2c,false,
+    [0xef,0x2c,0x00,0x00,0xef,0x2d],
+    [0xef,0x2c,0x08,0x00,0xef,0x2d],
+  ]);
+expectEqual('EF36h allocator reads the bytes after the legitimate table',
+  [ef36Path.allocation.tableBase,ef36Path.allocation.tableAddress,
+   ef36Path.allocation.byteE,ef36Path.allocation.childCount,
+   ef36Path.allocation.recordSize],
+  [0x4f82,0x4fa9,0x42,0x0002,0x0018]);
+expectEqual('EF36h allocator constructs the observed first-context header',
+  ef36Path.allocation.recordHeader, [
+    0x08,0x00,0x2c,0x07,0x00,0x01,0x00,0x06,0x00,0x03,
+    0x00,0x00,0x00,0x00,0x00,0x06,0x00,0x01,0x00,0xef,
+  ]);
+expectEqual('EF36h patches arbitrary unsigned record IDs little-endian',
+  rom.settledEf36SourcePath(3,{parentId:0x1234,recordId:0xabcd}), {
+    ...rom.settledEf36SourcePath(3),
+    insertion:{...rom.settledEf36SourcePath(3).insertion,
+      patchedBytes:[0xef,0x2c,0xcd,0xab,0xef,0x2d]},
+    allocation:{...rom.settledEf36SourcePath(3).allocation,
+      recordHeader:[
+        0xcd,0xab,0x2c,0x34,0x12,0x01,0x00,0x06,0x00,0x03,
+        0x00,0x00,0x00,0x00,0x00,0x06,0x00,0x01,0x00,0xef,
+      ]},
+  });
+expectEqual('EF36h geometry dispatch reads code bytes after the table',
+  [ef36Path.terminal.geometryTableBase,
+   ef36Path.terminal.geometryTableAddress,
+   ef36Path.terminal.geometryWord],
+  [0x7611,0x762b,0x3bcd]);
+expectEqual('35:7B37 applies its byte-exact EF36h structural-depth test',
+  [0,1,2,3,4,5,0xfe,0xff].map(depth => {
+    const path = rom.settledEf36SourcePath(depth);
+    return [depth,path.incrementedDepth,path.status,path.returnA,path.carry];
+  }), [
+    [0,1,'reset',0x2c,false],[1,2,'reset',0x2c,false],
+    [2,3,'reset',0x2c,false],[3,4,'reset',0x2c,false],
+    [4,5,'depth-limit',0x03,true],[5,6,'depth-limit',0x03,true],
+    [0xfe,0xff,'depth-limit',0x03,true],[0xff,0,'reset',0x2c,false],
+  ]);
+expectEqual('34:54D2 records the EF36h depth-limit state',
+  rom.settledEf36SourcePath(4).error,
+  {flags45Bit6:true,address:0x9d20,value:0x05});
+expectThrows('EF36h bypasses the ordinary 34:59AC argument scanner', RangeError,
+  () => rom.settledStructuralArgumentScan([0xef,0x36,0x31,0x11]));
+expectThrows('type 2Ch has no legitimate 34:59AC metadata row', RangeError,
+  () => rom.settledRecordMetadata(0x2c));
+expectThrows('type 2Ch has no legitimate 34:6119 render handler', RangeError,
+  () => rom.settledRenderHandler(0x2c));
 expectEqual('34:5996 selects the absolute metadata row',
   rom.settledRecordMetadata(0x21), [0x03,0x01,0x00,0x00,0x00]);
 expectEqual('34:5935 maps the power token through 34:594D',

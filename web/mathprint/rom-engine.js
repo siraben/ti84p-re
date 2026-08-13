@@ -401,6 +401,81 @@
     return row ? row[2] : null;
   }
 
+  // EF36h takes the alternate editor path at 34:473A rather than the normal
+  // metadata-driven scanner. 35:7B37 leaves A=2Ch and carry clear while the
+  // structural-depth byte at 8DB6h is below four. At four it returns A=03h
+  // with carry set; 34:54D2 then sets (IY+45h).6 and writes 05h to 9D20h.
+  //
+  // Below the cap, 34:58A0 inserts EF 2C 00 00 EF 2D. The allocator at
+  // 33:4F42 indexes one row past its legitimate type-1Fh..2Bh table and reads
+  // the adjacent bytes at 33:4FA9 as E=42h, BC=0002h, and HL=0018h. Retain
+  // this exceptional behavior separately from settledRecordMetadata(); 2Ch
+  // has no metadata row or renderer.
+  function settledEf36SourcePath(structuralDepth = 0, options = {}) {
+    byte(structuralDepth, 'EF36h structural depth');
+    if (options === null || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('EF36h options must be an object');
+    const parentId = options.parentId === undefined ? 7 : options.parentId;
+    const recordId = options.recordId === undefined ? 8 : options.recordId;
+    for (const [value, label] of [
+      [parentId,'EF36h parent record ID'], [recordId,'EF36h allocated record ID'],
+    ]) if (!Number.isInteger(value) || value < 0 || value > 0xffff)
+      throw new RangeError(`${label} must be an unsigned word`);
+
+    const common = {
+      sourceToken:[0xef,0x36], mappedType:0x2c,
+      sourceBranch:'34:4690 → 34:473A', structuralDepth,
+    };
+    const incrementedDepth = (structuralDepth + 1) & 0xff;
+    if (incrementedDepth >= 5) return {
+      ...common,
+      status:'depth-limit', carry:true, returnA:0x03,
+      incrementedDepth,
+      error:{flags45Bit6:true,address:0x9d20,value:0x05},
+      routine:'ram:2E41 → 35:7B37 → 34:54D2',
+    };
+
+    const placeholderBytes = [0xef,0x2c,0x00,0x00,0xef,0x2d];
+    const patchedBytes = [
+      0xef,0x2c,recordId & 0xff,recordId >> 8,0xef,0x2d,
+    ];
+    return {
+      ...common,
+      status:'reset', carry:false, returnA:0x2c,
+      incrementedDepth,
+      insertion:{
+        placeholderBytes, patchedBytes,
+        routine:'34:4744 → 34:4169 → 34:5026 → 34:5473 → 34:58A0',
+      },
+      allocation:{
+        tableBase:0x4f82, tableAddress:0x4fa9,
+        recordSize:0x18, childCount:0x0002, byteE:0x42,
+        recordHeader:[
+          recordId & 0xff,recordId >> 8,0x2c,
+          parentId & 0xff,parentId >> 8,
+          0x01,0x00,0x06,0x00,0x03,0x00,0x00,0x00,0x00,0x00,
+          0x06,0x00,0x01,0x00,0xef,
+        ],
+        routine:'34:4862 → ram:2EA1 → 33:4F42',
+      },
+      terminal:{
+        geometryTableBase:0x7611, geometryTableAddress:0x762b,
+        geometryWord:0x3bcd,
+        path:['34:7609','34:6105','ram:3BCD','03:467F','ram:0002','ram:028C','3F:412C'],
+        reason:'type 0x2C indexes code bytes after the 34:7611 geometry table',
+      },
+    };
+  }
+
+  function settledEf36ResetError(path = settledEf36SourcePath()) {
+    const error = new RangeError(
+      'EF36h constructs type 0x2C, whose out-of-range 34:7611 geometry ' +
+      'dispatch resets through ram:3BCD');
+    error.code = 'SETTLED_EF36_RESET';
+    error.romPath = path;
+    return error;
+  }
+
   // 34:5996 computes 34:59AC + 5*(type-1Fh). Retain address-based byte
   // names until each constructor's use of the metadata has been translated.
   const SETTLED_RECORD_METADATA = Object.freeze([
@@ -1227,6 +1302,9 @@
     const renderType = settledStructuralTokenType(opener.prefix, opener.token);
     if (renderType === null)
       throw new RangeError('settled structural opener is not in the 34:594D table');
+    if (opener.prefix === 0xef && opener.token === 0x36)
+      throw new RangeError(
+        'EF36h takes the alternate 34:473A path, not a 34:59AC argument scan');
     if (renderType > 0x2b)
       throw new RangeError(
         `settled structural type 0x${renderType.toString(16)} has no 34:59AC metadata row`);
@@ -2186,6 +2264,8 @@
 
       const unsupportedStructuralType = settledStructuralTokenType(
         units[cursor].prefix, units[cursor].token);
+      if (units[cursor].prefix === 0xef && units[cursor].token === 0x36)
+        throw settledEf36ResetError(settledEf36SourcePath());
       if (unsupportedStructuralType !== null)
         throw new RangeError(
           `settled native structural type 0x${unsupportedStructuralType.toString(16)} ` +
@@ -3755,6 +3835,7 @@
     settledHorizontalOperation,
     settledObjectHandler,
     settledStructuralTokenType,
+    settledEf36SourcePath,
     settledRecordMetadata,
     decodeSettledRecord,
     settledRenderHandler,

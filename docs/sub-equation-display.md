@@ -992,8 +992,42 @@ one-byte tokens pass through `34:5A52`, `BB` tokens through `34:5A28`, and `EF`
 tokens through `34:5A14`. The JavaScript scanner applies those comparisons and
 ROM tables directly. Generic function runs can therefore contain translated
 structural children without depending on a list of preview function names.
-The `EF36h` mapping to structural type `0x2C` remains rejected because its
-constructor and renderer are not yet translated. [confirmed]
+[confirmed]
+
+`EF36h` takes an exceptional editor path. `34:5935` maps it to type `0x2C`,
+and `34:4690` branches through `34:473A` instead of using a row at `34:59AC`.
+`ram:2E41` reaches `35:7B37`, which checks the structural-depth byte at
+`0x8DB6`. The routine increments that byte and compares it with `0x05`. Values
+`0x00`–`0x03` return `A=0x2C` with carry clear. Values `0x04`–`0xFE` return
+`A=0x03` with carry set. An input of `0xFF` wraps to zero and takes the
+carry-clear path. On the carry-set path, `34:54D2` sets `(IY+45h).6` and writes
+`0x05` to `0x9D20`. [confirmed]
+
+Below the cap, `34:58A0` inserts `EF 2C 00 00 EF 2D`. `34:4862` allocates the
+type-`0x2C` record and patches its ID into the marker. The allocator at
+`33:4F42` supports types `0x1F`–`0x2B`; type `0x2C` indexes the adjacent bytes
+at `33:4FA9`. Those bytes produce `E=0x42`, `BC=0x0002`, and `HL=0x0018`.
+In the first observed context, the allocator creates record ID `8` with parent
+ID `7` and this 20-byte header: [confirmed]
+
+```text
+08 00 2C 07 00 01 00 06 00 03 00 00 00 00 00 06 00 01 00 EF
+```
+
+The parent leaf marker changes from `EF 2C 00 00 EF 2D` to
+`EF 2C 08 00 EF 2D`. Construction returns normally through `34:547E`.
+The terminal failure occurs during geometry calculation. `34:7609` indexes the
+13-word table at `34:7611` with type `0x2C` and reads the code bytes at
+`34:762B` as the word `3BCDh`. The dispatcher calls `ram:3BCD`, whose bjump
+reaches `03:467F`. That routine returns through the dispatcher's extra stack
+word to `ram:0002`, entering the reset path through `ram:028C` and `3F:412C`.
+The JavaScript translation reports this reset boundary and does not define
+type-`0x2C` metadata, geometry, or rendering support. [confirmed]
+
+The English external token table names `EF37h` `MATHPRINT` and `EF38h`
+`CLASSIC`; it has no `EF36h` entry. These names come from the
+[TI-Toolkit token sheet](https://github.com/TI-Toolkit/tokens), not from the
+ROM-local control-flow trace. [hypothesis]
 
 The first byte of each row at `34:59AC` selects a scan policy at `34:5678`.
 Scan kind `3` enters `34:56E3` with `B=2` and selects one unary child. Scan kind
