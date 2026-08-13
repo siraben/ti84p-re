@@ -57,6 +57,27 @@ class StaticBranchTests(unittest.TestCase):
         )
         self.assertIsNone(classify_outcome(branch, ("page_01", 0x6297)))
 
+    def test_interrupt_entry_uses_preserved_branch_predicate(self) -> None:
+        branch = Branch(
+            RomLocation(0x34, 0x5000), "jr nz,$+4", "jr",
+            RomLocation(0x34, 0x5006), RomLocation(0x34, 0x5002),
+        )
+
+        self.assertEqual(
+            "taken",
+            classify_outcome(
+                branch, ("ram", 0x0038),
+                {"F": 0x00, "BC": 0}, {"F": 0x00, "BC": 0},
+            ),
+        )
+        self.assertEqual(
+            "fallthrough",
+            classify_outcome(
+                branch, ("ram", 0x0038),
+                {"F": 0x40, "BC": 0}, {"F": 0x40, "BC": 0},
+            ),
+        )
+
     def test_conditional_return_uses_post_instruction_flags(self) -> None:
         branch = Branch(
             RomLocation(0x34, 0x5000), "ret z", "ret", None,
@@ -178,7 +199,16 @@ class SymbolicHandlerTests(unittest.TestCase):
         self.assertIn("34:61AB:fallthrough", default["branch_outcomes"])
 
     def test_type1f_entry_abis_separate_table_and_editor_origins(self) -> None:
-        rom = RomImage.from_path(Path(__file__).resolve().parent / "rom.bin")
+        data = bytearray(0x35 * 0x4000)
+        data[0x0033:0x0038] = bytes.fromhex("7E23666FC9")
+        data[0x30BD:0x30C3] = bytes.fromhex("CD092B436174")
+        page_06 = 0x06 * 0x4000
+        data[page_06 + 0x3F29:page_06 + 0x3F31] = bytes.fromhex(
+            "2AF896237ECD"
+        ) + b"\x00\x00"
+        page_34 = 0x34 * 0x4000
+        data[page_34 + 0x2119:page_34 + 0x211B] = bytes.fromhex("4361")
+        rom = RomImage(bytes(data))
         witnesses = {
             ("page_34", 0x6145, "fallthrough"): {
                 "trace": "radical", "instruction_index": 10,
@@ -198,7 +228,7 @@ class SymbolicHandlerTests(unittest.TestCase):
             },
         }
 
-        table, editor = type1f_entry_abis(rom, witnesses)
+        table, editor = type1f_entry_abis(rom, Counter(), witnesses)
         self.assertEqual("0x43", table["incoming_A"])
         self.assertEqual("bitmap_61BE", table["terminal"])
         self.assertEqual([], table["state_dependencies"])
@@ -206,6 +236,40 @@ class SymbolicHandlerTests(unittest.TestCase):
         self.assertEqual(
             [0x27, 0x22],
             [row["A"] for row in editor["observed_entry_states"]],
+        )
+        self.assertEqual(
+            2,
+            sum(row["dynamic_path_observed"] for row in editor["path_classes"]),
+        )
+        self.assertTrue(all(
+            row["entry_path_status"] == "rom_fixed"
+            for row in table["path_classes"]
+        ))
+
+    def test_type1f_partition_counts_the_complete_state_domain(self) -> None:
+        paths = symbolic_type1f_paths()
+
+        self.assertEqual(
+            0x100 * 2 * 0x10000,
+            sum(row["concrete_state_count"] for row in paths),
+        )
+
+    def test_symbolic_paths_report_dynamic_outcome_gaps(self) -> None:
+        observed = Counter({
+            ("page_34", 0x6145, "fallthrough"): 1,
+            ("page_34", 0x614E, "taken"): 1,
+        })
+        radical = next(
+            row for row in symbolic_type1f_paths((0x27,), observed)
+            if row["terminal"] == "bitmap_630C"
+        )
+
+        self.assertEqual(
+            "all_outcomes_observed",
+            radical["branch_outcome_coverage"]["status"],
+        )
+        self.assertEqual(
+            [], radical["branch_outcome_coverage"]["unresolved_outcomes"]
         )
 
     def test_metric_marker_gate_distinguishes_all_local_outcomes(self) -> None:
@@ -240,6 +304,22 @@ class SymbolicHandlerTests(unittest.TestCase):
                 "34:75BB:taken", "34:75BB:fallthrough",
             },
             outcomes,
+        )
+        self.assertEqual(
+            16,
+            sum(row["concrete_state_count"] for row in symbolic_metric_marker_paths()),
+        )
+
+    def test_metric_path_witnesses_use_exclusive_outcomes(self) -> None:
+        observed = Counter({
+            ("page_34", 0x75A5, "returned"): 1,
+            ("page_34", 0x75BB, "taken"): 1,
+        })
+        paths = symbolic_metric_marker_paths(observed)
+
+        self.assertEqual(
+            {"return_nz_pointer_mismatch", "return_z_special_marker_top_level"},
+            {row["terminal"] for row in paths if row["dynamic_path_observed"]},
         )
 
 

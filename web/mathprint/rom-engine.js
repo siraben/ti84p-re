@@ -728,9 +728,16 @@
       switch (record.type) {
       case 0x1f:
         emit(record, origin, {
-          kind:'unresolved-render',
-          missing:'incoming A and the selected 34:6143 branch',
-          routine:'34:6143',
+          // The 34:6119 row is the little-endian pointer 6143h. _LdHLind at
+          // 00:0033 loads its low byte into A as a side effect, so table
+          // dispatch reaches the shared helper with A=43h. Every comparison
+          // falls through to the fixed width byte plus seven bitmap rows at
+          // 34:61BE.
+          kind:'bitmap', x:0, y:0, width:5, height:7,
+          rows:[0x02,0x01,0x00,0x1f,0x00,0x02,0x06],
+          retainUnchanged:true,
+          tableEntry:[0x43,0x61], incomingA:0x43,
+          routine:'34:6105 → 34:6119 → 00:0033 → 34:6143 → 34:61BE',
         });
         break;
       case 0x20: {
