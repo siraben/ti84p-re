@@ -542,13 +542,14 @@
     }
   },
   "symbolic_predicates": {
-    "type_1F_handler": {
+    "shared_marker_draw_helper": {
       "routine": "34:6143",
       "state": [
         "A",
         "(IY+44h).3",
         "word 0x8520"
       ],
+      "concrete_state_domain": 33554432,
       "terminal_classes": [
         {
           "terminal": "bitmap_61BE",
@@ -562,6 +563,7 @@
             "34:61A5:fallthrough",
             "34:61AB:fallthrough"
           ],
+          "concrete_state_count": 32505856,
           "representative_states": [
             {
               "A": 0,
@@ -570,20 +572,36 @@
             },
             {
               "A": 0,
-              "iy44_bit3": 0,
-              "word_8520": 1
+              "iy44_bit3": 1,
+              "word_8520": 0
             },
             {
-              "A": 0,
+              "A": 1,
               "iy44_bit3": 0,
-              "word_8520": 5
+              "word_8520": 0
             },
             {
-              "A": 0,
-              "iy44_bit3": 0,
-              "word_8520": 6
+              "A": 1,
+              "iy44_bit3": 1,
+              "word_8520": 0
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "some_outcomes_observed",
+            "exercised_outcomes": [
+              "34:6145:taken"
+            ],
+            "unresolved_outcomes": [
+              "34:6157:taken",
+              "34:6166:fallthrough",
+              "34:616C:fallthrough",
+              "34:6170:taken",
+              "34:619F:fallthrough",
+              "34:61A5:fallthrough",
+              "34:61AB:fallthrough"
+            ]
+          }
         },
         {
           "terminal": "bitmap_61C7_clear_iy_minus1_bit0",
@@ -598,23 +616,31 @@
             "34:6186:fallthrough",
             "34:618E:fallthrough"
           ],
+          "concrete_state_count": 6,
           "representative_states": [
             {
               "A": 43,
               "iy44_bit3": 0,
               "word_8520": 0
-            },
-            {
-              "A": 43,
-              "iy44_bit3": 0,
-              "word_8520": 1
-            },
-            {
-              "A": 43,
-              "iy44_bit3": 0,
-              "word_8520": 5
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "some_outcomes_observed",
+            "exercised_outcomes": [
+              "34:6145:taken"
+            ],
+            "unresolved_outcomes": [
+              "34:6157:taken",
+              "34:6166:fallthrough",
+              "34:616C:fallthrough",
+              "34:6170:fallthrough",
+              "34:6178:fallthrough",
+              "34:6181:taken",
+              "34:6186:fallthrough",
+              "34:618E:fallthrough"
+            ]
+          }
         },
         {
           "terminal": "bitmap_6304",
@@ -622,28 +648,24 @@
             "34:6145:fallthrough",
             "34:614E:fallthrough"
           ],
+          "concrete_state_count": 65536,
           "representative_states": [
             {
               "A": 39,
               "iy44_bit3": 0,
               "word_8520": 0
-            },
-            {
-              "A": 39,
-              "iy44_bit3": 0,
-              "word_8520": 1
-            },
-            {
-              "A": 39,
-              "iy44_bit3": 0,
-              "word_8520": 5
-            },
-            {
-              "A": 39,
-              "iy44_bit3": 0,
-              "word_8520": 6
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "some_outcomes_observed",
+            "exercised_outcomes": [
+              "34:6145:fallthrough"
+            ],
+            "unresolved_outcomes": [
+              "34:614E:fallthrough"
+            ]
+          }
         },
         {
           "terminal": "bitmap_630C",
@@ -651,28 +673,23 @@
             "34:6145:fallthrough",
             "34:614E:taken"
           ],
+          "concrete_state_count": 65536,
           "representative_states": [
             {
               "A": 39,
               "iy44_bit3": 1,
               "word_8520": 0
-            },
-            {
-              "A": 39,
-              "iy44_bit3": 1,
-              "word_8520": 1
-            },
-            {
-              "A": 39,
-              "iy44_bit3": 1,
-              "word_8520": 5
-            },
-            {
-              "A": 39,
-              "iy44_bit3": 1,
-              "word_8520": 6
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "all_outcomes_observed",
+            "exercised_outcomes": [
+              "34:6145:fallthrough",
+              "34:614E:taken"
+            ],
+            "unresolved_outcomes": []
+          }
         },
         {
           "terminal": "glyph_1D_set_iy32_bit2",
@@ -684,6 +701,7 @@
             "34:6170:taken",
             "34:619F:taken"
           ],
+          "concrete_state_count": 131072,
           "representative_states": [
             {
               "A": 38,
@@ -692,20 +710,24 @@
             },
             {
               "A": 38,
-              "iy44_bit3": 0,
-              "word_8520": 1
-            },
-            {
-              "A": 38,
-              "iy44_bit3": 0,
-              "word_8520": 5
-            },
-            {
-              "A": 38,
-              "iy44_bit3": 0,
-              "word_8520": 6
+              "iy44_bit3": 1,
+              "word_8520": 0
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "some_outcomes_observed",
+            "exercised_outcomes": [
+              "34:6145:taken"
+            ],
+            "unresolved_outcomes": [
+              "34:6157:taken",
+              "34:6166:fallthrough",
+              "34:616C:fallthrough",
+              "34:6170:taken",
+              "34:619F:taken"
+            ]
+          }
         },
         {
           "terminal": "glyph_6C",
@@ -718,6 +740,7 @@
             "34:619F:fallthrough",
             "34:61A5:taken"
           ],
+          "concrete_state_count": 131072,
           "representative_states": [
             {
               "A": 40,
@@ -726,20 +749,25 @@
             },
             {
               "A": 40,
-              "iy44_bit3": 0,
-              "word_8520": 1
-            },
-            {
-              "A": 40,
-              "iy44_bit3": 0,
-              "word_8520": 5
-            },
-            {
-              "A": 40,
-              "iy44_bit3": 0,
-              "word_8520": 6
+              "iy44_bit3": 1,
+              "word_8520": 0
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "some_outcomes_observed",
+            "exercised_outcomes": [
+              "34:6145:taken"
+            ],
+            "unresolved_outcomes": [
+              "34:6157:taken",
+              "34:6166:fallthrough",
+              "34:616C:fallthrough",
+              "34:6170:taken",
+              "34:619F:fallthrough",
+              "34:61A5:taken"
+            ]
+          }
         },
         {
           "terminal": "glyph_7C_set_iy32_bit2",
@@ -747,6 +775,7 @@
             "34:6145:taken",
             "34:6157:fallthrough"
           ],
+          "concrete_state_count": 131072,
           "representative_states": [
             {
               "A": 34,
@@ -755,20 +784,19 @@
             },
             {
               "A": 34,
-              "iy44_bit3": 0,
-              "word_8520": 1
-            },
-            {
-              "A": 34,
-              "iy44_bit3": 0,
-              "word_8520": 5
-            },
-            {
-              "A": 34,
-              "iy44_bit3": 0,
-              "word_8520": 6
+              "iy44_bit3": 1,
+              "word_8520": 0
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "all_outcomes_observed",
+            "exercised_outcomes": [
+              "34:6145:taken",
+              "34:6157:fallthrough"
+            ],
+            "unresolved_outcomes": []
+          }
         },
         {
           "terminal": "glyph_7C_set_iy32_bit2",
@@ -782,18 +810,30 @@
             "34:6181:fallthrough",
             "34:6186:taken"
           ],
+          "concrete_state_count": 248,
           "representative_states": [
             {
               "A": 43,
               "iy44_bit3": 1,
               "word_8520": 8
-            },
-            {
-              "A": 43,
-              "iy44_bit3": 1,
-              "word_8520": 9
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "some_outcomes_observed",
+            "exercised_outcomes": [
+              "34:6145:taken"
+            ],
+            "unresolved_outcomes": [
+              "34:6157:taken",
+              "34:6166:fallthrough",
+              "34:616C:fallthrough",
+              "34:6170:fallthrough",
+              "34:6178:fallthrough",
+              "34:6181:fallthrough",
+              "34:6186:taken"
+            ]
+          }
         },
         {
           "terminal": "glyph_7C_set_iy32_bit2",
@@ -807,28 +847,30 @@
             "34:6181:taken",
             "34:6186:taken"
           ],
+          "concrete_state_count": 250,
           "representative_states": [
             {
               "A": 43,
               "iy44_bit3": 0,
               "word_8520": 6
-            },
-            {
-              "A": 43,
-              "iy44_bit3": 0,
-              "word_8520": 7
-            },
-            {
-              "A": 43,
-              "iy44_bit3": 0,
-              "word_8520": 8
-            },
-            {
-              "A": 43,
-              "iy44_bit3": 0,
-              "word_8520": 9
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "some_outcomes_observed",
+            "exercised_outcomes": [
+              "34:6145:taken"
+            ],
+            "unresolved_outcomes": [
+              "34:6157:taken",
+              "34:6166:fallthrough",
+              "34:616C:fallthrough",
+              "34:6170:fallthrough",
+              "34:6178:fallthrough",
+              "34:6181:taken",
+              "34:6186:taken"
+            ]
+          }
         },
         {
           "terminal": "glyph_7C_set_iy32_bit2",
@@ -840,6 +882,7 @@
             "34:6170:fallthrough",
             "34:6178:taken"
           ],
+          "concrete_state_count": 130560,
           "representative_states": [
             {
               "A": 43,
@@ -851,7 +894,21 @@
               "iy44_bit3": 1,
               "word_8520": 256
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "some_outcomes_observed",
+            "exercised_outcomes": [
+              "34:6145:taken"
+            ],
+            "unresolved_outcomes": [
+              "34:6157:taken",
+              "34:6166:fallthrough",
+              "34:616C:fallthrough",
+              "34:6170:fallthrough",
+              "34:6178:taken"
+            ]
+          }
         },
         {
           "terminal": "glyph_7C_set_iy32_bit2",
@@ -860,6 +917,7 @@
             "34:6157:taken",
             "34:6166:taken"
           ],
+          "concrete_state_count": 131072,
           "representative_states": [
             {
               "A": 33,
@@ -868,20 +926,21 @@
             },
             {
               "A": 33,
-              "iy44_bit3": 0,
-              "word_8520": 1
-            },
-            {
-              "A": 33,
-              "iy44_bit3": 0,
-              "word_8520": 5
-            },
-            {
-              "A": 33,
-              "iy44_bit3": 0,
-              "word_8520": 6
+              "iy44_bit3": 1,
+              "word_8520": 0
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "some_outcomes_observed",
+            "exercised_outcomes": [
+              "34:6145:taken"
+            ],
+            "unresolved_outcomes": [
+              "34:6157:taken",
+              "34:6166:taken"
+            ]
+          }
         },
         {
           "terminal": "glyph_C1",
@@ -896,28 +955,31 @@
             "34:6186:fallthrough",
             "34:618E:taken"
           ],
+          "concrete_state_count": 8,
           "representative_states": [
             {
               "A": 43,
               "iy44_bit3": 1,
               "word_8520": 0
-            },
-            {
-              "A": 43,
-              "iy44_bit3": 1,
-              "word_8520": 1
-            },
-            {
-              "A": 43,
-              "iy44_bit3": 1,
-              "word_8520": 5
-            },
-            {
-              "A": 43,
-              "iy44_bit3": 1,
-              "word_8520": 6
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "some_outcomes_observed",
+            "exercised_outcomes": [
+              "34:6145:taken"
+            ],
+            "unresolved_outcomes": [
+              "34:6157:taken",
+              "34:6166:fallthrough",
+              "34:616C:fallthrough",
+              "34:6170:fallthrough",
+              "34:6178:fallthrough",
+              "34:6181:fallthrough",
+              "34:6186:fallthrough",
+              "34:618E:taken"
+            ]
+          }
         },
         {
           "terminal": "glyph_C6",
@@ -931,6 +993,7 @@
             "34:61A5:fallthrough",
             "34:61AB:taken"
           ],
+          "concrete_state_count": 131072,
           "representative_states": [
             {
               "A": 41,
@@ -939,20 +1002,26 @@
             },
             {
               "A": 41,
-              "iy44_bit3": 0,
-              "word_8520": 1
-            },
-            {
-              "A": 41,
-              "iy44_bit3": 0,
-              "word_8520": 5
-            },
-            {
-              "A": 41,
-              "iy44_bit3": 0,
-              "word_8520": 6
+              "iy44_bit3": 1,
+              "word_8520": 0
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "some_outcomes_observed",
+            "exercised_outcomes": [
+              "34:6145:taken"
+            ],
+            "unresolved_outcomes": [
+              "34:6157:taken",
+              "34:6166:fallthrough",
+              "34:616C:fallthrough",
+              "34:6170:taken",
+              "34:619F:fallthrough",
+              "34:61A5:fallthrough",
+              "34:61AB:taken"
+            ]
+          }
         },
         {
           "terminal": "glyph_DB_set_iy32_bit2",
@@ -962,6 +1031,7 @@
             "34:6166:fallthrough",
             "34:616C:taken"
           ],
+          "concrete_state_count": 131072,
           "representative_states": [
             {
               "A": 37,
@@ -970,20 +1040,22 @@
             },
             {
               "A": 37,
-              "iy44_bit3": 0,
-              "word_8520": 1
-            },
-            {
-              "A": 37,
-              "iy44_bit3": 0,
-              "word_8520": 5
-            },
-            {
-              "A": 37,
-              "iy44_bit3": 0,
-              "word_8520": 6
+              "iy44_bit3": 1,
+              "word_8520": 0
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "some_outcomes_observed",
+            "exercised_outcomes": [
+              "34:6145:taken"
+            ],
+            "unresolved_outcomes": [
+              "34:6157:taken",
+              "34:6166:fallthrough",
+              "34:616C:taken"
+            ]
+          }
         }
       ],
       "entry_abis": [
@@ -1011,6 +1083,7 @@
                 "34:61A5:fallthrough",
                 "34:61AB:fallthrough"
               ],
+              "concrete_state_count": 131072,
               "representative_states": [
                 {
                   "A": 67,
@@ -1019,28 +1092,24 @@
                 },
                 {
                   "A": 67,
-                  "iy44_bit3": 0,
-                  "word_8520": 1
-                },
-                {
-                  "A": 67,
-                  "iy44_bit3": 0,
-                  "word_8520": 5
-                },
-                {
-                  "A": 67,
-                  "iy44_bit3": 0,
-                  "word_8520": 6
+                  "iy44_bit3": 1,
+                  "word_8520": 0
                 }
-              ]
+              ],
+              "entry_path_status": "rom_fixed"
             }
           ],
+          "dynamic_entry_observed": false,
           "dynamic_record_oracle": false
         },
         {
           "origin": "live editor cursor feedback",
           "caller": "06:7F29\u20137F2E",
           "entry_chain": "06:7F2E \u2192 bjump descriptor ram:30BD \u2192 34:6143",
+          "entry_domain": {
+            "incoming_A": "0x1F\u20130x2B marker types modeled",
+            "concrete_state_domain": 1703936
+          },
           "rom_bytes": {
             "caller": "2AF896237ECDBD30",
             "bjump_descriptor": "CD092B436174"
@@ -1064,6 +1133,7 @@
                 "34:61A5:fallthrough",
                 "34:61AB:fallthrough"
               ],
+              "concrete_state_count": 655360,
               "representative_states": [
                 {
                   "A": 31,
@@ -1072,20 +1142,37 @@
                 },
                 {
                   "A": 31,
-                  "iy44_bit3": 0,
-                  "word_8520": 1
+                  "iy44_bit3": 1,
+                  "word_8520": 0
                 },
                 {
-                  "A": 31,
+                  "A": 32,
                   "iy44_bit3": 0,
-                  "word_8520": 5
+                  "word_8520": 0
                 },
                 {
-                  "A": 31,
-                  "iy44_bit3": 0,
-                  "word_8520": 6
+                  "A": 32,
+                  "iy44_bit3": 1,
+                  "word_8520": 0
                 }
-              ]
+              ],
+              "branch_outcome_coverage": {
+                "scope": "all entries to this routine in the trace corpus",
+                "status": "some_outcomes_observed",
+                "exercised_outcomes": [
+                  "34:6145:taken"
+                ],
+                "unresolved_outcomes": [
+                  "34:6157:taken",
+                  "34:6166:fallthrough",
+                  "34:616C:fallthrough",
+                  "34:6170:taken",
+                  "34:619F:fallthrough",
+                  "34:61A5:fallthrough",
+                  "34:61AB:fallthrough"
+                ]
+              },
+              "dynamic_path_observed": false
             },
             {
               "terminal": "bitmap_61C7_clear_iy_minus1_bit0",
@@ -1100,23 +1187,32 @@
                 "34:6186:fallthrough",
                 "34:618E:fallthrough"
               ],
+              "concrete_state_count": 6,
               "representative_states": [
                 {
                   "A": 43,
                   "iy44_bit3": 0,
                   "word_8520": 0
-                },
-                {
-                  "A": 43,
-                  "iy44_bit3": 0,
-                  "word_8520": 1
-                },
-                {
-                  "A": 43,
-                  "iy44_bit3": 0,
-                  "word_8520": 5
                 }
-              ]
+              ],
+              "branch_outcome_coverage": {
+                "scope": "all entries to this routine in the trace corpus",
+                "status": "some_outcomes_observed",
+                "exercised_outcomes": [
+                  "34:6145:taken"
+                ],
+                "unresolved_outcomes": [
+                  "34:6157:taken",
+                  "34:6166:fallthrough",
+                  "34:616C:fallthrough",
+                  "34:6170:fallthrough",
+                  "34:6178:fallthrough",
+                  "34:6181:taken",
+                  "34:6186:fallthrough",
+                  "34:618E:fallthrough"
+                ]
+              },
+              "dynamic_path_observed": false
             },
             {
               "terminal": "bitmap_6304",
@@ -1124,28 +1220,25 @@
                 "34:6145:fallthrough",
                 "34:614E:fallthrough"
               ],
+              "concrete_state_count": 65536,
               "representative_states": [
                 {
                   "A": 39,
                   "iy44_bit3": 0,
                   "word_8520": 0
-                },
-                {
-                  "A": 39,
-                  "iy44_bit3": 0,
-                  "word_8520": 1
-                },
-                {
-                  "A": 39,
-                  "iy44_bit3": 0,
-                  "word_8520": 5
-                },
-                {
-                  "A": 39,
-                  "iy44_bit3": 0,
-                  "word_8520": 6
                 }
-              ]
+              ],
+              "branch_outcome_coverage": {
+                "scope": "all entries to this routine in the trace corpus",
+                "status": "some_outcomes_observed",
+                "exercised_outcomes": [
+                  "34:6145:fallthrough"
+                ],
+                "unresolved_outcomes": [
+                  "34:614E:fallthrough"
+                ]
+              },
+              "dynamic_path_observed": false
             },
             {
               "terminal": "bitmap_630C",
@@ -1153,28 +1246,24 @@
                 "34:6145:fallthrough",
                 "34:614E:taken"
               ],
+              "concrete_state_count": 65536,
               "representative_states": [
                 {
                   "A": 39,
                   "iy44_bit3": 1,
                   "word_8520": 0
-                },
-                {
-                  "A": 39,
-                  "iy44_bit3": 1,
-                  "word_8520": 1
-                },
-                {
-                  "A": 39,
-                  "iy44_bit3": 1,
-                  "word_8520": 5
-                },
-                {
-                  "A": 39,
-                  "iy44_bit3": 1,
-                  "word_8520": 6
                 }
-              ]
+              ],
+              "branch_outcome_coverage": {
+                "scope": "all entries to this routine in the trace corpus",
+                "status": "all_outcomes_observed",
+                "exercised_outcomes": [
+                  "34:6145:fallthrough",
+                  "34:614E:taken"
+                ],
+                "unresolved_outcomes": []
+              },
+              "dynamic_path_observed": true
             },
             {
               "terminal": "glyph_1D_set_iy32_bit2",
@@ -1186,6 +1275,7 @@
                 "34:6170:taken",
                 "34:619F:taken"
               ],
+              "concrete_state_count": 131072,
               "representative_states": [
                 {
                   "A": 38,
@@ -1194,20 +1284,25 @@
                 },
                 {
                   "A": 38,
-                  "iy44_bit3": 0,
-                  "word_8520": 1
-                },
-                {
-                  "A": 38,
-                  "iy44_bit3": 0,
-                  "word_8520": 5
-                },
-                {
-                  "A": 38,
-                  "iy44_bit3": 0,
-                  "word_8520": 6
+                  "iy44_bit3": 1,
+                  "word_8520": 0
                 }
-              ]
+              ],
+              "branch_outcome_coverage": {
+                "scope": "all entries to this routine in the trace corpus",
+                "status": "some_outcomes_observed",
+                "exercised_outcomes": [
+                  "34:6145:taken"
+                ],
+                "unresolved_outcomes": [
+                  "34:6157:taken",
+                  "34:6166:fallthrough",
+                  "34:616C:fallthrough",
+                  "34:6170:taken",
+                  "34:619F:taken"
+                ]
+              },
+              "dynamic_path_observed": false
             },
             {
               "terminal": "glyph_6C",
@@ -1220,6 +1315,7 @@
                 "34:619F:fallthrough",
                 "34:61A5:taken"
               ],
+              "concrete_state_count": 131072,
               "representative_states": [
                 {
                   "A": 40,
@@ -1228,20 +1324,26 @@
                 },
                 {
                   "A": 40,
-                  "iy44_bit3": 0,
-                  "word_8520": 1
-                },
-                {
-                  "A": 40,
-                  "iy44_bit3": 0,
-                  "word_8520": 5
-                },
-                {
-                  "A": 40,
-                  "iy44_bit3": 0,
-                  "word_8520": 6
+                  "iy44_bit3": 1,
+                  "word_8520": 0
                 }
-              ]
+              ],
+              "branch_outcome_coverage": {
+                "scope": "all entries to this routine in the trace corpus",
+                "status": "some_outcomes_observed",
+                "exercised_outcomes": [
+                  "34:6145:taken"
+                ],
+                "unresolved_outcomes": [
+                  "34:6157:taken",
+                  "34:6166:fallthrough",
+                  "34:616C:fallthrough",
+                  "34:6170:taken",
+                  "34:619F:fallthrough",
+                  "34:61A5:taken"
+                ]
+              },
+              "dynamic_path_observed": false
             },
             {
               "terminal": "glyph_7C_set_iy32_bit2",
@@ -1249,6 +1351,7 @@
                 "34:6145:taken",
                 "34:6157:fallthrough"
               ],
+              "concrete_state_count": 131072,
               "representative_states": [
                 {
                   "A": 34,
@@ -1257,20 +1360,20 @@
                 },
                 {
                   "A": 34,
-                  "iy44_bit3": 0,
-                  "word_8520": 1
-                },
-                {
-                  "A": 34,
-                  "iy44_bit3": 0,
-                  "word_8520": 5
-                },
-                {
-                  "A": 34,
-                  "iy44_bit3": 0,
-                  "word_8520": 6
+                  "iy44_bit3": 1,
+                  "word_8520": 0
                 }
-              ]
+              ],
+              "branch_outcome_coverage": {
+                "scope": "all entries to this routine in the trace corpus",
+                "status": "all_outcomes_observed",
+                "exercised_outcomes": [
+                  "34:6145:taken",
+                  "34:6157:fallthrough"
+                ],
+                "unresolved_outcomes": []
+              },
+              "dynamic_path_observed": true
             },
             {
               "terminal": "glyph_7C_set_iy32_bit2",
@@ -1284,18 +1387,31 @@
                 "34:6181:fallthrough",
                 "34:6186:taken"
               ],
+              "concrete_state_count": 248,
               "representative_states": [
                 {
                   "A": 43,
                   "iy44_bit3": 1,
                   "word_8520": 8
-                },
-                {
-                  "A": 43,
-                  "iy44_bit3": 1,
-                  "word_8520": 9
                 }
-              ]
+              ],
+              "branch_outcome_coverage": {
+                "scope": "all entries to this routine in the trace corpus",
+                "status": "some_outcomes_observed",
+                "exercised_outcomes": [
+                  "34:6145:taken"
+                ],
+                "unresolved_outcomes": [
+                  "34:6157:taken",
+                  "34:6166:fallthrough",
+                  "34:616C:fallthrough",
+                  "34:6170:fallthrough",
+                  "34:6178:fallthrough",
+                  "34:6181:fallthrough",
+                  "34:6186:taken"
+                ]
+              },
+              "dynamic_path_observed": false
             },
             {
               "terminal": "glyph_7C_set_iy32_bit2",
@@ -1309,28 +1425,31 @@
                 "34:6181:taken",
                 "34:6186:taken"
               ],
+              "concrete_state_count": 250,
               "representative_states": [
                 {
                   "A": 43,
                   "iy44_bit3": 0,
                   "word_8520": 6
-                },
-                {
-                  "A": 43,
-                  "iy44_bit3": 0,
-                  "word_8520": 7
-                },
-                {
-                  "A": 43,
-                  "iy44_bit3": 0,
-                  "word_8520": 8
-                },
-                {
-                  "A": 43,
-                  "iy44_bit3": 0,
-                  "word_8520": 9
                 }
-              ]
+              ],
+              "branch_outcome_coverage": {
+                "scope": "all entries to this routine in the trace corpus",
+                "status": "some_outcomes_observed",
+                "exercised_outcomes": [
+                  "34:6145:taken"
+                ],
+                "unresolved_outcomes": [
+                  "34:6157:taken",
+                  "34:6166:fallthrough",
+                  "34:616C:fallthrough",
+                  "34:6170:fallthrough",
+                  "34:6178:fallthrough",
+                  "34:6181:taken",
+                  "34:6186:taken"
+                ]
+              },
+              "dynamic_path_observed": false
             },
             {
               "terminal": "glyph_7C_set_iy32_bit2",
@@ -1342,6 +1461,7 @@
                 "34:6170:fallthrough",
                 "34:6178:taken"
               ],
+              "concrete_state_count": 130560,
               "representative_states": [
                 {
                   "A": 43,
@@ -1353,7 +1473,22 @@
                   "iy44_bit3": 1,
                   "word_8520": 256
                 }
-              ]
+              ],
+              "branch_outcome_coverage": {
+                "scope": "all entries to this routine in the trace corpus",
+                "status": "some_outcomes_observed",
+                "exercised_outcomes": [
+                  "34:6145:taken"
+                ],
+                "unresolved_outcomes": [
+                  "34:6157:taken",
+                  "34:6166:fallthrough",
+                  "34:616C:fallthrough",
+                  "34:6170:fallthrough",
+                  "34:6178:taken"
+                ]
+              },
+              "dynamic_path_observed": false
             },
             {
               "terminal": "glyph_7C_set_iy32_bit2",
@@ -1362,6 +1497,7 @@
                 "34:6157:taken",
                 "34:6166:taken"
               ],
+              "concrete_state_count": 131072,
               "representative_states": [
                 {
                   "A": 33,
@@ -1370,20 +1506,22 @@
                 },
                 {
                   "A": 33,
-                  "iy44_bit3": 0,
-                  "word_8520": 1
-                },
-                {
-                  "A": 33,
-                  "iy44_bit3": 0,
-                  "word_8520": 5
-                },
-                {
-                  "A": 33,
-                  "iy44_bit3": 0,
-                  "word_8520": 6
+                  "iy44_bit3": 1,
+                  "word_8520": 0
                 }
-              ]
+              ],
+              "branch_outcome_coverage": {
+                "scope": "all entries to this routine in the trace corpus",
+                "status": "some_outcomes_observed",
+                "exercised_outcomes": [
+                  "34:6145:taken"
+                ],
+                "unresolved_outcomes": [
+                  "34:6157:taken",
+                  "34:6166:taken"
+                ]
+              },
+              "dynamic_path_observed": false
             },
             {
               "terminal": "glyph_C1",
@@ -1398,28 +1536,32 @@
                 "34:6186:fallthrough",
                 "34:618E:taken"
               ],
+              "concrete_state_count": 8,
               "representative_states": [
                 {
                   "A": 43,
                   "iy44_bit3": 1,
                   "word_8520": 0
-                },
-                {
-                  "A": 43,
-                  "iy44_bit3": 1,
-                  "word_8520": 1
-                },
-                {
-                  "A": 43,
-                  "iy44_bit3": 1,
-                  "word_8520": 5
-                },
-                {
-                  "A": 43,
-                  "iy44_bit3": 1,
-                  "word_8520": 6
                 }
-              ]
+              ],
+              "branch_outcome_coverage": {
+                "scope": "all entries to this routine in the trace corpus",
+                "status": "some_outcomes_observed",
+                "exercised_outcomes": [
+                  "34:6145:taken"
+                ],
+                "unresolved_outcomes": [
+                  "34:6157:taken",
+                  "34:6166:fallthrough",
+                  "34:616C:fallthrough",
+                  "34:6170:fallthrough",
+                  "34:6178:fallthrough",
+                  "34:6181:fallthrough",
+                  "34:6186:fallthrough",
+                  "34:618E:taken"
+                ]
+              },
+              "dynamic_path_observed": false
             },
             {
               "terminal": "glyph_C6",
@@ -1433,6 +1575,7 @@
                 "34:61A5:fallthrough",
                 "34:61AB:taken"
               ],
+              "concrete_state_count": 131072,
               "representative_states": [
                 {
                   "A": 41,
@@ -1441,20 +1584,27 @@
                 },
                 {
                   "A": 41,
-                  "iy44_bit3": 0,
-                  "word_8520": 1
-                },
-                {
-                  "A": 41,
-                  "iy44_bit3": 0,
-                  "word_8520": 5
-                },
-                {
-                  "A": 41,
-                  "iy44_bit3": 0,
-                  "word_8520": 6
+                  "iy44_bit3": 1,
+                  "word_8520": 0
                 }
-              ]
+              ],
+              "branch_outcome_coverage": {
+                "scope": "all entries to this routine in the trace corpus",
+                "status": "some_outcomes_observed",
+                "exercised_outcomes": [
+                  "34:6145:taken"
+                ],
+                "unresolved_outcomes": [
+                  "34:6157:taken",
+                  "34:6166:fallthrough",
+                  "34:616C:fallthrough",
+                  "34:6170:taken",
+                  "34:619F:fallthrough",
+                  "34:61A5:fallthrough",
+                  "34:61AB:taken"
+                ]
+              },
+              "dynamic_path_observed": false
             },
             {
               "terminal": "glyph_DB_set_iy32_bit2",
@@ -1464,6 +1614,7 @@
                 "34:6166:fallthrough",
                 "34:616C:taken"
               ],
+              "concrete_state_count": 131072,
               "representative_states": [
                 {
                   "A": 37,
@@ -1472,35 +1623,50 @@
                 },
                 {
                   "A": 37,
-                  "iy44_bit3": 0,
-                  "word_8520": 1
-                },
-                {
-                  "A": 37,
-                  "iy44_bit3": 0,
-                  "word_8520": 5
-                },
-                {
-                  "A": 37,
-                  "iy44_bit3": 0,
-                  "word_8520": 6
+                  "iy44_bit3": 1,
+                  "word_8520": 0
                 }
-              ]
+              ],
+              "branch_outcome_coverage": {
+                "scope": "all entries to this routine in the trace corpus",
+                "status": "some_outcomes_observed",
+                "exercised_outcomes": [
+                  "34:6145:taken"
+                ],
+                "unresolved_outcomes": [
+                  "34:6157:taken",
+                  "34:6166:fallthrough",
+                  "34:616C:taken"
+                ]
+              },
+              "dynamic_path_observed": false
             }
           ],
+          "dynamic_entry_observed": true,
           "observed_entry_states": [
             {
               "A": 39,
               "iy44_bit3": 1,
+              "word_8520": "not read",
               "terminal": "bitmap_630C",
+              "branch_outcomes": [
+                "34:6145:fallthrough",
+                "34:614E:taken"
+              ],
               "trace": "mp_targeted_boundary__sqrt_marker_insert",
-              "instruction_index": 2121359
+              "discriminator_instruction_index": 2121363
             },
             {
               "A": 34,
+              "iy44_bit3": "not read",
+              "word_8520": "not read",
               "terminal": "glyph_7C_set_iy32_bit2",
+              "branch_outcomes": [
+                "34:6145:taken",
+                "34:6157:fallthrough"
+              ],
               "trace": "mp_targeted_boundary__integral_boundary_insert2",
-              "instruction_index": 3671098
+              "discriminator_instruction_index": 3671101
             }
           ]
         }
@@ -1515,6 +1681,7 @@
         "marker type in {0x20,0x24,0x2A}",
         "nesting counter 0x8515"
       ],
+      "concrete_state_domain": 16,
       "terminal_classes": [
         {
           "terminal": "return_nz_other_marker",
@@ -1524,6 +1691,8 @@
             "34:75B0:fallthrough",
             "34:755F:taken"
           ],
+          "path_witness_outcome": "34:75B0:fallthrough",
+          "concrete_state_count": 2,
           "representative_states": [
             {
               "at_edit_tail_plus_6": 1,
@@ -1537,7 +1706,20 @@
               "marker_class": "other",
               "nesting_nonzero": 1
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "some_outcomes_observed",
+            "exercised_outcomes": [
+              "34:75A5:fallthrough",
+              "34:75A9:fallthrough",
+              "34:755F:taken"
+            ],
+            "unresolved_outcomes": [
+              "34:75B0:fallthrough"
+            ]
+          },
+          "dynamic_path_observed": false
         },
         {
           "terminal": "return_nz_pointer_mismatch",
@@ -1545,6 +1727,8 @@
             "34:75A5:returned",
             "34:755F:taken"
           ],
+          "path_witness_outcome": "34:75A5:returned",
+          "concrete_state_count": 8,
           "representative_states": [
             {
               "at_edit_tail_plus_6": 0,
@@ -1570,7 +1754,17 @@
               "marker_class": "other",
               "nesting_nonzero": 1
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "all_outcomes_observed",
+            "exercised_outcomes": [
+              "34:75A5:returned",
+              "34:755F:taken"
+            ],
+            "unresolved_outcomes": []
+          },
+          "dynamic_path_observed": true
         },
         {
           "terminal": "return_nz_yequ_table",
@@ -1579,6 +1773,8 @@
             "34:75A9:taken",
             "34:755F:taken"
           ],
+          "path_witness_outcome": "34:75A9:taken",
+          "concrete_state_count": 4,
           "representative_states": [
             {
               "at_edit_tail_plus_6": 1,
@@ -1604,7 +1800,19 @@
               "marker_class": "other",
               "nesting_nonzero": 1
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "some_outcomes_observed",
+            "exercised_outcomes": [
+              "34:75A5:fallthrough",
+              "34:755F:taken"
+            ],
+            "unresolved_outcomes": [
+              "34:75A9:taken"
+            ]
+          },
+          "dynamic_path_observed": false
         },
         {
           "terminal": "return_z_special_marker_nested",
@@ -1615,6 +1823,8 @@
             "34:75BB:fallthrough",
             "34:755F:fallthrough"
           ],
+          "path_witness_outcome": "34:75BB:fallthrough",
+          "concrete_state_count": 1,
           "representative_states": [
             {
               "at_edit_tail_plus_6": 1,
@@ -1622,7 +1832,21 @@
               "marker_class": "fraction_nthroot_power",
               "nesting_nonzero": 1
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "some_outcomes_observed",
+            "exercised_outcomes": [
+              "34:75A5:fallthrough",
+              "34:75A9:fallthrough",
+              "34:75B0:taken",
+              "34:755F:fallthrough"
+            ],
+            "unresolved_outcomes": [
+              "34:75BB:fallthrough"
+            ]
+          },
+          "dynamic_path_observed": false
         },
         {
           "terminal": "return_z_special_marker_top_level",
@@ -1633,6 +1857,8 @@
             "34:75BB:taken",
             "34:755F:fallthrough"
           ],
+          "path_witness_outcome": "34:75BB:taken",
+          "concrete_state_count": 1,
           "representative_states": [
             {
               "at_edit_tail_plus_6": 1,
@@ -1640,7 +1866,20 @@
               "marker_class": "fraction_nthroot_power",
               "nesting_nonzero": 0
             }
-          ]
+          ],
+          "branch_outcome_coverage": {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": "all_outcomes_observed",
+            "exercised_outcomes": [
+              "34:75A5:fallthrough",
+              "34:75A9:fallthrough",
+              "34:75B0:taken",
+              "34:75BB:taken",
+              "34:755F:fallthrough"
+            ],
+            "unresolved_outcomes": []
+          },
+          "dynamic_path_observed": true
         }
       ]
     }
@@ -1745,7 +1984,7 @@
       "sha256": "3f2c6018fb1af5b996090cc0b5dde69aa14836f97bcdf8d8258d32f1f6e3d8e0",
       "bytes": 199094478,
       "instructions": 4037173,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 435
     },
     {
@@ -1769,7 +2008,7 @@
       "sha256": "12b82dffbe797bd968533ba0256b0d520da7496d6f3600a46e705da4d6524f28",
       "bytes": 95883918,
       "instructions": 1950719,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 231
     },
     {
@@ -1897,7 +2136,7 @@
       "sha256": "07c993fcf0b7ed0539d5d99a214c57c957a3cfc2a622928072e24f8169158b41",
       "bytes": 114467400,
       "instructions": 2327463,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 296
     },
     {
@@ -1921,7 +2160,7 @@
       "sha256": "d180f80572ce6b953a432b66c4bf30b220c50f6d4a9738617e01d3080977a603",
       "bytes": 118012212,
       "instructions": 2398810,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 344
     },
     {
@@ -1993,7 +2232,7 @@
       "sha256": "e4ba3c7265394ee98b6a06d8a37469a27ea3ecde5e8cd095628c115c7445bfdd",
       "bytes": 122580342,
       "instructions": 2491953,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 467
     },
     {
@@ -2057,7 +2296,7 @@
       "sha256": "f89648be8d9a926d73ac11c4ff7c42deb85a5786302c7005b10a74ad099e1c01",
       "bytes": 127532778,
       "instructions": 2590704,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 357
     },
     {
@@ -2089,7 +2328,7 @@
       "sha256": "195baa5e4a75be6f5c481f995bf8c7cfaf16a189b5e878ce21cde642a24a8ffd",
       "bytes": 128203722,
       "instructions": 2607431,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 413
     },
     {
@@ -2121,7 +2360,7 @@
       "sha256": "3990bc844d6ecd60d10c1ebdbaa92fe412681d2137d36b3a7418867c7032fd4e",
       "bytes": 130778748,
       "instructions": 2656277,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 354
     },
     {
@@ -2129,7 +2368,7 @@
       "sha256": "f2740f2615b5a43a759a775da302c18399191f46366c96b465386c561bbea086",
       "bytes": 130825908,
       "instructions": 2657239,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 329
     },
     {
@@ -2145,7 +2384,7 @@
       "sha256": "92d0a73dde8ebaae1925a78759966f590184a6884923267354e5637a85fa1e54",
       "bytes": 133787778,
       "instructions": 2719433,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 445
     },
     {
@@ -2185,7 +2424,7 @@
       "sha256": "2ad94b9e5ede2f2983cfe3d06d8c36e0ac3a7616c0939520ab211306b235f5d8",
       "bytes": 138269484,
       "instructions": 2807958,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 443
     },
     {
@@ -2193,7 +2432,7 @@
       "sha256": "67a6f3c1dbca53aac2f2ef06684c87d3e360842478af1fbfdc1382cd8f0bad29",
       "bytes": 138474612,
       "instructions": 2813610,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 503
     },
     {
@@ -2201,7 +2440,7 @@
       "sha256": "2bfe5d930f53ac8c33d955482e29a14384d4cc6a1827efd7c9c206e255599d00",
       "bytes": 138911526,
       "instructions": 2821719,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 468
     },
     {
@@ -2209,7 +2448,7 @@
       "sha256": "0e296e03f1b75bf87a8661a28701beec0221b46ee55734438bf095eb45ee78ce",
       "bytes": 141214704,
       "instructions": 2867649,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 443
     },
     {
@@ -2233,7 +2472,7 @@
       "sha256": "3667ab642af5522bf6eb5db8a88d5b9447399d42519ce491af9e5ed19ae358e3",
       "bytes": 142721748,
       "instructions": 2898226,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 494
     },
     {
@@ -2241,7 +2480,7 @@
       "sha256": "7fdd499aec3395a7014fd845a67ea993762db425f8a4ef57ffd997ee6656d61f",
       "bytes": 142732446,
       "instructions": 2899370,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 533
     },
     {
@@ -2257,7 +2496,7 @@
       "sha256": "33d42b53ad42b82b33d95d6f273c90c48629c398f38d69144ab01dd958c06977",
       "bytes": 143260518,
       "instructions": 2908658,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 443
     },
     {
@@ -2265,7 +2504,7 @@
       "sha256": "c76d7879cc9dc746d6eee3340f36586dfca2eee7fcd5f728b650682f8163423a",
       "bytes": 143578014,
       "instructions": 2917787,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 445
     },
     {
@@ -2273,7 +2512,7 @@
       "sha256": "82dad6506905445606bb0916d642c4ca0d8919e345869e37065fa49e9b65f39a",
       "bytes": 143582016,
       "instructions": 2917877,
-      "unclassified_branch_transitions": 3,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 446
     },
     {
@@ -2281,7 +2520,7 @@
       "sha256": "16ec6c38aad868f3b9380bbac46fd118764117dde93f237ae1fb21d9620e2c49",
       "bytes": 143587992,
       "instructions": 2918008,
-      "unclassified_branch_transitions": 3,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 446
     },
     {
@@ -2337,7 +2576,7 @@
       "sha256": "01cb09abf965613a54371be2aa818535cbfe1f42627db146fd9fcd3f85a8b239",
       "bytes": 148734558,
       "instructions": 3022201,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 445
     },
     {
@@ -2353,7 +2592,7 @@
       "sha256": "bf90e58cec1aa9ead6c969ef2f275a9e203e11a87cca4f8d062122ec30904e85",
       "bytes": 150958704,
       "instructions": 3064591,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 497
     },
     {
@@ -2361,7 +2600,7 @@
       "sha256": "bdd06ef98763a83e25377a96ae25cc181845208ae8a27d09c1e30247bb9b482c",
       "bytes": 151867746,
       "instructions": 3083179,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 497
     },
     {
@@ -2425,7 +2664,7 @@
       "sha256": "0cc7018fd1a3e4cb8a66c4bad5f6062cdbd9619d9f2649897f12efc6d5f2235a",
       "bytes": 159168426,
       "instructions": 3230429,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 498
     },
     {
@@ -2449,7 +2688,7 @@
       "sha256": "edb34f973911d08e3f9580ceffb74a71aaac4a92b722e3eefa9062d53c9b2820",
       "bytes": 160078104,
       "instructions": 3249475,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 474
     },
     {
@@ -2473,7 +2712,7 @@
       "sha256": "da591b53a55384a55b7b2ef2df4d785b5e47e120ebeb621a89b197a33c8950d6",
       "bytes": 160858974,
       "instructions": 3263793,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 447
     },
     {
@@ -2521,7 +2760,7 @@
       "sha256": "c4574f88066dec3057695c4ad52f052609a6c166fe9184868962ec6e7edddac6",
       "bytes": 164381466,
       "instructions": 3335551,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 498
     },
     {
@@ -2529,7 +2768,7 @@
       "sha256": "f48b5341e01e5eaea5f6a79439c8e03f47148d5264097912b64af6eecfd106d0",
       "bytes": 165366174,
       "instructions": 3355158,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 500
     },
     {
@@ -2537,7 +2776,7 @@
       "sha256": "24cfa4286a62eceda91635863448cabdac87f568b10ec232f3ef2bd8dd1ee622",
       "bytes": 166479396,
       "instructions": 3377474,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 478
     },
     {
@@ -2545,7 +2784,7 @@
       "sha256": "05000781d49d4fd31f2a78dd7550b40b1483fc4f5efc44fe5e12c91118e799df",
       "bytes": 167613864,
       "instructions": 3400394,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 478
     },
     {
@@ -2569,7 +2808,7 @@
       "sha256": "7914d9b709da3179cae72e4e26fdc06fa649fc630b064c4250c7910b36fe368c",
       "bytes": 170359266,
       "instructions": 3456619,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 488
     },
     {
@@ -2585,7 +2824,7 @@
       "sha256": "b13b9962d82a680cfc79d50bd7eedd82ff00afbcfb0dc13fbf61c46519311398",
       "bytes": 174316566,
       "instructions": 3537809,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 593
     },
     {
@@ -2593,7 +2832,7 @@
       "sha256": "426a9d5ce037e815ebe358e87a1fbf20ee3cdb55655a8f06d85f565093fa9622",
       "bytes": 174400326,
       "instructions": 3538024,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 520
     },
     {
@@ -2625,7 +2864,7 @@
       "sha256": "51128b1a40f0a7ba56f751e61eb6733a5b3f90cbe62a4fc3c91f75e68fa3339a",
       "bytes": 175729626,
       "instructions": 3564238,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 479
     },
     {
@@ -2633,7 +2872,7 @@
       "sha256": "be3201d1661e54eddc3bb9ccf9d79e436a5a13ea688c09d86e4aae6e82d3df21",
       "bytes": 176423748,
       "instructions": 3578201,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 479
     },
     {
@@ -2641,7 +2880,7 @@
       "sha256": "d0b8c01d9720f413d9e00e0b2ad7705ee7b2d6375ebef02d83094d3cc913781f",
       "bytes": 176805450,
       "instructions": 3587800,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 591
     },
     {
@@ -2657,7 +2896,7 @@
       "sha256": "53968aee3f63645ea0f3696efef0232ffaee246fd08e75a0bdedac6d8acfb752",
       "bytes": 179661612,
       "instructions": 3644403,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 521
     },
     {
@@ -2673,7 +2912,7 @@
       "sha256": "a48d45a66de518184d4e87e2cff6612d27746eaa12da6ef786c1212ddb0cfc93",
       "bytes": 181840512,
       "instructions": 3688439,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 521
     },
     {
@@ -2689,7 +2928,7 @@
       "sha256": "ac0f5489feb171be7c0e5c136d5cb33e6ea4e1485d62d2fab6ce9f389043a38d",
       "bytes": 183449058,
       "instructions": 3719801,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 507
     },
     {
@@ -2713,7 +2952,7 @@
       "sha256": "41fd551c5881ce578b552ad0cbbbc944928aacfed768bc67ed20aa2aa80d6f62",
       "bytes": 188232372,
       "instructions": 3816945,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 570
     },
     {
@@ -2721,7 +2960,7 @@
       "sha256": "baf51527abd999baadb34c3b822758ba7be4db878f7ac1493059c6b445d7019a",
       "bytes": 188630796,
       "instructions": 3824180,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 504
     },
     {
@@ -2729,7 +2968,7 @@
       "sha256": "00bfc69119d67a5ec4c9d88b9dae6b1eff4656b8bb1b318315e0dc3b088084ef",
       "bytes": 189780564,
       "instructions": 3846888,
-      "unclassified_branch_transitions": 3,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 514
     },
     {
@@ -2737,7 +2976,7 @@
       "sha256": "34ac09569e36cd4f5a746f9ac118ac3103a86f7b3d71078d5315220a2109d797",
       "bytes": 189868752,
       "instructions": 3849007,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 505
     },
     {
@@ -2745,7 +2984,7 @@
       "sha256": "b66f8cb0b5dffb2a0c4acb0a9a1d118301591a6caf2a629ef791bf5793034989",
       "bytes": 189897846,
       "instructions": 3851934,
-      "unclassified_branch_transitions": 3,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 596
     },
     {
@@ -2753,7 +2992,7 @@
       "sha256": "b353d324d12713fe45788248b79d6f7054f3d49c64c1bcd0c4181ed6ec5dd59a",
       "bytes": 190275582,
       "instructions": 3857837,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 478
     },
     {
@@ -2761,7 +3000,7 @@
       "sha256": "5e839bf1bad0f5fa21c9e0db9647e6af0c974c5bf22fb3c221450832a4ced05e",
       "bytes": 190568538,
       "instructions": 3865701,
-      "unclassified_branch_transitions": 4,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 600
     },
     {
@@ -2785,7 +3024,7 @@
       "sha256": "7205a91aa887d80a6ba3ad315c084a860bfb143fdc6a8a86e55458b4a53c1aec",
       "bytes": 194500890,
       "instructions": 3942736,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 489
     },
     {
@@ -2793,7 +3032,7 @@
       "sha256": "c3879e5bf91eed17ba7f9c0ca233df955a2822945aa8ce05b7e9b07c8a86bc84",
       "bytes": 194898498,
       "instructions": 3952892,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 465
     },
     {
@@ -2817,7 +3056,7 @@
       "sha256": "4c65c41970518d446cf155cab4b0a1983621e33d9e3c5aef100c26296d4d1dc3",
       "bytes": 199310514,
       "instructions": 4040414,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 579
     },
     {
@@ -2825,7 +3064,7 @@
       "sha256": "e693c452ec16dc1fe87bde8e68559275a83835c74ef4fb73218dcece17af789e",
       "bytes": 201308958,
       "instructions": 4083224,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 427
     },
     {
@@ -2833,7 +3072,7 @@
       "sha256": "e3a9bb725518b7130e9d5a91f709cc4d9bcf101c132fa065f9de16f5d950262d",
       "bytes": 201567522,
       "instructions": 4084805,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 495
     },
     {
@@ -2849,7 +3088,7 @@
       "sha256": "d634065d84bdce0b11d1fcaf1ada4541544362ff6f033a494aad565dc7be62c2",
       "bytes": 202497294,
       "instructions": 4103726,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 495
     },
     {
@@ -2857,7 +3096,7 @@
       "sha256": "d73698a4b6c6a2c1e2d10c06dd2c774030f2a8ac055fa31d9a5fb2801e5e728d",
       "bytes": 202534932,
       "instructions": 4104490,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 495
     },
     {
@@ -2865,7 +3104,7 @@
       "sha256": "9426d6730ef1c8d000ffb85c8786ee03cd625c8393598bc7efb4ea2de96346dc",
       "bytes": 202586646,
       "instructions": 4105555,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 495
     },
     {
@@ -2873,7 +3112,7 @@
       "sha256": "a7f8efc9eb4e205bf1081dbd9f86caec65d83c8bc626cafa4dd4039ff2033cf0",
       "bytes": 203288988,
       "instructions": 4121462,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 293
     },
     {
@@ -2881,7 +3120,7 @@
       "sha256": "660fa184a35715ccf32f830413512d479a3c8ab822f0a85abd47732ccd6983e2",
       "bytes": 203718150,
       "instructions": 4127082,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 501
     },
     {
@@ -2889,7 +3128,7 @@
       "sha256": "318fafffc82bf312233413c685810b769e257ec4419542358b48185b4d5fbfe2",
       "bytes": 205791624,
       "instructions": 4171011,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 612
     },
     {
@@ -2897,7 +3136,7 @@
       "sha256": "0725ce7c4559d0dec9bb7a539b941b5896ce6f0637ff44708522bb9980033c0d",
       "bytes": 206644986,
       "instructions": 4188911,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 377
     },
     {
@@ -2905,7 +3144,7 @@
       "sha256": "3b3f5574a03b48936c0058e027018f3a436209f4c89546281356bbf3d49a267d",
       "bytes": 206937552,
       "instructions": 4193147,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 513
     },
     {
@@ -2913,7 +3152,7 @@
       "sha256": "c95ec75238258fc139a68e7e2f5fc4e079c88d948641f98d1900b16c4a8d907c",
       "bytes": 212082864,
       "instructions": 4295805,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 412
     },
     {
@@ -2921,7 +3160,7 @@
       "sha256": "ecf2748223e253aaf6f58db8204a3638cbb9f104dabe46cc5d04d2276d9e3500",
       "bytes": 216594888,
       "instructions": 4385488,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 458
     },
     {
@@ -2929,7 +3168,7 @@
       "sha256": "57f585bca97b60f6428d2c322a238a89a6384e02aac8c915ba983b7b6c8d222f",
       "bytes": 217952922,
       "instructions": 4415952,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 613
     },
     {
@@ -2937,7 +3176,7 @@
       "sha256": "84f915b41017f59bd98d95e94a5908a96cd40f48224ba819cedbee00b608e0b6",
       "bytes": 219356682,
       "instructions": 4443496,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 618
     },
     {
@@ -2953,7 +3192,7 @@
       "sha256": "d92c213e76a5177efc1b7a4a66233e589044772583032dfc5cf4d9cd8b61818c",
       "bytes": 226076310,
       "instructions": 4580134,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 613
     },
     {
@@ -2961,7 +3200,7 @@
       "sha256": "773028353eadfcb1a3ac545ad4934bc489f86668c774f674b3988c2a109ba6c3",
       "bytes": 226781358,
       "instructions": 4594199,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 600
     },
     {
@@ -2969,7 +3208,7 @@
       "sha256": "19a8c42761b2c97328552ad8faf3e92355446d297d9a1dbcc7f7ead2a6e4d132",
       "bytes": 227754246,
       "instructions": 4613204,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 603
     },
     {
@@ -2977,7 +3216,7 @@
       "sha256": "0992602c46a4937a4b80ab5708b71fc8f38f23a34625a3a256b8716a19a9f93f",
       "bytes": 229791918,
       "instructions": 4651515,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 446
     },
     {
@@ -2993,7 +3232,7 @@
       "sha256": "fb5c661b91667da22d705a48fd7b6953f034bc2b97b5bdca4af8787eb0b4ee9e",
       "bytes": 234490536,
       "instructions": 4749468,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 625
     },
     {
@@ -3001,7 +3240,7 @@
       "sha256": "8012ffc8bc2d6c7e7deab3c4a200e2035917aae830eae4c8f0d367c105d0c9eb",
       "bytes": 235730154,
       "instructions": 4774529,
-      "unclassified_branch_transitions": 3,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 625
     },
     {
@@ -3009,7 +3248,7 @@
       "sha256": "318aebe5faf28d1b56f7c2b507c1c653103619f71ab360b8b55e9b0eb5654887",
       "bytes": 241243776,
       "instructions": 4884840,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 616
     },
     {
@@ -3017,7 +3256,7 @@
       "sha256": "8fc8aef1c3375e57b8bab940f98a4060d275e0fb0cbcd2153df11bc582fb619f",
       "bytes": 241448580,
       "instructions": 4888985,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 616
     },
     {
@@ -3025,7 +3264,7 @@
       "sha256": "2a66714eb3136e67eed8007a5d18db3a78075af4bce6c2caf6f28ed64d20d09f",
       "bytes": 242390772,
       "instructions": 4907793,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 617
     },
     {
@@ -3033,7 +3272,7 @@
       "sha256": "51a51f3aeb64f1b8b6f69bdeaba7ed6404e57d3f407049aba9a47927c2667f68",
       "bytes": 242466726,
       "instructions": 4909666,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 624
     },
     {
@@ -3041,7 +3280,7 @@
       "sha256": "d65c8b55031b7801b17bfe85302ff2114a295caa99255a64d8bae30c4d2fc419",
       "bytes": 242505114,
       "instructions": 4910575,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 616
     },
     {
@@ -3049,7 +3288,7 @@
       "sha256": "9c1ed430f019be26c56daef0f7d51192ce7602aa82a40f3454c82e7eeb7290eb",
       "bytes": 248154114,
       "instructions": 5023365,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 617
     },
     {
@@ -3065,7 +3304,7 @@
       "sha256": "82e4b46dbf80242df2aaa7ec0d7d02ef59c0e2fc54750afcfec197072dd3695d",
       "bytes": 254896176,
       "instructions": 5158558,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 530
     },
     {
@@ -3073,7 +3312,7 @@
       "sha256": "7b2ffd780265f8109dd6558b952ded6c61cc2a899cd8e6e0c3807075acb7c413",
       "bytes": 258005976,
       "instructions": 5220724,
-      "unclassified_branch_transitions": 3,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 520
     },
     {
@@ -3089,7 +3328,7 @@
       "sha256": "7467e23814d506e8f33d8fb90c23f7b035722292ae7a1626fc1439ed8535bd07",
       "bytes": 260098638,
       "instructions": 5263945,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 512
     },
     {
@@ -3097,7 +3336,7 @@
       "sha256": "3ce5356ccf61c59a3cef9671bb84131b2e1e9143fe336b89d61c9263cdeb43d5",
       "bytes": 262659384,
       "instructions": 5315840,
-      "unclassified_branch_transitions": 4,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 606
     },
     {
@@ -3105,7 +3344,7 @@
       "sha256": "1ba8e8f853b2cc07cfdad732c06037e13c02cafbe23249c5befe86413670f0d8",
       "bytes": 300065514,
       "instructions": 6073055,
-      "unclassified_branch_transitions": 2,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 615
     },
     {
@@ -3113,7 +3352,7 @@
       "sha256": "759021bb02ab480e095a270c012baa9dac621a2119fa7b8bd119379a95ba5f44",
       "bytes": 149815110,
       "instructions": 3041211,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 526
     },
     {
@@ -3137,7 +3376,7 @@
       "sha256": "a0606a36885a1fb11a2e3a75482106aed1f39b26affe3b7b5cc01b0d330e4ec7",
       "bytes": 110764542,
       "instructions": 2252308,
-      "unclassified_branch_transitions": 1,
+      "unclassified_branch_transitions": 0,
       "unique_branch_outcomes": 258
     }
   ],
@@ -5098,14 +5337,14 @@
           "target": "34:4948",
           "fallthrough": "34:4947",
           "observed": {
-            "taken": 2222,
+            "taken": 2223,
             "fallthrough": 40
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2222,
+              "hits": 2223,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 707947,
@@ -10702,14 +10941,14 @@
           "target": "34:593A",
           "fallthrough": "34:594A",
           "observed": {
-            "taken": 23600,
+            "taken": 23601,
             "fallthrough": 1360
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 23600,
+              "hits": 23601,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1811199,
@@ -18138,7 +18377,7 @@
           "target": "34:5DEC",
           "fallthrough": "34:5DE3",
           "observed": {
-            "fallthrough": 19296
+            "fallthrough": 19298
           },
           "outcomes": [
             {
@@ -18149,7 +18388,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 19296,
+              "hits": 19298,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 711007,
@@ -18260,7 +18499,7 @@
           "target": "34:5E0C",
           "fallthrough": "34:5E03",
           "observed": {
-            "fallthrough": 16436
+            "fallthrough": 16437
           },
           "outcomes": [
             {
@@ -18271,7 +18510,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 16436,
+              "hits": 16437,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 711076,
@@ -18420,7 +18659,7 @@
           "fallthrough": "34:5E8B",
           "observed": {
             "taken": 5,
-            "fallthrough": 11421
+            "fallthrough": 11422
           },
           "outcomes": [
             {
@@ -18449,7 +18688,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 11421,
+              "hits": 11422,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1870000,
@@ -18517,7 +18756,7 @@
           "target": "34:5EAA",
           "fallthrough": "34:5E98",
           "observed": {
-            "fallthrough": 11419
+            "fallthrough": 11422
           },
           "outcomes": [
             {
@@ -18528,7 +18767,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 11419,
+              "hits": 11422,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1870025,
@@ -19580,7 +19819,7 @@
           "target": null,
           "fallthrough": "34:613A",
           "observed": {
-            "fallthrough": 15139,
+            "fallthrough": 15140,
             "returned": 50
           },
           "outcomes": [
@@ -19610,7 +19849,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 15139,
+              "hits": 15140,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1814302,
@@ -20179,14 +20418,14 @@
           "target": "34:61D8",
           "fallthrough": "34:61D2",
           "observed": {
-            "taken": 1282,
+            "taken": 1283,
             "fallthrough": 290
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 1282,
+              "hits": 1283,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1720116,
@@ -22381,14 +22620,14 @@
           "target": "34:6706",
           "fallthrough": "34:6636",
           "observed": {
-            "taken": 7805,
+            "taken": 7806,
             "fallthrough": 8923
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 7805,
+              "hits": 7806,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1301346,
@@ -23634,7 +23873,7 @@
           "target": "34:686B",
           "fallthrough": "34:682B",
           "observed": {
-            "fallthrough": 10787
+            "fallthrough": 10788
           },
           "outcomes": [
             {
@@ -23645,7 +23884,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 10787,
+              "hits": 10788,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1301279,
@@ -23854,14 +24093,14 @@
           "target": "34:6851",
           "fallthrough": "34:6848",
           "observed": {
-            "taken": 4519,
+            "taken": 4520,
             "fallthrough": 6268
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 4519,
+              "hits": 4520,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1301297,
@@ -24112,7 +24351,7 @@
           "fallthrough": "34:6877",
           "observed": {
             "taken": 84,
-            "fallthrough": 7009
+            "fallthrough": 7010
           },
           "outcomes": [
             {
@@ -24141,7 +24380,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 7009,
+              "hits": 7010,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1832572,
@@ -24406,7 +24645,7 @@
           "fallthrough": "34:6885",
           "observed": {
             "taken": 46,
-            "fallthrough": 6789
+            "fallthrough": 6793
           },
           "outcomes": [
             {
@@ -24435,7 +24674,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 6789,
+              "hits": 6793,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1832578,
@@ -25213,14 +25452,14 @@
           "target": "34:6905",
           "fallthrough": "34:6901",
           "observed": {
-            "taken": 885,
+            "taken": 886,
             "fallthrough": 282
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 885,
+              "hits": 886,
               "witness": {
                 "trace": "mp_matrix_probes__matrix_1x2",
                 "instruction_index": 1885910,
@@ -25997,14 +26236,14 @@
           "target": "34:6A09",
           "fallthrough": "34:6A06",
           "observed": {
-            "taken": 2126,
+            "taken": 2127,
             "fallthrough": 1573
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2126,
+              "hits": 2127,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 710713,
@@ -26291,13 +26530,13 @@
           "target": "34:6A30",
           "fallthrough": "34:6A2A",
           "observed": {
-            "taken": 1511
+            "taken": 1513
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 1511,
+              "hits": 1513,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 710793,
@@ -28735,13 +28974,13 @@
           "target": "34:6C87",
           "fallthrough": "34:6C81",
           "observed": {
-            "taken": 9524
+            "taken": 9525
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 9524,
+              "hits": 9525,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1873435,
@@ -29404,13 +29643,13 @@
           "target": "34:7547",
           "fallthrough": "34:73D0",
           "observed": {
-            "taken": 8286
+            "taken": 8291
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 8286,
+              "hits": 8291,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 710431,
@@ -31034,7 +31273,7 @@
           "target": null,
           "fallthrough": "34:754F",
           "observed": {
-            "fallthrough": 8966,
+            "fallthrough": 8967,
             "returned": 8291
           },
           "outcomes": [
@@ -31064,7 +31303,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8966,
+              "hits": 8967,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1827325,
@@ -33176,14 +33415,14 @@
           "target": "33:4F3B",
           "fallthrough": "33:4F2D",
           "observed": {
-            "taken": 29161,
+            "taken": 29165,
             "fallthrough": 135
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 29161,
+              "hits": 29165,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 708072,
@@ -33274,14 +33513,14 @@
           "target": "33:4F6D",
           "fallthrough": "33:4F46",
           "observed": {
-            "taken": 30871,
+            "taken": 30873,
             "fallthrough": 8
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 30871,
+              "hits": 30873,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 707583,
@@ -39865,7 +40104,7 @@
           "target": "39:4F5C",
           "fallthrough": "39:4F5A",
           "observed": {
-            "fallthrough": 1203
+            "fallthrough": 1204
           },
           "outcomes": [
             {
@@ -39876,7 +40115,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 1203,
+              "hits": 1204,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1705992,
@@ -55620,14 +55859,14 @@
           "target": "01:6277",
           "fallthrough": "01:6273",
           "observed": {
-            "taken": 36241,
+            "taken": 36251,
             "fallthrough": 8544
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 36241,
+              "hits": 36251,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 750878,
@@ -55718,13 +55957,13 @@
           "target": "01:628F",
           "fallthrough": "01:627D",
           "observed": {
-            "taken": 36247
+            "taken": 36251
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 36247,
+              "hits": 36251,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 750880,
@@ -58315,14 +58554,14 @@
           "target": "01:677F",
           "fallthrough": "01:6709",
           "observed": {
-            "taken": 16693,
-            "fallthrough": 7085
+            "taken": 16696,
+            "fallthrough": 7086
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 16693,
+              "hits": 16696,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1697504,
@@ -58345,7 +58584,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 7085,
+              "hits": 7086,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1814034,
@@ -58414,7 +58653,7 @@
           "fallthrough": "01:6710",
           "observed": {
             "taken": 70,
-            "fallthrough": 7015
+            "fallthrough": 7016
           },
           "outcomes": [
             {
@@ -58443,7 +58682,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 7015,
+              "hits": 7016,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1814037,
@@ -58512,7 +58751,7 @@
           "fallthrough": "01:6715",
           "observed": {
             "taken": 14,
-            "fallthrough": 6998
+            "fallthrough": 7002
           },
           "outcomes": [
             {
@@ -58541,7 +58780,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 6998,
+              "hits": 7002,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1814039,
@@ -58609,14 +58848,14 @@
           "target": "01:673C",
           "fallthrough": "01:671C",
           "observed": {
-            "taken": 6987,
+            "taken": 6988,
             "fallthrough": 14
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 6987,
+              "hits": 6988,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1814042,
@@ -58873,7 +59112,7 @@
           "target": "01:6782",
           "fallthrough": "01:6748",
           "observed": {
-            "fallthrough": 6986
+            "fallthrough": 6988
           },
           "outcomes": [
             {
@@ -58884,7 +59123,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 6986,
+              "hits": 6988,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1814047,
@@ -59056,7 +59295,7 @@
           "target": "01:677A",
           "fallthrough": "01:6758",
           "observed": {
-            "fallthrough": 6986
+            "fallthrough": 6988
           },
           "outcomes": [
             {
@@ -59067,7 +59306,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 6986,
+              "hits": 6988,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1814054,
@@ -59118,7 +59357,7 @@
           "fallthrough": "01:675F",
           "observed": {
             "taken": 14,
-            "fallthrough": 6973
+            "fallthrough": 6974
           },
           "outcomes": [
             {
@@ -59147,7 +59386,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 6973,
+              "hits": 6974,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1814057,
@@ -60012,7 +60251,7 @@
           "fallthrough": "04:4080",
           "observed": {
             "taken": 158,
-            "fallthrough": 91358
+            "fallthrough": 91360
           },
           "outcomes": [
             {
@@ -60041,7 +60280,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 91358,
+              "hits": 91360,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 783775,
@@ -60110,7 +60349,7 @@
           "fallthrough": "04:408C",
           "observed": {
             "taken": 38772,
-            "fallthrough": 52587
+            "fallthrough": 52588
           },
           "outcomes": [
             {
@@ -60139,7 +60378,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 52587,
+              "hits": 52588,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 794858,
@@ -60208,7 +60447,7 @@
           "fallthrough": "04:40A1",
           "observed": {
             "taken": 158,
-            "fallthrough": 38771
+            "fallthrough": 38772
           },
           "outcomes": [
             {
@@ -60237,7 +60476,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 38771,
+              "hits": 38772,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 783784,
@@ -60305,14 +60544,14 @@
           "target": "04:4078",
           "fallthrough": "04:40A6",
           "observed": {
-            "taken": 84926,
+            "taken": 84928,
             "fallthrough": 6590
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 84926,
+              "hits": 84928,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 783788,
@@ -60733,7 +60972,7 @@
           "target": "00:3549",
           "fallthrough": "04:4161",
           "observed": {
-            "fallthrough": 102936
+            "fallthrough": 102940
           },
           "outcomes": [
             {
@@ -60744,7 +60983,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 102936,
+              "hits": 102940,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 783358,
@@ -60794,13 +61033,13 @@
           "target": "04:4172",
           "fallthrough": "04:4163",
           "observed": {
-            "taken": 102935
+            "taken": 102940
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 102935,
+              "hits": 102940,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 783359,
@@ -60855,13 +61094,13 @@
           "target": "04:41ED",
           "fallthrough": "04:417A",
           "observed": {
-            "taken": 102939
+            "taken": 102940
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 102939,
+              "hits": 102940,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 783362,
@@ -61136,14 +61375,14 @@
           "target": "04:4204",
           "fallthrough": "04:41FF",
           "observed": {
-            "taken": 59951,
-            "fallthrough": 42985
+            "taken": 59954,
+            "fallthrough": 42986
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 59951,
+              "hits": 59954,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1862662,
@@ -61166,7 +61405,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 42985,
+              "hits": 42986,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 783372,
@@ -61234,7 +61473,7 @@
           "target": "04:40A8",
           "fallthrough": "04:420A",
           "observed": {
-            "fallthrough": 102935
+            "fallthrough": 102940
           },
           "outcomes": [
             {
@@ -61245,7 +61484,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 102935,
+              "hits": 102940,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 783389,
@@ -61295,13 +61534,13 @@
           "target": "04:421E",
           "fallthrough": "04:421B",
           "observed": {
-            "taken": 102939
+            "taken": 102940
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 102939,
+              "hits": 102940,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 783430,
@@ -61356,7 +61595,7 @@
           "target": "04:424B",
           "fallthrough": "04:4229",
           "observed": {
-            "fallthrough": 102937
+            "fallthrough": 102940
           },
           "outcomes": [
             {
@@ -61367,7 +61606,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 102937,
+              "hits": 102940,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 783435,
@@ -61853,13 +62092,13 @@
           "target": "04:4291",
           "fallthrough": "04:4290",
           "observed": {
-            "taken": 102934
+            "taken": 102940
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 102934,
+              "hits": 102940,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 783763,
@@ -61914,13 +62153,13 @@
           "target": "04:4299",
           "fallthrough": "04:4298",
           "observed": {
-            "taken": 102936
+            "taken": 102940
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 102936,
+              "hits": 102940,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 783766,
@@ -62041,7 +62280,7 @@
           "target": "04:4302",
           "fallthrough": "04:42F6",
           "observed": {
-            "fallthrough": 59951
+            "fallthrough": 59954
           },
           "outcomes": [
             {
@@ -62052,7 +62291,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 59951,
+              "hits": 59954,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1862670,
@@ -62102,7 +62341,7 @@
           "target": "04:4302",
           "fallthrough": "04:42FB",
           "observed": {
-            "fallthrough": 59953
+            "fallthrough": 59954
           },
           "outcomes": [
             {
@@ -62113,7 +62352,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 59953,
+              "hits": 59954,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1862673,
@@ -62163,7 +62402,7 @@
           "target": "04:4302",
           "fallthrough": "04:42FE",
           "observed": {
-            "fallthrough": 59953
+            "fallthrough": 59954
           },
           "outcomes": [
             {
@@ -62174,7 +62413,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 59953,
+              "hits": 59954,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1862675,
@@ -62285,7 +62524,7 @@
           "target": "04:4302",
           "fallthrough": "04:4314",
           "observed": {
-            "fallthrough": 42985
+            "fallthrough": 42986
           },
           "outcomes": [
             {
@@ -62296,7 +62535,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 42985,
+              "hits": 42986,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 783382,
@@ -63697,14 +63936,14 @@
           "target": "07:45FD",
           "fallthrough": "07:4605",
           "observed": {
-            "taken": 51259,
+            "taken": 51264,
             "fallthrough": 8544
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 51259,
+              "hits": 51264,
               "witness": {
                 "trace": "mp_targeted_boundary__integral_boundary_insert2",
                 "instruction_index": 1039479,

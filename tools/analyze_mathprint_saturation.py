@@ -50,7 +50,7 @@ from z80_disassembly import (
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ROM = ROOT / "tools" / "rom.bin"
 DEFAULT_OUTPUT = ROOT / "tools" / "mathprint-saturation.json"
-TRACE_CACHE_SCHEMA = 3
+TRACE_CACHE_SCHEMA = 4
 EXHAUSTIVE_COVER_LIMIT = 24
 
 
@@ -709,38 +709,105 @@ def type1f_path(a: int, iy44_bit3: int, value_8520: int) -> dict[str, object]:
 
 def symbolic_type1f_paths(
     a_values: Iterable[int] = range(0x100),
+    observed_outcomes: Counter[tuple[str, int, str]] | None = None,
 ) -> list[dict[str, object]]:
     """Partition the helper state by complete branch path and terminal action."""
 
     classes: dict[
-        tuple[str, tuple[str, ...]], list[dict[str, int]]
-    ] = defaultdict(list)
-    # These representatives straddle the high-byte and both low-byte bounds.
-    representatives_8520 = (0, 1, 5, 6, 7, 8, 9, 0x0100)
+        tuple[str, tuple[str, ...]], dict[str, object]
+    ] = {}
     for a in a_values:
-        for bit in (0, 1):
-            for value in representatives_8520:
-                result = type1f_path(a, bit, value)
-                key = (
-                    str(result["terminal"]),
-                    tuple(str(item) for item in result["branch_outcomes"]),
-                )
-                if len(classes[key]) < 4:
-                    classes[key].append(
-                        {"A": a, "iy44_bit3": bit, "word_8520": value}
-                    )
-    return [
+        # Only A=2Bh reads 8520h. Its path classes split the low byte at 6/8
+        # and the high byte at zero. Every other A treats the word as free.
+        weighted_states = (
+            (
+                (0, 0, 6), (0, 6, 250),
+                (1, 0, 8), (1, 8, 248),
+                (0, 0x0100, 0xFF00), (1, 0x0100, 0xFF00),
+            ) if a == 0x2B else (
+                (0, 0, 0x10000), (1, 0, 0x10000),
+            )
+        )
+        for bit, value, state_count in weighted_states:
+            result = type1f_path(a, bit, value)
+            key = (
+                str(result["terminal"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "concrete_state_count": 0,
+                "representative_states": [],
+            })
+            row["concrete_state_count"] += state_count
+            states = row["representative_states"]
+            if len(states) < 4:
+                states.append({"A": a, "iy44_bit3": bit, "word_8520": value})
+    paths = [
         {
             "terminal": terminal,
             "branch_outcomes": list(outcomes),
-            "representative_states": states,
+            **classes[(terminal, outcomes)],
         }
-        for (terminal, outcomes), states in sorted(classes.items())
+        for terminal, outcomes in sorted(classes)
     ]
+    return annotate_symbolic_outcome_coverage(paths, observed_outcomes)
+
+
+def symbolic_outcome_key(identifier: str) -> tuple[str, int, str]:
+    """Convert a symbolic pp:addr:outcome identifier to a trace key."""
+
+    page, address, outcome = identifier.split(":")
+    return (f"page_{page}", int(address, 16), outcome)
+
+
+def annotate_symbolic_outcome_coverage(
+    paths: list[dict[str, object]],
+    observed_outcomes: Counter[tuple[str, int, str]] | None,
+) -> list[dict[str, object]]:
+    """Overlay branch-outcome witnesses without claiming a path witness.
+
+    Outcomes on one symbolic path can occur in different dynamic invocations.
+    This annotation therefore reports outcome coverage only.  Exact path
+    witnesses belong in the entry-ABI observations.
+    """
+
+    if observed_outcomes is None:
+        return paths
+    for row in paths:
+        identifiers = [str(item) for item in row["branch_outcomes"]]
+        exercised = [
+            item for item in identifiers
+            if observed_outcomes[symbolic_outcome_key(item)]
+        ]
+        unresolved = [item for item in identifiers if item not in exercised]
+        row["branch_outcome_coverage"] = {
+            "scope": "all entries to this routine in the trace corpus",
+            "status": (
+                "all_outcomes_observed" if not unresolved
+                else "some_outcomes_observed" if exercised
+                else "no_outcomes_observed"
+            ),
+            "exercised_outcomes": exercised,
+            "unresolved_outcomes": unresolved,
+        }
+    return paths
+
+
+def annotate_dynamic_path_witnesses(
+    paths: list[dict[str, object]],
+    observed_branch_paths: Iterable[Iterable[str]],
+) -> list[dict[str, object]]:
+    """Mark complete symbolic paths that one invocation traversed."""
+
+    observed = {tuple(path) for path in observed_branch_paths}
+    for row in paths:
+        row["dynamic_path_observed"] = tuple(row["branch_outcomes"]) in observed
+    return paths
 
 
 def type1f_entry_abis(
     rom: RomImage,
+    outcomes: Counter[tuple[str, int, str]],
     witnesses: dict[tuple[str, int, str], dict[str, object]],
 ) -> list[dict[str, object]]:
     """Describe the two ROM-proven callers that share 34:6143."""
@@ -748,29 +815,37 @@ def type1f_entry_abis(
     table_pointer = rom.u16le(0x34, 0x6119)
     table_a = table_pointer & 0xFF
     observed = []
-    first = witnesses.get(("page_34", 0x6145, "fallthrough"))
     bit = witnesses.get(("page_34", 0x614E, "taken"))
-    if first and bit and first["trace"] == bit["trace"]:
+    if bit and bit["state"]["A"] == 0x27:
+        radical_path = type1f_path(0x27, 1, 0)
         observed.append({
-            "A": first["state"]["A"],
+            "A": 0x27,
             "iy44_bit3": 1,
+            "word_8520": "not read",
             "terminal": "bitmap_630C",
-            "trace": first["trace"],
-            "instruction_index": first["instruction_index"] - 1,
+            "branch_outcomes": radical_path["branch_outcomes"],
+            "trace": bit["trace"],
+            "discriminator_instruction_index": bit["instruction_index"],
         })
-    first_nonradical = witnesses.get(("page_34", 0x6145, "taken"))
     integral = witnesses.get(("page_34", 0x6157, "fallthrough"))
-    if (
-        first_nonradical and integral
-        and first_nonradical["trace"] == integral["trace"]
-        and integral["state"]["A"] == 0x22
-    ):
+    if integral and integral["state"]["A"] == 0x22:
+        integral_path = type1f_path(0x22, 0, 0)
         observed.append({
             "A": 0x22,
+            "iy44_bit3": "not read",
+            "word_8520": "not read",
             "terminal": "glyph_7C_set_iy32_bit2",
+            "branch_outcomes": integral_path["branch_outcomes"],
             "trace": integral["trace"],
-            "instruction_index": first_nonradical["instruction_index"] - 1,
+            "discriminator_instruction_index": integral["instruction_index"],
         })
+    table_paths = symbolic_type1f_paths((table_a,))
+    for row in table_paths:
+        row["entry_path_status"] = "rom_fixed"
+    editor_paths = annotate_dynamic_path_witnesses(
+        symbolic_type1f_paths(range(0x1F, 0x2C), outcomes),
+        (row["branch_outcomes"] for row in observed),
+    )
     return [
         {
             "origin": "settled type-0x1F render-table dispatch",
@@ -783,20 +858,26 @@ def type1f_entry_abis(
             "incoming_A": f"0x{table_a:02X}",
             "state_dependencies": [],
             "terminal": type1f_terminal(table_a, 0, 0),
-            "path_classes": symbolic_type1f_paths((table_a,)),
+            "path_classes": table_paths,
+            "dynamic_entry_observed": False,
             "dynamic_record_oracle": False,
         },
         {
             "origin": "live editor cursor feedback",
             "caller": "06:7F29–7F2E",
             "entry_chain": "06:7F2E → bjump descriptor ram:30BD → 34:6143",
+            "entry_domain": {
+                "incoming_A": "0x1F–0x2B marker types modeled",
+                "concrete_state_domain": 13 * 2 * 0x10000,
+            },
             "rom_bytes": {
                 "caller": rom.bytes_at(0x06, 0x7F29, 8).hex().upper(),
                 "bjump_descriptor": rom.bytes_at(0x00, 0x30BD, 6).hex().upper(),
             },
             "incoming_A": "byte at editTail + 1",
             "state_dependencies": ["A", "(IY+44h).3", "word 0x8520 when A=0x2B"],
-            "path_classes": symbolic_type1f_paths(range(0x1F, 0x2C)),
+            "path_classes": editor_paths,
+            "dynamic_entry_observed": bool(observed),
             "observed_entry_states": observed,
         },
     ]
@@ -841,7 +922,9 @@ def metric_marker_path(
     }
 
 
-def symbolic_metric_marker_paths() -> list[dict[str, object]]:
+def symbolic_metric_marker_paths(
+    observed_outcomes: Counter[tuple[str, int, str]] | None = None,
+) -> list[dict[str, object]]:
     """Partition every predicate combination in the marker-tail gate."""
 
     classes: dict[tuple[str, tuple[str, ...]], list[dict[str, object]]] = defaultdict(list)
@@ -862,14 +945,29 @@ def symbolic_metric_marker_paths() -> list[dict[str, object]]:
                         "marker_class": marker_class,
                         "nesting_nonzero": nested,
                     })
-    return [
+    path_discriminators = {
+        "return_nz_pointer_mismatch": "34:75A5:returned",
+        "return_nz_yequ_table": "34:75A9:taken",
+        "return_nz_other_marker": "34:75B0:fallthrough",
+        "return_z_special_marker_nested": "34:75BB:fallthrough",
+        "return_z_special_marker_top_level": "34:75BB:taken",
+    }
+    paths = [
         {
             "terminal": terminal,
             "branch_outcomes": list(outcomes),
+            "path_witness_outcome": path_discriminators[terminal],
+            "concrete_state_count": len(states),
             "representative_states": states[:4],
         }
         for (terminal, outcomes), states in sorted(classes.items())
     ]
+    annotate_symbolic_outcome_coverage(paths, observed_outcomes)
+    if observed_outcomes is not None:
+        for row in paths:
+            key = symbolic_outcome_key(str(row["path_witness_outcome"]))
+            row["dynamic_path_observed"] = bool(observed_outcomes[key])
+    return paths
 
 
 def table_report(rom: RomImage, oracle: dict[str, object]) -> dict[str, object]:
@@ -942,6 +1040,16 @@ def classify_outcome(
         # preserved condition flags instead of waiting for another SP change.
         if predicate_state(branch, branch_state)["predicate"] is True:
             return "returned"
+    # A maskable interrupt can replace the first target/fallthrough trace
+    # point with the page-0 interrupt entry at 0038h. Conditional transfers do
+    # not change their tested flags, and TLMT stores post-instruction state, so
+    # the consumed predicate still determines the hidden outcome exactly.
+    if next_point == ("ram", 0x0038) and branch_state is not None:
+        predicate = predicate_state(branch, branch_state)["predicate"]
+        if predicate is not None:
+            if branch.kind == "ret":
+                return "returned" if predicate else "fallthrough"
+            return "taken" if predicate else "fallthrough"
     return None
 
 
@@ -1619,11 +1727,14 @@ def build_report(
         },
         "tables": table,
         "symbolic_predicates": {
-            "type_1F_handler": {
+            "shared_marker_draw_helper": {
                 "routine": "34:6143",
                 "state": ["A", "(IY+44h).3", "word 0x8520"],
-                "terminal_classes": symbolic_type1f_paths(),
-                "entry_abis": type1f_entry_abis(rom, witnesses),
+                "concrete_state_domain": 0x100 * 2 * 0x10000,
+                "terminal_classes": symbolic_type1f_paths(
+                    observed_outcomes=outcomes
+                ),
+                "entry_abis": type1f_entry_abis(rom, outcomes, witnesses),
                 "dynamic_record_oracle": False,
             },
             "metric_marker_tail_gate": {
@@ -1634,7 +1745,8 @@ def build_report(
                     "marker type in {0x20,0x24,0x2A}",
                     "nesting counter 0x8515",
                 ],
-                "terminal_classes": symbolic_metric_marker_paths(),
+                "concrete_state_domain": 16,
+                "terminal_classes": symbolic_metric_marker_paths(outcomes),
             },
         },
         "record_oracles": oracle,

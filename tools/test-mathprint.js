@@ -1917,11 +1917,13 @@ expectEqual('full RE regression corpus remains independent of the visible galler
    mp.presets.every(([, expression]) => regressionExpressions.includes(expression))],
   [48, true]);
 
-expectEqual('34:6143 keeps incoming-A-dependent type 1F explicit',
+expectEqual('34:6119 fixes type-1F table dispatch to the default bitmap',
   rom.executeSettledRecordGraph([settledRecord(1,0x1f)],1), [{
-    kind:'unresolved-render',
-    missing:'incoming A and the selected 34:6143 branch',
-    routine:'34:6143', origin:{x:0,y:0}, recordId:1, recordType:0x1f, depth:1,
+    kind:'bitmap', x:0, y:0, width:5, height:7,
+    rows:[0x02,0x01,0x00,0x1f,0x00,0x02,0x06],
+    retainUnchanged:true, tableEntry:[0x43,0x61], incomingA:0x43,
+    routine:'34:6105 → 34:6119 → 00:0033 → 34:6143 → 34:61BE',
+    recordId:1, recordType:0x1f, depth:1,
   }]);
 expectEqual('34:62A1 radical primitive order', rom.settledRadicalOperations(12, 0x1d), [
   {kind:'bitmap', x:0, y:5, width:5, height:7,
