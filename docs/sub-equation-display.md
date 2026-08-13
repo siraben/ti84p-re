@@ -264,9 +264,16 @@ The mapper at `39:683D` converts a descriptor cell to pixels. The `+7` loop (`DE
 builds the *high* byte and the `+(rowHeight+2)` loop builds the *low* byte; the caller stores
 `HL` to `penCol`(`0x86D7`, low→x) / `penRow`(`0x86D8`, high→y), so the two products land as:
 
-$$x\ (\mathit{penCol}) = \mathit{base}_x + \mathit{row} \cdot (\mathit{rowHeight} + 2)$$
+$$
+\begin{aligned}
+x &= \mathit{base}_x \\\\
+  &\quad + \mathit{row}\,(\mathit{rowHeight}+2).
+\end{aligned}
+$$
 
-$$y\ (\mathit{penRow}) = \mathit{base}_y + 7 \cdot \mathit{col}$$
+$$
+y = \mathit{base}_y + 7\,\mathit{col}.
+$$
 
 The known descriptors are:
 
@@ -426,6 +433,7 @@ anchors for readers who want to check the disassembly. [confirmed]
 | `39:4DE6` | Row cell stream emitter. |
 | `39:4E8E` | Generic two-byte cell emitter. |
 | `39:4F1A` | Direct large-glyph classifier. |
+| `39:4F08` | Text-column overflow check before marker handling. |
 | `39:4E0A` | Argument-index marker emitter used by the row compositor. |
 | `39:5167` | Multi-argument operand walker and tall-template row compositor. |
 | `39:5949` | Row-step classifier for one-row versus two-row argument advance. |
@@ -437,6 +445,7 @@ anchors for readers who want to check the disassembly. [confirmed]
 | `39:69C8` | Descriptor/fraction geometry selector. |
 | `39:6ABF` / `39:6B1C` | Fraction focus rectangle and endpoint helper. |
 | `39:6B66` | Generic string selector. |
+| `39:6712` | Overflow marker path; resets `curCol` and emits `:`. |
 | `07:44DE` | Display-byte remapper. |
 | `07:4588` | Large-font fixed glyph blitter. |
 | `01:6293` | `_VPutMap` small-font pixel output. |
@@ -458,7 +467,7 @@ two provenance classes separate.
 hashes. [confirmed]
 
 The report is a symbolic-execution aid rather than a whole-machine proof. It
-decodes fixed table rows and partitions three projected input domains. The
+decodes fixed table rows and partitions selected projected input domains. The
 scan-kind dispatcher at `34:5678` partitions all 256 incoming `A` values into
 seven terminal paths. The shared draw helper at `34:6143` partitions the
 $256 \times 2 \times 65{,}536 = 33{,}554{,}432$ projected tuples over incoming
@@ -468,6 +477,27 @@ projected inputs, not every register and RAM state. The marker-tail callee at
 `34:759C` reduces 16 abstract predicate valuations to five return classes.
 Stream length, arbitrary RAM, and unmodeled indirect targets remain outside
 these finite models. [confirmed]
+
+The extended raised-token classifier at `34:580C` has a caller-scoped domain of
+3,047 packed-token states. `34:5866` handles numeric bytes and `B0h` first, and
+`34:5887` skips `EF1Eh`. The remaining ordinary bytes and 11 two-byte token
+families reduce to 12 complete classifier paths. The `5Fh` and `EBh`
+designators enter bounded eight- and five-byte name scans. The loop at
+`34:583D` accepts digits `30h`–`39h` and letters `41h`–`5Bh`; a source boundary
+or any other byte stops it. The analyzer enumerates every accepted digit/letter
+prefix, stop class, and counter exit. These are finite byte-class projections,
+not claims that every packed token or name occurs in a calculator-created
+expression. [confirmed]
+
+The table models also distinguish decoded rows from reachable indices.
+`34:5935` scans 16 source-token rows but has 15 first-match classes: row 6
+duplicates the `0006h` mapping at row 3 and can never win the first-match scan.
+The report partitions the other 65,521 packed `D:E` values into the no-match
+class. The render, allocator, and editor-class index models decode all 256
+8-bit inputs. Types `0x1F`–`0x2B` select the 13 render and allocator rows;
+class bytes `0x00`–`0x43` select the 68 editor rows. Other inputs read adjacent
+ROM bytes. This records local index behavior without asserting that each
+overread is reachable through a calculator entry. [confirmed]
 
 The metadata rows use scan kinds `0`, `1`, `2`, `3`, `4`, and `6`. Natural
 traces witness six of the seven dispatch classes. Scan kind `2` would take
@@ -489,10 +519,10 @@ return class identifies which callee paths have live witnesses. [confirmed]
 | Component | Reachable instructions | Natural / all-evidence outcomes | Outcomes in CFG | Natural / all-evidence instruction coverage |
 |-----------|-----------------------:|--------------------------------:|----------------:|--------------------------------------------:|
 | Settled construction | 991 | 247 / 248 | 408 | 80.73% / 80.73% |
-| Settled rendering | 1,898 | 233 / 235 | 302 | 94.63% / 94.63% |
+| Settled rendering | 1,898 | 229 / 233 | 302 | 93.94% / 94.63% |
 | Metrics and geometry | 470 | 75 / 75 | 80 | 99.36% / 99.36% |
 | Record allocator | 64 | 7 / 7 | 8 | 98.44% / 98.44% |
-| Editor layout | 2,776 | 245 / 245 | 1,098 | 32.42% / 32.42% |
+| Editor layout | 2,776 | 255 / 255 | 1,098 | 33.03% / 33.03% |
 | Small-font and LCD output | 413 | 81 / 81 | 122 | 75.54% / 75.54% |
 | Point and line primitives | 508 | 48 / 48 | 134 | 59.45% / 59.45% |
 | Large glyphs | 130 | 16 / 16 | 32 | 68.46% / 68.46% |
@@ -506,10 +536,10 @@ the allocator's four branches and 35 of the 40 metric branches have both
 outcomes. [confirmed]
 
 The report classifies all 2,184 enumerated outcomes. Natural calculator input
-exercises 952. The synthetic `EF36h` state adds three outcomes, for 955 across
+exercises 958. The synthetic `EF36h` state adds five outcomes, for 963 across
 all evidence. One allocator outcome is infeasible under its data invariant.
 Two metric outcomes are infeasible under the calculator call ABI. The full
-evidence set leaves 1,226 unresolved; the natural-only set leaves 1,229.
+evidence set leaves 1,218 unresolved; the natural-only set leaves 1,223.
 An unobserved outcome never becomes infeasible from absence alone. [confirmed]
 
 The infeasible allocator outcome is the fallthrough at `33:4F4E`. The type
@@ -527,43 +557,40 @@ fallthrough and `34:765D` return are infeasible under this calculator ABI.
 Synthetic direct calls to internal metric handlers do not share the ABI.
 [confirmed]
 
-An exact Z3 set-cover calculation reduces all 183 trace summaries to 23 while
-preserving all 955 observed individual branch outcomes. It minimizes trace
-count first, retained bytes second, and labels third. The selected traces total
-3,532,665,876 bytes. Every selected trace has an exclusive outcome relative to
-the other 22.
+The report computes two exact Z3 covers. The first preserves every individual
+branch outcome observed in the supplied traces. It does not preserve complete
+invocation paths, register or RAM states, dispatch indices, record cases, or LCD
+write cases. The all-evidence and natural-only branch covers each select 23
+traces. They preserve 963 and 958 outcomes in 3,466,092,816 and 3,516,346,500
+bytes, respectively.
 
-The same calculation over the 182 natural traces produces a 23-trace minimum.
-It preserves all 952 natural outcomes in 3,589,756,968 bytes, and every selected
-trace again has an exclusive outcome. These are proven minima for the supplied
-trace sets and the branch-outcome feature universe. They do not preserve every
-complete invocation path, register or RAM state, dispatch row, record oracle,
-or LCD-write stream. The broad set remains the RE and regression corpus; the
-public gallery uses a smaller, diverse selection. [confirmed]
-
-A second exact cover adds the sound dynamic state features currently decoded:
-seven `34:6143` entry values and 15 complete paths through `34:5678`, `34:6143`,
-and `34:759C`. The full feature universe contains 977 tags; the natural-only
-universe contains 974. Both minimize to the same 23 traces and byte totals as
-the corresponding branch-outcome covers. This proves preservation for the
-modeled live features. It does not make unmodeled state part of the claim.
+The tagged cover includes branch outcomes, complete observed paths, entry-state
+projections, dispatch values, record types, LCD-oracle types, and every
+independent oracle case. Its all-evidence universe has 1,219 tags and needs 125
+traces. The natural-only universe has 1,214 tags and needs 124 traces. Every
+independent oracle case creates an exclusive tag for at least one trace, so
+this larger minimum is expected. Both covers minimize trace count first,
+retained bytes second, and labels third. The broad set remains the RE and
+regression corpus; the public gallery uses a smaller, diverse selection.
 [confirmed]
 
-The four key-driven additions below are retained by the new 23-trace minimum.
-Together they contribute 21 outcomes absent from the earlier 175-trace union:
-six from the log-base run, one from the integral run, and 14 from the
-**Y=**/table run. The radical run adds no union-new outcome, but it replaces
-larger or less complementary witnesses in the exact minimum. The macro paths
-contain no `memwrite` command or execution hook. The raw TLMT files remain
-outside the repository; their hashes identify the exact inputs used by the
-report. [confirmed]
+The tagged cover preserves only states represented by its tags. It does not
+turn unobserved RAM into an observed state or prove that the traces reach every
+symbolic valuation. The separate exhaustive models state their preconditions;
+the dynamic cover states what the retained traces actually exercise. [confirmed]
 
-| Input | Reproduction macro | Trace SHA-256 | Exclusive outcomes in the 23-trace full minimum |
-|-------|--------------------|--------------|------------------------------------------------:|
+The 23-trace all-evidence branch cover retains the log-base, integral, and
+**Y=**/table runs below. Other selected traces cover every outcome in the
+radical run, so the exact solver omits it. The macro paths contain no `memwrite`
+command or execution hook. The raw TLMT files remain outside the repository;
+their hashes identify the exact inputs used by the report. [confirmed]
+
+| Input | Reproduction macro | Trace SHA-256 | Full branch-cover result |
+|-------|--------------------|--------------|--------------------------|
 | Log-base marker insertion | `tools/macros/mathprint-logbase-boundary-insert.macro` | `a49e4c13c93358662713da7f5e07862f42863d60a70ce18e141a90987914008b` | 2 |
-| Radical marker insertion | `tools/macros/mathprint-radical-nonspecial-insert.macro` | `e7b79e37149f2b9b4a986bdbb114a89b03cd452bbecc6da20490edc972895e98` | 3 |
-| Integral marker insertion | `tools/macros/mathprint-integral-boundary-insert.macro` | `328b8f52ebe939b35f79e676076984aa85ee59e05c06862647c4fc615069bb3c` | 2 |
-| **Y=**/table/power round trip | `tools/macros/mathprint-yequ-table-power-insert.macro` | `ac719f540d2adfca05d2ffa415f065b83eaf407f04fca42f5ae63c440a746b9d` | 14 |
+| Radical marker insertion | `tools/macros/mathprint-radical-nonspecial-insert.macro` | `e7b79e37149f2b9b4a986bdbb114a89b03cd452bbecc6da20490edc972895e98` | Omitted |
+| Integral marker insertion | `tools/macros/mathprint-integral-boundary-insert.macro` | `328b8f52ebe939b35f79e676076984aa85ee59e05c06862647c4fc615069bb3c` | 16 |
+| **Y=**/table/power round trip | `tools/macros/mathprint-yequ-table-power-insert.macro` | `ac719f540d2adfca05d2ffa415f065b83eaf407f04fca42f5ae63c440a746b9d` | 16 |
 
 Four additional reset-origin traces close ten natural branch outcomes and four
 complete editor-helper paths. Their macros use key input only. The screenshots
@@ -645,7 +672,7 @@ row-0 bitmap path, but it has no captured type-`0x1F` record/LCD oracle.
 
 Editor layout is also open. The page `39` class and handler tables, argument
 order, row composition, descriptor mapping, and draw paths are decoded. The
-retained corpus observes 245 of 1,098 declared editor branch outcomes. It does
+retained corpus observes 255 of 1,098 declared editor branch outcomes. It does
 not decode every in-progress editor state into a general AST, and it does not
 reach every cursor, menu, error, or row-composition path. [confirmed]
 
@@ -792,7 +819,10 @@ width $w_{r,c}$ and height $h_{r,c}$, define the column and row extents as
 [confirmed]
 
 $$
-C_c = \max_r w_{r,c}, \qquad R_r = \max_c h_{r,c}.
+\begin{aligned}
+C_c &= \max_r w_{r,c}, \\\\
+R_r &= \max_c h_{r,c}.
+\end{aligned}
 $$
 
 The first column begins at $x_0=6$, and each later column begins after the
@@ -800,14 +830,21 @@ previous extent and a six-pixel gap. The first row begins at $y_0=0$, and each
 later row begins after the previous extent and a two-pixel gap:
 
 $$
-x_{c+1}=x_c+C_c+6, \qquad y_{r+1}=y_r+R_r+2.
+\begin{aligned}
+x_{c+1} &= x_c+C_c+6, \\\\
+y_{r+1} &= y_r+R_r+2.
+\end{aligned}
 $$
 
 Each element is centered within its row and column extent:
 
 $$
-X_{r,c}=x_c+\left\lfloor\frac{C_c-w_{r,c}}{2}\right\rfloor, \qquad
-Y_{r,c}=y_r+\left\lfloor\frac{R_r-h_{r,c}+1}{2}\right\rfloor.
+\begin{aligned}
+X_{r,c}
+  &= x_c+\left\lfloor\frac{C_c-w_{r,c}}{2}\right\rfloor, \\\\
+Y_{r,c}
+  &= y_r+\left\lfloor\frac{R_r-h_{r,c}+1}{2}\right\rfloor.
+\end{aligned}
 $$
 
 For $m$ rows and $n$ columns, let $N_e$ be the element count, $H$ the matrix
@@ -815,9 +852,10 @@ height, $W$ the matrix width, and $y_c$ the vertical center:
 
 $$
 \begin{aligned}
-N_e &= mn, & H &= \sum_r R_r+2(m-1), \\
-W &= 12+\sum_c C_c+6(n-1), & y_c &=
-\left\lfloor\frac{H}{2}\right\rfloor.
+N_e &= mn, \\\\
+H &= \sum_r R_r+2(m-1), \\\\
+W &= 12+\sum_c C_c+6(n-1), \\\\
+y_c &= \left\lfloor\frac{H}{2}\right\rfloor.
 \end{aligned}
 $$
 
@@ -1054,12 +1092,12 @@ and $w_d$, the settled metrics are [confirmed]
 
 $$
 \begin{aligned}
-w &= \max(w_n,w_d), \\
-x_n &= 2 + \left\lfloor\frac{w-w_n}{2}\right\rfloor, \\
-x_d &= 2 + \left\lfloor\frac{w-w_d}{2}\right\rfloor, \\
-y_d &= h_n + 3, \\
-H &= h_n + h_d + 3, \\
-W &= w + 4, \\
+w &= \max(w_n,w_d), \\\\
+x_n &= 2 + \left\lfloor\frac{w-w_n}{2}\right\rfloor, \\\\
+x_d &= 2 + \left\lfloor\frac{w-w_d}{2}\right\rfloor, \\\\
+y_d &= h_n + 3, \\\\
+H &= h_n + h_d + 3, \\\\
+W &= w + 4, \\\\
 B &= h_n + 1.
 \end{aligned}
 $$
@@ -1110,10 +1148,14 @@ metrics $(w_v,b_v)$, the integral positions and parent metrics are [confirmed]
 
 $$
 \begin{aligned}
-y_b &= \max(5,h_u), & s_l &= \max(5,h_l), \\
-H &= y_b+h_b+s_l, & B &= y_b+b_b, \\
-x_b &= \max(w_l,w_u)+12, & x_v &= x_b+w_b+12, \\
-W &= x_v+w_v+2, & y_v &= B-b_v.
+y_b &= \max(5,h_u), \\\\
+s_l &= \max(5,h_l), \\\\
+H &= y_b+h_b+s_l, \\\\
+B &= y_b+b_b, \\\\
+x_b &= \max(w_l,w_u)+12, \\\\
+x_v &= x_b+w_b+12, \\\\
+W &= x_v+w_v+2, \\\\
+y_v &= B-b_v.
 \end{aligned}
 $$
 
@@ -1142,10 +1184,14 @@ type `1`. For child height, width, and baseline metrics $(h,w,b)$, define
 
 $$
 \begin{aligned}
-L &= w_v+4+w_l, & O &= \max(w_u,L,12), \\
-S_u &= \max(5,h_u), & S_l &= \max(h_v,h_l), \\
-H &= S_u+9+S_l, & B &= S_u+4, \\
-x_b &= O+6, & W &= x_b+w_b+5.
+L &= w_v+4+w_l, \\\\
+O &= \max(w_u,L,12), \\\\
+S_u &= \max(5,h_u), \\\\
+S_l &= \max(h_v,h_l), \\\\
+H &= S_u+9+S_l, \\\\
+B &= S_u+4, \\\\
+x_b &= O+6, \\\\
+W &= x_b+w_b+5.
 \end{aligned}
 $$
 
@@ -1181,10 +1227,14 @@ $w_v$ and $w_e$, the metric branches at `34:7485` and `34:76C2` produce
 
 $$
 \begin{aligned}
-B &= \max(6,b_b), & H &= \max(h_b,B+7), \\
-x_v &= 5, & y_v &= B+2, \\
-x_b &= 16, & y_b &= B-b_b, \\
-x_e &= w_b+w_v+29, & y_e &= B+2, \\
+B &= \max(6,b_b), \\\\
+H &= \max(h_b,B+7), \\\\
+x_v &= 5, \\\\
+y_v &= B+2, \\\\
+x_b &= 16, \\\\
+y_b &= B-b_b, \\\\
+x_e &= w_b+w_v+29, \\\\
+y_e &= B+2, \\\\
 W &= x_e+w_e.
 \end{aligned}
 $$
@@ -1269,6 +1319,24 @@ framebuffer without loading a captured write stream. These deterministic cases
 exercise summation, integral, `nDeriv(`, matrix, and a three-level raised
 fraction. [confirmed]
 
+The changed-input corpus also includes
+`int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)`. The translated constructor retains
+both structural records and computes a 106-pixel outer leaf width. Rendering
+at origin $(0,0)$ emits 221 accepted writes inside the 96×64 viewport; an
+audit raster finds 20 set pixels in the ten columns beyond its right edge.
+These counts are deterministic translation regressions, not a calculator
+capture. The page reports the record extent and clipped columns separately.
+[confirmed] for the translated record and LCD-write path
+
+The editor-side path has separate overflow behavior. `39:4F08` compares
+`curCol` (`0x844C`) with `0x0F` before marker handling and calls the fixed-bank
+`_EraseEOL` jump at `00:3CB7` on overflow. `39:6712` sets `curCol` to `1`, emits
+the `:` marker through `00:3FDB`, and gates subsequent display modes with
+`0x85E5`. These bytes establish an erase/marker boundary. They do not yet
+establish how the answer-display caller positions or scrolls a 106-pixel
+settled record, so the generated viewport does not claim calculator parity for
+that final placement. [confirmed]
+
 The retained `sum(N,1,3,N)` trace exposes four calls through `34:5AA3` with
 `C=1`. The scanner stops on the three depth-zero comma bytes. At the closing
 `0x11` byte, it returns `A=0x11`, `DE=0xFF00`, and sets Z and C. The JavaScript
@@ -1338,8 +1406,12 @@ requires native construction to stop at the same half-open byte boundary.
 The `X^Ans` buffer stores `58 F0 10 72 11`; the `X^L1` buffer stores
 `58 F0 10 5D 00 11`. Both traces take `34:56BF` and return the byte after the
 closing `11h`. Raw native bytes for these one- and two-byte named operands now
-reproduce the captured record graphs and complete accepted LCD writes. Other
-unbounded kind-`1` token-class branches remain untranslated. [confirmed]
+reproduce the captured record graphs and complete accepted LCD writes.
+`34:580C` also admits direct letters, `Ans`, list, matrix, and string names,
+`π`, `BB31h`, and bounded `5Fh`/`EBh` names. The JavaScript translation applies
+the classifier and bounded name loop directly. It groups a name designator and
+its accepted bytes as one expression atom, so a raised name ends at the same
+half-open byte boundary as the ROM scan. [confirmed]
 
 Scan kind `2` enters `34:56DF` → `34:5795` for the `EF2Eh` and `EF2Fh`
 stacked-fraction operators. It rewinds to the numerator, calls `34:5AA7` with
