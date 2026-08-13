@@ -12,7 +12,6 @@
 let FONT = null;
 let LAYOUT = null;
 let DRAW_ORDER = { scenarios: {} };
-let RECORD_PROGRAMS = { programs: {} };
 
 const ROM_ENGINE = typeof MathPrintRomEngine !== 'undefined'
   ? MathPrintRomEngine
@@ -881,6 +880,8 @@ const PRESETS = Object.freeze([
   ['linear 1/2', '1/2'],
   ['stacked 1//2', '1//2'],
   ['X squared', 'X^2'],
+  ['grouped base squared (RE)', '(X+1)^2'],
+  ['grouped exponent (RE)', 'X^(1+2)'],
   ['e raised to 12 (RE)', 'exp(12)'],
   ['10 raised to X squared (RE)', 'tenpow(X^2)'],
   ['log base 12 of 345 (RE)', 'logbase(12,345)'],
@@ -892,6 +893,7 @@ const PRESETS = Object.freeze([
   ['nested fraction', '1//(2//3)'],
   ['radical', 'sqrt(X^2+1)'],
   ['absolute value (RE)', 'abs(X-3)'],
+  ['absolute value with power (RE)', 'abs(X^2+1)'],
   ['definite integral', 'int(1,2,X^2,X)'],
   ['raised integral (RE)', '(int(1,2,X^2,X))//3'],
   ['integral of a fraction', 'int(1,2,(1//2)X,X)'],
@@ -1001,10 +1003,9 @@ function flatSettledTokenBytes(source) {
 
 // Closed expression grammar for the translated record constructor. It keeps
 // ordinary token runs in their leaf order, makes power right-associative, and
-// gives stacked fractions the same precedence as the display parser. Parens
-// may group a fraction in this preview syntax; they do not add visible tokens.
-// Other parenthesized and untranslated multi-argument families remain outside
-// this grammar.
+// gives stacked fractions the same precedence as the display parser. Parentheses
+// survive as the ROM's 10h/11h leaf tokens unless they only delimit a stacked-
+// fraction operand in this preview syntax.
 function constructedSettledSpec(source) {
   let offset = 0;
   const sequence = parts => parts.length === 1 ? parts[0] : {kind:'sequence',parts};
@@ -1015,7 +1016,7 @@ function constructedSettledSpec(source) {
       if (!grouped || source[offset] !== ')') return null;
       offset++;
       return grouped.kind === 'fraction'
-        ? grouped : {kind:'fractionOperandGroup',expression:grouped};
+        ? grouped : {kind:'group',expression:grouped};
     }
     if (source[offset] === '-') {
       offset++;
@@ -1087,6 +1088,13 @@ function constructedSettledSpec(source) {
       offset++;
       return {kind:'radical', radicand};
     }
+    if (source.startsWith('abs(', offset)) {
+      offset += 4;
+      const body = expression();
+      if (!body || source[offset] !== ')') return null;
+      offset++;
+      return {kind:'absolute', body};
+    }
     if (source.startsWith('exp(', offset)) {
       offset += 4;
       const exponent = expression();
@@ -1148,13 +1156,9 @@ function constructedSettledSpec(source) {
     const base = atom();
     if (!base) return null;
     if (source[offset] !== '^') return base;
-    // The translated power slice currently closes ordinary-token bases. Its
-    // exponent may contain another translated structural expression.
-    if (base.kind !== 'tokens') return null;
     offset++;
     const exponent = power();
-    return exponent && exponent.kind !== 'fractionOperandGroup'
-      ? {kind:'power', base:base.tokens, exponent} : null;
+    return exponent ? {kind:'power', base, exponent} : null;
   };
   const product = () => {
     const parts = [];
@@ -1164,7 +1168,7 @@ function constructedSettledSpec(source) {
     const beginsImplicitFactor = () => source[offset] === '('
       || /[A-Z0-9.]/.test(source[offset] || '')
       || ['int(', 'sum(', 'nDeriv(', 'nthroot(', 'sqrt(',
-          'exp(', 'tenpow(', 'logbase(', 'matrix(']
+          'abs(', 'exp(', 'tenpow(', 'logbase(', 'matrix(']
         .some(prefix => source.startsWith(prefix, offset));
     while (source[offset] === '*' || beginsImplicitFactor()) {
       const explicit = source[offset] === '*';
@@ -1180,7 +1184,7 @@ function constructedSettledSpec(source) {
   const fraction = () => {
     let left = product();
     if (!left) return null;
-    const unwrap = part => part.kind === 'fractionOperandGroup'
+    const unwrap = part => part.kind === 'group'
       ? part.expression : part;
     for (;;) {
       if (source.startsWith('//', offset)) {
@@ -1199,7 +1203,7 @@ function constructedSettledSpec(source) {
         ]);
       } else break;
     }
-    return left.kind === 'fractionOperandGroup' ? null : left;
+    return left;
   };
   const expression = () => {
     const parts = [];
@@ -1221,18 +1225,6 @@ function constructedSettledSpec(source) {
 function constructedProgramForExpression(expression) {
   if (!ROM_ENGINE) return null;
   const source = expression.trim();
-  const absolute = /^abs\(([A-Z0-9.+*/-]+)\)$/.exec(source);
-  if (absolute && !absolute[1].includes('//')) {
-    const payload = flatSettledTokenBytes(absolute[1]);
-    if (payload) return ROM_ENGINE.constructSettledAbsoluteProgram(payload);
-  }
-  const radical = /^sqrt\(([^()]*)\)$/.exec(source);
-  if (radical) {
-    const radicand = constructedSettledSpec(radical[1]);
-    return radicand
-      ? ROM_ENGINE.constructSettledRadicalProgram(radicand, 1, FONT)
-      : null;
-  }
   const spec = constructedSettledSpec(source);
   if (!spec) return null;
   if (spec.kind === 'integral' && spec.variable.kind !== 'tokens') return null;
@@ -1240,6 +1232,10 @@ function constructedProgramForExpression(expression) {
   if (spec.kind === 'nDeriv' && spec.variable.kind !== 'tokens') return null;
   return spec.kind === 'power'
     ? ROM_ENGINE.constructSettledPowerProgram(spec, 1, FONT)
+    : spec.kind === 'absolute'
+      ? ROM_ENGINE.constructSettledAbsoluteProgram(spec.body, 1, FONT)
+    : spec.kind === 'radical'
+      ? ROM_ENGINE.constructSettledRadicalProgram(spec.radicand, 1, FONT)
     : spec.kind === 'fraction'
       ? ROM_ENGINE.constructSettledFractionProgram(
           spec.numerator, spec.denominator, 1, FONT)
@@ -1260,8 +1256,7 @@ function constructedProgramForExpression(expression) {
 
 function generatedForExpression(expression) {
   const constructed = constructedProgramForExpression(expression);
-  const fixture = (RECORD_PROGRAMS.programs || {})[expression.trim()];
-  return generateRecordProgram(constructed || fixture);
+  return generateRecordProgram(constructed);
 }
 
 function activeTimeline() {
@@ -1465,14 +1460,12 @@ function showTab(name) {
 }
 
 async function main() {
-  const [fontResponse, layoutResponse, orderResponse, programsResponse] = await Promise.all([
+  const [fontResponse, layoutResponse, orderResponse] = await Promise.all([
     fetch('font.json'), fetch('layout.json'), fetch('draw-order.json'),
-    fetch('record-programs.json'),
   ]);
   FONT = await fontResponse.json();
   LAYOUT = await layoutResponse.json();
   DRAW_ORDER = await orderResponse.json();
-  RECORD_PROGRAMS = await programsResponse.json();
   const bar = document.getElementById('presets');
   PRESETS.forEach(([label, src]) => {
     const b = document.createElement('button');
@@ -1532,7 +1525,6 @@ if (typeof module !== 'undefined') {
   module.exports = {
     setFont: f => { FONT = f; },
     setLayout: value => { LAYOUT = value; },
-    setRecordPrograms: value => { RECORD_PROGRAMS = value; },
     presets: PRESETS,
     parse,
     penLog,

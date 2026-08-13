@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e8e32f27.js";
+            window.path_to_searchindex_js = "searchindex-77bfc04b.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -755,6 +755,17 @@ raised payload. The metric branches at <code>34:7393</code> and <code>34:7609</c
 first raised row from later raised rows. The JavaScript translation constructs
 right-associated record trees and obtains raised-glyph widths from the ROM
 small-font table. [confirmed]</p>
+<p>Parentheses remain ordinary leaf tokens <code>0x10</code> and <code>0x11</code> in the settled
+record. <code>34:6873</code> maps their display codes <code>0x28</code> and <code>0x29</code> to the compound
+emitters at <code>34:5D1A</code> and <code>34:5D07</code>. A raised parenthesis keeps a six-pixel
+token-cell metric. The shape height and baseline follow the enclosed payload.
+The type-<code>0x2A</code> word at <code>+0x0D</code> stores the containing leaf width accumulated
+before the power object. It is <code>0x1E</code> for <code>(X+1)^2</code>, after the five six-pixel
+leaf tokens, and <code>0x0C</code> for the power inside <code>(X^2+1)</code>. [confirmed]</p>
+<p>Five reset-origin traces cover <code>(X+1)</code>, <code>(X^2+1)</code>, <code>(X+1)^2</code>, <code>X^(1+2)</code>, and
+<code>abs(X^2+1)</code>. The generated record graphs and complete accepted-write streams
+match these traces. The streams contain 49, 60, 59, 32, and 60 writes,
+respectively. [confirmed]</p>
 <p>Fresh reset-origin traces for <code>X^2</code>, <code>X^12</code>, <code>2^X^2</code>, and <code>2^X^2^3</code> match the
 constructed record fields and every accepted LCD data write. Their streams
 contain 17, 22, 22, and 32 writes, respectively. These captures test one, two,
@@ -984,8 +995,10 @@ exponential cases and four <code>logBASE(</code> cases verify their child metric
 structures, and accepted-write streams. Twelve <code>nDeriv(</code> cases verify its three
 arguments, structural bodies, and recursive nesting. Six raised multi-argument
 numerator cases also require the settled record graph to decode to the asserted
-semantic expression. The deepest power oracle has three raised levels. Two longer trace
-scenarios cover the editor and display activity around the final key press.
+semantic expression. Five grouping cases cover flat and structural groups,
+grouped power operands, and a structural absolute-value child. The deepest
+power oracle has three raised levels. Two longer trace scenarios cover the
+editor and display activity around the final key press.
 [confirmed]</p>
 <h2 id="extracted-records-and-interactive-model"><a class="header" href="#extracted-records-and-interactive-model">Extracted records and interactive model</a></h2>
 <p>The class table, decoded handler records, and selected descriptors are extracted to
@@ -998,12 +1011,12 @@ translations in <code>web/mathprint/rom-engine.js</code>. The translated routine
 classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in <code>app.js</code> still uses a separate,
 trace-fitted box model. <code>web/mathprint/record-programs.json</code> contains six
-retained record snapshots for comparison. The browser constructor takes
-precedence over those fixtures. It constructs supported absolute-value, power,
+retained record snapshots for offline comparison. The browser does not fetch
+them. It constructs supported absolute-value, power,
 radical, nth-root, stacked-fraction, integral, summation, and <code>nDeriv(</code>
 expressions from tokens, including nesting among the structural forms. The
 translated renderer exposes every generated LCD write as a live timeline. This
-mode does not load a fixture or captured LCD events for those expressions.
+mode does not load a record fixture or captured LCD event stream.
 [confirmed]</p>
 
                     </main>
