@@ -22,8 +22,11 @@
     font glyphs. Closed page-<code>0x39</code> record and descriptor routines run
     through a direct JavaScript translation documented in the
     <a href="../sub-equation-display.html">Equation display (MathPrint)</a> wiki page.
-    Arbitrary-expression composition still uses the labeled reconstruction;
-    the two integral presets can instead replay captured calculator LCD writes.
+    For six traced expressions, settled record snapshots execute through the
+    translated structural renderer and LCD blitters to generate every accepted
+    LCD data write. Arbitrary-expression record construction remains open and
+    falls back to the labeled compositor. Captured calculator writes remain
+    available as a separate oracle view for two integral scenarios.
   </p>
 
   <div class="controls">
@@ -44,6 +47,7 @@
     <label>
       Timeline
       <select id="source">
+        <option value="generated">RE-generated LCD writes</option>
         <option value="trace">Captured LCD writes</option>
         <option value="model">Model elements</option>
       </select>
@@ -61,9 +65,8 @@
     <span id="timeline-hint" class="hint">step accepted LCD writes</span>
   </div>
   <p id="timeline-note" class="note">
-    Captured mode replays accepted T6A04 writes from the pinned TilEm trace in
-    instruction order. Blue pixels are set by the selected write; outlined red
-    pixels are cleared. The two traced integral presets have captured timelines.
+    RE-generated mode executes record bytes through translated JavaScript logic.
+    Blue pixels are set by the selected write; outlined red pixels are cleared.
   </p>
   <p class="meta"><span id="dims"></span> <span id="err" class="err"></span></p>
 
