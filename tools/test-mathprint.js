@@ -335,6 +335,68 @@ expectEqual('native token iterator preserves packed offsets',
     [unit.offset,unit.length,unit.packed]),
   [[0,1,0x58],[1,1,0xf0],[2,2,0x5d00]]);
 
+const parseAheadAbi = result => ({
+  a:result.a, stopCursor:result.stopCursor, de:result.de,
+  zero:result.zero, carry:result.carry, scratch:result.scratch,
+});
+
+// The retained sum(N,1,3,N) trace exposes the four internal 34:5AA3 calls
+// that split its source buffer. These values are relative translations of
+// native 0x9DB8–0x9DBF pointers and preserve the returned registers, flags,
+// and 0x9D02–0x9D05 scratch bytes.
+const summationParseBuffer = [0x4e,0x2b,0x4e,0x2b,0x31,0x2b,0x33,0x11];
+for (const [cursor, expected] of [
+  [-1,{a:0,stopCursor:1,de:0,zero:false,carry:false,scratch:[0,1,0,0]}],
+  [1,{a:0,stopCursor:3,de:0,zero:false,carry:false,scratch:[0,1,0,0]}],
+  [3,{a:0,stopCursor:5,de:0,zero:false,carry:false,scratch:[0,1,0,0]}],
+  [5,{a:0x11,stopCursor:7,de:0xff00,zero:true,carry:true,
+      scratch:[0,1,0,0]}],
+]) expectEqual(`34:5AA3 summation parse trace from byte ${cursor}`,
+  parseAheadAbi(rom.settledParseAhead(summationParseBuffer,{
+    entry:'internal5AA3',c:1,cursor,
+  })),expected);
+
+expectEqual('34:5AA7 preserves B and clears C',
+  parseAheadAbi(rom.settledParseAhead([0x4e],{
+    entry:'direct5AA7',b:0x12,c:0xff,
+  })), {
+    a:0,stopCursor:1,de:0,zero:true,carry:true,scratch:[0x12,0,0,0],
+  });
+expectEqual('34:5AA3 clears B and preserves C',
+  parseAheadAbi(rom.settledParseAhead([0x4e],{
+    entry:'internal5AA3',b:0x12,c:1,
+  })), {
+    a:0,stopCursor:1,de:0,zero:true,carry:true,scratch:[0,1,0,0],
+  });
+expectEqual('34:5AA9 preserves caller B and C after RES 6,B',
+  parseAheadAbi(rom.settledParseAhead([0x4e],{
+    entry:'internal5AA9',b:0x52,c:1,
+  })), {
+    a:0,stopCursor:1,de:0,zero:true,carry:true,scratch:[0x12,1,0,0],
+  });
+for (const [entry, expectedScratch] of [
+  ['aheadEqual',[0x80,0,0,0]],
+  ['parsAheadS',[1,0,0,0]],
+  ['parsAhead',[0,0,0,0]],
+]) expectEqual(`${entry} initializes its public-entry mode bytes`,
+  parseAheadAbi(rom.settledParseAhead([0x4e],{
+    entry,b:0xff,c:0xff,
+  })).scratch,expectedScratch);
+
+for (const [label, bytes, stopCursor] of [
+  ['nested comma in parentheses',[0x10,0x31,0x2b,0x32,0x11,0x2b,0x33],5],
+  ['nested comma in braces',[0x08,0x31,0x2b,0x32,0x09,0x2b,0x33],5],
+  ['single-byte token before comma',[0x31,0x2b,0x32],1],
+  ['two-byte token before comma',[0x5d,0x00,0x2b,0x32],2],
+]) expectEqual(`34:5AA3 ${label}`,
+  rom.settledParseAhead(bytes,{
+    entry:'internal5AA3',c:1,cursor:-1,
+  }).stopCursor,stopCursor);
+expectThrows('parse-ahead rejects a truncated two-byte token', RangeError,
+  () => rom.settledParseAhead([0x5d],{
+    entry:'internal5AA3',c:1,cursor:-1,
+  }));
+
 for (const [label, expression, nativeTokens] of [
   ['right-associated power','2^X^2',[0x32,0xf0,0x58,0xf0,0x32]],
   ['raised fraction boundaries','X^(1//2)',
