@@ -22,13 +22,21 @@ from analyze_mathprint_saturation import (
     oracle_coverage,
     predicate_state,
     serialize_trace_summary,
+    scan_kind_path,
     minimize_trace_corpus,
+    metric_marker_callers,
     metric_marker_path,
+    minimize_trace_features,
     symbolic_metric_marker_paths,
+    symbolic_scan_kind_paths,
     symbolic_type1f_paths,
     type1f_entry_abis,
     type1f_path,
     type1f_terminal,
+    trace_dynamic_features,
+    validate_trace_provenance,
+    TRACE_PROVENANCE_NATURAL,
+    TRACE_PROVENANCE_SYNTHETIC,
 )
 from rom_image import RomImage, RomLocation
 from z80_disassembly import Z80Instruction
@@ -162,6 +170,21 @@ class StaticBranchTests(unittest.TestCase):
 
 
 class SymbolicHandlerTests(unittest.TestCase):
+    def test_scan_kind_partition_covers_every_byte(self) -> None:
+        paths = symbolic_scan_kind_paths()
+
+        self.assertEqual(0x100, sum(row["projected_input_count"] for row in paths))
+        self.assertEqual(
+            {
+                "generic_scan", "raised_operand_scan", "fraction_operand_scan",
+                "single_argument_scan", "multi_argument_scan",
+                "kind_5_scan", "kind_6_or_greater_scan",
+            },
+            {row["terminal"] for row in paths},
+        )
+        self.assertEqual("fraction_operand_scan", scan_kind_path(2)["terminal"])
+        self.assertIn("34:5680:taken", scan_kind_path(2)["branch_outcomes"])
+
     def test_type1f_word_boundaries_partition_both_iy_states(self) -> None:
         self.assertEqual(
             "bitmap_61C7_clear_iy_minus1_bit0", type1f_terminal(0x2B, 0, 5)
@@ -226,6 +249,10 @@ class SymbolicHandlerTests(unittest.TestCase):
                 "trace": "integral", "instruction_index": 22,
                 "state": {"A": 0x22},
             },
+            ("page_34", 0x6166, "taken"): {
+                "trace": "absolute", "instruction_index": 30,
+                "state": {"A": 0x21},
+            },
         }
 
         table, editor = type1f_entry_abis(rom, Counter(), witnesses)
@@ -234,11 +261,11 @@ class SymbolicHandlerTests(unittest.TestCase):
         self.assertEqual([], table["state_dependencies"])
         self.assertEqual("byte at editTail + 1", editor["incoming_A"])
         self.assertEqual(
-            [0x27, 0x22],
+            [0x27, 0x22, 0x21],
             [row["A"] for row in editor["observed_entry_states"]],
         )
         self.assertEqual(
-            2,
+            3,
             sum(row["dynamic_path_observed"] for row in editor["path_classes"]),
         )
         self.assertTrue(all(
@@ -246,12 +273,12 @@ class SymbolicHandlerTests(unittest.TestCase):
             for row in table["path_classes"]
         ))
 
-    def test_type1f_partition_counts_the_complete_state_domain(self) -> None:
+    def test_type1f_partition_counts_the_complete_projected_domain(self) -> None:
         paths = symbolic_type1f_paths()
 
         self.assertEqual(
             0x100 * 2 * 0x10000,
-            sum(row["concrete_state_count"] for row in paths),
+            sum(row["projected_input_count"] for row in paths),
         )
 
     def test_symbolic_paths_report_dynamic_outcome_gaps(self) -> None:
@@ -297,7 +324,6 @@ class SymbolicHandlerTests(unittest.TestCase):
         }
         self.assertEqual(
             {
-                "34:755F:taken", "34:755F:fallthrough",
                 "34:75A5:returned", "34:75A5:fallthrough",
                 "34:75A9:taken", "34:75A9:fallthrough",
                 "34:75B0:taken", "34:75B0:fallthrough",
@@ -307,7 +333,39 @@ class SymbolicHandlerTests(unittest.TestCase):
         )
         self.assertEqual(
             16,
-            sum(row["concrete_state_count"] for row in symbolic_metric_marker_paths()),
+            sum(row["predicate_valuation_count"] for row in symbolic_metric_marker_paths()),
+        )
+
+    def test_metric_callee_paths_exclude_caller_continuations(self) -> None:
+        for row in symbolic_metric_marker_paths():
+            self.assertFalse(any(
+                outcome.startswith("34:755F:") or outcome.startswith("34:6FC9:")
+                for outcome in row["branch_outcomes"]
+            ))
+
+        callers = metric_marker_callers(Counter({
+            ("page_34", 0x755F, "taken"): 1,
+            ("page_34", 0x6FC9, "fallthrough"): 1,
+        }))
+        self.assertEqual(["taken"], callers[0]["observed_continuation_outcomes"])
+        self.assertEqual(["fallthrough"], callers[1]["observed_continuation_outcomes"])
+
+    def test_editor_helper_domain_includes_exceptional_marker(self) -> None:
+        data = bytearray(0x35 * 0x4000)
+        data[0x0033:0x0038] = bytes.fromhex("7E23666FC9")
+        data[0x30BD:0x30C3] = bytes.fromhex("CD092B436174")
+        page_06 = 0x06 * 0x4000
+        data[page_06 + 0x3F29:page_06 + 0x3F31] = bytes.fromhex(
+            "2AF896237ECD"
+        ) + b"\x00\x00"
+        page_34 = 0x34 * 0x4000
+        data[page_34 + 0x2119:page_34 + 0x211B] = bytes.fromhex("4361")
+        _table, editor = type1f_entry_abis(RomImage(bytes(data)), Counter(), {})
+
+        self.assertIn("0x2C", editor["entry_domain"]["incoming_A"])
+        self.assertEqual(
+            14 * 2 * 0x10000,
+            editor["entry_domain"]["projected_input_domain"],
         )
 
     def test_metric_path_witnesses_use_exclusive_outcomes(self) -> None:
@@ -324,6 +382,39 @@ class SymbolicHandlerTests(unittest.TestCase):
 
 
 class OracleCoverageTests(unittest.TestCase):
+    def test_feature_minimum_preserves_tagged_state_and_path_features(self) -> None:
+        report = minimize_trace_features(
+            {
+                "alpha": {"branch_outcome:34:5000:taken", "entry_state:A=1"},
+                "beta": {"branch_outcome:34:5000:taken"},
+                "gamma": {"entry_state:A=1"},
+            },
+            {"alpha": 30, "beta": 10, "gamma": 10},
+        )
+
+        self.assertEqual(1, report["selected_trace_count"])
+        self.assertEqual(["alpha"], [row["label"] for row in report["selected"]])
+        self.assertEqual(
+            {"branch_outcome": 1, "entry_state": 1},
+            report["feature_kind_counts"],
+        )
+
+    def test_trace_features_keep_modeled_scan_and_helper_states(self) -> None:
+        outcomes = {
+            ("page_34", 0x5680, "taken"),
+            ("page_34", 0x616C, "taken"),
+        }
+        features = trace_dynamic_features(outcomes, {
+            ("page_34", 0x616C, "taken"): {"state": {"A": 0x25}},
+        })
+
+        self.assertIn("modeled_path:34:5678:fraction_operand_scan", features)
+        self.assertIn("entry_state:34:6143:A=0x25", features)
+        self.assertIn(
+            "modeled_path:34:6143:A=0x25:bit3=0:glyph_DB_set_iy32_bit2",
+            features,
+        )
+
     def test_finds_nested_case_lists_and_counts_record_types(self) -> None:
         document = {
             "schema": 1,
@@ -399,6 +490,45 @@ class OracleCoverageTests(unittest.TestCase):
             ["small_a", "small_b"],
             [row["label"] for row in report["selected"]],
         )
+
+    def test_minimized_corpus_preserves_trace_provenance(self) -> None:
+        natural = ("page_34", 0x5000, "taken")
+        synthetic = ("page_34", 0x5000, "fallthrough")
+        report = minimize_trace_corpus(
+            {"keys": {natural}, "injected": {synthetic}},
+            trace_provenance={
+                "keys": TRACE_PROVENANCE_NATURAL,
+                "injected": TRACE_PROVENANCE_SYNTHETIC,
+            },
+        )
+
+        self.assertEqual(
+            {
+                TRACE_PROVENANCE_NATURAL: 1,
+                TRACE_PROVENANCE_SYNTHETIC: 1,
+            },
+            report["source_trace_provenance_counts"],
+        )
+        self.assertEqual(
+            [TRACE_PROVENANCE_SYNTHETIC, TRACE_PROVENANCE_NATURAL],
+            [row["provenance"] for row in report["selected"]],
+        )
+
+    def test_memwrite_macro_cannot_default_to_natural_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            trace = Path(directory) / "probe.trace"
+            trace.touch()
+            trace.with_suffix(".macro").write_text(
+                "key CLEAR\nmemwrite 0x8515 01\n"
+            )
+
+            with self.assertRaisesRegex(ValueError, "classify it as"):
+                validate_trace_provenance(
+                    "probe", trace, TRACE_PROVENANCE_NATURAL
+                )
+            validate_trace_provenance(
+                "probe", trace, TRACE_PROVENANCE_SYNTHETIC
+            )
 
     @unittest.skipUnless(shutil.which("z3"), "z3 is required")
     def test_z3_cover_matches_exact_objectives(self) -> None:

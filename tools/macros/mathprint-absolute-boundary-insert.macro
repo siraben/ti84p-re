@@ -1,0 +1,23 @@
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key MATH
+key RIGHT
+key 1
+key GRAPHVAR
+key RIGHT
+wait 0.35s
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+wait 0.5s
+key 3
+wait 0.8s
+memdump /tmp/mathprint-absolute-boundary-insert.ram ram-logical
+screenshot /tmp/mathprint-absolute-boundary-insert.png

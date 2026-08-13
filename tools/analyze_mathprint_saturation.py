@@ -3,10 +3,10 @@
 
 This is a lightweight symbolic-execution aid, not a whole-Z80 theorem prover.
 It recursively follows direct control flow from a declared set of subsystem
-entries, enumerates finite ROM table domains, collapses selected stateful
+entries, decodes fixed ROM table rows, collapses selected stateful
 predicates into symbolic path classes, and overlays resolved TLMT instruction
-traces.  Unknown indirect transfers and state outside the model remain explicit
-in the report.
+traces. Computed dispatches, bcall and bjump bodies, and state outside the model
+remain explicit in the report.
 
 Run through the development shell so ``z80dasm`` is available::
 
@@ -52,6 +52,12 @@ DEFAULT_ROM = ROOT / "tools" / "rom.bin"
 DEFAULT_OUTPUT = ROOT / "tools" / "mathprint-saturation.json"
 TRACE_CACHE_SCHEMA = 4
 EXHAUSTIVE_COVER_LIMIT = 24
+TRACE_PROVENANCE_NATURAL = "natural_calculator_input"
+TRACE_PROVENANCE_SYNTHETIC = "synthetic_state_injection"
+TRACE_PROVENANCE_VALUES = frozenset({
+    TRACE_PROVENANCE_NATURAL,
+    TRACE_PROVENANCE_SYNTHETIC,
+})
 
 
 @dataclass(frozen=True)
@@ -272,6 +278,11 @@ TRANSLATION_SURFACES = (
 OUTCOME_CLASSIFICATIONS = {
     ("page_33", 0x4F4E, "fallthrough"): {
         "status": "infeasible_under_entry_invariant",
+        "scope": "valid calculator-created type-0x2B settled matrix records",
+        "precondition": (
+            "record offsets +0x13 and +0x12 contain the nonzero row and "
+            "column dimensions accepted by matrix creation at 02:5DCF"
+        ),
         "reason": (
             "the type-0x2B path loads rows from record +13h and columns from "
             "record +12h, then _HTimesL returns rows*columns; matrix creation "
@@ -281,6 +292,8 @@ OUTCOME_CLASSIFICATIONS = {
     },
     ("page_34", 0x73CD, "fallthrough"): {
         "status": "infeasible_under_calculator_abi",
+        "scope": "metric dispatch through calculator entries 34:7377, 34:737A, and 34:7380",
+        "precondition": "34:7386 seeds B=0 and recursive dispatch restores that saved B",
         "reason": (
             "calculator entries 34:737A, 34:7380, and 34:7377 pass through "
             "34:7386, which loads B=0; the only recursive dispatcher path at "
@@ -289,6 +302,8 @@ OUTCOME_CLASSIFICATIONS = {
     },
     ("page_34", 0x765D, "returned"): {
         "status": "infeasible_under_calculator_abi",
+        "scope": "geometry dispatch through calculator entries 34:7377, 34:737A, and 34:7380",
+        "precondition": "34:7386 seeds B=0 and recursive dispatch restores that saved B",
         "reason": (
             "calculator entries 34:737A, 34:7380, and 34:7377 pass through "
             "34:7386, which loads B=0; the only recursive dispatcher path at "
@@ -628,6 +643,61 @@ def type1f_terminal(a: int, iy44_bit3: int, value_8520: int) -> str:
     return "bitmap_61BE"
 
 
+def scan_kind_path(scan_kind: int) -> dict[str, object]:
+    """Partition the complete 8-bit dispatch input at 34:5678."""
+
+    value = scan_kind & 0xFF
+    outcomes = []
+
+    def branch(address: int, taken: bool) -> None:
+        outcomes.append(f"34:{address:04X}:{'taken' if taken else 'fallthrough'}")
+
+    branch(0x567A, value < 1)
+    if value < 1:
+        return {"terminal": "generic_scan", "branch_outcomes": outcomes}
+    branch(0x567C, value == 1)
+    if value == 1:
+        return {"terminal": "raised_operand_scan", "branch_outcomes": outcomes}
+    branch(0x5680, value < 3)
+    if value < 3:
+        return {"terminal": "fraction_operand_scan", "branch_outcomes": outcomes}
+    branch(0x5682, value == 3)
+    if value == 3:
+        return {"terminal": "single_argument_scan", "branch_outcomes": outcomes}
+    branch(0x5686, value < 5)
+    if value < 5:
+        return {"terminal": "multi_argument_scan", "branch_outcomes": outcomes}
+    branch(0x5688, value == 5)
+    return {
+        "terminal": "kind_5_scan" if value == 5 else "kind_6_or_greater_scan",
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_scan_kind_paths(
+    observed_outcomes: Counter[tuple[str, int, str]] | None = None,
+) -> list[dict[str, object]]:
+    """Collapse all 256 scan-kind bytes into dispatch path classes."""
+
+    classes: dict[tuple[str, tuple[str, ...]], list[int]] = defaultdict(list)
+    for value in range(0x100):
+        result = scan_kind_path(value)
+        classes[(
+            str(result["terminal"]),
+            tuple(str(item) for item in result["branch_outcomes"]),
+        )].append(value)
+    paths = [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            "projected_input_count": len(values),
+            "scan_kind_values": values,
+        }
+        for (terminal, outcomes), values in sorted(classes.items())
+    ]
+    return annotate_symbolic_outcome_coverage(paths, observed_outcomes)
+
+
 def type1f_path(a: int, iy44_bit3: int, value_8520: int) -> dict[str, object]:
     """Return the exact conditional path through the shared 34:6143 helper."""
 
@@ -735,10 +805,10 @@ def symbolic_type1f_paths(
                 tuple(str(item) for item in result["branch_outcomes"]),
             )
             row = classes.setdefault(key, {
-                "concrete_state_count": 0,
+                "projected_input_count": 0,
                 "representative_states": [],
             })
-            row["concrete_state_count"] += state_count
+            row["projected_input_count"] += state_count
             states = row["representative_states"]
             if len(states) < 4:
                 states.append({"A": a, "iy44_bit3": bit, "word_8520": value})
@@ -781,7 +851,7 @@ def annotate_symbolic_outcome_coverage(
         ]
         unresolved = [item for item in identifiers if item not in exercised]
         row["branch_outcome_coverage"] = {
-            "scope": "all entries to this routine in the trace corpus",
+            "scope": "all observed entries to this routine in the trace corpus",
             "status": (
                 "all_outcomes_observed" if not unresolved
                 else "some_outcomes_observed" if exercised
@@ -815,35 +885,37 @@ def type1f_entry_abis(
     table_pointer = rom.u16le(0x34, 0x6119)
     table_a = table_pointer & 0xFF
     observed = []
-    bit = witnesses.get(("page_34", 0x614E, "taken"))
-    if bit and bit["state"]["A"] == 0x27:
-        radical_path = type1f_path(0x27, 1, 0)
+    discriminators = (
+        (0x27, 0x614E, "fallthrough", 0),
+        (0x27, 0x614E, "taken", 1),
+        (0x22, 0x6157, "fallthrough", 0),
+        (0x21, 0x6166, "taken", 0),
+        (0x25, 0x616C, "taken", 0),
+        (0x26, 0x619F, "taken", 0),
+        (0x28, 0x61A5, "taken", 0),
+        (0x29, 0x61AB, "taken", 0),
+    )
+    for a, address, outcome, bit in discriminators:
+        witness = witnesses.get(("page_34", address, outcome))
+        if not witness or witness["state"]["A"] != a:
+            continue
+        path = type1f_path(a, bit, 0)
         observed.append({
-            "A": 0x27,
-            "iy44_bit3": 1,
+            "A": a,
+            "iy44_bit3": bit if a == 0x27 else "not read",
             "word_8520": "not read",
-            "terminal": "bitmap_630C",
-            "branch_outcomes": radical_path["branch_outcomes"],
-            "trace": bit["trace"],
-            "discriminator_instruction_index": bit["instruction_index"],
-        })
-    integral = witnesses.get(("page_34", 0x6157, "fallthrough"))
-    if integral and integral["state"]["A"] == 0x22:
-        integral_path = type1f_path(0x22, 0, 0)
-        observed.append({
-            "A": 0x22,
-            "iy44_bit3": "not read",
-            "word_8520": "not read",
-            "terminal": "glyph_7C_set_iy32_bit2",
-            "branch_outcomes": integral_path["branch_outcomes"],
-            "trace": integral["trace"],
-            "discriminator_instruction_index": integral["instruction_index"],
+            "terminal": path["terminal"],
+            "branch_outcomes": path["branch_outcomes"],
+            "trace": witness["trace"],
+            "discriminator_outcome": f"34:{address:04X}:{outcome}",
+            "discriminator_instruction_index": witness["instruction_index"],
         })
     table_paths = symbolic_type1f_paths((table_a,))
     for row in table_paths:
         row["entry_path_status"] = "rom_fixed"
+    editor_domain = range(0x1F, 0x2D)
     editor_paths = annotate_dynamic_path_witnesses(
-        symbolic_type1f_paths(range(0x1F, 0x2C), outcomes),
+        symbolic_type1f_paths(editor_domain, outcomes),
         (row["branch_outcomes"] for row in observed),
     )
     return [
@@ -867,8 +939,8 @@ def type1f_entry_abis(
             "caller": "06:7F29–7F2E",
             "entry_chain": "06:7F2E → bjump descriptor ram:30BD → 34:6143",
             "entry_domain": {
-                "incoming_A": "0x1F–0x2B marker types modeled",
-                "concrete_state_domain": 13 * 2 * 0x10000,
+                "incoming_A": "0x1F–0x2C structural and exceptional marker types",
+                "projected_input_domain": len(editor_domain) * 2 * 0x10000,
             },
             "rom_bytes": {
                 "caller": rom.bytes_at(0x06, 0x7F29, 8).hex().upper(),
@@ -889,35 +961,38 @@ def metric_marker_path(
     marker_class: str,
     nested: int,
 ) -> dict[str, object]:
-    """Collapse the finite state tested by 34:759C–75C1."""
+    """Collapse the abstract predicate state tested by 34:759C–75C1."""
 
     outcomes = []
     if not at_tail_boundary:
         return {
             "terminal": "return_nz_pointer_mismatch",
-            "branch_outcomes": ["34:75A5:returned", "34:755F:taken"],
+            "returned_flags": "NZ",
+            "branch_outcomes": ["34:75A5:returned"],
         }
     outcomes.append("34:75A5:fallthrough")
     if yequ_table_flag:
-        outcomes.extend(("34:75A9:taken", "34:755F:taken"))
+        outcomes.append("34:75A9:taken")
         return {
             "terminal": "return_nz_yequ_table",
+            "returned_flags": "NZ",
             "branch_outcomes": outcomes,
         }
     outcomes.append("34:75A9:fallthrough")
     if marker_class == "other":
-        outcomes.extend(("34:75B0:fallthrough", "34:755F:taken"))
+        outcomes.append("34:75B0:fallthrough")
         return {
             "terminal": "return_nz_other_marker",
+            "returned_flags": "NZ",
             "branch_outcomes": outcomes,
         }
     outcomes.extend((
         "34:75B0:taken",
         f"34:75BB:{'fallthrough' if nested else 'taken'}",
-        "34:755F:fallthrough",
     ))
     return {
         "terminal": f"return_z_special_marker_{'nested' if nested else 'top_level'}",
+        "returned_flags": "Z",
         "branch_outcomes": outcomes,
     }
 
@@ -957,7 +1032,7 @@ def symbolic_metric_marker_paths(
             "terminal": terminal,
             "branch_outcomes": list(outcomes),
             "path_witness_outcome": path_discriminators[terminal],
-            "concrete_state_count": len(states),
+            "predicate_valuation_count": len(states),
             "representative_states": states[:4],
         }
         for (terminal, outcomes), states in sorted(classes.items())
@@ -968,6 +1043,31 @@ def symbolic_metric_marker_paths(
             key = symbolic_outcome_key(str(row["path_witness_outcome"]))
             row["dynamic_path_observed"] = bool(observed_outcomes[key])
     return paths
+
+
+def metric_marker_callers(
+    outcomes: Counter[tuple[str, int, str]],
+) -> list[dict[str, object]]:
+    """Describe each ROM-proven continuation after the 34:759C callee."""
+
+    rows = []
+    for caller, continuation in ((0x755C, 0x755F), (0x6FC6, 0x6FC9)):
+        observed = [
+            outcome for outcome in ("taken", "fallthrough")
+            if outcomes[("page_34", continuation, outcome)]
+        ]
+        rows.append({
+            "caller": f"34:{caller:04X}",
+            "continuation": f"34:{continuation:04X}",
+            "returned_NZ": f"34:{continuation:04X}:taken",
+            "returned_Z": f"34:{continuation:04X}:fallthrough",
+            "observed_continuation_outcomes": observed,
+        })
+    rows.append({
+        "caller": "05:785F",
+        "continuation": "tail jump; caller inherits the returned flags and A",
+    })
+    return rows
 
 
 def table_report(rom: RomImage, oracle: dict[str, object]) -> dict[str, object]:
@@ -1109,6 +1209,55 @@ def outcome_id(key: tuple[str, int, str]) -> str:
     space, address, outcome = key
     prefix = "00" if space == "ram" else space.removeprefix("page_").upper()
     return f"{prefix}:{address:04X}:{outcome}"
+
+
+def trace_dynamic_features(
+    outcomes: set[tuple[str, int, str]],
+    witnesses: dict[tuple[str, int, str], dict[str, object]],
+) -> set[str]:
+    """Tag branch outcomes and sound modeled path/state witnesses."""
+
+    features = {f"branch_outcome:{outcome_id(key)}" for key in outcomes}
+    for terminal, key in {
+        "generic_scan": ("page_34", 0x567A, "taken"),
+        "raised_operand_scan": ("page_34", 0x567C, "taken"),
+        "fraction_operand_scan": ("page_34", 0x5680, "taken"),
+        "single_argument_scan": ("page_34", 0x5682, "taken"),
+        "multi_argument_scan": ("page_34", 0x5686, "taken"),
+        "kind_5_scan": ("page_34", 0x5688, "taken"),
+        "kind_6_or_greater_scan": ("page_34", 0x5688, "fallthrough"),
+    }.items():
+        if key in outcomes:
+            features.add(f"modeled_path:34:5678:{terminal}")
+    for terminal, key in {
+        "return_nz_pointer_mismatch": ("page_34", 0x75A5, "returned"),
+        "return_nz_yequ_table": ("page_34", 0x75A9, "taken"),
+        "return_nz_other_marker": ("page_34", 0x75B0, "fallthrough"),
+        "return_z_special_marker_nested": ("page_34", 0x75BB, "fallthrough"),
+        "return_z_special_marker_top_level": ("page_34", 0x75BB, "taken"),
+    }.items():
+        if key in outcomes:
+            features.add(f"modeled_path:34:759C:{terminal}")
+    for a, address, outcome, bit in (
+        (0x27, 0x614E, "fallthrough", 0),
+        (0x27, 0x614E, "taken", 1),
+        (0x22, 0x6157, "fallthrough", 0),
+        (0x21, 0x6166, "taken", 0),
+        (0x25, 0x616C, "taken", 0),
+        (0x26, 0x619F, "taken", 0),
+        (0x28, 0x61A5, "taken", 0),
+        (0x29, 0x61AB, "taken", 0),
+    ):
+        key = ("page_34", address, outcome)
+        witness = witnesses.get(key)
+        if not witness or witness["state"]["A"] != a:
+            continue
+        terminal = type1f_path(a, bit, 0)["terminal"]
+        features.add(f"entry_state:34:6143:A=0x{a:02X}")
+        features.add(
+            f"modeled_path:34:6143:A=0x{a:02X}:bit3={bit}:{terminal}"
+        )
+    return features
 
 
 def scan_trace(
@@ -1317,7 +1466,11 @@ def branch_json(
             "hits": outcomes[key],
         }
         if classification:
-            row["reason"] = classification["reason"]
+            row.update({
+                field: classification[field]
+                for field in ("scope", "precondition", "reason")
+                if field in classification
+            })
         if key in witnesses:
             row["witness"] = witnesses[key]
         outcome_rows.append(row)
@@ -1363,7 +1516,7 @@ def component_report(
             "basic_block_leaders": len(cfg.block_leaders),
             "conditional_branches": len(cfg.branches),
             "possible_branch_outcomes": 2 * len(cfg.branches),
-            "unresolved_control_transfers": list(cfg.unresolved),
+            "unresolved_direct_control_transfers": list(cfg.unresolved),
             "external_direct_targets": [str(location) for location in cfg.external_direct_targets],
         },
         "dynamic": {
@@ -1385,6 +1538,7 @@ def component_report(
 def minimize_trace_corpus(
     trace_outcomes: dict[str, set[tuple[str, int, str]]],
     trace_bytes: dict[str, int] | None = None,
+    trace_provenance: dict[str, str] | None = None,
 ) -> dict[str, object]:
     """Return a proven minimum-cardinality cover of the observed outcomes.
 
@@ -1397,6 +1551,7 @@ def minimize_trace_corpus(
     labels = sorted(trace_outcomes)
     universe = set().union(*trace_outcomes.values()) if trace_outcomes else set()
     sizes = trace_bytes or {}
+    provenance = trace_provenance or {}
     if len(labels) <= EXHAUSTIVE_COVER_LIMIT:
         candidates: list[tuple[tuple[int, tuple[str, ...]], tuple[str, ...]]] = []
         selected: tuple[str, ...] = ()
@@ -1429,6 +1584,7 @@ def minimize_trace_corpus(
         rows.append(
             {
                 "label": label,
+                "provenance": provenance.get(label, TRACE_PROVENANCE_NATURAL),
                 "total_outcomes": len(trace_outcomes[label]),
                 "exclusive_outcomes": len(exclusive),
                 "exclusive_outcome_ids": [
@@ -1438,14 +1594,76 @@ def minimize_trace_corpus(
         )
     return {
         "algorithm": algorithm,
-        "objective": "preserve every branch outcome observed by the supplied trace corpus",
+        "objective": "preserve every individual branch outcome observed by the supplied trace corpus",
+        "preserved_feature_kinds": ["individual_branch_outcome"],
+        "not_preserved": [
+            "complete per-invocation branch paths",
+            "register or RAM states",
+            "dispatch row identities",
+            "record-oracle cases",
+            "LCD-write traces",
+        ],
         "tie_break": "minimum retained trace bytes, then lexicographic labels",
         "source_trace_count": len(trace_outcomes),
+        "source_trace_provenance_counts": dict(sorted(Counter(
+            provenance.get(label, TRACE_PROVENANCE_NATURAL) for label in labels
+        ).items())),
         "selected_trace_count": len(selected),
         "selected_trace_bytes": sum(sizes.get(label, 0) for label in selected),
         "selected": rows,
         "omitted": sorted(set(trace_outcomes) - selected_set),
         "covered_outcomes": len(universe),
+        "proven_minimum": True,
+    }
+
+
+def minimize_trace_features(
+    trace_features: dict[str, set[str]],
+    trace_bytes: dict[str, int] | None = None,
+    trace_provenance: dict[str, str] | None = None,
+) -> dict[str, object]:
+    """Minimize an arbitrary tagged feature universe with the exact solver."""
+
+    labels = sorted(trace_features)
+    universe = set().union(*trace_features.values()) if trace_features else set()
+    sizes = trace_bytes or {}
+    provenance = trace_provenance or {}
+    feature_index = {feature: index for index, feature in enumerate(sorted(universe))}
+    encoded = {
+        label: {("feature", feature_index[feature], "covered") for feature in features}
+        for label, features in trace_features.items()
+    }
+    selected = (
+        exact_cover_z3(labels, encoded, set().union(*encoded.values()), sizes)
+        if encoded else ()
+    )
+    selected_set = set(selected)
+    rows = []
+    for label in selected:
+        other_coverage = set().union(*(
+            trace_features[item] for item in selected if item != label
+        )) if len(selected) > 1 else set()
+        exclusive = sorted(trace_features[label] - other_coverage)
+        rows.append({
+            "label": label,
+            "provenance": provenance.get(label, TRACE_PROVENANCE_NATURAL),
+            "total_features": len(trace_features[label]),
+            "exclusive_features": len(exclusive),
+            "exclusive_feature_ids": exclusive,
+        })
+    return {
+        "algorithm": "exact lexicographic Optimize set cover via Z3",
+        "objective": "preserve every tagged dynamic feature observed by the supplied trace corpus",
+        "tie_break": "minimum retained trace bytes, then lexicographic labels",
+        "source_trace_count": len(labels),
+        "selected_trace_count": len(selected),
+        "selected_trace_bytes": sum(sizes.get(label, 0) for label in selected),
+        "selected": rows,
+        "omitted": sorted(set(labels) - selected_set),
+        "covered_features": len(universe),
+        "feature_kind_counts": dict(sorted(Counter(
+            feature.partition(":")[0] for feature in universe
+        ).items())),
         "proven_minimum": True,
     }
 
@@ -1541,8 +1759,9 @@ def open_paths(
             "area": "indirect and RAM-bjump edges",
             "status": "open",
             "reason": (
-                "the report lists every indirect transfer unresolved by the direct CFG; "
-                "an undiscovered target cannot count as a covered path"
+                "the direct CFG does not discover computed dispatches or enter bcall and "
+                "RAM-bjump bodies; manually seeded table destinations do not prove that "
+                "every runtime target is known"
             ),
         },
         {
@@ -1591,11 +1810,29 @@ def parse_trace(value: str) -> tuple[str, Path]:
     return label, path
 
 
+def validate_trace_provenance(label: str, path: Path, provenance: str) -> None:
+    """Reject known state-injection recipes mislabeled as natural input."""
+
+    macro = path.with_suffix(".macro")
+    if not macro.is_file():
+        return
+    injected = any(
+        line.lstrip().startswith("memwrite ")
+        for line in macro.read_text().splitlines()
+    )
+    if injected and provenance != TRACE_PROVENANCE_SYNTHETIC:
+        raise ValueError(
+            f"trace {label!r} has a sibling macro containing memwrite; classify "
+            f"it as {TRACE_PROVENANCE_SYNTHETIC!r}"
+        )
+
+
 def build_report(
     rom: RomImage,
     traces: Sequence[tuple[str, Path]],
     instruction_list: Path | None = None,
     trace_cache: Path | None = None,
+    trace_provenance: dict[str, str] | None = None,
 ) -> dict[str, object]:
     if instruction_list is None:
         instruction_maps: dict[int, dict[int, Z80Instruction]] = {}
@@ -1627,10 +1864,15 @@ def build_report(
     cache_entries = cache["entries"]
 
     trace_rows = []
+    provenance = trace_provenance or {}
     outcomes: Counter[tuple[str, int, str]] = Counter()
     instruction_hits: Counter[tuple[str, int]] = Counter()
     witnesses: dict[tuple[str, int, str], dict[str, object]] = {}
+    natural_outcomes: Counter[tuple[str, int, str]] = Counter()
+    natural_instruction_hits: Counter[tuple[str, int]] = Counter()
+    natural_witnesses: dict[tuple[str, int, str], dict[str, object]] = {}
     trace_outcomes: dict[str, set[tuple[str, int, str]]] = {}
+    trace_features: dict[str, set[str]] = {}
     for label, path in traces:
         trace_sha256 = digest(path)
         cached = cache_entries.get(trace_sha256)
@@ -1650,12 +1892,25 @@ def build_report(
             )
         local_set = set(local_outcomes)
         trace_outcomes[label] = local_set
+        trace_features[label] = trace_dynamic_features(local_set, local_witnesses)
+        row["provenance"] = provenance.get(label, TRACE_PROVENANCE_NATURAL)
         row["unique_branch_outcomes"] = len(local_set)
         trace_rows.append(row)
         outcomes.update(local_outcomes)
         instruction_hits.update(local_hits)
         for key, value in local_witnesses.items():
+            value["provenance"] = row["provenance"]
             witnesses.setdefault(key, value)
+        if row["provenance"] == TRACE_PROVENANCE_NATURAL:
+            natural_outcomes.update(local_outcomes)
+            natural_instruction_hits.update(local_hits)
+            for key, value in local_witnesses.items():
+                natural_witnesses.setdefault(key, value)
+
+    # Prefer a natural-input witness when both provenance classes exercise the
+    # same outcome. Synthetic traces remain the witness of record only for
+    # outcomes absent from every key-driven run.
+    witnesses.update(natural_witnesses)
 
     oracle = oracle_coverage(ROOT.glob("tools/mathprint-*-oracles.json"))
     table = table_report(rom, oracle)
@@ -1665,8 +1920,17 @@ def build_report(
         )
         for cfg in cfgs
     }
+    natural_component_rows = {
+        cfg.component.name: component_report(
+            cfg, natural_outcomes, natural_instruction_hits, natural_witnesses,
+            OUTCOME_CLASSIFICATIONS,
+        )
+        for cfg in cfgs
+    }
+    for name, row in component_rows.items():
+        row["natural_dynamic"] = natural_component_rows[name]["dynamic"]
     unresolved_count = sum(
-        len(row["static"]["unresolved_control_transfers"])
+        len(row["static"]["unresolved_direct_control_transfers"])
         for row in component_rows.values()
     )
     total_branches = sum(row["static"]["conditional_branches"] for row in component_rows.values())
@@ -1677,15 +1941,32 @@ def build_report(
         for branch in component["branches"]
         for outcome in branch["outcomes"]
     )
+    natural_outcome_statuses = Counter(
+        outcome["status"]
+        for component in natural_component_rows.values()
+        for branch in component["branches"]
+        for outcome in branch["outcomes"]
+    )
     external_targets = {
         target
         for row in component_rows.values()
         for target in row["static"]["external_direct_targets"]
     }
+    trace_sizes = {row["label"]: row["bytes"] for row in trace_rows}
+    natural_trace_outcomes = {
+        label: values for label, values in trace_outcomes.items()
+        if provenance.get(label, TRACE_PROVENANCE_NATURAL)
+        == TRACE_PROVENANCE_NATURAL
+    }
+    natural_trace_features = {
+        label: values for label, values in trace_features.items()
+        if provenance.get(label, TRACE_PROVENANCE_NATURAL)
+        == TRACE_PROVENANCE_NATURAL
+    }
     report = {
         "schema": 1,
         "claim": {
-            "scope": "declared MathPrint entries, finite table domains, modeled predicates, and named traces",
+            "scope": "declared MathPrint entries, decoded table rows, modeled predicate projections, and named traces",
             "not_claimed": [
                 "whole-ROM reachability",
                 "all possible editor or RAM states",
@@ -1693,8 +1974,8 @@ def build_report(
                 "full parity with every MathPrint assembly entry",
             ],
             "saturated_means": (
-                "all outcomes within a named finite domain are accounted for; unresolved "
-                "indirect edges and unmodeled state prevent a global saturation claim"
+                "all values in a named projected domain are partitioned; this does not "
+                "establish reachability for arbitrary machine states"
             ),
         },
         "rom": {"sha256": TI84_PLUS_OS_255MP_SHA256, "model": "TI-84 Plus", "os": "2.55MP"},
@@ -1704,8 +1985,20 @@ def build_report(
                 digest(instruction_list) if instruction_list is not None else None
             ),
             "static_cfg": "recursive direct-edge traversal from declared entries",
-            "symbolic": "finite dispatch domains and representative equivalence classes for stateful predicates",
-            "dynamic": "resolved TLMT next-PC outcomes over the named trace corpus",
+            "symbolic": "fixed table-row decoding and representative equivalence classes for selected predicate projections",
+            "computed_dispatches": {
+                "manually_seeded": [
+                    "34:6118 render table", "34:7393 metric table",
+                    "34:7609 geometry table", "39:4C27 editor class table",
+                ],
+                "skipped_call_mechanisms": [
+                    "RST 28h bcall bodies", "RAM bjump descriptor bodies",
+                ],
+            },
+            "dynamic": (
+                "resolved TLMT next-PC outcomes over named natural-input and "
+                "explicitly classified synthetic-state traces"
+            ),
             "trace_cache": (
                 "per-trace summaries keyed by CFG fingerprint and trace SHA-256"
                 if trace_cache is not None else None
@@ -1719,7 +2012,14 @@ def build_report(
             "possible_branch_outcomes": 2 * total_branches,
             "branch_outcomes_observed": total_outcomes,
             "branch_outcome_statuses": dict(sorted(outcome_statuses.items())),
-            "unresolved_control_transfers": unresolved_count,
+            "natural_branch_outcomes_observed": sum(
+                row["dynamic"]["branch_outcomes_observed"]
+                for row in natural_component_rows.values()
+            ),
+            "natural_branch_outcome_statuses": dict(sorted(
+                natural_outcome_statuses.items()
+            )),
+            "unresolved_direct_control_transfers": unresolved_count,
             "external_direct_targets": len(external_targets),
             "structural_types_with_oracles": sum(row["oracle_records"] > 0 for row in table["structural_dispatch"]),
             "structural_type_domain": len(table["structural_dispatch"]),
@@ -1727,10 +2027,17 @@ def build_report(
         },
         "tables": table,
         "symbolic_predicates": {
+            "structural_scan_kind_dispatch": {
+                "routine": "34:5678",
+                "state": ["incoming A scan-kind byte"],
+                "projected_input_domain": 0x100,
+                "rom_metadata_values": table["scan_kinds"],
+                "terminal_classes": symbolic_scan_kind_paths(outcomes),
+            },
             "shared_marker_draw_helper": {
                 "routine": "34:6143",
                 "state": ["A", "(IY+44h).3", "word 0x8520"],
-                "concrete_state_domain": 0x100 * 2 * 0x10000,
+                "projected_input_domain": 0x100 * 2 * 0x10000,
                 "terminal_classes": symbolic_type1f_paths(
                     observed_outcomes=outcomes
                 ),
@@ -1745,15 +2052,28 @@ def build_report(
                     "marker type in {0x20,0x24,0x2A}",
                     "nesting counter 0x8515",
                 ],
-                "concrete_state_domain": 16,
+                "abstract_predicate_domain": 16,
                 "terminal_classes": symbolic_metric_marker_paths(outcomes),
+                "callers": metric_marker_callers(outcomes),
             },
         },
         "record_oracles": oracle,
         "traces": trace_rows,
         "minimized_trace_corpus": minimize_trace_corpus(
-            trace_outcomes,
-            {row["label"]: row["bytes"] for row in trace_rows},
+            trace_outcomes, trace_sizes, provenance,
+        ),
+        "minimized_natural_trace_corpus": minimize_trace_corpus(
+            natural_trace_outcomes,
+            {label: trace_sizes[label] for label in natural_trace_outcomes},
+            {label: TRACE_PROVENANCE_NATURAL for label in natural_trace_outcomes},
+        ),
+        "minimized_dynamic_feature_corpus": minimize_trace_features(
+            trace_features, trace_sizes, provenance,
+        ),
+        "minimized_natural_dynamic_feature_corpus": minimize_trace_features(
+            natural_trace_features,
+            {label: trace_sizes[label] for label in natural_trace_features},
+            {label: TRACE_PROVENANCE_NATURAL for label in natural_trace_features},
         ),
         "components": component_rows,
         "translation_surfaces": list(TRANSLATION_SURFACES),
@@ -1772,12 +2092,19 @@ def main() -> None:
     )
     parser.add_argument("--trace", action="append", type=parse_trace, default=[])
     parser.add_argument(
+        "--synthetic-trace", action="append", type=parse_trace, default=[],
+        help="trace whose calculator state was injected rather than reached by keys",
+    )
+    parser.add_argument(
         "--trace-cache", type=Path,
         help="optional local JSON cache for completed per-trace scans",
     )
     parser.add_argument(
         "--trace-manifest", type=Path,
-        help="optional TSV of LABEL and PATH pairs appended to --trace inputs",
+        help=(
+            "optional TSV of LABEL, PATH, and optional PROVENANCE fields "
+            "appended to command-line trace inputs"
+        ),
     )
     args = parser.parse_args()
     if not args.rom.is_file():
@@ -1785,16 +2112,30 @@ def main() -> None:
     if digest(args.rom) != TI84_PLUS_OS_255MP_SHA256:
         parser.error("ROM SHA-256 does not match the pinned TI-84 Plus OS 2.55MP image")
     traces = list(args.trace)
+    provenance = {
+        label: TRACE_PROVENANCE_NATURAL for label, _path in args.trace
+    }
+    for label, path in args.synthetic_trace:
+        traces.append((label, path))
+        provenance[label] = TRACE_PROVENANCE_SYNTHETIC
     if args.trace_manifest is not None:
         if not args.trace_manifest.is_file():
             parser.error(f"trace manifest does not exist: {args.trace_manifest}")
         for line_number, line in enumerate(args.trace_manifest.read_text().splitlines(), 1):
             if not line or line.startswith("#"):
                 continue
-            label, separator, raw_path = line.partition("\t")
-            if not separator or not label or not raw_path:
+            fields = line.split("\t")
+            if len(fields) not in (2, 3) or not all(fields):
                 parser.error(
-                    f"{args.trace_manifest}:{line_number}: expected LABEL<TAB>PATH"
+                    f"{args.trace_manifest}:{line_number}: expected "
+                    "LABEL<TAB>PATH[<TAB>PROVENANCE]"
+                )
+            label, raw_path = fields[:2]
+            trace_kind = fields[2] if len(fields) == 3 else TRACE_PROVENANCE_NATURAL
+            if trace_kind not in TRACE_PROVENANCE_VALUES:
+                parser.error(
+                    f"{args.trace_manifest}:{line_number}: unsupported trace "
+                    f"provenance {trace_kind!r}"
                 )
             path = Path(raw_path)
             if not path.is_file():
@@ -1802,15 +2143,24 @@ def main() -> None:
                     f"{args.trace_manifest}:{line_number}: trace does not exist: {path}"
                 )
             traces.append((label, path))
+            provenance[label] = trace_kind
     labels = [label for label, _path in traces]
     if len(labels) != len(set(labels)):
         parser.error("trace labels must be unique")
+    for label, path in traces:
+        try:
+            validate_trace_provenance(
+                label, path,
+                provenance.get(label, TRACE_PROVENANCE_NATURAL),
+            )
+        except ValueError as error:
+            parser.error(str(error))
     if args.instruction_list is not None and not args.instruction_list.is_file():
         parser.error(f"instruction list does not exist: {args.instruction_list}")
 
     report = build_report(
         RomImage.from_path(args.rom), traces, args.instruction_list,
-        args.trace_cache,
+        args.trace_cache, provenance,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")

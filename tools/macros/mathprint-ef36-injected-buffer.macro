@@ -1,0 +1,21 @@
+# Synthetic malformed-input probe: EF36h has no natural key token.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+wait 0.5s
+memwrite 0x9DE0 EF 36 31 11
+memwrite 0x96F6 E4 9D
+memdump /tmp/mathprint-ef36-injected-buffer-before.ram ram-logical
+key LEFT
+wait 1.0s
+memdump /tmp/mathprint-ef36-injected-buffer-after-left.ram ram-logical
+screenshot /tmp/mathprint-ef36-injected-buffer-after-left.png
+key RIGHT
+wait 1.0s
+memdump /tmp/mathprint-ef36-injected-buffer-after-right.ram ram-logical
+screenshot /tmp/mathprint-ef36-injected-buffer-after-right.png

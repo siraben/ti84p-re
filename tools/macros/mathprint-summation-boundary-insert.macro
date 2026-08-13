@@ -1,0 +1,41 @@
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key MATH
+key 0
+key ALPHA
+key LOG
+key RIGHT
+key 1
+key RIGHT
+key 3
+key RIGHT
+key ALPHA
+key LOG
+key POWER
+key 2
+key RIGHT
+key RIGHT
+wait 0.35s
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+wait 0.5s
+key 3
+wait 0.8s
+memdump /tmp/mathprint-summation-boundary-insert.ram ram-logical
+screenshot /tmp/mathprint-summation-boundary-insert.png
