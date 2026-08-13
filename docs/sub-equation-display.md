@@ -536,6 +536,27 @@ payload bytes as input. They compare the generated display-code, coordinate,
 depth, and order tuples with independently captured `34:6C37` observations for
 absolute value, summation with an exponent, and nested `nDeriv(`. [confirmed]
 
+The translated renderer then maps the ordered operations through the ROM font
+bitmaps, page-4 point and line behavior, `_VPutMap`, the page-7 large-glyph
+path, and LCD byte packing. Six settled programs reproduce every accepted LCD
+data write through the outer `34:660A` return: absolute value (49 writes), nth
+root (69), radical (82), summation (91), `nDeriv(` (110), and a nested
+integral/fraction (114). This comparison includes accepted writes whose value
+does not change the displayed byte. [confirmed]
+
+The small-font table at `03:4CD6` stores seven rows per glyph. `_VPutMap` emits
+the five interior rows. It retains an interior zero row, but it does not emit
+the padding row above or below the glyph. A row that crosses an LCD byte
+boundary writes the right byte before the left byte at `01:63CE`–`01:641A`.
+The large-font path emits all seven rows of its fixed cell. [confirmed]
+
+These six programs begin from record snapshots captured at `34:660A`. The
+snapshots are executable inputs rather than captured drawing events. The
+earlier transformation from expression tokens to record headers, child IDs,
+origins, dimensions, and leaf payloads remains untranslated. Full
+arbitrary-expression parity requires that construction pass before the settled
+renderer. [confirmed]
+
 Each dispatch also captures the viewport origin at `ram:8DFE`/`ram:8E00`.
 Nested fraction `1/2` reaches `34:5DA6` with the local rule `(1,6)`–`(5,6)`
 and origin `(16,5)`. Page 4 therefore receives the translated endpoints
@@ -581,9 +602,10 @@ synthetic tests confirm the replay implementation.
 
 `tools/parity-mathprint.py` selects that replay when tracing is enabled.
 The local ignored `tools/rom.bin` enables pinned-ROM reproduction when present.
-The 5,018-case Node test remains a deterministic parser/layout smoke test. The
-two trace scenarios above provide narrower calculator-parity evidence for their
-exact rendered expressions. [confirmed]
+The 5,018-case Node test remains a deterministic parser/layout smoke test. Six
+settled record programs provide exact final-pixel and complete accepted-write
+parity for their expressions. Two longer trace scenarios also cover the editor
+and display activity around the final key press. [confirmed]
 
 ## Extracted records and interactive model
 
@@ -596,4 +618,7 @@ translations in `web/mathprint/rom-engine.js`. The translated routines consume
 `layout.json` for handler lookup, row-cell iteration, direct glyph and delimiter
 classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in `app.js` still uses a separate,
-trace-fitted box model. [confirmed]
+trace-fitted box model. `web/mathprint/record-programs.json` contains six
+captured record snapshots. The browser executes these through the translated
+renderer and exposes every generated LCD write as a live timeline. It does not
+load captured LCD events for that mode. [confirmed]

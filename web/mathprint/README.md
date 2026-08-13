@@ -12,10 +12,11 @@ reader-facing write-up is
 | File | Role |
 |------|------|
 | `index.html`, `style.css` | the interactive page |
-| `app.js` | renderer and two timelines: captured LCD writes for retained traces, or model elements for other expressions |
+| `app.js` | renderer and three labeled timelines: RE-generated writes, captured writes, and model elements |
 | `rom-engine.js` | direct JavaScript translations of closed page `0x39`, page `0x34`, and page `0x01` routines |
 | `font.json` | large (`07:45FF`) + small (`03:4CD6`) font glyphs, extracted from ROM |
 | `layout.json` | page `0x39` class-table records and selected descriptors consumed by the translated routines |
+| `record-programs.json` | six settled record snapshots used as executable renderer inputs |
 | `draw-order.json` | accepted visible-pixel LCD mutations from the retained integral traces |
 
 `rom-engine.js` translates handler lookup, row-cell emission, direct-glyph and
@@ -111,20 +112,27 @@ arbitrary-expression compositor is still reconstructed rather than translated.
 ## Verification status
 
 `tools/test-mathprint.js` passes 5,018 deterministic parse/layout smoke cases and
-checks rectangular boxes plus in-bounds composition marks. It also executes
-record-only fixtures for absolute value, summation with an exponent, and nested
-`nDeriv(`. The generated glyph code, coordinate, depth, and order must match the
-independently captured ROM trace. The expected stream is assertion data, not an
-executor input. `parity-mathprint.py` uses LCD trace replay when tracing is
-enabled. Calculator parity requires the proprietary ROM. Filled-integral and
-nested-fraction results are recorded in
+checks rectangular boxes plus in-bounds composition marks. It executes the
+settled record programs for absolute value, nth root, radical, summation,
+`nDeriv(`, and a nested integral/fraction. For each program, the generated final
+pixels, visible-changing write order, and complete accepted LCD data-write
+stream match independent trace oracles. The complete streams contain 49, 69,
+82, 91, 110, and 114 writes, respectively. Captured LCD events are assertion
+data, not executor inputs. [confirmed]
+
+The JavaScript path begins at a captured settled record snapshot. It does not
+yet translate the earlier token-to-record construction and layout pass. An
+arbitrary expression therefore uses the separately labeled compositor instead
+of claiming RE-generated parity. `parity-mathprint.py` uses LCD trace replay
+when tracing is enabled. Calculator parity requires the proprietary ROM.
+Filled-integral and nested-fraction results are recorded in
 `tools/mathprint-trace-report.json`; the large raw traces stay outside Git.
 
-The preview's captured timeline uses those two traces. It starts immediately
-before the final expression key is processed, then applies each accepted T6A04
-write that changes a visible pixel. The playback preserves overwritten and
-cleared pixels. Other expressions use the separately labeled model-element
-timeline. [confirmed]
+The preview executes all six snapshots in the browser and exposes every
+generated accepted LCD data write in order, including writes that do not change
+a pixel. Its captured timeline uses the two retained integral traces and keeps
+only visible-changing writes. Expressions without an executable record snapshot
+use the separately labeled model-element timeline. [confirmed]
 
 ## Regeneration
 
