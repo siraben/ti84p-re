@@ -1447,6 +1447,109 @@
     };
   }
 
+  // Scan kind 6 enters 34:568A for a matrix element. 34:57C2 reads the
+  // current token and then rewinds 0x965D by one byte. The dispatcher calls
+  // 34:5AA7 with B=20h, which returns the depth-zero comma or the row-closing
+  // 07h token in BC. Matrix values use nested 06h...07h square-bracket
+  // containers. Translate every element scan and retain its parse-ahead ABI;
+  // the surrounding walk supplies the row and column coordinates that the
+  // caller accumulates while constructing the type-2Bh record.
+  function settledMatrixContainerScan(input, openerOffset = 0) {
+    const native = settledNativeTokenUnits(input);
+    if (!Number.isInteger(openerOffset) || openerOffset < 0 ||
+        openerOffset >= native.bytes.length)
+      throw new RangeError('settled matrix opener offset is outside the input');
+    const opener = native.units.find(unit => unit.offset === openerOffset);
+    if (!opener)
+      throw new RangeError(
+        'settled matrix opener offset is inside a two-byte token');
+    const renderType = settledStructuralTokenType(opener.prefix,opener.token);
+    const metadata = renderType === null ? null
+      : settledRecordMetadata(renderType);
+    if (renderType !== 0x2b || metadata[0] !== 6 ||
+        opener.prefix !== 0 || opener.token !== 0x06)
+      throw new RangeError(
+        'settled matrix opener does not select the kind-6 square-bracket path');
+
+    const unitAt = offset => native.units.find(unit => unit.offset === offset);
+    const expectByte = (offset, value, label) => {
+      const unit = unitAt(offset);
+      if (!unit || unit.prefix !== 0 || unit.token !== value)
+        throw new RangeError(`settled matrix ${label} is missing at byte ${offset}`);
+      return unit.next;
+    };
+
+    const rows = [];
+    let cursor = opener.next;
+    for (;;) {
+      const unit = unitAt(cursor);
+      if (!unit)
+        throw new RangeError('settled matrix has no outer closing 07h token');
+      if (unit.prefix === 0 && unit.token === 0x07) {
+        if (!rows.length)
+          throw new RangeError('settled matrix has no rows');
+        cursor = unit.next;
+        break;
+      }
+      cursor = expectByte(cursor,0x06,'row-opening 06h token');
+      const row = [];
+      for (;;) {
+        const first = unitAt(cursor);
+        if (!first || first.prefix === 0 &&
+            (first.token === 0x2b || first.token === 0x07))
+          throw new RangeError(
+            `settled matrix row ${rows.length + 1} has an empty element`);
+        const start = cursor;
+        const parseAhead = settledParseAhead(native.bytes,{
+          entry:'direct5AA7', b:0x20, cursor:start - 1,
+        });
+        const delimiterOffset = parseAhead.stopCursor;
+        const delimiter = native.bytes[delimiterOffset];
+        if (delimiter !== 0x2b && delimiter !== 0x07)
+          throw new RangeError(
+            `settled matrix element at byte ${start} ends with ` +
+            `${delimiter === undefined ? 'end of input' :
+              `0x${delimiter.toString(16)}`} instead of 2Bh or 07h`);
+        if (delimiterOffset <= start)
+          throw new RangeError(
+            `settled matrix element at byte ${start} is empty`);
+        if (!unitAt(delimiterOffset))
+          throw new Error('settled matrix delimiter is inside a two-byte token');
+        row.push({
+          row:rows.length + 1,
+          column:row.length + 1,
+          start,
+          end:delimiterOffset,
+          delimiterOffset,
+          delimiter,
+          incomingCursor:start,
+          rewoundCursor:start - 1,
+          returnedCursor:delimiterOffset,
+          parseAhead,
+        });
+        cursor = delimiterOffset + 1;
+        if (delimiter === 0x07) break;
+      }
+      rows.push(row);
+    }
+    const columns = rows[0].length;
+    if (rows.some(row => row.length !== columns))
+      throw new RangeError('settled matrix rows must have equal width');
+    return {
+      renderType,
+      scanKind:6,
+      metadata,
+      opener:{
+        offset:opener.offset, next:opener.next, length:opener.length,
+        prefix:opener.prefix, token:opener.token, packed:opener.packed,
+      },
+      rows:rows.length,
+      columns,
+      elements:rows.flat(),
+      stopCursor:cursor,
+    };
+  }
+
   // Zero-result predicate at 34:5A75. 34:7EF5 supplies the first 17 entries;
   // the remaining comparisons are inline at 34:5A79–5A98.
   function settledParseAheadClass5A75(token) {
@@ -1819,17 +1922,17 @@
         ...encode(expression.base),0x11,
       ];
       if (expression.kind === 'matrix') {
-        const result = [0x08];
+        const result = [0x06];
         for (let row = 0; row < expression.rows; row++) {
-          result.push(0x08);
+          result.push(0x06);
           for (let column = 0; column < expression.columns; column++) {
             if (column) result.push(0x2b);
             result.push(...encode(
               expression.elements[row * expression.columns + column]));
           }
-          result.push(0x09);
+          result.push(0x07);
         }
-        result.push(0x09);
+        result.push(0x07);
         return result;
       }
       if (expression.kind === 'radical')
@@ -1956,35 +2059,40 @@
     };
 
     const parseMatrix = () => {
-      expect(0,0x08,'matrix opening brace');
+      const scan = settledMatrixContainerScan(
+        native.bytes,units[cursor].offset);
+      expect(0,0x06,'matrix opening square bracket');
       const rows = [];
-      while (peek(0,0x08)) {
+      let elementIndex = 0;
+      while (peek(0,0x06)) {
         take();
         const row = [];
-        const first = expression();
-        if (!first) throw new RangeError('settled native matrix row is empty');
-        row.push(first);
-        while (peek(0,0x2b)) {
-          take();
-          const element = expression();
-          if (!element)
-            throw new RangeError('settled native matrix element is empty');
-          row.push(element);
+        for (let column = 0; column < scan.columns; column++) {
+          row.push(parseAheadArgument(
+            `settled native matrix element ${elementIndex + 1}`,
+            scan.elements[elementIndex++]));
+          if (column + 1 < scan.columns)
+            expect(0,0x2b,'matrix element comma');
         }
-        expect(0,0x09,'matrix row closing brace');
+        expect(0,0x07,'matrix row closing square bracket');
         rows.push(row);
       }
-      expect(0,0x09,'matrix closing brace');
-      if (!rows.length || rows.some(row => row.length !== rows[0].length))
-        throw new RangeError('settled native matrix rows must have equal width');
+      expect(0,0x07,'matrix closing square bracket');
+      const parsedEnd = cursor < units.length
+        ? units[cursor].offset : native.bytes.length;
+      if (elementIndex !== scan.elements.length || parsedEnd !== scan.stopCursor)
+        throw new RangeError(
+          `settled native matrix parser stopped at byte ${parsedEnd}; ` +
+          `kind 6 stopped at byte ${scan.stopCursor}`);
       return {
-        kind:'matrix', rows:rows.length, columns:rows[0].length,
+        kind:'matrix', rows:scan.rows, columns:scan.columns,
         elements:rows.flat(),
       };
     };
 
     atom = () => {
-      if (cursor >= units.length || peek(0,0x11) || peek(0,0x09) ||
+      if (cursor >= units.length || peek(0,0x11) || peek(0,0x07) ||
+          peek(0,0x09) ||
           peek(0,0x2b)) return null;
       if (peek(0,0x10)) {
         take();
@@ -1995,7 +2103,7 @@
         if (grouped.kind === 'fraction') return grouped;
         return {kind:'group',expression:grouped};
       }
-      if (peek(0,0x08) && peek(0,0x08,1)) return parseMatrix();
+      if (peek(0,0x06) && peek(0,0x06,1)) return parseMatrix();
       if (peek(0,0xb0)) {
         const sign = take();
         const operand = atom();
@@ -2129,7 +2237,8 @@
 
     const beginsImplicitFactor = () => {
       if (cursor >= units.length) return false;
-      return !(peek(0,0x11) || peek(0,0x09) || peek(0,0x2b) ||
+      return !(peek(0,0x11) || peek(0,0x07) || peek(0,0x09) ||
+        peek(0,0x2b) ||
         peek(0,0x70) || peek(0,0x71) || peek(0,0x82) || peek(0,0x83) ||
         peek(0,0xf0) || peek(0,0xf1) || peek(0xef,0x2e) ||
         peek(0xef,0x2f));
@@ -3663,6 +3772,7 @@
     settledStructuralArgumentScan,
     settledRaisedOperandScan,
     settledFractionOperandScan,
+    settledMatrixContainerScan,
     encodeSettledExpressionTokens,
     settledExpressionFromTokens,
     constructSettledProgramFromTokens,

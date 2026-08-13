@@ -1021,6 +1021,17 @@ operand ranges before constructing a type-`0x20` record. Leaf, powered,
 nested-denominator, and raised-fraction cases cover the translated branches.
 [confirmed]
 
+Scan kind `6` enters `34:568A` for each matrix element. Native matrix values
+use `06h` and `07h` square-bracket tokens for the outer container and each row.
+`34:57C2` reads the current element token, rewinds `ram:965D` by one byte, and
+then `34:5AA7` scans with `B=20h`. The returned `BC` points to a depth-zero
+`2Bh` comma or the row-closing `07h`. The `0x9D05` result is `0` for a comma
+and `FFh` for the row close. The JavaScript scanner retains these results and
+derives row-major element ranges. Retained $1\times1$, $1\times2$,
+$2\times3$, and $3\times3$ value traces pin primitive numeric cells. Nested
+structural matrix cells remain closed until a trace pins the constructor's
+resume path after the child boundary. [confirmed]
+
 The browser expands every accepted byte into eight ordered pixel results. A
 timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement
