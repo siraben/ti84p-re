@@ -523,6 +523,16 @@ analyzer preserves these secondary dispatches in instruction order. It uses the
 first `34:660A` entry at the shallowest Z80 stack depth after the final key press
 to identify the enclosing leaf program. [confirmed]
 
+The analyzer also decodes the reachable settled graph into a semantic
+expression tree. Structural child IDs recover argument order. A type-`0x2A`
+record binds its exponent to the ordinary token run immediately before the
+embedded-record marker. The decoder maps `EF 1E` to `X` only in the contextual
+`nDeriv(X,X,...)` body described below. Elsewhere it preserves the pair as an
+explicit extended token. The resulting tree identifies the expression in a
+trace without using LCD pixels or a screenshot. It describes the settled graph
+consumed by `34:660A`; the editor/parser representation before `34:4900`
+remains open. [confirmed]
+
 Within that program, `EF type id_lo id_hi` invokes the structural record with
 the given little-endian ID. `EF 2D` terminates or separates the embedded object
 without drawing it. Ordinary payload bytes may follow. The settled
@@ -634,6 +644,21 @@ and nested-fraction operands. The generated graphs match every captured record
 field and ID. Their accepted LCD data-write streams also match through the outer
 `34:660A` return. [confirmed]
 
+Integral, summation, and `nDeriv(` records in a fraction numerator follow the
+same hoisting rule. `34:4900` allocates the multi-argument record and reserves
+its child leaves before it allocates the enclosing type-`0x20` fraction. The
+nested structural record stores `0x10` at `+0x13`. Raised integral layout uses
+a 10-pixel body-to-variable gap; the outer layout uses 12 pixels. In a raised
+`nDeriv(X^2,X,...)` numerator, the body leaf stores `EF 1E` before the
+type-`0x2A` marker. The renderer treats that contextual pair as the `X` power
+base, and the power record stores `6` at `+0x0D`. [confirmed]
+
+Six reset-origin traces cover integral, summation, and `nDeriv(` numerators,
+each with an ordinary body and a powered body. Before parity is accepted, the
+trace analyzer must decode each settled graph to the asserted expression. The
+JavaScript constructor then matches every record field and allocation ID, plus
+every accepted LCD data write through the outer `34:660A` return. [confirmed]
+
 The type-`0x22` constructor maps integral source token `0024h` through
 `34:594D`. `34:4900` allocates the integral record, then reserves all four child
 leaf IDs before it scans any child payload. The children hold the lower bound,
@@ -743,8 +768,8 @@ Flat absolute-value bodies and expressions composed from ordinary token runs,
 right-associated powers, radicals, nth roots, and stacked fractions now run
 from tokens through record construction, layout, drawing operations, and LCD
 byte writes. Integrals, summations, and `nDeriv(` compose with the same
-translated forms in their arguments. Construction inside a fraction numerator
-and the remaining arbitrary-expression branches are still untranslated.
+translated forms in their arguments and in a stacked-fraction numerator. The
+remaining arbitrary-expression branches are still untranslated.
 [confirmed]
 
 Each dispatch also captures the viewport origin at `ram:8DFE`/`ram:8E00`.
@@ -799,7 +824,9 @@ cases, eight power/radical composition cases, four nth-root cases, thirteen
 fraction cases, twelve integral cases, and eleven summation cases verify
 token-to-record construction and complete accepted-write streams. Twelve
 `nDeriv(` cases verify its three arguments, structural bodies, and recursive
-nesting. The deepest power oracle has three raised levels. Two longer trace
+nesting. Six raised multi-argument numerator cases also require the settled
+record graph to decode to the asserted semantic expression. The deepest power
+oracle has three raised levels. Two longer trace
 scenarios cover the editor and display activity around the final key press.
 [confirmed]
 
