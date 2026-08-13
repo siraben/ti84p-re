@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d43d7074.js";
+            window.path_to_searchindex_js = "searchindex-610c3e23.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -586,7 +586,7 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, and large-glyph output. It recursively follows direct ROM
 edges from named entries, resolves the finite dispatch tables, overlays exact
-next-PC outcomes from 170 reset-origin traces, and lists external targets.
+next-PC outcomes from 171 reset-origin traces, and lists external targets.
 <code>tools/mathprint-saturation.json</code> records the resulting branches and trace
 hashes. [confirmed]</p>
 <p>The report is a symbolic-execution aid rather than a whole-machine proof. It
@@ -601,13 +601,13 @@ outside that state model. [confirmed]</p>
 <tr><th>Component</th><th style="text-align: right">Reachable instructions</th><th style="text-align: right">Conditional outcomes observed</th><th style="text-align: right">Conditional outcomes in CFG</th><th style="text-align: right">Instruction coverage</th></tr>
 </thead>
 <tbody>
-<tr><td>Settled construction</td><td style="text-align: right">991</td><td style="text-align: right">228</td><td style="text-align: right">408</td><td style="text-align: right">79.11%</td></tr>
-<tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">195</td><td style="text-align: right">302</td><td style="text-align: right">90.25%</td></tr>
-<tr><td>Metrics and geometry</td><td style="text-align: right">470</td><td style="text-align: right">67</td><td style="text-align: right">80</td><td style="text-align: right">95.74%</td></tr>
+<tr><td>Settled construction</td><td style="text-align: right">991</td><td style="text-align: right">244</td><td style="text-align: right">408</td><td style="text-align: right">79.11%</td></tr>
+<tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">202</td><td style="text-align: right">302</td><td style="text-align: right">90.25%</td></tr>
+<tr><td>Metrics and geometry</td><td style="text-align: right">470</td><td style="text-align: right">70</td><td style="text-align: right">80</td><td style="text-align: right">96.17%</td></tr>
 <tr><td>Record allocator</td><td style="text-align: right">64</td><td style="text-align: right">7</td><td style="text-align: right">8</td><td style="text-align: right">98.44%</td></tr>
-<tr><td>Editor layout</td><td style="text-align: right">2,776</td><td style="text-align: right">239</td><td style="text-align: right">1,098</td><td style="text-align: right">32.42%</td></tr>
+<tr><td>Editor layout</td><td style="text-align: right">2,776</td><td style="text-align: right">245</td><td style="text-align: right">1,098</td><td style="text-align: right">32.42%</td></tr>
 <tr><td>Small-font and LCD output</td><td style="text-align: right">413</td><td style="text-align: right">76</td><td style="text-align: right">122</td><td style="text-align: right">71.19%</td></tr>
-<tr><td>Point and line primitives</td><td style="text-align: right">508</td><td style="text-align: right">41</td><td style="text-align: right">134</td><td style="text-align: right">58.07%</td></tr>
+<tr><td>Point and line primitives</td><td style="text-align: right">508</td><td style="text-align: right">44</td><td style="text-align: right">134</td><td style="text-align: right">58.07%</td></tr>
 <tr><td>Large glyphs</td><td style="text-align: right">130</td><td style="text-align: right">16</td><td style="text-align: right">32</td><td style="text-align: right">68.46%</td></tr>
 </tbody>
 </table>
@@ -618,8 +618,8 @@ for that corpus. A branch with one or no outcomes remains open even when its
 containing routine has been reached. The allocator is the only declared
 component whose every conditional branch has at least one observed outcome;
 three of its four branches have both outcomes. [confirmed]</p>
-<p>The report classifies all 2,184 enumerated outcomes. The traces exercise 869.
-One allocator outcome is infeasible under its entry invariant. The other 1,314
+<p>The report classifies all 2,184 enumerated outcomes. The traces exercise 904.
+One allocator outcome is infeasible under its entry invariant. The other 1,279
 remain unresolved because their required state or calling ABI is not yet
 proved. An unobserved outcome never becomes infeasible from absence alone.
 [confirmed]</p>
@@ -629,10 +629,10 @@ proved. An unobserved outcome never becomes infeasible from absence alone.
 <code>02:5DCF</code> raises <code>_ErrDimension</code> when either dimension is zero. A valid settled
 matrix record therefore reaches <code>33:4F4E</code> with a nonzero product and takes the
 branch. [confirmed]</p>
-<p>An exact Z3 set-cover calculation reduces the 170 trace summaries to 18 while
-preserving all 869 observed outcomes. It minimizes trace count first, retained
-bytes second, and labels third. The 18 selected traces total 2,762,574,180
-bytes, and each contributes at least one outcome absent from the other 17.
+<p>An exact Z3 set-cover calculation reduces the 171 trace summaries to 19 while
+preserving all 904 observed outcomes. It minimizes trace count first, retained
+bytes second, and labels third. The 19 selected traces total 2,847,171,954
+bytes, and each contributes at least one outcome absent from the other 18.
 This is a proven minimum for the supplied trace set, not for every input the OS
 can accept. The broad trace set remains an RE and regression corpus; the public
 gallery uses a smaller, diverse selection. [confirmed]</p>
