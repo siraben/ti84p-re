@@ -701,6 +701,7 @@
       case 0x25:
       case 0x26: {
         const savedDepth = state.depth;
+        state.depth--;
         emit(record, origin, {
           kind:'glyph', code:record.type === 0x25 ? 0xdb : 0x1d,
           x:0, y:record.word07 - 7,
@@ -960,6 +961,15 @@
           exponent:settledExpressionSpec(input.exponent, `${label} exponent`, active),
         };
       }
+      if (kind === 'ePower' || kind === 'tenPower') return {
+        kind,
+        exponent:settledExpressionSpec(input.exponent, `${label} exponent`, active),
+      };
+      if (kind === 'logBase') return {
+        kind,
+        base:settledExpressionSpec(input.base, `${label} base`, active),
+        argument:settledExpressionSpec(input.argument, `${label} argument`, active),
+      };
       if (kind === 'radical') return {
         kind,
         radicand:settledExpressionSpec(
@@ -1035,6 +1045,9 @@
       if (expression.kind === 'tokens') return expression.tokens[0];
       if (expression.kind === 'sequence') return leadingByte(expression.parts[0]);
       if (expression.kind === 'power') return expression.base[0];
+      if (expression.kind === 'ePower') return 0xef;
+      if (expression.kind === 'tenPower') return 0xef;
+      if (expression.kind === 'logBase') return 0xef;
       if (expression.kind === 'radical') return 0xef;
       if (expression.kind === 'nthRoot') return leadingByte(expression.index);
       if (expression.kind === 'fraction') return 0xef;
@@ -1156,6 +1169,80 @@
           parts:[{kind:'tokens',tokens:expression.base},
                  {kind:'embedded',structural}],
           fractionByte13:0x10,
+        };
+      }
+      if (expression.kind === 'ePower' || expression.kind === 'tenPower') {
+        const sourceToken = expression.kind === 'ePower' ? 0xbf : 0xc1;
+        const renderType = settledStructuralTokenType(0x00, sourceToken);
+        const expectedType = expression.kind === 'ePower' ? 0x25 : 0x26;
+        if (renderType !== expectedType)
+          throw new Error(`34:594D ${expression.kind} token mapping is inconsistent`);
+        const structuralId = allocate();
+        const structural = {
+          record_id:structuralId, render_type:renderType, word03:0,
+          word05:settledRecordMetadata(renderType)[1],
+          word07:0, word09:0, word0B:0, word0D:0, word0F:0,
+          word11:structuralDepth + 1,
+          byte13:fractionNumerator ? 0x10 : 0,
+          child_ids:[], payload:[],
+        };
+        nodes.push(structural);
+        const exponent = build(
+          expression.exponent, renderDepth + 1,
+          structuralId, structuralDepth + 1);
+        exponent.word0B = 6;
+        exponent.word0D = 0;
+        structural.word07 = checkedWord(
+          exponent.word05 + 4, `${expression.kind} height`);
+        structural.word09 = checkedWord(
+          exponent.word07 + 6, `${expression.kind} width`);
+        structural.word0B = exponent.word05;
+        structural.child_ids = [exponent.record_id];
+        return {
+          kind:'embedded', structural,
+          fractionByte13:fractionNumerator ? 0x10 : 0xef,
+        };
+      }
+      if (expression.kind === 'logBase') {
+        const renderType = settledStructuralTokenType(0xef, 0x34);
+        if (renderType !== 0x28)
+          throw new Error('34:594D log-base token mapping is inconsistent');
+        const structuralId = allocate();
+        const structural = {
+          record_id:structuralId, render_type:renderType, word03:0,
+          word05:settledRecordMetadata(renderType)[2],
+          word07:0, word09:0, word0B:0, word0D:0, word0F:0,
+          word11:structuralDepth + 1,
+          byte13:fractionNumerator ? 0x10 : 0,
+          child_ids:[], payload:[],
+        };
+        nodes.push(structural);
+
+        // The two-argument pass reserves both leaves before scanning either
+        // payload for nested structural records.
+        const base = newLeaf(structuralId);
+        const argument = newLeaf(structuralId);
+        fillLeaf(base, prepare(
+          expression.base, renderDepth + 1, structuralDepth + 1,
+          fractionNumerator), renderDepth + 1);
+        fillLeaf(argument, prepare(
+          expression.argument, renderDepth, structuralDepth + 1,
+          fractionNumerator), renderDepth);
+        base.word0B = 18;
+        base.word0D = checkedWord(
+          argument.word09 + 1, 'log-base base y');
+        argument.word0B = checkedWord(
+          base.word07 + 24, 'log-base argument x');
+        argument.word0D = 0;
+        structural.word07 = checkedWord(Math.max(
+          argument.word05, base.word0D + base.word05), 'log-base height');
+        structural.word09 = checkedWord(
+          argument.word0B + argument.word07 + 6, 'log-base width');
+        structural.word0B = argument.word09;
+        structural.child_ids = [base.record_id, argument.record_id];
+        return {
+          kind:'embedded', structural,
+          fractionByte13:fractionNumerator ? 0x10 : 0xef,
         };
       }
       if (expression.kind === 'radical') {

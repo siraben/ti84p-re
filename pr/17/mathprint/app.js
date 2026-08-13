@@ -668,6 +668,9 @@ function parse(src) {
         if (id === 'int' || id === 'integral') return intCall();
         if (id === 'sum') return bigOpCall(id);
         if (id === 'nthroot') return nthRootCall();
+        if (id === 'exp') return exponentialCall(0xdb);
+        if (id === 'tenpow') return exponentialCall(0x1d);
+        if (id === 'logbase') return logBaseCall();
         const args = call();
         if (id === 'sqrt' || id === 'root') return radical(args[0] || text(''));
         if (id === 'abs') return absoluteValue(args[0] || text(''));
@@ -713,6 +716,28 @@ function parse(src) {
     const n = limitArg(); eat(',');
     const body = expr(); eat(')');
     return nthRoot(n, body);
+  }
+  // exp(body) and tenpow(body) select the fixed e/10 display glyph and render
+  // the argument as its small-font raised child.
+  function exponentialCall(code) {
+    eat('(');
+    const wasSmall = SMALL; SMALL = true;
+    const exponent = expr();
+    SMALL = wasSmall;
+    eat(')');
+    return superscript(largeGlyph(code), exponent);
+  }
+  // logbase(base,argument) puts the first child below "log" and encloses the
+  // second child. The executable LCD view uses the exact type-28h record path.
+  function logBaseCall() {
+    eat('(');
+    const wasSmall = SMALL; SMALL = true;
+    const base = expr();
+    SMALL = wasSmall;
+    eat(',');
+    const argument = expr();
+    eat(')');
+    return hcat([text('log'), base, parens(argument)], 1);
   }
   function limitArg() {
     const j = i;
@@ -782,6 +807,10 @@ const PRESETS = Object.freeze([
   ['linear 1/2', '1/2'],
   ['stacked 1//2', '1//2'],
   ['X squared', 'X^2'],
+  ['e raised to 12 (RE)', 'exp(12)'],
+  ['10 raised to X squared (RE)', 'tenpow(X^2)'],
+  ['log base 12 of 345 (RE)', 'logbase(12,345)'],
+  ['log base 3 of one half (RE)', 'logbase(3,1//2)'],
   ['(A+B)//C', '(A+B)//C'],
   ['nested fraction', '1//(2//3)'],
   ['radical', 'sqrt(X^2+1)'],
@@ -973,6 +1002,30 @@ function constructedSettledSpec(source) {
       offset++;
       return {kind:'radical', radicand};
     }
+    if (source.startsWith('exp(', offset)) {
+      offset += 4;
+      const exponent = expression();
+      if (!exponent || source[offset] !== ')') return null;
+      offset++;
+      return {kind:'ePower', exponent};
+    }
+    if (source.startsWith('tenpow(', offset)) {
+      offset += 7;
+      const exponent = expression();
+      if (!exponent || source[offset] !== ')') return null;
+      offset++;
+      return {kind:'tenPower', exponent};
+    }
+    if (source.startsWith('logbase(', offset)) {
+      offset += 8;
+      const base = expression();
+      if (!base || source[offset] !== ',') return null;
+      offset++;
+      const argument = expression();
+      if (!argument || source[offset] !== ')') return null;
+      offset++;
+      return {kind:'logBase', base, argument};
+    }
     const match = /^[A-Z0-9.]+/.exec(source.slice(offset));
     if (!match) return null;
     offset += match[0].length;
@@ -998,7 +1051,8 @@ function constructedSettledSpec(source) {
     parts.push(first);
     const beginsImplicitFactor = () => source[offset] === '('
       || /[A-Z0-9.]/.test(source[offset] || '')
-      || ['int(', 'sum(', 'nDeriv(', 'nthroot(', 'sqrt(']
+      || ['int(', 'sum(', 'nDeriv(', 'nthroot(', 'sqrt(',
+          'exp(', 'tenpow(', 'logbase(']
         .some(prefix => source.startsWith(prefix, offset));
     while (source[offset] === '*' || beginsImplicitFactor()) {
       const explicit = source[offset] === '*';
