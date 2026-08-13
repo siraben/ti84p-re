@@ -1759,7 +1759,28 @@ expectEqual('nDeriv browser path labels translated construction',
 if (!mp.generatedForExpression('A+(X)'))
   throw new Error('visible grouped expression has no generated LCD write stream');
 
-for (const [label, expression] of mp.presets) {
+// Keep RE and renderer coverage broader than the small set of examples shown
+// in the browser. These variants would be repetitive in the gallery but remain
+// useful as pixel-level LCD-write regressions.
+const regressionExpressions = [
+  'Ans+1', 'Ans^2', 'sqrt(Ans)', 'X^Ans',
+  'sin(X)', 'sin(sqrt(X))', 'cos(X)', 'tan(X)', 'ln(X)', 'log(X)',
+  'L1', 'L1^2', '[A]', 'Y1', 'Str1', 'cumSum(L1)',
+  'remainder(Ans,2)', '1/2', '1//2', 'X^2', '(X+1)^2', 'X^(1+2)',
+  'sqrt(X)^2', 'abs(X)^2', 'exp(12)', 'tenpow(X^2)',
+  'logbase(12,345)', 'logbase(3,1//2)',
+  'matrix(1,1,1)', 'matrix(2,2,1,0,0,1)',
+  'matrix(2,3,4,-2,0,-7,8,8)', 'matrix(2,2,sqrt(2),X^2,3,4)',
+  '(A+B)//C', '1//(2//3)', 'sqrt(X^2+1)', 'abs(X-3)',
+  'abs(X^2+1)', 'abs(sqrt(X^2+1))', 'int(1,2,X^2,X)',
+  '(int(1,2,X^2,X))//3', 'int(1,2,(1//2)X,X)',
+  'sqrt((X^2+1)//X)', 'sum(N,1,3,N^2)',
+  '(sum(N,1,3,N^2))//2', 'nthroot(3,X+1)',
+  'nDeriv(X^2,X,1)', '(nDeriv(X^2,X,3))//2', 'nthroot(N,X//2)',
+];
+
+for (const expression of regressionExpressions) {
+  const label = `regression expression ${expression}`;
   const program = mp.constructedProgramForExpression(expression);
   if (!program)
     throw new Error(`${label} (${expression}) has no constructed record program`);
@@ -1786,23 +1807,24 @@ for (const [label, expression] of mp.presets) {
 expectEqual('browser presents a selective mechanism-diverse example set',
   mp.presets.map(([label]) => label),[
     'Ans plus 1 (RE)',
-    'X raised to Ans (RE)',
-    'sine of a radical (RE)',
     'list L1 (RE)',
     'remainder of Ans and 2 (RE)',
-    'stacked 1//2',
     'grouped base squared (RE)',
     '10 raised to X squared (RE)',
     'log base 3 of one half (RE)',
-    '2 by 3 mixed matrix (RE)',
+    'nested 2 by 2 matrix (RE)',
     'nested fraction',
     'absolute value of a radical and power (RE)',
-    'definite integral',
     'integral of a fraction',
     'summation (RE)',
     'nth root of a fraction',
     'nDeriv (RE)',
   ]);
+
+expectEqual('full RE regression corpus remains independent of the visible gallery',
+  [regressionExpressions.length,
+   mp.presets.every(([, expression]) => regressionExpressions.includes(expression))],
+  [48, true]);
 
 expectEqual('34:6143 keeps incoming-A-dependent type 1F explicit',
   rom.executeSettledRecordGraph([settledRecord(1,0x1f)],1), [{
