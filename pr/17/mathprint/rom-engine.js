@@ -853,7 +853,7 @@
       byte(value, `absolute child token ${index}`));
     if (!tokens.length)
       throw new RangeError('absolute child payload must not be empty');
-    if (!Number.isInteger(firstId) || firstId < 0 || firstId > 0xfffd)
+    if (!Number.isInteger(firstId) || firstId < 1 || firstId > 0xfffd)
       throw new RangeError('absolute first record ID must leave three unsigned words');
     const renderType = settledStructuralTokenType(0x00, 0xb2);
     if (renderType !== 0x21)
@@ -896,6 +896,129 @@
     };
   }
 
+  function settledLeafMetrics(tokens, depth, font) {
+    const payload = Array.from(tokens, (value, index) =>
+      byte(value, `settled leaf token ${index}`));
+    if (!payload.length)
+      throw new RangeError('settled leaf payload must not be empty');
+    let width = 0;
+    for (const token of payload) {
+      const code = settledTokenGlyph(token);
+      if (code === null)
+        throw new RangeError(`token 0x${token.toString(16)} has no translated glyph`);
+      if (depth === 0) {
+        width += settledLargeTokenAdvance(token);
+        continue;
+      }
+      const glyph = font && font.small && font.small.glyphs
+        ? font.small.glyphs[code]
+        : null;
+      if (!glyph || !Number.isInteger(glyph.w) || glyph.w < 0)
+        throw new RangeError(
+          `small glyph 0x${code.toString(16)} requires ROM font metrics`);
+      width += glyph.w;
+    }
+    return {payload, height:depth === 0 ? 7 : 5, width,
+            baseline:depth === 0 ? 3 : 2};
+  }
+
+  function settledPowerSpec(spec, label = 'settled power') {
+    if (!spec || typeof spec !== 'object' || Array.isArray(spec))
+      throw new TypeError(`${label} must contain base and exponent payloads`);
+    const base = Array.from(spec.base || [], (value, index) =>
+      byte(value, `${label} base token ${index}`));
+    if (!base.length) throw new RangeError(`${label} base must not be empty`);
+    const exponent = spec.exponent;
+    if (Array.isArray(exponent) || exponent instanceof Uint8Array) {
+      const payload = Array.from(exponent, (value, index) =>
+        byte(value, `${label} exponent token ${index}`));
+      if (!payload.length) throw new RangeError(`${label} exponent must not be empty`);
+      return {base, exponent:payload};
+    }
+    return {base, exponent:settledPowerSpec(exponent, `${label} exponent`)};
+  }
+
+  // 34:5935 maps source token F0h to render type 2Ah. The record pass embeds
+  // EF 2Ah id_lo id_hi after the base payload and constructs its exponent as
+  // child 1. 34:7393 and 34:7609 apply a depth-sensitive raised-row metric:
+  // the first raised row adds 5 pixels of height and 4 to the baseline, while
+  // later raised rows add 3 to each. This translates right-nested powers.
+  function constructSettledPowerProgram(input, firstId = 1, font = null) {
+    const spec = settledPowerSpec(input);
+    if (!Number.isInteger(firstId) || firstId < 1 || firstId > 0xffff)
+      throw new RangeError('power first record ID must be an unsigned word');
+    const renderType = settledStructuralTokenType(0x00, 0xf0);
+    if (renderType !== 0x2a)
+      throw new Error('34:594D power token mapping is inconsistent');
+    const nodes = [];
+    let nextId = firstId;
+    const allocate = () => {
+      if (nextId > 0xffff)
+        throw new RangeError('power record construction exhausted unsigned IDs');
+      return nextId++;
+    };
+
+    const build = (power, depth, parentId) => {
+      const leafId = allocate();
+      const structuralId = allocate();
+      const base = settledLeafMetrics(power.base, depth, font);
+      let child;
+      if (Array.isArray(power.exponent)) {
+        const childId = allocate();
+        const metrics = settledLeafMetrics(power.exponent, depth + 1, font);
+        child = {
+          record_id:childId, render_type:0, word03:structuralId,
+          word05:metrics.height, word07:metrics.width, word09:metrics.baseline,
+          word0B:0, word0D:0, word0F:metrics.payload.length,
+          word11:metrics.payload.length, byte13:metrics.payload[0],
+          child_ids:[], payload:metrics.payload,
+        };
+      } else {
+        child = build(power.exponent, depth + 1, structuralId).leaf;
+      }
+
+      const firstRaisedRow = depth === 0;
+      const structural = {
+        record_id:structuralId, render_type:renderType, word03:leafId,
+        word05:settledRecordMetadata(renderType)[1],
+        word07:child.word05 + (firstRaisedRow ? 5 : 3),
+        word09:child.word07,
+        word0B:child.word09 + (firstRaisedRow ? 4 : 3),
+        word0D:firstRaisedRow ? 6 : 4,
+        word0F:0, word11:depth + 1, byte13:base.payload[0],
+        child_ids:[child.record_id], payload:[],
+      };
+      const embedded = [0xef, renderType, structuralId & 0xff,
+                        structuralId >> 8, 0xef, 0x2d];
+      const payload = [...base.payload, ...embedded];
+      const leaf = {
+        record_id:leafId, render_type:0, word03:parentId,
+        word05:Math.max(base.height, structural.word07),
+        word07:base.width + structural.word09,
+        word09:Math.max(base.baseline, structural.word0B),
+        word0B:0, word0D:0, word0F:payload.length,
+        word11:payload.length, byte13:payload[0],
+        child_ids:[], payload,
+      };
+      nodes.push(leaf, structural);
+      if (Array.isArray(power.exponent)) nodes.push(child);
+      return {leaf, structural};
+    };
+
+    const root = build(spec, 0, firstId - 1).leaf;
+    for (const node of nodes)
+      if (node.render_type === renderType) node.byte13 = root.payload[0];
+    // Recursive construction appended nested nodes before their parents. The
+    // arena IDs encode the ROM allocation order, so export in that same order.
+    nodes.sort((left, right) => left.record_id - right.record_id);
+    return {
+      entry_id:root.record_id,
+      origin:{x:0,y:0},
+      source:'34:4900, 34:5935, 34:7393, and 34:7609 translated power construction',
+      nodes,
+    };
+  }
+
   // Execute the complete leaf byte stream entered at 34:660A. EF 1Fh..2Bh
   // embeds a structural record ID, while EF 2Dh closes that embedded object.
   // Structural handlers temporarily enter one depth below the containing leaf;
@@ -916,7 +1039,7 @@
     const renderLeaf = (record, context, controls) => {
       const pen = {
         x:0,
-        y:controls.state.depth === 0 ? record.word09 - 3 : 0,
+        y:controls.state.depth === 0 ? record.word09 - 3 : record.word09 - 2,
       };
       for (let index = 0; index < record.payload.length;) {
         const token = record.payload[index];
@@ -939,7 +1062,8 @@
             controls.state.depth = savedDepth + 1;
             controls.visit(id, {
               x:context.origin.x + pen.x,
-              y:context.origin.y + pen.y - (nested.word0B - 3),
+              y:context.origin.y + pen.y -
+                (nested.word0B - (savedDepth === 0 ? 3 : 2)),
             });
             controls.state.depth = savedDepth;
             pen.x += nested.word09;
@@ -1355,6 +1479,7 @@
     rasterizeSettledOperations,
     settledTokenGlyph,
     constructSettledAbsoluteProgram,
+    constructSettledPowerProgram,
     settledFractionOperations,
     settledSingleChildOperations,
     settledAbsoluteOperations,
