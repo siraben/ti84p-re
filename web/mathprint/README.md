@@ -71,11 +71,11 @@ the render table at `34:6119`. The decoder preserves offset-based field names
 until a handler establishes a type-specific meaning. `--graph-json` exports
 the final settled record program, its reachable nodes, and a semantic
 `expression` tree decoded from their child IDs and payload bytes. Postfix
-type-`0x2A` records bind to the token run before their embedded marker. The
-contextual `EF 1E` body used by `nDeriv(X,X,...)` decodes as `X`; the same pair
-outside that context remains an explicit extended token. This tree identifies
-what the trace contains without inspecting its screenshot. It describes the
-settled render graph, not the editor/parser representation before `34:4900`.
+type-`0x2A` records bind to the expression immediately before their embedded
+marker. `EF 1E` remains an explicit extended token because the renderer maps it
+to display code `0xF7`, the empty template square. This tree identifies what the
+trace contains without inspecting its screenshot. It describes the settled
+render graph, not the editor/parser representation before `34:4900`.
 The analyzer selects the first post-key `34:660A` entry at the shallowest Z80
 stack depth. The exporter pairs
 parent/index observations at `34:6CCD` with the resolved child ID and record
@@ -144,8 +144,10 @@ composition inside radicals and powers.
 The integral cases cover structural bounds and a nested integral. The
 summation cases cover unequal-width limits, structural limits and bodies, and a
 nested summation. The `nDeriv(` cases cover unequal-width arguments, structural
-bodies, and recursive nesting. These cases do not load `record-programs.json`
-or an LCD event stream. [confirmed]
+bodies, and recursive nesting. Valid `nDeriv(X,X,...)` captures retain `0x58`
+in the body leaf; `EF 1E` occurs only in captures with an unfilled template
+slot. These cases do not load `record-programs.json` or an LCD event stream.
+[confirmed]
 
 `parity-mathprint.py` uses LCD trace replay when tracing is enabled. Calculator
 parity requires the proprietary ROM. Filled-integral and nested-fraction
@@ -157,8 +159,10 @@ stacked-fraction, integral, summation, and `nDeriv(` expressions. It exposes
 every generated accepted LCD data write in order, including writes that do not
 change a pixel, and labels the input source for each timeline. Its captured
 timeline uses the two retained integral traces and keeps only visible-changing
-writes. Expressions without a translated constructor or executable record
-snapshot use the separately labeled model-element timeline.
+writes. Every shipped preset has a constructed record program, a nonempty
+96×64 accepted-write timeline, and no unresolved operation or empty-template
+glyph. Expressions outside the translated grammar use the separately labeled
+model output when no generated or captured timeline matches.
 [confirmed]
 
 ## Regeneration

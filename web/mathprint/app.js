@@ -778,7 +778,7 @@ function draw(box, scale, color, showPen, step) {
 // Pen log = elements in emission (draw) order.
 function penLog(box) { return (box.marks || []).slice(); }
 
-const PRESETS = [
+const PRESETS = Object.freeze([
   ['linear 1/2', '1/2'],
   ['stacked 1//2', '1//2'],
   ['X squared', 'X^2'],
@@ -796,7 +796,7 @@ const PRESETS = [
   ['nDeriv (RE)', 'nDeriv(X^2,X,1)'],
   ['raised nDeriv (RE)', '(nDeriv(X^2,X,3))//2'],
   ['nth root of a fraction', 'nthroot(N,X//2)'],
-];
+]);
 
 let CUR = null, CUR_TRACE = null, CUR_GENERATED = null, ANIM = null;
 
@@ -996,11 +996,18 @@ function constructedSettledSpec(source) {
     const first = power();
     if (!first) return null;
     parts.push(first);
-    while (source[offset] === '*') {
-      offset++;
+    const beginsImplicitFactor = () => source[offset] === '('
+      || /[A-Z0-9.]/.test(source[offset] || '')
+      || ['int(', 'sum(', 'nDeriv(', 'nthroot(', 'sqrt(']
+        .some(prefix => source.startsWith(prefix, offset));
+    while (source[offset] === '*' || beginsImplicitFactor()) {
+      const explicit = source[offset] === '*';
+      if (explicit) offset++;
       const right = power();
       if (!right) return null;
-      parts.push({kind:'tokens',tokens:[FLAT_SETTLED_OPERATOR_TOKENS['*']]},right);
+      if (explicit)
+        parts.push({kind:'tokens',tokens:[FLAT_SETTLED_OPERATOR_TOKENS['*']]});
+      parts.push(right);
     }
     return sequence(parts);
   };
@@ -1360,6 +1367,7 @@ if (typeof module !== 'undefined') {
     setFont: f => { FONT = f; },
     setLayout: value => { LAYOUT = value; },
     setRecordPrograms: value => { RECORD_PROGRAMS = value; },
+    presets: PRESETS,
     parse,
     penLog,
     traceFrame,

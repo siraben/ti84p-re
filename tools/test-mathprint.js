@@ -694,6 +694,13 @@ expectEqual('browser constructs a four-argument integral in ROM ID order',
   mp.constructedProgramForExpression('int(1,2,X,X)').nodes,
   rom.constructSettledIntegralProgram(
     [0x31], [0x32], [0x58], [0x58], 1, font).nodes);
+expectEqual('browser constructs implicit multiplication after a fraction',
+  mp.constructedProgramForExpression('int(1,2,(1//2)X,X)').nodes,
+  rom.constructSettledIntegralProgram([0x31], [0x32], {
+    kind:'sequence', parts:[
+      {kind:'fraction',numerator:[0x31],denominator:[0x32]}, [0x58],
+    ],
+  }, [0x58], 1, font).nodes);
 expectEqual('browser constructs structural integral bounds',
   mp.constructedProgramForExpression('int(sqrt(2),sqrt(3),X,X)').nodes,
   rom.constructSettledIntegralProgram(
@@ -731,6 +738,9 @@ expectEqual('browser constructs all three nDeriv fields from tokens',
   mp.constructedProgramForExpression('nDeriv(X^2,X,1)').nodes,
   rom.constructSettledNDerivProgram(
     [0x58], {kind:'power',base:[0x58],exponent:[0x32]}, [0x31], 1, font).nodes);
+expectEqual('browser preserves an ordinary X in the nDeriv body leaf',
+  mp.constructedProgramForExpression('nDeriv(X,X,1)').nodes
+    .find(node => node.record_id === 4).payload, [0x58]);
 expectEqual('browser constructs structural nDeriv bodies',
   mp.constructedProgramForExpression('nDeriv(sqrt(X),X,2)').nodes,
   rom.constructSettledNDerivProgram(
@@ -958,6 +968,25 @@ expectEqual('nDeriv browser path labels translated construction',
   '34:4900, 34:5935, 34:7393, and 34:7609 translated nDeriv construction');
 expectEqual('arbitrary untranslated expression has no captured record program',
   mp.generatedForExpression('A+(X)'), null);
+
+for (const [label, expression] of mp.presets) {
+  const program = mp.constructedProgramForExpression(expression);
+  if (!program)
+    throw new Error(`${label} (${expression}) has no constructed record program`);
+  const generated = mp.generatedForExpression(expression);
+  if (!generated || generated.width !== 96 || generated.height !== 64 ||
+      generated.events.length === 0)
+    throw new Error(`${label} (${expression}) has no pixel-level LCD write trace`);
+  if (generated.events.some(event => !Array.isArray(event.pointer) ||
+      !Array.isArray(event.changes) || !Number.isInteger(event.value)))
+    throw new Error(`${label} (${expression}) has an incomplete LCD write event`);
+  if (generated.operations.some(operation => operation.kind === 'glyph' &&
+      operation.code === 0xf7))
+    throw new Error(`${label} (${expression}) renders an empty-slot placeholder`);
+  if (generated.operations.some(operation =>
+      operation.kind.startsWith('unresolved')))
+    throw new Error(`${label} (${expression}) has an unresolved render operation`);
+}
 
 expectEqual('34:6143 keeps incoming-A-dependent type 1F explicit',
   rom.executeSettledRecordGraph([settledRecord(1,0x1f)],1), [{
