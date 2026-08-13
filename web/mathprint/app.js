@@ -892,10 +892,21 @@ function flatSettledTokenBytes(source) {
 
 function constructedProgramForExpression(expression) {
   if (!ROM_ENGINE) return null;
-  const match = /^abs\(([A-Z0-9.+*/-]+)\)$/.exec(expression.trim());
-  if (!match || match[1].includes('//')) return null;
-  const payload = flatSettledTokenBytes(match[1]);
-  return payload ? ROM_ENGINE.constructSettledAbsoluteProgram(payload) : null;
+  const source = expression.trim();
+  const absolute = /^abs\(([A-Z0-9.+*/-]+)\)$/.exec(source);
+  if (absolute && !absolute[1].includes('//')) {
+    const payload = flatSettledTokenBytes(absolute[1]);
+    if (payload) return ROM_ENGINE.constructSettledAbsoluteProgram(payload);
+  }
+  const parts = source.split('^');
+  if (parts.length < 2 || parts.some(part => !/^[A-Z0-9.]+$/.test(part))) return null;
+  const payloads = parts.map(flatSettledTokenBytes);
+  if (payloads.some(payload => !payload)) return null;
+  let exponent = payloads.pop();
+  while (payloads.length > 1)
+    exponent = {base:payloads.pop(), exponent};
+  return ROM_ENGINE.constructSettledPowerProgram(
+    {base:payloads[0], exponent}, 1, FONT);
 }
 
 function generatedForExpression(expression) {

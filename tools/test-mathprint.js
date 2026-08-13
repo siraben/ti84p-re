@@ -32,6 +32,16 @@ function expectEqual(label, actual, expected) {
     throw new Error(`${label}: ${JSON.stringify(actual)} != ${JSON.stringify(expected)}`);
 }
 
+function expectThrows(label, errorType, operation) {
+  try {
+    operation();
+  } catch (error) {
+    if (error instanceof errorType) return;
+    throw new Error(`${label}: threw ${error.constructor.name}, expected ${errorType.name}`);
+  }
+  throw new Error(`${label}: did not throw ${errorType.name}`);
+}
+
 // Executable translations of closed page-39 routines. These expectations are
 // pinned to the extracted OS 2.55MP records and the byte-decoded algorithms.
 const integralRow = rom.emitHandlerRow(layout, 0x0d, 2);
@@ -413,11 +423,32 @@ expectEqual('34:5935 leaves an ordinary token unmapped',
   rom.settledStructuralTokenType(0x00,0x58), null);
 expectEqual('34:5996 selects the absolute metadata row',
   rom.settledRecordMetadata(0x21), [0x03,0x01,0x00,0x00,0x00]);
+expectEqual('34:5935 maps the power token through 34:594D',
+  rom.settledStructuralTokenType(0x00,0xf0), 0x2a);
+expectEqual('34:5996 selects the power metadata row',
+  rom.settledRecordMetadata(0x2a), [0x01,0x01,0x00,0x00,0x00]);
 const constructedAbsolute = rom.constructSettledAbsoluteProgram([0x58,0x71,0x33],0x0d);
 expectEqual('absolute tokens independently construct the settled record graph',
   constructedAbsolute.nodes, recordPrograms.programs['abs(X-3)'].nodes);
-for (const oracle of constructionOracles.cases) {
+for (const oracle of constructionOracles.absolute_cases) {
   const program = rom.constructSettledAbsoluteProgram(oracle.tokens, oracle.entry_id);
+  expectEqual(`${oracle.expression} independently constructs the fresh TilEm graph`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.origin, nodes:oracle.nodes});
+  const operations = rom.executeSettledRecordProgram(program.nodes, program.entry_id, {
+    origin:program.origin,
+    glyphAdvance:settledGlyphAdvance,
+  });
+  const writes = rom.rasterizeSettledOperations(operations, font).writes;
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write count`,
+    writes.length, oracle.accepted_write_count);
+  const writeBytes = Buffer.from(writes.flatMap(write => [...write.pointer,write.value]));
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write stream`,
+    crypto.createHash('sha256').update(writeBytes).digest('hex'),
+    oracle.accepted_write_sha256);
+}
+for (const oracle of constructionOracles.power_cases) {
+  const program = rom.constructSettledPowerProgram(oracle.spec, oracle.entry_id, font);
   expectEqual(`${oracle.expression} independently constructs the fresh TilEm graph`,
     {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
     {entry_id:oracle.entry_id, origin:oracle.origin, nodes:oracle.nodes});
@@ -441,6 +472,69 @@ expectEqual('arbitrary flat absolute expression constructs from its own tokens',
   [0x41,0x70,0x31,0x32]);
 expectEqual('untranslated expression has no generated record constructor',
   mp.constructedProgramForExpression('sqrt(X^2+1)'), null);
+const constructedPower = rom.constructSettledPowerProgram(
+  {base:[0x58], exponent:[0x32]}, 0x0d, font);
+expectEqual('power tokens independently construct the settled X^2 graph',
+  constructedPower.nodes, [
+    {record_id:13,render_type:0,word03:12,word05:10,word07:10,word09:6,
+     word0B:0,word0D:0,word0F:7,word11:7,byte13:88,child_ids:[],
+     payload:[88,239,42,14,0,239,45]},
+    {record_id:14,render_type:42,word03:13,word05:1,word07:10,word09:4,
+     word0B:6,word0D:6,word0F:0,word11:1,byte13:88,child_ids:[15],payload:[]},
+    {record_id:15,render_type:0,word03:14,word05:5,word07:4,word09:2,
+     word0B:0,word0D:0,word0F:1,word11:1,byte13:50,child_ids:[],payload:[50]},
+  ]);
+expectEqual('power constructor applies small-font width to a multi-token exponent',
+  rom.constructSettledPowerProgram(
+    {base:[0x58], exponent:[0x31,0x32]}, 0x0d, font).nodes,
+  [
+    {record_id:13,render_type:0,word03:12,word05:10,word07:14,word09:6,
+     word0B:0,word0D:0,word0F:7,word11:7,byte13:88,child_ids:[],
+     payload:[88,239,42,14,0,239,45]},
+    {record_id:14,render_type:42,word03:13,word05:1,word07:10,word09:8,
+     word0B:6,word0D:6,word0F:0,word11:1,byte13:88,child_ids:[15],payload:[]},
+    {record_id:15,render_type:0,word03:14,word05:5,word07:8,word09:2,
+     word0B:0,word0D:0,word0F:2,word11:2,byte13:49,child_ids:[],payload:[49,50]},
+  ]);
+expectEqual('power constructor preserves right-associative nested depth metrics',
+  rom.constructSettledPowerProgram({
+    base:[0x32], exponent:{base:[0x58], exponent:[0x32]},
+  }, 0x0f, font).nodes,
+  [
+    {record_id:15,render_type:0,word03:14,word05:13,word07:14,word09:9,
+     word0B:0,word0D:0,word0F:7,word11:7,byte13:50,child_ids:[],
+     payload:[50,239,42,16,0,239,45]},
+    {record_id:16,render_type:42,word03:15,word05:1,word07:13,word09:8,
+     word0B:9,word0D:6,word0F:0,word11:1,byte13:50,child_ids:[17],payload:[]},
+    {record_id:17,render_type:0,word03:16,word05:8,word07:8,word09:5,
+     word0B:0,word0D:0,word0F:7,word11:7,byte13:88,child_ids:[],
+     payload:[88,239,42,18,0,239,45]},
+    {record_id:18,render_type:42,word03:17,word05:1,word07:8,word09:4,
+     word0B:5,word0D:4,word0F:0,word11:2,byte13:50,child_ids:[19],payload:[]},
+    {record_id:19,render_type:0,word03:18,word05:5,word07:4,word09:2,
+     word0B:0,word0D:0,word0F:1,word11:1,byte13:50,child_ids:[],payload:[50]},
+  ]);
+expectEqual('browser selects translated power construction',
+  mp.constructedProgramForExpression('X^2').nodes,
+  rom.constructSettledPowerProgram({base:[0x58], exponent:[0x32]}, 1, font).nodes);
+expectEqual('browser parses powers right associatively',
+  mp.constructedProgramForExpression('2^X^2').nodes,
+  rom.constructSettledPowerProgram({
+    base:[0x32], exponent:{base:[0x58], exponent:[0x32]},
+  }, 1, font).nodes);
+expectEqual('power browser path labels translated construction',
+  mp.generatedForExpression('X^2').programSource,
+  '34:4900, 34:5935, 34:7393, and 34:7609 translated power construction');
+for (const expression of ['X^', '^2', 'X^^2', 'X^(2)', 'X+1^2'])
+  expectEqual(`${expression} is outside the translated power grammar`,
+    mp.constructedProgramForExpression(expression), null);
+expectThrows('power constructor rejects an empty base', RangeError,
+  () => rom.constructSettledPowerProgram({base:[], exponent:[0x32]}, 1, font));
+expectThrows('power constructor rejects an empty exponent', RangeError,
+  () => rom.constructSettledPowerProgram({base:[0x58], exponent:[]}, 1, font));
+expectThrows('power constructor detects record ID exhaustion', RangeError,
+  () => rom.constructSettledPowerProgram(
+    {base:[0x58], exponent:[0x32]}, 0xffff, font));
 for (const [expression,nodes,entryId] of browserProgramCases) {
   const fixture = recordPrograms.programs[expression];
   expectEqual(`${expression} browser fixture entry`, fixture.entry_id, entryId);

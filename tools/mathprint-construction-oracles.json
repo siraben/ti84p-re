@@ -1,9 +1,9 @@
 {
-  "schema": 1,
+  "schema": 2,
   "source": "final settled record graphs and outer 34:660A accepted LCD writes from reset-origin traces captured with TilEm d1bdc58dd321ae462a701e556fcb62bb925a78b1",
   "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
   "tilem_sha256": "b41b9257d0d971d7a8d6fccf6b5dd15b26e0ec0e2d731a9d42def6403ed08f75",
-  "cases": [
+  "absolute_cases": [
     {
       "expression": "abs(2)",
       "tokens": [50],
@@ -47,6 +47,74 @@
         {"record_id":13,"render_type":0,"word03":12,"word05":7,"word07":36,"word09":3,"word0B":0,"word0D":0,"word0F":6,"word11":6,"byte13":239,"child_ids":[],"payload":[239,33,14,0,239,45]},
         {"record_id":14,"render_type":33,"word03":13,"word05":1,"word07":7,"word09":36,"word0B":3,"word0D":0,"word0F":0,"word11":1,"byte13":239,"child_ids":[15],"payload":[]},
         {"record_id":15,"render_type":0,"word03":14,"word05":7,"word07":24,"word09":3,"word0B":6,"word0D":0,"word0F":4,"word11":4,"byte13":88,"child_ids":[],"payload":[88,112,49,50]}
+      ]
+    }
+  ],
+  "power_cases": [
+    {
+      "expression": "X^2",
+      "spec": {"base": [88], "exponent": [50]},
+      "trace_sha256": "72311a2869ce326e99ab1bf03347b82643ef3fec316efab6dec5eef55cadfe1d",
+      "render_interval": [2020814, 2027248],
+      "entry_id": 13,
+      "origin": {"x": 0, "y": 0},
+      "accepted_write_count": 17,
+      "accepted_write_sha256": "2bcc254beb6e316b1b4b1dd86c66e7b16c142573bd26f699967925ad4cb0ce0a",
+      "nodes": [
+        {"record_id":13,"render_type":0,"word03":12,"word05":10,"word07":10,"word09":6,"word0B":0,"word0D":0,"word0F":7,"word11":7,"byte13":88,"child_ids":[],"payload":[88,239,42,14,0,239,45]},
+        {"record_id":14,"render_type":42,"word03":13,"word05":1,"word07":10,"word09":4,"word0B":6,"word0D":6,"word0F":0,"word11":1,"byte13":88,"child_ids":[15],"payload":[]},
+        {"record_id":15,"render_type":0,"word03":14,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":0,"word0F":1,"word11":1,"byte13":50,"child_ids":[],"payload":[50]}
+      ]
+    },
+    {
+      "expression": "X^12",
+      "spec": {"base": [88], "exponent": [49, 50]},
+      "trace_sha256": "07c993fcf0b7ed0539d5d99a214c57c957a3cfc2a622928072e24f8169158b41",
+      "render_interval": [2100964, 2109086],
+      "entry_id": 13,
+      "origin": {"x": 0, "y": 0},
+      "accepted_write_count": 22,
+      "accepted_write_sha256": "874bd9bb81424544b385424eca31846e548c2c0de3bdd18da79a3dd596a63678",
+      "nodes": [
+        {"record_id":13,"render_type":0,"word03":12,"word05":10,"word07":14,"word09":6,"word0B":0,"word0D":0,"word0F":7,"word11":7,"byte13":88,"child_ids":[],"payload":[88,239,42,14,0,239,45]},
+        {"record_id":14,"render_type":42,"word03":13,"word05":1,"word07":10,"word09":8,"word0B":6,"word0D":6,"word0F":0,"word11":1,"byte13":88,"child_ids":[15],"payload":[]},
+        {"record_id":15,"render_type":0,"word03":14,"word05":5,"word07":8,"word09":2,"word0B":0,"word0D":0,"word0F":2,"word11":2,"byte13":49,"child_ids":[],"payload":[49,50]}
+      ]
+    },
+    {
+      "expression": "2^X^2",
+      "spec": {"base": [50], "exponent": {"base": [88], "exponent": [50]}},
+      "trace_sha256": "f61607ed5385f66b8b64b63eee52307c017246d3288a6730fc06d5cd47629792",
+      "render_interval": [2196047, 2205014],
+      "entry_id": 15,
+      "origin": {"x": 0, "y": 0},
+      "accepted_write_count": 22,
+      "accepted_write_sha256": "13bdea0639d7440c5b0028338242784717c4c3414cf6eaf125c2b175727afeed",
+      "nodes": [
+        {"record_id":15,"render_type":0,"word03":14,"word05":13,"word07":14,"word09":9,"word0B":0,"word0D":0,"word0F":7,"word11":7,"byte13":50,"child_ids":[],"payload":[50,239,42,16,0,239,45]},
+        {"record_id":16,"render_type":42,"word03":15,"word05":1,"word07":13,"word09":8,"word0B":9,"word0D":6,"word0F":0,"word11":1,"byte13":50,"child_ids":[17],"payload":[]},
+        {"record_id":17,"render_type":0,"word03":16,"word05":8,"word07":8,"word09":5,"word0B":0,"word0D":0,"word0F":7,"word11":7,"byte13":88,"child_ids":[],"payload":[88,239,42,18,0,239,45]},
+        {"record_id":18,"render_type":42,"word03":17,"word05":1,"word07":8,"word09":4,"word0B":5,"word0D":4,"word0F":0,"word11":2,"byte13":50,"child_ids":[19],"payload":[]},
+        {"record_id":19,"render_type":0,"word03":18,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":0,"word0F":1,"word11":1,"byte13":50,"child_ids":[],"payload":[50]}
+      ]
+    },
+    {
+      "expression": "2^X^2^3",
+      "spec": {"base": [50], "exponent": {"base": [88], "exponent": {"base": [50], "exponent": [51]}}},
+      "trace_sha256": "f2740f2615b5a43a759a775da302c18399191f46366c96b465386c561bbea086",
+      "render_interval": [2425606, 2438987],
+      "entry_id": 17,
+      "origin": {"x": 0, "y": 0},
+      "accepted_write_count": 32,
+      "accepted_write_sha256": "81568d320eac7f6c913320f60a7251ab7a39f83713ec9b6cbe8dfb24d1cf3a28",
+      "nodes": [
+        {"record_id":17,"render_type":0,"word03":16,"word05":16,"word07":18,"word09":12,"word0B":0,"word0D":0,"word0F":7,"word11":7,"byte13":50,"child_ids":[],"payload":[50,239,42,18,0,239,45]},
+        {"record_id":18,"render_type":42,"word03":17,"word05":1,"word07":16,"word09":12,"word0B":12,"word0D":6,"word0F":0,"word11":1,"byte13":50,"child_ids":[19],"payload":[]},
+        {"record_id":19,"render_type":0,"word03":18,"word05":11,"word07":12,"word09":8,"word0B":0,"word0D":0,"word0F":7,"word11":7,"byte13":88,"child_ids":[],"payload":[88,239,42,20,0,239,45]},
+        {"record_id":20,"render_type":42,"word03":19,"word05":1,"word07":11,"word09":8,"word0B":8,"word0D":4,"word0F":0,"word11":2,"byte13":50,"child_ids":[21],"payload":[]},
+        {"record_id":21,"render_type":0,"word03":20,"word05":8,"word07":8,"word09":5,"word0B":0,"word0D":0,"word0F":7,"word11":7,"byte13":50,"child_ids":[],"payload":[50,239,42,22,0,239,45]},
+        {"record_id":22,"render_type":42,"word03":21,"word05":1,"word07":8,"word09":4,"word0B":5,"word0D":4,"word0F":0,"word11":3,"byte13":50,"child_ids":[23],"payload":[]},
+        {"record_id":23,"render_type":0,"word03":22,"word05":5,"word07":4,"word09":2,"word0B":0,"word0D":0,"word0F":1,"word11":1,"byte13":51,"child_ids":[],"payload":[51]}
       ]
     }
   ]
