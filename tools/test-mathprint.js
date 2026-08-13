@@ -335,6 +335,39 @@ expectEqual('native token iterator preserves packed offsets',
     [unit.offset,unit.length,unit.packed]),
   [[0,1,0x58],[1,1,0xf0],[2,2,0x5d00]]);
 
+expectEqual('browser parses explicit native token bytes',
+  mp.parseNativeTokenInput(' hex: EF 33, 4E f0 32 '),
+  [0xef,0x33,0x4e,0xf0,0x32]);
+expectEqual('browser leaves expression text outside raw native mode',
+  mp.parseNativeTokenInput('sum(N,1,3,N^2)'), null);
+expectThrows('browser rejects an empty native byte stream', RangeError,
+  () => mp.parseNativeTokenInput('hex:'));
+expectThrows('browser rejects a short hexadecimal byte', RangeError,
+  () => mp.parseNativeTokenInput('hex: EF 3'));
+expectThrows('browser rejects 0x-prefixed hexadecimal fields', RangeError,
+  () => mp.parseNativeTokenInput('hex: 0xEF 33'));
+expectThrows('raw native mode rejects a truncated two-byte token', RangeError,
+  () => mp.generatedForInput('hex: 5D'));
+expectThrows('raw native mode rejects an unmatched group', RangeError,
+  () => mp.generatedForInput('hex: 10 31'));
+expectThrows('raw native mode rejects an untranslated structural type', RangeError,
+  () => mp.generatedForInput('hex: EF 36 31 11'));
+
+const rawChangedSummation = mp.generatedForInput(
+  'hex: EF 33 4E F0 33 70 32 2B 4E 2B 31 32 2B 33 34 11');
+expectEqual('raw native mode preserves changed summation bytes',
+  rawChangedSummation.nativeTokens,
+  [0xef,0x33,0x4e,0xf0,0x33,0x70,0x32,0x2b,
+   0x4e,0x2b,0x31,0x32,0x2b,0x33,0x34,0x11]);
+expectEqual('raw native mode exposes every changed summation LCD byte write',
+  rawChangedSummation.events.length, 104);
+if (rawChangedSummation.events.some(event => event.pixels.length !== 8 ||
+    event.pixels.some(pixel => pixel.changed !== (pixel.before !== pixel.value))))
+  throw new Error('raw native mode has an incomplete pixel-level LCD trace');
+expectEqual('raw native mode reaches its byte-replayed 96x64 framebuffer',
+  mp.traceFrame(rawChangedSummation, rawChangedSummation.events.length),
+  rom.replaySettledLcdWrites(rawChangedSummation.events));
+
 const parseAheadAbi = result => ({
   a:result.a, stopCursor:result.stopCursor, de:result.de,
   zero:result.zero, carry:result.carry, scratch:result.scratch,
