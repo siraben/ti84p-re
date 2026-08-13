@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-81cba0a3.js";
+            window.path_to_searchindex_js = "searchindex-6ca6b5ff.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14883,15 +14883,24 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, and large-glyph output. It recursively follows direct ROM
 edges from named entries, resolves the finite dispatch tables, overlays exact
-next-PC outcomes from 172 reset-origin traces, and lists external targets.
+next-PC outcomes from 175 reset-origin traces, and lists external targets.
 <code>tools/mathprint-saturation.json</code> records the resulting branches and trace
 hashes. [confirmed]</p>
 <p>The report is a symbolic-execution aid rather than a whole-machine proof. It
-models finite table indices exactly. It also partitions the state read by the
-type-<code>0x1F</code> handler at <code>34:6143</code>: incoming <code>A</code>, <code>(IY+44h).3</code>, and the word at
-<code>0x8520</code> produce ten terminal action classes. Stream length, arbitrary RAM,
-interrupt timing, and indirect targets outside the declared components remain
-outside that state model. [confirmed]</p>
+models finite table indices exactly. The shared draw helper at <code>34:6143</code> has a
+$256 \times 2 \times 65{,}536 = 33{,}554{,}432$-state domain over incoming
+<code>A</code>, <code>(IY+44h).3</code>, and the word at <code>0x8520</code>. Complete predicate evaluation
+reduces that domain to 14 branch-path classes and ten terminal actions. The
+marker-tail gate at <code>34:759C</code> reduces its 16 predicate combinations to five
+branch-path classes. Stream length, arbitrary RAM, and indirect targets outside
+the declared components remain outside these finite models. [confirmed]</p>
+<p>The report keeps complete path witnesses separate from individual branch
+outcome witnesses. A class whose branch outcomes all occur somewhere in the
+corpus is not necessarily a class traversed by one invocation. The editor ABI
+at <code>34:6143</code> has two complete live path witnesses. The render-table ABI has one
+ROM-fixed class because <code>_LdHLind</code> fixes <code>A=0x43</code>. At <code>34:759C</code>, a branch
+outcome unique to each terminal class identifies which of its five paths have
+live witnesses. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -14899,7 +14908,7 @@ outside that state model. [confirmed]</p>
 </thead>
 <tbody>
 <tr><td>Settled construction</td><td style="text-align: right">991</td><td style="text-align: right">244</td><td style="text-align: right">408</td><td style="text-align: right">79.11%</td></tr>
-<tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">205</td><td style="text-align: right">302</td><td style="text-align: right">90.89%</td></tr>
+<tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">217</td><td style="text-align: right">302</td><td style="text-align: right">93.05%</td></tr>
 <tr><td>Metrics and geometry</td><td style="text-align: right">470</td><td style="text-align: right">75</td><td style="text-align: right">80</td><td style="text-align: right">99.36%</td></tr>
 <tr><td>Record allocator</td><td style="text-align: right">64</td><td style="text-align: right">7</td><td style="text-align: right">8</td><td style="text-align: right">98.44%</td></tr>
 <tr><td>Editor layout</td><td style="text-align: right">2,776</td><td style="text-align: right">245</td><td style="text-align: right">1,098</td><td style="text-align: right">32.42%</td></tr>
@@ -14915,9 +14924,9 @@ for that corpus. A branch with one or no outcomes remains open even when its
 containing routine has been reached. The allocator is the only declared
 component whose every conditional branch has at least one observed outcome;
 three of its four branches have both outcomes. [confirmed]</p>
-<p>The report classifies all 2,184 enumerated outcomes. The traces exercise 912.
+<p>The report classifies all 2,184 enumerated outcomes. The traces exercise 924.
 One allocator outcome is infeasible under its data invariant. Two metric
-outcomes are infeasible under the calculator call ABI. The other 1,269 remain
+outcomes are infeasible under the calculator call ABI. The other 1,257 remain
 unresolved because their required state or calling ABI is not yet proved. An
 unobserved outcome never becomes infeasible from absence alone.
 [confirmed]</p>
@@ -14934,10 +14943,11 @@ dispatcher recursion therefore fixes <code>B=0</code>. The <code>B!=0</code> out
 fallthrough and <code>34:765D</code> return are infeasible under this calculator ABI.
 Synthetic direct calls to internal metric handlers do not share the ABI.
 [confirmed]</p>
-<p>An exact Z3 set-cover calculation reduces the 172 trace summaries to 20 while
-preserving all 912 observed outcomes. It minimizes trace count first, retained
-bytes second, and labels third. The 20 selected traces total 2,965,561,068
-bytes, and each contributes at least one outcome absent from the other 19.
+<p>An exact Z3 set-cover calculation reduces the 175 trace summaries to 22 while
+preserving all 924 observed outcomes. It minimizes trace count first, retained
+bytes second, and labels third. The 22 selected traces total 3,188,345,442
+bytes. The report lists each selected trace’s exclusive outcomes, proving that
+removing any one of the 22 loses coverage.
 This is a proven minimum for the supplied trace set, not for every input the OS
 can accept. The broad trace set remains an RE and regression corpus; the public
 gallery uses a smaller, diverse selection. [confirmed]</p>
@@ -14953,23 +14963,42 @@ On its fallthrough, <code>34:75AB</code> reads the marker type from <code>editTa
 <code>34:40F9</code> groups fraction (<code>0x20</code>), nth-root (<code>0x24</code>), and power (<code>0x2A</code>)
 markers; <code>34:75B0</code> takes its Z branch for this set. <code>34:75B8</code> then reads the
 nesting counter at <code>0x8515</code>, and <code>34:75BB</code> distinguishes zero from nonzero
-depth. A reset-origin <code>X^2</code> boundary insertion directly exercises eight
-previously absent outcomes through this chain. The table-context branch,
-non-special marker class, and nonzero-depth outcome remain unresolved.
-[confirmed]</p>
+depth. <code>tools/macros/mathprint-power-boundary-insert.macro</code> reproduces the
+top-level power-marker path. The table-equation outcome at <code>34:75A9</code> taken,
+the non-special marker outcome at <code>34:75B0</code> fallthrough, and the nested special
+marker outcome at <code>34:75BB</code> fallthrough remain unresolved. The symbolic model
+establishes their local branch paths, but no retained calculator trace exercises
+them. [confirmed]</p>
 <p>The record-oracle corpus contains 105 captured cases. It includes types <code>0x20</code>
 through <code>0x2B</code>; the only missing structural type is <code>0x1F</code>. Each of those 12
 types has a decoded record node and accepted-write oracle. This saturates the
 ordinary 12-type structural table domain used by the translated constructor,
 but it does not saturate all internal branches of those handlers. [confirmed]</p>
-<p>Type <code>0x1F</code> remains open. <code>34:6143</code> compares incoming <code>A</code> with <code>0x21</code>, <code>0x22</code>,
-<code>0x25</code>–<code>0x29</code>, and <code>0x2B</code>; it also reads <code>(IY+44h).3</code> and <code>0x8520</code>. The symbolic
-partition proves the possible terminal classes, but no retained settled record
-graph dispatches a type-<code>0x1F</code> node. Its call ABI and live state distribution
-therefore are not established. [confirmed]</p>
+<p><code>34:6143</code> has two distinct entry ABIs. Render-table row 0 at <code>34:6119</code> contains
+the bytes <code>43 61</code>, the pointer <code>6143h</code>. <code>_LdHLind</code> at <code>00:0033</code> executes
+<code>LD A,(HL); INC HL; LD H,(HL); LD L,A; RET</code>. Its low-byte load therefore makes
+a type-<code>0x1F</code> table dispatch enter <code>34:6143</code> with <code>A=0x43</code>. That value follows
+the fixed default path to the seven-row bitmap at <code>34:61BE</code>; <code>(IY+44h).3</code> and
+<code>0x8520</code> do not affect this ABI. [confirmed]</p>
+<p>The editor calls the same helper through a different route. <code>06:7F29</code> loads
+<code>editTail</code>, <code>06:7F2D</code> reads the marker type at <code>editTail + 1</code> into <code>A</code>, and
+<code>06:7F2E</code> calls the bjump descriptor at <code>ram:30BD</code>. Its bytes
+<code>CD 09 2B 43 61 74</code> select <code>34:6143</code>. The radical-marker trace enters with
+<code>A=0x27</code> and <code>(IY+44h).3</code> set, selecting the bitmap at <code>34:630C</code>. The integral
+trace enters with <code>A=0x22</code> and emits display code <code>0x7C</code>. The reproducible
+inputs are <code>tools/macros/mathprint-radical-marker-insert.macro</code> and
+<code>tools/macros/mathprint-integral-marker-insert.macro</code>. [confirmed]</p>
+<p>Type <code>0x1F</code> remains open only as a captured record oracle. <code>34:4FD9</code> allocates
+it as a transient one-child root record. <code>34:6028</code> loads <code>A=0x1F</code>, and
+<code>34:602B</code> calls <code>34:7844</code> to store the current render type at <code>0x8DE7</code>. The
+following jump to <code>34:636C</code> renders child 1 without using the table at
+<code>34:6119</code>. No retained natural trace combines <code>0x8DE7=0x1F</code> with
+<code>34:6105</code> → <code>34:6143</code>. The JavaScript record walker implements the ROM-proven
+row-0 bitmap path, but it has no captured type-<code>0x1F</code> record/LCD oracle.
+[confirmed]</p>
 <p>Editor layout is also open. The page <code>39</code> class and handler tables, argument
 order, row composition, descriptor mapping, and draw paths are decoded. The
-retained corpus observes 239 of 1,098 declared editor branch outcomes. It does
+retained corpus observes 245 of 1,098 declared editor branch outcomes. It does
 not decode every in-progress editor state into a general AST, and it does not
 reach every cursor, menu, error, or row-composition path. [confirmed]</p>
 <p>Accepted LCD-write parity is a separate result. The translated cases compare
@@ -15071,8 +15100,9 @@ segment <code>(5,3)</code>–<code>(5,4)</code> and vinculum <code>(5,2)</code>�
 source-token table at <code>34:594D</code> and post-<strong>ENTER</strong> traces. Type <code>0x23</code> renders
 <code>nDeriv(</code>, <code>0x25</code> renders $e^x$, <code>0x26</code> renders $10^x$, <code>0x28</code> renders
 <code>logBASE(</code>, <code>0x29</code> renders summation, and <code>0x2B</code> renders a dimensioned matrix.
-Type <code>0x1F</code> is a transient root/container type; an ordinary scalar history
-redraw does not dispatch it through <code>34:6105</code>. [confirmed]</p>
+Type <code>0x1F</code> is a transient one-child root type. The main draw entry at
+<code>34:6016</code> selects its child directly through <code>34:636C</code>, so an ordinary history
+redraw does not dispatch that root through <code>34:6105</code>. [confirmed]</p>
 <p>Types <code>0x25</code> and <code>0x26</code> share the body at <code>34:6381</code>. The handlers position and
 conditionally emit fixed display codes <code>0xDB</code> and <code>0x1D</code>, respectively. They
 then render child 1. The child record supplies its local origin through offsets
@@ -15150,8 +15180,10 @@ recursive entry, preserves the handler’s depth changes, and returns ordered
 primitive and leaf operations. A settled expression enters this layer from a
 type-<code>0x00</code> leaf program at <code>34:660A</code>. The program executor consumes its payload
 in order and invokes embedded structural records against the same pen and depth
-state. The <code>nDeriv(</code> handler renders child 1 again at <code>34:64B3</code>, then places
-display code <code>0x3D</code> after that child’s <code>+7</code> width. [confirmed]</p>
+state. Row 0 uses the bitmap bytes at <code>34:61BE</code>, as fixed by the table-load ABI;
+the missing type-<code>0x1F</code> record oracle remains separate from that byte-level
+translation. The <code>nDeriv(</code> handler renders child 1 again at <code>34:64B3</code>, then
+places display code <code>0x3D</code> after that child’s <code>+7</code> width. [confirmed]</p>
 <p>The trace analyzer recovers leaf records from the resolver path. At <code>34:6CCD</code>,
 <code>DE</code> is the one-based child index and <code>ram:8DF2</code> points at the parent. At
 <code>34:6CD8</code>, <code>DE</code> contains the selected child ID and <code>HL</code> points at its resolved
