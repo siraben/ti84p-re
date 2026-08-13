@@ -76,6 +76,26 @@ class DispatchSnapshot:
     child_ids: tuple[int, ...]
 
 
+@dataclass(frozen=True)
+class RecordLocation:
+    record_id: int
+    pointer: int
+    size: int
+
+
+@dataclass(frozen=True)
+class RecordFieldWrite:
+    instruction_index: int
+    clock: int
+    pc_space: str
+    pc_address: int
+    record_id: int
+    pointer: int
+    offset: int
+    field: str
+    value: int
+
+
 def graph_node_json(snapshot: DispatchSnapshot) -> dict[str, object]:
     """Return one executable graph node without assigning field semantics."""
 
@@ -91,6 +111,150 @@ def record_node_json(
     decoded["child_ids"] = list(child_ids)
     decoded["payload"] = list(snapshot.payload)
     return decoded
+
+
+def record_storage_size(
+    snapshot: RecordSnapshot, child_ids: tuple[int, ...] = ()
+) -> int:
+    """Return the occupied arena bytes for one settled record.
+
+    Leaf payload begins at +13h. Structural records retain the 20-byte header
+    and append two-byte child IDs at +14h, as read by 34:4B05.
+    """
+
+    decoded = decode_record_header(snapshot.header)
+    if decoded.render_type < 0x1F:
+        return 0x13 + len(snapshot.payload)
+    return HEADER_SIZE + 2 * len(child_ids)
+
+
+def record_field_name(
+    render_type: int, offset: int, payload_length: int = 0
+) -> str:
+    """Name an address-based settled-record byte without guessing semantics."""
+
+    if not 0 <= render_type <= 0xFF:
+        raise ValueError("render type must be a byte")
+    if offset < 0:
+        raise ValueError("record offset must be nonnegative")
+    fixed = {
+        0x00: "id.lo", 0x01: "id.hi", 0x02: "type",
+        0x03: "word03.lo", 0x04: "word03.hi",
+        0x05: "word05.lo", 0x06: "word05.hi",
+        0x07: "word07.lo", 0x08: "word07.hi",
+        0x09: "word09.lo", 0x0A: "word09.hi",
+        0x0B: "word0B.lo", 0x0C: "word0B.hi",
+        0x0D: "word0D.lo", 0x0E: "word0D.hi",
+        0x0F: "word0F.lo", 0x10: "word0F.hi",
+        0x11: "word11.lo", 0x12: "word11.hi",
+        0x13: "byte13",
+    }
+    if offset in fixed:
+        if render_type < 0x1F and offset == 0x13 and payload_length:
+            return "payload[0]/byte13"
+        return fixed[offset]
+    if render_type < 0x1F and 0x13 <= offset < 0x13 + payload_length:
+        return f"payload[{offset - 0x13}]"
+    if render_type >= 0x1F and offset >= HEADER_SIZE:
+        index, part = divmod(offset - HEADER_SIZE, 2)
+        return f"child[{index + 1}].{'hi' if part else 'lo'}"
+    return f"+0x{offset:02X}"
+
+
+def record_locations(nodes: list[dict[str, object]]) -> list[RecordLocation]:
+    """Validate analyzer nodes that retain their live settled pointers."""
+
+    result: list[RecordLocation] = []
+    for node in nodes:
+        record_id = node.get("record_id")
+        pointer = node.get("pointer")
+        size = node.get("storage_size")
+        if not all(isinstance(value, int) for value in (record_id, pointer, size)):
+            raise ValueError("record node is missing integer ID, pointer, or size")
+        assert isinstance(record_id, int)
+        assert isinstance(pointer, int)
+        assert isinstance(size, int)
+        if not 0 <= record_id <= 0xFFFF:
+            raise ValueError("record ID must be an unsigned word")
+        if not 0 <= pointer < 0x10000 or size <= 0 or pointer + size > 0x10000:
+            raise ValueError("record location is outside logical memory")
+        result.append(RecordLocation(record_id, pointer, size))
+    ordered = sorted(result, key=lambda item: item.pointer)
+    for left, right in zip(ordered, ordered[1:]):
+        if left.pointer + left.size > right.pointer:
+            raise ValueError(
+                f"record 0x{left.record_id:04X} overlaps record 0x{right.record_id:04X}"
+            )
+    return ordered
+
+
+def attribute_record_writes(
+    writes: Iterator[object], locations: list[RecordLocation],
+    nodes: list[dict[str, object]],
+) -> list[RecordFieldWrite]:
+    """Map resolved TLMT writes into the final settled record byte ranges."""
+
+    by_id = {int(node["record_id"]): node for node in nodes}
+    result: list[RecordFieldWrite] = []
+    for write in writes:
+        address = getattr(write, "logical_address")
+        for location in locations:
+            if location.pointer <= address < location.pointer + location.size:
+                node = by_id[location.record_id]
+                offset = address - location.pointer
+                payload = node.get("payload", [])
+                result.append(RecordFieldWrite(
+                    instruction_index=getattr(write, "instruction_index"),
+                    clock=getattr(write, "clock"),
+                    pc_space=getattr(write, "pc_space"),
+                    pc_address=getattr(write, "pc_address"),
+                    record_id=location.record_id,
+                    pointer=location.pointer,
+                    offset=offset,
+                    field=record_field_name(
+                        int(node["render_type"]), offset,
+                        len(payload) if isinstance(payload, list) else 0,
+                    ),
+                    value=getattr(write, "value"),
+                ))
+                break
+    return result
+
+
+def construction_write_report(
+    trace: Path, graph: dict[str, object], *,
+    from_index: int = 0, to_index: int | None = None,
+    initial_mapping: str = "ti84p-reset", resync: bool = False,
+) -> dict[str, object]:
+    """Attribute trace writes to the final record graph's live arena ranges."""
+
+    from hardware_trace import iter_resolved_memory_writes
+
+    raw_nodes = graph.get("nodes")
+    if not isinstance(raw_nodes, list):
+        raise ValueError("record graph has no node list")
+    nodes: list[dict[str, object]] = []
+    for node in raw_nodes:
+        if not isinstance(node, dict):
+            raise ValueError("record graph contains a non-object node")
+        nodes.append(node)
+    locations = record_locations(nodes)
+    writes = (
+        write for write in iter_resolved_memory_writes(
+            trace, initial_mapping=initial_mapping, resync=resync
+        )
+        if write.instruction_index >= from_index
+        and (to_index is None or write.instruction_index < to_index)
+    )
+    attributed = attribute_record_writes(writes, locations, nodes)
+    return {
+        "trace": str(trace),
+        "from_instruction": from_index,
+        "to_instruction": to_index,
+        "entry_id": graph.get("entry_id"),
+        "records": [asdict(item) for item in locations],
+        "writes": [asdict(item) for item in attributed],
+    }
 
 
 def word(memory: bytearray, address: int) -> int:
@@ -391,7 +555,10 @@ def resolved_record_graph(
     for record_id in reachable:
         indexed = edges.get(record_id, {})
         child_ids = tuple(indexed[index] for index in sorted(indexed))
-        graph_nodes.append(record_node_json(nodes[record_id], child_ids))
+        node = record_node_json(nodes[record_id], child_ids)
+        node["pointer"] = nodes[record_id].pointer
+        node["storage_size"] = record_storage_size(nodes[record_id], child_ids)
+        graph_nodes.append(node)
     return {
         "trace": str(trace),
         "entry_id": entry_id,
@@ -447,6 +614,15 @@ def main() -> None:
         action="store_true",
         help="write the final settled record program and its reachable nodes",
     )
+    parser.add_argument(
+        "--construction-json",
+        action="store_true",
+        help="attribute writes to the final settled record byte ranges",
+    )
+    parser.add_argument(
+        "--to-index", type=int,
+        help="exclude writes at or after this instruction index",
+    )
     args = parser.parse_args()
     if args.from_index < 0:
         parser.error("--from-index must be nonnegative")
@@ -454,6 +630,23 @@ def main() -> None:
         parser.error("--children must be nonnegative")
     if args.limit < 0:
         parser.error("--limit must be nonnegative")
+    if args.to_index is not None and args.to_index < 0:
+        parser.error("--to-index must be nonnegative")
+    if args.to_index is not None and args.to_index < args.from_index:
+        parser.error("--to-index must not precede --from-index")
+    if args.construction_json and args.graph_json:
+        parser.error("--construction-json and --graph-json are mutually exclusive")
+
+    if args.construction_json:
+        graph = resolved_record_graph(
+            args.trace, from_index=args.from_index, resync=args.resync,
+        )
+        json.dump(construction_write_report(
+            args.trace, graph, from_index=args.from_index,
+            to_index=args.to_index, resync=args.resync,
+        ), fp=sys.stdout, indent=2)
+        print()
+        return
 
     if args.graph_json:
         json.dump(resolved_record_graph(

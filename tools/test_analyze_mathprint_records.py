@@ -14,12 +14,17 @@ from analyze_mathprint_records import (
     decode_record_header,
     embedded_structural_records,
     graph_node_json,
+    attribute_record_writes,
+    record_field_name,
+    record_locations,
     record_node_json,
+    record_storage_size,
     record,
     root_child_ids,
     select_entry_dispatch,
     word,
 )
+from hardware_trace import ResolvedMemoryWrite
 
 
 class MathPrintRecordTests(unittest.TestCase):
@@ -118,6 +123,57 @@ class MathPrintRecordTests(unittest.TestCase):
         snapshot = record(memory, pointer)
         self.assertEqual((0x58, 0x70, 0x31), snapshot.payload)
         self.assertEqual([0x58, 0x70, 0x31], record_node_json(snapshot)["payload"])
+
+    def test_sizes_leaf_and_structural_arena_records(self):
+        memory = bytearray(0x10000)
+        memory[0x9000:0x9016] = bytes.fromhex(
+            "11 00 00 0F 00 07 00 12 00 03 00 08 00 04 00 03 00 03 00 58 70 31"
+        )
+        self.assertEqual(0x16, record_storage_size(record(memory, 0x9000)))
+        memory[0x9100:0x9114] = bytes.fromhex(
+            "12 00 21 11 00 01 00 07 00 12 00 03 00 00 00 00 00 01 00 EF"
+        )
+        self.assertEqual(
+            0x18, record_storage_size(record(memory, 0x9100), (0x13, 0x14))
+        )
+
+    def test_names_header_payload_and_child_bytes(self):
+        self.assertEqual("word09.hi", record_field_name(0, 0x0A, 3))
+        self.assertEqual("payload[0]/byte13", record_field_name(0, 0x13, 3))
+        self.assertEqual("payload[2]", record_field_name(0, 0x15, 3))
+        self.assertEqual("child[2].hi", record_field_name(0x21, 0x17))
+
+    def test_attributes_writes_to_final_record_ids(self):
+        nodes = [
+            {
+                "record_id": 13, "render_type": 0, "pointer": 0x9E79,
+                "storage_size": 0x16, "payload": [0x58, 0x71, 0x33],
+            },
+            {
+                "record_id": 14, "render_type": 0x21, "pointer": 0x9E63,
+                "storage_size": 0x16, "payload": [],
+            },
+        ]
+        locations = record_locations(nodes)
+        writes = [ResolvedMemoryWrite(
+            instruction_index=12, clock=34, logical_pc=0x4856,
+            pc_space="page_34", pc_address=0x4856,
+            logical_address=0x9E68, value=1, target_kind="ram",
+            target_page=1, page_offset=0x1E68, flat_address=None,
+            unresolved=False,
+        )]
+        self.assertEqual(
+            [(14, "word05.lo", 1)],
+            [(item.record_id, item.field, item.value)
+             for item in attribute_record_writes(writes, locations, nodes)],
+        )
+
+    def test_rejects_overlapping_record_ranges(self):
+        with self.assertRaisesRegex(ValueError, "overlaps"):
+            record_locations([
+                {"record_id": 1, "pointer": 0x9000, "storage_size": 0x16},
+                {"record_id": 2, "pointer": 0x9010, "storage_size": 0x16},
+            ])
 
     def test_rejects_header_past_memory_end(self):
         with self.assertRaises(ValueError):
