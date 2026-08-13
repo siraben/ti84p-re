@@ -427,6 +427,10 @@ expectEqual('34:5935 maps the power token through 34:594D',
   rom.settledStructuralTokenType(0x00,0xf0), 0x2a);
 expectEqual('34:5996 selects the power metadata row',
   rom.settledRecordMetadata(0x2a), [0x01,0x01,0x00,0x00,0x00]);
+expectEqual('34:5935 maps the radical token through 34:594D',
+  rom.settledStructuralTokenType(0x00,0xbc), 0x27);
+expectEqual('34:5996 selects the radical metadata row',
+  rom.settledRecordMetadata(0x27), [0x03,0x01,0x00,0x00,0x00]);
 const constructedAbsolute = rom.constructSettledAbsoluteProgram([0x58,0x71,0x33],0x0d);
 expectEqual('absolute tokens independently construct the settled record graph',
   constructedAbsolute.nodes, recordPrograms.programs['abs(X-3)'].nodes);
@@ -464,14 +468,46 @@ for (const oracle of constructionOracles.power_cases) {
     crypto.createHash('sha256').update(writeBytes).digest('hex'),
     oracle.accepted_write_sha256);
 }
+for (const oracle of constructionOracles.composition_cases) {
+  const program = rom.constructSettledExpressionProgram(
+    oracle.spec, oracle.entry_id, font);
+  expectEqual(`${oracle.expression} independently constructs the fresh TilEm graph`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.origin, nodes:oracle.nodes});
+  const operations = rom.executeSettledRecordProgram(program.nodes, program.entry_id, {
+    origin:program.origin,
+    glyphAdvance:settledGlyphAdvance,
+  });
+  const writes = rom.rasterizeSettledOperations(operations, font).writes;
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write count`,
+    writes.length, oracle.accepted_write_count);
+  const writeBytes = Buffer.from(writes.flatMap(write => [...write.pointer,write.value]));
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write stream`,
+    crypto.createHash('sha256').update(writeBytes).digest('hex'),
+    oracle.accepted_write_sha256);
+}
 expectEqual('browser selects translated absolute record construction',
   mp.constructedProgramForExpression('abs(X-3)').nodes,
   rom.constructSettledAbsoluteProgram([0x58,0x71,0x33]).nodes);
 expectEqual('arbitrary flat absolute expression constructs from its own tokens',
   mp.constructedProgramForExpression('abs(A+12)').nodes[2].payload,
   [0x41,0x70,0x31,0x32]);
-expectEqual('untranslated expression has no generated record constructor',
-  mp.constructedProgramForExpression('sqrt(X^2+1)'), null);
+expectEqual('browser composes translated radical and power construction',
+  mp.constructedProgramForExpression('sqrt(X^2+1)').nodes,
+  rom.constructSettledRadicalProgram({
+    kind:'sequence',
+    parts:[{kind:'power',base:[0x58],exponent:[0x32]},[0x70,0x31]],
+  }, 1, font).nodes);
+expectEqual('browser constructs a radical inside a raised exponent',
+  mp.constructedProgramForExpression('X^sqrt(2)').nodes,
+  rom.constructSettledExpressionProgram({
+    kind:'power', base:[0x58],
+    exponent:{kind:'radical',radicand:[0x32]},
+  }, 1, font).nodes);
+expectEqual('browser constructs nested radicals',
+  mp.constructedProgramForExpression('sqrt(sqrt(2))').nodes,
+  rom.constructSettledRadicalProgram(
+    {kind:'radical',radicand:[0x32]}, 1, font).nodes);
 const constructedPower = rom.constructSettledPowerProgram(
   {base:[0x58], exponent:[0x32]}, 0x0d, font);
 expectEqual('power tokens independently construct the settled X^2 graph',
@@ -525,7 +561,7 @@ expectEqual('browser parses powers right associatively',
 expectEqual('power browser path labels translated construction',
   mp.generatedForExpression('X^2').programSource,
   '34:4900, 34:5935, 34:7393, and 34:7609 translated power construction');
-for (const expression of ['X^', '^2', 'X^^2', 'X^(2)', 'X+1^2'])
+for (const expression of ['X^', '^2', 'X^^2', 'X^(2)'])
   expectEqual(`${expression} is outside the translated power grammar`,
     mp.constructedProgramForExpression(expression), null);
 expectThrows('power constructor rejects an empty base', RangeError,
@@ -535,6 +571,20 @@ expectThrows('power constructor rejects an empty exponent', RangeError,
 expectThrows('power constructor detects record ID exhaustion', RangeError,
   () => rom.constructSettledPowerProgram(
     {base:[0x58], exponent:[0x32]}, 0xffff, font));
+const cyclicExpression = {kind:'radical'};
+cyclicExpression.radicand = cyclicExpression;
+expectThrows('compositional constructor rejects cyclic expressions', RangeError,
+  () => rom.constructSettledExpressionProgram(cyclicExpression, 1, font));
+expectThrows('compositional constructor rejects an empty sequence', RangeError,
+  () => rom.constructSettledExpressionProgram({kind:'sequence',parts:[]}, 1, font));
+expectThrows('compositional constructor rejects an empty radical', RangeError,
+  () => rom.constructSettledRadicalProgram([], 1, font));
+expectThrows('compositional constructor rejects unsupported structural kinds', RangeError,
+  () => rom.constructSettledExpressionProgram({kind:'integral'}, 1, font));
+expectThrows('compositional constructor rejects overflowing leaf metrics', RangeError,
+  () => rom.constructSettledExpressionProgram(new Array(10923).fill(0x58), 1, font));
+expectThrows('compositional constructor rejects record ID exhaustion', RangeError,
+  () => rom.constructSettledRadicalProgram([0x32], 0xffff, font));
 for (const [expression,nodes,entryId] of browserProgramCases) {
   const fixture = recordPrograms.programs[expression];
   expectEqual(`${expression} browser fixture entry`, fixture.entry_id, entryId);
@@ -557,8 +607,14 @@ for (const [expression,nodes,entryId] of browserProgramCases) {
 expectEqual('absolute browser path labels translated construction',
   mp.generatedForExpression('abs(X-3)').programSource,
   '34:4900, 34:5935, 34:7393, and 34:7609 translated construction');
-expectEqual('remaining browser paths label captured record input',
+expectEqual('radical browser path labels translated construction',
   mp.generatedForExpression('sqrt(X^2+1)').programSource,
+  '34:4900, 34:5935, 34:7393, and 34:7609 translated radical construction');
+expectEqual('compositional browser path labels translated construction',
+  mp.generatedForExpression('X^sqrt(2)').programSource,
+  '34:4900, 34:5935, 34:7393, and 34:7609 translated power construction');
+expectEqual('remaining browser paths label captured record input',
+  mp.generatedForExpression('nthroot(3,X+1)').programSource,
   'captured settled record snapshot');
 expectEqual('arbitrary expression has no captured record program',
   mp.generatedForExpression('1//(2//3)'), null);
@@ -571,7 +627,7 @@ expectEqual('34:6143 keeps incoming-A-dependent type 1F explicit',
   }]);
 expectEqual('34:62A1 radical primitive order', rom.settledRadicalOperations(12, 0x1d), [
   {kind:'bitmap', x:0, y:5, width:5, height:7,
-   rows:[0x04,0x04,0x04,0x04,0x14,0x0c,0x04],
+   rows:[0x04,0x04,0x04,0x04,0x14,0x0c,0x04], retainUnchanged:true,
    routine:'34:62A4 → 34:62D0 → 34:630C'},
   {kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:4},
    routine:'34:62AE → 34:5D96'},
@@ -580,6 +636,25 @@ expectEqual('34:62A1 radical primitive order', rom.settledRadicalOperations(12, 
    routine:'34:62C3 → 34:5DA6'},
   {kind:'child', index:1, routine:'34:62C6 → 34:660A'},
 ]);
+expectEqual('34:62D0 raised radical selects the final five bitmap rows',
+  rom.settledRadicalOperations(7, 6, 1)[0], {
+    kind:'bitmap', x:0, y:2, width:5, height:5,
+    rows:[0x04,0x04,0x14,0x0c,0x04], retainUnchanged:true,
+    routine:'34:62A4 → 34:62D0 → 34:630C',
+  });
+const raisedRadicalBitmap = rom.settledRadicalOperations(7, 6, 1)[0];
+const raisedRadicalInitial = Array.from({length:64}, () => new Array(96).fill(0));
+for (let row = 0; row < raisedRadicalBitmap.height; row++)
+  for (let column = 0; column < raisedRadicalBitmap.width; column++)
+    raisedRadicalInitial[raisedRadicalBitmap.y + row][column] =
+      (raisedRadicalBitmap.rows[row] >> (raisedRadicalBitmap.width - 1 - column)) & 1;
+const unchangedRadicalWrites = rom.rasterizeSettledOperations(
+  [raisedRadicalBitmap], font, {initialGrid:raisedRadicalInitial}).writes;
+expectEqual('34:630C preserves accepted unchanged raised-radical writes',
+  unchangedRadicalWrites.map(write => [write.pointer,write.value,write.changes]), [
+    [[0,2],0x20,[]], [[0,3],0x20,[]], [[0,4],0xa0,[]],
+    [[0,5],0x60,[]], [[0,6],0x20,[]],
+  ]);
 expectEqual('34:622F integral primitive order', rom.settledIntegralOperations(0x17), [
   {kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:0x15},
    routine:'34:6239 → 34:5D96'},
