@@ -23,14 +23,13 @@
     through a direct JavaScript translation documented in the
     <a href="../sub-equation-display.html">Equation display (MathPrint)</a> wiki page.
     Supported absolute-value, power, radical, nth-root, stacked-fraction,
-    integral, and summation expressions construct settled records from their
-    input tokens,
+    integral, summation, and <code>nDeriv(</code> expressions construct settled
+    records from their input tokens,
     including nesting among those structural forms. They then execute through
     the translated structural renderer and LCD blitters to generate every
-    accepted LCD data write. The <code>nDeriv(</code> preview starts from a
-    labeled settled-record snapshot. Other expressions fall back to the
-    labeled compositor. Captured calculator writes remain available as a
-    separate oracle view for two integral scenarios.
+    accepted LCD data write. Other expressions fall back to the labeled
+    compositor. Captured calculator writes remain available as a separate
+    oracle view for two integral scenarios.
   </p>
 
   <div class="controls">
@@ -86,6 +85,8 @@
       <li><code>int(lo,hi,body,var)</code> — definite integral (∫, `MATH→9`)</li>
       <li><code>sum(var,lo,hi,body)</code> — summation (Σ, `MATH→0`): <code>hi</code>
           above, <code>var=lo</code> below, body to the right</li>
+      <li><code>nDeriv(body,var,value)</code> — numeric derivative
+          (<code>MATH→8</code>) evaluated at <code>value</code></li>
       <li><code>abs(x)</code>, parentheses, <code>+ - * ^</code>, and implicit
           multiplication (<code>2X</code>)</li>
     </ul>

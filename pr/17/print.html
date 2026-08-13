@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e36e69f7.js";
+            window.path_to_searchindex_js = "searchindex-13698ce0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14968,7 +14968,7 @@ absolute value, summation with an exponent, and nested <code>nDeriv(</code>. [co
 bitmaps, page-4 point and line behavior, <code>_VPutMap</code>, the page-7 large-glyph
 path, and LCD byte packing. Six settled programs reproduce every accepted LCD
 data write through the outer <code>34:660A</code> return: absolute value (49 writes), nth
-root (69), radical (82), summation (66), <code>nDeriv(</code> (110), and a nested
+root (69), radical (82), summation (66), <code>nDeriv(</code> (96), and a nested
 integral/fraction (114). This comparison includes accepted writes whose value
 does not change the displayed byte. [confirmed]</p>
 <p>The small-font table at <code>03:4CD6</code> stores seven rows per glyph. <code>_VPutMap</code> emits
@@ -15106,13 +15106,44 @@ summation. The JavaScript constructor matches every record field and ID. It
 also reproduces every accepted LCD data write through the outer <code>34:660A</code>
 return. The traces supply comparison oracles, not constructor input.
 [confirmed]</p>
+<p>The settled lower-bound leaf for <code>sum(N,1,3,N^2)</code> contains <code>0x31</code>. The byte
+pair <code>EF 1E</code> instead emits display code <code>0xF7</code>, the empty template square. It
+belongs to editable template state and does not occur in the settled summation
+graph. [confirmed]</p>
+<p>The type-<code>0x23</code> constructor maps source token <code>0025h</code> through <code>34:594D</code>.
+<code>34:4900</code> allocates the <code>nDeriv(</code> record, then reserves child leaves for the
+variable, body, and evaluation value in that order. It fills those leaves
+before it allocates structural descendants of the body or value. A nested
+<code>nDeriv(</code> applies the same reservation rule recursively. [confirmed]</p>
+<p>For body metrics $(h_b,w_b,b_b)$ and variable and evaluation-value widths
+$w_v$ and $w_e$, the metric branches at <code>34:7485</code> and <code>34:76C2</code> produce
+[confirmed]</p>
+<p>$$
+\begin{aligned}
+B &amp;= \max(6,b_b), &amp; H &amp;= \max(h_b,B+7), \
+x_v &amp;= 5, &amp; y_v &amp;= B+2, \
+x_b &amp;= 16, &amp; y_b &amp;= B-b_b, \
+x_e &amp;= w_b+w_v+29, &amp; y_e &amp;= B+2, \
+W &amp;= x_e+w_e.
+\end{aligned}
+$$</p>
+<p>The type-<code>0x23</code> record stores <code>3</code>, $H$, $W$, and $B$ at <code>+5</code>, <code>+7</code>, <code>+9</code>,
+and <code>+0x0B</code>. The variable leaf uses render type <code>1</code>. For the settled scalar
+case <code>nDeriv(X,X,1)</code>, the one-token body uses <code>EF 1E</code>; observed <code>A/A</code> and
+<code>X/A</code> cases retain their ordinary body token. This rule is specific to the
+one-token <code>X/X</code> case. [confirmed]</p>
+<p>Twelve reset-origin traces cover ordinary and unequal-width arguments, power,
+radical, fraction, nth-root, and integral bodies, plus nested <code>nDeriv(</code>. The
+JavaScript constructor matches every record field and ID. It also reproduces
+every accepted LCD data write through the outer <code>34:660A</code> return. The traces
+supply comparison oracles, not constructor input. [confirmed]</p>
 <p>Flat absolute-value bodies and expressions composed from ordinary token runs,
 right-associated powers, radicals, nth roots, and stacked fractions now run
 from tokens through record construction, layout, drawing operations, and LCD
-byte writes. Integrals and summations compose with the same translated forms in
-their limits and bodies. Only <code>nDeriv(</code> still begins from a record snapshot
-captured at <code>34:660A</code>. Full arbitrary-expression parity requires its constructor
-and the remaining metric branches. [confirmed]</p>
+byte writes. Integrals, summations, and <code>nDeriv(</code> compose with the same
+translated forms in their arguments. Construction inside a fraction numerator
+and the remaining arbitrary-expression branches are still untranslated.
+[confirmed]</p>
 <p>Each dispatch also captures the viewport origin at <code>ram:8DFE</code>/<code>ram:8E00</code>.
 Nested fraction <code>1/2</code> reaches <code>34:5DA6</code> with the local rule <code>(1,6)</code>–<code>(5,6)</code>
 and origin <code>(16,5)</code>. Page 4 therefore receives the translated endpoints
@@ -15156,9 +15187,11 @@ settled record programs provide exact final-pixel and complete accepted-write
 parity for their expressions. Three fresh absolute-value cases, four power
 cases, eight power/radical composition cases, four nth-root cases, thirteen
 fraction cases, twelve integral cases, and eleven summation cases verify
-token-to-record construction and complete accepted-write streams. The deepest
-power oracle has three raised levels. Two longer trace scenarios cover the
-editor and display activity around the final key press. [confirmed]</p>
+token-to-record construction and complete accepted-write streams. Twelve
+<code>nDeriv(</code> cases verify its three arguments, structural bodies, and recursive
+nesting. The deepest power oracle has three raised levels. Two longer trace
+scenarios cover the editor and display activity around the final key press.
+[confirmed]</p>
 <h2 id="extracted-records-and-interactive-model"><a class="header" href="#extracted-records-and-interactive-model">Extracted records and interactive model</a></h2>
 <p>The class table, decoded handler records, and selected descriptors are extracted to
 <code>web/mathprint/layout.json</code> by <code>tools/export-layout.py</code>;
@@ -15170,12 +15203,13 @@ translations in <code>web/mathprint/rom-engine.js</code>. The translated routine
 classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in <code>app.js</code> still uses a separate,
 trace-fitted box model. <code>web/mathprint/record-programs.json</code> contains six
-captured record snapshots. The browser constructs supported absolute-value,
-power, radical, nth-root, stacked-fraction, integral, and summation expressions
-from tokens, including nesting among the structural forms. It uses a snapshot
-only for <code>nDeriv(</code>. Both input forms execute through the translated
-renderer and expose every generated LCD write as a live timeline. This mode
-does not load captured LCD events. [confirmed]</p>
+retained record snapshots for comparison. The browser constructor takes
+precedence over those fixtures. It constructs supported absolute-value, power,
+radical, nth-root, stacked-fraction, integral, summation, and <code>nDeriv(</code>
+expressions from tokens, including nesting among the structural forms. The
+translated renderer exposes every generated LCD write as a live timeline. This
+mode does not load a fixture or captured LCD events for those expressions.
+[confirmed]</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="keyboard-and-link-port"><a class="header" href="#keyboard-and-link-port">Keyboard and link port</a></h1>
 <p>The keypad scanner and link-port drivers provide the calculator’s local input and wired data-transfer paths. The keyboard path turns matrix scans into cooked key codes, while the link path sends bytes through the legacy two-wire port or the hardware-assisted interface.</p>
