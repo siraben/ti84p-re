@@ -891,25 +891,36 @@ function flatSettledTokenBytes(source) {
 }
 
 // Closed expression grammar for the translated record constructor. It keeps
-// ordinary token runs in their leaf order and makes power right-associative,
-// matching the page-34 record pass. Parenthesized, multi-argument, and other
-// untranslated template families remain outside this grammar.
+// ordinary token runs in their leaf order, makes power right-associative, and
+// gives stacked fractions the same precedence as the display parser. Parens
+// may group a fraction in this preview syntax; they do not add visible tokens.
+// Other parenthesized and untranslated multi-argument families remain outside
+// this grammar.
 function constructedSettledSpec(source) {
   let offset = 0;
+  const sequence = parts => parts.length === 1 ? parts[0] : {kind:'sequence',parts};
   const atom = () => {
+    if (source[offset] === '(') {
+      offset++;
+      const grouped = expression();
+      if (!grouped || source[offset] !== ')') return null;
+      offset++;
+      return grouped.kind === 'fraction'
+        ? grouped : {kind:'fractionOperandGroup',expression:grouped};
+    }
     if (source.startsWith('nthroot(', offset)) {
       offset += 8;
-      const index = expression(',');
+      const index = expression();
       if (!index || source[offset] !== ',') return null;
       offset++;
-      const radicand = expression(')');
+      const radicand = expression();
       if (!radicand || source[offset] !== ')') return null;
       offset++;
       return {kind:'nthRoot', index, radicand};
     }
     if (source.startsWith('sqrt(', offset)) {
       offset += 5;
-      const radicand = expression(')');
+      const radicand = expression();
       if (!radicand || source[offset] !== ')') return null;
       offset++;
       return {kind:'radical', radicand};
@@ -929,24 +940,60 @@ function constructedSettledSpec(source) {
     if (base.kind !== 'tokens') return null;
     offset++;
     const exponent = power();
-    return exponent ? {kind:'power', base:base.tokens, exponent} : null;
+    return exponent && exponent.kind !== 'fractionOperandGroup'
+      ? {kind:'power', base:base.tokens, exponent} : null;
   };
-  const expression = stop => {
+  const product = () => {
     const parts = [];
     const first = power();
     if (!first) return null;
     parts.push(first);
-    while (offset < source.length && source[offset] !== stop) {
-      const operator = source[offset++];
-      if (!'+-*/'.includes(operator)) return null;
+    while (source[offset] === '*') {
+      offset++;
       const right = power();
       if (!right) return null;
-      parts.push(
-        {kind:'tokens', tokens:[FLAT_SETTLED_OPERATOR_TOKENS[operator]]}, right);
+      parts.push({kind:'tokens',tokens:[FLAT_SETTLED_OPERATOR_TOKENS['*']]},right);
     }
-    return parts.length === 1 ? parts[0] : {kind:'sequence', parts};
+    return sequence(parts);
   };
-  const result = expression('');
+  const fraction = () => {
+    let left = product();
+    if (!left) return null;
+    const unwrap = part => part.kind === 'fractionOperandGroup'
+      ? part.expression : part;
+    for (;;) {
+      if (source.startsWith('//', offset)) {
+        offset += 2;
+        const denominator = product();
+        if (!denominator) return null;
+        left = {
+          kind:'fraction', numerator:unwrap(left), denominator:unwrap(denominator),
+        };
+      } else if (source[offset] === '/') {
+        offset++;
+        const right = product();
+        if (!right) return null;
+        left = sequence([
+          left, {kind:'tokens',tokens:[FLAT_SETTLED_OPERATOR_TOKENS['/']]}, right,
+        ]);
+      } else break;
+    }
+    return left.kind === 'fractionOperandGroup' ? null : left;
+  };
+  const expression = () => {
+    const parts = [];
+    const first = fraction();
+    if (!first) return null;
+    parts.push(first);
+    while (source[offset] === '+' || source[offset] === '-') {
+      const operator = source[offset++];
+      const right = fraction();
+      if (!right) return null;
+      parts.push({kind:'tokens',tokens:[FLAT_SETTLED_OPERATOR_TOKENS[operator]]},right);
+    }
+    return sequence(parts);
+  };
+  const result = expression();
   return result && offset === source.length ? result : null;
 }
 
@@ -969,6 +1016,9 @@ function constructedProgramForExpression(expression) {
   if (!spec) return null;
   return spec.kind === 'power'
     ? ROM_ENGINE.constructSettledPowerProgram(spec, 1, FONT)
+    : spec.kind === 'fraction'
+      ? ROM_ENGINE.constructSettledFractionProgram(
+          spec.numerator, spec.denominator, 1, FONT)
     : spec.kind === 'nthRoot'
       ? ROM_ENGINE.constructSettledNthRootProgram(
           spec.index, spec.radicand, 1, FONT)

@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-556ede0d.js";
+            window.path_to_searchindex_js = "searchindex-94d0fd6f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15018,10 +15018,40 @@ root selects the final five. [confirmed]</p>
 <code>nthroot(3,X^2)</code>, and <code>X^nthroot(3,2)</code> match every generated record field and
 accepted LCD data write. These cases cover a multi-token index, a structural
 radicand, and a raised nth root. [confirmed]</p>
+<p>The type-<code>0x20</code> constructor maps the stacked-fraction source token <code>EF2Eh</code>
+through <code>34:594D</code>. It renders both children one depth below the containing leaf.
+For numerator height $h_n$, denominator height $h_d$, and child widths $w_n$
+and $w_d$, the settled metrics are [confirmed]</p>
+<p>$$
+\begin{aligned}
+w &amp;= \max(w_n,w_d), \
+x_n &amp;= 2 + \left\lfloor\frac{w-w_n}{2}\right\rfloor, \
+x_d &amp;= 2 + \left\lfloor\frac{w-w_d}{2}\right\rfloor, \
+y_d &amp;= h_n + 3, \
+H &amp;= h_n + h_d + 3, \
+W &amp;= w + 4, \
+B &amp;= h_n + 1.
+\end{aligned}
+$$</p>
+<p>The numerator begins at $y=0$. The metric pass clears the numerator leaf’s
+word at <code>+0x0F</code>. The renderer consumes its payload through the word at <code>+0x11</code>.
+[confirmed]</p>
+<p><code>34:4900</code> allocates structural records in a fraction numerator before it
+allocates the enclosing type-<code>0x20</code> record. It allocates the numerator leaf
+afterward. For <code>(X^2)//3</code>, IDs <code>0x11</code> and <code>0x12</code> identify the power record and
+its exponent leaf. ID <code>0x13</code> identifies the fraction, <code>0x14</code> its numerator
+leaf, and <code>0x15</code> its denominator leaf. The graph points from the numerator leaf
+back to the earlier power record. A structural denominator follows the ordinary
+recursive allocation order. A fraction nested in the numerator recursively
+applies the same hoisting rule. [confirmed]</p>
+<p>Thirteen reset-origin traces cover leaf, sequence, power, radical, nth-root,
+and nested-fraction operands. The generated graphs match every captured record
+field and ID. Their accepted LCD data-write streams also match through the outer
+<code>34:660A</code> return. [confirmed]</p>
 <p>Flat absolute-value bodies and expressions composed from ordinary token runs,
-right-associated powers, radicals, and nth roots now run from tokens through
-record construction, layout, drawing operations, and LCD byte writes.
-Summation, <code>nDeriv(</code>, and integral/fraction examples still begin from record
+right-associated powers, radicals, nth roots, and stacked fractions now run
+from tokens through record construction, layout, drawing operations, and LCD
+byte writes. Summation, <code>nDeriv(</code>, and integral examples still begin from record
 snapshots captured at <code>34:660A</code>. Full arbitrary-expression parity requires the
 remaining structural constructors and metric branches. [confirmed]</p>
 <p>Each dispatch also captures the viewport origin at <code>ram:8DFE</code>/<code>ram:8E00</code>.
@@ -15082,11 +15112,11 @@ classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in <code>app.js</code> still uses a separate,
 trace-fitted box model. <code>web/mathprint/record-programs.json</code> contains six
 captured record snapshots. The browser constructs supported absolute-value,
-power, radical, and nth-root expressions from tokens, including nesting among
-the structural forms. It uses snapshots for summation, <code>nDeriv(</code>, and the
-integral/fraction example. Both input forms execute through the translated
-renderer and expose every generated LCD write as a live timeline. This mode
-does not load captured LCD events. [confirmed]</p>
+power, radical, nth-root, and stacked-fraction expressions from tokens,
+including nesting among the structural forms. It uses snapshots for summation,
+<code>nDeriv(</code>, and the integral example. Both input forms execute through the
+translated renderer and expose every generated LCD write as a live timeline.
+This mode does not load captured LCD events. [confirmed]</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="keyboard-and-link-port"><a class="header" href="#keyboard-and-link-port">Keyboard and link port</a></h1>
 <p>The keypad scanner and link-port drivers provide the calculator’s local input and wired data-transfer paths. The keyboard path turns matrix scans into cooked key codes, while the link path sends bytes through the legacy two-wire port or the hardware-assisted interface.</p>
