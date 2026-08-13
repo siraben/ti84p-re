@@ -276,6 +276,22 @@ OUTCOME_CLASSIFICATIONS = {
             "matrix record exists"
         ),
     },
+    ("page_34", 0x73CD, "fallthrough"): {
+        "status": "infeasible_under_calculator_abi",
+        "reason": (
+            "calculator entries 34:737A, 34:7380, and 34:7377 pass through "
+            "34:7386, which loads B=0; the only recursive dispatcher path at "
+            "34:75F4 reloads the same saved zero before 34:7606"
+        ),
+    },
+    ("page_34", 0x765D, "returned"): {
+        "status": "infeasible_under_calculator_abi",
+        "reason": (
+            "calculator entries 34:737A, 34:7380, and 34:7377 pass through "
+            "34:7386, which loads B=0; the only recursive dispatcher path at "
+            "34:75F4 reloads the same saved zero before 34:7606"
+        ),
+    },
 }
 
 
@@ -624,6 +640,76 @@ def symbolic_type1f_paths() -> list[dict[str, object]]:
     return [
         {"terminal": terminal, "representative_states": states}
         for terminal, states in sorted(by_terminal.items())
+    ]
+
+
+def metric_marker_path(
+    at_tail_boundary: int,
+    yequ_table_flag: int,
+    marker_class: str,
+    nested: int,
+) -> dict[str, object]:
+    """Collapse the finite state tested by 34:759C–75C1."""
+
+    outcomes = []
+    if not at_tail_boundary:
+        return {
+            "terminal": "return_nz_pointer_mismatch",
+            "branch_outcomes": ["34:75A5:returned", "34:755F:taken"],
+        }
+    outcomes.append("34:75A5:fallthrough")
+    if yequ_table_flag:
+        outcomes.extend(("34:75A9:taken", "34:755F:taken"))
+        return {
+            "terminal": "return_nz_yequ_table",
+            "branch_outcomes": outcomes,
+        }
+    outcomes.append("34:75A9:fallthrough")
+    if marker_class == "other":
+        outcomes.extend(("34:75B0:fallthrough", "34:755F:taken"))
+        return {
+            "terminal": "return_nz_other_marker",
+            "branch_outcomes": outcomes,
+        }
+    outcomes.extend((
+        "34:75B0:taken",
+        f"34:75BB:{'fallthrough' if nested else 'taken'}",
+        "34:755F:fallthrough",
+    ))
+    return {
+        "terminal": f"return_z_special_marker_{'nested' if nested else 'top_level'}",
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_metric_marker_paths() -> list[dict[str, object]]:
+    """Partition every predicate combination in the marker-tail gate."""
+
+    classes: dict[tuple[str, tuple[str, ...]], list[dict[str, object]]] = defaultdict(list)
+    for at_tail in (0, 1):
+        for yequ_table in (0, 1):
+            for marker_class in ("fraction_nthroot_power", "other"):
+                for nested in (0, 1):
+                    result = metric_marker_path(
+                        at_tail, yequ_table, marker_class, nested
+                    )
+                    key = (
+                        str(result["terminal"]),
+                        tuple(str(item) for item in result["branch_outcomes"]),
+                    )
+                    classes[key].append({
+                        "at_edit_tail_plus_6": at_tail,
+                        "yequ_and_tblflags_bit0": yequ_table,
+                        "marker_class": marker_class,
+                        "nesting_nonzero": nested,
+                    })
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            "representative_states": states[:4],
+        }
+        for (terminal, outcomes), states in sorted(classes.items())
     ]
 
 
@@ -1151,6 +1237,10 @@ def open_paths(
         row["render_type"] for row in structural if row["oracle_records"] == 0
     ]
     editor_dynamic = components["editor_layout"]["dynamic"]
+    infeasible = (
+        outcome_statuses["infeasible_under_entry_invariant"]
+        + outcome_statuses["infeasible_under_calculator_abi"]
+    )
     return [
         {
             "area": "render type 1Fh",
@@ -1213,8 +1303,8 @@ def open_paths(
             ),
             "reason": (
                 f"{outcome_statuses['exercised']} outcomes are exercised, "
-                f"{outcome_statuses['infeasible_under_entry_invariant']} are "
-                "proved infeasible under entry invariants, and "
+                f"{infeasible} are proved infeasible under data invariants or "
+                "the calculator call ABI, and "
                 f"{outcome_statuses['unresolved_state_or_abi']} remain unresolved"
             ),
         },
@@ -1372,7 +1462,17 @@ def build_report(
                 "state": ["A", "(IY+44h).3", "word 0x8520"],
                 "terminal_classes": symbolic_type1f_paths(),
                 "dynamic_record_oracle": False,
-            }
+            },
+            "metric_marker_tail_gate": {
+                "routine": "34:759C",
+                "state": [
+                    "parsed pointer == editTail + 6",
+                    "cxCurApp == kYequ and tblFlags.0",
+                    "marker type in {0x20,0x24,0x2A}",
+                    "nesting counter 0x8515",
+                ],
+                "terminal_classes": symbolic_metric_marker_paths(),
+            },
         },
         "record_oracles": oracle,
         "traces": trace_rows,

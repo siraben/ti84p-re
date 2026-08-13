@@ -23,6 +23,8 @@ from analyze_mathprint_saturation import (
     predicate_state,
     serialize_trace_summary,
     minimize_trace_corpus,
+    metric_marker_path,
+    symbolic_metric_marker_paths,
     symbolic_type1f_paths,
     type1f_terminal,
 )
@@ -109,6 +111,32 @@ class StaticBranchTests(unittest.TestCase):
             [row["status"] for row in report["outcomes"]],
         )
 
+    def test_calculator_abi_classifies_seeded_b_outcomes(self) -> None:
+        call = Branch(
+            RomLocation(0x34, 0x73CD), "call z,0x7547", "call",
+            RomLocation(0x34, 0x7547), RomLocation(0x34, 0x73D0),
+        )
+        ret = Branch(
+            RomLocation(0x34, 0x765D), "ret nz", "ret", None,
+            RomLocation(0x34, 0x765E),
+        )
+
+        call_report = branch_json(
+            call, Counter({("page_34", 0x73CD, "taken"): 1}), {},
+            OUTCOME_CLASSIFICATIONS,
+        )
+        ret_report = branch_json(
+            ret, Counter({("page_34", 0x765D, "fallthrough"): 1}), {},
+            OUTCOME_CLASSIFICATIONS,
+        )
+
+        self.assertEqual(
+            "infeasible_under_calculator_abi", call_report["outcomes"][1]["status"]
+        )
+        self.assertEqual(
+            "infeasible_under_calculator_abi", ret_report["outcomes"][0]["status"]
+        )
+
 
 class SymbolicHandlerTests(unittest.TestCase):
     def test_type1f_word_boundaries_partition_both_iy_states(self) -> None:
@@ -133,6 +161,40 @@ class SymbolicHandlerTests(unittest.TestCase):
                 "glyph_C6", "glyph_DB_set_iy32_bit2",
             },
             terminals,
+        )
+
+    def test_metric_marker_gate_distinguishes_all_local_outcomes(self) -> None:
+        self.assertEqual(
+            "return_nz_pointer_mismatch",
+            metric_marker_path(0, 0, "other", 0)["terminal"],
+        )
+        self.assertEqual(
+            "return_nz_yequ_table",
+            metric_marker_path(1, 1, "fraction_nthroot_power", 0)["terminal"],
+        )
+        self.assertEqual(
+            "return_nz_other_marker",
+            metric_marker_path(1, 0, "other", 0)["terminal"],
+        )
+        nested = metric_marker_path(1, 0, "fraction_nthroot_power", 1)
+        self.assertEqual("return_z_special_marker_nested", nested["terminal"])
+        self.assertIn("34:75BB:fallthrough", nested["branch_outcomes"])
+
+    def test_metric_marker_partition_contains_every_branch_outcome(self) -> None:
+        outcomes = {
+            outcome
+            for row in symbolic_metric_marker_paths()
+            for outcome in row["branch_outcomes"]
+        }
+        self.assertEqual(
+            {
+                "34:755F:taken", "34:755F:fallthrough",
+                "34:75A5:returned", "34:75A5:fallthrough",
+                "34:75A9:taken", "34:75A9:fallthrough",
+                "34:75B0:taken", "34:75B0:fallthrough",
+                "34:75BB:taken", "34:75BB:fallthrough",
+            },
+            outcomes,
         )
 
 
