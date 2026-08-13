@@ -589,6 +589,30 @@ contain 17, 22, 22, and 32 writes, respectively. These captures test one, two,
 and three raised levels without supplying records or writes to the constructor.
 [confirmed]
 
+The type-`0x25` and type-`0x26` constructors map source tokens `00BFh` and
+`00C1h` through `34:594D`. Both allocate one exponent child. The child begins at
+`x=6`, uses raised small-font metrics, and determines the parent height, width,
+and baseline. The handlers at `34:637E` and `34:63AD` emit fixed large-font
+display codes `0xDB` and `0x1D` before rendering that child. [confirmed]
+
+Reset-origin traces for `exp(12)`, `exp(X^2)`, `exp(1//2)`, and
+`tenpow(X^2)` match every constructed record field and accepted LCD data write.
+Each stream contains 22 writes. The JavaScript renderer generates the writes
+from the expression tree, constructed records, structural handlers, ROM font
+bitmaps, and LCD byte-packing logic. [confirmed]
+
+The type-`0x28` constructor maps source token `EF34h` through `34:594D` and
+reserves the base and argument leaves before scanning either payload. It places
+the base at `x=18` and the argument after the base width at $x=w_b+24$. The
+argument height and baseline determine the parent's height and baseline. The
+parent width is $w_b+w_a+30$. [confirmed]
+
+Reset-origin traces for `logbase(12,345)`, `logbase(X,X^2)`,
+`logbase(3,1//2)`, and `logbase(1//2,3)` match every constructed record field.
+Their complete accepted-write streams contain 99, 79, 91, and 71 writes. These
+cases cover multi-token children, a powered argument, and a stacked fraction in
+each child position. [confirmed]
+
 Eight additional reset-origin traces cover radicals, sequences inside radicals,
 nested radicals, powers inside radicals, and radicals inside powers. The deepest
 cases are `sqrt(2^X^2)`, `sqrt(sqrt(2))`, `X^sqrt(2)`, and
@@ -764,11 +788,12 @@ every accepted LCD data write through the outer `34:660A` return. The traces
 supply comparison oracles, not constructor input. [confirmed]
 
 Flat absolute-value bodies and expressions composed from ordinary token runs,
-right-associated powers, radicals, nth roots, and stacked fractions now run
-from tokens through record construction, layout, drawing operations, and LCD
-byte writes. Integrals, summations, and `nDeriv(` compose with the same
-translated forms in their arguments and in a stacked-fraction numerator. The
-remaining arbitrary-expression branches are still untranslated.
+right-associated powers, $e^x$, $10^x$, `logBASE(`, radicals, nth roots, and
+stacked fractions now run from tokens through record construction, layout,
+drawing operations, and LCD byte writes. Integrals, summations, and `nDeriv(`
+compose with the same translated forms in their arguments and in a
+stacked-fraction numerator. The remaining arbitrary-expression branches are
+still untranslated.
 [confirmed]
 
 Each dispatch also captures the viewport origin at `ram:8DFE`/`ram:8E00`.
@@ -821,11 +846,12 @@ settled record programs provide exact final-pixel and complete accepted-write
 parity for their expressions. Three fresh absolute-value cases, four power
 cases, eight power/radical composition cases, four nth-root cases, thirteen
 fraction cases, twelve integral cases, and eleven summation cases verify
-token-to-record construction and complete accepted-write streams. Twelve
-`nDeriv(` cases verify its three arguments, structural bodies, and recursive
-nesting. Six raised multi-argument numerator cases also require the settled
-record graph to decode to the asserted semantic expression. The deepest power
-oracle has three raised levels. Two longer trace
+token-to-record construction and complete accepted-write streams. Four
+exponential cases and four `logBASE(` cases verify their child metrics, nested
+structures, and accepted-write streams. Twelve `nDeriv(` cases verify its three
+arguments, structural bodies, and recursive nesting. Six raised multi-argument
+numerator cases also require the settled record graph to decode to the asserted
+semantic expression. The deepest power oracle has three raised levels. Two longer trace
 scenarios cover the editor and display activity around the final key press.
 [confirmed]
 

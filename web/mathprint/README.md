@@ -19,6 +19,7 @@ reader-facing write-up is
 | `record-programs.json` | six retained settled-record fixtures used for comparison after token construction |
 | `draw-order.json` | accepted visible-pixel LCD mutations from the retained integral traces |
 | `tools/mathprint-construction-oracles.json` | fresh settled graphs and accepted-write hashes for independently constructed expressions |
+| `tools/mathprint-exponential-logbase-oracles.json` | fresh graph and accepted-write hashes for $e^x$, $10^x$, and `logBASE(` construction |
 
 `rom-engine.js` translates handler lookup, row-cell emission, direct-glyph and
 delimiter classification, `_KeyToString` index arithmetic, descriptor selection
@@ -128,15 +129,16 @@ stream match independent trace oracles. The complete streams contain 49, 69,
 82, 66, 96, and 114 writes, respectively. Captured LCD events are assertion
 data, not executor inputs. [confirmed]
 
-The JavaScript path constructs absolute-value, power, radical, nth-root,
-stacked-fraction, integral, summation, and `nDeriv(` expressions from token
-bytes. It translates the `34:594D` token table and the relevant `34:4900`,
-`34:7393`, and `34:7609` record and metric paths. Fresh reset-origin traces
-confirm every record field and accepted LCD data write for three absolute-value
-cases, four power cases, eight power/radical composition cases, four nth-root
-cases, thirteen fraction cases, twelve integral cases, eleven summation cases,
-and twelve `nDeriv(` cases. Six additional fraction-numerator cases cover
-integral, summation, and `nDeriv(` numerators, with ordinary and powered bodies.
+The JavaScript path constructs absolute-value, power, $e^x$, $10^x$,
+`logBASE(`, radical, nth-root, stacked-fraction, integral, summation, and
+`nDeriv(` expressions from token bytes. It translates the `34:594D` token table
+and the relevant `34:4900`, `34:7393`, and `34:7609` record and metric paths.
+Fresh reset-origin traces confirm every record field and accepted LCD data write
+for three absolute-value cases, four power cases, four exponential cases, four
+`logBASE(` cases, eight power/radical composition cases, four nth-root cases,
+thirteen fraction cases, twelve integral cases, eleven summation cases, and
+twelve `nDeriv(` cases. Six additional fraction-numerator cases cover integral,
+summation, and `nDeriv(` numerators, with ordinary and powered bodies.
 The trace graph for each of these six cases must decode to the asserted
 expression before graph and LCD-write parity is accepted. The fraction cases
 also cover structural operands, both recursive nesting directions, and
@@ -154,10 +156,11 @@ parity requires the proprietary ROM. Filled-integral and nested-fraction
 results are recorded in
 `tools/mathprint-trace-report.json`; the large raw traces stay outside Git.
 
-The preview constructs supported absolute-value, power, radical, nth-root,
-stacked-fraction, integral, summation, and `nDeriv(` expressions. It exposes
-every generated accepted LCD data write in order, including writes that do not
-change a pixel, and labels the input source for each timeline. Its captured
+The preview constructs supported absolute-value, power, $e^x$, $10^x$,
+`logBASE(`, radical, nth-root, stacked-fraction, integral, summation, and
+`nDeriv(` expressions. It exposes every generated accepted LCD data write in
+order, including writes that do not change a pixel, and labels the input source
+for each timeline. Its captured
 timeline uses the two retained integral traces and keeps only visible-changing
 writes. Every shipped preset has a constructed record program, a nonempty
 96×64 accepted-write timeline, and no unresolved operation or empty-template
