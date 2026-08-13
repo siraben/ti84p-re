@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-aee02452.js";
+            window.path_to_searchindex_js = "searchindex-51d742bc.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15360,6 +15360,14 @@ and <code>[4,1,2,3]</code> for summation. The JavaScript scanner returns each ha
 source-byte range with its child index and verifies the terminating comma or
 <code>0x11</code> byte. The retained summation trace reaches <code>34:56EC</code> four times and
 matches those ranges. [confirmed]</p>
+<p>Scan kind <code>1</code> enters <code>34:5699</code> for <code>F0h</code> power and <code>F1h</code> nth-root operators.
+It saves the source cursor, returns an operand endpoint in <code>BC</code>, and restores
+the source cursor at <code>34:56AC</code>–<code>34:56B3</code>. <code>X^12</code> returns after both digit
+bytes. The <code>2^(X^(2³))</code> editor buffer contains explicit <code>10h</code>–<code>11h</code> raised
+slots; separate calls return the outer and inner closing-slot endpoints. The
+JavaScript scanner translates these numeric and delimited-slot branches and
+requires native construction to stop at the same half-open byte boundary.
+Other kind-<code>1</code> token classes remain untranslated. [confirmed]</p>
 <p>The browser expands every accepted byte into eight ordered pixel results. A
 timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement
@@ -15410,8 +15418,9 @@ expressions from native token bytes, including nesting among the structural
 forms. The translated renderer exposes every generated LCD byte and the
 resulting pixel frame as a live timeline. This mode does not load a record
 fixture or captured LCD event stream. Multi-argument and generic-function
-boundaries now pass through the translated <code>34:5AA3</code> state machine. The
-remaining source grammar and record-construction branches are listed above.
+boundaries pass through the translated <code>34:5AA3</code> state machine. Numeric and
+delimited raised operands also pass through the translated <code>34:5699</code> scan.
+The remaining source grammar and record-construction branches are listed above.
 [confirmed]</p>
 <p>The standalone nth-root encoder supplies an inferred template boundary because
 the retained trace does not expose the final source buffer. [hypothesis]</p>

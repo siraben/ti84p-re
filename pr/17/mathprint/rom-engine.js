@@ -1285,6 +1285,82 @@
     };
   }
 
+  const SETTLED_RAISED_NUMERIC_TOKENS = new Set([
+    0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x38,0x39,0x3a,0x3b,
+  ]);
+
+  // Scan kind 1 enters 34:5699 for the F0h power and F1h nth-root
+  // operators. The routine saves 0x965D, scans the raised operand, returns
+  // its endpoint in BC, and restores 0x965D at 34:56AC–56B3. The retained
+  // native traces cover the numeric path through 34:5866 and explicit
+  // 10h… 11h editor slots through 34:56BF–56D3. Keep the other 34:5699
+  // token-class branches closed until they have byte-range oracles.
+  function settledRaisedOperandScan(input, operatorOffset = 0) {
+    const native = settledNativeTokenUnits(input);
+    if (!Number.isInteger(operatorOffset) || operatorOffset < 0 ||
+        operatorOffset >= native.bytes.length)
+      throw new RangeError('settled raised operator offset is outside the input');
+    const operator = native.units.find(unit => unit.offset === operatorOffset);
+    if (!operator)
+      throw new RangeError(
+        'settled raised operator offset is inside a two-byte token');
+    const renderType = settledStructuralTokenType(
+      operator.prefix,operator.token);
+    if (renderType === null || settledRecordMetadata(renderType)[0] !== 1)
+      throw new RangeError(
+        'settled raised operator does not select scan kind 1');
+    const start = operator.next;
+    if (start >= native.bytes.length)
+      throw new RangeError('settled raised operator has no operand');
+    const first = native.units.find(unit => unit.offset === start);
+    if (!first)
+      throw new Error('settled raised operand does not start on a token boundary');
+
+    let end;
+    let branch;
+    let parseAhead = null;
+    if (first.prefix === 0 && first.token === 0x10) {
+      parseAhead = settledParseAhead(native.bytes,{
+        entry:'direct5AA7', b:2, cursor:start,
+      });
+      if (native.bytes[parseAhead.stopCursor] !== 0x11)
+        throw new RangeError(
+          'settled raised editor slot has no closing 11h token');
+      end = parseAhead.stopCursor + 1;
+      branch = '34:56BB–56D3';
+    } else if (first.prefix === 0 &&
+               SETTLED_RAISED_NUMERIC_TOKENS.has(first.token)) {
+      let unitIndex = native.units.indexOf(first);
+      do {
+        end = native.units[unitIndex].next;
+        unitIndex++;
+      } while (unitIndex < native.units.length &&
+               native.units[unitIndex].prefix === 0 &&
+               SETTLED_RAISED_NUMERIC_TOKENS.has(
+                 native.units[unitIndex].token));
+      branch = '34:56A7 → 34:5866';
+    } else {
+      throw new RangeError(
+        `settled raised operand token at byte ${start} uses an untranslated ` +
+        '34:5699 token-class branch');
+    }
+    return {
+      renderType,
+      scanKind:1,
+      metadata:settledRecordMetadata(renderType),
+      operator:{
+        offset:operator.offset, next:operator.next, length:operator.length,
+        prefix:operator.prefix, token:operator.token, packed:operator.packed,
+      },
+      start,
+      end,
+      returnedCursor:end,
+      restoredCursor:start,
+      branch,
+      parseAhead,
+    };
+  }
+
   // Zero-result predicate at 34:5A75. 34:7EF5 supplies the first 17 entries;
   // the remaining comparisons are inline at 34:5A79–5A98.
   function settledParseAheadClass5A75(token) {
@@ -1633,13 +1709,18 @@
         return [0x10,...encode(expression.expression),0x11];
       if (expression.kind === 'power') {
         const exponent = encode(expression.exponent);
+        const numeric = expression.exponent.kind === 'tokens' &&
+          expression.exponent.tokens.every(token =>
+            SETTLED_RAISED_NUMERIC_TOKENS.has(token));
         // A stacked-fraction template in a raised slot contributes two native
         // boundary pairs. The page-34 scanner consumes both as range markers;
         // they do not become visible parenthesis glyphs in the child record.
         return expression.exponent.kind === 'fraction'
           ? [...encode(expression.base),0xf0,0x10,0x10,
              ...exponent,0x11,0x11]
-          : [...encode(expression.base),0xf0,...exponent];
+          : numeric
+            ? [...encode(expression.base),0xf0,...exponent]
+            : [...encode(expression.base),0xf0,0x10,...exponent,0x11];
       }
       if (expression.kind === 'absolute')
         return [0xb2,...encode(expression.body),0x11];
@@ -1914,12 +1995,11 @@
 
       // A numeric literal is one scanner atom. Letters and named two-byte
       // variables remain separate atoms so X^2 in 2X^2 binds only X.
-      if (peek(0,0x3a) || (units[cursor].prefix === 0 &&
-          0x30 <= units[cursor].token && units[cursor].token <= 0x39)) {
+      if (units[cursor].prefix === 0 &&
+          0x30 <= units[cursor].token && units[cursor].token <= 0x3b) {
         const bytes = [];
         while (cursor < units.length && units[cursor].prefix === 0 &&
-               (units[cursor].token === 0x3a ||
-                0x30 <= units[cursor].token && units[cursor].token <= 0x39))
+               0x30 <= units[cursor].token && units[cursor].token <= 0x3b)
           bytes.push(...take().bytes);
         return {kind:'tokens',tokens:bytes};
       }
@@ -1937,19 +2017,23 @@
       }
       if (peek(0,0xf0) || peek(0,0xf1)) {
         const nthRoot = peek(0,0xf1);
-        take();
+        const operator = take();
+        const scan = settledRaisedOperandScan(native.bytes,operator.offset);
         const right = power();
         if (!right)
           throw new RangeError('settled native raised operator has no right operand');
-        const raisedBoundary = value => {
-          let inner = value;
-          while (inner.kind === 'group') inner = inner.expression;
-          return inner.kind === 'fraction' ? inner : value;
-        };
+        const parsedEnd = cursor < units.length
+          ? units[cursor].offset : native.bytes.length;
+        if (parsedEnd !== scan.end)
+          throw new RangeError(
+            `settled raised parser stopped at byte ${parsedEnd}; ` +
+            `34:5699 stopped at byte ${scan.end}`);
+        const raised = scan.branch === '34:56BB–56D3' &&
+          right.kind === 'group' ? right.expression : right;
         return nthRoot
           ? {kind:'nthRoot',index:left,
-             radicand:right.kind === 'group' ? right.expression : right}
-          : {kind:'power',base:left,exponent:raisedBoundary(right)};
+             radicand:raised}
+          : {kind:'power',base:left,exponent:raised};
       }
       return left;
     };
@@ -3481,6 +3565,7 @@
     settledParseAhead,
     settledParseAheadFunctionToken,
     settledStructuralArgumentScan,
+    settledRaisedOperandScan,
     encodeSettledExpressionTokens,
     settledExpressionFromTokens,
     constructSettledProgramFromTokens,
