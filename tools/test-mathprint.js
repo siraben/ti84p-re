@@ -27,6 +27,8 @@ const constructionOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-construction-oracles.json')));
 const exponentialLogBaseOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-exponential-logbase-oracles.json')));
+const matrixOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-matrix-oracles.json')));
 mp.setRecordPrograms(recordPrograms);
 
 function expectEqual(label, actual, expected) {
@@ -254,23 +256,25 @@ expectEqual('settled nested fraction keeps local rule and live origin',
     ['line',0x0d,17,11,21,11],
   ]);
 const matrixRoot = settledRecord(0x10, 0x2b,
-  {word05:4,word07:0x10,word09:0x1e,word11:0x0201,byte13:2},
-  [0x11,0x13,0x14,0x15]);
-expectEqual('33:4F23 matrix product', rom.matrixChildCount(matrixRoot), 4);
+  {word05:6,word07:0x10,word09:0x2a,word11:0x0301,byte13:2},
+  [0x11,0x13,0x14,0x15,0x16,0x17]);
+expectEqual('33:4F23 nonsquare matrix product', rom.matrixChildCount(matrixRoot), 6);
 const matrixGraph = rom.executeSettledRecordGraph([
   matrixRoot,
   settledRecord(0x11,0,{word0B:6,word0D:2}),
-  settledRecord(0x13,0,{word0B:16,word0D:2}),
-  settledRecord(0x14,0,{word0B:6,word0D:9}),
-  settledRecord(0x15,0,{word0B:16,word0D:9}),
+  settledRecord(0x13,0,{word0B:18,word0D:2}),
+  settledRecord(0x14,0,{word0B:30,word0D:2}),
+  settledRecord(0x15,0,{word0B:6,word0D:9}),
+  settledRecord(0x16,0,{word0B:18,word0D:9}),
+  settledRecord(0x17,0,{word0B:30,word0D:9}),
 ], 0x10, {renderLeaf:leafGlyph});
 expectEqual('settled matrix brackets surround row-major children',
   matrixGraph.map(op => [op.kind,op.recordId,op.depth,
     op.x === undefined ? op.from.x : op.x,op.y === undefined ? op.from.y : op.y]), [
     ['line',0x10,1,2,0], ['point',0x10,1,3,0], ['point',0x10,1,3,15],
-    ['glyph',0x11,0,6,2], ['glyph',0x13,0,16,2],
-    ['glyph',0x14,0,6,9], ['glyph',0x15,0,16,9],
-    ['line',0x10,1,26,0], ['point',0x10,1,25,0], ['point',0x10,1,25,15],
+    ['glyph',0x11,0,6,2], ['glyph',0x13,0,18,2], ['glyph',0x14,0,30,2],
+    ['glyph',0x15,0,6,9], ['glyph',0x16,0,18,9], ['glyph',0x17,0,30,9],
+    ['line',0x10,1,38,0], ['point',0x10,1,37,0], ['point',0x10,1,37,15],
   ]);
 
 const settledGlyphAdvance = (depth, code) => {
@@ -646,6 +650,24 @@ for (const oracle of exponentialLogBaseOracles.cases) {
     crypto.createHash('sha256').update(writeBytes).digest('hex'),
     oracle.accepted_write_sha256);
 }
+for (const oracle of matrixOracles.cases) {
+  const program = rom.constructSettledExpressionProgram(
+    oracle.spec, oracle.entry_id, font);
+  expectEqual(`${oracle.expression} independently constructs the fresh TilEm graph`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.display_origin, nodes:oracle.nodes});
+  const operations = rom.executeSettledRecordProgram(program.nodes, program.entry_id, {
+    origin:program.origin,
+    glyphAdvance:settledGlyphAdvance,
+  });
+  const writes = rom.rasterizeSettledOperations(operations, font).writes;
+  expectEqual(`${oracle.expression} independently reproduces synchronous accepted-write count`,
+    writes.length, oracle.accepted_write_count);
+  const writeBytes = Buffer.from(writes.flatMap(write => [...write.pointer,write.value]));
+  expectEqual(`${oracle.expression} independently reproduces synchronous accepted-write stream`,
+    crypto.createHash('sha256').update(writeBytes).digest('hex'),
+    oracle.accepted_write_sha256);
+}
 expectEqual('browser selects translated absolute record construction',
   mp.constructedProgramForExpression('abs(X-3)').nodes,
   rom.constructSettledAbsoluteProgram([0x58,0x71,0x33]).nodes);
@@ -790,6 +812,13 @@ for (const oracle of exponentialLogBaseOracles.cases)
   expectEqual(`${oracle.expression} browser constructs the trace-decoded graph`,
     mp.constructedProgramForExpression(oracle.expression).nodes,
     rom.constructSettledExpressionProgram(oracle.spec, 1, font).nodes);
+for (const oracle of matrixOracles.cases)
+  expectEqual(`${oracle.expression} browser constructs the trace-decoded graph`,
+    mp.constructedProgramForExpression(oracle.expression).nodes,
+    rom.constructSettledExpressionProgram(oracle.spec, 1, font).nodes);
+expectEqual('browser places matrix results at the right-aligned LCD origin',
+  mp.constructedProgramForExpression('matrix(2,3,4,-2,0,-7,8,8)').origin,
+  {x:41,y:9});
 const constructedPower = rom.constructSettledPowerProgram(
   {base:[0x58], exponent:[0x32]}, 0x0d, font);
 expectEqual('power tokens independently construct the settled X^2 graph',
@@ -947,8 +976,21 @@ for (const expression of [
   'nDeriv(X,X)', 'nDeriv(X,X,1', 'nDeriv(X,sqrt(X),1)',
 ]) expectEqual(`${expression} is outside the translated nDeriv grammar`,
   mp.constructedProgramForExpression(expression), null);
-expectThrows('compositional constructor rejects unsupported structural kinds', RangeError,
+expectThrows('matrix constructor rejects missing dimensions', RangeError,
   () => rom.constructSettledExpressionProgram({kind:'matrix'}, 1, font));
+expectThrows('matrix constructor rejects an incomplete row-major payload', RangeError,
+  () => rom.constructSettledExpressionProgram(
+    {kind:'matrix',rows:2,columns:2,elements:[[0x31],[0x32]]}, 1, font));
+expectThrows('matrix constructor rejects a count wider than byte13', RangeError,
+  () => rom.constructSettledExpressionProgram({
+    kind:'matrix',rows:16,columns:16,
+    elements:Array.from({length:256}, () => [0x31]),
+  }, 1, font));
+for (const expression of [
+  'matrix(0,1,1)', 'matrix(1,0,1)', 'matrix(2,2,1,2,3)',
+  'matrix(2,2,1,2,3,4,5)', 'matrix(16,16,1)',
+]) expectEqual(`${expression} is outside the translated matrix grammar`,
+  mp.constructedProgramForExpression(expression), null);
 expectThrows('compositional constructor rejects overflowing leaf metrics', RangeError,
   () => rom.constructSettledExpressionProgram(new Array(10923).fill(0x58), 1, font));
 expectThrows('compositional constructor rejects record ID exhaustion', RangeError,

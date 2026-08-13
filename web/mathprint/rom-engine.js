@@ -488,8 +488,8 @@
   function matrixChildCount(record) {
     // 33:4F23 reads the dimensions at +12/+13, multiplies them through the
     // 1EF6h service, and returns product+1. 34:65D0 decrements that loop bound.
-    const rows = record.word11 >> 8;
-    const columns = record.byte13;
+    const columns = record.word11 >> 8;
+    const rows = record.byte13;
     const count = rows * columns;
     if (!count || count > 0xff)
       throw new RangeError(`matrix dimensions ${rows}x${columns} are invalid`);
@@ -970,6 +970,21 @@
         base:settledExpressionSpec(input.base, `${label} base`, active),
         argument:settledExpressionSpec(input.argument, `${label} argument`, active),
       };
+      if (kind === 'matrix') {
+        if (!Number.isInteger(input.rows) || input.rows < 1 || input.rows > 0xff ||
+            !Number.isInteger(input.columns) || input.columns < 1 || input.columns > 0xff)
+          throw new RangeError(`${label} matrix dimensions must be nonzero bytes`);
+        if (input.rows * input.columns > 0xff)
+          throw new RangeError(`${label} matrix element count must fit a byte`);
+        if (!Array.isArray(input.elements) ||
+            input.elements.length !== input.rows * input.columns)
+          throw new RangeError(`${label} matrix requires rows*columns elements`);
+        return {
+          kind, rows:input.rows, columns:input.columns,
+          elements:input.elements.map((element, index) =>
+            settledExpressionSpec(element, `${label} element ${index}`, active)),
+        };
+      }
       if (kind === 'radical') return {
         kind,
         radicand:settledExpressionSpec(
@@ -1048,6 +1063,7 @@
       if (expression.kind === 'ePower') return 0xef;
       if (expression.kind === 'tenPower') return 0xef;
       if (expression.kind === 'logBase') return 0xef;
+      if (expression.kind === 'matrix') return 0xef;
       if (expression.kind === 'radical') return 0xef;
       if (expression.kind === 'nthRoot') return leadingByte(expression.index);
       if (expression.kind === 'fraction') return 0xef;
@@ -1240,6 +1256,71 @@
           argument.word0B + argument.word07 + 6, 'log-base width');
         structural.word0B = argument.word09;
         structural.child_ids = [base.record_id, argument.record_id];
+        return {
+          kind:'embedded', structural,
+          fractionByte13:fractionNumerator ? 0x10 : 0xef,
+        };
+      }
+      if (expression.kind === 'matrix') {
+        const renderType = settledStructuralTokenType(0xef, 0x2b);
+        if (renderType !== 0x2b)
+          throw new Error('34:594D matrix token mapping is inconsistent');
+        const structuralId = allocate();
+        const structural = {
+          record_id:structuralId, render_type:renderType, word03:0,
+          word05:expression.rows * expression.columns,
+          word07:0, word09:0, word0B:0, word0D:0, word0F:0,
+          word11:(expression.columns << 8) | (structuralDepth + 1),
+          byte13:expression.rows,
+          child_ids:[], payload:[],
+        };
+        nodes.push(structural);
+
+        const elements = [];
+        for (let index = 0; index < expression.elements.length; index++) {
+          elements.push(build(
+            expression.elements[index], renderDepth,
+            structuralId, structuralDepth + 1));
+          // The type-2Bh pass reserves one internal ID after the first element.
+          // It is not referenced by the settled render graph.
+          if (index === 0 && expression.elements.length > 1) allocate();
+        }
+        const columnWidths = Array.from({length:expression.columns}, () => 0);
+        const rowHeights = Array.from({length:expression.rows}, () => 0);
+        for (let row = 0; row < expression.rows; row++)
+          for (let column = 0; column < expression.columns; column++) {
+            const element = elements[row * expression.columns + column];
+            columnWidths[column] = Math.max(columnWidths[column], element.word07);
+            rowHeights[row] = Math.max(rowHeights[row], element.word05);
+          }
+        const columnStarts = [];
+        let x = 6;
+        for (const width of columnWidths) {
+          columnStarts.push(x);
+          x = checkedWord(x + width + 6, 'matrix column extent');
+        }
+        const rowStarts = [];
+        let y = 0;
+        for (const height of rowHeights) {
+          rowStarts.push(y);
+          y = checkedWord(y + height + 2, 'matrix row extent');
+        }
+        for (let row = 0; row < expression.rows; row++)
+          for (let column = 0; column < expression.columns; column++) {
+            const element = elements[row * expression.columns + column];
+            element.word0B = checkedWord(
+              columnStarts[column] +
+              Math.floor((columnWidths[column] - element.word07) / 2),
+              'matrix element x');
+            element.word0D = checkedWord(
+              rowStarts[row] +
+              Math.floor((rowHeights[row] - element.word05) / 2),
+              'matrix element y');
+          }
+        structural.word07 = checkedWord(y - 2, 'matrix height');
+        structural.word09 = checkedWord(x, 'matrix width');
+        structural.word0B = Math.floor(structural.word07 / 2);
+        structural.child_ids = elements.map(element => element.record_id);
         return {
           kind:'embedded', structural,
           fractionByte13:fractionNumerator ? 0x10 : 0xef,
@@ -1585,10 +1666,15 @@
           visit(node.payload[index + 2] | node.payload[index + 3] << 8);
     };
     visit(root.record_id);
+    const matrixResult = spec.kind === 'matrix';
     return {
       entry_id:root.record_id,
-      origin:{x:0,y:0},
-      source:'34:4900, 34:5935, 34:7393, and 34:7609 translated compositional construction',
+      // The answer-display path places a matrix against the right edge and
+      // begins its first row at LCD row 9. Scalar results enter at (0,0).
+      origin:matrixResult ? {x:95 - root.word07,y:9} : {x:0,y:0},
+      source:matrixResult
+        ? '34:4900, 34:5935, 34:65AA, 34:7393, and 34:7609 translated matrix construction'
+        : '34:4900, 34:5935, 34:7393, and 34:7609 translated compositional construction',
       nodes:orderedNodes,
     };
   }
