@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-94d0fd6f.js";
+            window.path_to_searchindex_js = "searchindex-e972b697.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15048,12 +15048,40 @@ applies the same hoisting rule. [confirmed]</p>
 and nested-fraction operands. The generated graphs match every captured record
 field and ID. Their accepted LCD data-write streams also match through the outer
 <code>34:660A</code> return. [confirmed]</p>
+<p>The type-<code>0x22</code> constructor maps integral source token <code>0024h</code> through
+<code>34:594D</code>. <code>34:4900</code> allocates the integral record, then reserves all four child
+leaf IDs before it scans any child payload. The children hold the lower bound,
+upper bound, body, and differential variable in that order. A structural child
+allocates its records after all four reservations. A nested integral repeats the
+same reservation rule recursively. [confirmed]</p>
+<p>The bounds render one depth below the containing leaf. The body and variable
+render at the containing depth. For lower-bound metrics $(h_l,w_l)$,
+upper-bound metrics $(h_u,w_u)$, body metrics $(h_b,w_b,b_b)$, and variable
+metrics $(w_v,b_v)$, the integral positions and parent metrics are [confirmed]</p>
+<p>$$
+\begin{aligned}
+y_b &amp;= \max(5,h_u), &amp; s_l &amp;= \max(5,h_l), \
+H &amp;= y_b+h_b+s_l, &amp; B &amp;= y_b+b_b, \
+x_b &amp;= \max(w_l,w_u)+12, &amp; x_v &amp;= x_b+w_b+12, \
+W &amp;= x_v+w_v+2, &amp; y_v &amp;= B-b_v.
+\end{aligned}
+$$</p>
+<p>The lower bound begins at $(6,H-h_l)$, the upper bound at $(6,0)$, and the body
+at $(x_b,y_b)$. The type-<code>0x22</code> record stores $H$, $W$, and $B$ in the words at
+<code>+7</code>, <code>+9</code>, and <code>+0x0B</code>. The variable child uses render type <code>1</code>. [confirmed]</p>
+<p>Twelve reset-origin traces cover unequal token-bound widths, a multi-token body,
+a different variable, power, radical, fraction, and nth-root bodies, structural
+bounds, and a nested integral. The JavaScript constructor matches every record
+field and ID. It also reproduces all accepted LCD data writes through the outer
+<code>34:660A</code> return. The traces supply comparison oracles, not constructor input.
+[confirmed]</p>
 <p>Flat absolute-value bodies and expressions composed from ordinary token runs,
 right-associated powers, radicals, nth roots, and stacked fractions now run
 from tokens through record construction, layout, drawing operations, and LCD
-byte writes. Summation, <code>nDeriv(</code>, and integral examples still begin from record
-snapshots captured at <code>34:660A</code>. Full arbitrary-expression parity requires the
-remaining structural constructors and metric branches. [confirmed]</p>
+byte writes. Integrals compose with the same translated forms in their bounds
+and body. Summation and <code>nDeriv(</code> examples still begin from record snapshots
+captured at <code>34:660A</code>. Full arbitrary-expression parity requires those
+constructors and remaining metric branches. [confirmed]</p>
 <p>Each dispatch also captures the viewport origin at <code>ram:8DFE</code>/<code>ram:8E00</code>.
 Nested fraction <code>1/2</code> reaches <code>34:5DA6</code> with the local rule <code>(1,6)</code>–<code>(5,6)</code>
 and origin <code>(16,5)</code>. Page 4 therefore receives the translated endpoints
@@ -15095,11 +15123,11 @@ The local ignored <code>tools/rom.bin</code> enables pinned-ROM reproduction whe
 The 5,018-case Node test remains a deterministic parser/layout smoke test. Six
 settled record programs provide exact final-pixel and complete accepted-write
 parity for their expressions. Three fresh absolute-value cases, four power
-cases, eight power/radical composition cases, and four nth-root cases verify
-token-to-record construction and the resulting complete accepted-write
-streams. The deepest power oracle has three raised levels. Two longer trace
-scenarios cover the editor and display activity around the final key press.
-[confirmed]</p>
+cases, eight power/radical composition cases, four nth-root cases, thirteen
+fraction cases, and twelve integral cases verify token-to-record construction
+and complete accepted-write streams. The deepest power oracle has three raised
+levels. Two longer trace scenarios cover the editor and display activity around
+the final key press. [confirmed]</p>
 <h2 id="extracted-records-and-interactive-model"><a class="header" href="#extracted-records-and-interactive-model">Extracted records and interactive model</a></h2>
 <p>The class table, decoded handler records, and selected descriptors are extracted to
 <code>web/mathprint/layout.json</code> by <code>tools/export-layout.py</code>;
@@ -15112,11 +15140,11 @@ classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in <code>app.js</code> still uses a separate,
 trace-fitted box model. <code>web/mathprint/record-programs.json</code> contains six
 captured record snapshots. The browser constructs supported absolute-value,
-power, radical, nth-root, and stacked-fraction expressions from tokens,
-including nesting among the structural forms. It uses snapshots for summation,
-<code>nDeriv(</code>, and the integral example. Both input forms execute through the
-translated renderer and expose every generated LCD write as a live timeline.
-This mode does not load captured LCD events. [confirmed]</p>
+power, radical, nth-root, stacked-fraction, and integral expressions from
+tokens, including nesting among the structural forms. It uses snapshots for
+summation and <code>nDeriv(</code>. Both input forms execute through the translated
+renderer and expose every generated LCD write as a live timeline. This mode
+does not load captured LCD events. [confirmed]</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="keyboard-and-link-port"><a class="header" href="#keyboard-and-link-port">Keyboard and link port</a></h1>
 <p>The keypad scanner and link-port drivers provide the calculator’s local input and wired data-transfer paths. The keyboard path turns matrix scans into cooked key codes, while the link path sends bytes through the legacy two-wire port or the hardware-assisted interface.</p>
