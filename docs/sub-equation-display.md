@@ -992,6 +992,16 @@ structural children without depending on a list of preview function names.
 The `EF36h` mapping to structural type `0x2C` remains rejected because its
 constructor and renderer are not yet translated. [confirmed]
 
+The first byte of each row at `34:59AC` selects a scan policy at `34:5678`.
+Scan kind `3` enters `34:56E3` with `B=2` and selects one unary child. Scan kind
+`4` enters `34:56EC` with `C=1` for each source argument. The remaining
+nonzero metadata bytes map source arguments to child-record indices. They are
+`[3,4,1,2]` for integral, `[2,1,3]` for `nDeriv(`, `[2,1]` for `logBASE(`,
+and `[4,1,2,3]` for summation. The JavaScript scanner returns each half-open
+source-byte range with its child index and verifies the terminating comma or
+`0x11` byte. The retained summation trace reaches `34:56EC` four times and
+matches those ranges. [confirmed]
+
 The browser expands every accepted byte into eight ordered pixel results. A
 timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement

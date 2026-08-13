@@ -433,6 +433,60 @@ for (const [bytes, expected] of [
   rom.settledParseAheadFunctionToken(
     bytes.length === 2 ? bytes[0] : 0, bytes.at(-1)), expected);
 
+for (const [label, bytes, expected] of [
+  ['absolute value with nested radical',
+    [0xb2,0xbc,0x58,0x11,0x11], {
+      renderType:0x21, scanKind:3, metadata:[3,1,0,0,0],
+      argumentChildOrder:[1], ranges:[[1,4,0x11,1]], stopCursor:4,
+    }],
+  ['integral source-to-child permutation',
+    [0x24,0x58,0xf0,0x32,0x2b,0x58,0x2b,0x31,0x2b,0x32,0x11], {
+      renderType:0x22, scanKind:4, metadata:[4,3,4,1,2],
+      argumentChildOrder:[3,4,1,2],
+      ranges:[[1,4,0x2b,3],[5,6,0x2b,4],[7,8,0x2b,1],[9,10,0x11,2]],
+      stopCursor:10,
+    }],
+  ['summation source-to-child permutation',
+    [0xef,0x33,0x4e,0xf0,0x32,0x2b,0x4e,0x2b,0x31,0x2b,0x33,0x11], {
+      renderType:0x29, scanKind:4, metadata:[4,4,1,2,3],
+      argumentChildOrder:[4,1,2,3],
+      ranges:[[2,5,0x2b,4],[6,7,0x2b,1],[8,9,0x2b,2],[10,11,0x11,3]],
+      stopCursor:11,
+    }],
+  ['nDeriv source-to-child permutation',
+    [0x25,0x58,0xf0,0x32,0x2b,0x58,0x2b,0x31,0x11], {
+      renderType:0x23, scanKind:4, metadata:[4,2,1,3,0],
+      argumentChildOrder:[2,1,3],
+      ranges:[[1,4,0x2b,2],[5,6,0x2b,1],[7,8,0x11,3]],
+      stopCursor:8,
+    }],
+  ['logBASE source-to-child permutation',
+    [0xef,0x34,0x33,0x34,0x35,0x2b,0x31,0x32,0x11], {
+      renderType:0x28, scanKind:4, metadata:[4,2,1,0,0],
+      argumentChildOrder:[2,1],
+      ranges:[[2,5,0x2b,2],[6,8,0x11,1]], stopCursor:8,
+    }],
+]) {
+  const scan = rom.settledStructuralArgumentScan(bytes);
+  expectEqual(`34:5678 ${label}`, {
+    renderType:scan.renderType,
+    scanKind:scan.scanKind,
+    metadata:scan.metadata,
+    argumentChildOrder:scan.argumentChildOrder,
+    ranges:scan.arguments.map(argument => [
+      argument.start,argument.end,argument.delimiter,argument.childIndex,
+    ]),
+    stopCursor:scan.stopCursor,
+  },expected);
+}
+expectThrows('34:5678 rejects a nonstructural opener', RangeError,
+  () => rom.settledStructuralArgumentScan([0x58]));
+expectThrows('34:5678 rejects an offset inside a packed token', RangeError,
+  () => rom.settledStructuralArgumentScan([0xef,0x33,0x31,0x2b,
+    0x4e,0x2b,0x31,0x2b,0x33,0x11],1));
+expectThrows('34:5678 rejects a missing structural close', RangeError,
+  () => rom.settledStructuralArgumentScan([0xb2,0x58]));
+
 for (const [label, bytes, stopCursor] of [
   ['nested comma in parentheses',[0x10,0x31,0x2b,0x32,0x11,0x2b,0x33],5],
   ['nested comma in braces',[0x08,0x31,0x2b,0x32,0x09,0x2b,0x33],5],

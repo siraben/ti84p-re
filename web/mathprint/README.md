@@ -54,6 +54,14 @@ children inside the full ROM-classified function-token ranges instead of a
 preview-name allowlist. The renderer still rejects structural record type
 `0x2C`, whose constructor and render dispatch remain unresolved.
 
+Structural scan kinds `3` and `4` at `34:5678` now consume the metadata bytes
+at `34:59AC` directly. Kind `3` selects one unary child through `34:56E3`.
+Kind `4` selects each comma-delimited argument through `34:56EC` and maps
+source order to child-record order. The native permutations are integral
+`[3,4,1,2]`, `nDeriv(` `[2,1,3]`, `logBASE(` `[2,1]`, and summation
+`[4,1,2,3]`. A retained summation trace pins the four kind-`4` calls and their
+returned boundaries.
+
 Render-record type `0x22` is translated through `34:622F`. The interactive
 integral sign now uses its exact vertical-segment and four-point operation order
 instead of stretching glyph `0x08`.

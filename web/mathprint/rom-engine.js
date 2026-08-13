@@ -1210,6 +1210,81 @@
     return false;
   }
 
+  // The first byte in each 34:59AC metadata row selects the source scan at
+  // 34:5678. For scan kinds 3 and 4, the remaining nonzero bytes map source
+  // arguments to child-record indices. Kind 3 enters 34:56E3 with B=2; kind 4
+  // enters 34:56EC with C=1. Return half-open byte ranges for those arguments
+  // and retain every translated parse-ahead result as an ABI oracle.
+  function settledStructuralArgumentScan(input, openerOffset = 0) {
+    const native = settledNativeTokenUnits(input);
+    if (!Number.isInteger(openerOffset) || openerOffset < 0 ||
+        openerOffset >= native.bytes.length)
+      throw new RangeError('settled structural opener offset is outside the input');
+    const opener = native.units.find(unit => unit.offset === openerOffset);
+    if (!opener)
+      throw new RangeError(
+        'settled structural opener offset is inside a two-byte token');
+    const renderType = settledStructuralTokenType(opener.prefix, opener.token);
+    if (renderType === null)
+      throw new RangeError('settled structural opener is not in the 34:594D table');
+    if (renderType > 0x2b)
+      throw new RangeError(
+        `settled structural type 0x${renderType.toString(16)} has no 34:59AC metadata row`);
+    const metadata = settledRecordMetadata(renderType);
+    const scanKind = metadata[0];
+    if (scanKind !== 3 && scanKind !== 4)
+      throw new RangeError(
+        `settled structural scan kind ${scanKind} is not an argument scan`);
+    const argumentChildOrder = metadata.slice(1).filter(value => value !== 0);
+    const expectedCount = scanKind === 3 ? 1 : argumentChildOrder.length;
+    if (argumentChildOrder.length !== expectedCount)
+      throw new Error('34:59AC unary argument metadata is inconsistent');
+    const args = [];
+    let cursor = opener.next - 1;
+    for (let index = 0; index < expectedCount; index++) {
+      const start = cursor + 1;
+      const parseAhead = settledParseAhead(native.bytes, scanKind === 3 ? {
+        entry:'direct5AA7', b:2, cursor,
+      } : {
+        entry:'internal5AA3', c:1, cursor,
+      });
+      const delimiterOffset = parseAhead.stopCursor;
+      const delimiter = native.bytes[delimiterOffset];
+      const expectedDelimiter = index + 1 < expectedCount ? 0x2b : 0x11;
+      if (delimiter !== expectedDelimiter)
+        throw new RangeError(
+          `settled structural argument ${index + 1} ends with ` +
+          `${delimiter === undefined ? 'end of input' :
+            `0x${delimiter.toString(16)}`} instead of ` +
+          `0x${expectedDelimiter.toString(16)}`);
+      if (delimiterOffset <= start)
+        throw new RangeError(
+          `settled structural argument ${index + 1} is empty`);
+      args.push({
+        index:index + 1,
+        childIndex:argumentChildOrder[index],
+        start,
+        end:delimiterOffset,
+        delimiterOffset,
+        delimiter,
+        parseAhead,
+      });
+      cursor = delimiterOffset;
+    }
+    return {
+      renderType,
+      scanKind,
+      metadata,
+      opener:{
+        offset:opener.offset, next:opener.next, length:opener.length,
+        prefix:opener.prefix, token:opener.token, packed:opener.packed,
+      },
+      argumentChildOrder,
+      arguments:args,
+      stopCursor:cursor,
+    };
+  }
+
   // Zero-result predicate at 34:5A75. 34:7EF5 supplies the first 17 entries;
   // the remaining comparisons are inline at 34:5A79–5A98.
   function settledParseAheadClass5A75(token) {
@@ -1653,34 +1728,50 @@
     let power;
     let atom;
 
-    const parseAheadArgument = label => {
+    const parseAheadArgument = (label, scanned = null) => {
       if (cursor >= units.length)
         throw new RangeError(`${label} is empty`);
       const start = units[cursor].offset;
-      const boundary = settledParseAhead(native.bytes,{
-        entry:'internal5AA3', c:1, cursor:start - 1,
-      });
+      const boundary = scanned ? scanned.parseAhead
+        : settledParseAhead(native.bytes,{
+          entry:'internal5AA3', c:1, cursor:start - 1,
+        });
+      if (scanned && start !== scanned.start)
+        throw new RangeError(
+          `${label} starts at byte ${start}; 34:5678 selected byte ${scanned.start}`);
       const value = expression();
       if (!value)
         throw new RangeError(`${label} is empty`);
       const parsedEnd = cursor < units.length
         ? units[cursor].offset : native.bytes.length;
-      if (parsedEnd !== boundary.stopCursor)
+      const scannedEnd = scanned ? scanned.end : boundary.stopCursor;
+      if (parsedEnd !== scannedEnd)
         throw new RangeError(
           `${label} parser stopped at byte ${parsedEnd}; ` +
-          `34:5AA3 stopped at byte ${boundary.stopCursor}`);
+          `${scanned ? '34:5678' : '34:5AA3'} stopped at byte ${scannedEnd}`);
       return value;
     };
 
-    const parseArguments = (count, label) => {
+    const parseArguments = (count, label, structuralScan = null) => {
+      if (structuralScan && structuralScan.arguments.length !== count)
+        throw new Error(
+          `${label} expected ${count} arguments; 34:59AC selected ` +
+          `${structuralScan.arguments.length}`);
       const result = [];
       for (let index = 0; index < count; index++) {
         result.push(parseAheadArgument(
-          `${label} argument ${index + 1}`));
+          `${label} argument ${index + 1}`,
+          structuralScan && structuralScan.arguments[index]));
         if (index + 1 < count) expect(0,0x2b,`${label} comma`);
       }
       expect(0,0x11,`${label} closing parenthesis`);
       return result;
+    };
+
+    const parseStructuralArguments = (scan, label) => {
+      const source = parseArguments(scan.arguments.length, label, scan);
+      return new Map(source.map((value, index) =>
+        [scan.argumentChildOrder[index],value]));
     };
 
     const parseFunctionRun = opener => {
@@ -1745,14 +1836,18 @@
           : settledSequence([tokenNode(sign),operand]);
       }
       if (peek(0,0xb2)) {
+        const scan = settledStructuralArgumentScan(
+          native.bytes,units[cursor].offset);
         take();
-        const [body] = parseArguments(1,'absolute value');
-        return {kind:'absolute',body};
+        const children = parseStructuralArguments(scan,'absolute value');
+        return {kind:'absolute',body:children.get(1)};
       }
       if (peek(0,0xbc)) {
+        const scan = settledStructuralArgumentScan(
+          native.bytes,units[cursor].offset);
         take();
-        const [radicand] = parseArguments(1,'radical');
-        return {kind:'radical',radicand};
+        const children = parseStructuralArguments(scan,'radical');
+        return {kind:'radical',radicand:children.get(1)};
       }
       if (peek(0,0xbd)) {
         take();
@@ -1761,29 +1856,50 @@
       }
       if (peek(0,0xbf) || peek(0,0xc1)) {
         const kind = peek(0,0xbf) ? 'ePower' : 'tenPower';
+        const scan = settledStructuralArgumentScan(
+          native.bytes,units[cursor].offset);
         take();
-        const [exponent] = parseArguments(1,kind);
-        return {kind,exponent};
+        const children = parseStructuralArguments(scan,kind);
+        return {kind,exponent:children.get(1)};
       }
       if (peek(0,0x24)) {
+        const scan = settledStructuralArgumentScan(
+          native.bytes,units[cursor].offset);
         take();
-        const [body,variable,lower,upper] = parseArguments(4,'integral');
-        return {kind:'integral',lower,upper,body,variable};
+        const children = parseStructuralArguments(scan,'integral');
+        return {
+          kind:'integral', lower:children.get(1), upper:children.get(2),
+          body:children.get(3), variable:children.get(4),
+        };
       }
       if (peek(0,0x25)) {
+        const scan = settledStructuralArgumentScan(
+          native.bytes,units[cursor].offset);
         take();
-        const [body,variable,value] = parseArguments(3,'nDeriv');
-        return {kind:'nDeriv',variable,body,value};
+        const children = parseStructuralArguments(scan,'nDeriv');
+        return {
+          kind:'nDeriv', variable:children.get(1), body:children.get(2),
+          value:children.get(3),
+        };
       }
       if (peek(0xef,0x33)) {
+        const scan = settledStructuralArgumentScan(
+          native.bytes,units[cursor].offset);
         take();
-        const [body,variable,lower,upper] = parseArguments(4,'summation');
-        return {kind:'summation',variable,lower,upper,body};
+        const children = parseStructuralArguments(scan,'summation');
+        return {
+          kind:'summation', variable:children.get(1), lower:children.get(2),
+          upper:children.get(3), body:children.get(4),
+        };
       }
       if (peek(0xef,0x34)) {
+        const scan = settledStructuralArgumentScan(
+          native.bytes,units[cursor].offset);
         take();
-        const [argument,base] = parseArguments(2,'logBASE');
-        return {kind:'logBase',base,argument};
+        const children = parseStructuralArguments(scan,'logBASE');
+        return {
+          kind:'logBase', base:children.get(1), argument:children.get(2),
+        };
       }
       if (settledParseAheadFunctionToken(
           units[cursor].prefix, units[cursor].token))
@@ -3364,6 +3480,7 @@
     settledNativeTokenUnits,
     settledParseAhead,
     settledParseAheadFunctionToken,
+    settledStructuralArgumentScan,
     encodeSettledExpressionTokens,
     settledExpressionFromTokens,
     constructSettledProgramFromTokens,
