@@ -23,6 +23,8 @@ mp.setLayout(layout);
 const drawOrder = JSON.parse(fs.readFileSync(path.join(root, 'web', 'mathprint', 'draw-order.json')));
 const recordPrograms = JSON.parse(fs.readFileSync(
   path.join(root, 'web', 'mathprint', 'record-programs.json')));
+const constructionOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-construction-oracles.json')));
 mp.setRecordPrograms(recordPrograms);
 
 function expectEqual(label, actual, expected) {
@@ -405,6 +407,40 @@ const browserProgramCases = [
   ['nDeriv(X^2,X,1)', nderivProgram, 0x11],
   ['int(1,2,(1//2)X,X)', integralFractionProgram, 0x07],
 ];
+expectEqual('34:5935 maps the absolute token through 34:594D',
+  rom.settledStructuralTokenType(0x00,0xb2), 0x21);
+expectEqual('34:5935 leaves an ordinary token unmapped',
+  rom.settledStructuralTokenType(0x00,0x58), null);
+expectEqual('34:5996 selects the absolute metadata row',
+  rom.settledRecordMetadata(0x21), [0x03,0x01,0x00,0x00,0x00]);
+const constructedAbsolute = rom.constructSettledAbsoluteProgram([0x58,0x71,0x33],0x0d);
+expectEqual('absolute tokens independently construct the settled record graph',
+  constructedAbsolute.nodes, recordPrograms.programs['abs(X-3)'].nodes);
+for (const oracle of constructionOracles.cases) {
+  const program = rom.constructSettledAbsoluteProgram(oracle.tokens, oracle.entry_id);
+  expectEqual(`${oracle.expression} independently constructs the fresh TilEm graph`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.origin, nodes:oracle.nodes});
+  const operations = rom.executeSettledRecordProgram(program.nodes, program.entry_id, {
+    origin:program.origin,
+    glyphAdvance:settledGlyphAdvance,
+  });
+  const writes = rom.rasterizeSettledOperations(operations, font).writes;
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write count`,
+    writes.length, oracle.accepted_write_count);
+  const writeBytes = Buffer.from(writes.flatMap(write => [...write.pointer,write.value]));
+  expectEqual(`${oracle.expression} independently reproduces fresh accepted-write stream`,
+    crypto.createHash('sha256').update(writeBytes).digest('hex'),
+    oracle.accepted_write_sha256);
+}
+expectEqual('browser selects translated absolute record construction',
+  mp.constructedProgramForExpression('abs(X-3)').nodes,
+  rom.constructSettledAbsoluteProgram([0x58,0x71,0x33]).nodes);
+expectEqual('arbitrary flat absolute expression constructs from its own tokens',
+  mp.constructedProgramForExpression('abs(A+12)').nodes[2].payload,
+  [0x41,0x70,0x31,0x32]);
+expectEqual('untranslated expression has no generated record constructor',
+  mp.constructedProgramForExpression('sqrt(X^2+1)'), null);
 for (const [expression,nodes,entryId] of browserProgramCases) {
   const fixture = recordPrograms.programs[expression];
   expectEqual(`${expression} browser fixture entry`, fixture.entry_id, entryId);
@@ -424,6 +460,12 @@ for (const [expression,nodes,entryId] of browserProgramCases) {
   expectEqual(`${expression} browser executor write count`, generated.events.length,
     rom.rasterizeSettledOperations(expectedOperations, font).writes.length);
 }
+expectEqual('absolute browser path labels translated construction',
+  mp.generatedForExpression('abs(X-3)').programSource,
+  '34:4900, 34:5935, 34:7393, and 34:7609 translated construction');
+expectEqual('remaining browser paths label captured record input',
+  mp.generatedForExpression('sqrt(X^2+1)').programSource,
+  'captured settled record snapshot');
 expectEqual('arbitrary expression has no captured record program',
   mp.generatedForExpression('1//(2//3)'), null);
 

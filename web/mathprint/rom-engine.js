@@ -327,6 +327,44 @@
     };
   }
 
+  // 34:5935 scans the 16 triples at 34:594D. The routine receives the
+  // two-byte source token in D:E order, while each table triple stores E,D,type.
+  const SETTLED_STRUCTURAL_TOKEN_TYPES = Object.freeze([
+    [0x00,0xf0,0x2a], [0x00,0xf1,0x24], [0xef,0x36,0x2c],
+    [0x00,0x06,0x2b], [0xef,0x2e,0x20], [0xef,0x2f,0x20],
+    [0x00,0x06,0x2b], [0xef,0x2b,0x2b], [0xef,0x33,0x29],
+    [0xef,0x34,0x28], [0x00,0x24,0x22], [0x00,0x25,0x23],
+    [0x00,0xbf,0x25], [0x00,0xc1,0x26], [0x00,0xbc,0x27],
+    [0x00,0xb2,0x21],
+  ]);
+
+  function settledStructuralTokenType(prefix, token) {
+    byte(prefix, 'settled structural token prefix');
+    byte(token, 'settled structural token');
+    const row = SETTLED_STRUCTURAL_TOKEN_TYPES.find(
+      item => item[0] === prefix && item[1] === token);
+    return row ? row[2] : null;
+  }
+
+  // 34:5996 computes 34:59AC + 5*(type-1Fh). Retain address-based byte
+  // names until each constructor's use of the metadata has been translated.
+  const SETTLED_RECORD_METADATA = Object.freeze([
+    [0x00,0x01,0x02,0x00,0x00], [0x02,0x01,0x02,0x00,0x00],
+    [0x03,0x01,0x00,0x00,0x00], [0x04,0x03,0x04,0x01,0x02],
+    [0x04,0x02,0x01,0x03,0x00], [0x01,0x01,0x02,0x00,0x00],
+    [0x03,0x01,0x00,0x00,0x00], [0x03,0x01,0x00,0x00,0x00],
+    [0x03,0x01,0x00,0x00,0x00], [0x04,0x02,0x01,0x00,0x00],
+    [0x04,0x04,0x01,0x02,0x03], [0x01,0x01,0x00,0x00,0x00],
+    [0x06,0x10,0xda,0xdb,0x9c],
+  ].map(Object.freeze));
+
+  function settledRecordMetadata(renderType) {
+    byte(renderType, 'settled render type');
+    if (renderType < 0x1f || renderType > 0x2b)
+      throw new RangeError('settled record metadata type must be 1Fh..2Bh');
+    return SETTLED_RECORD_METADATA[renderType - 0x1f].slice();
+  }
+
   // Settled records store an ID at +0, a type byte at +2, eight unaligned
   // little-endian words at +3..+11h, and a final byte at +13h. Keep the word
   // names address-based until each type-specific interpretation is closed.
@@ -794,6 +832,70 @@
     return code === undefined ? null : code;
   }
 
+  function settledLargeTokenAdvance(token) {
+    byte(token, 'settled leaf token');
+    if (settledTokenGlyph(token) === null)
+      throw new RangeError(`token 0x${token.toString(16)} has no translated large glyph`);
+    // The page-34 metrics pass counts the 5-pixel large cell plus its one-pixel
+    // advance. The settled record stores ink width in +9h and cell extent in +7h.
+    return 6;
+  }
+
+  // Closed token-to-record slice for the final abs( leaf program. 34:5935 maps
+  // B2h to record type 21h. 34:4900 allocates the containing leaf, structural
+  // record, and child leaf; 34:7393/7609 calculate their settled metrics.
+  // IDs remain caller-selected because 34:4B36 draws them from the arena's
+  // monotonically increasing counter.
+  function constructSettledAbsoluteProgram(payload, firstId = 1) {
+    if (!Array.isArray(payload) && !(payload instanceof Uint8Array))
+      throw new TypeError('absolute child payload must be an array of token bytes');
+    const tokens = Array.from(payload, (value, index) =>
+      byte(value, `absolute child token ${index}`));
+    if (!tokens.length)
+      throw new RangeError('absolute child payload must not be empty');
+    if (!Number.isInteger(firstId) || firstId < 0 || firstId > 0xfffd)
+      throw new RangeError('absolute first record ID must leave three unsigned words');
+    const renderType = settledStructuralTokenType(0x00, 0xb2);
+    if (renderType !== 0x21)
+      throw new Error('34:594D absolute token mapping is inconsistent');
+    const leafWidth = tokens.reduce(
+      (sum, token) => sum + settledLargeTokenAdvance(token), 0);
+    if (leafWidth > 0xff - 12)
+      throw new RangeError('absolute child width exceeds the translated byte-sized metric');
+    const childId = firstId + 2;
+    const structuralId = firstId + 1;
+    const embedded = [0xef, renderType, structuralId & 0xff, structuralId >> 8,
+                      0xef, 0x2d];
+    return {
+      entry_id:firstId,
+      origin:{x:0,y:0},
+      source:'34:4900, 34:5935, 34:7393, and 34:7609 translated construction',
+      nodes:[
+        {
+          record_id:firstId, render_type:0, word03:firstId - 1,
+          word05:7, word07:leafWidth + 12, word09:3,
+          word0B:0, word0D:0, word0F:embedded.length,
+          word11:embedded.length, byte13:embedded[0],
+          child_ids:[], payload:embedded,
+        },
+        {
+          record_id:structuralId, render_type:renderType, word03:firstId,
+          word05:settledRecordMetadata(renderType)[1],
+          word07:7, word09:leafWidth + 12,
+          word0B:3, word0D:0, word0F:0, word11:1, byte13:0xef,
+          child_ids:[childId], payload:[],
+        },
+        {
+          record_id:childId, render_type:0, word03:structuralId,
+          word05:7, word07:leafWidth, word09:3,
+          word0B:6, word0D:0, word0F:tokens.length,
+          word11:tokens.length, byte13:tokens[0],
+          child_ids:[], payload:tokens,
+        },
+      ],
+    };
+  }
+
   // Execute the complete leaf byte stream entered at 34:660A. EF 1Fh..2Bh
   // embeds a structural record ID, while EF 2Dh closes that embedded object.
   // Structural handlers temporarily enter one depth below the containing leaf;
@@ -1240,6 +1342,8 @@
     settledVerticalOperation,
     settledHorizontalOperation,
     settledObjectHandler,
+    settledStructuralTokenType,
+    settledRecordMetadata,
     decodeSettledRecord,
     settledRenderHandler,
     settledCompoundOperations,
@@ -1250,6 +1354,7 @@
     settledOperationWrites,
     rasterizeSettledOperations,
     settledTokenGlyph,
+    constructSettledAbsoluteProgram,
     settledFractionOperations,
     settledSingleChildOperations,
     settledAbsoluteOperations,
