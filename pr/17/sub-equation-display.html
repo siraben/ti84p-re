@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-dcfc6e29.js";
+            window.path_to_searchindex_js = "searchindex-716c8918.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -656,6 +656,15 @@ may construct and dispatch another structural record while it renders. The
 analyzer preserves these secondary dispatches in instruction order. It uses the
 first <code>34:660A</code> entry at the shallowest Z80 stack depth after the final key press
 to identify the enclosing leaf program. [confirmed]</p>
+<p>The analyzer also decodes the reachable settled graph into a semantic
+expression tree. Structural child IDs recover argument order. A type-<code>0x2A</code>
+record binds its exponent to the ordinary token run immediately before the
+embedded-record marker. The decoder maps <code>EF 1E</code> to <code>X</code> only in the contextual
+<code>nDeriv(X,X,...)</code> body described below. Elsewhere it preserves the pair as an
+explicit extended token. The resulting tree identifies the expression in a
+trace without using LCD pixels or a screenshot. It describes the settled graph
+consumed by <code>34:660A</code>; the editor/parser representation before <code>34:4900</code>
+remains open. [confirmed]</p>
 <p>Within that program, <code>EF type id_lo id_hi</code> invokes the structural record with
 the given little-endian ID. <code>EF 2D</code> terminates or separates the embedded object
 without drawing it. Ordinary payload bytes may follow. The settled
@@ -751,6 +760,19 @@ applies the same hoisting rule. [confirmed]</p>
 and nested-fraction operands. The generated graphs match every captured record
 field and ID. Their accepted LCD data-write streams also match through the outer
 <code>34:660A</code> return. [confirmed]</p>
+<p>Integral, summation, and <code>nDeriv(</code> records in a fraction numerator follow the
+same hoisting rule. <code>34:4900</code> allocates the multi-argument record and reserves
+its child leaves before it allocates the enclosing type-<code>0x20</code> fraction. The
+nested structural record stores <code>0x10</code> at <code>+0x13</code>. Raised integral layout uses
+a 10-pixel body-to-variable gap; the outer layout uses 12 pixels. In a raised
+<code>nDeriv(X^2,X,...)</code> numerator, the body leaf stores <code>EF 1E</code> before the
+type-<code>0x2A</code> marker. The renderer treats that contextual pair as the <code>X</code> power
+base, and the power record stores <code>6</code> at <code>+0x0D</code>. [confirmed]</p>
+<p>Six reset-origin traces cover integral, summation, and <code>nDeriv(</code> numerators,
+each with an ordinary body and a powered body. Before parity is accepted, the
+trace analyzer must decode each settled graph to the asserted expression. The
+JavaScript constructor then matches every record field and allocation ID, plus
+every accepted LCD data write through the outer <code>34:660A</code> return. [confirmed]</p>
 <p>The type-<code>0x22</code> constructor maps integral source token <code>0024h</code> through
 <code>34:594D</code>. <code>34:4900</code> allocates the integral record, then reserves all four child
 leaf IDs before it scans any child payload. The children hold the lower bound,
@@ -844,8 +866,8 @@ supply comparison oracles, not constructor input. [confirmed]</p>
 right-associated powers, radicals, nth roots, and stacked fractions now run
 from tokens through record construction, layout, drawing operations, and LCD
 byte writes. Integrals, summations, and <code>nDeriv(</code> compose with the same
-translated forms in their arguments. Construction inside a fraction numerator
-and the remaining arbitrary-expression branches are still untranslated.
+translated forms in their arguments and in a stacked-fraction numerator. The
+remaining arbitrary-expression branches are still untranslated.
 [confirmed]</p>
 <p>Each dispatch also captures the viewport origin at <code>ram:8DFE</code>/<code>ram:8E00</code>.
 Nested fraction <code>1/2</code> reaches <code>34:5DA6</code> with the local rule <code>(1,6)</code>–<code>(5,6)</code>
@@ -892,7 +914,9 @@ cases, eight power/radical composition cases, four nth-root cases, thirteen
 fraction cases, twelve integral cases, and eleven summation cases verify
 token-to-record construction and complete accepted-write streams. Twelve
 <code>nDeriv(</code> cases verify its three arguments, structural bodies, and recursive
-nesting. The deepest power oracle has three raised levels. Two longer trace
+nesting. Six raised multi-argument numerator cases also require the settled
+record graph to decode to the asserted semantic expression. The deepest power
+oracle has three raised levels. Two longer trace
 scenarios cover the editor and display activity around the final key press.
 [confirmed]</p>
 <h2 id="extracted-records-and-interactive-model"><a class="header" href="#extracted-records-and-interactive-model">Extracted records and interactive model</a></h2>

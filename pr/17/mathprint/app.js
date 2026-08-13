@@ -787,11 +787,14 @@ const PRESETS = [
   ['radical', 'sqrt(X^2+1)'],
   ['absolute value (RE)', 'abs(X-3)'],
   ['definite integral', 'int(1,2,X^2,X)'],
+  ['raised integral (RE)', '(int(1,2,X^2,X))//3'],
   ['integral of a fraction', 'int(1,2,(1//2)X,X)'],
   ['radical of a fraction', 'sqrt((X^2+1)//X)'],
   ['summation (RE)', 'sum(N,1,3,N^2)'],
+  ['raised summation (RE)', '(sum(N,1,3,N^2))//2'],
   ['cube root', 'nthroot(3,X+1)'],
   ['nDeriv (RE)', 'nDeriv(X^2,X,1)'],
+  ['raised nDeriv (RE)', '(nDeriv(X^2,X,3))//2'],
   ['nth root of a fraction', 'nthroot(N,X//2)'],
 ];
 

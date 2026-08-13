@@ -69,8 +69,15 @@ traces identify types `0x23`, `0x25`, `0x26`, `0x28`, `0x29`, and `0x2B` as
 and writes, then captures 20-byte root/current records only when `34:6105` uses
 the render table at `34:6119`. The decoder preserves offset-based field names
 until a handler establishes a type-specific meaning. `--graph-json` exports
-the final settled record program and its reachable nodes. It selects the first
-post-key `34:660A` entry at the shallowest Z80 stack depth. The exporter pairs
+the final settled record program, its reachable nodes, and a semantic
+`expression` tree decoded from their child IDs and payload bytes. Postfix
+type-`0x2A` records bind to the token run before their embedded marker. The
+contextual `EF 1E` body used by `nDeriv(X,X,...)` decodes as `X`; the same pair
+outside that context remains an explicit extended token. This tree identifies
+what the trace contains without inspecting its screenshot. It describes the
+settled render graph, not the editor/parser representation before `34:4900`.
+The analyzer selects the first post-key `34:660A` entry at the shallowest Z80
+stack depth. The exporter pairs
 parent/index observations at `34:6CCD` with the resolved child ID and record
 pointer at `34:6CD8`, so the export includes structural records, leaf records,
 and leaf payload bytes beginning at `+0x13`. The ordered `dispatches` array
@@ -128,8 +135,12 @@ bytes. It translates the `34:594D` token table and the relevant `34:4900`,
 confirm every record field and accepted LCD data write for three absolute-value
 cases, four power cases, eight power/radical composition cases, four nth-root
 cases, thirteen fraction cases, twelve integral cases, eleven summation cases,
-and twelve `nDeriv(` cases. The fraction cases cover structural operands, both
-recursive nesting directions, and composition inside radicals and powers.
+and twelve `nDeriv(` cases. Six additional fraction-numerator cases cover
+integral, summation, and `nDeriv(` numerators, with ordinary and powered bodies.
+The trace graph for each of these six cases must decode to the asserted
+expression before graph and LCD-write parity is accepted. The fraction cases
+also cover structural operands, both recursive nesting directions, and
+composition inside radicals and powers.
 The integral cases cover structural bounds and a nested integral. The
 summation cases cover unequal-width limits, structural limits and bodies, and a
 nested summation. The `nDeriv(` cases cover unequal-width arguments, structural
