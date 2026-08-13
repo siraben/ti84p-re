@@ -22,12 +22,13 @@
     font glyphs. Closed page-<code>0x39</code> record and descriptor routines run
     through a direct JavaScript translation documented in the
     <a href="../sub-equation-display.html">Equation display (MathPrint)</a> wiki page.
-    Supported absolute-value, power, radical, nth-root, stacked-fraction, and
-    integral expressions construct settled records from their input tokens,
+    Supported absolute-value, power, radical, nth-root, stacked-fraction,
+    integral, and summation expressions construct settled records from their
+    input tokens,
     including nesting among those structural forms. They then execute through
     the translated structural renderer and LCD blitters to generate every
-    accepted LCD data write. Summation and <code>nDeriv(</code> previews start
-    from labeled settled-record snapshots. Other expressions fall back to the
+    accepted LCD data write. The <code>nDeriv(</code> preview starts from a
+    labeled settled-record snapshot. Other expressions fall back to the
     labeled compositor. Captured calculator writes remain available as a
     separate oracle view for two integral scenarios.
   </p>

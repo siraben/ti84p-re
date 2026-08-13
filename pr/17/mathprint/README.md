@@ -16,7 +16,7 @@ reader-facing write-up is
 | `rom-engine.js` | direct JavaScript translations of closed page `0x39`, page `0x34`, and page `0x01` routines |
 | `font.json` | large (`07:45FF`) + small (`03:4CD6`) font glyphs, extracted from ROM |
 | `layout.json` | page `0x39` class-table records and selected descriptors consumed by the translated routines |
-| `record-programs.json` | six settled record snapshots used as executable renderer inputs |
+| `record-programs.json` | six retained settled-record fixtures; `nDeriv(` remains the only snapshot-fed preview |
 | `draw-order.json` | accepted visible-pixel LCD mutations from the retained integral traces |
 | `tools/mathprint-construction-oracles.json` | fresh settled graphs and accepted-write hashes for independently constructed expressions |
 
@@ -118,20 +118,23 @@ settled record programs for absolute value, nth root, radical, summation,
 `nDeriv(`, and a nested integral/fraction. For each program, the generated final
 pixels, visible-changing write order, and complete accepted LCD data-write
 stream match independent trace oracles. The complete streams contain 49, 69,
-82, 91, 110, and 114 writes, respectively. Captured LCD events are assertion
+82, 66, 110, and 114 writes, respectively. Captured LCD events are assertion
 data, not executor inputs. [confirmed]
 
 The JavaScript path constructs absolute-value, power, radical, nth-root,
-stacked-fraction, and integral expressions from token bytes. It translates the
-`34:594D` token table and the relevant `34:4900`, `34:7393`, and `34:7609`
-record and metric paths. Fresh reset-origin traces confirm every record field
-and accepted LCD data write for three absolute-value cases, four power cases,
-eight power/radical composition cases, four nth-root cases, thirteen fraction
-cases, and twelve integral cases. The fraction cases cover structural operands,
+stacked-fraction, integral, and summation expressions from token bytes. It
+translates the `34:594D` token table and the relevant `34:4900`, `34:7393`, and
+`34:7609` record and metric paths. Fresh reset-origin traces confirm every
+record field and accepted LCD data write for three absolute-value cases, four
+power cases, eight power/radical composition cases, four nth-root cases,
+thirteen fraction cases, twelve integral cases, and eleven summation cases. The
+fraction cases cover structural operands,
 both recursive nesting directions, and composition inside radicals and powers.
-The integral cases cover structural bounds and a nested integral. These cases
-do not load `record-programs.json` or an LCD event stream. Summation and
-`nDeriv(` still begin at captured settled record snapshots. [confirmed]
+The integral cases cover structural bounds and a nested integral. The
+summation cases cover unequal-width limits, structural limits and bodies, and a
+nested summation. These cases do not load `record-programs.json` or an LCD event
+stream. Only `nDeriv(` still begins at a captured settled-record snapshot.
+[confirmed]
 
 `parity-mathprint.py` uses LCD trace replay when tracing is enabled. Calculator
 parity requires the proprietary ROM. Filled-integral and nested-fraction
@@ -139,9 +142,9 @@ results are recorded in
 `tools/mathprint-trace-report.json`; the large raw traces stay outside Git.
 
 The preview constructs supported absolute-value, power, radical, nth-root,
-stacked-fraction, and integral expressions. It also executes two retained
-snapshot-fed forms in the browser. It exposes every generated accepted LCD data
-write in order, including writes that do not change a pixel, and labels the
+stacked-fraction, integral, and summation expressions. It also executes the
+retained snapshot-fed `nDeriv(` form. It exposes every generated accepted LCD
+data write in order, including writes that do not change a pixel, and labels the
 input source for each timeline. Its captured timeline uses the two retained
 integral traces and keeps only visible-changing writes. Expressions without a
 translated constructor or executable record snapshot use the separately
