@@ -972,6 +972,14 @@
         denominator:settledExpressionSpec(
           input.denominator, `${label} denominator`, active),
       };
+      if (kind === 'integral') return {
+        kind,
+        lower:settledExpressionSpec(input.lower, `${label} lower bound`, active),
+        upper:settledExpressionSpec(input.upper, `${label} upper bound`, active),
+        body:settledExpressionSpec(input.body, `${label} body`, active),
+        variable:settledExpressionSpec(
+          input.variable, `${label} variable`, active),
+      };
       throw new RangeError(`${label} has unsupported kind ${JSON.stringify(kind)}`);
     } finally {
       active.delete(input);
@@ -1008,6 +1016,7 @@
       if (expression.kind === 'radical') return 0xef;
       if (expression.kind === 'nthRoot') return leadingByte(expression.index);
       if (expression.kind === 'fraction') return 0xef;
+      if (expression.kind === 'integral') return 0xef;
       throw new RangeError(`unsupported settled leading-byte kind ${expression.kind}`);
     };
 
@@ -1225,6 +1234,71 @@
         structural.child_ids = [numerator.record_id, denominator.record_id];
         return {kind:'embedded',structural,fractionByte13:0xef};
       }
+      if (expression.kind === 'integral') {
+        if (fractionNumerator)
+          throw new RangeError(
+            'integral construction in a fraction numerator remains untranslated');
+        if (expression.variable.kind !== 'tokens')
+          throw new RangeError('integral variable must be an ordinary token run');
+        const renderType = settledStructuralTokenType(0x00, 0x24);
+        if (renderType !== 0x22)
+          throw new Error('34:594D integral token mapping is inconsistent');
+        const structuralId = allocate();
+        const structural = {
+          record_id:structuralId, render_type:renderType, word03:0,
+          word05:settledRecordMetadata(renderType)[4],
+          word07:0, word09:0, word0B:0, word0D:0, word0F:0,
+          word11:structuralDepth + 1, byte13:0xef,
+          child_ids:[], payload:[],
+        };
+        nodes.push(structural);
+
+        // 34:4900 reserves the four multi-argument leaf IDs before it scans
+        // any argument payload for embedded structural records.
+        const lower = newLeaf(structuralId);
+        const upper = newLeaf(structuralId);
+        const body = newLeaf(structuralId);
+        const variable = newLeaf(structuralId);
+        fillLeaf(lower, prepare(
+          expression.lower, renderDepth + 1, structuralDepth + 1),
+        renderDepth + 1);
+        fillLeaf(upper, prepare(
+          expression.upper, renderDepth + 1, structuralDepth + 1),
+        renderDepth + 1);
+        fillLeaf(body, prepare(
+          expression.body, renderDepth, structuralDepth + 1), renderDepth);
+        fillLeaf(variable, prepare(
+          expression.variable, renderDepth, structuralDepth + 1), renderDepth);
+        variable.render_type = 1;
+
+        const boundWidth = Math.max(lower.word07, upper.word07);
+        const bodyX = checkedWord(boundWidth + 12, 'integral body x');
+        const bodyY = Math.max(5, upper.word05);
+        const lowerSpace = Math.max(5, lower.word05);
+        const height = checkedWord(
+          bodyY + body.word05 + lowerSpace, 'integral height');
+        const baseline = checkedWord(
+          body.word09 + bodyY, 'integral baseline');
+        const variableX = checkedWord(
+          bodyX + body.word07 + 12, 'integral variable x');
+        lower.word0B = 6;
+        lower.word0D = checkedWord(height - lower.word05, 'integral lower-bound y');
+        upper.word0B = 6;
+        upper.word0D = 0;
+        body.word0B = bodyX;
+        body.word0D = bodyY;
+        variable.word0B = variableX;
+        variable.word0D = checkedWord(
+          baseline - variable.word09, 'integral variable y');
+        structural.word07 = height;
+        structural.word09 = checkedWord(
+          variableX + variable.word07 + 2, 'integral width');
+        structural.word0B = baseline;
+        structural.child_ids = [
+          lower.record_id, upper.record_id, body.record_id, variable.record_id,
+        ];
+        return {kind:'embedded',structural,fractionByte13:0xef};
+      }
       throw new RangeError(`unsupported settled expression part ${expression.kind}`);
     };
 
@@ -1294,6 +1368,15 @@
       {kind:'fraction', numerator, denominator}, firstId, font);
     program.source =
       '34:4900, 34:5935, 34:7393, and 34:7609 translated fraction construction';
+    return program;
+  }
+
+  function constructSettledIntegralProgram(lower, upper, body, variable,
+                                           firstId = 1, font = null) {
+    const program = constructSettledExpressionProgram(
+      {kind:'integral', lower, upper, body, variable}, firstId, font);
+    program.source =
+      '34:4900, 34:5935, 34:7393, and 34:7609 translated integral construction';
     return program;
   }
 
@@ -1769,6 +1852,7 @@
     constructSettledAbsoluteProgram,
     constructSettledExpressionProgram,
     constructSettledFractionProgram,
+    constructSettledIntegralProgram,
     constructSettledNthRootProgram,
     constructSettledPowerProgram,
     constructSettledRadicalProgram,
