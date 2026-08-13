@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-51d742bc.js";
+            window.path_to_searchindex_js = "searchindex-46bd9ff8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15368,6 +15368,15 @@ slots; separate calls return the outer and inner closing-slot endpoints. The
 JavaScript scanner translates these numeric and delimited-slot branches and
 requires native construction to stop at the same half-open byte boundary.
 Other kind-<code>1</code> token classes remain untranslated. [confirmed]</p>
+<p>Scan kind <code>2</code> enters <code>34:56DF</code> → <code>34:5795</code> for the <code>EF2Eh</code> and <code>EF2Fh</code>
+stacked-fraction operators. It rewinds to the numerator, calls <code>34:5AA7</code> with
+<code>B=14h</code>, and returns the operator’s <code>EFh</code> byte in <code>BC</code>. A second scan selects
+the denominator range. The wrapper at <code>34:57A1</code>–<code>34:57C1</code> distinguishes
+nesting depth in <code>D</code>, unwound boundary count in <code>E</code>, and the saved depth byte
+at <code>ram:9D05</code>. The JavaScript scanner retains these results and verifies both
+operand ranges before constructing a type-<code>0x20</code> record. Leaf, powered,
+nested-denominator, and raised-fraction cases cover the translated branches.
+[confirmed]</p>
 <p>The browser expands every accepted byte into eight ordered pixel results. A
 timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement
@@ -15419,8 +15428,9 @@ forms. The translated renderer exposes every generated LCD byte and the
 resulting pixel frame as a live timeline. This mode does not load a record
 fixture or captured LCD event stream. Multi-argument and generic-function
 boundaries pass through the translated <code>34:5AA3</code> state machine. Numeric and
-delimited raised operands also pass through the translated <code>34:5699</code> scan.
-The remaining source grammar and record-construction branches are listed above.
+delimited raised operands also pass through the translated <code>34:5699</code> scan, and
+stacked-fraction operands pass through the translated <code>34:5795</code> scan. The
+remaining source grammar and record-construction branches are listed above.
 [confirmed]</p>
 <p>The standalone nth-root encoder supplies an inferred template boundary because
 the retained trace does not expose the final source buffer. [hypothesis]</p>
