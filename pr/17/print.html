@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-297ede6e.js";
+            window.path_to_searchindex_js = "searchindex-556ede0d.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15007,10 +15007,21 @@ cases are <code>sqrt(2^X^2)</code>, <code>sqrt(sqrt(2))</code>, <code>X^sqrt(2)<
 <code>sqrt(X^sqrt(2))</code>. Their generated graphs and complete accepted-write streams
 match the traces. The root bitmap comparison includes accepted writes whose
 value does not change the LCD byte. [confirmed]</p>
+<p>The type-<code>0x24</code> constructor maps source token <code>00F1h</code> through <code>34:594D</code>, then
+allocates the containing leaf, structural record, index child, and radicand
+child. The index uses the raised small-font metrics. The radicand begins four
+pixels after the index width and four pixels below the parent origin. Its
+height, width, and baseline determine the structural record metrics. At
+<code>34:62D0</code>, an outer nth root selects all seven root-hook rows and a raised nth
+root selects the final five. [confirmed]</p>
+<p>Fresh traces for <code>nthroot(2,2)</code>, <code>nthroot(12,X+12)</code>,
+<code>nthroot(3,X^2)</code>, and <code>X^nthroot(3,2)</code> match every generated record field and
+accepted LCD data write. These cases cover a multi-token index, a structural
+radicand, and a raised nth root. [confirmed]</p>
 <p>Flat absolute-value bodies and expressions composed from ordinary token runs,
-right-associated powers, and radicals now run from tokens through record
-construction, layout, drawing operations, and LCD byte writes. Nth root,
-summation, <code>nDeriv(</code>, and integral/fraction examples still begin from record
+right-associated powers, radicals, and nth roots now run from tokens through
+record construction, layout, drawing operations, and LCD byte writes.
+Summation, <code>nDeriv(</code>, and integral/fraction examples still begin from record
 snapshots captured at <code>34:660A</code>. Full arbitrary-expression parity requires the
 remaining structural constructors and metric branches. [confirmed]</p>
 <p>Each dispatch also captures the viewport origin at <code>ram:8DFE</code>/<code>ram:8E00</code>.
@@ -15054,10 +15065,11 @@ The local ignored <code>tools/rom.bin</code> enables pinned-ROM reproduction whe
 The 5,018-case Node test remains a deterministic parser/layout smoke test. Six
 settled record programs provide exact final-pixel and complete accepted-write
 parity for their expressions. Three fresh absolute-value cases, four power
-cases, and eight power/radical composition cases verify token-to-record
-construction and the resulting complete accepted-write streams. The deepest
-power oracle has three raised levels. Two longer trace scenarios cover the
-editor and display activity around the final key press. [confirmed]</p>
+cases, eight power/radical composition cases, and four nth-root cases verify
+token-to-record construction and the resulting complete accepted-write
+streams. The deepest power oracle has three raised levels. Two longer trace
+scenarios cover the editor and display activity around the final key press.
+[confirmed]</p>
 <h2 id="extracted-records-and-interactive-model"><a class="header" href="#extracted-records-and-interactive-model">Extracted records and interactive model</a></h2>
 <p>The class table, decoded handler records, and selected descriptors are extracted to
 <code>web/mathprint/layout.json</code> by <code>tools/export-layout.py</code>;
@@ -15070,8 +15082,8 @@ classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in <code>app.js</code> still uses a separate,
 trace-fitted box model. <code>web/mathprint/record-programs.json</code> contains six
 captured record snapshots. The browser constructs supported absolute-value,
-power, and radical expressions from tokens, including nesting between powers
-and radicals. It uses snapshots for nth root, summation, <code>nDeriv(</code>, and the
+power, radical, and nth-root expressions from tokens, including nesting among
+the structural forms. It uses snapshots for summation, <code>nDeriv(</code>, and the
 integral/fraction example. Both input forms execute through the translated
 renderer and expose every generated LCD write as a live timeline. This mode
 does not load captured LCD events. [confirmed]</p>
