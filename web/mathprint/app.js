@@ -12,6 +12,7 @@
 let FONT = null;
 let LAYOUT = null;
 let DRAW_ORDER = { scenarios: {} };
+let RECORD_PROGRAMS = { programs: {} };
 
 const ROM_ENGINE = typeof MathPrintRomEngine !== 'undefined'
   ? MathPrintRomEngine
@@ -262,7 +263,10 @@ function radical(radicand) {
   const childRecordWidth = recordWidth(radicand);
   const h = bh(rad) + 2;                       // vinculum + 1 px gap above radicand
   const root = stretch(trim(largeGlyph(0x10)), h, 3);
-  const operations = ROM_ENGINE
+  // Short heuristic boxes do not carry the settled record height required by
+  // the translated handler. Keep those arbitrary-expression previews on the
+  // labeled compositor path instead of inventing a record metric.
+  const operations = ROM_ENGINE && h >= 9
     ? ROM_ENGINE.settledRadicalOperations(h, childRecordWidth)
     : null;
   const rw = bw(root);
@@ -781,15 +785,17 @@ const PRESETS = [
   ['(A+B)//C', '(A+B)//C'],
   ['nested fraction', '1//(2//3)'],
   ['radical', 'sqrt(X^2+1)'],
+  ['absolute value (RE)', 'abs(X-3)'],
   ['definite integral', 'int(1,2,X^2,X)'],
   ['integral of a fraction', 'int(1,2,(1//2)X,X)'],
   ['radical of a fraction', 'sqrt((X^2+1)//X)'],
-  ['summation', 'sum(N,1,10,N^2)'],
+  ['summation (RE)', 'sum(N,1,3,N^2)'],
   ['cube root', 'nthroot(3,X+1)'],
+  ['nDeriv (RE)', 'nDeriv(X^2,X,1)'],
   ['nth root of a fraction', 'nthroot(N,X//2)'],
 ];
 
-let CUR = null, CUR_TRACE = null, ANIM = null;
+let CUR = null, CUR_TRACE = null, CUR_GENERATED = null, ANIM = null;
 
 function curColor() {
   return document.getElementById('lcd').checked
@@ -845,8 +851,37 @@ function traceForExpression(expression) {
   return (DRAW_ORDER.scenarios || {})[expression.trim()] || null;
 }
 
-function useTraceMode() {
-  return document.getElementById('source').value === 'trace' && CUR_TRACE;
+function generateRecordProgram(program) {
+  if (!program || !ROM_ENGINE) return null;
+  const operations = ROM_ENGINE.executeSettledRecordProgram(
+    program.nodes, program.entry_id, {
+      origin:program.origin,
+      glyphAdvance:(depth, code) => depth ? FONT.small.glyphs[code].w : 6,
+    });
+  const rendered = ROM_ENGINE.rasterizeSettledOperations(operations, FONT);
+  return {
+    width:rendered.width, height:rendered.height,
+    initial:Array.from({length:rendered.height}, () => '0'.repeat(rendered.width)),
+    final:rendered.grid.map(row => row.join('')),
+    operations,
+    events:rendered.writes.map((write, index) => ({
+      ...write,
+      source:'RE-generated',
+      operation:operations[write.operationIndex],
+      sequence:index,
+    })),
+  };
+}
+
+function generatedForExpression(expression) {
+  return generateRecordProgram((RECORD_PROGRAMS.programs || {})[expression.trim()]);
+}
+
+function activeTimeline() {
+  const source = document.getElementById('source').value;
+  if (source === 'generated' && CUR_GENERATED) return CUR_GENERATED;
+  if (source === 'trace' && CUR_TRACE) return CUR_TRACE;
+  return null;
 }
 
 function renderTrace(record, step, scale) {
@@ -872,6 +907,42 @@ function renderTrace(record, step, scale) {
     `<th>byte</th><th>LCD x,y</th><th>pixels</th></tr></thead><tbody>${rows}</tbody></table>`;
   document.getElementById('dims').textContent =
     `${record.width}×${record.height} LCD · write ${count}/${n} · captured trace`;
+  const tl = document.getElementById('timeline');
+  if (step == null) { tl.max = n; tl.value = n; }
+}
+
+function operationLabel(operation) {
+  if (!operation) return '';
+  if (operation.kind === 'glyph') return `${glyphName(operation.code)} glyph`;
+  if (operation.kind === 'glyph-run') return 'glyph run';
+  if (operation.kind === 'bitmap') return 'fixed bitmap';
+  return operation.kind;
+}
+
+function renderGenerated(record, step, scale) {
+  const n = record.events.length;
+  const count = step == null ? n : Math.max(0, Math.min(n, step));
+  const current = step != null && count > 0 ? record.events[count - 1] : null;
+  drawTraceGrid(traceFrame(record, count), scale, curColor(), current && current.changes);
+  const rows = record.events.map((event, i) => {
+    const sets = event.changes.filter(change => change[2]).length;
+    const clears = event.changes.length - sets;
+    return `<tr class="${current && i === count - 1 ? 'cur' : ''}" data-step="${i + 1}">` +
+      `<td>${i}</td><td>${escapeHtml(operationLabel(event.operation))}</td>` +
+      `<td>0x${event.value.toString(16).padStart(2, '0')}</td>` +
+      `<td>${event.pointer[0]},${event.pointer[1]}</td>` +
+      `<td><span class="trace-set">+${sets}</span> ` +
+      `<span class="trace-clear">−${clears}</span></td>` +
+      `<td>${escapeHtml(event.operation.routine || '')}</td></tr>`;
+  }).join('');
+  document.getElementById('penlog').innerHTML =
+    `<p class="note">RE-generated LCD data writes. JavaScript executes the settled ` +
+    `record program, geometry routines, glyph blitter, and byte packing; no captured ` +
+    `LCD events are used as input. Click a row to jump to that write.</p>` +
+    `<table><thead><tr><th>#</th><th>operation</th><th>byte</th><th>LCD x,y</th>` +
+    `<th>pixels</th><th>translated path</th></tr></thead><tbody>${rows}</tbody></table>`;
+  document.getElementById('dims').textContent =
+    `${record.width}×${record.height} LCD · write ${count}/${n} · RE-generated`;
   const tl = document.getElementById('timeline');
   if (step == null) { tl.max = n; tl.value = n; }
 }
@@ -903,19 +974,26 @@ function render(step) {
     const expression = document.getElementById('expr').value;
     const box = CUR = parse(expression);
     CUR_TRACE = traceForExpression(expression);
-    const traceRequested = document.getElementById('source').value === 'trace';
-    const actual = traceRequested && CUR_TRACE;
-    if (actual) renderTrace(CUR_TRACE, step, scale);
+    CUR_GENERATED = generatedForExpression(expression);
+    const requested = document.getElementById('source').value;
+    const generated = requested === 'generated' && CUR_GENERATED;
+    const captured = requested === 'trace' && CUR_TRACE;
+    if (generated) renderGenerated(CUR_GENERATED, step, scale);
+    else if (captured) renderTrace(CUR_TRACE, step, scale);
     else renderModel(box, step, scale, showPen);
-    document.getElementById('timeline-hint').textContent = actual
-      ? 'step accepted LCD writes' : 'step model composition order';
-    document.getElementById('timeline-note').innerHTML = actual
+    document.getElementById('timeline-hint').textContent = generated || captured
+      ? (generated ? 'step every accepted LCD data write' : 'step visible-changing LCD writes')
+      : 'step model composition order';
+    document.getElementById('timeline-note').innerHTML = captured
       ? `Captured mode replays accepted T6A04 writes from trace <code>${escapeHtml(CUR_TRACE.trace_sha256.slice(0, 12))}…</code> ` +
         `in instruction order. Blue pixels are set; outlined red pixels are cleared.`
-      : (traceRequested
-          ? `No captured LCD timeline matches this expression. Showing the model display list. ` +
-            `Choose one of the two integral trace presets for write-level playback.`
-          : `Model mode steps inferred composition elements. It is not an OS draw timeline.`);
+      : generated
+        ? `RE-generated mode executes record bytes through the translated structural renderer and ` +
+          `blitters. Captured LCD events are comparison oracles only and are not loaded by this path.`
+        : (requested === 'model'
+            ? `Model mode steps inferred composition elements. It is not an OS draw timeline.`
+            : `No ${requested === 'trace' ? 'captured' : 'executable record-program'} timeline matches ` +
+              `this expression. Showing the labeled heuristic model instead.`);
     document.getElementById('err').textContent = '';
   } catch (e) {
     document.getElementById('err').textContent = String(e);
@@ -927,8 +1005,8 @@ function stopAnim() { if (ANIM) { clearInterval(ANIM); ANIM = null; } }
 function playAnim() {
   stopAnim();
   if (!CUR) render();
-  const actual = useTraceMode();
-  const n = actual ? CUR_TRACE.events.length : (CUR.marks || []).length;
+  const timeline = activeTimeline();
+  const n = timeline ? timeline.events.length : (CUR.marks || []).length;
   let step = 0;
   const tl = document.getElementById('timeline');
   ANIM = setInterval(() => {
@@ -936,7 +1014,7 @@ function playAnim() {
     if (tl) tl.value = step;
     render(step);
     if (step >= n) { stopAnim(); render(); }   // final: reveal structural rules too
-  }, actual ? 30 : 350);
+  }, timeline ? 30 : 350);
 }
 function escapeHtml(s) {
   return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -998,12 +1076,14 @@ function showTab(name) {
 }
 
 async function main() {
-  const [fontResponse, layoutResponse, orderResponse] = await Promise.all([
+  const [fontResponse, layoutResponse, orderResponse, programsResponse] = await Promise.all([
     fetch('font.json'), fetch('layout.json'), fetch('draw-order.json'),
+    fetch('record-programs.json'),
   ]);
   FONT = await fontResponse.json();
   LAYOUT = await layoutResponse.json();
   DRAW_ORDER = await orderResponse.json();
+  RECORD_PROGRAMS = await programsResponse.json();
   const bar = document.getElementById('presets');
   PRESETS.forEach(([label, src]) => {
     const b = document.createElement('button');
@@ -1023,7 +1103,8 @@ async function main() {
     if (!tr) return;
     stopAnim();
     const step = +tr.dataset.step;
-    const n = useTraceMode() ? CUR_TRACE.events.length : ((CUR && CUR.marks) ? CUR.marks.length : 0);
+    const timeline = activeTimeline();
+    const n = timeline ? timeline.events.length : ((CUR && CUR.marks) ? CUR.marks.length : 0);
     const tl = document.getElementById('timeline');
     if (tl) tl.value = step;
     render(step >= n ? null : step);   // last row: reveal structural rules, like the timeline at max
@@ -1034,7 +1115,8 @@ async function main() {
     const ae = document.activeElement;
     if (ae && ae.matches('input, select, textarea')) return;
     if (document.getElementById('tab-renderer').hidden) return;
-    const n = useTraceMode() ? CUR_TRACE.events.length : ((CUR && CUR.marks) ? CUR.marks.length : 0);
+    const timeline = activeTimeline();
+    const n = timeline ? timeline.events.length : ((CUR && CUR.marks) ? CUR.marks.length : 0);
     if (!n) return;
     const tl = document.getElementById('timeline');
     let step = tl ? +tl.value : n;
@@ -1046,7 +1128,8 @@ async function main() {
   });
   document.getElementById('timeline').addEventListener('input', e => {
     stopAnim();
-    const n = useTraceMode() ? CUR_TRACE.events.length : (CUR.marks || []).length;
+    const timeline = activeTimeline();
+    const n = timeline ? timeline.events.length : (CUR.marks || []).length;
     render(+e.target.value >= n ? null : +e.target.value);
   });
   document.getElementById('expr').value = 'int(1,2,(1//2)X,X)';
@@ -1060,9 +1143,12 @@ if (typeof module !== 'undefined') {
   module.exports = {
     setFont: f => { FONT = f; },
     setLayout: value => { LAYOUT = value; },
+    setRecordPrograms: value => { RECORD_PROGRAMS = value; },
     parse,
     penLog,
     traceFrame,
+    generateRecordProgram,
+    generatedForExpression,
     toText: box => box.rows.map(r => r.map(c => (c ? '#' : '.')).join('')).join('\n'),
   };
 }

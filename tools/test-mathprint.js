@@ -21,6 +21,9 @@ mp.setFont(font);
 const layout = JSON.parse(fs.readFileSync(path.join(root, 'web', 'mathprint', 'layout.json')));
 mp.setLayout(layout);
 const drawOrder = JSON.parse(fs.readFileSync(path.join(root, 'web', 'mathprint', 'draw-order.json')));
+const recordPrograms = JSON.parse(fs.readFileSync(
+  path.join(root, 'web', 'mathprint', 'record-programs.json')));
+mp.setRecordPrograms(recordPrograms);
 
 function expectEqual(label, actual, expected) {
   if (JSON.stringify(actual) !== JSON.stringify(expected))
@@ -393,6 +396,36 @@ for (const [name,nodes,entryId,expected] of [
   ['nested integral/fraction',integralFractionProgram,0x07,'2b8bc21220f632c2524e011418d51cc6040036941e076a642f6645b2b5d581a2'],
 ]) expectEqual(`settled ${name} independently reproduces every accepted LCD data write`,
                 settledWriteHash(nodes,entryId), expected);
+
+const browserProgramCases = [
+  ['abs(X-3)', absoluteProgram, 0x0d],
+  ['nthroot(3,X+1)', nthRootProgram, 0x0e],
+  ['sqrt(X^2+1)', radicalProgram, 0x0f],
+  ['sum(N,1,3,N^2)', summationProgram, 0x12],
+  ['nDeriv(X^2,X,1)', nderivProgram, 0x11],
+  ['int(1,2,(1//2)X,X)', integralFractionProgram, 0x07],
+];
+for (const [expression,nodes,entryId] of browserProgramCases) {
+  const fixture = recordPrograms.programs[expression];
+  expectEqual(`${expression} browser fixture entry`, fixture.entry_id, entryId);
+  const generated = mp.generatedForExpression(expression);
+  const fixtureOperations = rom.executeSettledRecordProgram(fixture.nodes, fixture.entry_id, {
+    origin:fixture.origin,
+    glyphAdvance:settledGlyphAdvance,
+  });
+  const expectedOperations = rom.executeSettledRecordProgram(nodes, entryId, {
+    glyphAdvance:settledGlyphAdvance,
+  });
+  expectEqual(`${expression} browser fixture operation stream`,
+    fixtureOperations, expectedOperations);
+  expectEqual(`${expression} browser executor final pixels`, generated.final,
+    rom.rasterizeSettledOperations(
+      expectedOperations, font).grid.map(row => row.join('')));
+  expectEqual(`${expression} browser executor write count`, generated.events.length,
+    rom.rasterizeSettledOperations(expectedOperations, font).writes.length);
+}
+expectEqual('arbitrary expression has no captured record program',
+  mp.generatedForExpression('1//(2//3)'), null);
 
 expectEqual('34:6143 keeps incoming-A-dependent type 1F explicit',
   rom.executeSettledRecordGraph([settledRecord(1,0x1f)],1), [{
