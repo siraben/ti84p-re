@@ -634,12 +634,45 @@ and nested-fraction operands. The generated graphs match every captured record
 field and ID. Their accepted LCD data-write streams also match through the outer
 `34:660A` return. [confirmed]
 
+The type-`0x22` constructor maps integral source token `0024h` through
+`34:594D`. `34:4900` allocates the integral record, then reserves all four child
+leaf IDs before it scans any child payload. The children hold the lower bound,
+upper bound, body, and differential variable in that order. A structural child
+allocates its records after all four reservations. A nested integral repeats the
+same reservation rule recursively. [confirmed]
+
+The bounds render one depth below the containing leaf. The body and variable
+render at the containing depth. For lower-bound metrics $(h_l,w_l)$,
+upper-bound metrics $(h_u,w_u)$, body metrics $(h_b,w_b,b_b)$, and variable
+metrics $(w_v,b_v)$, the integral positions and parent metrics are [confirmed]
+
+$$
+\begin{aligned}
+y_b &= \max(5,h_u), & s_l &= \max(5,h_l), \\
+H &= y_b+h_b+s_l, & B &= y_b+b_b, \\
+x_b &= \max(w_l,w_u)+12, & x_v &= x_b+w_b+12, \\
+W &= x_v+w_v+2, & y_v &= B-b_v.
+\end{aligned}
+$$
+
+The lower bound begins at $(6,H-h_l)$, the upper bound at $(6,0)$, and the body
+at $(x_b,y_b)$. The type-`0x22` record stores $H$, $W$, and $B$ in the words at
+`+7`, `+9`, and `+0x0B`. The variable child uses render type `1`. [confirmed]
+
+Twelve reset-origin traces cover unequal token-bound widths, a multi-token body,
+a different variable, power, radical, fraction, and nth-root bodies, structural
+bounds, and a nested integral. The JavaScript constructor matches every record
+field and ID. It also reproduces all accepted LCD data writes through the outer
+`34:660A` return. The traces supply comparison oracles, not constructor input.
+[confirmed]
+
 Flat absolute-value bodies and expressions composed from ordinary token runs,
 right-associated powers, radicals, nth roots, and stacked fractions now run
 from tokens through record construction, layout, drawing operations, and LCD
-byte writes. Summation, `nDeriv(`, and integral examples still begin from record
-snapshots captured at `34:660A`. Full arbitrary-expression parity requires the
-remaining structural constructors and metric branches. [confirmed]
+byte writes. Integrals compose with the same translated forms in their bounds
+and body. Summation and `nDeriv(` examples still begin from record snapshots
+captured at `34:660A`. Full arbitrary-expression parity requires those
+constructors and remaining metric branches. [confirmed]
 
 Each dispatch also captures the viewport origin at `ram:8DFE`/`ram:8E00`.
 Nested fraction `1/2` reaches `34:5DA6` with the local rule `(1,6)`–`(5,6)`
@@ -689,11 +722,11 @@ The local ignored `tools/rom.bin` enables pinned-ROM reproduction when present.
 The 5,018-case Node test remains a deterministic parser/layout smoke test. Six
 settled record programs provide exact final-pixel and complete accepted-write
 parity for their expressions. Three fresh absolute-value cases, four power
-cases, eight power/radical composition cases, and four nth-root cases verify
-token-to-record construction and the resulting complete accepted-write
-streams. The deepest power oracle has three raised levels. Two longer trace
-scenarios cover the editor and display activity around the final key press.
-[confirmed]
+cases, eight power/radical composition cases, four nth-root cases, thirteen
+fraction cases, and twelve integral cases verify token-to-record construction
+and complete accepted-write streams. The deepest power oracle has three raised
+levels. Two longer trace scenarios cover the editor and display activity around
+the final key press. [confirmed]
 
 ## Extracted records and interactive model
 
@@ -708,8 +741,8 @@ classification, descriptor iteration, fraction endpoints, and class-6 row
 stepping. The arbitrary-expression compositor in `app.js` still uses a separate,
 trace-fitted box model. `web/mathprint/record-programs.json` contains six
 captured record snapshots. The browser constructs supported absolute-value,
-power, radical, nth-root, and stacked-fraction expressions from tokens,
-including nesting among the structural forms. It uses snapshots for summation,
-`nDeriv(`, and the integral example. Both input forms execute through the
-translated renderer and expose every generated LCD write as a live timeline.
-This mode does not load captured LCD events. [confirmed]
+power, radical, nth-root, stacked-fraction, and integral expressions from
+tokens, including nesting among the structural forms. It uses snapshots for
+summation and `nDeriv(`. Both input forms execute through the translated
+renderer and expose every generated LCD write as a live timeline. This mode
+does not load captured LCD events. [confirmed]

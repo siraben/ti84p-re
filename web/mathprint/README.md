@@ -121,29 +121,31 @@ stream match independent trace oracles. The complete streams contain 49, 69,
 82, 91, 110, and 114 writes, respectively. Captured LCD events are assertion
 data, not executor inputs. [confirmed]
 
-The JavaScript path constructs absolute-value, power, radical, nth-root, and
-stacked-fraction expressions from token bytes. It translates the `34:594D`
-token table and the relevant `34:4900`, `34:7393`, and `34:7609` record and
-metric paths. Fresh reset-origin traces confirm every record field and accepted
-LCD data write for three absolute-value cases, four power cases, eight
-power/radical composition cases, four nth-root cases, and thirteen fraction
-cases. The fraction cases cover structural operands, both recursive nesting
-directions, and composition inside radicals and powers. These cases do not load
-`record-programs.json` or an LCD event stream. Summation, `nDeriv(`, and
-integral examples still begin at captured settled record snapshots. [confirmed]
+The JavaScript path constructs absolute-value, power, radical, nth-root,
+stacked-fraction, and integral expressions from token bytes. It translates the
+`34:594D` token table and the relevant `34:4900`, `34:7393`, and `34:7609`
+record and metric paths. Fresh reset-origin traces confirm every record field
+and accepted LCD data write for three absolute-value cases, four power cases,
+eight power/radical composition cases, four nth-root cases, thirteen fraction
+cases, and twelve integral cases. The fraction cases cover structural operands,
+both recursive nesting directions, and composition inside radicals and powers.
+The integral cases cover structural bounds and a nested integral. These cases
+do not load `record-programs.json` or an LCD event stream. Summation and
+`nDeriv(` still begin at captured settled record snapshots. [confirmed]
 
 `parity-mathprint.py` uses LCD trace replay when tracing is enabled. Calculator
 parity requires the proprietary ROM. Filled-integral and nested-fraction
 results are recorded in
 `tools/mathprint-trace-report.json`; the large raw traces stay outside Git.
 
-The preview constructs supported absolute-value, power, radical, nth-root, and
-stacked-fraction expressions. It also executes three retained snapshot-fed forms
-in the browser. It exposes every generated accepted LCD data write in order,
-including writes that do not change a pixel, and labels the input source for
-each timeline. Its captured timeline uses the two retained integral traces and
-keeps only visible-changing writes. Expressions without a translated constructor
-or executable record snapshot use the separately labeled model-element timeline.
+The preview constructs supported absolute-value, power, radical, nth-root,
+stacked-fraction, and integral expressions. It also executes two retained
+snapshot-fed forms in the browser. It exposes every generated accepted LCD data
+write in order, including writes that do not change a pixel, and labels the
+input source for each timeline. Its captured timeline uses the two retained
+integral traces and keeps only visible-changing writes. Expressions without a
+translated constructor or executable record snapshot use the separately
+labeled model-element timeline.
 [confirmed]
 
 ## Regeneration
