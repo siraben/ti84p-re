@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-83b6fb13.js";
+            window.path_to_searchindex_js = "searchindex-e8e32f27.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14929,8 +14929,55 @@ between children 1 and 2. The settled <code>sum(N,1,3,N^2)</code> root contains 
 <p>Type <code>0x2B</code> dispatches to <code>34:65AA</code>. It emits the left vertical bracket and its
 two inward points, renders the matrix elements in child-ID order, then emits
 the right bracket and its points. <code>33:4F23</code> derives the element-loop bound from
-the dimensions at record bytes <code>+0x12</code> and <code>+0x13</code>. A settled $2\times2$
-identity matrix renders four children between the bracket operations.
+the dimensions at record bytes <code>+0x12</code> and <code>+0x13</code>. The high byte at <code>+0x12</code>
+stores the column count. Byte <code>+0x13</code> stores the row count. A settled
+$2\times2$ identity matrix renders four children between the bracket operations.
+[confirmed]</p>
+<p>The type-<code>0x2B</code> constructor lays out elements in row-major order. For element
+width $w_{r,c}$ and height $h_{r,c}$, define the column and row extents as
+[confirmed]</p>
+<p>$$
+C_c = \max_r w_{r,c}, \qquad R_r = \max_c h_{r,c}.
+$$</p>
+<p>The first column begins at $x_0=6$, and each later column begins after the
+previous extent and a six-pixel gap. The first row begins at $y_0=0$, and each
+later row begins after the previous extent and a two-pixel gap:</p>
+<p>$$
+x_{c+1}=x_c+C_c+6, \qquad y_{r+1}=y_r+R_r+2.
+$$</p>
+<p>Each element is centered within its row and column extent:</p>
+<p>$$
+X_{r,c}=x_c+\left\lfloor\frac{C_c-w_{r,c}}{2}\right\rfloor, \qquad
+Y_{r,c}=y_r+\left\lfloor\frac{R_r-h_{r,c}}{2}\right\rfloor.
+$$</p>
+<p>For $m$ rows and $n$ columns, let $N_e$ be the element count, $H$ the matrix
+height, $W$ the matrix width, and $y_c$ the vertical center:</p>
+<p>$$
+\begin{aligned}
+N_e &amp;= mn, &amp; H &amp;= \sum_r R_r+2(m-1), \
+W &amp;= 12+\sum_c C_c+6(n-1), &amp; y_c &amp;=
+\left\lfloor\frac{H}{2}\right\rfloor.
+\end{aligned}
+$$</p>
+<p>The constructor stores $N_e$, $H$, $W$, and $y_c$ in the words at <code>+5</code>, <code>+7</code>,
+<code>+9</code>, and <code>+0x0B</code>, respectively. [confirmed]</p>
+<p>The word at <code>+0x11</code> stores the column count in its high byte and structural
+depth in its low byte. The byte at <code>+0x13</code> stores the row count. When the matrix
+contains more than one element, the allocation pass leaves one unused ID after
+the first child. The reachable child sequence is therefore <code>0x11</code>, <code>0x13</code>,
+<code>0x14</code>, and so on in captures whose matrix record is <code>0x10</code>. [confirmed]</p>
+<p>Five reset-origin traces cover $1\times1$, $1\times2$, $2\times2$,
+$2\times3$, and $3\times3$ matrices. The JavaScript constructor matches every
+captured record field, child ID, and element position. The matrix result begins
+at LCD row 9 and uses $x=95-W$, where $W$ is the outer leaf width at <code>+7</code>.
+The generated streams match 32, 46, 92, 134, and 180 synchronous accepted LCD
+data writes, respectively. [confirmed]</p>
+<p>The $2\times3$ capture also contains eight accepted writes from the standard
+timer’s run-indicator handler at <code>01:6BBA</code>–<code>01:6BFA</code>. That handler reads and
+rewrites LCD byte column 11 across rows 0–7 through <code>indicCounter</code> and
+<code>indicBusy</code> at <code>0x8476</code>/<code>0x8477</code>. Removing those asynchronous writes leaves the
+134-write MathPrint stream. The generated timeline models the synchronous
+settled renderer and labels the interrupt writes separately in its oracle.
 [confirmed]</p>
 <p><code>web/mathprint/rom-engine.js</code> implements the complete <code>0x1F</code>–<code>0x2B</code> structural
 dispatch table as an executable record-graph walker. It resolves child IDs
@@ -15179,12 +15226,12 @@ JavaScript constructor matches every record field and ID. It also reproduces
 every accepted LCD data write through the outer <code>34:660A</code> return. The traces
 supply comparison oracles, not constructor input. [confirmed]</p>
 <p>Flat absolute-value bodies and expressions composed from ordinary token runs,
-right-associated powers, $e^x$, $10^x$, <code>logBASE(</code>, radicals, nth roots, and
-stacked fractions now run from tokens through record construction, layout,
-drawing operations, and LCD byte writes. Integrals, summations, and <code>nDeriv(</code>
-compose with the same translated forms in their arguments and in a
-stacked-fraction numerator. The remaining arbitrary-expression branches are
-still untranslated.
+right-associated powers, $e^x$, $10^x$, <code>logBASE(</code>, radicals, nth roots,
+stacked fractions, and numeric matrices now run from tokens through record
+construction, layout, drawing operations, and LCD byte writes. Integrals,
+summations, and <code>nDeriv(</code> compose with the same translated forms in their
+arguments and in a stacked-fraction numerator. The remaining
+arbitrary-expression branches are still untranslated.
 [confirmed]</p>
 <p>Each dispatch also captures the viewport origin at <code>ram:8DFE</code>/<code>ram:8E00</code>.
 Nested fraction <code>1/2</code> reaches <code>34:5DA6</code> with the local rule <code>(1,6)</code>–<code>(5,6)</code>
