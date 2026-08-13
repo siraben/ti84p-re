@@ -448,7 +448,7 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, and large-glyph output. It recursively follows direct ROM
 edges from named entries, resolves the finite dispatch tables, overlays exact
-next-PC outcomes from 171 reset-origin traces, and lists external targets.
+next-PC outcomes from 172 reset-origin traces, and lists external targets.
 `tools/mathprint-saturation.json` records the resulting branches and trace
 hashes. [confirmed]
 
@@ -462,8 +462,8 @@ outside that state model. [confirmed]
 | Component | Reachable instructions | Conditional outcomes observed | Conditional outcomes in CFG | Instruction coverage |
 |-----------|-----------------------:|------------------------------:|----------------------------:|---------------------:|
 | Settled construction | 991 | 244 | 408 | 79.11% |
-| Settled rendering | 1,898 | 202 | 302 | 90.25% |
-| Metrics and geometry | 470 | 70 | 80 | 96.17% |
+| Settled rendering | 1,898 | 205 | 302 | 90.89% |
+| Metrics and geometry | 470 | 75 | 80 | 99.36% |
 | Record allocator | 64 | 7 | 8 | 98.44% |
 | Editor layout | 2,776 | 245 | 1,098 | 32.42% |
 | Small-font and LCD output | 413 | 76 | 122 | 71.19% |
@@ -477,10 +477,11 @@ containing routine has been reached. The allocator is the only declared
 component whose every conditional branch has at least one observed outcome;
 three of its four branches have both outcomes. [confirmed]
 
-The report classifies all 2,184 enumerated outcomes. The traces exercise 904.
-One allocator outcome is infeasible under its entry invariant. The other 1,279
-remain unresolved because their required state or calling ABI is not yet
-proved. An unobserved outcome never becomes infeasible from absence alone.
+The report classifies all 2,184 enumerated outcomes. The traces exercise 912.
+One allocator outcome is infeasible under its data invariant. Two metric
+outcomes are infeasible under the calculator call ABI. The other 1,269 remain
+unresolved because their required state or calling ABI is not yet proved. An
+unobserved outcome never becomes infeasible from absence alone.
 [confirmed]
 
 The infeasible allocator outcome is the fallthrough at `33:4F4E`. The type
@@ -490,13 +491,39 @@ The infeasible allocator outcome is the fallthrough at `33:4F4E`. The type
 matrix record therefore reaches `33:4F4E` with a nonzero product and takes the
 branch. [confirmed]
 
-An exact Z3 set-cover calculation reduces the 171 trace summaries to 19 while
-preserving all 904 observed outcomes. It minimizes trace count first, retained
-bytes second, and labels third. The 19 selected traces total 2,847,171,954
-bytes, and each contributes at least one outcome absent from the other 18.
+The calculator metric entries at `34:7377`, `34:737A`, and `34:7380` all pass
+through `34:7386`, which loads `B=0`. The recursive route stores that zero at
+`0x8512` and reloads it at `34:75F4` before `34:7606`. Induction over the
+dispatcher recursion therefore fixes `B=0`. The `B!=0` outcomes at `34:73CD`
+fallthrough and `34:765D` return are infeasible under this calculator ABI.
+Synthetic direct calls to internal metric handlers do not share the ABI.
+[confirmed]
+
+An exact Z3 set-cover calculation reduces the 172 trace summaries to 20 while
+preserving all 912 observed outcomes. It minimizes trace count first, retained
+bytes second, and labels third. The 20 selected traces total 2,965,561,068
+bytes, and each contributes at least one outcome absent from the other 19.
 This is a proven minimum for the supplied trace set, not for every input the OS
 can accept. The broad trace set remains an RE and regression corpus; the public
 gallery uses a smaller, diverse selection. [confirmed]
+
+The in-progress editor is a gap buffer. `editTop` (`0x96F4`) and `editCursor`
+(`0x96F6`) bound the left segment. `editTail` (`0x96F8`) and `editBtm`
+(`0x96FA`) bound the right segment. Moving across a structural object exposes
+the six-byte right-segment marker `EF type id_lo id_hi EF 2D`. An insertion at
+that boundary makes the metric walker enter `34:759C` with its parsed pointer
+at `editTail + 6`. The comparison at `34:75A1` then returns Z, so `34:75A5`
+falls through. [confirmed]
+
+`34:789A` first distinguishes the table-equation context from other editors.
+On its fallthrough, `34:75AB` reads the marker type from `editTail + 1`.
+`34:40F9` groups fraction (`0x20`), nth-root (`0x24`), and power (`0x2A`)
+markers; `34:75B0` takes its Z branch for this set. `34:75B8` then reads the
+nesting counter at `0x8515`, and `34:75BB` distinguishes zero from nonzero
+depth. A reset-origin `X^2` boundary insertion directly exercises eight
+previously absent outcomes through this chain. The table-context branch,
+non-special marker class, and nonzero-depth outcome remain unresolved.
+[confirmed]
 
 The record-oracle corpus contains 105 captured cases. It includes types `0x20`
 through `0x2B`; the only missing structural type is `0x1F`. Each of those 12
