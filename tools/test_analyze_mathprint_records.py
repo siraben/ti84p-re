@@ -128,7 +128,7 @@ class MathPrintRecordTests(unittest.TestCase):
             {"record_id": 22, "render_type": 1, "child_ids": [],
              "payload": [0x58]},
             {"record_id": 23, "render_type": 0, "child_ids": [],
-             "payload": [0xEF, 0x1E, 0xEF, 0x2A, 25, 0, 0xEF, 0x2D]},
+             "payload": [0x58, 0xEF, 0x2A, 25, 0, 0xEF, 0x2D]},
             {"record_id": 25, "render_type": 0x2A, "child_ids": [26],
              "payload": []},
             {"record_id": 26, "render_type": 0, "child_ids": [],
@@ -161,7 +161,7 @@ class MathPrintRecordTests(unittest.TestCase):
             {"record_id": 12, "render_type": 1, "child_ids": [],
              "payload": [0x58]},
             {"record_id": 1, "render_type": 0, "child_ids": [],
-             "payload": [0xEF, 0x1E, 0xEF, 0x2A, 2, 0, 0xEF, 0x2D, 0x58]},
+             "payload": [0x58, 0xEF, 0x2A, 2, 0, 0xEF, 0x2D, 0x58]},
             {"record_id": 2, "render_type": 0x2A, "child_ids": [3],
              "payload": []},
             {"record_id": 3, "render_type": 0, "child_ids": [],
@@ -191,6 +191,27 @@ class MathPrintRecordTests(unittest.TestCase):
             decode_settled_expression([
                 {"record_id": 1, "render_type": 0, "child_ids": [],
                  "payload": [0xEF, 0x1E]},
+            ], 1),
+        )
+
+    def test_retains_ef1e_as_a_placeholder_inside_nderiv_body(self):
+        self.assertEqual(
+            {
+                "kind": "nDeriv", "variable": [0x58],
+                "body": {"kind": "extendedToken", "tokens": [0xEF, 0x1E]},
+                "value": [0x31],
+            },
+            decode_settled_expression([
+                {"record_id": 1, "render_type": 0, "child_ids": [],
+                 "payload": [0xEF, 0x23, 2, 0, 0xEF, 0x2D]},
+                {"record_id": 2, "render_type": 0x23,
+                 "child_ids": [3, 4, 5], "payload": []},
+                {"record_id": 3, "render_type": 1, "child_ids": [],
+                 "payload": [0x58]},
+                {"record_id": 4, "render_type": 0, "child_ids": [],
+                 "payload": [0xEF, 0x1E]},
+                {"record_id": 5, "render_type": 0, "child_ids": [],
+                 "payload": [0x31]},
             ], 1),
         )
 

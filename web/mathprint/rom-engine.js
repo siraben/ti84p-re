@@ -1149,9 +1149,7 @@
         structural.word0B = checkedWord(
           firstRaisedRow ? child.word05 + 1 : child.word09 + 3,
           'power baseline');
-        const contextualNDerivBase = expression.base.length === 2
-          && expression.base[0] === 0xef && expression.base[1] === 0x1e;
-        structural.word0D = firstRaisedRow || contextualNDerivBase ? 6 : 4;
+        structural.word0D = firstRaisedRow ? 6 : 4;
         structural.child_ids = [child.record_id];
         return {
           kind:'sequence',
@@ -1358,28 +1356,8 @@
           expression.variable, renderDepth + 1, structuralDepth + 1,
           fractionNumerator),
         renderDepth + 1);
-        let bodyExpression = expression.body.kind === 'tokens'
-          && expression.body.tokens.length === 1
-          && expression.body.tokens[0] === 0x58
-          && expression.variable.tokens.length === 1
-          && expression.variable.tokens[0] === 0x58
-          ? {kind:'tokens', tokens:[0xef, 0x1e]}
-          : expression.body;
-        if (fractionNumerator
-            && bodyExpression.kind === 'power'
-            && bodyExpression.base.length === 1
-            && bodyExpression.base[0] === 0x58
-            && expression.variable.tokens.length === 1
-            && expression.variable.tokens[0] === 0x58) {
-          bodyExpression = {
-            ...bodyExpression,
-            // In a raised nDeriv X/X body, 34:4900 writes EF 1E for the
-            // power base. The leaf renderer resolves that contextual token to X.
-            base:[0xef, 0x1e],
-          };
-        }
         fillLeaf(body, prepare(
-          bodyExpression, renderDepth, structuralDepth + 1,
+          expression.body, renderDepth, structuralDepth + 1,
           fractionNumerator), renderDepth);
         fillLeaf(value, prepare(
           expression.value, renderDepth + 1, structuralDepth + 1,

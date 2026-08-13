@@ -525,10 +525,10 @@ to identify the enclosing leaf program. [confirmed]
 
 The analyzer also decodes the reachable settled graph into a semantic
 expression tree. Structural child IDs recover argument order. A type-`0x2A`
-record binds its exponent to the ordinary token run immediately before the
-embedded-record marker. The decoder maps `EF 1E` to `X` only in the contextual
-`nDeriv(X,X,...)` body described below. Elsewhere it preserves the pair as an
-explicit extended token. The resulting tree identifies the expression in a
+record binds its exponent to the expression immediately before the
+embedded-record marker. The decoder preserves `EF 1E` as an explicit extended
+token. The renderer maps the pair to display code `0xF7`, so the decoded tree
+exposes an unfilled template slot. The tree identifies the expression in a
 trace without using LCD pixels or a screenshot. It describes the settled graph
 consumed by `34:660A`; the editor/parser representation before `34:4900`
 remains open. [confirmed]
@@ -649,9 +649,8 @@ same hoisting rule. `34:4900` allocates the multi-argument record and reserves
 its child leaves before it allocates the enclosing type-`0x20` fraction. The
 nested structural record stores `0x10` at `+0x13`. Raised integral layout uses
 a 10-pixel body-to-variable gap; the outer layout uses 12 pixels. In a raised
-`nDeriv(X^2,X,...)` numerator, the body leaf stores `EF 1E` before the
-type-`0x2A` marker. The renderer treats that contextual pair as the `X` power
-base, and the power record stores `6` at `+0x0D`. [confirmed]
+`nDeriv(X^2,X,...)` numerator, the body leaf stores `0x58` before the
+type-`0x2A` marker, and the power record stores `4` at `+0x0D`. [confirmed]
 
 Six reset-origin traces cover integral, summation, and `nDeriv(` numerators,
 each with an ordinary body and a powered body. Before parity is accepted, the
@@ -728,9 +727,9 @@ return. The traces supply comparison oracles, not constructor input.
 [confirmed]
 
 The settled lower-bound leaf for `sum(N,1,3,N^2)` contains `0x31`. The byte
-pair `EF 1E` instead emits display code `0xF7`, the empty template square. In
-the discarded summation capture, this pair came from editable template state;
-it does not occur in the settled summation graph. [confirmed]
+pair `EF 1E` instead emits display code `0xF7`, the empty template square. It
+appears in captures whose template navigation leaves a slot unfilled, including
+discarded summation and `nDeriv(` captures. [confirmed]
 
 The type-`0x23` constructor maps source token `0025h` through `34:594D`.
 `34:4900` allocates the `nDeriv(` record, then reserves child leaves for the
@@ -753,10 +752,10 @@ W &= x_e+w_e.
 $$
 
 The type-`0x23` record stores `3`, $H$, $W$, and $B$ at `+5`, `+7`, `+9`,
-and `+0x0B`. The variable leaf uses render type `1`. For the settled scalar
-case `nDeriv(X,X,1)`, the one-token body uses `EF 1E`; observed `A/A` and
-`X/A` cases retain their ordinary body token. This rule is specific to the
-one-token `X/X` case. [confirmed]
+and `+0x0B`. The variable leaf uses render type `1`. The valid settled scalar
+case `nDeriv(X,X,1)` stores `0x58` in both the variable and body leaves. The
+same body token precedes the type-`0x2A` marker in valid powered-body captures.
+[confirmed]
 
 Twelve reset-origin traces cover ordinary and unequal-width arguments, power,
 radical, fraction, nth-root, and integral bodies, plus nested `nDeriv(`. The

@@ -402,11 +402,11 @@ def decode_settled_expression(
     The result retains ordinary leaf runs as token-byte arrays. Structural
     records become nested dictionaries in the same argument order consumed by
     the page-34 renderer. Type ``0x2A`` is a postfix power record: its base is
-    the ordinary token run immediately before its embedded-record marker.
+    the expression immediately before its embedded-record marker.
 
-    ``EF 1E`` is contextual. The type-``0x23`` construction path substitutes it
-    for the one-token ``X`` body in ``nDeriv(X,X,...)``. Outside that body it
-    remains an explicit extended token, including editable placeholder state.
+    ``EF 1E`` remains an explicit extended token. The renderer maps it to display
+    code ``0xF7``, so preserving it exposes editable placeholder state instead of
+    assigning it the semantics of an ordinary token.
     """
 
     by_id: dict[int, dict[str, object]] = {}
@@ -487,7 +487,7 @@ def decode_settled_expression(
             return {
                 "kind": "nDeriv",
                 "variable": leaf(child_ids[0]),
-                "body": leaf(child_ids[1], context="nderiv_body"),
+                "body": leaf(child_ids[1]),
                 "value": leaf(child_ids[2]),
             }
         if render_type == 0x24:
@@ -509,7 +509,7 @@ def decode_settled_expression(
         assert render_type == 0x2A
         return {"kind": "powerExponent", "exponent": leaf(child_ids[0])}
 
-    def leaf(record_id: int, *, context: str | None = None) -> object:
+    def leaf(record_id: int) -> object:
         if record_id in active:
             raise ValueError(f"settled expression contains a cycle at ID 0x{record_id:04X}")
         node = by_id.get(record_id)
@@ -545,11 +545,8 @@ def decode_settled_expression(
                     index += 2
                     continue
                 if subtype == 0x1E:
-                    if context == "nderiv_body":
-                        tokens.append(0x58)
-                    else:
-                        flush_tokens()
-                        parts.append({"kind": "extendedToken", "tokens": [0xEF, 0x1E]})
+                    flush_tokens()
+                    parts.append({"kind": "extendedToken", "tokens": [0xEF, 0x1E]})
                     index += 2
                     continue
                 if not 0x1F <= subtype <= 0x2B or index + 3 >= len(payload):
@@ -564,12 +561,15 @@ def decode_settled_expression(
                         raise ValueError(
                             f"settled power marker references non-power ID 0x{embedded_id:04X}"
                         )
-                    if not tokens:
+                    if tokens:
+                        base: object = tokens.copy()
+                        tokens.clear()
+                    elif parts:
+                        base = parts.pop()
+                    else:
                         raise ValueError(
-                            f"settled power ID 0x{embedded_id:04X} has no preceding token base"
+                            f"settled power ID 0x{embedded_id:04X} has no preceding base"
                         )
-                    base = tokens.copy()
-                    tokens.clear()
                     parts.append({
                         "kind": "power", "base": base,
                         "exponent": expression["exponent"],
