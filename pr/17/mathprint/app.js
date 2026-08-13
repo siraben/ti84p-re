@@ -890,6 +890,56 @@ function flatSettledTokenBytes(source) {
   return bytes.length ? bytes : null;
 }
 
+// Closed expression grammar for the translated record constructor. It keeps
+// ordinary token runs in their leaf order and makes power right-associative,
+// matching the page-34 record pass. Parenthesized, multi-argument, and other
+// untranslated template families remain outside this grammar.
+function constructedSettledSpec(source) {
+  let offset = 0;
+  const atom = () => {
+    if (source.startsWith('sqrt(', offset)) {
+      offset += 5;
+      const radicand = expression(')');
+      if (!radicand || source[offset] !== ')') return null;
+      offset++;
+      return {kind:'radical', radicand};
+    }
+    const match = /^[A-Z0-9.]+/.exec(source.slice(offset));
+    if (!match) return null;
+    offset += match[0].length;
+    const tokens = flatSettledTokenBytes(match[0]);
+    return tokens ? {kind:'tokens', tokens} : null;
+  };
+  const power = () => {
+    const base = atom();
+    if (!base) return null;
+    if (source[offset] !== '^') return base;
+    // The translated power slice currently closes ordinary-token bases. Its
+    // exponent may contain another translated structural expression.
+    if (base.kind !== 'tokens') return null;
+    offset++;
+    const exponent = power();
+    return exponent ? {kind:'power', base:base.tokens, exponent} : null;
+  };
+  const expression = stop => {
+    const parts = [];
+    const first = power();
+    if (!first) return null;
+    parts.push(first);
+    while (offset < source.length && source[offset] !== stop) {
+      const operator = source[offset++];
+      if (!'+-*/'.includes(operator)) return null;
+      const right = power();
+      if (!right) return null;
+      parts.push(
+        {kind:'tokens', tokens:[FLAT_SETTLED_OPERATOR_TOKENS[operator]]}, right);
+    }
+    return parts.length === 1 ? parts[0] : {kind:'sequence', parts};
+  };
+  const result = expression('');
+  return result && offset === source.length ? result : null;
+}
+
 function constructedProgramForExpression(expression) {
   if (!ROM_ENGINE) return null;
   const source = expression.trim();
@@ -898,15 +948,18 @@ function constructedProgramForExpression(expression) {
     const payload = flatSettledTokenBytes(absolute[1]);
     if (payload) return ROM_ENGINE.constructSettledAbsoluteProgram(payload);
   }
-  const parts = source.split('^');
-  if (parts.length < 2 || parts.some(part => !/^[A-Z0-9.]+$/.test(part))) return null;
-  const payloads = parts.map(flatSettledTokenBytes);
-  if (payloads.some(payload => !payload)) return null;
-  let exponent = payloads.pop();
-  while (payloads.length > 1)
-    exponent = {base:payloads.pop(), exponent};
-  return ROM_ENGINE.constructSettledPowerProgram(
-    {base:payloads[0], exponent}, 1, FONT);
+  const radical = /^sqrt\(([^()]*)\)$/.exec(source);
+  if (radical) {
+    const radicand = constructedSettledSpec(radical[1]);
+    return radicand
+      ? ROM_ENGINE.constructSettledRadicalProgram(radicand, 1, FONT)
+      : null;
+  }
+  const spec = constructedSettledSpec(source);
+  if (!spec) return null;
+  return spec.kind === 'power'
+    ? ROM_ENGINE.constructSettledPowerProgram(spec, 1, FONT)
+    : ROM_ENGINE.constructSettledExpressionProgram(spec, 1, FONT);
 }
 
 function generatedForExpression(expression) {

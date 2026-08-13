@@ -714,7 +714,8 @@
       }
       case 0x27: {
         const first = child(record, 1);
-        const operations = settledRadicalOperations(record.word07, first.word07);
+        const operations = settledRadicalOperations(
+          record.word07, first.word07, state.depth - 1);
         state.depth--;
         emit(record, origin, operations[0]);
         emit(record, origin, operations[1]);
@@ -922,101 +923,195 @@
             baseline:depth === 0 ? 3 : 2};
   }
 
-  function settledPowerSpec(spec, label = 'settled power') {
-    if (!spec || typeof spec !== 'object' || Array.isArray(spec))
-      throw new TypeError(`${label} must contain base and exponent payloads`);
-    const base = Array.from(spec.base || [], (value, index) =>
-      byte(value, `${label} base token ${index}`));
-    if (!base.length) throw new RangeError(`${label} base must not be empty`);
-    const exponent = spec.exponent;
-    if (Array.isArray(exponent) || exponent instanceof Uint8Array) {
-      const payload = Array.from(exponent, (value, index) =>
-        byte(value, `${label} exponent token ${index}`));
-      if (!payload.length) throw new RangeError(`${label} exponent must not be empty`);
-      return {base, exponent:payload};
+  function settledExpressionSpec(input, label = 'settled expression', active = new Set()) {
+    if (Array.isArray(input) || input instanceof Uint8Array) {
+      const tokens = Array.from(input, (value, index) =>
+        byte(value, `${label} token ${index}`));
+      if (!tokens.length) throw new RangeError(`${label} must not be empty`);
+      return {kind:'tokens', tokens};
     }
-    return {base, exponent:settledPowerSpec(exponent, `${label} exponent`)};
+    if (!input || typeof input !== 'object')
+      throw new TypeError(`${label} must be token bytes or a structural expression`);
+    if (active.has(input)) throw new RangeError(`${label} contains a cycle`);
+    active.add(input);
+    try {
+      const kind = input.kind ||
+        (Object.prototype.hasOwnProperty.call(input, 'base') ? 'power' : null);
+      if (kind === 'tokens')
+        return settledExpressionSpec(input.tokens, label, active);
+      if (kind === 'sequence') {
+        if (!Array.isArray(input.parts) || !input.parts.length)
+          throw new RangeError(`${label} sequence must contain at least one part`);
+        return {kind, parts:input.parts.map((part, index) =>
+          settledExpressionSpec(part, `${label} part ${index}`, active))};
+      }
+      if (kind === 'power') {
+        const base = Array.from(input.base || [], (value, index) =>
+          byte(value, `${label} power base token ${index}`));
+        if (!base.length) throw new RangeError(`${label} power base must not be empty`);
+        return {
+          kind, base,
+          exponent:settledExpressionSpec(input.exponent, `${label} exponent`, active),
+        };
+      }
+      if (kind === 'radical') return {
+        kind,
+        radicand:settledExpressionSpec(
+          input.radicand, `${label} radicand`, active),
+      };
+      throw new RangeError(`${label} has unsupported kind ${JSON.stringify(kind)}`);
+    } finally {
+      active.delete(input);
+    }
   }
 
-  // 34:5935 maps source token F0h to render type 2Ah. The record pass embeds
-  // EF 2Ah id_lo id_hi after the base payload and constructs its exponent as
-  // child 1. 34:7393 and 34:7609 apply a depth-sensitive raised-row metric:
-  // the first raised row adds 5 pixels of height and 4 to the baseline, while
-  // later raised rows add 3 to each. This translates right-nested powers.
-  function constructSettledPowerProgram(input, firstId = 1, font = null) {
-    const spec = settledPowerSpec(input);
+  // 34:4900 allocates records as the token pass encounters each structural
+  // object. 34:5935 maps the source tokens to render types, and 34:7393/7609
+  // fill the record metrics. A leaf can therefore interleave ordinary tokens
+  // with embedded structural IDs. This builder retains that allocation and
+  // payload order so different translated object types can compose.
+  function constructSettledExpressionProgram(input, firstId = 1, font = null) {
+    const spec = settledExpressionSpec(input);
     if (!Number.isInteger(firstId) || firstId < 1 || firstId > 0xffff)
-      throw new RangeError('power first record ID must be an unsigned word');
-    const renderType = settledStructuralTokenType(0x00, 0xf0);
-    if (renderType !== 0x2a)
-      throw new Error('34:594D power token mapping is inconsistent');
+      throw new RangeError('settled first record ID must be an unsigned word');
     const nodes = [];
     let nextId = firstId;
     const allocate = () => {
       if (nextId > 0xffff)
-        throw new RangeError('power record construction exhausted unsigned IDs');
+        throw new RangeError('settled record construction exhausted unsigned IDs');
       return nextId++;
     };
+    const checkedWord = (value, label) => {
+      if (!Number.isInteger(value) || value < 0 || value > 0xffff)
+        throw new RangeError(`${label} must fit an unsigned word`);
+      return value;
+    };
+    const embedded = (renderType, recordId) =>
+      [0xef, renderType, recordId & 0xff, recordId >> 8, 0xef, 0x2d];
 
-    const build = (power, depth, parentId) => {
+    const build = (expression, renderDepth, parentId, structuralDepth) => {
       const leafId = allocate();
-      const structuralId = allocate();
-      const base = settledLeafMetrics(power.base, depth, font);
-      let child;
-      if (Array.isArray(power.exponent)) {
-        const childId = allocate();
-        const metrics = settledLeafMetrics(power.exponent, depth + 1, font);
-        child = {
-          record_id:childId, render_type:0, word03:structuralId,
-          word05:metrics.height, word07:metrics.width, word09:metrics.baseline,
-          word0B:0, word0D:0, word0F:metrics.payload.length,
-          word11:metrics.payload.length, byte13:metrics.payload[0],
-          child_ids:[], payload:metrics.payload,
-        };
-      } else {
-        child = build(power.exponent, depth + 1, structuralId).leaf;
-      }
-
-      const firstRaisedRow = depth === 0;
-      const structural = {
-        record_id:structuralId, render_type:renderType, word03:leafId,
-        word05:settledRecordMetadata(renderType)[1],
-        word07:child.word05 + (firstRaisedRow ? 5 : 3),
-        word09:child.word07,
-        word0B:child.word09 + (firstRaisedRow ? 4 : 3),
-        word0D:firstRaisedRow ? 6 : 4,
-        word0F:0, word11:depth + 1, byte13:base.payload[0],
-        child_ids:[child.record_id], payload:[],
-      };
-      const embedded = [0xef, renderType, structuralId & 0xff,
-                        structuralId >> 8, 0xef, 0x2d];
-      const payload = [...base.payload, ...embedded];
       const leaf = {
         record_id:leafId, render_type:0, word03:parentId,
-        word05:Math.max(base.height, structural.word07),
-        word07:base.width + structural.word09,
-        word09:Math.max(base.baseline, structural.word0B),
-        word0B:0, word0D:0, word0F:payload.length,
-        word11:payload.length, byte13:payload[0],
-        child_ids:[], payload,
+        word05:0, word07:0, word09:0, word0B:0, word0D:0,
+        word0F:0, word11:0, byte13:0, child_ids:[], payload:[],
       };
-      nodes.push(leaf, structural);
-      if (Array.isArray(power.exponent)) nodes.push(child);
-      return {leaf, structural};
+      nodes.push(leaf);
+
+      const addTokens = tokens => {
+        const metrics = settledLeafMetrics(tokens, renderDepth, font);
+        leaf.word05 = Math.max(leaf.word05, metrics.height);
+        leaf.word07 = checkedWord(
+          leaf.word07 + metrics.width, 'settled leaf width');
+        leaf.word09 = Math.max(leaf.word09, metrics.baseline);
+        leaf.payload.push(...metrics.payload);
+      };
+      const addStructural = structural => {
+        leaf.word05 = Math.max(leaf.word05, structural.word07);
+        leaf.word07 = checkedWord(
+          leaf.word07 + structural.word09, 'settled structural leaf width');
+        leaf.word09 = Math.max(leaf.word09, structural.word0B);
+        leaf.payload.push(...embedded(structural.render_type, structural.record_id));
+      };
+
+      const addPart = part => {
+        if (part.kind === 'tokens') {
+          addTokens(part.tokens);
+          return;
+        }
+        if (part.kind === 'sequence') {
+          for (const child of part.parts) addPart(child);
+          return;
+        }
+        if (part.kind === 'power') {
+          addTokens(part.base);
+          const renderType = settledStructuralTokenType(0x00, 0xf0);
+          if (renderType !== 0x2a)
+            throw new Error('34:594D power token mapping is inconsistent');
+          const structuralId = allocate();
+          const structural = {
+            record_id:structuralId, render_type:renderType, word03:leafId,
+            word05:settledRecordMetadata(renderType)[1],
+            word07:0, word09:0, word0B:0, word0D:0, word0F:0,
+            word11:structuralDepth + 1, byte13:0, child_ids:[], payload:[],
+          };
+          nodes.push(structural);
+          const child = build(
+            part.exponent, renderDepth + 1, structuralId, structuralDepth + 1);
+          const firstRaisedRow = renderDepth === 0;
+          structural.word07 = checkedWord(
+            child.word05 + (firstRaisedRow ? 5 : 3), 'power height');
+          structural.word09 = child.word07;
+          structural.word0B = checkedWord(
+            child.word09 + (firstRaisedRow ? 4 : 3), 'power baseline');
+          structural.word0D = firstRaisedRow ? 6 : 4;
+          structural.child_ids = [child.record_id];
+          addStructural(structural);
+          return;
+        }
+        if (part.kind === 'radical') {
+          const renderType = settledStructuralTokenType(0x00, 0xbc);
+          if (renderType !== 0x27)
+            throw new Error('34:594D radical token mapping is inconsistent');
+          const structuralId = allocate();
+          const structural = {
+            record_id:structuralId, render_type:renderType, word03:leafId,
+            word05:settledRecordMetadata(renderType)[1],
+            word07:0, word09:0, word0B:0, word0D:0, word0F:0,
+            word11:structuralDepth + 1, byte13:0, child_ids:[], payload:[],
+          };
+          nodes.push(structural);
+          const child = build(
+            part.radicand, renderDepth, structuralId, structuralDepth + 1);
+          child.word0B = 5;
+          child.word0D = 2;
+          structural.word07 = checkedWord(child.word05 + 2, 'radical height');
+          structural.word09 = checkedWord(child.word07 + 5, 'radical width');
+          structural.word0B = checkedWord(child.word09 + 2, 'radical baseline');
+          structural.child_ids = [child.record_id];
+          addStructural(structural);
+          return;
+        }
+        throw new RangeError(`unsupported settled expression part ${part.kind}`);
+      };
+
+      addPart(expression);
+      if (!leaf.payload.length)
+        throw new RangeError('settled leaf construction produced an empty payload');
+      checkedWord(leaf.payload.length, 'settled leaf payload length');
+      leaf.word0F = leaf.payload.length;
+      leaf.word11 = leaf.payload.length;
+      leaf.byte13 = leaf.payload[0];
+      return leaf;
     };
 
-    const root = build(spec, 0, firstId - 1).leaf;
+    const root = build(spec, 0, firstId - 1, 0);
     for (const node of nodes)
-      if (node.render_type === renderType) node.byte13 = root.payload[0];
-    // Recursive construction appended nested nodes before their parents. The
-    // arena IDs encode the ROM allocation order, so export in that same order.
-    nodes.sort((left, right) => left.record_id - right.record_id);
+      if (node.render_type >= 0x1f) node.byte13 = root.payload[0];
     return {
       entry_id:root.record_id,
       origin:{x:0,y:0},
-      source:'34:4900, 34:5935, 34:7393, and 34:7609 translated power construction',
+      source:'34:4900, 34:5935, 34:7393, and 34:7609 translated compositional construction',
       nodes,
     };
+  }
+
+  // Compatibility entry for the closed power slice. The exponent may itself
+  // contain any expression kind accepted by the compositional builder.
+  function constructSettledPowerProgram(input, firstId = 1, font = null) {
+    const program = constructSettledExpressionProgram(
+      {...input, kind:'power'}, firstId, font);
+    program.source =
+      '34:4900, 34:5935, 34:7393, and 34:7609 translated power construction';
+    return program;
+  }
+
+  function constructSettledRadicalProgram(radicand, firstId = 1, font = null) {
+    const program = constructSettledExpressionProgram(
+      {kind:'radical', radicand}, firstId, font);
+    program.source =
+      '34:4900, 34:5935, 34:7393, and 34:7609 translated radical construction';
+    return program;
   }
 
   // Execute the complete leaf byte stream entered at 34:660A. EF 1Fh..2Bh
@@ -1297,7 +1392,8 @@
             if (blit.rows[row] & 1 << (blit.width - 1 - column)) ink |= screenMask;
           }
           const before = settledGridByte(grid, byteColumn, y);
-          write(byteColumn, y, (before & ~coverage) | ink, largeGlyph || smallGlyph);
+          write(byteColumn, y, (before & ~coverage) | ink,
+                largeGlyph || smallGlyph || operation.retainUnchanged === true);
         }
       }
     }
@@ -1410,17 +1506,22 @@
   // root-hook bitmap first. The handler then draws its vertical stem, selects
   // child 1, reads that child's +7 width, emits the inclusive vinculum, and
   // finally enters the child renderer at 34:660A.
-  function settledRadicalOperations(height, childWidth) {
+  function settledRadicalOperations(height, childWidth, depth = 0) {
     byte(height, 'settled radical height');
     byte(childWidth, 'settled radical child width');
-    if (height < 9)
-      throw new RangeError('settled radical height must fit the hook and stem');
-    const stemEnd = height - 8;
+    byte(depth, 'settled radical depth');
+    const fullRows = [0x04,0x04,0x04,0x04,0x14,0x0c,0x04];
+    const rows = depth === 0 ? fullRows : fullRows.slice(2);
+    const hookY = height - rows.length;
+    if (hookY < 0)
+      throw new RangeError('settled radical height cannot place its hook');
+    const stemEnd = Math.max(1, height - 8);
     const ruleEnd = childWidth + 3;
     byte(ruleEnd, 'settled radical vinculum endpoint');
     return [
-      {kind:'bitmap', x:0, y:height - 7, width:5, height:7,
-       rows:[0x04,0x04,0x04,0x04,0x14,0x0c,0x04],
+      {kind:'bitmap', x:0, y:hookY, width:5, height:rows.length,
+       rows,
+       retainUnchanged:true,
        routine:'34:62A4 → 34:62D0 → 34:630C'},
       {kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:stemEnd},
        routine:'34:62AE → 34:5D96'},
@@ -1479,7 +1580,9 @@
     rasterizeSettledOperations,
     settledTokenGlyph,
     constructSettledAbsoluteProgram,
+    constructSettledExpressionProgram,
     constructSettledPowerProgram,
+    constructSettledRadicalProgram,
     settledFractionOperations,
     settledSingleChildOperations,
     settledAbsoluteOperations,
