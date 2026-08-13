@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6ca6b5ff.js";
+            window.path_to_searchindex_js = "searchindex-1265e5f7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14882,54 +14882,71 @@ anchors for readers who want to check the disassembly. [confirmed]</p>
 declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, and large-glyph output. It recursively follows direct ROM
-edges from named entries, resolves the finite dispatch tables, overlays exact
-next-PC outcomes from 175 reset-origin traces, and lists external targets.
+edges from named entries, seeds decoded table destinations, overlays exact
+next-PC outcomes from 183 reset-origin traces, and lists direct external
+targets. Computed dispatch destinations are manually seeded; bcall and RAM
+bjump bodies remain outside the direct-edge walk. Of those traces, 182 reach
+their state through calculator input. One explicitly classified synthetic trace
+inserts an <code>EF36h</code> editor buffer through direct RAM writes. The report keeps the
+two provenance classes separate.
 <code>tools/mathprint-saturation.json</code> records the resulting branches and trace
 hashes. [confirmed]</p>
 <p>The report is a symbolic-execution aid rather than a whole-machine proof. It
-models finite table indices exactly. The shared draw helper at <code>34:6143</code> has a
-$256 \times 2 \times 65{,}536 = 33{,}554{,}432$-state domain over incoming
-<code>A</code>, <code>(IY+44h).3</code>, and the word at <code>0x8520</code>. Complete predicate evaluation
-reduces that domain to 14 branch-path classes and ten terminal actions. The
-marker-tail gate at <code>34:759C</code> reduces its 16 predicate combinations to five
-branch-path classes. Stream length, arbitrary RAM, and indirect targets outside
-the declared components remain outside these finite models. [confirmed]</p>
+decodes fixed table rows and partitions three projected input domains. The
+scan-kind dispatcher at <code>34:5678</code> partitions all 256 incoming <code>A</code> values into
+seven terminal paths. The shared draw helper at <code>34:6143</code> partitions the
+$256 \times 2 \times 65{,}536 = 33{,}554{,}432$ projected tuples over incoming
+<code>A</code>, <code>(IY+44h).3</code>, and the word at <code>0x8520</code>. Its predicates reduce those tuples
+to 14 branch-path classes and ten terminal actions. This count covers the
+projected inputs, not every register and RAM state. The marker-tail callee at
+<code>34:759C</code> reduces 16 abstract predicate valuations to five return classes.
+Stream length, arbitrary RAM, and unmodeled indirect targets remain outside
+these finite models. [confirmed]</p>
+<p>The metadata rows use scan kinds <code>0</code>, <code>1</code>, <code>2</code>, <code>3</code>, <code>4</code>, and <code>6</code>. Natural
+traces witness six of the seven dispatch classes. Scan kind <code>2</code> would take
+<code>34:5680</code> into the fraction scanner at <code>34:56DF</code>, but no retained invocation
+does so. Existing fraction construction instead reaches the same scanner
+through another entry route. The outcome remains unresolved because the
+metadata value proves local relevance but does not prove caller reachability.
+[confirmed]</p>
 <p>The report keeps complete path witnesses separate from individual branch
 outcome witnesses. A class whose branch outcomes all occur somewhere in the
 corpus is not necessarily a class traversed by one invocation. The editor ABI
-at <code>34:6143</code> has two complete live path witnesses. The render-table ABI has one
-ROM-fixed class because <code>_LdHLind</code> fixes <code>A=0x43</code>. At <code>34:759C</code>, a branch
-outcome unique to each terminal class identifies which of its five paths have
-live witnesses. [confirmed]</p>
+at <code>34:6143</code> has seven complete live path witnesses. The render-table ABI has
+one ROM-fixed class because <code>_LdHLind</code> fixes <code>A=0x43</code>. The <code>34:759C</code> model ends
+at the callee return. It records the continuations at <code>34:755F</code>, <code>34:6FC9</code>, and
+the tail-jump caller at <code>05:785F</code> separately. A branch outcome unique to each
+return class identifies which callee paths have live witnesses. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Component</th><th style="text-align: right">Reachable instructions</th><th style="text-align: right">Conditional outcomes observed</th><th style="text-align: right">Conditional outcomes in CFG</th><th style="text-align: right">Instruction coverage</th></tr>
+<tr><th>Component</th><th style="text-align: right">Reachable instructions</th><th style="text-align: right">Natural / all-evidence outcomes</th><th style="text-align: right">Outcomes in CFG</th><th style="text-align: right">Natural / all-evidence instruction coverage</th></tr>
 </thead>
 <tbody>
-<tr><td>Settled construction</td><td style="text-align: right">991</td><td style="text-align: right">244</td><td style="text-align: right">408</td><td style="text-align: right">79.11%</td></tr>
-<tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">217</td><td style="text-align: right">302</td><td style="text-align: right">93.05%</td></tr>
-<tr><td>Metrics and geometry</td><td style="text-align: right">470</td><td style="text-align: right">75</td><td style="text-align: right">80</td><td style="text-align: right">99.36%</td></tr>
-<tr><td>Record allocator</td><td style="text-align: right">64</td><td style="text-align: right">7</td><td style="text-align: right">8</td><td style="text-align: right">98.44%</td></tr>
-<tr><td>Editor layout</td><td style="text-align: right">2,776</td><td style="text-align: right">245</td><td style="text-align: right">1,098</td><td style="text-align: right">32.42%</td></tr>
-<tr><td>Small-font and LCD output</td><td style="text-align: right">413</td><td style="text-align: right">76</td><td style="text-align: right">122</td><td style="text-align: right">71.19%</td></tr>
-<tr><td>Point and line primitives</td><td style="text-align: right">508</td><td style="text-align: right">44</td><td style="text-align: right">134</td><td style="text-align: right">58.07%</td></tr>
-<tr><td>Large glyphs</td><td style="text-align: right">130</td><td style="text-align: right">16</td><td style="text-align: right">32</td><td style="text-align: right">68.46%</td></tr>
+<tr><td>Settled construction</td><td style="text-align: right">991</td><td style="text-align: right">247 / 248</td><td style="text-align: right">408</td><td style="text-align: right">80.73% / 80.73%</td></tr>
+<tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">233 / 235</td><td style="text-align: right">302</td><td style="text-align: right">94.63% / 94.63%</td></tr>
+<tr><td>Metrics and geometry</td><td style="text-align: right">470</td><td style="text-align: right">75 / 75</td><td style="text-align: right">80</td><td style="text-align: right">99.36% / 99.36%</td></tr>
+<tr><td>Record allocator</td><td style="text-align: right">64</td><td style="text-align: right">7 / 7</td><td style="text-align: right">8</td><td style="text-align: right">98.44% / 98.44%</td></tr>
+<tr><td>Editor layout</td><td style="text-align: right">2,776</td><td style="text-align: right">245 / 245</td><td style="text-align: right">1,098</td><td style="text-align: right">32.42% / 32.42%</td></tr>
+<tr><td>Small-font and LCD output</td><td style="text-align: right">413</td><td style="text-align: right">81 / 81</td><td style="text-align: right">122</td><td style="text-align: right">75.54% / 75.54%</td></tr>
+<tr><td>Point and line primitives</td><td style="text-align: right">508</td><td style="text-align: right">48 / 48</td><td style="text-align: right">134</td><td style="text-align: right">59.45% / 59.45%</td></tr>
+<tr><td>Large glyphs</td><td style="text-align: right">130</td><td style="text-align: right">16 / 16</td><td style="text-align: right">32</td><td style="text-align: right">68.46% / 68.46%</td></tr>
 </tbody>
 </table>
 </div>
 <p>These counts describe the declared CFG and retained saturation corpus, not all
 OS entry states. A branch with both outcomes observed is dynamically saturated
 for that corpus. A branch with one or no outcomes remains open even when its
-containing routine has been reached. The allocator is the only declared
-component whose every conditional branch has at least one observed outcome;
-three of its four branches have both outcomes. [confirmed]</p>
-<p>The report classifies all 2,184 enumerated outcomes. The traces exercise 924.
-One allocator outcome is infeasible under its data invariant. Two metric
-outcomes are infeasible under the calculator call ABI. The other 1,257 remain
-unresolved because their required state or calling ABI is not yet proved. An
-unobserved outcome never becomes infeasible from absence alone.
-[confirmed]</p>
+containing routine has been reached. Metrics and geometry and the allocator
+have no wholly unobserved branch. The other six components still do. Three of
+the allocator’s four branches and 35 of the 40 metric branches have both
+outcomes. [confirmed]</p>
+<p>The report classifies all 2,184 enumerated outcomes. Natural calculator input
+exercises 952. The synthetic <code>EF36h</code> state adds three outcomes, for 955 across
+all evidence. One allocator outcome is infeasible under its data invariant.
+Two metric outcomes are infeasible under the calculator call ABI. The full
+evidence set leaves 1,226 unresolved; the natural-only set leaves 1,229.
+An unobserved outcome never becomes infeasible from absence alone. [confirmed]</p>
 <p>The infeasible allocator outcome is the fallthrough at <code>33:4F4E</code>. The type
 <code>0x2B</code> path loads rows and columns from record offsets <code>+0x13</code> and <code>+0x12</code>, then
 <code>_HTimesL</code> (<code>00:1EF6</code>) computes their product. The matrix-creation path at
@@ -14943,14 +14960,68 @@ dispatcher recursion therefore fixes <code>B=0</code>. The <code>B!=0</code> out
 fallthrough and <code>34:765D</code> return are infeasible under this calculator ABI.
 Synthetic direct calls to internal metric handlers do not share the ABI.
 [confirmed]</p>
-<p>An exact Z3 set-cover calculation reduces the 175 trace summaries to 22 while
-preserving all 924 observed outcomes. It minimizes trace count first, retained
-bytes second, and labels third. The 22 selected traces total 3,188,345,442
-bytes. The report lists each selected trace’s exclusive outcomes, proving that
-removing any one of the 22 loses coverage.
-This is a proven minimum for the supplied trace set, not for every input the OS
-can accept. The broad trace set remains an RE and regression corpus; the public
-gallery uses a smaller, diverse selection. [confirmed]</p>
+<p>An exact Z3 set-cover calculation reduces all 183 trace summaries to 23 while
+preserving all 955 observed individual branch outcomes. It minimizes trace
+count first, retained bytes second, and labels third. The selected traces total
+3,532,665,876 bytes. Every selected trace has an exclusive outcome relative to
+the other 22.</p>
+<p>The same calculation over the 182 natural traces produces a 23-trace minimum.
+It preserves all 952 natural outcomes in 3,589,756,968 bytes, and every selected
+trace again has an exclusive outcome. These are proven minima for the supplied
+trace sets and the branch-outcome feature universe. They do not preserve every
+complete invocation path, register or RAM state, dispatch row, record oracle,
+or LCD-write stream. The broad set remains the RE and regression corpus; the
+public gallery uses a smaller, diverse selection. [confirmed]</p>
+<p>A second exact cover adds the sound dynamic state features currently decoded:
+seven <code>34:6143</code> entry values and 15 complete paths through <code>34:5678</code>, <code>34:6143</code>,
+and <code>34:759C</code>. The full feature universe contains 977 tags; the natural-only
+universe contains 974. Both minimize to the same 23 traces and byte totals as
+the corresponding branch-outcome covers. This proves preservation for the
+modeled live features. It does not make unmodeled state part of the claim.
+[confirmed]</p>
+<p>The four key-driven additions below are retained by the new 23-trace minimum.
+Together they contribute 21 outcomes absent from the earlier 175-trace union:
+six from the log-base run, one from the integral run, and 14 from the
+<strong>Y=</strong>/table run. The radical run adds no union-new outcome, but it replaces
+larger or less complementary witnesses in the exact minimum. The macro paths
+contain no <code>memwrite</code> command or execution hook. The raw TLMT files remain
+outside the repository; their hashes identify the exact inputs used by the
+report. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Input</th><th>Reproduction macro</th><th>Trace SHA-256</th><th style="text-align: right">Exclusive outcomes in the 23-trace full minimum</th></tr>
+</thead>
+<tbody>
+<tr><td>Log-base marker insertion</td><td><code>tools/macros/mathprint-logbase-boundary-insert.macro</code></td><td><code>a49e4c13c93358662713da7f5e07862f42863d60a70ce18e141a90987914008b</code></td><td style="text-align: right">2</td></tr>
+<tr><td>Radical marker insertion</td><td><code>tools/macros/mathprint-radical-nonspecial-insert.macro</code></td><td><code>e7b79e37149f2b9b4a986bdbb114a89b03cd452bbecc6da20490edc972895e98</code></td><td style="text-align: right">3</td></tr>
+<tr><td>Integral marker insertion</td><td><code>tools/macros/mathprint-integral-boundary-insert.macro</code></td><td><code>328b8f52ebe939b35f79e676076984aa85ee59e05c06862647c4fc615069bb3c</code></td><td style="text-align: right">2</td></tr>
+<tr><td><strong>Y=</strong>/table/power round trip</td><td><code>tools/macros/mathprint-yequ-table-power-insert.macro</code></td><td><code>ac719f540d2adfca05d2ffa415f065b83eaf407f04fca42f5ae63c440a746b9d</code></td><td style="text-align: right">14</td></tr>
+</tbody>
+</table>
+</div>
+<p>Four additional reset-origin traces close ten natural branch outcomes and four
+complete editor-helper paths. Their macros use key input only. The screenshots
+and <code>A</code> at each discriminator were checked before admission. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Input</th><th>Reproduction macro</th><th>Trace SHA-256</th><th>Complete <code>34:6143</code> path</th></tr>
+</thead>
+<tbody>
+<tr><td>Absolute-value marker</td><td><code>tools/macros/mathprint-absolute-boundary-insert.macro</code></td><td><code>103f3acc7f1ad13d1bf88af45ecacdc7e34133e66cc9c00fb57587674357cacf</code></td><td><code>A=0x21</code> → display code <code>0x7C</code></td></tr>
+<tr><td>$e^x$ marker</td><td><code>tools/macros/mathprint-e-power-boundary-insert.macro</code></td><td><code>c927963c5db9a1f6f18652213764eabbf7a4fa9f2d2a74b7dae320fe882d7917</code></td><td><code>A=0x25</code> → display code <code>0xDB</code></td></tr>
+<tr><td>$10^x$ marker</td><td><code>tools/macros/mathprint-ten-power-boundary-insert.macro</code></td><td><code>eb337f479d112e88537f0950fd7d2a917d101cfafda98447fb717a9a35f1e1e4</code></td><td><code>A=0x26</code> → display code <code>0x1D</code></td></tr>
+<tr><td>Summation marker</td><td><code>tools/macros/mathprint-summation-boundary-insert.macro</code></td><td><code>980b2d17df5753223881090235fcca4bb4e8457a37c6cb05eef8f7a54314adf8</code></td><td><code>A=0x29</code> → display code <code>0xC6</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The synthetic <code>EF36h</code> trace uses
+<code>tools/macros/mathprint-ef36-injected-buffer.macro</code>. Its two <code>memwrite</code>
+commands place <code>EF 36 31 11</code> at the editor cursor. It is the sole synthetic
+source in the 183-trace report. It supplies the only evidence for
+<code>34:5A23</code> fallthrough, <code>34:6992</code> taken, and <code>34:6B94</code> taken. The full minimum
+retains it; the natural minimum excludes it by construction. [confirmed]</p>
 <p>The in-progress editor is a gap buffer. <code>editTop</code> (<code>0x96F4</code>) and <code>editCursor</code>
 (<code>0x96F6</code>) bound the left segment. <code>editTail</code> (<code>0x96F8</code>) and <code>editBtm</code>
 (<code>0x96FA</code>) bound the right segment. Moving across a structural object exposes
@@ -14964,11 +15035,15 @@ On its fallthrough, <code>34:75AB</code> reads the marker type from <code>editTa
 markers; <code>34:75B0</code> takes its Z branch for this set. <code>34:75B8</code> then reads the
 nesting counter at <code>0x8515</code>, and <code>34:75BB</code> distinguishes zero from nonzero
 depth. <code>tools/macros/mathprint-power-boundary-insert.macro</code> reproduces the
-top-level power-marker path. The table-equation outcome at <code>34:75A9</code> taken,
-the non-special marker outcome at <code>34:75B0</code> fallthrough, and the nested special
-marker outcome at <code>34:75BB</code> fallthrough remain unresolved. The symbolic model
-establishes their local branch paths, but no retained calculator trace exercises
-them. [confirmed]</p>
+top-level power-marker path. The <strong>Y=</strong>/table/power round trip above reaches this
+gate after returning to <strong>Y=</strong>, but the conjunction tested by <code>34:789A</code> is false
+at that invocation. It therefore witnesses <code>34:75A9</code> fallthrough, not taken. The
+table-equation outcome at <code>34:75A9</code> taken, the non-special marker outcome at
+<code>34:75B0</code> fallthrough, and the nested special-marker outcome at <code>34:75BB</code>
+fallthrough remain unresolved under natural input. Injected-state probes prove
+that each local path is feasible, but they do not prove calculator
+reachability. Those three <code>34:759C</code> injected-state probes are absent from both
+minimized corpora. [confirmed]</p>
 <p>The record-oracle corpus contains 105 captured cases. It includes types <code>0x20</code>
 through <code>0x2B</code>; the only missing structural type is <code>0x1F</code>. Each of those 12
 types has a decoded record node and accepted-write oracle. This saturates the
@@ -14985,9 +15060,14 @@ the fixed default path to the seven-row bitmap at <code>34:61BE</code>; <code>(I
 <code>06:7F2E</code> calls the bjump descriptor at <code>ram:30BD</code>. Its bytes
 <code>CD 09 2B 43 61 74</code> select <code>34:6143</code>. The radical-marker trace enters with
 <code>A=0x27</code> and <code>(IY+44h).3</code> set, selecting the bitmap at <code>34:630C</code>. The integral
-trace enters with <code>A=0x22</code> and emits display code <code>0x7C</code>. The reproducible
-inputs are <code>tools/macros/mathprint-radical-marker-insert.macro</code> and
-<code>tools/macros/mathprint-integral-marker-insert.macro</code>. [confirmed]</p>
+trace enters with <code>A=0x22</code> and emits display code <code>0x7C</code>. The reproductions in
+the coverage table use
+<code>tools/macros/mathprint-radical-nonspecial-insert.macro</code> and
+<code>tools/macros/mathprint-integral-boundary-insert.macro</code>. Absolute value,
+$e^x$, $10^x$, log base, and summation add live paths for <code>A=0x21</code>, <code>0x25</code>,
+<code>0x26</code>, <code>0x28</code>, and <code>0x29</code>. The editor marker domain also includes the
+exceptional <code>0x2C</code> marker produced by the <code>EF36h</code> synthetic state. The default
+bitmap path handles it. [confirmed]</p>
 <p>Type <code>0x1F</code> remains open only as a captured record oracle. <code>34:4FD9</code> allocates
 it as a transient one-child root record. <code>34:6028</code> loads <code>A=0x1F</code>, and
 <code>34:602B</code> calls <code>34:7844</code> to store the current render type at <code>0x8DE7</code>. The
