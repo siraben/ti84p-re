@@ -53,7 +53,7 @@ class StaticBranchTests(unittest.TestCase):
         )
         self.assertIsNone(classify_outcome(branch, ("page_01", 0x6297)))
 
-    def test_conditional_return_requires_stack_pop(self) -> None:
+    def test_conditional_return_uses_post_instruction_flags(self) -> None:
         branch = Branch(
             RomLocation(0x34, 0x5000), "ret z", "ret", None,
             RomLocation(0x34, 0x5001),
@@ -63,13 +63,13 @@ class StaticBranchTests(unittest.TestCase):
             "returned",
             classify_outcome(
                 branch, ("page_34", 0x6000),
-                {"SP": 0x9000}, {"SP": 0x9002},
+                {"F": 0x40, "SP": 0x9002}, {"F": 0x40, "SP": 0x9002},
             ),
         )
         self.assertIsNone(
             classify_outcome(
                 branch, ("page_01", 0x6297),
-                {"SP": 0x9000}, {"SP": 0x8FFE},
+                {"F": 0x00, "SP": 0x9000}, {"F": 0x00, "SP": 0x9000},
             )
         )
 
@@ -89,7 +89,7 @@ class StaticBranchTests(unittest.TestCase):
         )
         self.assertEqual(
             {"B_before": 1, "B_after": 0, "predicate": False},
-            predicate_state(loop_branch, {"F": 0, "BC": 0x0100}),
+            predicate_state(loop_branch, {"F": 0, "BC": 0x0000}),
         )
 
     def test_branch_report_keeps_unobserved_status_explicit(self) -> None:
