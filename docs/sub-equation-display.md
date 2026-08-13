@@ -989,9 +989,13 @@ timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement
 bytes therefore remain visible in the trace. [confirmed]
 
-The text field uses a preview-specific semantic grammar. It does not emulate
-the TI-OS editor or decode its in-progress template AST. The translated path
-begins at the native byte stream produced by that frontend. [confirmed]
+The text field uses a preview-specific semantic grammar for ordinary input. It
+does not emulate the TI-OS editor or decode its in-progress template AST. An
+input prefixed with `hex:` bypasses that grammar and passes the listed native
+bytes to the translated constructor. Malformed streams and untranslated
+structural types produce an error; this path does not select the model
+compositor. Each accepted LCD byte remains available as eight ordered pixel
+results in the live timeline. [confirmed]
 
 The 5,018-case Node test remains a deterministic parser/layout smoke test. Six
 settled record programs provide exact final-pixel and complete accepted-write
