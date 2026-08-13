@@ -1069,8 +1069,15 @@
         // The type-2Ah metric pass records the exponent's horizontal anchor at
         // +0Dh when the object is appended. It is the containing leaf's width
         // before the power object, including a grouped or structural base.
-        if (structural.render_type === 0x2a)
+        if (structural.render_type === 0x2a) {
           structural.word0D = leaf.word07;
+          const ordinaryBaseline = renderDepth === 0 ? 3 : 2;
+          const baseBaselineDelta = Math.max(0, leaf.word09 - ordinaryBaseline);
+          structural.word07 = checkedWord(
+            structural.word07 + baseBaselineDelta, 'power height after base');
+          structural.word0B = checkedWord(
+            structural.word0B + baseBaselineDelta, 'power baseline after base');
+        }
         leaf.word05 = Math.max(leaf.word05, structural.word07);
         leaf.word07 = checkedWord(
           leaf.word07 + structural.word09, 'settled structural leaf width');
@@ -1136,6 +1143,13 @@
         // the exponent record so structural bases retain encounter order.
         const base = prepare(
           expression.base, renderDepth, structuralDepth, fractionNumerator);
+        const trailingStructural = part => {
+          if (part.kind === 'embedded') return part.structural;
+          if (part.kind !== 'sequence' || !part.parts.length) return null;
+          return trailingStructural(part.parts[part.parts.length - 1]);
+        };
+        const baseStructural = trailingStructural(base);
+        if (baseStructural) baseStructural.word0F = 3;
         const renderType = settledStructuralTokenType(0x00, 0xf0);
         if (renderType !== 0x2a)
           throw new Error('34:594D power token mapping is inconsistent');
