@@ -155,11 +155,13 @@ parser translates argument boundaries at `34:5AA3` plus the relevant
 `34:594D`, `34:4900`, `34:7393`, and `34:7609` record and metric paths.
 [confirmed]
 
-The text field remains a preview-specific semantic frontend. It is not a
-translation of the TI-OS editor or its in-progress template AST. After that
-frontend encodes a supported expression, record construction and LCD rendering
-consume the native byte stream rather than replaying a captured graph or write
-stream. [confirmed]
+The text field accepts two input paths. Ordinary text uses a preview-specific
+semantic frontend; it is not a translation of the TI-OS editor or its
+in-progress template AST. A `hex:` prefix supplies space- or comma-separated
+native bytes directly to record construction. The raw path reports malformed
+streams and untranslated structural types instead of selecting the model
+compositor. Both translated paths construct records and LCD writes without
+replaying a captured graph or write stream. [confirmed]
 
 Five changed-input regressions start from native byte arrays for summation,
 integral, `nDeriv(`, matrix, and a three-level raised fraction. They construct
