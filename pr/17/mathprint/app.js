@@ -367,6 +367,65 @@ function absoluteValue(body) {
   return {rows:out, baseline:child.baseline, marks, recordWidth:recordW};
 }
 
+// matrix(rows,columns,elements...) uses the type-2Bh column and row metrics.
+// This box supports the separately labeled model view; the generated LCD view
+// constructs and executes the settled records directly.
+function matrixBox(rows, columns, elements) {
+  const widths = elements.map(recordWidth);
+  const heights = elements.map(bh);
+  const columnWidths = Array.from({length:columns}, (_, column) =>
+    Math.max(...Array.from({length:rows}, (_, row) =>
+      widths[row * columns + column])));
+  const rowHeights = Array.from({length:rows}, (_, row) =>
+    Math.max(...Array.from({length:columns}, (_, column) =>
+      heights[row * columns + column])));
+  const columnStarts = [];
+  let width = 6;
+  for (const columnWidth of columnWidths) {
+    columnStarts.push(width);
+    width += columnWidth + 6;
+  }
+  const rowStarts = [];
+  let height = 0;
+  for (const rowHeight of rowHeights) {
+    rowStarts.push(height);
+    height += rowHeight + 2;
+  }
+  height -= 2;
+  const out = blank(height, width);
+  const marks = [];
+  const set = (x, y) => { if (0 <= x && x < width && 0 <= y && y < height) out[y][x] = 1; };
+  for (let y = 0; y < height; y++) set(2, y);
+  set(3, 0); set(3, height - 1);
+  marks.push(
+    {ch:'[ left',x:2,y:0,w:1,h:height,type:'rule',via:'34:65B4 → 34:5D96'},
+    {ch:'[ top',x:3,y:0,w:1,h:1,type:'rule',via:'34:65BD → 34:5E85'},
+    {ch:'[ bottom',x:3,y:height-1,w:1,h:1,type:'rule',via:'34:65C4 → 34:5E85'},
+  );
+  for (let row = 0; row < rows; row++)
+    for (let column = 0; column < columns; column++) {
+      const index = row * columns + column;
+      const element = elements[index];
+      const x = columnStarts[column] +
+        Math.floor((columnWidths[column] - widths[index]) / 2);
+      const y = rowStarts[row] +
+        Math.floor((rowHeights[row] - heights[index]) / 2);
+      for (let ey = 0; ey < bh(element); ey++)
+        for (let ex = 0; ex < bw(element); ex++)
+          if (element.rows[ey][ex]) set(x + ex, y + ey);
+      marks.push(...shift(element.marks, x, y));
+    }
+  const right = width - 4;
+  for (let y = 0; y < height; y++) set(right, y);
+  set(right - 1, 0); set(right - 1, height - 1);
+  marks.push(
+    {ch:'] right',x:right,y:0,w:1,h:height,type:'rule',via:'34:65F9 → 34:5D96'},
+    {ch:'] top',x:right-1,y:0,w:1,h:1,type:'rule',via:'34:6602 → 34:5E85'},
+    {ch:'] bottom',x:right-1,y:height-1,w:1,h:1,type:'rule',via:'34:6607 → 34:5E85'},
+  );
+  return {rows:out,baseline:Math.floor(height / 2),marks,recordWidth:width};
+}
+
 // A big operator (∫, Σ): a tall sign with upper/lower limits stacked at its
 // corners, then the body. `inner` is the already-composed body; `signCode` is the
 // large-font glyph; `stem` is the stem-row index to repeat when stretching (null
@@ -661,6 +720,7 @@ function parse(src) {
       };
       return { ...lp, adv: bw(lp) + 1 };
     }
+    if (eat('-')) return hcat([glyphFor(0x1a), atom()], runGap());
     if (/[0-9.]/.test(peek())) return text(number());
     if (/[A-Za-z]/.test(peek())) {
       const id = ident();
@@ -668,6 +728,7 @@ function parse(src) {
         if (id === 'int' || id === 'integral') return intCall();
         if (id === 'sum') return bigOpCall(id);
         if (id === 'nthroot') return nthRootCall();
+        if (id === 'matrix') return matrixCall();
         if (id === 'exp') return exponentialCall(0xdb);
         if (id === 'tenpow') return exponentialCall(0x1d);
         if (id === 'logbase') return logBaseCall();
@@ -738,6 +799,19 @@ function parse(src) {
     const argument = expr();
     eat(')');
     return hcat([text('log'), base, parens(argument)], 1);
+  }
+  function matrixCall() {
+    eat('(');
+    const rowText = number(); eat(',');
+    const columnText = number();
+    const rows = Number(rowText), columns = Number(columnText);
+    const elements = [];
+    while (eat(',')) elements.push(expr());
+    eat(')');
+    if (!Number.isInteger(rows) || !Number.isInteger(columns) ||
+        rows < 1 || columns < 1 || elements.length !== rows * columns)
+      return text('matrix');
+    return matrixBox(rows, columns, elements);
   }
   function limitArg() {
     const j = i;
@@ -811,6 +885,9 @@ const PRESETS = Object.freeze([
   ['10 raised to X squared (RE)', 'tenpow(X^2)'],
   ['log base 12 of 345 (RE)', 'logbase(12,345)'],
   ['log base 3 of one half (RE)', 'logbase(3,1//2)'],
+  ['1 by 1 matrix (RE)', 'matrix(1,1,1)'],
+  ['2 by 2 identity matrix (RE)', 'matrix(2,2,1,0,0,1)'],
+  ['2 by 3 mixed matrix (RE)', 'matrix(2,3,4,-2,0,-7,8,8)'],
   ['(A+B)//C', '(A+B)//C'],
   ['nested fraction', '1//(2//3)'],
   ['radical', 'sqrt(X^2+1)'],
@@ -940,6 +1017,14 @@ function constructedSettledSpec(source) {
       return grouped.kind === 'fraction'
         ? grouped : {kind:'fractionOperandGroup',expression:grouped};
     }
+    if (source[offset] === '-') {
+      offset++;
+      const operand = atom();
+      if (!operand) return null;
+      if (operand.kind === 'tokens')
+        return {kind:'tokens',tokens:[0xb0,...operand.tokens]};
+      return {kind:'sequence',parts:[{kind:'tokens',tokens:[0xb0]},operand]};
+    }
     if (source.startsWith('int(', offset)) {
       offset += 4;
       const lower = expression();
@@ -1026,6 +1111,33 @@ function constructedSettledSpec(source) {
       offset++;
       return {kind:'logBase', base, argument};
     }
+    if (source.startsWith('matrix(', offset)) {
+      offset += 7;
+      const rowMatch = /^[0-9]+/.exec(source.slice(offset));
+      if (!rowMatch) return null;
+      offset += rowMatch[0].length;
+      if (source[offset] !== ',') return null;
+      offset++;
+      const columnMatch = /^[0-9]+/.exec(source.slice(offset));
+      if (!columnMatch) return null;
+      offset += columnMatch[0].length;
+      const rows = Number(rowMatch[0]), columns = Number(columnMatch[0]);
+      if (!Number.isInteger(rows) || !Number.isInteger(columns) ||
+          rows < 1 || rows > 0xff || columns < 1 || columns > 0xff ||
+          rows * columns > 0xff)
+        return null;
+      const elements = [];
+      for (let index = 0; index < rows * columns; index++) {
+        if (source[offset] !== ',') return null;
+        offset++;
+        const element = expression();
+        if (!element) return null;
+        elements.push(element);
+      }
+      if (source[offset] !== ')') return null;
+      offset++;
+      return {kind:'matrix', rows, columns, elements};
+    }
     const match = /^[A-Z0-9.]+/.exec(source.slice(offset));
     if (!match) return null;
     offset += match[0].length;
@@ -1052,7 +1164,7 @@ function constructedSettledSpec(source) {
     const beginsImplicitFactor = () => source[offset] === '('
       || /[A-Z0-9.]/.test(source[offset] || '')
       || ['int(', 'sum(', 'nDeriv(', 'nthroot(', 'sqrt(',
-          'exp(', 'tenpow(', 'logbase(']
+          'exp(', 'tenpow(', 'logbase(', 'matrix(']
         .some(prefix => source.startsWith(prefix, offset));
     while (source[offset] === '*' || beginsImplicitFactor()) {
       const explicit = source[offset] === '*';
