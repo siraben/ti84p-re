@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-74044cfd.js";
+            window.path_to_searchindex_js = "searchindex-aee02452.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -1054,6 +1054,15 @@ ROM tables directly. Generic function runs can therefore contain translated
 structural children without depending on a list of preview function names.
 The <code>EF36h</code> mapping to structural type <code>0x2C</code> remains rejected because its
 constructor and renderer are not yet translated. [confirmed]</p>
+<p>The first byte of each row at <code>34:59AC</code> selects a scan policy at <code>34:5678</code>.
+Scan kind <code>3</code> enters <code>34:56E3</code> with <code>B=2</code> and selects one unary child. Scan kind
+<code>4</code> enters <code>34:56EC</code> with <code>C=1</code> for each source argument. The remaining
+nonzero metadata bytes map source arguments to child-record indices. They are
+<code>[3,4,1,2]</code> for integral, <code>[2,1,3]</code> for <code>nDeriv(</code>, <code>[2,1]</code> for <code>logBASE(</code>,
+and <code>[4,1,2,3]</code> for summation. The JavaScript scanner returns each half-open
+source-byte range with its child index and verifies the terminating comma or
+<code>0x11</code> byte. The retained summation trace reaches <code>34:56EC</code> four times and
+matches those ranges. [confirmed]</p>
 <p>The browser expands every accepted byte into eight ordered pixel results. A
 timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement
