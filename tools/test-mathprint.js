@@ -29,7 +29,8 @@ const exponentialLogBaseOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-exponential-logbase-oracles.json')));
 const matrixOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-matrix-oracles.json')));
-mp.setRecordPrograms(recordPrograms);
+const groupingOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-grouping-oracles.json')));
 
 function expectEqual(label, actual, expected) {
   if (JSON.stringify(actual) !== JSON.stringify(expected))
@@ -491,6 +492,30 @@ for (const oracle of constructionOracles.absolute_cases) {
     crypto.createHash('sha256').update(writeBytes).digest('hex'),
     oracle.accepted_write_sha256);
 }
+for (const oracle of groupingOracles.cases) {
+  const program = rom.constructSettledExpressionProgram(
+    oracle.spec, oracle.entry_id, font);
+  expectEqual(`${oracle.expression} independently constructs the grouping graph`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.origin, nodes:oracle.nodes});
+  const operations = rom.executeSettledRecordProgram(program.nodes, program.entry_id, {
+    origin:program.origin,
+    glyphAdvance:settledGlyphAdvance,
+  });
+  const writes = rom.rasterizeSettledOperations(operations, font).writes;
+  expectEqual(`${oracle.expression} reproduces accepted grouping write count`,
+    writes.length, oracle.accepted_write_count);
+  const writeBytes = Buffer.from(writes.flatMap(write => [...write.pointer,write.value]));
+  expectEqual(`${oracle.expression} reproduces accepted grouping write stream`,
+    crypto.createHash('sha256').update(writeBytes).digest('hex'),
+    oracle.accepted_write_sha256);
+  const browser = mp.constructedProgramForExpression(oracle.expression);
+  if (!browser)
+    throw new Error(`${oracle.expression} has no browser-constructed record program`);
+  const expectedBrowser = rom.constructSettledExpressionProgram(oracle.spec, 1, font);
+  expectEqual(`${oracle.expression} browser grammar preserves the grouping AST`,
+    browser.nodes, expectedBrowser.nodes);
+}
 for (const oracle of constructionOracles.power_cases) {
   const program = rom.constructSettledPowerProgram(oracle.spec, oracle.entry_id, font);
   expectEqual(`${oracle.expression} independently constructs the fresh TilEm graph`,
@@ -876,9 +901,11 @@ expectEqual('browser parses powers right associatively',
 expectEqual('power browser path labels translated construction',
   mp.generatedForExpression('X^2').programSource,
   '34:4900, 34:5935, 34:7393, and 34:7609 translated power construction');
-for (const expression of ['X^', '^2', 'X^^2', 'X^(2)'])
+for (const expression of ['X^', '^2', 'X^^2'])
   expectEqual(`${expression} is outside the translated power grammar`,
     mp.constructedProgramForExpression(expression), null);
+if (!mp.constructedProgramForExpression('X^(2)'))
+  throw new Error('grouped power exponent has no translated record program');
 expectThrows('power constructor rejects an empty base', RangeError,
   () => rom.constructSettledPowerProgram({base:[], exponent:[0x32]}, 1, font));
 expectThrows('power constructor rejects an empty exponent', RangeError,
@@ -1025,7 +1052,7 @@ for (const [expression,nodes,entryId] of browserProgramCases) {
 }
 expectEqual('absolute browser path labels translated construction',
   mp.generatedForExpression('abs(X-3)').programSource,
-  '34:4900, 34:5935, 34:7393, and 34:7609 translated construction');
+  '34:4900, 34:5935, 34:7393, and 34:7609 translated absolute construction');
 expectEqual('radical browser path labels translated construction',
   mp.generatedForExpression('sqrt(X^2+1)').programSource,
   '34:4900, 34:5935, 34:7393, and 34:7609 translated radical construction');
@@ -1047,8 +1074,8 @@ expectEqual('summation browser path labels translated construction',
 expectEqual('nDeriv browser path labels translated construction',
   mp.generatedForExpression('nDeriv(X^2,X,1)').programSource,
   '34:4900, 34:5935, 34:7393, and 34:7609 translated nDeriv construction');
-expectEqual('arbitrary untranslated expression has no captured record program',
-  mp.generatedForExpression('A+(X)'), null);
+if (!mp.generatedForExpression('A+(X)'))
+  throw new Error('visible grouped expression has no generated LCD write stream');
 
 for (const [label, expression] of mp.presets) {
   const program = mp.constructedProgramForExpression(expression);

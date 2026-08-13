@@ -843,61 +843,6 @@
     return 6;
   }
 
-  // Closed token-to-record slice for the final abs( leaf program. 34:5935 maps
-  // B2h to record type 21h. 34:4900 allocates the containing leaf, structural
-  // record, and child leaf; 34:7393/7609 calculate their settled metrics.
-  // IDs remain caller-selected because 34:4B36 draws them from the arena's
-  // monotonically increasing counter.
-  function constructSettledAbsoluteProgram(payload, firstId = 1) {
-    if (!Array.isArray(payload) && !(payload instanceof Uint8Array))
-      throw new TypeError('absolute child payload must be an array of token bytes');
-    const tokens = Array.from(payload, (value, index) =>
-      byte(value, `absolute child token ${index}`));
-    if (!tokens.length)
-      throw new RangeError('absolute child payload must not be empty');
-    if (!Number.isInteger(firstId) || firstId < 1 || firstId > 0xfffd)
-      throw new RangeError('absolute first record ID must leave three unsigned words');
-    const renderType = settledStructuralTokenType(0x00, 0xb2);
-    if (renderType !== 0x21)
-      throw new Error('34:594D absolute token mapping is inconsistent');
-    const leafWidth = tokens.reduce(
-      (sum, token) => sum + settledLargeTokenAdvance(token), 0);
-    if (leafWidth > 0xff - 12)
-      throw new RangeError('absolute child width exceeds the translated byte-sized metric');
-    const childId = firstId + 2;
-    const structuralId = firstId + 1;
-    const embedded = [0xef, renderType, structuralId & 0xff, structuralId >> 8,
-                      0xef, 0x2d];
-    return {
-      entry_id:firstId,
-      origin:{x:0,y:0},
-      source:'34:4900, 34:5935, 34:7393, and 34:7609 translated construction',
-      nodes:[
-        {
-          record_id:firstId, render_type:0, word03:firstId - 1,
-          word05:7, word07:leafWidth + 12, word09:3,
-          word0B:0, word0D:0, word0F:embedded.length,
-          word11:embedded.length, byte13:embedded[0],
-          child_ids:[], payload:embedded,
-        },
-        {
-          record_id:structuralId, render_type:renderType, word03:firstId,
-          word05:settledRecordMetadata(renderType)[1],
-          word07:7, word09:leafWidth + 12,
-          word0B:3, word0D:0, word0F:0, word11:1, byte13:0xef,
-          child_ids:[childId], payload:[],
-        },
-        {
-          record_id:childId, render_type:0, word03:structuralId,
-          word05:7, word07:leafWidth, word09:3,
-          word0B:6, word0D:0, word0F:tokens.length,
-          word11:tokens.length, byte13:tokens[0],
-          child_ids:[], payload:tokens,
-        },
-      ],
-    };
-  }
-
   function settledLeafMetrics(tokens, depth, font) {
     const payload = Array.from(tokens, (value, index) =>
       byte(value, `settled leaf token ${index}`));
@@ -916,6 +861,12 @@
         throw new RangeError(`token 0x${token.toString(16)} has no translated glyph`);
       if (depth === 0) {
         width += settledLargeTokenAdvance(token);
+        continue;
+      }
+      // 34:6873 diverts parentheses into the compound-shape path. A raised
+      // parenthesis retains the ordinary six-pixel token-cell metric.
+      if (token === 0x10 || token === 0x11) {
+        width += 6;
         continue;
       }
       const glyph = font && font.small && font.small.glyphs
@@ -952,15 +903,22 @@
         return {kind, parts:input.parts.map((part, index) =>
           settledExpressionSpec(part, `${label} part ${index}`, active))};
       }
+      if (kind === 'group') return {
+        kind,
+        expression:settledExpressionSpec(
+          input.expression, `${label} grouped expression`, active),
+      };
       if (kind === 'power') {
-        const base = Array.from(input.base || [], (value, index) =>
-          byte(value, `${label} power base token ${index}`));
-        if (!base.length) throw new RangeError(`${label} power base must not be empty`);
         return {
-          kind, base,
+          kind,
+          base:settledExpressionSpec(input.base, `${label} power base`, active),
           exponent:settledExpressionSpec(input.exponent, `${label} exponent`, active),
         };
       }
+      if (kind === 'absolute') return {
+        kind,
+        body:settledExpressionSpec(input.body, `${label} absolute body`, active),
+      };
       if (kind === 'ePower' || kind === 'tenPower') return {
         kind,
         exponent:settledExpressionSpec(input.exponent, `${label} exponent`, active),
@@ -1059,7 +1017,9 @@
     const leadingByte = expression => {
       if (expression.kind === 'tokens') return expression.tokens[0];
       if (expression.kind === 'sequence') return leadingByte(expression.parts[0]);
-      if (expression.kind === 'power') return expression.base[0];
+      if (expression.kind === 'group') return 0x10;
+      if (expression.kind === 'power') return leadingByte(expression.base);
+      if (expression.kind === 'absolute') return 0xef;
       if (expression.kind === 'ePower') return 0xef;
       if (expression.kind === 'tenPower') return 0xef;
       if (expression.kind === 'logBase') return 0xef;
@@ -1106,6 +1066,11 @@
       };
       const addStructural = structural => {
         structural.word03 = leaf.record_id;
+        // The type-2Ah metric pass records the exponent's horizontal anchor at
+        // +0Dh when the object is appended. It is the containing leaf's width
+        // before the power object, including a grouped or structural base.
+        if (structural.render_type === 0x2a)
+          structural.word0D = leaf.word07;
         leaf.word05 = Math.max(leaf.word05, structural.word07);
         leaf.word07 = checkedWord(
           leaf.word07 + structural.word09, 'settled structural leaf width');
@@ -1155,7 +1120,22 @@
           fractionByte13:parts[0].fractionByte13,
         };
       }
+      if (expression.kind === 'group') {
+        const body = prepare(
+          expression.expression, renderDepth, structuralDepth,
+          fractionNumerator);
+        return {
+          kind:'sequence',
+          parts:[{kind:'tokens',tokens:[0x10]}, body,
+                 {kind:'tokens',tokens:[0x11]}],
+          fractionByte13:0x10,
+        };
+      }
       if (expression.kind === 'power') {
+        // The base belongs to the containing leaf. Prepare it before allocating
+        // the exponent record so structural bases retain encounter order.
+        const base = prepare(
+          expression.base, renderDepth, structuralDepth, fractionNumerator);
         const renderType = settledStructuralTokenType(0x00, 0xf0);
         if (renderType !== 0x2a)
           throw new Error('34:594D power token mapping is inconsistent');
@@ -1178,13 +1158,38 @@
         structural.word0B = checkedWord(
           firstRaisedRow ? child.word05 + 1 : child.word09 + 3,
           'power baseline');
-        structural.word0D = firstRaisedRow ? 6 : 4;
         structural.child_ids = [child.record_id];
         return {
           kind:'sequence',
-          parts:[{kind:'tokens',tokens:expression.base},
-                 {kind:'embedded',structural}],
+          parts:[base,{kind:'embedded',structural}],
           fractionByte13:0x10,
+        };
+      }
+      if (expression.kind === 'absolute') {
+        const renderType = settledStructuralTokenType(0x00, 0xb2);
+        if (renderType !== 0x21)
+          throw new Error('34:594D absolute token mapping is inconsistent');
+        const structuralId = allocate();
+        const structural = {
+          record_id:structuralId, render_type:renderType, word03:0,
+          word05:settledRecordMetadata(renderType)[1],
+          word07:0, word09:0, word0B:0, word0D:0, word0F:0,
+          word11:structuralDepth + 1,
+          byte13:fractionNumerator ? 0x10 : 0,
+          child_ids:[], payload:[],
+        };
+        nodes.push(structural);
+        const child = build(
+          expression.body, renderDepth, structuralId, structuralDepth + 1);
+        child.word0B = 6;
+        child.word0D = 0;
+        structural.word07 = child.word05;
+        structural.word09 = checkedWord(child.word07 + 12, 'absolute width');
+        structural.word0B = child.word09;
+        structural.child_ids = [child.record_id];
+        return {
+          kind:'embedded', structural,
+          fractionByte13:fractionNumerator ? 0x10 : 0xef,
         };
       }
       if (expression.kind === 'ePower' || expression.kind === 'tenPower') {
@@ -1689,6 +1694,16 @@
     return program;
   }
 
+  // Compatibility entry for the absolute-value constructor. Its body may
+  // contain any expression kind accepted by the compositional builder.
+  function constructSettledAbsoluteProgram(body, firstId = 1, font = null) {
+    const program = constructSettledExpressionProgram(
+      {kind:'absolute', body}, firstId, font);
+    program.source =
+      '34:4900, 34:5935, 34:7393, and 34:7609 translated absolute construction';
+    return program;
+  }
+
   function constructSettledRadicalProgram(radicand, firstId = 1, font = null) {
     const program = constructSettledExpressionProgram(
       {kind:'radical', radicand}, firstId, font);
@@ -1763,6 +1778,60 @@
         x:0,
         y:controls.state.depth === 0 ? record.word09 - 3 : record.word09 - 2,
       };
+      const parenthesisMetrics = new Map();
+      const stack = [];
+      const mergeMetrics = (left, right) => {
+        if (!left) return right;
+        const baseline = Math.max(left.baseline, right.baseline);
+        return {
+          baseline,
+          height:baseline + Math.max(
+            left.height - left.baseline, right.height - right.baseline),
+        };
+      };
+      const rangeMetrics = (start, end) => {
+        let result = null;
+        for (let cursor = start; cursor < end;) {
+          const token = record.payload[cursor];
+          const grouped = parenthesisMetrics.get(cursor);
+          if (token === 0x10 && grouped) {
+            result = mergeMetrics(result, grouped);
+            cursor = grouped.close + 1;
+            continue;
+          }
+          if (token === 0xef && cursor + 3 < end &&
+              0x1f <= record.payload[cursor + 1] &&
+              record.payload[cursor + 1] <= 0x2b) {
+            const nested = controls.record(
+              record.payload[cursor + 2] | record.payload[cursor + 3] << 8);
+            result = mergeMetrics(result, {
+              height:nested.word07, baseline:nested.word0B,
+            });
+            cursor += 4;
+            continue;
+          }
+          if (token === 0xef && record.payload[cursor + 1] === 0x2d) {
+            cursor += 2;
+            continue;
+          }
+          result = mergeMetrics(result, controls.state.depth === 0
+            ? {height:7,baseline:3} : {height:5,baseline:2});
+          cursor++;
+        }
+        return result;
+      };
+      for (let cursor = 0; cursor < record.payload.length; cursor++) {
+        if (record.payload[cursor] === 0x10) stack.push(cursor);
+        else if (record.payload[cursor] === 0x11 && stack.length) {
+          const open = stack.pop();
+          const metrics = rangeMetrics(open + 1, cursor) ||
+            (controls.state.depth === 0
+              ? {height:7,baseline:3} : {height:5,baseline:2});
+          const pair = {...metrics,open,close:cursor};
+          parenthesisMetrics.set(open, pair);
+          parenthesisMetrics.set(cursor, pair);
+        }
+      }
       for (let index = 0; index < record.payload.length;) {
         const token = record.payload[index];
         if (token === 0xef && index + 1 < record.payload.length) {
@@ -1800,6 +1869,22 @@
             index += 2;
             continue;
           }
+        }
+
+        // 34:6873 diverts display codes 28h and 29h from 34:6C37 into the
+        // compound-parenthesis emitters. Their token cell still advances six
+        // pixels, while the shape spans the containing leaf's settled height.
+        if (token === 0x10 || token === 0x11) {
+          const mode = token === 0x10 ? 'open' : 'close';
+          const metrics = parenthesisMetrics.get(index) ||
+            (controls.state.depth === 0
+              ? {height:7,baseline:3} : {height:5,baseline:2});
+          for (const operation of settledCompoundOperations(
+            mode, pen.x, record.word09 - metrics.baseline,
+            metrics.height)) controls.emit(operation);
+          pen.x += 6;
+          index++;
+          continue;
         }
 
         const resolved = options.resolveToken
