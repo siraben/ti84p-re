@@ -447,52 +447,70 @@ anchors for readers who want to check the disassembly. [confirmed]
 declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, and large-glyph output. It recursively follows direct ROM
-edges from named entries, resolves the finite dispatch tables, overlays exact
-next-PC outcomes from 175 reset-origin traces, and lists external targets.
+edges from named entries, seeds decoded table destinations, overlays exact
+next-PC outcomes from 183 reset-origin traces, and lists direct external
+targets. Computed dispatch destinations are manually seeded; bcall and RAM
+bjump bodies remain outside the direct-edge walk. Of those traces, 182 reach
+their state through calculator input. One explicitly classified synthetic trace
+inserts an `EF36h` editor buffer through direct RAM writes. The report keeps the
+two provenance classes separate.
 `tools/mathprint-saturation.json` records the resulting branches and trace
 hashes. [confirmed]
 
 The report is a symbolic-execution aid rather than a whole-machine proof. It
-models finite table indices exactly. The shared draw helper at `34:6143` has a
-$256 \times 2 \times 65{,}536 = 33{,}554{,}432$-state domain over incoming
-`A`, `(IY+44h).3`, and the word at `0x8520`. Complete predicate evaluation
-reduces that domain to 14 branch-path classes and ten terminal actions. The
-marker-tail gate at `34:759C` reduces its 16 predicate combinations to five
-branch-path classes. Stream length, arbitrary RAM, and indirect targets outside
-the declared components remain outside these finite models. [confirmed]
+decodes fixed table rows and partitions three projected input domains. The
+scan-kind dispatcher at `34:5678` partitions all 256 incoming `A` values into
+seven terminal paths. The shared draw helper at `34:6143` partitions the
+$256 \times 2 \times 65{,}536 = 33{,}554{,}432$ projected tuples over incoming
+`A`, `(IY+44h).3`, and the word at `0x8520`. Its predicates reduce those tuples
+to 14 branch-path classes and ten terminal actions. This count covers the
+projected inputs, not every register and RAM state. The marker-tail callee at
+`34:759C` reduces 16 abstract predicate valuations to five return classes.
+Stream length, arbitrary RAM, and unmodeled indirect targets remain outside
+these finite models. [confirmed]
+
+The metadata rows use scan kinds `0`, `1`, `2`, `3`, `4`, and `6`. Natural
+traces witness six of the seven dispatch classes. Scan kind `2` would take
+`34:5680` into the fraction scanner at `34:56DF`, but no retained invocation
+does so. Existing fraction construction instead reaches the same scanner
+through another entry route. The outcome remains unresolved because the
+metadata value proves local relevance but does not prove caller reachability.
+[confirmed]
 
 The report keeps complete path witnesses separate from individual branch
 outcome witnesses. A class whose branch outcomes all occur somewhere in the
 corpus is not necessarily a class traversed by one invocation. The editor ABI
-at `34:6143` has two complete live path witnesses. The render-table ABI has one
-ROM-fixed class because `_LdHLind` fixes `A=0x43`. At `34:759C`, a branch
-outcome unique to each terminal class identifies which of its five paths have
-live witnesses. [confirmed]
+at `34:6143` has seven complete live path witnesses. The render-table ABI has
+one ROM-fixed class because `_LdHLind` fixes `A=0x43`. The `34:759C` model ends
+at the callee return. It records the continuations at `34:755F`, `34:6FC9`, and
+the tail-jump caller at `05:785F` separately. A branch outcome unique to each
+return class identifies which callee paths have live witnesses. [confirmed]
 
-| Component | Reachable instructions | Conditional outcomes observed | Conditional outcomes in CFG | Instruction coverage |
-|-----------|-----------------------:|------------------------------:|----------------------------:|---------------------:|
-| Settled construction | 991 | 244 | 408 | 79.11% |
-| Settled rendering | 1,898 | 217 | 302 | 93.05% |
-| Metrics and geometry | 470 | 75 | 80 | 99.36% |
-| Record allocator | 64 | 7 | 8 | 98.44% |
-| Editor layout | 2,776 | 245 | 1,098 | 32.42% |
-| Small-font and LCD output | 413 | 76 | 122 | 71.19% |
-| Point and line primitives | 508 | 44 | 134 | 58.07% |
-| Large glyphs | 130 | 16 | 32 | 68.46% |
+| Component | Reachable instructions | Natural / all-evidence outcomes | Outcomes in CFG | Natural / all-evidence instruction coverage |
+|-----------|-----------------------:|--------------------------------:|----------------:|--------------------------------------------:|
+| Settled construction | 991 | 247 / 248 | 408 | 80.73% / 80.73% |
+| Settled rendering | 1,898 | 233 / 235 | 302 | 94.63% / 94.63% |
+| Metrics and geometry | 470 | 75 / 75 | 80 | 99.36% / 99.36% |
+| Record allocator | 64 | 7 / 7 | 8 | 98.44% / 98.44% |
+| Editor layout | 2,776 | 245 / 245 | 1,098 | 32.42% / 32.42% |
+| Small-font and LCD output | 413 | 81 / 81 | 122 | 75.54% / 75.54% |
+| Point and line primitives | 508 | 48 / 48 | 134 | 59.45% / 59.45% |
+| Large glyphs | 130 | 16 / 16 | 32 | 68.46% / 68.46% |
 
 These counts describe the declared CFG and retained saturation corpus, not all
 OS entry states. A branch with both outcomes observed is dynamically saturated
 for that corpus. A branch with one or no outcomes remains open even when its
-containing routine has been reached. The allocator is the only declared
-component whose every conditional branch has at least one observed outcome;
-three of its four branches have both outcomes. [confirmed]
+containing routine has been reached. Metrics and geometry and the allocator
+have no wholly unobserved branch. The other six components still do. Three of
+the allocator's four branches and 35 of the 40 metric branches have both
+outcomes. [confirmed]
 
-The report classifies all 2,184 enumerated outcomes. The traces exercise 924.
-One allocator outcome is infeasible under its data invariant. Two metric
-outcomes are infeasible under the calculator call ABI. The other 1,257 remain
-unresolved because their required state or calling ABI is not yet proved. An
-unobserved outcome never becomes infeasible from absence alone.
-[confirmed]
+The report classifies all 2,184 enumerated outcomes. Natural calculator input
+exercises 952. The synthetic `EF36h` state adds three outcomes, for 955 across
+all evidence. One allocator outcome is infeasible under its data invariant.
+Two metric outcomes are infeasible under the calculator call ABI. The full
+evidence set leaves 1,226 unresolved; the natural-only set leaves 1,229.
+An unobserved outcome never becomes infeasible from absence alone. [confirmed]
 
 The infeasible allocator outcome is the fallthrough at `33:4F4E`. The type
 `0x2B` path loads rows and columns from record offsets `+0x13` and `+0x12`, then
@@ -509,14 +527,61 @@ fallthrough and `34:765D` return are infeasible under this calculator ABI.
 Synthetic direct calls to internal metric handlers do not share the ABI.
 [confirmed]
 
-An exact Z3 set-cover calculation reduces the 175 trace summaries to 22 while
-preserving all 924 observed outcomes. It minimizes trace count first, retained
-bytes second, and labels third. The 22 selected traces total 3,188,345,442
-bytes. The report lists each selected trace's exclusive outcomes, proving that
-removing any one of the 22 loses coverage.
-This is a proven minimum for the supplied trace set, not for every input the OS
-can accept. The broad trace set remains an RE and regression corpus; the public
-gallery uses a smaller, diverse selection. [confirmed]
+An exact Z3 set-cover calculation reduces all 183 trace summaries to 23 while
+preserving all 955 observed individual branch outcomes. It minimizes trace
+count first, retained bytes second, and labels third. The selected traces total
+3,532,665,876 bytes. Every selected trace has an exclusive outcome relative to
+the other 22.
+
+The same calculation over the 182 natural traces produces a 23-trace minimum.
+It preserves all 952 natural outcomes in 3,589,756,968 bytes, and every selected
+trace again has an exclusive outcome. These are proven minima for the supplied
+trace sets and the branch-outcome feature universe. They do not preserve every
+complete invocation path, register or RAM state, dispatch row, record oracle,
+or LCD-write stream. The broad set remains the RE and regression corpus; the
+public gallery uses a smaller, diverse selection. [confirmed]
+
+A second exact cover adds the sound dynamic state features currently decoded:
+seven `34:6143` entry values and 15 complete paths through `34:5678`, `34:6143`,
+and `34:759C`. The full feature universe contains 977 tags; the natural-only
+universe contains 974. Both minimize to the same 23 traces and byte totals as
+the corresponding branch-outcome covers. This proves preservation for the
+modeled live features. It does not make unmodeled state part of the claim.
+[confirmed]
+
+The four key-driven additions below are retained by the new 23-trace minimum.
+Together they contribute 21 outcomes absent from the earlier 175-trace union:
+six from the log-base run, one from the integral run, and 14 from the
+**Y=**/table run. The radical run adds no union-new outcome, but it replaces
+larger or less complementary witnesses in the exact minimum. The macro paths
+contain no `memwrite` command or execution hook. The raw TLMT files remain
+outside the repository; their hashes identify the exact inputs used by the
+report. [confirmed]
+
+| Input | Reproduction macro | Trace SHA-256 | Exclusive outcomes in the 23-trace full minimum |
+|-------|--------------------|--------------|------------------------------------------------:|
+| Log-base marker insertion | `tools/macros/mathprint-logbase-boundary-insert.macro` | `a49e4c13c93358662713da7f5e07862f42863d60a70ce18e141a90987914008b` | 2 |
+| Radical marker insertion | `tools/macros/mathprint-radical-nonspecial-insert.macro` | `e7b79e37149f2b9b4a986bdbb114a89b03cd452bbecc6da20490edc972895e98` | 3 |
+| Integral marker insertion | `tools/macros/mathprint-integral-boundary-insert.macro` | `328b8f52ebe939b35f79e676076984aa85ee59e05c06862647c4fc615069bb3c` | 2 |
+| **Y=**/table/power round trip | `tools/macros/mathprint-yequ-table-power-insert.macro` | `ac719f540d2adfca05d2ffa415f065b83eaf407f04fca42f5ae63c440a746b9d` | 14 |
+
+Four additional reset-origin traces close ten natural branch outcomes and four
+complete editor-helper paths. Their macros use key input only. The screenshots
+and `A` at each discriminator were checked before admission. [confirmed]
+
+| Input | Reproduction macro | Trace SHA-256 | Complete `34:6143` path |
+|-------|--------------------|--------------|-------------------------|
+| Absolute-value marker | `tools/macros/mathprint-absolute-boundary-insert.macro` | `103f3acc7f1ad13d1bf88af45ecacdc7e34133e66cc9c00fb57587674357cacf` | `A=0x21` → display code `0x7C` |
+| $e^x$ marker | `tools/macros/mathprint-e-power-boundary-insert.macro` | `c927963c5db9a1f6f18652213764eabbf7a4fa9f2d2a74b7dae320fe882d7917` | `A=0x25` → display code `0xDB` |
+| $10^x$ marker | `tools/macros/mathprint-ten-power-boundary-insert.macro` | `eb337f479d112e88537f0950fd7d2a917d101cfafda98447fb717a9a35f1e1e4` | `A=0x26` → display code `0x1D` |
+| Summation marker | `tools/macros/mathprint-summation-boundary-insert.macro` | `980b2d17df5753223881090235fcca4bb4e8457a37c6cb05eef8f7a54314adf8` | `A=0x29` → display code `0xC6` |
+
+The synthetic `EF36h` trace uses
+`tools/macros/mathprint-ef36-injected-buffer.macro`. Its two `memwrite`
+commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
+source in the 183-trace report. It supplies the only evidence for
+`34:5A23` fallthrough, `34:6992` taken, and `34:6B94` taken. The full minimum
+retains it; the natural minimum excludes it by construction. [confirmed]
 
 The in-progress editor is a gap buffer. `editTop` (`0x96F4`) and `editCursor`
 (`0x96F6`) bound the left segment. `editTail` (`0x96F8`) and `editBtm`
@@ -532,11 +597,15 @@ On its fallthrough, `34:75AB` reads the marker type from `editTail + 1`.
 markers; `34:75B0` takes its Z branch for this set. `34:75B8` then reads the
 nesting counter at `0x8515`, and `34:75BB` distinguishes zero from nonzero
 depth. `tools/macros/mathprint-power-boundary-insert.macro` reproduces the
-top-level power-marker path. The table-equation outcome at `34:75A9` taken,
-the non-special marker outcome at `34:75B0` fallthrough, and the nested special
-marker outcome at `34:75BB` fallthrough remain unresolved. The symbolic model
-establishes their local branch paths, but no retained calculator trace exercises
-them. [confirmed]
+top-level power-marker path. The **Y=**/table/power round trip above reaches this
+gate after returning to **Y=**, but the conjunction tested by `34:789A` is false
+at that invocation. It therefore witnesses `34:75A9` fallthrough, not taken. The
+table-equation outcome at `34:75A9` taken, the non-special marker outcome at
+`34:75B0` fallthrough, and the nested special-marker outcome at `34:75BB`
+fallthrough remain unresolved under natural input. Injected-state probes prove
+that each local path is feasible, but they do not prove calculator
+reachability. Those three `34:759C` injected-state probes are absent from both
+minimized corpora. [confirmed]
 
 The record-oracle corpus contains 105 captured cases. It includes types `0x20`
 through `0x2B`; the only missing structural type is `0x1F`. Each of those 12
@@ -556,9 +625,14 @@ The editor calls the same helper through a different route. `06:7F29` loads
 `06:7F2E` calls the bjump descriptor at `ram:30BD`. Its bytes
 `CD 09 2B 43 61 74` select `34:6143`. The radical-marker trace enters with
 `A=0x27` and `(IY+44h).3` set, selecting the bitmap at `34:630C`. The integral
-trace enters with `A=0x22` and emits display code `0x7C`. The reproducible
-inputs are `tools/macros/mathprint-radical-marker-insert.macro` and
-`tools/macros/mathprint-integral-marker-insert.macro`. [confirmed]
+trace enters with `A=0x22` and emits display code `0x7C`. The reproductions in
+the coverage table use
+`tools/macros/mathprint-radical-nonspecial-insert.macro` and
+`tools/macros/mathprint-integral-boundary-insert.macro`. Absolute value,
+$e^x$, $10^x$, log base, and summation add live paths for `A=0x21`, `0x25`,
+`0x26`, `0x28`, and `0x29`. The editor marker domain also includes the
+exceptional `0x2C` marker produced by the `EF36h` synthetic state. The default
+bitmap path handles it. [confirmed]
 
 Type `0x1F` remains open only as a captured record oracle. `34:4FD9` allocates
 it as a transient one-child root record. `34:6028` loads `A=0x1F`, and
