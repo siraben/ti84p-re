@@ -448,7 +448,7 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, and large-glyph output. It recursively follows direct ROM
 edges from named entries, resolves the finite dispatch tables, overlays exact
-next-PC outcomes from 170 reset-origin traces, and lists external targets.
+next-PC outcomes from 171 reset-origin traces, and lists external targets.
 `tools/mathprint-saturation.json` records the resulting branches and trace
 hashes. [confirmed]
 
@@ -461,13 +461,13 @@ outside that state model. [confirmed]
 
 | Component | Reachable instructions | Conditional outcomes observed | Conditional outcomes in CFG | Instruction coverage |
 |-----------|-----------------------:|------------------------------:|----------------------------:|---------------------:|
-| Settled construction | 991 | 228 | 408 | 79.11% |
-| Settled rendering | 1,898 | 195 | 302 | 90.25% |
-| Metrics and geometry | 470 | 67 | 80 | 95.74% |
+| Settled construction | 991 | 244 | 408 | 79.11% |
+| Settled rendering | 1,898 | 202 | 302 | 90.25% |
+| Metrics and geometry | 470 | 70 | 80 | 96.17% |
 | Record allocator | 64 | 7 | 8 | 98.44% |
-| Editor layout | 2,776 | 239 | 1,098 | 32.42% |
+| Editor layout | 2,776 | 245 | 1,098 | 32.42% |
 | Small-font and LCD output | 413 | 76 | 122 | 71.19% |
-| Point and line primitives | 508 | 41 | 134 | 58.07% |
+| Point and line primitives | 508 | 44 | 134 | 58.07% |
 | Large glyphs | 130 | 16 | 32 | 68.46% |
 
 These counts describe the declared CFG and retained saturation corpus, not all
@@ -477,8 +477,8 @@ containing routine has been reached. The allocator is the only declared
 component whose every conditional branch has at least one observed outcome;
 three of its four branches have both outcomes. [confirmed]
 
-The report classifies all 2,184 enumerated outcomes. The traces exercise 869.
-One allocator outcome is infeasible under its entry invariant. The other 1,314
+The report classifies all 2,184 enumerated outcomes. The traces exercise 904.
+One allocator outcome is infeasible under its entry invariant. The other 1,279
 remain unresolved because their required state or calling ABI is not yet
 proved. An unobserved outcome never becomes infeasible from absence alone.
 [confirmed]
@@ -490,10 +490,10 @@ The infeasible allocator outcome is the fallthrough at `33:4F4E`. The type
 matrix record therefore reaches `33:4F4E` with a nonzero product and takes the
 branch. [confirmed]
 
-An exact Z3 set-cover calculation reduces the 170 trace summaries to 18 while
-preserving all 869 observed outcomes. It minimizes trace count first, retained
-bytes second, and labels third. The 18 selected traces total 2,762,574,180
-bytes, and each contributes at least one outcome absent from the other 17.
+An exact Z3 set-cover calculation reduces the 171 trace summaries to 19 while
+preserving all 904 observed outcomes. It minimizes trace count first, retained
+bytes second, and labels third. The 19 selected traces total 2,847,171,954
+bytes, and each contributes at least one outcome absent from the other 18.
 This is a proven minimum for the supplied trace set, not for every input the OS
 can accept. The broad trace set remains an RE and regression corpus; the public
 gallery uses a smaller, diverse selection. [confirmed]
