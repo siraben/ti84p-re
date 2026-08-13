@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-22f17bb2.js";
+            window.path_to_searchindex_js = "searchindex-749fb3ab.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15020,14 +15020,18 @@ replaying captured glyph events. Tests provide record headers, child IDs, and
 payload bytes as input. They compare the generated display-code, coordinate,
 depth, and order tuples with independently captured <code>34:6C37</code> observations for
 absolute value, summation with an exponent, and nested <code>nDeriv(</code>. [confirmed]</p>
-<p>The ordinary-token path resolves a payload byte through
-<code>smallfont_glyph_ptr</code> (<code>01:6702</code>). A zero prefix selects the word table at
-<code>01:4252</code>. The selected pointer names one metadata byte followed by a counted
-display-code string. Token <code>72h</code> therefore expands to <code>A</code>, <code>n</code>, <code>s</code>, while
-token <code>C2h</code> expands to <code>s</code>, <code>i</code>, <code>n</code>, <code>(</code>. <code>_GetTokLen = 4591h</code> reads the
-count, and <code>_Get_Tok_Strng = 4594h</code> copies the counted bytes. The browser uses
-the ROM-extracted table in <code>web/mathprint/token-strings.json</code>; it does not
-split <code>Ans</code> or <code>sin</code> into independent input letters. [confirmed]</p>
+<p>The ordinary-token path resolves payload bytes through <code>smallfont_glyph_ptr</code>
+at <code>01:6702</code>. A zero lead selects the word table at <code>01:4252</code>. The two-byte
+leads <code>5Ch</code>, <code>5Dh</code>, <code>5Eh</code>, <code>60h</code>–<code>63h</code>, <code>7Eh</code>, <code>AAh</code>, <code>BBh</code>, and <code>EFh</code> select
+tables at <code>01:4452</code>–<code>01:47E8</code>. The <code>5Eh</code> second byte selects one of four banks.
+The <code>BBh</code> path clamps indices <code>F6h</code>–<code>FFh</code> to <code>F6h</code>. [confirmed]</p>
+<p>Each selected pointer names one metadata byte followed by a counted
+display-code string. Token <code>72h</code> therefore expands to <code>A</code>, <code>n</code>, <code>s</code>. Token
+<code>C2h</code> expands to <code>s</code>, <code>i</code>, <code>n</code>, <code>(</code>. Two-byte token <code>5D 00</code> expands to <code>L</code> and
+the subscript-1 display code. <code>_GetTokLen = 4591h</code> reads the count, and
+<code>_Get_Tok_Strng = 4594h</code> copies the counted bytes. The browser uses the
+ROM-extracted tables in <code>web/mathprint/token-strings.json</code>; it preserves native
+token boundaries while constructing the settled record. [confirmed]</p>
 <p><code>34:6873</code> receives each resulting display code. It diverts <code>28h</code> and <code>29h</code> to
 the compound-parenthesis emitters, including <code>28h</code> embedded in the spelling of
 <code>sin(</code>. The open shape therefore uses the point and line order from <code>34:5D1A</code>
@@ -15042,6 +15046,13 @@ the variable-width small-font spelling. <code>sin(sqrt(X))</code> verifies a cou
 spelling before a structural child and the compound shapes around its taller
 metrics. The structural record stores the containing leaf’s accumulated
 horizontal anchor at <code>+0x0D</code>. [confirmed]</p>
+<p>Five reset-origin traces cover <code>L1</code>, <code>[A]</code>, <code>Y1</code>, <code>Str1</code>, and <code>X^L1</code>. Their
+generated record graphs match every field after normalizing record IDs. Their
+accepted-write streams contain 21, 35, 21, 42, and 22 writes. The generated
+stream and captured outer-<code>34:660A</code> interval have the same byte-column, row,
+and value for every write. Replaying either stream produces the same 96×64 LCD
+bitmap. <code>X^L1</code> verifies two-byte spelling and width in the small-font exponent
+path. [confirmed]</p>
 <p>The translated renderer then maps the ordered operations through the ROM font
 bitmaps, page-4 point and line behavior, <code>_VPutMap</code>, the page-7 large-glyph
 path, and LCD byte packing. Six settled programs reproduce every accepted LCD
@@ -15329,15 +15340,18 @@ semantic expression. Five grouping cases cover flat and structural groups,
 grouped power operands, and a structural absolute-value child. The deepest
 power oracle has three raised levels. Six named-token cases verify counted
 spellings, raised small-font widths, compound parentheses, structural children,
-and complete accepted-write streams. Two longer trace scenarios cover the
-editor and display activity around the final key press.
+and complete accepted-write streams. Five two-byte-token cases verify list,
+matrix-name, equation-variable, and string-variable tables in large and raised
+contexts. Two longer trace scenarios cover the editor and display activity
+around the final key press.
 [confirmed]</p>
 <h2 id="extracted-records-and-interactive-model"><a class="header" href="#extracted-records-and-interactive-model">Extracted records and interactive model</a></h2>
 <p>The class table, decoded handler records, and selected descriptors are extracted to
 <code>web/mathprint/layout.json</code> by <code>tools/export-layout.py</code>;
 the fonts to <code>web/mathprint/font.json</code> by <code>tools/export-font.py</code>; and the
-single-byte token spellings to <code>web/mathprint/token-strings.json</code> by
-<code>tools/export-token-strings.py</code>. The font data appears on the interactive
+single- and two-byte token spellings to
+<code>web/mathprint/token-strings.json</code> by <code>tools/export-token-strings.py</code>. The font
+data appears on the interactive
 renderer’s font-table tab. <code>tools/interp-cells.js</code> and the browser share the executable
 translations in <code>web/mathprint/rom-engine.js</code>. The translated routines consume
 <code>layout.json</code> for handler lookup, row-cell iteration, direct glyph and delimiter
