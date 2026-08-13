@@ -26,6 +26,13 @@
     'BB':0x45fc, 'EF':0x47e8,
   });
 
+  // _IsA2ByteTok at 00:1FE8 scans this 11-byte set. Keep token-width
+  // decoding available before the optional 01:6702 spelling artifact loads.
+  const SETTLED_TWO_BYTE_LEADS = new Set([
+    0x5c, 0x5d, 0x5e, 0x60, 0x61, 0x62,
+    0x63, 0x7e, 0xaa, 0xbb, 0xef,
+  ]);
+
   function setSettledTokenStrings(input) {
     const table = input && input.singleByte;
     const twoByte = input && input.twoByte;
@@ -1088,6 +1095,446 @@
     } finally {
       active.delete(input);
     }
+  }
+
+  // 34:58F9 fetches a packed native token in D:E order. 34:5911 performs the
+  // same width decision while walking backward. These helpers translate that
+  // byte-level boundary without detokenizing the source stream.
+  function settledReadPackedToken(input, offset = 0, end = undefined) {
+    if (!Array.isArray(input) && !(input instanceof Uint8Array))
+      throw new TypeError('settled native token stream must be an array of bytes');
+    const limit = end === undefined ? input.length : end;
+    if (!Number.isInteger(offset) || !Number.isInteger(limit) ||
+        offset < 0 || limit < offset || limit > input.length)
+      throw new RangeError('settled native token bounds are invalid');
+    if (offset === limit) return null;
+    const lead = byte(input[offset], `settled native token byte ${offset}`);
+    if (!SETTLED_TWO_BYTE_LEADS.has(lead)) return {
+      prefix:0, token:lead, packed:lead, bytes:[lead],
+      offset, next:offset + 1, length:1,
+    };
+    if (offset + 1 >= limit)
+      throw new RangeError(
+        `settled two-byte token 0x${lead.toString(16)} is truncated`);
+    const second = byte(input[offset + 1],
+      `settled native token byte ${offset + 1}`);
+    return {
+      prefix:lead, token:second, packed:(lead << 8) | second,
+      bytes:[lead,second], offset, next:offset + 2, length:2,
+    };
+  }
+
+  function settledReadPackedTokenBackward(input, end = undefined, start = 0) {
+    if (!Array.isArray(input) && !(input instanceof Uint8Array))
+      throw new TypeError('settled native token stream must be an array of bytes');
+    const limit = end === undefined ? input.length : end;
+    if (!Number.isInteger(start) || !Number.isInteger(limit) ||
+        start < 0 || limit < start || limit > input.length)
+      throw new RangeError('settled backward token bounds are invalid');
+    if (limit === start) return null;
+    const secondOffset = limit - 1;
+    const second = byte(input[secondOffset],
+      `settled native token byte ${secondOffset}`);
+    if (secondOffset > start) {
+      const lead = byte(input[secondOffset - 1],
+        `settled native token byte ${secondOffset - 1}`);
+      if (SETTLED_TWO_BYTE_LEADS.has(lead)) return {
+        prefix:lead, token:second, packed:(lead << 8) | second,
+        bytes:[lead,second], offset:secondOffset - 1, next:limit, length:2,
+      };
+    }
+    return {
+      prefix:0, token:second, packed:second, bytes:[second],
+      offset:secondOffset, next:limit, length:1,
+    };
+  }
+
+  function settledNativeTokenUnits(input) {
+    const bytes = Array.from(input, (value, index) =>
+      byte(value, `settled native token byte ${index}`));
+    if (!bytes.length)
+      throw new RangeError('settled native token stream must not be empty');
+    const units = [];
+    for (let offset = 0; offset < bytes.length;) {
+      const unit = settledReadPackedToken(bytes, offset);
+      units.push(unit);
+      offset = unit.next;
+    }
+    return {bytes,units};
+  }
+
+  const settledSequence = parts => {
+    const flat = [];
+    const append = part => {
+      if (part.kind === 'sequence') {
+        for (const child of part.parts) append(child);
+        return;
+      }
+      const previous = flat[flat.length - 1];
+      if (part.kind === 'tokens' && previous && previous.kind === 'tokens') {
+        previous.tokens.push(...part.tokens);
+        return;
+      }
+      flat.push(part);
+    };
+    for (const part of parts) append(part);
+    if (!flat.length)
+      throw new RangeError('settled native scanner produced an empty sequence');
+    return flat.length === 1 ? flat[0] : {kind:'sequence',parts:flat};
+  };
+
+  // Translate the source expression into the calculator's native token order.
+  // Multi-argument MathPrint templates do not store children in screen order:
+  // fnInt and summation store body, variable, lower, upper, while logBASE stores
+  // argument before base. The page-34 scanner consumes these orders directly.
+  function encodeSettledExpressionTokens(input) {
+    const spec = settledExpressionSpec(input);
+    const encode = expression => {
+      if (expression.kind === 'tokens') return expression.tokens.slice();
+      if (expression.kind === 'sequence') return expression.parts.flatMap(part =>
+        part.kind === 'fraction' ? [0x10,...encode(part),0x11] : encode(part));
+      if (expression.kind === 'group')
+        return [0x10,...encode(expression.expression),0x11];
+      if (expression.kind === 'power') {
+        const exponent = encode(expression.exponent);
+        // A stacked-fraction template in a raised slot contributes two native
+        // boundary pairs. The page-34 scanner consumes both as range markers;
+        // they do not become visible parenthesis glyphs in the child record.
+        return expression.exponent.kind === 'fraction'
+          ? [...encode(expression.base),0xf0,0x10,0x10,
+             ...exponent,0x11,0x11]
+          : [...encode(expression.base),0xf0,...exponent];
+      }
+      if (expression.kind === 'absolute')
+        return [0xb2,...encode(expression.body),0x11];
+      if (expression.kind === 'ePower')
+        return [0xbf,...encode(expression.exponent),0x11];
+      if (expression.kind === 'tenPower')
+        return [0xc1,...encode(expression.exponent),0x11];
+      if (expression.kind === 'logBase') return [
+        0xef,0x34,...encode(expression.argument),0x2b,
+        ...encode(expression.base),0x11,
+      ];
+      if (expression.kind === 'matrix') {
+        const result = [0x08];
+        for (let row = 0; row < expression.rows; row++) {
+          result.push(0x08);
+          for (let column = 0; column < expression.columns; column++) {
+            if (column) result.push(0x2b);
+            result.push(...encode(
+              expression.elements[row * expression.columns + column]));
+          }
+          result.push(0x09);
+        }
+        result.push(0x09);
+        return result;
+      }
+      if (expression.kind === 'radical')
+        return [0xbc,...encode(expression.radicand),0x11];
+      if (expression.kind === 'nthRoot') return [
+        ...encode(expression.index),0xf1,
+        // The template slot supplies a range boundary. Parenthesis tokens are
+        // the native byte representation available to a standalone stream;
+        // settledExpressionFromTokens removes this one boundary layer.
+        0x10,...encode(expression.radicand),0x11,
+      ];
+      if (expression.kind === 'fraction') {
+        const operand = child => child.kind === 'tokens'
+          ? encode(child) : [0x10,...encode(child),0x11];
+        return [
+          ...operand(expression.numerator),0xef,0x2e,
+          ...operand(expression.denominator),
+        ];
+      }
+      if (expression.kind === 'integral') return [
+        0x24,...encode(expression.body),0x2b,...encode(expression.variable),
+        0x2b,...encode(expression.lower),0x2b,...encode(expression.upper),0x11,
+      ];
+      if (expression.kind === 'summation') return [
+        0xef,0x33,...encode(expression.body),0x2b,...encode(expression.variable),
+        0x2b,...encode(expression.lower),0x2b,...encode(expression.upper),0x11,
+      ];
+      if (expression.kind === 'nDeriv') return [
+        0x25,...encode(expression.body),0x2b,...encode(expression.variable),
+        0x2b,...encode(expression.value),0x11,
+      ];
+      throw new RangeError(
+        `unsupported native token encoding kind ${expression.kind}`);
+    };
+    return encode(spec);
+  }
+
+  // Byte-oriented translation of the page-34 source-token classification
+  // boundary. It recognizes the structural tokens mapped by 34:594D, retains
+  // all ordinary bytes in leaf order, and applies the native template argument
+  // order before the settled-record constructor runs.
+  function settledExpressionFromTokens(input) {
+    const native = settledNativeTokenUnits(input);
+    const units = native.units;
+    let cursor = 0;
+    const peek = (prefix, token, ahead = 0) => {
+      const unit = units[cursor + ahead];
+      return !!unit && unit.prefix === prefix && unit.token === token;
+    };
+    const take = () => units[cursor++];
+    const tokenNode = unit => ({kind:'tokens',tokens:unit.bytes.slice()});
+    const expect = (prefix, token, label) => {
+      if (!peek(prefix,token))
+        throw new RangeError(`settled native ${label} is missing`);
+      return take();
+    };
+    const unwrapFractionBoundary = expression => expression.kind === 'group'
+      ? expression.expression : expression;
+
+    let expression;
+    let product;
+    let fraction;
+    let power;
+    let atom;
+
+    const parseArguments = (count, label) => {
+      const result = [];
+      for (let index = 0; index < count; index++) {
+        const value = expression();
+        if (!value)
+          throw new RangeError(`${label} argument ${index + 1} is empty`);
+        result.push(value);
+        if (index + 1 < count) expect(0,0x2b,`${label} comma`);
+      }
+      expect(0,0x11,`${label} closing parenthesis`);
+      return result;
+    };
+
+    const parseFunctionRun = opener => {
+      const parts = [tokenNode(opener)];
+      const first = expression();
+      if (!first)
+        throw new RangeError('settled native function argument is empty');
+      parts.push(first);
+      while (peek(0,0x2b)) {
+        parts.push(tokenNode(take()));
+        const next = expression();
+        if (!next)
+          throw new RangeError('settled native function argument is empty');
+        parts.push(next);
+      }
+      parts.push(tokenNode(expect(0,0x11,'function closing parenthesis')));
+      return settledSequence(parts);
+    };
+
+    const parseMatrix = () => {
+      expect(0,0x08,'matrix opening brace');
+      const rows = [];
+      while (peek(0,0x08)) {
+        take();
+        const row = [];
+        const first = expression();
+        if (!first) throw new RangeError('settled native matrix row is empty');
+        row.push(first);
+        while (peek(0,0x2b)) {
+          take();
+          const element = expression();
+          if (!element)
+            throw new RangeError('settled native matrix element is empty');
+          row.push(element);
+        }
+        expect(0,0x09,'matrix row closing brace');
+        rows.push(row);
+      }
+      expect(0,0x09,'matrix closing brace');
+      if (!rows.length || rows.some(row => row.length !== rows[0].length))
+        throw new RangeError('settled native matrix rows must have equal width');
+      return {
+        kind:'matrix', rows:rows.length, columns:rows[0].length,
+        elements:rows.flat(),
+      };
+    };
+
+    atom = () => {
+      if (cursor >= units.length || peek(0,0x11) || peek(0,0x09) ||
+          peek(0,0x2b)) return null;
+      if (peek(0,0x10)) {
+        take();
+        const grouped = expression();
+        if (!grouped)
+          throw new RangeError('settled native parenthesized expression is empty');
+        expect(0,0x11,'group closing parenthesis');
+        if (grouped.kind === 'fraction') return grouped;
+        return {kind:'group',expression:grouped};
+      }
+      if (peek(0,0x08) && peek(0,0x08,1)) return parseMatrix();
+      if (peek(0,0xb0)) {
+        const sign = take();
+        const operand = atom();
+        if (!operand)
+          throw new RangeError('settled native negation has no operand');
+        return operand.kind === 'tokens'
+          ? {kind:'tokens',tokens:[...sign.bytes,...operand.tokens]}
+          : settledSequence([tokenNode(sign),operand]);
+      }
+      if (peek(0,0xb2)) {
+        take();
+        const [body] = parseArguments(1,'absolute value');
+        return {kind:'absolute',body};
+      }
+      if (peek(0,0xbc)) {
+        take();
+        const [radicand] = parseArguments(1,'radical');
+        return {kind:'radical',radicand};
+      }
+      if (peek(0,0xbd)) {
+        take();
+        const [radicand] = parseArguments(1,'cube root');
+        return {kind:'nthRoot',index:{kind:'tokens',tokens:[0x33]},radicand};
+      }
+      if (peek(0,0xbf) || peek(0,0xc1)) {
+        const kind = peek(0,0xbf) ? 'ePower' : 'tenPower';
+        take();
+        const [exponent] = parseArguments(1,kind);
+        return {kind,exponent};
+      }
+      if (peek(0,0x24)) {
+        take();
+        const [body,variable,lower,upper] = parseArguments(4,'integral');
+        return {kind:'integral',lower,upper,body,variable};
+      }
+      if (peek(0,0x25)) {
+        take();
+        const [body,variable,value] = parseArguments(3,'nDeriv');
+        return {kind:'nDeriv',variable,body,value};
+      }
+      if (peek(0xef,0x33)) {
+        take();
+        const [body,variable,lower,upper] = parseArguments(4,'summation');
+        return {kind:'summation',variable,lower,upper,body};
+      }
+      if (peek(0xef,0x34)) {
+        take();
+        const [argument,base] = parseArguments(2,'logBASE');
+        return {kind:'logBase',base,argument};
+      }
+      if (peek(0,0xc2) || peek(0,0xc4) || peek(0,0xc6) ||
+          peek(0,0xbe) || peek(0,0xc0) ||
+          peek(0xbb,0x29) || peek(0xef,0x32))
+        return parseFunctionRun(take());
+
+      // A numeric literal is one scanner atom. Letters and named two-byte
+      // variables remain separate atoms so X^2 in 2X^2 binds only X.
+      if (peek(0,0x3a) || (units[cursor].prefix === 0 &&
+          0x30 <= units[cursor].token && units[cursor].token <= 0x39)) {
+        const bytes = [];
+        while (cursor < units.length && units[cursor].prefix === 0 &&
+               (units[cursor].token === 0x3a ||
+                0x30 <= units[cursor].token && units[cursor].token <= 0x39))
+          bytes.push(...take().bytes);
+        return {kind:'tokens',tokens:bytes};
+      }
+      return tokenNode(take());
+    };
+
+    power = () => {
+      let left = atom();
+      if (!left) return null;
+      while (peek(0,0x0d) || peek(0,0x0f)) {
+        const exponent = peek(0,0x0d) ? 0x32 : 0x33;
+        take();
+        left = {kind:'power',base:left,
+                exponent:{kind:'tokens',tokens:[exponent]}};
+      }
+      if (peek(0,0xf0) || peek(0,0xf1)) {
+        const nthRoot = peek(0,0xf1);
+        take();
+        const right = power();
+        if (!right)
+          throw new RangeError('settled native raised operator has no right operand');
+        const raisedBoundary = value => {
+          let inner = value;
+          while (inner.kind === 'group') inner = inner.expression;
+          return inner.kind === 'fraction' ? inner : value;
+        };
+        return nthRoot
+          ? {kind:'nthRoot',index:left,
+             radicand:right.kind === 'group' ? right.expression : right}
+          : {kind:'power',base:left,exponent:raisedBoundary(right)};
+      }
+      return left;
+    };
+
+    const beginsImplicitFactor = () => {
+      if (cursor >= units.length) return false;
+      return !(peek(0,0x11) || peek(0,0x09) || peek(0,0x2b) ||
+        peek(0,0x70) || peek(0,0x71) || peek(0,0x82) || peek(0,0x83) ||
+        peek(0,0xf0) || peek(0,0xf1) || peek(0xef,0x2e) ||
+        peek(0xef,0x2f));
+    };
+
+    product = () => {
+      const parts = [];
+      const first = power();
+      if (!first) return null;
+      parts.push(first);
+      while (peek(0,0x82) || peek(0,0x83) || beginsImplicitFactor()) {
+        if (peek(0,0x82) || peek(0,0x83)) parts.push(tokenNode(take()));
+        const right = power();
+        if (!right)
+          throw new RangeError('settled native product has no right operand');
+        parts.push(right);
+      }
+      return settledSequence(parts);
+    };
+
+    fraction = () => {
+      let left = product();
+      if (!left) return null;
+      while (peek(0xef,0x2e) || peek(0xef,0x2f)) {
+        take();
+        const right = product();
+        if (!right)
+          throw new RangeError('settled native stacked fraction has no denominator');
+        left = {
+          kind:'fraction', numerator:unwrapFractionBoundary(left),
+          denominator:unwrapFractionBoundary(right),
+        };
+      }
+      return left;
+    };
+
+    expression = () => {
+      const parts = [];
+      const first = fraction();
+      if (!first) return null;
+      parts.push(first);
+      while (peek(0,0x70) || peek(0,0x71)) {
+        parts.push(tokenNode(take()));
+        const right = fraction();
+        if (!right)
+          throw new RangeError('settled native sum has no right operand');
+        parts.push(right);
+      }
+      return settledSequence(parts);
+    };
+
+    const result = expression();
+    if (!result || cursor !== units.length) {
+      const offset = cursor < units.length ? units[cursor].offset : native.bytes.length;
+      throw new RangeError(
+        `settled native scanner stopped at byte ${offset} of ${native.bytes.length}`);
+    }
+    return result;
+  }
+
+  function constructSettledProgramFromTokens(input, firstId = 1, font = null) {
+    const native = settledNativeTokenUnits(input);
+    const spec = settledExpressionFromTokens(native.bytes);
+    const program = constructSettledExpressionProgram(spec, firstId, font);
+    program.native_tokens = native.bytes.slice();
+    program.native_units = native.units.map(unit => ({
+      offset:unit.offset, length:unit.length, prefix:unit.prefix,
+      token:unit.token, packed:unit.packed,
+    }));
+    program.source =
+      '34:58F9, 34:5911, 34:5935, 34:4900, 34:7393, and 34:7609 translated native-token construction';
+    return program;
   }
 
   // 34:4900 allocates records as the token pass encounters each structural
@@ -2446,6 +2893,12 @@
     settledTokenGlyph,
     settledTokenSpelling,
     setSettledTokenStrings,
+    settledReadPackedToken,
+    settledReadPackedTokenBackward,
+    settledNativeTokenUnits,
+    encodeSettledExpressionTokens,
+    settledExpressionFromTokens,
+    constructSettledProgramFromTokens,
     constructSettledAbsoluteProgram,
     constructSettledExpressionProgram,
     constructSettledFractionProgram,

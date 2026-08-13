@@ -1001,6 +1001,8 @@ function generateRecordProgram(program) {
       operation:operations[write.operationIndex],
       sequence:index,
     })),
+    nativeTokens:Array.isArray(program.native_tokens)
+      ? program.native_tokens.slice() : null,
     programSource:program.source || 'captured settled record snapshot',
   };
 }
@@ -1317,28 +1319,8 @@ function constructedProgramForExpression(expression) {
   if (spec.kind === 'integral' && spec.variable.kind !== 'tokens') return null;
   if (spec.kind === 'summation' && spec.variable.kind !== 'tokens') return null;
   if (spec.kind === 'nDeriv' && spec.variable.kind !== 'tokens') return null;
-  return spec.kind === 'power'
-    ? ROM_ENGINE.constructSettledPowerProgram(spec, 1, FONT)
-    : spec.kind === 'absolute'
-      ? ROM_ENGINE.constructSettledAbsoluteProgram(spec.body, 1, FONT)
-    : spec.kind === 'radical'
-      ? ROM_ENGINE.constructSettledRadicalProgram(spec.radicand, 1, FONT)
-    : spec.kind === 'fraction'
-      ? ROM_ENGINE.constructSettledFractionProgram(
-          spec.numerator, spec.denominator, 1, FONT)
-    : spec.kind === 'integral'
-      ? ROM_ENGINE.constructSettledIntegralProgram(
-          spec.lower, spec.upper, spec.body, spec.variable, 1, FONT)
-    : spec.kind === 'summation'
-      ? ROM_ENGINE.constructSettledSummationProgram(
-          spec.variable, spec.lower, spec.upper, spec.body, 1, FONT)
-    : spec.kind === 'nDeriv'
-      ? ROM_ENGINE.constructSettledNDerivProgram(
-          spec.variable, spec.body, spec.value, 1, FONT)
-    : spec.kind === 'nthRoot'
-      ? ROM_ENGINE.constructSettledNthRootProgram(
-          spec.index, spec.radicand, 1, FONT)
-    : ROM_ENGINE.constructSettledExpressionProgram(spec, 1, FONT);
+  const nativeTokens = ROM_ENGINE.encodeSettledExpressionTokens(spec);
+  return ROM_ENGINE.constructSettledProgramFromTokens(nativeTokens, 1, FONT);
 }
 
 function generatedForExpression(expression) {
@@ -1407,7 +1389,9 @@ function renderGenerated(record, step, scale) {
   document.getElementById('penlog').innerHTML =
     `<p class="note">RE-generated LCD data writes. JavaScript executes the settled ` +
     `record program, geometry routines, glyph blitter, and byte packing. Input: ` +
-    `<code>${escapeHtml(record.programSource)}</code>. No captured ` +
+    `<code>${escapeHtml(record.programSource)}</code>. Native bytes: ` +
+    `<code>${escapeHtml((record.nativeTokens || []).map(value =>
+      value.toString(16).padStart(2, '0')).join(' '))}</code>. No captured ` +
     `LCD events are used as input. Click a row to jump to that write.</p>` +
     `<table><thead><tr><th>#</th><th>operation</th><th>byte</th><th>LCD x,y</th>` +
     `<th>pixels</th><th>translated path</th></tr></thead><tbody>${rows}</tbody></table>`;
