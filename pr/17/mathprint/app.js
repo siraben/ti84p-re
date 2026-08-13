@@ -897,6 +897,16 @@ function flatSettledTokenBytes(source) {
 function constructedSettledSpec(source) {
   let offset = 0;
   const atom = () => {
+    if (source.startsWith('nthroot(', offset)) {
+      offset += 8;
+      const index = expression(',');
+      if (!index || source[offset] !== ',') return null;
+      offset++;
+      const radicand = expression(')');
+      if (!radicand || source[offset] !== ')') return null;
+      offset++;
+      return {kind:'nthRoot', index, radicand};
+    }
     if (source.startsWith('sqrt(', offset)) {
       offset += 5;
       const radicand = expression(')');
@@ -959,6 +969,9 @@ function constructedProgramForExpression(expression) {
   if (!spec) return null;
   return spec.kind === 'power'
     ? ROM_ENGINE.constructSettledPowerProgram(spec, 1, FONT)
+    : spec.kind === 'nthRoot'
+      ? ROM_ENGINE.constructSettledNthRootProgram(
+          spec.index, spec.radicand, 1, FONT)
     : ROM_ENGINE.constructSettledExpressionProgram(spec, 1, FONT);
 }
 
