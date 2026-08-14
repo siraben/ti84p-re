@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-90966a9e.js";
+            window.path_to_searchindex_js = "searchindex-6a8e698f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14947,7 +14947,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in ten finite models. It also computes an
+complete path-equivalence class in eleven finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -14966,12 +14966,13 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Editor action <code>0x03</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">11</td><td style="text-align: right">9</td><td style="text-align: right">4</td></tr>
 <tr><td>Editor action <code>0x04</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">5</td><td style="text-align: right">5</td><td style="text-align: right">3</td></tr>
 <tr><td>Reverse argument-overflow cue</td><td style="text-align: right">65,536</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
+<tr><td>Editor horizontal viewport</td><td style="text-align: right">17,179,869,184</td><td style="text-align: right">8</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
 <tr><td>Saved-operand wrappers</td><td style="text-align: right">16</td><td style="text-align: right">12</td><td style="text-align: right">12</td><td style="text-align: right">8</td></tr>
 </tbody>
 </table>
 </div>
-<p>The ten models contain 1,214 path classes and 106 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 60 representatives. Each
+<p>The eleven models contain 1,222 path classes and 112 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 62 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -15789,7 +15790,7 @@ machine at <code>34:5A99</code>–<code>34:5CAC</code>. The translation includes
 <code>_AHEADEQUAL = 4B49h</code>, <code>_PARSAHEADS = 4B4Ch</code>, and <code>_PARSAHEAD = 4B4Fh</code>
 entries plus the internal entries at <code>34:5AA3</code>, <code>34:5AA7</code>, and <code>34:5AA9</code>.
 It constructs settled records and emits accepted LCD data bytes. Each
-write replaces one eight-pixel span in a 96×64 framebuffer. Five changed and
+write replaces one eight-pixel span in a 96×64 framebuffer. Six changed and
 deeply nested expressions pin every intermediate write and the packed final
 framebuffer without loading a captured write stream. These deterministic cases
 exercise summation, integral, <code>nDeriv(</code>, matrix, and a three-level raised
@@ -15813,6 +15814,16 @@ x_{\mathrm{clip}}
 = \max\left(x_{\mathrm{clip,old}},;106+6-95\right)
 = 17.
 $$</p>
+<p>The general path follows 16-bit instruction order. <code>34:5F61</code> first subtracts
+the previous clip. A borrow clears <code>ram:8E02</code> and restores the unshifted
+endpoint. Bit 3 of <code>(IY+44h)</code> selects a six-pixel cursor when set and a
+five-pixel cursor when clear. The two callers add either zero or three more
+pixels through <code>DE</code>. Both additions wrap as Z80 words before <code>34:5F7F</code>
+compares the result with the low-byte right bound. Carry returns without a
+store. Carry clear adds the remaining distance to the current clip and writes
+it at <code>34:5F87</code>. An endpoint left of the previous clip can therefore clear the
+clip, and an endpoint near <code>0xFFFF</code> can wrap before the bound comparison.
+[confirmed]</p>
 <p>The visible expression therefore begins at effective $x=-17$, while the cursor
 cell begins at $x=89$. When <code>ram:8E02</code> is nonzero, <code>34:5FF2</code> calls <code>34:6031</code>.
 That routine draws the seven-row left-overflow bitmap at <code>34:60B8</code> through
