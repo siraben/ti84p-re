@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-32c1b8b1.js";
+            window.path_to_searchindex_js = "searchindex-cd136b8f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15252,6 +15252,20 @@ post-search <code>A</code>, and updated <code>0x85DE/0x85DF</code> as ordered st
 multi-argument traces can therefore exercise the repeat without replaying an
 LCD stream. [confirmed] for the page-39 control flow and bcall identities;
 [standard] for the documented bcall input/output contract.</p>
+<p><code>editorFindAlphaVat()</code> translates the selection state over an explicit logical
+VAT snapshot. Each snapshot entry contains its nine-byte OP-format identity
+and VAT type-byte address. <code>07:5247</code> maps protected programs to the program
+class, complex lists to the list class, type <code>0x0B</code> to equation class <code>0x03</code>,
+and types <code>0x18</code>/<code>0x19</code> to class zero. [confirmed] The comparator at
+<code>07:5199</code> subtracts eight name bytes from OPx+8 down to OPx+1. Borrow
+propagation makes OPx+1 the most-significant alphabetic byte. The scan retains
+the nearest name above or below the incoming OP1, independent of physical VAT
+entry order. It returns the selected identity in OP1 and OP3, its VAT pointer
+in <code>HL</code>, and carry at an alphabetic endpoint. [confirmed]</p>
+<p>The logical snapshot intentionally does not claim a raw VAT decoder. Entry
+decoding at <code>07:51BE</code> and the two physical scan regions bounded by <code>pTemp</code>,
+<code>progPtr</code>, and <code>symTable</code> remain separate translation work. [confirmed] for
+the current model boundary.</p>
 <p><code>editorForwardOverflowCue()</code> and <code>editorReverseOverflowCue()</code> translate the
 closed cue routines at <code>39:66FE</code> and <code>39:66E9</code>. The reverse routine subtracts
 the selected argument at <code>0x85E0</code> from the count at <code>0x85E2</code> with byte
