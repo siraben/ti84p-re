@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4c9798da.js";
+            window.path_to_searchindex_js = "searchindex-0acd4bdb.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -657,6 +657,13 @@ inserts an <code>EF36h</code> editor buffer through direct RAM writes. The repor
 two provenance classes separate.
 <code>tools/mathprint-saturation.json</code> records the resulting branches and trace
 hashes. [confirmed]</p>
+<p>None of the 184 report traces executes <code>39:5167</code>, <code>39:523B</code>, the saved-operand
+wrappers at <code>39:5B10</code>–<code>39:5B38</code>, or the dispatchers at <code>39:59E0</code>/<code>39:59F9</code>.
+The wider 207-digest trace cache also has no hit at those entries. [confirmed]
+<code>_FindAlphaUp</code> at <code>07:50B5</code> executes once in 110 report traces, but every call
+comes from the type-<code>16h</code> cleanup loop at <code>07:5544</code>. Each observed call returns
+carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
+MathPrint caller witness. [confirmed]</p>
 <p>The report is a symbolic-execution aid rather than a whole-machine proof. It
 decodes fixed table rows and partitions selected projected input domains. The
 scan-kind dispatcher at <code>34:5678</code> partitions all 256 incoming <code>A</code> values into
@@ -955,8 +962,8 @@ and multi-argument states can therefore exercise the search without replaying
 an LCD stream. [confirmed] for the page-39 control flow and bcall identities;
 [standard] for the documented bcall input/output contract.</p>
 <p><code>editorFindAlphaVat()</code> translates the selection state over an explicit logical
-VAT snapshot. Each snapshot entry contains its nine-byte OP-format identity
-and VAT type-byte address. <code>07:50BB</code> loads <code>A=00h</code>, discarding the caller’s
+VAT snapshot. Each snapshot entry contains its nine-byte OP-format identity,
+VAT type-byte address, and data-page byte. <code>07:50BB</code> loads <code>A=00h</code>, discarding the caller’s
 value; <code>07:5104</code>–<code>07:511D</code> always compare the normalized type class.
 [confirmed] <code>07:5247</code> maps protected programs to the program
 class, complex lists to the list class, type <code>0x0B</code> to equation class <code>0x03</code>,
@@ -966,6 +973,14 @@ propagation makes OPx+1 the most-significant alphabetic byte. The scan retains
 the nearest name above or below the incoming OP1, independent of physical VAT
 entry order. It returns the selected identity in OP1 and OP3, its VAT pointer
 in <code>HL</code>, and carry at an alphabetic endpoint. [confirmed]</p>
+<p>The decoder at <code>07:51BE</code> rejects a first name byte below <code>41h</code> or equal to
+<code>72h</code>. It also handles list prefixes <code>3Ah</code> and <code>5Dh 40h</code> through
+<code>MenuCurrent</code>, <code>inGroup</code>, and bit 0 of <code>(IY+0)</code>. While <code>inGroup</code> is set, an
+archived candidate uses its page byte for the final <code>41h</code>/<code>72h</code> gate.
+<code>OP1+2=FFh</code> is the ascending-start sentinel at <code>07:5151</code>; it admits every
+filtered Up candidate and makes Dn return carry. [confirmed]</p>
+<p>Success returns <code>A=00h</code>, Z set, and carry clear. Failure restores the incoming
+identity to OP1/OP3 and returns <code>A=FEh</code>, Z clear, and carry set. [confirmed]</p>
 <p>The logical snapshot intentionally does not claim a raw VAT decoder. Entry
 decoding at <code>07:51BE</code> and the two physical scan regions bounded by <code>pTemp</code>,
 <code>progPtr</code>, and <code>symTable</code> remain separate translation work. [confirmed] for
