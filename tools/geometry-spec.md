@@ -254,22 +254,22 @@ of at least 8 select these byte-sized values before emitting the highlighted
 final argument at row 7:
 
 ```text
-final_argument  = count - 1
-visible_slot    = (count - 8 + baseline_row) & 0xFF
-pre_emit_row    = (baseline_row - 1) & 0xFF
+final_argument     = count - 1
+first_visible_slot = (count - 8 + baseline_row) & 0xFF
+pre_call_row       = (baseline_row - 1) & 0xFF
 ```
 
-Action `0x04` at `39:52A5` drains while this byte difference is nonzero:
+Action `0x04` at `39:52A5` computes this byte difference once:
 
 ```text
 delta = ((count - 1) - argument_index) & 0xFF
 ```
 
-Valid states with `count > 0` and `argument_index < count - 1` terminate after
-`delta` calls to `39:5167`. An index above `count - 1` does not progress.
-Count zero behaves the same way except for index `0xFF`, whose initial delta is
-zero. On the flag-clear terminating path, `A=0` reaches `39:513E` and selects
-argument zero. [confirmed]
+A nonzero delta calls `39:5167` once. That walker returns through `39:5447`.
+`39:52B6` then jumps to `39:52A2` and enters the same row-token tail again; it
+does not recompute the difference. A zero delta tests `(IY+1Dh).0`. The set-bit
+path uses the same tail. On the clear-bit path, `A=0` reaches `39:513E` and
+selects argument zero. [confirmed]
 
 ### Slot-to-baseline placement
 
