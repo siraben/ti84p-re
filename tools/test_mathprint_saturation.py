@@ -826,9 +826,21 @@ class CheckedReportTests(unittest.TestCase):
 
         self.assertEqual(2, report["schema"])
         self.assertEqual(184, len(report["traces"]))
+        self.assertEqual(968, report["summary"]["branch_outcomes_observed"])
+        self.assertEqual(
+            965, report["summary"]["natural_branch_outcomes_observed"]
+        )
         self.assertEqual(
             1200,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
+        )
+        integral = next(
+            row for row in report["traces"]
+            if row["label"] == "mathprint_integral_boundary_insert"
+        )
+        self.assertEqual(
+            "328b8f52ebe939b35f79e676076984aa85ee59e05c06862647c4fc615069bb3c",
+            integral["sha256"],
         )
 
 
