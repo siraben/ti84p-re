@@ -536,10 +536,10 @@ the allocator's four branches and 35 of the 40 metric branches have both
 outcomes. [confirmed]
 
 The report classifies all 2,184 enumerated outcomes. Natural calculator input
-exercises 958. The synthetic `EF36h` state adds five outcomes, for 963 across
+exercises 962. The synthetic `EF36h` state adds five outcomes, for 967 across
 all evidence. One allocator outcome is infeasible under its data invariant.
 Two metric outcomes are infeasible under the calculator call ABI. The full
-evidence set leaves 1,218 unresolved; the natural-only set leaves 1,223.
+evidence set leaves 1,214 unresolved; the natural-only set leaves 1,219.
 An unobserved outcome never becomes infeasible from absence alone. [confirmed]
 
 The infeasible allocator outcome is the fallthrough at `33:4F4E`. The type
@@ -561,13 +561,13 @@ The report computes two exact Z3 covers. The first preserves every individual
 branch outcome observed in the supplied traces. It does not preserve complete
 invocation paths, register or RAM states, dispatch indices, record cases, or LCD
 write cases. The all-evidence and natural-only branch covers each select 23
-traces. They preserve 963 and 958 outcomes in 3,466,092,816 and 3,516,346,500
+traces. They preserve 967 and 962 outcomes in 3,738,592,734 and 3,788,846,418
 bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,219 tags and needs 125
-traces. The natural-only universe has 1,214 tags and needs 124 traces. Every
+independent oracle case. Its all-evidence universe has 1,223 tags and needs 126
+traces. The natural-only universe has 1,218 tags and needs 125 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -1381,12 +1381,19 @@ writes. The compact oracle is
 `tools/mathprint-editor-overflow-oracle.json`; the reproduction input is
 `tools/macros/mathprint-double-integral.macro`. [confirmed]
 
-The right-side bitmap at `34:60C0` produces eight writes during the redraw. Its
-editor-state predicate is `34:5FFA` → `34:607A`, and `34:608F` computes its
-horizontal position. Its semantic meaning remains unresolved. Cursor blink
-separately writes `0x7C` to byte column 11 on rows 8–14. The browser excludes
-both UI-state streams from settled expression timelines. [hypothesis] for the
-right-cue meaning; [confirmed] for its predicate, bytes, and cursor write range
+The eight writes inserted at instruction index 56 come from
+`page_34:6CA8` → `ram:3CE1`. That call stack does not pass through `34:608F`, so
+the stream is separate from the right-side bitmap path and remains outside the
+settled expression timeline. [confirmed]
+
+The actual `34:608F` path is observed elsewhere in the natural trace. It
+updates byte column 11 at rows 8–14 with `00`, `08`, `0C`, `0E`, `0C`, `08`, and
+`00`. `34:5FFA` → `34:607A` selects the path, and `34:608F` computes its
+horizontal position. The exact UI endpoint meaning remains unresolved.
+Cursor blink separately writes `0x7C` to byte column 11 on rows 8–14. The
+browser excludes both auxiliary streams from settled expression timelines.
+[hypothesis] for the endpoint meaning; [confirmed] for the call predicate,
+bitmap values, and observed byte range
 
 The text-cell path has a separate overflow boundary. `39:4F08` compares
 `curCol` (`0x844C`) with `0x0F` before marker handling and calls the fixed-bank

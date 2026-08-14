@@ -190,6 +190,12 @@ expectEqual('34:5DBE/5DC2 applies the editor translation and appends the left cu
      rows:[0x00,0x02,0x06,0x0e,0x06,0x02,0x00],retainUnchanged:true,
      routine:'34:5FF2 → 34:6031 → 34:61B2; bitmap at 34:60B8'},
   ]);
+expectEqual('34:608F selects and positions the right overflow bitmap',
+  rom.settledEditorRightCueOperation(rom.settledEditorViewport(106), 23), {
+    kind:'bitmap', x:91, y:8, width:4, height:7,
+    rows:[0x00,0x04,0x06,0x07,0x06,0x04,0x00], retainUnchanged:true,
+    routine:'34:5FFA → 34:607A → 34:608F; bitmap at 34:60C0',
+  });
 const objectHandlers = [0x6d0c,0x706a,0x70b8,0x702c,0x7133,0x70a0,0x70e2,
   0x70e2,0x7087,0x7102,0x717e,0x70c1,0x71c6];
 objectHandlers.forEach((handler, kind) => expectEqual(`34:7012 object kind ${kind}`,
@@ -949,6 +955,67 @@ expectEqual('long integral sum exposes its settled extent and editor scrolling',
   lcdHash:editorOverflowOracle.settled_editor_redraw
     .translated_expression_and_left_cue_lcd_sha256,
 });
+
+// Wide-input corpus: keep the text compositor, native-token frontend, record
+// constructor, editor viewport, and byte-level writer on the same overflow
+// cases. These inputs are deliberately absent from the captured fixtures.
+for (const [expression, expectedOverflow] of [
+  [
+    'int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)',
+    66,
+  ],
+  [
+    'int(12,34,(5//(6//7))X^3,X)+sum(N,1,99,N^2)+' +
+      'nDeriv((X^3+12)//sqrt(5),X,7)',
+    72,
+  ],
+  [
+    'int(123,456,(1//(2//(3//4)))X^5,X)+' +
+      'int(789,999,(7//8)X,X)',
+    38,
+  ],
+]) {
+  const model = mp.parse(expression);
+  if (!model || !Array.isArray(model.rows) || !model.rows.length ||
+      !model.rows.some(row => row.some(Boolean)))
+    throw new Error(`${expression} text model produced no visible pixels`);
+  const program = mp.constructedProgramForExpression(expression);
+  if (!program) throw new Error(`${expression} has no settled record program`);
+  const generated = mp.generatedForExpression(expression);
+  expectEqual(`${expression} record width agrees with the editor model`,
+    generated.recordWidth, program.nodes[0].word07);
+  expectEqual(`${expression} editor clip follows the endpoint`,
+    generated.editorViewport.xClip,
+    Math.max(0, generated.recordWidth + generated.editorViewport.cursorWidth -
+      generated.editorViewport.rightBound));
+  expectEqual(`${expression} records its expected visible overflow`,
+    generated.overflowRight, expectedOverflow);
+  if (generated.operations.some(operation =>
+      operation.kind.startsWith('unresolved')) ||
+      generated.events.some(event => event.pixels.length !== 8))
+    throw new Error(`${expression} wide-input path emitted unresolved or partial pixels`);
+  expectEqual(`${expression} wide-input byte replay reaches the final frame`,
+    rom.replaySettledLcdWrites(generated.events, {
+      width:generated.width, height:generated.height,
+    }), generated.final.map(row => Array.from(row, Number)));
+  for (const step of [0, 1, Math.floor(generated.events.length / 2), generated.events.length])
+    expectEqual(`${expression} wide-input frame ${step}`,
+      mp.traceFrame(generated, step),
+      rom.replaySettledLcdWrites(generated.events, {
+        width:generated.width, height:generated.height, count:step,
+      }));
+}
+
+// The record metric fields are unsigned words. The largest flat expression
+// that fits remains executable; adding one six-pixel cell must fail at the
+// same constructor boundary instead of wrapping its width.
+const maxWidthText = new Array(5461).fill('X').join('+');
+const maxWidthProgram = mp.constructedProgramForExpression(maxWidthText);
+expectEqual('frontend accepts a maximum-width settled leaf',
+  maxWidthProgram.nodes[0].word07, 0xfff6);
+const overWidthText = new Array(5462).fill('X').join('+');
+expectThrows('frontend rejects a settled leaf wider than a word', RangeError,
+  () => mp.constructedProgramForExpression(overWidthText));
 
 expectThrows('LCD replay rejects an out-of-bounds byte pointer', RangeError,
   () => rom.replaySettledLcdWrites([{pointer:[12,0],value:0xff}]));
@@ -2073,6 +2140,7 @@ expectEqual('browser presents a selective mechanism-diverse example set',
     'summation (RE)',
     'nth root of a fraction',
     'nDeriv (RE)',
+    'repeated integrals with horizontal overflow (RE)',
   ]);
 
 expectEqual('full RE regression corpus remains independent of the visible gallery',
