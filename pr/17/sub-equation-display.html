@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cd136b8f.js";
+            window.path_to_searchindex_js = "searchindex-4c9798da.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -948,14 +948,17 @@ They return the selected variable in OP1 and OP3 and its VAT pointer in <code>HL
 carry reports that no matching entry remains. Carry clear then calls
 <code>39:5C2E</code>; only class <code>0x03</code> with subclass byte <code>0x01</code> enters <code>39:1942</code>.
 <code>A=06</code> repeats the alphabetic search, while every other value returns with
-carry clear. The JavaScript model accepts each page-7 search result,
-post-search <code>A</code>, and updated <code>0x85DE/0x85DF</code> as ordered state. Nested and
-multi-argument traces can therefore exercise the repeat without replaying an
-LCD stream. [confirmed] for the page-39 control flow and bcall identities;
+carry clear. The JavaScript model derives each result from OP1 and a logical
+VAT snapshot. It derives the post-search <code>A</code> from the selected OP1 type, so a
+protected-program entry repeats without an injected return sequence. Nested
+and multi-argument states can therefore exercise the search without replaying
+an LCD stream. [confirmed] for the page-39 control flow and bcall identities;
 [standard] for the documented bcall input/output contract.</p>
 <p><code>editorFindAlphaVat()</code> translates the selection state over an explicit logical
 VAT snapshot. Each snapshot entry contains its nine-byte OP-format identity
-and VAT type-byte address. <code>07:5247</code> maps protected programs to the program
+and VAT type-byte address. <code>07:50BB</code> loads <code>A=00h</code>, discarding the caller’s
+value; <code>07:5104</code>–<code>07:511D</code> always compare the normalized type class.
+[confirmed] <code>07:5247</code> maps protected programs to the program
 class, complex lists to the list class, type <code>0x0B</code> to equation class <code>0x03</code>,
 and types <code>0x18</code>/<code>0x19</code> to class zero. [confirmed] The comparator at
 <code>07:5199</code> subtracts eight name bytes from OPx+8 down to OPx+1. Borrow

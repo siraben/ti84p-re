@@ -305,9 +305,9 @@
 
   // Translate the page-39 use of 07:50B5/50B8 over a logical VAT snapshot.
   // Each entry supplies its nine-byte OP-format identity and the address of
-  // its VAT type byte. Page 39 enters with Z set, so only entries in the same
-  // normalized type class participate. The ROM keeps the nearest qualifying
-  // name in OP3 and returns it in both OP1 and OP3 when the scan ends.
+  // its VAT type byte. The 2.55MP routine discards caller A and always compares
+  // normalized type classes. It keeps the nearest qualifying name in OP3 and
+  // returns it in both OP1 and OP3 when the scan ends.
   function editorFindAlphaVat(direction, op1Value, vatSnapshot) {
     if (direction !== 'up' && direction !== 'down')
       throw new RangeError('alphabetic VAT-search direction must be up or down');
@@ -440,10 +440,11 @@
   // 39:59E0 and 39:59F9 are small local dispatchers around _FindAlphaUp and
   // _FindAlphaDn on page 7. They are easy to mistake for renderers because
   // they sit beside the row compositor, but their only local state is
-  // 85DE/85DF and the flags returned by the cross-page VAT search. The VAT
-  // walk itself is deliberately an input. `searchResults` records each
-  // possible return, in call order, so a Z=1 / A=06 loop can be
-  // represented without replaying captured writes.
+  // 85DE/85DF and the flags returned by the cross-page VAT search. The caller
+  // supplies OP1 and a logical VAT snapshot; every search result is derived
+  // by editorFindAlphaVat(). A protected-program result has type 06h, so the
+  // 39:1942 post-check repeats until the search reaches another type or the
+  // alphabetic endpoint.
   //
   // The class-2 paths are closed on page 39. The ascending path emits 0Dh and
   // finishes with the 14h OP1 seed at 39:59C6. The descending path inspects the
@@ -459,9 +460,6 @@
     byte(editorSubClass, 'editor alpha-search subclass');
     if (!options || typeof options !== 'object' || Array.isArray(options))
       throw new TypeError('editor alpha-search options must be an object');
-    const results = options.searchResults === undefined ? [] : options.searchResults;
-    if (!Array.isArray(results))
-      throw new TypeError('editor alpha-search results must be an array');
     const special = options.specialResult === undefined ? null : options.specialResult;
     if (special !== null && (!special || typeof special !== 'object' ||
                              Array.isArray(special)))
@@ -523,78 +521,47 @@
       };
     }
 
-    if (!results.length)
-      throw new TypeError('non-class-2 alpha-search path requires searchResults');
-    let currentClass = editorClass;
-    let currentSubclass = editorSubClass;
-    for (let index = 0; index < results.length; index++) {
-      const result = results[index];
-      if (!result || typeof result !== 'object' || Array.isArray(result))
-        throw new TypeError(`editor alpha-search result ${index} must be an object`);
-      if (result.editorClass !== undefined)
-        currentClass = byte(result.editorClass,
-          `editor alpha-search result ${index} class`);
-      if (result.editorSubClass !== undefined)
-        currentSubclass = byte(result.editorSubClass,
-          `editor alpha-search result ${index} subclass`);
-      // The call to 5A17 precedes every alpha search, including a loop from
-      // 59F4/5A0D. A class-2 value produced by the previous search is handled
-      // only on the next loop entry; the first result still passes through
-      // 39:5C2E before the dispatcher can exit.
-      if (index > 0 && currentClass === 0x02) {
-        const nestedOptions = {
-          specialResult:result.specialResult || special,
-        };
-        if (result.savedOperand !== undefined || savedOperand !== null)
-          nestedOptions.savedOperand = result.savedOperand || savedOperand;
-        const nested = editorAlphaSearch(direction, currentClass, currentSubclass,
-          nestedOptions);
-        return {
-          ...base, branch:'class-2-special', entry:'after-search',
-          specialPath:nested.specialPath, loopCount:index,
-          effects:effects.concat([{kind:'class-check',class:currentClass,
-            routine:'39:5A17'}], nested.effects), nested,
-          carry:nested.carry,
-        };
-      }
-      const carry = requireCarry(result.carry,
-        `editor alpha-search result ${index}`);
+    let currentOp1 = editorNineByteBuffer(
+      options.op1, 'editor alpha-search OP1');
+    const vatSnapshot = options.vatSnapshot;
+    if (!Array.isArray(vatSnapshot))
+      throw new TypeError('non-class-2 alpha-search requires a VAT snapshot');
+    for (let index = 0; index <= vatSnapshot.length; index++) {
+      const result = editorFindAlphaVat(direction,currentOp1,vatSnapshot);
       effects.push({kind:'find-alpha',routine:searchRoutine,index,
-        carry, editorClass:currentClass, editorSubClass:currentSubclass,
-        ignoreType:false});
-      if (carry)
+        carry:result.carry, editorClass, editorSubClass,
+        typeMode:'normalized-class', input:currentOp1.slice(),
+        output:result.op1.slice(),
+        vatPointer:result.vatPointer, selectedIndex:result.selectedIndex});
+      if (result.carry)
         return {
           ...base, branch:'search-carry', loopCount:index,
-          carry:true, effects,
+          carry:true, op1:result.op1, op3:result.op3,
+          vatPointer:null, effects,
           terminal:'return-carry',
         };
-      const selected = currentClass === 0x03 && currentSubclass === 0x01;
+      const selected = editorClass === 0x03 && editorSubClass === 0x01;
       effects.push({kind:'class-3-subclass-1-check',selected,
         routine:'39:5C2E'});
       if (!selected)
         return {
           ...base, branch:'search-complete', loopCount:index,
-          carry:false, effects, terminal:'return-clear',
+          carry:false, op1:result.op1, op3:result.op3,
+          vatPointer:result.vatPointer, effects, terminal:'return-clear',
         };
-      if (result.postCode === undefined)
-        throw new TypeError(`editor alpha-search result ${index} requires postCode`);
-      const postCode = byte(result.postCode,
-        `editor alpha-search result ${index} postCode`);
+      const postCode = result.op1[0] & 0x1f;
       effects.push({kind:'post-search-call',routine:'39:1942',code:postCode});
       if (postCode !== 0x06)
         return {
           ...base, branch:'post-search-complete', loopCount:index,
-          postCode, carry:false, effects, terminal:'return-clear',
+          postCode, carry:false, op1:result.op1, op3:result.op3,
+          vatPointer:result.vatPointer, effects, terminal:'return-clear',
         };
       effects.push({kind:'repeat-alpha-search',routine:dispatcherRoutine,
         reason:'post-search A=06'});
-      currentClass = result.nextEditorClass === undefined ? currentClass :
-        byte(result.nextEditorClass, `editor alpha-search result ${index} next class`);
-      currentSubclass = result.nextEditorSubClass === undefined ? currentSubclass :
-        byte(result.nextEditorSubClass,
-          `editor alpha-search result ${index} next subclass`);
+      currentOp1 = result.op1.slice();
     }
-    throw new RangeError(`${dispatcherRoutine} searchResults ended on a repeat path`);
+    throw new RangeError(`${dispatcherRoutine} repeated beyond the VAT snapshot`);
   }
 
   // 39:66FE temporarily moves the text cursor to row 1, column 1, emits the
