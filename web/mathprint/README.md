@@ -287,6 +287,11 @@ composition on a horizontally scrollable canvas and reports the model endpoint,
 record view. Text input retains this model when the settled constructor rejects
 an over-wide record, and reports the constructor error beside the model timeline.
 Its heuristic extent is therefore a readability aid, not a second LCD oracle.
+Live input also carries the previous clip word between edits. The browser tests
+the translated retain, reset, and regrow branches, then extends the same path to
+eight repeated integrals with a 442-pixel record and 127 native token bytes. The
+textarea grows with wrapped input until its capped editing height, so long source
+text remains accessible independently of the 96-pixel LCD viewport.
 The integral frontend accepts `int(`, `integral(`, and the ROM token
 spelling `fnInt(` as aliases for the same `EF24h` structural record.
 The one-argument hyperbolic functions `sinh(`, `cosh(`, and `tanh(` use their
