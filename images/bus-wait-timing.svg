@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="780" viewBox="0 0 1200 780" role="img" aria-labelledby="title desc">
   <title id="title">Conceptual timing effects of TI-84 Plus bus-delay registers</title>
-  <desc id="desc">The upper half shows the CPU speed selecting one delay byte from ports 29 through 2C. Its high bits add time to LCD port instructions and its low bits gate Flash and RAM wait bits in port 2E. The lower half contrasts a one T-state Flash opcode wait with the longer LCD-ready hold selected by port 2F.</desc>
+  <desc id="desc">The upper half shows the CPU speed selecting one delay byte from ports 29 through 2C. Its high bits add time to LCD port instructions and its low bits gate Flash and RAM wait bits in port 2E. The lower half contrasts a one T-state Flash opcode wait with the longer LCD busy interval reported by the port 2F ready status.</desc>
   <defs>
     <style>
       .bg{fill:#f8fafc}.panel{fill:#fff;stroke:#94a3b8;stroke-width:2}.title{fill:#0f172a;font:700 30px system-ui,sans-serif}.head{fill:#0f172a;font:700 20px system-ui,sans-serif}.text{fill:#334155;font:16px system-ui,sans-serif}.mono{fill:#0f172a;font:600 16px ui-monospace,SFMono-Regular,Consolas,monospace}.port{fill:#ede9fe;stroke:#7c3aed;stroke-width:2}.lcd{fill:#dbeafe;stroke:#2563eb;stroke-width:2}.flash{fill:#fef3c7;stroke:#d97706;stroke-width:2}.ram{fill:#dcfce7;stroke:#16a34a;stroke-width:2}.arrow{stroke:#475569;stroke-width:2.5;fill:none;marker-end:url(#arrow)}.wave{stroke:#0f172a;stroke-width:3;fill:none}.grid{stroke:#cbd5e1;stroke-width:1}.wait{fill:#fde68a;stroke:#d97706;stroke-width:1.5}.hold{fill:#bfdbfe;stroke:#2563eb;stroke-width:1.5}.ready{stroke:#2563eb;stroke-width:4;fill:none}
@@ -9,7 +9,7 @@
   </defs>
   <rect class="bg" width="1200" height="780" rx="18"/>
   <text class="title" x="60" y="54">Bus timing uses two different delay mechanisms</text>
-  <text class="text" x="60" y="84">Per-access wait states extend a CPU transaction; LCD-ready hold delays when the next transaction may begin.</text>
+  <text class="text" x="60" y="84">Per-access waits extend a CPU transaction; port 2F reports a separate LCD busy interval for software to poll.</text>
 
   <rect class="panel" x="60" y="120" width="1080" height="280" rx="14"/>
   <text class="head" x="600" y="155" text-anchor="middle">Register selection and effects</text>
@@ -47,7 +47,7 @@
     <text class="mono" x="0" y="127">LCD ready</text>
     <path class="ready" d="M150 115 H240 V145 H780 V115 H900"/>
     <rect class="hold" x="240" y="115" width="540" height="38" opacity="0.55"/>
-    <text class="mono" x="510" y="137" text-anchor="middle">port 2F: ready low for 48 + 64f T-states</text>
+    <text class="mono" x="510" y="137" text-anchor="middle">port 2F status: ready low for 48 + 64f T-states</text>
   </g>
   <text class="text" x="90" y="700">Diagram widths are conceptual. The OS mode-1 field f = 3 gives a 240-T-state ready hold.</text>
 </svg>

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-dc69aa20.js";
+            window.path_to_searchindex_js = "searchindex-c675d19f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -242,7 +242,7 @@ $$</p>
 <li>bits 2–7 select the T-states added to each LCD-port instruction;</li>
 <li>bit 0 enables the Flash bits in port <code>0x2E</code>, and bit 1 enables the RAM bits.</li>
 </ul>
-<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/bus-wait-timing.svg" alt="CPU speed selects one delay register; that register controls LCD instruction additions and gates port 2E memory waits, while port 2F controls a separate LCD-ready hold."><span class="img-wrapper"><img src="images/bus-wait-timing.svg" alt="CPU speed selects one delay register; that register controls LCD instruction additions and gates port 2E memory waits, while port 2F controls a separate LCD-ready hold."></span></label></p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/bus-wait-timing.svg" alt="CPU speed selects one delay register; that register controls LCD instruction additions and gates port 2E memory waits, while port 2F reports a separate LCD busy interval for software to poll."><span class="img-wrapper"><img src="images/bus-wait-timing.svg" alt="CPU speed selects one delay register; that register controls LCD instruction additions and gates port 2E memory waits, while port 2F reports a separate LCD busy interval for software to poll."></span></label></p>
 <p><strong>Timing model.</strong> The register behavior is [standard], and the diagram’s widths are conceptual. OS 2.55MP’s register bytes and executed speed values are [confirmed].</p>
 <p>Changing port <code>0x20</code> changes the active byte immediately in TilEm and
 Wabbitemu. The OS does not need to rewrite ports <code>0x29</code>–<code>0x2C</code> when it moves

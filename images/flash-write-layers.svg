@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="780" viewBox="0 0 1200 780" role="img" aria-labelledby="title desc">
   <title id="title">Independent layers involved in a TI-84 Plus Flash write</title>
-  <desc id="desc">A left-to-right path shows software page guards, a RAM-resident worker, the ASIC port 14 command gate and sector override group, the AMD-compatible Flash command state machine, and the physical erase sector. A separate lower lane shows that execution protection controls instruction fetch rather than Flash programming.</desc>
+  <desc id="desc">A left-to-right path distinguishes boot bcall entry-page checks from the caller's remaining span and argument obligations, then shows a RAM-resident worker, the ASIC port 14 command gate and sector override group, the AMD-compatible Flash command state machine, and the physical erase sector. A separate lower lane shows that execution protection controls instruction fetch rather than Flash programming.</desc>
   <defs>
     <style>
       .bg{fill:#f8fafc}.panel{fill:#fff;stroke:#94a3b8;stroke-width:2}.title{fill:#0f172a;font:700 30px system-ui,sans-serif}.head{fill:#0f172a;font:700 20px system-ui,sans-serif}.text{fill:#334155;font:16px system-ui,sans-serif}.mono{fill:#0f172a;font:600 16px ui-monospace,SFMono-Regular,Consolas,monospace}.software{fill:#dbeafe;stroke:#2563eb;stroke-width:2}.asic{fill:#ede9fe;stroke:#7c3aed;stroke-width:2}.chip{fill:#fef3c7;stroke:#d97706;stroke-width:2}.array{fill:#dcfce7;stroke:#16a34a;stroke-width:2}.separate{fill:#fee2e2;stroke:#dc2626;stroke-width:2;stroke-dasharray:8 6}.arrow{stroke:#475569;stroke-width:3;fill:none;marker-end:url(#arrow)}.gate{stroke:#7c3aed;stroke-width:6}.cross{stroke:#dc2626;stroke-width:4}
@@ -16,13 +16,13 @@
     <text class="head" x="545" y="38" text-anchor="middle">Programming and erase path</text>
 
     <rect class="software" x="25" y="75" width="190" height="220" rx="12"/>
-    <text class="head" x="120" y="108" text-anchor="middle">Boot bcall</text>
+    <text class="head" x="120" y="108" text-anchor="middle">Caller + bcall</text>
     <text class="mono" x="120" y="140" text-anchor="middle">_WriteFlash</text>
     <text class="mono" x="120" y="166" text-anchor="middle">_EraseFlash</text>
     <path d="M48 188 H192" stroke="#2563eb" stroke-width="1.5"/>
-    <text class="text" x="120" y="216" text-anchor="middle">page guards</text>
-    <text class="text" x="120" y="242" text-anchor="middle">call-site guard</text>
-    <text class="text" x="120" y="268" text-anchor="middle">argument contract</text>
+    <text class="text" x="120" y="216" text-anchor="middle">entry-page checks</text>
+    <text class="text" x="120" y="242" text-anchor="middle">caller validates span</text>
+    <text class="text" x="120" y="268" text-anchor="middle">address + source</text>
 
     <rect class="software" x="255" y="75" width="190" height="220" rx="12"/>
     <text class="head" x="350" y="108" text-anchor="middle">RAM worker</text>
@@ -35,10 +35,10 @@
     <rect class="asic" x="485" y="75" width="230" height="220" rx="12"/>
     <text class="head" x="600" y="108" text-anchor="middle">ASIC write gates</text>
     <text class="mono" x="600" y="143" text-anchor="middle">port 14 · command lock</text>
-    <text class="text" x="600" y="171" text-anchor="middle">accepts privileged byte prefix</text>
+    <text class="text" x="600" y="171" text-anchor="middle">privileged byte prefix</text>
     <path class="gate" d="M505 198 H695"/>
     <text class="mono" x="600" y="232" text-anchor="middle">port 21 · sector group</text>
-    <text class="text" x="600" y="260" text-anchor="middle">modeled protected-sector override</text>
+    <text class="text" x="600" y="260" text-anchor="middle">modeled sector override</text>
 
     <rect class="chip" x="755" y="75" width="190" height="220" rx="12"/>
     <text class="head" x="850" y="108" text-anchor="middle">Flash chip</text>
@@ -67,6 +67,6 @@
     <path class="cross" d="M560 35 l34 34 m0 -34 l-34 34"/>
     <text class="text" x="620" y="52">These registers gate instruction fetches.</text>
     <text class="text" x="620" y="82">They do not replace the port 14 command lock, sector gate,</text>
-    <text class="text" x="620" y="108">Flash command sequence, or software page checks above.</text>
+    <text class="text" x="620" y="108">Flash command sequence, or caller obligations above.</text>
   </g>
 </svg>

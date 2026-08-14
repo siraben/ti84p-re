@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-dc69aa20.js";
+            window.path_to_searchindex_js = "searchindex-c675d19f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -291,7 +291,7 @@ allows page <code>0x08</code>, while TilEm denies it. Both deny page <code>0x09<
 <code>0x29</code>. WikiTI describes the lower bound as inclusive, which agrees with TilEm,
 but the physical page-<code>0x08</code> result remains unmeasured. [standard] for the
 published contract and source comparison; [hypothesis] for hardware.</p>
-<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/execution-protection-ranges.svg" alt="TilEm denies Flash pages 08 through 29, while Wabbitemu permits page 08 and denies 09 through 29; both permit the outer ranges."><span class="img-wrapper"><img src="images/execution-protection-ranges.svg" alt="TilEm denies Flash pages 08 through 29, while Wabbitemu permits page 08 and denies 09 through 29; both permit the outer ranges."></span></label></p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/execution-protection-ranges.svg" alt="Emulator models differ: TilEm denies Flash pages 08 through 29, while Wabbitemu permits page 08 and denies 09 through 29; the lower panel also compares their RAM execution predicates."><span class="img-wrapper"><img src="images/execution-protection-ranges.svg" alt="Emulator models differ: TilEm denies Flash pages 08 through 29, while Wabbitemu permits page 08 and denies 09 through 29; the lower panel also compares their RAM execution predicates."></span></label></p>
 <p><strong>Boot execution ranges.</strong> The written bounds are [confirmed], and the emulator predicates are [standard]. The physical page-<code>08</code> boundary remains [hypothesis]. The RAM panel introduces the mode-dependent chunk model detailed below.</p>
 <p>Both emulator paths apply this rule to opcode fetches. Ordinary Flash data
 reads use a separate path. The locked certificate-page read censor is also a

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-dc69aa20.js";
+            window.path_to_searchindex_js = "searchindex-c675d19f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -218,7 +218,7 @@
 <p>The conventional scan-code number <code>0x29</code> occupies the unused matrix position at group 5, bit 0, but <strong>ON</strong> is not electrically present at that position. TilEm also uses <code>0x29</code> as its injected-key identifier. Port <code>0x04</code>, not port <code>0x01</code>, reports its physical state. [standard]</p>
 <h2 id="matrix-wiring-and-scan-codes"><a class="header" href="#matrix-wiring-and-scan-codes">Matrix wiring and scan codes</a></h2>
 <p>Writing port <code>0x01</code> selects groups with zero bits. Reading the same port returns one bit per key line, where zero means closed. <code>0xFF</code> releases every group, and <code>0x00</code> selects all groups. [standard]</p>
-<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/keypad-matrix-scan.svg" alt="Writing FB selects keypad group 2; pressing 6 pulls sense bit 2 low, so the scanner reads FB and constructs scan code 13 hexadecimal."><span class="img-wrapper"><img src="images/keypad-matrix-scan.svg" alt="Writing FB selects keypad group 2; pressing 6 pulls sense bit 2 low, so the scanner reads FB and constructs scan code 13 hexadecimal."></span></label></p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/keypad-matrix-scan.svg" alt="In a conceptual matrix with unwired positions marked, writing FB selects keypad group 2; pressing 3 pulls sense bit 1 low, so the scanner reads FD and constructs scan code 12 hexadecimal."><span class="img-wrapper"><img src="images/keypad-matrix-scan.svg" alt="In a conceptual matrix with unwired positions marked, writing FB selects keypad group 2; pressing 3 pulls sense bit 1 low, so the scanner reads FD and constructs scan code 12 hexadecimal."></span></label></p>
 <p><strong>Worked matrix scan.</strong> The active-low electrical contract is [standard]. The group masks and <code>8g + b + 1</code> scan-code construction at <code>ram:0410</code>–<code>0453</code> are [confirmed].</p>
 <p>The table gives the complete TI-84 Plus matrix. Each parenthesized byte is the scan code that <code>kbd_scan_matrix</code> at <code>ram:0406</code> constructs for a single key. A dash is an unwired position. [confirmed] for the ROM formula; [standard] for the physical map.</p>
 <div class="table-wrapper">

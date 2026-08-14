@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="790" viewBox="0 0 1200 790" role="img" aria-labelledby="title desc">
   <title id="title">Open-collector model of the TI two-wire link port</title>
-  <desc id="desc">Two endpoints share line 0 and line 1. Each line has a pull-up and a low-side sink at either endpoint. A line is high only when both endpoints release it. Port 00 write bits command the local sinks, while read bits report the resulting physical levels.</desc>
+  <desc id="desc">Two endpoints share line 0 and line 1. Each endpoint contributes a pull-up resistor and a low-side sink to each line. A line is high only when both endpoints release it. Port 00 write bits command the local sinks, while read bits report the resulting physical levels.</desc>
   <defs>
     <style>
       .bg{fill:#f8fafc}.panel{fill:#fff;stroke:#94a3b8;stroke-width:2}.title{fill:#0f172a;font:700 30px system-ui,sans-serif}.head{fill:#0f172a;font:700 22px system-ui,sans-serif}.text{fill:#334155;font:17px system-ui,sans-serif}.mono{fill:#0f172a;font:600 17px ui-monospace,SFMono-Regular,Consolas,monospace}.wire0{stroke:#dc2626;stroke-width:5;fill:none}.wire1{stroke:#2563eb;stroke-width:5;fill:none}.thin{stroke:#475569;stroke-width:2.5;fill:none}.sink{fill:#e2e8f0;stroke:#475569;stroke-width:2}.high{fill:#dcfce7;stroke:#16a34a;stroke-width:2}.low{fill:#fee2e2;stroke:#dc2626;stroke-width:2}.port{fill:#ede9fe;stroke:#7c3aed;stroke-width:2}.note{fill:#fef3c7;stroke:#d97706;stroke-width:1.5}
     </style>
   </defs>
   <rect class="bg" width="1200" height="790" rx="18"/>
-  <text class="title" x="60" y="54">Two bidirectional lines: release high, pull low</text>
+  <text class="title" x="60" y="54">Two bidirectional lines: release or pull low</text>
   <text class="text" x="60" y="84">Either endpoint can sink either line. No endpoint actively drives a high level.</text>
 
   <rect class="panel" x="60" y="120" width="1080" height="500" rx="14"/>
@@ -15,11 +15,12 @@
   <text class="head" x="1015" y="158" text-anchor="middle">Calculator B / peer</text>
 
   <g transform="translate(0 0)">
-    <text class="mono" x="400" y="215" text-anchor="middle">line 0 · tip · red</text>
+    <text class="mono" x="600" y="215" text-anchor="middle">line 0 · tip · red</text>
     <path class="wire0" d="M250 225 H950"/>
-    <path class="thin" d="M600 225 V170"/>
-    <path class="thin" d="M582 170 H618 M588 160 H612 M594 150 H606"/>
-    <text class="text" x="625" y="166">pull-up</text>
+    <path class="thin" d="M350 225 V205 l-10 -8 l20 -12 l-20 -12 l20 -12 l-10 -8 V135 M330 135 H370"/>
+    <text class="text" x="350" y="128" text-anchor="middle">A pull-up</text>
+    <path class="thin" d="M850 225 V205 l-10 -8 l20 -12 l-20 -12 l20 -12 l-10 -8 V135 M830 135 H870"/>
+    <text class="text" x="850" y="128" text-anchor="middle">B pull-up</text>
 
     <path class="thin" d="M250 225 V270"/><rect class="sink" x="210" y="270" width="80" height="66" rx="8"/>
     <text class="mono" x="250" y="297" text-anchor="middle">sink</text><text class="text" x="250" y="321" text-anchor="middle">write bit 0</text>
@@ -31,11 +32,12 @@
   </g>
 
   <g transform="translate(0 390)">
-    <text class="mono" x="400" y="25" text-anchor="middle">line 1 · ring · white</text>
+    <text class="mono" x="600" y="25" text-anchor="middle">line 1 · ring · white</text>
     <path class="wire1" d="M250 35 H950"/>
-    <path class="thin" d="M600 35 V-20"/>
-    <path class="thin" d="M582 -20 H618 M588 -30 H612 M594 -40 H606"/>
-    <text class="text" x="625" y="-24">pull-up</text>
+    <path class="thin" d="M350 35 V15 l-10 -8 l20 -12 l-20 -12 l20 -12 l-10 -8 V-55 M330 -55 H370"/>
+    <text class="text" x="350" y="-62" text-anchor="middle">A pull-up</text>
+    <path class="thin" d="M850 35 V15 l-10 -8 l20 -12 l-20 -12 l20 -12 l-10 -8 V-55 M830 -55 H870"/>
+    <text class="text" x="850" y="-62" text-anchor="middle">B pull-up</text>
 
     <path class="thin" d="M250 35 V80"/><rect class="sink" x="210" y="80" width="80" height="66" rx="8"/>
     <text class="mono" x="250" y="107" text-anchor="middle">sink</text><text class="text" x="250" y="131" text-anchor="middle">write bit 1</text>
