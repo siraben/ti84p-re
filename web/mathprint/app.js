@@ -1421,6 +1421,30 @@ function generatedForInput(source) {
       constructedProgramForNativeTokens(nativeTokens), {editor:true});
 }
 
+// Text input has two useful views. The translated record path is exact only
+// while its unsigned metric fields fit; the model compositor can still show a
+// wider, partially edited expression. Preserve that model when construction
+// rejects a text expression instead of turning a width overflow into a blank
+// preview. Raw native input remains strict and reports unsupported streams.
+function prepareInput(source) {
+  const nativeTokens = parseNativeTokenInput(source);
+  if (nativeTokens !== null) {
+    const generated = generatedForNativeTokens(nativeTokens);
+    if (!generated)
+      throw new Error('native token stream has no translated record program');
+    return {nativeInput:true, nativeTokens, model:null,
+      generated, generationError:null};
+  }
+  const model = parse(source);
+  try {
+    return {nativeInput:false, nativeTokens:null, model,
+      generated:generatedForExpression(source), generationError:null};
+  } catch (generationError) {
+    return {nativeInput:false, nativeTokens:null, model,
+      generated:null, generationError};
+  }
+}
+
 function activeTimeline() {
   const source = document.getElementById('source').value;
   if (source === 'generated' && CUR_GENERATED) return CUR_GENERATED;
@@ -1554,13 +1578,12 @@ function render(step) {
   const showPen = document.getElementById('pen').checked;
   try {
     const input = document.getElementById('expr').value;
-    const nativeTokens = parseNativeTokenInput(input);
-    const nativeInput = nativeTokens !== null;
-    CUR = nativeInput ? null : parse(input);
+    const prepared = prepareInput(input);
+    const nativeInput = prepared.nativeInput;
+    CUR = prepared.model;
     CUR_TRACE = nativeInput ? null : traceForExpression(input);
-    CUR_GENERATED = nativeInput
-      ? generatedForNativeTokens(nativeTokens)
-      : generatedForExpression(input);
+    CUR_GENERATED = prepared.generated;
+    const generationError = prepared.generationError;
     const source = document.getElementById('source');
     if (nativeInput && source.value !== 'generated') source.value = 'generated';
     const requested = source.value;
@@ -1583,7 +1606,10 @@ function render(step) {
         : (requested === 'model'
             ? `Model mode steps inferred composition elements. It is not an OS draw timeline.`
             : `No ${requested === 'trace' ? 'captured' : 'executable record-program'} timeline matches ` +
-              `this expression. Showing the labeled heuristic model instead.`);
+              `this expression. Showing the labeled heuristic model instead.` +
+              (generationError
+                ? ` Record construction stopped at: ${escapeHtml(String(generationError))}`
+                : ''));
     document.getElementById('err').textContent = '';
   } catch (e) {
     CUR = CUR_TRACE = CUR_GENERATED = null;
@@ -1746,6 +1772,7 @@ if (typeof module !== 'undefined') {
     parseNativeTokenInput,
     constructedProgramForNativeTokens,
     generatedForNativeTokens,
+    prepareInput,
     constructedProgramForExpression,
     generatedForExpression,
     generatedForInput,
