@@ -2300,7 +2300,8 @@ if (!mp.generatedForExpression('A+(X)'))
 // useful as pixel-level LCD-write regressions.
 const regressionExpressions = [
   'Ans+1', 'Ans^2', 'sqrt(Ans)', 'X^Ans',
-  'sin(X)', 'sin(sqrt(X))', 'cos(X)', 'tan(X)', 'ln(X)', 'log(X)',
+  'sin(X)', 'sin(sqrt(X))', 'cos(X)', 'tan(X)',
+  'sinh(X)', 'cosh(X)', 'tanh(X)', 'ln(X)', 'log(X)',
   'L1', 'L1^2', '[A]', 'Y1', 'Str1', 'cumSum(L1)',
   'remainder(Ans,2)', '1/2', '1//2', 'X^2', '(X+1)^2', 'X^(1+2)',
   'sqrt(X)^2', 'abs(X)^2', 'exp(12)', 'tenpow(X^2)',
@@ -2362,7 +2363,7 @@ expectEqual('browser presents a selective mechanism-diverse example set',
 expectEqual('full RE regression corpus remains independent of the visible gallery',
   [regressionExpressions.length,
    mp.presets.every(([, expression]) => regressionExpressions.includes(expression))],
-  [49, true]);
+  [52, true]);
 
 expectEqual('34:6119 fixes type-1F table dispatch to the default bitmap',
   rom.executeSettledRecordGraph([settledRecord(1,0x1f)],1), [{
