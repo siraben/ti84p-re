@@ -472,6 +472,7 @@ anchors for readers who want to check the disassembly. [confirmed]
 | `39:69C8` | Descriptor/fraction geometry selector. |
 | `39:6ABF` / `39:6B1C` | Fraction focus rectangle and endpoint helper. |
 | `39:6B66` | Generic string selector. |
+| `39:66E9` / `39:66FE` | Reverse and forward argument-overflow cues. |
 | `39:6712` | Overflow marker path; resets `curCol` and emits `:`. |
 | `07:44DE` | Display-byte remapper. |
 | `07:4588` | Large-font fixed glyph blitter. |
@@ -517,7 +518,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in eight finite models. It also computes an
+complete path-equivalence class in nine finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -532,9 +533,10 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Metric marker-tail gate | 16 | 5 | 8 | 5 |
 | Editor action `0x03` controller | 131,072 | 11 | 9 | 4 |
 | Editor action `0x04` controller | 131,072 | 5 | 5 | 3 |
+| Reverse argument-overflow cue | 65,536 | 2 | 2 | 2 |
 
-The eight models contain 1,200 path classes and 92 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 50 representatives. Each
+The nine models contain 1,202 path classes and 94 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 52 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -753,6 +755,15 @@ into the parser, saved-operand emitters, and scroll helpers remain ordered
 effects because those routines are outside the closed row arithmetic.
 The increment-wrap guard cannot execute: its preceding unsigned predicate
 requires a nonzero count and an index at most `count - 2`. [confirmed]
+`editorForwardOverflowCue()` and `editorReverseOverflowCue()` translate the
+closed cue routines at `39:66FE` and `39:66E9`. The reverse routine subtracts
+the selected argument at `0x85E0` from the count at `0x85E2` with byte
+arithmetic. A result below 8 returns without drawing. Other results place
+display code `0x1F` at column 1 and row `(winBtm - 1) & 0xFF`. The forward
+routine places `0x1E` at row 1, column 1. Both routines restore the word at
+`0x844B` after their display call; the reverse early return leaves it untouched.
+A raw-byte interpreter exhausts all 65,536 count/index pairs and every
+`winBtm` byte. [confirmed]
 `editorFirstArgumentAction()` and `editorAdvanceAction()` compose those
 walkers with actions `0x03` and `0x04`. They preserve the zero-count
 256-iteration loop, byte-wrapped first-slot arithmetic, the one-call

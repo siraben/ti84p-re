@@ -985,6 +985,61 @@ def symbolic_editor_action04_paths() -> list[dict[str, object]]:
     ]
 
 
+def editor_reverse_overflow_cue_path(
+    argument_index: int,
+    argument_count: int,
+) -> dict[str, object]:
+    """Return the byte-domain path through the reverse cue at 39:66E9."""
+
+    argument_index &= 0xFF
+    argument_count &= 0xFF
+    remaining_arguments = (argument_count - argument_index) & 0xFF
+    returns = remaining_arguments < 8
+    return {
+        "terminal": "return" if returns else "emit_window_bottom_cue",
+        "remaining_arguments": remaining_arguments,
+        "branch_outcomes": [
+            f"39:66F2:{'taken' if returns else 'fallthrough'}"
+        ],
+    }
+
+
+def symbolic_editor_reverse_overflow_cue_paths() -> list[dict[str, object]]:
+    """Partition all count/index byte pairs for the reverse overflow cue."""
+
+    classes: dict[
+        tuple[str, tuple[str, ...]], dict[str, object]
+    ] = {}
+    for argument_count in range(0x100):
+        for argument_index in range(0x100):
+            result = editor_reverse_overflow_cue_path(
+                argument_index, argument_count
+            )
+            key = (
+                str(result["terminal"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] += 1
+            states = row["representative_states"]
+            if len(states) < 4:
+                states.append({
+                    "argument_index": argument_index,
+                    "argument_count": argument_count,
+                })
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
 def raised_extended_token_path(a: int, e: int) -> dict[str, object]:
     """Partition the packed-token classifier at 34:580C.
 
@@ -1695,6 +1750,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             0x20000,
             symbolic_editor_action04_paths(),
         ),
+        (
+            "editor_reverse_overflow_cue",
+            "39:66E9",
+            0x10000,
+            symbolic_editor_reverse_overflow_cue_paths(),
+        ),
     )
     domains = []
     all_outcomes: set[str] = set()
@@ -1753,7 +1814,7 @@ def symbolic_model_corpus() -> dict[str, object]:
     return {
         "scope": (
             "all projected inputs and complete path equivalence classes in the "
-            "eight declared finite symbolic models"
+            "nine declared finite symbolic models"
         ),
         "not_claimed": [
             "all Z80 register and RAM states",

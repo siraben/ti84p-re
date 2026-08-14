@@ -86,6 +86,17 @@ const controllerRomSpans = [
   {address:0x52a5, bytes:Buffer.from(
     'fe04201821e0853ae2853d962805cd675118eafdcb1d4620e4c33e51', 'hex')},
 ];
+const overflowCueRomSpan = {address:0x66e9, bytes:Buffer.from(
+  '3ae28521e08596fe08d83aa6973d6f26013e1f18052101013e1eed5b4b84' +
+  '224b84cddb3fed534b84c9', 'hex')};
+const overflowCueByteMap = new Map(Array.from(
+  overflowCueRomSpan.bytes,
+  (value, offset) => [overflowCueRomSpan.address + offset, value]));
+const overflowCueByte = address => {
+  if (!overflowCueByteMap.has(address))
+    throw new Error(`overflow-cue oracle reached unpinned byte 39:${address.toString(16)}`);
+  return overflowCueByteMap.get(address);
+};
 const controllerByteMap = new Map(controllerRomSpans.flatMap(span =>
   Array.from(span.bytes, (value, offset) => [span.address + offset, value])));
 const controllerByte = address => {
@@ -175,6 +186,91 @@ function runRawController(action, argumentIndex, argumentCount, editorFlags) {
   throw new Error('controller oracle exceeded its instruction bound');
 }
 
+function runRawOverflowCue(direction, argumentIndex, argumentCount, winBottom,
+                           cursorRow = 4, cursorColumn = 6) {
+  let pc = direction === 'reverse' ? 0x66e9 :
+    direction === 'forward' ? 0x66fe : null;
+  if (pc === null)
+    throw new RangeError('raw overflow-cue oracle accepts forward and reverse');
+  const memory = new Map([
+    [0x85e0,argumentIndex], [0x85e2,argumentCount], [0x97a6,winBottom],
+    [0x844b,cursorRow], [0x844c,cursorColumn],
+  ]);
+  const readWord = address =>
+    (memory.get(address) || 0) | ((memory.get(address + 1) || 0) << 8);
+  const writeWord = (address, value) => {
+    memory.set(address,value & 0xff);
+    memory.set(address + 1,(value >> 8) & 0xff);
+  };
+  const literalWord = address =>
+    overflowCueByte(address) | (overflowCueByte(address + 1) << 8);
+  let a = 0, hl = 0, de = 0, carry = false;
+  let remainingArguments = direction === 'forward' ? null : 0;
+  let emission = null;
+  const finish = branch => ({
+    direction, branch, remainingArguments, emission,
+    cursor:[memory.get(0x844b),memory.get(0x844c)],
+  });
+  for (let instructions = 0; instructions < 64; instructions++) {
+    const opcode = overflowCueByte(pc);
+    if (opcode === 0x3a) {
+      a = memory.get(literalWord(pc + 1)) || 0;
+      pc += 3;
+    } else if (opcode === 0x21) {
+      hl = literalWord(pc + 1);
+      pc += 3;
+    } else if (opcode === 0x96) {
+      const operand = memory.get(hl) || 0;
+      carry = a < operand;
+      a = (a - operand) & 0xff;
+      remainingArguments = a;
+      pc++;
+    } else if (opcode === 0xfe) {
+      carry = a < overflowCueByte(pc + 1);
+      pc += 2;
+    } else if (opcode === 0xd8) {
+      if (carry) return finish('return');
+      pc++;
+    } else if (opcode === 0x3d) {
+      a = (a - 1) & 0xff;
+      pc++;
+    } else if (opcode === 0x6f) {
+      hl = (hl & 0xff00) | a;
+      pc++;
+    } else if (opcode === 0x26) {
+      hl = (hl & 0x00ff) | (overflowCueByte(pc + 1) << 8);
+      pc += 2;
+    } else if (opcode === 0x3e) {
+      a = overflowCueByte(pc + 1);
+      pc += 2;
+    } else if (opcode === 0x18) {
+      pc += 2 + signedByte(overflowCueByte(pc + 1));
+    } else if (opcode === 0xed && overflowCueByte(pc + 1) === 0x5b) {
+      de = readWord(literalWord(pc + 2));
+      pc += 4;
+    } else if (opcode === 0x22) {
+      writeWord(literalWord(pc + 1),hl);
+      pc += 3;
+    } else if (opcode === 0xcd) {
+      const target = literalWord(pc + 1);
+      if (target !== 0x3fdb)
+        throw new Error('overflow-cue oracle reached an unsupported call');
+      emission = {
+        row:memory.get(0x844b), column:memory.get(0x844c), code:a,
+      };
+      pc += 3;
+    } else if (opcode === 0xed && overflowCueByte(pc + 1) === 0x53) {
+      writeWord(literalWord(pc + 2),de);
+      pc += 4;
+    } else if (opcode === 0xc9) {
+      return finish('emit-cue');
+    } else {
+      throw new Error(`overflow-cue oracle reached unsupported opcode 0x${opcode.toString(16)}`);
+    }
+  }
+  throw new Error('overflow-cue oracle exceeded its instruction bound');
+}
+
 const localRomPath = path.join(root, 'tools', 'rom.bin');
 if (fs.existsSync(localRomPath)) {
   const localRom = fs.readFileSync(localRomPath);
@@ -186,9 +282,86 @@ if (fs.existsSync(localRomPath)) {
     expectEqual(`39:${span.address.toString(16)} raw controller bytes`,
       localRom.subarray(offset, offset + span.bytes.length), span.bytes);
   }
+  const overflowOffset = 0x39 * 0x4000 +
+    (overflowCueRomSpan.address & 0x3fff);
+  expectEqual('39:66E9–6711 raw overflow-cue bytes',
+    localRom.subarray(
+      overflowOffset, overflowOffset + overflowCueRomSpan.bytes.length),
+    overflowCueRomSpan.bytes);
 }
 expectEqual('39:52B6 relative jump targets the row-token tail',
   0x52b8 + signedByte(controllerByte(0x52b7)), 0x52a2);
+expectEqual('39:66FE emits the fixed forward overflow cue',
+  rom.editorForwardOverflowCue(), {
+    direction:'forward', branch:'emit-cue', remainingArguments:null,
+    emission:{row:1,column:1,code:0x1e}, cursorPreserved:true,
+    routine:'39:66FE',
+  });
+expectEqual('39:66E9 returns with seven remaining arguments',
+  rom.editorReverseOverflowCue(5, 12, 7), {
+    direction:'reverse', argumentIndex:5, argumentCount:12, winBottom:7,
+    remainingArguments:7, branch:'return', emission:null,
+    cursorPreserved:true, routine:'39:66E9',
+  });
+expectEqual('39:66E9 wraps a zero window bottom before drawing',
+  rom.editorReverseOverflowCue(1, 12, 0), {
+    direction:'reverse', argumentIndex:1, argumentCount:12, winBottom:0,
+    remainingArguments:11, branch:'emit-cue',
+    emission:{row:0xff,column:1,code:0x1f},
+    cursorPreserved:true, routine:'39:66E9',
+  });
+expectEqual('39:66FE translation matches the raw bytes', (() => {
+  const raw = runRawOverflowCue('forward', 0, 0, 0, 0xa5, 0x5a);
+  const translated = rom.editorForwardOverflowCue();
+  return {
+    raw, translated:{
+      direction:translated.direction, branch:translated.branch,
+      remainingArguments:translated.remainingArguments,
+      emission:translated.emission, cursor:[0xa5,0x5a],
+    },
+  };
+})(), {
+  raw:{direction:'forward',branch:'emit-cue',remainingArguments:null,
+    emission:{row:1,column:1,code:0x1e},cursor:[0xa5,0x5a]},
+  translated:{direction:'forward',branch:'emit-cue',remainingArguments:null,
+    emission:{row:1,column:1,code:0x1e},cursor:[0xa5,0x5a]},
+});
+expectThrows('39:66E9 rejects a non-byte window bottom', RangeError,
+  () => rom.editorReverseOverflowCue(0, 8, 0x100));
+
+// Compare all 65,536 count/index byte states with an interpreter that runs
+// the pinned 39:66E9 bytes. The second loop exhausts the wrapped winBtm row.
+let reverseCueReturnStates = 0;
+let reverseCueEmitStates = 0;
+for (let argumentCount = 0; argumentCount <= 0xff; argumentCount++) {
+  for (let argumentIndex = 0; argumentIndex <= 0xff; argumentIndex++) {
+    const raw = runRawOverflowCue(
+      'reverse', argumentIndex, argumentCount, 7, 0xa5, 0x5a);
+    const translated = rom.editorReverseOverflowCue(
+      argumentIndex, argumentCount, 7);
+    expectEqual('39:66E9 exhaustive raw-byte state', {
+      branch:translated.branch,
+      remainingArguments:translated.remainingArguments,
+      emission:translated.emission,
+      restored:raw.cursor,
+    }, {
+      branch:raw.branch,
+      remainingArguments:raw.remainingArguments,
+      emission:raw.emission,
+      restored:[0xa5,0x5a],
+    });
+    if (translated.branch === 'return') reverseCueReturnStates++;
+    else reverseCueEmitStates++;
+  }
+}
+expectEqual('39:66E9 exhaustive terminal partition',
+  [reverseCueReturnStates,reverseCueEmitStates], [0x800,0xf800]);
+for (let winBottom = 0; winBottom <= 0xff; winBottom++) {
+  const raw = runRawOverflowCue('reverse', 1, 12, winBottom);
+  const translated = rom.editorReverseOverflowCue(1, 12, winBottom);
+  expectEqual('39:66E9 exhaustive window-bottom row',
+    translated.emission, raw.emission);
+}
 
 // Executable translations of closed page-39 routines. These expectations are
 // pinned to the extracted OS 2.55MP records and the byte-decoded algorithms.
@@ -377,7 +550,9 @@ expectEqual('39:5167 preserves the styled row-seven scroll sequence',
       {kind:'scroll-editor',direction:'forward',routine:'39:3C81'},
       {kind:'emit-operand',source:'saved-E7',routine:'39:5B10'},
       {kind:'emit-saved-operand-tail',argument:1,routine:'39:5B46'},
-      {kind:'finish-forward-overflow',routine:'39:66FE'},
+      {kind:'finish-forward-overflow',direction:'forward',branch:'emit-cue',
+        remainingArguments:null,emission:{row:1,column:1,code:0x1e},
+        cursorPreserved:true,routine:'39:66FE'},
       {kind:'restore-window-top',value:5},
       {kind:'set-row-for-token',routine:'39:5447'},
     ],
@@ -422,7 +597,8 @@ expectEqual('39:523B sends a baseline-row retreat to 39:4C5A',
   rom.editorRetreatArgument(8, 2, 4, 1, 1, 0).branch,
   'subexpression-overflow');
 expectEqual('39:523B preserves the styled reverse scroll sequence',
-  rom.editorRetreatArgument(8, 2, 12, 1, 1, 0x20, {winTop:5}).effects, [
+  rom.editorRetreatArgument(
+    8, 2, 12, 1, 1, 0x20, {winTop:5,winBottom:7}).effects, [
     {kind:'emit-variable',source:'saved-F2',routine:'39:5B38',carry:false},
     {kind:'emit-argument-index',argument:2,routine:'39:4E0A'},
     {kind:'set-overflow',curCol:1,routine:'39:6712'},
@@ -432,7 +608,12 @@ expectEqual('39:523B preserves the styled reverse scroll sequence',
     {kind:'emit-variable',source:'saved-E7',routine:'39:5B1D'},
     {kind:'emit-saved-operand-tail',argument:1,routine:'39:5B46'},
     {kind:'finish-reverse-overflow',remainingArguments:11,
-      branch:'window-bottom',routine:'39:66E9'},
+      branch:'window-bottom',cue:{
+        direction:'reverse',argumentIndex:1,argumentCount:12,winBottom:7,
+        remainingArguments:11,branch:'emit-cue',
+        emission:{row:6,column:1,code:0x1f},cursorPreserved:true,
+        routine:'39:66E9',
+      },routine:'39:66E9'},
     {kind:'restore-window-top',value:5},
     {kind:'set-row-for-token',routine:'39:5447'},
   ]);
