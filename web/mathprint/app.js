@@ -977,27 +977,40 @@ function pixelTrace(record) {
   });
 }
 
-function generateRecordProgram(program) {
+function generateRecordProgram(program, options = {}) {
   if (!program || !ROM_ENGINE) return null;
-  const operations = ROM_ENGINE.executeSettledRecordProgram(
+  const recordOperations = ROM_ENGINE.executeSettledRecordProgram(
     program.nodes, program.entry_id, {
       origin:program.origin,
       glyphAdvance:(depth, code) => depth ? FONT.small.glyphs[code].w : 6,
     });
-  const rendered = ROM_ENGINE.rasterizeSettledOperations(operations, FONT);
   const entry = program.nodes.find(node => node.record_id === program.entry_id);
   const recordWidth = entry && Number.isInteger(entry.word07)
-    ? entry.word07 : rendered.width;
+    ? entry.word07 : 96;
+  const recordHeight = entry && Number.isInteger(entry.word05)
+    ? entry.word05 : 1;
+  // Scalar generated previews model the live editable entry line. The cursor
+  // cell participates in 34:5F5D's horizontal-clip update, but its blinking
+  // LCD writes remain separate UI state. Matrix fixtures retain their traced
+  // answer-display origin and do not use this editor viewport.
+  const editorViewport = options.editor === true &&
+      program.origin.x === 0 && program.origin.y === 0
+    ? ROM_ENGINE.settledEditorViewport(recordWidth) : null;
+  const operations = editorViewport
+    ? ROM_ENGINE.settledEditorViewportOperations(
+      recordOperations, editorViewport, recordHeight)
+    : recordOperations;
+  const rendered = ROM_ENGINE.rasterizeSettledOperations(operations, FONT);
   const overflowRight = Math.max(0, recordWidth - rendered.width);
   let clippedInkPixels = 0;
-    if (overflowRight) {
+  if (overflowRight) {
     // Render into a byte-aligned audit surface to distinguish the translated
     // settled record's full extent from the physical 96-pixel LCD viewport.
-    // These extra pixels are diagnostic only: final OS answer positioning for
-    // an overflowing settled record remains outside the translated slice.
+    // These extra pixels are diagnostic; the visible editor view uses the
+    // translated ram:8E02 horizontal clip above.
     const auditWidth = Math.ceil(recordWidth / 8) * 8;
     const audit = ROM_ENGINE.rasterizeSettledOperations(
-      operations, FONT, {width:auditWidth,height:rendered.height});
+      recordOperations, FONT, {width:auditWidth,height:rendered.height});
     for (const row of audit.grid)
       for (let x = rendered.width; x < Math.min(recordWidth, row.length); x++)
         clippedInkPixels += row[x];
@@ -1005,6 +1018,7 @@ function generateRecordProgram(program) {
   return {
     width:rendered.width, height:rendered.height,
     recordWidth, overflowRight, clippedInkPixels,
+    editorViewport,
     initial:Array.from({length:rendered.height}, () => '0'.repeat(rendered.width)),
     final:rendered.grid.map(row => row.join('')),
     operations,
@@ -1362,14 +1376,15 @@ function generatedForNativeTokens(nativeTokens) {
 
 function generatedForExpression(expression) {
   const constructed = constructedProgramForExpression(expression);
-  return generateRecordProgram(constructed);
+  return generateRecordProgram(constructed, {editor:true});
 }
 
 function generatedForInput(source) {
   const nativeTokens = parseNativeTokenInput(source);
   return nativeTokens === null
     ? generatedForExpression(source)
-    : generatedForNativeTokens(nativeTokens);
+    : generateRecordProgram(
+      constructedProgramForNativeTokens(nativeTokens), {editor:true});
 }
 
 function activeTimeline() {
@@ -1458,9 +1473,11 @@ function renderGenerated(record, step, scale) {
     `<th>8 pixels</th><th>changed</th><th>translated path</th></tr></thead><tbody>${rows}</tbody></table>`;
   document.getElementById('dims').textContent =
     `${record.width}×${record.height} LCD` +
+    (record.editorViewport && record.editorViewport.xClip
+      ? ` · editor x clip ${record.editorViewport.xClip} px` : '') +
     (record.overflowRight
-      ? ` · ${record.recordWidth} px record extent · ${record.overflowRight} px beyond viewport` +
-        ` (${record.clippedInkPixels} ink pixels clipped at this origin)`
+      ? ` · ${record.recordWidth} px record extent · ${record.overflowRight} px wider than viewport` +
+        ` (${record.clippedInkPixels} ink pixels outside an unscrolled origin)`
       : ` · ${record.recordWidth} px record extent`) +
     ` · write ${count}/${n} · RE-generated`;
   const tl = document.getElementById('timeline');

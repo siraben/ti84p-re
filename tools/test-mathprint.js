@@ -40,6 +40,8 @@ const namedTokenOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-named-token-oracles.json')));
 const twoByteTokenOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-two-byte-token-oracles.json')));
+const editorOverflowOracle = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-editor-overflow-oracle.json')));
 
 function expectEqual(label, actual, expected) {
   if (JSON.stringify(actual) !== JSON.stringify(expected))
@@ -166,6 +168,28 @@ expectEqual('34:5D96 endpoint sorting and clipping',
   });
 expectEqual('34:5DA6 fully clipped',
   rom.settledHorizontalOperation(0, 2, 0, {...fullViewport, xClip:5}), null);
+for (const [endpoint,xClip,cursorX] of [
+  [89,0,89], [90,1,89], [94,5,89], [95,6,89], [96,7,89], [97,8,89], [106,17,89],
+]) expectEqual(`34:5F5D editor horizontal clip at endpoint ${endpoint}`, {
+  xClip:rom.settledEditorViewport(endpoint).xClip,
+  cursorX:rom.settledEditorViewport(endpoint).cursorX,
+}, {xClip,cursorX});
+expectEqual('34:5F5D retains an existing larger horizontal clip',
+  rom.settledEditorViewport(90,{previousXClip:4}).xClip, 4);
+expectThrows('34:5F5D rejects an overflowing editor endpoint', RangeError,
+  () => rom.settledEditorViewport(0xffff,{cursorWidth:0xffff,rightBound:0}));
+const editorCueOperations = rom.settledEditorViewportOperations([
+  {kind:'point',x:17,y:4,routine:'test'},
+  {kind:'line',axis:'horizontal',from:{x:16,y:5},to:{x:20,y:5},routine:'test'},
+], rom.settledEditorViewport(106), 23);
+expectEqual('34:5DBE/5DC2 applies the editor translation and appends the left cue',
+  editorCueOperations, [
+    {kind:'point',x:0,y:4,routine:'test'},
+    {kind:'line',axis:'horizontal',from:{x:-1,y:5},to:{x:3,y:5},routine:'test'},
+    {kind:'bitmap',x:0,y:8,width:4,height:7,
+     rows:[0x00,0x02,0x06,0x0e,0x06,0x02,0x00],retainUnchanged:true,
+     routine:'34:5FF2 → 34:6031 → 34:61B2; bitmap at 34:60B8'},
+  ]);
 const objectHandlers = [0x6d0c,0x706a,0x70b8,0x702c,0x7133,0x70a0,0x70e2,
   0x70e2,0x7087,0x7102,0x717e,0x70c1,0x71c6];
 objectHandlers.forEach((handler, kind) => expectEqual(`34:7012 object kind ${kind}`,
@@ -897,14 +921,33 @@ for (const [expression,nativeTokens,writeCount,writeHash,lcdHash] of [
 }
 
 const overflowingIntegral =
-  mp.generatedForExpression('int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)');
-expectEqual('long integral sum exposes its settled extent and LCD clipping', {
+  mp.generatedForExpression(editorOverflowOracle.expression);
+expectEqual('long integral sum exposes its settled extent and editor scrolling', {
   lcd:[overflowingIntegral.width,overflowingIntegral.height],
   recordWidth:overflowingIntegral.recordWidth,
   overflowRight:overflowingIntegral.overflowRight,
   clippedInkPixels:overflowingIntegral.clippedInkPixels,
+  xClip:overflowingIntegral.editorViewport.xClip,
+  effectiveX:overflowingIntegral.editorViewport.effectiveX,
+  cursorX:overflowingIntegral.editorViewport.cursorX,
+  writes:overflowingIntegral.events.length,
+  writeHash:crypto.createHash('sha256').update(Buffer.from(
+    overflowingIntegral.events.flatMap(write => [...write.pointer,write.value])))
+    .digest('hex'),
+  lcdHash:crypto.createHash('sha256').update(Buffer.from(
+    overflowingIntegral.final.flatMap(row => Array.from(row, Number))))
+    .digest('hex'),
 }, {
   lcd:[96,64], recordWidth:106, overflowRight:10, clippedInkPixels:20,
+  xClip:editorOverflowOracle.viewport.ram_8e02_x_clip,
+  effectiveX:editorOverflowOracle.viewport.effective_x,
+  cursorX:editorOverflowOracle.viewport.cursor_x,
+  writes:editorOverflowOracle.settled_editor_redraw
+    .translated_expression_and_left_cue_write_count,
+  writeHash:editorOverflowOracle.settled_editor_redraw
+    .translated_expression_and_left_cue_write_sha256,
+  lcdHash:editorOverflowOracle.settled_editor_redraw
+    .translated_expression_and_left_cue_lcd_sha256,
 });
 
 expectThrows('LCD replay rejects an out-of-bounds byte pointer', RangeError,

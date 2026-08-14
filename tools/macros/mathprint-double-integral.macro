@@ -1,0 +1,63 @@
+# MathPrint: enter a 106-pixel expression and leave the cursor at its endpoint.
+# The live editor sets ram:8E02 to 17 and redraws the record through that
+# horizontal clip before adding the left-overflow cue.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key MATH
+key 9
+key 1
+key RIGHT
+wait 0.35s
+key 3
+key RIGHT
+wait 0.35s
+key ALPHA
+key YEQU
+wait 0.8s
+key 1
+wait 0.8s
+key 1
+key DOWN
+wait 0.35s
+key 2
+key RIGHT
+wait 0.35s
+key GRAPHVAR
+key RIGHT
+wait 0.35s
+key GRAPHVAR
+key RIGHT
+wait 0.35s
+key ADD
+key MATH
+key 9
+key 1
+key RIGHT
+wait 0.35s
+key 3
+key RIGHT
+wait 0.35s
+key ALPHA
+key YEQU
+wait 0.8s
+key 1
+wait 0.8s
+key 1
+key DOWN
+wait 0.35s
+key 2
+key RIGHT
+wait 0.35s
+key GRAPHVAR
+key RIGHT
+wait 0.35s
+key GRAPHVAR
+wait 0.6s
+memdump /tmp/mathprint-double-integral.ram ram-logical
+screenshot /tmp/mathprint-double-integral.png
