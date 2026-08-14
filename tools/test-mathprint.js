@@ -1058,6 +1058,24 @@ expectEqual('model remains usable beyond the translated word-width domain', {
   viewport:wordOverflowModel.modelViewport,
 }, {width:65999, recordWidth:66000, overflowRight:65904, viewport:null});
 
+// A structural expression can exceed the settled record's unsigned-word
+// metric even though the editable model can still lay out every pixel. The
+// input-preparation path must retain that model instead of blanking the
+// preview when the translated constructor rejects the record.
+const overWordIntegral = `int(1,3,${new Array(5462).fill('X').join('+')},X)`;
+const preparedOverWordIntegral = mp.prepareInput(overWordIntegral);
+if (!preparedOverWordIntegral.model || preparedOverWordIntegral.generated !== null ||
+    !preparedOverWordIntegral.generationError)
+  throw new Error('over-word integral did not retain its model fallback');
+expectEqual('over-word integral model exposes full extent without a word viewport', {
+  width:preparedOverWordIntegral.model.rows[0].length,
+  height:preparedOverWordIntegral.model.rows.length,
+  overflowRight:preparedOverWordIntegral.model.modelOverflowRight,
+  viewport:preparedOverWordIntegral.model.modelViewport,
+  error:preparedOverWordIntegral.generationError.constructor.name,
+}, {width:65571, height:17, overflowRight:65475, viewport:null,
+  error:'RangeError'});
+
 // Wide-input corpus: keep the text compositor, native-token frontend, record
 // constructor, editor viewport, and byte-level writer on the same overflow
 // cases. These inputs are deliberately absent from the captured fixtures.

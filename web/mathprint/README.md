@@ -252,9 +252,14 @@ unsigned 16-bit fields used by `34:7393` and `34:7609`, while model mode remains
 available for partial input during editing. Model mode keeps the complete
 composition on a horizontally scrollable canvas and reports the model endpoint,
 96-pixel LCD overflow, and translated editor clip separately from the settled
-record view. Its heuristic extent is therefore a readability aid, not a second
-LCD oracle. The integral frontend accepts `int(`, `integral(`, and the ROM token
+record view. Text input retains this model when the settled constructor rejects
+an over-wide record, and reports the constructor error beside the model timeline.
+Its heuristic extent is therefore a readability aid, not a second LCD oracle.
+The integral frontend accepts `int(`, `integral(`, and the ROM token
 spelling `fnInt(` as aliases for the same `EF24h` structural record.
+The one-argument hyperbolic functions `sinh(`, `cosh(`, and `tanh(` use their
+decoded single-byte ROM tokens and the same translated argument-boundary path
+as the circular trigonometric functions.
 The integral cases cover structural bounds and a nested integral. The
 summation cases cover unequal-width limits, structural limits and bodies, and a
 nested summation. The `nDeriv(` cases cover unequal-width arguments, structural
