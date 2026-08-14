@@ -64,13 +64,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-          PREVIEW_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr/${{ github.event.pull_request.number }}/
+          PREVIEW_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr/${{ github.event.pull_request.number }}/?rev=${{ github.event.pull_request.head.sha }}
+          MATHPRINT_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr/${{ github.event.pull_request.number }}/mathprint/?rev=${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
 
           marker="<!-- ti84-re-pages-preview -->"
           body="$marker
-          GitHub Pages preview: $PREVIEW_URL"
+          GitHub Pages preview: $PREVIEW_URL
+
+          MathPrint preview: $MATHPRINT_URL"
 
           comment_id="$(
             gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
