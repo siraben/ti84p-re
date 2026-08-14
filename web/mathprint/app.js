@@ -736,7 +736,7 @@ function parse(src) {
     if (/[A-Za-z]/.test(peek())) {
       const id = ident();
       if (peek() === '(') {
-        if (id === 'int' || id === 'integral') return intCall();
+        if (id === 'int' || id === 'integral' || id === 'fnInt') return intCall();
         if (id === 'sum') return bigOpCall(id);
         if (id === 'nthroot') return nthRootCall();
         if (id === 'matrix') return matrixCall();
@@ -1122,8 +1122,10 @@ function constructedSettledSpec(source) {
         return {kind:'tokens',tokens:[0xb0,...operand.tokens]};
       return {kind:'sequence',parts:[{kind:'tokens',tokens:[0xb0]},operand]};
     }
-    if (source.startsWith('int(', offset)) {
-      offset += 4;
+    const integralName = ['int', 'integral', 'fnInt']
+      .find(name => source.startsWith(`${name}(`, offset));
+    if (integralName) {
+      offset += integralName.length + 1;
       const lower = expression();
       if (!lower || source[offset] !== ',') return null;
       offset++;
@@ -1308,7 +1310,7 @@ function constructedSettledSpec(source) {
     const beginsImplicitFactor = () => source[offset] === '('
       || source[offset] === '['
       || /[A-Z0-9.]/.test(source[offset] || '')
-      || ['int(', 'sum(', 'nDeriv(', 'nthroot(', 'sqrt(',
+      || ['int(', 'integral(', 'fnInt(', 'sum(', 'nDeriv(', 'nthroot(', 'sqrt(',
           'abs(', 'exp(', 'tenpow(', 'logbase(', 'matrix(', 'Ans',
           'sin(', 'cos(', 'tan(', 'ln(', 'log(', 'cumSum(', 'remainder(']
         .some(prefix => source.startsWith(prefix, offset));

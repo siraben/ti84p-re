@@ -983,6 +983,19 @@ expectEqual('long integral whitespace still generates the clipped LCD path', {
   xClip:mp.generatedForExpression(
     ' int(1, 3, (1 // 2) X, X) + int(1, 3, (1 // 2) X, X) ').editorViewport.xClip,
 }, {recordWidth:106, xClip:17});
+for (const name of ['integral', 'fnInt']) {
+  const alias = `${name}(1,3,(1//2)X,X)+${name}(1,3,(1//2)X,X)`;
+  const generated = mp.generatedForExpression(alias);
+  expectEqual(`${name} alias selects the same native integral path`, {
+    native:mp.constructedProgramForExpression(alias).native_tokens,
+    recordWidth:generated.recordWidth,
+    xClip:generated.editorViewport.xClip,
+  }, {
+    native:mp.constructedProgramForExpression(
+      'int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)').native_tokens,
+    recordWidth:106, xClip:17,
+  });
+}
 
 // Model mode keeps the complete composition on the canvas while the editable
 // LCD path scrolls to the cursor. Check both views on the long expressions so
