@@ -158,8 +158,10 @@ visible while the settled path reports its exact construction boundary.
 record executor. `editorAdvanceArgument()` and `editorRetreatArgument()`
 translate forward and reverse slot movement at `39:5167` and `39:523B`. They
 preserve the asymmetric two-row overflow guards, styled scroll sequences, and
-saved-search carry exits. Alphabetic VAT searches and scroll calls remain
-explicit ordered effects rather than generated pixels.
+saved-search carry exits. Their `savedOperandState` input supplies the OP
+buffers and one logical or raw VAT snapshot. The F2 and E7 wrapper outcomes
+are derived in call order; a missing state leaves the saved-F2 branch explicit.
+Scroll calls remain ordered effects rather than generated pixels.
 `editorAlphaSearch()` closes the page-39 dispatcher around `_FindAlphaUp` and
 `_FindAlphaDn`. It translates the ascending/descending class-2 paths, the
 `39:5C2E` special-class check, the `39:1942`/`A=06` repeat, and carry exits from
