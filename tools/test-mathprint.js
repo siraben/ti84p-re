@@ -996,6 +996,29 @@ for (const name of ['integral', 'fnInt']) {
     recordWidth:106, xClip:17,
   });
 }
+for (const [name, token] of [['sinh',0xc8], ['cosh',0xca], ['tanh',0xcc]]) {
+  const expression = `${name}(sqrt(X^2+1))+${name}(Ans)`;
+  const program = mp.constructedProgramForExpression(expression);
+  const generated = mp.generatedForExpression(expression);
+  if (!program || !generated)
+    throw new Error(`${name} has no translated generated program`);
+  const rawNative = mp.generatedForInput(
+    `hex: ${program.native_tokens.map(byte =>
+      byte.toString(16).padStart(2, '0')).join(' ')}`);
+  expectEqual(`${name} selects its native one-argument token`,
+    program.native_tokens.slice(0, 1), [token]);
+  expectEqual(`${name} text and raw-native paths share the LCD write stream`, {
+    events:generated.events.map(event => [event.pointer,event.value]),
+    final:generated.final,
+  }, {
+    events:rawNative.events.map(event => [event.pointer,event.value]),
+    final:rawNative.final,
+  });
+  if (!rawNative || generated.operations.some(operation =>
+      operation.kind.startsWith('unresolved')) ||
+      generated.events.some(event => event.pixels.length !== 8))
+    throw new Error(`${name} generated path has unresolved or partial LCD writes`);
+}
 
 // Model mode keeps the complete composition on the canvas while the editable
 // LCD path scrolls to the cursor. Check both views on the long expressions so
