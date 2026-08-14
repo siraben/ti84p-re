@@ -107,6 +107,11 @@ selector preserves the `5Eh` banks and the `BBh` clamp. Live settled
 traces identify types `0x23`, `0x25`, `0x26`, `0x28`, `0x29`, and `0x2B` as
 `nDeriv(`, $e^x$, $10^x$, `logBASE(`, summation, and a dimensioned matrix.
 
+`editorTokenDispatch()` translates the page-39 `39:4A74` token/action class
+selection, including the raw `0x3B` exponent-context tests and the `IY+9` bit-0
+fraction-context remap, before `39:4C27` handler lookup. The raw `3Dh` measured
+template handoff remains a separate result.
+
 `tools/analyze_mathprint_records.py` replays a full-range TLMT memory snapshot
 and writes, then captures 20-byte root/current records only when `34:6105` uses
 the render table at `34:6119`. The decoder preserves offset-based field names
