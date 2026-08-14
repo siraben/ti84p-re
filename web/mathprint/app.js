@@ -12,6 +12,7 @@
 let FONT = null;
 let LAYOUT = null;
 let DRAW_ORDER = { scenarios: {} };
+let CONSTRUCTED_CACHE = null;
 
 const ROM_ENGINE = typeof MathPrintRomEngine !== 'undefined'
   ? MathPrintRomEngine
@@ -832,6 +833,13 @@ function parse(src) {
   }
 
   const box = clipMarks(expr());
+  // Closed expressions that the translated native constructor accepts have a
+  // stronger geometry source than the heuristic compositor above. Use the
+  // settled record graph for that model view as well; partial, unsupported,
+  // and over-wide input keeps the lenient compositor so typing never loses a
+  // visible equation.
+  const settled = settledModelBox(s);
+  if (settled) return settled;
   // Model mode keeps the complete composition visible so that partial input
   // remains useful while typing. Preserve the same endpoint and editor-clip
   // arithmetic used by the translated LCD path as metadata: a wide model is
@@ -1057,6 +1065,95 @@ function generateRecordProgram(program, options = {}) {
     nativeTokens:Array.isArray(program.native_tokens)
       ? program.native_tokens.slice() : null,
     programSource:program.source || 'captured settled record snapshot',
+  };
+}
+
+// Render a settled record graph without the 96-pixel editable viewport. This
+// is the model counterpart of generateRecordProgram(): it retains the full
+// record endpoint while cropping only blank bitmap margins, then turns the
+// translated primitive stream into model-local marks for the draw-order view.
+function settledModelBox(source) {
+  if (!ROM_ENGINE || !FONT || typeof constructedProgramForExpression !== 'function')
+    return null;
+  let program;
+  try {
+    program = constructedProgramForExpression(source);
+  } catch (_) {
+    return null;
+  }
+  if (!program) return null;
+  let operations, entry;
+  try {
+    operations = ROM_ENGINE.executeSettledRecordProgram(
+      program.nodes, program.entry_id, {
+        glyphAdvance:(depth, code) => depth ? FONT.small.glyphs[code].w : 6,
+      });
+    entry = program.nodes.find(node => node.record_id === program.entry_id);
+    if (!entry || !Number.isInteger(entry.word05) || !Number.isInteger(entry.word07) ||
+        entry.word05 < 1 || entry.word07 < 1 ||
+        operations.some(operation => operation.kind.startsWith('unresolved')))
+      return null;
+  } catch (_) {
+    return null;
+  }
+  const operationPixels = [];
+  for (const operation of operations) {
+    let pixels;
+    try { pixels = ROM_ENGINE.settledOperationPixels(operation, FONT); }
+    catch (_) { return null; }
+    operationPixels.push(pixels);
+  }
+  const allPixels = operationPixels.flat();
+  if (!allPixels.length || allPixels.some(([x,y]) => x < 0 || y < 0)) return null;
+  const rasterWidth = Math.max(8, Math.ceil(Math.max(
+    entry.word07, Math.max(...allPixels.map(([x]) => x)) + 1) / 8) * 8);
+  const rasterHeight = Math.max(entry.word05,
+    Math.max(...allPixels.map(([,y]) => y)) + 1);
+  let rendered;
+  try {
+    rendered = ROM_ENGINE.rasterizeSettledOperations(operations, FONT, {
+      width:rasterWidth, height:rasterHeight,
+    });
+  } catch (_) {
+    return null;
+  }
+  const ink = [];
+  for (let y = 0; y < rendered.grid.length; y++)
+    for (let x = 0; x < rendered.grid[y].length; x++)
+      if (rendered.grid[y][x]) ink.push([x,y]);
+  if (!ink.length) return null;
+  const left = Math.min(...ink.map(([x]) => x));
+  const top = Math.min(...ink.map(([,y]) => y));
+  const right = Math.max(...ink.map(([x]) => x));
+  const bottom = Math.max(...ink.map(([,y]) => y));
+  const rows = rendered.grid.slice(top, bottom + 1)
+    .map(row => row.slice(left, right + 1));
+  const marks = [];
+  for (const [operationIndex, operation] of operations.entries()) {
+    const pixels = operationPixels[operationIndex];
+    const visible = pixels.filter(([x,y]) =>
+      x >= left && x <= right && y >= top && y <= bottom);
+    if (!visible.length) continue;
+    const x0 = Math.min(...visible.map(([x]) => x));
+    const y0 = Math.min(...visible.map(([,y]) => y));
+    const x1 = Math.max(...visible.map(([x]) => x));
+    const y1 = Math.max(...visible.map(([,y]) => y));
+    const code = Number.isInteger(operation.code) ? glyphName(operation.code) :
+      operation.kind === 'line' ? '─ line' : operation.kind;
+    marks.push({
+      ch:code, x:x0 - left, y:y0 - top, w:x1 - x0 + 1, h:y1 - y0 + 1,
+      type:operation.kind, font:operation.kind === 'glyph'
+        ? (operation.depth === 0 ? 'large' : 'small') : undefined,
+      via:operation.routine,
+    });
+  }
+  const modelViewport = entry.word07 <= 0xffff
+    ? ROM_ENGINE.settledEditorViewport(entry.word07) : null;
+  return {
+    rows, baseline:Math.max(0, entry.word0B - top), marks,
+    adv:entry.word07, recordWidth:entry.word07,
+    modelViewport,
+    modelOverflowRight:Math.max(0, entry.word07 - 96),
   };
 }
 
@@ -1375,13 +1472,28 @@ function constructedProgramForExpression(expression) {
   // the native-token constructor on the same frontend contract so spacing a
   // long expression does not silently select the heuristic compositor.
   const source = expression.trim().replace(/\s+/g, '');
+  if (CONSTRUCTED_CACHE && CONSTRUCTED_CACHE.source === source &&
+      CONSTRUCTED_CACHE.font === FONT) {
+    if (CONSTRUCTED_CACHE.error) throw CONSTRUCTED_CACHE.error;
+    return CONSTRUCTED_CACHE.result;
+  }
+  const cache = (result, error = null) => {
+    CONSTRUCTED_CACHE = {source, font:FONT, result, error};
+    if (error) throw error;
+    return result;
+  };
   const spec = constructedSettledSpec(source);
-  if (!spec) return null;
-  if (spec.kind === 'integral' && spec.variable.kind !== 'tokens') return null;
-  if (spec.kind === 'summation' && spec.variable.kind !== 'tokens') return null;
-  if (spec.kind === 'nDeriv' && spec.variable.kind !== 'tokens') return null;
-  const nativeTokens = ROM_ENGINE.encodeSettledExpressionTokens(spec);
-  return ROM_ENGINE.constructSettledProgramFromTokens(nativeTokens, 1, FONT);
+  if (!spec) return cache(null);
+  if (spec.kind === 'integral' && spec.variable.kind !== 'tokens') return cache(null);
+  if (spec.kind === 'summation' && spec.variable.kind !== 'tokens') return cache(null);
+  if (spec.kind === 'nDeriv' && spec.variable.kind !== 'tokens') return cache(null);
+  try {
+    const nativeTokens = ROM_ENGINE.encodeSettledExpressionTokens(spec);
+    return cache(ROM_ENGINE.constructSettledProgramFromTokens(
+      nativeTokens, 1, FONT));
+  } catch (error) {
+    return cache(null, error);
+  }
 }
 
 function parseNativeTokenInput(source) {

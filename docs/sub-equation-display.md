@@ -1560,10 +1560,13 @@ renderer's font-table tab. `tools/interp-cells.js` and the browser share the exe
 translations in `web/mathprint/rom-engine.js`. The translated routines consume
 `layout.json` for handler lookup, row-cell iteration, direct glyph and delimiter
 classification, descriptor iteration, fraction endpoints, and class-6 row
-stepping. The arbitrary-expression compositor in `app.js` still uses a separate,
-trace-fitted box model. `web/mathprint/record-programs.json` contains six
-retained record snapshots for offline comparison. The browser does not fetch
-them. It constructs supported named-token, absolute-value, power,
+stepping. `web/mathprint/record-programs.json` contains six retained record
+snapshots for offline comparison. The browser does not fetch them. Closed
+expressions accepted by the native constructor use the translated record graph
+and primitive stream for both the generated LCD view and the model view.
+Partial, unsupported, and over-wide text keeps the separate trace-fitted box
+compositor so the editor can continue to display incomplete input. It constructs
+supported named-token, absolute-value, power,
 radical, nth-root, stacked-fraction, integral, summation, and `nDeriv(`
 expressions from native token bytes, including nesting among the structural
 forms. The translated renderer exposes every generated LCD byte and the
