@@ -49,6 +49,7 @@
             ${setupAssets}                  # vendor KaTeX (css/js/fonts)
             mdbook build --dest-dir $out
             cp -r web/mathprint $out/mathprint   # standalone renderer, outside the book
+            python3 tools/cachebust-mathprint.py $out/mathprint
             python3 tools/check-mdbook-output.py $out
             python3 tools/check-katex-output.py $out
             node tools/test-mathprint.js
