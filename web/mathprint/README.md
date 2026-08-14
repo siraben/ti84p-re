@@ -166,6 +166,11 @@ explicit ordered effects rather than generated pixels.
 the fixed-bank `00:3A53`/`00:306F` dispatchers. Each page-7 VAT-search return
 is still an explicit `searchResults` input; no captured LCD write is used as
 constructor state.
+`editorFindAlphaVat()` translates the page-7 nearest-name selection over an
+explicit logical VAT snapshot. It applies the ROM's type aliases and OP-name
+byte ordering, returns OP1/OP3 and the selected VAT pointer, and reports carry
+at either alphabetic endpoint. Raw VAT entry decoding remains outside this
+logical snapshot boundary.
 `editorFirstArgumentAction()` and `editorAdvanceAction()` translate the
 action-`0x03` and action-`0x04` controllers at `39:51F1` and `39:52A5`. They
 retain byte-counter wrap and the action-`0x04` one-call exit at `39:52B6`.
