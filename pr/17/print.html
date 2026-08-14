@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5e2683c6.js";
+            window.path_to_searchindex_js = "searchindex-afc93fac.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15116,6 +15116,11 @@ browser-side ROM engine now translates the <code>39:4A74</code> token/action dis
 its <code>IY+2</code> exponent-context and <code>IY+9</code> fraction-context class adjustments
 through <code>editorTokenDispatch()</code>. It returns the measured-template handoff at
 <code>39:672E</code> separately from normal <code>39:4C27</code> handler lookup. [confirmed]
+The <code>editorArgumentClamp()</code>, <code>editorRowFromArg()</code>, and
+<code>editorLayoutArgument()</code> translations cover the arithmetic at <code>39:50CF</code>,
+<code>39:5101</code>, and <code>39:513E</code>: argument-count clamping, six-row window origin,
+seven-row mapping, and restoration of the caller’s baseline row. The
+cross-page continuation after <code>39:50CF</code> remains caller state. [confirmed]
 The retained corpus observes 255 of 1,098 declared editor branch outcomes. It
 does not decode every in-progress editor state into a general AST, and it does not
 reach every cursor, menu, error, or row-composition path. [confirmed]</p>
