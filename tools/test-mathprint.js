@@ -971,6 +971,18 @@ expectEqual('long integral sum exposes its settled extent and editor scrolling',
   lcdHash:editorOverflowOracle.settled_editor_redraw
     .translated_expression_and_left_cue_lcd_sha256,
 });
+const spacedLongIntegral = mp.constructedProgramForExpression(
+  ' int(1, 3, (1 // 2) X, X) + int(1, 3, (1 // 2) X, X) ');
+expectEqual('long integral whitespace still selects native construction',
+  spacedLongIntegral.native_tokens,
+  mp.constructedProgramForExpression(
+    'int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)').native_tokens);
+expectEqual('long integral whitespace still generates the clipped LCD path', {
+  recordWidth:mp.generatedForExpression(
+    ' int(1, 3, (1 // 2) X, X) + int(1, 3, (1 // 2) X, X) ').recordWidth,
+  xClip:mp.generatedForExpression(
+    ' int(1, 3, (1 // 2) X, X) + int(1, 3, (1 // 2) X, X) ').editorViewport.xClip,
+}, {recordWidth:106, xClip:17});
 
 // Model mode keeps the complete composition on the canvas while the editable
 // LCD path scrolls to the cursor. Check both views on the long expressions so
