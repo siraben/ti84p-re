@@ -34,7 +34,8 @@
   "cursor_visible_lcd_sha256": "88fda87313c79604d31dceac6e84e6bd572ebcd4e87732f3448e64d58c2bf439",
   "notes": [
     "The browser translates the editor viewport and left-overflow cue from ROM logic.",
-    "The eight-write right cue at 34:60C0 is selected through 34:5FFA -> 34:607A and positioned by 34:608F; its semantic meaning remains unresolved and it is outside this translated slice.",
+    "The eight writes inserted at index 56 are an auxiliary page_34:6CA8 -> ram:3CE1 stream; they are not reached through 34:608F and are excluded from the settled expression timeline.",
+    "The separate 34:608F bitmap path is observed in the natural trace at byte column 11, rows 8-14, with values 00, 08, 0C, 0E, 0C, 08, 00. Its exact UI endpoint meaning remains unresolved.",
     "Cursor blink writes are UI state and are not appended to settled record timelines."
   ]
 }
