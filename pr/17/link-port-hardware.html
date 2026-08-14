@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f710b3ae.js";
+            window.path_to_searchindex_js = "searchindex-77dc17ee.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -218,7 +218,7 @@
 </tbody>
 </table>
 </div>
-<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/link-open-collector.svg" alt="Each link line has a pull-up and a low-side sink at either endpoint; the line is high only when both endpoints release it."><span class="img-wrapper"><img src="images/link-open-collector.svg" alt="Each link line has a pull-up and a low-side sink at either endpoint; the line is high only when both endpoints release it."></span></label></p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/link-open-collector.svg" alt="Each endpoint contributes a pull-up resistor and a low-side sink to each shared link line; a line is high only when both endpoints release it."><span class="img-wrapper"><img src="images/link-open-collector.svg" alt="Each endpoint contributes a pull-up resistor and a low-side sink to each shared link line; a line is high only when both endpoints release it."></span></label></p>
 <p><strong>Open-collector model.</strong> The electrical contract is [standard]. OS 2.55MP’s port values and bit order are [confirmed]; pull-up resistance, thresholds, and rise time remain [hypothesis] until measured.</p>
 <p>Let <code>L</code> be the local two-bit pull-low mask and <code>P</code> the peer mask. TilEm computes the physical high-line mask as:</p>
 <p>$$
@@ -235,7 +235,8 @@ internal PCR byte needed to reproduce that driver’s expressions.</p>
 <p>OS 2.55MP sends a zero bit with write <code>1</code> and a one bit with write <code>2</code>. That agrees with the guide’s rule that zero pulls red/tip first and one pulls white/ring first. [confirmed] for the write values; [standard] for the physical contact names.</p>
 <h3 id="differential-audio-output"><a class="header" href="#differential-audio-output">Differential audio output</a></h3>
 <p>Software can use the two output controls as a three-level differential source.
-If $V_0$ and $V_1$ denote the logical high/low levels of line 0 and line 1,
+If the peer releases both lines and $V_0$ and $V_1$ denote the resulting
+logical high/low levels of line 0 and line 1,
 the idealized differential signal is $V_0 - V_1$: [standard]</p>
 <div class="table-wrapper">
 <table>
@@ -243,14 +244,14 @@ the idealized differential signal is $V_0 - V_1$: [standard]</p>
 <tr><th style="text-align: right">Port-<code>0x00</code> write</th><th>Line 0</th><th>Line 1</th><th>Idealized differential state</th></tr>
 </thead>
 <tbody>
-<tr><td style="text-align: right"><code>0</code></td><td>released/high</td><td>released/high</td><td>zero</td></tr>
-<tr><td style="text-align: right"><code>1</code></td><td>driven low</td><td>released/high</td><td>negative</td></tr>
-<tr><td style="text-align: right"><code>2</code></td><td>released/high</td><td>driven low</td><td>positive</td></tr>
+<tr><td style="text-align: right"><code>0</code></td><td>released/high if unopposed</td><td>released/high if unopposed</td><td>zero</td></tr>
+<tr><td style="text-align: right"><code>1</code></td><td>driven low</td><td>released/high if unopposed</td><td>negative</td></tr>
+<tr><td style="text-align: right"><code>2</code></td><td>released/high if unopposed</td><td>driven low</td><td>positive</td></tr>
 <tr><td style="text-align: right"><code>3</code></td><td>driven low</td><td>driven low</td><td>zero</td></tr>
 </tbody>
 </table>
 </div>
-<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/link-differential-audio.svg" alt="Port writes 0 and 3 produce two distinct zero-differential states, while writes 1 and 2 produce opposite polarities by pulling one link line low."><span class="img-wrapper"><img src="images/link-differential-audio.svg" alt="Port writes 0 and 3 produce two distinct zero-differential states, while writes 1 and 2 produce opposite polarities by pulling one link line low."></span></label></p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/link-differential-audio.svg" alt="Assuming the peer releases both lines, port writes 0 and 3 produce two distinct zero-differential states, while writes 1 and 2 produce opposite polarities by pulling one link line low."><span class="img-wrapper"><img src="images/link-differential-audio.svg" alt="Assuming the peer releases both lines, port writes 0 and 3 produce two distinct zero-differential states, while writes 1 and 2 produce opposite polarities by pulling one link line low."></span></label></p>
 <p><strong>Differential state map.</strong> The three-level output follows the [standard]
 open-collector model. It shows logical polarity rather than analog voltage or
 safe loading; those physical properties remain [hypothesis].</p>

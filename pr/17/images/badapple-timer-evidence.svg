@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
   <title id="title">Bad Apple timer cadence separates register decode, encoder tuning, and trace observation</title>
-  <desc id="desc">Three horizontal evidence lanes distinguish the programmed timer path from two other numbers. The programmed path selects nominal 15 megahertz, divides by 4 through source 82, reloads 120, and yields a nominal 31,250 interrupts per second; dividing by 1,800 gives about 17.36 tracker updates per second. A separate encoder lane shows the upstream 33,333.3 hertz tuning assumption used for note counts and rendering. A trace lane shows about 4,674 port writes per interpreted second from one injected TilEm run and labels it diagnostic rather than physical hardware evidence.</desc>
+  <desc id="desc">Three horizontal evidence lanes distinguish the programmed timer path from two other numbers. The programmed path selects nominal 15 megahertz, divides by 4 through source 82, reloads 120, and yields a nominal 31,250 interrupts per second; dividing by 1,800 gives about 17.36 tracker updates per second. A separate encoder lane shows the upstream 33,333.3 hertz tuning assumption used for note counts and rendering. A trace lane shows about 4,674 port writes per second when trace time is interpreted at 15 megahertz in one injected TilEm run and labels it diagnostic rather than physical hardware evidence.</desc>
   <defs>
     <style>
       .bg{fill:#f8fafc}.panel{fill:#fff;stroke:#94a3b8;stroke-width:2}.title{fill:#0f172a;font:700 30px system-ui,sans-serif}.subtitle{fill:#475569;font:17px system-ui,sans-serif}.lanehead{fill:#0f172a;font:700 22px system-ui,sans-serif}.head{fill:#0f172a;font:700 18px system-ui,sans-serif}.text{fill:#334155;font:16px system-ui,sans-serif}.small{fill:#475569;font:14px system-ui,sans-serif}.mono{fill:#0f172a;font:600 16px ui-monospace,SFMono-Regular,Consolas,monospace}.program{fill:#dcfce7;stroke:#16a34a;stroke-width:2}.register{fill:#ede9fe;stroke:#7c3aed;stroke-width:2}.derived{fill:#dbeafe;stroke:#2563eb;stroke-width:2}.assumption{fill:#fef3c7;stroke:#d97706;stroke-width:2}.trace{fill:#f3e8ff;stroke:#9333ea;stroke-width:2}.warning{fill:#fee2e2;stroke:#dc2626;stroke-width:2}.arrow{stroke:#475569;stroke-width:2.5;fill:none;marker-end:url(#arrow)}.dashed{stroke:#94a3b8;stroke-width:2;stroke-dasharray:7 6;fill:none}.divider{stroke:#cbd5e1;stroke-width:2}
@@ -59,7 +59,8 @@
   <text class="lanehead" x="88" y="603">TilEm trace observation</text>
   <rect class="trace" x="390" y="589" width="220" height="76" rx="10"/>
   <text class="head" x="500" y="618" text-anchor="middle">observed port writes</text>
-  <text class="mono" x="500" y="646" text-anchor="middle">≈ 4,674 / s</text>
+  <text class="mono" x="500" y="640" text-anchor="middle">≈ 4,674 / s</text>
+  <text class="small" x="500" y="660" text-anchor="middle">time interpreted at 15 MHz</text>
   <path class="arrow" d="M610 627 H679"/>
   <rect class="warning" x="680" y="589" width="340" height="76" rx="10"/>
   <text class="head" x="850" y="618" text-anchor="middle">diagnostic run result</text>

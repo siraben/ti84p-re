@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f710b3ae.js";
+            window.path_to_searchindex_js = "searchindex-77dc17ee.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -198,8 +198,10 @@
 </tbody>
 </table>
 </div>
-<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/flash-write-layers.svg" alt="A Flash operation passes software guards, a RAM-resident worker, ASIC command gates, the Flash command state machine, and the physical sector. Execution protection is a separate fetch path."><span class="img-wrapper"><img src="images/flash-write-layers.svg" alt="A Flash operation passes software guards, a RAM-resident worker, ASIC command gates, the Flash command state machine, and the physical sector. Execution protection is a separate fetch path."></span></label></p>
-<p><strong>Write-layer schematic.</strong> Bcall guards and RAM-worker execution are [confirmed]. ASIC gate details and the AMD-compatible command state machine are [standard].</p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/flash-write-layers.svg" alt="A Flash operation depends on caller page and argument guards before a RAM-resident worker, ASIC command gates, the Flash command state machine, and the physical sector. Execution protection is a separate fetch path."><span class="img-wrapper"><img src="images/flash-write-layers.svg" alt="A Flash operation depends on caller page and argument guards before a RAM-resident worker, ASIC command gates, the Flash command state machine, and the physical sector. Execution protection is a separate fetch path."></span></label></p>
+<p><strong>Write-layer schematic.</strong> Bcall entry guards, remaining caller obligations,
+and RAM-worker execution are [confirmed]. ASIC gate details and the
+AMD-compatible command state machine are [standard].</p>
 <h2 id="physical-organization"><a class="header" href="#physical-organization">Physical organization</a></h2>
 <h3 id="identified-board-part-and-compatible-family"><a class="header" href="#identified-board-part-and-compatible-family">Identified board part and compatible family</a></h3>
 <p>Datamath’s photographed March 2004 TI-84 Plus board carries a Fujitsu package

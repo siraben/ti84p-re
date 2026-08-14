@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f710b3ae.js";
+            window.path_to_searchindex_js = "searchindex-77dc17ee.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -362,6 +362,12 @@ The initial values of <code>0x8DB1</code>, <code>0x8DBE</code>, and <code>0x8DF8
 calling editor state, so this gate alone does not define one source-character
 limit for every home-screen expression. [confirmed] for the gate and projected
 model; [hypothesis] for a context-independent character limit.</p>
+<p><code>settledRecordAllocationCheck()</code> translates the closed caller ABI at <code>34:4862</code>:
+it obtains the workspace request from the type/matrix geometry row and passes
+that request to the capacity gate, retaining the allocator’s <code>A=02h</code> carry
+return. The arena words remain explicit because their producers walk the
+record list at <code>34:4A83</code>/<code>34:4ACE</code>; this boundary is therefore a stateful input
+rather than a fabricated free-space estimate. [confirmed]</p>
 <p>The structural children preserve semantic argument order after the source scan
 applies the metadata permutation. For example, the integral metadata is
 <code>04 03 04 01 02</code>: scan kind 4 reads four source arguments and assigns them to
@@ -924,6 +930,23 @@ source: <code>39:5AD2</code> writes <code>0x85E7</code>, and <code>39:5B08</code
 service bodies reached from <code>39:59E0</code> and <code>39:59F9</code> remain explicit model
 inputs. A raw-byte interpreter covers all 4,096 wrapper, gate, carry, and
 buffer-source combinations and every value in each byte position. [confirmed]</p>
+<p>The local dispatcher below those wrappers is translated separately by
+<code>editorOperandEmitter()</code>. <code>39:59E0</code> and <code>39:59F9</code> first call <code>39:5A17</code>, which
+tests whether <code>0x85DE</code> is class <code>0x02</code>. The normal class-2 path enters
+<code>39:59AF</code>, emits <code>0Dh</code> through <code>RST 28h</code>, and seeds OP1 with <code>14h</code> at
+<code>39:59C6</code>. The variable path enters <code>39:59B6</code>, scans the eight payload bytes
+at <code>0x85E7+1</code> through <code>39:5A2E</code>, emits <code>0Ch</code>, and conditionally calls
+<code>39:1BAF</code> when the emitter leaves carry set before the same <code>14h</code> seed.
+[confirmed]</p>
+<p>For other classes the normal and variable paths cross to <code>00:3A53</code> and
+<code>00:306F</code>, respectively. A carry returns immediately. Carry clear then calls
+<code>39:5C2E</code>; only class <code>0x03</code> with sub-class byte <code>0x01</code> enters <code>39:1942</code>.
+<code>A=06</code> repeats the emitter, while every other value returns with carry clear.
+The JavaScript model accepts the page-7 service’s carry, post-service <code>A</code>, and
+any updated <code>0x85DE/0x85DF</code> as ordered state, so nested/multi-argument traces
+can exercise the repeat without replaying an LCD stream. [confirmed] for the
+page-39 control flow; [confirmed] for the service boundary as an explicit
+input.</p>
 <p><code>editorForwardOverflowCue()</code> and <code>editorReverseOverflowCue()</code> translate the
 closed cue routines at <code>39:66FE</code> and <code>39:66E9</code>. The reverse routine subtracts
 the selected argument at <code>0x85E0</code> from the count at <code>0x85E2</code> with byte

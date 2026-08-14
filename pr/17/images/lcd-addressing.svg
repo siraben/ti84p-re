@@ -66,6 +66,7 @@
   <rect class="data" x="800" y="515" width="510" height="85" rx="10"/>
   <text class="mono" x="1055" y="548" text-anchor="middle">data byte b7 b6 b5 b4 b3 b2 b1 b0</text>
   <text class="text" x="1055" y="577" text-anchor="middle">eight adjacent horizontal pixels at the selected (r, c) address</text>
+  <path class="arrow" d="M935 400 V490 H1285 V512"/>
 
   <rect class="panel" x="470" y="665" width="870" height="135" rx="14"/>
   <rect class="note" x="490" y="685" width="260" height="95" rx="10"/>
