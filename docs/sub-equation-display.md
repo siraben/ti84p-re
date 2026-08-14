@@ -527,6 +527,14 @@ two provenance classes separate.
 `tools/mathprint-saturation.json` records the resulting branches and trace
 hashes. [confirmed]
 
+None of the 184 report traces executes `39:5167`, `39:523B`, the saved-operand
+wrappers at `39:5B10`–`39:5B38`, or the dispatchers at `39:59E0`/`39:59F9`.
+The wider 207-digest trace cache also has no hit at those entries. [confirmed]
+`_FindAlphaUp` at `07:50B5` executes once in 110 report traces, but every call
+comes from the type-`16h` cleanup loop at `07:5544`. Each observed call returns
+carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
+MathPrint caller witness. [confirmed]
+
 The report is a symbolic-execution aid rather than a whole-machine proof. It
 decodes fixed table rows and partitions selected projected input domains. The
 scan-kind dispatcher at `34:5678` partitions all 256 incoming `A` values into
@@ -829,8 +837,8 @@ an LCD stream. [confirmed] for the page-39 control flow and bcall identities;
 [standard] for the documented bcall input/output contract.
 
 `editorFindAlphaVat()` translates the selection state over an explicit logical
-VAT snapshot. Each snapshot entry contains its nine-byte OP-format identity
-and VAT type-byte address. `07:50BB` loads `A=00h`, discarding the caller's
+VAT snapshot. Each snapshot entry contains its nine-byte OP-format identity,
+VAT type-byte address, and data-page byte. `07:50BB` loads `A=00h`, discarding the caller's
 value; `07:5104`–`07:511D` always compare the normalized type class.
 [confirmed] `07:5247` maps protected programs to the program
 class, complex lists to the list class, type `0x0B` to equation class `0x03`,
@@ -840,6 +848,16 @@ propagation makes OPx+1 the most-significant alphabetic byte. The scan retains
 the nearest name above or below the incoming OP1, independent of physical VAT
 entry order. It returns the selected identity in OP1 and OP3, its VAT pointer
 in `HL`, and carry at an alphabetic endpoint. [confirmed]
+
+The decoder at `07:51BE` rejects a first name byte below `41h` or equal to
+`72h`. It also handles list prefixes `3Ah` and `5Dh 40h` through
+`MenuCurrent`, `inGroup`, and bit 0 of `(IY+0)`. While `inGroup` is set, an
+archived candidate uses its page byte for the final `41h`/`72h` gate.
+`OP1+2=FFh` is the ascending-start sentinel at `07:5151`; it admits every
+filtered Up candidate and makes Dn return carry. [confirmed]
+
+Success returns `A=00h`, Z set, and carry clear. Failure restores the incoming
+identity to OP1/OP3 and returns `A=FEh`, Z clear, and carry set. [confirmed]
 
 The logical snapshot intentionally does not claim a raw VAT decoder. Entry
 decoding at `07:51BE` and the two physical scan regions bounded by `pTemp`,

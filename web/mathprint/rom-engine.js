@@ -308,13 +308,22 @@
   // its VAT type byte. The 2.55MP routine discards caller A and always compares
   // normalized type classes. It keeps the nearest qualifying name in OP3 and
   // returns it in both OP1 and OP3 when the scan ends.
-  function editorFindAlphaVat(direction, op1Value, vatSnapshot) {
+  function editorFindAlphaVat(direction, op1Value, vatSnapshot, context = {}) {
     if (direction !== 'up' && direction !== 'down')
       throw new RangeError('alphabetic VAT-search direction must be up or down');
     const op1 = editorNineByteBuffer(op1Value, 'alphabetic VAT-search OP1');
     if (!Array.isArray(vatSnapshot))
       throw new TypeError('alphabetic VAT snapshot must be an array');
+    if (!context || typeof context !== 'object' || Array.isArray(context))
+      throw new TypeError('alphabetic VAT-search context must be an object');
+    const menuCurrent = context.menuCurrent === undefined ? 0 :
+      byte(context.menuCurrent, 'alphabetic VAT-search MenuCurrent');
+    const inGroup = context.inGroup === undefined ? false :
+      boolean(context.inGroup, 'alphabetic VAT-search inGroup flag');
+    const iy0Bit0 = context.iy0Bit0 === undefined ? false :
+      boolean(context.iy0Bit0, 'alphabetic VAT-search IY+0 bit 0');
     const sourceClass = editorAlphaTypeClass(op1[0]);
+    const unconditionalUp = op1[2] === 0xff;
     let selected = null;
     let compared = 0;
     const entries = vatSnapshot.map((entry, index) => {
@@ -326,13 +335,30 @@
           entry.pointer > 0xffff)
         throw new RangeError(
           `alphabetic VAT entry ${index} pointer must be an unsigned word`);
+      const page = byte(entry.page, `alphabetic VAT entry ${index} page`);
       identity[0] &= 0x1f;
-      return {identity, pointer:entry.pointer, index};
+      return {identity, pointer:entry.pointer, page, index};
     });
     for (const entry of entries) {
       if (editorAlphaTypeClass(entry.identity[0]) !== sourceClass)
         continue;
-      const relativeToSource = editorAlphaNameCompare(entry.identity, op1);
+      const firstName = entry.identity[1];
+      const listClass = entry.identity[0] === 0x01 ||
+        entry.identity[0] === 0x0d;
+      if (listClass && (firstName === 0x72 || firstName === 0x3a))
+        continue;
+      if (listClass && firstName === 0x5d && entry.identity[2] === 0x40) {
+        if (menuCurrent !== 0 || inGroup || !iy0Bit0)
+          continue;
+      } else {
+        const gate = inGroup && entry.page !== 0 ? entry.page : firstName;
+        if (gate < 0x41 || gate === 0x72)
+          continue;
+      }
+      if (unconditionalUp && direction === 'down')
+        continue;
+      const relativeToSource = unconditionalUp ? 1 :
+        editorAlphaNameCompare(entry.identity, op1);
       compared++;
       if ((direction === 'up' && relativeToSource <= 0) ||
           (direction === 'down' && relativeToSource >= 0))
@@ -348,13 +374,13 @@
     }
     if (selected === null)
       return {
-        direction, sameType:true, sourceClass, carry:true,
+        direction, sameType:true, sourceClass, carry:true, a:0xfe, zero:false,
         op1:op1.slice(), op3:op1.slice(), vatPointer:null,
         selectedIndex:null, compared, routine:direction === 'up'
           ? '07:50B5 (_FindAlphaUp)' : '07:50B8 (_FindAlphaDn)',
       };
     return {
-      direction, sameType:true, sourceClass, carry:false,
+      direction, sameType:true, sourceClass, carry:false, a:0, zero:true,
       op1:selected.identity.slice(), op3:selected.identity.slice(),
       vatPointer:selected.pointer, selectedIndex:selected.index, compared,
       routine:direction === 'up'
@@ -527,7 +553,9 @@
     if (!Array.isArray(vatSnapshot))
       throw new TypeError('non-class-2 alpha-search requires a VAT snapshot');
     for (let index = 0; index <= vatSnapshot.length; index++) {
-      const result = editorFindAlphaVat(direction,currentOp1,vatSnapshot);
+      const result = editorFindAlphaVat(direction,currentOp1,vatSnapshot,{
+        ...(options.vatContext || {}), menuCurrent:editorClass,
+      });
       effects.push({kind:'find-alpha',routine:searchRoutine,index,
         carry:result.carry, editorClass, editorSubClass,
         typeMode:'normalized-class', input:currentOp1.slice(),
