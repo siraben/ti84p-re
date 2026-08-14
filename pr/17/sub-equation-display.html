@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-44e0bbb5.js";
+            window.path_to_searchindex_js = "searchindex-57d36646.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -828,6 +828,12 @@ The <code>editorSubexpressionWindow()</code> and <code>editorSubexpressionCell()
 translate <code>39:4C5A</code> and <code>39:4CA4</code>: they compute the visible slot, select the
 <code>984A</code> or caller-supplied cell base, and retain styled-argument and empty-menu
 cross-page exits as explicit states. [confirmed]
+<code>editorAdvanceArgument()</code> translates the slot and row branches at <code>39:5167</code>.
+It distinguishes empty and completed lists, one- and two-row advances, and both
+row-7 overflow exits. Calls into the parser and operand emitters remain ordered
+effects because those routines are outside this closed state transition.
+The increment-wrap guard cannot execute: its preceding unsigned predicate
+requires a nonzero count and an index at most <code>count - 2</code>. [confirmed]
 The retained corpus observes 255 of 1,098 declared editor branch outcomes. It
 does not decode every in-progress editor state into a general AST, and it does not
 reach every cursor, menu, error, or row-composition path. [confirmed]</p>
