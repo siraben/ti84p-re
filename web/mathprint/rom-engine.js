@@ -273,6 +273,40 @@
       '39:4CA4', false);
   }
 
+  // 39:66FE temporarily moves the text cursor to row 1, column 1, emits the
+  // forward-overflow code 1Eh, then restores the word at 844Bh. The cursor
+  // restore makes the state transition independent of _PutC's own advance.
+  function editorForwardOverflowCue() {
+    return {
+      direction:'forward', branch:'emit-cue', remainingArguments:null,
+      emission:{row:1,column:1,code:0x1e}, cursorPreserved:true,
+      routine:'39:66FE',
+    };
+  }
+
+  // 39:66E9 subtracts the selected argument at 85E0h from the argument count
+  // at 85E2h using byte arithmetic. Fewer than eight remaining arguments
+  // return before drawing. Otherwise the routine emits code 1Fh at column 1
+  // and row winBtm-1, including the 00h -> FFh wrap, then restores 844Bh.
+  function editorReverseOverflowCue(argumentIndex, argumentCount, winBottom) {
+    byte(argumentIndex, 'editor argument index');
+    byte(argumentCount, 'editor argument count');
+    byte(winBottom, 'editor window bottom');
+    const remainingArguments = (argumentCount - argumentIndex) & 0xff;
+    if (remainingArguments < 8)
+      return {
+        direction:'reverse', argumentIndex, argumentCount, winBottom,
+        remainingArguments, branch:'return', emission:null,
+        cursorPreserved:true, routine:'39:66E9',
+      };
+    return {
+      direction:'reverse', argumentIndex, argumentCount, winBottom,
+      remainingArguments, branch:'emit-cue',
+      emission:{row:(winBottom - 1) & 0xff,column:1,code:0x1f},
+      cursorPreserved:true, routine:'39:66E9',
+    };
+  }
+
   // 39:5167 advances the current multi-argument slot. Calls that fetch or
   // render parser operands are returned as ordered effects; the state changes
   // and branch predicates are translated directly from the routine.
@@ -374,7 +408,7 @@
         {kind:'scroll-editor',direction:'forward',routine:'39:3C81'},
         {kind:'emit-operand',source:'saved-E7',routine:'39:5B10'},
         {kind:'emit-saved-operand-tail',argument:nextArgument,routine:'39:5B46'},
-        {kind:'finish-forward-overflow',routine:'39:66FE'},
+        {kind:'finish-forward-overflow',...editorForwardOverflowCue()},
         {kind:'restore-window-top',value:winTop},
         {kind:'set-row-for-token',routine:'39:5447'},
       ],
@@ -399,6 +433,8 @@
       throw new TypeError('editor argument retreat options must be an object');
     const winTop = options.winTop === undefined ? null :
       byte(options.winTop, 'editor window top');
+    const winBottom = options.winBottom === undefined ? null :
+      byte(options.winBottom, 'editor window bottom');
     const savedF2EmitterCarry = options.savedF2EmitterCarry === undefined
       ? false : boolean(options.savedF2EmitterCarry,
         'editor saved-F2 emitter carry');
@@ -468,6 +504,8 @@
         {kind:'emit-saved-operand-tail',argument:nextArgument,routine:'39:5B46'},
         {kind:'finish-reverse-overflow',remainingArguments,
           branch:remainingArguments < 8 ? 'return' : 'window-bottom',
+          cue:winBottom === null ? null : editorReverseOverflowCue(
+            nextArgument, argumentCount, winBottom),
           routine:'39:66E9'},
         {kind:'restore-window-top',value:winTop},
         {kind:'set-row-for-token',routine:'39:5447'},
@@ -4929,6 +4967,8 @@
     editorLayoutArgument,
     editorSubexpressionWindow,
     editorSubexpressionCell,
+    editorForwardOverflowCue,
+    editorReverseOverflowCue,
     editorAdvanceArgument,
     editorRetreatArgument,
     editorFirstArgumentAction,
