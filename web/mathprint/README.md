@@ -117,6 +117,11 @@ translate the arithmetic state at `39:50CF`, `39:5101`, and `39:513E` for
 multi-argument editor rows. Their result names the six-row window origin and
 the seven-row visible slot; the cross-page continuation remains explicit.
 
+`editorSubexpressionWindow()` and `editorSubexpressionCell()` carry the
+`39:4C5A`/`39:4CA4` slot arithmetic into the same state model. They expose the
+row-cell base and preserve styled-argument and empty-menu exits without
+claiming to implement the surrounding parser walk.
+
 `tools/analyze_mathprint_records.py` replays a full-range TLMT memory snapshot
 and writes, then captures 20-byte root/current records only when `34:6105` uses
 the render table at `34:6119`. The decoder preserves offset-based field names
