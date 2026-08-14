@@ -484,9 +484,9 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, and large-glyph output. It recursively follows direct ROM
 edges from named entries, seeds decoded table destinations, overlays exact
-next-PC outcomes from 183 reset-origin traces, and lists direct external
+next-PC outcomes from 184 reset-origin traces, and lists direct external
 targets. Computed dispatch destinations are manually seeded; bcall and RAM
-bjump bodies remain outside the direct-edge walk. Of those traces, 182 reach
+bjump bodies remain outside the direct-edge walk. Of those traces, 183 reach
 their state through calculator input. One explicitly classified synthetic trace
 inserts an `EF36h` editor buffer through direct RAM writes. The report keeps the
 two provenance classes separate.
@@ -515,6 +515,30 @@ or any other byte stops it. The analyzer enumerates every accepted digit/letter
 prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
+
+Schema 2 of the report retains one deterministic representative for every
+complete path-equivalence class in eight finite models. It also computes an
+exact minimum representative set for the branch outcomes in each model. The
+minimums are per domain: the five- and eight-byte name-loop ABIs share branch
+addresses, but a representative for one ABI does not cover the other. [confirmed]
+
+| Finite model | Projected inputs | Path classes | Branch outcomes | Minimum representatives |
+|--------------|-----------------:|-------------:|----------------:|------------------------:|
+| Structural scan-kind dispatch | 256 | 7 | 12 | 7 |
+| Raised extended-token classifier | 3,047 | 12 | 22 | 10 |
+| Five-byte raised-name loop | 493,112,577 | 125 | 10 | 4 |
+| Eight-byte raised-name loop | 24,977,631,672,321 | 1,021 | 10 | 4 |
+| Shared marker draw helper | 33,554,432 | 14 | 26 | 13 |
+| Metric marker-tail gate | 16 | 5 | 8 | 5 |
+| Editor action `0x03` controller | 131,072 | 11 | 9 | 4 |
+| Editor action `0x04` controller | 131,072 | 5 | 5 | 3 |
+
+The eight models contain 1,200 path classes and 92 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 50 representatives. Each
+class records its concrete representative, projected-state count, terminal,
+and complete branch-outcome sequence. These representatives saturate the
+declared projections. They do not establish calculator reachability or cover
+state outside those projections. [confirmed]
 
 The table models also distinguish decoded rows from reachable indices.
 `34:5935` scans 16 source-token rows but has 15 first-match classes: row 6
@@ -633,7 +657,7 @@ and `A` at each discriminator were checked before admission. [confirmed]
 The synthetic `EF36h` trace uses
 `tools/macros/mathprint-ef36-injected-buffer.macro`. Its two `memwrite`
 commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
-source in the 183-trace report. It supplies the only evidence for
+source in the 184-trace report. It supplies the only evidence for
 `34:5A23` fallthrough, `34:6992` taken, and `34:6B94` taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]
 
