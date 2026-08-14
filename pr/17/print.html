@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b5e18e55.js";
+            window.path_to_searchindex_js = "searchindex-93419d2a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14903,6 +14903,7 @@ anchors for readers who want to check the disassembly. [confirmed]</p>
 <tr><td><code>39:69C8</code></td><td>Descriptor/fraction geometry selector.</td></tr>
 <tr><td><code>39:6ABF</code> / <code>39:6B1C</code></td><td>Fraction focus rectangle and endpoint helper.</td></tr>
 <tr><td><code>39:6B66</code></td><td>Generic string selector.</td></tr>
+<tr><td><code>39:66E9</code> / <code>39:66FE</code></td><td>Reverse and forward argument-overflow cues.</td></tr>
 <tr><td><code>39:6712</code></td><td>Overflow marker path; resets <code>curCol</code> and emits <code>:</code>.</td></tr>
 <tr><td><code>07:44DE</code></td><td>Display-byte remapper.</td></tr>
 <tr><td><code>07:4588</code></td><td>Large-font fixed glyph blitter.</td></tr>
@@ -14946,7 +14947,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in eight finite models. It also computes an
+complete path-equivalence class in nine finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -14964,11 +14965,12 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Metric marker-tail gate</td><td style="text-align: right">16</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
 <tr><td>Editor action <code>0x03</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">11</td><td style="text-align: right">9</td><td style="text-align: right">4</td></tr>
 <tr><td>Editor action <code>0x04</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">5</td><td style="text-align: right">5</td><td style="text-align: right">3</td></tr>
+<tr><td>Reverse argument-overflow cue</td><td style="text-align: right">65,536</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 </tbody>
 </table>
 </div>
-<p>The eight models contain 1,200 path classes and 92 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 50 representatives. Each
+<p>The nine models contain 1,202 path classes and 94 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 52 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -15184,6 +15186,15 @@ into the parser, saved-operand emitters, and scroll helpers remain ordered
 effects because those routines are outside the closed row arithmetic.
 The increment-wrap guard cannot execute: its preceding unsigned predicate
 requires a nonzero count and an index at most <code>count - 2</code>. [confirmed]
+<code>editorForwardOverflowCue()</code> and <code>editorReverseOverflowCue()</code> translate the
+closed cue routines at <code>39:66FE</code> and <code>39:66E9</code>. The reverse routine subtracts
+the selected argument at <code>0x85E0</code> from the count at <code>0x85E2</code> with byte
+arithmetic. A result below 8 returns without drawing. Other results place
+display code <code>0x1F</code> at column 1 and row <code>(winBtm - 1) &amp; 0xFF</code>. The forward
+routine places <code>0x1E</code> at row 1, column 1. Both routines restore the word at
+<code>0x844B</code> after their display call; the reverse early return leaves it untouched.
+A raw-byte interpreter exhausts all 65,536 count/index pairs and every
+<code>winBtm</code> byte. [confirmed]
 <code>editorFirstArgumentAction()</code> and <code>editorAdvanceAction()</code> compose those
 walkers with actions <code>0x03</code> and <code>0x04</code>. They preserve the zero-count
 256-iteration loop, byte-wrapped first-slot arithmetic, the one-call
