@@ -148,6 +148,34 @@ expectEqual('39:513E restores the caller baseline row after layout',
     routine:'39:513E → 39:50CF → 39:5101',
     visibleRow:7, baselineRow:4, restoredRow:4,
   });
+expectEqual('39:4C5A computes a visible slot and 984A cell base',
+  rom.editorSubexpressionWindow(5, 3, 1, 0, 4), {
+    argumentIndex:5, currentRow:3, rowDelta:2, slot:3,
+    cellPointer:0x984a, cellOffset:6, cellAddress:0x9850,
+    baselineRow:1, preEmissionRow:0, recordFlags:0, argumentCount:4,
+    menuCurrent:null, measuresArgumentWidths:true, routine:'39:4C5A',
+    branch:'argument-list', emission:'arglist', finalRow:1,
+    continuation:'return',
+  });
+expectEqual('39:4C5A keeps a slot-before-window jump explicit',
+  rom.editorSubexpressionWindow(1, 3, 1, 0, 4), {
+    argumentIndex:1, currentRow:3, baselineRow:1, recordFlags:0,
+    argumentCount:4, rowDelta:2, branch:'argument-before-visible-row',
+    emission:null, continuation:'cross-page-jump', routine:'39:4C5A',
+  });
+expectEqual('39:4C5A preserves styled and empty-menu exits',
+  [
+    rom.editorSubexpressionWindow(5, 3, 1, 0x20, 4).branch,
+    rom.editorSubexpressionWindow(5, 3, 1, 0, 0, {menuCurrent:0x41}).branch,
+  ], ['styled-argument','empty-menu-fallback']);
+expectEqual('39:4CA4 emits a direct handler-cell slot offset',
+  rom.editorSubexpressionCell(2, 0x6000, 4, 0, 3), {
+    slot:2, cellPointer:0x6000, cellOffset:4, cellAddress:0x6004,
+    baselineRow:4, preEmissionRow:null, recordFlags:0, argumentCount:3,
+    menuCurrent:null, measuresArgumentWidths:true, routine:'39:4CA4',
+    branch:'argument-list', emission:'arglist', finalRow:4,
+    continuation:'return',
+  });
 
 for (const [[d, e], glyph] of [
   [[0xfc, 0x3c], 5], [[0xfc, 0x40], 9],

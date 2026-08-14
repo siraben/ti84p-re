@@ -691,6 +691,10 @@ The `editorArgumentClamp()`, `editorRowFromArg()`, and
 `39:5101`, and `39:513E`: argument-count clamping, six-row window origin,
 seven-row mapping, and restoration of the caller's baseline row. The
 cross-page continuation after `39:50CF` remains caller state. [confirmed]
+The `editorSubexpressionWindow()` and `editorSubexpressionCell()` helpers
+translate `39:4C5A` and `39:4CA4`: they compute the visible slot, select the
+`984A` or caller-supplied cell base, and retain styled-argument and empty-menu
+cross-page exits as explicit states. [confirmed]
 The retained corpus observes 255 of 1,098 declared editor branch outcomes. It
 does not decode every in-progress editor state into a general AST, and it does not
 reach every cursor, menu, error, or row-composition path. [confirmed]
