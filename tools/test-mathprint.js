@@ -2288,6 +2288,36 @@ for (const [expression, expected] of [
       width:prepared.generated.width, height:prepared.generated.height,
     }), prepared.generated.final.map(row => Array.from(row, Number)));
 }
+const retainedWideIntegral = mp.prepareInput(
+  'int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)',
+  {previousXClip:73});
+expectEqual('long integral edit retains a prior clip until the endpoint crosses it', {
+  model:retainedWideIntegral.model.modelViewport.xClip,
+  generated:retainedWideIntegral.generated.editorViewport.xClip,
+  branch:retainedWideIntegral.generated.editorViewport.branch,
+}, {model:73,generated:73,branch:'return-before-right-bound'});
+const resetWideIntegral = mp.prepareInput(
+  'int(1,3,(1//2)X,X)', {previousXClip:73});
+expectEqual('shortened integral edit clears a clip beyond its endpoint', {
+  model:resetWideIntegral.model.modelViewport.xClip,
+  generated:resetWideIntegral.generated.editorViewport.xClip,
+  reset:resetWideIntegral.generated.editorViewport.resetPreviousClip,
+}, {model:0,generated:0,reset:true});
+const eightIntegralText = new Array(8)
+  .fill('int(1,3,(1//2)X,X)').join('+');
+const eightIntegral = mp.prepareInput(eightIntegralText);
+expectEqual('eight repeated integrals preserve the complete overflow model', {
+  inputCharacters:eightIntegralText.length,
+  nativeBytes:eightIntegral.generated.nativeTokens.length,
+  modelWidth:eightIntegral.model.recordWidth,
+  generatedWidth:eightIntegral.generated.recordWidth,
+  xClip:eightIntegral.generated.editorViewport.xClip,
+}, {inputCharacters:151,nativeBytes:127,modelWidth:442,generatedWidth:442,xClip:353});
+expectEqual('eight repeated integrals retain a pixel-level LCD trace',
+  rom.replaySettledLcdWrites(eightIntegral.generated.events, {
+    width:eightIntegral.generated.width,
+    height:eightIntegral.generated.height,
+  }), eightIntegral.generated.final.map(row => Array.from(row, Number)));
 expectEqual('long integral sum exposes its settled extent and editor scrolling', {
   lcd:[overflowingIntegral.width,overflowingIntegral.height],
   recordWidth:overflowingIntegral.recordWidth,
@@ -2598,6 +2628,23 @@ expectEqual('frontend accepts a maximum-width settled leaf',
 const overWidthText = new Array(5462).fill('X').join('+');
 expectThrows('frontend rejects a settled leaf wider than a word', RangeError,
   () => mp.constructedProgramForExpression(overWidthText));
+const overWidthPrepared = mp.prepareInput(overWidthText);
+expectEqual('model fallback preserves an expression beyond record-word capacity', {
+  characters:overWidthText.length,
+  modelPixels:[
+    overWidthPrepared.model.rows[0].length,
+    overWidthPrepared.model.rows.length,
+  ],
+  recordWidth:overWidthPrepared.model.recordWidth,
+  modelOverflowRight:overWidthPrepared.model.modelOverflowRight,
+  modelViewport:overWidthPrepared.model.modelViewport,
+  generated:overWidthPrepared.generated,
+  generationError:String(overWidthPrepared.generationError),
+}, {
+  characters:10923, modelPixels:[65537,7], recordWidth:65538,
+  modelOverflowRight:65442, modelViewport:null, generated:null,
+  generationError:'RangeError: settled leaf width must fit an unsigned word',
+});
 
 expectThrows('LCD replay rejects an out-of-bounds byte pointer', RangeError,
   () => rom.replaySettledLcdWrites([{pointer:[12,0],value:0xff}]));

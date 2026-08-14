@@ -25,6 +25,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .controls label.check { flex-direction: row; align-items: center; gap: .4rem; }
 textarea#expr {
   display: block; width: 100%; min-width: 0; resize: vertical;
+  max-height: 14rem; overflow-y: auto;
   background: var(--panel); color: var(--fg); border: 1px solid var(--border);
   border-radius: 8px; padding: .55rem .7rem; font-family: ui-monospace, Menlo, monospace;
   font-size: 1rem; line-height: 1.4; overflow-wrap: anywhere;

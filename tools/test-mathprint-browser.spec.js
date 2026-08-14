@@ -24,6 +24,10 @@ function delay(milliseconds) {
 }
 
 test.beforeAll(async () => {
+  if (process.env.MATHPRINT_TEST_URL) {
+    baseUrl = process.env.MATHPRINT_TEST_URL;
+    return;
+  }
   server = http.createServer(async (request, response) => {
     const pathname = new URL(request.url, 'http://127.0.0.1').pathname;
     if (delayedAssets.has(pathname)) await delay(350);
@@ -142,5 +146,50 @@ test('keeps growing the model and LCD viewport after a second overflow',
         0, 0, canvas.width, canvas.height).data));
     expect(crypto.createHash('sha256').update(Buffer.from(modelRgba)).digest('hex'))
       .toBe('0764c5bd5a9a1639ea8056cf5d4fa2b34c2628d120da30d0dfe1016129005542');
+    expect(pageErrors).toEqual([]);
+  });
+
+test('retains, resets, and regrows the ROM viewport across long edits',
+  async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(String(error)));
+    const integral = 'int(1,3,(1//2)X,X)';
+    const repeated = count => new Array(count).fill(integral).join('+');
+    await page.setViewportSize({width:480,height:900});
+    await page.goto(baseUrl, {waitUntil:'domcontentloaded'});
+    const input = page.locator('#expr');
+    await expect(page.locator('#dims')).not.toHaveText('');
+
+    await input.fill(repeated(3));
+    await expect(page.locator('#dims')).toContainText('162 px record extent');
+    await expect(page.locator('#dims')).toContainText('editor x clip 73 px');
+
+    // 34:5F5D does not move an existing clip left merely because the edited
+    // endpoint shrank. It clears only once the endpoint lies left of the clip.
+    await input.fill(repeated(2));
+    await expect(page.locator('#dims')).toContainText('106 px record extent');
+    await expect(page.locator('#dims')).toContainText('editor x clip 73 px');
+    await input.fill(integral);
+    await expect(page.locator('#dims')).toContainText('50 px record extent');
+    await expect(page.locator('#dims')).not.toContainText('wider than');
+    await input.fill(repeated(2));
+    await expect(page.locator('#dims')).toContainText('editor x clip 17 px');
+
+    const initialHeight = await input.evaluate(element => element.clientHeight);
+    await input.fill(repeated(8));
+    await expect(input).toHaveValue(repeated(8));
+    await expect(page.locator('#err')).toHaveText('');
+    await expect(page.locator('#dims')).toContainText('442 px record extent');
+    await expect(page.locator('#dims')).toContainText('editor x clip 353 px');
+    const inputBox = await input.evaluate(element => ({
+      clientHeight:element.clientHeight,
+      scrollHeight:element.scrollHeight,
+      maximumHeight:Number.parseFloat(getComputedStyle(element).maxHeight),
+    }));
+    expect(inputBox.clientHeight).toBeGreaterThan(initialHeight);
+    expect(inputBox.clientHeight).toBeLessThanOrEqual(inputBox.maximumHeight);
+    expect(inputBox.scrollHeight).toBeLessThanOrEqual(inputBox.clientHeight + 2);
+    expect(await page.locator('#timeline').evaluate(element => Number(element.max)))
+      .toBeGreaterThan(0);
     expect(pageErrors).toEqual([]);
   });

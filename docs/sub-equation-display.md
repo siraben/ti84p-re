@@ -1497,6 +1497,18 @@ it at `34:5F87`. An endpoint left of the previous clip can therefore clear the
 clip, and an endpoint near `0xFFFF` can wrap before the bound comparison.
 [confirmed]
 
+The clip is editor state, not a function of the current width alone. If an edit
+shrinks the 162-pixel three-integral record to the 106-pixel two-integral
+record while `ram:8E02` is 73, `34:5F81` returns and retains 73. Shrinking the
+record below 73 takes the borrow path at `34:5F64` and clears the clip.
+[confirmed]
+
+The web renderer carries this word across input events and applies the same
+transition to both its full model metadata and its 96-pixel LCD writer. An
+eight-integral boundary regression reaches a 442-pixel record and clip 353
+without truncating its 127 native token bytes. This case is a deterministic
+translation regression.
+
 The visible expression therefore begins at effective $x=-17$, while the cursor
 cell begins at $x=89$. When `ram:8E02` is nonzero, `34:5FF2` calls `34:6031`.
 That routine draws the seven-row left-overflow bitmap at `34:60B8` through
