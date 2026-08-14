@@ -308,6 +308,37 @@
       type === 0x16 || type === 0x17;
   }
 
+  // 07:50C4-50F7 chooses the scan region and clears unused bytes in the
+  // eight-byte comparison key. Named types and 5Dh names use the program/VAT
+  // region; list classes additionally admit the FFh start sentinel. Other
+  // list encodings, including 72h and 3Ah, use the fixed-token region. The
+  // original OP1 is retained because the carry return restores it from OP3.
+  function editorPrepareAlphaSearchKey(op1Value, label) {
+    const original = editorNineByteBuffer(op1Value, label);
+    const key = original.slice();
+    const type = key[0] & 0x1f;
+    const listClass = type === 0x01 || type === 0x0d;
+    const namedRegion = editorAlphaNamedType(type) || key[1] === 0x5d ||
+      (listClass && key[1] === 0xff);
+    if (namedRegion) {
+      let length = 8;
+      for (let index = 1; index <= 8; index++) {
+        if (key[index] === 0) {
+          length = index - 1;
+          break;
+        }
+      }
+      // _CmpPrgNamLen treats the one-byte 5Dh list prefix as two bytes.
+      if (length === 1 && key[1] === 0x5d) length = 2;
+      for (let index = length + 1; index <= 8; index++) key[index] = 0;
+    } else {
+      // The fixed path enters the clearing loop with A=5, preserving only
+      // the three name bytes represented by OP1+1 through OP1+3.
+      for (let index = 4; index <= 8; index++) key[index] = 0;
+    }
+    return {original,key,namedRegion};
+  }
+
   // Decode one contiguous VAT scan region from a 64 KiB RAM snapshot. The
   // region starts at a type cursor and ends just above the lower bound, which
   // matches the range test at 07:510B. Fixed entries step nine bytes. Named,
@@ -374,7 +405,8 @@
   function editorDecodeAlphaVatSnapshot(ram, op1Value, pointers = {}) {
     if (!(ram instanceof Uint8Array) || ram.length !== 0x10000)
       throw new TypeError('alphabetic VAT RAM snapshot must be 65536 bytes');
-    const op1 = editorNineByteBuffer(op1Value, 'alphabetic VAT snapshot OP1');
+    const prepared = editorPrepareAlphaSearchKey(
+      op1Value, 'alphabetic VAT snapshot OP1');
     if (!pointers || typeof pointers !== 'object' || Array.isArray(pointers))
       throw new TypeError('alphabetic VAT pointers must be an object');
     const wordAt = address => ram[address] | (ram[address + 1] << 8);
@@ -385,9 +417,7 @@
       if (!Number.isInteger(value) || value < 0 || value > 0xffff)
         throw new RangeError(`alphabetic VAT ${label} must be an unsigned word`);
     }
-    const type = op1[0] & 0x1f;
-    const namedRegion = editorAlphaNamedType(type) || type === 0x01 ||
-      type === 0x0d || op1[1] === 0x5d;
+    const namedRegion = prepared.namedRegion;
     const start = namedRegion ? progPtr : symTable;
     const bound = namedRegion ? pTemp : progPtr;
     return {
@@ -406,7 +436,10 @@
   function editorFindAlphaVat(direction, op1Value, vatSnapshot, context = {}) {
     if (direction !== 'up' && direction !== 'down')
       throw new RangeError('alphabetic VAT-search direction must be up or down');
-    const op1 = editorNineByteBuffer(op1Value, 'alphabetic VAT-search OP1');
+    const prepared = editorPrepareAlphaSearchKey(
+      op1Value, 'alphabetic VAT-search OP1');
+    const op1 = prepared.original;
+    const searchKey = prepared.key;
     if (!Array.isArray(vatSnapshot))
       throw new TypeError('alphabetic VAT snapshot must be an array');
     if (!context || typeof context !== 'object' || Array.isArray(context))
@@ -418,7 +451,7 @@
     const iy0Bit0 = context.iy0Bit0 === undefined ? false :
       boolean(context.iy0Bit0, 'alphabetic VAT-search IY+0 bit 0');
     const sourceClass = editorAlphaTypeClass(op1[0]);
-    const unconditionalUp = op1[2] === 0xff;
+    const unconditionalUp = searchKey[2] === 0xff;
     let selected = null;
     let compared = 0;
     const entries = vatSnapshot.map((entry, index) => {
@@ -453,7 +486,7 @@
       if (unconditionalUp && direction === 'down')
         continue;
       const relativeToSource = unconditionalUp ? 1 :
-        editorAlphaNameCompare(entry.identity, op1);
+        editorAlphaNameCompare(entry.identity, searchKey);
       compared++;
       if ((direction === 'up' && relativeToSource <= 0) ||
           (direction === 'down' && relativeToSource >= 0))
