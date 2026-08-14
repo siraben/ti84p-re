@@ -163,6 +163,11 @@ explicit ordered effects rather than generated pixels.
 `editorFirstArgumentAction()` and `editorAdvanceAction()` translate the
 action-`0x03` and action-`0x04` controllers at `39:51F1` and `39:52A5`. They
 retain byte-counter wrap and the action-`0x04` one-call exit at `39:52B6`.
+`settledRecordAllocationGeometry()` decodes the fixed and matrix-dependent
+allocation rows at `33:4F42`–`33:4F81`.
+`settledRecordAllocationCapacity()` translates the conditional reserve,
+record-tail, and requested-byte subtractions at `34:4B7C`–`34:4B9D`, including
+their 16-bit wrap and the allocator carry return at `34:486F`.
 
 ## Tooling
 
