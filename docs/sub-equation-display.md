@@ -821,15 +821,18 @@ They return the selected variable in OP1 and OP3 and its VAT pointer in `HL`;
 carry reports that no matching entry remains. Carry clear then calls
 `39:5C2E`; only class `0x03` with subclass byte `0x01` enters `39:1942`.
 `A=06` repeats the alphabetic search, while every other value returns with
-carry clear. The JavaScript model accepts each page-7 search result,
-post-search `A`, and updated `0x85DE/0x85DF` as ordered state. Nested and
-multi-argument traces can therefore exercise the repeat without replaying an
-LCD stream. [confirmed] for the page-39 control flow and bcall identities;
+carry clear. The JavaScript model derives each result from OP1 and a logical
+VAT snapshot. It derives the post-search `A` from the selected OP1 type, so a
+protected-program entry repeats without an injected return sequence. Nested
+and multi-argument states can therefore exercise the search without replaying
+an LCD stream. [confirmed] for the page-39 control flow and bcall identities;
 [standard] for the documented bcall input/output contract.
 
 `editorFindAlphaVat()` translates the selection state over an explicit logical
 VAT snapshot. Each snapshot entry contains its nine-byte OP-format identity
-and VAT type-byte address. `07:5247` maps protected programs to the program
+and VAT type-byte address. `07:50BB` loads `A=00h`, discarding the caller's
+value; `07:5104`–`07:511D` always compare the normalized type class.
+[confirmed] `07:5247` maps protected programs to the program
 class, complex lists to the list class, type `0x0B` to equation class `0x03`,
 and types `0x18`/`0x19` to class zero. [confirmed] The comparator at
 `07:5199` subtracts eight name bytes from OPx+8 down to OPx+1. Borrow
