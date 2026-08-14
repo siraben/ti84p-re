@@ -73076,9 +73076,9 @@
             "projected_input_count": 2,
             "representative_state": {
               "source": "saved-E7",
-              "service": "normal",
+              "direction": "up",
               "bit5_set": 0,
-              "service_carry": 0
+              "search_carry": 0
             },
             "branch_outcomes": [
               "39:5B14:taken"
@@ -73090,9 +73090,9 @@
             "projected_input_count": 2,
             "representative_state": {
               "source": "saved-E7",
-              "service": "variable",
+              "direction": "down",
               "bit5_set": 0,
-              "service_carry": 0
+              "search_carry": 0
             },
             "branch_outcomes": [
               "39:5B21:taken"
@@ -73104,9 +73104,9 @@
             "projected_input_count": 2,
             "representative_state": {
               "source": "saved-F2",
-              "service": "normal",
+              "direction": "up",
               "bit5_set": 0,
-              "service_carry": 0
+              "search_carry": 0
             },
             "branch_outcomes": [
               "39:5B2F:taken"
@@ -73118,9 +73118,9 @@
             "projected_input_count": 2,
             "representative_state": {
               "source": "saved-F2",
-              "service": "variable",
+              "direction": "down",
               "bit5_set": 0,
-              "service_carry": 0
+              "search_carry": 0
             },
             "branch_outcomes": [
               "39:5B3C:taken"
@@ -73128,13 +73128,13 @@
           },
           {
             "class_index": 4,
-            "terminal": "service_carry",
+            "terminal": "search_carry",
             "projected_input_count": 1,
             "representative_state": {
               "source": "saved-E7",
-              "service": "normal",
+              "direction": "up",
               "bit5_set": 1,
-              "service_carry": 1
+              "search_carry": 1
             },
             "branch_outcomes": [
               "39:5B14:fallthrough",
@@ -73143,13 +73143,13 @@
           },
           {
             "class_index": 5,
-            "terminal": "service_carry",
+            "terminal": "search_carry",
             "projected_input_count": 1,
             "representative_state": {
               "source": "saved-E7",
-              "service": "variable",
+              "direction": "down",
               "bit5_set": 1,
-              "service_carry": 1
+              "search_carry": 1
             },
             "branch_outcomes": [
               "39:5B21:fallthrough",
@@ -73158,13 +73158,13 @@
           },
           {
             "class_index": 6,
-            "terminal": "service_carry",
+            "terminal": "search_carry",
             "projected_input_count": 1,
             "representative_state": {
               "source": "saved-F2",
-              "service": "normal",
+              "direction": "up",
               "bit5_set": 1,
-              "service_carry": 1
+              "search_carry": 1
             },
             "branch_outcomes": [
               "39:5B2F:fallthrough",
@@ -73173,13 +73173,13 @@
           },
           {
             "class_index": 7,
-            "terminal": "service_carry",
+            "terminal": "search_carry",
             "projected_input_count": 1,
             "representative_state": {
               "source": "saved-F2",
-              "service": "variable",
+              "direction": "down",
               "bit5_set": 1,
-              "service_carry": 1
+              "search_carry": 1
             },
             "branch_outcomes": [
               "39:5B3C:fallthrough",
@@ -73192,9 +73192,9 @@
             "projected_input_count": 1,
             "representative_state": {
               "source": "saved-E7",
-              "service": "normal",
+              "direction": "up",
               "bit5_set": 1,
-              "service_carry": 0
+              "search_carry": 0
             },
             "branch_outcomes": [
               "39:5B14:fallthrough",
@@ -73207,9 +73207,9 @@
             "projected_input_count": 1,
             "representative_state": {
               "source": "saved-E7",
-              "service": "variable",
+              "direction": "down",
               "bit5_set": 1,
-              "service_carry": 0
+              "search_carry": 0
             },
             "branch_outcomes": [
               "39:5B21:fallthrough",
@@ -73222,9 +73222,9 @@
             "projected_input_count": 1,
             "representative_state": {
               "source": "saved-F2",
-              "service": "normal",
+              "direction": "up",
               "bit5_set": 1,
-              "service_carry": 0
+              "search_carry": 0
             },
             "branch_outcomes": [
               "39:5B2F:fallthrough",
@@ -73237,9 +73237,9 @@
             "projected_input_count": 1,
             "representative_state": {
               "source": "saved-F2",
-              "service": "variable",
+              "direction": "down",
               "bit5_set": 1,
-              "service_carry": 0
+              "search_carry": 0
             },
             "branch_outcomes": [
               "39:5B3C:fallthrough",
@@ -73266,9 +73266,9 @@
               "projected_input_count": 2,
               "representative_state": {
                 "source": "saved-E7",
-                "service": "normal",
+                "direction": "up",
                 "bit5_set": 0,
-                "service_carry": 0
+                "search_carry": 0
               },
               "branch_outcomes": [
                 "39:5B14:taken"
@@ -73280,9 +73280,9 @@
               "projected_input_count": 2,
               "representative_state": {
                 "source": "saved-E7",
-                "service": "variable",
+                "direction": "down",
                 "bit5_set": 0,
-                "service_carry": 0
+                "search_carry": 0
               },
               "branch_outcomes": [
                 "39:5B21:taken"
@@ -73294,9 +73294,9 @@
               "projected_input_count": 2,
               "representative_state": {
                 "source": "saved-F2",
-                "service": "normal",
+                "direction": "up",
                 "bit5_set": 0,
-                "service_carry": 0
+                "search_carry": 0
               },
               "branch_outcomes": [
                 "39:5B2F:taken"
@@ -73308,9 +73308,9 @@
               "projected_input_count": 2,
               "representative_state": {
                 "source": "saved-F2",
-                "service": "variable",
+                "direction": "down",
                 "bit5_set": 0,
-                "service_carry": 0
+                "search_carry": 0
               },
               "branch_outcomes": [
                 "39:5B3C:taken"
@@ -73318,13 +73318,13 @@
             },
             {
               "class_index": 4,
-              "terminal": "service_carry",
+              "terminal": "search_carry",
               "projected_input_count": 1,
               "representative_state": {
                 "source": "saved-E7",
-                "service": "normal",
+                "direction": "up",
                 "bit5_set": 1,
-                "service_carry": 1
+                "search_carry": 1
               },
               "branch_outcomes": [
                 "39:5B14:fallthrough",
@@ -73333,13 +73333,13 @@
             },
             {
               "class_index": 6,
-              "terminal": "service_carry",
+              "terminal": "search_carry",
               "projected_input_count": 1,
               "representative_state": {
                 "source": "saved-F2",
-                "service": "normal",
+                "direction": "up",
                 "bit5_set": 1,
-                "service_carry": 1
+                "search_carry": 1
               },
               "branch_outcomes": [
                 "39:5B2F:fallthrough",
@@ -73352,9 +73352,9 @@
               "projected_input_count": 1,
               "representative_state": {
                 "source": "saved-E7",
-                "service": "variable",
+                "direction": "down",
                 "bit5_set": 1,
-                "service_carry": 0
+                "search_carry": 0
               },
               "branch_outcomes": [
                 "39:5B21:fallthrough",
@@ -73367,9 +73367,9 @@
               "projected_input_count": 1,
               "representative_state": {
                 "source": "saved-F2",
-                "service": "variable",
+                "direction": "down",
                 "bit5_set": 1,
-                "service_carry": 0
+                "search_carry": 0
               },
               "branch_outcomes": [
                 "39:5B3C:fallthrough",

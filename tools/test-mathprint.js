@@ -160,7 +160,7 @@ const savedOperandByte = address => {
   return savedOperandByteMap.get(address);
 };
 
-// Page-39 operand-emitter span.  The fixed-bank calls are stubbed with their
+// Page-39 alphabetic-VAT-search span. The fixed-bank calls are stubbed with their
 // observed return flags/A values, but every local branch from 39:59E0 through
 // 39:5A17 is executed from the extracted bytes below.
 const operandEmitterRomSpan = {address:0x59af, bytes:Buffer.from(
@@ -173,24 +173,24 @@ const operandEmitterByteMap = new Map(Array.from(
   (value, offset) => [operandEmitterRomSpan.address + offset, value]));
 const operandEmitterByte = address => {
   if (!operandEmitterByteMap.has(address))
-    throw new Error(`operand-emitter oracle reached unpinned byte 39:${address.toString(16)}`);
+    throw new Error(`alpha-search oracle reached unpinned byte 39:${address.toString(16)}`);
   return operandEmitterByteMap.get(address);
 };
 const operandEmitterWord = address =>
   operandEmitterByte(address) | (operandEmitterByte(address + 1) << 8);
 
-function runRawOperandEmitter(service, tokenClass, tokenSubClass, options = {}) {
-  const start = service === 'normal' ? 0x59e0 : 0x59f9;
-  const serviceResults = options.serviceResults || [];
+function runRawAlphaSearch(direction, editorClass, editorSubClass, options = {}) {
+  const start = direction === 'up' ? 0x59e0 : 0x59f9;
+  const searchResults = options.searchResults || [];
   const special = options.specialResult || {};
   const savedOperand = options.savedOperand || new Array(9).fill(0);
-  const memory = new Map([[0x85de,tokenClass],[0x85df,tokenSubClass]]);
+  const memory = new Map([[0x85de,editorClass],[0x85df,editorSubClass]]);
   let pc = start, a = 0, h = 0, hl = 0, zero = false, carry = false;
-  let serviceIndex = 0, loopCount = 0, specialPath = null, postService = false;
+  let searchIndex = 0, loopCount = 0, specialPath = null, postSearch = false;
   let callReturn = null, rstReturn = null;
   const effects = [];
   const finish = branch => ({
-    branch:specialPath ? 'class-2-special' : postService ? 'post-service-complete' : branch,
+    branch:specialPath ? 'class-2-special' : postSearch ? 'post-search-complete' : branch,
     specialPath, loopCount, carry, effects,
   });
   for (let instructions = 0; instructions < 256; instructions++) {
@@ -207,29 +207,29 @@ function runRawOperandEmitter(service, tokenClass, tokenSubClass, options = {}) 
       continue;
     }
     if (pc === 0x3a53 || pc === 0x306f) {
-      const result = serviceResults[serviceIndex++];
-      if (!result) throw new Error('raw operand-emitter service result underflow');
+      const result = searchResults[searchIndex++];
+      if (!result) throw new Error('raw alpha-search result underflow');
       carry = !!result.carry;
-      if (result.tokenClass !== undefined) memory.set(0x85de,result.tokenClass);
-      if (result.tokenSubClass !== undefined) memory.set(0x85df,result.tokenSubClass);
+      if (result.editorClass !== undefined) memory.set(0x85de,result.editorClass);
+      if (result.editorSubClass !== undefined) memory.set(0x85df,result.editorSubClass);
       pc = callReturn;
-      effects.push({kind:'call-service',index:serviceIndex - 1,carry});
+      effects.push({kind:'find-alpha',index:searchIndex - 1,carry});
       continue;
     }
     if (pc === 0x5c2e) {
       zero = (memory.get(0x85de) || 0) === 3 &&
         (memory.get(0x85df) || 0) === 1;
-      postService = zero;
+      postSearch = zero;
       pc = callReturn;
       continue;
     }
     if (pc === 0x1942) {
-      const result = serviceResults[serviceIndex - 1];
+      const result = searchResults[searchIndex - 1];
       a = result.postCode;
-      if (result.nextTokenClass !== undefined)
-        memory.set(0x85de,result.nextTokenClass);
-      if (result.nextTokenSubClass !== undefined)
-        memory.set(0x85df,result.nextTokenSubClass);
+      if (result.nextEditorClass !== undefined)
+        memory.set(0x85de,result.nextEditorClass);
+      if (result.nextEditorSubClass !== undefined)
+        memory.set(0x85df,result.nextEditorSubClass);
       pc = callReturn;
       continue;
     }
@@ -265,7 +265,7 @@ function runRawOperandEmitter(service, tokenClass, tokenSubClass, options = {}) 
           target === 0x5c2e || target === 0x1942 || target === 0x1baf ||
           target === 0x5a2e) pc = target;
       else if (target === 0x5ad9) { pc += 3; }
-      else throw new Error(`raw operand-emitter unsupported call 39:${target.toString(16)}`);
+      else throw new Error(`raw alpha-search unsupported call 39:${target.toString(16)}`);
     } else if (opcode === 0xef) {
       effects.push({kind:'emit-token',code:a}); rstReturn = pc + 1; pc = 0x28;
     } else if (opcode === 0xaf) {
@@ -281,15 +281,15 @@ function runRawOperandEmitter(service, tokenClass, tokenSubClass, options = {}) 
     } else if (opcode === 0x3f) {
       carry = !carry; pc++;
     } else if (opcode === 0xd8) {
-      if (carry) return finish('service-carry');
+      if (carry) return finish('search-carry');
       pc++;
     } else if (opcode === 0xc9) {
-      return finish('service-complete');
+      return finish('search-complete');
     } else {
-      throw new Error(`raw operand-emitter unsupported opcode 0x${opcode.toString(16)} at 39:${pc.toString(16)}`);
+      throw new Error(`raw alpha-search unsupported opcode 0x${opcode.toString(16)} at 39:${pc.toString(16)}`);
     }
   }
-  throw new Error('raw operand-emitter exceeded its instruction bound');
+  throw new Error('raw alpha-search exceeded its instruction bound');
 }
 const controllerByteMap = new Map(controllerRomSpans.flatMap(span =>
   Array.from(span.bytes, (value, offset) => [span.address + offset, value])));
@@ -465,13 +465,13 @@ function runRawOverflowCue(direction, argumentIndex, argumentCount, winBottom,
   throw new Error('overflow-cue oracle exceeded its instruction bound');
 }
 
-function runRawSavedOperandWrapper(source, service, recordFlags, buffers,
-                                   serviceResult) {
+function runRawSavedOperandWrapper(source, direction, recordFlags, buffers,
+                                   searchResult) {
   const entries = {
-    'saved-E7:normal':0x5b10, 'saved-E7:variable':0x5b1d,
-    'saved-F2:normal':0x5b2b, 'saved-F2:variable':0x5b38,
+    'saved-E7:up':0x5b10, 'saved-E7:down':0x5b1d,
+    'saved-F2:up':0x5b2b, 'saved-F2:down':0x5b38,
   };
-  let pc = entries[`${source}:${service}`];
+  let pc = entries[`${source}:${direction}`];
   if (pc === undefined)
     throw new RangeError('raw saved-operand oracle received an invalid wrapper');
   const memory = new Map();
@@ -487,10 +487,10 @@ function runRawSavedOperandWrapper(source, service, recordFlags, buffers,
   const callStack = [];
   let hl = 0, de = 0;
   let zero = false;
-  let carry = serviceResult.incomingCarry || false;
-  let serviceInput = null;
+  let carry = searchResult.incomingCarry || false;
+  let searchInput = null;
   const finish = branch => ({
-    branch, serviceInput, carry,
+    branch, searchInput, carry,
     buffers:{
       op1:readBuffer(0x8478),
       savedE7:readBuffer(0x85e7),
@@ -521,9 +521,9 @@ function runRawSavedOperandWrapper(source, service, recordFlags, buffers,
         callStack.push(pc + 3);
         pc = target;
       } else if (target === 0x59e0 || target === 0x59f9) {
-        serviceInput = readBuffer(0x8478);
-        writeBuffer(0x8478,serviceResult.op1);
-        carry = serviceResult.carry;
+        searchInput = readBuffer(0x8478);
+        writeBuffer(0x8478,searchResult.op1);
+        carry = searchResult.carry;
         pc += 3;
       } else {
         throw new Error(`saved-operand oracle reached unsupported call 0x${target.toString(16)}`);
@@ -542,7 +542,7 @@ function runRawSavedOperandWrapper(source, service, recordFlags, buffers,
         throw new Error('saved-operand oracle reached an unsupported jump');
       pc = target;
     } else if (opcode === 0xd8) {
-      if (carry) return finish('service-carry');
+      if (carry) return finish('search-carry');
       pc++;
     } else {
       throw new Error(`saved-operand oracle reached unsupported opcode 0x${opcode.toString(16)}`);
@@ -943,85 +943,85 @@ const savedOperandBuffers = {
   savedE7:[0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
   savedF2:[0x21,0x22,0x23,0x24,0x25,0x26,0x27,0x28,0x29],
 };
-const savedOperandServiceOp1 =
+const savedOperandSearchOp1 =
   [0xa1,0xa2,0xa3,0xa4,0xa5,0xa6,0xa7,0xa8,0xa9];
 expectEqual('39:5B10 preserves buffers and carry when bit 5 is clear', (() => {
   const result = rom.editorSavedOperandWrapper(
-    'saved-E7','normal',0,savedOperandBuffers,{incomingCarry:true});
+    'saved-E7','up',0,savedOperandBuffers,{incomingCarry:true});
   return {
-    branch:result.branch, serviceCalled:result.serviceCalled,
+    branch:result.branch, searchCalled:result.searchCalled,
     carry:result.carry, copies:result.copies, buffers:result.buffers,
   };
 })(), {
-  branch:'gated-return',serviceCalled:false,carry:true,copies:[],
+  branch:'gated-return',searchCalled:false,carry:true,copies:[],
   buffers:savedOperandBuffers,
 });
-expectEqual('39:5B10 restores E7 and saves a carry-clear service result', (() => {
+expectEqual('39:5B10 restores E7 and saves a carry-clear alpha result', (() => {
   const result = rom.editorSavedOperandWrapper(
-    'saved-E7','normal',0x20,savedOperandBuffers,{
-      carry:false,op1:savedOperandServiceOp1,
+    'saved-E7','up',0x20,savedOperandBuffers,{
+      carry:false,op1:savedOperandSearchOp1,
     });
   return {
-    branch:result.branch, serviceInput:result.serviceInput,
+    branch:result.branch, searchInput:result.searchInput,
     carry:result.carry, copies:result.copies, buffers:result.buffers,
   };
 })(), {
-  branch:'save-result',serviceInput:savedOperandBuffers.savedE7,
+  branch:'save-result',searchInput:savedOperandBuffers.savedE7,
   carry:false,copies:[
     {from:0x85e7,to:0x8478,bytes:9,routine:'39:5AE1 → 00:1A92'},
     {from:0x8478,to:0x85e7,bytes:9,routine:'39:5AD2 → 00:1A92'},
   ],buffers:{
-    op1:savedOperandServiceOp1,
-    savedE7:savedOperandServiceOp1,
+    op1:savedOperandSearchOp1,
+    savedE7:savedOperandSearchOp1,
     savedF2:savedOperandBuffers.savedF2,
   },
 });
 expectEqual('39:5B38 carry exit leaves E7 unchanged after restoring F2', (() => {
   const result = rom.editorSavedOperandWrapper(
-    'saved-F2','variable',0x20,savedOperandBuffers,{
-      carry:true,op1:savedOperandServiceOp1,
+    'saved-F2','down',0x20,savedOperandBuffers,{
+      carry:true,op1:savedOperandSearchOp1,
     });
   return {
-    branch:result.branch, serviceInput:result.serviceInput,
+    branch:result.branch, searchInput:result.searchInput,
     carry:result.carry, copies:result.copies, buffers:result.buffers,
   };
 })(), {
-  branch:'service-carry',serviceInput:savedOperandBuffers.savedF2,
+  branch:'search-carry',searchInput:savedOperandBuffers.savedF2,
   carry:true,copies:[
     {from:0x85f2,to:0x8478,bytes:9,routine:'39:5B00 → 00:1A92'},
   ],buffers:{
-    op1:savedOperandServiceOp1,
+    op1:savedOperandSearchOp1,
     savedE7:savedOperandBuffers.savedE7,
     savedF2:savedOperandBuffers.savedF2,
   },
 });
-expectThrows('39:5B10 rejects an enabled service without an OP1 result',
+expectThrows('39:5B10 rejects an enabled search without an OP1 result',
   TypeError, () => rom.editorSavedOperandWrapper(
-    'saved-E7','normal',0x20,savedOperandBuffers,{carry:false}));
+    'saved-E7','up',0x20,savedOperandBuffers,{carry:false}));
 expectThrows('39:5B10 rejects an eleven-byte OP scratch value',
   RangeError, () => rom.editorSavedOperandWrapper(
-    'saved-E7','normal',0x20,{...savedOperandBuffers,savedE7:new Array(11).fill(0)},
-    {carry:false,op1:savedOperandServiceOp1}));
+    'saved-E7','up',0x20,{...savedOperandBuffers,savedE7:new Array(11).fill(0)},
+    {carry:false,op1:savedOperandSearchOp1}));
 
 const savedOperandProjection = result => ({
   branch:result.branch,
-  serviceInput:result.serviceInput,
+  searchInput:result.searchInput,
   carry:result.carry,
   buffers:result.buffers,
 });
 let savedOperandWrapperStates = 0;
 for (const source of ['saved-E7','saved-F2']) {
-  for (const service of ['normal','variable']) {
+  for (const direction of ['up','down']) {
     for (let recordFlags = 0; recordFlags <= 0xff; recordFlags++) {
       for (const incomingCarry of [false,true]) {
-        for (const serviceCarry of [false,true]) {
-          const serviceResult = {
-            incomingCarry,carry:serviceCarry,op1:savedOperandServiceOp1,
+        for (const searchCarry of [false,true]) {
+          const searchResult = {
+            incomingCarry,carry:searchCarry,op1:savedOperandSearchOp1,
           };
           const raw = runRawSavedOperandWrapper(
-            source,service,recordFlags,savedOperandBuffers,serviceResult);
+            source,direction,recordFlags,savedOperandBuffers,searchResult);
           const translated = rom.editorSavedOperandWrapper(
-            source,service,recordFlags,savedOperandBuffers,serviceResult);
+            source,direction,recordFlags,savedOperandBuffers,searchResult);
           expectEqual('39:5B10–5B44 exhaustive wrapper state',
             savedOperandProjection(translated), raw);
           savedOperandWrapperStates++;
@@ -1049,91 +1049,91 @@ for (const source of ['saved-E7','saved-F2']) {
         savedF2:source === 'saved-F2'
           ? sourceValue : new Array(9).fill(0x22),
       };
-      const serviceResult = {carry:false,op1:resultValue};
+      const searchResult = {carry:false,op1:resultValue};
       expectEqual('39:5AE1/5B00/5AD2 exhaustive Mov9B basis',
         savedOperandProjection(rom.editorSavedOperandWrapper(
-          source,'normal',0x20,buffers,serviceResult)),
+          source,'up',0x20,buffers,searchResult)),
         runRawSavedOperandWrapper(
-          source,'normal',0x20,buffers,serviceResult));
+          source,'up',0x20,buffers,searchResult));
     }
   }
 }
 
-const operandProjection = result => ({
+const alphaSearchProjection = result => ({
   branch:result.branch, specialPath:result.specialPath || null,
   loopCount:result.loopCount === undefined ? 0 : result.loopCount,
   emitted:(result.effects || []).filter(effect => effect.kind === 'emit-token')
     .map(effect => effect.code),
 });
-const operandCases = [
-  ['normal class-2 marker', 'normal', 0x02, 0x00,
+const alphaSearchCases = [
+  ['ascending class-2 marker', 'up', 0x02, 0x00,
    {specialResult:{carry:false}}],
-  ['variable class-2 empty saved operand', 'variable', 0x02, 0x00,
+  ['descending class-2 empty saved operand', 'down', 0x02, 0x00,
    {savedOperand:[0x02,0,0,0,0,0,0,0,0],specialResult:{carry:false}}],
-  ['normal scanner carry', 'normal', 0x04, 0x00,
-   {serviceResults:[{carry:true}]}],
-  ['normal scanner clear', 'normal', 0x04, 0x00,
-   {serviceResults:[{carry:false}]}],
-  ['normal scanner changes class before post-check', 'normal', 0x04, 0x00,
-   {serviceResults:[{carry:false,tokenClass:0x02}]}],
-  ['normal scanner repeat then clear', 'normal', 0x03, 0x01,
-   {serviceResults:[{carry:false,postCode:0x06,nextTokenClass:0x03,
-                     nextTokenSubClass:0x01},
-                    {carry:false,tokenClass:0x04,tokenSubClass:0x00}]}],
-  ['normal scanner repeat into class-2 path', 'normal', 0x03, 0x01,
-   {specialResult:{carry:false},serviceResults:[
-     {carry:false,postCode:0x06,nextTokenClass:0x02,nextTokenSubClass:0x00},
+  ['ascending VAT-search carry', 'up', 0x04, 0x00,
+   {searchResults:[{carry:true}]}],
+  ['ascending VAT-search clear', 'up', 0x04, 0x00,
+   {searchResults:[{carry:false}]}],
+  ['ascending search changes class before post-check', 'up', 0x04, 0x00,
+   {searchResults:[{carry:false,editorClass:0x02}]}],
+  ['ascending search repeat then clear', 'up', 0x03, 0x01,
+   {searchResults:[{carry:false,postCode:0x06,nextEditorClass:0x03,
+                     nextEditorSubClass:0x01},
+                    {carry:false,editorClass:0x04,editorSubClass:0x00}]}],
+  ['ascending search repeat into class-2 path', 'up', 0x03, 0x01,
+   {specialResult:{carry:false},searchResults:[
+     {carry:false,postCode:0x06,nextEditorClass:0x02,nextEditorSubClass:0x00},
      {specialResult:{carry:false}}]}],
-  ['variable scanner post-service exit', 'variable', 0x03, 0x01,
-   {serviceResults:[{carry:false,postCode:0x05}]}],
+  ['descending VAT-search post-search exit', 'down', 0x03, 0x01,
+   {searchResults:[{carry:false,postCode:0x05}]}],
 ];
-for (const [label, service, tokenClass, tokenSubClass, options] of operandCases) {
-  const raw = runRawOperandEmitter(service,tokenClass,tokenSubClass,options);
-  const translated = rom.editorOperandEmitter(
-    service,tokenClass,tokenSubClass,options);
+for (const [label, direction, editorClass, editorSubClass, options] of alphaSearchCases) {
+  const raw = runRawAlphaSearch(direction,editorClass,editorSubClass,options);
+  const translated = rom.editorAlphaSearch(
+    direction,editorClass,editorSubClass,options);
   expectEqual(`39:59E0/59F9 ${label} byte-flow`,
-    operandProjection(translated), operandProjection(raw));
+    alphaSearchProjection(translated), alphaSearchProjection(raw));
 }
-expectThrows('39:59E0 rejects an omitted scanner result', TypeError,
-  () => rom.editorOperandEmitter('normal',0x04));
+expectThrows('39:59E0 rejects an omitted VAT-search result', TypeError,
+  () => rom.editorAlphaSearch('up',0x04));
 expectThrows('39:59F9 rejects an omitted class-2 special result', TypeError,
-  () => rom.editorOperandEmitter('variable',0x02));
+  () => rom.editorAlphaSearch('down',0x02));
 expectThrows('39:59F9 rejects a carrying class-2 1BAF result', TypeError,
-  () => rom.editorOperandEmitter('variable',0x02,0,
+  () => rom.editorAlphaSearch('down',0x02,0,
     {specialResult:{carry:true}}));
 
-let operandEmitterStates = 0;
-for (const service of ['normal','variable']) {
-  for (const tokenClass of [0x00,0x02,0x03,0x04,0xff]) {
-    for (const tokenSubClass of [0x00,0x01,0xff]) {
-      if (tokenClass === 0x02) {
-        const options = service === 'variable'
+let alphaSearchStates = 0;
+for (const direction of ['up','down']) {
+  for (const editorClass of [0x00,0x02,0x03,0x04,0xff]) {
+    for (const editorSubClass of [0x00,0x01,0xff]) {
+      if (editorClass === 0x02) {
+        const options = direction === 'down'
           ? {savedOperand:new Array(9).fill(0),specialResult:{carry:false}}
           : {specialResult:{carry:false}};
-        const raw = runRawOperandEmitter(service,tokenClass,tokenSubClass,options);
-        const translated = rom.editorOperandEmitter(
-          service,tokenClass,tokenSubClass,options);
+        const raw = runRawAlphaSearch(direction,editorClass,editorSubClass,options);
+        const translated = rom.editorAlphaSearch(
+          direction,editorClass,editorSubClass,options);
         expectEqual('39:59E0/59F9 class-2 byte-flow basis',
-          operandProjection(translated), operandProjection(raw));
-        operandEmitterStates++;
+          alphaSearchProjection(translated), alphaSearchProjection(raw));
+        alphaSearchStates++;
         continue;
       }
       for (const carry of [false,true]) {
         const result = {carry};
-        if (!carry && tokenClass === 0x03 && tokenSubClass === 0x01)
+        if (!carry && editorClass === 0x03 && editorSubClass === 0x01)
           result.postCode = 0x05;
-        const options = {serviceResults:[result]};
-        const raw = runRawOperandEmitter(service,tokenClass,tokenSubClass,options);
-        const translated = rom.editorOperandEmitter(
-          service,tokenClass,tokenSubClass,options);
-        expectEqual('39:59E0/59F9 scanner byte-flow basis',
-          operandProjection(translated), operandProjection(raw));
-        operandEmitterStates++;
+        const options = {searchResults:[result]};
+        const raw = runRawAlphaSearch(direction,editorClass,editorSubClass,options);
+        const translated = rom.editorAlphaSearch(
+          direction,editorClass,editorSubClass,options);
+        expectEqual('39:59E0/59F9 alpha-search byte-flow basis',
+          alphaSearchProjection(translated), alphaSearchProjection(raw));
+        alphaSearchStates++;
       }
     }
   }
 }
-expectEqual('39:59E0/59F9 projected operand state count', operandEmitterStates, 54);
+expectEqual('39:59E0/59F9 projected alpha-search state count', alphaSearchStates, 54);
 
 // Executable translations of closed page-39 routines. These expectations are
 // pinned to the extracted OS 2.55MP records and the byte-decoded algorithms.
@@ -1242,7 +1242,7 @@ expectEqual('39:4CA4 emits a direct handler-cell slot offset',
 expectEqual('39:5167 returns immediately for an empty argument list',
   rom.editorAdvanceArgument(8, 0, 0, 1, 0), {
     layoutClass:8, argumentIndex:0, argumentCount:0, currentRow:1,
-    recordFlags:0, winTop:null, savedF2EmitterCarry:false,
+    recordFlags:0, winTop:null, savedF2SearchCarry:false,
     routine:'39:5167', lastArgument:null, nextArgument:0, rowStep:0,
     placementRow:null, nextRow:null, branch:'empty',
     effects:[{kind:'set-row-for-token',routine:'39:5447'}],
@@ -1251,7 +1251,7 @@ expectEqual('39:5167 returns immediately for an empty argument list',
 expectEqual('39:5167 stops at the final argument',
   rom.editorAdvanceArgument(8, 3, 4, 1, 0), {
     layoutClass:8, argumentIndex:3, argumentCount:4, currentRow:1,
-    recordFlags:0, winTop:null, savedF2EmitterCarry:false,
+    recordFlags:0, winTop:null, savedF2SearchCarry:false,
     routine:'39:5167', lastArgument:3, nextArgument:3, rowStep:0,
     placementRow:null, nextRow:null, branch:'at-or-past-last',
     effects:[{kind:'set-row-for-token',routine:'39:5447'}],
@@ -1260,14 +1260,14 @@ expectEqual('39:5167 stops at the final argument',
 expectEqual('39:5167 advances an ordinary argument by one row',
   rom.editorAdvanceArgument(8, 0, 4, 1, 0), {
     layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:1,
-    recordFlags:0, winTop:null, savedF2EmitterCarry:false,
+    recordFlags:0, winTop:null, savedF2SearchCarry:false,
     routine:'39:5167', lastArgument:3, nextArgument:1, rowStep:1,
     rowLimit:7, placementRow:2, nextRow:null, branch:'in-row',
     effects:[
       {kind:'emit-argument-index',argument:0,routine:'39:4E0A'},
       {kind:'advance-row',rows:1,value:2},
       {kind:'emit-argument-index',argument:1,routine:'39:4E0A'},
-      {kind:'emit-operand',source:'saved-E7',routine:'39:5B10'},
+      {kind:'find-alpha',direction:'up',source:'saved-E7',routine:'39:5B10'},
       {kind:'set-row-for-token',routine:'39:5447'},
     ],
     continuation:'row-token-tail',
@@ -1275,14 +1275,14 @@ expectEqual('39:5167 advances an ordinary argument by one row',
 expectEqual('39:5167 advances a low class-06 argument by two rows',
   rom.editorAdvanceArgument(6, 0, 4, 1, 0), {
     layoutClass:6, argumentIndex:0, argumentCount:4, currentRow:1,
-    recordFlags:0, winTop:null, savedF2EmitterCarry:false,
+    recordFlags:0, winTop:null, savedF2SearchCarry:false,
     routine:'39:5167', lastArgument:3, nextArgument:1, rowStep:2,
     rowLimit:6, placementRow:3, nextRow:null, branch:'in-row',
     effects:[
       {kind:'emit-argument-index',argument:0,routine:'39:4E0A'},
       {kind:'advance-row',rows:2,value:3},
       {kind:'emit-argument-index',argument:1,routine:'39:4E0A'},
-      {kind:'emit-operand',source:'saved-E7',routine:'39:5B10'},
+      {kind:'find-alpha',direction:'up',source:'saved-E7',routine:'39:5B10'},
       {kind:'set-row-for-token',routine:'39:5447'},
     ],
     continuation:'row-token-tail',
@@ -1296,7 +1296,7 @@ expectEqual('39:5167 class-06 row six bypasses the styled overflow branch',
 expectEqual('39:5167 sends an unstyled row-seven argument to 39:4C5A',
   rom.editorAdvanceArgument(8, 0, 4, 7, 0), {
     layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:7,
-    recordFlags:0, winTop:null, savedF2EmitterCarry:false,
+    recordFlags:0, winTop:null, savedF2SearchCarry:false,
     routine:'39:5167', lastArgument:3, nextArgument:1, rowStep:1,
     rowLimit:7, placementRow:7, nextRow:null,
     branch:'subexpression-overflow',
@@ -1310,17 +1310,17 @@ expectEqual('39:5167 sends an unstyled row-seven argument to 39:4C5A',
 expectEqual('39:5167 preserves the styled row-seven scroll sequence',
   rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {winTop:5}), {
     layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:7,
-    recordFlags:0x20, winTop:5, savedF2EmitterCarry:false,
+    recordFlags:0x20, winTop:5, savedF2SearchCarry:false,
     routine:'39:5167', lastArgument:3, nextArgument:1, rowStep:1,
     rowLimit:7, placementRow:null, nextRow:null, branch:'styled-overflow',
     effects:[
-      {kind:'emit-operand',source:'saved-F2',routine:'39:5B2B',carry:false},
+      {kind:'find-alpha',direction:'up',source:'saved-F2',routine:'39:5B2B',carry:false},
       {kind:'emit-argument-index',argument:0,routine:'39:4E0A'},
       {kind:'set-overflow',curCol:1,routine:'39:6712'},
       {kind:'save-window-top',value:5},
       {kind:'set-window-top',value:1},
       {kind:'scroll-editor',direction:'forward',routine:'39:3C81'},
-      {kind:'emit-operand',source:'saved-E7',routine:'39:5B10'},
+      {kind:'find-alpha',direction:'up',source:'saved-E7',routine:'39:5B10'},
       {kind:'emit-saved-operand-tail',argument:1,routine:'39:5B46'},
       {kind:'finish-forward-overflow',direction:'forward',branch:'emit-cue',
         remainingArguments:null,emission:{row:1,column:1,code:0x1e},
@@ -1330,25 +1330,25 @@ expectEqual('39:5167 preserves the styled row-seven scroll sequence',
     ],
     continuation:'row-token-tail',
   });
-expectEqual('39:5167 stops styled overflow when the saved-F2 emitter carries',
+expectEqual('39:5167 stops styled overflow when saved-F2 search carries',
   rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
-    savedF2EmitterCarry:true,
+    savedF2SearchCarry:true,
   }).branch, 'styled-overflow-carry');
-expectEqual('39:5167 composes F2 and E7 normal-wrapper state', (() => {
+expectEqual('39:5167 composes F2 and E7 ascending-search state', (() => {
   const f2Result = {carry:false,op1:new Array(9).fill(0xf2)};
   const e7Result = {carry:false,op1:new Array(9).fill(0xe7)};
   const result = rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
     savedOperandBuffers,
-    savedF2ServiceResult:f2Result,
-    savedE7ServiceResult:e7Result,
+    savedF2SearchResult:f2Result,
+    savedE7SearchResult:e7Result,
   });
   const f2 = result.effects.find(effect => effect.source === 'saved-F2');
   const e7 = result.effects.find(effect => effect.source === 'saved-E7');
   return {
-    branch:result.branch,carry:result.savedF2EmitterCarry,
-    f2Input:f2.transition.serviceInput,
+    branch:result.branch,carry:result.savedF2SearchCarry,
+    f2Input:f2.transition.searchInput,
     f2Saved:f2.transition.buffers.savedF2,
-    e7Input:e7.transition.serviceInput,
+    e7Input:e7.transition.searchInput,
     e7Saved:e7.transition.buffers.savedE7,
     e7SeesF2:e7.transition.buffers.savedF2,
   };
@@ -1361,18 +1361,18 @@ expectEqual('39:5167 composes F2 and E7 normal-wrapper state', (() => {
 expectEqual('39:5167 derives the styled carry branch from the F2 wrapper',
   rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
     savedOperandBuffers,
-    savedF2ServiceResult:{carry:true,op1:new Array(9).fill(0xcc)},
+    savedF2SearchResult:{carry:true,op1:new Array(9).fill(0xcc)},
   }).branch, 'styled-overflow-carry');
 expectThrows('39:5167 rejects contradictory modeled and supplied F2 carry',
   RangeError, () => rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
-    savedF2EmitterCarry:false,
+    savedF2SearchCarry:false,
     savedOperandBuffers,
-    savedF2ServiceResult:{carry:true,op1:new Array(9).fill(0xcc)},
+    savedF2SearchResult:{carry:true,op1:new Array(9).fill(0xcc)},
   }));
 expectEqual('39:523B stops before decrementing the first argument',
   rom.editorRetreatArgument(8, 0, 4, 4, 1, 0), {
     layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:4,
-    baselineRow:1, recordFlags:0, winTop:null, savedF2EmitterCarry:false,
+    baselineRow:1, recordFlags:0, winTop:null, savedF2SearchCarry:false,
     routine:'39:523B', nextArgument:0, rowStep:0, placementRow:null,
     nextRow:null, branch:'at-first', effects:[],
     continuation:'action-03-first-argument',
@@ -1380,32 +1380,32 @@ expectEqual('39:523B stops before decrementing the first argument',
 expectEqual('39:523B retreats an ordinary argument by one row',
   rom.editorRetreatArgument(8, 2, 4, 4, 1, 0), {
     layoutClass:8, argumentIndex:2, argumentCount:4, currentRow:4,
-    baselineRow:1, recordFlags:0, winTop:null, savedF2EmitterCarry:false,
+    baselineRow:1, recordFlags:0, winTop:null, savedF2SearchCarry:false,
     routine:'39:523B', nextArgument:1, rowStep:1,
     twoRowUnderflow:false, placementRow:3, nextRow:null, branch:'in-row',
     effects:[
       {kind:'emit-argument-index',argument:2,routine:'39:4E0A'},
       {kind:'retreat-row',rows:1,value:3},
       {kind:'emit-argument-index',argument:1,routine:'39:4E0A'},
-      {kind:'emit-variable',source:'saved-E7',routine:'39:5B1D'},
+      {kind:'find-alpha',direction:'down',source:'saved-E7',routine:'39:5B1D'},
       {kind:'set-row-for-token',routine:'39:5447'},
     ],
     continuation:'row-token-tail',
   });
-expectEqual('39:523B executes the E7 variable-wrapper transition', (() => {
+expectEqual('39:523B executes the E7 descending-search transition', (() => {
   const result = rom.editorRetreatArgument(8, 2, 4, 4, 1, 0x20, {
     savedOperandBuffers,
-    savedE7ServiceResult:{carry:false,op1:new Array(9).fill(0x77)},
+    savedE7SearchResult:{carry:false,op1:new Array(9).fill(0x77)},
   });
   const effect = result.effects.find(item => item.source === 'saved-E7');
   return {
     branch:result.branch,
-    service:effect.transition.service,
-    input:effect.transition.serviceInput,
+    direction:effect.transition.direction,
+    input:effect.transition.searchInput,
     result:effect.transition.buffers.savedE7,
   };
 })(), {
-  branch:'in-row',service:'variable',input:savedOperandBuffers.savedE7,
+  branch:'in-row',direction:'down',input:savedOperandBuffers.savedE7,
   result:new Array(9).fill(0x77),
 });
 expectEqual('39:523B retreats a class-06 low argument by two rows',
@@ -1422,13 +1422,13 @@ expectEqual('39:523B sends a baseline-row retreat to 39:4C5A',
 expectEqual('39:523B preserves the styled reverse scroll sequence',
   rom.editorRetreatArgument(
     8, 2, 12, 1, 1, 0x20, {winTop:5,winBottom:7}).effects, [
-    {kind:'emit-variable',source:'saved-F2',routine:'39:5B38',carry:false},
+    {kind:'find-alpha',direction:'down',source:'saved-F2',routine:'39:5B38',carry:false},
     {kind:'emit-argument-index',argument:2,routine:'39:4E0A'},
     {kind:'set-overflow',curCol:1,routine:'39:6712'},
     {kind:'save-window-top',value:5},
     {kind:'set-window-top',value:1},
     {kind:'scroll-editor',direction:'reverse',routine:'39:3C93'},
-    {kind:'emit-variable',source:'saved-E7',routine:'39:5B1D'},
+    {kind:'find-alpha',direction:'down',source:'saved-E7',routine:'39:5B1D'},
     {kind:'emit-saved-operand-tail',argument:1,routine:'39:5B46'},
     {kind:'finish-reverse-overflow',remainingArguments:11,
       branch:'window-bottom',cue:{
@@ -1440,9 +1440,9 @@ expectEqual('39:523B preserves the styled reverse scroll sequence',
     {kind:'restore-window-top',value:5},
     {kind:'set-row-for-token',routine:'39:5447'},
   ]);
-expectEqual('39:523B stops styled overflow when the saved-F2 emitter carries',
+expectEqual('39:523B stops styled overflow when saved-F2 search carries',
   rom.editorRetreatArgument(8, 2, 4, 1, 1, 0x20, {
-    savedF2EmitterCarry:true,
+    savedF2SearchCarry:true,
   }).branch, 'styled-overflow-carry');
 expectEqual('39:51F1 sends a nonzero argument through the reverse walker', {
   branch:rom.editorFirstArgumentAction(8, 2, 4, 4, 1, 0).branch,
@@ -1560,7 +1560,7 @@ expectEqual('39:52A5 sends wrapped subtraction states through one call', [
 ], ['empty','at-or-past-last',0xfd]);
 expectThrows('39:5167 rejects a non-boolean saved-F2 carry', TypeError,
   () => rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
-    savedF2EmitterCarry:1,
+    savedF2SearchCarry:1,
   }));
 // The increment-wrap guard in the bytes cannot fire after the preceding
 // unsigned count/index predicate: count is nonzero and index <= count-2.

@@ -358,13 +358,13 @@ class SymbolicHandlerTests(unittest.TestCase):
         self.assertEqual(
             "writeback_F2",
             editor_saved_operand_wrapper_path(
-                "saved-F2", "variable", 1, 0
+                "saved-F2", "down", 1, 0
             )["terminal"],
         )
         self.assertEqual(
-            "service_carry",
+            "search_carry",
             editor_saved_operand_wrapper_path(
-                "saved-E7", "normal", 1, 1
+                "saved-E7", "up", 1, 1
             )["terminal"],
         )
 

@@ -259,10 +259,12 @@ The high-level loop is:
 6. Restore the baseline row and emit visible cells during the draw pass.
 
 The static caller graph assigns multi-argument walking to `39:5167`. When
-selected, it keeps the parser argument index in `0x85E0` and uses `0x85E2` as
-the argument count. Normal operands pass through `39:59E0`; variable operands
-pass through `39:59F9`. Both routes delegate token scanning to page 7, reusing
-its single field order. [confirmed]
+selected, it keeps the argument index in `0x85E0` and uses `0x85E2` as the
+argument count. Forward paths pass saved OP1 state through `39:59E0`; reverse
+paths use `39:59F9`. These routines dispatch `_FindAlphaUp` and `_FindAlphaDn`
+on page 7, respectively; they do not dispatch a parser-stream scanner.
+[confirmed] `_FindAlphaUp` and `_FindAlphaDn` traverse variable names in
+alphabetic VAT order. [standard]
 
 For `fnInt(expr,var,lower,upper[,tol])`, the visible MathPrint fields preserve parser
 order: slot 0 is the integrand, slot 1 is the variable, slot 2 is the lower endpoint,
@@ -495,8 +497,8 @@ anchors for readers who want to check the disassembly. [confirmed]
 | `39:4E0A` | Argument-index marker emitter used by the row compositor. |
 | `39:5167` | Multi-argument operand walker and tall-template row compositor. |
 | `39:5949` | Row-step classifier for one-row versus two-row argument advance. |
-| `39:5B10` / `39:5B1D` | Saved-operand emitters used by forward and reverse placement. |
-| `39:59E0` / `39:59F9` | Normal and variable operand emitters. |
+| `39:5B10` / `39:5B1D` | Saved-E7 wrappers for ascending and descending alphabetic VAT searches. |
+| `39:59E0` / `39:59F9` | `_FindAlphaUp` and `_FindAlphaDn` dispatchers. |
 | `39:672E` | Template handoff for incoming `0x3D`. |
 | `39:683D` | Descriptor cell-to-pixel mapper. |
 | `39:68AE` | Geometry action handler. |
@@ -782,44 +784,48 @@ cross-page exits as explicit states. [confirmed]
 `editorAdvanceArgument()` and `editorRetreatArgument()` translate the forward
 and reverse slot branches at `39:5167` and `39:523B`. They distinguish list
 endpoints, one- and two-row movement, subexpression fallback, both styled
-scroll directions, and the saved-F2 emitter's carry exit. The forward two-row
+scroll directions, and the saved-F2 search's carry exit. The forward two-row
 path compares `0x844B` with 6 at `39:5181`; the reverse path compares it with 3
 at `39:5244`. These jumps reach `39:4C5A` before the styled-record test. Calls
-into parser services and scroll helpers remain explicit effects because those
-routines are outside the closed row arithmetic.
+into alphabetic VAT searches and scroll helpers remain explicit effects because
+those routines are outside the closed row arithmetic.
 The increment-wrap guard cannot execute: its preceding unsigned predicate
 requires a nonzero count and an index at most `count - 2`. [confirmed]
 
 The saved-operand wrappers at `39:5B10`–`39:5B44` move nine-byte operand
 buffers through OP1 at `0x8478`. The E7 wrappers restore from `0x85E7`; the F2
-wrappers restore from `0x85F2`. Each restore uses `_Mov9B` at `00:1A92`, then
-calls the normal service at `39:59E0` or the variable service at `39:59F9`.
-Bit 5 of `(IY+11h)` gates the entire wrapper. A clear bit preserves the
-incoming carry and performs no copy or service call. With the bit set, service
+wrappers restore from `0x85F2`. Each restore uses `_Mov9B` at `00:1A92`.
+The ascending wrappers then call `39:59E0`; the descending wrappers call
+`39:59F9`. Bit 5 of `(IY+11h)` gates the entire wrapper. A clear bit preserves
+the incoming carry and performs no copy or search. With the bit set, search
 carry returns without writeback. Carry clear copies OP1 back to the selected
 source: `39:5AD2` writes `0x85E7`, and `39:5B08` writes `0x85F2`. The page-7
-service bodies reached from `39:59E0` and `39:59F9` remain explicit model
-inputs. A raw-byte interpreter covers all 4,096 wrapper, gate, carry, and
-buffer-source combinations and every value in each byte position. [confirmed]
+search results remain explicit model inputs. A raw-byte interpreter covers all
+4,096 wrapper, gate, carry, and buffer-source combinations and every value in
+each byte position. [confirmed]
 
 The local dispatcher below those wrappers is translated separately by
-`editorOperandEmitter()`. `39:59E0` and `39:59F9` first call `39:5A17`, which
-tests whether `0x85DE` is class `0x02`. The normal class-2 path enters
+`editorAlphaSearch()`. `39:59E0` and `39:59F9` first call `39:5A17`, which
+tests whether `0x85DE` is class `0x02`. The ascending class-2 path enters
 `39:59AF`, emits `0Dh` through `RST 28h`, and seeds OP1 with `14h` at
-`39:59C6`. The variable path enters `39:59B6`, scans the eight payload bytes
+`39:59C6`. The descending path enters `39:59B6`, scans the eight payload bytes
 at `0x85E7+1` through `39:5A2E`, emits `0Ch`, and conditionally calls
 `39:1BAF` when the emitter leaves carry set before the same `14h` seed.
 [confirmed]
 
-For other classes the normal and variable paths cross to `00:3A53` and
-`00:306F`, respectively. A carry returns immediately. Carry clear then calls
-`39:5C2E`; only class `0x03` with sub-class byte `0x01` enters `39:1942`.
-`A=06` repeats the emitter, while every other value returns with carry clear.
-The JavaScript model accepts the page-7 service's carry, post-service `A`, and
-any updated `0x85DE/0x85DF` as ordered state, so nested/multi-argument traces
-can exercise the repeat without replaying an LCD stream. [confirmed] for the
-page-39 control flow; [confirmed] for the service boundary as an explicit
-input.
+For other classes the ascending and descending paths execute `XOR A`, then
+cross to `00:3A53` and `00:306F`, respectively. The fixed-bank stubs reach
+`07:50B5` (`_FindAlphaUp = 4A44h`) and `07:50B8`
+(`_FindAlphaDn = 4A47h`). Both bcalls take the current variable name in OP1.
+They return the selected variable in OP1 and OP3 and its VAT pointer in `HL`;
+carry reports that no matching entry remains. Carry clear then calls
+`39:5C2E`; only class `0x03` with subclass byte `0x01` enters `39:1942`.
+`A=06` repeats the alphabetic search, while every other value returns with
+carry clear. The JavaScript model accepts each page-7 search result,
+post-search `A`, and updated `0x85DE/0x85DF` as ordered state. Nested and
+multi-argument traces can therefore exercise the repeat without replaying an
+LCD stream. [confirmed] for the page-39 control flow and bcall identities;
+[standard] for the documented bcall input/output contract.
 
 `editorForwardOverflowCue()` and `editorReverseOverflowCue()` translate the
 closed cue routines at `39:66FE` and `39:66E9`. The reverse routine subtracts
