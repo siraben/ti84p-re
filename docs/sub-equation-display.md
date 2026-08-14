@@ -686,6 +686,11 @@ browser-side ROM engine now translates the `39:4A74` token/action dispatch and
 its `IY+2` exponent-context and `IY+9` fraction-context class adjustments
 through `editorTokenDispatch()`. It returns the measured-template handoff at
 `39:672E` separately from normal `39:4C27` handler lookup. [confirmed]
+The `editorArgumentClamp()`, `editorRowFromArg()`, and
+`editorLayoutArgument()` translations cover the arithmetic at `39:50CF`,
+`39:5101`, and `39:513E`: argument-count clamping, six-row window origin,
+seven-row mapping, and restoration of the caller's baseline row. The
+cross-page continuation after `39:50CF` remains caller state. [confirmed]
 The retained corpus observes 255 of 1,098 declared editor branch outcomes. It
 does not decode every in-progress editor state into a general AST, and it does not
 reach every cursor, menu, error, or row-composition path. [confirmed]
