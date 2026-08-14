@@ -117,7 +117,10 @@ type-`0x2A` records bind to the expression immediately before their embedded
 marker. `EF 1E` remains an explicit extended token because the renderer maps it
 to display code `0xF7`, the empty template square. This tree identifies what the
 trace contains without inspecting its screenshot. It describes the settled
-render graph, not the editor/parser representation before `34:4900`.
+render graph, not the editor/parser representation before `34:4900`. The
+browser's generated record result exposes the same graph-derived tree as
+`settledAst`; it is decoded from record IDs and leaf payloads after native
+construction.
 The analyzer selects the first post-key `34:660A` entry at the shallowest Z80
 stack depth. The exporter pairs
 parent/index observations at `34:6CCD` with the resolved child ID and record
