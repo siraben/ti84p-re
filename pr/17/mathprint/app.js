@@ -1837,8 +1837,8 @@ async function main() {
   const noteLoadingInput = () => { changedWhileLoading = true; };
   expressionInput.addEventListener('input', noteLoadingInput);
   const [fontResponse, layoutResponse, orderResponse, tokenResponse] = await Promise.all([
-    fetch('font.json'), fetch('layout.json'), fetch('draw-order.json'),
-    fetch('token-strings.json'),
+    fetch('font.json?v=c7f2303b531c'), fetch('layout.json?v=51f44d680dde'), fetch('draw-order.json?v=2c632ef03f4b'),
+    fetch('token-strings.json?v=e6a3a84e940e'),
   ]);
   FONT = await fontResponse.json();
   LAYOUT = await layoutResponse.json();

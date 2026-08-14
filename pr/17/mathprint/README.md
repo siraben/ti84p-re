@@ -176,6 +176,7 @@ pixels.
 | `mathprint-trace-report.json` | hashes, exact entry counts, state bytes, and replay results for filled and nested integrals |
 | `test-mathprint.js` | fuzz + corpus: every generated expression parses and lays out |
 | `test-mathprint-browser.spec.js` | headless Chromium check for input entered during delayed asset loading and repeated horizontal overflow |
+| `cachebust-mathprint.py` | content-version the built page's JS, JSON, and CSS references for each preview deployment |
 | `render-mathprint.py` | ASCII font/layout dump from ROM |
 
 ## Reverse-engineering notes
