@@ -1734,7 +1734,12 @@ function render(step) {
         ? `${nativeInput ? 'Raw native-token mode' : 'RE-generated mode'} starts from ` +
           `${escapeHtml(CUR_GENERATED.programSource)}, then executes ` +
           `record bytes through the translated structural renderer and ` +
-          `blitters. Captured LCD events are comparison oracles only and are not loaded by this path.`
+          `blitters. Captured LCD events are comparison oracles only and are not loaded by this path.` +
+          (CUR_GENERATED.overflowRight
+            ? ` The expression remains complete in the input field. The physical ` +
+              `96-pixel LCD follows the cursor and scrolls the earlier pixels left; ` +
+              `select Model elements to inspect the full unscrolled equation.`
+            : '')
         : (requested === 'model'
             ? `Model mode steps inferred composition elements. It is not an OS draw timeline.`
             : `No ${requested === 'trace' ? 'captured' : 'executable record-program'} timeline matches ` +
