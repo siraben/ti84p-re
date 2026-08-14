@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-955ba59c.js";
+            window.path_to_searchindex_js = "searchindex-e07ee819.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -924,8 +924,9 @@ endpoints, one- and two-row movement, subexpression fallback, both styled
 scroll directions, and the saved-F2 search’s carry exit. The forward two-row
 path compares <code>0x844B</code> with 6 at <code>39:5181</code>; the reverse path compares it with 3
 at <code>39:5244</code>. These jumps reach <code>39:4C5A</code> before the styled-record test. Calls
-into alphabetic VAT searches and scroll helpers remain explicit effects because
-those routines are outside the closed row arithmetic.
+into scroll helpers remain explicit effects. The saved-operand wrappers derive
+their alphabetic outcomes from one shared VAT state. A missing VAT state
+stops at the saved-F2 search instead of selecting a scroll branch.
 The increment-wrap guard cannot execute: its preceding unsigned predicate
 requires a nonzero count and an index at most <code>count - 2</code>. [confirmed]</p>
 <p>The saved-operand wrappers at <code>39:5B10</code>–<code>39:5B44</code> move nine-byte operand
@@ -936,9 +937,12 @@ The ascending wrappers then call <code>39:59E0</code>; the descending wrappers c
 the incoming carry and performs no copy or search. With the bit set, search
 carry returns without writeback. Carry clear copies OP1 back to the selected
 source: <code>39:5AD2</code> writes <code>0x85E7</code>, and <code>39:5B08</code> writes <code>0x85F2</code>. The page-7
-search results remain explicit model inputs. A raw-byte interpreter covers all
-4,096 wrapper, gate, carry, and buffer-source combinations and every value in
-each byte position. [confirmed]</p>
+search receives the restored OP1 and the current VAT state. The styled overflow
+path applies the F2 writeback before it restores and searches E7. A raw-byte
+interpreter covers all 4,096 wrapper, gate, derived-carry, and buffer-source
+combinations. It also covers every value in every restored byte and every
+value in the seven selected payload bytes written back to a saved operand.
+[confirmed]</p>
 <p>The local dispatcher below those wrappers is translated separately by
 <code>editorAlphaSearch()</code>. <code>39:59E0</code> and <code>39:59F9</code> first call <code>39:5A17</code>, which
 tests whether <code>0x85DE</code> is class <code>0x02</code>. The ascending class-2 path enters
