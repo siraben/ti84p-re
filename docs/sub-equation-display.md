@@ -1094,7 +1094,14 @@ $$
 \begin{aligned}
 w &= \max(w_n,w_d), \\\\
 x_n &= 2 + \left\lfloor\frac{w-w_n}{2}\right\rfloor, \\\\
-x_d &= 2 + \left\lfloor\frac{w-w_d}{2}\right\rfloor, \\\\
+x_d &= 2 + \left\lfloor\frac{w-w_d}{2}\right\rfloor.
+\end{aligned}
+$$
+
+The vertical positions and parent metrics are:
+
+$$
+\begin{aligned}
 y_d &= h_n + 3, \\\\
 H &= h_n + h_d + 3, \\\\
 W &= w + 4, \\\\
@@ -1151,7 +1158,14 @@ $$
 y_b &= \max(5,h_u), \\\\
 s_l &= \max(5,h_l), \\\\
 H &= y_b+h_b+s_l, \\\\
-B &= y_b+b_b, \\\\
+B &= y_b+b_b.
+\end{aligned}
+$$
+
+The horizontal positions and width are:
+
+$$
+\begin{aligned}
 x_b &= \max(w_l,w_u)+12, \\\\
 x_v &= x_b+w_b+12, \\\\
 W &= x_v+w_v+2, \\\\
@@ -1187,7 +1201,14 @@ $$
 L &= w_v+4+w_l, \\\\
 O &= \max(w_u,L,12), \\\\
 S_u &= \max(5,h_u), \\\\
-S_l &= \max(h_v,h_l), \\\\
+S_l &= \max(h_v,h_l).
+\end{aligned}
+$$
+
+The parent and body metrics are:
+
+$$
+\begin{aligned}
 H &= S_u+9+S_l, \\\\
 B &= S_u+4, \\\\
 x_b &= O+6, \\\\
@@ -1230,7 +1251,14 @@ $$
 B &= \max(6,b_b), \\\\
 H &= \max(h_b,B+7), \\\\
 x_v &= 5, \\\\
-y_v &= B+2, \\\\
+y_v &= B+2.
+\end{aligned}
+$$
+
+The body, evaluation value, and total width are:
+
+$$
+\begin{aligned}
 x_b &= 16, \\\\
 y_b &= B-b_b, \\\\
 x_e &= w_b+w_v+29, \\\\
