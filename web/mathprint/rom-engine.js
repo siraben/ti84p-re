@@ -1645,7 +1645,12 @@
   // Keep the arena words explicit because their producers are record-list
   // callers, but make the request/geometry ABI executable instead of asking
   // callers to duplicate the table lookup themselves.
-  function settledRecordAllocationCheck(renderType, matrixElements, input) {
+  function settledRecordAllocationCheck(renderType, matrixElements = null, input) {
+    if (input === undefined && matrixElements && typeof matrixElements === 'object' &&
+        !Array.isArray(matrixElements)) {
+      input = matrixElements;
+      matrixElements = null;
+    }
     const geometry = settledRecordAllocationGeometry(renderType, matrixElements);
     if (!input || typeof input !== 'object' || Array.isArray(input))
       throw new TypeError('settled allocation check input must be an object');
