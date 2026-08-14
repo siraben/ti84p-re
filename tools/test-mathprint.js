@@ -993,10 +993,17 @@ const alphaRegion = op1 => rom.editorDecodeAlphaVatSnapshot(
   emptyAlphaRam,op1,{pTemp:0x9000,progPtr:0x9000,symTable:0x9000}).region;
 expectEqual('07:50C4 selects VAT regions from list-name encodings', [
   alphaRegion([0x01,0x5d,0,0,0,0,0,0,0]),
-  alphaRegion([0x0d,0xff,0,0,0,0,0,0,0]),
+  alphaRegion([0x01,0xff,0,0,0,0,0,0,0]),
   alphaRegion([0x01,0x72,0,0,0,0,0,0,0]),
+  alphaRegion([0x01,0x3a,0,0,0,0,0,0,0]),
+  alphaRegion([0x0d,0x5d,0,0,0,0,0,0,0]),
+  alphaRegion([0x0d,0xff,0,0,0,0,0,0,0]),
+  alphaRegion([0x0d,0x72,0,0,0,0,0,0,0]),
   alphaRegion([0x0d,0x3a,0,0,0,0,0,0,0]),
-], ['named/list','named/list','fixed-token','fixed-token']);
+], [
+  'named/list','named/list','fixed-token','fixed-token',
+  'named/list','named/list','fixed-token','fixed-token',
+]);
 const alphaMarkerRam = new Uint8Array(0x10000);
 alphaMarkerRam[0x9200] = 0x0d;
 alphaMarkerRam[0x91fa] = 0x3a;

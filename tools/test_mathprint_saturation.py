@@ -26,6 +26,11 @@ from analyze_mathprint_saturation import (
     record_allocation_capacity_terminal_counts,
     record_allocation_capacity_path,
     exact_cover_z3,
+    find_alpha_candidate_path,
+    find_alpha_endpoint_path,
+    find_alpha_key_preparation_path,
+    find_alpha_record_step_path,
+    find_alpha_type_class_path,
     iter_oracle_cases,
     oracle_coverage,
     oracle_trace_features,
@@ -49,6 +54,11 @@ from analyze_mathprint_saturation import (
     symbolic_editor_horizontal_viewport_paths,
     symbolic_editor_reverse_overflow_cue_paths,
     symbolic_editor_saved_operand_wrapper_paths,
+    symbolic_find_alpha_candidate_paths,
+    symbolic_find_alpha_endpoint_paths,
+    symbolic_find_alpha_key_preparation_paths,
+    symbolic_find_alpha_record_step_paths,
+    symbolic_find_alpha_type_class_paths,
     symbolic_record_allocation_capacity_paths,
     symbolic_model_corpus,
     symbolic_raised_extended_token_paths,
@@ -237,13 +247,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(1228, report["path_equivalence_class_count"])
-        self.assertEqual(1228, report["representative_path_corpus_count"])
-        self.assertEqual(118, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(1307, report["path_equivalence_class_count"])
+        self.assertEqual(1307, report["representative_path_corpus_count"])
+        self.assertEqual(173, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            64, report["per_domain_minimum_branch_outcome_corpus_count"]
+            88, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(12, len(report["domains"]))
+        self.assertEqual(17, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -367,6 +377,93 @@ class SymbolicHandlerTests(unittest.TestCase):
                 "saved-E7", "up", 1, 1
             )["terminal"],
         )
+
+    def test_find_alpha_type_normalization_partitions_all_classes(self) -> None:
+        paths = symbolic_find_alpha_type_class_paths()
+
+        self.assertEqual(0x20, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(0x01, find_alpha_type_class_path(0x0D)["normalized_type"])
+        self.assertEqual(0x05, find_alpha_type_class_path(0x06)["normalized_type"])
+        self.assertEqual(0x03, find_alpha_type_class_path(0x0B)["normalized_type"])
+        self.assertEqual(0, find_alpha_type_class_path(0x19)["normalized_type"])
+
+    def test_find_alpha_key_preparation_partitions_declared_forms(self) -> None:
+        paths = symbolic_find_alpha_key_preparation_paths()
+
+        self.assertEqual(0x20 * 6, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(
+            "named/list",
+            find_alpha_key_preparation_path(0x01, "list_ff")["region"],
+        )
+        self.assertEqual(
+            "fixed-token",
+            find_alpha_key_preparation_path(0x0D, "fixed_72")["region"],
+        )
+        self.assertEqual(
+            [0x5D, 0, 0, 0, 0, 0, 0, 0],
+            find_alpha_key_preparation_path(0, "list_5d")["prepared_name"],
+        )
+
+    def test_find_alpha_record_stepping_partitions_type_marker_bytes(self) -> None:
+        paths = symbolic_find_alpha_record_step_paths()
+
+        self.assertEqual(0x20 * 0x100, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(
+            "fixed_three_byte_marker",
+            find_alpha_record_step_path(0x0D, 0x3A)["terminal"],
+        )
+        self.assertEqual(
+            "type_09_variable_step",
+            find_alpha_record_step_path(0x09, 4)["terminal"],
+        )
+        self.assertEqual(
+            "fixed_nine_byte",
+            find_alpha_record_step_path(0, 4)["terminal"],
+        )
+
+    def test_find_alpha_candidate_reducer_partitions_predicate_states(self) -> None:
+        paths = symbolic_find_alpha_candidate_paths()
+
+        self.assertEqual(288, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(
+            "select_first",
+            find_alpha_candidate_path(
+                "up", 1, "accepted", 0, 1, "none"
+            )["terminal"],
+        )
+        self.assertEqual(
+            "reject_source_side",
+            find_alpha_candidate_path(
+                "down", 1, "accepted", 1, -1, "none"
+            )["terminal"],
+        )
+        self.assertEqual(
+            "replace_best",
+            find_alpha_candidate_path(
+                "down", 1, "accepted", 0, -1, "candidate_nearer"
+            )["terminal"],
+        )
+
+    def test_find_alpha_endpoint_covers_success_and_failure(self) -> None:
+        paths = symbolic_find_alpha_endpoint_paths()
+
+        self.assertEqual(2, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual("failure_carry", find_alpha_endpoint_path(0)["terminal"])
+        self.assertTrue(find_alpha_endpoint_path(0)["carry"])
+        self.assertEqual(0xFE, find_alpha_endpoint_path(0)["a"])
+        self.assertEqual("success", find_alpha_endpoint_path(1)["terminal"])
+        self.assertFalse(find_alpha_endpoint_path(1)["carry"])
+        self.assertEqual(0, find_alpha_endpoint_path(1)["a"])
 
     def test_scan_kind_partition_covers_every_byte(self) -> None:
         paths = symbolic_scan_kind_paths()
@@ -948,12 +1045,12 @@ class CheckedReportTests(unittest.TestCase):
 
         self.assertEqual(2, report["schema"])
         self.assertEqual(184, len(report["traces"]))
-        self.assertEqual(968, report["summary"]["branch_outcomes_observed"])
+        self.assertEqual(985, report["summary"]["branch_outcomes_observed"])
         self.assertEqual(
-            965, report["summary"]["natural_branch_outcomes_observed"]
+            982, report["summary"]["natural_branch_outcomes_observed"]
         )
         self.assertEqual(
-            1228,
+            1307,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(

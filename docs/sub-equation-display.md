@@ -569,7 +569,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in twelve finite models. It also computes an
+complete path-equivalence class in 17 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -588,9 +588,14 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Editor horizontal viewport | 17,179,869,184 | 8 | 6 | 2 |
 | Record-allocation capacity | 36,893,488,147,419,103,232 | 6 | 6 | 2 |
 | Saved-operand wrappers | 16 | 12 | 12 | 8 |
+| FindAlpha type normalization | 32 | 31 | 8 | 4 |
+| FindAlpha key preparation | 192 | 13 | 14 | 4 |
+| FindAlpha record stepping | 8,192 | 8 | 12 | 4 |
+| FindAlpha candidate reducer | 288 | 25 | 17 | 10 |
+| FindAlpha endpoint | 2 | 2 | 4 | 2 |
 
-The twelve models contain 1,228 path classes and 118 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 64 representatives. Each
+The 17 models contain 1,307 path classes and 173 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 88 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -629,6 +634,7 @@ return class identifies which callee paths have live witnesses. [confirmed]
 | Settled rendering | 1,898 | 236 / 238 | 302 | 95.26% / 95.26% |
 | Metrics and geometry | 470 | 75 / 75 | 80 | 99.36% / 99.36% |
 | Record allocator | 64 | 7 / 7 | 8 | 98.44% / 98.44% |
+| Alphabetic VAT search | 236 | 17 / 17 | 92 | 34.32% / 34.32% |
 | Editor layout | 2,776 | 255 / 255 | 1,098 | 33.03% / 33.03% |
 | Small-font and LCD output | 413 | 81 / 81 | 122 | 75.54% / 75.54% |
 | Point and line primitives | 508 | 48 / 48 | 134 | 59.45% / 59.45% |
@@ -638,15 +644,15 @@ These counts describe the declared CFG and retained saturation corpus, not all
 OS entry states. A branch with both outcomes observed is dynamically saturated
 for that corpus. A branch with one or no outcomes remains open even when its
 containing routine has been reached. Metrics and geometry and the allocator
-have no wholly unobserved branch. The other six components still do. Three of
+have no wholly unobserved branch. The other seven components still do. Three of
 the allocator's four branches and 35 of the 40 metric branches have both
 outcomes. [confirmed]
 
-The report classifies all 2,184 enumerated outcomes. Natural calculator input
-exercises 965. The synthetic `EF36h` state adds three outcomes, for 968 across
+The report classifies all 2,276 enumerated outcomes. Natural calculator input
+exercises 982. The synthetic `EF36h` state adds three outcomes, for 985 across
 all evidence. One allocator outcome is infeasible under its data invariant.
 Two metric outcomes are infeasible under the calculator call ABI. The full
-evidence set leaves 1,213 unresolved; the natural-only set leaves 1,216.
+evidence set leaves 1,288 unresolved; the natural-only set leaves 1,291.
 An unobserved outcome never becomes infeasible from absence alone. [confirmed]
 
 The infeasible allocator outcome is the fallthrough at `33:4F4E`. The type
@@ -668,13 +674,13 @@ The report computes two exact Z3 covers. The first preserves every individual
 branch outcome observed in the supplied traces. It does not preserve complete
 invocation paths, register or RAM states, dispatch indices, record cases, or LCD
 write cases. The all-evidence and natural-only branch covers each select 23
-traces. They preserve 968 and 965 outcomes in 3,733,190,076 and 3,783,443,760
+traces. They preserve 985 and 982 outcomes in 3,733,190,076 and 3,783,443,760
 bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,224 tags and needs 126
-traces. The natural-only universe has 1,221 tags and needs 125 traces. Every
+independent oracle case. Its all-evidence universe has 1,241 tags and needs 126
+traces. The natural-only universe has 1,238 tags and needs 125 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and

@@ -25,7 +25,7 @@ import argparse
 from collections import Counter, defaultdict, deque
 from dataclasses import asdict, dataclass
 import hashlib
-from itertools import combinations
+from itertools import combinations, product
 import json
 from pathlib import Path
 import re
@@ -209,6 +209,15 @@ COMPONENTS = (
             for address in (0x44DE, 0x4588, 0x45B6, 0x5417, 0x542B, 0x5443)
         ),
     ),
+    Component(
+        "vat_alpha_search",
+        "shared alphabetic VAT region selection, candidate filtering, and nearest-name search",
+        (Region(0x07, 0x50B5, 0x525E),),
+        tuple(
+            RomLocation(0x07, address)
+            for address in (0x50B5, 0x50B8, 0x5199, 0x51BE, 0x5247)
+        ),
+    ),
 )
 
 
@@ -272,6 +281,19 @@ TRANSLATION_SURFACES = (
         ],
         "tests": ["tools/test-mathprint.js", "tools/test_mathprint_draw_trace.py"],
         "scope": "synchronous accepted LCD writes, including unchanged writes",
+    },
+    {
+        "name": "alphabetic VAT selection",
+        "rom": ["07:50B5–525D", "39:59E0–5B44"],
+        "javascript": [
+            "editorDecodeAlphaVatSnapshot", "editorFindAlphaVat",
+            "editorAlphaSearch", "editorSavedOperandWrapper",
+        ],
+        "tests": ["tools/test-mathprint.js", "tools/test_mathprint_saturation.py"],
+        "scope": (
+            "nine-byte variable identities, raw VAT regions, and finite semantic "
+            "candidate-decision projections; full 11-byte OP scratch state remains open"
+        ),
     },
 )
 
@@ -1371,6 +1393,323 @@ def symbolic_editor_saved_operand_wrapper_paths() -> list[dict[str, object]]:
     ]
 
 
+def find_alpha_type_class_path(type_value: int) -> dict[str, object]:
+    """Translate the complete five-bit type-normalization domain at 07:5247."""
+
+    value = type_value & 0x1F
+    outcomes = []
+
+    is_complex_list = value == 0x0D
+    outcomes.append(
+        f"07:5249:{'fallthrough' if is_complex_list else 'taken'}"
+    )
+    if is_complex_list:
+        value = 0x01
+
+    is_protected_program = value == 0x06
+    outcomes.append(
+        f"07:524F:{'fallthrough' if is_protected_program else 'taken'}"
+    )
+    if is_protected_program:
+        value = 0x05
+
+    is_equation_alias = value == 0x0B
+    outcomes.append(
+        f"07:5254:{'fallthrough' if is_equation_alias else 'taken'}"
+    )
+    if is_equation_alias:
+        value = 0x03
+
+    is_zero_alias = value in (0x18, 0x19)
+    outcomes.append(f"07:525B:{'fallthrough' if is_zero_alias else 'taken'}")
+    if is_zero_alias:
+        value = 0
+    return {
+        "terminal": f"class_{value:02X}",
+        "normalized_type": value,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_find_alpha_type_class_paths() -> list[dict[str, object]]:
+    """Partition every masked VAT type byte by normalization path."""
+
+    classes: dict[tuple[int, tuple[str, ...]], dict[str, object]] = {}
+    for type_value in range(0x20):
+        result = find_alpha_type_class_path(type_value)
+        key = (
+            int(result["normalized_type"]),
+            tuple(str(item) for item in result["branch_outcomes"]),
+        )
+        row = classes.setdefault(key, {
+            "projected_input_count": 0,
+            "representative_states": [],
+        })
+        row["projected_input_count"] += 1
+        row["representative_states"].append({"type": type_value})
+    return [
+        {
+            "terminal": f"class_{normalized_type:02X}",
+            "normalized_type": normalized_type,
+            "branch_outcomes": list(outcomes),
+            **classes[(normalized_type, outcomes)],
+        }
+        for normalized_type, outcomes in sorted(classes)
+    ]
+
+
+FIND_ALPHA_KEY_FORMS = {
+    "ordinary_nul": (0x41, 0x00, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F),
+    "list_5d": (0x5D, 0x00, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F),
+    "list_ff": (0xFF, 0xFF, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F),
+    "fixed_72": (0x72, 0x41, 0x42, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F),
+    "fixed_3A": (0x3A, 0x41, 0x42, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F),
+    "full_eight": (0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48),
+}
+
+
+def find_alpha_key_preparation_path(
+    type_value: int, key_form: str,
+) -> dict[str, object]:
+    """Classify one key through the 07:50C4–50F7 region and padding rules."""
+
+    if key_form not in FIND_ALPHA_KEY_FORMS:
+        raise ValueError("unknown FindAlpha key form")
+    type_value &= 0x1F
+    name = list(FIND_ALPHA_KEY_FORMS[key_form])
+    named_type = type_value in (0x05, 0x06, 0x15, 0x16, 0x17)
+    list_class = type_value in (0x01, 0x0D)
+    named_region = (
+        named_type or name[0] == 0x5D
+        or (list_class and name[0] == 0xFF)
+    )
+    outcomes = [
+        f"semantic:region:named_type:{str(named_type).lower()}",
+        f"semantic:region:list_ff:{str(list_class and name[0] == 0xFF).lower()}",
+        f"semantic:region:name_5d:{str(name[0] == 0x5D).lower()}",
+        f"semantic:region:{'named' if named_region else 'fixed'}",
+    ]
+    if named_region:
+        length = next((index for index, item in enumerate(name) if item == 0), 8)
+        special_5d = length == 1 and name[0] == 0x5D
+        if special_5d:
+            length = 2
+        for index in range(length, 8):
+            name[index] = 0
+        outcomes.extend([
+            f"semantic:key_padding:5d_length_2:{str(special_5d).lower()}",
+            f"semantic:key_padding:named_length_{length}",
+        ])
+    else:
+        length = 3
+        name[3:] = [0] * 5
+        outcomes.append("semantic:key_padding:fixed_length_3")
+    return {
+        "terminal": f"{'named' if named_region else 'fixed'}_length_{length}",
+        "region": "named/list" if named_region else "fixed-token",
+        "prepared_name": name,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_find_alpha_key_preparation_paths() -> list[dict[str, object]]:
+    """Partition type and key-form representatives for region and key padding."""
+
+    classes: dict[
+        tuple[str, tuple[int, ...], tuple[str, ...]], dict[str, object]
+    ] = {}
+    for type_value in range(0x20):
+        for key_form in FIND_ALPHA_KEY_FORMS:
+            result = find_alpha_key_preparation_path(type_value, key_form)
+            key = (
+                str(result["terminal"]),
+                tuple(int(item) for item in result["prepared_name"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] += 1
+            row["representative_states"].append({
+                "type": type_value, "key_form": key_form,
+            })
+    return [
+        {
+            "terminal": terminal,
+            "prepared_name": list(prepared_name),
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, prepared_name, outcomes)],
+        }
+        for terminal, prepared_name, outcomes in sorted(classes)
+    ]
+
+
+def find_alpha_record_step_path(type_value: int, marker: int) -> dict[str, object]:
+    """Classify the complete type/marker projection of 07:511F–5149."""
+
+    type_value &= 0x1F
+    marker &= 0xFF
+    named = type_value in (0x05, 0x06, 0x15, 0x16, 0x17)
+    list_class = type_value in (0x01, 0x0D)
+    marker_fixed = marker in (0x72, 0x3A)
+    if named or list_class:
+        terminal = "fixed_three_byte_marker" if marker_fixed else "length_prefixed"
+    elif type_value == 0x09:
+        terminal = "type_09_variable_step"
+    else:
+        terminal = "fixed_nine_byte"
+    return {
+        "terminal": terminal,
+        "branch_outcomes": [
+            f"semantic:record:named:{str(named).lower()}",
+            f"semantic:record:list:{str(list_class).lower()}",
+            f"semantic:record:type09:{str(type_value == 0x09).lower()}",
+            f"semantic:record:marker_fixed:{str(marker_fixed).lower()}",
+            f"semantic:record:{terminal}",
+        ],
+    }
+
+
+def symbolic_find_alpha_record_step_paths() -> list[dict[str, object]]:
+    """Partition all 8,192 masked-type and marker-byte record-step states."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for type_value in range(0x20):
+        for marker in range(0x100):
+            result = find_alpha_record_step_path(type_value, marker)
+            key = (
+                str(result["terminal"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] += 1
+            if len(row["representative_states"]) < 4:
+                row["representative_states"].append({
+                    "type": type_value, "marker": marker,
+                })
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
+def find_alpha_candidate_path(
+    direction: str,
+    type_matches: int,
+    filter_state: str,
+    sentinel: int,
+    source_relation: int,
+    best_state: str,
+) -> dict[str, object]:
+    """Reduce one filtered candidate through source and best-name comparisons."""
+
+    if direction not in ("up", "down"):
+        raise ValueError("unknown FindAlpha direction")
+    if filter_state not in ("accepted", "low", "name_72", "special_5d"):
+        raise ValueError("unknown FindAlpha candidate filter state")
+    if source_relation not in (-1, 0, 1):
+        raise ValueError("FindAlpha source relation must be -1, 0, or 1")
+    if best_state not in ("none", "candidate_nearer", "candidate_farther"):
+        raise ValueError("unknown FindAlpha best-candidate state")
+    type_matches = int(bool(type_matches))
+    sentinel = int(bool(sentinel))
+    outcomes = [f"semantic:candidate:type_match:{type_matches}"]
+    if not type_matches:
+        return {"terminal": "reject_type", "branch_outcomes": outcomes}
+    outcomes.append(f"semantic:candidate:filter:{filter_state}")
+    if filter_state != "accepted":
+        return {"terminal": f"reject_{filter_state}", "branch_outcomes": outcomes}
+    outcomes.append(f"semantic:candidate:sentinel:{sentinel}")
+    qualifies = (
+        direction == "up" if sentinel
+        else (direction == "up" and source_relation > 0)
+        or (direction == "down" and source_relation < 0)
+    )
+    outcomes.append(
+        f"semantic:candidate:source_{source_relation}:{'qualify' if qualifies else 'reject'}"
+    )
+    if not qualifies:
+        return {"terminal": "reject_source_side", "branch_outcomes": outcomes}
+    outcomes.append(f"semantic:candidate:best:{best_state}")
+    terminal = (
+        "select_first" if best_state == "none"
+        else "replace_best" if best_state == "candidate_nearer"
+        else "retain_best"
+    )
+    return {"terminal": terminal, "branch_outcomes": outcomes}
+
+
+def symbolic_find_alpha_candidate_paths() -> list[dict[str, object]]:
+    """Partition the complete 288-state semantic candidate-decision projection."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for state in product(
+        ("up", "down"),
+        (0, 1),
+        ("accepted", "low", "name_72", "special_5d"),
+        (0, 1),
+        (-1, 0, 1),
+        ("none", "candidate_nearer", "candidate_farther"),
+    ):
+        result = find_alpha_candidate_path(*state)
+        key = (
+            str(result["terminal"]),
+            tuple(str(item) for item in result["branch_outcomes"]),
+        )
+        row = classes.setdefault(key, {
+            "projected_input_count": 0,
+            "representative_states": [],
+        })
+        row["projected_input_count"] += 1
+        row["representative_states"].append({
+            "direction": state[0],
+            "type_matches": state[1],
+            "filter_state": state[2],
+            "sentinel": state[3],
+            "source_relation": state[4],
+            "best_state": state[5],
+        })
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
+def find_alpha_endpoint_path(best_exists: int) -> dict[str, object]:
+    """Model the 07:518E–5198 success and endpoint return states."""
+
+    best_exists = int(bool(best_exists))
+    return {
+        "terminal": "success" if best_exists else "failure_carry",
+        "carry": not bool(best_exists),
+        "a": 0 if best_exists else 0xFE,
+        "branch_outcomes": [
+            f"semantic:endpoint:best_exists:{best_exists}",
+            f"semantic:endpoint:{'success' if best_exists else 'failure'}",
+        ],
+        "representative_states": [{"best_exists": best_exists}],
+        "projected_input_count": 1,
+    }
+
+
+def symbolic_find_alpha_endpoint_paths() -> list[dict[str, object]]:
+    """Cover both terminal states after the physical VAT scan ends."""
+
+    return [find_alpha_endpoint_path(best_exists) for best_exists in (0, 1)]
+
+
 def raised_extended_token_path(a: int, e: int) -> dict[str, object]:
     """Partition the packed-token classifier at 34:580C.
 
@@ -2105,6 +2444,36 @@ def symbolic_model_corpus() -> dict[str, object]:
             16,
             symbolic_editor_saved_operand_wrapper_paths(),
         ),
+        (
+            "find_alpha_type_normalization",
+            "07:5247",
+            0x20,
+            symbolic_find_alpha_type_class_paths(),
+        ),
+        (
+            "find_alpha_key_preparation",
+            "07:50C4",
+            0x20 * len(FIND_ALPHA_KEY_FORMS),
+            symbolic_find_alpha_key_preparation_paths(),
+        ),
+        (
+            "find_alpha_record_stepping",
+            "07:511F",
+            0x20 * 0x100,
+            symbolic_find_alpha_record_step_paths(),
+        ),
+        (
+            "find_alpha_candidate_reducer",
+            "07:511D–518C",
+            2 * 2 * 4 * 2 * 3 * 3,
+            symbolic_find_alpha_candidate_paths(),
+        ),
+        (
+            "find_alpha_endpoint",
+            "07:518E–5198",
+            2,
+            symbolic_find_alpha_endpoint_paths(),
+        ),
     )
     domains = []
     all_outcomes: set[str] = set()
@@ -2163,7 +2532,7 @@ def symbolic_model_corpus() -> dict[str, object]:
     return {
         "scope": (
             "all projected inputs and complete path equivalence classes in the "
-            "twelve declared finite symbolic models"
+            f"{len(definitions)} declared finite symbolic models"
         ),
         "not_claimed": [
             "all Z80 register and RAM states",
@@ -2982,6 +3351,31 @@ def open_paths(
             ),
         },
         {
+            "area": "FindAlpha full OP scratch state",
+            "status": "open",
+            "reason": (
+                "the translation models the nine identity bytes copied by page 39; "
+                "page 7 uses 11-byte OP scratch registers and writes OP2+9 at 07:522E"
+            ),
+        },
+        {
+            "area": "FindAlpha arbitrary VAT sequences",
+            "status": "open",
+            "reason": (
+                "finite models cover type, key, record-step, filter, comparison-relation, "
+                "and endpoint projections; arbitrary record count and every eight-byte "
+                "name value are not exhaustively enumerated"
+            ),
+        },
+        {
+            "area": "MathPrint FindAlpha dynamic caller",
+            "status": "open",
+            "reason": (
+                "retained traces reach 07:50B5 only from non-display callers and do not "
+                "execute the page-39 saved-operand dispatchers"
+            ),
+        },
+        {
             "area": "arbitrary token streams",
             "status": "open",
             "reason": (
@@ -3344,6 +3738,45 @@ def build_report(
                 "abstract_predicate_domain": 16,
                 "terminal_classes": symbolic_metric_marker_paths(outcomes),
                 "callers": metric_marker_callers(outcomes),
+            },
+            "find_alpha_type_normalization": {
+                "routine": "07:5247",
+                "state": ["masked VAT type byte"],
+                "projected_input_domain": 0x20,
+                "terminal_classes": symbolic_find_alpha_type_class_paths(),
+            },
+            "find_alpha_key_preparation": {
+                "routine": "07:50C4–50F7",
+                "state": ["masked OP1 type", "representative key form"],
+                "projected_input_domain": 0x20 * len(FIND_ALPHA_KEY_FORMS),
+                "key_forms": sorted(FIND_ALPHA_KEY_FORMS),
+                "terminal_classes": symbolic_find_alpha_key_preparation_paths(),
+            },
+            "find_alpha_record_stepping": {
+                "routine": "07:511F–5149; 07:51BE–51FD",
+                "state": ["masked VAT type", "record marker byte"],
+                "projected_input_domain": 0x20 * 0x100,
+                "terminal_classes": symbolic_find_alpha_record_step_paths(),
+            },
+            "find_alpha_candidate_reducer": {
+                "routine": "07:511D–518C",
+                "state": [
+                    "direction", "normalized-type equality", "filter result",
+                    "FFh sentinel", "candidate/source relation",
+                    "candidate/current-best relation",
+                ],
+                "abstract_predicate_domain": 2 * 2 * 4 * 2 * 3 * 3,
+                "terminal_classes": symbolic_find_alpha_candidate_paths(),
+                "scope": (
+                    "one candidate decision; arbitrary VAT length and full "
+                    "eight-byte comparison values remain outside this finite projection"
+                ),
+            },
+            "find_alpha_endpoint": {
+                "routine": "07:518E–5198",
+                "state": ["whether the scan retained a best candidate"],
+                "abstract_predicate_domain": 2,
+                "terminal_classes": symbolic_find_alpha_endpoint_paths(),
             },
         },
         "record_oracles": oracle,
