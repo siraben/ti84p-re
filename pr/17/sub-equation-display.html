@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b124914c.js";
+            window.path_to_searchindex_js = "searchindex-2badb2e1.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -394,7 +394,7 @@ slot 3 is the upper endpoint, and slot 4 is the optional tolerance. The evaluato
 pages <code>02</code> and <code>33</code> consumes the same order. [confirmed]</p>
 <p>The same routine implements tall-template row composition. <code>eqdisp_layout_main</code> reaches
 <code>39:5167</code> from the action-<code>0x08</code> window-advance path at <code>39:50A4</code> and the action-<code>0x04</code>
-drain path at <code>39:52B3</code>. <code>39:5167</code> calls <code>39:5949</code> to decide whether the next argument
+single-step path at <code>39:52B3</code>. <code>39:5167</code> calls <code>39:5949</code> to decide whether the next argument
 consumes one or two display rows, adjusts <code>0x844B</code>, emits slot markers through <code>39:4E0A</code>,
 and emits the saved operand through <code>39:5B10</code> or <code>39:5B1D</code>. These bytes define
 row composition around fixed structural cells. The filled and nested-integral
@@ -404,17 +404,18 @@ reverse walker at <code>39:523B</code>. At index zero, bit 0 of <code>(IY+1Dh)</
 row-token tail. A clear bit with fewer than eight arguments enters the
 do-while loop at <code>39:50A1</code>. The loop calls <code>39:5167</code> once per count value; a
 zero count decrements through <code>0xFF</code> and therefore makes 256 calls. Counts of
-eight or more set the index to <code>count - 1</code>, select row
-<code>count - 8 + baseline</code> with byte arithmetic, and emit the final argument on
-row 7 through <code>39:4E14</code>. [confirmed]</p>
-<p>Action <code>0x04</code> enters <code>39:52A5</code> and recomputes
-<code>((count - 1) - index) &amp; 0xFF</code> after each call to <code>39:5167</code>. A valid index below
-the final argument advances until the difference reaches zero. An index above
-the final argument does not progress because <code>39:5167</code> leaves it unchanged.
-The same nonprogressing state occurs for count zero unless the index is
-<code>0xFF</code>. After a terminating drain, bit 0 of <code>(IY+1Dh)</code> selects the row-token
-tail. With the bit clear, the zero comparison leaves <code>A=0</code>, so the jump to
-<code>39:513E</code> lays out argument zero. [confirmed]</p>
+eight or more set the index to <code>count - 1</code>. The path computes the first
+visible slot as <code>count - 8 + baseline</code> with byte arithmetic. <code>39:4DCA</code>
+looks up the current handler row from <code>0x85DF</code>; <code>39:4CA4</code> then emits the suffix
+beginning at the computed slot. The path emits the final argument on row 7
+through <code>39:4E14</code>. [confirmed]</p>
+<p>Action <code>0x04</code> enters <code>39:52A5</code> and computes
+<code>((count - 1) - index) &amp; 0xFF</code> once. A nonzero result calls <code>39:5167</code>. The jump
+at <code>39:52B6</code> then targets <code>39:52A2</code>. The delegated walker returns through
+<code>39:5447</code>, and the outer path enters that row-token tail again. Only an
+initially zero result reaches the bit-0 test on <code>(IY+1Dh)</code>. A set bit selects
+the same tail. With the bit clear, the zero comparison leaves <code>A=0</code>, so the
+jump to <code>39:513E</code> lays out argument zero. [confirmed]</p>
 <h2 id="cell-coordinates"><a class="header" href="#cell-coordinates">Cell coordinates</a></h2>
 <p>Descriptor-backed templates use a fixed ABI. A descriptor is:</p>
 <pre><code class="language-c">typedef struct {
@@ -854,11 +855,13 @@ into the parser, saved-operand emitters, and scroll helpers remain ordered
 effects because those routines are outside the closed row arithmetic.
 The increment-wrap guard cannot execute: its preceding unsigned predicate
 requires a nonzero count and an index at most <code>count - 2</code>. [confirmed]
-<code>editorFirstArgumentAction()</code> and <code>editorDrainArguments()</code> compose those
+<code>editorFirstArgumentAction()</code> and <code>editorAdvanceAction()</code> compose those
 walkers with actions <code>0x03</code> and <code>0x04</code>. They preserve the zero-count
-256-iteration loop, byte-wrapped visible-slot arithmetic, the flag-controlled
-tails, and nonprogressing invalid drain states. The tests exhaust all 65,536
-count/index byte pairs for both values of bit 0 in each controller. [confirmed]
+256-iteration loop, byte-wrapped first-slot arithmetic, the one-call
+action-<code>0x04</code> branch, and the flag-controlled tails. The tests exhaust all
+65,536 count/index byte pairs for both values of bit 0 in each outer
+controller. The walker tests separately exhaust its layout-class and row
+predicates. [confirmed]
 The retained corpus observes 255 of 1,098 declared editor branch outcomes. It
 does not decode every in-progress editor state into a general AST, and it does not
 reach every cursor, menu, error, or row-composition path. [confirmed]</p>

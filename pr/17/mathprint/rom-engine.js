@@ -477,7 +477,7 @@
   }
 
   // Action 03 at 39:51F1 either delegates to the reverse walker, returns
-  // through the row-token tail, drains a short argument list, or selects the
+  // through the row-token tail, runs the short-list call loop, or selects the
   // last visible argument of a list with at least eight entries. The short
   // path is a byte-counter do-while loop: a zero count therefore calls 5167h
   // 256 times. Calls whose parser/display bodies remain open are kept as
@@ -502,8 +502,8 @@
     };
     if (argumentIndex !== 0)
       return {
-        ...base, iterations:null, finalArgument:null, visibleSlot:null,
-        preEmissionRow:null, finalRow:null, branch:'reverse-walker',
+        ...base, iterations:null, finalArgument:null, firstVisibleSlot:null,
+        preCallRow:null, finalRow:null, branch:'reverse-walker',
         effects:[{kind:'delegate-reverse-argument',routine:'39:523B'}],
         delegate:editorRetreatArgument(
           layoutClass, argumentIndex, argumentCount, currentRow, baselineRow,
@@ -512,37 +512,42 @@
       };
     if (editorFlagBit0)
       return {
-        ...base, iterations:0, finalArgument:0, visibleSlot:null,
-        preEmissionRow:null, emissionRow:null, finalRow:null,
+        ...base, iterations:0, finalArgument:0, firstVisibleSlot:null,
+        preCallRow:null, highlightRow:null, finalRow:null,
         branch:'row-token-tail',
         effects:[{kind:'set-row-for-token',routine:'39:51EE → 39:5447'}],
         continuation:'row-token-tail',
       };
     if (argumentCount < 8) {
       const iterations = argumentCount === 0 ? 0x100 : argumentCount;
+      const finalArgument = argumentCount === 0 ? 0 : argumentCount - 1;
       return {
-        ...base, iterations, finalArgument:null, visibleSlot:null,
-        preEmissionRow:null, emissionRow:null, finalRow:null,
-        branch:'short-list-drain',
+        ...base, iterations, finalArgument, firstVisibleSlot:null,
+        preCallRow:null, highlightRow:null, finalRow:null,
+        branch:'short-list-loop',
         effects:[
-          {kind:'repeat-advance-argument',iterations,routine:'39:50A1 → 39:5167'},
+          {kind:'set-loop-counter',address:0x844d,value:argumentCount},
+          {kind:'repeat-call-advance-argument',iterations,
+            counterAddress:0x844d,counterFinal:0,
+            counterUpdate:'decrement-after-call',routine:'39:50A1 → 39:5167'},
           {kind:'set-row-for-token',routine:'39:50AD → 39:5447'},
         ],
         continuation:'row-token-tail',
       };
     }
     const finalArgument = argumentCount - 1;
-    const visibleSlot = (argumentCount - 8 + baselineRow) & 0xff;
-    const preEmissionRow = (baselineRow - 1) & 0xff;
+    const firstVisibleSlot = (argumentCount - 8 + baselineRow) & 0xff;
+    const preCallRow = (baselineRow - 1) & 0xff;
     return {
-      ...base, iterations:0, finalArgument, visibleSlot, preEmissionRow,
-      emissionRow:7, finalRow:null, branch:'last-visible-argument',
+      ...base, iterations:0, finalArgument, firstVisibleSlot, preCallRow,
+      highlightRow:7, finalRow:null, branch:'last-visible-argument',
       effects:[
         {kind:'clear-saved-F2',address:0x85f2,value:0},
         {kind:'set-argument-index',value:finalArgument},
-        {kind:'select-handler-row',row:visibleSlot,routine:'39:4DCA'},
-        {kind:'set-row',value:preEmissionRow},
-        {kind:'emit-subexpression-cell',slot:visibleSlot,routine:'39:4CA4'},
+        {kind:'lookup-handler-row',rowSource:0x85df,routine:'39:4DCA'},
+        {kind:'set-row',value:preCallRow},
+        {kind:'emit-subexpression-from-slot',slot:firstVisibleSlot,
+          routine:'39:4CA4'},
         {kind:'set-row-column',row:7,column:0},
         {kind:'emit-highlighted-argument',argument:finalArgument,routine:'39:4E14'},
         {kind:'set-row-for-token',routine:'39:51EE → 39:5447'},
@@ -551,17 +556,20 @@
     };
   }
 
-  // Action 04 at 39:52A5 recomputes the unsigned-byte distance from the
-  // current argument to count-1 after every 5167h call. Calculator-created
-  // states below the final argument terminate. States beyond it do not make
-  // progress because 5167h leaves the index unchanged; expose those states as
-  // would-loop rather than silently clamping them. On the flag-clear exit A
-  // still contains zero, so 513Eh lays out argument zero.
-  function editorDrainArguments(argumentIndex, argumentCount, options = {}) {
+  // Action 04 at 39:52A5 computes the unsigned-byte distance from the current
+  // argument to count-1 once. A nonzero result calls 5167h once; 52B6h then
+  // jumps to the row-token tail at 52A2h. Only an initially zero difference
+  // reaches the IY+1Dh flag test. On that flag-clear exit A remains zero, so
+  // 513Eh lays out argument zero.
+  function editorAdvanceAction(layoutClass, argumentIndex, argumentCount,
+                               currentRow, recordFlags, options = {}) {
+    byte(layoutClass, 'editor layout class');
     byte(argumentIndex, 'editor argument index');
     byte(argumentCount, 'editor argument count');
+    byte(currentRow, 'editor current row');
+    byte(recordFlags, 'editor record flags');
     if (!options || typeof options !== 'object' || Array.isArray(options))
-      throw new TypeError('editor argument-drain options must be an object');
+      throw new TypeError('editor advance-action options must be an object');
     const editorFlags = options.editorFlags === undefined ? 0 :
       byte(options.editorFlags, 'editor IY+1Dh flags');
     const editorFlagBit0 = (editorFlags & 1) !== 0;
@@ -572,32 +580,31 @@
     const lastArgument = (argumentCount - 1) & 0xff;
     const delta = (lastArgument - argumentIndex) & 0xff;
     const base = {
-      argumentIndex, argumentCount, lastArgument, delta, editorFlags,
-      editorFlagBit0, baselineRow, kbdKey, routine:'39:52A5',
+      layoutClass, argumentIndex, argumentCount, currentRow, recordFlags,
+      lastArgument, delta, editorFlags, editorFlagBit0, baselineRow, kbdKey,
+      routine:'39:52A5',
     };
-    const wouldLoop = delta !== 0 &&
-      (argumentCount === 0 || argumentIndex > lastArgument);
-    if (wouldLoop)
+    if (delta !== 0) {
+      const delegate = editorAdvanceArgument(
+        layoutClass, argumentIndex, argumentCount, currentRow, recordFlags,
+        options);
       return {
-        ...base, iterations:null, finalArgument:null, layout:null,
-        branch:'would-loop',
+        ...base, advanceCalls:1, layout:null, delegate,
+        branch:'advance-once',
         effects:[
-          {kind:'repeat-nonprogressing-advance',argument:argumentIndex,
-            delta,routine:'39:52B3 → 39:5167'},
+          {kind:'delegate-advance-argument',routine:'39:52B3 → 39:5167'},
+          {kind:'set-row-for-token',routine:'39:52B6 → 39:52A2 → 39:5447'},
         ],
-        continuation:'would-loop',
+        continuation:'row-token-tail',
       };
-    const iterations = delta;
-    const effects = iterations === 0 ? [] : [
-      {kind:'repeat-advance-argument',iterations,routine:'39:52B3 → 39:5167'},
-    ];
+    }
     if (editorFlagBit0)
       return {
-        ...base, iterations, finalArgument:lastArgument, layout:null,
+        ...base, advanceCalls:0, layout:null, delegate:null,
         branch:'row-token-tail',
-        effects:effects.concat([
+        effects:[
           {kind:'set-row-for-token',routine:'39:52A2 → 39:5447'},
-        ]),
+        ],
         continuation:'row-token-tail',
       };
     const layoutOptions = {};
@@ -605,11 +612,11 @@
     if (kbdKey !== null) layoutOptions.kbdKey = kbdKey;
     const layout = editorLayoutArgument(0, argumentCount, layoutOptions);
     return {
-      ...base, iterations, finalArgument:lastArgument, layout,
+      ...base, advanceCalls:0, layout, delegate:null,
       branch:'layout-first-argument',
-      effects:effects.concat([
+      effects:[
         {kind:'layout-argument',argument:0,routine:'39:513E'},
-      ]),
+      ],
       continuation:'argument-layout',
     };
   }
@@ -4925,7 +4932,7 @@
     editorAdvanceArgument,
     editorRetreatArgument,
     editorFirstArgumentAction,
-    editorDrainArguments,
+    editorAdvanceAction,
     mapDirectGlyph,
     classifyCell,
     keyToStringIndex,
