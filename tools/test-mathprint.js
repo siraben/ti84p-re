@@ -1074,6 +1074,8 @@ const operandCases = [
    {serviceResults:[{carry:true}]}],
   ['normal scanner clear', 'normal', 0x04, 0x00,
    {serviceResults:[{carry:false}]}],
+  ['normal scanner changes class before post-check', 'normal', 0x04, 0x00,
+   {serviceResults:[{carry:false,tokenClass:0x02}]}],
   ['normal scanner repeat then clear', 'normal', 0x03, 0x01,
    {serviceResults:[{carry:false,postCode:0x06,nextTokenClass:0x03,
                      nextTokenSubClass:0x01},
