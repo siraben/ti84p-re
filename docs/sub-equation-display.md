@@ -178,6 +178,30 @@ pairs to render types. `34:59AC` gives one five-byte scan row for each type
 metric and geometry passes dispatch the same 13-type domain through `34:739F`
 and `34:7611`. [confirmed]
 
+`33:4F6D` also decodes the three-byte allocation rows at `33:4F82`. It returns
+the workspace request in `DE`, the child-slot count in `BC`, and the record
+size in `HL`. For example, the type-`0x22` integral row returns 112 workspace
+bytes, four child slots, and 28 record bytes. Type `0x2B` derives all three
+values from its matrix element count at `33:4F42`–`33:4F6C`. [confirmed]
+
+`34:4869` passes that workspace request to the capacity gate at
+`34:4B7C`. `34:4B86` starts with the word at `0x8DB1`. When
+`(IY+2Dh).0` is clear, it subtracts the conditional reserve at `0x8DF8`; when
+the bit is set, it skips that subtraction. It then subtracts the record tail
+at `0x8DBE`. Each subtraction follows `OR A`, so it starts with carry clear and
+wraps as a 16-bit word. A borrow from the record-tail subtraction makes
+`34:4B80` skip the request comparison. Otherwise `34:4B82` subtracts the
+requested bytes. Either carry returns from the allocator caller at `34:486F`
+with `A=0x02`; an exact fit continues with zero bytes remaining. [confirmed]
+
+The finite capacity model partitions all $2^{65}$ combinations of four input
+words and the reserve-gate bit into six paths. A 524,287-state raw-byte
+differential basis covers each word value at the range and request boundaries.
+The initial values of `0x8DB1`, `0x8DBE`, and `0x8DF8` still depend on the
+calling editor state, so this gate alone does not define one source-character
+limit for every home-screen expression. [confirmed] for the gate and projected
+model; [hypothesis] for a context-independent character limit.
+
 The structural children preserve semantic argument order after the source scan
 applies the metadata permutation. For example, the integral metadata is
 `04 03 04 01 02`: scan kind 4 reads four source arguments and assigns them to
@@ -518,7 +542,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in eleven finite models. It also computes an
+complete path-equivalence class in twelve finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -535,10 +559,11 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Editor action `0x04` controller | 131,072 | 5 | 5 | 3 |
 | Reverse argument-overflow cue | 65,536 | 2 | 2 | 2 |
 | Editor horizontal viewport | 17,179,869,184 | 8 | 6 | 2 |
+| Record-allocation capacity | 36,893,488,147,419,103,232 | 6 | 6 | 2 |
 | Saved-operand wrappers | 16 | 12 | 12 | 8 |
 
-The eleven models contain 1,222 path classes and 112 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 62 representatives. Each
+The twelve models contain 1,228 path classes and 118 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 64 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover

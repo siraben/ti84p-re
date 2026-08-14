@@ -113,6 +113,38 @@ const editorViewportByte = address => {
       `editor-viewport oracle reached unpinned byte 34:${address.toString(16)}`);
   return editorViewportByteMap.get(address);
 };
+const recordCapacityRomSpans = [
+  {address:0x4868, bytes:Buffer.from('e5cd7c4bd13e02d8', 'hex')},
+  {address:0x4b7c, bytes:Buffer.from(
+    'c5cd864b3802ed52c1c92ab18dfdcb2d462007ed4bf88db7ed42ed4bbe8d' +
+    'b7ed42c9', 'hex')},
+];
+const recordCapacityByteMap = new Map(recordCapacityRomSpans.flatMap(span =>
+  Array.from(span.bytes,
+    (value, offset) => [span.address + offset, value])));
+const recordCapacityByte = address => {
+  if (!recordCapacityByteMap.has(address))
+    throw new Error(
+      `record-capacity oracle reached unpinned byte 34:${address.toString(16)}`);
+  return recordCapacityByteMap.get(address);
+};
+const allocationGeometryRomSpans = [
+  {address:0x4f4c, bytes:Buffer.from(
+    '7cb520012323e52b2911160019e3eb210000011400190b78b120fa424bd119ebc9',
+    'hex')},
+  {address:0x4f82, bytes:Buffer.from(
+    '2901164202182b011670041c59031a4202182b01162b01162b011642021870041c' +
+    '2b01162b0116', 'hex')},
+];
+const allocationGeometryByteMap = new Map(allocationGeometryRomSpans.flatMap(span =>
+  Array.from(span.bytes,
+    (value, offset) => [span.address + offset, value])));
+const allocationGeometryByte = address => {
+  if (!allocationGeometryByteMap.has(address))
+    throw new Error(
+      `allocation-geometry oracle reached unpinned byte 33:${address.toString(16)}`);
+  return allocationGeometryByteMap.get(address);
+};
 const savedOperandRomSpan = {address:0x5abc, bytes:Buffer.from(
   '21998411e785c3921a3e1432e785cdaf1b3e1432788421788418e83e0532e785' +
   '3e4032e885117884180a3e00cd411f18e511998421e78518cdcdec19cdd25a11' +
@@ -483,6 +515,183 @@ function runRawEditorViewport(expressionEndpoint, previousXClip,
   };
 }
 
+function runRawRecordAllocationCapacity(input) {
+  const literalWord = address => recordCapacityByte(address) |
+    (recordCapacityByte(address + 1) << 8);
+  const memory = new Map([
+    [0x8db1,input.workspaceTop],
+    [0x8dbe,input.recordTail],
+    [0x8df8,input.reservedSpan],
+  ]);
+  let pc = 0x4868, a = 0, bc = 0, de = input.requestedBytes, hl = 0;
+  let carry = false, zero = false;
+  const stack = [], branchOutcomes = [];
+  let afterReserved = null, availableBeforeRequest = null;
+  let rangeBorrow = null, requestCompared = false, requestBorrow = false;
+  for (let instructions = 0; instructions < 64; instructions++) {
+    const opcode = recordCapacityByte(pc);
+    if (opcode === 0xe5) {
+      stack.push(hl); pc++;
+    } else if (opcode === 0xc5) {
+      stack.push(bc); pc++;
+    } else if (opcode === 0xcd) {
+      stack.push(pc + 3); pc = literalWord(pc + 1);
+    } else if (opcode === 0xd1) {
+      de = stack.pop(); pc++;
+    } else if (opcode === 0xc1) {
+      bc = stack.pop(); pc++;
+    } else if (opcode === 0xc9) {
+      pc = stack.pop();
+    } else if (opcode === 0x2a) {
+      hl = memory.get(literalWord(pc + 1)); pc += 3;
+    } else if (opcode === 0xfd && recordCapacityByte(pc + 1) === 0xcb &&
+               recordCapacityByte(pc + 2) === 0x2d &&
+               recordCapacityByte(pc + 3) === 0x46) {
+      zero = !input.iy2dBit0; pc += 4;
+    } else if (opcode === 0x20) {
+      const taken = !zero;
+      branchOutcomes.push(
+        `34:${pc.toString(16).toUpperCase()}:${taken ? 'taken' : 'fallthrough'}`);
+      pc = taken ? pc + 2 + signedByte(recordCapacityByte(pc + 1)) : pc + 2;
+    } else if (opcode === 0xed && recordCapacityByte(pc + 1) === 0x4b) {
+      bc = memory.get(literalWord(pc + 2)); pc += 4;
+    } else if (opcode === 0xb7) {
+      carry = false; zero = a === 0; pc++;
+    } else if (opcode === 0xed && recordCapacityByte(pc + 1) === 0x42) {
+      const right = bc;
+      carry = hl < right;
+      hl = (hl - right) & 0xffff;
+      if (pc === 0x4b94) afterReserved = hl;
+      if (pc === 0x4b9b) {
+        rangeBorrow = carry;
+        availableBeforeRequest = hl;
+      }
+      pc += 2;
+    } else if (opcode === 0x38) {
+      const taken = carry;
+      branchOutcomes.push(
+        `34:${pc.toString(16).toUpperCase()}:${taken ? 'taken' : 'fallthrough'}`);
+      pc = taken ? pc + 2 + signedByte(recordCapacityByte(pc + 1)) : pc + 2;
+    } else if (opcode === 0xed && recordCapacityByte(pc + 1) === 0x52) {
+      requestCompared = true;
+      requestBorrow = hl < de;
+      carry = requestBorrow;
+      hl = (hl - de) & 0xffff;
+      pc += 2;
+    } else if (opcode === 0x3e) {
+      a = recordCapacityByte(pc + 1); pc += 2;
+    } else if (opcode === 0xd8) {
+      branchOutcomes.push(
+        `34:${pc.toString(16).toUpperCase()}:${carry ? 'returned' : 'fallthrough'}`);
+      if (carry) break;
+      pc++;
+      break;
+    } else {
+      throw new Error(
+        `record-capacity oracle reached unsupported opcode 0x${opcode.toString(16)}`);
+    }
+  }
+  if (afterReserved === null) afterReserved = input.workspaceTop;
+  if (rangeBorrow === null || availableBeforeRequest === null)
+    throw new Error('record-capacity oracle did not execute its range subtraction');
+  return {
+    workspaceTop:input.workspaceTop,
+    recordTail:input.recordTail,
+    reservedSpan:input.reservedSpan,
+    requestedBytes:input.requestedBytes,
+    iy2dBit0:input.iy2dBit0,
+    subtractReserved:!input.iy2dBit0,
+    afterReserved,
+    rangeBorrow,
+    availableBeforeRequest,
+    requestCompared,
+    requestBorrow,
+    remainingBytes:hl,
+    carry,
+    returnA:a,
+    terminal:carry ? 'return-allocation-carry' : 'continue-allocation',
+    branchOutcomes,
+    routine:'34:4B7C–4B9D; caller 34:4862–4870',
+  };
+}
+
+function runRawRecordAllocationGeometry(renderType, matrixElements = null) {
+  if (renderType !== 0x2b) {
+    const tableAddress = 0x4f82 + 3 * (renderType - 0x1f);
+    return {
+      renderType,matrixElements:null,
+      workspaceRequest:allocationGeometryByte(tableAddress),
+      childCount:allocationGeometryByte(tableAddress + 1),
+      recordBytes:allocationGeometryByte(tableAddress + 2),
+      tableAddress,branchOutcomes:[],routine:'33:4F6D–4F81',
+    };
+  }
+  let pc = 0x4f4c, a = 0, bc = 0, de = 0, hl = matrixElements;
+  let zero = false;
+  const stack = [], branchOutcomes = [];
+  for (let instructions = 0; instructions < 256; instructions++) {
+    const opcode = allocationGeometryByte(pc);
+    if (opcode === 0x7c) {
+      a = hl >> 8; pc++;
+    } else if (opcode === 0xb5) {
+      a |= hl & 0xff; zero = a === 0; pc++;
+    } else if (opcode === 0x20) {
+      const taken = !zero;
+      branchOutcomes.push(
+        `33:${pc.toString(16).toUpperCase()}:${taken ? 'taken' : 'fallthrough'}`);
+      pc = taken ? pc + 2 + signedByte(allocationGeometryByte(pc + 1)) : pc + 2;
+    } else if (opcode === 0x23) {
+      hl = (hl + 1) & 0xffff; pc++;
+    } else if (opcode === 0xe5) {
+      stack.push(hl); pc++;
+    } else if (opcode === 0x2b) {
+      hl = (hl - 1) & 0xffff; pc++;
+    } else if (opcode === 0x29) {
+      hl = (hl * 2) & 0xffff; pc++;
+    } else if (opcode === 0x11) {
+      de = allocationGeometryByte(pc + 1) |
+        allocationGeometryByte(pc + 2) << 8;
+      pc += 3;
+    } else if (opcode === 0x19) {
+      hl = (hl + de) & 0xffff; pc++;
+    } else if (opcode === 0xe3) {
+      const saved = stack.pop(); stack.push(hl); hl = saved; pc++;
+    } else if (opcode === 0xeb) {
+      [de,hl] = [hl,de]; pc++;
+    } else if (opcode === 0x21) {
+      hl = allocationGeometryByte(pc + 1) |
+        allocationGeometryByte(pc + 2) << 8;
+      pc += 3;
+    } else if (opcode === 0x01) {
+      bc = allocationGeometryByte(pc + 1) |
+        allocationGeometryByte(pc + 2) << 8;
+      pc += 3;
+    } else if (opcode === 0x0b) {
+      bc = (bc - 1) & 0xffff; pc++;
+    } else if (opcode === 0x78) {
+      a = bc >> 8; pc++;
+    } else if (opcode === 0xb1) {
+      a |= bc & 0xff; zero = a === 0; pc++;
+    } else if (opcode === 0x42) {
+      bc = (bc & 0x00ff) | (de & 0xff00); pc++;
+    } else if (opcode === 0x4b) {
+      bc = (bc & 0xff00) | (de & 0xff); pc++;
+    } else if (opcode === 0xd1) {
+      de = stack.pop(); pc++;
+    } else if (opcode === 0xc9) {
+      break;
+    } else {
+      throw new Error(
+        `allocation-geometry oracle reached unsupported opcode 0x${opcode.toString(16)}`);
+    }
+  }
+  return {
+    renderType,matrixElements,
+    workspaceRequest:de,childCount:bc,recordBytes:hl,
+    tableAddress:0x4fa6,branchOutcomes,routine:'33:4F42–4F6C',
+  };
+}
+
 const localRomPath = path.join(root, 'tools', 'rom.bin');
 if (fs.existsSync(localRomPath)) {
   const localRom = fs.readFileSync(localRomPath);
@@ -510,6 +719,16 @@ if (fs.existsSync(localRomPath)) {
   for (const span of editorViewportRomSpans) {
     const offset = 0x34 * 0x4000 + (span.address & 0x3fff);
     expectEqual(`34:${span.address.toString(16)} raw editor-viewport bytes`,
+      localRom.subarray(offset, offset + span.bytes.length), span.bytes);
+  }
+  for (const span of recordCapacityRomSpans) {
+    const offset = 0x34 * 0x4000 + (span.address & 0x3fff);
+    expectEqual(`34:${span.address.toString(16)} raw record-capacity bytes`,
+      localRom.subarray(offset, offset + span.bytes.length), span.bytes);
+  }
+  for (const span of allocationGeometryRomSpans) {
+    const offset = 0x33 * 0x4000 + (span.address & 0x3fff);
+    expectEqual(`33:${span.address.toString(16)} raw allocation-geometry bytes`,
       localRom.subarray(offset, offset + span.bytes.length), span.bytes);
   }
 }
@@ -1425,6 +1644,115 @@ for (let endpoint = 0; endpoint <= 0xffff; endpoint++) {
 }
 expectEqual('34:5F5D exhaustive raw-byte viewport state count',
   editorViewportRawStates, 786428);
+expectEqual('33:4F82 exposes every fixed allocation geometry row',
+  Array.from({length:12}, (_, index) => {
+    const row = rom.settledRecordAllocationGeometry(0x1f + index);
+    return [row.workspaceRequest,row.childCount,row.recordBytes,row.tableAddress];
+  }), [
+    [0x29,1,0x16,0x4f82], [0x42,2,0x18,0x4f85],
+    [0x2b,1,0x16,0x4f88], [0x70,4,0x1c,0x4f8b],
+    [0x59,3,0x1a,0x4f8e], [0x42,2,0x18,0x4f91],
+    [0x2b,1,0x16,0x4f94], [0x2b,1,0x16,0x4f97],
+    [0x2b,1,0x16,0x4f9a], [0x42,2,0x18,0x4f9d],
+    [0x70,4,0x1c,0x4fa0], [0x2b,1,0x16,0x4fa3],
+  ]);
+for (let renderType = 0x1f; renderType < 0x2b; renderType++)
+  expectEqual('33:4F6D fixed allocation geometry matches pinned table bytes',
+    rom.settledRecordAllocationGeometry(renderType),
+    runRawRecordAllocationGeometry(renderType));
+const matrixAllocationOutcomes = zeroProduct => [
+  `33:4F4E:${zeroProduct ? 'fallthrough' : 'taken'}`,
+  ...new Array(19).fill('33:4F65:taken'),
+  '33:4F65:fallthrough',
+];
+expectEqual('33:4F42 derives variable matrix allocation geometry',
+  [0,4,0xffff].map(matrixElements =>
+    rom.settledRecordAllocationGeometry(0x2b,matrixElements)), [
+    {renderType:0x2b,matrixElements:0,workspaceRequest:64,
+     childCount:2,recordBytes:24,tableAddress:0x4fa6,
+     branchOutcomes:matrixAllocationOutcomes(true),routine:'33:4F42–4F6C'},
+    {renderType:0x2b,matrixElements:4,workspaceRequest:130,
+     childCount:5,recordBytes:30,tableAddress:0x4fa6,
+     branchOutcomes:matrixAllocationOutcomes(false),routine:'33:4F42–4F6C'},
+    {renderType:0x2b,matrixElements:0xffff,workspaceRequest:20,
+     childCount:0,recordBytes:20,tableAddress:0x4fa6,
+     branchOutcomes:matrixAllocationOutcomes(false),routine:'33:4F42–4F6C'},
+  ]);
+for (let matrixElements = 0; matrixElements <= 0xffff; matrixElements++)
+  expectEqual('33:4F42 matrix allocation geometry matches pinned instruction bytes',
+    rom.settledRecordAllocationGeometry(0x2b,matrixElements),
+    runRawRecordAllocationGeometry(0x2b,matrixElements));
+expectThrows('33:4F42 requires a matrix count for type 2Bh', RangeError,
+  () => rom.settledRecordAllocationGeometry(0x2b));
+expectEqual('34:4B7C accepts an exact-fit record request',
+  rom.settledRecordAllocationCapacity({
+    workspaceTop:1000,recordTail:200,reservedSpan:100,
+    requestedBytes:700,iy2dBit0:false,
+  }), {
+    workspaceTop:1000,recordTail:200,reservedSpan:100,requestedBytes:700,
+    iy2dBit0:false,subtractReserved:true,afterReserved:900,
+    rangeBorrow:false,availableBeforeRequest:700,
+    requestCompared:true,requestBorrow:false,remainingBytes:0,
+    carry:false,returnA:2,terminal:'continue-allocation',branchOutcomes:[
+      '34:4B8D:fallthrough','34:4B80:fallthrough','34:486F:fallthrough',
+    ],routine:'34:4B7C–4B9D; caller 34:4862–4870',
+  });
+expectEqual('34:4B7C returns carry one byte beyond the available range',
+  rom.settledRecordAllocationCapacity({
+    workspaceTop:1000,recordTail:200,reservedSpan:100,
+    requestedBytes:701,iy2dBit0:false,
+  }).requestBorrow, true);
+expectEqual('34:4B86 clears an earlier reserve-subtraction borrow',
+  rom.settledRecordAllocationCapacity({
+    workspaceTop:0,recordTail:0,reservedSpan:1,
+    requestedBytes:0xffff,iy2dBit0:false,
+  }).terminal, 'continue-allocation');
+expectEqual('34:4B86 range borrow bypasses the request subtraction', (() => {
+  const result = rom.settledRecordAllocationCapacity({
+    workspaceTop:0,recordTail:1,reservedSpan:0,
+    requestedBytes:0,iy2dBit0:false,
+  });
+  return [result.rangeBorrow,result.requestCompared,
+    result.remainingBytes,result.terminal];
+})(), [true,false,0xffff,'return-allocation-carry']);
+
+// Compare every workspace word at each carry boundary, plus one deterministic
+// mixed-word state, with an interpreter that executes the pinned instruction
+// bytes through the allocator caller's RET C.
+let recordCapacityRawStates = 0;
+for (let workspaceTop = 0; workspaceTop <= 0xffff; workspaceTop++) {
+  const states = [
+    {workspaceTop,recordTail:0,reservedSpan:workspaceTop,
+     requestedBytes:0,iy2dBit0:false},
+    {workspaceTop,recordTail:0,reservedSpan:workspaceTop,
+     requestedBytes:1,iy2dBit0:false},
+    {workspaceTop,recordTail:1,reservedSpan:workspaceTop,
+     requestedBytes:0,iy2dBit0:false},
+    {workspaceTop,recordTail:0,reservedSpan:(workspaceTop + 1) & 0xffff,
+     requestedBytes:0xffff,iy2dBit0:false},
+    {workspaceTop,recordTail:workspaceTop,reservedSpan:0xffff,
+     requestedBytes:0,iy2dBit0:true},
+    {workspaceTop,recordTail:workspaceTop,reservedSpan:0xffff,
+     requestedBytes:1,iy2dBit0:true},
+    {workspaceTop,
+     recordTail:(workspaceTop * 17) & 0xffff,
+     reservedSpan:0x5a5a,
+     requestedBytes:(workspaceTop * 257) & 0xffff,
+     iy2dBit0:Boolean(workspaceTop & 1)},
+  ];
+  if (workspaceTop < 0xffff) states.push({
+    workspaceTop,recordTail:workspaceTop + 1,reservedSpan:0xffff,
+    requestedBytes:0,iy2dBit0:true,
+  });
+  for (const state of states) {
+    expectEqual('34:4B7C raw-byte allocation-capacity boundary',
+      rom.settledRecordAllocationCapacity(state),
+      runRawRecordAllocationCapacity(state));
+    recordCapacityRawStates++;
+  }
+}
+expectEqual('34:4B7C raw-byte allocation-capacity state count',
+  recordCapacityRawStates, 524287);
 const editorCueOperations = rom.settledEditorViewportOperations([
   {kind:'point',x:17,y:4,routine:'test'},
   {kind:'line',axis:'horizontal',from:{x:16,y:5},to:{x:20,y:5},routine:'test'},

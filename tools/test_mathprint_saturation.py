@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from itertools import product
 import json
 from pathlib import Path
 import shutil
@@ -22,6 +23,8 @@ from analyze_mathprint_saturation import (
     editor_horizontal_viewport_path,
     editor_reverse_overflow_cue_path,
     editor_saved_operand_wrapper_path,
+    record_allocation_capacity_terminal_counts,
+    record_allocation_capacity_path,
     exact_cover_z3,
     iter_oracle_cases,
     oracle_coverage,
@@ -46,6 +49,7 @@ from analyze_mathprint_saturation import (
     symbolic_editor_horizontal_viewport_paths,
     symbolic_editor_reverse_overflow_cue_paths,
     symbolic_editor_saved_operand_wrapper_paths,
+    symbolic_record_allocation_capacity_paths,
     symbolic_model_corpus,
     symbolic_raised_extended_token_paths,
     symbolic_raised_name_loop_paths,
@@ -233,13 +237,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(1222, report["path_equivalence_class_count"])
-        self.assertEqual(1222, report["representative_path_corpus_count"])
-        self.assertEqual(112, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(1228, report["path_equivalence_class_count"])
+        self.assertEqual(1228, report["representative_path_corpus_count"])
+        self.assertEqual(118, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            62, report["per_domain_minimum_branch_outcome_corpus_count"]
+            64, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(11, len(report["domains"]))
+        self.assertEqual(12, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -289,6 +293,57 @@ class SymbolicHandlerTests(unittest.TestCase):
         wrapped = editor_horizontal_viewport_path(0xFFFF, 0, 1, 0)
         self.assertEqual(5, wrapped["comparison_coordinate"])
         self.assertEqual("return_before_right_bound", wrapped["terminal"])
+
+    def test_record_capacity_partitions_all_word_inputs_and_gate_bit(self) -> None:
+        paths = symbolic_record_allocation_capacity_paths()
+
+        self.assertEqual(2**65, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(6, len(paths))
+        self.assertEqual({
+            "return_range_carry",
+            "return_request_carry",
+            "continue_allocation",
+        }, {row["terminal"] for row in paths})
+        exact = record_allocation_capacity_path(1000, 200, 100, 700, 0)
+        self.assertFalse(exact["carry"])
+        self.assertEqual(0, exact["remaining_bytes"])
+        request_carry = record_allocation_capacity_path(
+            1000, 200, 100, 701, 0
+        )
+        self.assertTrue(request_carry["request_borrow"])
+        self.assertEqual("return_request_carry", request_carry["terminal"])
+        cleared_borrow = record_allocation_capacity_path(0, 0, 1, 0xFFFF, 0)
+        self.assertEqual("continue_allocation", cleared_borrow["terminal"])
+        range_carry = record_allocation_capacity_path(0, 1, 0, 0, 0)
+        self.assertFalse(range_carry["request_compared"])
+        self.assertEqual("return_range_carry", range_carry["terminal"])
+
+    def test_record_capacity_closed_forms_match_small_word_rings(self) -> None:
+        for word_count in range(1, 8):
+            expected = record_allocation_capacity_terminal_counts(word_count)
+            for gate_bit in (0, 1):
+                observed: Counter[str] = Counter()
+                for workspace, tail, reserve, request in product(
+                    range(word_count), repeat=4
+                ):
+                    after_reserve = (
+                        workspace
+                        if gate_bit
+                        else (workspace - reserve) % word_count
+                    )
+                    if after_reserve < tail:
+                        terminal = "return_range_carry"
+                    elif after_reserve - tail < request:
+                        terminal = "return_request_carry"
+                    else:
+                        terminal = "continue_allocation"
+                    observed[terminal] += 1
+                self.assertEqual(
+                    expected,
+                    {terminal: observed[terminal] for terminal in expected},
+                )
 
     def test_saved_operand_wrappers_partition_all_predicate_states(self) -> None:
         paths = symbolic_editor_saved_operand_wrapper_paths()
@@ -898,7 +953,7 @@ class CheckedReportTests(unittest.TestCase):
             965, report["summary"]["natural_branch_outcomes_observed"]
         )
         self.assertEqual(
-            1222,
+            1228,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(
