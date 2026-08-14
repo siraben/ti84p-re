@@ -940,6 +940,96 @@ for (let winBottom = 0; winBottom <= 0xff; winBottom++) {
 
 const alphaOp = (type, nameByte) =>
   [type,nameByte,0,0,0,0,0,0,0];
+const alphaRam = new Uint8Array(0x10000);
+alphaRam[0x9000] = 0x85;
+alphaRam[0x8ffb] = 0x02;
+alphaRam[0x8ffa] = 3;
+alphaRam[0x8ff9] = 0x43;
+alphaRam[0x8ff8] = 0x41;
+alphaRam[0x8ff7] = 0x54;
+alphaRam[0x8ff6] = 0x00;
+alphaRam[0x8ff1] = 0;
+alphaRam[0x8ff0] = 0x58;
+expectEqual('07:51BE decodes named and fixed VAT records',
+  rom.editorDecodeAlphaVatRegion(alphaRam,0x9000,0x8fed), [
+    {op1:[0x05,0x43,0x41,0x54,0,0,0,0,0],pointer:0x9000,page:2},
+    {op1:[0x00,0x58,0,0,0,0,0,0,0],pointer:0x8ff6,page:0},
+  ]);
+expectEqual('07:510B accepts an empty VAT scan region',
+  rom.editorDecodeAlphaVatRegion(alphaRam,0x9000,0x9000), []);
+alphaRam[0x982e] = 0xed;
+alphaRam[0x982f] = 0x8f;
+alphaRam[0x9830] = 0x00;
+alphaRam[0x9831] = 0x90;
+expectEqual('07:50BE derives named-region bounds from pTemp and progPtr',
+  rom.editorDecodeAlphaVatSnapshot(alphaRam,alphaOp(0x05,0x42)), {
+    region:'named/list',start:0x9000,bound:0x8fed,
+    pTemp:0x8fed,progPtr:0x9000,symTable:0xfe66,
+    entries:[
+      {op1:[0x05,0x43,0x41,0x54,0,0,0,0,0],pointer:0x9000,page:2},
+      {op1:[0x00,0x58,0,0,0,0,0,0,0],pointer:0x8ff6,page:0},
+    ],routine:'07:50BE–50F9',
+  });
+const alphaListRam = new Uint8Array(0x10000);
+alphaListRam[0x9100] = 0x01;
+alphaListRam[0x90fa] = 3;
+alphaListRam[0x90f9] = 0x5d;
+alphaListRam[0x90f8] = 0x01;
+expectEqual('07:51BE removes the list length byte from the OP identity',
+  rom.editorDecodeAlphaVatRegion(alphaListRam,0x9100,0x90f6), [
+    {op1:[0x01,0x5d,0x01,0,0,0,0,0,0],pointer:0x9100,page:0},
+  ]);
+expectEqual('07:50BE selects the named region for a list-name OP identity',
+  rom.editorDecodeAlphaVatSnapshot(alphaListRam,
+    [0x00,0x5d,0x01,0,0,0,0,0,0],{pTemp:0x90f6,progPtr:0x9100}), {
+    region:'named/list',start:0x9100,bound:0x90f6,
+    pTemp:0x90f6,progPtr:0x9100,symTable:0xfe66,
+    entries:[
+      {op1:[0x01,0x5d,0x01,0,0,0,0,0,0],pointer:0x9100,page:0},
+    ],routine:'07:50BE–50F9',
+  });
+const alphaMarkerRam = new Uint8Array(0x10000);
+alphaMarkerRam[0x9200] = 0x0d;
+alphaMarkerRam[0x91fa] = 0x3a;
+alphaMarkerRam[0x91f9] = 0x41;
+alphaMarkerRam[0x91f8] = 0x42;
+expectEqual('07:51D6 treats 3Ah as a fixed three-byte list form',
+  rom.editorDecodeAlphaVatRegion(alphaMarkerRam,0x9200,0x91f7), [
+    {op1:[0x0d,0x3a,0x41,0x42,0,0,0,0,0],pointer:0x9200,page:0},
+  ]);
+const alphaType9Ram = new Uint8Array(0x10000);
+alphaType9Ram[0x9300] = 0x09;
+alphaType9Ram[0x92fa] = 4;
+alphaType9Ram[0x92f9] = 0x41;
+alphaType9Ram[0x92f8] = 0x42;
+expectEqual('07:512C applies variable stepping to type 09h',
+  rom.editorDecodeAlphaVatRegion(alphaType9Ram,0x9300,0x92f5), [
+    {op1:[0x09,0x04,0x41,0x42,0,0,0,0,0],pointer:0x9300,page:0},
+  ]);
+const alphaFixedRam = new Uint8Array(0x10000);
+alphaFixedRam[0xfe66] = 0x00;
+alphaFixedRam[0xfe61] = 0x03;
+alphaFixedRam[0xfe60] = 0x42;
+alphaFixedRam[0xfe5f] = 0x00;
+alphaFixedRam[0xfe5e] = 0x00;
+alphaFixedRam[0x982e] = 0x5d;
+alphaFixedRam[0x982f] = 0xfe;
+alphaFixedRam[0x9830] = 0x5d;
+alphaFixedRam[0x9831] = 0xfe;
+expectEqual('07:50BE derives the fixed-token region from symTable and progPtr',
+  rom.editorDecodeAlphaVatSnapshot(alphaFixedRam,alphaOp(0x00,0x41)), {
+    region:'fixed-token',start:0xfe66,bound:0xfe5d,
+    pTemp:0xfe5d,progPtr:0xfe5d,symTable:0xfe66,
+    entries:[
+      {op1:[0x00,0x42,0,0,0,0,0,0,0],pointer:0xfe66,page:3},
+    ],routine:'07:50BE–50F9',
+  });
+expectThrows('07:51BE rejects an overlong logical VAT name', RangeError, () => {
+  const ram = new Uint8Array(0x10000);
+  ram[0x9400] = 5;
+  ram[0x93fa] = 9;
+  rom.editorDecodeAlphaVatRegion(ram,0x9400,0x93f0);
+});
 const alphaVat = [
   {op1:alphaOp(0x85,0x43),pointer:0x9fd0,page:0},
   {op1:alphaOp(0x00,0x42),pointer:0x9fc0,page:0},
@@ -1206,6 +1296,18 @@ for (const [label, direction, editorClass, editorSubClass,
   expectEqual(`39:59E0/59F9 ${label} byte-flow`,
     alphaSearchProjection(translated), alphaSearchProjection(raw));
 }
+expectEqual('39:59E0 derives alphabetic search from a raw VAT snapshot', (() => {
+  const result = rom.editorAlphaSearch('up',0x04,0,{
+    op1:alphaOp(0x05,0x42),vatRam:alphaRam,
+  });
+  return {
+    branch:result.branch,carry:result.carry,op1:result.op1,
+    vatPointer:result.vatPointer,
+  };
+})(), {
+  branch:'search-complete',carry:false,
+  op1:[0x05,0x43,0x41,0x54,0,0,0,0,0],vatPointer:0x9000,
+});
 expectThrows('39:59E0 rejects an omitted VAT snapshot', TypeError,
   () => rom.editorAlphaSearch('up',0x04));
 expectThrows('39:59F9 rejects an omitted class-2 special result', TypeError,

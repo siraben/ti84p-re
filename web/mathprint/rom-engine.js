@@ -303,6 +303,101 @@
     return 0;
   }
 
+  function editorAlphaNamedType(type) {
+    return type === 0x05 || type === 0x06 || type === 0x15 ||
+      type === 0x16 || type === 0x17;
+  }
+
+  // Decode one contiguous VAT scan region from a 64 KiB RAM snapshot. The
+  // region starts at a type cursor and ends just above the lower bound, which
+  // matches the range test at 07:510B. Fixed entries step nine bytes. Named,
+  // list, and type-09h entries use the marker/length step at 07:511F–5149.
+  function editorDecodeAlphaVatRegion(ram, start, bound) {
+    if (!(ram instanceof Uint8Array) || ram.length !== 0x10000)
+      throw new TypeError('alphabetic VAT RAM snapshot must be 65536 bytes');
+    if (!Number.isInteger(start) || start < 0 || start > 0xffff ||
+        !Number.isInteger(bound) || bound < 0 || bound > 0xffff)
+      throw new RangeError('alphabetic VAT region bounds must be unsigned words');
+    if (start < bound)
+      throw new RangeError(
+        'alphabetic VAT region start must not fall below its bound');
+    const entries = [];
+    let cursor = start;
+    while (cursor > bound) {
+      if (cursor < 8)
+        throw new RangeError('alphabetic VAT entry crosses the bottom of RAM');
+      const type = ram[cursor] & 0x1f;
+      const listClass = type === 0x01 || type === 0x0d;
+      const named = editorAlphaNamedType(type);
+      const variableStep = named || listClass || type === 0x09;
+      let next = cursor - 9;
+      let names;
+      if (named || listClass) {
+        let marker = cursor - 6;
+        if (ram[marker] === 0x72 || ram[marker] === 0x3a) {
+          names = [ram[cursor - 6],ram[cursor - 7],ram[cursor - 8]];
+        } else {
+          const storedCount = ram[marker];
+          const copyCount = listClass ? storedCount - 1 : storedCount;
+          if (copyCount < 0 || copyCount > 8)
+            throw new RangeError(
+              `alphabetic VAT entry at 0x${cursor.toString(16)} has invalid name length`);
+          if (marker - storedCount - 1 < bound)
+            throw new RangeError(
+              `alphabetic VAT entry at 0x${cursor.toString(16)} crosses its bound`);
+          names = Array.from({length:copyCount},
+            (_unused,index) => ram[marker - 1 - index]);
+          next = marker - storedCount - 1;
+        }
+      } else {
+        names = [ram[cursor - 6],ram[cursor - 7],ram[cursor - 8]];
+      }
+      if (variableStep && !(named || listClass)) {
+        let marker = cursor - 6;
+        if (ram[marker] !== 0x72 && ram[marker] !== 0x3a) {
+          next = marker - ram[marker] - 1;
+        }
+      }
+      if (next >= cursor || next < bound)
+        throw new RangeError(
+          `alphabetic VAT entry at 0x${cursor.toString(16)} has an invalid next cursor`);
+      const op1 = [type,...names.slice(0,8)];
+      while (op1.length < 9) op1.push(0);
+      entries.push({op1,pointer:cursor,page:ram[cursor - 5]});
+      cursor = next;
+    }
+    if (cursor !== bound)
+      throw new RangeError('alphabetic VAT entries do not end at the region bound');
+    return entries;
+  }
+
+  function editorDecodeAlphaVatSnapshot(ram, op1Value, pointers = {}) {
+    if (!(ram instanceof Uint8Array) || ram.length !== 0x10000)
+      throw new TypeError('alphabetic VAT RAM snapshot must be 65536 bytes');
+    const op1 = editorNineByteBuffer(op1Value, 'alphabetic VAT snapshot OP1');
+    if (!pointers || typeof pointers !== 'object' || Array.isArray(pointers))
+      throw new TypeError('alphabetic VAT pointers must be an object');
+    const wordAt = address => ram[address] | (ram[address + 1] << 8);
+    const pTemp = pointers.pTemp === undefined ? wordAt(0x982e) : pointers.pTemp;
+    const progPtr = pointers.progPtr === undefined ? wordAt(0x9830) : pointers.progPtr;
+    const symTable = pointers.symTable === undefined ? 0xfe66 : pointers.symTable;
+    for (const [label,value] of Object.entries({pTemp,progPtr,symTable})) {
+      if (!Number.isInteger(value) || value < 0 || value > 0xffff)
+        throw new RangeError(`alphabetic VAT ${label} must be an unsigned word`);
+    }
+    const type = op1[0] & 0x1f;
+    const namedRegion = editorAlphaNamedType(type) || type === 0x01 ||
+      type === 0x0d || op1[1] === 0x5d;
+    const start = namedRegion ? progPtr : symTable;
+    const bound = namedRegion ? pTemp : progPtr;
+    return {
+      region:namedRegion ? 'named/list' : 'fixed-token',
+      start, bound, pTemp, progPtr, symTable,
+      entries:editorDecodeAlphaVatRegion(ram,start,bound),
+      routine:'07:50BE–50F9',
+    };
+  }
+
   // Translate the page-39 use of 07:50B5/50B8 over a logical VAT snapshot.
   // Each entry supplies its nine-byte OP-format identity and the address of
   // its VAT type byte. The 2.55MP routine discards caller A and always compares
@@ -549,9 +644,13 @@
 
     let currentOp1 = editorNineByteBuffer(
       options.op1, 'editor alpha-search OP1');
-    const vatSnapshot = options.vatSnapshot;
+    let vatSnapshot = options.vatSnapshot;
+    if (vatSnapshot === undefined && options.vatRam !== undefined)
+      vatSnapshot = editorDecodeAlphaVatSnapshot(
+        options.vatRam,currentOp1,options.vatPointers).entries;
     if (!Array.isArray(vatSnapshot))
-      throw new TypeError('non-class-2 alpha-search requires a VAT snapshot');
+      throw new TypeError(
+        'non-class-2 alpha-search requires a logical or raw VAT snapshot');
     for (let index = 0; index <= vatSnapshot.length; index++) {
       const result = editorFindAlphaVat(direction,currentOp1,vatSnapshot,{
         ...(options.vatContext || {}), menuCurrent:editorClass,
@@ -5500,6 +5599,8 @@
     editorLayoutArgument,
     editorSubexpressionWindow,
     editorSubexpressionCell,
+    editorDecodeAlphaVatRegion,
+    editorDecodeAlphaVatSnapshot,
     editorFindAlphaVat,
     editorSavedOperandWrapper,
     editorAlphaSearch,
