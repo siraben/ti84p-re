@@ -97,6 +97,22 @@ const overflowCueByte = address => {
     throw new Error(`overflow-cue oracle reached unpinned byte 39:${address.toString(16)}`);
   return overflowCueByteMap.get(address);
 };
+const editorViewportRomSpans = [
+  {address:0x5dc2, bytes:Buffer.from('ed5b028eb7ed52c9', 'hex')},
+  {address:0x5dca, bytes:Buffer.from('ed5bfc8d1600c9', 'hex')},
+  {address:0x5f5d, bytes:Buffer.from(
+    'd52a1685cdc25d3008010000ed43028e19110600fdcb445e20011b19d119cdca' +
+    '5db7ed52d8ed5b028e1922028ec9', 'hex')},
+];
+const editorViewportByteMap = new Map(editorViewportRomSpans.flatMap(span =>
+  Array.from(span.bytes,
+    (value, offset) => [span.address + offset, value])));
+const editorViewportByte = address => {
+  if (!editorViewportByteMap.has(address))
+    throw new Error(
+      `editor-viewport oracle reached unpinned byte 34:${address.toString(16)}`);
+  return editorViewportByteMap.get(address);
+};
 const savedOperandRomSpan = {address:0x5abc, bytes:Buffer.from(
   '21998411e785c3921a3e1432e785cdaf1b3e1432788421788418e83e0532e785' +
   '3e4032e885117884180a3e00cd411f18e511998421e78518cdcdec19cdd25a11' +
@@ -371,6 +387,102 @@ function runRawSavedOperandWrapper(source, service, recordFlags, buffers,
   throw new Error('saved-operand oracle exceeded its instruction bound');
 }
 
+function runRawEditorViewport(expressionEndpoint, previousXClip,
+                              iy44Bit3, extraWidth, rightBound = 0x5f) {
+  const literalWord = address => editorViewportByte(address) |
+    (editorViewportByte(address + 1) << 8);
+  const memory = new Map([
+    [0x8516,expressionEndpoint], [0x8e02,previousXClip],
+    [0x8dfc,rightBound],
+  ]);
+  let pc = 0x5f5d, hl = 0, de = extraWidth, bc = 0;
+  let carry = false, zero = false, comparisonCoordinate = null;
+  const stack = [], branchOutcomes = [];
+  for (let instructions = 0; instructions < 64; instructions++) {
+    const opcode = editorViewportByte(pc);
+    if (opcode === 0xd5) {
+      stack.push(de); pc++;
+    } else if (opcode === 0x2a) {
+      hl = memory.get(literalWord(pc + 1)) || 0; pc += 3;
+    } else if (opcode === 0xcd) {
+      const target = literalWord(pc + 1);
+      if (target === 0x5dc2) {
+        de = memory.get(0x8e02) || 0;
+        carry = hl < de;
+        hl = (hl - de) & 0xffff;
+      } else if (target === 0x5dca) {
+        comparisonCoordinate = hl;
+        de = (memory.get(0x8dfc) || 0) & 0xff;
+      } else {
+        throw new Error(
+          `editor-viewport oracle reached unsupported call 0x${target.toString(16)}`);
+      }
+      pc += 3;
+    } else if (opcode === 0x30) {
+      const taken = !carry;
+      branchOutcomes.push(
+        `34:${pc.toString(16).toUpperCase()}:${taken ? 'taken' : 'fallthrough'}`);
+      pc = taken ? pc + 2 + signedByte(editorViewportByte(pc + 1)) : pc + 2;
+    } else if (opcode === 0x01) {
+      bc = literalWord(pc + 1); pc += 3;
+    } else if (opcode === 0xed && editorViewportByte(pc + 1) === 0x43) {
+      memory.set(literalWord(pc + 2),bc); pc += 4;
+    } else if (opcode === 0x19) {
+      hl = (hl + de) & 0xffff; pc++;
+    } else if (opcode === 0x11) {
+      de = literalWord(pc + 1); pc += 3;
+    } else if (opcode === 0xfd && editorViewportByte(pc + 1) === 0xcb &&
+               editorViewportByte(pc + 2) === 0x44 &&
+               editorViewportByte(pc + 3) === 0x5e) {
+      zero = !iy44Bit3; pc += 4;
+    } else if (opcode === 0x20) {
+      const taken = !zero;
+      branchOutcomes.push(
+        `34:${pc.toString(16).toUpperCase()}:${taken ? 'taken' : 'fallthrough'}`);
+      pc = taken ? pc + 2 + signedByte(editorViewportByte(pc + 1)) : pc + 2;
+    } else if (opcode === 0x1b) {
+      de = (de - 1) & 0xffff; pc++;
+    } else if (opcode === 0xd1) {
+      de = stack.pop(); pc++;
+    } else if (opcode === 0xb7) {
+      carry = false; pc++;
+    } else if (opcode === 0xed && editorViewportByte(pc + 1) === 0x52) {
+      carry = hl < de;
+      hl = (hl - de) & 0xffff;
+      pc += 2;
+    } else if (opcode === 0xd8) {
+      branchOutcomes.push(
+        `34:${pc.toString(16).toUpperCase()}:${carry ? 'returned' : 'fallthrough'}`);
+      if (carry) break;
+      pc++;
+    } else if (opcode === 0xed && editorViewportByte(pc + 1) === 0x5b) {
+      de = memory.get(literalWord(pc + 2)) || 0; pc += 4;
+    } else if (opcode === 0x22) {
+      memory.set(literalWord(pc + 1),hl); pc += 3;
+    } else if (opcode === 0xc9) {
+      break;
+    } else {
+      throw new Error(
+        `editor-viewport oracle reached unsupported opcode 0x${opcode.toString(16)}`);
+    }
+  }
+  if (comparisonCoordinate === null)
+    throw new Error('editor-viewport oracle did not reach its right-bound load');
+  const xClip = memory.get(0x8e02) || 0;
+  return {
+    expressionEndpoint, previousXClip,
+    resetPreviousClip:branchOutcomes[0] === '34:5F64:fallthrough',
+    iy44Bit3:Boolean(iy44Bit3), cursorWidth:iy44Bit3 ? 6 : 5,
+    extraWidth, rightBound, xOrigin:0, yOrigin:0, xClip,
+    effectiveX:-xClip, cursorX:expressionEndpoint - xClip,
+    comparisonCoordinate,
+    branch:branchOutcomes[2] === '34:5F81:returned'
+      ? 'return-before-right-bound' : 'store-horizontal-clip',
+    branchOutcomes,
+    routine:'34:5F5D–5F8A; applied by 34:5DBE–5DC9',
+  };
+}
+
 const localRomPath = path.join(root, 'tools', 'rom.bin');
 if (fs.existsSync(localRomPath)) {
   const localRom = fs.readFileSync(localRomPath);
@@ -395,6 +507,11 @@ if (fs.existsSync(localRomPath)) {
       savedOperandOffset,
       savedOperandOffset + savedOperandRomSpan.bytes.length),
     savedOperandRomSpan.bytes);
+  for (const span of editorViewportRomSpans) {
+    const offset = 0x34 * 0x4000 + (span.address & 0x3fff);
+    expectEqual(`34:${span.address.toString(16)} raw editor-viewport bytes`,
+      localRom.subarray(offset, offset + span.bytes.length), span.bytes);
+  }
 }
 expectEqual('39:52B6 relative jump targets the row-token tail',
   0x52b8 + signedByte(controllerByte(0x52b7)), 0x52a2);
@@ -1258,8 +1375,56 @@ for (const [endpoint,xClip,cursorX] of [
 }, {xClip,cursorX});
 expectEqual('34:5F5D retains an existing larger horizontal clip',
   rom.settledEditorViewport(90,{previousXClip:4}).xClip, 4);
-expectThrows('34:5F5D rejects an overflowing editor endpoint', RangeError,
-  () => rom.settledEditorViewport(0xffff,{cursorWidth:0xffff,rightBound:0}));
+expectEqual('34:5F5D clears a clip beyond the edited endpoint', (() => {
+  const viewport = rom.settledEditorViewport(2,{previousXClip:100});
+  return {
+    xClip:viewport.xClip, reset:viewport.resetPreviousClip,
+    branch:viewport.branch, outcomes:viewport.branchOutcomes,
+  };
+})(), {
+  xClip:0,reset:true,branch:'return-before-right-bound',outcomes:[
+    '34:5F64:fallthrough','34:5F75:taken','34:5F81:returned',
+  ],
+});
+expectEqual('34:5F5D wraps endpoint-plus-cursor arithmetic as a word', (() => {
+  const viewport = rom.settledEditorViewport(0xffff);
+  return {
+    coordinate:viewport.comparisonCoordinate,xClip:viewport.xClip,
+    branch:viewport.branch,
+  };
+})(), {coordinate:5,xClip:0,branch:'return-before-right-bound'});
+expectEqual('34:5F5D applies the alternate cursor width and caller padding', {
+  clearBit:rom.settledEditorViewport(91,{iy44Bit3:false}).xClip,
+  extraThree:rom.settledEditorViewport(87,{extraWidth:3}).xClip,
+}, {clearBit:1,extraThree:1});
+expectThrows('34:5DCA rejects a right bound outside its low-byte ABI', RangeError,
+  () => rom.settledEditorViewport(0xffff,{rightBound:0x100}));
+expectThrows('34:5F5D rejects a caller width outside its two call sites', RangeError,
+  () => rom.settledEditorViewport(90,{extraWidth:1}));
+
+// Compare every 16-bit endpoint/difference with the pinned instruction span.
+// endpoint=clip retains every possible nonzero clip; endpoint=clip+1 covers
+// the reset path for every endpoint where that predicate is feasible.
+let editorViewportRawStates = 0;
+for (let endpoint = 0; endpoint <= 0xffff; endpoint++) {
+  const previousClips = [0,endpoint];
+  if (endpoint < 0xffff) previousClips.push(endpoint + 1);
+  for (const previousXClip of previousClips) {
+    for (const iy44Bit3 of [false,true]) {
+      for (const extraWidth of [0,3]) {
+        expectEqual('34:5F5D exhaustive raw-byte viewport state',
+          rom.settledEditorViewport(endpoint,{
+            previousXClip,iy44Bit3,extraWidth,
+          }),
+          runRawEditorViewport(
+            endpoint,previousXClip,iy44Bit3,extraWidth));
+        editorViewportRawStates++;
+      }
+    }
+  }
+}
+expectEqual('34:5F5D exhaustive raw-byte viewport state count',
+  editorViewportRawStates, 786428);
 const editorCueOperations = rom.settledEditorViewportOperations([
   {kind:'point',x:17,y:4,routine:'test'},
   {kind:'line',axis:'horizontal',from:{x:16,y:5},to:{x:20,y:5},routine:'test'},

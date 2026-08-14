@@ -1040,6 +1040,120 @@ def symbolic_editor_reverse_overflow_cue_paths() -> list[dict[str, object]]:
     ]
 
 
+def editor_horizontal_viewport_path(
+    expression_endpoint: int,
+    previous_x_clip: int,
+    iy44_bit3: int,
+    extra_width: int,
+) -> dict[str, object]:
+    """Return one caller-scoped path through 34:5F5D–5F8A."""
+
+    expression_endpoint &= 0xFFFF
+    previous_x_clip &= 0xFFFF
+    iy44_bit3 = int(bool(iy44_bit3))
+    if extra_width not in {0, 3}:
+        raise ValueError("34:5F5D caller width must be zero or three")
+    reset_previous_clip = expression_endpoint < previous_x_clip
+    outcomes = [
+        f"34:5F64:{'fallthrough' if reset_previous_clip else 'taken'}"
+    ]
+    x_clip = 0 if reset_previous_clip else previous_x_clip
+    coordinate = (
+        expression_endpoint if reset_previous_clip
+        else (expression_endpoint - previous_x_clip) & 0xFFFF
+    )
+    cursor_width = 6 if iy44_bit3 else 5
+    outcomes.append(
+        f"34:5F75:{'taken' if iy44_bit3 else 'fallthrough'}"
+    )
+    coordinate = (coordinate + cursor_width) & 0xFFFF
+    coordinate = (coordinate + extra_width) & 0xFFFF
+    before_right_bound = coordinate < 0x5F
+    outcomes.append(
+        f"34:5F81:{'returned' if before_right_bound else 'fallthrough'}"
+    )
+    if not before_right_bound:
+        x_clip = ((coordinate - 0x5F) + x_clip) & 0xFFFF
+    return {
+        "terminal": (
+            "return_before_right_bound" if before_right_bound
+            else "store_horizontal_clip"
+        ),
+        "reset_previous_clip": reset_previous_clip,
+        "cursor_width": cursor_width,
+        "comparison_coordinate": coordinate,
+        "x_clip": x_clip,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_editor_horizontal_viewport_paths() -> list[dict[str, object]]:
+    """Partition the full endpoint/clip caller domain without enumerating pairs."""
+
+    classes: dict[
+        tuple[str, tuple[str, ...]], dict[str, object]
+    ] = {}
+
+    def add_state(
+        expression_endpoint: int,
+        previous_x_clip: int,
+        iy44_bit3: int,
+        extra_width: int,
+        multiplicity: int,
+    ) -> None:
+        result = editor_horizontal_viewport_path(
+            expression_endpoint, previous_x_clip, iy44_bit3, extra_width
+        )
+        key = (
+            str(result["terminal"]),
+            tuple(str(item) for item in result["branch_outcomes"]),
+        )
+        row = classes.setdefault(key, {
+            "projected_input_count": 0,
+            "representative_states": [],
+        })
+        row["projected_input_count"] += multiplicity
+        states = row["representative_states"]
+        if len(states) < 4:
+            states.append({
+                "expression_endpoint": expression_endpoint,
+                "previous_x_clip": previous_x_clip,
+                "iy44_bit3": iy44_bit3,
+                "extra_width": extra_width,
+            })
+
+    for iy44_bit3 in (0, 1):
+        for extra_width in (0, 3):
+            # For endpoint < clip, every larger clip value follows the same
+            # instruction path because 34:5F66 clears the stored word.
+            for expression_endpoint in range(0xFFFF):
+                add_state(
+                    expression_endpoint,
+                    expression_endpoint + 1,
+                    iy44_bit3,
+                    extra_width,
+                    0xFFFF - expression_endpoint,
+                )
+            # For endpoint >= clip, the branch path depends on their unsigned
+            # difference. There are 65536-difference pairs with that value.
+            for difference in range(0x10000):
+                add_state(
+                    difference,
+                    0,
+                    iy44_bit3,
+                    extra_width,
+                    0x10000 - difference,
+                )
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
 def editor_saved_operand_wrapper_path(
     source: str,
     service: str,
@@ -1842,6 +1956,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             symbolic_editor_reverse_overflow_cue_paths(),
         ),
         (
+            "editor_horizontal_viewport",
+            "34:5F5D",
+            0x10000 * 0x10000 * 2 * 2,
+            symbolic_editor_horizontal_viewport_paths(),
+        ),
+        (
             "editor_saved_operand_wrappers",
             "39:5B10",
             16,
@@ -1905,7 +2025,7 @@ def symbolic_model_corpus() -> dict[str, object]:
     return {
         "scope": (
             "all projected inputs and complete path equivalence classes in the "
-            "ten declared finite symbolic models"
+            "eleven declared finite symbolic models"
         ),
         "not_claimed": [
             "all Z80 register and RAM states",

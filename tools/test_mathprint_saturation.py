@@ -19,6 +19,7 @@ from analyze_mathprint_saturation import (
     deserialize_trace_summary,
     editor_action03_controller_path,
     editor_action04_controller_path,
+    editor_horizontal_viewport_path,
     editor_reverse_overflow_cue_path,
     editor_saved_operand_wrapper_path,
     exact_cover_z3,
@@ -42,6 +43,7 @@ from analyze_mathprint_saturation import (
     symbolic_metric_marker_paths,
     symbolic_editor_action03_paths,
     symbolic_editor_action04_paths,
+    symbolic_editor_horizontal_viewport_paths,
     symbolic_editor_reverse_overflow_cue_paths,
     symbolic_editor_saved_operand_wrapper_paths,
     symbolic_model_corpus,
@@ -231,13 +233,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(1214, report["path_equivalence_class_count"])
-        self.assertEqual(1214, report["representative_path_corpus_count"])
-        self.assertEqual(106, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(1222, report["path_equivalence_class_count"])
+        self.assertEqual(1222, report["representative_path_corpus_count"])
+        self.assertEqual(112, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            60, report["per_domain_minimum_branch_outcome_corpus_count"]
+            62, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(10, len(report["domains"]))
+        self.assertEqual(11, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -270,6 +272,23 @@ class SymbolicHandlerTests(unittest.TestCase):
         wrapped = editor_reverse_overflow_cue_path(0xFF, 0)
         self.assertEqual(1, wrapped["remaining_arguments"])
         self.assertEqual("return", wrapped["terminal"])
+
+    def test_horizontal_viewport_partitions_words_flags_and_callers(self) -> None:
+        paths = symbolic_editor_horizontal_viewport_paths()
+
+        self.assertEqual(0x10000 * 0x10000 * 2 * 2, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(8, len(paths))
+        self.assertEqual({
+            "return_before_right_bound", "store_horizontal_clip",
+        }, {row["terminal"] for row in paths})
+        reset = editor_horizontal_viewport_path(2, 100, 1, 0)
+        self.assertTrue(reset["reset_previous_clip"])
+        self.assertEqual(0, reset["x_clip"])
+        wrapped = editor_horizontal_viewport_path(0xFFFF, 0, 1, 0)
+        self.assertEqual(5, wrapped["comparison_coordinate"])
+        self.assertEqual("return_before_right_bound", wrapped["terminal"])
 
     def test_saved_operand_wrappers_partition_all_predicate_states(self) -> None:
         paths = symbolic_editor_saved_operand_wrapper_paths()
@@ -879,7 +898,7 @@ class CheckedReportTests(unittest.TestCase):
             965, report["summary"]["natural_branch_outcomes_observed"]
         )
         self.assertEqual(
-            1214,
+            1222,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(
