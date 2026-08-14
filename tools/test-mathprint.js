@@ -2395,6 +2395,19 @@ expectEqual('34:6119 fixes type-1F table dispatch to the default bitmap',
     routine:'34:6105 → 34:6119 → 00:0033 → 34:6143 → 34:61BE',
     recordId:1, recordType:0x1f, depth:1,
   }]);
+expectEqual('34:4FD9 transient type-1F root renders its one child directly',
+  rom.executeSettledRecordGraph([
+    settledRecord(1,0x1f,{},[2]),
+    settledRecord(2,0x00,{word07:4,word0B:4,word0D:2}),
+  ],1,{renderLeaf:leafGlyph}), [{
+    kind:'glyph',code:2,x:4,y:2,routine:'test leaf',
+    recordId:2,recordType:0,depth:1,
+  }]);
+expectThrows('transient type-1F root rejects multiple children', RangeError,
+  () => rom.executeSettledRecordGraph([
+    settledRecord(1,0x1f,{},[2,3]),
+    settledRecord(2,0x00), settledRecord(3,0x00),
+  ],1,{renderLeaf:leafGlyph}));
 expectEqual('34:62A1 radical primitive order', rom.settledRadicalOperations(12, 0x1d), [
   {kind:'bitmap', x:0, y:5, width:5, height:7,
    rows:[0x04,0x04,0x04,0x04,0x14,0x0c,0x04], retainUnchanged:true,
