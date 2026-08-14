@@ -675,7 +675,9 @@ it as a transient one-child root record. `34:6028` loads `A=0x1F`, and
 following jump to `34:636C` renders child 1 without using the table at
 `34:6119`. No retained natural trace combines `0x8DE7=0x1F` with
 `34:6105` → `34:6143`. The JavaScript record walker implements the ROM-proven
-row-0 bitmap path, but it has no captured type-`0x1F` record/LCD oracle.
+two entry ABIs: a childless type-`0x1F` node follows the table-dispatch row-0
+bitmap path, while a one-child node follows `34:636C` directly. It has no
+captured type-`0x1F` record/LCD oracle.
 [confirmed]
 
 Editor layout is also open. The page `39` class and handler tables, argument

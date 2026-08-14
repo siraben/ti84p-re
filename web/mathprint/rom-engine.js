@@ -877,18 +877,29 @@
 
       switch (record.type) {
       case 0x1f:
-        emit(record, origin, {
+        if (record.childIds.length) {
+          // 34:4FD9 allocates type 1Fh as a transient one-child root.  The
+          // editor redraw reaches 34:636C directly, so this ABI does not run
+          // through the 34:6119 table and does not emit the default bitmap.
+          // Keep the table-dispatch form below for a standalone synthetic
+          // record, whose 34:6119 entry is still independently decoded.
+          if (record.childIds.length !== 1)
+            throw new RangeError('type 1Fh transient root must have one child');
+          renderChild(1);
+        } else {
           // The 34:6119 row is the little-endian pointer 6143h. _LdHLind at
           // 00:0033 loads its low byte into A as a side effect, so table
           // dispatch reaches the shared helper with A=43h. Every comparison
           // falls through to the fixed width byte plus seven bitmap rows at
           // 34:61BE.
-          kind:'bitmap', x:0, y:0, width:5, height:7,
-          rows:[0x02,0x01,0x00,0x1f,0x00,0x02,0x06],
-          retainUnchanged:true,
-          tableEntry:[0x43,0x61], incomingA:0x43,
-          routine:'34:6105 → 34:6119 → 00:0033 → 34:6143 → 34:61BE',
-        });
+          emit(record, origin, {
+            kind:'bitmap', x:0, y:0, width:5, height:7,
+            rows:[0x02,0x01,0x00,0x1f,0x00,0x02,0x06],
+            retainUnchanged:true,
+            tableEntry:[0x43,0x61], incomingA:0x43,
+            routine:'34:6105 → 34:6119 → 00:0033 → 34:6143 → 34:61BE',
+          });
+        }
         break;
       case 0x20: {
         const first = child(record, 1), second = child(record, 2);
