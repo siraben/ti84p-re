@@ -570,7 +570,7 @@ return class identifies which callee paths have live witnesses. [confirmed]
 | Component | Reachable instructions | Natural / all-evidence outcomes | Outcomes in CFG | Natural / all-evidence instruction coverage |
 |-----------|-----------------------:|--------------------------------:|----------------:|--------------------------------------------:|
 | Settled construction | 991 | 247 / 248 | 408 | 80.73% / 80.73% |
-| Settled rendering | 1,898 | 229 / 233 | 302 | 93.94% / 94.63% |
+| Settled rendering | 1,898 | 236 / 238 | 302 | 95.26% / 95.26% |
 | Metrics and geometry | 470 | 75 / 75 | 80 | 99.36% / 99.36% |
 | Record allocator | 64 | 7 / 7 | 8 | 98.44% / 98.44% |
 | Editor layout | 2,776 | 255 / 255 | 1,098 | 33.03% / 33.03% |
@@ -587,10 +587,10 @@ the allocator's four branches and 35 of the 40 metric branches have both
 outcomes. [confirmed]
 
 The report classifies all 2,184 enumerated outcomes. Natural calculator input
-exercises 962. The synthetic `EF36h` state adds five outcomes, for 967 across
+exercises 965. The synthetic `EF36h` state adds three outcomes, for 968 across
 all evidence. One allocator outcome is infeasible under its data invariant.
 Two metric outcomes are infeasible under the calculator call ABI. The full
-evidence set leaves 1,214 unresolved; the natural-only set leaves 1,219.
+evidence set leaves 1,213 unresolved; the natural-only set leaves 1,216.
 An unobserved outcome never becomes infeasible from absence alone. [confirmed]
 
 The infeasible allocator outcome is the fallthrough at `33:4F4E`. The type
@@ -612,13 +612,13 @@ The report computes two exact Z3 covers. The first preserves every individual
 branch outcome observed in the supplied traces. It does not preserve complete
 invocation paths, register or RAM states, dispatch indices, record cases, or LCD
 write cases. The all-evidence and natural-only branch covers each select 23
-traces. They preserve 967 and 962 outcomes in 3,738,592,734 and 3,788,846,418
+traces. They preserve 968 and 965 outcomes in 3,733,190,076 and 3,783,443,760
 bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,223 tags and needs 126
-traces. The natural-only universe has 1,218 tags and needs 125 traces. Every
+independent oracle case. Its all-evidence universe has 1,224 tags and needs 126
+traces. The natural-only universe has 1,221 tags and needs 125 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -636,12 +636,17 @@ radical run, so the exact solver omits it. The macro paths contain no `memwrite`
 command or execution hook. The raw TLMT files remain outside the repository;
 their hashes identify the exact inputs used by the report. [confirmed]
 
-| Input | Reproduction macro | Trace SHA-256 | Full branch-cover result |
+| Input | Reproduction macro | Trace SHA-256 | Exclusive outcomes in the full branch cover |
 |-------|--------------------|--------------|--------------------------|
 | Log-base marker insertion | `tools/macros/mathprint-logbase-boundary-insert.macro` | `a49e4c13c93358662713da7f5e07862f42863d60a70ce18e141a90987914008b` | 2 |
 | Radical marker insertion | `tools/macros/mathprint-radical-nonspecial-insert.macro` | `e7b79e37149f2b9b4a986bdbb114a89b03cd452bbecc6da20490edc972895e98` | Omitted |
-| Integral marker insertion | `tools/macros/mathprint-integral-boundary-insert.macro` | `328b8f52ebe939b35f79e676076984aa85ee59e05c06862647c4fc615069bb3c` | 16 |
+| Integral marker insertion | `tools/macros/mathprint-integral-boundary-insert.macro` | `328b8f52ebe939b35f79e676076984aa85ee59e05c06862647c4fc615069bb3c` | 2 |
 | **Y=**/table/power round trip | `tools/macros/mathprint-yequ-table-power-insert.macro` | `ac719f540d2adfca05d2ffa415f065b83eaf407f04fca42f5ae63c440a746b9d` | 16 |
+
+The retained `mathprint_integral_boundary_insert` trace reaches `34:6968`
+taken, `34:6B6D` fallthrough, and `34:6B94` fallthrough through calculator
+input. It supplies the natural witnesses recorded for all three outcomes.
+[confirmed]
 
 Four additional reset-origin traces close ten natural branch outcomes and four
 complete editor-helper paths. Their macros use key input only. The screenshots
