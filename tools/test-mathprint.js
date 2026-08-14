@@ -322,6 +322,96 @@ expectEqual('39:523B stops styled overflow when the saved-F2 emitter carries',
   rom.editorRetreatArgument(8, 2, 4, 1, 1, 0x20, {
     savedF2EmitterCarry:true,
   }).branch, 'styled-overflow-carry');
+expectEqual('39:51F1 sends a nonzero argument through the reverse walker', {
+  branch:rom.editorFirstArgumentAction(8, 2, 4, 4, 1, 0).branch,
+  delegate:rom.editorFirstArgumentAction(8, 2, 4, 4, 1, 0).delegate.branch,
+  nextArgument:rom.editorFirstArgumentAction(8, 2, 4, 4, 1, 0)
+    .delegate.nextArgument,
+}, {branch:'reverse-walker',delegate:'in-row',nextArgument:1});
+expectEqual('39:51F1 bit 0 returns through the row-token tail',
+  rom.editorFirstArgumentAction(8, 0, 4, 4, 1, 0, {editorFlags:1}), {
+    layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:4,
+    baselineRow:1, recordFlags:0, editorFlags:1, editorFlagBit0:true,
+    routine:'39:51F1', iterations:0, finalArgument:0, visibleSlot:null,
+    preEmissionRow:null, emissionRow:null, finalRow:null,
+    branch:'row-token-tail',
+    effects:[{kind:'set-row-for-token',routine:'39:51EE → 39:5447'}],
+    continuation:'row-token-tail',
+  });
+expectEqual('39:50A1 wraps a zero short-list counter through 256 calls',
+  rom.editorFirstArgumentAction(8, 0, 0, 4, 1, 0), {
+    layoutClass:8, argumentIndex:0, argumentCount:0, currentRow:4,
+    baselineRow:1, recordFlags:0, editorFlags:0, editorFlagBit0:false,
+    routine:'39:51F1', iterations:256, finalArgument:null,
+    visibleSlot:null, preEmissionRow:null, emissionRow:null, finalRow:null,
+    branch:'short-list-drain', effects:[
+      {kind:'repeat-advance-argument',iterations:256,
+        routine:'39:50A1 → 39:5167'},
+      {kind:'set-row-for-token',routine:'39:50AD → 39:5447'},
+    ], continuation:'row-token-tail',
+  });
+expectEqual('39:50A1 drains each nonzero short-list argument once', {
+  one:rom.editorFirstArgumentAction(8, 0, 1, 4, 1, 0).iterations,
+  seven:rom.editorFirstArgumentAction(8, 0, 7, 4, 1, 0).iterations,
+}, {one:1,seven:7});
+expectEqual('39:51F1 wraps the wide-list baseline row and selects its last slot',
+  (() => {
+    const result = rom.editorFirstArgumentAction(8, 0, 8, 4, 0, 0);
+    return {
+      branch:result.branch, finalArgument:result.finalArgument,
+      visibleSlot:result.visibleSlot, preEmissionRow:result.preEmissionRow,
+      emissionRow:result.emissionRow, finalRow:result.finalRow,
+      effects:result.effects,
+    };
+  })(), {
+    branch:'last-visible-argument', finalArgument:7, visibleSlot:0,
+    preEmissionRow:0xff, emissionRow:7, finalRow:null, effects:[
+      {kind:'clear-saved-F2',address:0x85f2,value:0},
+      {kind:'set-argument-index',value:7},
+      {kind:'select-handler-row',row:0,routine:'39:4DCA'},
+      {kind:'set-row',value:0xff},
+      {kind:'emit-subexpression-cell',slot:0,routine:'39:4CA4'},
+      {kind:'set-row-column',row:7,column:0},
+      {kind:'emit-highlighted-argument',argument:7,routine:'39:4E14'},
+      {kind:'set-row-for-token',routine:'39:51EE → 39:5447'},
+    ],
+  });
+expectEqual('39:51F1 keeps maximum-count arithmetic byte-sized',
+  (() => {
+    const result = rom.editorFirstArgumentAction(8, 0, 0xff, 4, 0, 0);
+    return [result.finalArgument,result.visibleSlot,result.preEmissionRow];
+  })(), [0xfe,0xf7,0xff]);
+expectEqual('39:52A5 drains to the last argument then lays out argument zero',
+  rom.editorDrainArguments(2, 7, {baselineRow:4,kbdKey:4}), {
+    argumentIndex:2, argumentCount:7, lastArgument:6, delta:4,
+    editorFlags:0, editorFlagBit0:false, baselineRow:4, kbdKey:4,
+    routine:'39:52A5', iterations:4, finalArgument:6,
+    layout:{
+      argumentIndex:0, argumentCount:7, clampedArgument:0, windowStart:0,
+      kbdKey:4, continuation:'return-window-start',
+      routine:'39:513E → 39:50CF → 39:5101', visibleRow:1,
+      baselineRow:4, restoredRow:4,
+    },
+    branch:'layout-first-argument', effects:[
+      {kind:'repeat-advance-argument',iterations:4,
+        routine:'39:52B3 → 39:5167'},
+      {kind:'layout-argument',argument:0,routine:'39:513E'},
+    ], continuation:'argument-layout',
+  });
+expectEqual('39:52A5 uses the row-token tail when bit zero is set',
+  rom.editorDrainArguments(6, 7, {editorFlags:1}).branch,
+  'row-token-tail');
+expectEqual('39:52A5 preserves the terminating zero-count byte state', {
+  branch:rom.editorDrainArguments(0xff, 0, {baselineRow:0}).branch,
+  iterations:rom.editorDrainArguments(0xff, 0, {baselineRow:0}).iterations,
+  layoutArgument:rom.editorDrainArguments(0xff, 0, {baselineRow:0})
+    .layout.argumentIndex,
+}, {branch:'layout-first-argument',iterations:0,layoutArgument:0});
+expectEqual('39:52A5 exposes nonprogressing wrapped states', [
+  rom.editorDrainArguments(2, 0).branch,
+  rom.editorDrainArguments(9, 7).branch,
+  rom.editorDrainArguments(9, 7).delta,
+], ['would-loop','would-loop',0xfd]);
 expectThrows('39:5167 rejects a non-boolean saved-F2 carry', TypeError,
   () => rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
     savedF2EmitterCarry:1,
@@ -372,6 +462,55 @@ for (let layoutClass = 0; layoutClass <= 0xff; layoutClass++) {
     }
   }
 }
+
+// Exhaust both controller actions over every count/index byte pair and both
+// IY+1Dh bit-zero outcomes. This includes count underflow, index subtraction
+// wrap, the 256-iteration zero counter, and every nonprogressing drain state.
+let firstArgumentControllerStates = 0;
+let argumentDrainControllerStates = 0;
+for (const editorFlags of [0, 1]) {
+  for (let argumentCount = 0; argumentCount <= 0xff; argumentCount++) {
+    for (let argumentIndex = 0; argumentIndex <= 0xff; argumentIndex++) {
+      const first = rom.editorFirstArgumentAction(
+        8, argumentIndex, argumentCount, 4, 0, 0, {editorFlags});
+      const expectedFirstBranch = argumentIndex !== 0
+        ? 'reverse-walker'
+        : editorFlags ? 'row-token-tail'
+          : argumentCount < 8 ? 'short-list-drain'
+            : 'last-visible-argument';
+      if (first.branch !== expectedFirstBranch)
+        throw new Error('39:51F1 exhaustive controller branch mismatch');
+      if (first.branch === 'short-list-drain' && first.iterations !==
+          (argumentCount === 0 ? 0x100 : argumentCount))
+        throw new Error('39:50A1 exhaustive byte counter mismatch');
+      if (first.branch === 'last-visible-argument' &&
+          (first.finalArgument !== argumentCount - 1 ||
+           first.visibleSlot !== ((argumentCount - 8) & 0xff) ||
+           first.preEmissionRow !== 0xff))
+        throw new Error('39:51F1 exhaustive wide-list arithmetic mismatch');
+      firstArgumentControllerStates++;
+
+      const drain = rom.editorDrainArguments(
+        argumentIndex, argumentCount, {editorFlags});
+      const lastArgument = (argumentCount - 1) & 0xff;
+      const delta = (lastArgument - argumentIndex) & 0xff;
+      const wouldLoop = delta !== 0 &&
+        (argumentCount === 0 || argumentIndex > lastArgument);
+      const expectedDrainBranch = wouldLoop
+        ? 'would-loop' : editorFlags ? 'row-token-tail' : 'layout-first-argument';
+      if (drain.branch !== expectedDrainBranch || drain.delta !== delta)
+        throw new Error('39:52A5 exhaustive controller branch mismatch');
+      if (wouldLoop ? drain.iterations !== null : drain.iterations !== delta)
+        throw new Error('39:52A5 exhaustive iteration mismatch');
+      if (!wouldLoop && !editorFlags && drain.layout.argumentIndex !== 0)
+        throw new Error('39:52A5 flag-clear exit stopped laying out argument zero');
+      argumentDrainControllerStates++;
+    }
+  }
+}
+expectEqual('39:51F1/52A5 exhaustive controller state totals',
+  [firstArgumentControllerStates,argumentDrainControllerStates],
+  [0x20000,0x20000]);
 
 for (const [[d, e], glyph] of [
   [[0xfc, 0x3c], 5], [[0xfc, 0x40], 9],

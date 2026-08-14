@@ -244,6 +244,33 @@ For a two-row result, rows below 3 jump to `39:4C5A` at `39:5246`. Otherwise,
 baseline at `0x984A`. Equality and borrow enter the overflow path. The styled
 test at `39:5251` follows both predicates. [confirmed]
 
+### Action controllers
+
+Action `0x03` at `39:51F1` sends nonzero `0x85E0` values to the reverse
+walker. At index zero, `(IY+1Dh).0` can return through `39:5447`. Otherwise,
+counts below 8 enter the do-while loop at `39:50A1`. Its byte counter makes
+`count` calls to `39:5167` for counts 1–7 and 256 calls for count zero. Counts
+of at least 8 select these byte-sized values before emitting the highlighted
+final argument at row 7:
+
+```text
+final_argument  = count - 1
+visible_slot    = (count - 8 + baseline_row) & 0xFF
+pre_emit_row    = (baseline_row - 1) & 0xFF
+```
+
+Action `0x04` at `39:52A5` drains while this byte difference is nonzero:
+
+```text
+delta = ((count - 1) - argument_index) & 0xFF
+```
+
+Valid states with `count > 0` and `argument_index < count - 1` terminate after
+`delta` calls to `39:5167`. An index above `count - 1` does not progress.
+Count zero behaves the same way except for index `0xFF`, whose initial delta is
+zero. On the flag-clear terminating path, `A=0` reaches `39:513E` and selects
+argument zero. [confirmed]
+
 ### Slot-to-baseline placement
 
 State used by `39:5167`:
