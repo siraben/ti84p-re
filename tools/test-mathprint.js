@@ -97,6 +97,20 @@ const overflowCueByte = address => {
     throw new Error(`overflow-cue oracle reached unpinned byte 39:${address.toString(16)}`);
   return overflowCueByteMap.get(address);
 };
+const savedOperandRomSpan = {address:0x5abc, bytes:Buffer.from(
+  '21998411e785c3921a3e1432e785cdaf1b3e1432788421788418e83e0532e785' +
+  '3e4032e885117884180a3e00cd411f18e511998421e78518cdcdec19cdd25a11' +
+  'f28518f011788421f28518ba21788411f28518b2fdcb116ec8cde15acde05918' +
+  '0bfdcb116ec8cde15acdf959d818a7fdcb116ec8cd005bcde059180bfdcb116e' +
+  'c8cd005bcdf959d818c2', 'hex')};
+const savedOperandByteMap = new Map(Array.from(
+  savedOperandRomSpan.bytes,
+  (value, offset) => [savedOperandRomSpan.address + offset, value]));
+const savedOperandByte = address => {
+  if (!savedOperandByteMap.has(address))
+    throw new Error(`saved-operand oracle reached unpinned byte 39:${address.toString(16)}`);
+  return savedOperandByteMap.get(address);
+};
 const controllerByteMap = new Map(controllerRomSpans.flatMap(span =>
   Array.from(span.bytes, (value, offset) => [span.address + offset, value])));
 const controllerByte = address => {
@@ -271,6 +285,92 @@ function runRawOverflowCue(direction, argumentIndex, argumentCount, winBottom,
   throw new Error('overflow-cue oracle exceeded its instruction bound');
 }
 
+function runRawSavedOperandWrapper(source, service, recordFlags, buffers,
+                                   serviceResult) {
+  const entries = {
+    'saved-E7:normal':0x5b10, 'saved-E7:variable':0x5b1d,
+    'saved-F2:normal':0x5b2b, 'saved-F2:variable':0x5b38,
+  };
+  let pc = entries[`${source}:${service}`];
+  if (pc === undefined)
+    throw new RangeError('raw saved-operand oracle received an invalid wrapper');
+  const memory = new Map();
+  const writeBuffer = (address, values) =>
+    values.forEach((value, index) => memory.set(address + index,value));
+  const readBuffer = address =>
+    Array.from({length:9}, (_, index) => memory.get(address + index) || 0);
+  writeBuffer(0x8478,buffers.op1);
+  writeBuffer(0x85e7,buffers.savedE7);
+  writeBuffer(0x85f2,buffers.savedF2);
+  const literalWord = address =>
+    savedOperandByte(address) | (savedOperandByte(address + 1) << 8);
+  const callStack = [];
+  let hl = 0, de = 0;
+  let zero = false;
+  let carry = serviceResult.incomingCarry || false;
+  let serviceInput = null;
+  const finish = branch => ({
+    branch, serviceInput, carry,
+    buffers:{
+      op1:readBuffer(0x8478),
+      savedE7:readBuffer(0x85e7),
+      savedF2:readBuffer(0x85f2),
+    },
+  });
+  for (let instructions = 0; instructions < 64; instructions++) {
+    if (pc === 0x1a92) {
+      writeBuffer(de,readBuffer(hl));
+      if (!callStack.length) return finish('save-result');
+      pc = callStack.pop();
+      continue;
+    }
+    const opcode = savedOperandByte(pc);
+    if (opcode === 0xfd) {
+      if (savedOperandByte(pc + 1) !== 0xcb ||
+          savedOperandByte(pc + 2) !== 0x11 ||
+          savedOperandByte(pc + 3) !== 0x6e)
+        throw new Error('saved-operand oracle reached an unsupported indexed opcode');
+      zero = (recordFlags & 0x20) === 0;
+      pc += 4;
+    } else if (opcode === 0xc8) {
+      if (zero) return finish('gated-return');
+      pc++;
+    } else if (opcode === 0xcd) {
+      const target = literalWord(pc + 1);
+      if (target === 0x5ae1 || target === 0x5b00) {
+        callStack.push(pc + 3);
+        pc = target;
+      } else if (target === 0x59e0 || target === 0x59f9) {
+        serviceInput = readBuffer(0x8478);
+        writeBuffer(0x8478,serviceResult.op1);
+        carry = serviceResult.carry;
+        pc += 3;
+      } else {
+        throw new Error(`saved-operand oracle reached unsupported call 0x${target.toString(16)}`);
+      }
+    } else if (opcode === 0x11) {
+      de = literalWord(pc + 1);
+      pc += 3;
+    } else if (opcode === 0x21) {
+      hl = literalWord(pc + 1);
+      pc += 3;
+    } else if (opcode === 0x18) {
+      pc += 2 + signedByte(savedOperandByte(pc + 1));
+    } else if (opcode === 0xc3) {
+      const target = literalWord(pc + 1);
+      if (target !== 0x1a92)
+        throw new Error('saved-operand oracle reached an unsupported jump');
+      pc = target;
+    } else if (opcode === 0xd8) {
+      if (carry) return finish('service-carry');
+      pc++;
+    } else {
+      throw new Error(`saved-operand oracle reached unsupported opcode 0x${opcode.toString(16)}`);
+    }
+  }
+  throw new Error('saved-operand oracle exceeded its instruction bound');
+}
+
 const localRomPath = path.join(root, 'tools', 'rom.bin');
 if (fs.existsSync(localRomPath)) {
   const localRom = fs.readFileSync(localRomPath);
@@ -288,6 +388,13 @@ if (fs.existsSync(localRomPath)) {
     localRom.subarray(
       overflowOffset, overflowOffset + overflowCueRomSpan.bytes.length),
     overflowCueRomSpan.bytes);
+  const savedOperandOffset = 0x39 * 0x4000 +
+    (savedOperandRomSpan.address & 0x3fff);
+  expectEqual('39:5ABC–5B45 raw saved-operand bytes',
+    localRom.subarray(
+      savedOperandOffset,
+      savedOperandOffset + savedOperandRomSpan.bytes.length),
+    savedOperandRomSpan.bytes);
 }
 expectEqual('39:52B6 relative jump targets the row-token tail',
   0x52b8 + signedByte(controllerByte(0x52b7)), 0x52a2);
@@ -361,6 +468,127 @@ for (let winBottom = 0; winBottom <= 0xff; winBottom++) {
   const translated = rom.editorReverseOverflowCue(1, 12, winBottom);
   expectEqual('39:66E9 exhaustive window-bottom row',
     translated.emission, raw.emission);
+}
+
+const savedOperandBuffers = {
+  op1:[0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09],
+  savedE7:[0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
+  savedF2:[0x21,0x22,0x23,0x24,0x25,0x26,0x27,0x28,0x29],
+};
+const savedOperandServiceOp1 =
+  [0xa1,0xa2,0xa3,0xa4,0xa5,0xa6,0xa7,0xa8,0xa9];
+expectEqual('39:5B10 preserves buffers and carry when bit 5 is clear', (() => {
+  const result = rom.editorSavedOperandWrapper(
+    'saved-E7','normal',0,savedOperandBuffers,{incomingCarry:true});
+  return {
+    branch:result.branch, serviceCalled:result.serviceCalled,
+    carry:result.carry, copies:result.copies, buffers:result.buffers,
+  };
+})(), {
+  branch:'gated-return',serviceCalled:false,carry:true,copies:[],
+  buffers:savedOperandBuffers,
+});
+expectEqual('39:5B10 restores E7 and saves a carry-clear service result', (() => {
+  const result = rom.editorSavedOperandWrapper(
+    'saved-E7','normal',0x20,savedOperandBuffers,{
+      carry:false,op1:savedOperandServiceOp1,
+    });
+  return {
+    branch:result.branch, serviceInput:result.serviceInput,
+    carry:result.carry, copies:result.copies, buffers:result.buffers,
+  };
+})(), {
+  branch:'save-result',serviceInput:savedOperandBuffers.savedE7,
+  carry:false,copies:[
+    {from:0x85e7,to:0x8478,bytes:9,routine:'39:5AE1 → 00:1A92'},
+    {from:0x8478,to:0x85e7,bytes:9,routine:'39:5AD2 → 00:1A92'},
+  ],buffers:{
+    op1:savedOperandServiceOp1,
+    savedE7:savedOperandServiceOp1,
+    savedF2:savedOperandBuffers.savedF2,
+  },
+});
+expectEqual('39:5B38 carry exit leaves E7 unchanged after restoring F2', (() => {
+  const result = rom.editorSavedOperandWrapper(
+    'saved-F2','variable',0x20,savedOperandBuffers,{
+      carry:true,op1:savedOperandServiceOp1,
+    });
+  return {
+    branch:result.branch, serviceInput:result.serviceInput,
+    carry:result.carry, copies:result.copies, buffers:result.buffers,
+  };
+})(), {
+  branch:'service-carry',serviceInput:savedOperandBuffers.savedF2,
+  carry:true,copies:[
+    {from:0x85f2,to:0x8478,bytes:9,routine:'39:5B00 → 00:1A92'},
+  ],buffers:{
+    op1:savedOperandServiceOp1,
+    savedE7:savedOperandBuffers.savedE7,
+    savedF2:savedOperandBuffers.savedF2,
+  },
+});
+expectThrows('39:5B10 rejects an enabled service without an OP1 result',
+  TypeError, () => rom.editorSavedOperandWrapper(
+    'saved-E7','normal',0x20,savedOperandBuffers,{carry:false}));
+expectThrows('39:5B10 rejects an eleven-byte OP scratch value',
+  RangeError, () => rom.editorSavedOperandWrapper(
+    'saved-E7','normal',0x20,{...savedOperandBuffers,savedE7:new Array(11).fill(0)},
+    {carry:false,op1:savedOperandServiceOp1}));
+
+const savedOperandProjection = result => ({
+  branch:result.branch,
+  serviceInput:result.serviceInput,
+  carry:result.carry,
+  buffers:result.buffers,
+});
+let savedOperandWrapperStates = 0;
+for (const source of ['saved-E7','saved-F2']) {
+  for (const service of ['normal','variable']) {
+    for (let recordFlags = 0; recordFlags <= 0xff; recordFlags++) {
+      for (const incomingCarry of [false,true]) {
+        for (const serviceCarry of [false,true]) {
+          const serviceResult = {
+            incomingCarry,carry:serviceCarry,op1:savedOperandServiceOp1,
+          };
+          const raw = runRawSavedOperandWrapper(
+            source,service,recordFlags,savedOperandBuffers,serviceResult);
+          const translated = rom.editorSavedOperandWrapper(
+            source,service,recordFlags,savedOperandBuffers,serviceResult);
+          expectEqual('39:5B10–5B44 exhaustive wrapper state',
+            savedOperandProjection(translated), raw);
+          savedOperandWrapperStates++;
+        }
+      }
+    }
+  }
+}
+expectEqual('39:5B10–5B44 exhaustive wrapper state count',
+  savedOperandWrapperStates, 0x1000);
+
+// Exercise every value in every byte position across both restore sources and
+// the carry-clear OP1 writeback. This is the complete basis of each Mov9B.
+for (const source of ['saved-E7','saved-F2']) {
+  for (let position = 0; position < 9; position++) {
+    for (let value = 0; value <= 0xff; value++) {
+      const sourceValue = new Array(9).fill(0);
+      const resultValue = new Array(9).fill(0);
+      sourceValue[position] = value;
+      resultValue[position] = value ^ 0xff;
+      const buffers = {
+        op1:new Array(9).fill(0x55),
+        savedE7:source === 'saved-E7'
+          ? sourceValue : new Array(9).fill(0x11),
+        savedF2:source === 'saved-F2'
+          ? sourceValue : new Array(9).fill(0x22),
+      };
+      const serviceResult = {carry:false,op1:resultValue};
+      expectEqual('39:5AE1/5B00/5AD2 exhaustive Mov9B basis',
+        savedOperandProjection(rom.editorSavedOperandWrapper(
+          source,'normal',0x20,buffers,serviceResult)),
+        runRawSavedOperandWrapper(
+          source,'normal',0x20,buffers,serviceResult));
+    }
+  }
 }
 
 // Executable translations of closed page-39 routines. These expectations are
@@ -562,6 +790,41 @@ expectEqual('39:5167 stops styled overflow when the saved-F2 emitter carries',
   rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
     savedF2EmitterCarry:true,
   }).branch, 'styled-overflow-carry');
+expectEqual('39:5167 composes F2 and E7 normal-wrapper state', (() => {
+  const f2Result = {carry:false,op1:new Array(9).fill(0xf2)};
+  const e7Result = {carry:false,op1:new Array(9).fill(0xe7)};
+  const result = rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
+    savedOperandBuffers,
+    savedF2ServiceResult:f2Result,
+    savedE7ServiceResult:e7Result,
+  });
+  const f2 = result.effects.find(effect => effect.source === 'saved-F2');
+  const e7 = result.effects.find(effect => effect.source === 'saved-E7');
+  return {
+    branch:result.branch,carry:result.savedF2EmitterCarry,
+    f2Input:f2.transition.serviceInput,
+    f2Saved:f2.transition.buffers.savedF2,
+    e7Input:e7.transition.serviceInput,
+    e7Saved:e7.transition.buffers.savedE7,
+    e7SeesF2:e7.transition.buffers.savedF2,
+  };
+})(), {
+  branch:'styled-overflow',carry:false,
+  f2Input:savedOperandBuffers.savedF2,f2Saved:new Array(9).fill(0xf2),
+  e7Input:savedOperandBuffers.savedE7,e7Saved:new Array(9).fill(0xe7),
+  e7SeesF2:new Array(9).fill(0xf2),
+});
+expectEqual('39:5167 derives the styled carry branch from the F2 wrapper',
+  rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
+    savedOperandBuffers,
+    savedF2ServiceResult:{carry:true,op1:new Array(9).fill(0xcc)},
+  }).branch, 'styled-overflow-carry');
+expectThrows('39:5167 rejects contradictory modeled and supplied F2 carry',
+  RangeError, () => rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
+    savedF2EmitterCarry:false,
+    savedOperandBuffers,
+    savedF2ServiceResult:{carry:true,op1:new Array(9).fill(0xcc)},
+  }));
 expectEqual('39:523B stops before decrementing the first argument',
   rom.editorRetreatArgument(8, 0, 4, 4, 1, 0), {
     layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:4,
@@ -585,6 +848,22 @@ expectEqual('39:523B retreats an ordinary argument by one row',
     ],
     continuation:'row-token-tail',
   });
+expectEqual('39:523B executes the E7 variable-wrapper transition', (() => {
+  const result = rom.editorRetreatArgument(8, 2, 4, 4, 1, 0x20, {
+    savedOperandBuffers,
+    savedE7ServiceResult:{carry:false,op1:new Array(9).fill(0x77)},
+  });
+  const effect = result.effects.find(item => item.source === 'saved-E7');
+  return {
+    branch:result.branch,
+    service:effect.transition.service,
+    input:effect.transition.serviceInput,
+    result:effect.transition.buffers.savedE7,
+  };
+})(), {
+  branch:'in-row',service:'variable',input:savedOperandBuffers.savedE7,
+  result:new Array(9).fill(0x77),
+});
 expectEqual('39:523B retreats a class-06 low argument by two rows',
   rom.editorRetreatArgument(6, 3, 4, 3, 1, 0).placementRow, 1);
 expectEqual('39:523B sends a class-06 row-two retreat to 39:4C5A',
