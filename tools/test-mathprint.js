@@ -395,6 +395,14 @@ expectEqual('browser preserves extended tokens in a settled leaf',
     parts:[{kind:'power',base:[0x58],exponent:[0x32]},
       {kind:'extendedToken',tokens:[0xef,0x1e]}],
   });
+expectEqual('generated LCD records expose their graph-derived AST',
+  mp.generatedForExpression('sum(N,1,3,N^2)').settledAst, {
+    kind:'summation', variable:[0x4e], lower:[0x31], upper:[0x33],
+    body:{kind:'power',base:[0x4e],exponent:[0x32]},
+  });
+expectEqual('semantic decoder retains non-structural EF function tokens',
+  mp.generatedForNativeTokens([0xef,0x35,0x31,0x2b,0x35,0x11]).settledAst,
+  [0xef,0x35,0x31,0x2b,0x35,0x11]);
 expectThrows('settled semantic decoder rejects duplicate IDs', RangeError,
   () => rom.decodeSettledExpressionGraph([
     {id:1,type:0,payload:[0x58]}, {id:1,type:0,payload:[0x59]},

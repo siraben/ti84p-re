@@ -930,7 +930,7 @@ token. The renderer maps the pair to display code `0xF7`, so the decoded tree
 exposes an unfilled template slot. The tree identifies the expression in a
 trace without using LCD pixels or a screenshot. It describes the settled graph
 consumed by `34:660A`. The browser-side ROM engine exposes the same decoder for
-its generated AST view. The editor/parser representation before `34:4900`
+its generated AST view as `settledAst`. The editor/parser representation before `34:4900`
 remains open. [confirmed]
 
 Within that program, `EF type id_lo id_hi` invokes the structural record with

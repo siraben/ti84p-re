@@ -2894,7 +2894,16 @@
             index += 2;
             continue;
           }
-          if (subtype < 0x1f || subtype > 0x2b || index + 3 >= payload.length)
+          // EF-prefixed tokens outside the settled structural range remain
+          // ordinary leaf bytes. For example, EF 35 is the random-integer
+          // function token, not a record marker. Keep its two-byte spelling
+          // in the semantic leaf instead of treating it as a malformed ID.
+          if (subtype < 0x1f || subtype > 0x2b) {
+            tokens.push(0xef,subtype);
+            index += 2;
+            continue;
+          }
+          if (index + 3 >= payload.length)
             throw new RangeError(
               `settled leaf 0x${recordId.toString(16)} has unsupported EF ` +
               `subtype 0x${subtype.toString(16)}`);

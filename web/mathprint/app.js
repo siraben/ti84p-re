@@ -1013,6 +1013,11 @@ function pixelTrace(record) {
 
 function generateRecordProgram(program, options = {}) {
   if (!program || !ROM_ENGINE) return null;
+  // Keep the semantic view tied to the records that are actually rendered.
+  // This reads child IDs and leaf payload markers; it does not reparse the
+  // source string or infer an AST from the emitted pixels.
+  const settledAst = ROM_ENGINE.decodeSettledExpressionGraph(
+    program.nodes, program.entry_id);
   const recordOperations = ROM_ENGINE.executeSettledRecordProgram(
     program.nodes, program.entry_id, {
       origin:program.origin,
@@ -1056,6 +1061,7 @@ function generateRecordProgram(program, options = {}) {
     initial:Array.from({length:rendered.height}, () => '0'.repeat(rendered.width)),
     final:rendered.grid.map(row => row.join('')),
     operations,
+    settledAst,
     events:rendered.writes.map((write, index) => ({
       ...write,
       source:'RE-generated',
