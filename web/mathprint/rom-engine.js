@@ -137,6 +137,57 @@
     };
   }
 
+  // 39:50CF clamps the selected argument against the high byte of 85E1
+  // (the argument count at 85E2), then computes the six-row window origin
+  // returned in C. Its final continuation depends on the global key byte;
+  // expose that boundary instead of pretending the cross-page jump is a
+  // local return. 39:5101 maps the clamped argument to the visible row.
+  function editorArgumentClamp(argumentIndex, argumentCount, options = {}) {
+    byte(argumentIndex, 'editor argument index');
+    byte(argumentCount, 'editor argument count');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('editor argument clamp options must be an object');
+    const kbdKey = options.kbdKey === undefined ? null :
+      byte(options.kbdKey, 'editor keyboard key');
+    const clampedArgument = argumentIndex >= argumentCount
+      ? argumentCount === 0 ? 0 : argumentCount - 1
+      : argumentIndex;
+    const windowStart = clampedArgument < 6 ? 0 : clampedArgument - 6;
+    const returnsWindow = kbdKey === 0x04 && argumentCount < 8;
+    return {
+      argumentIndex, argumentCount, clampedArgument, windowStart, kbdKey,
+      continuation:returnsWindow ? 'return-window-start' : 'cross-page-jump',
+      routine:'39:50CF',
+    };
+  }
+
+  function editorRowFromArg(argumentIndex) {
+    byte(argumentIndex, 'editor argument index');
+    return {
+      argumentIndex,
+      row:Math.min(argumentIndex + 1, 7),
+      routine:'39:5101',
+    };
+  }
+
+  // 39:513E stores the requested argument, runs the clamp/row helpers, then
+  // restores 844B from 984A before returning through 513A. The parser and
+  // operand emission around that call remain caller state, so the pure result
+  // reports the restored baseline only when the caller supplies it.
+  function editorLayoutArgument(argumentIndex, argumentCount, options = {}) {
+    const clamp = editorArgumentClamp(argumentIndex, argumentCount, options);
+    const row = editorRowFromArg(clamp.clampedArgument);
+    const baselineRow = options.baselineRow === undefined ? null :
+      byte(options.baselineRow, 'editor baseline row');
+    return {
+      ...clamp,
+      visibleRow:row.row,
+      baselineRow,
+      restoredRow:baselineRow,
+      routine:'39:513E → 39:50CF → 39:5101',
+    };
+  }
+
   // 39:4DCA skips row_count, row cell-count bytes, row-action bytes, and the
   // preceding packed D:E cells. Return both the decoded row and its ROM offsets.
   function handlerRow(layout, layoutClass, rowIndex) {
@@ -4440,6 +4491,9 @@
     handlerRow,
     emitHandlerRow,
     editorTokenDispatch,
+    editorArgumentClamp,
+    editorRowFromArg,
+    editorLayoutArgument,
     mapDirectGlyph,
     classifyCell,
     keyToStringIndex,

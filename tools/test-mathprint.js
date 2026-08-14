@@ -120,6 +120,34 @@ expectEqual('39:4C27 keeps class zero as a non-handler table entry',
     adjustments:[], handlerPointer:0xc97a, handlerRows:null,
     kind:'handlerLookup', routine:'39:4A74 → 39:4C27',
   });
+expectEqual('39:50CF clamps a short argument list and returns its window',
+  rom.editorArgumentClamp(9, 4, {kbdKey:0x04}), {
+    argumentIndex:9, argumentCount:4, clampedArgument:3, windowStart:0,
+    kbdKey:0x04, continuation:'return-window-start', routine:'39:50CF',
+  });
+expectEqual('39:50CF computes the six-row overflow window for long lists',
+  rom.editorArgumentClamp(9, 10, {kbdKey:0x04}), {
+    argumentIndex:9, argumentCount:10, clampedArgument:9, windowStart:3,
+    kbdKey:0x04, continuation:'cross-page-jump', routine:'39:50CF',
+  });
+expectEqual('39:50CF leaves an empty argument list at zero',
+  rom.editorArgumentClamp(0xff, 0), {
+    argumentIndex:0xff, argumentCount:0, clampedArgument:0, windowStart:0,
+    kbdKey:null, continuation:'cross-page-jump', routine:'39:50CF',
+  });
+expectEqual('39:5101 maps argument slots to seven visible rows',
+  [rom.editorRowFromArg(0),rom.editorRowFromArg(6),rom.editorRowFromArg(0xff)], [
+    {argumentIndex:0,row:1,routine:'39:5101'},
+    {argumentIndex:6,row:7,routine:'39:5101'},
+    {argumentIndex:0xff,row:7,routine:'39:5101'},
+  ]);
+expectEqual('39:513E restores the caller baseline row after layout',
+  rom.editorLayoutArgument(9, 10, {kbdKey:0x04,baselineRow:4}), {
+    argumentIndex:9, argumentCount:10, clampedArgument:9, windowStart:3,
+    kbdKey:0x04, continuation:'cross-page-jump',
+    routine:'39:513E → 39:50CF → 39:5101',
+    visibleRow:7, baselineRow:4, restoredRow:4,
+  });
 
 for (const [[d, e], glyph] of [
   [[0xfc, 0x3c], 5], [[0xfc, 0x40], 9],

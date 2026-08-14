@@ -112,6 +112,11 @@ selection, including the raw `0x3B` exponent-context tests and the `IY+9` bit-0
 fraction-context remap, before `39:4C27` handler lookup. The raw `3Dh` measured
 template handoff remains a separate result.
 
+`editorArgumentClamp()`, `editorRowFromArg()`, and `editorLayoutArgument()`
+translate the arithmetic state at `39:50CF`, `39:5101`, and `39:513E` for
+multi-argument editor rows. Their result names the six-row window origin and
+the seven-row visible slot; the cross-page continuation remains explicit.
+
 `tools/analyze_mathprint_records.py` replays a full-range TLMT memory snapshot
 and writes, then captures 20-byte root/current records only when `34:6105` uses
 the render table at `34:6119`. The decoder preserves offset-based field names
