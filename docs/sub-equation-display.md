@@ -929,7 +929,8 @@ embedded-record marker. The decoder preserves `EF 1E` as an explicit extended
 token. The renderer maps the pair to display code `0xF7`, so the decoded tree
 exposes an unfilled template slot. The tree identifies the expression in a
 trace without using LCD pixels or a screenshot. It describes the settled graph
-consumed by `34:660A`; the editor/parser representation before `34:4900`
+consumed by `34:660A`. The browser-side ROM engine exposes the same decoder for
+its generated AST view. The editor/parser representation before `34:4900`
 remains open. [confirmed]
 
 Within that program, `EF type id_lo id_hi` invokes the structural record with

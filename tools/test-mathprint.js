@@ -347,6 +347,78 @@ expectEqual('settled matrix brackets surround row-major children',
     ['line',0x10,1,38,0], ['point',0x10,1,37,0], ['point',0x10,1,37,15],
   ]);
 
+// The browser decoder reads the settled graph itself. This is independent of
+// the native-token parser: child IDs, payload markers, and postfix power
+// binding all come from the constructed records.
+expectEqual('browser decodes a settled multi-argument graph semantically',
+  rom.decodeSettledExpressionGraph(
+    mp.constructedProgramForExpression(
+      'int(1,2,(1//2)X,X)+sum(N,1,3,N^2)').nodes, 1), {
+    kind:'sequence',
+    parts:[
+      {
+        kind:'integral', lower:[0x31], upper:[0x32],
+        body:{kind:'sequence',parts:[
+          {kind:'fraction',numerator:[0x31],denominator:[0x32]}, [0x58],
+        ]}, variable:[0x58],
+      },
+      [0x70],
+      {
+        kind:'summation', variable:[0x4e], lower:[0x31], upper:[0x33],
+        body:{kind:'power',base:[0x4e],exponent:[0x32]},
+      },
+    ],
+  });
+expectEqual('browser decodes matrix children and nested powers',
+  rom.decodeSettledExpressionGraph(
+    mp.constructedProgramForExpression(
+      'matrix(2,2,sqrt(2),X^2,3,4)').nodes, 1), {
+    kind:'matrix', rows:2, columns:2,
+    elements:[
+      {kind:'radical',radicand:[0x32]},
+      {kind:'power',base:[0x58],exponent:[0x32]},
+      [0x33], [0x34],
+    ],
+  });
+expectEqual('browser decodes a transparent transient root',
+  rom.decodeSettledExpressionGraph([
+    {id:1,type:0x1f,childIds:[2]},
+    {id:2,type:0,payload:[0x58]},
+  ], 1), [0x58]);
+expectEqual('browser preserves extended tokens in a settled leaf',
+  rom.decodeSettledExpressionGraph([
+    {id:1,type:0,payload:[0x58,0xef,0x2a,2,0,0xef,0x2d,0xef,0x1e]},
+    {id:2,type:0x2a,childIds:[3]},
+    {id:3,type:0,payload:[0x32]},
+  ], 1), {
+    kind:'sequence',
+    parts:[{kind:'power',base:[0x58],exponent:[0x32]},
+      {kind:'extendedToken',tokens:[0xef,0x1e]}],
+  });
+expectThrows('settled semantic decoder rejects duplicate IDs', RangeError,
+  () => rom.decodeSettledExpressionGraph([
+    {id:1,type:0,payload:[0x58]}, {id:1,type:0,payload:[0x59]},
+  ], 1));
+expectThrows('settled semantic decoder rejects a missing child', RangeError,
+  () => rom.decodeSettledExpressionGraph([
+    {id:1,type:0,payload:[0xef,0x27,2,0]},
+  ], 1));
+expectThrows('settled semantic decoder rejects an unsupported structural type', RangeError,
+  () => rom.decodeSettledExpressionGraph([
+    {id:1,type:0x2c,childIds:[]},
+  ], 1));
+expectThrows('settled semantic decoder rejects a power without a base', RangeError,
+  () => rom.decodeSettledExpressionGraph([
+    {id:1,type:0,payload:[0xef,0x2a,2,0]},
+    {id:2,type:0x2a,childIds:[3]}, {id:3,type:0,payload:[0x32]},
+  ], 1));
+expectThrows('settled semantic decoder rejects structural cycles', RangeError,
+  () => rom.decodeSettledExpressionGraph([
+    {id:1,type:0x20,childIds:[2,3]},
+    {id:2,type:0,payload:[0xef,0x20,1,0]},
+    {id:3,type:0,payload:[0x32]},
+  ], 1));
+
 const settledGlyphAdvance = (depth, code) => {
   if (depth === 0) return 6;
   const glyph = font.small.glyphs[code];
@@ -944,6 +1016,39 @@ for (const [expression,nativeTokens,writeCount,writeHash,lcdHash] of [
 
 const overflowingIntegral =
   mp.generatedForExpression(editorOverflowOracle.expression);
+// Exercise the same path used by the textarea, not only the direct generator:
+// the wide model stays complete while the translated writer scrolls the 96 px
+// LCD to the cursor. A second repeated integral checks that the clip keeps
+// growing instead of truncating the input after the first structural object.
+for (const [expression, expected] of [
+  [
+    'int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)',
+    {model:[103,23,106,10,17], generated:[96,64,106,10,198,17]},
+  ],
+  [
+    'int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)+' +
+      'int(1,3,(1//2)X,X)',
+    {model:[159,23,162,66,73], generated:[96,64,162,66,198,73]},
+  ],
+]) {
+  const prepared = mp.prepareInput(expression);
+  if (!prepared.model || !prepared.generated || prepared.generationError)
+    throw new Error(`${expression} textarea preparation lost its generated/model path`);
+  expectEqual(`${expression} textarea preserves the complete wide model`, [
+    prepared.model.rows[0].length, prepared.model.rows.length,
+    prepared.model.recordWidth, prepared.model.modelOverflowRight,
+    prepared.model.modelViewport.xClip,
+  ], expected.model);
+  expectEqual(`${expression} textarea preserves the scrolled LCD writer`, [
+    prepared.generated.width, prepared.generated.height,
+    prepared.generated.recordWidth, prepared.generated.overflowRight,
+    prepared.generated.events.length, prepared.generated.editorViewport.xClip,
+  ], expected.generated);
+  expectEqual(`${expression} textarea LCD replay remains pixel exact`,
+    rom.replaySettledLcdWrites(prepared.generated.events, {
+      width:prepared.generated.width, height:prepared.generated.height,
+    }), prepared.generated.final.map(row => Array.from(row, Number)));
+}
 expectEqual('long integral sum exposes its settled extent and editor scrolling', {
   lcd:[overflowingIntegral.width,overflowingIntegral.height],
   recordWidth:overflowingIntegral.recordWidth,
