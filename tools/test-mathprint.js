@@ -1080,6 +1080,10 @@ const operandCases = [
    {serviceResults:[{carry:false,postCode:0x06,nextTokenClass:0x03,
                      nextTokenSubClass:0x01},
                     {carry:false,tokenClass:0x04,tokenSubClass:0x00}]}],
+  ['normal scanner repeat into class-2 path', 'normal', 0x03, 0x01,
+   {specialResult:{carry:false},serviceResults:[
+     {carry:false,postCode:0x06,nextTokenClass:0x02,nextTokenSubClass:0x00},
+     {specialResult:{carry:false}}]}],
   ['variable scanner post-service exit', 'variable', 0x03, 0x01,
    {serviceResults:[{carry:false,postCode:0x05}]}],
 ];
