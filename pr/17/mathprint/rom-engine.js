@@ -460,11 +460,16 @@
       // is therefore handled only on the next loop entry; the first scanner
       // return still has to pass through 39:5C2E before the emitter can exit.
       if (index > 0 && currentClass === 0x02) {
+        const nestedOptions = {
+          specialResult:result.specialResult || special,
+        };
+        if (result.savedOperand !== undefined || savedOperand !== null)
+          nestedOptions.savedOperand = result.savedOperand || savedOperand;
         const nested = editorOperandEmitter(service, currentClass, currentSubclass,
-          {specialResult:result.specialResult || special,
-           savedOperand:result.savedOperand || savedOperand});
+          nestedOptions);
         return {
-          ...base, branch:'class-2-after-service', loopCount:index,
+          ...base, branch:'class-2-special', entry:'after-service',
+          specialPath:nested.specialPath, loopCount:index,
           effects:effects.concat([{kind:'class-check',class:currentClass,
             routine:'39:5A17'}], nested.effects), nested,
           carry:nested.carry,
