@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4dc08b7c.js";
+            window.path_to_searchindex_js = "searchindex-39fd8309.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -436,6 +436,12 @@ $$</p>
 </tbody>
 </table>
 </div>
+<p>For kind nibbles <code>3</code> and above, <code>39:69C8</code> adds <code>0x10</code> and calls
+<code>ram:025E</code> (<code>BIT 6,(IY+2); RET</code>). A set bit selects <code>39:689C</code>. Otherwise it
+adds <code>0x10</code> again and calls <code>ram:0254</code> (<code>BIT 5,(IY+2); RET</code>); a set bit selects
+<code>39:68A5</code>, and a clear result selects <code>39:6893</code>. The JavaScript
+<code>selectDescriptor</code> translation takes this caller-owned <code>flag02</code> byte explicitly
+for the family branches. [confirmed]</p>
 <p>Descriptor <code>39:6880</code> contains <code>FE09</code>, <code>FB C8</code>, <code>00 C7</code>, <code>00 C8</code>, and <code>FB C7</code> in one row.
 That places <code>fnInt(</code> as a menu/template cell, not as a structural integral glyph. [confirmed]</p>
 <h2 id="fractions"><a class="header" href="#fractions">Fractions</a></h2>
