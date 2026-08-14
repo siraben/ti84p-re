@@ -290,7 +290,8 @@ For kind nibbles `3` and above, `39:69C8` adds `0x10` and calls
 adds `0x10` again and calls `ram:0254` (`BIT 5,(IY+2); RET`); a set bit selects
 `39:68A5`, and a clear result selects `39:6893`. The JavaScript
 `selectDescriptor` translation takes this caller-owned `flag02` byte explicitly
-for the family branches. [confirmed]
+for the family branches and reports the byte that `39:69FC` stores back at
+`0x85E8`. [confirmed]
 
 Descriptor `39:6880` contains `FE09`, `FB C8`, `00 C7`, `00 C8`, and `FB C7` in one row.
 That places `fnInt(` as a menu/template cell, not as a structural integral glyph. [confirmed]

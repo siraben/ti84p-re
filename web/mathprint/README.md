@@ -32,7 +32,8 @@ delimiter classification, `_KeyToString` index arithmetic, descriptor selection
 and iteration, fraction endpoints, class-6 row stepping, and the settled-redraw
 point and axis-aligned line wrappers at `34:5D96`–`34:5EA6`. Descriptor-family
 selection uses the caller-supplied `flag02` byte for the `ram:025E`/`ram:0254`
-bit tests and reports an explicit unresolved result when that state is absent.
+bit tests, returns the normalized `0x85E8` kind, and reports an explicit
+unresolved result when that state is absent.
 
 The settled-redraw object dispatcher at `34:700C` is also translated as a
 13-entry kind-to-handler table. Record-field decoding remains explicit work;
