@@ -1093,8 +1093,8 @@ page_39:59cc	eqdisp_emit_const17
 page_39:59d0	eqdisp_emit_operand
 page_39:59db	eqdisp_emit_op_d
 page_39:59dd	eqdisp_emit_op_arg
-page_39:59e0	eqdisp_emit_op_d2
-page_39:59f9	eqdisp_emit_op_var_c
+page_39:59e0	eqdisp_find_alpha_up
+page_39:59f9	eqdisp_find_alpha_down
 page_39:5a17	eqdisp_get_tok
 page_39:5a1d	eqdisp_get_tok2
 page_39:5a23	eqdisp_chk_list_tok
@@ -1111,10 +1111,10 @@ page_39:5af0	eqdisp_mov9_e7
 page_39:5af5	eqdisp_save_op1op4_f2
 page_39:5b00	eqdisp_op1_to_f2
 page_39:5b08	eqdisp_op1_from_f2
-page_39:5b10	eqdisp_emit_op_save_e7
-page_39:5b1d	eqdisp_emit_var_save_e7
-page_39:5b2b	eqdisp_emit_op_save_f2
-page_39:5b38	eqdisp_emit_var_save_f2
+page_39:5b10	eqdisp_find_alpha_up_save_e7
+page_39:5b1d	eqdisp_find_alpha_down_save_e7
+page_39:5b2b	eqdisp_find_alpha_up_save_f2
+page_39:5b38	eqdisp_find_alpha_down_save_f2
 page_39:5ba1	eqdisp_emit_var_x
 page_39:5c2e	eqdisp_tok_or_sub
 page_39:5c3a	eqdisp_tok_or_sub2

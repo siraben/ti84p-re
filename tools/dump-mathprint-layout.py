@@ -59,12 +59,12 @@ OPERAND_FLOW_ANCHORS = [
     (
         0x51B8,
         "cd105b3ae0854fcd465bcdfe66",
-        "forward/overflow path emits saved-E7 operand then resyncs cursor state",
+        "forward/overflow path searches upward from saved E7 state, then resyncs cursor state",
     ),
     (
         0x51E0,
         "cd105b1809",
-        "forward/in-row path emits saved-E7 operand",
+        "forward/in-row path searches upward from saved E7 state",
     ),
     (
         0x523C,
@@ -74,17 +74,17 @@ OPERAND_FLOW_ANCHORS = [
     (
         0x5257,
         "cd385b3828",
-        "reverse/overflow path tries saved-F2 variable emitter",
+        "reverse/overflow path searches downward from saved F2 state",
     ),
     (
         0x5273,
         "cd1d5b3ae085",
-        "reverse/overflow path emits saved-E7 variable operand",
+        "reverse/overflow path searches downward from saved E7 state",
     ),
     (
         0x529F,
         "cd1d5bc34754",
-        "reverse/in-row path emits saved-E7 variable operand and returns via 5447",
+        "reverse/in-row path searches downward from saved E7 state and returns via 5447",
     ),
     (
         0x52B3,
@@ -114,17 +114,17 @@ OPERAND_FLOW_ANCHORS = [
     (
         0x59E0,
         "cd175a28caafcd533a",
-        "normal operand emitter path after class-2 check",
+        "ascending alphabetic VAT search after the class-2 check",
     ),
     (
         0x59F9,
         "cd175a28b8afcd6f30",
-        "variable operand emitter path after class-2 check",
+        "descending alphabetic VAT search after the class-2 check",
     ),
     (
         0x5A17,
         "3ade85fe02c9",
-        "class-2 check used by normal/variable operand emitters before parser bjump fallback",
+        "class-2 check before the alphabetic VAT-search bcall path",
     ),
     (
         0x5AD2,
@@ -149,22 +149,22 @@ OPERAND_FLOW_ANCHORS = [
     (
         0x5B10,
         "fdcb116ec8cde15acde059180b",
-        "saved-E7 normal operand wrapper: gated by (IY+11) bit 5",
+        "saved-E7 ascending alpha-search wrapper: gated by (IY+11) bit 5",
     ),
     (
         0x5B1D,
         "fdcb116ec8cde15acdf959d818a7",
-        "saved-E7 variable operand wrapper: gated by (IY+11) bit 5",
+        "saved-E7 descending alpha-search wrapper: gated by (IY+11) bit 5",
     ),
     (
         0x5B2B,
         "fdcb116ec8cd005bcde059180b",
-        "saved-F2 normal operand wrapper: gated by (IY+11) bit 5",
+        "saved-F2 ascending alpha-search wrapper: gated by (IY+11) bit 5",
     ),
     (
         0x5B38,
         "fdcb116ec8cd005bcdf959d818c2",
-        "saved-F2 variable operand wrapper: gated by (IY+11) bit 5",
+        "saved-F2 descending alpha-search wrapper: gated by (IY+11) bit 5",
     ),
 ]
 
@@ -655,22 +655,22 @@ EMIT_BOUNDARY_FLOW_ANCHORS = [
     (
         0x59D0,
         "3ade85fe1028cffe2928f13e05cdd95acd175a28caafcd533a",
-        "normal operand emitter selector: class 10 finds symbol, class 29 uses token 17, otherwise token 05",
+        "ascending alpha-search selector: class 10 finds a symbol, class 29 uses token 17, otherwise token 05",
     ),
     (
         0x59E0,
         "cd175a28caafcd533a",
-        "normal operand emitter: class-2 special path or parser token fetch via 3A53",
+        "ascending alpha search: class-2 special path or _FindAlphaUp via 00:3A53",
     ),
     (
         0x59F9,
         "cd175a28b8afcd6f30",
-        "variable operand emitter: class-2 special path or parser variable fetch via 306F",
+        "descending alpha search: class-2 special path or _FindAlphaDn via 00:306F",
     ),
     (
         0x5A3C,
         "c53ade85fe102005cda659181ccd1d5a20073e17cddd591812cd175a2008",
-        "named-argument bridge: class-specific seed then optional counted normal-operand loop",
+        "named-argument bridge: class-specific seed then optional counted ascending-search loop",
     ),
     (
         0x5A91,
@@ -691,18 +691,18 @@ EMIT_BOUNDARY_FLOW_ANCHORS = [
 
 EMIT_BOUNDARY_FLOW_XREF_TARGETS = [0x5A3C, 0x5A91, 0x59D0, 0x59E0, 0x59F9, 0x6ABF, 0x6B1C]
 
-OPERAND_SERVICE_FLOW_ANCHORS = [
+ALPHA_SEARCH_FLOW_ANCHORS = [
     (
         0x39,
         0x59E0,
         "cd175a28caafcd533ad8",
-        "normal operand emitter: class-2 check, then fixed-bank cross-page service 3A53",
+        "ascending alpha search: class-2 check, then _FindAlphaUp through 00:3A53",
     ),
     (
         0x39,
         0x59F9,
         "cd175a28b8afcd6f30d8",
-        "variable operand emitter: class-2 check, then fixed-bank cross-page service 306F",
+        "descending alpha search: class-2 check, then _FindAlphaDn through 00:306F",
     ),
     (
         0x39,
@@ -720,13 +720,13 @@ OPERAND_SERVICE_FLOW_ANCHORS = [
         0x07,
         0x50B5,
         "371802373fe53e00f5cd0f1acd4219cddc2020063a79843c2807",
-        "page-7 operand service entries: carry variants at 50B5/50B8, then parser/expression scan setup",
+        "page-7 _FindAlphaUp entry; _FindAlphaDn enters at 50B8",
     ),
     (
         0x07,
         0x5104,
         "cd4219cd475247b713ed52da8e511922e3847ee61fcd4752b8282d",
-        "page-7 scanner loop: call token helpers, compare 982E/9830 range, store current scan pointer 84E3",
+        "alphabetic VAT-search loop: compare VAT/name state and store the current search pointer at 84E3",
     ),
     (
         0x07,
@@ -736,40 +736,40 @@ OPERAND_SERVICE_FLOW_ANCHORS = [
     ),
 ]
 
-OPERAND_SERVICE_SCANNER_CONTEXT_ANCHORS = [
+ALPHA_SEARCH_CONTEXT_ANCHORS = [
     (
         0x50B5,
         "371802373fe53e00f5cd0f1acd4219cddc2020063a79843c2807cdce203e052012cd350e2a3098ed5b2e98473e089028141807ed5b30982166fee5218184472b360010fbe1f1c11803f1c1d1d5c5f5cd4219cd475247b713ed52da8e511922e3847ee61fcd4752b8282d110900cd4520280dcddc202808fe092016fe0a2812cd",
-        "unsplit page-7 scanner entry: setup, compare 982E/9830 expression range, then loop token spans",
+        "unsplit _FindAlphaUp entry: initialize VAT traversal and loop over candidate names",
     ),
     (
         0x51BE,
         "7ee61f2b2b2b2b2b46c50603cddc202805cd452020172bf57efe722004f123180cfe3a28f8f146cd",
-        "scanner backstep helper: mask token class, move five bytes back, then test token-kind helpers",
+        "VAT backstep helper: mask the type byte, move five bytes back, then classify the entry",
     ),
     (
         0x5544,
         "cdb550380acd600e38f0cdd91218ebcd0028cd441ac93e01",
-        "page-7 non-display caller: call 50B5 in a parser/evaluator loop, not a page-39 renderer",
+        "page-7 non-display caller: call _FindAlphaUp in a variable-selection loop",
     ),
     (
         0x6361,
         "cdb550c9fdcb074ec22d27dfcd9716cdc11dcd8d16cd061fcdec19cd8719f5cd",
-        "page-7 non-display caller: call 50B5 and return before FPS/evaluator setup",
+        "page-7 non-display caller: call _FindAlphaUp and return on its result",
     ),
     (
         0x70D6,
         "cdb550302df1cd3571d8327884e521798436fee1c0fe142812cd4520280d06ffed43798418833e00327884af327984c3",
-        "page-7 non-display caller: call 50B5, then classify parser token kinds and update 8478/8479",
+        "page-7 caller: call _FindAlphaUp, then classify the OP1 variable type/name",
     ),
     (
         0x7207,
         "cdb850d24e72f1cd5572d8327884e521798436fee1c0fe0c2804fe00200a06000e5ced43798418a8fe0520123efe3279",
-        "page-7 sibling caller: call 50B8 carry variant, then classify token kinds and update 8478/8479",
+        "page-7 sibling caller: call _FindAlphaDn, then classify the OP1 variable type/name",
     ),
 ]
 
-OPERAND_SERVICE_XREF_TARGETS = [
+ALPHA_SEARCH_XREF_TARGETS = [
     (0x39, 0x3A53),
     (0x39, 0x306F),
     (0x39, 0x3F27),
@@ -1771,13 +1771,13 @@ EXTENDED_TOKEN_TABLE_FLOW_ANCHORS = [
         0x07,
         0x50B5,
         "371802373fe53e00f5cd0f1acd4219cddc20",
-        "page-7 carry-set scanner entry reached through fixed-bank service 3A53",
+        "page-7 _FindAlphaUp entry reached through fixed-bank dispatcher 00:3A53",
     ),
     (
         0x07,
         0x5104,
         "cd4219cd475247b713ed52da8e511922e384",
-        "page-7 scanner loop: token helper 5247, expression pointer range checks, save 84E3",
+        "alphabetic VAT-search loop: entry classifier 5247, pointer range checks, save 84E3",
     ),
     (
         0x07,
@@ -1910,31 +1910,31 @@ FNINT_ARGUMENT_ORDER_FLOW_ANCHORS = [
         0x39,
         0x5B10,
         "fdcb116ec8cde15acde059180b",
-        "saved-E7 normal operand wrapper: restore saved OP, then call the normal operand emitter",
+        "saved-E7 ascending-search wrapper: restore OP1, then dispatch _FindAlphaUp",
     ),
     (
         0x39,
         0x5B1D,
         "fdcb116ec8cde15acdf959d818a7",
-        "saved-E7 variable operand wrapper: restore saved OP, then call the variable operand emitter",
+        "saved-E7 descending-search wrapper: restore OP1, then dispatch _FindAlphaDn",
     ),
     (
         0x39,
         0x59E0,
         "cd175a28caafcd533ad8",
-        "normal operand emitter: class-2 check, then page-7 parser scanner via fixed-bank service 3A53",
+        "ascending alpha search: class-2 check, then _FindAlphaUp through 00:3A53",
     ),
     (
         0x39,
         0x59F9,
         "cd175a28b8afcd6f30d8",
-        "variable operand emitter: class-2 check, then page-7 parser scanner via fixed-bank service 306F",
+        "descending alpha search: class-2 check, then _FindAlphaDn through 00:306F",
     ),
     (
         0x07,
         0x50B5,
         "371802373fe53e00f5cd0f1acd4219cddc2020063a79843c2807",
-        "page-7 parser scanner entry reached by page-39 normal operand service",
+        "page-7 _FindAlphaUp entry reached by the page-39 ascending dispatcher",
     ),
     (
         0x33,
@@ -4353,8 +4353,8 @@ PAGE39_TALL_SURFACE_STATE_WORDS = [
 
 PAGE39_TALL_SURFACE_PATTERNS = [
     ("CALL 3555 _DarkLine", "cd5535"),
-    ("CALL 3A53 parser scanner service", "cd533a"),
-    ("CALL 306F parser scanner service", "cd6f30"),
+    ("CALL 3A53 _FindAlphaUp dispatcher", "cd533a"),
+    ("CALL 306F _FindAlphaDn dispatcher", "cd6f30"),
     ("CALL 3B37 display-byte mapper", "cd373b"),
     ("CALL 3B3D large-glyph blitter", "cd3d3b"),
     ("CALL 3CDB VPutMap", "cddb3c"),
@@ -5827,8 +5827,8 @@ def dump_argument_gutter_caller_flow(rom):
 
     print("\nclassified caller paths")
     print("  4DEC is the record-cell stream already closed by --record-cell-stream-flow")
-    print("  51A6/51CE/51DD are forward multi-argument slot gutters around saved normal operands")
-    print("  5261/528B/529C are reverse multi-argument slot gutters around saved variable operands")
+    print("  51A6/51CE/51DD are forward multi-argument slot gutters around ascending VAT searches")
+    print("  5261/528B/529C are reverse multi-argument slot gutters around descending VAT searches")
     print("  5236 is the action-03 row-7 highlighted current-slot gutter path")
     print("  5B46 is the saved-operand tail gutter before optional OP restore and string/control emission")
     print("  6712 overflow markers are separate ':' output through 3FDB and do not call 4E0A")
@@ -5965,42 +5965,42 @@ def dump_emit_boundary_flow(rom):
 
     print("\ninterpretation")
     print("  4C40/4CB7 is record-cell emission; 4CDF/4CE4 enters saved-OP or named-argument emission")
-    print("  59D0/59E0/59F9 are operand parser-token emitters, not tall-symbol draw routines")
+    print("  59D0 seeds OP1; 59E0/59F9 dispatch ascending/descending alphabetic VAT searches")
     print("  6ABF/6B1C are directly referenced only by the kind-2 fraction path")
 
 
-def dump_operand_service_flow(rom):
-    print("operand parser-service boundary ROM anchors")
-    for page, addr, hex_bytes, note in OPERAND_SERVICE_FLOW_ANCHORS:
+def dump_alpha_search_flow(rom):
+    print("alphabetic VAT-search boundary ROM anchors")
+    for page, addr, hex_bytes, note in ALPHA_SEARCH_FLOW_ANCHORS:
         expected = bytes.fromhex(hex_bytes)
         actual = rom_bytes_banked(rom, page, addr, len(expected))
         status = "ok" if actual == expected else "MISMATCH"
         print(f"  {page:02X}:{addr:04X}: {status} {actual.hex().upper()}  {note}")
 
-    print("\npage-7 scanner/caller context")
-    for addr, hex_bytes, note in OPERAND_SERVICE_SCANNER_CONTEXT_ANCHORS:
+    print("\npage-7 VAT-search caller context")
+    for addr, hex_bytes, note in ALPHA_SEARCH_CONTEXT_ANCHORS:
         expected = bytes.fromhex(hex_bytes)
         actual = rom_bytes_banked(rom, 0x07, addr, len(expected))
         status = "ok" if actual == expected else "MISMATCH"
         print(f"  07:{addr:04X}: {status} {actual.hex().upper()}  {note}")
 
     print("\npage-local control-flow xrefs")
-    for page, target in OPERAND_SERVICE_XREF_TARGETS:
+    for page, target in ALPHA_SEARCH_XREF_TARGETS:
         direct, words = control_refs_on_page(rom, page, target)
         refs = " ".join(f"{addr:04X}:{op}" for addr, op in direct) or "none"
         raw = " ".join(f"{addr:04X}" for addr in words) or "none"
         print(f"  {page:02X}:{target:04X}: direct {refs}; raw {raw}")
 
-    print("\nfixed-bank service identities from raw Ghidra HTTP")
-    print("  ram:3A53 is a cross_page_jump to page_07:50B5")
-    print("  ram:306F is a cross_page_jump to page_07:50B8")
+    print("\nfixed-bank bcall identities")
+    print("  00:3A53 crosses to 07:50B5 (_FindAlphaUp, bcall 4A44h)")
+    print("  00:306F crosses to 07:50B8 (_FindAlphaDn, bcall 4A47h)")
     print("  ram:3F27 and ram:3C69 use the same cross-page stub form")
 
     print("\ninterpretation")
-    print("  page-39 59E0/59F9 do not draw; they cross into page-7 parser/expression scanning services")
-    print("  page-7 50B5/50B8 walks expression pointers such as 982E/9830 and scratch values 8480/8496")
-    print("  the same page-7 scanner has evaluator/parser callers at 5544, 6361, 70D6, and 7207")
-    print("  this is the parser-token traversal boundary below operand recursion, not a local tall-symbol emitter")
+    print("  page-39 59E0/59F9 do not draw; they cross into page-7 alphabetic VAT searches")
+    print("  both page-39 dispatchers clear A before the bcall and pass the current variable in OP1")
+    print("  _FindAlphaUp/_FindAlphaDn return the selected variable in OP1/OP3 and its VAT pointer in HL")
+    print("  callers at 5544, 6361, 70D6, and 7207 also consume the alphabetic-search result")
     print("  the visible tall-template builder still has to be tied to the class/geometry state above this boundary")
 
 
@@ -6930,8 +6930,8 @@ def dump_extended_token_table_flow(rom):
     print("\ninterpretation")
     print("  BB24/BB25 occur only in page-7 extended-token table data")
     print("  the table-entry addresses 42EE/42F6/428A have no page-local word refs")
-    print("  page-39 reaches page-7 50B5/50B8 through operand parser services, not through display code")
-    print("  50B5/50B8 scan expression pointers and token kinds; they are not tall-symbol emitters")
+    print("  page-39 reaches page-7 50B5/50B8 through _FindAlphaUp/_FindAlphaDn dispatchers")
+    print("  50B5/50B8 traverse VAT names; they are not tall-symbol emitters")
 
 
 def dump_fnint_template_flow(rom):
@@ -7005,8 +7005,8 @@ def dump_fnint_argument_order_flow(rom):
 
     print("\nraw Ghidra identities used by this boundary")
     print("  39:5167 is eqdisp_layout_multiarg")
-    print("  39:5B10 is eqdisp_emit_op_save_e7; 39:5B1D is the saved-E7 variable wrapper")
-    print("  39:59E0 is eqdisp_emit_op_d2; 39:59F9 is eqdisp_emit_op_var_c")
+    print("  39:5B10/5B1D are the saved-E7 ascending/descending alpha-search wrappers")
+    print("  39:59E0 is eqdisp_find_alpha_up; 39:59F9 is eqdisp_find_alpha_down")
     print("  33:4D00 is fnint_body")
 
     print("\nordered parser-argument slots")
@@ -7017,7 +7017,7 @@ def dump_fnint_argument_order_flow(rom):
     print("  page 39 keeps the current parser-argument index in 85E0 and the count in 85E2")
     print("  5167 advances or backs 85E0 by one slot at a time; 5949 only changes the display row-step size")
     print("  the in-row forward path calls 5B10 after incrementing 85E0; the reverse path calls 5B1D after decrementing")
-    print("  5B10/5B1D restore saved OP state, then call 59E0/59F9 parser scanners rather than selecting a new field order")
+    print("  5B10/5B1D restore OP1, then call the ascending/descending alphabetic VAT search")
     print("  the evaluator proves slots 2 and 3 are the integration endpoints; no page-39 permutation of fnInt fields is visible")
     print("  vertical placement is handled by the multi-argument row compositor at 5167; this flow pins parser-argument identity order")
 
@@ -10031,7 +10031,7 @@ def main():
     ap.add_argument("--row-placement-flow", action="store_true")
     ap.add_argument("--layout-flow", action="store_true")
     ap.add_argument("--emit-boundary-flow", action="store_true")
-    ap.add_argument("--operand-service-flow", action="store_true")
+    ap.add_argument("--alpha-search-flow", action="store_true")
     ap.add_argument("--geometry-flow", action="store_true")
     ap.add_argument("--template-descriptor-algorithm-flow", action="store_true")
     ap.add_argument("--geometry-selector-closed-flow", action="store_true")
@@ -10147,8 +10147,8 @@ def main():
         dump_layout_flow(rom)
     elif args.emit_boundary_flow:
         dump_emit_boundary_flow(rom)
-    elif args.operand_service_flow:
-        dump_operand_service_flow(rom)
+    elif args.alpha_search_flow:
+        dump_alpha_search_flow(rom)
     elif args.geometry_flow:
         dump_geometry_flow(rom)
     elif args.template_descriptor_algorithm_flow:

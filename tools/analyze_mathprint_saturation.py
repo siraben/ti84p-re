@@ -1288,23 +1288,23 @@ def record_allocation_capacity_terminal_counts(
 
 def editor_saved_operand_wrapper_path(
     source: str,
-    service: str,
+    direction: str,
     bit5_set: int,
-    service_carry: int,
+    search_carry: int,
 ) -> dict[str, object]:
     """Return one saved-operand wrapper path at 39:5B10–5B44."""
 
     entries = {
-        ("saved-E7", "normal"): (0x5B14, 0x5B28),
-        ("saved-E7", "variable"): (0x5B21, 0x5B28),
-        ("saved-F2", "normal"): (0x5B2F, 0x5B43),
-        ("saved-F2", "variable"): (0x5B3C, 0x5B43),
+        ("saved-E7", "up"): (0x5B14, 0x5B28),
+        ("saved-E7", "down"): (0x5B21, 0x5B28),
+        ("saved-F2", "up"): (0x5B2F, 0x5B43),
+        ("saved-F2", "down"): (0x5B3C, 0x5B43),
     }
-    if (source, service) not in entries:
+    if (source, direction) not in entries:
         raise ValueError("unknown saved-operand wrapper")
-    gate_address, carry_address = entries[(source, service)]
+    gate_address, carry_address = entries[(source, direction)]
     bit5_set = int(bool(bit5_set))
-    service_carry = int(bool(service_carry))
+    search_carry = int(bool(search_carry))
     outcomes = [
         f"39:{gate_address:04X}:{'fallthrough' if bit5_set else 'taken'}"
     ]
@@ -1315,30 +1315,30 @@ def editor_saved_operand_wrapper_path(
             "branch_outcomes": outcomes,
         }
     outcomes.append(
-        f"39:{carry_address:04X}:{'taken' if service_carry else 'fallthrough'}"
+        f"39:{carry_address:04X}:{'taken' if search_carry else 'fallthrough'}"
     )
     return {
         "terminal": (
-            "service_carry" if service_carry
+            "search_carry" if search_carry
             else f"writeback_{source[-2:]}"
         ),
-        "writeback": None if service_carry else source,
+        "writeback": None if search_carry else source,
         "branch_outcomes": outcomes,
     }
 
 
 def symbolic_editor_saved_operand_wrapper_paths() -> list[dict[str, object]]:
-    """Partition all wrapper/source/service/gate/carry predicate states."""
+    """Partition all wrapper/source/direction/gate/carry predicate states."""
 
     classes: dict[
         tuple[str, str | None, tuple[str, ...]], dict[str, object]
     ] = {}
     for source in ("saved-E7", "saved-F2"):
-        for service in ("normal", "variable"):
+        for direction in ("up", "down"):
             for bit5_set in (0, 1):
-                for service_carry in (0, 1):
+                for search_carry in (0, 1):
                     result = editor_saved_operand_wrapper_path(
-                        source, service, bit5_set, service_carry
+                        source, direction, bit5_set, search_carry
                     )
                     key = (
                         str(result["terminal"]),
@@ -1354,9 +1354,9 @@ def symbolic_editor_saved_operand_wrapper_paths() -> list[dict[str, object]]:
                     if len(states) < 4:
                         states.append({
                             "source": source,
-                            "service": service,
+                            "direction": direction,
                             "bit5_set": bit5_set,
-                            "service_carry": service_carry,
+                            "search_carry": search_carry,
                         })
     return [
         {
