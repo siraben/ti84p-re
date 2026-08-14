@@ -1135,11 +1135,31 @@ for (let nameByte = 0; nameByte <= 0xff; nameByte++) {
 
 const savedOperandBuffers = {
   op1:[0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09],
-  savedE7:[0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
-  savedF2:[0x21,0x22,0x23,0x24,0x25,0x26,0x27,0x28,0x29],
+  savedE7:[0x05,0x42,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
+  savedF2:[0x05,0x52,0x23,0x24,0x25,0x26,0x27,0x28,0x29],
 };
-const savedOperandSearchOp1 =
-  [0xa1,0xa2,0xa3,0xa4,0xa5,0xa6,0xa7,0xa8,0xa9];
+const savedOperandState = (buffers, source, direction, carry,
+                           incomingCarry = false) => {
+  const input = (source === 'saved-E7' ? buffers.savedE7 : buffers.savedF2);
+  const candidate = input.slice();
+  candidate[1] += direction === 'up' ? 1 : -1;
+  return {
+    editorClass:0x04,editorSubClass:0,incomingCarry,
+    vatSnapshot:carry ? [] : [
+      {op1:candidate,pointer:source === 'saved-E7' ? 0x9fe7 : 0x9ff2,page:0},
+    ],
+  };
+};
+const savedOperandWalkerState = (direction, buffers = savedOperandBuffers,
+                                 carry = false) => ({
+  buffers,
+  vatSnapshot:carry ? [] : ['saved-E7','saved-F2'].map((source, index) => {
+    const input = source === 'saved-E7' ? buffers.savedE7 : buffers.savedF2;
+    const candidate = input.slice();
+    candidate[1] += direction === 'up' ? 1 : -1;
+    return {op1:candidate,pointer:0x9f00 - index * 0x10,page:0};
+  }),
+});
 expectEqual('39:5B10 preserves buffers and carry when bit 5 is clear', (() => {
   const result = rom.editorSavedOperandWrapper(
     'saved-E7','up',0,savedOperandBuffers,{incomingCarry:true});
@@ -1153,9 +1173,8 @@ expectEqual('39:5B10 preserves buffers and carry when bit 5 is clear', (() => {
 });
 expectEqual('39:5B10 restores E7 and saves a carry-clear alpha result', (() => {
   const result = rom.editorSavedOperandWrapper(
-    'saved-E7','up',0x20,savedOperandBuffers,{
-      carry:false,op1:savedOperandSearchOp1,
-    });
+    'saved-E7','up',0x20,savedOperandBuffers,
+    savedOperandState(savedOperandBuffers,'saved-E7','up',false));
   return {
     branch:result.branch, searchInput:result.searchInput,
     carry:result.carry, copies:result.copies, buffers:result.buffers,
@@ -1166,16 +1185,15 @@ expectEqual('39:5B10 restores E7 and saves a carry-clear alpha result', (() => {
     {from:0x85e7,to:0x8478,bytes:9,routine:'39:5AE1 → 00:1A92'},
     {from:0x8478,to:0x85e7,bytes:9,routine:'39:5AD2 → 00:1A92'},
   ],buffers:{
-    op1:savedOperandSearchOp1,
-    savedE7:savedOperandSearchOp1,
+    op1:[0x05,0x43,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
+    savedE7:[0x05,0x43,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
     savedF2:savedOperandBuffers.savedF2,
   },
 });
 expectEqual('39:5B38 carry exit leaves E7 unchanged after restoring F2', (() => {
   const result = rom.editorSavedOperandWrapper(
-    'saved-F2','down',0x20,savedOperandBuffers,{
-      carry:true,op1:savedOperandSearchOp1,
-    });
+    'saved-F2','down',0x20,savedOperandBuffers,
+    savedOperandState(savedOperandBuffers,'saved-F2','down',true));
   return {
     branch:result.branch, searchInput:result.searchInput,
     carry:result.carry, copies:result.copies, buffers:result.buffers,
@@ -1185,18 +1203,32 @@ expectEqual('39:5B38 carry exit leaves E7 unchanged after restoring F2', (() => 
   carry:true,copies:[
     {from:0x85f2,to:0x8478,bytes:9,routine:'39:5B00 → 00:1A92'},
   ],buffers:{
-    op1:savedOperandSearchOp1,
+    op1:savedOperandBuffers.savedF2,
     savedE7:savedOperandBuffers.savedE7,
     savedF2:savedOperandBuffers.savedF2,
   },
 });
-expectThrows('39:5B10 rejects an enabled search without an OP1 result',
+expectEqual('39:5B10 applies the class-2 OP1 seed before E7 writeback', (() => {
+  const result = rom.editorSavedOperandWrapper(
+    'saved-E7','up',0x20,savedOperandBuffers,{
+      editorClass:2,specialResult:{carry:false},
+    });
+  return {
+    branch:result.branch,carry:result.carry,
+    op1:result.buffers.op1,savedE7:result.buffers.savedE7,
+  };
+})(), {
+  branch:'save-result',carry:false,
+  op1:[0x14,0x42,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
+  savedE7:[0x14,0x42,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
+});
+expectThrows('39:5B10 rejects an enabled search without its editor class',
   TypeError, () => rom.editorSavedOperandWrapper(
-    'saved-E7','up',0x20,savedOperandBuffers,{carry:false}));
+    'saved-E7','up',0x20,savedOperandBuffers,{vatSnapshot:[]}));
 expectThrows('39:5B10 rejects an eleven-byte OP scratch value',
   RangeError, () => rom.editorSavedOperandWrapper(
     'saved-E7','up',0x20,{...savedOperandBuffers,savedE7:new Array(11).fill(0)},
-    {carry:false,op1:savedOperandSearchOp1}));
+    {editorClass:4,vatSnapshot:[]}));
 
 const savedOperandProjection = result => ({
   branch:result.branch,
@@ -1210,13 +1242,15 @@ for (const source of ['saved-E7','saved-F2']) {
     for (let recordFlags = 0; recordFlags <= 0xff; recordFlags++) {
       for (const incomingCarry of [false,true]) {
         for (const searchCarry of [false,true]) {
-          const searchResult = {
-            incomingCarry,carry:searchCarry,op1:savedOperandSearchOp1,
-          };
-          const raw = runRawSavedOperandWrapper(
-            source,direction,recordFlags,savedOperandBuffers,searchResult);
+          const searchState = savedOperandState(
+            savedOperandBuffers,source,direction,searchCarry,incomingCarry);
           const translated = rom.editorSavedOperandWrapper(
-            source,direction,recordFlags,savedOperandBuffers,searchResult);
+            source,direction,recordFlags,savedOperandBuffers,searchState);
+          const raw = runRawSavedOperandWrapper(
+            source,direction,recordFlags,savedOperandBuffers,{
+              incomingCarry,carry:translated.carry,
+              op1:translated.buffers.op1,
+            });
           expectEqual('39:5B10–5B44 exhaustive wrapper state',
             savedOperandProjection(translated), raw);
           savedOperandWrapperStates++;
@@ -1228,15 +1262,13 @@ for (const source of ['saved-E7','saved-F2']) {
 expectEqual('39:5B10–5B44 exhaustive wrapper state count',
   savedOperandWrapperStates, 0x1000);
 
-// Exercise every value in every byte position across both restore sources and
-// the carry-clear OP1 writeback. This is the complete basis of each Mov9B.
+// Exercise every value in every restored byte. An empty VAT makes the search
+// carry, so OP1 retains the exact nine-byte source image.
 for (const source of ['saved-E7','saved-F2']) {
   for (let position = 0; position < 9; position++) {
     for (let value = 0; value <= 0xff; value++) {
       const sourceValue = new Array(9).fill(0);
-      const resultValue = new Array(9).fill(0);
       sourceValue[position] = value;
-      resultValue[position] = value ^ 0xff;
       const buffers = {
         op1:new Array(9).fill(0x55),
         savedE7:source === 'saved-E7'
@@ -1244,12 +1276,37 @@ for (const source of ['saved-E7','saved-F2']) {
         savedF2:source === 'saved-F2'
           ? sourceValue : new Array(9).fill(0x22),
       };
-      const searchResult = {carry:false,op1:resultValue};
-      expectEqual('39:5AE1/5B00/5AD2 exhaustive Mov9B basis',
-        savedOperandProjection(rom.editorSavedOperandWrapper(
-          source,'up',0x20,buffers,searchResult)),
-        runRawSavedOperandWrapper(
-          source,'up',0x20,buffers,searchResult));
+      const translated = rom.editorSavedOperandWrapper(
+        source,'up',0x20,buffers,{editorClass:4,vatSnapshot:[]});
+      expectEqual('39:5AE1/5B00 exhaustive restore basis',
+        savedOperandProjection(translated),
+        runRawSavedOperandWrapper(source,'up',0x20,buffers,
+          {carry:true,op1:sourceValue}));
+    }
+  }
+}
+
+// A selected successor exercises writeback for every payload-byte value.
+for (const source of ['saved-E7','saved-F2']) {
+  for (let position = 2; position < 9; position++) {
+    for (let value = 0; value <= 0xff; value++) {
+      const sourceValue = alphaOp(5,0x42);
+      const resultValue = alphaOp(5,0x43);
+      resultValue[position] = value;
+      const buffers = {
+        op1:new Array(9).fill(0x55),
+        savedE7:source === 'saved-E7' ? sourceValue : alphaOp(5,0x62),
+        savedF2:source === 'saved-F2' ? sourceValue : alphaOp(5,0x62),
+      };
+      const searchState = {editorClass:4,vatSnapshot:[
+        {op1:resultValue,pointer:0x9f00,page:0},
+      ]};
+      const translated = rom.editorSavedOperandWrapper(
+        source,'up',0x20,buffers,searchState);
+      expectEqual('39:5AD2/5B08 exhaustive payload writeback basis',
+        savedOperandProjection(translated),
+        runRawSavedOperandWrapper(source,'up',0x20,buffers,
+          {carry:false,op1:resultValue}));
     }
   }
 }
@@ -1262,10 +1319,12 @@ const alphaSearchProjection = result => ({
 });
 const alphaSearchCases = [
   ['ascending class-2 marker', 'up', 0x02, 0x00,
-   {specialResult:{carry:false}}, {specialResult:{carry:false}}],
+   {specialResult:{carry:false}},
+   {op1:alphaOp(2,0),specialResult:{carry:false}}],
   ['descending class-2 empty saved operand', 'down', 0x02, 0x00,
    {savedOperand:[0x02,0,0,0,0,0,0,0,0],specialResult:{carry:false}},
-   {savedOperand:[0x02,0,0,0,0,0,0,0,0],specialResult:{carry:false}}],
+   {op1:alphaOp(2,0),savedOperand:[0x02,0,0,0,0,0,0,0,0],
+    specialResult:{carry:false}}],
   ['ascending VAT-search carry', 'up', 0x04, 0x00,
    {searchResults:[{carry:true}]},
    {op1:alphaOp(5,0x42),vatSnapshot:[
@@ -1309,12 +1368,12 @@ expectEqual('39:59E0 derives alphabetic search from a raw VAT snapshot', (() => 
   op1:[0x05,0x43,0x41,0x54,0,0,0,0,0],vatPointer:0x9000,
 });
 expectThrows('39:59E0 rejects an omitted VAT snapshot', TypeError,
-  () => rom.editorAlphaSearch('up',0x04));
+  () => rom.editorAlphaSearch('up',0x04,0,{op1:alphaOp(5,0x41)}));
 expectThrows('39:59F9 rejects an omitted class-2 special result', TypeError,
-  () => rom.editorAlphaSearch('down',0x02));
+  () => rom.editorAlphaSearch('down',0x02,0,{op1:alphaOp(2,0)}));
 expectThrows('39:59F9 rejects a carrying class-2 1BAF result', TypeError,
   () => rom.editorAlphaSearch('down',0x02,0,
-    {specialResult:{carry:true}}));
+    {op1:alphaOp(2,0),specialResult:{carry:true}}));
 
 let alphaSearchStates = 0;
 for (const direction of ['up','down']) {
@@ -1322,8 +1381,9 @@ for (const direction of ['up','down']) {
     for (const editorSubClass of [0x00,0x01,0xff]) {
       if (editorClass === 0x02) {
         const options = direction === 'down'
-          ? {savedOperand:new Array(9).fill(0),specialResult:{carry:false}}
-          : {specialResult:{carry:false}};
+          ? {op1:alphaOp(2,0),savedOperand:new Array(9).fill(0),
+             specialResult:{carry:false}}
+          : {op1:alphaOp(2,0),specialResult:{carry:false}};
         const raw = runRawAlphaSearch(direction,editorClass,editorSubClass,options);
         const translated = rom.editorAlphaSearch(
           direction,editorClass,editorSubClass,options);
@@ -1467,7 +1527,7 @@ expectEqual('39:4CA4 emits a direct handler-cell slot offset',
 expectEqual('39:5167 returns immediately for an empty argument list',
   rom.editorAdvanceArgument(8, 0, 0, 1, 0), {
     layoutClass:8, argumentIndex:0, argumentCount:0, currentRow:1,
-    recordFlags:0, winTop:null, savedF2SearchCarry:false,
+    recordFlags:0, winTop:null,
     routine:'39:5167', lastArgument:null, nextArgument:0, rowStep:0,
     placementRow:null, nextRow:null, branch:'empty',
     effects:[{kind:'set-row-for-token',routine:'39:5447'}],
@@ -1476,7 +1536,7 @@ expectEqual('39:5167 returns immediately for an empty argument list',
 expectEqual('39:5167 stops at the final argument',
   rom.editorAdvanceArgument(8, 3, 4, 1, 0), {
     layoutClass:8, argumentIndex:3, argumentCount:4, currentRow:1,
-    recordFlags:0, winTop:null, savedF2SearchCarry:false,
+    recordFlags:0, winTop:null,
     routine:'39:5167', lastArgument:3, nextArgument:3, rowStep:0,
     placementRow:null, nextRow:null, branch:'at-or-past-last',
     effects:[{kind:'set-row-for-token',routine:'39:5447'}],
@@ -1485,7 +1545,7 @@ expectEqual('39:5167 stops at the final argument',
 expectEqual('39:5167 advances an ordinary argument by one row',
   rom.editorAdvanceArgument(8, 0, 4, 1, 0), {
     layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:1,
-    recordFlags:0, winTop:null, savedF2SearchCarry:false,
+    recordFlags:0, winTop:null,
     routine:'39:5167', lastArgument:3, nextArgument:1, rowStep:1,
     rowLimit:7, placementRow:2, nextRow:null, branch:'in-row',
     effects:[
@@ -1500,7 +1560,7 @@ expectEqual('39:5167 advances an ordinary argument by one row',
 expectEqual('39:5167 advances a low class-06 argument by two rows',
   rom.editorAdvanceArgument(6, 0, 4, 1, 0), {
     layoutClass:6, argumentIndex:0, argumentCount:4, currentRow:1,
-    recordFlags:0, winTop:null, savedF2SearchCarry:false,
+    recordFlags:0, winTop:null,
     routine:'39:5167', lastArgument:3, nextArgument:1, rowStep:2,
     rowLimit:6, placementRow:3, nextRow:null, branch:'in-row',
     effects:[
@@ -1521,7 +1581,7 @@ expectEqual('39:5167 class-06 row six bypasses the styled overflow branch',
 expectEqual('39:5167 sends an unstyled row-seven argument to 39:4C5A',
   rom.editorAdvanceArgument(8, 0, 4, 7, 0), {
     layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:7,
-    recordFlags:0, winTop:null, savedF2SearchCarry:false,
+    recordFlags:0, winTop:null,
     routine:'39:5167', lastArgument:3, nextArgument:1, rowStep:1,
     rowLimit:7, placementRow:7, nextRow:null,
     branch:'subexpression-overflow',
@@ -1533,12 +1593,9 @@ expectEqual('39:5167 sends an unstyled row-seven argument to 39:4C5A',
     continuation:'subexpression-window',
   });
 expectEqual('39:5167 preserves the styled row-seven scroll sequence',
-  rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {winTop:5}), {
-    layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:7,
-    recordFlags:0x20, winTop:5, savedF2SearchCarry:false,
-    routine:'39:5167', lastArgument:3, nextArgument:1, rowStep:1,
-    rowLimit:7, placementRow:null, nextRow:null, branch:'styled-overflow',
-    effects:[
+  rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
+    winTop:5,savedOperandState:savedOperandWalkerState('up'),
+  }).effects.map(({transition,...effect}) => effect), [
       {kind:'find-alpha',direction:'up',source:'saved-F2',routine:'39:5B2B',carry:false},
       {kind:'emit-argument-index',argument:0,routine:'39:4E0A'},
       {kind:'set-overflow',curCol:1,routine:'39:6712'},
@@ -1552,25 +1609,47 @@ expectEqual('39:5167 preserves the styled row-seven scroll sequence',
         cursorPreserved:true,routine:'39:66FE'},
       {kind:'restore-window-top',value:5},
       {kind:'set-row-for-token',routine:'39:5447'},
+    ]);
+expectEqual('39:5167 derives the styled row-seven scroll branch from VAT',
+  (() => {
+    const result = rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
+      winTop:5,savedOperandState:savedOperandWalkerState('up'),
+    });
+    return {
+      branch:result.branch,savedF2Carry:result.savedF2Carry,
+      f2:result.effects[0].transition.buffers.savedF2,
+      e7:result.effects[6].transition.buffers.savedE7,
+    };
+  })(), {
+    branch:'styled-overflow',savedF2Carry:false,
+    f2:[0x05,0x53,0x23,0x24,0x25,0x26,0x27,0x28,0x29],
+    e7:[0x05,0x43,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
+  });
+expectEqual('39:5167 leaves a missing styled VAT state explicit',
+  rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {winTop:5}), {
+    layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:7,
+    recordFlags:0x20, winTop:5,
+    routine:'39:5167', lastArgument:3, nextArgument:1, rowStep:1,
+    rowLimit:7, placementRow:null, nextRow:null,
+    branch:'styled-overflow-unresolved',
+    effects:[
+      {kind:'find-alpha',direction:'up',source:'saved-F2',
+        routine:'39:5B2B',unresolved:'VAT state'},
     ],
-    continuation:'row-token-tail',
+    continuation:'saved-F2-search',
   });
 expectEqual('39:5167 stops styled overflow when saved-F2 search carries',
   rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
-    savedF2SearchCarry:true,
+    savedOperandState:savedOperandWalkerState('up',savedOperandBuffers,true),
   }).branch, 'styled-overflow-carry');
 expectEqual('39:5167 composes F2 and E7 ascending-search state', (() => {
-  const f2Result = {carry:false,op1:new Array(9).fill(0xf2)};
-  const e7Result = {carry:false,op1:new Array(9).fill(0xe7)};
   const result = rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
-    savedOperandBuffers,
-    savedF2SearchResult:f2Result,
-    savedE7SearchResult:e7Result,
+    savedOperandState:savedOperandWalkerState('up'),
   });
   const f2 = result.effects.find(effect => effect.source === 'saved-F2');
   const e7 = result.effects.find(effect => effect.source === 'saved-E7');
   return {
-    branch:result.branch,carry:result.savedF2SearchCarry,
+    branch:result.branch,carry:result.savedF2Carry,
     f2Input:f2.transition.searchInput,
     f2Saved:f2.transition.buffers.savedF2,
     e7Input:e7.transition.searchInput,
@@ -1579,25 +1658,24 @@ expectEqual('39:5167 composes F2 and E7 ascending-search state', (() => {
   };
 })(), {
   branch:'styled-overflow',carry:false,
-  f2Input:savedOperandBuffers.savedF2,f2Saved:new Array(9).fill(0xf2),
-  e7Input:savedOperandBuffers.savedE7,e7Saved:new Array(9).fill(0xe7),
-  e7SeesF2:new Array(9).fill(0xf2),
+  f2Input:savedOperandBuffers.savedF2,
+  f2Saved:[0x05,0x53,0x23,0x24,0x25,0x26,0x27,0x28,0x29],
+  e7Input:savedOperandBuffers.savedE7,
+  e7Saved:[0x05,0x43,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
+  e7SeesF2:[0x05,0x53,0x23,0x24,0x25,0x26,0x27,0x28,0x29],
 });
 expectEqual('39:5167 derives the styled carry branch from the F2 wrapper',
   rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
-    savedOperandBuffers,
-    savedF2SearchResult:{carry:true,op1:new Array(9).fill(0xcc)},
+    savedOperandState:savedOperandWalkerState('up',savedOperandBuffers,true),
   }).branch, 'styled-overflow-carry');
-expectThrows('39:5167 rejects contradictory modeled and supplied F2 carry',
-  RangeError, () => rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
-    savedF2SearchCarry:false,
-    savedOperandBuffers,
-    savedF2SearchResult:{carry:true,op1:new Array(9).fill(0xcc)},
+expectThrows('39:5167 rejects saved-operand state without buffers',
+  TypeError, () => rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
+    savedOperandState:{vatSnapshot:[]},
   }));
 expectEqual('39:523B stops before decrementing the first argument',
   rom.editorRetreatArgument(8, 0, 4, 4, 1, 0), {
     layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:4,
-    baselineRow:1, recordFlags:0, winTop:null, savedF2SearchCarry:false,
+    baselineRow:1, recordFlags:0, winTop:null,
     routine:'39:523B', nextArgument:0, rowStep:0, placementRow:null,
     nextRow:null, branch:'at-first', effects:[],
     continuation:'action-03-first-argument',
@@ -1605,7 +1683,7 @@ expectEqual('39:523B stops before decrementing the first argument',
 expectEqual('39:523B retreats an ordinary argument by one row',
   rom.editorRetreatArgument(8, 2, 4, 4, 1, 0), {
     layoutClass:8, argumentIndex:2, argumentCount:4, currentRow:4,
-    baselineRow:1, recordFlags:0, winTop:null, savedF2SearchCarry:false,
+    baselineRow:1, recordFlags:0, winTop:null,
     routine:'39:523B', nextArgument:1, rowStep:1,
     twoRowUnderflow:false, placementRow:3, nextRow:null, branch:'in-row',
     effects:[
@@ -1619,8 +1697,7 @@ expectEqual('39:523B retreats an ordinary argument by one row',
   });
 expectEqual('39:523B executes the E7 descending-search transition', (() => {
   const result = rom.editorRetreatArgument(8, 2, 4, 4, 1, 0x20, {
-    savedOperandBuffers,
-    savedE7SearchResult:{carry:false,op1:new Array(9).fill(0x77)},
+    savedOperandState:savedOperandWalkerState('down'),
   });
   const effect = result.effects.find(item => item.source === 'saved-E7');
   return {
@@ -1631,7 +1708,7 @@ expectEqual('39:523B executes the E7 descending-search transition', (() => {
   };
 })(), {
   branch:'in-row',direction:'down',input:savedOperandBuffers.savedE7,
-  result:new Array(9).fill(0x77),
+  result:[0x05,0x41,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
 });
 expectEqual('39:523B retreats a class-06 low argument by two rows',
   rom.editorRetreatArgument(6, 3, 4, 3, 1, 0).placementRow, 1);
@@ -1646,7 +1723,10 @@ expectEqual('39:523B sends a baseline-row retreat to 39:4C5A',
   'subexpression-overflow');
 expectEqual('39:523B preserves the styled reverse scroll sequence',
   rom.editorRetreatArgument(
-    8, 2, 12, 1, 1, 0x20, {winTop:5,winBottom:7}).effects, [
+    8, 2, 12, 1, 1, 0x20, {
+      winTop:5,winBottom:7,
+      savedOperandState:savedOperandWalkerState('down'),
+    }).effects.map(({transition,...effect}) => effect), [
     {kind:'find-alpha',direction:'down',source:'saved-F2',routine:'39:5B38',carry:false},
     {kind:'emit-argument-index',argument:2,routine:'39:4E0A'},
     {kind:'set-overflow',curCol:1,routine:'39:6712'},
@@ -1667,7 +1747,7 @@ expectEqual('39:523B preserves the styled reverse scroll sequence',
   ]);
 expectEqual('39:523B stops styled overflow when saved-F2 search carries',
   rom.editorRetreatArgument(8, 2, 4, 1, 1, 0x20, {
-    savedF2SearchCarry:true,
+    savedOperandState:savedOperandWalkerState('down',savedOperandBuffers,true),
   }).branch, 'styled-overflow-carry');
 expectEqual('39:51F1 sends a nonzero argument through the reverse walker', {
   branch:rom.editorFirstArgumentAction(8, 2, 4, 4, 1, 0).branch,
@@ -1783,9 +1863,9 @@ expectEqual('39:52A5 sends wrapped subtraction states through one call', [
   rom.editorAdvanceAction(8, 9, 7, 4, 0).delegate.branch,
   rom.editorAdvanceAction(8, 9, 7, 4, 0).delta,
 ], ['empty','at-or-past-last',0xfd]);
-expectThrows('39:5167 rejects a non-boolean saved-F2 carry', TypeError,
+expectThrows('39:5167 rejects a non-object saved-operand state', TypeError,
   () => rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
-    savedF2SearchCarry:1,
+    savedOperandState:1,
   }));
 // The increment-wrap guard in the bytes cannot fire after the preceding
 // unsigned count/index predicate: count is nonzero and index <= count-2.

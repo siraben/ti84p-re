@@ -488,10 +488,10 @@
   // enabled wrapper restores a nine-byte saved operand to OP1 before the
   // search call; carry returns immediately. Carry clear saves the search's
   // OP1 result back to the source scratch slot through 5AD2h (E7) or 5B08h
-  // (F2). The search result stays an explicit input because the page-7 VAT
-  // walk is outside this closed state machine.
+  // (F2). The dispatcher and page-7 VAT walk derive their result from the
+  // restored buffer and the supplied VAT state.
   function editorSavedOperandWrapper(source, direction, recordFlags,
-                                     buffers, searchResult = {}) {
+                                     buffers, searchState = {}) {
     if (source !== 'saved-E7' && source !== 'saved-F2')
       throw new RangeError('editor saved operand source must be saved-E7 or saved-F2');
     if (direction !== 'up' && direction !== 'down')
@@ -499,14 +499,14 @@
     byte(recordFlags, 'editor record flags');
     if (!buffers || typeof buffers !== 'object' || Array.isArray(buffers))
       throw new TypeError('editor saved operand buffers must be an object');
-    if (!searchResult || typeof searchResult !== 'object' ||
-        Array.isArray(searchResult))
-      throw new TypeError('editor saved operand search result must be an object');
+    if (!searchState || typeof searchState !== 'object' ||
+        Array.isArray(searchState))
+      throw new TypeError('editor saved operand search state must be an object');
     let op1 = editorNineByteBuffer(buffers.op1, 'editor OP1');
     let savedE7 = editorNineByteBuffer(buffers.savedE7, 'editor saved E7');
     let savedF2 = editorNineByteBuffer(buffers.savedF2, 'editor saved F2');
-    const incomingCarry = searchResult.incomingCarry === undefined ? false :
-      boolean(searchResult.incomingCarry, 'editor wrapper incoming carry');
+    const incomingCarry = searchState.incomingCarry === undefined ? false :
+      boolean(searchState.incomingCarry, 'editor wrapper incoming carry');
     const entry = source === 'saved-E7'
       ? direction === 'up' ? '39:5B10' : '39:5B1D'
       : direction === 'up' ? '39:5B2B' : '39:5B38';
@@ -522,12 +522,6 @@
         searchInput:null, carry:incomingCarry, copies:[],
         buffers:{op1,savedE7,savedF2},
       };
-    if (searchResult.carry === undefined)
-      throw new TypeError('enabled editor saved operand search must supply carry');
-    const searchCarry = boolean(
-      searchResult.carry, 'editor saved operand search carry');
-    const searchOp1 = editorNineByteBuffer(
-      searchResult.op1, 'editor saved operand search OP1');
     const restoreRoutine = source === 'saved-E7' ? '39:5AE1' : '39:5B00';
     const sourceBuffer = source === 'saved-E7' ? savedE7 : savedF2;
     op1 = sourceBuffer.slice();
@@ -536,11 +530,23 @@
       from:source === 'saved-E7' ? 0x85e7 : 0x85f2,
       to:0x8478, bytes:9, routine:`${restoreRoutine} → 00:1A92`,
     }];
-    op1 = searchOp1;
-    if (searchCarry)
+    if (searchState.editorClass === undefined)
+      throw new TypeError('enabled editor saved operand search requires editorClass');
+    const editorClass = byte(
+      searchState.editorClass, 'editor saved operand search class');
+    const editorSubClass = searchState.editorSubClass === undefined ? 0 :
+      byte(searchState.editorSubClass, 'editor saved operand search subclass');
+    const alphaOptions = {...searchState,op1:searchInput,savedOperand:savedE7};
+    delete alphaOptions.editorClass;
+    delete alphaOptions.editorSubClass;
+    delete alphaOptions.incomingCarry;
+    const search = editorAlphaSearch(
+      direction,editorClass,editorSubClass,alphaOptions);
+    op1 = editorNineByteBuffer(search.op1, 'editor saved operand search OP1');
+    if (search.carry)
       return {
         ...base, branch:'search-carry', searchCalled:true,
-        searchInput, carry:true, copies,
+        searchInput, search, carry:true, copies,
         buffers:{op1,savedE7,savedF2},
       };
     if (source === 'saved-E7') savedE7 = op1.slice();
@@ -553,7 +559,7 @@
     });
     return {
       ...base, branch:'save-result', searchCalled:true,
-      searchInput, carry:false, copies,
+      searchInput, search, carry:false, copies,
       buffers:{op1,savedE7,savedF2},
     };
   }
@@ -562,10 +568,10 @@
   // _FindAlphaDn on page 7. They are easy to mistake for renderers because
   // they sit beside the row compositor, but their only local state is
   // 85DE/85DF and the flags returned by the cross-page VAT search. The caller
-  // supplies OP1 and a logical VAT snapshot; every search result is derived
-  // by editorFindAlphaVat(). A protected-program result has type 06h, so the
-  // 39:1942 post-check repeats until the search reaches another type or the
-  // alphabetic endpoint.
+  // supplies OP1 and a logical or raw VAT snapshot; every search result is
+  // derived by editorFindAlphaVat(). A protected-program result has type 06h,
+  // so the 39:1942 post-check repeats until the search reaches another type or
+  // the alphabetic endpoint.
   //
   // The class-2 paths are closed on page 39. The ascending path emits 0Dh and
   // finishes with the 14h OP1 seed at 39:59C6. The descending path inspects the
@@ -581,6 +587,8 @@
     byte(editorSubClass, 'editor alpha-search subclass');
     if (!options || typeof options !== 'object' || Array.isArray(options))
       throw new TypeError('editor alpha-search options must be an object');
+    let currentOp1 = editorNineByteBuffer(
+      options.op1, 'editor alpha-search OP1');
     const special = options.specialResult === undefined ? null : options.specialResult;
     if (special !== null && (!special || typeof special !== 'object' ||
                              Array.isArray(special)))
@@ -612,9 +620,10 @@
           routine:'39:59AF → RST 28'});
         effects.push({kind:'seed-op1', code:0x14, address:0x8478,
           routine:'39:59C6'});
+        currentOp1[0] = 0x14;
         return {
           ...base, branch:'class-2-special', specialPath:'39:59AF',
-          carry:specialCarry(), effects,
+          carry:specialCarry(), op1:currentOp1.slice(), effects,
           unresolved:special.carry === undefined ? '00:0028' : null,
         };
       }
@@ -634,16 +643,16 @@
       }
       effects.push({kind:'seed-op1', code:0x14, address:0x8478,
         routine:'39:59C6'});
+      currentOp1[0] = 0x14;
       return {
         ...base, branch:'class-2-special', specialPath:'39:59B6',
         payloadEmpty, rstCarry, carry:rstCarry ? boolean(special.call1BAFCarry,
-          'editor alpha-search 39:1BAF carry') : false, effects,
+          'editor alpha-search 39:1BAF carry') : false,
+        op1:currentOp1.slice(), effects,
         unresolved:rstCarry ? '39:1BAF' : null,
       };
     }
 
-    let currentOp1 = editorNineByteBuffer(
-      options.op1, 'editor alpha-search OP1');
     let vatSnapshot = options.vatSnapshot;
     if (vatSnapshot === undefined && options.vatRam !== undefined)
       vatSnapshot = editorDecodeAlphaVatSnapshot(
@@ -739,26 +748,29 @@
       throw new TypeError('editor argument advance options must be an object');
     const winTop = options.winTop === undefined ? null :
       byte(options.winTop, 'editor window top');
-    const savedOperandBuffers = options.savedOperandBuffers === undefined
-      ? null : options.savedOperandBuffers;
-    const savedE7SearchResult = options.savedE7SearchResult === undefined
-      ? null : options.savedE7SearchResult;
-    const savedF2SearchResult = options.savedF2SearchResult === undefined
-      ? null : options.savedF2SearchResult;
-    const savedF2CarrySpecified = options.savedF2SearchCarry !== undefined;
-    const savedF2SearchCarry = options.savedF2SearchCarry === undefined
-      ? false : boolean(options.savedF2SearchCarry,
-        'editor saved-F2 alpha-search carry');
-    const transitionFor = (source, result, state = savedOperandBuffers) => {
-      if (result === null) return null;
-      if (state === null)
-        throw new TypeError('editor saved operand search result requires buffers');
+    const layoutRow = options.layoutRow === undefined ? 0 :
+      byte(options.layoutRow, 'editor layout row');
+    const savedOperandState = options.savedOperandState === undefined
+      ? null : options.savedOperandState;
+    if (savedOperandState !== null &&
+        (!savedOperandState || typeof savedOperandState !== 'object' ||
+         Array.isArray(savedOperandState)))
+      throw new TypeError('editor saved operand state must be an object');
+    const initialBuffers = savedOperandState === null
+      ? null : savedOperandState.buffers;
+    const transitionFor = (source, state = initialBuffers) => {
+      if (savedOperandState === null) return null;
+      if (state === undefined)
+        throw new TypeError('editor saved operand state requires buffers');
+      const searchState = {...savedOperandState,
+        editorClass:layoutClass,editorSubClass:layoutRow};
+      delete searchState.buffers;
       return editorSavedOperandWrapper(
-        source, 'up', recordFlags, state, result);
+        source, 'up', recordFlags, state, searchState);
     };
     const base = {
       layoutClass, argumentIndex, argumentCount, currentRow, recordFlags,
-      winTop, savedF2SearchCarry, routine:'39:5167',
+      winTop, routine:'39:5167',
     };
     if (argumentCount === 0)
       return {
@@ -790,7 +802,7 @@
     const rowLimit = rowStep === 2 ? 6 : 7;
     if (currentRow < rowLimit) {
       const placementRow = (currentRow + rowStep) & 0xff;
-      const e7Transition = transitionFor('saved-E7',savedE7SearchResult);
+      const e7Transition = transitionFor('saved-E7');
       return {
         ...base, lastArgument, nextArgument, rowStep, rowLimit,
         placementRow, nextRow:null,
@@ -820,16 +832,21 @@
         ],
         continuation:'subexpression-window',
       };
-    const f2Transition = transitionFor('saved-F2',savedF2SearchResult);
-    const effectiveF2Carry = f2Transition
-      ? f2Transition.carry : savedF2SearchCarry;
-    if (f2Transition && savedF2CarrySpecified &&
-        savedF2SearchCarry !== effectiveF2Carry)
-      throw new RangeError('editor saved-F2 carry contradicts its search result');
-    if (effectiveF2Carry)
+    const f2Transition = transitionFor('saved-F2');
+    if (f2Transition === null)
       return {
         ...base, lastArgument, nextArgument, rowStep, rowLimit,
-        savedF2SearchCarry:effectiveF2Carry,
+        placementRow:null, nextRow:null, branch:'styled-overflow-unresolved',
+        effects:[
+          {kind:'find-alpha',direction:'up',source:'saved-F2',
+            routine:'39:5B2B',unresolved:'VAT state'},
+        ],
+        continuation:'saved-F2-search',
+      };
+    if (f2Transition.carry)
+      return {
+        ...base, lastArgument, nextArgument, rowStep, rowLimit,
+        savedF2Carry:true,
         placementRow:null, nextRow:null, branch:'styled-overflow-carry',
         effects:[
           {kind:'find-alpha',direction:'up',source:'saved-F2',routine:'39:5B2B',carry:true,
@@ -838,12 +855,10 @@
         ],
         continuation:'row-token-tail',
       };
-    const e7Transition = transitionFor(
-      'saved-E7', savedE7SearchResult,
-      f2Transition ? f2Transition.buffers : savedOperandBuffers);
+    const e7Transition = transitionFor('saved-E7',f2Transition.buffers);
     return {
       ...base, lastArgument, nextArgument, rowStep, rowLimit,
-      savedF2SearchCarry:effectiveF2Carry,
+      savedF2Carry:false,
       placementRow:null, nextRow:null, branch:'styled-overflow',
       effects:[
         {kind:'find-alpha',direction:'up',source:'saved-F2',routine:'39:5B2B',carry:false,
@@ -865,9 +880,9 @@
   }
 
   // 39:523B is the reverse half of the action-03 argument walker. It first
-  // decrements 85E0, then chooses the row step from the new slot. The saved
-  // operand wrappers and scroll helpers remain ordered effects because their
-  // parser and cross-page bodies are outside this closed arithmetic path.
+  // decrements 85E0, then chooses the row step from the new slot. A supplied
+  // saved-operand state executes the wrapper and VAT-search transitions.
+  // Parser and scroll bodies remain ordered effects.
   function editorRetreatArgument(layoutClass, argumentIndex, argumentCount,
                                  currentRow, baselineRow, recordFlags,
                                  options = {}) {
@@ -883,26 +898,29 @@
       byte(options.winTop, 'editor window top');
     const winBottom = options.winBottom === undefined ? null :
       byte(options.winBottom, 'editor window bottom');
-    const savedOperandBuffers = options.savedOperandBuffers === undefined
-      ? null : options.savedOperandBuffers;
-    const savedE7SearchResult = options.savedE7SearchResult === undefined
-      ? null : options.savedE7SearchResult;
-    const savedF2SearchResult = options.savedF2SearchResult === undefined
-      ? null : options.savedF2SearchResult;
-    const savedF2CarrySpecified = options.savedF2SearchCarry !== undefined;
-    const savedF2SearchCarry = options.savedF2SearchCarry === undefined
-      ? false : boolean(options.savedF2SearchCarry,
-        'editor saved-F2 alpha-search carry');
-    const transitionFor = (source, result, state = savedOperandBuffers) => {
-      if (result === null) return null;
-      if (state === null)
-        throw new TypeError('editor saved operand search result requires buffers');
+    const layoutRow = options.layoutRow === undefined ? 0 :
+      byte(options.layoutRow, 'editor layout row');
+    const savedOperandState = options.savedOperandState === undefined
+      ? null : options.savedOperandState;
+    if (savedOperandState !== null &&
+        (!savedOperandState || typeof savedOperandState !== 'object' ||
+         Array.isArray(savedOperandState)))
+      throw new TypeError('editor saved operand state must be an object');
+    const initialBuffers = savedOperandState === null
+      ? null : savedOperandState.buffers;
+    const transitionFor = (source, state = initialBuffers) => {
+      if (savedOperandState === null) return null;
+      if (state === undefined)
+        throw new TypeError('editor saved operand state requires buffers');
+      const searchState = {...savedOperandState,
+        editorClass:layoutClass,editorSubClass:layoutRow};
+      delete searchState.buffers;
       return editorSavedOperandWrapper(
-        source, 'down', recordFlags, state, result);
+        source, 'down', recordFlags, state, searchState);
     };
     const base = {
       layoutClass, argumentIndex, argumentCount, currentRow, baselineRow,
-      recordFlags, winTop, savedF2SearchCarry, routine:'39:523B',
+      recordFlags, winTop, routine:'39:523B',
     };
     if (argumentIndex === 0)
       return {
@@ -914,7 +932,7 @@
     const twoRowUnderflow = rowStep === 2 && currentRow < 3;
     if (!twoRowUnderflow && currentRow > baselineRow) {
       const placementRow = (currentRow - rowStep) & 0xff;
-      const e7Transition = transitionFor('saved-E7',savedE7SearchResult);
+      const e7Transition = transitionFor('saved-E7');
       return {
         ...base, nextArgument, rowStep, twoRowUnderflow,
         placementRow, nextRow:null, branch:'in-row',
@@ -942,16 +960,21 @@
         ],
         continuation:'subexpression-window',
       };
-    const f2Transition = transitionFor('saved-F2',savedF2SearchResult);
-    const effectiveF2Carry = f2Transition
-      ? f2Transition.carry : savedF2SearchCarry;
-    if (f2Transition && savedF2CarrySpecified &&
-        savedF2SearchCarry !== effectiveF2Carry)
-      throw new RangeError('editor saved-F2 carry contradicts its search result');
-    if (effectiveF2Carry)
+    const f2Transition = transitionFor('saved-F2');
+    if (f2Transition === null)
       return {
         ...base, nextArgument, rowStep, twoRowUnderflow,
-        savedF2SearchCarry:effectiveF2Carry,
+        placementRow:null, nextRow:null, branch:'styled-overflow-unresolved',
+        effects:[
+          {kind:'find-alpha',direction:'down',source:'saved-F2',
+            routine:'39:5B38',unresolved:'VAT state'},
+        ],
+        continuation:'saved-F2-search',
+      };
+    if (f2Transition.carry)
+      return {
+        ...base, nextArgument, rowStep, twoRowUnderflow,
+        savedF2Carry:true,
         placementRow:null, nextRow:null, branch:'styled-overflow-carry',
         effects:[
           {kind:'find-alpha',direction:'down',source:'saved-F2',routine:'39:5B38',carry:true,
@@ -961,12 +984,10 @@
         continuation:'row-token-tail',
       };
     const remainingArguments = (argumentCount - nextArgument) & 0xff;
-    const e7Transition = transitionFor(
-      'saved-E7', savedE7SearchResult,
-      f2Transition ? f2Transition.buffers : savedOperandBuffers);
+    const e7Transition = transitionFor('saved-E7',f2Transition.buffers);
     return {
       ...base, nextArgument, rowStep, twoRowUnderflow,
-      savedF2SearchCarry:effectiveF2Carry,
+      savedF2Carry:false,
       placementRow:null, nextRow:null, remainingArguments,
       branch:'styled-overflow',
       effects:[

@@ -795,8 +795,9 @@ endpoints, one- and two-row movement, subexpression fallback, both styled
 scroll directions, and the saved-F2 search's carry exit. The forward two-row
 path compares `0x844B` with 6 at `39:5181`; the reverse path compares it with 3
 at `39:5244`. These jumps reach `39:4C5A` before the styled-record test. Calls
-into alphabetic VAT searches and scroll helpers remain explicit effects because
-those routines are outside the closed row arithmetic.
+into scroll helpers remain explicit effects. The saved-operand wrappers derive
+their alphabetic outcomes from one shared VAT state. A missing VAT state
+stops at the saved-F2 search instead of selecting a scroll branch.
 The increment-wrap guard cannot execute: its preceding unsigned predicate
 requires a nonzero count and an index at most `count - 2`. [confirmed]
 
@@ -808,9 +809,12 @@ The ascending wrappers then call `39:59E0`; the descending wrappers call
 the incoming carry and performs no copy or search. With the bit set, search
 carry returns without writeback. Carry clear copies OP1 back to the selected
 source: `39:5AD2` writes `0x85E7`, and `39:5B08` writes `0x85F2`. The page-7
-search results remain explicit model inputs. A raw-byte interpreter covers all
-4,096 wrapper, gate, carry, and buffer-source combinations and every value in
-each byte position. [confirmed]
+search receives the restored OP1 and the current VAT state. The styled overflow
+path applies the F2 writeback before it restores and searches E7. A raw-byte
+interpreter covers all 4,096 wrapper, gate, derived-carry, and buffer-source
+combinations. It also covers every value in every restored byte and every
+value in the seven selected payload bytes written back to a saved operand.
+[confirmed]
 
 The local dispatcher below those wrappers is translated separately by
 `editorAlphaSearch()`. `39:59E0` and `39:59F9` first call `39:5A17`, which
