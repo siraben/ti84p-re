@@ -17,6 +17,8 @@ from analyze_mathprint_saturation import (
     branch_for,
     classify_outcome,
     deserialize_trace_summary,
+    editor_action03_controller_path,
+    editor_action04_controller_path,
     exact_cover_z3,
     iter_oracle_cases,
     oracle_coverage,
@@ -36,6 +38,9 @@ from analyze_mathprint_saturation import (
     metric_marker_path,
     minimize_trace_features,
     symbolic_metric_marker_paths,
+    symbolic_editor_action03_paths,
+    symbolic_editor_action04_paths,
+    symbolic_model_corpus,
     symbolic_raised_extended_token_paths,
     symbolic_raised_name_loop_paths,
     symbolic_scan_kind_paths,
@@ -189,6 +194,58 @@ class StaticBranchTests(unittest.TestCase):
 
 
 class SymbolicHandlerTests(unittest.TestCase):
+    def test_editor_action_controllers_partition_every_byte_state(self) -> None:
+        action03 = symbolic_editor_action03_paths()
+        action04 = symbolic_editor_action04_paths()
+
+        self.assertEqual(0x20000, sum(
+            row["projected_input_count"] for row in action03
+        ))
+        self.assertEqual(0x20000, sum(
+            row["projected_input_count"] for row in action04
+        ))
+        self.assertEqual(11, len(action03))
+        self.assertEqual(5, len(action04))
+        zero_count = editor_action03_controller_path(0, 0, 0)
+        self.assertEqual(256, zero_count["iterations"])
+        self.assertEqual(
+            255, zero_count["branch_outcomes"].count("39:50AB:taken")
+        )
+        self.assertEqual("39:50AB:fallthrough", zero_count["branch_outcomes"][-1])
+        self.assertEqual(
+            "wide_list", editor_action03_controller_path(0, 8, 0)["terminal"]
+        )
+        self.assertEqual(
+            "advance_once_at_or_past_last",
+            editor_action04_controller_path(9, 7, 0)["terminal"],
+        )
+        self.assertEqual(
+            "layout_argument_zero",
+            editor_action04_controller_path(6, 7, 0)["terminal"],
+        )
+
+    def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
+        report = symbolic_model_corpus()
+
+        self.assertEqual(1200, report["path_equivalence_class_count"])
+        self.assertEqual(1200, report["representative_path_corpus_count"])
+        self.assertEqual(92, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(
+            50, report["per_domain_minimum_branch_outcome_corpus_count"]
+        )
+        self.assertEqual(8, len(report["domains"]))
+        for domain in report["domains"]:
+            minimum = domain["minimum_branch_outcome_corpus"]
+            selected_outcomes = {
+                outcome
+                for row in minimum["selected_classes"]
+                for outcome in row["branch_outcomes"]
+            }
+            self.assertEqual(
+                set(minimum["covered_outcomes"]), selected_outcomes
+            )
+            self.assertTrue(minimum["proven_minimum"])
+
     def test_scan_kind_partition_covers_every_byte(self) -> None:
         paths = symbolic_scan_kind_paths()
 
@@ -759,6 +816,20 @@ class OracleCoverageTests(unittest.TestCase):
         self.assertEqual("new", restored[3][outcome]["trace"])
         self.assertEqual({(0x25, 0x1234)}, restored[4][hit])
         self.assertEqual({("34:5680:taken",)}, restored[5]["34:5678"])
+
+
+class CheckedReportTests(unittest.TestCase):
+    def test_checked_report_contains_current_symbolic_and_trace_evidence(self) -> None:
+        report = json.loads(
+            Path(__file__).with_name("mathprint-saturation.json").read_text()
+        )
+
+        self.assertEqual(2, report["schema"])
+        self.assertEqual(184, len(report["traces"]))
+        self.assertEqual(
+            1200,
+            report["symbolic_model_corpus"]["path_equivalence_class_count"],
+        )
 
 
 if __name__ == "__main__":

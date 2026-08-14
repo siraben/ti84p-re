@@ -808,6 +808,183 @@ def symbolic_scan_kind_paths(
     return annotate_symbolic_outcome_coverage(paths, observed_outcomes)
 
 
+def editor_action03_controller_path(
+    argument_index: int,
+    argument_count: int,
+    editor_flag_bit0: int,
+) -> dict[str, object]:
+    """Return the complete outer-controller path for action 03 at 39:51F1."""
+
+    argument_index &= 0xFF
+    argument_count &= 0xFF
+    editor_flag_bit0 = int(bool(editor_flag_bit0))
+    outcomes = ["39:51F3:fallthrough"]
+    outcomes.append(
+        f"39:51FB:{'taken' if argument_index else 'fallthrough'}"
+    )
+    if argument_index:
+        return {
+            "terminal": "reverse_walker",
+            "iterations": None,
+            "branch_outcomes": outcomes,
+        }
+    outcomes.append(
+        f"39:5201:{'taken' if editor_flag_bit0 else 'fallthrough'}"
+    )
+    if editor_flag_bit0:
+        return {
+            "terminal": "row_token_tail",
+            "iterations": 0,
+            "branch_outcomes": outcomes,
+        }
+    short = argument_count < 8
+    outcomes.append(f"39:5208:{'taken' if short else 'fallthrough'}")
+    if not short:
+        return {
+            "terminal": "wide_list",
+            "iterations": 0,
+            "branch_outcomes": outcomes,
+        }
+    iterations = 0x100 if argument_count == 0 else argument_count
+    outcomes.extend("39:50AB:taken" for _step in range(iterations - 1))
+    outcomes.append("39:50AB:fallthrough")
+    return {
+        "terminal": (
+            "zero_count_loop" if argument_count == 0
+            else f"short_list_loop_{argument_count}"
+        ),
+        "iterations": iterations,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_editor_action03_paths() -> list[dict[str, object]]:
+    """Partition all count/index/flag tuples for action 03."""
+
+    classes: dict[
+        tuple[str, int | None, tuple[str, ...]], dict[str, object]
+    ] = {}
+    for editor_flag_bit0 in (0, 1):
+        for argument_count in range(0x100):
+            for argument_index in range(0x100):
+                result = editor_action03_controller_path(
+                    argument_index, argument_count, editor_flag_bit0
+                )
+                key = (
+                    str(result["terminal"]),
+                    result["iterations"],
+                    tuple(str(item) for item in result["branch_outcomes"]),
+                )
+                row = classes.setdefault(key, {
+                    "projected_input_count": 0,
+                    "representative_states": [],
+                })
+                row["projected_input_count"] += 1
+                states = row["representative_states"]
+                if len(states) < 4:
+                    states.append({
+                        "argument_index": argument_index,
+                        "argument_count": argument_count,
+                        "editor_flag_bit0": editor_flag_bit0,
+                    })
+    return [
+        {
+            "terminal": terminal,
+            "iterations": iterations,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, iterations, outcomes)],
+        }
+        for terminal, iterations, outcomes in sorted(
+            classes,
+            key=lambda item: (
+                item[0], -1 if item[1] is None else item[1], item[2]
+            ),
+        )
+    ]
+
+
+def editor_action04_controller_path(
+    argument_index: int,
+    argument_count: int,
+    editor_flag_bit0: int,
+) -> dict[str, object]:
+    """Return the action-04 path, including the delegated call class."""
+
+    argument_index &= 0xFF
+    argument_count &= 0xFF
+    editor_flag_bit0 = int(bool(editor_flag_bit0))
+    last_argument = (argument_count - 1) & 0xFF
+    delta = (last_argument - argument_index) & 0xFF
+    outcomes = ["39:52A7:fallthrough"]
+    outcomes.append(f"39:52B1:{'taken' if delta == 0 else 'fallthrough'}")
+    if delta:
+        if argument_count == 0:
+            delegate_class = "empty"
+        elif argument_index < last_argument:
+            delegate_class = "advancing"
+        else:
+            delegate_class = "at_or_past_last"
+        return {
+            "terminal": f"advance_once_{delegate_class}",
+            "delta_nonzero": True,
+            "delegate_class": delegate_class,
+            "branch_outcomes": outcomes,
+        }
+    outcomes.append(
+        f"39:52BC:{'taken' if editor_flag_bit0 else 'fallthrough'}"
+    )
+    return {
+        "terminal": (
+            "row_token_tail" if editor_flag_bit0 else "layout_argument_zero"
+        ),
+        "delta_nonzero": False,
+        "delegate_class": None,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_editor_action04_paths() -> list[dict[str, object]]:
+    """Partition all count/index/flag tuples for action 04."""
+
+    classes: dict[
+        tuple[str, str | None, tuple[str, ...]], dict[str, object]
+    ] = {}
+    for editor_flag_bit0 in (0, 1):
+        for argument_count in range(0x100):
+            for argument_index in range(0x100):
+                result = editor_action04_controller_path(
+                    argument_index, argument_count, editor_flag_bit0
+                )
+                key = (
+                    str(result["terminal"]),
+                    result["delegate_class"],
+                    tuple(str(item) for item in result["branch_outcomes"]),
+                )
+                row = classes.setdefault(key, {
+                    "projected_input_count": 0,
+                    "representative_states": [],
+                })
+                row["projected_input_count"] += 1
+                states = row["representative_states"]
+                if len(states) < 4:
+                    states.append({
+                        "argument_index": argument_index,
+                        "argument_count": argument_count,
+                        "editor_flag_bit0": editor_flag_bit0,
+                    })
+    return [
+        {
+            "terminal": terminal,
+            "delegate_class": delegate_class,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, delegate_class, outcomes)],
+        }
+        for terminal, delegate_class, outcomes in sorted(
+            classes, key=lambda item: (item[0], item[1] or "", item[2])
+        )
+    ]
+
+
 def raised_extended_token_path(a: int, e: int) -> dict[str, object]:
     """Partition the packed-token classifier at 34:580C.
 
@@ -1404,6 +1581,198 @@ def metric_marker_callers(
         "continuation": "tail jump; caller inherits the returned flags and A",
     })
     return rows
+
+
+def _symbolic_case_representative(row: dict[str, object]) -> dict[str, object]:
+    """Select one deterministic concrete representative for a path class."""
+
+    if "scan_kind_values" in row:
+        return {"scan_kind": row["scan_kind_values"][0]}
+    if "representative_tokens" in row:
+        return {"packed_token": row["representative_tokens"][0]}
+    if "representative_source_bytes" in row:
+        return {
+            "source_bytes": row["representative_source_bytes"],
+            "accepted_prefix_classes": row["accepted_prefix_classes"],
+            "stop_class": row["stop_class"],
+        }
+    if "representative_states" in row:
+        return dict(row["representative_states"][0])
+    raise ValueError("symbolic path class has no representative input")
+
+
+def _exact_symbolic_outcome_cover(
+    cases: Sequence[dict[str, object]],
+) -> list[int]:
+    """Return an exact minimum case cover using outcome-subset dynamic programming."""
+
+    universe = sorted({
+        str(outcome)
+        for case in cases
+        for outcome in case["branch_outcomes"]
+    })
+    bits = {outcome: 1 << index for index, outcome in enumerate(universe)}
+    masks = [
+        sum(bits[str(outcome)] for outcome in set(case["branch_outcomes"]))
+        for case in cases
+    ]
+    encoded_sizes = [
+        len(json.dumps(
+            case["representative_state"], sort_keys=True,
+            separators=(",", ":"),
+        ).encode())
+        for case in cases
+    ]
+    # mask -> (case count, serialized representative bytes, class indices)
+    best: dict[int, tuple[int, int, tuple[int, ...]]] = {0: (0, 0, ())}
+    for index, (case_mask, encoded_size) in enumerate(zip(masks, encoded_sizes)):
+        updates = dict(best)
+        for mask, rank in best.items():
+            combined = mask | case_mask
+            candidate = (
+                rank[0] + 1,
+                rank[1] + encoded_size,
+                rank[2] + (index,),
+            )
+            if combined not in updates or candidate < updates[combined]:
+                updates[combined] = candidate
+        best = updates
+    target = (1 << len(universe)) - 1
+    if target not in best:
+        raise AssertionError("symbolic case set does not cover its own outcomes")
+    return list(best[target][2])
+
+
+def symbolic_model_corpus() -> dict[str, object]:
+    """Build minimal representatives for every declared symbolic path domain."""
+
+    definitions = (
+        (
+            "structural_scan_kind_dispatch",
+            "34:5678",
+            0x100,
+            symbolic_scan_kind_paths(),
+        ),
+        (
+            "raised_extended_token_classifier",
+            "34:580C",
+            sum(1 for _state in raised_classifier_caller_states()),
+            symbolic_raised_extended_token_paths(),
+        ),
+        (
+            "raised_name_loop_5",
+            "34:583D",
+            None,
+            symbolic_raised_name_loop_paths(5),
+        ),
+        (
+            "raised_name_loop_8",
+            "34:583D",
+            None,
+            symbolic_raised_name_loop_paths(8),
+        ),
+        (
+            "shared_marker_draw_helper",
+            "34:6143",
+            0x100 * 2 * 0x10000,
+            symbolic_type1f_paths(),
+        ),
+        (
+            "metric_marker_tail_gate",
+            "34:759C",
+            16,
+            symbolic_metric_marker_paths(),
+        ),
+        (
+            "editor_action_03_controller",
+            "39:51F1",
+            0x20000,
+            symbolic_editor_action03_paths(),
+        ),
+        (
+            "editor_action_04_controller",
+            "39:52A5",
+            0x20000,
+            symbolic_editor_action04_paths(),
+        ),
+    )
+    domains = []
+    all_outcomes: set[str] = set()
+    for name, routine, declared_count, rows in definitions:
+        cases = []
+        for class_index, row in enumerate(rows):
+            terminal = str(row.get("terminal", row.get("stop_class")))
+            input_count = int(row.get(
+                "projected_input_count",
+                row.get("predicate_valuation_count", 0),
+            ))
+            case = {
+                "class_index": class_index,
+                "terminal": terminal,
+                "projected_input_count": input_count,
+                "representative_state": _symbolic_case_representative(row),
+                "branch_outcomes": [
+                    str(item) for item in row["branch_outcomes"]
+                ],
+            }
+            for field in ("iterations", "delegate_class", "delta_nonzero"):
+                if field in row:
+                    case[field] = row[field]
+            cases.append(case)
+        projected_count = sum(
+            int(case["projected_input_count"]) for case in cases
+        )
+        if declared_count is not None and projected_count != declared_count:
+            raise AssertionError(
+                f"{name} partitions {projected_count} states, expected {declared_count}"
+            )
+        branch_cover = _exact_symbolic_outcome_cover(cases)
+        outcomes = sorted({
+            outcome for case in cases for outcome in case["branch_outcomes"]
+        })
+        all_outcomes.update(outcomes)
+        domains.append({
+            "name": name,
+            "routine": routine,
+            "projected_input_domain": projected_count,
+            "path_equivalence_class_count": len(cases),
+            "path_equivalence_classes": cases,
+            "branch_outcome_count": len(outcomes),
+            "minimum_branch_outcome_corpus": {
+                "class_indices": branch_cover,
+                "selected_classes": [cases[index] for index in branch_cover],
+                "selected_case_count": len(branch_cover),
+                "covered_outcomes": outcomes,
+                "algorithm": (
+                    "exact outcome-subset dynamic programming; minimum cases, "
+                    "then serialized input bytes, then class order"
+                ),
+                "proven_minimum": True,
+            },
+        })
+    return {
+        "scope": (
+            "all projected inputs and complete path equivalence classes in the "
+            "eight declared finite symbolic models"
+        ),
+        "not_claimed": [
+            "all Z80 register and RAM states",
+            "calculator reachability of every representative",
+            "all paths outside the declared finite models",
+        ],
+        "path_equivalence_class_count": sum(
+            int(domain["path_equivalence_class_count"]) for domain in domains
+        ),
+        "representative_path_corpus_count": sum(
+            len(domain["path_equivalence_classes"]) for domain in domains
+        ),
+        "distinct_modeled_branch_outcomes": len(all_outcomes),
+        "per_domain_minimum_branch_outcome_corpus_count": sum(
+            int(domain["minimum_branch_outcome_corpus"]["selected_case_count"])
+            for domain in domains
+        ),
+        "domains": domains,
+    }
 
 
 def table_report(rom: RomImage, oracle: dict[str, object]) -> dict[str, object]:
@@ -2432,8 +2801,9 @@ def build_report(
         if provenance.get(label, TRACE_PROVENANCE_NATURAL)
         == TRACE_PROVENANCE_NATURAL
     }
+    symbolic_corpus = symbolic_model_corpus()
     report = {
-        "schema": 1,
+        "schema": 2,
         "claim": {
             "scope": "declared MathPrint entries, decoded table rows, modeled predicate projections, and named traces",
             "not_claimed": [
@@ -2454,7 +2824,11 @@ def build_report(
                 digest(instruction_list) if instruction_list is not None else None
             ),
             "static_cfg": "recursive direct-edge traversal from declared entries",
-            "symbolic": "fixed table-row decoding and representative equivalence classes for selected predicate projections",
+            "symbolic": (
+                "fixed table-row decoding, complete path-equivalence classes, "
+                "and exact minimum branch-outcome representatives for eight "
+                "finite projected domains"
+            ),
             "computed_dispatches": {
                 "manually_seeded": [
                     "34:6118 render table", "34:7393 metric table",
@@ -2492,9 +2866,21 @@ def build_report(
             "external_direct_targets": len(external_targets),
             "structural_types_with_oracles": sum(row["oracle_records"] > 0 for row in table["structural_dispatch"]),
             "structural_type_domain": len(table["structural_dispatch"]),
+            "symbolic_path_equivalence_classes": (
+                symbolic_corpus["path_equivalence_class_count"]
+            ),
+            "symbolic_distinct_branch_outcomes": (
+                symbolic_corpus["distinct_modeled_branch_outcomes"]
+            ),
+            "symbolic_per_domain_minimum_representatives": (
+                symbolic_corpus[
+                    "per_domain_minimum_branch_outcome_corpus_count"
+                ]
+            ),
             "globally_saturated": False,
         },
         "tables": table,
+        "symbolic_model_corpus": symbolic_corpus,
         "symbolic_predicates": {
             "structural_scan_kind_dispatch": {
                 "routine": "34:5678",
