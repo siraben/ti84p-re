@@ -1347,23 +1347,53 @@ framebuffer without loading a captured write stream. These deterministic cases
 exercise summation, integral, `nDeriv(`, matrix, and a three-level raised
 fraction. [confirmed]
 
-The changed-input corpus also includes
-`int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)`. The translated constructor retains
-both structural records and computes a 106-pixel outer leaf width. Rendering
-at origin $(0,0)$ emits 221 accepted writes inside the 96×64 viewport; an
-audit raster finds 20 set pixels in the ten columns beyond its right edge.
-These counts are deterministic translation regressions, not a calculator
-capture. The page reports the record extent and clipped columns separately.
-[confirmed] for the translated record and LCD-write path
+The editable input
+`int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)` has a 106-pixel expression endpoint.
+The root record stores `112` at `+7`: the expression plus a six-pixel cursor
+cell. Its child origins remain local at $x=0$, $16$, $56$, and $72$.
+[confirmed]
 
-The editor-side path has separate overflow behavior. `39:4F08` compares
+The editor scrolls this record horizontally. `34:5DBE` adds the record origin
+at `ram:8DFE` to each local $x$ coordinate. `34:5DC2` then subtracts the
+horizontal clip at `ram:8E02`: [confirmed]
+
+$$
+x_{\mathrm{LCD}} = x_{\mathrm{local}} + x_{\mathrm{origin}} - x_{\mathrm{clip}}.
+$$
+
+`34:5F5D` updates the clip for the cursor at the expression endpoint. The
+traced editor state has a previous clip of $12$, a cursor width of $6$, and a
+right bound of $95$. `34:5F87` stores the resulting clip $17$: [confirmed]
+
+$$
+x_{\mathrm{clip}}
+= \max\left(x_{\mathrm{clip,old}},\;106+6-95\right)
+= 17.
+$$
+
+The visible expression therefore begins at effective $x=-17$, while the cursor
+cell begins at $x=89$. When `ram:8E02` is nonzero, `34:5FF2` calls `34:6031`.
+That routine draws the seven-row left-overflow bitmap at `34:60B8` through
+`34:61B2` after the expression. The translated expression plus this cue emits
+198 accepted LCD writes. Their byte-column, row, and value triples match the
+natural calculator redraw after removing the eight asynchronous right-cue
+writes. The compact oracle is
+`tools/mathprint-editor-overflow-oracle.json`; the reproduction input is
+`tools/macros/mathprint-double-integral.macro`. [confirmed]
+
+The right-side bitmap at `34:60C0` produces eight writes during the redraw. Its
+editor-state predicate is `34:5FFA` → `34:607A`, and `34:608F` computes its
+horizontal position. Its semantic meaning remains unresolved. Cursor blink
+separately writes `0x7C` to byte column 11 on rows 8–14. The browser excludes
+both UI-state streams from settled expression timelines. [hypothesis] for the
+right-cue meaning; [confirmed] for its predicate, bytes, and cursor write range
+
+The text-cell path has a separate overflow boundary. `39:4F08` compares
 `curCol` (`0x844C`) with `0x0F` before marker handling and calls the fixed-bank
-`_EraseEOL` jump at `00:3CB7` on overflow. `39:6712` sets `curCol` to `1`, emits
-the `:` marker through `00:3FDB`, and gates subsequent display modes with
-`0x85E5`. These bytes establish an erase/marker boundary. They do not yet
-establish how the answer-display caller positions or scrolls a 106-pixel
-settled record, so the generated viewport does not claim calculator parity for
-that final placement. [confirmed]
+`_EraseEOL` jump at `00:3CB7`. `39:6712` then sets `curCol` to `1`, emits the
+`:` marker through `00:3FDB`, and gates subsequent display modes with `0x85E5`.
+These page-`39` bytes do not control the page-`34` horizontal pixel clip above.
+[confirmed]
 
 The retained `sum(N,1,3,N)` trace exposes four calls through `34:5AA3` with
 `C=1`. The scanner stops on the three depth-zero comma bytes. At the closing
