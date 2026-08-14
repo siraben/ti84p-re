@@ -66,12 +66,17 @@ test('preserves a long expression typed while assets load', async ({ page }) => 
   page.on('pageerror', error => pageErrors.push(String(error)));
   await page.goto(baseUrl, {waitUntil:'domcontentloaded'});
   const input = page.locator('#expr');
+  await expect(input).not.toHaveAttribute('maxlength');
   await input.pressSequentially(doubledIntegral);
   await expect(input).toHaveValue(doubledIntegral);
   await expect(page.locator('#err')).toHaveText('');
   await expect(page.locator('#dims')).toContainText('106 px record extent');
   await expect(page.locator('#dims')).toContainText('10 px wider than viewport');
   await expect(page.locator('#dims')).toContainText('editor x clip 17 px');
+  await expect(page.locator('#timeline-note')).toContainText(
+    'The expression remains complete in the input field');
+  await expect(page.locator('#timeline-note')).toContainText(
+    'select Model elements to inspect the full unscrolled equation');
   await expect(page.locator('#screen')).toHaveAttribute('width', '600');
   await expect(page.locator('#screen')).toHaveAttribute('height', '408');
   expect(await page.locator('#timeline').evaluate(element => ({
@@ -82,13 +87,25 @@ test('preserves a long expression typed while assets load', async ({ page }) => 
 
 test('keeps growing the model and LCD viewport after a second overflow',
   async ({ page }) => {
-    const expression = `${doubledIntegral}+int(1,3,(1//2)X,X)`;
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(String(error)));
+    const integral = 'int(1,3,(1//2)X,X)';
     await page.goto(baseUrl, {waitUntil:'domcontentloaded'});
     const input = page.locator('#expr');
-    await input.fill(expression);
-    await expect(input).toHaveValue(expression);
+    await expect(page.locator('#dims')).not.toHaveText('');
+    await input.fill('');
+    await input.pressSequentially(integral);
+    await expect(page.locator('#dims')).toContainText('50 px record extent');
+    await input.pressSequentially(`+${integral}`);
+    await expect(page.locator('#dims')).toContainText('106 px record extent');
+    await expect(page.locator('#dims')).toContainText('editor x clip 17 px');
+    await input.pressSequentially(`+${integral}`);
+    await expect(input).toHaveValue(`${doubledIntegral}+${integral}`);
     await expect(page.locator('#err')).toHaveText('');
     await expect(page.locator('#dims')).toContainText('162 px record extent');
     await expect(page.locator('#dims')).toContainText('66 px wider than viewport');
     await expect(page.locator('#dims')).toContainText('editor x clip 73 px');
+    await expect(page.locator('#timeline-note')).toContainText(
+      'The expression remains complete in the input field');
+    expect(pageErrors).toEqual([]);
   });
