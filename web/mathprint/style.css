@@ -47,7 +47,8 @@ select {
   padding: 1.5rem; display: flex; justify-content: center; align-items: center;
   min-height: 180px; overflow: auto;
 }
-canvas { image-rendering: pixelated; max-width: 100%; }
+canvas { image-rendering: pixelated; }
+.stage canvas { max-width: none; }
 .meta { color: var(--muted); font-size: .8rem; font-family: ui-monospace, Menlo, monospace; }
 .err { color: #ff8b8b; }
 
