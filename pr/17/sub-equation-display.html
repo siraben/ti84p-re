@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d25d310e.js";
+            window.path_to_searchindex_js = "searchindex-a762aa6c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -1171,7 +1171,12 @@ and $w_d$, the settled metrics are [confirmed]</p>
 \begin{aligned}
 w &amp;= \max(w_n,w_d), \\
 x_n &amp;= 2 + \left\lfloor\frac{w-w_n}{2}\right\rfloor, \\
-x_d &amp;= 2 + \left\lfloor\frac{w-w_d}{2}\right\rfloor, \\
+x_d &amp;= 2 + \left\lfloor\frac{w-w_d}{2}\right\rfloor.
+\end{aligned}
+$$</p>
+<p>The vertical positions and parent metrics are:</p>
+<p>$$
+\begin{aligned}
 y_d &amp;= h_n + 3, \\
 H &amp;= h_n + h_d + 3, \\
 W &amp;= w + 4, \\
@@ -1220,7 +1225,12 @@ metrics $(w_v,b_v)$, the integral positions and parent metrics are [confirmed]</
 y_b &amp;= \max(5,h_u), \\
 s_l &amp;= \max(5,h_l), \\
 H &amp;= y_b+h_b+s_l, \\
-B &amp;= y_b+b_b, \\
+B &amp;= y_b+b_b.
+\end{aligned}
+$$</p>
+<p>The horizontal positions and width are:</p>
+<p>$$
+\begin{aligned}
 x_b &amp;= \max(w_l,w_u)+12, \\
 x_v &amp;= x_b+w_b+12, \\
 W &amp;= x_v+w_v+2, \\
@@ -1251,7 +1261,12 @@ type <code>1</code>. For child height, width, and baseline metrics $(h,w,b)$, de
 L &amp;= w_v+4+w_l, \\
 O &amp;= \max(w_u,L,12), \\
 S_u &amp;= \max(5,h_u), \\
-S_l &amp;= \max(h_v,h_l), \\
+S_l &amp;= \max(h_v,h_l).
+\end{aligned}
+$$</p>
+<p>The parent and body metrics are:</p>
+<p>$$
+\begin{aligned}
 H &amp;= S_u+9+S_l, \\
 B &amp;= S_u+4, \\
 x_b &amp;= O+6, \\
@@ -1288,7 +1303,12 @@ $w_v$ and $w_e$, the metric branches at <code>34:7485</code> and <code>34:76C2</
 B &amp;= \max(6,b_b), \\
 H &amp;= \max(h_b,B+7), \\
 x_v &amp;= 5, \\
-y_v &amp;= B+2, \\
+y_v &amp;= B+2.
+\end{aligned}
+$$</p>
+<p>The body, evaluation value, and total width are:</p>
+<p>$$
+\begin{aligned}
 x_b &amp;= 16, \\
 y_b &amp;= B-b_b, \\
 x_e &amp;= w_b+w_v+29, \\
@@ -1365,22 +1385,46 @@ deeply nested expressions pin every intermediate write and the packed final
 framebuffer without loading a captured write stream. These deterministic cases
 exercise summation, integral, <code>nDeriv(</code>, matrix, and a three-level raised
 fraction. [confirmed]</p>
-<p>The changed-input corpus also includes
-<code>int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)</code>. The translated constructor retains
-both structural records and computes a 106-pixel outer leaf width. Rendering
-at origin $(0,0)$ emits 221 accepted writes inside the 96×64 viewport; an
-audit raster finds 20 set pixels in the ten columns beyond its right edge.
-These counts are deterministic translation regressions, not a calculator
-capture. The page reports the record extent and clipped columns separately.
-[confirmed] for the translated record and LCD-write path</p>
-<p>The editor-side path has separate overflow behavior. <code>39:4F08</code> compares
+<p>The editable input
+<code>int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)</code> has a 106-pixel expression endpoint.
+The root record stores <code>112</code> at <code>+7</code>: the expression plus a six-pixel cursor
+cell. Its child origins remain local at $x=0$, $16$, $56$, and $72$.
+[confirmed]</p>
+<p>The editor scrolls this record horizontally. <code>34:5DBE</code> adds the record origin
+at <code>ram:8DFE</code> to each local $x$ coordinate. <code>34:5DC2</code> then subtracts the
+horizontal clip at <code>ram:8E02</code>: [confirmed]</p>
+<p>$$
+x_{\mathrm{LCD}} = x_{\mathrm{local}} + x_{\mathrm{origin}} - x_{\mathrm{clip}}.
+$$</p>
+<p><code>34:5F5D</code> updates the clip for the cursor at the expression endpoint. The
+traced editor state has a previous clip of $12$, a cursor width of $6$, and a
+right bound of $95$. <code>34:5F87</code> stores the resulting clip $17$: [confirmed]</p>
+<p>$$
+x_{\mathrm{clip}}
+= \max\left(x_{\mathrm{clip,old}},;106+6-95\right)
+= 17.
+$$</p>
+<p>The visible expression therefore begins at effective $x=-17$, while the cursor
+cell begins at $x=89$. When <code>ram:8E02</code> is nonzero, <code>34:5FF2</code> calls <code>34:6031</code>.
+That routine draws the seven-row left-overflow bitmap at <code>34:60B8</code> through
+<code>34:61B2</code> after the expression. The translated expression plus this cue emits
+198 accepted LCD writes. Their byte-column, row, and value triples match the
+natural calculator redraw after removing the eight asynchronous right-cue
+writes. The compact oracle is
+<code>tools/mathprint-editor-overflow-oracle.json</code>; the reproduction input is
+<code>tools/macros/mathprint-double-integral.macro</code>. [confirmed]</p>
+<p>The right-side bitmap at <code>34:60C0</code> produces eight writes during the redraw. Its
+editor-state predicate is <code>34:5FFA</code> → <code>34:607A</code>, and <code>34:608F</code> computes its
+horizontal position. Its semantic meaning remains unresolved. Cursor blink
+separately writes <code>0x7C</code> to byte column 11 on rows 8–14. The browser excludes
+both UI-state streams from settled expression timelines. [hypothesis] for the
+right-cue meaning; [confirmed] for its predicate, bytes, and cursor write range</p>
+<p>The text-cell path has a separate overflow boundary. <code>39:4F08</code> compares
 <code>curCol</code> (<code>0x844C</code>) with <code>0x0F</code> before marker handling and calls the fixed-bank
-<code>_EraseEOL</code> jump at <code>00:3CB7</code> on overflow. <code>39:6712</code> sets <code>curCol</code> to <code>1</code>, emits
-the <code>:</code> marker through <code>00:3FDB</code>, and gates subsequent display modes with
-<code>0x85E5</code>. These bytes establish an erase/marker boundary. They do not yet
-establish how the answer-display caller positions or scrolls a 106-pixel
-settled record, so the generated viewport does not claim calculator parity for
-that final placement. [confirmed]</p>
+<code>_EraseEOL</code> jump at <code>00:3CB7</code>. <code>39:6712</code> then sets <code>curCol</code> to <code>1</code>, emits the
+<code>:</code> marker through <code>00:3FDB</code>, and gates subsequent display modes with <code>0x85E5</code>.
+These page-<code>39</code> bytes do not control the page-<code>34</code> horizontal pixel clip above.
+[confirmed]</p>
 <p>The retained <code>sum(N,1,3,N)</code> trace exposes four calls through <code>34:5AA3</code> with
 <code>C=1</code>. The scanner stops on the three depth-zero comma bytes. At the closing
 <code>0x11</code> byte, it returns <code>A=0x11</code>, <code>DE=0xFF00</code>, and sets Z and C. The JavaScript

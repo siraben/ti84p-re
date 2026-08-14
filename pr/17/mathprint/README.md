@@ -239,11 +239,12 @@ Changed-input regressions also construct direct `X^Y`, `X^Ans`, `X^L1`, and
 pixel results and replays to the generated final framebuffer.
 The long-input regression
 `int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)` constructs both integral records and a
-106-pixel outer leaf. The generated view reports that full record extent
-separately from the 96-pixel LCD viewport and retains the deterministic 221
-accepted writes inside it. Its current origin-and-clipping result is a
-translation regression, not an independent calculator oracle for final
-answer-display positioning.
+106-pixel expression endpoint. The editor viewport translation applies the
+17-pixel horizontal clip observed at `ram:8E02`, then appends the left-overflow
+bitmap from `34:60B8`. Its 198 accepted writes match the natural calculator
+redraw after removing the separate eight-write right-side cue. The calculator
+trace remains a comparison oracle; the browser computes the record graph,
+viewport state, bitmap operation, and LCD writes from translated logic.
 The integral cases cover structural bounds and a nested integral. The
 summation cases cover unequal-width limits, structural limits and bodies, and a
 nested summation. The `nDeriv(` cases cover unequal-width arguments, structural
