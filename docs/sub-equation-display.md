@@ -518,7 +518,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in ten finite models. It also computes an
+complete path-equivalence class in eleven finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -534,10 +534,11 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Editor action `0x03` controller | 131,072 | 11 | 9 | 4 |
 | Editor action `0x04` controller | 131,072 | 5 | 5 | 3 |
 | Reverse argument-overflow cue | 65,536 | 2 | 2 | 2 |
+| Editor horizontal viewport | 17,179,869,184 | 8 | 6 | 2 |
 | Saved-operand wrappers | 16 | 12 | 12 | 8 |
 
-The ten models contain 1,214 path classes and 106 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 60 representatives. Each
+The eleven models contain 1,222 path classes and 112 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 62 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -1455,7 +1456,7 @@ machine at `34:5A99`–`34:5CAC`. The translation includes the public
 `_AHEADEQUAL = 4B49h`, `_PARSAHEADS = 4B4Ch`, and `_PARSAHEAD = 4B4Fh`
 entries plus the internal entries at `34:5AA3`, `34:5AA7`, and `34:5AA9`.
 It constructs settled records and emits accepted LCD data bytes. Each
-write replaces one eight-pixel span in a 96×64 framebuffer. Five changed and
+write replaces one eight-pixel span in a 96×64 framebuffer. Six changed and
 deeply nested expressions pin every intermediate write and the packed final
 framebuffer without loading a captured write stream. These deterministic cases
 exercise summation, integral, `nDeriv(`, matrix, and a three-level raised
@@ -1484,6 +1485,17 @@ x_{\mathrm{clip}}
 = \max\left(x_{\mathrm{clip,old}},\;106+6-95\right)
 = 17.
 $$
+
+The general path follows 16-bit instruction order. `34:5F61` first subtracts
+the previous clip. A borrow clears `ram:8E02` and restores the unshifted
+endpoint. Bit 3 of `(IY+44h)` selects a six-pixel cursor when set and a
+five-pixel cursor when clear. The two callers add either zero or three more
+pixels through `DE`. Both additions wrap as Z80 words before `34:5F7F`
+compares the result with the low-byte right bound. Carry returns without a
+store. Carry clear adds the remaining distance to the current clip and writes
+it at `34:5F87`. An endpoint left of the previous clip can therefore clear the
+clip, and an endpoint near `0xFFFF` can wrap before the bound comparison.
+[confirmed]
 
 The visible expression therefore begins at effective $x=-17$, while the cursor
 cell begins at $x=89$. When `ram:8E02` is nonzero, `34:5FF2` calls `34:6031`.

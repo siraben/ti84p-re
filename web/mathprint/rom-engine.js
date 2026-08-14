@@ -1056,8 +1056,10 @@
 
   // The editable-entry path keeps the record origin and horizontal clip in
   // separate words. 34:5DBE adds ram:8DFE to a local x coordinate, and
-  // 34:5DC2 subtracts ram:8E02. 34:5F5D advances the clip when the expression
-  // endpoint plus its six-pixel cursor cell reaches the right display bound.
+  // 34:5DC2 subtracts ram:8E02. 34:5F5D performs its endpoint, cursor, caller
+  // padding, and right-bound arithmetic as 16-bit Z80 operations. An endpoint
+  // left of the previous clip clears that clip before continuing. (IY+44h).3
+  // selects a six-pixel cursor when set and a five-pixel cursor when clear.
   function settledEditorViewport(expressionEndpoint, options = {}) {
     const unsignedWord = (value, label) => {
       if (!Number.isInteger(value) || value < 0 || value > 0xffff)
@@ -1069,10 +1071,15 @@
     const previousXClip = unsignedWord(
       options.previousXClip === undefined ? 0 : options.previousXClip,
       'settled editor previous horizontal clip');
-    const cursorWidth = unsignedWord(
-      options.cursorWidth === undefined ? 6 : options.cursorWidth,
-      'settled editor cursor width');
-    const rightBound = unsignedWord(
+    const iy44Bit3 = options.iy44Bit3 === undefined ? true :
+      boolean(options.iy44Bit3, 'settled editor IY+44h bit 3');
+    const cursorWidth = iy44Bit3 ? 6 : 5;
+    const extraWidth = unsignedWord(
+      options.extraWidth === undefined ? 0 : options.extraWidth,
+      'settled editor caller width');
+    if (extraWidth !== 0 && extraWidth !== 3)
+      throw new RangeError('settled editor caller width must be zero or three');
+    const rightBound = byte(
       options.rightBound === undefined ? 0x5f : options.rightBound,
       'settled editor right bound');
     const xOrigin = unsignedWord(
@@ -1081,21 +1088,38 @@
     const yOrigin = unsignedWord(
       options.yOrigin === undefined ? 0 : options.yOrigin,
       'settled editor y origin');
-    const requiredXClip = Math.max(
-      0, endpoint + cursorWidth - rightBound);
-    const xClip = unsignedWord(
-      Math.max(previousXClip, requiredXClip),
-      'settled editor horizontal clip');
+    const wordAdd = (left, right) => (left + right) & 0xffff;
+    const resetPreviousClip = endpoint < previousXClip;
+    let xClip = resetPreviousClip ? 0 : previousXClip;
+    let comparisonCoordinate = resetPreviousClip
+      ? endpoint : (endpoint - previousXClip) & 0xffff;
+    comparisonCoordinate = wordAdd(comparisonCoordinate, cursorWidth);
+    comparisonCoordinate = wordAdd(comparisonCoordinate, extraWidth);
+    const beforeRightBound = comparisonCoordinate < rightBound;
+    if (!beforeRightBound)
+      xClip = wordAdd(
+        (comparisonCoordinate - rightBound) & 0xffff, xClip);
     return {
       expressionEndpoint:endpoint,
       previousXClip,
+      resetPreviousClip,
+      iy44Bit3,
       cursorWidth,
+      extraWidth,
       rightBound,
       xOrigin,
       yOrigin,
       xClip,
       effectiveX:xOrigin - xClip,
       cursorX:endpoint + xOrigin - xClip,
+      comparisonCoordinate,
+      branch:beforeRightBound ? 'return-before-right-bound' :
+        'store-horizontal-clip',
+      branchOutcomes:[
+        `34:5F64:${resetPreviousClip ? 'fallthrough' : 'taken'}`,
+        `34:5F75:${iy44Bit3 ? 'taken' : 'fallthrough'}`,
+        `34:5F81:${beforeRightBound ? 'returned' : 'fallthrough'}`,
+      ],
       routine:'34:5F5D–5F8A; applied by 34:5DBE–5DC9',
     };
   }
