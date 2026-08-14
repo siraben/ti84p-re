@@ -207,16 +207,29 @@
     return { ...record, columns, rows };
   }
 
-  // Closed branches at 39:69C8. Kinds >=3 require the still-untranslated
-  // family-shape comparisons at ram:025E/0254, so they fail explicitly.
-  function selectDescriptor(layout, kind) {
+  // 39:69C8 selects the descriptor family after the fixed kind-0, kind-1, and
+  // kind-2 exits. The two RAM helpers are BIT 6 and BIT 5 of (IY+2), each
+  // returning Z when its flag is clear. Keep the flag byte explicit because it
+  // is caller state, not part of the template-kind argument.
+  function selectDescriptor(layout, kind, options = undefined) {
     byte(kind, 'template kind');
     const nibble = kind & 0x0f;
     if (nibble === 0) return { kind: 'descriptor', descriptor: descriptor(layout, 0x686f) };
     if (nibble === 1) return { kind: 'descriptor', descriptor: descriptor(layout, 0x6880) };
     if (nibble === 2) return { kind: 'measuredFraction', routine: '39:6A8A' };
-    return { kind: 'unresolvedDescriptorFamily', templateKind: nibble,
-             missing: 'ram:025E/0254 family-shape predicates' };
+    if (options === undefined) return {
+      kind: 'unresolvedDescriptorFamily', templateKind: nibble,
+      missing: 'ram:025E/0254 flag02 state (BIT 6, then BIT 5)',
+    };
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('descriptor selector options must be an object');
+    const flag02 = options.flag02;
+    byte(flag02, 'descriptor selector flag02');
+    if (flag02 & 0x40)
+      return { kind: 'descriptor', descriptor: descriptor(layout, 0x689c) };
+    if (flag02 & 0x20)
+      return { kind: 'descriptor', descriptor: descriptor(layout, 0x68a5) };
+    return { kind: 'descriptor', descriptor: descriptor(layout, 0x6893) };
   }
 
   // 39:6A00 reads the nine-byte descriptor ABI. The two increments of E and

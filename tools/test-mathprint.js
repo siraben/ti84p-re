@@ -132,7 +132,15 @@ expectEqual('39:69C8 kind 12 selector', rom.selectDescriptor(layout, 0x12),
   {kind:'measuredFraction', routine:'39:6A8A'});
 expectEqual('39:69C8 unresolved family boundary', rom.selectDescriptor(layout, 0x13),
   {kind:'unresolvedDescriptorFamily', templateKind:3,
-   missing:'ram:025E/0254 family-shape predicates'});
+   missing:'ram:025E/0254 flag02 state (BIT 6, then BIT 5)'});
+for (const [label, flag02, address] of [
+  ['BIT 6 selects the six-column family', 0x40, 0x689c],
+  ['BIT 5 selects the three-column family', 0x20, 0x68a5],
+  ['cleared family flags select the two-row family', 0x00, 0x6893],
+]) expectEqual(`39:69C8 ${label}`,
+  rom.selectDescriptor(layout, 0x13, {flag02}).descriptor.addr, address);
+expectThrows('39:69C8 rejects an invalid family flag byte', RangeError,
+  () => rom.selectDescriptor(layout, 0x13, {flag02:0x100}));
 expectEqual('39:6B1C endpoint', rom.fractionEndpoint(2, 0x17),
   {left:0x29, right:0x2d, top:0x17, bottom:0x1d});
 expectEqual('39:5949 class-6 low slot', rom.multiArgumentRowStep(6, 2), 2);

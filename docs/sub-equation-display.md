@@ -285,6 +285,13 @@ The known descriptors are:
 | `39:689C` | descriptor family | Two-row, six-column descriptor. |
 | `39:68A5` | descriptor family | Two-row, three-column descriptor. |
 
+For kind nibbles `3` and above, `39:69C8` adds `0x10` and calls
+`ram:025E` (`BIT 6,(IY+2); RET`). A set bit selects `39:689C`. Otherwise it
+adds `0x10` again and calls `ram:0254` (`BIT 5,(IY+2); RET`); a set bit selects
+`39:68A5`, and a clear result selects `39:6893`. The JavaScript
+`selectDescriptor` translation takes this caller-owned `flag02` byte explicitly
+for the family branches. [confirmed]
+
 Descriptor `39:6880` contains `FE09`, `FB C8`, `00 C7`, `00 C8`, and `FB C7` in one row.
 That places `fnInt(` as a menu/template cell, not as a structural integral glyph. [confirmed]
 
