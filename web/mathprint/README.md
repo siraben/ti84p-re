@@ -131,8 +131,10 @@ live `ram:8DFE`/`ram:8E00` viewport origin used by the primitive wrappers.
 `app.js` is organized in sections: box primitives → layout constructs → text runs
 → expression parser → canvas rendering → UI. A "box" is `{rows, baseline, marks,
 adv}`; `adv` (pen advance) is separate from bitmap width so glyphs can overhang.
-The marks are model-local composition metadata, not captured OS pen state. The
-arbitrary-expression compositor is still reconstructed rather than translated.
+For a closed expression accepted by the native constructor, model rows and marks
+come from the translated settled record graph and primitive stream. Partial,
+unsupported, and over-wide input keeps the lenient compositor so editing remains
+visible while the settled path reports its exact construction boundary.
 
 ## Tooling
 

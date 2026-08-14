@@ -1032,7 +1032,7 @@ for (const [expression, modelWidth, modelHeight, modelEndpoint,
   ['int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)+' +
     'int(1,3,(1//2)X,X)', 159, 23, 162, 66, 73],
   ['int(12,34,(5//(6//7))X^3,X)+sum(N,1,99,N^2)+' +
-    'nDeriv((X^3+12)//sqrt(5),X,7)', 186, 31, 187, 91, 98],
+    'nDeriv((X^3+12)//sqrt(5),X,7)', 167, 31, 168, 72, 79],
   ['int(123,456,(1//(2//(3//4)))X^5,X)+' +
     'int(789,999,(7//8)X,X)', 131, 39, 134, 38, 45],
 ]) {
@@ -1049,6 +1049,44 @@ for (const [expression, modelWidth, modelHeight, modelEndpoint,
     overflowRight:modelOverflow, xClip:modelClip,
     effectiveX:-modelClip,
   });
+}
+
+// Closed model boxes must agree with a direct, unscrolled replay of the same
+// settled graph. This catches heuristic spacing regressions in multi-glyph
+// fractions, nested fractions, big operators, and structural power bases.
+function settledModelBitmap(expression) {
+  const program = mp.constructedProgramForExpression(expression);
+  const entry = program.nodes.find(node => node.record_id === program.entry_id);
+  const operations = rom.executeSettledRecordProgram(
+    program.nodes, program.entry_id, {
+      glyphAdvance:(depth, code) => depth ? font.small.glyphs[code].w : 6,
+    });
+  const pixels = operations.flatMap(operation =>
+    rom.settledOperationPixels(operation, font));
+  const width = Math.max(entry.word07,
+    Math.max(...pixels.map(([x]) => x)) + 1);
+  const height = Math.max(entry.word05,
+    Math.max(...pixels.map(([,y]) => y)) + 1);
+  const rendered = rom.rasterizeSettledOperations(operations, font, {
+    width:Math.ceil(width / 8) * 8, height,
+  });
+  const ink = [];
+  for (let y = 0; y < rendered.grid.length; y++)
+    for (let x = 0; x < rendered.grid[y].length; x++)
+      if (rendered.grid[y][x]) ink.push([x,y]);
+  const left = Math.min(...ink.map(([x]) => x));
+  const top = Math.min(...ink.map(([,y]) => y));
+  const right = Math.max(...ink.map(([x]) => x));
+  const bottom = Math.max(...ink.map(([,y]) => y));
+  return rendered.grid.slice(top, bottom + 1)
+    .map(row => row.slice(left, right + 1));
+}
+for (const expression of [
+  '12//34', '(1+2)//(3+4)', '(X+1)//(2*3)', '1//(2//3)',
+  'sum(N,1,3,N^2)', '(int(1,2,X,X))^2',
+]) {
+  expectEqual(`${expression} model bitmap follows translated settled geometry`,
+    mp.parse(expression).rows, settledModelBitmap(expression));
 }
 const wordOverflowModel = mp.parse('X'.repeat(11000));
 expectEqual('model remains usable beyond the translated word-width domain', {
