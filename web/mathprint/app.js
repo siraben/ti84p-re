@@ -1366,7 +1366,10 @@ function constructedSettledSpec(source) {
 
 function constructedProgramForExpression(expression) {
   if (!ROM_ENGINE) return null;
-  const source = expression.trim();
+  // The model parser already ignores whitespace while the user types. Keep
+  // the native-token constructor on the same frontend contract so spacing a
+  // long expression does not silently select the heuristic compositor.
+  const source = expression.trim().replace(/\s+/g, '');
   const spec = constructedSettledSpec(source);
   if (!spec) return null;
   if (spec.kind === 'integral' && spec.variable.kind !== 'tokens') return null;
