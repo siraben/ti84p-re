@@ -179,69 +179,153 @@ expectEqual('39:4CA4 emits a direct handler-cell slot offset',
 expectEqual('39:5167 returns immediately for an empty argument list',
   rom.editorAdvanceArgument(8, 0, 0, 1, 0), {
     layoutClass:8, argumentIndex:0, argumentCount:0, currentRow:1,
-    recordFlags:0, winTop:null, routine:'39:5167', lastArgument:null,
-    nextArgument:0, rowStep:0, nextRow:1, branch:'empty',
-    effects:['set-row-return'], continuation:'return',
+    recordFlags:0, winTop:null, savedF2EmitterCarry:false,
+    routine:'39:5167', lastArgument:null, nextArgument:0, rowStep:0,
+    placementRow:null, nextRow:null, branch:'empty',
+    effects:[{kind:'set-row-for-token',routine:'39:5447'}],
+    continuation:'row-token-tail',
   });
 expectEqual('39:5167 stops at the final argument',
   rom.editorAdvanceArgument(8, 3, 4, 1, 0), {
     layoutClass:8, argumentIndex:3, argumentCount:4, currentRow:1,
-    recordFlags:0, winTop:null, routine:'39:5167', lastArgument:3,
-    nextArgument:3, rowStep:0, nextRow:1, branch:'at-or-past-last',
-    effects:['set-row-return'], continuation:'return',
+    recordFlags:0, winTop:null, savedF2EmitterCarry:false,
+    routine:'39:5167', lastArgument:3, nextArgument:3, rowStep:0,
+    placementRow:null, nextRow:null, branch:'at-or-past-last',
+    effects:[{kind:'set-row-for-token',routine:'39:5447'}],
+    continuation:'row-token-tail',
   });
 expectEqual('39:5167 advances an ordinary argument by one row',
   rom.editorAdvanceArgument(8, 0, 4, 1, 0), {
     layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:1,
-    recordFlags:0, winTop:null, routine:'39:5167', lastArgument:3,
-    nextArgument:1, rowStep:1, nextRow:2, branch:'in-row',
+    recordFlags:0, winTop:null, savedF2EmitterCarry:false,
+    routine:'39:5167', lastArgument:3, nextArgument:1, rowStep:1,
+    rowLimit:7, placementRow:2, nextRow:null, branch:'in-row',
     effects:[
-      {kind:'emit-argument-index',argument:0},
-      {kind:'advance-row',rows:1},
-      {kind:'emit-argument-index',argument:1},
-      {kind:'emit-operand',source:'saved-E7'},
-      {kind:'set-row-return'},
+      {kind:'emit-argument-index',argument:0,routine:'39:4E0A'},
+      {kind:'advance-row',rows:1,value:2},
+      {kind:'emit-argument-index',argument:1,routine:'39:4E0A'},
+      {kind:'emit-operand',source:'saved-E7',routine:'39:5B10'},
+      {kind:'set-row-for-token',routine:'39:5447'},
     ],
-    continuation:'return',
+    continuation:'row-token-tail',
   });
 expectEqual('39:5167 advances a low class-06 argument by two rows',
   rom.editorAdvanceArgument(6, 0, 4, 1, 0), {
     layoutClass:6, argumentIndex:0, argumentCount:4, currentRow:1,
-    recordFlags:0, winTop:null, routine:'39:5167', lastArgument:3,
-    nextArgument:1, rowStep:2, nextRow:3, branch:'in-row',
+    recordFlags:0, winTop:null, savedF2EmitterCarry:false,
+    routine:'39:5167', lastArgument:3, nextArgument:1, rowStep:2,
+    rowLimit:6, placementRow:3, nextRow:null, branch:'in-row',
     effects:[
-      {kind:'emit-argument-index',argument:0},
-      {kind:'advance-row',rows:2},
-      {kind:'emit-argument-index',argument:1},
-      {kind:'emit-operand',source:'saved-E7'},
-      {kind:'set-row-return'},
+      {kind:'emit-argument-index',argument:0,routine:'39:4E0A'},
+      {kind:'advance-row',rows:2,value:3},
+      {kind:'emit-argument-index',argument:1,routine:'39:4E0A'},
+      {kind:'emit-operand',source:'saved-E7',routine:'39:5B10'},
+      {kind:'set-row-for-token',routine:'39:5447'},
     ],
-    continuation:'return',
+    continuation:'row-token-tail',
   });
+expectEqual('39:5167 sends class-06 row six to overflow before a two-row step',
+  rom.editorAdvanceArgument(6, 0, 4, 6, 0).branch,
+  'subexpression-overflow');
+expectEqual('39:5167 class-06 row six bypasses the styled overflow branch',
+  rom.editorAdvanceArgument(6, 0, 4, 6, 0x20).branch,
+  'subexpression-overflow');
 expectEqual('39:5167 sends an unstyled row-seven argument to 39:4C5A',
   rom.editorAdvanceArgument(8, 0, 4, 7, 0), {
     layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:7,
-    recordFlags:0, winTop:null, routine:'39:5167', lastArgument:3,
-    nextArgument:1, rowStep:1, nextRow:7, branch:'subexpression-overflow',
+    recordFlags:0, winTop:null, savedF2EmitterCarry:false,
+    routine:'39:5167', lastArgument:3, nextArgument:1, rowStep:1,
+    rowLimit:7, placementRow:7, nextRow:null,
+    branch:'subexpression-overflow',
     effects:[
       {kind:'emit-subexpression',routine:'39:4C5A'},
-      {kind:'set-row-return'},
+      {kind:'restore-row',value:7},
+      {kind:'set-row-for-token',routine:'39:5447'},
     ],
     continuation:'subexpression-window',
   });
-expectEqual('39:5167 preserves the styled row-seven cross-page exit',
+expectEqual('39:5167 preserves the styled row-seven scroll sequence',
   rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {winTop:5}), {
     layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:7,
-    recordFlags:0x20, winTop:5, routine:'39:5167', lastArgument:3,
-    nextArgument:1, rowStep:1, nextRow:7, branch:'styled-overflow',
+    recordFlags:0x20, winTop:5, savedF2EmitterCarry:false,
+    routine:'39:5167', lastArgument:3, nextArgument:1, rowStep:1,
+    rowLimit:7, placementRow:null, nextRow:null, branch:'styled-overflow',
     effects:[
-      {kind:'emit-variable',source:'saved-F2'},
-      {kind:'emit-argument-index',argument:0},
-      {kind:'set-overflow'},
-      {kind:'set-window-top',value:1,saved:5},
+      {kind:'emit-operand',source:'saved-F2',routine:'39:5B2B',carry:false},
+      {kind:'emit-argument-index',argument:0,routine:'39:4E0A'},
+      {kind:'set-overflow',curCol:1,routine:'39:6712'},
+      {kind:'save-window-top',value:5},
+      {kind:'set-window-top',value:1},
+      {kind:'scroll-editor',direction:'forward',routine:'39:3C81'},
+      {kind:'emit-operand',source:'saved-E7',routine:'39:5B10'},
+      {kind:'emit-saved-operand-tail',argument:1,routine:'39:5B46'},
+      {kind:'finish-forward-overflow',routine:'39:66FE'},
+      {kind:'restore-window-top',value:5},
+      {kind:'set-row-for-token',routine:'39:5447'},
     ],
-    continuation:'cross-page-jump',
+    continuation:'row-token-tail',
   });
+expectEqual('39:5167 stops styled overflow when the saved-F2 emitter carries',
+  rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
+    savedF2EmitterCarry:true,
+  }).branch, 'styled-overflow-carry');
+expectEqual('39:523B stops before decrementing the first argument',
+  rom.editorRetreatArgument(8, 0, 4, 4, 1, 0), {
+    layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:4,
+    baselineRow:1, recordFlags:0, winTop:null, savedF2EmitterCarry:false,
+    routine:'39:523B', nextArgument:0, rowStep:0, placementRow:null,
+    nextRow:null, branch:'at-first', effects:[],
+    continuation:'action-03-first-argument',
+  });
+expectEqual('39:523B retreats an ordinary argument by one row',
+  rom.editorRetreatArgument(8, 2, 4, 4, 1, 0), {
+    layoutClass:8, argumentIndex:2, argumentCount:4, currentRow:4,
+    baselineRow:1, recordFlags:0, winTop:null, savedF2EmitterCarry:false,
+    routine:'39:523B', nextArgument:1, rowStep:1,
+    twoRowUnderflow:false, placementRow:3, nextRow:null, branch:'in-row',
+    effects:[
+      {kind:'emit-argument-index',argument:2,routine:'39:4E0A'},
+      {kind:'retreat-row',rows:1,value:3},
+      {kind:'emit-argument-index',argument:1,routine:'39:4E0A'},
+      {kind:'emit-variable',source:'saved-E7',routine:'39:5B1D'},
+      {kind:'set-row-for-token',routine:'39:5447'},
+    ],
+    continuation:'row-token-tail',
+  });
+expectEqual('39:523B retreats a class-06 low argument by two rows',
+  rom.editorRetreatArgument(6, 3, 4, 3, 1, 0).placementRow, 1);
+expectEqual('39:523B sends a class-06 row-two retreat to 39:4C5A',
+  rom.editorRetreatArgument(6, 3, 4, 2, 1, 0).branch,
+  'subexpression-overflow');
+expectEqual('39:523B class-06 row two bypasses the styled overflow branch',
+  rom.editorRetreatArgument(6, 3, 4, 2, 1, 0x20).branch,
+  'subexpression-overflow');
+expectEqual('39:523B sends a baseline-row retreat to 39:4C5A',
+  rom.editorRetreatArgument(8, 2, 4, 1, 1, 0).branch,
+  'subexpression-overflow');
+expectEqual('39:523B preserves the styled reverse scroll sequence',
+  rom.editorRetreatArgument(8, 2, 12, 1, 1, 0x20, {winTop:5}).effects, [
+    {kind:'emit-variable',source:'saved-F2',routine:'39:5B38',carry:false},
+    {kind:'emit-argument-index',argument:2,routine:'39:4E0A'},
+    {kind:'set-overflow',curCol:1,routine:'39:6712'},
+    {kind:'save-window-top',value:5},
+    {kind:'set-window-top',value:1},
+    {kind:'scroll-editor',direction:'reverse',routine:'39:3C93'},
+    {kind:'emit-variable',source:'saved-E7',routine:'39:5B1D'},
+    {kind:'emit-saved-operand-tail',argument:1,routine:'39:5B46'},
+    {kind:'finish-reverse-overflow',remainingArguments:11,
+      branch:'window-bottom',routine:'39:66E9'},
+    {kind:'restore-window-top',value:5},
+    {kind:'set-row-for-token',routine:'39:5447'},
+  ]);
+expectEqual('39:523B stops styled overflow when the saved-F2 emitter carries',
+  rom.editorRetreatArgument(8, 2, 4, 1, 1, 0x20, {
+    savedF2EmitterCarry:true,
+  }).branch, 'styled-overflow-carry');
+expectThrows('39:5167 rejects a non-boolean saved-F2 carry', TypeError,
+  () => rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
+    savedF2EmitterCarry:1,
+  }));
 // The increment-wrap guard in the bytes cannot fire after the preceding
 // unsigned count/index predicate: count is nonzero and index <= count-2.
 // Exhaust the complete byte-pair domain so later condition rewrites cannot
@@ -251,6 +335,43 @@ for (let argumentCount = 0; argumentCount <= 0xff; argumentCount++)
     if (rom.editorAdvanceArgument(
       8, argumentIndex, argumentCount, 1, 0).branch === 'argument-wrap-guard')
       throw new Error('39:5167 increment-wrap guard became reachable');
+
+// Exhaust every layout-class byte and relevant visible row for both walkers.
+// The forward threshold is row 6 for a two-row class-06 slot and row 7
+// otherwise. The reverse path tests the new slot after decrementing 85E0.
+for (let layoutClass = 0; layoutClass <= 0xff; layoutClass++) {
+  for (let argumentIndex = 0; argumentIndex <= 0xfd; argumentIndex++) {
+    const rowStep = layoutClass === 6 && argumentIndex <= 2 ? 2 : 1;
+    const rowLimit = rowStep === 2 ? 6 : 7;
+    for (let currentRow = 0; currentRow <= 7; currentRow++) {
+      const result = rom.editorAdvanceArgument(
+        layoutClass, argumentIndex, argumentIndex + 2, currentRow, 0);
+      expectEqual('39:5167 exhaustive row predicate', [
+        result.rowStep, result.rowLimit, result.branch,
+      ], [
+        rowStep, rowLimit,
+        currentRow < rowLimit ? 'in-row' : 'subexpression-overflow',
+      ]);
+    }
+  }
+  for (let argumentIndex = 1; argumentIndex <= 0xff; argumentIndex++) {
+    const nextArgument = argumentIndex - 1;
+    const rowStep = layoutClass === 6 && nextArgument <= 2 ? 2 : 1;
+    for (let currentRow = 0; currentRow <= 7; currentRow++) {
+      const twoRowUnderflow = rowStep === 2 && currentRow < 3;
+      const result = rom.editorRetreatArgument(
+        layoutClass, argumentIndex, 0xff, currentRow, 1, 0);
+      expectEqual('39:523B exhaustive row predicate', [
+        result.nextArgument, result.rowStep, result.twoRowUnderflow,
+        result.branch,
+      ], [
+        nextArgument, rowStep, twoRowUnderflow,
+        !twoRowUnderflow && currentRow > 1
+          ? 'in-row' : 'subexpression-overflow',
+      ]);
+    }
+  }
+}
 
 for (const [[d, e], glyph] of [
   [[0xfc, 0x3c], 5], [[0xfc, 0x40], 9],
