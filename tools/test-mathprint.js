@@ -176,6 +176,81 @@ expectEqual('39:4CA4 emits a direct handler-cell slot offset',
     branch:'argument-list', emission:'arglist', finalRow:4,
     continuation:'return',
   });
+expectEqual('39:5167 returns immediately for an empty argument list',
+  rom.editorAdvanceArgument(8, 0, 0, 1, 0), {
+    layoutClass:8, argumentIndex:0, argumentCount:0, currentRow:1,
+    recordFlags:0, winTop:null, routine:'39:5167', lastArgument:null,
+    nextArgument:0, rowStep:0, nextRow:1, branch:'empty',
+    effects:['set-row-return'], continuation:'return',
+  });
+expectEqual('39:5167 stops at the final argument',
+  rom.editorAdvanceArgument(8, 3, 4, 1, 0), {
+    layoutClass:8, argumentIndex:3, argumentCount:4, currentRow:1,
+    recordFlags:0, winTop:null, routine:'39:5167', lastArgument:3,
+    nextArgument:3, rowStep:0, nextRow:1, branch:'at-or-past-last',
+    effects:['set-row-return'], continuation:'return',
+  });
+expectEqual('39:5167 advances an ordinary argument by one row',
+  rom.editorAdvanceArgument(8, 0, 4, 1, 0), {
+    layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:1,
+    recordFlags:0, winTop:null, routine:'39:5167', lastArgument:3,
+    nextArgument:1, rowStep:1, nextRow:2, branch:'in-row',
+    effects:[
+      {kind:'emit-argument-index',argument:0},
+      {kind:'advance-row',rows:1},
+      {kind:'emit-argument-index',argument:1},
+      {kind:'emit-operand',source:'saved-E7'},
+      {kind:'set-row-return'},
+    ],
+    continuation:'return',
+  });
+expectEqual('39:5167 advances a low class-06 argument by two rows',
+  rom.editorAdvanceArgument(6, 0, 4, 1, 0), {
+    layoutClass:6, argumentIndex:0, argumentCount:4, currentRow:1,
+    recordFlags:0, winTop:null, routine:'39:5167', lastArgument:3,
+    nextArgument:1, rowStep:2, nextRow:3, branch:'in-row',
+    effects:[
+      {kind:'emit-argument-index',argument:0},
+      {kind:'advance-row',rows:2},
+      {kind:'emit-argument-index',argument:1},
+      {kind:'emit-operand',source:'saved-E7'},
+      {kind:'set-row-return'},
+    ],
+    continuation:'return',
+  });
+expectEqual('39:5167 sends an unstyled row-seven argument to 39:4C5A',
+  rom.editorAdvanceArgument(8, 0, 4, 7, 0), {
+    layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:7,
+    recordFlags:0, winTop:null, routine:'39:5167', lastArgument:3,
+    nextArgument:1, rowStep:1, nextRow:7, branch:'subexpression-overflow',
+    effects:[
+      {kind:'emit-subexpression',routine:'39:4C5A'},
+      {kind:'set-row-return'},
+    ],
+    continuation:'subexpression-window',
+  });
+expectEqual('39:5167 preserves the styled row-seven cross-page exit',
+  rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {winTop:5}), {
+    layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:7,
+    recordFlags:0x20, winTop:5, routine:'39:5167', lastArgument:3,
+    nextArgument:1, rowStep:1, nextRow:7, branch:'styled-overflow',
+    effects:[
+      {kind:'emit-variable',source:'saved-F2'},
+      {kind:'emit-argument-index',argument:0},
+      {kind:'set-overflow'},
+      {kind:'set-window-top',value:1,saved:5},
+    ],
+    continuation:'cross-page-jump',
+  });
+// The increment-wrap guard in the bytes cannot fire after the preceding
+// unsigned count/index predicate: count is nonzero and index <= count-2.
+// Exhaust the complete byte-pair domain so later condition rewrites cannot
+// accidentally make that guard reachable.
+for (let argumentCount = 0; argumentCount <= 0xff; argumentCount++)
+  for (let argumentIndex = 0; argumentIndex <= 0xff; argumentIndex++)
+    if (rom.editorAdvanceArgument(
+      8, argumentIndex, argumentCount, 1, 0).branch === 'argument-wrap-guard')
+      throw new Error('39:5167 increment-wrap guard became reachable');
 
 for (const [[d, e], glyph] of [
   [[0xfc, 0x3c], 5], [[0xfc, 0x40], 9],

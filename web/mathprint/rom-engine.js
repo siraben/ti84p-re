@@ -267,6 +267,81 @@
       '39:4CA4', false);
   }
 
+  // 39:5167 advances the current multi-argument slot. Calls that fetch or
+  // render parser operands are returned as ordered effects; the state changes
+  // and branch predicates are translated directly from the routine.
+  function editorAdvanceArgument(layoutClass, argumentIndex, argumentCount,
+                                 currentRow, recordFlags, options = {}) {
+    byte(layoutClass, 'editor layout class');
+    byte(argumentIndex, 'editor argument index');
+    byte(argumentCount, 'editor argument count');
+    byte(currentRow, 'editor current row');
+    byte(recordFlags, 'editor record flags');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('editor argument advance options must be an object');
+    const winTop = options.winTop === undefined ? null :
+      byte(options.winTop, 'editor window top');
+    const base = {
+      layoutClass, argumentIndex, argumentCount, currentRow, recordFlags,
+      winTop, routine:'39:5167',
+    };
+    if (argumentCount === 0)
+      return {
+        ...base, lastArgument:null, nextArgument:argumentIndex, rowStep:0,
+        nextRow:currentRow, branch:'empty', effects:['set-row-return'],
+        continuation:'return',
+      };
+    const lastArgument = argumentCount - 1;
+    if (argumentIndex >= lastArgument)
+      return {
+        ...base, lastArgument, nextArgument:argumentIndex, rowStep:0,
+        nextRow:currentRow, branch:'at-or-past-last',
+        effects:['set-row-return'], continuation:'return',
+      };
+    const nextArgument = (argumentIndex + 1) & 0xff;
+    const rowStep = multiArgumentRowStep(layoutClass, argumentIndex);
+    if (nextArgument === 0)
+      return {
+        ...base, lastArgument, nextArgument:argumentIndex, rowStep:0,
+        nextRow:currentRow, branch:'argument-wrap-guard',
+        effects:['restore-argument-index','set-row-return'],
+        continuation:'return',
+      };
+    if (currentRow < 7)
+      return {
+        ...base, lastArgument, nextArgument, rowStep,
+        nextRow:(currentRow + rowStep) & 0xff,
+        branch:'in-row',
+        effects:[
+          {kind:'emit-argument-index',argument:argumentIndex},
+          {kind:'advance-row',rows:rowStep},
+          {kind:'emit-argument-index',argument:nextArgument},
+          {kind:'emit-operand',source:'saved-E7'},
+          {kind:'set-row-return'},
+        ],
+        continuation:'return',
+      };
+    if (recordFlags & 0x20)
+      return {
+        ...base, lastArgument, nextArgument, rowStep,
+        nextRow:currentRow, branch:'styled-overflow',
+        effects:[
+          {kind:'emit-variable',source:'saved-F2'},
+          {kind:'emit-argument-index',argument:argumentIndex},
+          {kind:'set-overflow'},
+          {kind:'set-window-top',value:1,saved:winTop},
+        ],
+        continuation:'cross-page-jump',
+      };
+    return {
+      ...base, lastArgument, nextArgument, rowStep,
+      nextRow:currentRow, branch:'subexpression-overflow',
+      effects:[{kind:'emit-subexpression',routine:'39:4C5A'},
+        {kind:'set-row-return'}],
+      continuation:'subexpression-window',
+    };
+  }
+
   // 39:4DCA skips row_count, row cell-count bytes, row-action bytes, and the
   // preceding packed D:E cells. Return both the decoded row and its ROM offsets.
   function handlerRow(layout, layoutClass, rowIndex) {
@@ -4575,6 +4650,7 @@
     editorLayoutArgument,
     editorSubexpressionWindow,
     editorSubexpressionCell,
+    editorAdvanceArgument,
     mapDirectGlyph,
     classifyCell,
     keyToStringIndex,

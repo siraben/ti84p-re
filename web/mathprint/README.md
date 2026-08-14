@@ -154,6 +154,12 @@ come from the translated settled record graph and primitive stream. Partial,
 unsupported, and over-wide input keeps the lenient compositor so editing remains
 visible while the settled path reports its exact construction boundary.
 
+`rom-engine.js` exposes the closed editor helpers separately from the settled
+record executor. `editorAdvanceArgument()` translates the argument-count,
+slot-advance, row-step, and row-7 overflow branches at `39:5167`. Parser and
+operand-emitter calls remain explicit ordered effects rather than generated
+pixels.
+
 ## Tooling
 
 | Tool | Purpose |
