@@ -314,6 +314,99 @@
     return result;
   }
 
+  // The editable-entry path keeps the record origin and horizontal clip in
+  // separate words. 34:5DBE adds ram:8DFE to a local x coordinate, and
+  // 34:5DC2 subtracts ram:8E02. 34:5F5D advances the clip when the expression
+  // endpoint plus its six-pixel cursor cell reaches the right display bound.
+  function settledEditorViewport(expressionEndpoint, options = {}) {
+    const unsignedWord = (value, label) => {
+      if (!Number.isInteger(value) || value < 0 || value > 0xffff)
+        throw new RangeError(`${label} must fit an unsigned word`);
+      return value;
+    };
+    const endpoint = unsignedWord(
+      expressionEndpoint, 'settled editor expression endpoint');
+    const previousXClip = unsignedWord(
+      options.previousXClip === undefined ? 0 : options.previousXClip,
+      'settled editor previous horizontal clip');
+    const cursorWidth = unsignedWord(
+      options.cursorWidth === undefined ? 6 : options.cursorWidth,
+      'settled editor cursor width');
+    const rightBound = unsignedWord(
+      options.rightBound === undefined ? 0x5f : options.rightBound,
+      'settled editor right bound');
+    const xOrigin = unsignedWord(
+      options.xOrigin === undefined ? 0 : options.xOrigin,
+      'settled editor x origin');
+    const yOrigin = unsignedWord(
+      options.yOrigin === undefined ? 0 : options.yOrigin,
+      'settled editor y origin');
+    const requiredXClip = Math.max(
+      0, endpoint + cursorWidth - rightBound);
+    const xClip = unsignedWord(
+      Math.max(previousXClip, requiredXClip),
+      'settled editor horizontal clip');
+    return {
+      expressionEndpoint:endpoint,
+      previousXClip,
+      cursorWidth,
+      rightBound,
+      xOrigin,
+      yOrigin,
+      xClip,
+      effectiveX:xOrigin - xClip,
+      cursorX:endpoint + xOrigin - xClip,
+      routine:'34:5F5D–5F8A; applied by 34:5DBE–5DC9',
+    };
+  }
+
+  const SETTLED_LEFT_OVERFLOW_ROWS = Object.freeze([
+    0x00,0x02,0x06,0x0e,0x06,0x02,0x00,
+  ]);
+
+  function translateSettledOperation(operation, dx, dy) {
+    if (!operation || typeof operation !== 'object')
+      throw new TypeError('settled translated operation must be an object');
+    if (!Number.isInteger(dx) || !Number.isInteger(dy))
+      throw new RangeError('settled operation translation must be integral');
+    if (operation.kind === 'line') return {
+      ...operation,
+      from:{x:operation.from.x + dx,y:operation.from.y + dy},
+      to:{x:operation.to.x + dx,y:operation.to.y + dy},
+    };
+    if (Number.isInteger(operation.x) && Number.isInteger(operation.y))
+      return {...operation,x:operation.x + dx,y:operation.y + dy};
+    return {...operation};
+  }
+
+  // 34:5FF2 selects the left-overflow cue whenever ram:8E02 is nonzero.
+  // 34:6031 centers the seven-row bitmap at 34:60B8 against the current
+  // record height and sends it through 34:61B2 after the expression draw.
+  function settledEditorViewportOperations(operations, viewport, recordHeight) {
+    if (!Array.isArray(operations))
+      throw new TypeError('settled editor operations must be an array');
+    if (!viewport || typeof viewport !== 'object' ||
+        !Number.isInteger(viewport.effectiveX) ||
+        !Number.isInteger(viewport.yOrigin) ||
+        !Number.isInteger(viewport.xClip))
+      throw new TypeError('settled editor viewport state is invalid');
+    if (!Number.isInteger(recordHeight) || recordHeight < 1 || recordHeight > 0xffff)
+      throw new RangeError('settled editor record height must fit an unsigned word');
+    const translated = operations.map(operation => translateSettledOperation(
+      operation, viewport.effectiveX, viewport.yOrigin));
+    if (viewport.xClip !== 0) translated.push({
+      kind:'bitmap',
+      x:viewport.xOrigin,
+      y:viewport.yOrigin + Math.max(0, Math.floor(recordHeight / 2) - 3),
+      width:4,
+      height:7,
+      rows:SETTLED_LEFT_OVERFLOW_ROWS.slice(),
+      retainUnchanged:true,
+      routine:'34:5FF2 → 34:6031 → 34:61B2; bitmap at 34:60B8',
+    });
+    return translated;
+  }
+
   const clipRange = (first, last, origin, clip, max) => {
     let low = Math.min(first, last) + origin - clip;
     let high = Math.max(first, last) + origin - clip;
@@ -3968,6 +4061,8 @@
     settledPointOperation,
     settledVerticalOperation,
     settledHorizontalOperation,
+    settledEditorViewport,
+    settledEditorViewportOperations,
     settledObjectHandler,
     settledStructuralTokenType,
     settledEf36SourcePath,
