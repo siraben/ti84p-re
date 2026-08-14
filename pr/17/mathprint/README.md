@@ -158,13 +158,14 @@ visible while the settled path reports its exact construction boundary.
 record executor. `editorAdvanceArgument()` and `editorRetreatArgument()`
 translate forward and reverse slot movement at `39:5167` and `39:523B`. They
 preserve the asymmetric two-row overflow guards, styled scroll sequences, and
-saved-emitter carry exits. Parser, operand-emitter, and scroll calls remain
+saved-search carry exits. Alphabetic VAT searches and scroll calls remain
 explicit ordered effects rather than generated pixels.
-`editorOperandEmitter()` now closes the page-39 dispatcher around those parser
-calls. It translates the class-2 normal/variable paths, the `39:5C2E` special
-class check, the `39:1942`/`A=06` repeat, and carry exits from the fixed-bank
-`3A53`/`306F` services. The page-7 scanner return is still an explicit
-`serviceResults` input; no captured LCD write is used as constructor state.
+`editorAlphaSearch()` closes the page-39 dispatcher around `_FindAlphaUp` and
+`_FindAlphaDn`. It translates the ascending/descending class-2 paths, the
+`39:5C2E` special-class check, the `39:1942`/`A=06` repeat, and carry exits from
+the fixed-bank `00:3A53`/`00:306F` dispatchers. Each page-7 VAT-search return
+is still an explicit `searchResults` input; no captured LCD write is used as
+constructor state.
 `editorFirstArgumentAction()` and `editorAdvanceAction()` translate the
 action-`0x03` and action-`0x04` controllers at `39:51F1` and `39:52A5`. They
 retain byte-counter wrap and the action-`0x04` one-call exit at `39:52B6`.
