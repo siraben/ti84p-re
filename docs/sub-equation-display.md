@@ -240,7 +240,7 @@ pages `02` and `33` consumes the same order. [confirmed]
 
 The same routine implements tall-template row composition. `eqdisp_layout_main` reaches
 `39:5167` from the action-`0x08` window-advance path at `39:50A4` and the action-`0x04`
-drain path at `39:52B3`. `39:5167` calls `39:5949` to decide whether the next argument
+single-step path at `39:52B3`. `39:5167` calls `39:5949` to decide whether the next argument
 consumes one or two display rows, adjusts `0x844B`, emits slot markers through `39:4E0A`,
 and emits the saved operand through `39:5B10` or `39:5B1D`. These bytes define
 row composition around fixed structural cells. The filled and nested-integral
@@ -251,18 +251,19 @@ reverse walker at `39:523B`. At index zero, bit 0 of `(IY+1Dh)` selects the
 row-token tail. A clear bit with fewer than eight arguments enters the
 do-while loop at `39:50A1`. The loop calls `39:5167` once per count value; a
 zero count decrements through `0xFF` and therefore makes 256 calls. Counts of
-eight or more set the index to `count - 1`, select row
-`count - 8 + baseline` with byte arithmetic, and emit the final argument on
-row 7 through `39:4E14`. [confirmed]
+eight or more set the index to `count - 1`. The path computes the first
+visible slot as `count - 8 + baseline` with byte arithmetic. `39:4DCA`
+looks up the current handler row from `0x85DF`; `39:4CA4` then emits the suffix
+beginning at the computed slot. The path emits the final argument on row 7
+through `39:4E14`. [confirmed]
 
-Action `0x04` enters `39:52A5` and recomputes
-`((count - 1) - index) & 0xFF` after each call to `39:5167`. A valid index below
-the final argument advances until the difference reaches zero. An index above
-the final argument does not progress because `39:5167` leaves it unchanged.
-The same nonprogressing state occurs for count zero unless the index is
-`0xFF`. After a terminating drain, bit 0 of `(IY+1Dh)` selects the row-token
-tail. With the bit clear, the zero comparison leaves `A=0`, so the jump to
-`39:513E` lays out argument zero. [confirmed]
+Action `0x04` enters `39:52A5` and computes
+`((count - 1) - index) & 0xFF` once. A nonzero result calls `39:5167`. The jump
+at `39:52B6` then targets `39:52A2`. The delegated walker returns through
+`39:5447`, and the outer path enters that row-token tail again. Only an
+initially zero result reaches the bit-0 test on `(IY+1Dh)`. A set bit selects
+the same tail. With the bit clear, the zero comparison leaves `A=0`, so the
+jump to `39:513E` lays out argument zero. [confirmed]
 
 ## Cell coordinates
 
@@ -723,11 +724,13 @@ into the parser, saved-operand emitters, and scroll helpers remain ordered
 effects because those routines are outside the closed row arithmetic.
 The increment-wrap guard cannot execute: its preceding unsigned predicate
 requires a nonzero count and an index at most `count - 2`. [confirmed]
-`editorFirstArgumentAction()` and `editorDrainArguments()` compose those
+`editorFirstArgumentAction()` and `editorAdvanceAction()` compose those
 walkers with actions `0x03` and `0x04`. They preserve the zero-count
-256-iteration loop, byte-wrapped visible-slot arithmetic, the flag-controlled
-tails, and nonprogressing invalid drain states. The tests exhaust all 65,536
-count/index byte pairs for both values of bit 0 in each controller. [confirmed]
+256-iteration loop, byte-wrapped first-slot arithmetic, the one-call
+action-`0x04` branch, and the flag-controlled tails. The tests exhaust all
+65,536 count/index byte pairs for both values of bit 0 in each outer
+controller. The walker tests separately exhaust its layout-class and row
+predicates. [confirmed]
 The retained corpus observes 255 of 1,098 declared editor branch outcomes. It
 does not decode every in-progress editor state into a general AST, and it does not
 reach every cursor, menu, error, or row-composition path. [confirmed]

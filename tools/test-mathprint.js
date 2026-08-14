@@ -72,6 +72,124 @@ function packedLcdBytes(grid) {
   }));
 }
 
+// Execute the closed action-controller instructions from pinned page-39 byte
+// spans. The interpreter intentionally stops at the open row walker, wide-list
+// body, argument-layout entry, or row-token tail. When the ignored local ROM is
+// available, first prove that these spans came from the pinned OS image.
+const controllerRomSpans = [
+  {address:0x50a1, bytes:Buffer.from(
+    '324d84cd6751214d843520f7c34754', 'hex')},
+  {address:0x51ee, bytes:Buffer.from('c34754', 'hex')},
+  {address:0x51f1, bytes:Buffer.from(
+    'fe03c2a55221e0857eb7203efdcb1d4620eb3ae285fe08daa150', 'hex')},
+  {address:0x52a2, bytes:Buffer.from('c34754', 'hex')},
+  {address:0x52a5, bytes:Buffer.from(
+    'fe04201821e0853ae2853d962805cd675118eafdcb1d4620e4c33e51', 'hex')},
+];
+const controllerByteMap = new Map(controllerRomSpans.flatMap(span =>
+  Array.from(span.bytes, (value, offset) => [span.address + offset, value])));
+const controllerByte = address => {
+  if (!controllerByteMap.has(address))
+    throw new Error(`controller oracle reached unpinned byte 39:${address.toString(16)}`);
+  return controllerByteMap.get(address);
+};
+const signedByte = value => value < 0x80 ? value : value - 0x100;
+const controllerWord = address =>
+  controllerByte(address) | (controllerByte(address + 1) << 8);
+
+function runRawController(action, argumentIndex, argumentCount, editorFlags) {
+  let pc = action === 3 ? 0x51f1 : action === 4 ? 0x52a5 : null;
+  if (pc === null) throw new RangeError('raw controller oracle accepts actions 3 and 4');
+  const memory = new Map([
+    [0x85e0, argumentIndex], [0x85e2, argumentCount], [0x844d, 0],
+  ]);
+  let a = action, hl = 0, zero = false, carry = false, calls = 0;
+  for (let instructions = 0; instructions < 0x1000; instructions++) {
+    if (pc === 0x513e) return {branch:'layout-first-argument', calls};
+    if (pc === 0x520b) return {branch:'last-visible-argument', calls};
+    if (pc === 0x523b) return {branch:'reverse-walker', calls};
+    if (pc === 0x5447) return {branch:'row-token-tail', calls};
+    const opcode = controllerByte(pc);
+    if (opcode === 0xfe) {
+      const operand = controllerByte(pc + 1);
+      zero = a === operand;
+      carry = a < operand;
+      pc += 2;
+    } else if (opcode === 0xc2) {
+      pc = zero ? pc + 3 : controllerWord(pc + 1);
+    } else if (opcode === 0xda) {
+      pc = carry ? controllerWord(pc + 1) : pc + 3;
+    } else if (opcode === 0xc3) {
+      pc = controllerWord(pc + 1);
+    } else if (opcode === 0x21) {
+      hl = controllerWord(pc + 1);
+      pc += 3;
+    } else if (opcode === 0x7e) {
+      a = memory.get(hl) || 0;
+      pc++;
+    } else if (opcode === 0xb7) {
+      zero = a === 0;
+      carry = false;
+      pc++;
+    } else if (opcode === 0x20 || opcode === 0x28 || opcode === 0x18) {
+      const take = opcode === 0x18 || (opcode === 0x20 ? !zero : zero);
+      pc = take ? pc + 2 + signedByte(controllerByte(pc + 1)) : pc + 2;
+    } else if (opcode === 0xfd) {
+      if (controllerByte(pc + 1) !== 0xcb ||
+          controllerByte(pc + 2) !== 0x1d ||
+          controllerByte(pc + 3) !== 0x46)
+        throw new Error('controller oracle reached an unsupported indexed opcode');
+      zero = (editorFlags & 1) === 0;
+      pc += 4;
+    } else if (opcode === 0x3a) {
+      a = memory.get(controllerWord(pc + 1)) || 0;
+      pc += 3;
+    } else if (opcode === 0x32) {
+      memory.set(controllerWord(pc + 1), a);
+      pc += 3;
+    } else if (opcode === 0x3d) {
+      a = (a - 1) & 0xff;
+      zero = a === 0;
+      pc++;
+    } else if (opcode === 0x96) {
+      const operand = memory.get(hl) || 0;
+      carry = a < operand;
+      a = (a - operand) & 0xff;
+      zero = a === 0;
+      pc++;
+    } else if (opcode === 0xcd) {
+      const target = controllerWord(pc + 1);
+      if (target !== 0x5167)
+        throw new Error('controller oracle reached an unsupported call');
+      calls++;
+      pc += 3;
+    } else if (opcode === 0x35) {
+      const value = ((memory.get(hl) || 0) - 1) & 0xff;
+      memory.set(hl, value);
+      zero = value === 0;
+      pc++;
+    } else {
+      throw new Error(`controller oracle reached unsupported opcode 0x${opcode.toString(16)}`);
+    }
+  }
+  throw new Error('controller oracle exceeded its instruction bound');
+}
+
+const localRomPath = path.join(root, 'tools', 'rom.bin');
+if (fs.existsSync(localRomPath)) {
+  const localRom = fs.readFileSync(localRomPath);
+  expectEqual('controller oracle uses the pinned OS 2.55MP image',
+    crypto.createHash('sha256').update(localRom).digest('hex'),
+    '7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d');
+  for (const span of controllerRomSpans) {
+    const offset = 0x39 * 0x4000 + (span.address & 0x3fff);
+    expectEqual(`39:${span.address.toString(16)} raw controller bytes`,
+      localRom.subarray(offset, offset + span.bytes.length), span.bytes);
+  }
+}
+expectEqual('39:52B6 relative jump targets the row-token tail',
+  0x52b8 + signedByte(controllerByte(0x52b7)), 0x52a2);
+
 // Executable translations of closed page-39 routines. These expectations are
 // pinned to the extracted OS 2.55MP records and the byte-decoded algorithms.
 const integralRow = rom.emitHandlerRow(layout, 0x0d, 2);
@@ -332,8 +450,8 @@ expectEqual('39:51F1 bit 0 returns through the row-token tail',
   rom.editorFirstArgumentAction(8, 0, 4, 4, 1, 0, {editorFlags:1}), {
     layoutClass:8, argumentIndex:0, argumentCount:4, currentRow:4,
     baselineRow:1, recordFlags:0, editorFlags:1, editorFlagBit0:true,
-    routine:'39:51F1', iterations:0, finalArgument:0, visibleSlot:null,
-    preEmissionRow:null, emissionRow:null, finalRow:null,
+    routine:'39:51F1', iterations:0, finalArgument:0, firstVisibleSlot:null,
+    preCallRow:null, highlightRow:null, finalRow:null,
     branch:'row-token-tail',
     effects:[{kind:'set-row-for-token',routine:'39:51EE → 39:5447'}],
     continuation:'row-token-tail',
@@ -342,15 +460,17 @@ expectEqual('39:50A1 wraps a zero short-list counter through 256 calls',
   rom.editorFirstArgumentAction(8, 0, 0, 4, 1, 0), {
     layoutClass:8, argumentIndex:0, argumentCount:0, currentRow:4,
     baselineRow:1, recordFlags:0, editorFlags:0, editorFlagBit0:false,
-    routine:'39:51F1', iterations:256, finalArgument:null,
-    visibleSlot:null, preEmissionRow:null, emissionRow:null, finalRow:null,
-    branch:'short-list-drain', effects:[
-      {kind:'repeat-advance-argument',iterations:256,
-        routine:'39:50A1 → 39:5167'},
+    routine:'39:51F1', iterations:256, finalArgument:0,
+    firstVisibleSlot:null, preCallRow:null, highlightRow:null, finalRow:null,
+    branch:'short-list-loop', effects:[
+      {kind:'set-loop-counter',address:0x844d,value:0},
+      {kind:'repeat-call-advance-argument',iterations:256,
+        counterAddress:0x844d,counterFinal:0,
+        counterUpdate:'decrement-after-call',routine:'39:50A1 → 39:5167'},
       {kind:'set-row-for-token',routine:'39:50AD → 39:5447'},
     ], continuation:'row-token-tail',
   });
-expectEqual('39:50A1 drains each nonzero short-list argument once', {
+expectEqual('39:50A1 calls once per nonzero short-list counter value', {
   one:rom.editorFirstArgumentAction(8, 0, 1, 4, 1, 0).iterations,
   seven:rom.editorFirstArgumentAction(8, 0, 7, 4, 1, 0).iterations,
 }, {one:1,seven:7});
@@ -359,18 +479,18 @@ expectEqual('39:51F1 wraps the wide-list baseline row and selects its last slot'
     const result = rom.editorFirstArgumentAction(8, 0, 8, 4, 0, 0);
     return {
       branch:result.branch, finalArgument:result.finalArgument,
-      visibleSlot:result.visibleSlot, preEmissionRow:result.preEmissionRow,
-      emissionRow:result.emissionRow, finalRow:result.finalRow,
+      firstVisibleSlot:result.firstVisibleSlot, preCallRow:result.preCallRow,
+      highlightRow:result.highlightRow, finalRow:result.finalRow,
       effects:result.effects,
     };
   })(), {
-    branch:'last-visible-argument', finalArgument:7, visibleSlot:0,
-    preEmissionRow:0xff, emissionRow:7, finalRow:null, effects:[
+    branch:'last-visible-argument', finalArgument:7, firstVisibleSlot:0,
+    preCallRow:0xff, highlightRow:7, finalRow:null, effects:[
       {kind:'clear-saved-F2',address:0x85f2,value:0},
       {kind:'set-argument-index',value:7},
-      {kind:'select-handler-row',row:0,routine:'39:4DCA'},
+      {kind:'lookup-handler-row',rowSource:0x85df,routine:'39:4DCA'},
       {kind:'set-row',value:0xff},
-      {kind:'emit-subexpression-cell',slot:0,routine:'39:4CA4'},
+      {kind:'emit-subexpression-from-slot',slot:0,routine:'39:4CA4'},
       {kind:'set-row-column',row:7,column:0},
       {kind:'emit-highlighted-argument',argument:7,routine:'39:4E14'},
       {kind:'set-row-for-token',routine:'39:51EE → 39:5447'},
@@ -379,39 +499,61 @@ expectEqual('39:51F1 wraps the wide-list baseline row and selects its last slot'
 expectEqual('39:51F1 keeps maximum-count arithmetic byte-sized',
   (() => {
     const result = rom.editorFirstArgumentAction(8, 0, 0xff, 4, 0, 0);
-    return [result.finalArgument,result.visibleSlot,result.preEmissionRow];
+    return [result.finalArgument,result.firstVisibleSlot,result.preCallRow];
   })(), [0xfe,0xf7,0xff]);
-expectEqual('39:52A5 drains to the last argument then lays out argument zero',
-  rom.editorDrainArguments(2, 7, {baselineRow:4,kbdKey:4}), {
-    argumentIndex:2, argumentCount:7, lastArgument:6, delta:4,
+expectEqual('39:52A5 calls the forward walker once for a nonzero delta',
+  (() => {
+    const result = rom.editorAdvanceAction(
+      8, 2, 7, 4, 0, {baselineRow:4,kbdKey:4});
+    return {
+      branch:result.branch, delta:result.delta,
+      advanceCalls:result.advanceCalls,
+      delegateBranch:result.delegate.branch,
+      delegateNextArgument:result.delegate.nextArgument,
+      delegateTail:result.delegate.effects.at(-1),
+      effects:result.effects,
+    };
+  })(), {
+    branch:'advance-once', delta:4, advanceCalls:1,
+    delegateBranch:'in-row', delegateNextArgument:3,
+    delegateTail:{kind:'set-row-for-token',routine:'39:5447'},
+    effects:[
+      {kind:'delegate-advance-argument',routine:'39:52B3 → 39:5167'},
+      {kind:'set-row-for-token',routine:'39:52B6 → 39:52A2 → 39:5447'},
+    ],
+  });
+expectEqual('39:52A5 lays out argument zero for a zero delta and clear bit 0',
+  rom.editorAdvanceAction(8, 6, 7, 4, 0, {baselineRow:4,kbdKey:4}), {
+    layoutClass:8, argumentIndex:6, argumentCount:7, currentRow:4,
+    recordFlags:0, lastArgument:6, delta:0,
     editorFlags:0, editorFlagBit0:false, baselineRow:4, kbdKey:4,
-    routine:'39:52A5', iterations:4, finalArgument:6,
+    routine:'39:52A5', advanceCalls:0,
     layout:{
       argumentIndex:0, argumentCount:7, clampedArgument:0, windowStart:0,
       kbdKey:4, continuation:'return-window-start',
       routine:'39:513E → 39:50CF → 39:5101', visibleRow:1,
       baselineRow:4, restoredRow:4,
     },
+    delegate:null,
     branch:'layout-first-argument', effects:[
-      {kind:'repeat-advance-argument',iterations:4,
-        routine:'39:52B3 → 39:5167'},
       {kind:'layout-argument',argument:0,routine:'39:513E'},
     ], continuation:'argument-layout',
   });
-expectEqual('39:52A5 uses the row-token tail when bit zero is set',
-  rom.editorDrainArguments(6, 7, {editorFlags:1}).branch,
+expectEqual('39:52A5 uses the row-token tail for a zero delta and set bit 0',
+  rom.editorAdvanceAction(8, 6, 7, 4, 0, {editorFlags:1}).branch,
   'row-token-tail');
 expectEqual('39:52A5 preserves the terminating zero-count byte state', {
-  branch:rom.editorDrainArguments(0xff, 0, {baselineRow:0}).branch,
-  iterations:rom.editorDrainArguments(0xff, 0, {baselineRow:0}).iterations,
-  layoutArgument:rom.editorDrainArguments(0xff, 0, {baselineRow:0})
+  branch:rom.editorAdvanceAction(8, 0xff, 0, 4, 0, {baselineRow:0}).branch,
+  advanceCalls:rom.editorAdvanceAction(
+    8, 0xff, 0, 4, 0, {baselineRow:0}).advanceCalls,
+  layoutArgument:rom.editorAdvanceAction(8, 0xff, 0, 4, 0, {baselineRow:0})
     .layout.argumentIndex,
-}, {branch:'layout-first-argument',iterations:0,layoutArgument:0});
-expectEqual('39:52A5 exposes nonprogressing wrapped states', [
-  rom.editorDrainArguments(2, 0).branch,
-  rom.editorDrainArguments(9, 7).branch,
-  rom.editorDrainArguments(9, 7).delta,
-], ['would-loop','would-loop',0xfd]);
+}, {branch:'layout-first-argument',advanceCalls:0,layoutArgument:0});
+expectEqual('39:52A5 sends wrapped subtraction states through one call', [
+  rom.editorAdvanceAction(8, 2, 0, 4, 0).delegate.branch,
+  rom.editorAdvanceAction(8, 9, 7, 4, 0).delegate.branch,
+  rom.editorAdvanceAction(8, 9, 7, 4, 0).delta,
+], ['empty','at-or-past-last',0xfd]);
 expectThrows('39:5167 rejects a non-boolean saved-F2 carry', TypeError,
   () => rom.editorAdvanceArgument(8, 0, 4, 7, 0x20, {
     savedF2EmitterCarry:1,
@@ -464,53 +606,96 @@ for (let layoutClass = 0; layoutClass <= 0xff; layoutClass++) {
 }
 
 // Exhaust both controller actions over every count/index byte pair and both
-// IY+1Dh bit-zero outcomes. This includes count underflow, index subtraction
-// wrap, the 256-iteration zero counter, and every nonprogressing drain state.
+// IY+1Dh bit-0 outcomes. This includes count underflow, index subtraction
+// wrap, the 256-iteration zero counter, and the action-04 one-call exit.
 let firstArgumentControllerStates = 0;
-let argumentDrainControllerStates = 0;
+let argumentAdvanceControllerStates = 0;
+let action03ReverseStates = 0;
+let action03FlagTailStates = 0;
+let action03ZeroCountStates = 0;
+let action03ShortStates = 0;
+let action03WideStates = 0;
+let action04AdvanceOnceStates = 0;
+let action04FlagTailStates = 0;
+let action04LayoutStates = 0;
+let action04LowerIndexPairs = 0;
+let action04HigherIndexPairs = 0;
+let action04ZeroCountPairs = 0;
 for (const editorFlags of [0, 1]) {
   for (let argumentCount = 0; argumentCount <= 0xff; argumentCount++) {
     for (let argumentIndex = 0; argumentIndex <= 0xff; argumentIndex++) {
       const first = rom.editorFirstArgumentAction(
         8, argumentIndex, argumentCount, 4, 0, 0, {editorFlags});
-      const expectedFirstBranch = argumentIndex !== 0
-        ? 'reverse-walker'
-        : editorFlags ? 'row-token-tail'
-          : argumentCount < 8 ? 'short-list-drain'
-            : 'last-visible-argument';
-      if (first.branch !== expectedFirstBranch)
+      const rawAction03 = runRawController(
+        3, argumentIndex, argumentCount, editorFlags);
+      const expectedAction03Branch = rawAction03.calls
+        ? 'short-list-loop' : rawAction03.branch;
+      if (first.branch !== expectedAction03Branch)
         throw new Error('39:51F1 exhaustive controller branch mismatch');
-      if (first.branch === 'short-list-drain' && first.iterations !==
-          (argumentCount === 0 ? 0x100 : argumentCount))
+      if (first.branch === 'short-list-loop' && first.iterations !==
+          rawAction03.calls)
         throw new Error('39:50A1 exhaustive byte counter mismatch');
+      if (first.branch === 'short-list-loop' && first.finalArgument !==
+          (argumentCount === 0 ? 0 : argumentCount - 1))
+        throw new Error('39:50A1 exhaustive final-index mismatch');
       if (first.branch === 'last-visible-argument' &&
           (first.finalArgument !== argumentCount - 1 ||
-           first.visibleSlot !== ((argumentCount - 8) & 0xff) ||
-           first.preEmissionRow !== 0xff))
+           first.firstVisibleSlot !== ((argumentCount - 8) & 0xff) ||
+           first.preCallRow !== 0xff))
         throw new Error('39:51F1 exhaustive wide-list arithmetic mismatch');
+      if (first.branch === 'reverse-walker') action03ReverseStates++;
+      else if (first.branch === 'row-token-tail') action03FlagTailStates++;
+      else if (argumentCount === 0) action03ZeroCountStates++;
+      else if (first.branch === 'short-list-loop') action03ShortStates++;
+      else action03WideStates++;
       firstArgumentControllerStates++;
 
-      const drain = rom.editorDrainArguments(
-        argumentIndex, argumentCount, {editorFlags});
+      const action04 = rom.editorAdvanceAction(
+        8, argumentIndex, argumentCount, 4, 0, {editorFlags});
       const lastArgument = (argumentCount - 1) & 0xff;
       const delta = (lastArgument - argumentIndex) & 0xff;
-      const wouldLoop = delta !== 0 &&
-        (argumentCount === 0 || argumentIndex > lastArgument);
-      const expectedDrainBranch = wouldLoop
-        ? 'would-loop' : editorFlags ? 'row-token-tail' : 'layout-first-argument';
-      if (drain.branch !== expectedDrainBranch || drain.delta !== delta)
+      const rawAction04 = runRawController(
+        4, argumentIndex, argumentCount, editorFlags);
+      const expectedAction04Branch = rawAction04.calls
+        ? 'advance-once' : rawAction04.branch;
+      if (action04.branch !== expectedAction04Branch || action04.delta !== delta)
         throw new Error('39:52A5 exhaustive controller branch mismatch');
-      if (wouldLoop ? drain.iterations !== null : drain.iterations !== delta)
-        throw new Error('39:52A5 exhaustive iteration mismatch');
-      if (!wouldLoop && !editorFlags && drain.layout.argumentIndex !== 0)
+      if (action04.advanceCalls !== rawAction04.calls)
+        throw new Error('39:52A5 exhaustive call-count mismatch');
+      if (delta !== 0) {
+        const expectedDelegateBranch = argumentCount === 0
+          ? 'empty'
+          : argumentIndex < lastArgument ? 'in-row' : 'at-or-past-last';
+        if (action04.delegate.branch !== expectedDelegateBranch)
+          throw new Error('39:52A5 exhaustive delegate mismatch');
+      }
+      if (delta === 0 && !editorFlags && action04.layout.argumentIndex !== 0)
         throw new Error('39:52A5 flag-clear exit stopped laying out argument zero');
-      argumentDrainControllerStates++;
+      if (delta !== 0) action04AdvanceOnceStates++;
+      else if (editorFlags) action04FlagTailStates++;
+      else action04LayoutStates++;
+      if (editorFlags === 0 && delta !== 0) {
+        if (argumentCount === 0) action04ZeroCountPairs++;
+        else if (argumentIndex < lastArgument) action04LowerIndexPairs++;
+        else action04HigherIndexPairs++;
+      }
+      argumentAdvanceControllerStates++;
     }
   }
 }
 expectEqual('39:51F1/52A5 exhaustive controller state totals',
-  [firstArgumentControllerStates,argumentDrainControllerStates],
+  [firstArgumentControllerStates,argumentAdvanceControllerStates],
   [0x20000,0x20000]);
+expectEqual('39:52A5 exhaustive terminal partition',
+  [action04AdvanceOnceStates,action04FlagTailStates,action04LayoutStates],
+  [0x1fe00,0x100,0x100]);
+expectEqual('39:51F1 exhaustive terminal partition', [
+  action03ReverseStates,action03FlagTailStates,action03ZeroCountStates,
+  action03ShortStates,action03WideStates,
+], [0x1fe00,0x100,1,7,0xf8]);
+expectEqual('39:52A5 nonzero-delta count/index partition', [
+  action04LowerIndexPairs,action04HigherIndexPairs,action04ZeroCountPairs,
+], [32385,32640,255]);
 
 for (const [[d, e], glyph] of [
   [[0xfc, 0x3c], 5], [[0xfc, 0x40], 9],

@@ -89,7 +89,7 @@ OPERAND_FLOW_ANCHORS = [
     (
         0x52B3,
         "cd675118ea",
-        "action-4 path recursively drains remaining argument slots through 5167",
+        "action-4 path calls 5167 once, then jumps to the row-token tail",
     ),
     (
         0x5955,
@@ -272,7 +272,7 @@ MULTIARG_PLACEMENT_FLOW_ANCHORS = [
     (
         0x52A5,
         "fe04201821e0853ae2853d962805cd675118eafdcb1d4620e4c33e51",
-        "action-04 drain path: repeatedly call 5167 until the current slot reaches the last argument",
+        "action-04 path: call 5167 once when the initial last-minus-current delta is nonzero",
     ),
     (
         0x5CF6,
@@ -595,12 +595,12 @@ LAYOUT_FLOW_ANCHORS = [
     (
         0x507C,
         "fe08c212513ae28521e08596214b8486fe09",
-        "internal action 08: wide argument-list continuation before six-pass 5167 loop",
+        "internal action 08: wide argument-list continuation before loading the shared loop counter with 6",
     ),
     (
         0x50A1,
         "324d84cd6751214d843520f7c34754",
-        "six-pass continuation loop: call 5167 while 844D counts down from 6",
+        "shared counter loop: call 5167, then decrement 844D; action 08 supplies 6, while action 03 supplies 0..7",
     ),
     (
         0x5112,
@@ -615,7 +615,7 @@ LAYOUT_FLOW_ANCHORS = [
     (
         0x52A5,
         "fe04201821e0853ae2853d962805cd675118ea",
-        "internal action 04: drain remaining argument slots through 5167, then lay out selected arg",
+        "internal action 04: call 5167 once for nonzero delta; zero delta tests flags before argument-zero layout",
     ),
     (
         0x52C1,
@@ -5642,7 +5642,8 @@ def dump_multiarg_placement_flow(rom):
     print("  reverse placement mirrors that by emitting the next slot index, subtracting the one/two-row step from 844B, then emitting saved-E7 as a variable")
     print("  action 08 advances the visible argument window; action 07 backs/remaps it through the 50CF/5101 clamp")
     print("  action 03 jumps to the last visible argument for eight-or-more-argument forms and emits it on row 7")
-    print("  action 04 repeatedly calls 5167 until the current slot reaches the final argument")
+    print("  action 04 calls 5167 once for a nonzero initial last-minus-current delta")
+    print("  52B6 then jumps to 52A2 and reaches the row-token tail a second time")
     print("  saved-OP direct slot actions write 85E0 and render operands until the visible row index 844B reaches that slot")
     print("  this identifies 5167 as the shared row compositor; fnInt field identity is covered by --fnint-argument-order-flow")
 

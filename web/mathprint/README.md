@@ -160,10 +160,9 @@ translate forward and reverse slot movement at `39:5167` and `39:523B`. They
 preserve the asymmetric two-row overflow guards, styled scroll sequences, and
 saved-emitter carry exits. Parser, operand-emitter, and scroll calls remain
 explicit ordered effects rather than generated pixels.
-`editorFirstArgumentAction()` and `editorDrainArguments()` translate the
+`editorFirstArgumentAction()` and `editorAdvanceAction()` translate the
 action-`0x03` and action-`0x04` controllers at `39:51F1` and `39:52A5`. They
-retain byte-counter wrap and report nonprogressing invalid states as
-`would-loop`.
+retain byte-counter wrap and the action-`0x04` one-call exit at `39:52B6`.
 
 ## Tooling
 
