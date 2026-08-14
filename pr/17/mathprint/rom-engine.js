@@ -2287,9 +2287,19 @@
     const native = settledNativeTokenUnits(input);
     const units = native.units;
     let cursor = 0;
+    // Fraction scanning supplies a half-open byte endpoint for a complex
+    // denominator. Keep the recursive expression parser inside that endpoint;
+    // otherwise a following power or product is consumed as part of the
+    // denominator before 34:5795's boundary can be checked.
+    let parseLimit = null;
+    const atLimit = () => cursor >= units.length ||
+      (parseLimit !== null && units[cursor].offset >= parseLimit);
+    const currentOffset = () => cursor < units.length
+      ? units[cursor].offset : native.bytes.length;
     const peek = (prefix, token, ahead = 0) => {
       const unit = units[cursor + ahead];
-      return !!unit && unit.prefix === prefix && unit.token === token;
+      return !!unit && (parseLimit === null || unit.offset < parseLimit) &&
+        unit.prefix === prefix && unit.token === token;
     };
     const take = () => units[cursor++];
     const tokenNode = unit => ({kind:'tokens',tokens:unit.bytes.slice()});
@@ -2308,7 +2318,7 @@
     let atom;
 
     const parseAheadArgument = (label, scanned = null) => {
-      if (cursor >= units.length)
+      if (atLimit())
         throw new RangeError(`${label} is empty`);
       const start = units[cursor].offset;
       const boundary = scanned ? scanned.parseAhead
@@ -2318,11 +2328,20 @@
       if (scanned && start !== scanned.start)
         throw new RangeError(
           `${label} starts at byte ${start}; 34:5678 selected byte ${scanned.start}`);
-      const value = expression();
+      // Structural scanners return a half-open child endpoint. Restrict the
+      // recursive expression parser to that endpoint so a nested power or
+      // function cannot consume the following argument delimiter.
+      const savedLimit = parseLimit;
+      parseLimit = scanned ? scanned.end : boundary.stopCursor;
+      let value;
+      try {
+        value = expression();
+      } finally {
+        parseLimit = savedLimit;
+      }
       if (!value)
         throw new RangeError(`${label} is empty`);
-      const parsedEnd = cursor < units.length
-        ? units[cursor].offset : native.bytes.length;
+      const parsedEnd = currentOffset();
       const scannedEnd = scanned ? scanned.end : boundary.stopCursor;
       if (parsedEnd !== scannedEnd)
         throw new RangeError(
@@ -2384,8 +2403,7 @@
         rows.push(row);
       }
       expect(0,0x07,'matrix closing square bracket');
-      const parsedEnd = cursor < units.length
-        ? units[cursor].offset : native.bytes.length;
+      const parsedEnd = currentOffset();
       if (elementIndex !== scan.elements.length || parsedEnd !== scan.stopCursor)
         throw new RangeError(
           `settled native matrix parser stopped at byte ${parsedEnd}; ` +
@@ -2397,7 +2415,7 @@
     };
 
     atom = () => {
-      if (cursor >= units.length || peek(0,0x11) || peek(0,0x07) ||
+      if (atLimit() || peek(0,0x11) || peek(0,0x07) ||
           peek(0,0x09) ||
           peek(0,0x2b)) return null;
       if (peek(0,0x10)) {
@@ -2508,7 +2526,7 @@
         const scan = settledRaisedNameScan(
           native.bytes,designator.next,limit);
         const bytes = designator.bytes.slice();
-        while (cursor < units.length && units[cursor].offset < scan.end)
+        while (!atLimit() && units[cursor].offset < scan.end)
           bytes.push(...take().bytes);
         return {kind:'tokens',tokens:bytes};
       }
@@ -2518,7 +2536,7 @@
       if (units[cursor].prefix === 0 &&
           0x30 <= units[cursor].token && units[cursor].token <= 0x3b) {
         const bytes = [];
-        while (cursor < units.length && units[cursor].prefix === 0 &&
+        while (!atLimit() && units[cursor].prefix === 0 &&
                0x30 <= units[cursor].token && units[cursor].token <= 0x3b)
           bytes.push(...take().bytes);
         return {kind:'tokens',tokens:bytes};
@@ -2535,22 +2553,32 @@
         left = {kind:'power',base:left,
                 exponent:{kind:'tokens',tokens:[exponent]}};
       }
-      if (peek(0,0xf0) || peek(0,0xf1)) {
+      for (;;) {
+        if (!peek(0,0xf0) && !peek(0,0xf1)) break;
         const nthRoot = peek(0,0xf1);
         const operator = take();
         const scan = settledRaisedOperandScan(native.bytes,operator.offset);
-        const right = power();
+        // The raised scanner returns a half-open endpoint. Keep the recursive
+        // parser inside an explicit 10h…11h slot so a following F0/F1 is
+        // assigned to the enclosing expression rather than to the slot.
+        const savedLimit = parseLimit;
+        parseLimit = scan.end;
+        let right;
+        try {
+          right = power();
+        } finally {
+          parseLimit = savedLimit;
+        }
         if (!right)
           throw new RangeError('settled native raised operator has no right operand');
-        const parsedEnd = cursor < units.length
-          ? units[cursor].offset : native.bytes.length;
+        const parsedEnd = currentOffset();
         if (parsedEnd !== scan.end)
           throw new RangeError(
             `settled raised parser stopped at byte ${parsedEnd}; ` +
             `34:5699 stopped at byte ${scan.end}`);
         const raised = scan.branch === '34:56BB–56D3' &&
           right.kind === 'group' ? right.expression : right;
-        return nthRoot
+        left = nthRoot
           ? {kind:'nthRoot',index:left,
              radicand:raised}
           : {kind:'power',base:left,exponent:raised};
@@ -2559,7 +2587,7 @@
     };
 
     const beginsImplicitFactor = () => {
-      if (cursor >= units.length) return false;
+      if (atLimit()) return false;
       return !(peek(0,0x11) || peek(0,0x07) || peek(0,0x09) ||
         peek(0,0x2b) ||
         peek(0,0x70) || peek(0,0x71) || peek(0,0x82) || peek(0,0x83) ||
@@ -2586,23 +2614,64 @@
       const startCursor = cursor;
       const left = product();
       if (!left) return null;
-      if (!peek(0xef,0x2e) && !peek(0xef,0x2f)) return left;
-      const operator = take();
-      const scan = settledFractionOperandScan(
-        native.bytes,operator.offset,units[startCursor].offset);
-      const right = fraction();
-      if (!right)
-        throw new RangeError('settled native stacked fraction has no denominator');
-      const parsedEnd = cursor < units.length
-        ? units[cursor].offset : native.bytes.length;
-      if (parsedEnd !== scan.denominator.end)
-        throw new RangeError(
-          `settled native denominator parser stopped at byte ${parsedEnd}; ` +
-          `34:5795 stopped at byte ${scan.denominator.end}`);
-      return {
-        kind:'fraction', numerator:unwrapFractionBoundary(left),
-        denominator:unwrapFractionBoundary(right),
-      };
+      if (peek(0xef,0x2e) || peek(0xef,0x2f)) {
+        const operator = take();
+        const scan = settledFractionOperandScan(
+          native.bytes,operator.offset,units[startCursor].offset);
+        const savedLimit = parseLimit;
+        parseLimit = scan.denominator.end;
+        let right;
+        try {
+          right = fraction();
+        } finally {
+          parseLimit = savedLimit;
+        }
+        if (!right)
+          throw new RangeError('settled native stacked fraction has no denominator');
+        const parsedEnd = currentOffset();
+        if (parsedEnd !== scan.denominator.end)
+          throw new RangeError(
+            `settled native denominator parser stopped at byte ${parsedEnd}; ` +
+            `34:5795 stopped at byte ${scan.denominator.end}`);
+        const result = {
+          kind:'fraction', numerator:unwrapFractionBoundary(left),
+          denominator:unwrapFractionBoundary(right),
+        };
+        // A parenthesized stacked fraction is emitted without an enclosing
+        // 10h…11h pair when it occupies the base slot of a following power.
+        // 34:5699 therefore sees F0/F1 immediately after the fraction's
+        // denominator. Parse that suffix here; power() has already consumed
+        // the raised suffix for ordinary atoms.
+        if (peek(0,0xf0) || peek(0,0xf1)) {
+          const nthRoot = peek(0,0xf1);
+          const raisedOperator = take();
+          const raisedScan = settledRaisedOperandScan(
+            native.bytes,raisedOperator.offset);
+          const savedRaisedLimit = parseLimit;
+          parseLimit = raisedScan.end;
+          let raised;
+          try {
+            raised = power();
+          } finally {
+            parseLimit = savedRaisedLimit;
+          }
+          if (!raised)
+            throw new RangeError(
+              'settled native fraction raised operator has no right operand');
+          const raisedEnd = currentOffset();
+          if (raisedEnd !== raisedScan.end)
+            throw new RangeError(
+              `settled native raised parser stopped at byte ${raisedEnd}; ` +
+              `34:5699 stopped at byte ${raisedScan.end}`);
+          return nthRoot
+            ? {kind:'nthRoot',index:result,radicand:
+               raised.kind === 'group' ? raised.expression : raised}
+            : {kind:'power',base:result,
+               exponent:raised.kind === 'group' ? raised.expression : raised};
+        }
+        return result;
+      }
+      return left;
     };
 
     expression = () => {
@@ -3282,10 +3351,19 @@
         const operatorWidth = Math.max(upperWidth, lowerWidth, 12);
         const upperSpace = Math.max(5, upper.word05);
         const lowerSpace = Math.max(variable.word05, lower.word05);
-        const height = checkedWord(
-          upperSpace + 9 + lowerSpace, 'summation height');
-        const baseline = checkedWord(
-          upperSpace + 4, 'summation baseline');
+        // 34:7393/7609 keep every child origin in the unsigned record fields.
+        // A structural body can have a baseline below the fixed sigma slot
+        // (for example, a raised nested sum). Raise the parent baseline to the
+        // child's baseline and extend the lower region so body.word0D remains
+        // nonnegative while the upper/lower slots retain their ROM anchors.
+        const nominalBaseline = upperSpace + 4;
+        const baseline = Math.max(nominalBaseline, body.word09);
+        const bodyY = baseline - body.word09;
+        const nominalHeight = upperSpace + 9 + lowerSpace;
+        const height = checkedWord(baseline > nominalBaseline
+          ? Math.max(nominalHeight, bodyY + body.word05 + lowerSpace,
+                    baseline + lowerSpace + 5)
+          : nominalHeight, 'summation height');
         const bodyX = checkedWord(operatorWidth + 6, 'summation body x');
         const lowerRowY = checkedWord(
           height - lowerSpace, 'summation lower row y');
@@ -3299,8 +3377,7 @@
           'summation upper-bound x');
         upper.word0D = 0;
         body.word0B = bodyX;
-        body.word0D = checkedWord(
-          baseline - body.word09, 'summation body y');
+        body.word0D = checkedWord(bodyY, 'summation body y');
         structural.word07 = height;
         structural.word09 = checkedWord(
           bodyX + body.word07 + 5, 'summation width');
