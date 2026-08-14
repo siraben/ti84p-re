@@ -214,8 +214,14 @@
   function selectDescriptor(layout, kind, options = undefined) {
     byte(kind, 'template kind');
     const nibble = kind & 0x0f;
-    if (nibble === 0) return { kind: 'descriptor', descriptor: descriptor(layout, 0x686f) };
-    if (nibble === 1) return { kind: 'descriptor', descriptor: descriptor(layout, 0x6880) };
+    if (nibble === 0) return {
+      kind: 'descriptor', descriptor: descriptor(layout, 0x686f),
+      normalizedKind: 0x10,
+    };
+    if (nibble === 1) return {
+      kind: 'descriptor', descriptor: descriptor(layout, 0x6880),
+      normalizedKind: 0x11,
+    };
     if (nibble === 2) return { kind: 'measuredFraction', routine: '39:6A8A' };
     if (options === undefined) return {
       kind: 'unresolvedDescriptorFamily', templateKind: nibble,
@@ -226,10 +232,19 @@
     const flag02 = options.flag02;
     byte(flag02, 'descriptor selector flag02');
     if (flag02 & 0x40)
-      return { kind: 'descriptor', descriptor: descriptor(layout, 0x689c) };
+      return {
+        kind: 'descriptor', descriptor: descriptor(layout, 0x689c),
+        normalizedKind: nibble + 0x20,
+      };
     if (flag02 & 0x20)
-      return { kind: 'descriptor', descriptor: descriptor(layout, 0x68a5) };
-    return { kind: 'descriptor', descriptor: descriptor(layout, 0x6893) };
+      return {
+        kind: 'descriptor', descriptor: descriptor(layout, 0x68a5),
+        normalizedKind: nibble + 0x30,
+      };
+    return {
+      kind: 'descriptor', descriptor: descriptor(layout, 0x6893),
+      normalizedKind: nibble + 0x10,
+    };
   }
 
   // 39:6A00 reads the nine-byte descriptor ABI. The two increments of E and

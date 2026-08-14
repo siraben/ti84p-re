@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-39fd8309.js";
+            window.path_to_searchindex_js = "searchindex-51de497c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14738,7 +14738,8 @@ $$</p>
 adds <code>0x10</code> again and calls <code>ram:0254</code> (<code>BIT 5,(IY+2); RET</code>); a set bit selects
 <code>39:68A5</code>, and a clear result selects <code>39:6893</code>. The JavaScript
 <code>selectDescriptor</code> translation takes this caller-owned <code>flag02</code> byte explicitly
-for the family branches. [confirmed]</p>
+for the family branches and reports the byte that <code>39:69FC</code> stores back at
+<code>0x85E8</code>. [confirmed]</p>
 <p>Descriptor <code>39:6880</code> contains <code>FE09</code>, <code>FB C8</code>, <code>00 C7</code>, <code>00 C8</code>, and <code>FB C7</code> in one row.
 That places <code>fnInt(</code> as a menu/template cell, not as a structural integral glyph. [confirmed]</p>
 <h2 id="fractions"><a class="header" href="#fractions">Fractions</a></h2>
