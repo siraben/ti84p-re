@@ -90,6 +90,53 @@
     return record;
   }
 
+  // 39:4A74–4AFD translates the incoming token/action byte into the class
+  // index used by 39:4C27. The three IY+2 bits only affect raw 3Bh (the
+  // exponent-context case); IY+9 bit 0 remaps ordinary classes 03h–08h to
+  // their stacked-argument counterparts. Keep the table lookup separate from
+  // handlerRecord(): class 00h is a valid table entry but has no row record.
+  function editorTokenDispatch(layout, raw, options = {}) {
+    requireLayout(layout);
+    byte(raw, 'editor token/action byte');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('editor token dispatch options must be an object');
+    const iy2 = options.iy2 === undefined ? 0xff : byte(options.iy2, 'editor IY+2');
+    const iy9 = options.iy9 === undefined ? 0 : byte(options.iy9, 'editor IY+9');
+    if (raw === 0x3d) return {
+      raw, iy2, iy9, coarseClass:null, normalizedClass:null,
+      adjustments:[], handlerPointer:null, handlerRows:null,
+      kind:'templateHandoff', routine:'39:4A74 → 39:672E',
+    };
+    const coarseClass = (raw - 0x2a) & 0xff;
+    let normalizedClass = coarseClass;
+    const adjustments = [];
+    if (coarseClass === 0x11 && (iy2 & 0x10) === 0) {
+      normalizedClass = (raw - 1) & 0xff;
+      adjustments.push('IY+2 bit 4 clear: raw-1');
+      if ((iy2 & 0x40) === 0) {
+        normalizedClass = (normalizedClass + 1) & 0xff;
+        adjustments.push('IY+2 bit 6 clear: increment');
+        if ((iy2 & 0x20) === 0) {
+          normalizedClass = (normalizedClass + 1) & 0xff;
+          adjustments.push('IY+2 bit 5 clear: increment');
+        }
+      }
+    }
+    if ((iy9 & 1) && normalizedClass >= 0x03 && normalizedClass <= 0x08) {
+      normalizedClass = (normalizedClass + 0x28) & 0xff;
+      adjustments.push('IY+9 bit 0 set: add 0x28');
+    }
+    const entry = layout.classes.find(item => item.cls === normalizedClass);
+    const hasRows = entry && Array.isArray(entry.items) &&
+      entry.rows === entry.items.length;
+    return {
+      raw, iy2, iy9, coarseClass, normalizedClass, adjustments,
+      handlerPointer:entry && Number.isInteger(entry.ptr) ? entry.ptr : null,
+      handlerRows:hasRows ? entry.rows : null,
+      kind:'handlerLookup', routine:'39:4A74 → 39:4C27',
+    };
+  }
+
   // 39:4DCA skips row_count, row cell-count bytes, row-action bytes, and the
   // preceding packed D:E cells. Return both the decoded row and its ROM offsets.
   function handlerRow(layout, layoutClass, rowIndex) {
@@ -4392,6 +4439,7 @@
     handlerRecord,
     handlerRow,
     emitHandlerRow,
+    editorTokenDispatch,
     mapDirectGlyph,
     classifyCell,
     keyToStringIndex,

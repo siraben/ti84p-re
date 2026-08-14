@@ -90,6 +90,36 @@ expectEqual('39:4DE6 integral glyph emission', integralRow.emissions[8], {
   output: { kind: 'directGlyph', d: 0x08, e: 0x42,
             glyph: 0x08, routine: '39:4F1A' },
 });
+expectEqual('39:4A74 ordinary token class dispatch',
+  rom.editorTokenDispatch(layout, 0x2d), {
+    raw:0x2d, iy2:0xff, iy9:0, coarseClass:0x03, normalizedClass:0x03,
+    adjustments:[], handlerPointer:0x5f97, handlerRows:3,
+    kind:'handlerLookup', routine:'39:4A74 → 39:4C27',
+  });
+expectEqual('39:4A74 fraction-context class remap',
+  rom.editorTokenDispatch(layout, 0x2d, {iy9:1}).normalizedClass, 0x2b);
+expectEqual('39:4A74 exponent context applies all three IY+2 tests',
+  rom.editorTokenDispatch(layout, 0x3b, {iy2:0}), {
+    raw:0x3b, iy2:0, iy9:0, coarseClass:0x11, normalizedClass:0x3c,
+    adjustments:[
+      'IY+2 bit 4 clear: raw-1',
+      'IY+2 bit 6 clear: increment',
+      'IY+2 bit 5 clear: increment',
+    ], handlerPointer:0x619c, handlerRows:1,
+    kind:'handlerLookup', routine:'39:4A74 → 39:4C27',
+  });
+expectEqual('39:4A74 preserves the measured-template handoff',
+  rom.editorTokenDispatch(layout, 0x3d), {
+    raw:0x3d, iy2:0xff, iy9:0, coarseClass:null, normalizedClass:null,
+    adjustments:[], handlerPointer:null, handlerRows:null,
+    kind:'templateHandoff', routine:'39:4A74 → 39:672E',
+  });
+expectEqual('39:4C27 keeps class zero as a non-handler table entry',
+  rom.editorTokenDispatch(layout, 0x2a), {
+    raw:0x2a, iy2:0xff, iy9:0, coarseClass:0, normalizedClass:0,
+    adjustments:[], handlerPointer:0xc97a, handlerRows:null,
+    kind:'handlerLookup', routine:'39:4A74 → 39:4C27',
+  });
 
 for (const [[d, e], glyph] of [
   [[0xfc, 0x3c], 5], [[0xfc, 0x40], 9],

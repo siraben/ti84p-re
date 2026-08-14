@@ -682,8 +682,12 @@ captured type-`0x1F` record/LCD oracle.
 
 Editor layout is also open. The page `39` class and handler tables, argument
 order, row composition, descriptor mapping, and draw paths are decoded. The
-retained corpus observes 255 of 1,098 declared editor branch outcomes. It does
-not decode every in-progress editor state into a general AST, and it does not
+browser-side ROM engine now translates the `39:4A74` token/action dispatch and
+its `IY+2` exponent-context and `IY+9` fraction-context class adjustments
+through `editorTokenDispatch()`. It returns the measured-template handoff at
+`39:672E` separately from normal `39:4C27` handler lookup. [confirmed]
+The retained corpus observes 255 of 1,098 declared editor branch outcomes. It
+does not decode every in-progress editor state into a general AST, and it does not
 reach every cursor, menu, error, or row-composition path. [confirmed]
 
 Accepted LCD-write parity is a separate result. The translated cases compare
