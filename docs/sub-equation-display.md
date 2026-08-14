@@ -859,10 +859,18 @@ filtered Up candidate and makes Dn return carry. [confirmed]
 Success returns `A=00h`, Z set, and carry clear. Failure restores the incoming
 identity to OP1/OP3 and returns `A=FEh`, Z clear, and carry set. [confirmed]
 
-The logical snapshot intentionally does not claim a raw VAT decoder. Entry
-decoding at `07:51BE` and the two physical scan regions bounded by `pTemp`,
-`progPtr`, and `symTable` remain separate translation work. [confirmed] for
-the current model boundary.
+`editorDecodeAlphaVatSnapshot()` builds the logical snapshot from a 64 KiB RAM
+image. The initializer at `07:50BE`–`07:50F9` chooses one of two regions.
+Named/list-name searches start at `progPtr` and stop at `pTemp`; fixed-token
+searches start at `symTable` and stop at `progPtr`. [confirmed]
+
+For a type cursor `H`, both entry forms store T2 at `H-1`, version at `H-2`,
+data address low/high at `H-3`/`H-4`, and page at `H-5`. A fixed entry stores
+three name bytes at `H-6`–`H-8` and advances to `H-9`. A named entry stores its
+length at `H-6`, name bytes downward from `H-7`, and advances by `7+length`.
+The `72h` and `3Ah` forms use the fixed three-byte step. Type `09h` decodes a
+fixed comparison key but uses the variable-length step at `07:512C`–`07:5149`.
+[confirmed]
 
 `editorForwardOverflowCue()` and `editorReverseOverflowCue()` translate the
 closed cue routines at `39:66FE` and `39:66E9`. The reverse routine subtracts
