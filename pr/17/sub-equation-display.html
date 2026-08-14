@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2c8e0d19.js";
+            window.path_to_searchindex_js = "searchindex-b70ace5b.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -695,7 +695,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in twelve finite models. It also computes an
+complete path-equivalence class in 17 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -717,11 +717,16 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Editor horizontal viewport</td><td style="text-align: right">17,179,869,184</td><td style="text-align: right">8</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
 <tr><td>Record-allocation capacity</td><td style="text-align: right">36,893,488,147,419,103,232</td><td style="text-align: right">6</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
 <tr><td>Saved-operand wrappers</td><td style="text-align: right">16</td><td style="text-align: right">12</td><td style="text-align: right">12</td><td style="text-align: right">8</td></tr>
+<tr><td>FindAlpha type normalization</td><td style="text-align: right">32</td><td style="text-align: right">31</td><td style="text-align: right">8</td><td style="text-align: right">4</td></tr>
+<tr><td>FindAlpha key preparation</td><td style="text-align: right">192</td><td style="text-align: right">13</td><td style="text-align: right">14</td><td style="text-align: right">4</td></tr>
+<tr><td>FindAlpha record stepping</td><td style="text-align: right">8,192</td><td style="text-align: right">8</td><td style="text-align: right">12</td><td style="text-align: right">4</td></tr>
+<tr><td>FindAlpha candidate reducer</td><td style="text-align: right">288</td><td style="text-align: right">25</td><td style="text-align: right">17</td><td style="text-align: right">10</td></tr>
+<tr><td>FindAlpha endpoint</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">4</td><td style="text-align: right">2</td></tr>
 </tbody>
 </table>
 </div>
-<p>The twelve models contain 1,228 path classes and 118 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 64 representatives. Each
+<p>The 17 models contain 1,307 path classes and 173 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 88 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -760,6 +765,7 @@ return class identifies which callee paths have live witnesses. [confirmed]</p>
 <tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">236 / 238</td><td style="text-align: right">302</td><td style="text-align: right">95.26% / 95.26%</td></tr>
 <tr><td>Metrics and geometry</td><td style="text-align: right">470</td><td style="text-align: right">75 / 75</td><td style="text-align: right">80</td><td style="text-align: right">99.36% / 99.36%</td></tr>
 <tr><td>Record allocator</td><td style="text-align: right">64</td><td style="text-align: right">7 / 7</td><td style="text-align: right">8</td><td style="text-align: right">98.44% / 98.44%</td></tr>
+<tr><td>Alphabetic VAT search</td><td style="text-align: right">236</td><td style="text-align: right">17 / 17</td><td style="text-align: right">92</td><td style="text-align: right">34.32% / 34.32%</td></tr>
 <tr><td>Editor layout</td><td style="text-align: right">2,776</td><td style="text-align: right">255 / 255</td><td style="text-align: right">1,098</td><td style="text-align: right">33.03% / 33.03%</td></tr>
 <tr><td>Small-font and LCD output</td><td style="text-align: right">413</td><td style="text-align: right">81 / 81</td><td style="text-align: right">122</td><td style="text-align: right">75.54% / 75.54%</td></tr>
 <tr><td>Point and line primitives</td><td style="text-align: right">508</td><td style="text-align: right">48 / 48</td><td style="text-align: right">134</td><td style="text-align: right">59.45% / 59.45%</td></tr>
@@ -771,14 +777,14 @@ return class identifies which callee paths have live witnesses. [confirmed]</p>
 OS entry states. A branch with both outcomes observed is dynamically saturated
 for that corpus. A branch with one or no outcomes remains open even when its
 containing routine has been reached. Metrics and geometry and the allocator
-have no wholly unobserved branch. The other six components still do. Three of
+have no wholly unobserved branch. The other seven components still do. Three of
 the allocator’s four branches and 35 of the 40 metric branches have both
 outcomes. [confirmed]</p>
-<p>The report classifies all 2,184 enumerated outcomes. Natural calculator input
-exercises 965. The synthetic <code>EF36h</code> state adds three outcomes, for 968 across
+<p>The report classifies all 2,276 enumerated outcomes. Natural calculator input
+exercises 982. The synthetic <code>EF36h</code> state adds three outcomes, for 985 across
 all evidence. One allocator outcome is infeasible under its data invariant.
 Two metric outcomes are infeasible under the calculator call ABI. The full
-evidence set leaves 1,213 unresolved; the natural-only set leaves 1,216.
+evidence set leaves 1,288 unresolved; the natural-only set leaves 1,291.
 An unobserved outcome never becomes infeasible from absence alone. [confirmed]</p>
 <p>The infeasible allocator outcome is the fallthrough at <code>33:4F4E</code>. The type
 <code>0x2B</code> path loads rows and columns from record offsets <code>+0x13</code> and <code>+0x12</code>, then
@@ -797,12 +803,12 @@ Synthetic direct calls to internal metric handlers do not share the ABI.
 branch outcome observed in the supplied traces. It does not preserve complete
 invocation paths, register or RAM states, dispatch indices, record cases, or LCD
 write cases. The all-evidence and natural-only branch covers each select 23
-traces. They preserve 968 and 965 outcomes in 3,733,190,076 and 3,783,443,760
+traces. They preserve 985 and 982 outcomes in 3,733,190,076 and 3,783,443,760
 bytes, respectively.</p>
 <p>The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,224 tags and needs 126
-traces. The natural-only universe has 1,221 tags and needs 125 traces. Every
+independent oracle case. Its all-evidence universe has 1,241 tags and needs 126
+traces. The natural-only universe has 1,238 tags and needs 125 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
