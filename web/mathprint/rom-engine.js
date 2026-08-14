@@ -1381,6 +1381,107 @@
     return SETTLED_RECORD_METADATA[renderType - 0x1f].slice();
   }
 
+  // 33:4F6D indexes the three-byte rows at 33:4F82. The returned registers
+  // feed 34:4862: DE is the workspace request checked by 34:4B7C, BC is the
+  // child-slot count, and HL is the record size later copied back to DE.
+  const SETTLED_RECORD_ALLOCATION_GEOMETRY = Object.freeze([
+    [0x29,0x01,0x16], [0x42,0x02,0x18], [0x2b,0x01,0x16],
+    [0x70,0x04,0x1c], [0x59,0x03,0x1a], [0x42,0x02,0x18],
+    [0x2b,0x01,0x16], [0x2b,0x01,0x16], [0x2b,0x01,0x16],
+    [0x42,0x02,0x18], [0x70,0x04,0x1c], [0x2b,0x01,0x16],
+    [0x2b,0x01,0x16],
+  ].map(Object.freeze));
+
+  function settledRecordAllocationGeometry(renderType, matrixElements = null) {
+    byte(renderType, 'settled allocation render type');
+    if (renderType < 0x1f || renderType > 0x2b)
+      throw new RangeError('settled allocation type must be 1Fh..2Bh');
+    if (renderType !== 0x2b) {
+      if (matrixElements !== null)
+        throw new RangeError('settled matrix element count applies only to type 2Bh');
+      const [workspaceRequest,childCount,recordBytes] =
+        SETTLED_RECORD_ALLOCATION_GEOMETRY[renderType - 0x1f];
+      return {
+        renderType, matrixElements:null,
+        workspaceRequest, childCount, recordBytes,
+        tableAddress:0x4f82 + 3 * (renderType - 0x1f),
+        branchOutcomes:[],
+        routine:'33:4F6D–4F81',
+      };
+    }
+    if (!Number.isInteger(matrixElements) ||
+        matrixElements < 0 || matrixElements > 0xffff)
+      throw new RangeError('settled matrix element count must be an unsigned word');
+    // 33:4F4E treats a zero product as two slots. Matrix creation rejects a
+    // zero dimension before this point, but retain the raw branch here.
+    const zeroProduct = matrixElements === 0;
+    const childCount = zeroProduct ? 2 : (matrixElements + 1) & 0xffff;
+    const recordBytes = (2 * childCount + 20) & 0xffff;
+    const workspaceRequest = (22 * childCount + 20) & 0xffff;
+    return {
+      renderType, matrixElements,
+      workspaceRequest, childCount, recordBytes,
+      tableAddress:0x4f82 + 3 * (renderType - 0x1f),
+      branchOutcomes:[
+        `33:4F4E:${zeroProduct ? 'fallthrough' : 'taken'}`,
+        ...new Array(19).fill('33:4F65:taken'),
+        '33:4F65:fallthrough',
+      ],
+      routine:'33:4F42–4F6C',
+    };
+  }
+
+  // 34:4B86 subtracts a conditional reserve and the current record tail from
+  // the workspace bound. Each OR A clears carry before the following SBC, so
+  // an earlier underflow wraps and does not feed the next subtraction. 34:4B7C
+  // then subtracts the requested bytes unless the record-tail subtraction
+  // borrowed. The allocator caller at 34:486F returns A=02h on either carry.
+  function settledRecordAllocationCapacity(input) {
+    if (!input || typeof input !== 'object' || Array.isArray(input))
+      throw new TypeError('settled allocation capacity input must be an object');
+    const unsignedWord = (value, label) => {
+      if (!Number.isInteger(value) || value < 0 || value > 0xffff)
+        throw new RangeError(`${label} must be an unsigned word`);
+      return value;
+    };
+    const workspaceTop = unsignedWord(
+      input.workspaceTop, 'settled allocation workspace bound');
+    const recordTail = unsignedWord(
+      input.recordTail, 'settled allocation record tail');
+    const reservedSpan = unsignedWord(
+      input.reservedSpan, 'settled allocation conditional reserve');
+    const requestedBytes = unsignedWord(
+      input.requestedBytes, 'settled allocation request');
+    const iy2dBit0 = boolean(
+      input.iy2dBit0, 'settled allocation IY+2Dh bit 0');
+    const subtractReserved = !iy2dBit0;
+    const afterReserved = subtractReserved
+      ? (workspaceTop - reservedSpan) & 0xffff : workspaceTop;
+    const rangeBorrow = afterReserved < recordTail;
+    const availableBeforeRequest = (afterReserved - recordTail) & 0xffff;
+    const requestCompared = !rangeBorrow;
+    const requestBorrow = requestCompared &&
+      availableBeforeRequest < requestedBytes;
+    const carry = rangeBorrow || requestBorrow;
+    const remainingBytes = requestCompared
+      ? (availableBeforeRequest - requestedBytes) & 0xffff
+      : availableBeforeRequest;
+    return {
+      workspaceTop, recordTail, reservedSpan, requestedBytes,
+      iy2dBit0, subtractReserved, afterReserved,
+      rangeBorrow, availableBeforeRequest,
+      requestCompared, requestBorrow, remainingBytes,
+      carry, returnA:0x02,
+      terminal:carry ? 'return-allocation-carry' : 'continue-allocation',
+      branchOutcomes:[
+        `34:4B8D:${iy2dBit0 ? 'taken' : 'fallthrough'}`,
+        `34:4B80:${rangeBorrow ? 'taken' : 'fallthrough'}`,
+        `34:486F:${carry ? 'returned' : 'fallthrough'}`,
+      ],
+      routine:'34:4B7C–4B9D; caller 34:4862–4870',
+    };
+  }
+
   // Settled records store an ID at +0, a type byte at +2, eight unaligned
   // little-endian words at +3..+11h, and a final byte at +13h. Keep the word
   // names address-based until each type-specific interpretation is closed.
@@ -5161,6 +5262,8 @@
     settledStructuralTokenType,
     settledEf36SourcePath,
     settledRecordMetadata,
+    settledRecordAllocationGeometry,
+    settledRecordAllocationCapacity,
     decodeSettledRecord,
     settledRenderHandler,
     settledCompoundOperations,

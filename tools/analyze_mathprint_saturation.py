@@ -1154,6 +1154,138 @@ def symbolic_editor_horizontal_viewport_paths() -> list[dict[str, object]]:
     ]
 
 
+def record_allocation_capacity_path(
+    workspace_top: int,
+    record_tail: int,
+    reserved_span: int,
+    requested_bytes: int,
+    iy2d_bit0: int,
+) -> dict[str, object]:
+    """Return one path through 34:4B7C–4B9D and caller 34:486F."""
+
+    workspace_top &= 0xFFFF
+    record_tail &= 0xFFFF
+    reserved_span &= 0xFFFF
+    requested_bytes &= 0xFFFF
+    iy2d_bit0 = int(bool(iy2d_bit0))
+    subtract_reserved = not iy2d_bit0
+    after_reserved = (
+        (workspace_top - reserved_span) & 0xFFFF
+        if subtract_reserved else workspace_top
+    )
+    range_borrow = after_reserved < record_tail
+    available_before_request = (after_reserved - record_tail) & 0xFFFF
+    request_compared = not range_borrow
+    request_borrow = (
+        request_compared and available_before_request < requested_bytes
+    )
+    carry = range_borrow or request_borrow
+    remaining_bytes = (
+        (available_before_request - requested_bytes) & 0xFFFF
+        if request_compared else available_before_request
+    )
+    terminal = (
+        "return_range_carry" if range_borrow
+        else "return_request_carry" if request_borrow
+        else "continue_allocation"
+    )
+    return {
+        "terminal": terminal,
+        "subtract_reserved": subtract_reserved,
+        "after_reserved": after_reserved,
+        "range_borrow": range_borrow,
+        "available_before_request": available_before_request,
+        "request_compared": request_compared,
+        "request_borrow": request_borrow,
+        "remaining_bytes": remaining_bytes,
+        "carry": carry,
+        "branch_outcomes": [
+            f"34:4B8D:{'taken' if iy2d_bit0 else 'fallthrough'}",
+            f"34:4B80:{'taken' if range_borrow else 'fallthrough'}",
+            f"34:486F:{'returned' if carry else 'fallthrough'}",
+        ],
+    }
+
+
+def symbolic_record_allocation_capacity_paths() -> list[dict[str, object]]:
+    """Partition all word inputs and the reserve-gate bit analytically."""
+
+    word_count = 0x10000
+
+    counts = record_allocation_capacity_terminal_counts(word_count)
+    range_count = counts["return_range_carry"]
+    request_carry_count = counts["return_request_carry"]
+    continue_count = counts["continue_allocation"]
+    representatives = {
+        0: (
+            ("return_range_carry", (0, 1, 0, 0)),
+            ("return_request_carry", (0, 0, 0, 1)),
+            ("continue_allocation", (0, 0, 0, 0)),
+        ),
+        1: (
+            ("return_range_carry", (0, 1, 0, 0)),
+            ("return_request_carry", (0, 0, 0, 1)),
+            ("continue_allocation", (0, 0, 0, 0)),
+        ),
+    }
+    paths = []
+    for iy2d_bit0 in (0, 1):
+        for terminal, values in representatives[iy2d_bit0]:
+            workspace_top, record_tail, reserved_span, requested_bytes = values
+            result = record_allocation_capacity_path(
+                workspace_top,
+                record_tail,
+                reserved_span,
+                requested_bytes,
+                iy2d_bit0,
+            )
+            if result["terminal"] != terminal:
+                raise AssertionError(
+                    "record-capacity representative has the wrong terminal"
+                )
+            paths.append({
+                **result,
+                "projected_input_count": counts[terminal],
+                "representative_states": [{
+                    "workspace_top": workspace_top,
+                    "record_tail": record_tail,
+                    "reserved_span": reserved_span,
+                    "requested_bytes": requested_bytes,
+                    "iy2d_bit0": iy2d_bit0,
+                }],
+            })
+    if sum(int(row["projected_input_count"]) for row in paths) != 2**65:
+        raise AssertionError("record-capacity partition does not cover 2^65 states")
+    return paths
+
+
+def record_allocation_capacity_terminal_counts(
+    word_count: int,
+) -> dict[str, int]:
+    """Count each terminal for one reserve-bit value over a modular word ring."""
+
+    if not isinstance(word_count, int) or word_count < 1:
+        raise ValueError("record-capacity word count must be positive")
+    # For either gate value, reserved_span is either consumed or an unused
+    # projected word. Subtraction modulo 2^16 makes the post-reserve word
+    # uniform in both cases, so the three terminal multiplicities match.
+    range_count = word_count**3 * (word_count - 1) // 2
+    request_carry_count = (
+        word_count**2 * (word_count + 1) * (word_count - 1) // 3
+    )
+    continue_count = (
+        word_count**2 * (word_count + 1) * (word_count + 2) // 6
+    )
+    result = {
+        "return_range_carry": range_count,
+        "return_request_carry": request_carry_count,
+        "continue_allocation": continue_count,
+    }
+    if sum(result.values()) != word_count**4:
+        raise AssertionError("record-capacity terminal counts do not cover the ring")
+    return result
+
+
 def editor_saved_operand_wrapper_path(
     source: str,
     service: str,
@@ -1962,6 +2094,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             symbolic_editor_horizontal_viewport_paths(),
         ),
         (
+            "record_allocation_capacity",
+            "34:4B7C; caller 34:486F",
+            2**65,
+            symbolic_record_allocation_capacity_paths(),
+        ),
+        (
             "editor_saved_operand_wrappers",
             "39:5B10",
             16,
@@ -2025,7 +2163,7 @@ def symbolic_model_corpus() -> dict[str, object]:
     return {
         "scope": (
             "all projected inputs and complete path equivalence classes in the "
-            "eleven declared finite symbolic models"
+            "twelve declared finite symbolic models"
         ),
         "not_claimed": [
             "all Z80 register and RAM states",
@@ -3098,7 +3236,7 @@ def build_report(
             "static_cfg": "recursive direct-edge traversal from declared entries",
             "symbolic": (
                 "fixed table-row decoding, complete path-equivalence classes, "
-                "and exact minimum branch-outcome representatives for eight "
+                "and exact minimum branch-outcome representatives for declared "
                 "finite projected domains"
             ),
             "computed_dispatches": {
