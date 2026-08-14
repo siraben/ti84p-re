@@ -476,6 +476,144 @@
     };
   }
 
+  // Action 03 at 39:51F1 either delegates to the reverse walker, returns
+  // through the row-token tail, drains a short argument list, or selects the
+  // last visible argument of a list with at least eight entries. The short
+  // path is a byte-counter do-while loop: a zero count therefore calls 5167h
+  // 256 times. Calls whose parser/display bodies remain open are kept as
+  // ordered effects instead of manufacturing their resulting row state.
+  function editorFirstArgumentAction(layoutClass, argumentIndex, argumentCount,
+                                     currentRow, baselineRow, recordFlags,
+                                     options = {}) {
+    byte(layoutClass, 'editor layout class');
+    byte(argumentIndex, 'editor argument index');
+    byte(argumentCount, 'editor argument count');
+    byte(currentRow, 'editor current row');
+    byte(baselineRow, 'editor baseline row');
+    byte(recordFlags, 'editor record flags');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('editor first-argument options must be an object');
+    const editorFlags = options.editorFlags === undefined ? 0 :
+      byte(options.editorFlags, 'editor IY+1Dh flags');
+    const editorFlagBit0 = (editorFlags & 1) !== 0;
+    const base = {
+      layoutClass, argumentIndex, argumentCount, currentRow, baselineRow,
+      recordFlags, editorFlags, editorFlagBit0, routine:'39:51F1',
+    };
+    if (argumentIndex !== 0)
+      return {
+        ...base, iterations:null, finalArgument:null, visibleSlot:null,
+        preEmissionRow:null, finalRow:null, branch:'reverse-walker',
+        effects:[{kind:'delegate-reverse-argument',routine:'39:523B'}],
+        delegate:editorRetreatArgument(
+          layoutClass, argumentIndex, argumentCount, currentRow, baselineRow,
+          recordFlags, options),
+        continuation:'reverse-walker',
+      };
+    if (editorFlagBit0)
+      return {
+        ...base, iterations:0, finalArgument:0, visibleSlot:null,
+        preEmissionRow:null, emissionRow:null, finalRow:null,
+        branch:'row-token-tail',
+        effects:[{kind:'set-row-for-token',routine:'39:51EE → 39:5447'}],
+        continuation:'row-token-tail',
+      };
+    if (argumentCount < 8) {
+      const iterations = argumentCount === 0 ? 0x100 : argumentCount;
+      return {
+        ...base, iterations, finalArgument:null, visibleSlot:null,
+        preEmissionRow:null, emissionRow:null, finalRow:null,
+        branch:'short-list-drain',
+        effects:[
+          {kind:'repeat-advance-argument',iterations,routine:'39:50A1 → 39:5167'},
+          {kind:'set-row-for-token',routine:'39:50AD → 39:5447'},
+        ],
+        continuation:'row-token-tail',
+      };
+    }
+    const finalArgument = argumentCount - 1;
+    const visibleSlot = (argumentCount - 8 + baselineRow) & 0xff;
+    const preEmissionRow = (baselineRow - 1) & 0xff;
+    return {
+      ...base, iterations:0, finalArgument, visibleSlot, preEmissionRow,
+      emissionRow:7, finalRow:null, branch:'last-visible-argument',
+      effects:[
+        {kind:'clear-saved-F2',address:0x85f2,value:0},
+        {kind:'set-argument-index',value:finalArgument},
+        {kind:'select-handler-row',row:visibleSlot,routine:'39:4DCA'},
+        {kind:'set-row',value:preEmissionRow},
+        {kind:'emit-subexpression-cell',slot:visibleSlot,routine:'39:4CA4'},
+        {kind:'set-row-column',row:7,column:0},
+        {kind:'emit-highlighted-argument',argument:finalArgument,routine:'39:4E14'},
+        {kind:'set-row-for-token',routine:'39:51EE → 39:5447'},
+      ],
+      continuation:'row-token-tail',
+    };
+  }
+
+  // Action 04 at 39:52A5 recomputes the unsigned-byte distance from the
+  // current argument to count-1 after every 5167h call. Calculator-created
+  // states below the final argument terminate. States beyond it do not make
+  // progress because 5167h leaves the index unchanged; expose those states as
+  // would-loop rather than silently clamping them. On the flag-clear exit A
+  // still contains zero, so 513Eh lays out argument zero.
+  function editorDrainArguments(argumentIndex, argumentCount, options = {}) {
+    byte(argumentIndex, 'editor argument index');
+    byte(argumentCount, 'editor argument count');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('editor argument-drain options must be an object');
+    const editorFlags = options.editorFlags === undefined ? 0 :
+      byte(options.editorFlags, 'editor IY+1Dh flags');
+    const editorFlagBit0 = (editorFlags & 1) !== 0;
+    const baselineRow = options.baselineRow === undefined ? null :
+      byte(options.baselineRow, 'editor baseline row');
+    const kbdKey = options.kbdKey === undefined ? null :
+      byte(options.kbdKey, 'editor keyboard key');
+    const lastArgument = (argumentCount - 1) & 0xff;
+    const delta = (lastArgument - argumentIndex) & 0xff;
+    const base = {
+      argumentIndex, argumentCount, lastArgument, delta, editorFlags,
+      editorFlagBit0, baselineRow, kbdKey, routine:'39:52A5',
+    };
+    const wouldLoop = delta !== 0 &&
+      (argumentCount === 0 || argumentIndex > lastArgument);
+    if (wouldLoop)
+      return {
+        ...base, iterations:null, finalArgument:null, layout:null,
+        branch:'would-loop',
+        effects:[
+          {kind:'repeat-nonprogressing-advance',argument:argumentIndex,
+            delta,routine:'39:52B3 → 39:5167'},
+        ],
+        continuation:'would-loop',
+      };
+    const iterations = delta;
+    const effects = iterations === 0 ? [] : [
+      {kind:'repeat-advance-argument',iterations,routine:'39:52B3 → 39:5167'},
+    ];
+    if (editorFlagBit0)
+      return {
+        ...base, iterations, finalArgument:lastArgument, layout:null,
+        branch:'row-token-tail',
+        effects:effects.concat([
+          {kind:'set-row-for-token',routine:'39:52A2 → 39:5447'},
+        ]),
+        continuation:'row-token-tail',
+      };
+    const layoutOptions = {};
+    if (baselineRow !== null) layoutOptions.baselineRow = baselineRow;
+    if (kbdKey !== null) layoutOptions.kbdKey = kbdKey;
+    const layout = editorLayoutArgument(0, argumentCount, layoutOptions);
+    return {
+      ...base, iterations, finalArgument:lastArgument, layout,
+      branch:'layout-first-argument',
+      effects:effects.concat([
+        {kind:'layout-argument',argument:0,routine:'39:513E'},
+      ]),
+      continuation:'argument-layout',
+    };
+  }
+
   // 39:4DCA skips row_count, row cell-count bytes, row-action bytes, and the
   // preceding packed D:E cells. Return both the decoded row and its ROM offsets.
   function handlerRow(layout, layoutClass, rowIndex) {
@@ -4786,6 +4924,8 @@
     editorSubexpressionCell,
     editorAdvanceArgument,
     editorRetreatArgument,
+    editorFirstArgumentAction,
+    editorDrainArguments,
     mapDirectGlyph,
     classifyCell,
     keyToStringIndex,
