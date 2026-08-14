@@ -53,4 +53,5 @@ __pycache__/
 # (keeps all audit/review meta-language out of the repo's markdown).
 /tools/audit/
 /tools/.mathprint-saturation-cache.json
+/test-results/
 auth.json

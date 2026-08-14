@@ -1829,6 +1829,13 @@ function showTab(name) {
 }
 
 async function main() {
+  // Asset fetches can be visibly slower on a fresh Pages preview. Preserve
+  // input entered before they finish instead of replacing it with the default
+  // expression after the user has already started typing.
+  const expressionInput = document.getElementById('expr');
+  let changedWhileLoading = false;
+  const noteLoadingInput = () => { changedWhileLoading = true; };
+  expressionInput.addEventListener('input', noteLoadingInput);
   const [fontResponse, layoutResponse, orderResponse, tokenResponse] = await Promise.all([
     fetch('font.json'), fetch('layout.json'), fetch('draw-order.json'),
     fetch('token-strings.json'),
@@ -1844,7 +1851,8 @@ async function main() {
     b.onclick = () => { document.getElementById('expr').value = src; render(); };
     bar.appendChild(b);
   });
-  document.getElementById('expr').addEventListener('input', () => { stopAnim(); render(); });
+  expressionInput.removeEventListener('input', noteLoadingInput);
+  expressionInput.addEventListener('input', () => { stopAnim(); render(); });
   document.getElementById('scale').addEventListener('input', () => render());
   document.getElementById('lcd').addEventListener('change', () => render());
   document.getElementById('pen').addEventListener('change', () => render());
@@ -1885,7 +1893,8 @@ async function main() {
     const n = timeline ? timeline.events.length : (CUR.marks || []).length;
     render(+e.target.value >= n ? null : +e.target.value);
   });
-  document.getElementById('expr').value = 'int(1,2,(1//2)X,X)';
+  if (!changedWhileLoading && !expressionInput.value)
+    expressionInput.value = 'int(1,2,(1//2)X,X)';
   render();
 }
 

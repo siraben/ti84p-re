@@ -91,5 +91,8 @@
             alias setup-wiki-assets='bash tools/setup-wiki-assets.sh'
           '';
         };
+        devShells.browser-tests = pkgs.mkShell {
+          packages = [ pkgs.playwright-test ];
+        };
       });
 }

@@ -175,6 +175,7 @@ pixels.
 | `export-mathprint-draw-order.py` | export ordered set/clear pixel mutations from hash-pinned TLMT traces |
 | `mathprint-trace-report.json` | hashes, exact entry counts, state bytes, and replay results for filled and nested integrals |
 | `test-mathprint.js` | fuzz + corpus: every generated expression parses and lays out |
+| `test-mathprint-browser.spec.js` | headless Chromium check for input entered during delayed asset loading and repeated horizontal overflow |
 | `render-mathprint.py` | ASCII font/layout dump from ROM |
 
 ## Reverse-engineering notes
