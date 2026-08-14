@@ -2752,6 +2752,181 @@
     return result;
   }
 
+  // Decode the settled graph consumed by 34:660A into the semantic structure
+  // recovered by the record analyzer.  This is deliberately separate from
+  // settledExpressionFromTokens(): the token parser reconstructs a graph from
+  // native bytes, while this routine reads the graph's actual child IDs and
+  // leaf payload markers.  Type 2Ah is postfix, so its marker binds to the
+  // expression immediately before EF 2A id_lo id_hi.
+  function decodeSettledExpressionGraph(inputs, entryId) {
+    if (!Array.isArray(inputs))
+      throw new TypeError('settled expression graph must be an array');
+    if (!Number.isInteger(entryId) || entryId < 0 || entryId > 0xffff)
+      throw new RangeError('settled expression entry ID must be an unsigned word');
+    const byId = new Map();
+    for (const input of inputs) {
+      if (!input || typeof input !== 'object')
+        throw new TypeError('settled expression node must be an object');
+      const id = input.record_id === undefined ? input.id : input.record_id;
+      if (!Number.isInteger(id) || id < 0 || id > 0xffff)
+        throw new RangeError('settled expression node ID must be an unsigned word');
+      if (byId.has(id))
+        throw new RangeError(`duplicate settled expression record ID 0x${id.toString(16)}`);
+      byId.set(id, input);
+    }
+    if (!byId.has(entryId))
+      throw new RangeError(`settled expression entry ID 0x${entryId.toString(16)} is absent`);
+
+    const active = new Set();
+    const activeStructural = new Set();
+    const children = (node, count) => {
+      const raw = node.child_ids === undefined ? node.childIds : node.child_ids;
+      const id = node.record_id === undefined ? node.id : node.record_id;
+      if (!Array.isArray(raw) || raw.length !== count || raw.some(value =>
+          !Number.isInteger(value) || value < 0 || value > 0xffff))
+        throw new RangeError(
+          `settled record 0x${id.toString(16)} requires ${count} child IDs`);
+      return raw.slice();
+    };
+    const collapse = parts => {
+      const merged = [];
+      for (const part of parts) {
+        if (Array.isArray(part) && merged.length &&
+            Array.isArray(merged[merged.length - 1]))
+          merged[merged.length - 1].push(...part);
+        else merged.push(part);
+      }
+      if (!merged.length) throw new RangeError('settled leaf decodes to an empty expression');
+      return merged.length === 1 ? merged[0] : {kind:'sequence',parts:merged};
+    };
+    const nodeType = node => {
+      const type = node.render_type === undefined ? node.type : node.render_type;
+      const id = node.record_id === undefined ? node.id : node.record_id;
+      if (!Number.isInteger(type) || type < 0 || type > 0xff)
+        throw new RangeError(`settled record 0x${id.toString(16)} has no valid type`);
+      return type;
+    };
+
+    const structural = recordId => {
+      if (activeStructural.has(recordId))
+        throw new RangeError(
+          `settled expression contains a structural cycle at ID 0x${recordId.toString(16)}`);
+      const node = byId.get(recordId);
+      if (!node) throw new RangeError(
+        `embedded settled record ID 0x${recordId.toString(16)} is absent`);
+      const type = nodeType(node);
+      activeStructural.add(recordId);
+      try {
+        if (type === 0x1f) {
+          const ids = children(node, 1);
+          return leaf(ids[0]);
+        }
+        if (type === 0x2b) {
+          const rows = node.byte13;
+          const columns = Number.isInteger(node.word11) ? node.word11 >> 8 : 0;
+          if (!rows || !columns)
+            throw new RangeError(
+              `settled matrix record 0x${recordId.toString(16)} has zero dimensions`);
+          const ids = children(node, rows * columns);
+          return {kind:'matrix',rows,columns,elements:ids.map(leaf)};
+        }
+        const count = {
+          0x20:2, 0x21:1, 0x22:4, 0x23:3, 0x24:2,
+          0x25:1, 0x26:1, 0x27:1, 0x28:2, 0x29:4, 0x2a:1,
+        }[type];
+        if (count === undefined)
+          throw new RangeError(
+            `settled record 0x${recordId.toString(16)} type 0x${type.toString(16)} ` +
+            'has no translated expression decoder');
+        const ids = children(node, count);
+        switch (type) {
+        case 0x20: return {kind:'fraction',numerator:leaf(ids[0]),denominator:leaf(ids[1])};
+        case 0x21: return {kind:'absolute',body:leaf(ids[0])};
+        case 0x22: return {kind:'integral',lower:leaf(ids[0]),upper:leaf(ids[1]),
+          body:leaf(ids[2]),variable:leaf(ids[3])};
+        case 0x23: return {kind:'nDeriv',variable:leaf(ids[0]),body:leaf(ids[1]),value:leaf(ids[2])};
+        case 0x24: return {kind:'nthRoot',index:leaf(ids[0]),radicand:leaf(ids[1])};
+        case 0x25: return {kind:'ePower',exponent:leaf(ids[0])};
+        case 0x26: return {kind:'tenPower',exponent:leaf(ids[0])};
+        case 0x27: return {kind:'radical',radicand:leaf(ids[0])};
+        case 0x28: return {kind:'logBase',base:leaf(ids[0]),argument:leaf(ids[1])};
+        case 0x29: return {kind:'summation',variable:leaf(ids[0]),lower:leaf(ids[1]),
+          upper:leaf(ids[2]),body:leaf(ids[3])};
+        case 0x2a: return {kind:'powerExponent',exponent:leaf(ids[0])};
+        default: throw new Error('unreachable settled structural decoder case');
+        }
+      } finally {
+        activeStructural.delete(recordId);
+      }
+    };
+
+    function leaf(recordId) {
+      if (active.has(recordId))
+        throw new RangeError(`settled expression contains a cycle at ID 0x${recordId.toString(16)}`);
+      const node = byId.get(recordId);
+      if (!node) throw new RangeError(
+        `settled leaf ID 0x${recordId.toString(16)} is absent`);
+      const type = nodeType(node);
+      if (type >= 0x1f)
+        throw new RangeError(
+          `settled record 0x${recordId.toString(16)} is not a leaf`);
+      const payload = node.payload;
+      if (!Array.isArray(payload) || payload.some((value, index) =>
+          !Number.isInteger(value) || value < 0 || value > 0xff))
+        throw new RangeError(
+          `settled leaf 0x${recordId.toString(16)} has no byte payload`);
+      active.add(recordId);
+      try {
+        const parts = [], tokens = [];
+        const flush = () => { if (tokens.length) {
+          parts.push(tokens.splice(0,tokens.length));
+        }};
+        for (let index = 0; index < payload.length;) {
+          const token = payload[index];
+          if (token !== 0xef) { tokens.push(token); index++; continue; }
+          if (index + 1 >= payload.length)
+            throw new RangeError(`settled leaf 0x${recordId.toString(16)} ends with EF`);
+          const subtype = payload[index + 1];
+          if (subtype === 0x2d) { index += 2; continue; }
+          if (subtype === 0x1e) {
+            flush();
+            parts.push({kind:'extendedToken',tokens:[0xef,0x1e]});
+            index += 2;
+            continue;
+          }
+          if (subtype < 0x1f || subtype > 0x2b || index + 3 >= payload.length)
+            throw new RangeError(
+              `settled leaf 0x${recordId.toString(16)} has unsupported EF ` +
+              `subtype 0x${subtype.toString(16)}`);
+          const embeddedId = payload[index + 2] | payload[index + 3] << 8;
+          const expression = structural(embeddedId);
+          if (subtype === 0x2a) {
+            if (expression.kind !== 'powerExponent')
+              throw new RangeError(
+                `settled power marker references non-power ID 0x${embeddedId.toString(16)}`);
+            let base;
+            if (tokens.length) base = tokens.splice(0,tokens.length);
+            else if (parts.length) base = parts.pop();
+            else throw new RangeError(
+              `settled power ID 0x${embeddedId.toString(16)} has no preceding base`);
+            parts.push({kind:'power',base,exponent:expression.exponent});
+          } else {
+            flush();
+            parts.push(expression);
+          }
+          index += 4;
+        }
+        flush();
+        return collapse(parts);
+      } finally {
+        active.delete(recordId);
+      }
+    }
+
+    const entry = byId.get(entryId);
+    return nodeType(entry) >= 0x1f ? structural(entryId) : leaf(entryId);
+  }
+
   function constructSettledProgramFromTokens(input, firstId = 1, font = null) {
     const native = settledNativeTokenUnits(input);
     const spec = settledExpressionFromTokens(native.bytes);
@@ -4253,6 +4428,7 @@
     settledMatrixContainerScan,
     encodeSettledExpressionTokens,
     settledExpressionFromTokens,
+    decodeSettledExpressionGraph,
     constructSettledProgramFromTokens,
     replaySettledLcdWrites,
     traceSettledLcdWrites,
