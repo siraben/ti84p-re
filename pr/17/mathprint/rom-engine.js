@@ -2562,7 +2562,9 @@
         // parser inside an explicit 10h…11h slot so a following F0/F1 is
         // assigned to the enclosing expression rather than to the slot.
         const savedLimit = parseLimit;
-        parseLimit = scan.end;
+        const raisedEnd = savedLimit === null
+          ? scan.end : Math.min(scan.end,savedLimit);
+        parseLimit = raisedEnd;
         let right;
         try {
           right = power();
@@ -2572,10 +2574,10 @@
         if (!right)
           throw new RangeError('settled native raised operator has no right operand');
         const parsedEnd = currentOffset();
-        if (parsedEnd !== scan.end)
+        if (parsedEnd !== raisedEnd)
           throw new RangeError(
             `settled raised parser stopped at byte ${parsedEnd}; ` +
-            `34:5699 stopped at byte ${scan.end}`);
+            `34:5699 stopped at byte ${raisedEnd}`);
         const raised = scan.branch === '34:56BB–56D3' &&
           right.kind === 'group' ? right.expression : right;
         left = nthRoot
@@ -2619,7 +2621,9 @@
         const scan = settledFractionOperandScan(
           native.bytes,operator.offset,units[startCursor].offset);
         const savedLimit = parseLimit;
-        parseLimit = scan.denominator.end;
+        const denominatorEnd = savedLimit === null
+          ? scan.denominator.end : Math.min(scan.denominator.end,savedLimit);
+        parseLimit = denominatorEnd;
         let right;
         try {
           right = fraction();
@@ -2629,10 +2633,19 @@
         if (!right)
           throw new RangeError('settled native stacked fraction has no denominator');
         const parsedEnd = currentOffset();
-        if (parsedEnd !== scan.denominator.end)
+        // The direct 34:5795 walk can continue through wrapper delimiters
+        // belonging to an enclosing function or matrix. Once the recursive
+        // parser has reached one of those delimiters, its endpoint is the
+        // denominator endpoint for this nested expression.
+        const next = units[cursor];
+        const nestedBoundary = parsedEnd < denominatorEnd && next &&
+          (next.prefix === 0 && (next.token === 0x11 || next.token === 0x07 ||
+            next.token === 0x09 || next.token === 0x2b));
+        const denominatorStop = nestedBoundary ? parsedEnd : denominatorEnd;
+        if (parsedEnd !== denominatorStop)
           throw new RangeError(
             `settled native denominator parser stopped at byte ${parsedEnd}; ` +
-            `34:5795 stopped at byte ${scan.denominator.end}`);
+            `34:5795 stopped at byte ${denominatorStop}`);
         const result = {
           kind:'fraction', numerator:unwrapFractionBoundary(left),
           denominator:unwrapFractionBoundary(right),
@@ -2648,7 +2661,9 @@
           const raisedScan = settledRaisedOperandScan(
             native.bytes,raisedOperator.offset);
           const savedRaisedLimit = parseLimit;
-          parseLimit = raisedScan.end;
+          const raisedEnd = savedRaisedLimit === null
+            ? raisedScan.end : Math.min(raisedScan.end,savedRaisedLimit);
+          parseLimit = raisedEnd;
           let raised;
           try {
             raised = power();
@@ -2658,11 +2673,11 @@
           if (!raised)
             throw new RangeError(
               'settled native fraction raised operator has no right operand');
-          const raisedEnd = currentOffset();
-          if (raisedEnd !== raisedScan.end)
+          const parsedRaisedEnd = currentOffset();
+          if (parsedRaisedEnd !== raisedEnd)
             throw new RangeError(
-              `settled native raised parser stopped at byte ${raisedEnd}; ` +
-              `34:5699 stopped at byte ${raisedScan.end}`);
+              `settled native raised parser stopped at byte ${parsedRaisedEnd}; ` +
+              `34:5699 stopped at byte ${raisedEnd}`);
           return nthRoot
             ? {kind:'nthRoot',index:result,radicand:
                raised.kind === 'group' ? raised.expression : raised}

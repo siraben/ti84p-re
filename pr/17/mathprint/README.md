@@ -161,7 +161,7 @@ arbitrary-expression compositor is still reconstructed rather than translated.
 
 ## Verification status
 
-`tools/test-mathprint.js` passes 5,018 deterministic parse/layout smoke cases and
+`tools/test-mathprint.js` passes 5,019 deterministic parse/layout smoke cases and
 checks rectangular boxes plus in-bounds composition marks. It executes the
 settled record programs for absolute value, nth root, radical, summation,
 `nDeriv(`, and a nested integral/fraction. For each program, the generated final
