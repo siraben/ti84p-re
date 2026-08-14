@@ -160,6 +160,11 @@ translate forward and reverse slot movement at `39:5167` and `39:523B`. They
 preserve the asymmetric two-row overflow guards, styled scroll sequences, and
 saved-emitter carry exits. Parser, operand-emitter, and scroll calls remain
 explicit ordered effects rather than generated pixels.
+`editorOperandEmitter()` now closes the page-39 dispatcher around those parser
+calls. It translates the class-2 normal/variable paths, the `39:5C2E` special
+class check, the `39:1942`/`A=06` repeat, and carry exits from the fixed-bank
+`3A53`/`306F` services. The page-7 scanner return is still an explicit
+`serviceResults` input; no captured LCD write is used as constructor state.
 `editorFirstArgumentAction()` and `editorAdvanceAction()` translate the
 action-`0x03` and action-`0x04` controllers at `39:51F1` and `39:52A5`. They
 retain byte-counter wrap and the action-`0x04` one-call exit at `39:52B6`.
@@ -168,6 +173,9 @@ allocation rows at `33:4F42`–`33:4F81`.
 `settledRecordAllocationCapacity()` translates the conditional reserve,
 record-tail, and requested-byte subtractions at `34:4B7C`–`34:4B9D`, including
 their 16-bit wrap and the allocator carry return at `34:486F`.
+`settledRecordAllocationCheck()` wires the page-33 geometry request into that
+gate through the `34:4862` caller, preserving the record type and matrix count
+as constructor inputs while leaving the record-list arena words explicit.
 
 ## Tooling
 

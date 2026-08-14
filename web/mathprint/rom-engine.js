@@ -356,6 +356,158 @@
     };
   }
 
+  // 39:59E0 and 39:59F9 are small local dispatchers around the page-7
+  // operand scanners.  They are easy to mistake for renderers because they
+  // sit beside the row compositor, but their only local state is 85DE/85DF
+  // and the flags returned by the cross-page service.  The scanner itself is
+  // deliberately an input: the ROM service changes parser scratch state that
+  // is outside this page-39 model.  `serviceResults` records each possible
+  // return from that service, in call order, so a Z=1 / A=06 loop can be
+  // represented without replaying captured writes.
+  //
+  // The class-2 paths are closed on page 39.  Normal operands emit 0Dh and
+  // finish with the 14h OP1 seed at 39:59C6.  Variable operands inspect the
+  // eight payload bytes at saved OP1+1 (39:5A2E), emit 0Ch, optionally cross
+  // 39:1BAF when the emitter leaves carry set, and then use the same 14h
+  // seed.  A carry returned by the 28h emitter is therefore an explicit
+  // input, not a guessed parser result.
+  function editorOperandEmitter(service, tokenClass, tokenSubClass = 0,
+                                options = {}) {
+    if (service !== 'normal' && service !== 'variable')
+      throw new RangeError('editor operand service must be normal or variable');
+    byte(tokenClass, 'editor operand token class');
+    byte(tokenSubClass, 'editor operand token subclass');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('editor operand emitter options must be an object');
+    const results = options.serviceResults === undefined ? [] : options.serviceResults;
+    if (!Array.isArray(results))
+      throw new TypeError('editor operand service results must be an array');
+    const special = options.specialResult === undefined ? null : options.specialResult;
+    if (special !== null && (!special || typeof special !== 'object' ||
+                             Array.isArray(special)))
+      throw new TypeError('editor operand special result must be an object');
+    const savedOperand = options.savedOperand === undefined ? null :
+      editorNineByteBuffer(options.savedOperand, 'editor operand saved OP1');
+    const serviceRoutine = service === 'normal' ? '00:3A53' : '00:306F';
+    const emitterRoutine = service === 'normal' ? '39:59E0' : '39:59F9';
+    const effects = [];
+    const base = {
+      service, tokenClass, tokenSubClass, emitterRoutine, serviceRoutine,
+      routine:emitterRoutine,
+    };
+    const requireCarry = (value, label) => {
+      if (value === undefined)
+        throw new TypeError(`${label} must supply carry`);
+      return boolean(value, label);
+    };
+    const specialCarry = () => special === null ? false :
+      requireCarry(special.carry, 'editor operand special result');
+
+    if (tokenClass === 0x02) {
+      if (special === null)
+        throw new TypeError('class-2 operand path requires specialResult');
+      if (service === 'normal') {
+        effects.push({kind:'emit-token', code:0x0d,
+          routine:'39:59AF → RST 28'});
+        effects.push({kind:'seed-op1', code:0x14, address:0x8478,
+          routine:'39:59C6'});
+        return {
+          ...base, branch:'class-2-special', specialPath:'39:59AF',
+          carry:specialCarry(), effects,
+          unresolved:special.carry === undefined ? '00:0028' : null,
+        };
+      }
+      const payloadEmpty = savedOperand === null ? null :
+        savedOperand.slice(1).every(value => value === 0);
+      effects.push({kind:'scan-saved-op1', address:0x85e7, bytes:8,
+        payloadEmpty, routine:'39:5B23 → 39:5A2E'});
+      effects.push({kind:'emit-token', code:0x0c,
+        routine:'39:59B6 → RST 28'});
+      const rstCarry = specialCarry();
+      if (rstCarry) {
+        if (special.call1BAFCarry === undefined)
+          throw new TypeError('carrying variable class-2 path requires call1BAFCarry');
+        const callCarry = boolean(special.call1BAFCarry,
+          'editor operand 39:1BAF carry');
+        effects.push({kind:'call',routine:'39:1BAF',carry:callCarry});
+      }
+      effects.push({kind:'seed-op1', code:0x14, address:0x8478,
+        routine:'39:59C6'});
+      return {
+        ...base, branch:'class-2-special', specialPath:'39:59B6',
+        payloadEmpty, rstCarry, carry:rstCarry ? boolean(special.call1BAFCarry,
+          'editor operand 39:1BAF carry') : false, effects,
+        unresolved:rstCarry ? '39:1BAF' : null,
+      };
+    }
+
+    if (!results.length)
+      throw new TypeError('non-class-2 operand path requires serviceResults');
+    let currentClass = tokenClass;
+    let currentSubclass = tokenSubClass;
+    for (let index = 0; index < results.length; index++) {
+      const result = results[index];
+      if (!result || typeof result !== 'object' || Array.isArray(result))
+        throw new TypeError(`editor operand service result ${index} must be an object`);
+      if (result.tokenClass !== undefined)
+        currentClass = byte(result.tokenClass,
+          `editor operand service result ${index} token class`);
+      if (result.tokenSubClass !== undefined)
+        currentSubclass = byte(result.tokenSubClass,
+          `editor operand service result ${index} token subclass`);
+      // The call to 5A17 precedes every service call, including a loop from
+      // 59F4/5A0D.  If a scanner changes 85DE to class 2, re-enter the closed
+      // class-2 path with the supplied special result.
+      if (currentClass === 0x02) {
+        const nested = editorOperandEmitter(service, currentClass, currentSubclass,
+          {specialResult:result.specialResult || special,
+           savedOperand:result.savedOperand || savedOperand});
+        return {
+          ...base, branch:'class-2-after-service', loopCount:index,
+          effects:effects.concat([{kind:'class-check',class:currentClass,
+            routine:'39:5A17'}], nested.effects), nested,
+          carry:nested.carry,
+        };
+      }
+      const carry = requireCarry(result.carry,
+        `editor operand service result ${index}`);
+      effects.push({kind:'call-service',routine:serviceRoutine,index,
+        carry, tokenClass:currentClass, tokenSubClass:currentSubclass});
+      if (carry)
+        return {
+          ...base, branch:'service-carry', loopCount:index,
+          carry:true, effects,
+          terminal:'return-carry',
+        };
+      const selected = currentClass === 0x03 && currentSubclass === 0x01;
+      effects.push({kind:'class-3-subclass-1-check',selected,
+        routine:'39:5C2E'});
+      if (!selected)
+        return {
+          ...base, branch:'service-complete', loopCount:index,
+          carry:false, effects, terminal:'return-clear',
+        };
+      if (result.postCode === undefined)
+        throw new TypeError(`editor operand service result ${index} requires postCode`);
+      const postCode = byte(result.postCode,
+        `editor operand service result ${index} postCode`);
+      effects.push({kind:'post-service-call',routine:'39:1942',code:postCode});
+      if (postCode !== 0x06)
+        return {
+          ...base, branch:'post-service-complete', loopCount:index,
+          postCode, carry:false, effects, terminal:'return-clear',
+        };
+      effects.push({kind:'repeat-emitter',routine:emitterRoutine,
+        reason:'post-service A=06'});
+      currentClass = result.nextTokenClass === undefined ? currentClass :
+        byte(result.nextTokenClass, `editor operand service result ${index} next token class`);
+      currentSubclass = result.nextTokenSubClass === undefined ? currentSubclass :
+        byte(result.nextTokenSubClass,
+          `editor operand service result ${index} next token subclass`);
+    }
+    throw new RangeError(`${emitterRoutine} serviceResults ended on a repeat path`);
+  }
+
   // 39:66FE temporarily moves the text cursor to row 1, column 1, emits the
   // forward-overflow code 1Eh, then restores the word at 844Bh. The cursor
   // restore makes the state transition independent of _PutC's own advance.
@@ -1479,6 +1631,30 @@
         `34:486F:${carry ? 'returned' : 'fallthrough'}`,
       ],
       routine:'34:4B7C–4B9D; caller 34:4862–4870',
+    };
+  }
+
+  // 34:4862 stores the incoming render type at 0x8DDD, obtains the request
+  // from the page-33 geometry helper, and passes that request to 34:4B7C.
+  // Keep the arena words explicit because their producers are record-list
+  // callers, but make the request/geometry ABI executable instead of asking
+  // callers to duplicate the table lookup themselves.
+  function settledRecordAllocationCheck(renderType, matrixElements, input) {
+    const geometry = settledRecordAllocationGeometry(renderType, matrixElements);
+    if (!input || typeof input !== 'object' || Array.isArray(input))
+      throw new TypeError('settled allocation check input must be an object');
+    if (input.requestedBytes !== undefined &&
+        input.requestedBytes !== geometry.workspaceRequest)
+      throw new RangeError(
+        'settled allocation request must equal the geometry workspace request');
+    const capacity = settledRecordAllocationCapacity({
+      ...input, requestedBytes:geometry.workspaceRequest,
+    });
+    return {
+      renderType, matrixElements:geometry.matrixElements,
+      geometry, capacity,
+      carry:capacity.carry, returnA:capacity.returnA,
+      routine:'34:4862 → 33:4F6D → 34:4B7C → 34:486F',
     };
   }
 
@@ -5236,6 +5412,7 @@
     editorSubexpressionWindow,
     editorSubexpressionCell,
     editorSavedOperandWrapper,
+    editorOperandEmitter,
     editorForwardOverflowCue,
     editorReverseOverflowCue,
     editorAdvanceArgument,
@@ -5264,6 +5441,7 @@
     settledRecordMetadata,
     settledRecordAllocationGeometry,
     settledRecordAllocationCapacity,
+    settledRecordAllocationCheck,
     decodeSettledRecord,
     settledRenderHandler,
     settledCompoundOperations,
