@@ -1006,6 +1006,58 @@ for (const [expression, expectedOverflow] of [
       }));
 }
 
+// Fractions can occupy a raised base slot without a second parenthesis pair.
+// Keep these cases in the native-token corpus because that boundary is easy to
+// miss when a denominator contains another structural record. The same cases
+// also exercise long records and the editor's right-edge clip.
+for (const [expression, expectedWidth, expectedOverflow] of [
+  ['(X^2//int(0.5,Y1,12,X))^1', 54, 0],
+  ['(X^2//sqrt(N))^1', 17, 0],
+  ['(abs(Ans)//abs(Ans))^1', 31, 0],
+  ['(1//2)^int(1,2,X,X)', 44, 0],
+  ['(int(L1,Y1,L1,X)//sqrt(N))^int(12,X,(Ans),X)', 105, 9],
+  ['(sum(N,1,1,Y1)//int(N,2,2,X))^A', 44, 0],
+  ['1+Ans//int(2,Ans,Y1,X)^sum(N,A,2,Y1^Ans)^(2//1)^sqrt(Y1)+X//0.5',
+    143, 47],
+  ['int(N,X,1,X)+abs(X)^(2//2)^sqrt(X)//int(N,Y1,2,X)//sqrt(X)',
+    95, 0],
+  ['nthroot(12,nDeriv(sum(N,Ans,456,Ans),X,1))^' +
+    'int(L1,Ans,nthroot(X,12^Ans),X)//N', 160, 64],
+  ['nthroot(X,int(456,A,abs(0.5),X))^2', 86, 0],
+  ['nDeriv((123+nthroot(456,A)^nthroot(A,logbase(12,Y1))),X,123)',
+    156, 60],
+  ['nthroot(N,logbase(123,A)//123^Ans)^Y1*abs(123)', 101, 5],
+]) {
+  const program = mp.constructedProgramForExpression(expression);
+  if (!program) throw new Error(`${expression} has no settled record program`);
+  const reconstructed = rom.constructSettledProgramFromTokens(
+    program.native_tokens, 1, font);
+  expectEqual(`${expression} native-token graph round-trip`,
+    reconstructed.nodes, program.nodes);
+  const generated = mp.generatedForExpression(expression);
+  expectEqual(`${expression} settled record width`, generated.recordWidth,
+    expectedWidth);
+  expectEqual(`${expression} editor overflow`, generated.overflowRight,
+    expectedOverflow);
+  if (generated.operations.some(operation =>
+      operation.kind.startsWith('unresolved')) ||
+      generated.events.some(event => event.pixels.length !== 8))
+    throw new Error(`${expression} emitted unresolved or partial LCD pixels`);
+  expectEqual(`${expression} pixel replay reaches the final frame`,
+    rom.replaySettledLcdWrites(generated.events, {
+      width:generated.width, height:generated.height,
+    }), generated.final.map(row => Array.from(row, Number)));
+}
+
+// Child geometry fields are byte-sized in the settled records. The text
+// compositor can still preview a larger expression, while the ROM-faithful
+// record constructor rejects a vinculum endpoint that cannot fit its field.
+const oversizedRadical =
+  'sqrt(logbase(Ans,nDeriv(L1,X,1))+' +
+  'logbase(456,logbase(L1,N))*(int(2,X,Ans,X)))';
+expectThrows('ROM rejects an oversized radical vinculum endpoint', RangeError,
+  () => mp.generatedForExpression(oversizedRadical));
+
 // The record metric fields are unsigned words. The largest flat expression
 // that fits remains executable; adding one six-pixel cell must fail at the
 // same constructor boundary instead of wrapping its width.
