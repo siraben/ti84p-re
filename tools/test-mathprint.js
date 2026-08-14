@@ -159,6 +159,138 @@ const savedOperandByte = address => {
     throw new Error(`saved-operand oracle reached unpinned byte 39:${address.toString(16)}`);
   return savedOperandByteMap.get(address);
 };
+
+// Page-39 operand-emitter span.  The fixed-bank calls are stubbed with their
+// observed return flags/A values, but every local branch from 39:59E0 through
+// 39:5A17 is executed from the extracted bytes below.
+const operandEmitterRomSpan = {address:0x59af, bytes:Buffer.from(
+  '3e0def2653181021e785cd2e5a3e0cef26533003cdaf1b3e14327884c93e17180d' +
+  '3ade85fe1028cffe2928f13e05cdd95acd175a28caafcd533ad8cd2e5c2007' +
+  'cd4219fe0628ea373fc9cd175a28b8afcd6f30d8cd2e5c20eecd4219fe0628ea' +
+  '18e53ade85fe10c93ade85fe02c9', 'hex')};
+const operandEmitterByteMap = new Map(Array.from(
+  operandEmitterRomSpan.bytes,
+  (value, offset) => [operandEmitterRomSpan.address + offset, value]));
+const operandEmitterByte = address => {
+  if (!operandEmitterByteMap.has(address))
+    throw new Error(`operand-emitter oracle reached unpinned byte 39:${address.toString(16)}`);
+  return operandEmitterByteMap.get(address);
+};
+const operandEmitterWord = address =>
+  operandEmitterByte(address) | (operandEmitterByte(address + 1) << 8);
+
+function runRawOperandEmitter(service, tokenClass, tokenSubClass, options = {}) {
+  const start = service === 'normal' ? 0x59e0 : 0x59f9;
+  const serviceResults = options.serviceResults || [];
+  const special = options.specialResult || {};
+  const savedOperand = options.savedOperand || new Array(9).fill(0);
+  const memory = new Map([[0x85de,tokenClass],[0x85df,tokenSubClass]]);
+  let pc = start, a = 0, h = 0, hl = 0, zero = false, carry = false;
+  let serviceIndex = 0, loopCount = 0, specialPath = null, postService = false;
+  let callReturn = null, rstReturn = null;
+  const effects = [];
+  const finish = branch => ({
+    branch:specialPath ? 'class-2-special' : postService ? 'post-service-complete' : branch,
+    specialPath, loopCount, carry, effects,
+  });
+  for (let instructions = 0; instructions < 256; instructions++) {
+    if (pc === 0x5a17) {
+      a = memory.get(0x85de) || 0;
+      zero = a === 0x02;
+      pc = callReturn;
+      continue;
+    }
+    if (pc === 0x5a2e) {
+      zero = savedOperand.slice(1).every(value => value === 0);
+      carry = false;
+      pc = callReturn;
+      continue;
+    }
+    if (pc === 0x3a53 || pc === 0x306f) {
+      const result = serviceResults[serviceIndex++];
+      if (!result) throw new Error('raw operand-emitter service result underflow');
+      carry = !!result.carry;
+      if (result.tokenClass !== undefined) memory.set(0x85de,result.tokenClass);
+      if (result.tokenSubClass !== undefined) memory.set(0x85df,result.tokenSubClass);
+      pc = callReturn;
+      effects.push({kind:'call-service',index:serviceIndex - 1,carry});
+      continue;
+    }
+    if (pc === 0x5c2e) {
+      zero = (memory.get(0x85de) || 0) === 3 &&
+        (memory.get(0x85df) || 0) === 1;
+      postService = zero;
+      pc = callReturn;
+      continue;
+    }
+    if (pc === 0x1942) {
+      const result = serviceResults[serviceIndex - 1];
+      a = result.postCode;
+      if (result.nextTokenClass !== undefined)
+        memory.set(0x85de,result.nextTokenClass);
+      if (result.nextTokenSubClass !== undefined)
+        memory.set(0x85df,result.nextTokenSubClass);
+      pc = callReturn;
+      continue;
+    }
+    if (pc === 0x1baf) {
+      carry = !!special.call1BAFCarry;
+      pc = callReturn;
+      continue;
+    }
+    if (pc === 0x28) {
+      carry = !!special.carry;
+      pc = rstReturn;
+      continue;
+    }
+    const opcode = operandEmitterByte(pc);
+    if (opcode === 0x3a) {
+      a = memory.get(operandEmitterWord(pc + 1)) || 0; pc += 3;
+    } else if (opcode === 0xfe) {
+      carry = a < operandEmitterByte(pc + 1); zero = a === operandEmitterByte(pc + 1); pc += 2;
+    } else if (opcode === 0x28 || opcode === 0x20 || opcode === 0x30 || opcode === 0x18) {
+      const displacement = signedByte(operandEmitterByte(pc + 1));
+      const take = opcode === 0x18 ? true : opcode === 0x28 ? zero :
+        opcode === 0x30 ? !carry : !zero;
+      pc = take ? pc + 2 + displacement : pc + 2;
+      if (take && pc === 0x59af) specialPath = '39:59AF';
+      if (take && pc === 0x59b6) specialPath = '39:59B6';
+      if (take && pc === 0x59e0) loopCount++;
+    } else if (opcode === 0x3e) {
+      a = operandEmitterByte(pc + 1); pc += 2;
+    } else if (opcode === 0xcd) {
+      const target = operandEmitterWord(pc + 1);
+      callReturn = pc + 3;
+      if (target === 0x5a17 || target === 0x3a53 || target === 0x306f ||
+          target === 0x5c2e || target === 0x1942 || target === 0x1baf ||
+          target === 0x5a2e) pc = target;
+      else if (target === 0x5ad9) { pc += 3; }
+      else throw new Error(`raw operand-emitter unsupported call 39:${target.toString(16)}`);
+    } else if (opcode === 0xef) {
+      effects.push({kind:'emit-token',code:a}); rstReturn = pc + 1; pc = 0x28;
+    } else if (opcode === 0xaf) {
+      a = 0; zero = true; carry = false; pc++;
+    } else if (opcode === 0x26) {
+      h = operandEmitterByte(pc + 1); pc += 2;
+    } else if (opcode === 0x21) {
+      hl = operandEmitterWord(pc + 1); pc += 3;
+    } else if (opcode === 0x32) {
+      memory.set(operandEmitterWord(pc + 1),a); pc += 3;
+    } else if (opcode === 0x37) {
+      carry = true; pc++;
+    } else if (opcode === 0x3f) {
+      carry = !carry; pc++;
+    } else if (opcode === 0xd8) {
+      if (carry) return finish('service-carry');
+      pc++;
+    } else if (opcode === 0xc9) {
+      return finish('service-complete');
+    } else {
+      throw new Error(`raw operand-emitter unsupported opcode 0x${opcode.toString(16)} at 39:${pc.toString(16)}`);
+    }
+  }
+  throw new Error('raw operand-emitter exceeded its instruction bound');
+}
 const controllerByteMap = new Map(controllerRomSpans.flatMap(span =>
   Array.from(span.bytes, (value, offset) => [span.address + offset, value])));
 const controllerByte = address => {
@@ -926,6 +1058,76 @@ for (const source of ['saved-E7','saved-F2']) {
     }
   }
 }
+
+const operandProjection = result => ({
+  branch:result.branch, specialPath:result.specialPath || null,
+  loopCount:result.loopCount === undefined ? 0 : result.loopCount,
+  emitted:(result.effects || []).filter(effect => effect.kind === 'emit-token')
+    .map(effect => effect.code),
+});
+const operandCases = [
+  ['normal class-2 marker', 'normal', 0x02, 0x00,
+   {specialResult:{carry:false}}],
+  ['variable class-2 empty saved operand', 'variable', 0x02, 0x00,
+   {savedOperand:[0x02,0,0,0,0,0,0,0,0],specialResult:{carry:false}}],
+  ['normal scanner carry', 'normal', 0x04, 0x00,
+   {serviceResults:[{carry:true}]}],
+  ['normal scanner clear', 'normal', 0x04, 0x00,
+   {serviceResults:[{carry:false}]}],
+  ['normal scanner repeat then clear', 'normal', 0x03, 0x01,
+   {serviceResults:[{carry:false,postCode:0x06,nextTokenClass:0x03,
+                     nextTokenSubClass:0x01},
+                    {carry:false,tokenClass:0x04,tokenSubClass:0x00}]}],
+  ['variable scanner post-service exit', 'variable', 0x03, 0x01,
+   {serviceResults:[{carry:false,postCode:0x05}]}],
+];
+for (const [label, service, tokenClass, tokenSubClass, options] of operandCases) {
+  const raw = runRawOperandEmitter(service,tokenClass,tokenSubClass,options);
+  const translated = rom.editorOperandEmitter(
+    service,tokenClass,tokenSubClass,options);
+  expectEqual(`39:59E0/59F9 ${label} byte-flow`,
+    operandProjection(translated), operandProjection(raw));
+}
+expectThrows('39:59E0 rejects an omitted scanner result', TypeError,
+  () => rom.editorOperandEmitter('normal',0x04));
+expectThrows('39:59F9 rejects an omitted class-2 special result', TypeError,
+  () => rom.editorOperandEmitter('variable',0x02));
+expectThrows('39:59F9 rejects a carrying class-2 1BAF result', TypeError,
+  () => rom.editorOperandEmitter('variable',0x02,0,
+    {specialResult:{carry:true}}));
+
+let operandEmitterStates = 0;
+for (const service of ['normal','variable']) {
+  for (const tokenClass of [0x00,0x02,0x03,0x04,0xff]) {
+    for (const tokenSubClass of [0x00,0x01,0xff]) {
+      if (tokenClass === 0x02) {
+        const options = service === 'variable'
+          ? {savedOperand:new Array(9).fill(0),specialResult:{carry:false}}
+          : {specialResult:{carry:false}};
+        const raw = runRawOperandEmitter(service,tokenClass,tokenSubClass,options);
+        const translated = rom.editorOperandEmitter(
+          service,tokenClass,tokenSubClass,options);
+        expectEqual('39:59E0/59F9 class-2 byte-flow basis',
+          operandProjection(translated), operandProjection(raw));
+        operandEmitterStates++;
+        continue;
+      }
+      for (const carry of [false,true]) {
+        const result = {carry};
+        if (!carry && tokenClass === 0x03 && tokenSubClass === 0x01)
+          result.postCode = 0x05;
+        const options = {serviceResults:[result]};
+        const raw = runRawOperandEmitter(service,tokenClass,tokenSubClass,options);
+        const translated = rom.editorOperandEmitter(
+          service,tokenClass,tokenSubClass,options);
+        expectEqual('39:59E0/59F9 scanner byte-flow basis',
+          operandProjection(translated), operandProjection(raw));
+        operandEmitterStates++;
+      }
+    }
+  }
+}
+expectEqual('39:59E0/59F9 projected operand state count', operandEmitterStates, 54);
 
 // Executable translations of closed page-39 routines. These expectations are
 // pinned to the extracted OS 2.55MP records and the byte-decoded algorithms.
@@ -1715,6 +1917,28 @@ expectEqual('34:4B86 range borrow bypasses the request subtraction', (() => {
   return [result.rangeBorrow,result.requestCompared,
     result.remainingBytes,result.terminal];
 })(), [true,false,0xffff,'return-allocation-carry']);
+expectEqual('34:4862 wires geometry request into capacity gate', (() => {
+  const result = rom.settledRecordAllocationCheck(0x22,null,{
+    workspaceTop:0x0100,recordTail:0x0080,reservedSpan:0x0010,
+    iy2dBit0:false,
+  });
+  return {
+    request:result.geometry.workspaceRequest,
+    geometryBytes:result.geometry.recordBytes,
+    capacityRequest:result.capacity.requestedBytes,
+    carry:result.carry,returnA:result.returnA,
+    routine:result.routine,
+  };
+})(), {
+  request:0x70,geometryBytes:0x1c,capacityRequest:0x70,
+  carry:false,returnA:2,
+  routine:'34:4862 → 33:4F6D → 34:4B7C → 34:486F',
+});
+expectThrows('34:4862 rejects a request that disagrees with geometry', RangeError,
+  () => rom.settledRecordAllocationCheck(0x22,null,{
+    workspaceTop:0x100,recordTail:0,reservedSpan:0,requestedBytes:0x29,
+    iy2dBit0:true,
+  }));
 
 // Compare every workspace word at each carry boundary, plus one deterministic
 // mixed-word state, with an interpreter that executes the pinned instruction

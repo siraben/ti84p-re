@@ -202,6 +202,13 @@ calling editor state, so this gate alone does not define one source-character
 limit for every home-screen expression. [confirmed] for the gate and projected
 model; [hypothesis] for a context-independent character limit.
 
+`settledRecordAllocationCheck()` translates the closed caller ABI at `34:4862`:
+it obtains the workspace request from the type/matrix geometry row and passes
+that request to the capacity gate, retaining the allocator's `A=02h` carry
+return. The arena words remain explicit because their producers walk the
+record list at `34:4A83`/`34:4ACE`; this boundary is therefore a stateful input
+rather than a fabricated free-space estimate. [confirmed]
+
 The structural children preserve semantic argument order after the source scan
 applies the metadata permutation. For example, the integral metadata is
 `04 03 04 01 02`: scan kind 4 reads four source arguments and assigns them to
@@ -794,6 +801,25 @@ source: `39:5AD2` writes `0x85E7`, and `39:5B08` writes `0x85F2`. The page-7
 service bodies reached from `39:59E0` and `39:59F9` remain explicit model
 inputs. A raw-byte interpreter covers all 4,096 wrapper, gate, carry, and
 buffer-source combinations and every value in each byte position. [confirmed]
+
+The local dispatcher below those wrappers is translated separately by
+`editorOperandEmitter()`. `39:59E0` and `39:59F9` first call `39:5A17`, which
+tests whether `0x85DE` is class `0x02`. The normal class-2 path enters
+`39:59AF`, emits `0Dh` through `RST 28h`, and seeds OP1 with `14h` at
+`39:59C6`. The variable path enters `39:59B6`, scans the eight payload bytes
+at `0x85E7+1` through `39:5A2E`, emits `0Ch`, and conditionally calls
+`39:1BAF` when the emitter leaves carry set before the same `14h` seed.
+[confirmed]
+
+For other classes the normal and variable paths cross to `00:3A53` and
+`00:306F`, respectively. A carry returns immediately. Carry clear then calls
+`39:5C2E`; only class `0x03` with sub-class byte `0x01` enters `39:1942`.
+`A=06` repeats the emitter, while every other value returns with carry clear.
+The JavaScript model accepts the page-7 service's carry, post-service `A`, and
+any updated `0x85DE/0x85DF` as ordered state, so nested/multi-argument traces
+can exercise the repeat without replaying an LCD stream. [confirmed] for the
+page-39 control flow; [confirmed] for the service boundary as an explicit
+input.
 
 `editorForwardOverflowCue()` and `editorReverseOverflowCue()` translate the
 closed cue routines at `39:66FE` and `39:66E9`. The reverse routine subtracts
