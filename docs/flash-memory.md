@@ -16,9 +16,11 @@ The mechanisms below use several evidence sources. A claim marked [confirmed] co
 | Flash device | Datamath's March 2004 board photograph and Fujitsu `MBM29LV800TA` data sheet | observed package marking, sector geometry, command cycles, DQ status semantics, and rated limits [standard] |
 | Emulator comparison | pinned TilEm, Wabbitemu, MAME, and jsTIfied source | modeled command decode, mutation rules, status reads, timing, and missing ASIC gates [standard] |
 
-![A Flash operation passes software guards, a RAM-resident worker, ASIC command gates, the Flash command state machine, and the physical sector. Execution protection is a separate fetch path.](images/flash-write-layers.svg)
+![A Flash operation depends on caller page and argument guards before a RAM-resident worker, ASIC command gates, the Flash command state machine, and the physical sector. Execution protection is a separate fetch path.](images/flash-write-layers.svg)
 
-**Write-layer schematic.** Bcall guards and RAM-worker execution are [confirmed]. ASIC gate details and the AMD-compatible command state machine are [standard].
+**Write-layer schematic.** Bcall entry guards, remaining caller obligations,
+and RAM-worker execution are [confirmed]. ASIC gate details and the
+AMD-compatible command state machine are [standard].
 
 ## Physical organization
 

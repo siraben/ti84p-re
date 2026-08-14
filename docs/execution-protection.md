@@ -118,7 +118,7 @@ allows page `0x08`, while TilEm denies it. Both deny page `0x09` and page
 but the physical page-`0x08` result remains unmeasured. [standard] for the
 published contract and source comparison; [hypothesis] for hardware.
 
-![TilEm denies Flash pages 08 through 29, while Wabbitemu permits page 08 and denies 09 through 29; both permit the outer ranges.](images/execution-protection-ranges.svg)
+![Emulator models differ: TilEm denies Flash pages 08 through 29, while Wabbitemu permits page 08 and denies 09 through 29; the lower panel also compares their RAM execution predicates.](images/execution-protection-ranges.svg)
 
 **Boot execution ranges.** The written bounds are [confirmed], and the emulator predicates are [standard]. The physical page-`08` boundary remains [hypothesis]. The RAM panel introduces the mode-dependent chunk model detailed below.
 

@@ -8,10 +8,10 @@
   </defs>
   <rect class="bg" width="1200" height="730" rx="18"/>
   <text class="title" x="60" y="54">Execution protection is a fetch predicate over physical addresses</text>
-  <text class="text" x="60" y="84">Boot writes the bounds. Emulator models disagree at one Flash boundary and in RAM repetition.</text>
+  <text class="text" x="60" y="84">These are emulator predicates, not measured hardware behavior; the models disagree at key boundaries.</text>
 
   <rect class="panel" x="60" y="120" width="1080" height="330" rx="14"/>
-  <text class="head" x="90" y="158">Flash pages · boot bounds port 22 = 08h, port 23 = 29h</text>
+  <text class="head" x="90" y="158">Emulator Flash predicates · boot bounds port 22 = 08h, port 23 = 29h</text>
   <g transform="translate(220 195)">
     <text class="head" x="-25" y="38" text-anchor="end">TilEm</text>
     <rect class="allow" x="0" y="0" width="112" height="70" rx="8"/>
@@ -36,7 +36,7 @@
   <text class="text" x="600" y="432" text-anchor="middle">Each strip spans pages 00–3F; widths are proportional to the number of 16 KiB pages.</text>
 
   <rect class="panel" x="60" y="485" width="1080" height="185" rx="14"/>
-  <text class="head" x="90" y="523">RAM chunks · boot bounds port 25 = 10h, port 26 = 20h</text>
+  <text class="head" x="90" y="523">Emulator RAM predicates · boot bounds port 25 = 10h, port 26 = 20h</text>
   <rect class="port" x="90" y="550" width="300" height="82" rx="10"/>
   <text class="mono" x="240" y="580" text-anchor="middle">10h × 400h → lower</text>
   <text class="mono" x="240" y="608" text-anchor="middle">20h × 400h → upper</text>

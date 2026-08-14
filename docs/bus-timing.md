@@ -59,7 +59,7 @@ That one byte controls two independent effects:
 - bits 2–7 select the T-states added to each LCD-port instruction;
 - bit 0 enables the Flash bits in port `0x2E`, and bit 1 enables the RAM bits.
 
-![CPU speed selects one delay register; that register controls LCD instruction additions and gates port 2E memory waits, while port 2F controls a separate LCD-ready hold.](images/bus-wait-timing.svg)
+![CPU speed selects one delay register; that register controls LCD instruction additions and gates port 2E memory waits, while port 2F reports a separate LCD busy interval for software to poll.](images/bus-wait-timing.svg)
 
 **Timing model.** The register behavior is [standard], and the diagram's widths are conceptual. OS 2.55MP's register bytes and executed speed values are [confirmed].
 
