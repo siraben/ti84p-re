@@ -890,6 +890,8 @@ const PRESETS = Object.freeze([
   ['summation (RE)', 'sum(N,1,3,N^2)'],
   ['nth root of a fraction', 'nthroot(N,X//2)'],
   ['nDeriv (RE)', 'nDeriv(X^2,X,1)'],
+  ['repeated integrals with horizontal overflow (RE)',
+   'int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)'],
 ]);
 
 let CUR = null, CUR_TRACE = null, CUR_GENERATED = null, ANIM = null;
