@@ -163,9 +163,9 @@ explicit ordered effects rather than generated pixels.
 `editorAlphaSearch()` closes the page-39 dispatcher around `_FindAlphaUp` and
 `_FindAlphaDn`. It translates the ascending/descending class-2 paths, the
 `39:5C2E` special-class check, the `39:1942`/`A=06` repeat, and carry exits from
-the fixed-bank `00:3A53`/`00:306F` dispatchers. Each page-7 VAT-search return
-is still an explicit `searchResults` input; no captured LCD write is used as
-constructor state.
+the fixed-bank `00:3A53`/`00:306F` dispatchers. The caller supplies OP1 and a
+logical VAT snapshot; the model derives every page-7 result and the
+protected-program repeat from that state.
 `editorFindAlphaVat()` translates the page-7 nearest-name selection over an
 explicit logical VAT snapshot. It applies the ROM's type aliases and OP-name
 byte ordering, returns OP1/OP3 and the selected VAT pointer, and reports carry

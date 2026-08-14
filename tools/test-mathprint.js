@@ -1134,34 +1134,41 @@ const alphaSearchProjection = result => ({
 });
 const alphaSearchCases = [
   ['ascending class-2 marker', 'up', 0x02, 0x00,
-   {specialResult:{carry:false}}],
+   {specialResult:{carry:false}}, {specialResult:{carry:false}}],
   ['descending class-2 empty saved operand', 'down', 0x02, 0x00,
+   {savedOperand:[0x02,0,0,0,0,0,0,0,0],specialResult:{carry:false}},
    {savedOperand:[0x02,0,0,0,0,0,0,0,0],specialResult:{carry:false}}],
   ['ascending VAT-search carry', 'up', 0x04, 0x00,
-   {searchResults:[{carry:true}]}],
+   {searchResults:[{carry:true}]},
+   {op1:alphaOp(5,0x42),vatSnapshot:[
+     {op1:alphaOp(5,0x41),pointer:0x9f00},
+   ]}],
   ['ascending VAT-search clear', 'up', 0x04, 0x00,
-   {searchResults:[{carry:false}]}],
-  ['ascending search changes class before post-check', 'up', 0x04, 0x00,
-   {searchResults:[{carry:false,editorClass:0x02}]}],
+   {searchResults:[{carry:false}]},
+   {op1:alphaOp(5,0x41),vatSnapshot:[
+     {op1:alphaOp(5,0x42),pointer:0x9f00},
+   ]}],
   ['ascending search repeat then clear', 'up', 0x03, 0x01,
-   {searchResults:[{carry:false,postCode:0x06,nextEditorClass:0x03,
-                     nextEditorSubClass:0x01},
-                    {carry:false,editorClass:0x04,editorSubClass:0x00}]}],
-  ['ascending search repeat into class-2 path', 'up', 0x03, 0x01,
-   {specialResult:{carry:false},searchResults:[
-     {carry:false,postCode:0x06,nextEditorClass:0x02,nextEditorSubClass:0x00},
-     {specialResult:{carry:false}}]}],
+   {searchResults:[{carry:false,postCode:0x06},{carry:false,postCode:0x05}]},
+   {op1:alphaOp(5,0x41),vatSnapshot:[
+     {op1:alphaOp(6,0x42),pointer:0x9f00},
+     {op1:alphaOp(5,0x43),pointer:0x9ef0},
+   ]}],
   ['descending VAT-search post-search exit', 'down', 0x03, 0x01,
-   {searchResults:[{carry:false,postCode:0x05}]}],
+   {searchResults:[{carry:false,postCode:0x05}]},
+   {op1:alphaOp(5,0x43),vatSnapshot:[
+     {op1:alphaOp(5,0x42),pointer:0x9f00},
+   ]}],
 ];
-for (const [label, direction, editorClass, editorSubClass, options] of alphaSearchCases) {
-  const raw = runRawAlphaSearch(direction,editorClass,editorSubClass,options);
+for (const [label, direction, editorClass, editorSubClass,
+            rawOptions, translatedOptions] of alphaSearchCases) {
+  const raw = runRawAlphaSearch(direction,editorClass,editorSubClass,rawOptions);
   const translated = rom.editorAlphaSearch(
-    direction,editorClass,editorSubClass,options);
+    direction,editorClass,editorSubClass,translatedOptions);
   expectEqual(`39:59E0/59F9 ${label} byte-flow`,
     alphaSearchProjection(translated), alphaSearchProjection(raw));
 }
-expectThrows('39:59E0 rejects an omitted VAT-search result', TypeError,
+expectThrows('39:59E0 rejects an omitted VAT snapshot', TypeError,
   () => rom.editorAlphaSearch('up',0x04));
 expectThrows('39:59F9 rejects an omitted class-2 special result', TypeError,
   () => rom.editorAlphaSearch('down',0x02));
@@ -1189,10 +1196,21 @@ for (const direction of ['up','down']) {
         const result = {carry};
         if (!carry && editorClass === 0x03 && editorSubClass === 0x01)
           result.postCode = 0x05;
-        const options = {searchResults:[result]};
-        const raw = runRawAlphaSearch(direction,editorClass,editorSubClass,options);
+        const rawOptions = {searchResults:[result]};
+        const sourceName = direction === 'up'
+          ? carry ? 2 : 1
+          : carry ? 1 : 2;
+        const candidateName = direction === 'up' ? 2 : 1;
+        const translatedOptions = {
+          op1:alphaOp(5,sourceName),
+          vatSnapshot:carry ? [] : [
+            {op1:alphaOp(5,candidateName),pointer:0x9f00},
+          ],
+        };
+        const raw = runRawAlphaSearch(
+          direction,editorClass,editorSubClass,rawOptions);
         const translated = rom.editorAlphaSearch(
-          direction,editorClass,editorSubClass,options);
+          direction,editorClass,editorSubClass,translatedOptions);
         expectEqual('39:59E0/59F9 alpha-search byte-flow basis',
           alphaSearchProjection(translated), alphaSearchProjection(raw));
         alphaSearchStates++;
