@@ -972,6 +972,44 @@ expectEqual('long integral sum exposes its settled extent and editor scrolling',
     .translated_expression_and_left_cue_lcd_sha256,
 });
 
+// Model mode keeps the complete composition on the canvas while the editable
+// LCD path scrolls to the cursor. Check both views on the long expressions so
+// a wide model cannot be mistaken for a 96-pixel LCD frame. The model's
+// heuristic extent may differ from the settled record metric for mixed
+// structural forms; its overflow metadata must still use the same endpoint
+// and clip arithmetic.
+for (const [expression, modelWidth, modelHeight, modelEndpoint,
+             modelOverflow, modelClip] of [
+  ['int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)', 103, 23, 106, 10, 17],
+  ['int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)+' +
+    'int(1,3,(1//2)X,X)', 159, 23, 162, 66, 73],
+  ['int(12,34,(5//(6//7))X^3,X)+sum(N,1,99,N^2)+' +
+    'nDeriv((X^3+12)//sqrt(5),X,7)', 186, 31, 187, 91, 98],
+  ['int(123,456,(1//(2//(3//4)))X^5,X)+' +
+    'int(789,999,(7//8)X,X)', 131, 39, 134, 38, 45],
+]) {
+  const model = mp.parse(expression);
+  expectEqual(`${expression} model preserves its complete extent`, {
+    width:model.rows[0].length,
+    height:model.rows.length,
+    recordWidth:model.recordWidth,
+    overflowRight:model.modelOverflowRight,
+    xClip:model.modelViewport.xClip,
+    effectiveX:model.modelViewport.effectiveX,
+  }, {
+    width:modelWidth, height:modelHeight, recordWidth:modelEndpoint,
+    overflowRight:modelOverflow, xClip:modelClip,
+    effectiveX:-modelClip,
+  });
+}
+const wordOverflowModel = mp.parse('X'.repeat(11000));
+expectEqual('model remains usable beyond the translated word-width domain', {
+  width:wordOverflowModel.rows[0].length,
+  recordWidth:wordOverflowModel.recordWidth,
+  overflowRight:wordOverflowModel.modelOverflowRight,
+  viewport:wordOverflowModel.modelViewport,
+}, {width:65999, recordWidth:66000, overflowRight:65904, viewport:null});
+
 // Wide-input corpus: keep the text compositor, native-token frontend, record
 // constructor, editor viewport, and byte-level writer on the same overflow
 // cases. These inputs are deliberately absent from the captured fixtures.

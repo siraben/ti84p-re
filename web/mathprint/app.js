@@ -98,6 +98,14 @@ function hcat(boxes, gap = GAP) {
   return { rows: out, baseline: above, marks, adv: pen, recordWidth: pen + trailing };
 }
 
+// Parser runs often contain one box after a recursive descent step. Returning
+// that box unchanged preserves structural advance metadata; larger runs use a
+// single composition pass instead of repeatedly copying the growing bitmap.
+function hcatRun(boxes, gap = GAP) {
+  const visible = boxes.filter(b => b && bh(b) && bw(b));
+  return visible.length === 1 ? visible[0] : hcat(visible, gap);
+}
+
 function trim(box) {
   const nonblank = box.rows.map(r => r.some(Boolean));
   let top = nonblank.indexOf(true);
@@ -645,9 +653,13 @@ function parse(src) {
 
   function expr() { return add(); }
   function add() {
-    let b = frac();
-    while (peek() === '+' || peek() === '-') { guard(); const op = s[i++]; b = hcat([b, text(op), frac()], runGap()); }
-    return b;
+    const parts = [frac()];
+    while (peek() === '+' || peek() === '-') {
+      guard();
+      const op = s[i++];
+      parts.push(text(op), frac());
+    }
+    return hcatRun(parts, runGap());
   }
   function frac() {
     let start = i;
@@ -672,14 +684,14 @@ function parse(src) {
     return b;
   }
   function mul() {
-    let b = pow();
+    const parts = [pow()];
     for (;;) {
       guard();
-      if (peek() === '*') { i++; b = hcat([b, text('*'), pow()], runGap()); }
-      else if (isAtomStart(peek())) { b = hcat([b, pow()], runGap()); }   // implicit multiply
+      if (peek() === '*') { i++; parts.push(text('*'), pow()); }
+      else if (isAtomStart(peek())) { parts.push(pow()); }   // implicit multiply
       else break;
     }
-    return b;
+    return hcatRun(parts, runGap());
   }
   function pow() {
     let b = atom();
@@ -819,7 +831,19 @@ function parse(src) {
     i = j; return expr();                                               // complex -> box
   }
 
-  return clipMarks(expr());
+  const box = clipMarks(expr());
+  // Model mode keeps the complete composition visible so that partial input
+  // remains useful while typing. Preserve the same endpoint and editor-clip
+  // arithmetic used by the translated LCD path as metadata: a wide model is
+  // not itself evidence that the 96-pixel LCD can show the whole expression.
+  const endpoint = Number.isInteger(box.recordWidth) ? box.recordWidth : bw(box);
+  const modelViewport = ROM_ENGINE && Number.isInteger(endpoint) && endpoint <= 0xffff
+    ? ROM_ENGINE.settledEditorViewport(endpoint) : null;
+  return {
+    ...box,
+    modelViewport,
+    modelOverflowRight: Math.max(0, endpoint - 96),
+  };
 }
 
 // ---- canvas rendering -----------------------------------------------------
@@ -1502,6 +1526,17 @@ function renderModel(box, step, scale, showPen) {
     `small (exponents, limits, fraction digits) through _VPutMap (01:6293).</p>` +
     `<table><thead><tr><th>#</th><th>elem</th><th>penX</th><th>penY</th>` +
     `<th>font</th><th>emitted by</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const extent = Number.isInteger(box.recordWidth) ? box.recordWidth : bw(box);
+  const viewport = box.modelViewport;
+  const overflow = Number.isInteger(box.modelOverflowRight)
+    ? box.modelOverflowRight : Math.max(0, extent - 96);
+  document.getElementById('dims').textContent =
+    `${bw(box)}×${bh(box)} model pixels · ${extent} px record extent` +
+    (overflow
+      ? ` · ${overflow} px wider than 96 px LCD` +
+        (viewport ? ` · editor x clip ${viewport.xClip} px` :
+          ' · editor clip exceeds translated word range')
+      : ' · fits 96 px LCD');
   const tl = document.getElementById('timeline');
   if (step == null) { tl.max = marks.length; tl.value = marks.length; }
 }
