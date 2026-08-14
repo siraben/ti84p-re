@@ -1096,6 +1096,28 @@ expectEqual('model remains usable beyond the translated word-width domain', {
   viewport:wordOverflowModel.modelViewport,
 }, {width:65999, recordWidth:66000, overflowRight:65904, viewport:null});
 
+// A wide settled graph can contain enough LCD pixels to exceed V8's spread
+// argument limit.  Keep this just beyond that limit so the model path proves it
+// can still derive a complete extent rather than throwing while reducing the
+// pixel list.  The expression remains under the 16-bit record metric, so this
+// exercises the translated settled model itself (not only the lenient fallback).
+const spreadLimitModel = mp.parse(
+  new Array(900).fill('int(1,3,(1//2)X,X)').join('+'));
+if (!spreadLimitModel || !Array.isArray(spreadLimitModel.rows) ||
+    !spreadLimitModel.rows.length || !spreadLimitModel.rows.some(row => row.some(Boolean)) ||
+    spreadLimitModel.rows[0].length <= 96 ||
+    !Number.isInteger(spreadLimitModel.recordWidth) ||
+    !Number.isInteger(spreadLimitModel.modelOverflowRight) ||
+    !spreadLimitModel.modelViewport)
+  throw new Error('long settled model did not survive pixel extent reduction');
+expectEqual('long settled model keeps overflow metadata coherent', {
+  recordWidth:spreadLimitModel.recordWidth,
+  overflowRight:spreadLimitModel.modelOverflowRight,
+  xClip:spreadLimitModel.modelViewport.xClip,
+}, {
+  recordWidth:50394, overflowRight:50298, xClip:50305,
+});
+
 // A structural expression can exceed the settled record's unsigned-word
 // metric even though the editable model can still lay out every pixel. The
 // input-preparation path must retain that model instead of blanking the

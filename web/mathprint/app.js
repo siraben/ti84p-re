@@ -1068,6 +1068,24 @@ function generateRecordProgram(program, options = {}) {
   };
 }
 
+// Do not pass a potentially large pixel list through Math.min/Math.max as a
+// spread argument.  A long but otherwise ordinary expression can produce more
+// pixels than V8 permits as function arguments; that used to make model mode
+// throw "Maximum call stack size exceeded" before it could fall back to the
+// lenient compositor.  Keep the reduction iterative so model extents remain
+// defined for every input size that the layout arrays can represent.
+function pixelBounds(points) {
+  let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+  for (const point of points) {
+    const x = point[0], y = point[1];
+    if (x < left) left = x;
+    if (x > right) right = x;
+    if (y < top) top = y;
+    if (y > bottom) bottom = y;
+  }
+  return {left, top, right, bottom};
+}
+
 // Render a settled record graph without the 96-pixel editable viewport. This
 // is the model counterpart of generateRecordProgram(): it retains the full
 // record endpoint while cropping only blank bitmap margins, then turns the
@@ -1105,10 +1123,10 @@ function settledModelBox(source) {
   }
   const allPixels = operationPixels.flat();
   if (!allPixels.length || allPixels.some(([x,y]) => x < 0 || y < 0)) return null;
+  const allBounds = pixelBounds(allPixels);
   const rasterWidth = Math.max(8, Math.ceil(Math.max(
-    entry.word07, Math.max(...allPixels.map(([x]) => x)) + 1) / 8) * 8);
-  const rasterHeight = Math.max(entry.word05,
-    Math.max(...allPixels.map(([,y]) => y)) + 1);
+    entry.word07, allBounds.right + 1) / 8) * 8);
+  const rasterHeight = Math.max(entry.word05, allBounds.bottom + 1);
   let rendered;
   try {
     rendered = ROM_ENGINE.rasterizeSettledOperations(operations, FONT, {
@@ -1122,10 +1140,8 @@ function settledModelBox(source) {
     for (let x = 0; x < rendered.grid[y].length; x++)
       if (rendered.grid[y][x]) ink.push([x,y]);
   if (!ink.length) return null;
-  const left = Math.min(...ink.map(([x]) => x));
-  const top = Math.min(...ink.map(([,y]) => y));
-  const right = Math.max(...ink.map(([x]) => x));
-  const bottom = Math.max(...ink.map(([,y]) => y));
+  const inkBounds = pixelBounds(ink);
+  const {left, top, right, bottom} = inkBounds;
   const rows = rendered.grid.slice(top, bottom + 1)
     .map(row => row.slice(left, right + 1));
   const marks = [];
@@ -1134,10 +1150,8 @@ function settledModelBox(source) {
     const visible = pixels.filter(([x,y]) =>
       x >= left && x <= right && y >= top && y <= bottom);
     if (!visible.length) continue;
-    const x0 = Math.min(...visible.map(([x]) => x));
-    const y0 = Math.min(...visible.map(([,y]) => y));
-    const x1 = Math.max(...visible.map(([x]) => x));
-    const y1 = Math.max(...visible.map(([,y]) => y));
+    const bounds = pixelBounds(visible);
+    const {left:x0, top:y0, right:x1, bottom:y1} = bounds;
     const code = Number.isInteger(operation.code) ? glyphName(operation.code) :
       operation.kind === 'line' ? '─ line' : operation.kind;
     marks.push({
