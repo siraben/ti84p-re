@@ -827,6 +827,22 @@ multi-argument traces can therefore exercise the repeat without replaying an
 LCD stream. [confirmed] for the page-39 control flow and bcall identities;
 [standard] for the documented bcall input/output contract.
 
+`editorFindAlphaVat()` translates the selection state over an explicit logical
+VAT snapshot. Each snapshot entry contains its nine-byte OP-format identity
+and VAT type-byte address. `07:5247` maps protected programs to the program
+class, complex lists to the list class, type `0x0B` to equation class `0x03`,
+and types `0x18`/`0x19` to class zero. [confirmed] The comparator at
+`07:5199` subtracts eight name bytes from OPx+8 down to OPx+1. Borrow
+propagation makes OPx+1 the most-significant alphabetic byte. The scan retains
+the nearest name above or below the incoming OP1, independent of physical VAT
+entry order. It returns the selected identity in OP1 and OP3, its VAT pointer
+in `HL`, and carry at an alphabetic endpoint. [confirmed]
+
+The logical snapshot intentionally does not claim a raw VAT decoder. Entry
+decoding at `07:51BE` and the two physical scan regions bounded by `pTemp`,
+`progPtr`, and `symTable` remain separate translation work. [confirmed] for
+the current model boundary.
+
 `editorForwardOverflowCue()` and `editorReverseOverflowCue()` translate the
 closed cue routines at `39:66FE` and `39:66E9`. The reverse routine subtracts
 the selected argument at `0x85E0` from the count at `0x85E2` with byte

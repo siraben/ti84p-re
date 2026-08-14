@@ -938,6 +938,73 @@ for (let winBottom = 0; winBottom <= 0xff; winBottom++) {
     translated.emission, raw.emission);
 }
 
+const alphaOp = (type, nameByte) =>
+  [type,nameByte,0,0,0,0,0,0,0];
+const alphaVat = [
+  {op1:alphaOp(0x85,0x43),pointer:0x9fd0},
+  {op1:alphaOp(0x00,0x42),pointer:0x9fc0},
+  {op1:alphaOp(0x06,0x42),pointer:0x9fb0},
+  {op1:alphaOp(0x05,0x41),pointer:0x9fa0},
+];
+expectEqual('07:50B5 selects the nearest higher same-class VAT name',
+  rom.editorFindAlphaVat('up',alphaOp(0x05,0x41),alphaVat), {
+    direction:'up',sameType:true,sourceClass:0x05,carry:false,
+    op1:alphaOp(0x06,0x42),op3:alphaOp(0x06,0x42),
+    vatPointer:0x9fb0,selectedIndex:2,compared:3,
+    routine:'07:50B5 (_FindAlphaUp)',
+  });
+expectEqual('07:50B8 selects the nearest lower same-class VAT name',
+  rom.editorFindAlphaVat('down',alphaOp(0x05,0x43),alphaVat), {
+    direction:'down',sameType:true,sourceClass:0x05,carry:false,
+    op1:alphaOp(0x06,0x42),op3:alphaOp(0x06,0x42),
+    vatPointer:0x9fb0,selectedIndex:2,compared:3,
+    routine:'07:50B8 (_FindAlphaDn)',
+  });
+expectEqual('07:50B5 preserves OP1/OP3 and sets carry at the class endpoint',
+  rom.editorFindAlphaVat('up',alphaOp(0x05,0x43),alphaVat), {
+    direction:'up',sameType:true,sourceClass:0x05,carry:true,
+    op1:alphaOp(0x05,0x43),op3:alphaOp(0x05,0x43),
+    vatPointer:null,selectedIndex:null,compared:3,
+    routine:'07:50B5 (_FindAlphaUp)',
+  });
+expectEqual('07:5247 aliases complex-list and list search classes',
+  rom.editorFindAlphaVat('up',alphaOp(0x01,0x40),[
+    {op1:alphaOp(0x0d,0x41),pointer:0x9f90},
+  ]).op1, alphaOp(0x0d,0x41));
+expectEqual('07:5247 aliases types 18h/19h with class zero',
+  rom.editorFindAlphaVat('up',alphaOp(0x18,0x40),[
+    {op1:alphaOp(0x19,0x41),pointer:0x9f80},
+  ]).op1, alphaOp(0x19,0x41));
+expectEqual('07:5199 gives the first OP name byte highest significance',
+  rom.editorFindAlphaVat('up',[5,0x41,0xff,0,0,0,0,0,0],[
+    {op1:[5,0x42,0x00,0,0,0,0,0,0],pointer:0x9f70},
+    {op1:[5,0x41,0x00,0,0,0,0,0,0],pointer:0x9f60},
+  ]).vatPointer, 0x9f70);
+expectThrows('07:50B5 rejects a VAT entry without a pointer', RangeError,
+  () => rom.editorFindAlphaVat('up',alphaOp(5,0),[
+    {op1:alphaOp(5,1)},
+  ]));
+
+const exhaustiveAlphaVat = Array.from({length:0x100}, (_, nameByte) => ({
+  op1:alphaOp(nameByte & 1 ? 0x06 : 0x05,nameByte),
+  pointer:0x9000 + (0xff - nameByte),
+})).reverse();
+for (let nameByte = 0; nameByte <= 0xff; nameByte++) {
+  const source = alphaOp(0x05,nameByte);
+  const up = rom.editorFindAlphaVat('up',source,exhaustiveAlphaVat);
+  const down = rom.editorFindAlphaVat('down',source,exhaustiveAlphaVat);
+  expectEqual('07:50B5 exhaustive one-byte alphabetic successor', {
+    carry:up.carry,name:up.op1[1],pointer:up.vatPointer,
+  }, nameByte === 0xff
+    ? {carry:true,name:0xff,pointer:null}
+    : {carry:false,name:nameByte + 1,pointer:0x9000 + (0xfe - nameByte)});
+  expectEqual('07:50B8 exhaustive one-byte alphabetic predecessor', {
+    carry:down.carry,name:down.op1[1],pointer:down.vatPointer,
+  }, nameByte === 0
+    ? {carry:true,name:0,pointer:null}
+    : {carry:false,name:nameByte - 1,pointer:0x9000 + (0x100 - nameByte)});
+}
+
 const savedOperandBuffers = {
   op1:[0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09],
   savedE7:[0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19],

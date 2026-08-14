@@ -281,6 +281,87 @@
     return Array.from(value, (item, index) => byte(item, `${label} byte ${index}`));
   }
 
+  // _FindAlphaUp/_FindAlphaDn normalize the type class through 07:5247 and
+  // subtract the eight OP name bytes from OPx+8 down to OPx+1. Borrow
+  // propagation makes OPx+1 the most-significant alphabetic byte. Program
+  // and protected-program entries share one search class, as do the other
+  // aliases below. Types 18h and 19h collapse to class zero.
+  function editorAlphaTypeClass(type) {
+    let value = byte(type, 'alphabetic VAT-search type') & 0x1f;
+    if (value === 0x0d) value = 0x01;
+    else if (value === 0x06) value = 0x05;
+    else if (value === 0x0b) value = 0x03;
+    else if (value === 0x18 || value === 0x19) value = 0;
+    return value;
+  }
+
+  function editorAlphaNameCompare(left, right) {
+    for (let index = 1; index <= 8; index++) {
+      if (left[index] !== right[index])
+        return left[index] < right[index] ? -1 : 1;
+    }
+    return 0;
+  }
+
+  // Translate the page-39 use of 07:50B5/50B8 over a logical VAT snapshot.
+  // Each entry supplies its nine-byte OP-format identity and the address of
+  // its VAT type byte. Page 39 enters with Z set, so only entries in the same
+  // normalized type class participate. The ROM keeps the nearest qualifying
+  // name in OP3 and returns it in both OP1 and OP3 when the scan ends.
+  function editorFindAlphaVat(direction, op1Value, vatSnapshot) {
+    if (direction !== 'up' && direction !== 'down')
+      throw new RangeError('alphabetic VAT-search direction must be up or down');
+    const op1 = editorNineByteBuffer(op1Value, 'alphabetic VAT-search OP1');
+    if (!Array.isArray(vatSnapshot))
+      throw new TypeError('alphabetic VAT snapshot must be an array');
+    const sourceClass = editorAlphaTypeClass(op1[0]);
+    let selected = null;
+    let compared = 0;
+    const entries = vatSnapshot.map((entry, index) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry))
+        throw new TypeError(`alphabetic VAT entry ${index} must be an object`);
+      const identity = editorNineByteBuffer(
+        entry.op1, `alphabetic VAT entry ${index} OP1`);
+      if (!Number.isInteger(entry.pointer) || entry.pointer < 0 ||
+          entry.pointer > 0xffff)
+        throw new RangeError(
+          `alphabetic VAT entry ${index} pointer must be an unsigned word`);
+      identity[0] &= 0x1f;
+      return {identity, pointer:entry.pointer, index};
+    });
+    for (const entry of entries) {
+      if (editorAlphaTypeClass(entry.identity[0]) !== sourceClass)
+        continue;
+      const relativeToSource = editorAlphaNameCompare(entry.identity, op1);
+      compared++;
+      if ((direction === 'up' && relativeToSource <= 0) ||
+          (direction === 'down' && relativeToSource >= 0))
+        continue;
+      if (selected !== null) {
+        const relativeToBest = editorAlphaNameCompare(
+          entry.identity, selected.identity);
+        if ((direction === 'up' && relativeToBest >= 0) ||
+            (direction === 'down' && relativeToBest <= 0))
+          continue;
+      }
+      selected = entry;
+    }
+    if (selected === null)
+      return {
+        direction, sameType:true, sourceClass, carry:true,
+        op1:op1.slice(), op3:op1.slice(), vatPointer:null,
+        selectedIndex:null, compared, routine:direction === 'up'
+          ? '07:50B5 (_FindAlphaUp)' : '07:50B8 (_FindAlphaDn)',
+      };
+    return {
+      direction, sameType:true, sourceClass, carry:false,
+      op1:selected.identity.slice(), op3:selected.identity.slice(),
+      vatPointer:selected.pointer, selectedIndex:selected.index, compared,
+      routine:direction === 'up'
+        ? '07:50B5 (_FindAlphaUp)' : '07:50B8 (_FindAlphaDn)',
+    };
+  }
+
   // 39:5B10/5B1D and 39:5B2B/5B38 wrap the ascending 59E0h and descending
   // 59F9h alphabetic VAT searches. Bit 5 of IY+11h gates the entire wrapper. An
   // enabled wrapper restores a nine-byte saved operand to OP1 before the
@@ -5424,6 +5505,7 @@
     editorLayoutArgument,
     editorSubexpressionWindow,
     editorSubexpressionCell,
+    editorFindAlphaVat,
     editorSavedOperandWrapper,
     editorAlphaSearch,
     editorForwardOverflowCue,
