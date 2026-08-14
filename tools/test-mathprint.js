@@ -1945,6 +1945,10 @@ expectThrows('34:4862 rejects a request that disagrees with geometry', RangeErro
     workspaceTop:0x100,recordTail:0,reservedSpan:0,requestedBytes:0x29,
     iy2dBit0:true,
   }));
+expectEqual('34:4862 defaults a non-matrix geometry count',
+  rom.settledRecordAllocationCheck(0x1f,{
+    workspaceTop:0x100,recordTail:0,reservedSpan:0,iy2dBit0:true,
+  }).geometry.workspaceRequest, 0x29);
 
 // Compare every workspace word at each carry boundary, plus one deterministic
 // mixed-word state, with an interpreter that executes the pinned instruction
