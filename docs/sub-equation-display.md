@@ -695,6 +695,12 @@ The `editorSubexpressionWindow()` and `editorSubexpressionCell()` helpers
 translate `39:4C5A` and `39:4CA4`: they compute the visible slot, select the
 `984A` or caller-supplied cell base, and retain styled-argument and empty-menu
 cross-page exits as explicit states. [confirmed]
+`editorAdvanceArgument()` translates the slot and row branches at `39:5167`.
+It distinguishes empty and completed lists, one- and two-row advances, and both
+row-7 overflow exits. Calls into the parser and operand emitters remain ordered
+effects because those routines are outside this closed state transition.
+The increment-wrap guard cannot execute: its preceding unsigned predicate
+requires a nonzero count and an index at most `count - 2`. [confirmed]
 The retained corpus observes 255 of 1,098 declared editor branch outcomes. It
 does not decode every in-progress editor state into a general AST, and it does not
 reach every cursor, menu, error, or row-composition path. [confirmed]
