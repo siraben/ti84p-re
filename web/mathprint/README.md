@@ -245,6 +245,10 @@ bitmap from `34:60B8`. Its 198 accepted writes match the natural calculator
 redraw after removing the separate eight-write right-side cue. The calculator
 trace remains a comparison oracle; the browser computes the record graph,
 viewport state, bitmap operation, and LCD writes from translated logic.
+The generated frontend also exercises three-way and mixed nested expressions
+with endpoints above 130 pixels. It rejects record metrics that exceed the
+unsigned 16-bit fields used by `34:7393` and `34:7609`, while model mode remains
+available for partial input during editing.
 The integral cases cover structural bounds and a nested integral. The
 summation cases cover unequal-width limits, structural limits and bodies, and a
 nested summation. The `nDeriv(` cases cover unequal-width arguments, structural
