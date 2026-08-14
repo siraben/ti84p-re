@@ -1,0 +1,828 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>LCD controller and display bus - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-c675d19f.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-a4cbc596.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="lcd-controller-and-display-bus"><a class="header" href="#lcd-controller-and-display-bus">LCD controller and display bus</a></h1>
+<p><em>TI-84 Plus OS 2.55MP — Controller commands, video RAM, bus timing, initialization, blits, reads, contrast, and emulator fidelity.</em></p>
+<p>The TI-84 Plus drives a 96×64 monochrome panel through an external LCD controller on ports <code>0x10</code> and <code>0x11</code>. This page separates the visible panel from controller video RAM, reconstructs the OS command and transfer paths, traces initialization and clearing, and identifies behavior that varies across Toshiba and Novatek controller revisions.</p>
+<h2 id="evidence-layers"><a class="header" href="#evidence-layers">Evidence layers</a></h2>
+<p>The local ROM establishes what OS 2.55MP sends to the controller. Public hardware tests establish controller behavior that the ROM does not expose. TilEm, Wabbitemu, MAME, and jsTIfied supply executable models whose choices are identified separately.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Layer</th><th>Main evidence</th><th>What it establishes</th></tr>
+</thead>
+<tbody>
+<tr><td>TI-OS page 0</td><td><code>ram:0CC3</code>–<code>ram:0CEA</code>, <code>ram:1890</code>–<code>ram:18D1</code>, and <code>ram:20BF</code>–<code>ram:20CD</code></td><td>ASIC-side wait, block reads/writes, and movement commands [confirmed]</td></tr>
+<tr><td>TI-OS display code</td><td><code>01:5A59</code>–<code>01:5B4B</code>, <code>01:60E4</code>–<code>01:612D</code>, and <code>01:6934</code>–<code>01:6955</code></td><td>byte I/O, text drawing, and full-screen clearing [confirmed]</td></tr>
+<tr><td>TI-OS graph code</td><td><code>04:6071</code>–<code>04:620A</code></td><td>graph-buffer clear and LCD transfer loops [confirmed]</td></tr>
+<tr><td>TI-OS initialization</td><td><code>_LCD_DRIVERON</code> at <code>06:4D02</code>–<code>06:4D3A</code></td><td>mode, enable, power, and contrast command sequence [confirmed]</td></tr>
+<tr><td>Dynamic execution</td><td>resolved <code>home-2plus3</code> trace filtered to ports <code>0x10</code>–<code>0x13</code> and <code>0x2F</code></td><td>exact initialization and clear transactions in TilEm [confirmed]</td></tr>
+<tr><td>Datamath module photographs</td><td>March 2004 TI-84 Plus LCD module and controller attribution</td><td>source-attributed Toshiba <code>T6K04</code> identity; the die itself is hidden under epoxy [standard]</td></tr>
+<tr><td>Toshiba T6K04 data sheet</td><td>exact controller block diagram, command table, and timing specification</td><td>128×64 display RAM, 80-series bus, counters, read latch, busy formula, reset state, and analog-drive controls [standard]</td></tr>
+<tr><td>Toshiba T6A04A data sheet</td><td>compatible earlier controller documentation</td><td>120×64 display RAM and family comparison [standard]</td></tr>
+<tr><td>Public hardware notes</td><td>WikiTI ports <code>0x02</code>, <code>0x10</code>–<code>0x13</code>, and <code>0x2F</code></td><td>status bits, command meanings, controller variants, transfer timing, and hardware quirks [standard]</td></tr>
+<tr><td>Emulator model</td><td>Upstream TilEm <code>lcd.c</code>, <code>x4_io.c</code>, and <code>x4_init.c</code> at commit <code>f56ad63</code></td><td>implemented video RAM, latches, delays, aliases, and fidelity limits [standard]</td></tr>
+<tr><td>Emulator comparison</td><td>Wabbitemu <code>lcd.c</code> and <code>83psehw.c</code> at <code>48c2dc0</code>; MAME <code>t6a04.cpp</code>, <code>ti85.cpp</code>, and <code>ti85_m.cpp</code> at <code>mame0287</code></td><td>row strides, pointer bounds, busy handling, ASIC waits, and unsafe edge cases [standard]</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="panel-controller-and-video-ram"><a class="header" href="#panel-controller-and-video-ram">Panel, controller, and video RAM</a></h2>
+<p>The panel exposes 96 horizontal pixels and 64 vertical pixels. In 8-bit transfer mode, one controller byte holds eight adjacent horizontal pixels, so the visible row occupies 12 bytes. The visible image therefore contains:</p>
+<p>$$
+12 \times 64 = 768\text{ bytes}
+$$</p>
+<p>The controller can contain more video RAM than the panel displays. Toshiba’s
+data sheets specify 15 bytes per row, or 120 pixels, for T6A04A and 16 bytes
+per row, or 128 pixels, for T6K04. The T6K04 contains 8,192 bits of display RAM
+and exposes 128 column outputs plus 64 row outputs. Later Novatek replacements
+can differ. [standard]</p>
+<p>Datamath attributes the LCD module photographed from a March 2004 TI-84 Plus
+to Toshiba <code>T6K04</code>. The photograph shows the controller area under opaque
+epoxy, so it does not expose a readable die marking. The identification is a
+source-attributed module record rather than a marking read from the image.
+[standard]</p>
+<p>The local ROM uses only visible columns <code>0</code>–<code>11</code> in its full-screen clear and
+graph blit loops. It does not distinguish the 15-byte T6A04A row from the
+16-byte T6K04 row. Datamath’s attribution supplies revision-specific external
+evidence that the ROM cannot. [confirmed] for the ROM access range; [standard]
+for the March 2004 controller attribution.</p>
+<h3 id="coordinate-vocabulary"><a class="header" href="#coordinate-vocabulary">Coordinate vocabulary</a></h3>
+<p>Toshiba documentation names the pixel row <em>X</em> and the byte column <em>Y</em>. Software often uses the opposite convention. This page uses <em>row</em> for <code>0</code>–<code>63</code> vertically and <em>byte column</em> for the horizontal group selected by commands <code>0x20</code>–<code>0x3F</code>.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Quantity</th><th>Command or transfer</th><th style="text-align: right">Visible range</th></tr>
+</thead>
+<tbody>
+<tr><td>Row</td><td>command <code>0x80 + row</code></td><td style="text-align: right"><code>0x80</code>–<code>0xBF</code></td></tr>
+<tr><td>Byte column</td><td>command <code>0x20 + column</code></td><td style="text-align: right"><code>0x20</code>–<code>0x2B</code></td></tr>
+<tr><td>Pixel within a byte</td><td>data bit 7 through bit 0</td><td style="text-align: right">left to right [standard]</td></tr>
+<tr><td>Visible storage</td><td>12 byte columns × 64 rows</td><td style="text-align: right">768 bytes</td></tr>
+</tbody>
+</table>
+</div>
+<p>The Z-address command <code>0x40 + shift</code> changes which controller row appears at the top of the panel. It does not copy video RAM. Rows wrap modulo 64 when displayed. [standard]</p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/lcd-addressing.svg" alt="A TI-84 Plus calculator skin locates the selected row and byte column on the physical LCD; an enlarged controller row shows twelve visible byte columns, four off-screen columns, and the eight pixels in one data byte."><span class="img-wrapper"><img src="images/lcd-addressing.svg" alt="A TI-84 Plus calculator skin locates the selected row and byte column on the physical LCD; an enlarged controller row shows twelve visible byte columns, four off-screen columns, and the eight pixels in one data byte."></span></label></p>
+<p><strong>Ordinary 8-bit addressing.</strong> The TilEm skin locates the controller model on the calculator face. The visible 12-byte row and OS command ranges are [confirmed]; the T6K04’s 16-byte controller row, read latch, and off-screen storage are [standard].</p>
+<h2 id="port-interface"><a class="header" href="#port-interface">Port interface</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Port</th><th>Direction</th><th>Role</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0x10</code></td><td>read</td><td>controller status</td></tr>
+<tr><td style="text-align: right"><code>0x10</code></td><td>write</td><td>controller command</td></tr>
+<tr><td style="text-align: right"><code>0x11</code></td><td>read/write</td><td>latched video-RAM data at the current address</td></tr>
+<tr><td style="text-align: right"><code>0x12</code></td><td>read/write</td><td>second-chip-select mirror of <code>0x10</code> on documented ASIC revisions [standard]</td></tr>
+<tr><td style="text-align: right"><code>0x13</code></td><td>read/write</td><td>second-chip-select mirror of <code>0x11</code> on documented ASIC revisions [standard]</td></tr>
+<tr><td style="text-align: right"><code>0x02</code> bit 1</td><td>read</td><td>ASIC LCD-wait timer ready at high CPU speed</td></tr>
+<tr><td style="text-align: right"><code>0x2F</code></td><td>read/write</td><td>duration selector for the ASIC LCD-wait timer</td></tr>
+</tbody>
+</table>
+</div>
+<p>The OS paths decoded here use <code>0x10</code> and <code>0x11</code>. The resolved calculator trace contains no port-<code>0x12</code> or port-<code>0x13</code> LCD transaction. [confirmed] for the trace; [standard] for the physical mirrors.</p>
+<h3 id="controller-side-signals"><a class="header" href="#controller-side-signals">Controller-side signals</a></h3>
+<p>The T6K04 exposes an 8-bit <code>DB0</code>–<code>DB7</code> bus for an 80-series processor. Its
+<code>D/I</code> input distinguishes command bytes from display-data bytes, <code>/WR</code> selects
+reading or writing, and <code>/CE</code> strobes the transfer. <code>/RST</code> resets the
+controller. <code>/STB</code> stops its oscillator, rejects commands and data, and drives
+the LCD supply outputs to <code>VDD</code>. The calculator ASIC turns port instructions
+into these controller-side operations, so Z80 code does not toggle the
+individual signals. [standard]</p>
+<p>The T6K04 includes 128 column outputs, 64 row outputs, display RAM, an
+oscillator, contrast control, five LCD-supply operational amplifiers, and a
+DC–DC converter with doubler, tripler, and quadrupler modes. Its logic supply
+range is 2.7–5.5 V, and Toshiba specifies a tape-carrier package (TCP).
+Replacement controllers can expose compatible port behavior without
+reproducing every internal analog block or off-screen RAM cell. [standard]</p>
+<h3 id="status-read"><a class="header" href="#status-read">Status read</a></h3>
+<p>Reading port <code>0x10</code> returns the controller state: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Bit</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right">0</td><td>increment direction when set; decrement when clear</td></tr>
+<tr><td style="text-align: right">1</td><td>movement affects the byte column when set; row when clear</td></tr>
+<tr><td style="text-align: right">2</td><td>fixed zero in the T6K04 status definition</td></tr>
+<tr><td style="text-align: right">3</td><td>LCD-supply operational amplifier enabled when set</td></tr>
+<tr><td style="text-align: right">4</td><td>controller reset state</td></tr>
+<tr><td style="text-align: right">5</td><td>display enabled</td></tr>
+<tr><td style="text-align: right">6</td><td>8-bit transfer mode when set; 6-bit mode when clear</td></tr>
+<tr><td style="text-align: right">7</td><td>controller busy on controllers that implement a reliable busy flag</td></tr>
+</tbody>
+</table>
+</div>
+<p>Late replacement controllers can move the internal video-RAM pointer when software reads status. Busy-poll loops that work on Toshiba controllers can therefore corrupt addressing on those units. WikiTI recommends a fixed delay or the ASIC delay mechanism for cross-revision code. [standard]</p>
+<p>OS 2.55MP avoids this incompatibility in its common path: <code>lcd_wait</code> at <code>ram:0CC3</code> reads port <code>0x02</code>, not port <code>0x10</code>. [confirmed]</p>
+<h2 id="command-set"><a class="header" href="#command-set">Command set</a></h2>
+<p>The table separates public controller behavior from the subset used by this ROM.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Command</th><th>Meaning</th><th>OS 2.55MP use</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x00</code></td><td>select 6-bit transfers</td><td>used by some text read/modify/write paths at <code>01:5AD3</code> [confirmed]</td></tr>
+<tr><td><code>0x01</code></td><td>select 8-bit transfers</td><td><code>_LCD_DRIVERON</code> and <code>_PutMap</code> [confirmed]</td></tr>
+<tr><td><code>0x02</code></td><td>disable display output while retaining video RAM</td><td><code>lcd_disable</code> at <code>ram:0CD9</code>; <code>_PowerOff</code> calls it [confirmed]</td></tr>
+<tr><td><code>0x03</code></td><td>enable display output</td><td><code>_LCD_DRIVERON</code> [confirmed]</td></tr>
+<tr><td><code>0x04</code></td><td>decrement row after each data transfer</td><td>documented controller mode [standard]</td></tr>
+<tr><td><code>0x05</code></td><td>increment row after each data transfer</td><td>OS vertical byte loops [confirmed]</td></tr>
+<tr><td><code>0x06</code></td><td>decrement byte column after each data transfer</td><td>documented controller mode [standard]</td></tr>
+<tr><td><code>0x07</code></td><td>increment byte column after each data transfer</td><td>OS horizontal row blits [confirmed]</td></tr>
+<tr><td><code>0x08</code>–<code>0x0B</code></td><td>select the duration of enhanced LCD-supply amplifier drive</td><td><code>_LCD_DRIVERON</code> selects <code>0x08</code> or <code>0x0B</code> [confirmed]; T6K04 OPA2 behavior [standard]</td></tr>
+<tr><td><code>0x0C</code>–<code>0x0F</code></td><td>mirroring controls reported on newer controllers</td><td>absent from the T6K04 command table and unused by this ROM [standard]</td></tr>
+<tr><td><code>0x10</code>–<code>0x17</code></td><td>control LCD-supply amplifier state and ability; <code>0x14</code>–<code>0x17</code> keep it on</td><td><code>_LCD_DRIVERON</code> selects <code>0x16</code> or <code>0x17</code> [confirmed]; T6K04 OPA1 behavior [standard]</td></tr>
+<tr><td><code>0x18</code>–<code>0x1F</code></td><td>T6K04 test-mode select</td><td>Toshiba says not to use this range; WikiTI separately reports <code>0x18</code> as test-mode exit and warns that high-drive modes can damage the panel [standard]</td></tr>
+<tr><td><code>0x20</code>–<code>0x2F</code></td><td>set T6K04 byte column in 8-bit mode</td><td>visible OS range <code>0x20</code>–<code>0x2B</code> [confirmed]; 16-column limit [standard]</td></tr>
+<tr><td><code>0x20</code>–<code>0x35</code></td><td>set T6K04 six-pixel group in 6-bit mode</td><td>OS selects 6-bit mode in an edge-rendering path [confirmed]; 22-entry limit [standard]</td></tr>
+<tr><td><code>0x40</code>–<code>0x7F</code></td><td>set displayed top-row offset</td><td><code>_LCD_DRIVERON</code> writes <code>0x40</code> [confirmed]</td></tr>
+<tr><td><code>0x80</code>–<code>0xBF</code></td><td>set row</td><td>full 64-row range [confirmed]</td></tr>
+<tr><td><code>0xC0</code>–<code>0xFF</code></td><td>set controller contrast <code>0</code>–<code>63</code></td><td><code>_LCD_DRIVERON</code> derives the command from <code>contrast</code> [confirmed]</td></tr>
+</tbody>
+</table>
+</div>
+<p>The T6K04 defines contrast command <code>0xC0</code> as brightest and <code>0xFF</code> as darkest.
+The power and test commands affect analog drive circuitry and vary across
+controller revisions. TilEm ignores them except for display enable, display
+disable, and contrast. [standard]</p>
+<h3 id="reset-and-standby-states"><a class="header" href="#reset-and-standby-states">Reset and standby states</a></h3>
+<p>Driving T6K04 <code>/RST</code> low selects 8-bit transfers, byte-column increment, row
+and byte-column address zero, displayed top-row offset zero, display off,
+LCD-supply amplifier on at minimum ability, minimum enhancement, and minimum
+contrast. The status reset bit remains set while the controller is held in
+reset. Toshiba’s reset-state list does not state that display RAM is cleared.
+[standard]</p>
+<p>Driving <code>/STB</code> low stops the oscillator, prevents command and data acceptance,
+reduces controller power, and drives <code>VLC1</code>–<code>VLC5</code> to <code>VDD</code>. The OS’s display
+disable command <code>0x02</code> is a separate operation and does not clear display RAM.
+[standard]</p>
+<h2 id="data-transfers-and-address-movement"><a class="header" href="#data-transfers-and-address-movement">Data transfers and address movement</a></h2>
+<p>Port <code>0x11</code> transfers one unit at the current row and byte column, then applies command <code>0x04</code>, <code>0x05</code>, <code>0x06</code>, or <code>0x07</code>. [standard]</p>
+<p>In 8-bit mode, all eight data bits map to adjacent pixels. In 6-bit mode, only bits 0–5 are significant and the controller packs six-pixel groups. The OS initializes 8-bit mode for ordinary full-screen work but temporarily selects 6-bit mode in large-font edge handling at <code>01:5AD3</code>. [confirmed]</p>
+<h3 id="read-latch-and-dummy-reads"><a class="header" href="#read-latch-and-dummy-reads">Read latch and dummy reads</a></h3>
+<p>Controller reads are one transfer behind the addressed video-RAM byte. After a row or column command, the first port-<code>0x11</code> read returns the old output latch; the read loads the newly addressed byte into that latch. Software must discard one dummy read and use the second. Auto-increment or auto-decrement does not require another dummy read between sequential bytes. [standard]</p>
+<p><code>lcd_read_data</code> at <code>01:5A60</code> performs exactly two reads: [confirmed]</p>
+<pre><code class="language-z80">01:5A60  call ram:0CC3
+01:5A63  in a,(0x11)       ; discard stale output latch
+01:5A65  call ram:0CC3
+01:5A68  in a,(0x11)       ; addressed byte
+</code></pre>
+<p>The routine then restores an OS-tracked row command from <code>0x8451</code> and selects row-increment mode. <code>lcd_write_data</code> at <code>01:5A59</code> is the matching wait plus <code>OUT (0x11),A</code>. These routines transfer arbitrary pixel data; neither routine sets or reads contrast. [confirmed]</p>
+<h3 id="bounds-and-wrap-behavior"><a class="header" href="#bounds-and-wrap-behavior">Bounds and wrap behavior</a></h3>
+<p>The T6K04 data sheet defines byte-column commands <code>0x20</code>–<code>0x2F</code> in 8-bit mode
+and six-pixel group commands <code>0x20</code>–<code>0x35</code> in 6-bit mode. Its address counter
+wraps across 16 or 22 entries respectively. Toshiba says not to issue a byte
+column beyond 15 in 8-bit mode. [standard]</p>
+<p>WikiTI reports that some Toshiba command decoders accept the wider
+<code>0x20</code>–<code>0x3F</code> field, while transfers outside implemented RAM do not change RAM.
+That out-of-range behavior is outside the T6K04 data-sheet contract and varies
+across controllers and emulators. [standard]</p>
+<p>The row coordinate wraps across 64 rows. The controller-specific byte-column width is one reason software should not use off-screen RAM as portable storage. [standard]</p>
+<h2 id="asic-side-wait-timing"><a class="header" href="#asic-side-wait-timing">ASIC-side wait timing</a></h2>
+<p>At high CPU speed, each access to ports <code>0x10</code>–<code>0x13</code> clears port-<code>0x02</code> bit 1 for a programmable interval. Port <code>0x2F</code> selects that interval in nominal 64-T-state steps with values 48, 112, 176, 240, 304, 368, 432, or 496 T-states. CPU-speed value <code>1</code> uses bits 0–1; value <code>2</code> uses bits 2–4; value <code>3</code> uses bits 5–7. CPU-speed value <code>0</code> leaves port-<code>0x02</code> bit 1 set. [standard]</p>
+<p>Ports <code>0x29</code>–<code>0x2C</code> separately add T-states to the LCD-port instruction and
+gate the Flash/RAM waits in port <code>0x2E</code>. <a href="bus-timing.html">Bus timing and wait states</a>
+reconstructs the complete joint register block and both emulator models.</p>
+<p>The retail boot page writes <code>0x4B</code> to port <code>0x2F</code> at <code>3F:41D3</code>. With the OS’s normal CPU-speed value <code>1</code>, the low field is <code>3</code>, selecting 240 T-states. At nominal 15 MHz this interval is 16 µs. [confirmed] for the writes and trace; [standard] for the hardware timer interpretation.</p>
+<p>The T6K04 data sheet specifies its internal busy interval as
+$2/f_{OSC} \leq T \leq 4/f_{OSC}$. For a 35 Hz common drive, its four
+frequency-select examples use 28.56, 57.12, 228.48, and 456.96 kHz. They imply
+the following controller-busy ranges: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Example $f_{OSC}$</th><th style="text-align: right">T6K04 busy range</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right">28.56 kHz</td><td style="text-align: right">70.03–140.06 µs</td></tr>
+<tr><td style="text-align: right">57.12 kHz</td><td style="text-align: right">35.01–70.03 µs</td></tr>
+<tr><td style="text-align: right">228.48 kHz</td><td style="text-align: right">8.75–17.51 µs</td></tr>
+<tr><td style="text-align: right">456.96 kHz</td><td style="text-align: right">4.38–8.75 µs</td></tr>
+</tbody>
+</table>
+</div>
+<p>Toshiba rates the oscillator input from 20 to 500 kHz and warns that mounting
+conditions affect an external-resistor oscillator. The module photograph does
+not resolve the frequency-select wiring or resistor value. The OS’s 16 µs ASIC
+wait therefore cannot identify the fitted oscillator or prove worst-case
+controller margin by itself. [standard] for the T6K04 limits; [hypothesis] for
+the board-specific oscillator and margin.</p>
+<p>The controller’s <code>/CE</code> switching limits are a separate timing layer. Toshiba
+specifies the following values at 25 °C: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Logic test condition</th><th style="text-align: right">Minimum <code>/CE</code> cycle</th><th style="text-align: right">Minimum <code>/CE</code> pulse</th><th style="text-align: right">Minimum address setup</th><th style="text-align: right">Minimum write-data setup</th><th style="text-align: right">Maximum read-data delay</th></tr>
+</thead>
+<tbody>
+<tr><td>3.0 V ± 10%</td><td style="text-align: right">1,000 ns</td><td style="text-align: right">450 ns</td><td style="text-align: right">100 ns</td><td style="text-align: right">280 ns</td><td style="text-align: right">350 ns</td></tr>
+<tr><td>5.0 V ± 10%</td><td style="text-align: right">500 ns</td><td style="text-align: right">220 ns</td><td style="text-align: right">60 ns</td><td style="text-align: right">60 ns</td><td style="text-align: right">160 ns</td></tr>
+</tbody>
+</table>
+</div>
+<p>These limits constrain the ASIC-to-controller strobe. The port-<code>0x2F</code> interval
+instead prevents the next access while the controller’s internal operation can
+remain busy. Z80 instruction timing does not reveal the <code>/CE</code> waveform, so the
+physical strobe still requires a bus capture. [standard] for the controller
+limits; [hypothesis] for the ASIC waveform.</p>
+<p><code>lcd_wait</code> preserves <code>AF</code> and spins on that ASIC-ready bit: [confirmed]</p>
+<pre><code class="language-z80">ram:0CC3  push af
+ram:0CC4  in a,(0x02)
+ram:0CC6  and 0x02
+ram:0CC8  jr z,ram:0CC4
+ram:0CCA  bit 3,(iy+0x41)
+ram:0CCE  call nz,ram:0CE6
+ram:0CD1  call nz,ram:0CE6
+ram:0CD4  call nz,ram:0CE6
+ram:0CD7  pop af
+ram:0CD8  ret
+</code></pre>
+<p>The three optional calls add fixed instruction delay when the OS flag at <code>IY+0x41</code> bit 3 is set. That byte is shared with USB state in the published equates; the local code establishes the delay effect but does not establish an LCD-specific public name for the flag. [confirmed]</p>
+<p><code>lcd_write_command_a</code> at <code>ram:0CDB</code> repeats the port-<code>0x02</code> wait and writes <code>A</code> to port <code>0x10</code>. <code>lcd_disable</code> at <code>ram:0CD9</code> loads command <code>0x02</code> and enters that helper. [confirmed]</p>
+<h2 id="controller-initialization"><a class="header" href="#controller-initialization">Controller initialization</a></h2>
+<p><code>_LCD_DRIVERON = 4978</code> has body <code>06:4D02</code>. It sends every command through <code>lcd_write_command</code> at <code>06:4D35</code>, which calls <code>lcd_wait</code> before writing port <code>0x10</code>. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Order</th><th style="text-align: right">Command</th><th>Effect</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right">1</td><td style="text-align: right"><code>0x40</code></td><td>top displayed row = controller row 0</td></tr>
+<tr><td style="text-align: right">2</td><td style="text-align: right"><code>0x05</code></td><td>increment row after data transfers</td></tr>
+<tr><td style="text-align: right">3</td><td style="text-align: right"><code>0x01</code></td><td>select 8-bit transfer mode</td></tr>
+<tr><td style="text-align: right">4</td><td style="text-align: right"><code>0x03</code></td><td>enable display output</td></tr>
+<tr><td style="text-align: right">5</td><td style="text-align: right"><code>0x16</code> or <code>0x17</code></td><td>select one of the upper LCD-supply amplifier abilities</td></tr>
+<tr><td style="text-align: right">6</td><td style="text-align: right"><code>0x08</code> or <code>0x0B</code></td><td>select amplifier-enhancement duration</td></tr>
+<tr><td style="text-align: right">7</td><td style="text-align: right"><code>0xC0 OR (contrast + 0x18)</code></td><td>program contrast</td></tr>
+</tbody>
+</table>
+</div>
+<p>Calls to the hardware test at <code>ram:1837</code> choose between the two power values. In the resolved TI-84 Plus TilEm trace, the sequence is:</p>
+<pre><code class="language-text">40 05 01 03 17 0B EF
+</code></pre>
+<p>The final <code>0xEF</code> means controller contrast <code>0x2F</code>. The RAM byte <code>contrast</code> at
+<code>0x8447</code> was <code>0x17</code>, and <code>_LCD_DRIVERON</code> added <code>0x18</code>. Toshiba defines larger
+T6K04 contrast arguments as darker, from brightest <code>0xC0</code> to darkest <code>0xFF</code>.
+[confirmed] for the ROM arithmetic; [standard] for the controller direction.</p>
+<p>The trace records this sequence twice during cold startup before the homescreen clear. This is OS behavior under the traced startup path, not a requirement that user code initialize the controller twice. [confirmed]</p>
+<h2 id="full-screen-clear"><a class="header" href="#full-screen-clear">Full-screen clear</a></h2>
+<p><code>_ClrLCDFull = 4540</code> has body <code>01:60E4</code>. It temporarily clears the run-indicator flag, then invokes <code>_ClearRow</code> at <code>01:6934</code> for row bases <code>0xB8</code>, <code>0xB0</code>, …, <code>0x80</code>. Each call clears an eight-row band. [confirmed]</p>
+<p>For each byte column <code>0x20</code>–<code>0x2B</code>, <code>_ClearRow</code> performs: [confirmed]</p>
+<ol>
+<li>send command <code>0x07</code> through <code>lcd_mode_column_increment</code>;</li>
+<li>restore the band-base row command;</li>
+<li>send command <code>0x05</code> through <code>lcd_mode_row_increment</code>;</li>
+<li>select the current byte column;</li>
+<li>write eight zero bytes while the row auto-increments;</li>
+<li>advance to the next byte column.</li>
+</ol>
+<p>The arithmetic covers every visible byte exactly once:</p>
+<p>$$
+8\text{ bands} \times 12\text{ columns} \times 8\text{ rows}
+= 768\text{ writes}
+$$</p>
+<p>The resolved trace shows the first band as row command <code>0xB8</code>, column commands <code>0x20</code> through <code>0x2B</code>, and eight zero data writes after every column command. The next band begins at <code>0xB0</code>; the final band begins at <code>0x80</code>. [confirmed]</p>
+<h2 id="dormant-boot-page-display-test"><a class="header" href="#dormant-boot-page-display-test">Dormant boot-page display test</a></h2>
+<p>Retail page <code>3F</code> contains a display and keypad diagnostic beginning at
+<code>3F:4658</code>. The only branch into that address follows <code>XOR A</code>, <code>OUT (0x05),A</code>,
+and <code>CP 0x09</code>, so it is constant-false. The <strong>MODE</strong> boot path can execute the
+RAM test at <code>3F:461A</code>, but it cannot continue into this LCD routine under Z80
+semantics. [confirmed]</p>
+<p>The dormant code fills all 768 visible bytes through <code>3F:46EF</code>, overwrites
+individual full rows through <code>3F:472E</code>, and presents six patterns. The sequence
+includes solid <code>0xFF</code> and <code>0x00</code>, alternating <code>0x55</code>/<code>0xAA</code> and <code>0x00</code>/<code>0xFF</code>
+rows, a solid <code>0xAA</code> pattern, and a bordered <code>0x81</code> pattern. It then sweeps raw
+contrast commands <code>0xFF</code> through <code>0xD9</code> and restores the OS contrast byte
+through <code>3F:74F5</code>. [confirmed]</p>
+<p>An explicit direct-entry Wabbitemu harness validates the actual retail helpers,
+including 768 data writes from <code>3F:46EF</code>, 12 data writes from <code>3F:472E</code>, and
+the <code>0xFF</code> output from <code>3F:74F8</code>. This is emulator agreement with executed ROM,
+not evidence that retail boot reaches the code or that a physical panel
+produces the modeled image. [confirmed] for pinned Wabbitemu commit <code>48c2dc0</code>;
+[hypothesis] for unmeasured physical output. See
+<a href="boot-hardware.html#dormant-lcd-and-keypad-diagnostic">Retail boot hardware initialization</a>
+for the stage and keypad flow.</p>
+<h2 id="graph-buffer-transfer"><a class="header" href="#graph-buffer-transfer">Graph-buffer transfer</a></h2>
+<p><code>plotSScreen</code> at <code>0x9340</code> is the 768-byte row-major graph buffer. <code>_GrBufClr</code> at <code>04:6071</code> clears it with one zero store followed by <code>LDIR</code> of <code>0x02FF</code> bytes; it does not access the LCD. [confirmed]</p>
+<p><code>_GrBufCpy</code> at <code>04:60A3</code> enters the controller-transfer core at <code>04:6176</code>. The TI-84 Plus direct-RAM path performs these operations for each selected pixel row: [confirmed]</p>
+<ul>
+<li>command <code>0x07</code> selects byte-column auto-increment;</li>
+<li>a command in <code>0x80</code>–<code>0xBF</code> selects the row;</li>
+<li>command <code>0x20</code> selects visible byte column 0;</li>
+<li>12 sequential data writes copy one row from the RAM buffer;</li>
+<li>the source pointer and row command advance.</li>
+</ul>
+<p>The caller adjusts the starting row and row count for full-screen and split-screen states. The controller loop therefore treats the transfer extent as state, while the row width remains 12 bytes. [confirmed]</p>
+<p>The alternative path calls <code>lcd_write_block</code> at <code>ram:18B1</code> when the source lives in banked RAM. That helper temporarily maps RAM page <code>0x83</code> through port <code>0x06</code>, writes <code>B</code> bytes to port <code>0x11</code>, restores the prior mapping, and restores the caller’s interrupt-enable state. [confirmed]</p>
+<h2 id="text-drawing-and-read-modify-write"><a class="header" href="#text-drawing-and-read-modify-write">Text drawing and read-modify-write</a></h2>
+<p>Homescreen text does not render through <code>plotSScreen</code>. <code>_PutMap</code> at <code>01:5A98</code> loads an eight-byte large-font record and writes the controller directly. It selects row and byte-column commands from <code>curRow</code> and <code>curCol</code>, then emits the glyph through port <code>0x11</code>. [confirmed]</p>
+<p>When a glyph overlaps an existing byte boundary, <code>_PutMap</code> reads controller RAM, combines glyph bits with the retained pixels, and writes the result back. The read helpers at <code>01:5A70</code> and <code>01:5A7A</code> perform the required dummy plus real reads before restoring the row and movement mode. [confirmed]</p>
+<p>This creates two independent software representations:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>State</th><th>Address</th><th>Role</th></tr>
+</thead>
+<tbody>
+<tr><td>Controller video RAM</td><td>external LCD controller</td><td>currently scanned panel image</td></tr>
+<tr><td><code>plotSScreen</code></td><td><code>0x9340</code>–<code>0x963F</code></td><td>graph/back buffer; copied explicitly</td></tr>
+<tr><td><code>saveSScreen</code></td><td><code>0x86EC</code>–<code>0x89EB</code></td><td>saved 768-byte display image</td></tr>
+<tr><td><code>textShadow</code></td><td><code>0x8508</code>–<code>0x8587</code></td><td>16×8 homescreen character shadow</td></tr>
+<tr><td><code>lFont_record</code></td><td><code>0x845A</code>–<code>0x8461</code></td><td>current eight-byte large-font render record</td></tr>
+</tbody>
+</table>
+</div>
+<p>Changing one RAM buffer does not update the panel until a routine copies or renders it. Direct text writes can likewise change controller RAM without changing <code>plotSScreen</code>. [confirmed]</p>
+<h2 id="screen-reads-and-saved-displays"><a class="header" href="#screen-reads-and-saved-displays">Screen reads and saved displays</a></h2>
+<p><code>lcd_read_block</code> at <code>ram:1890</code> reads <code>B</code> bytes from port <code>0x11</code> into banked RAM. It temporarily maps RAM page <code>0x83</code>, preserves the previous port-<code>0x06</code> value, and restores the caller’s interrupt state. The caller must establish the controller address and consume any required dummy read before a sequential block. [confirmed]</p>
+<p><code>_SaveDisp</code> at <code>39:5DD8</code> uses this helper to capture controller video RAM into the saved-display RAM page. Dynamic RAM-page traces record writes across the 768-byte capture extent. <code>_RestoreDisp</code> later copies the saved image back through the display paths. [confirmed]</p>
+<h2 id="contrast-and-power-off"><a class="header" href="#contrast-and-power-off">Contrast and power-off</a></h2>
+<p>The OS stores its user-facing contrast level at <code>0x8447</code>. <code>_LCD_DRIVERON</code> adds <code>0x18</code>, forces command bits <code>0xC0</code>, and sends the result. Code that writes a raw controller contrast command without updating <code>0x8447</code> can cause the next OS contrast adjustment or driver initialization to jump to a different level. [confirmed] for OS state; [standard] for direct-hardware callers.</p>
+<p>Display-disable command <code>0x02</code> blanks the panel but leaves controller video RAM available. The ASIC’s low-power transition is separate. <code>_PowerOff</code> calls <code>lcd_disable</code> at <code>ram:0CD9</code>, performs OS cleanup, then uses port <code>0x03</code> plus <code>HALT</code> to enter low power. See <a href="clock-timers-power.html">Clock, timers, and power</a>. [confirmed]</p>
+<h2 id="dynamic-io-trace"><a class="header" href="#dynamic-io-trace">Dynamic I/O trace</a></h2>
+<p>The trace resolver can print decoded I/O instructions after resolving every banked program counter:</p>
+<pre><code class="language-sh">nix develop -c python tools/tilem_trace_resolve.py \
+  /tmp/tilem-validation-home2plus3.trace \
+  --initial-mapping ti84p-reset --names tools/names.txt \
+  --io-ports 10-13,2f --io-count 360
+</code></pre>
+<p>The trace captures three load-bearing sequences: [confirmed]</p>
+<ul>
+<li>boot writes <code>0x4B</code> to port <code>0x2F</code> at <code>3F:41D3</code>;</li>
+<li><code>_LCD_DRIVERON</code> writes <code>40 05 01 03 17 0B EF</code> at <code>06:4D38</code>;</li>
+<li><code>_ClrLCDFull</code> writes the eight-band, 12-column, eight-byte clear pattern through <code>01:5A95</code>, <code>01:6945</code>, and <code>01:694B</code>.</li>
+</ul>
+<p>The trace is an emulator execution record. It proves the ROM path and values but does not prove analog power behavior, physical busy duration, or controller-revision quirks.</p>
+<h2 id="emulator-comparison"><a class="header" href="#emulator-comparison">Emulator comparison</a></h2>
+<p>All four emulators implement the commands and visible 12-byte rows used by
+OS 2.55MP. Their hidden-column, busy, and ASIC-timer behavior differs. These
+differences are emulator test cases, not physical-controller evidence.
+[standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
+</thead>
+<tbody>
+<tr><td>Controller RAM</td><td>1,024 bytes, 16 × 64</td><td>1,024 bytes, 16 × 64</td><td>960 bytes, 15 × 64</td><td>960 bytes, 15 × 64</td></tr>
+<tr><td>8-bit column increment</td><td>accesses 0–15, then normalizes to 0</td><td>accesses 0–14, then wraps to 0</td><td>counts modulo 32 without a RAM bound</td><td>accesses 0–14 around a 120-pixel row</td></tr>
+<tr><td>Controller busy</td><td>50 or 70 cycles; early transfers rejected</td><td>60-T-state guard from the last accepted write</td><td>absent; busy status is always zero</td><td>randomized 25–47-emulator-cycle interval</td></tr>
+<tr><td>ASIC ready</td><td>port-<code>0x2F</code> timer starts on every LCD read or write</td><td>interval measured from the last accepted write</td><td>port-<code>0x02</code> bit 1 is always set</td><td>status derives from the emulator’s LCD timer</td></tr>
+<tr><td>Ports <code>0x12</code>/<code>0x13</code></td><td>aliases</td><td>absent</td><td>aliases</td><td>aliases</td></tr>
+<tr><td>Data-read latch</td><td>modeled</td><td>modeled</td><td>modeled</td><td>modeled</td></tr>
+<tr><td>Analog power and test modes</td><td>ignored</td><td>ignored</td><td>values partly stored; no analog effect</td><td>drive fields and grayscale display physics modeled</td></tr>
+<tr><td>Driver status</td><td>active TI-84 Plus trace target</td><td>source model</td><td><code>MACHINE_NOT_WORKING</code></td><td>browser emulator source model</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="tilem-behavior-and-fidelity-gaps"><a class="header" href="#tilem-behavior-and-fidelity-gaps">TilEm behavior and fidelity gaps</a></h3>
+<p>TilEm models the controller and the ASIC wait timer as separate mechanisms. [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Area</th><th>TilEm behavior</th><th>Fidelity consequence</th></tr>
+</thead>
+<tbody>
+<tr><td>Video RAM</td><td>fixed 1,024-byte array, 16 bytes × 64 rows</td><td>capacity matches T6K04, but not 120-pixel or no-extra-RAM variants</td></tr>
+<tr><td>Ports <code>0x12</code>/<code>0x13</code></td><td>aliases command/status and data</td><td>models the documented second-chip-select mirrors</td></tr>
+<tr><td>Controller busy</td><td>50 emulated cycles after an accepted access</td><td>direct too-fast accesses are ignored when delay emulation is enabled</td></tr>
+<tr><td>ASIC wait</td><td>port-<code>0x02</code> bit 1 remains clear for the port-<code>0x2F</code> interval</td><td>reproduces the OS wait loop independently of controller busy</td></tr>
+<tr><td>I/O overhead</td><td>adds five emulated CPU cycles per LCD-port access</td><td>emulator policy, not a physical bus measurement</td></tr>
+<tr><td>Read latch</td><td>returns <code>nextbyte</code>, then loads the addressed byte</td><td>reproduces the dummy-read requirement</td></tr>
+<tr><td>6-bit mode</td><td>packs six-pixel writes into the internal byte array</td><td>supports OS edge-rendering paths</td></tr>
+<tr><td>Z address</td><td>displays <code>(row + shift) mod 64</code></td><td>reproduces vertical display rotation</td></tr>
+<tr><td>Power/test/mirror commands</td><td>mostly ignored</td><td>does not model analog drive, blue test modes, or newer-controller mirroring</td></tr>
+<tr><td>Status-read pointer quirk</td><td>not modeled</td><td>cannot reproduce late Novatek corruption from busy polling</td></tr>
+<tr><td>Out-of-range columns</td><td>wraps against the fixed 16-byte stride before transfer</td><td>differs from documented behavior on narrower controllers</td></tr>
+<tr><td>Low power</td><td>frame output blanks when the LCD is inactive or the halted ASIC powers down</td><td>approximates visible power state rather than electrical retention</td></tr>
+</tbody>
+</table>
+</div>
+<p>TilEm reset initializes controller contrast to 32, 8-bit mode, byte-column
+increment, row and column zero, and display disabled. It does not clear the LCD
+backing array. A guarded direct-core reset retains a seeded display byte while
+rebuilding every controller field above. OS initialization then replaces the
+controller values. [standard] for source; [confirmed] for the pinned run.</p>
+<h3 id="wabbitemu-behavior-and-fidelity-gaps"><a class="header" href="#wabbitemu-behavior-and-fidelity-gaps">Wabbitemu behavior and fidelity gaps</a></h3>
+<p>Wabbitemu allocates 16 bytes for each of 64 controller rows and displays the
+first 96 pixels. It decodes the same command groups as TilEm. Power and test
+commands have no controller effect. Its rendering queue uses repeated frames
+to approximate grayscale, which is a frontend policy rather than monochrome
+controller behavior. [standard]</p>
+<p>The 8-bit column-increment path wraps when the next column reaches 15. It
+therefore visits columns <code>0</code>–<code>14</code>; TilEm visits <code>0</code>–<code>15</code>. A direct command can
+still select column 15. Wabbitemu indexes that direct coordinate modulo its
+16-byte row. Commands <code>0x30</code>–<code>0x3F</code> therefore alias columns <code>0</code>–<code>15</code> instead of
+following the documented out-of-range behavior. [standard]</p>
+<p>Wabbitemu rejects command and data transfers made within 60 T-states of the
+last accepted LCD write. An early status read returns <code>0x80</code>; an early data
+read or write is discarded. Accepted data reads advance the pointer and output
+latch but do not update the guard’s timestamp. [standard]</p>
+<p>Its separate port-<code>0x02</code> ready calculation also measures from the last accepted
+write. It applies the port-<code>0x2F</code> field as $48 + 64n$ T-states. The speed-selected
+ports <code>0x29</code>–<code>0x2C</code> add their shifted instruction delay before either LCD port
+handler. This agrees with the register arithmetic, but the triggering event
+differs from TilEm’s every-access timer. [standard]</p>
+<p>Wabbitemu registers ports <code>0x10</code> and <code>0x11</code> for this model but not the documented
+<code>0x12</code> and <code>0x13</code> aliases. It subtracts a model-specific base level of 24 from
+contrast commands before its grayscale renderer consumes the value. This
+display calibration is not controller voltage evidence. [standard]</p>
+<p>A guarded initialized-core run at <code>48c2dc0</code> confirms these Wabbitemu-specific
+edges dynamically: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Case</th><th>Native observation</th></tr>
+</thead>
+<tbody>
+<tr><td>Controller guard</td><td>a status read at 59 T-states returns busy <code>0x80</code>; one at 60 T-states is accepted</td></tr>
+<tr><td>Early write</td><td>a data write at 59 T-states leaves the cell and pointer unchanged</td></tr>
+<tr><td>Increment from column 14</td><td>writes visit columns 14, 0, 1, and 2; column 15 remains unchanged</td></tr>
+<tr><td>Direct hidden columns</td><td>command column 15 accesses column 15; command column 31 aliases the same cell and wraps the pointer to 0</td></tr>
+<tr><td>Read latch</td><td>three accepted reads return <code>0x00</code>, <code>0x12</code>, and <code>0x34</code> from cells containing <code>0x12</code>, <code>0x34</code>, and the following byte</td></tr>
+<tr><td>Read timestamp</td><td>three same-T-state reads advance the pointer without changing the last-successful-write timestamp</td></tr>
+<tr><td>Port map</td><td>reads of absent ports <code>0x12</code> and <code>0x13</code> are rejected and produce adapter fallback <code>0xFF</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Wabbitemu’s low-level <code>CPU_reset</code> leaves the complete LCD object unchanged.
+The frontend <code>calc_reset</code> then invokes the LCD reset callback. A guarded
+frontend-equivalent call disables output; zeros <code>x</code>, <code>y</code>, <code>z</code>, the last-read
+latch, display RAM, and the grayscale queue; selects 8-bit words; and sets
+contrast 32. It retains the last-access T-state and <code>lcd_delay</code> field. This is
+frontend policy, not physical controller retention. [standard] for source;
+[confirmed] for the pinned initialized-core run.</p>
+<p>The LCD reset callback stores <code>word_len = 8</code>, while its status expression
+shifts the field as though it were Boolean. The reset-state controller transfers
+eight-bit data, but the first accepted status after display enable is <code>0x23</code>,
+with bit 6 clear. Sending command <code>0x01</code> stores Boolean one, after which the
+same status is <code>0x63</code>. This is a Wabbitemu state-representation defect, not
+evidence for a physical reset status. [standard]</p>
+<h3 id="mame-behavior-and-fidelity-gaps"><a class="header" href="#mame-behavior-and-fidelity-gaps">MAME behavior and fidelity gaps</a></h3>
+<p>MAME 0.287 attaches a generic T6A04 device to ports <code>0x10</code>–<code>0x13</code>. Its 960-byte
+array matches a 15-byte by 64-row controller. The OS-visible 12 columns, address
+movement, Z shift, display enable, 6-bit packing, and dummy-read latch are
+implemented. [standard]</p>
+<p>The five-bit column pointer is not checked against the 15-byte stride before a
+data read or write. Column 15 on row 0 indexes byte 15, which is row 1 column 0
+in the backing array. Column 31 on row 63 computes index 976, beyond the
+960-byte array. The OS stays within columns <code>0</code>–<code>11</code>, so its ordinary clear and
+blit loops do not trigger this C++ out-of-bounds path. [standard]</p>
+<p>The device source lists busy and contrast among its TODO items. The busy flag
+never becomes one. Contrast commands update a field, but screen rendering does
+not consume it. MAME stores the two power-control fields without modeling their
+analog effect. [standard]</p>
+<p>The TI-84 Plus driver returns port-<code>0x02</code> with bit 1 permanently set and does
+not map ports <code>0x29</code>–<code>0x2F</code>. The ROM’s <code>lcd_wait</code> loop therefore exits on its
+first read, and no speed-selected LCD instruction delay is applied. The driver
+is marked <code>MACHINE_NOT_WORKING</code>; these omissions do not describe the ASIC.
+[standard]</p>
+<p><strong>Native MAME confirmation.</strong> The guarded CPU-I/O-space probe reads the untouched controller startup state before seeding later independent cases. Ports <code>0x10</code> and <code>0x12</code> both return status <code>0x43</code>. All 960 backing bytes are zero, and the row, column, Z address, output latch, and display-enable fields are zero. Eight-bit mode, column movement, and increment direction are selected. Port <code>0x02</code> returns <code>0xC3</code>. [standard]</p>
+<p>Four immediate status reads after display enable all return <code>0x63</code>; busy bit 7 remains clear. Movement commands <code>0x04</code>–<code>0x07</code> produce statuses <code>0x60</code>, <code>0x61</code>, <code>0x62</code>, and <code>0x63</code>. Word-length commands change the status between <code>0x23</code> and <code>0x63</code>. A display-off write through port <code>0x12</code> is visible at port <code>0x10</code>, and a display-on write through port <code>0x10</code> is visible at port <code>0x12</code>. Contrast <code>0xEF</code>, OPA1 <code>0x17</code>, OPA2 <code>0x0B</code>, and Z-address <code>0x7F</code> store <code>0x2F</code>, <code>3</code>, <code>3</code>, and <code>0x3F</code>. [standard]</p>
+<p>Four incrementing writes from row 0, column 14 store <code>A0 A1 A2 A3</code> at array indices 14–17 and leave column <code>0x12</code>. A direct row-0 column-15 write reaches index 15, which is row 1 column 0 in the 15-byte stride. Row-0 column 31 reaches index 31, which is row 2 column 1, then wraps the pointer to zero. Sequential reads over bytes <code>0x12</code>, <code>0x34</code>, and <code>0x56</code> return <code>0x00</code>, <code>0x12</code>, and <code>0x34</code>. Two 6-bit writes of <code>0x3F</code> and <code>0x15</code> pack into bytes <code>0xFD</code> and <code>0x50</code>. [standard]</p>
+<p>Ports <code>0x29</code>–<code>0x2F</code> return seven zero bytes before and after patterned writes. Two isolated runs produce byte-identical native reports with SHA-256 <code>d6930650a96383710be7ebb772675b5a494cba2450827b12a535c963fa464bfc</code>. The probe does not execute row 63, column 31; the source-computed index 976 remains an unexecuted unsafe case. [standard]</p>
+<h3 id="reproducing-pointer-differences"><a class="header" href="#reproducing-pointer-differences">Reproducing pointer differences</a></h3>
+<p><code>tools/lcd_controller.py</code> provides the source-attributed T6K04 specification,
+vendor busy-time calculation, command decoding, status composition, the
+dummy-read latch, and source-modeled pointer walks. The hardware report keeps
+the module attribution and its photographic limit together:</p>
+<pre><code class="language-console">$ python tools/describe_lcd_controller.py hardware
+reported controller: Toshiba T6K04
+  calculator evidence: Datamath caption for a March 2004 TI-84 Plus module
+  limit: controller die is hidden under epoxy; no marking is visible
+  data sheet: 128x64 pixels, 8192 bits, 16 8-bit pages
+  interface: 8-bit 80-series MPU; logic supply=2.7-5.5 V; package=TCP
+  3 V bus: cycle&gt;=1000 ns pulse&gt;=450 ns read-delay&lt;=350 ns
+  5 V bus: cycle&gt;=500 ns pulse&gt;=220 ns read-delay&lt;=160 ns
+</code></pre>
+<p>The exact data-sheet formula can be evaluated at Toshiba’s four example
+oscillator choices:</p>
+<pre><code class="language-console">$ python tools/describe_lcd_controller.py busy
+fOSC=28.56 kHz: 70.028-140.056 us
+fOSC=57.12 kHz: 35.014-70.028 us
+fOSC=228.48 kHz: 8.754-17.507 us
+fOSC=456.96 kHz: 4.377-8.754 us
+</code></pre>
+<p>The pointer CLI compares an increment starting at hidden column 14:</p>
+<pre><code class="language-console">$ python tools/describe_lcd_controller.py walk --row 0 --column 14 --movement 7 --count 3
+TilEm
+  0: requested=(0,14) access=(0,14) index=14 next=(0,15)
+  1: requested=(0,15) access=(0,15) index=15 next=(0,16)
+  2: requested=(0,16) access=(0,0) index=0 next=(0,1)
+Wabbitemu
+  0: requested=(0,14) access=(0,14) index=14 next=(0,0)
+  1: requested=(0,0) access=(0,0) index=0 next=(0,1)
+  2: requested=(0,1) access=(0,1) index=1 next=(0,2)
+MAME
+  0: requested=(0,14) access=(0,14) index=14 next=(0,15)
+  1: requested=(0,15) access=(0,15) index=15 next=(0,16) [column-out-of-range]
+  2: requested=(0,16) access=(0,16) index=16 next=(0,17) [column-out-of-range]
+</code></pre>
+<p>The <code>hardware</code>, <code>busy</code>, <code>decode</code>, <code>profiles</code>, <code>status</code>, and <code>latch</code> subcommands
+accept <code>--json</code> for scripts. Transfer reports distinguish a controller column
+outside the modeled row from an index outside the complete backing array.</p>
+<p><code>tools/run_wabbitemu_lcd_edge_probe.py</code> runs the guarded dynamic matrix. It
+requires the exact OS 2.55MP ROM, records the ROM and native-binary hashes, and
+checks every field through <code>tools/wabbitemu_lcd_probe.py</code>. The ROM is only an
+initialized-core fixture in this mode; no TI-OS instruction executes.</p>
+<p><code>tools/run_wabbitemu_lcd_diagnostic_probe.py</code> is a separate direct-entry mode.
+It boots the exact ROM to its protection baseline, then executes retail helpers
+at <code>3F:74C6</code>, <code>3F:46EF</code>, <code>3F:472E</code>, and <code>3F:74F8</code> from an injected RAM harness.
+Its manifest labels the run as direct entry and retains compact counters and
+screen hashes rather than an instruction log.</p>
+<p><code>tools/mame_lcd.py</code> parses the MAME state, pointer, latch, packing, and port-map
+matrix against <code>tools/lcd_controller.py</code>. The guarded CLI retains the exact
+MAME, ROM, Lua-adapter, output, and evidence-scope identities:</p>
+<pre><code class="language-sh">mame_lcd_parent=$(mktemp -d /tmp/ti84-mame-lcd.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_lcd_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_lcd_parent/run" --json
+</code></pre>
+<h2 id="resolved-findings-and-open-hardware-questions"><a class="header" href="#resolved-findings-and-open-hardware-questions">Resolved findings and open hardware questions</a></h2>
+<ul>
+<li>[confirmed] OS 2.55MP waits through port-<code>0x02</code> bit 1 and does not busy-poll port <code>0x10</code> in <code>lcd_wait</code>.</li>
+<li>[confirmed] <code>01:5A59</code> and <code>01:5A60</code> write and read pixel data; they are not contrast helpers.</li>
+<li>[confirmed] <code>_LCD_DRIVERON</code> emits <code>0x40</code>, <code>0x05</code>, <code>0x01</code>, <code>0x03</code>, hardware-dependent power commands, and a RAM-derived contrast command.</li>
+<li>[confirmed] <code>_ClrLCDFull</code> covers all 768 visible bytes with eight vertical bands.</li>
+<li>[confirmed] The dormant <code>3F:4658</code> diagnostic covers all 12 visible columns, but its sole incoming branch at <code>3F:4615</code> is constant-false.</li>
+<li>[confirmed] <code>_GrBufClr</code> changes only RAM, while <code>_GrBufCpy</code> performs the controller transfer.</li>
+<li>[confirmed] <code>_PowerOff</code> disables display output before the ASIC enters low power.</li>
+<li>[standard] Datamath attributes the photographed March 2004 module to Toshiba <code>T6K04</code>, whose primary data sheet specifies 128×64 RAM. The die is hidden under epoxy, so the photograph does not independently expose its marking.</li>
+<li>[hypothesis] The exact controller and off-screen RAM behavior still require per-calculator identification or measurement outside that source-attributed March 2004 module.</li>
+<li>[hypothesis] The late-controller status-read pointer mutation, power-command analog effects, and off-screen retention need physical tests across TA2/TA3 board revisions.</li>
+<li>[hypothesis] TilEm’s five-cycle LCD I/O overhead and 50-cycle controller busy period should be compared with bus captures rather than treated as hardware constants.</li>
+<li>[standard] Wabbitemu’s 15-column increment cycle and write-based ready timer, plus MAME’s unchecked 15-byte row, are emulator limits rather than hardware results.</li>
+<li>[standard] A guarded MAME run verifies its startup state, status and command decode, permanent busy-clear state, mirror ports, safe hidden-column aliases, dummy-read latch, 6-bit packing, stored analog fields, constant ASIC-ready bit, and missing delay ports.</li>
+<li>[hypothesis] Physical tests should sweep hidden columns and time readiness after reads and writes independently.</li>
+</ul>
+<h2 id="sources"><a class="header" href="#sources">Sources</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Source</th><th>Used for</th></tr>
+</thead>
+<tbody>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:02">WikiTI port <code>0x02</code></a></td><td>ASIC LCD-ready bit and high-speed behavior</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:10">WikiTI port <code>0x10</code></a></td><td>status bits, commands, addressing, controller variants, busy-poll incompatibility, and power/test cautions</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:11">WikiTI port <code>0x11</code></a></td><td>pixel data, output latch, dummy reads, 6-bit transfers, and transfer delay</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:12">WikiTI ports <code>0x12</code></a> and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:13"><code>0x13</code></a></td><td>second-chip-select mirrors</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2F">WikiTI port <code>0x2F</code></a></td><td>ASIC wait-duration fields and defaults</td></tr>
+<tr><td><a href="http://www.datamath.org/Graphing/JPEG_TI-84PLUS_A.htm#84TOSHIBA">Datamath March 2004 TI-84 Plus module</a> and <a href="http://www.datamath.org/Graphing/Images/TI-84Plus_LCD_Z6.jpg">LCD photograph</a></td><td>source-attributed <code>T6K04</code> identity and the epoxy-covered module construction</td></tr>
+<tr><td><a href="https://www.datasheetarchive.com/datasheet/T6K04/Toshiba?version=2">Toshiba T6K04 data sheet</a>, 2001-03-13</td><td>exact 128×64 RAM, command and status tables, counter bounds, dummy reads, reset state, bus timing, oscillator choices, busy formula, supply range, and package; PDF SHA-256 <code>e53bcf3f12c1cba2011b886ab196b6e1827aea4c1a2d9fb28c3d6d501d986577</code></td></tr>
+<tr><td><a href="https://archive.org/details/t6a04a-datasheet">Toshiba T6A04A data sheet</a></td><td>compatible earlier 120×64 controller and family comparison</td></tr>
+<tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/lcd.c">TilEm <code>lcd.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/calcs.c"><code>calcs.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c"><code>x4_io.c</code></a>, and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c"><code>x4_init.c</code></a></td><td>emulator video RAM, command decode, latches, port aliases, wait timers, and reset state</td></tr>
+<tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/lcd.c">Wabbitemu <code>lcd.c</code></a>, <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c"><code>83psehw.c</code></a>, and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/interface/calc.c"><code>calc.c</code></a></td><td>controller RAM, pointer movement, transfer guard, ASIC-ready calculation, port registration, and frontend reset scope</td></tr>
+<tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/devices/video/t6a04.cpp">MAME <code>t6a04.cpp</code></a>, <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp"><code>ti85.cpp</code></a>, and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>controller array and commands, TI-84 Plus port map, fixed ready bit, and driver status</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth controller model, 120-pixel storage, randomized busy interval, latch, and display physics</td></tr>
+</tbody>
+</table>
+</div>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="display-lcd.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="sub-graphing.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="display-lcd.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="sub-graphing.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-09f2665d.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-5fa46c0a.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
