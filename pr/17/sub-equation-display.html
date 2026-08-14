@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e07ee819.js";
+            window.path_to_searchindex_js = "searchindex-2c8e0d19.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -415,8 +415,9 @@ selected, it keeps the argument index in <code>0x85E0</code> and uses <code>0x85
 argument count. Forward paths pass saved OP1 state through <code>39:59E0</code>; reverse
 paths use <code>39:59F9</code>. These routines dispatch <code>_FindAlphaUp</code> and <code>_FindAlphaDn</code>
 on page 7, respectively; they do not dispatch a parser-stream scanner.
-[confirmed] <code>_FindAlphaUp</code> and <code>_FindAlphaDn</code> traverse variable names in
-alphabetic VAT order. [standard]</p>
+[confirmed] <code>_FindAlphaUp</code> and <code>_FindAlphaDn</code> scan the physical VAT and retain
+the nearest alphabetic successor or predecessor. The result does not depend on
+the physical order of VAT records. [confirmed]</p>
 <p>For <code>fnInt(expr,var,lower,upper[,tol])</code>, the visible MathPrint fields preserve parser
 order: slot 0 is the integrand, slot 1 is the variable, slot 2 is the lower endpoint,
 slot 3 is the upper endpoint, and slot 4 is the optional tolerance. The evaluator on
@@ -644,17 +645,17 @@ anchors for readers who want to check the disassembly. [confirmed]</p>
 </table>
 </div>
 <h2 id="mathprint-pipeline-coverage"><a class="header" href="#mathprint-pipeline-coverage">MathPrint pipeline coverage</a></h2>
-<p><code>tools/analyze_mathprint_saturation.py</code> bounds the coverage claim to eight
+<p><code>tools/analyze_mathprint_saturation.py</code> bounds the coverage claim to nine
 declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
-line primitives, and large-glyph output. It recursively follows direct ROM
-edges from named entries, seeds decoded table destinations, overlays exact
-next-PC outcomes from 184 reset-origin traces, and lists direct external
-targets. Computed dispatch destinations are manually seeded; bcall and RAM
-bjump bodies remain outside the direct-edge walk. Of those traces, 183 reach
-their state through calculator input. One explicitly classified synthetic trace
-inserts an <code>EF36h</code> editor buffer through direct RAM writes. The report keeps the
-two provenance classes separate.
+line primitives, large-glyph output, and alphabetic VAT selection. It
+recursively follows direct ROM edges from named entries, seeds decoded table
+destinations, overlays exact next-PC outcomes from 184 reset-origin traces, and
+lists direct external targets. Computed dispatch destinations are manually
+seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
+traces, 183 reach their state through calculator input. One explicitly
+classified synthetic trace inserts an <code>EF36h</code> editor buffer through direct RAM
+writes. The report keeps the two provenance classes separate.
 <code>tools/mathprint-saturation.json</code> records the resulting branches and trace
 hashes. [confirmed]</p>
 <p>None of the 184 report traces executes <code>39:5167</code>, <code>39:523B</code>, the saved-operand
@@ -675,6 +676,14 @@ projected inputs, not every register and RAM state. The marker-tail callee at
 <code>34:759C</code> reduces 16 abstract predicate valuations to five return classes.
 Stream length, arbitrary RAM, and unmodeled indirect targets remain outside
 these finite models. [confirmed]</p>
+<p>The page-7 domains partition all 32 masked type classes, 192 declared type/key
+form pairs, all 8,192 type/record-marker pairs, and all 288 abstract candidate
+decisions. A fifth domain covers both terminal return states. The candidate
+projection includes direction, type equality, filter result, the <code>FFh</code>
+sentinel, source relation, and current-best relation. These domains cover the
+translated branch predicates and minimize representatives for their outcomes.
+They do not enumerate arbitrary VAT length, every possible eight-byte name, or
+the two extension bytes in the 11-byte OP scratch registers. [confirmed]</p>
 <p>The extended raised-token classifier at <code>34:580C</code> has a caller-scoped domain of
 3,047 packed-token states. <code>34:5866</code> handles numeric bytes and <code>B0h</code> first, and
 <code>34:5887</code> skips <code>EF1Eh</code>. The remaining ordinary bytes and 11 two-byte token
@@ -943,6 +952,12 @@ interpreter covers all 4,096 wrapper, gate, derived-carry, and buffer-source
 combinations. It also covers every value in every restored byte and every
 value in the seven selected payload bytes written back to a saved operand.
 [confirmed]</p>
+<p>These page-39 buffers contain the nine identity bytes copied by <code>_Mov9B</code>.
+The page-7 routine uses the complete 11-byte OP scratch registers through
+<code>00:1A0F</code>, <code>00:1AE7</code>, and <code>00:1A4E</code>; <code>07:522E</code> also writes OP2+9 at <code>0x848C</code>.
+The translation models the nine identity bytes used for selection and saved
+operand writeback. It does not claim parity for the two extension bytes in the
+page-7 scratch registers. [confirmed]</p>
 <p>The local dispatcher below those wrappers is translated separately by
 <code>editorAlphaSearch()</code>. <code>39:59E0</code> and <code>39:59F9</code> first call <code>39:5A17</code>, which
 tests whether <code>0x85DE</code> is class <code>0x02</code>. The ascending class-2 path enters
@@ -964,7 +979,7 @@ VAT snapshot. It derives the post-search <code>A</code> from the selected OP1 ty
 protected-program entry repeats without an injected return sequence. Nested
 and multi-argument states can therefore exercise the search without replaying
 an LCD stream. [confirmed] for the page-39 control flow and bcall identities;
-[standard] for the documented bcall input/output contract.</p>
+[confirmed] for the page-7 input, output, and flag behavior.</p>
 <p><code>editorFindAlphaVat()</code> translates the selection state over an explicit logical
 VAT snapshot. Each snapshot entry contains its nine-byte OP-format identity,
 VAT type-byte address, and data-page byte. <code>07:50BB</code> loads <code>A=00h</code>, discarding the caller’s
@@ -983,6 +998,14 @@ in <code>HL</code>, and carry at an alphabetic endpoint. [confirmed]</p>
 archived candidate uses its page byte for the final <code>41h</code>/<code>72h</code> gate.
 <code>OP1+2=FFh</code> is the ascending-start sentinel at <code>07:5151</code>; it admits every
 filtered Up candidate and makes Dn return carry. [confirmed]</p>
+<p>Before comparison, <code>07:50C4</code>–<code>07:50F7</code> chooses the VAT region and clears unused
+key bytes. Program-like named types, names beginning with <code>5Dh</code>, and List/CList
+keys beginning with <code>FFh</code> use the named region. Other List/CList forms,
+including <code>72h</code> and <code>3Ah</code>, use the fixed-token region. The fixed path preserves
+three name bytes and clears the remaining five. The named path clears bytes
+after the NUL-terminated name length; the one-byte <code>5Dh</code> prefix has comparison
+length two. A failed search restores the original, unpadded identity from OP3.
+[confirmed]</p>
 <p>Success returns <code>A=00h</code>, Z set, and carry clear. Failure restores the incoming
 identity to OP1/OP3 and returns <code>A=FEh</code>, Z clear, and carry set. [confirmed]</p>
 <p><code>editorDecodeAlphaVatSnapshot()</code> builds the logical snapshot from a 64 KiB RAM
