@@ -1254,7 +1254,9 @@ function constructedSettledSpec(source) {
       return {kind:'tokens',tokens:namedVariable.tokens};
     }
     for (const [name, token] of [
-      ['sin',0xc2], ['cos',0xc4], ['tan',0xc6], ['ln',0xbe], ['log',0xc0],
+      ['sin',0xc2], ['cos',0xc4], ['tan',0xc6],
+      ['sinh',0xc8], ['cosh',0xca], ['tanh',0xcc],
+      ['ln',0xbe], ['log',0xc0],
     ]) {
       if (!source.startsWith(`${name}(`, offset)) continue;
       offset += name.length + 1;
@@ -1312,7 +1314,8 @@ function constructedSettledSpec(source) {
       || /[A-Z0-9.]/.test(source[offset] || '')
       || ['int(', 'integral(', 'fnInt(', 'sum(', 'nDeriv(', 'nthroot(', 'sqrt(',
           'abs(', 'exp(', 'tenpow(', 'logbase(', 'matrix(', 'Ans',
-          'sin(', 'cos(', 'tan(', 'ln(', 'log(', 'cumSum(', 'remainder(']
+          'sin(', 'cos(', 'tan(', 'sinh(', 'cosh(', 'tanh(',
+          'ln(', 'log(', 'cumSum(', 'remainder(']
         .some(prefix => source.startsWith(prefix, offset));
     while (source[offset] === '*' || beginsImplicitFactor()) {
       const explicit = source[offset] === '*';
