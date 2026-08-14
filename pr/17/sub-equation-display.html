@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-51de497c.js";
+            window.path_to_searchindex_js = "searchindex-036f4f23.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -1571,10 +1571,13 @@ renderer’s font-table tab. <code>tools/interp-cells.js</code> and the browser 
 translations in <code>web/mathprint/rom-engine.js</code>. The translated routines consume
 <code>layout.json</code> for handler lookup, row-cell iteration, direct glyph and delimiter
 classification, descriptor iteration, fraction endpoints, and class-6 row
-stepping. The arbitrary-expression compositor in <code>app.js</code> still uses a separate,
-trace-fitted box model. <code>web/mathprint/record-programs.json</code> contains six
-retained record snapshots for offline comparison. The browser does not fetch
-them. It constructs supported named-token, absolute-value, power,
+stepping. <code>web/mathprint/record-programs.json</code> contains six retained record
+snapshots for offline comparison. The browser does not fetch them. Closed
+expressions accepted by the native constructor use the translated record graph
+and primitive stream for both the generated LCD view and the model view.
+Partial, unsupported, and over-wide text keeps the separate trace-fitted box
+compositor so the editor can continue to display incomplete input. It constructs
+supported named-token, absolute-value, power,
 radical, nth-root, stacked-fraction, integral, summation, and <code>nDeriv(</code>
 expressions from native token bytes, including nesting among the structural
 forms. The translated renderer exposes every generated LCD byte and the
