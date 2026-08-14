@@ -44,11 +44,11 @@ select {
 
 .stage {
   background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
-  padding: 1.5rem; display: flex; justify-content: center; align-items: center;
+  padding: 1.5rem; display: flex; justify-content: flex-start; align-items: center;
   min-height: 180px; overflow: auto;
 }
 canvas { image-rendering: pixelated; }
-.stage canvas { max-width: none; }
+.stage canvas { flex: none; margin-inline: auto; max-width: none; }
 .meta { color: var(--muted); font-size: .8rem; font-family: ui-monospace, Menlo, monospace; }
 .err { color: #ff8b8b; }
 

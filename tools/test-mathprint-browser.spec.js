@@ -83,6 +83,12 @@ test('preserves a long expression typed while assets load', async ({ page }) => 
   expect(await page.locator('#timeline').evaluate(element => ({
     maximum:Number(element.max), value:Number(element.value),
   }))).toEqual({maximum:198, value:198});
+  await page.locator('#source').selectOption('model');
+  await expect(page.locator('#dims')).toHaveText(
+    '103×23 model pixels · 106 px record extent · ' +
+    '10 px wider than 96 px LCD · editor x clip 17 px');
+  await expect(page.locator('#screen')).toHaveAttribute('width', '666');
+  await expect(page.locator('#screen')).toHaveAttribute('height', '186');
   expect(pageErrors).toEqual([]);
 });
 
@@ -118,5 +124,23 @@ test('keeps growing the model and LCD viewport after a second overflow',
         0, 0, canvas.width, canvas.height).data));
     expect(crypto.createHash('sha256').update(Buffer.from(rgba)).digest('hex'))
       .toBe('3385da78a46c0c334432e3b8744cc2632a2fb2732089c1f38a972697577a8d9c');
+    await page.locator('#source').selectOption('model');
+    await expect(page.locator('#dims')).toHaveText(
+      '159×23 model pixels · 162 px record extent · ' +
+      '66 px wider than 96 px LCD · editor x clip 73 px');
+    await expect(page.locator('#screen')).toHaveAttribute('width', '1002');
+    await expect(page.locator('#screen')).toHaveAttribute('height', '186');
+    const modelStage = await page.locator('.stage').evaluate(element => ({
+      clientWidth:element.clientWidth,
+      scrollWidth:element.scrollWidth,
+      maximumScroll:element.scrollWidth - element.clientWidth,
+    }));
+    expect(modelStage.scrollWidth).toBeGreaterThanOrEqual(1050);
+    expect(modelStage.maximumScroll).toBeGreaterThanOrEqual(232);
+    const modelRgba = await page.locator('#screen').evaluate(canvas =>
+      Array.from(canvas.getContext('2d').getImageData(
+        0, 0, canvas.width, canvas.height).data));
+    expect(crypto.createHash('sha256').update(Buffer.from(modelRgba)).digest('hex'))
+      .toBe('0764c5bd5a9a1639ea8056cf5d4fa2b34c2628d120da30d0dfe1016129005542');
     expect(pageErrors).toEqual([]);
   });
