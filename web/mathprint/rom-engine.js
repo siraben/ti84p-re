@@ -273,6 +273,89 @@
       '39:4CA4', false);
   }
 
+  function editorNineByteBuffer(value, label) {
+    if (!Array.isArray(value) && !(value instanceof Uint8Array))
+      throw new TypeError(`${label} must be a nine-byte array`);
+    if (value.length !== 9)
+      throw new RangeError(`${label} must contain exactly nine bytes`);
+    return Array.from(value, (item, index) => byte(item, `${label} byte ${index}`));
+  }
+
+  // 39:5B10/5B1D and 39:5B2B/5B38 wrap the normal 59E0h and variable
+  // 59F9h parser services. Bit 5 of IY+11h gates the entire wrapper. An
+  // enabled wrapper restores a nine-byte saved operand to OP1 before the
+  // service call; carry returns immediately. Carry clear saves the service's
+  // OP1 result back to the source scratch slot through 5AD2h (E7) or 5B08h
+  // (F2). The service result stays an explicit input because its page-7 parser
+  // body is outside this closed state machine.
+  function editorSavedOperandWrapper(source, service, recordFlags,
+                                     buffers, serviceResult = {}) {
+    if (source !== 'saved-E7' && source !== 'saved-F2')
+      throw new RangeError('editor saved operand source must be saved-E7 or saved-F2');
+    if (service !== 'normal' && service !== 'variable')
+      throw new RangeError('editor saved operand service must be normal or variable');
+    byte(recordFlags, 'editor record flags');
+    if (!buffers || typeof buffers !== 'object' || Array.isArray(buffers))
+      throw new TypeError('editor saved operand buffers must be an object');
+    if (!serviceResult || typeof serviceResult !== 'object' ||
+        Array.isArray(serviceResult))
+      throw new TypeError('editor saved operand service result must be an object');
+    let op1 = editorNineByteBuffer(buffers.op1, 'editor OP1');
+    let savedE7 = editorNineByteBuffer(buffers.savedE7, 'editor saved E7');
+    let savedF2 = editorNineByteBuffer(buffers.savedF2, 'editor saved F2');
+    const incomingCarry = serviceResult.incomingCarry === undefined ? false :
+      boolean(serviceResult.incomingCarry, 'editor wrapper incoming carry');
+    const entry = source === 'saved-E7'
+      ? service === 'normal' ? '39:5B10' : '39:5B1D'
+      : service === 'normal' ? '39:5B2B' : '39:5B38';
+    const bit5Set = (recordFlags & 0x20) !== 0;
+    const base = {
+      source, service, recordFlags, bit5Set, incomingCarry,
+      serviceRoutine:service === 'normal' ? '39:59E0' : '39:59F9',
+      routine:entry,
+    };
+    if (!bit5Set)
+      return {
+        ...base, branch:'gated-return', serviceCalled:false,
+        serviceInput:null, carry:incomingCarry, copies:[],
+        buffers:{op1,savedE7,savedF2},
+      };
+    if (serviceResult.carry === undefined)
+      throw new TypeError('enabled editor saved operand service must supply carry');
+    const serviceCarry = boolean(
+      serviceResult.carry, 'editor saved operand service carry');
+    const serviceOp1 = editorNineByteBuffer(
+      serviceResult.op1, 'editor saved operand service OP1');
+    const restoreRoutine = source === 'saved-E7' ? '39:5AE1' : '39:5B00';
+    const sourceBuffer = source === 'saved-E7' ? savedE7 : savedF2;
+    op1 = sourceBuffer.slice();
+    const serviceInput = op1.slice();
+    const copies = [{
+      from:source === 'saved-E7' ? 0x85e7 : 0x85f2,
+      to:0x8478, bytes:9, routine:`${restoreRoutine} → 00:1A92`,
+    }];
+    op1 = serviceOp1;
+    if (serviceCarry)
+      return {
+        ...base, branch:'service-carry', serviceCalled:true,
+        serviceInput, carry:true, copies,
+        buffers:{op1,savedE7,savedF2},
+      };
+    if (source === 'saved-E7') savedE7 = op1.slice();
+    else savedF2 = op1.slice();
+    const saveAddress = source === 'saved-E7' ? 0x85e7 : 0x85f2;
+    const saveRoutine = source === 'saved-E7' ? '39:5AD2' : '39:5B08';
+    copies.push({
+      from:0x8478, to:saveAddress, bytes:9,
+      routine:`${saveRoutine} → 00:1A92`,
+    });
+    return {
+      ...base, branch:'save-result', serviceCalled:true,
+      serviceInput, carry:false, copies,
+      buffers:{op1,savedE7,savedF2},
+    };
+  }
+
   // 39:66FE temporarily moves the text cursor to row 1, column 1, emits the
   // forward-overflow code 1Eh, then restores the word at 844Bh. The cursor
   // restore makes the state transition independent of _PutC's own advance.
@@ -321,9 +404,23 @@
       throw new TypeError('editor argument advance options must be an object');
     const winTop = options.winTop === undefined ? null :
       byte(options.winTop, 'editor window top');
+    const savedOperandBuffers = options.savedOperandBuffers === undefined
+      ? null : options.savedOperandBuffers;
+    const savedE7ServiceResult = options.savedE7ServiceResult === undefined
+      ? null : options.savedE7ServiceResult;
+    const savedF2ServiceResult = options.savedF2ServiceResult === undefined
+      ? null : options.savedF2ServiceResult;
+    const savedF2CarrySpecified = options.savedF2EmitterCarry !== undefined;
     const savedF2EmitterCarry = options.savedF2EmitterCarry === undefined
       ? false : boolean(options.savedF2EmitterCarry,
         'editor saved-F2 emitter carry');
+    const transitionFor = (source, result, state = savedOperandBuffers) => {
+      if (result === null) return null;
+      if (state === null)
+        throw new TypeError('editor saved operand service result requires buffers');
+      return editorSavedOperandWrapper(
+        source, 'normal', recordFlags, state, result);
+    };
     const base = {
       layoutClass, argumentIndex, argumentCount, currentRow, recordFlags,
       winTop, savedF2EmitterCarry, routine:'39:5167',
@@ -358,6 +455,7 @@
     const rowLimit = rowStep === 2 ? 6 : 7;
     if (currentRow < rowLimit) {
       const placementRow = (currentRow + rowStep) & 0xff;
+      const e7Transition = transitionFor('saved-E7',savedE7ServiceResult);
       return {
         ...base, lastArgument, nextArgument, rowStep, rowLimit,
         placementRow, nextRow:null,
@@ -366,7 +464,8 @@
           {kind:'emit-argument-index',argument:argumentIndex,routine:'39:4E0A'},
           {kind:'advance-row',rows:rowStep,value:placementRow},
           {kind:'emit-argument-index',argument:nextArgument,routine:'39:4E0A'},
-          {kind:'emit-operand',source:'saved-E7',routine:'39:5B10'},
+          {kind:'emit-operand',source:'saved-E7',routine:'39:5B10',
+            ...(e7Transition ? {transition:e7Transition} : {})},
           {kind:'set-row-for-token',routine:'39:5447'},
         ],
         continuation:'row-token-tail',
@@ -386,27 +485,41 @@
         ],
         continuation:'subexpression-window',
       };
-    if (savedF2EmitterCarry)
+    const f2Transition = transitionFor('saved-F2',savedF2ServiceResult);
+    const effectiveF2Carry = f2Transition
+      ? f2Transition.carry : savedF2EmitterCarry;
+    if (f2Transition && savedF2CarrySpecified &&
+        savedF2EmitterCarry !== effectiveF2Carry)
+      throw new RangeError('editor saved-F2 carry contradicts its service result');
+    if (effectiveF2Carry)
       return {
         ...base, lastArgument, nextArgument, rowStep, rowLimit,
+        savedF2EmitterCarry:effectiveF2Carry,
         placementRow:null, nextRow:null, branch:'styled-overflow-carry',
         effects:[
-          {kind:'emit-operand',source:'saved-F2',routine:'39:5B2B',carry:true},
+          {kind:'emit-operand',source:'saved-F2',routine:'39:5B2B',carry:true,
+            ...(f2Transition ? {transition:f2Transition} : {})},
           {kind:'set-row-for-token',routine:'39:5447'},
         ],
         continuation:'row-token-tail',
       };
+    const e7Transition = transitionFor(
+      'saved-E7', savedE7ServiceResult,
+      f2Transition ? f2Transition.buffers : savedOperandBuffers);
     return {
       ...base, lastArgument, nextArgument, rowStep, rowLimit,
+      savedF2EmitterCarry:effectiveF2Carry,
       placementRow:null, nextRow:null, branch:'styled-overflow',
       effects:[
-        {kind:'emit-operand',source:'saved-F2',routine:'39:5B2B',carry:false},
+        {kind:'emit-operand',source:'saved-F2',routine:'39:5B2B',carry:false,
+          ...(f2Transition ? {transition:f2Transition} : {})},
         {kind:'emit-argument-index',argument:argumentIndex,routine:'39:4E0A'},
         {kind:'set-overflow',curCol:1,routine:'39:6712'},
         {kind:'save-window-top',value:winTop},
         {kind:'set-window-top',value:1},
         {kind:'scroll-editor',direction:'forward',routine:'39:3C81'},
-        {kind:'emit-operand',source:'saved-E7',routine:'39:5B10'},
+        {kind:'emit-operand',source:'saved-E7',routine:'39:5B10',
+          ...(e7Transition ? {transition:e7Transition} : {})},
         {kind:'emit-saved-operand-tail',argument:nextArgument,routine:'39:5B46'},
         {kind:'finish-forward-overflow',...editorForwardOverflowCue()},
         {kind:'restore-window-top',value:winTop},
@@ -435,9 +548,23 @@
       byte(options.winTop, 'editor window top');
     const winBottom = options.winBottom === undefined ? null :
       byte(options.winBottom, 'editor window bottom');
+    const savedOperandBuffers = options.savedOperandBuffers === undefined
+      ? null : options.savedOperandBuffers;
+    const savedE7ServiceResult = options.savedE7ServiceResult === undefined
+      ? null : options.savedE7ServiceResult;
+    const savedF2ServiceResult = options.savedF2ServiceResult === undefined
+      ? null : options.savedF2ServiceResult;
+    const savedF2CarrySpecified = options.savedF2EmitterCarry !== undefined;
     const savedF2EmitterCarry = options.savedF2EmitterCarry === undefined
       ? false : boolean(options.savedF2EmitterCarry,
         'editor saved-F2 emitter carry');
+    const transitionFor = (source, result, state = savedOperandBuffers) => {
+      if (result === null) return null;
+      if (state === null)
+        throw new TypeError('editor saved operand service result requires buffers');
+      return editorSavedOperandWrapper(
+        source, 'variable', recordFlags, state, result);
+    };
     const base = {
       layoutClass, argumentIndex, argumentCount, currentRow, baselineRow,
       recordFlags, winTop, savedF2EmitterCarry, routine:'39:523B',
@@ -452,6 +579,7 @@
     const twoRowUnderflow = rowStep === 2 && currentRow < 3;
     if (!twoRowUnderflow && currentRow > baselineRow) {
       const placementRow = (currentRow - rowStep) & 0xff;
+      const e7Transition = transitionFor('saved-E7',savedE7ServiceResult);
       return {
         ...base, nextArgument, rowStep, twoRowUnderflow,
         placementRow, nextRow:null, branch:'in-row',
@@ -459,7 +587,8 @@
           {kind:'emit-argument-index',argument:argumentIndex,routine:'39:4E0A'},
           {kind:'retreat-row',rows:rowStep,value:placementRow},
           {kind:'emit-argument-index',argument:nextArgument,routine:'39:4E0A'},
-          {kind:'emit-variable',source:'saved-E7',routine:'39:5B1D'},
+          {kind:'emit-variable',source:'saved-E7',routine:'39:5B1D',
+            ...(e7Transition ? {transition:e7Transition} : {})},
           {kind:'set-row-for-token',routine:'39:5447'},
         ],
         continuation:'row-token-tail',
@@ -478,29 +607,43 @@
         ],
         continuation:'subexpression-window',
       };
-    if (savedF2EmitterCarry)
+    const f2Transition = transitionFor('saved-F2',savedF2ServiceResult);
+    const effectiveF2Carry = f2Transition
+      ? f2Transition.carry : savedF2EmitterCarry;
+    if (f2Transition && savedF2CarrySpecified &&
+        savedF2EmitterCarry !== effectiveF2Carry)
+      throw new RangeError('editor saved-F2 carry contradicts its service result');
+    if (effectiveF2Carry)
       return {
         ...base, nextArgument, rowStep, twoRowUnderflow,
+        savedF2EmitterCarry:effectiveF2Carry,
         placementRow:null, nextRow:null, branch:'styled-overflow-carry',
         effects:[
-          {kind:'emit-variable',source:'saved-F2',routine:'39:5B38',carry:true},
+          {kind:'emit-variable',source:'saved-F2',routine:'39:5B38',carry:true,
+            ...(f2Transition ? {transition:f2Transition} : {})},
           {kind:'set-row-for-token',routine:'39:5447'},
         ],
         continuation:'row-token-tail',
       };
     const remainingArguments = (argumentCount - nextArgument) & 0xff;
+    const e7Transition = transitionFor(
+      'saved-E7', savedE7ServiceResult,
+      f2Transition ? f2Transition.buffers : savedOperandBuffers);
     return {
       ...base, nextArgument, rowStep, twoRowUnderflow,
+      savedF2EmitterCarry:effectiveF2Carry,
       placementRow:null, nextRow:null, remainingArguments,
       branch:'styled-overflow',
       effects:[
-        {kind:'emit-variable',source:'saved-F2',routine:'39:5B38',carry:false},
+        {kind:'emit-variable',source:'saved-F2',routine:'39:5B38',carry:false,
+          ...(f2Transition ? {transition:f2Transition} : {})},
         {kind:'emit-argument-index',argument:argumentIndex,routine:'39:4E0A'},
         {kind:'set-overflow',curCol:1,routine:'39:6712'},
         {kind:'save-window-top',value:winTop},
         {kind:'set-window-top',value:1},
         {kind:'scroll-editor',direction:'reverse',routine:'39:3C93'},
-        {kind:'emit-variable',source:'saved-E7',routine:'39:5B1D'},
+        {kind:'emit-variable',source:'saved-E7',routine:'39:5B1D',
+          ...(e7Transition ? {transition:e7Transition} : {})},
         {kind:'emit-saved-operand-tail',argument:nextArgument,routine:'39:5B46'},
         {kind:'finish-reverse-overflow',remainingArguments,
           branch:remainingArguments < 8 ? 'return' : 'window-bottom',
@@ -4967,6 +5110,7 @@
     editorLayoutArgument,
     editorSubexpressionWindow,
     editorSubexpressionCell,
+    editorSavedOperandWrapper,
     editorForwardOverflowCue,
     editorReverseOverflowCue,
     editorAdvanceArgument,

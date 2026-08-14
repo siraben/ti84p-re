@@ -518,7 +518,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in nine finite models. It also computes an
+complete path-equivalence class in ten finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -534,9 +534,10 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Editor action `0x03` controller | 131,072 | 11 | 9 | 4 |
 | Editor action `0x04` controller | 131,072 | 5 | 5 | 3 |
 | Reverse argument-overflow cue | 65,536 | 2 | 2 | 2 |
+| Saved-operand wrappers | 16 | 12 | 12 | 8 |
 
-The nine models contain 1,202 path classes and 94 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 52 representatives. Each
+The ten models contain 1,214 path classes and 106 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 60 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -751,10 +752,23 @@ endpoints, one- and two-row movement, subexpression fallback, both styled
 scroll directions, and the saved-F2 emitter's carry exit. The forward two-row
 path compares `0x844B` with 6 at `39:5181`; the reverse path compares it with 3
 at `39:5244`. These jumps reach `39:4C5A` before the styled-record test. Calls
-into the parser, saved-operand emitters, and scroll helpers remain ordered
-effects because those routines are outside the closed row arithmetic.
+into parser services and scroll helpers remain explicit effects because those
+routines are outside the closed row arithmetic.
 The increment-wrap guard cannot execute: its preceding unsigned predicate
 requires a nonzero count and an index at most `count - 2`. [confirmed]
+
+The saved-operand wrappers at `39:5B10`–`39:5B44` move nine-byte operand
+buffers through OP1 at `0x8478`. The E7 wrappers restore from `0x85E7`; the F2
+wrappers restore from `0x85F2`. Each restore uses `_Mov9B` at `00:1A92`, then
+calls the normal service at `39:59E0` or the variable service at `39:59F9`.
+Bit 5 of `(IY+11h)` gates the entire wrapper. A clear bit preserves the
+incoming carry and performs no copy or service call. With the bit set, service
+carry returns without writeback. Carry clear copies OP1 back to the selected
+source: `39:5AD2` writes `0x85E7`, and `39:5B08` writes `0x85F2`. The page-7
+service bodies reached from `39:59E0` and `39:59F9` remain explicit model
+inputs. A raw-byte interpreter covers all 4,096 wrapper, gate, carry, and
+buffer-source combinations and every value in each byte position. [confirmed]
+
 `editorForwardOverflowCue()` and `editorReverseOverflowCue()` translate the
 closed cue routines at `39:66FE` and `39:66E9`. The reverse routine subtracts
 the selected argument at `0x85E0` from the count at `0x85E2` with byte

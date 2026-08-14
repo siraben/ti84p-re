@@ -1040,6 +1040,91 @@ def symbolic_editor_reverse_overflow_cue_paths() -> list[dict[str, object]]:
     ]
 
 
+def editor_saved_operand_wrapper_path(
+    source: str,
+    service: str,
+    bit5_set: int,
+    service_carry: int,
+) -> dict[str, object]:
+    """Return one saved-operand wrapper path at 39:5B10–5B44."""
+
+    entries = {
+        ("saved-E7", "normal"): (0x5B14, 0x5B28),
+        ("saved-E7", "variable"): (0x5B21, 0x5B28),
+        ("saved-F2", "normal"): (0x5B2F, 0x5B43),
+        ("saved-F2", "variable"): (0x5B3C, 0x5B43),
+    }
+    if (source, service) not in entries:
+        raise ValueError("unknown saved-operand wrapper")
+    gate_address, carry_address = entries[(source, service)]
+    bit5_set = int(bool(bit5_set))
+    service_carry = int(bool(service_carry))
+    outcomes = [
+        f"39:{gate_address:04X}:{'fallthrough' if bit5_set else 'taken'}"
+    ]
+    if not bit5_set:
+        return {
+            "terminal": "gated_return",
+            "writeback": None,
+            "branch_outcomes": outcomes,
+        }
+    outcomes.append(
+        f"39:{carry_address:04X}:{'taken' if service_carry else 'fallthrough'}"
+    )
+    return {
+        "terminal": (
+            "service_carry" if service_carry
+            else f"writeback_{source[-2:]}"
+        ),
+        "writeback": None if service_carry else source,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_editor_saved_operand_wrapper_paths() -> list[dict[str, object]]:
+    """Partition all wrapper/source/service/gate/carry predicate states."""
+
+    classes: dict[
+        tuple[str, str | None, tuple[str, ...]], dict[str, object]
+    ] = {}
+    for source in ("saved-E7", "saved-F2"):
+        for service in ("normal", "variable"):
+            for bit5_set in (0, 1):
+                for service_carry in (0, 1):
+                    result = editor_saved_operand_wrapper_path(
+                        source, service, bit5_set, service_carry
+                    )
+                    key = (
+                        str(result["terminal"]),
+                        result["writeback"],
+                        tuple(str(item) for item in result["branch_outcomes"]),
+                    )
+                    row = classes.setdefault(key, {
+                        "projected_input_count": 0,
+                        "representative_states": [],
+                    })
+                    row["projected_input_count"] += 1
+                    states = row["representative_states"]
+                    if len(states) < 4:
+                        states.append({
+                            "source": source,
+                            "service": service,
+                            "bit5_set": bit5_set,
+                            "service_carry": service_carry,
+                        })
+    return [
+        {
+            "terminal": terminal,
+            "writeback": writeback,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, writeback, outcomes)],
+        }
+        for terminal, writeback, outcomes in sorted(
+            classes, key=lambda item: (item[0], item[1] or "", item[2])
+        )
+    ]
+
+
 def raised_extended_token_path(a: int, e: int) -> dict[str, object]:
     """Partition the packed-token classifier at 34:580C.
 
@@ -1756,6 +1841,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             0x10000,
             symbolic_editor_reverse_overflow_cue_paths(),
         ),
+        (
+            "editor_saved_operand_wrappers",
+            "39:5B10",
+            16,
+            symbolic_editor_saved_operand_wrapper_paths(),
+        ),
     )
     domains = []
     all_outcomes: set[str] = set()
@@ -1814,7 +1905,7 @@ def symbolic_model_corpus() -> dict[str, object]:
     return {
         "scope": (
             "all projected inputs and complete path equivalence classes in the "
-            "nine declared finite symbolic models"
+            "ten declared finite symbolic models"
         ),
         "not_claimed": [
             "all Z80 register and RAM states",
