@@ -1,6 +1,7 @@
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
+const crypto = require('crypto');
 const { test, expect } = require('@playwright/test');
 
 const mathprintRoot = path.join(__dirname, '..', 'web', 'mathprint');
@@ -107,5 +108,15 @@ test('keeps growing the model and LCD viewport after a second overflow',
     await expect(page.locator('#dims')).toContainText('editor x clip 73 px');
     await expect(page.locator('#timeline-note')).toContainText(
       'The expression remains complete in the input field');
+    await expect(page.locator('#screen')).toHaveAttribute('width', '600');
+    await expect(page.locator('#screen')).toHaveAttribute('height', '408');
+    expect(await page.locator('#timeline').evaluate(element => ({
+      maximum:Number(element.max), value:Number(element.value),
+    }))).toEqual({maximum:198, value:198});
+    const rgba = await page.locator('#screen').evaluate(canvas =>
+      Array.from(canvas.getContext('2d').getImageData(
+        0, 0, canvas.width, canvas.height).data));
+    expect(crypto.createHash('sha256').update(Buffer.from(rgba)).digest('hex'))
+      .toBe('3385da78a46c0c334432e3b8744cc2632a2fb2732089c1f38a972697577a8d9c');
     expect(pageErrors).toEqual([]);
   });
