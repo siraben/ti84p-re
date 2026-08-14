@@ -155,10 +155,11 @@ unsupported, and over-wide input keeps the lenient compositor so editing remains
 visible while the settled path reports its exact construction boundary.
 
 `rom-engine.js` exposes the closed editor helpers separately from the settled
-record executor. `editorAdvanceArgument()` translates the argument-count,
-slot-advance, row-step, and row-7 overflow branches at `39:5167`. Parser and
-operand-emitter calls remain explicit ordered effects rather than generated
-pixels.
+record executor. `editorAdvanceArgument()` and `editorRetreatArgument()`
+translate forward and reverse slot movement at `39:5167` and `39:523B`. They
+preserve the asymmetric two-row overflow guards, styled scroll sequences, and
+saved-emitter carry exits. Parser, operand-emitter, and scroll calls remain
+explicit ordered effects rather than generated pixels.
 
 ## Tooling
 

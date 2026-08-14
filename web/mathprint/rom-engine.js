@@ -16,6 +16,12 @@
     return value;
   };
 
+  const boolean = (value, label) => {
+    if (typeof value !== 'boolean')
+      throw new TypeError(`${label} must be a boolean`);
+    return value;
+  };
+
   let SETTLED_TOKEN_STRINGS = null;
 
   const SETTLED_TWO_BYTE_TABLES = Object.freeze({
@@ -281,64 +287,192 @@
       throw new TypeError('editor argument advance options must be an object');
     const winTop = options.winTop === undefined ? null :
       byte(options.winTop, 'editor window top');
+    const savedF2EmitterCarry = options.savedF2EmitterCarry === undefined
+      ? false : boolean(options.savedF2EmitterCarry,
+        'editor saved-F2 emitter carry');
     const base = {
       layoutClass, argumentIndex, argumentCount, currentRow, recordFlags,
-      winTop, routine:'39:5167',
+      winTop, savedF2EmitterCarry, routine:'39:5167',
     };
     if (argumentCount === 0)
       return {
         ...base, lastArgument:null, nextArgument:argumentIndex, rowStep:0,
-        nextRow:currentRow, branch:'empty', effects:['set-row-return'],
-        continuation:'return',
+        placementRow:null, nextRow:null, branch:'empty',
+        effects:[{kind:'set-row-for-token',routine:'39:5447'}],
+        continuation:'row-token-tail',
       };
     const lastArgument = argumentCount - 1;
     if (argumentIndex >= lastArgument)
       return {
         ...base, lastArgument, nextArgument:argumentIndex, rowStep:0,
-        nextRow:currentRow, branch:'at-or-past-last',
-        effects:['set-row-return'], continuation:'return',
+        placementRow:null, nextRow:null, branch:'at-or-past-last',
+        effects:[{kind:'set-row-for-token',routine:'39:5447'}],
+        continuation:'row-token-tail',
       };
     const nextArgument = (argumentIndex + 1) & 0xff;
     const rowStep = multiArgumentRowStep(layoutClass, argumentIndex);
     if (nextArgument === 0)
       return {
         ...base, lastArgument, nextArgument:argumentIndex, rowStep:0,
-        nextRow:currentRow, branch:'argument-wrap-guard',
-        effects:['restore-argument-index','set-row-return'],
-        continuation:'return',
+        placementRow:null, nextRow:null, branch:'argument-wrap-guard',
+        effects:[
+          {kind:'restore-argument-index'},
+          {kind:'set-row-for-token',routine:'39:5447'},
+        ],
+        continuation:'row-token-tail',
       };
-    if (currentRow < 7)
+    const rowLimit = rowStep === 2 ? 6 : 7;
+    if (currentRow < rowLimit) {
+      const placementRow = (currentRow + rowStep) & 0xff;
       return {
-        ...base, lastArgument, nextArgument, rowStep,
-        nextRow:(currentRow + rowStep) & 0xff,
+        ...base, lastArgument, nextArgument, rowStep, rowLimit,
+        placementRow, nextRow:null,
         branch:'in-row',
         effects:[
-          {kind:'emit-argument-index',argument:argumentIndex},
-          {kind:'advance-row',rows:rowStep},
-          {kind:'emit-argument-index',argument:nextArgument},
-          {kind:'emit-operand',source:'saved-E7'},
-          {kind:'set-row-return'},
+          {kind:'emit-argument-index',argument:argumentIndex,routine:'39:4E0A'},
+          {kind:'advance-row',rows:rowStep,value:placementRow},
+          {kind:'emit-argument-index',argument:nextArgument,routine:'39:4E0A'},
+          {kind:'emit-operand',source:'saved-E7',routine:'39:5B10'},
+          {kind:'set-row-for-token',routine:'39:5447'},
         ],
-        continuation:'return',
+        continuation:'row-token-tail',
       };
-    if (recordFlags & 0x20)
+    }
+    // The class-06 two-row guard jumps directly to 51E5 before the styled
+    // record-bit test. Rows 6 and 7 therefore always use 4C5A on that path.
+    if (rowStep === 2 || (recordFlags & 0x20) === 0)
       return {
-        ...base, lastArgument, nextArgument, rowStep,
-        nextRow:currentRow, branch:'styled-overflow',
+        ...base, lastArgument, nextArgument, rowStep, rowLimit,
+        placementRow:currentRow, nextRow:null,
+        branch:'subexpression-overflow',
         effects:[
-          {kind:'emit-variable',source:'saved-F2'},
-          {kind:'emit-argument-index',argument:argumentIndex},
-          {kind:'set-overflow'},
-          {kind:'set-window-top',value:1,saved:winTop},
+          {kind:'emit-subexpression',routine:'39:4C5A'},
+          {kind:'restore-row',value:currentRow},
+          {kind:'set-row-for-token',routine:'39:5447'},
         ],
-        continuation:'cross-page-jump',
+        continuation:'subexpression-window',
+      };
+    if (savedF2EmitterCarry)
+      return {
+        ...base, lastArgument, nextArgument, rowStep, rowLimit,
+        placementRow:null, nextRow:null, branch:'styled-overflow-carry',
+        effects:[
+          {kind:'emit-operand',source:'saved-F2',routine:'39:5B2B',carry:true},
+          {kind:'set-row-for-token',routine:'39:5447'},
+        ],
+        continuation:'row-token-tail',
       };
     return {
-      ...base, lastArgument, nextArgument, rowStep,
-      nextRow:currentRow, branch:'subexpression-overflow',
-      effects:[{kind:'emit-subexpression',routine:'39:4C5A'},
-        {kind:'set-row-return'}],
-      continuation:'subexpression-window',
+      ...base, lastArgument, nextArgument, rowStep, rowLimit,
+      placementRow:null, nextRow:null, branch:'styled-overflow',
+      effects:[
+        {kind:'emit-operand',source:'saved-F2',routine:'39:5B2B',carry:false},
+        {kind:'emit-argument-index',argument:argumentIndex,routine:'39:4E0A'},
+        {kind:'set-overflow',curCol:1,routine:'39:6712'},
+        {kind:'save-window-top',value:winTop},
+        {kind:'set-window-top',value:1},
+        {kind:'scroll-editor',direction:'forward',routine:'39:3C81'},
+        {kind:'emit-operand',source:'saved-E7',routine:'39:5B10'},
+        {kind:'emit-saved-operand-tail',argument:nextArgument,routine:'39:5B46'},
+        {kind:'finish-forward-overflow',routine:'39:66FE'},
+        {kind:'restore-window-top',value:winTop},
+        {kind:'set-row-for-token',routine:'39:5447'},
+      ],
+      continuation:'row-token-tail',
+    };
+  }
+
+  // 39:523B is the reverse half of the action-03 argument walker. It first
+  // decrements 85E0, then chooses the row step from the new slot. The saved
+  // operand wrappers and scroll helpers remain ordered effects because their
+  // parser and cross-page bodies are outside this closed arithmetic path.
+  function editorRetreatArgument(layoutClass, argumentIndex, argumentCount,
+                                 currentRow, baselineRow, recordFlags,
+                                 options = {}) {
+    byte(layoutClass, 'editor layout class');
+    byte(argumentIndex, 'editor argument index');
+    byte(argumentCount, 'editor argument count');
+    byte(currentRow, 'editor current row');
+    byte(baselineRow, 'editor baseline row');
+    byte(recordFlags, 'editor record flags');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('editor argument retreat options must be an object');
+    const winTop = options.winTop === undefined ? null :
+      byte(options.winTop, 'editor window top');
+    const savedF2EmitterCarry = options.savedF2EmitterCarry === undefined
+      ? false : boolean(options.savedF2EmitterCarry,
+        'editor saved-F2 emitter carry');
+    const base = {
+      layoutClass, argumentIndex, argumentCount, currentRow, baselineRow,
+      recordFlags, winTop, savedF2EmitterCarry, routine:'39:523B',
+    };
+    if (argumentIndex === 0)
+      return {
+        ...base, nextArgument:0, rowStep:0, placementRow:null, nextRow:null,
+        branch:'at-first', effects:[], continuation:'action-03-first-argument',
+      };
+    const nextArgument = argumentIndex - 1;
+    const rowStep = multiArgumentRowStep(layoutClass, nextArgument);
+    const twoRowUnderflow = rowStep === 2 && currentRow < 3;
+    if (!twoRowUnderflow && currentRow > baselineRow) {
+      const placementRow = (currentRow - rowStep) & 0xff;
+      return {
+        ...base, nextArgument, rowStep, twoRowUnderflow,
+        placementRow, nextRow:null, branch:'in-row',
+        effects:[
+          {kind:'emit-argument-index',argument:argumentIndex,routine:'39:4E0A'},
+          {kind:'retreat-row',rows:rowStep,value:placementRow},
+          {kind:'emit-argument-index',argument:nextArgument,routine:'39:4E0A'},
+          {kind:'emit-variable',source:'saved-E7',routine:'39:5B1D'},
+          {kind:'set-row-for-token',routine:'39:5447'},
+        ],
+        continuation:'row-token-tail',
+      };
+    }
+    // The two-row underflow jump reaches 51E6 before the styled-record test.
+    if (twoRowUnderflow || (recordFlags & 0x20) === 0)
+      return {
+        ...base, nextArgument, rowStep, twoRowUnderflow,
+        placementRow:currentRow, nextRow:null,
+        branch:'subexpression-overflow',
+        effects:[
+          {kind:'emit-subexpression',routine:'39:4C5A'},
+          {kind:'restore-row',value:currentRow},
+          {kind:'set-row-for-token',routine:'39:5447'},
+        ],
+        continuation:'subexpression-window',
+      };
+    if (savedF2EmitterCarry)
+      return {
+        ...base, nextArgument, rowStep, twoRowUnderflow,
+        placementRow:null, nextRow:null, branch:'styled-overflow-carry',
+        effects:[
+          {kind:'emit-variable',source:'saved-F2',routine:'39:5B38',carry:true},
+          {kind:'set-row-for-token',routine:'39:5447'},
+        ],
+        continuation:'row-token-tail',
+      };
+    const remainingArguments = (argumentCount - nextArgument) & 0xff;
+    return {
+      ...base, nextArgument, rowStep, twoRowUnderflow,
+      placementRow:null, nextRow:null, remainingArguments,
+      branch:'styled-overflow',
+      effects:[
+        {kind:'emit-variable',source:'saved-F2',routine:'39:5B38',carry:false},
+        {kind:'emit-argument-index',argument:argumentIndex,routine:'39:4E0A'},
+        {kind:'set-overflow',curCol:1,routine:'39:6712'},
+        {kind:'save-window-top',value:winTop},
+        {kind:'set-window-top',value:1},
+        {kind:'scroll-editor',direction:'reverse',routine:'39:3C93'},
+        {kind:'emit-variable',source:'saved-E7',routine:'39:5B1D'},
+        {kind:'emit-saved-operand-tail',argument:nextArgument,routine:'39:5B46'},
+        {kind:'finish-reverse-overflow',remainingArguments,
+          branch:remainingArguments < 8 ? 'return' : 'window-bottom',
+          routine:'39:66E9'},
+        {kind:'restore-window-top',value:winTop},
+        {kind:'set-row-for-token',routine:'39:5447'},
+      ],
+      continuation:'row-token-tail',
     };
   }
 
@@ -4651,6 +4785,7 @@
     editorSubexpressionWindow,
     editorSubexpressionCell,
     editorAdvanceArgument,
+    editorRetreatArgument,
     mapDirectGlyph,
     classifyCell,
     keyToStringIndex,

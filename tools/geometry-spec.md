@@ -232,6 +232,18 @@ In `39:5167` the returned flag selects the cursor-row (`0x844B`) step:
 The row step is `0x844B += 1` normally and `0x844B += 2` when `39:5949` returns
 Z. Class 6 therefore gives its low slots two display rows. [confirmed]
 
+The overflow boundary depends on that step. The forward two-row branch compares
+`0x844B` with 6 at `39:5181`, while the ordinary branch compares it with 7 at
+`39:5191`. A class-`0x06` low slot therefore falls back to `39:4C5A` from row 6
+or 7. This jump occurs before the `IY+0x11` bit-5 styled-record test at
+`39:5195`. [confirmed]
+
+The reverse path decrements `0x85E0` at `39:523B` before calling `39:5949`.
+For a two-row result, rows below 3 jump to `39:4C5A` at `39:5246`. Otherwise,
+`39:524C` selects in-row placement only when `0x844B` is greater than the saved
+baseline at `0x984A`. Equality and borrow enter the overflow path. The styled
+test at `39:5251` follows both predicates. [confirmed]
+
 ### Slot-to-baseline placement
 
 State used by `39:5167`:
@@ -249,6 +261,10 @@ For each argument, the routine:
 2. Calls `39:4E0A` to mark the slot and set `0x844C` to zero, with `C = 0x85E0`.
 3. `39:5B10` emits forward, while `39:5B1D`/`39:5B38` emit in reverse.
 4. `39:4E14`/`39:4E0A` advance and mark the next argument.
+
+Styled overflow saves `0x97A5`, writes 1, calls `39:3C81` while moving forward
+or `39:3C93` while moving backward, and restores `0x97A5`. Carry from
+`39:5B2B` or `39:5B38` skips that scroll sequence. [confirmed]
 
 The bytes restore the baseline at `0x984A` and reset `0x844B` to row 7 at
 `39:522C` before re-emitting the body. No retained exact trace connects this
