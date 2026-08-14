@@ -188,6 +188,85 @@
     };
   }
 
+  function editorSubexpressionBranch(slot, cellPointer, baselineRow,
+                                     recordFlags, argumentCount, options, routine,
+                                     setsPreEmissionRow) {
+    const menuCurrent = options.menuCurrent === undefined ? null :
+      byte(options.menuCurrent, 'editor current menu');
+    const cellOffset = (slot << 1) & 0xff;
+    const cellAddress = (cellPointer + cellOffset) & 0xffff;
+    const base = {
+      slot, cellPointer, cellOffset, cellAddress, baselineRow,
+      preEmissionRow:setsPreEmissionRow ? (baselineRow - 1) & 0xff : null,
+      recordFlags, argumentCount, menuCurrent,
+      measuresArgumentWidths:true, routine,
+    };
+    if (recordFlags & 0x20)
+      return {
+        ...base, branch:'styled-argument', emission:'styled', finalRow:1,
+        continuation:'unresolved-styled-argument',
+      };
+    if (argumentCount !== 0)
+      return {
+        ...base, branch:'argument-list', emission:'arglist',
+        finalRow:baselineRow, continuation:'return',
+      };
+    if (menuCurrent === 0x41 || menuCurrent === 0x32)
+      return {
+        ...base, branch:'empty-menu-fallback', emission:null,
+        menuReset:0, finalRow:null, continuation:'cross-page-jump',
+      };
+    return {
+      ...base, branch:'empty', emission:null, finalRow:1,
+      continuation:'return',
+    };
+  }
+
+  // 39:4C5A computes the visible argument slot from the current row and
+  // baseline, then emits the row-cell list from the 984Ah base. The styled
+  // and menu/error exits intentionally remain explicit continuations.
+  function editorSubexpressionWindow(argumentIndex, currentRow, baselineRow,
+                                     recordFlags, argumentCount, options = {}) {
+    byte(argumentIndex, 'editor argument index');
+    byte(currentRow, 'editor current row');
+    byte(baselineRow, 'editor baseline row');
+    byte(recordFlags, 'editor record flags');
+    byte(argumentCount, 'editor argument count');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('editor subexpression options must be an object');
+    const rowDelta = (currentRow - baselineRow) & 0xff;
+    if (argumentIndex < rowDelta)
+      return {
+        argumentIndex, currentRow, baselineRow, recordFlags, argumentCount,
+        rowDelta, branch:'argument-before-visible-row', emission:null,
+        continuation:'cross-page-jump', routine:'39:4C5A',
+      };
+    const slot = argumentIndex - rowDelta;
+    return {
+      argumentIndex, currentRow, rowDelta,
+      ...editorSubexpressionBranch(
+      slot, 0x984a, baselineRow, recordFlags, argumentCount, options,
+      '39:4C5A', true),
+    };
+  }
+
+  // 39:4CA4 is the direct-slot variant. Its caller supplies the handler-cell
+  // base, so only the byte-sized slot-to-cell offset is computed here.
+  function editorSubexpressionCell(slot, cellPointer, baselineRow, recordFlags,
+                                   argumentCount, options = {}) {
+    byte(slot, 'editor visible argument slot');
+    if (!Number.isInteger(cellPointer) || cellPointer < 0 || cellPointer > 0xffff)
+      throw new RangeError('editor argument cell pointer must be an unsigned word');
+    byte(baselineRow, 'editor baseline row');
+    byte(recordFlags, 'editor record flags');
+    byte(argumentCount, 'editor argument count');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('editor subexpression options must be an object');
+    return editorSubexpressionBranch(
+      slot, cellPointer, baselineRow, recordFlags, argumentCount, options,
+      '39:4CA4', false);
+  }
+
   // 39:4DCA skips row_count, row cell-count bytes, row-action bytes, and the
   // preceding packed D:E cells. Return both the decoded row and its ROM offsets.
   function handlerRow(layout, layoutClass, rowIndex) {
@@ -4494,6 +4573,8 @@
     editorArgumentClamp,
     editorRowFromArg,
     editorLayoutArgument,
+    editorSubexpressionWindow,
+    editorSubexpressionCell,
     mapDirectGlyph,
     classifyCell,
     keyToStringIndex,
