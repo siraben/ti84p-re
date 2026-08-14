@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6a8e698f.js";
+            window.path_to_searchindex_js = "searchindex-b9f70362.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -1527,6 +1527,16 @@ store. Carry clear adds the remaining distance to the current clip and writes
 it at <code>34:5F87</code>. An endpoint left of the previous clip can therefore clear the
 clip, and an endpoint near <code>0xFFFF</code> can wrap before the bound comparison.
 [confirmed]</p>
+<p>The clip is editor state, not a function of the current width alone. If an edit
+shrinks the 162-pixel three-integral record to the 106-pixel two-integral
+record while <code>ram:8E02</code> is 73, <code>34:5F81</code> returns and retains 73. Shrinking the
+record below 73 takes the borrow path at <code>34:5F64</code> and clears the clip.
+[confirmed]</p>
+<p>The web renderer carries this word across input events and applies the same
+transition to both its full model metadata and its 96-pixel LCD writer. An
+eight-integral boundary regression reaches a 442-pixel record and clip 353
+without truncating its 127 native token bytes. This case is a deterministic
+translation regression.</p>
 <p>The visible expression therefore begins at effective $x=-17$, while the cursor
 cell begins at $x=89$. When <code>ram:8E02</code> is nonzero, <code>34:5FF2</code> calls <code>34:6031</code>.
 That routine draws the seven-row left-overflow bitmap at <code>34:60B8</code> through

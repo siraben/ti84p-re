@@ -644,7 +644,7 @@ function smallText(s) {
 // so the layout updates live as you type. A partial expression — an unclosed
 // paren or a template still missing arguments — lays out what it has rather
 // than refusing to render.
-function parse(src) {
+function parse(src, options = {}) {
   let i = 0;
   const s = src.replace(/\s+/g, '');
   const peek = () => (i < s.length ? s[i] : '');   // '' at EOF: regex.test('') is false
@@ -838,7 +838,7 @@ function parse(src) {
   // settled record graph for that model view as well; partial, unsupported,
   // and over-wide input keeps the lenient compositor so typing never loses a
   // visible equation.
-  const settled = settledModelBox(s);
+  const settled = settledModelBox(s, options);
   if (settled) return settled;
   // Model mode keeps the complete composition visible so that partial input
   // remains useful while typing. Preserve the same endpoint and editor-clip
@@ -846,7 +846,10 @@ function parse(src) {
   // not itself evidence that the 96-pixel LCD can show the whole expression.
   const endpoint = Number.isInteger(box.recordWidth) ? box.recordWidth : bw(box);
   const modelViewport = ROM_ENGINE && Number.isInteger(endpoint) && endpoint <= 0xffff
-    ? ROM_ENGINE.settledEditorViewport(endpoint) : null;
+    ? ROM_ENGINE.settledEditorViewport(endpoint, {
+      previousXClip:options.previousXClip === undefined
+        ? 0 : options.previousXClip,
+    }) : null;
   return {
     ...box,
     modelViewport,
@@ -927,6 +930,7 @@ const PRESETS = Object.freeze([
 ]);
 
 let CUR = null, CUR_TRACE = null, CUR_GENERATED = null, ANIM = null;
+let EDITOR_X_CLIP = 0;
 
 function curColor() {
   return document.getElementById('lcd').checked
@@ -1034,7 +1038,10 @@ function generateRecordProgram(program, options = {}) {
   // answer-display origin and do not use this editor viewport.
   const editorViewport = options.editor === true &&
       program.origin.x === 0 && program.origin.y === 0
-    ? ROM_ENGINE.settledEditorViewport(recordWidth) : null;
+    ? ROM_ENGINE.settledEditorViewport(recordWidth, {
+      previousXClip:options.previousXClip === undefined
+        ? 0 : options.previousXClip,
+    }) : null;
   const operations = editorViewport
     ? ROM_ENGINE.settledEditorViewportOperations(
       recordOperations, editorViewport, recordHeight)
@@ -1096,7 +1103,7 @@ function pixelBounds(points) {
 // is the model counterpart of generateRecordProgram(): it retains the full
 // record endpoint while cropping only blank bitmap margins, then turns the
 // translated primitive stream into model-local marks for the draw-order view.
-function settledModelBox(source) {
+function settledModelBox(source, options = {}) {
   if (!ROM_ENGINE || !FONT || typeof constructedProgramForExpression !== 'function')
     return null;
   let program;
@@ -1168,7 +1175,10 @@ function settledModelBox(source) {
     });
   }
   const modelViewport = entry.word07 <= 0xffff
-    ? ROM_ENGINE.settledEditorViewport(entry.word07) : null;
+    ? ROM_ENGINE.settledEditorViewport(entry.word07, {
+      previousXClip:options.previousXClip === undefined
+        ? 0 : options.previousXClip,
+    }) : null;
   return {
     rows, baseline:Math.max(0, entry.word0B - top), marks,
     adv:entry.word07, recordWidth:entry.word07,
@@ -1540,15 +1550,15 @@ function generatedForNativeTokens(nativeTokens) {
   return generateRecordProgram(constructedProgramForNativeTokens(nativeTokens));
 }
 
-function generatedForExpression(expression) {
+function generatedForExpression(expression, options = {}) {
   const constructed = constructedProgramForExpression(expression);
-  return generateRecordProgram(constructed, {editor:true});
+  return generateRecordProgram(constructed, {...options, editor:true});
 }
 
-function generatedForInput(source) {
+function generatedForInput(source, options = {}) {
   const nativeTokens = parseNativeTokenInput(source);
   return nativeTokens === null
-    ? generatedForExpression(source)
+    ? generatedForExpression(source, options)
     : generateRecordProgram(
       constructedProgramForNativeTokens(nativeTokens), {editor:true});
 }
@@ -1558,7 +1568,7 @@ function generatedForInput(source) {
 // wider, partially edited expression. Preserve that model when construction
 // rejects a text expression instead of turning a width overflow into a blank
 // preview. Raw native input remains strict and reports unsupported streams.
-function prepareInput(source) {
+function prepareInput(source, options = {}) {
   const nativeTokens = parseNativeTokenInput(source);
   if (nativeTokens !== null) {
     const generated = generatedForNativeTokens(nativeTokens);
@@ -1567,10 +1577,10 @@ function prepareInput(source) {
     return {nativeInput:true, nativeTokens, model:null,
       generated, generationError:null};
   }
-  const model = parse(source);
+  const model = parse(source, options);
   try {
     return {nativeInput:false, nativeTokens:null, model,
-      generated:generatedForExpression(source), generationError:null};
+      generated:generatedForExpression(source, options), generationError:null};
   } catch (generationError) {
     return {nativeInput:false, nativeTokens:null, model,
       generated:null, generationError};
@@ -1710,11 +1720,14 @@ function render(step) {
   const showPen = document.getElementById('pen').checked;
   try {
     const input = document.getElementById('expr').value;
-    const prepared = prepareInput(input);
+    const prepared = prepareInput(input, {previousXClip:EDITOR_X_CLIP});
     const nativeInput = prepared.nativeInput;
     CUR = prepared.model;
     CUR_TRACE = nativeInput ? null : traceForExpression(input);
     CUR_GENERATED = prepared.generated;
+    if (!input.trim()) EDITOR_X_CLIP = 0;
+    else if (CUR_GENERATED && CUR_GENERATED.editorViewport)
+      EDITOR_X_CLIP = CUR_GENERATED.editorViewport.xClip;
     const generationError = prepared.generationError;
     const source = document.getElementById('source');
     if (nativeInput && source.value !== 'generated') source.value = 'generated';
@@ -1756,6 +1769,11 @@ function render(step) {
     document.getElementById('penlog').innerHTML = '';
     document.getElementById('err').textContent = String(e);
   }
+}
+
+function resizeExpressionInput(input) {
+  input.style.height = 'auto';
+  input.style.height = `${input.scrollHeight}px`;
 }
 
 function stopAnim() { if (ANIM) { clearInterval(ANIM); ANIM = null; } }
@@ -1839,7 +1857,10 @@ async function main() {
   // expression after the user has already started typing.
   const expressionInput = document.getElementById('expr');
   let changedWhileLoading = false;
-  const noteLoadingInput = () => { changedWhileLoading = true; };
+  const noteLoadingInput = () => {
+    changedWhileLoading = true;
+    resizeExpressionInput(expressionInput);
+  };
   expressionInput.addEventListener('input', noteLoadingInput);
   const [fontResponse, layoutResponse, orderResponse, tokenResponse] = await Promise.all([
     fetch('font.json?v=c7f2303b531c'), fetch('layout.json?v=51f44d680dde'), fetch('draw-order.json?v=2c632ef03f4b'),
@@ -1853,11 +1874,20 @@ async function main() {
   PRESETS.forEach(([label, src]) => {
     const b = document.createElement('button');
     b.textContent = label;
-    b.onclick = () => { document.getElementById('expr').value = src; render(); };
+    b.onclick = () => {
+      EDITOR_X_CLIP = 0;
+      expressionInput.value = src;
+      resizeExpressionInput(expressionInput);
+      render();
+    };
     bar.appendChild(b);
   });
   expressionInput.removeEventListener('input', noteLoadingInput);
-  expressionInput.addEventListener('input', () => { stopAnim(); render(); });
+  expressionInput.addEventListener('input', () => {
+    stopAnim();
+    resizeExpressionInput(expressionInput);
+    render();
+  });
   document.getElementById('scale').addEventListener('input', () => render());
   document.getElementById('lcd').addEventListener('change', () => render());
   document.getElementById('pen').addEventListener('change', () => render());
@@ -1900,6 +1930,7 @@ async function main() {
   });
   if (!changedWhileLoading && !expressionInput.value)
     expressionInput.value = 'int(1,2,(1//2)X,X)';
+  resizeExpressionInput(expressionInput);
   render();
 }
 
