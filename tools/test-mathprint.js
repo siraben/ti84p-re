@@ -1027,6 +1027,12 @@ for (const [expression, expectedWidth, expectedOverflow] of [
   ['nDeriv((123+nthroot(456,A)^nthroot(A,logbase(12,Y1))),X,123)',
     156, 60],
   ['nthroot(N,logbase(123,A)//123^Ans)^Y1*abs(123)', 101, 5],
+  ['matrix(1,1,(sum(N,12,GDB3,2))//2)', 47, 0],
+  ['matrix(2,1,Pic2*[A]//12,abs((Y9)))', 48, 0],
+  ['exp(remainder(matrix(2,3,sqrt(0.5),int(X,A,Str1,X),N//123,' +
+    'sum(N,123,0.5,L6),Ans,exp(X)),sin(Str1)))', 219, 123],
+  ['matrix(1,2,nthroot(2,N^X)//sum(N,[A],Y1,1)//remainder(Ans,GDB3),' +
+    'sin(L1+N)//sqrt(Ans)*ln(X))', 149, 53],
 ]) {
   const program = mp.constructedProgramForExpression(expression);
   if (!program) throw new Error(`${expression} has no settled record program`);

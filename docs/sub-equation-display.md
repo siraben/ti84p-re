@@ -1502,6 +1502,11 @@ sets bit 6 in `B`, resumes the scan, and reaches the matrix delimiter. The
 JavaScript parse-ahead translation applies that branch to ordinary, `BB`, and
 `EF` opener classes. [confirmed]
 
+When a fraction appears inside a matrix element or another delimited argument,
+the direct `34:5795` scan can pass the enclosing `07h` or `11h` delimiter. The
+translated parser intersects that scan endpoint with the active kind-`6` or
+structural-argument boundary before constructing the child record. [confirmed]
+
 The browser expands every accepted byte into eight ordered pixel results. A
 timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement
@@ -1515,7 +1520,7 @@ structural types produce an error; this path does not select the model
 compositor. Each accepted LCD byte remains available as eight ordered pixel
 results in the live timeline. [confirmed]
 
-The 5,018-case Node test remains a deterministic parser/layout smoke test. Six
+The 5,019-case Node test remains a deterministic parser/layout smoke test. Six
 settled record programs provide exact final-pixel and complete accepted-write
 parity for their expressions. Three fresh absolute-value cases, four power
 cases, eight power/radical composition cases, four nth-root cases, thirteen
