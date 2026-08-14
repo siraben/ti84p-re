@@ -988,6 +988,15 @@ expectEqual('07:50BE selects the named region for a list-name OP identity',
       {op1:[0x01,0x5d,0x01,0,0,0,0,0,0],pointer:0x9100,page:0},
     ],routine:'07:50BE–50F9',
   });
+const emptyAlphaRam = new Uint8Array(0x10000);
+const alphaRegion = op1 => rom.editorDecodeAlphaVatSnapshot(
+  emptyAlphaRam,op1,{pTemp:0x9000,progPtr:0x9000,symTable:0x9000}).region;
+expectEqual('07:50C4 selects VAT regions from list-name encodings', [
+  alphaRegion([0x01,0x5d,0,0,0,0,0,0,0]),
+  alphaRegion([0x0d,0xff,0,0,0,0,0,0,0]),
+  alphaRegion([0x01,0x72,0,0,0,0,0,0,0]),
+  alphaRegion([0x0d,0x3a,0,0,0,0,0,0,0]),
+], ['named/list','named/list','fixed-token','fixed-token']);
 const alphaMarkerRam = new Uint8Array(0x10000);
 alphaMarkerRam[0x9200] = 0x0d;
 alphaMarkerRam[0x91fa] = 0x3a;
@@ -1079,6 +1088,30 @@ expectEqual('07:5151 FFh sentinel makes Dn report its endpoint',
   rom.editorFindAlphaVat('down',[5,0x40,0xff,0,0,0,0,0,0],[
     {op1:alphaOp(5,0x41),pointer:0x9f56,page:0},
   ]).carry, true);
+const staleNamedAlphaKey = [5,0x41,0,0xff,0xee,0xdd,0xcc,0xbb,0xaa];
+expectEqual('07:50D6 zero-pads a named comparison key after its NUL',
+  rom.editorFindAlphaVat('down',staleNamedAlphaKey,[
+    {op1:alphaOp(5,0x41),pointer:0x9f55,page:0},
+  ]), {
+    direction:'down',sameType:true,sourceClass:0x05,carry:true,a:0xfe,zero:false,
+    op1:staleNamedAlphaKey,op3:staleNamedAlphaKey,
+    vatPointer:null,selectedIndex:null,compared:1,
+    routine:'07:50B8 (_FindAlphaDn)',
+  });
+expectEqual('07:50D6 keeps named successor selection independent of stale tail bytes',
+  rom.editorFindAlphaVat('up',staleNamedAlphaKey,[
+    {op1:alphaOp(5,0x41),pointer:0x9f54,page:0},
+    {op1:alphaOp(5,0x42),pointer:0x9f53,page:0},
+  ]).op1, alphaOp(5,0x42));
+const staleFixedAlphaKey = [0,0x41,0x42,0x43,0xff,0xee,0xdd,0xcc,0xbb];
+expectEqual('07:50E8 clears five fixed-token comparison-key tail bytes',
+  rom.editorFindAlphaVat('down',staleFixedAlphaKey,[
+    {op1:[0,0x41,0x42,0x43,0,0,0,0,0],pointer:0x9f52,page:0},
+  ]).carry, true);
+expectEqual('07:50E8 preserves all three fixed-token name bytes',
+  rom.editorFindAlphaVat('up',staleFixedAlphaKey,[
+    {op1:[0,0x41,0x42,0x44,0,0,0,0,0],pointer:0x9f51,page:0},
+  ]).op1, [0,0x41,0x42,0x44,0,0,0,0,0]);
 expectEqual('07:51BE rejects low and 72h first-name bytes',
   rom.editorFindAlphaVat('up',alphaOp(5,0x30),[
     {op1:alphaOp(5,0x40),pointer:0x9f50,page:0},
