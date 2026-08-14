@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a762aa6c.js";
+            window.path_to_searchindex_js = "searchindex-1755cd5c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14970,10 +14970,10 @@ have no wholly unobserved branch. The other six components still do. Three of
 the allocator’s four branches and 35 of the 40 metric branches have both
 outcomes. [confirmed]</p>
 <p>The report classifies all 2,184 enumerated outcomes. Natural calculator input
-exercises 958. The synthetic <code>EF36h</code> state adds five outcomes, for 963 across
+exercises 962. The synthetic <code>EF36h</code> state adds five outcomes, for 967 across
 all evidence. One allocator outcome is infeasible under its data invariant.
 Two metric outcomes are infeasible under the calculator call ABI. The full
-evidence set leaves 1,218 unresolved; the natural-only set leaves 1,223.
+evidence set leaves 1,214 unresolved; the natural-only set leaves 1,219.
 An unobserved outcome never becomes infeasible from absence alone. [confirmed]</p>
 <p>The infeasible allocator outcome is the fallthrough at <code>33:4F4E</code>. The type
 <code>0x2B</code> path loads rows and columns from record offsets <code>+0x13</code> and <code>+0x12</code>, then
@@ -14992,12 +14992,12 @@ Synthetic direct calls to internal metric handlers do not share the ABI.
 branch outcome observed in the supplied traces. It does not preserve complete
 invocation paths, register or RAM states, dispatch indices, record cases, or LCD
 write cases. The all-evidence and natural-only branch covers each select 23
-traces. They preserve 963 and 958 outcomes in 3,466,092,816 and 3,516,346,500
+traces. They preserve 967 and 962 outcomes in 3,738,592,734 and 3,788,846,418
 bytes, respectively.</p>
 <p>The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,219 tags and needs 125
-traces. The natural-only universe has 1,214 tags and needs 124 traces. Every
+independent oracle case. Its all-evidence universe has 1,223 tags and needs 126
+traces. The natural-only universe has 1,218 tags and needs 125 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -15710,12 +15710,18 @@ natural calculator redraw after removing the eight asynchronous right-cue
 writes. The compact oracle is
 <code>tools/mathprint-editor-overflow-oracle.json</code>; the reproduction input is
 <code>tools/macros/mathprint-double-integral.macro</code>. [confirmed]</p>
-<p>The right-side bitmap at <code>34:60C0</code> produces eight writes during the redraw. Its
-editor-state predicate is <code>34:5FFA</code> → <code>34:607A</code>, and <code>34:608F</code> computes its
-horizontal position. Its semantic meaning remains unresolved. Cursor blink
-separately writes <code>0x7C</code> to byte column 11 on rows 8–14. The browser excludes
-both UI-state streams from settled expression timelines. [hypothesis] for the
-right-cue meaning; [confirmed] for its predicate, bytes, and cursor write range</p>
+<p>The eight writes inserted at instruction index 56 come from
+<code>page_34:6CA8</code> → <code>ram:3CE1</code>. That call stack does not pass through <code>34:608F</code>, so
+the stream is separate from the right-side bitmap path and remains outside the
+settled expression timeline. [confirmed]</p>
+<p>The actual <code>34:608F</code> path is observed elsewhere in the natural trace. It
+updates byte column 11 at rows 8–14 with <code>00</code>, <code>08</code>, <code>0C</code>, <code>0E</code>, <code>0C</code>, <code>08</code>, and
+<code>00</code>. <code>34:5FFA</code> → <code>34:607A</code> selects the path, and <code>34:608F</code> computes its
+horizontal position. The exact UI endpoint meaning remains unresolved.
+Cursor blink separately writes <code>0x7C</code> to byte column 11 on rows 8–14. The
+browser excludes both auxiliary streams from settled expression timelines.
+[hypothesis] for the endpoint meaning; [confirmed] for the call predicate,
+bitmap values, and observed byte range</p>
 <p>The text-cell path has a separate overflow boundary. <code>39:4F08</code> compares
 <code>curCol</code> (<code>0x844C</code>) with <code>0x0F</code> before marker handling and calls the fixed-bank
 <code>_EraseEOL</code> jump at <code>00:3CB7</code>. <code>39:6712</code> then sets <code>curCol</code> to <code>1</code>, emits the

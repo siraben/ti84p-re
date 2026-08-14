@@ -363,6 +363,9 @@
   const SETTLED_LEFT_OVERFLOW_ROWS = Object.freeze([
     0x00,0x02,0x06,0x0e,0x06,0x02,0x00,
   ]);
+  const SETTLED_RIGHT_OVERFLOW_ROWS = Object.freeze([
+    0x00,0x04,0x06,0x07,0x06,0x04,0x00,
+  ]);
 
   function translateSettledOperation(operation, dx, dy) {
     if (!operation || typeof operation !== 'object')
@@ -405,6 +408,32 @@
       routine:'34:5FF2 → 34:6031 → 34:61B2; bitmap at 34:60B8',
     });
     return translated;
+  }
+
+  // 34:608F selects the second seven-row table at 34:60C0 after 34:607A
+  // reports a right-edge condition. The routine places its four-pixel bitmap
+  // at ram:8DFA + ram:8DFC - 4. 34:603A derives the vertical origin from the
+  // record height and y origin, giving rows floor(height/2)-3 through +3.
+  // This operation is opt-in: the settled long-expression redraw does not
+  // reach 34:608F when 34:607A returns the traced zero result.
+  function settledEditorRightCueOperation(viewport, recordHeight) {
+    if (!viewport || typeof viewport !== 'object' ||
+        !Number.isInteger(viewport.xOrigin) ||
+        !Number.isInteger(viewport.yOrigin) ||
+        !Number.isInteger(viewport.rightBound))
+      throw new TypeError('settled right-cue viewport state is invalid');
+    if (!Number.isInteger(recordHeight) || recordHeight < 1 || recordHeight > 0xffff)
+      throw new RangeError('settled right-cue record height must fit an unsigned word');
+    return {
+      kind:'bitmap',
+      x:viewport.xOrigin + viewport.rightBound - 4,
+      y:viewport.yOrigin + Math.floor(recordHeight / 2) - 3,
+      width:4,
+      height:7,
+      rows:SETTLED_RIGHT_OVERFLOW_ROWS.slice(),
+      retainUnchanged:true,
+      routine:'34:5FFA → 34:607A → 34:608F; bitmap at 34:60C0',
+    };
   }
 
   const clipRange = (first, last, origin, clip, max) => {
@@ -4063,6 +4092,7 @@
     settledHorizontalOperation,
     settledEditorViewport,
     settledEditorViewportOperations,
+    settledEditorRightCueOperation,
     settledObjectHandler,
     settledStructuralTokenType,
     settledEf36SourcePath,
