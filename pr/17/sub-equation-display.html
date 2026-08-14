@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-93419d2a.js";
+            window.path_to_searchindex_js = "searchindex-90966a9e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -650,7 +650,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in nine finite models. It also computes an
+complete path-equivalence class in ten finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -669,11 +669,12 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Editor action <code>0x03</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">11</td><td style="text-align: right">9</td><td style="text-align: right">4</td></tr>
 <tr><td>Editor action <code>0x04</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">5</td><td style="text-align: right">5</td><td style="text-align: right">3</td></tr>
 <tr><td>Reverse argument-overflow cue</td><td style="text-align: right">65,536</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
+<tr><td>Saved-operand wrappers</td><td style="text-align: right">16</td><td style="text-align: right">12</td><td style="text-align: right">12</td><td style="text-align: right">8</td></tr>
 </tbody>
 </table>
 </div>
-<p>The nine models contain 1,202 path classes and 94 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 52 representatives. Each
+<p>The ten models contain 1,214 path classes and 106 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 60 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -885,11 +886,22 @@ endpoints, one- and two-row movement, subexpression fallback, both styled
 scroll directions, and the saved-F2 emitter’s carry exit. The forward two-row
 path compares <code>0x844B</code> with 6 at <code>39:5181</code>; the reverse path compares it with 3
 at <code>39:5244</code>. These jumps reach <code>39:4C5A</code> before the styled-record test. Calls
-into the parser, saved-operand emitters, and scroll helpers remain ordered
-effects because those routines are outside the closed row arithmetic.
+into parser services and scroll helpers remain explicit effects because those
+routines are outside the closed row arithmetic.
 The increment-wrap guard cannot execute: its preceding unsigned predicate
-requires a nonzero count and an index at most <code>count - 2</code>. [confirmed]
-<code>editorForwardOverflowCue()</code> and <code>editorReverseOverflowCue()</code> translate the
+requires a nonzero count and an index at most <code>count - 2</code>. [confirmed]</p>
+<p>The saved-operand wrappers at <code>39:5B10</code>–<code>39:5B44</code> move nine-byte operand
+buffers through OP1 at <code>0x8478</code>. The E7 wrappers restore from <code>0x85E7</code>; the F2
+wrappers restore from <code>0x85F2</code>. Each restore uses <code>_Mov9B</code> at <code>00:1A92</code>, then
+calls the normal service at <code>39:59E0</code> or the variable service at <code>39:59F9</code>.
+Bit 5 of <code>(IY+11h)</code> gates the entire wrapper. A clear bit preserves the
+incoming carry and performs no copy or service call. With the bit set, service
+carry returns without writeback. Carry clear copies OP1 back to the selected
+source: <code>39:5AD2</code> writes <code>0x85E7</code>, and <code>39:5B08</code> writes <code>0x85F2</code>. The page-7
+service bodies reached from <code>39:59E0</code> and <code>39:59F9</code> remain explicit model
+inputs. A raw-byte interpreter covers all 4,096 wrapper, gate, carry, and
+buffer-source combinations and every value in each byte position. [confirmed]</p>
+<p><code>editorForwardOverflowCue()</code> and <code>editorReverseOverflowCue()</code> translate the
 closed cue routines at <code>39:66FE</code> and <code>39:66E9</code>. The reverse routine subtracts
 the selected argument at <code>0x85E0</code> from the count at <code>0x85E2</code> with byte
 arithmetic. A result below 8 returns without drawing. Other results place
