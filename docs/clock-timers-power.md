@@ -269,7 +269,7 @@ physical timer edges prevent the nominal calculation from serving as a
 physical measurement. [confirmed] for the constants and control flow;
 [standard] for the timer decode; [hypothesis] for physical cadence.
 
-![The programmed timer path gives a nominal 31.25 kHz ISR and 17.36 tracker updates per second; the upstream 33,333.3 Hz tuning constant and one trace's 4,674 writes per second are separate evidence lanes.](images/badapple-timer-evidence.svg)
+![The programmed timer path gives a nominal 31.25 kHz ISR and 17.36 tracker updates per second; the upstream 33,333.3 Hz tuning constant and one trace's 4,674 writes per interpreted second at 15 MHz are separate evidence lanes.](images/badapple-timer-evidence.svg)
 
 **Cadence evidence.** The top lane combines [confirmed] application bytes with
 the [standard] timer decode. The encoder and trace lanes preserve their source

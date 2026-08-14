@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
   <title id="title">TI-84 Plus logical memory windows in independent and paired mapping modes</title>
-  <desc id="desc">Two side-by-side stacks show the fixed 0000 to 3FFF window and the three banked 16 KiB windows. Independent mode uses ports 06, 07, and 05 separately. Paired mode uses port 06 for an even and odd page pair and port 07 for window C.</desc>
+  <desc id="desc">Two side-by-side stacks show the fixed 0000 to 3FFF window and the three banked 16 KiB windows. Independent mode uses ports 06, 07, and 05 separately, with ports 0E and 0F supplying high bits for Flash selections. Paired mode uses port 06 and, for Flash, port 0E for an even and odd page pair; port 07 and, for Flash, port 0F select window C.</desc>
   <defs>
     <style>
       .bg{fill:#f8fafc}.panel{fill:#fff;stroke:#94a3b8;stroke-width:2}.head{fill:#0f172a}.sub{fill:#334155}.label{fill:#0f172a;font:600 20px system-ui,sans-serif}.small{fill:#334155;font:16px system-ui,sans-serif}.mono{fill:#0f172a;font:600 17px ui-monospace,SFMono-Regular,Consolas,monospace}.title{fill:#0f172a;font:700 30px system-ui,sans-serif}.mode{fill:#fff;font:700 22px system-ui,sans-serif}.fixed{fill:#dbeafe;stroke:#2563eb;stroke-width:2}.banked{fill:#f1f5f9;stroke:#475569;stroke-width:2}.ram{fill:#dcfce7;stroke:#16a34a;stroke-width:2}.port{fill:#ede9fe;stroke:#7c3aed;stroke-width:2}.arrow{stroke:#475569;stroke-width:2.5;fill:none;marker-end:url(#arrow)}.dash{stroke-dasharray:7 6}.callout{fill:#f1f5f9;stroke:#64748b;stroke-width:1.5}
@@ -30,7 +30,7 @@
       <text class="small" x="18" y="59">Flash or RAM page</text>
       <rect class="port" x="330" y="8" width="125" height="66" rx="8"/>
       <text class="mono" x="392" y="34" text-anchor="middle">port 06</text>
-      <text class="small" x="392" y="58" text-anchor="middle">+ port 0E</text>
+      <text class="small" x="392" y="58" text-anchor="middle">+ 0E if Flash</text>
       <path class="arrow" d="M330 41 H282"/>
     </g>
     <g transform="translate(28 266)">
@@ -39,7 +39,7 @@
       <text class="small" x="18" y="59">Flash or RAM page</text>
       <rect class="port" x="330" y="8" width="125" height="66" rx="8"/>
       <text class="mono" x="392" y="34" text-anchor="middle">port 07</text>
-      <text class="small" x="392" y="58" text-anchor="middle">+ port 0F</text>
+      <text class="small" x="392" y="58" text-anchor="middle">+ 0F if Flash</text>
       <path class="arrow" d="M330 41 H282"/>
     </g>
     <g transform="translate(28 358)">
@@ -70,9 +70,10 @@
       <rect class="banked" width="280" height="82" rx="8"/>
       <text class="mono" x="18" y="30">4000–7FFF · window A</text>
       <text class="small" x="18" y="59">port 06 page with bit 0 clear</text>
-      <rect class="port" x="330" y="45" width="125" height="82" rx="8"/>
-      <text class="mono" x="392" y="79" text-anchor="middle">port 06</text>
-      <text class="small" x="392" y="105" text-anchor="middle">adjacent pair</text>
+      <rect class="port" x="330" y="36" width="125" height="100" rx="8"/>
+      <text class="mono" x="392" y="67" text-anchor="middle">port 06</text>
+      <text class="small" x="392" y="91" text-anchor="middle">+ 0E if Flash</text>
+      <text class="small" x="392" y="116" text-anchor="middle">adjacent pair</text>
       <path class="arrow" d="M330 86 C305 86 305 41 282 41"/>
     </g>
     <g transform="translate(28 266)">
@@ -85,8 +86,9 @@
       <rect class="banked" width="280" height="82" rx="8"/>
       <text class="mono" x="18" y="30">C000–FFFF · window C</text>
       <text class="small" x="18" y="59">page selected by port 07</text>
-      <rect class="port" x="330" y="16" width="125" height="50" rx="8"/>
-      <text class="mono" x="392" y="47" text-anchor="middle">port 07</text>
+      <rect class="port" x="330" y="8" width="125" height="66" rx="8"/>
+      <text class="mono" x="392" y="34" text-anchor="middle">port 07</text>
+      <text class="small" x="392" y="58" text-anchor="middle">+ 0F if Flash</text>
       <path class="arrow" d="M330 41 H282"/>
     </g>
     <rect class="callout" x="28" y="462" width="454" height="62" rx="8"/>

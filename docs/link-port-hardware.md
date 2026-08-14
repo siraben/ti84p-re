@@ -34,7 +34,7 @@ The low two write bits are active-high drive controls. Setting a bit pulls that 
 | `2` | pull line 1 low | `1` |
 | `3` | pull both lines low | `0` |
 
-![Each link line has a pull-up and a low-side sink at either endpoint; the line is high only when both endpoints release it.](images/link-open-collector.svg)
+![Each endpoint contributes a pull-up resistor and a low-side sink to each shared link line; a line is high only when both endpoints release it.](images/link-open-collector.svg)
 
 **Open-collector model.** The electrical contract is [standard]. OS 2.55MP's port values and bit order are [confirmed]; pull-up resistance, thresholds, and rise time remain [hypothesis] until measured.
 
@@ -61,17 +61,18 @@ OS 2.55MP sends a zero bit with write `1` and a one bit with write `2`. That agr
 ### Differential audio output
 
 Software can use the two output controls as a three-level differential source.
-If $V_0$ and $V_1$ denote the logical high/low levels of line 0 and line 1,
+If the peer releases both lines and $V_0$ and $V_1$ denote the resulting
+logical high/low levels of line 0 and line 1,
 the idealized differential signal is $V_0 - V_1$: [standard]
 
 | Port-`0x00` write | Line 0 | Line 1 | Idealized differential state |
 |------------------:|--------|--------|------------------------------|
-| `0` | released/high | released/high | zero |
-| `1` | driven low | released/high | negative |
-| `2` | released/high | driven low | positive |
+| `0` | released/high if unopposed | released/high if unopposed | zero |
+| `1` | driven low | released/high if unopposed | negative |
+| `2` | released/high if unopposed | driven low | positive |
 | `3` | driven low | driven low | zero |
 
-![Port writes 0 and 3 produce two distinct zero-differential states, while writes 1 and 2 produce opposite polarities by pulling one link line low.](images/link-differential-audio.svg)
+![Assuming the peer releases both lines, port writes 0 and 3 produce two distinct zero-differential states, while writes 1 and 2 produce opposite polarities by pulling one link line low.](images/link-differential-audio.svg)
 
 **Differential state map.** The three-level output follows the [standard]
 open-collector model. It shows logical polarity rather than analog voltage or

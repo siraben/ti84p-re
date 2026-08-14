@@ -42,7 +42,7 @@ The conventional scan-code number `0x29` occupies the unused matrix position at 
 
 Writing port `0x01` selects groups with zero bits. Reading the same port returns one bit per key line, where zero means closed. `0xFF` releases every group, and `0x00` selects all groups. [standard]
 
-![Writing FB selects keypad group 2; pressing 6 pulls sense bit 2 low, so the scanner reads FB and constructs scan code 13 hexadecimal.](images/keypad-matrix-scan.svg)
+![In a conceptual matrix with unwired positions marked, writing FB selects keypad group 2; pressing 3 pulls sense bit 1 low, so the scanner reads FD and constructs scan code 12 hexadecimal.](images/keypad-matrix-scan.svg)
 
 **Worked matrix scan.** The active-low electrical contract is [standard]. The group masks and `8g + b + 1` scan-code construction at `ram:0410`–`0453` are [confirmed].
 
