@@ -941,45 +941,74 @@ for (let winBottom = 0; winBottom <= 0xff; winBottom++) {
 const alphaOp = (type, nameByte) =>
   [type,nameByte,0,0,0,0,0,0,0];
 const alphaVat = [
-  {op1:alphaOp(0x85,0x43),pointer:0x9fd0},
-  {op1:alphaOp(0x00,0x42),pointer:0x9fc0},
-  {op1:alphaOp(0x06,0x42),pointer:0x9fb0},
-  {op1:alphaOp(0x05,0x41),pointer:0x9fa0},
+  {op1:alphaOp(0x85,0x43),pointer:0x9fd0,page:0},
+  {op1:alphaOp(0x00,0x42),pointer:0x9fc0,page:0},
+  {op1:alphaOp(0x06,0x42),pointer:0x9fb0,page:0},
+  {op1:alphaOp(0x05,0x41),pointer:0x9fa0,page:0},
 ];
 expectEqual('07:50B5 selects the nearest higher same-class VAT name',
   rom.editorFindAlphaVat('up',alphaOp(0x05,0x41),alphaVat), {
-    direction:'up',sameType:true,sourceClass:0x05,carry:false,
+    direction:'up',sameType:true,sourceClass:0x05,carry:false,a:0,zero:true,
     op1:alphaOp(0x06,0x42),op3:alphaOp(0x06,0x42),
     vatPointer:0x9fb0,selectedIndex:2,compared:3,
     routine:'07:50B5 (_FindAlphaUp)',
   });
 expectEqual('07:50B8 selects the nearest lower same-class VAT name',
   rom.editorFindAlphaVat('down',alphaOp(0x05,0x43),alphaVat), {
-    direction:'down',sameType:true,sourceClass:0x05,carry:false,
+    direction:'down',sameType:true,sourceClass:0x05,carry:false,a:0,zero:true,
     op1:alphaOp(0x06,0x42),op3:alphaOp(0x06,0x42),
     vatPointer:0x9fb0,selectedIndex:2,compared:3,
     routine:'07:50B8 (_FindAlphaDn)',
   });
 expectEqual('07:50B5 preserves OP1/OP3 and sets carry at the class endpoint',
   rom.editorFindAlphaVat('up',alphaOp(0x05,0x43),alphaVat), {
-    direction:'up',sameType:true,sourceClass:0x05,carry:true,
+    direction:'up',sameType:true,sourceClass:0x05,carry:true,a:0xfe,zero:false,
     op1:alphaOp(0x05,0x43),op3:alphaOp(0x05,0x43),
     vatPointer:null,selectedIndex:null,compared:3,
     routine:'07:50B5 (_FindAlphaUp)',
   });
 expectEqual('07:5247 aliases complex-list and list search classes',
   rom.editorFindAlphaVat('up',alphaOp(0x01,0x40),[
-    {op1:alphaOp(0x0d,0x41),pointer:0x9f90},
+    {op1:alphaOp(0x0d,0x41),pointer:0x9f90,page:0},
   ]).op1, alphaOp(0x0d,0x41));
 expectEqual('07:5247 aliases types 18h/19h with class zero',
   rom.editorFindAlphaVat('up',alphaOp(0x18,0x40),[
-    {op1:alphaOp(0x19,0x41),pointer:0x9f80},
+    {op1:alphaOp(0x19,0x41),pointer:0x9f80,page:0},
   ]).op1, alphaOp(0x19,0x41));
 expectEqual('07:5199 gives the first OP name byte highest significance',
-  rom.editorFindAlphaVat('up',[5,0x41,0xff,0,0,0,0,0,0],[
-    {op1:[5,0x42,0x00,0,0,0,0,0,0],pointer:0x9f70},
-    {op1:[5,0x41,0x00,0,0,0,0,0,0],pointer:0x9f60},
+  rom.editorFindAlphaVat('up',[5,0x41,0x80,0,0,0,0,0,0],[
+    {op1:[5,0x42,0x00,0,0,0,0,0,0],pointer:0x9f70,page:0},
+    {op1:[5,0x41,0x70,0,0,0,0,0,0],pointer:0x9f60,page:0},
   ]).vatPointer, 0x9f70);
+expectEqual('07:5151 FFh sentinel lets Up start from the lowest candidate',
+  rom.editorFindAlphaVat('up',[5,0x7f,0xff,0,0,0,0,0,0],[
+    {op1:alphaOp(5,0x41),pointer:0x9f58,page:0},
+    {op1:alphaOp(5,0x42),pointer:0x9f57,page:0},
+  ]).op1, alphaOp(5,0x41));
+expectEqual('07:5151 FFh sentinel makes Dn report its endpoint',
+  rom.editorFindAlphaVat('down',[5,0x40,0xff,0,0,0,0,0,0],[
+    {op1:alphaOp(5,0x41),pointer:0x9f56,page:0},
+  ]).carry, true);
+expectEqual('07:51BE rejects low and 72h first-name bytes',
+  rom.editorFindAlphaVat('up',alphaOp(5,0x30),[
+    {op1:alphaOp(5,0x40),pointer:0x9f50,page:0},
+    {op1:alphaOp(5,0x72),pointer:0x9f40,page:0},
+    {op1:alphaOp(5,0x73),pointer:0x9f30,page:0},
+  ]).op1, alphaOp(5,0x73));
+expectEqual('07:5233 uses an archived page byte while inGroup is set',
+  rom.editorFindAlphaVat('up',alphaOp(5,0x30),[
+    {op1:alphaOp(5,0x40),pointer:0x9f20,page:0x41},
+  ],{inGroup:true}).op1, alphaOp(5,0x40));
+const specialListEntry = {
+  op1:[0x01,0x5d,0x40,0,0,0,0,0,0],pointer:0x9f10,page:0,
+};
+expectEqual('07:521B rejects the special list name by default',
+  rom.editorFindAlphaVat(
+    'up',[0x01,0x5c,0,0,0,0,0,0,0],[specialListEntry]).carry, true);
+expectEqual('07:5227 accepts the special list name when IY+0 bit 0 is set',
+  rom.editorFindAlphaVat(
+    'up',[0x01,0x5c,0,0,0,0,0,0,0],[specialListEntry],
+    {iy0Bit0:true}).op1, specialListEntry.op1);
 expectThrows('07:50B5 rejects a VAT entry without a pointer', RangeError,
   () => rom.editorFindAlphaVat('up',alphaOp(5,0),[
     {op1:alphaOp(5,1)},
@@ -988,21 +1017,30 @@ expectThrows('07:50B5 rejects a VAT entry without a pointer', RangeError,
 const exhaustiveAlphaVat = Array.from({length:0x100}, (_, nameByte) => ({
   op1:alphaOp(nameByte & 1 ? 0x06 : 0x05,nameByte),
   pointer:0x9000 + (0xff - nameByte),
+  page:0,
 })).reverse();
+const allowedAlphaNames = Array.from({length:0xbf}, (_, index) => index + 0x41)
+  .filter(value => value !== 0x72);
 for (let nameByte = 0; nameByte <= 0xff; nameByte++) {
   const source = alphaOp(0x05,nameByte);
   const up = rom.editorFindAlphaVat('up',source,exhaustiveAlphaVat);
   const down = rom.editorFindAlphaVat('down',source,exhaustiveAlphaVat);
   expectEqual('07:50B5 exhaustive one-byte alphabetic successor', {
     carry:up.carry,name:up.op1[1],pointer:up.vatPointer,
-  }, nameByte === 0xff
-    ? {carry:true,name:0xff,pointer:null}
-    : {carry:false,name:nameByte + 1,pointer:0x9000 + (0xfe - nameByte)});
+  }, (() => {
+    const selected = allowedAlphaNames.find(value => value > nameByte);
+    return selected === undefined
+      ? {carry:true,name:nameByte,pointer:null}
+      : {carry:false,name:selected,pointer:0x9000 + (0xff - selected)};
+  })());
   expectEqual('07:50B8 exhaustive one-byte alphabetic predecessor', {
     carry:down.carry,name:down.op1[1],pointer:down.vatPointer,
-  }, nameByte === 0
-    ? {carry:true,name:0,pointer:null}
-    : {carry:false,name:nameByte - 1,pointer:0x9000 + (0x100 - nameByte)});
+  }, (() => {
+    const selected = allowedAlphaNames.findLast(value => value < nameByte);
+    return selected === undefined
+      ? {carry:true,name:nameByte,pointer:null}
+      : {carry:false,name:selected,pointer:0x9000 + (0xff - selected)};
+  })());
 }
 
 const savedOperandBuffers = {
@@ -1141,23 +1179,23 @@ const alphaSearchCases = [
   ['ascending VAT-search carry', 'up', 0x04, 0x00,
    {searchResults:[{carry:true}]},
    {op1:alphaOp(5,0x42),vatSnapshot:[
-     {op1:alphaOp(5,0x41),pointer:0x9f00},
+     {op1:alphaOp(5,0x41),pointer:0x9f00,page:0},
    ]}],
   ['ascending VAT-search clear', 'up', 0x04, 0x00,
    {searchResults:[{carry:false}]},
    {op1:alphaOp(5,0x41),vatSnapshot:[
-     {op1:alphaOp(5,0x42),pointer:0x9f00},
+     {op1:alphaOp(5,0x42),pointer:0x9f00,page:0},
    ]}],
   ['ascending search repeat then clear', 'up', 0x03, 0x01,
    {searchResults:[{carry:false,postCode:0x06},{carry:false,postCode:0x05}]},
    {op1:alphaOp(5,0x41),vatSnapshot:[
-     {op1:alphaOp(6,0x42),pointer:0x9f00},
-     {op1:alphaOp(5,0x43),pointer:0x9ef0},
+     {op1:alphaOp(6,0x42),pointer:0x9f00,page:0},
+     {op1:alphaOp(5,0x43),pointer:0x9ef0,page:0},
    ]}],
   ['descending VAT-search post-search exit', 'down', 0x03, 0x01,
    {searchResults:[{carry:false,postCode:0x05}]},
    {op1:alphaOp(5,0x43),vatSnapshot:[
-     {op1:alphaOp(5,0x42),pointer:0x9f00},
+     {op1:alphaOp(5,0x42),pointer:0x9f00,page:0},
    ]}],
 ];
 for (const [label, direction, editorClass, editorSubClass,
@@ -1198,13 +1236,13 @@ for (const direction of ['up','down']) {
           result.postCode = 0x05;
         const rawOptions = {searchResults:[result]};
         const sourceName = direction === 'up'
-          ? carry ? 2 : 1
-          : carry ? 1 : 2;
-        const candidateName = direction === 'up' ? 2 : 1;
+          ? carry ? 0x42 : 0x41
+          : carry ? 0x41 : 0x42;
+        const candidateName = direction === 'up' ? 0x42 : 0x41;
         const translatedOptions = {
           op1:alphaOp(5,sourceName),
           vatSnapshot:carry ? [] : [
-            {op1:alphaOp(5,candidateName),pointer:0x9f00},
+            {op1:alphaOp(5,candidateName),pointer:0x9f00,page:0},
           ],
         };
         const raw = runRawAlphaSearch(
