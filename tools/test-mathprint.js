@@ -128,6 +128,10 @@ expectEqual('39:683D descriptor row step', rom.descriptorPen(twoRow, 1, 2),
   {low:70, high:32, hl:0x2046});
 expectEqual('39:69C8 kind 10 selector', rom.selectDescriptor(layout, 0x10).descriptor.addr, 0x686f);
 expectEqual('39:69C8 kind 11 selector', rom.selectDescriptor(layout, 0x11).descriptor.addr, 0x6880);
+expectEqual('39:69C8 stores normalized kind 10',
+  rom.selectDescriptor(layout, 0x10).normalizedKind, 0x10);
+expectEqual('39:69C8 stores normalized kind 11',
+  rom.selectDescriptor(layout, 0x11).normalizedKind, 0x11);
 expectEqual('39:69C8 kind 12 selector', rom.selectDescriptor(layout, 0x12),
   {kind:'measuredFraction', routine:'39:6A8A'});
 expectEqual('39:69C8 unresolved family boundary', rom.selectDescriptor(layout, 0x13),
@@ -137,8 +141,12 @@ for (const [label, flag02, address] of [
   ['BIT 6 selects the six-column family', 0x40, 0x689c],
   ['BIT 5 selects the three-column family', 0x20, 0x68a5],
   ['cleared family flags select the two-row family', 0x00, 0x6893],
-]) expectEqual(`39:69C8 ${label}`,
-  rom.selectDescriptor(layout, 0x13, {flag02}).descriptor.addr, address);
+]) {
+  const selected = rom.selectDescriptor(layout, 0x13, {flag02});
+  expectEqual(`39:69C8 ${label}`, selected.descriptor.addr, address);
+  expectEqual(`39:69C8 ${label} normalized kind`, selected.normalizedKind,
+    flag02 & 0x40 ? 0x23 : flag02 & 0x20 ? 0x33 : 0x13);
+}
 expectThrows('39:69C8 rejects an invalid family flag byte', RangeError,
   () => rom.selectDescriptor(layout, 0x13, {flag02:0x100}));
 expectEqual('39:6B1C endpoint', rom.fractionEndpoint(2, 0x17),
