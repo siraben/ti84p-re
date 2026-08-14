@@ -456,9 +456,10 @@
         currentSubclass = byte(result.tokenSubClass,
           `editor operand service result ${index} token subclass`);
       // The call to 5A17 precedes every service call, including a loop from
-      // 59F4/5A0D.  If a scanner changes 85DE to class 2, re-enter the closed
-      // class-2 path with the supplied special result.
-      if (currentClass === 0x02) {
+      // 59F4/5A0D.  A class-2 value produced by the *previous* scanner call
+      // is therefore handled only on the next loop entry; the first scanner
+      // return still has to pass through 39:5C2E before the emitter can exit.
+      if (index > 0 && currentClass === 0x02) {
         const nested = editorOperandEmitter(service, currentClass, currentSubclass,
           {specialResult:result.specialResult || special,
            savedOperand:result.savedOperand || savedOperand});
