@@ -3214,10 +3214,25 @@
       visited.add(recordId);
       orderedNodes.push(node);
       for (const childId of node.child_ids) visit(childId);
-      for (let index = 0; index + 3 < node.payload.length; index++)
-        if (node.payload[index] === 0xef &&
-            0x1f <= node.payload[index + 1] && node.payload[index + 1] <= 0x2b)
+      // The payload interleaves native tokens with six-byte structural
+      // markers. Advance across a complete marker or packed token so the EF
+      // and type-looking bytes inside a little-endian record ID cannot become
+      // a second, false marker.
+      for (let index = 0; index < node.payload.length;) {
+        if (node.payload[index] === 0xef && index + 1 < node.payload.length &&
+            0x1f <= node.payload[index + 1] && node.payload[index + 1] <= 0x2b) {
+          if (index + 5 >= node.payload.length ||
+              node.payload[index + 4] !== 0xef ||
+              node.payload[index + 5] !== 0x2d)
+            throw new RangeError(
+              `constructed record 0x${node.record_id.toString(16)} has a truncated embedded marker`);
           visit(node.payload[index + 2] | node.payload[index + 3] << 8);
+          index += 6;
+          continue;
+        }
+        const token = settledReadPackedToken(node.payload, index);
+        index = token.next;
+      }
     };
     visit(root.record_id);
     const matrixResult = spec.kind === 'matrix';

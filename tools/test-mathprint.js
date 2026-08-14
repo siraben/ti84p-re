@@ -1895,6 +1895,27 @@ for (const expression of [
   mp.constructedProgramForExpression(expression), null);
 expectThrows('compositional constructor rejects overflowing leaf metrics', RangeError,
   () => rom.constructSettledExpressionProgram(new Array(10923).fill(0x58), 1, font));
+const repeatedIntegralSpec = {
+  kind:'integral',
+  lower:[0x31], upper:[0x33],
+  body:{kind:'sequence',parts:[
+    {kind:'fraction',numerator:[0x31],denominator:[0x32]}, [0x58],
+  ]},
+  variable:[0x58],
+};
+const repeatedIntegralProgram = rom.constructSettledExpressionProgram({
+  kind:'sequence',parts:new Array(1024).fill(repeatedIntegralSpec),
+}, 1, font);
+expectEqual('token-aware record walk ignores EF/type bytes inside record IDs', {
+  nodes:repeatedIntegralProgram.nodes.length,
+  width:repeatedIntegralProgram.nodes[0].word07,
+  maximumRecordId:Math.max(...repeatedIntegralProgram.nodes.map(
+    node => node.record_id)),
+}, {nodes:8193,width:51200,maximumRecordId:8193});
+expectThrows('repeated integral construction rejects genuine word-width exhaustion',
+  RangeError, () => rom.constructSettledExpressionProgram({
+    kind:'sequence',parts:new Array(1311).fill(repeatedIntegralSpec),
+  }, 1, font));
 expectThrows('compositional constructor rejects record ID exhaustion', RangeError,
   () => rom.constructSettledRadicalProgram([0x32], 0xffff, font));
 expectThrows('fraction constructor detects record ID exhaustion', RangeError,
