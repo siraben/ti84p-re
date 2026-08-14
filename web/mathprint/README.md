@@ -253,7 +253,8 @@ available for partial input during editing. Model mode keeps the complete
 composition on a horizontally scrollable canvas and reports the model endpoint,
 96-pixel LCD overflow, and translated editor clip separately from the settled
 record view. Its heuristic extent is therefore a readability aid, not a second
-LCD oracle.
+LCD oracle. The integral frontend accepts `int(`, `integral(`, and the ROM token
+spelling `fnInt(` as aliases for the same `EF24h` structural record.
 The integral cases cover structural bounds and a nested integral. The
 summation cases cover unequal-width limits, structural limits and bodies, and a
 nested summation. The `nDeriv(` cases cover unequal-width arguments, structural
