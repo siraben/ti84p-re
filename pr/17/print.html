@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-844f3cf3.js";
+            window.path_to_searchindex_js = "searchindex-dee48138.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15560,13 +15560,17 @@ to identify the enclosing leaf program. [confirmed]</p>
 <p>The analyzer also decodes the reachable settled graph into a semantic
 expression tree. Structural child IDs recover argument order. A type-<code>0x2A</code>
 record binds its exponent to the expression immediately before the
-embedded-record marker. The decoder preserves <code>EF 1E</code> as an explicit extended
+embedded-record marker. Balanced standalone <code>10h</code> and <code>11h</code> bytes become a
+group node, so a postfix power after the close binds to the complete group.
+The decoder advances over native two-byte tokens before interpreting grouping
+bytes. The pair <code>5E10h</code>, for example, remains one token rather than opening a
+group at its low byte. The decoder preserves <code>EF 1E</code> as an explicit extended
 token. The renderer maps the pair to display code <code>0xF7</code>, so the decoded tree
 exposes an unfilled template slot. The tree identifies the expression in a
 trace without using LCD pixels or a screenshot. It describes the settled graph
 consumed by <code>34:660A</code>. The browser-side ROM engine exposes the same decoder for
-its generated AST view as <code>settledAst</code>. The editor/parser representation before <code>34:4900</code>
-remains open. [confirmed]</p>
+its generated AST view as <code>settledAst</code>. The editor/parser representation before
+<code>34:4900</code> remains open. [confirmed]</p>
 <p>Within that program, <code>EF type id_lo id_hi</code> invokes the structural record with
 the given little-endian ID. <code>EF 2D</code> terminates or separates the embedded object
 without drawing it. Ordinary payload bytes may follow. The settled
@@ -15684,6 +15688,20 @@ height <code>19</code>, and therefore stores <code>6</code> at the fraction’s 
 visible numerator group requires two native <code>10h</code>…<code>11h</code> pairs: the fraction
 scanner consumes the outer pair and retains the inner pair in the numerator
 leaf. [confirmed]</p>
+<p>For a grouped structural base, <code>34:70C1</code> saves the base baseline $b$ and lower
+extent $d$. After <code>34:7283</code> returns the raised child’s height $h_e$ in
+<code>ram:8508</code>, the handler stores [confirmed]</p>
+<p>$$
+\begin{aligned}
+b_p &amp;= b + h_e - 2, \
+h_p &amp;= b_p + d.
+\end{aligned}
+$$</p>
+<p>The reset-origin trace for <code>(X^(X-2))^(N/X)^(N-3)</code> gives the inner base
+$(h,b)=(10,6)$ and the outer power $(h_p,b_p)=(16,12)$. The inner type-<code>0x2A</code>
+record stores <code>6</code> at <code>+0x0F</code>. The translated record fields and final LCD pixels
+match the trace. The same rule at fraction depth gives inner $(h,b)=(8,5)$ and
+outer $(h_p,b_p)=(14,11)$. [confirmed]</p>
 <p>Reset-origin traces for <code>sqrt(X)^2</code>, <code>abs(X)^2</code>, and
 <code>abs(sqrt(X^2+1))</code> match every generated record field and accepted LCD data
 write. Their complete streams contain 35, 33, and 113 writes, respectively.
@@ -16164,19 +16182,21 @@ native calculator bytes, constructs the translated record graph, and compares
 the resulting pixels with a reset-origin TilEm screenshot produced from the
 corresponding key sequence. It does not compare the calculator with the preview
 compositor. Each run uses a new emulator state file. Adjacent equal keys receive
-an explicit scan delay, and integral completion receives a rebuild delay before
-a following operator. A pixel mismatch triggers an instruction trace for
-branch and LCD-write diagnosis; exact cases do not pay the trace cost.
+an explicit scan delay. Integral and summation templates receive rebuild delays
+after menu selection and each slot transition. A pixel mismatch triggers an
+instruction trace for branch and LCD-write diagnosis; exact cases do not pay
+the trace cost.
 Trace-limit cases leave the screenshot mismatch intact and report only the
 trace diagnosis as inconclusive. [confirmed]</p>
-<p>The final settled-record graph does not yet reproduce pixels retained from
-earlier editor redraws. <code>34:62D0</code> selects the five-row radical table when
-<code>ram:8515</code> is nonzero, and <code>34:62F9</code> preserves accepted writes whose LCD value
-does not change. In the tall-summation input above, the final trace reaches
-<code>34:62D0</code> with <code>ram:8515=2</code>; two hook pixels from an earlier seven-row redraw
-remain visible. Replaying only the final graph from a blank framebuffer omits
-those two pixels. Full live-entry parity therefore also requires translating
-the sequence of editor mutations and redraws. [confirmed]</p>
+<p><code>34:62D0</code> selects seven root-hook rows when <code>ram:8515</code> is zero and five rows
+when it is nonzero. The routine subtracts that row count from the radical
+height and returns the difference in <code>DE</code>. <code>34:62A7</code> decrements <code>DE</code> before
+<code>34:62AE</code> passes the vertical stem to <code>34:5D96</code>. The stem endpoint is therefore
+$h-8$ for the seven-row hook and $h-6$ for the five-row hook. In the
+tall-summation input above, the final trace reaches <code>34:62D0</code> with
+<code>ram:8515=2</code>, radical height 17, and stem endpoint 11. Translating the returned
+word removes the final two-pixel difference from the reset-origin screenshot.
+[confirmed]</p>
 <h2 id="extracted-records-and-interactive-model"><a class="header" href="#extracted-records-and-interactive-model">Extracted records and interactive model</a></h2>
 <p>The class table, decoded handler records, and selected descriptors are extracted to
 <code>web/mathprint/layout.json</code> by <code>tools/export-layout.py</code>;
