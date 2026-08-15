@@ -29,8 +29,9 @@ Construct coverage
 ------------------
 The default generator covers number, variable, + - *, ^ (incl. nested a^b^c and
 parenthesised/abs/fraction bases with *, /, +, - exponents), / (linear), // (stacked
-fraction), sqrt, nthroot, abs, int, sum, and parentheses. Fraction children,
-radicands, absolute-value bodies, and power bases may contain structural records.
+fraction), sqrt, nthroot, abs, int, sum, nDeriv, e^x, 10^x, logBASE, and
+parentheses. Fraction children, radicands, absolute-value bodies, and power bases
+may contain structural records.
 The generator keeps raised slots and nth-root indices to entry sequences whose
 cursor behavior is independently pinned; this constrains input construction, not
 the JavaScript record renderer.
@@ -63,6 +64,8 @@ def _load_parity():
 #   ('sdiv', a, b)            stacked frac   a//b  (n/d template)
 #   ('sqrt', x) ('nthroot', n, x) ('abs', x) ('paren', x)
 #   ('int', lo, hi, body, var) ('sum', var, lo, hi, body)
+#   ('nderiv', body, var, value)
+#   ('epow'|'tenpow', exponent) ('logbase', base, argument)
 # ---------------------------------------------------------------------------
 
 VARS = ["X", "A", "N"]
@@ -95,7 +98,8 @@ def gen_ast(rng, depth, *, in_small=False, avoid=()):
         choices = ["leaf", "add", "sub", "mul", "ldiv", "pow"]
     else:
         choices = ["leaf", "add", "sub", "mul", "ldiv", "sdiv", "paren",
-                   "pow", "sqrt", "nthroot", "abs", "int"]
+                   "pow", "sqrt", "nthroot", "abs", "int", "nderiv",
+                   "epow", "tenpow", "logbase"]
         if INCLUDE_SUM:
             choices.append("sum")
     choices = [c for c in choices if c not in avoid] or ["leaf"]
@@ -141,6 +145,14 @@ def gen_ast(rng, depth, *, in_small=False, avoid=()):
     if k == "sum":
         return ("sum", ("var", rng.choice(VARS)), ("num", rng.choice(NUMS)),
                 ("num", rng.choice(NUMS)), gen_ast(rng, d))
+    if k == "nderiv":
+        return ("nderiv", gen_ast(rng, d, avoid=avoid),
+                ("var", rng.choice(VARS)), gen_ast(rng, d, avoid=avoid))
+    if k in ("epow", "tenpow"):
+        return (k, gen_ast(rng, d, in_small=True, avoid=avoid))
+    if k == "logbase":
+        return ("logbase", gen_ast(rng, d, in_small=True, avoid=avoid),
+                gen_ast(rng, d, avoid=avoid))
     raise AssertionError(k)
 
 
@@ -207,6 +219,14 @@ def to_expr(ast):
         return f"int({to_expr(ast[1])},{to_expr(ast[2])},{to_expr(ast[3])},{to_expr(ast[4])})"
     if k == "sum":
         return f"sum({to_expr(ast[1])},{to_expr(ast[2])},{to_expr(ast[3])},{to_expr(ast[4])})"
+    if k == "nderiv":
+        return f"nDeriv({to_expr(ast[1])},{to_expr(ast[2])},{to_expr(ast[3])})"
+    if k == "epow":
+        return f"exp({to_expr(ast[1])})"
+    if k == "tenpow":
+        return f"tenpow({to_expr(ast[1])})"
+    if k == "logbase":
+        return f"logbase({to_expr(ast[1])},{to_expr(ast[2])})"
     raise AssertionError(k)
 
 
@@ -263,6 +283,20 @@ def to_spec(ast):
             "kind": "summation", "variable": to_spec(ast[1]),
             "lower": to_spec(ast[2]), "upper": to_spec(ast[3]),
             "body": to_spec(ast[4]),
+        }
+    if k == "nderiv":
+        return {
+            "kind": "nDeriv", "variable": to_spec(ast[2]),
+            "body": to_spec(ast[1]), "value": to_spec(ast[3]),
+        }
+    if k == "epow":
+        return {"kind": "ePower", "exponent": to_spec(ast[1])}
+    if k == "tenpow":
+        return {"kind": "tenPower", "exponent": to_spec(ast[1])}
+    if k == "logbase":
+        return {
+            "kind": "logBase", "base": to_spec(ast[1]),
+            "argument": to_spec(ast[2]),
         }
     raise AssertionError(k)
 
@@ -360,6 +394,20 @@ def emit(ast):
         return (["MATH", "0", "WAIT"] + emit(var) + ["WAIT"] + emit(lo) +
                 ["RIGHT", "WAIT"] + emit(hi) + ["RIGHT", "WAIT"] +
                 emit(body) + ["RIGHT", "WAIT"])
+    if k == "nderiv":
+        # MATH 8 opens variable, body, and evaluation-value slots. Entering the
+        # one-token variable advances to the body. RIGHT then selects the value
+        # and exits the template.
+        body, var, value = ast[1], ast[2], ast[3]
+        return (["MATH", "8", "WAIT"] + emit(var) + ["WAIT"] + emit(body) +
+                ["RIGHT", "WAIT"] + emit(value) + ["RIGHT", "WAIT"])
+    if k == "epow":
+        return ["2ND", "LN", "WAIT"] + emit(ast[1]) + ["RIGHT", "WAIT"]
+    if k == "tenpow":
+        return ["2ND", "LOG", "WAIT"] + emit(ast[1]) + ["RIGHT", "WAIT"]
+    if k == "logbase":
+        return (["MATH", "ALPHA", "MATH", "WAIT"] + emit(ast[1]) +
+                ["RIGHT", "WAIT"] + emit(ast[2]) + ["RIGHT", "WAIT"])
     raise AssertionError(k)
 
 

@@ -42,6 +42,25 @@ class StripCursorTests(unittest.TestCase):
             grid[y][8] = grid[y][9] = 1
         self.assertEqual(PARITY.strip_cursor(grid), grid)
 
+    def test_removes_template_exit_cursor(self) -> None:
+        grid = [[0] * 24 for _ in range(12)]
+        grid[3][2] = 1
+        grid[4][3] = 1
+        for x in range(17, 22):
+            grid[5][x] = grid[6][x] = 1
+        for x in range(18, 22):
+            grid[7][x] = 1
+        self.assertEqual(PARITY.strip_cursor(grid), [[1, 0], [0, 1]])
+
+    def test_keeps_template_shape_without_separator(self) -> None:
+        grid = [[0] * 16 for _ in range(10)]
+        grid[4][8] = 1
+        for x in range(9, 14):
+            grid[3][x] = grid[4][x] = 1
+        for x in range(10, 14):
+            grid[5][x] = 1
+        self.assertEqual(PARITY.strip_cursor(grid), grid)
+
 
 if __name__ == "__main__":
     unittest.main()
