@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1d07e273.js";
+            window.path_to_searchindex_js = "searchindex-844f3cf3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15404,6 +15404,14 @@ axes and passes a clipped horizontal segment to <code>04:4382</code>. The nested
 fraction rule enters <code>34:5DA6</code> with object coordinates <code>x=1</code>–<code>5</code>, <code>y=6</code> and
 origins <code>x=16</code>, <code>y=5</code>. Page <code>04</code> receives endpoints <code>(17,52)</code> and <code>(21,52)</code>.
 [confirmed]</p>
+<p>The structural handlers retain coordinates and dimensions as 16-bit words.
+For example, <code>34:62B4</code>–<code>34:62C3</code> reads a radical child’s width word, increments
+<code>DE</code> three times, and passes the resulting word endpoint to <code>34:5DA6</code>.
+<code>34:620A</code>–<code>34:622C</code> performs the corresponding word comparison for a fraction.
+The translated renderer therefore accepts widths beyond 255 and wraps additions
+at 16 bits before viewport clipping. A radical with record width 258 reaches a
+clipped vinculum from $x=-167$ through $x=87$ instead of rejecting the record
+as byte-sized geometry. [confirmed]</p>
 <p>Render-record type <code>0x22</code> dispatches through <code>34:6105</code> and the table at
 <code>34:6119</code> to <code>34:622F</code>. The word at record offset <code>+7</code> is the integral-sign
 height $h$. The handler draws the inclusive stem <code>(2,1)</code>–<code>(2,h-2)</code>, then hook
@@ -15610,6 +15618,21 @@ data write through the outer <code>34:660A</code> return: absolute value (49 wri
 root (69), radical (82), summation (66), <code>nDeriv(</code> (96), and a nested
 integral/fraction (114). This comparison includes accepted writes whose value
 does not change the displayed byte. [confirmed]</p>
+<p>When a containing leaf appends a box with metrics $(h,b)$ to its current
+metrics $(H,B)$, the metric pass unions the extents above and below the
+baseline: [confirmed]</p>
+<p>$$
+\begin{aligned}
+B_{\mathrm{out}} &amp;= \max(B,b), \\
+H_{\mathrm{out}} &amp;= B_{\mathrm{out}} + \max(H-B,h-b).
+\end{aligned}
+$$</p>
+<p>The reset-origin expression
+<code>((1*A)/X)//(N-N)//(1*3)*((sum(X,2,1,N)*abs(3))/int(3,1,X,X))</code>
+combines an outer fraction with $(h,b)=(21,6)$ and a summation with
+$(h,b)=(19,9)$. Its live root record stores
+$(H_{\mathrm{out}},B_{\mathrm{out}})=(24,9)$. Maximizing the
+height and baseline independently would produce the incorrect height 21.</p>
 <p>The small-font table at <code>03:4CD6</code> stores seven rows per glyph. <code>_VPutMap</code> emits
 the five interior rows. It retains an interior zero row, but it does not emit
 the padding row above or below the glyph. A row that crosses an LCD byte
@@ -15809,21 +15832,31 @@ S_u &amp;= \max(5,h_u), \\
 S_l &amp;= \max(h_v,h_l).
 \end{aligned}
 $$</p>
-<p>The parent and body metrics are:</p>
+<p>Let $B_0=S_u+4$. The parent and body metrics are:</p>
 <p>$$
 \begin{aligned}
-H &amp;= S_u+9+S_l, \\
-B &amp;= S_u+4, \\
+B &amp;= \max(B_0,b_b), \\
+y_u &amp;= B-B_0, \\
+y_l &amp;= B+5, \\
+y_b &amp;= B-b_b, \\
+H &amp;= \max(y_l+S_l,y_b+h_b), \\
 x_b &amp;= O+6, \\
 W &amp;= x_b+w_b+5.
 \end{aligned}
 $$</p>
-<p>The variable begins at $(0,H-S_l)$ and the lower bound begins at
-$(w_v+4,H-S_l)$. Placing both on the common lower row keeps structural lower
+<p>The variable begins at $(0,y_l)$ and the lower bound begins at
+$(w_v+4,y_l)$. Placing both on the common lower row keeps structural lower
 bounds aligned with the variable. The upper bound begins at
-$(\lfloor(O-w_u)/2\rfloor,0)$. The body begins at $(x_b,B-b_b)$. The
+$(\lfloor(O-w_u)/2\rfloor,y_u)$. The body begins at $(x_b,y_b)$. The
 type-<code>0x29</code> record stores <code>3</code>, $H$, $W$, and $B$ at <code>+5</code>, <code>+7</code>, <code>+9</code>, and
 <code>+0x0B</code>, respectively. [confirmed]</p>
+<p>For ordinary five-row limits and a body whose baseline does not exceed $B_0$,
+these equations reduce to $H=S_u+9+S_l$ and $B=S_u+4$. A reset-origin record
+capture for
+<code>sum(A,1,1,sqrt(int(1,3,N,A))//sqrt(A)^1^X)</code> exercises the taller-body branch.
+The body stores $(h_b,b_b)=(33,18)$; the summation stores $(H,B)=(33,18)$,
+places the upper limit at $y=9$, and places the lower row at $y=23$.
+[confirmed]</p>
 <p>Eleven reset-origin traces cover the representative <code>sum(N,1,3,N^2)</code> case,
 unequal-width token limits, multi-token limits, power limits, radical,
 nth-root, fraction, and power bodies, a different variable, and a nested
@@ -16128,11 +16161,22 @@ around the final key press.
 [confirmed]</p>
 <p><code>tools/fuzz-mathprint-diff.py</code> builds a semantic expression tree, encodes its
 native calculator bytes, constructs the translated record graph, and compares
-the resulting pixels with a reset-origin TilEm LCD trace produced from the
-corresponding key sequence. It does not compare the trace with the preview
-compositor. Adjacent equal keys receive an explicit scan delay, and each run
-uses a new emulator state file. Trace-limit cases are reported as inconclusive
-and do not abort later cases or count as parity. [confirmed]</p>
+the resulting pixels with a reset-origin TilEm screenshot produced from the
+corresponding key sequence. It does not compare the calculator with the preview
+compositor. Each run uses a new emulator state file. Adjacent equal keys receive
+an explicit scan delay, and integral completion receives a rebuild delay before
+a following operator. A pixel mismatch triggers an instruction trace for
+branch and LCD-write diagnosis; exact cases do not pay the trace cost.
+Trace-limit cases leave the screenshot mismatch intact and report only the
+trace diagnosis as inconclusive. [confirmed]</p>
+<p>The final settled-record graph does not yet reproduce pixels retained from
+earlier editor redraws. <code>34:62D0</code> selects the five-row radical table when
+<code>ram:8515</code> is nonzero, and <code>34:62F9</code> preserves accepted writes whose LCD value
+does not change. In the tall-summation input above, the final trace reaches
+<code>34:62D0</code> with <code>ram:8515=2</code>; two hook pixels from an earlier seven-row redraw
+remain visible. Replaying only the final graph from a blank framebuffer omits
+those two pixels. Full live-entry parity therefore also requires translating
+the sequence of editor mutations and redraws. [confirmed]</p>
 <h2 id="extracted-records-and-interactive-model"><a class="header" href="#extracted-records-and-interactive-model">Extracted records and interactive model</a></h2>
 <p>The class table, decoded handler records, and selected descriptors are extracted to
 <code>web/mathprint/layout.json</code> by <code>tools/export-layout.py</code>;
