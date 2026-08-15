@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b70ace5b.js";
+            window.path_to_searchindex_js = "searchindex-1d07e273.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -1347,11 +1347,21 @@ leaf tokens, and <code>0x0C</code> for the power inside <code>(X^2+1)</code>. [c
 <code>abs(X^2+1)</code>. The generated record graphs and complete accepted-write streams
 match these traces. The streams contain 49, 60, 59, 32, and 60 writes,
 respectively. [confirmed]</p>
-<p>When the base of a power ends in a structural object, the constructor writes
-<code>3</code> to that object’s word at <code>+0x0F</code>. The type-<code>0x2A</code> height and baseline also
-increase by the base leaf’s baseline above the ordinary baseline at that render
-depth. For <code>sqrt(X)^2</code>, the power record has height 12, baseline 8, and an
-<code>+0x0D</code> horizontal anchor of 11. [confirmed]</p>
+<p>When the immediate base of a power ends in a structural object, <code>34:70C1</code>–<code>7084</code>
+merges that object’s baseline and lower extent into the type-<code>0x2A</code> metrics.
+It does not use the containing leaf’s accumulated baseline: an earlier radical
+to the left does not raise a later plain-token power. <code>34:77AD</code>–<code>77C1</code> writes
+the resulting baseline difference to the base object’s word at <code>+0x0F</code>: [confirmed]</p>
+<p>$$
+\mathtt{base.word0F}
+= \mathtt{power.word0B} - \mathtt{base.word0B}.
+$$</p>
+<p>The value happens to be <code>3</code> for <code>sqrt(X)^2</code> and <code>abs(X)^2</code>. A grouped fraction
+base has baseline <code>6</code> and lower extent <code>7</code>; its outer power has baseline <code>12</code>,
+height <code>19</code>, and therefore stores <code>6</code> at the fraction’s <code>+0x0F</code>. The fraction’s
+visible numerator group requires two native <code>10h</code>…<code>11h</code> pairs: the fraction
+scanner consumes the outer pair and retains the inner pair in the numerator
+leaf. [confirmed]</p>
 <p>Reset-origin traces for <code>sqrt(X)^2</code>, <code>abs(X)^2</code>, and
 <code>abs(sqrt(X^2+1))</code> match every generated record field and accepted LCD data
 write. Their complete streams contain 35, 33, and 113 writes, respectively.
@@ -1669,6 +1679,14 @@ natural calculator redraw after removing the eight asynchronous right-cue
 writes. The compact oracle is
 <code>tools/mathprint-editor-overflow-oracle.json</code>; the reproduction input is
 <code>tools/macros/mathprint-double-integral.macro</code>. [confirmed]</p>
+<p>Glyph clipping precedes the font blitter. <code>34:6C5F</code> compares a glyph’s left
+edge with <code>ram:8E02</code>; the carry path at <code>34:6C69</code> reaches <code>34:6C81</code> and skips
+the whole glyph while still advancing the logical pen. It does not draw the
+suffix of a glyph that begins left of the viewport. The reset-origin expression
+<code>(sqrt(X)*1^3)+(N^2+(X*A))</code> reaches this branch with the radical’s <code>X</code> beginning
+three pixels left of the visible edge. Applying the whole-glyph skip, followed
+by the seven-row left-overflow cue, reproduces all 870 pixels of the cropped
+87×10 calculator frame. [confirmed]</p>
 <p>The eight writes inserted at instruction index 56 come from
 <code>page_34:6CA8</code> → <code>ram:3CE1</code>. That call stack does not pass through <code>34:608F</code>, so
 the stream is separate from the right-side bitmap path and remains outside the
@@ -1809,6 +1827,13 @@ matrix-name, equation-variable, and string-variable tables in large and raised
 contexts. Two longer trace scenarios cover the editor and display activity
 around the final key press.
 [confirmed]</p>
+<p><code>tools/fuzz-mathprint-diff.py</code> builds a semantic expression tree, encodes its
+native calculator bytes, constructs the translated record graph, and compares
+the resulting pixels with a reset-origin TilEm LCD trace produced from the
+corresponding key sequence. It does not compare the trace with the preview
+compositor. Adjacent equal keys receive an explicit scan delay, and each run
+uses a new emulator state file. Trace-limit cases are reported as inconclusive
+and do not abort later cases or count as parity. [confirmed]</p>
 <h2 id="extracted-records-and-interactive-model"><a class="header" href="#extracted-records-and-interactive-model">Extracted records and interactive model</a></h2>
 <p>The class table, decoded handler records, and selected descriptors are extracted to
 <code>web/mathprint/layout.json</code> by <code>tools/export-layout.py</code>;

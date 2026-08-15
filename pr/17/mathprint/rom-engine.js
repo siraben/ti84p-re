@@ -1548,8 +1548,18 @@
       throw new TypeError('settled editor viewport state is invalid');
     if (!Number.isInteger(recordHeight) || recordHeight < 1 || recordHeight > 0xffff)
       throw new RangeError('settled editor record height must fit an unsigned word');
-    const translated = operations.map(operation => translateSettledOperation(
-      operation, viewport.effectiveX, viewport.yOrigin));
+    const translated = [];
+    for (const operation of operations) {
+      const positioned = translateSettledOperation(
+        operation, viewport.effectiveX, viewport.yOrigin);
+      // 34:6C5F–6C84 compares a glyph's left edge with ram:8E02 before
+      // entering either font blitter. A glyph that begins left of the clip is
+      // omitted as a unit; the ROM does not draw its still-visible suffix.
+      if ((positioned.kind === 'glyph' || positioned.kind === 'glyph-run') &&
+          positioned.x < 0)
+        continue;
+      translated.push(positioned);
+    }
     if (viewport.xClip !== 0) translated.push({
       kind:'bitmap',
       x:viewport.xOrigin,
@@ -3547,7 +3557,9 @@
       if (expression.kind === 'fraction') {
         const operand = child => {
           if (child.kind === 'tokens') return encode(child);
-          if (child.kind === 'group') return encode(child);
+          // The fraction scanner consumes one 10h…11h pair as its operand
+          // boundary. An explicit group needs its own inner pair so the child
+          // leaf retains visible parentheses after that boundary is removed.
           return [0x10,...encode(child),0x11];
         };
         return [
@@ -4215,6 +4227,11 @@
     if (!Number.isInteger(firstId) || firstId < 1 || firstId > 0xffff)
       throw new RangeError('settled first record ID must be an unsigned word');
     const nodes = [];
+    // A type-2Ah record is allocated after its base has been prepared, but the
+    // base's trailing structural record is updated only after the exponent
+    // metrics establish the power baseline. Keep that construction-only
+    // relationship outside the serialized record graph.
+    const powerBaseStructures = new Map();
     let nextId = firstId;
     const allocate = () => {
       if (nextId > 0xffff)
@@ -4288,11 +4305,38 @@
         // before the power object, including a grouped or structural base.
         if (structural.render_type === 0x2a) {
           const ordinaryBaseline = renderDepth === 0 ? 3 : 2;
-          const baseBaselineDelta = Math.max(0, leaf.word09 - ordinaryBaseline);
+          const baseStructural = powerBaseStructures.get(structural.record_id);
+          // 34:70C1 merges the immediate base, not the containing leaf's
+          // accumulated axis. An earlier radical or fraction to the left must
+          // not raise a later plain-token power.
+          const baseBaseline = baseStructural
+            ? baseStructural.word0B : ordinaryBaseline;
+          const baseBaselineDelta = Math.max(
+            0, baseBaseline - ordinaryBaseline);
+          const powerLowerExtent = structural.word07 - structural.word0B;
+          // The accumulator may already contain unrelated objects to the
+          // left. Only the immediate base participates in 34:70C1's lower
+          // extent merge. A plain-token base has the same four-row lower
+          // extent as the initial power metrics.
+          const baseLowerExtent = baseStructural
+            ? baseStructural.word07 - baseStructural.word0B
+            : powerLowerExtent;
           structural.word07 = checkedWord(
             structural.word07 + baseBaselineDelta, 'power height after base');
           structural.word0B = checkedWord(
             structural.word0B + baseBaselineDelta, 'power baseline after base');
+          // 34:70C1–7084 retains the base's lower extent after moving the
+          // exponent baseline. This is observable when a fraction, whose
+          // denominator extends farther below the axis, is the power base.
+          structural.word07 = checkedWord(
+            structural.word07 + Math.max(
+              0, baseLowerExtent - powerLowerExtent),
+            'power height after lower base extent');
+          if (baseStructural) {
+            const marker = structural.word0B - baseStructural.word0B;
+            baseStructural.word0F = checkedWord(
+              marker, 'structural power-base baseline delta');
+          }
         }
         leaf.word05 = Math.max(leaf.word05, structural.word07);
         leaf.word07 = checkedWord(
@@ -4365,7 +4409,6 @@
           return trailingStructural(part.parts[part.parts.length - 1]);
         };
         const baseStructural = trailingStructural(base);
-        if (baseStructural) baseStructural.word0F = 3;
         const renderType = settledStructuralTokenType(0x00, 0xf0);
         if (renderType !== 0x2a)
           throw new Error('34:594D power token mapping is inconsistent');
@@ -4389,6 +4432,8 @@
           firstRaisedRow ? child.word05 + 1 : child.word09 + 3,
           'power baseline');
         structural.child_ids = [child.record_id];
+        if (baseStructural)
+          powerBaseStructures.set(structural.record_id, baseStructural);
         return {
           kind:'sequence',
           parts:[base,{kind:'embedded',structural}],
