@@ -16,6 +16,14 @@
     return value;
   };
 
+  const unsignedWord = (value, label) => {
+    if (!Number.isInteger(value) || value < 0 || value > 0xffff)
+      throw new RangeError(`${label} must be an unsigned word`);
+    return value;
+  };
+
+  const addWord = (left, right) => (left + right) & 0xffff;
+
   const boolean = (value, label) => {
     if (typeof value !== 'boolean')
       throw new TypeError(`${label} must be a boolean`);
@@ -1982,32 +1990,35 @@
   function settledCompoundOperations(mode, x, y, height) {
     if (mode !== 'open' && mode !== 'close')
       throw new RangeError('settled compound mode must be open or close');
-    byte(x, 'settled compound x');
-    byte(y, 'settled compound y');
-    byte(height, 'settled compound height');
+    unsignedWord(x, 'settled compound x');
+    unsignedWord(y, 'settled compound y');
+    unsignedWord(height, 'settled compound height');
     if (height < 3)
       throw new RangeError('settled compound height must be at least three');
     const routine = mode === 'open' ? '34:5D1A' : '34:5D07';
-    const outerX = x + (mode === 'open' ? 3 : 1);
+    const outerX = addWord(x, mode === 'open' ? 3 : 1);
+    const bottom = addWord(y, height - 1);
     const operations = [
       {kind:'point', x:outerX, y, routine:`${routine} → 34:5E85`},
-      {kind:'point', x:outerX, y:y + height - 1, routine:`${routine} → 34:5E85`},
+      {kind:'point', x:outerX, y:bottom, routine:`${routine} → 34:5E85`},
     ];
     if (height === 5) {
       operations.push({
         kind:'line', axis:'vertical',
-        from:{x:x + 2,y:y + 1}, to:{x:x + 2,y:y + height - 2},
+        from:{x:addWord(x,2),y:addWord(y,1)},
+        to:{x:addWord(x,2),y:addWord(y,height - 2)},
         routine:`${routine} → 34:5D96`,
       });
       return operations;
     }
     operations.push(
-      {kind:'point', x:x + 2, y:y + 1, routine:`${routine} → 34:5E85`},
-      {kind:'point', x:x + 2, y:y + height - 2, routine:`${routine} → 34:5E85`},
+      {kind:'point', x:addWord(x,2), y:addWord(y,1), routine:`${routine} → 34:5E85`},
+      {kind:'point', x:addWord(x,2), y:addWord(y,height - 2),
+       routine:`${routine} → 34:5E85`},
       {
         kind:'line', axis:'vertical',
-        from:{x:x + (mode === 'open' ? 1 : 3),y:y + 2},
-        to:{x:x + (mode === 'open' ? 1 : 3),y:y + height - 3},
+        from:{x:addWord(x,mode === 'open' ? 1 : 3),y:addWord(y,2)},
+        to:{x:addWord(x,mode === 'open' ? 1 : 3),y:addWord(y,height - 3)},
         routine:`${routine} → 34:5D96`,
       },
     );
@@ -4287,12 +4298,20 @@
 
     const fillLeaf = (leaf, prepared, renderDepth) => {
 
+      const mergeVerticalMetrics = (height, baseline) => {
+        const mergedBaseline = Math.max(leaf.word09, baseline);
+        const lowerExtent = Math.max(
+          leaf.word05 - leaf.word09, height - baseline);
+        leaf.word05 = checkedWord(
+          mergedBaseline + lowerExtent, 'settled leaf height');
+        leaf.word09 = mergedBaseline;
+      };
+
       const addTokens = tokens => {
         const metrics = settledLeafMetrics(tokens, renderDepth, font);
-        leaf.word05 = Math.max(leaf.word05, metrics.height);
+        mergeVerticalMetrics(metrics.height, metrics.baseline);
         leaf.word07 = checkedWord(
           leaf.word07 + metrics.width, 'settled leaf width');
-        leaf.word09 = Math.max(leaf.word09, metrics.baseline);
         leaf.payload.push(...metrics.payload);
       };
       const addStructural = structural => {
@@ -4338,10 +4357,9 @@
               marker, 'structural power-base baseline delta');
           }
         }
-        leaf.word05 = Math.max(leaf.word05, structural.word07);
+        mergeVerticalMetrics(structural.word07, structural.word0B);
         leaf.word07 = checkedWord(
           leaf.word07 + structural.word09, 'settled structural leaf width');
-        leaf.word09 = Math.max(leaf.word09, structural.word0B);
         leaf.payload.push(...embedded(structural.render_type, structural.record_id));
       };
 
@@ -4889,31 +4907,31 @@
         const operatorWidth = Math.max(upperWidth, lowerWidth, 12);
         const upperSpace = Math.max(5, upper.word05);
         const lowerSpace = Math.max(variable.word05, lower.word05);
-        // 34:7393/7609 keep every child origin in the unsigned record fields.
-        // A structural body can have a baseline below the fixed sigma slot
-        // (for example, a raised nested sum). Raise the parent baseline to the
-        // child's baseline and extend the lower region so body.word0D remains
-        // nonnegative while the upper/lower slots retain their ROM anchors.
+        // 34:74AA and 34:76F1 keep the sigma rows and the body in separate
+        // horizontal regions. A tall body can therefore overlap the upper or
+        // lower row vertically without increasing the space reserved for that
+        // row. The record height is the union of those independently placed
+        // regions.
         const nominalBaseline = upperSpace + 4;
         const baseline = Math.max(nominalBaseline, body.word09);
         const bodyY = baseline - body.word09;
         const nominalHeight = upperSpace + 9 + lowerSpace;
-        const height = checkedWord(baseline > nominalBaseline
-          ? Math.max(nominalHeight, bodyY + body.word05 + lowerSpace,
-                    baseline + lowerSpace + 5)
-          : nominalHeight, 'summation height');
+        const lowerRowY = baseline + 5;
+        const height = checkedWord(Math.max(
+          nominalHeight,
+          lowerRowY + lowerSpace,
+          bodyY + body.word05), 'summation height');
         const bodyX = checkedWord(operatorWidth + 6, 'summation body x');
-        const lowerRowY = checkedWord(
-          height - lowerSpace, 'summation lower row y');
         variable.word0B = 0;
-        variable.word0D = lowerRowY;
+        variable.word0D = checkedWord(lowerRowY, 'summation variable y');
         lower.word0B = checkedWord(
           variable.word07 + 4, 'summation lower-bound x');
-        lower.word0D = lowerRowY;
+        lower.word0D = checkedWord(lowerRowY, 'summation lower-bound y');
         upper.word0B = checkedWord(
           Math.floor((operatorWidth - upper.word07) / 2),
           'summation upper-bound x');
-        upper.word0D = 0;
+        upper.word0D = checkedWord(
+          baseline - nominalBaseline, 'summation upper-bound y');
         body.word0B = bodyX;
         body.word0D = checkedWord(bodyY, 'summation body y');
         structural.word07 = height;
@@ -5566,11 +5584,10 @@
   // the larger value. The inclusive rule runs from x=1 through max+1 at the
   // parent record's word at +0Bh.
   function settledFractionOperations(firstWidth, secondWidth, y) {
-    byte(firstWidth, 'settled fraction first-child width');
-    byte(secondWidth, 'settled fraction second-child width');
-    byte(y, 'settled fraction rule y');
-    const x2 = Math.max(firstWidth, secondWidth) + 1;
-    byte(x2, 'settled fraction rule endpoint');
+    unsignedWord(firstWidth, 'settled fraction first-child width');
+    unsignedWord(secondWidth, 'settled fraction second-child width');
+    unsignedWord(y, 'settled fraction rule y');
+    const x2 = addWord(Math.max(firstWidth, secondWidth), 1);
     return [
       {kind:'child', index:1, routine:'34:620A → 34:636C'},
       {kind:'child', index:2, routine:'34:6214 → 34:6378'},
@@ -5592,8 +5609,8 @@
   // then traverses child 1. The intermediate 34:79C9 bookkeeping calls do not
   // emit a visible primitive.
   function settledAbsoluteOperations(width, height) {
-    byte(width, 'settled absolute width');
-    byte(height, 'settled absolute height');
+    unsignedWord(width, 'settled absolute width');
+    unsignedWord(height, 'settled absolute height');
     if (width < 4)
       throw new RangeError('settled absolute width must be at least four');
     if (height < 1)
@@ -5613,9 +5630,9 @@
   // rows at outer depth and five in a raised row. The vinculum uses child 2's
   // +7 word and starts at the hook x.
   function settledNthRootOperations(indexWidth, radicandWidth, height = 11, depth = 0) {
-    byte(indexWidth, 'settled nth-root index width');
-    byte(radicandWidth, 'settled nth-root radicand width');
-    byte(height, 'settled nth-root height');
+    unsignedWord(indexWidth, 'settled nth-root index width');
+    unsignedWord(radicandWidth, 'settled nth-root radicand width');
+    unsignedWord(height, 'settled nth-root height');
     byte(depth, 'settled nth-root depth');
     if (indexWidth < 1)
       throw new RangeError('settled nth-root index width must be positive');
@@ -5625,17 +5642,16 @@
       throw new RangeError('settled nth-root height cannot place its hook');
     const hookX = indexWidth - 1;
     const hookY = height - rows.length;
-    const ruleEnd = radicandWidth + hookX + 3;
-    byte(ruleEnd, 'settled nth-root vinculum endpoint');
+    const ruleEnd = addWord(radicandWidth, hookX + 3);
     return [
       {kind:'child', index:1, routine:'34:6315 → 34:636C'},
       {kind:'bitmap', x:hookX, y:hookY, width:5, height:rows.length,
        rows, retainUnchanged:true,
        routine:'34:6321 → 34:62D0 → 34:630C'},
-      {kind:'line', axis:'vertical', from:{x:hookX + 2,y:3},
-       to:{x:hookX + 2,y:hookY}, routine:'34:6331 → 34:5D96'},
+      {kind:'line', axis:'vertical', from:{x:addWord(hookX,2),y:3},
+       to:{x:addWord(hookX,2),y:hookY}, routine:'34:6331 → 34:5D96'},
       {kind:'child-select', index:2, routine:'34:6334 → 34:6CCA'},
-      {kind:'line', axis:'horizontal', from:{x:hookX + 2,y:2},
+      {kind:'line', axis:'horizontal', from:{x:addWord(hookX,2),y:2},
        to:{x:ruleEnd,y:2}, routine:'34:6344 → 34:5DA6'},
       {kind:'child', index:2, routine:'34:6344 → 34:62C3 → 34:62C6'},
     ];
@@ -5646,8 +5662,8 @@
   // child 1, reads that child's +7 width, emits the inclusive vinculum, and
   // finally enters the child renderer at 34:660A.
   function settledRadicalOperations(height, childWidth, depth = 0) {
-    byte(height, 'settled radical height');
-    byte(childWidth, 'settled radical child width');
+    unsignedWord(height, 'settled radical height');
+    unsignedWord(childWidth, 'settled radical child width');
     byte(depth, 'settled radical depth');
     const fullRows = [0x04,0x04,0x04,0x04,0x14,0x0c,0x04];
     const rows = depth === 0 ? fullRows : fullRows.slice(2);
@@ -5655,8 +5671,7 @@
     if (hookY < 0)
       throw new RangeError('settled radical height cannot place its hook');
     const stemEnd = Math.max(1, height - 8);
-    const ruleEnd = childWidth + 3;
-    byte(ruleEnd, 'settled radical vinculum endpoint');
+    const ruleEnd = addWord(childWidth, 3);
     return [
       {kind:'bitmap', x:0, y:hookY, width:5, height:rows.length,
        rows,
@@ -5675,7 +5690,7 @@
   // record's word at +7 is the sign height. The handler emits one inclusive
   // vertical segment, then four hook points in this exact order.
   function settledIntegralOperations(height) {
-    byte(height, 'settled integral height');
+    unsignedWord(height, 'settled integral height');
     if (height < 3)
       throw new RangeError('settled integral height must be at least three');
     return [

@@ -3523,14 +3523,23 @@ for (const [expression, expectedWidth, expectedOverflow] of [
     }), generated.final.map(row => Array.from(row, Number)));
 }
 
-// Child geometry fields are byte-sized in the settled records. The text
-// compositor can still preview a larger expression, while the ROM-faithful
-// record constructor rejects a vinculum endpoint that cannot fit its field.
+// Child geometry fields and the page-34 coordinate arithmetic are 16-bit.
+// This radical crosses the former 255-pixel JavaScript guard while remaining
+// a valid record and clips its vinculum into the live editor viewport.
 const oversizedRadical =
   'sqrt(logbase(Ans,nDeriv(L1,X,1))+' +
   'logbase(456,logbase(L1,N))*(int(2,X,Ans,X)))';
-expectThrows('ROM rejects an oversized radical vinculum endpoint', RangeError,
-  () => mp.generatedForExpression(oversizedRadical));
+const oversizedRadicalGenerated = mp.generatedForExpression(oversizedRadical);
+expectEqual('ROM retains a word-sized radical width',
+  oversizedRadicalGenerated.recordWidth, 258);
+expectEqual('word-sized radical vinculum clips to the editor viewport',
+  oversizedRadicalGenerated.operations.find(operation =>
+    operation.routine === '34:62C3 → 34:5DA6'), {
+    kind:'line',axis:'horizontal',from:{x:-167,y:0},to:{x:87,y:0},
+    routine:'34:62C3 → 34:5DA6',recordId:2,recordType:0x27,depth:0,
+  });
+expectEqual('34:62BA–62C3 wraps a radical vinculum as a Z80 word',
+  rom.settledRadicalOperations(7,0xffff)[3].to.x, 2);
 
 // The record metric fields are unsigned words. The largest flat expression
 // that fits remains executable; adding one six-pixel cell must fail at the
@@ -4315,6 +4324,21 @@ expectEqual('browser recursively reserves nested summation arguments',
   rom.constructSettledSummationProgram([0x4e], [0x31], [0x33], {
     kind:'summation', variable:[0x41], lower:[0x31], upper:[0x32], body:[0x41],
   }, 1, font).nodes);
+const tallSummation = mp.constructedProgramForExpression(
+  'sum(A,1,1,sqrt(int(1,3,N,A))//sqrt(A)^1^X)');
+expectEqual('summation unions a tall body with its independent limit rows',
+  tallSummation.nodes.slice(0, 6).map(node => ({
+    id:node.record_id, type:node.render_type,
+    height:node.word05, recordHeight:node.word07,
+    width:node.word09, baseline:node.word0B, y:node.word0D,
+  })), [
+    {id:1,type:0,height:33,recordHeight:68,width:18,baseline:0,y:0},
+    {id:2,type:0x29,height:3,recordHeight:33,width:68,baseline:18,y:0},
+    {id:3,type:1,height:5,recordHeight:4,width:2,baseline:0,y:23},
+    {id:4,type:0,height:5,recordHeight:4,width:2,baseline:8,y:23},
+    {id:5,type:0,height:5,recordHeight:4,width:2,baseline:4,y:9},
+    {id:6,type:0,height:33,recordHeight:45,width:18,baseline:18,y:0},
+  ]);
 expectEqual('browser constructs all three nDeriv fields from tokens',
   mp.constructedProgramForExpression('nDeriv(X^2,X,1)').nodes,
   rom.constructSettledNDerivProgram(
@@ -4411,6 +4435,29 @@ expectEqual('fraction power-base metrics follow 34:70C1 and 34:77AD',
     {id:7,type:0x2a,word05:1,word07:8,word09:24,word0B:5,word0D:24,word0F:0},
     {id:8,type:0,word05:5,word07:24,word09:2,word0B:0,word0D:0,word0F:5},
   ]);
+const mixedBaselineProgram = rom.constructSettledExpressionProgram({
+  kind:'sequence',parts:[
+    {kind:'fraction',
+      numerator:{kind:'group',expression:{kind:'sequence',parts:[
+        {kind:'group',expression:{kind:'sequence',parts:[[0x31],[0x82],[0x41]]}},
+        [0x83],[0x58],
+      ]}},
+      denominator:{kind:'fraction',
+        numerator:{kind:'group',expression:{kind:'sequence',parts:[
+          [0x4e],[0x71],[0x4e],
+        ]}},
+        denominator:{kind:'group',expression:{kind:'sequence',parts:[
+          [0x31],[0x82],[0x33],
+        ]}}}},
+    [0x82],
+    {kind:'summation',variable:[0x58],lower:[0x32],upper:[0x31],body:[0x4e]},
+  ],
+}, 1, font);
+expectEqual('leaf union preserves top and bottom extents around a raised baseline',
+  {
+    height:mixedBaselineProgram.nodes[0].word05,
+    baseline:mixedBaselineProgram.nodes[0].word09,
+  }, {height:24,baseline:9});
 const constructedPower = rom.constructSettledPowerProgram(
   {base:[0x58], exponent:[0x32]}, 0x0d, font);
 expectEqual('power tokens independently construct the settled X^2 graph',
