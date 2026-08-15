@@ -30,6 +30,8 @@ const constructionOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-construction-oracles.json')));
 const exponentialLogBaseOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-exponential-logbase-oracles.json')));
+const nestedBaselineOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-nested-baseline-oracles.json')));
 const matrixOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-matrix-oracles.json')));
 const groupingOracles = JSON.parse(fs.readFileSync(
@@ -70,6 +72,21 @@ function packedLcdBytes(grid) {
     }
     return bytes;
   }));
+}
+
+function cropInk(grid) {
+  const rows = grid.map(row => Array.from(row, Number));
+  const occupiedRows = rows
+    .map((row, y) => row.some(Boolean) ? y : -1)
+    .filter(y => y >= 0);
+  if (!occupiedRows.length) return [[0]];
+  const top = occupiedRows[0];
+  const bottom = occupiedRows[occupiedRows.length - 1] + 1;
+  const occupiedColumns = rows[0].map((_, x) =>
+    rows.slice(top,bottom).some(row => row[x]) ? x : -1).filter(x => x >= 0);
+  const left = occupiedColumns[0];
+  const right = occupiedColumns[occupiedColumns.length - 1] + 1;
+  return rows.slice(top,bottom).map(row => row.slice(left,right));
 }
 
 // Execute the closed action-controller instructions from pinned page-39 byte
@@ -2541,6 +2558,36 @@ const groupedNestedPowerProgram = rom.constructSettledExpressionProgram(
 expectEqual('browser decodes grouped postfix power bases with token boundaries',
   rom.decodeSettledExpressionGraph(groupedNestedPowerProgram.nodes, 7),
   groupedNestedPowerSpec);
+expectEqual('postfix power binds one atom after implicit and explicit products',
+  rom.decodeSettledExpressionGraph(
+    mp.constructedProgramForExpression('2X^2+A*B^3').nodes, 1), {
+    kind:'sequence',parts:[
+      [0x32], {kind:'power',base:[0x58],exponent:[0x32]},
+      [0x70,0x41,0x82], {kind:'power',base:[0x42],exponent:[0x33]},
+    ],
+  });
+expectEqual('function with a structural body remains one postfix-power base',
+  rom.decodeSettledExpressionGraph(
+    mp.constructedProgramForExpression('sin(sqrt(X))^2').nodes, 1), {
+    kind:'power',
+    base:{kind:'sequence',parts:[
+      [0xc2], {kind:'radical',radicand:[0x58]}, [0x11],
+    ]},
+    exponent:[0x32],
+  });
+expectEqual('live mixed logBASE graph keeps the additive power boundary',
+  rom.decodeSettledExpressionGraph(
+    mp.constructedProgramForExpression(
+      'logbase((X/X)+X^1,sqrt(A//X))').nodes, 1), {
+    kind:'logBase',
+    base:{kind:'sequence',parts:[
+      {kind:'group',expression:[0x58,0x83,0x58]}, [0x70],
+      {kind:'power',base:[0x58],exponent:[0x31]},
+    ]},
+    argument:{kind:'radical',radicand:{
+      kind:'fraction',numerator:[0x41],denominator:[0x58],
+    }},
+  });
 expectEqual('browser decodes a transparent transient root',
   rom.decodeSettledExpressionGraph([
     {id:1,type:0x1f,childIds:[2]},
@@ -3513,8 +3560,8 @@ for (const [expression, expectedWidth, expectedOverflow] of [
     'int(L1,Ans,nthroot(X,12^Ans),X)//N', 160, 64],
   ['nthroot(X,int(456,A,abs(0.5),X))^2', 86, 0],
   ['nDeriv((123+nthroot(456,A)^nthroot(A,logbase(12,Y1))),X,123)',
-    156, 60],
-  ['nthroot(N,logbase(123,A)//123^Ans)^Y1*abs(123)', 101, 5],
+    149, 53],
+  ['nthroot(N,logbase(123,A)//123^Ans)^Y1*abs(123)', 94, 0],
   ['matrix(1,1,(sum(N,12,GDB3,2))//2)', 47, 0],
   ['matrix(2,1,Pic2*[A]//12,abs((Y9)))', 48, 0],
   ['exp(remainder(matrix(2,3,sqrt(0.5),int(X,A,Str1,X),N//123,' +
@@ -4206,6 +4253,58 @@ for (const oracle of exponentialLogBaseOracles.cases) {
   expectEqual(`${oracle.expression} independently reproduces fresh accepted-write stream`,
     crypto.createHash('sha256').update(writeBytes).digest('hex'),
     oracle.accepted_write_sha256);
+}
+for (const oracle of nestedBaselineOracles.cases) {
+  const program = rom.constructSettledExpressionProgram(
+    oracle.spec, oracle.entry_id, font);
+  const programById = new Map(program.nodes.map(node => [node.record_id,node]));
+  const expectedNodes = oracle.nodes.map((node, index) => ({
+    ...node,
+    // The editor reserves one large-font cell for its live cursor after the
+    // settled expression. That reserve changes only the outer leaf width and
+    // is outside the closed expression program translated here.
+    word07:index === 0 ? node.word07 - oracle.root_cursor_width : node.word07,
+    // These traces enter logBASE through its interactive template and leave
+    // its active-child selector at 2. Native-source construction visits the
+    // 34:59AC child order 2,1 and leaves the same non-rendering field at 1.
+    word05:node.render_type === 0x28
+      ? programById.get(node.record_id).word05 : node.word05,
+  }));
+  expectEqual(`${oracle.expression} retains template logBASE child state`,
+    oracle.nodes.filter(node => node.render_type === 0x28)
+      .map(node => node.word05), [2]);
+  expectEqual(`${oracle.expression} applies the traced nested baseline fields`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.origin, nodes:expectedNodes});
+  const operations = rom.executeSettledRecordProgram(program.nodes, program.entry_id, {
+    origin:program.origin,
+    glyphAdvance:settledGlyphAdvance,
+  });
+  const writes = rom.rasterizeSettledOperations(operations, font).writes;
+  expectEqual(`${oracle.expression} reproduces nested-baseline write count`,
+    writes.length, oracle.accepted_write_count);
+  const writeBytes = Buffer.from(writes.flatMap(write => [...write.pointer,write.value]));
+  expectEqual(`${oracle.expression} reproduces nested-baseline write stream`,
+    crypto.createHash('sha256').update(writeBytes).digest('hex'),
+    oracle.accepted_write_sha256);
+}
+for (const oracle of nestedBaselineOracles.nested_layout_cases) {
+  const program = rom.constructSettledExpressionProgram(
+    oracle.spec, oracle.entry_id, font);
+  expectEqual(`${oracle.expression} reproduces the nested layout graph`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.origin, nodes:oracle.nodes});
+  const generated = mp.generatedForExpression(oracle.expression);
+  if (!generated)
+    throw new Error(`${oracle.expression} has no generated nested layout`);
+  const finalBitmap = cropInk(generated.final);
+  expectEqual(`${oracle.expression} reproduces the final nested layout dimensions`,
+    [finalBitmap[0].length,finalBitmap.length],
+    [oracle.final_bitmap.width,oracle.final_bitmap.height]);
+  expectEqual(`${oracle.expression} reproduces the final nested layout bitmap`,
+    crypto.createHash('sha256').update(
+      packedLcdBytes(finalBitmap))
+      .digest('hex'), oracle.final_bitmap.sha256);
 }
 for (const oracle of matrixOracles.cases) {
   const program = rom.constructSettledExpressionProgram(
