@@ -171,6 +171,12 @@ def _grp(ast):
     return f"({s})" if ast[0] in _NEEDS_GRP else s
 
 
+def _power_base(ast):
+    """Preserve a compound or powered AST when it becomes another power's base."""
+    s = to_expr(ast)
+    return f"({s})" if ast[0] in _NEEDS_GRP + ("pow",) else s
+
+
 def to_expr(ast):
     k = ast[0]
     if k in ("num", "var"):
@@ -188,7 +194,7 @@ def to_expr(ast):
         # group into the raised slot, which stacks differently). Other compound
         # exponents are parenthesised so the whole thing stays in the raised slot.
         e = to_expr(ast[2])
-        base = _grp(ast[1])
+        base = _power_base(ast[1])
         bare = _is_leaf(ast[2]) or ast[2][0] == "pow"
         return f"{base}^{e}" if bare else f"{base}^({e})"
     if k == "sqrt":
@@ -210,10 +216,10 @@ def to_spec(ast):
     if k in ("num", "var"):
         return [ord(char) for char in ast[1]]
 
-    def grouped(child):
+    def grouped(child, *, power_base=False):
         spec = to_spec(child)
-        return {"kind": "group", "expression": spec} \
-            if child[0] in _NEEDS_GRP else spec
+        kinds = _NEEDS_GRP + (("pow",) if power_base else ())
+        return {"kind": "group", "expression": spec} if child[0] in kinds else spec
 
     if k in ("add", "sub", "mul", "ldiv"):
         token = {"add": 0x70, "sub": 0x71, "mul": 0x82, "ldiv": 0x83}[k]
@@ -233,7 +239,10 @@ def to_spec(ast):
         exponent = to_spec(ast[2])
         if ast[2][0] not in ("num", "var", "pow"):
             exponent = {"kind": "group", "expression": exponent}
-        return {"kind": "power", "base": grouped(ast[1]), "exponent": exponent}
+        return {
+            "kind": "power", "base": grouped(ast[1], power_base=True),
+            "exponent": exponent,
+        }
     if k == "sqrt":
         return {"kind": "radical", "radicand": to_spec(ast[1])}
     if k == "nthroot":
@@ -278,6 +287,13 @@ def emit_grp(ast):
     return emit(ast)
 
 
+def emit_power_base(ast):
+    """Type an explicit group when a power becomes another power's base."""
+    if ast[0] in _NEEDS_GRP + ("pow",):
+        return ["LPAREN"] + emit(ast) + ["RPAREN"]
+    return emit(ast)
+
+
 def emit(ast):
     """Return the keystroke list that builds `ast` on the entry line, leaving the
     cursor just to its right on the main line."""
@@ -307,7 +323,7 @@ def emit(ast):
         # nested power exponent (a^b^c) is typed directly — the inner pow's own exit
         # RIGHT plus this one walk the cursor back out level by level. Any other
         # compound exponent is wrapped in typed parens so it stays in the raised slot.
-        base = emit_grp(ast[1])
+        base = emit_power_base(ast[1])
         if ast[2][0] in ("num", "var", "pow"):
             return base + ["POWER"] + emit(ast[2]) + ["RIGHT"]
         return base + ["POWER", "LPAREN"] + emit(ast[2]) + ["RPAREN", "RIGHT"]
@@ -329,20 +345,21 @@ def emit(ast):
         # MATH 9 -> ∫ template with slots lo, hi, integrand, var. Each emit() leaves
         # the cursor just right of its sub-expression in the current slot, so one
         # RIGHT advances to the next slot: lo, RIGHT, hi, RIGHT, integrand, RIGHT,
-        # var. The variable completes the template. Wait for that rebuild before
-        # sending a following binary operator; otherwise TilEm can deliver it while
-        # the editor is still completing the integral.
+        # var. Wait for the template and each slot transition; nested templates can
+        # otherwise still be rebuilding when the next key arrives.
         lo, hi, body, var = ast[1], ast[2], ast[3], ast[4]
-        return (["MATH", "9"] + emit(lo) + ["RIGHT"] + emit(hi) + ["RIGHT"] +
-                emit(body) + ["RIGHT"] + emit(var) + ["WAIT"])
+        return (["MATH", "9", "WAIT"] + emit(lo) + ["RIGHT", "WAIT"] +
+                emit(hi) + ["RIGHT", "WAIT"] + emit(body) +
+                ["RIGHT", "WAIT"] + emit(var) + ["WAIT"])
     if k == "sum":
         # MATH 0 -> Σ template. The variable and lower bound share the first
         # field: entering the variable moves the cursor across the equals sign
         # into the lower-bound slot. RIGHT then advances to the upper bound and
         # body; the final RIGHT exits the template.
         var, lo, hi, body = ast[1], ast[2], ast[3], ast[4]
-        return (["MATH", "0", "WAIT"] + emit(var) + emit(lo) + ["RIGHT"] +
-                emit(hi) + ["RIGHT"] + emit(body) + ["RIGHT"])
+        return (["MATH", "0", "WAIT"] + emit(var) + ["WAIT"] + emit(lo) +
+                ["RIGHT", "WAIT"] + emit(hi) + ["RIGHT", "WAIT"] +
+                emit(body) + ["RIGHT", "WAIT"])
     raise AssertionError(k)
 
 

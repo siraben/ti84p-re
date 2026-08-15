@@ -1880,9 +1880,10 @@ native calculator bytes, constructs the translated record graph, and compares
 the resulting pixels with a reset-origin TilEm screenshot produced from the
 corresponding key sequence. It does not compare the calculator with the preview
 compositor. Each run uses a new emulator state file. Adjacent equal keys receive
-an explicit scan delay, and integral completion receives a rebuild delay before
-a following operator. A pixel mismatch triggers an instruction trace for
-branch and LCD-write diagnosis; exact cases do not pay the trace cost.
+an explicit scan delay. Integral and summation templates receive rebuild delays
+after menu selection and each slot transition. A pixel mismatch triggers an
+instruction trace for branch and LCD-write diagnosis; exact cases do not pay
+the trace cost.
 Trace-limit cases leave the screenshot mismatch intact and report only the
 trace diagnosis as inconclusive. [confirmed]
 
