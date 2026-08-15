@@ -188,11 +188,11 @@ def read_state(ram):
 
 
 def strip_cursor(grid):
-    """Remove a five- or six-row solid cursor at the right edge and its gap.
+    """Remove a verified MathPrint cursor at the right edge and its gap.
 
-    The editor exposes both heights according to its current input state. At
-    least three adjacent columns must share the vertical run, so an ordinary
-    rightmost glyph is not treated as a cursor.
+    The editor exposes both five-/six-row solid blocks and a five-by-three
+    template-exit shape. The short shape is matched exactly and requires two
+    blank separator columns, so an ordinary rightmost glyph is retained.
     """
     if not grid or not grid[0]:
         return grid
@@ -213,9 +213,38 @@ def strip_cursor(grid):
     while xi >= 0 and run(xi) >= 5:   # count the solid cursor block
         cnt += 1
         xi -= 1
-    if cnt < 3:                       # not a cursor block
+    if cnt >= 3:
+        while xi >= 0 and not any(grid[y][xi] for y in range(h)):
+            xi -= 1
+        return crop([row[:xi + 1] for row in grid]) if xi >= 0 else grid
+
+    # A live logBASE template trace ends with this right-edge cursor:
+    #
+    #     #####
+    #     #####
+    #      ####
+    #
+    # Require its exact bounding box and two blank columns before it. This is
+    # deliberately narrower than generic connected-component removal.
+    left = x - 4
+    if left < 2:
         return grid
-    while xi >= 0 and not any(grid[y][xi] for y in range(h)):  # gap before cursor
+    rows = [
+        y for y in range(h)
+        if any(grid[y][column] for column in range(left, x + 1))
+    ]
+    if len(rows) != 3 or rows != list(range(rows[0], rows[0] + 3)):
+        return grid
+    masks = [
+        tuple(grid[y][column] for column in range(left, x + 1))
+        for y in rows
+    ]
+    if masks != [(1, 1, 1, 1, 1), (1, 1, 1, 1, 1), (0, 1, 1, 1, 1)]:
+        return grid
+    if any(grid[y][column] for y in range(h) for column in (left - 2, left - 1)):
+        return grid
+    xi = left - 3
+    while xi >= 0 and not any(grid[y][xi] for y in range(h)):
         xi -= 1
     return crop([row[:xi + 1] for row in grid]) if xi >= 0 else grid
 
