@@ -185,6 +185,68 @@ class MathPrintRecordTests(unittest.TestCase):
             decode_settled_expression(nodes, 10),
         )
 
+    def test_postfix_power_binds_one_native_atom(self):
+        nodes = [
+            {"record_id": 1, "render_type": 0, "child_ids": [],
+             "payload": [
+                 0x32, 0x58, 0xEF, 0x2A, 2, 0, 0xEF, 0x2D,
+                 0x70, 0x41, 0x82, 0x42,
+                 0xEF, 0x2A, 4, 0, 0xEF, 0x2D,
+             ]},
+            {"record_id": 2, "render_type": 0x2A, "child_ids": [3],
+             "payload": []},
+            {"record_id": 3, "render_type": 0, "child_ids": [],
+             "payload": [0x32]},
+            {"record_id": 4, "render_type": 0x2A, "child_ids": [5],
+             "payload": []},
+            {"record_id": 5, "render_type": 0, "child_ids": [],
+             "payload": [0x33]},
+        ]
+        self.assertEqual(
+            {
+                "kind": "sequence",
+                "parts": [
+                    [0x32],
+                    {"kind": "power", "base": [0x58], "exponent": [0x32]},
+                    [0x70, 0x41, 0x82],
+                    {"kind": "power", "base": [0x42], "exponent": [0x33]},
+                ],
+            },
+            decode_settled_expression(nodes, 1),
+        )
+
+    def test_function_with_structural_body_is_one_power_base(self):
+        nodes = [
+            {"record_id": 1, "render_type": 0, "child_ids": [],
+             "payload": [
+                 0xC2, 0xEF, 0x27, 2, 0, 0xEF, 0x2D, 0x11,
+                 0xEF, 0x2A, 4, 0, 0xEF, 0x2D,
+             ]},
+            {"record_id": 2, "render_type": 0x27, "child_ids": [3],
+             "payload": []},
+            {"record_id": 3, "render_type": 0, "child_ids": [],
+             "payload": [0x58]},
+            {"record_id": 4, "render_type": 0x2A, "child_ids": [5],
+             "payload": []},
+            {"record_id": 5, "render_type": 0, "child_ids": [],
+             "payload": [0x32]},
+        ]
+        self.assertEqual(
+            {
+                "kind": "power",
+                "base": {
+                    "kind": "sequence",
+                    "parts": [
+                        [0xC2],
+                        {"kind": "radical", "radicand": [0x58]},
+                        [0x11],
+                    ],
+                },
+                "exponent": [0x32],
+            },
+            decode_settled_expression(nodes, 1),
+        )
+
     def test_decodes_balanced_groups_around_postfix_powers(self):
         nodes = [
             {"record_id": 7, "render_type": 0, "child_ids": [],

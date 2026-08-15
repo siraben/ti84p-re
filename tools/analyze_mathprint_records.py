@@ -45,6 +45,45 @@ HEADER_SIZE = 0x14
 NATIVE_TWO_BYTE_TOKEN_LEADS = frozenset({
     0x5C, 0x5D, 0x5E, 0x60, 0x61, 0x62, 0x63, 0x7E, 0xAA, 0xBB, 0xEF,
 })
+PARSE_AHEAD_FUNCTION_TABLE_59E9 = frozenset({
+    0x10, 0xDA, 0xDB, 0x9C, 0x93, 0xA7, 0xD2, 0xD3, 0xE0,
+    0xE2, 0xE3, 0xE4, 0xE6, 0xE7, 0xE8, 0xEC, 0xED, 0xEE,
+})
+PARSE_AHEAD_FUNCTION_TABLE_59FB = frozenset({
+    0x3D, 0x3E, 0x3F, 0x40, 0x49, 0x53, 0x55, 0x56, 0x58, 0x59,
+})
+PARSE_AHEAD_OPERATORS_7F05 = frozenset({
+    0x3C, 0x3D, 0x40, 0x70, 0x71, 0x6A, 0x6B, 0x6C, 0x6D,
+    0x6E, 0x6F, 0x82, 0x83, 0x95, 0x94, 0xF0, 0xF1,
+})
+
+
+def parse_ahead_function_token(prefix: int, token: int) -> bool:
+    """Translate the function-opener predicates at 34:5A05–5A69."""
+
+    if prefix == 0:
+        return (
+            0xB1 <= token < 0xCE
+            or 0x12 <= token < 0x29
+            or 0x9E <= token < 0xA6
+            or token in PARSE_AHEAD_FUNCTION_TABLE_59E9
+        )
+    if prefix == 0xBB:
+        return (
+            token < 0x20
+            or 0x25 <= token < 0x2F
+            or 0x35 <= token < 0x3C
+            or 0x42 <= token < 0x48
+            or token in PARSE_AHEAD_FUNCTION_TABLE_59FB
+        )
+    if prefix == 0xEF:
+        return (
+            token == 0x13
+            or token < 0x09
+            or 0x32 <= token < 0x36
+            or token == 0xBB
+        )
+    return False
 
 
 @dataclass(frozen=True)
@@ -554,106 +593,188 @@ def decode_settled_expression(
             raise ValueError(f"settled leaf 0x{record_id:04X} has no byte payload")
         active.add(record_id)
         try:
-            frames: list[tuple[list[object], list[int]]] = [([], [])]
+            # The parent leaf retains the base while 34:5699 replaces F0h
+            # with a postfix EF 2Ah record marker. Keep atom boundaries and
+            # function/group frames so the marker binds X in 2X^2 or A+X^2,
+            # while a complete sin(X) call remains one base.
+            frames: list[dict[str, object]] = [{
+                "kind": "root", "items": [], "opener": None,
+                "pending_negations": 0,
+            }]
 
-            def current_parts() -> list[object]:
-                return frames[-1][0]
+            def current_frame() -> dict[str, object]:
+                return frames[-1]
 
-            def current_tokens() -> list[int]:
-                return frames[-1][1]
+            def frame_items(frame: dict[str, object]) -> list[dict[str, object]]:
+                items = frame["items"]
+                assert isinstance(items, list)
+                return items
 
-            def flush_tokens() -> None:
-                tokens = current_tokens()
-                if tokens:
-                    current_parts().append(tokens.copy())
-                    tokens.clear()
+            def public_parts(frame: dict[str, object]) -> list[object]:
+                return [item["value"] for item in frame_items(frame)]
+
+            def flush_negations(frame: dict[str, object]) -> None:
+                count = frame["pending_negations"]
+                assert isinstance(count, int)
+                if count:
+                    frame_items(frame).append({"role": "raw", "value": [0xB0] * count})
+                    frame["pending_negations"] = 0
+
+            def append_raw(value: list[int]) -> None:
+                frame = current_frame()
+                flush_negations(frame)
+                frame_items(frame).append({"role": "raw", "value": value.copy()})
+
+            def append_atom(value: object) -> None:
+                frame = current_frame()
+                count = frame["pending_negations"]
+                assert isinstance(count, int)
+                if count:
+                    value = collapse([[0xB0] * count, value])
+                    frame["pending_negations"] = 0
+                frame_items(frame).append({"role": "atom", "value": value})
+
+            def close_frame(closing: list[int]) -> None:
+                frame = current_frame()
+                flush_negations(frame)
+                parts = public_parts(frame)
+                frames.pop()
+                if frame["kind"] == "group":
+                    if not parts:
+                        raise ValueError("settled parenthesized expression is empty")
+                    append_atom({"kind": "group", "expression": collapse(parts)})
+                    return
+                opener = frame["opener"]
+                assert isinstance(opener, list)
+                append_atom(collapse([opener, *parts, closing]))
+
+            def is_raw_operator(prefix: int, token: int) -> bool:
+                return prefix == 0 and (
+                    token in PARSE_AHEAD_OPERATORS_7F05
+                    or token in {0x2B, 0x07, 0x09}
+                )
+
+            def is_name_character(token: int) -> bool:
+                return 0x30 <= token <= 0x39 or 0x41 <= token <= 0x5B
 
             index = 0
             while index < len(payload):
                 token = payload[index]
-                if (
-                    token != 0xEF
-                    and token in NATIVE_TWO_BYTE_TOKEN_LEADS
-                    and index + 1 < len(payload)
-                ):
-                    current_tokens().extend(payload[index:index + 2])
-                    index += 2
-                    continue
                 if token == 0x10:
-                    flush_tokens()
-                    frames.append(([], []))
+                    frames.append({
+                        "kind": "group", "items": [], "opener": [0x10],
+                        "pending_negations": 0,
+                    })
                     index += 1
                     continue
                 if token == 0x11:
-                    flush_tokens()
                     if len(frames) == 1:
-                        current_tokens().append(token)
+                        append_atom([token])
                         index += 1
                         continue
-                    grouped = collapse(current_parts())
-                    frames.pop()
-                    current_parts().append({"kind": "group", "expression": grouped})
+                    close_frame([token])
                     index += 1
                     continue
-                if token != 0xEF:
-                    current_tokens().append(token)
-                    index += 1
-                    continue
-                if index + 1 >= len(payload):
-                    raise ValueError(f"settled leaf 0x{record_id:04X} ends with EF")
-                subtype = payload[index + 1]
-                if subtype == 0x2D:
+                prefix = 0
+                subtype = token
+                unit_bytes = [token]
+                if token in NATIVE_TWO_BYTE_TOKEN_LEADS:
+                    if index + 1 >= len(payload):
+                        raise ValueError(
+                            f"settled leaf 0x{record_id:04X} ends with {token:02X}"
+                        )
+                    prefix = token
+                    subtype = payload[index + 1]
+                    unit_bytes = [token, subtype]
+                if prefix == 0xEF and subtype == 0x2D:
                     index += 2
                     continue
-                if subtype == 0x1E:
-                    flush_tokens()
-                    current_parts().append(
+                if prefix == 0xEF and subtype == 0x1E:
+                    append_atom(
                         {"kind": "extendedToken", "tokens": [0xEF, 0x1E]}
                     )
                     index += 2
                     continue
-                if not 0x1F <= subtype <= 0x2B:
-                    current_tokens().extend((0xEF, subtype))
-                    index += 2
-                    continue
-                if index + 3 >= len(payload):
-                    raise ValueError(
-                        f"settled leaf 0x{record_id:04X} has unsupported EF "
-                        f"subtype 0x{subtype:02X}"
-                    )
-                embedded_id = payload[index + 2] | payload[index + 3] << 8
-                expression = structural(embedded_id)
-                if subtype == 0x2A:
-                    if expression.get("kind") != "powerExponent":
+                if prefix == 0xEF and 0x1F <= subtype <= 0x2B:
+                    if index + 3 >= len(payload):
                         raise ValueError(
-                            f"settled power marker references non-power ID 0x{embedded_id:04X}"
+                            f"settled leaf 0x{record_id:04X} has unsupported EF "
+                            f"subtype 0x{subtype:02X}"
                         )
-                    tokens = current_tokens()
-                    parts = current_parts()
-                    if tokens:
-                        base: object = tokens.copy()
-                        tokens.clear()
-                    elif parts:
-                        base = parts.pop()
+                    embedded_id = payload[index + 2] | payload[index + 3] << 8
+                    expression = structural(embedded_id)
+                    if subtype == 0x2A:
+                        if not isinstance(expression, dict) or expression.get("kind") != "powerExponent":
+                            raise ValueError(
+                                "settled power marker references non-power ID "
+                                f"0x{embedded_id:04X}"
+                            )
+                        frame = current_frame()
+                        flush_negations(frame)
+                        items = frame_items(frame)
+                        candidate = items[-1] if items else None
+                        if candidate is None or candidate["role"] != "atom":
+                            raise ValueError(
+                                f"settled power ID 0x{embedded_id:04X} has no preceding base"
+                            )
+                        candidate["value"] = {
+                            "kind": "power", "base": candidate["value"],
+                            "exponent": expression["exponent"],
+                        }
                     else:
-                        raise ValueError(
-                            f"settled power ID 0x{embedded_id:04X} has no preceding base"
-                        )
-                    parts.append({
-                        "kind": "power", "base": base,
-                        "exponent": expression["exponent"],
+                        append_atom(expression)
+                    index += 4
+                    continue
+                if parse_ahead_function_token(prefix, subtype):
+                    frames.append({
+                        "kind": "function", "items": [],
+                        "opener": unit_bytes, "pending_negations": 0,
                     })
+                    index += len(unit_bytes)
+                    continue
+                if prefix == 0 and subtype == 0xB0:
+                    count = current_frame()["pending_negations"]
+                    assert isinstance(count, int)
+                    current_frame()["pending_negations"] = count + 1
+                    index += 1
+                    continue
+                if prefix == 0 and subtype in {0x5F, 0xEB}:
+                    limit = 8 if subtype == 0x5F else 5
+                    name = [subtype]
+                    index += 1
+                    while (
+                        len(name) <= limit
+                        and index < len(payload)
+                        and is_name_character(payload[index])
+                    ):
+                        name.append(payload[index])
+                        index += 1
+                    append_atom(name)
+                    continue
+                if prefix == 0 and 0x30 <= subtype <= 0x3B:
+                    number: list[int] = []
+                    while (
+                        index < len(payload)
+                        and 0x30 <= payload[index] <= 0x3B
+                    ):
+                        number.append(payload[index])
+                        index += 1
+                    append_atom(number)
+                    continue
+                if is_raw_operator(prefix, subtype):
+                    append_raw(unit_bytes)
                 else:
-                    flush_tokens()
-                    current_parts().append(expression)
-                index += 4
-            flush_tokens()
+                    append_atom(unit_bytes)
+                index += len(unit_bytes)
+            flush_negations(current_frame())
             while len(frames) > 1:
-                unfinished = current_parts()
+                unfinished = current_frame()
+                flush_negations(unfinished)
                 frames.pop()
-                current_parts().append([0x10])
-                current_parts().extend(unfinished)
-            return collapse(current_parts())
+                opener = unfinished["opener"]
+                assert isinstance(opener, list)
+                append_atom(collapse([opener, *public_parts(unfinished)]))
+            return collapse(public_parts(current_frame()))
         finally:
             active.remove(record_id)
 

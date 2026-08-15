@@ -4155,97 +4155,157 @@
           `settled leaf 0x${recordId.toString(16)} has no byte payload`);
       active.add(recordId);
       try {
-        const frames = [{parts:[],tokens:[]}];
+        // The leaf payload is a small postfix bytecode, not merely a token
+        // run. 34:5699 replaces F0h with an EF 2Ah record marker after leaving
+        // its base in the parent leaf. Preserve native atom boundaries here so
+        // the marker binds X rather than 2X or A+X, and preserve function
+        // frames so sin(X) remains one base even when X is structural.
+        const frames = [{kind:'root',items:[],opener:null,pendingNegations:0}];
         const frame = () => frames[frames.length - 1];
-        const flush = () => {
-          const current = frame();
-          if (current.tokens.length)
-            current.parts.push(current.tokens.splice(0,current.tokens.length));
+        const publicParts = current => current.items.map(item => item.value);
+        const flushNegations = current => {
+          if (!current.pendingNegations) return;
+          current.items.push({role:'raw',value:
+            Array(current.pendingNegations).fill(0xb0)});
+          current.pendingNegations = 0;
         };
+        const appendRaw = bytes => {
+          const current = frame();
+          flushNegations(current);
+          current.items.push({role:'raw',value:bytes.slice()});
+        };
+        const appendAtom = value => {
+          const current = frame();
+          if (current.pendingNegations) {
+            value = collapse([
+              Array(current.pendingNegations).fill(0xb0),value,
+            ]);
+            current.pendingNegations = 0;
+          }
+          current.items.push({role:'atom',value});
+        };
+        const closeFrame = closing => {
+          const current = frame();
+          flushNegations(current);
+          const parts = publicParts(current);
+          frames.pop();
+          if (current.kind === 'group') {
+            if (!parts.length)
+              throw new RangeError('settled parenthesized expression is empty');
+            appendAtom({kind:'group',expression:collapse(parts)});
+            return;
+          }
+          appendAtom(collapse([current.opener,...parts,closing]));
+        };
+        const isRawOperator = (prefix, token) => prefix === 0 &&
+          (SETTLED_PARSE_AHEAD_OPERATORS_7F05.has(token) ||
+           token === 0x2b || token === 0x07 || token === 0x09);
+        const isNameCharacter = token =>
+          (0x30 <= token && token <= 0x39) ||
+          (0x41 <= token && token <= 0x5b);
         for (let index = 0; index < payload.length;) {
           const token = payload[index];
-          if (token !== 0xef && SETTLED_TWO_BYTE_LEADS.has(token) &&
-              index + 1 < payload.length) {
-            frame().tokens.push(token,payload[index + 1]);
-            index += 2;
-            continue;
-          }
           if (token === 0x10) {
-            flush();
-            frames.push({parts:[],tokens:[]});
+            frames.push({kind:'group',items:[],opener:[0x10],pendingNegations:0});
             index++;
             continue;
           }
           if (token === 0x11) {
-            flush();
             if (frames.length === 1) {
-              frame().tokens.push(token);
+              appendAtom([token]);
               index++;
               continue;
             }
-            const grouped = collapse(frame().parts);
-            frames.pop();
-            frame().parts.push({kind:'group',expression:grouped});
+            closeFrame([token]);
             index++;
             continue;
           }
-          if (token !== 0xef) {
-            frame().tokens.push(token);
-            index++;
-            continue;
-          }
-          if (index + 1 >= payload.length)
-            throw new RangeError(`settled leaf 0x${recordId.toString(16)} ends with EF`);
-          const subtype = payload[index + 1];
-          if (subtype === 0x2d) { index += 2; continue; }
-          if (subtype === 0x1e) {
-            flush();
-            frame().parts.push({kind:'extendedToken',tokens:[0xef,0x1e]});
-            index += 2;
-            continue;
-          }
-          // EF-prefixed tokens outside the settled structural range remain
-          // ordinary leaf bytes. For example, EF 35 is the random-integer
-          // function token, not a record marker. Keep its two-byte spelling
-          // in the semantic leaf instead of treating it as a malformed ID.
-          if (subtype < 0x1f || subtype > 0x2b) {
-            frame().tokens.push(0xef,subtype);
-            index += 2;
-            continue;
-          }
-          if (index + 3 >= payload.length)
-            throw new RangeError(
-              `settled leaf 0x${recordId.toString(16)} has unsupported EF ` +
-              `subtype 0x${subtype.toString(16)}`);
-          const embeddedId = payload[index + 2] | payload[index + 3] << 8;
-          const expression = structural(embeddedId);
-          if (subtype === 0x2a) {
-            if (expression.kind !== 'powerExponent')
+          let prefix = 0;
+          let subtype = token;
+          let unitBytes = [token];
+          if (SETTLED_TWO_BYTE_LEADS.has(token)) {
+            if (index + 1 >= payload.length)
               throw new RangeError(
-                `settled power marker references non-power ID 0x${embeddedId.toString(16)}`);
-            const current = frame();
-            let base;
-            if (current.tokens.length)
-              base = current.tokens.splice(0,current.tokens.length);
-            else if (current.parts.length) base = current.parts.pop();
-            else throw new RangeError(
-              `settled power ID 0x${embeddedId.toString(16)} in leaf ` +
-              `0x${recordId.toString(16)} has no preceding base; payload ` +
-              payload.map(value => value.toString(16).padStart(2,'0')).join(' '));
-            current.parts.push({kind:'power',base,exponent:expression.exponent});
-          } else {
-            flush();
-            frame().parts.push(expression);
+                `settled leaf 0x${recordId.toString(16)} ends with ` +
+                `${token.toString(16).padStart(2,'0')}`);
+            prefix = token;
+            subtype = payload[index + 1];
+            unitBytes = [token,subtype];
           }
-          index += 4;
+          if (prefix === 0xef && subtype === 0x2d) {
+            index += 2;
+            continue;
+          }
+          if (prefix === 0xef && subtype === 0x1e) {
+            appendAtom({kind:'extendedToken',tokens:[0xef,0x1e]});
+            index += 2;
+            continue;
+          }
+          if (prefix === 0xef && 0x1f <= subtype && subtype <= 0x2b) {
+            if (index + 3 >= payload.length)
+              throw new RangeError(
+                `settled leaf 0x${recordId.toString(16)} has unsupported EF ` +
+                `subtype 0x${subtype.toString(16)}`);
+            const embeddedId = payload[index + 2] | payload[index + 3] << 8;
+            const embedded = structural(embeddedId);
+            if (subtype === 0x2a) {
+              if (embedded.kind !== 'powerExponent')
+                throw new RangeError(
+                  `settled power marker references non-power ID 0x${embeddedId.toString(16)}`);
+              const current = frame();
+              flushNegations(current);
+              const candidate = current.items[current.items.length - 1];
+              if (!candidate || candidate.role !== 'atom')
+                throw new RangeError(
+                  `settled power ID 0x${embeddedId.toString(16)} in leaf ` +
+                  `0x${recordId.toString(16)} has no preceding base; payload ` +
+                  payload.map(value => value.toString(16).padStart(2,'0')).join(' '));
+              candidate.value = {kind:'power',base:candidate.value,
+                exponent:embedded.exponent};
+            } else appendAtom(embedded);
+            index += 4;
+            continue;
+          }
+          if (settledParseAheadFunctionToken(prefix,subtype)) {
+            frames.push({kind:'function',items:[],opener:unitBytes,
+              pendingNegations:0});
+            index += unitBytes.length;
+            continue;
+          }
+          if (prefix === 0 && subtype === 0xb0) {
+            frame().pendingNegations++;
+            index++;
+            continue;
+          }
+          if (prefix === 0 && (subtype === 0x5f || subtype === 0xeb)) {
+            const limit = subtype === 0x5f ? 8 : 5;
+            const bytes = [subtype];
+            index++;
+            while (bytes.length <= limit && index < payload.length &&
+                   isNameCharacter(payload[index])) bytes.push(payload[index++]);
+            appendAtom(bytes);
+            continue;
+          }
+          if (prefix === 0 && 0x30 <= subtype && subtype <= 0x3b) {
+            const bytes = [];
+            while (index < payload.length &&
+                   0x30 <= payload[index] && payload[index] <= 0x3b)
+              bytes.push(payload[index++]);
+            appendAtom(bytes);
+            continue;
+          }
+          if (isRawOperator(prefix,subtype)) appendRaw(unitBytes);
+          else appendAtom(unitBytes);
+          index += unitBytes.length;
         }
-        flush();
+        flushNegations(frame());
         while (frames.length > 1) {
-          const unfinished = frame().parts;
+          const unfinished = frame();
+          flushNegations(unfinished);
           frames.pop();
-          frame().parts.push([0x10], ...unfinished);
+          appendAtom(collapse([unfinished.opener,...publicParts(unfinished)]));
         }
-        return collapse(frame().parts);
+        return collapse(publicParts(frame()));
       } finally {
         active.delete(recordId);
       }
@@ -4338,6 +4398,7 @@
     };
 
     const fillLeaf = (leaf, prepared, renderDepth) => {
+      const embeddedStructures = [];
 
       const mergeVerticalMetrics = (height, baseline) => {
         const mergedBaseline = Math.max(leaf.word09, baseline);
@@ -4392,16 +4453,12 @@
             structural.word07 + Math.max(
               0, baseLowerExtent - powerLowerExtent),
             'power height after lower base extent');
-          if (baseStructural) {
-            const marker = structural.word0B - baseStructural.word0B;
-            baseStructural.word0F = checkedWord(
-              marker, 'structural power-base baseline delta');
-          }
         }
         mergeVerticalMetrics(structural.word07, structural.word0B);
         leaf.word07 = checkedWord(
           leaf.word07 + structural.word09, 'settled structural leaf width');
         leaf.payload.push(...embedded(structural.render_type, structural.record_id));
+        embeddedStructures.push(structural);
       };
 
       const addPart = part => {
@@ -4421,6 +4478,15 @@
       };
 
       addPart(prepared);
+      // 34:77AD–77C1 revisits every structural marker in the completed leaf.
+      // It stores the difference between the leaf's merged baseline at 850Ah
+      // and the embedded record's +0Bh baseline in that record's +0Fh word.
+      // This applies to every direct structural child, not only to a structure
+      // immediately used as a power base.
+      for (const structural of embeddedStructures)
+        structural.word0F = checkedWord(
+          leaf.word09 - structural.word0B,
+          'embedded structural baseline delta');
       return finishLeaf(leaf);
     };
 
@@ -4574,9 +4640,15 @@
         if (renderType !== 0x28)
           throw new Error('34:594D log-base token mapping is inconsistent');
         const structuralId = allocate();
+        const metadata = settledRecordMetadata(renderType);
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
-          word05:settledRecordMetadata(renderType)[2],
+          // Native-source construction visits child 2 and then child 1, as
+          // encoded by the 34:59AC row [04,02,01,00,00], and therefore leaves
+          // the active-child selector at 1. Template-key navigation can leave
+          // the same completed record at 2; that editor state is not a metric
+          // and is not derived from structural depth.
+          word05:metadata[2],
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:structuralDepth + 1,
           byte13:fractionNumerator ? 0x10 : 0,
@@ -4594,14 +4666,29 @@
         fillLeaf(argument, prepare(
           expression.argument, renderDepth, structuralDepth + 1,
           fractionNumerator), renderDepth);
-        base.word0B = 18;
+        // The type-28h handler uses the large-row offsets 18/24 at depth zero
+        // and the small-row offsets 11/17 below a raised renderer. The two
+        // pairs differ by seven while retaining the six-pixel closing margin.
+        const raisedLogBase = renderDepth !== 0;
+        base.word0B = raisedLogBase ? 11 : 18;
+        // 34:76A9–76BF obtains child 2's baseline, decrements the structural
+        // depth through 34:79C9, and selects an offset of four only when that
+        // depth reaches zero. Deeper log-base records use an offset of three;
+        // the final three subtracts leave +1 at depth one and +0 below it.
         base.word0D = checkedWord(
-          argument.word09 + 1, 'log-base base y');
+          argument.word09 + (structuralDepth === 0 ? 1 : 0),
+          'log-base base y');
         argument.word0B = checkedWord(
-          base.word07 + 24, 'log-base argument x');
+          base.word07 + (raisedLogBase ? 17 : 24),
+          'log-base argument x');
         argument.word0D = 0;
+        // The metric pass reserves one row between the argument baseline and
+        // the base only at large-font depth. A raised type-28h record uses the
+        // small-row union without that extra row.
         structural.word07 = checkedWord(Math.max(
-          argument.word05, base.word0D + base.word05), 'log-base height');
+          argument.word05,
+          argument.word09 + (raisedLogBase ? 0 : 1) + base.word05),
+          'log-base height');
         structural.word09 = checkedWord(
           argument.word0B + argument.word07 + 6, 'log-base width');
         structural.word0B = argument.word09;
@@ -4889,18 +4976,25 @@
         // Type 23h's two metric passes at 34:7485 and 34:76C2 place the
         // derivative fraction at the left, the body in delimiters, then
         // repeat the variable after the evaluation bar before "=value".
-        const baseline = Math.max(6, body.word09);
-        const height = Math.max(body.word05, baseline + 7);
+        // 34:76C2–76EF places child 2 on the record baseline, child 1 two
+        // rows below it, and child 3 so its own baseline lands four rows below
+        // it. Include all three positioned extents; the old baseline+7 shortcut
+        // omitted a tall evaluation-value structure.
+        const baseline = Math.max(6, body.word09, value.word09 - 4);
+        const bodyY = baseline - body.word09;
+        const variableY = baseline + 2;
+        const valueY = baseline + 4 - value.word09;
+        const height = Math.max(
+          bodyY + body.word05,
+          variableY + variable.word05,
+          valueY + value.word05);
         variable.word0B = 5;
-        variable.word0D = checkedWord(
-          baseline + 2, 'nDeriv variable y');
+        variable.word0D = checkedWord(variableY, 'nDeriv variable y');
         body.word0B = 16;
-        body.word0D = checkedWord(
-          baseline - body.word09, 'nDeriv body y');
+        body.word0D = checkedWord(bodyY, 'nDeriv body y');
         value.word0B = checkedWord(
           body.word07 + variable.word07 + 29, 'nDeriv value x');
-        value.word0D = checkedWord(
-          baseline + 2, 'nDeriv evaluation-value y');
+        value.word0D = checkedWord(valueY, 'nDeriv evaluation-value y');
         structural.word07 = checkedWord(height, 'nDeriv height');
         structural.word09 = checkedWord(
           value.word0B + value.word07, 'nDeriv width');
