@@ -10,7 +10,7 @@ generates random ASTs over the supported constructs and, for each, emits BOTH
   2. a TilEm keystroke sequence intended to build the same expression on the
      home entry line,
 
-then renders the model (node mp.parse -> mp.toText) and the calculator (reuse
+then renders the ROM-translated settled-record path and the calculator (reuse
 tools/parity-mathprint.py run_calc + trace_lcd replay) and pixel-diffs them.
 Every mismatch is reported with the AST, expr,
 keystrokes, match %, dims, and a side-by-side.
@@ -25,22 +25,15 @@ Usage:
   python3 tools/fuzz-mathprint-diff.py --seed 11 -n 25     # 25 random differential cases
   python3 tools/fuzz-mathprint-diff.py --dry-run --seed 1 -n 30   # print expr+keys only, no calc
 
-Construct coverage and known model gaps
----------------------------------------
+Construct coverage
+------------------
 The default generator covers number, variable, + - *, ^ (incl. nested a^b^c and
 parenthesised/abs/fraction bases with *, /, +, - exponents), / (linear), // (stacked
-fraction), sqrt, nthroot, abs, int, and parentheses. A few nestings are kept
-to their calc-faithful subset because the JS model is ~1 px off the ROM there (each
-documented at its gen_ast guard):
-  * stacked-fraction operands beyond a single leaf (small-fraction glyph spacing)
-  * a 2-D body inside abs |…| (a power or radical), and a 2-D power base whose math
-    axis the superscript does not place exactly (nthroot index, ∫/Σ big operators)
-  * Σ summation — the default differential path still exercises the heuristic
-    compositor, while the record constructor has separate exact trace oracles
-    (use --with-sum to drive calculator-versus-compositor cases).
-These are real renderer gaps surfaced by this fuzzer, scoped out of the default
-corpus; widening them is
-follow-up work on web/mathprint/app.js's small-font / baseline metrics.
+fraction), sqrt, nthroot, abs, int, sum, and parentheses. Fraction children,
+radicands, absolute-value bodies, and power bases may contain structural records.
+The generator keeps raised slots and nth-root indices to entry sequences whose
+cursor behavior is independently pinned; this constrains input construction, not
+the JavaScript record renderer.
 """
 import argparse
 import importlib.util
@@ -75,27 +68,22 @@ VARS = ["X", "A", "N"]
 NUMS = ["1", "2", "3"]
 
 
-# Σ (summation) stays outside the default heuristic-compositor differential set.
-# Its record constructor has exact graph and LCD-write oracles. The variable and
-# lower bound share the first field; RIGHT then advances to the upper bound and
-# body.
-INCLUDE_SUM = False
+# The variable and lower bound share the first summation field; RIGHT then
+# advances to the upper bound and body.
+INCLUDE_SUM = True
 
 
 def gen_frac_operand(rng, depth):
-    """A stacked-fraction numerator/denominator: a single leaf (number or variable).
-    The OS lays out a small-font fraction slot 1 px differently from the model for
-    every multi-glyph operand tried (small *, +/-, parens, powers, radicals), so the
-    calc-faithful subset here is the bare leaf (e.g. 1//2, A//X, 3//N — all exact)."""
-    return gen_ast(rng, 0)
+    """Build a structural child for a stacked-fraction slot."""
+    return gen_ast(rng, depth)
 
 
 def gen_ast(rng, depth, *, in_small=False, avoid=()):
     """Random AST. `in_small` is set inside an exponent/limit so we avoid 2-D
     templates there (the calc does not place a stacked fraction / integral in a
     raised slot from these keystrokes; keep raised content to flat constructs).
-    `avoid` drops specific kinds from this node's choices (used to keep known-
-    imperfect nestings — pow-in-fraction, radical-in-radical — out of the corpus)."""
+    `avoid` drops kinds whose flat textual spelling would be ambiguous in the
+    surrounding operator."""
     if depth <= 0:
         return ("num", rng.choice(NUMS)) if rng.random() < 0.5 else ("var", rng.choice(VARS))
     if in_small:
@@ -122,11 +110,6 @@ def gen_ast(rng, depth, *, in_small=False, avoid=()):
         return (k, gen_ast(rng, d, in_small=in_small, avoid=cav),
                 gen_ast(rng, d, in_small=in_small, avoid=cav))
     if k == "sdiv":
-        # Stacked-fraction operands render in the small font. Simple operands (a leaf,
-        # or a small product/quotient/root) match the calc exactly; compound operands
-        # with +/- or typed parens hit a known small-run spacing gap (the OS spaces
-        # small fraction digits differently from small exponent digits), so keep the
-        # numerator/denominator to the calc-faithful subset.
         return ("sdiv", gen_frac_operand(rng, d), gen_frac_operand(rng, d))
     if k == "paren":
         # Parenthesise only a bare binary expression. Parens around a leaf or an
@@ -143,28 +126,14 @@ def gen_ast(rng, depth, *, in_small=False, avoid=()):
         kinds = ["add", "sub"] if in_small else ["add", "sub", "mul"]
         return ("paren", (rng.choice(kinds), gen_ast(rng, 0), gen_ast(rng, 0)))
     if k == "pow":
-        # The base avoids constructs whose math-axis baseline the superscript does not
-        # yet place exactly when raised: "pow" (left-nested a^b^c with a wide base),
-        # the "nthroot" index, and "int"/"sum" big operators. A plain value, √, abs,
-        # fraction, or parenthesised group is an exact power base.
-        bav = tuple(set(avoid) | {"pow", "nthroot", "int", "sum"})
-        return ("pow", gen_ast(rng, d, in_small=in_small, avoid=bav),
+        return ("pow", gen_ast(rng, d, in_small=in_small, avoid=avoid),
                 gen_ast(rng, d, in_small=True, avoid=avoid))
     if k == "sqrt":
-        # Nested radicals (a √ inside a √/n-th-root radicand) stack their raised
-        # parts in a way the model does not yet match the calc; keep the radicand
-        # free of radicals.
-        av = tuple(set(avoid) | {"sqrt", "nthroot"})
-        return ("sqrt", gen_ast(rng, d, avoid=av))
+        return ("sqrt", gen_ast(rng, d, avoid=avoid))
     if k == "nthroot":
-        av = tuple(set(avoid) | {"sqrt", "nthroot"})
-        return ("nthroot", gen_ast(rng, 0), gen_ast(rng, d, avoid=av))
+        return ("nthroot", gen_ast(rng, 0), gen_ast(rng, d, avoid=avoid))
     if k == "abs":
-        # The |…| bars wrap their content at a fixed height; a 2-D body (a power's
-        # raised exponent or a radical) sits a px off the calc inside the bars, so
-        # keep the abs body to flat constructs.
-        av = tuple(set(avoid) | {"pow", "nthroot", "sqrt"})
-        return ("abs", gen_ast(rng, d, avoid=av))
+        return ("abs", gen_ast(rng, d, avoid=avoid))
     if k == "int":
         return ("int", ("num", rng.choice(NUMS)), ("num", rng.choice(NUMS)),
                 gen_ast(rng, d, avoid=avoid), ("var", rng.choice(VARS)))
@@ -231,6 +200,60 @@ def to_expr(ast):
         return f"int({to_expr(ast[1])},{to_expr(ast[2])},{to_expr(ast[3])},{to_expr(ast[4])})"
     if k == "sum":
         return f"sum({to_expr(ast[1])},{to_expr(ast[2])},{to_expr(ast[3])},{to_expr(ast[4])})"
+    raise AssertionError(k)
+
+
+def to_spec(ast):
+    """Translate the generated AST and its explicit UI groups to renderer input."""
+    k = ast[0]
+    if k in ("num", "var"):
+        return [ord(char) for char in ast[1]]
+
+    def grouped(child):
+        spec = to_spec(child)
+        return {"kind": "group", "expression": spec} \
+            if child[0] in _NEEDS_GRP else spec
+
+    if k in ("add", "sub", "mul", "ldiv"):
+        token = {"add": 0x70, "sub": 0x71, "mul": 0x82, "ldiv": 0x83}[k]
+        return {
+            "kind": "sequence",
+            "parts": [grouped(ast[1]), [token], grouped(ast[2])],
+        }
+    if k == "sdiv":
+        return {
+            "kind": "fraction",
+            "numerator": grouped(ast[1]),
+            "denominator": grouped(ast[2]),
+        }
+    if k == "paren":
+        return {"kind": "group", "expression": to_spec(ast[1])}
+    if k == "pow":
+        exponent = to_spec(ast[2])
+        if ast[2][0] not in ("num", "var", "pow"):
+            exponent = {"kind": "group", "expression": exponent}
+        return {"kind": "power", "base": grouped(ast[1]), "exponent": exponent}
+    if k == "sqrt":
+        return {"kind": "radical", "radicand": to_spec(ast[1])}
+    if k == "nthroot":
+        return {
+            "kind": "nthRoot", "index": to_spec(ast[1]),
+            "radicand": to_spec(ast[2]),
+        }
+    if k == "abs":
+        return {"kind": "absolute", "body": to_spec(ast[1])}
+    if k == "int":
+        return {
+            "kind": "integral", "lower": to_spec(ast[1]),
+            "upper": to_spec(ast[2]), "body": to_spec(ast[3]),
+            "variable": to_spec(ast[4]),
+        }
+    if k == "sum":
+        return {
+            "kind": "summation", "variable": to_spec(ast[1]),
+            "lower": to_spec(ast[2]), "upper": to_spec(ast[3]),
+            "body": to_spec(ast[4]),
+        }
     raise AssertionError(k)
 
 
@@ -358,8 +381,9 @@ def run_one(parity, ast, outdir, name):
     """Render model and calculator trace, then return their pixel diff."""
     expr = to_expr(ast)
     keys = emit(ast)
-    model = parity.js_bitmap(expr)
-    _captures, _ram, trace = parity.run_calc(keys, outdir, name, trace=True)
+    model = parity.js_bitmap_spec(to_spec(ast))
+    _captures, _ram, trace, _macro = parity.run_calc(
+        keys, outdir, name, trace=True)
     calc = parity.calc_from_trace(trace)
     pct, bad, dim = parity.diff_metric(calc, model)
     return expr, keys, pct, bad, dim, calc, model
@@ -376,12 +400,12 @@ def main():
                     help="print AST/expr/keys only; do not run the calculator")
     ap.add_argument("--threshold", type=float, default=100.0,
                     help="report cases below this match %% (default 100: every mismatch)")
-    ap.add_argument("--with-sum", action="store_true",
-                    help="include Σ summation in calculator-versus-compositor generation")
+    ap.add_argument("--without-sum", action="store_true",
+                    help="exclude Σ while diagnosing its calculator input sequence")
     args = ap.parse_args()
 
     global INCLUDE_SUM
-    INCLUDE_SUM = args.with_sum
+    INCLUDE_SUM = not args.without_sum
     parity = _load_parity()
     if not args.dry_run:
         parity.validate_inputs()
@@ -420,13 +444,22 @@ def main():
     rng = random.Random(args.seed)
     asts = [gen_ast(rng, args.depth) for _ in range(args.count)]
     mismatches = 0
+    inconclusive = 0
     for i, ast in enumerate(asts):
         expr = to_expr(ast)
         keys = emit(ast)
         if args.dry_run:
             print(f"[{i}] {show_ast(ast)}\n     expr: {expr}\n     keys: {' '.join(keys)}")
             continue
-        _, _, pct, bpx, dim, calc, model = run_one(parity, ast, outdir, f"f{i}")
+        try:
+            _, _, pct, bpx, dim, calc, model = run_one(
+                parity, ast, outdir, f"f{i}")
+        except RuntimeError as error:
+            # Preserve the completed cases and continue reducing the corpus.
+            # A trace-limit hit is not evidence for or against pixel parity.
+            inconclusive += 1
+            print(f"[{i}] INC  {expr}\n     {error}", flush=True)
+            continue
         tag = "OK " if pct >= args.threshold else "BAD"
         print(f"[{i}] {tag} {pct:5.1f}%  {expr}", flush=True)
         if pct < args.threshold:
@@ -437,9 +470,10 @@ def main():
             print(parity.side_by_side(calc, model))
             print()
     if not args.dry_run:
-        print(f"\n{args.count - mismatches}/{args.count} matched at >= {args.threshold}%  "
-              f"(seed {args.seed})")
-        sys.exit(1 if mismatches else 0)
+        matched = args.count - mismatches - inconclusive
+        print(f"\n{matched}/{args.count} matched at >= {args.threshold}%  "
+              f"({inconclusive} inconclusive; seed {args.seed})")
+        sys.exit(1 if mismatches or inconclusive else 0)
 
 
 if __name__ == "__main__":

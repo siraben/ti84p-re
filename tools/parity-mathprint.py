@@ -34,8 +34,9 @@ REPORT_FIXTURES = {
     "integral_frac": "tools/macros/mathprint-integral-fraction.macro",
 }
 
-# Each example: js expression for the model, and the calculator keystrokes that
-# produce the same layout on the home entry line (after CLEAR). RIGHT leaves a
+# Each example supplies an expression for the translated record renderer and
+# calculator keys that produce the same layout on the home entry line (after CLEAR).
+# RIGHT leaves a
 # raised/template slot. Stacked fractions use the n/d template (ALPHA YEQU 1).
 EXAMPLES = {
     "x_squared":   ("X^2",            ["GRAPHVAR", "POWER", "2"]),
@@ -92,13 +93,21 @@ NAV = {"RIGHT", "LEFT", "UP", "DOWN"}
 
 def run_calc(keys, outdir, name, trace=False, trace_history=False):
     macro = PRELUDE
+    previous_key = None
     for k in keys:
         if k == "WAIT":                 # settle for a menu/template to appear
             macro += "wait 0.8s\n"
+            previous_key = None
             continue
+        # The OS key scanner can coalesce two adjacent presses of the same key
+        # at the normal macro cadence.  Keep each requested token observable;
+        # this matters for repeated digits and nested closing parentheses.
+        if k == previous_key:
+            macro += "wait 0.35s\n"
         macro += f"key {k}\n"
         if k in NAV:
             macro += "wait 0.35s\n"
+        previous_key = k
     ram = os.path.join(outdir, f"{name}.ram")
     shot = os.path.join(outdir, f"{name}.png")
     # Snapshot the settled entry-line render (2-D MathPrint layout) just before
@@ -113,9 +122,11 @@ def run_calc(keys, outdir, name, trace=False, trace_history=False):
         macro += "key ENTER\nwait 1.4s\n"
     gif = os.path.join(outdir, f"{name}.gif")
     mac = os.path.join(outdir, f"{name}.macro")
+    state = os.path.join(outdir, f"{name}.state")
     open(mac, "w").write(macro)
     cmd = [TILEM, "--headless", "--rom", ROM, "--model", "ti84p",
-           "--normal-speed", "--reset", "--macro", mac, "--headless-record", gif]
+           "--state-file", state, "--normal-speed", "--reset", "--macro", mac,
+           "--headless-record", gif]
     tr = os.path.join(outdir, f"{name}.trace")
     if trace:
         cmd += ["--trace", tr, "--trace-range", "all", "--trace-limit", str(TRACE_LIMIT)]
@@ -292,14 +303,49 @@ def crop(grid):
     return [row[left:right] for row in grid[top:bot]]
 
 
-def js_bitmap(expr):
+def js_bitmap(expr, *, generated=False):
+    """Render either the preview compositor or translated settled-record path."""
+    render = (
+        "const result=mp.generatedForExpression(process.argv[2]);"
+        "if(!result)throw new Error('expression has no translated record program');"
+        "process.stdout.write(result.final.map(row=>"
+        "Array.from(row,value=>Number(value)?'#':'.').join('')).join('\\n'));"
+        if generated else
+        "process.stdout.write(mp.toText(mp.parse(process.argv[2])));"
+    )
     code = (
         "const fs=require('fs');const mp=require(process.argv[1]+'/web/mathprint/app.js');"
-        "mp.setFont(JSON.parse(fs.readFileSync(process.argv[1]+'/web/mathprint/font.json')));"
-        "process.stdout.write(mp.toText(mp.parse(process.argv[2])));"
+        "mp.setFont(JSON.parse(fs.readFileSync(process.argv[1]+'/web/mathprint/font.json')));" +
+        render
     )
     out = subprocess.run(["node", "-e", code, ROOT, expr],
                          check=True, capture_output=True, text=True).stdout
+    grid = [[1 if c == "#" else 0 for c in line] for line in out.splitlines()]
+    return crop(grid)
+
+
+def js_bitmap_spec(spec):
+    """Render a semantic AST through native-byte encoding and record construction."""
+    code = (
+        "const fs=require('fs');"
+        "const root=process.argv[1];"
+        "const mp=require(root+'/web/mathprint/app.js');"
+        "const rom=require(root+'/web/mathprint/rom-engine.js');"
+        "const font=JSON.parse(fs.readFileSync(root+'/web/mathprint/font.json'));"
+        "mp.setFont(font);"
+        "rom.setSettledTokenStrings(JSON.parse("
+        "fs.readFileSync(root+'/web/mathprint/token-strings.json')));"
+        "const spec=JSON.parse(process.argv[2]);"
+        "const native=rom.encodeSettledExpressionTokens(spec);"
+        "const program=rom.constructSettledProgramFromTokens(native,1,font);"
+        "const result=mp.generateRecordProgram(program,{editor:true});"
+        "process.stdout.write(result.final.map(row=>"
+        "Array.from(row,value=>Number(value)?'#':'.').join('')).join('\\n'));"
+    )
+    out = subprocess.run(
+        ["node", "-e", code, ROOT, json.dumps(spec, separators=(",", ":"))],
+        check=True, capture_output=True, text=True,
+    ).stdout
     grid = [[1 if c == "#" else 0 for c in line] for line in out.splitlines()]
     return crop(grid)
 
@@ -416,7 +462,7 @@ def main():
             trace_history=args.trace_history,
         )
         calc = calc_from_trace(trace) if trace else calc_bitmap(shot)
-        model = js_bitmap(expr)
+        model = js_bitmap(expr, generated=True)
         print(f"===== {name}: {expr} =====")
         pct, bad, dim = diff_metric(calc, model)
         mismatches += bool(bad)
