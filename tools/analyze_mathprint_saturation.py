@@ -3455,12 +3455,53 @@ def validate_trace_provenance(label: str, path: Path, provenance: str) -> None:
         )
 
 
+def cached_report_traces(
+    path: Path, excluded_labels: Iterable[str] = (),
+) -> list[tuple[str, str, str]]:
+    """Load trace identities from a prior report without reopening trace files."""
+
+    document = json.loads(path.read_text())
+    rows = document.get("traces") if isinstance(document, dict) else None
+    if not isinstance(rows, list):
+        raise ValueError(f"cached trace report {path} has no trace list")
+    excluded = set(excluded_labels)
+    result = []
+    seen = set()
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            raise ValueError(f"cached trace report {path} trace {index} is not an object")
+        label = row.get("label")
+        trace_sha256 = row.get("sha256")
+        trace_kind = row.get("provenance", TRACE_PROVENANCE_NATURAL)
+        if not isinstance(label, str) or not label:
+            raise ValueError(f"cached trace report {path} trace {index} has no label")
+        if label in excluded:
+            continue
+        if label in seen:
+            raise ValueError(f"cached trace report {path} repeats label {label!r}")
+        if not isinstance(trace_sha256, str) or not re.fullmatch(
+            r"[0-9a-f]{64}", trace_sha256
+        ):
+            raise ValueError(
+                f"cached trace report {path} trace {label!r} has an invalid SHA-256"
+            )
+        if trace_kind not in TRACE_PROVENANCE_VALUES:
+            raise ValueError(
+                f"cached trace report {path} trace {label!r} has unsupported "
+                f"provenance {trace_kind!r}"
+            )
+        result.append((label, trace_sha256, trace_kind))
+        seen.add(label)
+    return result
+
+
 def build_report(
     rom: RomImage,
     traces: Sequence[tuple[str, Path]],
     instruction_list: Path | None = None,
     trace_cache: Path | None = None,
     trace_provenance: dict[str, str] | None = None,
+    cached_traces: Sequence[tuple[str, str, str]] = (),
 ) -> dict[str, object]:
     if instruction_list is None:
         instruction_maps: dict[int, dict[int, Z80Instruction]] = {}
@@ -3492,7 +3533,9 @@ def build_report(
     cache_entries = cache["entries"]
 
     trace_rows = []
-    provenance = trace_provenance or {}
+    provenance = dict(trace_provenance or {})
+    for label, _trace_sha256, trace_kind in cached_traces:
+        provenance[label] = trace_kind
     outcomes: Counter[tuple[str, int, str]] = Counter()
     instruction_hits: Counter[tuple[str, int]] = Counter()
     witnesses: dict[tuple[str, int, str], dict[str, object]] = {}
@@ -3501,6 +3544,17 @@ def build_report(
     natural_witnesses: dict[tuple[str, int, str], dict[str, object]] = {}
     trace_outcomes: dict[str, set[tuple[str, int, str]]] = {}
     trace_features: dict[str, set[str]] = {}
+    pending_summaries = []
+    for label, trace_sha256, trace_kind in cached_traces:
+        cached = cache_entries.get(trace_sha256)
+        if cached is None:
+            raise ValueError(
+                f"cached trace {label!r} ({trace_sha256}) is absent from "
+                f"{trace_cache}"
+            )
+        pending_summaries.append((
+            label, trace_kind, deserialize_trace_summary(label, cached)
+        ))
     for label, path in traces:
         trace_sha256 = digest(path)
         cached = cache_entries.get(trace_sha256)
@@ -3523,12 +3577,23 @@ def build_report(
                 row, local_outcomes, local_hits, local_witnesses,
                 local_entries, local_paths,
             ) = deserialize_trace_summary(label, cached)
+        pending_summaries.append((
+            label, provenance.get(label, TRACE_PROVENANCE_NATURAL),
+            (row, local_outcomes, local_hits, local_witnesses,
+             local_entries, local_paths),
+        ))
+
+    for label, trace_kind, summary in pending_summaries:
+        (
+            row, local_outcomes, local_hits, local_witnesses,
+            local_entries, local_paths,
+        ) = summary
         local_set = set(local_outcomes)
         trace_outcomes[label] = local_set
         trace_features[label] = trace_dynamic_features(
             local_set, local_entries, local_paths
         )
-        row["provenance"] = provenance.get(label, TRACE_PROVENANCE_NATURAL)
+        row["provenance"] = trace_kind
         row["unique_branch_outcomes"] = len(local_set)
         trace_rows.append(row)
         outcomes.update(local_outcomes)
@@ -3822,6 +3887,13 @@ def main() -> None:
         help="optional local JSON cache for completed per-trace scans",
     )
     parser.add_argument(
+        "--cached-trace-report", type=Path,
+        help=(
+            "prior saturation report whose trace labels, digests, and provenance "
+            "are restored from --trace-cache without reopening the trace files"
+        ),
+    )
+    parser.add_argument(
         "--trace-manifest", type=Path,
         help=(
             "optional TSV of LABEL, PATH, and optional PROVENANCE fields "
@@ -3869,6 +3941,23 @@ def main() -> None:
     labels = [label for label, _path in traces]
     if len(labels) != len(set(labels)):
         parser.error("trace labels must be unique")
+    cached_traces = []
+    if args.cached_trace_report is not None:
+        if args.trace_cache is None:
+            parser.error("--cached-trace-report requires --trace-cache")
+        if not args.cached_trace_report.is_file():
+            parser.error(
+                f"cached trace report does not exist: {args.cached_trace_report}"
+            )
+        try:
+            cached_traces = cached_report_traces(
+                args.cached_trace_report, excluded_labels=labels,
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            parser.error(str(error))
+        combined_labels = labels + [label for label, _sha, _kind in cached_traces]
+        if len(combined_labels) != len(set(combined_labels)):
+            parser.error("cached and supplied trace labels must be unique")
     for label, path in traces:
         try:
             validate_trace_provenance(
@@ -3882,7 +3971,7 @@ def main() -> None:
 
     report = build_report(
         RomImage.from_path(args.rom), traces, args.instruction_list,
-        args.trace_cache, provenance,
+        args.trace_cache, provenance, cached_traces,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")

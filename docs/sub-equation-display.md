@@ -148,7 +148,7 @@ typedef struct {
     uint16_t id;          /* +00h: arena ID */
     uint8_t type;         /* +02h: leaf/object or structural render type */
     uint16_t word03;      /* +03h: parent ID in captured constructed records */
-    uint16_t word05;      /* +05h: type-specific count or height */
+    uint16_t word05;      /* +05h: leaf height or structural child selector */
     uint16_t word07;      /* +07h: type-specific height or width */
     uint16_t word09;      /* +09h: type-specific width */
     uint16_t word0B;      /* +0Bh: local x origin for recursive entry */
@@ -519,18 +519,22 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 184 reset-origin traces, and
+destinations, overlays exact next-PC outcomes from 185 reset-origin traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 183 reach their state through calculator input. One explicitly
+traces, 184 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an `EF36h` editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 `tools/mathprint-saturation.json` records the resulting branches and trace
 hashes. [confirmed]
 
-None of the 184 report traces executes `39:5167`, `39:523B`, the saved-operand
+The analyzer can restore trace identities, provenance, and per-trace summaries
+from a prior report and the digest-keyed cache. Regeneration therefore scans a
+new trace once without reopening the other retained TLMT files. [confirmed]
+
+None of the 185 report traces executes `39:5167`, `39:523B`, the saved-operand
 wrappers at `39:5B10`–`39:5B38`, or the dispatchers at `39:59E0`/`39:59F9`.
-The wider 207-digest trace cache also has no hit at those entries. [confirmed]
+The 185-digest trace cache also has no hit at those entries. [confirmed]
 `_FindAlphaUp` at `07:50B5` executes once in 110 report traces, but every call
 comes from the type-`16h` cleanup loop at `07:5544`. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -631,13 +635,13 @@ return class identifies which callee paths have live witnesses. [confirmed]
 | Component | Reachable instructions | Natural / all-evidence outcomes | Outcomes in CFG | Natural / all-evidence instruction coverage |
 |-----------|-----------------------:|--------------------------------:|----------------:|--------------------------------------------:|
 | Settled construction | 991 | 247 / 248 | 408 | 80.73% / 80.73% |
-| Settled rendering | 1,898 | 236 / 238 | 302 | 95.26% / 95.26% |
+| Settled rendering | 1,898 | 237 / 239 | 302 | 95.26% / 95.26% |
 | Metrics and geometry | 470 | 75 / 75 | 80 | 99.36% / 99.36% |
 | Record allocator | 64 | 7 / 7 | 8 | 98.44% / 98.44% |
 | Alphabetic VAT search | 236 | 17 / 17 | 92 | 34.32% / 34.32% |
 | Editor layout | 2,776 | 255 / 255 | 1,098 | 33.03% / 33.03% |
 | Small-font and LCD output | 413 | 81 / 81 | 122 | 75.54% / 75.54% |
-| Point and line primitives | 508 | 48 / 48 | 134 | 59.45% / 59.45% |
+| Point and line primitives | 508 | 50 / 50 | 134 | 59.65% / 59.65% |
 | Large glyphs | 130 | 16 / 16 | 32 | 68.46% / 68.46% |
 
 These counts describe the declared CFG and retained saturation corpus, not all
@@ -649,10 +653,10 @@ the allocator's four branches and 35 of the 40 metric branches have both
 outcomes. [confirmed]
 
 The report classifies all 2,276 enumerated outcomes. Natural calculator input
-exercises 982. The synthetic `EF36h` state adds three outcomes, for 985 across
+exercises 985. The synthetic `EF36h` state adds three outcomes, for 988 across
 all evidence. One allocator outcome is infeasible under its data invariant.
 Two metric outcomes are infeasible under the calculator call ABI. The full
-evidence set leaves 1,288 unresolved; the natural-only set leaves 1,291.
+evidence set leaves 1,285 unresolved; the natural-only set leaves 1,288.
 An unobserved outcome never becomes infeasible from absence alone. [confirmed]
 
 The infeasible allocator outcome is the fallthrough at `33:4F4E`. The type
@@ -673,14 +677,14 @@ Synthetic direct calls to internal metric handlers do not share the ABI.
 The report computes two exact Z3 covers. The first preserves every individual
 branch outcome observed in the supplied traces. It does not preserve complete
 invocation paths, register or RAM states, dispatch indices, record cases, or LCD
-write cases. The all-evidence and natural-only branch covers each select 23
-traces. They preserve 985 and 982 outcomes in 3,733,190,076 and 3,783,443,760
+write cases. The all-evidence and natural-only branch covers each select 21
+traces. They preserve 988 and 985 outcomes in 3,586,313,970 and 3,680,998,590
 bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,241 tags and needs 126
-traces. The natural-only universe has 1,238 tags and needs 125 traces. Every
+independent oracle case. Its all-evidence universe has 1,246 tags and needs 125
+traces. The natural-only universe has 1,243 tags and needs 124 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -692,15 +696,17 @@ turn unobserved RAM into an observed state or prove that the traces reach every
 symbolic valuation. The separate exhaustive models state their preconditions;
 the dynamic cover states what the retained traces actually exercise. [confirmed]
 
-The 23-trace all-evidence branch cover retains the log-base, integral, and
-**Y=**/table runs below. Other selected traces cover every outcome in the
-radical run, so the exact solver omits it. The macro paths contain no `memwrite`
-command or execution hook. The raw TLMT files remain outside the repository;
-their hashes identify the exact inputs used by the report. [confirmed]
+The 21-trace all-evidence branch cover retains the nested derivative, log-base,
+integral, and **Y=**/table runs below. Other selected traces cover every outcome
+in the radical run, so the exact solver omits it. The macro paths contain no
+`memwrite` command or execution hook. The raw TLMT files remain outside the
+repository; their hashes identify the exact inputs used by the report.
+[confirmed]
 
 | Input | Reproduction macro | Trace SHA-256 | Exclusive outcomes in the full branch cover |
 |-------|--------------------|--------------|--------------------------|
-| Log-base marker insertion | `tools/macros/mathprint-logbase-boundary-insert.macro` | `a49e4c13c93358662713da7f5e07862f42863d60a70ce18e141a90987914008b` | 2 |
+| Nested derivative with tall body and value | `tools/macros/mathprint-nested-tall-nderiv.macro` | `e11c011b74df79165c55f7f64b699e3aa393bf8087f45ec89a73d616b73cdbb5` | 39 |
+| Log-base marker insertion | `tools/macros/mathprint-logbase-boundary-insert.macro` | `a49e4c13c93358662713da7f5e07862f42863d60a70ce18e141a90987914008b` | 1 |
 | Radical marker insertion | `tools/macros/mathprint-radical-nonspecial-insert.macro` | `e7b79e37149f2b9b4a986bdbb114a89b03cd452bbecc6da20490edc972895e98` | Omitted |
 | Integral marker insertion | `tools/macros/mathprint-integral-boundary-insert.macro` | `328b8f52ebe939b35f79e676076984aa85ee59e05c06862647c4fc615069bb3c` | 2 |
 | **Y=**/table/power round trip | `tools/macros/mathprint-yequ-table-power-insert.macro` | `ac719f540d2adfca05d2ffa415f065b83eaf407f04fca42f5ae63c440a746b9d` | 16 |
@@ -724,7 +730,7 @@ and `A` at each discriminator were checked before admission. [confirmed]
 The synthetic `EF36h` trace uses
 `tools/macros/mathprint-ef36-injected-buffer.macro`. Its two `memwrite`
 commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
-source in the 184-trace report. It supplies the only evidence for
+source in the 185-trace report. It supplies the only evidence for
 `34:5A23` fallthrough, `34:6992` taken, and `34:6B94` taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]
 
@@ -752,7 +758,7 @@ that each local path is feasible, but they do not prove calculator
 reachability. Those three `34:759C` injected-state probes are absent from both
 minimized corpora. [confirmed]
 
-The record-oracle corpus contains 105 captured cases. It includes types `0x20`
+The record-oracle corpus contains 109 captured cases. It includes types `0x20`
 through `0x2B`; the only missing structural type is `0x1F`. Each of those 12
 types has a decoded record node and accepted-write oracle. This saturates the
 ordinary 12-type structural table domain used by the translated constructor,
@@ -1310,20 +1316,25 @@ respectively. [confirmed]
 When the immediate base of a power ends in a structural object, `34:70C1`–`7084`
 merges that object's baseline and lower extent into the type-`0x2A` metrics.
 It does not use the containing leaf's accumulated baseline: an earlier radical
-to the left does not raise a later plain-token power. `34:77AD`–`77C1` writes
-the resulting baseline difference to the base object's word at `+0x0F`: [confirmed]
+to the left does not raise a later plain-token power. [confirmed]
+
+After the leaf obtains its merged baseline, `34:77AD`–`77C1` revisits every
+directly embedded structural record. It subtracts the record's baseline at
+`+0x0B` from the leaf baseline in `ram:850A`, then writes the difference at
+`+0x0F`: [confirmed]
 
 $$
-\mathtt{base.word0F}
-= \mathtt{power.word0B} - \mathtt{base.word0B}.
+\mathtt{structure.word0F}
+= \mathtt{leaf.word09} - \mathtt{structure.word0B}.
 $$
 
-The value happens to be `3` for `sqrt(X)^2` and `abs(X)^2`. A grouped fraction
-base has baseline `6` and lower extent `7`; its outer power has baseline `12`,
-height `19`, and therefore stores `6` at the fraction's `+0x0F`. The fraction's
-visible numerator group requires two native `10h`…`11h` pairs: the fraction
-scanner consumes the outer pair and retains the inner pair in the numerator
-leaf. [confirmed]
+For a trailing structural power base, the leaf baseline equals the power
+baseline. The value is therefore `3` for `sqrt(X)^2` and `abs(X)^2`. A grouped
+fraction base has baseline `6` and lower extent `7`; its outer power has
+baseline `12`, height `19`, and therefore stores `6` at the fraction's
+`+0x0F`. The fraction's visible numerator group requires two native
+`10h`…`11h` pairs: the fraction scanner consumes the outer pair and retains
+the inner pair in the numerator leaf. [confirmed]
 
 For a grouped structural base, `34:70C1` saves the base baseline $b$ and lower
 extent $d$. After `34:7283` returns the raised child's height $h_e$ in
@@ -1367,16 +1378,56 @@ from the expression tree, constructed records, structural handlers, ROM font
 bitmaps, and LCD byte-packing logic. [confirmed]
 
 The type-`0x28` constructor maps source token `EF34h` through `34:594D` and
-reserves the base and argument leaves before scanning either payload. It places
-the base at `x=18` and the argument after the base width at $x=w_b+24$. The
-argument height and baseline determine the parent's height and baseline. The
-parent width is $w_b+w_a+30$. [confirmed]
+reserves the base and argument leaves before scanning either payload.
+`34:76A9`–`34:76BF` decrements the structural-depth byte through `34:79C9`.
+It places the base one pixel below the argument baseline only when the remaining
+depth is zero. The horizontal and height constants also select large-row or
+raised-row geometry: [confirmed]
+
+$$
+\begin{aligned}
+x_b &= 11+7[r=0], \\\\
+y_b &= b_a + [d=1], \\\\
+x_a &= w_b+17+7[r=0], \\\\
+y_a &= 0,
+\end{aligned}
+$$
+
+where $d$ is the one-based structural depth stored at `+0x11`, $r$ is the
+render depth, and each bracketed comparison contributes one when true and zero
+otherwise. The metric pass keeps the large-row base offset only at render depth
+zero: [confirmed]
+
+$$
+\begin{aligned}
+H &= \max(h_a, b_a+[r=0]+h_b), \\\\
+B &= b_a, \\\\
+W &= w_b+w_a+23+7[r=0].
+\end{aligned}
+$$
+
+The type-`0x28` word at `+5` is an active-child selector, not a depth or metric
+field. `34:4900`–`34:491D` initializes a new structural record to `1`.
+`34:41BB`–`34:41D7` compares the selector with the type's child count and
+increments it before entering the next child. Native-source construction follows
+the `2,1` child order in the `34:59AC` row and leaves this field at `1`.
+Interactive template entry can leave the same completed two-child record at
+`2`. Neither value changes the type-`0x28` LCD handler. [confirmed]
 
 Reset-origin traces for `logbase(12,345)`, `logbase(X,X^2)`,
 `logbase(3,1//2)`, and `logbase(1//2,3)` match every constructed record field.
 Their complete accepted-write streams contain 99, 79, 91, and 71 writes. These
 cases cover multi-token children, a powered argument, and a stacked fraction in
 each child position. [confirmed]
+
+Reset-origin traces for `abs(logbase(A,3))`,
+`abs(exp(2))-abs(logbase(A,3))`, and `abs(abs(logbase(A,3)))` cover structural
+depths two and three plus mixed baselines in one leaf. The middle case stores
+`2` at the second absolute-value record's `+0x0F`. The nested log-base records
+place their base leaf at `y=3` while retaining height `9`; interactive template
+entry leaves their active-child selector at `2`. After separating that editor
+state from native-source construction, the stable graph fields and their 79-,
+130-, and 95-write LCD streams match the traces. [confirmed]
 
 Eight additional reset-origin traces cover radicals, sequences inside radicals,
 nested radicals, powers inside radicals, and radicals inside powers. The deepest
@@ -1566,27 +1617,28 @@ variable, body, and evaluation value in that order. It fills those leaves
 before it allocates structural descendants of the body or value. A nested
 `nDeriv(` applies the same reservation rule recursively. [confirmed]
 
-For body metrics $(h_b,w_b,b_b)$ and variable and evaluation-value widths
-$w_v$ and $w_e$, the metric branches at `34:7485` and `34:76C2` produce
-[confirmed]
+For body metrics $(h_b,w_b,b_b)$, variable metrics $(h_v,w_v)$, and
+evaluation-value metrics $(h_e,w_e,b_e)$, the metric branches at `34:7485` and
+the positioning branches at `34:76C2`–`34:76EF` produce [confirmed]
 
 $$
 \begin{aligned}
-B &= \max(6,b_b), \\\\
-H &= \max(h_b,B+7), \\\\
+B &= \max(6,b_b,b_e-4), \\\\
 x_v &= 5, \\\\
-y_v &= B+2.
-\end{aligned}
-$$
-
-The body, evaluation value, and total width are:
-
-$$
-\begin{aligned}
+y_v &= B+2, \\\\
 x_b &= 16, \\\\
 y_b &= B-b_b, \\\\
 x_e &= w_b+w_v+29, \\\\
-y_e &= B+2, \\\\
+y_e &= B+4-b_e.
+\end{aligned}
+$$
+
+The record height is the union of all three positioned children, and the total
+width ends after the evaluation value:
+
+$$
+\begin{aligned}
+H &= \max(y_v+h_v,y_b+h_b,y_e+h_e), \\\\
 W &= x_e+w_e.
 \end{aligned}
 $$
@@ -1602,6 +1654,14 @@ radical, fraction, nth-root, and integral bodies, plus nested `nDeriv(`. The
 JavaScript constructor matches every record field and ID. It also reproduces
 every accepted LCD data write through the outer `34:660A` return. The traces
 supply comparison oracles, not constructor input. [confirmed]
+
+A further reset-origin trace covers a tall `logBASE(` body and a summation
+evaluation value whose body contains a raised `logBASE(`. It proves the
+small-row type-`0x28` constants and the $B+4-b_e$ evaluation-value placement.
+The translated graph matches all 18 records and the final normalized
+88-by-19-pixel entry bitmap. The outer record-render interval contains 203
+accepted LCD writes; exact sequence parity for its editor viewport clears and
+right-overflow cue remains open. [confirmed]
 
 Flat absolute-value bodies and expressions composed from ordinary token runs,
 the native `Ans`, `sin(`, `cos(`, `tan(`, `ln(`, and `log(` tokens,
@@ -1886,9 +1946,10 @@ exponential cases and four `logBASE(` cases verify their child metrics, nested
 structures, and accepted-write streams. Twelve `nDeriv(` cases verify its three
 arguments, structural bodies, and recursive nesting. Six raised multi-argument
 numerator cases also require the settled record graph to decode to the asserted
-semantic expression. Five grouping cases cover flat and structural groups,
-grouped power operands, and a structural absolute-value child. The deepest
-power oracle has three raised levels. Six named-token cases verify counted
+semantic expression. Three nested-baseline cases verify depth-sensitive
+`logBASE(` placement and the per-structure `+0x0F` adjustment. Five grouping
+cases cover flat and structural groups, grouped power operands, and a structural
+absolute-value child. The deepest power oracle has three raised levels. Six named-token cases verify counted
 spellings, raised small-font widths, compound parentheses, structural children,
 and complete accepted-write streams. Five two-byte-token cases verify list,
 matrix-name, equation-variable, and string-variable tables in large and raised
