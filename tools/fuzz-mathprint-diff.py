@@ -10,10 +10,10 @@ generates random ASTs over the supported constructs and, for each, emits BOTH
   2. a TilEm keystroke sequence intended to build the same expression on the
      home entry line,
 
-then renders the ROM-translated settled-record path and the calculator (reuse
-tools/parity-mathprint.py run_calc + trace_lcd replay) and pixel-diffs them.
-Every mismatch is reported with the AST, expr,
-keystrokes, match %, dims, and a side-by-side.
+then renders the ROM-translated settled-record path and the calculator and
+pixel-diffs the pre-ENTER screenshot. Every mismatch is reported with the AST,
+expression, keystrokes, match percentage, dimensions, and a side-by-side before
+an instruction trace is captured for diagnosis.
 
 The AST-to-keystroke emitter models template navigation (after ^ the
 cursor is in the raised exponent slot and needs RIGHT to exit; ∫/Σ/√/n-d templates
@@ -39,6 +39,7 @@ import argparse
 import importlib.util
 import os
 import random
+import subprocess
 import sys
 import tempfile
 
@@ -326,14 +327,14 @@ def emit(ast):
         return ["MATH", "RIGHT", "WAIT", "1", "WAIT"] + emit(ast[1]) + ["RIGHT"]
     if k == "int":
         # MATH 9 -> ∫ template with slots lo, hi, integrand, var. Each emit() leaves
-        # the cursor just right of its sub-expression in the current slot, so ONE
+        # the cursor just right of its sub-expression in the current slot, so one
         # RIGHT advances to the next slot: lo, RIGHT, hi, RIGHT, integrand, RIGHT,
-        # var. (The old hand-written keys used RIGHT RIGHT after the integrand
-        # because their body emit did not include the exponent-exit RIGHT; emit()'s
-        # pow does, so a single RIGHT suffices here.)
+        # var. The variable completes the template. Wait for that rebuild before
+        # sending a following binary operator; otherwise TilEm can deliver it while
+        # the editor is still completing the integral.
         lo, hi, body, var = ast[1], ast[2], ast[3], ast[4]
         return (["MATH", "9"] + emit(lo) + ["RIGHT"] + emit(hi) + ["RIGHT"] +
-                emit(body) + ["RIGHT"] + emit(var))
+                emit(body) + ["RIGHT"] + emit(var) + ["WAIT"])
     if k == "sum":
         # MATH 0 -> Σ template. The variable and lower bound share the first
         # field: entering the variable moves the cursor across the equals sign
@@ -377,14 +378,23 @@ CURATED = {
 
 # ---- diff harness ----------------------------------------------------------
 
-def run_one(parity, ast, outdir, name):
-    """Render model and calculator trace, then return their pixel diff."""
+class ModelRenderError(RuntimeError):
+    """The translated JavaScript model rejected a generated expression."""
+
+
+def run_one(parity, ast, outdir, name, *, trace=False):
+    """Render one translated model and calculator entry, optionally tracing it."""
     expr = to_expr(ast)
     keys = emit(ast)
-    model = parity.js_bitmap_spec(to_spec(ast))
-    _captures, _ram, trace, _macro = parity.run_calc(
-        keys, outdir, name, trace=True)
-    calc = parity.calc_from_trace(trace)
+    try:
+        model = parity.js_bitmap_spec(to_spec(ast))
+    except subprocess.CalledProcessError as error:
+        detail = (error.stderr or error.stdout or "no process output").strip()
+        raise ModelRenderError(f"translated model failed: {detail}") from error
+    captures, _ram, trace_path, _macro = parity.run_calc(
+        keys, outdir, name, trace=trace)
+    calc = parity.calc_from_trace(trace_path) if trace \
+        else parity.calc_entry_bitmap(captures)
     pct, bad, dim = parity.diff_metric(calc, model)
     return expr, keys, pct, bad, dim, calc, model
 
@@ -402,6 +412,8 @@ def main():
                     help="report cases below this match %% (default 100: every mismatch)")
     ap.add_argument("--without-sum", action="store_true",
                     help="exclude Σ while diagnosing its calculator input sequence")
+    ap.add_argument("--trace-every-case", action="store_true",
+                    help="capture a reset-origin instruction trace before comparing each case")
     args = ap.parse_args()
 
     global INCLUDE_SUM
@@ -429,7 +441,8 @@ def main():
             note = "" if expr == want_expr else f"  (parity expr: {want_expr!r})"
             line = f"{name}: expr={expr!r}{note}"
             if not args.dry_run:
-                _, _, pct, bpx, dim, calc, model = run_one(parity, ast, outdir, name)
+                _, _, pct, bpx, dim, calc, model = run_one(
+                    parity, ast, outdir, name, trace=args.trace_every_case)
                 line += f"  calc-match {pct:.1f}% ({bpx}px, {dim})"
                 if pct < args.threshold:
                     bad += 1
@@ -453,7 +466,12 @@ def main():
             continue
         try:
             _, _, pct, bpx, dim, calc, model = run_one(
-                parity, ast, outdir, f"f{i}")
+                parity, ast, outdir, f"f{i}", trace=args.trace_every_case)
+        except ModelRenderError as error:
+            mismatches += 1
+            print(f"[{i}] MODEL {expr}\n     AST : {show_ast(ast)}"
+                  f"\n     keys: {' '.join(keys)}\n     {error}", flush=True)
+            continue
         except RuntimeError as error:
             # Preserve the completed cases and continue reducing the corpus.
             # A trace-limit hit is not evidence for or against pixel parity.
@@ -468,6 +486,14 @@ def main():
             print(f"     keys: {' '.join(keys)}")
             print(f"     {bpx}px off, {dim}")
             print(parity.side_by_side(calc, model))
+            if not args.trace_every_case:
+                try:
+                    _, _, trace_pct, trace_bad, trace_dim, _, _ = run_one(
+                        parity, ast, outdir, f"f{i}-trace", trace=True)
+                    print(f"     trace replay: {trace_pct:.1f}% "
+                          f"({trace_bad}px, {trace_dim})")
+                except RuntimeError as error:
+                    print(f"     trace capture inconclusive: {error}")
             print()
     if not args.dry_run:
         matched = args.count - mismatches - inconclusive

@@ -188,10 +188,12 @@ def read_state(ram):
 
 
 def strip_cursor(grid):
-    """Remove the entry-line cursor: a solid filled block (>=3 columns, each with
-    a >=6-px contiguous vertical run) at the right edge, plus any blank gap before
-    it. The cursor parks at the baseline, so it is not full height. No-op if
-    absent (cursor off)."""
+    """Remove a five- or six-row solid cursor at the right edge and its gap.
+
+    The editor exposes both heights according to its current input state. At
+    least three adjacent columns must share the vertical run, so an ordinary
+    rightmost glyph is not treated as a cursor.
+    """
     if not grid or not grid[0]:
         return grid
     h, w = len(grid), len(grid[0])
@@ -208,7 +210,7 @@ def strip_cursor(grid):
         x -= 1
     cnt = 0
     xi = x
-    while xi >= 0 and run(xi) >= 6:   # count the solid cursor block
+    while xi >= 0 and run(xi) >= 5:   # count the solid cursor block
         cnt += 1
         xi -= 1
     if cnt < 3:                       # not a cursor block
@@ -250,6 +252,16 @@ def calc_bitmap(captures):
         return crop_echo(last)
     grid = _frame_grid(Image.open(shot).convert("L"))
     if not sum(sum(r) for r in grid):
+        return [[0]]
+    return crop_echo(strip_cursor(grid))
+
+
+def calc_entry_bitmap(captures):
+    """Return the cursor-free entry line from the pre-ENTER screenshot."""
+    from PIL import Image
+    _gif, shot = captures
+    grid = _frame_grid(Image.open(shot).convert("L"))
+    if not sum(sum(row) for row in grid):
         return [[0]]
     return crop_echo(strip_cursor(grid))
 
