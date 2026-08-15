@@ -2344,6 +2344,13 @@ expectEqual('34:5DBE/5DC2 applies the editor translation and appends the left cu
      rows:[0x00,0x02,0x06,0x0e,0x06,0x02,0x00],retainUnchanged:true,
      routine:'34:5FF2 → 34:6031 → 34:61B2; bitmap at 34:60B8'},
   ]);
+expectEqual('34:6C5F skips a glyph whose left edge precedes the editor clip',
+  rom.settledEditorViewportOperations([
+    {kind:'glyph',code:0x58,x:14,y:3,depth:0,routine:'test'},
+    {kind:'glyph',code:0x41,x:17,y:3,depth:0,routine:'test'},
+  ], rom.settledEditorViewport(106), 10).slice(0,-1), [
+    {kind:'glyph',code:0x41,x:0,y:3,depth:0,routine:'test'},
+  ]);
 expectEqual('34:608F selects and positions the right overflow bitmap',
   rom.settledEditorRightCueOperation(rom.settledEditorViewport(106), 23), {
     kind:'bitmap', x:91, y:8, width:4, height:7,
@@ -3105,8 +3112,8 @@ for (const [expression,nativeTokens,writeCount,writeHash,lcdHash] of [
     [0x24,0x10,0x35,0xef,0x2e,0x10,0x36,0xef,
      0x2e,0x37,0x11,0x11,0x58,0xf0,0x33,0x2b,
      0x58,0x2b,0x31,0x32,0x2b,0x33,0x34,0x11],
-    172,'96f8cf4140ea734e73908e195608d03972e1baa1003798e2ee5995cf006587a4',
-    '52573ba7527565e61c5af338d8634feaf9bbbf75ab716ecc745b0a9a6edcbbf3'],
+    172,'e6bbcd1876740b0ba7810415d2fcaeb88ce6f08ca8be74c9e8e5011c5a264435',
+    '0ee1fe1ef5ee59b5a273003eae808efe344851d4f9f82315fae71b66c091e18d'],
   ['nDeriv((X^3+12)//sqrt(5),X,7)',
     [0x25,0x10,0x58,0xf0,0x33,0x70,0x31,0x32,
      0x11,0xef,0x2e,0x10,0xbc,0x35,0x11,0x11,
@@ -4365,6 +4372,45 @@ if (mp.generatedForExpression('matrix(2,2,sqrt(2),X^2,3,4)')
 expectEqual('browser places matrix results at the right-aligned LCD origin',
   mp.constructedProgramForExpression('matrix(2,3,4,-2,0,-7,8,8)').origin,
   {x:41,y:9});
+const groupedFractionPowerSpec = {
+  kind:'power',
+  base:{kind:'fraction',
+    numerator:{kind:'group',expression:{kind:'sequence',parts:[
+      [0x33],[0x82],[0x32],
+    ]}},
+    denominator:[0x31]},
+  exponent:{kind:'power',
+    base:{kind:'group',expression:{kind:'sequence',parts:[
+      [0x4e],[0x70],[0x58],
+    ]}},
+    exponent:{kind:'group',expression:{kind:'sequence',parts:[
+      [0x33],[0x70],[0x32],
+    ]}}},
+};
+const groupedFractionPowerNative =
+  rom.encodeSettledExpressionTokens(groupedFractionPowerSpec);
+expectEqual('fraction scanner retains an explicitly grouped numerator',
+  groupedFractionPowerNative,
+  [0x10,0x10,0x33,0x82,0x32,0x11,0x11,0xef,0x2e,0x31,
+   0xf0,0x10,0x10,0x4e,0x70,0x58,0x11,0xf0,0x10,0x10,
+   0x33,0x70,0x32,0x11,0x11,0x11]);
+const groupedFractionPower = rom.constructSettledProgramFromTokens(
+  groupedFractionPowerNative, 1, font);
+expectEqual('fraction power-base metrics follow 34:70C1 and 34:77AD',
+  groupedFractionPower.nodes.map(node => ({
+    id:node.record_id, type:node.render_type,
+    word05:node.word05, word07:node.word07, word09:node.word09,
+    word0B:node.word0B, word0D:node.word0D, word0F:node.word0F,
+  })), [
+    {id:1,type:0,word05:19,word07:78,word09:12,word0B:0,word0D:0,word0F:12},
+    {id:2,type:0x20,word05:2,word07:13,word09:30,word0B:6,word0D:0,word0F:6},
+    {id:3,type:0,word05:5,word07:26,word09:2,word0B:2,word0D:0,word0F:0},
+    {id:4,type:0,word05:5,word07:4,word09:2,word0B:13,word0D:8,word0F:1},
+    {id:5,type:0x2a,word05:1,word07:19,word09:48,word0B:12,word0D:30,word0F:0},
+    {id:6,type:0,word05:8,word07:48,word09:5,word0B:0,word0D:0,word0F:11},
+    {id:7,type:0x2a,word05:1,word07:8,word09:24,word0B:5,word0D:24,word0F:0},
+    {id:8,type:0,word05:5,word07:24,word09:2,word0B:0,word0D:0,word0F:5},
+  ]);
 const constructedPower = rom.constructSettledPowerProgram(
   {base:[0x58], exponent:[0x32]}, 0x0d, font);
 expectEqual('power tokens independently construct the settled X^2 graph',

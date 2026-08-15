@@ -1276,11 +1276,23 @@ Five reset-origin traces cover `(X+1)`, `(X^2+1)`, `(X+1)^2`, `X^(1+2)`, and
 match these traces. The streams contain 49, 60, 59, 32, and 60 writes,
 respectively. [confirmed]
 
-When the base of a power ends in a structural object, the constructor writes
-`3` to that object's word at `+0x0F`. The type-`0x2A` height and baseline also
-increase by the base leaf's baseline above the ordinary baseline at that render
-depth. For `sqrt(X)^2`, the power record has height 12, baseline 8, and an
-`+0x0D` horizontal anchor of 11. [confirmed]
+When the immediate base of a power ends in a structural object, `34:70C1`–`7084`
+merges that object's baseline and lower extent into the type-`0x2A` metrics.
+It does not use the containing leaf's accumulated baseline: an earlier radical
+to the left does not raise a later plain-token power. `34:77AD`–`77C1` writes
+the resulting baseline difference to the base object's word at `+0x0F`: [confirmed]
+
+$$
+\mathtt{base.word0F}
+= \mathtt{power.word0B} - \mathtt{base.word0B}.
+$$
+
+The value happens to be `3` for `sqrt(X)^2` and `abs(X)^2`. A grouped fraction
+base has baseline `6` and lower extent `7`; its outer power has baseline `12`,
+height `19`, and therefore stores `6` at the fraction's `+0x0F`. The fraction's
+visible numerator group requires two native `10h`…`11h` pairs: the fraction
+scanner consumes the outer pair and retains the inner pair in the numerator
+leaf. [confirmed]
 
 Reset-origin traces for `sqrt(X)^2`, `abs(X)^2`, and
 `abs(sqrt(X^2+1))` match every generated record field and accepted LCD data
@@ -1657,6 +1669,15 @@ writes. The compact oracle is
 `tools/mathprint-editor-overflow-oracle.json`; the reproduction input is
 `tools/macros/mathprint-double-integral.macro`. [confirmed]
 
+Glyph clipping precedes the font blitter. `34:6C5F` compares a glyph's left
+edge with `ram:8E02`; the carry path at `34:6C69` reaches `34:6C81` and skips
+the whole glyph while still advancing the logical pen. It does not draw the
+suffix of a glyph that begins left of the viewport. The reset-origin expression
+`(sqrt(X)*1^3)+(N^2+(X*A))` reaches this branch with the radical's `X` beginning
+three pixels left of the visible edge. Applying the whole-glyph skip, followed
+by the seven-row left-overflow cue, reproduces all 870 pixels of the cropped
+87×10 calculator frame. [confirmed]
+
 The eight writes inserted at instruction index 56 come from
 `page_34:6CA8` → `ram:3CE1`. That call stack does not pass through `34:608F`, so
 the stream is separate from the right-side bitmap path and remains outside the
@@ -1815,6 +1836,14 @@ matrix-name, equation-variable, and string-variable tables in large and raised
 contexts. Two longer trace scenarios cover the editor and display activity
 around the final key press.
 [confirmed]
+
+`tools/fuzz-mathprint-diff.py` builds a semantic expression tree, encodes its
+native calculator bytes, constructs the translated record graph, and compares
+the resulting pixels with a reset-origin TilEm LCD trace produced from the
+corresponding key sequence. It does not compare the trace with the preview
+compositor. Adjacent equal keys receive an explicit scan delay, and each run
+uses a new emulator state file. Trace-limit cases are reported as inconclusive
+and do not abort later cases or count as parity. [confirmed]
 
 ## Extracted records and interactive model
 
