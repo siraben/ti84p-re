@@ -27,6 +27,29 @@ class InputEmitterTests(unittest.TestCase):
             keys[index:index + 4] for index in range(len(keys) - 3)
         ])
 
+    def test_multi_argument_templates_wait_at_slot_transitions(self) -> None:
+        integral = FUZZ.emit((
+            "int", ("num", "1"), ("num", "2"),
+            ("var", "X"), ("var", "A"),
+        ))
+        self.assertEqual(integral[:3], ["MATH", "9", "WAIT"])
+        self.assertEqual(integral.count("WAIT"), 5)
+        summation = FUZZ.emit((
+            "sum", ("var", "N"), ("num", "1"),
+            ("num", "3"), ("var", "N"),
+        ))
+        self.assertEqual(summation[:3], ["MATH", "0", "WAIT"])
+        self.assertEqual(summation.count("WAIT"), 5)
+
+    def test_nested_power_base_retains_explicit_group(self) -> None:
+        ast = (
+            "pow", ("pow", ("var", "X"), ("num", "2")),
+            ("var", "N"),
+        )
+        self.assertEqual(FUZZ.to_expr(ast), "(X^2)^N")
+        self.assertEqual(FUZZ.to_spec(ast)["base"]["kind"], "group")
+        self.assertEqual(FUZZ.emit(ast)[:1], ["LPAREN"])
+
 
 if __name__ == "__main__":
     unittest.main()
