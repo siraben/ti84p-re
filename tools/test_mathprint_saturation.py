@@ -16,6 +16,7 @@ from analyze_mathprint_saturation import (
     OUTCOME_CLASSIFICATIONS,
     branch_json,
     branch_for,
+    cached_report_traces,
     classify_outcome,
     deserialize_trace_summary,
     editor_action03_controller_path,
@@ -1036,6 +1037,26 @@ class OracleCoverageTests(unittest.TestCase):
         self.assertEqual({(0x25, 0x1234)}, restored[4][hit])
         self.assertEqual({("34:5680:taken",)}, restored[5]["34:5678"])
 
+    def test_restores_prior_report_trace_identities_without_trace_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "report.json"
+            path.write_text(json.dumps({"traces": [
+                {
+                    "label": "natural",
+                    "sha256": "a" * 64,
+                    "provenance": TRACE_PROVENANCE_NATURAL,
+                },
+                {
+                    "label": "synthetic",
+                    "sha256": "b" * 64,
+                    "provenance": TRACE_PROVENANCE_SYNTHETIC,
+                },
+            ]}))
+
+            self.assertEqual([
+                ("synthetic", "b" * 64, TRACE_PROVENANCE_SYNTHETIC),
+            ], cached_report_traces(path, excluded_labels={"natural"}))
+
 
 class CheckedReportTests(unittest.TestCase):
     def test_checked_report_contains_current_symbolic_and_trace_evidence(self) -> None:
@@ -1044,10 +1065,10 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(184, len(report["traces"]))
-        self.assertEqual(985, report["summary"]["branch_outcomes_observed"])
+        self.assertEqual(185, len(report["traces"]))
+        self.assertEqual(988, report["summary"]["branch_outcomes_observed"])
         self.assertEqual(
-            982, report["summary"]["natural_branch_outcomes_observed"]
+            985, report["summary"]["natural_branch_outcomes_observed"]
         )
         self.assertEqual(
             1307,
@@ -1060,6 +1081,14 @@ class CheckedReportTests(unittest.TestCase):
         self.assertEqual(
             "328b8f52ebe939b35f79e676076984aa85ee59e05c06862647c4fc615069bb3c",
             integral["sha256"],
+        )
+        nested = next(
+            row for row in report["traces"]
+            if row["label"] == "nested_tall_nderiv"
+        )
+        self.assertEqual(
+            "e11c011b74df79165c55f7f64b699e3aa393bf8087f45ec89a73d616b73cdbb5",
+            nested["sha256"],
         )
 
 
