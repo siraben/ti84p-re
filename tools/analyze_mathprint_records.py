@@ -42,6 +42,9 @@ RENDER_TYPE = 0x8DE7
 X_ORIGIN = 0x8DFE
 Y_ORIGIN = 0x8E00
 HEADER_SIZE = 0x14
+NATIVE_TWO_BYTE_TOKEN_LEADS = frozenset({
+    0x5C, 0x5D, 0x5E, 0x60, 0x61, 0x62, 0x63, 0x7E, 0xAA, 0xBB, 0xEF,
+})
 
 
 @dataclass(frozen=True)
@@ -551,19 +554,49 @@ def decode_settled_expression(
             raise ValueError(f"settled leaf 0x{record_id:04X} has no byte payload")
         active.add(record_id)
         try:
-            parts: list[object] = []
-            tokens: list[int] = []
+            frames: list[tuple[list[object], list[int]]] = [([], [])]
+
+            def current_parts() -> list[object]:
+                return frames[-1][0]
+
+            def current_tokens() -> list[int]:
+                return frames[-1][1]
 
             def flush_tokens() -> None:
+                tokens = current_tokens()
                 if tokens:
-                    parts.append(tokens.copy())
+                    current_parts().append(tokens.copy())
                     tokens.clear()
 
             index = 0
             while index < len(payload):
                 token = payload[index]
+                if (
+                    token != 0xEF
+                    and token in NATIVE_TWO_BYTE_TOKEN_LEADS
+                    and index + 1 < len(payload)
+                ):
+                    current_tokens().extend(payload[index:index + 2])
+                    index += 2
+                    continue
+                if token == 0x10:
+                    flush_tokens()
+                    frames.append(([], []))
+                    index += 1
+                    continue
+                if token == 0x11:
+                    flush_tokens()
+                    if len(frames) == 1:
+                        current_tokens().append(token)
+                        index += 1
+                        continue
+                    grouped = collapse(current_parts())
+                    frames.pop()
+                    current_parts().append({"kind": "group", "expression": grouped})
+                    index += 1
+                    continue
                 if token != 0xEF:
-                    tokens.append(token)
+                    current_tokens().append(token)
                     index += 1
                     continue
                 if index + 1 >= len(payload):
@@ -574,10 +607,16 @@ def decode_settled_expression(
                     continue
                 if subtype == 0x1E:
                     flush_tokens()
-                    parts.append({"kind": "extendedToken", "tokens": [0xEF, 0x1E]})
+                    current_parts().append(
+                        {"kind": "extendedToken", "tokens": [0xEF, 0x1E]}
+                    )
                     index += 2
                     continue
-                if not 0x1F <= subtype <= 0x2B or index + 3 >= len(payload):
+                if not 0x1F <= subtype <= 0x2B:
+                    current_tokens().extend((0xEF, subtype))
+                    index += 2
+                    continue
+                if index + 3 >= len(payload):
                     raise ValueError(
                         f"settled leaf 0x{record_id:04X} has unsupported EF "
                         f"subtype 0x{subtype:02X}"
@@ -589,6 +628,8 @@ def decode_settled_expression(
                         raise ValueError(
                             f"settled power marker references non-power ID 0x{embedded_id:04X}"
                         )
+                    tokens = current_tokens()
+                    parts = current_parts()
                     if tokens:
                         base: object = tokens.copy()
                         tokens.clear()
@@ -604,10 +645,15 @@ def decode_settled_expression(
                     })
                 else:
                     flush_tokens()
-                    parts.append(expression)
+                    current_parts().append(expression)
                 index += 4
             flush_tokens()
-            return collapse(parts)
+            while len(frames) > 1:
+                unfinished = current_parts()
+                frames.pop()
+                current_parts().append([0x10])
+                current_parts().extend(unfinished)
+            return collapse(current_parts())
         finally:
             active.remove(record_id)
 

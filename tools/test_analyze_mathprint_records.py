@@ -185,6 +185,66 @@ class MathPrintRecordTests(unittest.TestCase):
             decode_settled_expression(nodes, 10),
         )
 
+    def test_decodes_balanced_groups_around_postfix_powers(self):
+        nodes = [
+            {"record_id": 7, "render_type": 0, "child_ids": [],
+             "payload": [
+                 0x10, 0x58, 0xEF, 0x2A, 8, 0, 0xEF, 0x2D, 0x11,
+                 0xEF, 0x2A, 10, 0, 0xEF, 0x2D,
+             ]},
+            {"record_id": 8, "render_type": 0x2A, "child_ids": [9],
+             "payload": []},
+            {"record_id": 9, "render_type": 0, "child_ids": [],
+             "payload": [0x10, 0x58, 0x71, 0x32, 0x11]},
+            {"record_id": 10, "render_type": 0x2A, "child_ids": [11],
+             "payload": []},
+            {"record_id": 11, "render_type": 0, "child_ids": [],
+             "payload": [
+                 0x10, 0x4E, 0x83, 0x58, 0x11,
+                 0xEF, 0x2A, 12, 0, 0xEF, 0x2D,
+             ]},
+            {"record_id": 12, "render_type": 0x2A, "child_ids": [13],
+             "payload": []},
+            {"record_id": 13, "render_type": 0, "child_ids": [],
+             "payload": [0x10, 0x4E, 0x71, 0x33, 0x11]},
+        ]
+        self.assertEqual(
+            {
+                "kind": "power",
+                "base": {"kind": "group", "expression": {
+                    "kind": "power", "base": [0x58],
+                    "exponent": {"kind": "group",
+                                 "expression": [0x58, 0x71, 0x32]},
+                }},
+                "exponent": {
+                    "kind": "power",
+                    "base": {"kind": "group",
+                             "expression": [0x4E, 0x83, 0x58]},
+                    "exponent": {"kind": "group",
+                                 "expression": [0x4E, 0x71, 0x33]},
+                },
+            },
+            decode_settled_expression(nodes, 7),
+        )
+
+    def test_group_tokens_do_not_split_a_two_byte_native_token(self):
+        self.assertEqual(
+            [0x5E, 0x10],
+            decode_settled_expression([
+                {"record_id": 1, "render_type": 0, "child_ids": [],
+                 "payload": [0x5E, 0x10]},
+            ], 1),
+        )
+
+    def test_retains_a_nonstructural_ef_token(self):
+        self.assertEqual(
+            [0xEF, 0x35],
+            decode_settled_expression([
+                {"record_id": 1, "render_type": 0, "child_ids": [],
+                 "payload": [0xEF, 0x35]},
+            ], 1),
+        )
+
     def test_retains_ef1e_as_a_placeholder_outside_nderiv_body(self):
         self.assertEqual(
             {"kind": "extendedToken", "tokens": [0xEF, 0x1E]},
