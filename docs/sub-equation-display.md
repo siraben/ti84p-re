@@ -1886,14 +1886,15 @@ branch and LCD-write diagnosis; exact cases do not pay the trace cost.
 Trace-limit cases leave the screenshot mismatch intact and report only the
 trace diagnosis as inconclusive. [confirmed]
 
-The final settled-record graph does not yet reproduce pixels retained from
-earlier editor redraws. `34:62D0` selects the five-row radical table when
-`ram:8515` is nonzero, and `34:62F9` preserves accepted writes whose LCD value
-does not change. In the tall-summation input above, the final trace reaches
-`34:62D0` with `ram:8515=2`; two hook pixels from an earlier seven-row redraw
-remain visible. Replaying only the final graph from a blank framebuffer omits
-those two pixels. Full live-entry parity therefore also requires translating
-the sequence of editor mutations and redraws. [confirmed]
+`34:62D0` selects seven root-hook rows when `ram:8515` is zero and five rows
+when it is nonzero. The routine subtracts that row count from the radical
+height and returns the difference in `DE`. `34:62A7` decrements `DE` before
+`34:62AE` passes the vertical stem to `34:5D96`. The stem endpoint is therefore
+$h-8$ for the seven-row hook and $h-6$ for the five-row hook. In the
+tall-summation input above, the final trace reaches `34:62D0` with
+`ram:8515=2`, radical height 17, and stem endpoint 11. Translating the returned
+word removes the final two-pixel difference from the reset-origin screenshot.
+[confirmed]
 
 ## Extracted records and interactive model
 

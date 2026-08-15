@@ -4816,6 +4816,11 @@ expectEqual('34:62D0 raised radical selects the final five bitmap rows',
     rows:[0x04,0x04,0x14,0x0c,0x04], retainUnchanged:true,
     routine:'34:62A4 → 34:62D0 → 34:630C',
   });
+expectEqual('34:62A7 extends a tall raised-radical stem below five hook rows',
+  rom.settledRadicalOperations(17, 36, 1)[1], {
+    kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:11},
+    routine:'34:62AE → 34:5D96',
+  });
 const raisedRadicalBitmap = rom.settledRadicalOperations(7, 6, 1)[0];
 const raisedRadicalInitial = Array.from({length:64}, () => new Array(96).fill(0));
 for (let row = 0; row < raisedRadicalBitmap.height; row++)

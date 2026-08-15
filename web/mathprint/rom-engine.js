@@ -5670,7 +5670,9 @@
     const hookY = height - rows.length;
     if (hookY < 0)
       throw new RangeError('settled radical height cannot place its hook');
-    const stemEnd = Math.max(1, height - 8);
+    // 34:62D0 returns height minus the selected bitmap-row count in DE.
+    // 34:62A7 then decrements DE before 34:62AE draws the stem.
+    const stemEnd = Math.max(1, height - rows.length - 1);
     const ruleEnd = addWord(childWidth, 3);
     return [
       {kind:'bitmap', x:0, y:hookY, width:5, height:rows.length,
