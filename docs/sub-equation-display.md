@@ -1176,13 +1176,17 @@ to identify the enclosing leaf program. [confirmed]
 The analyzer also decodes the reachable settled graph into a semantic
 expression tree. Structural child IDs recover argument order. A type-`0x2A`
 record binds its exponent to the expression immediately before the
-embedded-record marker. The decoder preserves `EF 1E` as an explicit extended
+embedded-record marker. Balanced standalone `10h` and `11h` bytes become a
+group node, so a postfix power after the close binds to the complete group.
+The decoder advances over native two-byte tokens before interpreting grouping
+bytes. The pair `5E10h`, for example, remains one token rather than opening a
+group at its low byte. The decoder preserves `EF 1E` as an explicit extended
 token. The renderer maps the pair to display code `0xF7`, so the decoded tree
 exposes an unfilled template slot. The tree identifies the expression in a
 trace without using LCD pixels or a screenshot. It describes the settled graph
 consumed by `34:660A`. The browser-side ROM engine exposes the same decoder for
-its generated AST view as `settledAst`. The editor/parser representation before `34:4900`
-remains open. [confirmed]
+its generated AST view as `settledAst`. The editor/parser representation before
+`34:4900` remains open. [confirmed]
 
 Within that program, `EF type id_lo id_hi` invokes the structural record with
 the given little-endian ID. `EF 2D` terminates or separates the embedded object
@@ -1320,6 +1324,23 @@ height `19`, and therefore stores `6` at the fraction's `+0x0F`. The fraction's
 visible numerator group requires two native `10h`…`11h` pairs: the fraction
 scanner consumes the outer pair and retains the inner pair in the numerator
 leaf. [confirmed]
+
+For a grouped structural base, `34:70C1` saves the base baseline $b$ and lower
+extent $d$. After `34:7283` returns the raised child's height $h_e$ in
+`ram:8508`, the handler stores [confirmed]
+
+$$
+\begin{aligned}
+b_p &= b + h_e - 2, \\
+h_p &= b_p + d.
+\end{aligned}
+$$
+
+The reset-origin trace for `(X^(X-2))^(N/X)^(N-3)` gives the inner base
+$(h,b)=(10,6)$ and the outer power $(h_p,b_p)=(16,12)$. The inner type-`0x2A`
+record stores `6` at `+0x0F`. The translated record fields and final LCD pixels
+match the trace. The same rule at fraction depth gives inner $(h,b)=(8,5)$ and
+outer $(h_p,b_p)=(14,11)$. [confirmed]
 
 Reset-origin traces for `sqrt(X)^2`, `abs(X)^2`, and
 `abs(sqrt(X^2+1))` match every generated record field and accepted LCD data

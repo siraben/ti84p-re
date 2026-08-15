@@ -4155,20 +4155,52 @@
           `settled leaf 0x${recordId.toString(16)} has no byte payload`);
       active.add(recordId);
       try {
-        const parts = [], tokens = [];
-        const flush = () => { if (tokens.length) {
-          parts.push(tokens.splice(0,tokens.length));
-        }};
+        const frames = [{parts:[],tokens:[]}];
+        const frame = () => frames[frames.length - 1];
+        const flush = () => {
+          const current = frame();
+          if (current.tokens.length)
+            current.parts.push(current.tokens.splice(0,current.tokens.length));
+        };
         for (let index = 0; index < payload.length;) {
           const token = payload[index];
-          if (token !== 0xef) { tokens.push(token); index++; continue; }
+          if (token !== 0xef && SETTLED_TWO_BYTE_LEADS.has(token) &&
+              index + 1 < payload.length) {
+            frame().tokens.push(token,payload[index + 1]);
+            index += 2;
+            continue;
+          }
+          if (token === 0x10) {
+            flush();
+            frames.push({parts:[],tokens:[]});
+            index++;
+            continue;
+          }
+          if (token === 0x11) {
+            flush();
+            if (frames.length === 1) {
+              frame().tokens.push(token);
+              index++;
+              continue;
+            }
+            const grouped = collapse(frame().parts);
+            frames.pop();
+            frame().parts.push({kind:'group',expression:grouped});
+            index++;
+            continue;
+          }
+          if (token !== 0xef) {
+            frame().tokens.push(token);
+            index++;
+            continue;
+          }
           if (index + 1 >= payload.length)
             throw new RangeError(`settled leaf 0x${recordId.toString(16)} ends with EF`);
           const subtype = payload[index + 1];
           if (subtype === 0x2d) { index += 2; continue; }
           if (subtype === 0x1e) {
             flush();
-            parts.push({kind:'extendedToken',tokens:[0xef,0x1e]});
+            frame().parts.push({kind:'extendedToken',tokens:[0xef,0x1e]});
             index += 2;
             continue;
           }
@@ -4177,7 +4209,7 @@
           // function token, not a record marker. Keep its two-byte spelling
           // in the semantic leaf instead of treating it as a malformed ID.
           if (subtype < 0x1f || subtype > 0x2b) {
-            tokens.push(0xef,subtype);
+            frame().tokens.push(0xef,subtype);
             index += 2;
             continue;
           }
@@ -4191,20 +4223,29 @@
             if (expression.kind !== 'powerExponent')
               throw new RangeError(
                 `settled power marker references non-power ID 0x${embeddedId.toString(16)}`);
+            const current = frame();
             let base;
-            if (tokens.length) base = tokens.splice(0,tokens.length);
-            else if (parts.length) base = parts.pop();
+            if (current.tokens.length)
+              base = current.tokens.splice(0,current.tokens.length);
+            else if (current.parts.length) base = current.parts.pop();
             else throw new RangeError(
-              `settled power ID 0x${embeddedId.toString(16)} has no preceding base`);
-            parts.push({kind:'power',base,exponent:expression.exponent});
+              `settled power ID 0x${embeddedId.toString(16)} in leaf ` +
+              `0x${recordId.toString(16)} has no preceding base; payload ` +
+              payload.map(value => value.toString(16).padStart(2,'0')).join(' '));
+            current.parts.push({kind:'power',base,exponent:expression.exponent});
           } else {
             flush();
-            parts.push(expression);
+            frame().parts.push(expression);
           }
           index += 4;
         }
         flush();
-        return collapse(parts);
+        while (frames.length > 1) {
+          const unfinished = frame().parts;
+          frames.pop();
+          frame().parts.push([0x10], ...unfinished);
+        }
+        return collapse(frame().parts);
       } finally {
         active.delete(recordId);
       }
@@ -4424,7 +4465,18 @@
         const trailingStructural = part => {
           if (part.kind === 'embedded') return part.structural;
           if (part.kind !== 'sequence' || !part.parts.length) return null;
-          return trailingStructural(part.parts[part.parts.length - 1]);
+          for (let index = part.parts.length - 1; index >= 0; index--) {
+            const child = part.parts[index];
+            // A grouped base ends with one or more ordinary 11h close tokens.
+            // 34:70C1 measures the expression inside those closes, so continue
+            // backward to its trailing structural record. Other trailing tokens
+            // make the immediate base ordinary and stop the search.
+            if (child.kind === 'tokens' && child.tokens.length &&
+                child.tokens.every(token => token === 0x11))
+              continue;
+            return trailingStructural(child);
+          }
+          return null;
         };
         const baseStructural = trailingStructural(base);
         const renderType = settledStructuralTokenType(0x00, 0xf0);

@@ -2525,6 +2525,22 @@ expectEqual('browser decodes matrix children and nested powers',
       [0x33], [0x34],
     ],
   });
+const groupedNestedPowerSpec = {
+  kind:'power',
+  base:{kind:'group',expression:{
+    kind:'power',base:[0x58],
+    exponent:{kind:'group',expression:[0x58,0x71,0x32]},
+  }},
+  exponent:{kind:'power',
+    base:{kind:'group',expression:[0x4e,0x83,0x58]},
+    exponent:{kind:'group',expression:[0x4e,0x71,0x33]},
+  },
+};
+const groupedNestedPowerProgram = rom.constructSettledExpressionProgram(
+  groupedNestedPowerSpec, 7, font);
+expectEqual('browser decodes grouped postfix power bases with token boundaries',
+  rom.decodeSettledExpressionGraph(groupedNestedPowerProgram.nodes, 7),
+  groupedNestedPowerSpec);
 expectEqual('browser decodes a transparent transient root',
   rom.decodeSettledExpressionGraph([
     {id:1,type:0x1f,childIds:[2]},
@@ -2540,6 +2556,10 @@ expectEqual('browser preserves extended tokens in a settled leaf',
     parts:[{kind:'power',base:[0x58],exponent:[0x32]},
       {kind:'extendedToken',tokens:[0xef,0x1e]}],
   });
+expectEqual('settled grouping respects a two-byte native token boundary',
+  rom.decodeSettledExpressionGraph([
+    {id:1,type:0,payload:[0x5e,0x10]},
+  ], 1), [0x5e,0x10]);
 expectEqual('generated LCD records expose their graph-derived AST',
   mp.generatedForExpression('sum(N,1,3,N^2)').settledAst, {
     kind:'summation', variable:[0x4e], lower:[0x31], upper:[0x33],
@@ -4434,6 +4454,16 @@ expectEqual('fraction power-base metrics follow 34:70C1 and 34:77AD',
     {id:6,type:0,word05:8,word07:48,word09:5,word0B:0,word0D:0,word0F:11},
     {id:7,type:0x2a,word05:1,word07:8,word09:24,word0B:5,word0D:24,word0F:0},
     {id:8,type:0,word05:5,word07:24,word09:2,word0B:0,word0D:0,word0F:5},
+  ]);
+expectEqual('grouped nested-power metrics follow the traced base axis',
+  groupedNestedPowerProgram.nodes.filter(node => node.render_type === 0x2a)
+    .map(node => ({
+      id:node.record_id,height:node.word07,width:node.word09,
+      baseline:node.word0B,x:node.word0D,baseDelta:node.word0F,
+    })), [
+    {id:8,height:10,width:24,baseline:6,x:12,baseDelta:6},
+    {id:10,height:16,width:48,baseline:12,x:42,baseDelta:0},
+    {id:12,height:8,width:24,baseline:5,x:24,baseDelta:0},
   ]);
 const mixedBaselineProgram = rom.constructSettledExpressionProgram({
   kind:'sequence',parts:[
