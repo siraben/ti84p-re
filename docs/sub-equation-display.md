@@ -993,6 +993,15 @@ fraction rule enters `34:5DA6` with object coordinates `x=1`–`5`, `y=6` and
 origins `x=16`, `y=5`. Page `04` receives endpoints `(17,52)` and `(21,52)`.
 [confirmed]
 
+The structural handlers retain coordinates and dimensions as 16-bit words.
+For example, `34:62B4`–`34:62C3` reads a radical child's width word, increments
+`DE` three times, and passes the resulting word endpoint to `34:5DA6`.
+`34:620A`–`34:622C` performs the corresponding word comparison for a fraction.
+The translated renderer therefore accepts widths beyond 255 and wraps additions
+at 16 bits before viewport clipping. A radical with record width 258 reaches a
+clipped vinculum from $x=-167$ through $x=87$ instead of rejecting the record
+as byte-sized geometry. [confirmed]
+
 Render-record type `0x22` dispatches through `34:6105` and the table at
 `34:6119` to `34:622F`. The word at record offset `+7` is the integral-sign
 height $h$. The handler draws the inclusive stem `(2,1)`–`(2,h-2)`, then hook
@@ -1234,6 +1243,24 @@ root (69), radical (82), summation (66), `nDeriv(` (96), and a nested
 integral/fraction (114). This comparison includes accepted writes whose value
 does not change the displayed byte. [confirmed]
 
+When a containing leaf appends a box with metrics $(h,b)$ to its current
+metrics $(H,B)$, the metric pass unions the extents above and below the
+baseline: [confirmed]
+
+$$
+\begin{aligned}
+B_{\mathrm{out}} &= \max(B,b), \\\\
+H_{\mathrm{out}} &= B_{\mathrm{out}} + \max(H-B,h-b).
+\end{aligned}
+$$
+
+The reset-origin expression
+`((1*A)/X)//(N-N)//(1*3)*((sum(X,2,1,N)*abs(3))/int(3,1,X,X))`
+combines an outer fraction with $(h,b)=(21,6)$ and a summation with
+$(h,b)=(19,9)$. Its live root record stores
+$(H_{\mathrm{out}},B_{\mathrm{out}})=(24,9)$. Maximizing the
+height and baseline independently would produce the incorrect height 21.
+
 The small-font table at `03:4CD6` stores seven rows per glyph. `_VPutMap` emits
 the five interior rows. It retains an interior zero row, but it does not emit
 the padding row above or below the glyph. A row that crosses an LCD byte
@@ -1470,23 +1497,34 @@ S_l &= \max(h_v,h_l).
 \end{aligned}
 $$
 
-The parent and body metrics are:
+Let $B_0=S_u+4$. The parent and body metrics are:
 
 $$
 \begin{aligned}
-H &= S_u+9+S_l, \\\\
-B &= S_u+4, \\\\
+B &= \max(B_0,b_b), \\\\
+y_u &= B-B_0, \\\\
+y_l &= B+5, \\\\
+y_b &= B-b_b, \\\\
+H &= \max(y_l+S_l,y_b+h_b), \\\\
 x_b &= O+6, \\\\
 W &= x_b+w_b+5.
 \end{aligned}
 $$
 
-The variable begins at $(0,H-S_l)$ and the lower bound begins at
-$(w_v+4,H-S_l)$. Placing both on the common lower row keeps structural lower
+The variable begins at $(0,y_l)$ and the lower bound begins at
+$(w_v+4,y_l)$. Placing both on the common lower row keeps structural lower
 bounds aligned with the variable. The upper bound begins at
-$(\lfloor(O-w_u)/2\rfloor,0)$. The body begins at $(x_b,B-b_b)$. The
+$(\lfloor(O-w_u)/2\rfloor,y_u)$. The body begins at $(x_b,y_b)$. The
 type-`0x29` record stores `3`, $H$, $W$, and $B$ at `+5`, `+7`, `+9`, and
 `+0x0B`, respectively. [confirmed]
+
+For ordinary five-row limits and a body whose baseline does not exceed $B_0$,
+these equations reduce to $H=S_u+9+S_l$ and $B=S_u+4$. A reset-origin record
+capture for
+`sum(A,1,1,sqrt(int(1,3,N,A))//sqrt(A)^1^X)` exercises the taller-body branch.
+The body stores $(h_b,b_b)=(33,18)$; the summation stores $(H,B)=(33,18)$,
+places the upper limit at $y=9$, and places the lower row at $y=23$.
+[confirmed]
 
 Eleven reset-origin traces cover the representative `sum(N,1,3,N^2)` case,
 unequal-width token limits, multi-token limits, power limits, radical,
@@ -1839,11 +1877,23 @@ around the final key press.
 
 `tools/fuzz-mathprint-diff.py` builds a semantic expression tree, encodes its
 native calculator bytes, constructs the translated record graph, and compares
-the resulting pixels with a reset-origin TilEm LCD trace produced from the
-corresponding key sequence. It does not compare the trace with the preview
-compositor. Adjacent equal keys receive an explicit scan delay, and each run
-uses a new emulator state file. Trace-limit cases are reported as inconclusive
-and do not abort later cases or count as parity. [confirmed]
+the resulting pixels with a reset-origin TilEm screenshot produced from the
+corresponding key sequence. It does not compare the calculator with the preview
+compositor. Each run uses a new emulator state file. Adjacent equal keys receive
+an explicit scan delay, and integral completion receives a rebuild delay before
+a following operator. A pixel mismatch triggers an instruction trace for
+branch and LCD-write diagnosis; exact cases do not pay the trace cost.
+Trace-limit cases leave the screenshot mismatch intact and report only the
+trace diagnosis as inconclusive. [confirmed]
+
+The final settled-record graph does not yet reproduce pixels retained from
+earlier editor redraws. `34:62D0` selects the five-row radical table when
+`ram:8515` is nonzero, and `34:62F9` preserves accepted writes whose LCD value
+does not change. In the tall-summation input above, the final trace reaches
+`34:62D0` with `ram:8515=2`; two hook pixels from an earlier seven-row redraw
+remain visible. Replaying only the final graph from a blank framebuffer omits
+those two pixels. Full live-entry parity therefore also requires translating
+the sequence of editor mutations and redraws. [confirmed]
 
 ## Extracted records and interactive model
 
