@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-79c89c7c.js";
+            window.path_to_searchindex_js = "searchindex-a434c17f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -655,10 +655,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 252 reset-origin traces, and
+destinations, overlays exact next-PC outcomes from 256 reset-origin traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 251 reach their state through calculator input. One explicitly
+traces, 255 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an <code>EF36h</code> editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 <code>tools/mathprint-saturation.json</code> records the resulting branches and trace
@@ -666,9 +666,9 @@ hashes. [confirmed]</p>
 <p>The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]</p>
-<p>None of the 252 report traces executes <code>39:5167</code>, <code>39:523B</code>, the saved-operand
+<p>None of the 256 report traces executes <code>39:5167</code>, <code>39:523B</code>, the saved-operand
 wrappers at <code>39:5B10</code>–<code>39:5B38</code>, or the dispatchers at <code>39:59E0</code>/<code>39:59F9</code>.
-The 252-digest trace cache also has no hit at those entries. [confirmed]
+The 256-digest trace cache also has no hit at those entries. [confirmed]
 <code>_FindAlphaUp</code> at <code>07:50B5</code> executes once in 112 report traces, but every call
 comes from the type-<code>16h</code> cleanup loop at <code>07:5544</code>. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -823,12 +823,12 @@ traces. They preserve 1,008 and 1,005 outcomes in 3,987,022,530 and 4,081,707,15
 bytes, respectively.</p>
 <p>The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,334 tags and needs 190
-traces. The natural-only universe has 1,331 tags and needs 189 traces. Every
+independent oracle case. Its all-evidence universe has 1,338 tags and needs 194
+traces. The natural-only universe has 1,335 tags and needs 193 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The retained byte totals are
-28,731,660,660 and 28,635,776,742, respectively. The broad set remains the RE
+29,158,047,648 and 29,062,163,730, respectively. The broad set remains the RE
 and regression corpus; the public gallery uses a smaller, diverse selection.
 [confirmed]</p>
 <p>The tagged cover preserves only states represented by its tags. It does not
@@ -879,7 +879,7 @@ and <code>A</code> at each discriminator were checked before admission. [confirm
 <p>The synthetic <code>EF36h</code> trace uses
 <code>tools/macros/mathprint-ef36-injected-buffer.macro</code>. Its two <code>memwrite</code>
 commands place <code>EF 36 31 11</code> at the editor cursor. It is the sole synthetic
-source in the 252-trace report. It supplies the only evidence for
+source in the 256-trace report. It supplies the only evidence for
 <code>34:5A23</code> fallthrough, <code>34:6992</code> taken, and <code>34:6B94</code> taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]</p>
 <p>The in-progress editor is a gap buffer. <code>editTop</code> (<code>0x96F4</code>) and <code>editCursor</code>
@@ -974,9 +974,8 @@ not these five live gap writes. [confirmed]</p>
 payload, and decodes the graph again. All five <code>[[1]]</code> transitions match the
 post-key cursor tree, every reconstructed record field, and the complete
 cursor-off 96×64 LCD bitmap. Directly appending the byte to the previous
-semantic tree would miss four of the five regrouping transitions. Structural
-deletion and cursor navigation across structural boundaries remain open.
-[confirmed]</p>
+semantic tree would miss four of the five regrouping transitions. Cursor
+navigation across structural boundaries remains open. [confirmed]</p>
 <p>The blank entry line stores a zero-byte active leaf. Its only semantic node is
 the cursor at byte offset zero; inactive empty leaves remain invalid. Selecting
 the <strong>n/d</strong> template supplies source token <code>EF 2E</code>. <code>34:5935</code> maps that token to
@@ -1176,7 +1175,7 @@ matches the decoded post-key tree, reconstruction matches every record field,
 and execution matches all 768 LCD bytes. The fraction discriminator has the
 same record and LCD parity. Radical and fraction insertion at other deeper
 structural positions, remaining structural template types, structural
-deletion, and structural-boundary navigation remain open. [confirmed]</p>
+boundary navigation remain open. [confirmed]</p>
 <p>Ordinary in-leaf navigation uses the page-6 gap movers. LEFT reaches
 <code>06:4294–42C7</code> through <code>34:42B4</code> and <code>00:3B49</code>; RIGHT reaches
 <code>06:42C8–4301</code> through <code>34:4193</code> and <code>00:367B</code>. Both paths call
@@ -1209,8 +1208,28 @@ offset zero before the restored square. [confirmed]</p>
 fraction-numerator deletion states. <code>editorDeletePackedToken()</code> produces both
 decoded post-key trees exactly, reconstruction matches every record field, and
 execution matches both complete cursor-off LCD bitmaps. The finite tests also
-delete a two-byte native token as one unit. Deleting an embedded structural
-record remains open. [confirmed]</p>
+delete a two-byte native token as one unit. [confirmed]</p>
+<p>Deleting a structural template begins when the active child contains only
+<code>EF 1E</code> and the cursor precedes that token. <code>34:44F4</code> verifies the empty child.
+<code>34:47FF</code> removes the six-byte marker from its containing leaf and releases the
+structural record with its direct child leaves. <code>34:453A–4544</code> then rebuilds
+the parent layout and makes the containing leaf active. [confirmed]</p>
+<p>Fraction type <code>0x20</code> and nth-root type <code>0x24</code> take the additional
+<code>34:451F–4534</code> path when the active child is the second child. The path copies
+the first child’s native payload into the containing leaf before it removes
+the wrapper. Deleting an empty fraction denominator therefore promotes a
+populated numerator. Deleting an empty nth-root radicand promotes its index.
+An <code>EF 1E</code> first child contributes no bytes. [confirmed]</p>
+<p><code>tools/mathprint-editor-structural-deletion-oracles.json</code> retains four live
+transitions: a blank fraction’s first child, a fraction denominator with a
+populated numerator, an nth-root radicand with an explicit index, and a blank
+radical’s only child. <code>editorDeleteStructuralTemplate()</code> mutates the decoded
+record graph, then runs the graph decoder at the parent cursor position. All
+four cursor trees, meaningful record fields, and complete 96×64 LCD bitmaps
+match the calculator. The ROM leaves <code>EFh</code> in physical byte <code>+0x13</code> when the
+resulting active payload is empty; that byte lies outside the logical payload.
+Deeper nested deletion states and the other structural types remain open.
+[confirmed]</p>
 <p><code>34:789A</code> first distinguishes the table-equation context from other editors.
 On its fallthrough, <code>34:75AB</code> reads the marker type from <code>editTail + 1</code>.
 <code>34:40F9</code> groups fraction (<code>0x20</code>), nth-root (<code>0x24</code>), and power (<code>0x2A</code>)

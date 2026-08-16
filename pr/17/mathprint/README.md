@@ -165,7 +165,7 @@ cursor-off LCD. A five-key `[[1]]` sequence additionally verifies both partial
 list frames and the two completed nested-list nodes. The fraction case retains
 the structural record's pre-edit `+13h` byte while replacing the `EF 1E`
 empty-slot token. Structural templates use the separate mutation path below;
-structural deletion and boundary navigation remain open.
+structural-boundary navigation remains open.
 `editorInsertStructuralTemplate()` translates fraction insertion from source
 token `EF 2E` at every cursor class in the root leaf and both child leaves of
 one outer fraction, plus the blank radicand of one prefixed radical. A
@@ -226,7 +226,14 @@ and fraction-numerator transitions verify one-byte deletion, record
 reconstruction, and complete LCD output. When the active leaf becomes empty,
 the translated `34:4549–455B` path restores `EF 1E` and leaves the cursor before
 that square. Two-byte deletion is kept atomic. Structural-record deletion
-remains separate.
+uses a separate decoded-arena path.
+`editorDeleteStructuralTemplate()` translates deletion from an `EF 1E` child.
+It removes the containing six-byte marker, structural record, and direct child
+leaves. A blank fraction or radical collapses to the containing leaf. Deleting
+an empty second child of a fraction or nth-root promotes the first child's
+native payload into that leaf. Four reset-origin captures verify the decoded
+cursor tree, meaningful record fields, and all 768 LCD bytes. Deeper nested
+deletion states and other structural types remain open.
 The analyzer selects the first post-key `34:660A` entry at the shallowest Z80
 stack depth. The exporter pairs
 parent/index observations at `34:6CCD` with the resolved child ID and record
@@ -340,7 +347,8 @@ semantic frontend; it does not drive the translated TI-OS editor state machine.
 A separate ROM-derived decoder reads captured live editor RAM, including its
 active gap leaf and cursor. The ROM engine can advance that state through an
 ordinary packed-token insertion, root leaf-end fraction-template insertion,
-in-leaf cursor move, or packed-token deletion, but the browser does
+in-leaf cursor move, packed-token deletion, or the captured structural-deletion
+classes, but the browser does
 not yet expose the mutation API as an interactive calculator editor. A `hex:`
 prefix supplies
 space- or comma-separated native bytes directly to record construction. The
