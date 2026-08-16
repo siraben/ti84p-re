@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a1e6ebd1.js";
+            window.path_to_searchindex_js = "searchindex-9215c96c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15028,7 +15028,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 33 finite models. It also computes an
+complete path-equivalence class in 34 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -15051,6 +15051,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Point bounds</td><td style="text-align: right">33,554,432</td><td style="text-align: right">7</td><td style="text-align: right">14</td><td style="text-align: right">7</td></tr>
 <tr><td>Thick-point expansion</td><td style="text-align: right">4,294,967,296</td><td style="text-align: right">8</td><td style="text-align: right">14</td><td style="text-align: right">8</td></tr>
 <tr><td>Shaded-point expansion</td><td style="text-align: right">3,145,728</td><td style="text-align: right">1,850</td><td style="text-align: right">30</td><td style="text-align: right">8</td></tr>
+<tr><td>Small-font pointer selection</td><td style="text-align: right">65,536</td><td style="text-align: right">16</td><td style="text-align: right">31</td><td style="text-align: right">16</td></tr>
 <tr><td>Large-glyph hook dispatch</td><td style="text-align: right">32</td><td style="text-align: right">14</td><td style="text-align: right">16</td><td style="text-align: right">8</td></tr>
 <tr><td>Metric marker-tail gate</td><td style="text-align: right">16</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
 <tr><td>Editor action <code>0x03</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">11</td><td style="text-align: right">9</td><td style="text-align: right">4</td></tr>
@@ -15074,8 +15075,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 33 models contain 3,272 path classes and 356 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 169 representatives. Each
+<p>The 34 models contain 3,288 path classes and 387 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 185 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -15133,8 +15134,9 @@ outcomes. [confirmed]</p>
 exercises 1,010. The synthetic <code>EF36h</code> state adds two outcomes, for 1,012 across
 all evidence. One allocator outcome is infeasible under its data invariant.
 Two metric outcomes are infeasible under the calculator call ABI, and one is
-infeasible under the valid <strong>Y=</strong> editor-entry invariant. The full evidence set
-leaves 1,260 unresolved; the natural-only set leaves 1,262.
+infeasible under the valid <strong>Y=</strong> editor-entry invariant. Three small-font
+pointer outcomes are infeasible under the <code>01:6702</code> entry invariant. The full
+evidence set leaves 1,257 unresolved; the natural-only set leaves 1,259.
 An unobserved outcome never becomes infeasible from absence alone. [confirmed]</p>
 <p>The infeasible allocator outcome is the fallthrough at <code>33:4F4E</code>. The type
 <code>0x2B</code> path loads rows and columns from record offsets <code>+0x13</code> and <code>+0x12</code>, then
@@ -15149,6 +15151,11 @@ dispatcher recursion therefore fixes <code>B=0</code>. The <code>B!=0</code> out
 fallthrough and <code>34:765D</code> return are infeasible under this calculator ABI.
 Synthetic direct calls to internal metric handlers do not share the ABI.
 [confirmed]</p>
+<p>The <code>BBh</code> route through <code>smallfont_glyph_ptr</code> reaches <code>01:6765</code> with Z set by
+<code>CP BBh</code>; the intervening <code>LD A,L</code> preserves Z. The taken outcome is therefore
+infeasible from <code>01:6702</code>. Both outcomes of <code>01:6776</code> are also infeasible
+because that comparison’s only predecessor is the dead taken edge at
+<code>01:6765</code>. [confirmed]</p>
 <p>The report computes two exact Z3 covers. The first preserves every individual
 branch outcome observed in the supplied traces. It does not preserve complete
 invocation paths, register or RAM states, dispatch indices, record cases, or LCD
@@ -16333,6 +16340,19 @@ at <code>01:6702</code>. A zero lead selects the word table at <code>01:4252</co
 leads <code>5Ch</code>, <code>5Dh</code>, <code>5Eh</code>, <code>60h</code>–<code>63h</code>, <code>7Eh</code>, <code>AAh</code>, <code>BBh</code>, and <code>EFh</code> select
 tables at <code>01:4452</code>–<code>01:47E8</code>. The <code>5Eh</code> second byte selects one of four banks.
 The <code>BBh</code> path clamps indices <code>F6h</code>–<code>FFh</code> to <code>F6h</code>. [confirmed]</p>
+<p>The raw <code>D:E</code> selector accepts more states than the native token grammar.
+Leads <code>01h</code>–<code>5Ch</code> alias the <code>5Ch</code> table. Both <code>5Eh</code> and <code>5Fh</code> test index bits
+4, 5, and 6 in that order, clear the first selected bit, and otherwise clear
+bit 7. Leads <code>64h</code>–<code>7Dh</code> and <code>7Fh</code>–<code>BAh</code> alias the <code>AAh</code> table. Leads <code>BCh</code>–<code>FFh</code>
+alias the <code>EFh</code> table. <code>_IsA2ByteTok</code> prevents these extra aliases during
+ordinary token decoding. [confirmed]</p>
+<p><code>01:6765</code> inherits Z from the preceding <code>CP BBh</code>; <code>LD A,L</code> does not change it.
+That <code>JR NZ</code> therefore falls through under the <code>01:6702</code> entry ABI. The
+<code>CP 13h</code> clamp at <code>01:6774</code>–<code>01:6778</code> has no other predecessor and is
+unreachable from this entry. A pinned byte interpreter matches the JavaScript
+table, normalized index, pointer-word address, and complete branch sequence for
+all 65,536 <code>D:E</code> pairs. The token hook beginning at <code>01:6788</code> remains an
+external dispatch boundary. [confirmed]</p>
 <p>Each selected pointer names one metadata byte followed by a counted
 display-code string. Token <code>72h</code> therefore expands to <code>A</code>, <code>n</code>, <code>s</code>. Token
 <code>C2h</code> expands to <code>s</code>, <code>i</code>, <code>n</code>, <code>(</code>. Two-byte token <code>5D 00</code> expands to <code>L</code> and

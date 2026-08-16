@@ -3816,29 +3816,115 @@
   // pointer to one metadata byte followed by a counted display-code string.
   // The proprietary ROM is absent from the web build, so
   // export-token-strings.py commits those immutable decoded tables.
+  // Translate the complete D:E selector at 01:6702–6781. This raw ABI maps
+  // every lead byte, including values that _IsA2ByteTok never emits. It stops
+  // before the pointer read at 01:6782 so out-of-table indices remain visible
+  // instead of being mistaken for valid token strings.
+  function settledPage1GlyphPointerSelection(leadValue, indexValue) {
+    const lead = byte(leadValue, 'page-1 glyph-pointer lead');
+    const incomingIndex = byte(indexValue, 'page-1 glyph-pointer index');
+    let index = incomingIndex;
+    let table;
+    const branchOutcomes = [];
+    const branch = (address, outcome) => branchOutcomes.push(
+      `01:${address.toString(16).toUpperCase()}:${outcome}`);
+
+    branch(0x6707,lead === 0 ? 'taken' : 'fallthrough');
+    if (lead === 0) {
+      table = 'single';
+    } else {
+      branch(0x670e,lead < 0x5d ? 'taken' : 'fallthrough');
+      if (lead < 0x5d) {
+        table = '5C';
+      } else {
+        branch(0x6713,lead === 0x5d ? 'taken' : 'fallthrough');
+        if (lead === 0x5d) {
+          table = '5D';
+        } else {
+          branch(0x671a,lead >= 0x60 ? 'taken' : 'fallthrough');
+          if (lead < 0x60) {
+            branch(0x6721,index & 0x10 ? 'taken' : 'fallthrough');
+            index &= ~0x10;
+            if (incomingIndex & 0x10) {
+              table = '5E10';
+            } else {
+              branch(0x672a,incomingIndex & 0x20 ? 'taken' : 'fallthrough');
+              index &= ~0x20;
+              if (incomingIndex & 0x20) {
+                table = '5E20';
+              } else {
+                branch(0x6733,incomingIndex & 0x40 ? 'taken' : 'fallthrough');
+                index &= ~0x40;
+                if (incomingIndex & 0x40) {
+                  table = '5E40';
+                } else {
+                  index &= ~0x80;
+                  table = '5E80';
+                }
+              }
+            }
+          } else {
+            branch(0x6741,lead < 0x61 ? 'taken' : 'fallthrough');
+            if (lead < 0x61) {
+              table = '60';
+            } else {
+              branch(0x6746,lead === 0x61 ? 'taken' : 'fallthrough');
+              if (lead === 0x61) {
+                table = '61';
+              } else {
+                branch(0x674d,lead < 0x63 ? 'taken' : 'fallthrough');
+                if (lead < 0x63) {
+                  table = '62';
+                } else {
+                  branch(0x6752,lead === 0x63 ? 'taken' : 'fallthrough');
+                  if (lead === 0x63) {
+                    table = '63';
+                  } else {
+                    branch(0x6756,lead === 0x7e ? 'taken' : 'fallthrough');
+                    if (lead === 0x7e) {
+                      table = '7E';
+                    } else {
+                      branch(0x675d,lead < 0xbb ? 'taken' : 'fallthrough');
+                      if (lead < 0xbb) {
+                        table = 'AA';
+                      } else {
+                        branch(0x6762,lead !== 0xbb ? 'taken' : 'fallthrough');
+                        if (lead !== 0xbb) {
+                          table = 'EF';
+                        } else {
+                          // LD A,L does not change the Z flag set by CP BBh,
+                          // so 01:6765 always falls through from this entry.
+                          branch(0x6765,'fallthrough');
+                          branch(0x6769,index < 0xf6 ? 'taken' : 'fallthrough');
+                          if (index >= 0xf6) index = 0xf6;
+                          table = 'BB';
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    const tableAddress = table === 'single'
+      ? 0x4252 : SETTLED_TWO_BYTE_TABLES[table];
+    return {
+      lead,incomingIndex,index,table,tableAddress,
+      pointerWordAddress:(tableAddress + 2 * index) & 0xffff,
+      nativeLead:lead === 0 || SETTLED_TWO_BYTE_LEADS.has(lead),
+      branchOutcomes,routine:'01:6702–6781',
+    };
+  }
+
   function settledTwoByteTokenSelection(lead, second) {
     byte(lead, 'settled two-byte lead');
     byte(second, 'settled two-byte index');
-    if (lead === 0x5c) return {table:'5C',index:second};
-    if (lead === 0x5d) return {table:'5D',index:second};
-    if (lead === 0x5e) {
-      // 01:671C clears each selected bank bit before using the remaining low
-      // bits as the pointer-table index. The first set bit wins.
-      if (second & 0x10) return {table:'5E10',index:second & ~0x10};
-      if (second & 0x20) return {table:'5E20',index:second & ~0x20};
-      if (second & 0x40) return {table:'5E40',index:second & ~0x40};
-      return {table:'5E80',index:second & ~0x80};
-    }
-    if (lead === 0x60) return {table:'60',index:second};
-    if (lead === 0x61) return {table:'61',index:second};
-    if (lead === 0x62) return {table:'62',index:second};
-    if (lead === 0x63) return {table:'63',index:second};
-    if (lead === 0x7e) return {table:'7E',index:second};
-    if (lead === 0xaa) return {table:'AA',index:second};
-    if (lead === 0xbb)
-      return {table:'BB',index:Math.min(second,0xf6)};
-    if (lead === 0xef) return {table:'EF',index:second};
-    return null;
+    if (!SETTLED_TWO_BYTE_LEADS.has(lead)) return null;
+    const selected = settledPage1GlyphPointerSelection(lead,second);
+    return {table:selected.table,index:selected.index};
   }
 
   function settledTokenSpelling(payload, index) {
@@ -10337,6 +10423,7 @@
     settledPage7LargeGlyphRecord,
     settledOperationWrites,
     rasterizeSettledOperations,
+    settledPage1GlyphPointerSelection,
     settledTokenGlyph,
     settledTokenSpelling,
     setSettledTokenStrings,
