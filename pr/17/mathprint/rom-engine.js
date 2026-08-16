@@ -5358,6 +5358,109 @@
     return {expression,mutation};
   }
 
+  // The fraction-template route consumes the live arena state as well as the
+  // semantic tree: newly allocated record IDs and the structural-depth gate
+  // are not recoverable from the cursor AST alone. EF 2Eh and EF 2Fh both map
+  // to type 20h at 34:5935. This translation currently closes the type-20h
+  // insertion path; the other structural source types remain separate.
+  function editorInsertStructuralTemplate(input, sourceToken = [0xef,0x2e]) {
+    if (!input || typeof input !== 'object' || !input.editor ||
+        !Array.isArray(input.nodes))
+      throw new TypeError(
+        'structural insertion requires a decoded MathPrint editor state');
+    const source = Array.from(sourceToken || [], (value, index) =>
+      byte(value, `editor structural source byte ${index}`));
+    const boundaries = editorPayloadCursorBoundaries(source);
+    if (boundaries.length !== 2 || boundaries[1] !== source.length ||
+        source.length !== 2)
+      throw new RangeError(
+        'editor structural insertion requires one two-byte source token');
+    const renderType = settledStructuralTokenType(source[0],source[1]);
+    if (renderType !== 0x20)
+      throw new RangeError(
+        'only the translated type-20h fraction insertion path is supported');
+    const depth = input.controller && input.controller.structuralDepth;
+    if (!Number.isInteger(depth) || depth < 0 || depth > 0xff)
+      throw new RangeError(
+        'decoded editor state has no structural-depth byte');
+    const gate = settledStructuralDepthGate(depth,renderType);
+    if (gate.carry) return {
+      expression:input.editor.expression,
+      mutation:{
+        status:'depth-limit', source_token:source, render_type:renderType,
+        before_structural_depth:depth,
+        after_structural_depth:gate.incrementedDepth,
+        return_a:gate.returnA, flags45_bit6:true,
+        error_address:0x9d20, error_value:0x05,
+        routine:'34:473A → 35:7B37 → 34:54D2',
+      },
+    };
+
+    const ids = input.nodes.map(node =>
+      node.record_id === undefined ? node.id : node.record_id);
+    if (!ids.length || ids.some(id =>
+        !Number.isInteger(id) || id < 0 || id > 0xffff) ||
+        new Set(ids).size !== ids.length)
+      throw new RangeError('decoded editor state has an invalid record ID');
+    const firstId = Math.max(...ids) + 1;
+    if (firstId > 0xfffd)
+      throw new RangeError(
+        'fraction insertion requires three available record IDs');
+    const structuralId = firstId;
+    const numeratorId = firstId + 1;
+    const denominatorId = firstId + 2;
+    let originalCursor = null;
+    let insertions = 0;
+    const fraction = () => ({
+      kind:'fraction',
+      numerator:{kind:'sequence',parts:[
+        {
+          kind:'editorCursor', record_id:numeratorId, byte_offset:0,
+          record_word0F:0, record_word11:2,
+        },
+        {kind:'extendedToken',tokens:[0xef,0x1e]},
+      ]},
+      denominator:{kind:'extendedToken',tokens:[0xef,0x1e]},
+      editor_record_byte13:0xef,
+    });
+    const visit = value => {
+      if (!value || typeof value !== 'object') return value;
+      if (Array.isArray(value) || value instanceof Uint8Array) {
+        if (Array.from(value).every(Number.isInteger)) return Array.from(value);
+        return Array.from(value,visit);
+      }
+      if (value.kind === 'editorCursor') {
+        originalCursor = value;
+        insertions++;
+        return fraction();
+      }
+      const result = {};
+      for (const [key,child] of Object.entries(value)) result[key] = visit(child);
+      return result;
+    };
+    const expression = visit(input.editor.expression);
+    if (insertions !== 1)
+      throw new RangeError(
+        `structural insertion requires one cursor, found ${insertions}`);
+    const marker = [
+      0xef,renderType,structuralId & 0xff,structuralId >> 8,0xef,0x2d,
+    ];
+    return {
+      expression,
+      mutation:{
+        status:'inserted', source_token:source, render_type:renderType,
+        marker, parent_record_id:originalCursor.record_id,
+        before_byte_offset:originalCursor.byte_offset,
+        after_record_id:numeratorId, after_byte_offset:0,
+        structural_record_id:structuralId,
+        child_record_ids:[numeratorId,denominatorId],
+        before_structural_depth:depth,
+        after_structural_depth:gate.incrementedDepth,
+        routine:'34:473A → 35:7B37 → 34:4169 → 34:5026 → 34:51B8–51D4 → 34:5467–547E → 34:4862–492B',
+      },
+    };
+  }
+
   // The ordinary left/right editor path moves one packed native token across
   // the gap. Page 6 treats the same two-byte leads as _IsA2ByteTok; structural
   // record markers are handled by separate page-34 navigation paths.
@@ -5703,6 +5806,10 @@
     const entryPointer = word(0x8dbc);
     const mainTail = word(0x8dbe);
     const gapRecordPointer = word(0x8dc2);
+    const controller = {
+      recordId:word(0x8db3), renderType:ram[offset(0x8db5)],
+      structuralDepth:ram[offset(0x8db6)], activeLeafId:word(0x8db7),
+    };
     if (!(0x8000 <= structuralStart && structuralStart <= entryPointer &&
           entryPointer <= mainTail && mainTail <= 0xffff))
       throw new RangeError('MathPrint record-arena pointers are inconsistent');
@@ -5788,10 +5895,11 @@
         node.payload = span(pointer + 0x13,payloadEnd);
         nextPointer = payloadEnd;
       }
-      if (!node.payload.length)
+      if (!node.payload.length &&
+          !(gapActive && pointer === gapRecordPointer))
         throw new RangeError(
           `leaf record 0x${node.id.toString(16)} has an empty payload`);
-      node.byte13 = node.payload[0];
+      if (node.payload.length) node.byte13 = node.payload[0];
       if (nextPointer <= pointer)
         throw new RangeError(
           `leaf record 0x${node.id.toString(16)} does not advance`);
@@ -5810,7 +5918,8 @@
     const entry = byPointer.get(entryPointer);
     if (!entry)
       throw new RangeError('MathPrint entry pointer is not a record boundary');
-    const expression = decodeSettledExpressionGraph(nodes,entry.id);
+    const expression = entry === activeNode && !entry.payload.length
+      ? null : decodeSettledExpressionGraph(nodes,entry.id);
     let editor = null;
     if (gapActive) {
       if (!activeNode)
@@ -5829,7 +5938,7 @@
       structuralStart, editorBoundary, entryPointer, mainTail,
       gapRecordPointer, leafBoundary, gapActive,
       editTop, editCursor, editTail, editBottom,
-      entryId:entry.id, nodes, expression, editor,
+      entryId:entry.id, controller, nodes, expression, editor,
       routine:'34:4A83/4AAF and 34:4ACE/4AF0',
     };
   }
@@ -5955,12 +6064,14 @@
     };
 
     const finishLeaf = leaf => {
-      if (!leaf.payload.length)
+      const activeEmptyEditorLeaf = editorMode && !leaf.payload.length &&
+        editorState.activeLeafId === leaf.record_id;
+      if (!leaf.payload.length && !activeEmptyEditorLeaf)
         throw new RangeError('settled leaf construction produced an empty payload');
       checkedWord(leaf.payload.length, 'settled leaf payload length');
       leaf.word0F = leaf.payload.length;
       leaf.word11 = leaf.payload.length;
-      leaf.byte13 = leaf.payload[0];
+      if (leaf.payload.length) leaf.byte13 = leaf.payload[0];
       return leaf;
     };
 
@@ -7791,6 +7902,7 @@
     decodeSettledExpressionGraph,
     editorPayloadCursorBoundaries,
     editorInsertPackedToken,
+    editorInsertStructuralTemplate,
     editorMovePackedTokenCursor,
     editorDeletePackedToken,
     decodeEditorExpressionGraph,

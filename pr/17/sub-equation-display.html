@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-fdeb7e8e.js";
+            window.path_to_searchindex_js = "searchindex-6d29bbdd.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -655,10 +655,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 191 reset-origin traces, and
+destinations, overlays exact next-PC outcomes from 192 reset-origin traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 190 reach their state through calculator input. One explicitly
+traces, 191 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an <code>EF36h</code> editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 <code>tools/mathprint-saturation.json</code> records the resulting branches and trace
@@ -666,10 +666,10 @@ hashes. [confirmed]</p>
 <p>The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]</p>
-<p>None of the 191 report traces executes <code>39:5167</code>, <code>39:523B</code>, the saved-operand
+<p>None of the 192 report traces executes <code>39:5167</code>, <code>39:523B</code>, the saved-operand
 wrappers at <code>39:5B10</code>–<code>39:5B38</code>, or the dispatchers at <code>39:59E0</code>/<code>39:59F9</code>.
-The 191-digest trace cache also has no hit at those entries. [confirmed]
-<code>_FindAlphaUp</code> at <code>07:50B5</code> executes once in 111 report traces, but every call
+The 192-digest trace cache also has no hit at those entries. [confirmed]
+<code>_FindAlphaUp</code> at <code>07:50B5</code> executes once in 112 report traces, but every call
 comes from the type-<code>16h</code> cleanup loop at <code>07:5544</code>. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
 MathPrint caller witness. [confirmed]</p>
@@ -822,8 +822,8 @@ traces. They preserve 1,006 and 1,003 outcomes in 4,013,690,448 and 4,108,375,06
 bytes, respectively.</p>
 <p>The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,271 tags and needs 129
-traces. The natural-only universe has 1,268 tags and needs 128 traces. Every
+independent oracle case. Its all-evidence universe has 1,272 tags and needs 130
+traces. The natural-only universe has 1,269 tags and needs 129 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -877,7 +877,7 @@ and <code>A</code> at each discriminator were checked before admission. [confirm
 <p>The synthetic <code>EF36h</code> trace uses
 <code>tools/macros/mathprint-ef36-injected-buffer.macro</code>. Its two <code>memwrite</code>
 commands place <code>EF 36 31 11</code> at the editor cursor. It is the sole synthetic
-source in the 191-trace report. It supplies the only evidence for
+source in the 192-trace report. It supplies the only evidence for
 <code>34:5A23</code> fallthrough, <code>34:6992</code> taken, and <code>34:6B94</code> taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]</p>
 <p>The in-progress editor is a gap buffer. <code>editTop</code> (<code>0x96F4</code>) and <code>editCursor</code>
@@ -963,8 +963,27 @@ therefore retains structural <code>+13h</code> state in addition to the active l
 <p><code>editorInsertPackedToken()</code> translates this mutation. For both transitions,
 the mutated cursor tree equals the decoded post-key tree, reconstruction
 matches every post-key record field, and execution matches the complete
-cursor-off LCD bitmap. Structural template insertion, structural deletion, and
-cursor navigation across structural boundaries remain open. [confirmed]</p>
+cursor-off LCD bitmap. Other structural template insertion, structural
+deletion, and cursor navigation across structural boundaries remain open.
+[confirmed]</p>
+<p>The blank entry line stores a zero-byte active leaf. Its only semantic node is
+the cursor at byte offset zero; inactive empty leaves remain invalid. Selecting
+the <strong>n/d</strong> template supplies source token <code>EF 2E</code>. <code>34:5935</code> maps that token to
+type <code>0x20</code>. [confirmed]</p>
+<p>The insertion follows <code>34:473A</code>, the depth gate at <code>35:7B37</code>, and the type
+dispatcher at <code>34:5026</code>. The fraction case at <code>34:51B8–51D4</code> calls
+<code>34:5467–547E</code>, which writes <code>EF 20 00 00 EF 2D</code> before the allocator patches
+the structural record ID. In the reset-origin blank-root capture, the ROM
+allocates fraction record <code>8</code>, numerator record <code>9</code>, and denominator record
+<code>10</code>. It advances the structural depth from zero to one and selects numerator
+record <code>9</code> as the active leaf. [confirmed]</p>
+<p><code>editorInsertStructuralTemplate()</code> consumes the decoded arena state because the
+semantic cursor tree does not contain the next record ID or structural-depth
+byte. For this capture, it produces <code>EF 20 08 00 EF 2D</code>, moves the cursor into
+the empty numerator, and creates an <code>EF 1E</code> token in both children. The decoded
+post-key tree, all five record headers, and the complete cursor-off LCD bitmap
+match the calculator. Populated or nested insertion and structural types other
+than <code>0x20</code> remain open. [confirmed]</p>
 <p>Ordinary in-leaf navigation uses the page-6 gap movers. LEFT reaches
 <code>06:4294–42C7</code> through <code>34:42B4</code> and <code>00:3B49</code>; RIGHT reaches
 <code>06:42C8–4301</code> through <code>34:4193</code> and <code>00:367B</code>. Both paths call
