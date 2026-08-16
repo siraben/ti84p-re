@@ -1802,10 +1802,30 @@
     return row ? row[2] : null;
   }
 
+  // Every structural insertion routed through 34:473A calls the page-35 gate
+  // at 35:7B37. It increments the byte at 8DB6h modulo 256, compares the
+  // result with 05h, and preserves the incoming A on the carry-clear path.
+  // At depths 04h..FEh it instead returns A=03h with carry set. FFh wraps to
+  // zero and is accepted exactly as the Z80 byte operation does.
+  function settledStructuralDepthGate(structuralDepth, inputA) {
+    byte(structuralDepth, 'settled structural depth');
+    byte(inputA, 'settled structural gate A');
+    const incrementedDepth = (structuralDepth + 1) & 0xff;
+    const carry = incrementedDepth >= 5;
+    return {
+      structuralDepth,
+      incrementedDepth,
+      status:carry ? 'depth-limit' : 'accept',
+      returnA:carry ? 0x03 : inputA,
+      carry,
+      routine:'34:473A → ram:2E41 → 35:7B37',
+    };
+  }
+
   // EF36h takes the alternate editor path at 34:473A rather than the normal
-  // metadata-driven scanner. 35:7B37 leaves A=2Ch and carry clear while the
-  // structural-depth byte at 8DB6h is below four. At four it returns A=03h
-  // with carry set; 34:54D2 then sets (IY+45h).6 and writes 05h to 9D20h.
+  // metadata-driven scanner. It therefore shares the gate above with ordinary
+  // structural types such as power (2Ah). On the carry-set path, 34:54D2 sets
+  // (IY+45h).6 and writes 05h to 9D20h.
   //
   // Below the cap, 34:58A0 inserts EF 2C 00 00 EF 2D. The allocator at
   // 33:4F42 indexes one row past its legitimate type-1Fh..2Bh table and reads
@@ -1827,13 +1847,13 @@
       sourceToken:[0xef,0x36], mappedType:0x2c,
       sourceBranch:'34:4690 → 34:473A', structuralDepth,
     };
-    const incrementedDepth = (structuralDepth + 1) & 0xff;
-    if (incrementedDepth >= 5) return {
+    const depthGate = settledStructuralDepthGate(structuralDepth, 0x2c);
+    if (depthGate.carry) return {
       ...common,
-      status:'depth-limit', carry:true, returnA:0x03,
-      incrementedDepth,
+      status:'depth-limit', carry:true, returnA:depthGate.returnA,
+      incrementedDepth:depthGate.incrementedDepth,
       error:{flags45Bit6:true,address:0x9d20,value:0x05},
-      routine:'ram:2E41 → 35:7B37 → 34:54D2',
+      routine:'34:473A → ram:2E41 → 35:7B37 → 34:54D2',
     };
 
     const placeholderBytes = [0xef,0x2c,0x00,0x00,0xef,0x2d];
@@ -1842,8 +1862,8 @@
     ];
     return {
       ...common,
-      status:'reset', carry:false, returnA:0x2c,
-      incrementedDepth,
+      status:'reset', carry:false, returnA:depthGate.returnA,
+      incrementedDepth:depthGate.incrementedDepth,
       insertion:{
         placeholderBytes, patchedBytes,
         routine:'34:4744 → 34:4169 → 34:5026 → 34:5473 → 34:58A0',
@@ -6026,6 +6046,7 @@
     settledRunIndicatorTick,
     settledObjectHandler,
     settledStructuralTokenType,
+    settledStructuralDepthGate,
     settledEf36SourcePath,
     settledRecordMetadata,
     settledRecordAllocationGeometry,

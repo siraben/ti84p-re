@@ -3963,7 +3963,17 @@ expectEqual('EF36h geometry dispatch reads code bytes after the table',
    ef36Path.terminal.geometryTableAddress,
    ef36Path.terminal.geometryWord],
   [0x7611,0x762b,0x3bcd]);
-expectEqual('35:7B37 applies its byte-exact EF36h structural-depth test',
+expectEqual('35:7B37 applies its byte-exact structural-depth gate',
+  [0,1,2,3,4,5,0xfe,0xff].map(depth => {
+    const gate = rom.settledStructuralDepthGate(depth,0x2a);
+    return [depth,gate.incrementedDepth,gate.status,gate.returnA,gate.carry];
+  }), [
+    [0,1,'accept',0x2a,false],[1,2,'accept',0x2a,false],
+    [2,3,'accept',0x2a,false],[3,4,'accept',0x2a,false],
+    [4,5,'depth-limit',0x03,true],[5,6,'depth-limit',0x03,true],
+    [0xfe,0xff,'depth-limit',0x03,true],[0xff,0,'accept',0x2a,false],
+  ]);
+expectEqual('EF36h routes through the shared structural-depth gate',
   [0,1,2,3,4,5,0xfe,0xff].map(depth => {
     const path = rom.settledEf36SourcePath(depth);
     return [depth,path.incrementedDepth,path.status,path.returnA,path.carry];
