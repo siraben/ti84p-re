@@ -1,0 +1,42 @@
+# Capture every state while filling a new summation's four children.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key MATH
+key 0
+wait 0.5s
+memdump /tmp/mp-summation-fill-0.ram ram-logical
+screenshot /tmp/mp-summation-fill-0.png
+key GRAPHVAR
+wait 0.4s
+memdump /tmp/mp-summation-fill-1.ram ram-logical
+screenshot /tmp/mp-summation-fill-1.png
+key 1
+wait 0.4s
+memdump /tmp/mp-summation-fill-2.ram ram-logical
+screenshot /tmp/mp-summation-fill-2.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-summation-fill-3.ram ram-logical
+screenshot /tmp/mp-summation-fill-3.png
+key 2
+wait 0.4s
+memdump /tmp/mp-summation-fill-4.ram ram-logical
+screenshot /tmp/mp-summation-fill-4.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-summation-fill-5.ram ram-logical
+screenshot /tmp/mp-summation-fill-5.png
+key GRAPHVAR
+wait 0.4s
+memdump /tmp/mp-summation-fill-6.ram ram-logical
+screenshot /tmp/mp-summation-fill-6.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-summation-fill-7.ram ram-logical
+screenshot /tmp/mp-summation-fill-7.png
