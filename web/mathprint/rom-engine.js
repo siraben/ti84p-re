@@ -4684,7 +4684,8 @@
   // native bytes, while this routine reads the graph's actual child IDs and
   // leaf payload markers.  Type 2Ah is postfix, so its marker binds to the
   // expression immediately before EF 2A id_lo id_hi.
-  function decodeSettledExpressionGraph(inputs, entryId, activeLeafIds = null) {
+  function decodeSettledExpressionGraph(inputs, entryId, activeLeafIds = null,
+                                        editorCursorState = null) {
     if (!Array.isArray(inputs))
       throw new TypeError('settled expression graph must be an array');
     if (!Number.isInteger(entryId) || entryId < 0 || entryId > 0xffff)
@@ -4832,6 +4833,15 @@
           }
           current.items.push({role:'atom',value});
         };
+        const appendEditorCursor = () => {
+          frame().items.push({role:'editor-cursor',value:editorCursorState.node});
+          editorCursorState.insertions++;
+        };
+        const insertEditorCursor = index => {
+          if (editorCursorState && editorCursorState.recordId === recordId &&
+              editorCursorState.byteOffset === index)
+            appendEditorCursor();
+        };
         const closeFrame = closing => {
           const current = frame();
           flushNegations(current);
@@ -4953,6 +4963,7 @@
           };
         };
         for (let index = 0; index < payload.length;) {
+          insertEditorCursor(index);
           const token = payload[index];
           if (token === 0x06 && payload[index + 1] === 0x06) {
             const matrix = matrixContainer(index);
@@ -5025,7 +5036,11 @@
                   `settled power marker references non-power ID 0x${embeddedId.toString(16)}`);
               const current = frame();
               flushNegations(current);
-              const candidate = current.items[current.items.length - 1];
+              let candidateIndex = current.items.length - 1;
+              while (candidateIndex >= 0 &&
+                     current.items[candidateIndex].role === 'editor-cursor')
+                candidateIndex--;
+              const candidate = current.items[candidateIndex];
               if (!candidate || candidate.role !== 'atom')
                 throw new RangeError(
                   `settled power ID 0x${embeddedId.toString(16)} in leaf ` +
@@ -5053,6 +5068,9 @@
             const bytes = [subtype];
             index++;
             while (bytes.length <= limit && index < payload.length &&
+                   (!editorCursorState ||
+                    editorCursorState.recordId !== recordId ||
+                    editorCursorState.byteOffset !== index) &&
                    isNameCharacter(payload[index])) bytes.push(payload[index++]);
             appendAtom(bytes);
             continue;
@@ -5060,6 +5078,9 @@
           if (prefix === 0 && 0x30 <= subtype && subtype <= 0x3b) {
             const bytes = [];
             while (index < payload.length &&
+                   (!editorCursorState ||
+                    editorCursorState.recordId !== recordId ||
+                    editorCursorState.byteOffset !== index) &&
                    0x30 <= payload[index] && payload[index] <= 0x3b)
               bytes.push(payload[index++]);
             appendAtom(bytes);
@@ -5077,6 +5098,7 @@
           else appendAtom(unitBytes);
           index += unitBytes.length;
         }
+        insertEditorCursor(payload.length);
         flushNegations(frame());
         while (frames.length > 1) {
           const unfinished = frame();
@@ -5092,6 +5114,282 @@
 
     const entry = byId.get(entryId);
     return nodeType(entry) >= 0x1f ? structural(entryId) : leaf(entryId);
+  }
+
+  // The editor moves across a complete six-byte EF record marker as one
+  // structural object. Every other native unit follows _IsA2ByteTok. These are
+  // the byte boundaries at which editCursor can split an active leaf without
+  // bisecting a packed token or record marker.
+  function editorPayloadCursorBoundaries(input) {
+    if (!Array.isArray(input) && !(input instanceof Uint8Array))
+      throw new TypeError('editor leaf payload must be an array of bytes');
+    const payload = Array.from(input, (value, index) =>
+      byte(value, `editor leaf payload byte ${index}`));
+    const boundaries = [0];
+    for (let index = 0; index < payload.length;) {
+      let length = 1;
+      if (payload[index] === 0xef && index + 1 < payload.length &&
+          0x1f <= payload[index + 1] && payload[index + 1] <= 0x2b) {
+        if (index + 5 >= payload.length || payload[index + 4] !== 0xef ||
+            payload[index + 5] !== 0x2d)
+          throw new RangeError(
+            `editor structural marker at byte ${index} is truncated`);
+        length = 6;
+      } else if (SETTLED_TWO_BYTE_LEADS.has(payload[index])) {
+        if (index + 1 >= payload.length)
+          throw new RangeError(
+            `editor two-byte token at byte ${index} is truncated`);
+        length = 2;
+      }
+      index += length;
+      boundaries.push(index);
+    }
+    return boundaries;
+  }
+
+  function editorCursorIdentityPath(value, target, path = [], seen = new Set()) {
+    if (value === target) return path;
+    if (!value || typeof value !== 'object' || seen.has(value)) return null;
+    seen.add(value);
+    if (Array.isArray(value)) {
+      for (let index = 0; index < value.length; index++) {
+        const found = editorCursorIdentityPath(
+          value[index],target,[...path,index],seen);
+        if (found) return found;
+      }
+      return null;
+    }
+    for (const key of Object.keys(value)) {
+      const found = editorCursorIdentityPath(value[key],target,[...path,key],seen);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  // A live page-34 graph differs from its cursor-free form only at the active
+  // leaf selected by 8DC2h. Insert a semantic cursor at editCursor-editTop in
+  // that leaf and let the same record-ID decoder recover its nested position.
+  function decodeEditorExpressionGraph(inputs, entryId, activeLeafId,
+                                       cursorByteOffset) {
+    if (!Array.isArray(inputs))
+      throw new TypeError('editor expression graph must be an array');
+    if (!Number.isInteger(activeLeafId) || activeLeafId < 0 ||
+        activeLeafId > 0xffff)
+      throw new RangeError('editor active leaf ID must be an unsigned word');
+    if (!Number.isInteger(cursorByteOffset) || cursorByteOffset < 0)
+      throw new RangeError('editor cursor byte offset must be nonnegative');
+    const active = inputs.find(input => input &&
+      (input.record_id === undefined ? input.id : input.record_id) === activeLeafId);
+    if (!active)
+      throw new RangeError(
+        `editor active leaf ID 0x${activeLeafId.toString(16)} is absent`);
+    const activeType = active.render_type === undefined
+      ? active.type : active.render_type;
+    if (!Number.isInteger(activeType) || activeType < 0 || activeType >= 0x1f)
+      throw new RangeError('editor active record must be a leaf');
+    const boundaries = editorPayloadCursorBoundaries(active.payload);
+    if (!boundaries.includes(cursorByteOffset))
+      throw new RangeError(
+        `editor cursor byte ${cursorByteOffset} bisects a native unit`);
+    const cursorNode = Object.freeze({
+      kind:'editorCursor', record_id:activeLeafId,
+      byte_offset:cursorByteOffset,
+    });
+    const state = {
+      recordId:activeLeafId, byteOffset:cursorByteOffset,
+      node:cursorNode, insertions:0,
+    };
+    const expression = decodeSettledExpressionGraph(
+      inputs,entryId,null,state);
+    if (state.insertions !== 1)
+      throw new RangeError(
+        `editor cursor was inserted ${state.insertions} times`);
+    const path = editorCursorIdentityPath(expression,cursorNode);
+    if (!path)
+      throw new RangeError('editor cursor is absent from the decoded expression');
+    return {
+      expression,
+      cursor:{
+        recordId:activeLeafId, byteOffset:cursorByteOffset,
+        boundaries, path,
+        routine:'34:4AAF; editTop/editCursor at 0x96F4/0x96F6',
+      },
+    };
+  }
+
+  const EDITOR_STRUCTURAL_CHILD_COUNTS = Object.freeze({
+    0x1f:1, 0x20:2, 0x21:1, 0x22:4, 0x23:3, 0x24:2,
+    0x25:1, 0x26:1, 0x27:1, 0x28:2, 0x29:4, 0x2a:1,
+  });
+
+  // Decode the logical 8000h-FFFFh RAM window used by the MathPrint editor.
+  // 34:4ACE walks structural records, 34:4A83 walks leaf records, and 34:4AAF
+  // substitutes the editTop/editCursor + editTail/editBtm gap payload when the
+  // current pointer equals 8DC2h.
+  function decodeMathPrintEditorRam(input) {
+    if (!Array.isArray(input) && !(input instanceof Uint8Array))
+      throw new TypeError('MathPrint editor RAM must be an array of bytes');
+    if (input.length < 0x8000)
+      throw new RangeError(
+        'MathPrint editor RAM must contain the logical 8000h-FFFFh window');
+    const ram = Array.from(input.slice(0,0x8000), (value, index) =>
+      byte(value, `MathPrint editor RAM byte ${index}`));
+    const offset = address => {
+      if (!Number.isInteger(address) || address < 0x8000 || address > 0xffff)
+        throw new RangeError('MathPrint editor RAM address is outside 8000h-FFFFh');
+      return address - 0x8000;
+    };
+    const word = address => {
+      if (address > 0xfffe)
+        throw new RangeError('MathPrint editor RAM word crosses FFFFh');
+      const start = offset(address);
+      return ram[start] | ram[start + 1] << 8;
+    };
+    const span = (start, end) => {
+      if (!Number.isInteger(start) || !Number.isInteger(end) ||
+          start < 0x8000 || start > end || end > 0x10000)
+        throw new RangeError('MathPrint editor RAM span is inconsistent');
+      return ram.slice(start - 0x8000,end - 0x8000);
+    };
+    const recordAt = pointer => ({
+      ...decodeSettledRecord(span(pointer,pointer + 0x14)),
+      pointer, child_ids:[], payload:[],
+    });
+
+    const structuralStart = word(0x8daf);
+    const editorBoundary = word(0x8db1);
+    const entryPointer = word(0x8dbc);
+    const mainTail = word(0x8dbe);
+    const gapRecordPointer = word(0x8dc2);
+    if (!(0x8000 <= structuralStart && structuralStart <= entryPointer &&
+          entryPointer <= mainTail && mainTail <= 0xffff))
+      throw new RangeError('MathPrint record-arena pointers are inconsistent');
+
+    const nodes = [];
+    let pointer = structuralStart;
+    while (pointer < entryPointer) {
+      if (pointer + 0x14 > entryPointer)
+        throw new RangeError(
+          `structural record at 0x${pointer.toString(16)} has a truncated header`);
+      const node = recordAt(pointer);
+      if (node.type < 0x1f)
+        throw new RangeError(
+          `record 0x${node.id.toString(16)} before the entry boundary is a leaf`);
+      let semanticChildren;
+      let physicalChildren;
+      if (node.type === 0x2b) {
+        const rows = node.byte13;
+        const columns = node.word11 >> 8;
+        semanticChildren = rows * columns;
+        if (!rows || !columns || semanticChildren > 0xff)
+          throw new RangeError(
+            `matrix record 0x${node.id.toString(16)} has invalid dimensions`);
+        physicalChildren = semanticChildren + 1;
+      } else {
+        semanticChildren = EDITOR_STRUCTURAL_CHILD_COUNTS[node.type];
+        if (semanticChildren === undefined)
+          throw new RangeError(
+            `structural record 0x${node.id.toString(16)} has unsupported type`);
+        physicalChildren = semanticChildren;
+      }
+      const size = 0x14 + 2 * physicalChildren;
+      if (pointer + size > entryPointer)
+        throw new RangeError(
+          `structural record 0x${node.id.toString(16)} crosses the entry boundary`);
+      node.child_ids = new Array(semanticChildren).fill(0).map((_, index) =>
+        word(pointer + 0x14 + 2 * index));
+      nodes.push(node);
+      pointer += size;
+    }
+    if (pointer !== entryPointer)
+      throw new RangeError('MathPrint structural walk missed the entry boundary');
+
+    const gapActive = Boolean(ram[offset(0x89f1)] & 0x04);
+    const leafBoundary = gapActive ? editorBoundary : mainTail;
+    if (!(entryPointer < leafBoundary && leafBoundary <= 0xffff))
+      throw new RangeError('MathPrint leaf-record boundary is inconsistent');
+    const editTop = word(0x96f4);
+    const editCursor = word(0x96f6);
+    const editTail = word(0x96f8);
+    const editBottom = word(0x96fa);
+    if (!(0x8000 <= editTop && editTop <= editCursor && editCursor <= 0xffff))
+      throw new RangeError('MathPrint editor left gap segment is inconsistent');
+    if (!(0x8000 <= editTail && editTail <= editBottom && editBottom <= 0xffff))
+      throw new RangeError('MathPrint editor right gap segment is inconsistent');
+    const left = span(editTop,editCursor);
+    const right = span(editTail,editBottom);
+
+    pointer = entryPointer;
+    const visited = new Set();
+    let activeNode = null;
+    while (pointer < leafBoundary) {
+      if (visited.has(pointer))
+        throw new RangeError(
+          `MathPrint leaf-record walk cycles at 0x${pointer.toString(16)}`);
+      visited.add(pointer);
+      if (pointer > 0xffec)
+        throw new RangeError('MathPrint leaf record has no complete header');
+      const node = recordAt(pointer);
+      if (node.type >= 0x1f)
+        throw new RangeError(
+          `record 0x${node.id.toString(16)} after the entry boundary is structural`);
+      let nextPointer;
+      if (gapActive && pointer === gapRecordPointer) {
+        node.payload = [...left,...right];
+        nextPointer = editBottom;
+        activeNode = node;
+      } else {
+        const payloadEnd = pointer + 0x13 + node.word11;
+        if (payloadEnd > 0x10000)
+          throw new RangeError(
+            `leaf record 0x${node.id.toString(16)} payload crosses FFFFh`);
+        node.payload = span(pointer + 0x13,payloadEnd);
+        nextPointer = payloadEnd;
+      }
+      if (!node.payload.length)
+        throw new RangeError(
+          `leaf record 0x${node.id.toString(16)} has an empty payload`);
+      node.byte13 = node.payload[0];
+      if (nextPointer <= pointer)
+        throw new RangeError(
+          `leaf record 0x${node.id.toString(16)} does not advance`);
+      nodes.push(node);
+      pointer = nextPointer;
+    }
+    if (pointer !== leafBoundary)
+      throw new RangeError('MathPrint leaf walk missed its boundary');
+
+    const byPointer = new Map();
+    for (const node of nodes) {
+      if (byPointer.has(node.pointer))
+        throw new RangeError('MathPrint graph contains duplicate record pointers');
+      byPointer.set(node.pointer,node);
+    }
+    const entry = byPointer.get(entryPointer);
+    if (!entry)
+      throw new RangeError('MathPrint entry pointer is not a record boundary');
+    const expression = decodeSettledExpressionGraph(nodes,entry.id);
+    let editor = null;
+    if (gapActive) {
+      if (!activeNode)
+        throw new RangeError('MathPrint active gap record was not visited');
+      const decoded = decodeEditorExpressionGraph(
+        nodes,entry.id,activeNode.id,left.length);
+      editor = {
+        expression:decoded.expression,
+        cursor:{
+          ...decoded.cursor, recordPointer:activeNode.pointer,
+          left:left.slice(), right:right.slice(),
+        },
+      };
+    }
+    return {
+      structuralStart, editorBoundary, entryPointer, mainTail,
+      gapRecordPointer, leafBoundary, gapActive,
+      editTop, editCursor, editTail, editBottom,
+      entryId:entry.id, nodes, expression, editor,
+      routine:'34:4A83/4AAF and 34:4ACE/4AF0',
+    };
   }
 
   function constructSettledProgramFromTokens(input, firstId = 1, font = null) {
@@ -6783,6 +7081,9 @@
     encodeSettledExpressionTokens,
     settledExpressionFromTokens,
     decodeSettledExpressionGraph,
+    editorPayloadCursorBoundaries,
+    decodeEditorExpressionGraph,
+    decodeMathPrintEditorRam,
     constructSettledProgramFromTokens,
     replaySettledLcdWrites,
     traceSettledLcdWrites,

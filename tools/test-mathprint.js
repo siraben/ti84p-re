@@ -38,6 +38,8 @@ const matrixBaselineOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-matrix-baseline-oracles.json')));
 const liveEditorOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-live-editor-oracles.json')));
+const editorGapOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-editor-gap-oracles.json')));
 const groupingOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-grouping-oracles.json')));
 const structuralBaseOracles = JSON.parse(fs.readFileSync(
@@ -3151,6 +3153,58 @@ expectThrows('settled semantic decoder rejects structural cycles', RangeError,
     {id:2,type:0,payload:[0xef,0x20,1,0]},
     {id:3,type:0,payload:[0x32]},
   ], 1));
+
+expectEqual('editor payload units keep packed tokens and record markers whole', {
+  empty:rom.editorPayloadCursorBoundaries([0xef,0x1e]),
+  marker:rom.editorPayloadCursorBoundaries([0xef,0x22,8,0,0xef,0x2d]),
+  mixed:rom.editorPayloadCursorBoundaries([0x31,0x5d,0x00,0x32]),
+}, {empty:[0,2],marker:[0,6],mixed:[0,1,3,4]});
+expectThrows('editor payload unit decoder rejects a truncated packed token', RangeError,
+  () => rom.editorPayloadCursorBoundaries([0xef]));
+expectThrows('editor graph decoder rejects a cursor inside a packed token', RangeError,
+  () => rom.decodeEditorExpressionGraph([
+    {id:1,type:0,payload:[0xef,0x1e]},
+  ],1,1,1));
+
+expectEqual('live editor gap oracle schema', editorGapOracles.schema, 1);
+const editorCursorAtPath = (value, path) => path.reduce(
+  (current, component) => current[component], value);
+for (const oracle of editorGapOracles.cases) {
+  const macro = fs.readFileSync(path.join(root, oracle.macro));
+  expectEqual(`${oracle.name} capture macro hash`,
+    crypto.createHash('sha256').update(macro).digest('hex'),
+    oracle.macro_sha256);
+  const ram = new Uint8Array(0x8000);
+  const sparseDigest = crypto.createHash('sha256');
+  for (const segment of oracle.segments) {
+    const bytes = Buffer.from(segment.bytes,'hex');
+    ram.set(bytes,segment.address - 0x8000);
+    const address = Buffer.alloc(2);
+    address.writeUInt16LE(segment.address);
+    sparseDigest.update(address);
+    sparseDigest.update(bytes);
+  }
+  expectEqual(`${oracle.name} sparse RAM state hash`,
+    sparseDigest.digest('hex'),oracle.sparse_state_sha256);
+  const decoded = rom.decodeMathPrintEditorRam(ram);
+  expectEqual(`${oracle.name} live RAM graph and cursor`, {
+    entry_id:decoded.entryId,
+    active_record_id:decoded.editor.cursor.recordId,
+    cursor_byte_offset:decoded.editor.cursor.byteOffset,
+    cursor_path:decoded.editor.cursor.path,
+    left:decoded.editor.cursor.left,
+    right:decoded.editor.cursor.right,
+    expression:decoded.expression,
+    node_count:decoded.nodes.length,
+  }, oracle.expected);
+  expectEqual(`${oracle.name} cursor marker occupies the decoded path`,
+    editorCursorAtPath(
+      decoded.editor.expression,decoded.editor.cursor.path), {
+      kind:'editorCursor',
+      record_id:oracle.expected.active_record_id,
+      byte_offset:oracle.expected.cursor_byte_offset,
+    });
+}
 
 const settledGlyphAdvance = (depth, code) => {
   if (depth === 0) return 6;
