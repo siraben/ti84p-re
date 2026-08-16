@@ -148,6 +148,86 @@ const sharedMarkerRomSpan = {address:0x6143, bytes:Buffer.from(
   'c9fe2128f1fe2506db28edfe2b2029ed5b20857ab720df7b0606fdcb445e2802' +
   '0608b830d106c1fdcb445e20cf3e0621c761fdcbff861817fe26061d28bafe28' +
   '066c28b8fe2906c628b221be613e08115f86d5cd941ae1cdcf3cc9', 'hex')};
+const renderNestingTailRomSpans = [
+  {address:0x61ce, bytes:Buffer.from(
+    'fe2220067bfe03d8182efe27282afe212826fe2b2822fe282804fe2420067bfe' +
+    '01c81814fe2320087bfe01c8fe021807fe2920077bfe04c0c3c979c9', 'hex')},
+  {address:0x79c9, bytes:Buffer.from('e521158535e1c9', 'hex')},
+];
+const renderNestingTailByteMap = new Map(renderNestingTailRomSpans.flatMap(span =>
+  Array.from(span.bytes,
+    (value, offset) => [span.address + offset, value])));
+const renderNestingTailByte = address => {
+  if (!renderNestingTailByteMap.has(address))
+    throw new Error(
+      `render-nesting-tail oracle reached unpinned byte 34:${address.toString(16)}`);
+  return renderNestingTailByteMap.get(address);
+};
+
+function runRawRenderNestingTail(renderType, childIndex, nestingCounter) {
+  let pc = 0x61ce;
+  let a = renderType, e = childIndex, hl = 0;
+  let zero = false, carry = false, decremented = false;
+  const stack = [];
+  const memory = new Map([[0x8515,nestingCounter]]);
+  const branchOutcomes = [];
+  const signed = value => value < 0x80 ? value : value - 0x100;
+  const finish = () => ({
+    nestingCounterAfter:memory.get(0x8515),
+    decremented,
+    returnA:a,
+    branchOutcomes,
+  });
+  for (let instructions = 0; instructions < 64; instructions++) {
+    const opcode = renderNestingTailByte(pc);
+    if (opcode === 0xfe) {
+      const value = renderNestingTailByte(pc + 1);
+      zero = a === value;
+      carry = a < value;
+      pc += 2;
+    } else if (opcode === 0x20 || opcode === 0x28) {
+      const taken = opcode === 0x20 ? !zero : zero;
+      branchOutcomes.push(
+        `34:${pc.toString(16).toUpperCase()}:${taken ? 'taken' : 'fallthrough'}`);
+      pc = taken
+        ? pc + 2 + signed(renderNestingTailByte(pc + 1))
+        : pc + 2;
+    } else if (opcode === 0x7b) {
+      a = e; pc++;
+    } else if (opcode === 0xd8 || opcode === 0xc8 || opcode === 0xc0) {
+      const returned = opcode === 0xd8 ? carry : opcode === 0xc8 ? zero : !zero;
+      branchOutcomes.push(
+        `34:${pc.toString(16).toUpperCase()}:${returned ? 'returned' : 'fallthrough'}`);
+      if (returned) return finish();
+      pc++;
+    } else if (opcode === 0x18) {
+      pc += 2 + signed(renderNestingTailByte(pc + 1));
+    } else if (opcode === 0xc3) {
+      pc = renderNestingTailByte(pc + 1) |
+        renderNestingTailByte(pc + 2) << 8;
+    } else if (opcode === 0xe5) {
+      stack.push(hl); pc++;
+    } else if (opcode === 0x21) {
+      hl = renderNestingTailByte(pc + 1) |
+        renderNestingTailByte(pc + 2) << 8;
+      pc += 3;
+    } else if (opcode === 0x35) {
+      const value = ((memory.get(hl) || 0) - 1) & 0xff;
+      memory.set(hl,value);
+      zero = value === 0;
+      decremented = true;
+      pc++;
+    } else if (opcode === 0xe1) {
+      hl = stack.pop(); pc++;
+    } else if (opcode === 0xc9) {
+      return finish();
+    } else {
+      throw new Error(
+        `render-nesting-tail oracle reached unsupported opcode 0x${opcode.toString(16)}`);
+    }
+  }
+  throw new Error('render-nesting-tail oracle exceeded its instruction bound');
+}
 const overflowCueRomSpan = {address:0x66e9, bytes:Buffer.from(
   '3ae28521e08596fe08d83aa6973d6f26013e1f18052101013e1eed5b4b84' +
   '224b84cddb3fed534b84c9', 'hex')};
@@ -1014,6 +1094,11 @@ if (fs.existsSync(localRomPath)) {
     localRom.subarray(
       sharedMarkerOffset,sharedMarkerOffset + sharedMarkerRomSpan.bytes.length),
     sharedMarkerRomSpan.bytes);
+  for (const span of renderNestingTailRomSpans) {
+    const offset = 0x34 * 0x4000 + (span.address & 0x3fff);
+    expectEqual(`34:${span.address.toString(16)} raw render-nesting-tail bytes`,
+      localRom.subarray(offset,offset + span.bytes.length),span.bytes);
+  }
   const overflowOffset = 0x39 * 0x4000 +
     (overflowCueRomSpan.address & 0x3fff);
   expectEqual('39:66E9–6711 raw overflow-cue bytes',
@@ -6965,6 +7050,64 @@ expectThrows('34:6143 rejects a non-Boolean editor flag',TypeError,
   () => rom.settledSharedMarkerPrimitive(0x2b,{iy44Bit3:1}));
 expectThrows('34:6143 rejects an oversized matrix state word',RangeError,
   () => rom.settledSharedMarkerPrimitive(0x2b,{word8520:0x10000}));
+
+const renderNestingTailProjection = result => ({
+  nestingCounterAfter:result.nestingCounterAfter,
+  decremented:result.decremented,
+  returnA:result.returnA,
+  branchOutcomes:result.branchOutcomes,
+});
+for (const [label,type,child,decremented] of [
+  ['integral leading child',0x22,2,false],
+  ['integral third child',0x22,3,true],
+  ['absolute value',0x21,1,true],
+  ['radical',0x27,1,true],
+  ['matrix',0x2b,9,true],
+  ['log first child',0x28,1,false],
+  ['log second child',0x28,2,true],
+  ['nth-root first child',0x24,1,false],
+  ['nth-root second child',0x24,2,true],
+  ['derivative first child',0x23,1,false],
+  ['derivative second child',0x23,2,true],
+  ['derivative third child',0x23,3,false],
+  ['summation third child',0x29,3,false],
+  ['summation fourth child',0x29,4,true],
+  ['ordinary type',0x20,2,false],
+]) {
+  const result = rom.settledRenderNestingTail(type,child,7);
+  expectEqual(`34:61CE ${label} decrement decision`,{
+    decremented:result.decremented,
+    nestingCounterAfter:result.nestingCounterAfter,
+  },{decremented,nestingCounterAfter:decremented ? 6 : 7});
+}
+let renderNestingTailStates = 0;
+for (let type = 0; type <= 0xff; type++) {
+  for (let child = 0; child <= 0xff; child++) {
+    for (const nestingCounter of [0,1,2,0xff]) {
+      const translated = rom.settledRenderNestingTail(
+        type,child,nestingCounter);
+      const raw = runRawRenderNestingTail(type,child,nestingCounter);
+      expectEqual('34:61CE exhaustive type/child byte-flow basis',
+        renderNestingTailProjection(translated),raw);
+      renderNestingTailStates++;
+    }
+  }
+}
+for (let nestingCounter = 0; nestingCounter <= 0xff; nestingCounter++) {
+  for (const [type,child] of [[0x2b,1],[0x20,1]]) {
+    expectEqual('34:79C9 exhaustive nesting-counter byte basis',
+      renderNestingTailProjection(
+        rom.settledRenderNestingTail(type,child,nestingCounter)),
+      runRawRenderNestingTail(type,child,nestingCounter));
+    renderNestingTailStates++;
+  }
+}
+expectEqual('34:61CE projected differential state count',
+  renderNestingTailStates,0x40200);
+expectThrows('34:61CE rejects an oversized child index',RangeError,
+  () => rom.settledRenderNestingTail(0x22,0x100,1));
+expectThrows('34:61CE rejects an oversized nesting counter',RangeError,
+  () => rom.settledRenderNestingTail(0x22,1,0x100));
 
 expectEqual('34:759C returns before the Y= guard on a pointer mismatch',
   rom.settledMetricMarkerTailGate({
