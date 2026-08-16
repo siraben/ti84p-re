@@ -573,7 +573,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 23 finite models. It also computes an
+complete path-equivalence class in 24 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -594,6 +594,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Editor vertical viewport | 17,179,869,184 | 8 | 6 | 2 |
 | Editor vertical overflow cues | 4,294,901,760 | 5 | 8 | 3 |
 | Editor left-overflow cue | 1,099,494,850,560 | 5 | 8 | 5 |
+| Editor right-overflow cue | 281,474,976,710,656 | 5 | 10 | 4 |
 | Glyph viewport gates | 30,064,771,072 | 3 | 4 | 3 |
 | Embedded-record viewport gate | 4,294,967,296 | 2 | 2 | 2 |
 | Record-allocation capacity | 36,893,488,147,419,103,232 | 6 | 6 | 2 |
@@ -604,8 +605,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha candidate reducer | 288 | 25 | 17 | 10 |
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 
-The 23 models contain 1,332 path classes and 203 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 105 representatives. Each
+The 24 models contain 1,337 path classes and 213 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 109 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -1022,7 +1023,13 @@ and `34:5DEF`. Its closed tail at `34:5E98`–`34:5EA6` passes `B=x`,
 `C=63-y`, and `D=1` to `_PointOn` at `04:4155`. Dynamic samples include
 `(x,y)=(3,0)` → `BC=033Fh` and `(32,20)` → `BC=202Bh`. [confirmed]
 
-The line wrappers share the viewport state at `0x8DFA`–`0x8E04`.
+The line wrappers share the viewport state at `0x8DFA`–`0x8E04`. The byte at
+`ram:8DFA` is the physical screen $x$ origin, while the word at `ram:8DFE` is
+the logical record $x$ origin. `ram:8DFB` and `ram:8E00` are the corresponding
+physical and logical $y$ origins. Keeping those pairs separate matters in
+shifted editor modes even though all four values are zero on the normal home
+entry line. [confirmed]
+
 `34:5D96` passes a clipped vertical segment to `04:431D`; `34:5DA6` swaps the
 axes and passes a clipped horizontal segment to `04:4382`. The nested trace's
 fraction rule enters `34:5DA6` with object coordinates `x=1`–`5`, `y=6` and
@@ -1874,12 +1881,17 @@ The root record stores `112` at `+7`: the expression plus a six-pixel cursor
 cell. Its child origins remain local at $x=0$, $16$, $56$, and $72$.
 [confirmed]
 
-The editor scrolls this record horizontally. `34:5DBE` adds the record origin
-at `ram:8DFE` to each local $x$ coordinate. `34:5DC2` then subtracts the
-horizontal clip at `ram:8E02`: [confirmed]
+The editor scrolls this record horizontally. `34:5DBE` adds the logical record
+origin at `ram:8DFE` to each local $x$ coordinate. `34:5DC2` then subtracts the
+horizontal clip at `ram:8E02`, and the admitted path at `34:5DE3` adds the
+physical origin at `ram:8DFA`: [confirmed]
 
 $$
-x_{\mathrm{LCD}} = x_{\mathrm{local}} + x_{\mathrm{origin}} - x_{\mathrm{clip}}.
+x_{\mathrm{LCD}}
+= x_{\mathrm{screen}}
++ x_{\mathrm{local}}
++ x_{\mathrm{record}}
+- x_{\mathrm{clip}}.
 $$
 
 `34:5F5D` updates the clip for the cursor at the expression endpoint. The
@@ -2021,14 +2033,23 @@ The eight writes inserted at instruction index 56 come from
 the stream is separate from the right-side bitmap path and remains outside the
 settled expression timeline. [confirmed]
 
-The actual `34:608F` path is observed elsewhere in the natural trace. It
-updates byte column 11 at rows 8–14 with `00`, `08`, `0C`, `0E`, `0C`, `08`, and
-`00`. `34:5FFA` → `34:607A` selects the path, and `34:608F` computes its
-horizontal position. The exact UI endpoint meaning remains unresolved.
-Cursor blink separately writes `0x7C` to byte column 11 on rows 8–14. The
-browser excludes both auxiliary streams from settled expression timelines.
-[hypothesis] for the endpoint meaning; [confirmed] for the call predicate,
-bitmap values, and observed byte range
+The actual `34:608F` path is observed elsewhere in the natural trace. `34:607A`
+loads the wrapper record's `+09h` width, subtracts one, adds the logical origin,
+and subtracts `ram:8E02`. Carry returns Z. A zero translated endpoint skips the
+second decrement; otherwise `34:6089` decrements once more before `34:5DDB`
+compares the word with the right bound. A value at or beyond the bound returns
+NZ, so `34:5FFD` calls `34:608F`. The retained witness compares `HL=98` with
+`DE=95` and takes that call. [confirmed]
+
+`34:608F` places the four-pixel cue at physical screen origin plus right bound
+minus four. Its writes update byte column 11 at rows 8–14 with `00`, `08`,
+`0C`, `0E`, `0C`, `08`, and `00`. A fresh-clip home-editor redraw suppresses
+this path for every 16-bit expression endpoint at physical origin zero;
+shifted or retained-clip viewports still follow the complete selector. Cursor
+blink separately writes `0x7C`
+to byte column 11 on the same rows. The browser models the cue selector and
+keeps the unrelated `34:6CA8` stream outside settled expression timelines.
+[confirmed]
 
 The text-cell path has a separate overflow boundary. `39:4F08` compares
 `curCol` (`0x844C`) with `0x0F` before marker handling and calls the fixed-bank
