@@ -276,11 +276,12 @@ TRANSLATION_SURFACES = (
             "packed-token deletion, and blank-child structural deletion across insertable "
             "types 20h–2Ah, including bidirectional fraction/nth-root sibling promotion "
             "and protected multi-argument no-ops, plus nested empty-slot restoration for a "
-            "fraction inside a radical; bidirectional fraction, integral, and "
-            "summation boundary "
+            "fraction inside a radical; bidirectional fraction, integral, "
+            "summation, nDeriv, and log-base boundary "
             "navigation covers entry, sibling selection, exit, root endpoints, the "
-            "type-01h atomic variable leaf, and a depth-two fraction whose empty-slot "
-            "leaf is atomic; a summation fill sequence covers type-01h post-insertion "
+            "type-01h atomic variable leaf, exact cursor-dependent record metrics for "
+            "nDeriv and log-base, and a depth-two fraction whose empty-slot leaf is "
+            "atomic; a summation fill sequence covers type-01h post-insertion "
             "auto-advance and composable ordinary child writes; other deeper nested "
             "deletion states, matrix deletion, and live boundary-navigation captures for "
             "other structural types remain open"
@@ -313,6 +314,7 @@ TRANSLATION_SURFACES = (
             "tools/mathprint-editor-template-boundary-oracles.json",
             "tools/mathprint-editor-navigation-oracles.json",
             "tools/mathprint-editor-structural-navigation-oracles.json",
+            "tools/mathprint-editor-extra-structural-navigation-oracles.json",
             "tools/mathprint-editor-summation-fill-oracle.json",
             "tools/mathprint-editor-deletion-oracles.json",
             "tools/mathprint-editor-structural-deletion-oracles.json",
@@ -333,11 +335,13 @@ TRANSLATION_SURFACES = (
             "template insertion before an existing structural marker across the "
             "one-child, nth-root, power, log-base, integral, nDeriv, and summation "
             "constructor families, with the old marker and child selector retained; "
-            "bidirectional fraction, integral, and summation boundary navigation "
+            "bidirectional fraction, integral, summation, nDeriv, and log-base "
+            "boundary navigation "
             "through structural "
             "entry, child selection, structural exit, root endpoint no-ops, the "
-            "type-01h atomic variable leaf, and a depth-two fraction whose empty-slot "
-            "leaf is atomic; structural insertion returns a composable decoded arena, "
+            "type-01h atomic variable leaf, exact cursor-dependent record metrics for "
+            "nDeriv and log-base, and a depth-two fraction whose empty-slot leaf is "
+            "atomic; structural insertion returns a composable decoded arena, "
             "and a blank-root summation fill sequence covers type-01h post-insertion "
             "auto-advance and composable ordinary child writes; decoded-arena "
             "transition tests also cover types 20h–2Bh and depth-two nesting; "

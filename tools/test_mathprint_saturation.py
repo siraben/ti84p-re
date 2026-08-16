@@ -1281,17 +1281,17 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(270, len(report["traces"]))
+        self.assertEqual(271, len(report["traces"]))
         self.assertEqual(
-            269,
+            270,
             sum(
                 row["provenance"] == TRACE_PROVENANCE_NATURAL
                 for row in report["traces"]
             ),
         )
-        self.assertEqual(1009, report["summary"]["branch_outcomes_observed"])
+        self.assertEqual(1010, report["summary"]["branch_outcomes_observed"])
         self.assertEqual(
-            1006, report["summary"]["natural_branch_outcomes_observed"]
+            1007, report["summary"]["natural_branch_outcomes_observed"]
         )
         matrix_entry = next(
             row for row in report["traces"]
@@ -1699,6 +1699,8 @@ class CheckedReportTests(unittest.TestCase):
                 "8f273863c4f85c30f895b87b7eef2a5e09700ca096ff758ecd9cb65c510e7872",
             "mathprint_editor_summation_mixed_left_navigation":
                 "55fee4452906f94c2f3133961879ce4daec8fa0a98a5b69be1c27eae27190d3d",
+            "mathprint_editor_nderiv_logbase_navigation":
+                "d77bdeb19c52dd1337db4ea0410c1d5970924a7a3bf6a589742280b508fda776",
         }, structural_navigation)
         summation_fill = {
             row["label"]: row["sha256"]
@@ -1721,7 +1723,7 @@ class CheckedReportTests(unittest.TestCase):
             114, report["record_oracles"]["cases"]
         )
         self.assertEqual(
-            1435,
+            1473,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
         self.assertEqual(
@@ -1729,7 +1731,7 @@ class CheckedReportTests(unittest.TestCase):
             report["minimized_dynamic_feature_corpus"]["selected_trace_count"],
         )
         self.assertEqual(
-            1432,
+            1470,
             report["minimized_natural_dynamic_feature_corpus"][
                 "covered_features"
             ],

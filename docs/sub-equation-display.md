@@ -524,10 +524,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 270 retained traces, and
+destinations, overlays exact next-PC outcomes from 271 retained traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 269 reach their state through calculator input. One explicitly
+traces, 270 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an `EF36h` editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 `tools/mathprint-saturation.json` records the resulting branches and trace
@@ -537,9 +537,9 @@ The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]
 
-None of the 270 report traces executes `39:5167`, `39:523B`, the saved-operand
+None of the 271 report traces executes `39:5167`, `39:523B`, the saved-operand
 wrappers at `39:5B10`–`39:5B38`, or the dispatchers at `39:59E0`/`39:59F9`.
-The 270-digest trace cache also has no hit at those entries. [confirmed]
+The 271-digest trace cache also has no hit at those entries. [confirmed]
 `_FindAlphaUp` at `07:50B5` executes once in 112 report traces, but every call
 comes from the type-`16h` cleanup loop at `07:5544`. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -648,7 +648,7 @@ return class identifies which callee paths have live witnesses. [confirmed]
 | Component | Reachable instructions | Natural / all-evidence outcomes | Outcomes in CFG | Natural / all-evidence instruction coverage |
 |-----------|-----------------------:|--------------------------------:|----------------:|--------------------------------------------:|
 | Settled construction | 991 | 247 / 248 | 408 | 80.73% / 80.73% |
-| Settled rendering | 1,898 | 255 / 257 | 302 | 97.47% / 97.47% |
+| Settled rendering | 1,898 | 256 / 258 | 302 | 97.52% / 97.52% |
 | Metrics and geometry | 470 | 76 / 76 | 80 | 99.57% / 99.57% |
 | Record allocator | 64 | 7 / 7 | 8 | 98.44% / 98.44% |
 | Alphabetic VAT search | 236 | 17 / 17 | 92 | 34.32% / 34.32% |
@@ -666,10 +666,10 @@ the allocator's four branches and 35 of the 40 metric branches have both
 outcomes. [confirmed]
 
 The report classifies all 2,276 enumerated outcomes. Natural calculator input
-exercises 1,006. The synthetic `EF36h` state adds three outcomes, for 1,009 across
+exercises 1,007. The synthetic `EF36h` state adds three outcomes, for 1,010 across
 all evidence. One allocator outcome is infeasible under its data invariant.
 Two metric outcomes are infeasible under the calculator call ABI. The full
-evidence set leaves 1,264 unresolved; the natural-only set leaves 1,267.
+evidence set leaves 1,263 unresolved; the natural-only set leaves 1,266.
 An unobserved outcome never becomes infeasible from absence alone. [confirmed]
 
 The infeasible allocator outcome is the fallthrough at `33:4F4E`. The type
@@ -691,17 +691,17 @@ The report computes two exact Z3 covers. The first preserves every individual
 branch outcome observed in the supplied traces. It does not preserve complete
 invocation paths, register or RAM states, dispatch indices, record cases, or LCD
 write cases. The all-evidence and natural-only branch covers each select 23
-traces. They preserve 1,009 and 1,006 outcomes in 4,212,000,042 and 4,306,684,662
+traces. They preserve 1,010 and 1,007 outcomes in 4,334,988,810 and 4,429,673,430
 bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,435 tags and needs 207
-traces. The natural-only universe has 1,432 tags and needs 206 traces. Every
+independent oracle case. Its all-evidence universe has 1,473 tags and needs 207
+traces. The natural-only universe has 1,470 tags and needs 206 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The retained byte totals are
-31,684,537,410 and 31,588,653,492, respectively. The broad set remains the RE
+31,807,526,178 and 31,711,642,260, respectively. The broad set remains the RE
 and regression corpus; the public gallery uses a smaller, diverse selection.
 [confirmed]
 
@@ -725,6 +725,7 @@ repository; their hashes identify the exact inputs used by the report.
 | Radical marker insertion | `tools/macros/mathprint-radical-nonspecial-insert.macro` | `e7b79e37149f2b9b4a986bdbb114a89b03cd452bbecc6da20490edc972895e98` | Omitted |
 | Integral marker insertion | `tools/macros/mathprint-integral-boundary-insert.macro` | `328b8f52ebe939b35f79e676076984aa85ee59e05c06862647c4fc615069bb3c` | 2 |
 | Mixed summation traversal | `tools/macros/mathprint-editor-summation-left-navigation.macro` | `55fee4452906f94c2f3133961879ce4daec8fa0a98a5b69be1c27eae27190d3d` | 4 |
+| Completed nDeriv and log-base traversal | `tools/macros/mathprint-editor-extra-structural-navigation.macro` | `d77bdeb19c52dd1337db4ea0410c1d5970924a7a3bf6a589742280b508fda776` | 2 |
 | **Y=**/table/power round trip | `tools/macros/mathprint-yequ-table-power-insert.macro` | `ac719f540d2adfca05d2ffa415f065b83eaf407f04fca42f5ae63c440a746b9d` | 16 |
 
 The retained `mathprint_integral_boundary_insert` trace reaches `34:6968`
@@ -746,7 +747,7 @@ and `A` at each discriminator were checked before admission. [confirmed]
 The synthetic `EF36h` trace uses
 `tools/macros/mathprint-ef36-injected-buffer.macro`. Its two `memwrite`
 commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
-source in the 270-trace report. It supplies the only evidence for
+source in the 271-trace report. It supplies the only evidence for
 `34:5A23` fallthrough, `34:6992` taken, and `34:6B94` taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]
 
@@ -1096,8 +1097,8 @@ matches the decoded post-key tree, reconstruction matches every record field,
 and execution matches all 768 LCD bytes. The fraction discriminator has the
 same record and LCD parity. Seven additional transitions cover insertion before
 an existing fraction marker. Other deeper structural positions and
-structural-boundary navigation outside the fraction, integral, and summation
-cases remain open. [confirmed]
+structural-boundary navigation outside the fraction, integral, summation,
+`nDeriv(`, and log-base cases remain open. [confirmed]
 
 Ordinary in-leaf navigation uses the page-6 gap movers. **LEFT** reaches
 `06:4294–42C7` through `34:42B4` and `00:3B49`; **RIGHT** reaches
@@ -1162,6 +1163,22 @@ transition. Its returned decoded arena feeds the next movement directly. All
 seven sequences reach every subsequent captured state without replaying a
 recorded result. [confirmed]
 
+One additional natural trace walks completed `nDeriv(X,X,1)` and
+`logBASE(2,8)` templates in both directions. Its four sequences retain 30 RAM
+states and 26 adjacent key transitions. The `nDeriv(` traversal covers its
+atomic variable plus ordinary body and evaluation-value children. The
+log-base traversal confirms that navigation follows the native base/argument
+child order. For these four sequences, `editorMoveCursor()` also matches every
+layout word and the reconstructed LCD bitmap at each state. [confirmed]
+
+The cursor cell changes live metrics when it moves within a child. Entering the
+`nDeriv(` evaluation value at its end expands that leaf from four to nine
+pixels and propagates the five-pixel increase through the structural record and
+its ancestors. Log-base applies the analogous propagation and shifts its
+argument when the base cell expands. The translated post-move construction
+pass reproduces those record updates while leaving the page-6-owned `+0Fh` and
+`+11h` gap words intact. [confirmed]
+
 The integral variable child uses leaf render type `0x01`. Its cursor remains at
 byte offset zero. **LEFT** from the root's post-marker position enters that child
 at zero rather than at the payload end. A second **LEFT** commits offset zero and
@@ -1200,8 +1217,10 @@ The generic transition tests apply the same decoded-arena rules to types
 `0x20`–`0x2B`, a six-child matrix, two-byte child tokens, and depth-two nested
 markers. The type-`0x01` variable rule is also tested in the integral,
 `nDeriv(`, and summation child positions. Live sequence parity covers fraction,
-integral, summation, and one depth-two fraction **RIGHT** traversal. Other
-structural types and nested directions remain open. [confirmed]
+integral, summation, `nDeriv(`, log-base, and one depth-two fraction **RIGHT**
+traversal. The completed `nDeriv(` and log-base sequences include exact
+layout-word parity. One-child templates, nth-root, power, matrix, and deeper
+nested directions remain open. [confirmed]
 
 **DEL** removes the packed token at the right edge of the gap through
 `34:4570`, `00:3687`, and `06:4393–43A4`. `06:43A5` reads the token and calls
