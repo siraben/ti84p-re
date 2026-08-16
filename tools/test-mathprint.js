@@ -3232,6 +3232,7 @@ for (const oracle of editorGapOracles.cases) {
         node => node.id === oracle.expected.active_record_id).word0F,
       record_word11:decoded.nodes.find(
         node => node.id === oracle.expected.active_record_id).word11,
+      editor_leaf_record_id:oracle.expected.active_record_id,
     });
   const reconstructed = rom.constructEditorExpressionProgram(
     decoded.editor.expression,7,font);
@@ -3332,7 +3333,7 @@ for (const oracle of editorStructuralMutationOracles.transitions) {
       settled_expression:null,
       editor_expression:{
         kind:'editorCursor',record_id:7,byte_offset:0,
-        record_word0F:0,record_word11:0,
+        record_word0F:0,record_word11:0,editor_leaf_record_id:7,
       },
       controller:{recordId:6,renderType:0x1f,
         structuralDepth:0,activeLeafId:7},
@@ -3610,10 +3611,13 @@ expectEqual('ordinary insertion replaces an empty-slot token', {
     kind:'fraction',
     numerator:{kind:'sequence',parts:[
       [0x31],{kind:'editorCursor',record_id:9,byte_offset:1,
-        record_word0F:0,record_word11:2},
-    ]},
-    denominator:{kind:'extendedToken',tokens:[0xef,0x1e]},
+        record_word0F:0,record_word11:2,editor_leaf_record_id:9},
+    ],editor_leaf_record_id:9},
+    denominator:{kind:'extendedToken',tokens:[0xef,0x1e],
+      editor_leaf_record_id:10},
+    editor_record_id:8,
     editor_record_byte13:0xef,
+    editor_leaf_record_id:7,
   },
 });
 const filledNumeratorProgram = rom.constructEditorExpressionProgram(

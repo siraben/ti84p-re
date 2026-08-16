@@ -3132,12 +3132,26 @@
     try {
       const kind = input.kind ||
         (Object.prototype.hasOwnProperty.call(input, 'base') ? 'power' : null);
-      const editorRecordState = editor &&
-        input.editor_record_byte13 !== undefined ? {
-          editor_record_byte13:byte(
-          input.editor_record_byte13,`${label} retained record +13h byte`),
-        } : {};
+      const editorRecordState = {};
+      if (editor && input.editor_record_byte13 !== undefined)
+        editorRecordState.editor_record_byte13 = byte(
+          input.editor_record_byte13,`${label} retained record +13h byte`);
+      if (editor && input.editor_record_id !== undefined) {
+        if (!Number.isInteger(input.editor_record_id) ||
+            input.editor_record_id < 0 || input.editor_record_id > 0xffff)
+          throw new RangeError(
+            `${label} retained structural record ID must be an unsigned word`);
+        editorRecordState.editor_record_id = input.editor_record_id;
+      }
       const editorLeafState = {};
+      if (editor && input.editor_leaf_record_id !== undefined) {
+        if (!Number.isInteger(input.editor_leaf_record_id) ||
+            input.editor_leaf_record_id < 0 ||
+            input.editor_leaf_record_id > 0xffff)
+          throw new RangeError(
+            `${label} retained leaf record ID must be an unsigned word`);
+        editorLeafState.editor_leaf_record_id = input.editor_leaf_record_id;
+      }
       if (editor) for (const [property,field] of [
         ['editor_leaf_word0F','leaf +0Fh word'],
         ['editor_leaf_word11','leaf +11h word'],
@@ -3175,6 +3189,7 @@
         return {
           kind,record_id:recordId,byte_offset:byteOffset,
           record_word0F:recordWord0F,record_word11:recordWord11,
+          ...editorLeafState,
         };
       }
       if (kind === 'sequence') {
@@ -3184,7 +3199,7 @@
           settledExpressionSpec(part, `${label} part ${index}`, active, editor))};
       }
       if (kind === 'group') return {
-        kind,
+        kind,...editorLeafState,
         expression:settledExpressionSpec(
           input.expression, `${label} grouped expression`, active, editor),
       };
@@ -3192,7 +3207,7 @@
         if (!Array.isArray(input.elements) || !input.elements.length)
           throw new RangeError(`${label} list must contain at least one element`);
         return {
-          kind,
+          kind,...editorLeafState,
           elements:input.elements.map((element, index) =>
             settledExpressionSpec(
               element, `${label} list element ${index}`, active, editor)),
@@ -3200,7 +3215,7 @@
       }
       if (kind === 'power') {
         return {
-          kind,...editorRecordState,
+          kind,...editorRecordState,...editorLeafState,
           base:settledExpressionSpec(
             input.base, `${label} power base`, active, editor),
           exponent:settledExpressionSpec(
@@ -3208,17 +3223,17 @@
         };
       }
       if (kind === 'absolute') return {
-        kind,...editorRecordState,
+        kind,...editorRecordState,...editorLeafState,
         body:settledExpressionSpec(
           input.body, `${label} absolute body`, active, editor),
       };
       if (kind === 'ePower' || kind === 'tenPower') return {
-        kind,...editorRecordState,
+        kind,...editorRecordState,...editorLeafState,
         exponent:settledExpressionSpec(
           input.exponent, `${label} exponent`, active, editor),
       };
       if (kind === 'logBase') return {
-        kind,...editorRecordState,
+        kind,...editorRecordState,...editorLeafState,
         base:settledExpressionSpec(input.base, `${label} base`, active, editor),
         argument:settledExpressionSpec(
           input.argument, `${label} argument`, active, editor),
@@ -3233,33 +3248,34 @@
             input.elements.length !== input.rows * input.columns)
           throw new RangeError(`${label} matrix requires rows*columns elements`);
         return {
-          kind,...editorRecordState, rows:input.rows, columns:input.columns,
+          kind,...editorRecordState,...editorLeafState,
+          rows:input.rows, columns:input.columns,
           elements:input.elements.map((element, index) =>
             settledExpressionSpec(
               element, `${label} element ${index}`, active, editor)),
         };
       }
       if (kind === 'radical') return {
-        kind,...editorRecordState,
+        kind,...editorRecordState,...editorLeafState,
         radicand:settledExpressionSpec(
           input.radicand, `${label} radicand`, active, editor),
       };
       if (kind === 'nthRoot') return {
-        kind,...editorRecordState,
+        kind,...editorRecordState,...editorLeafState,
         index:settledExpressionSpec(
           input.index, `${label} index`, active, editor),
         radicand:settledExpressionSpec(
           input.radicand, `${label} radicand`, active, editor),
       };
       if (kind === 'fraction') return {
-        kind,...editorRecordState,
+        kind,...editorRecordState,...editorLeafState,
         numerator:settledExpressionSpec(
           input.numerator, `${label} numerator`, active, editor),
         denominator:settledExpressionSpec(
           input.denominator, `${label} denominator`, active, editor),
       };
       if (kind === 'integral') return {
-        kind,...editorRecordState,
+        kind,...editorRecordState,...editorLeafState,
         lower:settledExpressionSpec(
           input.lower, `${label} lower bound`, active, editor),
         upper:settledExpressionSpec(
@@ -3269,7 +3285,7 @@
           input.variable, `${label} variable`, active, editor),
       };
       if (kind === 'nDeriv') return {
-        kind,...editorRecordState,
+        kind,...editorRecordState,...editorLeafState,
         variable:settledExpressionSpec(
           input.variable, `${label} variable`, active, editor),
         body:settledExpressionSpec(input.body, `${label} body`, active, editor),
@@ -3277,7 +3293,7 @@
           input.value, `${label} evaluation value`, active, editor),
       };
       if (kind === 'summation') return {
-        kind,...editorRecordState,
+        kind,...editorRecordState,...editorLeafState,
         variable:settledExpressionSpec(
           input.variable, `${label} variable`, active, editor),
         lower:settledExpressionSpec(
@@ -4802,7 +4818,9 @@
       try {
         const withEditorRecordState = expression =>
           editorCursorState && Number.isInteger(node.byte13) ? {
-            ...expression,editor_record_byte13:node.byte13,
+            ...expression,
+            editor_record_id:recordId,
+            editor_record_byte13:node.byte13,
           } : expression;
         if (type === 0x1f) {
           const ids = children(node, 1);
@@ -5208,6 +5226,11 @@
             editor_leaf_word11:node.word11,
           };
         }
+        if (editorCursorState) {
+          if (Array.isArray(result)) result = {kind:'tokens',tokens:result};
+          if (result !== editorCursorState.node)
+            result = {...result,editor_leaf_record_id:recordId};
+        }
         return result;
       } finally {
         active.delete(recordId);
@@ -5460,68 +5483,107 @@
     let denominator;
     let recordByte13;
     let afterRecordId;
-    let trailingParts = [];
-    if (root && root.kind === 'editorCursor') {
-      originalCursor = root;
-      numerator = {kind:'sequence',parts:[
-        {
-          kind:'editorCursor', record_id:numeratorId, byte_offset:0,
-          record_word0F:0, record_word11:2,
-        },
-        {kind:'extendedToken',tokens:[0xef,0x1e]},
-      ]};
-      denominator = {kind:'extendedToken',tokens:[0xef,0x1e]};
-      recordByte13 = 0xef;
-      afterRecordId = numeratorId;
-    } else if (root && root.kind === 'sequence' &&
-               Array.isArray(root.parts)) {
-      const cursorIndex = root.parts.findIndex(
-        part => part && part.kind === 'editorCursor');
-      if (cursorIndex <= 0)
-        throw new RangeError(
-          'populated fraction insertion requires payload left of the cursor');
-      originalCursor = root.parts[cursorIndex];
-      const activeId = originalCursor.record_id;
-      const active = input.nodes.find(node =>
-        (node.record_id === undefined ? node.id : node.record_id) === activeId);
-      if (!active || !Array.isArray(active.payload) || !active.payload.length ||
-          !Number.isInteger(originalCursor.byte_offset) ||
-          originalCursor.byte_offset <= 0 ||
-          originalCursor.byte_offset > active.payload.length)
-        throw new RangeError(
-          'populated fraction insertion requires a valid active payload split');
-      const left = root.parts.slice(0,cursorIndex).map(clone);
-      trailingParts = root.parts.slice(cursorIndex + 1).map(clone);
-      const content = left.length === 1 ? left[0] : {kind:'sequence',parts:left};
-      numerator = Array.isArray(content) ? {
-        kind:'tokens',tokens:content,
-        editor_leaf_word0F:0,
-        editor_leaf_word11:originalCursor.byte_offset,
-      } : {
-        ...content,
-        editor_leaf_word0F:0,
-        editor_leaf_word11:originalCursor.byte_offset,
+    const fractionAtCursor = leaf => {
+      let trailingParts = [];
+      if (leaf && leaf.kind === 'editorCursor') {
+        originalCursor = leaf;
+        numerator = {
+          kind:'sequence',parts:[
+          {
+            kind:'editorCursor', record_id:numeratorId, byte_offset:0,
+            record_word0F:0, record_word11:2,
+            editor_leaf_record_id:numeratorId,
+          },
+          {kind:'extendedToken',tokens:[0xef,0x1e]},
+        ],editor_leaf_record_id:numeratorId};
+        denominator = {
+          kind:'extendedToken',tokens:[0xef,0x1e],
+          editor_leaf_record_id:denominatorId,
+        };
+        recordByte13 = 0xef;
+        afterRecordId = numeratorId;
+      } else if (leaf && leaf.kind === 'sequence' &&
+                 Array.isArray(leaf.parts)) {
+        const cursorIndex = leaf.parts.findIndex(
+          part => part && part.kind === 'editorCursor');
+        if (cursorIndex <= 0)
+          throw new RangeError(
+            'populated fraction insertion requires payload left of the cursor');
+        originalCursor = leaf.parts[cursorIndex];
+        const activeId = originalCursor.record_id;
+        const active = input.nodes.find(node =>
+          (node.record_id === undefined ? node.id : node.record_id) === activeId);
+        if (!active || !Array.isArray(active.payload) || !active.payload.length ||
+            !Number.isInteger(originalCursor.byte_offset) ||
+            originalCursor.byte_offset <= 0 ||
+            originalCursor.byte_offset > active.payload.length)
+          throw new RangeError(
+            'populated fraction insertion requires a valid active payload split');
+        const left = leaf.parts.slice(0,cursorIndex).map(clone);
+        trailingParts = leaf.parts.slice(cursorIndex + 1).map(clone);
+        const content = left.length === 1 ? left[0] : {kind:'sequence',parts:left};
+        numerator = Array.isArray(content) ? {
+          kind:'tokens',tokens:content,
+          editor_leaf_word0F:0,
+          editor_leaf_word11:originalCursor.byte_offset,
+          editor_leaf_record_id:numeratorId,
+        } : {
+          ...content,
+          editor_leaf_word0F:0,
+          editor_leaf_word11:originalCursor.byte_offset,
+          editor_leaf_record_id:numeratorId,
+        };
+        denominator = {
+          kind:'sequence',parts:[
+          {
+            kind:'editorCursor', record_id:denominatorId, byte_offset:0,
+            record_word0F:0, record_word11:2,
+            editor_leaf_record_id:denominatorId,
+          },
+          {kind:'extendedToken',tokens:[0xef,0x1e]},
+        ],editor_leaf_record_id:denominatorId};
+        recordByte13 = depth === 0 ? active.payload[0] : 0xef;
+        afterRecordId = denominatorId;
+      } else {
+        return null;
+      }
+      const insertedFraction = {
+        kind:'fraction',numerator,denominator,
+        editor_record_id:structuralId,
+        editor_record_byte13:recordByte13,
       };
-      denominator = {kind:'sequence',parts:[
-        {
-          kind:'editorCursor', record_id:denominatorId, byte_offset:0,
-          record_word0F:0, record_word11:2,
-        },
-        {kind:'extendedToken',tokens:[0xef,0x1e]},
-      ]};
-      recordByte13 = active.payload[0];
-      afterRecordId = denominatorId;
-    } else {
-      throw new RangeError(
-        'fraction insertion outside the translated root-leaf cases is open');
-    }
-    const insertedFraction = {
-      kind:'fraction',numerator,denominator,
-      editor_record_byte13:recordByte13,
+      return trailingParts.length ? {
+        kind:'sequence',
+        parts:[insertedFraction,...trailingParts],
+        editor_leaf_record_id:originalCursor.record_id,
+      } : {
+        ...insertedFraction,
+        editor_leaf_record_id:originalCursor.record_id,
+      };
     };
-    const expression = trailingParts.length ? {
-      kind:'sequence',parts:[insertedFraction,...trailingParts],
-    } : insertedFraction;
+    let replaced = false;
+    const visit = value => {
+      if (!value || typeof value !== 'object') return value;
+      if (value.kind === 'editorCursor') {
+        replaced = true;
+        return fractionAtCursor(value);
+      }
+      if (value.kind === 'sequence' && Array.isArray(value.parts) &&
+          value.parts.some(part => part && part.kind === 'editorCursor')) {
+        replaced = true;
+        return fractionAtCursor(value);
+      }
+      if (Array.isArray(value) || value instanceof Uint8Array)
+        return Array.from(value,item =>
+          item && typeof item === 'object' ? visit(item) : item);
+      const result = {};
+      for (const [key,child] of Object.entries(value)) result[key] = visit(child);
+      return result;
+    };
+    const expression = visit(root);
+    if (!replaced || !expression)
+      throw new RangeError(
+        'fraction insertion outside the translated leaf cases is open');
     const marker = [
       0xef,renderType,structuralId & 0xff,structuralId >> 8,0xef,0x2d,
     ];
@@ -5819,6 +5881,7 @@
       byte_offset:cursorByteOffset,
       record_word0F:active.word0F,
       record_word11:active.word11,
+      editor_leaf_record_id:activeLeafId,
     });
     const state = {
       recordId:activeLeafId, byteOffset:cursorByteOffset,
@@ -6086,11 +6149,39 @@
     // metrics establish the power baseline. Keep that construction-only
     // relationship outside the serialized record graph.
     const powerBaseStructures = new Map();
+    const retainedRecordIds = new Set();
+    const collectRetainedRecordIds = value => {
+      if (!value || typeof value !== 'object') return;
+      for (const property of ['editor_record_id','editor_leaf_record_id'])
+        if (value[property] !== undefined)
+          retainedRecordIds.add(value[property]);
+      for (const child of Object.values(value)) {
+        if (Array.isArray(child)) child.forEach(collectRetainedRecordIds);
+        else collectRetainedRecordIds(child);
+      }
+    };
+    if (editorMode) collectRetainedRecordIds(spec);
     let nextId = firstId;
-    const allocate = () => {
+    const allocatedIds = new Set(editorMode ? [firstId - 1] : []);
+    const allocate = (preferredId = undefined) => {
+      if (preferredId !== undefined) {
+        if (!Number.isInteger(preferredId) || preferredId < firstId ||
+            preferredId > 0xffff)
+          throw new RangeError(
+            'retained editor record ID is outside the construction arena');
+        if (allocatedIds.has(preferredId))
+          throw new RangeError(
+            `retained editor record ID 0x${preferredId.toString(16)} is duplicated`);
+        allocatedIds.add(preferredId);
+        while (allocatedIds.has(nextId)) nextId++;
+        return preferredId;
+      }
+      while (allocatedIds.has(nextId) || retainedRecordIds.has(nextId)) nextId++;
       if (nextId > 0xffff)
         throw new RangeError('settled record construction exhausted unsigned IDs');
-      return nextId++;
+      const id = nextId++;
+      allocatedIds.add(id);
+      return id;
     };
     const checkedWord = (value, label) => {
       if (!Number.isInteger(value) || value < 0 || value > 0xffff)
@@ -6132,8 +6223,8 @@
       throw new RangeError(`unsupported settled leading-byte kind ${expression.kind}`);
     };
 
-    const newLeaf = parentId => {
-      const leafId = allocate();
+    const newLeaf = (parentId, preferredId = undefined) => {
+      const leafId = allocate(preferredId);
       const leaf = {
         record_id:leafId, render_type:0, word03:parentId,
         word05:0, word07:0, word09:0, word0B:0, word0D:0,
@@ -6317,7 +6408,8 @@
     };
 
     const materializeLeaf = (prepared, renderDepth, parentId) =>
-      fillLeaf(newLeaf(parentId), prepared, renderDepth);
+      fillLeaf(newLeaf(parentId,prepared.editor_leaf_record_id),
+        prepared,renderDepth);
 
     // The record pass builds structural objects found in a fraction numerator
     // before it allocates the enclosing type-20h record. The numerator leaf is
@@ -6395,7 +6487,7 @@
         const renderType = settledStructuralTokenType(0x00, 0xf0);
         if (renderType !== 0x2a)
           throw new Error('34:594D power token mapping is inconsistent');
-        const structuralId = allocate();
+        const structuralId = allocate(expression.editor_record_id);
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
           word05:settledRecordMetadata(renderType)[1],
@@ -6428,7 +6520,7 @@
         const renderType = settledStructuralTokenType(0x00, 0xb2);
         if (renderType !== 0x21)
           throw new Error('34:594D absolute token mapping is inconsistent');
-        const structuralId = allocate();
+        const structuralId = allocate(expression.editor_record_id);
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
           word05:settledRecordMetadata(renderType)[1],
@@ -6458,7 +6550,7 @@
         const expectedType = expression.kind === 'ePower' ? 0x25 : 0x26;
         if (renderType !== expectedType)
           throw new Error(`34:594D ${expression.kind} token mapping is inconsistent`);
-        const structuralId = allocate();
+        const structuralId = allocate(expression.editor_record_id);
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
           word05:settledRecordMetadata(renderType)[1],
@@ -6494,7 +6586,7 @@
         const renderType = settledStructuralTokenType(0xef, 0x34);
         if (renderType !== 0x28)
           throw new Error('34:594D log-base token mapping is inconsistent');
-        const structuralId = allocate();
+        const structuralId = allocate(expression.editor_record_id);
         const metadata = settledRecordMetadata(renderType);
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
@@ -6515,8 +6607,10 @@
 
         // The two-argument pass reserves both leaves before scanning either
         // payload for nested structural records.
-        const base = newLeaf(structuralId);
-        const argument = newLeaf(structuralId);
+        const base = newLeaf(
+          structuralId,expression.base.editor_leaf_record_id);
+        const argument = newLeaf(
+          structuralId,expression.argument.editor_leaf_record_id);
         fillLeaf(base, prepare(
           expression.base, renderDepth + 1, structuralDepth + 1,
           fractionNumerator), renderDepth + 1);
@@ -6559,7 +6653,7 @@
         const renderType = settledStructuralTokenType(0xef, 0x2b);
         if (renderType !== 0x2b)
           throw new Error('34:594D matrix token mapping is inconsistent');
-        const structuralId = allocate();
+        const structuralId = allocate(expression.editor_record_id);
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
           word05:editorChildSelector(
@@ -6578,7 +6672,8 @@
           // The matrix pass reserves the first element leaf, then one internal
           // ID, before it scans that leaf for nested structural records. The
           // reserved ID is absent from the settled render graph.
-          const element = newLeaf(structuralId);
+          const element = newLeaf(
+            structuralId,expression.elements[index].editor_leaf_record_id);
           if (index === 0 && expression.elements.length > 1) allocate();
           fillLeaf(element, prepare(
             expression.elements[index], renderDepth, structuralDepth + 1),
@@ -6634,7 +6729,7 @@
         const renderType = settledStructuralTokenType(0x00, 0xbc);
         if (renderType !== 0x27)
           throw new Error('34:594D radical token mapping is inconsistent');
-        const structuralId = allocate();
+        const structuralId = allocate(expression.editor_record_id);
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
           word05:settledRecordMetadata(renderType)[1],
@@ -6662,7 +6757,7 @@
         const renderType = settledStructuralTokenType(0x00, 0xf1);
         if (renderType !== 0x24)
           throw new Error('34:594D nth-root token mapping is inconsistent');
-        const structuralId = allocate();
+        const structuralId = allocate(expression.editor_record_id);
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
           word05:editorChildSelector(
@@ -6692,15 +6787,22 @@
         structural.word0B = checkedWord(
           radicand.word09 + 4, 'nth-root baseline');
         structural.child_ids = [index.record_id, radicand.record_id];
-        return {kind:'embedded',structural,fractionByte13:0xef};
+        return {
+          kind:'embedded',structural,fractionByte13:0xef,
+          editor_leaf_record_id:expression.editor_leaf_record_id,
+        };
       }
       if (expression.kind === 'fraction') {
         const numeratorPrepared = prepare(
           expression.numerator, renderDepth + 1, structuralDepth + 1, true);
+        if (editorMode &&
+            expression.numerator.editor_leaf_record_id !== undefined)
+          numeratorPrepared.editor_leaf_record_id =
+            expression.numerator.editor_leaf_record_id;
         const renderType = settledStructuralTokenType(0xef, 0x2e);
         if (renderType !== 0x20)
           throw new Error('34:594D fraction token mapping is inconsistent');
-        const structuralId = allocate();
+        const structuralId = allocate(expression.editor_record_id);
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
           word05:editorChildSelector(
@@ -6737,7 +6839,10 @@
         structural.word0B = checkedWord(
           numerator.word05 + 1, 'fraction baseline');
         structural.child_ids = [numerator.record_id, denominator.record_id];
-        return {kind:'embedded',structural,fractionByte13:0xef};
+        return {
+          kind:'embedded',structural,fractionByte13:0xef,
+          editor_leaf_record_id:expression.editor_leaf_record_id,
+        };
       }
       if (expression.kind === 'integral') {
         if (expression.variable.kind !== 'tokens')
@@ -6745,7 +6850,7 @@
         const renderType = settledStructuralTokenType(0x00, 0x24);
         if (renderType !== 0x22)
           throw new Error('34:594D integral token mapping is inconsistent');
-        const structuralId = allocate();
+        const structuralId = allocate(expression.editor_record_id);
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
           word05:editorChildSelector(expression,[
@@ -6762,10 +6867,14 @@
 
         // 34:4900 reserves the four multi-argument leaf IDs before it scans
         // any argument payload for embedded structural records.
-        const lower = newLeaf(structuralId);
-        const upper = newLeaf(structuralId);
-        const body = newLeaf(structuralId);
-        const variable = newLeaf(structuralId);
+        const lower = newLeaf(
+          structuralId,expression.lower.editor_leaf_record_id);
+        const upper = newLeaf(
+          structuralId,expression.upper.editor_leaf_record_id);
+        const body = newLeaf(
+          structuralId,expression.body.editor_leaf_record_id);
+        const variable = newLeaf(
+          structuralId,expression.variable.editor_leaf_record_id);
         fillLeaf(lower, prepare(
           expression.lower, renderDepth + 1, structuralDepth + 1,
           fractionNumerator),
@@ -6820,7 +6929,7 @@
         const renderType = settledStructuralTokenType(0x00, 0x25);
         if (renderType !== 0x23)
           throw new Error('34:594D nDeriv token mapping is inconsistent');
-        const structuralId = allocate();
+        const structuralId = allocate(expression.editor_record_id);
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
           // Type 23h selects the fourth byte in the 34:5996 metadata row.
@@ -6837,9 +6946,12 @@
 
         // The three-argument pass reserves variable, body, and evaluation-value
         // leaves before it scans any child payload for structural records.
-        const variable = newLeaf(structuralId);
-        const body = newLeaf(structuralId);
-        const value = newLeaf(structuralId);
+        const variable = newLeaf(
+          structuralId,expression.variable.editor_leaf_record_id);
+        const body = newLeaf(
+          structuralId,expression.body.editor_leaf_record_id);
+        const value = newLeaf(
+          structuralId,expression.value.editor_leaf_record_id);
         fillLeaf(variable, prepare(
           expression.variable, renderDepth + 1, structuralDepth + 1,
           fractionNumerator),
@@ -6893,7 +7005,7 @@
         const renderType = settledStructuralTokenType(0xef, 0x33);
         if (renderType !== 0x29)
           throw new Error('34:594D summation token mapping is inconsistent');
-        const structuralId = allocate();
+        const structuralId = allocate(expression.editor_record_id);
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
           word05:editorChildSelector(expression,[
@@ -6910,10 +7022,14 @@
 
         // The multi-argument pass reserves all four child leaves before it
         // scans any payload for nested structural records.
-        const variable = newLeaf(structuralId);
-        const lower = newLeaf(structuralId);
-        const upper = newLeaf(structuralId);
-        const body = newLeaf(structuralId);
+        const variable = newLeaf(
+          structuralId,expression.variable.editor_leaf_record_id);
+        const lower = newLeaf(
+          structuralId,expression.lower.editor_leaf_record_id);
+        const upper = newLeaf(
+          structuralId,expression.upper.editor_leaf_record_id);
+        const body = newLeaf(
+          structuralId,expression.body.editor_leaf_record_id);
         fillLeaf(variable, prepare(
           expression.variable, renderDepth + 1, structuralDepth + 1,
           fractionNumerator),
@@ -6980,7 +7096,7 @@
     };
 
     function build(expression, renderDepth, parentId, structuralDepth) {
-      const leaf = newLeaf(parentId);
+      const leaf = newLeaf(parentId,expression.editor_leaf_record_id);
       return fillLeaf(
         leaf, prepare(expression, renderDepth, structuralDepth), renderDepth);
     }
