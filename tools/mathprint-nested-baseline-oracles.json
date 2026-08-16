@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "source": "final settled record graphs and outer 34:660A accepted LCD writes from reset-origin traces captured with TilEm 40cf1f9ff975217ede238cd02bfd6a85fa6bfecf8cbcea173b0d7705b144330b",
   "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
   "capture_executable_sha256": "40cf1f9ff975217ede238cd02bfd6a85fa6bfecf8cbcea173b0d7705b144330b",
@@ -461,6 +461,22 @@
       "render_interval": [8262417, 8356488],
       "accepted_write_count": 203,
       "accepted_write_sha256": "1cd0a761fab7b948a1bd55cf47d627cdcab0c24620a2da0d3fe8204d1c3691a1",
+      "synchronous_renderer": {
+        "accepted_write_count": 195,
+        "pointer_sha256": "58333af9a65159a0e25382aa22fcf1fb80cf44155fe8de204f226f5ea6be8aba",
+        "translated_write_sha256": "afb0d227b1b9bf947a1c9e7bcb85292b18b75ddd000cd86bd7a902cbe0bea625"
+      },
+      "run_indicator_interrupt": {
+        "after_operation_count": 28,
+        "instruction_interval": [8320840, 8323888],
+        "accepted_write_interval": [8321172, 8323126],
+        "indic_counter_before": 1,
+        "indic_busy_before": 120,
+        "indic_counter_after": 20,
+        "indic_busy_after": 60,
+        "rows": [0, 0, 1, 1, 1, 1, 0, 0],
+        "routine": "ram:027B–0283 → 01:6BBA–6BFA"
+      },
       "entry_id": 28,
       "origin": {"x": 0, "y": 0},
       "final_bitmap": {
