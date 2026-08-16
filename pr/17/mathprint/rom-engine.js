@@ -2188,8 +2188,10 @@
 
   // 34:67C8–6872 rejects a complete glyph cell above or below the active
   // vertical window. A crossing cell remains admitted; 9D01h and 9B72h then
-  // select its visible rows. The small-font path uses a five-row cell and the
-  // large-font path uses seven rows.
+  // select its visible rows. The routine always performs the lower-edge test
+  // after an accepted upper-edge crossing, so a window shorter than a glyph
+  // can clip both ends. The small-font path uses a five-row cell and skips its
+  // leading padding row; the large-font path uses all seven rows.
   function settledGlyphVerticalViewportDecision(
     logicalTop, depth, yClip, bottomBound = 0x3e) {
     unsignedWord(logicalTop, 'settled glyph logical top');
@@ -2197,37 +2199,91 @@
     unsignedWord(yClip, 'settled glyph vertical clip');
     byte(bottomBound, 'settled glyph vertical bound');
     const cellHeight = depth === 0 ? 7 : 5;
+    const raised = depth !== 0;
     const bottomExclusive = addWord(yClip,bottomBound);
-    if (logicalTop < yClip) {
-      const endpoint = addWord(logicalTop,cellHeight);
-      if (endpoint <= yClip) return {
-        action:'skip-above', logicalTop, endpoint, cellHeight,
-        yClip, bottomExclusive,
-        branchOutcomes:['34:67E6:fallthrough',
-          `34:67EE:${depth === 0 ? 'taken' : 'fallthrough'}`,
-          `34:67F7:${endpoint < yClip ? 'taken' : 'fallthrough'}`,
-          ...(endpoint === yClip ? ['34:67FA:taken'] : []),
-        ],
-      };
-      return {
-        action:'clip-top', logicalTop, endpoint, cellHeight,
-        yClip, bottomExclusive, topRows:yClip - logicalTop,
-        visibleRows:cellHeight - (yClip - logicalTop),
-      };
-    }
-    if (bottomExclusive <= logicalTop) return {
-      action:'skip-below', logicalTop, endpoint:addWord(logicalTop,cellHeight),
-      cellHeight, yClip, bottomExclusive,
-      branchOutcomes:['34:67E6:taken','34:6827:taken'],
-    };
     const endpoint = addWord(logicalTop,cellHeight);
-    if (endpoint > bottomExclusive) return {
-      action:'clip-bottom', logicalTop, endpoint, cellHeight,
-      yClip, bottomExclusive, visibleRows:bottomExclusive - logicalTop,
-    };
+    const branchOutcomes = [];
+    const branch = (address, outcome) => branchOutcomes.push(
+      `34:${address.toString(16).toUpperCase()}:${outcome}`);
+    const finish = (action, state = {}) => ({
+      action,logicalTop,endpoint,cellHeight,raised,yClip,bottomBound,
+      bottomExclusive,topRows:0,bottomRows:0,
+      sourceRowStart:0,
+      visibleRows:action.startsWith('skip-') ? 0 : cellHeight,
+      topClipped:false,bottomClipped:false,sourceSkipActive:false,
+      rowCountActive:false,
+      iyMinus1Bit0:false,iyMinus1Bit1:action.startsWith('skip-'),
+      iy32Bit7:false,rowSkipByte:0,rowCountByte:null,
+      branchOutcomes,routine:'34:67C8–6872',...state,
+    });
+
+    const above = logicalTop < yClip;
+    branch(0x67e6,above ? 'fallthrough' : 'taken');
+    let topRows = 0;
+    if (above) {
+      branch(0x67ee,raised ? 'fallthrough' : 'taken');
+      const endpointBeforeClip = endpoint < yClip;
+      branch(0x67f7,endpointBeforeClip ? 'taken' : 'fallthrough');
+      if (endpointBeforeClip)
+        return finish('skip-above');
+      const endpointAtClip = endpoint === yClip;
+      branch(0x67fa,endpointAtClip ? 'taken' : 'fallthrough');
+      if (endpointAtClip)
+        return finish('skip-above');
+      topRows = yClip - logicalTop;
+    }
+
+    const below = bottomExclusive < logicalTop;
+    branch(0x6827,below ? 'taken' : 'fallthrough');
+    if (below)
+      return finish('skip-below',{
+        topRows,sourceRowStart:topRows,topClipped:topRows !== 0,
+        sourceSkipActive:topRows !== 0,iyMinus1Bit0:topRows !== 0,
+        rowSkipByte:topRows,
+      });
+    const atBottom = bottomExclusive === logicalTop;
+    branch(0x6829,atBottom ? 'taken' : 'fallthrough');
+    if (atBottom)
+      return finish('skip-below',{
+        topRows,sourceRowStart:topRows,topClipped:topRows !== 0,
+        sourceSkipActive:topRows !== 0,iyMinus1Bit0:topRows !== 0,
+        rowSkipByte:topRows,
+      });
+
+    const endpointBeforeBottom = endpoint < bottomExclusive;
+    branch(0x6836,endpointBeforeBottom ? 'taken' : 'fallthrough');
+    let bottomRows = 0;
+    let bottomClipped = false;
+    let rowCountByte = null;
+    if (!endpointBeforeBottom) {
+      const endpointAtBottom = endpoint === bottomExclusive;
+      branch(0x6838,endpointAtBottom ? 'taken' : 'fallthrough');
+      if (!endpointAtBottom) {
+        bottomClipped = true;
+        bottomRows = (endpoint - bottomExclusive) & 0xffff;
+        rowCountByte = (cellHeight - bottomRows) & 0xff;
+      }
+    }
+
+    branch(0x6846,raised ? 'fallthrough' : 'taken');
+    const sourceRowStart = topRows + (raised ? 1 : 0);
+    const topClipped = topRows !== 0;
+    const sourceSkipActive = sourceRowStart !== 0;
+    branch(0x6855,bottomClipped ? 'taken' : 'fallthrough');
+    if (!bottomClipped) {
+      branch(0x685b,sourceSkipActive ? 'taken' : 'fallthrough');
+      if (!sourceSkipActive) rowCountByte = cellHeight;
+    }
+    const visibleRows = Math.max(0,cellHeight - topRows - bottomRows);
+    const rowCountActive = bottomClipped || !sourceSkipActive;
+    const action = topRows && bottomClipped ? 'clip-both' :
+      topRows ? 'clip-top' : bottomClipped ? 'clip-bottom' : 'draw';
     return {
-      action:'draw', logicalTop, endpoint, cellHeight,
-      yClip, bottomExclusive, visibleRows:cellHeight,
+      ...finish(action),topRows,bottomRows,sourceRowStart,visibleRows,
+      topClipped,bottomClipped,sourceSkipActive,rowCountActive,
+      iyMinus1Bit0:sourceSkipActive,iyMinus1Bit1:false,
+      iy32Bit7:rowCountActive,rowSkipByte:sourceRowStart,
+      rowCountByte,
     };
   }
 

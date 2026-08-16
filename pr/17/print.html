@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3b7992f7.js";
+            window.path_to_searchindex_js = "searchindex-4b826ea8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15028,7 +15028,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 38 finite models. It also computes an
+complete path-equivalence class in 39 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -15066,6 +15066,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Editor vertical overflow cues</td><td style="text-align: right">4,294,901,760</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">3</td></tr>
 <tr><td>Editor left-overflow cue</td><td style="text-align: right">1,099,494,850,560</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
 <tr><td>Editor right-overflow cue</td><td style="text-align: right">281,474,976,710,656</td><td style="text-align: right">5</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
+<tr><td>Glyph vertical viewport</td><td style="text-align: right">1,099,511,627,776</td><td style="text-align: right">16</td><td style="text-align: right">22</td><td style="text-align: right">6</td></tr>
 <tr><td>Glyph viewport gates</td><td style="text-align: right">30,064,771,072</td><td style="text-align: right">3</td><td style="text-align: right">4</td><td style="text-align: right">3</td></tr>
 <tr><td>Embedded-record viewport gate</td><td style="text-align: right">4,294,967,296</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>Record-allocation capacity</td><td style="text-align: right">36,893,488,147,419,103,232</td><td style="text-align: right">6</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
@@ -15079,8 +15080,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 38 models contain 3,300 path classes and 405 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 193 representatives. Each
+<p>The 39 models contain 3,316 path classes and 427 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 200 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -16957,6 +16958,19 @@ cursor top 59, and bottom bound 62. The first pass changes the clip from 0 to
 translated upward by eight rows before the LCD writer applies the visible
 window. <code>34:67C8</code>–<code>34:6872</code> rejects complete glyph cells above or below that
 window and admits crossing cells for row clipping. [confirmed]</p>
+<p>The glyph gate continues to the lower-edge comparison after an accepted
+upper-edge crossing. <code>34:6807</code> stores the number of rows above the window in
+<code>0x9D01</code>. Raised glyphs add their leading padding-row skip at <code>34:6848</code>–<code>34:684C</code>.
+An endpoint below the lower edge stores the explicit row count in <code>0x9B72</code> at
+<code>34:683A</code>–<code>34:683F</code>. Bit 0 of <code>(IY-1)</code> marks an active source-row skip, bit 1
+marks a rejected glyph, and bit 7 of <code>(IY+32h)</code> marks an active row-count byte.
+A viewport shorter than the glyph can therefore clip both edges in one call.
+[confirmed]</p>
+<p>The finite model partitions every logical-top word, vertical-clip word, and
+render-depth byte at the MathPrint bottom bound <code>0x3E</code>. Its 16 path classes
+cover 1,099,511,627,776 projected states. Pinned-byte differential tests also
+exercise 229,456 boundary states across nine byte-sized bounds, including word
+wrap and dual-edge clipping. [confirmed]</p>
 <p>The translated LCD crop is 17×61 pixels and matches the calculator pixel for
 pixel. Its SHA-256 is
 <code>7516b14104afaa3259d45b4b1577d0a9ae96df4a9bbc65bb52b147e3cb59910d</code>.
