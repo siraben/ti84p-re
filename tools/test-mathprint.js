@@ -157,6 +157,22 @@ const renderNestingTailRomSpans = [
 const pointAddressRomSpan = {address:0x42b5, bytes:Buffer.from(
   'd521e442160078e6075f195e62cb38cb38cb3878f620324f843e3f91f68032' +
   '5184e67f87874f6f297b59195819d1c98040201008040201', 'hex')};
+const pointModeRomSpan = {address:0x4215, bytes:Buffer.from(
+  'fdcb3c5e2803e5182d21409319e5fdcb3c462022f33a5184cdbf20cdc30cd3' +
+  '10cdc9203a4f84cdc30cd310cdf13be1e5fdcb024e20017e041003b118071003' +
+  'b118031043a9fdcb3c5e2006fdcb3c462804e1fb182667cd5d2128123a4f84' +
+  'fe257c200a3a5184feb77c3002f601cdc30cd3117ce1fbfdcb024e200177e1' +
+  'fdcb3c56280177c3a84005200a7ea1fbe1e1e1e1e1e1c905c2a640477ea1' +
+  '78289c189f', 'hex')};
+const pointModeByteMap = new Map(Array.from(
+  pointModeRomSpan.bytes,
+  (value, offset) => [pointModeRomSpan.address + offset,value]));
+const pointModeByte = address => {
+  if (!pointModeByteMap.has(address))
+    throw new Error(
+      `point-mode oracle reached unpinned byte 04:${address.toString(16)}`);
+  return pointModeByteMap.get(address);
+};
 const pointAddressByteMap = new Map(Array.from(
   pointAddressRomSpan.bytes,
   (value, offset) => [pointAddressRomSpan.address + offset,value]));
@@ -334,8 +350,8 @@ function runRawPointAddress(graphX, graphY) {
         graphX,graphY,bitMask:a,byteColumn:b,
         displayRow:(memory.get(0x8451) || 0) & 0x7f,
         rowTimesFour:c,bufferOffset:hl,
-        plotBufferAddress:(0x9872 + hl) & 0xffff,
-        backupBufferAddress:(0x9340 + hl) & 0xffff,
+        appBackupScreenAddress:(0x9872 + hl) & 0xffff,
+        plotScreenAddress:(0x9340 + hl) & 0xffff,
         lcdColumnCommand:memory.get(0x844f),
         lcdRowCommand:memory.get(0x8451),
         routine:'04:42B5–42E3',
@@ -346,6 +362,181 @@ function runRawPointAddress(graphX, graphY) {
     }
   }
   throw new Error('point-address oracle exceeded its instruction bound');
+}
+
+function runRawPointMode(mode, before, mask) {
+  let pc = 0x424c, a = before, b = mode, zero = false;
+  const relative = address => {
+    const displacement = pointModeByte(address);
+    return displacement < 0x80 ? displacement : displacement - 0x100;
+  };
+  for (let instructions = 0; instructions < 64; instructions++) {
+    if (pc === 0x425a) return {
+      after:a,write:true,testValue:null,testZero:null,
+      operation:['CLEAR','SET','XOR'][mode],
+    };
+    const opcode = pointModeByte(pc);
+    if (opcode === 0x04 || opcode === 0x05) {
+      b = (b + (opcode === 0x04 ? 1 : -1)) & 0xff;
+      zero = b === 0; pc++;
+    } else if (opcode === 0x10) {
+      b = (b - 1) & 0xff;
+      pc = b !== 0 ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0xb1) {
+      a |= mask; zero = a === 0; pc++;
+    } else if (opcode === 0xa9) {
+      a ^= mask; zero = a === 0; pc++;
+    } else if (opcode === 0xa1) {
+      a &= mask; zero = a === 0; pc++;
+    } else if (opcode === 0x18 || opcode === 0x20) {
+      const take = opcode === 0x18 || !zero;
+      pc = take ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0x7e) {
+      a = before; pc++;
+    } else if (opcode === 0xfb || opcode === 0xe1) {
+      pc++;
+    } else if (opcode === 0xc9) {
+      return {
+        after:before,write:false,testValue:a,testZero:zero,operation:'TEST',
+      };
+    } else {
+      throw new Error(
+        `point-mode oracle reached unsupported opcode 0x${opcode.toString(16)} at 04:${pc.toString(16)}`);
+    }
+  }
+  throw new Error('point-mode oracle exceeded its instruction bound');
+}
+
+function runRawPointState(
+  pointFlags, plotFlags, mode, mask, lcdByte, plotScreenByte,
+  appBackupScreenByte, lcdLowBitWorkaround = false,
+  lcdColumnCommand = 0x20, lcdRowCommand = 0x80, bufferOffset = 0) {
+  const plotAddress = 0x9340 + bufferOffset;
+  const appAddress = 0x9872 + bufferOffset;
+  let pc = 0x4215, sp = 0xff00;
+  let a = mask, b = mode, c = mask;
+  let d = bufferOffset >>> 8, e = bufferOffset & 0xff;
+  let h = appAddress >>> 8, l = appAddress & 0xff;
+  let carry = false, zero = false;
+  const memory = new Map([
+    [plotAddress,plotScreenByte],
+    [appAddress,appBackupScreenByte],
+    [0x844f,lcdColumnCommand],
+    [0x8451,lcdRowCommand],
+  ]);
+  const writes = [];
+  let nextLcdByte = lcdByte;
+  const read = address => memory.has(address & 0xffff)
+    ? memory.get(address & 0xffff) : 0;
+  const write = (address, value) => memory.set(address & 0xffff,value & 0xff);
+  const push = value => {
+    sp = (sp - 1) & 0xffff; write(sp,value >>> 8);
+    sp = (sp - 1) & 0xffff; write(sp,value);
+  };
+  const pop = () => {
+    const value = read(sp) | read((sp + 1) & 0xffff) << 8;
+    sp = (sp + 2) & 0xffff;
+    return value;
+  };
+  const word = address =>
+    pointModeByte(address) | pointModeByte(address + 1) << 8;
+  const relative = address => {
+    const displacement = pointModeByte(address);
+    return displacement < 0x80 ? displacement : displacement - 0x100;
+  };
+  const pair = () => h << 8 | l;
+  const setPair = value => { h = value >>> 8 & 0xff; l = value & 0xff; };
+  const finish = () => ({
+    lcdByte:nextLcdByte,
+    plotScreenByte:read(plotAddress),
+    appBackupScreenByte:read(appAddress),
+    writes,
+  });
+  push(appAddress);
+  for (let instructions = 0; instructions < 128; instructions++) {
+    const opcode = pointModeByte(pc);
+    if (opcode === 0xfd && pointModeByte(pc + 1) === 0xcb) {
+      const extension = pointModeByte(pc + 3);
+      const bit = extension === 0x5e ? 3 : extension === 0x46 ? 0 :
+        extension === 0x4e ? 1 : extension === 0x56 ? 2 : -1;
+      if (bit < 0) throw new Error('point-state oracle reached unknown flag bit');
+      const flagByte = pointModeByte(pc + 2) === 0x02
+        ? plotFlags : pointFlags;
+      zero = (flagByte & 1 << bit) === 0; pc += 4;
+    } else if (opcode === 0x28 || opcode === 0x20 || opcode === 0x30) {
+      const take = opcode === 0x28 ? zero : opcode === 0x20 ? !zero : !carry;
+      pc = take ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0xe5) {
+      push(pair()); pc++;
+    } else if (opcode === 0xe1) {
+      setPair(pop()); pc++;
+    } else if (opcode === 0x18) {
+      pc = pc + 2 + relative(pc + 1);
+    } else if (opcode === 0x21) {
+      setPair(word(pc + 1)); pc += 3;
+    } else if (opcode === 0x19) {
+      setPair((pair() + (d << 8 | e)) & 0xffff); pc++;
+    } else if (opcode === 0xf3 || opcode === 0xfb) {
+      pc++;
+    } else if (opcode === 0x3a) {
+      a = read(word(pc + 1)); pc += 3;
+    } else if (opcode === 0xcd) {
+      const target = word(pc + 1);
+      if (target === 0x3bf1) a = nextLcdByte;
+      else if (target === 0x215d) zero = !lcdLowBitWorkaround;
+      pc += 3;
+    } else if (opcode === 0xd3) {
+      const port = pointModeByte(pc + 1);
+      if (port === 0x11) {
+        writes.push({
+          target:'lcd',before:nextLcdByte,value:a,changed:nextLcdByte !== a,
+        });
+        nextLcdByte = a;
+      }
+      pc += 2;
+    } else if (opcode === 0x7e) {
+      a = read(pair()); pc++;
+    } else if (opcode === 0x04 || opcode === 0x05) {
+      b = (b + (opcode === 0x04 ? 1 : -1)) & 0xff;
+      zero = b === 0; pc++;
+    } else if (opcode === 0x10) {
+      b = (b - 1) & 0xff;
+      pc = b !== 0 ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0xb1 || opcode === 0xa9 || opcode === 0xa1) {
+      if (opcode === 0xb1) a |= c;
+      else if (opcode === 0xa9) a ^= c;
+      else a &= c;
+      zero = a === 0; carry = false; pc++;
+    } else if (opcode === 0x67) {
+      h = a; pc++;
+    } else if (opcode === 0xfe) {
+      const value = pointModeByte(pc + 1);
+      carry = a < value; zero = a === value; pc += 2;
+    } else if (opcode === 0x7c) {
+      a = h; pc++;
+    } else if (opcode === 0xf6) {
+      a |= pointModeByte(pc + 1); zero = a === 0; carry = false; pc += 2;
+    } else if (opcode === 0x77) {
+      const address = pair(), before = read(address);
+      const target = address === plotAddress ? 'plotSScreen' : 'appBackUpScreen';
+      writes.push({target,address,before,value:a,changed:before !== a});
+      write(address,a); pc++;
+    } else if (opcode === 0xc3) {
+      const target = word(pc + 1);
+      if (target === 0x40a8 || target === 0x40a6) return finish();
+      pc = target;
+    } else if (opcode === 0x47) {
+      b = a; pc++;
+    } else if (opcode === 0x78) {
+      a = b; pc++;
+    } else if (opcode === 0xc9) {
+      return finish();
+    } else {
+      throw new Error(
+        `point-state oracle reached unsupported opcode 0x${opcode.toString(16)} at 04:${pc.toString(16)}`);
+    }
+  }
+  throw new Error('point-state oracle exceeded its instruction bound');
 }
 
 function runRawDarkLine(graphX1, graphY1, graphX2, graphY2) {
@@ -1395,6 +1586,12 @@ if (fs.existsSync(localRomPath)) {
     localRom.subarray(
       pointAddressOffset,pointAddressOffset + pointAddressRomSpan.bytes.length),
     pointAddressRomSpan.bytes);
+  const pointModeOffset = 0x04 * 0x4000 +
+    (pointModeRomSpan.address & 0x3fff);
+  expectEqual('04:424C–42B4 raw point-mode bytes',
+    localRom.subarray(
+      pointModeOffset,pointModeOffset + pointModeRomSpan.bytes.length),
+    pointModeRomSpan.bytes);
   for (const span of darkLineRomSpans) {
     const offset = 0x04 * 0x4000 + (span.address & 0x3fff);
     expectEqual(`04:${span.address.toString(16)} raw dark-line bytes`,
@@ -2761,19 +2958,107 @@ expectEqual('04:42B5 preserves byte-sized row aliasing',
   rom.settledPage4PointAddress(0xff,0xff),{
     graphX:0xff,graphY:0xff,bitMask:1,byteColumn:0x1f,
     displayRow:0x40,rowTimesFour:0,bufferOffset:0x1f,
-    plotBufferAddress:0x9891,backupBufferAddress:0x935f,
+    appBackupScreenAddress:0x9891,plotScreenAddress:0x935f,
     lcdColumnCommand:0x3f,lcdRowCommand:0xc0,routine:'04:42B5–42E3',
   });
 expectEqual('04:4155 point-on byte transition',
   rom.settledPage4PointOnTransition(9,2,0x80),{
-    x:9,y:2,before:0x80,after:0xc0,changed:true,pointer:[1,2],
+    x:9,y:2,mode:1,before:0x80,after:0xc0,write:true,changed:true,
+    testValue:null,testZero:null,pointer:[1,2],
     graphX:9,graphY:0x3d,bitMask:0x40,byteColumn:1,displayRow:2,
     rowTimesFour:8,bufferOffset:25,
-    plotBufferAddress:0x988b,backupBufferAddress:0x9359,
+    appBackupScreenAddress:0x988b,plotScreenAddress:0x9359,
     lcdColumnCommand:0x21,lcdRowCommand:0x82,
     routine:'34:5E98–5EA6 → 04:4155 → 04:42B5–42E3',
-    mode:1,operation:'OR',
+    operation:'SET',
   });
+for (const [mode,before,after,write,testValue,testZero,operation] of [
+  [0,0xc0,0x80,true,null,null,'CLEAR'],
+  [1,0x80,0xc0,true,null,null,'SET'],
+  [2,0xc0,0x80,true,null,null,'XOR'],
+  [3,0xc0,0xc0,false,0x40,false,'TEST'],
+  [3,0x80,0x80,false,0,true,'TEST'],
+]) {
+  const transition = rom.settledPage4PointTransition(9,2,mode,before);
+  expectEqual(`04:424C point mode ${mode} transition`,{
+    after:transition.after,write:transition.write,
+    changed:transition.changed,testValue:transition.testValue,
+    testZero:transition.testZero,operation:transition.operation,
+  },{
+    after,write,changed:write && before !== after,
+    testValue,testZero,operation,
+  });
+}
+let pointModeStates = 0;
+for (let mode = 0; mode < 4; mode++) {
+  for (let before = 0; before <= 0xff; before++) {
+    for (let bit = 0; bit < 8; bit++) {
+      const transition = rom.settledPage4PointTransition(bit,0,mode,before);
+      const raw = runRawPointMode(mode,before,0x80 >> bit);
+      expectEqual('04:424C exhaustive point-mode byte flow',{
+        after:transition.after,write:transition.write,
+        testValue:transition.testValue,testZero:transition.testZero,
+        operation:transition.operation,
+      },raw);
+      pointModeStates++;
+    }
+  }
+}
+expectEqual('04:424C exhaustive point-mode state count',pointModeStates,0x2000);
+expectThrows('04:424C rejects an unknown point mode',RangeError,
+  () => rom.settledPage4PointTransition(0,0,4,0));
+const normalizedPointState = result => ({
+  lcdByte:result.lcdByte,
+  plotScreenByte:result.plotScreenByte,
+  appBackupScreenByte:result.appBackupScreenByte,
+  writes:result.writes.map(write => write.target === 'lcd' ? {
+    target:write.target,before:write.before,value:write.value,
+    changed:write.changed,
+  } : write),
+});
+let pointFlagStates = 0;
+for (let pointFlags = 0; pointFlags < 0x100; pointFlags++) {
+  for (const plotFlags of [0,0x02]) {
+    for (let mode = 0; mode < 4; mode++) {
+      for (let before = 0; before <= 0xff; before++) {
+        const state = {
+          pointFlags,
+          plotFlags,
+          lcdByte:before,
+          plotScreenByte:before ^ 0x55,
+          appBackupScreenByte:before ^ 0xaa,
+          lcdLowBitWorkaround:false,
+        };
+        const translated = rom.settledPage4PointStateTransition(0,0,mode,state);
+        const raw = runRawPointState(
+          pointFlags,plotFlags,mode,0x80,state.lcdByte,state.plotScreenByte,
+          state.appBackupScreenByte);
+        expectEqual(
+          `04:4215 point=${pointFlags} plot=${plotFlags} mode=${mode} before=${before}`,
+          normalizedPointState(translated),raw);
+        pointFlagStates++;
+      }
+    }
+  }
+}
+expectEqual('04:4215 exhaustive point flag/mode state count',
+  pointFlagStates,0x80000);
+for (const [pointFlags,plotFlags,sourceKind] of [
+  [0x00,0,'plotSScreen'],[0x08,0,'appBackUpScreen'],
+  [0x00,0x02,'lcd'],[0x01,0x02,'plotSScreen'],
+]) expectEqual(`04:4215 pointFlags ${pointFlags}/${plotFlags} source`,
+  rom.settledPage4PointStateTransition(0,0,1,{
+    pointFlags,plotFlags,lcdByte:1,plotScreenByte:2,appBackupScreenByte:3,
+  }).sourceKind,sourceKind);
+const pointWorkaroundState = {
+  pointFlags:0,plotFlags:0x02,
+  lcdByte:0,plotScreenByte:0,appBackupScreenByte:0,
+  lcdLowBitWorkaround:true,
+};
+expectEqual('04:426B column-five LCD low-bit workaround',
+  normalizedPointState(
+    rom.settledPage4PointStateTransition(40,0,1,pointWorkaroundState)),
+  runRawPointState(0,0x02,1,0x80,0,0,0,true,0x25,0x80,5));
 let pointOnTransitionStates = 0;
 for (let x = 0; x < 0x60; x++) {
   for (let y = 0; y < 0x40; y++) {
