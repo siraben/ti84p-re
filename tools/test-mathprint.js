@@ -54,6 +54,8 @@ const listOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-list-oracles.json')));
 const verticalViewportOracle = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-vertical-viewport-oracle.json'))).cases[0];
+const combinedViewportOracle = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-combined-viewport-oracle.json')));
 
 function expectEqual(label, actual, expected) {
   if (JSON.stringify(actual) !== JSON.stringify(expected))
@@ -2627,6 +2629,63 @@ expectEqual('34:5DBE/5DC2 applies the editor translation and appends the left cu
      rows:[0x00,0x02,0x06,0x0e,0x06,0x02,0x00],retainUnchanged:true,
      routine:'34:5FF2 → 34:6031 → 34:61B2; bitmap at 34:60B8'},
   ]);
+expectEqual('34:6031 clamps a tall record cue to the viewport height',
+  rom.settledEditorViewportOperations(
+    [],rom.settledEditorViewport2D(110,59),125), [
+    {kind:'bitmap',x:0,y:28,width:4,height:7,
+     rows:[0x00,0x02,0x06,0x0e,0x06,0x02,0x00],retainUnchanged:true,
+     routine:'34:5FF2 → 34:6031 → 34:61B2; bitmap at 34:60B8'},
+  ]);
+expectEqual('34:603E uses the viewport height in editor mode 49h',
+  rom.settledEditorViewportOperations(
+    [],rom.settledEditorViewport(106),23,{editorMode:0x49}), [
+    {kind:'bitmap',x:0,y:28,width:4,height:7,
+     rows:[0x00,0x02,0x06,0x0e,0x06,0x02,0x00],retainUnchanged:true,
+     routine:'34:5FF2 → 34:6031 → 34:61B2; bitmap at 34:60B8'},
+  ]);
+expectEqual('combined horizontal and vertical viewport matches the natural LCD', (() => {
+  const program = rom.constructSettledProgramFromTokens(
+    combinedViewportOracle.native_tokens,1,font);
+  const generated = mp.generateRecordProgram(program,{editor:true});
+  const leftCue = generated.settledOperations.find(operation =>
+    operation.routine ===
+      '34:5FF2 → 34:6031 → 34:61B2; bitmap at 34:60B8');
+  return {
+    nodeCount:program.nodes.length,
+    recordHeight:generated.recordHeight,
+    expressionEndpoint:generated.recordWidth,
+    xClip:generated.editorViewport.xClip,
+    firstYClip:generated.editorViewport.verticalPasses[0].yClip,
+    secondYClip:generated.editorViewport.yClip,
+    leftCueY:leftCue.y,
+    settledOperationCount:generated.settledOperations.length,
+    chromeOperationCount:generated.editorChrome.operations.length,
+    fullOperationCount:generated.operations.length,
+    fullWriteCount:generated.events.length,
+    fullWriteHash:crypto.createHash('sha256').update(Buffer.from(
+      generated.events.flatMap(write => [...write.pointer,write.value]))).digest('hex'),
+    settledLcdHash:crypto.createHash('sha256').update(Buffer.from(
+      generated.settledFinal.flatMap(row => Array.from(row,Number)))).digest('hex'),
+    fullLcdHash:crypto.createHash('sha256').update(Buffer.from(
+      generated.final.flatMap(row => Array.from(row,Number)))).digest('hex'),
+  };
+})(), {
+  nodeCount:combinedViewportOracle.translated.node_count,
+  recordHeight:combinedViewportOracle.translated.record_height,
+  expressionEndpoint:combinedViewportOracle.translated.expression_endpoint,
+  xClip:combinedViewportOracle.translated.x_clip,
+  firstYClip:combinedViewportOracle.translated.first_y_clip,
+  secondYClip:combinedViewportOracle.translated.second_y_clip,
+  leftCueY:combinedViewportOracle.translated.left_cue_y,
+  settledOperationCount:combinedViewportOracle.translated.settled_operation_count,
+  chromeOperationCount:
+    combinedViewportOracle.translated.editor_chrome_operation_count,
+  fullOperationCount:combinedViewportOracle.translated.full_operation_count,
+  fullWriteCount:combinedViewportOracle.translated.full_accepted_write_count,
+  fullWriteHash:combinedViewportOracle.translated.full_accepted_write_sha256,
+  settledLcdHash:combinedViewportOracle.translated.settled_lcd_sha256,
+  fullLcdHash:combinedViewportOracle.translated.full_lcd_sha256,
+});
 expectEqual('34:6C5F skips a glyph whose left edge precedes the editor clip',
   rom.settledEditorViewportOperations([
     {kind:'glyph',code:0x58,x:14,y:3,depth:0,routine:'test'},
