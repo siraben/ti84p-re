@@ -183,6 +183,9 @@ nDeriv source token `25` selects type `0x23`. It creates variable, body, and
 evaluation-value children, then selects the variable. The live blank variable
 adds a two-pixel body gap and uses a solid focus box when repeated after the
 evaluation bar. Four reset-origin captures cover every root cursor class.
+Summation source token `EF 33` selects type `0x29`. It creates variable, lower,
+upper, and body children, then selects the variable. Four reset-origin captures
+cover every root cursor class and preserve the constructor's child order.
 Nth-root source token `F1` selects type `0x24`. A blank root receives `Ans` in
 the index and an empty radicand. Leaf-end and mid-leaf insertion migrate the
 left payload into the index. Leading insertion creates two empty children and
@@ -204,7 +207,7 @@ radical and fraction below a root `3` retain `33h`; the value is not a depth
 proxy or the active child's first byte.
 The function consumes the decoded arena because new record IDs and the
 structural-depth byte are not present in the semantic cursor tree alone.
-Fifty-six reset-origin transitions verify the markers, controller states,
+Sixty reset-origin transitions verify the markers, controller states,
 cursor ASTs, every reconstructed record field, and complete LCD output. Deeper
 structural positions beyond the captured outer fraction and radical, and the
 remaining structural types, remain separate.
