@@ -4125,6 +4125,430 @@
           }
         ]
       }
+    },
+    {
+      "name": "blank_root_insert_integral",
+      "macro": "tools/macros/mathprint-editor-integral-blank.macro",
+      "macro_sha256": "62a85417c8311d485bf8eaadd2ae18fcca55efd968125c87887e6b504fc403f4",
+      "trace_sha256": "f913122629f51311015e05474a13e63ad7a35829029b1ce0a59b566f33f71a90",
+      "source_token": [
+        36
+      ],
+      "trace": {
+        "key_instruction": 1831158,
+        "structural_entry_instruction": 1867639,
+        "depth_gate_instruction": 1867679,
+        "type_dispatch_instruction": 1867698,
+        "shared_insert_instruction": 1867724,
+        "marker_insert_instruction": 1867725,
+        "marker_writer_instruction": 1867727,
+        "allocator_instruction": 1868251,
+        "record_initializer_instruction": 1868610,
+        "routine": "34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B"
+      },
+      "mutation": {
+        "status": "inserted",
+        "source_token": [
+          36
+        ],
+        "render_type": 34,
+        "marker": [
+          239,
+          34,
+          8,
+          0,
+          239,
+          45
+        ],
+        "parent_record_id": 7,
+        "before_byte_offset": 0,
+        "after_record_id": 9,
+        "after_byte_offset": 0,
+        "structural_record_id": 8,
+        "child_record_ids": [
+          9,
+          10,
+          11,
+          12
+        ],
+        "replaced_right_token": [],
+        "before_structural_depth": 0,
+        "after_structural_depth": 1,
+        "routine": "34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B"
+      },
+      "pre": {
+        "source_ram_sha256": "fdff3807960374832a79e6ec13559e3f39bf81fe1184f633d85008edf463655d",
+        "screenshot_sha256": "25ed88ebb5c27d4a256ad5e5f7af581321aefb78c27fad525b577933bcbd15ea",
+        "lcd_bitmap_sha256": "ef115a0e0c15cdc41958ca46b5b14b456115f4baec5e3ca68599d2a8f435e3b8",
+        "sparse_state_sha256": "de82f677ec025ef7c1d1bea538def80576ba5eb22acaeff9348218e79623cf22",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "e09de09d45fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f0000010007000600030000000000000000070007000006000700060003000000000000000000"
+          }
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "56caf1d14334d94cf3f77c18990e888501c9ed43afca6f87350c7ff07f7773c2",
+        "screenshot_sha256": "680bb9ed5d2f7521d750e8b5dcbc9696847dead47b779e2dee8af804a91613a2",
+        "lcd_bitmap_sha256": "5777e697bc8da0d492ead12abf16af19601f760b88ff4bf573b00119f5fcf16d",
+        "sparse_state_sha256": "d65dd7c797a4118fbf49c0a47fcd4bb7c9b58a4500d02f5f4bf779ec5c16b173",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc080022010900000400e99d569ecd9d029e"
+          },
+          {
+            "address": 38644,
+            "bytes": "159e159e04fc06fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f0000010011002c0008000000000000000007000800220700010011002c000800000000000100ef09000a000b000c00070000060011002c0008000000000000000600ef220800ef2d090000080005000600020006000c0000000200"
+          },
+          {
+            "address": 64516,
+            "bytes": "ef1e0a000008000500060002000600000000000200ef1e0b000008000700060003001200050000000200ef1e0c000108000700060003002400050000000200ef1e"
+          }
+        ]
+      }
+    },
+    {
+      "name": "root_end_append_integral",
+      "macro": "tools/macros/mathprint-editor-integral-end.macro",
+      "macro_sha256": "1d2b754d96e472c93fe842fc4fee4e835df86e4f8819fecd5cadb5985b9142d2",
+      "trace_sha256": "601573da92bce11a6ed75c28052f6dbd4ee62f8f108e701698b517b0d0e9f17c",
+      "source_token": [
+        36
+      ],
+      "trace": {
+        "key_instruction": 1930313,
+        "structural_entry_instruction": 1966619,
+        "depth_gate_instruction": 1966659,
+        "type_dispatch_instruction": 1966678,
+        "shared_insert_instruction": 1966704,
+        "marker_insert_instruction": 1966705,
+        "marker_writer_instruction": 1966707,
+        "allocator_instruction": 1967256,
+        "record_initializer_instruction": 1967616,
+        "routine": "34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B"
+      },
+      "mutation": {
+        "status": "inserted",
+        "source_token": [
+          36
+        ],
+        "render_type": 34,
+        "marker": [
+          239,
+          34,
+          8,
+          0,
+          239,
+          45
+        ],
+        "parent_record_id": 7,
+        "before_byte_offset": 1,
+        "after_record_id": 9,
+        "after_byte_offset": 0,
+        "structural_record_id": 8,
+        "child_record_ids": [
+          9,
+          10,
+          11,
+          12
+        ],
+        "replaced_right_token": [],
+        "before_structural_depth": 0,
+        "after_structural_depth": 1,
+        "routine": "34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B"
+      },
+      "pre": {
+        "source_ram_sha256": "e740c15527619b9c594802cde006e51c0a86b0f156d80058433494ac4422f615",
+        "screenshot_sha256": "1d794e47806f3c0a57fccbe0c26e368949cc318bfc70ee682f89d39a1a899cfd",
+        "lcd_bitmap_sha256": "0e48965fb37697e4ef2e4c98f017d2c719b6a1a7486a105a2715052a55e85f14",
+        "sparse_state_sha256": "c6e48cc13e0b1ab72d8f977582737639e6709abd40d442d86f154a51746d4d8e",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "e09de19d45fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f0000010007000c000300000000000000000700070000060007000c000300000000000000000031"
+          }
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "acf80fb74722b73a9522ace9ebb99bff72cc896f11b6962844ae4162d8864756",
+        "screenshot_sha256": "220ea296527c4b46fb09e8968fdba88b95bf8d806e492eae74f0a77018e0f51f",
+        "lcd_bitmap_sha256": "7cd88267a0cc6163daff6f64b5ea8e8dde76bd52c78497669ac7d9eaaf7caadf",
+        "sparse_state_sha256": "d0145896990f69645dcd1b0f54b6d283a5f828c83bc055fdcd69d6291eec4552",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc080022010900000400e99d579ecd9d039e"
+          },
+          {
+            "address": 38644,
+            "bytes": "169e169e04fc06fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001001100320008000000000000000007000800220700010011002c0008000600000001003109000a000b000c000700000600110032000800000000000100070031ef220800ef2d090000080005000600020006000c0000000200"
+          },
+          {
+            "address": 64516,
+            "bytes": "ef1e0a000008000500060002000600000000000200ef1e0b000008000700060003001200050000000200ef1e0c000108000700060003002400050000000200ef1e"
+          }
+        ]
+      }
+    },
+    {
+      "name": "root_leading_replaces_first_token_with_integral",
+      "macro": "tools/macros/mathprint-editor-integral-leading.macro",
+      "macro_sha256": "8a09bfd5f754197b1feafa878a84fb83369b99fd5b7b6163590521ec05b356b2",
+      "trace_sha256": "06e4433bcfa60f82ee1c9af9c8029dfe52817b21bc1fe5ae74c388de77510566",
+      "source_token": [
+        36
+      ],
+      "trace": {
+        "key_instruction": 2125889,
+        "structural_entry_instruction": 2162226,
+        "depth_gate_instruction": 2162266,
+        "type_dispatch_instruction": 2162285,
+        "shared_insert_instruction": 2162311,
+        "marker_insert_instruction": 2162312,
+        "marker_writer_instruction": 2162314,
+        "allocator_instruction": 2162919,
+        "record_initializer_instruction": 2163279,
+        "routine": "34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B"
+      },
+      "mutation": {
+        "status": "inserted",
+        "source_token": [
+          36
+        ],
+        "render_type": 34,
+        "marker": [
+          239,
+          34,
+          8,
+          0,
+          239,
+          45
+        ],
+        "parent_record_id": 7,
+        "before_byte_offset": 0,
+        "after_record_id": 9,
+        "after_byte_offset": 0,
+        "structural_record_id": 8,
+        "child_record_ids": [
+          9,
+          10,
+          11,
+          12
+        ],
+        "replaced_right_token": [
+          49
+        ],
+        "before_structural_depth": 0,
+        "after_structural_depth": 1,
+        "routine": "34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B"
+      },
+      "pre": {
+        "source_ram_sha256": "0248d1083c4c644a75ea62d3ea1000e524c8a1e82b3760141adf4011009ee7b4",
+        "screenshot_sha256": "46c639e3469955a2c5791df1d9add27082e2a8f9545f2986c5ec4d470dcf18f9",
+        "lcd_bitmap_sha256": "ff63b46a887e90f3af093d41368ebfe15c2a87767cff1d0bb150f925bb40f6e1",
+        "sparse_state_sha256": "a821e6164cf0d7985572e66a4a64ced18fb90339fda2d8c2a540de04cd5f7caf",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "e09de09d43fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f0000010007000c000300000000000000000700070000060007000c0003000000000000000000"
+          },
+          {
+            "address": 64579,
+            "bytes": "3132"
+          }
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "7d3863d941f2578a3e4a40272d41c16ac311c1ce09f85019a0821f5723ac5c4f",
+        "screenshot_sha256": "dcfd3dd4a90ed317b5141d36c7645d07c1083e10c385d19062091f69c230c4a6",
+        "lcd_bitmap_sha256": "92f9809709aca4ca143a8105f2dc073558ebe0d19ad1fc0841f19e09eeefa410",
+        "sparse_state_sha256": "48daba5c7aa2a51ac1e50c7dc2e6658b55c5d2a333f81968f0d6fce6d892a684",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc080022010900000400e99d579ecd9d039e"
+          },
+          {
+            "address": 38644,
+            "bytes": "169e169e04fc06fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001001100320008000000000000000007000800220700010011002c000800000000000100ef09000a000b000c0007000006001100320008000000000000000700ef220800ef2d32090000080005000600020006000c0000000200"
+          },
+          {
+            "address": 64516,
+            "bytes": "ef1e0a000008000500060002000600000000000200ef1e0b000008000700060003001200050000000200ef1e0c000108000700060003002400050000000200ef1e"
+          }
+        ]
+      }
+    },
+    {
+      "name": "root_mid_replaces_right_token_with_integral",
+      "macro": "tools/macros/mathprint-editor-integral-mid-leaf.macro",
+      "macro_sha256": "7b120ce8cdc15cd0c8c63f07bdaa688c0a327ed7f41d343bcb98293971269723",
+      "trace_sha256": "cc99a5ff7fb8bcf69235ecbfd380067931aba959b5c184dbae233deef0cebe1e",
+      "source_token": [
+        36
+      ],
+      "trace": {
+        "key_instruction": 2075835,
+        "structural_entry_instruction": 2112177,
+        "depth_gate_instruction": 2112217,
+        "type_dispatch_instruction": 2112236,
+        "shared_insert_instruction": 2112262,
+        "marker_insert_instruction": 2112263,
+        "marker_writer_instruction": 2112265,
+        "allocator_instruction": 2112861,
+        "record_initializer_instruction": 2113221,
+        "routine": "34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B"
+      },
+      "mutation": {
+        "status": "inserted",
+        "source_token": [
+          36
+        ],
+        "render_type": 34,
+        "marker": [
+          239,
+          34,
+          8,
+          0,
+          239,
+          45
+        ],
+        "parent_record_id": 7,
+        "before_byte_offset": 1,
+        "after_record_id": 9,
+        "after_byte_offset": 0,
+        "structural_record_id": 8,
+        "child_record_ids": [
+          9,
+          10,
+          11,
+          12
+        ],
+        "replaced_right_token": [
+          50
+        ],
+        "before_structural_depth": 0,
+        "after_structural_depth": 1,
+        "routine": "34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B"
+      },
+      "pre": {
+        "source_ram_sha256": "927f115ceca68b0e0a6da885989fbcc019447b5bfe65f96df497064adf9b95d9",
+        "screenshot_sha256": "46c639e3469955a2c5791df1d9add27082e2a8f9545f2986c5ec4d470dcf18f9",
+        "lcd_bitmap_sha256": "ff63b46a887e90f3af093d41368ebfe15c2a87767cff1d0bb150f925bb40f6e1",
+        "sparse_state_sha256": "7d2d18ab5127064562df38faaa521d1803bc4811c838271630c6f907d3cd11b9",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "e09de19d44fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f0000010007000c000300000000000000000700070000060007000c000300000000000000000031"
+          },
+          {
+            "address": 64580,
+            "bytes": "32"
+          }
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "d28a11c56c67c167323c0087003c2fe3a19de6d297ceae56f371db31a11fd7f2",
+        "screenshot_sha256": "220ea296527c4b46fb09e8968fdba88b95bf8d806e492eae74f0a77018e0f51f",
+        "lcd_bitmap_sha256": "7cd88267a0cc6163daff6f64b5ea8e8dde76bd52c78497669ac7d9eaaf7caadf",
+        "sparse_state_sha256": "d0145896990f69645dcd1b0f54b6d283a5f828c83bc055fdcd69d6291eec4552",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc080022010900000400e99d579ecd9d039e"
+          },
+          {
+            "address": 38644,
+            "bytes": "169e169e04fc06fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001001100320008000000000000000007000800220700010011002c0008000600000001003109000a000b000c000700000600110032000800000000000100070031ef220800ef2d090000080005000600020006000c0000000200"
+          },
+          {
+            "address": 64516,
+            "bytes": "ef1e0a000008000500060002000600000000000200ef1e0b000008000700060003001200050000000200ef1e0c000108000700060003002400050000000200ef1e"
+          }
+        ]
+      }
     }
   ]
 }
