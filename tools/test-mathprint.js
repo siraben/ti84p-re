@@ -50,6 +50,9 @@ const editorNavigationOracles = JSON.parse(fs.readFileSync(
 const editorStructuralNavigationOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools',
     'mathprint-editor-structural-navigation-oracles.json')));
+const editorSummationFillOracle = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools',
+    'mathprint-editor-summation-fill-oracle.json')));
 const editorDeletionOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-deletion-oracles.json')));
 const editorStructuralDeletionOracles = JSON.parse(fs.readFileSync(
@@ -3562,7 +3565,7 @@ expectThrows('editor navigation rejects a structural boundary',RangeError,
       record_word0F:0,record_word11:0},
   ]},'left'));
 expectEqual('live editor structural-navigation oracle schema',
-  editorStructuralNavigationOracles.schema,3);
+  editorStructuralNavigationOracles.schema,4);
 const structuralNavigationProjection = state => ({
   controller:state.controller,
   cursor:{
@@ -3634,6 +3637,59 @@ for (const [captureName,capture] of Object.entries(
       structuralNavigationProjection(expected));
     state = moved.state;
   }
+}
+expectEqual('live editor summation-fill oracle schema',
+  editorSummationFillOracle.schema,1);
+const summationFillCapture = editorSummationFillOracle.captures.summation_fill;
+expectEqual('live editor summation-fill capture macro hash',
+  crypto.createHash('sha256').update(fs.readFileSync(path.join(
+    root,summationFillCapture.macro))).digest('hex'),
+  summationFillCapture.macro_sha256);
+expectEqual('live editor summation-fill state/step count',
+  summationFillCapture.states.length,
+  editorSummationFillOracle.steps.length + 1);
+const summationFillStates = summationFillCapture.states.map(
+  (state,index) => {
+    const decoded = rom.decodeMathPrintEditorRam(sparseEditorRam(
+      state,`summation fill state ${index}`));
+    const reconstructed = rom.constructEditorExpressionProgram(
+      decoded.editor.expression,7,font);
+    expectEqual(`summation fill state ${index} reconstructed records`,
+      editorRecordsById(reconstructed.nodes),editorRecordsById(decoded.nodes));
+    const operations = rom.executeSettledRecordProgram(
+      reconstructed.nodes,reconstructed.wrapper_id,
+      {glyphAdvance:editorGlyphAdvance});
+    const lcd = rom.rasterizeSettledOperations(operations,font).grid;
+    expectEqual(`summation fill state ${index} LCD bitmap`,
+      crypto.createHash('sha256').update(
+        packedLcdBytes(lcd)).digest('hex'),state.lcd_bitmap_sha256);
+    return decoded;
+  });
+let summationFillState = summationFillStates[0];
+for (let index = 0; index < editorSummationFillOracle.steps.length; index++) {
+  const step = editorSummationFillOracle.steps[index];
+  const result = step.operation === 'insert'
+    ? rom.editorInsertPackedToken(summationFillState,step.token)
+    : rom.editorMoveCursor(summationFillState,step.direction);
+  expectEqual(`summation fill ${step.name} translated route`,{
+    operation:step.operation,
+    ...(step.operation === 'insert'
+      ? {token:result.mutation.inserted}
+      : {direction:result.mutation.direction}),
+    status:result.mutation.status,
+    routine:result.mutation.routine,
+  },{
+    operation:step.operation,
+    ...(step.operation === 'insert'
+      ? {token:step.token}
+      : {direction:step.direction}),
+    status:step.status,
+    routine:step.routine,
+  });
+  expectEqual(`summation fill ${step.name} decoded state`,
+    structuralNavigationProjection(result.state),
+    structuralNavigationProjection(summationFillStates[index + 1]));
+  summationFillState = result.state;
 }
 expectThrows('decoded editor cursor movement rejects an invalid direction',
   RangeError,() => rom.editorMoveCursor(

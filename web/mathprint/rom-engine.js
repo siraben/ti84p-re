@@ -5448,10 +5448,67 @@
       const id = node.record_id === undefined ? node.id : node.record_id;
       return id === recordId ? {...node,payload:updatedPayload} : node;
     });
-    const decoded = decodeEditorExpressionGraph(
-      nodes,input.entryId,recordId,after);
+    const logicalState = (stateNodes, activeRecordId, byteOffset) => {
+      const decoded = decodeEditorExpressionGraph(
+        stateNodes,input.entryId,activeRecordId,byteOffset);
+      const activeNode = stateNodes.find(node =>
+        (node.record_id === undefined ? node.id : node.record_id) ===
+          activeRecordId);
+      return {
+        entryId:input.entryId,
+        nodes:stateNodes,
+        controller:{...input.controller,activeLeafId:activeRecordId},
+        expression:decodeSettledExpressionGraph(
+          stateNodes,input.entryId,null,null,true),
+        editor:{
+          expression:decoded.expression,
+          cursor:{
+            ...decoded.cursor,
+            ...(Number.isInteger(activeNode.pointer)
+              ? {recordPointer:activeNode.pointer} : {}),
+            left:activeNode.payload.slice(0,byteOffset),
+            right:activeNode.payload.slice(byteOffset),
+          },
+        },
+      };
+    };
+
+    // 34:4796–479B tests the active leaf type after the page-6 write.  Type
+    // 01h calls 34:4181, so a summation/nDeriv variable is atomic: the write
+    // commits its new one-unit payload and selects the following child without
+    // exposing a cursor state after that unit.
+    if (type === 0x01) {
+      const committedNodes = nodes.map(node => {
+        const id = node.record_id === undefined ? node.id : node.record_id;
+        return id === recordId
+          ? {...node,word11:updatedPayload.length} : node;
+      });
+      const advanced = editorMoveCursor(
+        logicalState(committedNodes,recordId,0),'right');
+      return {
+        expression:advanced.expression,
+        state:advanced.state,
+        mutation:{
+          status:'inserted-atomic-variable-and-advanced',
+          inserted:inserted.slice(),
+          record_id:recordId,
+          before_byte_offset:before,
+          after_record_id:advanced.state.editor.cursor.recordId,
+          after_byte_offset:advanced.state.editor.cursor.byteOffset,
+          replaced_empty_slot:replaced,
+          structural_record_id:advanced.mutation.structural_record_id,
+          before_child_index:advanced.mutation.before_child_index,
+          after_child_index:advanced.mutation.after_child_index,
+          routine:'34:4775–47A4 → 34:4BB9–4C0D → 00:3699 → ' +
+            '06:4341–4388 → 34:4796–479B → 34:4181–41D7',
+        },
+      };
+    }
+
+    const state = logicalState(nodes,recordId,after);
     return {
-      expression:decoded.expression,
+      expression:state.editor.expression,
+      state,
       mutation:{
         inserted:inserted.slice(),
         record_id:recordId,
@@ -6523,7 +6580,14 @@
       afterDepth = depth + 1;
       if (afterDepth > 0xff)
         throw new RangeError('editor structural depth overflowed');
-      replaceNode(activeId,{word0F:unitStart});
+      // 34:4311–4328 commits the live gap record before entering from the
+      // right.  A leaf with bytes after the marker can carry a temporary
+      // gap-relative +11h value; the committed record restores the complete
+      // payload length.  The RIGHT route observes the same committed form.
+      replaceNode(activeId,{
+        word0F:unitStart,
+        word11:active.payload.length,
+      });
       replaceNode(afterControllerId,{word05:childIndex + 1});
       replaceNode(childId,{word0F:afterOffset});
       mutation = {
@@ -6561,7 +6625,10 @@
           ? 0 : direction === 'left' ? sibling.payload.length : 0;
         const committedOffset = atomicLeaf && direction === 'right'
           ? active.payload.length : beforeOffset;
-        replaceNode(activeId,{word0F:committedOffset});
+        replaceNode(activeId,{
+          word0F:committedOffset,
+          word11:active.payload.length,
+        });
         replaceNode(controllerId,{word05:siblingIndex + 1});
         replaceNode(siblingId,{word0F:afterOffset});
         mutation = {
@@ -6593,7 +6660,10 @@
           throw new RangeError('editor structural depth underflowed');
         const committedOffset = atomicLeaf && direction === 'right'
           ? active.payload.length : beforeOffset;
-        replaceNode(activeId,{word0F:committedOffset});
+        replaceNode(activeId,{
+          word0F:committedOffset,
+          word11:active.payload.length,
+        });
         replaceNode(parentId,{word0F:afterOffset});
         replaceNode(afterControllerId,{word05:parentChildIndex + 1});
         mutation = {
