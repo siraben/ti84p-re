@@ -1883,6 +1883,9 @@
   // 34:5FF2 selects the left-overflow cue whenever ram:8E02 is nonzero.
   // 34:6031 centers the seven-row bitmap at 34:60B8 against the current
   // record height and sends it through 34:61B2 after the expression draw.
+  // In the normal editor, 34:753F loads the root's height word. A nonzero
+  // high byte or a low byte beyond ram:8DFDh substitutes that bottom bound,
+  // so a tall record keeps the cue centered in the physical viewport.
   function settledEditorViewportOperations(
     operations, viewport, recordHeight, options = {}) {
     if (!Array.isArray(operations))
@@ -1905,6 +1908,9 @@
       ? 0 : viewport.screenYOrigin;
     const bottomBound = viewport.bottomBound === undefined
       ? 0x3e : viewport.bottomBound;
+    const editorMode = byte(
+      options.editorMode === undefined ? 0 : options.editorMode,
+      'settled editor mode');
     for (const [value,label] of [
       [yClip,'settled editor vertical clip'],
       [screenYOrigin,'settled editor screen y origin'],
@@ -1977,16 +1983,23 @@
         });
       translated.push(positioned);
     }
-    if (viewport.xClip !== 0) translated.push({
-      kind:'bitmap',
-      x:viewport.xOrigin,
-      y:viewport.yOrigin + Math.max(0, Math.floor(recordHeight / 2) - 3),
-      width:4,
-      height:7,
-      rows:SETTLED_LEFT_OVERFLOW_ROWS.slice(),
-      retainUnchanged:true,
-      routine:'34:5FF2 → 34:6031 → 34:61B2; bitmap at 34:60B8',
-    });
+    if (viewport.xClip !== 0) {
+      // 34:78A3 skips the root-height lookup in editor mode 49h. Otherwise,
+      // 34:753F reads the +07h height word and 34:6043–6050 clamps it to the
+      // one-byte bottom bound before 34:6053 halves the chosen value.
+      const cueHeight = editorMode === 0x49
+        ? bottomBound : Math.min(recordHeight,bottomBound);
+      translated.push({
+        kind:'bitmap',
+        x:viewport.xOrigin,
+        y:viewport.yOrigin + Math.floor(cueHeight / 2) - 3,
+        width:4,
+        height:7,
+        rows:SETTLED_LEFT_OVERFLOW_ROWS.slice(),
+        retainUnchanged:true,
+        routine:'34:5FF2 → 34:6031 → 34:61B2; bitmap at 34:60B8',
+      });
+    }
     return translated;
   }
 

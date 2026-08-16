@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "source": "natural reset-origin TilEm entry with a RAM snapshot and pre-ENTER 96x64 screenshot",
+  "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
+  "capture_executable_sha256": "40cf1f9ff975217ede238cd02bfd6a85fa6bfecf8cbcea173b0d7705b144330b",
+  "expression": "((((1//1)//(1//1))//((1//1)//(1//1)))//(((1//1)//(1//1))//((1//1)//(1//1))))+1234567890123",
+  "input_cadence": {
+    "key_delay_seconds": 0.24,
+    "inter_key_wait_seconds": 0.25
+  },
+  "native_tokens": [
+    16, 16, 16, 16, 49, 239, 46, 49, 17, 239, 46, 16, 49, 239, 46,
+    49, 17, 17, 239, 46, 16, 16, 49, 239, 46, 49, 17, 239, 46, 16,
+    49, 239, 46, 49, 17, 17, 17, 239, 46, 16, 16, 16, 49, 239, 46,
+    49, 17, 239, 46, 16, 49, 239, 46, 49, 17, 17, 239, 46, 16, 16,
+    49, 239, 46, 49, 17, 239, 46, 16, 49, 239, 46, 49, 17, 17, 17,
+    17, 112, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 49, 50, 51
+  ],
+  "calculator": {
+    "settled_graph_matches_requested_ast": true,
+    "word05_height": 125,
+    "expression_endpoint": 104,
+    "cursor_width": 6,
+    "ram_8518_cursor_top": 59,
+    "ram_8dfd_bottom_bound": 62,
+    "ram_8e02_x_clip": 15,
+    "ram_8e04_y_clip": 8,
+    "ram_sha256": "f2d75975a876143e1d60cadc7b574c208520f84e2c6310f2c66ea288d1947844",
+    "screenshot_png_sha256": "94b2556d6a7f45b9f08e1655d9dabf59e8f8751c57ec9beb1756634ccc83aa2a"
+  },
+  "translated": {
+    "node_count": 46,
+    "record_height": 125,
+    "expression_endpoint": 104,
+    "x_clip": 15,
+    "first_y_clip": 4,
+    "second_y_clip": 8,
+    "left_cue_y": 28,
+    "settled_operation_count": 22,
+    "editor_chrome_operation_count": 2,
+    "full_operation_count": 24,
+    "full_accepted_write_count": 202,
+    "full_accepted_write_sha256": "870ae53e312aba65700fe984c6b8dcc5b063c103315cdc8d6cb6b35821b30640",
+    "settled_lcd_sha256": "4a38eb4437b3422b4ff93246b9eb94fec142bc2c3579dd07962daa0414ac7fd1",
+    "full_lcd_sha256": "ae858d5763e6b7bc468ab0fc6a87525d5a351fd8dcac2788a89f58ff7513c35a"
+  },
+  "full_lcd": {
+    "width": 96,
+    "height": 64,
+    "screenshot_match_percent": 100,
+    "sha256": "ae858d5763e6b7bc468ab0fc6a87525d5a351fd8dcac2788a89f58ff7513c35a"
+  },
+  "notes": [
+    "The natural graph decoder confirms every requested node and all thirteen suffix digits before comparing pixels.",
+    "34:6031 clamps the 125-row root height to the 62-row viewport before centering the left-overflow cue at rows 28 through 34.",
+    "The translated expression, left cue, and both vertical cues reproduce all 6144 LCD pixels."
+  ]
+}
