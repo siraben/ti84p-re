@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "transitions": [
     {
       "name": "root_append_2",
@@ -75,6 +75,96 @@
           {"address": 64558, "bytes": "ef1e0a000008000500060002000300080000000200ef1e"}
         ]
       }
+    }
+  ],
+  "sequences": [
+    {
+      "name": "nested_list_matrix_entry",
+      "macro": "tools/macros/mathprint-editor-matrix-build.macro",
+      "macro_sha256": "6423296f2dca52918a210829e58cb09383bb8e6acfede5e68544615530e673b6",
+      "trace_sha256": "1758184d5f4a5f3b43340769c9eebcb79e6470dfd97064cd44e3d7d24d1667bd",
+      "routine": "34:4775–47A4 → 34:4BB9–4C0D → 00:3699 → 06:4341–4388",
+      "states": [
+        {
+          "source_ram_sha256": "4440dfb4241cdb179c7cb186166637463525b016a451a76d1d3d9e32dc3228ba",
+          "screenshot_sha256": "25ed88ebb5c27d4a256ad5e5f7af581321aefb78c27fad525b577933bcbd15ea",
+          "lcd_bitmap_sha256": "ef115a0e0c15cdc41958ca46b5b14b456115f4baec5e3ca68599d2a8f435e3b8",
+          "sparse_state_sha256": "de82f677ec025ef7c1d1bea538def80576ba5eb22acaeff9348218e79623cf22",
+          "segments": [
+            {"address": 35313, "bytes": "04"},
+            {"address": 36271, "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"},
+            {"address": 38644, "bytes": "e09de09d45fc45fc"},
+            {"address": 40375, "bytes": "06001f0000010007000600030000000000000000070007000006000700060003000000000000000000"}
+          ]
+        },
+        {
+          "source_ram_sha256": "e3e816f05b22c755dd613944daa015bdc5c797c557a61a318989a72951103889",
+          "screenshot_sha256": "04ce324a3e5dd0716d6c8cce688d723e17231b5c8ae922b34babab74c2614bd3",
+          "lcd_bitmap_sha256": "c95cfae45233a454c6c4f78f4d29d1948ebea91cef83887664f5e51f8b4d8037",
+          "sparse_state_sha256": "a9ac8a82d237b48bdfc06d89c5806604f6f245878e5555d6e631853ccce10d3a",
+          "segments": [
+            {"address": 35313, "bytes": "04"},
+            {"address": 36271, "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"},
+            {"address": 38644, "bytes": "e09de19d45fc45fc"},
+            {"address": 40375, "bytes": "06001f0000010007000c000300000000000000000700070000060007000c000300000000000000000008"}
+          ]
+        },
+        {
+          "source_ram_sha256": "b7e9b6d5b72fde6c0a938ef7f37ae4b521fa0b6c28e3140ddcd83a7e1a2df8bb",
+          "screenshot_sha256": "63b176ee4c9fa430b4b713ab43426949b1dc2ffaa0948999d6556f8cd12da8d8",
+          "lcd_bitmap_sha256": "62dfd4b6856e1900b6422d89346cf4234a64d170285bcfcbf08d2783065a5258",
+          "sparse_state_sha256": "4c380905d965ca6339f05b2fd3693c6ffd02ec5f00d6e7003c9a913c55b69557",
+          "segments": [
+            {"address": 35313, "bytes": "04"},
+            {"address": 36271, "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"},
+            {"address": 38644, "bytes": "e09de29d45fc45fc"},
+            {"address": 40375, "bytes": "06001f00000100070012000300000000000000000700070000060007001200030000000000000000000808"}
+          ]
+        },
+        {
+          "source_ram_sha256": "6b376f82e591c5fb8991823e051676cb6728c1949b333b1ee2d9540c40bb85ff",
+          "screenshot_sha256": "f663b23363ff1c15a176b81244d703f9310ef89b79f22182be735644e5cc1626",
+          "lcd_bitmap_sha256": "893f503f475db1016a254ebff645e695b3a6743bc22aeb116a413a0c3ed78543",
+          "sparse_state_sha256": "4a8c1d7728f44a6a13aa6fdb44130f2be6bcfcca10b9fe7e65504cde5cdcf97d",
+          "segments": [
+            {"address": 35313, "bytes": "04"},
+            {"address": 36271, "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"},
+            {"address": 38644, "bytes": "e09de39d45fc45fc"},
+            {"address": 40375, "bytes": "06001f0000010007001800030000000000000000070007000006000700180003000000000000000000080831"}
+          ]
+        },
+        {
+          "source_ram_sha256": "bcf5917797eaf6aafd8e788e5567dae8c0eb1b50b23196ebda46b72f0f8efc45",
+          "screenshot_sha256": "9397a0fafbad67981e9ede22ba12de8b998561c3687974462e4e04afd39f6dcd",
+          "lcd_bitmap_sha256": "d90435a232731dc0ddbeccb4cbfb384c48371826fb57f7efb93743aee23872e2",
+          "sparse_state_sha256": "26da3cbcca32fe83804b0102f371c3b7b48158de9e2ed884982163b22403e2b0",
+          "segments": [
+            {"address": 35313, "bytes": "04"},
+            {"address": 36271, "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"},
+            {"address": 38644, "bytes": "e09de49d45fc45fc"},
+            {"address": 40375, "bytes": "06001f0000010007001e000300000000000000000700070000060007001e000300000000000000000008083109"}
+          ]
+        },
+        {
+          "source_ram_sha256": "2a1ffb1bb55322c1b8753614811d1ce0ee0a207a6d45fce52c81f9e0fc54320d",
+          "screenshot_sha256": "9e9a8d6cd195d2bafcf15a673e82a85738e42026f36fa12e067d1b3bf4b8b499",
+          "lcd_bitmap_sha256": "a9cf29d74f88c0622f1982fe701d1a4421b92381c9b35c2fa04b9d9bb8892d1c",
+          "sparse_state_sha256": "52ae1a660608c12f72823e378c212e50335d5494c25528d20d91ca7eeedc9e4f",
+          "segments": [
+            {"address": 35313, "bytes": "04"},
+            {"address": 36271, "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"},
+            {"address": 38644, "bytes": "e09de59d45fc45fc"},
+            {"address": 40375, "bytes": "06001f00000100070024000300000000000000000700070000060007002400030000000000000000000808310909"}
+          ]
+        }
+      ],
+      "steps": [
+        {"name": "open_outer_list", "inserted_token": [8], "replaced_empty_slot": false},
+        {"name": "open_inner_list", "inserted_token": [8], "replaced_empty_slot": false},
+        {"name": "insert_element_1", "inserted_token": [49], "replaced_empty_slot": false},
+        {"name": "close_inner_list", "inserted_token": [9], "replaced_empty_slot": false},
+        {"name": "close_outer_list", "inserted_token": [9], "replaced_empty_slot": false}
+      ]
     }
   ]
 }

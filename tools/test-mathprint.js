@@ -3265,7 +3265,7 @@ for (const oracle of editorGapOracles.cases) {
       packedLcdBytes(reconstructedLcd)).digest('hex'),
     oracle.lcd_bitmap_sha256);
 }
-expectEqual('live editor mutation oracle schema', editorMutationOracles.schema, 1);
+expectEqual('live editor mutation oracle schema', editorMutationOracles.schema, 2);
 const sparseEditorRam = (state, label) => {
   const ram = new Uint8Array(0x8000);
   const digest = crypto.createHash('sha256');
@@ -3291,7 +3291,7 @@ for (const oracle of editorMutationOracles.transitions) {
   const after = rom.decodeMathPrintEditorRam(
     sparseEditorRam(oracle.post,`${oracle.name} post-insertion`));
   const inserted = rom.editorInsertPackedToken(
-    before.editor.expression,oracle.inserted_token);
+    before,oracle.inserted_token);
   expectEqual(`${oracle.name} translated insertion path`,inserted.mutation,{
     inserted:oracle.inserted_token,
     record_id:before.editor.cursor.recordId,
@@ -3313,6 +3313,46 @@ for (const oracle of editorMutationOracles.transitions) {
   expectEqual(`${oracle.name} reconstructed post-insertion LCD bitmap`,
     crypto.createHash('sha256').update(packedLcdBytes(lcd)).digest('hex'),
     oracle.post.lcd_bitmap_sha256);
+}
+for (const sequence of editorMutationOracles.sequences) {
+  const macro = fs.readFileSync(path.join(root,sequence.macro));
+  expectEqual(`${sequence.name} capture macro hash`,
+    crypto.createHash('sha256').update(macro).digest('hex'),
+    sequence.macro_sha256);
+  expectEqual(`${sequence.name} state/step count`,
+    sequence.states.length,sequence.steps.length + 1);
+  const states = sequence.states.map((state,index) =>
+    rom.decodeMathPrintEditorRam(sparseEditorRam(
+      state,`${sequence.name} state ${index}`)));
+  for (let index = 0; index < states.length; index++) {
+    const reconstructed = rom.constructEditorExpressionProgram(
+      states[index].editor.expression,7,font);
+    expectEqual(`${sequence.name} state ${index} reconstructed records`,
+      editorRecordsById(reconstructed.nodes),editorRecordsById(states[index].nodes));
+    const operations = rom.executeSettledRecordProgram(
+      reconstructed.nodes,reconstructed.wrapper_id,
+      {glyphAdvance:editorGlyphAdvance});
+    const lcd = rom.rasterizeSettledOperations(operations,font).grid;
+    expectEqual(`${sequence.name} state ${index} reconstructed LCD bitmap`,
+      crypto.createHash('sha256').update(packedLcdBytes(lcd)).digest('hex'),
+      sequence.states[index].lcd_bitmap_sha256);
+  }
+  for (let index = 0; index < sequence.steps.length; index++) {
+    const step = sequence.steps[index];
+    const inserted = rom.editorInsertPackedToken(
+      states[index],step.inserted_token);
+    expectEqual(`${sequence.name} ${step.name} translated insertion path`,
+      inserted.mutation,{
+        inserted:step.inserted_token,
+        record_id:states[index].editor.cursor.recordId,
+        before_byte_offset:states[index].editor.cursor.byteOffset,
+        after_byte_offset:states[index + 1].editor.cursor.byteOffset,
+        replaced_empty_slot:step.replaced_empty_slot,
+        routine:sequence.routine,
+      });
+    expectEqual(`${sequence.name} ${step.name} decoded editor transition`,
+      inserted.expression,states[index + 1].editor.expression);
+  }
 }
 expectEqual('live editor structural-mutation oracle schema',
   editorStructuralMutationOracles.schema,1);
@@ -3620,7 +3660,7 @@ const emptyNumeratorRam = sparseEditorRam(
   'empty numerator insertion source');
 const emptyNumerator = rom.decodeMathPrintEditorRam(emptyNumeratorRam);
 const filledNumerator = rom.editorInsertPackedToken(
-  emptyNumerator.editor.expression,[0x31]);
+  emptyNumerator,[0x31]);
 expectEqual('ordinary insertion replaces an empty-slot token', {
   mutation:filledNumerator.mutation,
   expression:filledNumerator.expression,
@@ -3653,11 +3693,10 @@ expectEqual('filled numerator retains the active leaf and pre-gap header words',
     child_ids:[],payload:[0x31],
   });
 expectThrows('ordinary insertion rejects multiple packed tokens', RangeError,
-  () => rom.editorInsertPackedToken(
-    emptyNumerator.editor.expression,[0x31,0x32]));
+  () => rom.editorInsertPackedToken(emptyNumerator,[0x31,0x32]));
 expectThrows('ordinary insertion rejects structural markers', RangeError,
-  () => rom.editorInsertPackedToken(emptyNumerator.editor.expression,
-    [0xef,0x20,8,0,0xef,0x2d]));
+  () => rom.editorInsertPackedToken(
+    emptyNumerator,[0xef,0x20,8,0,0xef,0x2d]));
 
 const settledGlyphAdvance = (depth, code) => {
   if (depth === 0) return 6;

@@ -1,0 +1,36 @@
+# Capture each state while constructing a one-cell matrix from bracket tokens.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+wait 0.5s
+memdump /tmp/mathprint-editor-matrix-build-0.ram ram-logical
+screenshot /tmp/mathprint-editor-matrix-build-0.png
+key 2ND
+key LPAREN
+wait 0.4s
+memdump /tmp/mathprint-editor-matrix-build-1.ram ram-logical
+screenshot /tmp/mathprint-editor-matrix-build-1.png
+key 2ND
+key LPAREN
+wait 0.4s
+memdump /tmp/mathprint-editor-matrix-build-2.ram ram-logical
+screenshot /tmp/mathprint-editor-matrix-build-2.png
+key 1
+wait 0.4s
+memdump /tmp/mathprint-editor-matrix-build-3.ram ram-logical
+screenshot /tmp/mathprint-editor-matrix-build-3.png
+key 2ND
+key RPAREN
+wait 0.4s
+memdump /tmp/mathprint-editor-matrix-build-4.ram ram-logical
+screenshot /tmp/mathprint-editor-matrix-build-4.png
+key 2ND
+key RPAREN
+wait 0.8s
+memdump /tmp/mathprint-editor-matrix-build-5.ram ram-logical
+screenshot /tmp/mathprint-editor-matrix-build-5.png
