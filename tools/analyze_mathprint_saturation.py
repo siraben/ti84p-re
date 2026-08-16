@@ -283,6 +283,22 @@ TRANSLATION_SURFACES = (
         "scope": "synchronous accepted LCD writes, including unchanged writes",
     },
     {
+        "name": "glyph viewport and timer run indicator",
+        "rom": ["34:6C5F–6C87", "ram:027B–0283", "01:6BBA–6BFA"],
+        "javascript": [
+            "settledGlyphViewportDecision", "settledEditorViewportOperations",
+            "settledRunIndicatorTick",
+        ],
+        "tests": [
+            "tools/test-mathprint.js",
+            "tools/mathprint-nested-baseline-oracles.json",
+        ],
+        "scope": (
+            "word-wrapped glyph gates and run-indicator state transition; "
+            "interrupt insertion phase remains external UI state"
+        ),
+    },
+    {
         "name": "alphabetic VAT selection",
         "rom": ["07:50B5–525D", "39:59E0–5B44"],
         "javascript": [
@@ -1174,6 +1190,96 @@ def symbolic_editor_horizontal_viewport_paths() -> list[dict[str, object]]:
         }
         for terminal, outcomes in sorted(classes)
     ]
+
+
+def glyph_viewport_path(
+    logical_pen: int,
+    advance: int,
+    x_clip: int,
+    right_bound: int = 0x5F,
+) -> dict[str, object]:
+    """Return one word-wrapped path through 34:6C5F–6C87."""
+
+    logical_pen &= 0xFFFF
+    advance &= 0xFFFF
+    x_clip &= 0xFFFF
+    right_bound &= 0xFF
+    if logical_pen < x_clip:
+        return {
+            "terminal": "skip_left",
+            "endpoint": None,
+            "right_exclusive": None,
+            "branch_outcomes": ["34:6C69:taken"],
+        }
+    endpoint = (logical_pen + advance) & 0xFFFF
+    right_exclusive = (x_clip + right_bound + 1) & 0xFFFF
+    skip_right = right_exclusive < endpoint
+    return {
+        "terminal": "skip_right" if skip_right else "draw",
+        "endpoint": endpoint,
+        "right_exclusive": right_exclusive,
+        "branch_outcomes": [
+            "34:6C69:fallthrough",
+            f"34:6C7F:{'fallthrough' if skip_right else 'taken'}",
+        ],
+    }
+
+
+def symbolic_glyph_viewport_paths() -> list[dict[str, object]]:
+    """Partition all pen/clip words for the observed zero-to-six advances."""
+
+    word_count = 0x10000
+    right_bound = 0x5F
+    advances = range(7)
+    skip_left_per_advance = word_count * (word_count - 1) // 2
+    counts = {
+        "skip_left": skip_left_per_advance * len(advances),
+        "draw": 0,
+        "skip_right": 0,
+    }
+
+    def at_most(start: int, length: int, bound: int) -> int:
+        if length <= 0 or start > bound:
+            return 0
+        return min(length, bound - start + 1)
+
+    # For pen >= clip, write pen=clip+d. The endpoint increases linearly and
+    # wraps at most once over 0 <= d < 10000h-clip. Count each non-wrapping
+    # segment against the wrapped right-exclusive word.
+    for advance in advances:
+        for x_clip in range(word_count):
+            length = word_count - x_clip
+            first_length = min(length, max(0, word_count - x_clip - advance))
+            right_exclusive = (x_clip + right_bound + 1) & 0xFFFF
+            draw = at_most(x_clip + advance, first_length, right_exclusive)
+            second_length = length - first_length
+            second_start = x_clip + advance + first_length - word_count
+            draw += at_most(second_start, second_length, right_exclusive)
+            counts["draw"] += draw
+            counts["skip_right"] += length - draw
+
+    representatives = {
+        "skip_left": {"logical_pen": 0, "advance": 4, "x_clip": 1,
+                      "right_bound": right_bound},
+        "draw": {"logical_pen": 92, "advance": 4, "x_clip": 0,
+                 "right_bound": right_bound},
+        "skip_right": {"logical_pen": 95, "advance": 4, "x_clip": 0,
+                       "right_bound": right_bound},
+    }
+    rows = []
+    for terminal in ("skip_left", "draw", "skip_right"):
+        state = representatives[terminal]
+        result = glyph_viewport_path(**state)
+        if result["terminal"] != terminal:
+            raise AssertionError("glyph-viewport representative has the wrong terminal")
+        rows.append({
+            **result,
+            "projected_input_count": counts[terminal],
+            "representative_states": [state],
+        })
+    if sum(counts.values()) != word_count**2 * len(advances):
+        raise AssertionError("glyph-viewport partition does not cover its domain")
+    return rows
 
 
 def record_allocation_capacity_path(
@@ -2433,6 +2539,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             symbolic_editor_horizontal_viewport_paths(),
         ),
         (
+            "glyph_viewport_gates",
+            "34:6C5F–6C87",
+            0x10000 * 0x10000 * 7,
+            symbolic_glyph_viewport_paths(),
+        ),
+        (
             "record_allocation_capacity",
             "34:4B7C; caller 34:486F",
             2**65,
@@ -3394,10 +3506,10 @@ def open_paths(
         },
         {
             "area": "asynchronous LCD writes",
-            "status": "outside parity surface",
+            "status": "translated_with_external_timing",
             "reason": (
-                "the translated stream models synchronous MathPrint writes; timer interrupt "
-                "indicator writes are separated from renderer parity"
+                "the run-indicator state transition and pixels are translated; its "
+                "instruction-level insertion phase is timer state, not expression state"
             ),
         },
         {

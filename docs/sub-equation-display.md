@@ -573,7 +573,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 17 finite models. It also computes an
+complete path-equivalence class in 18 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -590,6 +590,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Editor action `0x04` controller | 131,072 | 5 | 5 | 3 |
 | Reverse argument-overflow cue | 65,536 | 2 | 2 | 2 |
 | Editor horizontal viewport | 17,179,869,184 | 8 | 6 | 2 |
+| Glyph viewport gates | 30,064,771,072 | 3 | 4 | 3 |
 | Record-allocation capacity | 36,893,488,147,419,103,232 | 6 | 6 | 2 |
 | Saved-operand wrappers | 16 | 12 | 12 | 8 |
 | FindAlpha type normalization | 32 | 31 | 8 | 4 |
@@ -598,8 +599,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha candidate reducer | 288 | 25 | 17 | 10 |
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 
-The 17 models contain 1,307 path classes and 173 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 88 representatives. Each
+The 18 models contain 1,310 path classes and 177 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 91 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -1659,9 +1660,26 @@ A further reset-origin trace covers a tall `logBASE(` body and a summation
 evaluation value whose body contains a raised `logBASE(`. It proves the
 small-row type-`0x28` constants and the $B+4-b_e$ evaluation-value placement.
 The translated graph matches all 18 records and the final normalized
-88-by-19-pixel entry bitmap. The outer record-render interval contains 203
-accepted LCD writes; exact sequence parity for its editor viewport clears and
-right-overflow cue remains open. [confirmed]
+88-by-19-pixel entry bitmap. The synchronous renderer contributes 195 accepted
+LCD writes. Their byte-column and row sequence matches the trace after removing
+an eight-write timer interrupt. [confirmed]
+
+`34:6C6B` adds the four-pixel glyph advance to logical pen positions `87`,
+`91`, and `95`. `34:6C76` derives the one-past-right coordinate `96`.
+The compare at `34:6C7C` draws the first two glyphs because their endpoints are
+`91` and `95`; it skips the third glyph because its endpoint is `99`.
+The JavaScript applies the same whole-glyph gate. [confirmed]
+
+The interrupt reaches `run_indicator_tick` at `ram:027B` with
+`indicCounter=1` and `indicBusy=0x78`. `01:6BBA` reloads the counter to `0x14`,
+rotates the busy byte to `0x3C`, and rewrites pixel 95 across rows 0–7 as
+`0,0,1,1,1,1,0,0`. Inserting this translated operation after the captured 28th
+renderer operation reproduces all 203 accepted writes, including subsequent
+read-modify-write bytes, with SHA-256
+`1cd0a761fab7b948a1bd55cf47d627cdcab0c24620a2da0d3fe8204d1c3691a1`.
+The insertion point is timer phase, not expression-tree state. Generated
+expression timelines therefore keep this operation labeled as asynchronous UI
+state. [confirmed]
 
 Flat absolute-value bodies and expressions composed from ordinary token runs,
 the native `Ans`, `sin(`, `cos(`, `tan(`, `ln(`, and `log(` tokens,
@@ -1796,6 +1814,13 @@ suffix of a glyph that begins left of the viewport. The reset-origin expression
 three pixels left of the visible edge. Applying the whole-glyph skip, followed
 by the seven-row left-overflow cue, reproduces all 870 pixels of the cropped
 87×10 calculator frame. [confirmed]
+
+The right-edge gate uses the same logical glyph advance. `34:6C6B`–`34:6C71`
+adds the advance to the pen. `34:6C73`–`34:6C7A` derives the one-past-right
+viewport coordinate, and `34:6C7C` skips the glyph when its endpoint is larger.
+Equality draws the glyph, so an endpoint of `96` may occupy pixel 95. The
+translated viewport applies both whole-glyph gates before rasterization.
+[confirmed]
 
 The eight writes inserted at instruction index 56 come from
 `page_34:6CA8` → `ram:3CE1`. That call stack does not pass through `34:608F`, so

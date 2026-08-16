@@ -121,6 +121,13 @@ const editorViewportRomSpans = [
     'd52a1685cdc25d3008010000ed43028e19110600fdcb445e20011b19d119cdca' +
     '5db7ed52d8ed5b028e1922028ec9', 'hex')},
 ];
+const glyphViewportRomSpan = {address:0x6c5f, bytes:Buffer.from(
+  '2a1685ed5b028ecdbb213816e1e5ed5b168519e52a028ecdca5d1319d1cdbb21' +
+  '3006d1e1f1d51824', 'hex')};
+const runIndicatorRomSpan = {address:0x6bba, bytes:Buffer.from(
+  'f33e2bcdc30cd3103614217784cb0e4e060816807acd895acdc920cdc30cdb11c' +
+  'dc30cdb115f7acd895acdc9207bcb193804cb871802cbc7cdc30cd3111410d4c9',
+  'hex')};
 const editorViewportByteMap = new Map(editorViewportRomSpans.flatMap(span =>
   Array.from(span.bytes,
     (value, offset) => [span.address + offset, value])));
@@ -870,6 +877,18 @@ if (fs.existsSync(localRomPath)) {
     expectEqual(`34:${span.address.toString(16)} raw editor-viewport bytes`,
       localRom.subarray(offset, offset + span.bytes.length), span.bytes);
   }
+  const glyphViewportOffset = 0x34 * 0x4000 +
+    (glyphViewportRomSpan.address & 0x3fff);
+  expectEqual('34:6C5F–6C86 raw glyph-viewport bytes',
+    localRom.subarray(
+      glyphViewportOffset,glyphViewportOffset + glyphViewportRomSpan.bytes.length),
+    glyphViewportRomSpan.bytes);
+  const runIndicatorOffset = 0x01 * 0x4000 +
+    (runIndicatorRomSpan.address & 0x3fff);
+  expectEqual('01:6BBA–6BFA raw run-indicator bytes',
+    localRom.subarray(
+      runIndicatorOffset,runIndicatorOffset + runIndicatorRomSpan.bytes.length),
+    runIndicatorRomSpan.bytes);
   for (const span of recordCapacityRomSpans) {
     const offset = 0x34 * 0x4000 + (span.address & 0x3fff);
     expectEqual(`34:${span.address.toString(16)} raw record-capacity bytes`,
@@ -2368,11 +2387,53 @@ expectEqual('34:6C5F skips a glyph whose left edge precedes the editor clip',
   ], rom.settledEditorViewport(106), 10).slice(0,-1), [
     {kind:'glyph',code:0x41,x:0,y:3,depth:0,routine:'test'},
   ]);
+expectEqual('34:6C6B skips only glyphs past the one-past-right endpoint',
+  rom.settledEditorViewportOperations([
+    {kind:'glyph',code:0x41,x:91,y:3,depth:1,routine:'test'},
+    {kind:'glyph',code:0x41,x:92,y:3,depth:1,routine:'test'},
+    {kind:'glyph',code:0x41,x:95,y:3,depth:1,routine:'test'},
+  ], rom.settledEditorViewport(0), 10, {
+    glyphAdvance:() => 4,
+  }), [
+    {kind:'glyph',code:0x41,x:91,y:3,depth:1,routine:'test'},
+    {kind:'glyph',code:0x41,x:92,y:3,depth:1,routine:'test'},
+  ]);
+expectEqual('34:6C5F/6C7C exposes both glyph clipping comparisons', [
+  rom.settledGlyphViewportDecision(0,4,1),
+  rom.settledGlyphViewportDecision(92,4,0),
+  rom.settledGlyphViewportDecision(95,4,0),
+  rom.settledGlyphViewportDecision(0xffff,1,0),
+], [
+  {action:'skip-left',logicalPen:0,endpoint:null,rightExclusive:null,
+   branchOutcomes:['34:6C69:taken']},
+  {action:'draw',logicalPen:92,endpoint:96,rightExclusive:96,
+   branchOutcomes:['34:6C69:fallthrough','34:6C7F:taken']},
+  {action:'skip-right',logicalPen:95,endpoint:99,rightExclusive:96,
+   branchOutcomes:['34:6C69:fallthrough','34:6C7F:fallthrough']},
+  {action:'draw',logicalPen:0xffff,endpoint:0,rightExclusive:96,
+   branchOutcomes:['34:6C69:fallthrough','34:6C7F:taken']},
+]);
 expectEqual('34:608F selects and positions the right overflow bitmap',
   rom.settledEditorRightCueOperation(rom.settledEditorViewport(106), 23), {
     kind:'bitmap', x:91, y:8, width:4, height:7,
     rows:[0x00,0x04,0x06,0x07,0x06,0x04,0x00], retainUnchanged:true,
     routine:'34:5FFA → 34:607A → 34:608F; bitmap at 34:60C0',
+  });
+expectEqual('ram:027B leaves the run indicator idle before counter zero',
+  rom.settledRunIndicatorTick(2,0x78), {
+    indicCounter:1, indicBusy:0x78, operation:null,
+    routine:'ram:027B–0283',
+  });
+expectEqual('01:6BBA rotates and emits the run indicator at counter zero',
+  rom.settledRunIndicatorTick(1,0x78), {
+    indicCounter:0x14,
+    indicBusy:0x3c,
+    operation:{
+      kind:'bitmap',x:95,y:0,width:1,height:8,
+      rows:[0,0,1,1,1,1,0,0],retainUnchanged:true,asynchronous:true,
+      routine:'ram:027B–0283 → 01:6BBA–6BFA',
+    },
+    routine:'ram:027B–0283 → 01:6BBA–6BFA',
   });
 const objectHandlers = [0x6d0c,0x706a,0x70b8,0x702c,0x7133,0x70a0,0x70e2,
   0x70e2,0x7087,0x7102,0x717e,0x70c1,0x71c6];
@@ -4294,6 +4355,51 @@ for (const oracle of nestedBaselineOracles.nested_layout_cases) {
   expectEqual(`${oracle.expression} reproduces the nested layout graph`,
     {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
     {entry_id:oracle.entry_id, origin:oracle.origin, nodes:oracle.nodes});
+  const root = program.nodes.find(node => node.record_id === program.entry_id);
+  const recordOperations = rom.executeSettledRecordProgram(
+    program.nodes, program.entry_id, {
+      origin:program.origin,
+      glyphAdvance:settledGlyphAdvance,
+    });
+  const synchronousOperations = rom.settledEditorViewportOperations(
+    recordOperations,rom.settledEditorViewport(0),root.word05,{
+      glyphAdvance:settledGlyphAdvance,
+    });
+  const synchronousWrites = rom.rasterizeSettledOperations(
+    synchronousOperations,font).writes;
+  expectEqual(`${oracle.expression} applies the traced right glyph gate`,
+    synchronousWrites.length,oracle.synchronous_renderer.accepted_write_count);
+  expectEqual(`${oracle.expression} reproduces synchronous write pointer order`,
+    crypto.createHash('sha256').update(Buffer.from(
+      synchronousWrites.flatMap(write => write.pointer))).digest('hex'),
+    oracle.synchronous_renderer.pointer_sha256);
+  expectEqual(`${oracle.expression} produces the synchronous counterfactual bytes`,
+    crypto.createHash('sha256').update(Buffer.from(
+      synchronousWrites.flatMap(write => [...write.pointer,write.value])))
+      .digest('hex'),oracle.synchronous_renderer.translated_write_sha256);
+  const interrupt = oracle.run_indicator_interrupt;
+  const tick = rom.settledRunIndicatorTick(
+    interrupt.indic_counter_before,interrupt.indic_busy_before);
+  expectEqual(`${oracle.expression} translates the interrupt state transition`, {
+    indicCounter:tick.indicCounter,
+    indicBusy:tick.indicBusy,
+    rows:tick.operation.rows,
+  }, {
+    indicCounter:interrupt.indic_counter_after,
+    indicBusy:interrupt.indic_busy_after,
+    rows:interrupt.rows,
+  });
+  const interruptedOperations = synchronousOperations.slice();
+  interruptedOperations.splice(
+    interrupt.after_operation_count,0,tick.operation);
+  const interruptedWrites = rom.rasterizeSettledOperations(
+    interruptedOperations,font).writes;
+  expectEqual(`${oracle.expression} reproduces interrupt-inclusive write count`,
+    interruptedWrites.length,oracle.accepted_write_count);
+  expectEqual(`${oracle.expression} reproduces interrupt-inclusive write stream`,
+    crypto.createHash('sha256').update(Buffer.from(
+      interruptedWrites.flatMap(write => [...write.pointer,write.value])))
+      .digest('hex'),oracle.accepted_write_sha256);
   const generated = mp.generatedForExpression(oracle.expression);
   if (!generated)
     throw new Error(`${oracle.expression} has no generated nested layout`);

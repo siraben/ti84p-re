@@ -32,6 +32,7 @@ from analyze_mathprint_saturation import (
     find_alpha_key_preparation_path,
     find_alpha_record_step_path,
     find_alpha_type_class_path,
+    glyph_viewport_path,
     iter_oracle_cases,
     oracle_coverage,
     oracle_trace_features,
@@ -60,6 +61,7 @@ from analyze_mathprint_saturation import (
     symbolic_find_alpha_key_preparation_paths,
     symbolic_find_alpha_record_step_paths,
     symbolic_find_alpha_type_class_paths,
+    symbolic_glyph_viewport_paths,
     symbolic_record_allocation_capacity_paths,
     symbolic_model_corpus,
     symbolic_raised_extended_token_paths,
@@ -248,13 +250,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(1307, report["path_equivalence_class_count"])
-        self.assertEqual(1307, report["representative_path_corpus_count"])
-        self.assertEqual(173, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(1310, report["path_equivalence_class_count"])
+        self.assertEqual(1310, report["representative_path_corpus_count"])
+        self.assertEqual(177, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            88, report["per_domain_minimum_branch_outcome_corpus_count"]
+            91, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(17, len(report["domains"]))
+        self.assertEqual(18, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -304,6 +306,34 @@ class SymbolicHandlerTests(unittest.TestCase):
         wrapped = editor_horizontal_viewport_path(0xFFFF, 0, 1, 0)
         self.assertEqual(5, wrapped["comparison_coordinate"])
         self.assertEqual("return_before_right_bound", wrapped["terminal"])
+
+    def test_glyph_viewport_partitions_pen_clip_words_and_advances(self) -> None:
+        paths = symbolic_glyph_viewport_paths()
+
+        self.assertEqual(0x10000**2 * 7, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(3, len(paths))
+        self.assertEqual({
+            "skip_left", "draw", "skip_right",
+        }, {row["terminal"] for row in paths})
+        self.assertEqual({
+            "skip_left": 15_032_156_160,
+            "draw": 44_435_706,
+            "skip_right": 14_988_179_206,
+        }, {
+            row["terminal"]: row["projected_input_count"] for row in paths
+        })
+        self.assertEqual(
+            "skip_left", glyph_viewport_path(0, 4, 1)["terminal"]
+        )
+        self.assertEqual("draw", glyph_viewport_path(92, 4, 0)["terminal"])
+        self.assertEqual(
+            "skip_right", glyph_viewport_path(95, 4, 0)["terminal"]
+        )
+        wrapped = glyph_viewport_path(0xFFFF, 1, 0)
+        self.assertEqual(0, wrapped["endpoint"])
+        self.assertEqual("draw", wrapped["terminal"])
 
     def test_record_capacity_partitions_all_word_inputs_and_gate_bit(self) -> None:
         paths = symbolic_record_allocation_capacity_paths()
@@ -1071,7 +1101,7 @@ class CheckedReportTests(unittest.TestCase):
             985, report["summary"]["natural_branch_outcomes_observed"]
         )
         self.assertEqual(
-            1307,
+            1310,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(

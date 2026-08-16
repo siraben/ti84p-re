@@ -59,9 +59,9 @@
     "external_direct_targets": 236,
     "structural_types_with_oracles": 12,
     "structural_type_domain": 13,
-    "symbolic_path_equivalence_classes": 1307,
-    "symbolic_distinct_branch_outcomes": 173,
-    "symbolic_per_domain_minimum_representatives": 88,
+    "symbolic_path_equivalence_classes": 1310,
+    "symbolic_distinct_branch_outcomes": 177,
+    "symbolic_per_domain_minimum_representatives": 91,
     "globally_saturated": false
   },
   "tables": {
@@ -8682,16 +8682,16 @@
     }
   },
   "symbolic_model_corpus": {
-    "scope": "all projected inputs and complete path equivalence classes in the 17 declared finite symbolic models",
+    "scope": "all projected inputs and complete path equivalence classes in the 18 declared finite symbolic models",
     "not_claimed": [
       "all Z80 register and RAM states",
       "calculator reachability of every representative",
       "all paths outside the declared finite models"
     ],
-    "path_equivalence_class_count": 1307,
-    "representative_path_corpus_count": 1307,
-    "distinct_modeled_branch_outcomes": 173,
-    "per_domain_minimum_branch_outcome_corpus_count": 88,
+    "path_equivalence_class_count": 1310,
+    "representative_path_corpus_count": 1310,
+    "distinct_modeled_branch_outcomes": 177,
+    "per_domain_minimum_branch_outcome_corpus_count": 91,
     "domains": [
       {
         "name": "structural_scan_kind_dispatch",
@@ -72895,6 +72895,121 @@
             "34:5F75:taken",
             "34:5F81:fallthrough",
             "34:5F81:returned"
+          ],
+          "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
+          "proven_minimum": true
+        }
+      },
+      {
+        "name": "glyph_viewport_gates",
+        "routine": "34:6C5F\u20136C87",
+        "projected_input_domain": 30064771072,
+        "path_equivalence_class_count": 3,
+        "path_equivalence_classes": [
+          {
+            "class_index": 0,
+            "terminal": "skip_left",
+            "projected_input_count": 15032156160,
+            "representative_state": {
+              "logical_pen": 0,
+              "advance": 4,
+              "x_clip": 1,
+              "right_bound": 95
+            },
+            "branch_outcomes": [
+              "34:6C69:taken"
+            ]
+          },
+          {
+            "class_index": 1,
+            "terminal": "draw",
+            "projected_input_count": 44435706,
+            "representative_state": {
+              "logical_pen": 92,
+              "advance": 4,
+              "x_clip": 0,
+              "right_bound": 95
+            },
+            "branch_outcomes": [
+              "34:6C69:fallthrough",
+              "34:6C7F:taken"
+            ]
+          },
+          {
+            "class_index": 2,
+            "terminal": "skip_right",
+            "projected_input_count": 14988179206,
+            "representative_state": {
+              "logical_pen": 95,
+              "advance": 4,
+              "x_clip": 0,
+              "right_bound": 95
+            },
+            "branch_outcomes": [
+              "34:6C69:fallthrough",
+              "34:6C7F:fallthrough"
+            ]
+          }
+        ],
+        "branch_outcome_count": 4,
+        "minimum_branch_outcome_corpus": {
+          "class_indices": [
+            0,
+            1,
+            2
+          ],
+          "selected_classes": [
+            {
+              "class_index": 0,
+              "terminal": "skip_left",
+              "projected_input_count": 15032156160,
+              "representative_state": {
+                "logical_pen": 0,
+                "advance": 4,
+                "x_clip": 1,
+                "right_bound": 95
+              },
+              "branch_outcomes": [
+                "34:6C69:taken"
+              ]
+            },
+            {
+              "class_index": 1,
+              "terminal": "draw",
+              "projected_input_count": 44435706,
+              "representative_state": {
+                "logical_pen": 92,
+                "advance": 4,
+                "x_clip": 0,
+                "right_bound": 95
+              },
+              "branch_outcomes": [
+                "34:6C69:fallthrough",
+                "34:6C7F:taken"
+              ]
+            },
+            {
+              "class_index": 2,
+              "terminal": "skip_right",
+              "projected_input_count": 14988179206,
+              "representative_state": {
+                "logical_pen": 95,
+                "advance": 4,
+                "x_clip": 0,
+                "right_bound": 95
+              },
+              "branch_outcomes": [
+                "34:6C69:fallthrough",
+                "34:6C7F:fallthrough"
+              ]
+            }
+          ],
+          "selected_case_count": 3,
+          "covered_outcomes": [
+            "34:6C69:fallthrough",
+            "34:6C69:taken",
+            "34:6C7F:fallthrough",
+            "34:6C7F:taken"
           ],
           "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
           "proven_minimum": true
@@ -211512,6 +211627,24 @@
       "scope": "synchronous accepted LCD writes, including unchanged writes"
     },
     {
+      "name": "glyph viewport and timer run indicator",
+      "rom": [
+        "34:6C5F\u20136C87",
+        "ram:027B\u20130283",
+        "01:6BBA\u20136BFA"
+      ],
+      "javascript": [
+        "settledGlyphViewportDecision",
+        "settledEditorViewportOperations",
+        "settledRunIndicatorTick"
+      ],
+      "tests": [
+        "tools/test-mathprint.js",
+        "tools/mathprint-nested-baseline-oracles.json"
+      ],
+      "scope": "word-wrapped glyph gates and run-indicator state transition; interrupt insertion phase remains external UI state"
+    },
+    {
       "name": "alphabetic VAT selection",
       "rom": [
         "07:50B5\u2013525D",
@@ -211568,8 +211701,8 @@
     },
     {
       "area": "asynchronous LCD writes",
-      "status": "outside parity surface",
-      "reason": "the translated stream models synchronous MathPrint writes; timer interrupt indicator writes are separated from renderer parity"
+      "status": "translated_with_external_timing",
+      "reason": "the run-indicator state transition and pixels are translated; its instruction-level insertion phase is timer state, not expression state"
     },
     {
       "area": "structural table oracle domain",
