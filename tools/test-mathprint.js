@@ -132,6 +132,11 @@ const controllerRomSpans = [
   {address:0x52a5, bytes:Buffer.from(
     'fe04201821e0853ae2853d962805cd675118eafdcb1d4620e4c33e51', 'hex')},
 ];
+const sharedMarkerRomSpan = {address:0x6143, bytes:Buffer.from(
+  'fe27200e210c63fdcb445e2003210463185bfe22200b067cfdcb32d678cde13c' +
+  'c9fe2128f1fe2506db28edfe2b2029ed5b20857ab720df7b0606fdcb445e2802' +
+  '0608b830d106c1fdcb445e20cf3e0621c761fdcbff861817fe26061d28bafe28' +
+  '066c28b8fe2906c628b221be613e08115f86d5cd941ae1cdcf3cc9', 'hex')};
 const overflowCueRomSpan = {address:0x66e9, bytes:Buffer.from(
   '3ae28521e08596fe08d83aa6973d6f26013e1f18052101013e1eed5b4b84' +
   '224b84cddb3fed534b84c9', 'hex')};
@@ -992,6 +997,12 @@ if (fs.existsSync(localRomPath)) {
     expectEqual(`39:${span.address.toString(16)} raw controller bytes`,
       localRom.subarray(offset, offset + span.bytes.length), span.bytes);
   }
+  const sharedMarkerOffset = 0x34 * 0x4000 +
+    (sharedMarkerRomSpan.address & 0x3fff);
+  expectEqual('34:6143–61BD raw shared-marker bytes',
+    localRom.subarray(
+      sharedMarkerOffset,sharedMarkerOffset + sharedMarkerRomSpan.bytes.length),
+    sharedMarkerRomSpan.bytes);
   const overflowOffset = 0x39 * 0x4000 +
     (overflowCueRomSpan.address & 0x3fff);
   expectEqual('39:66E9–6711 raw overflow-cue bytes',
@@ -6567,6 +6578,138 @@ expectEqual('full RE regression corpus remains independent of the visible galler
   [regressionExpressions.length,
    mp.presets.every(([, expression]) => regressionExpressions.includes(expression))],
   [52, true]);
+
+const sharedMarkerPathClasses = [
+  {a:0x00,bit:false,word:0,terminal:'bitmap_61BE',count:32505856,
+   path:['34:6145:taken','34:6157:taken','34:6166:fallthrough',
+     '34:616C:fallthrough','34:6170:taken','34:619F:fallthrough',
+     '34:61A5:fallthrough','34:61AB:fallthrough']},
+  {a:0x2b,bit:false,word:0,terminal:'bitmap_61C7_clear_iy_minus1_bit0',count:6,
+   path:['34:6145:taken','34:6157:taken','34:6166:fallthrough',
+     '34:616C:fallthrough','34:6170:fallthrough','34:6178:fallthrough',
+     '34:6181:taken','34:6186:fallthrough','34:618E:fallthrough']},
+  {a:0x27,bit:false,word:0,terminal:'bitmap_6304',count:65536,
+   path:['34:6145:fallthrough','34:614E:fallthrough']},
+  {a:0x27,bit:true,word:0,terminal:'bitmap_630C',count:65536,
+   path:['34:6145:fallthrough','34:614E:taken']},
+  {a:0x26,bit:false,word:0,terminal:'glyph_1D_set_iy32_bit2',count:131072,
+   path:['34:6145:taken','34:6157:taken','34:6166:fallthrough',
+     '34:616C:fallthrough','34:6170:taken','34:619F:taken']},
+  {a:0x28,bit:false,word:0,terminal:'glyph_6C',count:131072,
+   path:['34:6145:taken','34:6157:taken','34:6166:fallthrough',
+     '34:616C:fallthrough','34:6170:taken','34:619F:fallthrough',
+     '34:61A5:taken']},
+  {a:0x22,bit:false,word:0,terminal:'glyph_7C_set_iy32_bit2',count:131072,
+   path:['34:6145:taken','34:6157:fallthrough']},
+  {a:0x2b,bit:true,word:8,terminal:'glyph_7C_set_iy32_bit2',count:248,
+   path:['34:6145:taken','34:6157:taken','34:6166:fallthrough',
+     '34:616C:fallthrough','34:6170:fallthrough','34:6178:fallthrough',
+     '34:6181:fallthrough','34:6186:taken']},
+  {a:0x2b,bit:false,word:6,terminal:'glyph_7C_set_iy32_bit2',count:250,
+   path:['34:6145:taken','34:6157:taken','34:6166:fallthrough',
+     '34:616C:fallthrough','34:6170:fallthrough','34:6178:fallthrough',
+     '34:6181:taken','34:6186:taken']},
+  {a:0x2b,bit:false,word:0x100,terminal:'glyph_7C_set_iy32_bit2',count:130560,
+   path:['34:6145:taken','34:6157:taken','34:6166:fallthrough',
+     '34:616C:fallthrough','34:6170:fallthrough','34:6178:taken']},
+  {a:0x21,bit:false,word:0,terminal:'glyph_7C_set_iy32_bit2',count:131072,
+   path:['34:6145:taken','34:6157:taken','34:6166:taken']},
+  {a:0x2b,bit:true,word:0,terminal:'glyph_C1',count:8,
+   path:['34:6145:taken','34:6157:taken','34:6166:fallthrough',
+     '34:616C:fallthrough','34:6170:fallthrough','34:6178:fallthrough',
+     '34:6181:fallthrough','34:6186:fallthrough','34:618E:taken']},
+  {a:0x29,bit:false,word:0,terminal:'glyph_C6',count:131072,
+   path:['34:6145:taken','34:6157:taken','34:6166:fallthrough',
+     '34:616C:fallthrough','34:6170:taken','34:619F:fallthrough',
+     '34:61A5:fallthrough','34:61AB:taken']},
+  {a:0x25,bit:false,word:0,terminal:'glyph_DB_set_iy32_bit2',count:131072,
+   path:['34:6145:taken','34:6157:taken','34:6166:fallthrough',
+     '34:616C:taken']},
+];
+const sharedMarkerTerminalEffects = {
+  bitmap_61BE:{operation:{kind:'bitmap',rows:[2,1,0,31,0,2,6]},
+    sideEffects:{setIy32Bit2:false,clearIyMinus1Bit0:false}},
+  bitmap_61C7_clear_iy_minus1_bit0:{
+    operation:{kind:'bitmap',rows:[6,4,4,4,6]},
+    sideEffects:{setIy32Bit2:false,clearIyMinus1Bit0:true}},
+  bitmap_6304:{operation:{kind:'bitmap',rows:[0,4,4,20,12,4,0]},
+    sideEffects:{setIy32Bit2:false,clearIyMinus1Bit0:false}},
+  bitmap_630C:{operation:{kind:'bitmap',rows:[4,4,4,4,20,12,4]},
+    sideEffects:{setIy32Bit2:false,clearIyMinus1Bit0:false}},
+  glyph_1D_set_iy32_bit2:{operation:{kind:'display-code',code:0x1d},
+    sideEffects:{setIy32Bit2:true,clearIyMinus1Bit0:false}},
+  glyph_6C:{operation:{kind:'display-code',code:0x6c},
+    sideEffects:{setIy32Bit2:false,clearIyMinus1Bit0:false}},
+  glyph_7C_set_iy32_bit2:{operation:{kind:'display-code',code:0x7c},
+    sideEffects:{setIy32Bit2:true,clearIyMinus1Bit0:false}},
+  glyph_C1:{operation:{kind:'display-code',code:0xc1},
+    sideEffects:{setIy32Bit2:false,clearIyMinus1Bit0:false}},
+  glyph_C6:{operation:{kind:'display-code',code:0xc6},
+    sideEffects:{setIy32Bit2:false,clearIyMinus1Bit0:false}},
+  glyph_DB_set_iy32_bit2:{operation:{kind:'display-code',code:0xdb},
+    sideEffects:{setIy32Bit2:true,clearIyMinus1Bit0:false}},
+};
+for (const row of sharedMarkerPathClasses) {
+  const result = rom.settledSharedMarkerPrimitive(row.a,{
+    iy44Bit3:row.bit,word8520:row.word,
+  });
+  expectEqual(`34:6143 ${row.terminal} representative`,{
+    terminal:result.terminal,branchOutcomes:result.branchOutcomes,
+  },{terminal:row.terminal,branchOutcomes:row.path});
+  expectEqual(`34:6143 ${row.terminal} operation and side effects`,{
+    operation:result.operation.kind === 'bitmap'
+      ? {kind:result.operation.kind,rows:result.operation.rows}
+      : {kind:result.operation.kind,code:result.operation.code},
+    sideEffects:result.sideEffects,
+  },sharedMarkerTerminalEffects[row.terminal]);
+}
+const sharedMarkerClasses = new Map();
+const sharedMarkerOutcomes = new Set();
+for (let a = 0; a <= 0xff; a++) {
+  for (const iy44Bit3 of [false,true]) {
+    const wordLimit = a === 0x2b ? 0x10000 : 1;
+    for (let word8520 = 0; word8520 < wordLimit; word8520++) {
+      const result = rom.settledSharedMarkerPrimitive(
+        a,{iy44Bit3,word8520});
+      const signature = `${result.terminal}|${result.branchOutcomes.join(',')}`;
+      sharedMarkerClasses.set(
+        signature,(sharedMarkerClasses.get(signature) || 0) +
+        (a === 0x2b ? 1 : 0x10000));
+      for (const outcome of result.branchOutcomes)
+        sharedMarkerOutcomes.add(outcome);
+    }
+  }
+}
+expectEqual('34:6143 exhausts its 33,554,432-state projection',{
+  classes:sharedMarkerClasses.size,
+  outcomes:sharedMarkerOutcomes.size,
+  states:Array.from(sharedMarkerClasses.values()).reduce((sum,count) => sum + count,0),
+  classCounts:Array.from(sharedMarkerClasses.values()).sort((a,b) => a - b),
+},{
+  classes:14,outcomes:26,states:0x2000000,
+  classCounts:sharedMarkerPathClasses.map(row => row.count).sort((a,b) => a - b),
+});
+expectEqual('34:6143 matrix low-count primitive and side effect',
+  rom.settledSharedMarkerPrimitive(0x2b,{iy44Bit3:false,word8520:5}),{
+    incomingA:0x2b,iy44Bit3:false,word8520:5,
+    terminal:'bitmap_61C7_clear_iy_minus1_bit0',
+    operation:{kind:'bitmap',x:0,y:0,width:5,height:5,
+      rows:[0x06,0x04,0x04,0x04,0x06],retainUnchanged:true,
+      routine:'34:6143 → 34:61C7'},
+    sideEffects:{setIy32Bit2:false,clearIyMinus1Bit0:true},
+    branchOutcomes:['34:6145:taken','34:6157:taken','34:6166:fallthrough',
+      '34:616C:fallthrough','34:6170:fallthrough','34:6178:fallthrough',
+      '34:6181:taken','34:6186:fallthrough','34:618E:fallthrough'],
+    routine:'34:6143–61BD',
+  });
+expectEqual('34:6143 matrix focused primitive',
+  rom.settledSharedMarkerPrimitive(0x2b,{iy44Bit3:true,word8520:7}).operation,
+  {kind:'display-code',code:0xc1,
+   routine:'34:6143 → 34:615F → ram:3CE1'});
+expectThrows('34:6143 rejects a non-Boolean editor flag',TypeError,
+  () => rom.settledSharedMarkerPrimitive(0x2b,{iy44Bit3:1}));
+expectThrows('34:6143 rejects an oversized matrix state word',RangeError,
+  () => rom.settledSharedMarkerPrimitive(0x2b,{word8520:0x10000}));
 
 expectEqual('34:6119 fixes type-1F table dispatch to the default bitmap',
   rom.executeSettledRecordGraph([settledRecord(1,0x1f)],1), [{
