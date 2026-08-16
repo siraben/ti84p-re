@@ -160,16 +160,18 @@ through `34:4BB9–4C0D` and `06:4341–4388`. Adjacent root-leaf and fraction
 numerator snapshots verify the resulting cursor AST, every reconstructed
 record field, and the complete cursor-off LCD. The fraction case also retains
 the structural record's pre-edit `+13h` byte while replacing the `EF 1E`
-empty-slot token. Structural insertion, structural deletion, and boundary
-navigation remain outside this mutation slice.
+empty-slot token. Structural templates use the separate mutation path below;
+structural deletion and boundary navigation remain open.
 `editorInsertStructuralTemplate()` translates fraction insertion from source
-token `EF 2E` at blank and populated root leaf-end cursors. A populated leaf
-moves its complete left payload into the numerator and selects the empty
-denominator. The function consumes the decoded arena because the next three
-record IDs and structural-depth byte are not present in the semantic cursor
-tree alone. Two reset-origin transitions verify the marker, controller state,
-cursor AST, every reconstructed record field, and complete LCD output. Nested
-or mid-leaf insertion and other structural types remain separate.
+token `EF 2E` at every root and nested-numerator cursor class. Blank and
+leaf-end insertion into a nested denominator are also translated. A populated
+leaf moves its left payload into the new numerator and retains its right payload
+after the six-byte marker. The function consumes the decoded arena because the
+next three record IDs and structural-depth byte are not present in the semantic
+cursor tree alone. Ten reset-origin transitions verify the marker, controller
+state, cursor AST, every reconstructed record field, and complete LCD output.
+Leading and mid-leaf denominator insertion and other structural types remain
+separate.
 `editorMovePackedTokenCursor()` translates ordinary in-leaf LEFT and RIGHT
 movement. A reset-origin `12` capture verifies the end, middle, and returned
 cursor states. The middle state also establishes that a cursor before existing
