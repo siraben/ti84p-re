@@ -524,10 +524,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 198 reset-origin traces, and
+destinations, overlays exact next-PC outcomes from 201 reset-origin traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 197 reach their state through calculator input. One explicitly
+traces, 200 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an `EF36h` editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 `tools/mathprint-saturation.json` records the resulting branches and trace
@@ -537,9 +537,9 @@ The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]
 
-None of the 198 report traces executes `39:5167`, `39:523B`, the saved-operand
+None of the 201 report traces executes `39:5167`, `39:523B`, the saved-operand
 wrappers at `39:5B10`–`39:5B38`, or the dispatchers at `39:59E0`/`39:59F9`.
-The 198-digest trace cache also has no hit at those entries. [confirmed]
+The 201-digest trace cache also has no hit at those entries. [confirmed]
 `_FindAlphaUp` at `07:50B5` executes once in 112 report traces, but every call
 comes from the type-`16h` cleanup loop at `07:5544`. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -695,8 +695,8 @@ bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,278 tags and needs 136
-traces. The natural-only universe has 1,275 tags and needs 135 traces. Every
+independent oracle case. Its all-evidence universe has 1,281 tags and needs 139
+traces. The natural-only universe has 1,278 tags and needs 138 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -743,7 +743,7 @@ and `A` at each discriminator were checked before admission. [confirmed]
 The synthetic `EF36h` trace uses
 `tools/macros/mathprint-ef36-injected-buffer.macro`. Its two `memwrite`
 commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
-source in the 198-trace report. It supplies the only evidence for
+source in the 201-trace report. It supplies the only evidence for
 `34:5A23` fallthrough, `34:6992` taken, and `34:6B94` taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]
 
@@ -892,7 +892,8 @@ an empty arena. The editor AST therefore retains structural and leaf record
 IDs in addition to the semantic tree. The constructor honors those identities
 while recomputing metrics and ancestor markers. For the nested transition, the
 translated AST, every record field, and all 768 post-key LCD bytes match the
-ROM capture. Other nested cursor positions remain open. [confirmed]
+ROM capture. The additional transitions below cover the other numerator cursor
+classes and the denominator child. [confirmed]
 
 Inserting into the outer fraction's empty numerator consumes its `EF 1E`
 placeholder. Parent leaf `9` becomes marker `EF 20 0B 00 EF 2D`; no empty-slot
@@ -905,6 +906,21 @@ migrates `31` into inner numerator `12` and retains `32` after the inner marker
 in outer numerator leaf `9`. The cursor selects inner denominator `13`.
 Reconstruction matches the seven-byte outer-numerator payload, all ancestor
 metrics, and the complete LCD bitmap. [confirmed]
+
+With the cursor before outer-numerator payload `31 32`, insertion retains both
+bytes after marker `EF 20 0B 00 EF 2D`. The new numerator and denominator keep
+their `EF 1E` placeholders, and the cursor selects inner numerator `12`.
+Together with the blank, mid-leaf, and leaf-end transitions, this covers every
+nested-numerator cursor class. [confirmed]
+
+Moving the cursor to the outer denominator exercises child 2 of record `8`.
+Insertion into its `EF 1E` placeholder replaces leaf `10` with the inner marker
+and selects empty inner numerator `12`. Insertion after denominator token `31`
+migrates that token into inner numerator `12` and selects inner denominator
+`13`. The JavaScript reconstruction matches every record field and all 768 LCD
+bytes in both states. Leading and mid-leaf denominator insertion, other
+structural template types, structural deletion, and structural-boundary
+navigation remain open. [confirmed]
 
 Ordinary in-leaf navigation uses the page-6 gap movers. LEFT reaches
 `06:4294–42C7` through `34:42B4` and `00:3B49`; RIGHT reaches
