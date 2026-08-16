@@ -573,7 +573,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 19 finite models. It also computes an
+complete path-equivalence class in 20 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -581,6 +581,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Finite model | Projected inputs | Path classes | Branch outcomes | Minimum representatives |
 |--------------|-----------------:|-------------:|----------------:|------------------------:|
 | Structural scan-kind dispatch | 256 | 7 | 12 | 7 |
+| Structural-depth gate | 256 | 2 | 2 | 2 |
 | Raised extended-token classifier | 3,047 | 12 | 22 | 10 |
 | Five-byte raised-name loop | 493,112,577 | 125 | 10 | 4 |
 | Eight-byte raised-name loop | 24,977,631,672,321 | 1,021 | 10 | 4 |
@@ -600,8 +601,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha candidate reducer | 288 | 25 | 17 | 10 |
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 
-The 19 models contain 1,312 path classes and 179 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 93 representatives. Each
+The 20 models contain 1,314 path classes and 181 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 95 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -1777,11 +1778,23 @@ appearing as a renderer mismatch. [confirmed]
 The RAM oracle avoids an instruction trace for each fuzz case. TilEm still runs
 the calculator to accept the key sequence and produce the screen, but the
 ordinary case retains only a RAM dump and screenshot. A mismatched graph gets
-one slower key-cadence retry. The depth-four seed-505 corpus has 20 calculator
-graphs matching their requested ASTs and 20 exact pixel matches. In case 14,
-the first calculator entry omits native multiply token `82h`; the graph check
-rejects that entry. The slower accepted graph contains the token and matches
-the translated framebuffer. [confirmed]
+retries at two slower key cadences. The final retry uses a `0.24`-second key
+delay and a `0.12`-second inter-key wait. The depth-four seed-505 corpus has 20
+calculator graphs matching their requested ASTs and 20 exact pixel matches. In
+case 14, the first calculator entry omits native multiply token `82h`; the graph
+check rejects that entry. A slower accepted graph contains the token and
+matches the translated framebuffer. [confirmed]
+
+The differential generator computes structural-record depth independently
+from its syntactic generation depth. Calculator comparisons retain expressions
+at depth four or below. Deeper generated ASTs remain valid inputs to the
+JavaScript renderer, but the home-screen editor cannot construct their fifth
+structural record through the path below. The optional
+`--validate-entry-depth` run checks accepted depth-four and rejected depth-five
+forms for every translated structural constructor. Seed `606` at generation
+depth five rejects one over-limit candidate, replaces it, and produces 15 exact
+decoded-graph and pixel matches with no inconclusive case. One long case needs
+the final key-cadence retry. [confirmed]
 
 The browser's generated path encodes native calculator bytes, scans their
 one- and two-byte token boundaries through translations of `34:58F9` and
@@ -1917,14 +1930,35 @@ ROM tables directly. Generic function runs can therefore contain translated
 structural children without depending on a list of preview function names.
 [confirmed]
 
-`EF36h` takes an exceptional editor path. `34:5935` maps it to type `0x2C`,
-and `34:4690` branches through `34:473A` instead of using a row at `34:59AC`.
-`ram:2E41` reaches `35:7B37`, which checks the structural-depth byte at
-`0x8DB6`. The routine increments that byte and compares it with `0x05`. Values
-`0x00`–`0x03` return `A=0x2C` with carry clear. Values `0x04`–`0xFE` return
-`A=0x03` with carry set. An input of `0xFF` wraps to zero and takes the
-carry-clear path. On the carry-set path, `34:54D2` sets `(IY+45h).6` and writes
-`0x05` to `0x9D20`. [confirmed]
+Structural insertion through `34:473A` calls the bjump descriptor at
+`ram:2E41`, whose body is `35:7B37`. The body reads the structural-depth byte
+at `0x8DB6`, increments it modulo 256, and compares it with `0x05`. Input values
+`0x00`–`0x03` preserve `A` and return with carry clear. Values `0x04`–`0xFE`
+return `A=0x03` with carry set. Input `0xFF` wraps to zero and takes the
+carry-clear path. The caller sends carry set through `34:473F` to `34:54D2`,
+which sets `(IY+45h).6` and writes `0x05` to `0x9D20`. [confirmed]
+
+A normal POWER insertion reaches the gate with `A=0x2A`. The depth-four trace
+enters with depth byte `0x03`, increments it to `0x04`, and returns through
+`34:4744` to insert the record. The depth-five trace enters with `0x04`, returns
+`A=0x03` with carry set, and reaches `34:54D2`. The reproduction macros are
+`tools/macros/mathprint-depth4-power-accept.macro` and
+`tools/macros/mathprint-depth5-power-reject.macro`; their trace SHA-256 values
+are `66c3c43dc306cbf43ba9579171824f180faff7377a23f33b584e07bf5dba78d5`
+and `b8355cb4a58eb2f0a97dd17238e900705c20c5d99ab80f60ee16aa1f876e1f3a`.
+`tools/mathprint-depth-limit-oracle.json` records the branch states. [confirmed]
+
+Paired calculator runs place power, fraction, radical, nth-root, absolute,
+integral, summation, `nDeriv(`, $e^x$, $10^x$, and log-base at the same
+boundary. All 11 depth-four forms produce the requested decoded graph and
+pixel-exact JavaScript frame. All 11 depth-five forms reject the requested
+record. This is a calculator-entry limit; it does not limit programmatically
+constructed JavaScript ASTs or decoded record graphs. [confirmed]
+
+`EF36h` also takes this gate. `34:5935` maps it to type `0x2C`, and `34:4690`
+branches through `34:473A` instead of using a row at `34:59AC`. The accepted
+gate path preserves `A=0x2C`; the rejected path returns `A=0x03` as above.
+[confirmed]
 
 Below the cap, `34:58A0` inserts `EF 2C 00 00 EF 2D`. `34:4862` allocates the
 type-`0x2C` record and patches its ID into the marker. The allocator at

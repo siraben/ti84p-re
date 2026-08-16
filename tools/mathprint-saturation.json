@@ -59,9 +59,9 @@
     "external_direct_targets": 236,
     "structural_types_with_oracles": 12,
     "structural_type_domain": 13,
-    "symbolic_path_equivalence_classes": 1312,
-    "symbolic_distinct_branch_outcomes": 179,
-    "symbolic_per_domain_minimum_representatives": 93,
+    "symbolic_path_equivalence_classes": 1314,
+    "symbolic_distinct_branch_outcomes": 181,
+    "symbolic_per_domain_minimum_representatives": 95,
     "globally_saturated": false
   },
   "tables": {
@@ -8682,16 +8682,16 @@
     }
   },
   "symbolic_model_corpus": {
-    "scope": "all projected inputs and complete path equivalence classes in the 19 declared finite symbolic models",
+    "scope": "all projected inputs and complete path equivalence classes in the 20 declared finite symbolic models",
     "not_claimed": [
       "all Z80 register and RAM states",
       "calculator reachability of every representative",
       "all paths outside the declared finite models"
     ],
-    "path_equivalence_class_count": 1312,
-    "representative_path_corpus_count": 1312,
-    "distinct_modeled_branch_outcomes": 179,
-    "per_domain_minimum_branch_outcome_corpus_count": 93,
+    "path_equivalence_class_count": 1314,
+    "representative_path_corpus_count": 1314,
+    "distinct_modeled_branch_outcomes": 181,
+    "per_domain_minimum_branch_outcome_corpus_count": 95,
     "domains": [
       {
         "name": "structural_scan_kind_dispatch",
@@ -8921,6 +8921,74 @@
             "34:5686:taken",
             "34:5688:fallthrough",
             "34:5688:taken"
+          ],
+          "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
+          "proven_minimum": true
+        }
+      },
+      {
+        "name": "structural_depth_gate",
+        "routine": "35:7B37",
+        "projected_input_domain": 256,
+        "path_equivalence_class_count": 2,
+        "path_equivalence_classes": [
+          {
+            "class_index": 0,
+            "terminal": "preserve_a",
+            "projected_input_count": 5,
+            "representative_state": {
+              "structural_depth": 0
+            },
+            "branch_outcomes": [
+              "35:7B42:returned"
+            ]
+          },
+          {
+            "class_index": 1,
+            "terminal": "return_a_03",
+            "projected_input_count": 251,
+            "representative_state": {
+              "structural_depth": 4
+            },
+            "branch_outcomes": [
+              "35:7B42:fallthrough"
+            ]
+          }
+        ],
+        "branch_outcome_count": 2,
+        "minimum_branch_outcome_corpus": {
+          "class_indices": [
+            0,
+            1
+          ],
+          "selected_classes": [
+            {
+              "class_index": 0,
+              "terminal": "preserve_a",
+              "projected_input_count": 5,
+              "representative_state": {
+                "structural_depth": 0
+              },
+              "branch_outcomes": [
+                "35:7B42:returned"
+              ]
+            },
+            {
+              "class_index": 1,
+              "terminal": "return_a_03",
+              "projected_input_count": 251,
+              "representative_state": {
+                "structural_depth": 4
+              },
+              "branch_outcomes": [
+                "35:7B42:fallthrough"
+              ]
+            }
+          ],
+          "selected_case_count": 2,
+          "covered_outcomes": [
+            "35:7B42:fallthrough",
+            "35:7B42:returned"
           ],
           "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
           "proven_minimum": true

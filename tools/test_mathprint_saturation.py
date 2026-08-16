@@ -42,6 +42,7 @@ from analyze_mathprint_saturation import (
     raised_extended_token_path,
     raised_name_loop_path,
     source_lookup_domain,
+    structural_depth_gate_path,
     indexed_table_domain,
     load_trace_cache,
     routine_path_terminal,
@@ -69,6 +70,7 @@ from analyze_mathprint_saturation import (
     symbolic_raised_extended_token_paths,
     symbolic_raised_name_loop_paths,
     symbolic_scan_kind_paths,
+    symbolic_structural_depth_gate_paths,
     symbolic_type1f_paths,
     type1f_entry_abis,
     type1f_path,
@@ -252,13 +254,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(1312, report["path_equivalence_class_count"])
-        self.assertEqual(1312, report["representative_path_corpus_count"])
-        self.assertEqual(179, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(1314, report["path_equivalence_class_count"])
+        self.assertEqual(1314, report["representative_path_corpus_count"])
+        self.assertEqual(181, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            93, report["per_domain_minimum_branch_outcome_corpus_count"]
+            95, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(19, len(report["domains"]))
+        self.assertEqual(20, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -270,6 +272,30 @@ class SymbolicHandlerTests(unittest.TestCase):
                 set(minimum["covered_outcomes"]), selected_outcomes
             )
             self.assertTrue(minimum["proven_minimum"])
+
+    def test_structural_depth_gate_partitions_every_byte(self) -> None:
+        paths = symbolic_structural_depth_gate_paths()
+
+        self.assertEqual(0x100, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual({
+            "preserve_a": 5,
+            "return_a_03": 251,
+        }, {
+            row["terminal"]: row["projected_input_count"] for row in paths
+        })
+        self.assertEqual(
+            ["35:7B42:returned"],
+            structural_depth_gate_path(3)["branch_outcomes"],
+        )
+        rejected = structural_depth_gate_path(4)
+        self.assertEqual(5, rejected["incremented_depth"])
+        self.assertTrue(rejected["carry"])
+        self.assertEqual(
+            ["35:7B42:fallthrough"], rejected["branch_outcomes"]
+        )
+        self.assertEqual("preserve_a", structural_depth_gate_path(0xFF)["terminal"])
 
     def test_reverse_overflow_cue_partitions_every_byte_pair(self) -> None:
         paths = symbolic_editor_reverse_overflow_cue_paths()
@@ -1120,7 +1146,7 @@ class CheckedReportTests(unittest.TestCase):
             986, report["summary"]["natural_branch_outcomes_observed"]
         )
         self.assertEqual(
-            1312,
+            1314,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(
