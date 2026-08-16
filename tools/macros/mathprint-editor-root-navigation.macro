@@ -1,0 +1,22 @@
+# Capture adjacent live states while moving across ordinary root-leaf tokens.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key 1
+key 2
+wait 0.6s
+memdump /tmp/mathprint-editor-root-navigation-end.ram ram-logical
+screenshot /tmp/mathprint-editor-root-navigation-end.png
+key LEFT
+wait 0.6s
+memdump /tmp/mathprint-editor-root-navigation-left.ram ram-logical
+screenshot /tmp/mathprint-editor-root-navigation-left.png
+key RIGHT
+wait 0.6s
+memdump /tmp/mathprint-editor-root-navigation-right.ram ram-logical
+screenshot /tmp/mathprint-editor-root-navigation-right.png

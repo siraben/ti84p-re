@@ -42,6 +42,8 @@ const editorGapOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-gap-oracles.json')));
 const editorMutationOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-mutation-oracles.json')));
+const editorNavigationOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-editor-navigation-oracles.json')));
 const groupingOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-grouping-oracles.json')));
 const structuralBaseOracles = JSON.parse(fs.readFileSync(
@@ -3306,6 +3308,81 @@ for (const oracle of editorMutationOracles.transitions) {
     crypto.createHash('sha256').update(packedLcdBytes(lcd)).digest('hex'),
     oracle.post.lcd_bitmap_sha256);
 }
+expectEqual('live editor navigation oracle schema',
+  editorNavigationOracles.schema,1);
+expectEqual('live editor navigation capture macro hash',
+  crypto.createHash('sha256').update(fs.readFileSync(path.join(
+    root,editorNavigationOracles.macro))).digest('hex'),
+  editorNavigationOracles.macro_sha256);
+const editorNavigationStates = {};
+for (const [name,state] of Object.entries(editorNavigationOracles.states)) {
+  const decoded = rom.decodeMathPrintEditorRam(sparseEditorRam(
+    state,`editor navigation ${name}`));
+  const reconstructed = rom.constructEditorExpressionProgram(
+    decoded.editor.expression,7,font);
+  expectEqual(`editor navigation ${name} reconstructed records`,
+    editorRecordsById(reconstructed.nodes),editorRecordsById(decoded.nodes));
+  const operations = rom.executeSettledRecordProgram(
+    reconstructed.nodes,reconstructed.wrapper_id,
+    {glyphAdvance:editorGlyphAdvance});
+  const lcd = rom.rasterizeSettledOperations(operations,font).grid;
+  expectEqual(`editor navigation ${name} reconstructed LCD bitmap`,
+    crypto.createHash('sha256').update(packedLcdBytes(lcd)).digest('hex'),
+    state.lcd_bitmap_sha256);
+  editorNavigationStates[name] = decoded;
+}
+for (const transition of editorNavigationOracles.transitions) {
+  const before = editorNavigationStates[transition.from];
+  const after = editorNavigationStates[transition.to];
+  const moved = rom.editorMovePackedTokenCursor(
+    before.editor.expression,transition.direction);
+  expectEqual(`editor navigation ${transition.direction} mutation`,
+    moved.mutation,{
+      direction:transition.direction,moved:[0x32],record_id:7,
+      before_byte_offset:before.editor.cursor.byteOffset,
+      after_byte_offset:after.editor.cursor.byteOffset,
+      routine:transition.routine,
+    });
+  expectEqual(`editor navigation ${transition.direction} decoded transition`,
+    moved.expression,after.editor.expression);
+  const reconstructed = rom.constructEditorExpressionProgram(
+    moved.expression,7,font);
+  expectEqual(`editor navigation ${transition.direction} post-state records`,
+    editorRecordsById(reconstructed.nodes),editorRecordsById(after.nodes));
+}
+const packedCursorEnd = {
+  kind:'sequence',parts:[
+    [0x31,0x5d,0x00],
+    {kind:'editorCursor',record_id:7,byte_offset:3,
+      record_word0F:0,record_word11:0},
+  ],
+};
+const packedCursorLeft = rom.editorMovePackedTokenCursor(
+  packedCursorEnd,'left');
+expectEqual('editor navigation moves a two-byte native token as one unit',
+  packedCursorLeft,{
+    expression:{kind:'sequence',parts:[
+      [0x31],
+      {kind:'editorCursor',record_id:7,byte_offset:1,
+        record_word0F:0,record_word11:0},
+      [0x5d,0x00],
+    ]},
+    mutation:{direction:'left',moved:[0x5d,0x00],record_id:7,
+      before_byte_offset:3,after_byte_offset:1,
+      routine:'34:42B4 → 00:3B49 → 06:4294–42C7'},
+  });
+expectEqual('editor navigation two-byte round trip',
+  rom.editorMovePackedTokenCursor(
+    packedCursorLeft.expression,'right').expression,packedCursorEnd);
+expectThrows('editor navigation rejects movement beyond a leaf endpoint',
+  RangeError,() => rom.editorMovePackedTokenCursor(
+    editorNavigationStates.end.editor.expression,'right'));
+expectThrows('editor navigation rejects a structural boundary',RangeError,
+  () => rom.editorMovePackedTokenCursor({kind:'sequence',parts:[
+    {kind:'fraction',numerator:[0x31],denominator:[0x32]},
+    {kind:'editorCursor',record_id:7,byte_offset:6,
+      record_word0F:0,record_word11:0},
+  ]},'left'));
 expectThrows('live editor constructor requires exactly one cursor', RangeError,
   () => rom.constructEditorExpressionProgram([0x31],7,font));
 expectThrows('live editor constructor validates retained cursor record identity',
@@ -3326,21 +3403,18 @@ const inlineCursorProgram = rom.constructEditorExpressionProgram({
 expectEqual('live cursor participates in leaf metrics before following tokens',
   canonicalEditorRecord(
     inlineCursorProgram.nodes.find(node => node.record_id === 7)), {
-    record_id:7,render_type:0,word03:6,word05:7,word07:18,word09:3,
+    record_id:7,render_type:0,word03:6,word05:7,word07:12,word09:3,
     word0B:0,word0D:0,word0F:1,word11:1,byte13:0x31,
     child_ids:[],payload:[0x31,0x32],
   });
-expectEqual('live cursor cell advances the translated leaf pen at its byte boundary',
+expectEqual('live cursor overlays a following token without advancing the leaf pen',
   rom.executeSettledRecordProgram(
     inlineCursorProgram.nodes,inlineCursorProgram.wrapper_id).map(operation => ({
       kind:operation.kind,x:operation.x,y:operation.y,
-      ...(operation.kind === 'glyph' ? {code:operation.code} : {
-        width:operation.width,height:operation.height,visible:operation.visible,
-      }),
+      ...(operation.kind === 'glyph' ? {code:operation.code} : {}),
     })), [
     {kind:'glyph',x:0,y:0,code:0x31},
-    {kind:'editor-cursor-cell',x:6,y:0,width:6,height:7,visible:false},
-    {kind:'glyph',x:12,y:0,code:0x32},
+    {kind:'glyph',x:6,y:0,code:0x32},
   ]);
 const numeratorCursorProgram = rom.constructEditorExpressionProgram({
   kind:'fraction',
