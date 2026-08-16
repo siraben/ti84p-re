@@ -1494,6 +1494,249 @@
     };
   }
 
+  // 04:4157–420C applies the graph-style expansion, byte coordinate offsets,
+  // and the apiFlg4.fullScrnDraw bounds gate before the byte primitive. The
+  // drawing-hook branch is deliberately outside this helper. Each retained
+  // attempt records the raw coordinate even when 04:42EC or 04:4306 rejects
+  // it, which keeps the control-flow result separate from the visible points.
+  function settledPage4PointPreprocess(
+    xValue, yValue, modeValue, inputState) {
+    const x = byte(xValue, 'page-4 point-preprocess x');
+    const y = byte(yValue, 'page-4 point-preprocess y');
+    const mode = byte(modeValue, 'page-4 point-preprocess mode');
+    if (mode > 3)
+      throw new RangeError('page-4 point-preprocess mode must be 0, 1, 2, or 3');
+    if (!inputState || typeof inputState !== 'object' || Array.isArray(inputState))
+      throw new TypeError('page-4 point-preprocess state must be an object');
+    const styleActive = boolean(
+      inputState.styleActive, 'page-4 graph style-active flag');
+    const fullScreenDraw = boolean(
+      inputState.fullScreenDraw, 'page-4 full-screen-draw flag');
+    const styleAxisFlag = boolean(
+      inputState.styleAxisFlag, 'page-4 style-axis flag');
+    let graphStyleFlagBit6 = boolean(
+      inputState.graphStyleFlagBit6, 'page-4 graph-style flag bit 6');
+    const style = byte(inputState.style, 'page-4 graph style');
+    const stylePhase = byte(inputState.stylePhase, 'page-4 graph style phase');
+    let styleStep = byte(inputState.styleStep, 'page-4 graph style step');
+    const styleLimit = byte(inputState.styleLimit, 'page-4 graph style limit');
+    const previousX = byte(inputState.previousX, 'page-4 previous point x');
+    const previousY = byte(inputState.previousY, 'page-4 previous point y');
+    const xOffset = byte(inputState.xOffset, 'page-4 point x offset');
+    const yOffset = byte(inputState.yOffset, 'page-4 point y offset');
+    const screenWidth = byte(inputState.screenWidth, 'page-4 screen width');
+    const attempts = [];
+    const points = [];
+    const branchOutcomes = ['04:415E:fallthrough','04:4161:taken'];
+    const branch = (address, outcome) =>
+      branchOutcomes.push(`04:${address.toString(16).toUpperCase()}:${outcome}`);
+    const divideRemainder = (value, divisor) => {
+      let dividend = value & 0xffff;
+      let remainder = 0;
+      for (let count = 0; count < 16; count++) {
+        const shiftedOut = (dividend & 0x8000) !== 0;
+        dividend = (dividend << 1) & 0xffff;
+        remainder = ((remainder << 1) | Number(shiftedOut)) & 0xff;
+        if (remainder >= divisor) {
+          remainder = (remainder - divisor) & 0xff;
+          dividend = (dividend + 1) & 0xffff;
+        }
+      }
+      return remainder;
+    };
+    const attempt = (rawXValue, rawYValue, pointMode) => {
+      const rawX = rawXValue & 0xff;
+      const rawY = rawYValue & 0xff;
+      const effectiveX = (rawX + xOffset) & 0xff;
+      const effectiveY = (rawY + yOffset) & 0xff;
+      branch(0x41fd, fullScreenDraw ? 'fallthrough' : 'taken');
+      let accepted;
+      if (fullScreenDraw) {
+        const xOutside = effectiveX >= screenWidth;
+        branch(0x430d, xOutside ? 'taken' : 'fallthrough');
+        if (xOutside) accepted = false;
+        else {
+          const yOutside = effectiveY >= 0x40;
+          branch(0x4312, yOutside ? 'taken' : 'fallthrough');
+          accepted = !yOutside;
+        }
+      } else {
+        const exclusiveX = (screenWidth - 1) & 0xff;
+        const xOutside = effectiveX >= exclusiveX;
+        branch(0x42f4, xOutside ? 'taken' : 'fallthrough');
+        if (xOutside) accepted = false;
+        else {
+          const yOutside = effectiveY >= 0x40;
+          branch(0x42f9, yOutside ? 'taken' : 'fallthrough');
+          if (yOutside) accepted = false;
+          else {
+            const firstRow = effectiveY === 0;
+            branch(0x42fc, firstRow ? 'taken' : 'fallthrough');
+            accepted = !firstRow;
+          }
+        }
+      }
+      branch(0x4207, accepted ? 'fallthrough' : 'taken');
+      const event = {rawX,rawY,effectiveX,effectiveY,mode:pointMode,accepted};
+      attempts.push(event);
+      if (accepted) points.push({x:effectiveX,y:effectiveY,mode:pointMode});
+    };
+    const styleSweep = (seed, rawX, rawY) => {
+      let delta = seed & 0xff;
+      let sweepY = rawY & 0xff;
+      for (let count = 0; count < 0x100; count++) {
+        branch(0x40d5, style & 1 ? 'fallthrough' : 'taken');
+        if (style & 1) delta = (-delta) & 0xff;
+        const nextY = (delta + sweepY) & 0xff;
+        branch(0x40da, nextY === 0 ? 'returned' : 'fallthrough');
+        if (nextY === 0) return;
+        sweepY = nextY;
+        const outside = sweepY >= styleLimit;
+        branch(0x40e0, outside ? 'returned' : 'fallthrough');
+        if (outside) return;
+        attempt(rawX,sweepY,1);
+        delta = styleStep;
+      }
+      throw new Error('page-4 style sweep exceeded its byte-domain bound');
+    };
+    const shadedStyle = () => {
+      const phaseZero = stylePhase === 0;
+      branch(0x40b2, phaseZero ? 'fallthrough' : 'taken');
+      if (phaseZero) {
+        branch(0x40b8, styleAxisFlag ? 'taken' : 'fallthrough');
+        if (!styleAxisFlag) styleStep = 2;
+        const remainder = divideRemainder(x,styleStep);
+        const lastInPeriod = ((styleStep - 1) & 0xff) === remainder;
+        branch(0x40c9, lastInPeriod ? 'fallthrough' : 'returned');
+        if (!lastInPeriod) return;
+        styleStep = 1;
+        styleSweep(0,x,y);
+        return;
+      }
+      const phaseAtLeastTwo = stylePhase >= 2;
+      branch(0x40ed, phaseAtLeastTwo ? 'taken' : 'fallthrough');
+      if (!phaseAtLeastTwo) {
+        branch(0x40f3, styleAxisFlag ? 'taken' : 'fallthrough');
+        if (!styleAxisFlag) styleStep = 2;
+        const remainder = divideRemainder(y,styleStep);
+        const oddStyle = (style & 1) !== 0;
+        branch(0x4103, oddStyle ? 'taken' : 'fallthrough');
+        const seed = oddStyle
+          ? remainder : (styleStep - 1 - remainder) & 0xff;
+        styleSweep(seed,x,y);
+        return;
+      }
+      branch(0x411a, styleAxisFlag ? 'taken' : 'fallthrough');
+      if (!styleAxisFlag) styleStep = 3;
+      const yRemainder = divideRemainder(y,styleStep);
+      const xRemainder = divideRemainder(x,styleStep);
+      const phaseTwo = stylePhase === 2;
+      branch(0x412d, phaseTwo ? 'taken' : 'fallthrough');
+      let seed;
+      if (phaseTwo) {
+        const difference = styleStep - 1 - xRemainder - yRemainder;
+        branch(0x413c, difference >= 0 ? 'taken' : 'fallthrough');
+        seed = difference >= 0
+          ? difference : (styleStep + (difference & 0xff)) & 0xff;
+      } else {
+        const difference = xRemainder - yRemainder;
+        branch(0x4131, difference >= 0 ? 'taken' : 'fallthrough');
+        seed = difference >= 0
+          ? difference : (styleStep + (difference & 0xff)) & 0xff;
+      }
+      const evenStyle = (style & 1) === 0;
+      branch(0x4148, evenStyle ? 'taken' : 'fallthrough');
+      if (!evenStyle) {
+        branch(0x414b, seed === 0 ? 'taken' : 'fallthrough');
+        if (seed !== 0) seed = (styleStep - seed) & 0xff;
+      }
+      styleSweep(seed,x,y);
+    };
+
+    branch(0x4177, styleActive ? 'fallthrough' : 'taken');
+    let nextPreviousX = previousX;
+    let nextPreviousY = previousY;
+    if (!styleActive) {
+      attempt(x,y,mode);
+    } else {
+      const thick = style === 1;
+      branch(0x417f, thick ? 'taken' : 'fallthrough');
+      if (thick) {
+        attempt(x,y,mode);
+        let neighborX = previousX;
+        let neighborY = previousY;
+        const sameY = y === previousY;
+        branch(0x41a1, sameY ? 'taken' : 'fallthrough');
+        if (!sameY) {
+          const abovePrevious = y < previousY;
+          branch(0x41a3, abovePrevious ? 'taken' : 'fallthrough');
+          neighborX = (neighborX + 1) & 0xff;
+          attempt(neighborX,neighborY,mode);
+          neighborX = (neighborX - 1) & 0xff;
+          if (abovePrevious) {
+            neighborY = (neighborY - 1) & 0xff;
+            attempt(neighborX,neighborY,mode);
+            const differentX = x !== neighborX;
+            branch(0x41c0, differentX ? 'taken' : 'fallthrough');
+            if (!differentX) {
+              neighborX = (neighborX + 1) & 0xff;
+              attempt(neighborX,neighborY,mode);
+            }
+          } else {
+            const sameX = x === neighborX;
+            branch(0x41ae, sameX ? 'taken' : 'fallthrough');
+            if (sameX) {
+              neighborX = (neighborX + 1) & 0xff;
+              neighborY = (neighborY + 1) & 0xff;
+            }
+            else {
+              const leftOfPrevious = x < neighborX;
+              branch(0x41b0, leftOfPrevious ? 'taken' : 'fallthrough');
+              if (leftOfPrevious) neighborY = (neighborY + 1) & 0xff;
+              else neighborY = (neighborY - 1) & 0xff;
+            }
+            attempt(neighborX,neighborY,mode);
+          }
+        } else {
+          neighborY = (neighborY - 1) & 0xff;
+          const sameX = x === neighborX;
+          branch(0x41cf, sameX ? 'taken' : 'fallthrough');
+          if (sameX) attempt(neighborX,neighborY,mode);
+          else {
+            attempt(neighborX,neighborY,mode);
+            const leftOfPrevious = x < neighborX;
+            branch(0x41d6, leftOfPrevious ? 'taken' : 'fallthrough');
+            neighborX = (neighborX + (leftOfPrevious ? -1 : 1)) & 0xff;
+            attempt(neighborX,neighborY,mode);
+          }
+        }
+        nextPreviousX = x;
+        nextPreviousY = y;
+      } else {
+        const belowOne = style < 1;
+        branch(0x4181, belowOne ? 'taken' : 'fallthrough');
+        if (belowOne) attempt(x,y,mode);
+        else {
+          const direct = style >= 4;
+          branch(0x4186, direct ? 'taken' : 'fallthrough');
+          if (direct) attempt(x,y,mode);
+          else {
+            graphStyleFlagBit6 = true;
+            shadedStyle();
+            attempt(x,y,mode);
+          }
+        }
+      }
+    }
+    return {
+      x,y,mode,styleActive,style,stylePhase,styleStep,styleLimit,
+      styleAxisFlag,fullScreenDraw,xOffset,yOffset,screenWidth,
+      previousX:nextPreviousX,previousY:nextPreviousY,
+      graphStyleFlagBit6,attempts,points,branchOutcomes,
+      routine:'04:40AD–420C; 04:42EC–4315',
+    };
+  }
+
   // With the drawing hook disabled, 04:424C–42B4 dispatches D=0 through D=3
   // as clear, set, XOR, and test. The test path returns before any LCD or RAM
   // store. Supplying the selected source byte makes that transition explicit;
@@ -1616,6 +1859,68 @@
       appBackupScreenByte:nextAppBackupScreenByte,
       writes,
       routine:'04:4157 → 04:4215–42B4 → 04:42B5–42E3',
+    };
+  }
+
+  // Compose the hook-disabled 04:4157 preprocessor with every accepted
+  // 04:4215 byte transition. The three arrays model the corresponding
+  // row-major bytes in the LCD controller, plotSScreen, and appBackUpScreen.
+  // Processing attempts in ROM order matters when a thick or shaded style
+  // visits the same byte more than once.
+  function settledPage4PointPipeline(
+    xValue, yValue, modeValue, inputState) {
+    if (!inputState || typeof inputState !== 'object' || Array.isArray(inputState))
+      throw new TypeError('page-4 point pipeline state must be an object');
+    const preprocess = settledPage4PointPreprocess(
+      xValue,yValue,modeValue,inputState.preprocess);
+    const routing = inputState.routing;
+    if (!routing || typeof routing !== 'object' || Array.isArray(routing))
+      throw new TypeError('page-4 point pipeline routing state must be an object');
+    const pointFlags = byte(routing.pointFlags, 'page-4 pipeline point flags');
+    const plotFlags = byte(routing.plotFlags, 'page-4 pipeline plot flags');
+    const lcdLowBitWorkaround = boolean(
+      routing.lcdLowBitWorkaround, 'page-4 pipeline LCD workaround');
+    const copyBytes = (values, label) => {
+      if (!Array.isArray(values))
+        throw new TypeError(`${label} must be an array`);
+      return values.map((value, index) => byte(value, `${label} byte ${index}`));
+    };
+    const lcdBytes = copyBytes(inputState.lcdBytes, 'page-4 pipeline LCD');
+    const plotScreenBytes = copyBytes(
+      inputState.plotScreenBytes, 'page-4 pipeline plotSScreen');
+    const appBackupScreenBytes = copyBytes(
+      inputState.appBackupScreenBytes, 'page-4 pipeline appBackUpScreen');
+    const transitions = [];
+    const acceptedAttempts = preprocess.attempts.filter(attempt => attempt.accepted);
+    for (let index = 0; index < preprocess.points.length; index++) {
+      const point = preprocess.points[index];
+      const screenY = 0x3f - point.y;
+      const address = settledPage4PointAddress(point.x,point.y);
+      const offset = address.bufferOffset;
+      if (offset >= lcdBytes.length || offset >= plotScreenBytes.length ||
+          offset >= appBackupScreenBytes.length)
+        throw new RangeError(
+          `page-4 point buffer offset ${offset} is outside the supplied arrays`);
+      const transition = settledPage4PointStateTransition(
+        point.x,screenY,point.mode,{
+          pointFlags,plotFlags,
+          lcdByte:lcdBytes[offset],
+          plotScreenByte:plotScreenBytes[offset],
+          appBackupScreenByte:appBackupScreenBytes[offset],
+          lcdLowBitWorkaround,
+        });
+      lcdBytes[offset] = transition.lcdByte;
+      plotScreenBytes[offset] = transition.plotScreenByte;
+      appBackupScreenBytes[offset] = transition.appBackupScreenByte;
+      transitions.push({
+        rawPoint:acceptedAttempts[index],
+        screenX:point.x,screenY,bufferOffset:offset,transition,
+      });
+    }
+    return {
+      preprocess,pointFlags,plotFlags,lcdLowBitWorkaround,
+      transitions,lcdBytes,plotScreenBytes,appBackupScreenBytes,
+      routine:'04:40AD–420C → 04:4215–42E3',
     };
   }
 
@@ -9907,8 +10212,10 @@
     multiArgumentRowStep,
     settledPointOperation,
     settledPage4PointAddress,
+    settledPage4PointPreprocess,
     settledPage4PointTransition,
     settledPage4PointStateTransition,
+    settledPage4PointPipeline,
     settledPage4PointOnTransition,
     settledPage4DarkLineTrace,
     settledVerticalOperation,

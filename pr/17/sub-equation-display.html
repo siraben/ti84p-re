@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3109203f.js";
+            window.path_to_searchindex_js = "searchindex-93857d36.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -705,7 +705,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 28 finite models. It also computes an
+complete path-equivalence class in 32 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -724,6 +724,10 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Shared marker draw helper</td><td style="text-align: right">33,554,432</td><td style="text-align: right">14</td><td style="text-align: right">26</td><td style="text-align: right">13</td></tr>
 <tr><td>Settled render nesting tail</td><td style="text-align: right">16,777,216</td><td style="text-align: right">15</td><td style="text-align: right">24</td><td style="text-align: right">11</td></tr>
 <tr><td>Point mode and buffer routing</td><td style="text-align: right">2,048</td><td style="text-align: right">28</td><td style="text-align: right">22</td><td style="text-align: right">5</td></tr>
+<tr><td>Point style dispatch</td><td style="text-align: right">512</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
+<tr><td>Point bounds</td><td style="text-align: right">33,554,432</td><td style="text-align: right">7</td><td style="text-align: right">14</td><td style="text-align: right">7</td></tr>
+<tr><td>Thick-point expansion</td><td style="text-align: right">4,294,967,296</td><td style="text-align: right">8</td><td style="text-align: right">14</td><td style="text-align: right">8</td></tr>
+<tr><td>Shaded-point expansion</td><td style="text-align: right">3,145,728</td><td style="text-align: right">1,850</td><td style="text-align: right">30</td><td style="text-align: right">8</td></tr>
 <tr><td>Metric marker-tail gate</td><td style="text-align: right">16</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
 <tr><td>Editor action <code>0x03</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">11</td><td style="text-align: right">9</td><td style="text-align: right">4</td></tr>
 <tr><td>Editor action <code>0x04</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">5</td><td style="text-align: right">5</td><td style="text-align: right">3</td></tr>
@@ -746,8 +750,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 28 models contain 1,388 path classes and 274 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 133 representatives. Each
+<p>The 32 models contain 3,258 path classes and 340 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 161 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -1705,6 +1709,35 @@ line and point routines and page <code>01:6297</code> small-font output. [confir
 and <code>34:5DEF</code>. Its closed tail at <code>34:5E98</code>–<code>34:5EA6</code> passes <code>B=x</code>,
 <code>C=63-y</code>, and <code>D=1</code> to <code>_PointOn</code> at <code>04:4155</code>. Dynamic samples include
 <code>(x,y)=(3,0)</code> → <code>BC=033Fh</code> and <code>(32,20)</code> → <code>BC=202Bh</code>. [confirmed]</p>
+<p>The hook-disabled <code>_IPoint</code> preprocessor at <code>04:4157</code> first tests
+<code>sGrFlags.g_style_active</code>. Retained MathPrint calls have this bit clear, so
+<code>04:4177</code> jumps directly to the coordinate path. That path adds the bytes at
+<code>ram:8DA1</code> and <code>ram:8DA2</code> to <code>B</code> and <code>C</code>, with byte wraparound, before checking
+the display bounds. <code>apiFlg4.fullScrnDraw</code> selects <code>04:4306</code>, which admits
+$x$ bytes below <code>ram:8DA4</code> and $y$ bytes below 64. Clearing the flag selects
+<code>04:42EC</code>, which decrements the width bound and also rejects row zero. Both
+flag states occur in retained MathPrint traces. [confirmed]</p>
+<p>The same translation covers the shared graph-style path rather than assuming
+that style state is always inactive. Style <code>1</code> at <code>04:4196</code> emits the current
+point and one to three neighboring attempts chosen from the unsigned
+current/previous coordinate relations. It stores the current <code>B:C</code> at
+<code>ram:9315</code> for the next call. Styles <code>2</code> and <code>3</code> enter <code>04:40AD</code>; the phase at
+<code>ram:9668</code>, step at <code>ram:966C</code>, style parity, and <code>(IY+1Eh).7</code> select an aligned
+ascending or descending point sweep. <code>04:6F84</code>–<code>04:6FAC</code> initializes the phase
+modulo four, while the graph update path keeps the step in <code>1</code>–<code>3</code>. Styles
+<code>0</code> and <code>4</code>–<code>FFh</code> emit only the original point. [confirmed]</p>
+<p><code>settledPage4PointPipeline()</code> processes every accepted expanded point in ROM
+order through the existing LCD/<code>plotSScreen</code>/<code>appBackUpScreen</code> byte router.
+This ordering preserves repeated visits to one byte instead of evaluating the
+expanded points independently. A pinned-byte interpreter agrees with the
+JavaScript preprocessor across 169,443 states: every input coordinate under
+both bounds helpers, offset and width boundary cases, all thick-point relation
+classes, every style-dispatch byte, and valid shaded phase/step samples. The
+symbolic report separately partitions all 512 style-dispatch states, all
+33,554,432 effective-coordinate bounds states, all 4,294,967,296 thick-point
+coordinate relations, and all 3,145,728 graph-initialized shaded states at the
+64-row limit. Drawing-hook dispatch remains outside this translation.
+[confirmed]</p>
 <p><code>04:42B5</code>–<code>04:42E3</code> converts the graph coordinate into the point mask, LCD
 commands, and buffer offset. It selects <code>80h &gt;&gt; (x &amp; 7)</code>, uses <code>x &gt;&gt; 3</code>
 as the byte column, and computes <code>3 * ((4 * display_row) &amp; FFh) + byte_column</code>.
