@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-95d2bfcb.js";
+            window.path_to_searchindex_js = "searchindex-72d2cd3e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -1728,6 +1728,27 @@ axes and passes a clipped horizontal segment to <code>04:4382</code>. The nested
 fraction rule enters <code>34:5DA6</code> with object coordinates <code>x=1</code>–<code>5</code>, <code>y=6</code> and
 origins <code>x=16</code>, <code>y=5</code>. Page <code>04</code> receives endpoints <code>(17,52)</code> and <code>(21,52)</code>.
 [confirmed]</p>
+<p>The callers supply ordered endpoints. The wrappers treat the two varying
+coordinates asymmetrically. An underflow of the first coordinate against the
+logical clip clamps to zero. A first coordinate at or beyond the exclusive
+screen bound returns without drawing. The second coordinate instead returns
+on underflow and clamps at <code>bound-1</code> on overflow. <code>04:4379</code> performs the
+exclusive-bound test, while <code>04:43C0</code> selects the smaller ending coordinate.
+The JavaScript transition keeps the word-sized logical origins and clips
+separate from the byte-sized physical origins. [confirmed]</p>
+<p><code>_DarkLine</code> at <code>04:4025</code> fixes <code>H=1</code> before entering <code>_ILine</code> at <code>04:4029</code>.
+<code>04:4042</code>–<code>04:4069</code> computes the absolute byte deltas, direction bits, major
+axis, doubled minor increment, and signed error. <code>04:4078</code> calls <code>_IPoint</code> at
+<code>04:4157</code> before each step, so both endpoints produce writes. The major delta
+is incremented as a byte; a delta of <code>FFh</code> therefore produces 256 point
+visits. [confirmed]</p>
+<p>A raw interpreter of the pinned <code>_DarkLine</code> bytes checks all 131,072 ordered
+endpoint pairs for horizontal and vertical lines. It also checks all 65,536
+nonnegative delta pairs, which covers every major/minor ratio and signed-error
+sequence. Separate reverse-direction cases cover the direction branches.
+Physical MathPrint lines now compose this stepper with the translated point-on
+byte transition. Drawing-hook dispatch and non-dark point modes remain outside
+this translation. [confirmed]</p>
 <p>The structural handlers retain coordinates and dimensions as 16-bit words.
 For example, <code>34:62B4</code>–<code>34:62C3</code> reads a radical child’s width word, increments
 <code>DE</code> three times, and passes the resulting word endpoint to <code>34:5DA6</code>.

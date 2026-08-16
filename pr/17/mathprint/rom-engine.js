@@ -1518,13 +1518,76 @@
     };
   }
 
+  // _DarkLine enters _ILine at 04:4029 with H=1. 04:4042–40A4 computes
+  // absolute byte deltas, keeps two signed 16-bit error increments on the
+  // stack, and calls _IPoint at 04:4157 before each coordinate step. The
+  // maximum delta is incremented as a byte, so FFh produces 256 visits.
+  function settledPage4DarkLineTrace(
+    graphX1Value, graphY1Value, graphX2Value, graphY2Value) {
+    let x = byte(graphX1Value, 'page-4 dark-line first x');
+    let y = byte(graphY1Value, 'page-4 dark-line first y');
+    const graphX1 = x, graphY1 = y;
+    const x2 = byte(graphX2Value, 'page-4 dark-line second x');
+    const y2 = byte(graphY2Value, 'page-4 dark-line second y');
+    const xReverse = x2 < x;
+    const yReverse = y2 < y;
+    const deltaX = Math.abs(x2 - x);
+    const deltaY = Math.abs(y2 - y);
+    const yMajor = deltaY >= deltaX;
+    const major = Math.max(deltaX,deltaY);
+    const minor = Math.min(deltaX,deltaY);
+    let error = 2 * minor - major;
+    const minorIncrement = 2 * minor;
+    const combinedIncrement = 2 * (minor - major);
+    const points = [];
+    for (let remaining = major + 1; remaining !== 0; remaining--) {
+      points.push([x,y]);
+      if (remaining === 1) break;
+      if (error < 0) {
+        error += minorIncrement;
+        if (yMajor) y = (y + (yReverse ? -1 : 1)) & 0xff;
+        else x = (x + (xReverse ? -1 : 1)) & 0xff;
+      } else {
+        error += combinedIncrement;
+        x = (x + (xReverse ? -1 : 1)) & 0xff;
+        y = (y + (yReverse ? -1 : 1)) & 0xff;
+      }
+    }
+    return {
+      graphX1,
+      graphY1,
+      graphX2:x2,
+      graphY2:y2,
+      deltaX,
+      deltaY,
+      xReverse,
+      yReverse,
+      majorAxis:yMajor ? 'y' : 'x',
+      initialError:2 * minor - major,
+      minorIncrement,
+      combinedIncrement,
+      points,
+      routine:'04:4025–40AC → 04:4157',
+    };
+  }
+
   function settledViewport(viewport) {
     if (!viewport || typeof viewport !== 'object')
       throw new TypeError('settled viewport is required');
-    const result = {};
-    for (const field of ['xOrigin', 'yOrigin', 'xMax', 'yMax', 'xClip', 'yClip'])
-      result[field] = byte(viewport[field], `settled viewport ${field}`);
-    return result;
+    return {
+      xOrigin:unsignedWord(viewport.xOrigin, 'settled viewport xOrigin'),
+      yOrigin:unsignedWord(viewport.yOrigin, 'settled viewport yOrigin'),
+      xMax:byte(viewport.xMax, 'settled viewport xMax'),
+      yMax:byte(viewport.yMax, 'settled viewport yMax'),
+      xClip:unsignedWord(viewport.xClip, 'settled viewport xClip'),
+      yClip:unsignedWord(viewport.yClip, 'settled viewport yClip'),
+      screenXOrigin:byte(
+        viewport.screenXOrigin === undefined ? 0 : viewport.screenXOrigin,
+        'settled viewport screenXOrigin'),
+      screenYOrigin:byte(
+        viewport.screenYOrigin === undefined ? 0 : viewport.screenYOrigin,
+        'settled viewport screenYOrigin'),
+    };
   }
 
   // The editable-entry path keeps the record origin and horizontal clip in
@@ -2233,50 +2296,62 @@
     };
   }
 
-  const clipRange = (first, last, origin, clip, max) => {
-    let low = Math.min(first, last) + origin - clip;
-    let high = Math.max(first, last) + origin - clip;
-    if (high < 0 || low > max) return null;
-    low = Math.max(0, low);
-    high = Math.min(max, high);
-    return [low, high];
-  };
-
   // 34:5D96..5DA5 -> ram:3573 -> 04:431D. HL is the fixed x coordinate;
-  // BC and DE are inclusive y endpoints. Page 4 converts y to 63-y before its
-  // line primitive, so the returned graph endpoints preserve that orientation.
+  // Callers supply BC and DE as ordered inclusive y endpoints. 34:5DD1 clips
+  // the fixed word coordinate. Page 4 clamps the first y at zero, rejects it
+  // at the exclusive bound, rejects an underflowing second y, and clamps that
+  // y at bound-1.
   function settledVerticalOperation(x, y1, y2, viewport) {
-    byte(x, 'settled vertical x');
-    byte(y1, 'settled vertical y1');
-    byte(y2, 'settled vertical y2');
+    unsignedWord(x, 'settled vertical x');
+    unsignedWord(y1, 'settled vertical y1');
+    unsignedWord(y2, 'settled vertical y2');
     const v = settledViewport(viewport);
-    const graphX = x + v.xOrigin - v.xClip;
-    if (graphX < 0 || graphX > v.xMax) return null;
-    const ys = clipRange(y1, y2, v.yOrigin, v.yClip, v.yMax);
-    if (!ys) return null;
+    const logicalX = addWord(v.xOrigin,x);
+    if (logicalX < v.xClip) return null;
+    const relativeX = logicalX - v.xClip;
+    if (relativeX >= v.xMax + 1) return null;
+    const graphX = (relativeX + v.screenXOrigin) & 0xff;
+    const logicalY1 = addWord(v.yOrigin,y1);
+    const relativeY1 = logicalY1 < v.yClip ? 0 : logicalY1 - v.yClip;
+    if (relativeY1 >= v.yMax + 1) return null;
+    const logicalY2 = addWord(v.yOrigin,y2);
+    if (logicalY2 < v.yClip) return null;
+    const relativeY2 = Math.min(logicalY2 - v.yClip,v.yMax);
+    const screenY1 = (relativeY1 + v.screenYOrigin) & 0xff;
+    const screenY2 = (relativeY2 + v.screenYOrigin) & 0xff;
     return {
       kind: 'line', axis: 'vertical',
-      from: { x: graphX, y: 0x3f - ys[0] },
-      to: { x: graphX, y: 0x3f - ys[1] },
+      from: { x: graphX, y: (0x3f - screenY1) & 0xff },
+      to: { x: graphX, y: (0x3f - screenY2) & 0xff },
       routine: '34:5D96–5DA5 → 04:431D',
     };
   }
 
   // 34:5DA6..5DBD -> ram:3579 -> 04:4382. The wrapper swaps axes before
-  // applying the same viewport family, yielding an inclusive horizontal line.
+  // applying the corresponding ordered-endpoint viewport transitions.
   function settledHorizontalOperation(x1, x2, y, viewport) {
-    byte(x1, 'settled horizontal x1');
-    byte(x2, 'settled horizontal x2');
-    byte(y, 'settled horizontal y');
+    unsignedWord(x1, 'settled horizontal x1');
+    unsignedWord(x2, 'settled horizontal x2');
+    unsignedWord(y, 'settled horizontal y');
     const v = settledViewport(viewport);
-    const graphY = y + v.yOrigin - v.yClip;
-    if (graphY < 0 || graphY > v.yMax) return null;
-    const xs = clipRange(x1, x2, v.xOrigin, v.xClip, v.xMax);
-    if (!xs) return null;
+    const logicalY = addWord(v.yOrigin,y);
+    if (logicalY < v.yClip) return null;
+    const relativeY = logicalY - v.yClip;
+    if (relativeY >= v.yMax + 1) return null;
+    const screenY = (relativeY + v.screenYOrigin) & 0xff;
+    const logicalX1 = addWord(v.xOrigin,x1);
+    const relativeX1 = logicalX1 < v.xClip ? 0 : logicalX1 - v.xClip;
+    if (relativeX1 >= v.xMax + 1) return null;
+    const logicalX2 = addWord(v.xOrigin,x2);
+    if (logicalX2 < v.xClip) return null;
+    const relativeX2 = Math.min(logicalX2 - v.xClip,v.xMax);
+    const screenX1 = (relativeX1 + v.screenXOrigin) & 0xff;
+    const screenX2 = (relativeX2 + v.screenXOrigin) & 0xff;
+    const graphY = (0x3f - screenY) & 0xff;
     return {
       kind: 'line', axis: 'horizontal',
-      from: { x: xs[0], y: 0x3f - graphY },
-      to: { x: xs[1], y: 0x3f - graphY },
+      from: { x: screenX1, y: graphY },
+      to: { x: screenX2, y: graphY },
       routine: '34:5DA6–5DBD → 04:4382',
     };
   }
@@ -9244,6 +9319,19 @@
         if (x === operation.to.x && y === operation.to.y) break;
         x += dx; y += dy;
       }
+      // The viewport wrappers have already reduced a physical MathPrint line
+      // to visible byte coordinates. Re-run that accepted segment through the
+      // translated _DarkLine stepper so point order follows 04:4025–40AC.
+      if (pixels.length && pixels.every(([px,py]) =>
+        px >= 0 && px <= 0xff && py >= 0 && py < 0x40)) {
+        const [firstX,firstY] = pixels[0];
+        const [lastX,lastY] = pixels[pixels.length - 1];
+        const trace = settledPage4DarkLineTrace(
+          firstX,0x3f - firstY,lastX,0x3f - lastY);
+        pixels.length = 0;
+        for (const [graphX,graphY] of trace.points)
+          pixels.push([graphX,0x3f - graphY,1]);
+      }
     } else if (operation.kind === 'glyph') {
       if (!font || !font.large || !font.small)
         throw new TypeError('settled glyph rasterization requires font data');
@@ -9703,6 +9791,7 @@
     settledPointOperation,
     settledPage4PointAddress,
     settledPage4PointOnTransition,
+    settledPage4DarkLineTrace,
     settledVerticalOperation,
     settledHorizontalOperation,
     settledEditorViewport,
