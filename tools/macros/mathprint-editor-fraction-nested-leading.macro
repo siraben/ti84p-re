@@ -1,0 +1,29 @@
+# Capture fraction-template insertion before outer-numerator payload.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key ALPHA
+key YEQU
+wait 0.4s
+key 1
+wait 0.4s
+key 1
+key 2
+key LEFT
+wait 0.35s
+key LEFT
+wait 0.6s
+memdump /tmp/mathprint-editor-fraction-nested-leading-pre.ram ram-logical
+screenshot /tmp/mathprint-editor-fraction-nested-leading-pre.png
+key ALPHA
+key YEQU
+wait 0.4s
+key 1
+wait 0.8s
+memdump /tmp/mathprint-editor-fraction-nested-leading-post.ram ram-logical
+screenshot /tmp/mathprint-editor-fraction-nested-leading-post.png
