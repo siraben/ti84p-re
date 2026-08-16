@@ -364,16 +364,18 @@ TRANSLATION_SURFACES = (
     },
     {
         "name": "settled record graph and leaf program",
-        "rom": ["34:6105", "34:6143–61BD", "34:660A", "34:6CCD"],
+        "rom": ["34:6105", "34:6143–6209", "34:660A", "34:6CCD"],
         "javascript": [
             "settledSharedMarkerPrimitive",
+            "settledRenderNestingTail",
             "executeSettledRecordGraph",
             "executeSettledRecordProgram",
         ],
         "tests": ["tools/test-mathprint.js", "tools/mathprint-*-oracles.json"],
         "scope": (
             "types 20h–2Bh translated with oracles; all 14 projected paths "
-            "through the shared type-1Fh/editor-marker helper are translated, "
+            "through the shared type-1Fh/editor-marker helper and every post-render "
+            "nesting-tail type/child/counter state are translated, "
             "while the fixed type-1Fh table ABI lacks a captured record oracle"
         ),
     },
@@ -3007,6 +3009,132 @@ def type1f_entry_abis(
     ]
 
 
+def render_nesting_tail_path(render_type: int, child_index: int) -> dict[str, object]:
+    """Translate the complete type/child predicate path at 34:61CE–6209."""
+
+    a = render_type & 0xFF
+    child_index &= 0xFF
+    outcomes = []
+
+    def branch(address: int, outcome: str) -> None:
+        outcomes.append(f"34:{address:04X}:{outcome}")
+
+    branch(0x61D0, "taken" if a != 0x22 else "fallthrough")
+    if a == 0x22:
+        a = child_index
+        preserve = a < 3
+        branch(0x61D5, "returned" if preserve else "fallthrough")
+        return {
+            "terminal": "preserve_integral_leading_child" if preserve else "decrement",
+            "decremented": not preserve,
+            "return_a": a,
+            "branch_outcomes": outcomes,
+        }
+    branch(0x61DA, "taken" if a == 0x27 else "fallthrough")
+    if a == 0x27:
+        return {"terminal": "decrement", "decremented": True,
+                "return_a": a, "branch_outcomes": outcomes}
+    branch(0x61DE, "taken" if a == 0x21 else "fallthrough")
+    if a == 0x21:
+        return {"terminal": "decrement", "decremented": True,
+                "return_a": a, "branch_outcomes": outcomes}
+    branch(0x61E2, "taken" if a == 0x2B else "fallthrough")
+    if a == 0x2B:
+        return {"terminal": "decrement", "decremented": True,
+                "return_a": a, "branch_outcomes": outcomes}
+    branch(0x61E6, "taken" if a == 0x28 else "fallthrough")
+    if a in (0x28, 0x24):
+        if a != 0x28:
+            branch(0x61EA, "fallthrough")
+        a = child_index
+        preserve = a == 1
+        branch(0x61EF, "returned" if preserve else "fallthrough")
+        return {
+            "terminal": "preserve_shared_first_child" if preserve else "decrement",
+            "decremented": not preserve,
+            "return_a": a,
+            "branch_outcomes": outcomes,
+        }
+    branch(0x61EA, "taken")
+    branch(0x61F4, "fallthrough" if a == 0x23 else "taken")
+    if a == 0x23:
+        a = child_index
+        first_child = a == 1
+        branch(0x61F9, "returned" if first_child else "fallthrough")
+        if first_child:
+            return {
+                "terminal": "preserve_derivative_other_child",
+                "decremented": False,
+                "return_a": a,
+                "branch_outcomes": outcomes,
+            }
+        second_child = a == 2
+        branch(0x6205, "fallthrough" if second_child else "returned")
+        return {
+            "terminal": "decrement" if second_child else "preserve_derivative_other_child",
+            "decremented": second_child,
+            "return_a": a,
+            "branch_outcomes": outcomes,
+        }
+    summation = a == 0x29
+    branch(0x6200, "fallthrough" if summation else "taken")
+    if not summation:
+        return {
+            "terminal": "preserve_other_type",
+            "decremented": False,
+            "return_a": a,
+            "branch_outcomes": outcomes,
+        }
+    a = child_index
+    fourth_child = a == 4
+    branch(0x6205, "fallthrough" if fourth_child else "returned")
+    return {
+        "terminal": "decrement" if fourth_child else "preserve_summation_other_child",
+        "decremented": fourth_child,
+        "return_a": a,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_render_nesting_tail_paths() -> list[dict[str, object]]:
+    """Partition all type/child bytes and all nesting-counter values."""
+
+    classes: dict[
+        tuple[str, bool, tuple[str, ...]], dict[str, object]
+    ] = {}
+    for render_type in range(0x100):
+        for child_index in range(0x100):
+            result = render_nesting_tail_path(render_type, child_index)
+            key = (
+                str(result["terminal"]), bool(result["decremented"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] += 0x100
+            states = row["representative_states"]
+            if len(states) < 4:
+                states.append({
+                    "render_type": render_type,
+                    "child_index": child_index,
+                    "nesting_counter": 0,
+                })
+    return [
+        {
+            "terminal": terminal,
+            "decremented": decremented,
+            "counter_transition": (
+                "(counter - 1) & 0xFF" if decremented else "counter"
+            ),
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, decremented, outcomes)],
+        }
+        for terminal, decremented, outcomes in sorted(classes)
+    ]
+
+
 def metric_marker_path(
     at_tail_boundary: int,
     yequ_selection_guard: int,
@@ -3227,6 +3355,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "34:6143",
             0x100 * 2 * 0x10000,
             symbolic_type1f_paths(),
+        ),
+        (
+            "settled_render_nesting_tail",
+            "34:61CE–6209; 34:79C9",
+            0x100**3,
+            symbolic_render_nesting_tail_paths(),
         ),
         (
             "metric_marker_tail_gate",
@@ -4686,6 +4820,19 @@ def build_report(
                 ),
                 "entry_abis": type1f_entry_abis(rom, outcomes, witnesses),
                 "dynamic_record_oracle": False,
+            },
+            "settled_render_nesting_tail": {
+                "routine": "34:61CE–6209; 34:79C9",
+                "state": [
+                    "incoming A record type", "one-based child selector E",
+                    "nesting counter byte at 0x8515",
+                ],
+                "projected_input_domain": 0x100**3,
+                "terminal_classes": symbolic_render_nesting_tail_paths(),
+                "scope": (
+                    "complete byte domain; the counter affects only the preserved "
+                    "or wrapping-decremented result"
+                ),
             },
             "metric_marker_tail_gate": {
                 "routine": "34:759C",
