@@ -393,6 +393,7 @@ TRANSLATION_SURFACES = (
             "settledHorizontalOperation",
             "settledPage1GlyphPointerSelection",
             "settledPage1VPutMapCompose", "settledPage1VPutMapRow",
+            "settledPage1MathPrintGlyphPlan",
             "settledPage7LargeGlyphRecord", "settledOperationPixels",
             "settledBlits", "settledOperationWrites",
         ],
@@ -404,7 +405,8 @@ TRANSLATION_SURFACES = (
             "dark-line stepping and ordered horizontal/vertical viewport clipping; "
             "the complete page-1 glyph-pointer selector byte domain; "
             "small-font byte-boundary selection, row alignment, ordinary and "
-            "inverse byte composition, and crossing-byte write order; "
+            "inverse byte composition, crossing-byte write order, and the "
+            "root-versus-raised MathPrint row and right-edge states; "
             "page-7 large-glyph stride, record building, and hook gates; and "
             "synchronous accepted LCD writes, including unchanged writes; "
             "drawing-hook dispatch, font internals, and external LCD timing remain open"
@@ -3922,6 +3924,148 @@ def symbolic_vputmap_byte_composition_paths() -> list[dict[str, object]]:
     ]
 
 
+def mathprint_vputmap_gate_path(
+    pen_column: int,
+    width: int,
+    raised: int,
+) -> dict[str, object]:
+    """Translate the MathPrint-prepared right-edge gate at 01:62E1–6315."""
+
+    if not 0 <= pen_column <= 0xFF:
+        raise ValueError("VPutMap pen column must fit in one byte")
+    if not 1 <= width <= 7:
+        raise ValueError("VPutMap width must be between one and seven")
+    if raised not in (0, 1):
+        raise ValueError("VPutMap raised state must be zero or one")
+    endpoint = (pen_column + width) & 0xFF
+    right_limit = 0x60 if raised else 0x61
+    accepted = endpoint < right_limit
+    mode = "raised" if raised else "root"
+    return {
+        "terminal": f"{mode}_{'accepted' if accepted else 'rejected'}",
+        "endpoint": endpoint,
+        "right_limit": right_limit,
+        "branch_outcomes": [
+            "01:62E5:taken",
+            "01:62FE:taken",
+            f"01:6308:{'taken' if raised else 'fallthrough'}",
+            f"01:6311:{'fallthrough' if accepted else 'taken'}",
+        ],
+    }
+
+
+def symbolic_mathprint_vputmap_gate_paths() -> list[dict[str, object]]:
+    """Partition both MathPrint modes over every pen byte and valid width."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for raised in (0, 1):
+        for pen_column in range(0x100):
+            for width in range(1, 8):
+                result = mathprint_vputmap_gate_path(
+                    pen_column, width, raised
+                )
+                key = (
+                    str(result["terminal"]),
+                    tuple(str(item) for item in result["branch_outcomes"]),
+                )
+                row = classes.setdefault(key, {
+                    "projected_input_count": 0,
+                    "representative_states": [],
+                })
+                row["projected_input_count"] += 1
+                if len(row["representative_states"]) < 4:
+                    row["representative_states"].append({
+                        "pen_column": pen_column,
+                        "width": width,
+                        "raised": raised,
+                    })
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
+def mathprint_vputmap_row_state_path(
+    bit_offset: int,
+    width: int,
+    raised: int,
+) -> dict[str, object]:
+    """Translate MathPrint's row-count and source-skip setup at 01:632D–6378."""
+
+    if not 0 <= bit_offset <= 7:
+        raise ValueError("VPutMap bit offset must be between zero and seven")
+    if not 1 <= width <= 7:
+        raise ValueError("VPutMap width must be between one and seven")
+    if raised not in (0, 1):
+        raise ValueError("VPutMap raised state must be zero or one")
+    crosses = bit_offset + width > 8
+    if raised:
+        outcomes = [
+            "01:6335:fallthrough",
+            "01:633D:fallthrough",
+            "01:6343:fallthrough",
+            "01:634B:fallthrough",
+            "01:6352:fallthrough",
+            "01:636B:fallthrough",
+        ]
+        mode = "raised_five_rows_skip_one"
+        row_count = 5
+        source_row_start = 1
+    else:
+        outcomes = ["01:6335:taken", "01:636B:taken"]
+        mode = "root_seven_rows"
+        row_count = 7
+        source_row_start = 0
+    outcomes.append(
+        f"01:6378:{'taken' if crosses else 'fallthrough'}"
+    )
+    return {
+        "terminal": f"{mode}_{'crossing' if crosses else 'one_byte'}",
+        "row_count": row_count,
+        "source_row_start": source_row_start,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_mathprint_vputmap_row_state_paths() -> list[dict[str, object]]:
+    """Partition both MathPrint row states over every width and bit offset."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for raised in (0, 1):
+        for bit_offset in range(8):
+            for width in range(1, 8):
+                result = mathprint_vputmap_row_state_path(
+                    bit_offset, width, raised
+                )
+                key = (
+                    str(result["terminal"]),
+                    tuple(str(item) for item in result["branch_outcomes"]),
+                )
+                row = classes.setdefault(key, {
+                    "projected_input_count": 0,
+                    "representative_states": [],
+                })
+                row["projected_input_count"] += 1
+                if len(row["representative_states"]) < 4:
+                    row["representative_states"].append({
+                        "bit_offset": bit_offset,
+                        "width": width,
+                        "raised": raised,
+                    })
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
 def large_glyph_hook_path(
     entry: str,
     font_hook_active: int,
@@ -4331,6 +4475,18 @@ def symbolic_model_corpus() -> dict[str, object]:
             "01:6360–6378",
             8 * 7,
             symbolic_vputmap_alignment_gate_paths(),
+        ),
+        (
+            "mathprint_vputmap_right_edge",
+            "01:62E1–6315",
+            2 * 0x100 * 7,
+            symbolic_mathprint_vputmap_gate_paths(),
+        ),
+        (
+            "mathprint_vputmap_row_state",
+            "01:632D–6378",
+            2 * 8 * 7,
+            symbolic_mathprint_vputmap_row_state_paths(),
         ),
         (
             "vputmap_byte_composition",
@@ -5898,6 +6054,32 @@ def build_report(
                 "scope": (
                     "complete byte-boundary predicate domain; the following "
                     "screen-dependent rotate carry paths remain in the static CFG"
+                ),
+            },
+            "mathprint_vputmap_right_edge": {
+                "routine": "01:62E1–6315",
+                "state": [
+                    "root or raised MathPrint call state",
+                    "pen column byte", "glyph width in 1..7",
+                ],
+                "projected_input_domain": 2 * 0x100 * 7,
+                "terminal_classes": symbolic_mathprint_vputmap_gate_paths(),
+                "scope": (
+                    "complete pen-byte and width domain for the two flag "
+                    "states prepared by 34:6C37"
+                ),
+            },
+            "mathprint_vputmap_row_state": {
+                "routine": "01:632D–6378",
+                "state": [
+                    "root or raised MathPrint call state",
+                    "LCD bit offset", "glyph width in 1..7",
+                ],
+                "projected_input_domain": 2 * 8 * 7,
+                "terminal_classes": symbolic_mathprint_vputmap_row_state_paths(),
+                "scope": (
+                    "complete root-seven-row and raised-five-row source-skip "
+                    "states prepared by 34:6C37"
                 ),
             },
             "vputmap_byte_composition": {

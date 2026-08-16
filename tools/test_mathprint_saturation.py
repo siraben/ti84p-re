@@ -41,6 +41,8 @@ from analyze_mathprint_saturation import (
     glyph_viewport_path,
     iter_oracle_cases,
     large_glyph_hook_path,
+    mathprint_vputmap_gate_path,
+    mathprint_vputmap_row_state_path,
     oracle_coverage,
     oracle_trace_features,
     predicate_state,
@@ -87,6 +89,8 @@ from analyze_mathprint_saturation import (
     symbolic_find_alpha_type_class_paths,
     symbolic_glyph_viewport_paths,
     symbolic_large_glyph_hook_paths,
+    symbolic_mathprint_vputmap_gate_paths,
+    symbolic_mathprint_vputmap_row_state_paths,
     symbolic_record_allocation_capacity_paths,
     symbolic_render_nesting_tail_paths,
     symbolic_model_corpus,
@@ -331,13 +335,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(3292, report["path_equivalence_class_count"])
-        self.assertEqual(3292, report["representative_path_corpus_count"])
-        self.assertEqual(391, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(3300, report["path_equivalence_class_count"])
+        self.assertEqual(3300, report["representative_path_corpus_count"])
+        self.assertEqual(405, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            189, report["per_domain_minimum_branch_outcome_corpus_count"]
+            193, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(36, len(report["domains"]))
+        self.assertEqual(38, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -1162,6 +1166,38 @@ class SymbolicHandlerTests(unittest.TestCase):
             "01:6435:fallthrough", inverse["branch_outcomes"][0]
         )
 
+    def test_mathprint_vputmap_gate_partitions_both_driver_modes(self) -> None:
+        paths = symbolic_mathprint_vputmap_gate_paths()
+
+        self.assertEqual(4, len(paths))
+        self.assertEqual(2 * 0x100 * 7, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertTrue(mathprint_vputmap_gate_path(90, 6, 0)["terminal"].endswith(
+            "accepted"
+        ))
+        self.assertTrue(mathprint_vputmap_gate_path(92, 4, 1)["terminal"].endswith(
+            "rejected"
+        ))
+        self.assertTrue(mathprint_vputmap_gate_path(91, 4, 1)["terminal"].endswith(
+            "accepted"
+        ))
+
+    def test_mathprint_vputmap_row_state_partitions_both_modes(self) -> None:
+        paths = symbolic_mathprint_vputmap_row_state_paths()
+
+        self.assertEqual(4, len(paths))
+        self.assertEqual(2 * 8 * 7, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        root = mathprint_vputmap_row_state_path(0, 6, 0)
+        raised = mathprint_vputmap_row_state_path(6, 4, 1)
+        self.assertEqual((7, 0), (root["row_count"], root["source_row_start"]))
+        self.assertEqual(
+            (5, 1), (raised["row_count"], raised["source_row_start"])
+        )
+        self.assertEqual("01:6378:taken", raised["branch_outcomes"][-1])
+
     def test_metric_marker_gate_distinguishes_all_local_outcomes(self) -> None:
         self.assertEqual(
             "return_nz_pointer_mismatch",
@@ -1660,7 +1696,7 @@ class CheckedReportTests(unittest.TestCase):
             matrix_entry["sha256"],
         )
         self.assertEqual(
-            3292,
+            3300,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(
