@@ -1607,6 +1607,8 @@ const verticalCueRomSpans = [
 const glyphViewportRomSpan = {address:0x6c5f, bytes:Buffer.from(
   '2a1685ed5b028ecdbb213816e1e5ed5b168519e52a028ecdca5d1319d1cdbb21' +
   '3006d1e1f1d51824', 'hex')};
+const countedStringRomSpan = {address:0x6c26, bytes:Buffer.from(
+  '7e23c5e5cd376ce1c110f5c9', 'hex')};
 const runIndicatorRomSpan = {address:0x6bba, bytes:Buffer.from(
   'f33e2bcdc30cd3103614217784cb0e4e060816807acd895acdc920cdc30cdb11c' +
   'dc30cdb115f7acd895acdc9207bcb193804cb871802cbc7cdc30cd3111410d4c9',
@@ -2496,6 +2498,12 @@ if (fs.existsSync(localRomPath)) {
     localRom.subarray(
       glyphViewportOffset,glyphViewportOffset + glyphViewportRomSpan.bytes.length),
     glyphViewportRomSpan.bytes);
+  const countedStringOffset = 0x34 * 0x4000 +
+    (countedStringRomSpan.address & 0x3fff);
+  expectEqual('34:6C26–6C31 raw counted-string bytes',
+    localRom.subarray(
+      countedStringOffset,countedStringOffset + countedStringRomSpan.bytes.length),
+    countedStringRomSpan.bytes);
   const runIndicatorOffset = 0x01 * 0x4000 +
     (runIndicatorRomSpan.address & 0x3fff);
   expectEqual('01:6BBA–6BFA raw run-indicator bytes',
@@ -4736,6 +4744,55 @@ expectEqual('34:6C6B skips only glyphs past the one-past-right endpoint',
     {kind:'glyph',code:0x41,x:91,y:3,depth:1,routine:'test'},
     {kind:'glyph',code:0x41,x:92,y:3,depth:1,routine:'test'},
   ]);
+expectEqual('34:6C26 applies the left viewport gate to each counted-string code',
+  rom.settledEditorViewportOperations([
+    {kind:'glyph-run',codes:[0x6c,0x6f,0x67],x:0,y:3,depth:1,
+     routine:'34:6C26–6C31 → 34:6C37'},
+  ], rom.settledEditorViewport(10,{previousXClip:2}), 10, {
+    glyphAdvance:(depth,code) => font.small.glyphs[code].w,
+  }).slice(0,-1), [
+    {kind:'glyph',code:0x6f,x:1,y:3,depth:1,
+     routine:'34:6C26–6C31 → 34:6C37'},
+    {kind:'glyph',code:0x67,x:5,y:3,depth:1,
+     routine:'34:6C26–6C31 → 34:6C37'},
+  ]);
+expectEqual('34:6C26 applies the right viewport gate to each counted-string code',
+  rom.settledEditorViewportOperations([
+    {kind:'glyph-run',codes:[0x6c,0x6f,0x67],x:86,y:3,depth:1,
+     routine:'34:6C26–6C31 → 34:6C37'},
+  ], rom.settledEditorViewport(0), 10, {
+    glyphAdvance:(depth,code) => font.small.glyphs[code].w,
+  }), [
+    {kind:'glyph',code:0x6c,x:86,y:3,depth:1,
+     routine:'34:6C26–6C31 → 34:6C37'},
+    {kind:'glyph',code:0x6f,x:89,y:3,depth:1,
+     routine:'34:6C26–6C31 → 34:6C37'},
+  ]);
+expectEqual('34:6C26 advances the word pen after a skipped counted-string code',
+  rom.settledGlyphRunOperations({
+    kind:'glyph-run',codes:[0x6c,0x6f,0x67],x:0xfffe,y:3,depth:1,
+    routine:'34:6C26–6C31 → 34:6C37',
+  }, (depth,code) => font.small.glyphs[code].w).map(operation =>
+    [operation.code,operation.x]), [
+    [0x6c,0xfffe],[0x6f,1],[0x67,5],
+  ]);
+expectThrows('counted-string viewport translation requires exact glyph advances',
+  TypeError, () => rom.settledEditorViewportOperations([
+    {kind:'glyph-run',codes:[0x6c],x:0,y:3,depth:1,routine:'test'},
+  ],rom.settledEditorViewport(0),10));
+const leftClippedLogBase = mp.generatedForExpression(
+  'logbase(2,8)+1+1+1+1+1');
+expectEqual('live logBASE output clips each counted-string code independently', {
+  recordWidth:leftClippedLogBase.recordWidth,
+  xClip:leftClippedLogBase.editorViewport.xClip,
+  prefix:leftClippedLogBase.settledOperations.filter(operation =>
+    operation.routine === '34:63C7 → _KeyToString = 45CAh → 34:6C26')
+    .map(operation => [operation.kind,operation.code,operation.x]),
+}, {
+  recordWidth:100,
+  xClip:11,
+  prefix:[['glyph',0x67,1]],
+});
 expectEqual('34:6C5F/6C7C exposes both glyph clipping comparisons', [
   rom.settledGlyphViewportDecision(0,4,1),
   rom.settledGlyphViewportDecision(92,4,0),
