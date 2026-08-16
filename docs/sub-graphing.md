@@ -99,16 +99,25 @@ X/Y shown at the bottom of the screen, and by DRAW commands that take pixel argu
 (0x844F) = (x >> 3) | 0x20     ; LCD byte-column command for the horizontal group
 (0x8451) = (0x3F - y) | 0x80   ; LCD row command, vertically mirrored
 returns (table_42E4)[x & 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
+HL = 3 * ((4 * display_row) & 0xFF) + (x >> 3)
 ```
 This maps a `(x,y)` pixel to a byte+bit in the buffer and produces the matching LCD
-command bytes. [confirmed]
+command bytes. Adding `HL` to `0x9340` addresses `plotSScreen`; adding it to
+`0x9872` addresses `appBackUpScreen`. [confirmed]
 
-`_IPoint` (`04:4157`): set/clear/test one pixel in `plotSScreen`. Honors the current
-pen mode / plot style: reads style at `(IY+0x14)` and a style selector at `0x9775`
-(`0x9775` = 1 selects the "thick/line connect" branch that draws an extra adjacent
-pixel; 1..3 select dotted/animated styles), clips against the X-offset (`XOffset`) and the
-buffer bounds (`_IBounds`), then OR/AND/XORs the mask from `_IOffset`. `_PointOn`
-(`04:4155`) is the plain set-pixel entry. [confirmed]
+`_IPoint` (`04:4157`) applies one of four byte operations selected by `D`: `0`
+clears the mask, `1` sets it, `2` XORs it, and `3` tests it without writing.
+`_PointOn` (`04:4155`) fixes `D=1`. The style path at `04:4173` can emit adjacent
+points before the byte operation; the drawing hook at `04:415A` can replace the
+normal path. [confirmed]
+
+The normal path routes the byte through `(IY+3Ch)` and `plotFlags.1` at
+`(IY+02h)`. Routing bit 3 selects `appBackUpScreen` without LCD I/O. Bit 0
+selects the corresponding direct `plotSScreen` route. When both are clear,
+the routine reads and writes the LCD controller. `plotFlags.1` preserves
+`plotSScreen` and uses the LCD byte as the source; clearing it uses and rewrites
+the RAM byte. Routing bit 2 also stores the result in `appBackUpScreen`.
+[confirmed]
 
 `_PixelTest` (`04:79E7`): the `pxl-Test(` command — validates the row/col against the
 current graph dimensions `lcdTallP` (`0x8DA3`) and `pixWide_m_1` (`0x8DA5`) — 63 and 95 on a
