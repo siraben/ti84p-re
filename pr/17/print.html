@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0781fe49.js";
+            window.path_to_searchindex_js = "searchindex-b334094d.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14954,10 +14954,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 274 retained traces, and
+destinations, overlays exact next-PC outcomes from 275 retained traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 273 reach their state through calculator input. One explicitly
+traces, 274 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an <code>EF36h</code> editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 <code>tools/mathprint-saturation.json</code> records the resulting branches and trace
@@ -14965,9 +14965,9 @@ hashes. [confirmed]</p>
 <p>The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]</p>
-<p>None of the 274 report traces executes <code>39:5167</code>, <code>39:523B</code>, the saved-operand
+<p>None of the 275 report traces executes <code>39:5167</code>, <code>39:523B</code>, the saved-operand
 wrappers at <code>39:5B10</code>–<code>39:5B38</code>, or the dispatchers at <code>39:59E0</code>/<code>39:59F9</code>.
-The 274-digest trace cache also has no hit at those entries. [confirmed]
+The 275-digest trace cache also has no hit at those entries. [confirmed]
 <code>_FindAlphaUp</code> at <code>07:50B5</code> executes once in 112 report traces, but every call
 comes from the type-<code>16h</code> cleanup loop at <code>07:5544</code>. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -15078,7 +15078,7 @@ return class identifies which callee paths have live witnesses. [confirmed]</p>
 <tbody>
 <tr><td>Settled construction</td><td style="text-align: right">991</td><td style="text-align: right">249 / 250</td><td style="text-align: right">408</td><td style="text-align: right">80.93% / 80.93%</td></tr>
 <tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">258 / 259</td><td style="text-align: right">302</td><td style="text-align: right">97.52% / 97.52%</td></tr>
-<tr><td>Metrics and geometry</td><td style="text-align: right">470</td><td style="text-align: right">76 / 76</td><td style="text-align: right">80</td><td style="text-align: right">99.57% / 99.57%</td></tr>
+<tr><td>Metrics and geometry</td><td style="text-align: right">470</td><td style="text-align: right">77 / 77</td><td style="text-align: right">80</td><td style="text-align: right">100.00% / 100.00%</td></tr>
 <tr><td>Record allocator</td><td style="text-align: right">64</td><td style="text-align: right">7 / 7</td><td style="text-align: right">8</td><td style="text-align: right">98.44% / 98.44%</td></tr>
 <tr><td>Alphabetic VAT search</td><td style="text-align: right">236</td><td style="text-align: right">17 / 17</td><td style="text-align: right">92</td><td style="text-align: right">34.32% / 34.32%</td></tr>
 <tr><td>Editor layout</td><td style="text-align: right">2,776</td><td style="text-align: right">255 / 255</td><td style="text-align: right">1,098</td><td style="text-align: right">33.03% / 33.03%</td></tr>
@@ -15093,13 +15093,13 @@ OS entry states. A branch with both outcomes observed is dynamically saturated
 for that corpus. A branch with one or no outcomes remains open even when its
 containing routine has been reached. Metrics and geometry and the allocator
 have no wholly unobserved branch. The other seven components still do. Three of
-the allocator’s four branches and 35 of the 40 metric branches have both
+the allocator’s four branches and 37 of the 40 metric branches have both
 outcomes. [confirmed]</p>
 <p>The report classifies all 2,276 enumerated outcomes. Natural calculator input
-exercises 1,009. The synthetic <code>EF36h</code> state adds two outcomes, for 1,011 across
+exercises 1,010. The synthetic <code>EF36h</code> state adds two outcomes, for 1,012 across
 all evidence. One allocator outcome is infeasible under its data invariant.
 Two metric outcomes are infeasible under the calculator call ABI. The full
-evidence set leaves 1,262 unresolved; the natural-only set leaves 1,264.
+evidence set leaves 1,261 unresolved; the natural-only set leaves 1,263.
 An unobserved outcome never becomes infeasible from absence alone. [confirmed]</p>
 <p>The infeasible allocator outcome is the fallthrough at <code>33:4F4E</code>. The type
 <code>0x2B</code> path loads rows and columns from record offsets <code>+0x13</code> and <code>+0x12</code>, then
@@ -15117,28 +15117,28 @@ Synthetic direct calls to internal metric handlers do not share the ABI.
 <p>The report computes two exact Z3 covers. The first preserves every individual
 branch outcome observed in the supplied traces. It does not preserve complete
 invocation paths, register or RAM states, dispatch indices, record cases, or LCD
-write cases. The all-evidence branch cover selects 19 traces and preserves
-1,011 outcomes in 4,197,991,998 bytes. The natural-only cover selects 20 traces
-and preserves 1,009 outcomes in 4,354,026,408 bytes.</p>
+write cases. The all-evidence branch cover selects 20 traces and preserves
+1,012 outcomes in 4,424,233,548 bytes. The natural-only cover selects 21 traces
+and preserves 1,010 outcomes in 4,580,267,958 bytes.</p>
 <p>The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,583 tags and needs 207
-traces. The natural-only universe has 1,581 tags and needs 206 traces. Every
+independent oracle case. Its all-evidence universe has 1,605 tags and needs 208
+traces. The natural-only universe has 1,603 tags and needs 207 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The retained byte totals are
-32,277,172,032 and 32,181,288,114, respectively. The broad set remains the RE
+32,503,413,582 and 32,407,529,664, respectively. The broad set remains the RE
 and regression corpus; the public gallery uses a smaller, diverse selection.
 [confirmed]</p>
 <p>The tagged cover preserves only states represented by its tags. It does not
 turn unobserved RAM into an observed state or prove that the traces reach every
 symbolic valuation. The separate exhaustive models state their preconditions;
 the dynamic cover states what the retained traces actually exercise. [confirmed]</p>
-<p>The 19-trace all-evidence branch cover retains the nested derivative, complete
-root-level structural-navigation, depth-two fraction <strong>LEFT</strong>, integral, and
-<strong>Y=</strong>/table runs below. Other selected traces cover every outcome in the
-depth-four log-base, log-base marker, and radical runs, so the exact solver
-omits them. The macro paths contain no
+<p>The 20-trace all-evidence branch cover retains the nested derivative, complete
+root-level structural-navigation, depth-two fraction <strong>LEFT</strong>, mixed
+radical/fraction traversal, integral, and <strong>Y=</strong>/table runs below. Other selected
+traces cover every outcome in the depth-four log-base, log-base marker, and
+radical runs, so the exact solver omits them. The macro paths contain no
 <code>memwrite</code> command or execution hook. The raw TLMT files remain outside the
 repository; their hashes identify the exact inputs used by the report.
 [confirmed]</p>
@@ -15163,6 +15163,7 @@ natural <code>34:6B94</code> taken witness. [confirmed]</p>
 <tr><td>Token-built matrix traversal</td><td><code>tools/macros/mathprint-editor-matrix-navigation.macro</code></td><td><code>78639019ccf6b1d01a62b2f88dc5ff619382c08fe81396886aa0c49bcfe962d4</code></td><td>Omitted</td></tr>
 <tr><td>Depth-two fraction <strong>RIGHT</strong></td><td><code>tools/macros/mathprint-editor-nested-fraction-right-navigation.macro</code></td><td><code>15e6bccf136c7212fd36f7bf8ed570fd1ebbe161c8ef58584a439e891237d1ac</code></td><td>Omitted</td></tr>
 <tr><td>Depth-two fraction <strong>LEFT</strong></td><td><code>tools/macros/mathprint-editor-nested-fraction-left-navigation.macro</code></td><td><code>6cd38899f36e5a6398a0d1959557f8cb45172b4046db1f39cdfa298250066e6a</code></td><td>1</td></tr>
+<tr><td>Fraction nested in a radical</td><td><code>tools/macros/mathprint-editor-radical-fraction-navigation.macro</code></td><td><code>99d813bdbb7102c9bd5ae608c0cc9eb64cd84c0410a06e4f2243e1768d86c574</code></td><td>1</td></tr>
 <tr><td><strong>Y=</strong>/table/power round trip</td><td><code>tools/macros/mathprint-yequ-table-power-insert.macro</code></td><td><code>ac719f540d2adfca05d2ffa415f065b83eaf407f04fca42f5ae63c440a746b9d</code></td><td>16</td></tr>
 </tbody>
 </table>
@@ -15171,6 +15172,12 @@ natural <code>34:6B94</code> taken witness. [confirmed]</p>
 The <strong>LEFT</strong> trace is 34,465,218 bytes smaller, so the lexicographic minimum
 retains it and omits the <strong>RIGHT</strong> trace. This substitution changes retained
 bytes without changing the covered-outcome count. [confirmed]</p>
+<p>The mixed radical/fraction trace supplies the first natural <code>34:75B0</code>
+fallthrough with <code>A=27h</code>, the radical marker outside the special fraction,
+nth-root, and power set. It exercises the last two previously unseen metric
+instructions and raises metric/geometry instruction coverage to 100%. The
+component still has one unresolved branch outcome and two outcomes proven
+infeasible under the calculator ABI. [confirmed]</p>
 <p>The retained <code>mathprint_integral_boundary_insert</code> trace reaches <code>34:6968</code>
 taken, <code>34:6B6D</code> fallthrough, and <code>34:6B94</code> fallthrough through calculator
 input. It supplies the natural witnesses recorded for all three outcomes.
@@ -15194,7 +15201,7 @@ and <code>A</code> at each discriminator were checked before admission. [confirm
 <p>The synthetic <code>EF36h</code> trace uses
 <code>tools/macros/mathprint-ef36-injected-buffer.macro</code>. Its two <code>memwrite</code>
 commands place <code>EF 36 31 11</code> at the editor cursor. It is the sole synthetic
-source in the 274-trace report. It supplies the only evidence for
+source in the 275-trace report. It supplies the only evidence for
 <code>34:5A23</code> fallthrough and <code>34:6992</code> taken. The token-built matrix traversal
 supplies the first natural witness for <code>34:6B94</code> taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]</p>
@@ -15583,13 +15590,17 @@ those shapes. [confirmed]</p>
 transitions. It starts after the outer fraction, enters its atomic denominator,
 returns to the outer numerator, enters the inner fraction from the right, walks
 both inner children, and exits both controller levels before checking the root
-endpoint. The extra navigation corpus now has 121 states and 102 transitions
-across 19 sequences. [confirmed]</p>
+endpoint. [confirmed]</p>
+<p>A mixed-controller trace walks a completed fraction inside a radical in both
+directions. Its 18 states and 16 transitions enter and exit a one-child radical
+and a two-child fraction at depth two, with geometry-first cursor placement at
+both marker boundaries. The extra navigation corpus now has 139 states and 118
+transitions across 21 sequences. [confirmed]</p>
 <p>The reducer decodes each TilEm PNG and compares its black expression pixels
 with the translated record renderer. Because the blinking cursor may be gray,
 black, or absent, it masks only the cursor-cell rectangles emitted from the
 decoded active leaf. All other 96-by-64 pixels must agree. Every state in all
-19 sequences passes that independent screenshot comparison as well as
+21 sequences passes that independent screenshot comparison as well as
 the exact arena comparison. [confirmed]</p>
 <p>The cursor cell changes live metrics when it moves within a child. Entering the
 <code>nDeriv(</code> evaluation value at its end expands that leaf from four to nine
@@ -15643,9 +15654,9 @@ markers. The type-<code>0x01</code> variable rule is also tested in the integral
 covers every insertable type <code>0x20</code>–<code>0x2A</code>; all 16 added directions include
 exact layout-word and screenshot parity. One depth-two fraction <strong>RIGHT</strong>
 and one <strong>LEFT</strong> traversal are also captured. The two token-built matrix
-directions include the same exact parity. Matrix deletion, row/column edits
-beyond the captured one-cell stream, and other deeper structural combinations
-remain open. [confirmed]</p>
+directions and both radical/fraction directions include the same exact parity.
+Matrix deletion, row/column edits beyond the captured one-cell stream, and
+other deeper structural combinations remain open. [confirmed]</p>
 <p><strong>DEL</strong> removes the packed token at the right edge of the gap through
 <code>34:4570</code>, <code>00:3687</code>, and <code>06:4393–43A4</code>. <code>06:43A5</code> reads the token and calls
 <code>00:1FE7</code>; <code>06:439C</code> advances <code>editTail</code> once for a one-byte token and twice
@@ -15706,12 +15717,13 @@ depth. <code>tools/macros/mathprint-power-boundary-insert.macro</code> reproduce
 top-level power-marker path. The <strong>Y=</strong>/table/power round trip above reaches this
 gate after returning to <strong>Y=</strong>, but the conjunction tested by <code>34:789A</code> is false
 at that invocation. It therefore witnesses <code>34:75A9</code> fallthrough, not taken. The
-table-equation outcome at <code>34:75A9</code> taken, the non-special marker outcome at
-<code>34:75B0</code> fallthrough remain unresolved under natural input. Both depth-two
-fraction directions naturally exercise <code>34:75BB</code> fallthrough at nonzero depth;
-the <strong>RIGHT</strong> trace remains its first report witness. Three local injected-state
-probes exist, but all are absent from both minimized corpora and the nested path
-no longer depends on them. [confirmed]</p>
+table-equation outcome at <code>34:75A9</code> taken remains unresolved under natural
+input. The mixed radical/fraction trace naturally exercises <code>34:75B0</code>
+fallthrough, and both depth-two fraction directions naturally exercise
+<code>34:75BB</code> fallthrough at nonzero depth. The <strong>RIGHT</strong> fraction trace remains the
+first report witness for the latter. Three local injected-state probes exist,
+but all are absent from both minimized corpora; natural traces now supersede
+the <code>34:75B0</code> and <code>34:75BB</code> probes. [confirmed]</p>
 <p>The record-oracle corpus contains 114 captured cases and includes every type
 from <code>0x1F</code> through <code>0x2B</code>. Types <code>0x20</code>–<code>0x2B</code> have decoded record nodes and
 complete accepted-write oracles. The type-<code>0x1F</code> case is the transparent
