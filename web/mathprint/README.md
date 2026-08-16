@@ -167,16 +167,16 @@ the structural record's pre-edit `+13h` byte while replacing the `EF 1E`
 empty-slot token. Structural templates use the separate mutation path below;
 `editorMoveCursor()` handles ordinary and structural boundaries. Live captures
 cover every insertable structural type `0x20`–`0x2A` in both directions plus
-one depth-two fraction traversal to the right. The summation captures combine
-a type-`0x01` variable, an atomic `EF 1E` empty slot, ordinary children, and a
-trailing parent token. Sixteen root-level sequences match every
+one depth-two fraction traversal in each direction. The summation captures
+combine a type-`0x01` variable, an atomic `EF 1E` empty slot, ordinary children,
+and a trailing parent token. Sixteen root-level sequences match every
 cursor-dependent layout word. Their reducer also compares the translated LCD
 against the real TilEm screenshots outside only the blinking cursor cells.
 Two more sequences walk the token-built `[[1]]` matrix across all five packed
-tokens in both directions. Across all 18 sequences, 110 RAM states and 92
-adjacent moves have exact arena, layout-word, and masked-screenshot parity.
-Matrix deletion, row/column edits beyond that one-cell stream, and most deeper
-nested directions remain open.
+tokens in both directions. Across the 19 additional sequences, 121 RAM states
+and 102 adjacent moves have exact arena, layout-word, and masked-screenshot parity.
+Matrix deletion, row/column edits beyond that one-cell stream, and other deeper
+structural combinations remain open.
 An eight-state summation construction capture also verifies the type-`0x01`
 post-insertion path. Filling the variable automatically selects the lower
 bound; filling the other children does not. Packed-token insertion now returns
