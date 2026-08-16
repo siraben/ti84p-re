@@ -1494,11 +1494,32 @@
     };
   }
 
-  // 04:4157–420C applies the graph-style expansion, byte coordinate offsets,
-  // and the apiFlg4.fullScrnDraw bounds gate before the byte primitive. The
-  // drawing-hook branch is deliberately outside this helper. Each retained
-  // attempt records the raw coordinate even when 04:42EC or 04:4306 rejects
-  // it, which keeps the control-flow result separate from the visible points.
+  // 04:4157 supplies drawing-hook command 0. An inactive hook retains Z from
+  // BIT 7,(IY+35h) and enters the local point path. An active hook returns Z
+  // to request that same continuation; NZ consumes the point externally and
+  // returns after restoring the caller's AF. The hook body remains external.
+  function settledPage4DrawingHookDispatch(hookActiveValue,hookReturnsZValue) {
+    const hookActive = boolean(
+      hookActiveValue, 'page-4 drawing-hook-active flag');
+    const hookReturnsZ = boolean(
+      hookReturnsZValue, 'page-4 drawing-hook return flag');
+    const continueLocal = !hookActive || hookReturnsZ;
+    return {
+      hookActive,hookReturnsZ,hookCommand:0,
+      action:continueLocal ? 'continue-local' : 'hook-handled',
+      branchOutcomes:[
+        `04:415E:${hookActive ? 'taken' : 'fallthrough'}`,
+        `04:4161:${continueLocal ? 'taken' : 'fallthrough'}`,
+      ],
+      routine:'04:4157–4164',
+    };
+  }
+
+  // 04:4157–420C applies drawing-hook dispatch, graph-style expansion, byte
+  // coordinate offsets, and the apiFlg4.fullScrnDraw bounds gate before the
+  // byte primitive. Each retained attempt records the raw coordinate even
+  // when 04:42EC or 04:4306 rejects it, which keeps the control-flow result
+  // separate from the visible points.
   function settledPage4PointPreprocess(
     xValue, yValue, modeValue, inputState) {
     const x = byte(xValue, 'page-4 point-preprocess x');
@@ -1508,6 +1529,15 @@
       throw new RangeError('page-4 point-preprocess mode must be 0, 1, 2, or 3');
     if (!inputState || typeof inputState !== 'object' || Array.isArray(inputState))
       throw new TypeError('page-4 point-preprocess state must be an object');
+    const hook = settledPage4DrawingHookDispatch(
+      inputState.drawingHookActive,inputState.drawingHookReturnsZ);
+    if (hook.action === 'hook-handled') return {
+      x,y,mode,drawingHookActive:hook.hookActive,
+      drawingHookReturnsZ:hook.hookReturnsZ,hookCommand:hook.hookCommand,
+      hookAction:hook.action,attempts:[],points:[],
+      branchOutcomes:hook.branchOutcomes,
+      routine:'04:4157–4164',
+    };
     const styleActive = boolean(
       inputState.styleActive, 'page-4 graph style-active flag');
     const fullScreenDraw = boolean(
@@ -1527,7 +1557,7 @@
     const screenWidth = byte(inputState.screenWidth, 'page-4 screen width');
     const attempts = [];
     const points = [];
-    const branchOutcomes = ['04:415E:fallthrough','04:4161:taken'];
+    const branchOutcomes = hook.branchOutcomes.slice();
     const branch = (address, outcome) =>
       branchOutcomes.push(`04:${address.toString(16).toUpperCase()}:${outcome}`);
     const divideRemainder = (value, divisor) => {
@@ -1729,7 +1759,9 @@
       }
     }
     return {
-      x,y,mode,styleActive,style,stylePhase,styleStep,styleLimit,
+      x,y,mode,drawingHookActive:hook.hookActive,
+      drawingHookReturnsZ:hook.hookReturnsZ,hookCommand:hook.hookCommand,
+      hookAction:hook.action,styleActive,style,stylePhase,styleStep,styleLimit,
       styleAxisFlag,fullScreenDraw,xOffset,yOffset,screenWidth,
       previousX:nextPreviousX,previousY:nextPreviousY,
       graphStyleFlagBit6,attempts,points,branchOutcomes,
@@ -1862,7 +1894,7 @@
     };
   }
 
-  // Compose the hook-disabled 04:4157 preprocessor with every accepted
+  // Compose the local 04:4157 preprocessor with every accepted
   // 04:4215 byte transition. The three arrays model the corresponding
   // row-major bytes in the LCD controller, plotSScreen, and appBackUpScreen.
   // Processing attempts in ROM order matters when a thick or shaded style
@@ -1873,6 +1905,12 @@
       throw new TypeError('page-4 point pipeline state must be an object');
     const preprocess = settledPage4PointPreprocess(
       xValue,yValue,modeValue,inputState.preprocess);
+    if (preprocess.hookAction === 'hook-handled') return {
+      preprocess,pointFlags:null,plotFlags:null,lcdLowBitWorkaround:null,
+      transitions:[],lcdBytes:null,plotScreenBytes:null,appBackupScreenBytes:null,
+      delegated:{hookCommand:preprocess.hookCommand},
+      routine:'04:4157–4164',
+    };
     const routing = inputState.routing;
     if (!routing || typeof routing !== 'object' || Array.isArray(routing))
       throw new TypeError('page-4 point pipeline routing state must be an object');
@@ -10677,6 +10715,7 @@
     multiArgumentRowStep,
     settledPointOperation,
     settledPage4PointAddress,
+    settledPage4DrawingHookDispatch,
     settledPage4PointPreprocess,
     settledPage4PointTransition,
     settledPage4PointStateTransition,
