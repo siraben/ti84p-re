@@ -173,10 +173,11 @@ and a trailing parent token. Sixteen root-level sequences match every
 cursor-dependent layout word. Their reducer also compares the translated LCD
 against the real TilEm screenshots outside only the blinking cursor cells.
 Two more sequences walk the token-built `[[1]]` matrix across all five packed
-tokens in both directions. Across the 19 additional sequences, 121 RAM states
-and 102 adjacent moves have exact arena, layout-word, and masked-screenshot parity.
-Matrix deletion, row/column edits beyond that one-cell stream, and other deeper
-structural combinations remain open.
+tokens in both directions. Two mixed-controller sequences walk a fraction
+inside a radical in both directions. Across the 21 additional sequences, 139
+RAM states and 118 adjacent moves have exact arena, layout-word, and
+masked-screenshot parity. Matrix deletion, row/column edits beyond that
+one-cell stream, and other deeper structural combinations remain open.
 An eight-state summation construction capture also verifies the type-`0x01`
 post-insertion path. Filling the variable automatically selects the lower
 bound; filling the other children does not. Packed-token insertion now returns

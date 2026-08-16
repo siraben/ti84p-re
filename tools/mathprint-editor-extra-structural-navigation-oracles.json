@@ -1,5 +1,5 @@
 {
-  "schema": 4,
+  "schema": 5,
   "captures": {
     "nderiv_left": {
       "macro": "tools/macros/mathprint-editor-extra-structural-navigation.macro",
@@ -4905,6 +4905,732 @@
           "sparse_state_sha256": "b62ca9ab762dd35bee0988980a2958ee20a9cbd627c31803a369a1ee3a57ceb3"
         }
       ]
+    },
+    "radical_fraction_left": {
+      "macro": "tools/macros/mathprint-editor-radical-fraction-navigation.macro",
+      "macro_sha256": "54158681e4b5be5b656ebfe9bd1c57cc67ad9723a7f8dff90f9f4dd0f76b4efa",
+      "trace_sha256": "99d813bdbb7102c9bd5ae608c0cc9eb64cd84c0410a06e4f2243e1768d86c574",
+      "states": [
+        {
+          "name": "root_after",
+          "source_ram_sha256": "c137d33cbbebaab9dff67d6a51ab497675b4d0ffe016a2391a787c40e80ebf9a",
+          "screenshot_sha256": "0ad92c6368520842acb84438bbe6f02593d81e2b51fa5696b0249c7cca48fdf2",
+          "lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "screenshot_lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "lcd_masked_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "screenshot_lcd_masked_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "cursor_masks": [
+            {
+              "x": 13,
+              "y": 5,
+              "width": 6,
+              "height": 7
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc06001f000700000100fb9d559eb79dfb9d"
+            },
+            {
+              "address": 38644,
+              "bytes": "0e9e149e04fc04fc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f0013000800000000000000000700080027070001000f000d000800000000000100ef09000a0020090002000d0008000600000000000200ef0b000c0007000006000f00130008000000000006000600ef270800ef2d09000008000d000e0006000500020006000600ef200a00ef2d0b00000a000500040002000200000001000100310c00000a00050004000200020008000100010032"
+            },
+            {
+              "address": 64516,
+              "bytes": "09000008000d00080006000500020006000600ef200a00ef2d0b00000a000500040002000200000001000100310c00000a00050004000200020008000100010032"
+            }
+          ],
+          "sparse_state_sha256": "fc23de8f78da2da20ceeb72bc43970dc9e0b3c4cc33577c8c411919b0db60a6c"
+        },
+        {
+          "name": "radicand_after_fraction",
+          "source_ram_sha256": "98ea24257893e9f25bae85b33691a981882142f144d6d39d6478c23b18e990f6",
+          "screenshot_sha256": "c20413f38bb332fdcbeb0893326696e3e8c697abf2f5d12872ae6fee2251dccf",
+          "lcd_bitmap_sha256": "8a04aab626b748e4e7464fe2599ab2fa8a2febe59a3006e3f1cc095b62d82949",
+          "screenshot_lcd_bitmap_sha256": "8a04aab626b748e4e7464fe2599ab2fa8a2febe59a3006e3f1cc095b62d82949",
+          "lcd_masked_bitmap_sha256": "8a04aab626b748e4e7464fe2599ab2fa8a2febe59a3006e3f1cc095b62d82949",
+          "screenshot_lcd_masked_bitmap_sha256": "8a04aab626b748e4e7464fe2599ab2fa8a2febe59a3006e3f1cc095b62d82949",
+          "cursor_masks": [
+            {
+              "x": 13,
+              "y": 5,
+              "width": 6,
+              "height": 7
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc080027010900000100fb9d559ecd9d149e"
+            },
+            {
+              "address": 38644,
+              "bytes": "279e2d9e1dfc1dfc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f0013000800000000000000000700080027070001000f0013000800000000000100ef09000a0020090002000d0008000600000000000200ef0b000c0007000006000f00130008000000000000000600ef270800ef2d09000008000d000e0006000500020006000600ef200a00ef2d0b00000a000500040002000200000001000100310c00000a00050004000200020008000100010032"
+            },
+            {
+              "address": 64541,
+              "bytes": "0b00000a000500040002000200000001000100310c00000a00050004000200020008000100010032"
+            }
+          ],
+          "sparse_state_sha256": "233722abeef004e924eb80df53e6691f8ba94308097c65c06a16ffe63f93eb9c"
+        },
+        {
+          "name": "inner_denominator_end",
+          "source_ram_sha256": "503813fde312d8abc9b55d5844146b39896971982b9bcf2276367bf76e9a35f5",
+          "screenshot_sha256": "e4a2d1422d00443357cdaeec886cbf07798ede14661865ea1b7d2fa8d8cb8871",
+          "lcd_bitmap_sha256": "d89621a4f595f76eac7d22272af453c40ed3d269a1cb7ac9bae23860399a2ea5",
+          "screenshot_lcd_bitmap_sha256": "d89621a4f595f76eac7d22272af453c40ed3d269a1cb7ac9bae23860399a2ea5",
+          "lcd_masked_bitmap_sha256": "d89621a4f595f76eac7d22272af453c40ed3d269a1cb7ac9bae23860399a2ea5",
+          "screenshot_lcd_masked_bitmap_sha256": "d89621a4f595f76eac7d22272af453c40ed3d269a1cb7ac9bae23860399a2ea5",
+          "cursor_masks": [
+            {
+              "x": 11,
+              "y": 10,
+              "width": 5,
+              "height": 5
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc0a0020020c00000200fb9d559ee39d419e"
+            },
+            {
+              "address": 38644,
+              "bytes": "549e559e45fc45fc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f0012000800000000000000000700080027070001000f0012000800000000000100ef09000a0020090002000d000d000600000000000200ef0b000c0007000006000f00120008000000000000000600ef270800ef2d09000008000d000d0006000500020000000600ef200a00ef2d0b00000a000500040002000400000001000100310c00000a00050009000200020008000100010032"
+            }
+          ],
+          "sparse_state_sha256": "17e0ac0d03bc45b17c506fa24416484346fc7bf5862b8a977ba1dab04b3316a8"
+        },
+        {
+          "name": "inner_denominator_start",
+          "source_ram_sha256": "7777869c4259d31454dcb5462dfd1c6c3178d92b4a82e94fb34c4035548cbd57",
+          "screenshot_sha256": "307e807082c4737d0aef084d2d06dac7cdc3ac000b7c7e74d82d8a63e46b66b4",
+          "lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "screenshot_lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "lcd_masked_bitmap_sha256": "a889602af31aa1ac491d784c2db67bb33e94d44967d04ed9e41c5e9cb2d768b7",
+          "screenshot_lcd_masked_bitmap_sha256": "a889602af31aa1ac491d784c2db67bb33e94d44967d04ed9e41c5e9cb2d768b7",
+          "cursor_masks": [
+            {
+              "x": 7,
+              "y": 10,
+              "width": 5,
+              "height": 5
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc0a0020020c00000200fb9d559ee39d419e"
+            },
+            {
+              "address": 38644,
+              "bytes": "549e549e44fc45fc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f000d000800000000000000000700080027070001000f000d000800000000000100ef09000a0020090002000d0008000600000000000200ef0b000c0007000006000f000d0008000000000000000600ef270800ef2d09000008000d00080006000500020000000600ef200a00ef2d0b00000a000500040002000200000001000100310c00000a00050004000200020008000100010032"
+            },
+            {
+              "address": 64580,
+              "bytes": "32"
+            }
+          ],
+          "sparse_state_sha256": "2397214ba1bf3b2d75cdca4998ebfd22a6528f1a356fee2e03f5b1b09df85e57"
+        },
+        {
+          "name": "inner_numerator_end",
+          "source_ram_sha256": "1ebef6dda146198f37a7d70c44bf0787a340bef5bbdd16a60b4341c83c6668a4",
+          "screenshot_sha256": "3d32916d7dfe11ed33d04238cc3caa7a09248be049b942934336566aca2af876",
+          "lcd_bitmap_sha256": "fdc8a1f6d6af81f6936f18f39f020849e8610ebcf94977dc0cea0c9a039f12c1",
+          "screenshot_lcd_bitmap_sha256": "fdc8a1f6d6af81f6936f18f39f020849e8610ebcf94977dc0cea0c9a039f12c1",
+          "lcd_masked_bitmap_sha256": "fdc8a1f6d6af81f6936f18f39f020849e8610ebcf94977dc0cea0c9a039f12c1",
+          "screenshot_lcd_masked_bitmap_sha256": "fdc8a1f6d6af81f6936f18f39f020849e8610ebcf94977dc0cea0c9a039f12c1",
+          "cursor_masks": [
+            {
+              "x": 11,
+              "y": 2,
+              "width": 5,
+              "height": 5
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc0a0020020b00000200fb9d559ee39d2d9e"
+            },
+            {
+              "address": 38644,
+              "bytes": "409e419e31fc31fc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f0012000800000000000000000700080027070001000f0012000800000000000100ef09000a0020090001000d000d000600000000000200ef0b000c0007000006000f00120008000000000000000600ef270800ef2d09000008000d000d0006000500020000000600ef200a00ef2d0b00000a000500090002000200000001000100310c00000a00050004000200020008000000010032"
+            },
+            {
+              "address": 64561,
+              "bytes": "0c00000a00050004000200040008000000010032"
+            }
+          ],
+          "sparse_state_sha256": "64daedd8dd069a1276be52a2089c4eb0ffb3b604cca1df54431a63d4853c07ec"
+        },
+        {
+          "name": "inner_numerator_start",
+          "source_ram_sha256": "d8f1d5a69afec3ef3aad6e375eb4fdd286f47bde746480aa9101d46f4555e069",
+          "screenshot_sha256": "2e14cba85b486b10e224419b2305243ff051b1ff5cd9226a9c000cef2c82401f",
+          "lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "screenshot_lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "lcd_masked_bitmap_sha256": "06f7c8ddaa45f919ec7ee091a5226d889752c1ad7fae4a4b6ad88a04a138f5d7",
+          "screenshot_lcd_masked_bitmap_sha256": "06f7c8ddaa45f919ec7ee091a5226d889752c1ad7fae4a4b6ad88a04a138f5d7",
+          "cursor_masks": [
+            {
+              "x": 7,
+              "y": 2,
+              "width": 5,
+              "height": 5
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc0a0020020b00000200fb9d559ee39d2d9e"
+            },
+            {
+              "address": 38644,
+              "bytes": "409e409e30fc31fc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f000d000800000000000000000700080027070001000f000d000800000000000100ef09000a0020090001000d0008000600000000000200ef0b000c0007000006000f000d0008000000000000000600ef270800ef2d09000008000d00080006000500020000000600ef200a00ef2d0b00000a000500040002000200000001000100310c00000a00050004000200020008000000010032"
+            },
+            {
+              "address": 64560,
+              "bytes": "310c00000a00050004000200020008000000010032"
+            }
+          ],
+          "sparse_state_sha256": "e722024d6b11001fbbecdcb3b3e97962c548bbf36b174c46f08d89c783d072d3"
+        },
+        {
+          "name": "radicand_before_fraction",
+          "source_ram_sha256": "991557168ffb2e9d9fadeb8e8e19504148f2385e1a7a04b98a14ec4fb5fc35eb",
+          "screenshot_sha256": "1daf0bffda7bb54d7a914230a4999c4cfaf2681850189954d58571e8f0141a1a",
+          "lcd_bitmap_sha256": "bc5e62fb36b5b0fd24eb6b2ffcd910bb50b17a0e6996f8c6d245ac3de458575b",
+          "screenshot_lcd_bitmap_sha256": "bc5e62fb36b5b0fd24eb6b2ffcd910bb50b17a0e6996f8c6d245ac3de458575b",
+          "lcd_masked_bitmap_sha256": "bc5e62fb36b5b0fd24eb6b2ffcd910bb50b17a0e6996f8c6d245ac3de458575b",
+          "screenshot_lcd_masked_bitmap_sha256": "bc5e62fb36b5b0fd24eb6b2ffcd910bb50b17a0e6996f8c6d245ac3de458575b",
+          "cursor_masks": [
+            {
+              "x": 5,
+              "y": 5,
+              "width": 6,
+              "height": 7
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc080027010900000100fb9d559ecd9d149e"
+            },
+            {
+              "address": 38644,
+              "bytes": "279e279e17fc1dfc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f0013000800000000000000000700080027070001000f0013000800000000000100ef09000a0020090001000d0008000600060000000200ef0b000c0007000006000f00130008000000000000000600ef270800ef2d09000008000d000e0006000500020000000600ef200a00ef2d0b00000a000500040002000200000000000100310c00000a00050004000200020008000000010032"
+            },
+            {
+              "address": 64535,
+              "bytes": "ef200a00ef2d0b00000a000500040002000200000000000100310c00000a00050004000200020008000000010032"
+            }
+          ],
+          "sparse_state_sha256": "98c8b59f585e10439c548b8fa4da798cb78960c8b8557f492bbc9f6aba599a01"
+        },
+        {
+          "name": "root_before",
+          "source_ram_sha256": "b6b84e6bdb86471ed00170f269863d8fb55e95235483c6402d5d316757790711",
+          "screenshot_sha256": "e3e099aab322cc881738c8f4af03e513f465d20f5df0fcc17d6a920eedf664b0",
+          "lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "screenshot_lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "lcd_masked_bitmap_sha256": "6215c231544edb297470849a175a3e69ba73d28b9c6f5d87b3eb26afa733f6d2",
+          "screenshot_lcd_masked_bitmap_sha256": "6215c231544edb297470849a175a3e69ba73d28b9c6f5d87b3eb26afa733f6d2",
+          "cursor_masks": [
+            {
+              "x": 0,
+              "y": 5,
+              "width": 6,
+              "height": 7
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc06001f000700000100fb9d559eb79dfb9d"
+            },
+            {
+              "address": 38644,
+              "bytes": "0e9e0e9efefb04fc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f000d000800000000000000000700080027070001000f000d000800000000000100ef09000a0020090001000d0008000600000000000200ef0b000c0007000006000f000d0008000000000000000600ef270800ef2d09000008000d000e0006000500020000000600ef200a00ef2d0b00000a000500040002000200000000000100310c00000a00050004000200020008000000010032"
+            },
+            {
+              "address": 64510,
+              "bytes": "ef270800ef2d09000008000d00080006000500020000000600ef200a00ef2d0b00000a000500040002000200000000000100310c00000a00050004000200020008000000010032"
+            }
+          ],
+          "sparse_state_sha256": "d11da6eea68832ec9d703520a44679a94d79ec0bf64afd7f59c2b0cbc8ed4ebd"
+        },
+        {
+          "name": "root_before_endpoint",
+          "source_ram_sha256": "014d25ab66d9a38050d0194c9147c4c13e9864b95e7b4532aa62f54da3f5a09c",
+          "screenshot_sha256": "0ad92c6368520842acb84438bbe6f02593d81e2b51fa5696b0249c7cca48fdf2",
+          "lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "screenshot_lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "lcd_masked_bitmap_sha256": "6215c231544edb297470849a175a3e69ba73d28b9c6f5d87b3eb26afa733f6d2",
+          "screenshot_lcd_masked_bitmap_sha256": "6215c231544edb297470849a175a3e69ba73d28b9c6f5d87b3eb26afa733f6d2",
+          "cursor_masks": [
+            {
+              "x": 0,
+              "y": 5,
+              "width": 6,
+              "height": 7
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc06001f000700000100fb9d559eb79dfb9d"
+            },
+            {
+              "address": 38644,
+              "bytes": "0e9e0e9efefb04fc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f000d000800000000000000000700080027070001000f000d000800000000000100ef09000a0020090001000d0008000600000000000200ef0b000c0007000006000f000d0008000000000000000600ef270800ef2d09000008000d000e0006000500020000000600ef200a00ef2d0b00000a000500040002000200000000000100310c00000a00050004000200020008000000010032"
+            },
+            {
+              "address": 64510,
+              "bytes": "ef270800ef2d09000008000d00080006000500020000000600ef200a00ef2d0b00000a000500040002000200000000000100310c00000a00050004000200020008000000010032"
+            }
+          ],
+          "sparse_state_sha256": "d11da6eea68832ec9d703520a44679a94d79ec0bf64afd7f59c2b0cbc8ed4ebd"
+        }
+      ]
+    },
+    "radical_fraction_right": {
+      "macro": "tools/macros/mathprint-editor-radical-fraction-navigation.macro",
+      "macro_sha256": "54158681e4b5be5b656ebfe9bd1c57cc67ad9723a7f8dff90f9f4dd0f76b4efa",
+      "trace_sha256": "99d813bdbb7102c9bd5ae608c0cc9eb64cd84c0410a06e4f2243e1768d86c574",
+      "states": [
+        {
+          "name": "root_before",
+          "source_ram_sha256": "7916d5a4271d195db037ff9537b22112021458c7bd0cb5b51d2e358233d4bab1",
+          "screenshot_sha256": "0ad92c6368520842acb84438bbe6f02593d81e2b51fa5696b0249c7cca48fdf2",
+          "lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "screenshot_lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "lcd_masked_bitmap_sha256": "6215c231544edb297470849a175a3e69ba73d28b9c6f5d87b3eb26afa733f6d2",
+          "screenshot_lcd_masked_bitmap_sha256": "6215c231544edb297470849a175a3e69ba73d28b9c6f5d87b3eb26afa733f6d2",
+          "cursor_masks": [
+            {
+              "x": 0,
+              "y": 5,
+              "width": 6,
+              "height": 7
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc06001f000700000100fb9d559eb79dfb9d"
+            },
+            {
+              "address": 38644,
+              "bytes": "0e9e0e9efefb04fc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f000d000800000000000000000700080027070001000f000d000800000000000100ef09000a0020090001000d0008000600000000000200ef0b000c0007000006000f000d0008000000000000000600ef270800ef2d09000008000d000e0006000500020000000600ef200a00ef2d0b00000a000500040002000200000000000100310c00000a00050004000200020008000000010032"
+            },
+            {
+              "address": 64510,
+              "bytes": "ef270800ef2d09000008000d00080006000500020000000600ef200a00ef2d0b00000a000500040002000200000000000100310c00000a00050004000200020008000000010032"
+            }
+          ],
+          "sparse_state_sha256": "d11da6eea68832ec9d703520a44679a94d79ec0bf64afd7f59c2b0cbc8ed4ebd"
+        },
+        {
+          "name": "radicand_before_fraction",
+          "source_ram_sha256": "5fe36d5c44f859836d9283258f1fcfa5ba72bc57ffd10605896ac3db62ec4345",
+          "screenshot_sha256": "95a0c94d57c4ca1d9244ec119a8809022f403a2303693c90f4d261c94ed83343",
+          "lcd_bitmap_sha256": "bc5e62fb36b5b0fd24eb6b2ffcd910bb50b17a0e6996f8c6d245ac3de458575b",
+          "screenshot_lcd_bitmap_sha256": "bc5e62fb36b5b0fd24eb6b2ffcd910bb50b17a0e6996f8c6d245ac3de458575b",
+          "lcd_masked_bitmap_sha256": "bc5e62fb36b5b0fd24eb6b2ffcd910bb50b17a0e6996f8c6d245ac3de458575b",
+          "screenshot_lcd_masked_bitmap_sha256": "bc5e62fb36b5b0fd24eb6b2ffcd910bb50b17a0e6996f8c6d245ac3de458575b",
+          "cursor_masks": [
+            {
+              "x": 5,
+              "y": 5,
+              "width": 6,
+              "height": 7
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc080027010900000100fb9d559ecd9d149e"
+            },
+            {
+              "address": 38644,
+              "bytes": "279e279e17fc1dfc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f0013000800000000000000000700080027070001000f0013000800000000000100ef09000a0020090001000d0008000600060000000200ef0b000c0007000006000f00130008000000000000000600ef270800ef2d09000008000d000e0006000500020000000600ef200a00ef2d0b00000a000500040002000200000000000100310c00000a00050004000200020008000000010032"
+            },
+            {
+              "address": 64535,
+              "bytes": "ef200a00ef2d0b00000a000500040002000200000000000100310c00000a00050004000200020008000000010032"
+            }
+          ],
+          "sparse_state_sha256": "98c8b59f585e10439c548b8fa4da798cb78960c8b8557f492bbc9f6aba599a01"
+        },
+        {
+          "name": "inner_numerator_start",
+          "source_ram_sha256": "7e9feafbfe006600eb53ff95c6b8311c0bd3051a3a5b3010572467fabaf4643e",
+          "screenshot_sha256": "fd82092cdaf88a712d0d5a616948a91a19b387b46078df3c70cdf8887c70287b",
+          "lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "screenshot_lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "lcd_masked_bitmap_sha256": "06f7c8ddaa45f919ec7ee091a5226d889752c1ad7fae4a4b6ad88a04a138f5d7",
+          "screenshot_lcd_masked_bitmap_sha256": "06f7c8ddaa45f919ec7ee091a5226d889752c1ad7fae4a4b6ad88a04a138f5d7",
+          "cursor_masks": [
+            {
+              "x": 7,
+              "y": 2,
+              "width": 5,
+              "height": 5
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc0a0020020b00000200fb9d559ee39d2d9e"
+            },
+            {
+              "address": 38644,
+              "bytes": "409e409e30fc31fc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f000d000800000000000000000700080027070001000f000d000800000000000100ef09000a0020090001000d0008000600000000000200ef0b000c0007000006000f000d0008000000000000000600ef270800ef2d09000008000d00080006000500020000000600ef200a00ef2d0b00000a000500040002000200000000000100310c00000a00050004000200020008000000010032"
+            },
+            {
+              "address": 64560,
+              "bytes": "310c00000a00050004000200020008000000010032"
+            }
+          ],
+          "sparse_state_sha256": "275a1c1c9a3cbbc91bd42aaec46d39fcbba15135ec2b680465b21edb82500b56"
+        },
+        {
+          "name": "inner_numerator_end",
+          "source_ram_sha256": "cf44a91644276078f7f4201409a03870872c21f5d10cfa73f243bb403a5654a2",
+          "screenshot_sha256": "7aea1bdb117eeae38ed41171c13f54dc13e995774c12d233cc983cad47f2bc91",
+          "lcd_bitmap_sha256": "fdc8a1f6d6af81f6936f18f39f020849e8610ebcf94977dc0cea0c9a039f12c1",
+          "screenshot_lcd_bitmap_sha256": "fdc8a1f6d6af81f6936f18f39f020849e8610ebcf94977dc0cea0c9a039f12c1",
+          "lcd_masked_bitmap_sha256": "fdc8a1f6d6af81f6936f18f39f020849e8610ebcf94977dc0cea0c9a039f12c1",
+          "screenshot_lcd_masked_bitmap_sha256": "fdc8a1f6d6af81f6936f18f39f020849e8610ebcf94977dc0cea0c9a039f12c1",
+          "cursor_masks": [
+            {
+              "x": 11,
+              "y": 2,
+              "width": 5,
+              "height": 5
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc0a0020020b00000200fb9d559ee39d2d9e"
+            },
+            {
+              "address": 38644,
+              "bytes": "409e419e31fc31fc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f0012000800000000000000000700080027070001000f0012000800000000000100ef09000a0020090001000d000d000600000000000200ef0b000c0007000006000f00120008000000000000000600ef270800ef2d09000008000d000d0006000500020000000600ef200a00ef2d0b00000a000500090002000200000000000100310c00000a00050004000200020008000000010032"
+            },
+            {
+              "address": 64561,
+              "bytes": "0c00000a00050004000200040008000000010032"
+            }
+          ],
+          "sparse_state_sha256": "cad0a3db87131f4726413043e6614683507dfff3b1cc388447d98d1fa50fce37"
+        },
+        {
+          "name": "inner_denominator_start",
+          "source_ram_sha256": "919ecbe9d66929df98a92636d636a848ad358a4807e4599016aedb0c9cd53132",
+          "screenshot_sha256": "6826d96340e5a6b37bb881779db43451a91562f84e600ea4ba3cc120048a8c1c",
+          "lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "screenshot_lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "lcd_masked_bitmap_sha256": "a889602af31aa1ac491d784c2db67bb33e94d44967d04ed9e41c5e9cb2d768b7",
+          "screenshot_lcd_masked_bitmap_sha256": "a889602af31aa1ac491d784c2db67bb33e94d44967d04ed9e41c5e9cb2d768b7",
+          "cursor_masks": [
+            {
+              "x": 7,
+              "y": 10,
+              "width": 5,
+              "height": 5
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc0a0020020c00000200fb9d559ee39d419e"
+            },
+            {
+              "address": 38644,
+              "bytes": "549e549e44fc45fc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f000d000800000000000000000700080027070001000f000d000800000000000100ef09000a0020090002000d0008000600000000000200ef0b000c0007000006000f000d0008000000000000000600ef270800ef2d09000008000d00080006000500020000000600ef200a00ef2d0b00000a000500040002000200000001000100310c00000a00050004000200020008000000010032"
+            },
+            {
+              "address": 64580,
+              "bytes": "32"
+            }
+          ],
+          "sparse_state_sha256": "80c56c73b8042fc320850ca8eaf97f00e7a1defe814b6900956d83abe523aebd"
+        },
+        {
+          "name": "inner_denominator_end",
+          "source_ram_sha256": "69aaf53a70643f93c53862c3afea4f30bb0b206e5a3097011af6b08ba35e5457",
+          "screenshot_sha256": "11a9ca38c45baf9e3e90bb61f77bc53e7c8f8afa19bcf03069452c06c8eb64f7",
+          "lcd_bitmap_sha256": "d89621a4f595f76eac7d22272af453c40ed3d269a1cb7ac9bae23860399a2ea5",
+          "screenshot_lcd_bitmap_sha256": "d89621a4f595f76eac7d22272af453c40ed3d269a1cb7ac9bae23860399a2ea5",
+          "lcd_masked_bitmap_sha256": "d89621a4f595f76eac7d22272af453c40ed3d269a1cb7ac9bae23860399a2ea5",
+          "screenshot_lcd_masked_bitmap_sha256": "d89621a4f595f76eac7d22272af453c40ed3d269a1cb7ac9bae23860399a2ea5",
+          "cursor_masks": [
+            {
+              "x": 11,
+              "y": 10,
+              "width": 5,
+              "height": 5
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc0a0020020c00000200fb9d559ee39d419e"
+            },
+            {
+              "address": 38644,
+              "bytes": "549e559e45fc45fc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f0012000800000000000000000700080027070001000f0012000800000000000100ef09000a0020090002000d000d000600000000000200ef0b000c0007000006000f00120008000000000000000600ef270800ef2d09000008000d000d0006000500020000000600ef200a00ef2d0b00000a000500040002000400000001000100310c00000a00050009000200020008000000010032"
+            }
+          ],
+          "sparse_state_sha256": "43666e65a109e3ee74a9d663df468a16d00290e12bba9def5911077dfef636fc"
+        },
+        {
+          "name": "radicand_after_fraction",
+          "source_ram_sha256": "d4285fc6b52ba3cd25d81426f84d5bd02dc04c4ba55732b3c1ff8941eda0b7c5",
+          "screenshot_sha256": "d3970553bccb4f88fa95f654193b8f77f996f20dac1b6bc68ebe103b364b0d17",
+          "lcd_bitmap_sha256": "8a04aab626b748e4e7464fe2599ab2fa8a2febe59a3006e3f1cc095b62d82949",
+          "screenshot_lcd_bitmap_sha256": "8a04aab626b748e4e7464fe2599ab2fa8a2febe59a3006e3f1cc095b62d82949",
+          "lcd_masked_bitmap_sha256": "8a04aab626b748e4e7464fe2599ab2fa8a2febe59a3006e3f1cc095b62d82949",
+          "screenshot_lcd_masked_bitmap_sha256": "8a04aab626b748e4e7464fe2599ab2fa8a2febe59a3006e3f1cc095b62d82949",
+          "cursor_masks": [
+            {
+              "x": 13,
+              "y": 5,
+              "width": 6,
+              "height": 7
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc080027010900000100fb9d559ecd9d149e"
+            },
+            {
+              "address": 38644,
+              "bytes": "279e2d9e1dfc1dfc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f0013000800000000000000000700080027070001000f0013000800000000000100ef09000a0020090002000d0008000600000000000200ef0b000c0007000006000f00130008000000000000000600ef270800ef2d09000008000d000e0006000500020006000600ef200a00ef2d0b00000a000500040002000400000001000100310c00000a00050009000200020008000100010032"
+            },
+            {
+              "address": 64541,
+              "bytes": "0b00000a000500040002000200000001000100310c00000a00050004000200020008000100010032"
+            }
+          ],
+          "sparse_state_sha256": "3ad11707933905a133d9402f3d24e080374aba9016d821f207c29eb057196bfc"
+        },
+        {
+          "name": "root_after",
+          "source_ram_sha256": "89863c373cbca8a6ac36426f52d406fc357dd30accc890bade0c668a9ada61d2",
+          "screenshot_sha256": "fe6b4e102ec2a786bcda0cfe22deb758e13bea9fb74a68415f998860c64b4801",
+          "lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "screenshot_lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "lcd_masked_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "screenshot_lcd_masked_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "cursor_masks": [
+            {
+              "x": 13,
+              "y": 5,
+              "width": 6,
+              "height": 7
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc06001f000700000100fb9d559eb79dfb9d"
+            },
+            {
+              "address": 38644,
+              "bytes": "0e9e149e04fc04fc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f0013000800000000000000000700080027070001000f000d000800000000000100ef09000a0020090002000d0008000600000000000200ef0b000c0007000006000f00130008000000000006000600ef270800ef2d09000008000d000e0006000500020006000600ef200a00ef2d0b00000a000500040002000200000001000100310c00000a00050004000200020008000100010032"
+            },
+            {
+              "address": 64516,
+              "bytes": "09000008000d00080006000500020006000600ef200a00ef2d0b00000a000500040002000200000001000100310c00000a00050004000200020008000100010032"
+            }
+          ],
+          "sparse_state_sha256": "fc23de8f78da2da20ceeb72bc43970dc9e0b3c4cc33577c8c411919b0db60a6c"
+        },
+        {
+          "name": "root_after_endpoint",
+          "source_ram_sha256": "bfb5dd54ed5389d3dbea90708ef0410fc2562913cc9a20297edb7b74459ad3e5",
+          "screenshot_sha256": "0ad92c6368520842acb84438bbe6f02593d81e2b51fa5696b0249c7cca48fdf2",
+          "lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "screenshot_lcd_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "lcd_masked_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "screenshot_lcd_masked_bitmap_sha256": "f8469276d83813a1b87b98f1e272bceae90c6975fe4cf61b523b21ca2de25390",
+          "cursor_masks": [
+            {
+              "x": 13,
+              "y": 5,
+              "width": 6,
+              "height": 7
+            }
+          ],
+          "segments": [
+            {
+              "address": 35313,
+              "bytes": "04"
+            },
+            {
+              "address": 36271,
+              "bytes": "b79d45fc06001f000700000100fb9d559eb79dfb9d"
+            },
+            {
+              "address": 38644,
+              "bytes": "0e9e149e04fc04fc"
+            },
+            {
+              "address": 40375,
+              "bytes": "06001f000001000f0013000800000000000000000700080027070001000f000d000800000000000100ef09000a0020090002000d0008000600000000000200ef0b000c0007000006000f00130008000000000006000600ef270800ef2d09000008000d000e0006000500020006000600ef200a00ef2d0b00000a000500040002000200000001000100310c00000a00050004000200020008000100010032"
+            },
+            {
+              "address": 64516,
+              "bytes": "09000008000d00080006000500020006000600ef200a00ef2d0b00000a000500040002000200000001000100310c00000a00050004000200020008000100010032"
+            }
+          ],
+          "sparse_state_sha256": "fc23de8f78da2da20ceeb72bc43970dc9e0b3c4cc33577c8c411919b0db60a6c"
+        }
+      ]
     }
   },
   "transitions": [
@@ -5723,6 +6449,134 @@
       "direction": "left",
       "status": "endpoint",
       "routine": "34:42B4–42B7 → 34:42C5–42CC"
+    },
+    {
+      "capture": "radical_fraction_left",
+      "from_index": 0,
+      "to_index": 1,
+      "direction": "left",
+      "status": "entered-structural-record",
+      "routine": "34:42B4–42BC → 34:4311–4338"
+    },
+    {
+      "capture": "radical_fraction_left",
+      "from_index": 1,
+      "to_index": 2,
+      "direction": "left",
+      "status": "entered-structural-record",
+      "routine": "34:42B4–42BC → 34:4311–4338"
+    },
+    {
+      "capture": "radical_fraction_left",
+      "from_index": 2,
+      "to_index": 3,
+      "direction": "left",
+      "status": "moved-packed-token",
+      "routine": "34:42B4 → 00:3B49 → 06:4294–42C7"
+    },
+    {
+      "capture": "radical_fraction_left",
+      "from_index": 3,
+      "to_index": 4,
+      "direction": "left",
+      "status": "selected-structural-sibling",
+      "routine": "34:42B4–42B7 → 34:42C5–42EA"
+    },
+    {
+      "capture": "radical_fraction_left",
+      "from_index": 4,
+      "to_index": 5,
+      "direction": "left",
+      "status": "moved-packed-token",
+      "routine": "34:42B4 → 00:3B49 → 06:4294–42C7"
+    },
+    {
+      "capture": "radical_fraction_left",
+      "from_index": 5,
+      "to_index": 6,
+      "direction": "left",
+      "status": "exited-structural-record",
+      "routine": "34:42B4–42B7 → 34:42C5–42DF → 34:42ED–430E"
+    },
+    {
+      "capture": "radical_fraction_left",
+      "from_index": 6,
+      "to_index": 7,
+      "direction": "left",
+      "status": "exited-structural-record",
+      "routine": "34:42B4–42B7 → 34:42C5–42DF → 34:42ED–430E"
+    },
+    {
+      "capture": "radical_fraction_left",
+      "from_index": 7,
+      "to_index": 8,
+      "direction": "left",
+      "status": "endpoint",
+      "routine": "34:42B4–42B7 → 34:42C5–42CC"
+    },
+    {
+      "capture": "radical_fraction_right",
+      "from_index": 0,
+      "to_index": 1,
+      "direction": "right",
+      "status": "entered-structural-record",
+      "routine": "34:4193–419B → 34:41E6–41F5 → 34:4285–4290"
+    },
+    {
+      "capture": "radical_fraction_right",
+      "from_index": 1,
+      "to_index": 2,
+      "direction": "right",
+      "status": "entered-structural-record",
+      "routine": "34:4193–419B → 34:41E6–41F5 → 34:4285–4290"
+    },
+    {
+      "capture": "radical_fraction_right",
+      "from_index": 2,
+      "to_index": 3,
+      "direction": "right",
+      "status": "moved-packed-token",
+      "routine": "34:4193 → 00:367B → 06:42C8–4301"
+    },
+    {
+      "capture": "radical_fraction_right",
+      "from_index": 3,
+      "to_index": 4,
+      "direction": "right",
+      "status": "selected-structural-sibling",
+      "routine": "34:4193–4196 → 34:41AE–41D7"
+    },
+    {
+      "capture": "radical_fraction_right",
+      "from_index": 4,
+      "to_index": 5,
+      "direction": "right",
+      "status": "moved-packed-token",
+      "routine": "34:4193 → 00:367B → 06:42C8–4301"
+    },
+    {
+      "capture": "radical_fraction_right",
+      "from_index": 5,
+      "to_index": 6,
+      "direction": "right",
+      "status": "exited-structural-record",
+      "routine": "34:4193–4196 → 34:41AE–41C6 → 34:41DC–4245"
+    },
+    {
+      "capture": "radical_fraction_right",
+      "from_index": 6,
+      "to_index": 7,
+      "direction": "right",
+      "status": "exited-structural-record",
+      "routine": "34:4193–4196 → 34:41AE–41C6 → 34:41DC–4245"
+    },
+    {
+      "capture": "radical_fraction_right",
+      "from_index": 7,
+      "to_index": 8,
+      "direction": "right",
+      "status": "endpoint",
+      "routine": "34:4193–4196 → 34:41AE–41DF"
     }
   ]
 }

@@ -1,0 +1,98 @@
+# Walk both directions through a completed fraction nested in a radical.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+
+# Build sqrt(1/2) and leave the cursor after the radical.
+key 2ND
+key SQUARE
+wait 0.4s
+key ALPHA
+key YEQU
+wait 0.4s
+key 1
+wait 0.4s
+key 1
+key RIGHT
+key 2
+key RIGHT
+wait 0.4s
+key RIGHT
+wait 0.5s
+
+# Walk from the root's far side through the radical and inner fraction.
+memdump /tmp/mp-radical-fraction-left-walk-0.ram ram-logical
+screenshot /tmp/mp-radical-fraction-left-walk-0.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-left-walk-1.ram ram-logical
+screenshot /tmp/mp-radical-fraction-left-walk-1.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-left-walk-2.ram ram-logical
+screenshot /tmp/mp-radical-fraction-left-walk-2.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-left-walk-3.ram ram-logical
+screenshot /tmp/mp-radical-fraction-left-walk-3.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-left-walk-4.ram ram-logical
+screenshot /tmp/mp-radical-fraction-left-walk-4.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-left-walk-5.ram ram-logical
+screenshot /tmp/mp-radical-fraction-left-walk-5.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-left-walk-6.ram ram-logical
+screenshot /tmp/mp-radical-fraction-left-walk-6.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-left-walk-7.ram ram-logical
+screenshot /tmp/mp-radical-fraction-left-walk-7.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-left-walk-8.ram ram-logical
+screenshot /tmp/mp-radical-fraction-left-walk-8.png
+
+# Return through the same mixed controller stack and check the far endpoint.
+memdump /tmp/mp-radical-fraction-right-walk-0.ram ram-logical
+screenshot /tmp/mp-radical-fraction-right-walk-0.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-right-walk-1.ram ram-logical
+screenshot /tmp/mp-radical-fraction-right-walk-1.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-right-walk-2.ram ram-logical
+screenshot /tmp/mp-radical-fraction-right-walk-2.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-right-walk-3.ram ram-logical
+screenshot /tmp/mp-radical-fraction-right-walk-3.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-right-walk-4.ram ram-logical
+screenshot /tmp/mp-radical-fraction-right-walk-4.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-right-walk-5.ram ram-logical
+screenshot /tmp/mp-radical-fraction-right-walk-5.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-right-walk-6.ram ram-logical
+screenshot /tmp/mp-radical-fraction-right-walk-6.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-right-walk-7.ram ram-logical
+screenshot /tmp/mp-radical-fraction-right-walk-7.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-radical-fraction-right-walk-8.ram ram-logical
+screenshot /tmp/mp-radical-fraction-right-walk-8.png

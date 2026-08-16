@@ -3706,7 +3706,7 @@ for (const [captureName,capture] of Object.entries(
   }
 }
 expectEqual('live editor extra structural-navigation oracle schema',
-  editorExtraStructuralNavigationOracles.schema,4);
+  editorExtraStructuralNavigationOracles.schema,5);
 const extraStructuralNavigationStates = {};
 for (const [captureName,capture] of Object.entries(
   editorExtraStructuralNavigationOracles.captures)) {
